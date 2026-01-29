@@ -1,0 +1,6 @@
+{
+    "vlans": [
+        {"id": 10, "name": "Marketing"},
+        {"id": 20, "name": "Engineering"}
+    ]
+}

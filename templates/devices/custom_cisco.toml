@@ -1,0 +1,26 @@
+# Example Cisco IOS Profile
+name = "custom_cisco"
+
+more_patterns = ['^.*?--More--.*?$']
+
+error_patterns = ['^% Invalid input detected', '^% Incomplete command']
+
+[[prompts]]
+state = "Enable"
+patterns = ['^[^\s#]+#\s*$']
+
+[[prompts]]
+state = "Config"
+patterns = ['^\S+\(\S+\)#\s*$']
+
+[[transitions]]
+from = "Enable"
+command = "conf t"
+to = "Config"
+is_exit = false
+
+[[transitions]]
+from = "Config"
+command = "end"
+to = "Enable"
+is_exit = true
