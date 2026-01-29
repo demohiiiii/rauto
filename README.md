@@ -1,5 +1,6 @@
 # rauto - Network Device Automation CLI
 
+[![Crates.io](https://img.shields.io/crates/v/rauto.svg)](https://crates.io/crates/rauto)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [中文文档](README_zh.md)
 
@@ -7,20 +8,30 @@
 
 ## Features
 
-- **Double Template System**:
-  - **Command Templates**: Generate complex command sets using Jinja2 templates (supports variables, loops, conditionals).
-  - **Device Profiles**: Define device-specific connection parameters, prompts, and state transitions using TOML or built-in presets.
-- **Intelligent Connection Handling**: Uses `rneter` to manage SSH sessions, automatically detecting prompts and handling state transitions (e.g., automatically entering "Enable" or "Config" mode).
-- **Dry Run Support**: Preview rendered commands before executing them on actual devices.
-- **Variable Injection**: Load template variables from JSON files.
-- **Extensible**: Easily add support for new device types via custom TOML profiles.
+- **Double Template System**: Command Templates (Jinja2) & Device Profiles (TOML).
+- **Intelligent Connection Handling**: Uses `rneter` for SSH state management.
+- **Dry Run Support**: Preview commands before execution.
+- **Variable Injection**: Load variables from JSON.
+- **Extensible**: Custom TOML device profiles.
 
 ## Installation
+
+### From Binary (Recommended)
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/demohiiiii/rauto/releases).
+
+### From Crates.io
+
+```bash
+cargo install rauto
+```
+
+### From Source
 
 Ensure you have Rust and Cargo installed.
 
 ```bash
-git clone https://github.com/yourusername/rauto.git
+git clone https://github.com/demohiiiii/rauto.git
 cd rauto
 cargo build --release
 ```

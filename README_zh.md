@@ -1,5 +1,6 @@
 # rauto - 网络设备自动化 CLI
 
+[![Crates.io](https://img.shields.io/crates/v/rauto.svg)](https://crates.io/crates/rauto)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [English Documentation](README.md)
 
@@ -7,20 +8,30 @@
 
 ## 功能特性
 
-- **双层模板系统**：
-  - **命令模板**：使用 Jinja2 模板生成复杂的命令集（支持变量、循环、条件判断）。
-  - **设备配置模板**：使用 TOML 或内置预设定义特定设备的连接参数、提示符和状态转换。
-- **智能连接处理**：使用 `rneter` 管理 SSH 会话，自动检测提示符并处理状态转换（例如，自动进入 "Enable" 或 "Config" 模式）。
-- **Dry Run 支持**：在实际设备上执行之前预览渲染后的命令。
-- **变量注入**：从 JSON 文件加载模板变量。
-- **可扩展性**：通过自定义 TOML 配置文件轻松添加对新设备类型的支持。
+- **双层模板系统**：命令模板 (Jinja2) 与 设备配置模板 (TOML)。
+- **智能连接处理**：使用 `rneter` 管理 SSH 会话状态。
+- **Dry Run 支持**：在执行前预览命令。
+- **变量注入**：从 JSON 文件加载变量。
+- **可扩展性**：支持自定义 TOML 设备配置。
 
 ## 安装
+
+### 二进制文件安装（推荐）
+
+从 [GitHub Releases](https://github.com/demohiiiii/rauto/releases) 下载适用于您平台的最新版本。
+
+### 通过 Crates.io 安装
+
+```bash
+cargo install rauto
+```
+
+### 源码安装
 
 确保你已经安装了 Rust 和 Cargo。
 
 ```bash
-git clone https://github.com/yourusername/rauto.git
+git clone https://github.com/demohiiiii/rauto.git
 cd rauto
 cargo build --release
 ```
