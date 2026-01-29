@@ -1,5 +1,6 @@
 # rauto - 网络设备自动化 CLI
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [English Documentation](README.md)
 
 `rauto` 是一个用 Rust 编写的强大的网络设备自动化 CLI 工具。它利用 [rneter](https://github.com/demohiiiii/rneter) 库进行智能 SSH 连接管理，并使用 [minijinja](https://github.com/mitsuhiko/minijinja) 实现灵活的命令模板功能。
@@ -158,6 +159,16 @@ end
   ]
 }
 ```
+
+## 贡献代码
+
+欢迎贡献代码！请随时提交 Pull Request。
+
+1. Fork 本仓库
+2. 创建你的特性分支 (`git checkout -b feature/amazing-feature`)
+3. 提交你的更改 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 提交 Pull Request
 
 ## 许可证
 
