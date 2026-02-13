@@ -1,11 +1,11 @@
 use crate::cli::GlobalOpts;
 use crate::web::assets::{index_response, static_response};
 use crate::web::handlers::{
-    create_or_update_custom_profile, create_template, delete_custom_profile, delete_template,
-    exec_command, execute_template, get_builtin_profile_detail, get_builtin_profile_form,
-    get_custom_profile, get_custom_profile_form, get_template, health, list_profiles,
-    list_templates, profiles_overview, render_template, test_connection, update_template,
-    upsert_custom_profile_form,
+    create_or_update_custom_profile, create_template, delete_connection, delete_custom_profile,
+    delete_template, exec_command, execute_template, get_builtin_profile_detail,
+    get_builtin_profile_form, get_connection, get_custom_profile, get_custom_profile_form,
+    get_template, health, list_connections, list_profiles, list_templates, profiles_overview,
+    render_template, test_connection, update_template, upsert_connection, upsert_custom_profile_form,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -46,6 +46,11 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
             get(get_custom_profile_form).put(upsert_custom_profile_form),
         )
         .route("/api/render", post(render_template))
+        .route("/api/connections", get(list_connections))
+        .route(
+            "/api/connections/{name}",
+            get(get_connection).put(upsert_connection).delete(delete_connection),
+        )
         .route("/api/connection/test", post(test_connection))
         .route("/api/exec", post(exec_command))
         .route("/api/template/execute", post(execute_template))

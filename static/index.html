@@ -209,6 +209,19 @@
       font-size: 14px;
       color: #1e293b;
     }
+    .btn-danger {
+      background: #dc2626;
+      border: 1px solid #dc2626;
+      color: #ffffff;
+    }
+    .btn-danger:hover {
+      background: #b91c1c;
+      border-color: #b91c1c;
+    }
+    .btn-danger:active {
+      background: #991b1b;
+      border-color: #991b1b;
+    }
     .autocomplete-menu {
       position: absolute;
       z-index: 10010;
@@ -263,6 +276,26 @@
 
     <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 id="connection-title" class="text-xl font-semibold">Connection Defaults</h2>
+      <div class="mt-3 group-card">
+        <div class="field-tools">
+          <span id="saved-conn-title" class="text-sm font-semibold text-slate-700">Saved Connections</span>
+        </div>
+        <div id="saved-conn-body" class="group-body">
+          <div class="grid max-w-[760px] gap-2">
+            <input id="saved-conn-name" class="input" list="saved-conn-options" placeholder="saved connection name" />
+            <datalist id="saved-conn-options"></datalist>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <label class="check-label"><input id="saved-conn-save-password" type="checkbox" class="check-input" /><span id="saved-conn-save-password-label">save password</span></label>
+              <div class="inline-flex flex-wrap items-center gap-2">
+                <button id="saved-conn-save-btn" class="mini-btn" type="button">Save</button>
+                <button id="saved-conn-delete-btn" class="mini-btn delete" type="button">Delete</button>
+              </div>
+            </div>
+          </div>
+          <pre id="saved-conn-list" class="output mt-2"></pre>
+          <pre id="saved-conn-out" class="output mt-2"></pre>
+        </div>
+      </div>
       <div class="mt-4 grid gap-3 md:grid-cols-2">
         <input id="host" class="input" placeholder="host" />
         <input id="port" class="input" placeholder="port (default 22)" />
@@ -398,19 +431,17 @@
 
         <div id="prompt-edit-panel" class="mt-4" hidden>
           <h3 id="custom-title" class="mb-2 text-sm font-semibold text-slate-700">Custom Profiles</h3>
-          <div class="grid gap-2 md:w-[420px]">
-            <input id="custom-profile-picker" class="input" list="custom-profile-options" placeholder="search/select custom profile name" />
-            <datalist id="custom-profile-options"></datalist>
-            <div class="grid grid-cols-2 gap-2">
-              <button id="profile-load-btn" class="btn" type="button">Load</button>
-              <button id="profile-refresh-btn" class="btn" type="button">Refresh</button>
+          <div class="grid gap-2 md:w-[640px]">
+            <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+              <input id="custom-profile-picker" class="input" list="custom-profile-options" placeholder="search/select custom profile name" />
+              <button id="profile-save-btn" class="btn" type="button">Save</button>
+              <button id="profile-delete-btn" class="btn btn-danger" type="button">Delete</button>
             </div>
+            <datalist id="custom-profile-options"></datalist>
           </div>
 
           <div class="mt-3">
           <div class="grid gap-2">
-            <input id="profile-form-name" class="input" placeholder="profile name" />
-
             <div class="group-card">
               <div class="mb-2 flex items-center justify-between">
                 <span id="label-more-patterns" class="text-sm font-semibold text-slate-700">more_patterns</span>
@@ -467,10 +498,6 @@
               <div id="transitions-list" class="group-body grid gap-2"></div>
             </div>
           </div>
-          <div class="mt-2 grid grid-cols-2 gap-2 md:w-96">
-            <button id="profile-save-btn" class="btn" type="button">Save</button>
-            <button id="profile-delete-btn" class="btn" type="button">Delete</button>
-          </div>
           <pre id="profile-out" class="output mt-3"></pre>
         </div>
         </div>
@@ -484,13 +511,13 @@
               <span id="template-list-title" class="text-sm font-semibold text-slate-700">Templates</span>
             </div>
             <div id="template-picker-body" class="group-body">
-              <div class="grid gap-2 md:w-[520px]">
-                <input id="template-pick-name" class="input" list="template-options" placeholder="search/select template name" />
-                <datalist id="template-options"></datalist>
-                <div class="grid grid-cols-2 gap-2">
-                  <button id="template-load-btn" class="btn" type="button">Load</button>
-                  <button id="template-refresh-btn" class="btn" type="button">Refresh</button>
+              <div class="grid gap-2 md:w-[720px]">
+                <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                  <input id="template-pick-name" class="input" list="template-options" placeholder="search/select template name" />
+                  <button id="template-save-btn" class="btn" type="button">Save</button>
+                  <button id="template-delete-btn" class="btn btn-danger" type="button">Delete</button>
                 </div>
+                <datalist id="template-options"></datalist>
               </div>
               <pre id="template-list" class="output mt-2"></pre>
             </div>
@@ -499,18 +526,11 @@
           <div class="group-card">
             <div class="field-tools">
               <span id="template-editor-title" class="text-sm font-semibold text-slate-700">Editor</span>
-              <button id="template-copy-content-btn" type="button" class="mini-btn">Copy Content</button>
             </div>
             <div id="template-editor-body" class="group-body">
               <div class="grid gap-2">
-                <input id="template-manage-name" class="input" placeholder="template name, e.g. show_version.j2" />
                 <input id="template-manage-path" class="input" placeholder="path" readonly />
                 <textarea id="template-content" class="input min-h-64 font-mono" placeholder="Template content"></textarea>
-                <div class="grid grid-cols-3 gap-2 md:w-[520px]">
-                  <button id="template-create-btn" class="btn" type="button">Create</button>
-                  <button id="template-update-btn" class="btn" type="button">Update</button>
-                  <button id="template-delete-btn" class="btn" type="button">Delete</button>
-                </div>
               </div>
             </div>
           </div>

@@ -15,6 +15,7 @@
 - **Extensible**: Custom TOML device profiles.
 - **Built-in Web Console**: Start browser UI with `rauto web`.
 - **Embedded Web Assets**: Frontend files are embedded into the binary for release usage.
+- **Saved Connection Profiles**: Reuse named connection settings across commands.
 
 ## Installation
 
@@ -175,6 +176,12 @@ Then visit `http://127.0.0.1:3000`.
 Web assets are embedded into the binary at build time.  
 For released binaries, users only need to run the executable (no extra `static/` files required at runtime).
 
+Web console key capabilities:
+- Manage saved connections in UI: add, load, update, delete, and inspect details.
+- Execute commands with saved connection info (load one connection, then run direct or template mode).
+- Manage profiles (builtin/custom) and templates in dedicated tabs.
+- Switch Chinese/English in UI.
+
 ### 5. Template Storage Commands
 
 ```bash
@@ -183,7 +190,37 @@ rauto templates show show_version.j2
 rauto templates delete show_version.j2
 ```
 
-### 6. CLI Quick Reference
+### 6. Saved Connection Profiles
+
+You can save and reuse connection settings by name:
+
+```bash
+# Add/update a profile directly from CLI args
+rauto device add-connection lab1 \
+    --host 192.168.1.1 \
+    --username admin \
+    --ssh-port 22 \
+    --device-profile cisco
+
+# Reuse the saved profile
+rauto exec "show version" --connection lab1
+
+# Save current effective connection after a successful run
+rauto device test-connection \
+    --connection lab1 \
+    --save-connection lab1_backup
+
+# Manage saved profiles
+rauto device list-connections
+rauto device show-connection lab1
+rauto device delete-connection lab1
+```
+
+Password behavior:
+- `--save-connection` (used in `exec/template/device test-connection`) saves without password by default; add `--save-password` to include password fields.
+- `device add-connection` saves password only when `--password` / `--enable-password` is explicitly provided.
+
+### 7. CLI Quick Reference
 
 **Connection troubleshooting**
 ```bash
@@ -192,6 +229,17 @@ rauto device test-connection \
     --username admin \
     --password secret \
     --ssh-port 22
+```
+
+**Saved connection profiles**
+```bash
+rauto device add-connection lab1 \
+    --host 192.168.1.1 \
+    --username admin \
+    --ssh-port 22 \
+    --device-profile cisco
+rauto exec "show version" --connection lab1
+rauto device list-connections
 ```
 
 **Profile management**
@@ -253,6 +301,9 @@ You can specify a custom template directory using the `--template-dir` argument 
 | `--enable-password` | - | Enable/Secret password |
 | `--ssh-port` | - | SSH port (default: 22) |
 | `--device-profile` | - | Device type (default: cisco) |
+| `--connection` | - | Load saved connection profile by name |
+| `--save-connection` | - | Save effective connection profile after successful connect |
+| `--save-password` | - | With `--save-connection`, also save password/enable_password |
 
 ## Template Syntax
 

@@ -9,6 +9,13 @@ const i18n = {
     langFabTitle: "Switch language",
     connectionTitle: "Connection Defaults",
     connectionTestBtn: "Test Connection",
+    savedConnTitle: "Saved Connections",
+    savedConnNamePlaceholder: "saved connection name",
+    savedConnSavePassword: "save password",
+    savedConnLoadBtn: "Load",
+    savedConnSaveBtn: "Save",
+    savedConnDeleteBtn: "Delete",
+    savedConnRefreshBtn: "Refresh",
     connectionHelp: "Leave empty to fallback to CLI defaults used at server startup.",
     tabOps: "Operations",
     tabPrompts: "Prompt Profiles",
@@ -27,7 +34,6 @@ const i18n = {
     templateEditorTitle: "Editor",
     templateManagePathPlaceholder: "template path (auto)",
     templateViewContentLabel: "Template Content",
-    templateCopyContentBtn: "Copy Content",
     renderBtn: "Preview Render",
     execBtn: "Execute",
     templateExecBtn: "Run Template",
@@ -39,8 +45,7 @@ const i18n = {
     builtinCopyBtn: "Copy To Custom Form",
     templateLoadBtn: "Load",
     templateRefreshBtn: "Refresh",
-    templateCreateBtn: "Create",
-    templateUpdateBtn: "Update",
+    templateSaveBtn: "Save",
     templateDeleteBtn: "Delete",
     deleteInlineBtn: "Delete",
     addInlineBtn: "+ Add",
@@ -79,7 +84,6 @@ const i18n = {
     templateModePlaceholder: "mode (optional, default Enable)",
     customProfilePickerPlaceholder: "search/select custom profile name",
     templateViewPickerPlaceholder: "search/select template name",
-    profileFormNamePlaceholder: "profile name",
     profileMorePatternsPlaceholder: "more_patterns: one per line",
     profileErrorPatternsPlaceholder: "error_patterns: one per line",
     profileIgnoreErrorsPlaceholder: "ignore_errors: one per line",
@@ -87,19 +91,18 @@ const i18n = {
     profileSysPromptsPlaceholder: "sys_prompts JSON array",
     profileInteractionsPlaceholder: "interactions JSON array",
     profileTransitionsPlaceholder: "transitions JSON array",
-    templateManageNamePlaceholder: "template name, e.g. show_version.j2",
     templateContentPlaceholder: "Template content",
     running: "running...",
     requestFailed: "Request failed",
+    connectionNameRequired: "connection name is required",
     saved: "Saved",
     deleted: "Deleted",
     created: "Created",
     connectionOk: "Connection successful",
+    loaded: "Loaded",
     needLoadBuiltinFirst: "Load builtin detail first",
     copiedToCustom: "Copied to custom form",
-    templateNeedLoadFirst: "Load template detail first",
     templateCopiedToEdit: "Copied to create/update editor",
-    templateContentCopied: "Template content copied",
   },
   zh: {
     title: "rauto Web 控制台",
@@ -107,6 +110,13 @@ const i18n = {
     langFabTitle: "切换语言",
     connectionTitle: "连接默认参数",
     connectionTestBtn: "测试连接",
+    savedConnTitle: "已保存连接",
+    savedConnNamePlaceholder: "连接配置名称",
+    savedConnSavePassword: "保存密码",
+    savedConnLoadBtn: "加载",
+    savedConnSaveBtn: "保存",
+    savedConnDeleteBtn: "删除",
+    savedConnRefreshBtn: "刷新",
     connectionHelp: "留空时会回退到服务启动时的 CLI 默认参数。",
     tabOps: "常用操作",
     tabPrompts: "Prompt 管理",
@@ -125,7 +135,6 @@ const i18n = {
     templateEditorTitle: "编辑器",
     templateManagePathPlaceholder: "template 路径（自动）",
     templateViewContentLabel: "模板内容",
-    templateCopyContentBtn: "复制内容",
     renderBtn: "预览渲染",
     execBtn: "执行",
     templateExecBtn: "运行模板",
@@ -137,8 +146,7 @@ const i18n = {
     builtinCopyBtn: "复制到新增/修改",
     templateLoadBtn: "加载",
     templateRefreshBtn: "刷新",
-    templateCreateBtn: "创建",
-    templateUpdateBtn: "更新",
+    templateSaveBtn: "保存",
     templateDeleteBtn: "删除",
     deleteInlineBtn: "删除",
     addInlineBtn: "+ 添加",
@@ -177,7 +185,6 @@ const i18n = {
     templateModePlaceholder: "模式（可选，默认 Enable）",
     customProfilePickerPlaceholder: "搜索/选择自定义 profile 名称",
     templateViewPickerPlaceholder: "搜索/选择 template 名称",
-    profileFormNamePlaceholder: "profile 名称",
     profileMorePatternsPlaceholder: "more_patterns：每行一个",
     profileErrorPatternsPlaceholder: "error_patterns：每行一个",
     profileIgnoreErrorsPlaceholder: "ignore_errors：每行一个",
@@ -185,25 +192,25 @@ const i18n = {
     profileSysPromptsPlaceholder: "sys_prompts JSON 数组",
     profileInteractionsPlaceholder: "interactions JSON 数组",
     profileTransitionsPlaceholder: "transitions JSON 数组",
-    templateManageNamePlaceholder: "template 名称，例如 show_version.j2",
     templateContentPlaceholder: "Template 内容",
     running: "执行中...",
     requestFailed: "请求失败",
+    connectionNameRequired: "连接配置名称不能为空",
     saved: "已保存",
     deleted: "已删除",
     created: "已创建",
     connectionOk: "连接成功",
+    loaded: "已加载",
     needLoadBuiltinFirst: "请先加载内置详情",
     copiedToCustom: "已复制到新增/修改表单",
-    templateNeedLoadFirst: "请先加载模板详情",
     templateCopiedToEdit: "已复制到新增/修改编辑区",
-    templateContentCopied: "模板内容已复制",
   },
 };
 
 let currentLang = localStorage.getItem("rauto_lang") || "zh";
 let currentTab = "ops";
 let currentOpKind = "exec";
+let cachedSavedConnections = [];
 let cachedCustomProfiles = [];
 let cachedDeviceProfiles = [];
 let cachedTemplates = [];
@@ -222,6 +229,10 @@ function applyI18n() {
   byId("lang-fab").setAttribute("aria-label", t("langFabTitle"));
   byId("connection-title").textContent = t("connectionTitle");
   byId("connection-test-btn").textContent = t("connectionTestBtn");
+  byId("saved-conn-title").textContent = t("savedConnTitle");
+  byId("saved-conn-save-password-label").textContent = t("savedConnSavePassword");
+  byId("saved-conn-save-btn").textContent = t("savedConnSaveBtn");
+  byId("saved-conn-delete-btn").textContent = t("savedConnDeleteBtn");
   byId("connection-help").textContent = t("connectionHelp");
 
   byId("tab-ops").textContent = t("tabOps");
@@ -243,18 +254,12 @@ function applyI18n() {
   byId("render-btn").textContent = t("renderBtn");
   byId("exec-btn").textContent = t("execBtn");
   byId("template-exec-btn").textContent = t("templateExecBtn");
-  byId("profile-load-btn").textContent = t("profileLoadBtn");
-  byId("profile-refresh-btn").textContent = t("profileRefreshBtn");
   byId("profile-save-btn").textContent = t("profileSaveBtn");
   byId("profile-delete-btn").textContent = t("profileDeleteBtn");
   byId("builtin-detail-btn").textContent = t("builtinDetailBtn");
   byId("builtin-copy-btn").textContent = t("builtinCopyBtn");
-  byId("template-load-btn").textContent = t("templateLoadBtn");
-  byId("template-refresh-btn").textContent = t("templateRefreshBtn");
-  byId("template-create-btn").textContent = t("templateCreateBtn");
-  byId("template-update-btn").textContent = t("templateUpdateBtn");
+  byId("template-save-btn").textContent = t("templateSaveBtn");
   byId("template-delete-btn").textContent = t("templateDeleteBtn");
-  byId("template-copy-content-btn").textContent = t("templateCopyContentBtn");
   byId("add-more-pattern-btn").textContent = t("addInlineBtn");
   byId("add-error-pattern-btn").textContent = t("addInlineBtn");
   byId("add-ignore-error-btn").textContent = t("addInlineBtn");
@@ -276,6 +281,7 @@ function applyI18n() {
   byId("password").placeholder = t("passwordPlaceholder");
   byId("enable_password").placeholder = t("enablePasswordPlaceholder");
   byId("device_profile").placeholder = t("deviceProfilePlaceholder");
+  byId("saved-conn-name").placeholder = t("savedConnNamePlaceholder");
   byId("template").placeholder = t("templatePlaceholder");
   byId("template-selected-content").placeholder = t("templateSelectedContentPlaceholder");
   byId("vars").placeholder = t("varsPlaceholder");
@@ -286,8 +292,6 @@ function applyI18n() {
   byId("template-pick-name").placeholder = t("templateViewPickerPlaceholder");
   renderCustomProfileOptions();
   renderTemplateOptions();
-  byId("profile-form-name").placeholder = t("profileFormNamePlaceholder");
-  byId("template-manage-name").placeholder = t("templateManageNamePlaceholder");
   byId("template-manage-path").placeholder = t("templateManagePathPlaceholder");
   byId("template-content").placeholder = t("templateContentPlaceholder");
   localizeDynamicFields();
@@ -374,6 +378,100 @@ function connectionPayload() {
     enable_password: value("enable_password") || null,
     device_profile: value("device_profile") || null,
   };
+}
+
+function applyConnectionForm(connection = {}) {
+  byId("host").value = connection.host || "";
+  byId("port").value = connection.port != null ? String(connection.port) : "";
+  byId("username").value = connection.username || "";
+  byId("password").value = connection.password || "";
+  byId("enable_password").value = connection.enable_password || "";
+  byId("device_profile").value = connection.device_profile || "";
+}
+
+function renderSavedConnectionOptions(keyword = "") {
+  const datalist = byId("saved-conn-options");
+  const q = keyword.trim().toLowerCase();
+  const names = cachedSavedConnections
+    .map((item) => item.name)
+    .filter((name) => (!q ? true : name.toLowerCase().includes(q)));
+  datalist.innerHTML = names.map((name) => `<option value="${name}"></option>`).join("");
+}
+
+async function loadSavedConnections() {
+  const out = byId("saved-conn-list");
+  try {
+    const data = await request("GET", "/api/connections");
+    cachedSavedConnections = Array.isArray(data) ? data : [];
+    renderSavedConnectionOptions(byId("saved-conn-name").value || "");
+    out.textContent =
+      cachedSavedConnections
+        .map(
+          (item) =>
+            `- ${item.name} -> ${item.path}${item.has_password ? " (with password)" : ""}`
+        )
+        .join("\n") || "-";
+  } catch (e) {
+    cachedSavedConnections = [];
+    renderSavedConnectionOptions("");
+    out.textContent = e.message;
+  }
+}
+
+async function loadSavedConnectionByName() {
+  const name = byId("saved-conn-name").value.trim();
+  const out = byId("saved-conn-out");
+  if (!name) {
+    out.textContent = t("connectionNameRequired");
+    return;
+  }
+  out.textContent = t("running");
+  try {
+    const data = await request("GET", `/api/connections/${encodeURIComponent(name)}`);
+    applyConnectionForm(data.connection || {});
+    byId("saved-conn-name").value = data.name || name;
+    out.textContent = `${t("loaded")}: ${data.name}`;
+  } catch (e) {
+    out.textContent = e.message;
+  }
+}
+
+async function saveConnectionByName() {
+  const name = byId("saved-conn-name").value.trim();
+  const out = byId("saved-conn-out");
+  if (!name) {
+    out.textContent = t("connectionNameRequired");
+    return;
+  }
+  out.textContent = t("running");
+  try {
+    const data = await request("PUT", `/api/connections/${encodeURIComponent(name)}`, {
+      connection: connectionPayload(),
+      save_password: byId("saved-conn-save-password").checked,
+    });
+    out.textContent = `${t("saved")}: ${data.path}`;
+    await loadSavedConnections();
+  } catch (e) {
+    out.textContent = e.message;
+  }
+}
+
+async function deleteConnectionByName() {
+  const name = byId("saved-conn-name").value.trim();
+  const out = byId("saved-conn-out");
+  if (!name) {
+    out.textContent = t("connectionNameRequired");
+    return;
+  }
+  out.textContent = t("running");
+  try {
+    await request("DELETE", `/api/connections/${encodeURIComponent(name)}`);
+    out.textContent = `${t("deleted")}: ${name}`;
+    byId("saved-conn-name").value = "";
+    await loadSavedConnections();
+  } catch (e) {
+    out.textContent = e.message;
+  }
 }
 
 function parseVars() {
@@ -994,7 +1092,7 @@ function collectTransitionRows() {
 }
 
 function setProfileForm(profile) {
-  byId("profile-form-name").value = profile.name || "";
+  byId("custom-profile-picker").value = profile.name || "";
   clearContainer("profile-more-list");
   clearContainer("profile-error-list");
   clearContainer("profile-ignore-list");
@@ -1018,7 +1116,7 @@ function setProfileForm(profile) {
 
 function collectProfileForm() {
   return {
-    name: byId("profile-form-name").value.trim() || byId("custom-profile-picker").value.trim(),
+    name: byId("custom-profile-picker").value.trim(),
     more_patterns: collectSimpleList("profile-more-list"),
     error_patterns: collectSimpleList("profile-error-list"),
     ignore_errors: collectSimpleList("profile-ignore-list"),
@@ -1065,7 +1163,6 @@ async function saveCustomProfile() {
       profile
     );
     byId("custom-profile-picker").value = name;
-    byId("profile-form-name").value = name;
     out.textContent = `${t("saved")}: ${data.path}`;
     await loadProfilesOverview();
   } catch (e) {
@@ -1074,9 +1171,7 @@ async function saveCustomProfile() {
 }
 
 async function deleteCustomProfile() {
-  const name =
-    byId("custom-profile-picker").value.trim() ||
-    byId("profile-form-name").value.trim();
+  const name = byId("custom-profile-picker").value.trim();
   const out = byId("profile-out");
   if (!name) {
     out.textContent = "profile name is required";
@@ -1140,7 +1235,6 @@ async function loadTemplateDetail() {
     const data = await request("GET", `/api/templates/${encodeURIComponent(name)}`);
     lastTemplateDetail = data;
     byId("template-pick-name").value = data.name || name;
-    byId("template-manage-name").value = data.name || name;
     byId("template-manage-path").value = data.path || "";
     byId("template-content").value = data.content || "";
     out.textContent = `${data.name} -> ${data.path}`;
@@ -1150,8 +1244,8 @@ async function loadTemplateDetail() {
   }
 }
 
-async function createTemplate() {
-  const name = byId("template-manage-name").value.trim();
+async function saveTemplate() {
+  const name = byId("template-pick-name").value.trim();
   const content = byId("template-content").value;
   const out = byId("template-out");
   if (!name) {
@@ -1160,42 +1254,22 @@ async function createTemplate() {
   }
   out.textContent = t("running");
   try {
-    const data = await request("POST", "/api/templates", { name, content });
-    out.textContent = `${t("created")}: ${data.path}`;
+    const exists = cachedTemplates.includes(name);
+    const data = exists
+      ? await request("PUT", `/api/templates/${encodeURIComponent(name)}`, { content })
+      : await request("POST", "/api/templates", { name, content });
+    out.textContent = `${exists ? t("saved") : t("created")}: ${data.path}`;
     await loadTemplates();
     byId("template-pick-name").value = name;
-    byId("template-manage-name").value = name;
     byId("template-manage-path").value = data.path || "";
-  } catch (e) {
-    out.textContent = e.message;
-  }
-}
-
-async function updateTemplate() {
-  const name = byId("template-manage-name").value.trim();
-  const content = byId("template-content").value;
-  const out = byId("template-out");
-  if (!name) {
-    out.textContent = "template name is required";
-    return;
-  }
-  out.textContent = t("running");
-  try {
-    const data = await request("PUT", `/api/templates/${encodeURIComponent(name)}`, {
-      content,
-    });
-    out.textContent = `${t("saved")}: ${data.path}`;
-    await loadTemplates();
-    byId("template-pick-name").value = name;
-    byId("template-manage-name").value = name;
-    byId("template-manage-path").value = data.path || "";
+    lastTemplateDetail = data;
   } catch (e) {
     out.textContent = e.message;
   }
 }
 
 async function deleteTemplate() {
-  const name = byId("template-manage-name").value.trim();
+  const name = byId("template-pick-name").value.trim();
   const out = byId("template-out");
   if (!name) {
     out.textContent = "template name is required";
@@ -1211,7 +1285,6 @@ async function deleteTemplate() {
     if (byId("template-pick-name").value.trim() === name) {
       byId("template-pick-name").value = "";
     }
-    byId("template-manage-name").value = "";
     lastTemplateDetail = null;
   } catch (e) {
     out.textContent = e.message;
@@ -1313,6 +1386,15 @@ function bindEvents() {
       out.textContent = e.message;
     }
   };
+  byId("saved-conn-save-btn").onclick = saveConnectionByName;
+  byId("saved-conn-delete-btn").onclick = deleteConnectionByName;
+  byId("saved-conn-name").oninput = (e) => {
+    renderSavedConnectionOptions(e.target.value);
+  };
+  byId("saved-conn-name").onchange = async () => {
+    if (!byId("saved-conn-name").value.trim()) return;
+    await loadSavedConnectionByName();
+  };
 
   byId("render-btn").onclick = async () => {
     const out = byId("render-out");
@@ -1359,7 +1441,6 @@ function bindEvents() {
     }
   };
 
-  byId("profile-refresh-btn").onclick = loadProfilesOverview;
   byId("template").onchange = loadSelectedTemplateContent;
   byId("custom-profile-picker").oninput = (e) => {
     renderCustomProfileOptions(e.target.value);
@@ -1382,7 +1463,6 @@ function bindEvents() {
     byId("prompt-mode-edit").click();
     out.textContent = t("copiedToCustom");
   };
-  byId("profile-load-btn").onclick = loadCustomProfile;
   byId("profile-save-btn").onclick = saveCustomProfile;
   byId("profile-delete-btn").onclick = deleteCustomProfile;
   byId("add-more-pattern-btn").onclick = () => addSimpleListRow("profile-more-list");
@@ -1393,8 +1473,6 @@ function bindEvents() {
   byId("add-interaction-row-btn").onclick = () => addInteractionRow();
   byId("add-transition-row-btn").onclick = () => addTransitionRow();
 
-  byId("template-refresh-btn").onclick = loadTemplates;
-  byId("template-load-btn").onclick = loadTemplateDetail;
   byId("template-pick-name").oninput = (e) => {
     renderTemplateOptions(e.target.value);
   };
@@ -1402,23 +1480,8 @@ function bindEvents() {
     if (!byId("template-pick-name").value.trim()) return;
     await loadTemplateDetail();
   };
-  byId("template-create-btn").onclick = createTemplate;
-  byId("template-update-btn").onclick = updateTemplate;
+  byId("template-save-btn").onclick = saveTemplate;
   byId("template-delete-btn").onclick = deleteTemplate;
-  byId("template-copy-content-btn").onclick = async () => {
-    const out = byId("template-out");
-    const text = byId("template-content").value || "";
-    if (!text.trim()) {
-      out.textContent = t("templateNeedLoadFirst");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      out.textContent = t("templateContentCopied");
-    } catch (_) {
-      out.textContent = t("requestFailed");
-    }
-  };
 }
 
 bindEvents();
@@ -1427,6 +1490,7 @@ initCollapsibleGroups();
 applyI18n();
 applyTabs();
 applyOperationKind();
+loadSavedConnections();
 loadProfilesOverview();
 loadTemplates();
 setProfileForm({

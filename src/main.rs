@@ -7,10 +7,12 @@ mod web;
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Commands, DeviceCommands, TemplateCommands};
+use config::connection_store::{SavedConnection, delete_connection, list_connections, load_connection, save_connection};
 use config::paths::{default_template_dir, ensure_default_layout};
 use config::template_loader;
 use device::DeviceClient;
 use std::fs;
+use std::path::PathBuf;
 use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
@@ -85,86 +87,72 @@ async fn run(cli: Cli) -> Result<()> {
                 return Ok(());
             }
 
-            // 4. Connect and Execute
-            if let Some(host) = cli.global_opts.host {
-                let handler = template_loader::load_device_profile(
-                    &cli.global_opts.device_profile,
-                    cli.global_opts.template_dir.as_ref(),
-                )?;
-
-                let username = cli
-                    .global_opts
-                    .username
-                    .unwrap_or_else(|| "admin".to_string());
-                let password = cli.global_opts.password.unwrap_or_else(|| {
-                    // TODO: Prompt for password if not provided
-                    // For now just empty or panic?
-                    // Better to use a simpler approach for MVP
-                    std::env::var("RAUTO_PASSWORD").unwrap_or_default()
-                });
-                let enable_password = cli.global_opts.enable_password;
-
-                info!("Connecting to device...");
-                let client = DeviceClient::connect(
-                    host,
-                    cli.global_opts.port,
-                    username,
-                    password,
-                    enable_password,
-                    handler,
-                )
-                .await?;
-
-                // Split commands by line and execute
-                // Ignore empty lines
-                let lines: Vec<String> = rendered_commands
-                    .lines()
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect();
-
-                info!("Executing {} commands...", lines.len());
-                for cmd in lines {
-                    print!("Executing '{}' ... ", cmd);
-                    match client.execute(&cmd, None).await {
-                        Ok(output) => println!("Success\nOutput:\n{}", output),
-                        Err(e) => println!("Failed: {}", e),
-                    }
+            let conn = match resolve_effective_connection(&cli.global_opts) {
+                Ok(conn) => conn,
+                Err(_) => {
+                    error!("Host is required for execution (unless --dry-run is used)");
+                    return Ok(());
                 }
-            } else {
-                error!("Host is required for execution (unless --dry-run is used)");
+            };
+            let handler =
+                template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+
+            info!("Connecting to device...");
+            let client = DeviceClient::connect(
+                conn.host.clone(),
+                conn.port,
+                conn.username.clone(),
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+            )
+            .await?;
+
+            maybe_save_connection_profile(&cli.global_opts, &conn)?;
+
+            // Split commands by line and execute
+            // Ignore empty lines
+            let lines: Vec<String> = rendered_commands
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            info!("Executing {} commands...", lines.len());
+            for cmd in lines {
+                print!("Executing '{}' ... ", cmd);
+                match client.execute(&cmd, None).await {
+                    Ok(output) => println!("Success\nOutput:\n{}", output),
+                    Err(e) => println!("Failed: {}", e),
+                }
             }
         }
         Commands::Exec(args) => {
-            if let Some(host) = cli.global_opts.host {
-                let handler = template_loader::load_device_profile(
-                    &cli.global_opts.device_profile,
-                    cli.global_opts.template_dir.as_ref(),
-                )?;
+            let conn = match resolve_effective_connection(&cli.global_opts) {
+                Ok(conn) => conn,
+                Err(_) => {
+                    error!("Host is required");
+                    return Ok(());
+                }
+            };
+            let handler =
+                template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
 
-                let username = cli
-                    .global_opts
-                    .username
-                    .unwrap_or_else(|| "admin".to_string());
-                let password = cli.global_opts.password.unwrap_or_default(); // TODO: prompt
-                let enable_password = cli.global_opts.enable_password;
+            let client = DeviceClient::connect(
+                conn.host.clone(),
+                conn.port,
+                conn.username.clone(),
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+            )
+            .await?;
 
-                let client = DeviceClient::connect(
-                    host,
-                    cli.global_opts.port,
-                    username,
-                    password,
-                    enable_password,
-                    handler,
-                )
-                .await?;
+            maybe_save_connection_profile(&cli.global_opts, &conn)?;
 
-                info!("Executing command: {}", args.command);
-                let output = client.execute(&args.command, args.mode.as_deref()).await?;
-                println!("{}", output);
-            } else {
-                error!("Host is required");
-            }
+            info!("Executing command: {}", args.command);
+            let output = client.execute(&args.command, args.mode.as_deref()).await?;
+            println!("{}", output);
         }
         Commands::Interactive(_) => {
             println!("Interactive mode not yet implemented");
@@ -292,33 +280,59 @@ async fn run(cli: Cli) -> Result<()> {
                 println!("Deleted custom profile '{}'", path.to_string_lossy());
             }
             DeviceCommands::TestConnection => {
-                let host = cli
-                    .global_opts
-                    .host
-                    .clone()
-                    .ok_or_else(|| anyhow::anyhow!("Host is required for connection test"))?;
-                let username = cli
-                    .global_opts
-                    .username
-                    .clone()
-                    .unwrap_or_else(|| "admin".to_string());
-                let password = cli.global_opts.password.clone().unwrap_or_default();
-                let handler = template_loader::load_device_profile(
-                    &cli.global_opts.device_profile,
-                    cli.global_opts.template_dir.as_ref(),
-                )?;
+                let conn = resolve_effective_connection(&cli.global_opts)?;
+                let handler =
+                    template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
                 let _client = DeviceClient::connect(
-                    host.clone(),
-                    cli.global_opts.port,
-                    username.clone(),
-                    password,
-                    cli.global_opts.enable_password.clone(),
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
                     handler,
                 )
                 .await?;
+                maybe_save_connection_profile(&cli.global_opts, &conn)?;
                 println!(
                     "Connection OK: {}@{}:{} ({})",
-                    username, host, cli.global_opts.port, cli.global_opts.device_profile
+                    conn.username, conn.host, conn.port, conn.device_profile
+                );
+            }
+            DeviceCommands::ListConnections => {
+                let names = list_connections()?;
+                if names.is_empty() {
+                    println!("-");
+                } else {
+                    for name in names {
+                        println!("- {}", name);
+                    }
+                }
+            }
+            DeviceCommands::ShowConnection { name } => {
+                let safe = config::connection_store::safe_connection_name(&name)?;
+                let data = load_connection(&safe)?;
+                println!("# saved connection: {}", safe);
+                println!("{}", toml::to_string_pretty(&data)?);
+            }
+            DeviceCommands::DeleteConnection { name } => {
+                let deleted = delete_connection(&name)?;
+                if deleted {
+                    println!("Deleted saved connection '{}'", name);
+                } else {
+                    println!("Saved connection '{}' not found", name);
+                }
+            }
+            DeviceCommands::AddConnection { name } => {
+                let conn = resolve_effective_connection(&cli.global_opts)?;
+                let path = save_named_connection(
+                    &name,
+                    &conn,
+                    cli.global_opts.password.is_some() || cli.global_opts.enable_password.is_some(),
+                )?;
+                println!(
+                    "Saved connection profile '{}' to '{}'",
+                    name,
+                    path.to_string_lossy()
                 );
             }
         },
@@ -365,6 +379,108 @@ async fn run(cli: Cli) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct EffectiveConnection {
+    host: String,
+    username: String,
+    password: String,
+    port: u16,
+    enable_password: Option<String>,
+    device_profile: String,
+    template_dir: Option<PathBuf>,
+}
+
+fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConnection> {
+    let saved = if let Some(name) = &opts.connection {
+        Some(load_connection(name)?)
+    } else {
+        None
+    };
+
+    let host = opts
+        .host
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.host.clone()))
+        .ok_or_else(|| anyhow::anyhow!("host is required"))?;
+    let username = opts
+        .username
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.username.clone()))
+        .unwrap_or_else(|| "admin".to_string());
+    let password = opts
+        .password
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.password.clone()))
+        .or_else(|| std::env::var("RAUTO_PASSWORD").ok())
+        .unwrap_or_default();
+    let port = opts
+        .port
+        .or_else(|| saved.as_ref().and_then(|s| s.port))
+        .unwrap_or(22);
+    let enable_password = opts
+        .enable_password
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()));
+    let device_profile = opts
+        .device_profile
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
+        .unwrap_or_else(|| "cisco".to_string());
+    let template_dir = opts
+        .template_dir
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.template_dir.clone().map(PathBuf::from)));
+
+    Ok(EffectiveConnection {
+        host,
+        username,
+        password,
+        port,
+        enable_password,
+        device_profile,
+        template_dir,
+    })
+}
+
+fn maybe_save_connection_profile(opts: &cli::GlobalOpts, conn: &EffectiveConnection) -> Result<()> {
+    let Some(name) = &opts.save_connection else {
+        return Ok(());
+    };
+
+    let path = save_named_connection(name, conn, opts.save_password)?;
+    println!(
+        "Saved connection profile '{}' to '{}'",
+        name,
+        path.to_string_lossy()
+    );
+    Ok(())
+}
+
+fn save_named_connection(name: &str, conn: &EffectiveConnection, save_password: bool) -> Result<PathBuf> {
+    let data = SavedConnection {
+        host: Some(conn.host.clone()),
+        username: Some(conn.username.clone()),
+        password: if save_password {
+            Some(conn.password.clone())
+        } else {
+            None
+        },
+        port: Some(conn.port),
+        enable_password: if save_password {
+            conn.enable_password.clone()
+        } else {
+            None
+        },
+        device_profile: Some(conn.device_profile.clone()),
+        template_dir: conn
+            .template_dir
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string()),
+    };
+
+    save_connection(name, &data)
 }
 
 fn safe_template_name(raw: &str) -> Result<String> {

@@ -14,7 +14,7 @@ pub struct RenderResponse {
     pub rendered_commands: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConnectionRequest {
     pub host: Option<String>,
     pub username: Option<String>,
@@ -38,6 +38,29 @@ pub struct ConnectionTestResponse {
     pub port: u16,
     pub username: String,
     pub device_profile: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SavedConnectionMeta {
+    pub name: String,
+    pub path: String,
+    pub has_password: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SavedConnectionDetail {
+    pub name: String,
+    pub path: String,
+    pub has_password: bool,
+    pub connection: ConnectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertConnectionRequest {
+    #[serde(default)]
+    pub connection: ConnectionRequest,
+    #[serde(default)]
+    pub save_password: bool,
 }
 
 #[derive(Debug, Deserialize)]

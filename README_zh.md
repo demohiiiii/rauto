@@ -15,6 +15,7 @@
 - **可扩展性**：支持自定义 TOML 设备配置。
 - **内置 Web 控制台**：通过 `rauto web` 启动浏览器页面。
 - **内嵌静态资源**：发布二进制时前端资源已打包到可执行文件中。
+- **连接配置档复用**：支持按名称保存/加载连接参数。
 
 ## 安装
 
@@ -179,6 +180,12 @@ rauto web \
 Web 静态资源在构建时会嵌入二进制。  
 对于发布后的可执行文件，运行时不再依赖本地 `static/` 目录。
 
+Web 控制台主要能力：
+- 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
+- 基于已保存连接执行命令（先加载连接，再选择直接执行或模板渲染执行）。
+- 分页管理 profile（内置/自定义）与 template。
+- 支持中英文界面切换。
+
 ### 5. Template 存储管理命令
 
 ```bash
@@ -187,7 +194,37 @@ rauto templates show show_version.j2
 rauto templates delete show_version.j2
 ```
 
-### 6. CLI 速查表
+### 6. 已保存连接配置
+
+你可以按名称保存并复用连接参数：
+
+```bash
+# 直接通过命令参数新增/更新连接配置
+rauto device add-connection lab1 \
+    --host 192.168.1.1 \
+    --username admin \
+    --ssh-port 22 \
+    --device-profile cisco
+
+# 复用已保存配置执行命令
+rauto exec "show version" --connection lab1
+
+# 在成功连接后保存当前有效配置
+rauto device test-connection \
+    --connection lab1 \
+    --save-connection lab1_backup
+
+# 管理已保存配置
+rauto device list-connections
+rauto device show-connection lab1
+rauto device delete-connection lab1
+```
+
+密码保存规则：
+- 在 `exec/template/device test-connection` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
+- 使用 `device add-connection` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
+
+### 7. CLI 速查表
 
 **连接排障**
 ```bash
@@ -196,6 +233,17 @@ rauto device test-connection \
     --username admin \
     --password secret \
     --ssh-port 22
+```
+
+**连接配置档**
+```bash
+rauto device add-connection lab1 \
+    --host 192.168.1.1 \
+    --username admin \
+    --ssh-port 22 \
+    --device-profile cisco
+rauto exec "show version" --connection lab1
+rauto device list-connections
 ```
 
 **Profile 管理**
@@ -257,6 +305,9 @@ rauto web \
 | `--enable-password` | - | Enable/Secret 密码 |
 | `--ssh-port` | - | SSH 端口 (默认: 22) |
 | `--device-profile` | - | 设备类型 (默认: cisco) |
+| `--connection` | - | 按名称加载已保存连接配置 |
+| `--save-connection` | - | 成功连接后保存当前有效连接配置 |
+| `--save-password` | - | 配合 `--save-connection` 使用时保存密码/enable_password |
 
 ## 模板语法
 

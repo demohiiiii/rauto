@@ -54,13 +54,14 @@ pub fn merge_connection_options(
         .or_else(|| defaults.password.clone())
         .unwrap_or_default();
 
-    let port = incoming.port.unwrap_or(defaults.port);
+    let port = incoming.port.or(defaults.port).unwrap_or(22);
     let enable_password = incoming
         .enable_password
         .or_else(|| defaults.enable_password.clone());
     let device_profile = incoming
         .device_profile
-        .unwrap_or_else(|| defaults.device_profile.clone());
+        .or_else(|| defaults.device_profile.clone())
+        .unwrap_or_else(|| "cisco".to_string());
     let template_dir = incoming
         .template_dir
         .map(PathBuf::from)

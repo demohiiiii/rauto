@@ -1,13 +1,15 @@
 use crate::config::device_profile::DeviceProfile;
+use crate::config::{connection_store, connection_store::SavedConnection};
 use crate::config::template_loader;
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    BuiltinProfileDetail, CommandResult, ConnectionTestRequest, ConnectionTestResponse,
+    BuiltinProfileDetail, CommandResult, ConnectionRequest, ConnectionTestRequest, ConnectionTestResponse,
     CreateTemplateRequest, CustomProfileDetail, DeviceProfilesOverview, ExecRequest, ExecResponse,
-    ExecuteTemplateRequest, ExecuteTemplateResponse, RenderRequest, RenderResponse, TemplateDetail,
-    TemplateMeta, UpdateTemplateRequest, UpsertCustomProfileRequest,
+    ExecuteTemplateRequest, ExecuteTemplateResponse, RenderRequest, RenderResponse,
+    SavedConnectionDetail, SavedConnectionMeta, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
+    UpsertConnectionRequest, UpsertCustomProfileRequest,
 };
 use crate::web::state::{AppState, merge_connection_options};
 use crate::web::storage;
@@ -273,6 +275,90 @@ pub async fn test_connection(
         username: conn.username,
         device_profile: conn.device_profile,
     }))
+}
+
+pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiError> {
+    let names = connection_store::list_connections().map_err(ApiError::from)?;
+    let mut items = Vec::new();
+    for name in names {
+        if let Ok(data) = connection_store::load_connection(&name) {
+            let path = connection_store::connections_dir().join(format!("{}.toml", name));
+            items.push(SavedConnectionMeta {
+                name,
+                path: path.to_string_lossy().to_string(),
+                has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
+            });
+        }
+    }
+    Ok(Json(items))
+}
+
+pub async fn get_connection(
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<SavedConnectionDetail>, ApiError> {
+    let safe = connection_store::safe_connection_name(&name)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    let data = connection_store::load_connection(&safe)
+        .map_err(|_| ApiError::bad_request("saved connection not found"))?;
+    let path = connection_store::connections_dir().join(format!("{}.toml", safe));
+    Ok(Json(SavedConnectionDetail {
+        name: safe,
+        path: path.to_string_lossy().to_string(),
+        has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
+        connection: ConnectionRequest {
+            host: data.host,
+            username: data.username,
+            password: data.password,
+            port: data.port,
+            enable_password: data.enable_password,
+            device_profile: data.device_profile,
+            template_dir: data.template_dir,
+        },
+    }))
+}
+
+pub async fn upsert_connection(
+    axum::extract::Path(name): axum::extract::Path<String>,
+    Json(req): Json<UpsertConnectionRequest>,
+) -> Result<Json<SavedConnectionDetail>, ApiError> {
+    let safe = connection_store::safe_connection_name(&name)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    let c = req.connection;
+    let save_password = req.save_password;
+    let data = SavedConnection {
+        host: c.host,
+        username: c.username,
+        password: if save_password { c.password } else { None },
+        port: c.port,
+        enable_password: if save_password { c.enable_password } else { None },
+        device_profile: c.device_profile,
+        template_dir: c.template_dir,
+    };
+    let path = connection_store::save_connection(&safe, &data).map_err(ApiError::from)?;
+
+    Ok(Json(SavedConnectionDetail {
+        name: safe,
+        path: path.to_string_lossy().to_string(),
+        has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
+        connection: ConnectionRequest {
+            host: data.host,
+            username: data.username,
+            password: data.password,
+            port: data.port,
+            enable_password: data.enable_password,
+            device_profile: data.device_profile,
+            template_dir: data.template_dir,
+        },
+    }))
+}
+
+pub async fn delete_connection(
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let safe = connection_store::safe_connection_name(&name)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    let deleted = connection_store::delete_connection(&safe).map_err(ApiError::from)?;
+    Ok(Json(json!({ "ok": true, "deleted": deleted })))
 }
 
 pub async fn execute_template(

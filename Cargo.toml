@@ -1,6 +1,6 @@
 [package]
 name = "rauto"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "A powerful CLI tool for network device automation using minijinja templates and rneter."
 license = "MIT"

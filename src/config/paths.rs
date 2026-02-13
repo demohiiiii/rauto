@@ -16,5 +16,6 @@ pub fn ensure_default_layout() -> Result<()> {
     let root = rauto_home_dir();
     fs::create_dir_all(root.join("templates").join("commands"))?;
     fs::create_dir_all(root.join("templates").join("devices"))?;
+    fs::create_dir_all(root.join("connections"))?;
     Ok(())
 }

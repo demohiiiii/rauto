@@ -60,6 +60,23 @@ pub enum DeviceCommands {
     },
     /// Test SSH connection without executing commands
     TestConnection,
+    /// List saved connection profiles
+    ListConnections,
+    /// Show a saved connection profile
+    ShowConnection {
+        /// Saved connection profile name
+        name: String,
+    },
+    /// Delete a saved connection profile
+    DeleteConnection {
+        /// Saved connection profile name
+        name: String,
+    },
+    /// Add or update a saved connection profile directly from CLI options
+    AddConnection {
+        /// Saved connection profile name
+        name: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -131,18 +148,30 @@ pub struct GlobalOpts {
     pub password: Option<String>,
 
     /// SSH port
-    #[arg(long = "ssh-port", short = 'P', global = true, default_value = "22")]
-    pub port: u16,
+    #[arg(long = "ssh-port", short = 'P', global = true)]
+    pub port: Option<u16>,
 
     /// Enable password (for Cisco Enable mode etc.)
     #[arg(long, short = 'e', global = true)]
     pub enable_password: Option<String>,
 
     /// Device profile name (e.g. cisco, huawei, or custom)
-    #[arg(long, short = 'd', global = true, default_value = "cisco")]
-    pub device_profile: String,
+    #[arg(long, short = 'd', global = true)]
+    pub device_profile: Option<String>,
 
     /// Custom directory for templates
     #[arg(long, global = true, env = "RAUTO_TEMPLATE_DIR")]
     pub template_dir: Option<PathBuf>,
+
+    /// Use saved connection profile by name
+    #[arg(long, global = true)]
+    pub connection: Option<String>,
+
+    /// Save effective connection profile with this name after successful connect
+    #[arg(long, global = true)]
+    pub save_connection: Option<String>,
+
+    /// When used with --save-connection, also save password/enable_password
+    #[arg(long, global = true, default_value_t = false)]
+    pub save_password: bool,
 }
