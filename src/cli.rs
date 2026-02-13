@@ -28,6 +28,10 @@ pub enum Commands {
     /// Manage device configuration templates
     #[command(subcommand)]
     Device(DeviceCommands),
+
+    /// Manage stored command templates
+    #[command(subcommand)]
+    Templates(TemplateCommands),
 }
 
 #[derive(Subcommand, Debug)]
@@ -37,6 +41,39 @@ pub enum DeviceCommands {
     /// Show details of a specific device profile
     Show {
         /// Name of the device profile
+        name: String,
+    },
+    /// Delete a custom profile
+    DeleteCustom {
+        /// Custom profile name
+        name: String,
+    },
+    /// Copy a built-in profile to a custom profile file
+    CopyBuiltin {
+        /// Built-in profile name (e.g. cisco, huawei, juniper)
+        source: String,
+        /// Target custom profile name (without .toml)
+        name: String,
+        /// Overwrite target file if it already exists
+        #[arg(long)]
+        overwrite: bool,
+    },
+    /// Test SSH connection without executing commands
+    TestConnection,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TemplateCommands {
+    /// List templates in storage
+    List,
+    /// Show template content
+    Show {
+        /// Template name
+        name: String,
+    },
+    /// Delete template file
+    Delete {
+        /// Template name
         name: String,
     },
 }

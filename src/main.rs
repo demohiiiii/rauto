@@ -6,10 +6,11 @@ mod web;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Commands, DeviceCommands};
-use config::paths::ensure_default_layout;
+use cli::{Cli, Commands, DeviceCommands, TemplateCommands};
+use config::paths::{default_template_dir, ensure_default_layout};
 use config::template_loader;
 use device::DeviceClient;
+use std::fs;
 use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
@@ -40,6 +41,12 @@ fn init_tracing() {
 }
 
 async fn run(cli: Cli) -> Result<()> {
+    let templates_root = cli
+        .global_opts
+        .template_dir
+        .clone()
+        .unwrap_or_else(default_template_dir);
+
     match cli.command {
         Commands::Template(args) => {
             info!("Running template mode");
@@ -168,26 +175,209 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Device(cmd) => match cmd {
             DeviceCommands::List => {
-                let profiles = template_loader::list_available_profiles(
+                let mut profiles = template_loader::list_available_profiles(
                     cli.global_opts.template_dir.as_ref(),
                 )?;
-                println!("Available Device Profiles:");
+                let custom_dir = templates_root.join("devices");
+                if custom_dir.exists() {
+                    for entry in fs::read_dir(&custom_dir)? {
+                        let entry = entry?;
+                        let path = entry.path();
+                        if path
+                            .extension()
+                            .and_then(|s| s.to_str())
+                            .is_some_and(|ext| ext == "toml")
+                        {
+                            if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+                                profiles.push(name.to_string());
+                            }
+                        }
+                    }
+                }
+                profiles.sort();
+                profiles.dedup();
+                println!("Available Device Profiles (builtin + custom):");
                 for p in profiles {
                     println!("- {}", p);
                 }
             }
             DeviceCommands::Show { name } => {
-                // To show, we load it and print debug info?
-                // Or try to find the TOML file and print it?
-                // rneter internal DeviceHandler is not easily displayable.
-                // So we only support showing if it's a TOML file we loaded.
+                if let Some(mut profile) = web::storage::builtin_profile_form(&name) {
+                    println!("# built-in profile: {}", name);
+                    println!("# source: rneter built-in");
+                    profile.name = name.clone();
+                    println!("{}", toml::to_string_pretty(&profile)?);
+                    return Ok(());
+                }
+
+                let safe_name = name.trim().trim_end_matches(".toml");
+                let path = templates_root.join("devices").join(format!("{}.toml", safe_name));
+                if !path.exists() {
+                    return Err(anyhow::anyhow!("profile '{}' not found", name));
+                }
+                println!("# custom profile: {}", safe_name);
+                println!("# path: {}", path.to_string_lossy());
+                println!("{}", fs::read_to_string(path)?);
+            }
+            DeviceCommands::CopyBuiltin {
+                source,
+                name,
+                overwrite,
+            } => {
+                let mut profile = web::storage::builtin_profile_form(&source).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Built-in profile '{}' not found. Try one of: cisco, huawei, h3c, hillstone, juniper, array",
+                        source
+                    )
+                })?;
+
+                let normalized = name.trim().trim_end_matches(".toml");
+                if normalized.is_empty()
+                    || !normalized
+                        .chars()
+                        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+                {
+                    return Err(anyhow::anyhow!(
+                        "Invalid custom profile name '{}'. Use only letters, numbers, '_' or '-'.",
+                        name
+                    ));
+                }
+
+                profile.name = normalized.to_string();
+                let content = toml::to_string_pretty(&profile)?;
+
+                let templates_root = cli
+                    .global_opts
+                    .template_dir
+                    .clone()
+                    .unwrap_or_else(default_template_dir);
+                let profiles_dir = templates_root.join("devices");
+                fs::create_dir_all(&profiles_dir)?;
+                let target = profiles_dir.join(format!("{}.toml", normalized));
+
+                if target.exists() && !overwrite {
+                    return Err(anyhow::anyhow!(
+                        "Target profile already exists: {} (use --overwrite to replace)",
+                        target.to_string_lossy()
+                    ));
+                }
+
+                fs::write(&target, content.as_bytes())?;
                 println!(
-                    "Show details for profile '{}' is not fully supported yet.",
-                    name
+                    "Copied built-in profile '{}' to '{}'",
+                    source,
+                    target.to_string_lossy()
                 );
+            }
+            DeviceCommands::DeleteCustom { name } => {
+                let safe_name = name.trim().trim_end_matches(".toml");
+                if safe_name.is_empty()
+                    || !safe_name
+                        .chars()
+                        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+                {
+                    return Err(anyhow::anyhow!(
+                        "Invalid custom profile name '{}'. Use only letters, numbers, '_' or '-'.",
+                        name
+                    ));
+                }
+                let path = templates_root.join("devices").join(format!("{}.toml", safe_name));
+                if !path.exists() {
+                    return Err(anyhow::anyhow!(
+                        "Custom profile not found: {}",
+                        path.to_string_lossy()
+                    ));
+                }
+                fs::remove_file(&path)?;
+                println!("Deleted custom profile '{}'", path.to_string_lossy());
+            }
+            DeviceCommands::TestConnection => {
+                let host = cli
+                    .global_opts
+                    .host
+                    .clone()
+                    .ok_or_else(|| anyhow::anyhow!("Host is required for connection test"))?;
+                let username = cli
+                    .global_opts
+                    .username
+                    .clone()
+                    .unwrap_or_else(|| "admin".to_string());
+                let password = cli.global_opts.password.clone().unwrap_or_default();
+                let handler = template_loader::load_device_profile(
+                    &cli.global_opts.device_profile,
+                    cli.global_opts.template_dir.as_ref(),
+                )?;
+                let _client = DeviceClient::connect(
+                    host.clone(),
+                    cli.global_opts.port,
+                    username.clone(),
+                    password,
+                    cli.global_opts.enable_password.clone(),
+                    handler,
+                )
+                .await?;
+                println!(
+                    "Connection OK: {}@{}:{} ({})",
+                    username, host, cli.global_opts.port, cli.global_opts.device_profile
+                );
+            }
+        },
+        Commands::Templates(cmd) => match cmd {
+            TemplateCommands::List => {
+                let commands_dir = templates_root.join("commands");
+                if !commands_dir.exists() {
+                    println!("-");
+                    return Ok(());
+                }
+                let mut names = Vec::new();
+                for entry in fs::read_dir(&commands_dir)? {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                            names.push(name.to_string());
+                        }
+                    }
+                }
+                names.sort();
+                for name in names {
+                    println!("- {}", name);
+                }
+            }
+            TemplateCommands::Show { name } => {
+                let safe_name = safe_template_name(&name)?;
+                let path = templates_root.join("commands").join(&safe_name);
+                if !path.exists() {
+                    return Err(anyhow::anyhow!("template '{}' not found", safe_name));
+                }
+                println!("{}", fs::read_to_string(path)?);
+            }
+            TemplateCommands::Delete { name } => {
+                let safe_name = safe_template_name(&name)?;
+                let path = templates_root.join("commands").join(&safe_name);
+                if !path.exists() {
+                    return Err(anyhow::anyhow!("template '{}' not found", safe_name));
+                }
+                fs::remove_file(&path)?;
+                println!("Deleted template '{}'", safe_name);
             }
         },
     }
 
     Ok(())
+}
+
+fn safe_template_name(raw: &str) -> Result<String> {
+    let normalized = raw.trim();
+    if normalized.is_empty()
+        || normalized.contains('/')
+        || normalized.contains('\\')
+        || normalized.contains("..")
+        || !normalized
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' || ch == '.')
+    {
+        return Err(anyhow::anyhow!("invalid template name"));
+    }
+    Ok(normalized.to_string())
 }
