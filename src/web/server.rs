@@ -1,4 +1,5 @@
 use crate::cli::GlobalOpts;
+use crate::web::assets::{index_response, static_response};
 use crate::web::handlers::{
     create_or_update_custom_profile, create_template, delete_custom_profile, delete_template,
     exec_command, execute_template, get_builtin_profile_detail, get_builtin_profile_form,
@@ -10,21 +11,17 @@ use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
 use axum::{
     Json, Router,
-    extract::Request,
+    extract::{Path, Request},
     http::StatusCode,
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{any, get, post},
 };
 use std::net::SocketAddr;
-use std::path::PathBuf;
-use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 
 pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Result<()> {
     let state = AppState::new(defaults);
-    let static_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static");
-    let index_file = static_root.join("index.html");
 
     let app = Router::new()
         .route("/health", get(health))
@@ -59,8 +56,8 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
                 .put(update_template)
                 .delete(delete_template),
         )
-        .route_service("/", ServeFile::new(index_file))
-        .nest_service("/static", ServeDir::new(static_root))
+        .route("/", get(index))
+        .route("/static/{*path}", get(static_file))
         .fallback(any(not_found))
         .layer(middleware::from_fn(disable_cache))
         .with_state(state);
@@ -75,6 +72,14 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+async fn index() -> Response {
+    index_response()
+}
+
+async fn static_file(Path(path): Path<String>) -> Response {
+    static_response(&path)
 }
 
 async fn not_found(req: Request) -> Response {

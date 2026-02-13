@@ -1,6 +1,6 @@
 [package]
 name = "rauto"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A powerful CLI tool for network device automation using minijinja templates and rneter."
 license = "MIT"
@@ -26,3 +26,5 @@ tower-http = { version = "0.6.2", features = ["fs"] }
 tracing = "0.1.41"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt"] }
+rust-embed = "8.5.0"
+mime_guess = "2.0.5"

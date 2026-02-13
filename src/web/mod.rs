@@ -1,3 +1,4 @@
+mod assets;
 mod error;
 mod handlers;
 mod models;
