@@ -1,0 +1,56 @@
+name = "cisco_custom556767"
+sys_prompts = []
+more_patterns = ['\s*<--- More --->\s*']
+error_patterns = [
+    '''% Invalid command at '\^' marker\.''',
+    '''% Invalid parameter detected at '\^' marker\.''',
+    "^%.+",
+]
+ignore_errors = ['ERROR: object \(.+\) does not exist.']
+
+[[prompts]]
+state = "Config"
+patterns = ['^\S+\(\S+\)#\s*$']
+
+[[prompts]]
+state = "Enable"
+patterns = ['^[^\s#]+#\s*$']
+
+[[prompts]]
+state = "Login"
+patterns = ['^[^\s<]+>\s*$']
+
+[[interactions]]
+state = "EnablePassword"
+input = "EnablePassword"
+is_dynamic = true
+record_input = true
+patterns = ['^\x00*\r(Enable )?Password:']
+
+[[transitions]]
+from = "Login"
+command = "enable"
+to = "Enable"
+is_exit = false
+format_sys = false
+
+[[transitions]]
+from = "Enable"
+command = "configure terminal"
+to = "Config"
+is_exit = false
+format_sys = false
+
+[[transitions]]
+from = "Config"
+command = "exit"
+to = "Enable"
+is_exit = true
+format_sys = false
+
+[[transitions]]
+from = "Enable"
+command = "exit"
+to = "Login"
+is_exit = true
+format_sys = false

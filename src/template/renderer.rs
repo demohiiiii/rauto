@@ -1,5 +1,5 @@
+use crate::config::paths::default_template_dir;
 use anyhow::{Result, anyhow};
-use dirs;
 use minijinja::Environment;
 use serde_json::Value;
 use std::fs;
@@ -24,20 +24,14 @@ impl<'a> Renderer<'a> {
                 search_paths.push(dir.join(name));
             }
 
-            // 2. Local templates/commands
+            // 2. ~/.rauto/templates
+            let home_templates = default_template_dir();
+            search_paths.push(home_templates.join("commands").join(name));
+            search_paths.push(home_templates.join(name));
+
+            // 3. Local project templates (backward compatibility)
             search_paths.push(PathBuf::from("templates").join("commands").join(name));
             search_paths.push(PathBuf::from("templates").join(name));
-
-            // 3. User config
-            if let Some(config_dir) = dirs::config_dir() {
-                search_paths.push(
-                    config_dir
-                        .join("rauto")
-                        .join("templates")
-                        .join("commands")
-                        .join(name),
-                );
-            }
 
             // Also check absolute path if name looks like one
             if Path::new(name).is_absolute() {

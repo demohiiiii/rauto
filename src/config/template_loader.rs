@@ -1,6 +1,6 @@
 use crate::config::device_profile::DeviceProfile;
+use crate::config::paths::default_template_dir;
 use anyhow::{Context, Result, anyhow};
-use dirs;
 use rneter::{device::DeviceHandler, templates};
 use std::fs;
 use std::path::PathBuf;
@@ -32,20 +32,14 @@ pub fn load_device_profile(name: &str, custom_dir: Option<&PathBuf>) -> Result<D
         search_paths.push(dir.join(&filename));
     }
 
-    // Priority 2: Current directory templates
+    // Priority 2: ~/.rauto/templates
+    let home_templates = default_template_dir();
+    search_paths.push(home_templates.join("devices").join(&filename));
+    search_paths.push(home_templates.join(&filename));
+
+    // Priority 3: Local project templates (backward compatibility)
     search_paths.push(PathBuf::from("templates").join("devices").join(&filename));
     search_paths.push(PathBuf::from("templates").join(&filename));
-
-    // Priority 3: User config directory (~/.config/rauto/templates/devices/)
-    if let Some(config_dir) = dirs::config_dir() {
-        search_paths.push(
-            config_dir
-                .join("rauto")
-                .join("templates")
-                .join("devices")
-                .join(&filename),
-        );
-    }
 
     // Scan paths
     for path in search_paths {

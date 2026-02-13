@@ -114,9 +114,41 @@ Use it:
 rauto exec "show ver" --host 1.2.3.4 --device-profile custom_cisco
 ```
 
+### 4. Web Console (Axum)
+
+Start the built-in web service and open the visual console in your browser:
+
+```bash
+npm install
+npm run tailwind:build
+rauto web --bind 127.0.0.1 --port 3000 --host 192.168.1.1 --username admin
+```
+
+Then visit `http://127.0.0.1:3000`.
+
+The web console currently supports:
+- Rendering command templates
+- Executing a raw command
+- Rendering + executing a template
+- Listing built-in device profiles
+
+Web static assets are under `static/`:
+- `static/index.html`
+- `static/app.js`
+- `static/input.css` (Tailwind source)
+- `static/output.css` (generated CSS)
+
 ## Directory Structure
 
-By default, `rauto` looks for templates in the `templates/` directory in the current working directory.
+By default, `rauto` stores and reads templates under `~/.rauto/templates/`.
+
+Default directories:
+- `~/.rauto/templates/commands`
+- `~/.rauto/templates/devices`
+
+These folders are auto-created on startup.
+
+For backward compatibility, local `./templates/` is still checked as a fallback.
 
 ```
 .

@@ -118,9 +118,41 @@ patterns = ['^[^\s#]+#\s*$']
 rauto exec "show ver" --host 1.2.3.4 --device-profile custom_cisco
 ```
 
+### 4. Web 控制台（Axum）
+
+启动内置 Web 服务，并在浏览器中打开可视化页面：
+
+```bash
+npm install
+npm run tailwind:build
+rauto web --bind 127.0.0.1 --port 3000 --host 192.168.1.1 --username admin
+```
+
+然后访问 `http://127.0.0.1:3000`。
+
+当前 Web 页面支持：
+- 渲染命令模板
+- 执行原始命令
+- 渲染并执行模板
+- 查看内置设备配置列表
+
+Web 静态资源位于 `static/`：
+- `static/index.html`
+- `static/app.js`
+- `static/input.css`（Tailwind 源文件）
+- `static/output.css`（生成后的 CSS）
+
 ## 目录结构
 
-默认情况下，`rauto` 在当前工作目录的 `templates/` 目录中查找模板。
+默认情况下，`rauto` 在 `~/.rauto/templates/` 下存储并读取模板。
+
+默认目录：
+- `~/.rauto/templates/commands`
+- `~/.rauto/templates/devices`
+
+这些目录会在启动时自动创建。
+
+为了兼容历史用法，仍会回退检查当前目录下的 `./templates/`。
 
 ```
 .

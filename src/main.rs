@@ -2,20 +2,28 @@ mod cli;
 mod config;
 mod device;
 mod template;
+mod web;
 
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Commands, DeviceCommands};
+use config::paths::ensure_default_layout;
 use config::template_loader;
 use device::DeviceClient;
-use log::{error, info};
 use std::process;
 use template::renderer::Renderer;
+use tracing::{error, info};
+use tracing_subscriber::{EnvFilter, fmt};
+use web::run_web_server;
 
 #[tokio::main]
 async fn main() {
-    // Initialize logger
-    env_logger::init();
+    init_tracing();
+
+    if let Err(e) = ensure_default_layout() {
+        error!("Failed to initialize ~/.rauto layout: {}", e);
+        process::exit(1);
+    }
 
     let cli = Cli::parse();
 
@@ -23,6 +31,12 @@ async fn main() {
         error!("Error: {}", e);
         process::exit(1);
     }
+}
+
+fn init_tracing() {
+    let _ = tracing_log::LogTracer::init();
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let _ = fmt().with_env_filter(filter).with_target(true).try_init();
 }
 
 async fn run(cli: Cli) -> Result<()> {
@@ -147,6 +161,10 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Interactive(_) => {
             println!("Interactive mode not yet implemented");
+        }
+        Commands::Web(args) => {
+            info!("Starting web service on {}:{}", args.bind, args.port);
+            run_web_server(args.bind, args.port, cli.global_opts).await?;
         }
         Commands::Device(cmd) => match cmd {
             DeviceCommands::List => {

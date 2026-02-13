@@ -8,6 +8,8 @@
 .vscode/
 .idea/
 *.iml
+node_modules/
+.npm-cache/
 
 # Local config
 rauto.toml

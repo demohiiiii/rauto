@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>rauto web</title>
+  <link rel="stylesheet" href="/static/output.css" />
+  <style>
+    #lang-fab-wrap {
+      position: fixed;
+      bottom: 20px;
+      right: 16px;
+      z-index: 9999;
+    }
+    #lang-fab {
+      width: 46px;
+      height: 46px;
+      border-radius: 9999px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      box-shadow: 0 8px 20px rgba(2, 6, 23, 0.15);
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    #lang-menu {
+      margin-top: 8px;
+      min-width: 110px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      padding: 4px;
+      box-shadow: 0 10px 26px rgba(2, 6, 23, 0.18);
+    }
+    #lang-menu button {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: left;
+      cursor: pointer;
+    }
+    #lang-menu button:hover {
+      background: #f1f5f9;
+    }
+    .tab-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #dbe3ef;
+      background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+      border-radius: 14px;
+      padding: 6px;
+    }
+    .tab-btn {
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #334155;
+      background: transparent;
+      cursor: pointer;
+      transition: all 180ms ease;
+    }
+    .tab-btn:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    .tab-btn.is-active {
+      color: #ffffff;
+      background: linear-gradient(135deg, #0f766e, #0f172a);
+      border-color: rgba(15, 23, 42, 0.35);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.26);
+      transform: translateY(-1px);
+    }
+    .mini-btn {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 10px;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 120ms ease;
+    }
+    .mini-btn:hover {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+    }
+    .mini-btn.add {
+      border-color: #0f766e;
+      color: #0f766e;
+      background: #ecfeff;
+    }
+    .mini-btn.add:hover {
+      background: #ccfbf1;
+      border-color: #0f766e;
+    }
+    .mini-btn.delete {
+      border-color: #fecaca;
+      color: #b91c1c;
+      background: #fff1f2;
+    }
+    .mini-btn.delete:hover {
+      background: #ffe4e6;
+      border-color: #fda4af;
+    }
+    .field-card {
+      border: 1px solid #e8edf5;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff, #fbfdff);
+      padding: 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .field-card:last-child {
+      margin-bottom: 0;
+    }
+    .group-card {
+      border: 1px solid #e3eaf4;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      padding: 14px;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+    }
+    .group-body {
+      margin-top: 6px;
+    }
+    .collapse-btn {
+      border: 1px solid #cbd5e1;
+      border-radius: 9999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+      background: #f8fafc;
+      cursor: pointer;
+    }
+    .collapse-btn:hover {
+      background: #e2e8f0;
+    }
+    .field-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eef3f8;
+    }
+    .field-tools span {
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+    }
+    .stack {
+      display: grid;
+      gap: 8px;
+    }
+    .inline-input-delete {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .fit-btn {
+      width: fit-content;
+    }
+    .check-input {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 1.5px solid #94a3b8;
+      border-radius: 5px;
+      background: #ffffff;
+      display: inline-grid;
+      place-content: center;
+      cursor: pointer;
+      transition: all 120ms ease;
+    }
+    .check-input:hover {
+      border-color: #0f766e;
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+    }
+    .check-input::after {
+      content: "";
+      width: 10px;
+      height: 10px;
+      transform: scale(0);
+      transition: transform 120ms ease;
+      clip-path: polygon(14% 44%, 0 65%, 49% 100%, 100% 16%, 80% 0%, 43% 62%);
+      background: #ffffff;
+    }
+    .check-input:checked {
+      background: #0f766e;
+      border-color: #0f766e;
+    }
+    .check-input:checked::after {
+      transform: scale(1);
+    }
+    .check-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #1e293b;
+    }
+    .autocomplete-menu {
+      position: absolute;
+      z-index: 10010;
+      max-height: 260px;
+      overflow: auto;
+      border: 1px solid #dbe3ef;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 14px 26px rgba(15, 23, 42, 0.16);
+      padding: 6px;
+    }
+    .autocomplete-item {
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #0f172a;
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 14px;
+      line-height: 1.3;
+      cursor: pointer;
+    }
+    .autocomplete-item:hover,
+    .autocomplete-item.is-active {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    .op-mode-tabs {
+      margin-bottom: 22px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900">
+  <div id="lang-fab-wrap">
+    <button id="lang-fab" type="button" aria-haspopup="true" aria-expanded="false" title="Language">
+      🌐
+    </button>
+    <div id="lang-menu" hidden>
+      <button id="lang-en" type="button">English</button>
+      <button id="lang-zh" type="button">中文</button>
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-6xl px-4 py-8">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div>
+        <h1 id="title" class="text-3xl font-bold tracking-tight">rauto Web Console</h1>
+        <p id="subtitle" class="mt-2 text-sm text-slate-600">Operate existing CLI capabilities from browser UI powered by axum APIs.</p>
+      </div>
+    </section>
+
+    <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 id="connection-title" class="text-xl font-semibold">Connection Defaults</h2>
+      <div class="mt-4 grid gap-3 md:grid-cols-2">
+        <input id="host" class="input" placeholder="host" />
+        <input id="port" class="input" placeholder="port (default 22)" />
+        <input id="username" class="input" placeholder="username" />
+        <input id="password" class="input" placeholder="password" type="password" />
+        <input id="enable_password" class="input" placeholder="enable password (optional)" type="password" />
+        <input id="device_profile" class="input" placeholder="device profile (default cisco)" />
+      </div>
+      <div class="mt-3 md:w-64">
+        <button id="connection-test-btn" class="btn" type="button">Test Connection</button>
+      </div>
+      <pre id="connection-test-out" class="output mt-3"></pre>
+      <p id="connection-help" class="mt-3 text-xs text-slate-500">Leave empty to fallback to CLI defaults used at server startup.</p>
+    </section>
+
+    <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="tab-group" role="tablist" aria-label="Feature tabs">
+        <button id="tab-ops" class="tab-btn is-active" data-tab="ops" role="tab">Operations</button>
+        <button id="tab-prompts" class="tab-btn" data-tab="prompts" role="tab">Prompt Profiles</button>
+        <button id="tab-templates" class="tab-btn" data-tab="templates" role="tab">Template Manager</button>
+      </div>
+
+      <div id="panel-ops" class="tab-panel mt-4" role="tabpanel">
+        <h2 id="ops-title" class="text-xl font-semibold">Operations</h2>
+        <div class="mt-3 grid gap-3">
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="op-card-title">Execute</span>
+            </div>
+            <div id="ops-main-body" class="group-body">
+              <div class="tab-group op-mode-tabs" role="tablist" aria-label="Operation mode tabs">
+                <button id="op-kind-exec" class="tab-btn is-active" type="button">Direct Execute</button>
+                <button id="op-kind-template" class="tab-btn" type="button">Template Render + Execute</button>
+              </div>
+
+              <div id="op-direct-fields" class="grid gap-3">
+                <input id="command" class="input" placeholder="show version" />
+                <input id="mode" class="input" placeholder="mode (optional, default Enable)" />
+                <button id="exec-btn" class="btn">Execute</button>
+                <pre id="exec-out" class="output mt-2"></pre>
+              </div>
+
+              <div id="op-template-fields" class="grid gap-3" hidden>
+                <input id="template" class="input" placeholder="template file name or path" />
+                <div class="group-card">
+                  <div class="field-tools">
+                    <span id="template-selected-content-title">Selected Template Content</span>
+                  </div>
+                  <div id="template-selected-content-body" class="group-body">
+                    <textarea id="template-selected-content" class="input min-h-40 font-mono" placeholder="template content preview" readonly></textarea>
+                  </div>
+                </div>
+                <textarea id="vars" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"vlan_id": 10}'></textarea>
+                <input id="template-mode" class="input" placeholder="mode (optional, default Enable)" />
+                <div class="grid grid-cols-2 gap-2">
+                  <button id="render-btn" class="btn">Preview Render</button>
+                  <button id="template-exec-btn" class="btn">Run Template</button>
+                </div>
+                <pre id="render-out" class="output mt-2"></pre>
+                <pre id="template-exec-out" class="output mt-2"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-prompts" class="tab-panel mt-4" role="tabpanel" hidden>
+        <h2 id="prompt-mgr-title" class="text-xl font-semibold">Device Prompt Profiles</h2>
+        <div class="mt-3 tab-group" role="tablist" aria-label="Prompt mode tabs">
+          <button id="prompt-mode-view" class="tab-btn is-active" type="button">查看详情</button>
+          <button id="prompt-mode-edit" class="tab-btn" type="button">新增/修改</button>
+        </div>
+
+        <div id="prompt-view-panel" class="mt-4">
+          <h3 id="builtin-title" class="mb-2 text-sm font-semibold text-slate-700">Built-in Profiles</h3>
+          <div class="grid gap-2 md:w-[420px]">
+            <select id="builtin-profile-select" class="input"></select>
+            <button id="builtin-detail-btn" class="btn" type="button">View Detail</button>
+          </div>
+          <pre id="builtin-list" class="output mt-2"></pre>
+          <div class="mt-2 grid gap-2">
+            <input id="builtin-detail-name" class="input" placeholder="name" readonly />
+            <input id="builtin-detail-aliases" class="input" placeholder="aliases" readonly />
+            <input id="builtin-detail-summary" class="input" placeholder="summary" readonly />
+            <input id="builtin-detail-source" class="input" placeholder="source" readonly />
+            <textarea id="builtin-detail-notes" class="input min-h-24 font-mono" placeholder="notes" readonly></textarea>
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-700" data-i18n="labelMorePatterns">more_patterns</span>
+              </div>
+              <div id="builtin-more-list" class="group-body grid gap-2"></div>
+            </div>
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-700" data-i18n="labelErrorPatterns">error_patterns</span>
+              </div>
+              <div id="builtin-error-list" class="group-body grid gap-2"></div>
+            </div>
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-700" data-i18n="labelIgnoreErrors">ignore_errors</span>
+              </div>
+              <div id="builtin-ignore-list" class="group-body grid gap-2"></div>
+            </div>
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-700" data-i18n="labelPrompts">prompts</span>
+              </div>
+              <div id="builtin-prompts-list" class="group-body grid gap-2"></div>
+            </div>
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-700" data-i18n="labelSysPrompts">sys_prompts</span>
+              </div>
+              <div id="builtin-sys-prompts-list" class="group-body grid gap-2"></div>
+            </div>
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-700" data-i18n="labelInteractions">interactions</span>
+              </div>
+              <div id="builtin-interactions-list" class="group-body grid gap-2"></div>
+            </div>
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-700" data-i18n="labelTransitions">transitions</span>
+              </div>
+              <div id="builtin-transitions-list" class="group-body grid gap-2"></div>
+            </div>
+            <button id="builtin-copy-btn" class="btn" type="button">复制到新增/修改</button>
+          </div>
+          <pre id="builtin-detail-status" class="output mt-3"></pre>
+        </div>
+
+        <div id="prompt-edit-panel" class="mt-4" hidden>
+          <h3 id="custom-title" class="mb-2 text-sm font-semibold text-slate-700">Custom Profiles</h3>
+          <div class="grid gap-2 md:w-[420px]">
+            <input id="custom-profile-picker" class="input" list="custom-profile-options" placeholder="search/select custom profile name" />
+            <datalist id="custom-profile-options"></datalist>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="profile-load-btn" class="btn" type="button">Load</button>
+              <button id="profile-refresh-btn" class="btn" type="button">Refresh</button>
+            </div>
+          </div>
+
+          <div class="mt-3">
+          <div class="grid gap-2">
+            <input id="profile-form-name" class="input" placeholder="profile name" />
+
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span id="label-more-patterns" class="text-sm font-semibold text-slate-700">more_patterns</span>
+                <button id="add-more-pattern-btn" type="button" class="mini-btn add">+ Add</button>
+              </div>
+              <div id="profile-more-list" class="group-body grid gap-2"></div>
+            </div>
+
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span id="label-error-patterns" class="text-sm font-semibold text-slate-700">error_patterns</span>
+                <button id="add-error-pattern-btn" type="button" class="mini-btn add">+ Add</button>
+              </div>
+              <div id="profile-error-list" class="group-body grid gap-2"></div>
+            </div>
+
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span id="label-ignore-errors" class="text-sm font-semibold text-slate-700">ignore_errors</span>
+                <button id="add-ignore-error-btn" type="button" class="mini-btn add">+ Add</button>
+              </div>
+              <div id="profile-ignore-list" class="group-body grid gap-2"></div>
+            </div>
+
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span id="label-prompts" class="text-sm font-semibold text-slate-700">prompts</span>
+                <button id="add-prompt-row-btn" type="button" class="mini-btn add">+ Add</button>
+              </div>
+              <div id="prompts-list" class="group-body grid gap-2"></div>
+            </div>
+
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span id="label-sys-prompts" class="text-sm font-semibold text-slate-700">sys_prompts</span>
+                <button id="add-sys-prompt-row-btn" type="button" class="mini-btn add">+ Add</button>
+              </div>
+              <div id="sys-prompts-list" class="group-body grid gap-2"></div>
+            </div>
+
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span id="label-interactions" class="text-sm font-semibold text-slate-700">interactions</span>
+                <button id="add-interaction-row-btn" type="button" class="mini-btn add">+ Add</button>
+              </div>
+              <div id="interactions-list" class="group-body grid gap-2"></div>
+            </div>
+
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span id="label-transitions" class="text-sm font-semibold text-slate-700">transitions</span>
+                <button id="add-transition-row-btn" type="button" class="mini-btn add">+ Add</button>
+              </div>
+              <div id="transitions-list" class="group-body grid gap-2"></div>
+            </div>
+          </div>
+          <div class="mt-2 grid grid-cols-2 gap-2 md:w-96">
+            <button id="profile-save-btn" class="btn" type="button">Save</button>
+            <button id="profile-delete-btn" class="btn" type="button">Delete</button>
+          </div>
+          <pre id="profile-out" class="output mt-3"></pre>
+        </div>
+        </div>
+      </div>
+
+      <div id="panel-templates" class="tab-panel mt-4" role="tabpanel" hidden>
+        <h2 id="template-mgr-title" class="text-xl font-semibold">Template Manager</h2>
+        <div class="mt-4 grid gap-3">
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="template-list-title" class="text-sm font-semibold text-slate-700">Templates</span>
+            </div>
+            <div id="template-picker-body" class="group-body">
+              <div class="grid gap-2 md:w-[520px]">
+                <input id="template-pick-name" class="input" list="template-options" placeholder="search/select template name" />
+                <datalist id="template-options"></datalist>
+                <div class="grid grid-cols-2 gap-2">
+                  <button id="template-load-btn" class="btn" type="button">Load</button>
+                  <button id="template-refresh-btn" class="btn" type="button">Refresh</button>
+                </div>
+              </div>
+              <pre id="template-list" class="output mt-2"></pre>
+            </div>
+          </div>
+
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="template-editor-title" class="text-sm font-semibold text-slate-700">Editor</span>
+              <button id="template-copy-content-btn" type="button" class="mini-btn">Copy Content</button>
+            </div>
+            <div id="template-editor-body" class="group-body">
+              <div class="grid gap-2">
+                <input id="template-manage-name" class="input" placeholder="template name, e.g. show_version.j2" />
+                <input id="template-manage-path" class="input" placeholder="path" readonly />
+                <textarea id="template-content" class="input min-h-64 font-mono" placeholder="Template content"></textarea>
+                <div class="grid grid-cols-3 gap-2 md:w-[520px]">
+                  <button id="template-create-btn" class="btn" type="button">Create</button>
+                  <button id="template-update-btn" class="btn" type="button">Update</button>
+                  <button id="template-delete-btn" class="btn" type="button">Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <pre id="template-out" class="output"></pre>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

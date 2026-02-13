@@ -1,11 +1,11 @@
 use anyhow::{Result, anyhow};
-use log::{debug, error, info};
 use rneter::{
     device::DeviceHandler,
     session::{CmdJob, Command, MANAGER},
 };
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
+use tracing::{debug, error, info};
 
 pub struct DeviceClient {
     sender: Sender<CmdJob>,

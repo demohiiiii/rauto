@@ -1,0 +1,8 @@
+name = "rree"
+prompts = []
+sys_prompts = []
+interactions = []
+more_patterns = ["ddd"]
+error_patterns = ["www"]
+transitions = []
+ignore_errors = ["tttt"]

@@ -22,6 +22,9 @@ pub enum Commands {
     /// Start an interactive session
     Interactive(InteractiveArgs),
 
+    /// Start web service with visual UI
+    Web(WebArgs),
+
     /// Manage device configuration templates
     #[command(subcommand)]
     Device(DeviceCommands),
@@ -66,6 +69,17 @@ pub struct ExecArgs {
 pub struct InteractiveArgs {}
 
 #[derive(Args, Debug)]
+pub struct WebArgs {
+    /// Bind address for web server
+    #[arg(long, default_value = "127.0.0.1")]
+    pub bind: String,
+
+    /// Listen port for web server
+    #[arg(long, default_value = "3000")]
+    pub port: u16,
+}
+
+#[derive(Args, Debug, Clone)]
 pub struct GlobalOpts {
     /// Device hostname or IP address
     #[arg(long, global = true)]
@@ -80,7 +94,7 @@ pub struct GlobalOpts {
     pub password: Option<String>,
 
     /// SSH port
-    #[arg(long, short = 'P', global = true, default_value = "22")]
+    #[arg(long = "ssh-port", short = 'P', global = true, default_value = "22")]
     pub port: u16,
 
     /// Enable password (for Cisco Enable mode etc.)
