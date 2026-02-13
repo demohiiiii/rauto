@@ -46,10 +46,8 @@ impl DeviceClient {
 
         let cmd = CmdJob {
             data: Command {
-                cmd_type: "exec".to_string(), // Generic type
                 mode,
                 command: command_str.to_string(),
-                template: String::new(),
                 timeout: Some(self.default_timeout),
             },
             sys: None, // Optional system name check

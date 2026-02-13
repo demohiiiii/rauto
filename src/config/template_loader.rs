@@ -8,12 +8,12 @@ use std::path::PathBuf;
 pub fn load_device_profile(name: &str, custom_dir: Option<&PathBuf>) -> Result<DeviceHandler> {
     // 1. Check built-in templates
     match name.to_lowercase().as_str() {
-        "cisco" | "ios" => return Ok(templates::cisco()),
-        "huawei" | "vrp" => return Ok(templates::huawei()),
-        "h3c" | "comware" => return Ok(templates::h3c()),
-        "hillstone" => return Ok(templates::hillstone()),
-        "juniper" | "junos" => return Ok(templates::juniper()),
-        "array" => return Ok(templates::array()),
+        "cisco" | "ios" => return Ok(templates::cisco()?),
+        "huawei" | "vrp" => return Ok(templates::huawei()?),
+        "h3c" | "comware" => return Ok(templates::h3c()?),
+        "hillstone" => return Ok(templates::hillstone()?),
+        "juniper" | "junos" => return Ok(templates::juniper()?),
+        "array" => return Ok(templates::array()?),
         _ => {}
     }
 
@@ -50,7 +50,7 @@ pub fn load_device_profile(name: &str, custom_dir: Option<&PathBuf>) -> Result<D
             let profile: DeviceProfile = toml::from_str(&content)
                 .with_context(|| format!("Failed to parse device profile from {:?}", path))?;
 
-            return Ok(profile.to_device_handler());
+            return profile.to_device_handler();
         }
     }
 

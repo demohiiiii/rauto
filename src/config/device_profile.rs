@@ -1,3 +1,4 @@
+use anyhow::Result;
 use rneter::device::DeviceHandler;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -57,7 +58,7 @@ pub struct TransitionConfig {
 }
 
 impl DeviceProfile {
-    pub fn to_device_handler(&self) -> DeviceHandler {
+    pub fn to_device_handler(&self) -> Result<DeviceHandler> {
         let prompts: Vec<(String, Vec<String>)> = self
             .prompts
             .iter()
@@ -96,7 +97,7 @@ impl DeviceProfile {
             })
             .collect();
 
-        DeviceHandler::new(
+        Ok(DeviceHandler::new(
             prompts,
             sys_prompts,
             interactions,
@@ -105,6 +106,6 @@ impl DeviceProfile {
             transitions,
             self.ignore_errors.clone(),
             HashMap::new(), // dyn_param will be set later during connection or from args
-        )
+        )?)
     }
 }
