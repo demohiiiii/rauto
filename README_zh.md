@@ -13,6 +13,8 @@
 - **Dry Run 支持**：在执行前预览命令。
 - **变量注入**：从 JSON 文件加载变量。
 - **可扩展性**：支持自定义 TOML 设备配置。
+- **内置 Web 控制台**：通过 `rauto web` 启动浏览器页面。
+- **内嵌静态资源**：发布二进制时前端资源已打包到可执行文件中。
 
 ## 安装
 
@@ -46,7 +48,11 @@ cargo build --release
 
 **基本用法：**
 ```bash
-rauto template show_version.j2 --host 192.168.1.1 --username admin --password secret
+rauto template show_version.j2 \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
 ```
 
 **使用变量：**
@@ -56,12 +62,16 @@ rauto template show_version.j2 --host 192.168.1.1 --username admin --password se
 rauto template configure_vlan.j2 \
     --vars templates/example_vars.json \
     --host 192.168.1.1 \
-    --username admin
+    --username admin \
+    --password secret \
+    --ssh-port 22
 ```
 
 **Dry Run（预览）：**
 ```bash
-rauto template configure_vlan.j2 --vars templates/example_vars.json --dry-run
+rauto template configure_vlan.j2 \
+    --vars templates/example_vars.json \
+    --dry-run
 ```
 
 ### 2. 直接执行
@@ -69,14 +79,23 @@ rauto template configure_vlan.j2 --vars templates/example_vars.json --dry-run
 直接执行原始命令，无需模板。
 
 ```bash
-rauto exec "show ip int br" --host 192.168.1.1 --username admin
+rauto exec "show ip int br" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
 ```
 
 **指定执行模式：**
 在特定模式下执行命令（例如 `Enable`, `Config`）。
 
 ```bash
-rauto exec "show bgp neighbor" --host 192.168.1.1 --mode Enable
+rauto exec "show bgp neighbor" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22 \
+    --mode Enable
 ```
 
 ### 3. 设备配置模板
@@ -92,7 +111,12 @@ rauto device list
 默认为 `cisco`。要使用 Huawei VRP：
 
 ```bash
-rauto template show_ver.j2 --host 1.2.3.4 --device-profile huawei
+rauto template show_ver.j2 \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22 \
+    --device-profile huawei
 ```
 
 **自定义设备配置：**
@@ -115,7 +139,25 @@ patterns = ['^[^\s#]+#\s*$']
 
 使用它：
 ```bash
-rauto exec "show ver" --host 1.2.3.4 --device-profile custom_cisco
+rauto exec "show ver" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22 \
+    --device-profile custom_cisco
+```
+
+**常用 profile 管理命令：**
+```bash
+rauto device list
+rauto device show cisco
+rauto device copy-builtin cisco my_cisco
+rauto device delete-custom my_cisco
+rauto device test-connection \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
 ```
 
 ### 4. Web 控制台（Axum）
@@ -123,24 +165,61 @@ rauto exec "show ver" --host 1.2.3.4 --device-profile custom_cisco
 启动内置 Web 服务，并在浏览器中打开可视化页面：
 
 ```bash
-npm install
-npm run tailwind:build
-rauto web --bind 127.0.0.1 --port 3000 --host 192.168.1.1 --username admin
+rauto web \
+    --bind 127.0.0.1 \
+    --port 3000 \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
 ```
 
 然后访问 `http://127.0.0.1:3000`。
 
-当前 Web 页面支持：
-- 渲染命令模板
-- 执行原始命令
-- 渲染并执行模板
-- 查看内置设备配置列表
+Web 静态资源在构建时会嵌入二进制。  
+对于发布后的可执行文件，运行时不再依赖本地 `static/` 目录。
 
-Web 静态资源位于 `static/`：
-- `static/index.html`
-- `static/app.js`
-- `static/input.css`（Tailwind 源文件）
-- `static/output.css`（生成后的 CSS）
+### 5. Template 存储管理命令
+
+```bash
+rauto templates list
+rauto templates show show_version.j2
+rauto templates delete show_version.j2
+```
+
+### 6. CLI 速查表
+
+**连接排障**
+```bash
+rauto device test-connection \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
+```
+
+**Profile 管理**
+```bash
+rauto device list
+rauto device show cisco
+rauto device copy-builtin cisco my_cisco
+rauto device show my_cisco
+rauto device delete-custom my_cisco
+```
+
+**Template 存储管理**
+```bash
+rauto templates list
+rauto templates show show_version.j2
+rauto templates delete show_version.j2
+```
+
+**启动 Web 控制台**
+```bash
+rauto web \
+    --bind 127.0.0.1 \
+    --port 3000
+```
 
 ## 目录结构
 
@@ -176,7 +255,7 @@ Web 静态资源位于 `static/`：
 | `--username` | - | SSH 用户名 |
 | `--password` | `RAUTO_PASSWORD` | SSH 密码 |
 | `--enable-password` | - | Enable/Secret 密码 |
-| `--port` | - | SSH 端口 (默认: 22) |
+| `--ssh-port` | - | SSH 端口 (默认: 22) |
 | `--device-profile` | - | 设备类型 (默认: cisco) |
 
 ## 模板语法
