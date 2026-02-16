@@ -16,6 +16,7 @@
 - **Built-in Web Console**: Start browser UI with `rauto web`.
 - **Embedded Web Assets**: Frontend files are embedded into the binary for release usage.
 - **Saved Connection Profiles**: Reuse named connection settings across commands.
+- **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
 
 ## Installation
 
@@ -180,7 +181,9 @@ Web console key capabilities:
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
 - Execute commands with saved connection info (load one connection, then run direct or template mode).
 - Manage profiles (builtin/custom) and templates in dedicated tabs.
+- Diagnose profile state machines in Prompt Management -> Diagnostics with visualized result fields.
 - Switch Chinese/English in UI.
+- Record execution sessions and replay recorded outputs in browser (list events or replay by command/mode).
 
 ### 5. Template Storage Commands
 
@@ -258,6 +261,29 @@ rauto templates show show_version.j2
 rauto templates delete show_version.j2
 ```
 
+**Session recording & replay**
+```bash
+# Record direct exec
+rauto exec "show version" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --record-file ~/.rauto/records/show_version.jsonl \
+    --record-level full
+
+# Record template execution
+rauto template show_version.j2 \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --record-file ~/.rauto/records/template_run.jsonl \
+    --record-level key-events-only
+
+# Replay / inspect
+rauto replay ~/.rauto/records/show_version.jsonl --list
+rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
+```
+
 **Start web console**
 ```bash
 rauto web \
@@ -267,26 +293,27 @@ rauto web \
 
 ## Directory Structure
 
-By default, `rauto` stores and reads templates under `~/.rauto/templates/`.
+By default, `rauto` stores runtime data under `~/.rauto/`.
 
 Default directories:
+- `~/.rauto/connections` (saved connection profiles)
+- `~/.rauto/profiles` (custom device profiles)
 - `~/.rauto/templates/commands`
 - `~/.rauto/templates/devices`
+- `~/.rauto/records` (session recordings)
 
 These folders are auto-created on startup.
 
 For backward compatibility, local `./templates/` is still checked as a fallback.
 
 ```
-.
+~/.rauto
+├── connections/            # Saved connection profiles (*.toml)
+├── profiles/               # Custom profiles copied/created from builtin
 ├── templates/
 │   ├── commands/           # Store your .j2 command templates here
-│   │   ├── configure_vlan.j2
-│   │   └── show_version.j2
-│   ├── devices/            # Store custom .toml device profiles here
-│   │   └── custom_cisco.toml
-│   └── example_vars.json   # Example variable files
-└── src/
+│   └── devices/            # Store custom .toml device profiles here
+└── records/                # Session recording output (*.jsonl)
 ```
 
 You can specify a custom template directory using the `--template-dir` argument or `RAUTO_TEMPLATE_DIR` environment variable.
@@ -304,6 +331,12 @@ You can specify a custom template directory using the `--template-dir` argument 
 | `--connection` | - | Load saved connection profile by name |
 | `--save-connection` | - | Save effective connection profile after successful connect |
 | `--save-password` | - | With `--save-connection`, also save password/enable_password |
+
+Recording-related options (command-specific):
+- `exec/template --record-file <path>`: Save recording JSONL after execution.
+- `exec/template --record-level <off|key-events-only|full>`: Recording granularity.
+- `replay <record_file> --list`: List recorded command output events.
+- `replay <record_file> --command <cmd> [--mode <mode>]`: Replay one command output.
 
 ## Template Syntax
 

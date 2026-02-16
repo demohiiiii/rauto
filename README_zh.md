@@ -16,6 +16,7 @@
 - **内置 Web 控制台**：通过 `rauto web` 启动浏览器页面。
 - **内嵌静态资源**：发布二进制时前端资源已打包到可执行文件中。
 - **连接配置档复用**：支持按名称保存/加载连接参数。
+- **会话录制与回放**：支持将 SSH 会话录制为 JSONL 并离线回放。
 
 ## 安装
 
@@ -184,7 +185,9 @@ Web 控制台主要能力：
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
 - 基于已保存连接执行命令（先加载连接，再选择直接执行或模板渲染执行）。
 - 分页管理 profile（内置/自定义）与 template。
+- 在 Prompt 管理 -> 诊断页里可视化查看 profile 状态机诊断结果。
 - 支持中英文界面切换。
+- 支持执行录制与浏览器内回放（可列出事件，或按命令/模式回放）。
 
 ### 5. Template 存储管理命令
 
@@ -262,6 +265,29 @@ rauto templates show show_version.j2
 rauto templates delete show_version.j2
 ```
 
+**会话录制与回放**
+```bash
+# 录制直接执行
+rauto exec "show version" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --record-file ~/.rauto/records/show_version.jsonl \
+    --record-level full
+
+# 录制模板执行
+rauto template show_version.j2 \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --record-file ~/.rauto/records/template_run.jsonl \
+    --record-level key-events-only
+
+# 回放 / 查看
+rauto replay ~/.rauto/records/show_version.jsonl --list
+rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
+```
+
 **启动 Web 控制台**
 ```bash
 rauto web \
@@ -271,26 +297,27 @@ rauto web \
 
 ## 目录结构
 
-默认情况下，`rauto` 在 `~/.rauto/templates/` 下存储并读取模板。
+默认情况下，`rauto` 将运行时数据存储在 `~/.rauto/` 下。
 
 默认目录：
+- `~/.rauto/connections`（已保存连接配置）
+- `~/.rauto/profiles`（自定义设备 profile）
 - `~/.rauto/templates/commands`
 - `~/.rauto/templates/devices`
+- `~/.rauto/records`（会话录制文件）
 
 这些目录会在启动时自动创建。
 
 为了兼容历史用法，仍会回退检查当前目录下的 `./templates/`。
 
 ```
-.
+~/.rauto
+├── connections/            # 已保存连接配置 (*.toml)
+├── profiles/               # 从内置复制/创建的自定义 profile
 ├── templates/
-│   ├── commands/           #在此存储 .j2 命令模板
-│   │   ├── configure_vlan.j2
-│   │   └── show_version.j2
-│   ├── devices/            # 在此存储自定义 .toml 设备配置
-│   │   └── custom_cisco.toml
-│   └── example_vars.json   # 示例变量文件
-└── src/
+│   ├── commands/           # 在此存储 .j2 命令模板
+│   └── devices/            # 在此存储自定义 .toml 设备配置
+└── records/                # 会话录制输出 (*.jsonl)
 ```
 
 你可以使用 `--template-dir` 参数或 `RAUTO_TEMPLATE_DIR` 环境变量指定自定义模板目录。
@@ -308,6 +335,12 @@ rauto web \
 | `--connection` | - | 按名称加载已保存连接配置 |
 | `--save-connection` | - | 成功连接后保存当前有效连接配置 |
 | `--save-password` | - | 配合 `--save-connection` 使用时保存密码/enable_password |
+
+录制/回放相关参数（命令级参数）：
+- `exec/template --record-file <path>`：执行后保存录制 JSONL。
+- `exec/template --record-level <off|key-events-only|full>`：录制粒度。
+- `replay <record_file> --list`：列出录制中的命令输出事件。
+- `replay <record_file> --command <cmd> [--mode <mode>]`：回放单条命令输出。
 
 ## 模板语法
 

@@ -209,6 +209,70 @@
       font-size: 14px;
       color: #1e293b;
     }
+    .diag-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+    .diag-card {
+      border: 1px solid #dbe3ef;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #f8fafc;
+    }
+    .diag-card .k {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+    .diag-card .v {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .diag-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 9999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+    }
+    .diag-badge.ok {
+      border-color: #99f6e4;
+      background: #f0fdfa;
+      color: #0f766e;
+    }
+    .diag-badge.bad {
+      border-color: #fecaca;
+      background: #fff1f2;
+      color: #b91c1c;
+    }
+    .diag-list {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 10px 12px;
+    }
+    .diag-list h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+    .diag-list ul {
+      margin: 0;
+      padding-left: 16px;
+      color: #0f172a;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .diag-list li {
+      margin: 2px 0;
+    }
     .btn-danger {
       background: #dc2626;
       border: 1px solid #dc2626;
@@ -357,6 +421,91 @@
                 <pre id="render-out" class="output mt-2"></pre>
                 <pre id="template-exec-out" class="output mt-2"></pre>
               </div>
+
+              <div class="group-card mt-3">
+                <div class="field-tools">
+                  <span id="recording-title">Session Recording</span>
+                </div>
+                <div class="group-body grid gap-2">
+                  <div class="inline-flex items-center gap-3">
+                    <label class="check-label"><input id="record-enable" type="checkbox" class="check-input" /><span id="record-enable-label">Enable recording</span></label>
+                    <select id="record-level" class="input md:w-[220px]">
+                      <option value="full">full</option>
+                      <option value="key-events-only">key-events-only</option>
+                      <option value="off">off</option>
+                    </select>
+                  </div>
+                  <div class="inline-flex items-center gap-2">
+                    <span id="record-view-label" class="text-sm font-semibold text-slate-600">Display</span>
+                    <div class="tab-group">
+                      <button id="record-view-list" class="tab-btn is-active" type="button">List</button>
+                      <button id="record-view-raw" class="tab-btn" type="button">Raw</button>
+                    </div>
+                    <label class="check-label">
+                      <input id="record-failed-only" type="checkbox" class="check-input" />
+                      <span id="record-failed-only-label">Failed only</span>
+                    </label>
+                    <select id="record-event-kind" class="input w-[220px]">
+                      <option value="all">All events</option>
+                      <option value="command_output">command_output</option>
+                      <option value="connection_established">connection_established</option>
+                      <option value="connection_closed">connection_closed</option>
+                      <option value="prompt_changed">prompt_changed</option>
+                      <option value="state_changed">state_changed</option>
+                      <option value="raw_chunk">raw_chunk</option>
+                    </select>
+                    <input id="record-search" class="input w-[260px]" placeholder="search command/content" />
+                    <button id="record-clear-filters" class="mini-btn" type="button">Clear</button>
+                  </div>
+                  <div id="record-list-out" class="grid gap-3"></div>
+                  <textarea id="record-jsonl" class="input min-h-28 font-mono" placeholder="recording JSONL output" hidden></textarea>
+                  <div class="inline-flex flex-wrap items-center gap-2">
+                    <button id="record-copy-btn" class="mini-btn" type="button">Copy Recording</button>
+                    <button id="record-use-replay-btn" class="mini-btn" type="button">Use In Replay</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="group-card mt-3">
+                <div class="field-tools">
+                  <span id="replay-title">Session Replay</span>
+                </div>
+                <div class="group-body grid gap-2">
+                  <textarea id="replay-jsonl" class="input min-h-28 font-mono" placeholder="paste recording JSONL"></textarea>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    <input id="replay-command" class="input" placeholder="command to replay, e.g. show version" />
+                    <input id="replay-mode" class="input" placeholder="mode for replay (optional)" />
+                  </div>
+                  <div class="inline-flex flex-wrap items-center gap-2">
+                    <button id="replay-list-btn" class="btn" type="button">List Records</button>
+                    <button id="replay-run-btn" class="btn" type="button">Replay Command</button>
+                  </div>
+                  <div class="inline-flex items-center gap-2">
+                    <span id="replay-view-label" class="text-sm font-semibold text-slate-600">Display</span>
+                    <div class="tab-group">
+                      <button id="replay-view-list" class="tab-btn is-active" type="button">List</button>
+                      <button id="replay-view-raw" class="tab-btn" type="button">Raw</button>
+                    </div>
+                    <label class="check-label">
+                      <input id="replay-failed-only" type="checkbox" class="check-input" />
+                      <span id="replay-failed-only-label">Failed only</span>
+                    </label>
+                    <select id="replay-event-kind" class="input w-[220px]">
+                      <option value="all">All events</option>
+                      <option value="command_output">command_output</option>
+                      <option value="connection_established">connection_established</option>
+                      <option value="connection_closed">connection_closed</option>
+                      <option value="prompt_changed">prompt_changed</option>
+                      <option value="state_changed">state_changed</option>
+                      <option value="raw_chunk">raw_chunk</option>
+                    </select>
+                    <input id="replay-search" class="input w-[260px]" placeholder="search command/content" />
+                    <button id="replay-clear-filters" class="mini-btn" type="button">Clear</button>
+                  </div>
+                  <div id="replay-list-out" class="grid gap-3"></div>
+                  <pre id="replay-out" class="output" hidden></pre>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -367,6 +516,7 @@
         <div class="mt-3 tab-group" role="tablist" aria-label="Prompt mode tabs">
           <button id="prompt-mode-view" class="tab-btn is-active" type="button">查看详情</button>
           <button id="prompt-mode-edit" class="tab-btn" type="button">新增/修改</button>
+          <button id="prompt-mode-diagnose" class="tab-btn" type="button">诊断</button>
         </div>
 
         <div id="prompt-view-panel" class="mt-4">
@@ -501,6 +651,44 @@
           <pre id="profile-out" class="output mt-3"></pre>
         </div>
         </div>
+
+        <div id="prompt-diagnose-panel" class="mt-4" hidden>
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="profile-diagnose-title">State Machine Diagnose</span>
+            </div>
+            <div class="group-body grid gap-2 md:w-[760px]">
+              <input id="profile-diagnose-picker" class="input" list="profile-diagnose-options" placeholder="search/select profile name" />
+              <datalist id="profile-diagnose-options"></datalist>
+              <div class="md:w-64">
+                <button id="profile-diagnose-btn" class="btn" type="button">Diagnose</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 group-card">
+            <div class="field-tools">
+              <span id="profile-diagnose-result-title">Diagnose Result</span>
+              <span id="profile-diagnose-badge" class="diag-badge">-</span>
+            </div>
+            <div class="group-body grid gap-3">
+              <div class="diag-grid">
+                <div class="diag-card"><div class="k" id="diag-k-total">total_states</div><div class="v" id="diag-total-states">-</div></div>
+                <div class="diag-card"><div class="k" id="diag-k-graph">graph_states</div><div class="v" id="diag-graph-states">-</div></div>
+                <div class="diag-card"><div class="k" id="diag-k-entry">entry_states</div><div class="v" id="diag-entry-states">-</div></div>
+                <div class="diag-card"><div class="k" id="diag-k-issues">issues</div><div class="v" id="diag-issues-count">-</div></div>
+              </div>
+              <div class="grid gap-2 md:grid-cols-2">
+                <div class="diag-list"><h4 id="diag-l-unreach">unreachable_states</h4><ul id="diag-unreachable-states"></ul></div>
+                <div class="diag-list"><h4 id="diag-l-deadend">dead_end_states</h4><ul id="diag-dead-end-states"></ul></div>
+                <div class="diag-list"><h4 id="diag-l-missing-src">missing_edge_sources</h4><ul id="diag-missing-sources"></ul></div>
+                <div class="diag-list"><h4 id="diag-l-missing-tgt">missing_edge_targets</h4><ul id="diag-missing-targets"></ul></div>
+                <div class="diag-list"><h4 id="diag-l-ambiguous">potentially_ambiguous_prompt_states</h4><ul id="diag-ambiguous-states"></ul></div>
+              </div>
+              <pre id="profile-diagnose-out" class="output"></pre>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="panel-templates" class="tab-panel mt-4" role="tabpanel" hidden>
@@ -539,6 +727,18 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <div id="detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 px-4" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+    <div class="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <h3 id="detail-modal-title" class="text-base font-semibold text-slate-800">Entry Details</h3>
+        <button id="detail-modal-close" class="mini-btn" type="button">Close</button>
+      </div>
+      <div class="p-4">
+        <pre id="detail-modal-body" class="output max-h-[70vh] overflow-auto"></pre>
+      </div>
+    </div>
   </div>
 
   <script src="/static/app.js"></script>

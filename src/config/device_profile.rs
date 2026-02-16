@@ -3,6 +3,8 @@ use rneter::device::DeviceHandler;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+type InteractionTuple = (String, (bool, String, bool), Vec<String>);
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeviceProfile {
     pub name: String,
@@ -71,7 +73,7 @@ impl DeviceProfile {
             .map(|p| (p.state.clone(), p.sys_name_group.clone(), p.pattern.clone()))
             .collect();
 
-        let interactions: Vec<(String, (bool, String, bool), Vec<String>)> = self
+        let interactions: Vec<InteractionTuple> = self
             .interactions
             .iter()
             .map(|i| {

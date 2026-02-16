@@ -1,3 +1,7 @@
+use rneter::{
+    device::StateMachineDiagnostics,
+    session::SessionRecordEntry,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -69,11 +73,13 @@ pub struct ExecRequest {
     pub mode: Option<String>,
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ExecResponse {
     pub output: String,
+    pub recording_jsonl: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -86,6 +92,7 @@ pub struct ExecuteTemplateRequest {
     pub template_dir: Option<String>,
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
 }
 
 #[derive(Debug, Serialize)]
@@ -100,6 +107,7 @@ pub struct CommandResult {
 pub struct ExecuteTemplateResponse {
     pub rendered_commands: String,
     pub executed: Vec<CommandResult>,
+    pub recording_jsonl: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -164,4 +172,57 @@ pub struct CreateTemplateRequest {
 #[derive(Debug, Deserialize)]
 pub struct UpdateTemplateRequest {
     pub content: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RecordLevel {
+    Off,
+    KeyEventsOnly,
+    Full,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProfileDiagnoseRequest {
+    pub name: String,
+    pub template_dir: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProfileDiagnoseResponse {
+    pub name: String,
+    pub diagnostics: StateMachineDiagnostics,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReplayRequest {
+    pub jsonl: String,
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub list: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReplayContextDto {
+    pub device_addr: String,
+    pub prompt: String,
+    pub fsm_prompt: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReplayOutputDto {
+    pub success: bool,
+    pub content: String,
+    pub all: String,
+    pub prompt: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReplayResponse {
+    pub context: Option<ReplayContextDto>,
+    pub entries: Vec<SessionRecordEntry>,
+    pub output: Option<ReplayOutputDto>,
 }

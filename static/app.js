@@ -2,6 +2,18 @@ function byId(id) {
   return document.getElementById(id);
 }
 
+const STORAGE_KEYS = {
+  lang: "rauto_lang",
+  recordViewMode: "rauto_record_view_mode",
+  replayViewMode: "rauto_replay_view_mode",
+  recordFailedOnly: "rauto_record_failed_only",
+  replayFailedOnly: "rauto_replay_failed_only",
+  recordEventKind: "rauto_record_event_kind",
+  replayEventKind: "rauto_replay_event_kind",
+  recordSearchQuery: "rauto_record_search_query",
+  replaySearchQuery: "rauto_replay_search_query",
+};
+
 const i18n = {
   en: {
     title: "rauto Web Console",
@@ -27,7 +39,14 @@ const i18n = {
     templateSelectedContentTitle: "Selected Template Content",
     templateSelectedContentPlaceholder: "template content preview",
     promptMgrTitle: "Device Prompt Profiles",
+    promptModeView: "View",
+    promptModeEdit: "Edit",
     builtinTitle: "Built-in Profiles",
+    builtinFieldName: "name",
+    builtinFieldAliases: "aliases",
+    builtinFieldSummary: "summary",
+    builtinFieldSource: "source",
+    builtinFieldNotes: "notes",
     customTitle: "Custom Profiles",
     templateMgrTitle: "Template Manager",
     templateListTitle: "Templates",
@@ -37,10 +56,79 @@ const i18n = {
     renderBtn: "Preview Render",
     execBtn: "Execute",
     templateExecBtn: "Run Template",
+    recordingTitle: "Session Recording",
+    recordViewLabel: "Display",
+    replayViewLabel: "Display",
+    viewList: "List",
+    viewRaw: "Raw",
+    failedOnly: "Failed only",
+    eventTypeAll: "All events",
+    eventTypeLabel: "Type",
+    searchPlaceholder: "search command/content",
+    clearFilters: "Clear",
+    recordEnableLabel: "Enable recording",
+    recordJsonlPlaceholder: "recording JSONL output",
+    recordCopyBtn: "Copy Recording",
+    recordUseReplayBtn: "Use In Replay",
+    replayTitle: "Session Replay",
+    replayJsonlPlaceholder: "paste recording JSONL",
+    replayCommandPlaceholder: "command to replay, e.g. show version",
+    replayModePlaceholder: "mode for replay (optional)",
+    replayListBtn: "List Records",
+    replayRunBtn: "Replay Command",
+    replayNoJsonl: "replay JSONL is required",
+    replayNoCommand: "replay command is required",
+    replayListEmpty: "no command_output entries",
+    replayListNoData: "no replay result",
+    recordListEmpty: "no recording data",
+    recordParseError: "recording JSONL parse failed",
+    noFailedEntries: "no failed command events",
+    noMatchedEntries: "no matched events",
+    replayContextTitle: "Context",
+    replayEntriesTitle: "Entries",
+    replayOutputTitle: "Replay Output",
+    statTotal: "Total",
+    statCommandEvents: "Command Events",
+    statFailedEvents: "Failed",
+    statKinds: "Kinds",
+    tableIndex: "#",
+    tableEvent: "Event",
+    tableCommand: "Command",
+    tableMode: "Mode",
+    tableSuccess: "Success",
+    tablePromptFlow: "Prompt Flow",
+    tableFsmFlow: "FSM Flow",
+    flowBefore: "Before",
+    flowAfter: "After",
+    tableAction: "Action",
+    actionViewDetail: "View Detail",
+    detailModalTitle: "Entry Details",
+    detailModalClose: "Close",
+    tableDetail: "Details",
+    recordingCopied: "recording copied",
+    recordingSetToReplay: "recording moved to replay",
     profileLoadBtn: "Load",
     profileRefreshBtn: "Refresh",
     profileSaveBtn: "Save",
     profileDeleteBtn: "Delete",
+    promptModeDiagnose: "Diagnose",
+    profileDiagnoseTitle: "State Machine Diagnose",
+    profileDiagnoseBtn: "Diagnose",
+    profileDiagnoseResultTitle: "Diagnose Result",
+    diagnoseOk: "Healthy",
+    diagnoseBad: "Issues Found",
+    profileNameRequired: "profile name is required",
+    diagTotalStates: "Total States",
+    diagGraphStates: "States In Graph",
+    diagEntryStates: "Entry States",
+    diagIssues: "Issue Count",
+    diagUnreachableStates: "Unreachable States",
+    diagDeadEndStates: "Dead-End States",
+    diagMissingEdgeSources: "Missing Edge Sources",
+    diagMissingEdgeTargets: "Missing Edge Targets",
+    diagAmbiguousPromptStates: "Ambiguous Prompt States",
+    diagSummaryProfile: "Profile",
+    diagSummaryIssueCount: "Issue Count",
     builtinDetailBtn: "View Detail",
     builtinCopyBtn: "Copy To Custom Form",
     templateLoadBtn: "Load",
@@ -128,7 +216,14 @@ const i18n = {
     templateSelectedContentTitle: "已选模板内容",
     templateSelectedContentPlaceholder: "模板内容预览",
     promptMgrTitle: "设备 Prompt 配置",
+    promptModeView: "查看详情",
+    promptModeEdit: "新增/修改",
     builtinTitle: "内置 Profile",
+    builtinFieldName: "名称",
+    builtinFieldAliases: "别名",
+    builtinFieldSummary: "摘要",
+    builtinFieldSource: "来源",
+    builtinFieldNotes: "说明",
     customTitle: "自定义 Profile",
     templateMgrTitle: "Template 管理",
     templateListTitle: "Template 列表",
@@ -138,10 +233,79 @@ const i18n = {
     renderBtn: "预览渲染",
     execBtn: "执行",
     templateExecBtn: "运行模板",
+    recordingTitle: "会话录制",
+    recordViewLabel: "展示模式",
+    replayViewLabel: "展示模式",
+    viewList: "列表",
+    viewRaw: "原始",
+    failedOnly: "仅失败项",
+    eventTypeAll: "全部事件",
+    eventTypeLabel: "类型",
+    searchPlaceholder: "搜索命令/内容",
+    clearFilters: "清空筛选",
+    recordEnableLabel: "启用录制",
+    recordJsonlPlaceholder: "录制 JSONL 输出",
+    recordCopyBtn: "复制录制",
+    recordUseReplayBtn: "用于回放",
+    replayTitle: "会话回放",
+    replayJsonlPlaceholder: "粘贴录制 JSONL",
+    replayCommandPlaceholder: "回放命令，例如 show version",
+    replayModePlaceholder: "回放模式（可选）",
+    replayListBtn: "列出记录",
+    replayRunBtn: "回放命令",
+    replayNoJsonl: "回放 JSONL 不能为空",
+    replayNoCommand: "回放命令不能为空",
+    replayListEmpty: "没有 command_output 记录",
+    replayListNoData: "暂无回放结果",
+    recordListEmpty: "暂无录制数据",
+    recordParseError: "录制 JSONL 解析失败",
+    noFailedEntries: "没有失败命令事件",
+    noMatchedEntries: "没有匹配事件",
+    replayContextTitle: "上下文",
+    replayEntriesTitle: "事件列表",
+    replayOutputTitle: "回放输出",
+    statTotal: "总数",
+    statCommandEvents: "命令事件",
+    statFailedEvents: "失败数",
+    statKinds: "事件类型",
+    tableIndex: "序号",
+    tableEvent: "事件",
+    tableCommand: "命令",
+    tableMode: "模式",
+    tableSuccess: "成功",
+    tablePromptFlow: "Prompt 变化",
+    tableFsmFlow: "FSM 变化",
+    flowBefore: "变更前",
+    flowAfter: "变更后",
+    tableAction: "操作",
+    actionViewDetail: "查看详情",
+    detailModalTitle: "记录详情",
+    detailModalClose: "关闭",
+    tableDetail: "详情",
+    recordingCopied: "录制内容已复制",
+    recordingSetToReplay: "录制内容已填入回放",
     profileLoadBtn: "加载",
     profileRefreshBtn: "刷新",
     profileSaveBtn: "保存",
     profileDeleteBtn: "删除",
+    promptModeDiagnose: "诊断",
+    profileDiagnoseTitle: "状态机诊断",
+    profileDiagnoseBtn: "诊断",
+    profileDiagnoseResultTitle: "诊断结果",
+    diagnoseOk: "健康",
+    diagnoseBad: "发现问题",
+    profileNameRequired: "profile 名称不能为空",
+    diagTotalStates: "状态总数",
+    diagGraphStates: "参与图构建的状态数",
+    diagEntryStates: "入口状态数",
+    diagIssues: "问题计数",
+    diagUnreachableStates: "不可达状态",
+    diagDeadEndStates: "无后继状态（死胡同）",
+    diagMissingEdgeSources: "缺失的边起点",
+    diagMissingEdgeTargets: "缺失的边终点",
+    diagAmbiguousPromptStates: "可能歧义的提示状态",
+    diagSummaryProfile: "诊断对象",
+    diagSummaryIssueCount: "问题计数",
     builtinDetailBtn: "查看详情",
     builtinCopyBtn: "复制到新增/修改",
     templateLoadBtn: "加载",
@@ -207,19 +371,83 @@ const i18n = {
   },
 };
 
-let currentLang = localStorage.getItem("rauto_lang") || "zh";
+let currentLang = localStorage.getItem(STORAGE_KEYS.lang) || "zh";
 let currentTab = "ops";
 let currentOpKind = "exec";
+let currentPromptMode = "view";
 let cachedSavedConnections = [];
 let cachedCustomProfiles = [];
 let cachedDeviceProfiles = [];
 let cachedTemplates = [];
 let lastBuiltinProfile = null;
 let lastTemplateDetail = null;
+let recordViewMode = localStorage.getItem(STORAGE_KEYS.recordViewMode) || "list";
+let replayViewMode = localStorage.getItem(STORAGE_KEYS.replayViewMode) || "list";
+let lastReplayResult = null;
+let recordFailedOnly = localStorage.getItem(STORAGE_KEYS.recordFailedOnly) === "true";
+let replayFailedOnly = localStorage.getItem(STORAGE_KEYS.replayFailedOnly) === "true";
+let recordEventKind = localStorage.getItem(STORAGE_KEYS.recordEventKind) || "all";
+let replayEventKind = localStorage.getItem(STORAGE_KEYS.replayEventKind) || "all";
+let recordSearchQuery = localStorage.getItem(STORAGE_KEYS.recordSearchQuery) || "";
+let replaySearchQuery = localStorage.getItem(STORAGE_KEYS.replaySearchQuery) || "";
+let detailEntrySeq = 0;
+const detailEntryMap = new Map();
 const autocompleteMenus = [];
+const ALLOWED_EVENT_KINDS = new Set([
+  "all",
+  "command_output",
+  "connection_established",
+  "connection_closed",
+  "prompt_changed",
+  "state_changed",
+  "raw_chunk",
+]);
+
+function saveFilterPrefs() {
+  localStorage.setItem(STORAGE_KEYS.recordViewMode, recordViewMode);
+  localStorage.setItem(STORAGE_KEYS.replayViewMode, replayViewMode);
+  localStorage.setItem(STORAGE_KEYS.recordFailedOnly, String(recordFailedOnly));
+  localStorage.setItem(STORAGE_KEYS.replayFailedOnly, String(replayFailedOnly));
+  localStorage.setItem(STORAGE_KEYS.recordEventKind, recordEventKind);
+  localStorage.setItem(STORAGE_KEYS.replayEventKind, replayEventKind);
+  localStorage.setItem(STORAGE_KEYS.recordSearchQuery, recordSearchQuery);
+  localStorage.setItem(STORAGE_KEYS.replaySearchQuery, replaySearchQuery);
+}
+
+function normalizeFilterPrefs() {
+  if (recordViewMode !== "list" && recordViewMode !== "raw") recordViewMode = "list";
+  if (replayViewMode !== "list" && replayViewMode !== "raw") replayViewMode = "list";
+  if (!ALLOWED_EVENT_KINDS.has(recordEventKind)) recordEventKind = "all";
+  if (!ALLOWED_EVENT_KINDS.has(replayEventKind)) replayEventKind = "all";
+}
 
 function t(key) {
   return i18n[currentLang][key] || i18n.en[key] || key;
+}
+
+function setPanelVisible(el, visible, displayValue = "block") {
+  if (!el) return;
+  el.hidden = !visible;
+  el.classList.toggle("hidden", !visible);
+  el.style.display = visible ? displayValue : "none";
+}
+
+function setEventKindOptions(id, selected) {
+  const sel = byId(id);
+  if (!sel) return;
+  const options = [
+    ["all", t("eventTypeAll")],
+    ["command_output", "command_output"],
+    ["connection_established", "connection_established"],
+    ["connection_closed", "connection_closed"],
+    ["prompt_changed", "prompt_changed"],
+    ["state_changed", "state_changed"],
+    ["raw_chunk", "raw_chunk"],
+  ];
+  sel.innerHTML = options
+    .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
+    .join("");
+  sel.value = selected || "all";
 }
 
 function applyI18n() {
@@ -245,6 +473,9 @@ function applyI18n() {
   byId("op-kind-template").textContent = t("opKindTemplate");
   byId("template-selected-content-title").textContent = t("templateSelectedContentTitle");
   byId("prompt-mgr-title").textContent = t("promptMgrTitle");
+  byId("prompt-mode-view").textContent = t("promptModeView");
+  byId("prompt-mode-edit").textContent = t("promptModeEdit");
+  byId("prompt-mode-diagnose").textContent = t("promptModeDiagnose");
   byId("builtin-title").textContent = t("builtinTitle");
   byId("custom-title").textContent = t("customTitle");
   byId("template-mgr-title").textContent = t("templateMgrTitle");
@@ -254,8 +485,43 @@ function applyI18n() {
   byId("render-btn").textContent = t("renderBtn");
   byId("exec-btn").textContent = t("execBtn");
   byId("template-exec-btn").textContent = t("templateExecBtn");
+  byId("recording-title").textContent = t("recordingTitle");
+  byId("record-view-label").textContent = t("recordViewLabel");
+  byId("record-view-list").textContent = t("viewList");
+  byId("record-view-raw").textContent = t("viewRaw");
+  byId("record-failed-only-label").textContent = t("failedOnly");
+  byId("record-event-kind").setAttribute("aria-label", t("eventTypeLabel"));
+  byId("record-search").placeholder = t("searchPlaceholder");
+  byId("record-clear-filters").textContent = t("clearFilters");
+  byId("record-enable-label").textContent = t("recordEnableLabel");
+  byId("record-copy-btn").textContent = t("recordCopyBtn");
+  byId("record-use-replay-btn").textContent = t("recordUseReplayBtn");
+  byId("replay-title").textContent = t("replayTitle");
+  byId("replay-view-label").textContent = t("replayViewLabel");
+  byId("replay-view-list").textContent = t("viewList");
+  byId("replay-view-raw").textContent = t("viewRaw");
+  byId("replay-failed-only-label").textContent = t("failedOnly");
+  byId("replay-event-kind").setAttribute("aria-label", t("eventTypeLabel"));
+  byId("replay-search").placeholder = t("searchPlaceholder");
+  byId("replay-clear-filters").textContent = t("clearFilters");
+  byId("replay-list-btn").textContent = t("replayListBtn");
+  byId("replay-run-btn").textContent = t("replayRunBtn");
+  byId("detail-modal-title").textContent = t("detailModalTitle");
+  byId("detail-modal-close").textContent = t("detailModalClose");
   byId("profile-save-btn").textContent = t("profileSaveBtn");
   byId("profile-delete-btn").textContent = t("profileDeleteBtn");
+  byId("profile-diagnose-title").textContent = t("profileDiagnoseTitle");
+  byId("profile-diagnose-btn").textContent = t("profileDiagnoseBtn");
+  byId("profile-diagnose-result-title").textContent = t("profileDiagnoseResultTitle");
+  byId("diag-k-total").textContent = t("diagTotalStates");
+  byId("diag-k-graph").textContent = t("diagGraphStates");
+  byId("diag-k-entry").textContent = t("diagEntryStates");
+  byId("diag-k-issues").textContent = t("diagIssues");
+  byId("diag-l-unreach").textContent = t("diagUnreachableStates");
+  byId("diag-l-deadend").textContent = t("diagDeadEndStates");
+  byId("diag-l-missing-src").textContent = t("diagMissingEdgeSources");
+  byId("diag-l-missing-tgt").textContent = t("diagMissingEdgeTargets");
+  byId("diag-l-ambiguous").textContent = t("diagAmbiguousPromptStates");
   byId("builtin-detail-btn").textContent = t("builtinDetailBtn");
   byId("builtin-copy-btn").textContent = t("builtinCopyBtn");
   byId("template-save-btn").textContent = t("templateSaveBtn");
@@ -284,17 +550,32 @@ function applyI18n() {
   byId("saved-conn-name").placeholder = t("savedConnNamePlaceholder");
   byId("template").placeholder = t("templatePlaceholder");
   byId("template-selected-content").placeholder = t("templateSelectedContentPlaceholder");
+  byId("record-jsonl").placeholder = t("recordJsonlPlaceholder");
+  byId("replay-jsonl").placeholder = t("replayJsonlPlaceholder");
+  byId("replay-command").placeholder = t("replayCommandPlaceholder");
+  byId("replay-mode").placeholder = t("replayModePlaceholder");
   byId("vars").placeholder = t("varsPlaceholder");
   byId("command").placeholder = t("commandPlaceholder");
   byId("mode").placeholder = t("modePlaceholder");
   byId("template-mode").placeholder = t("templateModePlaceholder");
   byId("custom-profile-picker").placeholder = t("customProfilePickerPlaceholder");
+  byId("profile-diagnose-picker").placeholder = t("customProfilePickerPlaceholder");
+  byId("builtin-detail-name").placeholder = t("builtinFieldName");
+  byId("builtin-detail-aliases").placeholder = t("builtinFieldAliases");
+  byId("builtin-detail-summary").placeholder = t("builtinFieldSummary");
+  byId("builtin-detail-source").placeholder = t("builtinFieldSource");
+  byId("builtin-detail-notes").placeholder = t("builtinFieldNotes");
   byId("template-pick-name").placeholder = t("templateViewPickerPlaceholder");
   renderCustomProfileOptions();
+  renderDiagnoseProfileOptions();
   renderTemplateOptions();
   byId("template-manage-path").placeholder = t("templateManagePathPlaceholder");
   byId("template-content").placeholder = t("templateContentPlaceholder");
+  setEventKindOptions("record-event-kind", recordEventKind);
+  setEventKindOptions("replay-event-kind", replayEventKind);
   localizeDynamicFields();
+  renderRecordingView();
+  renderReplayView();
 
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
 }
@@ -349,6 +630,18 @@ function applyOperationKind() {
   byId("op-kind-template").setAttribute("aria-selected", isExec ? "false" : "true");
 }
 
+function applyPromptMode() {
+  const modes = ["view", "edit", "diagnose"];
+  for (const mode of modes) {
+    const btn = byId(`prompt-mode-${mode}`);
+    const panel = byId(`prompt-${mode}-panel`);
+    const active = mode === currentPromptMode;
+    btn.classList.toggle("is-active", active);
+    panel.hidden = !active;
+    panel.style.display = active ? "" : "none";
+  }
+}
+
 async function loadSelectedTemplateContent() {
   const name = byId("template").value.trim();
   const preview = byId("template-selected-content");
@@ -378,6 +671,272 @@ function connectionPayload() {
     enable_password: value("enable_password") || null,
     device_profile: value("device_profile") || null,
   };
+}
+
+function recordLevelPayload() {
+  if (!byId("record-enable").checked) return null;
+  const level = (byId("record-level").value || "full").trim();
+  if (!level || level === "off") return null;
+  return level;
+}
+
+function safeString(value) {
+  if (value == null) return "-";
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function parseJsonl(jsonl) {
+  const rows = [];
+  const text = (jsonl || "").trim();
+  if (!text) {
+    return { ok: true, rows };
+  }
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    try {
+      rows.push(JSON.parse(line));
+    } catch (err) {
+      return { ok: false, error: `${t("recordParseError")}: line ${i + 1}` };
+    }
+  }
+  return { ok: true, rows };
+}
+
+function isFailedCommandEvent(entry) {
+  const event = (entry && entry.event) || {};
+  return event.kind === "command_output" && event.success === false;
+}
+
+function matchesSearch(entry, query) {
+  const q = (query || "").trim().toLowerCase();
+  if (!q) return true;
+  const event = (entry && entry.event) || {};
+  const fields = [
+    event.kind,
+    event.command,
+    event.mode,
+    event.content,
+    event.all,
+    event.prompt_before,
+    event.prompt_after,
+    event.fsm_prompt_before,
+    event.fsm_prompt_after,
+    event.device_addr,
+    event.reason,
+  ];
+  const haystack = fields
+    .filter((v) => v != null)
+    .map((v) => String(v).toLowerCase())
+    .join("\n");
+  return haystack.includes(q);
+}
+
+function filterEntries(entries, kindFilter, failedOnly, query) {
+  return (entries || []).filter((entry) => {
+    const event = (entry && entry.event) || {};
+    const kindOk = !kindFilter || kindFilter === "all" ? true : event.kind === kindFilter;
+    const failedOk = failedOnly ? isFailedCommandEvent(entry) : true;
+    const queryOk = matchesSearch(entry, query);
+    return kindOk && failedOk && queryOk;
+  });
+}
+
+function buildEventStats(entries) {
+  const kinds = new Set();
+  let commandEvents = 0;
+  let failedEvents = 0;
+  for (const entry of entries) {
+    const event = (entry && entry.event) || {};
+    const kind = event.kind || "unknown";
+    kinds.add(kind);
+    if (kind === "command_output") {
+      commandEvents += 1;
+      if (event.success === false) {
+        failedEvents += 1;
+      }
+    }
+  }
+  return {
+    total: entries.length,
+    commandEvents,
+    failedEvents,
+    kinds: kinds.size,
+  };
+}
+
+function renderStatsCards(stats) {
+  const cards = [
+    [t("statTotal"), stats.total],
+    [t("statCommandEvents"), stats.commandEvents],
+    [t("statFailedEvents"), stats.failedEvents],
+    [t("statKinds"), stats.kinds],
+  ];
+  return `
+    <div class="grid gap-2 md:grid-cols-4">
+      ${cards
+        .map(
+          ([label, value]) => `
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <div class="text-xs text-slate-500">${escapeHtml(label)}</div>
+              <div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(value)}</div>
+            </div>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function successBadge(event) {
+  if (event.kind !== "command_output") return '<span class="text-slate-400">-</span>';
+  if (event.success) {
+    return '<span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">OK</span>';
+  }
+  return '<span class="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">FAIL</span>';
+}
+
+function renderFlowCell(beforeValue, afterValue, tone = "slate") {
+  const before = escapeHtml(safeString(beforeValue));
+  const after = escapeHtml(safeString(afterValue));
+  const beforeCls =
+    tone === "teal"
+      ? "border-cyan-200 bg-cyan-50 text-cyan-800"
+      : "border-indigo-200 bg-indigo-50 text-indigo-800";
+  const afterCls =
+    tone === "teal"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : "border-amber-200 bg-amber-50 text-amber-800";
+  const markerCls = tone === "teal" ? "bg-emerald-400" : "bg-amber-400";
+  return `
+    <div class="min-w-[180px] rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
+      <div class="rounded-md border ${beforeCls} px-2 py-1">
+        <div class="text-[10px] font-semibold uppercase tracking-wide opacity-70">${escapeHtml(
+          t("flowBefore")
+        )}</div>
+        <div class="mt-0.5 font-mono text-xs break-all">${before}</div>
+      </div>
+      <div class="my-1 flex items-center gap-1 px-1">
+        <span class="h-2 w-2 rounded-full ${markerCls}"></span>
+        <span class="h-[2px] flex-1 rounded ${markerCls}"></span>
+        <span class="h-2 w-2 rounded-full ${markerCls}"></span>
+      </div>
+      <div class="rounded-md border ${afterCls} px-2 py-1">
+        <div class="text-[10px] font-semibold uppercase tracking-wide opacity-70">${escapeHtml(
+          t("flowAfter")
+        )}</div>
+        <div class="mt-0.5 font-mono text-xs break-all">${after}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderEntriesTable(entries) {
+  const baseSeq = detailEntrySeq;
+  const rows = entries
+    .map((entry, idx) => {
+      const event = (entry && entry.event) || {};
+      const kind = safeString(event.kind);
+      const command = event.kind === "command_output" ? safeString(event.command) : "-";
+      const mode = event.kind === "command_output" ? safeString(event.mode) : "-";
+      const detailId = `entry-${baseSeq + idx}`;
+      detailEntryMap.set(detailId, entry);
+      const isFailed = event.kind === "command_output" && event.success === false;
+      return `
+        <tr class="align-top ${isFailed ? "bg-rose-50/60 hover:bg-rose-50 border-l-4 border-rose-400" : "hover:bg-slate-50/80"}">
+          <td class="whitespace-nowrap px-3 py-2 text-slate-500">${idx + 1}</td>
+          <td class="px-3 py-2 font-medium text-slate-800">${escapeHtml(kind)}</td>
+          <td class="min-w-[320px] max-w-[420px] px-3 py-2 font-mono text-xs text-slate-700 break-all">${escapeHtml(command)}</td>
+          <td class="px-3 py-2 font-mono text-xs text-slate-700">${escapeHtml(mode)}</td>
+          <td class="px-3 py-2">${successBadge(event)}</td>
+          <td class="px-3 py-2">${renderFlowCell(event.prompt_before, event.prompt_after, "indigo")}</td>
+          <td class="px-3 py-2">${renderFlowCell(event.fsm_prompt_before, event.fsm_prompt_after, "teal")}</td>
+          <td class="whitespace-nowrap px-3 py-2">
+            <button class="mini-btn js-entry-detail-btn" type="button" data-detail-id="${escapeHtml(
+              detailId
+            )}">${escapeHtml(t("actionViewDetail"))}</button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+  detailEntrySeq += entries.length;
+
+  return `
+    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <table class="min-w-[1320px] table-fixed text-sm">
+        <thead class="bg-slate-100 text-xs font-semibold text-slate-600">
+          <tr>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tableIndex"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tableEvent"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tableCommand"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tableMode"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tableSuccess"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tablePromptFlow"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tableFsmFlow"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tableAction"))}</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderRecordingView() {
+  const listOut = byId("record-list-out");
+  const rawOut = byId("record-jsonl");
+  const listBtn = byId("record-view-list");
+  const rawBtn = byId("record-view-raw");
+  const isList = recordViewMode === "list";
+  listBtn.classList.toggle("is-active", isList);
+  rawBtn.classList.toggle("is-active", !isList);
+  setPanelVisible(listOut, isList, "grid");
+  setPanelVisible(rawOut, !isList, "block");
+
+  if (!isList) return;
+
+  const parsed = parseJsonl(rawOut.value || "");
+  if (!parsed.ok) {
+    listOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      parsed.error
+    )}</div>`;
+    return;
+  }
+  const entries = filterEntries(parsed.rows, recordEventKind, recordFailedOnly, recordSearchQuery);
+  if (!entries.length) {
+    listOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      recordFailedOnly
+        ? t("noFailedEntries")
+        : recordEventKind !== "all"
+          ? t("noMatchedEntries")
+          : t("recordListEmpty")
+    )}</div>`;
+    return;
+  }
+  const stats = buildEventStats(entries);
+  listOut.innerHTML = `${renderStatsCards(stats)}${renderEntriesTable(entries)}`;
+}
+
+function applyRecordingFromResponse(data) {
+  const jsonl = data && data.recording_jsonl ? String(data.recording_jsonl) : "";
+  if (jsonl) {
+    byId("record-jsonl").value = jsonl;
+    renderRecordingView();
+  }
 }
 
 function applyConnectionForm(connection = {}) {
@@ -531,10 +1090,12 @@ async function loadProfilesOverview() {
         .map((item) => `- ${item.name} -> ${item.path}`)
         .join("\n");
       renderCustomProfileOptions();
+      renderDiagnoseProfileOptions();
     } else {
       cachedCustomProfiles = [];
       outProfile.textContent = "-";
       renderCustomProfileOptions();
+      renderDiagnoseProfileOptions();
     }
   } catch (e) {
     cachedCustomProfiles = [];
@@ -542,6 +1103,7 @@ async function loadProfilesOverview() {
     outProfile.textContent = e.message;
     outBuiltinDetail.textContent = e.message;
     renderCustomProfileOptions();
+    renderDiagnoseProfileOptions();
   }
 }
 
@@ -551,9 +1113,17 @@ function renderCustomProfileOptions(keyword = "") {
   const names = cachedCustomProfiles.filter((name) =>
     !q ? true : name.toLowerCase().includes(q)
   );
-  datalist.innerHTML = names
-    .map((name) => `<option value="${name}"></option>`)
-    .join("");
+  const html = names.map((name) => `<option value="${name}"></option>`).join("");
+  datalist.innerHTML = html;
+}
+
+function renderDiagnoseProfileOptions(keyword = "") {
+  const datalist = byId("profile-diagnose-options");
+  const q = keyword.trim().toLowerCase();
+  const names = cachedDeviceProfiles.filter((name) =>
+    !q ? true : name.toLowerCase().includes(q)
+  );
+  datalist.innerHTML = names.map((name) => `<option value="${name}"></option>`).join("");
 }
 
 function initAutocomplete(inputId, sourceFn) {
@@ -686,6 +1256,7 @@ function initAutocomplete(inputId, sourceFn) {
 function initTopLevelAutocomplete() {
   initAutocomplete("device_profile", () => cachedDeviceProfiles);
   initAutocomplete("template", () => cachedTemplates);
+  initAutocomplete("profile-diagnose-picker", () => cachedDeviceProfiles);
 }
 
 function initCollapsibleGroups() {
@@ -1131,7 +1702,7 @@ async function loadCustomProfile() {
   const name = byId("custom-profile-picker").value.trim();
   const out = byId("profile-out");
   if (!name) {
-    out.textContent = "profile name is required";
+    out.textContent = t("profileNameRequired");
     return;
   }
   out.textContent = t("running");
@@ -1154,7 +1725,7 @@ async function saveCustomProfile() {
     const profile = collectProfileForm();
     const name = (profile.name || "").trim();
     if (!name) {
-      out.textContent = "profile name is required";
+      out.textContent = t("profileNameRequired");
       return;
     }
     const data = await request(
@@ -1174,7 +1745,7 @@ async function deleteCustomProfile() {
   const name = byId("custom-profile-picker").value.trim();
   const out = byId("profile-out");
   if (!name) {
-    out.textContent = "profile name is required";
+    out.textContent = t("profileNameRequired");
     return;
   }
   out.textContent = t("running");
@@ -1195,6 +1766,273 @@ async function deleteCustomProfile() {
     await loadProfilesOverview();
   } catch (e) {
     out.textContent = e.message;
+  }
+}
+
+function issueCount(report) {
+  return (
+    (report.missing_edge_sources || []).length +
+    (report.missing_edge_targets || []).length +
+    (report.unreachable_states || []).length +
+    (report.dead_end_states || []).length +
+    (report.duplicate_prompt_patterns || []).length +
+    (report.self_loop_only_states || []).length
+  );
+}
+
+function renderDiagList(id, values) {
+  const ul = byId(id);
+  if (!ul) return;
+  const list = Array.isArray(values) ? values : [];
+  if (list.length === 0) {
+    ul.innerHTML = "<li>-</li>";
+    return;
+  }
+  ul.innerHTML = list.map((v) => `<li>${v}</li>`).join("");
+}
+
+function resetDiagnoseView() {
+  byId("profile-diagnose-badge").textContent = "-";
+  byId("profile-diagnose-badge").className = "diag-badge";
+  byId("diag-total-states").textContent = "-";
+  byId("diag-graph-states").textContent = "-";
+  byId("diag-entry-states").textContent = "-";
+  byId("diag-issues-count").textContent = "-";
+  [
+    "diag-unreachable-states",
+    "diag-dead-end-states",
+    "diag-missing-sources",
+    "diag-missing-targets",
+    "diag-ambiguous-states",
+  ].forEach((id) => renderDiagList(id, []));
+}
+
+function renderDiagnoseResult(name, report) {
+  const issues = issueCount(report);
+  const healthy = issues === 0;
+  const badge = byId("profile-diagnose-badge");
+  badge.className = `diag-badge ${healthy ? "ok" : "bad"}`;
+  badge.textContent = `${healthy ? t("diagnoseOk") : t("diagnoseBad")} · ${name}`;
+
+  byId("diag-total-states").textContent = String(report.total_states ?? 0);
+  byId("diag-graph-states").textContent = String((report.graph_states || []).length);
+  byId("diag-entry-states").textContent = String((report.entry_states || []).length);
+  byId("diag-issues-count").textContent = String(issues);
+
+  renderDiagList("diag-unreachable-states", report.unreachable_states || []);
+  renderDiagList("diag-dead-end-states", report.dead_end_states || []);
+  renderDiagList("diag-missing-sources", report.missing_edge_sources || []);
+  renderDiagList("diag-missing-targets", report.missing_edge_targets || []);
+  renderDiagList(
+    "diag-ambiguous-states",
+    report.potentially_ambiguous_prompt_states || []
+  );
+
+  const out = byId("profile-diagnose-out");
+  out.textContent =
+    `${t("diagSummaryProfile")}: ${name}\n` +
+    `${t("diagSummaryIssueCount")}: ${issues}`;
+}
+
+async function diagnoseCustomProfile() {
+  const name = byId("profile-diagnose-picker").value.trim();
+  const out = byId("profile-diagnose-out");
+  if (!name) {
+    out.textContent = t("profileNameRequired");
+    return;
+  }
+  out.textContent = t("running");
+  resetDiagnoseView();
+  try {
+    const data = await request("POST", "/api/device-profiles/diagnose", {
+      name,
+    });
+    const report = data.diagnostics || {};
+    renderDiagnoseResult(data.name || name, report);
+  } catch (e) {
+    resetDiagnoseView();
+    out.textContent = e.message;
+  }
+}
+
+function formatReplayListView(data) {
+  if (!data) {
+    return `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("replayListNoData")
+    )}</div>`;
+  }
+  const sections = [];
+  if (data.context) {
+    sections.push(`
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        <div class="mb-1 text-xs font-semibold text-slate-500">${escapeHtml(
+          t("replayContextTitle")
+        )}</div>
+        <div class="font-mono text-xs break-all">
+          device=${escapeHtml(safeString(data.context.device_addr))}<br/>
+          prompt=${escapeHtml(safeString(data.context.prompt))}<br/>
+          fsm=${escapeHtml(safeString(data.context.fsm_prompt))}
+        </div>
+      </div>
+    `);
+  }
+  const entriesRaw = Array.isArray(data.entries) ? data.entries : [];
+  const entries = filterEntries(
+    entriesRaw,
+    replayEventKind,
+    replayFailedOnly,
+    replaySearchQuery
+  );
+  if (entries.length) {
+    sections.push(renderStatsCards(buildEventStats(entries)));
+    sections.push(renderEntriesTable(entries));
+  }
+  if (data.output) {
+    sections.push(`
+      <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+        <div class="mb-2 text-xs font-semibold text-slate-500">${escapeHtml(
+          t("replayOutputTitle")
+        )}</div>
+        <div class="inline-flex items-center gap-2 text-xs">
+          ${data.output.success
+            ? '<span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">OK</span>'
+            : '<span class="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 font-semibold text-rose-700">FAIL</span>'}
+          <span class="font-mono text-slate-600">prompt=${escapeHtml(
+            safeString(data.output.prompt)
+          )}</span>
+        </div>
+        <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-900 p-2 text-xs text-slate-100">${escapeHtml(
+          safeString(data.output.content)
+        )}</pre>
+      </div>
+    `);
+  }
+  if (!sections.length) {
+    sections.push(
+      `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+        replayFailedOnly
+          ? t("noFailedEntries")
+          : replayEventKind !== "all"
+            ? t("noMatchedEntries")
+            : t("replayListNoData")
+      )}</div>`
+    );
+  }
+  return sections.join("");
+}
+
+function openDetailModal(content) {
+  const modal = byId("detail-modal");
+  byId("detail-modal-body").textContent = content;
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  document.body.classList.add("overflow-hidden");
+}
+
+function closeDetailModal() {
+  const modal = byId("detail-modal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+  document.body.classList.remove("overflow-hidden");
+}
+
+function renderReplayView() {
+  const listOut = byId("replay-list-out");
+  const rawOut = byId("replay-out");
+  const listBtn = byId("replay-view-list");
+  const rawBtn = byId("replay-view-raw");
+  const isList = replayViewMode === "list";
+  listBtn.classList.toggle("is-active", isList);
+  rawBtn.classList.toggle("is-active", !isList);
+  setPanelVisible(listOut, isList, "grid");
+  setPanelVisible(rawOut, !isList, "block");
+
+  if (!lastReplayResult) {
+    if (isList) {
+      listOut.innerHTML = formatReplayListView(null);
+    } else {
+      rawOut.textContent = t("replayListNoData");
+    }
+    return;
+  }
+  if (isList) {
+    listOut.innerHTML = formatReplayListView(lastReplayResult);
+  } else {
+    rawOut.textContent = JSON.stringify(lastReplayResult, null, 2);
+  }
+}
+
+function showReplayStatus(text) {
+  if (replayViewMode === "list") {
+    byId("replay-list-out").innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      text
+    )}</div>`;
+  } else {
+    byId("replay-out").textContent = text;
+  }
+}
+
+function resetRecordFilters() {
+  recordFailedOnly = false;
+  recordEventKind = "all";
+  recordSearchQuery = "";
+  byId("record-failed-only").checked = false;
+  byId("record-event-kind").value = "all";
+  byId("record-search").value = "";
+  saveFilterPrefs();
+  renderRecordingView();
+}
+
+function resetReplayFilters() {
+  replayFailedOnly = false;
+  replayEventKind = "all";
+  replaySearchQuery = "";
+  byId("replay-failed-only").checked = false;
+  byId("replay-event-kind").value = "all";
+  byId("replay-search").value = "";
+  saveFilterPrefs();
+  renderReplayView();
+}
+
+async function replayList() {
+  const jsonl = byId("replay-jsonl").value.trim();
+  if (!jsonl) {
+    showReplayStatus(t("replayNoJsonl"));
+    return;
+  }
+  showReplayStatus(t("running"));
+  try {
+    const data = await request("POST", "/api/replay", { jsonl, list: true });
+    lastReplayResult = data;
+    renderReplayView();
+  } catch (e) {
+    showReplayStatus(e.message);
+  }
+}
+
+async function replayCommand() {
+  const jsonl = byId("replay-jsonl").value.trim();
+  const command = byId("replay-command").value.trim();
+  const mode = byId("replay-mode").value.trim();
+  if (!jsonl) {
+    showReplayStatus(t("replayNoJsonl"));
+    return;
+  }
+  if (!command) {
+    showReplayStatus(t("replayNoCommand"));
+    return;
+  }
+  showReplayStatus(t("running"));
+  try {
+    const data = await request("POST", "/api/replay", {
+      jsonl,
+      command,
+      mode: mode || null,
+    });
+    lastReplayResult = data;
+    renderReplayView();
+  } catch (e) {
+    showReplayStatus(e.message);
   }
 }
 
@@ -1294,6 +2132,7 @@ async function deleteTemplate() {
 function bindEvents() {
   const langFab = byId("lang-fab");
   const langMenu = byId("lang-menu");
+  const detailModal = byId("detail-modal");
 
   langFab.onclick = (e) => {
     e.stopPropagation();
@@ -1311,7 +2150,7 @@ function bindEvents() {
 
   byId("lang-en").onclick = () => {
     currentLang = "en";
-    localStorage.setItem("rauto_lang", currentLang);
+    localStorage.setItem(STORAGE_KEYS.lang, currentLang);
     applyI18n();
     langMenu.hidden = true;
     langMenu.style.display = "none";
@@ -1320,7 +2159,7 @@ function bindEvents() {
 
   byId("lang-zh").onclick = () => {
     currentLang = "zh";
-    localStorage.setItem("rauto_lang", currentLang);
+    localStorage.setItem(STORAGE_KEYS.lang, currentLang);
     applyI18n();
     langMenu.hidden = true;
     langMenu.style.display = "none";
@@ -1333,19 +2172,39 @@ function bindEvents() {
       langMenu.style.display = "none";
       langFab.setAttribute("aria-expanded", "false");
     }
+    const detailBtn = e.target.closest(".js-entry-detail-btn");
+    if (detailBtn) {
+      const id = detailBtn.getAttribute("data-detail-id") || "";
+      const entry = detailEntryMap.get(id);
+      if (entry) {
+        openDetailModal(JSON.stringify(entry, null, 2));
+      }
+    }
+  });
+
+  byId("detail-modal-close").onclick = closeDetailModal;
+  detailModal.onclick = (e) => {
+    if (e.target === detailModal) {
+      closeDetailModal();
+    }
+  };
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !detailModal.classList.contains("hidden")) {
+      closeDetailModal();
+    }
   });
 
   byId("prompt-mode-view").onclick = () => {
-    byId("prompt-view-panel").hidden = false;
-    byId("prompt-edit-panel").hidden = true;
-    byId("prompt-mode-view").classList.add("is-active");
-    byId("prompt-mode-edit").classList.remove("is-active");
+    currentPromptMode = "view";
+    applyPromptMode();
   };
   byId("prompt-mode-edit").onclick = () => {
-    byId("prompt-view-panel").hidden = true;
-    byId("prompt-edit-panel").hidden = false;
-    byId("prompt-mode-view").classList.remove("is-active");
-    byId("prompt-mode-edit").classList.add("is-active");
+    currentPromptMode = "edit";
+    applyPromptMode();
+  };
+  byId("prompt-mode-diagnose").onclick = () => {
+    currentPromptMode = "diagnose";
+    applyPromptMode();
   };
 
   for (const tab of ["ops", "prompts", "templates"]) {
@@ -1354,7 +2213,8 @@ function bindEvents() {
       applyTabs();
       if (tab === "prompts") {
         loadProfilesOverview();
-        byId("prompt-mode-view").click();
+        currentPromptMode = "view";
+        applyPromptMode();
       }
       if (tab === "templates") {
         loadTemplates();
@@ -1418,8 +2278,10 @@ function bindEvents() {
         command: byId("command").value.trim(),
         mode: byId("mode").value.trim() || null,
         connection: connectionPayload(),
+        record_level: recordLevelPayload(),
       });
       out.textContent = data.output;
+      applyRecordingFromResponse(data);
     } catch (e) {
       out.textContent = e.message;
     }
@@ -1434,20 +2296,110 @@ function bindEvents() {
         vars: parseVars(),
         mode: byId("template-mode").value.trim() || null,
         connection: connectionPayload(),
+        record_level: recordLevelPayload(),
       });
       out.textContent = JSON.stringify(data, null, 2);
+      applyRecordingFromResponse(data);
     } catch (e) {
       out.textContent = e.message;
     }
   };
 
   byId("template").onchange = loadSelectedTemplateContent;
+  byId("record-enable").onchange = () => {
+    byId("record-level").disabled = !byId("record-enable").checked;
+  };
+  byId("record-view-list").onclick = () => {
+    recordViewMode = "list";
+    saveFilterPrefs();
+    renderRecordingView();
+  };
+  byId("record-view-raw").onclick = () => {
+    recordViewMode = "raw";
+    saveFilterPrefs();
+    renderRecordingView();
+  };
+  byId("record-jsonl").oninput = () => {
+    if (recordViewMode === "list") {
+      renderRecordingView();
+    }
+  };
+  byId("record-failed-only").onchange = () => {
+    recordFailedOnly = byId("record-failed-only").checked;
+    saveFilterPrefs();
+    renderRecordingView();
+  };
+  byId("record-event-kind").onchange = () => {
+    recordEventKind = byId("record-event-kind").value || "all";
+    saveFilterPrefs();
+    renderRecordingView();
+  };
+  byId("record-search").oninput = () => {
+    recordSearchQuery = byId("record-search").value || "";
+    saveFilterPrefs();
+    renderRecordingView();
+  };
+  byId("record-clear-filters").onclick = () => {
+    resetRecordFilters();
+  };
+  byId("record-copy-btn").onclick = async () => {
+    const text = byId("record-jsonl").value || "";
+    if (!text.trim()) {
+      showReplayStatus(t("replayNoJsonl"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      showReplayStatus(t("recordingCopied"));
+    } catch (_) {
+      showReplayStatus(t("requestFailed"));
+    }
+  };
+  byId("record-use-replay-btn").onclick = () => {
+    byId("replay-jsonl").value = byId("record-jsonl").value || "";
+    lastReplayResult = null;
+    renderReplayView();
+    showReplayStatus(t("recordingSetToReplay"));
+  };
+  byId("replay-view-list").onclick = () => {
+    replayViewMode = "list";
+    saveFilterPrefs();
+    renderReplayView();
+  };
+  byId("replay-view-raw").onclick = () => {
+    replayViewMode = "raw";
+    saveFilterPrefs();
+    renderReplayView();
+  };
+  byId("replay-failed-only").onchange = () => {
+    replayFailedOnly = byId("replay-failed-only").checked;
+    saveFilterPrefs();
+    renderReplayView();
+  };
+  byId("replay-event-kind").onchange = () => {
+    replayEventKind = byId("replay-event-kind").value || "all";
+    saveFilterPrefs();
+    renderReplayView();
+  };
+  byId("replay-search").oninput = () => {
+    replaySearchQuery = byId("replay-search").value || "";
+    saveFilterPrefs();
+    renderReplayView();
+  };
+  byId("replay-clear-filters").onclick = () => {
+    resetReplayFilters();
+  };
+  byId("replay-list-btn").onclick = replayList;
+  byId("replay-run-btn").onclick = replayCommand;
   byId("custom-profile-picker").oninput = (e) => {
     renderCustomProfileOptions(e.target.value);
   };
   byId("custom-profile-picker").onchange = async () => {
     if (!byId("custom-profile-picker").value.trim()) return;
     await loadCustomProfile();
+  };
+  byId("profile-diagnose-picker").oninput = (e) => {
+    renderDiagnoseProfileOptions(e.target.value);
   };
   byId("builtin-detail-btn").onclick = loadBuiltinProfileDetail;
   byId("builtin-copy-btn").onclick = () => {
@@ -1460,11 +2412,13 @@ function bindEvents() {
     copied.name = `${copied.name}_custom`;
     setProfileForm(copied);
     byId("custom-profile-picker").value = copied.name;
-    byId("prompt-mode-edit").click();
+    currentPromptMode = "edit";
+    applyPromptMode();
     out.textContent = t("copiedToCustom");
   };
   byId("profile-save-btn").onclick = saveCustomProfile;
   byId("profile-delete-btn").onclick = deleteCustomProfile;
+  byId("profile-diagnose-btn").onclick = diagnoseCustomProfile;
   byId("add-more-pattern-btn").onclick = () => addSimpleListRow("profile-more-list");
   byId("add-error-pattern-btn").onclick = () => addSimpleListRow("profile-error-list");
   byId("add-ignore-error-btn").onclick = () => addSimpleListRow("profile-ignore-list");
@@ -1484,12 +2438,23 @@ function bindEvents() {
   byId("template-delete-btn").onclick = deleteTemplate;
 }
 
+normalizeFilterPrefs();
+saveFilterPrefs();
 bindEvents();
 initTopLevelAutocomplete();
 initCollapsibleGroups();
 applyI18n();
 applyTabs();
 applyOperationKind();
+applyPromptMode();
+resetDiagnoseView();
+byId("record-level").disabled = !byId("record-enable").checked;
+byId("record-failed-only").checked = recordFailedOnly;
+byId("replay-failed-only").checked = replayFailedOnly;
+byId("record-event-kind").value = recordEventKind;
+byId("replay-event-kind").value = replayEventKind;
+byId("record-search").value = recordSearchQuery;
+byId("replay-search").value = replaySearchQuery;
 loadSavedConnections();
 loadProfilesOverview();
 loadTemplates();

@@ -1,19 +1,22 @@
 use crate::config::device_profile::DeviceProfile;
-use crate::config::{connection_store, connection_store::SavedConnection};
 use crate::config::template_loader;
+use crate::config::{connection_store, connection_store::SavedConnection};
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    BuiltinProfileDetail, CommandResult, ConnectionRequest, ConnectionTestRequest, ConnectionTestResponse,
-    CreateTemplateRequest, CustomProfileDetail, DeviceProfilesOverview, ExecRequest, ExecResponse,
-    ExecuteTemplateRequest, ExecuteTemplateResponse, RenderRequest, RenderResponse,
-    SavedConnectionDetail, SavedConnectionMeta, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
+    BuiltinProfileDetail, CommandResult, ConnectionRequest, ConnectionTestRequest,
+    ConnectionTestResponse, CreateTemplateRequest, CustomProfileDetail, DeviceProfilesOverview,
+    ExecRequest, ExecResponse, ExecuteTemplateRequest, ExecuteTemplateResponse,
+    ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
+    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
+    SavedConnectionMeta, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
     UpsertConnectionRequest, UpsertCustomProfileRequest,
 };
 use crate::web::state::{AppState, merge_connection_options};
 use crate::web::storage;
 use axum::{Json, extract::State};
+use rneter::session::{SessionRecordLevel, SessionRecorder, SessionReplayer};
 use serde_json::{Value, json};
 use std::fs;
 use std::path::PathBuf;
@@ -229,6 +232,39 @@ pub async fn render_template(
     }))
 }
 
+fn to_record_level(level: Option<RecordLevel>) -> Option<SessionRecordLevel> {
+    match level {
+        Some(RecordLevel::Off) | None => None,
+        Some(RecordLevel::KeyEventsOnly) => Some(SessionRecordLevel::KeyEventsOnly),
+        Some(RecordLevel::Full) => Some(SessionRecordLevel::Full),
+    }
+}
+
+pub async fn diagnose_profile(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ProfileDiagnoseRequest>,
+) -> Result<Json<ProfileDiagnoseResponse>, ApiError> {
+    let name = req.name.trim();
+    if name.is_empty() {
+        return Err(ApiError::bad_request("profile name is required"));
+    }
+
+    let template_dir = req
+        .template_dir
+        .as_ref()
+        .map(PathBuf::from)
+        .or_else(|| state.defaults.template_dir.clone());
+
+    let handler = template_loader::load_device_profile(name, template_dir.as_ref())?;
+
+    let diagnostics = handler.diagnose_state_machine();
+
+    Ok(Json(ProfileDiagnoseResponse {
+        name: name.to_string(),
+        diagnostics,
+    }))
+}
+
 pub async fn exec_command(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecRequest>,
@@ -237,18 +273,34 @@ pub async fn exec_command(
     let handler =
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
 
-    let client = DeviceClient::connect(
-        conn.host,
-        conn.port,
-        conn.username,
-        conn.password,
-        conn.enable_password,
-        handler,
-    )
-    .await?;
+    let client = if let Some(level) = to_record_level(req.record_level) {
+        DeviceClient::connect_with_recording(
+            conn.host,
+            conn.port,
+            conn.username,
+            conn.password,
+            conn.enable_password,
+            handler,
+            level,
+        )
+        .await?
+    } else {
+        DeviceClient::connect(
+            conn.host,
+            conn.port,
+            conn.username,
+            conn.password,
+            conn.enable_password,
+            handler,
+        )
+        .await?
+    };
 
     let output = client.execute(&req.command, req.mode.as_deref()).await?;
-    Ok(Json(ExecResponse { output }))
+    Ok(Json(ExecResponse {
+        output,
+        recording_jsonl: client.recording_jsonl()?,
+    }))
 }
 
 pub async fn test_connection(
@@ -330,7 +382,11 @@ pub async fn upsert_connection(
         username: c.username,
         password: if save_password { c.password } else { None },
         port: c.port,
-        enable_password: if save_password { c.enable_password } else { None },
+        enable_password: if save_password {
+            c.enable_password
+        } else {
+            None
+        },
         device_profile: c.device_profile,
         template_dir: c.template_dir,
     };
@@ -376,21 +432,35 @@ pub async fn execute_template(
         return Ok(Json(ExecuteTemplateResponse {
             rendered_commands,
             executed: Vec::new(),
+            recording_jsonl: None,
         }));
     }
 
     let conn = merge_connection_options(&state.defaults, req.connection)?;
     let handler =
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
-    let client = DeviceClient::connect(
-        conn.host,
-        conn.port,
-        conn.username,
-        conn.password,
-        conn.enable_password,
-        handler,
-    )
-    .await?;
+    let client = if let Some(level) = to_record_level(req.record_level) {
+        DeviceClient::connect_with_recording(
+            conn.host,
+            conn.port,
+            conn.username,
+            conn.password,
+            conn.enable_password,
+            handler,
+            level,
+        )
+        .await?
+    } else {
+        DeviceClient::connect(
+            conn.host,
+            conn.port,
+            conn.username,
+            conn.password,
+            conn.enable_password,
+            handler,
+        )
+        .await?
+    };
 
     let lines: Vec<String> = rendered_commands
         .lines()
@@ -419,5 +489,45 @@ pub async fn execute_template(
     Ok(Json(ExecuteTemplateResponse {
         rendered_commands,
         executed,
+        recording_jsonl: client.recording_jsonl()?,
+    }))
+}
+
+pub async fn replay_session(Json(req): Json<ReplayRequest>) -> Result<Json<ReplayResponse>, ApiError> {
+    let mut replayer = SessionReplayer::from_jsonl(&req.jsonl).map_err(ApiError::from)?;
+    let context = replayer.initial_context().map(|ctx| ReplayContextDto {
+        device_addr: ctx.device_addr,
+        prompt: ctx.prompt,
+        fsm_prompt: ctx.fsm_prompt,
+    });
+
+    let entries = if req.list {
+        let recorder = SessionRecorder::from_jsonl(&req.jsonl).map_err(ApiError::from)?;
+        recorder.entries().map_err(ApiError::from)?
+    } else {
+        Vec::new()
+    };
+
+    let output = if let Some(command) = req.command.as_deref() {
+        let out = if let Some(mode) = req.mode.as_deref() {
+            replayer.replay_next_in_mode(command, mode)
+        } else {
+            replayer.replay_next(command)
+        }
+        .map_err(ApiError::from)?;
+        Some(ReplayOutputDto {
+            success: out.success,
+            content: out.content,
+            all: out.all,
+            prompt: out.prompt,
+        })
+    } else {
+        None
+    };
+
+    Ok(Json(ReplayResponse {
+        context,
+        entries,
+        output,
     }))
 }

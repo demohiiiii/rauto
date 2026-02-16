@@ -1,4 +1,4 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -32,6 +32,16 @@ pub enum Commands {
     /// Manage stored command templates
     #[command(subcommand)]
     Templates(TemplateCommands),
+
+    /// Replay or inspect recorded session JSONL data
+    Replay(ReplayArgs),
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum RecordLevelOpt {
+    Off,
+    KeyEventsOnly,
+    Full,
 }
 
 #[derive(Subcommand, Debug)]
@@ -77,6 +87,14 @@ pub enum DeviceCommands {
         /// Saved connection profile name
         name: String,
     },
+    /// Diagnose state-machine quality for a device profile
+    Diagnose {
+        /// Profile name (builtin or custom)
+        name: String,
+        /// Output diagnostics as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -107,6 +125,14 @@ pub struct TemplateArgs {
     /// Dry run: render the template but do not execute on device
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Save SSH session recording to this JSONL file
+    #[arg(long)]
+    pub record_file: Option<PathBuf>,
+
+    /// Session recording level
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::Full)]
+    pub record_level: RecordLevelOpt,
 }
 
 #[derive(Args, Debug)]
@@ -117,10 +143,36 @@ pub struct ExecArgs {
     /// Execution mode (e.g. "Enable", "Config", "Shell")
     #[arg(long, short = 'm')]
     pub mode: Option<String>,
+
+    /// Save SSH session recording to this JSONL file
+    #[arg(long)]
+    pub record_file: Option<PathBuf>,
+
+    /// Session recording level
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::Full)]
+    pub record_level: RecordLevelOpt,
 }
 
 #[derive(Args, Debug)]
 pub struct InteractiveArgs {}
+
+#[derive(Args, Debug)]
+pub struct ReplayArgs {
+    /// Path to session recording JSONL file
+    pub record_file: PathBuf,
+
+    /// Command to replay once (matched against recorded command output events)
+    #[arg(long)]
+    pub command: Option<String>,
+
+    /// Optional mode constraint for replay command (e.g. Enable, Config)
+    #[arg(long)]
+    pub mode: Option<String>,
+
+    /// List recorded command output entries
+    #[arg(long)]
+    pub list: bool,
+}
 
 #[derive(Args, Debug)]
 pub struct WebArgs {

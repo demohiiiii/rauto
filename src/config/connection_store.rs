@@ -33,10 +33,9 @@ pub fn list_connections() -> Result<Vec<String>> {
             .extension()
             .and_then(|s| s.to_str())
             .is_some_and(|ext| ext == "toml")
+            && let Some(name) = path.file_stem().and_then(|s| s.to_str())
         {
-            if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                names.push(name.to_string());
-            }
+            names.push(name.to_string());
         }
     }
     names.sort();

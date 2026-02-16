@@ -6,11 +6,14 @@ mod web;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Commands, DeviceCommands, TemplateCommands};
-use config::connection_store::{SavedConnection, delete_connection, list_connections, load_connection, save_connection};
+use cli::{Cli, Commands, DeviceCommands, RecordLevelOpt, TemplateCommands};
+use config::connection_store::{
+    SavedConnection, delete_connection, list_connections, load_connection, save_connection,
+};
 use config::paths::{default_template_dir, ensure_default_layout};
 use config::template_loader;
 use device::DeviceClient;
+use rneter::session::{SessionEvent, SessionRecordLevel, SessionRecorder, SessionReplayer};
 use std::fs;
 use std::path::PathBuf;
 use std::process;
@@ -94,19 +97,34 @@ async fn run(cli: Cli) -> Result<()> {
                     return Ok(());
                 }
             };
-            let handler =
-                template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+            let handler = template_loader::load_device_profile(
+                &conn.device_profile,
+                conn.template_dir.as_ref(),
+            )?;
 
             info!("Connecting to device...");
-            let client = DeviceClient::connect(
-                conn.host.clone(),
-                conn.port,
-                conn.username.clone(),
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
-            )
-            .await?;
+            let client = if args.record_file.is_some() {
+                DeviceClient::connect_with_recording(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                    to_record_level(args.record_level),
+                )
+                .await?
+            } else {
+                DeviceClient::connect(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                )
+                .await?
+            };
 
             maybe_save_connection_profile(&cli.global_opts, &conn)?;
 
@@ -126,6 +144,7 @@ async fn run(cli: Cli) -> Result<()> {
                     Err(e) => println!("Failed: {}", e),
                 }
             }
+            write_recording_if_requested(args.record_file.as_ref(), &client)?;
         }
         Commands::Exec(args) => {
             let conn = match resolve_effective_connection(&cli.global_opts) {
@@ -135,23 +154,39 @@ async fn run(cli: Cli) -> Result<()> {
                     return Ok(());
                 }
             };
-            let handler =
-                template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+            let handler = template_loader::load_device_profile(
+                &conn.device_profile,
+                conn.template_dir.as_ref(),
+            )?;
 
-            let client = DeviceClient::connect(
-                conn.host.clone(),
-                conn.port,
-                conn.username.clone(),
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
-            )
-            .await?;
+            let client = if args.record_file.is_some() {
+                DeviceClient::connect_with_recording(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                    to_record_level(args.record_level),
+                )
+                .await?
+            } else {
+                DeviceClient::connect(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                )
+                .await?
+            };
 
             maybe_save_connection_profile(&cli.global_opts, &conn)?;
 
             info!("Executing command: {}", args.command);
             let output = client.execute(&args.command, args.mode.as_deref()).await?;
+            write_recording_if_requested(args.record_file.as_ref(), &client)?;
             println!("{}", output);
         }
         Commands::Interactive(_) => {
@@ -175,10 +210,9 @@ async fn run(cli: Cli) -> Result<()> {
                             .extension()
                             .and_then(|s| s.to_str())
                             .is_some_and(|ext| ext == "toml")
+                            && let Some(name) = path.file_stem().and_then(|s| s.to_str())
                         {
-                            if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                                profiles.push(name.to_string());
-                            }
+                            profiles.push(name.to_string());
                         }
                     }
                 }
@@ -199,7 +233,9 @@ async fn run(cli: Cli) -> Result<()> {
                 }
 
                 let safe_name = name.trim().trim_end_matches(".toml");
-                let path = templates_root.join("devices").join(format!("{}.toml", safe_name));
+                let path = templates_root
+                    .join("devices")
+                    .join(format!("{}.toml", safe_name));
                 if !path.exists() {
                     return Err(anyhow::anyhow!("profile '{}' not found", name));
                 }
@@ -269,7 +305,9 @@ async fn run(cli: Cli) -> Result<()> {
                         name
                     ));
                 }
-                let path = templates_root.join("devices").join(format!("{}.toml", safe_name));
+                let path = templates_root
+                    .join("devices")
+                    .join(format!("{}.toml", safe_name));
                 if !path.exists() {
                     return Err(anyhow::anyhow!(
                         "Custom profile not found: {}",
@@ -281,8 +319,10 @@ async fn run(cli: Cli) -> Result<()> {
             }
             DeviceCommands::TestConnection => {
                 let conn = resolve_effective_connection(&cli.global_opts)?;
-                let handler =
-                    template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+                let handler = template_loader::load_device_profile(
+                    &conn.device_profile,
+                    conn.template_dir.as_ref(),
+                )?;
                 let _client = DeviceClient::connect(
                     conn.host.clone(),
                     conn.port,
@@ -335,6 +375,36 @@ async fn run(cli: Cli) -> Result<()> {
                     path.to_string_lossy()
                 );
             }
+            DeviceCommands::Diagnose { name, json } => {
+                let handler = template_loader::load_device_profile(
+                    &name,
+                    cli.global_opts.template_dir.as_ref(),
+                )?;
+                let report = handler.diagnose_state_machine();
+
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                    return Ok(());
+                }
+
+                println!("# profile: {}", name);
+                println!("# has_issues: {}", report.has_issues());
+                println!("total_states: {}", report.total_states);
+                print_list("entry_states", &report.entry_states);
+                print_list("missing_edge_sources", &report.missing_edge_sources);
+                print_list("missing_edge_targets", &report.missing_edge_targets);
+                print_list("unreachable_states", &report.unreachable_states);
+                print_list("dead_end_states", &report.dead_end_states);
+                print_list(
+                    "duplicate_prompt_patterns",
+                    &report.duplicate_prompt_patterns,
+                );
+                print_list(
+                    "potentially_ambiguous_prompt_states",
+                    &report.potentially_ambiguous_prompt_states,
+                );
+                print_list("self_loop_only_states", &report.self_loop_only_states);
+            }
         },
         Commands::Templates(cmd) => match cmd {
             TemplateCommands::List => {
@@ -347,10 +417,10 @@ async fn run(cli: Cli) -> Result<()> {
                 for entry in fs::read_dir(&commands_dir)? {
                     let entry = entry?;
                     let path = entry.path();
-                    if path.is_file() {
-                        if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-                            names.push(name.to_string());
-                        }
+                    if path.is_file()
+                        && let Some(name) = path.file_name().and_then(|s| s.to_str())
+                    {
+                        names.push(name.to_string());
                     }
                 }
                 names.sort();
@@ -376,6 +446,50 @@ async fn run(cli: Cli) -> Result<()> {
                 println!("Deleted template '{}'", safe_name);
             }
         },
+        Commands::Replay(args) => {
+            let jsonl = fs::read_to_string(&args.record_file)?;
+            let mut replayer = SessionReplayer::from_jsonl(&jsonl)?;
+
+            if let Some(ctx) = replayer.initial_context() {
+                println!(
+                    "# context: device={} prompt={} fsm_prompt={}",
+                    ctx.device_addr, ctx.prompt, ctx.fsm_prompt
+                );
+            }
+
+            if args.list {
+                let recorder = SessionRecorder::from_jsonl(&jsonl)?;
+                let entries = recorder.entries()?;
+                let mut idx = 0usize;
+                for entry in entries {
+                    if let SessionEvent::CommandOutput {
+                        command,
+                        mode,
+                        success,
+                        ..
+                    } = entry.event
+                    {
+                        idx += 1;
+                        println!(
+                            "{}. mode={} success={} command={}",
+                            idx, mode, success, command
+                        );
+                    }
+                }
+                if idx == 0 {
+                    println!("-");
+                }
+            }
+
+            if let Some(command) = args.command {
+                let output = if let Some(mode) = args.mode.as_deref() {
+                    replayer.replay_next_in_mode(&command, mode)?
+                } else {
+                    replayer.replay_next(&command)?
+                };
+                println!("{}", output.content);
+            }
+        }
     }
 
     Ok(())
@@ -428,10 +542,11 @@ fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConne
         .clone()
         .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
         .unwrap_or_else(|| "cisco".to_string());
-    let template_dir = opts
-        .template_dir
-        .clone()
-        .or_else(|| saved.as_ref().and_then(|s| s.template_dir.clone().map(PathBuf::from)));
+    let template_dir = opts.template_dir.clone().or_else(|| {
+        saved
+            .as_ref()
+            .and_then(|s| s.template_dir.clone().map(PathBuf::from))
+    });
 
     Ok(EffectiveConnection {
         host,
@@ -458,7 +573,11 @@ fn maybe_save_connection_profile(opts: &cli::GlobalOpts, conn: &EffectiveConnect
     Ok(())
 }
 
-fn save_named_connection(name: &str, conn: &EffectiveConnection, save_password: bool) -> Result<PathBuf> {
+fn save_named_connection(
+    name: &str,
+    conn: &EffectiveConnection,
+    save_password: bool,
+) -> Result<PathBuf> {
     let data = SavedConnection {
         host: Some(conn.host.clone()),
         username: Some(conn.username.clone()),
@@ -481,6 +600,43 @@ fn save_named_connection(name: &str, conn: &EffectiveConnection, save_password: 
     };
 
     save_connection(name, &data)
+}
+
+fn print_list(label: &str, values: &[String]) {
+    if values.is_empty() {
+        println!("{}: -", label);
+    } else {
+        println!("{}: {}", label, values.join(", "));
+    }
+}
+
+fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
+    match level {
+        RecordLevelOpt::Off => SessionRecordLevel::Off,
+        RecordLevelOpt::KeyEventsOnly => SessionRecordLevel::KeyEventsOnly,
+        RecordLevelOpt::Full => SessionRecordLevel::Full,
+    }
+}
+
+fn write_recording_if_requested(
+    record_file: Option<&PathBuf>,
+    client: &DeviceClient,
+) -> Result<()> {
+    let Some(path) = record_file else {
+        return Ok(());
+    };
+    let Some(jsonl) = client.recording_jsonl()? else {
+        return Ok(());
+    };
+
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, jsonl.as_bytes())?;
+    println!("Saved session recording to '{}'", path.to_string_lossy());
+    Ok(())
 }
 
 fn safe_template_name(raw: &str) -> Result<String> {

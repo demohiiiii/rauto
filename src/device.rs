@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use rneter::{
     device::DeviceHandler,
-    session::{CmdJob, Command, MANAGER},
+    session::{CmdJob, Command, MANAGER, SessionRecordLevel, SessionRecorder},
 };
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
@@ -10,6 +10,7 @@ use tracing::{debug, error, info};
 pub struct DeviceClient {
     sender: Sender<CmdJob>,
     default_timeout: u64,
+    recorder: Option<SessionRecorder>,
 }
 
 impl DeviceClient {
@@ -33,6 +34,41 @@ impl DeviceClient {
         Ok(Self {
             sender,
             default_timeout: 60,
+            recorder: None,
+        })
+    }
+
+    pub async fn connect_with_recording(
+        host: String,
+        port: u16,
+        username: String,
+        password: String,
+        enable_password: Option<String>,
+        handler: DeviceHandler,
+        level: SessionRecordLevel,
+    ) -> Result<Self> {
+        info!(
+            "Connecting with recording to {}:{} as {}",
+            host, port, username
+        );
+
+        let (sender, recorder) = MANAGER
+            .get_with_recording_level(
+                username,
+                host,
+                port,
+                password,
+                enable_password,
+                handler,
+                level,
+            )
+            .await
+            .map_err(|e| anyhow!("Failed to connect: {}", e))?;
+
+        Ok(Self {
+            sender,
+            default_timeout: 60,
+            recorder: Some(recorder),
         })
     }
 
@@ -82,5 +118,15 @@ impl DeviceClient {
             results.push(output);
         }
         Ok(results)
+    }
+
+    pub fn recording_jsonl(&self) -> Result<Option<String>> {
+        match &self.recorder {
+            Some(r) => Ok(Some(
+                r.to_jsonl()
+                    .map_err(|e| anyhow!("record export failed: {}", e))?,
+            )),
+            None => Ok(None),
+        }
     }
 }

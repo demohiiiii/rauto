@@ -5,16 +5,28 @@ use rneter::{device::DeviceHandler, templates};
 use std::fs;
 use std::path::PathBuf;
 
+pub fn canonical_builtin_profile_name(name: &str) -> Option<&'static str> {
+    match name.to_lowercase().as_str() {
+        "cisco" | "ios" => Some("cisco"),
+        "huawei" | "vrp" => Some("huawei"),
+        "h3c" | "comware" => Some("h3c"),
+        "hillstone" => Some("hillstone"),
+        "juniper" | "junos" => Some("juniper"),
+        "array" => Some("array"),
+        _ => None,
+    }
+}
+
 pub fn load_device_profile(name: &str, custom_dir: Option<&PathBuf>) -> Result<DeviceHandler> {
     // 1. Check built-in templates
-    match name.to_lowercase().as_str() {
-        "cisco" | "ios" => return Ok(templates::cisco()?),
-        "huawei" | "vrp" => return Ok(templates::huawei()?),
-        "h3c" | "comware" => return Ok(templates::h3c()?),
-        "hillstone" => return Ok(templates::hillstone()?),
-        "juniper" | "junos" => return Ok(templates::juniper()?),
-        "array" => return Ok(templates::array()?),
-        _ => {}
+    match canonical_builtin_profile_name(name) {
+        Some("cisco") => return Ok(templates::cisco()?),
+        Some("huawei") => return Ok(templates::huawei()?),
+        Some("h3c") => return Ok(templates::h3c()?),
+        Some("hillstone") => return Ok(templates::hillstone()?),
+        Some("juniper") => return Ok(templates::juniper()?),
+        Some("array") => return Ok(templates::array()?),
+        Some(_) | None => {}
     }
 
     // 2. Search for TOML file
