@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.1.5] - 2026-02-18
+
+### New Features
+- Added automatic execution-history persistence for CLI `exec` and `template execute` runs when recording is enabled, with records bound to saved connection identity.
+- Added CLI history query command `rauto device connection-history --name <connection> [--limit N] [--json]`.
+- Added Web history APIs for connection-scoped records, including detail query and record deletion by id.
+- Added history management actions in Web UI: list, view event-level detail, and delete history records inline.
+
+### Optimizations
+- Switched default recording level from `full` to `key-events-only` in CLI and Web paths to reduce recording volume and improve default runtime overhead.
+- Refined Web history presentation with richer tabular cards, badges, and clearer action layout for faster troubleshooting.
+- Improved event detail UX by introducing a right-side detail drawer with structured fields for replay/record entries.
+
+### API Changes
+- Added Web endpoint `DELETE /api/connections/{name}/history/{id}` for history record removal.
+- Added Web endpoint `GET /api/connections/{name}/history/{id}` for event-level record detail retrieval.
+- Added CLI subcommand `device connection-history`; consumers can migrate ad-hoc history file parsing to this stable command output.
+- History persistence now writes default mode `Enable` at record time when mode is omitted; this affects newly generated history metadata.
+
+### Risks
+- History delete operation permanently removes both `.jsonl` and `.meta.json` artifacts for a record; accidental deletion has no built-in recovery.
+- Existing historical records created before this release may still contain empty mode fields, so mixed datasets can appear during transition.
+- UI changes are concentrated in `static/app.js`; without browser E2E coverage, some edge-case interactions (drawer/detail/delete flow) may regress.
+
 ## [0.1.4] - 2026-02-16
 
 ### New Features

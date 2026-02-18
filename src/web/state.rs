@@ -16,6 +16,7 @@ impl AppState {
 }
 
 pub struct ResolvedConnection {
+    pub connection_name: Option<String>,
     pub host: String,
     pub username: String,
     pub password: String,
@@ -30,6 +31,7 @@ pub fn merge_connection_options(
     incoming: Option<ConnectionRequest>,
 ) -> Result<ResolvedConnection, ApiError> {
     let incoming = incoming.unwrap_or(ConnectionRequest {
+        connection_name: None,
         host: None,
         username: None,
         password: None,
@@ -66,8 +68,10 @@ pub fn merge_connection_options(
         .template_dir
         .map(PathBuf::from)
         .or_else(|| defaults.template_dir.clone());
+    let connection_name = incoming.connection_name.or_else(|| defaults.connection.clone());
 
     Ok(ResolvedConnection {
+        connection_name,
         host,
         username,
         password,

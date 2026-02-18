@@ -1,13 +1,16 @@
 use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
 use crate::config::{connection_store, connection_store::SavedConnection};
+use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
 use crate::web::models::{
     BuiltinProfileDetail, CommandResult, ConnectionRequest, ConnectionTestRequest,
-    ConnectionTestResponse, CreateTemplateRequest, CustomProfileDetail, DeviceProfilesOverview,
-    ExecRequest, ExecResponse, ExecuteTemplateRequest, ExecuteTemplateResponse,
+    ConnectionHistoryDetailResponse, ConnectionHistoryEntry, ConnectionTestResponse,
+    CreateTemplateRequest, CustomProfileDetail,
+    DeviceProfilesOverview, ExecRequest, ExecResponse, ExecuteTemplateRequest,
+    ExecuteTemplateResponse,
     ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
     ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
     SavedConnectionMeta, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
@@ -15,12 +18,21 @@ use crate::web::models::{
 };
 use crate::web::state::{AppState, merge_connection_options};
 use crate::web::storage;
-use axum::{Json, extract::State};
+use axum::{
+    Json,
+    extract::{Query, State},
+};
 use rneter::session::{SessionRecordLevel, SessionRecorder, SessionReplayer};
 use serde_json::{Value, json};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tracing::warn;
+
+#[derive(Debug, serde::Deserialize)]
+pub struct HistoryQuery {
+    pub limit: Option<usize>,
+}
 
 pub async fn health() -> Json<Value> {
     Json(json!({"status": "ok"}))
@@ -234,9 +246,50 @@ pub async fn render_template(
 
 fn to_record_level(level: Option<RecordLevel>) -> Option<SessionRecordLevel> {
     match level {
-        Some(RecordLevel::Off) | None => None,
+        Some(RecordLevel::Off) => None,
         Some(RecordLevel::KeyEventsOnly) => Some(SessionRecordLevel::KeyEventsOnly),
         Some(RecordLevel::Full) => Some(SessionRecordLevel::Full),
+        None => Some(SessionRecordLevel::KeyEventsOnly),
+    }
+}
+
+fn record_level_name(level: Option<RecordLevel>) -> &'static str {
+    match level {
+        Some(RecordLevel::Off) => "off",
+        Some(RecordLevel::KeyEventsOnly) | None => "key-events-only",
+        Some(RecordLevel::Full) => "full",
+    }
+}
+
+fn persist_history_if_recorded(
+    conn: &crate::web::state::ResolvedConnection,
+    client: &DeviceClient,
+    operation: &str,
+    command_label: &str,
+    mode: Option<&str>,
+    level: Option<RecordLevel>,
+) {
+    if matches!(level, Some(RecordLevel::Off)) {
+        return;
+    }
+    let Some(jsonl) = client.recording_jsonl().ok().flatten() else {
+        return;
+    };
+    if let Err(e) = history_store::save_recording(
+        HistoryBinding {
+            connection_name: conn.connection_name.as_deref(),
+            host: &conn.host,
+            port: conn.port,
+            username: &conn.username,
+            device_profile: &conn.device_profile,
+        },
+        operation,
+        command_label,
+        mode,
+        record_level_name(level),
+        &jsonl,
+    ) {
+        warn!("failed to persist execution history: {}", e);
     }
 }
 
@@ -269,34 +322,43 @@ pub async fn exec_command(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecRequest>,
 ) -> Result<Json<ExecResponse>, ApiError> {
+    let record_level = req.record_level;
     let conn = merge_connection_options(&state.defaults, req.connection)?;
     let handler =
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
 
-    let client = if let Some(level) = to_record_level(req.record_level) {
+    let client = if let Some(level) = to_record_level(record_level) {
         DeviceClient::connect_with_recording(
-            conn.host,
+            conn.host.clone(),
             conn.port,
-            conn.username,
-            conn.password,
-            conn.enable_password,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
             handler,
             level,
         )
         .await?
     } else {
         DeviceClient::connect(
-            conn.host,
+            conn.host.clone(),
             conn.port,
-            conn.username,
-            conn.password,
-            conn.enable_password,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
             handler,
         )
         .await?
     };
 
     let output = client.execute(&req.command, req.mode.as_deref()).await?;
+    persist_history_if_recorded(
+        &conn,
+        &client,
+        "exec",
+        &req.command,
+        req.mode.as_deref(),
+        record_level,
+    );
     Ok(Json(ExecResponse {
         output,
         recording_jsonl: client.recording_jsonl()?,
@@ -354,10 +416,11 @@ pub async fn get_connection(
         .map_err(|_| ApiError::bad_request("saved connection not found"))?;
     let path = connection_store::connections_dir().join(format!("{}.toml", safe));
     Ok(Json(SavedConnectionDetail {
-        name: safe,
+        name: safe.clone(),
         path: path.to_string_lossy().to_string(),
         has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
         connection: ConnectionRequest {
+            connection_name: Some(safe.clone()),
             host: data.host,
             username: data.username,
             password: data.password,
@@ -367,6 +430,79 @@ pub async fn get_connection(
             template_dir: data.template_dir,
         },
     }))
+}
+
+pub async fn get_connection_history(
+    axum::extract::Path(name): axum::extract::Path<String>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<Vec<ConnectionHistoryEntry>>, ApiError> {
+    let safe = connection_store::safe_connection_name(&name)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    let limit = query.limit.unwrap_or(20);
+    let rows = history_store::list_history_by_connection_name(&safe, limit).map_err(ApiError::from)?;
+    let items = rows
+        .into_iter()
+        .map(|row| ConnectionHistoryEntry {
+            id: row.id,
+            ts_ms: row.ts_ms,
+            connection_key: row.connection_key,
+            connection_name: row.connection_name,
+            host: row.host,
+            port: row.port,
+            username: row.username,
+            device_profile: row.device_profile,
+            operation: row.operation,
+            command_label: row.command_label,
+            mode: row.mode,
+            record_level: row.record_level,
+            record_path: row.record_path,
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(items))
+}
+
+pub async fn get_connection_history_detail(
+    axum::extract::Path((name, id)): axum::extract::Path<(String, String)>,
+) -> Result<Json<ConnectionHistoryDetailResponse>, ApiError> {
+    let safe = connection_store::safe_connection_name(&name)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    let rows = history_store::list_history_by_connection_name(&safe, 0).map_err(ApiError::from)?;
+    let row = rows
+        .into_iter()
+        .find(|item| item.id == id)
+        .ok_or_else(|| ApiError::bad_request("history record not found"))?;
+
+    let jsonl = fs::read_to_string(&row.record_path).map_err(ApiError::from)?;
+    let recorder = SessionRecorder::from_jsonl(&jsonl).map_err(ApiError::from)?;
+    let entries = recorder.entries().map_err(ApiError::from)?;
+
+    Ok(Json(ConnectionHistoryDetailResponse {
+        meta: ConnectionHistoryEntry {
+            id: row.id,
+            ts_ms: row.ts_ms,
+            connection_key: row.connection_key,
+            connection_name: row.connection_name,
+            host: row.host,
+            port: row.port,
+            username: row.username,
+            device_profile: row.device_profile,
+            operation: row.operation,
+            command_label: row.command_label,
+            mode: row.mode,
+            record_level: row.record_level,
+            record_path: row.record_path,
+        },
+        entries,
+    }))
+}
+
+pub async fn delete_connection_history(
+    axum::extract::Path((name, id)): axum::extract::Path<(String, String)>,
+) -> Result<Json<Value>, ApiError> {
+    let safe = connection_store::safe_connection_name(&name)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    let deleted = history_store::delete_history_by_connection_name(&safe, &id).map_err(ApiError::from)?;
+    Ok(Json(json!({ "ok": true, "deleted": deleted })))
 }
 
 pub async fn upsert_connection(
@@ -393,10 +529,11 @@ pub async fn upsert_connection(
     let path = connection_store::save_connection(&safe, &data).map_err(ApiError::from)?;
 
     Ok(Json(SavedConnectionDetail {
-        name: safe,
+        name: safe.clone(),
         path: path.to_string_lossy().to_string(),
         has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
         connection: ConnectionRequest {
+            connection_name: Some(safe.clone()),
             host: data.host,
             username: data.username,
             password: data.password,
@@ -421,6 +558,7 @@ pub async fn execute_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTemplateRequest>,
 ) -> Result<Json<ExecuteTemplateResponse>, ApiError> {
+    let record_level = req.record_level;
     let template_dir = req
         .template_dir
         .map(PathBuf::from)
@@ -439,24 +577,24 @@ pub async fn execute_template(
     let conn = merge_connection_options(&state.defaults, req.connection)?;
     let handler =
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
-    let client = if let Some(level) = to_record_level(req.record_level) {
+    let client = if let Some(level) = to_record_level(record_level) {
         DeviceClient::connect_with_recording(
-            conn.host,
+            conn.host.clone(),
             conn.port,
-            conn.username,
-            conn.password,
-            conn.enable_password,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
             handler,
             level,
         )
         .await?
     } else {
         DeviceClient::connect(
-            conn.host,
+            conn.host.clone(),
             conn.port,
-            conn.username,
-            conn.password,
-            conn.enable_password,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
             handler,
         )
         .await?
@@ -485,6 +623,15 @@ pub async fn execute_template(
             }),
         }
     }
+
+    persist_history_if_recorded(
+        &conn,
+        &client,
+        "template_execute",
+        &format!("template: {}", req.template),
+        req.mode.as_deref(),
+        record_level,
+    );
 
     Ok(Json(ExecuteTemplateResponse {
         rendered_commands,

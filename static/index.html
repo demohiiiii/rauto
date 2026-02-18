@@ -317,6 +317,37 @@
     .op-mode-tabs {
       margin-bottom: 22px;
     }
+    #entry-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 10040;
+      background: rgba(15, 23, 42, 0.42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+    #entry-drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #entry-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: min(760px, 96vw);
+      z-index: 10050;
+      background: #ffffff;
+      border-left: 1px solid #dbe3ef;
+      box-shadow: -14px 0 32px rgba(2, 6, 23, 0.24);
+      transform: translateX(100%);
+      transition: transform 180ms ease;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    #entry-drawer.open {
+      transform: translateX(0);
+    }
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900">
@@ -353,11 +384,13 @@
               <div class="inline-flex flex-wrap items-center gap-2">
                 <button id="saved-conn-save-btn" class="mini-btn" type="button">Save</button>
                 <button id="saved-conn-delete-btn" class="mini-btn delete" type="button">Delete</button>
+                <button id="saved-conn-history-btn" class="mini-btn" type="button">History</button>
               </div>
             </div>
           </div>
           <pre id="saved-conn-list" class="output mt-2"></pre>
           <pre id="saved-conn-out" class="output mt-2"></pre>
+          <div id="saved-conn-history-out" class="mt-2 grid gap-2"></div>
         </div>
       </div>
       <div class="mt-4 grid gap-3 md:grid-cols-2">
@@ -428,10 +461,10 @@
                 </div>
                 <div class="group-body grid gap-2">
                   <div class="inline-flex items-center gap-3">
-                    <label class="check-label"><input id="record-enable" type="checkbox" class="check-input" /><span id="record-enable-label">Enable recording</span></label>
+                    <label class="check-label"><input id="record-enable" type="checkbox" class="check-input" /><span id="record-enable-label">Disable recording</span></label>
                     <select id="record-level" class="input md:w-[220px]">
+                      <option value="key-events-only" selected>key-events-only</option>
                       <option value="full">full</option>
-                      <option value="key-events-only">key-events-only</option>
                       <option value="off">off</option>
                     </select>
                   </div>
@@ -735,11 +768,18 @@
         <h3 id="detail-modal-title" class="text-base font-semibold text-slate-800">Entry Details</h3>
         <button id="detail-modal-close" class="mini-btn" type="button">Close</button>
       </div>
-      <div class="p-4">
-        <pre id="detail-modal-body" class="output max-h-[70vh] overflow-auto"></pre>
-      </div>
+      <div id="detail-modal-body" class="p-4 max-h-[70vh] overflow-auto"></div>
     </div>
   </div>
+
+  <div id="entry-drawer-backdrop" aria-hidden="true"></div>
+  <aside id="entry-drawer" role="dialog" aria-modal="true" aria-labelledby="entry-drawer-title">
+    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <h3 id="entry-drawer-title" class="text-base font-semibold text-slate-800">Event Details</h3>
+      <button id="entry-drawer-close" class="mini-btn" type="button">Close</button>
+    </div>
+    <div id="entry-drawer-body" class="overflow-auto p-4"></div>
+  </aside>
 
   <script src="/static/app.js"></script>
 </body>

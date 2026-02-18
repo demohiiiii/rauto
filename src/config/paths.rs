@@ -17,5 +17,6 @@ pub fn ensure_default_layout() -> Result<()> {
     fs::create_dir_all(root.join("templates").join("commands"))?;
     fs::create_dir_all(root.join("templates").join("devices"))?;
     fs::create_dir_all(root.join("connections"))?;
+    fs::create_dir_all(root.join("records").join("by_connection"))?;
     Ok(())
 }

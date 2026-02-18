@@ -27,7 +27,23 @@ const i18n = {
     savedConnLoadBtn: "Load",
     savedConnSaveBtn: "Save",
     savedConnDeleteBtn: "Delete",
+    savedConnHistoryBtn: "History",
     savedConnRefreshBtn: "Refresh",
+    savedConnHistoryEmpty: "no execution history for this connection",
+    historyColIndex: "#",
+    historyColTime: "Time",
+    historyColOperation: "Operation",
+    historyColCommand: "Command",
+    historyColMode: "Mode",
+    historyColProfile: "Target",
+    historyColLevel: "Level",
+    historyColPath: "Record Path",
+    historyDetailTitle: "History Details",
+    historyMetaTitle: "Execution Meta",
+    historyDetailEmpty: "no event entries in this record",
+    historyDeleteBtn: "Delete",
+    historyDeleteConfirm: "Delete this history record?",
+    historyDeleteDone: "history record deleted",
     connectionHelp: "Leave empty to fallback to CLI defaults used at server startup.",
     tabOps: "Operations",
     tabPrompts: "Prompt Profiles",
@@ -66,7 +82,7 @@ const i18n = {
     eventTypeLabel: "Type",
     searchPlaceholder: "search command/content",
     clearFilters: "Clear",
-    recordEnableLabel: "Enable recording",
+    recordEnableLabel: "Disable recording",
     recordJsonlPlaceholder: "recording JSONL output",
     recordCopyBtn: "Copy Recording",
     recordUseReplayBtn: "Use In Replay",
@@ -104,6 +120,22 @@ const i18n = {
     actionViewDetail: "View Detail",
     detailModalTitle: "Entry Details",
     detailModalClose: "Close",
+    entryDrawerTitle: "Event Details",
+    entryDrawerClose: "Close",
+    detailSectionBasic: "Basic",
+    detailSectionFlow: "Prompt/FSM Flow",
+    detailSectionOutput: "Command Output",
+    detailSectionRaw: "Raw Content",
+    detailLabelKind: "Event Kind",
+    detailLabelSuccess: "Success",
+    detailLabelCommand: "Command",
+    detailLabelMode: "Mode",
+    detailLabelPrompt: "Prompt",
+    detailLabelFsmPrompt: "FSM Prompt",
+    detailLabelDevice: "Device",
+    detailLabelTimestamp: "Timestamp",
+    detailLabelRecordLevel: "Record Level",
+    detailLabelError: "Error",
     tableDetail: "Details",
     recordingCopied: "recording copied",
     recordingSetToReplay: "recording moved to replay",
@@ -204,7 +236,23 @@ const i18n = {
     savedConnLoadBtn: "加载",
     savedConnSaveBtn: "保存",
     savedConnDeleteBtn: "删除",
+    savedConnHistoryBtn: "历史",
     savedConnRefreshBtn: "刷新",
+    savedConnHistoryEmpty: "该连接暂无执行历史",
+    historyColIndex: "序号",
+    historyColTime: "时间",
+    historyColOperation: "操作",
+    historyColCommand: "命令",
+    historyColMode: "模式",
+    historyColProfile: "目标",
+    historyColLevel: "录制级别",
+    historyColPath: "录制文件",
+    historyDetailTitle: "历史详情",
+    historyMetaTitle: "执行元数据",
+    historyDetailEmpty: "该记录没有 event 明细",
+    historyDeleteBtn: "删除",
+    historyDeleteConfirm: "确认删除这条历史记录？",
+    historyDeleteDone: "历史记录已删除",
     connectionHelp: "留空时会回退到服务启动时的 CLI 默认参数。",
     tabOps: "常用操作",
     tabPrompts: "Prompt 管理",
@@ -243,7 +291,7 @@ const i18n = {
     eventTypeLabel: "类型",
     searchPlaceholder: "搜索命令/内容",
     clearFilters: "清空筛选",
-    recordEnableLabel: "启用录制",
+    recordEnableLabel: "关闭录制",
     recordJsonlPlaceholder: "录制 JSONL 输出",
     recordCopyBtn: "复制录制",
     recordUseReplayBtn: "用于回放",
@@ -281,6 +329,22 @@ const i18n = {
     actionViewDetail: "查看详情",
     detailModalTitle: "记录详情",
     detailModalClose: "关闭",
+    entryDrawerTitle: "事件详情",
+    entryDrawerClose: "关闭",
+    detailSectionBasic: "基础信息",
+    detailSectionFlow: "Prompt/FSM 变化",
+    detailSectionOutput: "命令输出",
+    detailSectionRaw: "原始内容",
+    detailLabelKind: "事件类型",
+    detailLabelSuccess: "是否成功",
+    detailLabelCommand: "命令",
+    detailLabelMode: "模式",
+    detailLabelPrompt: "Prompt",
+    detailLabelFsmPrompt: "FSM Prompt",
+    detailLabelDevice: "设备",
+    detailLabelTimestamp: "时间",
+    detailLabelRecordLevel: "录制级别",
+    detailLabelError: "错误",
     tableDetail: "详情",
     recordingCopied: "录制内容已复制",
     recordingSetToReplay: "录制内容已填入回放",
@@ -461,6 +525,7 @@ function applyI18n() {
   byId("saved-conn-save-password-label").textContent = t("savedConnSavePassword");
   byId("saved-conn-save-btn").textContent = t("savedConnSaveBtn");
   byId("saved-conn-delete-btn").textContent = t("savedConnDeleteBtn");
+  byId("saved-conn-history-btn").textContent = t("savedConnHistoryBtn");
   byId("connection-help").textContent = t("connectionHelp");
 
   byId("tab-ops").textContent = t("tabOps");
@@ -508,6 +573,8 @@ function applyI18n() {
   byId("replay-run-btn").textContent = t("replayRunBtn");
   byId("detail-modal-title").textContent = t("detailModalTitle");
   byId("detail-modal-close").textContent = t("detailModalClose");
+  byId("entry-drawer-title").textContent = t("entryDrawerTitle");
+  byId("entry-drawer-close").textContent = t("entryDrawerClose");
   byId("profile-save-btn").textContent = t("profileSaveBtn");
   byId("profile-delete-btn").textContent = t("profileDeleteBtn");
   byId("profile-diagnose-title").textContent = t("profileDiagnoseTitle");
@@ -663,7 +730,9 @@ function connectionPayload() {
   const value = (id) => byId(id).value.trim();
   const rawPort = value("port");
   const parsedPort = rawPort ? Number(rawPort) : 22;
+  const connectionName = value("saved-conn-name");
   return {
+    connection_name: connectionName || null,
     host: value("host") || null,
     port: Number.isFinite(parsedPort) ? parsedPort : 22,
     username: value("username") || null,
@@ -674,8 +743,8 @@ function connectionPayload() {
 }
 
 function recordLevelPayload() {
-  if (!byId("record-enable").checked) return null;
-  const level = (byId("record-level").value || "full").trim();
+  if (byId("record-enable").checked) return "off";
+  const level = (byId("record-level").value || "key-events-only").trim();
   if (!level || level === "off") return null;
   return level;
 }
@@ -684,6 +753,11 @@ function safeString(value) {
   if (value == null) return "-";
   if (typeof value === "string") return value;
   return JSON.stringify(value);
+}
+
+function displayMode(mode) {
+  const raw = String(mode || "").trim();
+  return raw;
 }
 
 function escapeHtml(value) {
@@ -849,7 +923,8 @@ function renderEntriesTable(entries) {
       const event = (entry && entry.event) || {};
       const kind = safeString(event.kind);
       const command = event.kind === "command_output" ? safeString(event.command) : "-";
-      const mode = event.kind === "command_output" ? safeString(event.mode) : "-";
+      const modeRaw = event.kind === "command_output" ? displayMode(event.mode) : "-";
+      const mode = modeRaw || "-";
       const detailId = `entry-${baseSeq + idx}`;
       detailEntryMap.set(detailId, entry);
       const isFailed = event.kind === "command_output" && event.success === false;
@@ -948,6 +1023,141 @@ function applyConnectionForm(connection = {}) {
   byId("device_profile").value = connection.device_profile || "";
 }
 
+function formatHistoryTime(tsMs) {
+  const n = Number(tsMs);
+  if (!Number.isFinite(n) || n <= 0) return "-";
+  return new Date(n).toLocaleString();
+}
+
+function historyOperationLabel(raw) {
+  const op = safeString(raw).toLowerCase();
+  if (op === "exec") {
+    return currentLang === "zh" ? "命令执行" : "Execute";
+  }
+  if (op === "template_execute") {
+    return currentLang === "zh" ? "模板执行" : "Template Execute";
+  }
+  return op || "-";
+}
+
+function historyOperationBadge(raw) {
+  const op = safeString(raw).toLowerCase();
+  const label = historyOperationLabel(op);
+  const cls =
+    op === "template_execute"
+      ? "bg-cyan-100 text-cyan-800 border-cyan-200"
+      : "bg-indigo-100 text-indigo-800 border-indigo-200";
+  return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cls}">${escapeHtml(
+    label
+  )}</span>`;
+}
+
+function historyModeBadge(mode) {
+  const value = displayMode(mode);
+  if (!value) {
+    return '<span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">-</span>';
+  }
+  return `<span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">${escapeHtml(
+    value
+  )}</span>`;
+}
+
+function historyRecordLevelBadge(level) {
+  const value = safeString(level).toLowerCase();
+  const cls =
+    value === "full"
+      ? "border-violet-200 bg-violet-100 text-violet-800"
+      : value === "off"
+        ? "border-slate-200 bg-slate-100 text-slate-600"
+        : "border-emerald-200 bg-emerald-100 text-emerald-800";
+  return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cls}">${escapeHtml(
+    value || "-"
+  )}</span>`;
+}
+
+function historyTargetCell(item) {
+  const name = safeString(item.connection_name || "-");
+  const host = safeString(item.host);
+  const port = safeString(item.port);
+  const profile = safeString(item.device_profile);
+  return `
+    <div class="grid gap-1">
+      <div>
+        <span class="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700">${escapeHtml(
+          name
+        )}</span>
+      </div>
+      <div class="font-mono text-xs text-slate-700 break-all">${escapeHtml(`${host}:${port}`)}</div>
+      <div class="text-xs text-slate-500 break-all">${escapeHtml(profile)}</div>
+    </div>
+  `;
+}
+
+function renderConnectionHistoryTable(items) {
+  const sorted = [...items].sort((a, b) => Number(a.ts_ms || 0) - Number(b.ts_ms || 0));
+  const rows = sorted
+    .map((item, idx) => {
+      return `
+        <tr class="align-top hover:bg-slate-50/80">
+          <td class="whitespace-nowrap px-3 py-2 text-slate-500">${idx + 1}</td>
+          <td class="whitespace-nowrap px-3 py-2 text-slate-700">
+            <div class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">${escapeHtml(
+              formatHistoryTime(item.ts_ms)
+            )}</div>
+          </td>
+          <td class="px-3 py-2">${historyOperationBadge(item.operation)}</td>
+          <td class="max-w-[380px] px-3 py-2">
+            <div class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-xs text-slate-700 break-all">${escapeHtml(
+              safeString(item.command_label)
+            )}</div>
+          </td>
+          <td class="px-3 py-2">${historyModeBadge(item.mode)}</td>
+          <td class="max-w-[260px] px-3 py-2">${historyTargetCell(item)}</td>
+          <td class="px-3 py-2">${historyRecordLevelBadge(item.record_level)}</td>
+          <td class="max-w-[380px] px-3 py-2">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[11px] text-slate-600 break-all">${escapeHtml(
+              safeString(item.record_path)
+            )}</div>
+          </td>
+          <td class="whitespace-nowrap px-3 py-2">
+            <div class="inline-flex items-center gap-2">
+              <button class="mini-btn js-history-detail-btn" type="button" data-history-id="${escapeHtml(
+                safeString(item.id)
+              )}">${escapeHtml(t("actionViewDetail"))}</button>
+              <button class="mini-btn delete js-history-delete-btn" type="button" data-history-id="${escapeHtml(
+                safeString(item.id)
+              )}">${escapeHtml(t("historyDeleteBtn"))}</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <table class="min-w-[1320px] table-fixed text-sm">
+        <thead class="bg-slate-100 text-xs font-semibold text-slate-600">
+          <tr>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColIndex"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColTime"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColOperation"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColCommand"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColMode"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColProfile"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColLevel"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColPath"))}</th>
+            <th class="px-3 py-2 text-left">${escapeHtml(t("tableAction"))}</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderSavedConnectionOptions(keyword = "") {
   const datalist = byId("saved-conn-options");
   const q = keyword.trim().toLowerCase();
@@ -1028,6 +1238,102 @@ async function deleteConnectionByName() {
     out.textContent = `${t("deleted")}: ${name}`;
     byId("saved-conn-name").value = "";
     await loadSavedConnections();
+  } catch (e) {
+    out.textContent = e.message;
+  }
+}
+
+async function loadConnectionHistory() {
+  const name = byId("saved-conn-name").value.trim();
+  const out = byId("saved-conn-history-out");
+  if (!name) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      t("connectionNameRequired")
+    )}</div>`;
+    return;
+  }
+  out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+    t("running")
+  )}</div>`;
+  try {
+    const data = await request(
+      "GET",
+      `/api/connections/${encodeURIComponent(name)}/history?limit=30`
+    );
+    if (!Array.isArray(data) || data.length === 0) {
+      out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+        t("savedConnHistoryEmpty")
+      )}</div>`;
+      return;
+    }
+    out.innerHTML = renderConnectionHistoryTable(data);
+  } catch (e) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      e.message
+    )}</div>`;
+  }
+}
+
+function formatHistoryDetailView(data) {
+  const meta = (data && data.meta) || {};
+  const entries = Array.isArray(data && data.entries) ? data.entries : [];
+  const metaCard = `
+    <section class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+      <div class="mb-1 text-xs font-semibold text-slate-500">${escapeHtml(t("historyMetaTitle"))}</div>
+      <div class="grid gap-1 font-mono text-xs break-all">
+        <div>time=${escapeHtml(formatHistoryTime(meta.ts_ms))}</div>
+        <div>operation=${escapeHtml(safeString(meta.operation))}</div>
+        <div>command=${escapeHtml(safeString(meta.command_label))}</div>
+        <div>mode=${escapeHtml(displayMode(meta.mode))}</div>
+        <div>profile=${escapeHtml(safeString(meta.device_profile))}</div>
+        <div>target=${escapeHtml(`${safeString(meta.host)}:${safeString(meta.port)}`)}</div>
+        <div>record_level=${escapeHtml(safeString(meta.record_level))}</div>
+        <div>record_path=${escapeHtml(safeString(meta.record_path))}</div>
+      </div>
+    </section>
+  `;
+  if (!entries.length) {
+    return `<div class="grid gap-3">${metaCard}
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+        t("historyDetailEmpty")
+      )}</div></div>`;
+  }
+  return `<div class="grid gap-3">${metaCard}${renderStatsCards(
+    buildEventStats(entries)
+  )}${renderEntriesTable(entries)}</div>`;
+}
+
+async function loadConnectionHistoryDetail(historyId) {
+  const name = byId("saved-conn-name").value.trim();
+  if (!name || !historyId) return;
+  openDetailModal(t("running"));
+  try {
+    const data = await request(
+      "GET",
+      `/api/connections/${encodeURIComponent(name)}/history/${encodeURIComponent(historyId)}`
+    );
+    openDetailModal(formatHistoryDetailView(data), {
+      title: t("historyDetailTitle"),
+      html: true,
+    });
+  } catch (e) {
+    openDetailModal(e.message, { title: t("historyDetailTitle") });
+  }
+}
+
+async function deleteConnectionHistoryItem(historyId) {
+  const name = byId("saved-conn-name").value.trim();
+  const out = byId("saved-conn-out");
+  if (!name || !historyId) return;
+  if (!window.confirm(t("historyDeleteConfirm"))) return;
+  out.textContent = t("running");
+  try {
+    await request(
+      "DELETE",
+      `/api/connections/${encodeURIComponent(name)}/history/${encodeURIComponent(historyId)}`
+    );
+    out.textContent = t("historyDeleteDone");
+    await loadConnectionHistory();
   } catch (e) {
     out.textContent = e.message;
   }
@@ -1921,9 +2227,154 @@ function formatReplayListView(data) {
   return sections.join("");
 }
 
-function openDetailModal(content) {
+function detailField(label, value, mono = false) {
+  const valueCls = mono ? "font-mono text-xs break-all" : "text-sm break-all";
+  return `
+    <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+      <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(label)}</div>
+      <div class="mt-1 ${valueCls} text-slate-800">${escapeHtml(safeString(value))}</div>
+    </div>
+  `;
+}
+
+function detailBoolBadge(value) {
+  if (value === true) {
+    return '<span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">true</span>';
+  }
+  if (value === false) {
+    return '<span class="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">false</span>';
+  }
+  return '<span class="text-slate-500">-</span>';
+}
+
+function renderEntryDetailView(entry) {
+  const event = (entry && entry.event) || {};
+  const kind = safeString(event.kind);
+  const isCommandOutput = event.kind === "command_output";
+  const parts = [];
+
+  parts.push(`
+    <section class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
+        t("detailSectionBasic")
+      )}</div>
+      <div class="grid gap-2 md:grid-cols-2">
+        ${detailField(t("detailLabelKind"), kind)}
+        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+            t("detailLabelSuccess")
+          )}</div>
+          <div class="mt-1">${detailBoolBadge(event.success)}</div>
+        </div>
+        ${detailField(t("detailLabelCommand"), event.command || "-", true)}
+        ${detailField(
+          t("detailLabelMode"),
+          event.kind === "command_output" ? displayMode(event.mode) : event.mode || "-",
+          true
+        )}
+        ${detailField(t("detailLabelPrompt"), event.prompt || "-", true)}
+        ${detailField(t("detailLabelFsmPrompt"), event.fsm_prompt || "-", true)}
+        ${detailField(
+          t("detailLabelTimestamp"),
+          formatHistoryTime(entry.ts_ms || entry.timestamp_ms || event.ts_ms || 0)
+        )}
+        ${detailField(
+          t("detailLabelDevice"),
+          event.device_addr || entry.device_addr || "-",
+          true
+        )}
+        ${detailField(
+          t("detailLabelRecordLevel"),
+          entry.record_level || event.record_level || "-",
+          true
+        )}
+      </div>
+    </section>
+  `);
+
+  parts.push(`
+    <section class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
+        t("detailSectionFlow")
+      )}</div>
+      <div class="grid gap-2 lg:grid-cols-2">
+        <div>
+          <div class="mb-1 text-[11px] font-semibold text-slate-500">${escapeHtml(
+            t("tablePromptFlow")
+          )}</div>
+          ${renderFlowCell(event.prompt_before, event.prompt_after, "indigo")}
+        </div>
+        <div>
+          <div class="mb-1 text-[11px] font-semibold text-slate-500">${escapeHtml(
+            t("tableFsmFlow")
+          )}</div>
+          ${renderFlowCell(event.fsm_prompt_before, event.fsm_prompt_after, "teal")}
+        </div>
+      </div>
+    </section>
+  `);
+
+  if (isCommandOutput) {
+    parts.push(`
+      <section class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+        <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
+          t("detailSectionOutput")
+        )}</div>
+        <div class="grid gap-2 md:grid-cols-2">
+          ${detailField(t("detailLabelError"), event.error || "-", true)}
+        </div>
+        <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-900 p-2 text-xs text-slate-100">${escapeHtml(
+          safeString(event.content || event.all || "-")
+        )}</pre>
+      </section>
+    `);
+  } else if (event.content || event.all) {
+    parts.push(`
+      <section class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+        <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
+          t("detailSectionRaw")
+        )}</div>
+        <pre class="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-900 p-2 text-xs text-slate-100">${escapeHtml(
+          safeString(event.content || event.all)
+        )}</pre>
+      </section>
+    `);
+  }
+
+  return parts.join("");
+}
+
+function openEntryDrawer(entry) {
+  const backdrop = byId("entry-drawer-backdrop");
+  const drawer = byId("entry-drawer");
+  const body = byId("entry-drawer-body");
+  body.innerHTML = renderEntryDetailView(entry);
+  backdrop.classList.add("open");
+  drawer.classList.add("open");
+  document.body.classList.add("overflow-hidden");
+}
+
+function closeEntryDrawer() {
+  const backdrop = byId("entry-drawer-backdrop");
+  const drawer = byId("entry-drawer");
+  const body = byId("entry-drawer-body");
+  backdrop.classList.remove("open");
+  drawer.classList.remove("open");
+  body.innerHTML = "";
+  document.body.classList.remove("overflow-hidden");
+}
+
+function openDetailModal(content, options = {}) {
   const modal = byId("detail-modal");
-  byId("detail-modal-body").textContent = content;
+  const body = byId("detail-modal-body");
+  byId("detail-modal-title").textContent = options.title || t("detailModalTitle");
+  if (options.html) {
+    body.innerHTML = content;
+  } else {
+    body.innerHTML = `<pre class="output max-h-[70vh] overflow-auto whitespace-pre-wrap break-all">${escapeHtml(
+      safeString(content)
+    )}</pre>`;
+  }
   modal.classList.remove("hidden");
   modal.classList.add("flex");
   document.body.classList.add("overflow-hidden");
@@ -1933,6 +2384,8 @@ function closeDetailModal() {
   const modal = byId("detail-modal");
   modal.classList.add("hidden");
   modal.classList.remove("flex");
+  byId("detail-modal-body").innerHTML = "";
+  byId("detail-modal-title").textContent = t("detailModalTitle");
   document.body.classList.remove("overflow-hidden");
 }
 
@@ -2133,6 +2586,8 @@ function bindEvents() {
   const langFab = byId("lang-fab");
   const langMenu = byId("lang-menu");
   const detailModal = byId("detail-modal");
+  const entryDrawer = byId("entry-drawer");
+  const entryDrawerBackdrop = byId("entry-drawer-backdrop");
 
   langFab.onclick = (e) => {
     e.stopPropagation();
@@ -2177,18 +2632,43 @@ function bindEvents() {
       const id = detailBtn.getAttribute("data-detail-id") || "";
       const entry = detailEntryMap.get(id);
       if (entry) {
-        openDetailModal(JSON.stringify(entry, null, 2));
+        openEntryDrawer(entry);
+      }
+    }
+    const historyDetailBtn = e.target.closest(".js-history-detail-btn");
+    if (historyDetailBtn) {
+      const historyId = historyDetailBtn.getAttribute("data-history-id") || "";
+      if (historyId) {
+        loadConnectionHistoryDetail(historyId);
+      }
+    }
+    const historyDeleteBtn = e.target.closest(".js-history-delete-btn");
+    if (historyDeleteBtn) {
+      const historyId = historyDeleteBtn.getAttribute("data-history-id") || "";
+      if (historyId) {
+        deleteConnectionHistoryItem(historyId);
       }
     }
   });
 
   byId("detail-modal-close").onclick = closeDetailModal;
+  byId("entry-drawer-close").onclick = closeEntryDrawer;
+  entryDrawerBackdrop.onclick = closeEntryDrawer;
+  entryDrawer.onclick = (e) => {
+    if (e.target === entryDrawer) {
+      closeEntryDrawer();
+    }
+  };
   detailModal.onclick = (e) => {
     if (e.target === detailModal) {
       closeDetailModal();
     }
   };
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && entryDrawer.classList.contains("open")) {
+      closeEntryDrawer();
+      return;
+    }
     if (e.key === "Escape" && !detailModal.classList.contains("hidden")) {
       closeDetailModal();
     }
@@ -2248,6 +2728,7 @@ function bindEvents() {
   };
   byId("saved-conn-save-btn").onclick = saveConnectionByName;
   byId("saved-conn-delete-btn").onclick = deleteConnectionByName;
+  byId("saved-conn-history-btn").onclick = loadConnectionHistory;
   byId("saved-conn-name").oninput = (e) => {
     renderSavedConnectionOptions(e.target.value);
   };
@@ -2307,7 +2788,7 @@ function bindEvents() {
 
   byId("template").onchange = loadSelectedTemplateContent;
   byId("record-enable").onchange = () => {
-    byId("record-level").disabled = !byId("record-enable").checked;
+    byId("record-level").disabled = byId("record-enable").checked;
   };
   byId("record-view-list").onclick = () => {
     recordViewMode = "list";
@@ -2448,7 +2929,7 @@ applyTabs();
 applyOperationKind();
 applyPromptMode();
 resetDiagnoseView();
-byId("record-level").disabled = !byId("record-enable").checked;
+byId("record-level").disabled = byId("record-enable").checked;
 byId("record-failed-only").checked = recordFailedOnly;
 byId("replay-failed-only").checked = replayFailedOnly;
 byId("record-event-kind").value = recordEventKind;

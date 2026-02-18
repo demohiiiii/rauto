@@ -10,6 +10,7 @@ use cli::{Cli, Commands, DeviceCommands, RecordLevelOpt, TemplateCommands};
 use config::connection_store::{
     SavedConnection, delete_connection, list_connections, load_connection, save_connection,
 };
+use config::history_store::{self, HistoryBinding};
 use config::paths::{default_template_dir, ensure_default_layout};
 use config::template_loader;
 use device::DeviceClient;
@@ -103,7 +104,7 @@ async fn run(cli: Cli) -> Result<()> {
             )?;
 
             info!("Connecting to device...");
-            let client = if args.record_file.is_some() {
+            let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
                 DeviceClient::connect_with_recording(
                     conn.host.clone(),
                     conn.port,
@@ -145,6 +146,14 @@ async fn run(cli: Cli) -> Result<()> {
                 }
             }
             write_recording_if_requested(args.record_file.as_ref(), &client)?;
+            persist_auto_recording_history(
+                &client,
+                &conn,
+                "template_execute",
+                &format!("template: {}", args.template),
+                None,
+                args.record_level,
+            )?;
         }
         Commands::Exec(args) => {
             let conn = match resolve_effective_connection(&cli.global_opts) {
@@ -159,7 +168,7 @@ async fn run(cli: Cli) -> Result<()> {
                 conn.template_dir.as_ref(),
             )?;
 
-            let client = if args.record_file.is_some() {
+            let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
                 DeviceClient::connect_with_recording(
                     conn.host.clone(),
                     conn.port,
@@ -187,6 +196,14 @@ async fn run(cli: Cli) -> Result<()> {
             info!("Executing command: {}", args.command);
             let output = client.execute(&args.command, args.mode.as_deref()).await?;
             write_recording_if_requested(args.record_file.as_ref(), &client)?;
+            persist_auto_recording_history(
+                &client,
+                &conn,
+                "exec",
+                &args.command,
+                args.mode.as_deref(),
+                args.record_level,
+            )?;
             println!("{}", output);
         }
         Commands::Interactive(_) => {
@@ -375,6 +392,29 @@ async fn run(cli: Cli) -> Result<()> {
                     path.to_string_lossy()
                 );
             }
+            DeviceCommands::ConnectionHistory { name, limit, json } => {
+                let safe = config::connection_store::safe_connection_name(&name)?;
+                let items = history_store::list_history_by_connection_name(&safe, limit)?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&items)?);
+                    return Ok(());
+                }
+                println!("# connection: {}", safe);
+                if items.is_empty() {
+                    println!("-");
+                    return Ok(());
+                }
+                for item in items {
+                    println!(
+                        "- [{}] {} mode={} level={} file={}",
+                        item.ts_ms,
+                        item.command_label,
+                        item.mode.unwrap_or_else(|| "-".to_string()),
+                        item.record_level,
+                        item.record_path
+                    );
+                }
+            }
             DeviceCommands::Diagnose { name, json } => {
                 let handler = template_loader::load_device_profile(
                     &name,
@@ -497,6 +537,7 @@ async fn run(cli: Cli) -> Result<()> {
 
 #[derive(Debug, Clone)]
 struct EffectiveConnection {
+    connection_name: Option<String>,
     host: String,
     username: String,
     password: String,
@@ -549,6 +590,7 @@ fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConne
     });
 
     Ok(EffectiveConnection {
+        connection_name: opts.connection.clone().or_else(|| opts.save_connection.clone()),
         host,
         username,
         password,
@@ -616,6 +658,56 @@ fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
         RecordLevelOpt::KeyEventsOnly => SessionRecordLevel::KeyEventsOnly,
         RecordLevelOpt::Full => SessionRecordLevel::Full,
     }
+}
+
+fn record_level_name(level: RecordLevelOpt) -> &'static str {
+    match level {
+        RecordLevelOpt::Off => "off",
+        RecordLevelOpt::KeyEventsOnly => "key-events-only",
+        RecordLevelOpt::Full => "full",
+    }
+}
+
+fn persist_auto_recording_history(
+    client: &DeviceClient,
+    conn: &EffectiveConnection,
+    operation: &str,
+    command_label: &str,
+    mode: Option<&str>,
+    record_level: RecordLevelOpt,
+) -> Result<()> {
+    if matches!(record_level, RecordLevelOpt::Off) {
+        return Ok(());
+    }
+    let Some(jsonl) = client.recording_jsonl()? else {
+        return Ok(());
+    };
+    let result = history_store::save_recording(
+        HistoryBinding {
+            connection_name: conn.connection_name.as_deref(),
+            host: &conn.host,
+            port: conn.port,
+            username: &conn.username,
+            device_profile: &conn.device_profile,
+        },
+        operation,
+        command_label,
+        mode,
+        record_level_name(record_level),
+        &jsonl,
+    );
+    match result {
+        Ok(entry) => {
+            println!(
+                "Auto-saved recording history: {} -> {}",
+                entry.connection_key, entry.record_path
+            );
+        }
+        Err(e) => {
+            eprintln!("Warning: failed to auto-save recording history: {}", e);
+        }
+    }
+    Ok(())
 }
 
 fn write_recording_if_requested(

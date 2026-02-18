@@ -87,6 +87,17 @@ pub enum DeviceCommands {
         /// Saved connection profile name
         name: String,
     },
+    /// Show execution history for a saved connection profile
+    ConnectionHistory {
+        /// Saved connection profile name
+        name: String,
+        /// Max number of history items
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        /// Output history as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Diagnose state-machine quality for a device profile
     Diagnose {
         /// Profile name (builtin or custom)
@@ -131,7 +142,7 @@ pub struct TemplateArgs {
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::Full)]
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 
@@ -149,7 +160,7 @@ pub struct ExecArgs {
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::Full)]
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 

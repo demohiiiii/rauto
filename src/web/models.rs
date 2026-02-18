@@ -20,6 +20,7 @@ pub struct RenderResponse {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConnectionRequest {
+    pub connection_name: Option<String>,
     pub host: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
@@ -57,6 +58,29 @@ pub struct SavedConnectionDetail {
     pub path: String,
     pub has_password: bool,
     pub connection: ConnectionRequest,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConnectionHistoryEntry {
+    pub id: String,
+    pub ts_ms: u128,
+    pub connection_key: String,
+    pub connection_name: Option<String>,
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub device_profile: String,
+    pub operation: String,
+    pub command_label: String,
+    pub mode: Option<String>,
+    pub record_level: String,
+    pub record_path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConnectionHistoryDetailResponse {
+    pub meta: ConnectionHistoryEntry,
+    pub entries: Vec<SessionRecordEntry>,
 }
 
 #[derive(Debug, Deserialize)]
