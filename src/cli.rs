@@ -12,6 +12,7 @@ pub struct Cli {
 }
 
 #[derive(Subcommand, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Commands {
     /// Render and execute a command template
     Template(TemplateArgs),
