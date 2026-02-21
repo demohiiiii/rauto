@@ -3,6 +3,7 @@ use crate::web::assets::{index_response, static_response};
 use crate::web::handlers::{
     create_or_update_custom_profile, create_template, delete_connection, delete_custom_profile,
     delete_connection_history, delete_template, diagnose_profile, exec_command, execute_template,
+    execute_tx_block, execute_tx_workflow, interactive_command, interactive_start, interactive_stop,
     get_builtin_profile_detail, get_builtin_profile_form, get_connection, get_connection_history,
     get_connection_history_detail, get_custom_profile, get_custom_profile_form, get_template,
     health, list_connections, list_profiles, list_templates, profiles_overview, render_template,
@@ -63,7 +64,12 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
         .route("/api/connection/test", post(test_connection))
         .route("/api/exec", post(exec_command))
         .route("/api/template/execute", post(execute_template))
+        .route("/api/tx/block", post(execute_tx_block))
+        .route("/api/tx/workflow", post(execute_tx_workflow))
         .route("/api/replay", post(replay_session))
+        .route("/api/interactive/start", post(interactive_start))
+        .route("/api/interactive/command", post(interactive_command))
+        .route("/api/interactive/{id}", axum::routing::delete(interactive_stop))
         .route("/api/templates", get(list_templates).post(create_template))
         .route(
             "/api/templates/{name}",

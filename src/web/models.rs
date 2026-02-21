@@ -134,6 +134,52 @@ pub struct ExecuteTemplateResponse {
     pub recording_jsonl: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ExecuteTxBlockRequest {
+    pub name: Option<String>,
+    pub template: Option<String>,
+    #[serde(default)]
+    pub vars: Value,
+    #[serde(default)]
+    pub commands: Vec<String>,
+    #[serde(default)]
+    pub rollback_commands: Vec<String>,
+    #[serde(default)]
+    pub rollback_on_failure: Option<bool>,
+    pub rollback_trigger_step_index: Option<usize>,
+    pub mode: Option<String>,
+    pub timeout_secs: Option<u64>,
+    pub resource_rollback_command: Option<String>,
+    pub template_profile: Option<String>,
+    pub dry_run: Option<bool>,
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecuteTxBlockResponse {
+    pub tx_block: Value,
+    pub tx_result: Option<Value>,
+    pub recording_jsonl: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExecuteTxWorkflowRequest {
+    pub workflow: Value,
+    pub dry_run: Option<bool>,
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecuteTxWorkflowResponse {
+    pub workflow: Value,
+    pub tx_workflow_result: Option<Value>,
+    pub recording_jsonl: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct BuiltinProfileMeta {
     pub name: String,
@@ -249,4 +295,35 @@ pub struct ReplayResponse {
     pub context: Option<ReplayContextDto>,
     pub entries: Vec<SessionRecordEntry>,
     pub output: Option<ReplayOutputDto>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InteractiveStartRequest {
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct InteractiveStartResponse {
+    pub session_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InteractiveCommandRequest {
+    pub session_id: String,
+    pub command: String,
+    #[serde(default)]
+    pub mode: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct InteractiveCommandResponse {
+    pub output: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct InteractiveStopResponse {
+    pub ok: bool,
+    pub recording_jsonl: Option<String>,
 }

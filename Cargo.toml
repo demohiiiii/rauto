@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "network-programming"]
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }
 minijinja = { version = "2.15", features = ["loader", "json"] }
-rneter = "0.1.6"
+rneter = "0.2.2"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 serde = { version = "1.0.216", features = ["derive"] }

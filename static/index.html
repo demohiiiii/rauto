@@ -12,6 +12,62 @@
       right: 16px;
       z-index: 9999;
     }
+    #record-fab-wrap {
+      position: fixed;
+      bottom: 78px;
+      right: 16px;
+      z-index: 9999;
+    }
+    #record-fab {
+      width: 46px;
+      height: 46px;
+      border-radius: 9999px;
+      border: 1px solid rgba(185, 28, 28, 0.3);
+      background: radial-gradient(circle at 30% 30%, #fecaca, #dc2626);
+      color: #ffffff;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 12px 24px rgba(220, 38, 38, 0.28);
+      position: relative;
+    }
+    #record-fab:hover {
+      transform: translateY(-1px);
+    }
+    #record-fab:active {
+      transform: translateY(0);
+    }
+    #record-fab-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #ef4444;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      box-shadow: 0 6px 14px rgba(239, 68, 68, 0.3);
+    }
+    #record-fab-badge::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      right: -2px;
+      top: -2px;
+      border-radius: 999px;
+      background: #f97316;
+      border: 2px solid #ffffff;
+    }
     #lang-fab {
       width: 46px;
       height: 46px;
@@ -90,6 +146,79 @@
     .mini-btn:hover {
       background: #e2e8f0;
       border-color: #94a3b8;
+    }
+    .mini-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+    .tx-workflow-drop-target {
+      position: relative;
+      border-color: #99f6e4 !important;
+      box-shadow: 0 0 0 1px rgba(15, 118, 110, 0.14);
+    }
+    .tx-workflow-drop-target.tx-workflow-drop-before::before {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      top: -1px;
+      height: 3px;
+      border-radius: 9999px;
+      background: linear-gradient(90deg, #0f766e, #14b8a6);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14);
+    }
+    .tx-workflow-drop-target.tx-workflow-drop-after::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: -1px;
+      height: 3px;
+      border-radius: 9999px;
+      background: linear-gradient(90deg, #0f766e, #14b8a6);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14);
+    }
+    .tx-workflow-chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 9999px;
+      border: 1px solid #dbe3ef;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 4px 8px;
+    }
+    .tx-workflow-pair-row .tx-workflow-pair-label {
+      border-style: dashed;
+      background: #f8fafc;
+      color: #0f172a;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tx-workflow-pair-index {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 30px;
+      height: 22px;
+      border-radius: 9999px;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .tx-workflow-pair-command {
+      flex: 1;
+      font-size: 12px;
+      color: #0f172a;
+      word-break: break-word;
     }
     .mini-btn.add {
       border-color: #0f766e;
@@ -317,6 +446,15 @@
     .op-mode-tabs {
       margin-bottom: 22px;
     }
+    .tx-stage-tabs .tab-btn {
+      min-width: 180px;
+      text-align: center;
+    }
+    .tx-stage-hint {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #475569;
+    }
     #entry-drawer-backdrop {
       position: fixed;
       inset: 0;
@@ -348,9 +486,122 @@
     #entry-drawer.open {
       transform: translateX(0);
     }
+    #record-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 10020;
+      background: rgba(15, 23, 42, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+    #record-drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #record-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: min(760px, 96vw);
+      z-index: 10030;
+      background: #ffffff;
+      border-left: 1px solid #dbe3ef;
+      box-shadow: -14px 0 32px rgba(2, 6, 23, 0.24);
+      transform: translateX(100%);
+      transition: transform 180ms ease;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    #record-drawer.open {
+      transform: translateX(0);
+    }
+    .record-drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .record-drawer-body {
+      padding: 18px;
+      overflow: auto;
+    }
+    #history-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 10010;
+      background: rgba(15, 23, 42, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+    #history-drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #history-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: min(880px, 96vw);
+      z-index: 10015;
+      background: #ffffff;
+      border-left: 1px solid #dbe3ef;
+      box-shadow: -14px 0 32px rgba(2, 6, 23, 0.24);
+      transform: translateX(100%);
+      transition: transform 180ms ease;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    #history-drawer.open {
+      transform: translateX(0);
+    }
+    .record-drawer-section {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #ffffff;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .record-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      justify-content: space-between;
+    }
+    .record-toolbar-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .record-filters {
+      display: grid;
+      gap: 10px;
+    }
+    .record-filters-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900">
+  <div id="record-fab-wrap" hidden>
+    <button id="record-fab" type="button" title="Recording">
+      REC
+      <span id="record-fab-badge" hidden>0</span>
+    </button>
+  </div>
+
   <div id="lang-fab-wrap">
     <button id="lang-fab" type="button" aria-haspopup="true" aria-expanded="false" title="Language">
       🌐
@@ -379,18 +630,17 @@
           <div class="grid max-w-[760px] gap-2">
             <input id="saved-conn-name" class="input" list="saved-conn-options" placeholder="saved connection name" />
             <datalist id="saved-conn-options"></datalist>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <label class="check-label"><input id="saved-conn-save-password" type="checkbox" class="check-input" /><span id="saved-conn-save-password-label">save password</span></label>
-              <div class="inline-flex flex-wrap items-center gap-2">
-                <button id="saved-conn-save-btn" class="mini-btn" type="button">Save</button>
-                <button id="saved-conn-delete-btn" class="mini-btn delete" type="button">Delete</button>
-                <button id="saved-conn-history-btn" class="mini-btn" type="button">History</button>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <label class="check-label"><input id="saved-conn-save-password" type="checkbox" class="check-input" /><span id="saved-conn-save-password-label">save password</span></label>
+                <div class="inline-flex flex-wrap items-center gap-2">
+                  <button id="saved-conn-save-btn" class="mini-btn" type="button">Save</button>
+                  <button id="saved-conn-delete-btn" class="mini-btn delete" type="button">Delete</button>
+                  <button id="saved-conn-history-btn" class="mini-btn" type="button">History</button>
+                </div>
               </div>
             </div>
-          </div>
           <pre id="saved-conn-list" class="output mt-2"></pre>
           <pre id="saved-conn-out" class="output mt-2"></pre>
-          <div id="saved-conn-history-out" class="mt-2 grid gap-2"></div>
         </div>
       </div>
       <div class="mt-4 grid gap-3 md:grid-cols-2">
@@ -411,6 +661,8 @@
     <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="tab-group" role="tablist" aria-label="Feature tabs">
         <button id="tab-ops" class="tab-btn is-active" data-tab="ops" role="tab">Operations</button>
+        <button id="tab-interactive" class="tab-btn" data-tab="interactive" role="tab">Interactive</button>
+        <button id="tab-replay" class="tab-btn" data-tab="replay" role="tab">Session Replay</button>
         <button id="tab-prompts" class="tab-btn" data-tab="prompts" role="tab">Prompt Profiles</button>
         <button id="tab-templates" class="tab-btn" data-tab="templates" role="tab">Template Manager</button>
       </div>
@@ -424,122 +676,261 @@
             </div>
             <div id="ops-main-body" class="group-body">
               <div class="tab-group op-mode-tabs" role="tablist" aria-label="Operation mode tabs">
-                <button id="op-kind-exec" class="tab-btn is-active" type="button">Direct Execute</button>
-                <button id="op-kind-template" class="tab-btn" type="button">Template Render + Execute</button>
+                <button id="op-kind-exec" class="tab-btn is-active" type="button">Execute</button>
+                <button id="op-kind-tx" class="tab-btn" type="button">Transaction Block</button>
               </div>
 
-              <div id="op-direct-fields" class="grid gap-3">
-                <input id="command" class="input" placeholder="show version" />
-                <input id="mode" class="input" placeholder="mode (optional, default Enable)" />
-                <button id="exec-btn" class="btn">Execute</button>
-                <pre id="exec-out" class="output mt-2"></pre>
+              <div id="op-exec-fields" class="grid gap-3">
+                <div class="tab-group" role="tablist" aria-label="Execute mode tabs">
+                  <button id="op-exec-direct" class="tab-btn is-active" type="button">Direct Execute</button>
+                  <button id="op-exec-template" class="tab-btn" type="button">Template Render + Execute</button>
+                </div>
+
+                <div id="op-exec-direct-fields" class="grid gap-3">
+                  <input id="command" class="input" placeholder="show version" />
+                  <input id="mode" class="input" placeholder="mode (optional, default Enable)" />
+                  <button id="exec-btn" class="btn">Execute</button>
+                  <pre id="exec-out" class="output mt-2"></pre>
+                </div>
+
+                <div id="op-exec-template-fields" class="grid gap-3" hidden>
+                  <input id="template" class="input" placeholder="template file name or path" />
+                  <div class="group-card">
+                    <div class="field-tools">
+                      <span id="template-selected-content-title">Selected Template Content</span>
+                    </div>
+                    <div id="template-selected-content-body" class="group-body">
+                      <textarea id="template-selected-content" class="input min-h-40 font-mono" placeholder="template content preview" readonly></textarea>
+                    </div>
+                  </div>
+                  <textarea id="vars" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"vlan_id": 10}'></textarea>
+                  <input id="template-mode" class="input" placeholder="mode (optional, default Enable)" />
+                  <div class="grid grid-cols-2 gap-2">
+                    <button id="render-btn" class="btn">Preview Render</button>
+                    <button id="template-exec-btn" class="btn">Run Template</button>
+                  </div>
+                  <pre id="render-out" class="output mt-2"></pre>
+                  <pre id="template-exec-out" class="output mt-2"></pre>
+                </div>
               </div>
 
-              <div id="op-template-fields" class="grid gap-3" hidden>
-                <input id="template" class="input" placeholder="template file name or path" />
-                <div class="group-card">
+              <div id="op-tx-fields" class="grid gap-3" hidden>
+                <div class="tab-group tx-stage-tabs" role="tablist" aria-label="Transaction mode tabs">
+                  <button id="tx-stage-block" class="tab-btn is-active" type="button">Tx Block</button>
+                  <button id="tx-stage-workflow" class="tab-btn" type="button">Tx Workflow</button>
+                </div>
+                <div id="tx-stage-hint" class="tx-stage-hint">Step 1: build and run a single transaction block.</div>
+
+                <div id="tx-stage-block-panel" class="group-card">
                   <div class="field-tools">
-                    <span id="template-selected-content-title">Selected Template Content</span>
+                    <span id="tx-basic-title">Transaction Block</span>
+                    <button id="tx-advanced-toggle-btn" class="mini-btn" type="button">Advanced</button>
                   </div>
-                  <div id="template-selected-content-body" class="group-body">
-                    <textarea id="template-selected-content" class="input min-h-40 font-mono" placeholder="template content preview" readonly></textarea>
+                  <div class="group-body grid gap-2">
+                    <input id="tx-template" class="input" placeholder="template file name or path (optional)" />
+                    <textarea id="tx-commands" class="input min-h-24 font-mono" placeholder="commands (one per line, optional when template is set)"></textarea>
+                    <textarea id="tx-vars" class="input min-h-24 font-mono" placeholder='JSON vars, e.g. {"name":"WEB01"}'></textarea>
+                    <input id="tx-mode" class="input" placeholder="tx mode (default Config)" />
+                    <div class="grid gap-2">
+                      <div class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+                        <span id="tx-rollback-mode-label">Rollback mode</span>
+                        <select id="tx-rollback-mode" class="input md:w-[220px]">
+                          <option value="infer">infer per-step</option>
+                          <option value="per_step">custom per-step</option>
+                          <option value="whole_resource">whole resource</option>
+                        </select>
+                      </div>
+                      <div id="tx-rollback-per-step" class="grid gap-2" hidden>
+                        <label class="check-label">
+                          <input id="tx-rollback-on-failure" type="checkbox" class="check-input" />
+                          <span id="tx-rollback-on-failure-label">rollback failed step</span>
+                        </label>
+                        <div class="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
+                          <span id="tx-rollback-input-label">rollback input</span>
+                          <div class="tab-group">
+                            <button id="tx-rollback-input-text" class="tab-btn is-active" type="button">text</button>
+                            <button id="tx-rollback-input-pairs" class="tab-btn" type="button">per-command</button>
+                          </div>
+                        </div>
+                        <div class="inline-flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <button id="tx-rollback-auto-btn" class="mini-btn" type="button">Auto-generate rollback</button>
+                          <span id="tx-rollback-auto-hint">Generated by simple rule: prefix with 'no '</span>
+                          <span class="ml-2 text-slate-400" id="tx-rollback-rule-label">rule</span>
+                          <select id="tx-rollback-rule" class="input">
+                            <option value="no_prefix">prefix no</option>
+                            <option value="set_delete">set → delete</option>
+                            <option value="add_remove">add → remove</option>
+                            <option value="custom">custom template</option>
+                          </select>
+                          <input id="tx-rollback-template" class="input" placeholder="template, e.g. no {{cmd}}" />
+                        </div>
+                        <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+                          <select id="tx-rollback-template-pick" class="input"></select>
+                          <input id="tx-rollback-template-name" class="input" placeholder="template name" />
+                          <button id="tx-rollback-template-save" class="mini-btn" type="button">Save</button>
+                          <button id="tx-rollback-template-delete" class="mini-btn delete" type="button">Delete</button>
+                        </div>
+                        <textarea id="tx-rollback-commands" class="input min-h-24 font-mono" placeholder="rollback commands (one per line, used by per_step)"></textarea>
+                        <div id="tx-rollback-pairs" class="grid gap-2" hidden></div>
+                        <div id="tx-rollback-empty-hint" class="text-xs text-slate-500" hidden>enter commands above to edit per-command rollbacks</div>
+                      </div>
+                      <div id="tx-rollback-resource" class="grid gap-2" hidden>
+                        <input id="tx-resource-rollback" class="input" placeholder="resource rollback command (optional)" />
+                        <input id="tx-rollback-trigger-step" class="input" placeholder="trigger step index (default 0)" />
+                      </div>
+                    </div>
+                    <div id="tx-advanced-fields" class="grid gap-2 md:grid-cols-2" hidden>
+                      <input id="tx-name" class="input" placeholder="tx block name" />
+                      <input id="tx-template-profile" class="input" placeholder="template profile for rollback inference (default device profile)" />
+                      <input id="tx-timeout-secs" class="input" placeholder="timeout secs (optional)" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                      <button id="tx-plan-btn" class="btn" type="button">Preview Tx Plan</button>
+                      <button id="tx-exec-btn" class="btn" type="button">Execute Tx Block</button>
+                    </div>
+                    <pre id="tx-plan-out" class="output mt-2"></pre>
+                    <pre id="tx-exec-out" class="output mt-2"></pre>
                   </div>
                 </div>
-                <textarea id="vars" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"vlan_id": 10}'></textarea>
-                <input id="template-mode" class="input" placeholder="mode (optional, default Enable)" />
-                <div class="grid grid-cols-2 gap-2">
-                  <button id="render-btn" class="btn">Preview Render</button>
-                  <button id="template-exec-btn" class="btn">Run Template</button>
+
+                <div id="tx-stage-workflow-panel" class="group-card" hidden>
+                  <div class="field-tools">
+                    <span id="tx-workflow-title">Transaction Workflow (JSON)</span>
+                  </div>
+                  <div id="tx-workflow-section" class="group-body grid gap-2">
+                    <div class="group-card">
+                      <div class="field-tools">
+                        <span id="tx-workflow-builder-title">Workflow Builder</span>
+                        <div class="inline-flex items-center gap-2">
+                          <button id="tx-workflow-import-block-btn" class="mini-btn" type="button">Import From Tx Form</button>
+                          <button id="tx-workflow-add-block-btn" class="mini-btn add" type="button">+ Add Block</button>
+                          <button id="tx-workflow-collapse-all-btn" class="mini-btn" type="button">Collapse All</button>
+                          <button id="tx-workflow-expand-all-btn" class="mini-btn" type="button">Expand All</button>
+                        </div>
+                      </div>
+                      <div class="group-body grid gap-2">
+                        <div class="grid gap-2 md:grid-cols-2">
+                          <input id="tx-workflow-name" class="input" placeholder="workflow name" />
+                          <label class="check-label">
+                            <input id="tx-workflow-fail-fast" type="checkbox" class="check-input" checked />
+                            <span id="tx-workflow-fail-fast-label">fail fast</span>
+                          </label>
+                        </div>
+                        <div class="grid gap-2 md:grid-cols-[180px_220px_1fr_auto]">
+                          <select id="tx-workflow-filter-kind" class="input">
+                            <option value="all">all kinds</option>
+                            <option value="config">config</option>
+                            <option value="show">show</option>
+                          </select>
+                          <select id="tx-workflow-filter-rollback" class="input">
+                            <option value="all">all rollback</option>
+                            <option value="none">none</option>
+                            <option value="per_step">per_step</option>
+                            <option value="whole_resource">whole_resource</option>
+                          </select>
+                          <input id="tx-workflow-filter-query" class="input" placeholder="search block name/command" />
+                          <button id="tx-workflow-filter-clear-btn" class="mini-btn" type="button">Clear</button>
+                        </div>
+                        <div id="tx-workflow-blocks" class="grid gap-2"></div>
+                        <div class="grid gap-2 md:grid-cols-2">
+                          <button id="tx-workflow-generate-btn" class="btn" type="button">Generate JSON</button>
+                          <button id="tx-workflow-load-btn" class="btn" type="button">Load JSON To Builder</button>
+                        </div>
+                        <div class="grid gap-2">
+                          <button id="tx-workflow-more-btn" class="mini-btn fit-btn" type="button">More Actions</button>
+                          <div id="tx-workflow-more-panel" class="grid gap-2 md:grid-cols-2" hidden>
+                            <button id="tx-workflow-download-btn" class="mini-btn" type="button">Download JSON</button>
+                            <button id="tx-workflow-import-file-btn" class="mini-btn" type="button">Import JSON File</button>
+                          </div>
+                        </div>
+                        <input id="tx-workflow-import-file-input" type="file" accept=".json,application/json" hidden />
+                      </div>
+                    </div>
+                    <textarea id="tx-workflow-json" class="input min-h-40 font-mono" placeholder='{"name":"fw-policy-publish","blocks":[],"fail_fast":true}'></textarea>
+                    <div class="grid grid-cols-2 gap-2">
+                      <button id="tx-workflow-plan-btn" class="btn" type="button">Preview Workflow</button>
+                      <button id="tx-workflow-exec-btn" class="btn" type="button">Execute Workflow</button>
+                    </div>
+                    <pre id="tx-workflow-plan-out" class="output mt-2"></pre>
+                    <div id="tx-workflow-exec-out" class="output mt-2"></div>
+                    <div class="mt-2">
+                      <button id="tx-workflow-exec-raw-toggle" class="mini-btn" type="button">Raw</button>
+                      <pre id="tx-workflow-exec-raw" class="output mt-2" hidden></pre>
+                    </div>
+                  </div>
                 </div>
-                <pre id="render-out" class="output mt-2"></pre>
-                <pre id="template-exec-out" class="output mt-2"></pre>
               </div>
 
-              <div class="group-card mt-3">
-                <div class="field-tools">
-                  <span id="recording-title">Session Recording</span>
-                </div>
-                <div class="group-body grid gap-2">
-                  <div class="inline-flex items-center gap-3">
-                    <label class="check-label"><input id="record-enable" type="checkbox" class="check-input" /><span id="record-enable-label">Disable recording</span></label>
-                    <select id="record-level" class="input md:w-[220px]">
-                      <option value="key-events-only" selected>key-events-only</option>
-                      <option value="full">full</option>
-                      <option value="off">off</option>
-                    </select>
-                  </div>
-                  <div class="inline-flex items-center gap-2">
-                    <span id="record-view-label" class="text-sm font-semibold text-slate-600">Display</span>
-                    <div class="tab-group">
-                      <button id="record-view-list" class="tab-btn is-active" type="button">List</button>
-                      <button id="record-view-raw" class="tab-btn" type="button">Raw</button>
-                    </div>
-                    <label class="check-label">
-                      <input id="record-failed-only" type="checkbox" class="check-input" />
-                      <span id="record-failed-only-label">Failed only</span>
-                    </label>
-                    <select id="record-event-kind" class="input w-[220px]">
-                      <option value="all">All events</option>
-                      <option value="command_output">command_output</option>
-                      <option value="connection_established">connection_established</option>
-                      <option value="connection_closed">connection_closed</option>
-                      <option value="prompt_changed">prompt_changed</option>
-                      <option value="state_changed">state_changed</option>
-                      <option value="raw_chunk">raw_chunk</option>
-                    </select>
-                    <input id="record-search" class="input w-[260px]" placeholder="search command/content" />
-                    <button id="record-clear-filters" class="mini-btn" type="button">Clear</button>
-                  </div>
-                  <div id="record-list-out" class="grid gap-3"></div>
-                  <textarea id="record-jsonl" class="input min-h-28 font-mono" placeholder="recording JSONL output" hidden></textarea>
-                  <div class="inline-flex flex-wrap items-center gap-2">
-                    <button id="record-copy-btn" class="mini-btn" type="button">Copy Recording</button>
-                    <button id="record-use-replay-btn" class="mini-btn" type="button">Use In Replay</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="group-card mt-3">
-                <div class="field-tools">
-                  <span id="replay-title">Session Replay</span>
-                </div>
-                <div class="group-body grid gap-2">
-                  <textarea id="replay-jsonl" class="input min-h-28 font-mono" placeholder="paste recording JSONL"></textarea>
-                  <div class="grid gap-2 md:grid-cols-2">
-                    <input id="replay-command" class="input" placeholder="command to replay, e.g. show version" />
-                    <input id="replay-mode" class="input" placeholder="mode for replay (optional)" />
-                  </div>
-                  <div class="inline-flex flex-wrap items-center gap-2">
-                    <button id="replay-list-btn" class="btn" type="button">List Records</button>
-                    <button id="replay-run-btn" class="btn" type="button">Replay Command</button>
-                  </div>
-                  <div class="inline-flex items-center gap-2">
-                    <span id="replay-view-label" class="text-sm font-semibold text-slate-600">Display</span>
-                    <div class="tab-group">
-                      <button id="replay-view-list" class="tab-btn is-active" type="button">List</button>
-                      <button id="replay-view-raw" class="tab-btn" type="button">Raw</button>
-                    </div>
-                    <label class="check-label">
-                      <input id="replay-failed-only" type="checkbox" class="check-input" />
-                      <span id="replay-failed-only-label">Failed only</span>
-                    </label>
-                    <select id="replay-event-kind" class="input w-[220px]">
-                      <option value="all">All events</option>
-                      <option value="command_output">command_output</option>
-                      <option value="connection_established">connection_established</option>
-                      <option value="connection_closed">connection_closed</option>
-                      <option value="prompt_changed">prompt_changed</option>
-                      <option value="state_changed">state_changed</option>
-                      <option value="raw_chunk">raw_chunk</option>
-                    </select>
-                    <input id="replay-search" class="input w-[260px]" placeholder="search command/content" />
-                    <button id="replay-clear-filters" class="mini-btn" type="button">Clear</button>
-                  </div>
-                  <div id="replay-list-out" class="grid gap-3"></div>
-                  <pre id="replay-out" class="output" hidden></pre>
-                </div>
-              </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-interactive" class="tab-panel mt-4" role="tabpanel" hidden>
+        <h2 id="interactive-title" class="text-xl font-semibold">Interactive Session</h2>
+        <div class="mt-3 group-card">
+          <div class="field-tools">
+            <span id="interactive-card-title">Interactive</span>
+          </div>
+          <div class="group-body grid gap-2">
+            <div class="inline-flex flex-wrap items-center gap-2">
+              <span id="interactive-status" class="text-sm text-slate-600">idle</span>
+              <button id="interactive-start-btn" class="btn" type="button">Start Session</button>
+              <button id="interactive-stop-btn" class="mini-btn delete" type="button" disabled>Stop Session</button>
+              <button id="interactive-clear-btn" class="mini-btn" type="button">Clear</button>
+            </div>
+            <div class="grid gap-2 md:grid-cols-2">
+              <input id="interactive-command" class="input" placeholder="command, e.g. show version" />
+              <input id="interactive-mode" class="input" placeholder="mode (optional)" />
+            </div>
+            <div class="inline-flex items-center gap-2">
+              <button id="interactive-send-btn" class="btn" type="button">Send</button>
+            </div>
+            <pre id="interactive-out" class="output mt-2"></pre>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-replay" class="tab-panel mt-4" role="tabpanel" hidden>
+        <h2 id="replay-page-title" class="text-xl font-semibold">Session Replay</h2>
+        <div class="mt-3 group-card">
+          <div class="field-tools">
+            <span id="replay-title">Session Replay</span>
+          </div>
+          <div class="group-body grid gap-2">
+            <textarea id="replay-jsonl" class="input min-h-28 font-mono" placeholder="paste recording JSONL"></textarea>
+            <div class="grid gap-2 md:grid-cols-2">
+              <input id="replay-command" class="input" placeholder="command to replay, e.g. show version" />
+              <input id="replay-mode" class="input" placeholder="mode for replay (optional)" />
+            </div>
+            <div class="inline-flex flex-wrap items-center gap-2">
+              <button id="replay-list-btn" class="btn" type="button">List Records</button>
+              <button id="replay-run-btn" class="btn" type="button">Replay Command</button>
+            </div>
+            <div class="inline-flex items-center gap-2">
+              <span id="replay-view-label" class="text-sm font-semibold text-slate-600">Display</span>
+              <div class="tab-group">
+                <button id="replay-view-list" class="tab-btn is-active" type="button">List</button>
+                <button id="replay-view-raw" class="tab-btn" type="button">Raw</button>
+              </div>
+              <label class="check-label">
+                <input id="replay-failed-only" type="checkbox" class="check-input" />
+                <span id="replay-failed-only-label">Failed only</span>
+              </label>
+              <select id="replay-event-kind" class="input w-[220px]">
+                <option value="all">All events</option>
+                <option value="command_output">command_output</option>
+                <option value="connection_established">connection_established</option>
+                <option value="connection_closed">connection_closed</option>
+                <option value="prompt_changed">prompt_changed</option>
+                <option value="state_changed">state_changed</option>
+                <option value="raw_chunk">raw_chunk</option>
+              </select>
+              <input id="replay-search" class="input w-[260px]" placeholder="search command/content" />
+              <button id="replay-clear-filters" class="mini-btn" type="button">Clear</button>
+            </div>
+            <div id="replay-list-out" class="grid gap-3"></div>
+            <pre id="replay-out" class="output" hidden></pre>
           </div>
         </div>
       </div>
@@ -760,6 +1151,69 @@
         </div>
       </div>
     </section>
+
+  <div id="record-drawer-backdrop" aria-hidden="true"></div>
+  <aside id="record-drawer" role="dialog" aria-modal="true" aria-labelledby="recording-title">
+      <div class="record-drawer-head">
+        <div class="grid gap-1">
+          <span id="recording-title" class="text-sm font-semibold text-slate-700">Session Recording</span>
+          <span class="text-xs text-slate-500" id="recording-subtitle">View recorded sessions and filters</span>
+        </div>
+        <button id="record-drawer-close" class="mini-btn" type="button">Close</button>
+      </div>
+      <div class="record-drawer-body grid gap-3">
+        <div class="record-drawer-section">
+          <div class="record-toolbar">
+            <div class="record-toolbar-left">
+              <label class="check-label"><input id="record-enable" type="checkbox" class="check-input" /><span id="record-enable-label">Disable recording</span></label>
+              <select id="record-level" class="input md:w-[220px]">
+                <option value="key-events-only" selected>key-events-only</option>
+                <option value="full">full</option>
+                <option value="off">off</option>
+              </select>
+            </div>
+            <div class="record-toolbar-left">
+              <span id="record-view-label" class="text-sm font-semibold text-slate-600">Display</span>
+              <div class="tab-group">
+                <button id="record-view-list" class="tab-btn is-active" type="button">List</button>
+                <button id="record-view-raw" class="tab-btn" type="button">Raw</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="record-drawer-section record-filters">
+          <div class="record-filters-row">
+            <label class="check-label">
+              <input id="record-failed-only" type="checkbox" class="check-input" />
+              <span id="record-failed-only-label">Failed only</span>
+            </label>
+            <select id="record-event-kind" class="input w-[220px]">
+              <option value="all">All events</option>
+              <option value="command_output">command_output</option>
+              <option value="connection_established">connection_established</option>
+              <option value="connection_closed">connection_closed</option>
+              <option value="prompt_changed">prompt_changed</option>
+              <option value="state_changed">state_changed</option>
+              <option value="raw_chunk">raw_chunk</option>
+            </select>
+          </div>
+          <div class="record-filters-row">
+            <input id="record-search" class="input w-[260px]" placeholder="search command/content" />
+            <button id="record-clear-filters" class="mini-btn" type="button">Clear</button>
+          </div>
+        </div>
+        <div class="record-drawer-section">
+          <div id="record-list-out" class="grid gap-3"></div>
+          <textarea id="record-jsonl" class="input min-h-28 font-mono" placeholder="recording JSONL output" hidden></textarea>
+        </div>
+        <div class="record-drawer-section">
+          <div class="inline-flex flex-wrap items-center gap-2">
+            <button id="record-copy-btn" class="mini-btn" type="button">Copy Recording</button>
+            <button id="record-use-replay-btn" class="mini-btn" type="button">Use In Replay</button>
+          </div>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <div id="detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 px-4" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
@@ -779,6 +1233,53 @@
       <button id="entry-drawer-close" class="mini-btn" type="button">Close</button>
     </div>
     <div id="entry-drawer-body" class="overflow-auto p-4"></div>
+  </aside>
+
+  <div id="history-drawer-backdrop" aria-hidden="true"></div>
+  <aside id="history-drawer" role="dialog" aria-modal="true" aria-labelledby="history-drawer-title">
+    <div class="record-drawer-head">
+      <div class="grid gap-1">
+        <span id="history-drawer-title" class="text-sm font-semibold text-slate-700">Connection History</span>
+        <span class="text-xs text-slate-500" id="history-drawer-subtitle">View saved connection history</span>
+      </div>
+      <button id="history-drawer-close" class="mini-btn" type="button">Close</button>
+    </div>
+    <div class="record-drawer-body grid gap-3">
+      <div class="record-drawer-section">
+        <div class="record-toolbar">
+          <div class="record-toolbar-left">
+            <span id="history-drawer-conn-label" class="text-sm font-semibold text-slate-600">Connection</span>
+            <span id="history-drawer-conn-name" class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-700">-</span>
+          </div>
+          <div class="record-toolbar-left">
+            <button id="history-drawer-refresh-btn" class="mini-btn" type="button">Refresh</button>
+          </div>
+        </div>
+      </div>
+      <div class="record-drawer-section record-filters">
+        <div class="record-filters-row">
+          <input id="history-filter-query" class="input w-[260px]" placeholder="search command/target" />
+          <select id="history-filter-operation" class="input w-[200px]">
+            <option value="all">All operations</option>
+            <option value="exec">exec</option>
+            <option value="template_execute">template_execute</option>
+            <option value="tx_block">tx_block</option>
+            <option value="tx_workflow">tx_workflow</option>
+            <option value="interactive">interactive</option>
+          </select>
+          <select id="history-filter-limit" class="input w-[140px]">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="30" selected>30</option>
+            <option value="50">50</option>
+          </select>
+          <button id="history-filter-clear-btn" class="mini-btn" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="record-drawer-section">
+        <div id="history-drawer-out" class="grid gap-2"></div>
+      </div>
+    </div>
   </aside>
 
   <script src="/static/app.js"></script>

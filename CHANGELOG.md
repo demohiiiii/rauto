@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.0] - 2026-02-21
+
+### New Features
+- Added Web interactive sessions with start/send/stop APIs and a dedicated UI tab to run live commands without leaving the browser.
+- Added transaction workflow builder improvements: per-step rollback entry, rollback rule templates, trigger-step controls, and JSON import/export support.
+- Added CLI support for template create/update plus connection history detail and delete commands.
+- Added right-side drawers for session recording and connection history, with floating access buttons and in-drawer controls.
+
+### Optimizations
+- Consolidated execution UI by nesting direct/templated execution into a single panel, reducing tab clutter.
+- Enhanced history/record UX with searchable filters, badges, and structured table layouts for faster review.
+- Improved rollback authoring workflows with per-command editors and auto-generated rollback helpers.
+
+### API Changes
+- Added Web endpoints `POST /api/interactive/start`, `POST /api/interactive/command`, and `DELETE /api/interactive/{id}`.
+- Extended tx block payloads to accept per-step rollback commands plus rollback-on-failure and trigger-step options.
+- CLI now supports `rauto templates create|update` and `rauto device connection-history-show|connection-history-delete`.
+
+### Risks
+- Interactive sessions are stored in-memory and will be lost on server restart.
+- Transaction rollback behavior now depends on per-step and trigger-step configuration; misconfiguration can reduce rollback coverage.
+- Significant UI refactors (drawers, tabs, filters) are not covered by E2E tests and may regress in edge paths.
+
 ## [0.1.5] - 2026-02-18
 
 ### New Features

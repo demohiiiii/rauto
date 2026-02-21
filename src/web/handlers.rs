@@ -10,23 +10,31 @@ use crate::web::models::{
     ConnectionHistoryDetailResponse, ConnectionHistoryEntry, ConnectionTestResponse,
     CreateTemplateRequest, CustomProfileDetail,
     DeviceProfilesOverview, ExecRequest, ExecResponse, ExecuteTemplateRequest,
-    ExecuteTemplateResponse,
+    ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
+    ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse,
+    InteractiveCommandRequest, InteractiveCommandResponse, InteractiveStartRequest,
+    InteractiveStartResponse, InteractiveStopResponse,
     ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
     ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
     SavedConnectionMeta, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
     UpsertConnectionRequest, UpsertCustomProfileRequest,
 };
-use crate::web::state::{AppState, merge_connection_options};
+use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
 use crate::web::storage;
 use axum::{
     Json,
     extract::{Query, State},
 };
-use rneter::session::{SessionRecordLevel, SessionRecorder, SessionReplayer};
+use rneter::session::{
+    CommandBlockKind, RollbackPolicy, MANAGER, SessionRecordLevel, SessionRecorder,
+    SessionReplayer, TxBlock, TxStep,
+};
+use rneter::templates as rneter_templates;
 use serde_json::{Value, json};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 use tracing::warn;
 
 #[derive(Debug, serde::Deserialize)]
@@ -365,6 +373,95 @@ pub async fn exec_command(
     }))
 }
 
+pub async fn interactive_start(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<InteractiveStartRequest>,
+) -> Result<Json<InteractiveStartResponse>, ApiError> {
+    let record_level = req.record_level;
+    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let handler =
+        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let client = if let Some(level) = to_record_level(record_level) {
+        DeviceClient::connect_with_recording(
+            conn.host.clone(),
+            conn.port,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+            level,
+        )
+        .await?
+    } else {
+        DeviceClient::connect(
+            conn.host.clone(),
+            conn.port,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+        )
+        .await?
+    };
+
+    let session_id = state.next_interactive_id();
+    let session = InteractiveSession {
+        client,
+        conn,
+        record_level,
+        last_used: Instant::now(),
+    };
+    let mut sessions = state.interactive_sessions.lock().await;
+    sessions.insert(session_id.clone(), session);
+
+    Ok(Json(InteractiveStartResponse { session_id }))
+}
+
+pub async fn interactive_command(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<InteractiveCommandRequest>,
+) -> Result<Json<InteractiveCommandResponse>, ApiError> {
+    let mut sessions = state.interactive_sessions.lock().await;
+    let mut session = sessions
+        .remove(&req.session_id)
+        .ok_or_else(|| ApiError::bad_request("interactive session not found"))?;
+    drop(sessions);
+
+    let output = session.client.execute(&req.command, req.mode.as_deref()).await?;
+    session.last_used = Instant::now();
+
+    let mut sessions = state.interactive_sessions.lock().await;
+    sessions.insert(req.session_id, session);
+
+    Ok(Json(InteractiveCommandResponse { output }))
+}
+
+pub async fn interactive_stop(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<InteractiveStopResponse>, ApiError> {
+    let mut sessions = state.interactive_sessions.lock().await;
+    let session = sessions
+        .remove(&id)
+        .ok_or_else(|| ApiError::bad_request("interactive session not found"))?;
+    drop(sessions);
+
+    persist_history_if_recorded(
+        &session.conn,
+        &session.client,
+        "interactive",
+        "interactive session",
+        None,
+        session.record_level,
+    );
+    let recording_jsonl = session.client.recording_jsonl()?;
+
+    Ok(Json(InteractiveStopResponse {
+        ok: true,
+        recording_jsonl,
+    }))
+}
+
 pub async fn test_connection(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ConnectionTestRequest>,
@@ -637,6 +734,339 @@ pub async fn execute_template(
         rendered_commands,
         executed,
         recording_jsonl: client.recording_jsonl()?,
+    }))
+}
+
+fn resolve_tx_commands(
+    renderer: &Renderer,
+    template: Option<&str>,
+    vars: Value,
+    commands: &[String],
+) -> Result<Vec<String>, ApiError> {
+    let mut all = Vec::new();
+    if let Some(name) = template {
+        let rendered = renderer.render_file(name, vars)?;
+        all.extend(
+            rendered
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+        );
+    }
+    all.extend(
+        commands
+            .iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty()),
+    );
+    if all.is_empty() {
+        return Err(ApiError::bad_request(
+            "tx requires at least one command or a template",
+        ));
+    }
+    Ok(all)
+}
+
+pub async fn execute_tx_block(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteTxBlockRequest>,
+) -> Result<Json<ExecuteTxBlockResponse>, ApiError> {
+    let record_level = req.record_level;
+    let template_key = req
+        .template_profile
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| {
+            req.connection
+                .as_ref()
+                .and_then(|c| c.device_profile.as_ref())
+                .filter(|s| !s.trim().is_empty())
+                .cloned()
+        })
+        .or_else(|| {
+            state
+                .defaults
+                .device_profile
+                .as_ref()
+                .filter(|s| !s.trim().is_empty())
+                .cloned()
+        })
+        .unwrap_or_else(|| "cisco".to_string());
+    let block_name = req
+        .name
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or("tx-block")
+        .to_string();
+    let mode = req
+        .mode
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or("Config")
+        .to_string();
+
+    let template_dir = req
+        .connection
+        .as_ref()
+        .and_then(|c| c.template_dir.as_ref())
+        .map(PathBuf::from)
+        .or_else(|| state.defaults.template_dir.clone());
+    let renderer = Renderer::new(template_dir);
+    let resolved_commands = resolve_tx_commands(
+        &renderer,
+        req.template.as_deref(),
+        req.vars,
+        &req.commands,
+    )?;
+
+    if req.rollback_trigger_step_index.is_some() && req.resource_rollback_command.is_none() {
+        return Err(ApiError::bad_request(
+            "rollback_trigger_step_index requires resource_rollback_command",
+        ));
+    }
+
+    let mut rollback_commands = req.rollback_commands;
+    while rollback_commands.len() > resolved_commands.len()
+        && rollback_commands.last().map(|s| s.trim().is_empty()).unwrap_or(false)
+    {
+        rollback_commands.pop();
+    }
+
+    let tx_block = if !rollback_commands.is_empty() {
+        if rollback_commands.len() > resolved_commands.len() {
+            return Err(ApiError::bad_request(
+                "rollback_commands length must not exceed commands length",
+            ));
+        }
+        while rollback_commands.len() < resolved_commands.len() {
+            rollback_commands.push(String::new());
+        }
+        let steps: Vec<TxStep> = resolved_commands
+            .iter()
+            .enumerate()
+            .map(|(idx, cmd)| TxStep {
+                mode: mode.to_string(),
+                command: cmd.clone(),
+                timeout_secs: req.timeout_secs,
+                rollback_command: if rollback_commands[idx].trim().is_empty() {
+                    None
+                } else {
+                    Some(rollback_commands[idx].clone())
+                },
+                rollback_on_failure: req.rollback_on_failure.unwrap_or(false),
+            })
+            .collect();
+        let tx_block = TxBlock {
+            name: block_name.to_string(),
+            kind: CommandBlockKind::Config,
+            rollback_policy: RollbackPolicy::PerStep,
+            steps,
+            fail_fast: true,
+        };
+        tx_block.validate().map_err(ApiError::from)?;
+        tx_block
+    } else {
+        let mut tx_block = rneter_templates::build_tx_block(
+            &template_key,
+            &block_name,
+            &mode,
+            &resolved_commands,
+            req.timeout_secs,
+            req.resource_rollback_command,
+        )?;
+        if req.rollback_on_failure.unwrap_or(false) {
+            for step in tx_block.steps.iter_mut() {
+                step.rollback_on_failure = true;
+            }
+        }
+        if let Some(trigger) = req.rollback_trigger_step_index {
+            match tx_block.rollback_policy {
+                RollbackPolicy::WholeResource {
+                    mode,
+                    undo_command,
+                    timeout_secs,
+                    ..
+                } => {
+                    tx_block.rollback_policy = RollbackPolicy::WholeResource {
+                        mode,
+                        undo_command,
+                        timeout_secs,
+                        trigger_step_index: trigger,
+                    };
+                }
+                _ => {
+                    return Err(ApiError::bad_request(
+                        "rollback_trigger_step_index requires whole_resource rollback",
+                    ));
+                }
+            }
+        }
+        tx_block
+    };
+    let tx_block_value = serde_json::to_value(&tx_block).map_err(ApiError::from)?;
+    if req.dry_run.unwrap_or(false) {
+        return Ok(Json(ExecuteTxBlockResponse {
+            tx_block: tx_block_value,
+            tx_result: None,
+            recording_jsonl: None,
+        }));
+    }
+
+    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let handler =
+        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let (tx_result, recording_jsonl) = if let Some(level) = to_record_level(record_level) {
+        let (_sender, recorder) = MANAGER
+            .get_with_recording_level(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                level,
+            )
+            .await?;
+        let handler_for_tx =
+            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let result = MANAGER
+            .execute_tx_block(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler_for_tx,
+                tx_block.clone(),
+                None,
+            )
+            .await?;
+        let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
+        if let Err(e) = history_store::save_recording(
+            HistoryBinding {
+                connection_name: conn.connection_name.as_deref(),
+                host: &conn.host,
+                port: conn.port,
+                username: &conn.username,
+                device_profile: &conn.device_profile,
+            },
+            "tx_block",
+            &block_name,
+            Some(&mode),
+            record_level_name(record_level),
+            &jsonl,
+        ) {
+            warn!("failed to persist execution history: {}", e);
+        }
+        (result, Some(jsonl))
+    } else {
+        let result = MANAGER
+            .execute_tx_block(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                tx_block.clone(),
+                None,
+            )
+            .await?;
+        (result, None)
+    };
+
+    Ok(Json(ExecuteTxBlockResponse {
+        tx_block: tx_block_value,
+        tx_result: Some(serde_json::to_value(&tx_result).map_err(ApiError::from)?),
+        recording_jsonl,
+    }))
+}
+
+pub async fn execute_tx_workflow(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteTxWorkflowRequest>,
+) -> Result<Json<ExecuteTxWorkflowResponse>, ApiError> {
+    let record_level = req.record_level;
+    let workflow: rneter::session::TxWorkflow =
+        serde_json::from_value(req.workflow.clone()).map_err(ApiError::from)?;
+    let workflow_value = serde_json::to_value(&workflow).map_err(ApiError::from)?;
+
+    if req.dry_run.unwrap_or(false) {
+        return Ok(Json(ExecuteTxWorkflowResponse {
+            workflow: workflow_value,
+            tx_workflow_result: None,
+            recording_jsonl: None,
+        }));
+    }
+
+    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let handler =
+        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let (workflow_result, recording_jsonl) = if let Some(level) = to_record_level(record_level) {
+        let (_sender, recorder) = MANAGER
+            .get_with_recording_level(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                level,
+            )
+            .await?;
+        let handler_for_tx =
+            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let result = MANAGER
+            .execute_tx_workflow(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler_for_tx,
+                workflow.clone(),
+                None,
+            )
+            .await?;
+        let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
+        if let Err(e) = history_store::save_recording(
+            HistoryBinding {
+                connection_name: conn.connection_name.as_deref(),
+                host: &conn.host,
+                port: conn.port,
+                username: &conn.username,
+                device_profile: &conn.device_profile,
+            },
+            "tx_workflow",
+            &workflow.name,
+            None,
+            record_level_name(record_level),
+            &jsonl,
+        ) {
+            warn!("failed to persist execution history: {}", e);
+        }
+        (result, Some(jsonl))
+    } else {
+        let result = MANAGER
+            .execute_tx_workflow(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                workflow.clone(),
+                None,
+            )
+            .await?;
+        (result, None)
+    };
+
+    Ok(Json(ExecuteTxWorkflowResponse {
+        workflow: workflow_value,
+        tx_workflow_result: Some(serde_json::to_value(&workflow_result).map_err(ApiError::from)?),
+        recording_jsonl,
     }))
 }
 

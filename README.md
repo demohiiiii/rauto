@@ -284,6 +284,167 @@ rauto replay ~/.rauto/records/show_version.jsonl --list
 rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
 ```
 
+**Transaction blocks**
+```bash
+# Tx block with inferred per-step rollback
+rauto tx \
+    --command "interface vlan 10" \
+    --command "ip address 10.0.10.1 255.255.255.0" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# Tx block with explicit per-step rollback (repeatable flags)
+rauto tx \
+    --command "interface vlan 10" \
+    --command "ip address 10.0.10.1 255.255.255.0" \
+    --rollback-command "no interface vlan 10" \
+    --rollback-command "no ip address 10.0.10.1 255.255.255.0" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# Tx block with per-step rollback from file (one per line, empty lines ignored)
+rauto tx \
+    --command "interface vlan 10" \
+    --command "ip address 10.0.10.1 255.255.255.0" \
+    --rollback-commands-file ./rollback.txt \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# Tx block with per-step rollback from JSON array
+rauto tx \
+    --command "interface vlan 10" \
+    --command "ip address 10.0.10.1 255.255.255.0" \
+    --rollback-commands-json ./rollback.json \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# Tx block with whole-resource rollback
+rauto tx \
+    --command "vlan 10" \
+    --resource-rollback-command "no vlan 10" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+```
+
+**Transaction workflow**
+```bash
+# Execute a workflow from JSON
+rauto tx-workflow ./workflow.json \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# Dry-run: print workflow JSON and exit
+rauto tx-workflow ./workflow.json --dry-run
+```
+
+**Transaction workflow JSON example**
+```json
+{
+  "name": "fw-policy-publish",
+  "fail_fast": true,
+  "blocks": [
+    {
+      "name": "addr-objects",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": "per_step",
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "address-book global address WEB01 10.0.10.1/32",
+          "timeout_secs": 10,
+          "rollback_command": "delete address-book global address WEB01"
+        }
+      ]
+    },
+    {
+      "name": "policy",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": {
+        "whole_resource": {
+          "mode": "Config",
+          "undo_command": "delete security policies from-zone trust to-zone untrust policy allow-web",
+          "timeout_secs": 10
+        }
+      },
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "set security policies from-zone trust to-zone untrust policy allow-web match source-address WEB01",
+          "timeout_secs": 10,
+          "rollback_command": null
+        }
+      ]
+    }
+  ]
+}
+```
+
+**CLI ⇄ Web UI mapping**
+```text
+Operations (Web)                 CLI
+-------------------------------- ---------------------------------------------
+Direct Execute                   rauto exec
+Template Render + Execute        rauto template
+Transaction Block (Tx Block)     rauto tx
+Transaction Workflow (Tx Flow)   rauto tx-workflow
+
+Prompt Profiles (Web)            CLI
+-------------------------------- ---------------------------------------------
+Built-in profiles                rauto device list / rauto device show <name>
+Copy builtin to custom           rauto device copy-builtin <builtin> <custom>
+Custom profiles CRUD             rauto device show/delete <custom>
+
+Template Manager (Web)           CLI
+-------------------------------- ---------------------------------------------
+List templates                   rauto templates list
+Show template                    rauto templates show <name>
+Delete template                  rauto templates delete <name>
+
+Session Replay (Web)             CLI
+-------------------------------- ---------------------------------------------
+List records                     rauto replay <jsonl> --list
+Replay command                   rauto replay <jsonl> --command "<cmd>" [--mode <Mode>]
+```
+
+**Feature availability**
+```text
+Feature                                   Web UI   CLI
+----------------------------------------- ------- ----
+Connection profiles CRUD                 Yes     Yes
+Execution history browser                Yes     Yes (by file)
+Session recording (auto)                 Yes     Yes
+Session replay list/inspect              Yes     Yes
+Session replay UI table/detail           Yes     No
+Prompt profile diagnose view             Yes     No
+Workflow builder (visual)                Yes     No
+Transaction workflow JSON execution      Yes     Yes
+```
+
+**Migration tips (Web ⇄ CLI)**
+```text
+Workflow Builder → CLI
+  1. In Web, open Tx Workflow step and click "Generate JSON".
+  2. Download JSON (More Actions → Download JSON).
+  3. Run: rauto tx-workflow ./workflow.json
+
+Tx Block (custom per-step rollback) → CLI
+  1. In Web, choose Rollback mode = "custom per-step".
+  2. Use "text" to copy rollback lines.
+  3. Run: rauto tx --rollback-commands-file ./rollback.txt ... (commands in same order)
+
+CLI recordings → Web Replay
+  1. Run with --record-file to create JSONL.
+  2. Open Web → Session Replay, paste JSONL and inspect.
+```
+
 **Start web console**
 ```bash
 rauto web \

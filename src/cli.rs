@@ -35,6 +35,12 @@ pub enum Commands {
 
     /// Replay or inspect recorded session JSONL data
     Replay(ReplayArgs),
+
+    /// Execute commands as a transaction-like block with rollback support
+    Tx(TxArgs),
+
+    /// Execute a transaction workflow loaded from JSON
+    TxWorkflow(TxWorkflowArgs),
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -98,6 +104,23 @@ pub enum DeviceCommands {
         #[arg(long)]
         json: bool,
     },
+    /// Show detailed history entry for a saved connection profile
+    ConnectionHistoryShow {
+        /// Saved connection profile name
+        name: String,
+        /// History entry ID
+        id: String,
+        /// Output detail as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Delete a history entry for a saved connection profile
+    ConnectionHistoryDelete {
+        /// Saved connection profile name
+        name: String,
+        /// History entry ID
+        id: String,
+    },
     /// Diagnose state-machine quality for a device profile
     Diagnose {
         /// Profile name (builtin or custom)
@@ -116,6 +139,28 @@ pub enum TemplateCommands {
     Show {
         /// Template name
         name: String,
+    },
+    /// Create a new template
+    Create {
+        /// Template name
+        name: String,
+        /// Path to template content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline template content
+        #[arg(long)]
+        content: Option<String>,
+    },
+    /// Update an existing template
+    Update {
+        /// Template name
+        name: String,
+        /// Path to template content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline template content
+        #[arg(long)]
+        content: Option<String>,
     },
     /// Delete template file
     Delete {
@@ -183,6 +228,99 @@ pub struct ReplayArgs {
     /// List recorded command output entries
     #[arg(long)]
     pub list: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct TxArgs {
+    /// Transaction block name used in logs/recording
+    #[arg(long, default_value = "tx-block")]
+    pub name: String,
+
+    /// Template file to render commands from (optional)
+    #[arg(long)]
+    pub template: Option<String>,
+
+    /// Path to a JSON file containing variables for --template
+    #[arg(long, short = 'v')]
+    pub vars: Option<PathBuf>,
+
+    /// Direct command lines for transaction step(s), can be repeated
+    #[arg(long = "command")]
+    pub commands: Vec<String>,
+
+    /// Per-step rollback command lines, must match --command count (or rendered commands)
+    #[arg(long = "rollback-command")]
+    pub rollback_commands: Vec<String>,
+
+    /// Path to file containing per-step rollback commands (one per line)
+    #[arg(long)]
+    pub rollback_commands_file: Option<PathBuf>,
+
+    /// Path to JSON file containing per-step rollback commands (string array)
+    #[arg(long)]
+    pub rollback_commands_json: Option<PathBuf>,
+
+    /// Roll back the failed step itself when using per-step rollback
+    #[arg(long)]
+    pub rollback_on_failure: bool,
+
+    /// Trigger step index for whole-resource rollback (default 0)
+    #[arg(long)]
+    pub rollback_trigger_step_index: Option<usize>,
+
+    /// Target mode for generated tx steps
+    #[arg(long, default_value = "Config")]
+    pub mode: String,
+
+    /// Timeout (seconds) for each tx step
+    #[arg(long)]
+    pub timeout_secs: Option<u64>,
+
+    /// Explicit whole-resource rollback command (optional)
+    #[arg(long)]
+    pub resource_rollback_command: Option<String>,
+
+    /// Profile/template key for rollback inference (defaults to effective --device-profile)
+    #[arg(long)]
+    pub template_profile: Option<String>,
+
+    /// Dry run: print planned tx block and exit
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Print tx result as JSON
+    #[arg(long)]
+    pub json: bool,
+
+    /// Save SSH session recording to this JSONL file
+    #[arg(long)]
+    pub record_file: Option<PathBuf>,
+
+    /// Session recording level
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    pub record_level: RecordLevelOpt,
+}
+
+#[derive(Args, Debug)]
+pub struct TxWorkflowArgs {
+    /// Path to TxWorkflow JSON file
+    pub workflow_file: PathBuf,
+
+    /// Dry run: print workflow JSON and exit
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Print workflow result as JSON
+    #[arg(long)]
+    pub json: bool,
+
+    /// Save SSH session recording to this JSONL file
+    #[arg(long)]
+    pub record_file: Option<PathBuf>,
+
+    /// Session recording level
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    pub record_level: RecordLevelOpt,
 }
 
 #[derive(Args, Debug)]

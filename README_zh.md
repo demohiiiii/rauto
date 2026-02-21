@@ -288,6 +288,167 @@ rauto replay ~/.rauto/records/show_version.jsonl --list
 rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
 ```
 
+**事务块执行**
+```bash
+# 自动推断逐条回滚
+rauto tx \
+    --command "interface vlan 10" \
+    --command "ip address 10.0.10.1 255.255.255.0" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# 显式逐条回滚（重复参数）
+rauto tx \
+    --command "interface vlan 10" \
+    --command "ip address 10.0.10.1 255.255.255.0" \
+    --rollback-command "no interface vlan 10" \
+    --rollback-command "no ip address 10.0.10.1 255.255.255.0" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# 从文件读取逐条回滚（每行一条，空行会忽略）
+rauto tx \
+    --command "interface vlan 10" \
+    --command "ip address 10.0.10.1 255.255.255.0" \
+    --rollback-commands-file ./rollback.txt \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# 从 JSON 数组读取逐条回滚
+rauto tx \
+    --command "interface vlan 10" \
+    --command "ip address 10.0.10.1 255.255.255.0" \
+    --rollback-commands-json ./rollback.json \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# 整块回滚
+rauto tx \
+    --command "vlan 10" \
+    --resource-rollback-command "no vlan 10" \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+```
+
+**事务工作流**
+```bash
+# 执行 JSON 工作流
+rauto tx-workflow ./workflow.json \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# 仅预览：打印 JSON 并退出
+rauto tx-workflow ./workflow.json --dry-run
+```
+
+**事务工作流 JSON 示例**
+```json
+{
+  "name": "fw-policy-publish",
+  "fail_fast": true,
+  "blocks": [
+    {
+      "name": "addr-objects",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": "per_step",
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "address-book global address WEB01 10.0.10.1/32",
+          "timeout_secs": 10,
+          "rollback_command": "delete address-book global address WEB01"
+        }
+      ]
+    },
+    {
+      "name": "policy",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": {
+        "whole_resource": {
+          "mode": "Config",
+          "undo_command": "delete security policies from-zone trust to-zone untrust policy allow-web",
+          "timeout_secs": 10
+        }
+      },
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "set security policies from-zone trust to-zone untrust policy allow-web match source-address WEB01",
+          "timeout_secs": 10,
+          "rollback_command": null
+        }
+      ]
+    }
+  ]
+}
+```
+
+**CLI 与 Web UI 对应关系**
+```text
+Web 操作界面                   CLI
+------------------------------ ---------------------------------------------
+直接执行命令                   rauto exec
+模板渲染并执行                 rauto template
+事务块执行                     rauto tx
+事务工作流                     rauto tx-workflow
+
+Prompt 管理                    CLI
+------------------------------ ---------------------------------------------
+内置 profile                   rauto device list / rauto device show <name>
+复制内置到自定义               rauto device copy-builtin <builtin> <custom>
+自定义 profile 管理            rauto device show/delete <custom>
+
+Template 管理                  CLI
+------------------------------ ---------------------------------------------
+列出模板                       rauto templates list
+查看模板                       rauto templates show <name>
+删除模板                       rauto templates delete <name>
+
+会话回放                        CLI
+------------------------------ ---------------------------------------------
+列出记录                       rauto replay <jsonl> --list
+回放命令                       rauto replay <jsonl> --command "<cmd>" [--mode <Mode>]
+```
+
+**功能差异**
+```text
+功能                                      Web UI  CLI
+----------------------------------------- ------- ----
+连接配置增删改查                          Yes     Yes
+执行历史浏览                              Yes     Yes (按文件)
+会话录制（自动）                          Yes     Yes
+会话回放列表/查看                          Yes     Yes
+回放表格/详情抽屉                          Yes     No
+Prompt profile 诊断页面                    Yes     No
+工作流构建器（可视化）                      Yes     No
+事务工作流 JSON 执行                       Yes     Yes
+```
+
+**迁移提示（Web ⇄ CLI）**
+```text
+工作流构建器 → CLI
+  1. Web 中进入事务工作流，点击“生成 JSON”。
+  2. 更多操作 → 下载 JSON。
+  3. CLI 执行：rauto tx-workflow ./workflow.json
+
+事务块逐条回滚 → CLI
+  1. Web 选择“自定义逐条回滚”。
+  2. 选择“文本”，复制回滚行。
+  3. CLI 执行：rauto tx --rollback-commands-file ./rollback.txt ...（顺序一致）
+
+CLI 录制 → Web 回放
+  1. CLI 使用 --record-file 生成 JSONL。
+  2. Web → 会话回放，粘贴 JSONL 查看。
+```
+
 **启动 Web 控制台**
 ```bash
 rauto web \

@@ -6,7 +6,9 @@ mod web;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Commands, DeviceCommands, RecordLevelOpt, TemplateCommands};
+use cli::{
+    Cli, Commands, DeviceCommands, RecordLevelOpt, TemplateCommands, TxArgs, TxWorkflowArgs,
+};
 use config::connection_store::{
     SavedConnection, delete_connection, list_connections, load_connection, save_connection,
 };
@@ -14,7 +16,12 @@ use config::history_store::{self, HistoryBinding};
 use config::paths::{default_template_dir, ensure_default_layout};
 use config::template_loader;
 use device::DeviceClient;
-use rneter::session::{SessionEvent, SessionRecordLevel, SessionRecorder, SessionReplayer};
+use rneter::session::{
+    CommandBlockKind, RollbackPolicy, MANAGER, SessionEvent, SessionRecordLevel, SessionRecorder,
+    SessionReplayer, TxBlock, TxStep, TxWorkflowResult,
+};
+use rneter::templates as rneter_templates;
+use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 use std::process;
@@ -208,6 +215,12 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Interactive(_) => {
             println!("Interactive mode not yet implemented");
+        }
+        Commands::Tx(args) => {
+            run_tx_block(args, &cli.global_opts).await?;
+        }
+        Commands::TxWorkflow(args) => {
+            run_tx_workflow(args, &cli.global_opts).await?;
         }
         Commands::Web(args) => {
             info!("Starting web service on {}:{}", args.bind, args.port);
@@ -415,6 +428,47 @@ async fn run(cli: Cli) -> Result<()> {
                     );
                 }
             }
+            DeviceCommands::ConnectionHistoryShow { name, id, json } => {
+                let safe = config::connection_store::safe_connection_name(&name)?;
+                let items = history_store::list_history_by_connection_name(&safe, 0)?;
+                let item = items
+                    .into_iter()
+                    .find(|entry| entry.id == id)
+                    .ok_or_else(|| anyhow::anyhow!("history record not found"))?;
+                let jsonl = fs::read_to_string(&item.record_path)?;
+                let recorder = SessionRecorder::from_jsonl(&jsonl)?;
+                let entries = recorder.entries()?;
+                if json {
+                    let value = serde_json::json!({ "meta": item, "entries": entries });
+                    println!("{}", serde_json::to_string_pretty(&value)?);
+                    return Ok(());
+                }
+                println!("id: {}", item.id);
+                println!("ts_ms: {}", item.ts_ms);
+                println!(
+                    "connection: {}",
+                    item.connection_name.clone().unwrap_or("-".to_string())
+                );
+                println!("host: {}", item.host);
+                println!("port: {}", item.port);
+                println!("username: {}", item.username);
+                println!("device_profile: {}", item.device_profile);
+                println!("operation: {}", item.operation);
+                println!("command_label: {}", item.command_label);
+                println!("mode: {}", item.mode.clone().unwrap_or("-".to_string()));
+                println!("record_level: {}", item.record_level);
+                println!("record_path: {}", item.record_path);
+                println!("entries: {}", entries.len());
+            }
+            DeviceCommands::ConnectionHistoryDelete { name, id } => {
+                let safe = config::connection_store::safe_connection_name(&name)?;
+                let deleted = history_store::delete_history_by_connection_name(&safe, &id)?;
+                if deleted {
+                    println!("Deleted history record '{}'", id);
+                } else {
+                    println!("History record '{}' not found", id);
+                }
+            }
             DeviceCommands::Diagnose { name, json } => {
                 let handler = template_loader::load_device_profile(
                     &name,
@@ -475,6 +529,37 @@ async fn run(cli: Cli) -> Result<()> {
                     return Err(anyhow::anyhow!("template '{}' not found", safe_name));
                 }
                 println!("{}", fs::read_to_string(path)?);
+            }
+            TemplateCommands::Create {
+                name,
+                file,
+                content,
+            } => {
+                let safe_name = safe_template_name(&name)?;
+                let path = templates_root.join("commands").join(&safe_name);
+                if path.exists() {
+                    return Err(anyhow::anyhow!("template '{}' already exists", safe_name));
+                }
+                let body = read_template_body(file, content)?;
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::write(&path, body.as_bytes())?;
+                println!("Created template '{}'", safe_name);
+            }
+            TemplateCommands::Update {
+                name,
+                file,
+                content,
+            } => {
+                let safe_name = safe_template_name(&name)?;
+                let path = templates_root.join("commands").join(&safe_name);
+                if !path.exists() {
+                    return Err(anyhow::anyhow!("template '{}' not found", safe_name));
+                }
+                let body = read_template_body(file, content)?;
+                fs::write(&path, body.as_bytes())?;
+                println!("Updated template '{}'", safe_name);
             }
             TemplateCommands::Delete { name } => {
                 let safe_name = safe_template_name(&name)?;
@@ -744,4 +829,446 @@ fn safe_template_name(raw: &str) -> Result<String> {
         return Err(anyhow::anyhow!("invalid template name"));
     }
     Ok(normalized.to_string())
+}
+
+fn read_template_body(file: Option<PathBuf>, content: Option<String>) -> Result<String> {
+    if let Some(text) = content {
+        if text.trim().is_empty() {
+            return Err(anyhow::anyhow!("template content must not be empty"));
+        }
+        return Ok(text);
+    }
+    if let Some(path) = file {
+        let text = fs::read_to_string(&path)?;
+        if text.trim().is_empty() {
+            return Err(anyhow::anyhow!("template file content is empty"));
+        }
+        return Ok(text);
+    }
+    Err(anyhow::anyhow!(
+        "template content required: use --content or --file"
+    ))
+}
+
+async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
+    if args.template.is_none() && args.commands.is_empty() {
+        return Err(anyhow::anyhow!(
+            "tx requires at least one --command or a --template"
+        ));
+    }
+    if args.rollback_commands_file.is_some() && !args.rollback_commands.is_empty() {
+        return Err(anyhow::anyhow!(
+            "use either --rollback-commands-file or repeated --rollback-command"
+        ));
+    }
+    if args.rollback_commands_json.is_some()
+        && (args.rollback_commands_file.is_some() || !args.rollback_commands.is_empty())
+    {
+        return Err(anyhow::anyhow!(
+            "use only one rollback command source: --rollback-commands-json, --rollback-commands-file, or repeated --rollback-command"
+        ));
+    }
+    if !args.rollback_commands.is_empty() && args.resource_rollback_command.is_some() {
+        return Err(anyhow::anyhow!(
+            "use either --rollback-command (per-step) or --resource-rollback-command (whole-resource)"
+        ));
+    }
+    if args.rollback_trigger_step_index.is_some() && args.resource_rollback_command.is_none() {
+        return Err(anyhow::anyhow!(
+            "--rollback-trigger-step-index requires --resource-rollback-command"
+        ));
+    }
+
+    let conn = resolve_effective_connection(opts)?;
+    let template_profile = args
+        .template_profile
+        .clone()
+        .unwrap_or_else(|| conn.device_profile.clone());
+    let commands = resolve_tx_commands(&args, &conn)?;
+    let mode = if args.mode.trim().is_empty() {
+        "Config".to_string()
+    } else {
+        args.mode.clone()
+    };
+
+    let mut rollback_commands = if let Some(path) = &args.rollback_commands_json {
+        let raw = std::fs::read_to_string(path)?;
+        let value: Value = serde_json::from_str(&raw)?;
+        let array = value
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("rollback JSON must be an array of strings"))?;
+        array
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .map(|s| s.trim().to_string())
+                    .ok_or_else(|| anyhow::anyhow!("rollback JSON array must be strings"))
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else if let Some(path) = &args.rollback_commands_file {
+        let text = std::fs::read_to_string(path)?;
+        text.lines().map(|s| s.trim().to_string()).collect::<Vec<_>>()
+    } else {
+        args.rollback_commands.clone()
+    };
+    while rollback_commands.len() > commands.len()
+        && rollback_commands.last().map(|s| s.trim().is_empty()).unwrap_or(false)
+    {
+        rollback_commands.pop();
+    }
+    let tx_block = if !rollback_commands.is_empty() {
+        if rollback_commands.len() > commands.len() {
+            return Err(anyhow::anyhow!(
+                "--rollback-command count must not exceed command count"
+            ));
+        }
+        while rollback_commands.len() < commands.len() {
+            rollback_commands.push(String::new());
+        }
+        let steps: Vec<TxStep> = commands
+            .iter()
+            .enumerate()
+            .map(|(idx, cmd)| TxStep {
+                mode: mode.to_string(),
+                command: cmd.clone(),
+                timeout_secs: args.timeout_secs,
+                rollback_command: if rollback_commands[idx].trim().is_empty() {
+                    None
+                } else {
+                    Some(rollback_commands[idx].clone())
+                },
+                rollback_on_failure: args.rollback_on_failure,
+            })
+            .collect();
+        let tx_block = TxBlock {
+            name: args.name.clone(),
+            kind: CommandBlockKind::Config,
+            rollback_policy: RollbackPolicy::PerStep,
+            steps,
+            fail_fast: true,
+        };
+        tx_block.validate()?;
+        tx_block
+    } else {
+        let mut tx_block = rneter_templates::build_tx_block(
+            &template_profile,
+            &args.name,
+            &mode,
+            &commands,
+            args.timeout_secs,
+            args.resource_rollback_command.clone(),
+        )?;
+        if args.rollback_on_failure {
+            for step in tx_block.steps.iter_mut() {
+                step.rollback_on_failure = true;
+            }
+        }
+        if let Some(trigger) = args.rollback_trigger_step_index {
+            match tx_block.rollback_policy {
+                RollbackPolicy::WholeResource {
+                    mode,
+                    undo_command,
+                    timeout_secs,
+                    ..
+                } => {
+                    tx_block.rollback_policy = RollbackPolicy::WholeResource {
+                        mode,
+                        undo_command,
+                        timeout_secs,
+                        trigger_step_index: trigger,
+                    };
+                }
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "--rollback-trigger-step-index requires whole-resource rollback"
+                    ));
+                }
+            }
+        }
+        tx_block
+    };
+
+    if args.dry_run {
+        println!("{}", serde_json::to_string_pretty(&tx_block)?);
+        return Ok(());
+    }
+
+    let handler = template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let tx_result = if matches!(args.record_level, RecordLevelOpt::Off) {
+        MANAGER
+            .execute_tx_block(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                tx_block.clone(),
+                None,
+            )
+            .await?
+    } else {
+        let (_sender, recorder) = MANAGER
+            .get_with_recording_level(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                to_record_level(args.record_level),
+            )
+            .await?;
+        let handler_for_tx =
+            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let result = MANAGER
+            .execute_tx_block(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler_for_tx,
+                tx_block.clone(),
+                None,
+            )
+            .await?;
+
+        let jsonl = recorder.to_jsonl()?;
+        write_recording_text_if_requested(args.record_file.as_ref(), &jsonl)?;
+        persist_auto_recording_history_jsonl(
+            &jsonl,
+            &conn,
+            "tx_block",
+            &args.name,
+            Some(&mode),
+            args.record_level,
+        )?;
+        if args.json {
+            println!("{}", serde_json::to_string_pretty(&result)?);
+        } else {
+            print_tx_result(&result);
+        }
+        maybe_save_connection_profile(opts, &conn)?;
+        return Ok(());
+    };
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&tx_result)?);
+    } else {
+        print_tx_result(&tx_result);
+    }
+    maybe_save_connection_profile(opts, &conn)?;
+    Ok(())
+}
+
+fn resolve_tx_commands(args: &TxArgs, conn: &EffectiveConnection) -> Result<Vec<String>> {
+    let mut commands = Vec::new();
+    if let Some(template_name) = &args.template {
+        let renderer = Renderer::new(conn.template_dir.clone());
+        let vars = load_vars_json(args.vars.as_ref())?;
+        let rendered = renderer.render_file(template_name, vars)?;
+        commands.extend(
+            rendered
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+        );
+    }
+    commands.extend(
+        args.commands
+            .iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty()),
+    );
+    if commands.is_empty() {
+        return Err(anyhow::anyhow!("no executable commands resolved for tx block"));
+    }
+    Ok(commands)
+}
+
+fn load_vars_json(path: Option<&PathBuf>) -> Result<serde_json::Value> {
+    match path {
+        Some(p) => {
+            let content = fs::read_to_string(p)?;
+            Ok(serde_json::from_str(&content)?)
+        }
+        None => Ok(serde_json::Value::Null),
+    }
+}
+
+fn print_tx_result(result: &rneter::session::TxResult) {
+    println!("# tx_block: {}", result.block_name);
+    println!("committed: {}", result.committed);
+    println!("executed_steps: {}", result.executed_steps);
+    println!(
+        "rollback: attempted={} succeeded={} steps={}",
+        result.rollback_attempted, result.rollback_succeeded, result.rollback_steps
+    );
+    if let Some(i) = result.failed_step {
+        println!("failed_step: {}", i);
+    }
+    if let Some(reason) = &result.failure_reason {
+        println!("failure_reason: {}", reason);
+    }
+    if !result.rollback_errors.is_empty() {
+        println!("rollback_errors: {}", result.rollback_errors.join(" | "));
+    }
+}
+
+fn persist_auto_recording_history_jsonl(
+    jsonl: &str,
+    conn: &EffectiveConnection,
+    operation: &str,
+    command_label: &str,
+    mode: Option<&str>,
+    record_level: RecordLevelOpt,
+) -> Result<()> {
+    if matches!(record_level, RecordLevelOpt::Off) {
+        return Ok(());
+    }
+    let result = history_store::save_recording(
+        HistoryBinding {
+            connection_name: conn.connection_name.as_deref(),
+            host: &conn.host,
+            port: conn.port,
+            username: &conn.username,
+            device_profile: &conn.device_profile,
+        },
+        operation,
+        command_label,
+        mode,
+        record_level_name(record_level),
+        jsonl,
+    );
+    match result {
+        Ok(entry) => {
+            println!(
+                "Auto-saved recording history: {} -> {}",
+                entry.connection_key, entry.record_path
+            );
+        }
+        Err(e) => {
+            eprintln!("Warning: failed to auto-save recording history: {}", e);
+        }
+    }
+    Ok(())
+}
+
+fn write_recording_text_if_requested(record_file: Option<&PathBuf>, jsonl: &str) -> Result<()> {
+    let Some(path) = record_file else {
+        return Ok(());
+    };
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, jsonl.as_bytes())?;
+    println!("Saved session recording to '{}'", path.to_string_lossy());
+    Ok(())
+}
+
+async fn run_tx_workflow(args: TxWorkflowArgs, opts: &cli::GlobalOpts) -> Result<()> {
+    let conn = resolve_effective_connection(opts)?;
+    let workflow_text = fs::read_to_string(&args.workflow_file)?;
+    let workflow: rneter::session::TxWorkflow = serde_json::from_str(&workflow_text)?;
+
+    if args.dry_run {
+        println!("{}", serde_json::to_string_pretty(&workflow)?);
+        return Ok(());
+    }
+
+    let handler =
+        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let (workflow_result, recording_jsonl) = if matches!(args.record_level, RecordLevelOpt::Off) {
+        let result = MANAGER
+            .execute_tx_workflow(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                workflow.clone(),
+                None,
+            )
+            .await?;
+        (result, None)
+    } else {
+        let (_sender, recorder) = MANAGER
+            .get_with_recording_level(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                to_record_level(args.record_level),
+            )
+            .await?;
+        let handler_for_tx =
+            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let result = MANAGER
+            .execute_tx_workflow(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler_for_tx,
+                workflow.clone(),
+                None,
+            )
+            .await?;
+        let jsonl = recorder.to_jsonl()?;
+        (result, Some(jsonl))
+    };
+
+    if let Some(jsonl) = &recording_jsonl {
+        write_recording_text_if_requested(args.record_file.as_ref(), jsonl)?;
+        persist_auto_recording_history_jsonl(
+            jsonl,
+            &conn,
+            "tx_workflow",
+            &workflow.name,
+            None,
+            args.record_level,
+        )?;
+    }
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&workflow_result)?);
+    } else {
+        print_tx_workflow_result(&workflow_result);
+    }
+    maybe_save_connection_profile(opts, &conn)?;
+    Ok(())
+}
+
+fn print_tx_workflow_result(result: &TxWorkflowResult) {
+    println!("# tx_workflow: {}", result.workflow_name);
+    println!("committed: {}", result.committed);
+    println!(
+        "rollback: attempted={} succeeded={}",
+        result.rollback_attempted, result.rollback_succeeded
+    );
+    if let Some(i) = result.failed_block {
+        println!("failed_block: {}", i);
+    }
+    for (idx, block) in result.block_results.iter().enumerate() {
+        println!(
+            "- block[{idx}] name={} committed={} executed_steps={} rollback_ok={}",
+            block.block_name, block.committed, block.executed_steps, block.rollback_succeeded
+        );
+        if let Some(reason) = &block.failure_reason {
+            println!("  failure_reason: {}", reason);
+        }
+        if !block.rollback_errors.is_empty() {
+            println!("  rollback_errors: {}", block.rollback_errors.join(" | "));
+        }
+    }
+    if !result.rollback_errors.is_empty() {
+        println!("workflow_rollback_errors: {}", result.rollback_errors.join(" | "));
+    }
 }

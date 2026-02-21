@@ -12,6 +12,10 @@ const STORAGE_KEYS = {
   replayEventKind: "rauto_replay_event_kind",
   recordSearchQuery: "rauto_record_search_query",
   replaySearchQuery: "rauto_replay_search_query",
+  historyFilterQuery: "rauto_history_filter_query",
+  historyFilterOperation: "rauto_history_filter_operation",
+  historyFilterLimit: "rauto_history_filter_limit",
+  rollbackTemplateLibrary: "rauto_rollback_templates",
 };
 
 const i18n = {
@@ -46,12 +50,137 @@ const i18n = {
     historyDeleteDone: "history record deleted",
     connectionHelp: "Leave empty to fallback to CLI defaults used at server startup.",
     tabOps: "Operations",
+    tabInteractive: "Interactive",
+    tabReplay: "Session Replay",
     tabPrompts: "Prompt Profiles",
     tabTemplates: "Template Manager",
     opsTitle: "Operations",
+    replayPageTitle: "Session Replay",
+    interactiveTitle: "Interactive Session",
+    interactiveCardTitle: "Interactive",
+    interactiveStatusIdle: "idle",
+    interactiveStatusRunning: "starting...",
+    interactiveStatusReady: "session ready",
+    interactiveStatusStopped: "stopped",
+    interactiveStatusNoSession: "no active session",
+    interactiveStartBtn: "Start Session",
+    interactiveStopBtn: "Stop Session",
+    interactiveSendBtn: "Send",
+    interactiveClearBtn: "Clear",
+    interactiveCommandPlaceholder: "command, e.g. show version",
+    interactiveModePlaceholder: "mode (optional)",
+    recordFabTitle: "Recording",
+    recordDrawerClose: "Close",
+    recordDrawerSubtitle: "View recorded sessions and filters",
+    historyDrawerTitle: "Connection History",
+    historyDrawerSubtitle: "View saved connection history",
+    historyDrawerRefresh: "Refresh",
+    historyDrawerConnLabel: "Connection",
+    historyFilterPlaceholder: "search command/target",
+    historyFilterOperationAll: "All operations",
+    historyFilterLimitLabel: "Limit",
+    historyFilterClear: "Clear",
     opCardTitle: "Execution",
-    opKindExec: "Direct Execute",
+    opKindExec: "Execute",
     opKindTemplate: "Template Render + Execute",
+    opKindTx: "Transaction Block",
+    opExecDirect: "Direct Execute",
+    opExecTemplate: "Template Render + Execute",
+    txNamePlaceholder: "tx block name",
+    txTemplatePlaceholder: "template file name or path (optional)",
+    txVarsPlaceholder: 'JSON vars, e.g. {"name":"WEB01"}',
+    txCommandsPlaceholder: "commands (one per line, optional when template is set)",
+    txModePlaceholder: "tx mode (default Config)",
+    txTemplateProfilePlaceholder:
+      "template profile for rollback inference (default device profile)",
+    txTimeoutPlaceholder: "timeout secs (optional)",
+    txResourceRollbackPlaceholder: "resource rollback command (optional)",
+    txRollbackModeLabel: "Rollback mode",
+    txRollbackModeInfer: "infer per-step",
+    txRollbackModePerStep: "custom per-step",
+    txRollbackModeWhole: "whole resource",
+    txRollbackCommandsPlaceholder: "rollback commands (one per line, used by per_step)",
+    txRollbackOnFailureLabel: "rollback failed step",
+    txRollbackTriggerStepPlaceholder: "trigger step index (default 0)",
+    txBasicTitle: "Transaction Block",
+    txAdvancedBtn: "Advanced",
+    txStageBlock: "Tx Block",
+    txStageWorkflow: "Tx Workflow",
+    txStageHintBlock: "Step 1: build and run a single transaction block.",
+    txStageHintWorkflow: "Step 2: combine multiple blocks and execute a workflow.",
+    txPlanBtn: "Preview Tx Plan",
+    txExecBtn: "Execute Tx Block",
+    txWorkflowTitle: "Transaction Workflow (JSON)",
+    txWorkflowBuilderTitle: "Workflow Builder",
+    txWorkflowImportBlockBtn: "Import From Tx Form",
+    txWorkflowAddBlockBtn: "+ Add Block",
+    txWorkflowCollapseAllBtn: "Collapse All",
+    txWorkflowExpandAllBtn: "Expand All",
+    txWorkflowNamePlaceholder: "workflow name",
+    txWorkflowFailFastLabel: "fail fast",
+    txWorkflowGenerateBtn: "Generate JSON",
+    txWorkflowLoadBtn: "Load JSON To Builder",
+    txWorkflowDownloadBtn: "Download JSON",
+    txWorkflowImportFileBtn: "Import JSON File",
+    txWorkflowMoreBtn: "More Actions",
+    txWorkflowBlockNamePlaceholder: "block name",
+    txWorkflowBlockModePlaceholder: "default mode (e.g. Config)",
+    txWorkflowBlockKindConfig: "config",
+    txWorkflowBlockKindShow: "show",
+    txWorkflowBlockRollbackPolicyLabel: "rollback policy",
+    txWorkflowBlockRollbackNone: "none",
+    txWorkflowBlockRollbackPerStep: "per_step",
+    txWorkflowBlockRollbackWhole: "whole_resource",
+    txWorkflowRollbackInputModeLabel: "rollback input",
+    txWorkflowRollbackInputText: "text",
+    txWorkflowRollbackInputPairs: "per-command",
+    txWorkflowRollbackOnFailureLabel: "rollback failed step",
+    txWorkflowRollbackTriggerStepPlaceholder: "trigger step index (default 0)",
+    txWorkflowRollbackEmptyHint: "enter commands above to edit per-command rollbacks",
+    txWorkflowRollbackAutoBtn: "Auto-generate rollback",
+    txWorkflowRollbackAutoHint: "Generated by simple rule: prefix with 'no '",
+    txWorkflowRollbackRuleLabel: "rule",
+    txWorkflowRollbackRuleNoPrefix: "prefix no",
+    txWorkflowRollbackRuleSetDelete: "set → delete",
+    txWorkflowRollbackRuleAddRemove: "add → remove",
+    txWorkflowRollbackRuleCustom: "custom template",
+    txWorkflowRollbackTemplatePlaceholder: "template, e.g. no {{cmd}}",
+    txWorkflowRollbackLibraryLabel: "library",
+    txWorkflowRollbackLibraryPick: "pick template",
+    txWorkflowRollbackLibraryName: "template name",
+    txWorkflowRollbackLibrarySave: "Save",
+    txWorkflowRollbackLibraryDelete: "Delete",
+    txWorkflowBlockTimeoutPlaceholder: "timeout secs (optional)",
+    txWorkflowBlockUndoPlaceholder: "whole-resource undo command",
+    txWorkflowBlockCommandsPlaceholder: "commands (one per line)",
+    txWorkflowBlockRollbacksPlaceholder:
+      "rollback commands (one per line, used by per_step)",
+    txWorkflowDeleteBlockBtn: "Delete Block",
+    txWorkflowCopyBlockBtn: "Copy",
+    txWorkflowMoveUpBtn: "Up",
+    txWorkflowMoveDownBtn: "Down",
+    txWorkflowDragBtn: "Drag",
+    txWorkflowSummaryCommands: "commands",
+    txWorkflowSummaryKind: "kind",
+    txWorkflowSummaryMode: "mode",
+    txWorkflowSummaryRollback: "rollback",
+    txWorkflowFilterKindAll: "all kinds",
+    txWorkflowFilterRollbackAll: "all rollback",
+    txWorkflowFilterSearchPlaceholder: "search block name/command",
+    txWorkflowFilterClearBtn: "Clear",
+    txWorkflowFilterNoMatch: "no blocks matched current filters",
+    txWorkflowBuilderEmpty: "no blocks yet, add one first",
+    txWorkflowJsonPlaceholder:
+      '{"name":"fw-policy-publish","blocks":[],"fail_fast":true}',
+    txWorkflowPlanBtn: "Preview Workflow",
+    txWorkflowExecBtn: "Execute Workflow",
+    txWorkflowExecRawBtn: "Raw",
+    txWorkflowJsonRequired: "workflow json is required",
+    txWorkflowImportEmpty: "tx block plan is empty",
+    txWorkflowImportDone: "imported one tx block into workflow builder",
+    txWorkflowDownloadDone: "workflow json downloaded",
+    txWorkflowImportFileInvalid: "please choose a valid workflow json file",
+    txWorkflowImportFileDone: "workflow json imported into builder",
     templateSelectedContentTitle: "Selected Template Content",
     templateSelectedContentPlaceholder: "template content preview",
     promptMgrTitle: "Device Prompt Profiles",
@@ -214,6 +343,7 @@ const i18n = {
     templateContentPlaceholder: "Template content",
     running: "running...",
     requestFailed: "Request failed",
+    commandRequired: "command is required",
     connectionNameRequired: "connection name is required",
     saved: "Saved",
     deleted: "Deleted",
@@ -255,12 +385,135 @@ const i18n = {
     historyDeleteDone: "历史记录已删除",
     connectionHelp: "留空时会回退到服务启动时的 CLI 默认参数。",
     tabOps: "常用操作",
+    tabInteractive: "交互会话",
+    tabReplay: "会话回放",
     tabPrompts: "Prompt 管理",
     tabTemplates: "Template 管理",
     opsTitle: "常用操作",
+    replayPageTitle: "会话回放",
+    interactiveTitle: "交互会话",
+    interactiveCardTitle: "交互会话",
+    interactiveStatusIdle: "空闲",
+    interactiveStatusRunning: "正在启动...",
+    interactiveStatusReady: "会话已就绪",
+    interactiveStatusStopped: "已停止",
+    interactiveStatusNoSession: "没有可用会话",
+    interactiveStartBtn: "启动会话",
+    interactiveStopBtn: "停止会话",
+    interactiveSendBtn: "发送",
+    interactiveClearBtn: "清空",
+    interactiveCommandPlaceholder: "命令，例如 show version",
+    interactiveModePlaceholder: "模式（可选）",
+    recordFabTitle: "会话录制",
+    recordDrawerClose: "关闭",
+    recordDrawerSubtitle: "查看录制历史与筛选条件",
+    historyDrawerTitle: "连接历史",
+    historyDrawerSubtitle: "查看已保存连接的历史记录",
+    historyDrawerRefresh: "刷新",
+    historyDrawerConnLabel: "连接配置",
+    historyFilterPlaceholder: "搜索命令/目标",
+    historyFilterOperationAll: "全部操作",
+    historyFilterLimitLabel: "条数",
+    historyFilterClear: "清空",
     opCardTitle: "执行模式",
-    opKindExec: "直接执行命令",
+    opKindExec: "执行",
     opKindTemplate: "模板渲染并执行",
+    opKindTx: "事务块执行",
+    opExecDirect: "直接执行命令",
+    opExecTemplate: "模板渲染并执行",
+    txNamePlaceholder: "事务块名称",
+    txTemplatePlaceholder: "模板文件名或路径（可选）",
+    txVarsPlaceholder: 'JSON 变量，例如 {"name":"WEB01"}',
+    txCommandsPlaceholder: "命令列表（每行一条；若提供模板可不填）",
+    txModePlaceholder: "事务模式（默认 Config）",
+    txTemplateProfilePlaceholder: "回滚推断模板 profile（默认使用设备 profile）",
+    txTimeoutPlaceholder: "超时秒数（可选）",
+    txResourceRollbackPlaceholder: "资源级回滚命令（可选）",
+    txRollbackModeLabel: "回滚模式",
+    txRollbackModeInfer: "自动推断逐条回滚",
+    txRollbackModePerStep: "自定义逐条回滚",
+    txRollbackModeWhole: "整块回滚",
+    txRollbackCommandsPlaceholder: "回滚命令（每行一条，用于 per_step）",
+    txRollbackOnFailureLabel: "失败步也回滚",
+    txRollbackTriggerStepPlaceholder: "回滚触发步序号（默认 0）",
+    txBasicTitle: "事务块执行",
+    txAdvancedBtn: "高级参数",
+    txStageBlock: "事务块",
+    txStageWorkflow: "事务工作流",
+    txStageHintBlock: "步骤 1：构建并执行单个事务块。",
+    txStageHintWorkflow: "步骤 2：组合多个事务块并执行工作流。",
+    txPlanBtn: "预览事务计划",
+    txExecBtn: "执行事务块",
+    txWorkflowTitle: "事务工作流（JSON）",
+    txWorkflowBuilderTitle: "工作流构建器",
+    txWorkflowImportBlockBtn: "从事务块表单导入",
+    txWorkflowAddBlockBtn: "+ 添加 Block",
+    txWorkflowCollapseAllBtn: "全部折叠",
+    txWorkflowExpandAllBtn: "全部展开",
+    txWorkflowNamePlaceholder: "工作流名称",
+    txWorkflowFailFastLabel: "失败即停止",
+    txWorkflowGenerateBtn: "生成 JSON",
+    txWorkflowLoadBtn: "从 JSON 回填构建器",
+    txWorkflowDownloadBtn: "下载 JSON",
+    txWorkflowImportFileBtn: "导入 JSON 文件",
+    txWorkflowMoreBtn: "更多操作",
+    txWorkflowBlockNamePlaceholder: "block 名称",
+    txWorkflowBlockModePlaceholder: "默认模式（如 Config）",
+    txWorkflowBlockKindConfig: "config",
+    txWorkflowBlockKindShow: "show",
+    txWorkflowBlockRollbackPolicyLabel: "回滚策略",
+    txWorkflowBlockRollbackNone: "none",
+    txWorkflowBlockRollbackPerStep: "per_step",
+    txWorkflowBlockRollbackWhole: "whole_resource",
+    txWorkflowRollbackInputModeLabel: "回滚输入",
+    txWorkflowRollbackInputText: "文本",
+    txWorkflowRollbackInputPairs: "逐条",
+    txWorkflowRollbackOnFailureLabel: "失败步也回滚",
+    txWorkflowRollbackTriggerStepPlaceholder: "回滚触发步序号（默认 0）",
+    txWorkflowRollbackEmptyHint: "请先输入命令，再编辑逐条回滚",
+    txWorkflowRollbackAutoBtn: "自动生成回滚",
+    txWorkflowRollbackAutoHint: "按规则生成：为每条命令加 no 前缀",
+    txWorkflowRollbackRuleLabel: "规则",
+    txWorkflowRollbackRuleNoPrefix: "前缀 no",
+    txWorkflowRollbackRuleSetDelete: "set → delete",
+    txWorkflowRollbackRuleAddRemove: "add → remove",
+    txWorkflowRollbackRuleCustom: "自定义模板",
+    txWorkflowRollbackTemplatePlaceholder: "模板，例如 no {{cmd}}",
+    txWorkflowRollbackLibraryLabel: "模板库",
+    txWorkflowRollbackLibraryPick: "选择模板",
+    txWorkflowRollbackLibraryName: "模板名称",
+    txWorkflowRollbackLibrarySave: "保存",
+    txWorkflowRollbackLibraryDelete: "删除",
+    txWorkflowBlockTimeoutPlaceholder: "超时秒数（可选）",
+    txWorkflowBlockUndoPlaceholder: "整块回滚命令",
+    txWorkflowBlockCommandsPlaceholder: "命令列表（每行一条）",
+    txWorkflowBlockRollbacksPlaceholder: "回滚命令（每行一条，用于 per_step）",
+    txWorkflowDeleteBlockBtn: "删除 Block",
+    txWorkflowCopyBlockBtn: "复制",
+    txWorkflowMoveUpBtn: "上移",
+    txWorkflowMoveDownBtn: "下移",
+    txWorkflowDragBtn: "拖拽",
+    txWorkflowSummaryCommands: "命令数",
+    txWorkflowSummaryKind: "类型",
+    txWorkflowSummaryMode: "模式",
+    txWorkflowSummaryRollback: "回滚",
+    txWorkflowFilterKindAll: "全部类型",
+    txWorkflowFilterRollbackAll: "全部回滚",
+    txWorkflowFilterSearchPlaceholder: "搜索 block 名称/命令",
+    txWorkflowFilterClearBtn: "清空",
+    txWorkflowFilterNoMatch: "当前筛选条件下没有匹配的 block",
+    txWorkflowBuilderEmpty: "还没有 block，请先添加",
+    txWorkflowJsonPlaceholder:
+      '{"name":"fw-policy-publish","blocks":[],"fail_fast":true}',
+    txWorkflowPlanBtn: "预览工作流",
+    txWorkflowExecBtn: "执行工作流",
+    txWorkflowExecRawBtn: "原始数据",
+    txWorkflowJsonRequired: "需要填写 workflow JSON",
+    txWorkflowImportEmpty: "事务块计划为空",
+    txWorkflowImportDone: "已导入一个事务块到工作流构建器",
+    txWorkflowDownloadDone: "工作流 JSON 已下载",
+    txWorkflowImportFileInvalid: "请选择有效的 workflow JSON 文件",
+    txWorkflowImportFileDone: "已从文件导入 workflow JSON 并回填构建器",
     templateSelectedContentTitle: "已选模板内容",
     templateSelectedContentPlaceholder: "模板内容预览",
     promptMgrTitle: "设备 Prompt 配置",
@@ -423,6 +676,7 @@ const i18n = {
     templateContentPlaceholder: "Template 内容",
     running: "执行中...",
     requestFailed: "请求失败",
+    commandRequired: "命令不能为空",
     connectionNameRequired: "连接配置名称不能为空",
     saved: "已保存",
     deleted: "已删除",
@@ -438,6 +692,7 @@ const i18n = {
 let currentLang = localStorage.getItem(STORAGE_KEYS.lang) || "zh";
 let currentTab = "ops";
 let currentOpKind = "exec";
+let currentExecMode = "direct";
 let currentPromptMode = "view";
 let cachedSavedConnections = [];
 let cachedCustomProfiles = [];
@@ -454,7 +709,27 @@ let recordEventKind = localStorage.getItem(STORAGE_KEYS.recordEventKind) || "all
 let replayEventKind = localStorage.getItem(STORAGE_KEYS.replayEventKind) || "all";
 let recordSearchQuery = localStorage.getItem(STORAGE_KEYS.recordSearchQuery) || "";
 let replaySearchQuery = localStorage.getItem(STORAGE_KEYS.replaySearchQuery) || "";
+let historyFilterQuery =
+  localStorage.getItem(STORAGE_KEYS.historyFilterQuery) || "";
+let historyFilterOperation =
+  localStorage.getItem(STORAGE_KEYS.historyFilterOperation) || "all";
+let historyFilterLimit = Number(
+  localStorage.getItem(STORAGE_KEYS.historyFilterLimit) || 30
+);
+let lastHistoryItems = [];
 let detailEntrySeq = 0;
+let txWorkflowBlockSeq = 0;
+let txWorkflowBlocks = [];
+let txWorkflowDragBlockId = "";
+let txWorkflowFilterKind = "all";
+let txWorkflowFilterRollback = "all";
+let txWorkflowFilterQuery = "";
+let txAdvancedExpanded = false;
+let currentTxStage = "block";
+let txWorkflowMoreExpanded = false;
+let rollbackTemplateLibrary = [];
+let txRollbackInputMode = "text";
+let interactiveSessionId = null;
 const detailEntryMap = new Map();
 const autocompleteMenus = [];
 const ALLOWED_EVENT_KINDS = new Set([
@@ -465,6 +740,15 @@ const ALLOWED_EVENT_KINDS = new Set([
   "prompt_changed",
   "state_changed",
   "raw_chunk",
+  "tx_block_started",
+  "tx_step_succeeded",
+  "tx_step_failed",
+  "tx_rollback_started",
+  "tx_rollback_step_succeeded",
+  "tx_rollback_step_failed",
+  "tx_block_finished",
+  "tx_workflow_started",
+  "tx_workflow_finished",
 ]);
 
 function saveFilterPrefs() {
@@ -483,6 +767,37 @@ function normalizeFilterPrefs() {
   if (replayViewMode !== "list" && replayViewMode !== "raw") replayViewMode = "list";
   if (!ALLOWED_EVENT_KINDS.has(recordEventKind)) recordEventKind = "all";
   if (!ALLOWED_EVENT_KINDS.has(replayEventKind)) replayEventKind = "all";
+}
+
+function saveHistoryFilterPrefs() {
+  localStorage.setItem(STORAGE_KEYS.historyFilterQuery, historyFilterQuery);
+  localStorage.setItem(
+    STORAGE_KEYS.historyFilterOperation,
+    historyFilterOperation
+  );
+  localStorage.setItem(
+    STORAGE_KEYS.historyFilterLimit,
+    String(historyFilterLimit)
+  );
+}
+
+function normalizeHistoryFilters() {
+  if (!historyFilterQuery) historyFilterQuery = "";
+  if (
+    ![
+      "all",
+      "exec",
+      "template_execute",
+      "tx_block",
+      "tx_workflow",
+      "interactive",
+    ].includes(historyFilterOperation)
+  ) {
+    historyFilterOperation = "all";
+  }
+  if (!Number.isFinite(historyFilterLimit) || historyFilterLimit <= 0) {
+    historyFilterLimit = 30;
+  }
 }
 
 function t(key) {
@@ -507,11 +822,75 @@ function setEventKindOptions(id, selected) {
     ["prompt_changed", "prompt_changed"],
     ["state_changed", "state_changed"],
     ["raw_chunk", "raw_chunk"],
+    ["tx_block_started", "tx_block_started"],
+    ["tx_step_succeeded", "tx_step_succeeded"],
+    ["tx_step_failed", "tx_step_failed"],
+    ["tx_rollback_started", "tx_rollback_started"],
+    ["tx_rollback_step_succeeded", "tx_rollback_step_succeeded"],
+    ["tx_rollback_step_failed", "tx_rollback_step_failed"],
+    ["tx_block_finished", "tx_block_finished"],
+    ["tx_workflow_started", "tx_workflow_started"],
+    ["tx_workflow_finished", "tx_workflow_finished"],
   ];
   sel.innerHTML = options
     .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
     .join("");
   sel.value = selected || "all";
+}
+
+function loadRollbackTemplateLibrary() {
+  const raw = localStorage.getItem(STORAGE_KEYS.rollbackTemplateLibrary);
+  if (!raw) {
+    rollbackTemplateLibrary = [];
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    rollbackTemplateLibrary = Array.isArray(parsed)
+      ? parsed.filter((item) => item && item.name && item.template)
+      : [];
+  } catch (_) {
+    rollbackTemplateLibrary = [];
+  }
+}
+
+function saveRollbackTemplateLibrary() {
+  localStorage.setItem(
+    STORAGE_KEYS.rollbackTemplateLibrary,
+    JSON.stringify(rollbackTemplateLibrary)
+  );
+}
+
+function upsertRollbackTemplate(name, template) {
+  const normalized = name.trim();
+  if (!normalized || !template.trim()) return;
+  const idx = rollbackTemplateLibrary.findIndex((t) => t.name === normalized);
+  const item = { name: normalized, template };
+  if (idx >= 0) {
+    rollbackTemplateLibrary[idx] = item;
+  } else {
+    rollbackTemplateLibrary.push(item);
+  }
+  saveRollbackTemplateLibrary();
+}
+
+function deleteRollbackTemplate(name) {
+  const normalized = name.trim();
+  if (!normalized) return;
+  rollbackTemplateLibrary = rollbackTemplateLibrary.filter((t) => t.name !== normalized);
+  saveRollbackTemplateLibrary();
+}
+
+function rollbackTemplateOptionsHtml(selectedName = "") {
+  const options = rollbackTemplateLibrary
+    .map((item) => {
+      const selected = item.name === selectedName ? "selected" : "";
+      return `<option value="${escapeHtml(item.name)}" ${selected}>${escapeHtml(
+        item.name
+      )}</option>`;
+    })
+    .join("");
+  return `<option value="">${escapeHtml(t("txWorkflowRollbackLibraryPick"))}</option>${options}`;
 }
 
 function applyI18n() {
@@ -529,13 +908,50 @@ function applyI18n() {
   byId("connection-help").textContent = t("connectionHelp");
 
   byId("tab-ops").textContent = t("tabOps");
+  byId("tab-interactive").textContent = t("tabInteractive");
+  byId("tab-replay").textContent = t("tabReplay");
   byId("tab-prompts").textContent = t("tabPrompts");
   byId("tab-templates").textContent = t("tabTemplates");
 
   byId("ops-title").textContent = t("opsTitle");
+  byId("interactive-title").textContent = t("interactiveTitle");
+  byId("interactive-card-title").textContent = t("interactiveCardTitle");
+  byId("interactive-start-btn").textContent = t("interactiveStartBtn");
+  byId("interactive-stop-btn").textContent = t("interactiveStopBtn");
+  byId("interactive-send-btn").textContent = t("interactiveSendBtn");
+  byId("interactive-clear-btn").textContent = t("interactiveClearBtn");
+  byId("record-fab").title = t("recordFabTitle");
+  byId("record-drawer-close").textContent = t("recordDrawerClose");
+  byId("recording-subtitle").textContent = t("recordDrawerSubtitle");
+  byId("history-drawer-title").textContent = t("historyDrawerTitle");
+  byId("history-drawer-subtitle").textContent = t("historyDrawerSubtitle");
+  byId("history-drawer-refresh-btn").textContent = t("historyDrawerRefresh");
+  byId("history-drawer-conn-label").textContent = t("historyDrawerConnLabel");
+  byId("history-filter-query").placeholder = t("historyFilterPlaceholder");
+  byId("history-filter-clear-btn").textContent = t("historyFilterClear");
+  const historyOpEl = byId("history-filter-operation");
+  historyOpEl.innerHTML = `
+    <option value="all">${escapeHtml(t("historyFilterOperationAll"))}</option>
+    <option value="exec">exec</option>
+    <option value="template_execute">template_execute</option>
+    <option value="tx_block">tx_block</option>
+    <option value="tx_workflow">tx_workflow</option>
+    <option value="interactive">interactive</option>
+  `;
+  historyOpEl.value = historyFilterOperation;
+  byId("history-filter-limit").value = String(historyFilterLimit || 30);
+  byId("history-filter-query").value = historyFilterQuery || "";
+  if (interactiveSessionId) {
+    setInteractiveStatus(`${t("interactiveStatusReady")} · ${interactiveSessionId}`);
+  } else {
+    setInteractiveStatus(t("interactiveStatusIdle"));
+  }
+  byId("replay-page-title").textContent = t("replayPageTitle");
   byId("op-card-title").textContent = t("opCardTitle");
   byId("op-kind-exec").textContent = t("opKindExec");
-  byId("op-kind-template").textContent = t("opKindTemplate");
+  byId("op-exec-direct").textContent = t("opExecDirect");
+  byId("op-exec-template").textContent = t("opExecTemplate");
+  byId("op-kind-tx").textContent = t("opKindTx");
   byId("template-selected-content-title").textContent = t("templateSelectedContentTitle");
   byId("prompt-mgr-title").textContent = t("promptMgrTitle");
   byId("prompt-mode-view").textContent = t("promptModeView");
@@ -617,6 +1033,85 @@ function applyI18n() {
   byId("saved-conn-name").placeholder = t("savedConnNamePlaceholder");
   byId("template").placeholder = t("templatePlaceholder");
   byId("template-selected-content").placeholder = t("templateSelectedContentPlaceholder");
+  byId("tx-name").placeholder = t("txNamePlaceholder");
+  byId("tx-template").placeholder = t("txTemplatePlaceholder");
+  byId("tx-vars").placeholder = t("txVarsPlaceholder");
+  byId("tx-commands").placeholder = t("txCommandsPlaceholder");
+  byId("tx-mode").placeholder = t("txModePlaceholder");
+  byId("tx-template-profile").placeholder = t("txTemplateProfilePlaceholder");
+  byId("tx-timeout-secs").placeholder = t("txTimeoutPlaceholder");
+  byId("tx-resource-rollback").placeholder = t("txResourceRollbackPlaceholder");
+  byId("tx-rollback-mode-label").textContent = t("txRollbackModeLabel");
+  byId("tx-rollback-mode").innerHTML = `
+    <option value="infer">${escapeHtml(t("txRollbackModeInfer"))}</option>
+    <option value="per_step">${escapeHtml(t("txRollbackModePerStep"))}</option>
+    <option value="whole_resource">${escapeHtml(t("txRollbackModeWhole"))}</option>
+  `;
+  byId("tx-rollback-input-label").textContent = t("txWorkflowRollbackInputModeLabel");
+  byId("tx-rollback-input-text").textContent = t("txWorkflowRollbackInputText");
+  byId("tx-rollback-input-pairs").textContent = t("txWorkflowRollbackInputPairs");
+  byId("tx-rollback-auto-btn").textContent = t("txWorkflowRollbackAutoBtn");
+  byId("tx-rollback-auto-hint").textContent = t("txWorkflowRollbackAutoHint");
+  byId("tx-rollback-rule-label").textContent = t("txWorkflowRollbackRuleLabel");
+  byId("tx-rollback-rule").innerHTML = `
+    <option value="no_prefix">${escapeHtml(t("txWorkflowRollbackRuleNoPrefix"))}</option>
+    <option value="set_delete">${escapeHtml(t("txWorkflowRollbackRuleSetDelete"))}</option>
+    <option value="add_remove">${escapeHtml(t("txWorkflowRollbackRuleAddRemove"))}</option>
+    <option value="custom">${escapeHtml(t("txWorkflowRollbackRuleCustom"))}</option>
+  `;
+  if (!byId("tx-rollback-rule").value) {
+    byId("tx-rollback-rule").value = "no_prefix";
+  }
+  byId("tx-rollback-template").placeholder = t("txWorkflowRollbackTemplatePlaceholder");
+  byId("tx-rollback-template-pick").innerHTML = rollbackTemplateOptionsHtml(
+    byId("tx-rollback-template-name").value || ""
+  );
+  byId("tx-rollback-template-name").placeholder = t("txWorkflowRollbackLibraryName");
+  byId("tx-rollback-template-save").textContent = t("txWorkflowRollbackLibrarySave");
+  byId("tx-rollback-template-delete").textContent = t("txWorkflowRollbackLibraryDelete");
+  byId("tx-rollback-commands").placeholder = t("txRollbackCommandsPlaceholder");
+  byId("tx-rollback-on-failure-label").textContent = t("txRollbackOnFailureLabel");
+  byId("tx-rollback-trigger-step").placeholder = t("txRollbackTriggerStepPlaceholder");
+  byId("tx-rollback-empty-hint").textContent = t("txWorkflowRollbackEmptyHint");
+  byId("tx-basic-title").textContent = t("txBasicTitle");
+  byId("tx-stage-block").textContent = `1. ${t("txStageBlock")}`;
+  byId("tx-stage-workflow").textContent = `2. ${t("txStageWorkflow")}`;
+  byId("tx-plan-btn").textContent = t("txPlanBtn");
+  byId("tx-exec-btn").textContent = t("txExecBtn");
+  byId("tx-workflow-title").textContent = t("txWorkflowTitle");
+  byId("tx-workflow-builder-title").textContent = t("txWorkflowBuilderTitle");
+  byId("tx-workflow-import-block-btn").textContent = t("txWorkflowImportBlockBtn");
+  byId("tx-workflow-add-block-btn").textContent = t("txWorkflowAddBlockBtn");
+  byId("tx-workflow-collapse-all-btn").textContent = t("txWorkflowCollapseAllBtn");
+  byId("tx-workflow-expand-all-btn").textContent = t("txWorkflowExpandAllBtn");
+  byId("tx-workflow-name").placeholder = t("txWorkflowNamePlaceholder");
+  byId("tx-workflow-fail-fast-label").textContent = t("txWorkflowFailFastLabel");
+  const txWorkflowFilterKindEl = byId("tx-workflow-filter-kind");
+  txWorkflowFilterKindEl.innerHTML = `
+    <option value="all">${escapeHtml(t("txWorkflowFilterKindAll"))}</option>
+    <option value="config">${escapeHtml(t("txWorkflowBlockKindConfig"))}</option>
+    <option value="show">${escapeHtml(t("txWorkflowBlockKindShow"))}</option>
+  `;
+  txWorkflowFilterKindEl.value = txWorkflowFilterKind;
+  const txWorkflowFilterRollbackEl = byId("tx-workflow-filter-rollback");
+  txWorkflowFilterRollbackEl.innerHTML = `
+    <option value="all">${escapeHtml(t("txWorkflowFilterRollbackAll"))}</option>
+    <option value="none">${escapeHtml(t("txWorkflowBlockRollbackNone"))}</option>
+    <option value="per_step">${escapeHtml(t("txWorkflowBlockRollbackPerStep"))}</option>
+    <option value="whole_resource">${escapeHtml(t("txWorkflowBlockRollbackWhole"))}</option>
+  `;
+  txWorkflowFilterRollbackEl.value = txWorkflowFilterRollback;
+  byId("tx-workflow-filter-query").placeholder = t("txWorkflowFilterSearchPlaceholder");
+  byId("tx-workflow-filter-clear-btn").textContent = t("txWorkflowFilterClearBtn");
+  byId("tx-workflow-generate-btn").textContent = t("txWorkflowGenerateBtn");
+  byId("tx-workflow-load-btn").textContent = t("txWorkflowLoadBtn");
+  byId("tx-workflow-download-btn").textContent = t("txWorkflowDownloadBtn");
+  byId("tx-workflow-import-file-btn").textContent = t("txWorkflowImportFileBtn");
+  byId("tx-workflow-json").placeholder = t("txWorkflowJsonPlaceholder");
+  byId("tx-workflow-plan-btn").textContent = t("txWorkflowPlanBtn");
+  byId("tx-workflow-exec-btn").textContent = t("txWorkflowExecBtn");
+  byId("tx-workflow-exec-raw-toggle").textContent = t("txWorkflowExecRawBtn");
+  renderTxWorkflowBuilder();
   byId("record-jsonl").placeholder = t("recordJsonlPlaceholder");
   byId("replay-jsonl").placeholder = t("replayJsonlPlaceholder");
   byId("replay-command").placeholder = t("replayCommandPlaceholder");
@@ -638,11 +1133,18 @@ function applyI18n() {
   renderTemplateOptions();
   byId("template-manage-path").placeholder = t("templateManagePathPlaceholder");
   byId("template-content").placeholder = t("templateContentPlaceholder");
+  byId("interactive-command").placeholder = t("interactiveCommandPlaceholder");
+  byId("interactive-mode").placeholder = t("interactiveModePlaceholder");
   setEventKindOptions("record-event-kind", recordEventKind);
   setEventKindOptions("replay-event-kind", replayEventKind);
   localizeDynamicFields();
   renderRecordingView();
   renderReplayView();
+  applyTxLayoutState();
+  applyTxStage();
+  applyTxWorkflowMoreActionsState();
+  applyTxRollbackMode();
+  applyTxRollbackRuleVisibility();
 
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
 }
@@ -665,7 +1167,7 @@ function localizeDynamicFields() {
 }
 
 function applyTabs() {
-  const tabs = ["ops", "prompts", "templates"];
+  const tabs = ["ops", "interactive", "replay", "prompts", "templates"];
   for (const tab of tabs) {
     const button = byId(`tab-${tab}`);
     const panel = byId(`panel-${tab}`);
@@ -685,16 +1187,229 @@ function applyTabs() {
   }
 }
 
+function setInteractiveStatus(text) {
+  const el = byId("interactive-status");
+  if (el) el.textContent = text;
+}
+
+function updateInteractiveButtons() {
+  const active = !!interactiveSessionId;
+  const startBtn = byId("interactive-start-btn");
+  const stopBtn = byId("interactive-stop-btn");
+  const sendBtn = byId("interactive-send-btn");
+  if (startBtn) startBtn.disabled = active;
+  if (stopBtn) stopBtn.disabled = !active;
+  if (sendBtn) sendBtn.disabled = !active;
+}
+
+function isDeviceSelected() {
+  const host = byId("host").value.trim();
+  const saved = byId("saved-conn-name").value.trim();
+  const profile = byId("device_profile").value.trim();
+  return !!(host || saved || profile);
+}
+
+function updateRecordFabVisibility() {
+  const wrap = byId("record-fab-wrap");
+  if (!wrap) return;
+  const visible = isDeviceSelected();
+  wrap.hidden = !visible;
+  wrap.style.display = visible ? "" : "none";
+}
+
+function updateRecordFabBadge(count) {
+  const badge = byId("record-fab-badge");
+  if (!badge) return;
+  const value = Number(count) || 0;
+  if (value <= 0) {
+    badge.hidden = true;
+    badge.style.display = "none";
+    return;
+  }
+  badge.hidden = false;
+  badge.style.display = "flex";
+  badge.textContent = value > 99 ? "99+" : String(value);
+}
+
+function openRecordDrawer() {
+  const backdrop = byId("record-drawer-backdrop");
+  const drawer = byId("record-drawer");
+  backdrop.classList.add("open");
+  drawer.classList.add("open");
+  document.body.classList.add("overflow-hidden");
+}
+
+function closeRecordDrawer() {
+  const backdrop = byId("record-drawer-backdrop");
+  const drawer = byId("record-drawer");
+  backdrop.classList.remove("open");
+  drawer.classList.remove("open");
+  document.body.classList.remove("overflow-hidden");
+}
+
+function openHistoryDrawer() {
+  const backdrop = byId("history-drawer-backdrop");
+  const drawer = byId("history-drawer");
+  backdrop.classList.add("open");
+  drawer.classList.add("open");
+  document.body.classList.add("overflow-hidden");
+}
+
+function closeHistoryDrawer() {
+  const backdrop = byId("history-drawer-backdrop");
+  const drawer = byId("history-drawer");
+  backdrop.classList.remove("open");
+  drawer.classList.remove("open");
+  document.body.classList.remove("overflow-hidden");
+}
+
+function appendInteractiveLog(label, content) {
+  const out = byId("interactive-out");
+  if (!out) return;
+  const ts = new Date().toLocaleTimeString();
+  const prefix = label ? `${label}` : "output";
+  out.textContent += `[${ts}] ${prefix}\n${content}\n\n`;
+  out.scrollTop = out.scrollHeight;
+}
+
 function applyOperationKind() {
   const isExec = currentOpKind === "exec";
-  byId("op-direct-fields").hidden = !isExec;
-  byId("op-direct-fields").style.display = isExec ? "" : "none";
-  byId("op-template-fields").hidden = isExec;
-  byId("op-template-fields").style.display = isExec ? "none" : "";
+  const isTx = currentOpKind === "tx";
+  byId("op-exec-fields").hidden = !isExec;
+  byId("op-exec-fields").style.display = isExec ? "" : "none";
+  byId("op-tx-fields").hidden = !isTx;
+  byId("op-tx-fields").style.display = isTx ? "" : "none";
   byId("op-kind-exec").classList.toggle("is-active", isExec);
-  byId("op-kind-template").classList.toggle("is-active", !isExec);
+  byId("op-kind-tx").classList.toggle("is-active", isTx);
   byId("op-kind-exec").setAttribute("aria-selected", isExec ? "true" : "false");
-  byId("op-kind-template").setAttribute("aria-selected", isExec ? "false" : "true");
+  byId("op-kind-tx").setAttribute("aria-selected", isTx ? "true" : "false");
+  if (isTx) {
+    applyTxStage();
+  }
+  if (isExec) {
+    applyExecMode();
+  }
+}
+
+function applyExecMode() {
+  const isDirect = currentExecMode === "direct";
+  byId("op-exec-direct-fields").hidden = !isDirect;
+  byId("op-exec-direct-fields").style.display = isDirect ? "" : "none";
+  byId("op-exec-template-fields").hidden = isDirect;
+  byId("op-exec-template-fields").style.display = isDirect ? "none" : "";
+  byId("op-exec-direct").classList.toggle("is-active", isDirect);
+  byId("op-exec-template").classList.toggle("is-active", !isDirect);
+  byId("op-exec-direct").setAttribute("aria-selected", isDirect ? "true" : "false");
+  byId("op-exec-template").setAttribute("aria-selected", isDirect ? "false" : "true");
+  if (!isDirect && byId("template").value.trim()) {
+    loadSelectedTemplateContent();
+  }
+}
+
+function applyTxLayoutState() {
+  const advancedFields = byId("tx-advanced-fields");
+  const advancedToggleBtn = byId("tx-advanced-toggle-btn");
+  if (advancedFields) {
+    advancedFields.hidden = !txAdvancedExpanded;
+    advancedFields.style.display = txAdvancedExpanded ? "" : "none";
+  }
+  if (advancedToggleBtn) {
+    advancedToggleBtn.textContent = txAdvancedExpanded ? t("collapse") : t("txAdvancedBtn");
+  }
+}
+
+function applyTxStage() {
+  const isBlock = currentTxStage === "block";
+  const isWorkflow = currentTxStage === "workflow";
+  const blockBtn = byId("tx-stage-block");
+  const workflowBtn = byId("tx-stage-workflow");
+  const blockPanel = byId("tx-stage-block-panel");
+  const workflowPanel = byId("tx-stage-workflow-panel");
+  const hint = byId("tx-stage-hint");
+  blockBtn.classList.toggle("is-active", isBlock);
+  workflowBtn.classList.toggle("is-active", isWorkflow);
+  blockBtn.setAttribute("aria-selected", isBlock ? "true" : "false");
+  workflowBtn.setAttribute("aria-selected", isWorkflow ? "true" : "false");
+  blockBtn.textContent = `1. ${t("txStageBlock")}`;
+  workflowBtn.textContent = `2. ${t("txStageWorkflow")}`;
+  blockPanel.hidden = !isBlock;
+  blockPanel.style.display = isBlock ? "" : "none";
+  workflowPanel.hidden = !isWorkflow;
+  workflowPanel.style.display = isWorkflow ? "" : "none";
+  if (hint) {
+    hint.textContent = isBlock ? t("txStageHintBlock") : t("txStageHintWorkflow");
+  }
+}
+
+function applyTxWorkflowMoreActionsState() {
+  const btn = byId("tx-workflow-more-btn");
+  const panel = byId("tx-workflow-more-panel");
+  if (!btn || !panel) return;
+  panel.hidden = !txWorkflowMoreExpanded;
+  panel.style.display = txWorkflowMoreExpanded ? "" : "none";
+  btn.textContent = txWorkflowMoreExpanded
+    ? `${t("txWorkflowMoreBtn")} · ${t("collapse")}`
+    : `${t("txWorkflowMoreBtn")} · ${t("expand")}`;
+}
+
+function applyTxRollbackMode() {
+  const mode = byId("tx-rollback-mode").value || "infer";
+  const perStep = byId("tx-rollback-per-step");
+  const whole = byId("tx-rollback-resource");
+  perStep.hidden = mode !== "per_step";
+  perStep.style.display = mode === "per_step" ? "" : "none";
+  whole.hidden = mode !== "whole_resource";
+  whole.style.display = mode === "whole_resource" ? "" : "none";
+  applyTxRollbackInputMode();
+}
+
+function applyTxRollbackInputMode() {
+  const isText = txRollbackInputMode === "text";
+  byId("tx-rollback-input-text").classList.toggle("is-active", isText);
+  byId("tx-rollback-input-pairs").classList.toggle("is-active", !isText);
+  byId("tx-rollback-commands").hidden = !isText;
+  byId("tx-rollback-commands").style.display = isText ? "" : "none";
+  byId("tx-rollback-pairs").hidden = isText;
+  byId("tx-rollback-pairs").style.display = isText ? "none" : "";
+  renderTxRollbackPairs();
+}
+
+function applyTxRollbackRuleVisibility() {
+  const isCustom = byId("tx-rollback-rule").value === "custom";
+  byId("tx-rollback-template").hidden = !isCustom;
+  byId("tx-rollback-template").style.display = isCustom ? "" : "none";
+}
+
+function renderTxRollbackPairs() {
+  if (txRollbackInputMode !== "pairs") return;
+  const commands = parseTxCommands();
+  const rollbacks = parseRollbackLinesRaw(byId("tx-rollback-commands").value || "");
+  const wrap = byId("tx-rollback-pairs");
+  const hint = byId("tx-rollback-empty-hint");
+  if (!commands.length) {
+    wrap.innerHTML = "";
+    hint.hidden = false;
+    hint.style.display = "";
+    return;
+  }
+  hint.hidden = true;
+  hint.style.display = "none";
+  wrap.innerHTML = commands
+    .map((cmd, idx) => {
+      const val = rollbacks[idx] || "";
+      return `
+        <div class="grid gap-2 md:grid-cols-[1fr_1fr] tx-workflow-pair-row">
+          <div class="input tx-workflow-pair-label">
+            <span class="tx-workflow-pair-index">#${idx + 1}</span>
+            <span class="tx-workflow-pair-command">${escapeHtml(cmd)}</span>
+          </div>
+          <input class="input js-tx-rollback-pair" data-index="${idx}" value="${escapeHtml(
+        val
+      )}" placeholder="${escapeHtml(t("txRollbackCommandsPlaceholder"))}" />
+        </div>
+      `;
+    })
+    .join("");
 }
 
 function applyPromptMode() {
@@ -873,6 +1588,80 @@ function renderStatsCards(stats) {
   `;
 }
 
+function renderTxWorkflowResult(result) {
+  if (!result) return `<pre class="output">${escapeHtml(t("requestFailed"))}</pre>`;
+  const failedIdx =
+    typeof result.failed_block === "number" ? result.failed_block : null;
+  const blocks = Array.isArray(result.block_results) ? result.block_results : [];
+  const summary = `
+    <div class="grid gap-2 md:grid-cols-3">
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <div class="text-xs text-slate-500">workflow</div>
+        <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(
+          safeString(result.workflow_name)
+        )}</div>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <div class="text-xs text-slate-500">committed</div>
+        <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(
+          String(!!result.committed)
+        )}</div>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <div class="text-xs text-slate-500">rollback</div>
+        <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(
+          `attempted=${!!result.rollback_attempted} succeeded=${!!result.rollback_succeeded}`
+        )}</div>
+      </div>
+    </div>
+  `;
+  const blockCards = blocks
+    .map((block, idx) => {
+      const isFailed = failedIdx === idx;
+      const rollbackErrors = Array.isArray(block.rollback_errors)
+        ? block.rollback_errors
+        : [];
+      const failedSummary = isFailed
+        ? `
+      <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+        failed_block_rollback: attempted=${!!block.rollback_attempted} succeeded=${!!block.rollback_succeeded}
+        ${
+          rollbackErrors.length
+            ? `<div class="mt-1">errors: ${escapeHtml(rollbackErrors.join(" | "))}</div>`
+            : ""
+        }
+      </div>`
+        : "";
+      return `
+      <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-sm font-semibold text-slate-900">block[${idx}] ${escapeHtml(
+            safeString(block.block_name)
+          )}</div>
+          <div class="text-xs text-slate-600">committed=${escapeHtml(
+            String(!!block.committed)
+          )}</div>
+        </div>
+        <div class="mt-2 grid gap-2 md:grid-cols-3 text-xs text-slate-700">
+          <div>executed_steps=${escapeHtml(String(block.executed_steps))}</div>
+          <div>rollback_attempted=${escapeHtml(String(!!block.rollback_attempted))}</div>
+          <div>rollback_succeeded=${escapeHtml(String(!!block.rollback_succeeded))}</div>
+        </div>
+        ${
+          rollbackErrors.length
+            ? `<div class="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                rollback_errors: ${escapeHtml(rollbackErrors.join(" | "))}
+              </div>`
+            : ""
+        }
+        ${failedSummary}
+      </section>
+    `;
+    })
+    .join("");
+  return `<div class="grid gap-3">${summary}${blockCards}</div>`;
+}
+
 function successBadge(event) {
   if (event.kind !== "command_output") return '<span class="text-slate-400">-</span>';
   if (event.success) {
@@ -982,16 +1771,19 @@ function renderRecordingView() {
   setPanelVisible(listOut, isList, "grid");
   setPanelVisible(rawOut, !isList, "block");
 
-  if (!isList) return;
-
   const parsed = parseJsonl(rawOut.value || "");
   if (!parsed.ok) {
     listOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
       parsed.error
     )}</div>`;
+    updateRecordFabBadge(0);
     return;
   }
   const entries = filterEntries(parsed.rows, recordEventKind, recordFailedOnly, recordSearchQuery);
+  updateRecordFabBadge(entries.length);
+  if (!isList) {
+    return;
+  }
   if (!entries.length) {
     listOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
       recordFailedOnly
@@ -1158,6 +1950,53 @@ function renderConnectionHistoryTable(items) {
   `;
 }
 
+function historyMatchesSearch(item, query) {
+  const q = (query || "").trim().toLowerCase();
+  if (!q) return true;
+  const fields = [
+    item.command_label,
+    item.operation,
+    item.mode,
+    item.device_profile,
+    item.connection_name,
+    item.host,
+    item.port,
+    item.username,
+  ];
+  const haystack = fields
+    .filter((v) => v != null)
+    .map((v) => String(v).toLowerCase())
+    .join("\n");
+  return haystack.includes(q);
+}
+
+function filterHistoryItems(items) {
+  return (items || []).filter((item) => {
+    const op = String(item.operation || "").toLowerCase();
+    const opOk = historyFilterOperation === "all" ? true : op === historyFilterOperation;
+    return opOk && historyMatchesSearch(item, historyFilterQuery);
+  });
+}
+
+function renderHistoryDrawer() {
+  const out = byId("history-drawer-out");
+  if (!out) return;
+  if (!Array.isArray(lastHistoryItems) || lastHistoryItems.length === 0) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("savedConnHistoryEmpty")
+    )}</div>`;
+    return;
+  }
+  const filtered = filterHistoryItems(lastHistoryItems);
+  if (!filtered.length) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("noMatchedEntries")
+    )}</div>`;
+    return;
+  }
+  out.innerHTML = renderConnectionHistoryTable(filtered);
+}
+
 function renderSavedConnectionOptions(keyword = "") {
   const datalist = byId("saved-conn-options");
   const q = keyword.trim().toLowerCase();
@@ -1185,6 +2024,7 @@ async function loadSavedConnections() {
     renderSavedConnectionOptions("");
     out.textContent = e.message;
   }
+  updateRecordFabVisibility();
 }
 
 async function loadSavedConnectionByName() {
@@ -1245,7 +2085,8 @@ async function deleteConnectionByName() {
 
 async function loadConnectionHistory() {
   const name = byId("saved-conn-name").value.trim();
-  const out = byId("saved-conn-history-out");
+  const out = byId("history-drawer-out");
+  byId("history-drawer-conn-name").textContent = name || "-";
   if (!name) {
     out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
       t("connectionNameRequired")
@@ -1256,17 +2097,13 @@ async function loadConnectionHistory() {
     t("running")
   )}</div>`;
   try {
+    const limit = Number(byId("history-filter-limit").value || historyFilterLimit || 30);
     const data = await request(
       "GET",
-      `/api/connections/${encodeURIComponent(name)}/history?limit=30`
+      `/api/connections/${encodeURIComponent(name)}/history?limit=${Number.isFinite(limit) ? limit : 30}`
     );
-    if (!Array.isArray(data) || data.length === 0) {
-      out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
-        t("savedConnHistoryEmpty")
-      )}</div>`;
-      return;
-    }
-    out.innerHTML = renderConnectionHistoryTable(data);
+    lastHistoryItems = Array.isArray(data) ? data : [];
+    renderHistoryDrawer();
   } catch (e) {
     out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
       e.message
@@ -1343,6 +2180,758 @@ function parseVars() {
   const raw = byId("vars").value.trim();
   if (!raw) return {};
   return JSON.parse(raw);
+}
+
+function parseJsonById(id) {
+  const raw = byId(id).value.trim();
+  if (!raw) return {};
+  return JSON.parse(raw);
+}
+
+function parseTxCommands() {
+  const lines = (byId("tx-commands").value || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => !!s);
+  return lines;
+}
+
+function parseRollbackLinesRaw(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim());
+}
+
+function txPayload(dryRun) {
+  const timeoutRaw = byId("tx-timeout-secs").value.trim();
+  const timeout = timeoutRaw ? Number(timeoutRaw) : null;
+  const rollbackMode = byId("tx-rollback-mode").value || "infer";
+  return {
+    name: byId("tx-name").value.trim() || null,
+    template: byId("tx-template").value.trim() || null,
+    vars: parseJsonById("tx-vars"),
+    commands: parseTxCommands(),
+    mode: byId("tx-mode").value.trim() || null,
+    timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
+    resource_rollback_command:
+      rollbackMode === "whole_resource"
+        ? byId("tx-resource-rollback").value.trim() || null
+        : null,
+    rollback_on_failure: byId("tx-rollback-on-failure").checked,
+    rollback_trigger_step_index:
+      rollbackMode === "whole_resource"
+        ? Number(byId("tx-rollback-trigger-step").value || 0)
+        : null,
+    rollback_commands:
+      rollbackMode === "per_step"
+        ? parseRollbackLinesRaw(byId("tx-rollback-commands").value || "")
+        : [],
+    template_profile: byId("tx-template-profile").value.trim() || null,
+    dry_run: dryRun,
+    connection: connectionPayload(),
+    record_level: recordLevelPayload(),
+  };
+}
+
+function txWorkflowPayload(dryRun) {
+  const raw = byId("tx-workflow-json").value.trim();
+  if (!raw) {
+    throw new Error(t("txWorkflowJsonRequired"));
+  }
+  return {
+    workflow: JSON.parse(raw),
+    dry_run: dryRun,
+    connection: connectionPayload(),
+    record_level: recordLevelPayload(),
+  };
+}
+
+async function startInteractive() {
+  setInteractiveStatus(t("interactiveStatusRunning"));
+  try {
+    const data = await request("POST", "/api/interactive/start", {
+      connection: connectionPayload(),
+      record_level: recordLevelPayload(),
+    });
+    interactiveSessionId = data.session_id || null;
+    if (interactiveSessionId) {
+      setInteractiveStatus(`${t("interactiveStatusReady")} · ${interactiveSessionId}`);
+    } else {
+      setInteractiveStatus(t("interactiveStatusNoSession"));
+    }
+  } catch (e) {
+    interactiveSessionId = null;
+    setInteractiveStatus(e.message);
+  }
+  updateInteractiveButtons();
+}
+
+async function sendInteractiveCommand() {
+  const command = byId("interactive-command").value.trim();
+  const mode = byId("interactive-mode").value.trim();
+  if (!interactiveSessionId) {
+    setInteractiveStatus(t("interactiveStatusNoSession"));
+    updateInteractiveButtons();
+    return;
+  }
+  if (!command) {
+    setInteractiveStatus(t("commandRequired"));
+    return;
+  }
+  setInteractiveStatus(t("running"));
+  try {
+    const data = await request("POST", "/api/interactive/command", {
+      session_id: interactiveSessionId,
+      command,
+      mode: mode || null,
+    });
+    appendInteractiveLog(command, data.output || "");
+    setInteractiveStatus(`${t("interactiveStatusReady")} · ${interactiveSessionId}`);
+  } catch (e) {
+    setInteractiveStatus(e.message);
+  }
+}
+
+async function stopInteractive() {
+  if (!interactiveSessionId) {
+    setInteractiveStatus(t("interactiveStatusNoSession"));
+    updateInteractiveButtons();
+    return;
+  }
+  const id = interactiveSessionId;
+  setInteractiveStatus(t("running"));
+  try {
+    const data = await request(
+      "DELETE",
+      `/api/interactive/${encodeURIComponent(id)}`
+    );
+    if (data && data.recording_jsonl) {
+      byId("record-jsonl").value = String(data.recording_jsonl);
+      renderRecordingView();
+    }
+    setInteractiveStatus(t("interactiveStatusStopped"));
+  } catch (e) {
+    setInteractiveStatus(e.message);
+  } finally {
+    interactiveSessionId = null;
+    updateInteractiveButtons();
+  }
+}
+
+function createTxWorkflowBlock(seed = {}) {
+  txWorkflowBlockSeq += 1;
+  return {
+    id: `tx-block-${txWorkflowBlockSeq}`,
+    name: seed.name || "",
+    kind: seed.kind || "config",
+    rollbackPolicy: seed.rollbackPolicy || "per_step",
+    mode: seed.mode || "Config",
+    timeoutSecs: seed.timeoutSecs != null ? String(seed.timeoutSecs) : "",
+    undoCommand: seed.undoCommand || "",
+    commandsText: seed.commandsText || "",
+    rollbackCommandsText: seed.rollbackCommandsText || "",
+    failFast: seed.failFast !== false,
+    collapsed: seed.collapsed === true,
+    rollbackInputMode: seed.rollbackInputMode || "text",
+    rollbackRule: seed.rollbackRule || "no_prefix",
+    rollbackRuleTemplate: seed.rollbackRuleTemplate || "",
+    rollbackOnFailure: seed.rollbackOnFailure === true,
+    triggerStepIndex:
+      seed.triggerStepIndex != null && seed.triggerStepIndex !== ""
+        ? String(seed.triggerStepIndex)
+        : "",
+  };
+}
+
+function renderTxWorkflowBuilder() {
+  const wrap = byId("tx-workflow-blocks");
+  if (!wrap) return;
+  const activeEl = document.activeElement;
+  const active = activeEl
+    ? {
+        blockId: activeEl.getAttribute && activeEl.getAttribute("data-tx-block-id"),
+        field: activeEl.getAttribute && activeEl.getAttribute("data-field"),
+        cls: activeEl.classList ? Array.from(activeEl.classList) : [],
+        index: activeEl.getAttribute && activeEl.getAttribute("data-index"),
+        selStart:
+          typeof activeEl.selectionStart === "number" ? activeEl.selectionStart : null,
+        selEnd: typeof activeEl.selectionEnd === "number" ? activeEl.selectionEnd : null,
+      }
+    : null;
+  if (!txWorkflowBlocks.length) {
+    wrap.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("txWorkflowBuilderEmpty")
+    )}</div>`;
+    return;
+  }
+  const filteredBlocks = getFilteredTxWorkflowBlocks();
+  if (!filteredBlocks.length) {
+    wrap.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("txWorkflowFilterNoMatch")
+    )}</div>`;
+    return;
+  }
+  wrap.innerHTML = filteredBlocks
+    .map(
+      (block) => {
+        const fullIdx = txWorkflowBlocks.findIndex((b) => b.id === block.id);
+        const commandCount = txWorkflowLines(block.commandsText).length;
+        const modeText = block.mode && block.mode.trim() ? block.mode.trim() : "Config";
+        const kindText = block.kind === "show" ? "show" : "config";
+        const rollbackText = block.rollbackPolicy || "per_step";
+        const commandsList = txWorkflowLines(block.commandsText);
+        const rollbackList = parseRollbackLinesRaw(block.rollbackCommandsText);
+        const rollbackMode = block.rollbackInputMode || "text";
+        const rollbackRule = block.rollbackRule || "no_prefix";
+        const libraryName = block.rollbackLibraryName || "";
+        return `
+      <div class="group-card" data-tx-block-id="${escapeHtml(block.id)}">
+        <div class="field-tools">
+          <div class="grid gap-1">
+            <span>#${fullIdx + 1}</span>
+            <div class="inline-flex flex-wrap items-center gap-1">
+              <span class="tx-workflow-chip">${escapeHtml(t("txWorkflowSummaryCommands"))}: ${commandCount}</span>
+              <span class="tx-workflow-chip">${escapeHtml(t("txWorkflowSummaryKind"))}: ${escapeHtml(kindText)}</span>
+              <span class="tx-workflow-chip">${escapeHtml(t("txWorkflowSummaryMode"))}: ${escapeHtml(modeText)}</span>
+              <span class="tx-workflow-chip">${escapeHtml(t("txWorkflowSummaryRollback"))}: ${escapeHtml(rollbackText)}</span>
+            </div>
+          </div>
+          <div class="inline-flex items-center gap-2">
+            <button type="button" class="mini-btn js-tx-workflow-toggle-block" data-tx-block-id="${escapeHtml(
+              block.id
+            )}">${escapeHtml(block.collapsed ? t("expand") : t("collapse"))}</button>
+            <button type="button" class="mini-btn js-tx-workflow-drag-block" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" draggable="true">${escapeHtml(t("txWorkflowDragBtn"))}</button>
+            <button type="button" class="mini-btn js-tx-workflow-move-up-block" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" ${fullIdx === 0 ? "disabled" : ""}>${escapeHtml(t("txWorkflowMoveUpBtn"))}</button>
+            <button type="button" class="mini-btn js-tx-workflow-move-down-block" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" ${fullIdx === txWorkflowBlocks.length - 1 ? "disabled" : ""}>${escapeHtml(
+        t("txWorkflowMoveDownBtn")
+      )}</button>
+            <button type="button" class="mini-btn js-tx-workflow-copy-block" data-tx-block-id="${escapeHtml(
+              block.id
+            )}">${escapeHtml(t("txWorkflowCopyBlockBtn"))}</button>
+            <button type="button" class="mini-btn delete js-tx-workflow-delete-block" data-tx-block-id="${escapeHtml(
+              block.id
+            )}">${escapeHtml(t("txWorkflowDeleteBlockBtn"))}</button>
+          </div>
+        </div>
+        <div class="group-body grid gap-2" ${block.collapsed ? "hidden" : ""}>
+          <input class="input js-tx-workflow-field" data-field="name" data-tx-block-id="${escapeHtml(
+            block.id
+          )}" value="${escapeHtml(block.name)}" placeholder="${escapeHtml(
+        t("txWorkflowBlockNamePlaceholder")
+      )}" />
+          <div class="grid gap-2 md:grid-cols-2">
+            <input class="input js-tx-workflow-field" data-field="mode" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" value="${escapeHtml(block.mode)}" placeholder="${escapeHtml(
+        t("txWorkflowBlockModePlaceholder")
+      )}" />
+            <select class="input js-tx-workflow-field" data-field="kind" data-tx-block-id="${escapeHtml(
+              block.id
+            )}">
+              <option value="config" ${block.kind === "config" ? "selected" : ""}>${escapeHtml(
+        t("txWorkflowBlockKindConfig")
+      )}</option>
+              <option value="show" ${block.kind === "show" ? "selected" : ""}>${escapeHtml(
+        t("txWorkflowBlockKindShow")
+      )}</option>
+            </select>
+          </div>
+          <div class="grid gap-2 md:grid-cols-2">
+            <select class="input js-tx-workflow-field" data-field="rollbackPolicy" data-tx-block-id="${escapeHtml(
+              block.id
+            )}">
+              <option value="none" ${block.rollbackPolicy === "none" ? "selected" : ""}>${escapeHtml(
+        t("txWorkflowBlockRollbackNone")
+      )}</option>
+              <option value="per_step" ${block.rollbackPolicy === "per_step" ? "selected" : ""}>${escapeHtml(
+        t("txWorkflowBlockRollbackPerStep")
+      )}</option>
+              <option value="whole_resource" ${
+                block.rollbackPolicy === "whole_resource" ? "selected" : ""
+              }>${escapeHtml(t("txWorkflowBlockRollbackWhole"))}</option>
+            </select>
+            <input class="input js-tx-workflow-field" data-field="timeoutSecs" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" value="${escapeHtml(block.timeoutSecs)}" placeholder="${escapeHtml(
+        t("txWorkflowBlockTimeoutPlaceholder")
+      )}" />
+          </div>
+          ${
+            block.rollbackPolicy === "whole_resource"
+              ? `
+          <div class="grid gap-2 md:grid-cols-2">
+            <input class="input js-tx-workflow-field" data-field="undoCommand" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" value="${escapeHtml(block.undoCommand)}" placeholder="${escapeHtml(
+                  t("txWorkflowBlockUndoPlaceholder")
+                )}" />
+            <input class="input js-tx-workflow-field" data-field="triggerStepIndex" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" value="${escapeHtml(block.triggerStepIndex || "")}" placeholder="${escapeHtml(
+                  t("txWorkflowRollbackTriggerStepPlaceholder")
+                )}" />
+          </div>
+          `
+              : `
+          <input class="input js-tx-workflow-field" data-field="undoCommand" data-tx-block-id="${escapeHtml(
+            block.id
+          )}" value="${escapeHtml(block.undoCommand)}" placeholder="${escapeHtml(
+                  t("txWorkflowBlockUndoPlaceholder")
+                )}" />
+          `
+          }
+          ${
+            block.rollbackPolicy === "per_step"
+              ? `
+          <label class="check-label">
+            <input type="checkbox" class="check-input js-tx-workflow-field" data-field="rollbackOnFailure" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" ${block.rollbackOnFailure ? "checked" : ""} />
+            <span>${escapeHtml(t("txWorkflowRollbackOnFailureLabel"))}</span>
+          </label>
+          `
+              : ""
+          }
+          <label class="check-label">
+            <input type="checkbox" class="check-input js-tx-workflow-field" data-field="failFast" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" ${block.failFast ? "checked" : ""} />
+            <span>${escapeHtml(t("txWorkflowFailFastLabel"))}</span>
+          </label>
+          <textarea class="input min-h-24 font-mono js-tx-workflow-field" data-field="commandsText" data-tx-block-id="${escapeHtml(
+            block.id
+          )}" placeholder="${escapeHtml(t("txWorkflowBlockCommandsPlaceholder"))}">${escapeHtml(
+        block.commandsText
+      )}</textarea>
+          ${
+            block.rollbackPolicy === "per_step"
+              ? `
+          <div class="grid gap-2">
+            <div class="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
+              <span>${escapeHtml(t("txWorkflowRollbackInputModeLabel"))}</span>
+              <div class="tab-group">
+                <button type="button" class="tab-btn ${rollbackMode === "text" ? "is-active" : ""} js-tx-workflow-rollback-mode" data-mode="text" data-tx-block-id="${escapeHtml(
+                  block.id
+                )}">${escapeHtml(t("txWorkflowRollbackInputText"))}</button>
+                <button type="button" class="tab-btn ${rollbackMode === "pairs" ? "is-active" : ""} js-tx-workflow-rollback-mode" data-mode="pairs" data-tx-block-id="${escapeHtml(
+                  block.id
+                )}">${escapeHtml(t("txWorkflowRollbackInputPairs"))}</button>
+              </div>
+            </div>
+            ${
+              rollbackMode === "pairs"
+                ? `
+            <div class="grid gap-2">
+              <div class="inline-flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <button type="button" class="mini-btn js-tx-workflow-rollback-auto" data-tx-block-id="${escapeHtml(
+                  block.id
+                )}">${escapeHtml(t("txWorkflowRollbackAutoBtn"))}</button>
+                <span>${escapeHtml(t("txWorkflowRollbackAutoHint"))}</span>
+                <span class="ml-2 text-slate-400">${escapeHtml(t("txWorkflowRollbackRuleLabel"))}</span>
+                <select class="input js-tx-workflow-rollback-rule" data-tx-block-id="${escapeHtml(
+                  block.id
+                )}">
+                  <option value="no_prefix" ${rollbackRule === "no_prefix" ? "selected" : ""}>${escapeHtml(
+                    t("txWorkflowRollbackRuleNoPrefix")
+                  )}</option>
+                  <option value="set_delete" ${rollbackRule === "set_delete" ? "selected" : ""}>${escapeHtml(
+                    t("txWorkflowRollbackRuleSetDelete")
+                  )}</option>
+                  <option value="add_remove" ${rollbackRule === "add_remove" ? "selected" : ""}>${escapeHtml(
+                    t("txWorkflowRollbackRuleAddRemove")
+                  )}</option>
+                  <option value="custom" ${rollbackRule === "custom" ? "selected" : ""}>${escapeHtml(
+                    t("txWorkflowRollbackRuleCustom")
+                  )}</option>
+                </select>
+                ${
+                  rollbackRule === "custom"
+                    ? `<input class="input js-tx-workflow-rollback-template" data-tx-block-id="${escapeHtml(
+                        block.id
+                      )}" value="${escapeHtml(
+                        block.rollbackRuleTemplate || ""
+                      )}" placeholder="${escapeHtml(
+                        t("txWorkflowRollbackTemplatePlaceholder")
+                      )}" />`
+                    : ""
+                }
+              </div>
+              <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+                <select class="input js-tx-workflow-rollback-template-pick" data-tx-block-id="${escapeHtml(
+                  block.id
+                )}">
+                  ${rollbackTemplateOptionsHtml(libraryName)}
+                </select>
+                <input class="input js-tx-workflow-rollback-template-name" data-tx-block-id="${escapeHtml(
+                  block.id
+                )}" value="${escapeHtml(libraryName)}" placeholder="${escapeHtml(
+                  t("txWorkflowRollbackLibraryName")
+                )}" />
+                <button type="button" class="mini-btn js-tx-workflow-rollback-template-save" data-tx-block-id="${escapeHtml(
+                  block.id
+                )}">${escapeHtml(t("txWorkflowRollbackLibrarySave"))}</button>
+                <button type="button" class="mini-btn delete js-tx-workflow-rollback-template-delete" data-tx-block-id="${escapeHtml(
+                  block.id
+                )}">${escapeHtml(t("txWorkflowRollbackLibraryDelete"))}</button>
+              </div>
+              ${
+                commandsList.length
+                  ? commandsList
+                      .map((cmd, cmdIdx) => {
+                        const rollbackValue = rollbackList[cmdIdx] || "";
+                        return `
+                <div class="grid gap-2 md:grid-cols-[1fr_1fr] tx-workflow-pair-row">
+                  <div class="input tx-workflow-pair-label">
+                    <span class="tx-workflow-pair-index">#${cmdIdx + 1}</span>
+                    <span class="tx-workflow-pair-command">${escapeHtml(cmd)}</span>
+                  </div>
+                  <input class="input js-tx-workflow-rollback-pair" data-tx-block-id="${escapeHtml(
+                    block.id
+                  )}" data-index="${cmdIdx}" value="${escapeHtml(
+                          rollbackValue
+                        )}" placeholder="${escapeHtml(
+                          t("txWorkflowBlockRollbacksPlaceholder")
+                        )}" />
+                </div>
+              `;
+                      })
+                      .join("")
+                  : `<div class="text-xs text-slate-500">${escapeHtml(
+                      t("txWorkflowRollbackEmptyHint")
+                    )}</div>`
+              }
+            </div>
+            `
+                : `
+            <textarea class="input min-h-24 font-mono js-tx-workflow-field" data-field="rollbackCommandsText" data-tx-block-id="${escapeHtml(
+              block.id
+            )}" placeholder="${escapeHtml(
+                    t("txWorkflowBlockRollbacksPlaceholder")
+                  )}">${escapeHtml(block.rollbackCommandsText)}</textarea>
+            `
+            }
+          </div>
+          `
+              : `
+          <textarea class="input min-h-24 font-mono js-tx-workflow-field" data-field="rollbackCommandsText" data-tx-block-id="${escapeHtml(
+            block.id
+          )}" placeholder="${escapeHtml(
+                  t("txWorkflowBlockRollbacksPlaceholder")
+                )}">${escapeHtml(block.rollbackCommandsText)}</textarea>
+          `
+          }
+        </div>
+      </div>
+    `;
+      }
+    )
+    .join("");
+
+  if (active && active.blockId) {
+    let target = null;
+    if (active.cls && active.cls.includes("js-tx-workflow-rollback-pair")) {
+      target = wrap.querySelector(
+        `.js-tx-workflow-rollback-pair[data-tx-block-id="${active.blockId}"][data-index="${active.index}"]`
+      );
+    } else if (active.field) {
+      target = wrap.querySelector(
+        `.js-tx-workflow-field[data-tx-block-id="${active.blockId}"][data-field="${active.field}"]`
+      );
+    }
+    if (target) {
+      target.focus();
+      if (active.selStart != null && active.selEnd != null && target.setSelectionRange) {
+        try {
+          target.setSelectionRange(active.selStart, active.selEnd);
+        } catch (_) {}
+      }
+    }
+  }
+}
+
+function txWorkflowLines(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => !!s);
+}
+
+function autoScrollDuringDrag(event, container) {
+  const y = event.clientY;
+  const threshold = 96;
+  const step = 22;
+  if (!Number.isFinite(y)) return;
+
+  if (container && container.scrollHeight > container.clientHeight) {
+    const rect = container.getBoundingClientRect();
+    if (y < rect.top + threshold) {
+      container.scrollTop -= step;
+      return;
+    }
+    if (y > rect.bottom - threshold) {
+      container.scrollTop += step;
+      return;
+    }
+  }
+
+  const vpHeight = window.innerHeight || document.documentElement.clientHeight;
+  if (y < threshold) {
+    window.scrollBy(0, -step);
+  } else if (y > vpHeight - threshold) {
+    window.scrollBy(0, step);
+  }
+}
+
+function clearTxWorkflowDropMarkers(container) {
+  if (!container) return;
+  container
+    .querySelectorAll(
+      ".tx-workflow-drop-target, .tx-workflow-drop-before, .tx-workflow-drop-after"
+    )
+    .forEach((el) => {
+      el.classList.remove("tx-workflow-drop-target");
+      el.classList.remove("tx-workflow-drop-before");
+      el.classList.remove("tx-workflow-drop-after");
+    });
+}
+
+function buildRollbackCommand(rule, cmd, template) {
+  const raw = String(cmd || "").trim();
+  if (!raw) return "";
+  if (rule === "set_delete") {
+    if (raw.startsWith("set ")) return `delete ${raw.slice(4).trim()}`;
+    if (raw.startsWith("delete ")) return raw;
+    return `no ${raw}`;
+  }
+  if (rule === "add_remove") {
+    if (raw.startsWith("add ")) return `remove ${raw.slice(4).trim()}`;
+    if (raw.startsWith("remove ")) return raw;
+    return `no ${raw}`;
+  }
+  if (rule === "custom") {
+    const tpl = String(template || "").trim();
+    if (!tpl) return "";
+    return tpl.replaceAll("{{cmd}}", raw);
+  }
+  if (raw.startsWith("no ")) return raw;
+  return `no ${raw}`;
+}
+
+function getFilteredTxWorkflowBlocks() {
+  const query = txWorkflowFilterQuery.trim().toLowerCase();
+  return txWorkflowBlocks.filter((block) => {
+    const kindOk = txWorkflowFilterKind === "all" || block.kind === txWorkflowFilterKind;
+    const rollbackOk =
+      txWorkflowFilterRollback === "all" ||
+      block.rollbackPolicy === txWorkflowFilterRollback;
+    const queryOk =
+      !query ||
+      String(block.name || "").toLowerCase().includes(query) ||
+      String(block.commandsText || "").toLowerCase().includes(query);
+    return kindOk && rollbackOk && queryOk;
+  });
+}
+
+function setAllTxWorkflowBlocksCollapsed(collapsed) {
+  txWorkflowBlocks.forEach((block) => {
+    block.collapsed = !!collapsed;
+  });
+  renderTxWorkflowBuilder();
+}
+
+function generateTxWorkflowJsonFromBuilder() {
+  const name = byId("tx-workflow-name").value.trim() || "tx-workflow";
+  const failFast = byId("tx-workflow-fail-fast").checked;
+  const blocks = txWorkflowBlocks.map((block) => {
+    const commands = txWorkflowLines(block.commandsText);
+    const rollbacks = parseRollbackLinesRaw(block.rollbackCommandsText);
+    const timeout = block.timeoutSecs ? Number(block.timeoutSecs) : null;
+    const timeoutSecs = Number.isFinite(timeout) && timeout > 0 ? timeout : null;
+    const mode = block.mode.trim() || "Config";
+    const kind = block.kind === "show" ? "show" : "config";
+    const triggerRaw =
+      block.rollbackPolicy === "whole_resource" ? block.triggerStepIndex : "";
+    const triggerStepIndex = Number.isFinite(Number(triggerRaw))
+      ? Number(triggerRaw)
+      : 0;
+
+    const applyRollbackOnFailure =
+      block.rollbackPolicy === "per_step" && block.rollbackOnFailure === true;
+    const steps = commands.map((command, idx) => ({
+      mode,
+      command,
+      timeout_secs: timeoutSecs,
+      rollback_command:
+        block.rollbackPolicy === "per_step"
+          ? rollbacks[idx] && rollbacks[idx].trim()
+            ? rollbacks[idx]
+            : null
+          : null,
+      rollback_on_failure: applyRollbackOnFailure,
+    }));
+
+    let rollbackPolicy;
+    if (kind === "show" || block.rollbackPolicy === "none") {
+      rollbackPolicy = "none";
+    } else if (block.rollbackPolicy === "whole_resource") {
+      rollbackPolicy = {
+        whole_resource: {
+          mode,
+          undo_command: block.undoCommand.trim(),
+          trigger_step_index: triggerStepIndex,
+          timeout_secs: timeoutSecs,
+        },
+      };
+    } else {
+      rollbackPolicy = "per_step";
+    }
+
+    return {
+      name: block.name.trim() || "tx-block",
+      kind,
+      rollback_policy: rollbackPolicy,
+      steps,
+      fail_fast: block.failFast,
+    };
+  });
+    const workflow = {
+      name,
+      blocks,
+      fail_fast: failFast,
+    };
+    byId("tx-workflow-json").value = JSON.stringify(workflow, null, 2);
+}
+
+function loadTxWorkflowBuilderFromJson() {
+  const raw = byId("tx-workflow-json").value.trim();
+  if (!raw) return;
+  const workflow = JSON.parse(raw);
+  byId("tx-workflow-name").value = workflow.name || "";
+  byId("tx-workflow-fail-fast").checked = workflow.fail_fast !== false;
+  const blocks = Array.isArray(workflow.blocks) ? workflow.blocks : [];
+  txWorkflowBlocks = blocks.map((b) => {
+    const steps = Array.isArray(b.steps) ? b.steps : [];
+    const mode = (steps[0] && steps[0].mode) || "Config";
+    const timeoutSecs = (steps[0] && steps[0].timeout_secs) || null;
+    const rollbackOnFailure = steps.some((s) => s.rollback_on_failure === true);
+    let rollbackPolicy = "per_step";
+    let undoCommand = "";
+    let triggerStepIndex = 0;
+    if (typeof b.rollback_policy === "string") {
+      rollbackPolicy = b.rollback_policy;
+    } else if (
+      b.rollback_policy &&
+      typeof b.rollback_policy === "object" &&
+      b.rollback_policy.whole_resource
+    ) {
+      rollbackPolicy = "whole_resource";
+      undoCommand = b.rollback_policy.whole_resource.undo_command || "";
+      triggerStepIndex = b.rollback_policy.whole_resource.trigger_step_index || 0;
+    }
+    return createTxWorkflowBlock({
+      name: b.name || "",
+      kind: b.kind || "config",
+      rollbackPolicy,
+      mode,
+      timeoutSecs,
+      undoCommand,
+      rollbackOnFailure,
+      triggerStepIndex,
+      commandsText: steps.map((s) => s.command || "").join("\n"),
+      rollbackCommandsText: steps
+        .map((s) => (s.rollback_command != null ? String(s.rollback_command) : ""))
+        .join("\n"),
+      failFast: b.fail_fast !== false,
+    });
+  });
+  renderTxWorkflowBuilder();
+}
+
+function downloadTxWorkflowJsonFromBuilder() {
+  generateTxWorkflowJsonFromBuilder();
+  const content = byId("tx-workflow-json").value || "";
+  const nameRaw = (byId("tx-workflow-name").value || "").trim() || "tx-workflow";
+  const safeName = nameRaw.replace(/[^a-zA-Z0-9._-]+/g, "-");
+  const fileName = `${safeName}.json`;
+  const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function importTxWorkflowBuilderFromFile() {
+  const out = byId("tx-workflow-plan-out");
+  const input = byId("tx-workflow-import-file-input");
+  const file = input && input.files && input.files[0] ? input.files[0] : null;
+  if (!file) {
+    throw new Error(t("txWorkflowImportFileInvalid"));
+  }
+  const text = await file.text();
+  byId("tx-workflow-json").value = text;
+  loadTxWorkflowBuilderFromJson();
+  out.textContent = t("txWorkflowImportFileDone");
+  input.value = "";
+}
+
+function txBlockToBuilderSeed(block) {
+  const steps = Array.isArray(block && block.steps) ? block.steps : [];
+  const mode = (steps[0] && steps[0].mode) || "Config";
+  const timeoutSecs = (steps[0] && steps[0].timeout_secs) || null;
+  let rollbackPolicy = "per_step";
+  let triggerStepIndex = 0;
+  let undoCommand = "";
+  const rp = block && block.rollback_policy;
+  if (typeof rp === "string") {
+    rollbackPolicy = rp;
+  } else if (rp && typeof rp === "object" && rp.whole_resource) {
+    rollbackPolicy = "whole_resource";
+    undoCommand = rp.whole_resource.undo_command || "";
+    triggerStepIndex = rp.whole_resource.trigger_step_index || 0;
+  }
+  return {
+    name: (block && block.name) || "",
+    kind: (block && block.kind) || "config",
+    rollbackPolicy,
+    mode,
+    timeoutSecs,
+    undoCommand,
+    rollbackOnFailure: steps.some((s) => s.rollback_on_failure === true),
+    triggerStepIndex,
+    commandsText: steps.map((s) => s.command || "").join("\n"),
+    rollbackCommandsText: steps
+      .map((s) => (s.rollback_command != null ? String(s.rollback_command) : ""))
+      .join("\n"),
+    failFast: block && block.fail_fast !== false,
+  };
+}
+
+async function importTxBlockIntoWorkflowBuilder() {
+  const out = byId("tx-workflow-plan-out");
+  out.textContent = t("running");
+  try {
+    const data = await request("POST", "/api/tx/block", txPayload(true));
+    const block = data && data.tx_block ? data.tx_block : null;
+    if (!block) {
+      out.textContent = t("txWorkflowImportEmpty");
+      return;
+    }
+    txWorkflowBlocks.push(createTxWorkflowBlock(txBlockToBuilderSeed(block)));
+    renderTxWorkflowBuilder();
+    out.textContent = t("txWorkflowImportDone");
+  } catch (e) {
+    out.textContent = e.message;
+  }
 }
 
 async function request(method, url, body) {
@@ -2649,6 +4238,114 @@ function bindEvents() {
         deleteConnectionHistoryItem(historyId);
       }
     }
+    const txDeleteBtn = e.target.closest(".js-tx-workflow-delete-block");
+    if (txDeleteBtn) {
+      const blockId = txDeleteBtn.getAttribute("data-tx-block-id") || "";
+      if (blockId) {
+        txWorkflowBlocks = txWorkflowBlocks.filter((b) => b.id !== blockId);
+        renderTxWorkflowBuilder();
+      }
+    }
+    const txToggleBtn = e.target.closest(".js-tx-workflow-toggle-block");
+    if (txToggleBtn) {
+      const blockId = txToggleBtn.getAttribute("data-tx-block-id") || "";
+      const item = txWorkflowBlocks.find((b) => b.id === blockId);
+      if (item) {
+        item.collapsed = !item.collapsed;
+        renderTxWorkflowBuilder();
+      }
+    }
+    const txCopyBtn = e.target.closest(".js-tx-workflow-copy-block");
+    if (txCopyBtn) {
+      const blockId = txCopyBtn.getAttribute("data-tx-block-id") || "";
+      const idx = txWorkflowBlocks.findIndex((b) => b.id === blockId);
+      if (idx >= 0) {
+        const src = txWorkflowBlocks[idx];
+        txWorkflowBlocks.splice(idx + 1, 0, createTxWorkflowBlock({ ...src }));
+        renderTxWorkflowBuilder();
+      }
+    }
+    const txMoveUpBtn = e.target.closest(".js-tx-workflow-move-up-block");
+    if (txMoveUpBtn) {
+      const blockId = txMoveUpBtn.getAttribute("data-tx-block-id") || "";
+      const idx = txWorkflowBlocks.findIndex((b) => b.id === blockId);
+      if (idx > 0) {
+        const tmp = txWorkflowBlocks[idx - 1];
+        txWorkflowBlocks[idx - 1] = txWorkflowBlocks[idx];
+        txWorkflowBlocks[idx] = tmp;
+        renderTxWorkflowBuilder();
+      }
+    }
+    const txMoveDownBtn = e.target.closest(".js-tx-workflow-move-down-block");
+    if (txMoveDownBtn) {
+      const blockId = txMoveDownBtn.getAttribute("data-tx-block-id") || "";
+      const idx = txWorkflowBlocks.findIndex((b) => b.id === blockId);
+      if (idx >= 0 && idx < txWorkflowBlocks.length - 1) {
+        const tmp = txWorkflowBlocks[idx + 1];
+        txWorkflowBlocks[idx + 1] = txWorkflowBlocks[idx];
+        txWorkflowBlocks[idx] = tmp;
+        renderTxWorkflowBuilder();
+      }
+    }
+    const txRollbackModeBtn = e.target.closest(".js-tx-workflow-rollback-mode");
+    if (txRollbackModeBtn) {
+      const blockId = txRollbackModeBtn.getAttribute("data-tx-block-id") || "";
+      const mode = txRollbackModeBtn.getAttribute("data-mode") || "text";
+      const item = txWorkflowBlocks.find((b) => b.id === blockId);
+      if (item) {
+        item.rollbackInputMode = mode === "pairs" ? "pairs" : "text";
+        renderTxWorkflowBuilder();
+      }
+    }
+    const txRollbackAutoBtn = e.target.closest(".js-tx-workflow-rollback-auto");
+    if (txRollbackAutoBtn) {
+      const blockId = txRollbackAutoBtn.getAttribute("data-tx-block-id") || "";
+      const item = txWorkflowBlocks.find((b) => b.id === blockId);
+      if (item) {
+        const commands = txWorkflowLines(item.commandsText);
+        const rollbacks = commands.map((cmd) =>
+          buildRollbackCommand(item.rollbackRule, cmd, item.rollbackRuleTemplate)
+        );
+        item.rollbackCommandsText = rollbacks.join("\n");
+        item.rollbackInputMode = "pairs";
+        renderTxWorkflowBuilder();
+      }
+    }
+    const txRollbackSaveBtn = e.target.closest(".js-tx-workflow-rollback-template-save");
+    if (txRollbackSaveBtn) {
+      const blockId = txRollbackSaveBtn.getAttribute("data-tx-block-id") || "";
+      const item = txWorkflowBlocks.find((b) => b.id === blockId);
+      if (!item) return;
+      const nameEl = document.querySelector(
+        `.js-tx-workflow-rollback-template-name[data-tx-block-id="${blockId}"]`
+      );
+      const name = nameEl ? nameEl.value.trim() : "";
+      const template = String(item.rollbackRuleTemplate || "").trim();
+      if (name && template) {
+        upsertRollbackTemplate(name, template);
+        item.rollbackLibraryName = name;
+        renderTxWorkflowBuilder();
+      }
+    }
+    const txRollbackDeleteBtn = e.target.closest(
+      ".js-tx-workflow-rollback-template-delete"
+    );
+    if (txRollbackDeleteBtn) {
+      const blockId = txRollbackDeleteBtn.getAttribute("data-tx-block-id") || "";
+      const item = txWorkflowBlocks.find((b) => b.id === blockId);
+      if (!item) return;
+      const nameEl = document.querySelector(
+        `.js-tx-workflow-rollback-template-name[data-tx-block-id="${blockId}"]`
+      );
+      const name = nameEl ? nameEl.value.trim() : "";
+      if (name) {
+        deleteRollbackTemplate(name);
+        if (item.rollbackLibraryName === name) {
+          item.rollbackLibraryName = "";
+        }
+        renderTxWorkflowBuilder();
+      }
+    }
   });
 
   byId("detail-modal-close").onclick = closeDetailModal;
@@ -2672,6 +4369,12 @@ function bindEvents() {
     if (e.key === "Escape" && !detailModal.classList.contains("hidden")) {
       closeDetailModal();
     }
+    if (e.key === "Escape" && byId("record-drawer").classList.contains("open")) {
+      closeRecordDrawer();
+    }
+    if (e.key === "Escape" && byId("history-drawer").classList.contains("open")) {
+      closeHistoryDrawer();
+    }
   });
 
   byId("prompt-mode-view").onclick = () => {
@@ -2687,10 +4390,60 @@ function bindEvents() {
     applyPromptMode();
   };
 
-  for (const tab of ["ops", "prompts", "templates"]) {
+  byId("interactive-start-btn").onclick = () => {
+    startInteractive();
+  };
+  byId("interactive-stop-btn").onclick = () => {
+    stopInteractive();
+  };
+  byId("interactive-send-btn").onclick = () => {
+    sendInteractiveCommand();
+  };
+  byId("interactive-clear-btn").onclick = () => {
+    byId("interactive-out").textContent = "";
+    if (interactiveSessionId) {
+      setInteractiveStatus(`${t("interactiveStatusReady")} · ${interactiveSessionId}`);
+    } else {
+      setInteractiveStatus(t("interactiveStatusIdle"));
+    }
+  };
+  byId("interactive-command").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendInteractiveCommand();
+    }
+  });
+
+  byId("record-fab").onclick = () => {
+    openRecordDrawer();
+  };
+  byId("record-drawer-close").onclick = () => {
+    closeRecordDrawer();
+  };
+  byId("record-drawer-backdrop").onclick = () => {
+    closeRecordDrawer();
+  };
+  byId("history-drawer-close").onclick = () => {
+    closeHistoryDrawer();
+  };
+  byId("history-drawer-backdrop").onclick = () => {
+    closeHistoryDrawer();
+  };
+
+  ["host", "saved-conn-name", "device_profile"].forEach((id) => {
+    const el = byId(id);
+    if (!el) return;
+    el.addEventListener("input", updateRecordFabVisibility);
+    el.addEventListener("change", updateRecordFabVisibility);
+  });
+
+  for (const tab of ["ops", "interactive", "replay", "prompts", "templates"]) {
     byId(`tab-${tab}`).onclick = () => {
       currentTab = tab;
       applyTabs();
+      if (tab === "replay") {
+        renderReplayView();
+      }
       if (tab === "prompts") {
         loadProfilesOverview();
         currentPromptMode = "view";
@@ -2706,12 +4459,58 @@ function bindEvents() {
     currentOpKind = "exec";
     applyOperationKind();
   };
-  byId("op-kind-template").onclick = () => {
-    currentOpKind = "template";
+  byId("op-kind-tx").onclick = () => {
+    currentOpKind = "tx";
     applyOperationKind();
-    if (byId("template").value.trim()) {
-      loadSelectedTemplateContent();
-    }
+  };
+  byId("op-exec-direct").onclick = () => {
+    currentExecMode = "direct";
+    applyExecMode();
+  };
+  byId("op-exec-template").onclick = () => {
+    currentExecMode = "template";
+    applyExecMode();
+  };
+  byId("history-drawer-refresh-btn").onclick = loadConnectionHistory;
+  byId("history-filter-query").oninput = () => {
+    historyFilterQuery = byId("history-filter-query").value || "";
+    saveHistoryFilterPrefs();
+    renderHistoryDrawer();
+  };
+  byId("history-filter-operation").onchange = () => {
+    historyFilterOperation = byId("history-filter-operation").value || "all";
+    saveHistoryFilterPrefs();
+    renderHistoryDrawer();
+  };
+  byId("history-filter-limit").onchange = () => {
+    const raw = Number(byId("history-filter-limit").value || 30);
+    historyFilterLimit = Number.isFinite(raw) ? raw : 30;
+    saveHistoryFilterPrefs();
+    loadConnectionHistory();
+  };
+  byId("history-filter-clear-btn").onclick = () => {
+    historyFilterQuery = "";
+    historyFilterOperation = "all";
+    byId("history-filter-query").value = "";
+    byId("history-filter-operation").value = "all";
+    saveHistoryFilterPrefs();
+    renderHistoryDrawer();
+  };
+  byId("tx-advanced-toggle-btn").onclick = () => {
+    txAdvancedExpanded = !txAdvancedExpanded;
+    applyTxLayoutState();
+  };
+  byId("tx-stage-block").onclick = () => {
+    currentTxStage = "block";
+    applyTxStage();
+  };
+  byId("tx-stage-workflow").onclick = () => {
+    currentTxStage = "workflow";
+    applyTxStage();
+  };
+  byId("tx-workflow-more-btn").onclick = () => {
+    txWorkflowMoreExpanded = !txWorkflowMoreExpanded;
+    applyTxWorkflowMoreActionsState();
   };
 
   byId("connection-test-btn").onclick = async () => {
@@ -2728,7 +4527,10 @@ function bindEvents() {
   };
   byId("saved-conn-save-btn").onclick = saveConnectionByName;
   byId("saved-conn-delete-btn").onclick = deleteConnectionByName;
-  byId("saved-conn-history-btn").onclick = loadConnectionHistory;
+  byId("saved-conn-history-btn").onclick = () => {
+    openHistoryDrawer();
+    loadConnectionHistory();
+  };
   byId("saved-conn-name").oninput = (e) => {
     renderSavedConnectionOptions(e.target.value);
   };
@@ -2785,6 +4587,334 @@ function bindEvents() {
       out.textContent = e.message;
     }
   };
+
+  byId("tx-plan-btn").onclick = async () => {
+    const out = byId("tx-plan-out");
+    out.textContent = t("running");
+    try {
+      const data = await request("POST", "/api/tx/block", txPayload(true));
+      out.textContent = JSON.stringify(data.tx_block || {}, null, 2);
+    } catch (e) {
+      out.textContent = e.message;
+    }
+  };
+
+  byId("tx-exec-btn").onclick = async () => {
+    const out = byId("tx-exec-out");
+    out.textContent = t("running");
+    try {
+      const data = await request("POST", "/api/tx/block", txPayload(false));
+      out.textContent = JSON.stringify(data.tx_result || {}, null, 2);
+      applyRecordingFromResponse(data);
+    } catch (e) {
+      out.textContent = e.message;
+    }
+  };
+
+  byId("tx-workflow-plan-btn").onclick = async () => {
+    const out = byId("tx-workflow-plan-out");
+    out.textContent = t("running");
+    try {
+      const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(true));
+      out.textContent = JSON.stringify(data.workflow || {}, null, 2);
+    } catch (e) {
+      out.textContent = e.message;
+    }
+  };
+
+  byId("tx-workflow-exec-btn").onclick = async () => {
+    const out = byId("tx-workflow-exec-out");
+    const rawOut = byId("tx-workflow-exec-raw");
+    out.textContent = t("running");
+    try {
+      const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(false));
+      const result = data.tx_workflow_result || {};
+      out.innerHTML = renderTxWorkflowResult(result);
+      rawOut.textContent = JSON.stringify(result, null, 2);
+      const hasErrors =
+        result &&
+        ((Array.isArray(result.rollback_errors) && result.rollback_errors.length > 0) ||
+          result.failed_block != null);
+      rawOut.hidden = !hasErrors;
+      rawOut.style.display = rawOut.hidden ? "none" : "";
+      applyRecordingFromResponse(data);
+    } catch (e) {
+      out.textContent = e.message;
+      rawOut.textContent = e.message;
+      rawOut.hidden = false;
+      rawOut.style.display = "";
+    }
+  };
+  byId("tx-workflow-exec-raw-toggle").onclick = () => {
+    const rawOut = byId("tx-workflow-exec-raw");
+    rawOut.hidden = !rawOut.hidden;
+    rawOut.style.display = rawOut.hidden ? "none" : "";
+  };
+  byId("tx-workflow-import-block-btn").onclick = importTxBlockIntoWorkflowBuilder;
+  byId("tx-workflow-add-block-btn").onclick = () => {
+    txWorkflowBlocks.push(createTxWorkflowBlock());
+    renderTxWorkflowBuilder();
+  };
+  byId("tx-workflow-collapse-all-btn").onclick = () => {
+    setAllTxWorkflowBlocksCollapsed(true);
+  };
+  byId("tx-workflow-expand-all-btn").onclick = () => {
+    setAllTxWorkflowBlocksCollapsed(false);
+  };
+  byId("tx-workflow-filter-kind").onchange = () => {
+    txWorkflowFilterKind = byId("tx-workflow-filter-kind").value || "all";
+    renderTxWorkflowBuilder();
+  };
+  byId("tx-workflow-filter-rollback").onchange = () => {
+    txWorkflowFilterRollback = byId("tx-workflow-filter-rollback").value || "all";
+    renderTxWorkflowBuilder();
+  };
+  byId("tx-workflow-filter-query").oninput = () => {
+    txWorkflowFilterQuery = byId("tx-workflow-filter-query").value || "";
+    renderTxWorkflowBuilder();
+  };
+  byId("tx-workflow-filter-clear-btn").onclick = () => {
+    txWorkflowFilterKind = "all";
+    txWorkflowFilterRollback = "all";
+    txWorkflowFilterQuery = "";
+    byId("tx-workflow-filter-kind").value = "all";
+    byId("tx-workflow-filter-rollback").value = "all";
+    byId("tx-workflow-filter-query").value = "";
+    renderTxWorkflowBuilder();
+  };
+  byId("tx-rollback-mode").onchange = () => {
+    applyTxRollbackMode();
+  };
+  byId("tx-rollback-input-text").onclick = () => {
+    txRollbackInputMode = "text";
+    applyTxRollbackInputMode();
+  };
+  byId("tx-rollback-input-pairs").onclick = () => {
+    txRollbackInputMode = "pairs";
+    applyTxRollbackInputMode();
+  };
+  byId("tx-commands").addEventListener("change", () => {
+    renderTxRollbackPairs();
+  });
+  byId("tx-rollback-commands").addEventListener("input", () => {
+    if (txRollbackInputMode === "pairs") {
+      renderTxRollbackPairs();
+    }
+  });
+  byId("tx-rollback-pairs").addEventListener("input", (e) => {
+    const pairEl = e.target.closest(".js-tx-rollback-pair");
+    if (!pairEl) return;
+    const idxRaw = pairEl.getAttribute("data-index");
+    const idx = idxRaw ? Number(idxRaw) : NaN;
+    if (!Number.isFinite(idx)) return;
+    const lines = parseRollbackLinesRaw(byId("tx-rollback-commands").value || "");
+    while (lines.length <= idx) lines.push("");
+    lines[idx] = pairEl.value || "";
+    byId("tx-rollback-commands").value = lines.join("\n");
+  });
+  byId("tx-rollback-auto-btn").onclick = () => {
+    const rule = byId("tx-rollback-rule").value || "no_prefix";
+    const tpl = byId("tx-rollback-template").value || "";
+    const commands = parseTxCommands();
+    const rollbacks = commands.map((cmd) => buildRollbackCommand(rule, cmd, tpl));
+    byId("tx-rollback-commands").value = rollbacks.join("\n");
+    txRollbackInputMode = "pairs";
+    applyTxRollbackInputMode();
+  };
+  byId("tx-rollback-rule").onchange = () => {
+    applyTxRollbackRuleVisibility();
+  };
+  byId("tx-rollback-template-pick").onchange = () => {
+    const name = byId("tx-rollback-template-pick").value || "";
+    const found = rollbackTemplateLibrary.find((t) => t.name === name);
+    if (found) {
+      byId("tx-rollback-rule").value = "custom";
+      byId("tx-rollback-template").value = found.template;
+      byId("tx-rollback-template-name").value = found.name;
+      byId("tx-rollback-template").hidden = false;
+      byId("tx-rollback-template").style.display = "";
+    }
+  };
+  byId("tx-rollback-template-save").onclick = () => {
+    const name = byId("tx-rollback-template-name").value || "";
+    const template = byId("tx-rollback-template").value || "";
+    upsertRollbackTemplate(name, template);
+    byId("tx-rollback-template-pick").innerHTML = rollbackTemplateOptionsHtml(name);
+  };
+  byId("tx-rollback-template-delete").onclick = () => {
+    const name = byId("tx-rollback-template-name").value || "";
+    deleteRollbackTemplate(name);
+    byId("tx-rollback-template-pick").innerHTML = rollbackTemplateOptionsHtml("");
+  };
+  byId("tx-workflow-generate-btn").onclick = () => {
+    try {
+      generateTxWorkflowJsonFromBuilder();
+    } catch (e) {
+      byId("tx-workflow-plan-out").textContent = e.message;
+    }
+  };
+  byId("tx-workflow-load-btn").onclick = () => {
+    try {
+      loadTxWorkflowBuilderFromJson();
+    } catch (e) {
+      byId("tx-workflow-plan-out").textContent = e.message;
+    }
+  };
+  byId("tx-workflow-download-btn").onclick = () => {
+    try {
+      downloadTxWorkflowJsonFromBuilder();
+      byId("tx-workflow-plan-out").textContent = t("txWorkflowDownloadDone");
+    } catch (e) {
+      byId("tx-workflow-plan-out").textContent = e.message;
+    }
+  };
+  byId("tx-workflow-import-file-btn").onclick = () => {
+    byId("tx-workflow-import-file-input").click();
+  };
+  byId("tx-workflow-import-file-input").onchange = async () => {
+    try {
+      await importTxWorkflowBuilderFromFile();
+    } catch (e) {
+      byId("tx-workflow-plan-out").textContent = e.message;
+    }
+  };
+  const txWorkflowBlocksWrap = byId("tx-workflow-blocks");
+  txWorkflowBlocksWrap.addEventListener("input", (e) => {
+    const pairEl = e.target.closest(".js-tx-workflow-rollback-pair");
+    if (pairEl) {
+      const id = pairEl.getAttribute("data-tx-block-id");
+      const idxRaw = pairEl.getAttribute("data-index");
+      const idx = idxRaw ? Number(idxRaw) : NaN;
+      if (!id || !Number.isFinite(idx)) return;
+      const item = txWorkflowBlocks.find((b) => b.id === id);
+      if (!item) return;
+      const lines = parseRollbackLinesRaw(item.rollbackCommandsText);
+      while (lines.length <= idx) lines.push("");
+      lines[idx] = pairEl.value || "";
+      item.rollbackCommandsText = lines.join("\n");
+      return;
+    }
+
+    const ruleEl = e.target.closest(".js-tx-workflow-rollback-rule");
+    if (ruleEl) {
+      const id = ruleEl.getAttribute("data-tx-block-id");
+      const item = txWorkflowBlocks.find((b) => b.id === id);
+      if (item) {
+        item.rollbackRule = ruleEl.value || "no_prefix";
+        renderTxWorkflowBuilder();
+      }
+      return;
+    }
+
+    const tplEl = e.target.closest(".js-tx-workflow-rollback-template");
+    if (tplEl) {
+      const id = tplEl.getAttribute("data-tx-block-id");
+      const item = txWorkflowBlocks.find((b) => b.id === id);
+      if (item) {
+        item.rollbackRuleTemplate = tplEl.value || "";
+      }
+      return;
+    }
+
+    const el = e.target;
+    const id = el.getAttribute("data-tx-block-id");
+    const field = el.getAttribute("data-field");
+    if (!id || !field) return;
+    const item = txWorkflowBlocks.find((b) => b.id === id);
+    if (!item) return;
+    item[field] = el.type === "checkbox" ? el.checked : el.value;
+  });
+  txWorkflowBlocksWrap.addEventListener("change", (e) => {
+    const fieldEl = e.target.closest(".js-tx-workflow-field");
+    if (fieldEl) {
+      const id = fieldEl.getAttribute("data-tx-block-id");
+      const field = fieldEl.getAttribute("data-field");
+      const item = txWorkflowBlocks.find((b) => b.id === id);
+      if (item && (field === "commandsText" || field === "rollbackPolicy")) {
+        if (field === "rollbackPolicy") {
+          item.rollbackPolicy = fieldEl.value;
+          renderTxWorkflowBuilder();
+          return;
+        }
+        if (field === "commandsText" && item.rollbackInputMode === "pairs") {
+          renderTxWorkflowBuilder();
+          return;
+        }
+      }
+    }
+    const pickEl = e.target.closest(".js-tx-workflow-rollback-template-pick");
+    if (!pickEl) return;
+    const id = pickEl.getAttribute("data-tx-block-id");
+    const item = txWorkflowBlocks.find((b) => b.id === id);
+    if (!item) return;
+    const name = pickEl.value || "";
+    item.rollbackLibraryName = name;
+    const found = rollbackTemplateLibrary.find((t) => t.name === name);
+    if (found) {
+      item.rollbackRule = "custom";
+      item.rollbackRuleTemplate = found.template;
+    }
+    renderTxWorkflowBuilder();
+  });
+  txWorkflowBlocksWrap.addEventListener("dragstart", (e) => {
+    const handle = e.target.closest(".js-tx-workflow-drag-block");
+    if (!handle) return;
+    txWorkflowDragBlockId = handle.getAttribute("data-tx-block-id") || "";
+    if (!txWorkflowDragBlockId) return;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", txWorkflowDragBlockId);
+  });
+  txWorkflowBlocksWrap.addEventListener("dragover", (e) => {
+    const card = e.target.closest("[data-tx-block-id]");
+    if (!card) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    autoScrollDuringDrag(e, txWorkflowBlocksWrap);
+    clearTxWorkflowDropMarkers(txWorkflowBlocksWrap);
+    const rect = card.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    card.classList.add("tx-workflow-drop-target");
+    card.classList.add(after ? "tx-workflow-drop-after" : "tx-workflow-drop-before");
+  });
+  txWorkflowBlocksWrap.addEventListener("dragleave", (e) => {
+    if (e.target === txWorkflowBlocksWrap) {
+      clearTxWorkflowDropMarkers(txWorkflowBlocksWrap);
+    }
+  });
+  txWorkflowBlocksWrap.addEventListener("drop", (e) => {
+    const card = e.target.closest("[data-tx-block-id]");
+    if (!card) return;
+    e.preventDefault();
+    const rect = card.getBoundingClientRect();
+    const insertAfter = e.clientY > rect.top + rect.height / 2;
+    const targetId = card.getAttribute("data-tx-block-id") || "";
+    const sourceId =
+      txWorkflowDragBlockId ||
+      (e.dataTransfer ? e.dataTransfer.getData("text/plain") : "");
+    if (!sourceId || !targetId || sourceId === targetId) {
+      clearTxWorkflowDropMarkers(txWorkflowBlocksWrap);
+      return;
+    }
+    const from = txWorkflowBlocks.findIndex((b) => b.id === sourceId);
+    const to = txWorkflowBlocks.findIndex((b) => b.id === targetId);
+    if (from < 0 || to < 0) {
+      clearTxWorkflowDropMarkers(txWorkflowBlocksWrap);
+      return;
+    }
+    const [moved] = txWorkflowBlocks.splice(from, 1);
+    let insertAt = to + (insertAfter ? 1 : 0);
+    if (from < insertAt) {
+      insertAt -= 1;
+    }
+    txWorkflowBlocks.splice(insertAt, 0, moved);
+    txWorkflowDragBlockId = "";
+    clearTxWorkflowDropMarkers(txWorkflowBlocksWrap);
+    renderTxWorkflowBuilder();
+  });
+  txWorkflowBlocksWrap.addEventListener("dragend", () => {
+    txWorkflowDragBlockId = "";
+    clearTxWorkflowDropMarkers(txWorkflowBlocksWrap);
+  });
 
   byId("template").onchange = loadSelectedTemplateContent;
   byId("record-enable").onchange = () => {
@@ -2920,15 +5050,23 @@ function bindEvents() {
 }
 
 normalizeFilterPrefs();
+normalizeHistoryFilters();
 saveFilterPrefs();
+saveHistoryFilterPrefs();
 bindEvents();
 initTopLevelAutocomplete();
 initCollapsibleGroups();
+loadRollbackTemplateLibrary();
+txWorkflowBlocks = [createTxWorkflowBlock()];
+byId("tx-workflow-name").value = "tx-workflow";
+byId("tx-workflow-fail-fast").checked = true;
 applyI18n();
 applyTabs();
 applyOperationKind();
 applyPromptMode();
 resetDiagnoseView();
+updateInteractiveButtons();
+updateRecordFabVisibility();
 byId("record-level").disabled = byId("record-enable").checked;
 byId("record-failed-only").checked = recordFailedOnly;
 byId("replay-failed-only").checked = replayFailedOnly;

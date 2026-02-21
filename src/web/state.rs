@@ -1,17 +1,34 @@
 use crate::cli::GlobalOpts;
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
+use crate::web::models::RecordLevel;
+use crate::device::DeviceClient;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct AppState {
     pub defaults: GlobalOpts,
+    pub interactive_sessions: Arc<Mutex<HashMap<String, InteractiveSession>>>,
+    interactive_seq: Arc<AtomicU64>,
 }
 
 impl AppState {
     pub fn new(defaults: GlobalOpts) -> Arc<Self> {
-        Arc::new(Self { defaults })
+        Arc::new(Self {
+            defaults,
+            interactive_sessions: Arc::new(Mutex::new(HashMap::new())),
+            interactive_seq: Arc::new(AtomicU64::new(1)),
+        })
+    }
+
+    pub fn next_interactive_id(&self) -> String {
+        let id = self.interactive_seq.fetch_add(1, Ordering::Relaxed);
+        format!("interactive-{}", id)
     }
 }
 
@@ -24,6 +41,13 @@ pub struct ResolvedConnection {
     pub enable_password: Option<String>,
     pub device_profile: String,
     pub template_dir: Option<PathBuf>,
+}
+
+pub struct InteractiveSession {
+    pub client: DeviceClient,
+    pub conn: ResolvedConnection,
+    pub record_level: Option<RecordLevel>,
+    pub last_used: Instant,
 }
 
 pub fn merge_connection_options(
