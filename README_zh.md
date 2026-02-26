@@ -42,6 +42,34 @@ cargo build --release
 
 编译后的二进制文件位于 `target/release/rauto`。
 
+## Codex Skill（可选）
+
+本仓库包含 rauto 使用 skill，位于 `skills/rauto-usage/`。
+
+### 安装到本机
+
+1. 拉取代码：
+```bash
+git clone https://github.com/demohiiiii/rauto.git
+```
+2. 复制 skill 到本机的 Codex skills 目录：
+```bash
+cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
+```
+
+说明：
+- 如果未设置 `CODEX_HOME`，通常默认是 `~/.codex`。
+- 可检查 `$CODEX_HOME/skills/rauto-usage` 是否存在。
+
+### Claude Code 示例
+
+如果你使用 Claude Code skills，请将目录复制到 Claude Code 的 skills 路径：
+```bash
+cp -R rauto/skills/rauto-usage ~/.claude/skills/
+```
+
+Claude Code 的个人 skills 默认路径是 `~/.claude/skills/`。citeturn0view0
+
 ## 使用方法
 
 ### 1. 模板模式（推荐）

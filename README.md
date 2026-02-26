@@ -42,6 +42,34 @@ cargo build --release
 
 The binary will be available at `target/release/rauto`.
 
+## Codex Skill (Optional)
+
+This repo includes a Codex skill for rauto usage under `skills/rauto-usage/`.
+
+### Install to your machine
+
+1. Clone the repo:
+```bash
+git clone https://github.com/demohiiiii/rauto.git
+```
+2. Copy the skill into your Codex skills folder:
+```bash
+cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
+```
+
+Notes:
+- If `CODEX_HOME` is not set, it usually defaults to `~/.codex`.
+- You can verify the skill is present at `$CODEX_HOME/skills/rauto-usage`.
+
+### Claude Code example
+
+If you use Claude Code skills, copy the folder into your Claude Code skills directory:
+```bash
+cp -R rauto/skills/rauto-usage ~/.claude/skills/
+```
+
+Claude Code’s default personal skills location is `~/.claude/skills/`. citeturn0view0
+
 ## Usage
 
 ### 1. Template Mode (Recommended)
