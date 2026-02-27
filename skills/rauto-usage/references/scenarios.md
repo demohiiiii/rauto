@@ -2,6 +2,28 @@
 
 Use these scenarios as ready-to-run examples or checklists. Each scenario includes CLI and Web UI steps when applicable.
 
+## Table of Contents
+
+1. Batch configuration change with rollback (Tx block)
+2. Connection test + save connection
+3. Template render preview and execute
+4. Diagnose profile and fix issues
+5. Recording and replay for troubleshooting
+6. Tx workflow for multi-block change
+7. Manage templates (create/update/delete)
+8. Manage profiles (copy builtin to custom)
+9. Use saved connection to execute
+10. Use interactive session in Web
+11. Transaction failure compensation strategy (workflow)
+12. Vendor-specific rollback examples
+13. Cross-device orchestration (batch execution)
+14. Phased rollout / canary execution
+15. Post-failure downgrade strategy
+16. Cross-device rollback consistency check
+17. Cross-device comparison template
+18. Quick verification checklist (post-change)
+19. Backup and restore playbook
+
 ## 1) Batch configuration change with rollback (Tx block)
 
 ### CLI
@@ -469,3 +491,38 @@ Use this checklist after a multi-block workflow:
 2. Confirm no orphaned objects remain.
 3. Check device prompt/mode and state machine alignment.
 4. Review history entries for errors and partial rollbacks.
+
+## 19) Backup and restore playbook
+
+Use this before major rollout or migration.
+
+### CLI
+
+1. Create backup with auto timestamp name:
+```
+rauto backup create
+```
+2. Optionally create backup in a custom directory:
+```
+rauto backup create --output ./backup/
+```
+3. List backups:
+```
+rauto backup list
+```
+4. Restore by merge:
+```
+rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
+```
+5. Restore by replace (destructive):
+```
+rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
+```
+
+### Web UI
+
+1. Open Backup tab.
+2. Click `Create`.
+3. Select backup row.
+4. Prefer `Restore (Merge)` first.
+5. Use `Restore (Replace)` only when full replacement is intended.

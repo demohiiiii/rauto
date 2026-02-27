@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.1] - 2026-02-27
+
+### New Features
+- Added full backup/restore support for `~/.rauto` runtime data in CLI via `rauto backup create|list|restore`, including auto timestamp filenames when no file name is provided.
+- Added Web backup management tab with create/list/download/restore operations, plus row-level quick actions for direct download and merge/replace restore flows.
+- Added Web backup metadata visibility (`size_bytes`, `modified_ms`) and selected-archive detail display to improve restore confirmation.
+
+### Optimizations
+- Improved restore replace behavior to preserve existing `~/.rauto/backups` archives instead of deleting backup files during data replacement.
+- Reduced backup operation friction in Web by replacing checkbox-based restore mode with explicit `Restore (Merge)` and `Restore (Replace)` actions.
+- Expanded rauto skill references with comprehensive CLI/Web/scenario/troubleshooting/example coverage to improve AI guidance quality and consistency.
+
+### API Changes
+- Added Web endpoints:
+  - `GET /api/backups`
+  - `POST /api/backups`
+  - `POST /api/backups/restore`
+  - `GET /api/backups/{name}/download`
+- Added backup response model fields `size_bytes` and `modified_ms` in Web backup listing payloads.
+- Added new CLI command group `backup` with `create`, `list`, and `restore` subcommands.
+
+### Risks
+- `restore --replace` semantics now preserve `backups` content; automation that previously relied on full directory wipe behavior should be reviewed.
+- Web restore operations are destructive in replace mode and currently protected by confirmation prompts only, without additional typed confirmation.
+- Backup/restore flows are validated with compile-time and manual checks; there is no dedicated end-to-end automated test coverage yet.
+
 ## [0.2.0] - 2026-02-21
 
 ### New Features

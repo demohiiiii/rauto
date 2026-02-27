@@ -42,6 +42,10 @@ pub enum Commands {
 
     /// Execute a transaction workflow loaded from JSON
     TxWorkflow(TxWorkflowArgs),
+
+    /// Backup and restore rauto runtime data
+    #[command(subcommand)]
+    Backup(BackupCommands),
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -168,6 +172,26 @@ pub enum TemplateCommands {
         /// Template name
         name: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BackupCommands {
+    /// Create a full backup archive of ~/.rauto data
+    Create {
+        /// Output archive path (.tar.gz). Defaults to ~/.rauto/backups/rauto-backup-<ts>.tar.gz
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+    /// Restore data from backup archive (.tar.gz)
+    Restore {
+        /// Backup archive path
+        archive: PathBuf,
+        /// Replace existing ~/.rauto data before restore
+        #[arg(long)]
+        replace: bool,
+    },
+    /// List existing backup archives
+    List,
 }
 
 #[derive(Args, Debug)]

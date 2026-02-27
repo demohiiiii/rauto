@@ -54,6 +54,7 @@ const i18n = {
     tabReplay: "Session Replay",
     tabPrompts: "Prompt Profiles",
     tabTemplates: "Template Manager",
+    tabBackup: "Backup",
     opsTitle: "Operations",
     replayPageTitle: "Session Replay",
     interactiveTitle: "Interactive Session",
@@ -194,6 +195,27 @@ const i18n = {
     builtinFieldNotes: "notes",
     customTitle: "Custom Profiles",
     templateMgrTitle: "Template Manager",
+    backupTitle: "Backup & Restore",
+    backupCreateTitle: "Create Backup",
+    backupListTitle: "Backup Archives",
+    backupOutputPlaceholder: "optional output path (.tar.gz)",
+    backupArchivePlaceholder: "select or input archive path",
+    backupCreateBtn: "Create",
+    backupRefreshBtn: "Refresh",
+    backupDownloadBtn: "Download",
+    backupRestoreMergeBtn: "Restore (Merge)",
+    backupRestoreReplaceBtn: "Restore (Replace)",
+    backupSelectedMetaLabel: "Selected",
+    backupMetaSize: "Size",
+    backupMetaTime: "Modified",
+    backupArchiveRequired: "archive path is required",
+    backupRestoreConfirmMerge:
+      "Restore backup to ~/.rauto in merge mode now? Existing files may be overwritten.",
+    backupRestoreConfirmReplace:
+      "Restore backup to ~/.rauto in replace mode now? Current ~/.rauto data will be replaced.",
+    backupCreated: "backup created",
+    backupRestored: "backup restored",
+    backupPickOne: "please select a backup archive from list",
     templateListTitle: "Templates",
     templateEditorTitle: "Editor",
     templateManagePathPlaceholder: "template path (auto)",
@@ -389,6 +411,7 @@ const i18n = {
     tabReplay: "会话回放",
     tabPrompts: "Prompt 管理",
     tabTemplates: "Template 管理",
+    tabBackup: "备份恢复",
     opsTitle: "常用操作",
     replayPageTitle: "会话回放",
     interactiveTitle: "交互会话",
@@ -527,6 +550,25 @@ const i18n = {
     builtinFieldNotes: "说明",
     customTitle: "自定义 Profile",
     templateMgrTitle: "Template 管理",
+    backupTitle: "备份与恢复",
+    backupCreateTitle: "创建备份",
+    backupListTitle: "备份归档",
+    backupOutputPlaceholder: "可选输出路径（.tar.gz）",
+    backupArchivePlaceholder: "选择或输入归档路径",
+    backupCreateBtn: "创建",
+    backupRefreshBtn: "刷新",
+    backupDownloadBtn: "下载",
+    backupRestoreMergeBtn: "恢复（合并）",
+    backupRestoreReplaceBtn: "恢复（替换）",
+    backupSelectedMetaLabel: "已选",
+    backupMetaSize: "大小",
+    backupMetaTime: "修改时间",
+    backupArchiveRequired: "归档路径不能为空",
+    backupRestoreConfirmMerge: "确认以“合并模式”恢复到 ~/.rauto？已有文件可能被覆盖。",
+    backupRestoreConfirmReplace: "确认以“替换模式”恢复到 ~/.rauto？当前 ~/.rauto 数据会被替换。",
+    backupCreated: "备份已创建",
+    backupRestored: "备份已恢复",
+    backupPickOne: "请先从列表中选择一个备份归档",
     templateListTitle: "Template 列表",
     templateEditorTitle: "编辑器",
     templateManagePathPlaceholder: "template 路径（自动）",
@@ -698,6 +740,7 @@ let cachedSavedConnections = [];
 let cachedCustomProfiles = [];
 let cachedDeviceProfiles = [];
 let cachedTemplates = [];
+let cachedBackups = [];
 let lastBuiltinProfile = null;
 let lastTemplateDetail = null;
 let recordViewMode = localStorage.getItem(STORAGE_KEYS.recordViewMode) || "list";
@@ -912,6 +955,7 @@ function applyI18n() {
   byId("tab-replay").textContent = t("tabReplay");
   byId("tab-prompts").textContent = t("tabPrompts");
   byId("tab-templates").textContent = t("tabTemplates");
+  byId("tab-backup").textContent = t("tabBackup");
 
   byId("ops-title").textContent = t("opsTitle");
   byId("interactive-title").textContent = t("interactiveTitle");
@@ -962,6 +1006,16 @@ function applyI18n() {
   byId("template-mgr-title").textContent = t("templateMgrTitle");
   byId("template-list-title").textContent = t("templateListTitle");
   byId("template-editor-title").textContent = t("templateEditorTitle");
+  byId("backup-title").textContent = t("backupTitle");
+  byId("backup-create-title").textContent = t("backupCreateTitle");
+  byId("backup-list-title").textContent = t("backupListTitle");
+  byId("backup-output-path").placeholder = t("backupOutputPlaceholder");
+  byId("backup-restore-archive").placeholder = t("backupArchivePlaceholder");
+  byId("backup-create-btn").textContent = t("backupCreateBtn");
+  byId("backup-refresh-btn").textContent = t("backupRefreshBtn");
+  byId("backup-download-btn").textContent = t("backupDownloadBtn");
+  byId("backup-restore-merge-btn").textContent = t("backupRestoreMergeBtn");
+  byId("backup-restore-replace-btn").textContent = t("backupRestoreReplaceBtn");
 
   byId("render-btn").textContent = t("renderBtn");
   byId("exec-btn").textContent = t("execBtn");
@@ -1145,6 +1199,7 @@ function applyI18n() {
   applyTxWorkflowMoreActionsState();
   applyTxRollbackMode();
   applyTxRollbackRuleVisibility();
+  updateSelectedBackupMeta();
 
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
 }
@@ -1167,7 +1222,7 @@ function localizeDynamicFields() {
 }
 
 function applyTabs() {
-  const tabs = ["ops", "interactive", "replay", "prompts", "templates"];
+  const tabs = ["ops", "interactive", "replay", "prompts", "templates", "backup"];
   for (const tab of tabs) {
     const button = byId(`tab-${tab}`);
     const panel = byId(`panel-${tab}`);
@@ -2004,6 +2059,213 @@ function renderSavedConnectionOptions(keyword = "") {
     .map((item) => item.name)
     .filter((name) => (!q ? true : name.toLowerCase().includes(q)));
   datalist.innerHTML = names.map((name) => `<option value="${name}"></option>`).join("");
+}
+
+function renderBackupOptions(keyword = "") {
+  const datalist = byId("backup-archive-options");
+  const q = keyword.trim().toLowerCase();
+  const rows = cachedBackups.filter((item) =>
+    q ? (item.path || "").toLowerCase().includes(q) : true
+  );
+  datalist.innerHTML = rows
+    .map((item) => `<option value="${escapeHtml(item.path || "")}"></option>`)
+    .join("");
+}
+
+function selectedBackupNameFromInput() {
+  const raw = byId("backup-restore-archive").value.trim();
+  if (!raw) return "";
+  const matched = cachedBackups.find(
+    (item) => (item.path || "") === raw || (item.name || "") === raw
+  );
+  if (matched && matched.name) {
+    return matched.name;
+  }
+  const tail = raw.split("/").pop();
+  if (!tail) return "";
+  const hit = cachedBackups.find((item) => (item.name || "") === tail);
+  return hit && hit.name ? hit.name : "";
+}
+
+function selectedBackupFromInput() {
+  const raw = byId("backup-restore-archive").value.trim();
+  if (!raw) return null;
+  const matched = cachedBackups.find(
+    (item) => (item.path || "") === raw || (item.name || "") === raw
+  );
+  if (matched) return matched;
+  const tail = raw.split("/").pop();
+  if (!tail) return null;
+  return cachedBackups.find((item) => (item.name || "") === tail) || null;
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value < 0) return "-";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function updateSelectedBackupMeta() {
+  const el = byId("backup-selected-meta");
+  if (!el) return;
+  const item = selectedBackupFromInput();
+  if (!item) {
+    el.textContent = "-";
+    return;
+  }
+  el.textContent = `${t("backupSelectedMetaLabel")}: ${item.name || "-"} · ${t(
+    "backupMetaSize"
+  )}: ${formatBytes(item.size_bytes)} · ${t("backupMetaTime")}: ${formatHistoryTime(
+    item.modified_ms
+  )}`;
+}
+
+function renderBackupList() {
+  const out = byId("backup-list");
+  if (!out) return;
+  if (!Array.isArray(cachedBackups) || cachedBackups.length === 0) {
+    out.innerHTML =
+      '<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">-</div>';
+    return;
+  }
+  const selected = selectedBackupFromInput();
+  out.innerHTML = cachedBackups
+    .map((item) => {
+      const active =
+        selected &&
+        ((selected.name || "") === (item.name || "") || (selected.path || "") === (item.path || ""));
+      const cls = active
+        ? "border-teal-300 bg-teal-50/70"
+        : "border-slate-200 bg-white hover:border-slate-300";
+      return `
+      <button
+        type="button"
+        class="w-full rounded-xl border px-3 py-2 text-left transition ${cls} js-backup-row"
+        data-backup-path="${escapeHtml(item.path || "")}"
+        data-backup-name="${escapeHtml(item.name || "")}"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-sm font-semibold text-slate-800">${escapeHtml(item.name || "-")}</span>
+          <span class="text-xs text-slate-500">${escapeHtml(formatBytes(item.size_bytes))}</span>
+        </div>
+        <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.path || "-")}</div>
+        <div class="mt-1 flex flex-wrap items-center justify-between gap-2">
+          <span class="text-xs text-slate-400">${escapeHtml(
+            `${t("backupMetaTime")}: ${formatHistoryTime(item.modified_ms)}`
+          )}</span>
+          <span class="inline-flex items-center gap-2">
+            <button
+              type="button"
+              class="mini-btn js-backup-download"
+              data-backup-path="${escapeHtml(item.path || "")}"
+              data-backup-name="${escapeHtml(item.name || "")}"
+            >${escapeHtml(t("backupDownloadBtn"))}</button>
+            <button
+              type="button"
+              class="mini-btn js-backup-restore-merge"
+              data-backup-path="${escapeHtml(item.path || "")}"
+              data-backup-name="${escapeHtml(item.name || "")}"
+            >${escapeHtml(t("backupRestoreMergeBtn"))}</button>
+            <button
+              type="button"
+              class="mini-btn delete js-backup-restore-replace"
+              data-backup-path="${escapeHtml(item.path || "")}"
+              data-backup-name="${escapeHtml(item.name || "")}"
+            >${escapeHtml(t("backupRestoreReplaceBtn"))}</button>
+          </span>
+        </div>
+      </button>`;
+    })
+    .join("");
+}
+
+async function loadBackups() {
+  const out = byId("backup-out");
+  try {
+    const data = await request("GET", "/api/backups");
+    cachedBackups = Array.isArray(data) ? data : [];
+    renderBackupOptions(byId("backup-restore-archive").value || "");
+    updateSelectedBackupMeta();
+    renderBackupList();
+    if (!out.textContent || out.textContent.trim() === "-" || out.textContent.includes("running")) {
+      out.textContent = "-";
+    }
+  } catch (e) {
+    cachedBackups = [];
+    renderBackupOptions("");
+    updateSelectedBackupMeta();
+    renderBackupList();
+    out.textContent = e.message;
+  }
+}
+
+async function createBackupFromWeb() {
+  const out = byId("backup-out");
+  out.textContent = t("running");
+  try {
+    const output = byId("backup-output-path").value.trim();
+    const data = await request("POST", "/api/backups", {
+      output: output || null,
+    });
+    const path = (data && data.path) || "-";
+    out.textContent = `${t("backupCreated")}: ${path}`;
+    if (path && path !== "-") {
+      byId("backup-restore-archive").value = path;
+    }
+    await loadBackups();
+  } catch (e) {
+    out.textContent = e.message;
+  }
+}
+
+async function restoreBackupFromWeb(replace = false) {
+  const out = byId("backup-out");
+  const archive = byId("backup-restore-archive").value.trim();
+  if (!archive) {
+    out.textContent = t("backupArchiveRequired");
+    return;
+  }
+  const confirmText = replace
+    ? t("backupRestoreConfirmReplace")
+    : t("backupRestoreConfirmMerge");
+  if (!window.confirm(confirmText)) {
+    return;
+  }
+  out.textContent = t("running");
+  try {
+    const data = await request("POST", "/api/backups/restore", {
+      archive,
+      replace,
+    });
+    out.textContent = `${t("backupRestored")}: ${data.archive || archive}`;
+    await loadBackups();
+    await loadSavedConnections();
+    await loadProfilesOverview();
+    await loadTemplates();
+  } catch (e) {
+    out.textContent = e.message;
+  }
+}
+
+function downloadBackupFromWeb() {
+  const out = byId("backup-out");
+  const name = selectedBackupNameFromInput();
+  if (!name) {
+    out.textContent = t("backupPickOne");
+    return;
+  }
+  const url = `/api/backups/${encodeURIComponent(name)}/download`;
+  window.open(url, "_blank");
+}
+
+function selectBackupPath(path) {
+  if (!path) return;
+  byId("backup-restore-archive").value = path;
+  updateSelectedBackupMeta();
+  renderBackupList();
 }
 
 async function loadSavedConnections() {
@@ -4437,7 +4699,7 @@ function bindEvents() {
     el.addEventListener("change", updateRecordFabVisibility);
   });
 
-  for (const tab of ["ops", "interactive", "replay", "prompts", "templates"]) {
+  for (const tab of ["ops", "interactive", "replay", "prompts", "templates", "backup"]) {
     byId(`tab-${tab}`).onclick = () => {
       currentTab = tab;
       applyTabs();
@@ -4451,6 +4713,9 @@ function bindEvents() {
       }
       if (tab === "templates") {
         loadTemplates();
+      }
+      if (tab === "backup") {
+        loadBackups();
       }
     };
   }
@@ -5047,6 +5312,49 @@ function bindEvents() {
   };
   byId("template-save-btn").onclick = saveTemplate;
   byId("template-delete-btn").onclick = deleteTemplate;
+
+  byId("backup-create-btn").onclick = createBackupFromWeb;
+  byId("backup-refresh-btn").onclick = loadBackups;
+  byId("backup-download-btn").onclick = downloadBackupFromWeb;
+  byId("backup-restore-merge-btn").onclick = () => restoreBackupFromWeb(false);
+  byId("backup-restore-replace-btn").onclick = () => restoreBackupFromWeb(true);
+  byId("backup-restore-archive").oninput = (e) => {
+    renderBackupOptions(e.target.value || "");
+    updateSelectedBackupMeta();
+    renderBackupList();
+  };
+  byId("backup-restore-archive").onchange = () => {
+    updateSelectedBackupMeta();
+    renderBackupList();
+  };
+  byId("backup-list").addEventListener("click", (e) => {
+    const downloadBtn = e.target.closest(".js-backup-download");
+    if (downloadBtn) {
+      const path = downloadBtn.getAttribute("data-backup-path") || "";
+      selectBackupPath(path);
+      downloadBackupFromWeb();
+      return;
+    }
+    const restoreMergeBtn = e.target.closest(".js-backup-restore-merge");
+    if (restoreMergeBtn) {
+      const path = restoreMergeBtn.getAttribute("data-backup-path") || "";
+      selectBackupPath(path);
+      restoreBackupFromWeb(false);
+      return;
+    }
+    const restoreReplaceBtn = e.target.closest(".js-backup-restore-replace");
+    if (restoreReplaceBtn) {
+      const path = restoreReplaceBtn.getAttribute("data-backup-path") || "";
+      selectBackupPath(path);
+      restoreBackupFromWeb(true);
+      return;
+    }
+    const row = e.target.closest(".js-backup-row");
+    if (!row) return;
+    const path = row.getAttribute("data-backup-path") || "";
+    if (!path) return;
+    selectBackupPath(path);
+  });
 }
 
 normalizeFilterPrefs();
@@ -5077,6 +5385,7 @@ byId("replay-search").value = replaySearchQuery;
 loadSavedConnections();
 loadProfilesOverview();
 loadTemplates();
+loadBackups();
 setProfileForm({
   name: "",
   more_patterns: [],

@@ -665,6 +665,7 @@
         <button id="tab-replay" class="tab-btn" data-tab="replay" role="tab">Session Replay</button>
         <button id="tab-prompts" class="tab-btn" data-tab="prompts" role="tab">Prompt Profiles</button>
         <button id="tab-templates" class="tab-btn" data-tab="templates" role="tab">Template Manager</button>
+        <button id="tab-backup" class="tab-btn" data-tab="backup" role="tab">Backup</button>
       </div>
 
       <div id="panel-ops" class="tab-panel mt-4" role="tabpanel">
@@ -1148,6 +1149,43 @@
           </div>
 
           <pre id="template-out" class="output"></pre>
+        </div>
+      </div>
+
+      <div id="panel-backup" class="tab-panel mt-4" role="tabpanel" hidden>
+        <h2 id="backup-title" class="text-xl font-semibold">Backup & Restore</h2>
+        <div class="mt-4 grid gap-3">
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="backup-create-title" class="text-sm font-semibold text-slate-700">Create Backup</span>
+            </div>
+            <div class="group-body grid gap-2 md:w-[900px]">
+              <input id="backup-output-path" class="input" placeholder="optional output path (.tar.gz)" />
+              <div class="inline-flex flex-wrap items-center gap-2">
+                <button id="backup-create-btn" class="mini-btn add" type="button">Create</button>
+                <button id="backup-refresh-btn" class="mini-btn" type="button">Refresh</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="backup-list-title" class="text-sm font-semibold text-slate-700">Backup Archives</span>
+            </div>
+            <div class="group-body grid gap-2 md:w-[900px]">
+              <input id="backup-restore-archive" class="input" list="backup-archive-options" placeholder="select or input archive path" />
+              <datalist id="backup-archive-options"></datalist>
+              <div id="backup-selected-meta" class="text-xs text-slate-500">-</div>
+              <div class="inline-flex flex-wrap items-center gap-2">
+                <button id="backup-download-btn" class="mini-btn" type="button">Download</button>
+                <button id="backup-restore-merge-btn" class="mini-btn" type="button">Restore (Merge)</button>
+                <button id="backup-restore-replace-btn" class="mini-btn delete" type="button">Restore (Replace)</button>
+              </div>
+              <div id="backup-list" class="mt-2 grid gap-2"></div>
+            </div>
+          </div>
+
+          <pre id="backup-out" class="output">-</pre>
         </div>
       </div>
     </section>

@@ -1,13 +1,15 @@
 use crate::cli::GlobalOpts;
 use crate::web::assets::{index_response, static_response};
 use crate::web::handlers::{
-    create_or_update_custom_profile, create_template, delete_connection, delete_custom_profile,
-    delete_connection_history, delete_template, diagnose_profile, exec_command, execute_template,
-    execute_tx_block, execute_tx_workflow, interactive_command, interactive_start, interactive_stop,
+    create_backup, create_or_update_custom_profile, create_template, delete_connection,
+    delete_connection_history, delete_custom_profile, delete_template, diagnose_profile,
+    download_backup, exec_command, execute_template, execute_tx_block, execute_tx_workflow,
     get_builtin_profile_detail, get_builtin_profile_form, get_connection, get_connection_history,
     get_connection_history_detail, get_custom_profile, get_custom_profile_form, get_template,
-    health, list_connections, list_profiles, list_templates, profiles_overview, render_template,
-    replay_session, test_connection, update_template, upsert_connection, upsert_custom_profile_form,
+    health, interactive_command, interactive_start, interactive_stop, list_backups,
+    list_connections, list_profiles, list_templates, profiles_overview, render_template,
+    replay_session, restore_backup, test_connection, update_template, upsert_connection,
+    upsert_custom_profile_form,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -27,6 +29,9 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/api/backups", get(list_backups).post(create_backup))
+        .route("/api/backups/restore", post(restore_backup))
+        .route("/api/backups/{name}/download", get(download_backup))
         .route("/api/device-profiles", get(list_profiles))
         .route("/api/device-profiles/all", get(profiles_overview))
         .route(
@@ -56,7 +61,10 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
                 .put(upsert_connection)
                 .delete(delete_connection),
         )
-        .route("/api/connections/{name}/history", get(get_connection_history))
+        .route(
+            "/api/connections/{name}/history",
+            get(get_connection_history),
+        )
         .route(
             "/api/connections/{name}/history/{id}",
             get(get_connection_history_detail).delete(delete_connection_history),
@@ -69,7 +77,10 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
         .route("/api/replay", post(replay_session))
         .route("/api/interactive/start", post(interactive_start))
         .route("/api/interactive/command", post(interactive_command))
-        .route("/api/interactive/{id}", axum::routing::delete(interactive_stop))
+        .route(
+            "/api/interactive/{id}",
+            axum::routing::delete(interactive_stop),
+        )
         .route("/api/templates", get(list_templates).post(create_template))
         .route(
             "/api/templates/{name}",

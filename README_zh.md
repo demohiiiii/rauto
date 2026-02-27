@@ -17,6 +17,7 @@
 - **内嵌静态资源**：发布二进制时前端资源已打包到可执行文件中。
 - **连接配置档复用**：支持按名称保存/加载连接参数。
 - **会话录制与回放**：支持将 SSH 会话录制为 JSONL 并离线回放。
+- **数据备份与恢复**：支持对 `~/.rauto` 运行数据做全量备份与恢复。
 
 ## 安装
 
@@ -213,6 +214,7 @@ Web 控制台主要能力：
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
 - 基于已保存连接执行命令（先加载连接，再选择直接执行或模板渲染执行）。
 - 分页管理 profile（内置/自定义）与 template。
+- 在页面中管理数据备份：创建/列出/下载/恢复 `~/.rauto` 备份归档。
 - 在 Prompt 管理 -> 诊断页里可视化查看 profile 状态机诊断结果。
 - 支持中英文界面切换。
 - 支持执行录制与浏览器内回放（可列出事件，或按命令/模式回放）。
@@ -255,7 +257,28 @@ rauto device delete-connection lab1
 - 在 `exec/template/device test-connection` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
 - 使用 `device add-connection` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
 
-### 7. CLI 速查表
+### 7. 数据备份与恢复
+
+对当前 `rauto` 全部运行数据（连接、profile、模板、录制等）做备份：
+
+```bash
+# 备份到默认路径：~/.rauto/backups/rauto-backup-<timestamp>.tar.gz
+rauto backup create
+
+# 备份到自定义路径
+rauto backup create --output ./rauto-backup.tar.gz
+
+# 列出默认备份目录
+rauto backup list
+
+# 恢复备份（合并到当前 ~/.rauto）
+rauto backup restore ./rauto-backup.tar.gz
+
+# 恢复前先替换当前 ~/.rauto
+rauto backup restore ./rauto-backup.tar.gz --replace
+```
+
+### 8. CLI 速查表
 
 **连接排障**
 ```bash
@@ -314,6 +337,13 @@ rauto template show_version.j2 \
 # 回放 / 查看
 rauto replay ~/.rauto/records/show_version.jsonl --list
 rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
+```
+
+**数据备份与恢复**
+```bash
+rauto backup create
+rauto backup list
+rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 ```
 
 **事务块执行**
@@ -494,6 +524,7 @@ rauto web \
 - `~/.rauto/templates/commands`
 - `~/.rauto/templates/devices`
 - `~/.rauto/records`（会话录制文件）
+- `~/.rauto/backups`（备份归档）
 
 这些目录会在启动时自动创建。
 
@@ -506,7 +537,8 @@ rauto web \
 ├── templates/
 │   ├── commands/           # 在此存储 .j2 命令模板
 │   └── devices/            # 在此存储自定义 .toml 设备配置
-└── records/                # 会话录制输出 (*.jsonl)
+├── records/                # 会话录制输出 (*.jsonl)
+└── backups/                # 备份归档 (*.tar.gz)
 ```
 
 你可以使用 `--template-dir` 参数或 `RAUTO_TEMPLATE_DIR` 环境变量指定自定义模板目录。

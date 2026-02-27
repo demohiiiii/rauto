@@ -1,7 +1,4 @@
-use rneter::{
-    device::StateMachineDiagnostics,
-    session::SessionRecordEntry,
-};
+use rneter::{device::StateMachineDiagnostics, session::SessionRecordEntry};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -58,6 +55,38 @@ pub struct SavedConnectionDetail {
     pub path: String,
     pub has_password: bool,
     pub connection: ConnectionRequest,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackupMeta {
+    pub name: String,
+    pub path: String,
+    pub size_bytes: u64,
+    pub modified_ms: u128,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackupCreateResponse {
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BackupCreateRequest {
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BackupRestoreRequest {
+    pub archive: String,
+    #[serde(default)]
+    pub replace: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackupRestoreResponse {
+    pub restored: bool,
+    pub archive: String,
+    pub replace: bool,
 }
 
 #[derive(Debug, Serialize)]

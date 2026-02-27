@@ -17,6 +17,7 @@
 - **Embedded Web Assets**: Frontend files are embedded into the binary for release usage.
 - **Saved Connection Profiles**: Reuse named connection settings across commands.
 - **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
+- **Data Backup & Restore**: Backup full `~/.rauto` runtime data and restore when needed.
 
 ## Installation
 
@@ -209,6 +210,7 @@ Web console key capabilities:
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
 - Execute commands with saved connection info (load one connection, then run direct or template mode).
 - Manage profiles (builtin/custom) and templates in dedicated tabs.
+- Manage data backups in UI: create/list/download/restore `~/.rauto` backup archives.
 - Diagnose profile state machines in Prompt Management -> Diagnostics with visualized result fields.
 - Switch Chinese/English in UI.
 - Record execution sessions and replay recorded outputs in browser (list events or replay by command/mode).
@@ -251,7 +253,28 @@ Password behavior:
 - `--save-connection` (used in `exec/template/device test-connection`) saves without password by default; add `--save-password` to include password fields.
 - `device add-connection` saves password only when `--password` / `--enable-password` is explicitly provided.
 
-### 7. CLI Quick Reference
+### 7. Backup & Restore
+
+Backup all current `rauto` runtime data (`connections`, `profiles`, `templates`, `records`, etc.):
+
+```bash
+# Create backup to default path: ~/.rauto/backups/rauto-backup-<timestamp>.tar.gz
+rauto backup create
+
+# Create backup to custom output path
+rauto backup create --output ./rauto-backup.tar.gz
+
+# List default backup archives
+rauto backup list
+
+# Restore archive (merge into current ~/.rauto)
+rauto backup restore ./rauto-backup.tar.gz
+
+# Restore archive and replace current ~/.rauto data first
+rauto backup restore ./rauto-backup.tar.gz --replace
+```
+
+### 8. CLI Quick Reference
 
 **Connection troubleshooting**
 ```bash
@@ -310,6 +333,13 @@ rauto template show_version.j2 \
 # Replay / inspect
 rauto replay ~/.rauto/records/show_version.jsonl --list
 rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
+```
+
+**Backup & restore**
+```bash
+rauto backup create
+rauto backup list
+rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 ```
 
 **Transaction blocks**
@@ -490,6 +520,7 @@ Default directories:
 - `~/.rauto/templates/commands`
 - `~/.rauto/templates/devices`
 - `~/.rauto/records` (session recordings)
+- `~/.rauto/backups` (backup archives)
 
 These folders are auto-created on startup.
 
@@ -502,7 +533,8 @@ For backward compatibility, local `./templates/` is still checked as a fallback.
 ├── templates/
 │   ├── commands/           # Store your .j2 command templates here
 │   └── devices/            # Store custom .toml device profiles here
-└── records/                # Session recording output (*.jsonl)
+├── records/                # Session recording output (*.jsonl)
+└── backups/                # Backup archives (*.tar.gz)
 ```
 
 You can specify a custom template directory using the `--template-dir` argument or `RAUTO_TEMPLATE_DIR` environment variable.

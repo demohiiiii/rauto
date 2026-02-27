@@ -1,11 +1,11 @@
 use crate::cli::GlobalOpts;
+use crate::device::DeviceClient;
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
 use crate::web::models::RecordLevel;
-use crate::device::DeviceClient;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tokio::sync::Mutex;
@@ -92,7 +92,9 @@ pub fn merge_connection_options(
         .template_dir
         .map(PathBuf::from)
         .or_else(|| defaults.template_dir.clone());
-    let connection_name = incoming.connection_name.or_else(|| defaults.connection.clone());
+    let connection_name = incoming
+        .connection_name
+        .or_else(|| defaults.connection.clone());
 
     Ok(ResolvedConnection {
         connection_name,

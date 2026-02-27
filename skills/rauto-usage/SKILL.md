@@ -1,56 +1,63 @@
 ---
 name: rauto-usage
-description: Use this skill when guiding users to operate the rauto CLI or Web UI, including connection setup, execution modes (direct/template/tx), transaction workflows, recording/replay, and profile/template management. Applies to tasks like “how to run rauto”, “start web UI”, “manage templates/profiles”, “use tx/workflow”, “view history/recordings”, and “where files are stored under ~/.rauto”.
+description: Use this skill when users ask how to use rauto in CLI or Web UI, including setup, saved connections, direct/template execution, tx block/workflow orchestration, profile/template management, interactive session, recording/replay, history, and backup/restore under ~/.rauto. Trigger on requests like “run command on device”, “start rauto web”, “manage prompt profile/template”, “build tx workflow”, “replay/inspect records”, “view connection history”, “backup and restore rauto data”.
 ---
 
 # Rauto Usage
 
-## Overview
+Provide accurate, runnable guidance for rauto.
+Prefer concrete commands and exact Web tab/card paths.
 
-Guide practical, end-to-end usage of rauto across CLI and Web UI, focusing on execution flows, connection management, and troubleshooting. Keep answers concise and action-oriented; prefer concrete command examples and UI steps.
+## Trigger Examples
 
-## Quick Start
+Use this skill for prompts like:
 
-1. **CLI execute**: `rauto exec "show version" --host <ip> --username <user> --password <pass>`
-2. **Web UI**: `rauto web --bind 127.0.0.1 --port 3000`, then open the URL.
-3. **Use saved connection**: `--connection <name>` or pick it in Web UI.
+- "How do I run a command on a Cisco device?"
+- "How do I render a template and then execute?"
+- "How do I use tx workflow with rollback?"
+- "How do I manage profiles/templates in web?"
+- "How do I replay recordings and inspect history?"
+- "How do I backup and restore all rauto data?"
 
-## Core Tasks
+## Response Rules
 
-### 1) Connections and Defaults
-- Explain the priority order: CLI flags > saved connection > web defaults.
-- For saving connections, show the CLI/global flags and Web “Saved Connections” section.
-- When asked about storage, point to `~/.rauto/` (see references).
+1. Give a minimal working example first, then optional advanced flags.
+2. Use placeholders: `<host>`, `<username>`, `<password>`, `<connection>`.
+3. If Web is requested, map to exact path: top tab -> card -> action button.
+4. Mention risk for destructive operations (tx replace rollback, restore replace).
+5. When troubleshooting, ask only missing required inputs.
 
-### 2) Execute Commands
-- **Direct exec**: use CLI `exec` or Web “Execute / Direct”.
-- **Template render + exec**: use CLI `template` or Web “Execute / Template”.
-- Mention `mode` when needed (Enable/Config/other state names).
+## Quick Start Snippets
 
-### 3) Transaction Blocks and Workflows
-- **Tx block**: explain commands list, rollback policy, and dry-run.
-- **Tx workflow**: load JSON or build in Web UI.
-- Recommend preview before execute; call out rollback risks.
+```bash
+# Direct execution
+rauto exec "show version" --host <host> --username <username> --password <password>
 
-### 4) Recording and Replay
-- Recording level: `key-events-only` vs `full`.
-- Replay: CLI `replay` with JSONL, Web replay tab or record drawer.
-- For large JSONL, suggest filtering or raw view.
+# Start web
+rauto web --bind 127.0.0.1 --port 3000
 
-### 5) Templates and Profiles
-- Templates: list/show/create/update/delete.
-- Profiles: list/show/copy builtin, diagnose, and custom profile form in Web.
+# Use saved connection
+rauto exec "show ip int brief" --connection <connection>
+```
 
-## Output Guidance
+## Navigation (Load References On Demand)
 
-- Provide concrete commands with placeholders.
-- When Web UI is requested, map to the exact tab/card names.
-- When user is stuck, ask for the minimal missing details (host, profile, template, mode).
+Read only what is needed:
 
-## References
+- Full CLI command cookbook and all command examples: `references/cli.md`
+- Web tab/card mapping and UI operations: `references/web.md`
+- Runtime storage paths under `~/.rauto`: `references/paths.md`
+- Error diagnosis and recovery: `references/troubleshooting.md`
+- End-to-end deployment and rollback scenarios: `references/scenarios.md`
+- Comprehensive "ask -> answer" examples for AI: `references/examples.md`
+- Chinese prompt-to-answer examples: `references/examples_zh.md`
 
-- For CLI command list: see `references/cli.md`.
-- For Web UI map: see `references/web.md`.
-- For config/layout paths: see `references/paths.md`.
-- For common troubleshooting steps: see `references/troubleshooting.md`.
-- For end-to-end usage scenarios: see `references/scenarios.md`.
+## Output Template
+
+Use this structure when user asks "how to do X":
+
+1. Goal (one line)
+2. Fastest command/UI path
+3. Optional safe mode (dry-run/preview/recording)
+4. Verification step
+5. Rollback/fallback (if risky)

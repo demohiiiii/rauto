@@ -7,8 +7,10 @@ mod web;
 use anyhow::Result;
 use clap::Parser;
 use cli::{
-    Cli, Commands, DeviceCommands, RecordLevelOpt, TemplateCommands, TxArgs, TxWorkflowArgs,
+    BackupCommands, Cli, Commands, DeviceCommands, RecordLevelOpt, TemplateCommands, TxArgs,
+    TxWorkflowArgs,
 };
+use config::backup;
 use config::connection_store::{
     SavedConnection, delete_connection, list_connections, load_connection, save_connection,
 };
@@ -17,7 +19,7 @@ use config::paths::{default_template_dir, ensure_default_layout};
 use config::template_loader;
 use device::DeviceClient;
 use rneter::session::{
-    CommandBlockKind, RollbackPolicy, MANAGER, SessionEvent, SessionRecordLevel, SessionRecorder,
+    CommandBlockKind, MANAGER, RollbackPolicy, SessionEvent, SessionRecordLevel, SessionRecorder,
     SessionReplayer, TxBlock, TxStep, TxWorkflowResult,
 };
 use rneter::templates as rneter_templates;
@@ -222,6 +224,31 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::TxWorkflow(args) => {
             run_tx_workflow(args, &cli.global_opts).await?;
         }
+        Commands::Backup(cmd) => match cmd {
+            BackupCommands::Create { output } => {
+                let path = backup::create_backup(output.as_deref())?;
+                println!("Backup created: {}", path.to_string_lossy());
+            }
+            BackupCommands::Restore { archive, replace } => {
+                backup::restore_backup(&archive, replace)?;
+                ensure_default_layout()?;
+                println!(
+                    "Backup restored from '{}' (replace={})",
+                    archive.to_string_lossy(),
+                    replace
+                );
+            }
+            BackupCommands::List => {
+                let files = backup::list_backups()?;
+                if files.is_empty() {
+                    println!("-");
+                } else {
+                    for file in files {
+                        println!("- {}", file.to_string_lossy());
+                    }
+                }
+            }
+        },
         Commands::Web(args) => {
             info!("Starting web service on {}:{}", args.bind, args.port);
             run_web_server(args.bind, args.port, cli.global_opts).await?;
@@ -675,7 +702,10 @@ fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConne
     });
 
     Ok(EffectiveConnection {
-        connection_name: opts.connection.clone().or_else(|| opts.save_connection.clone()),
+        connection_name: opts
+            .connection
+            .clone()
+            .or_else(|| opts.save_connection.clone()),
         host,
         username,
         password,
@@ -907,12 +937,17 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             .collect::<Result<Vec<_>>>()?
     } else if let Some(path) = &args.rollback_commands_file {
         let text = std::fs::read_to_string(path)?;
-        text.lines().map(|s| s.trim().to_string()).collect::<Vec<_>>()
+        text.lines()
+            .map(|s| s.trim().to_string())
+            .collect::<Vec<_>>()
     } else {
         args.rollback_commands.clone()
     };
     while rollback_commands.len() > commands.len()
-        && rollback_commands.last().map(|s| s.trim().is_empty()).unwrap_or(false)
+        && rollback_commands
+            .last()
+            .map(|s| s.trim().is_empty())
+            .unwrap_or(false)
     {
         rollback_commands.pop();
     }
@@ -993,7 +1028,8 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
         return Ok(());
     }
 
-    let handler = template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let handler =
+        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
     let tx_result = if matches!(args.record_level, RecordLevelOpt::Off) {
         MANAGER
             .execute_tx_block(
@@ -1082,7 +1118,9 @@ fn resolve_tx_commands(args: &TxArgs, conn: &EffectiveConnection) -> Result<Vec<
             .filter(|s| !s.is_empty()),
     );
     if commands.is_empty() {
-        return Err(anyhow::anyhow!("no executable commands resolved for tx block"));
+        return Err(anyhow::anyhow!(
+            "no executable commands resolved for tx block"
+        ));
     }
     Ok(commands)
 }
@@ -1269,6 +1307,9 @@ fn print_tx_workflow_result(result: &TxWorkflowResult) {
         }
     }
     if !result.rollback_errors.is_empty() {
-        println!("workflow_rollback_errors: {}", result.rollback_errors.join(" | "));
+        println!(
+            "workflow_rollback_errors: {}",
+            result.rollback_errors.join(" | ")
+        );
     }
 }

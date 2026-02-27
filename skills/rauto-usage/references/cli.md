@@ -1,56 +1,225 @@
-# Rauto CLI Reference
+# Rauto CLI Reference (Full Examples)
 
-Use this reference when the user asks for exact CLI commands or flags.
+Use this file when the user asks for exact CLI commands.
 
-## Core commands
+## Table of Contents
 
-- `rauto exec <command>`
-  - Optional: `--mode <Mode>`, `--record-file <path>`, `--record-level <key-events-only|full|off>`
-- `rauto template <template>`
-  - Optional: `--vars <json-file>`, `--dry-run`, `--record-file`, `--record-level`
-- `rauto tx`
-  - Inputs: `--command` (repeat), `--template`, `--vars`, `--mode`
-  - Rollback: `--rollback-command` (repeat) or `--resource-rollback-command`
-  - Options: `--rollback-on-failure`, `--rollback-trigger-step-index`
-  - `--dry-run`, `--record-file`, `--record-level`
-- `rauto tx-workflow <workflow.json>`
-  - `--dry-run`, `--record-file`, `--record-level`, `--json`
-- `rauto replay <record.jsonl>`
-  - `--list`, `--command <cmd>`, `--mode <Mode>`
-- `rauto web --bind <ip> --port <port>`
-- `rauto interactive`
-  - (CLI interactive is a placeholder; Web supports interactive sessions.)
+1. Common placeholders
+2. Core execution
+3. Recording and replay
+4. Device/profile management
+5. Template storage management
+6. Saved connections and history
+7. Transaction block
+8. Transaction workflow
+9. Backup and restore
+10. Global flags
 
-## Device/profile management
+## 1) Common placeholders
 
-- `rauto device list`
-- `rauto device show <name>`
-- `rauto device copy-builtin <source> <name> [--overwrite]`
-- `rauto device delete-custom <name>`
-- `rauto device diagnose <name> [--json]`
+- `<host>`: device IP/FQDN
+- `<username>`: SSH username
+- `<password>`: SSH password
+- `<profile>`: device profile, e.g. `cisco`
+- `<connection>`: saved connection name
 
-## Templates management
+## 2) Core execution
 
-- `rauto templates list`
-- `rauto templates show <name>`
-- `rauto templates create <name> --file <path>` or `--content "<text>"`
-- `rauto templates update <name> --file <path>` or `--content "<text>"`
-- `rauto templates delete <name>`
+```bash
+# Direct execute
+rauto exec "show version" \
+  --host <host> --username <username> --password <password> --ssh-port 22
 
-## Saved connections and history
+# Direct execute with mode
+rauto exec "show ip route" \
+  --host <host> --username <username> --password <password> \
+  --mode Enable
 
-- `rauto device list-connections`
-- `rauto device show-connection <name>`
-- `rauto device add-connection <name>` (uses global flags as connection fields)
-- `rauto device delete-connection <name>`
-- `rauto device connection-history <name> [--limit N] [--json]`
-- `rauto device connection-history-show <name> <id> [--json]`
-- `rauto device connection-history-delete <name> <id>`
+# Template dry-run preview
+rauto template show_version.j2 \
+  --vars ./vars.json \
+  --dry-run
 
-## Global connection flags
+# Template render + execute
+rauto template show_version.j2 \
+  --vars ./vars.json \
+  --host <host> --username <username> --password <password>
 
-- `--host`, `--username`, `--password`, `--ssh-port`, `--enable-password`
-- `--device-profile`
-- `--template-dir`
-- `--connection <name>`
-- `--save-connection <name>` and `--save-password`
+# Use saved connection
+rauto exec "show ip int brief" --connection <connection>
+```
+
+## 3) Recording and replay
+
+```bash
+# Record direct execution
+rauto exec "show version" \
+  --host <host> --username <username> --password <password> \
+  --record-file ~/.rauto/records/show_version.jsonl \
+  --record-level key-events-only
+
+# Record with full level
+rauto exec "show run" \
+  --host <host> --username <username> --password <password> \
+  --record-file ~/.rauto/records/show_run.jsonl \
+  --record-level full
+
+# Replay inspect
+rauto replay ~/.rauto/records/show_version.jsonl --list
+
+# Replay one command
+rauto replay ~/.rauto/records/show_version.jsonl \
+  --command "show version" --mode Enable
+```
+
+## 4) Device/profile management
+
+```bash
+# List available profiles
+rauto device list
+
+# Show profile detail
+rauto device show cisco
+
+# Copy builtin profile to custom
+rauto device copy-builtin cisco my-cisco --overwrite
+
+# Delete custom profile
+rauto device delete-custom my-cisco
+
+# Diagnose profile
+rauto device diagnose cisco
+rauto device diagnose cisco --json
+
+# Test connection
+rauto device test-connection \
+  --host <host> --username <username> --password <password> --ssh-port 22
+```
+
+## 5) Template storage management
+
+```bash
+rauto templates list
+rauto templates show show_version.j2
+
+rauto templates create show_vlan.j2 --content "show vlan"
+rauto templates update show_vlan.j2 --file ./show_vlan.j2
+rauto templates delete show_vlan.j2
+```
+
+## 6) Saved connections and history
+
+```bash
+# Add/update saved connection
+rauto device add-connection lab1 \
+  --host <host> --username <username> --password <password> \
+  --ssh-port 22 --device-profile cisco
+
+# List/show/delete
+rauto device list-connections
+rauto device show-connection lab1
+rauto device delete-connection lab1
+
+# Save effective connection after successful run
+rauto exec "show version" \
+  --host <host> --username <username> --password <password> \
+  --save-connection lab1 --save-password
+
+# History list/detail/delete
+rauto device connection-history lab1 --limit 50
+rauto device connection-history lab1 --limit 50 --json
+rauto device connection-history-show lab1 <history-id>
+rauto device connection-history-show lab1 <history-id> --json
+rauto device connection-history-delete lab1 <history-id>
+```
+
+## 7) Transaction block
+
+```bash
+# Per-step rollback by repeated flags
+rauto tx \
+  --name vlan-10-change \
+  --command "interface vlan 10" \
+  --command "ip address 10.0.10.1 255.255.255.0" \
+  --rollback-command "no interface vlan 10" \
+  --rollback-command "no ip address 10.0.10.1 255.255.255.0" \
+  --mode Config \
+  --host <host> --username <username> --password <password>
+
+# Per-step rollback from file
+rauto tx \
+  --command "vlan 20" \
+  --rollback-commands-file ./rollback.txt \
+  --host <host> --username <username> --password <password>
+
+# Whole-resource rollback
+rauto tx \
+  --command "vlan 30" \
+  --resource-rollback-command "no vlan 30" \
+  --rollback-trigger-step-index 0 \
+  --host <host> --username <username> --password <password>
+
+# Build command list from template
+rauto tx \
+  --template vlan_create.j2 --vars ./vars.json \
+  --template-profile cisco \
+  --host <host> --username <username> --password <password>
+
+# Dry-run and JSON output
+rauto tx --command "show version" --dry-run
+rauto tx --command "show version" --json --host <host> --username <username> --password <password>
+```
+
+## 8) Transaction workflow
+
+```bash
+# Dry-run
+rauto tx-workflow ./workflow.json --dry-run
+
+# Execute
+rauto tx-workflow ./workflow.json \
+  --host <host> --username <username> --password <password>
+
+# Execute with recording
+rauto tx-workflow ./workflow.json \
+  --host <host> --username <username> --password <password> \
+  --record-file ~/.rauto/records/tx_workflow.jsonl \
+  --record-level full
+```
+
+## 9) Backup and restore
+
+```bash
+# Create backup with auto timestamp filename
+rauto backup create
+
+# Create backup in custom directory (auto timestamp filename)
+rauto backup create --output ./backup/
+
+# Create backup with explicit file path
+rauto backup create --output ./backup/rauto-prod.tar.gz
+
+# List backups under ~/.rauto/backups
+rauto backup list
+
+# Restore by merge
+rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
+
+# Restore by replace
+rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
+```
+
+## 10) Global flags
+
+```text
+--host
+--username
+--password
+--ssh-port
+--enable-password
+--device-profile
+--template-dir
+--connection
+--save-connection
+--save-password
+```

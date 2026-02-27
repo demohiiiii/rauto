@@ -1,75 +1,89 @@
 # Rauto Troubleshooting
 
-Use this reference when the user reports errors or unexpected behavior.
+Use this file when users report failures, wrong output, or UI confusion.
 
 ## Connection failures
 
-- **`Failed to connect: async ssh2 error: Disconnected`**
-  - Verify host/port reachability (ping/telnet).
-  - Confirm SSH port (`--ssh-port` in CLI; `port` field in Web).
-  - Check username/password and enable password (if device requires enable).
-  - Confirm device profile matches vendor (cisco/huawei/juniper/custom).
+### `Failed to connect: async ssh2 error: Disconnected`
 
-- **Web uses 3000 instead of 22**
-  - Web server port is unrelated to SSH port. SSH port comes from connection fields.
-  - Ensure SSH port is set in connection inputs and not left empty.
+1. Verify host reachability and SSH service.
+2. Verify SSH port (`--ssh-port` or Web `port` field), default should be `22`.
+3. Verify username/password and optional enable password.
+4. Verify device profile matches vendor behavior.
 
-## Template / tx errors
+### "Web port 3000 overrides SSH port 22"
 
-- **Template not found**
-  - Confirm template name (no path traversal).
-  - Verify `~/.rauto/templates/commands/` contains the template.
-  - Use `rauto templates list` or Web Template Manager.
+- Clarify: Web server port (`rauto web --port 3000`) is HTTP port only.
+- SSH port always comes from connection fields (`--ssh-port` / Web `port` input).
 
-- **Rollback/tx validation errors**
-  - Per-step rollback allows empty commands; ensure length aligns with command list.
-  - For whole-resource rollback, `resource_rollback_command` must be set.
-  - `trigger_step_index` should be within the command list range.
+## Template and tx issues
 
-## Recording / replay issues
+### Template not found
 
-- **Recording fields seem missing (e.g., prompt_after, fsm_prompt_after)**
-  - Confirm `record_level` is not `off`.
-  - Use `key-events-only` for lighter logs; use `full` when you need raw chunk/event details.
-  - Some fields only appear on command output events, not all event kinds.
-  - Ensure you’re viewing the original JSONL (raw view) when verifying fields.
+1. Run `rauto templates list`.
+2. Confirm file exists under `~/.rauto/templates/commands/`.
+3. Confirm template name/path is correct.
 
-- **No recordings appear**
-  - Check recording level (not `off`).
-  - For Web, open the Recording drawer and verify list/raw view.
-  - Ensure operations were executed after recording was enabled.
+### Tx rollback errors
 
-- **Replay can’t find command**
-  - Use `--list` or Web “List Records” to inspect recorded commands and modes.
-  - Match both command string and mode where applicable.
+1. Per-step mode:
+   - Ensure rollback list aligns with command list.
+   - Empty rollback command is allowed and will be skipped.
+2. Whole-resource mode:
+   - Ensure `resource_rollback_command` exists.
+   - Ensure `trigger_step_index` is valid.
 
-## UI issues
+## Recording and replay issues
 
-- **Styles missing or layout broken**
-  - Rebuild Tailwind output (if used in your workflow).
-  - Hard refresh browser to clear cache.
+### Missing fields in record entries
 
-- **Drawer doesn’t open**
-  - Verify JavaScript loaded; check console errors.
-  - Confirm that the connection fields are filled to show the floating button.
+1. Ensure recording is not disabled.
+2. Prefer `full` when deep event diagnostics are required.
+3. Verify in raw JSONL view for full fields.
 
-## Diagnostics
+### Replay cannot find command
 
-- **Diagnose shows unreachable states**
-  - Confirm profile prompts and transitions cover each state.
-  - Use built-in profile as a baseline to compare.
+1. Use `--list` (CLI) or `List Records` (Web) first.
+2. Match exact command string and mode if mode filter is used.
 
-## Tx rollback failures
+## History and interactive issues
 
-- **Per-step rollback didn't run**
-  - Check rollback policy (must be `per_step`).
-  - Ensure per-step rollback commands are populated (empty means skip).
-  - If the step failed and you expect rollback, enable “rollback failed step”.
+### History list empty
 
-- **Whole-resource rollback didn't run**
-  - `resource_rollback_command` must be set.
-  - `trigger_step_index` must be <= last executed step.
+1. Ensure operations were executed with a selected saved connection.
+2. Check connection history limit and filters.
 
-- **Rollback reported success but device state looks wrong**
-  - Rollback inference is heuristic; for ambiguous commands, use explicit rollback commands.
-  - Prefer vendor-specific rollback commands when available.
+### Interactive tab no response
+
+1. Ensure session started successfully.
+2. Ensure connection fields or saved connection are valid.
+3. Stop and re-start session if prompt state is stale.
+
+## Backup/restore issues
+
+### Backup list empty
+
+- Run `rauto backup create` first.
+- Verify `~/.rauto/backups/` exists and is readable.
+
+### Restore did not match expectation
+
+- Use merge restore first (`Restore (Merge)`).
+- Use replace restore only for full reset (`Restore (Replace)` / `--replace`).
+- Re-check connections/templates/profiles after restore.
+
+### Download backup fails
+
+- Ensure selected archive is from backup list (not random path).
+- Refresh backup list and retry.
+
+## UI style/interaction issues
+
+### Styling looks broken
+
+1. Rebuild Tailwind output when in source workflow.
+2. Hard-refresh browser.
+
+### Drawer/floating actions not visible
+
+- Ensure required state is present (for recording drawer visibility, device context must be selected).

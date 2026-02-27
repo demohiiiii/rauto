@@ -1,32 +1,33 @@
 use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
-use crate::config::{connection_store, connection_store::SavedConnection};
+use crate::config::{backup, connection_store, connection_store::SavedConnection};
 use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    BuiltinProfileDetail, CommandResult, ConnectionRequest, ConnectionTestRequest,
-    ConnectionHistoryDetailResponse, ConnectionHistoryEntry, ConnectionTestResponse,
-    CreateTemplateRequest, CustomProfileDetail,
-    DeviceProfilesOverview, ExecRequest, ExecResponse, ExecuteTemplateRequest,
-    ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
-    ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse,
-    InteractiveCommandRequest, InteractiveCommandResponse, InteractiveStartRequest,
-    InteractiveStartResponse, InteractiveStopResponse,
-    ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
-    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
-    SavedConnectionMeta, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
-    UpsertConnectionRequest, UpsertCustomProfileRequest,
+    BackupCreateRequest, BackupCreateResponse, BackupMeta, BackupRestoreRequest,
+    BackupRestoreResponse, BuiltinProfileDetail, CommandResult, ConnectionHistoryDetailResponse,
+    ConnectionHistoryEntry, ConnectionRequest, ConnectionTestRequest, ConnectionTestResponse,
+    CreateTemplateRequest, CustomProfileDetail, DeviceProfilesOverview, ExecRequest, ExecResponse,
+    ExecuteTemplateRequest, ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
+    ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, InteractiveCommandRequest,
+    InteractiveCommandResponse, InteractiveStartRequest, InteractiveStartResponse,
+    InteractiveStopResponse, ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel,
+    RenderRequest, RenderResponse, ReplayContextDto, ReplayOutputDto, ReplayRequest,
+    ReplayResponse, SavedConnectionDetail, SavedConnectionMeta, TemplateDetail, TemplateMeta,
+    UpdateTemplateRequest, UpsertConnectionRequest, UpsertCustomProfileRequest,
 };
 use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
 use crate::web::storage;
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::{Path, Query, State},
+    http::{HeaderMap, HeaderValue, header},
+    response::{IntoResponse, Response},
 };
 use rneter::session::{
-    CommandBlockKind, RollbackPolicy, MANAGER, SessionRecordLevel, SessionRecorder,
+    CommandBlockKind, MANAGER, RollbackPolicy, SessionRecordLevel, SessionRecorder,
     SessionReplayer, TxBlock, TxStep,
 };
 use rneter::templates as rneter_templates;
@@ -35,6 +36,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
+use std::time::UNIX_EPOCH;
 use tracing::warn;
 
 #[derive(Debug, serde::Deserialize)]
@@ -44,6 +46,80 @@ pub struct HistoryQuery {
 
 pub async fn health() -> Json<Value> {
     Json(json!({"status": "ok"}))
+}
+
+pub async fn list_backups() -> Result<Json<Vec<BackupMeta>>, ApiError> {
+    let files = backup::list_backups()?;
+    let rows = files
+        .into_iter()
+        .map(|path| {
+            let meta = fs::metadata(&path).ok();
+            let size_bytes = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+            let modified_ms = meta
+                .as_ref()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            BackupMeta {
+                name: path
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or_default()
+                    .to_string(),
+                path: path.to_string_lossy().to_string(),
+                size_bytes,
+                modified_ms,
+            }
+        })
+        .collect();
+    Ok(Json(rows))
+}
+
+pub async fn create_backup(
+    Json(req): Json<BackupCreateRequest>,
+) -> Result<Json<BackupCreateResponse>, ApiError> {
+    let output = req.output.as_deref().map(PathBuf::from);
+    let saved = backup::create_backup(output.as_deref())?;
+    Ok(Json(BackupCreateResponse {
+        path: saved.to_string_lossy().to_string(),
+    }))
+}
+
+pub async fn restore_backup(
+    Json(req): Json<BackupRestoreRequest>,
+) -> Result<Json<BackupRestoreResponse>, ApiError> {
+    if req.archive.trim().is_empty() {
+        return Err(ApiError::bad_request("archive path is required"));
+    }
+    let archive = PathBuf::from(req.archive.trim());
+    backup::restore_backup(&archive, req.replace)?;
+    crate::config::paths::ensure_default_layout().map_err(ApiError::from)?;
+    Ok(Json(BackupRestoreResponse {
+        restored: true,
+        archive: archive.to_string_lossy().to_string(),
+        replace: req.replace,
+    }))
+}
+
+pub async fn download_backup(Path(name): Path<String>) -> Result<Response, ApiError> {
+    let path = backup::backup_path_by_name(&name)?;
+    let bytes = fs::read(&path).map_err(ApiError::from)?;
+    let filename = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("backup.tar.gz");
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/gzip"),
+    );
+    let disposition = format!("attachment; filename=\"{}\"", filename);
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&disposition).map_err(ApiError::from)?,
+    );
+    Ok((headers, bytes).into_response())
 }
 
 pub async fn list_profiles(
@@ -427,7 +503,10 @@ pub async fn interactive_command(
         .ok_or_else(|| ApiError::bad_request("interactive session not found"))?;
     drop(sessions);
 
-    let output = session.client.execute(&req.command, req.mode.as_deref()).await?;
+    let output = session
+        .client
+        .execute(&req.command, req.mode.as_deref())
+        .await?;
     session.last_used = Instant::now();
 
     let mut sessions = state.interactive_sessions.lock().await;
@@ -536,7 +615,8 @@ pub async fn get_connection_history(
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let limit = query.limit.unwrap_or(20);
-    let rows = history_store::list_history_by_connection_name(&safe, limit).map_err(ApiError::from)?;
+    let rows =
+        history_store::list_history_by_connection_name(&safe, limit).map_err(ApiError::from)?;
     let items = rows
         .into_iter()
         .map(|row| ConnectionHistoryEntry {
@@ -598,7 +678,8 @@ pub async fn delete_connection_history(
 ) -> Result<Json<Value>, ApiError> {
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
-    let deleted = history_store::delete_history_by_connection_name(&safe, &id).map_err(ApiError::from)?;
+    let deleted =
+        history_store::delete_history_by_connection_name(&safe, &id).map_err(ApiError::from)?;
     Ok(Json(json!({ "ok": true, "deleted": deleted })))
 }
 
@@ -813,12 +894,8 @@ pub async fn execute_tx_block(
         .map(PathBuf::from)
         .or_else(|| state.defaults.template_dir.clone());
     let renderer = Renderer::new(template_dir);
-    let resolved_commands = resolve_tx_commands(
-        &renderer,
-        req.template.as_deref(),
-        req.vars,
-        &req.commands,
-    )?;
+    let resolved_commands =
+        resolve_tx_commands(&renderer, req.template.as_deref(), req.vars, &req.commands)?;
 
     if req.rollback_trigger_step_index.is_some() && req.resource_rollback_command.is_none() {
         return Err(ApiError::bad_request(
@@ -828,7 +905,10 @@ pub async fn execute_tx_block(
 
     let mut rollback_commands = req.rollback_commands;
     while rollback_commands.len() > resolved_commands.len()
-        && rollback_commands.last().map(|s| s.trim().is_empty()).unwrap_or(false)
+        && rollback_commands
+            .last()
+            .map(|s| s.trim().is_empty())
+            .unwrap_or(false)
     {
         rollback_commands.pop();
     }
@@ -1070,7 +1150,9 @@ pub async fn execute_tx_workflow(
     }))
 }
 
-pub async fn replay_session(Json(req): Json<ReplayRequest>) -> Result<Json<ReplayResponse>, ApiError> {
+pub async fn replay_session(
+    Json(req): Json<ReplayRequest>,
+) -> Result<Json<ReplayResponse>, ApiError> {
     let mut replayer = SessionReplayer::from_jsonl(&req.jsonl).map_err(ApiError::from)?;
     let context = replayer.initial_context().map(|ctx| ReplayContextDto {
         device_addr: ctx.device_addr,
