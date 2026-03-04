@@ -331,9 +331,13 @@ pub struct TxWorkflowArgs {
     /// Path to TxWorkflow JSON file
     pub workflow_file: PathBuf,
 
-    /// Dry run: print workflow JSON and exit
+    /// Dry run: print workflow plan and exit (use --json for raw JSON)
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Visualize workflow structure and rollback plan in terminal, then exit
+    #[arg(long)]
+    pub view: bool,
 
     /// Print workflow result as JSON
     #[arg(long)]

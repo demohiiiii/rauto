@@ -173,8 +173,15 @@ rauto tx --command "show version" --json --host <host> --username <username> --p
 ## 8) Transaction workflow
 
 ```bash
-# Dry-run
+# Visualize workflow structure (ANSI colors enabled by default)
+# Disable colors with: NO_COLOR=1
+rauto tx-workflow ./workflow.json --view
+
+# Dry-run (prints visual plan by default)
 rauto tx-workflow ./workflow.json --dry-run
+
+# Dry-run raw JSON
+rauto tx-workflow ./workflow.json --dry-run --json
 
 # Execute
 rauto tx-workflow ./workflow.json \

@@ -28,12 +28,15 @@ const i18n = {
     savedConnTitle: "Saved Connections",
     savedConnNamePlaceholder: "saved connection name",
     savedConnSavePassword: "save password",
-    savedConnLoadBtn: "Load",
     savedConnSaveBtn: "Save",
     savedConnDeleteBtn: "Delete",
     savedConnHistoryBtn: "History",
-    savedConnRefreshBtn: "Refresh",
     savedConnHistoryEmpty: "no execution history for this connection",
+    savedConnListEmpty: "no saved connections",
+    savedConnPathLabel: "path",
+    savedConnSecretSaved: "password saved",
+    savedConnSecretNo: "password not saved",
+    savedConnUseBtn: "Use",
     historyColIndex: "#",
     historyColTime: "Time",
     historyColOperation: "Operation",
@@ -79,11 +82,9 @@ const i18n = {
     historyDrawerConnLabel: "Connection",
     historyFilterPlaceholder: "search command/target",
     historyFilterOperationAll: "All operations",
-    historyFilterLimitLabel: "Limit",
     historyFilterClear: "Clear",
     opCardTitle: "Execution",
     opKindExec: "Execute",
-    opKindTemplate: "Template Render + Execute",
     opKindTx: "Transaction Block",
     opExecDirect: "Direct Execute",
     opExecTemplate: "Template Render + Execute",
@@ -111,6 +112,24 @@ const i18n = {
     txStageHintWorkflow: "Step 2: combine multiple blocks and execute a workflow.",
     txPlanBtn: "Preview Tx Plan",
     txExecBtn: "Execute Tx Block",
+    txBlockVisualTitle: "Tx Block Visual Preview",
+    txBlockVisualEmpty: "No tx block preview yet.",
+    txBlockPreviewDone: "tx block preview updated",
+    txBlockExecuteDone: "tx block execution completed",
+    txBlockSummaryName: "Block",
+    txBlockSummaryKind: "Kind",
+    txBlockSummaryMode: "Mode",
+    txBlockSummaryRollback: "Rollback Policy",
+    txBlockSummaryFailFast: "Fail Fast",
+    txBlockSummarySteps: "Step Count",
+    txBlockResultTitle: "Execution Result",
+    txBlockResultCommitted: "Committed",
+    txBlockResultExecutedSteps: "Executed Steps",
+    txBlockResultRollback: "Rollback",
+    txBlockResultRollbackSteps: "Rollback Steps",
+    txBlockResultFailedStep: "Failed Step",
+    txBlockResultFailureReason: "Failure Reason",
+    txBlockResultRollbackErrors: "Rollback Errors",
     txWorkflowTitle: "Transaction Workflow (JSON)",
     txWorkflowBuilderTitle: "Workflow Builder",
     txWorkflowImportBlockBtn: "Import From Tx Form",
@@ -128,7 +147,6 @@ const i18n = {
     txWorkflowBlockModePlaceholder: "default mode (e.g. Config)",
     txWorkflowBlockKindConfig: "config",
     txWorkflowBlockKindShow: "show",
-    txWorkflowBlockRollbackPolicyLabel: "rollback policy",
     txWorkflowBlockRollbackNone: "none",
     txWorkflowBlockRollbackPerStep: "per_step",
     txWorkflowBlockRollbackWhole: "whole_resource",
@@ -146,7 +164,6 @@ const i18n = {
     txWorkflowRollbackRuleAddRemove: "add → remove",
     txWorkflowRollbackRuleCustom: "custom template",
     txWorkflowRollbackTemplatePlaceholder: "template, e.g. no {{cmd}}",
-    txWorkflowRollbackLibraryLabel: "library",
     txWorkflowRollbackLibraryPick: "pick template",
     txWorkflowRollbackLibraryName: "template name",
     txWorkflowRollbackLibrarySave: "Save",
@@ -175,7 +192,19 @@ const i18n = {
       '{"name":"fw-policy-publish","blocks":[],"fail_fast":true}',
     txWorkflowPlanBtn: "Preview Workflow",
     txWorkflowExecBtn: "Execute Workflow",
-    txWorkflowExecRawBtn: "Raw",
+    txWorkflowVisualTitle: "Workflow Visual Preview",
+    txWorkflowVisualEmpty: "No workflow JSON yet.",
+    txWorkflowVisualInvalid: "Workflow JSON parse failed",
+    txWorkflowVisualName: "Name",
+    txWorkflowVisualBlocks: "Blocks",
+    txWorkflowVisualFailFast: "Fail Fast",
+    txWorkflowVisualRollbackPolicy: "Rollback Policy",
+    txWorkflowVisualUndo: "Undo Command",
+    txWorkflowVisualTriggerStep: "Trigger Step",
+    txWorkflowVisualStep: "Step",
+    txWorkflowVisualTimeout: "Timeout",
+    txWorkflowVisualNoRollback: "No rollback command",
+    txWorkflowPreviewDone: "workflow preview updated",
     txWorkflowJsonRequired: "workflow json is required",
     txWorkflowImportEmpty: "tx block plan is empty",
     txWorkflowImportDone: "imported one tx block into workflow builder",
@@ -184,6 +213,14 @@ const i18n = {
     txWorkflowImportFileDone: "workflow json imported into builder",
     templateSelectedContentTitle: "Selected Template Content",
     templateSelectedContentPlaceholder: "template content preview",
+    templateExecVisualTitle: "Template Execution",
+    templateExecSummaryTotal: "Total Commands",
+    templateExecSummarySuccess: "Succeeded",
+    templateExecSummaryFailed: "Failed",
+    templateExecRenderedTitle: "Rendered Commands",
+    templateExecExecutedTitle: "Execution Results",
+    templateExecNoItems: "No executed commands",
+    templateExecVisualEmpty: "Run template to view visualized result.",
     promptMgrTitle: "Device Prompt Profiles",
     promptModeView: "View",
     promptModeEdit: "Edit",
@@ -217,9 +254,11 @@ const i18n = {
     backupRestored: "backup restored",
     backupPickOne: "please select a backup archive from list",
     templateListTitle: "Templates",
+    templateListEmpty: "no templates",
+    templatePathLabel: "path",
+    templateUseBtn: "Open",
     templateEditorTitle: "Editor",
     templateManagePathPlaceholder: "template path (auto)",
-    templateViewContentLabel: "Template Content",
     renderBtn: "Preview Render",
     execBtn: "Execute",
     templateExecBtn: "Run Template",
@@ -245,14 +284,12 @@ const i18n = {
     replayRunBtn: "Replay Command",
     replayNoJsonl: "replay JSONL is required",
     replayNoCommand: "replay command is required",
-    replayListEmpty: "no command_output entries",
     replayListNoData: "no replay result",
     recordListEmpty: "no recording data",
     recordParseError: "recording JSONL parse failed",
     noFailedEntries: "no failed command events",
     noMatchedEntries: "no matched events",
     replayContextTitle: "Context",
-    replayEntriesTitle: "Entries",
     replayOutputTitle: "Replay Output",
     statTotal: "Total",
     statCommandEvents: "Command Events",
@@ -287,11 +324,8 @@ const i18n = {
     detailLabelTimestamp: "Timestamp",
     detailLabelRecordLevel: "Record Level",
     detailLabelError: "Error",
-    tableDetail: "Details",
     recordingCopied: "recording copied",
     recordingSetToReplay: "recording moved to replay",
-    profileLoadBtn: "Load",
-    profileRefreshBtn: "Refresh",
     profileSaveBtn: "Save",
     profileDeleteBtn: "Delete",
     promptModeDiagnose: "Diagnose",
@@ -301,6 +335,7 @@ const i18n = {
     diagnoseOk: "Healthy",
     diagnoseBad: "Issues Found",
     profileNameRequired: "profile name is required",
+    templateNameRequired: "template name is required",
     diagTotalStates: "Total States",
     diagGraphStates: "States In Graph",
     diagEntryStates: "Entry States",
@@ -312,10 +347,11 @@ const i18n = {
     diagAmbiguousPromptStates: "Ambiguous Prompt States",
     diagSummaryProfile: "Profile",
     diagSummaryIssueCount: "Issue Count",
+    diagSummaryHealth: "Health",
+    diagSummaryBreakdown: "Issue Breakdown",
+    diagSummaryNone: "No issues detected",
     builtinDetailBtn: "View Detail",
     builtinCopyBtn: "Copy To Custom Form",
-    templateLoadBtn: "Load",
-    templateRefreshBtn: "Refresh",
     templateSaveBtn: "Save",
     templateDeleteBtn: "Delete",
     deleteInlineBtn: "Delete",
@@ -355,13 +391,6 @@ const i18n = {
     templateModePlaceholder: "mode (optional, default Enable)",
     customProfilePickerPlaceholder: "search/select custom profile name",
     templateViewPickerPlaceholder: "search/select template name",
-    profileMorePatternsPlaceholder: "more_patterns: one per line",
-    profileErrorPatternsPlaceholder: "error_patterns: one per line",
-    profileIgnoreErrorsPlaceholder: "ignore_errors: one per line",
-    profilePromptsPlaceholder: 'prompts JSON array, e.g. [{"state":"Enable","patterns":["^...$"]}]',
-    profileSysPromptsPlaceholder: "sys_prompts JSON array",
-    profileInteractionsPlaceholder: "interactions JSON array",
-    profileTransitionsPlaceholder: "transitions JSON array",
     templateContentPlaceholder: "Template content",
     running: "running...",
     requestFailed: "Request failed",
@@ -374,7 +403,6 @@ const i18n = {
     loaded: "Loaded",
     needLoadBuiltinFirst: "Load builtin detail first",
     copiedToCustom: "Copied to custom form",
-    templateCopiedToEdit: "Copied to create/update editor",
   },
   zh: {
     title: "rauto Web 控制台",
@@ -385,12 +413,15 @@ const i18n = {
     savedConnTitle: "已保存连接",
     savedConnNamePlaceholder: "连接配置名称",
     savedConnSavePassword: "保存密码",
-    savedConnLoadBtn: "加载",
     savedConnSaveBtn: "保存",
     savedConnDeleteBtn: "删除",
     savedConnHistoryBtn: "历史",
-    savedConnRefreshBtn: "刷新",
     savedConnHistoryEmpty: "该连接暂无执行历史",
+    savedConnListEmpty: "暂无已保存连接",
+    savedConnPathLabel: "路径",
+    savedConnSecretSaved: "已保存密码",
+    savedConnSecretNo: "未保存密码",
+    savedConnUseBtn: "使用",
     historyColIndex: "序号",
     historyColTime: "时间",
     historyColOperation: "操作",
@@ -436,11 +467,9 @@ const i18n = {
     historyDrawerConnLabel: "连接配置",
     historyFilterPlaceholder: "搜索命令/目标",
     historyFilterOperationAll: "全部操作",
-    historyFilterLimitLabel: "条数",
     historyFilterClear: "清空",
     opCardTitle: "执行模式",
     opKindExec: "执行",
-    opKindTemplate: "模板渲染并执行",
     opKindTx: "事务块执行",
     opExecDirect: "直接执行命令",
     opExecTemplate: "模板渲染并执行",
@@ -467,6 +496,24 @@ const i18n = {
     txStageHintWorkflow: "步骤 2：组合多个事务块并执行工作流。",
     txPlanBtn: "预览事务计划",
     txExecBtn: "执行事务块",
+    txBlockVisualTitle: "事务块可视化预览",
+    txBlockVisualEmpty: "还没有可预览的事务块。",
+    txBlockPreviewDone: "事务块预览已更新",
+    txBlockExecuteDone: "事务块执行完成",
+    txBlockSummaryName: "Block",
+    txBlockSummaryKind: "类型",
+    txBlockSummaryMode: "模式",
+    txBlockSummaryRollback: "回滚策略",
+    txBlockSummaryFailFast: "失败即停止",
+    txBlockSummarySteps: "步骤数",
+    txBlockResultTitle: "执行结果",
+    txBlockResultCommitted: "是否提交",
+    txBlockResultExecutedSteps: "已执行步骤",
+    txBlockResultRollback: "回滚状态",
+    txBlockResultRollbackSteps: "回滚步骤",
+    txBlockResultFailedStep: "失败步骤",
+    txBlockResultFailureReason: "失败原因",
+    txBlockResultRollbackErrors: "回滚错误",
     txWorkflowTitle: "事务工作流（JSON）",
     txWorkflowBuilderTitle: "工作流构建器",
     txWorkflowImportBlockBtn: "从事务块表单导入",
@@ -484,7 +531,6 @@ const i18n = {
     txWorkflowBlockModePlaceholder: "默认模式（如 Config）",
     txWorkflowBlockKindConfig: "config",
     txWorkflowBlockKindShow: "show",
-    txWorkflowBlockRollbackPolicyLabel: "回滚策略",
     txWorkflowBlockRollbackNone: "none",
     txWorkflowBlockRollbackPerStep: "per_step",
     txWorkflowBlockRollbackWhole: "whole_resource",
@@ -502,7 +548,6 @@ const i18n = {
     txWorkflowRollbackRuleAddRemove: "add → remove",
     txWorkflowRollbackRuleCustom: "自定义模板",
     txWorkflowRollbackTemplatePlaceholder: "模板，例如 no {{cmd}}",
-    txWorkflowRollbackLibraryLabel: "模板库",
     txWorkflowRollbackLibraryPick: "选择模板",
     txWorkflowRollbackLibraryName: "模板名称",
     txWorkflowRollbackLibrarySave: "保存",
@@ -530,7 +575,19 @@ const i18n = {
       '{"name":"fw-policy-publish","blocks":[],"fail_fast":true}',
     txWorkflowPlanBtn: "预览工作流",
     txWorkflowExecBtn: "执行工作流",
-    txWorkflowExecRawBtn: "原始数据",
+    txWorkflowVisualTitle: "工作流可视化预览",
+    txWorkflowVisualEmpty: "还没有可预览的 workflow JSON。",
+    txWorkflowVisualInvalid: "workflow JSON 解析失败",
+    txWorkflowVisualName: "名称",
+    txWorkflowVisualBlocks: "Block 数量",
+    txWorkflowVisualFailFast: "失败即停止",
+    txWorkflowVisualRollbackPolicy: "回滚策略",
+    txWorkflowVisualUndo: "回滚命令",
+    txWorkflowVisualTriggerStep: "触发步",
+    txWorkflowVisualStep: "步骤",
+    txWorkflowVisualTimeout: "超时",
+    txWorkflowVisualNoRollback: "无回滚命令",
+    txWorkflowPreviewDone: "工作流预览已更新",
     txWorkflowJsonRequired: "需要填写 workflow JSON",
     txWorkflowImportEmpty: "事务块计划为空",
     txWorkflowImportDone: "已导入一个事务块到工作流构建器",
@@ -539,6 +596,14 @@ const i18n = {
     txWorkflowImportFileDone: "已从文件导入 workflow JSON 并回填构建器",
     templateSelectedContentTitle: "已选模板内容",
     templateSelectedContentPlaceholder: "模板内容预览",
+    templateExecVisualTitle: "模板执行结果",
+    templateExecSummaryTotal: "命令总数",
+    templateExecSummarySuccess: "成功",
+    templateExecSummaryFailed: "失败",
+    templateExecRenderedTitle: "渲染命令",
+    templateExecExecutedTitle: "执行结果",
+    templateExecNoItems: "没有执行结果",
+    templateExecVisualEmpty: "执行模板后可在这里查看可视化结果。",
     promptMgrTitle: "设备 Prompt 配置",
     promptModeView: "查看详情",
     promptModeEdit: "新增/修改",
@@ -570,9 +635,11 @@ const i18n = {
     backupRestored: "备份已恢复",
     backupPickOne: "请先从列表中选择一个备份归档",
     templateListTitle: "Template 列表",
+    templateListEmpty: "暂无 template",
+    templatePathLabel: "路径",
+    templateUseBtn: "打开",
     templateEditorTitle: "编辑器",
     templateManagePathPlaceholder: "template 路径（自动）",
-    templateViewContentLabel: "模板内容",
     renderBtn: "预览渲染",
     execBtn: "执行",
     templateExecBtn: "运行模板",
@@ -598,14 +665,12 @@ const i18n = {
     replayRunBtn: "回放命令",
     replayNoJsonl: "回放 JSONL 不能为空",
     replayNoCommand: "回放命令不能为空",
-    replayListEmpty: "没有 command_output 记录",
     replayListNoData: "暂无回放结果",
     recordListEmpty: "暂无录制数据",
     recordParseError: "录制 JSONL 解析失败",
     noFailedEntries: "没有失败命令事件",
     noMatchedEntries: "没有匹配事件",
     replayContextTitle: "上下文",
-    replayEntriesTitle: "事件列表",
     replayOutputTitle: "回放输出",
     statTotal: "总数",
     statCommandEvents: "命令事件",
@@ -640,11 +705,8 @@ const i18n = {
     detailLabelTimestamp: "时间",
     detailLabelRecordLevel: "录制级别",
     detailLabelError: "错误",
-    tableDetail: "详情",
     recordingCopied: "录制内容已复制",
     recordingSetToReplay: "录制内容已填入回放",
-    profileLoadBtn: "加载",
-    profileRefreshBtn: "刷新",
     profileSaveBtn: "保存",
     profileDeleteBtn: "删除",
     promptModeDiagnose: "诊断",
@@ -654,6 +716,7 @@ const i18n = {
     diagnoseOk: "健康",
     diagnoseBad: "发现问题",
     profileNameRequired: "profile 名称不能为空",
+    templateNameRequired: "template 名称不能为空",
     diagTotalStates: "状态总数",
     diagGraphStates: "参与图构建的状态数",
     diagEntryStates: "入口状态数",
@@ -665,10 +728,11 @@ const i18n = {
     diagAmbiguousPromptStates: "可能歧义的提示状态",
     diagSummaryProfile: "诊断对象",
     diagSummaryIssueCount: "问题计数",
+    diagSummaryHealth: "健康度",
+    diagSummaryBreakdown: "问题分布",
+    diagSummaryNone: "未检测到问题",
     builtinDetailBtn: "查看详情",
     builtinCopyBtn: "复制到新增/修改",
-    templateLoadBtn: "加载",
-    templateRefreshBtn: "刷新",
     templateSaveBtn: "保存",
     templateDeleteBtn: "删除",
     deleteInlineBtn: "删除",
@@ -708,13 +772,6 @@ const i18n = {
     templateModePlaceholder: "模式（可选，默认 Enable）",
     customProfilePickerPlaceholder: "搜索/选择自定义 profile 名称",
     templateViewPickerPlaceholder: "搜索/选择 template 名称",
-    profileMorePatternsPlaceholder: "more_patterns：每行一个",
-    profileErrorPatternsPlaceholder: "error_patterns：每行一个",
-    profileIgnoreErrorsPlaceholder: "ignore_errors：每行一个",
-    profilePromptsPlaceholder: 'prompts JSON 数组，例如 [{"state":"Enable","patterns":["^...$"]}]',
-    profileSysPromptsPlaceholder: "sys_prompts JSON 数组",
-    profileInteractionsPlaceholder: "interactions JSON 数组",
-    profileTransitionsPlaceholder: "transitions JSON 数组",
     templateContentPlaceholder: "Template 内容",
     running: "执行中...",
     requestFailed: "请求失败",
@@ -727,7 +784,6 @@ const i18n = {
     loaded: "已加载",
     needLoadBuiltinFirst: "请先加载内置详情",
     copiedToCustom: "已复制到新增/修改表单",
-    templateCopiedToEdit: "已复制到新增/修改编辑区",
   },
 };
 
@@ -740,9 +796,12 @@ let cachedSavedConnections = [];
 let cachedCustomProfiles = [];
 let cachedDeviceProfiles = [];
 let cachedTemplates = [];
+let cachedTemplateMetas = [];
 let cachedBackups = [];
 let lastBuiltinProfile = null;
 let lastTemplateDetail = null;
+let lastDiagnoseSnapshot = null;
+let lastTemplateExecResult = null;
 let recordViewMode = localStorage.getItem(STORAGE_KEYS.recordViewMode) || "list";
 let replayViewMode = localStorage.getItem(STORAGE_KEYS.replayViewMode) || "list";
 let lastReplayResult = null;
@@ -767,6 +826,10 @@ let txWorkflowDragBlockId = "";
 let txWorkflowFilterKind = "all";
 let txWorkflowFilterRollback = "all";
 let txWorkflowFilterQuery = "";
+let lastTxBlockPreview = {
+  txBlock: null,
+  txResult: null,
+};
 let txAdvancedExpanded = false;
 let currentTxStage = "block";
 let txWorkflowMoreExpanded = false;
@@ -1020,6 +1083,8 @@ function applyI18n() {
   byId("render-btn").textContent = t("renderBtn");
   byId("exec-btn").textContent = t("execBtn");
   byId("template-exec-btn").textContent = t("templateExecBtn");
+  byId("template-exec-visual-title").textContent = t("templateExecVisualTitle");
+  renderTemplateExecVisual();
   byId("recording-title").textContent = t("recordingTitle");
   byId("record-view-label").textContent = t("recordViewLabel");
   byId("record-view-list").textContent = t("viewList");
@@ -1132,6 +1197,7 @@ function applyI18n() {
   byId("tx-stage-workflow").textContent = `2. ${t("txStageWorkflow")}`;
   byId("tx-plan-btn").textContent = t("txPlanBtn");
   byId("tx-exec-btn").textContent = t("txExecBtn");
+  byId("tx-block-visual-title").textContent = t("txBlockVisualTitle");
   byId("tx-workflow-title").textContent = t("txWorkflowTitle");
   byId("tx-workflow-builder-title").textContent = t("txWorkflowBuilderTitle");
   byId("tx-workflow-import-block-btn").textContent = t("txWorkflowImportBlockBtn");
@@ -1164,8 +1230,10 @@ function applyI18n() {
   byId("tx-workflow-json").placeholder = t("txWorkflowJsonPlaceholder");
   byId("tx-workflow-plan-btn").textContent = t("txWorkflowPlanBtn");
   byId("tx-workflow-exec-btn").textContent = t("txWorkflowExecBtn");
-  byId("tx-workflow-exec-raw-toggle").textContent = t("txWorkflowExecRawBtn");
+  renderTxBlockVisual();
+  byId("tx-workflow-visual-title").textContent = t("txWorkflowVisualTitle");
   renderTxWorkflowBuilder();
+  renderTxWorkflowPreviewFromEditor();
   byId("record-jsonl").placeholder = t("recordJsonlPlaceholder");
   byId("replay-jsonl").placeholder = t("replayJsonlPlaceholder");
   byId("replay-command").placeholder = t("replayCommandPlaceholder");
@@ -1182,9 +1250,14 @@ function applyI18n() {
   byId("builtin-detail-source").placeholder = t("builtinFieldSource");
   byId("builtin-detail-notes").placeholder = t("builtinFieldNotes");
   byId("template-pick-name").placeholder = t("templateViewPickerPlaceholder");
+  renderSavedConnectionList();
+  renderTemplateList();
   renderCustomProfileOptions();
   renderDiagnoseProfileOptions();
   renderTemplateOptions();
+  if (lastDiagnoseSnapshot) {
+    renderDiagnoseResult(lastDiagnoseSnapshot.name, lastDiagnoseSnapshot.report);
+  }
   byId("template-manage-path").placeholder = t("templateManagePathPlaceholder");
   byId("template-content").placeholder = t("templateContentPlaceholder");
   byId("interactive-command").placeholder = t("interactiveCommandPlaceholder");
@@ -1539,6 +1612,25 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function renderStatusMessageCard(message, tone = "info") {
+  const text = safeString(message || "-");
+  const cls =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "error"
+        ? "border-rose-200 bg-rose-50 text-rose-700"
+        : tone === "running"
+          ? "border-cyan-200 bg-cyan-50 text-cyan-700"
+          : "border-slate-200 bg-slate-50 text-slate-600";
+  return `<div class="rounded-xl border px-3 py-2 text-sm ${cls}">${escapeHtml(text)}</div>`;
+}
+
+function setStatusMessage(id, message, tone = "info") {
+  const el = byId(id);
+  if (!el) return;
+  el.innerHTML = renderStatusMessageCard(message, tone);
+}
+
 function parseJsonl(jsonl) {
   const rows = [];
   const text = (jsonl || "").trim();
@@ -1643,6 +1735,102 @@ function renderStatsCards(stats) {
   `;
 }
 
+function renderTemplateExecuteResult(data) {
+  if (!data || typeof data !== "object") {
+    return `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      t("requestFailed")
+    )}</div>`;
+  }
+  const rendered = safeString(data.rendered_commands);
+  const executed = Array.isArray(data.executed) ? data.executed : [];
+  const successCount = executed.filter((item) => item && item.success).length;
+  const failedCount = Math.max(0, executed.length - successCount);
+  const summary = `
+    <div class="grid gap-2 md:grid-cols-3">
+      ${renderTxWorkflowPreviewMeta(t("templateExecSummaryTotal"), executed.length)}
+      ${renderTxWorkflowPreviewMeta(t("templateExecSummarySuccess"), successCount)}
+      ${renderTxWorkflowPreviewMeta(t("templateExecSummaryFailed"), failedCount)}
+    </div>
+  `;
+  const renderedCard = `
+    <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+      <div class="text-sm font-semibold text-slate-900">${escapeHtml(
+        t("templateExecRenderedTitle")
+      )}</div>
+      <pre class="output mt-2">${escapeHtml(rendered || "-")}</pre>
+    </section>
+  `;
+  const rows = executed
+    .map((item, idx) => {
+      const success = !!(item && item.success);
+      return `
+      <div class="rounded-lg border ${
+        success ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
+      } px-3 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-xs font-semibold ${
+            success ? "text-emerald-700" : "text-rose-700"
+          }">#${idx + 1}</div>
+          <span class="tx-workflow-chip">${
+            success
+              ? '<span class="text-emerald-700">OK</span>'
+              : '<span class="text-rose-700">FAIL</span>'
+          }</span>
+        </div>
+        <div class="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+          <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+            t("fieldCommand")
+          )}</div>
+          <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
+            safeString(item && item.command)
+          )}</div>
+        </div>
+        ${
+          item && item.output
+            ? `<pre class="output mt-2">${escapeHtml(safeString(item.output))}</pre>`
+            : ""
+        }
+        ${
+          item && item.error
+            ? `<div class="mt-2 rounded-lg border border-rose-200 bg-rose-100 px-3 py-2 text-xs text-rose-700">${escapeHtml(
+                safeString(item.error)
+              )}</div>`
+            : ""
+        }
+      </div>
+    `;
+    })
+    .join("");
+  const executedCard = `
+    <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+      <div class="text-sm font-semibold text-slate-900">${escapeHtml(
+        t("templateExecExecutedTitle")
+      )}</div>
+      <div class="mt-2 grid gap-2">
+        ${
+          rows ||
+          `<div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+            t("templateExecNoItems")
+          )}</div>`
+        }
+      </div>
+    </section>
+  `;
+  return `<div class="grid gap-3">${summary}${renderedCard}${executedCard}</div>`;
+}
+
+function renderTemplateExecVisual() {
+  const visualOut = byId("template-exec-visual");
+  if (!visualOut) return;
+  if (!lastTemplateExecResult) {
+    visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("templateExecVisualEmpty")
+    )}</div>`;
+    return;
+  }
+  visualOut.innerHTML = renderTemplateExecuteResult(lastTemplateExecResult);
+}
+
 function renderTxWorkflowResult(result) {
   if (!result) return `<pre class="output">${escapeHtml(t("requestFailed"))}</pre>`;
   const failedIdx =
@@ -1715,6 +1903,438 @@ function renderTxWorkflowResult(result) {
     })
     .join("");
   return `<div class="grid gap-3">${summary}${blockCards}</div>`;
+}
+
+function txWorkflowKindLabel(kind) {
+  return kind === "show"
+    ? t("txWorkflowBlockKindShow")
+    : t("txWorkflowBlockKindConfig");
+}
+
+function txWorkflowRollbackPolicyLabel(rollbackPolicy) {
+  if (typeof rollbackPolicy === "string") {
+    if (rollbackPolicy === "none") return t("txWorkflowBlockRollbackNone");
+    if (rollbackPolicy === "whole_resource") return t("txWorkflowBlockRollbackWhole");
+    return t("txWorkflowBlockRollbackPerStep");
+  }
+  if (
+    rollbackPolicy &&
+    typeof rollbackPolicy === "object" &&
+    rollbackPolicy.whole_resource
+  ) {
+    return t("txWorkflowBlockRollbackWhole");
+  }
+  return t("txWorkflowBlockRollbackPerStep");
+}
+
+function renderTxBlockVisual() {
+  const visualOut = byId("tx-block-visual");
+  if (!visualOut) return;
+  visualOut.innerHTML = renderTxBlockPreview(
+    lastTxBlockPreview.txBlock,
+    lastTxBlockPreview.txResult
+  );
+}
+
+function setTxBlockVisual(txBlock, txResult) {
+  lastTxBlockPreview = {
+    txBlock: txBlock || null,
+    txResult: txResult || null,
+  };
+  renderTxBlockVisual();
+}
+
+function renderTxBlockPreview(txBlock, txResult) {
+  if (!txBlock || typeof txBlock !== "object") {
+    return `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("txBlockVisualEmpty")
+    )}</div>`;
+  }
+  const steps = Array.isArray(txBlock.steps) ? txBlock.steps : [];
+  const modes = Array.from(
+    new Set(
+      steps
+        .map((step) => safeString(step && step.mode).trim())
+        .filter((s) => !!s)
+    )
+  );
+  const modeText = modes.length ? modes.join(", ") : "Config";
+  const rollbackText = txWorkflowRollbackPolicyLabel(txBlock.rollback_policy);
+  const wholeResource =
+    txBlock.rollback_policy &&
+    typeof txBlock.rollback_policy === "object" &&
+    txBlock.rollback_policy.whole_resource
+      ? txBlock.rollback_policy.whole_resource
+      : null;
+  const summary = `
+    <div class="grid gap-2 md:grid-cols-3">
+      ${renderTxWorkflowPreviewMeta(
+        t("txBlockSummaryName"),
+        txBlock.name || "tx-block"
+      )}
+      ${renderTxWorkflowPreviewMeta(
+        t("txBlockSummaryKind"),
+        txWorkflowKindLabel(txBlock.kind)
+      )}
+      ${renderTxWorkflowPreviewMeta(t("txBlockSummaryMode"), modeText)}
+      ${renderTxWorkflowPreviewMeta(t("txBlockSummaryRollback"), rollbackText)}
+      ${renderTxWorkflowPreviewMeta(
+        t("txBlockSummaryFailFast"),
+        String(txBlock.fail_fast !== false)
+      )}
+      ${renderTxWorkflowPreviewMeta(t("txBlockSummarySteps"), steps.length)}
+    </div>
+  `;
+  const wholeResourceSection = wholeResource
+    ? `
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+        <div class="grid gap-2 md:grid-cols-3">
+          ${renderTxWorkflowPreviewMeta(
+            t("txWorkflowVisualUndo"),
+            wholeResource.undo_command || "-"
+          )}
+          ${renderTxWorkflowPreviewMeta(
+            t("txWorkflowVisualTriggerStep"),
+            wholeResource.trigger_step_index != null
+              ? wholeResource.trigger_step_index
+              : 0
+          )}
+          ${renderTxWorkflowPreviewMeta(
+            t("txWorkflowSummaryMode"),
+            wholeResource.mode || modeText
+          )}
+        </div>
+      </div>
+    `
+    : "";
+  const stepRows = steps.length
+    ? steps
+        .map((step, idx) => {
+          const rollbackCmd =
+            step && step.rollback_command != null
+              ? String(step.rollback_command).trim()
+              : "";
+          const timeoutLabel =
+            step && step.timeout_secs != null && String(step.timeout_secs).trim()
+              ? `${step.timeout_secs}s`
+              : "-";
+          return `
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-xs font-semibold text-slate-600">${escapeHtml(
+              `${t("txWorkflowVisualStep")} ${idx + 1}`
+            )}</div>
+            <div class="inline-flex flex-wrap items-center gap-1">
+              <span class="tx-workflow-chip">${escapeHtml(
+                `${t("txWorkflowSummaryMode")}: ${
+                  safeString(step && step.mode).trim() || "Config"
+                }`
+              )}</span>
+              <span class="tx-workflow-chip">${escapeHtml(
+                `${t("txWorkflowVisualTimeout")}: ${timeoutLabel}`
+              )}</span>
+              ${
+                step && step.rollback_on_failure
+                  ? `<span class="tx-workflow-chip">${escapeHtml(
+                      t("txWorkflowRollbackOnFailureLabel")
+                    )}</span>`
+                  : ""
+              }
+            </div>
+          </div>
+          <div class="mt-2 grid gap-2 md:grid-cols-2">
+            <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2">
+              <div class="text-[11px] font-semibold text-cyan-700">${escapeHtml(
+                t("fieldCommand")
+              )}</div>
+              <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
+                safeString(step && step.command)
+              )}</div>
+            </div>
+            <div class="rounded-lg border ${
+              rollbackCmd
+                ? "border-amber-200 bg-amber-50"
+                : "border-slate-200 bg-slate-100"
+            } px-3 py-2">
+              <div class="text-[11px] font-semibold ${
+                rollbackCmd ? "text-amber-700" : "text-slate-500"
+              }">${escapeHtml(t("txWorkflowSummaryRollback"))}</div>
+              <div class="mt-1 break-all font-mono text-xs ${
+                rollbackCmd ? "text-slate-900" : "text-slate-500"
+              }">${escapeHtml(rollbackCmd || t("txWorkflowVisualNoRollback"))}</div>
+            </div>
+          </div>
+        </div>
+      `;
+        })
+        .join("")
+    : `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+        t("txWorkflowBuilderEmpty")
+      )}</div>`;
+  const resultSection =
+    txResult && typeof txResult === "object"
+      ? `
+    <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+      <div class="text-sm font-semibold text-slate-900">${escapeHtml(
+        t("txBlockResultTitle")
+      )}</div>
+      <div class="mt-2 grid gap-2 md:grid-cols-3">
+        ${renderTxWorkflowPreviewMeta(
+          t("txBlockResultCommitted"),
+          String(!!txResult.committed)
+        )}
+        ${renderTxWorkflowPreviewMeta(
+          t("txBlockResultExecutedSteps"),
+          txResult.executed_steps != null ? txResult.executed_steps : "-"
+        )}
+        ${renderTxWorkflowPreviewMeta(
+          t("txBlockResultRollback"),
+          `attempted=${!!txResult.rollback_attempted} succeeded=${!!txResult.rollback_succeeded}`
+        )}
+        ${renderTxWorkflowPreviewMeta(
+          t("txBlockResultRollbackSteps"),
+          txResult.rollback_steps != null ? txResult.rollback_steps : "-"
+        )}
+        ${renderTxWorkflowPreviewMeta(
+          t("txBlockResultFailedStep"),
+          txResult.failed_step != null ? txResult.failed_step : "-"
+        )}
+        ${renderTxWorkflowPreviewMeta(
+          t("txBlockResultFailureReason"),
+          txResult.failure_reason || "-"
+        )}
+      </div>
+      ${
+        Array.isArray(txResult.rollback_errors) && txResult.rollback_errors.length
+          ? `<div class="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              <div class="font-semibold">${escapeHtml(
+                t("txBlockResultRollbackErrors")
+              )}</div>
+              <div class="mt-1 break-all">${escapeHtml(
+                txResult.rollback_errors.join(" | ")
+              )}</div>
+            </div>`
+          : ""
+      }
+    </section>
+  `
+      : "";
+  return `
+    <div class="grid gap-3">
+      ${summary}
+      ${wholeResourceSection}
+      <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+        <div class="text-sm font-semibold text-slate-900">${escapeHtml(
+          t("txBlockSummarySteps")
+        )}</div>
+        <div class="mt-2 grid gap-2">${stepRows}</div>
+      </section>
+      ${resultSection}
+    </div>
+  `;
+}
+
+function renderTxWorkflowPreviewMeta(label, value) {
+  return `
+    <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <div class="text-xs text-slate-500">${escapeHtml(label)}</div>
+      <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(
+        safeString(value)
+      )}</div>
+    </div>
+  `;
+}
+
+function renderTxWorkflowPreview(workflow) {
+  if (!workflow || typeof workflow !== "object") {
+    return `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("txWorkflowVisualEmpty")
+    )}</div>`;
+  }
+  const blocks = Array.isArray(workflow.blocks) ? workflow.blocks : [];
+  const summary = `
+    <div class="grid gap-2 md:grid-cols-3">
+      ${renderTxWorkflowPreviewMeta(
+        t("txWorkflowVisualName"),
+        workflow.name || "-"
+      )}
+      ${renderTxWorkflowPreviewMeta(t("txWorkflowVisualBlocks"), blocks.length)}
+      ${renderTxWorkflowPreviewMeta(
+        t("txWorkflowVisualFailFast"),
+        String(workflow.fail_fast !== false)
+      )}
+    </div>
+  `;
+  const blockCards = blocks
+    .map((block, blockIdx) => {
+      const steps = Array.isArray(block && block.steps) ? block.steps : [];
+      const modes = Array.from(
+        new Set(
+          steps
+            .map((step) => safeString(step && step.mode).trim())
+            .filter((s) => !!s)
+        )
+      );
+      const modeText = modes.length ? modes.join(", ") : "Config";
+      const rollbackText = txWorkflowRollbackPolicyLabel(
+        block ? block.rollback_policy : null
+      );
+      const wholeResource =
+        block &&
+        block.rollback_policy &&
+        typeof block.rollback_policy === "object" &&
+        block.rollback_policy.whole_resource
+          ? block.rollback_policy.whole_resource
+          : null;
+      const wholeResourceRow = wholeResource
+        ? `
+      <div class="grid gap-2 md:grid-cols-3">
+        ${renderTxWorkflowPreviewMeta(
+          t("txWorkflowVisualUndo"),
+          wholeResource.undo_command || "-"
+        )}
+        ${renderTxWorkflowPreviewMeta(
+          t("txWorkflowVisualTriggerStep"),
+          wholeResource.trigger_step_index != null
+            ? wholeResource.trigger_step_index
+            : 0
+        )}
+        ${renderTxWorkflowPreviewMeta(
+          t("txWorkflowSummaryMode"),
+          wholeResource.mode || modeText
+        )}
+      </div>
+      `
+        : "";
+      const stepRows = steps.length
+        ? steps
+            .map((step, stepIdx) => {
+              const rollbackCmd =
+                step && step.rollback_command != null
+                  ? String(step.rollback_command).trim()
+                  : "";
+              const timeoutLabel =
+                step && step.timeout_secs != null && String(step.timeout_secs).trim()
+                  ? `${step.timeout_secs}s`
+                  : "-";
+              return `
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs font-semibold text-slate-600">${escapeHtml(
+                `${t("txWorkflowVisualStep")} ${stepIdx + 1}`
+              )}</div>
+              <div class="inline-flex flex-wrap items-center gap-1">
+                <span class="tx-workflow-chip">${escapeHtml(
+                  `${t("txWorkflowSummaryMode")}: ${
+                    safeString(step && step.mode).trim() || "Config"
+                  }`
+                )}</span>
+                <span class="tx-workflow-chip">${escapeHtml(
+                  `${t("txWorkflowVisualTimeout")}: ${timeoutLabel}`
+                )}</span>
+                ${
+                  step && step.rollback_on_failure
+                    ? `<span class="tx-workflow-chip">${escapeHtml(
+                        t("txWorkflowRollbackOnFailureLabel")
+                      )}</span>`
+                    : ""
+                }
+              </div>
+            </div>
+            <div class="mt-2 grid gap-2 md:grid-cols-2">
+              <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2">
+                <div class="text-[11px] font-semibold text-cyan-700">${escapeHtml(
+                  t("fieldCommand")
+                )}</div>
+                <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
+                  safeString(step && step.command)
+                )}</div>
+              </div>
+              <div class="rounded-lg border ${
+                rollbackCmd
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-slate-200 bg-slate-100"
+              } px-3 py-2">
+                <div class="text-[11px] font-semibold ${
+                  rollbackCmd ? "text-amber-700" : "text-slate-500"
+                }">${escapeHtml(t("txWorkflowSummaryRollback"))}</div>
+                <div class="mt-1 break-all font-mono text-xs ${
+                  rollbackCmd ? "text-slate-900" : "text-slate-500"
+                }">${escapeHtml(rollbackCmd || t("txWorkflowVisualNoRollback"))}</div>
+              </div>
+            </div>
+          </div>
+        `;
+            })
+            .join("")
+        : `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+            t("txWorkflowBuilderEmpty")
+          )}</div>`;
+      return `
+      <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-sm font-semibold text-slate-900">block[${blockIdx}] ${escapeHtml(
+            safeString((block && block.name) || "tx-block")
+          )}</div>
+          <div class="inline-flex flex-wrap items-center gap-1">
+            <span class="tx-workflow-chip">${escapeHtml(
+              `${t("txWorkflowSummaryKind")}: ${txWorkflowKindLabel(
+                block && block.kind
+              )}`
+            )}</span>
+            <span class="tx-workflow-chip">${escapeHtml(
+              `${t("txWorkflowVisualRollbackPolicy")}: ${rollbackText}`
+            )}</span>
+            <span class="tx-workflow-chip">${escapeHtml(
+              `${t("txWorkflowSummaryMode")}: ${modeText}`
+            )}</span>
+            <span class="tx-workflow-chip">${escapeHtml(
+              `${t("txWorkflowVisualFailFast")}: ${String(
+                block && block.fail_fast !== false
+              )}`
+            )}</span>
+          </div>
+        </div>
+        <div class="mt-2 grid gap-2">
+          ${wholeResourceRow}
+          ${stepRows}
+        </div>
+      </section>
+    `;
+    })
+    .join("");
+  const blocksView =
+    blockCards ||
+    `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("txWorkflowVisualEmpty")
+    )}</div>`;
+  return `<div class="grid gap-3">${summary}${blocksView}</div>`;
+}
+
+function setTxWorkflowPreview(workflow) {
+  const visualOut = byId("tx-workflow-plan-visual");
+  if (!visualOut) return;
+  visualOut.innerHTML = renderTxWorkflowPreview(workflow || {});
+}
+
+function renderTxWorkflowPreviewFromEditor() {
+  const visualOut = byId("tx-workflow-plan-visual");
+  if (!visualOut) return;
+  const raw = byId("tx-workflow-json").value.trim();
+  if (!raw) {
+    visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("txWorkflowVisualEmpty")
+    )}</div>`;
+    return;
+  }
+  try {
+    const workflow = JSON.parse(raw);
+    setTxWorkflowPreview(workflow);
+  } catch (e) {
+    visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      `${t("txWorkflowVisualInvalid")}: ${e.message || t("requestFailed")}`
+    )}</div>`;
+  }
 }
 
 function successBadge(event) {
@@ -2183,49 +2803,43 @@ function renderBackupList() {
 }
 
 async function loadBackups() {
-  const out = byId("backup-out");
   try {
     const data = await request("GET", "/api/backups");
     cachedBackups = Array.isArray(data) ? data : [];
     renderBackupOptions(byId("backup-restore-archive").value || "");
     updateSelectedBackupMeta();
     renderBackupList();
-    if (!out.textContent || out.textContent.trim() === "-" || out.textContent.includes("running")) {
-      out.textContent = "-";
-    }
   } catch (e) {
     cachedBackups = [];
     renderBackupOptions("");
     updateSelectedBackupMeta();
     renderBackupList();
-    out.textContent = e.message;
+    setStatusMessage("backup-out", e.message, "error");
   }
 }
 
 async function createBackupFromWeb() {
-  const out = byId("backup-out");
-  out.textContent = t("running");
+  setStatusMessage("backup-out", t("running"), "running");
   try {
     const output = byId("backup-output-path").value.trim();
     const data = await request("POST", "/api/backups", {
       output: output || null,
     });
     const path = (data && data.path) || "-";
-    out.textContent = `${t("backupCreated")}: ${path}`;
+    setStatusMessage("backup-out", `${t("backupCreated")}: ${path}`, "success");
     if (path && path !== "-") {
       byId("backup-restore-archive").value = path;
     }
     await loadBackups();
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("backup-out", e.message, "error");
   }
 }
 
 async function restoreBackupFromWeb(replace = false) {
-  const out = byId("backup-out");
   const archive = byId("backup-restore-archive").value.trim();
   if (!archive) {
-    out.textContent = t("backupArchiveRequired");
+    setStatusMessage("backup-out", t("backupArchiveRequired"), "error");
     return;
   }
   const confirmText = replace
@@ -2234,27 +2848,30 @@ async function restoreBackupFromWeb(replace = false) {
   if (!window.confirm(confirmText)) {
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("backup-out", t("running"), "running");
   try {
     const data = await request("POST", "/api/backups/restore", {
       archive,
       replace,
     });
-    out.textContent = `${t("backupRestored")}: ${data.archive || archive}`;
+    setStatusMessage(
+      "backup-out",
+      `${t("backupRestored")}: ${data.archive || archive}`,
+      "success"
+    );
     await loadBackups();
     await loadSavedConnections();
     await loadProfilesOverview();
     await loadTemplates();
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("backup-out", e.message, "error");
   }
 }
 
 function downloadBackupFromWeb() {
-  const out = byId("backup-out");
   const name = selectedBackupNameFromInput();
   if (!name) {
-    out.textContent = t("backupPickOne");
+    setStatusMessage("backup-out", t("backupPickOne"), "error");
     return;
   }
   const url = `/api/backups/${encodeURIComponent(name)}/download`;
@@ -2268,80 +2885,121 @@ function selectBackupPath(path) {
   renderBackupList();
 }
 
-async function loadSavedConnections() {
+function renderSavedConnectionList(errorMessage = "") {
   const out = byId("saved-conn-list");
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      errorMessage
+    )}</div>`;
+    return;
+  }
+  if (!Array.isArray(cachedSavedConnections) || cachedSavedConnections.length === 0) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("savedConnListEmpty")
+    )}</div>`;
+    return;
+  }
+  const selectedName = byId("saved-conn-name").value.trim();
+  out.innerHTML = cachedSavedConnections
+    .map((item) => {
+      const active = selectedName && item.name === selectedName;
+      const cls = active
+        ? "border-teal-300 bg-teal-50/70"
+        : "border-slate-200 bg-white hover:border-slate-300";
+      const pwdCls = item.has_password
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : "border-slate-200 bg-slate-100 text-slate-600";
+      return `
+        <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-saved-conn-row ${cls}" data-name="${escapeHtml(
+          item.name || ""
+        )}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+              item.name || "-"
+            )}</span>
+            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(
+              t("savedConnUseBtn")
+            )}</span>
+          </div>
+          <div class="mt-1 text-xs text-slate-500">${escapeHtml(
+            `${t("savedConnPathLabel")}: ${item.path || "-"}`
+          )}</div>
+          <div class="mt-2">
+            <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${pwdCls}">${escapeHtml(
+              item.has_password ? t("savedConnSecretSaved") : t("savedConnSecretNo")
+            )}</span>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+async function loadSavedConnections() {
   try {
     const data = await request("GET", "/api/connections");
     cachedSavedConnections = Array.isArray(data) ? data : [];
     renderSavedConnectionOptions(byId("saved-conn-name").value || "");
-    out.textContent =
-      cachedSavedConnections
-        .map(
-          (item) =>
-            `- ${item.name} -> ${item.path}${item.has_password ? " (with password)" : ""}`
-        )
-        .join("\n") || "-";
+    renderSavedConnectionList();
   } catch (e) {
     cachedSavedConnections = [];
     renderSavedConnectionOptions("");
-    out.textContent = e.message;
+    renderSavedConnectionList(e.message);
   }
   updateRecordFabVisibility();
 }
 
 async function loadSavedConnectionByName() {
   const name = byId("saved-conn-name").value.trim();
-  const out = byId("saved-conn-out");
   if (!name) {
-    out.textContent = t("connectionNameRequired");
+    setStatusMessage("saved-conn-out", t("connectionNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("saved-conn-out", t("running"), "running");
   try {
     const data = await request("GET", `/api/connections/${encodeURIComponent(name)}`);
     applyConnectionForm(data.connection || {});
     byId("saved-conn-name").value = data.name || name;
-    out.textContent = `${t("loaded")}: ${data.name}`;
+    setStatusMessage("saved-conn-out", `${t("loaded")}: ${data.name}`, "success");
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("saved-conn-out", e.message, "error");
   }
 }
 
 async function saveConnectionByName() {
   const name = byId("saved-conn-name").value.trim();
-  const out = byId("saved-conn-out");
   if (!name) {
-    out.textContent = t("connectionNameRequired");
+    setStatusMessage("saved-conn-out", t("connectionNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("saved-conn-out", t("running"), "running");
   try {
     const data = await request("PUT", `/api/connections/${encodeURIComponent(name)}`, {
       connection: connectionPayload(),
       save_password: byId("saved-conn-save-password").checked,
     });
-    out.textContent = `${t("saved")}: ${data.path}`;
+    setStatusMessage("saved-conn-out", `${t("saved")}: ${data.path}`, "success");
     await loadSavedConnections();
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("saved-conn-out", e.message, "error");
   }
 }
 
 async function deleteConnectionByName() {
   const name = byId("saved-conn-name").value.trim();
-  const out = byId("saved-conn-out");
   if (!name) {
-    out.textContent = t("connectionNameRequired");
+    setStatusMessage("saved-conn-out", t("connectionNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("saved-conn-out", t("running"), "running");
   try {
     await request("DELETE", `/api/connections/${encodeURIComponent(name)}`);
-    out.textContent = `${t("deleted")}: ${name}`;
+    setStatusMessage("saved-conn-out", `${t("deleted")}: ${name}`, "success");
     byId("saved-conn-name").value = "";
     await loadSavedConnections();
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("saved-conn-out", e.message, "error");
   }
 }
 
@@ -2422,19 +3080,18 @@ async function loadConnectionHistoryDetail(historyId) {
 
 async function deleteConnectionHistoryItem(historyId) {
   const name = byId("saved-conn-name").value.trim();
-  const out = byId("saved-conn-out");
   if (!name || !historyId) return;
   if (!window.confirm(t("historyDeleteConfirm"))) return;
-  out.textContent = t("running");
+  setStatusMessage("saved-conn-out", t("running"), "running");
   try {
     await request(
       "DELETE",
       `/api/connections/${encodeURIComponent(name)}/history/${encodeURIComponent(historyId)}`
     );
-    out.textContent = t("historyDeleteDone");
+    setStatusMessage("saved-conn-out", t("historyDeleteDone"), "success");
     await loadConnectionHistory();
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("saved-conn-out", e.message, "error");
   }
 }
 
@@ -3062,12 +3719,13 @@ function generateTxWorkflowJsonFromBuilder() {
       fail_fast: block.failFast,
     };
   });
-    const workflow = {
-      name,
-      blocks,
-      fail_fast: failFast,
-    };
-    byId("tx-workflow-json").value = JSON.stringify(workflow, null, 2);
+  const workflow = {
+    name,
+    blocks,
+    fail_fast: failFast,
+  };
+  byId("tx-workflow-json").value = JSON.stringify(workflow, null, 2);
+  setTxWorkflowPreview(workflow);
 }
 
 function loadTxWorkflowBuilderFromJson() {
@@ -3113,6 +3771,7 @@ function loadTxWorkflowBuilderFromJson() {
     });
   });
   renderTxWorkflowBuilder();
+  renderTxWorkflowPreviewFromEditor();
 }
 
 function downloadTxWorkflowJsonFromBuilder() {
@@ -3133,7 +3792,6 @@ function downloadTxWorkflowJsonFromBuilder() {
 }
 
 async function importTxWorkflowBuilderFromFile() {
-  const out = byId("tx-workflow-plan-out");
   const input = byId("tx-workflow-import-file-input");
   const file = input && input.files && input.files[0] ? input.files[0] : null;
   if (!file) {
@@ -3142,7 +3800,8 @@ async function importTxWorkflowBuilderFromFile() {
   const text = await file.text();
   byId("tx-workflow-json").value = text;
   loadTxWorkflowBuilderFromJson();
-  out.textContent = t("txWorkflowImportFileDone");
+  renderTxWorkflowPreviewFromEditor();
+  setStatusMessage("tx-workflow-plan-out", t("txWorkflowImportFileDone"), "success");
   input.value = "";
 }
 
@@ -3179,20 +3838,19 @@ function txBlockToBuilderSeed(block) {
 }
 
 async function importTxBlockIntoWorkflowBuilder() {
-  const out = byId("tx-workflow-plan-out");
-  out.textContent = t("running");
+  setStatusMessage("tx-workflow-plan-out", t("running"), "running");
   try {
     const data = await request("POST", "/api/tx/block", txPayload(true));
     const block = data && data.tx_block ? data.tx_block : null;
     if (!block) {
-      out.textContent = t("txWorkflowImportEmpty");
+      setStatusMessage("tx-workflow-plan-out", t("txWorkflowImportEmpty"), "error");
       return;
     }
     txWorkflowBlocks.push(createTxWorkflowBlock(txBlockToBuilderSeed(block)));
     renderTxWorkflowBuilder();
-    out.textContent = t("txWorkflowImportDone");
+    setStatusMessage("tx-workflow-plan-out", t("txWorkflowImportDone"), "success");
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("tx-workflow-plan-out", e.message, "error");
   }
 }
 
@@ -3221,9 +3879,7 @@ async function request(method, url, body) {
 
 async function loadProfilesOverview() {
   const outBuiltin = byId("builtin-list");
-  const outBuiltinDetail = byId("builtin-detail-status");
   const builtinSelect = byId("builtin-profile-select");
-  const outProfile = byId("profile-out");
   try {
     const data = await request("GET", "/api/device-profiles/all");
     cachedDeviceProfiles = [
@@ -3239,26 +3895,24 @@ async function loadProfilesOverview() {
     builtinSelect.innerHTML = data.builtins
       .map((item) => `<option value="${item.name}">${item.name}</option>`)
       .join("");
-    outBuiltinDetail.textContent = "-";
+    setStatusMessage("builtin-detail-status", "-", "info");
 
     if (data.custom.length > 0) {
       cachedCustomProfiles = data.custom.map((item) => item.name);
-      outProfile.textContent = data.custom
-        .map((item) => `- ${item.name} -> ${item.path}`)
-        .join("\n");
+      setStatusMessage("profile-out", `${t("loaded")}: ${data.custom.length}`, "info");
       renderCustomProfileOptions();
       renderDiagnoseProfileOptions();
     } else {
       cachedCustomProfiles = [];
-      outProfile.textContent = "-";
+      setStatusMessage("profile-out", "-", "info");
       renderCustomProfileOptions();
       renderDiagnoseProfileOptions();
     }
   } catch (e) {
     cachedCustomProfiles = [];
     cachedDeviceProfiles = [];
-    outProfile.textContent = e.message;
-    outBuiltinDetail.textContent = e.message;
+    setStatusMessage("profile-out", e.message, "error");
+    setStatusMessage("builtin-detail-status", e.message, "error");
     renderCustomProfileOptions();
     renderDiagnoseProfileOptions();
   }
@@ -3453,12 +4107,11 @@ function initCollapsibleGroups() {
 
 async function loadBuiltinProfileDetail() {
   const name = byId("builtin-profile-select").value;
-  const out = byId("builtin-detail-status");
   if (!name) {
-    out.textContent = "-";
+    setStatusMessage("builtin-detail-status", "-", "info");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("builtin-detail-status", t("running"), "running");
   try {
     const data = await request(
       "GET",
@@ -3475,10 +4128,10 @@ async function loadBuiltinProfileDetail() {
     byId("builtin-detail-source").value = data.source || "";
     byId("builtin-detail-notes").value = (data.notes || []).join("\n");
     setBuiltinForm(profile);
-    out.textContent = `${data.name}: ${data.summary}`;
+    setStatusMessage("builtin-detail-status", `${data.name}: ${data.summary}`, "success");
   } catch (e) {
     lastBuiltinProfile = null;
-    out.textContent = e.message;
+    setStatusMessage("builtin-detail-status", e.message, "error");
   }
 }
 
@@ -3857,32 +4510,30 @@ function collectProfileForm() {
 
 async function loadCustomProfile() {
   const name = byId("custom-profile-picker").value.trim();
-  const out = byId("profile-out");
   if (!name) {
-    out.textContent = t("profileNameRequired");
+    setStatusMessage("profile-out", t("profileNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("profile-out", t("running"), "running");
   try {
     const data = await request(
       "GET",
       `/api/device-profiles/custom/${encodeURIComponent(name)}/form`
     );
     setProfileForm(data);
-    out.textContent = `${t("saved")}: ${name}`;
+    setStatusMessage("profile-out", `${t("loaded")}: ${name}`, "success");
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("profile-out", e.message, "error");
   }
 }
 
 async function saveCustomProfile() {
-  const out = byId("profile-out");
-  out.textContent = t("running");
+  setStatusMessage("profile-out", t("running"), "running");
   try {
     const profile = collectProfileForm();
     const name = (profile.name || "").trim();
     if (!name) {
-      out.textContent = t("profileNameRequired");
+      setStatusMessage("profile-out", t("profileNameRequired"), "error");
       return;
     }
     const data = await request(
@@ -3891,21 +4542,20 @@ async function saveCustomProfile() {
       profile
     );
     byId("custom-profile-picker").value = name;
-    out.textContent = `${t("saved")}: ${data.path}`;
+    setStatusMessage("profile-out", `${t("saved")}: ${data.path}`, "success");
     await loadProfilesOverview();
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("profile-out", e.message, "error");
   }
 }
 
 async function deleteCustomProfile() {
   const name = byId("custom-profile-picker").value.trim();
-  const out = byId("profile-out");
   if (!name) {
-    out.textContent = t("profileNameRequired");
+    setStatusMessage("profile-out", t("profileNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("profile-out", t("running"), "running");
   try {
     await request("DELETE", `/api/device-profiles/custom/${encodeURIComponent(name)}`);
     byId("custom-profile-picker").value = "";
@@ -3919,10 +4569,10 @@ async function deleteCustomProfile() {
       interactions: [],
       transitions: [],
     });
-    out.textContent = `${t("deleted")}: ${name}`;
+    setStatusMessage("profile-out", `${t("deleted")}: ${name}`, "success");
     await loadProfilesOverview();
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("profile-out", e.message, "error");
   }
 }
 
@@ -3948,7 +4598,74 @@ function renderDiagList(id, values) {
   ul.innerHTML = list.map((v) => `<li>${v}</li>`).join("");
 }
 
+function renderDiagnoseSummaryPanel(name, report, issues) {
+  const healthy = issues === 0;
+  const statusText = healthy ? t("diagnoseOk") : t("diagnoseBad");
+  const statusCls = healthy
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : "border-rose-200 bg-rose-50 text-rose-700";
+  const breakdown = [
+    [t("diagUnreachableStates"), (report.unreachable_states || []).length],
+    [t("diagDeadEndStates"), (report.dead_end_states || []).length],
+    [t("diagMissingEdgeSources"), (report.missing_edge_sources || []).length],
+    [t("diagMissingEdgeTargets"), (report.missing_edge_targets || []).length],
+    [
+      t("diagAmbiguousPromptStates"),
+      (report.potentially_ambiguous_prompt_states || []).length,
+    ],
+  ];
+  const hasIssue = breakdown.some(([, count]) => count > 0);
+  const breakdownCards = hasIssue
+    ? breakdown
+        .filter(([, count]) => count > 0)
+        .map(
+          ([label, count]) => `
+            <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <div class="text-[11px] font-semibold text-amber-700">${escapeHtml(
+                label
+              )}</div>
+              <div class="mt-1 text-base font-semibold text-amber-900">${escapeHtml(
+                count
+              )}</div>
+            </div>
+          `
+        )
+        .join("")
+    : `<div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">${escapeHtml(
+        t("diagSummaryNone")
+      )}</div>`;
+  return `
+    <div class="grid gap-3">
+      <div class="grid gap-2 md:grid-cols-3">
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <div class="text-xs text-slate-500">${escapeHtml(t("diagSummaryProfile"))}</div>
+          <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(name)}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <div class="text-xs text-slate-500">${escapeHtml(
+            t("diagSummaryIssueCount")
+          )}</div>
+          <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(issues)}</div>
+        </div>
+        <div class="rounded-xl border px-3 py-2 ${statusCls}">
+          <div class="text-xs">${escapeHtml(t("diagSummaryHealth"))}</div>
+          <div class="mt-1 text-sm font-semibold">${escapeHtml(statusText)}</div>
+        </div>
+      </div>
+      <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+        <div class="text-xs font-semibold text-slate-500">${escapeHtml(
+          t("diagSummaryBreakdown")
+        )}</div>
+        <div class="mt-2 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+          ${breakdownCards}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function resetDiagnoseView() {
+  lastDiagnoseSnapshot = null;
   byId("profile-diagnose-badge").textContent = "-";
   byId("profile-diagnose-badge").className = "diag-badge";
   byId("diag-total-states").textContent = "-";
@@ -3962,9 +4679,14 @@ function resetDiagnoseView() {
     "diag-missing-targets",
     "diag-ambiguous-states",
   ].forEach((id) => renderDiagList(id, []));
+  setStatusMessage("profile-diagnose-out", "-", "info");
 }
 
 function renderDiagnoseResult(name, report) {
+  lastDiagnoseSnapshot = {
+    name,
+    report: report || {},
+  };
   const issues = issueCount(report);
   const healthy = issues === 0;
   const badge = byId("profile-diagnose-badge");
@@ -3985,21 +4707,21 @@ function renderDiagnoseResult(name, report) {
     report.potentially_ambiguous_prompt_states || []
   );
 
-  const out = byId("profile-diagnose-out");
-  out.textContent =
-    `${t("diagSummaryProfile")}: ${name}\n` +
-    `${t("diagSummaryIssueCount")}: ${issues}`;
+  byId("profile-diagnose-out").innerHTML = renderDiagnoseSummaryPanel(
+    name,
+    report,
+    issues
+  );
 }
 
 async function diagnoseCustomProfile() {
   const name = byId("profile-diagnose-picker").value.trim();
-  const out = byId("profile-diagnose-out");
   if (!name) {
-    out.textContent = t("profileNameRequired");
+    setStatusMessage("profile-diagnose-out", t("profileNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
   resetDiagnoseView();
+  setStatusMessage("profile-diagnose-out", t("running"), "running");
   try {
     const data = await request("POST", "/api/device-profiles/diagnose", {
       name,
@@ -4008,7 +4730,7 @@ async function diagnoseCustomProfile() {
     renderDiagnoseResult(data.name || name, report);
   } catch (e) {
     resetDiagnoseView();
-    out.textContent = e.message;
+    setStatusMessage("profile-diagnose-out", e.message, "error");
   }
 }
 
@@ -4340,18 +5062,62 @@ async function replayCommand() {
   }
 }
 
-async function loadTemplates() {
+function renderTemplateList(errorMessage = "") {
   const out = byId("template-list");
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      errorMessage
+    )}</div>`;
+    return;
+  }
+  if (!Array.isArray(cachedTemplateMetas) || cachedTemplateMetas.length === 0) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("templateListEmpty")
+    )}</div>`;
+    return;
+  }
+  const selectedName = byId("template-pick-name").value.trim();
+  out.innerHTML = cachedTemplateMetas
+    .map((item) => {
+      const active = selectedName && item.name === selectedName;
+      const cls = active
+        ? "border-teal-300 bg-teal-50/70"
+        : "border-slate-200 bg-white hover:border-slate-300";
+      return `
+        <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-template-row ${cls}" data-name="${escapeHtml(
+          item.name || ""
+        )}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+              item.name || "-"
+            )}</span>
+            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(
+              t("templateUseBtn")
+            )}</span>
+          </div>
+          <div class="mt-1 text-xs text-slate-500">${escapeHtml(
+            `${t("templatePathLabel")}: ${item.path || "-"}`
+          )}</div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+async function loadTemplates() {
   try {
     const data = await request("GET", "/api/templates");
-    cachedTemplates = data.map((item) => item.name);
+    const items = Array.isArray(data) ? data : [];
+    cachedTemplateMetas = items;
+    cachedTemplates = items.map((item) => item.name);
     renderTemplateOptions(byId("template-pick-name").value || "");
-    out.textContent =
-      data.map((item) => `- ${item.name} -> ${item.path}`).join("\n") || "-";
+    renderTemplateList();
   } catch (e) {
     cachedTemplates = [];
+    cachedTemplateMetas = [];
     renderTemplateOptions("");
-    out.textContent = e.message;
+    renderTemplateList(e.message);
   }
 }
 
@@ -4367,69 +5133,70 @@ function renderTemplateOptions(keyword = "") {
 
 async function loadTemplateDetail() {
   const name = byId("template-pick-name").value.trim();
-  const out = byId("template-out");
   if (!name) {
-    out.textContent = "template name is required";
+    setStatusMessage("template-out", t("templateNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("template-out", t("running"), "running");
   try {
     const data = await request("GET", `/api/templates/${encodeURIComponent(name)}`);
     lastTemplateDetail = data;
     byId("template-pick-name").value = data.name || name;
     byId("template-manage-path").value = data.path || "";
     byId("template-content").value = data.content || "";
-    out.textContent = `${data.name} -> ${data.path}`;
+    setStatusMessage("template-out", `${data.name} -> ${data.path}`, "success");
   } catch (e) {
     lastTemplateDetail = null;
-    out.textContent = e.message;
+    setStatusMessage("template-out", e.message, "error");
   }
 }
 
 async function saveTemplate() {
   const name = byId("template-pick-name").value.trim();
   const content = byId("template-content").value;
-  const out = byId("template-out");
   if (!name) {
-    out.textContent = "template name is required";
+    setStatusMessage("template-out", t("templateNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("template-out", t("running"), "running");
   try {
     const exists = cachedTemplates.includes(name);
     const data = exists
       ? await request("PUT", `/api/templates/${encodeURIComponent(name)}`, { content })
       : await request("POST", "/api/templates", { name, content });
-    out.textContent = `${exists ? t("saved") : t("created")}: ${data.path}`;
+    setStatusMessage(
+      "template-out",
+      `${exists ? t("saved") : t("created")}: ${data.path}`,
+      "success"
+    );
     await loadTemplates();
     byId("template-pick-name").value = name;
     byId("template-manage-path").value = data.path || "";
     lastTemplateDetail = data;
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("template-out", e.message, "error");
   }
 }
 
 async function deleteTemplate() {
   const name = byId("template-pick-name").value.trim();
-  const out = byId("template-out");
   if (!name) {
-    out.textContent = "template name is required";
+    setStatusMessage("template-out", t("templateNameRequired"), "error");
     return;
   }
-  out.textContent = t("running");
+  setStatusMessage("template-out", t("running"), "running");
   try {
     await request("DELETE", `/api/templates/${encodeURIComponent(name)}`);
     byId("template-content").value = "";
     byId("template-manage-path").value = "";
-    out.textContent = `${t("deleted")}: ${name}`;
+    setStatusMessage("template-out", `${t("deleted")}: ${name}`, "success");
     await loadTemplates();
     if (byId("template-pick-name").value.trim() === name) {
       byId("template-pick-name").value = "";
     }
     lastTemplateDetail = null;
   } catch (e) {
-    out.textContent = e.message;
+    setStatusMessage("template-out", e.message, "error");
   }
 }
 
@@ -4779,15 +5546,18 @@ function bindEvents() {
   };
 
   byId("connection-test-btn").onclick = async () => {
-    const out = byId("connection-test-out");
-    out.textContent = t("running");
+    setStatusMessage("connection-test-out", t("running"), "running");
     try {
       const data = await request("POST", "/api/connection/test", {
         connection: connectionPayload(),
       });
-      out.textContent = `${t("connectionOk")}: ${data.username}@${data.host}:${data.port} (${data.device_profile})`;
+      setStatusMessage(
+        "connection-test-out",
+        `${t("connectionOk")}: ${data.username}@${data.host}:${data.port} (${data.device_profile})`,
+        "success"
+      );
     } catch (e) {
-      out.textContent = e.message;
+      setStatusMessage("connection-test-out", e.message, "error");
     }
   };
   byId("saved-conn-save-btn").onclick = saveConnectionByName;
@@ -4796,12 +5566,25 @@ function bindEvents() {
     openHistoryDrawer();
     loadConnectionHistory();
   };
+  byId("saved-conn-list").addEventListener("click", async (e) => {
+    const row = e.target.closest(".js-saved-conn-row");
+    if (!row) return;
+    const name = row.getAttribute("data-name") || "";
+    if (!name) return;
+    byId("saved-conn-name").value = name;
+    renderSavedConnectionOptions(name);
+    renderSavedConnectionList();
+    await loadSavedConnectionByName();
+    renderSavedConnectionList();
+  });
   byId("saved-conn-name").oninput = (e) => {
     renderSavedConnectionOptions(e.target.value);
+    renderSavedConnectionList();
   };
   byId("saved-conn-name").onchange = async () => {
     if (!byId("saved-conn-name").value.trim()) return;
     await loadSavedConnectionByName();
+    renderSavedConnectionList();
   };
 
   byId("render-btn").onclick = async () => {
@@ -4836,8 +5619,10 @@ function bindEvents() {
   };
 
   byId("template-exec-btn").onclick = async () => {
-    const out = byId("template-exec-out");
-    out.textContent = t("running");
+    const visualOut = byId("template-exec-visual");
+    visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("running")
+    )}</div>`;
     try {
       const data = await request("POST", "/api/template/execute", {
         template: byId("template").value.trim(),
@@ -4846,74 +5631,86 @@ function bindEvents() {
         connection: connectionPayload(),
         record_level: recordLevelPayload(),
       });
-      out.textContent = JSON.stringify(data, null, 2);
+      lastTemplateExecResult = data;
+      renderTemplateExecVisual();
       applyRecordingFromResponse(data);
     } catch (e) {
-      out.textContent = e.message;
+      visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+        e.message
+      )}</div>`;
     }
   };
 
   byId("tx-plan-btn").onclick = async () => {
-    const out = byId("tx-plan-out");
-    out.textContent = t("running");
+    const execOut = byId("tx-exec-out");
+    const visualOut = byId("tx-block-visual");
+    setStatusMessage("tx-plan-out", t("running"), "running");
     try {
       const data = await request("POST", "/api/tx/block", txPayload(true));
-      out.textContent = JSON.stringify(data.tx_block || {}, null, 2);
+      setTxBlockVisual(data && data.tx_block ? data.tx_block : {}, null);
+      setStatusMessage("tx-plan-out", t("txBlockPreviewDone"), "success");
+      execOut.innerHTML = "";
     } catch (e) {
-      out.textContent = e.message;
+      setStatusMessage("tx-plan-out", e.message, "error");
+      if (visualOut) {
+        visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+          e.message
+        )}</div>`;
+      }
     }
   };
 
   byId("tx-exec-btn").onclick = async () => {
-    const out = byId("tx-exec-out");
-    out.textContent = t("running");
+    const visualOut = byId("tx-block-visual");
+    setStatusMessage("tx-exec-out", t("running"), "running");
     try {
       const data = await request("POST", "/api/tx/block", txPayload(false));
-      out.textContent = JSON.stringify(data.tx_result || {}, null, 2);
+      setTxBlockVisual(
+        data && data.tx_block ? data.tx_block : {},
+        data && data.tx_result ? data.tx_result : {}
+      );
+      setStatusMessage("tx-exec-out", t("txBlockExecuteDone"), "success");
       applyRecordingFromResponse(data);
     } catch (e) {
-      out.textContent = e.message;
+      setStatusMessage("tx-exec-out", e.message, "error");
+      if (visualOut) {
+        visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+          e.message
+        )}</div>`;
+      }
     }
   };
 
   byId("tx-workflow-plan-btn").onclick = async () => {
-    const out = byId("tx-workflow-plan-out");
-    out.textContent = t("running");
+    const visualOut = byId("tx-workflow-plan-visual");
+    setStatusMessage("tx-workflow-plan-out", t("running"), "running");
     try {
       const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(true));
-      out.textContent = JSON.stringify(data.workflow || {}, null, 2);
+      const workflow = data && data.workflow ? data.workflow : {};
+      byId("tx-workflow-json").value = JSON.stringify(workflow, null, 2);
+      setTxWorkflowPreview(workflow);
+      setStatusMessage("tx-workflow-plan-out", t("txWorkflowPreviewDone"), "success");
     } catch (e) {
-      out.textContent = e.message;
+      setStatusMessage("tx-workflow-plan-out", e.message, "error");
+      if (visualOut) {
+        visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+          e.message
+        )}</div>`;
+      }
     }
   };
 
   byId("tx-workflow-exec-btn").onclick = async () => {
     const out = byId("tx-workflow-exec-out");
-    const rawOut = byId("tx-workflow-exec-raw");
-    out.textContent = t("running");
+    setStatusMessage("tx-workflow-exec-out", t("running"), "running");
     try {
       const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(false));
       const result = data.tx_workflow_result || {};
       out.innerHTML = renderTxWorkflowResult(result);
-      rawOut.textContent = JSON.stringify(result, null, 2);
-      const hasErrors =
-        result &&
-        ((Array.isArray(result.rollback_errors) && result.rollback_errors.length > 0) ||
-          result.failed_block != null);
-      rawOut.hidden = !hasErrors;
-      rawOut.style.display = rawOut.hidden ? "none" : "";
       applyRecordingFromResponse(data);
     } catch (e) {
-      out.textContent = e.message;
-      rawOut.textContent = e.message;
-      rawOut.hidden = false;
-      rawOut.style.display = "";
+      setStatusMessage("tx-workflow-exec-out", e.message, "error");
     }
-  };
-  byId("tx-workflow-exec-raw-toggle").onclick = () => {
-    const rawOut = byId("tx-workflow-exec-raw");
-    rawOut.hidden = !rawOut.hidden;
-    rawOut.style.display = rawOut.hidden ? "none" : "";
   };
   byId("tx-workflow-import-block-btn").onclick = importTxBlockIntoWorkflowBuilder;
   byId("tx-workflow-add-block-btn").onclick = () => {
@@ -5015,22 +5812,22 @@ function bindEvents() {
     try {
       generateTxWorkflowJsonFromBuilder();
     } catch (e) {
-      byId("tx-workflow-plan-out").textContent = e.message;
+      setStatusMessage("tx-workflow-plan-out", e.message, "error");
     }
   };
   byId("tx-workflow-load-btn").onclick = () => {
     try {
       loadTxWorkflowBuilderFromJson();
     } catch (e) {
-      byId("tx-workflow-plan-out").textContent = e.message;
+      setStatusMessage("tx-workflow-plan-out", e.message, "error");
     }
   };
   byId("tx-workflow-download-btn").onclick = () => {
     try {
       downloadTxWorkflowJsonFromBuilder();
-      byId("tx-workflow-plan-out").textContent = t("txWorkflowDownloadDone");
+      setStatusMessage("tx-workflow-plan-out", t("txWorkflowDownloadDone"), "success");
     } catch (e) {
-      byId("tx-workflow-plan-out").textContent = e.message;
+      setStatusMessage("tx-workflow-plan-out", e.message, "error");
     }
   };
   byId("tx-workflow-import-file-btn").onclick = () => {
@@ -5040,8 +5837,11 @@ function bindEvents() {
     try {
       await importTxWorkflowBuilderFromFile();
     } catch (e) {
-      byId("tx-workflow-plan-out").textContent = e.message;
+      setStatusMessage("tx-workflow-plan-out", e.message, "error");
     }
+  };
+  byId("tx-workflow-json").oninput = () => {
+    renderTxWorkflowPreviewFromEditor();
   };
   const txWorkflowBlocksWrap = byId("tx-workflow-blocks");
   txWorkflowBlocksWrap.addEventListener("input", (e) => {
@@ -5279,9 +6079,8 @@ function bindEvents() {
   };
   byId("builtin-detail-btn").onclick = loadBuiltinProfileDetail;
   byId("builtin-copy-btn").onclick = () => {
-    const out = byId("builtin-detail-status");
     if (!lastBuiltinProfile) {
-      out.textContent = t("needLoadBuiltinFirst");
+      setStatusMessage("builtin-detail-status", t("needLoadBuiltinFirst"), "error");
       return;
     }
     const copied = JSON.parse(JSON.stringify(lastBuiltinProfile));
@@ -5290,7 +6089,7 @@ function bindEvents() {
     byId("custom-profile-picker").value = copied.name;
     currentPromptMode = "edit";
     applyPromptMode();
-    out.textContent = t("copiedToCustom");
+    setStatusMessage("builtin-detail-status", t("copiedToCustom"), "success");
   };
   byId("profile-save-btn").onclick = saveCustomProfile;
   byId("profile-delete-btn").onclick = deleteCustomProfile;
@@ -5305,10 +6104,23 @@ function bindEvents() {
 
   byId("template-pick-name").oninput = (e) => {
     renderTemplateOptions(e.target.value);
+    renderTemplateList();
   };
+  byId("template-list").addEventListener("click", async (e) => {
+    const row = e.target.closest(".js-template-row");
+    if (!row) return;
+    const name = row.getAttribute("data-name") || "";
+    if (!name) return;
+    byId("template-pick-name").value = name;
+    renderTemplateOptions(name);
+    renderTemplateList();
+    await loadTemplateDetail();
+    renderTemplateList();
+  });
   byId("template-pick-name").onchange = async () => {
     if (!byId("template-pick-name").value.trim()) return;
     await loadTemplateDetail();
+    renderTemplateList();
   };
   byId("template-save-btn").onclick = saveTemplate;
   byId("template-delete-btn").onclick = deleteTemplate;
@@ -5369,6 +6181,17 @@ txWorkflowBlocks = [createTxWorkflowBlock()];
 byId("tx-workflow-name").value = "tx-workflow";
 byId("tx-workflow-fail-fast").checked = true;
 applyI18n();
+setStatusMessage("saved-conn-out", "-", "info");
+setStatusMessage("connection-test-out", "-", "info");
+setStatusMessage("tx-plan-out", "-", "info");
+setStatusMessage("tx-exec-out", "-", "info");
+setStatusMessage("tx-workflow-plan-out", "-", "info");
+setStatusMessage("tx-workflow-exec-out", "-", "info");
+setStatusMessage("template-out", "-", "info");
+setStatusMessage("backup-out", "-", "info");
+setStatusMessage("builtin-detail-status", "-", "info");
+setStatusMessage("profile-out", "-", "info");
+setStatusMessage("profile-diagnose-out", "-", "info");
 applyTabs();
 applyOperationKind();
 applyPromptMode();

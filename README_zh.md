@@ -395,14 +395,21 @@ rauto tx \
 
 **事务工作流**
 ```bash
+# 终端可视化查看工作流结构（默认启用 ANSI 颜色）
+# 如需关闭颜色：NO_COLOR=1
+rauto tx-workflow ./workflow.json --view
+
 # 执行 JSON 工作流
 rauto tx-workflow ./workflow.json \
     --host 192.168.1.1 \
     --username admin \
     --password secret
 
-# 仅预览：打印 JSON 并退出
+# 仅预览：默认打印可视化流程并退出
 rauto tx-workflow ./workflow.json --dry-run
+
+# 仅预览原始 JSON
+rauto tx-workflow ./workflow.json --dry-run --json
 ```
 
 **事务工作流 JSON 示例**

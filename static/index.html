@@ -592,6 +592,9 @@
       align-items: center;
       gap: 10px;
     }
+    #detail-modal {
+      z-index: 10060;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900">
@@ -639,8 +642,8 @@
                 </div>
               </div>
             </div>
-          <pre id="saved-conn-list" class="output mt-2"></pre>
-          <pre id="saved-conn-out" class="output mt-2"></pre>
+          <div id="saved-conn-list" class="mt-2 grid gap-2"></div>
+          <div id="saved-conn-out" class="mt-2 grid gap-2"></div>
         </div>
       </div>
       <div class="mt-4 grid gap-3 md:grid-cols-2">
@@ -654,7 +657,7 @@
       <div class="mt-3 md:w-64">
         <button id="connection-test-btn" class="btn" type="button">Test Connection</button>
       </div>
-      <pre id="connection-test-out" class="output mt-3"></pre>
+      <div id="connection-test-out" class="mt-3 grid gap-2"></div>
       <p id="connection-help" class="mt-3 text-xs text-slate-500">Leave empty to fallback to CLI defaults used at server startup.</p>
     </section>
 
@@ -711,7 +714,12 @@
                     <button id="template-exec-btn" class="btn">Run Template</button>
                   </div>
                   <pre id="render-out" class="output mt-2"></pre>
-                  <pre id="template-exec-out" class="output mt-2"></pre>
+                  <div class="group-card">
+                    <div class="field-tools">
+                      <span id="template-exec-visual-title">Template Execution</span>
+                    </div>
+                    <div id="template-exec-visual" class="group-body"></div>
+                  </div>
                 </div>
               </div>
 
@@ -789,8 +797,14 @@
                       <button id="tx-plan-btn" class="btn" type="button">Preview Tx Plan</button>
                       <button id="tx-exec-btn" class="btn" type="button">Execute Tx Block</button>
                     </div>
-                    <pre id="tx-plan-out" class="output mt-2"></pre>
-                    <pre id="tx-exec-out" class="output mt-2"></pre>
+                    <div class="group-card">
+                      <div class="field-tools">
+                        <span id="tx-block-visual-title">Tx Block Visual Preview</span>
+                      </div>
+                      <div id="tx-block-visual" class="group-body grid gap-2"></div>
+                    </div>
+                    <div id="tx-plan-out" class="mt-2 grid gap-2"></div>
+                    <div id="tx-exec-out" class="mt-2 grid gap-2"></div>
                   </div>
                 </div>
 
@@ -852,12 +866,14 @@
                       <button id="tx-workflow-plan-btn" class="btn" type="button">Preview Workflow</button>
                       <button id="tx-workflow-exec-btn" class="btn" type="button">Execute Workflow</button>
                     </div>
-                    <pre id="tx-workflow-plan-out" class="output mt-2"></pre>
-                    <div id="tx-workflow-exec-out" class="output mt-2"></div>
-                    <div class="mt-2">
-                      <button id="tx-workflow-exec-raw-toggle" class="mini-btn" type="button">Raw</button>
-                      <pre id="tx-workflow-exec-raw" class="output mt-2" hidden></pre>
+                    <div class="group-card">
+                      <div class="field-tools">
+                        <span id="tx-workflow-visual-title">Workflow Visual Preview</span>
+                      </div>
+                      <div id="tx-workflow-plan-visual" class="group-body grid gap-2"></div>
                     </div>
+                    <div id="tx-workflow-plan-out" class="mt-2 grid gap-2"></div>
+                    <div id="tx-workflow-exec-out" class="mt-2 grid gap-2"></div>
                   </div>
                 </div>
               </div>
@@ -1001,7 +1017,7 @@
             </div>
             <button id="builtin-copy-btn" class="btn" type="button">复制到新增/修改</button>
           </div>
-          <pre id="builtin-detail-status" class="output mt-3"></pre>
+          <div id="builtin-detail-status" class="mt-3 grid gap-2"></div>
         </div>
 
         <div id="prompt-edit-panel" class="mt-4" hidden>
@@ -1073,7 +1089,7 @@
               <div id="transitions-list" class="group-body grid gap-2"></div>
             </div>
           </div>
-          <pre id="profile-out" class="output mt-3"></pre>
+          <div id="profile-out" class="mt-3 grid gap-2"></div>
         </div>
         </div>
 
@@ -1110,7 +1126,7 @@
                 <div class="diag-list"><h4 id="diag-l-missing-tgt">missing_edge_targets</h4><ul id="diag-missing-targets"></ul></div>
                 <div class="diag-list"><h4 id="diag-l-ambiguous">potentially_ambiguous_prompt_states</h4><ul id="diag-ambiguous-states"></ul></div>
               </div>
-              <pre id="profile-diagnose-out" class="output"></pre>
+              <div id="profile-diagnose-out" class="grid gap-2"></div>
             </div>
           </div>
         </div>
@@ -1132,7 +1148,7 @@
                 </div>
                 <datalist id="template-options"></datalist>
               </div>
-              <pre id="template-list" class="output mt-2"></pre>
+              <div id="template-list" class="mt-2 grid gap-2"></div>
             </div>
           </div>
 
@@ -1148,7 +1164,7 @@
             </div>
           </div>
 
-          <pre id="template-out" class="output"></pre>
+          <div id="template-out" class="grid gap-2"></div>
         </div>
       </div>
 
@@ -1185,7 +1201,7 @@
             </div>
           </div>
 
-          <pre id="backup-out" class="output">-</pre>
+          <div id="backup-out" class="grid gap-2">-</div>
         </div>
       </div>
     </section>

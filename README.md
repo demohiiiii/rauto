@@ -391,14 +391,21 @@ rauto tx \
 
 **Transaction workflow**
 ```bash
+# Visualize workflow structure in terminal (ANSI colors enabled by default)
+# Disable colors with: NO_COLOR=1
+rauto tx-workflow ./workflow.json --view
+
 # Execute a workflow from JSON
 rauto tx-workflow ./workflow.json \
     --host 192.168.1.1 \
     --username admin \
     --password secret
 
-# Dry-run: print workflow JSON and exit
+# Dry-run: print workflow plan and exit
 rauto tx-workflow ./workflow.json --dry-run
+
+# Dry-run raw JSON
+rauto tx-workflow ./workflow.json --dry-run --json
 ```
 
 **Transaction workflow JSON example**
