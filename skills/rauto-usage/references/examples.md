@@ -196,6 +196,81 @@ Result: per_step for explicit per-command undo, whole_resource for single-resour
 Notes: Prefer preview before execution and explicit rollback commands for ambiguous syntax
 ```
 
+### Example 5.4
+
+User ask:
+```text
+Give me a detailed whole-resource rollback tx example with trigger step.
+```
+
+Execution-style answer:
+```text
+Operation: Execute tx block with whole-resource rollback and trigger control
+Command: rauto tx --name fw-policy-publish --command "set security policies from-zone trust to-zone untrust policy allow-web match source-address WEB01" --command "set security policies from-zone trust to-zone untrust policy allow-web match destination-address any" --command "set security policies from-zone trust to-zone untrust policy allow-web then permit" --resource-rollback-command "delete security policies from-zone trust to-zone untrust policy allow-web" --rollback-trigger-step-index 0 --mode Config --host <host> --username <username> --password <password>
+Result: Tx block executed under whole_resource rollback strategy
+Notes: Preview first with --dry-run; use explicit rollback command for policy-like resources
+```
+
+### Example 5.5
+
+User ask:
+```text
+Use rollback commands from file/JSON for per-step tx execution.
+```
+
+Execution-style answer:
+```text
+Operation: Execute tx block with external rollback list
+Command: rauto tx --name vlan-batch --command "interface vlan 10" --command "ip address 10.0.10.1 255.255.255.0" --rollback-commands-file ./rollback.txt --rollback-on-failure --mode Config --host <host> --username <username> --password <password>
+Result: Tx executed with per-step rollback commands loaded from file
+Notes: Alternative JSON input: --rollback-commands-json ./rollback.json ; empty rollback lines are allowed and will be skipped
+```
+
+### Example 5.6
+
+User ask:
+```text
+I need a full tx-workflow run sequence (preview + execute + recording).
+```
+
+Execution-style answer:
+```text
+Operation: Preview and execute tx workflow with recording
+Command: rauto tx-workflow ./workflow.json --dry-run
+Result: Workflow structure validated before execution
+Notes: Execute with recording: rauto tx-workflow ./workflow.json --host <host> --username <username> --password <password> --record-file ~/.rauto/records/tx_workflow.jsonl --record-level key-events-only
+```
+
+### Example 5.7
+
+User ask:
+```text
+I need multi-block orchestration with compensation rollback if a later block fails.
+```
+
+Execution-style answer:
+```text
+Operation: Preview and execute multi-block tx workflow with compensation rollback visibility
+Command: rauto tx-workflow ./workflow.json --dry-run
+Result: Workflow and rollback plan validated before live execution
+Notes: Execute with audit trail: rauto tx-workflow ./workflow.json --connection <connection> --record-file ~/.rauto/records/fw_publish.jsonl --record-level key-events-only ; then verify rollback_attempted/rollback_succeeded/rollback_errors in output
+```
+
+### Example 5.8
+
+User ask:
+```text
+Generate deployment commands for me.
+```
+
+Execution-style answer:
+```text
+Operation: Propose rollback-capable deployment plan (not executed yet)
+Planned Command: rauto tx-workflow ./workflow.json --connection <connection>
+Result: Change plan prepared with rollback path; waiting for human confirmation
+Notes: Preview first: rauto tx-workflow ./workflow.json --dry-run ; execute only after explicit confirmation
+```
+
 ## 6) Recording/replay/history
 
 ### Example 6.1
@@ -226,6 +301,36 @@ Operation: Replay troubleshooting
 Command: rauto replay ~/.rauto/records/show_version.jsonl --list
 Result: Listed recorded command strings/modes to verify exact match
 Notes: Command text and optional mode must match replay query
+```
+
+### Example 6.3
+
+User ask:
+```text
+Show event-level detail for one history entry under a saved connection.
+```
+
+Execution-style answer:
+```text
+Operation: Query history then inspect one event-level entry
+Command: rauto device connection-history lab1 --limit 50
+Result: Returned ordered history entries with IDs
+Notes: Detail view: rauto device connection-history-show lab1 <history-id> ; machine-readable: rauto device connection-history-show lab1 <history-id> --json
+```
+
+### Example 6.4
+
+User ask:
+```text
+Give me an auditable execution chain for a saved connection.
+```
+
+Execution-style answer:
+```text
+Operation: Execute, persist record, inspect connection history, and replay
+Command: rauto exec "show version" --connection lab1 --record-file ~/.rauto/records/lab1_show_version.jsonl --record-level key-events-only
+Result: Command executed with durable recording and connection-bound history entry
+Notes: Continue with: rauto device connection-history lab1 --limit 20 ; rauto device connection-history-show lab1 <history-id> ; rauto replay ~/.rauto/records/lab1_show_version.jsonl --list
 ```
 
 ## 7) Web-first requests

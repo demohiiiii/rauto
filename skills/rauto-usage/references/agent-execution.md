@@ -15,14 +15,17 @@ Use this file when the agent should run `rauto` commands directly for the user.
 
 1. Classify user intent:
    - Query/read -> execute immediately.
-   - Change/apply -> execute if intent is explicit.
+   - Change/apply -> prefer `tx`/`tx-workflow` with rollback.
    - Destructive -> require explicit confirmation.
 2. Resolve connection inputs:
    - Prefer existing `--connection <name>`.
    - Else use provided host/user/password/profile/port.
    - If still missing required fields, ask only for missing fields.
-3. Execute command and capture output.
-4. Return concise result summary.
+3. For agent-generated change commands:
+   - show planned commands + rollback path + dry-run command.
+   - wait for user confirmation before live execution.
+4. Execute command and capture output.
+5. Return concise result summary.
 
 ## 2) Read/query operations
 
@@ -39,12 +42,16 @@ Safe to run directly:
 - `rauto replay <record_file> --command "<cmd>" [--mode <Mode>]`
 - `rauto backup list`
 
+Read-only commands (for example `show ...`) do not need transaction wrapping.
+
 ## 3) Change operations
 
-Run directly when user intent is explicit:
+Default policy:
 
-- `rauto exec ...`
-- `rauto template ...`
+- Prefer rollback-capable execution via `rauto tx` / `rauto tx-workflow`.
+- If user asks for generated deployment commands, propose first and wait for confirmation.
+- If user explicitly provides exact command and asks to run now, execute directly.
+
 - `rauto tx ...`
 - `rauto tx-workflow ...`
 - `rauto device add-connection ...`
@@ -78,7 +85,23 @@ Notes: <risk/errors/next action>
 For query operations, include only key lines.
 For change operations, include target + outcome + rollback/fallback hints when needed.
 
+For proposed (not executed yet) config changes, report:
+
+```text
+Operation: <planned change>
+Planned Command: <tx/tx-workflow command>
+Rollback: <per_step or whole_resource path>
+Risk Check: <why safe/unsafe>
+Confirmation Needed: <yes>
+```
+
 ## 6) Common command templates
+
+When user asks for workflow JSON content, load:
+
+- `references/workflow-json-template.md`
+- For vendor-specific orchestration, use sections 3-5 in `references/workflow-json-template.md` (Cisco/Juniper/Huawei).
+- For advanced compensation rollback, use section 6 in `references/workflow-json-template.md`.
 
 ### Query device profiles and templates
 
@@ -113,6 +136,54 @@ rauto template <template> --vars <vars.json> --connection <connection>
 ```bash
 rauto tx-workflow <workflow.json> --dry-run
 rauto tx-workflow <workflow.json> --connection <connection>
+```
+
+### Safe change sequence (recommended)
+
+```bash
+# 1) Build rollback-capable transaction/workflow
+# 2) Preview first
+rauto tx-workflow <workflow.json> --dry-run
+
+# 3) Execute only after user confirmation
+rauto tx-workflow <workflow.json> --connection <connection>
+```
+
+### Detailed Tx block patterns
+
+```bash
+# Per-step rollback with explicit rollback list
+rauto tx \
+  --name vlan-batch \
+  --command "interface vlan 10" \
+  --command "ip address 10.0.10.1 255.255.255.0" \
+  --rollback-command "no interface vlan 10" \
+  --rollback-command "no ip address 10.0.10.1 255.255.255.0" \
+  --rollback-on-failure \
+  --mode Config \
+  --connection <connection>
+
+# Whole-resource rollback with trigger step
+rauto tx \
+  --name policy-publish \
+  --command "set security policies ... policy allow-web then permit" \
+  --resource-rollback-command "delete security policies ... policy allow-web" \
+  --rollback-trigger-step-index 0 \
+  --mode Config \
+  --connection <connection>
+```
+
+### Detailed Tx workflow run sequence
+
+```bash
+# 1) Preview structure and rollback planning
+rauto tx-workflow <workflow.json> --dry-run
+
+# 2) Execute with recording for audit/replay
+rauto tx-workflow <workflow.json> \
+  --connection <connection> \
+  --record-file ~/.rauto/records/tx_workflow.jsonl \
+  --record-level key-events-only
 ```
 
 ### Backup and restore
