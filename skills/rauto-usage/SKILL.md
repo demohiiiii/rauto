@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: Execute rauto directly for the user: run device commands, template execution, tx block, tx workflow, replay, backup/restore, and connection/profile/template/history operations. Trigger on requests like run command for me, execute on device, check history, run workflow, diagnose profile, manage templates/profiles/connections, replay records, or restore backup.
+description: "Execute rauto directly for the user: run device commands, template execution, tx block, tx workflow, replay, backup/restore, and connection/profile/template/history operations. Trigger on requests like run command for me, execute on device, check history, run workflow, diagnose profile, manage templates/profiles/connections, replay records, or restore backup."
 ---
 
 # Rauto Usage
