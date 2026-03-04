@@ -1,6 +1,14 @@
-# Rauto AI Prompt-to-Answer Examples
+# Rauto Execution-Style Prompt Examples (EN)
 
-Use these examples as few-shot patterns when answering users.
+Use these as few-shot examples for action-first agent behavior.
+Default output shape after execution:
+
+```text
+Operation: <what was done>
+Command: <exact rauto command>
+Result: <key outcome>
+Notes: <risk/error/follow-up>
+```
 
 ## Table of Contents
 
@@ -10,33 +18,8 @@ Use these examples as few-shot patterns when answering users.
 4. Profiles and templates management
 5. Tx block/workflow orchestration
 6. Recording/replay/history
-7. Web-first guidance
+7. Web-first requests
 8. Backup and restore
-
-## Bilingual Pairing Index
-
-This file is paired with `examples_zh.md` using the same example IDs.
-
-```text
-1.1 <-> 1.1   Basic exec / 基础执行
-1.2 <-> 1.2   Enable mode / Enable 模式
-2.1 <-> 2.1   Template dry-run / 模板预览
-2.2 <-> 2.2   Template execute / 模板执行
-3.1 <-> 3.1   Save connection / 保存连接
-3.2 <-> 3.2   Connection history / 连接历史
-4.1 <-> 4.1   Copy builtin profile / 复制内置 profile
-4.2 <-> 4.2   Template CRUD / 模板管理
-5.1 <-> 5.1   Tx per-step rollback / 事务逐条回滚
-5.2 <-> 5.2   Tx workflow preview+run / 工作流预览与执行
-5.3 <-> 5.3   Rollback policy choice / 回滚策略选择
-6.1 <-> 6.1   Record and replay / 录制与回放
-6.2 <-> 6.2   Replay troubleshooting / 回放排障
-7.1 <-> 7.1   Web template flow / Web 模板流程
-7.2 <-> 7.2   Web interactive / Web 交互会话
-8.1 <-> 8.1   Backup all data / 全量备份
-8.2 <-> 8.2   Auto timestamp filename / 自动时间命名
-8.3 <-> 8.3   Safe restore / 安全恢复
-```
 
 ## 1) Basic execution
 
@@ -44,26 +27,30 @@ This file is paired with `examples_zh.md` using the same example IDs.
 
 User ask:
 ```text
-How do I quickly run one show command?
+Run one show command on my device.
 ```
 
-Answer pattern:
-```bash
-rauto exec "show version" --host <host> --username <username> --password <password>
+Execution-style answer:
+```text
+Operation: Execute direct command on target device
+Command: rauto exec "show version" --host <host> --username <username> --password <password>
+Result: Command executed; captured version output from device
+Notes: If connection fails, verify SSH port/profile credentials
 ```
 
 ### Example 1.2
 
 User ask:
 ```text
-Run command under Enable mode.
+Run it in Enable mode.
 ```
 
-Answer pattern:
-```bash
-rauto exec "show ip route" \
-  --host <host> --username <username> --password <password> \
-  --mode Enable
+Execution-style answer:
+```text
+Operation: Execute direct command with explicit mode
+Command: rauto exec "show ip route" --host <host> --username <username> --password <password> --mode Enable
+Result: Command executed in Enable mode
+Notes: If mode mismatch appears, verify profile prompt/state mapping
 ```
 
 ## 2) Templates
@@ -72,26 +59,30 @@ rauto exec "show ip route" \
 
 User ask:
 ```text
-Preview template output before touching device.
+Preview template output first.
 ```
 
-Answer pattern:
-```bash
-rauto template show_vlan.j2 --vars ./vars.json --dry-run
+Execution-style answer:
+```text
+Operation: Render template without device execution
+Command: rauto template show_vlan.j2 --vars ./vars.json --dry-run
+Result: Template rendered successfully; no commands sent to device
+Notes: Review rendered commands before live execution
 ```
 
 ### Example 2.2
 
 User ask:
 ```text
-Render and execute template on device.
+Now execute the rendered template.
 ```
 
-Answer pattern:
-```bash
-rauto template show_vlan.j2 \
-  --vars ./vars.json \
-  --host <host> --username <username> --password <password>
+Execution-style answer:
+```text
+Operation: Render and execute template on target device
+Command: rauto template show_vlan.j2 --vars ./vars.json --host <host> --username <username> --password <password>
+Result: Template commands executed on target
+Notes: Add recording flags if audit/replay is required
 ```
 
 ## 3) Saved connections
@@ -100,29 +91,30 @@ rauto template show_vlan.j2 \
 
 User ask:
 ```text
-I do not want to type host/user every time.
+Save this connection and reuse it.
 ```
 
-Answer pattern:
-```bash
-rauto device add-connection lab1 \
-  --host <host> --username <username> --password <password> \
-  --ssh-port 22 --device-profile cisco
-
-rauto exec "show version" --connection lab1
+Execution-style answer:
+```text
+Operation: Save connection profile and run command by profile name
+Command: rauto device add-connection lab1 --host <host> --username <username> --password <password> --ssh-port 22 --device-profile cisco
+Result: Saved connection lab1
+Notes: Reuse with: rauto exec "show version" --connection lab1
 ```
 
 ### Example 3.2
 
 User ask:
 ```text
-How to inspect execution history for one connection?
+Show history for that saved connection.
 ```
 
-Answer pattern:
-```bash
-rauto device connection-history lab1 --limit 50
-rauto device connection-history-show lab1 <history-id>
+Execution-style answer:
+```text
+Operation: Query connection-scoped execution history
+Command: rauto device connection-history lab1 --limit 50
+Result: Returned recent history entries for lab1
+Notes: Use connection-history-show with an entry ID for event-level detail
 ```
 
 ## 4) Profiles and templates management
@@ -131,27 +123,30 @@ rauto device connection-history-show lab1 <history-id>
 
 User ask:
 ```text
-Copy builtin profile then customize.
+Copy builtin cisco profile to a custom one.
 ```
 
-Answer pattern:
-```bash
-rauto device copy-builtin cisco my-cisco --overwrite
-rauto device show my-cisco
+Execution-style answer:
+```text
+Operation: Duplicate builtin profile to custom profile
+Command: rauto device copy-builtin cisco my-cisco --overwrite
+Result: Custom profile my-cisco created/updated
+Notes: Inspect with: rauto device show my-cisco
 ```
 
 ### Example 4.2
 
 User ask:
 ```text
-Create and edit command templates from CLI.
+Create or update a template for me.
 ```
 
-Answer pattern:
-```bash
-rauto templates create my_show.j2 --content "show version"
-rauto templates update my_show.j2 --file ./my_show.j2
-rauto templates list
+Execution-style answer:
+```text
+Operation: Create/update command template
+Command: rauto templates create my_show.j2 --content "show version"
+Result: Template created (or use update command if exists)
+Notes: Update form: rauto templates update my_show.j2 --file ./my_show.j2
 ```
 
 ## 5) Tx block/workflow orchestration
@@ -160,45 +155,45 @@ rauto templates list
 
 User ask:
 ```text
-Use per-step rollback for a tx block.
+Run a tx block with per-step rollback.
 ```
 
-Answer pattern:
-```bash
-rauto tx \
-  --name vlan10 \
-  --command "interface vlan 10" \
-  --command "ip address 10.0.10.1 255.255.255.0" \
-  --rollback-command "no interface vlan 10" \
-  --rollback-command "no ip address 10.0.10.1 255.255.255.0" \
-  --host <host> --username <username> --password <password>
+Execution-style answer:
+```text
+Operation: Execute tx block with explicit per-step rollback
+Command: rauto tx --name vlan10 --command "interface vlan 10" --command "ip address 10.0.10.1 255.255.255.0" --rollback-command "no interface vlan 10" --rollback-command "no ip address 10.0.10.1 255.255.255.0" --host <host> --username <username> --password <password>
+Result: Tx block executed with rollback policy per_step
+Notes: Use --dry-run first when changing production config
 ```
 
 ### Example 5.2
 
 User ask:
 ```text
-I want to preview workflow first, then execute.
+Preview workflow then run it.
 ```
 
-Answer pattern:
-```bash
-rauto tx-workflow ./workflow.json --dry-run
-rauto tx-workflow ./workflow.json --host <host> --username <username> --password <password>
+Execution-style answer:
+```text
+Operation: Dry-run then execute tx workflow
+Command: rauto tx-workflow ./workflow.json --dry-run
+Result: Workflow plan validated
+Notes: Execute after review: rauto tx-workflow ./workflow.json --host <host> --username <username> --password <password>
 ```
 
 ### Example 5.3
 
 User ask:
 ```text
-Should I use merge or replace rollback strategy?
+Which rollback mode should I pick?
 ```
 
-Answer pattern:
+Execution-style answer:
 ```text
-Use per_step when each command has explicit undo.
-Use whole_resource when one undo command can safely remove the resource.
-Always preview/dry-run before execute.
+Operation: Provide rollback policy recommendation
+Command: (no command; policy guidance)
+Result: per_step for explicit per-command undo, whole_resource for single-resource undo command
+Notes: Prefer preview before execution and explicit rollback commands for ambiguous syntax
 ```
 
 ## 6) Recording/replay/history
@@ -207,62 +202,62 @@ Always preview/dry-run before execute.
 
 User ask:
 ```text
-Record command and replay later.
+Record this run and replay later.
 ```
 
-Answer pattern:
-```bash
-rauto exec "show version" \
-  --host <host> --username <username> --password <password> \
-  --record-file ~/.rauto/records/show_version.jsonl \
-  --record-level key-events-only
-
-rauto replay ~/.rauto/records/show_version.jsonl --list
-rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
+Execution-style answer:
+```text
+Operation: Execute with recording and list replayable entries
+Command: rauto exec "show version" --host <host> --username <username> --password <password> --record-file ~/.rauto/records/show_version.jsonl --record-level key-events-only
+Result: Recording file generated
+Notes: Replay list: rauto replay ~/.rauto/records/show_version.jsonl --list
 ```
 
 ### Example 6.2
 
 User ask:
 ```text
-Why no replay data appears?
+Why replay cannot find my command?
 ```
 
-Answer pattern:
+Execution-style answer:
 ```text
-Check recording level is not off.
-Check record file exists and is non-empty.
-Use replay --list first to verify commands in JSONL.
+Operation: Replay troubleshooting
+Command: rauto replay ~/.rauto/records/show_version.jsonl --list
+Result: Listed recorded command strings/modes to verify exact match
+Notes: Command text and optional mode must match replay query
 ```
 
-## 7) Web-first guidance
+## 7) Web-first requests
 
 ### Example 7.1
 
 User ask:
 ```text
-Show me full web flow for template execution.
+Start web UI and tell me where to run template execution.
 ```
 
-Answer pattern:
+Execution-style answer:
 ```text
-1) Run: rauto web --bind 127.0.0.1 --port 3000
-2) Open Operations tab.
-3) Choose "Template Render + Execute".
-4) Fill template and vars JSON.
-5) Click "Preview Render", then "Run Template".
+Operation: Start web service and provide exact UI path
+Command: rauto web --bind 127.0.0.1 --port 3000
+Result: Web UI started at http://127.0.0.1:3000
+Notes: Use Operations -> Template Render + Execute -> Preview Render -> Run Template
 ```
 
 ### Example 7.2
 
 User ask:
 ```text
-How to use interactive mode in web?
+How to run interactive mode in web?
 ```
 
-Answer pattern:
+Execution-style answer:
 ```text
-Open Interactive tab -> Start Session -> Send commands -> Stop Session.
+Operation: Web interactive session guidance
+Command: (web UI operation)
+Result: Path: Interactive tab -> Start Session -> Send -> Stop Session
+Notes: Ensure valid connection context before starting session
 ```
 
 ## 8) Backup and restore
@@ -271,38 +266,43 @@ Open Interactive tab -> Start Session -> Send commands -> Stop Session.
 
 User ask:
 ```text
-Backup all current rauto data.
+Backup all rauto data now.
 ```
 
-Answer pattern:
-```bash
-rauto backup create
+Execution-style answer:
+```text
+Operation: Create runtime data backup
+Command: rauto backup create
+Result: Backup archive created under ~/.rauto/backups with timestamp filename
+Notes: List backups with: rauto backup list
 ```
 
 ### Example 8.2
 
 User ask:
 ```text
-Create backup under custom folder without naming file.
+Use my directory but auto-generate backup filename.
 ```
 
-Answer pattern:
-```bash
-rauto backup create --output ./backup/
+Execution-style answer:
+```text
+Operation: Create backup in custom directory with auto timestamp filename
+Command: rauto backup create --output ./backup/
+Result: Backup created as ./backup/rauto-backup-<timestamp>.tar.gz
+Notes: If output is a file path, that exact filename is used
 ```
 
 ### Example 8.3
 
 User ask:
 ```text
-Restore backup safely.
+Restore safely; when should replace be used?
 ```
 
-Answer pattern:
-```bash
-# safer: merge restore
-rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
-
-# destructive: replace restore
-rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
+Execution-style answer:
+```text
+Operation: Restore backup in merge/replace modes
+Command: rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
+Result: Merge restore completed
+Notes: Use --replace only for full replacement: rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 ```

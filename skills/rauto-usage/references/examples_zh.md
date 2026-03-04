@@ -1,6 +1,14 @@
-# Rauto 中文问答示例（examples_zh）
+# Rauto 执行风格中文示例（examples_zh）
 
-用于中文场景下的 few-shot 参考，帮助 AI 输出更稳定的 rauto 使用指导。
+用于中文场景下的 action-first few-shot。  
+默认输出格式：
+
+```text
+Operation: <执行了什么>
+Command: <执行的 rauto 命令>
+Result: <关键结果>
+Notes: <风险/报错/后续动作>
+```
 
 ## 目录
 
@@ -10,33 +18,8 @@
 4. Profile / Template 管理
 5. 事务块与工作流
 6. 录制、回放与历史
-7. Web 页面操作引导
+7. Web 页面请求
 8. 备份与恢复
-
-## 双语对照索引
-
-本文件与 `examples.md` 使用相同示例编号，按编号一一对应。
-
-```text
-1.1 <-> 1.1   基础执行 / Basic exec
-1.2 <-> 1.2   Enable 模式 / Enable mode
-2.1 <-> 2.1   模板预览 / Template dry-run
-2.2 <-> 2.2   模板执行 / Template execute
-3.1 <-> 3.1   保存连接 / Save connection
-3.2 <-> 3.2   连接历史 / Connection history
-4.1 <-> 4.1   复制内置 profile / Copy builtin profile
-4.2 <-> 4.2   模板管理 / Template CRUD
-5.1 <-> 5.1   事务逐条回滚 / Tx per-step rollback
-5.2 <-> 5.2   工作流预览与执行 / Tx workflow preview+run
-5.3 <-> 5.3   回滚策略选择 / Rollback policy choice
-6.1 <-> 6.1   录制与回放 / Record and replay
-6.2 <-> 6.2   回放排障 / Replay troubleshooting
-7.1 <-> 7.1   Web 模板流程 / Web template flow
-7.2 <-> 7.2   Web 交互会话 / Web interactive
-8.1 <-> 8.1   全量备份 / Backup all data
-8.2 <-> 8.2   自动时间命名 / Auto timestamp filename
-8.3 <-> 8.3   安全恢复 / Safe restore
-```
 
 ## 1）基础执行
 
@@ -44,27 +27,30 @@
 
 用户提问：
 ```text
-我想快速执行一条 show 命令，怎么做？
+帮我在设备上执行一条 show 命令。
 ```
 
-回答范式：
-```bash
-rauto exec "show version" \
-  --host <host> --username <username> --password <password>
+执行风格回答：
+```text
+Operation: 在目标设备直接执行命令
+Command: rauto exec "show version" --host <host> --username <username> --password <password>
+Result: 成功返回设备版本信息
+Notes: 若失败，优先检查 SSH 端口、账号和 profile
 ```
 
 ### 示例 1.2
 
 用户提问：
 ```text
-我需要在 Enable 模式执行命令。
+用 Enable 模式执行。
 ```
 
-回答范式：
-```bash
-rauto exec "show ip route" \
-  --host <host> --username <username> --password <password> \
-  --mode Enable
+执行风格回答：
+```text
+Operation: 在 Enable 模式执行命令
+Command: rauto exec "show ip route" --host <host> --username <username> --password <password> --mode Enable
+Result: 命令在 Enable 状态下执行完成
+Notes: 若模式不匹配，检查 profile 的 prompt/transition 配置
 ```
 
 ## 2）模板执行
@@ -73,26 +59,30 @@ rauto exec "show ip route" \
 
 用户提问：
 ```text
-先预览模板渲染结果，再决定是否执行。
+先帮我预览模板渲染结果。
 ```
 
-回答范式：
-```bash
-rauto template show_vlan.j2 --vars ./vars.json --dry-run
+执行风格回答：
+```text
+Operation: 渲染模板并仅预览
+Command: rauto template show_vlan.j2 --vars ./vars.json --dry-run
+Result: 成功输出渲染结果，未下发设备
+Notes: 建议先确认渲染内容再执行正式下发
 ```
 
 ### 示例 2.2
 
 用户提问：
 ```text
-我要用模板直接下发到设备。
+渲染后直接执行到设备。
 ```
 
-回答范式：
-```bash
-rauto template show_vlan.j2 \
-  --vars ./vars.json \
-  --host <host> --username <username> --password <password>
+执行风格回答：
+```text
+Operation: 渲染模板并执行
+Command: rauto template show_vlan.j2 --vars ./vars.json --host <host> --username <username> --password <password>
+Result: 模板命令已下发
+Notes: 如需审计，补充录制参数 --record-file / --record-level
 ```
 
 ## 3）连接配置复用
@@ -101,29 +91,30 @@ rauto template show_vlan.j2 \
 
 用户提问：
 ```text
-每次都输 host/user 太麻烦，怎么复用？
+帮我保存连接，后面用名字执行就行。
 ```
 
-回答范式：
-```bash
-rauto device add-connection lab1 \
-  --host <host> --username <username> --password <password> \
-  --ssh-port 22 --device-profile cisco
-
-rauto exec "show version" --connection lab1
+执行风格回答：
+```text
+Operation: 保存连接配置并复用
+Command: rauto device add-connection lab1 --host <host> --username <username> --password <password> --ssh-port 22 --device-profile cisco
+Result: 已保存连接 lab1
+Notes: 复用命令：rauto exec "show version" --connection lab1
 ```
 
 ### 示例 3.2
 
 用户提问：
 ```text
-怎么查看某个连接的历史执行记录？
+查询这个连接的历史记录。
 ```
 
-回答范式：
-```bash
-rauto device connection-history lab1 --limit 50
-rauto device connection-history-show lab1 <history-id>
+执行风格回答：
+```text
+Operation: 查询连接历史
+Command: rauto device connection-history lab1 --limit 50
+Result: 返回 lab1 最近历史记录
+Notes: 明细可用 connection-history-show <id>
 ```
 
 ## 4）Profile / Template 管理
@@ -132,27 +123,30 @@ rauto device connection-history-show lab1 <history-id>
 
 用户提问：
 ```text
-我想把内置 profile 复制成自定义 profile 再修改。
+把内置 cisco profile 复制成自定义。
 ```
 
-回答范式：
-```bash
-rauto device copy-builtin cisco my-cisco --overwrite
-rauto device show my-cisco
+执行风格回答：
+```text
+Operation: 复制内置 profile 到自定义 profile
+Command: rauto device copy-builtin cisco my-cisco --overwrite
+Result: 已生成/更新 my-cisco
+Notes: 可用 rauto device show my-cisco 查看详情
 ```
 
 ### 示例 4.2
 
 用户提问：
 ```text
-如何在命令行创建并更新 template？
+帮我创建或更新一个 template。
 ```
 
-回答范式：
-```bash
-rauto templates create my_show.j2 --content "show version"
-rauto templates update my_show.j2 --file ./my_show.j2
-rauto templates list
+执行风格回答：
+```text
+Operation: 创建/更新 template
+Command: rauto templates create my_show.j2 --content "show version"
+Result: template 已创建
+Notes: 更新命令：rauto templates update my_show.j2 --file ./my_show.j2
 ```
 
 ## 5）事务块与工作流
@@ -161,32 +155,30 @@ rauto templates list
 
 用户提问：
 ```text
-我需要逐条回滚的事务块示例。
+帮我执行一个逐条回滚的事务块。
 ```
 
-回答范式：
-```bash
-rauto tx \
-  --name vlan10 \
-  --command "interface vlan 10" \
-  --command "ip address 10.0.10.1 255.255.255.0" \
-  --rollback-command "no interface vlan 10" \
-  --rollback-command "no ip address 10.0.10.1 255.255.255.0" \
-  --host <host> --username <username> --password <password>
+执行风格回答：
+```text
+Operation: 执行 per_step 回滚事务块
+Command: rauto tx --name vlan10 --command "interface vlan 10" --command "ip address 10.0.10.1 255.255.255.0" --rollback-command "no interface vlan 10" --rollback-command "no ip address 10.0.10.1 255.255.255.0" --host <host> --username <username> --password <password>
+Result: 事务块执行完成（按 per_step 策略）
+Notes: 生产环境建议先 --dry-run
 ```
 
 ### 示例 5.2
 
 用户提问：
 ```text
-事务工作流如何先预览再执行？
+工作流先预览，再执行。
 ```
 
-回答范式：
-```bash
-rauto tx-workflow ./workflow.json --dry-run
-rauto tx-workflow ./workflow.json \
-  --host <host> --username <username> --password <password>
+执行风格回答：
+```text
+Operation: 先预览后执行事务工作流
+Command: rauto tx-workflow ./workflow.json --dry-run
+Result: 工作流计划通过预览校验
+Notes: 正式执行：rauto tx-workflow ./workflow.json --host <host> --username <username> --password <password>
 ```
 
 ### 示例 5.3
@@ -196,11 +188,12 @@ rauto tx-workflow ./workflow.json \
 逐条回滚和整块回滚怎么选？
 ```
 
-回答范式：
+执行风格回答：
 ```text
-命令可明确一一回退时优先用 per_step；
-对象型资源可用单条撤销命令时用 whole_resource；
-高风险变更先 dry-run/preview，再执行。
+Operation: 回滚策略建议
+Command: （无）
+Result: 可逐条明确回退时用 per_step；单资源可整体撤销时用 whole_resource
+Notes: 高风险变更先预览，歧义命令尽量写显式回滚
 ```
 
 ## 6）录制、回放与历史
@@ -209,63 +202,62 @@ rauto tx-workflow ./workflow.json \
 
 用户提问：
 ```text
-我想录制执行过程并离线回放。
+帮我录制执行并做回放检查。
 ```
 
-回答范式：
-```bash
-rauto exec "show version" \
-  --host <host> --username <username> --password <password> \
-  --record-file ~/.rauto/records/show_version.jsonl \
-  --record-level key-events-only
-
-rauto replay ~/.rauto/records/show_version.jsonl --list
-rauto replay ~/.rauto/records/show_version.jsonl \
-  --command "show version" --mode Enable
+执行风格回答：
+```text
+Operation: 执行并录制，然后列出可回放项
+Command: rauto exec "show version" --host <host> --username <username> --password <password> --record-file ~/.rauto/records/show_version.jsonl --record-level key-events-only
+Result: 已生成录制文件
+Notes: 列表检查：rauto replay ~/.rauto/records/show_version.jsonl --list
 ```
 
 ### 示例 6.2
 
 用户提问：
 ```text
-为什么回放里找不到命令？
+为什么回放找不到命令？
 ```
 
-回答范式：
+执行风格回答：
 ```text
-先用 replay --list 看录制里实际命令；
-确认命令字符串完全一致；
-如果加了 --mode，要确保模式也匹配。
+Operation: 回放排障
+Command: rauto replay ~/.rauto/records/show_version.jsonl --list
+Result: 已列出录制内命令与模式，便于对比匹配
+Notes: 回放时命令文本和可选模式必须一致
 ```
 
-## 7）Web 页面操作引导
+## 7）Web 页面请求
 
 ### 示例 7.1
 
 用户提问：
 ```text
-给我一个 Web 上模板执行的完整流程。
+帮我启动 Web，并告诉我模板执行入口。
 ```
 
-回答范式：
+执行风格回答：
 ```text
-1）启动：rauto web --bind 127.0.0.1 --port 3000
-2）打开 Operations 页签
-3）切换到 Template Render + Execute
-4）填写 template 与 vars JSON
-5）先点 Preview Render，再点 Run Template
+Operation: 启动 Web 服务并给出精确路径
+Command: rauto web --bind 127.0.0.1 --port 3000
+Result: Web 已启动（http://127.0.0.1:3000）
+Notes: 操作路径：Operations -> Template Render + Execute -> Preview Render -> Run Template
 ```
 
 ### 示例 7.2
 
 用户提问：
 ```text
-Web 里如何使用交互会话？
+Web 里交互会话怎么跑？
 ```
 
-回答范式：
+执行风格回答：
 ```text
-进入 Interactive 页签，点击 Start Session，输入命令点 Send，结束时点 Stop Session。
+Operation: 交互会话路径说明
+Command: （Web 操作）
+Result: 路径：Interactive -> Start Session -> Send -> Stop Session
+Notes: 启动前确保连接上下文可用
 ```
 
 ## 8）备份与恢复
@@ -274,45 +266,43 @@ Web 里如何使用交互会话？
 
 用户提问：
 ```text
-我想备份当前所有 rauto 数据。
+立刻备份当前 rauto 数据。
 ```
 
-回答范式：
-```bash
-rauto backup create
+执行风格回答：
+```text
+Operation: 创建全量备份
+Command: rauto backup create
+Result: 已在 ~/.rauto/backups 生成时间戳归档
+Notes: 可用 rauto backup list 查看
 ```
 
 ### 示例 8.2
 
 用户提问：
 ```text
-不指定文件名，只指定目录，自动按时间命名可以吗？
+我只给目录，不给文件名，自动命名备份。
 ```
 
-回答范式：
-```bash
-rauto backup create --output ./backup/
+执行风格回答：
+```text
+Operation: 在自定义目录创建自动命名备份
+Command: rauto backup create --output ./backup/
+Result: 生成 ./backup/rauto-backup-<timestamp>.tar.gz
+Notes: 若 output 是文件路径，则按指定文件名保存
 ```
 
 ### 示例 8.3
 
 用户提问：
 ```text
-恢复备份有哪些安全建议？
+帮我安全恢复备份，replace 什么时候用？
 ```
 
-回答范式：
+执行风格回答：
 ```text
-先用 merge 恢复验证；
-只有在明确要覆盖当前数据时才用 --replace；
-恢复后检查连接、模板、profile 是否符合预期。
-```
-
-对应命令：
-```bash
-# merge
-rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
-
-# replace
-rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
+Operation: 备份恢复（merge/replace）
+Command: rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
+Result: 已按 merge 模式恢复
+Notes: 全量替换才用 --replace：rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 ```

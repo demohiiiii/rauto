@@ -1,63 +1,71 @@
 ---
 name: rauto-usage
-description: Use this skill when users ask how to use rauto in CLI or Web UI, including setup, saved connections, direct/template execution, tx block/workflow orchestration, profile/template management, interactive session, recording/replay, history, and backup/restore under ~/.rauto. Trigger on requests like “run command on device”, “start rauto web”, “manage prompt profile/template”, “build tx workflow”, “replay/inspect records”, “view connection history”, “backup and restore rauto data”.
+description: Execute rauto directly for the user: run device commands, template execution, tx block, tx workflow, replay, backup/restore, and connection/profile/template/history operations. Trigger on requests like run command for me, execute on device, check history, run workflow, diagnose profile, manage templates/profiles/connections, replay records, or restore backup.
 ---
 
 # Rauto Usage
 
-Provide accurate, runnable guidance for rauto.
-Prefer concrete commands and exact Web tab/card paths.
+Execute rauto operations directly for users whenever possible.
+Do not default to tutorial-style answers.
 
-## Trigger Examples
+## Core Mode
 
-Use this skill for prompts like:
+Prefer action-first behavior:
 
-- "How do I run a command on a Cisco device?"
-- "How do I render a template and then execute?"
-- "How do I use tx workflow with rollback?"
-- "How do I manage profiles/templates in web?"
-- "How do I replay recordings and inspect history?"
-- "How do I backup and restore all rauto data?"
+1. Parse user goal into a concrete rauto operation.
+2. Run the relevant `rauto` command in terminal.
+3. Return key results (not raw noise), plus command used.
+4. Ask only minimal missing inputs when blocked.
 
-## Response Rules
+## Execution Rules
 
-1. Give a minimal working example first, then optional advanced flags.
-2. Use placeholders: `<host>`, `<username>`, `<password>`, `<connection>`.
-3. If Web is requested, map to exact path: top tab -> card -> action button.
-4. Mention risk for destructive operations (tx replace rollback, restore replace).
-5. When troubleshooting, ask only missing required inputs.
+1. For read/query requests, execute immediately:
+   - examples: `device list`, `templates list`, `show-connection`, `connection-history`, `replay --list`.
+2. For execution requests, execute with user-provided parameters:
+   - examples: `exec`, `template`, `tx`, `tx-workflow`.
+3. Resolve connection in this priority:
+   - explicit command args > `--connection <name>` > ask for missing fields.
+4. Do not ask the user to manually run commands if agent can run them.
+5. Summarize outputs with important fields:
+   - target, mode, success/failure, key errors, next action.
 
-## Quick Start Snippets
+## Risk Guardrails
 
-```bash
-# Direct execution
-rauto exec "show version" --host <host> --username <username> --password <password>
+Require explicit user confirmation before destructive actions:
 
-# Start web
-rauto web --bind 127.0.0.1 --port 3000
+- `rauto backup restore ... --replace`
+- profile/template/connection delete operations
+- tx/workflow execution that changes config when user intent is ambiguous
 
-# Use saved connection
-rauto exec "show ip int brief" --connection <connection>
-```
+If user explicitly asks to execute destructive action, proceed.
+
+## Missing Input Strategy
+
+Ask only for missing must-have fields:
+
+- For `exec/template/tx/tx-workflow/test-connection`:
+  - need either full host credentials or usable `--connection`.
+- For `replay`:
+  - need record file path or JSONL source.
+- For history queries:
+  - need connection name.
+
+## Response Format
+
+When command is executed, report:
+
+1. `Operation`: what was run
+2. `Command`: exact rauto command
+3. `Result`: key output summary
+4. `Notes`: risk, errors, or follow-up actions
 
 ## Navigation (Load References On Demand)
 
-Read only what is needed:
-
-- Full CLI command cookbook and all command examples: `references/cli.md`
-- Web tab/card mapping and UI operations: `references/web.md`
-- Runtime storage paths under `~/.rauto`: `references/paths.md`
-- Error diagnosis and recovery: `references/troubleshooting.md`
-- End-to-end deployment and rollback scenarios: `references/scenarios.md`
-- Comprehensive "ask -> answer" examples for AI: `references/examples.md`
-- Chinese prompt-to-answer examples: `references/examples_zh.md`
-
-## Output Template
-
-Use this structure when user asks "how to do X":
-
-1. Goal (one line)
-2. Fastest command/UI path
-3. Optional safe mode (dry-run/preview/recording)
-4. Verification step
-5. Rollback/fallback (if risky)
+- Agent execution decision tree and command templates: `references/agent-execution.md`
+- Full CLI command cookbook: `references/cli.md`
+- Runtime storage paths: `references/paths.md`
+- Troubleshooting and recovery: `references/troubleshooting.md`
+- End-to-end operation scenarios: `references/scenarios.md`
+- English Q/A examples: `references/examples.md`
+- Chinese Q/A examples: `references/examples_zh.md`
+- Web tab/card mapping (only when user asks for Web operations): `references/web.md`

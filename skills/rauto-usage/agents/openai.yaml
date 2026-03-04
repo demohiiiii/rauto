@@ -1,4 +1,4 @@
 interface:
-  display_name: "Rauto Usage"
-  short_description: "Run and manage rauto CLI/Web workflows and configurations"
-  default_prompt: "Use $rauto-usage to guide me through rauto CLI/Web operations, including tx workflow, replay, and backup/restore."
+  display_name: "Rauto Operator"
+  short_description: "Run rauto directly: execute, query, replay, tx, backup, restore"
+  default_prompt: "Use $rauto-usage to run rauto directly for me (exec/template/tx/workflow/replay/backup), return key results, and ask only for missing required inputs."
