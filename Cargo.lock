@@ -2010,6 +2010,7 @@ version = "0.2.1"
 dependencies = [
  "anyhow",
  "axum",
+ "chrono",
  "clap",
  "dirs",
  "flate2",

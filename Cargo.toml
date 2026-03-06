@@ -26,6 +26,7 @@ tower-http = { version = "0.6.2", features = ["fs"] }
 tracing = "0.1.41"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt"] }
+chrono = { version = "0.4.42", default-features = true, features = ["clock"] }
 rust-embed = "8.5.0"
 mime_guess = "2.0.5"
 tar = "0.4.43"

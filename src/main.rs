@@ -5,6 +5,7 @@ mod template;
 mod web;
 
 use anyhow::Result;
+use chrono::Local;
 use clap::Parser;
 use cli::{
     BackupCommands, Cli, Commands, DeviceCommands, RecordLevelOpt, TemplateCommands, TxArgs,
@@ -30,19 +31,22 @@ use std::path::PathBuf;
 use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{
+    EnvFilter, fmt,
+    fmt::format::Writer,
+    fmt::time::FormatTime,
+};
 use web::run_web_server;
 
 #[tokio::main]
 async fn main() {
-    init_tracing();
+    let cli = Cli::parse();
+    init_tracing(&cli);
 
     if let Err(e) = ensure_default_layout() {
         error!("Failed to initialize ~/.rauto layout: {}", e);
         process::exit(1);
     }
-
-    let cli = Cli::parse();
 
     if let Err(e) = run(cli).await {
         error!("Error: {}", e);
@@ -50,10 +54,28 @@ async fn main() {
     }
 }
 
-fn init_tracing() {
+fn init_tracing(cli: &Cli) {
     let _ = tracing_log::LogTracer::init();
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let _ = fmt().with_env_filter(filter).with_target(true).try_init();
+    let default_level = if matches!(cli.command, Commands::Web(_)) {
+        "info"
+    } else {
+        "error"
+    };
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_level));
+    let _ = fmt()
+        .with_env_filter(filter)
+        .with_target(true)
+        .with_timer(LocalTimer)
+        .try_init();
+}
+
+struct LocalTimer;
+
+impl FormatTime for LocalTimer {
+    fn format_time(&self, w: &mut Writer<'_>) -> std::fmt::Result {
+        write!(w, "{}", Local::now().format("%Y-%m-%d %H:%M:%S%.3f %:z"))
+    }
 }
 
 async fn run(cli: Cli) -> Result<()> {
@@ -814,13 +836,13 @@ fn persist_auto_recording_history(
     );
     match result {
         Ok(entry) => {
-            println!(
+            info!(
                 "Auto-saved recording history: {} -> {}",
                 entry.connection_key, entry.record_path
             );
         }
         Err(e) => {
-            eprintln!("Warning: failed to auto-save recording history: {}", e);
+            error!("Failed to auto-save recording history: {}", e);
         }
     }
     Ok(())
@@ -1182,13 +1204,13 @@ fn persist_auto_recording_history_jsonl(
     );
     match result {
         Ok(entry) => {
-            println!(
+            info!(
                 "Auto-saved recording history: {} -> {}",
                 entry.connection_key, entry.record_path
             );
         }
         Err(e) => {
-            eprintln!("Warning: failed to auto-save recording history: {}", e);
+            error!("Failed to auto-save recording history: {}", e);
         }
     }
     Ok(())
