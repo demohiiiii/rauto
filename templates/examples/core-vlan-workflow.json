@@ -1,0 +1,58 @@
+{
+  "name": "campus-core-vlan",
+  "fail_fast": true,
+  "blocks": [
+    {
+      "name": "create-vlan",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": "per_step",
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "vlan 120",
+          "timeout_secs": 10,
+          "rollback_command": "no vlan 120"
+        },
+        {
+          "mode": "Config",
+          "command": "name STAFF",
+          "timeout_secs": 10,
+          "rollback_command": "no name STAFF"
+        }
+      ]
+    },
+    {
+      "name": "create-svi",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": {
+        "whole_resource": {
+          "mode": "Config",
+          "undo_command": "default interface vlan 120",
+          "timeout_secs": 10
+        }
+      },
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "interface vlan 120",
+          "timeout_secs": 10,
+          "rollback_command": null
+        },
+        {
+          "mode": "Config",
+          "command": "description STAFF gateway",
+          "timeout_secs": 10,
+          "rollback_command": null
+        },
+        {
+          "mode": "Config",
+          "command": "ip address 10.120.0.1 255.255.255.0",
+          "timeout_secs": 10,
+          "rollback_command": null
+        }
+      ]
+    }
+  ]
+}

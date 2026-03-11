@@ -209,6 +209,21 @@ pub struct ExecuteTxWorkflowResponse {
     pub recording_jsonl: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ExecuteOrchestrationRequest {
+    pub plan: Value,
+    pub base_dir: Option<String>,
+    pub dry_run: Option<bool>,
+    pub record_level: Option<RecordLevel>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecuteOrchestrationResponse {
+    pub plan: Value,
+    pub inventory: Value,
+    pub orchestration_result: Option<Value>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct BuiltinProfileMeta {
     pub name: String,

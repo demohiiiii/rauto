@@ -1,0 +1,53 @@
+{
+  "defaults": {
+    "username": "ops",
+    "port": 22,
+    "device_profile": "cisco",
+    "vars": {
+      "tenant": "campus-a"
+    }
+  },
+  "groups": {
+    "core": [
+      {
+        "connection": "core-01",
+        "vars": {
+          "role": "core"
+        }
+      },
+      {
+        "connection": "core-02",
+        "vars": {
+          "role": "core"
+        }
+      }
+    ],
+    "access": {
+      "defaults": {
+        "vars": {
+          "site": "campus-a",
+          "vlans": [
+            {
+              "id": 120,
+              "name": "STAFF"
+            }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "connection": "sw-01",
+          "vars": {
+            "hostname": "sw-01"
+          }
+        },
+        {
+          "connection": "sw-02",
+          "vars": {
+            "hostname": "sw-02"
+          }
+        }
+      ]
+    }
+  }
+}

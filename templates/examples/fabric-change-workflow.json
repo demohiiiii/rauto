@@ -1,0 +1,91 @@
+{
+  "name": "fabric-service-rollout",
+  "fail_fast": true,
+  "blocks": [
+    {
+      "name": "vlan-and-svi",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": {
+        "whole_resource": {
+          "mode": "Config",
+          "undo_command": "default interface vlan 310",
+          "timeout_secs": 15,
+          "trigger_step_index": 0
+        }
+      },
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "vlan 310",
+          "timeout_secs": 10,
+          "rollback_command": null
+        },
+        {
+          "mode": "Config",
+          "command": "name APP-310",
+          "timeout_secs": 10,
+          "rollback_command": null
+        },
+        {
+          "mode": "Config",
+          "command": "interface vlan 310",
+          "timeout_secs": 10,
+          "rollback_command": null
+        },
+        {
+          "mode": "Config",
+          "command": "description APP gateway",
+          "timeout_secs": 10,
+          "rollback_command": null
+        },
+        {
+          "mode": "Config",
+          "command": "ip address 10.31.0.1 255.255.255.0",
+          "timeout_secs": 10,
+          "rollback_command": null
+        }
+      ]
+    },
+    {
+      "name": "trunk-allow-list",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": "per_step",
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "interface port-channel10",
+          "timeout_secs": 10,
+          "rollback_command": "default interface port-channel10"
+        },
+        {
+          "mode": "Config",
+          "command": "switchport trunk allowed vlan add 310",
+          "timeout_secs": 10,
+          "rollback_command": "switchport trunk allowed vlan remove 310"
+        }
+      ]
+    },
+    {
+      "name": "edge-uplink-backup",
+      "kind": "config",
+      "fail_fast": false,
+      "rollback_policy": "per_step",
+      "steps": [
+        {
+          "mode": "Config",
+          "command": "interface ethernet1/49",
+          "timeout_secs": 10,
+          "rollback_command": "default interface ethernet1/49"
+        },
+        {
+          "mode": "Config",
+          "command": "description backup-uplink-for-app310",
+          "timeout_secs": 10,
+          "rollback_command": "no description"
+        }
+      ]
+    }
+  ]
+}

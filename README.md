@@ -19,6 +19,7 @@
 - **Saved Connection Profiles**: Reuse named connection settings across commands.
 - **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
 - **Data Backup & Restore**: Backup full `~/.rauto` runtime data and restore when needed.
+- **Multi-device Orchestration (Web + CLI)**: Run staged serial/parallel plans across multiple devices, reusing saved connections and current `tx` / `tx-workflow` capabilities.
 
 ## Installation
 
@@ -48,6 +49,11 @@ The binary will be available at `target/release/rauto`.
 
 This repo includes a Codex skill for rauto usage under `skills/rauto-usage/`.
 
+Recommended usage:
+- If you are operating `rauto` through Codex or Claude Code, using the skill is the cleanest path.
+- The skill is action-first: it prefers running read-only `rauto` commands directly, and for config changes it prefers `tx` / `tx-workflow` with rollback or `--dry-run` first.
+- It also returns a compact execution summary instead of raw terminal noise.
+
 ### Install to your machine
 
 1. Clone the repo:
@@ -63,6 +69,25 @@ Notes:
 - If `CODEX_HOME` is not set, it usually defaults to `~/.codex`.
 - You can verify the skill is present at `$CODEX_HOME/skills/rauto-usage`.
 
+### Recommended prompts
+
+You can explicitly invoke the skill with `$rauto-usage`, for example:
+
+```text
+Use $rauto-usage to test connection lab1 and run "show version".
+Use $rauto-usage to preview templates/examples/fabric-advanced-orchestration.json, then wait for my confirmation before execution.
+Use $rauto-usage to show connection history for lab1 and summarize failures only.
+Use $rauto-usage to render configure_vlan.j2 with templates/example_vars.json and dry-run it first.
+```
+
+If your agent supports automatic skill routing, natural requests like these usually work too:
+
+```text
+Run one show command on my saved connection lab1.
+Preview this tx workflow and tell me the rollback plan.
+Check recent execution history for core-01 and summarize the errors.
+```
+
 ### Claude Code example
 
 If you use Claude Code skills, copy the folder into your Claude Code skills directory:
@@ -70,7 +95,7 @@ If you use Claude Code skills, copy the folder into your Claude Code skills dire
 cp -R rauto/skills/rauto-usage ~/.claude/skills/
 ```
 
-Claude Code’s default personal skills location is `~/.claude/skills/`. citeturn0view0
+`~/.claude/skills/` is a common personal skills location for Claude Code. If your local setup uses a different skills directory, copy it there instead.
 
 ## Usage
 
@@ -453,6 +478,164 @@ rauto tx-workflow ./workflow.json --dry-run --json
 }
 ```
 
+Ready-to-edit sample files:
+- [templates/examples/core-vlan-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/core-vlan-workflow.json)
+
+Advanced sample files:
+- [templates/examples/fabric-change-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-change-workflow.json)
+
+**Multi-device orchestration**
+```bash
+# Preview orchestration structure in terminal
+rauto orchestrate ./orchestration.json --view
+
+# Dry-run: print normalized plan and exit
+rauto orchestrate ./orchestration.json --dry-run
+
+# Execute a multi-device plan
+rauto orchestrate ./orchestration.json --record-level full
+
+# Print execution result as JSON
+rauto orchestrate ./orchestration.json --json
+```
+
+**Orchestration plan JSON example**
+```json
+{
+  "name": "campus-vlan-rollout",
+  "fail_fast": true,
+  "stages": [
+    {
+      "name": "core",
+      "strategy": "serial",
+      "targets": ["core-01", "core-02"],
+      "action": {
+        "kind": "tx_workflow",
+        "workflow_file": "./workflows/core-vlan.json"
+      }
+    },
+    {
+      "name": "access",
+      "strategy": "parallel",
+      "max_parallel": 10,
+      "targets": [
+        {
+          "connection": "sw-01",
+          "vars": {
+            "hostname": "sw-01"
+          }
+        },
+        {
+          "connection": "sw-02",
+          "vars": {
+            "hostname": "sw-02"
+          }
+        }
+      ],
+      "action": {
+        "kind": "tx_block",
+        "name": "access-vlan",
+        "template": "configure_vlan.j2",
+        "mode": "Config",
+        "vars": {
+          "vlans": [
+            {
+              "id": 120,
+              "name": "STAFF"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+**Inventory + group example**
+```json
+{
+  "name": "campus-vlan-rollout",
+  "inventory_file": "./inventory.json",
+  "stages": [
+    {
+      "name": "core",
+      "strategy": "serial",
+      "target_groups": ["core"],
+      "action": {
+        "kind": "tx_workflow",
+        "workflow_file": "./workflows/core-vlan.json"
+      }
+    },
+    {
+      "name": "access",
+      "strategy": "parallel",
+      "max_parallel": 20,
+      "target_groups": ["access"],
+      "action": {
+        "kind": "tx_block",
+        "template": "configure_vlan.j2",
+        "mode": "Config",
+        "vars": {
+          "vlans": [
+            {
+              "id": 120,
+              "name": "STAFF"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+```json
+{
+  "defaults": {
+    "username": "ops",
+    "port": 22,
+    "vars": {
+      "tenant": "campus"
+    }
+  },
+  "groups": {
+    "core": ["core-01", "core-02"],
+    "access": {
+      "defaults": {
+        "username": "admin",
+        "port": 22,
+        "device_profile": "huawei",
+        "template_dir": "~/.rauto/templates/site-a",
+        "vars": {
+          "site": "campus-a",
+          "region": "east"
+        }
+      },
+      "targets": [
+        {"connection": "sw-01", "vars": {"hostname": "sw-01"}},
+        {"connection": "sw-02", "vars": {"hostname": "sw-02"}}
+      ]
+    }
+  }
+}
+```
+
+Ready-to-edit sample files:
+- [templates/examples/campus-vlan-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-vlan-orchestration.json)
+- [templates/examples/campus-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-inventory.json)
+
+Advanced sample files:
+- [templates/examples/fabric-advanced-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-orchestration.json)
+- [templates/examples/fabric-advanced-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-inventory.json)
+
+Notes:
+- `targets` can reference saved connections by name or provide inline connection fields.
+- `target_groups` can load target lists from `inventory_file` or inline `inventory.groups`.
+- `inventory.defaults` applies to all groups and stage-level inline `targets`; group `defaults` override inventory defaults.
+- `tx_block` stages reuse existing template/rollback behavior and support per-target `vars`.
+- `tx_workflow` stages reuse existing single-device workflow JSON.
+- Multi-device orchestration is available in both Web UI and CLI.
+
 **CLI ⇄ Web UI mapping**
 ```text
 Operations (Web)                 CLI
@@ -461,6 +644,7 @@ Direct Execute                   rauto exec
 Template Render + Execute        rauto template
 Transaction Block (Tx Block)     rauto tx
 Transaction Workflow (Tx Flow)   rauto tx-workflow
+Multi-device Orchestration       rauto orchestrate
 
 Prompt Profiles (Web)            CLI
 -------------------------------- ---------------------------------------------
@@ -492,6 +676,7 @@ Session replay UI table/detail           Yes     No
 Prompt profile diagnose view             Yes     No
 Workflow builder (visual)                Yes     No
 Transaction workflow JSON execution      Yes     Yes
+Multi-device orchestration (plan JSON)   Yes     Yes
 ```
 
 **Migration tips (Web ⇄ CLI)**

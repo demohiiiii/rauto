@@ -12,18 +12,66 @@ Notes: <risk/error/follow-up>
 
 ## Table of Contents
 
-1. Basic execution
-2. Templates
-3. Saved connections
-4. Profiles and templates management
-5. Tx block/workflow orchestration
-6. Recording/replay/history
-7. Web-first requests
-8. Backup and restore
+1. Install and verify
+2. Basic execution
+3. Templates
+4. Saved connections
+5. Profiles and templates management
+6. Tx block/workflow orchestration
+7. Recording/replay/history
+8. Web-first requests
+9. Backup and restore
 
-## 1) Basic execution
+## 1) Install and verify
 
 ### Example 1.1
+
+User ask:
+```text
+Install the latest rauto on this machine for me.
+```
+
+Execution-style answer:
+```text
+Operation: Install rauto from official GitHub Releases for this machine
+Command: Resolve the latest GitHub Releases asset for the current OS/arch, download it, extract it, install `rauto` into a user-local bin path, then run `rauto --version`
+Result: Release binary installed and verified
+Notes: Prefer GitHub Releases by default; use a source build only when the user explicitly wants the current checkout
+```
+
+### Example 1.2
+
+User ask:
+```text
+Check whether rauto is already installed here.
+```
+
+Execution-style answer:
+```text
+Operation: Verify local rauto installation state
+Command: command -v rauto && rauto --version
+Result: Reported resolved binary path and version
+Notes: If not found, detect OS/arch and choose the matching GitHub Releases asset
+```
+
+### Example 1.3
+
+User ask:
+```text
+Upgrade my rauto install.
+```
+
+Execution-style answer:
+```text
+Operation: Upgrade existing rauto from official GitHub Releases
+Command: Resolve the latest matching GitHub Releases asset, download it, replace the current user-local binary, then run `rauto --version`
+Result: Existing install replaced with the latest release binary
+Notes: Confirm overwrite intent first if the current installation target is ambiguous
+```
+
+## 2) Basic execution
+
+### Example 2.1
 
 User ask:
 ```text
@@ -38,7 +86,7 @@ Result: Command executed; captured version output from device
 Notes: If connection fails, verify SSH port/profile credentials
 ```
 
-### Example 1.2
+### Example 2.2
 
 User ask:
 ```text
@@ -53,9 +101,9 @@ Result: Command executed in Enable mode
 Notes: If mode mismatch appears, verify profile prompt/state mapping
 ```
 
-## 2) Templates
+## 3) Templates
 
-### Example 2.1
+### Example 3.1
 
 User ask:
 ```text
@@ -70,7 +118,7 @@ Result: Template rendered successfully; no commands sent to device
 Notes: Review rendered commands before live execution
 ```
 
-### Example 2.2
+### Example 3.2
 
 User ask:
 ```text
@@ -85,9 +133,9 @@ Result: Template commands executed on target
 Notes: Add recording flags if audit/replay is required
 ```
 
-## 3) Saved connections
+## 4) Saved connections
 
-### Example 3.1
+### Example 4.1
 
 User ask:
 ```text
@@ -102,7 +150,7 @@ Result: Saved connection lab1
 Notes: Reuse with: rauto exec "show version" --connection lab1
 ```
 
-### Example 3.2
+### Example 4.2
 
 User ask:
 ```text
@@ -117,9 +165,9 @@ Result: Returned recent history entries for lab1
 Notes: Use connection-history-show with an entry ID for event-level detail
 ```
 
-## 4) Profiles and templates management
+## 5) Profiles and templates management
 
-### Example 4.1
+### Example 5.1
 
 User ask:
 ```text
@@ -134,7 +182,7 @@ Result: Custom profile my-cisco created/updated
 Notes: Inspect with: rauto device show my-cisco
 ```
 
-### Example 4.2
+### Example 5.2
 
 User ask:
 ```text
@@ -149,9 +197,9 @@ Result: Template created (or use update command if exists)
 Notes: Update form: rauto templates update my_show.j2 --file ./my_show.j2
 ```
 
-## 5) Tx block/workflow orchestration
+## 6) Tx block/workflow orchestration
 
-### Example 5.1
+### Example 6.1
 
 User ask:
 ```text
@@ -166,7 +214,7 @@ Result: Tx block executed with rollback policy per_step
 Notes: Use --dry-run first when changing production config
 ```
 
-### Example 5.2
+### Example 6.2
 
 User ask:
 ```text
@@ -181,7 +229,7 @@ Result: Workflow plan validated
 Notes: Execute after review: rauto tx-workflow ./workflow.json --host <host> --username <username> --password <password>
 ```
 
-### Example 5.3
+### Example 6.3
 
 User ask:
 ```text
@@ -196,7 +244,7 @@ Result: per_step for explicit per-command undo, whole_resource for single-resour
 Notes: Prefer preview before execution and explicit rollback commands for ambiguous syntax
 ```
 
-### Example 5.4
+### Example 6.4
 
 User ask:
 ```text
@@ -211,7 +259,7 @@ Result: Tx block executed under whole_resource rollback strategy
 Notes: Preview first with --dry-run; use explicit rollback command for policy-like resources
 ```
 
-### Example 5.5
+### Example 6.5
 
 User ask:
 ```text
@@ -226,7 +274,7 @@ Result: Tx executed with per-step rollback commands loaded from file
 Notes: Alternative JSON input: --rollback-commands-json ./rollback.json ; empty rollback lines are allowed and will be skipped
 ```
 
-### Example 5.6
+### Example 6.6
 
 User ask:
 ```text
@@ -241,7 +289,7 @@ Result: Workflow structure validated before execution
 Notes: Execute with recording: rauto tx-workflow ./workflow.json --host <host> --username <username> --password <password> --record-file ~/.rauto/records/tx_workflow.jsonl --record-level key-events-only
 ```
 
-### Example 5.7
+### Example 6.7
 
 User ask:
 ```text
@@ -256,7 +304,7 @@ Result: Workflow and rollback plan validated before live execution
 Notes: Execute with audit trail: rauto tx-workflow ./workflow.json --connection <connection> --record-file ~/.rauto/records/fw_publish.jsonl --record-level key-events-only ; then verify rollback_attempted/rollback_succeeded/rollback_errors in output
 ```
 
-### Example 5.8
+### Example 6.8
 
 User ask:
 ```text
@@ -271,9 +319,9 @@ Result: Change plan prepared with rollback path; waiting for human confirmation
 Notes: Preview first: rauto tx-workflow ./workflow.json --dry-run ; execute only after explicit confirmation
 ```
 
-## 6) Recording/replay/history
+## 7) Recording/replay/history
 
-### Example 6.1
+### Example 7.1
 
 User ask:
 ```text
@@ -288,7 +336,7 @@ Result: Recording file generated
 Notes: Replay list: rauto replay ~/.rauto/records/show_version.jsonl --list
 ```
 
-### Example 6.2
+### Example 7.2
 
 User ask:
 ```text
@@ -303,7 +351,7 @@ Result: Listed recorded command strings/modes to verify exact match
 Notes: Command text and optional mode must match replay query
 ```
 
-### Example 6.3
+### Example 7.3
 
 User ask:
 ```text
@@ -318,7 +366,7 @@ Result: Returned ordered history entries with IDs
 Notes: Detail view: rauto device connection-history-show lab1 <history-id> ; machine-readable: rauto device connection-history-show lab1 <history-id> --json
 ```
 
-### Example 6.4
+### Example 7.4
 
 User ask:
 ```text
@@ -333,9 +381,9 @@ Result: Command executed with durable recording and connection-bound history ent
 Notes: Continue with: rauto device connection-history lab1 --limit 20 ; rauto device connection-history-show lab1 <history-id> ; rauto replay ~/.rauto/records/lab1_show_version.jsonl --list
 ```
 
-## 7) Web-first requests
+## 8) Web-first requests
 
-### Example 7.1
+### Example 8.1
 
 User ask:
 ```text
@@ -350,7 +398,7 @@ Result: Web UI started at http://127.0.0.1:3000
 Notes: Use Operations -> Template Render + Execute -> Preview Render -> Run Template
 ```
 
-### Example 7.2
+### Example 8.2
 
 User ask:
 ```text
@@ -365,9 +413,9 @@ Result: Path: Interactive tab -> Start Session -> Send -> Stop Session
 Notes: Ensure valid connection context before starting session
 ```
 
-## 8) Backup and restore
+## 9) Backup and restore
 
-### Example 8.1
+### Example 9.1
 
 User ask:
 ```text
@@ -382,7 +430,7 @@ Result: Backup archive created under ~/.rauto/backups with timestamp filename
 Notes: List backups with: rauto backup list
 ```
 
-### Example 8.2
+### Example 9.2
 
 User ask:
 ```text
@@ -397,7 +445,7 @@ Result: Backup created as ./backup/rauto-backup-<timestamp>.tar.gz
 Notes: If output is a file path, that exact filename is used
 ```
 
-### Example 8.3
+### Example 9.3
 
 User ask:
 ```text

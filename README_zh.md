@@ -19,6 +19,7 @@
 - **连接配置档复用**：支持按名称保存/加载连接参数。
 - **会话录制与回放**：支持将 SSH 会话录制为 JSONL 并离线回放。
 - **数据备份与恢复**：支持对 `~/.rauto` 运行数据做全量备份与恢复。
+- **多设备编排执行（Web + CLI）**：支持基于计划文件对多台设备分阶段串行/并发执行，并复用现有 `tx` / `tx-workflow` 能力。
 
 ## 安装
 
@@ -48,6 +49,11 @@ cargo build --release
 
 本仓库包含 rauto 使用 skill，位于 `skills/rauto-usage/`。
 
+推荐用法：
+- 如果你是通过 Codex 或 Claude Code 来操作 `rauto`，优先安装并使用这个 skill。
+- 这个 skill 是“直接执行优先”的：读操作会直接运行对应 `rauto` 命令；变更操作会优先走 `tx` / `tx-workflow`，并优先做回滚设计或 `--dry-run`。
+- 返回结果也会更聚焦，通常只给你关键结论、执行命令和后续建议。
+
 ### 安装到本机
 
 1. 拉取代码：
@@ -63,6 +69,25 @@ cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
 - 如果未设置 `CODEX_HOME`，通常默认是 `~/.codex`。
 - 可检查 `$CODEX_HOME/skills/rauto-usage` 是否存在。
 
+### 推荐提示词
+
+你可以显式通过 `$rauto-usage` 调用这个 skill，例如：
+
+```text
+使用 $rauto-usage 测试已保存连接 lab1，并执行 "show version"。
+使用 $rauto-usage 先预览 templates/examples/fabric-advanced-orchestration.json，再等我确认后执行。
+使用 $rauto-usage 查看 lab1 的连接历史，只总结失败项。
+使用 $rauto-usage 渲染 configure_vlan.j2，变量文件用 templates/example_vars.json，并先 dry-run。
+```
+
+如果你的 agent 支持自动路由 skill，直接自然描述需求通常也可以：
+
+```text
+在我保存的连接 lab1 上执行一个 show 命令。
+帮我预览这个 tx workflow，并说明回滚策略。
+帮我检查 core-01 最近的执行历史，只看报错。
+```
+
 ### Claude Code 示例
 
 如果你使用 Claude Code skills，请将目录复制到 Claude Code 的 skills 路径：
@@ -70,7 +95,7 @@ cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
 cp -R rauto/skills/rauto-usage ~/.claude/skills/
 ```
 
-Claude Code 的个人 skills 默认路径是 `~/.claude/skills/`。citeturn0view0
+`~/.claude/skills/` 通常是 Claude Code 的个人 skills 路径；如果你的本地配置使用的是别的目录，就复制到对应目录即可。
 
 ## 使用方法
 
@@ -457,6 +482,164 @@ rauto tx-workflow ./workflow.json --dry-run --json
 }
 ```
 
+可直接改的示例文件：
+- [templates/examples/core-vlan-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/core-vlan-workflow.json)
+
+更复杂的示例文件：
+- [templates/examples/fabric-change-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-change-workflow.json)
+
+**多设备编排**
+```bash
+# 终端中预览编排结构
+rauto orchestrate ./orchestration.json --view
+
+# Dry-run：打印标准化计划后退出
+rauto orchestrate ./orchestration.json --dry-run
+
+# 执行多设备计划
+rauto orchestrate ./orchestration.json --record-level full
+
+# 以 JSON 输出执行结果
+rauto orchestrate ./orchestration.json --json
+```
+
+**编排计划 JSON 示例**
+```json
+{
+  "name": "campus-vlan-rollout",
+  "fail_fast": true,
+  "stages": [
+    {
+      "name": "core",
+      "strategy": "serial",
+      "targets": ["core-01", "core-02"],
+      "action": {
+        "kind": "tx_workflow",
+        "workflow_file": "./workflows/core-vlan.json"
+      }
+    },
+    {
+      "name": "access",
+      "strategy": "parallel",
+      "max_parallel": 10,
+      "targets": [
+        {
+          "connection": "sw-01",
+          "vars": {
+            "hostname": "sw-01"
+          }
+        },
+        {
+          "connection": "sw-02",
+          "vars": {
+            "hostname": "sw-02"
+          }
+        }
+      ],
+      "action": {
+        "kind": "tx_block",
+        "name": "access-vlan",
+        "template": "configure_vlan.j2",
+        "mode": "Config",
+        "vars": {
+          "vlans": [
+            {
+              "id": 120,
+              "name": "STAFF"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+**Inventory + 分组示例**
+```json
+{
+  "name": "campus-vlan-rollout",
+  "inventory_file": "./inventory.json",
+  "stages": [
+    {
+      "name": "core",
+      "strategy": "serial",
+      "target_groups": ["core"],
+      "action": {
+        "kind": "tx_workflow",
+        "workflow_file": "./workflows/core-vlan.json"
+      }
+    },
+    {
+      "name": "access",
+      "strategy": "parallel",
+      "max_parallel": 20,
+      "target_groups": ["access"],
+      "action": {
+        "kind": "tx_block",
+        "template": "configure_vlan.j2",
+        "mode": "Config",
+        "vars": {
+          "vlans": [
+            {
+              "id": 120,
+              "name": "STAFF"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+```json
+{
+  "defaults": {
+    "username": "ops",
+    "port": 22,
+    "vars": {
+      "tenant": "campus"
+    }
+  },
+  "groups": {
+    "core": ["core-01", "core-02"],
+    "access": {
+      "defaults": {
+        "username": "admin",
+        "port": 22,
+        "device_profile": "huawei",
+        "template_dir": "~/.rauto/templates/site-a",
+        "vars": {
+          "site": "campus-a",
+          "region": "east"
+        }
+      },
+      "targets": [
+        {"connection": "sw-01", "vars": {"hostname": "sw-01"}},
+        {"connection": "sw-02", "vars": {"hostname": "sw-02"}}
+      ]
+    }
+  }
+}
+```
+
+可直接改的示例文件：
+- [templates/examples/campus-vlan-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-vlan-orchestration.json)
+- [templates/examples/campus-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-inventory.json)
+
+更复杂的示例文件：
+- [templates/examples/fabric-advanced-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-orchestration.json)
+- [templates/examples/fabric-advanced-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-inventory.json)
+
+说明：
+- `targets` 可以直接引用已保存连接名，也可以写内联连接字段。
+- `target_groups` 可以从 `inventory_file` 或内联 `inventory.groups` 加载目标列表。
+- `inventory.defaults` 会作用到所有分组和阶段内联 `targets`；group 的 `defaults` 会覆盖 inventory 默认值。
+- `tx_block` 阶段会复用现有模板/回滚能力，并支持按目标覆盖 `vars`。
+- `tx_workflow` 阶段会直接复用现有单设备工作流 JSON。
+- 多设备编排当前已同时支持 Web UI 与 CLI。
+
 **CLI 与 Web UI 对应关系**
 ```text
 Web 操作界面                   CLI
@@ -465,6 +648,7 @@ Web 操作界面                   CLI
 模板渲染并执行                 rauto template
 事务块执行                     rauto tx
 事务工作流                     rauto tx-workflow
+多设备编排执行                 rauto orchestrate
 
 Prompt 管理                    CLI
 ------------------------------ ---------------------------------------------
@@ -496,6 +680,7 @@ Template 管理                  CLI
 Prompt profile 诊断页面                    Yes     No
 工作流构建器（可视化）                      Yes     No
 事务工作流 JSON 执行                       Yes     Yes
+多设备编排计划 JSON 执行                   Yes     Yes
 ```
 
 **迁移提示（Web ⇄ CLI）**

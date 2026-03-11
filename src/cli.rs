@@ -43,6 +43,9 @@ pub enum Commands {
     /// Execute a transaction workflow loaded from JSON
     TxWorkflow(TxWorkflowArgs),
 
+    /// Execute a multi-device orchestration plan loaded from JSON
+    Orchestrate(OrchestrateArgs),
+
     /// Backup and restore rauto runtime data
     #[command(subcommand)]
     Backup(BackupCommands),
@@ -348,6 +351,28 @@ pub struct TxWorkflowArgs {
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    pub record_level: RecordLevelOpt,
+}
+
+#[derive(Args, Debug)]
+pub struct OrchestrateArgs {
+    /// Path to orchestration plan JSON file
+    pub plan_file: PathBuf,
+
+    /// Dry run: print orchestration plan and exit (use --json for raw JSON)
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Visualize orchestration structure in terminal, then exit
+    #[arg(long)]
+    pub view: bool,
+
+    /// Print orchestration result as JSON
+    #[arg(long)]
+    pub json: bool,
+
+    /// Session recording level for each target execution
     #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }

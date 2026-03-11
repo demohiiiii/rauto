@@ -1,0 +1,118 @@
+{
+  "name": "fabric-service-rollout-advanced",
+  "fail_fast": true,
+  "inventory_file": "./fabric-advanced-inventory.json",
+  "stages": [
+    {
+      "name": "core-services",
+      "strategy": "serial",
+      "target_groups": [
+        "core"
+      ],
+      "action": {
+        "kind": "tx_workflow",
+        "workflow_file": "./fabric-change-workflow.json"
+      }
+    },
+    {
+      "name": "distribution-guardrails",
+      "strategy": "parallel",
+      "max_parallel": 2,
+      "fail_fast": false,
+      "target_groups": [
+        "distribution"
+      ],
+      "action": {
+        "kind": "tx_block",
+        "name": "distribution-guard",
+        "mode": "Config",
+        "commands": [
+          "vlan 3999",
+          "name TEMP-GUARD",
+          "interface port-channel20",
+          "switchport trunk allowed vlan add 3999"
+        ],
+        "rollback_commands": [
+          "no vlan 3999",
+          "no name TEMP-GUARD",
+          "default interface port-channel20",
+          "switchport trunk allowed vlan remove 3999"
+        ],
+        "rollback_on_failure": true
+      }
+    },
+    {
+      "name": "access-rollout",
+      "strategy": "parallel",
+      "max_parallel": 8,
+      "target_groups": [
+        "access"
+      ],
+      "targets": [
+        {
+          "name": "qa-lab-sw",
+          "host": "10.10.50.20",
+          "username": "admin",
+          "password": "",
+          "device_profile": "cisco",
+          "vars": {
+            "hostname": "qa-lab-sw",
+            "vlans": [
+              {
+                "id": 399,
+                "name": "QA-LAB"
+              }
+            ]
+          }
+        }
+      ],
+      "action": {
+        "kind": "tx_block",
+        "name": "access-service-vlans",
+        "template": "configure_vlan.j2",
+        "mode": "Config",
+        "vars": {
+          "change_tag": "fabric-advanced"
+        }
+      }
+    },
+    {
+      "name": "edge-cleanup",
+      "strategy": "serial",
+      "fail_fast": false,
+      "targets": [
+        {
+          "name": "edge-fw-01",
+          "host": "10.10.60.11",
+          "username": "ops",
+          "password": "",
+          "device_profile": "cisco",
+          "vars": {
+            "cleanup_vlan": 3999
+          }
+        },
+        {
+          "name": "edge-fw-02",
+          "host": "10.10.60.12",
+          "username": "ops",
+          "password": "",
+          "device_profile": "cisco",
+          "vars": {
+            "cleanup_vlan": 3999
+          }
+        }
+      ],
+      "action": {
+        "kind": "tx_block",
+        "name": "edge-cleanup",
+        "mode": "Config",
+        "commands": [
+          "vlan 3999",
+          "name TEMP-GUARD-CLEANUP"
+        ],
+        "resource_rollback_command": "no vlan 3999",
+        "rollback_trigger_step_index": 0
+      }
+    }
+  ]
+}

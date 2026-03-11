@@ -1,8 +1,10 @@
+use crate::cli::RecordLevelOpt;
 use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
 use crate::config::{backup, connection_store, connection_store::SavedConnection};
 use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
+use crate::orchestrator;
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
 use crate::web::models::{
@@ -10,6 +12,7 @@ use crate::web::models::{
     BackupRestoreResponse, BuiltinProfileDetail, CommandResult, ConnectionHistoryDetailResponse,
     ConnectionHistoryEntry, ConnectionRequest, ConnectionTestRequest, ConnectionTestResponse,
     CreateTemplateRequest, CustomProfileDetail, DeviceProfilesOverview, ExecRequest, ExecResponse,
+    ExecuteOrchestrationRequest, ExecuteOrchestrationResponse,
     ExecuteTemplateRequest, ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
     ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, InteractiveCommandRequest,
     InteractiveCommandResponse, InteractiveStartRequest, InteractiveStartResponse,
@@ -334,6 +337,14 @@ fn to_record_level(level: Option<RecordLevel>) -> Option<SessionRecordLevel> {
         Some(RecordLevel::KeyEventsOnly) => Some(SessionRecordLevel::KeyEventsOnly),
         Some(RecordLevel::Full) => Some(SessionRecordLevel::Full),
         None => Some(SessionRecordLevel::KeyEventsOnly),
+    }
+}
+
+fn to_cli_record_level(level: Option<RecordLevel>) -> RecordLevelOpt {
+    match level {
+        Some(RecordLevel::Off) => RecordLevelOpt::Off,
+        Some(RecordLevel::KeyEventsOnly) | None => RecordLevelOpt::KeyEventsOnly,
+        Some(RecordLevel::Full) => RecordLevelOpt::Full,
     }
 }
 
@@ -1147,6 +1158,46 @@ pub async fn execute_tx_workflow(
         workflow: workflow_value,
         tx_workflow_result: Some(serde_json::to_value(&workflow_result).map_err(ApiError::from)?),
         recording_jsonl,
+    }))
+}
+
+pub async fn execute_orchestration(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteOrchestrationRequest>,
+) -> Result<Json<ExecuteOrchestrationResponse>, ApiError> {
+    let plan_root = req
+        .base_dir
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let (plan, inventory) =
+        orchestrator::load_plan_from_value(req.plan.clone(), &plan_root).map_err(ApiError::from)?;
+    let plan_value = serde_json::to_value(&plan).map_err(ApiError::from)?;
+    let inventory_value = serde_json::to_value(&inventory).map_err(ApiError::from)?;
+
+    if req.dry_run.unwrap_or(false) {
+        return Ok(Json(ExecuteOrchestrationResponse {
+            plan: plan_value,
+            inventory: inventory_value,
+            orchestration_result: None,
+        }));
+    }
+
+    let result = orchestrator::execute_loaded_plan(
+        &plan,
+        &inventory,
+        &plan_root,
+        &state.defaults,
+        to_cli_record_level(req.record_level),
+    )
+    .await
+    .map_err(ApiError::from)?;
+
+    Ok(Json(ExecuteOrchestrationResponse {
+        plan: plan_value,
+        inventory: inventory_value,
+        orchestration_result: Some(serde_json::to_value(&result).map_err(ApiError::from)?),
     }))
 }
 

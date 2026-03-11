@@ -1,0 +1,97 @@
+{
+  "defaults": {
+    "username": "ops",
+    "port": 22,
+    "device_profile": "cisco",
+    "vars": {
+      "tenant": "dc-east",
+      "change_window": "sat-0200"
+    }
+  },
+  "groups": {
+    "core": {
+      "defaults": {
+        "vars": {
+          "role": "core",
+          "change_id": "CHG-20260311-A"
+        }
+      },
+      "targets": [
+        {
+          "connection": "core-01",
+          "vars": {
+            "hostname": "core-01"
+          }
+        },
+        {
+          "connection": "core-02",
+          "vars": {
+            "hostname": "core-02"
+          }
+        }
+      ]
+    },
+    "distribution": {
+      "defaults": {
+        "vars": {
+          "role": "distribution",
+          "guard_vlan": 3999
+        }
+      },
+      "targets": [
+        {
+          "connection": "dist-01",
+          "vars": {
+            "hostname": "dist-01"
+          }
+        },
+        {
+          "connection": "dist-02",
+          "vars": {
+            "hostname": "dist-02"
+          }
+        }
+      ]
+    },
+    "access": {
+      "defaults": {
+        "vars": {
+          "role": "access",
+          "vlans": [
+            {
+              "id": 310,
+              "name": "APP-310"
+            },
+            {
+              "id": 311,
+              "name": "APP-311"
+            }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "connection": "sw-11",
+          "vars": {
+            "hostname": "sw-11",
+            "site": "row-a"
+          }
+        },
+        {
+          "connection": "sw-12",
+          "vars": {
+            "hostname": "sw-12",
+            "site": "row-b"
+          }
+        },
+        {
+          "connection": "sw-13",
+          "vars": {
+            "hostname": "sw-13",
+            "site": "row-c"
+          }
+        }
+      ]
+    }
+  }
+}

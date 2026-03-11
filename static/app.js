@@ -108,8 +108,11 @@ const i18n = {
     txAdvancedBtn: "Advanced",
     txStageBlock: "Tx Block",
     txStageWorkflow: "Tx Workflow",
+    txStageOrchestrate: "Orchestrate",
     txStageHintBlock: "Step 1: build and run a single transaction block.",
     txStageHintWorkflow: "Step 2: combine multiple blocks and execute a workflow.",
+    txStageHintOrchestrate:
+      "Step 3: validate and execute a multi-device orchestration plan.",
     txPlanBtn: "Preview Tx Plan",
     txExecBtn: "Execute Tx Block",
     txBlockVisualTitle: "Tx Block Visual Preview",
@@ -211,6 +214,53 @@ const i18n = {
     txWorkflowDownloadDone: "workflow json downloaded",
     txWorkflowImportFileInvalid: "please choose a valid workflow json file",
     txWorkflowImportFileDone: "workflow json imported into builder",
+    orchestrationTitle: "Multi-device Orchestration",
+    orchestrationBaseDirPlaceholder:
+      "base dir for inventory/workflow relative paths (optional)",
+    orchestrationJsonPlaceholder:
+      '{"name":"campus-rollout","stages":[],"inventory_file":"./inventory.json"}',
+    orchestrationPlanBtn: "Preview Orchestration",
+    orchestrationExecBtn: "Execute Orchestration",
+    orchestrationDownloadBtn: "Download JSON",
+    orchestrationImportFileBtn: "Import JSON File",
+    orchestrationVisualTitle: "Orchestration Visual Preview",
+    orchestrationVisualEmpty: "No orchestration plan yet.",
+    orchestrationVisualInvalid: "Orchestration JSON parse failed",
+    orchestrationPreviewDone: "orchestration preview updated",
+    orchestrationJsonRequired: "orchestration json is required",
+    orchestrationExecuteDone: "orchestration execution completed",
+    orchestrationDownloadDone: "orchestration json downloaded",
+    orchestrationImportFileInvalid: "please choose a valid orchestration json file",
+    orchestrationImportFileDone: "orchestration json imported",
+    orchestrationVisualName: "Plan",
+    orchestrationVisualStages: "Stages",
+    orchestrationVisualFailFast: "Fail Fast",
+    orchestrationVisualGroups: "Inventory Groups",
+    orchestrationStageTargets: "Targets",
+    orchestrationStageAction: "Action",
+    orchestrationStageStrategy: "Strategy",
+    orchestrationResultTitle: "Execution Result",
+    orchestrationResultSuccess: "Success",
+    orchestrationDetailBtn: "Details",
+    orchestrationStageDetailTitle: "Stage Details",
+    orchestrationTargetDetailTitle: "Target Details",
+    orchestrationDetailSectionTargets: "Target Results",
+    orchestrationDetailSectionPayload: "Execution Payload",
+    orchestrationDetailNoPayload: "No tx/workflow result payload.",
+    orchestrationDetailLabelStage: "Stage",
+    orchestrationDetailLabelStatus: "Status",
+    orchestrationDetailLabelTarget: "Target",
+    orchestrationDetailLabelConnection: "Connection",
+    orchestrationDetailLabelHost: "Host",
+    orchestrationDetailLabelOperation: "Operation",
+    orchestrationDetailLabelDurationMs: "Duration (ms)",
+    orchestrationStatusSuccess: "Success",
+    orchestrationStatusFailed: "Failed",
+    orchestrationStatusSkipped: "Skipped",
+    orchestrationStrategySerial: "serial",
+    orchestrationStrategyParallel: "parallel",
+    orchestrationPayloadTxResult: "tx_result",
+    orchestrationPayloadWorkflowResult: "workflow_result",
     templateSelectedContentTitle: "Selected Template Content",
     templateSelectedContentPlaceholder: "template content preview",
     templateExecVisualTitle: "Template Execution",
@@ -492,8 +542,10 @@ const i18n = {
     txAdvancedBtn: "高级参数",
     txStageBlock: "事务块",
     txStageWorkflow: "事务工作流",
+    txStageOrchestrate: "多设备编排",
     txStageHintBlock: "步骤 1：构建并执行单个事务块。",
     txStageHintWorkflow: "步骤 2：组合多个事务块并执行工作流。",
+    txStageHintOrchestrate: "步骤 3：校验并执行多设备编排计划。",
     txPlanBtn: "预览事务计划",
     txExecBtn: "执行事务块",
     txBlockVisualTitle: "事务块可视化预览",
@@ -594,6 +646,52 @@ const i18n = {
     txWorkflowDownloadDone: "工作流 JSON 已下载",
     txWorkflowImportFileInvalid: "请选择有效的 workflow JSON 文件",
     txWorkflowImportFileDone: "已从文件导入 workflow JSON 并回填构建器",
+    orchestrationTitle: "多设备编排",
+    orchestrationBaseDirPlaceholder: "inventory/workflow 相对路径的基准目录（可选）",
+    orchestrationJsonPlaceholder:
+      '{"name":"campus-rollout","stages":[],"inventory_file":"./inventory.json"}',
+    orchestrationPlanBtn: "预览编排",
+    orchestrationExecBtn: "执行编排",
+    orchestrationDownloadBtn: "下载 JSON",
+    orchestrationImportFileBtn: "导入 JSON 文件",
+    orchestrationVisualTitle: "编排可视化预览",
+    orchestrationVisualEmpty: "还没有可预览的编排计划。",
+    orchestrationVisualInvalid: "编排 JSON 解析失败",
+    orchestrationPreviewDone: "编排预览已更新",
+    orchestrationJsonRequired: "需要填写编排 JSON",
+    orchestrationExecuteDone: "编排执行完成",
+    orchestrationDownloadDone: "编排 JSON 已下载",
+    orchestrationImportFileInvalid: "请选择有效的编排 JSON 文件",
+    orchestrationImportFileDone: "已导入编排 JSON",
+    orchestrationVisualName: "计划名",
+    orchestrationVisualStages: "阶段数",
+    orchestrationVisualFailFast: "失败即停止",
+    orchestrationVisualGroups: "Inventory 分组数",
+    orchestrationStageTargets: "目标数",
+    orchestrationStageAction: "动作",
+    orchestrationStageStrategy: "策略",
+    orchestrationResultTitle: "执行结果",
+    orchestrationResultSuccess: "是否成功",
+    orchestrationDetailBtn: "查看详情",
+    orchestrationStageDetailTitle: "阶段详情",
+    orchestrationTargetDetailTitle: "目标详情",
+    orchestrationDetailSectionTargets: "目标结果",
+    orchestrationDetailSectionPayload: "执行载荷",
+    orchestrationDetailNoPayload: "没有 tx/workflow 结果载荷。",
+    orchestrationDetailLabelStage: "阶段",
+    orchestrationDetailLabelStatus: "状态",
+    orchestrationDetailLabelTarget: "目标",
+    orchestrationDetailLabelConnection: "连接名",
+    orchestrationDetailLabelHost: "主机",
+    orchestrationDetailLabelOperation: "操作",
+    orchestrationDetailLabelDurationMs: "耗时（毫秒）",
+    orchestrationStatusSuccess: "成功",
+    orchestrationStatusFailed: "失败",
+    orchestrationStatusSkipped: "跳过",
+    orchestrationStrategySerial: "串行",
+    orchestrationStrategyParallel: "并发",
+    orchestrationPayloadTxResult: "tx_result",
+    orchestrationPayloadWorkflowResult: "workflow_result",
     templateSelectedContentTitle: "已选模板内容",
     templateSelectedContentPlaceholder: "模板内容预览",
     templateExecVisualTitle: "模板执行结果",
@@ -820,6 +918,7 @@ let historyFilterLimit = Number(
 );
 let lastHistoryItems = [];
 let detailEntrySeq = 0;
+let orchestrationDetailSeq = 0;
 let txWorkflowBlockSeq = 0;
 let txWorkflowBlocks = [];
 let txWorkflowDragBlockId = "";
@@ -830,6 +929,11 @@ let lastTxBlockPreview = {
   txBlock: null,
   txResult: null,
 };
+let lastOrchestrationPreview = {
+  plan: null,
+  inventory: null,
+  result: null,
+};
 let txAdvancedExpanded = false;
 let currentTxStage = "block";
 let txWorkflowMoreExpanded = false;
@@ -837,6 +941,7 @@ let rollbackTemplateLibrary = [];
 let txRollbackInputMode = "text";
 let interactiveSessionId = null;
 const detailEntryMap = new Map();
+const orchestrationDetailMap = new Map();
 const autocompleteMenus = [];
 const ALLOWED_EVENT_KINDS = new Set([
   "all",
@@ -896,6 +1001,8 @@ function normalizeHistoryFilters() {
       "template_execute",
       "tx_block",
       "tx_workflow",
+      "orchestrate_tx_block",
+      "orchestrate_tx_workflow",
       "interactive",
     ].includes(historyFilterOperation)
   ) {
@@ -1043,6 +1150,8 @@ function applyI18n() {
     <option value="template_execute">template_execute</option>
     <option value="tx_block">tx_block</option>
     <option value="tx_workflow">tx_workflow</option>
+    <option value="orchestrate_tx_block">orchestrate_tx_block</option>
+    <option value="orchestrate_tx_workflow">orchestrate_tx_workflow</option>
     <option value="interactive">interactive</option>
   `;
   historyOpEl.value = historyFilterOperation;
@@ -1195,6 +1304,7 @@ function applyI18n() {
   byId("tx-basic-title").textContent = t("txBasicTitle");
   byId("tx-stage-block").textContent = `1. ${t("txStageBlock")}`;
   byId("tx-stage-workflow").textContent = `2. ${t("txStageWorkflow")}`;
+  byId("tx-stage-orchestrate").textContent = `3. ${t("txStageOrchestrate")}`;
   byId("tx-plan-btn").textContent = t("txPlanBtn");
   byId("tx-exec-btn").textContent = t("txExecBtn");
   byId("tx-block-visual-title").textContent = t("txBlockVisualTitle");
@@ -1234,6 +1344,20 @@ function applyI18n() {
   byId("tx-workflow-visual-title").textContent = t("txWorkflowVisualTitle");
   renderTxWorkflowBuilder();
   renderTxWorkflowPreviewFromEditor();
+  byId("orchestration-title").textContent = t("orchestrationTitle");
+  byId("orchestration-base-dir").placeholder = t("orchestrationBaseDirPlaceholder");
+  byId("orchestration-json").placeholder = t("orchestrationJsonPlaceholder");
+  byId("orchestration-plan-btn").textContent = t("orchestrationPlanBtn");
+  byId("orchestration-exec-btn").textContent = t("orchestrationExecBtn");
+  byId("orchestration-download-btn").textContent = t("orchestrationDownloadBtn");
+  byId("orchestration-import-file-btn").textContent = t("orchestrationImportFileBtn");
+  byId("orchestration-visual-title").textContent = t("orchestrationVisualTitle");
+  if (lastOrchestrationPreview.plan) {
+    renderOrchestrationPreview();
+    renderOrchestrationResultPanel();
+  } else {
+    renderOrchestrationPreviewFromEditor();
+  }
   byId("record-jsonl").placeholder = t("recordJsonlPlaceholder");
   byId("replay-jsonl").placeholder = t("replayJsonlPlaceholder");
   byId("replay-command").placeholder = t("replayCommandPlaceholder");
@@ -1449,23 +1573,35 @@ function applyTxLayoutState() {
 function applyTxStage() {
   const isBlock = currentTxStage === "block";
   const isWorkflow = currentTxStage === "workflow";
+  const isOrchestrate = currentTxStage === "orchestrate";
   const blockBtn = byId("tx-stage-block");
   const workflowBtn = byId("tx-stage-workflow");
+  const orchestrateBtn = byId("tx-stage-orchestrate");
   const blockPanel = byId("tx-stage-block-panel");
   const workflowPanel = byId("tx-stage-workflow-panel");
+  const orchestratePanel = byId("tx-stage-orchestrate-panel");
   const hint = byId("tx-stage-hint");
   blockBtn.classList.toggle("is-active", isBlock);
   workflowBtn.classList.toggle("is-active", isWorkflow);
+  orchestrateBtn.classList.toggle("is-active", isOrchestrate);
   blockBtn.setAttribute("aria-selected", isBlock ? "true" : "false");
   workflowBtn.setAttribute("aria-selected", isWorkflow ? "true" : "false");
+  orchestrateBtn.setAttribute("aria-selected", isOrchestrate ? "true" : "false");
   blockBtn.textContent = `1. ${t("txStageBlock")}`;
   workflowBtn.textContent = `2. ${t("txStageWorkflow")}`;
+  orchestrateBtn.textContent = `3. ${t("txStageOrchestrate")}`;
   blockPanel.hidden = !isBlock;
   blockPanel.style.display = isBlock ? "" : "none";
   workflowPanel.hidden = !isWorkflow;
   workflowPanel.style.display = isWorkflow ? "" : "none";
+  orchestratePanel.hidden = !isOrchestrate;
+  orchestratePanel.style.display = isOrchestrate ? "" : "none";
   if (hint) {
-    hint.textContent = isBlock ? t("txStageHintBlock") : t("txStageHintWorkflow");
+    hint.textContent = isBlock
+      ? t("txStageHintBlock")
+      : isWorkflow
+        ? t("txStageHintWorkflow")
+        : t("txStageHintOrchestrate");
   }
 }
 
@@ -2337,6 +2473,554 @@ function renderTxWorkflowPreviewFromEditor() {
   }
 }
 
+function inventoryGroupTargets(group) {
+  if (Array.isArray(group)) return group;
+  if (group && typeof group === "object" && Array.isArray(group.targets)) {
+    return group.targets;
+  }
+  return [];
+}
+
+function orchestrationStageStrategyLabel(strategy) {
+  return safeString(strategy || "serial") === "parallel"
+    ? t("orchestrationStrategyParallel")
+    : t("orchestrationStrategySerial");
+}
+
+function orchestrationActionSummary(action) {
+  if (!action || typeof action !== "object") return "-";
+  if (action.kind === "tx_block") {
+    const parts = [];
+    if (action.template) parts.push(`template=${action.template}`);
+    if (Array.isArray(action.commands) && action.commands.length) {
+      parts.push(`commands=${action.commands.length}`);
+    }
+    if (action.mode) parts.push(`mode=${action.mode}`);
+    return parts.join(", ") || "tx_block";
+  }
+  if (action.kind === "tx_workflow") {
+    if (action.workflow_file) return `workflow_file=${action.workflow_file}`;
+    return "inline workflow";
+  }
+  return safeString(action.kind || "-");
+}
+
+function orchestrationStatusLabel(status) {
+  const normalized = safeString(status || "-").toLowerCase();
+  if (normalized === "success") return t("orchestrationStatusSuccess");
+  if (normalized === "failed") return t("orchestrationStatusFailed");
+  if (normalized === "skipped") return t("orchestrationStatusSkipped");
+  return safeString(status || "-");
+}
+
+function orchestrationStatusBadge(status) {
+  const normalized = safeString(status || "-").toLowerCase();
+  let cls = "border-slate-200 bg-slate-50 text-slate-700";
+  if (normalized === "success") {
+    cls = "border-emerald-200 bg-emerald-50 text-emerald-700";
+  } else if (normalized === "failed") {
+    cls = "border-rose-200 bg-rose-50 text-rose-700";
+  } else if (normalized === "skipped") {
+    cls = "border-amber-200 bg-amber-50 text-amber-700";
+  }
+  return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${cls}">${escapeHtml(
+    orchestrationStatusLabel(normalized)
+  )}</span>`;
+}
+
+function rememberOrchestrationDetail(detail) {
+  orchestrationDetailSeq += 1;
+  const id = `orch-${orchestrationDetailSeq}`;
+  orchestrationDetailMap.set(id, detail);
+  return id;
+}
+
+function orchestrationJsonText(value) {
+  if (value == null) return "-";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return safeString(value);
+  }
+}
+
+function renderOrchestrationJsonSection(title, value) {
+  return `
+    <section class="rounded-xl border border-slate-200 bg-white p-3">
+      <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(title)}</div>
+      <pre class="max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-900 p-2 text-xs text-slate-100">${escapeHtml(
+        orchestrationJsonText(value)
+      )}</pre>
+    </section>
+  `;
+}
+
+function resolveOrchestrationTargetsPreview(stage, inventory) {
+  const labels = [];
+  const groups = inventory && inventory.groups && typeof inventory.groups === "object"
+    ? inventory.groups
+    : {};
+  const groupNames = Array.isArray(stage && stage.target_groups)
+    ? stage.target_groups
+    : [];
+  for (const groupName of groupNames) {
+    const group = groups[groupName];
+    for (const item of inventoryGroupTargets(group)) {
+      if (typeof item === "string") {
+        labels.push(item);
+      } else if (item && typeof item === "object") {
+        labels.push(item.name || item.connection || item.host || "target");
+      }
+    }
+  }
+  const directTargets = Array.isArray(stage && stage.targets) ? stage.targets : [];
+  for (const item of directTargets) {
+    if (typeof item === "string") {
+      labels.push(item);
+    } else if (item && typeof item === "object") {
+      labels.push(item.name || item.connection || item.host || "target");
+    }
+  }
+  return labels;
+}
+
+function setOrchestrationPreview(plan, inventory, result = null) {
+  lastOrchestrationPreview = {
+    plan: plan || null,
+    inventory: inventory || null,
+    result: result || null,
+  };
+  renderOrchestrationPreview();
+}
+
+function renderOrchestrationPreviewHtml(plan, inventory) {
+  if (!plan || typeof plan !== "object") {
+    return `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("orchestrationVisualEmpty")
+    )}</div>`;
+  }
+  const stages = Array.isArray(plan.stages) ? plan.stages : [];
+  const groupCount =
+    inventory && inventory.groups && typeof inventory.groups === "object"
+      ? Object.keys(inventory.groups).length
+      : 0;
+  const summary = `
+    <div class="grid gap-2 md:grid-cols-4">
+      ${renderTxWorkflowPreviewMeta(
+        t("orchestrationVisualName"),
+        plan.name || "-"
+      )}
+      ${renderTxWorkflowPreviewMeta(
+        t("orchestrationVisualStages"),
+        stages.length
+      )}
+      ${renderTxWorkflowPreviewMeta(
+        t("orchestrationVisualFailFast"),
+        String(plan.fail_fast !== false)
+      )}
+      ${renderTxWorkflowPreviewMeta(
+        t("orchestrationVisualGroups"),
+        groupCount
+      )}
+    </div>
+  `;
+  const stageCards = stages
+    .map((stage, idx) => {
+      const labels = resolveOrchestrationTargetsPreview(stage, inventory);
+      const targetTags = labels.length
+        ? labels
+            .map(
+              (label) =>
+                `<span class="tx-workflow-chip">${escapeHtml(safeString(label))}</span>`
+            )
+            .join("")
+        : `<span class="text-xs text-slate-500">-</span>`;
+      return `
+        <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-sm font-semibold text-slate-900">stage[${idx}] ${escapeHtml(
+              safeString(stage && stage.name)
+            )}</div>
+            <div class="inline-flex flex-wrap items-center gap-1">
+              <span class="tx-workflow-chip">${escapeHtml(
+                `${t("orchestrationStageStrategy")}: ${orchestrationStageStrategyLabel(
+                  stage && stage.strategy
+                )}`
+              )}</span>
+              <span class="tx-workflow-chip">${escapeHtml(
+                `${t("orchestrationStageTargets")}: ${labels.length}`
+              )}</span>
+            </div>
+          </div>
+          <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            ${escapeHtml(t("orchestrationStageAction"))}: ${escapeHtml(
+              orchestrationActionSummary(stage && stage.action)
+            )}
+          </div>
+          ${
+            Array.isArray(stage && stage.target_groups) && stage.target_groups.length
+              ? `<div class="mt-2 text-xs text-slate-500">groups: ${escapeHtml(
+                  stage.target_groups.join(", ")
+                )}</div>`
+              : ""
+          }
+          <div class="mt-2 flex flex-wrap gap-2">${targetTags}</div>
+        </section>
+      `;
+    })
+    .join("");
+  return `<div class="grid gap-3">${summary}${stageCards || `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+    t("orchestrationVisualEmpty")
+  )}</div>`}</div>`;
+}
+
+function renderOrchestrationPreview() {
+  const visualOut = byId("orchestration-visual");
+  if (!visualOut) return;
+  visualOut.innerHTML = renderOrchestrationPreviewHtml(
+    lastOrchestrationPreview.plan,
+    lastOrchestrationPreview.inventory
+  );
+}
+
+function renderOrchestrationPreviewFromEditor() {
+  const visualOut = byId("orchestration-visual");
+  if (!visualOut) return;
+  const raw = byId("orchestration-json").value.trim();
+  if (!raw) {
+    visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("orchestrationVisualEmpty")
+    )}</div>`;
+    return;
+  }
+  try {
+    const plan = JSON.parse(raw);
+    setOrchestrationPreview(plan, plan.inventory || null, null);
+  } catch (e) {
+    visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      `${t("orchestrationVisualInvalid")}: ${e.message || t("requestFailed")}`
+    )}</div>`;
+  }
+}
+
+function renderOrchestrationStageDetail(detail) {
+  const stage = (detail && detail.stage) || {};
+  const targets = Array.isArray(stage.results) ? stage.results : [];
+  const targetRows = targets.length
+    ? targets
+        .map(
+          (target) => `
+            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="text-sm font-semibold text-slate-900">${escapeHtml(
+                  safeString(target.label)
+                )}</div>
+                ${orchestrationStatusBadge(target.status)}
+              </div>
+              <div class="mt-1 font-mono text-xs text-slate-600 break-all">
+                host=${escapeHtml(safeString(target.host || "-"))}
+                connection=${escapeHtml(safeString(target.connection_name || "-"))}
+                op=${escapeHtml(safeString(target.operation || "-"))}
+                duration_ms=${escapeHtml(safeString(target.duration_ms || 0))}
+              </div>
+              ${
+                target.error
+                  ? `<div class="mt-1 text-xs text-rose-700 break-all">${escapeHtml(
+                      target.error
+                    )}</div>`
+                  : ""
+              }
+            </div>
+          `
+        )
+        .join("")
+    : `<div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">-</div>`;
+
+  return `
+    <div class="grid gap-3">
+      <section class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
+          t("detailSectionBasic")
+        )}</div>
+        <div class="grid gap-2 md:grid-cols-2">
+          ${detailField(
+            t("orchestrationVisualName"),
+            detail && detail.planName ? detail.planName : "-"
+          )}
+          ${detailField(
+            t("orchestrationDetailLabelStage"),
+            `stage[${detail && typeof detail.stageIndex === "number" ? detail.stageIndex : 0}] ${safeString(stage.name)}`
+          )}
+          <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+            <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+              t("orchestrationDetailLabelStatus")
+            )}</div>
+            <div class="mt-1">${orchestrationStatusBadge(stage.status)}</div>
+          </div>
+          ${detailField(
+            t("orchestrationStageStrategy"),
+            orchestrationStageStrategyLabel(stage.strategy)
+          )}
+          <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+            <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+              t("orchestrationVisualFailFast")
+            )}</div>
+            <div class="mt-1">${detailBoolBadge(stage.fail_fast)}</div>
+          </div>
+          ${detailField(
+            t("orchestrationStageAction"),
+            stage.action_summary || stage.action_kind || "-"
+          )}
+          ${detailField(t("orchestrationStatusSuccess"), stage.targets_succeeded ?? 0)}
+          ${detailField(t("orchestrationStatusFailed"), stage.targets_failed ?? 0)}
+          ${detailField(t("orchestrationStatusSkipped"), stage.targets_skipped ?? 0)}
+        </div>
+      </section>
+      <section class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
+          t("orchestrationDetailSectionTargets")
+        )}</div>
+        <div class="grid gap-2">${targetRows}</div>
+      </section>
+      ${renderOrchestrationJsonSection(t("detailSectionRaw"), stage)}
+    </div>
+  `;
+}
+
+function renderOrchestrationTargetDetail(detail) {
+  const target = (detail && detail.target) || {};
+  const payloadCards = [];
+  if (target.tx_result != null) {
+    payloadCards.push(
+      renderOrchestrationJsonSection(t("orchestrationPayloadTxResult"), target.tx_result)
+    );
+  }
+  if (target.workflow_result != null) {
+    payloadCards.push(
+      renderOrchestrationJsonSection(
+        t("orchestrationPayloadWorkflowResult"),
+        target.workflow_result
+      )
+    );
+  }
+  const payloadSection = payloadCards.length
+    ? `
+      <section class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
+          t("orchestrationDetailSectionPayload")
+        )}</div>
+        <div class="grid gap-3">${payloadCards.join("")}</div>
+      </section>
+    `
+    : `
+      <section class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        ${escapeHtml(t("orchestrationDetailNoPayload"))}
+      </section>
+    `;
+
+  return `
+    <div class="grid gap-3">
+      <section class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
+          t("detailSectionBasic")
+        )}</div>
+        <div class="grid gap-2 md:grid-cols-2">
+          ${detailField(
+            t("orchestrationVisualName"),
+            detail && detail.planName ? detail.planName : "-"
+          )}
+          ${detailField(
+            t("orchestrationDetailLabelStage"),
+            `stage[${detail && typeof detail.stageIndex === "number" ? detail.stageIndex : 0}] ${safeString(
+              detail && detail.stageName ? detail.stageName : "-"
+            )}`
+          )}
+          ${detailField(
+            t("orchestrationDetailLabelTarget"),
+            `target[${detail && typeof detail.targetIndex === "number" ? detail.targetIndex : 0}] ${safeString(
+              target.label
+            )}`
+          )}
+          <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+            <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+              t("orchestrationDetailLabelStatus")
+            )}</div>
+            <div class="mt-1">${orchestrationStatusBadge(target.status)}</div>
+          </div>
+          ${detailField(
+            t("orchestrationDetailLabelConnection"),
+            target.connection_name || "-"
+          )}
+          ${detailField(t("orchestrationDetailLabelHost"), target.host || "-", true)}
+          ${detailField(
+            t("orchestrationDetailLabelOperation"),
+            target.operation || "-",
+            true
+          )}
+          ${detailField(
+            t("orchestrationDetailLabelDurationMs"),
+            target.duration_ms ?? 0,
+            true
+          )}
+        </div>
+      </section>
+      ${
+        target.error
+          ? `
+            <section class="rounded-xl border border-rose-200 bg-rose-50 p-3">
+              <div class="mb-2 text-xs font-semibold text-rose-700">${escapeHtml(
+                t("detailLabelError")
+              )}</div>
+              <pre class="whitespace-pre-wrap break-all text-xs text-rose-800">${escapeHtml(
+                safeString(target.error)
+              )}</pre>
+            </section>
+          `
+          : ""
+      }
+      ${payloadSection}
+      ${renderOrchestrationJsonSection(t("detailSectionRaw"), target)}
+    </div>
+  `;
+}
+
+function openOrchestrationDetail(detail) {
+  if (!detail || typeof detail !== "object") return;
+  const isStage = detail.kind === "stage";
+  openDetailModal(
+    isStage
+      ? renderOrchestrationStageDetail(detail)
+      : renderOrchestrationTargetDetail(detail),
+    {
+      title: isStage
+        ? t("orchestrationStageDetailTitle")
+        : t("orchestrationTargetDetailTitle"),
+      html: true,
+    }
+  );
+}
+
+function renderOrchestrationResult(result) {
+  if (!result || typeof result !== "object") {
+    return `<pre class="output">${escapeHtml(t("requestFailed"))}</pre>`;
+  }
+  orchestrationDetailMap.clear();
+  const stages = Array.isArray(result.stages) ? result.stages : [];
+  const summary = `
+    <div class="grid gap-2 md:grid-cols-4">
+      ${renderTxWorkflowPreviewMeta(
+        t("orchestrationVisualName"),
+        result.plan_name || "-"
+      )}
+      ${renderTxWorkflowPreviewMeta(
+        t("orchestrationResultSuccess"),
+        String(!!result.success)
+      )}
+      ${renderTxWorkflowPreviewMeta(
+        t("orchestrationVisualStages"),
+        `${result.executed_stages || 0}/${result.total_stages || stages.length}`
+      )}
+      ${renderTxWorkflowPreviewMeta(
+        t("orchestrationVisualFailFast"),
+        String(result.fail_fast !== false)
+      )}
+    </div>
+  `;
+  const stageCards = stages
+    .map((stage, idx) => {
+      const stageDetailId = rememberOrchestrationDetail({
+        kind: "stage",
+        planName: result.plan_name || "-",
+        stageIndex: idx,
+        stage,
+      });
+      const targets = Array.isArray(stage.results) ? stage.results : [];
+      const targetRows = targets
+        .map((target, targetIdx) => {
+          const targetDetailId = rememberOrchestrationDetail({
+            kind: "target",
+            planName: result.plan_name || "-",
+            stageName: stage.name || "-",
+            stageIndex: idx,
+            targetIndex: targetIdx,
+            target,
+          });
+          return `
+            <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="font-semibold text-slate-900">${escapeHtml(
+                  safeString(target.label)
+                )}</div>
+                <div class="inline-flex items-center gap-2">
+                  ${orchestrationStatusBadge(target.status)}
+                  <button
+                    class="mini-btn js-orchestration-detail-btn"
+                    type="button"
+                    data-orchestration-detail-id="${escapeHtml(targetDetailId)}"
+                  >${escapeHtml(t("orchestrationDetailBtn"))}</button>
+                </div>
+              </div>
+              <div class="mt-1 break-all">host=${escapeHtml(
+                safeString(target.host || "-")
+              )} op=${escapeHtml(
+                safeString(target.operation || "-")
+              )} duration_ms=${escapeHtml(safeString(target.duration_ms || 0))}</div>
+              ${
+                target.error
+                  ? `<div class="mt-1 text-rose-700">${escapeHtml(target.error)}</div>`
+                  : ""
+              }
+            </div>
+          `;
+        })
+        .join("");
+      return `
+        <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="text-sm font-semibold text-slate-900">stage[${idx}] ${escapeHtml(
+              safeString(stage.name)
+            )}</div>
+            <div class="inline-flex flex-wrap items-center gap-2">
+              ${orchestrationStatusBadge(stage.status)}
+              <div class="inline-flex flex-wrap items-center gap-1">
+              <span class="tx-workflow-chip">${escapeHtml(
+                `ok=${safeString(stage.targets_succeeded)}`
+              )}</span>
+              <span class="tx-workflow-chip">${escapeHtml(
+                `failed=${safeString(stage.targets_failed)}`
+              )}</span>
+              <span class="tx-workflow-chip">${escapeHtml(
+                `skipped=${safeString(stage.targets_skipped)}`
+              )}</span>
+              </div>
+              <button
+                class="mini-btn js-orchestration-detail-btn"
+                type="button"
+                data-orchestration-detail-id="${escapeHtml(stageDetailId)}"
+              >${escapeHtml(t("orchestrationDetailBtn"))}</button>
+            </div>
+          </div>
+          <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            ${escapeHtml(t("orchestrationStageAction"))}: ${escapeHtml(
+              safeString(stage.action_summary || stage.action_kind)
+            )}
+          </div>
+          <div class="mt-2 grid gap-2">${targetRows || `<div class="text-xs text-slate-500">-</div>`}</div>
+        </section>
+      `;
+    })
+    .join("");
+  return `<div class="grid gap-3"><div class="text-sm font-semibold text-slate-900">${escapeHtml(
+    t("orchestrationResultTitle")
+  )}</div>${summary}${stageCards}</div>`;
+}
+
+function renderOrchestrationResultPanel() {
+  const out = byId("orchestration-exec-out");
+  if (!out || !lastOrchestrationPreview.result) return;
+  out.innerHTML = renderOrchestrationResult(lastOrchestrationPreview.result);
+}
+
 function successBadge(event) {
   if (event.kind !== "command_output") return '<span class="text-slate-400">-</span>';
   if (event.success) {
@@ -3165,6 +3849,19 @@ function txWorkflowPayload(dryRun) {
   };
 }
 
+function orchestrationPayload(dryRun) {
+  const raw = byId("orchestration-json").value.trim();
+  if (!raw) {
+    throw new Error(t("orchestrationJsonRequired"));
+  }
+  return {
+    plan: JSON.parse(raw),
+    base_dir: byId("orchestration-base-dir").value.trim() || null,
+    dry_run: dryRun,
+    record_level: recordLevelPayload(),
+  };
+}
+
 async function startInteractive() {
   setInteractiveStatus(t("interactiveStatusRunning"));
   try {
@@ -3802,6 +4499,50 @@ async function importTxWorkflowBuilderFromFile() {
   loadTxWorkflowBuilderFromJson();
   renderTxWorkflowPreviewFromEditor();
   setStatusMessage("tx-workflow-plan-out", t("txWorkflowImportFileDone"), "success");
+  input.value = "";
+}
+
+function downloadOrchestrationJson() {
+  const content = byId("orchestration-json").value || "";
+  const raw = content.trim();
+  let safeName = "orchestration";
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      const nameRaw = (parsed && parsed.name ? String(parsed.name) : "").trim();
+      if (nameRaw) {
+        safeName = nameRaw.replace(/[^a-zA-Z0-9._-]+/g, "-");
+      }
+    } catch (_) {
+      safeName = "orchestration";
+    }
+  }
+  const fileName = `${safeName || "orchestration"}.json`;
+  const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function importOrchestrationFromFile() {
+  const input = byId("orchestration-import-file-input");
+  const file = input && input.files && input.files[0] ? input.files[0] : null;
+  if (!file) {
+    throw new Error(t("orchestrationImportFileInvalid"));
+  }
+  const text = await file.text();
+  byId("orchestration-json").value = text;
+  renderOrchestrationPreviewFromEditor();
+  setStatusMessage(
+    "orchestration-plan-out",
+    t("orchestrationImportFileDone"),
+    "success"
+  );
   input.value = "";
 }
 
@@ -5260,6 +6001,15 @@ function bindEvents() {
         loadConnectionHistoryDetail(historyId);
       }
     }
+    const orchestrationDetailBtn = e.target.closest(".js-orchestration-detail-btn");
+    if (orchestrationDetailBtn) {
+      const detailId =
+        orchestrationDetailBtn.getAttribute("data-orchestration-detail-id") || "";
+      const detail = orchestrationDetailMap.get(detailId);
+      if (detail) {
+        openOrchestrationDetail(detail);
+      }
+    }
     const historyDeleteBtn = e.target.closest(".js-history-delete-btn");
     if (historyDeleteBtn) {
       const historyId = historyDeleteBtn.getAttribute("data-history-id") || "";
@@ -5540,6 +6290,10 @@ function bindEvents() {
     currentTxStage = "workflow";
     applyTxStage();
   };
+  byId("tx-stage-orchestrate").onclick = () => {
+    currentTxStage = "orchestrate";
+    applyTxStage();
+  };
   byId("tx-workflow-more-btn").onclick = () => {
     txWorkflowMoreExpanded = !txWorkflowMoreExpanded;
     applyTxWorkflowMoreActionsState();
@@ -5712,6 +6466,66 @@ function bindEvents() {
       setStatusMessage("tx-workflow-exec-out", e.message, "error");
     }
   };
+  byId("orchestration-plan-btn").onclick = async () => {
+    const visualOut = byId("orchestration-visual");
+    setStatusMessage("orchestration-plan-out", t("running"), "running");
+    try {
+      const data = await request("POST", "/api/orchestrate", orchestrationPayload(true));
+      const plan = data && data.plan ? data.plan : {};
+      const inventory = data && data.inventory ? data.inventory : {};
+      byId("orchestration-json").value = JSON.stringify(plan, null, 2);
+      setOrchestrationPreview(plan, inventory, null);
+      setStatusMessage(
+        "orchestration-plan-out",
+        t("orchestrationPreviewDone"),
+        "success"
+      );
+      byId("orchestration-exec-out").innerHTML = "";
+    } catch (e) {
+      setStatusMessage("orchestration-plan-out", e.message, "error");
+      if (visualOut) {
+        visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+          e.message
+        )}</div>`;
+      }
+    }
+  };
+  byId("orchestration-exec-btn").onclick = async () => {
+    const out = byId("orchestration-exec-out");
+    setStatusMessage("orchestration-exec-out", t("running"), "running");
+    try {
+      const data = await request("POST", "/api/orchestrate", orchestrationPayload(false));
+      const plan = data && data.plan ? data.plan : {};
+      const inventory = data && data.inventory ? data.inventory : {};
+      const result = data && data.orchestration_result ? data.orchestration_result : {};
+      setOrchestrationPreview(plan, inventory, result);
+      out.innerHTML = renderOrchestrationResult(result);
+    } catch (e) {
+      setStatusMessage("orchestration-exec-out", e.message, "error");
+    }
+  };
+  byId("orchestration-download-btn").onclick = () => {
+    try {
+      downloadOrchestrationJson();
+      setStatusMessage(
+        "orchestration-plan-out",
+        t("orchestrationDownloadDone"),
+        "success"
+      );
+    } catch (e) {
+      setStatusMessage("orchestration-plan-out", e.message, "error");
+    }
+  };
+  byId("orchestration-import-file-btn").onclick = () => {
+    byId("orchestration-import-file-input").click();
+  };
+  byId("orchestration-import-file-input").onchange = async () => {
+    try {
+      await importOrchestrationFromFile();
+    } catch (e) {
+      setStatusMessage("orchestration-plan-out", e.message, "error");
+    }
+  };
   byId("tx-workflow-import-block-btn").onclick = importTxBlockIntoWorkflowBuilder;
   byId("tx-workflow-add-block-btn").onclick = () => {
     txWorkflowBlocks.push(createTxWorkflowBlock());
@@ -5842,6 +6656,9 @@ function bindEvents() {
   };
   byId("tx-workflow-json").oninput = () => {
     renderTxWorkflowPreviewFromEditor();
+  };
+  byId("orchestration-json").oninput = () => {
+    renderOrchestrationPreviewFromEditor();
   };
   const txWorkflowBlocksWrap = byId("tx-workflow-blocks");
   txWorkflowBlocksWrap.addEventListener("input", (e) => {
@@ -6187,6 +7004,8 @@ setStatusMessage("tx-plan-out", "-", "info");
 setStatusMessage("tx-exec-out", "-", "info");
 setStatusMessage("tx-workflow-plan-out", "-", "info");
 setStatusMessage("tx-workflow-exec-out", "-", "info");
+setStatusMessage("orchestration-plan-out", "-", "info");
+setStatusMessage("orchestration-exec-out", "-", "info");
 setStatusMessage("template-out", "-", "info");
 setStatusMessage("backup-out", "-", "info");
 setStatusMessage("builtin-detail-status", "-", "info");

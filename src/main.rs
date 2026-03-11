@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod device;
+mod orchestrator;
 mod template;
 mod web;
 
@@ -246,6 +247,9 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::TxWorkflow(args) => {
             run_tx_workflow(args, &cli.global_opts).await?;
+        }
+        Commands::Orchestrate(args) => {
+            orchestrator::run(args, &cli.global_opts).await?;
         }
         Commands::Backup(cmd) => match cmd {
             BackupCommands::Create { output } => {
@@ -671,7 +675,7 @@ async fn run(cli: Cli) -> Result<()> {
 }
 
 #[derive(Debug, Clone)]
-struct EffectiveConnection {
+pub(crate) struct EffectiveConnection {
     connection_name: Option<String>,
     host: String,
     username: String,
@@ -790,7 +794,7 @@ fn print_list(label: &str, values: &[String]) {
     }
 }
 
-fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
+pub(crate) fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
     match level {
         RecordLevelOpt::Off => SessionRecordLevel::Off,
         RecordLevelOpt::KeyEventsOnly => SessionRecordLevel::KeyEventsOnly,
@@ -798,7 +802,7 @@ fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
     }
 }
 
-fn record_level_name(level: RecordLevelOpt) -> &'static str {
+pub(crate) fn record_level_name(level: RecordLevelOpt) -> &'static str {
     match level {
         RecordLevelOpt::Off => "off",
         RecordLevelOpt::KeyEventsOnly => "key-events-only",
@@ -1177,7 +1181,7 @@ fn print_tx_result(result: &rneter::session::TxResult) {
     }
 }
 
-fn persist_auto_recording_history_jsonl(
+pub(crate) fn persist_auto_recording_history_jsonl(
     jsonl: &str,
     conn: &EffectiveConnection,
     operation: &str,

@@ -1,4 +1,4 @@
 interface:
   display_name: "Rauto Operator"
-  short_description: "Run rauto directly: execute, query, replay, tx, backup, restore"
-  default_prompt: "Use $rauto-usage to run rauto directly for me (exec/template/tx/workflow/replay/backup), return key results, and ask only for missing required inputs."
+  short_description: "Install from releases, verify, and run rauto"
+  default_prompt: "Use $rauto-usage to install rauto from GitHub Releases, verify it, or run rauto directly for me, and ask only for missing required inputs."

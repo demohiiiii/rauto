@@ -1,0 +1,40 @@
+{
+  "name": "campus-vlan-rollout",
+  "fail_fast": true,
+  "inventory_file": "./campus-inventory.json",
+  "stages": [
+    {
+      "name": "core",
+      "strategy": "serial",
+      "target_groups": [
+        "core"
+      ],
+      "action": {
+        "kind": "tx_workflow",
+        "workflow_file": "./core-vlan-workflow.json"
+      }
+    },
+    {
+      "name": "access",
+      "strategy": "parallel",
+      "max_parallel": 10,
+      "target_groups": [
+        "access"
+      ],
+      "action": {
+        "kind": "tx_block",
+        "name": "access-vlan",
+        "template": "configure_vlan.j2",
+        "mode": "Config",
+        "vars": {
+          "vlans": [
+            {
+              "id": 120,
+              "name": "STAFF"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

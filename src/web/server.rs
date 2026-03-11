@@ -3,7 +3,8 @@ use crate::web::assets::{index_response, static_response};
 use crate::web::handlers::{
     create_backup, create_or_update_custom_profile, create_template, delete_connection,
     delete_connection_history, delete_custom_profile, delete_template, diagnose_profile,
-    download_backup, exec_command, execute_template, execute_tx_block, execute_tx_workflow,
+    download_backup, exec_command, execute_orchestration, execute_template, execute_tx_block,
+    execute_tx_workflow,
     get_builtin_profile_detail, get_builtin_profile_form, get_connection, get_connection_history,
     get_connection_history_detail, get_custom_profile, get_custom_profile_form, get_template,
     health, interactive_command, interactive_start, interactive_stop, list_backups,
@@ -74,6 +75,7 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
         .route("/api/template/execute", post(execute_template))
         .route("/api/tx/block", post(execute_tx_block))
         .route("/api/tx/workflow", post(execute_tx_workflow))
+        .route("/api/orchestrate", post(execute_orchestration))
         .route("/api/replay", post(replay_session))
         .route("/api/interactive/start", post(interactive_start))
         .route("/api/interactive/command", post(interactive_command))

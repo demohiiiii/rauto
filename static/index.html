@@ -727,6 +727,7 @@
                 <div class="tab-group tx-stage-tabs" role="tablist" aria-label="Transaction mode tabs">
                   <button id="tx-stage-block" class="tab-btn is-active" type="button">Tx Block</button>
                   <button id="tx-stage-workflow" class="tab-btn" type="button">Tx Workflow</button>
+                  <button id="tx-stage-orchestrate" class="tab-btn" type="button">Orchestrate</button>
                 </div>
                 <div id="tx-stage-hint" class="tx-stage-hint">Step 1: build and run a single transaction block.</div>
 
@@ -874,6 +875,35 @@
                     </div>
                     <div id="tx-workflow-plan-out" class="mt-2 grid gap-2"></div>
                     <div id="tx-workflow-exec-out" class="mt-2 grid gap-2"></div>
+                  </div>
+                </div>
+
+                <div id="tx-stage-orchestrate-panel" class="group-card" hidden>
+                  <div class="field-tools">
+                    <span id="orchestration-title">Multi-device Orchestration</span>
+                  </div>
+                  <div class="group-body grid gap-2">
+                    <input id="orchestration-base-dir" class="input" placeholder="base dir for inventory/workflow relative paths (optional)" />
+                    <div class="grid gap-2">
+                      <div class="inline-flex flex-wrap items-center gap-2">
+                        <button id="orchestration-download-btn" class="mini-btn" type="button">Download JSON</button>
+                        <button id="orchestration-import-file-btn" class="mini-btn" type="button">Import JSON File</button>
+                      </div>
+                      <input id="orchestration-import-file-input" type="file" accept=".json,application/json" hidden />
+                    </div>
+                    <textarea id="orchestration-json" class="input min-h-40 font-mono" placeholder='{"name":"campus-rollout","stages":[]}'></textarea>
+                    <div class="grid grid-cols-2 gap-2">
+                      <button id="orchestration-plan-btn" class="btn" type="button">Preview Orchestration</button>
+                      <button id="orchestration-exec-btn" class="btn" type="button">Execute Orchestration</button>
+                    </div>
+                    <div class="group-card">
+                      <div class="field-tools">
+                        <span id="orchestration-visual-title">Orchestration Visual Preview</span>
+                      </div>
+                      <div id="orchestration-visual" class="group-body grid gap-2"></div>
+                    </div>
+                    <div id="orchestration-plan-out" class="mt-2 grid gap-2"></div>
+                    <div id="orchestration-exec-out" class="mt-2 grid gap-2"></div>
                   </div>
                 </div>
               </div>
