@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.2] - 2026-03-11
+
+### New Features
+- Added multi-device orchestration via `rauto orchestrate`, with staged serial/parallel execution, per-stage `fail_fast`, `max_parallel`, and reuse of existing `tx` / `tx-workflow` execution paths.
+- Added inventory-driven orchestration planning with `inventory_file`, inline `inventory.groups`, target group expansion, and inherited defaults that can be overridden per group or target.
+- Added Web orchestration support through `POST /api/orchestrate` and a dedicated Operations -> Orchestrate panel with preview, execute, import/export, and stage/target detail views.
+- Added runnable workflow/orchestration example JSON files under `templates/examples/`, including inventory-based and advanced staged rollout samples.
+
+### Optimizations
+- Promoted saved-connection and history management to top-level CLI groups as `rauto connection ...` and `rauto history ...`, reducing command nesting and separating them from device profile management.
+- Improved orchestration UI feedback with resolved target previews, execution status badges, localized rerendering, and expandable stage/target detail views for result inspection.
+- Switched CLI tracing timestamps to local time formatting to make logs easier to correlate with operational change windows.
+
+### API Changes
+- Added top-level CLI command groups `connection` and `history`; migrate old `rauto device add-connection|list-connections|show-connection|delete-connection|test-connection` flows to `rauto connection add|list|show|delete|test`, and old `rauto device connection-history*` flows to `rauto history list|show|delete`.
+- Added Web endpoint `POST /api/orchestrate`, which accepts a plan plus optional `base_dir`/`record_level` and returns normalized `plan`, resolved `inventory`, and optional `orchestration_result`.
+- Added orchestration JSON support for `inventory_file`, inline `inventory`, `target_groups`, inventory/group default inheritance, and per-stage `strategy`, `max_parallel`, and `fail_fast` controls.
+
+### Risks
+- Multi-device orchestration does not provide cross-device global rollback; rollback remains device-local through reused `tx` / `tx-workflow` semantics.
+- The CLI command reshaping for connection/history management is a breaking change for scripts or operators still using the old `rauto device ...connection...` and `rauto device connection-history...` forms.
+- Parallel orchestration can widen blast radius if `max_parallel`, inherited inventory defaults, or `fail_fast` settings are misconfigured, especially when saved connections are reused across groups.
+- Orchestration and Web UI changes are compile/test validated, but browser-level end-to-end coverage remains limited, so edge interaction regressions may still surface.
+
 ## [0.2.1] - 2026-02-27
 
 ### New Features

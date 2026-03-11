@@ -86,7 +86,7 @@ pub enum StageStrategy {
 #[serde(untagged)]
 pub enum OrchestrationTargetInput {
     ConnectionName(String),
-    Detailed(OrchestrationTarget),
+    Detailed(Box<OrchestrationTarget>),
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -586,8 +586,8 @@ async fn execute_serial_stage(
         let is_failed = matches!(result.status, TargetStatus::Failed);
         results.push(result);
         if is_failed && fail_fast {
-            for remaining_idx in (idx + 1)..targets.len() {
-                results.push(build_skipped_target(&targets[remaining_idx], remaining_idx));
+            for (remaining_idx, remaining_target) in targets.iter().enumerate().skip(idx + 1) {
+                results.push(build_skipped_target(remaining_target, remaining_idx));
             }
             break;
         }
@@ -1037,7 +1037,7 @@ fn expand_targets(inputs: &[OrchestrationTargetInput]) -> Vec<OrchestrationTarge
                 connection: Some(name.clone()),
                 ..OrchestrationTarget::default()
             },
-            OrchestrationTargetInput::Detailed(target) => target.clone(),
+            OrchestrationTargetInput::Detailed(target) => target.as_ref().clone(),
         })
         .collect()
 }
@@ -1437,11 +1437,13 @@ mod tests {
             max_parallel: Some(5),
             fail_fast: None,
             target_groups: vec!["edge".to_string()],
-            targets: vec![OrchestrationTargetInput::Detailed(OrchestrationTarget {
-                name: Some("adhoc-sw".to_string()),
-                host: Some("10.0.0.99".to_string()),
-                ..OrchestrationTarget::default()
-            })],
+            targets: vec![OrchestrationTargetInput::Detailed(Box::new(
+                OrchestrationTarget {
+                    name: Some("adhoc-sw".to_string()),
+                    host: Some("10.0.0.99".to_string()),
+                    ..OrchestrationTarget::default()
+                },
+            ))],
             action: OrchestrationAction::TxBlock(TxBlockAction {
                 name: None,
                 template: Some("configure_vlan.j2".to_string()),
@@ -1528,14 +1530,16 @@ mod tests {
                             "region": "east"
                         }),
                     },
-                    targets: vec![OrchestrationTargetInput::Detailed(OrchestrationTarget {
-                        connection: Some("sw-01".to_string()),
-                        vars: json!({
-                            "hostname": "sw-01",
-                            "meta": {"rack": "r1"}
-                        }),
-                        ..OrchestrationTarget::default()
-                    })],
+                    targets: vec![OrchestrationTargetInput::Detailed(Box::new(
+                        OrchestrationTarget {
+                            connection: Some("sw-01".to_string()),
+                            vars: json!({
+                                "hostname": "sw-01",
+                                "meta": {"rack": "r1"}
+                            }),
+                            ..OrchestrationTarget::default()
+                        },
+                    ))],
                 }),
             )]),
         };

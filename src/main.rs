@@ -28,7 +28,7 @@ use rneter::templates as rneter_templates;
 use serde_json::Value;
 use std::fmt::Write as _;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
@@ -408,7 +408,7 @@ async fn run(cli: Cli) -> Result<()> {
 fn run_device_command(
     cmd: DeviceCommands,
     global_opts: &GlobalOpts,
-    templates_root: &PathBuf,
+    templates_root: &Path,
 ) -> Result<()> {
     match cmd {
         DeviceCommands::List => {
