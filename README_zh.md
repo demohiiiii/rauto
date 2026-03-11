@@ -210,7 +210,7 @@ rauto device list
 rauto device show cisco
 rauto device copy-builtin cisco my_cisco
 rauto device delete-custom my_cisco
-rauto device test-connection \
+rauto connection test \
     --host 192.168.1.1 \
     --username admin \
     --password secret \
@@ -259,7 +259,7 @@ rauto templates delete show_version.j2
 
 ```bash
 # 直接通过命令参数新增/更新连接配置
-rauto device add-connection lab1 \
+rauto connection add lab1 \
     --host 192.168.1.1 \
     --username admin \
     --ssh-port 22 \
@@ -269,19 +269,20 @@ rauto device add-connection lab1 \
 rauto exec "show version" --connection lab1
 
 # 在成功连接后保存当前有效配置
-rauto device test-connection \
+rauto connection test \
     --connection lab1 \
     --save-connection lab1_backup
 
 # 管理已保存配置
-rauto device list-connections
-rauto device show-connection lab1
-rauto device delete-connection lab1
+rauto connection list
+rauto connection show lab1
+rauto connection delete lab1
+rauto history list lab1 --limit 20
 ```
 
 密码保存规则：
-- 在 `exec/template/device test-connection` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
-- 使用 `device add-connection` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
+- 在 `exec/template/connection test` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
+- 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
 
 ### 7. 数据备份与恢复
 
@@ -308,7 +309,7 @@ rauto backup restore ./rauto-backup.tar.gz --replace
 
 **连接排障**
 ```bash
-rauto device test-connection \
+rauto connection test \
     --host 192.168.1.1 \
     --username admin \
     --password secret \
@@ -317,13 +318,14 @@ rauto device test-connection \
 
 **连接配置档**
 ```bash
-rauto device add-connection lab1 \
+rauto connection add lab1 \
     --host 192.168.1.1 \
     --username admin \
     --ssh-port 22 \
     --device-profile cisco
 rauto exec "show version" --connection lab1
-rauto device list-connections
+rauto connection list
+rauto history list lab1 --limit 20
 ```
 
 **Profile 管理**
@@ -649,6 +651,8 @@ Web 操作界面                   CLI
 事务块执行                     rauto tx
 事务工作流                     rauto tx-workflow
 多设备编排执行                 rauto orchestrate
+连接配置管理                   rauto connection
+连接历史查看                   rauto history
 
 Prompt 管理                    CLI
 ------------------------------ ---------------------------------------------

@@ -9,8 +9,8 @@ use anyhow::Result;
 use chrono::Local;
 use clap::Parser;
 use cli::{
-    BackupCommands, Cli, Commands, DeviceCommands, RecordLevelOpt, TemplateCommands, TxArgs,
-    TxWorkflowArgs,
+    BackupCommands, Cli, Commands, ConnectionCommands, DeviceCommands, GlobalOpts, HistoryCommands,
+    RecordLevelOpt, TemplateCommands, TxArgs, TxWorkflowArgs,
 };
 use config::backup;
 use config::connection_store::{
@@ -32,11 +32,7 @@ use std::path::PathBuf;
 use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
-use tracing_subscriber::{
-    EnvFilter, fmt,
-    fmt::format::Writer,
-    fmt::time::FormatTime,
-};
+use tracing_subscriber::{EnvFilter, fmt, fmt::format::Writer, fmt::time::FormatTime};
 use web::run_web_server;
 
 #[tokio::main]
@@ -280,280 +276,15 @@ async fn run(cli: Cli) -> Result<()> {
             info!("Starting web service on {}:{}", args.bind, args.port);
             run_web_server(args.bind, args.port, cli.global_opts).await?;
         }
-        Commands::Device(cmd) => match cmd {
-            DeviceCommands::List => {
-                let mut profiles = template_loader::list_available_profiles(
-                    cli.global_opts.template_dir.as_ref(),
-                )?;
-                let custom_dir = templates_root.join("devices");
-                if custom_dir.exists() {
-                    for entry in fs::read_dir(&custom_dir)? {
-                        let entry = entry?;
-                        let path = entry.path();
-                        if path
-                            .extension()
-                            .and_then(|s| s.to_str())
-                            .is_some_and(|ext| ext == "toml")
-                            && let Some(name) = path.file_stem().and_then(|s| s.to_str())
-                        {
-                            profiles.push(name.to_string());
-                        }
-                    }
-                }
-                profiles.sort();
-                profiles.dedup();
-                println!("Available Device Profiles (builtin + custom):");
-                for p in profiles {
-                    println!("- {}", p);
-                }
-            }
-            DeviceCommands::Show { name } => {
-                if let Some(mut profile) = web::storage::builtin_profile_form(&name) {
-                    println!("# built-in profile: {}", name);
-                    println!("# source: rneter built-in");
-                    profile.name = name.clone();
-                    println!("{}", toml::to_string_pretty(&profile)?);
-                    return Ok(());
-                }
-
-                let safe_name = name.trim().trim_end_matches(".toml");
-                let path = templates_root
-                    .join("devices")
-                    .join(format!("{}.toml", safe_name));
-                if !path.exists() {
-                    return Err(anyhow::anyhow!("profile '{}' not found", name));
-                }
-                println!("# custom profile: {}", safe_name);
-                println!("# path: {}", path.to_string_lossy());
-                println!("{}", fs::read_to_string(path)?);
-            }
-            DeviceCommands::CopyBuiltin {
-                source,
-                name,
-                overwrite,
-            } => {
-                let mut profile = web::storage::builtin_profile_form(&source).ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Built-in profile '{}' not found. Try one of: cisco, huawei, h3c, hillstone, juniper, array",
-                        source
-                    )
-                })?;
-
-                let normalized = name.trim().trim_end_matches(".toml");
-                if normalized.is_empty()
-                    || !normalized
-                        .chars()
-                        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
-                {
-                    return Err(anyhow::anyhow!(
-                        "Invalid custom profile name '{}'. Use only letters, numbers, '_' or '-'.",
-                        name
-                    ));
-                }
-
-                profile.name = normalized.to_string();
-                let content = toml::to_string_pretty(&profile)?;
-
-                let templates_root = cli
-                    .global_opts
-                    .template_dir
-                    .clone()
-                    .unwrap_or_else(default_template_dir);
-                let profiles_dir = templates_root.join("devices");
-                fs::create_dir_all(&profiles_dir)?;
-                let target = profiles_dir.join(format!("{}.toml", normalized));
-
-                if target.exists() && !overwrite {
-                    return Err(anyhow::anyhow!(
-                        "Target profile already exists: {} (use --overwrite to replace)",
-                        target.to_string_lossy()
-                    ));
-                }
-
-                fs::write(&target, content.as_bytes())?;
-                println!(
-                    "Copied built-in profile '{}' to '{}'",
-                    source,
-                    target.to_string_lossy()
-                );
-            }
-            DeviceCommands::DeleteCustom { name } => {
-                let safe_name = name.trim().trim_end_matches(".toml");
-                if safe_name.is_empty()
-                    || !safe_name
-                        .chars()
-                        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
-                {
-                    return Err(anyhow::anyhow!(
-                        "Invalid custom profile name '{}'. Use only letters, numbers, '_' or '-'.",
-                        name
-                    ));
-                }
-                let path = templates_root
-                    .join("devices")
-                    .join(format!("{}.toml", safe_name));
-                if !path.exists() {
-                    return Err(anyhow::anyhow!(
-                        "Custom profile not found: {}",
-                        path.to_string_lossy()
-                    ));
-                }
-                fs::remove_file(&path)?;
-                println!("Deleted custom profile '{}'", path.to_string_lossy());
-            }
-            DeviceCommands::TestConnection => {
-                let conn = resolve_effective_connection(&cli.global_opts)?;
-                let handler = template_loader::load_device_profile(
-                    &conn.device_profile,
-                    conn.template_dir.as_ref(),
-                )?;
-                let _client = DeviceClient::connect(
-                    conn.host.clone(),
-                    conn.port,
-                    conn.username.clone(),
-                    conn.password.clone(),
-                    conn.enable_password.clone(),
-                    handler,
-                )
-                .await?;
-                maybe_save_connection_profile(&cli.global_opts, &conn)?;
-                println!(
-                    "Connection OK: {}@{}:{} ({})",
-                    conn.username, conn.host, conn.port, conn.device_profile
-                );
-            }
-            DeviceCommands::ListConnections => {
-                let names = list_connections()?;
-                if names.is_empty() {
-                    println!("-");
-                } else {
-                    for name in names {
-                        println!("- {}", name);
-                    }
-                }
-            }
-            DeviceCommands::ShowConnection { name } => {
-                let safe = config::connection_store::safe_connection_name(&name)?;
-                let data = load_connection(&safe)?;
-                println!("# saved connection: {}", safe);
-                println!("{}", toml::to_string_pretty(&data)?);
-            }
-            DeviceCommands::DeleteConnection { name } => {
-                let deleted = delete_connection(&name)?;
-                if deleted {
-                    println!("Deleted saved connection '{}'", name);
-                } else {
-                    println!("Saved connection '{}' not found", name);
-                }
-            }
-            DeviceCommands::AddConnection { name } => {
-                let conn = resolve_effective_connection(&cli.global_opts)?;
-                let path = save_named_connection(
-                    &name,
-                    &conn,
-                    cli.global_opts.password.is_some() || cli.global_opts.enable_password.is_some(),
-                )?;
-                println!(
-                    "Saved connection profile '{}' to '{}'",
-                    name,
-                    path.to_string_lossy()
-                );
-            }
-            DeviceCommands::ConnectionHistory { name, limit, json } => {
-                let safe = config::connection_store::safe_connection_name(&name)?;
-                let items = history_store::list_history_by_connection_name(&safe, limit)?;
-                if json {
-                    println!("{}", serde_json::to_string_pretty(&items)?);
-                    return Ok(());
-                }
-                println!("# connection: {}", safe);
-                if items.is_empty() {
-                    println!("-");
-                    return Ok(());
-                }
-                for item in items {
-                    println!(
-                        "- [{}] {} mode={} level={} file={}",
-                        item.ts_ms,
-                        item.command_label,
-                        item.mode.unwrap_or_else(|| "-".to_string()),
-                        item.record_level,
-                        item.record_path
-                    );
-                }
-            }
-            DeviceCommands::ConnectionHistoryShow { name, id, json } => {
-                let safe = config::connection_store::safe_connection_name(&name)?;
-                let items = history_store::list_history_by_connection_name(&safe, 0)?;
-                let item = items
-                    .into_iter()
-                    .find(|entry| entry.id == id)
-                    .ok_or_else(|| anyhow::anyhow!("history record not found"))?;
-                let jsonl = fs::read_to_string(&item.record_path)?;
-                let recorder = SessionRecorder::from_jsonl(&jsonl)?;
-                let entries = recorder.entries()?;
-                if json {
-                    let value = serde_json::json!({ "meta": item, "entries": entries });
-                    println!("{}", serde_json::to_string_pretty(&value)?);
-                    return Ok(());
-                }
-                println!("id: {}", item.id);
-                println!("ts_ms: {}", item.ts_ms);
-                println!(
-                    "connection: {}",
-                    item.connection_name.clone().unwrap_or("-".to_string())
-                );
-                println!("host: {}", item.host);
-                println!("port: {}", item.port);
-                println!("username: {}", item.username);
-                println!("device_profile: {}", item.device_profile);
-                println!("operation: {}", item.operation);
-                println!("command_label: {}", item.command_label);
-                println!("mode: {}", item.mode.clone().unwrap_or("-".to_string()));
-                println!("record_level: {}", item.record_level);
-                println!("record_path: {}", item.record_path);
-                println!("entries: {}", entries.len());
-            }
-            DeviceCommands::ConnectionHistoryDelete { name, id } => {
-                let safe = config::connection_store::safe_connection_name(&name)?;
-                let deleted = history_store::delete_history_by_connection_name(&safe, &id)?;
-                if deleted {
-                    println!("Deleted history record '{}'", id);
-                } else {
-                    println!("History record '{}' not found", id);
-                }
-            }
-            DeviceCommands::Diagnose { name, json } => {
-                let handler = template_loader::load_device_profile(
-                    &name,
-                    cli.global_opts.template_dir.as_ref(),
-                )?;
-                let report = handler.diagnose_state_machine();
-
-                if json {
-                    println!("{}", serde_json::to_string_pretty(&report)?);
-                    return Ok(());
-                }
-
-                println!("# profile: {}", name);
-                println!("# has_issues: {}", report.has_issues());
-                println!("total_states: {}", report.total_states);
-                print_list("entry_states", &report.entry_states);
-                print_list("missing_edge_sources", &report.missing_edge_sources);
-                print_list("missing_edge_targets", &report.missing_edge_targets);
-                print_list("unreachable_states", &report.unreachable_states);
-                print_list("dead_end_states", &report.dead_end_states);
-                print_list(
-                    "duplicate_prompt_patterns",
-                    &report.duplicate_prompt_patterns,
-                );
-                print_list(
-                    "potentially_ambiguous_prompt_states",
-                    &report.potentially_ambiguous_prompt_states,
-                );
-                print_list("self_loop_only_states", &report.self_loop_only_states);
-            }
-        },
+        Commands::Device(cmd) => {
+            run_device_command(cmd, &cli.global_opts, &templates_root)?;
+        }
+        Commands::Connection(cmd) => {
+            run_connection_command(cmd, &cli.global_opts).await?;
+        }
+        Commands::History(cmd) => {
+            run_history_command(cmd)?;
+        }
         Commands::Templates(cmd) => match cmd {
             TemplateCommands::List => {
                 let commands_dir = templates_root.join("commands");
@@ -667,6 +398,295 @@ async fn run(cli: Cli) -> Result<()> {
                     replayer.replay_next(&command)?
                 };
                 println!("{}", output.content);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn run_device_command(
+    cmd: DeviceCommands,
+    global_opts: &GlobalOpts,
+    templates_root: &PathBuf,
+) -> Result<()> {
+    match cmd {
+        DeviceCommands::List => {
+            let mut profiles =
+                template_loader::list_available_profiles(global_opts.template_dir.as_ref())?;
+            let custom_dir = templates_root.join("devices");
+            if custom_dir.exists() {
+                for entry in fs::read_dir(&custom_dir)? {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if path
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .is_some_and(|ext| ext == "toml")
+                        && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+                    {
+                        profiles.push(name.to_string());
+                    }
+                }
+            }
+            profiles.sort();
+            profiles.dedup();
+            println!("Available Device Profiles (builtin + custom):");
+            for p in profiles {
+                println!("- {}", p);
+            }
+        }
+        DeviceCommands::Show { name } => {
+            if let Some(mut profile) = web::storage::builtin_profile_form(&name) {
+                println!("# built-in profile: {}", name);
+                println!("# source: rneter built-in");
+                profile.name = name.clone();
+                println!("{}", toml::to_string_pretty(&profile)?);
+                return Ok(());
+            }
+
+            let safe_name = name.trim().trim_end_matches(".toml");
+            let path = templates_root
+                .join("devices")
+                .join(format!("{}.toml", safe_name));
+            if !path.exists() {
+                return Err(anyhow::anyhow!("profile '{}' not found", name));
+            }
+            println!("# custom profile: {}", safe_name);
+            println!("# path: {}", path.to_string_lossy());
+            println!("{}", fs::read_to_string(path)?);
+        }
+        DeviceCommands::CopyBuiltin {
+            source,
+            name,
+            overwrite,
+        } => {
+            let mut profile = web::storage::builtin_profile_form(&source).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Built-in profile '{}' not found. Try one of: cisco, huawei, h3c, hillstone, juniper, array",
+                    source
+                )
+            })?;
+
+            let normalized = name.trim().trim_end_matches(".toml");
+            if normalized.is_empty()
+                || !normalized
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+            {
+                return Err(anyhow::anyhow!(
+                    "Invalid custom profile name '{}'. Use only letters, numbers, '_' or '-'.",
+                    name
+                ));
+            }
+
+            profile.name = normalized.to_string();
+            let content = toml::to_string_pretty(&profile)?;
+
+            let profiles_dir = templates_root.join("devices");
+            fs::create_dir_all(&profiles_dir)?;
+            let target = profiles_dir.join(format!("{}.toml", normalized));
+
+            if target.exists() && !overwrite {
+                return Err(anyhow::anyhow!(
+                    "Target profile already exists: {} (use --overwrite to replace)",
+                    target.to_string_lossy()
+                ));
+            }
+
+            fs::write(&target, content.as_bytes())?;
+            println!(
+                "Copied built-in profile '{}' to '{}'",
+                source,
+                target.to_string_lossy()
+            );
+        }
+        DeviceCommands::DeleteCustom { name } => {
+            let safe_name = name.trim().trim_end_matches(".toml");
+            if safe_name.is_empty()
+                || !safe_name
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+            {
+                return Err(anyhow::anyhow!(
+                    "Invalid custom profile name '{}'. Use only letters, numbers, '_' or '-'.",
+                    name
+                ));
+            }
+            let path = templates_root
+                .join("devices")
+                .join(format!("{}.toml", safe_name));
+            if !path.exists() {
+                return Err(anyhow::anyhow!(
+                    "Custom profile not found: {}",
+                    path.to_string_lossy()
+                ));
+            }
+            fs::remove_file(&path)?;
+            println!("Deleted custom profile '{}'", path.to_string_lossy());
+        }
+        DeviceCommands::Diagnose { name, json } => {
+            let handler =
+                template_loader::load_device_profile(&name, global_opts.template_dir.as_ref())?;
+            let report = handler.diagnose_state_machine();
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+                return Ok(());
+            }
+
+            println!("# profile: {}", name);
+            println!("# has_issues: {}", report.has_issues());
+            println!("total_states: {}", report.total_states);
+            print_list("entry_states", &report.entry_states);
+            print_list("missing_edge_sources", &report.missing_edge_sources);
+            print_list("missing_edge_targets", &report.missing_edge_targets);
+            print_list("unreachable_states", &report.unreachable_states);
+            print_list("dead_end_states", &report.dead_end_states);
+            print_list(
+                "duplicate_prompt_patterns",
+                &report.duplicate_prompt_patterns,
+            );
+            print_list(
+                "potentially_ambiguous_prompt_states",
+                &report.potentially_ambiguous_prompt_states,
+            );
+            print_list("self_loop_only_states", &report.self_loop_only_states);
+        }
+    }
+
+    Ok(())
+}
+
+async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpts) -> Result<()> {
+    match cmd {
+        ConnectionCommands::Test => {
+            let conn = resolve_effective_connection(global_opts)?;
+            let handler = template_loader::load_device_profile(
+                &conn.device_profile,
+                conn.template_dir.as_ref(),
+            )?;
+            let _client = DeviceClient::connect(
+                conn.host.clone(),
+                conn.port,
+                conn.username.clone(),
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+            )
+            .await?;
+            maybe_save_connection_profile(global_opts, &conn)?;
+            println!(
+                "Connection OK: {}@{}:{} ({})",
+                conn.username, conn.host, conn.port, conn.device_profile
+            );
+        }
+        ConnectionCommands::List => {
+            let names = list_connections()?;
+            if names.is_empty() {
+                println!("-");
+            } else {
+                for name in names {
+                    println!("- {}", name);
+                }
+            }
+        }
+        ConnectionCommands::Show { name } => {
+            let safe = config::connection_store::safe_connection_name(&name)?;
+            let data = load_connection(&safe)?;
+            println!("# saved connection: {}", safe);
+            println!("{}", toml::to_string_pretty(&data)?);
+        }
+        ConnectionCommands::Delete { name } => {
+            let deleted = delete_connection(&name)?;
+            if deleted {
+                println!("Deleted saved connection '{}'", name);
+            } else {
+                println!("Saved connection '{}' not found", name);
+            }
+        }
+        ConnectionCommands::Add { name } => {
+            let conn = resolve_effective_connection(global_opts)?;
+            let path = save_named_connection(
+                &name,
+                &conn,
+                global_opts.password.is_some() || global_opts.enable_password.is_some(),
+            )?;
+            println!(
+                "Saved connection profile '{}' to '{}'",
+                name,
+                path.to_string_lossy()
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn run_history_command(cmd: HistoryCommands) -> Result<()> {
+    match cmd {
+        HistoryCommands::List { name, limit, json } => {
+            let safe = config::connection_store::safe_connection_name(&name)?;
+            let items = history_store::list_history_by_connection_name(&safe, limit)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&items)?);
+                return Ok(());
+            }
+            println!("# connection: {}", safe);
+            if items.is_empty() {
+                println!("-");
+                return Ok(());
+            }
+            for item in items {
+                println!(
+                    "- [{}] {} mode={} level={} file={}",
+                    item.ts_ms,
+                    item.command_label,
+                    item.mode.unwrap_or_else(|| "-".to_string()),
+                    item.record_level,
+                    item.record_path
+                );
+            }
+        }
+        HistoryCommands::Show { name, id, json } => {
+            let safe = config::connection_store::safe_connection_name(&name)?;
+            let items = history_store::list_history_by_connection_name(&safe, 0)?;
+            let item = items
+                .into_iter()
+                .find(|entry| entry.id == id)
+                .ok_or_else(|| anyhow::anyhow!("history record not found"))?;
+            let jsonl = fs::read_to_string(&item.record_path)?;
+            let recorder = SessionRecorder::from_jsonl(&jsonl)?;
+            let entries = recorder.entries()?;
+            if json {
+                let value = serde_json::json!({ "meta": item, "entries": entries });
+                println!("{}", serde_json::to_string_pretty(&value)?);
+                return Ok(());
+            }
+            println!("id: {}", item.id);
+            println!("ts_ms: {}", item.ts_ms);
+            println!(
+                "connection: {}",
+                item.connection_name.clone().unwrap_or("-".to_string())
+            );
+            println!("host: {}", item.host);
+            println!("port: {}", item.port);
+            println!("username: {}", item.username);
+            println!("device_profile: {}", item.device_profile);
+            println!("operation: {}", item.operation);
+            println!("command_label: {}", item.command_label);
+            println!("mode: {}", item.mode.clone().unwrap_or("-".to_string()));
+            println!("record_level: {}", item.record_level);
+            println!("record_path: {}", item.record_path);
+            println!("entries: {}", entries.len());
+        }
+        HistoryCommands::Delete { name, id } => {
+            let safe = config::connection_store::safe_connection_name(&name)?;
+            let deleted = history_store::delete_history_by_connection_name(&safe, &id)?;
+            if deleted {
+                println!("Deleted history record '{}'", id);
+            } else {
+                println!("History record '{}' not found", id);
             }
         }
     }

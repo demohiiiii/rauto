@@ -93,7 +93,7 @@ rauto device diagnose cisco
 rauto device diagnose cisco --json
 
 # Test connection
-rauto device test-connection \
+rauto connection test \
   --host <host> --username <username> --password <password> --ssh-port 22
 ```
 
@@ -112,14 +112,14 @@ rauto templates delete show_vlan.j2
 
 ```bash
 # Add/update saved connection
-rauto device add-connection lab1 \
+rauto connection add lab1 \
   --host <host> --username <username> --password <password> \
   --ssh-port 22 --device-profile cisco
 
 # List/show/delete
-rauto device list-connections
-rauto device show-connection lab1
-rauto device delete-connection lab1
+rauto connection list
+rauto connection show lab1
+rauto connection delete lab1
 
 # Save effective connection after successful run
 rauto exec "show version" \
@@ -127,11 +127,11 @@ rauto exec "show version" \
   --save-connection lab1 --save-password
 
 # History list/detail/delete
-rauto device connection-history lab1 --limit 50
-rauto device connection-history lab1 --limit 50 --json
-rauto device connection-history-show lab1 <history-id>
-rauto device connection-history-show lab1 <history-id> --json
-rauto device connection-history-delete lab1 <history-id>
+rauto history list lab1 --limit 50
+rauto history list lab1 --limit 50 --json
+rauto history show lab1 <history-id>
+rauto history show lab1 <history-id> --json
+rauto history delete lab1 <history-id>
 ```
 
 ## 7) Transaction block

@@ -2,9 +2,7 @@ use crate::cli::{GlobalOpts, OrchestrateArgs, RecordLevelOpt};
 use crate::config::connection_store::load_connection;
 use crate::config::template_loader;
 use crate::template::renderer::Renderer;
-use crate::{
-    EffectiveConnection, to_record_level, persist_auto_recording_history_jsonl,
-};
+use crate::{EffectiveConnection, persist_auto_recording_history_jsonl, to_record_level};
 use anyhow::{Context, Result, anyhow};
 use rneter::session::{MANAGER, RollbackPolicy, TxBlock, TxStep, TxWorkflow};
 use rneter::templates as rneter_templates;
@@ -271,7 +269,9 @@ fn validate_plan(plan: &OrchestrationPlan, inventory: &OrchestrationInventory) -
         return Err(anyhow!("orchestration plan name must not be empty"));
     }
     if plan.stages.is_empty() {
-        return Err(anyhow!("orchestration plan must contain at least one stage"));
+        return Err(anyhow!(
+            "orchestration plan must contain at least one stage"
+        ));
     }
     for group_name in inventory.groups.keys() {
         if group_name.trim().is_empty() {
@@ -329,7 +329,10 @@ fn validate_tx_block_action(stage: &OrchestrationStage, action: &TxBlockAction) 
     Ok(())
 }
 
-fn validate_tx_workflow_action(stage: &OrchestrationStage, action: &TxWorkflowAction) -> Result<()> {
+fn validate_tx_workflow_action(
+    stage: &OrchestrationStage,
+    action: &TxWorkflowAction,
+) -> Result<()> {
     let has_file = action.workflow_file.is_some();
     let has_inline = action.workflow.is_some();
     if has_file == has_inline {
@@ -357,7 +360,10 @@ fn load_inventory(plan: &OrchestrationPlan, plan_root: &Path) -> Result<Orchestr
             })?;
             Some(
                 serde_json::from_str::<OrchestrationInventory>(&text).with_context(|| {
-                    format!("failed to parse inventory file '{}'", resolved.to_string_lossy())
+                    format!(
+                        "failed to parse inventory file '{}'",
+                        resolved.to_string_lossy()
+                    )
                 })?,
             )
         }
@@ -452,7 +458,10 @@ fn resolve_stage_targets(
     for group_name in &stage.target_groups {
         let normalized = group_name.trim();
         if normalized.is_empty() {
-            return Err(anyhow!("stage '{}' has empty target_groups entry", stage.name));
+            return Err(anyhow!(
+                "stage '{}' has empty target_groups entry",
+                stage.name
+            ));
         }
         let group = inventory.groups.get(normalized).ok_or_else(|| {
             anyhow!(
@@ -496,7 +505,8 @@ async fn execute_plan(
             continue;
         }
 
-        let stage_result = execute_stage(plan, inventory, stage, plan_root, opts, record_level).await?;
+        let stage_result =
+            execute_stage(plan, inventory, stage, plan_root, opts, record_level).await?;
         if matches!(stage_result.status, StageStatus::Failed) {
             failed = true;
         }
@@ -533,8 +543,16 @@ async fn execute_stage(
     let targets = resolve_stage_targets(stage, inventory)?;
     let results = match stage.strategy {
         StageStrategy::Serial => {
-            execute_serial_stage(plan, stage, &targets, plan_root, opts, record_level, fail_fast)
-                .await?
+            execute_serial_stage(
+                plan,
+                stage,
+                &targets,
+                plan_root,
+                opts,
+                record_level,
+                fail_fast,
+            )
+            .await?
         }
         StageStrategy::Parallel => {
             execute_parallel_stage(
@@ -594,8 +612,9 @@ async fn execute_parallel_stage(
     let mut pending: VecDeque<(usize, OrchestrationTarget)> =
         targets.iter().cloned().enumerate().collect();
     let mut join_set = JoinSet::new();
-    let mut results: Vec<Option<TargetExecutionResult>> =
-        std::iter::repeat_with(|| None).take(targets.len()).collect();
+    let mut results: Vec<Option<TargetExecutionResult>> = std::iter::repeat_with(|| None)
+        .take(targets.len())
+        .collect();
     let plan_owned = plan.clone();
     let stage_owned = stage.clone();
     let opts_owned = opts.clone();
@@ -1023,7 +1042,10 @@ fn expand_targets(inputs: &[OrchestrationTargetInput]) -> Vec<OrchestrationTarge
         .collect()
 }
 
-fn resolve_target_connection(opts: &GlobalOpts, target: &OrchestrationTarget) -> Result<EffectiveConnection> {
+fn resolve_target_connection(
+    opts: &GlobalOpts,
+    target: &OrchestrationTarget,
+) -> Result<EffectiveConnection> {
     let saved = if let Some(name) = &target.connection {
         Some(load_connection(name)?)
     } else if let Some(name) = &opts.connection {
@@ -1079,7 +1101,10 @@ fn resolve_target_connection(opts: &GlobalOpts, target: &OrchestrationTarget) ->
         });
 
     Ok(EffectiveConnection {
-        connection_name: target.connection.clone().or_else(|| opts.connection.clone()),
+        connection_name: target
+            .connection
+            .clone()
+            .or_else(|| opts.connection.clone()),
         host,
         username,
         password,

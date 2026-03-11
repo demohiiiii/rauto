@@ -23,6 +23,7 @@ Use this file when the agent should run `rauto` commands directly for the user.
    - If still missing required fields, ask only for missing fields.
 3. For agent-generated change commands:
    - show planned commands + rollback path + dry-run command.
+   - for `orchestrate`, also review target scope, `fail_fast`, concurrency, and rollback boundary.
    - wait for user confirmation before live execution.
 4. Execute command and capture output.
 5. Return concise result summary.
@@ -35,9 +36,9 @@ Safe to run directly:
 - `rauto device show <name>`
 - `rauto templates list`
 - `rauto templates show <name>`
-- `rauto device list-connections`
-- `rauto device show-connection <name>`
-- `rauto device connection-history <name> --limit <N>`
+- `rauto connection list`
+- `rauto connection show <name>`
+- `rauto history list <name> --limit <N>`
 - `rauto replay <record_file> --list`
 - `rauto replay <record_file> --command "<cmd>" [--mode <Mode>]`
 - `rauto backup list`
@@ -55,7 +56,7 @@ Default policy:
 - `rauto tx ...`
 - `rauto tx-workflow ...`
 - `rauto orchestrate ...`
-- `rauto device add-connection ...`
+- `rauto connection add ...`
 - `rauto templates create|update ...`
 - `rauto backup create [...]`
 - `rauto backup restore <archive>` (merge mode)
@@ -65,10 +66,10 @@ Default policy:
 Require clear user confirmation before running:
 
 - `rauto backup restore <archive> --replace`
-- `rauto device delete-connection <name>`
+- `rauto connection delete <name>`
 - `rauto device delete-custom <name>`
 - `rauto templates delete <name>`
-- `rauto device connection-history-delete <name> <id>`
+- `rauto history delete <name> <id>`
 
 If user already asks explicitly (e.g. "删除", "replace 恢复"), execute directly.
 
@@ -96,12 +97,15 @@ Risk Check: <why safe/unsafe>
 Confirmation Needed: <yes>
 ```
 
+For proposed `orchestrate` changes, prefer the orchestration-specific review from `references/orchestration-risk-check.md`.
+
 ## 6) Common command templates
 
 When user asks for workflow JSON content, load:
 
 - `references/workflow-json-template.md`
 - `references/orchestration-json-template.md` for multi-device staged execution
+- `references/orchestration-risk-check.md` before proposing or executing multi-device rollout
 - For vendor-specific orchestration, use sections 3-5 in `references/workflow-json-template.md` (Cisco/Juniper/Huawei).
 - For advanced compensation rollback, use section 6 in `references/workflow-json-template.md`.
 

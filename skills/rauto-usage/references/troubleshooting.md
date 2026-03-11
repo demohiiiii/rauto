@@ -2,29 +2,6 @@
 
 Use this file when users report failures, wrong output, or UI confusion.
 
-## Install and bootstrap issues
-
-### `rauto: command not found`
-
-1. Check whether `rauto` exists anywhere:
-   - `command -v rauto`
-   - `~/.local/bin/rauto --version`
-   - `~/bin/rauto --version`
-2. If the binary exists only under `~/.local/bin` or `~/bin`, the likely issue is `PATH`.
-3. If GitHub release download is blocked and the user is inside this repo, use `cargo build --release` as a fallback.
-
-### `cargo: command not found`
-
-1. Surface that Rust/Cargo is missing.
-2. Do not pretend source build is available.
-3. Prefer GitHub Releases binary installation instead.
-
-### Wrong release asset downloaded
-
-1. Re-check `uname -s` and `uname -m`.
-2. Compare the downloaded asset against the detected OS/arch.
-3. Re-download the matching asset from the official GitHub Releases page/API instead of guessing by filename.
-
 ## Connection failures
 
 ### `Failed to connect: async ssh2 error: Disconnected`

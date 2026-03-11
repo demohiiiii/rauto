@@ -206,7 +206,7 @@ rauto device list
 rauto device show cisco
 rauto device copy-builtin cisco my_cisco
 rauto device delete-custom my_cisco
-rauto device test-connection \
+rauto connection test \
     --host 192.168.1.1 \
     --username admin \
     --password secret \
@@ -255,7 +255,7 @@ You can save and reuse connection settings by name:
 
 ```bash
 # Add/update a profile directly from CLI args
-rauto device add-connection lab1 \
+rauto connection add lab1 \
     --host 192.168.1.1 \
     --username admin \
     --ssh-port 22 \
@@ -265,19 +265,20 @@ rauto device add-connection lab1 \
 rauto exec "show version" --connection lab1
 
 # Save current effective connection after a successful run
-rauto device test-connection \
+rauto connection test \
     --connection lab1 \
     --save-connection lab1_backup
 
 # Manage saved profiles
-rauto device list-connections
-rauto device show-connection lab1
-rauto device delete-connection lab1
+rauto connection list
+rauto connection show lab1
+rauto connection delete lab1
+rauto history list lab1 --limit 20
 ```
 
 Password behavior:
-- `--save-connection` (used in `exec/template/device test-connection`) saves without password by default; add `--save-password` to include password fields.
-- `device add-connection` saves password only when `--password` / `--enable-password` is explicitly provided.
+- `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
+- `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
 
 ### 7. Backup & Restore
 
@@ -304,7 +305,7 @@ rauto backup restore ./rauto-backup.tar.gz --replace
 
 **Connection troubleshooting**
 ```bash
-rauto device test-connection \
+rauto connection test \
     --host 192.168.1.1 \
     --username admin \
     --password secret \
@@ -313,13 +314,14 @@ rauto device test-connection \
 
 **Saved connection profiles**
 ```bash
-rauto device add-connection lab1 \
+rauto connection add lab1 \
     --host 192.168.1.1 \
     --username admin \
     --ssh-port 22 \
     --device-profile cisco
 rauto exec "show version" --connection lab1
-rauto device list-connections
+rauto connection list
+rauto history list lab1 --limit 20
 ```
 
 **Profile management**
@@ -645,6 +647,8 @@ Template Render + Execute        rauto template
 Transaction Block (Tx Block)     rauto tx
 Transaction Workflow (Tx Flow)   rauto tx-workflow
 Multi-device Orchestration       rauto orchestrate
+Saved connections               rauto connection
+Connection history              rauto history
 
 Prompt Profiles (Web)            CLI
 -------------------------------- ---------------------------------------------

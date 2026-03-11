@@ -55,11 +55,11 @@ rauto tx --dry-run ...same args...
 
 1. Test connection:
 ```
-rauto device test-connection --host <ip> --username <user> --password <pass>
+rauto connection test --host <ip> --username <user> --password <pass>
 ```
 2. Save connection:
 ```
-rauto device add-connection <name> --host <ip> --username <user> --password <pass> --ssh-port 22
+rauto connection add <name> --host <ip> --username <user> --password <pass> --ssh-port 22
 ```
 
 ### Web UI

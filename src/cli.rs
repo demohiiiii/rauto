@@ -26,9 +26,17 @@ pub enum Commands {
     /// Start web service with visual UI
     Web(WebArgs),
 
-    /// Manage device configuration templates
+    /// Manage device profiles
     #[command(subcommand)]
     Device(DeviceCommands),
+
+    /// Manage saved connection profiles and connectivity checks
+    #[command(subcommand)]
+    Connection(ConnectionCommands),
+
+    /// Inspect saved connection execution history
+    #[command(subcommand)]
+    History(HistoryCommands),
 
     /// Manage stored command templates
     #[command(subcommand)]
@@ -82,27 +90,43 @@ pub enum DeviceCommands {
         #[arg(long)]
         overwrite: bool,
     },
+    /// Diagnose state-machine quality for a device profile
+    Diagnose {
+        /// Profile name (builtin or custom)
+        name: String,
+        /// Output diagnostics as JSON
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConnectionCommands {
     /// Test SSH connection without executing commands
-    TestConnection,
+    Test,
     /// List saved connection profiles
-    ListConnections,
+    List,
     /// Show a saved connection profile
-    ShowConnection {
+    Show {
         /// Saved connection profile name
         name: String,
     },
     /// Delete a saved connection profile
-    DeleteConnection {
+    Delete {
         /// Saved connection profile name
         name: String,
     },
     /// Add or update a saved connection profile directly from CLI options
-    AddConnection {
+    Add {
         /// Saved connection profile name
         name: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum HistoryCommands {
     /// Show execution history for a saved connection profile
-    ConnectionHistory {
+    List {
         /// Saved connection profile name
         name: String,
         /// Max number of history items
@@ -113,7 +137,7 @@ pub enum DeviceCommands {
         json: bool,
     },
     /// Show detailed history entry for a saved connection profile
-    ConnectionHistoryShow {
+    Show {
         /// Saved connection profile name
         name: String,
         /// History entry ID
@@ -123,19 +147,11 @@ pub enum DeviceCommands {
         json: bool,
     },
     /// Delete a history entry for a saved connection profile
-    ConnectionHistoryDelete {
+    Delete {
         /// Saved connection profile name
         name: String,
         /// History entry ID
         id: String,
-    },
-    /// Diagnose state-machine quality for a device profile
-    Diagnose {
-        /// Profile name (builtin or custom)
-        name: String,
-        /// Output diagnostics as JSON
-        #[arg(long)]
-        json: bool,
     },
 }
 

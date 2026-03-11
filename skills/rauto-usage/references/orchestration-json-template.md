@@ -2,6 +2,8 @@
 
 Use this file when the agent needs to provide a runnable `orchestration.json` for `rauto orchestrate`.
 
+Before proposing live execution, pair this file with `references/orchestration-risk-check.md`.
+
 ## Table of Contents
 
 1. Minimal staged orchestration
@@ -9,6 +11,7 @@ Use this file when the agent needs to provide a runnable `orchestration.json` fo
 3. Advanced staged rollout
 4. Run commands
 5. Repo sample files
+6. Pre-flight review
 
 ## 1) Minimal staged orchestration
 
@@ -175,3 +178,9 @@ Use these directly when the user is working in this repo:
 - `templates/examples/fabric-change-workflow.json`
 - `templates/examples/fabric-advanced-orchestration.json`
 - `templates/examples/fabric-advanced-inventory.json`
+
+## 6) Pre-flight review
+
+Before live execution:
+- run `rauto orchestrate ./orchestration.json --dry-run`
+- review `references/orchestration-risk-check.md`
