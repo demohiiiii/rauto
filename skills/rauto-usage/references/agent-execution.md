@@ -15,7 +15,7 @@ Use this file when the agent should run `rauto` commands directly for the user.
 
 1. Classify user intent:
    - Query/read -> execute immediately.
-   - Change/apply -> prefer `tx`/`tx-workflow` with rollback.
+   - Change/apply -> prefer `tx`/`tx-workflow`/`orchestrate` with rollback-aware planning.
    - Destructive -> require explicit confirmation.
 2. Resolve connection inputs:
    - Prefer existing `--connection <name>`.
@@ -48,12 +48,13 @@ Read-only commands (for example `show ...`) do not need transaction wrapping.
 
 Default policy:
 
-- Prefer rollback-capable execution via `rauto tx` / `rauto tx-workflow`.
+- Prefer rollback-capable execution via `rauto tx` / `rauto tx-workflow` / `rauto orchestrate`.
 - If user asks for generated deployment commands, propose first and wait for confirmation.
 - If user explicitly provides exact command and asks to run now, execute directly.
 
 - `rauto tx ...`
 - `rauto tx-workflow ...`
+- `rauto orchestrate ...`
 - `rauto device add-connection ...`
 - `rauto templates create|update ...`
 - `rauto backup create [...]`
@@ -100,6 +101,7 @@ Confirmation Needed: <yes>
 When user asks for workflow JSON content, load:
 
 - `references/workflow-json-template.md`
+- `references/orchestration-json-template.md` for multi-device staged execution
 - For vendor-specific orchestration, use sections 3-5 in `references/workflow-json-template.md` (Cisco/Juniper/Huawei).
 - For advanced compensation rollback, use section 6 in `references/workflow-json-template.md`.
 
@@ -138,6 +140,14 @@ rauto tx-workflow <workflow.json> --dry-run
 rauto tx-workflow <workflow.json> --connection <connection>
 ```
 
+### Multi-device orchestration
+
+```bash
+rauto orchestrate <orchestration.json> --view
+rauto orchestrate <orchestration.json> --dry-run
+rauto orchestrate <orchestration.json> --record-level full
+```
+
 ### Safe change sequence (recommended)
 
 ```bash
@@ -147,6 +157,16 @@ rauto tx-workflow <workflow.json> --dry-run
 
 # 3) Execute only after user confirmation
 rauto tx-workflow <workflow.json> --connection <connection>
+```
+
+For staged multi-device rollout:
+
+```bash
+# 1) Build/validate orchestration.json (+ inventory.json when used)
+rauto orchestrate <orchestration.json> --dry-run
+
+# 2) Execute only after user confirmation
+rauto orchestrate <orchestration.json> --record-level full
 ```
 
 ### Detailed Tx block patterns

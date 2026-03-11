@@ -1,4 +1,4 @@
 interface:
   display_name: "Rauto Operator"
-  short_description: "Install from releases, verify, and run rauto"
-  default_prompt: "Use $rauto-usage to install rauto from GitHub Releases, verify it, or run rauto directly for me, and ask only for missing required inputs."
+  short_description: "Install, orchestrate, and run rauto directly"
+  default_prompt: "Use $rauto-usage to install rauto from GitHub Releases, verify it, or run rauto directly for me, including multi-device orchestration when needed."

@@ -399,27 +399,36 @@ configure router no interface "to-core"
 
 Use this when the same change must be applied across multiple devices.
 
-### CLI pattern (repeat per device)
+### CLI pattern (`rauto orchestrate`)
 
 ```
-rauto tx --command "set system services ssh" --rollback-command "delete system services ssh" --host <device-a> --username <user> --password <pass>
-rauto tx --command "set system services ssh" --rollback-command "delete system services ssh" --host <device-b> --username <user> --password <pass>
+rauto orchestrate ./orchestration.json --dry-run
+rauto orchestrate ./orchestration.json --record-level full
 ```
+
+Typical plan design:
+
+1. Stage 1: serial rollout for core devices
+2. Stage 2: parallel rollout for access devices
+3. Reuse `target_groups` and `inventory_file` when the same target sets are used repeatedly
+4. Reuse `tx_workflow` for device-internal multi-block changes and `tx_block` for smaller templated changes
 
 ### Web pattern
 
-1. Save multiple connections (one per device).
-2. For each connection, select it, run the Tx block or workflow.
-3. Use history drawer to compare outcomes.
+1. Operations -> Tx -> Orchestrate
+2. Paste orchestration JSON and optional `base_dir`
+3. Preview the plan first
+4. Execute orchestration
+5. Inspect stage/target result cards and detail views
 
 ## 14) Phased rollout / canary execution
 
 Use this when you need a small blast radius before full rollout.
 
 1. **Canary set** (2–3 devices):
-   - Run Tx block/workflow and verify output + history.
+   - Run `orchestrate` against a small target group and verify output + history.
 2. **Expand** to 25–50% of devices:
-   - Reuse saved connections; compare history status.
+   - Expand the inventory group or target list; compare stage and target status.
 3. **Full rollout** if no issues detected.
 
 Tips:
@@ -446,7 +455,7 @@ Use this after multi-device rollouts.
 
 1. Compare history drawer results per device:
    - success status, rollback status, error patterns.
-2. Re-run diagnostics on devices with anomalies.
+2. Re-run diagnostics or targeted rollback workflows on devices with anomalies.
 3. Reconcile state manually where rollback or execution diverged.
 
 ## 17) Cross-device comparison template
@@ -466,8 +475,8 @@ Notes: <errors or observations>
 
 | Device | Connection | Operation | Result | Rollback Attempted | Rollback Result | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| edge-1 | prod-edge-1 | tx_workflow | success | attempted | succeeded | - |
-| edge-2 | prod-edge-2 | tx_workflow | failed | attempted | failed | rollback command error |
+| edge-1 | prod-edge-1 | orchestrate_tx_workflow | success | attempted | succeeded | - |
+| edge-2 | prod-edge-2 | orchestrate_tx_block | failed | attempted | failed | rollback command error |
 
 ### JSON template
 
@@ -475,7 +484,7 @@ Notes: <errors or observations>
 {
   "device": "<name>",
   "connection": "<saved-connection>",
-  "operation": "tx_workflow",
+  "operation": "orchestrate_tx_workflow",
   "result": "success",
   "rollback_attempted": true,
   "rollback_result": "succeeded",

@@ -170,7 +170,15 @@ http://127.0.0.1:3000
 3. Preview first
 4. Execute and inspect result section
 
-### Recipe D: Restore backup safely
+### Recipe D: Multi-device orchestration
+
+1. Operations -> Tx -> Orchestrate
+2. Paste orchestration JSON and optional `base_dir`
+3. Click `Preview Orchestration`
+4. Click `Execute Orchestration`
+5. Inspect stage/target result cards and open detail views when needed
+
+### Recipe E: Restore backup safely
 
 1. Backup tab -> select archive row
 2. Use `Restore (Merge)` first

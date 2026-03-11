@@ -18,9 +18,10 @@ Notes: <risk/error/follow-up>
 4. Saved connections
 5. Profiles and templates management
 6. Tx block/workflow orchestration
-7. Recording/replay/history
-8. Web-first requests
-9. Backup and restore
+7. Multi-device orchestration
+8. Recording/replay/history
+9. Web-first requests
+10. Backup and restore
 
 ## 1) Install and verify
 
@@ -319,9 +320,71 @@ Result: Change plan prepared with rollback path; waiting for human confirmation
 Notes: Preview first: rauto tx-workflow ./workflow.json --dry-run ; execute only after explicit confirmation
 ```
 
-## 7) Recording/replay/history
+## 7) Multi-device orchestration
 
 ### Example 7.1
+
+User ask:
+```text
+Preview this multi-device rollout before I execute it.
+```
+
+Execution-style answer:
+```text
+Operation: Preview multi-device orchestration plan
+Command: rauto orchestrate ./orchestration.json --dry-run
+Result: Orchestration plan validated and normalized
+Notes: Use `--view` for terminal structure view; execute only after confirmation
+```
+
+### Example 7.2
+
+User ask:
+```text
+Run this staged rollout across my saved connections.
+```
+
+Execution-style answer:
+```text
+Operation: Execute staged multi-device orchestration
+Command: rauto orchestrate ./orchestration.json --record-level full
+Result: Stage-by-stage execution started across target devices
+Notes: Prefer inventory/groups and inspect per-stage/per-target results after completion
+```
+
+### Example 7.3
+
+User ask:
+```text
+Give me an orchestration JSON with inventory groups for core and access.
+```
+
+Execution-style answer:
+```text
+Operation: Provide runnable multi-device orchestration template
+Command: (no command; JSON generation task)
+Result: Prepared `orchestration.json` plus `inventory.json` using `target_groups`
+Notes: Load `references/orchestration-json-template.md`; preview with `rauto orchestrate ./orchestration.json --dry-run`
+```
+
+### Example 7.4
+
+User ask:
+```text
+How do I run orchestration from the web UI?
+```
+
+Execution-style answer:
+```text
+Operation: Web orchestration guidance
+Command: (web UI operation)
+Result: Path: Operations -> Tx -> Orchestrate
+Notes: Paste JSON, optionally set `base_dir`, then use Preview Orchestration / Execute Orchestration
+```
+
+## 8) Recording/replay/history
+
+### Example 8.1
 
 User ask:
 ```text
@@ -336,7 +399,7 @@ Result: Recording file generated
 Notes: Replay list: rauto replay ~/.rauto/records/show_version.jsonl --list
 ```
 
-### Example 7.2
+### Example 8.2
 
 User ask:
 ```text
@@ -351,7 +414,7 @@ Result: Listed recorded command strings/modes to verify exact match
 Notes: Command text and optional mode must match replay query
 ```
 
-### Example 7.3
+### Example 8.3
 
 User ask:
 ```text
@@ -366,7 +429,7 @@ Result: Returned ordered history entries with IDs
 Notes: Detail view: rauto device connection-history-show lab1 <history-id> ; machine-readable: rauto device connection-history-show lab1 <history-id> --json
 ```
 
-### Example 7.4
+### Example 8.4
 
 User ask:
 ```text
@@ -381,9 +444,9 @@ Result: Command executed with durable recording and connection-bound history ent
 Notes: Continue with: rauto device connection-history lab1 --limit 20 ; rauto device connection-history-show lab1 <history-id> ; rauto replay ~/.rauto/records/lab1_show_version.jsonl --list
 ```
 
-## 8) Web-first requests
+## 9) Web-first requests
 
-### Example 8.1
+### Example 9.1
 
 User ask:
 ```text
@@ -398,7 +461,7 @@ Result: Web UI started at http://127.0.0.1:3000
 Notes: Use Operations -> Template Render + Execute -> Preview Render -> Run Template
 ```
 
-### Example 8.2
+### Example 9.2
 
 User ask:
 ```text
@@ -413,9 +476,9 @@ Result: Path: Interactive tab -> Start Session -> Send -> Stop Session
 Notes: Ensure valid connection context before starting session
 ```
 
-## 9) Backup and restore
+## 10) Backup and restore
 
-### Example 9.1
+### Example 10.1
 
 User ask:
 ```text
@@ -430,7 +493,7 @@ Result: Backup archive created under ~/.rauto/backups with timestamp filename
 Notes: List backups with: rauto backup list
 ```
 
-### Example 9.2
+### Example 10.2
 
 User ask:
 ```text
@@ -445,7 +508,7 @@ Result: Backup created as ./backup/rauto-backup-<timestamp>.tar.gz
 Notes: If output is a file path, that exact filename is used
 ```
 
-### Example 9.3
+### Example 10.3
 
 User ask:
 ```text

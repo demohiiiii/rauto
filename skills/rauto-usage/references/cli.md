@@ -12,8 +12,9 @@ Use this file when the user asks for exact CLI commands.
 6. Saved connections and history
 7. Transaction block
 8. Transaction workflow
-9. Backup and restore
-10. Global flags
+9. Multi-device orchestration
+10. Backup and restore
+11. Global flags
 
 ## 1) Common placeholders
 
@@ -194,7 +195,36 @@ rauto tx-workflow ./workflow.json \
   --record-level full
 ```
 
-## 9) Backup and restore
+## 9) Multi-device orchestration
+
+```bash
+# Preview orchestration structure
+rauto orchestrate ./orchestration.json --view
+
+# Dry-run normalized plan
+rauto orchestrate ./orchestration.json --dry-run
+
+# Dry-run raw JSON
+rauto orchestrate ./orchestration.json --dry-run --json
+
+# Execute a staged multi-device plan
+rauto orchestrate ./orchestration.json --record-level full
+
+# Execute with saved connection fallback defaults
+rauto orchestrate ./orchestration.json --connection <connection>
+```
+
+Repo-aligned sample files:
+
+```text
+templates/examples/campus-vlan-orchestration.json
+templates/examples/campus-inventory.json
+templates/examples/fabric-advanced-orchestration.json
+templates/examples/fabric-advanced-inventory.json
+templates/examples/fabric-change-workflow.json
+```
+
+## 10) Backup and restore
 
 ```bash
 # Create backup with auto timestamp filename
@@ -216,7 +246,7 @@ rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
 rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 ```
 
-## 10) Global flags
+## 11) Global flags
 
 ```text
 --host
