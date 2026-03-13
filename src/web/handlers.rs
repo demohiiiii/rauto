@@ -219,6 +219,7 @@ pub async fn check_blacklist_command(
 }
 
 pub async fn restore_backup(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<BackupRestoreRequest>,
 ) -> Result<Json<BackupRestoreResponse>, ApiError> {
     if req.archive.trim().is_empty() {
@@ -227,6 +228,14 @@ pub async fn restore_backup(
     let archive = PathBuf::from(req.archive.trim());
     backup::restore_backup(&archive, req.replace)?;
     crate::config::paths::ensure_default_layout().map_err(ApiError::from)?;
+    if let Some(registrar) = state.registrar()
+        && let Err(err) = registrar.trigger_device_report_if_changed(5).await
+    {
+        warn!(
+            "failed to schedule device report after backup restore: {}",
+            err
+        );
+    }
     Ok(Json(BackupRestoreResponse {
         restored: true,
         archive: archive.to_string_lossy().to_string(),
@@ -836,6 +845,7 @@ pub async fn delete_connection_history(
 }
 
 pub async fn upsert_connection(
+    State(state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
     Json(req): Json<UpsertConnectionRequest>,
 ) -> Result<Json<SavedConnectionDetail>, ApiError> {
@@ -857,6 +867,14 @@ pub async fn upsert_connection(
         template_dir: c.template_dir,
     };
     let path = connection_store::save_connection(&safe, &data).map_err(ApiError::from)?;
+    if let Some(registrar) = state.registrar()
+        && let Err(err) = registrar.trigger_device_report_if_changed(5).await
+    {
+        warn!(
+            "failed to schedule device report after connection upsert: {}",
+            err
+        );
+    }
 
     Ok(Json(SavedConnectionDetail {
         name: safe.clone(),
@@ -876,11 +894,21 @@ pub async fn upsert_connection(
 }
 
 pub async fn delete_connection(
+    State(state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let deleted = connection_store::delete_connection(&safe).map_err(ApiError::from)?;
+    if deleted
+        && let Some(registrar) = state.registrar()
+        && let Err(err) = registrar.trigger_device_report_if_changed(5).await
+    {
+        warn!(
+            "failed to schedule device report after connection delete: {}",
+            err
+        );
+    }
     Ok(Json(json!({ "ok": true, "deleted": deleted })))
 }
 

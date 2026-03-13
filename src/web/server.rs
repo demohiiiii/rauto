@@ -43,6 +43,7 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
         agent_args.manager_url.clone(),
         agent_args.agent_name.clone(),
         agent_args.agent_token.clone(),
+        agent_args.probe_report_interval,
     )?;
     let Some(agent_config) = agent_settings.config else {
         return Err(anyhow!(
@@ -70,7 +71,14 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
             tracing::error!("agent registration loop exited: {}", err);
             return;
         }
-        registrar.start_heartbeat_loop(registration_state).await;
+        let heartbeat_registrar = registrar.clone();
+        let heartbeat_state = registration_state.clone();
+        tokio::spawn(async move {
+            heartbeat_registrar
+                .start_heartbeat_loop(heartbeat_state)
+                .await;
+        });
+        registrar.start_probe_report_loop().await;
     });
 
     info!(

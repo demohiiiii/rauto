@@ -21,6 +21,8 @@ pub struct AgentMeta {
     pub name: String,
     #[serde(default = "default_heartbeat")]
     pub heartbeat_interval: u64,
+    #[serde(default = "default_probe_report_interval")]
+    pub probe_report_interval: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -47,10 +49,15 @@ struct PartialManagerConfig {
 struct PartialAgentMeta {
     name: Option<String>,
     heartbeat_interval: Option<u64>,
+    probe_report_interval: Option<u64>,
 }
 
 fn default_heartbeat() -> u64 {
     30
+}
+
+fn default_probe_report_interval() -> u64 {
+    300
 }
 
 pub fn default_agent_config_path() -> PathBuf {
@@ -69,6 +76,7 @@ pub fn load_agent_config(
         cli_manager_url,
         cli_agent_name,
         cli_agent_token,
+        None,
     )?
     .config)
 }
@@ -78,6 +86,7 @@ pub fn resolve_agent_settings(
     cli_manager_url: Option<String>,
     cli_agent_name: Option<String>,
     cli_agent_token: Option<String>,
+    cli_probe_report_interval: Option<u64>,
 ) -> Result<ResolvedAgentSettings> {
     let file_config = load_agent_file(config_path)?;
 
@@ -124,6 +133,13 @@ pub fn resolve_agent_settings(
         .as_ref()
         .and_then(|cfg| cfg.agent.heartbeat_interval)
         .unwrap_or_else(default_heartbeat);
+    let probe_report_interval = cli_probe_report_interval
+        .or_else(|| {
+            file_config
+                .as_ref()
+                .and_then(|cfg| cfg.agent.probe_report_interval)
+        })
+        .unwrap_or_else(default_probe_report_interval);
 
     let config = match (manager_url, agent_name) {
         (Some(url), Some(name)) => Some(AgentConfig {
@@ -134,6 +150,7 @@ pub fn resolve_agent_settings(
             agent: AgentMeta {
                 name,
                 heartbeat_interval,
+                probe_report_interval,
             },
         }),
         _ => None,
@@ -166,6 +183,7 @@ mod tests {
             Some("http://manager.local:3000".to_string()),
             Some("agent-a".to_string()),
             Some("token-a".to_string()),
+            Some(120),
         )
         .expect("settings");
 
@@ -173,6 +191,22 @@ mod tests {
         assert_eq!(config.manager.url, "http://manager.local:3000");
         assert_eq!(config.agent.name, "agent-a");
         assert_eq!(config.manager.token.as_deref(), Some("token-a"));
+        assert_eq!(config.agent.probe_report_interval, 120);
         assert_eq!(settings.api_token.as_deref(), Some("token-a"));
+    }
+
+    #[test]
+    fn resolve_agent_settings_uses_default_probe_interval() {
+        let settings = resolve_agent_settings(
+            None,
+            Some("http://manager.local:3000".to_string()),
+            Some("agent-a".to_string()),
+            None,
+            None,
+        )
+        .expect("settings");
+
+        let config = settings.config.expect("config");
+        assert_eq!(config.agent.probe_report_interval, 300);
     }
 }

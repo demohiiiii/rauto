@@ -253,7 +253,8 @@ rauto agent \
     --port 3000 \
     --manager-url http://manager:3000 \
     --agent-name agent-beijing-01 \
-    --agent-token my-secret-token
+    --agent-token my-secret-token \
+    --probe-report-interval 300
 ```
 
 You can also keep defaults in `~/.rauto/agent.toml`:
@@ -266,6 +267,7 @@ token = "my-secret-token"
 [agent]
 name = "agent-beijing-01"
 heartbeat_interval = 30
+probe_report_interval = 300
 ```
 
 Agent mode adds:
@@ -273,7 +275,9 @@ Agent mode adds:
 - Protected `GET /api/agent/status` for runtime status and heartbeat metadata.
 - Protected `POST /api/devices/probe` for batch TCP reachability checks of saved connections.
 - Background manager registration, heartbeat, and best-effort offline notification on shutdown.
+- Automatic device inventory sync to `POST /api/agents/report-devices` after registration, on saved-connection changes, and by periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable).
 - Optional `task_id` + `callback_url` on `exec`, `template execute`, `tx`, `tx-workflow`, and `orchestrate` requests for async task callbacks.
+- Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
 
 ### 5. Template Storage Commands
 

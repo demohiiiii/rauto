@@ -457,6 +457,10 @@ pub struct AgentArgs {
     /// Path to agent config file (default: ~/.rauto/agent.toml)
     #[arg(long)]
     pub agent_config: Option<PathBuf>,
+
+    /// Periodic device liveness probe/report interval in seconds (0 disables it)
+    #[arg(long, env = "RAUTO_AGENT_PROBE_REPORT_INTERVAL")]
+    pub probe_report_interval: Option<u64>,
 }
 
 #[derive(Args, Debug, Clone)]
