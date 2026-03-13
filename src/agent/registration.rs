@@ -1,7 +1,8 @@
 use crate::agent::config::AgentConfig;
 use crate::agent::{
-    ReportedDevice, collect_reported_devices, count_connections, count_templates,
-    default_agent_name, device_inventory_signature, list_agent_capabilities,
+    ReportedDeviceStatus, ReportedInventoryDevice, collect_reported_device_statuses,
+    collect_reported_inventory_devices, count_connections, count_templates, default_agent_name,
+    device_inventory_signature, list_agent_capabilities,
 };
 use crate::web::models::TaskCallback;
 use crate::web::state::AppState;
@@ -20,7 +21,7 @@ use tracing::{error, info, warn};
 struct RegistrarRuntime {
     registered_at: Option<String>,
     last_heartbeat_at: Option<String>,
-    last_report_signature: Option<String>,
+    last_inventory_signature: Option<String>,
     bind: Option<String>,
     port: Option<u16>,
 }
@@ -30,7 +31,8 @@ pub struct AgentRegistrar {
     client: Client,
     config: AgentConfig,
     runtime: Arc<Mutex<RegistrarRuntime>>,
-    reporting_devices: Arc<AtomicBool>,
+    syncing_inventory: Arc<AtomicBool>,
+    updating_status: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone)]
@@ -69,7 +71,13 @@ struct OfflineRequest {
 #[derive(Debug, Serialize)]
 struct ReportDevicesRequest {
     name: String,
-    devices: Vec<ReportedDevice>,
+    devices: Vec<ReportedInventoryDevice>,
+}
+
+#[derive(Debug, Serialize)]
+struct UpdateDeviceStatusRequest {
+    name: String,
+    devices: Vec<ReportedDeviceStatus>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -90,6 +98,18 @@ struct ReportDevicesData {
     synced: u32,
 }
 
+#[derive(Debug, Deserialize)]
+struct UpdateDeviceStatusEnvelope {
+    #[allow(dead_code)]
+    success: bool,
+    data: Option<UpdateDeviceStatusData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateDeviceStatusData {
+    updated: u32,
+}
+
 impl AgentRegistrar {
     pub fn new(config: AgentConfig) -> Self {
         let client = Client::builder()
@@ -100,7 +120,8 @@ impl AgentRegistrar {
             client,
             config,
             runtime: Arc::new(Mutex::new(RegistrarRuntime::default())),
-            reporting_devices: Arc::new(AtomicBool::new(false)),
+            syncing_inventory: Arc::new(AtomicBool::new(false)),
+            updating_status: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -125,8 +146,11 @@ impl AgentRegistrar {
             attempts += 1;
             match self.try_register_once(state, bind, port).await {
                 Ok(()) => {
-                    if let Err(err) = self.send_device_report(5).await {
-                        warn!("initial device report failed: {}", err);
+                    if let Err(err) = self.sync_device_inventory().await {
+                        warn!("initial device inventory sync failed: {}", err);
+                    }
+                    if let Err(err) = self.update_device_statuses(5).await {
+                        warn!("initial device status update failed: {}", err);
                     }
                     info!("agent '{}' registered to manager", self.config.agent.name);
                     return Ok(());
@@ -149,8 +173,8 @@ impl AgentRegistrar {
             match self.send_heartbeat(&state).await {
                 Ok(()) => {
                     consecutive_failures = 0;
-                    if let Err(err) = self.trigger_device_report_if_changed(5).await {
-                        warn!("device change detection failed: {}", err);
+                    if let Err(err) = self.trigger_device_inventory_sync_if_changed(5).await {
+                        warn!("device inventory change detection failed: {}", err);
                     }
                 }
                 Err(err) => {
@@ -204,7 +228,7 @@ impl AgentRegistrar {
 
         loop {
             ticker.tick().await;
-            match self.send_device_report_if_idle(5).await {
+            match self.update_device_statuses_if_idle(5).await {
                 Ok(true) => {}
                 Ok(false) => {}
                 Err(err) => warn!("periodic device probe report failed: {}", err),
@@ -332,57 +356,82 @@ impl AgentRegistrar {
         )
     }
 
-    pub async fn send_device_report(&self, timeout_secs: u64) -> Result<u32> {
+    pub async fn sync_device_inventory(&self) -> Result<u32> {
         let signature = device_inventory_signature()?;
-        self.send_device_report_with_signature(timeout_secs, signature)
-            .await
+        self.sync_device_inventory_with_signature(signature).await
     }
 
-    pub async fn send_device_report_if_idle(&self, timeout_secs: u64) -> Result<bool> {
-        let signature = device_inventory_signature()?;
-        if !self.begin_device_report() {
+    pub async fn update_device_statuses(&self, timeout_secs: u64) -> Result<u32> {
+        let devices = collect_reported_device_statuses(timeout_secs).await?;
+        let payload = UpdateDeviceStatusRequest {
+            name: self.config.agent.name.clone(),
+            devices,
+        };
+        let response = self
+            .authed_post(self.manager_endpoint("/api/agents/update-device-status"))
+            .json(&payload)
+            .send()
+            .await?
+            .error_for_status()?;
+        let updated = response
+            .json::<UpdateDeviceStatusEnvelope>()
+            .await
+            .ok()
+            .and_then(|body| body.data.map(|data| data.updated))
+            .unwrap_or(payload.devices.len() as u32);
+        info!(
+            "updated {} device statuses for agent '{}'",
+            updated, self.config.agent.name
+        );
+        Ok(updated)
+    }
+
+    pub async fn update_device_statuses_if_idle(&self, timeout_secs: u64) -> Result<bool> {
+        if !self.begin_status_update() {
             return Ok(false);
         }
 
-        let result = self
-            .send_device_report_with_signature(timeout_secs, signature)
-            .await;
-        self.finish_device_report();
+        let result = self.update_device_statuses(timeout_secs).await;
+        self.finish_status_update();
         result.map(|_| true)
     }
 
-    pub async fn trigger_device_report_if_changed(&self, timeout_secs: u64) -> Result<bool> {
+    pub async fn trigger_device_inventory_sync_if_changed(
+        &self,
+        timeout_secs: u64,
+    ) -> Result<bool> {
         let signature = device_inventory_signature()?;
         let should_report = {
             let runtime = self.runtime.lock().await;
-            runtime.last_report_signature.as_deref() != Some(signature.as_str())
+            runtime.last_inventory_signature.as_deref() != Some(signature.as_str())
         };
         if !should_report {
             return Ok(false);
         }
-        if !self.begin_device_report() {
+        if !self.begin_inventory_sync() {
             return Ok(false);
         }
 
         let registrar = self.clone();
         tokio::spawn(async move {
             let result = registrar
-                .send_device_report_with_signature(timeout_secs, signature)
+                .sync_device_inventory_with_signature(signature)
                 .await;
-            registrar.finish_device_report();
-            if let Err(err) = result {
-                warn!("device report failed: {}", err);
+            registrar.finish_inventory_sync();
+            match result {
+                Ok(_) => {
+                    if let Err(err) = registrar.update_device_statuses_if_idle(timeout_secs).await {
+                        warn!("device status update after inventory sync failed: {}", err);
+                    }
+                }
+                Err(err) => warn!("device inventory sync failed: {}", err),
             }
         });
         Ok(true)
     }
 
-    async fn send_device_report_with_signature(
-        &self,
-        timeout_secs: u64,
-        signature: String,
-    ) -> Result<u32> {
-        let devices = collect_reported_devices(timeout_secs).await?;
+    async fn sync_device_inventory_with_signature(&self, signature: String) -> Result<u32> {
+        let devices = collect_reported_inventory_devices()?;
         let payload = ReportDevicesRequest {
             name: self.config.agent.name.clone(),
             devices,
@@ -400,11 +449,11 @@ impl AgentRegistrar {
             .and_then(|body| body.data.map(|data| data.synced))
             .unwrap_or(payload.devices.len() as u32);
         info!(
-            "reported {} devices for agent '{}'",
+            "synced {} devices for agent '{}'",
             synced, self.config.agent.name
         );
         let mut runtime = self.runtime.lock().await;
-        runtime.last_report_signature = Some(signature);
+        runtime.last_inventory_signature = Some(signature);
         Ok(synced)
     }
 
@@ -418,14 +467,24 @@ impl AgentRegistrar {
         }
     }
 
-    fn begin_device_report(&self) -> bool {
-        self.reporting_devices
+    fn begin_inventory_sync(&self) -> bool {
+        self.syncing_inventory
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
             .is_ok()
     }
 
-    fn finish_device_report(&self) {
-        self.reporting_devices.store(false, Ordering::Release);
+    fn finish_inventory_sync(&self) {
+        self.syncing_inventory.store(false, Ordering::Release);
+    }
+
+    fn begin_status_update(&self) -> bool {
+        self.updating_status
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .is_ok()
+    }
+
+    fn finish_status_update(&self) {
+        self.updating_status.store(false, Ordering::Release);
     }
 }
 

@@ -12,6 +12,9 @@ Use this file when the user asks for Web operations.
 
 ## 1) Start and access
 
+`rauto web` is local self-management UI only.
+If the user asks for `rauto-manager` registration or managed agent mode, load `references/agent-mode.md` and use `rauto agent` instead.
+
 ```bash
 rauto web --bind 127.0.0.1 --port 3000
 ```

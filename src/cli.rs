@@ -439,7 +439,7 @@ pub struct AgentArgs {
     pub bind: String,
 
     /// Listen port for agent web server
-    #[arg(long, default_value = "3000")]
+    #[arg(long, default_value = "8123")]
     pub port: u16,
 
     /// Manager URL for agent registration (e.g. http://manager:3000)

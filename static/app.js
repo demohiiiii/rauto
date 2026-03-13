@@ -4,6 +4,7 @@ function byId(id) {
 
 const STORAGE_KEYS = {
   lang: "rauto_lang",
+  agentApiToken: "rauto_agent_api_token",
   recordViewMode: "rauto_record_view_mode",
   replayViewMode: "rauto_replay_view_mode",
   recordFailedOnly: "rauto_record_failed_only",
@@ -37,6 +38,17 @@ const i18n = {
     savedConnSecretSaved: "password saved",
     savedConnSecretNo: "password not saved",
     savedConnUseBtn: "Use",
+    agentAuthTitle: "Agent API Token",
+    agentAuthHint:
+      "Managed agent mode requires this token for browser API requests.",
+    agentAuthPlaceholder: "agent api token",
+    agentAuthSaveBtn: "Save Token",
+    agentAuthClearBtn: "Clear",
+    agentAuthSaved: "Agent API token saved in this browser.",
+    agentAuthCleared: "Agent API token cleared from this browser.",
+    agentAuthRequired:
+      "Managed agent mode requires an API token before browser actions can call protected APIs.",
+    agentAuthInvalid: "Agent API token is invalid. Update it and retry.",
     historyColIndex: "#",
     historyColTime: "Time",
     historyColOperation: "Operation",
@@ -495,6 +507,16 @@ const i18n = {
     savedConnSecretSaved: "已保存密码",
     savedConnSecretNo: "未保存密码",
     savedConnUseBtn: "使用",
+    agentAuthTitle: "Agent API Token",
+    agentAuthHint: "Agent 托管模式下，浏览器调用受保护 API 需要先提供 token。",
+    agentAuthPlaceholder: "agent api token",
+    agentAuthSaveBtn: "保存 Token",
+    agentAuthClearBtn: "清除",
+    agentAuthSaved: "已在当前浏览器保存 Agent API token。",
+    agentAuthCleared: "已从当前浏览器清除 Agent API token。",
+    agentAuthRequired:
+      "当前是 Agent 托管模式，浏览器在调用受保护 API 前需要先提供 API token。",
+    agentAuthInvalid: "Agent API token 无效，请更新后重试。",
     historyColIndex: "序号",
     historyColTime: "时间",
     historyColOperation: "操作",
@@ -936,6 +958,7 @@ let currentTab = "ops";
 let currentOpKind = "exec";
 let currentExecMode = "direct";
 let currentPromptMode = "view";
+let managedAgentMode = false;
 let cachedSavedConnections = [];
 let cachedCustomProfiles = [];
 let cachedDeviceProfiles = [];
@@ -1157,6 +1180,13 @@ function rollbackTemplateOptionsHtml(selectedName = "") {
 function applyI18n() {
   byId("title").textContent = t("title");
   byId("subtitle").textContent = t("subtitle");
+  if (byId("agent-auth-title")) {
+    byId("agent-auth-title").textContent = t("agentAuthTitle");
+    byId("agent-auth-hint").textContent = t("agentAuthHint");
+    byId("agent-api-token").placeholder = t("agentAuthPlaceholder");
+    byId("agent-api-token-save-btn").textContent = t("agentAuthSaveBtn");
+    byId("agent-api-token-clear-btn").textContent = t("agentAuthClearBtn");
+  }
   byId("lang-fab").title = t("langFabTitle");
   byId("lang-fab").setAttribute("aria-label", t("langFabTitle"));
   byId("connection-title").textContent = t("connectionTitle");
@@ -1459,8 +1489,105 @@ function applyI18n() {
   applyTxRollbackMode();
   applyTxRollbackRuleVisibility();
   updateSelectedBackupMeta();
+  syncAgentAuthUi();
 
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
+}
+
+function getStoredAgentApiToken() {
+  return (localStorage.getItem(STORAGE_KEYS.agentApiToken) || "").trim();
+}
+
+function setStoredAgentApiToken(token) {
+  const normalized = String(token || "").trim();
+  if (normalized) {
+    localStorage.setItem(STORAGE_KEYS.agentApiToken, normalized);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.agentApiToken);
+  }
+}
+
+function buildRequestHeaders(includeContentType = true) {
+  const headers = {};
+  if (includeContentType) {
+    headers["content-type"] = "application/json";
+  }
+  const token = getStoredAgentApiToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+    headers["X-API-Key"] = token;
+  }
+  return headers;
+}
+
+function syncAgentAuthUi() {
+  const wrap = byId("agent-auth-wrap");
+  if (!wrap) return;
+  wrap.hidden = !managedAgentMode;
+  if (!managedAgentMode) {
+    return;
+  }
+  const token = getStoredAgentApiToken();
+  byId("agent-api-token").value = token;
+  setStatusMessage(
+    "agent-auth-out",
+    token ? t("agentAuthSaved") : t("agentAuthRequired"),
+    token ? "success" : "info"
+  );
+}
+
+function maybePersistAgentTokenFromUrl() {
+  const url = new URL(window.location.href);
+  const token =
+    (url.searchParams.get("token") || url.searchParams.get("api_token") || "").trim();
+  if (!token) return false;
+  setStoredAgentApiToken(token);
+  url.searchParams.delete("token");
+  url.searchParams.delete("api_token");
+  window.history.replaceState({}, document.title, url.toString());
+  return true;
+}
+
+async function detectManagedAgentMode() {
+  try {
+    const res = await fetch("/api/agent/info");
+    if (!res.ok) {
+      managedAgentMode = false;
+      return false;
+    }
+    const raw = await res.text();
+    const data = raw ? JSON.parse(raw) : null;
+    managedAgentMode = !!(data && data.managed);
+    return managedAgentMode;
+  } catch (_) {
+    managedAgentMode = false;
+    return false;
+  } finally {
+    syncAgentAuthUi();
+  }
+}
+
+async function refreshProtectedData() {
+  await Promise.allSettled([
+    loadSavedConnections(),
+    loadProfilesOverview(),
+    loadTemplates(),
+    loadBlacklistPatterns(),
+    loadBackups(),
+  ]);
+}
+
+async function saveAgentApiTokenFromWeb() {
+  setStoredAgentApiToken(byId("agent-api-token").value || "");
+  syncAgentAuthUi();
+  if (!managedAgentMode) {
+    return;
+  }
+  if (!getStoredAgentApiToken()) {
+    setStatusMessage("agent-auth-out", t("agentAuthRequired"), "info");
+    return;
+  }
+  await refreshProtectedData();
 }
 
 function localizeDynamicFields() {
@@ -3622,7 +3749,31 @@ function downloadBackupFromWeb() {
     return;
   }
   const url = `/api/backups/${encodeURIComponent(name)}/download`;
-  window.open(url, "_blank");
+  fetch(url, { headers: buildRequestHeaders(false) })
+    .then(async (res) => {
+      if (!res.ok) {
+        const raw = await res.text();
+        throw new Error(
+          res.status === 401
+            ? getStoredAgentApiToken()
+              ? t("agentAuthInvalid")
+              : t("agentAuthRequired")
+            : raw || t("requestFailed")
+        );
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    })
+    .catch((e) => {
+      setStatusMessage("backup-out", e.message, "error");
+    });
 }
 
 function selectBackupPath(path) {
@@ -4815,7 +4966,7 @@ async function importTxBlockIntoWorkflowBuilder() {
 async function request(method, url, body) {
   const options = {
     method,
-    headers: { "content-type": "application/json" },
+    headers: buildRequestHeaders(true),
   };
   if (body !== undefined) {
     options.body = JSON.stringify(body);
@@ -4829,7 +4980,12 @@ async function request(method, url, body) {
     data = null;
   }
   if (!res.ok) {
-    const msg = (data && data.error) || raw || t("requestFailed");
+    const msg =
+      res.status === 401
+        ? getStoredAgentApiToken()
+          ? t("agentAuthInvalid")
+          : t("agentAuthRequired")
+        : (data && data.error) || raw || t("requestFailed");
     throw new Error(msg);
   }
   return data ?? {};
@@ -6197,6 +6353,21 @@ function bindEvents() {
     langFab.setAttribute("aria-expanded", "false");
   };
 
+  byId("agent-api-token-save-btn").onclick = () => {
+    saveAgentApiTokenFromWeb();
+  };
+  byId("agent-api-token-clear-btn").onclick = () => {
+    setStoredAgentApiToken("");
+    syncAgentAuthUi();
+    setStatusMessage("agent-auth-out", t("agentAuthCleared"), "info");
+  };
+  byId("agent-api-token").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveAgentApiTokenFromWeb();
+    }
+  });
+
   document.addEventListener("click", (e) => {
     if (!langMenu.contains(e.target) && e.target !== langFab) {
       langMenu.hidden = true;
@@ -7268,11 +7439,14 @@ byId("record-event-kind").value = recordEventKind;
 byId("replay-event-kind").value = replayEventKind;
 byId("record-search").value = recordSearchQuery;
 byId("replay-search").value = replaySearchQuery;
-loadSavedConnections();
-loadProfilesOverview();
-loadTemplates();
-loadBlacklistPatterns();
-loadBackups();
+maybePersistAgentTokenFromUrl();
+detectManagedAgentMode().then(() => {
+  if (managedAgentMode && !getStoredAgentApiToken()) {
+    setStatusMessage("saved-conn-out", t("agentAuthRequired"), "info");
+    return;
+  }
+  refreshProtectedData();
+});
 setProfileForm({
   name: "",
   more_patterns: [],

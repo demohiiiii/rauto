@@ -37,15 +37,21 @@ pub fn count_custom_profiles(template_dir: Option<&std::path::PathBuf>) -> Resul
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ReportedDevice {
+pub struct ReportedInventoryDevice {
     pub name: String,
     pub host: String,
     pub port: u16,
     pub device_profile: String,
-    pub reachable: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportedDeviceStatus {
+    name: String,
+    host: String,
+    reachable: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct InventorySignatureDevice {
     name: String,
     host: String,
@@ -53,18 +59,32 @@ struct InventorySignatureDevice {
     device_profile: String,
 }
 
-pub async fn collect_reported_devices(timeout_secs: u64) -> Result<Vec<ReportedDevice>> {
-    let names = connection_store::list_connections()?;
+pub fn collect_reported_inventory_devices() -> Result<Vec<ReportedInventoryDevice>> {
+    let devices = load_inventory_signature_devices()?
+        .into_iter()
+        .map(|device| ReportedInventoryDevice {
+            name: device.name,
+            host: device.host,
+            port: device.port,
+            device_profile: device.device_profile,
+        })
+        .collect();
+    Ok(devices)
+}
+
+pub async fn collect_reported_device_statuses(
+    timeout_secs: u64,
+) -> Result<Vec<ReportedDeviceStatus>> {
+    let devices = load_inventory_signature_devices()?;
     let mut join_set = JoinSet::new();
-    for name in names {
-        join_set.spawn(async move { report_device_from_connection(name, timeout_secs).await });
+    for device in devices {
+        join_set.spawn(async move { probe_device_status(device, timeout_secs).await });
     }
 
     let mut devices = Vec::new();
     while let Some(joined) = join_set.join_next().await {
         match joined {
-            Ok(Some(device)) => devices.push(device),
-            Ok(None) => {}
+            Ok(device) => devices.push(device),
             Err(err) => tracing::warn!("device report probe task join error: {}", err),
         }
     }
@@ -73,16 +93,31 @@ pub async fn collect_reported_devices(timeout_secs: u64) -> Result<Vec<ReportedD
 }
 
 pub fn device_inventory_signature() -> Result<String> {
+    let devices = load_inventory_signature_devices()?;
+    Ok(serde_json::to_string(&devices)?)
+}
+
+fn load_inventory_signature_devices() -> Result<Vec<InventorySignatureDevice>> {
     let names = connection_store::list_connections()?;
     let mut devices = Vec::new();
     for name in names {
         match connection_store::load_connection(&name) {
-            Ok(loaded) => devices.push(InventorySignatureDevice {
-                name,
-                host: loaded.host.unwrap_or_default(),
-                port: loaded.port.unwrap_or(22),
-                device_profile: loaded.device_profile.unwrap_or_else(|| "cisco".to_string()),
-            }),
+            Ok(loaded) => {
+                let host = loaded.host.unwrap_or_default();
+                if host.trim().is_empty() {
+                    tracing::warn!(
+                        "skipping saved connection '{}' in device inventory because host is empty",
+                        name
+                    );
+                    continue;
+                }
+                devices.push(InventorySignatureDevice {
+                    name,
+                    host,
+                    port: loaded.port.unwrap_or(22),
+                    device_profile: loaded.device_profile.unwrap_or_else(|| "cisco".to_string()),
+                });
+            }
             Err(err) => {
                 tracing::warn!(
                     "failed to load saved connection '{}' while building inventory signature: {}",
@@ -93,33 +128,14 @@ pub fn device_inventory_signature() -> Result<String> {
         }
     }
     devices.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(serde_json::to_string(&devices)?)
+    Ok(devices)
 }
 
-async fn report_device_from_connection(name: String, timeout_secs: u64) -> Option<ReportedDevice> {
-    let loaded = match connection_store::load_connection(&name) {
-        Ok(value) => value,
-        Err(err) => {
-            tracing::warn!(
-                "failed to load saved connection '{}' for report: {}",
-                name,
-                err
-            );
-            return None;
-        }
-    };
-
-    let host = loaded.host.unwrap_or_default();
-    if host.trim().is_empty() {
-        tracing::warn!(
-            "skipping saved connection '{}' in device report because host is empty",
-            name
-        );
-        return None;
-    }
-    let port = loaded.port.unwrap_or(22);
-    let device_profile = loaded.device_profile.unwrap_or_else(|| "cisco".to_string());
-    let target = format!("{}:{}", host, port);
+async fn probe_device_status(
+    device: InventorySignatureDevice,
+    timeout_secs: u64,
+) -> ReportedDeviceStatus {
+    let target = format!("{}:{}", device.host, device.port);
     let reachable = matches!(
         timeout(
             Duration::from_secs(timeout_secs.max(1)),
@@ -129,11 +145,9 @@ async fn report_device_from_connection(name: String, timeout_secs: u64) -> Optio
         Ok(Ok(_))
     );
 
-    Some(ReportedDevice {
-        name,
-        host,
-        port,
-        device_profile,
+    ReportedDeviceStatus {
+        name: device.name,
+        host: device.host,
         reachable,
-    })
+    }
 }

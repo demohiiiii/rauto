@@ -21,6 +21,7 @@ Notes: <risk/error/follow-up>
 7. Recording/replay/history
 8. Web-first requests
 9. Backup and restore
+10. Agent mode
 
 ## 1) Basic execution
 
@@ -488,4 +489,36 @@ Operation: Restore backup in merge/replace modes
 Command: rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
 Result: Merge restore completed
 Notes: Use --replace only for full replacement: rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
+```
+
+## 10) Agent mode
+
+### Example 10.1
+
+User ask:
+```text
+Start rauto in agent mode and connect it to my manager.
+```
+
+Execution-style answer:
+```text
+Operation: Start managed agent service for rauto-manager
+Command: rauto agent --bind 0.0.0.0 --port 8123 --manager-url http://manager:3000 --agent-name agent-beijing-01 --agent-token <token> --probe-report-interval 300
+Result: Agent service started; manager registration and device sync loop enabled
+Notes: `rauto web` is local UI only; use `rauto agent` for manager registration and device reporting
+```
+
+### Example 10.2
+
+User ask:
+```text
+What does the agent report back to manager?
+```
+
+Execution-style answer:
+```text
+Operation: Explain agent inventory and status reporting
+Command: (no command; behavior explanation)
+Result: Agent full-syncs device inventory with report-devices, then refreshes reachability with update-device-status
+Notes: Load `references/agent-mode.md` for exact request bodies and probe behavior
 ```

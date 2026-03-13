@@ -23,6 +23,7 @@ Use these scenarios as ready-to-run examples or checklists. Each scenario includ
 17. Cross-device comparison template
 18. Quick verification checklist (post-change)
 19. Backup and restore playbook
+20. Start managed agent mode and verify sync
 
 ## 1) Batch configuration change with rollback (Tx block)
 
@@ -535,3 +536,27 @@ rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 3. Select backup row.
 4. Prefer `Restore (Merge)` first.
 5. Use `Restore (Replace)` only when full replacement is intended.
+
+## 20) Start managed agent mode and verify sync
+
+### CLI
+
+1. Start managed agent:
+```
+rauto agent \
+  --bind 0.0.0.0 \
+  --port 8123 \
+  --manager-url http://manager:3000 \
+  --agent-name agent-beijing-01 \
+  --agent-token <token> \
+  --probe-report-interval 300
+```
+2. Verify manager receives initial registration.
+3. Verify manager receives full inventory sync from `POST /api/agents/report-devices`.
+4. Verify manager receives status refresh from `POST /api/agents/update-device-status`.
+5. Add or delete one saved connection and confirm manager sees another inventory sync.
+
+### Notes
+
+- Use `rauto web` instead only for local browser-based operations.
+- Status probe is TCP reachability to saved `host:port`, not SSH login validation.

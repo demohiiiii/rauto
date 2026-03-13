@@ -254,7 +254,7 @@ Web 控制台主要能力：
 ```bash
 rauto agent \
     --bind 0.0.0.0 \
-    --port 3000 \
+    --port 8123 \
     --manager-url http://manager:3000 \
     --agent-name agent-beijing-01 \
     --agent-token my-secret-token \
@@ -279,9 +279,11 @@ Agent 模式新增能力：
 - 受保护的 `GET /api/agent/status`，用于查看运行状态和心跳时间。
 - 受保护的 `POST /api/devices/probe`，用于批量探测已保存连接的 TCP 可达性。
 - 启动后后台自动注册、定时心跳，以及退出时尽力发送离线通知。
-- 在注册成功后、已保存连接变更时，以及按周期存活探测刷新时，自动调用 `POST /api/agents/report-devices` 同步设备清单（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
+- 在注册成功后和已保存连接变更时，自动调用 `POST /api/agents/report-devices` 做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
+- 按周期存活探测刷新时，自动调用 `POST /api/agents/update-device-status` 做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
 - 在 `exec`、模板执行、`tx`、`tx-workflow`、`orchestrate` 请求中支持可选 `task_id` + `callback_url`，用于异步任务回调。
 - 配置 token 时，对 manager 的外呼会同时带上 `Authorization: Bearer <token>` 和 `X-API-Key: <token>`。
+- 如果 agent 模式启动时配置了 token，浏览器中的 Web UI 请求也需要在页面头部填写同一个 token。
 
 ### 5. Template 存储管理命令
 

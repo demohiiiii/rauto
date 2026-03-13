@@ -7,15 +7,17 @@ Use this file when the agent should run `rauto` commands directly for the user.
 1. Execution decision tree
 2. Read/query operations
 3. Change operations
-4. Destructive operations (confirmation required)
-5. Output summarization template
-6. Common command templates
+4. Service startup operations
+5. Destructive operations (confirmation required)
+6. Output summarization template
+7. Common command templates
 
 ## 1) Execution decision tree
 
 1. Classify user intent:
    - Query/read -> execute immediately.
    - Change/apply -> prefer `tx`/`tx-workflow`/`orchestrate` with rollback-aware planning.
+   - Service/UI startup -> choose `rauto web` or `rauto agent`.
    - Destructive -> require explicit confirmation.
 2. Resolve connection inputs:
    - Prefer existing `--connection <name>`.
@@ -61,7 +63,20 @@ Default policy:
 - `rauto backup create [...]`
 - `rauto backup restore <archive>` (merge mode)
 
-## 4) Destructive operations (confirmation required)
+## 4) Service startup operations
+
+Run startup commands directly when the user explicitly asks to launch the service.
+
+- `rauto web --bind 127.0.0.1 --port 3000`
+  - local self-management UI only
+- `rauto agent --bind 0.0.0.0 --port 8123 --manager-url <url> --agent-name <name> [--agent-token <token>]`
+  - manager-connected mode
+  - full-sync saved device inventory, then update device status
+  - periodic status refresh controlled by `--probe-report-interval`
+
+When the user asks about manager integration details, load `references/agent-mode.md`.
+
+## 5) Destructive operations (confirmation required)
 
 Require clear user confirmation before running:
 
@@ -73,7 +88,7 @@ Require clear user confirmation before running:
 
 If user already asks explicitly (e.g. "删除", "replace 恢复"), execute directly.
 
-## 5) Output summarization template
+## 6) Output summarization template
 
 After execution, report:
 
@@ -99,13 +114,14 @@ Confirmation Needed: <yes>
 
 For proposed `orchestrate` changes, prefer the orchestration-specific review from `references/orchestration-risk-check.md`.
 
-## 6) Common command templates
+## 7) Common command templates
 
 When user asks for workflow JSON content, load:
 
 - `references/workflow-json-template.md`
 - `references/orchestration-json-template.md` for multi-device staged execution
 - `references/orchestration-risk-check.md` before proposing or executing multi-device rollout
+- `references/agent-mode.md` for `rauto agent`, manager sync, or device reporting behavior
 - For vendor-specific orchestration, use sections 3-5 in `references/workflow-json-template.md` (Cisco/Juniper/Huawei).
 - For advanced compensation rollback, use section 6 in `references/workflow-json-template.md`.
 
@@ -114,6 +130,20 @@ When user asks for workflow JSON content, load:
 ```bash
 rauto device list
 rauto templates list
+```
+
+### Start services
+
+```bash
+rauto web --bind 127.0.0.1 --port 3000
+
+rauto agent \
+  --bind 0.0.0.0 \
+  --port 8123 \
+  --manager-url <manager-url> \
+  --agent-name <agent-name> \
+  --agent-token <token> \
+  --probe-report-interval 300
 ```
 
 ### Execute one command via saved connection

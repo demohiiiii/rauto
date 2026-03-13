@@ -14,6 +14,7 @@ Use this file when users report failures, wrong output, or UI confusion.
 ### "Web port 3000 overrides SSH port 22"
 
 - Clarify: Web server port (`rauto web --port 3000`) is HTTP port only.
+- In managed mode, agent server port defaults to `8123` (`rauto agent --port 8123`).
 - SSH port always comes from connection fields (`--ssh-port` / Web `port` input).
 
 ## Template and tx issues

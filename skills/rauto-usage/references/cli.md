@@ -14,7 +14,8 @@ Use this file when the user asks for exact CLI commands.
 8. Transaction workflow
 9. Multi-device orchestration
 10. Backup and restore
-11. Global flags
+11. Service startup
+12. Global flags
 
 ## 1) Common placeholders
 
@@ -246,7 +247,26 @@ rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz
 rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 ```
 
-## 11) Global flags
+## 11) Service startup
+
+```bash
+# Local self-management UI
+rauto web --bind 127.0.0.1 --port 3000
+
+# Managed agent mode for rauto-manager
+rauto agent \
+  --bind 0.0.0.0 \
+  --port 8123 \
+  --manager-url http://manager:3000 \
+  --agent-name agent-beijing-01 \
+  --agent-token <token> \
+  --probe-report-interval 300
+```
+
+Use `rauto web` for local browser operations only.
+Use `rauto agent` when saved-device inventory and reachability status must be reported to manager.
+
+## 12) Global flags
 
 ```text
 --host

@@ -250,7 +250,7 @@ Web console key capabilities:
 ```bash
 rauto agent \
     --bind 0.0.0.0 \
-    --port 3000 \
+    --port 8123 \
     --manager-url http://manager:3000 \
     --agent-name agent-beijing-01 \
     --agent-token my-secret-token \
@@ -275,9 +275,11 @@ Agent mode adds:
 - Protected `GET /api/agent/status` for runtime status and heartbeat metadata.
 - Protected `POST /api/devices/probe` for batch TCP reachability checks of saved connections.
 - Background manager registration, heartbeat, and best-effort offline notification on shutdown.
-- Automatic device inventory sync to `POST /api/agents/report-devices` after registration, on saved-connection changes, and by periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable).
+- Full inventory sync to `POST /api/agents/report-devices` after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
+- Periodic liveness probe refresh to `POST /api/agents/update-device-status` (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
 - Optional `task_id` + `callback_url` on `exec`, `template execute`, `tx`, `tx-workflow`, and `orchestrate` requests for async task callbacks.
 - Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
+- When agent mode is started with a token, browser-side Web UI requests must provide the same token in the page header token field.
 
 ### 5. Template Storage Commands
 

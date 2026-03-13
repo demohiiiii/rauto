@@ -2,6 +2,7 @@ use crate::web::error::ApiError;
 use crate::web::state::AppState;
 use axum::{
     extract::{Request, State},
+    http::header,
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -23,15 +24,21 @@ pub async fn auth_middleware(
 
     let auth_header = request
         .headers()
-        .get(axum::http::header::AUTHORIZATION)
+        .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
-    let provided = auth_header
+    let bearer_token = auth_header
         .strip_prefix("Bearer ")
         .map(str::trim)
         .unwrap_or_default();
+    let api_key = request
+        .headers()
+        .get("X-API-Key")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .unwrap_or_default();
 
-    if provided == expected_token {
+    if bearer_token == expected_token || api_key == expected_token {
         return next.run(request).await;
     }
 

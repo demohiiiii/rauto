@@ -229,10 +229,10 @@ pub async fn restore_backup(
     backup::restore_backup(&archive, req.replace)?;
     crate::config::paths::ensure_default_layout().map_err(ApiError::from)?;
     if let Some(registrar) = state.registrar()
-        && let Err(err) = registrar.trigger_device_report_if_changed(5).await
+        && let Err(err) = registrar.trigger_device_inventory_sync_if_changed(5).await
     {
         warn!(
-            "failed to schedule device report after backup restore: {}",
+            "failed to schedule device inventory sync after backup restore: {}",
             err
         );
     }
@@ -868,10 +868,10 @@ pub async fn upsert_connection(
     };
     let path = connection_store::save_connection(&safe, &data).map_err(ApiError::from)?;
     if let Some(registrar) = state.registrar()
-        && let Err(err) = registrar.trigger_device_report_if_changed(5).await
+        && let Err(err) = registrar.trigger_device_inventory_sync_if_changed(5).await
     {
         warn!(
-            "failed to schedule device report after connection upsert: {}",
+            "failed to schedule device inventory sync after connection upsert: {}",
             err
         );
     }
@@ -902,10 +902,10 @@ pub async fn delete_connection(
     let deleted = connection_store::delete_connection(&safe).map_err(ApiError::from)?;
     if deleted
         && let Some(registrar) = state.registrar()
-        && let Err(err) = registrar.trigger_device_report_if_changed(5).await
+        && let Err(err) = registrar.trigger_device_inventory_sync_if_changed(5).await
     {
         warn!(
-            "failed to schedule device report after connection delete: {}",
+            "failed to schedule device inventory sync after connection delete: {}",
             err
         );
     }
