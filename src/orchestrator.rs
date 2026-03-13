@@ -1,4 +1,5 @@
 use crate::cli::{GlobalOpts, OrchestrateArgs, RecordLevelOpt};
+use crate::config::command_blacklist;
 use crate::config::connection_store::load_connection;
 use crate::config::template_loader;
 use crate::template::renderer::Renderer;
@@ -846,6 +847,11 @@ async fn execute_tx_block_action(
         tx_block
     };
 
+    command_blacklist::ensure_tx_block_allowed(
+        &tx_block,
+        &format!("orchestration tx block '{}'", tx_block_name),
+    )?;
+
     let handler =
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
     let (tx_result, recording_jsonl) = if matches!(record_level, RecordLevelOpt::Off) {
@@ -919,6 +925,10 @@ async fn execute_tx_workflow_action(
     let workflow = load_workflow(action, plan_root)?;
     let workflow_name = workflow.name.clone();
     let operation_name = format!("{}::{}::{}", plan.name, stage.name, workflow_name);
+    command_blacklist::ensure_tx_workflow_allowed(
+        &workflow,
+        &format!("orchestration tx workflow '{}'", workflow_name),
+    )?;
     let handler =
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
 

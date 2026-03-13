@@ -20,6 +20,7 @@
 - **会话录制与回放**：支持将 SSH 会话录制为 JSONL 并离线回放。
 - **数据备份与恢复**：支持对 `~/.rauto` 运行数据做全量备份与恢复。
 - **多设备编排执行（Web + CLI）**：支持基于计划文件对多台设备分阶段串行/并发执行，并复用现有 `tx` / `tx-workflow` 能力。
+- **命令黑名单**：支持在命令真正下发前做全局拦截，并支持 `*` 通配符。
 
 ## 安装
 
@@ -240,10 +241,43 @@ Web 控制台主要能力：
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
 - 基于已保存连接执行命令（先加载连接，再选择直接执行或模板渲染执行）。
 - 分页管理 profile（内置/自定义）与 template。
+- 在页面中管理命令黑名单：新增、删除、校验带 `*` 通配符的规则。
 - 在页面中管理数据备份：创建/列出/下载/恢复 `~/.rauto` 备份归档。
 - 在 Prompt 管理 -> 诊断页里可视化查看 profile 状态机诊断结果。
 - 支持中英文界面切换。
 - 支持执行录制与浏览器内回放（可列出事件，或按命令/模式回放）。
+
+#### Agent 模式
+
+现在 `rauto web` 保持为本地自管的 UI。需要连接 `rauto-manager`、注册心跳和受保护 API 时，改用专门的 `rauto agent` 启动。
+
+```bash
+rauto agent \
+    --bind 0.0.0.0 \
+    --port 3000 \
+    --manager-url http://manager:3000 \
+    --agent-name agent-beijing-01 \
+    --agent-token my-secret-token
+```
+
+也可以把默认配置放到 `~/.rauto/agent.toml`：
+
+```toml
+[manager]
+url = "http://manager:3000"
+token = "my-secret-token"
+
+[agent]
+name = "agent-beijing-01"
+heartbeat_interval = 30
+```
+
+Agent 模式新增能力：
+- 公开 `GET /api/agent/info`，用于 Manager 做可达性检查和发现。
+- 受保护的 `GET /api/agent/status`，用于查看运行状态和心跳时间。
+- 受保护的 `POST /api/devices/probe`，用于批量探测已保存连接的 TCP 可达性。
+- 启动后后台自动注册、定时心跳，以及退出时尽力发送离线通知。
+- 在 `exec`、模板执行、`tx`、`tx-workflow`、`orchestrate` 请求中支持可选 `task_id` + `callback_url`，用于异步任务回调。
 
 ### 5. Template 存储管理命令
 
@@ -305,7 +339,32 @@ rauto backup restore ./rauto-backup.tar.gz
 rauto backup restore ./rauto-backup.tar.gz --replace
 ```
 
-### 8. CLI 速查表
+### 8. 命令黑名单
+
+可以使用全局黑名单，在命令真正发送到设备前拒绝执行。CLI 和 Web 的执行链路都会生效，包括 `exec`、模板执行、`tx`、`tx-workflow`、`orchestrate` 和 interactive command。
+
+```bash
+# 查看当前黑名单
+rauto blacklist list
+
+# 添加黑名单模式
+rauto blacklist add "write erase"
+rauto blacklist add "reload*"
+rauto blacklist add "format *"
+
+# 检查某条命令是否会命中黑名单
+rauto blacklist check "reload in 5"
+
+# 删除模式
+rauto blacklist delete "reload*"
+```
+
+说明：
+- `*` 可以匹配任意长度字符，也包括空格。
+- 匹配不区分大小写，并且按整条命令文本匹配。
+- 黑名单文件保存在 `~/.rauto/command_blacklist.txt`。
+
+### 9. CLI 速查表
 
 **连接排障**
 ```bash
@@ -326,6 +385,14 @@ rauto connection add lab1 \
 rauto exec "show version" --connection lab1
 rauto connection list
 rauto history list lab1 --limit 20
+```
+
+**命令黑名单**
+```bash
+rauto blacklist add "reload*"
+rauto blacklist add "write erase"
+rauto blacklist list
+rauto blacklist check "reload in 5"
 ```
 
 **Profile 管理**
@@ -653,6 +720,7 @@ Web 操作界面                   CLI
 多设备编排执行                 rauto orchestrate
 连接配置管理                   rauto connection
 连接历史查看                   rauto history
+命令黑名单                     rauto blacklist
 
 Prompt 管理                    CLI
 ------------------------------ ---------------------------------------------
@@ -685,6 +753,7 @@ Prompt profile 诊断页面                    Yes     No
 工作流构建器（可视化）                      Yes     No
 事务工作流 JSON 执行                       Yes     Yes
 多设备编排计划 JSON 执行                   Yes     Yes
+命令黑名单管理                              Yes     Yes
 ```
 
 **迁移提示（Web ⇄ CLI）**
@@ -722,6 +791,7 @@ rauto web \
 - `~/.rauto/templates/devices`
 - `~/.rauto/records`（会话录制文件）
 - `~/.rauto/backups`（备份归档）
+- `~/.rauto/command_blacklist.txt`（黑名单命令模式）
 
 这些目录会在启动时自动创建。
 
@@ -735,7 +805,8 @@ rauto web \
 │   ├── commands/           # 在此存储 .j2 命令模板
 │   └── devices/            # 在此存储自定义 .toml 设备配置
 ├── records/                # 会话录制输出 (*.jsonl)
-└── backups/                # 备份归档 (*.tar.gz)
+├── backups/                # 备份归档 (*.tar.gz)
+└── command_blacklist.txt   # 使用 '*' 通配符的黑名单命令模式
 ```
 
 你可以使用 `--template-dir` 参数或 `RAUTO_TEMPLATE_DIR` 环境变量指定自定义模板目录。

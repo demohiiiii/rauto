@@ -1,35 +1,140 @@
-use crate::cli::GlobalOpts;
+use crate::agent::config::resolve_agent_settings;
+use crate::agent::registration::AgentRegistrar;
+use crate::cli::{AgentArgs, GlobalOpts, WebArgs};
+use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::assets::{index_response, static_response};
+use crate::web::auth::auth_middleware;
 use crate::web::handlers::{
-    create_backup, create_or_update_custom_profile, create_template, delete_connection,
-    delete_connection_history, delete_custom_profile, delete_template, diagnose_profile,
-    download_backup, exec_command, execute_orchestration, execute_template, execute_tx_block,
-    execute_tx_workflow, get_builtin_profile_detail, get_builtin_profile_form, get_connection,
-    get_connection_history, get_connection_history_detail, get_custom_profile,
-    get_custom_profile_form, get_template, health, interactive_command, interactive_start,
-    interactive_stop, list_backups, list_connections, list_profiles, list_templates,
-    profiles_overview, render_template, replay_session, restore_backup, test_connection,
-    update_template, upsert_connection, upsert_custom_profile_form,
+    add_blacklist_pattern, check_blacklist_command, create_backup, create_or_update_custom_profile,
+    create_template, delete_blacklist_pattern, delete_connection, delete_connection_history,
+    delete_custom_profile, delete_template, diagnose_profile, download_backup, exec_command,
+    execute_orchestration, execute_template, execute_tx_block, execute_tx_workflow,
+    get_builtin_profile_detail, get_builtin_profile_form, get_connection, get_connection_history,
+    get_connection_history_detail, get_custom_profile, get_custom_profile_form, get_template,
+    health, interactive_command, interactive_start, interactive_stop, list_backups,
+    list_blacklist_patterns, list_connections, list_profiles, list_templates, profiles_overview,
+    render_template, replay_session, restore_backup, test_connection, update_template,
+    upsert_connection, upsert_custom_profile_form,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
 use axum::{
     Json, Router,
     extract::{Path, Request},
-    http::StatusCode,
+    http::{HeaderValue, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{any, get, post},
 };
 use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::signal;
 use tracing::info;
 
-pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Result<()> {
-    let state = AppState::new(defaults);
+pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<()> {
+    let state = AppState::new(defaults, None, None);
+    let app = build_local_app(state);
+    serve_app(web_args.bind, web_args.port, app, None).await
+}
 
-    let app = Router::new()
+pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Result<()> {
+    let agent_settings = resolve_agent_settings(
+        agent_args.agent_config.clone(),
+        agent_args.manager_url.clone(),
+        agent_args.agent_name.clone(),
+        agent_args.agent_token.clone(),
+    )?;
+    let Some(agent_config) = agent_settings.config else {
+        return Err(anyhow!(
+            "agent mode requires manager_url and agent_name via CLI, env, or agent.toml"
+        ));
+    };
+    let state = AppState::new(
+        defaults,
+        Some(agent_config.clone()),
+        agent_settings.api_token.clone(),
+    );
+    let app = build_managed_app(state.clone());
+
+    let registrar = Arc::new(AgentRegistrar::new(agent_config.clone()));
+    state.set_registrar(registrar.clone());
+
+    let registration_state = state.clone();
+    let registration_bind = agent_args.bind.clone();
+    let registration_port = agent_args.port;
+    tokio::spawn(async move {
+        if let Err(err) = registrar
+            .register(&registration_state, &registration_bind, registration_port)
+            .await
+        {
+            tracing::error!("agent registration loop exited: {}", err);
+            return;
+        }
+        registrar.start_heartbeat_loop(registration_state).await;
+    });
+
+    info!(
+        "Agent mode enabled: registered as '{}'",
+        agent_config.agent.name
+    );
+
+    serve_app(agent_args.bind, agent_args.port, app, Some(state)).await
+}
+
+fn build_local_app(state: Arc<AppState>) -> Router {
+    Router::new()
+        .merge(public_web_routes())
+        .merge(local_api_routes())
+        .fallback(any(not_found))
+        .layer(middleware::from_fn(disable_cache))
+        .with_state(state)
+}
+
+fn build_managed_app(state: Arc<AppState>) -> Router {
+    let protected_routes = Router::new()
+        .route("/api/agent/status", get(agent_status))
+        .route("/api/devices/probe", post(probe_devices))
+        .merge(local_api_routes())
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
+
+    Router::new()
+        .merge(public_agent_routes())
+        .merge(protected_routes)
+        .fallback(any(not_found))
+        .layer(middleware::from_fn(disable_cache))
+        .with_state(state)
+}
+
+fn public_web_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route("/health", get(health))
+        .route("/", get(index))
+        .route("/static/{*path}", get(static_file))
+}
+
+fn public_agent_routes() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/health", get(health))
+        .route("/api/agent/info", get(agent_info))
+        .route("/", get(index))
+        .route("/static/{*path}", get(static_file))
+}
+
+fn local_api_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route("/api/backups", get(list_backups).post(create_backup))
+        .route(
+            "/api/blacklist",
+            get(list_blacklist_patterns).post(add_blacklist_pattern),
+        )
+        .route("/api/blacklist/check", post(check_blacklist_command))
+        .route(
+            "/api/blacklist/{pattern}",
+            axum::routing::delete(delete_blacklist_pattern),
+        )
         .route("/api/backups/restore", post(restore_backup))
         .route("/api/backups/{name}/download", get(download_backup))
         .route("/api/device-profiles", get(list_profiles))
@@ -89,12 +194,14 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
                 .put(update_template)
                 .delete(delete_template),
         )
-        .route("/", get(index))
-        .route("/static/{*path}", get(static_file))
-        .fallback(any(not_found))
-        .layer(middleware::from_fn(disable_cache))
-        .with_state(state);
+}
 
+async fn serve_app(
+    bind: String,
+    port: u16,
+    app: Router,
+    shutdown_state: Option<Arc<AppState>>,
+) -> Result<()> {
     let addr: SocketAddr = format!("{}:{}", bind, port)
         .parse()
         .map_err(|e| anyhow!("Invalid bind address: {}", e))?;
@@ -102,8 +209,16 @@ pub async fn run_web_server(bind: String, port: u16, defaults: GlobalOpts) -> Re
     info!("Web UI started at http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
-
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            signal::ctrl_c().await.ok();
+            if let Some(state) = shutdown_state
+                && let Some(registrar) = state.registrar()
+            {
+                registrar.shutdown_notify().await;
+            }
+        })
+        .await?;
     Ok(())
 }
 
@@ -129,9 +244,7 @@ async fn not_found(req: Request) -> Response {
 
 async fn disable_cache(req: Request, next: Next) -> Response {
     let mut res = next.run(req).await;
-    res.headers_mut().insert(
-        axum::http::header::CACHE_CONTROL,
-        axum::http::HeaderValue::from_static("no-store"),
-    );
+    res.headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     res
 }

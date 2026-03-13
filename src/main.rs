@@ -1,3 +1,4 @@
+mod agent;
 mod cli;
 mod config;
 mod device;
@@ -9,16 +10,16 @@ use anyhow::Result;
 use chrono::Local;
 use clap::Parser;
 use cli::{
-    BackupCommands, Cli, Commands, ConnectionCommands, DeviceCommands, GlobalOpts, HistoryCommands,
-    RecordLevelOpt, TemplateCommands, TxArgs, TxWorkflowArgs,
+    BackupCommands, BlacklistCommands, Cli, Commands, ConnectionCommands, DeviceCommands,
+    GlobalOpts, HistoryCommands, RecordLevelOpt, TemplateCommands, TxArgs, TxWorkflowArgs,
 };
-use config::backup;
 use config::connection_store::{
     SavedConnection, delete_connection, list_connections, load_connection, save_connection,
 };
 use config::history_store::{self, HistoryBinding};
 use config::paths::{default_template_dir, ensure_default_layout};
 use config::template_loader;
+use config::{backup, command_blacklist};
 use device::DeviceClient;
 use rneter::session::{
     CommandBlockKind, MANAGER, RollbackPolicy, SessionEvent, SessionRecordLevel, SessionRecorder,
@@ -33,7 +34,7 @@ use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt, fmt::format::Writer, fmt::time::FormatTime};
-use web::run_web_server;
+use web::{run_agent_server, run_web_server};
 
 #[tokio::main]
 async fn main() {
@@ -53,7 +54,7 @@ async fn main() {
 
 fn init_tracing(cli: &Cli) {
     let _ = tracing_log::LogTracer::init();
-    let default_level = if matches!(cli.command, Commands::Web(_)) {
+    let default_level = if matches!(cli.command, Commands::Web(_) | Commands::Agent(_)) {
         "info"
     } else {
         "error"
@@ -120,6 +121,16 @@ async fn run(cli: Cli) -> Result<()> {
                 return Ok(());
             }
 
+            let lines: Vec<String> = rendered_commands
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            command_blacklist::ensure_commands_allowed(
+                lines.iter().map(String::as_str),
+                "template execution",
+            )?;
+
             let conn = match resolve_effective_connection(&cli.global_opts) {
                 Ok(conn) => conn,
                 Err(_) => {
@@ -160,12 +171,6 @@ async fn run(cli: Cli) -> Result<()> {
 
             // Split commands by line and execute
             // Ignore empty lines
-            let lines: Vec<String> = rendered_commands
-                .lines()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
-
             info!("Executing {} commands...", lines.len());
             for cmd in lines {
                 print!("Executing '{}' ... ", cmd);
@@ -185,6 +190,7 @@ async fn run(cli: Cli) -> Result<()> {
             )?;
         }
         Commands::Exec(args) => {
+            command_blacklist::ensure_command_allowed(&args.command, "direct execution")?;
             let conn = match resolve_effective_connection(&cli.global_opts) {
                 Ok(conn) => conn,
                 Err(_) => {
@@ -274,7 +280,11 @@ async fn run(cli: Cli) -> Result<()> {
         },
         Commands::Web(args) => {
             info!("Starting web service on {}:{}", args.bind, args.port);
-            run_web_server(args.bind, args.port, cli.global_opts).await?;
+            run_web_server(args, cli.global_opts).await?;
+        }
+        Commands::Agent(args) => {
+            info!("Starting agent service on {}:{}", args.bind, args.port);
+            run_agent_server(args, cli.global_opts).await?;
         }
         Commands::Device(cmd) => {
             run_device_command(cmd, &cli.global_opts, &templates_root)?;
@@ -284,6 +294,9 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::History(cmd) => {
             run_history_command(cmd)?;
+        }
+        Commands::Blacklist(cmd) => {
+            run_blacklist_command(cmd)?;
         }
         Commands::Templates(cmd) => match cmd {
             TemplateCommands::List => {
@@ -694,6 +707,57 @@ fn run_history_command(cmd: HistoryCommands) -> Result<()> {
     Ok(())
 }
 
+fn run_blacklist_command(cmd: BlacklistCommands) -> Result<()> {
+    match cmd {
+        BlacklistCommands::List => {
+            let patterns = command_blacklist::list_patterns()?;
+            if patterns.is_empty() {
+                println!("-");
+            } else {
+                for pattern in patterns {
+                    println!("- {}", pattern);
+                }
+            }
+            println!(
+                "# file: {}",
+                command_blacklist::blacklist_file().to_string_lossy()
+            );
+        }
+        BlacklistCommands::Add { pattern } => {
+            let (added, path) = command_blacklist::add_pattern(&pattern)?;
+            if added {
+                println!(
+                    "Added blacklist pattern '{}' to '{}'",
+                    pattern,
+                    path.to_string_lossy()
+                );
+            } else {
+                println!("Blacklist pattern '{}' already exists", pattern);
+            }
+        }
+        BlacklistCommands::Delete { pattern } => {
+            let deleted = command_blacklist::delete_pattern(&pattern)?;
+            if deleted {
+                println!("Deleted blacklist pattern '{}'", pattern);
+            } else {
+                println!("Blacklist pattern '{}' not found", pattern);
+            }
+        }
+        BlacklistCommands::Check { command } => {
+            if let Some(blocked) = command_blacklist::find_blocked_command(&command)? {
+                println!(
+                    "blocked: pattern='{}' command='{}'",
+                    blocked.pattern, blocked.command
+                );
+            } else {
+                println!("allowed");
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct EffectiveConnection {
     connection_name: Option<String>,
@@ -1075,6 +1139,8 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
         return Ok(());
     }
 
+    command_blacklist::ensure_tx_block_allowed(&tx_block, &format!("tx block '{}'", args.name))?;
+
     let handler =
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
     let tx_result = if matches!(args.record_level, RecordLevelOpt::Off) {
@@ -1271,6 +1337,11 @@ async fn run_tx_workflow(args: TxWorkflowArgs, opts: &cli::GlobalOpts) -> Result
         }
         return Ok(());
     }
+
+    command_blacklist::ensure_tx_workflow_allowed(
+        &workflow,
+        &format!("tx workflow '{}'", workflow.name),
+    )?;
 
     let conn = resolve_effective_connection(opts)?;
     let handler =

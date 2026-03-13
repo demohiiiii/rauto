@@ -2,6 +2,7 @@ use crate::config::device_profile::DeviceProfile;
 use crate::config::paths::default_template_dir;
 use anyhow::{Context, Result, anyhow};
 use rneter::{device::DeviceHandler, templates};
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -72,18 +73,50 @@ pub fn load_device_profile(name: &str, custom_dir: Option<&PathBuf>) -> Result<D
     ))
 }
 
-pub fn list_available_profiles(_custom_dir: Option<&PathBuf>) -> Result<Vec<String>> {
-    let profiles = vec![
-        "cisco".to_string(),
-        "huawei".to_string(),
-        "h3c".to_string(),
-        "hillstone".to_string(),
-        "juniper".to_string(),
-        "array".to_string(),
-    ];
+pub fn list_available_profiles(custom_dir: Option<&PathBuf>) -> Result<Vec<String>> {
+    let mut profiles = BTreeSet::new();
+    for builtin in ["cisco", "huawei", "h3c", "hillstone", "juniper", "array"] {
+        profiles.insert(builtin.to_string());
+    }
+    for custom in list_custom_profiles(custom_dir)? {
+        profiles.insert(custom);
+    }
+    Ok(profiles.into_iter().collect())
+}
 
-    // TODO: Scan directories for .toml files and add to list
-    // For now just return built-ins
+pub fn list_custom_profiles(custom_dir: Option<&PathBuf>) -> Result<Vec<String>> {
+    let mut names = BTreeSet::new();
+    let mut search_dirs = Vec::new();
 
-    Ok(profiles)
+    if let Some(dir) = custom_dir {
+        search_dirs.push(dir.join("devices"));
+        search_dirs.push(dir.clone());
+    }
+
+    let home_templates = default_template_dir();
+    search_dirs.push(home_templates.join("devices"));
+    search_dirs.push(home_templates);
+
+    search_dirs.push(PathBuf::from("templates").join("devices"));
+    search_dirs.push(PathBuf::from("templates"));
+
+    for dir in search_dirs {
+        if !dir.exists() || !dir.is_dir() {
+            continue;
+        }
+        for entry in fs::read_dir(&dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path
+                .extension()
+                .and_then(|s| s.to_str())
+                .is_some_and(|ext| ext == "toml")
+                && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+            {
+                names.insert(name.to_string());
+            }
+        }
+    }
+
+    Ok(names.into_iter().collect())
 }

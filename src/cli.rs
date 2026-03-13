@@ -26,6 +26,9 @@ pub enum Commands {
     /// Start web service with visual UI
     Web(WebArgs),
 
+    /// Start managed agent service for rauto-manager
+    Agent(AgentArgs),
+
     /// Manage device profiles
     #[command(subcommand)]
     Device(DeviceCommands),
@@ -37,6 +40,10 @@ pub enum Commands {
     /// Inspect saved connection execution history
     #[command(subcommand)]
     History(HistoryCommands),
+
+    /// Manage blocked command patterns
+    #[command(subcommand)]
+    Blacklist(BlacklistCommands),
 
     /// Manage stored command templates
     #[command(subcommand)]
@@ -152,6 +159,27 @@ pub enum HistoryCommands {
         name: String,
         /// History entry ID
         id: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BlacklistCommands {
+    /// List blocked command patterns
+    List,
+    /// Add a blocked command pattern
+    Add {
+        /// Pattern to block. Supports '*' wildcard.
+        pattern: String,
+    },
+    /// Delete a blocked command pattern
+    Delete {
+        /// Pattern to remove. Supports '*' wildcard.
+        pattern: String,
+    },
+    /// Check whether a command would be blocked
+    Check {
+        /// Command text to evaluate against the blacklist
+        command: String,
     },
 }
 
@@ -402,6 +430,33 @@ pub struct WebArgs {
     /// Listen port for web server
     #[arg(long, default_value = "3000")]
     pub port: u16,
+}
+
+#[derive(Args, Debug)]
+pub struct AgentArgs {
+    /// Bind address for agent web server
+    #[arg(long, default_value = "0.0.0.0")]
+    pub bind: String,
+
+    /// Listen port for agent web server
+    #[arg(long, default_value = "3000")]
+    pub port: u16,
+
+    /// Manager URL for agent registration (e.g. http://manager:3000)
+    #[arg(long, env = "RAUTO_MANAGER_URL")]
+    pub manager_url: Option<String>,
+
+    /// Agent name for registration (must be unique across all agents)
+    #[arg(long, env = "RAUTO_AGENT_NAME")]
+    pub agent_name: Option<String>,
+
+    /// API token for authentication and manager callbacks
+    #[arg(long, env = "RAUTO_AGENT_TOKEN")]
+    pub agent_token: Option<String>,
+
+    /// Path to agent config file (default: ~/.rauto/agent.toml)
+    #[arg(long)]
+    pub agent_config: Option<PathBuf>,
 }
 
 #[derive(Args, Debug, Clone)]

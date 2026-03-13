@@ -57,6 +57,7 @@ const i18n = {
     tabReplay: "Session Replay",
     tabPrompts: "Prompt Profiles",
     tabTemplates: "Template Manager",
+    tabBlacklist: "Command Blacklist",
     tabBackup: "Backup",
     opsTitle: "Operations",
     replayPageTitle: "Session Replay",
@@ -303,6 +304,28 @@ const i18n = {
     backupCreated: "backup created",
     backupRestored: "backup restored",
     backupPickOne: "please select a backup archive from list",
+    blacklistTitle: "Command Blacklist",
+    blacklistListTitle: "Blocked Patterns",
+    blacklistAddTitle: "Add Pattern",
+    blacklistCheckTitle: "Check Command",
+    blacklistRefreshBtn: "Refresh",
+    blacklistAddBtn: "Add",
+    blacklistCheckBtn: "Check",
+    blacklistDeleteBtn: "Delete",
+    blacklistFileHint: "Runtime file: ~/.rauto/command_blacklist.txt",
+    blacklistPatternPlaceholder: "e.g. reload*",
+    blacklistPatternHint: "Use * as wildcard. Matching is case-insensitive.",
+    blacklistCheckPlaceholder: "e.g. reload in 5",
+    blacklistListEmpty: "no blocked patterns",
+    blacklistPatternRequired: "blacklist pattern is required",
+    blacklistExists: "pattern already exists",
+    blacklistAdded: "blacklist pattern added",
+    blacklistDeleted: "blacklist pattern deleted",
+    blacklistDeleteConfirm: "Delete this blacklist pattern?",
+    blacklistAllowed: "command is allowed",
+    blacklistMatched: "command is blocked",
+    blacklistMatchedPattern: "Matched Pattern",
+    blacklistCheckedCommand: "Command",
     templateListTitle: "Templates",
     templateListEmpty: "no templates",
     templatePathLabel: "path",
@@ -492,6 +515,7 @@ const i18n = {
     tabReplay: "会话回放",
     tabPrompts: "Prompt 管理",
     tabTemplates: "Template 管理",
+    tabBlacklist: "命令黑名单",
     tabBackup: "备份恢复",
     opsTitle: "常用操作",
     replayPageTitle: "会话回放",
@@ -732,6 +756,28 @@ const i18n = {
     backupCreated: "备份已创建",
     backupRestored: "备份已恢复",
     backupPickOne: "请先从列表中选择一个备份归档",
+    blacklistTitle: "命令黑名单",
+    blacklistListTitle: "已拦截规则",
+    blacklistAddTitle: "新增规则",
+    blacklistCheckTitle: "检查命令",
+    blacklistRefreshBtn: "刷新",
+    blacklistAddBtn: "添加",
+    blacklistCheckBtn: "检查",
+    blacklistDeleteBtn: "删除",
+    blacklistFileHint: "运行时文件：~/.rauto/command_blacklist.txt",
+    blacklistPatternPlaceholder: "例如 reload*",
+    blacklistPatternHint: "支持使用 * 作为通配符，匹配不区分大小写。",
+    blacklistCheckPlaceholder: "例如 reload in 5",
+    blacklistListEmpty: "暂无黑名单规则",
+    blacklistPatternRequired: "黑名单规则不能为空",
+    blacklistExists: "规则已存在",
+    blacklistAdded: "黑名单规则已添加",
+    blacklistDeleted: "黑名单规则已删除",
+    blacklistDeleteConfirm: "确认删除这条黑名单规则？",
+    blacklistAllowed: "命令允许执行",
+    blacklistMatched: "命令命中黑名单",
+    blacklistMatchedPattern: "命中规则",
+    blacklistCheckedCommand: "命令",
     templateListTitle: "Template 列表",
     templateListEmpty: "暂无 template",
     templatePathLabel: "路径",
@@ -896,10 +942,12 @@ let cachedDeviceProfiles = [];
 let cachedTemplates = [];
 let cachedTemplateMetas = [];
 let cachedBackups = [];
+let cachedBlacklistPatterns = [];
 let lastBuiltinProfile = null;
 let lastTemplateDetail = null;
 let lastDiagnoseSnapshot = null;
 let lastTemplateExecResult = null;
+let lastBlacklistCheckResult = null;
 let recordViewMode = localStorage.getItem(STORAGE_KEYS.recordViewMode) || "list";
 let replayViewMode = localStorage.getItem(STORAGE_KEYS.replayViewMode) || "list";
 let lastReplayResult = null;
@@ -1125,6 +1173,7 @@ function applyI18n() {
   byId("tab-replay").textContent = t("tabReplay");
   byId("tab-prompts").textContent = t("tabPrompts");
   byId("tab-templates").textContent = t("tabTemplates");
+  byId("tab-blacklist").textContent = t("tabBlacklist");
   byId("tab-backup").textContent = t("tabBackup");
 
   byId("ops-title").textContent = t("opsTitle");
@@ -1178,6 +1227,17 @@ function applyI18n() {
   byId("template-mgr-title").textContent = t("templateMgrTitle");
   byId("template-list-title").textContent = t("templateListTitle");
   byId("template-editor-title").textContent = t("templateEditorTitle");
+  byId("blacklist-title").textContent = t("blacklistTitle");
+  byId("blacklist-list-title").textContent = t("blacklistListTitle");
+  byId("blacklist-add-title").textContent = t("blacklistAddTitle");
+  byId("blacklist-check-title").textContent = t("blacklistCheckTitle");
+  byId("blacklist-refresh-btn").textContent = t("blacklistRefreshBtn");
+  byId("blacklist-add-btn").textContent = t("blacklistAddBtn");
+  byId("blacklist-check-btn").textContent = t("blacklistCheckBtn");
+  byId("blacklist-file-hint").textContent = t("blacklistFileHint");
+  byId("blacklist-pattern").placeholder = t("blacklistPatternPlaceholder");
+  byId("blacklist-pattern-hint").textContent = t("blacklistPatternHint");
+  byId("blacklist-check-command").placeholder = t("blacklistCheckPlaceholder");
   byId("backup-title").textContent = t("backupTitle");
   byId("backup-create-title").textContent = t("backupCreateTitle");
   byId("backup-list-title").textContent = t("backupListTitle");
@@ -1213,6 +1273,8 @@ function applyI18n() {
   byId("replay-event-kind").setAttribute("aria-label", t("eventTypeLabel"));
   byId("replay-search").placeholder = t("searchPlaceholder");
   byId("replay-clear-filters").textContent = t("clearFilters");
+  renderBlacklistList();
+  renderBlacklistCheckResult();
   byId("replay-list-btn").textContent = t("replayListBtn");
   byId("replay-run-btn").textContent = t("replayRunBtn");
   byId("detail-modal-title").textContent = t("detailModalTitle");
@@ -1419,7 +1481,7 @@ function localizeDynamicFields() {
 }
 
 function applyTabs() {
-  const tabs = ["ops", "interactive", "replay", "prompts", "templates", "backup"];
+  const tabs = ["ops", "interactive", "replay", "prompts", "templates", "blacklist", "backup"];
   for (const tab of tabs) {
     const button = byId(`tab-${tab}`);
     const panel = byId(`panel-${tab}`);
@@ -3547,6 +3609,7 @@ async function restoreBackupFromWeb(replace = false) {
     await loadSavedConnections();
     await loadProfilesOverview();
     await loadTemplates();
+    await loadBlacklistPatterns();
   } catch (e) {
     setStatusMessage("backup-out", e.message, "error");
   }
@@ -3567,6 +3630,160 @@ function selectBackupPath(path) {
   byId("backup-restore-archive").value = path;
   updateSelectedBackupMeta();
   renderBackupList();
+}
+
+function renderBlacklistList(errorMessage = "") {
+  const out = byId("blacklist-list");
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      errorMessage
+    )}</div>`;
+    return;
+  }
+  if (!Array.isArray(cachedBlacklistPatterns) || cachedBlacklistPatterns.length === 0) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("blacklistListEmpty")
+    )}</div>`;
+    return;
+  }
+  out.innerHTML = cachedBlacklistPatterns
+    .map(
+      (pattern) => `
+        <div class="rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <code class="text-sm font-semibold text-slate-800 break-all">${escapeHtml(
+              pattern
+            )}</code>
+            <button
+              type="button"
+              class="mini-btn delete js-blacklist-delete"
+              data-pattern="${escapeHtml(pattern)}"
+            >${escapeHtml(t("blacklistDeleteBtn"))}</button>
+          </div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderBlacklistCheckResult(errorMessage = "") {
+  const out = byId("blacklist-check-out");
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      errorMessage
+    )}</div>`;
+    return;
+  }
+  if (!lastBlacklistCheckResult) {
+    out.innerHTML = "-";
+    return;
+  }
+  if (lastBlacklistCheckResult.blocked) {
+    out.innerHTML = `
+      <div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div class="font-semibold">${escapeHtml(t("blacklistMatched"))}</div>
+        <div class="mt-1">${escapeHtml(t("blacklistCheckedCommand"))}: <code>${escapeHtml(
+          lastBlacklistCheckResult.command || "-"
+        )}</code></div>
+        <div class="mt-1">${escapeHtml(t("blacklistMatchedPattern"))}: <code>${escapeHtml(
+          lastBlacklistCheckResult.pattern || "-"
+        )}</code></div>
+      </div>
+    `;
+    return;
+  }
+  out.innerHTML = `
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+      <div class="font-semibold">${escapeHtml(t("blacklistAllowed"))}</div>
+      <div class="mt-1">${escapeHtml(t("blacklistCheckedCommand"))}: <code>${escapeHtml(
+        lastBlacklistCheckResult.command || "-"
+      )}</code></div>
+    </div>
+  `;
+}
+
+async function loadBlacklistPatterns() {
+  try {
+    const data = await request("GET", "/api/blacklist");
+    cachedBlacklistPatterns = (Array.isArray(data) ? data : [])
+      .map((item) => safeString(item && item.pattern))
+      .filter(Boolean);
+    renderBlacklistList();
+  } catch (e) {
+    cachedBlacklistPatterns = [];
+    renderBlacklistList(e.message);
+    setStatusMessage("blacklist-out", e.message, "error");
+  }
+}
+
+async function addBlacklistPatternFromWeb() {
+  const pattern = byId("blacklist-pattern").value.trim();
+  if (!pattern) {
+    setStatusMessage("blacklist-out", t("blacklistPatternRequired"), "error");
+    return;
+  }
+  setStatusMessage("blacklist-out", t("running"), "running");
+  try {
+    const data = await request("POST", "/api/blacklist", { pattern });
+    byId("blacklist-pattern").value = "";
+    setStatusMessage(
+      "blacklist-out",
+      `${data.added ? t("blacklistAdded") : t("blacklistExists")}: ${data.pattern || pattern}`,
+      data.added ? "success" : "info"
+    );
+    await loadBlacklistPatterns();
+  } catch (e) {
+    setStatusMessage("blacklist-out", e.message, "error");
+  }
+}
+
+async function deleteBlacklistPatternFromWeb(pattern) {
+  if (!pattern) return;
+  if (!window.confirm(t("blacklistDeleteConfirm"))) {
+    return;
+  }
+  setStatusMessage("blacklist-out", t("running"), "running");
+  try {
+    const data = await request(
+      "DELETE",
+      `/api/blacklist/${encodeURIComponent(pattern)}`
+    );
+    setStatusMessage(
+      "blacklist-out",
+      `${t("blacklistDeleted")}: ${data.pattern || pattern}`,
+      "success"
+    );
+    if (
+      lastBlacklistCheckResult &&
+      lastBlacklistCheckResult.pattern &&
+      lastBlacklistCheckResult.pattern === pattern
+    ) {
+      lastBlacklistCheckResult = null;
+      renderBlacklistCheckResult();
+    }
+    await loadBlacklistPatterns();
+  } catch (e) {
+    setStatusMessage("blacklist-out", e.message, "error");
+  }
+}
+
+async function checkBlacklistCommandFromWeb() {
+  const command = byId("blacklist-check-command").value.trim();
+  if (!command) {
+    renderBlacklistCheckResult(t("commandRequired"));
+    return;
+  }
+  renderBlacklistCheckResult(t("running"));
+  try {
+    const data = await request("POST", "/api/blacklist/check", { command });
+    lastBlacklistCheckResult = data || null;
+    renderBlacklistCheckResult();
+  } catch (e) {
+    lastBlacklistCheckResult = null;
+    renderBlacklistCheckResult(e.message);
+  }
 }
 
 function renderSavedConnectionList(errorMessage = "") {
@@ -6216,7 +6433,7 @@ function bindEvents() {
     el.addEventListener("change", updateRecordFabVisibility);
   });
 
-  for (const tab of ["ops", "interactive", "replay", "prompts", "templates", "backup"]) {
+  for (const tab of ["ops", "interactive", "replay", "prompts", "templates", "blacklist", "backup"]) {
     byId(`tab-${tab}`).onclick = () => {
       currentTab = tab;
       applyTabs();
@@ -6230,6 +6447,9 @@ function bindEvents() {
       }
       if (tab === "templates") {
         loadTemplates();
+      }
+      if (tab === "blacklist") {
+        loadBlacklistPatterns();
       }
       if (tab === "backup") {
         loadBackups();
@@ -6320,6 +6540,28 @@ function bindEvents() {
     openHistoryDrawer();
     loadConnectionHistory();
   };
+  byId("blacklist-refresh-btn").onclick = loadBlacklistPatterns;
+  byId("blacklist-add-btn").onclick = addBlacklistPatternFromWeb;
+  byId("blacklist-check-btn").onclick = checkBlacklistCommandFromWeb;
+  byId("blacklist-pattern").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addBlacklistPatternFromWeb();
+    }
+  });
+  byId("blacklist-check-command").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      checkBlacklistCommandFromWeb();
+    }
+  });
+  byId("blacklist-list").addEventListener("click", (e) => {
+    const deleteBtn = e.target.closest(".js-blacklist-delete");
+    if (!deleteBtn) return;
+    const pattern = deleteBtn.getAttribute("data-pattern") || "";
+    if (!pattern) return;
+    deleteBlacklistPatternFromWeb(pattern);
+  });
   byId("saved-conn-list").addEventListener("click", async (e) => {
     const row = e.target.closest(".js-saved-conn-row");
     if (!row) return;
@@ -7007,10 +7249,12 @@ setStatusMessage("tx-workflow-exec-out", "-", "info");
 setStatusMessage("orchestration-plan-out", "-", "info");
 setStatusMessage("orchestration-exec-out", "-", "info");
 setStatusMessage("template-out", "-", "info");
+setStatusMessage("blacklist-out", "-", "info");
 setStatusMessage("backup-out", "-", "info");
 setStatusMessage("builtin-detail-status", "-", "info");
 setStatusMessage("profile-out", "-", "info");
 setStatusMessage("profile-diagnose-out", "-", "info");
+renderBlacklistCheckResult();
 applyTabs();
 applyOperationKind();
 applyPromptMode();
@@ -7027,6 +7271,7 @@ byId("replay-search").value = replaySearchQuery;
 loadSavedConnections();
 loadProfilesOverview();
 loadTemplates();
+loadBlacklistPatterns();
 loadBackups();
 setProfileForm({
   name: "",

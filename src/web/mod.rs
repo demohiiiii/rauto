@@ -1,9 +1,11 @@
+pub(crate) mod agent_handlers;
 mod assets;
-mod error;
+pub(crate) mod auth;
+pub(crate) mod error;
 mod handlers;
-mod models;
+pub(crate) mod models;
 mod server;
-mod state;
+pub(crate) mod state;
 pub(crate) mod storage;
 
-pub use server::run_web_server;
+pub use server::{run_agent_server, run_web_server};

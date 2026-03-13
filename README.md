@@ -20,6 +20,7 @@
 - **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
 - **Data Backup & Restore**: Backup full `~/.rauto` runtime data and restore when needed.
 - **Multi-device Orchestration (Web + CLI)**: Run staged serial/parallel plans across multiple devices, reusing saved connections and current `tx` / `tx-workflow` capabilities.
+- **Command Blacklist**: Block dangerous commands globally before they are sent, with `*` wildcard support.
 
 ## Installation
 
@@ -236,10 +237,43 @@ Web console key capabilities:
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
 - Execute commands with saved connection info (load one connection, then run direct or template mode).
 - Manage profiles (builtin/custom) and templates in dedicated tabs.
+- Manage command blacklist patterns in UI: add/delete/check `*` wildcard rules before execution.
 - Manage data backups in UI: create/list/download/restore `~/.rauto` backup archives.
 - Diagnose profile state machines in Prompt Management -> Diagnostics with visualized result fields.
 - Switch Chinese/English in UI.
 - Record execution sessions and replay recorded outputs in browser (list events or replay by command/mode).
+
+#### Agent Mode
+
+`rauto web` remains the local self-management UI. Managed mode now starts from `rauto agent`, which is dedicated to `rauto-manager` registration, heartbeat, protected APIs, and task callbacks.
+
+```bash
+rauto agent \
+    --bind 0.0.0.0 \
+    --port 3000 \
+    --manager-url http://manager:3000 \
+    --agent-name agent-beijing-01 \
+    --agent-token my-secret-token
+```
+
+You can also keep defaults in `~/.rauto/agent.toml`:
+
+```toml
+[manager]
+url = "http://manager:3000"
+token = "my-secret-token"
+
+[agent]
+name = "agent-beijing-01"
+heartbeat_interval = 30
+```
+
+Agent mode adds:
+- Public `GET /api/agent/info` for manager-side reachability/discovery.
+- Protected `GET /api/agent/status` for runtime status and heartbeat metadata.
+- Protected `POST /api/devices/probe` for batch TCP reachability checks of saved connections.
+- Background manager registration, heartbeat, and best-effort offline notification on shutdown.
+- Optional `task_id` + `callback_url` on `exec`, `template execute`, `tx`, `tx-workflow`, and `orchestrate` requests for async task callbacks.
 
 ### 5. Template Storage Commands
 
@@ -301,7 +335,32 @@ rauto backup restore ./rauto-backup.tar.gz
 rauto backup restore ./rauto-backup.tar.gz --replace
 ```
 
-### 8. CLI Quick Reference
+### 8. Command Blacklist
+
+Use a global blacklist to reject commands before they are sent from CLI or Web execution paths (`exec`, template execute, `tx`, `tx-workflow`, `orchestrate`, interactive command).
+
+```bash
+# List current patterns
+rauto blacklist list
+
+# Add blocked patterns
+rauto blacklist add "write erase"
+rauto blacklist add "reload*"
+rauto blacklist add "format *"
+
+# Check one command against the blacklist
+rauto blacklist check "reload in 5"
+
+# Remove a pattern
+rauto blacklist delete "reload*"
+```
+
+Notes:
+- `*` matches any character sequence, including spaces.
+- Matching is case-insensitive and applies to the full command text.
+- Blacklist data is stored in `~/.rauto/command_blacklist.txt`.
+
+### 9. CLI Quick Reference
 
 **Connection troubleshooting**
 ```bash
@@ -322,6 +381,14 @@ rauto connection add lab1 \
 rauto exec "show version" --connection lab1
 rauto connection list
 rauto history list lab1 --limit 20
+```
+
+**Command blacklist**
+```bash
+rauto blacklist add "reload*"
+rauto blacklist add "write erase"
+rauto blacklist list
+rauto blacklist check "reload in 5"
 ```
 
 **Profile management**
@@ -649,6 +716,7 @@ Transaction Workflow (Tx Flow)   rauto tx-workflow
 Multi-device Orchestration       rauto orchestrate
 Saved connections               rauto connection
 Connection history              rauto history
+Command blacklist               rauto blacklist
 
 Prompt Profiles (Web)            CLI
 -------------------------------- ---------------------------------------------
@@ -681,6 +749,7 @@ Prompt profile diagnose view             Yes     No
 Workflow builder (visual)                Yes     No
 Transaction workflow JSON execution      Yes     Yes
 Multi-device orchestration (plan JSON)   Yes     Yes
+Command blacklist management             Yes     Yes
 ```
 
 **Migration tips (Web ⇄ CLI)**
@@ -718,6 +787,7 @@ Default directories:
 - `~/.rauto/templates/devices`
 - `~/.rauto/records` (session recordings)
 - `~/.rauto/backups` (backup archives)
+- `~/.rauto/command_blacklist.txt` (blocked command patterns)
 
 These folders are auto-created on startup.
 
@@ -731,7 +801,8 @@ For backward compatibility, local `./templates/` is still checked as a fallback.
 │   ├── commands/           # Store your .j2 command templates here
 │   └── devices/            # Store custom .toml device profiles here
 ├── records/                # Session recording output (*.jsonl)
-└── backups/                # Backup archives (*.tar.gz)
+├── backups/                # Backup archives (*.tar.gz)
+└── command_blacklist.txt   # Blocked command patterns with '*' wildcard
 ```
 
 You can specify a custom template directory using the `--template-dir` argument or `RAUTO_TEMPLATE_DIR` environment variable.

@@ -90,6 +90,41 @@ pub struct BackupRestoreResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct BlacklistPatternEntry {
+    pub pattern: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlacklistUpsertRequest {
+    pub pattern: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BlacklistUpsertResponse {
+    pub pattern: String,
+    pub added: bool,
+    pub path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BlacklistDeleteResponse {
+    pub pattern: String,
+    pub deleted: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlacklistCheckRequest {
+    pub command: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BlacklistCheckResponse {
+    pub command: String,
+    pub blocked: bool,
+    pub pattern: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ConnectionHistoryEntry {
     pub id: String,
     pub ts_ms: u128,
@@ -127,6 +162,10 @@ pub struct ExecRequest {
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,
     pub record_level: Option<RecordLevel>,
+    #[serde(default)]
+    pub task_id: Option<String>,
+    #[serde(default)]
+    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -146,6 +185,10 @@ pub struct ExecuteTemplateRequest {
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,
     pub record_level: Option<RecordLevel>,
+    #[serde(default)]
+    pub task_id: Option<String>,
+    #[serde(default)]
+    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -184,6 +227,10 @@ pub struct ExecuteTxBlockRequest {
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,
     pub record_level: Option<RecordLevel>,
+    #[serde(default)]
+    pub task_id: Option<String>,
+    #[serde(default)]
+    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -200,6 +247,10 @@ pub struct ExecuteTxWorkflowRequest {
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,
     pub record_level: Option<RecordLevel>,
+    #[serde(default)]
+    pub task_id: Option<String>,
+    #[serde(default)]
+    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -215,6 +266,10 @@ pub struct ExecuteOrchestrationRequest {
     pub base_dir: Option<String>,
     pub dry_run: Option<bool>,
     pub record_level: Option<RecordLevel>,
+    #[serde(default)]
+    pub task_id: Option<String>,
+    #[serde(default)]
+    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -222,6 +277,79 @@ pub struct ExecuteOrchestrationResponse {
     pub plan: Value,
     pub inventory: Value,
     pub orchestration_result: Option<Value>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AgentInfoResponse {
+    pub name: String,
+    pub version: String,
+    pub capabilities: Vec<String>,
+    pub uptime_seconds: u64,
+    pub connections_count: u32,
+    pub templates_count: u32,
+    pub custom_profiles_count: u32,
+    pub managed: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AgentStatusResponse {
+    pub status: String,
+    pub active_sessions: u32,
+    pub running_tasks: u32,
+    pub last_heartbeat_at: Option<String>,
+    pub registered_at: Option<String>,
+    pub system: SystemInfo,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SystemInfo {
+    pub os: String,
+    pub arch: String,
+    pub hostname: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DeviceProbeRequest {
+    pub connections: Vec<String>,
+    #[serde(default = "default_probe_timeout")]
+    pub timeout_secs: u32,
+}
+
+fn default_probe_timeout() -> u32 {
+    10
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeviceProbeResult {
+    pub name: String,
+    pub host: String,
+    pub port: u16,
+    pub device_profile: String,
+    pub reachable: bool,
+    pub latency_ms: Option<u64>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeviceProbeResponse {
+    pub results: Vec<DeviceProbeResult>,
+    pub total: u32,
+    pub reachable_count: u32,
+    pub unreachable_count: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskCallback {
+    pub task_id: String,
+    pub agent_name: String,
+    pub status: String,
+    pub started_at: String,
+    pub completed_at: String,
+    pub execution_time_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
