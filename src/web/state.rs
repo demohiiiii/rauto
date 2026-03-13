@@ -1,6 +1,7 @@
 use crate::agent::config::AgentConfig;
 use crate::agent::registration::AgentRegistrar;
 use crate::cli::GlobalOpts;
+use crate::config::connection_store::{self, SavedConnection};
 use crate::device::DeviceClient;
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
@@ -139,37 +140,67 @@ pub fn merge_connection_options(
         device_profile: None,
         template_dir: None,
     });
+    let connection_name = incoming
+        .connection_name
+        .clone()
+        .or_else(|| defaults.connection.clone());
+    let saved = if let Some(name) = connection_name.as_ref() {
+        Some(
+            connection_store::load_connection(name)
+                .map_err(|e| ApiError::bad_request(e.to_string()))?,
+        )
+    } else {
+        None
+    };
+
+    merge_connection_sources(defaults, incoming, saved, connection_name)
+}
+
+fn merge_connection_sources(
+    defaults: &GlobalOpts,
+    incoming: ConnectionRequest,
+    saved: Option<SavedConnection>,
+    connection_name: Option<String>,
+) -> Result<ResolvedConnection, ApiError> {
+    let saved = saved.as_ref();
 
     let host = incoming
         .host
+        .or_else(|| saved.and_then(|s| s.host.clone()))
         .or_else(|| defaults.host.clone())
         .ok_or_else(|| ApiError::bad_request("host is required"))?;
 
     let username = incoming
         .username
+        .or_else(|| saved.and_then(|s| s.username.clone()))
         .or_else(|| defaults.username.clone())
         .unwrap_or_else(|| "admin".to_string());
 
     let password = incoming
         .password
+        .or_else(|| saved.and_then(|s| s.password.clone()))
         .or_else(|| defaults.password.clone())
         .unwrap_or_default();
 
-    let port = incoming.port.or(defaults.port).unwrap_or(22);
+    let port = incoming
+        .port
+        .or_else(|| saved.and_then(|s| s.port))
+        .or(defaults.port)
+        .unwrap_or(22);
     let enable_password = incoming
         .enable_password
+        .or_else(|| saved.and_then(|s| s.enable_password.clone()))
         .or_else(|| defaults.enable_password.clone());
     let device_profile = incoming
         .device_profile
+        .or_else(|| saved.and_then(|s| s.device_profile.clone()))
         .or_else(|| defaults.device_profile.clone())
         .unwrap_or_else(|| "cisco".to_string());
     let template_dir = incoming
         .template_dir
         .map(PathBuf::from)
+        .or_else(|| saved.and_then(|s| s.template_dir.clone().map(PathBuf::from)))
         .or_else(|| defaults.template_dir.clone());
-    let connection_name = incoming
-        .connection_name
-        .or_else(|| defaults.connection.clone());
 
     Ok(ResolvedConnection {
         connection_name,
@@ -181,4 +212,94 @@ pub fn merge_connection_options(
         device_profile,
         template_dir,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::merge_connection_sources;
+    use crate::cli::GlobalOpts;
+    use crate::config::connection_store::SavedConnection;
+    use crate::web::models::ConnectionRequest;
+    use std::path::PathBuf;
+
+    #[test]
+    fn merge_connection_sources_prefers_explicit_then_saved_then_defaults() {
+        let defaults = GlobalOpts {
+            host: Some("default-host".to_string()),
+            username: Some("default-user".to_string()),
+            password: Some("default-pass".to_string()),
+            port: Some(22),
+            enable_password: Some("default-enable".to_string()),
+            device_profile: Some("default-profile".to_string()),
+            template_dir: Some(PathBuf::from("/tmp/default-templates")),
+            connection: Some("lab1".to_string()),
+            save_connection: None,
+            save_password: false,
+        };
+        let incoming = ConnectionRequest {
+            connection_name: Some("lab1".to_string()),
+            host: Some("explicit-host".to_string()),
+            username: None,
+            password: None,
+            port: None,
+            enable_password: Some("explicit-enable".to_string()),
+            device_profile: None,
+            template_dir: None,
+        };
+        let saved = SavedConnection {
+            host: Some("saved-host".to_string()),
+            username: Some("saved-user".to_string()),
+            password: Some("saved-pass".to_string()),
+            port: Some(2022),
+            enable_password: Some("saved-enable".to_string()),
+            device_profile: Some("saved-profile".to_string()),
+            template_dir: Some("/tmp/saved-templates".to_string()),
+        };
+
+        let resolved =
+            merge_connection_sources(&defaults, incoming, Some(saved), Some("lab1".to_string()))
+                .expect("resolved connection");
+
+        assert_eq!(resolved.connection_name.as_deref(), Some("lab1"));
+        assert_eq!(resolved.host, "explicit-host");
+        assert_eq!(resolved.username, "saved-user");
+        assert_eq!(resolved.password, "saved-pass");
+        assert_eq!(resolved.port, 2022);
+        assert_eq!(resolved.enable_password.as_deref(), Some("explicit-enable"));
+        assert_eq!(resolved.device_profile, "saved-profile");
+        assert_eq!(
+            resolved.template_dir.as_deref(),
+            Some(PathBuf::from("/tmp/saved-templates").as_path())
+        );
+    }
+
+    #[test]
+    fn merge_connection_sources_falls_back_to_defaults_without_saved_connection() {
+        let defaults = GlobalOpts {
+            host: Some("default-host".to_string()),
+            username: Some("default-user".to_string()),
+            password: Some("default-pass".to_string()),
+            port: Some(22),
+            enable_password: None,
+            device_profile: Some("default-profile".to_string()),
+            template_dir: Some(PathBuf::from("/tmp/default-templates")),
+            connection: None,
+            save_connection: None,
+            save_password: false,
+        };
+
+        let resolved =
+            merge_connection_sources(&defaults, ConnectionRequest::default(), None, None)
+                .expect("resolved connection");
+
+        assert_eq!(resolved.host, "default-host");
+        assert_eq!(resolved.username, "default-user");
+        assert_eq!(resolved.password, "default-pass");
+        assert_eq!(resolved.port, 22);
+        assert_eq!(resolved.device_profile, "default-profile");
+        assert_eq!(
+            resolved.template_dir.as_deref(),
+            Some(PathBuf::from("/tmp/default-templates").as_path())
+        );
+    }
 }

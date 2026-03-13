@@ -744,6 +744,39 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
     Ok(Json(items))
 }
 
+fn saved_connection_detail_response(
+    name: &str,
+    path: &std::path::Path,
+    data: &SavedConnection,
+) -> SavedConnectionDetail {
+    SavedConnectionDetail {
+        name: name.to_string(),
+        path: path.to_string_lossy().to_string(),
+        has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
+        connection: ConnectionRequest {
+            connection_name: Some(name.to_string()),
+            host: data.host.clone(),
+            username: data.username.clone(),
+            password: None,
+            port: data.port,
+            enable_password: None,
+            device_profile: data.device_profile.clone(),
+            template_dir: data.template_dir.clone(),
+        },
+    }
+}
+
+fn merged_saved_secret(
+    save_password: bool,
+    incoming: Option<String>,
+    existing: Option<&String>,
+) -> Option<String> {
+    if !save_password {
+        return None;
+    }
+    incoming.or_else(|| existing.cloned())
+}
+
 pub async fn get_connection(
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<SavedConnectionDetail>, ApiError> {
@@ -752,21 +785,7 @@ pub async fn get_connection(
     let data = connection_store::load_connection(&safe)
         .map_err(|_| ApiError::bad_request("saved connection not found"))?;
     let path = connection_store::connections_dir().join(format!("{}.toml", safe));
-    Ok(Json(SavedConnectionDetail {
-        name: safe.clone(),
-        path: path.to_string_lossy().to_string(),
-        has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
-        connection: ConnectionRequest {
-            connection_name: Some(safe.clone()),
-            host: data.host,
-            username: data.username,
-            password: data.password,
-            port: data.port,
-            enable_password: data.enable_password,
-            device_profile: data.device_profile,
-            template_dir: data.template_dir,
-        },
-    }))
+    Ok(Json(saved_connection_detail_response(&safe, &path, &data)))
 }
 
 pub async fn get_connection_history(
@@ -853,16 +872,23 @@ pub async fn upsert_connection(
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let c = req.connection;
     let save_password = req.save_password;
+    let existing = connection_store::load_connection(&safe).ok();
     let data = SavedConnection {
         host: c.host,
         username: c.username,
-        password: if save_password { c.password } else { None },
+        password: merged_saved_secret(
+            save_password,
+            c.password,
+            existing.as_ref().and_then(|item| item.password.as_ref()),
+        ),
         port: c.port,
-        enable_password: if save_password {
-            c.enable_password
-        } else {
-            None
-        },
+        enable_password: merged_saved_secret(
+            save_password,
+            c.enable_password,
+            existing
+                .as_ref()
+                .and_then(|item| item.enable_password.as_ref()),
+        ),
         device_profile: c.device_profile,
         template_dir: c.template_dir,
     };
@@ -876,21 +902,7 @@ pub async fn upsert_connection(
         );
     }
 
-    Ok(Json(SavedConnectionDetail {
-        name: safe.clone(),
-        path: path.to_string_lossy().to_string(),
-        has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
-        connection: ConnectionRequest {
-            connection_name: Some(safe.clone()),
-            host: data.host,
-            username: data.username,
-            password: data.password,
-            port: data.port,
-            enable_password: data.enable_password,
-            device_profile: data.device_profile,
-            template_dir: data.template_dir,
-        },
-    }))
+    Ok(Json(saved_connection_detail_response(&safe, &path, &data)))
 }
 
 pub async fn delete_connection(
@@ -1467,4 +1479,58 @@ pub async fn replay_session(
         entries,
         output,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{merged_saved_secret, saved_connection_detail_response};
+    use crate::config::connection_store::SavedConnection;
+    use std::path::PathBuf;
+
+    #[test]
+    fn saved_connection_detail_response_redacts_secrets() {
+        let detail = saved_connection_detail_response(
+            "lab1",
+            &PathBuf::from("/tmp/lab1.toml"),
+            &SavedConnection {
+                host: Some("192.0.2.10".to_string()),
+                username: Some("admin".to_string()),
+                password: Some("secret".to_string()),
+                port: Some(22),
+                enable_password: Some("enable-secret".to_string()),
+                device_profile: Some("cisco_ios".to_string()),
+                template_dir: Some("/tmp/templates".to_string()),
+            },
+        );
+
+        assert!(detail.has_password);
+        assert_eq!(detail.connection.connection_name.as_deref(), Some("lab1"));
+        assert_eq!(detail.connection.host.as_deref(), Some("192.0.2.10"));
+        assert_eq!(detail.connection.username.as_deref(), Some("admin"));
+        assert_eq!(detail.connection.port, Some(22));
+        assert_eq!(
+            detail.connection.device_profile.as_deref(),
+            Some("cisco_ios")
+        );
+        assert_eq!(
+            detail.connection.template_dir.as_deref(),
+            Some("/tmp/templates")
+        );
+        assert_eq!(detail.connection.password, None);
+        assert_eq!(detail.connection.enable_password, None);
+    }
+
+    #[test]
+    fn merged_saved_secret_preserves_existing_secret_when_request_is_blank() {
+        let existing = "stored-secret".to_string();
+        assert_eq!(
+            merged_saved_secret(true, None, Some(&existing)),
+            Some("stored-secret".to_string())
+        );
+        assert_eq!(
+            merged_saved_secret(true, Some("new-secret".to_string()), Some(&existing)),
+            Some("new-secret".to_string())
+        );
+        assert_eq!(merged_saved_secret(false, None, Some(&existing)), None);
+    }
 }
