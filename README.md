@@ -235,6 +235,7 @@ For released binaries, users only need to run the executable (no extra `static/`
 
 Web console key capabilities:
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
+- Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
 - Execute commands with saved connection info (load one connection, then run direct or template mode).
 - Manage profiles (builtin/custom) and templates in dedicated tabs.
 - Manage command blacklist patterns in UI: add/delete/check `*` wildcard rules before execution.
@@ -299,6 +300,7 @@ rauto connection add lab1 \
     --host 192.168.1.1 \
     --username admin \
     --ssh-port 22 \
+    --ssh-security balanced \
     --device-profile cisco
 
 # Reuse the saved profile
@@ -319,6 +321,7 @@ rauto history list lab1 --limit 20
 Password behavior:
 - `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
+- `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections.
 
 ### 7. Backup & Restore
 
@@ -822,6 +825,7 @@ You can specify a custom template directory using the `--template-dir` argument 
 | `--password` | `RAUTO_PASSWORD` | SSH password |
 | `--enable-password` | - | Enable/Secret password |
 | `--ssh-port` | - | SSH port (default: 22) |
+| `--ssh-security` | - | SSH security profile: `secure`, `balanced`, `legacy-compatible` |
 | `--device-profile` | - | Device type (default: cisco) |
 | `--connection` | - | Load saved connection profile by name |
 | `--save-connection` | - | Save effective connection profile after successful connect |

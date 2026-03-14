@@ -2,6 +2,7 @@ use crate::agent::config::AgentConfig;
 use crate::agent::registration::AgentRegistrar;
 use crate::cli::GlobalOpts;
 use crate::config::connection_store::{self, SavedConnection};
+use crate::config::ssh_security::SshSecurityProfile;
 use crate::device::DeviceClient;
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
@@ -115,6 +116,7 @@ pub struct ResolvedConnection {
     pub password: String,
     pub port: u16,
     pub enable_password: Option<String>,
+    pub ssh_security: SshSecurityProfile,
     pub device_profile: String,
     pub template_dir: Option<PathBuf>,
 }
@@ -137,6 +139,7 @@ pub fn merge_connection_options(
         password: None,
         port: None,
         enable_password: None,
+        ssh_security: None,
         device_profile: None,
         template_dir: None,
     });
@@ -191,6 +194,11 @@ fn merge_connection_sources(
         .enable_password
         .or_else(|| saved.and_then(|s| s.enable_password.clone()))
         .or_else(|| defaults.enable_password.clone());
+    let ssh_security = incoming
+        .ssh_security
+        .or_else(|| saved.and_then(|s| s.ssh_security))
+        .or(defaults.ssh_security)
+        .unwrap_or_default();
     let device_profile = incoming
         .device_profile
         .or_else(|| saved.and_then(|s| s.device_profile.clone()))
@@ -209,6 +217,7 @@ fn merge_connection_sources(
         password,
         port,
         enable_password,
+        ssh_security,
         device_profile,
         template_dir,
     })
@@ -219,6 +228,7 @@ mod tests {
     use super::merge_connection_sources;
     use crate::cli::GlobalOpts;
     use crate::config::connection_store::SavedConnection;
+    use crate::config::ssh_security::SshSecurityProfile;
     use crate::web::models::ConnectionRequest;
     use std::path::PathBuf;
 
@@ -230,6 +240,7 @@ mod tests {
             password: Some("default-pass".to_string()),
             port: Some(22),
             enable_password: Some("default-enable".to_string()),
+            ssh_security: Some(SshSecurityProfile::Balanced),
             device_profile: Some("default-profile".to_string()),
             template_dir: Some(PathBuf::from("/tmp/default-templates")),
             connection: Some("lab1".to_string()),
@@ -243,6 +254,7 @@ mod tests {
             password: None,
             port: None,
             enable_password: Some("explicit-enable".to_string()),
+            ssh_security: Some(SshSecurityProfile::LegacyCompatible),
             device_profile: None,
             template_dir: None,
         };
@@ -252,6 +264,7 @@ mod tests {
             password: Some("saved-pass".to_string()),
             port: Some(2022),
             enable_password: Some("saved-enable".to_string()),
+            ssh_security: Some(SshSecurityProfile::Secure),
             device_profile: Some("saved-profile".to_string()),
             template_dir: Some("/tmp/saved-templates".to_string()),
         };
@@ -266,6 +279,7 @@ mod tests {
         assert_eq!(resolved.password, "saved-pass");
         assert_eq!(resolved.port, 2022);
         assert_eq!(resolved.enable_password.as_deref(), Some("explicit-enable"));
+        assert_eq!(resolved.ssh_security, SshSecurityProfile::LegacyCompatible);
         assert_eq!(resolved.device_profile, "saved-profile");
         assert_eq!(
             resolved.template_dir.as_deref(),
@@ -281,6 +295,7 @@ mod tests {
             password: Some("default-pass".to_string()),
             port: Some(22),
             enable_password: None,
+            ssh_security: Some(SshSecurityProfile::Balanced),
             device_profile: Some("default-profile".to_string()),
             template_dir: Some(PathBuf::from("/tmp/default-templates")),
             connection: None,
@@ -296,6 +311,7 @@ mod tests {
         assert_eq!(resolved.username, "default-user");
         assert_eq!(resolved.password, "default-pass");
         assert_eq!(resolved.port, 22);
+        assert_eq!(resolved.ssh_security, SshSecurityProfile::Balanced);
         assert_eq!(resolved.device_profile, "default-profile");
         assert_eq!(
             resolved.template_dir.as_deref(),

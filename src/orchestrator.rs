@@ -1,9 +1,13 @@
 use crate::cli::{GlobalOpts, OrchestrateArgs, RecordLevelOpt};
 use crate::config::command_blacklist;
 use crate::config::connection_store::load_connection;
+use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader;
 use crate::template::renderer::Renderer;
-use crate::{EffectiveConnection, persist_auto_recording_history_jsonl, to_record_level};
+use crate::{
+    EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
+    persist_auto_recording_history_jsonl, to_record_level,
+};
 use anyhow::{Context, Result, anyhow};
 use rneter::session::{MANAGER, RollbackPolicy, TxBlock, TxStep, TxWorkflow};
 use rneter::templates as rneter_templates;
@@ -70,6 +74,7 @@ pub struct OrchestrationTargetDefaults {
     pub password: Option<String>,
     pub port: Option<u16>,
     pub enable_password: Option<String>,
+    pub ssh_security: Option<SshSecurityProfile>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
     #[serde(default)]
@@ -99,6 +104,7 @@ pub struct OrchestrationTarget {
     pub password: Option<String>,
     pub port: Option<u16>,
     pub enable_password: Option<String>,
+    pub ssh_security: Option<SshSecurityProfile>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
     #[serde(default)]
@@ -393,6 +399,7 @@ fn merge_target_defaults(
             .enable_password
             .clone()
             .or_else(|| base.enable_password.clone()),
+        ssh_security: overlay.ssh_security.or(base.ssh_security),
         device_profile: overlay
             .device_profile
             .clone()
@@ -430,6 +437,9 @@ fn apply_target_defaults(
     }
     if target.enable_password.is_none() {
         target.enable_password = defaults.enable_password.clone();
+    }
+    if target.ssh_security.is_none() {
+        target.ssh_security = defaults.ssh_security;
     }
     if target.device_profile.is_none() {
         target.device_profile = defaults.device_profile.clone();
@@ -855,43 +865,53 @@ async fn execute_tx_block_action(
     let handler =
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
     let (tx_result, recording_jsonl) = if matches!(record_level, RecordLevelOpt::Off) {
+        let request = manager_connection_request(
+            conn.username.clone(),
+            conn.host.clone(),
+            conn.port,
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+        );
         let result = MANAGER
-            .execute_tx_block(
-                conn.username.clone(),
-                conn.host.clone(),
-                conn.port,
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
+            .execute_tx_block_with_context(
+                request,
                 tx_block.clone(),
-                None,
+                manager_execution_context_with_security(None, conn.ssh_security),
             )
             .await?;
         (result, None)
     } else {
+        let request = manager_connection_request(
+            conn.username.clone(),
+            conn.host.clone(),
+            conn.port,
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+        );
         let (_sender, recorder) = MANAGER
-            .get_with_recording_level(
-                conn.username.clone(),
-                conn.host.clone(),
-                conn.port,
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
+            .get_with_recording_level_and_context(
+                request,
+                manager_execution_context_with_security(None, conn.ssh_security),
                 to_record_level(record_level),
             )
             .await?;
         let handler_for_tx =
             template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let request = manager_connection_request(
+            conn.username.clone(),
+            conn.host.clone(),
+            conn.port,
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler_for_tx,
+        );
         let result = MANAGER
-            .execute_tx_block(
-                conn.username.clone(),
-                conn.host.clone(),
-                conn.port,
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler_for_tx,
+            .execute_tx_block_with_context(
+                request,
                 tx_block,
-                None,
+                manager_execution_context_with_security(None, conn.ssh_security),
             )
             .await?;
         let jsonl = recorder.to_jsonl()?;
@@ -933,43 +953,53 @@ async fn execute_tx_workflow_action(
         template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
 
     let (workflow_result, recording_jsonl) = if matches!(record_level, RecordLevelOpt::Off) {
+        let request = manager_connection_request(
+            conn.username.clone(),
+            conn.host.clone(),
+            conn.port,
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+        );
         let result = MANAGER
-            .execute_tx_workflow(
-                conn.username.clone(),
-                conn.host.clone(),
-                conn.port,
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
+            .execute_tx_workflow_with_context(
+                request,
                 workflow.clone(),
-                None,
+                manager_execution_context_with_security(None, conn.ssh_security),
             )
             .await?;
         (result, None)
     } else {
+        let request = manager_connection_request(
+            conn.username.clone(),
+            conn.host.clone(),
+            conn.port,
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+        );
         let (_sender, recorder) = MANAGER
-            .get_with_recording_level(
-                conn.username.clone(),
-                conn.host.clone(),
-                conn.port,
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
+            .get_with_recording_level_and_context(
+                request,
+                manager_execution_context_with_security(None, conn.ssh_security),
                 to_record_level(record_level),
             )
             .await?;
         let handler_for_tx =
             template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let request = manager_connection_request(
+            conn.username.clone(),
+            conn.host.clone(),
+            conn.port,
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler_for_tx,
+        );
         let result = MANAGER
-            .execute_tx_workflow(
-                conn.username.clone(),
-                conn.host.clone(),
-                conn.port,
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler_for_tx,
+            .execute_tx_workflow_with_context(
+                request,
                 workflow,
-                None,
+                manager_execution_context_with_security(None, conn.ssh_security),
             )
             .await?;
         let jsonl = recorder.to_jsonl()?;
@@ -1099,6 +1129,11 @@ fn resolve_target_connection(
         .or_else(|| opts.device_profile.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
         .unwrap_or_else(|| "cisco".to_string());
+    let ssh_security = target
+        .ssh_security
+        .or(opts.ssh_security)
+        .or_else(|| saved.as_ref().and_then(|s| s.ssh_security))
+        .unwrap_or_default();
     let template_dir = target
         .template_dir
         .as_ref()
@@ -1120,6 +1155,7 @@ fn resolve_target_connection(
         password,
         port,
         enable_password,
+        ssh_security,
         device_profile,
         template_dir,
     })
@@ -1518,6 +1554,7 @@ mod tests {
                 password: None,
                 port: Some(22),
                 enable_password: None,
+                ssh_security: Some(SshSecurityProfile::Balanced),
                 device_profile: Some("cisco".to_string()),
                 template_dir: Some("/tmp/templates".to_string()),
                 vars: json!({
@@ -1533,6 +1570,7 @@ mod tests {
                         password: None,
                         port: None,
                         enable_password: None,
+                        ssh_security: Some(SshSecurityProfile::LegacyCompatible),
                         device_profile: Some("huawei".to_string()),
                         template_dir: None,
                         vars: json!({
@@ -1560,6 +1598,10 @@ mod tests {
         assert_eq!(target.connection.as_deref(), Some("sw-01"));
         assert_eq!(target.username.as_deref(), Some("admin"));
         assert_eq!(target.port, Some(22));
+        assert_eq!(
+            target.ssh_security,
+            Some(SshSecurityProfile::LegacyCompatible)
+        );
         assert_eq!(target.device_profile.as_deref(), Some("huawei"));
         assert_eq!(target.template_dir.as_deref(), Some("/tmp/templates"));
         assert_eq!(

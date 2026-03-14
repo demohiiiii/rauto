@@ -1,4 +1,5 @@
 use crate::config::paths::rauto_home_dir;
+use crate::config::ssh_security::SshSecurityProfile;
 use anyhow::{Context, Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -11,6 +12,7 @@ pub struct SavedConnection {
     pub password: Option<String>,
     pub port: Option<u16>,
     pub enable_password: Option<String>,
+    pub ssh_security: Option<SshSecurityProfile>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
 }

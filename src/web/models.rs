@@ -1,3 +1,4 @@
+use crate::config::ssh_security::SshSecurityProfile;
 use rneter::{device::StateMachineDiagnostics, session::SessionRecordEntry};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -23,6 +24,7 @@ pub struct ConnectionRequest {
     pub password: Option<String>,
     pub port: Option<u16>,
     pub enable_password: Option<String>,
+    pub ssh_security: Option<SshSecurityProfile>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
 }
@@ -39,6 +41,7 @@ pub struct ConnectionTestResponse {
     pub host: String,
     pub port: u16,
     pub username: String,
+    pub ssh_security: SshSecurityProfile,
     pub device_profile: String,
 }
 

@@ -1,3 +1,4 @@
+use crate::config::ssh_security::SshSecurityProfile;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
@@ -484,6 +485,10 @@ pub struct GlobalOpts {
     /// Enable password (for Cisco Enable mode etc.)
     #[arg(long, short = 'e', global = true)]
     pub enable_password: Option<String>,
+
+    /// SSH security profile for key exchange / cipher compatibility
+    #[arg(long, global = true, value_enum)]
+    pub ssh_security: Option<SshSecurityProfile>,
 
     /// Device profile name (e.g. cisco, huawei, or custom)
     #[arg(long, short = 'd', global = true)]

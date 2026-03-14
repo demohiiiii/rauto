@@ -2424,9 +2424,9 @@ dependencies = [
 
 [[package]]
 name = "rneter"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6deae506730bdc6ef67c2b237291070a2584fbd03575c94b43b59552ff98277"
+checksum = "4c423748af0577fb33061c2247fa0f56a2f770365e9dae2b12c1735a41e365d0"
 dependencies = [
  "anyhow",
  "async-ssh2-tokio",

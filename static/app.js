@@ -468,6 +468,10 @@ const i18n = {
     usernamePlaceholder: "username",
     passwordPlaceholder: "password",
     enablePasswordPlaceholder: "enable password (optional)",
+    sshSecurityOptionDefault: "ssh security (default secure)",
+    sshSecurityOptionSecure: "secure",
+    sshSecurityOptionBalanced: "balanced",
+    sshSecurityOptionLegacy: "legacy-compatible",
     deviceProfilePlaceholder: "device profile (default cisco)",
     templatePlaceholder: "template file name or path",
     varsPlaceholder: 'JSON vars, e.g. {"vlan_id": 10}',
@@ -930,6 +934,10 @@ const i18n = {
     usernamePlaceholder: "用户名",
     passwordPlaceholder: "密码",
     enablePasswordPlaceholder: "enable 密码（可选）",
+    sshSecurityOptionDefault: "SSH 安全档位（默认 secure）",
+    sshSecurityOptionSecure: "secure",
+    sshSecurityOptionBalanced: "balanced",
+    sshSecurityOptionLegacy: "legacy-compatible",
     deviceProfilePlaceholder: "设备 profile（默认 cisco）",
     templatePlaceholder: "模板文件名或路径",
     varsPlaceholder: 'JSON 变量，例如 {"vlan_id": 10}',
@@ -1349,6 +1357,10 @@ function applyI18n() {
   byId("username").placeholder = t("usernamePlaceholder");
   byId("password").placeholder = t("passwordPlaceholder");
   byId("enable_password").placeholder = t("enablePasswordPlaceholder");
+  byId("ssh-security-option-default").textContent = t("sshSecurityOptionDefault");
+  byId("ssh-security-option-secure").textContent = t("sshSecurityOptionSecure");
+  byId("ssh-security-option-balanced").textContent = t("sshSecurityOptionBalanced");
+  byId("ssh-security-option-legacy").textContent = t("sshSecurityOptionLegacy");
   byId("device_profile").placeholder = t("deviceProfilePlaceholder");
   byId("saved-conn-name").placeholder = t("savedConnNamePlaceholder");
   byId("template").placeholder = t("templatePlaceholder");
@@ -1906,6 +1918,7 @@ function connectionPayload() {
     username: value("username") || null,
     password: value("password") || null,
     enable_password: value("enable_password") || null,
+    ssh_security: value("ssh_security") || null,
     device_profile: value("device_profile") || null,
   };
 }
@@ -3360,6 +3373,7 @@ function applyConnectionForm(connection = {}) {
   byId("username").value = connection.username || "";
   byId("password").value = connection.password || "";
   byId("enable_password").value = connection.enable_password || "";
+  byId("ssh_security").value = connection.ssh_security || "";
   byId("device_profile").value = connection.device_profile || "";
 }
 
@@ -6696,11 +6710,11 @@ function bindEvents() {
       const data = await request("POST", "/api/connection/test", {
         connection: connectionPayload(),
       });
-      setStatusMessage(
-        "connection-test-out",
-        `${t("connectionOk")}: ${data.username}@${data.host}:${data.port} (${data.device_profile})`,
-        "success"
-      );
+    setStatusMessage(
+      "connection-test-out",
+      `${t("connectionOk")}: ${data.username}@${data.host}:${data.port} (${data.device_profile}, ${safeString(data.ssh_security)})`,
+      "success"
+    );
     } catch (e) {
       setStatusMessage("connection-test-out", e.message, "error");
     }

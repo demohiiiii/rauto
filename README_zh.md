@@ -239,6 +239,7 @@ Web 静态资源在构建时会嵌入二进制。
 
 Web 控制台主要能力：
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
+- 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。
 - 基于已保存连接执行命令（先加载连接，再选择直接执行或模板渲染执行）。
 - 分页管理 profile（内置/自定义）与 template。
 - 在页面中管理命令黑名单：新增、删除、校验带 `*` 通配符的规则。
@@ -303,6 +304,7 @@ rauto connection add lab1 \
     --host 192.168.1.1 \
     --username admin \
     --ssh-port 22 \
+    --ssh-security balanced \
     --device-profile cisco
 
 # 复用已保存配置执行命令
@@ -323,6 +325,7 @@ rauto history list lab1 --limit 20
 密码保存规则：
 - 在 `exec/template/connection test` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
 - 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
+- `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。
 
 ### 7. 数据备份与恢复
 
@@ -826,6 +829,7 @@ rauto web \
 | `--password` | `RAUTO_PASSWORD` | SSH 密码 |
 | `--enable-password` | - | Enable/Secret 密码 |
 | `--ssh-port` | - | SSH 端口 (默认: 22) |
+| `--ssh-security` | - | SSH 安全档位：`secure`、`balanced`、`legacy-compatible` |
 | `--device-profile` | - | 设备类型 (默认: cisco) |
 | `--connection` | - | 按名称加载已保存连接配置 |
 | `--save-connection` | - | 成功连接后保存当前有效连接配置 |

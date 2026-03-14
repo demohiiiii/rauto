@@ -1,3 +1,5 @@
+use crate::config::ssh_security::SshSecurityProfile;
+use crate::{manager_connection_request, manager_execution_context_with_security};
 use anyhow::{Result, anyhow};
 use rneter::{
     device::DeviceHandler,
@@ -21,13 +23,17 @@ impl DeviceClient {
         password: String,
         enable_password: Option<String>,
         handler: DeviceHandler,
+        ssh_security: SshSecurityProfile,
     ) -> Result<Self> {
         info!("Connecting to {}:{} as {}", host, port, username);
 
-        // MANAGER.get returns a Sender<CmdJob>
-        // It handles connection pooling internally
+        let request =
+            manager_connection_request(username, host, port, password, enable_password, handler);
         let sender = MANAGER
-            .get(username, host, port, password, enable_password, handler)
+            .get_with_context(
+                request,
+                manager_execution_context_with_security(None, ssh_security),
+            )
             .await
             .map_err(|e| anyhow!("Failed to connect: {}", e))?;
 
@@ -46,20 +52,19 @@ impl DeviceClient {
         enable_password: Option<String>,
         handler: DeviceHandler,
         level: SessionRecordLevel,
+        ssh_security: SshSecurityProfile,
     ) -> Result<Self> {
         info!(
             "Connecting with recording to {}:{} as {}",
             host, port, username
         );
 
+        let request =
+            manager_connection_request(username, host, port, password, enable_password, handler);
         let (sender, recorder) = MANAGER
-            .get_with_recording_level(
-                username,
-                host,
-                port,
-                password,
-                enable_password,
-                handler,
+            .get_with_recording_level_and_context(
+                request,
+                manager_execution_context_with_security(None, ssh_security),
                 level,
             )
             .await
