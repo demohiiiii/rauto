@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2026-03-14
+
+### New Features
+- Added dedicated managed startup via `rauto agent`, including manager registration, heartbeats, task callbacks, protected agent APIs, browser token entry, and separation from local-only `rauto web`.
+- Added manager-facing device sync flows for saved connections: full inventory sync via `POST /api/agents/report-devices`, incremental liveness updates via `POST /api/agents/update-device-status`, startup sync, change-triggered resync, and periodic reachability probing.
+- Added wildcard command blacklist enforcement across CLI, Web, interactive execution, `tx`, `tx-workflow`, and multi-device orchestration, plus a Web UI for add/delete/check operations.
+- Upgraded SSH connection control by moving to `rneter 0.3.0` and exposing saved/CLI/Web SSH security profiles: `secure`, `balanced`, and `legacy-compatible`.
+
+### Optimizations
+- Reduced inventory sync noise by changing agent reporting from frequent repeated uploads to change-based full sync plus periodic incremental status refresh.
+- Improved Web connection handling so execution APIs can resolve saved connections by `connection_name` server-side, while connection detail responses redact stored secrets and preserve saved passwords on updates unless explicitly replaced.
+- Refined saved-connection merge precedence across CLI defaults, saved profiles, and explicit request fields, making Web/CLI/orchestrate behavior more consistent when profiles are reused.
+
+### API Changes
+- Added top-level CLI command `rauto agent`; managed deployments should migrate manager-connected startup flows from `rauto web ...` to `rauto agent ...`, while `rauto web` remains local self-management only.
+- Added agent-side endpoints `GET /api/agent/info`, `GET /api/agent/status`, and `POST /api/devices/probe` for manager discovery, runtime inspection, and batch reachability checks.
+- Saved connection detail responses no longer return `password` or `enable_password`; clients should rely on `has_password` for presence and only send secret fields when rotating them.
+- Web execution APIs now support resolving a saved connection from `connection.connection_name` without resending `host` and password fields, and the internal `rneter` integration now uses the `ConnectionRequest` / `ExecutionContext` based 0.3.0 manager APIs.
+
+### Risks
+- The managed-mode CLI split is a breaking change for any scripts, services, or documentation still launching manager-connected workflows through `rauto web`.
+- Agent liveness reporting currently reflects TCP reachability, not successful SSH authentication or command execution, so manager-side health can still diverge from real operational readiness.
+- Broad blacklist patterns can now block direct commands, transactions, workflows, and orchestration targets across both CLI and Web paths, increasing blast radius if patterns are misconfigured.
+- Agent/manager integration, browser auth flows, and the `rneter 0.3.0` migration are compile/test validated, but still lack full end-to-end coverage against a live manager and browser automation suite.
+
 ## [0.2.2] - 2026-03-11
 
 ### New Features

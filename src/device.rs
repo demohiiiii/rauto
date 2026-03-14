@@ -44,6 +44,7 @@ impl DeviceClient {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn connect_with_recording(
         host: String,
         port: u16,
