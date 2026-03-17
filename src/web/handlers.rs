@@ -1,4 +1,4 @@
-use crate::agent::registration::{AgentRegistrar, current_agent_name};
+use crate::agent::registration::{AgentRegistrar, AsyncErrorReportInput, current_agent_name};
 use crate::cli::RecordLevelOpt;
 use crate::config::command_blacklist;
 use crate::config::device_profile::DeviceProfile;
@@ -58,12 +58,17 @@ pub struct HistoryQuery {
 struct TaskCallbackContext {
     task_id: String,
     callback_url: String,
+    operation: String,
     started_at: chrono::DateTime<Utc>,
     started_instant: Instant,
 }
 
 impl TaskCallbackContext {
-    fn from_request(task_id: Option<String>, callback_url: Option<String>) -> Option<Self> {
+    fn from_request(
+        operation: &str,
+        task_id: Option<String>,
+        callback_url: Option<String>,
+    ) -> Option<Self> {
         let task_id = task_id
             .as_deref()
             .map(str::trim)
@@ -77,6 +82,7 @@ impl TaskCallbackContext {
         Some(Self {
             task_id,
             callback_url,
+            operation: operation.to_string(),
             started_at: Utc::now(),
             started_instant: Instant::now(),
         })
@@ -132,6 +138,23 @@ fn spawn_task_callback<T: Serialize>(
         };
         if let Err(err) = send_result {
             warn!("task callback failed: {}", err);
+            if let Some(registrar) = state.registrar() {
+                registrar
+                    .report_async_error_best_effort(
+                        AsyncErrorReportInput::new("task_callback_failed", err.to_string())
+                            .with_task_id(Some(task_ctx.task_id.clone()))
+                            .with_operation(Some(task_ctx.operation.clone()))
+                            .with_target_url(Some(task_ctx.callback_url.clone()))
+                            .with_http_method(Some("POST".to_string()))
+                            .with_details(Some(json!({
+                                "task_status": callback.status,
+                                "started_at": callback.started_at,
+                                "completed_at": callback.completed_at,
+                                "execution_time_ms": callback.execution_time_ms
+                            }))),
+                    )
+                    .await;
+            }
         }
     });
 }
@@ -556,7 +579,8 @@ pub async fn exec_command(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecRequest>,
 ) -> Result<Json<ExecResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(req.task_id.clone(), req.callback_url.clone());
+    let task_ctx =
+        TaskCallbackContext::from_request("exec", req.task_id.clone(), req.callback_url.clone());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecResponse, ApiError> = async {
         let record_level = req.record_level;
@@ -939,7 +963,11 @@ pub async fn execute_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTemplateRequest>,
 ) -> Result<Json<ExecuteTemplateResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(req.task_id.clone(), req.callback_url.clone());
+    let task_ctx = TaskCallbackContext::from_request(
+        "template_execute",
+        req.task_id.clone(),
+        req.callback_url.clone(),
+    );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecuteTemplateResponse, ApiError> = async {
         let record_level = req.record_level;
@@ -1070,7 +1098,11 @@ pub async fn execute_tx_block(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxBlockRequest>,
 ) -> Result<Json<ExecuteTxBlockResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(req.task_id.clone(), req.callback_url.clone());
+    let task_ctx = TaskCallbackContext::from_request(
+        "tx_block",
+        req.task_id.clone(),
+        req.callback_url.clone(),
+    );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecuteTxBlockResponse, ApiError> = async {
         let record_level = req.record_level;
@@ -1311,7 +1343,11 @@ pub async fn execute_tx_workflow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxWorkflowRequest>,
 ) -> Result<Json<ExecuteTxWorkflowResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(req.task_id.clone(), req.callback_url.clone());
+    let task_ctx = TaskCallbackContext::from_request(
+        "tx_workflow",
+        req.task_id.clone(),
+        req.callback_url.clone(),
+    );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecuteTxWorkflowResponse, ApiError> = async {
         let record_level = req.record_level;
@@ -1427,7 +1463,11 @@ pub async fn execute_orchestration(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteOrchestrationRequest>,
 ) -> Result<Json<ExecuteOrchestrationResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(req.task_id.clone(), req.callback_url.clone());
+    let task_ctx = TaskCallbackContext::from_request(
+        "orchestrate",
+        req.task_id.clone(),
+        req.callback_url.clone(),
+    );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecuteOrchestrationResponse, ApiError> = async {
         let plan_root = req

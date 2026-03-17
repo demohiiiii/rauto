@@ -10,6 +10,7 @@ use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use std::net::{IpAddr, ToSocketAddrs, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -80,6 +81,29 @@ struct UpdateDeviceStatusRequest {
     devices: Vec<ReportedDeviceStatus>,
 }
 
+#[derive(Debug, Serialize)]
+struct ReportErrorRequest {
+    name: String,
+    category: String,
+    kind: String,
+    severity: String,
+    occurred_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    operation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    http_method: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    http_status: Option<u16>,
+    retryable: bool,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<Value>,
+}
+
 #[derive(Debug, Deserialize)]
 struct RegisterEnvelope {
     #[allow(dead_code)]
@@ -108,6 +132,69 @@ struct UpdateDeviceStatusEnvelope {
 #[derive(Debug, Deserialize)]
 struct UpdateDeviceStatusData {
     updated: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct AsyncErrorReportInput {
+    category: String,
+    kind: String,
+    severity: String,
+    task_id: Option<String>,
+    operation: Option<String>,
+    target_url: Option<String>,
+    http_method: Option<String>,
+    http_status: Option<u16>,
+    retryable: bool,
+    message: String,
+    details: Option<Value>,
+}
+
+impl AsyncErrorReportInput {
+    pub fn new(kind: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            category: "async_delivery".to_string(),
+            kind: kind.into(),
+            severity: "error".to_string(),
+            task_id: None,
+            operation: None,
+            target_url: None,
+            http_method: None,
+            http_status: None,
+            retryable: true,
+            message: message.into(),
+            details: None,
+        }
+    }
+
+    pub fn with_category(mut self, category: impl Into<String>) -> Self {
+        self.category = category.into();
+        self
+    }
+
+    pub fn with_task_id(mut self, task_id: Option<String>) -> Self {
+        self.task_id = task_id;
+        self
+    }
+
+    pub fn with_operation(mut self, operation: Option<String>) -> Self {
+        self.operation = operation;
+        self
+    }
+
+    pub fn with_target_url(mut self, target_url: Option<String>) -> Self {
+        self.target_url = target_url;
+        self
+    }
+
+    pub fn with_http_method(mut self, http_method: Option<String>) -> Self {
+        self.http_method = http_method;
+        self
+    }
+
+    pub fn with_details(mut self, details: Option<Value>) -> Self {
+        self.details = details;
+        self
+    }
 }
 
 impl AgentRegistrar {
@@ -325,6 +412,38 @@ impl AgentRegistrar {
         Ok(())
     }
 
+    pub async fn report_async_error(&self, input: AsyncErrorReportInput) -> Result<()> {
+        let payload = ReportErrorRequest {
+            name: self.config.agent.name.clone(),
+            category: input.category,
+            kind: input.kind,
+            severity: input.severity,
+            occurred_at: Utc::now().to_rfc3339(),
+            task_id: input.task_id,
+            operation: input.operation,
+            target_url: input.target_url,
+            http_method: input.http_method,
+            http_status: input.http_status,
+            retryable: input.retryable,
+            message: input.message,
+            details: input.details,
+        };
+        self.authed_post(self.manager_endpoint("/api/agents/report-error"))
+            .json(&payload)
+            .send()
+            .await
+            .context("failed to send async error report to manager")?
+            .error_for_status()
+            .context("manager async error report endpoint returned error")?;
+        Ok(())
+    }
+
+    pub async fn report_async_error_best_effort(&self, input: AsyncErrorReportInput) {
+        if let Err(err) = self.report_async_error(input).await {
+            warn!("manager async error report failed: {}", err);
+        }
+    }
+
     pub async fn send_task_callback_direct(
         callback_url: &str,
         api_token: Option<&str>,
@@ -367,12 +486,32 @@ impl AgentRegistrar {
             name: self.config.agent.name.clone(),
             devices,
         };
+        let target_url = self.manager_endpoint("/api/agents/update-device-status");
         let response = self
-            .authed_post(self.manager_endpoint("/api/agents/update-device-status"))
+            .authed_post(target_url.clone())
             .json(&payload)
             .send()
-            .await?
-            .error_for_status()?;
+            .await
+            .and_then(|resp| resp.error_for_status())
+            .map_err(anyhow::Error::from);
+        let response = match response {
+            Ok(response) => response,
+            Err(err) => {
+                self.report_async_error_best_effort(
+                    AsyncErrorReportInput::new("device_status_update_failed", err.to_string())
+                        .with_category("sync")
+                        .with_operation(Some("agent_device_status_update".to_string()))
+                        .with_target_url(Some(target_url))
+                        .with_http_method(Some("POST".to_string()))
+                        .with_details(Some(json!({
+                            "devices_count": payload.devices.len(),
+                            "probe_timeout_secs": timeout_secs
+                        }))),
+                )
+                .await;
+                return Err(err);
+            }
+        };
         let updated = response
             .json::<UpdateDeviceStatusEnvelope>()
             .await
@@ -436,12 +575,31 @@ impl AgentRegistrar {
             name: self.config.agent.name.clone(),
             devices,
         };
+        let target_url = self.manager_endpoint("/api/agents/report-devices");
         let response = self
-            .authed_post(self.manager_endpoint("/api/agents/report-devices"))
+            .authed_post(target_url.clone())
             .json(&payload)
             .send()
-            .await?
-            .error_for_status()?;
+            .await
+            .and_then(|resp| resp.error_for_status())
+            .map_err(anyhow::Error::from);
+        let response = match response {
+            Ok(response) => response,
+            Err(err) => {
+                self.report_async_error_best_effort(
+                    AsyncErrorReportInput::new("device_inventory_sync_failed", err.to_string())
+                        .with_category("sync")
+                        .with_operation(Some("agent_device_inventory_sync".to_string()))
+                        .with_target_url(Some(target_url))
+                        .with_http_method(Some("POST".to_string()))
+                        .with_details(Some(json!({
+                            "devices_count": payload.devices.len()
+                        }))),
+                )
+                .await;
+                return Err(err);
+            }
+        };
         let synced = response
             .json::<ReportDevicesEnvelope>()
             .await

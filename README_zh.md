@@ -282,6 +282,7 @@ Agent 模式新增能力：
 - 启动后后台自动注册、定时心跳，以及退出时尽力发送离线通知。
 - 在注册成功后和已保存连接变更时，自动调用 `POST /api/agents/report-devices` 做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
 - 按周期存活探测刷新时，自动调用 `POST /api/agents/update-device-status` 做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
+- 当 task callback、设备清单同步、设备状态更新等异步投递失败时，会尽力调用 `POST /api/agents/report-error` 向 manager 上报错误。
 - 在 `exec`、模板执行、`tx`、`tx-workflow`、`orchestrate` 请求中支持可选 `task_id` + `callback_url`，用于异步任务回调。
 - 配置 token 时，对 manager 的外呼会同时带上 `Authorization: Bearer <token>` 和 `X-API-Key: <token>`。
 - 如果 agent 模式启动时配置了 token，浏览器中的 Web UI 请求也需要在页面头部填写同一个 token。

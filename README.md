@@ -278,6 +278,7 @@ Agent mode adds:
 - Background manager registration, heartbeat, and best-effort offline notification on shutdown.
 - Full inventory sync to `POST /api/agents/report-devices` after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
 - Periodic liveness probe refresh to `POST /api/agents/update-device-status` (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
+- Best-effort async error reporting to `POST /api/agents/report-error` when manager-facing async deliveries such as task callbacks or device sync submissions fail.
 - Optional `task_id` + `callback_url` on `exec`, `template execute`, `tx`, `tx-workflow`, and `orchestrate` requests for async task callbacks.
 - Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
 - When agent mode is started with a token, browser-side Web UI requests must provide the same token in the page header token field.
