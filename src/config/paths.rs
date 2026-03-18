@@ -3,6 +3,9 @@ use std::fs;
 use std::path::PathBuf;
 
 pub fn rauto_home_dir() -> PathBuf {
+    if let Some(path) = std::env::var_os("RAUTO_HOME").filter(|value| !value.is_empty()) {
+        return PathBuf::from(path);
+    }
     dirs::home_dir()
         .map(|p| p.join(".rauto"))
         .unwrap_or_else(|| PathBuf::from(".rauto"))

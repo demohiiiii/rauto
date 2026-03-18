@@ -322,11 +322,14 @@ rauto history list lab1 --limit 20
 Password behavior:
 - `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
+- Saved passwords are stored in the system keychain via `keyring`; connection TOML files keep only secret references, not plaintext passwords.
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections.
 
 ### 7. Backup & Restore
 
 Backup all current `rauto` runtime data (`connections`, `profiles`, `templates`, `records`, etc.):
+
+Note: backup archives include saved connection metadata, but system-keychain secrets are not exported into the archive.
 
 ```bash
 # Create backup to default path: ~/.rauto/backups/rauto-backup-<timestamp>.tar.gz

@@ -101,7 +101,7 @@ fn load_inventory_signature_devices() -> Result<Vec<InventorySignatureDevice>> {
     let names = connection_store::list_connections()?;
     let mut devices = Vec::new();
     for name in names {
-        match connection_store::load_connection(&name) {
+        match connection_store::load_connection_raw(&name) {
             Ok(loaded) => {
                 let host = loaded.host.unwrap_or_default();
                 if host.trim().is_empty() {

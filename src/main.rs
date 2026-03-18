@@ -14,7 +14,8 @@ use cli::{
     GlobalOpts, HistoryCommands, RecordLevelOpt, TemplateCommands, TxArgs, TxWorkflowArgs,
 };
 use config::connection_store::{
-    SavedConnection, delete_connection, list_connections, load_connection, save_connection,
+    SavedConnection, delete_connection, list_connections, load_connection, load_connection_raw,
+    save_connection,
 };
 use config::history_store::{self, HistoryBinding};
 use config::paths::{default_template_dir, ensure_default_layout};
@@ -29,6 +30,7 @@ use rneter::session::{
     TxStep, TxWorkflowResult,
 };
 use rneter::templates as rneter_templates;
+use serde::Serialize;
 use serde_json::Value;
 use std::fmt::Write as _;
 use std::fs;
@@ -634,9 +636,19 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
         }
         ConnectionCommands::Show { name } => {
             let safe = config::connection_store::safe_connection_name(&name)?;
-            let data = load_connection(&safe)?;
+            let data = load_connection_raw(&safe)?;
+            let output = ConnectionShowOutput {
+                host: data.host.clone(),
+                username: data.username.clone(),
+                port: data.port,
+                ssh_security: data.ssh_security,
+                device_profile: data.device_profile.clone(),
+                template_dir: data.template_dir.clone(),
+                has_password: config::connection_store::has_saved_password(&data),
+                has_enable_password: config::connection_store::has_saved_enable_password(&data),
+            };
             println!("# saved connection: {}", safe);
-            println!("{}", toml::to_string_pretty(&data)?);
+            println!("{}", toml::to_string_pretty(&output)?);
         }
         ConnectionCommands::Delete { name } => {
             let deleted = delete_connection(&name)?;
@@ -799,6 +811,18 @@ pub(crate) struct EffectiveConnection {
     template_dir: Option<PathBuf>,
 }
 
+#[derive(Debug, Serialize)]
+struct ConnectionShowOutput {
+    host: Option<String>,
+    username: Option<String>,
+    port: Option<u16>,
+    ssh_security: Option<SshSecurityProfile>,
+    device_profile: Option<String>,
+    template_dir: Option<String>,
+    has_password: bool,
+    has_enable_password: bool,
+}
+
 fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConnection> {
     let saved = if let Some(name) = &opts.connection {
         Some(load_connection(name)?)
@@ -888,12 +912,14 @@ fn save_named_connection(
         } else {
             None
         },
+        password_ref: None,
         port: Some(conn.port),
         enable_password: if save_password {
             conn.enable_password.clone()
         } else {
             None
         },
+        enable_password_ref: None,
         ssh_security: Some(conn.ssh_security),
         device_profile: Some(conn.device_profile.clone()),
         template_dir: conn

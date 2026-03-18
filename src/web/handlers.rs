@@ -763,12 +763,12 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
     let names = connection_store::list_connections().map_err(ApiError::from)?;
     let mut items = Vec::new();
     for name in names {
-        if let Ok(data) = connection_store::load_connection(&name) {
+        if let Ok(data) = connection_store::load_connection_raw(&name) {
             let path = connection_store::connections_dir().join(format!("{}.toml", name));
             items.push(SavedConnectionMeta {
                 name,
                 path: path.to_string_lossy().to_string(),
-                has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
+                has_password: connection_store::has_saved_password(&data),
             });
         }
     }
@@ -783,7 +783,7 @@ fn saved_connection_detail_response(
     SavedConnectionDetail {
         name: name.to_string(),
         path: path.to_string_lossy().to_string(),
-        has_password: data.password.as_deref().is_some_and(|s| !s.is_empty()),
+        has_password: connection_store::has_saved_password(data),
         connection: ConnectionRequest {
             connection_name: Some(name.to_string()),
             host: data.host.clone(),
@@ -814,7 +814,7 @@ pub async fn get_connection(
 ) -> Result<Json<SavedConnectionDetail>, ApiError> {
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
-    let data = connection_store::load_connection(&safe)
+    let data = connection_store::load_connection_raw(&safe)
         .map_err(|_| ApiError::bad_request("saved connection not found"))?;
     let path = connection_store::connections_dir().join(format!("{}.toml", safe));
     Ok(Json(saved_connection_detail_response(&safe, &path, &data)))
@@ -913,6 +913,7 @@ pub async fn upsert_connection(
             c.password,
             existing.as_ref().and_then(|item| item.password.as_ref()),
         ),
+        password_ref: None,
         port: c.port,
         enable_password: merged_saved_secret(
             save_password,
@@ -921,6 +922,7 @@ pub async fn upsert_connection(
                 .as_ref()
                 .and_then(|item| item.enable_password.as_ref()),
         ),
+        enable_password_ref: None,
         ssh_security: c
             .ssh_security
             .or_else(|| existing.as_ref().and_then(|item| item.ssh_security)),
@@ -1570,8 +1572,10 @@ mod tests {
                 host: Some("192.0.2.10".to_string()),
                 username: Some("admin".to_string()),
                 password: Some("secret".to_string()),
+                password_ref: None,
                 port: Some(22),
                 enable_password: Some("enable-secret".to_string()),
+                enable_password_ref: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 device_profile: Some("cisco_ios".to_string()),
                 template_dir: Some("/tmp/templates".to_string()),

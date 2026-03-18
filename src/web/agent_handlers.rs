@@ -109,7 +109,7 @@ pub async fn probe_devices(
 }
 
 async fn probe_one_connection(name: String, timeout_secs: u64) -> DeviceProbeResult {
-    let loaded = match connection_store::load_connection(&name) {
+    let loaded = match connection_store::load_connection_raw(&name) {
         Ok(value) => value,
         Err(_) => {
             return DeviceProbeResult {
