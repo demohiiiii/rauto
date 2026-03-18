@@ -26,11 +26,11 @@ pub fn set_secret(secret_ref: &str, value: &str) -> Result<()> {
     #[cfg(test)]
     {
         let secrets = TEST_BACKEND_SECRETS.get_or_init(|| Mutex::new(None));
-        if let Ok(mut guard) = secrets.lock() {
-            if let Some(secrets) = guard.as_mut() {
-                secrets.insert(secret_ref.to_string(), value.to_string());
-                return Ok(());
-            }
+        if let Ok(mut guard) = secrets.lock()
+            && let Some(secrets) = guard.as_mut()
+        {
+            secrets.insert(secret_ref.to_string(), value.to_string());
+            return Ok(());
         }
     }
 
@@ -44,10 +44,10 @@ pub fn get_secret(secret_ref: &str) -> Result<Option<String>> {
     #[cfg(test)]
     {
         let secrets = TEST_BACKEND_SECRETS.get_or_init(|| Mutex::new(None));
-        if let Ok(guard) = secrets.lock() {
-            if let Some(secrets) = guard.as_ref() {
-                return Ok(secrets.get(secret_ref).cloned());
-            }
+        if let Ok(guard) = secrets.lock()
+            && let Some(secrets) = guard.as_ref()
+        {
+            return Ok(secrets.get(secret_ref).cloned());
         }
     }
 
@@ -62,11 +62,11 @@ pub fn delete_secret(secret_ref: &str) -> Result<()> {
     #[cfg(test)]
     {
         let secrets = TEST_BACKEND_SECRETS.get_or_init(|| Mutex::new(None));
-        if let Ok(mut guard) = secrets.lock() {
-            if let Some(secrets) = guard.as_mut() {
-                secrets.remove(secret_ref);
-                return Ok(());
-            }
+        if let Ok(mut guard) = secrets.lock()
+            && let Some(secrets) = guard.as_mut()
+        {
+            secrets.remove(secret_ref);
+            return Ok(());
         }
     }
 

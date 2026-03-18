@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.1] - 2026-03-18
+
+### New Features
+- Added best-effort async error reporting from `rauto agent` to `POST /api/agents/report-error` for manager-facing asynchronous delivery failures, including task callback delivery, device inventory sync, and device status update flows.
+- Added secure saved-connection secret storage via system keychain integration (`keyring`), moving newly saved `password` and `enable_password` values out of `~/.rauto/connections/*.toml` and into keychain-backed secret references.
+
+### Optimizations
+- Hardened saved-connection handling by separating raw metadata reads from resolved secret reads, so Web connection detail/list responses and `rauto connection show` remain redacted while execution paths still resolve secrets transparently.
+- Tightened connection file handling with Unix `0600` permissions and documented that backups include connection metadata only, not exported keychain secrets.
+
+### API Changes
+- Added manager-facing endpoint dependency `POST /api/agents/report-error`; manager integrations can now receive structured async delivery failure reports containing agent name, kind, task/operation context, target URL, retryability, and diagnostic details.
+- Saved connection files now persist `password_ref` / `enable_password_ref` instead of plaintext secret values for newly saved connections; clients and tooling should treat connection TOML as metadata-only and use normal `rauto` save/update flows to rotate secrets.
+
+### Risks
+- Existing saved connections with plaintext passwords are not auto-migrated; they remain on disk until operators resave or otherwise rotate those connection entries.
+- Keychain-backed secret storage depends on the host environment's credential backend; headless or minimally provisioned systems may require additional OS-level keychain setup before password saves succeed.
+- Backup/restore archives no longer carry enough information to reconstruct saved passwords on a different machine by themselves, so disaster recovery procedures must account for separate keychain secret availability.
+
 ## [0.3.0] - 2026-03-14
 
 ### New Features
