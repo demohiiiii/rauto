@@ -103,6 +103,7 @@ cp -R rauto/skills/rauto-usage ~/.claude/skills/
 ### 1. 模板模式（推荐）
 
 从模板渲染命令并在设备上执行。
+模板内容保存在 SQLite 中，可通过 `rauto templates` 或 Web UI 管理。
 
 **基本用法：**
 ```bash
@@ -114,7 +115,7 @@ rauto template show_version.j2 \
 ```
 
 **使用变量：**
-假设有一个模板 `templates/commands/configure_vlan.j2` 和变量文件 `templates/example_vars.json`：
+假设已经保存了一个模板 `configure_vlan.j2`，并有变量文件 `templates/example_vars.json`：
 
 ```bash
 rauto template configure_vlan.j2 \
@@ -178,24 +179,9 @@ rauto template show_ver.j2 \
 ```
 
 **自定义设备配置：**
-你可以在 `templates/devices/*.toml` 中定义自定义配置。
+自定义设备 profile 现在保存在 SQLite 中，通过 `rauto device` 或 Web UI 管理。
 
-示例 `templates/devices/custom_cisco.toml`：
-```toml
-name = "custom_cisco"
-
-# 注意：在 TOML 中，顶层键值对必须在表格（[[prompts]] 等）之前定义
-more_patterns = ['^.*?--More--.*?$']
-error_patterns = ['^% Invalid input detected', '^% Incomplete command']
-
-[[prompts]]
-state = "Enable"
-patterns = ['^[^\s#]+#\s*$']
-
-# ... 查看 templates/devices/custom_cisco.toml 获取完整示例
-```
-
-使用它：
+创建或复制后可直接这样使用：
 ```bash
 rauto exec "show ver" \
     --host 192.168.1.1 \
@@ -256,7 +242,7 @@ Web 控制台主要能力：
 rauto agent \
     --bind 0.0.0.0 \
     --port 8123 \
-    --manager-url http://manager:3000 \
+    --manager-url http://manager:50051 \
     --agent-name agent-beijing-01 \
     --agent-token my-secret-token \
     --probe-report-interval 300
@@ -266,7 +252,7 @@ rauto agent \
 
 ```toml
 [manager]
-url = "http://manager:3000"
+url = "http://manager:50051"
 token = "my-secret-token"
 
 [agent]
@@ -280,10 +266,10 @@ Agent 模式新增能力：
 - 受保护的 `GET /api/agent/status`，用于查看运行状态和心跳时间。
 - 受保护的 `POST /api/devices/probe`，用于批量探测已保存连接的 TCP 可达性。
 - 启动后后台自动注册、定时心跳，以及退出时尽力发送离线通知。
-- 在注册成功后和已保存连接变更时，自动调用 `POST /api/agents/report-devices` 做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
-- 按周期存活探测刷新时，自动调用 `POST /api/agents/update-device-status` 做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
-- 当 task callback、设备清单同步、设备状态更新等异步投递失败时，会尽力调用 `POST /api/agents/report-error` 向 manager 上报错误。
-- 在 `exec`、模板执行、`tx`、`tx-workflow`、`orchestrate` 请求中支持可选 `task_id` + `callback_url`，用于异步任务回调。
+- 对 manager 的上报现在通过 gRPC `rauto.manager.v1.AgentReportingService` 完成，包括 register、heartbeat、offline、设备清单同步、状态更新、异步错误上报和任务回调。
+- 在注册成功后和已保存连接变更时，会自动做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
+- 按周期存活探测刷新时，会做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
+- agent 模式下只传 `task_id` 也可以启用异步任务回调；任务回调会通过 gRPC 上报给 `rauto-manager`。
 - 配置 token 时，对 manager 的外呼会同时带上 `Authorization: Bearer <token>` 和 `X-API-Key: <token>`。
 - 如果 agent 模式启动时配置了 token，浏览器中的 Web UI 请求也需要在页面头部填写同一个 token。
 
@@ -326,12 +312,12 @@ rauto history list lab1 --limit 20
 密码保存规则：
 - 在 `exec/template/connection test` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
 - 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
-- 已保存密码会通过 `keyring` 进入系统密钥库，连接 TOML 文件里只保留密钥引用，不再保存明文密码。
+- 已保存密码会通过 `keyring` 进入系统密钥库；连接元数据保存在 `~/.rauto/rauto.db` 中。
 - `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。
 
 ### 7. 数据备份与恢复
 
-对当前 `rauto` 全部运行数据（连接、profile、模板、录制等）做备份：
+备份当前 `rauto` 的运行时数据存储和备份配置：
 
 注意：备份归档会包含连接元数据，但系统密钥库中的密码不会被导出到归档里。
 
@@ -375,7 +361,7 @@ rauto blacklist delete "reload*"
 说明：
 - `*` 可以匹配任意长度字符，也包括空格。
 - 匹配不区分大小写，并且按整条命令文本匹配。
-- 黑名单文件保存在 `~/.rauto/command_blacklist.txt`。
+- 黑名单数据保存在 `~/.rauto/rauto.db` 中。
 
 ### 9. CLI 速查表
 
@@ -691,7 +677,6 @@ rauto orchestrate ./orchestration.json --json
         "username": "admin",
         "port": 22,
         "device_profile": "huawei",
-        "template_dir": "~/.rauto/templates/site-a",
         "vars": {
           "site": "campus-a",
           "region": "east"
@@ -797,32 +782,17 @@ rauto web \
 
 默认情况下，`rauto` 将运行时数据存储在 `~/.rauto/` 下。
 
-默认目录：
-- `~/.rauto/connections`（已保存连接配置）
-- `~/.rauto/profiles`（自定义设备 profile）
-- `~/.rauto/templates/commands`
-- `~/.rauto/templates/devices`
-- `~/.rauto/records`（会话录制文件）
+默认运行时数据：
+- `~/.rauto/rauto.db`（已保存连接、历史录制、黑名单、自定义设备 profile、托管模板）
 - `~/.rauto/backups`（备份归档）
-- `~/.rauto/command_blacklist.txt`（黑名单命令模式）
 
-这些目录会在启动时自动创建。
-
-为了兼容历史用法，仍会回退检查当前目录下的 `./templates/`。
+启动时会自动创建 `~/.rauto` 和 `~/.rauto/backups`。
 
 ```
 ~/.rauto
-├── connections/            # 已保存连接配置 (*.toml)
-├── profiles/               # 从内置复制/创建的自定义 profile
-├── templates/
-│   ├── commands/           # 在此存储 .j2 命令模板
-│   └── devices/            # 在此存储自定义 .toml 设备配置
-├── records/                # 会话录制输出 (*.jsonl)
-├── backups/                # 备份归档 (*.tar.gz)
-└── command_blacklist.txt   # 使用 '*' 通配符的黑名单命令模式
+├── rauto.db                # SQLite 运行时数据存储
+└── backups/                # 备份归档 (*.tar.gz)
 ```
-
-你可以使用 `--template-dir` 参数或 `RAUTO_TEMPLATE_DIR` 环境变量指定自定义模板目录。
 
 ## 配置选项
 

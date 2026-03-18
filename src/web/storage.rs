@@ -1,14 +1,11 @@
+use crate::config::content_store;
 use crate::config::device_profile::{
     DeviceProfile, InteractionConfig, PromptConfig, SysPromptConfig, TransitionConfig,
 };
-use crate::config::paths::default_template_dir;
 use crate::web::error::ApiError;
 use crate::web::models::{
     BuiltinProfileDetail, BuiltinProfileMeta, CustomProfileMeta, TemplateMeta,
 };
-use std::fs;
-use std::path::{Path, PathBuf};
-
 pub fn builtin_profiles() -> Vec<BuiltinProfileMeta> {
     vec![
         BuiltinProfileMeta {
@@ -387,76 +384,26 @@ pub fn builtin_profile_form(name: &str) -> Option<DeviceProfile> {
     }
 }
 
-pub fn resolve_templates_root(template_dir: Option<&PathBuf>) -> PathBuf {
-    template_dir.cloned().unwrap_or_else(default_template_dir)
+pub fn list_custom_profiles() -> Result<Vec<CustomProfileMeta>, ApiError> {
+    Ok(content_store::list_custom_profiles()
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(|item| CustomProfileMeta {
+            name: item.name,
+            path: item.locator,
+        })
+        .collect())
 }
 
-pub fn resolve_profiles_dir(template_dir: Option<&PathBuf>) -> PathBuf {
-    resolve_templates_root(template_dir).join("devices")
-}
-
-pub fn resolve_commands_dir(template_dir: Option<&PathBuf>) -> PathBuf {
-    resolve_templates_root(template_dir).join("commands")
-}
-
-pub fn ensure_dir(path: &Path) -> Result<(), ApiError> {
-    fs::create_dir_all(path).map_err(ApiError::from)
-}
-
-pub fn list_custom_profiles(dir: &Path) -> Result<Vec<CustomProfileMeta>, ApiError> {
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut items = Vec::new();
-    for entry in fs::read_dir(dir).map_err(ApiError::from)? {
-        let entry = entry.map_err(ApiError::from)?;
-        let path = entry.path();
-        if path
-            .extension()
-            .and_then(|s| s.to_str())
-            .is_some_and(|ext| ext == "toml")
-        {
-            let name = path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or_default()
-                .to_string();
-            items.push(CustomProfileMeta {
-                name,
-                path: path.to_string_lossy().to_string(),
-            });
-        }
-    }
-
-    items.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(items)
-}
-
-pub fn list_templates(dir: &Path) -> Result<Vec<TemplateMeta>, ApiError> {
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut items = Vec::new();
-    for entry in fs::read_dir(dir).map_err(ApiError::from)? {
-        let entry = entry.map_err(ApiError::from)?;
-        let path = entry.path();
-        if path.is_file() {
-            let name = path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or_default()
-                .to_string();
-            items.push(TemplateMeta {
-                name,
-                path: path.to_string_lossy().to_string(),
-            });
-        }
-    }
-
-    items.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(items)
+pub fn list_templates() -> Result<Vec<TemplateMeta>, ApiError> {
+    Ok(content_store::list_command_templates()
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(|item| TemplateMeta {
+            name: item.name,
+            path: item.locator,
+        })
+        .collect())
 }
 
 pub fn safe_profile_name(raw: &str) -> Result<String, ApiError> {

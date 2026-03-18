@@ -11,16 +11,13 @@ pub fn rauto_home_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(".rauto"))
 }
 
-pub fn default_template_dir() -> PathBuf {
-    rauto_home_dir().join("templates")
+pub fn default_db_path() -> PathBuf {
+    rauto_home_dir().join("rauto.db")
 }
 
 pub fn ensure_default_layout() -> Result<()> {
     let root = rauto_home_dir();
-    fs::create_dir_all(root.join("templates").join("commands"))?;
-    fs::create_dir_all(root.join("templates").join("devices"))?;
-    fs::create_dir_all(root.join("connections"))?;
-    fs::create_dir_all(root.join("records").join("by_connection"))?;
+    fs::create_dir_all(&root)?;
     fs::create_dir_all(root.join("backups"))?;
     Ok(())
 }

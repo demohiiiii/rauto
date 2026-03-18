@@ -1,9 +1,9 @@
-use crate::agent::registration::{AgentRegistrar, AsyncErrorReportInput, current_agent_name};
+use crate::agent::registration::{AsyncErrorReportInput, current_agent_name};
 use crate::cli::RecordLevelOpt;
 use crate::config::command_blacklist;
 use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
-use crate::config::{backup, connection_store, connection_store::SavedConnection};
+use crate::config::{backup, connection_store, connection_store::SavedConnection, content_store};
 use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
 use crate::orchestrator;
@@ -57,31 +57,23 @@ pub struct HistoryQuery {
 #[derive(Debug, Clone)]
 struct TaskCallbackContext {
     task_id: String,
-    callback_url: String,
     operation: String,
     started_at: chrono::DateTime<Utc>,
     started_instant: Instant,
 }
 
 impl TaskCallbackContext {
-    fn from_request(
-        operation: &str,
-        task_id: Option<String>,
-        callback_url: Option<String>,
-    ) -> Option<Self> {
+    fn from_request(operation: &str, task_id: Option<String>, managed: bool) -> Option<Self> {
+        if !managed {
+            return None;
+        }
         let task_id = task_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToOwned::to_owned)?;
-        let callback_url = callback_url
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned)?;
         Some(Self {
             task_id,
-            callback_url,
             operation: operation.to_string(),
             started_at: Utc::now(),
             started_instant: Instant::now(),
@@ -122,20 +114,11 @@ fn spawn_task_callback<T: Serialize>(
     };
 
     let registrar = state.registrar();
-    let api_token = state.api_token.clone();
     tokio::spawn(async move {
-        let send_result = if let Some(registrar) = registrar {
-            registrar
-                .send_task_callback(&task_ctx.callback_url, &callback)
-                .await
-        } else {
-            AgentRegistrar::send_task_callback_direct(
-                &task_ctx.callback_url,
-                api_token.as_deref(),
-                &callback,
-            )
-            .await
+        let Some(registrar) = registrar else {
+            return;
         };
+        let send_result = registrar.send_task_callback(&callback).await;
         if let Err(err) = send_result {
             warn!("task callback failed: {}", err);
             if let Some(registrar) = state.registrar() {
@@ -144,8 +127,11 @@ fn spawn_task_callback<T: Serialize>(
                         AsyncErrorReportInput::new("task_callback_failed", err.to_string())
                             .with_task_id(Some(task_ctx.task_id.clone()))
                             .with_operation(Some(task_ctx.operation.clone()))
-                            .with_target_url(Some(task_ctx.callback_url.clone()))
-                            .with_http_method(Some("POST".to_string()))
+                            .with_target_url(Some(
+                                "grpc://manager/rauto.manager.v1.AgentReportingService/ReportTaskCallback"
+                                    .to_string(),
+                            ))
+                            .with_http_method(Some("GRPC".to_string()))
                             .with_details(Some(json!({
                                 "task_status": callback.status,
                                 "started_at": callback.started_at,
@@ -290,15 +276,16 @@ pub async fn download_backup(Path(name): Path<String>) -> Result<Response, ApiEr
 pub async fn list_profiles(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<String>>, ApiError> {
-    let profiles = template_loader::list_available_profiles(state.defaults.template_dir.as_ref())?;
+    let _ = state;
+    let profiles = template_loader::list_available_profiles()?;
     Ok(Json(profiles))
 }
 
 pub async fn profiles_overview(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<DeviceProfilesOverview>, ApiError> {
-    let profile_dir = storage::resolve_profiles_dir(state.defaults.template_dir.as_ref());
-    let custom = storage::list_custom_profiles(&profile_dir)?;
+    let _ = state;
+    let custom = storage::list_custom_profiles()?;
     Ok(Json(DeviceProfilesOverview {
         builtins: storage::builtin_profiles(),
         custom,
@@ -322,157 +309,152 @@ pub async fn get_builtin_profile_form(
 }
 
 pub async fn get_custom_profile(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<CustomProfileDetail>, ApiError> {
     let safe_name = storage::safe_profile_name(&name)?;
-    let profile_dir = storage::resolve_profiles_dir(state.defaults.template_dir.as_ref());
-    let path = profile_dir.join(format!("{}.toml", safe_name));
-    if !path.exists() {
+    let Some(stored) = content_store::load_custom_profile(&safe_name).map_err(ApiError::from)?
+    else {
         return Err(ApiError::bad_request("custom profile not found"));
-    }
-    let content = fs::read_to_string(&path).map_err(ApiError::from)?;
+    };
     Ok(Json(CustomProfileDetail {
         name: safe_name,
-        path: path.to_string_lossy().to_string(),
-        content,
+        path: stored.locator,
+        content: stored.content,
     }))
 }
 
 pub async fn create_or_update_custom_profile(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
     Json(req): Json<UpsertCustomProfileRequest>,
 ) -> Result<Json<CustomProfileDetail>, ApiError> {
     let safe_name = storage::safe_profile_name(&name)?;
-    let profile_dir = storage::resolve_profiles_dir(state.defaults.template_dir.as_ref());
-    storage::ensure_dir(&profile_dir)?;
-    let path = profile_dir.join(format!("{}.toml", safe_name));
-    fs::write(&path, req.content.as_bytes()).map_err(ApiError::from)?;
+    let updated =
+        content_store::update_custom_profile(&safe_name, &req.content).map_err(ApiError::from)?;
+    if !updated {
+        content_store::create_custom_profile(&safe_name, &req.content).map_err(ApiError::from)?;
+    }
+    let locator = content_store::custom_profile_locator(&safe_name);
     Ok(Json(CustomProfileDetail {
         name: safe_name,
-        path: path.to_string_lossy().to_string(),
+        path: locator,
         content: req.content,
     }))
 }
 
 pub async fn get_custom_profile_form(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<DeviceProfile>, ApiError> {
     let safe_name = storage::safe_profile_name(&name)?;
-    let profile_dir = storage::resolve_profiles_dir(state.defaults.template_dir.as_ref());
-    let path = profile_dir.join(format!("{}.toml", safe_name));
-    if !path.exists() {
+    let Some(stored) = content_store::load_custom_profile(&safe_name).map_err(ApiError::from)?
+    else {
         return Err(ApiError::bad_request("custom profile not found"));
-    }
-    let content = fs::read_to_string(&path).map_err(ApiError::from)?;
+    };
+    let content = stored.content;
     let mut profile: DeviceProfile = toml::from_str(&content).map_err(ApiError::from)?;
     profile.name = safe_name;
     Ok(Json(profile))
 }
 
 pub async fn upsert_custom_profile_form(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
     Json(mut profile): Json<DeviceProfile>,
 ) -> Result<Json<CustomProfileDetail>, ApiError> {
     let safe_name = storage::safe_profile_name(&name)?;
-    let profile_dir = storage::resolve_profiles_dir(state.defaults.template_dir.as_ref());
-    storage::ensure_dir(&profile_dir)?;
     profile.name = safe_name.clone();
     let toml_content = toml::to_string_pretty(&profile).map_err(ApiError::from)?;
-    let path = profile_dir.join(format!("{}.toml", safe_name));
-    fs::write(&path, toml_content.as_bytes()).map_err(ApiError::from)?;
+    let updated =
+        content_store::update_custom_profile(&safe_name, &toml_content).map_err(ApiError::from)?;
+    if !updated {
+        content_store::create_custom_profile(&safe_name, &toml_content).map_err(ApiError::from)?;
+    }
+    let locator = content_store::custom_profile_locator(&safe_name);
     Ok(Json(CustomProfileDetail {
         name: safe_name,
-        path: path.to_string_lossy().to_string(),
+        path: locator,
         content: toml_content,
     }))
 }
 
 pub async fn delete_custom_profile(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     let safe_name = storage::safe_profile_name(&name)?;
-    let profile_dir = storage::resolve_profiles_dir(state.defaults.template_dir.as_ref());
-    let path = profile_dir.join(format!("{}.toml", safe_name));
-    if path.exists() {
-        fs::remove_file(path).map_err(ApiError::from)?;
-    }
+    content_store::delete_custom_profile(&safe_name).map_err(ApiError::from)?;
     Ok(Json(json!({"ok": true})))
 }
 
 pub async fn list_templates(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<TemplateMeta>>, ApiError> {
-    let commands_dir = storage::resolve_commands_dir(state.defaults.template_dir.as_ref());
-    let templates = storage::list_templates(&commands_dir)?;
+    let _ = state;
+    let templates = storage::list_templates()?;
     Ok(Json(templates))
 }
 
 pub async fn get_template(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<TemplateDetail>, ApiError> {
     let safe_name = storage::safe_template_name(&name)?;
-    let commands_dir = storage::resolve_commands_dir(state.defaults.template_dir.as_ref());
-    let path = commands_dir.join(&safe_name);
-    if !path.exists() {
+    let Some(stored) = content_store::load_command_template(&safe_name).map_err(ApiError::from)?
+    else {
         return Err(ApiError::bad_request("template not found"));
-    }
-    let content = fs::read_to_string(&path).map_err(ApiError::from)?;
+    };
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: path.to_string_lossy().to_string(),
-        content,
+        path: stored.locator,
+        content: stored.content,
     }))
 }
 
 pub async fn create_template(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Json(req): Json<CreateTemplateRequest>,
 ) -> Result<Json<TemplateDetail>, ApiError> {
     let safe_name = storage::safe_template_name(&req.name)?;
-    let commands_dir = storage::resolve_commands_dir(state.defaults.template_dir.as_ref());
-    storage::ensure_dir(&commands_dir)?;
-    let path = commands_dir.join(&safe_name);
-    fs::write(&path, req.content.as_bytes()).map_err(ApiError::from)?;
+    let created =
+        content_store::create_command_template(&safe_name, &req.content).map_err(ApiError::from)?;
+    if !created {
+        return Err(ApiError::bad_request("template already exists"));
+    }
+    let locator = content_store::template_locator(&safe_name);
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: path.to_string_lossy().to_string(),
+        path: locator,
         content: req.content,
     }))
 }
 
 pub async fn update_template(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
     Json(req): Json<UpdateTemplateRequest>,
 ) -> Result<Json<TemplateDetail>, ApiError> {
     let safe_name = storage::safe_template_name(&name)?;
-    let commands_dir = storage::resolve_commands_dir(state.defaults.template_dir.as_ref());
-    storage::ensure_dir(&commands_dir)?;
-    let path = commands_dir.join(&safe_name);
-    fs::write(&path, req.content.as_bytes()).map_err(ApiError::from)?;
+    let updated =
+        content_store::update_command_template(&safe_name, &req.content).map_err(ApiError::from)?;
+    if !updated {
+        return Err(ApiError::bad_request("template not found"));
+    }
+    let locator = content_store::template_locator(&safe_name);
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: path.to_string_lossy().to_string(),
+        path: locator,
         content: req.content,
     }))
 }
 
 pub async fn delete_template(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     let safe_name = storage::safe_template_name(&name)?;
-    let commands_dir = storage::resolve_commands_dir(state.defaults.template_dir.as_ref());
-    let path = commands_dir.join(safe_name);
-    if path.exists() {
-        fs::remove_file(path).map_err(ApiError::from)?;
-    }
+    content_store::delete_command_template(&safe_name).map_err(ApiError::from)?;
     Ok(Json(json!({"ok": true})))
 }
 
@@ -480,12 +462,9 @@ pub async fn render_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RenderRequest>,
 ) -> Result<Json<RenderResponse>, ApiError> {
-    let template_dir = req
-        .template_dir
-        .map(PathBuf::from)
-        .or_else(|| state.defaults.template_dir.clone());
-
-    let renderer = Renderer::new(template_dir);
+    let _ = state;
+    let _ = req.template_dir.as_ref();
+    let renderer = Renderer::new();
     let rendered = renderer.render_file(&req.template, req.vars)?;
 
     Ok(Json(RenderResponse {
@@ -559,13 +538,9 @@ pub async fn diagnose_profile(
         return Err(ApiError::bad_request("profile name is required"));
     }
 
-    let template_dir = req
-        .template_dir
-        .as_ref()
-        .map(PathBuf::from)
-        .or_else(|| state.defaults.template_dir.clone());
-
-    let handler = template_loader::load_device_profile(name, template_dir.as_ref())?;
+    let _ = state;
+    let _ = req.template_dir.as_ref();
+    let handler = template_loader::load_device_profile(name)?;
 
     let diagnostics = handler.diagnose_state_machine();
 
@@ -580,15 +555,14 @@ pub async fn exec_command(
     Json(req): Json<ExecRequest>,
 ) -> Result<Json<ExecResponse>, ApiError> {
     let task_ctx =
-        TaskCallbackContext::from_request("exec", req.task_id.clone(), req.callback_url.clone());
+        TaskCallbackContext::from_request("exec", req.task_id.clone(), state.is_managed());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecResponse, ApiError> = async {
         let record_level = req.record_level;
         command_blacklist::ensure_command_allowed(&req.command, "direct execution")
             .map_err(|e| ApiError::bad_request(e.to_string()))?;
         let conn = merge_connection_options(&state.defaults, req.connection)?;
-        let handler =
-            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let handler = template_loader::load_device_profile(&conn.device_profile)?;
 
         let client = if let Some(level) = to_record_level(record_level) {
             DeviceClient::connect_with_recording(
@@ -641,8 +615,7 @@ pub async fn interactive_start(
 ) -> Result<Json<InteractiveStartResponse>, ApiError> {
     let record_level = req.record_level;
     let conn = merge_connection_options(&state.defaults, req.connection)?;
-    let handler =
-        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let client = if let Some(level) = to_record_level(record_level) {
         DeviceClient::connect_with_recording(
             conn.host.clone(),
@@ -736,8 +709,7 @@ pub async fn test_connection(
     Json(req): Json<ConnectionTestRequest>,
 ) -> Result<Json<ConnectionTestResponse>, ApiError> {
     let conn = merge_connection_options(&state.defaults, req.connection)?;
-    let handler =
-        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let _client = DeviceClient::connect(
         conn.host.clone(),
         conn.port,
@@ -764,10 +736,11 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
     let mut items = Vec::new();
     for name in names {
         if let Ok(data) = connection_store::load_connection_raw(&name) {
-            let path = connection_store::connections_dir().join(format!("{}.toml", name));
             items.push(SavedConnectionMeta {
                 name,
-                path: path.to_string_lossy().to_string(),
+                path: connection_store::storage_path()
+                    .to_string_lossy()
+                    .to_string(),
                 has_password: connection_store::has_saved_password(&data),
             });
         }
@@ -816,7 +789,7 @@ pub async fn get_connection(
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let data = connection_store::load_connection_raw(&safe)
         .map_err(|_| ApiError::bad_request("saved connection not found"))?;
-    let path = connection_store::connections_dir().join(format!("{}.toml", safe));
+    let path = connection_store::storage_path();
     Ok(Json(saved_connection_detail_response(&safe, &path, &data)))
 }
 
@@ -861,7 +834,9 @@ pub async fn get_connection_history_detail(
         .find(|item| item.id == id)
         .ok_or_else(|| ApiError::bad_request("history record not found"))?;
 
-    let jsonl = fs::read_to_string(&row.record_path).map_err(ApiError::from)?;
+    let jsonl = history_store::load_recording_jsonl_by_key(&row.connection_key, &row.id)
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::bad_request("history record body not found"))?;
     let recorder = SessionRecorder::from_jsonl(&jsonl).map_err(ApiError::from)?;
     let entries = recorder.entries().map_err(ApiError::from)?;
 
@@ -968,16 +943,13 @@ pub async fn execute_template(
     let task_ctx = TaskCallbackContext::from_request(
         "template_execute",
         req.task_id.clone(),
-        req.callback_url.clone(),
+        state.is_managed(),
     );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecuteTemplateResponse, ApiError> = async {
         let record_level = req.record_level;
-        let template_dir = req
-            .template_dir
-            .map(PathBuf::from)
-            .or_else(|| state.defaults.template_dir.clone());
-        let renderer = Renderer::new(template_dir);
+        let _ = req.template_dir.as_ref();
+        let renderer = Renderer::new();
         let rendered_commands = renderer.render_file(&req.template, req.vars)?;
 
         if req.dry_run.unwrap_or(false) {
@@ -1000,8 +972,7 @@ pub async fn execute_template(
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
         let conn = merge_connection_options(&state.defaults, req.connection)?;
-        let handler =
-            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let handler = template_loader::load_device_profile(&conn.device_profile)?;
         let client = if let Some(level) = to_record_level(record_level) {
             DeviceClient::connect_with_recording(
                 conn.host.clone(),
@@ -1100,11 +1071,8 @@ pub async fn execute_tx_block(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxBlockRequest>,
 ) -> Result<Json<ExecuteTxBlockResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(
-        "tx_block",
-        req.task_id.clone(),
-        req.callback_url.clone(),
-    );
+    let task_ctx =
+        TaskCallbackContext::from_request("tx_block", req.task_id.clone(), state.is_managed());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecuteTxBlockResponse, ApiError> = async {
         let record_level = req.record_level;
@@ -1142,13 +1110,7 @@ pub async fn execute_tx_block(
             .unwrap_or("Config")
             .to_string();
 
-        let template_dir = req
-            .connection
-            .as_ref()
-            .and_then(|c| c.template_dir.as_ref())
-            .map(PathBuf::from)
-            .or_else(|| state.defaults.template_dir.clone());
-        let renderer = Renderer::new(template_dir);
+        let renderer = Renderer::new();
         let resolved_commands =
             resolve_tx_commands(&renderer, req.template.as_deref(), req.vars, &req.commands)?;
 
@@ -1255,8 +1217,7 @@ pub async fn execute_tx_block(
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
         let conn = merge_connection_options(&state.defaults, req.connection)?;
-        let handler =
-            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let handler = template_loader::load_device_profile(&conn.device_profile)?;
         let (tx_result, recording_jsonl) = if let Some(level) = to_record_level(record_level) {
             let request = manager_connection_request(
                 conn.username.clone(),
@@ -1273,10 +1234,7 @@ pub async fn execute_tx_block(
                     level,
                 )
                 .await?;
-            let handler_for_tx = template_loader::load_device_profile(
-                &conn.device_profile,
-                conn.template_dir.as_ref(),
-            )?;
+            let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
             let request = manager_connection_request(
                 conn.username.clone(),
                 conn.host.clone(),
@@ -1345,11 +1303,8 @@ pub async fn execute_tx_workflow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxWorkflowRequest>,
 ) -> Result<Json<ExecuteTxWorkflowResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(
-        "tx_workflow",
-        req.task_id.clone(),
-        req.callback_url.clone(),
-    );
+    let task_ctx =
+        TaskCallbackContext::from_request("tx_workflow", req.task_id.clone(), state.is_managed());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecuteTxWorkflowResponse, ApiError> = async {
         let record_level = req.record_level;
@@ -1372,8 +1327,7 @@ pub async fn execute_tx_workflow(
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
         let conn = merge_connection_options(&state.defaults, req.connection)?;
-        let handler =
-            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let handler = template_loader::load_device_profile(&conn.device_profile)?;
         let (workflow_result, recording_jsonl) = if let Some(level) = to_record_level(record_level)
         {
             let request = manager_connection_request(
@@ -1391,10 +1345,7 @@ pub async fn execute_tx_workflow(
                     level,
                 )
                 .await?;
-            let handler_for_tx = template_loader::load_device_profile(
-                &conn.device_profile,
-                conn.template_dir.as_ref(),
-            )?;
+            let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
             let request = manager_connection_request(
                 conn.username.clone(),
                 conn.host.clone(),
@@ -1465,11 +1416,8 @@ pub async fn execute_orchestration(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteOrchestrationRequest>,
 ) -> Result<Json<ExecuteOrchestrationResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(
-        "orchestrate",
-        req.task_id.clone(),
-        req.callback_url.clone(),
-    );
+    let task_ctx =
+        TaskCallbackContext::from_request("orchestrate", req.task_id.clone(), state.is_managed());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     let result: Result<ExecuteOrchestrationResponse, ApiError> = async {
         let plan_root = req
@@ -1558,7 +1506,7 @@ pub async fn replay_session(
 
 #[cfg(test)]
 mod tests {
-    use super::{merged_saved_secret, saved_connection_detail_response};
+    use super::{TaskCallbackContext, merged_saved_secret, saved_connection_detail_response};
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
     use std::path::PathBuf;
@@ -1615,5 +1563,14 @@ mod tests {
             Some("new-secret".to_string())
         );
         assert_eq!(merged_saved_secret(false, None, Some(&existing)), None);
+    }
+
+    #[test]
+    fn managed_mode_allows_task_callback_with_task_id_only() {
+        let managed = TaskCallbackContext::from_request("exec", Some("task-1".to_string()), true);
+        assert!(managed.is_some());
+
+        let local = TaskCallbackContext::from_request("exec", Some("task-1".to_string()), false);
+        assert!(local.is_none());
     }
 }

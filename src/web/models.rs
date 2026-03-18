@@ -167,8 +167,6 @@ pub struct ExecRequest {
     pub record_level: Option<RecordLevel>,
     #[serde(default)]
     pub task_id: Option<String>,
-    #[serde(default)]
-    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -190,8 +188,6 @@ pub struct ExecuteTemplateRequest {
     pub record_level: Option<RecordLevel>,
     #[serde(default)]
     pub task_id: Option<String>,
-    #[serde(default)]
-    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -232,8 +228,6 @@ pub struct ExecuteTxBlockRequest {
     pub record_level: Option<RecordLevel>,
     #[serde(default)]
     pub task_id: Option<String>,
-    #[serde(default)]
-    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -252,8 +246,6 @@ pub struct ExecuteTxWorkflowRequest {
     pub record_level: Option<RecordLevel>,
     #[serde(default)]
     pub task_id: Option<String>,
-    #[serde(default)]
-    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -271,8 +263,6 @@ pub struct ExecuteOrchestrationRequest {
     pub record_level: Option<RecordLevel>,
     #[serde(default)]
     pub task_id: Option<String>,
-    #[serde(default)]
-    pub callback_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

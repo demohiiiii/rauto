@@ -1,49 +1,21 @@
-use crate::config::paths::default_template_dir;
+use crate::config::content_store;
 use anyhow::{Result, anyhow};
 use minijinja::Environment;
 use serde_json::Value;
-use std::fs;
-use std::path::{Path, PathBuf};
 
 pub struct Renderer<'a> {
     env: Environment<'a>,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(custom_template_dir: Option<PathBuf>) -> Self {
+    pub fn new() -> Self {
         let mut env = Environment::new();
 
-        // Configure lazy loader
         env.set_loader(move |name| {
-            // Define search paths
-            let mut search_paths = Vec::new();
-
-            // 1. Custom directory
-            if let Some(ref dir) = custom_template_dir {
-                search_paths.push(dir.join("commands").join(name));
-                search_paths.push(dir.join(name));
-            }
-
-            // 2. ~/.rauto/templates
-            let home_templates = default_template_dir();
-            search_paths.push(home_templates.join("commands").join(name));
-            search_paths.push(home_templates.join(name));
-
-            // 3. Local project templates (backward compatibility)
-            search_paths.push(PathBuf::from("templates").join("commands").join(name));
-            search_paths.push(PathBuf::from("templates").join(name));
-
-            // Also check absolute path if name looks like one
-            if Path::new(name).is_absolute() {
-                search_paths.insert(0, PathBuf::from(name));
-            }
-
-            for path in search_paths {
-                if path.exists() {
-                    return fs::read_to_string(path).map(Some).map_err(|e| {
-                        minijinja::Error::new(minijinja::ErrorKind::TemplateNotFound, e.to_string())
-                    });
-                }
+            if let Some(stored) = content_store::load_command_template(name).map_err(|e| {
+                minijinja::Error::new(minijinja::ErrorKind::InvalidOperation, e.to_string())
+            })? {
+                return Ok(Some(stored.content));
             }
 
             Ok(None)

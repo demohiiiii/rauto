@@ -8,7 +8,6 @@ use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
 use crate::web::models::RecordLevel;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -118,7 +117,6 @@ pub struct ResolvedConnection {
     pub enable_password: Option<String>,
     pub ssh_security: SshSecurityProfile,
     pub device_profile: String,
-    pub template_dir: Option<PathBuf>,
 }
 
 pub struct InteractiveSession {
@@ -204,12 +202,6 @@ fn merge_connection_sources(
         .or_else(|| saved.and_then(|s| s.device_profile.clone()))
         .or_else(|| defaults.device_profile.clone())
         .unwrap_or_else(|| "cisco".to_string());
-    let template_dir = incoming
-        .template_dir
-        .map(PathBuf::from)
-        .or_else(|| saved.and_then(|s| s.template_dir.clone().map(PathBuf::from)))
-        .or_else(|| defaults.template_dir.clone());
-
     Ok(ResolvedConnection {
         connection_name,
         host,
@@ -219,7 +211,6 @@ fn merge_connection_sources(
         enable_password,
         ssh_security,
         device_profile,
-        template_dir,
     })
 }
 
@@ -283,10 +274,6 @@ mod tests {
         assert_eq!(resolved.enable_password.as_deref(), Some("explicit-enable"));
         assert_eq!(resolved.ssh_security, SshSecurityProfile::LegacyCompatible);
         assert_eq!(resolved.device_profile, "saved-profile");
-        assert_eq!(
-            resolved.template_dir.as_deref(),
-            Some(PathBuf::from("/tmp/saved-templates").as_path())
-        );
     }
 
     #[test]
@@ -315,9 +302,5 @@ mod tests {
         assert_eq!(resolved.port, 22);
         assert_eq!(resolved.ssh_security, SshSecurityProfile::Balanced);
         assert_eq!(resolved.device_profile, "default-profile");
-        assert_eq!(
-            resolved.template_dir.as_deref(),
-            Some(PathBuf::from("/tmp/default-templates").as_path())
-        );
     }
 }

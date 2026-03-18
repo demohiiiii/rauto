@@ -244,7 +244,7 @@ pub enum BackupCommands {
 
 #[derive(Args, Debug)]
 pub struct TemplateArgs {
-    /// Path to the command template file (relative to templates/commands/ or absolute)
+    /// Name of the stored command template
     pub template: String,
 
     /// Path to a JSON/YAML file containing variables for the template
@@ -494,7 +494,7 @@ pub struct GlobalOpts {
     #[arg(long, short = 'd', global = true)]
     pub device_profile: Option<String>,
 
-    /// Custom directory for templates
+    /// Deprecated: stored templates and custom profiles are loaded from SQLite
     #[arg(long, global = true, env = "RAUTO_TEMPLATE_DIR")]
     pub template_dir: Option<PathBuf>,
 

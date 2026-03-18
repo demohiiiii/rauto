@@ -103,6 +103,7 @@ cp -R rauto/skills/rauto-usage ~/.claude/skills/
 ### 1. Template Mode (Recommended)
 
 Render commands from a template and execute them on a device.
+Templates are stored in SQLite and managed with `rauto templates` or the Web UI.
 
 **Basic Usage:**
 ```bash
@@ -114,7 +115,7 @@ rauto template show_version.j2 \
 ```
 
 **With Variables:**
-Given a template `templates/commands/configure_vlan.j2` and variables file `templates/example_vars.json`:
+Given a stored template `configure_vlan.j2` and variables file `templates/example_vars.json`:
 
 ```bash
 rauto template configure_vlan.j2 \
@@ -178,20 +179,9 @@ rauto template show_ver.j2 \
 ```
 
 **Custom Device Profile:**
-You can define custom profiles in `templates/devices/*.toml`.
+Custom device profiles are stored in SQLite and managed through `rauto device` or the Web UI.
 
-Example `templates/devices/custom_cisco.toml`:
-```toml
-name = "custom_cisco"
-
-[[prompts]]
-state = "Enable"
-patterns = ['^[^\s#]+#\s*$']
-
-# ... see templates/devices/custom_cisco.toml for full example
-```
-
-Use it:
+Use it after creating or copying a custom profile:
 ```bash
 rauto exec "show ver" \
     --host 192.168.1.1 \
@@ -252,7 +242,7 @@ Web console key capabilities:
 rauto agent \
     --bind 0.0.0.0 \
     --port 8123 \
-    --manager-url http://manager:3000 \
+    --manager-url http://manager:50051 \
     --agent-name agent-beijing-01 \
     --agent-token my-secret-token \
     --probe-report-interval 300
@@ -262,7 +252,7 @@ You can also keep defaults in `~/.rauto/agent.toml`:
 
 ```toml
 [manager]
-url = "http://manager:3000"
+url = "http://manager:50051"
 token = "my-secret-token"
 
 [agent]
@@ -276,10 +266,10 @@ Agent mode adds:
 - Protected `GET /api/agent/status` for runtime status and heartbeat metadata.
 - Protected `POST /api/devices/probe` for batch TCP reachability checks of saved connections.
 - Background manager registration, heartbeat, and best-effort offline notification on shutdown.
-- Full inventory sync to `POST /api/agents/report-devices` after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
-- Periodic liveness probe refresh to `POST /api/agents/update-device-status` (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
-- Best-effort async error reporting to `POST /api/agents/report-error` when manager-facing async deliveries such as task callbacks or device sync submissions fail.
-- Optional `task_id` + `callback_url` on `exec`, `template execute`, `tx`, `tx-workflow`, and `orchestrate` requests for async task callbacks.
+- Manager reporting now uses gRPC `rauto.manager.v1.AgentReportingService` for register, heartbeat, offline, inventory sync, status updates, async error reporting, and task callbacks.
+- Full inventory sync after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
+- Periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
+- `task_id` enables async task callbacks in agent mode; task callbacks are delivered to `rauto-manager` through gRPC.
 - Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
 - When agent mode is started with a token, browser-side Web UI requests must provide the same token in the page header token field.
 
@@ -322,12 +312,12 @@ rauto history list lab1 --limit 20
 Password behavior:
 - `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
-- Saved passwords are stored in the system keychain via `keyring`; connection TOML files keep only secret references, not plaintext passwords.
+- Saved passwords are stored in the system keychain via `keyring`; connection metadata is stored in `~/.rauto/rauto.db`.
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections.
 
 ### 7. Backup & Restore
 
-Backup all current `rauto` runtime data (`connections`, `profiles`, `templates`, `records`, etc.):
+Backup the current `rauto` runtime data store and backup configuration:
 
 Note: backup archives include saved connection metadata, but system-keychain secrets are not exported into the archive.
 
@@ -371,7 +361,7 @@ rauto blacklist delete "reload*"
 Notes:
 - `*` matches any character sequence, including spaces.
 - Matching is case-insensitive and applies to the full command text.
-- Blacklist data is stored in `~/.rauto/command_blacklist.txt`.
+- Blacklist data is stored in `~/.rauto/rauto.db`.
 
 ### 9. CLI Quick Reference
 
@@ -687,7 +677,6 @@ rauto orchestrate ./orchestration.json --json
         "username": "admin",
         "port": 22,
         "device_profile": "huawei",
-        "template_dir": "~/.rauto/templates/site-a",
         "vars": {
           "site": "campus-a",
           "region": "east"
@@ -793,32 +782,17 @@ rauto web \
 
 By default, `rauto` stores runtime data under `~/.rauto/`.
 
-Default directories:
-- `~/.rauto/connections` (saved connection profiles)
-- `~/.rauto/profiles` (custom device profiles)
-- `~/.rauto/templates/commands`
-- `~/.rauto/templates/devices`
-- `~/.rauto/records` (session recordings)
+Default runtime data:
+- `~/.rauto/rauto.db` (saved connections, history recordings, blacklist patterns, custom device profiles, managed command templates)
 - `~/.rauto/backups` (backup archives)
-- `~/.rauto/command_blacklist.txt` (blocked command patterns)
 
-These folders are auto-created on startup.
-
-For backward compatibility, local `./templates/` is still checked as a fallback.
+`~/.rauto` and `~/.rauto/backups` are auto-created on startup.
 
 ```
 ~/.rauto
-├── connections/            # Saved connection profiles (*.toml)
-├── profiles/               # Custom profiles copied/created from builtin
-├── templates/
-│   ├── commands/           # Store your .j2 command templates here
-│   └── devices/            # Store custom .toml device profiles here
-├── records/                # Session recording output (*.jsonl)
-├── backups/                # Backup archives (*.tar.gz)
-└── command_blacklist.txt   # Blocked command patterns with '*' wildcard
+├── rauto.db                # SQLite runtime store
+└── backups/                # Backup archives (*.tar.gz)
 ```
-
-You can specify a custom template directory using the `--template-dir` argument or `RAUTO_TEMPLATE_DIR` environment variable.
 
 ## Configuration
 

@@ -1,8 +1,9 @@
-use crate::config::paths::rauto_home_dir;
+use crate::db;
 use anyhow::{Result, anyhow};
 use rneter::session::{RollbackPolicy, TxBlock, TxWorkflow};
-use std::fs;
+use sqlx::Row;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockedCommand {
@@ -10,45 +11,55 @@ pub struct BlockedCommand {
     pub pattern: String,
 }
 
-pub fn blacklist_file() -> PathBuf {
-    rauto_home_dir().join("command_blacklist.txt")
+pub fn storage_path() -> PathBuf {
+    db::db_path()
 }
 
 pub fn list_patterns() -> Result<Vec<String>> {
-    let path = blacklist_file();
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-
-    let content = fs::read_to_string(&path)?;
-    Ok(parse_patterns(&content))
+    db::run_sync(async {
+        let rows =
+            sqlx::query("SELECT pattern FROM blacklist_patterns ORDER BY normalized_pattern ASC")
+                .fetch_all(db::pool())
+                .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get::<String, _>("pattern"))
+            .collect())
+    })
 }
 
 pub fn add_pattern(pattern: &str) -> Result<(bool, PathBuf)> {
     let normalized = validate_pattern(pattern)?;
-    let mut patterns = list_patterns()?;
-    let exists = patterns
-        .iter()
-        .any(|item| normalize_match_text(item) == normalize_match_text(&normalized));
-    if exists {
-        return Ok((false, blacklist_file()));
-    }
-    patterns.push(normalized);
-    patterns.sort_by_key(|item| item.to_ascii_lowercase());
-    write_patterns(&patterns)?;
-    Ok((true, blacklist_file()))
+    let normalized_match = normalize_match_text(&normalized);
+    let created_at_ms = now_epoch_ms() as i64;
+    let added = db::run_sync(async move {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO blacklist_patterns (pattern, normalized_pattern, created_at_ms)
+            VALUES (?, ?, ?)
+            ON CONFLICT(normalized_pattern) DO NOTHING
+            "#,
+        )
+        .bind(&normalized)
+        .bind(&normalized_match)
+        .bind(created_at_ms)
+        .execute(db::pool())
+        .await?;
+        Ok(result.rows_affected() > 0)
+    })?;
+    Ok((added, db::db_path()))
 }
 
 pub fn delete_pattern(pattern: &str) -> Result<bool> {
     let normalized = validate_pattern(pattern)?;
-    let mut patterns = list_patterns()?;
-    let before = patterns.len();
-    patterns.retain(|item| normalize_match_text(item) != normalize_match_text(&normalized));
-    if patterns.len() == before {
-        return Ok(false);
-    }
-    write_patterns(&patterns)?;
-    Ok(true)
+    let normalized_match = normalize_match_text(&normalized);
+    db::run_sync(async move {
+        let result = sqlx::query("DELETE FROM blacklist_patterns WHERE normalized_pattern = ?")
+            .bind(&normalized_match)
+            .execute(db::pool())
+            .await?;
+        Ok(result.rows_affected() > 0)
+    })
 }
 
 pub fn find_blocked_command(command: &str) -> Result<Option<BlockedCommand>> {
@@ -119,19 +130,6 @@ pub fn ensure_tx_workflow_allowed(workflow: &TxWorkflow, context: &str) -> Resul
     Ok(())
 }
 
-fn write_patterns(patterns: &[String]) -> Result<()> {
-    let path = blacklist_file();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let mut content = patterns.join("\n");
-    if !content.is_empty() {
-        content.push('\n');
-    }
-    fs::write(path, content.as_bytes())?;
-    Ok(())
-}
-
 fn validate_pattern(pattern: &str) -> Result<String> {
     let normalized = pattern.trim();
     if normalized.is_empty() {
@@ -141,15 +139,6 @@ fn validate_pattern(pattern: &str) -> Result<String> {
         return Err(anyhow!("blacklist pattern must be a single line"));
     }
     Ok(normalized.to_string())
-}
-
-fn parse_patterns(content: &str) -> Vec<String> {
-    content
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(ToOwned::to_owned)
-        .collect()
 }
 
 fn normalize_match_text(input: &str) -> String {
@@ -188,10 +177,23 @@ fn wildcard_match(pattern: &str, text: &str) -> bool {
     pattern_idx == pattern_bytes.len()
 }
 
+fn now_epoch_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db;
     use rneter::session::{CommandBlockKind, RollbackPolicy, TxStep};
+    use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static TEST_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
     #[test]
     fn wildcard_match_supports_exact_and_star_patterns() {
@@ -213,6 +215,10 @@ mod tests {
 
     #[test]
     fn tx_block_validation_checks_commands_and_rollbacks() {
+        let _env_guard = TestEnvGuard::new().expect("temp env");
+        db::init_sync().expect("db");
+        add_pattern("reload").expect("insert reload");
+
         let tx_block = TxBlock {
             name: "demo".to_string(),
             kind: CommandBlockKind::Config,
@@ -224,7 +230,7 @@ mod tests {
             },
             steps: vec![TxStep {
                 mode: "Config".to_string(),
-                command: "show version".to_string(),
+                command: "configure terminal".to_string(),
                 timeout_secs: None,
                 rollback_command: Some("write erase".to_string()),
                 rollback_on_failure: false,
@@ -232,37 +238,50 @@ mod tests {
             fail_fast: true,
         };
 
-        let blocked = ["show *".to_string(), "reload".to_string()];
-        let err = tx_block
-            .steps
-            .iter()
-            .map(|step| step.command.as_str())
-            .chain(
-                tx_block
-                    .steps
-                    .iter()
-                    .filter_map(|step| step.rollback_command.as_deref()),
-            )
-            .chain(match &tx_block.rollback_policy {
-                RollbackPolicy::WholeResource { undo_command, .. } => Some(undo_command.as_str()),
-                _ => None,
-            })
-            .find_map(|command| {
-                blocked.iter().find_map(|pattern| {
-                    if wildcard_match(
-                        &normalize_match_text(pattern),
-                        &normalize_match_text(command),
-                    ) {
-                        Some((command.to_string(), pattern.clone()))
-                    } else {
-                        None
-                    }
-                })
-            });
+        let err = ensure_tx_block_allowed(&tx_block, "test").expect_err("should block");
+        assert!(err.to_string().contains("reload") || err.to_string().contains("write erase"));
+    }
 
-        assert_eq!(
-            err,
-            Some(("show version".to_string(), "show *".to_string()))
-        );
+    struct TestEnvGuard {
+        original_home: Option<std::ffi::OsString>,
+        root: PathBuf,
+        _guard: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl TestEnvGuard {
+        fn new() -> Result<Self> {
+            let guard = TEST_ENV_LOCK
+                .get_or_init(|| Mutex::new(()))
+                .lock()
+                .expect("test env lock poisoned");
+            let root = std::env::temp_dir().join(format!(
+                "rauto-blacklist-test-{}",
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
+            ));
+            let original_home = std::env::var_os("RAUTO_HOME");
+            unsafe {
+                std::env::set_var("RAUTO_HOME", &root);
+            }
+            Ok(Self {
+                original_home,
+                root,
+                _guard: guard,
+            })
+        }
+    }
+
+    impl Drop for TestEnvGuard {
+        fn drop(&mut self) {
+            if let Some(value) = &self.original_home {
+                unsafe {
+                    std::env::set_var("RAUTO_HOME", value);
+                }
+            } else {
+                unsafe {
+                    std::env::remove_var("RAUTO_HOME");
+                }
+            }
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
     }
 }

@@ -34,7 +34,6 @@ const i18n = {
     savedConnHistoryBtn: "History",
     savedConnHistoryEmpty: "no execution history for this connection",
     savedConnListEmpty: "no saved connections",
-    savedConnPathLabel: "path",
     savedConnSecretSaved: "password saved",
     savedConnSecretNo: "password not saved",
     savedConnUseBtn: "Use",
@@ -56,7 +55,6 @@ const i18n = {
     historyColMode: "Mode",
     historyColProfile: "Target",
     historyColLevel: "Level",
-    historyColPath: "Record Path",
     historyDetailTitle: "History Details",
     historyMetaTitle: "Execution Meta",
     historyDetailEmpty: "no event entries in this record",
@@ -324,7 +322,7 @@ const i18n = {
     blacklistAddBtn: "Add",
     blacklistCheckBtn: "Check",
     blacklistDeleteBtn: "Delete",
-    blacklistFileHint: "Runtime file: ~/.rauto/command_blacklist.txt",
+    blacklistFileHint: "",
     blacklistPatternPlaceholder: "e.g. reload*",
     blacklistPatternHint: "Use * as wildcard. Matching is case-insensitive.",
     blacklistCheckPlaceholder: "e.g. reload in 5",
@@ -340,10 +338,8 @@ const i18n = {
     blacklistCheckedCommand: "Command",
     templateListTitle: "Templates",
     templateListEmpty: "no templates",
-    templatePathLabel: "path",
     templateUseBtn: "Open",
     templateEditorTitle: "Editor",
-    templateManagePathPlaceholder: "template path (auto)",
     renderBtn: "Preview Render",
     execBtn: "Execute",
     templateExecBtn: "Run Template",
@@ -507,7 +503,6 @@ const i18n = {
     savedConnHistoryBtn: "历史",
     savedConnHistoryEmpty: "该连接暂无执行历史",
     savedConnListEmpty: "暂无已保存连接",
-    savedConnPathLabel: "路径",
     savedConnSecretSaved: "已保存密码",
     savedConnSecretNo: "未保存密码",
     savedConnUseBtn: "使用",
@@ -528,7 +523,6 @@ const i18n = {
     historyColMode: "模式",
     historyColProfile: "目标",
     historyColLevel: "录制级别",
-    historyColPath: "录制文件",
     historyDetailTitle: "历史详情",
     historyMetaTitle: "执行元数据",
     historyDetailEmpty: "该记录没有 event 明细",
@@ -790,7 +784,7 @@ const i18n = {
     blacklistAddBtn: "添加",
     blacklistCheckBtn: "检查",
     blacklistDeleteBtn: "删除",
-    blacklistFileHint: "运行时文件：~/.rauto/command_blacklist.txt",
+    blacklistFileHint: "",
     blacklistPatternPlaceholder: "例如 reload*",
     blacklistPatternHint: "支持使用 * 作为通配符，匹配不区分大小写。",
     blacklistCheckPlaceholder: "例如 reload in 5",
@@ -806,10 +800,8 @@ const i18n = {
     blacklistCheckedCommand: "命令",
     templateListTitle: "Template 列表",
     templateListEmpty: "暂无 template",
-    templatePathLabel: "路径",
     templateUseBtn: "打开",
     templateEditorTitle: "编辑器",
-    templateManagePathPlaceholder: "template 路径（自动）",
     renderBtn: "预览渲染",
     execBtn: "执行",
     templateExecBtn: "运行模板",
@@ -1486,7 +1478,6 @@ function applyI18n() {
   if (lastDiagnoseSnapshot) {
     renderDiagnoseResult(lastDiagnoseSnapshot.name, lastDiagnoseSnapshot.report);
   }
-  byId("template-manage-path").placeholder = t("templateManagePathPlaceholder");
   byId("template-content").placeholder = t("templateContentPlaceholder");
   byId("interactive-command").placeholder = t("interactiveCommandPlaceholder");
   byId("interactive-mode").placeholder = t("interactiveModePlaceholder");
@@ -3468,11 +3459,6 @@ function renderConnectionHistoryTable(items) {
           <td class="px-3 py-2">${historyModeBadge(item.mode)}</td>
           <td class="max-w-[260px] px-3 py-2">${historyTargetCell(item)}</td>
           <td class="px-3 py-2">${historyRecordLevelBadge(item.record_level)}</td>
-          <td class="max-w-[380px] px-3 py-2">
-            <div class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[11px] text-slate-600 break-all">${escapeHtml(
-              safeString(item.record_path)
-            )}</div>
-          </td>
           <td class="whitespace-nowrap px-3 py-2">
             <div class="inline-flex items-center gap-2">
               <button class="mini-btn js-history-detail-btn" type="button" data-history-id="${escapeHtml(
@@ -3490,7 +3476,7 @@ function renderConnectionHistoryTable(items) {
 
   return `
     <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-      <table class="min-w-[1320px] table-fixed text-sm">
+      <table class="min-w-[1080px] table-fixed text-sm">
         <thead class="bg-slate-100 text-xs font-semibold text-slate-600">
           <tr>
             <th class="px-3 py-2 text-left">${escapeHtml(t("historyColIndex"))}</th>
@@ -3500,7 +3486,6 @@ function renderConnectionHistoryTable(items) {
             <th class="px-3 py-2 text-left">${escapeHtml(t("historyColMode"))}</th>
             <th class="px-3 py-2 text-left">${escapeHtml(t("historyColProfile"))}</th>
             <th class="px-3 py-2 text-left">${escapeHtml(t("historyColLevel"))}</th>
-            <th class="px-3 py-2 text-left">${escapeHtml(t("historyColPath"))}</th>
             <th class="px-3 py-2 text-left">${escapeHtml(t("tableAction"))}</th>
           </tr>
         </thead>
@@ -3988,9 +3973,6 @@ function renderSavedConnectionList(errorMessage = "") {
               t("savedConnUseBtn")
             )}</span>
           </div>
-          <div class="mt-1 text-xs text-slate-500">${escapeHtml(
-            `${t("savedConnPathLabel")}: ${item.path || "-"}`
-          )}</div>
           <div class="mt-2">
             <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${pwdCls}">${escapeHtml(
               item.has_password ? t("savedConnSecretSaved") : t("savedConnSecretNo")
@@ -4045,7 +4027,7 @@ async function saveConnectionByName() {
       connection: connectionPayload(),
       save_password: byId("saved-conn-save-password").checked,
     });
-    setStatusMessage("saved-conn-out", `${t("saved")}: ${data.path}`, "success");
+    setStatusMessage("saved-conn-out", `${t("saved")}: ${data.name || name}`, "success");
     await loadSavedConnections();
   } catch (e) {
     setStatusMessage("saved-conn-out", e.message, "error");
@@ -4111,7 +4093,6 @@ function formatHistoryDetailView(data) {
         <div>profile=${escapeHtml(safeString(meta.device_profile))}</div>
         <div>target=${escapeHtml(`${safeString(meta.host)}:${safeString(meta.port)}`)}</div>
         <div>record_level=${escapeHtml(safeString(meta.record_level))}</div>
-        <div>record_path=${escapeHtml(safeString(meta.record_path))}</div>
       </div>
     </section>
   `;
@@ -5670,7 +5651,7 @@ async function saveCustomProfile() {
       profile
     );
     byId("custom-profile-picker").value = name;
-    setStatusMessage("profile-out", `${t("saved")}: ${data.path}`, "success");
+    setStatusMessage("profile-out", `${t("saved")}: ${data.name || name}`, "success");
     await loadProfilesOverview();
   } catch (e) {
     setStatusMessage("profile-out", e.message, "error");
@@ -6224,9 +6205,6 @@ function renderTemplateList(errorMessage = "") {
               t("templateUseBtn")
             )}</span>
           </div>
-          <div class="mt-1 text-xs text-slate-500">${escapeHtml(
-            `${t("templatePathLabel")}: ${item.path || "-"}`
-          )}</div>
         </button>
       `;
     })
@@ -6270,9 +6248,8 @@ async function loadTemplateDetail() {
     const data = await request("GET", `/api/templates/${encodeURIComponent(name)}`);
     lastTemplateDetail = data;
     byId("template-pick-name").value = data.name || name;
-    byId("template-manage-path").value = data.path || "";
     byId("template-content").value = data.content || "";
-    setStatusMessage("template-out", `${data.name} -> ${data.path}`, "success");
+    setStatusMessage("template-out", `${t("loaded")}: ${data.name || name}`, "success");
   } catch (e) {
     lastTemplateDetail = null;
     setStatusMessage("template-out", e.message, "error");
@@ -6294,12 +6271,11 @@ async function saveTemplate() {
       : await request("POST", "/api/templates", { name, content });
     setStatusMessage(
       "template-out",
-      `${exists ? t("saved") : t("created")}: ${data.path}`,
+      `${exists ? t("saved") : t("created")}: ${data.name || name}`,
       "success"
     );
     await loadTemplates();
     byId("template-pick-name").value = name;
-    byId("template-manage-path").value = data.path || "";
     lastTemplateDetail = data;
   } catch (e) {
     setStatusMessage("template-out", e.message, "error");
@@ -6316,7 +6292,6 @@ async function deleteTemplate() {
   try {
     await request("DELETE", `/api/templates/${encodeURIComponent(name)}`);
     byId("template-content").value = "";
-    byId("template-manage-path").value = "";
     setStatusMessage("template-out", `${t("deleted")}: ${name}`, "success");
     await loadTemplates();
     if (byId("template-pick-name").value.trim() === name) {

@@ -1,10 +1,11 @@
-use crate::config::paths::rauto_home_dir;
 use crate::config::secret_store::{self, SecretKind};
 use crate::config::ssh_security::SshSecurityProfile;
-use anyhow::{Context, Result, anyhow};
+use crate::db;
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use std::fs;
+use sqlx::Row;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedConnection {
@@ -22,44 +23,55 @@ pub struct SavedConnection {
     pub template_dir: Option<String>,
 }
 
-pub fn connections_dir() -> PathBuf {
-    rauto_home_dir().join("connections")
+pub fn storage_path() -> PathBuf {
+    db::db_path()
 }
 
 pub fn list_connections() -> Result<Vec<String>> {
-    let dir = connections_dir();
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut names = Vec::new();
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path
-            .extension()
-            .and_then(|s| s.to_str())
-            .is_some_and(|ext| ext == "toml")
-            && let Some(name) = path.file_stem().and_then(|s| s.to_str())
-        {
-            names.push(name.to_string());
-        }
-    }
-    names.sort();
-    Ok(names)
+    db::run_sync(async {
+        let rows = sqlx::query("SELECT name FROM connections ORDER BY name ASC")
+            .fetch_all(db::pool())
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get::<String, _>("name"))
+            .collect())
+    })
 }
 
 pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     let safe = safe_connection_name(name)?;
-    let path = connections_dir().join(format!("{}.toml", safe));
-    if !path.exists() {
-        return Err(anyhow!("saved connection '{}' not found", safe));
-    }
-    let content = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read saved connection '{}'", safe))?;
-    let data: SavedConnection = toml::from_str(&content)
-        .with_context(|| format!("failed to parse saved connection '{}'", safe))?;
-    Ok(data)
+    db::run_sync(async move {
+        let row = sqlx::query(
+            r#"
+            SELECT host, username, password_ref, port, enable_password_ref, ssh_security, device_profile, template_dir
+            FROM connections
+            WHERE name = ?
+            "#,
+        )
+        .bind(&safe)
+        .fetch_optional(db::pool())
+        .await?
+        .ok_or_else(|| anyhow!("saved connection '{}' not found", safe))?;
+
+        Ok(SavedConnection {
+            host: row.try_get("host")?,
+            username: row.try_get("username")?,
+            password: None,
+            password_ref: row.try_get("password_ref")?,
+            port: row
+                .try_get::<Option<i64>, _>("port")?
+                .map(|value| value as u16),
+            enable_password: None,
+            enable_password_ref: row.try_get("enable_password_ref")?,
+            ssh_security: row
+                .try_get::<Option<String>, _>("ssh_security")?
+                .map(|value| parse_ssh_security_profile(&value))
+                .transpose()?,
+            device_profile: row.try_get("device_profile")?,
+            template_dir: row.try_get("template_dir")?,
+        })
+    })
 }
 
 pub fn load_connection(name: &str) -> Result<SavedConnection> {
@@ -82,57 +94,36 @@ pub fn load_connection(name: &str) -> Result<SavedConnection> {
 
 pub fn save_connection(name: &str, data: &SavedConnection) -> Result<PathBuf> {
     let safe = safe_connection_name(name)?;
-    let dir = connections_dir();
-    fs::create_dir_all(&dir)?;
-    let path = dir.join(format!("{}.toml", safe));
     let existing = load_connection_raw(&safe).ok();
-    let mut stored = data.clone();
-
-    stored.password_ref = sync_connection_secret(
-        &safe,
-        SecretKind::Password,
-        data.password.as_deref(),
-        data.password_ref.as_deref(),
-        existing
-            .as_ref()
-            .and_then(|item| item.password_ref.as_deref()),
-    )?;
-    stored.enable_password_ref = sync_connection_secret(
-        &safe,
-        SecretKind::EnablePassword,
-        data.enable_password.as_deref(),
-        data.enable_password_ref.as_deref(),
-        existing
-            .as_ref()
-            .and_then(|item| item.enable_password_ref.as_deref()),
-    )?;
-    stored.password = None;
-    stored.enable_password = None;
-
-    let content = toml::to_string_pretty(&stored)?;
-    fs::write(&path, content.as_bytes())?;
-    set_connection_file_permissions(&path)?;
-    Ok(path)
+    persist_connection(&safe, data, existing.as_ref())?;
+    Ok(db::db_path())
 }
 
 pub fn delete_connection(name: &str) -> Result<bool> {
     let safe = safe_connection_name(name)?;
-    let path = connections_dir().join(format!("{}.toml", safe));
-    if !path.exists() {
+    let existing = load_connection_raw(&safe).ok();
+    let Some(existing) = existing else {
         return Ok(false);
-    }
-    if let Ok(data) = load_connection_raw(&safe) {
-        let password_ref = data
-            .password_ref
-            .unwrap_or_else(|| secret_store::connection_secret_ref(&safe, SecretKind::Password));
-        let enable_password_ref = data.enable_password_ref.unwrap_or_else(|| {
-            secret_store::connection_secret_ref(&safe, SecretKind::EnablePassword)
-        });
-        secret_store::delete_secret(&password_ref)?;
-        secret_store::delete_secret(&enable_password_ref)?;
-    }
-    fs::remove_file(path)?;
-    Ok(true)
+    };
+
+    let password_ref = existing
+        .password_ref
+        .unwrap_or_else(|| secret_store::connection_secret_ref(&safe, SecretKind::Password));
+    let enable_password_ref = existing
+        .enable_password_ref
+        .unwrap_or_else(|| secret_store::connection_secret_ref(&safe, SecretKind::EnablePassword));
+    secret_store::delete_secret(&password_ref)?;
+    secret_store::delete_secret(&enable_password_ref)?;
+
+    db::run_sync(async move {
+        let deleted = sqlx::query("DELETE FROM connections WHERE name = ?")
+            .bind(&safe)
+            .execute(db::pool())
+            .await?
+            .rows_affected()
+            > 0;
+        Ok(deleted)
+    })
 }
 
 pub fn has_saved_password(data: &SavedConnection) -> bool {
@@ -158,6 +149,75 @@ pub fn safe_connection_name(raw: &str) -> Result<String> {
         ));
     }
     Ok(normalized.to_string())
+}
+
+fn persist_connection(
+    connection_name: &str,
+    data: &SavedConnection,
+    existing: Option<&SavedConnection>,
+) -> Result<()> {
+    let mut stored = data.clone();
+    stored.password_ref = sync_connection_secret(
+        connection_name,
+        SecretKind::Password,
+        data.password.as_deref(),
+        data.password_ref.as_deref(),
+        existing.and_then(|item| item.password_ref.as_deref()),
+    )?;
+    stored.enable_password_ref = sync_connection_secret(
+        connection_name,
+        SecretKind::EnablePassword,
+        data.enable_password.as_deref(),
+        data.enable_password_ref.as_deref(),
+        existing.and_then(|item| item.enable_password_ref.as_deref()),
+    )?;
+    stored.password = None;
+    stored.enable_password = None;
+
+    let now_ms = now_ms();
+    let name = connection_name.to_string();
+    db::run_sync(async move {
+        let created_at_ms =
+            sqlx::query_scalar::<_, i64>("SELECT created_at_ms FROM connections WHERE name = ?")
+                .bind(&name)
+                .fetch_optional(db::pool())
+                .await?
+                .unwrap_or(now_ms as i64);
+
+        sqlx::query(
+            r#"
+            INSERT INTO connections (
+                name, host, username, password_ref, port, enable_password_ref, ssh_security,
+                device_profile, template_dir, created_at_ms, updated_at_ms
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                host = excluded.host,
+                username = excluded.username,
+                password_ref = excluded.password_ref,
+                port = excluded.port,
+                enable_password_ref = excluded.enable_password_ref,
+                ssh_security = excluded.ssh_security,
+                device_profile = excluded.device_profile,
+                template_dir = excluded.template_dir,
+                updated_at_ms = excluded.updated_at_ms
+            "#,
+        )
+        .bind(&name)
+        .bind(&stored.host)
+        .bind(&stored.username)
+        .bind(&stored.password_ref)
+        .bind(stored.port.map(i64::from))
+        .bind(&stored.enable_password_ref)
+        .bind(stored.ssh_security.map(|value| value.to_string()))
+        .bind(&stored.device_profile)
+        .bind(&stored.template_dir)
+        .bind(created_at_ms)
+        .bind(now_ms as i64)
+        .execute(db::pool())
+        .await?;
+        Ok(())
+    })
 }
 
 fn resolve_secret_field(
@@ -227,160 +287,18 @@ fn has_non_empty_value(value: Option<&str>) -> bool {
     value.is_some_and(|item| !item.is_empty())
 }
 
-#[cfg(unix)]
-fn set_connection_file_permissions(path: &std::path::Path) -> Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-
-    let perms = fs::Permissions::from_mode(0o600);
-    fs::set_permissions(path, perms)?;
-    Ok(())
+fn parse_ssh_security_profile(value: &str) -> Result<SshSecurityProfile> {
+    match value.trim() {
+        "secure" => Ok(SshSecurityProfile::Secure),
+        "balanced" => Ok(SshSecurityProfile::Balanced),
+        "legacy-compatible" => Ok(SshSecurityProfile::LegacyCompatible),
+        other => Err(anyhow!("invalid ssh security profile '{}'", other)),
+    }
 }
 
-#[cfg(not(unix))]
-fn set_connection_file_permissions(_path: &std::path::Path) -> Result<()> {
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        SavedConnection, delete_connection, has_saved_enable_password, has_saved_password,
-        load_connection, load_connection_raw, save_connection,
-    };
-    use crate::config::paths::rauto_home_dir;
-    use crate::config::secret_store;
-    use crate::config::ssh_security::SshSecurityProfile;
-    use anyhow::Result;
-    use std::path::PathBuf;
-    use std::sync::{Mutex, OnceLock};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    static TEST_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-    #[test]
-    fn save_connection_moves_secrets_out_of_file_and_resolves_them_on_load() -> Result<()> {
-        let _secret_guard = secret_store::install_test_backend();
-        let _env_guard = TestEnvGuard::new()?;
-
-        let saved = SavedConnection {
-            host: Some("192.0.2.10".to_string()),
-            username: Some("admin".to_string()),
-            password: Some("ssh-secret".to_string()),
-            password_ref: None,
-            port: Some(22),
-            enable_password: Some("enable-secret".to_string()),
-            enable_password_ref: None,
-            ssh_security: Some(SshSecurityProfile::Balanced),
-            device_profile: Some("cisco_ios".to_string()),
-            template_dir: Some("/tmp/templates".to_string()),
-        };
-
-        let path = save_connection("lab1", &saved)?;
-        let file_content = std::fs::read_to_string(&path)?;
-        assert!(!file_content.contains("ssh-secret"));
-        assert!(!file_content.contains("enable-secret"));
-        assert!(file_content.contains("password_ref"));
-        assert!(file_content.contains("enable_password_ref"));
-
-        let raw = load_connection_raw("lab1")?;
-        assert!(raw.password.is_none());
-        assert!(raw.enable_password.is_none());
-        assert!(has_saved_password(&raw));
-        assert!(has_saved_enable_password(&raw));
-
-        let resolved = load_connection("lab1")?;
-        assert_eq!(resolved.password.as_deref(), Some("ssh-secret"));
-        assert_eq!(resolved.enable_password.as_deref(), Some("enable-secret"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn save_connection_without_password_clears_existing_secret_refs() -> Result<()> {
-        let _secret_guard = secret_store::install_test_backend();
-        let _env_guard = TestEnvGuard::new()?;
-
-        save_connection(
-            "lab2",
-            &SavedConnection {
-                host: Some("192.0.2.20".to_string()),
-                username: Some("admin".to_string()),
-                password: Some("stored-secret".to_string()),
-                password_ref: None,
-                port: Some(22),
-                enable_password: None,
-                enable_password_ref: None,
-                ssh_security: None,
-                device_profile: None,
-                template_dir: None,
-            },
-        )?;
-
-        save_connection(
-            "lab2",
-            &SavedConnection {
-                host: Some("192.0.2.20".to_string()),
-                username: Some("admin".to_string()),
-                password: None,
-                password_ref: None,
-                port: Some(22),
-                enable_password: None,
-                enable_password_ref: None,
-                ssh_security: None,
-                device_profile: None,
-                template_dir: None,
-            },
-        )?;
-
-        let raw = load_connection_raw("lab2")?;
-        assert!(!has_saved_password(&raw));
-        assert!(load_connection("lab2")?.password.is_none());
-
-        delete_connection("lab2")?;
-        Ok(())
-    }
-
-    struct TestEnvGuard {
-        original_home: Option<std::ffi::OsString>,
-        root: PathBuf,
-        _guard: std::sync::MutexGuard<'static, ()>,
-    }
-
-    impl TestEnvGuard {
-        fn new() -> Result<Self> {
-            let guard = TEST_ENV_LOCK
-                .get_or_init(|| Mutex::new(()))
-                .lock()
-                .expect("test env lock poisoned");
-            let root = std::env::temp_dir().join(format!(
-                "rauto-connection-store-test-{}",
-                SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
-            ));
-            let original_home = std::env::var_os("RAUTO_HOME");
-            unsafe {
-                std::env::set_var("RAUTO_HOME", &root);
-            }
-            Ok(Self {
-                original_home,
-                root,
-                _guard: guard,
-            })
-        }
-    }
-
-    impl Drop for TestEnvGuard {
-        fn drop(&mut self) {
-            if let Some(value) = &self.original_home {
-                unsafe {
-                    std::env::set_var("RAUTO_HOME", value);
-                }
-            } else {
-                unsafe {
-                    std::env::remove_var("RAUTO_HOME");
-                }
-            }
-            let _ = std::fs::remove_dir_all(rauto_home_dir());
-            let _ = std::fs::remove_dir_all(&self.root);
-        }
-    }
+fn now_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
 }

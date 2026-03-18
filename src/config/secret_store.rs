@@ -119,3 +119,25 @@ pub fn install_test_backend() -> TestSecretStoreGuard {
     drop(secrets);
     TestSecretStoreGuard { _guard: guard }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        SecretKind, connection_secret_ref, delete_secret, get_secret, install_test_backend,
+        set_secret,
+    };
+    use anyhow::Result;
+
+    #[test]
+    fn test_backend_round_trips_connection_secrets() -> Result<()> {
+        let _guard = install_test_backend();
+        let secret_ref = connection_secret_ref("lab1", SecretKind::Password);
+
+        set_secret(&secret_ref, "secret-value")?;
+        assert_eq!(get_secret(&secret_ref)?.as_deref(), Some("secret-value"));
+
+        delete_secret(&secret_ref)?;
+        assert_eq!(get_secret(&secret_ref)?, None);
+        Ok(())
+    }
+}

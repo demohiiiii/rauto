@@ -1,7 +1,9 @@
 mod agent;
 mod cli;
 mod config;
+mod db;
 mod device;
+mod manager_grpc;
 mod orchestrator;
 mod template;
 mod web;
@@ -18,10 +20,10 @@ use config::connection_store::{
     save_connection,
 };
 use config::history_store::{self, HistoryBinding};
-use config::paths::{default_template_dir, ensure_default_layout};
+use config::paths::ensure_default_layout;
 use config::ssh_security::SshSecurityProfile;
 use config::template_loader;
-use config::{backup, command_blacklist};
+use config::{backup, command_blacklist, content_store};
 use device::DeviceClient;
 use rneter::device::DeviceHandler;
 use rneter::session::{
@@ -34,7 +36,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::fmt::Write as _;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
@@ -48,6 +50,10 @@ async fn main() {
 
     if let Err(e) = ensure_default_layout() {
         error!("Failed to initialize ~/.rauto layout: {}", e);
+        process::exit(1);
+    }
+    if let Err(e) = db::init_sync() {
+        error!("Failed to initialize SQLite database: {}", e);
         process::exit(1);
     }
 
@@ -102,18 +108,12 @@ pub(crate) fn manager_execution_context_with_security(
 }
 
 async fn run(cli: Cli) -> Result<()> {
-    let templates_root = cli
-        .global_opts
-        .template_dir
-        .clone()
-        .unwrap_or_else(default_template_dir);
-
     match cli.command {
         Commands::Template(args) => {
             info!("Running template mode");
 
             // 1. Prepare Template Renderer
-            let renderer = Renderer::new(cli.global_opts.template_dir.clone());
+            let renderer = Renderer::new();
 
             // 2. Load Variables
             let vars = if let Some(vars_path) = args.vars {
@@ -123,20 +123,8 @@ async fn run(cli: Cli) -> Result<()> {
                 serde_json::Value::Null
             };
 
-            // 3. Render Template
-            // Check if template arg is a file path or name
-            // The renderer handles both logic (if passed as name, looks in paths)
-            let rendered_commands = if std::path::Path::new(&args.template).exists()
-                && cli.global_opts.template_dir.is_none()
-            {
-                // If it's a direct file path and no custom dir override, read directly?
-                // Creating a renderer with no custom dir defaults to standard paths.
-                // But renderer.render_file expects a NAME or relative path generally.
-                // Let's rely on renderer's absolute path support.
-                renderer.render_file(&args.template, vars)?
-            } else {
-                renderer.render_file(&args.template, vars)?
-            };
+            // 3. Render Template from the SQLite store
+            let rendered_commands = renderer.render_file(&args.template, vars)?;
 
             println!("--- Rendered Commands ---\n{}", rendered_commands);
             println!("-------------------------");
@@ -163,10 +151,7 @@ async fn run(cli: Cli) -> Result<()> {
                     return Ok(());
                 }
             };
-            let handler = template_loader::load_device_profile(
-                &conn.device_profile,
-                conn.template_dir.as_ref(),
-            )?;
+            let handler = template_loader::load_device_profile(&conn.device_profile)?;
 
             info!("Connecting to device...");
             let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
@@ -225,10 +210,7 @@ async fn run(cli: Cli) -> Result<()> {
                     return Ok(());
                 }
             };
-            let handler = template_loader::load_device_profile(
-                &conn.device_profile,
-                conn.template_dir.as_ref(),
-            )?;
+            let handler = template_loader::load_device_profile(&conn.device_profile)?;
 
             let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
                 DeviceClient::connect_with_recording(
@@ -316,7 +298,7 @@ async fn run(cli: Cli) -> Result<()> {
             run_agent_server(args, cli.global_opts).await?;
         }
         Commands::Device(cmd) => {
-            run_device_command(cmd, &cli.global_opts, &templates_root)?;
+            run_device_command(cmd, &cli.global_opts)?;
         }
         Commands::Connection(cmd) => {
             run_connection_command(cmd, &cli.global_opts).await?;
@@ -329,33 +311,20 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Templates(cmd) => match cmd {
             TemplateCommands::List => {
-                let commands_dir = templates_root.join("commands");
-                if !commands_dir.exists() {
+                let names = content_store::list_command_template_names()?;
+                if names.is_empty() {
                     println!("-");
                     return Ok(());
                 }
-                let mut names = Vec::new();
-                for entry in fs::read_dir(&commands_dir)? {
-                    let entry = entry?;
-                    let path = entry.path();
-                    if path.is_file()
-                        && let Some(name) = path.file_name().and_then(|s| s.to_str())
-                    {
-                        names.push(name.to_string());
-                    }
-                }
-                names.sort();
                 for name in names {
                     println!("- {}", name);
                 }
             }
             TemplateCommands::Show { name } => {
                 let safe_name = safe_template_name(&name)?;
-                let path = templates_root.join("commands").join(&safe_name);
-                if !path.exists() {
-                    return Err(anyhow::anyhow!("template '{}' not found", safe_name));
-                }
-                println!("{}", fs::read_to_string(path)?);
+                let template = content_store::load_command_template(&safe_name)?
+                    .ok_or_else(|| anyhow::anyhow!("template '{}' not found", safe_name))?;
+                println!("{}", template.content);
             }
             TemplateCommands::Create {
                 name,
@@ -363,15 +332,11 @@ async fn run(cli: Cli) -> Result<()> {
                 content,
             } => {
                 let safe_name = safe_template_name(&name)?;
-                let path = templates_root.join("commands").join(&safe_name);
-                if path.exists() {
+                let body = read_template_body(file, content)?;
+                let created = content_store::create_command_template(&safe_name, &body)?;
+                if !created {
                     return Err(anyhow::anyhow!("template '{}' already exists", safe_name));
                 }
-                let body = read_template_body(file, content)?;
-                if let Some(parent) = path.parent() {
-                    fs::create_dir_all(parent)?;
-                }
-                fs::write(&path, body.as_bytes())?;
                 println!("Created template '{}'", safe_name);
             }
             TemplateCommands::Update {
@@ -380,21 +345,19 @@ async fn run(cli: Cli) -> Result<()> {
                 content,
             } => {
                 let safe_name = safe_template_name(&name)?;
-                let path = templates_root.join("commands").join(&safe_name);
-                if !path.exists() {
+                let body = read_template_body(file, content)?;
+                let updated = content_store::update_command_template(&safe_name, &body)?;
+                if !updated {
                     return Err(anyhow::anyhow!("template '{}' not found", safe_name));
                 }
-                let body = read_template_body(file, content)?;
-                fs::write(&path, body.as_bytes())?;
                 println!("Updated template '{}'", safe_name);
             }
             TemplateCommands::Delete { name } => {
                 let safe_name = safe_template_name(&name)?;
-                let path = templates_root.join("commands").join(&safe_name);
-                if !path.exists() {
+                let deleted = content_store::delete_command_template(&safe_name)?;
+                if !deleted {
                     return Err(anyhow::anyhow!("template '{}' not found", safe_name));
                 }
-                fs::remove_file(&path)?;
                 println!("Deleted template '{}'", safe_name);
             }
         },
@@ -447,30 +410,10 @@ async fn run(cli: Cli) -> Result<()> {
     Ok(())
 }
 
-fn run_device_command(
-    cmd: DeviceCommands,
-    global_opts: &GlobalOpts,
-    templates_root: &Path,
-) -> Result<()> {
+fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts) -> Result<()> {
     match cmd {
         DeviceCommands::List => {
-            let mut profiles =
-                template_loader::list_available_profiles(global_opts.template_dir.as_ref())?;
-            let custom_dir = templates_root.join("devices");
-            if custom_dir.exists() {
-                for entry in fs::read_dir(&custom_dir)? {
-                    let entry = entry?;
-                    let path = entry.path();
-                    if path
-                        .extension()
-                        .and_then(|s| s.to_str())
-                        .is_some_and(|ext| ext == "toml")
-                        && let Some(name) = path.file_stem().and_then(|s| s.to_str())
-                    {
-                        profiles.push(name.to_string());
-                    }
-                }
-            }
+            let mut profiles = template_loader::list_available_profiles()?;
             profiles.sort();
             profiles.dedup();
             println!("Available Device Profiles (builtin + custom):");
@@ -488,15 +431,13 @@ fn run_device_command(
             }
 
             let safe_name = name.trim().trim_end_matches(".toml");
-            let path = templates_root
-                .join("devices")
-                .join(format!("{}.toml", safe_name));
-            if !path.exists() {
+            let stored = content_store::load_custom_profile(safe_name)?;
+            let Some(stored) = stored else {
                 return Err(anyhow::anyhow!("profile '{}' not found", name));
-            }
+            };
             println!("# custom profile: {}", safe_name);
-            println!("# path: {}", path.to_string_lossy());
-            println!("{}", fs::read_to_string(path)?);
+            println!("# path: {}", stored.locator);
+            println!("{}", stored.content);
         }
         DeviceCommands::CopyBuiltin {
             source,
@@ -524,24 +465,19 @@ fn run_device_command(
 
             profile.name = normalized.to_string();
             let content = toml::to_string_pretty(&profile)?;
-
-            let profiles_dir = templates_root.join("devices");
-            fs::create_dir_all(&profiles_dir)?;
-            let target = profiles_dir.join(format!("{}.toml", normalized));
-
-            if target.exists() && !overwrite {
+            let exists = content_store::load_custom_profile(normalized)?.is_some();
+            if exists && !overwrite {
                 return Err(anyhow::anyhow!(
                     "Target profile already exists: {} (use --overwrite to replace)",
-                    target.to_string_lossy()
+                    normalized
                 ));
             }
-
-            fs::write(&target, content.as_bytes())?;
-            println!(
-                "Copied built-in profile '{}' to '{}'",
-                source,
-                target.to_string_lossy()
-            );
+            if exists {
+                content_store::update_custom_profile(normalized, &content)?;
+            } else {
+                content_store::create_custom_profile(normalized, &content)?;
+            }
+            println!("Copied built-in profile '{}' to '{}'", source, normalized);
         }
         DeviceCommands::DeleteCustom { name } => {
             let safe_name = name.trim().trim_end_matches(".toml");
@@ -555,21 +491,14 @@ fn run_device_command(
                     name
                 ));
             }
-            let path = templates_root
-                .join("devices")
-                .join(format!("{}.toml", safe_name));
-            if !path.exists() {
-                return Err(anyhow::anyhow!(
-                    "Custom profile not found: {}",
-                    path.to_string_lossy()
-                ));
+            let deleted = content_store::delete_custom_profile(safe_name)?;
+            if !deleted {
+                return Err(anyhow::anyhow!("Custom profile not found: {}", safe_name));
             }
-            fs::remove_file(&path)?;
-            println!("Deleted custom profile '{}'", path.to_string_lossy());
+            println!("Deleted custom profile '{}'", safe_name);
         }
         DeviceCommands::Diagnose { name, json } => {
-            let handler =
-                template_loader::load_device_profile(&name, global_opts.template_dir.as_ref())?;
+            let handler = template_loader::load_device_profile(&name)?;
             let report = handler.diagnose_state_machine();
 
             if json {
@@ -604,10 +533,7 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
     match cmd {
         ConnectionCommands::Test => {
             let conn = resolve_effective_connection(global_opts)?;
-            let handler = template_loader::load_device_profile(
-                &conn.device_profile,
-                conn.template_dir.as_ref(),
-            )?;
+            let handler = template_loader::load_device_profile(&conn.device_profile)?;
             let _client = DeviceClient::connect(
                 conn.host.clone(),
                 conn.port,
@@ -708,7 +634,8 @@ fn run_history_command(cmd: HistoryCommands) -> Result<()> {
                 .into_iter()
                 .find(|entry| entry.id == id)
                 .ok_or_else(|| anyhow::anyhow!("history record not found"))?;
-            let jsonl = fs::read_to_string(&item.record_path)?;
+            let jsonl = history_store::load_recording_jsonl_by_key(&item.connection_key, &item.id)?
+                .ok_or_else(|| anyhow::anyhow!("history record body not found"))?;
             let recorder = SessionRecorder::from_jsonl(&jsonl)?;
             let entries = recorder.entries()?;
             if json {
@@ -760,7 +687,7 @@ fn run_blacklist_command(cmd: BlacklistCommands) -> Result<()> {
             }
             println!(
                 "# file: {}",
-                command_blacklist::blacklist_file().to_string_lossy()
+                command_blacklist::storage_path().to_string_lossy()
             );
         }
         BlacklistCommands::Add { pattern } => {
@@ -1202,8 +1129,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
 
     command_blacklist::ensure_tx_block_allowed(&tx_block, &format!("tx block '{}'", args.name))?;
 
-    let handler =
-        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let tx_result = if matches!(args.record_level, RecordLevelOpt::Off) {
         let request = manager_connection_request(
             conn.username.clone(),
@@ -1236,8 +1162,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                 to_record_level(args.record_level),
             )
             .await?;
-        let handler_for_tx =
-            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
         let request = manager_connection_request(
             conn.username.clone(),
             conn.host.clone(),
@@ -1282,10 +1207,10 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
     Ok(())
 }
 
-fn resolve_tx_commands(args: &TxArgs, conn: &EffectiveConnection) -> Result<Vec<String>> {
+fn resolve_tx_commands(args: &TxArgs, _conn: &EffectiveConnection) -> Result<Vec<String>> {
     let mut commands = Vec::new();
     if let Some(template_name) = &args.template {
-        let renderer = Renderer::new(conn.template_dir.clone());
+        let renderer = Renderer::new();
         let vars = load_vars_json(args.vars.as_ref())?;
         let rendered = renderer.render_file(template_name, vars)?;
         commands.extend(
@@ -1415,8 +1340,7 @@ async fn run_tx_workflow(args: TxWorkflowArgs, opts: &cli::GlobalOpts) -> Result
     )?;
 
     let conn = resolve_effective_connection(opts)?;
-    let handler =
-        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let (workflow_result, recording_jsonl) = if matches!(args.record_level, RecordLevelOpt::Off) {
         let request = manager_connection_request(
             conn.username.clone(),
@@ -1450,8 +1374,7 @@ async fn run_tx_workflow(args: TxWorkflowArgs, opts: &cli::GlobalOpts) -> Result
                 to_record_level(args.record_level),
             )
             .await?;
-        let handler_for_tx =
-            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
         let request = manager_connection_request(
             conn.username.clone(),
             conn.host.clone(),

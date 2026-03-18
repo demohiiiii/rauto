@@ -768,7 +768,7 @@ async fn execute_tx_block_action(
         .unwrap_or("Config")
         .to_string();
     let merged_vars = merge_values(&action.vars, &target.vars);
-    let renderer = Renderer::new(conn.template_dir.clone());
+    let renderer = Renderer::new();
     let commands = resolve_block_commands(&renderer, action, merged_vars)?;
     let tx_block_name = action
         .name
@@ -862,8 +862,7 @@ async fn execute_tx_block_action(
         &format!("orchestration tx block '{}'", tx_block_name),
     )?;
 
-    let handler =
-        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let (tx_result, recording_jsonl) = if matches!(record_level, RecordLevelOpt::Off) {
         let request = manager_connection_request(
             conn.username.clone(),
@@ -897,8 +896,7 @@ async fn execute_tx_block_action(
                 to_record_level(record_level),
             )
             .await?;
-        let handler_for_tx =
-            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
         let request = manager_connection_request(
             conn.username.clone(),
             conn.host.clone(),
@@ -949,8 +947,7 @@ async fn execute_tx_workflow_action(
         &workflow,
         &format!("orchestration tx workflow '{}'", workflow_name),
     )?;
-    let handler =
-        template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
 
     let (workflow_result, recording_jsonl) = if matches!(record_level, RecordLevelOpt::Off) {
         let request = manager_connection_request(
@@ -985,8 +982,7 @@ async fn execute_tx_workflow_action(
                 to_record_level(record_level),
             )
             .await?;
-        let handler_for_tx =
-            template_loader::load_device_profile(&conn.device_profile, conn.template_dir.as_ref())?;
+        let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
         let request = manager_connection_request(
             conn.username.clone(),
             conn.host.clone(),

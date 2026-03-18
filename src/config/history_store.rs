@@ -1,8 +1,8 @@
-use crate::config::{connection_store, paths::rauto_home_dir};
+use crate::config::connection_store;
+use crate::db;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
+use sqlx::Row;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,10 +28,6 @@ pub struct HistoryBinding<'a> {
     pub port: u16,
     pub username: &'a str,
     pub device_profile: &'a str,
-}
-
-pub fn records_by_connection_dir() -> PathBuf {
-    rauto_home_dir().join("records").join("by_connection")
 }
 
 pub fn save_recording(
@@ -62,17 +58,10 @@ pub fn save_recording(
         )
     };
 
-    let dir = records_by_connection_dir().join(&connection_key);
-    fs::create_dir_all(&dir)?;
-
     let op = slug(operation);
     let id = format!("{}_{}", ts_ms, op);
-    let record_path = dir.join(format!("{}.jsonl", id));
-    let meta_path = dir.join(format!("{}.meta.json", id));
-    fs::write(&record_path, jsonl.as_bytes())?;
-
     let entry = HistoryEntry {
-        id,
+        id: id.clone(),
         ts_ms,
         connection_key: connection_key.clone(),
         connection_name: binding.connection_name.map(|s| s.to_string()),
@@ -87,10 +76,9 @@ pub fn save_recording(
             _ => "Enable".to_string(),
         }),
         record_level: record_level.to_string(),
-        record_path: record_path.to_string_lossy().to_string(),
+        record_path: recording_locator(&id),
     };
-    let meta_json = serde_json::to_string_pretty(&entry)?;
-    fs::write(meta_path, meta_json.as_bytes())?;
+    insert_history_entry(&entry, jsonl)?;
     Ok(entry)
 }
 
@@ -110,60 +98,112 @@ pub fn delete_history_by_key(key: &str, id: &str) -> Result<bool> {
         return Ok(false);
     }
 
-    let dir = records_by_connection_dir().join(key);
-    if !dir.exists() {
-        return Ok(false);
-    }
-
-    let record_path = dir.join(format!("{}.jsonl", safe_id));
-    let meta_path = dir.join(format!("{}.meta.json", safe_id));
-    let mut deleted = false;
-
-    if record_path.exists() {
-        fs::remove_file(&record_path)?;
-        deleted = true;
-    }
-    if meta_path.exists() {
-        fs::remove_file(&meta_path)?;
-        deleted = true;
-    }
-
-    if deleted && fs::read_dir(&dir)?.next().is_none() {
-        let _ = fs::remove_dir(&dir);
-    }
-
-    Ok(deleted)
+    db::run_sync(async {
+        let deleted =
+            sqlx::query("DELETE FROM history_entries WHERE connection_key = ? AND id = ?")
+                .bind(key)
+                .bind(&safe_id)
+                .execute(db::pool())
+                .await?
+                .rows_affected()
+                > 0;
+        Ok(deleted)
+    })
 }
 
 pub fn list_history_by_key(key: &str, limit: usize) -> Result<Vec<HistoryEntry>> {
-    let dir = records_by_connection_dir().join(key);
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-    let mut items = Vec::new();
-    for entry in fs::read_dir(&dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        let is_meta = path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .is_some_and(|name| name.ends_with(".meta.json"));
-        if !is_meta {
-            continue;
-        }
-        let Ok(content) = fs::read_to_string(&path) else {
-            continue;
+    db::run_sync(async move {
+        let sql = if limit > 0 {
+            "SELECT * FROM history_entries WHERE connection_key = ? AND record_jsonl <> '' ORDER BY ts_ms DESC LIMIT ?"
+        } else {
+            "SELECT * FROM history_entries WHERE connection_key = ? AND record_jsonl <> '' ORDER BY ts_ms DESC"
         };
-        let Ok(item) = serde_json::from_str::<HistoryEntry>(&content) else {
-            continue;
+        let rows = if limit > 0 {
+            sqlx::query(sql)
+                .bind(key)
+                .bind(limit as i64)
+                .fetch_all(db::pool())
+                .await?
+        } else {
+            sqlx::query(sql).bind(key).fetch_all(db::pool()).await?
         };
-        items.push(item);
+        Ok(rows.into_iter().map(row_to_history_entry).collect())
+    })
+}
+
+pub fn load_recording_jsonl_by_key(key: &str, id: &str) -> Result<Option<String>> {
+    let safe_id = slug(id);
+    if safe_id.is_empty() {
+        return Ok(None);
     }
-    items.sort_by(|a, b| b.ts_ms.cmp(&a.ts_ms));
-    if limit > 0 && items.len() > limit {
-        items.truncate(limit);
+
+    db::run_sync(async move {
+        let row = sqlx::query(
+            "SELECT record_jsonl FROM history_entries WHERE connection_key = ? AND id = ?",
+        )
+        .bind(key)
+        .bind(&safe_id)
+        .fetch_optional(db::pool())
+        .await?;
+        Ok(row.and_then(|row| {
+            let jsonl = row.get::<String, _>("record_jsonl");
+            if jsonl.is_empty() { None } else { Some(jsonl) }
+        }))
+    })
+}
+
+fn insert_history_entry(entry: &HistoryEntry, jsonl: &str) -> Result<()> {
+    let entry = entry.clone();
+    let record_jsonl = jsonl.to_string();
+    db::run_sync(async move {
+        sqlx::query(
+            r#"
+            INSERT INTO history_entries (
+                id, ts_ms, connection_key, connection_name, host, port, username,
+                device_profile, operation, command_label, mode, record_level, record_path, record_jsonl
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&entry.id)
+        .bind(entry.ts_ms as i64)
+        .bind(&entry.connection_key)
+        .bind(&entry.connection_name)
+        .bind(&entry.host)
+        .bind(i64::from(entry.port))
+        .bind(&entry.username)
+        .bind(&entry.device_profile)
+        .bind(&entry.operation)
+        .bind(&entry.command_label)
+        .bind(&entry.mode)
+        .bind(&entry.record_level)
+        .bind(&entry.record_path)
+        .bind(&record_jsonl)
+        .execute(db::pool())
+        .await?;
+        Ok(())
+    })
+}
+
+fn row_to_history_entry(row: sqlx::sqlite::SqliteRow) -> HistoryEntry {
+    HistoryEntry {
+        id: row.get("id"),
+        ts_ms: row.get::<i64, _>("ts_ms") as u128,
+        connection_key: row.get("connection_key"),
+        connection_name: row.get("connection_name"),
+        host: row.get("host"),
+        port: row.get::<i64, _>("port") as u16,
+        username: row.get("username"),
+        device_profile: row.get("device_profile"),
+        operation: row.get("operation"),
+        command_label: row.get("command_label"),
+        mode: row.get("mode"),
+        record_level: row.get("record_level"),
+        record_path: row.get("record_path"),
     }
-    Ok(items)
+}
+
+fn recording_locator(id: &str) -> String {
+    format!("sqlite://{}#history/{}", db::db_path().display(), id)
 }
 
 fn now_ms() -> u128 {
