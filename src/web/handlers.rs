@@ -782,6 +782,10 @@ fn merged_saved_secret(
     incoming.or_else(|| existing.cloned())
 }
 
+fn should_persist_secret(save_password: bool, incoming_secret: Option<&str>) -> bool {
+    save_password || incoming_secret.is_some_and(|value| !value.trim().is_empty())
+}
+
 pub async fn get_connection(
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<SavedConnectionDetail>, ApiError> {
@@ -878,26 +882,33 @@ pub async fn upsert_connection(
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let c = req.connection;
-    let save_password = req.save_password;
-    let existing = connection_store::load_connection(&safe).ok();
+    let save_password = should_persist_secret(req.save_password, c.password.as_deref())
+        || should_persist_secret(req.save_password, c.enable_password.as_deref());
+    let existing = connection_store::load_connection_raw(&safe).ok();
+    let existing_password = connection_store::load_saved_secret(
+        existing
+            .as_ref()
+            .and_then(|item| item.password_encrypted.as_deref()),
+    )
+    .map_err(ApiError::from)?;
+    let existing_enable_password = connection_store::load_saved_secret(
+        existing
+            .as_ref()
+            .and_then(|item| item.enable_password_encrypted.as_deref()),
+    )
+    .map_err(ApiError::from)?;
     let data = SavedConnection {
         host: c.host,
         username: c.username,
-        password: merged_saved_secret(
-            save_password,
-            c.password,
-            existing.as_ref().and_then(|item| item.password.as_ref()),
-        ),
-        password_ref: None,
+        password: merged_saved_secret(save_password, c.password, existing_password.as_ref()),
+        password_encrypted: None,
         port: c.port,
         enable_password: merged_saved_secret(
             save_password,
             c.enable_password,
-            existing
-                .as_ref()
-                .and_then(|item| item.enable_password.as_ref()),
+            existing_enable_password.as_ref(),
         ),
-        enable_password_ref: None,
+        enable_password_encrypted: None,
         ssh_security: c
             .ssh_security
             .or_else(|| existing.as_ref().and_then(|item| item.ssh_security)),
@@ -1506,7 +1517,10 @@ pub async fn replay_session(
 
 #[cfg(test)]
 mod tests {
-    use super::{TaskCallbackContext, merged_saved_secret, saved_connection_detail_response};
+    use super::{
+        TaskCallbackContext, merged_saved_secret, saved_connection_detail_response,
+        should_persist_secret,
+    };
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
     use std::path::PathBuf;
@@ -1520,10 +1534,10 @@ mod tests {
                 host: Some("192.0.2.10".to_string()),
                 username: Some("admin".to_string()),
                 password: Some("secret".to_string()),
-                password_ref: None,
+                password_encrypted: None,
                 port: Some(22),
                 enable_password: Some("enable-secret".to_string()),
-                enable_password_ref: None,
+                enable_password_encrypted: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 device_profile: Some("cisco_ios".to_string()),
                 template_dir: Some("/tmp/templates".to_string()),
@@ -1563,6 +1577,14 @@ mod tests {
             Some("new-secret".to_string())
         );
         assert_eq!(merged_saved_secret(false, None, Some(&existing)), None);
+    }
+
+    #[test]
+    fn explicit_secret_input_implies_secret_should_be_persisted() {
+        assert!(should_persist_secret(false, Some("secret")));
+        assert!(should_persist_secret(true, None));
+        assert!(!should_persist_secret(false, None));
+        assert!(!should_persist_secret(false, Some("   ")));
     }
 
     #[test]

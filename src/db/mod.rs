@@ -44,9 +44,9 @@ pub async fn init() -> Result<()> {
             name TEXT PRIMARY KEY,
             host TEXT,
             username TEXT,
-            password_ref TEXT,
+            password_encrypted TEXT,
             port INTEGER,
-            enable_password_ref TEXT,
+            enable_password_encrypted TEXT,
             ssh_security TEXT,
             device_profile TEXT,
             template_dir TEXT,
@@ -56,6 +56,8 @@ pub async fn init() -> Result<()> {
         "#,
     )
     .await?;
+    ensure_column(pool, "connections", "password_encrypted", "TEXT").await?;
+    ensure_column(pool, "connections", "enable_password_encrypted", "TEXT").await?;
 
     pool.execute(
         r#"

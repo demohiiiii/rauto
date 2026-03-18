@@ -312,14 +312,14 @@ rauto history list lab1 --limit 20
 密码保存规则：
 - 在 `exec/template/connection test` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
 - 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
-- 已保存密码会通过 `keyring` 进入系统密钥库；连接元数据保存在 `~/.rauto/rauto.db` 中。
+- 已保存密码会加密后写入 `~/.rauto/rauto.db`；本地解密密钥保存在 `~/.rauto/master.key` 中。
 - `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。
 
 ### 7. 数据备份与恢复
 
 备份当前 `rauto` 的运行时数据存储和备份配置：
 
-注意：备份归档会包含连接元数据，但系统密钥库中的密码不会被导出到归档里。
+注意：备份归档会同时包含 `rauto.db` 和 `master.key`，因此恢复备份时也会恢复已保存连接的密码。
 
 ```bash
 # 备份到默认路径：~/.rauto/backups/rauto-backup-<timestamp>.tar.gz

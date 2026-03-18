@@ -312,14 +312,14 @@ rauto history list lab1 --limit 20
 Password behavior:
 - `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
-- Saved passwords are stored in the system keychain via `keyring`; connection metadata is stored in `~/.rauto/rauto.db`.
+- Saved passwords are encrypted and stored in `~/.rauto/rauto.db`; the local encryption key is stored in `~/.rauto/master.key`.
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections.
 
 ### 7. Backup & Restore
 
 Backup the current `rauto` runtime data store and backup configuration:
 
-Note: backup archives include saved connection metadata, but system-keychain secrets are not exported into the archive.
+Note: backup archives include both `rauto.db` and `master.key`, so saved-connection passwords remain restorable from the backup.
 
 ```bash
 # Create backup to default path: ~/.rauto/backups/rauto-backup-<timestamp>.tar.gz

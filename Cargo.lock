@@ -1785,16 +1785,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "keyring"
-version = "3.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
-dependencies = [
- "log",
- "zeroize",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2734,18 +2724,19 @@ version = "0.3.1"
 dependencies = [
  "anyhow",
  "axum 0.8.8",
+ "base64",
  "chrono",
  "clap",
  "dirs",
  "flate2",
  "hostname",
- "keyring",
  "log",
  "mime_guess",
  "minijinja",
  "prost",
  "protoc-bin-vendored",
  "reqwest",
+ "ring",
  "rneter",
  "rust-embed",
  "serde",

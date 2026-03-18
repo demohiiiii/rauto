@@ -58,7 +58,7 @@ async fn main() {
     }
 
     if let Err(e) = run(cli).await {
-        error!("Error: {}", e);
+        error!("Error: {e:#}");
         process::exit(1);
     }
 }
@@ -144,13 +144,7 @@ async fn run(cli: Cli) -> Result<()> {
                 "template execution",
             )?;
 
-            let conn = match resolve_effective_connection(&cli.global_opts) {
-                Ok(conn) => conn,
-                Err(_) => {
-                    error!("Host is required for execution (unless --dry-run is used)");
-                    return Ok(());
-                }
-            };
+            let conn = resolve_effective_connection(&cli.global_opts)?;
             let handler = template_loader::load_device_profile(&conn.device_profile)?;
 
             info!("Connecting to device...");
@@ -203,13 +197,7 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Exec(args) => {
             command_blacklist::ensure_command_allowed(&args.command, "direct execution")?;
-            let conn = match resolve_effective_connection(&cli.global_opts) {
-                Ok(conn) => conn,
-                Err(_) => {
-                    error!("Host is required");
-                    return Ok(());
-                }
-            };
+            let conn = resolve_effective_connection(&cli.global_opts)?;
             let handler = template_loader::load_device_profile(&conn.device_profile)?;
 
             let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
@@ -839,14 +827,14 @@ fn save_named_connection(
         } else {
             None
         },
-        password_ref: None,
+        password_encrypted: None,
         port: Some(conn.port),
         enable_password: if save_password {
             conn.enable_password.clone()
         } else {
             None
         },
-        enable_password_ref: None,
+        enable_password_encrypted: None,
         ssh_security: Some(conn.ssh_security),
         device_profile: Some(conn.device_profile.clone()),
         template_dir: conn

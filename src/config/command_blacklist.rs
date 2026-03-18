@@ -244,7 +244,7 @@ mod tests {
 
     struct TestEnvGuard {
         original_home: Option<std::ffi::OsString>,
-        root: PathBuf,
+        _root: PathBuf,
         _guard: std::sync::MutexGuard<'static, ()>,
     }
 
@@ -264,7 +264,7 @@ mod tests {
             }
             Ok(Self {
                 original_home,
-                root,
+                _root: root,
                 _guard: guard,
             })
         }
@@ -281,7 +281,6 @@ mod tests {
                     std::env::remove_var("RAUTO_HOME");
                 }
             }
-            let _ = std::fs::remove_dir_all(&self.root);
         }
     }
 }

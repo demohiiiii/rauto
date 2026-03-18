@@ -28,7 +28,7 @@ const i18n = {
     connectionTestBtn: "Test Connection",
     savedConnTitle: "Saved Connections",
     savedConnNamePlaceholder: "saved connection name",
-    savedConnSavePassword: "save password",
+    savedConnSavePassword: "do not save password",
     savedConnSaveBtn: "Save",
     savedConnDeleteBtn: "Delete",
     savedConnHistoryBtn: "History",
@@ -497,7 +497,7 @@ const i18n = {
     connectionTestBtn: "测试连接",
     savedConnTitle: "已保存连接",
     savedConnNamePlaceholder: "连接配置名称",
-    savedConnSavePassword: "保存密码",
+    savedConnSavePassword: "不保存密码",
     savedConnSaveBtn: "保存",
     savedConnDeleteBtn: "删除",
     savedConnHistoryBtn: "历史",
@@ -4023,9 +4023,15 @@ async function saveConnectionByName() {
   }
   setStatusMessage("saved-conn-out", t("running"), "running");
   try {
+    const dontSavePassword = byId("saved-conn-save-password").checked;
+    const payload = connectionPayload();
+    if (dontSavePassword) {
+      payload.password = null;
+      payload.enable_password = null;
+    }
     const data = await request("PUT", `/api/connections/${encodeURIComponent(name)}`, {
-      connection: connectionPayload(),
-      save_password: byId("saved-conn-save-password").checked,
+      connection: payload,
+      save_password: !dontSavePassword,
     });
     setStatusMessage("saved-conn-out", `${t("saved")}: ${data.name || name}`, "success");
     await loadSavedConnections();

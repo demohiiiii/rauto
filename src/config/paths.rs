@@ -15,6 +15,10 @@ pub fn default_db_path() -> PathBuf {
     rauto_home_dir().join("rauto.db")
 }
 
+pub fn default_master_key_path() -> PathBuf {
+    rauto_home_dir().join("master.key")
+}
+
 pub fn ensure_default_layout() -> Result<()> {
     let root = rauto_home_dir();
     fs::create_dir_all(&root)?;
