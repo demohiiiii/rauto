@@ -1,3 +1,4 @@
+use crate::agent::report_mode::ManagerReportMode;
 use crate::config::ssh_security::SshSecurityProfile;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
@@ -454,6 +455,10 @@ pub struct AgentArgs {
     /// API token for authentication and manager callbacks
     #[arg(long, env = "RAUTO_AGENT_TOKEN")]
     pub agent_token: Option<String>,
+
+    /// Manager reporting transport mode
+    #[arg(long, env = "RAUTO_MANAGER_REPORT_MODE", value_enum)]
+    pub report_mode: Option<ManagerReportMode>,
 
     /// Path to agent config file (default: ~/.rauto/agent.toml)
     #[arg(long)]

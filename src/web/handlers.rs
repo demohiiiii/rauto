@@ -122,16 +122,15 @@ fn spawn_task_callback<T: Serialize>(
         if let Err(err) = send_result {
             warn!("task callback failed: {}", err);
             if let Some(registrar) = state.registrar() {
+                let target_url = registrar.task_callback_report_target();
+                let transport_method = registrar.report_transport_method_name().to_string();
                 registrar
                     .report_async_error_best_effort(
                         AsyncErrorReportInput::new("task_callback_failed", err.to_string())
                             .with_task_id(Some(task_ctx.task_id.clone()))
                             .with_operation(Some(task_ctx.operation.clone()))
-                            .with_target_url(Some(
-                                "grpc://manager/rauto.manager.v1.AgentReportingService/ReportTaskCallback"
-                                    .to_string(),
-                            ))
-                            .with_http_method(Some("GRPC".to_string()))
+                            .with_target_url(Some(target_url))
+                            .with_http_method(Some(transport_method))
                             .with_details(Some(json!({
                                 "task_status": callback.status,
                                 "started_at": callback.started_at,

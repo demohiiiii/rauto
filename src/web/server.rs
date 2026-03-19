@@ -43,6 +43,7 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
         agent_args.manager_url.clone(),
         agent_args.agent_name.clone(),
         agent_args.agent_token.clone(),
+        agent_args.report_mode,
         agent_args.probe_report_interval,
     )?;
     let Some(agent_config) = agent_settings.config else {

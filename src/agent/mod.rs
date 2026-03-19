@@ -1,6 +1,7 @@
 pub mod config;
 pub mod grpc_client;
 pub mod registration;
+pub mod report_mode;
 
 use crate::config::content_store;
 use crate::config::{connection_store, template_loader};

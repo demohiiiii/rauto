@@ -1,4 +1,4 @@
-use crate::config::paths::default_master_key_path;
+use crate::db;
 use anyhow::{Context, Result, anyhow};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
@@ -99,7 +99,7 @@ pub fn has_encrypted_secret(encrypted: Option<&str>) -> bool {
 }
 
 fn load_or_create_master_key() -> Result<[u8; MASTER_KEY_LEN]> {
-    let path = default_master_key_path();
+    let path = master_key_path();
     if path.exists() {
         return read_master_key(&path);
     }
@@ -122,7 +122,7 @@ fn load_or_create_master_key() -> Result<[u8; MASTER_KEY_LEN]> {
 }
 
 fn load_master_key() -> Result<[u8; MASTER_KEY_LEN]> {
-    let path = default_master_key_path();
+    let path = master_key_path();
     if !path.exists() {
         return Err(anyhow!(
             "master key '{}' is missing; saved passwords cannot be decrypted",
@@ -149,6 +149,13 @@ fn read_master_key(path: &Path) -> Result<[u8; MASTER_KEY_LEN]> {
     let mut key = [0_u8; MASTER_KEY_LEN];
     key.copy_from_slice(&bytes);
     Ok(key)
+}
+
+fn master_key_path() -> std::path::PathBuf {
+    db::db_path()
+        .parent()
+        .map(|parent| parent.join("master.key"))
+        .unwrap_or_else(|| std::path::PathBuf::from("master.key"))
 }
 
 fn write_master_key(path: &Path, encoded: &str) -> Result<()> {

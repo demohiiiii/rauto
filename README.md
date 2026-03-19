@@ -51,6 +51,7 @@ The binary will be available at `target/release/rauto`.
 This repo includes a Codex skill for rauto usage under `skills/rauto-usage/`.
 
 Recommended usage:
+
 - If you are operating `rauto` through Codex or Claude Code, using the skill is the cleanest path.
 - The skill is action-first: it prefers running read-only `rauto` commands directly, and for config changes it prefers `tx` / `tx-workflow` with rollback or `--dry-run` first.
 - It also returns a compact execution summary instead of raw terminal noise.
@@ -58,15 +59,19 @@ Recommended usage:
 ### Install to your machine
 
 1. Clone the repo:
+
 ```bash
 git clone https://github.com/demohiiiii/rauto.git
 ```
+
 2. Copy the skill into your Codex skills folder:
+
 ```bash
 cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
 ```
 
 Notes:
+
 - If `CODEX_HOME` is not set, it usually defaults to `~/.codex`.
 - You can verify the skill is present at `$CODEX_HOME/skills/rauto-usage`.
 
@@ -92,6 +97,7 @@ Check recent execution history for core-01 and summarize the errors.
 ### Claude Code example
 
 If you use Claude Code skills, copy the folder into your Claude Code skills directory:
+
 ```bash
 cp -R rauto/skills/rauto-usage ~/.claude/skills/
 ```
@@ -106,6 +112,7 @@ Render commands from a template and execute them on a device.
 Templates are stored in SQLite and managed with `rauto templates` or the Web UI.
 
 **Basic Usage:**
+
 ```bash
 rauto template show_version.j2 \
     --host 192.168.1.1 \
@@ -127,6 +134,7 @@ rauto template configure_vlan.j2 \
 ```
 
 **Dry Run (Preview):**
+
 ```bash
 rauto template configure_vlan.j2 \
     --vars templates/example_vars.json \
@@ -162,6 +170,7 @@ rauto exec "show bgp neighbor" \
 `rauto` supports built-in device profiles (inherited from `rneter`) and custom TOML profiles.
 
 **List Available Profiles:**
+
 ```bash
 rauto device list
 ```
@@ -182,6 +191,7 @@ rauto template show_ver.j2 \
 Custom device profiles are stored in SQLite and managed through `rauto device` or the Web UI.
 
 Use it after creating or copying a custom profile:
+
 ```bash
 rauto exec "show ver" \
     --host 192.168.1.1 \
@@ -192,6 +202,7 @@ rauto exec "show ver" \
 ```
 
 **Useful profile management commands:**
+
 ```bash
 rauto device list
 rauto device show cisco
@@ -224,6 +235,7 @@ Web assets are embedded into the binary at build time.
 For released binaries, users only need to run the executable (no extra `static/` files required at runtime).
 
 Web console key capabilities:
+
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
 - Execute commands with saved connection info (load one connection, then run direct or template mode).
@@ -243,6 +255,7 @@ rauto agent \
     --bind 0.0.0.0 \
     --port 8123 \
     --manager-url http://manager:50051 \
+    --report-mode grpc \
     --agent-name agent-beijing-01 \
     --agent-token my-secret-token \
     --probe-report-interval 300
@@ -254,6 +267,7 @@ You can also keep defaults in `~/.rauto/agent.toml`:
 [manager]
 url = "http://manager:50051"
 token = "my-secret-token"
+report_mode = "grpc"
 
 [agent]
 name = "agent-beijing-01"
@@ -262,14 +276,17 @@ probe_report_interval = 300
 ```
 
 Agent mode adds:
+
 - Public `GET /api/agent/info` for manager-side reachability/discovery.
 - Protected `GET /api/agent/status` for runtime status and heartbeat metadata.
 - Protected `POST /api/devices/probe` for batch TCP reachability checks of saved connections.
 - Background manager registration, heartbeat, and best-effort offline notification on shutdown.
-- Manager reporting now uses gRPC `rauto.manager.v1.AgentReportingService` for register, heartbeat, offline, inventory sync, status updates, async error reporting, and task callbacks.
+- Manager reporting supports two transports:
+- `grpc` (default): uses `rauto.manager.v1.AgentReportingService`, best when manager can expose a gRPC endpoint.
+- `http`: uses manager HTTP endpoints, useful when manager only exposes HTTP(S), such as Vercel-style deployments.
 - Full inventory sync after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
 - Periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
-- `task_id` enables async task callbacks in agent mode; task callbacks are delivered to `rauto-manager` through gRPC.
+- `task_id` enables async task callbacks in agent mode; callbacks are reported back to manager through the selected transport.
 - Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
 - When agent mode is started with a token, browser-side Web UI requests must provide the same token in the page header token field.
 
@@ -310,6 +327,7 @@ rauto history list lab1 --limit 20
 ```
 
 Password behavior:
+
 - `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
 - Saved passwords are encrypted and stored in `~/.rauto/rauto.db`; the local encryption key is stored in `~/.rauto/master.key`.
@@ -359,6 +377,7 @@ rauto blacklist delete "reload*"
 ```
 
 Notes:
+
 - `*` matches any character sequence, including spaces.
 - Matching is case-insensitive and applies to the full command text.
 - Blacklist data is stored in `~/.rauto/rauto.db`.
@@ -366,6 +385,7 @@ Notes:
 ### 9. CLI Quick Reference
 
 **Connection troubleshooting**
+
 ```bash
 rauto connection test \
     --host 192.168.1.1 \
@@ -375,6 +395,7 @@ rauto connection test \
 ```
 
 **Saved connection profiles**
+
 ```bash
 rauto connection add lab1 \
     --host 192.168.1.1 \
@@ -387,6 +408,7 @@ rauto history list lab1 --limit 20
 ```
 
 **Command blacklist**
+
 ```bash
 rauto blacklist add "reload*"
 rauto blacklist add "write erase"
@@ -395,6 +417,7 @@ rauto blacklist check "reload in 5"
 ```
 
 **Profile management**
+
 ```bash
 rauto device list
 rauto device show cisco
@@ -404,6 +427,7 @@ rauto device delete-custom my_cisco
 ```
 
 **Template storage management**
+
 ```bash
 rauto templates list
 rauto templates show show_version.j2
@@ -411,6 +435,7 @@ rauto templates delete show_version.j2
 ```
 
 **Session recording & replay**
+
 ```bash
 # Record direct exec
 rauto exec "show version" \
@@ -434,6 +459,7 @@ rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode
 ```
 
 **Backup & restore**
+
 ```bash
 rauto backup create
 rauto backup list
@@ -441,6 +467,7 @@ rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 ```
 
 **Transaction blocks**
+
 ```bash
 # Tx block with inferred per-step rollback
 rauto tx \
@@ -488,6 +515,7 @@ rauto tx \
 ```
 
 **Transaction workflow**
+
 ```bash
 # Visualize workflow structure in terminal (ANSI colors enabled by default)
 # Disable colors with: NO_COLOR=1
@@ -507,6 +535,7 @@ rauto tx-workflow ./workflow.json --dry-run --json
 ```
 
 **Transaction workflow JSON example**
+
 ```json
 {
   "name": "fw-policy-publish",
@@ -551,12 +580,15 @@ rauto tx-workflow ./workflow.json --dry-run --json
 ```
 
 Ready-to-edit sample files:
+
 - [templates/examples/core-vlan-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/core-vlan-workflow.json)
 
 Advanced sample files:
+
 - [templates/examples/fabric-change-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-change-workflow.json)
 
 **Multi-device orchestration**
+
 ```bash
 # Preview orchestration structure in terminal
 rauto orchestrate ./orchestration.json --view
@@ -572,6 +604,7 @@ rauto orchestrate ./orchestration.json --json
 ```
 
 **Orchestration plan JSON example**
+
 ```json
 {
   "name": "campus-vlan-rollout",
@@ -624,6 +657,7 @@ rauto orchestrate ./orchestration.json --json
 ```
 
 **Inventory + group example**
+
 ```json
 {
   "name": "campus-vlan-rollout",
@@ -683,8 +717,8 @@ rauto orchestrate ./orchestration.json --json
         }
       },
       "targets": [
-        {"connection": "sw-01", "vars": {"hostname": "sw-01"}},
-        {"connection": "sw-02", "vars": {"hostname": "sw-02"}}
+        { "connection": "sw-01", "vars": { "hostname": "sw-01" } },
+        { "connection": "sw-02", "vars": { "hostname": "sw-02" } }
       ]
     }
   }
@@ -692,14 +726,17 @@ rauto orchestrate ./orchestration.json --json
 ```
 
 Ready-to-edit sample files:
+
 - [templates/examples/campus-vlan-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-vlan-orchestration.json)
 - [templates/examples/campus-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-inventory.json)
 
 Advanced sample files:
+
 - [templates/examples/fabric-advanced-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-orchestration.json)
 - [templates/examples/fabric-advanced-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-inventory.json)
 
 Notes:
+
 - `targets` can reference saved connections by name or provide inline connection fields.
 - `target_groups` can load target lists from `inventory_file` or inline `inventory.groups`.
 - `inventory.defaults` applies to all groups and stage-level inline `targets`; group `defaults` override inventory defaults.
@@ -708,6 +745,7 @@ Notes:
 - Multi-device orchestration is available in both Web UI and CLI.
 
 **CLI ⇄ Web UI mapping**
+
 ```text
 Operations (Web)                 CLI
 -------------------------------- ---------------------------------------------
@@ -739,6 +777,7 @@ Replay command                   rauto replay <jsonl> --command "<cmd>" [--mode 
 ```
 
 **Feature availability**
+
 ```text
 Feature                                   Web UI   CLI
 ----------------------------------------- ------- ----
@@ -755,6 +794,7 @@ Command blacklist management             Yes     Yes
 ```
 
 **Migration tips (Web ⇄ CLI)**
+
 ```text
 Workflow Builder → CLI
   1. In Web, open Tx Workflow step and click "Generate JSON".
@@ -772,6 +812,7 @@ CLI recordings → Web Replay
 ```
 
 **Start web console**
+
 ```bash
 rauto web \
     --bind 127.0.0.1 \
@@ -783,6 +824,7 @@ rauto web \
 By default, `rauto` stores runtime data under `~/.rauto/`.
 
 Default runtime data:
+
 - `~/.rauto/rauto.db` (saved connections, history recordings, blacklist patterns, custom device profiles, managed command templates)
 - `~/.rauto/backups` (backup archives)
 
@@ -796,20 +838,21 @@ Default runtime data:
 
 ## Configuration
 
-| Argument | Env Var | Description |
-|----------|---------|-------------|
-| `--host` | - | Device hostname or IP |
-| `--username` | - | SSH username |
-| `--password` | `RAUTO_PASSWORD` | SSH password |
-| `--enable-password` | - | Enable/Secret password |
-| `--ssh-port` | - | SSH port (default: 22) |
-| `--ssh-security` | - | SSH security profile: `secure`, `balanced`, `legacy-compatible` |
-| `--device-profile` | - | Device type (default: cisco) |
-| `--connection` | - | Load saved connection profile by name |
-| `--save-connection` | - | Save effective connection profile after successful connect |
-| `--save-password` | - | With `--save-connection`, also save password/enable_password |
+| Argument            | Env Var          | Description                                                     |
+| ------------------- | ---------------- | --------------------------------------------------------------- |
+| `--host`            | -                | Device hostname or IP                                           |
+| `--username`        | -                | SSH username                                                    |
+| `--password`        | `RAUTO_PASSWORD` | SSH password                                                    |
+| `--enable-password` | -                | Enable/Secret password                                          |
+| `--ssh-port`        | -                | SSH port (default: 22)                                          |
+| `--ssh-security`    | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible` |
+| `--device-profile`  | -                | Device type (default: cisco)                                    |
+| `--connection`      | -                | Load saved connection profile by name                           |
+| `--save-connection` | -                | Save effective connection profile after successful connect      |
+| `--save-password`   | -                | With `--save-connection`, also save password/enable_password    |
 
 Recording-related options (command-specific):
+
 - `exec/template --record-file <path>`: Save recording JSONL after execution.
 - `exec/template --record-level <off|key-events-only|full>`: Recording granularity.
 - `replay <record_file> --list`: List recorded command output events.
@@ -820,6 +863,7 @@ Recording-related options (command-specific):
 `rauto` uses Minijinja, which is compatible with Jinja2.
 
 **Example `configure_vlan.j2`:**
+
 ```jinja
 conf t
 {% for vlan in vlans %}
@@ -830,6 +874,7 @@ end
 ```
 
 **Example variables:**
+
 ```json
 {
   "vlans": [

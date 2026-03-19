@@ -1,3 +1,4 @@
+use crate::agent::report_mode::ManagerReportMode;
 use crate::config::paths::rauto_home_dir;
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -14,6 +15,7 @@ pub struct AgentConfig {
 pub struct ManagerConfig {
     pub url: String,
     pub token: Option<String>,
+    pub report_mode: ManagerReportMode,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -43,6 +45,7 @@ struct AgentConfigFile {
 struct PartialManagerConfig {
     url: Option<String>,
     token: Option<String>,
+    report_mode: Option<ManagerReportMode>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -70,12 +73,14 @@ pub fn load_agent_config(
     cli_manager_url: Option<String>,
     cli_agent_name: Option<String>,
     cli_agent_token: Option<String>,
+    cli_report_mode: Option<ManagerReportMode>,
 ) -> Result<Option<AgentConfig>> {
     Ok(resolve_agent_settings(
         config_path,
         cli_manager_url,
         cli_agent_name,
         cli_agent_token,
+        cli_report_mode,
         None,
     )?
     .config)
@@ -86,6 +91,7 @@ pub fn resolve_agent_settings(
     cli_manager_url: Option<String>,
     cli_agent_name: Option<String>,
     cli_agent_token: Option<String>,
+    cli_report_mode: Option<ManagerReportMode>,
     cli_probe_report_interval: Option<u64>,
 ) -> Result<ResolvedAgentSettings> {
     let file_config = load_agent_file(config_path)?;
@@ -129,6 +135,9 @@ pub fn resolve_agent_settings(
                 .filter(|value| !value.is_empty())
                 .map(ToOwned::to_owned)
         });
+    let report_mode = cli_report_mode
+        .or_else(|| file_config.as_ref().and_then(|cfg| cfg.manager.report_mode))
+        .unwrap_or_default();
     let heartbeat_interval = file_config
         .as_ref()
         .and_then(|cfg| cfg.agent.heartbeat_interval)
@@ -146,6 +155,7 @@ pub fn resolve_agent_settings(
             manager: ManagerConfig {
                 url,
                 token: api_token.clone(),
+                report_mode,
             },
             agent: AgentMeta {
                 name,
@@ -175,6 +185,7 @@ fn load_agent_file(config_path: Option<PathBuf>) -> Result<Option<AgentConfigFil
 #[cfg(test)]
 mod tests {
     use super::resolve_agent_settings;
+    use crate::agent::report_mode::ManagerReportMode;
 
     #[test]
     fn resolve_agent_settings_prefers_cli_values() {
@@ -183,6 +194,7 @@ mod tests {
             Some("http://manager.local:3000".to_string()),
             Some("agent-a".to_string()),
             Some("token-a".to_string()),
+            Some(ManagerReportMode::Http),
             Some(120),
         )
         .expect("settings");
@@ -191,6 +203,7 @@ mod tests {
         assert_eq!(config.manager.url, "http://manager.local:3000");
         assert_eq!(config.agent.name, "agent-a");
         assert_eq!(config.manager.token.as_deref(), Some("token-a"));
+        assert_eq!(config.manager.report_mode, ManagerReportMode::Http);
         assert_eq!(config.agent.probe_report_interval, 120);
         assert_eq!(settings.api_token.as_deref(), Some("token-a"));
     }
@@ -203,10 +216,12 @@ mod tests {
             Some("agent-a".to_string()),
             None,
             None,
+            None,
         )
         .expect("settings");
 
         let config = settings.config.expect("config");
+        assert_eq!(config.manager.report_mode, ManagerReportMode::Grpc);
         assert_eq!(config.agent.probe_report_interval, 300);
     }
 }

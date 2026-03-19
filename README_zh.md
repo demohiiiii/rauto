@@ -51,6 +51,7 @@ cargo build --release
 本仓库包含 rauto 使用 skill，位于 `skills/rauto-usage/`。
 
 推荐用法：
+
 - 如果你是通过 Codex 或 Claude Code 来操作 `rauto`，优先安装并使用这个 skill。
 - 这个 skill 是“直接执行优先”的：读操作会直接运行对应 `rauto` 命令；变更操作会优先走 `tx` / `tx-workflow`，并优先做回滚设计或 `--dry-run`。
 - 返回结果也会更聚焦，通常只给你关键结论、执行命令和后续建议。
@@ -58,15 +59,19 @@ cargo build --release
 ### 安装到本机
 
 1. 拉取代码：
+
 ```bash
 git clone https://github.com/demohiiiii/rauto.git
 ```
+
 2. 复制 skill 到本机的 Codex skills 目录：
+
 ```bash
 cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
 ```
 
 说明：
+
 - 如果未设置 `CODEX_HOME`，通常默认是 `~/.codex`。
 - 可检查 `$CODEX_HOME/skills/rauto-usage` 是否存在。
 
@@ -92,6 +97,7 @@ cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
 ### Claude Code 示例
 
 如果你使用 Claude Code skills，请将目录复制到 Claude Code 的 skills 路径：
+
 ```bash
 cp -R rauto/skills/rauto-usage ~/.claude/skills/
 ```
@@ -106,6 +112,7 @@ cp -R rauto/skills/rauto-usage ~/.claude/skills/
 模板内容保存在 SQLite 中，可通过 `rauto templates` 或 Web UI 管理。
 
 **基本用法：**
+
 ```bash
 rauto template show_version.j2 \
     --host 192.168.1.1 \
@@ -127,6 +134,7 @@ rauto template configure_vlan.j2 \
 ```
 
 **Dry Run（预览）：**
+
 ```bash
 rauto template configure_vlan.j2 \
     --vars templates/example_vars.json \
@@ -162,6 +170,7 @@ rauto exec "show bgp neighbor" \
 `rauto` 支持内置的设备配置（继承自 `rneter`）和自定义 TOML 配置。
 
 **列出可用配置：**
+
 ```bash
 rauto device list
 ```
@@ -182,6 +191,7 @@ rauto template show_ver.j2 \
 自定义设备 profile 现在保存在 SQLite 中，通过 `rauto device` 或 Web UI 管理。
 
 创建或复制后可直接这样使用：
+
 ```bash
 rauto exec "show ver" \
     --host 192.168.1.1 \
@@ -192,6 +202,7 @@ rauto exec "show ver" \
 ```
 
 **常用 profile 管理命令：**
+
 ```bash
 rauto device list
 rauto device show cisco
@@ -224,6 +235,7 @@ Web 静态资源在构建时会嵌入二进制。
 对于发布后的可执行文件，运行时不再依赖本地 `static/` 目录。
 
 Web 控制台主要能力：
+
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。
 - 基于已保存连接执行命令（先加载连接，再选择直接执行或模板渲染执行）。
@@ -243,6 +255,7 @@ rauto agent \
     --bind 0.0.0.0 \
     --port 8123 \
     --manager-url http://manager:50051 \
+    --report-mode grpc \
     --agent-name agent-beijing-01 \
     --agent-token my-secret-token \
     --probe-report-interval 300
@@ -254,6 +267,7 @@ rauto agent \
 [manager]
 url = "http://manager:50051"
 token = "my-secret-token"
+report_mode = "grpc"
 
 [agent]
 name = "agent-beijing-01"
@@ -262,14 +276,17 @@ probe_report_interval = 300
 ```
 
 Agent 模式新增能力：
+
 - 公开 `GET /api/agent/info`，用于 Manager 做可达性检查和发现。
 - 受保护的 `GET /api/agent/status`，用于查看运行状态和心跳时间。
 - 受保护的 `POST /api/devices/probe`，用于批量探测已保存连接的 TCP 可达性。
 - 启动后后台自动注册、定时心跳，以及退出时尽力发送离线通知。
-- 对 manager 的上报现在通过 gRPC `rauto.manager.v1.AgentReportingService` 完成，包括 register、heartbeat、offline、设备清单同步、状态更新、异步错误上报和任务回调。
+- 对 manager 的上报支持两种传输方式：
+- `grpc`（默认）：通过 `rauto.manager.v1.AgentReportingService` 上报，适合 manager 可以暴露 gRPC 端口的场景。
+- `http`：通过 manager 的 HTTP 接口上报，适合只暴露 HTTP(S) 的部署形态，比如 Vercel 这一类环境。
 - 在注册成功后和已保存连接变更时，会自动做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
 - 按周期存活探测刷新时，会做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
-- agent 模式下只传 `task_id` 也可以启用异步任务回调；任务回调会通过 gRPC 上报给 `rauto-manager`。
+- agent 模式下只传 `task_id` 也可以启用异步任务回调；任务回调会通过当前选择的上报模式回传给 `rauto-manager`。
 - 配置 token 时，对 manager 的外呼会同时带上 `Authorization: Bearer <token>` 和 `X-API-Key: <token>`。
 - 如果 agent 模式启动时配置了 token，浏览器中的 Web UI 请求也需要在页面头部填写同一个 token。
 
@@ -310,6 +327,7 @@ rauto history list lab1 --limit 20
 ```
 
 密码保存规则：
+
 - 在 `exec/template/connection test` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
 - 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
 - 已保存密码会加密后写入 `~/.rauto/rauto.db`；本地解密密钥保存在 `~/.rauto/master.key` 中。
@@ -359,6 +377,7 @@ rauto blacklist delete "reload*"
 ```
 
 说明：
+
 - `*` 可以匹配任意长度字符，也包括空格。
 - 匹配不区分大小写，并且按整条命令文本匹配。
 - 黑名单数据保存在 `~/.rauto/rauto.db` 中。
@@ -366,6 +385,7 @@ rauto blacklist delete "reload*"
 ### 9. CLI 速查表
 
 **连接排障**
+
 ```bash
 rauto connection test \
     --host 192.168.1.1 \
@@ -375,6 +395,7 @@ rauto connection test \
 ```
 
 **连接配置档**
+
 ```bash
 rauto connection add lab1 \
     --host 192.168.1.1 \
@@ -387,6 +408,7 @@ rauto history list lab1 --limit 20
 ```
 
 **命令黑名单**
+
 ```bash
 rauto blacklist add "reload*"
 rauto blacklist add "write erase"
@@ -395,6 +417,7 @@ rauto blacklist check "reload in 5"
 ```
 
 **Profile 管理**
+
 ```bash
 rauto device list
 rauto device show cisco
@@ -404,6 +427,7 @@ rauto device delete-custom my_cisco
 ```
 
 **Template 存储管理**
+
 ```bash
 rauto templates list
 rauto templates show show_version.j2
@@ -411,6 +435,7 @@ rauto templates delete show_version.j2
 ```
 
 **会话录制与回放**
+
 ```bash
 # 录制直接执行
 rauto exec "show version" \
@@ -434,6 +459,7 @@ rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode
 ```
 
 **数据备份与恢复**
+
 ```bash
 rauto backup create
 rauto backup list
@@ -441,6 +467,7 @@ rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 ```
 
 **事务块执行**
+
 ```bash
 # 自动推断逐条回滚
 rauto tx \
@@ -488,6 +515,7 @@ rauto tx \
 ```
 
 **事务工作流**
+
 ```bash
 # 终端可视化查看工作流结构（默认启用 ANSI 颜色）
 # 如需关闭颜色：NO_COLOR=1
@@ -507,6 +535,7 @@ rauto tx-workflow ./workflow.json --dry-run --json
 ```
 
 **事务工作流 JSON 示例**
+
 ```json
 {
   "name": "fw-policy-publish",
@@ -551,12 +580,15 @@ rauto tx-workflow ./workflow.json --dry-run --json
 ```
 
 可直接改的示例文件：
+
 - [templates/examples/core-vlan-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/core-vlan-workflow.json)
 
 更复杂的示例文件：
+
 - [templates/examples/fabric-change-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-change-workflow.json)
 
 **多设备编排**
+
 ```bash
 # 终端中预览编排结构
 rauto orchestrate ./orchestration.json --view
@@ -572,6 +604,7 @@ rauto orchestrate ./orchestration.json --json
 ```
 
 **编排计划 JSON 示例**
+
 ```json
 {
   "name": "campus-vlan-rollout",
@@ -624,6 +657,7 @@ rauto orchestrate ./orchestration.json --json
 ```
 
 **Inventory + 分组示例**
+
 ```json
 {
   "name": "campus-vlan-rollout",
@@ -683,8 +717,8 @@ rauto orchestrate ./orchestration.json --json
         }
       },
       "targets": [
-        {"connection": "sw-01", "vars": {"hostname": "sw-01"}},
-        {"connection": "sw-02", "vars": {"hostname": "sw-02"}}
+        { "connection": "sw-01", "vars": { "hostname": "sw-01" } },
+        { "connection": "sw-02", "vars": { "hostname": "sw-02" } }
       ]
     }
   }
@@ -692,14 +726,17 @@ rauto orchestrate ./orchestration.json --json
 ```
 
 可直接改的示例文件：
+
 - [templates/examples/campus-vlan-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-vlan-orchestration.json)
 - [templates/examples/campus-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-inventory.json)
 
 更复杂的示例文件：
+
 - [templates/examples/fabric-advanced-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-orchestration.json)
 - [templates/examples/fabric-advanced-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-inventory.json)
 
 说明：
+
 - `targets` 可以直接引用已保存连接名，也可以写内联连接字段。
 - `target_groups` 可以从 `inventory_file` 或内联 `inventory.groups` 加载目标列表。
 - `inventory.defaults` 会作用到所有分组和阶段内联 `targets`；group 的 `defaults` 会覆盖 inventory 默认值。
@@ -708,6 +745,7 @@ rauto orchestrate ./orchestration.json --json
 - 多设备编排当前已同时支持 Web UI 与 CLI。
 
 **CLI 与 Web UI 对应关系**
+
 ```text
 Web 操作界面                   CLI
 ------------------------------ ---------------------------------------------
@@ -739,6 +777,7 @@ Template 管理                  CLI
 ```
 
 **功能差异**
+
 ```text
 功能                                      Web UI  CLI
 ----------------------------------------- ------- ----
@@ -755,6 +794,7 @@ Prompt profile 诊断页面                    Yes     No
 ```
 
 **迁移提示（Web ⇄ CLI）**
+
 ```text
 工作流构建器 → CLI
   1. Web 中进入事务工作流，点击“生成 JSON”。
@@ -772,6 +812,7 @@ CLI 录制 → Web 回放
 ```
 
 **启动 Web 控制台**
+
 ```bash
 rauto web \
     --bind 127.0.0.1 \
@@ -783,6 +824,7 @@ rauto web \
 默认情况下，`rauto` 将运行时数据存储在 `~/.rauto/` 下。
 
 默认运行时数据：
+
 - `~/.rauto/rauto.db`（已保存连接、历史录制、黑名单、自定义设备 profile、托管模板）
 - `~/.rauto/backups`（备份归档）
 
@@ -796,20 +838,21 @@ rauto web \
 
 ## 配置选项
 
-| 参数 | 环境变量 | 描述 |
-|----------|---------|-------------|
-| `--host` | - | 设备主机名或 IP |
-| `--username` | - | SSH 用户名 |
-| `--password` | `RAUTO_PASSWORD` | SSH 密码 |
-| `--enable-password` | - | Enable/Secret 密码 |
-| `--ssh-port` | - | SSH 端口 (默认: 22) |
-| `--ssh-security` | - | SSH 安全档位：`secure`、`balanced`、`legacy-compatible` |
-| `--device-profile` | - | 设备类型 (默认: cisco) |
-| `--connection` | - | 按名称加载已保存连接配置 |
-| `--save-connection` | - | 成功连接后保存当前有效连接配置 |
-| `--save-password` | - | 配合 `--save-connection` 使用时保存密码/enable_password |
+| 参数                | 环境变量         | 描述                                                    |
+| ------------------- | ---------------- | ------------------------------------------------------- |
+| `--host`            | -                | 设备主机名或 IP                                         |
+| `--username`        | -                | SSH 用户名                                              |
+| `--password`        | `RAUTO_PASSWORD` | SSH 密码                                                |
+| `--enable-password` | -                | Enable/Secret 密码                                      |
+| `--ssh-port`        | -                | SSH 端口 (默认: 22)                                     |
+| `--ssh-security`    | -                | SSH 安全档位：`secure`、`balanced`、`legacy-compatible` |
+| `--device-profile`  | -                | 设备类型 (默认: cisco)                                  |
+| `--connection`      | -                | 按名称加载已保存连接配置                                |
+| `--save-connection` | -                | 成功连接后保存当前有效连接配置                          |
+| `--save-password`   | -                | 配合 `--save-connection` 使用时保存密码/enable_password |
 
 录制/回放相关参数（命令级参数）：
+
 - `exec/template --record-file <path>`：执行后保存录制 JSONL。
 - `exec/template --record-level <off|key-events-only|full>`：录制粒度。
 - `replay <record_file> --list`：列出录制中的命令输出事件。
@@ -820,6 +863,7 @@ rauto web \
 `rauto` 使用 Minijinja，它与 Jinja2 兼容。
 
 **示例 `configure_vlan.j2`：**
+
 ```jinja
 conf t
 {% for vlan in vlans %}
@@ -830,6 +874,7 @@ end
 ```
 
 **示例变量：**
+
 ```json
 {
   "vlans": [

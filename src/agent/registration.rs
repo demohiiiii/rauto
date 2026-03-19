@@ -1,19 +1,25 @@
 use crate::agent::config::AgentConfig;
 use crate::agent::grpc_client::ManagerGrpcClient;
+use crate::agent::report_mode::ManagerReportMode;
 use crate::agent::{
     collect_reported_device_statuses, collect_reported_inventory_devices, count_connections,
     count_templates, default_agent_name, device_inventory_signature, list_agent_capabilities,
 };
 use crate::manager_grpc::rauto::manager::v1::{
-    HeartbeatRequest, OfflineRequest, RegisterAgentRequest, ReportDevicesRequest,
-    ReportErrorRequest, ReportedDeviceStatus as GrpcReportedDeviceStatus,
-    ReportedInventoryDevice as GrpcReportedInventoryDevice, TaskCallbackRequest,
-    UpdateDeviceStatusRequest,
+    HeartbeatRequest as GrpcHeartbeatRequest, OfflineRequest as GrpcOfflineRequest,
+    RegisterAgentRequest as GrpcRegisterAgentRequest,
+    ReportDevicesRequest as GrpcReportDevicesRequest, ReportErrorRequest as GrpcReportErrorRequest,
+    ReportedDeviceStatus as GrpcReportedDeviceStatus,
+    ReportedInventoryDevice as GrpcReportedInventoryDevice,
+    TaskCallbackRequest as GrpcTaskCallbackRequest,
+    UpdateDeviceStatusRequest as GrpcUpdateDeviceStatusRequest,
 };
 use crate::web::models::TaskCallback;
 use crate::web::state::AppState;
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::net::{IpAddr, ToSocketAddrs, UdpSocket};
 use std::sync::Arc;
@@ -33,6 +39,7 @@ struct RegistrarRuntime {
 
 #[derive(Debug, Clone)]
 pub struct AgentRegistrar {
+    client: Client,
     config: AgentConfig,
     grpc: ManagerGrpcClient,
     runtime: Arc<Mutex<RegistrarRuntime>>,
@@ -44,6 +51,113 @@ pub struct AgentRegistrar {
 pub struct RegistrarSnapshot {
     pub registered_at: Option<String>,
     pub last_heartbeat_at: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpRegisterRequest {
+    name: String,
+    host: String,
+    port: u16,
+    version: String,
+    capabilities: Vec<String>,
+    connections_count: u32,
+    templates_count: u32,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpHeartbeatRequest {
+    name: String,
+    status: String,
+    active_sessions: u32,
+    running_tasks: u32,
+    connections_count: u32,
+    templates_count: u32,
+    uptime_seconds: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpOfflineRequest {
+    name: String,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpReportDevicesRequest {
+    name: String,
+    devices: Vec<HttpReportedInventoryDevice>,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpUpdateDeviceStatusRequest {
+    name: String,
+    devices: Vec<HttpReportedDeviceStatus>,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpReportErrorRequest {
+    name: String,
+    category: String,
+    kind: String,
+    severity: String,
+    occurred_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    operation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    http_method: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    http_status: Option<u16>,
+    retryable: bool,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<Value>,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpReportedInventoryDevice {
+    name: String,
+    host: String,
+    port: u16,
+    device_profile: String,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpReportedDeviceStatus {
+    name: String,
+    host: String,
+    reachable: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegisterEnvelope {
+    #[allow(dead_code)]
+    success: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct ReportDevicesEnvelope {
+    #[allow(dead_code)]
+    success: bool,
+    data: Option<ReportDevicesData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ReportDevicesData {
+    synced: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateDeviceStatusEnvelope {
+    #[allow(dead_code)]
+    success: bool,
+    data: Option<UpdateDeviceStatusData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateDeviceStatusData {
+    updated: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -111,7 +225,12 @@ impl AsyncErrorReportInput {
 
 impl AgentRegistrar {
     pub fn new(config: AgentConfig) -> Self {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .unwrap_or_else(|_| Client::new());
         Self {
+            client,
             grpc: ManagerGrpcClient::new(config.manager.url.clone(), config.manager.token.clone()),
             config,
             runtime: Arc::new(Mutex::new(RegistrarRuntime::default())),
@@ -147,7 +266,10 @@ impl AgentRegistrar {
                     if let Err(err) = self.update_device_statuses(5).await {
                         warn!("initial device status update failed: {}", err);
                     }
-                    info!("agent '{}' registered to manager", self.config.agent.name);
+                    info!(
+                        "agent '{}' registered to manager over {}",
+                        self.config.agent.name, self.config.manager.report_mode
+                    );
                     return Ok(());
                 }
                 Err(err) => {
@@ -234,17 +356,45 @@ impl AgentRegistrar {
     async fn try_register_once(&self, state: &Arc<AppState>, bind: &str, port: u16) -> Result<()> {
         let advertise_host = resolve_advertise_host(bind, &self.config.manager.url)
             .with_context(|| format!("failed to resolve advertise host from bind '{}'", bind))?;
-        let payload = RegisterAgentRequest {
-            name: self.config.agent.name.clone(),
-            host: advertise_host.clone(),
-            port: port as u32,
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            capabilities: list_agent_capabilities(state.defaults.template_dir.as_ref())?,
-            connections_count: count_connections()?,
-            templates_count: count_templates(state.defaults.template_dir.as_ref())
-                .map_err(|e| anyhow!(e.message))?,
-        };
-        self.grpc.register_agent(payload).await?;
+        let version = env!("CARGO_PKG_VERSION").to_string();
+        let capabilities = list_agent_capabilities(state.defaults.template_dir.as_ref())?;
+        let connections_count = count_connections()?;
+        let templates_count = count_templates(state.defaults.template_dir.as_ref())
+            .map_err(|e| anyhow!(e.message))?;
+
+        match self.config.manager.report_mode {
+            ManagerReportMode::Grpc => {
+                let payload = GrpcRegisterAgentRequest {
+                    name: self.config.agent.name.clone(),
+                    host: advertise_host.clone(),
+                    port: port as u32,
+                    version,
+                    capabilities,
+                    connections_count,
+                    templates_count,
+                };
+                self.grpc.register_agent(payload).await?;
+            }
+            ManagerReportMode::Http => {
+                let payload = HttpRegisterRequest {
+                    name: self.config.agent.name.clone(),
+                    host: advertise_host.clone(),
+                    port,
+                    version,
+                    capabilities,
+                    connections_count,
+                    templates_count,
+                };
+                self.authed_post(self.manager_endpoint("/api/agents/register"))
+                    .json(&payload)
+                    .send()
+                    .await?
+                    .error_for_status()?
+                    .json::<RegisterEnvelope>()
+                    .await
+                    .ok();
+            }
+        }
 
         info!(
             "agent '{}' registration advertised address {}:{}",
@@ -258,21 +408,46 @@ impl AgentRegistrar {
     async fn send_heartbeat(&self, state: &Arc<AppState>) -> Result<()> {
         let active_sessions = state.active_session_count().await;
         let running_tasks = state.running_task_count();
-        let payload = HeartbeatRequest {
-            name: self.config.agent.name.clone(),
-            status: if active_sessions > 0 || running_tasks > 0 {
-                "busy".to_string()
-            } else {
-                "online".to_string()
-            },
-            active_sessions,
-            running_tasks,
-            connections_count: count_connections()?,
-            templates_count: count_templates(state.defaults.template_dir.as_ref())
-                .map_err(|e| anyhow!(e.message))?,
-            uptime_seconds: state.uptime_seconds(),
+        let status = if active_sessions > 0 || running_tasks > 0 {
+            "busy".to_string()
+        } else {
+            "online".to_string()
         };
-        self.grpc.send_heartbeat(payload).await?;
+        let connections_count = count_connections()?;
+        let templates_count = count_templates(state.defaults.template_dir.as_ref())
+            .map_err(|e| anyhow!(e.message))?;
+        let uptime_seconds = state.uptime_seconds();
+
+        match self.config.manager.report_mode {
+            ManagerReportMode::Grpc => {
+                let payload = GrpcHeartbeatRequest {
+                    name: self.config.agent.name.clone(),
+                    status,
+                    active_sessions,
+                    running_tasks,
+                    connections_count,
+                    templates_count,
+                    uptime_seconds,
+                };
+                self.grpc.send_heartbeat(payload).await?;
+            }
+            ManagerReportMode::Http => {
+                let payload = HttpHeartbeatRequest {
+                    name: self.config.agent.name.clone(),
+                    status,
+                    active_sessions,
+                    running_tasks,
+                    connections_count,
+                    templates_count,
+                    uptime_seconds,
+                };
+                self.authed_post(self.manager_endpoint("/api/agents/heartbeat"))
+                    .json(&payload)
+                    .send()
+                    .await?
+                    .error_for_status()?;
+            }
+        }
 
         let mut runtime = self.runtime.lock().await;
         runtime.last_heartbeat_at = Some(Utc::now().to_rfc3339());
@@ -280,56 +455,123 @@ impl AgentRegistrar {
     }
 
     pub async fn shutdown_notify(&self) {
-        let payload = OfflineRequest {
-            name: self.config.agent.name.clone(),
+        let request = match self.config.manager.report_mode {
+            ManagerReportMode::Grpc => {
+                let payload = GrpcOfflineRequest {
+                    name: self.config.agent.name.clone(),
+                };
+                ManagerShutdownRequest::Grpc(self.grpc.notify_offline(payload))
+            }
+            ManagerReportMode::Http => {
+                let payload = HttpOfflineRequest {
+                    name: self.config.agent.name.clone(),
+                };
+                ManagerShutdownRequest::Http(
+                    self.authed_post(self.manager_endpoint("/api/agents/offline"))
+                        .json(&payload)
+                        .send(),
+                )
+            }
         };
-        let request = self.grpc.notify_offline(payload);
-        match timeout(Duration::from_secs(3), request).await {
-            Ok(Ok(_)) => {}
-            Ok(Err(err)) => warn!("agent shutdown notification failed: {}", err),
-            Err(err) => warn!("agent shutdown notification timed out: {}", err),
+
+        match request {
+            ManagerShutdownRequest::Grpc(request) => {
+                match timeout(Duration::from_secs(3), request).await {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(err)) => warn!("agent shutdown notification failed: {}", err),
+                    Err(err) => warn!("agent shutdown notification timed out: {}", err),
+                }
+            }
+            ManagerShutdownRequest::Http(request) => {
+                match timeout(Duration::from_secs(3), request).await {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(err)) => warn!("agent shutdown notification failed: {}", err),
+                    Err(err) => warn!("agent shutdown notification timed out: {}", err),
+                }
+            }
         }
     }
 
     pub async fn send_task_callback(&self, callback: &TaskCallback) -> Result<()> {
-        let payload = TaskCallbackRequest {
-            agent_name: self.config.agent.name.clone(),
-            task_id: callback.task_id.clone(),
-            status: callback.status.clone(),
-            started_at: callback.started_at.clone(),
-            completed_at: callback.completed_at.clone(),
-            execution_time_ms: callback.execution_time_ms,
-            result_json: callback
-                .result
-                .as_ref()
-                .map(serde_json::to_string)
-                .transpose()?,
-            error: callback.error.clone(),
-        };
-        self.grpc.report_task_callback(payload).await?;
+        match self.config.manager.report_mode {
+            ManagerReportMode::Grpc => {
+                let payload = GrpcTaskCallbackRequest {
+                    agent_name: self.config.agent.name.clone(),
+                    task_id: callback.task_id.clone(),
+                    status: callback.status.clone(),
+                    started_at: callback.started_at.clone(),
+                    completed_at: callback.completed_at.clone(),
+                    execution_time_ms: callback.execution_time_ms,
+                    result_json: callback
+                        .result
+                        .as_ref()
+                        .map(serde_json::to_string)
+                        .transpose()?,
+                    error: callback.error.clone(),
+                };
+                self.grpc.report_task_callback(payload).await?;
+            }
+            ManagerReportMode::Http => {
+                self.authed_post(self.manager_endpoint("/api/agents/report-task-callback"))
+                    .json(callback)
+                    .send()
+                    .await
+                    .context("failed to send task callback to manager")?
+                    .error_for_status()
+                    .context("task callback HTTP endpoint returned error")?;
+            }
+        }
         Ok(())
     }
 
     pub async fn report_async_error(&self, input: AsyncErrorReportInput) -> Result<()> {
-        let payload = ReportErrorRequest {
-            name: self.config.agent.name.clone(),
-            category: input.category,
-            kind: input.kind,
-            severity: input.severity,
-            occurred_at: Utc::now().to_rfc3339(),
-            task_id: input.task_id,
-            operation: input.operation,
-            target_url: input.target_url,
-            http_method: input.http_method,
-            http_status: input.http_status.map(u32::from),
-            retryable: input.retryable,
-            message: input.message,
-            details_json: input.details.map(|value| value.to_string()),
-        };
-        self.grpc
-            .report_error(payload)
-            .await
-            .context("failed to send async error report to manager")?;
+        match self.config.manager.report_mode {
+            ManagerReportMode::Grpc => {
+                let payload = GrpcReportErrorRequest {
+                    name: self.config.agent.name.clone(),
+                    category: input.category,
+                    kind: input.kind,
+                    severity: input.severity,
+                    occurred_at: Utc::now().to_rfc3339(),
+                    task_id: input.task_id,
+                    operation: input.operation,
+                    target_url: input.target_url,
+                    http_method: input.http_method,
+                    http_status: input.http_status.map(u32::from),
+                    retryable: input.retryable,
+                    message: input.message,
+                    details_json: input.details.map(|value| value.to_string()),
+                };
+                self.grpc
+                    .report_error(payload)
+                    .await
+                    .context("failed to send async error report to manager")?;
+            }
+            ManagerReportMode::Http => {
+                let payload = HttpReportErrorRequest {
+                    name: self.config.agent.name.clone(),
+                    category: input.category,
+                    kind: input.kind,
+                    severity: input.severity,
+                    occurred_at: Utc::now().to_rfc3339(),
+                    task_id: input.task_id,
+                    operation: input.operation,
+                    target_url: input.target_url,
+                    http_method: input.http_method,
+                    http_status: input.http_status,
+                    retryable: input.retryable,
+                    message: input.message,
+                    details: input.details,
+                };
+                self.authed_post(self.manager_endpoint("/api/agents/report-error"))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .context("failed to send async error report to manager")?
+                    .error_for_status()
+                    .context("manager async error report endpoint returned error")?;
+            }
+        }
         Ok(())
     }
 
@@ -347,6 +589,33 @@ impl AgentRegistrar {
         )
     }
 
+    fn reporting_target(&self, http_path: &str, grpc_method: &str) -> String {
+        match self.config.manager.report_mode {
+            ManagerReportMode::Http => self.manager_endpoint(http_path),
+            ManagerReportMode::Grpc => {
+                format!("grpc://manager/{}", grpc_method.trim_start_matches('/'))
+            }
+        }
+    }
+
+    fn reporting_http_method(&self) -> &'static str {
+        match self.config.manager.report_mode {
+            ManagerReportMode::Http => "POST",
+            ManagerReportMode::Grpc => "GRPC",
+        }
+    }
+
+    pub fn task_callback_report_target(&self) -> String {
+        self.reporting_target(
+            "/api/agents/report-task-callback",
+            "/rauto.manager.v1.AgentReportingService/ReportTaskCallback",
+        )
+    }
+
+    pub fn report_transport_method_name(&self) -> &'static str {
+        self.reporting_http_method()
+    }
+
     pub async fn sync_device_inventory(&self) -> Result<u32> {
         let signature = device_inventory_signature()?;
         self.sync_device_inventory_with_signature(signature).await
@@ -354,29 +623,68 @@ impl AgentRegistrar {
 
     pub async fn update_device_statuses(&self, timeout_secs: u64) -> Result<u32> {
         let devices = collect_reported_device_statuses(timeout_secs).await?;
-        let payload = UpdateDeviceStatusRequest {
-            name: self.config.agent.name.clone(),
-            devices: devices
-                .iter()
-                .map(|device| GrpcReportedDeviceStatus {
-                    name: device.name.clone(),
-                    host: device.host.clone(),
-                    reachable: device.reachable,
-                })
-                .collect(),
+        let target_url = self.reporting_target(
+            "/api/agents/update-device-status",
+            "/rauto.manager.v1.AgentReportingService/UpdateDeviceStatus",
+        );
+        let response = match self.config.manager.report_mode {
+            ManagerReportMode::Grpc => {
+                let payload = GrpcUpdateDeviceStatusRequest {
+                    name: self.config.agent.name.clone(),
+                    devices: devices
+                        .iter()
+                        .map(|device| GrpcReportedDeviceStatus {
+                            name: device.name.clone(),
+                            host: device.host.clone(),
+                            reachable: device.reachable,
+                        })
+                        .collect(),
+                };
+                match self.grpc.update_device_status(payload).await {
+                    Ok(response) => Ok(response.updated.max(devices.len() as u32)),
+                    Err(err) => Err(err),
+                }
+            }
+            ManagerReportMode::Http => {
+                let payload = HttpUpdateDeviceStatusRequest {
+                    name: self.config.agent.name.clone(),
+                    devices: devices
+                        .iter()
+                        .map(|device| HttpReportedDeviceStatus {
+                            name: device.name.clone(),
+                            host: device.host.clone(),
+                            reachable: device.reachable,
+                        })
+                        .collect(),
+                };
+                let response = self
+                    .authed_post(target_url.clone())
+                    .json(&payload)
+                    .send()
+                    .await
+                    .and_then(|resp| resp.error_for_status())
+                    .map_err(anyhow::Error::from);
+                match response {
+                    Ok(response) => Ok(response
+                        .json::<UpdateDeviceStatusEnvelope>()
+                        .await
+                        .ok()
+                        .and_then(|body| body.data.map(|data| data.updated))
+                        .unwrap_or(devices.len() as u32)),
+                    Err(err) => Err(err),
+                }
+            }
         };
-        let target_url = self
-            .manager_endpoint("/grpc/rauto.manager.v1.AgentReportingService/UpdateDeviceStatus");
-        let response = self.grpc.update_device_status(payload).await;
-        let response = match response {
-            Ok(response) => response,
+
+        let updated = match response {
+            Ok(updated) => updated,
             Err(err) => {
                 self.report_async_error_best_effort(
                     AsyncErrorReportInput::new("device_status_update_failed", err.to_string())
                         .with_category("sync")
                         .with_operation(Some("agent_device_status_update".to_string()))
                         .with_target_url(Some(target_url))
-                        .with_http_method(Some("POST".to_string()))
+                        .with_http_method(Some(self.reporting_http_method().to_string()))
                         .with_details(Some(json!({
                             "devices_count": devices.len(),
                             "probe_timeout_secs": timeout_secs
@@ -386,7 +694,6 @@ impl AgentRegistrar {
                 return Err(err);
             }
         };
-        let updated = response.updated.max(devices.len() as u32);
         info!(
             "updated {} device statuses for agent '{}'",
             updated, self.config.agent.name
@@ -440,30 +747,70 @@ impl AgentRegistrar {
 
     async fn sync_device_inventory_with_signature(&self, signature: String) -> Result<u32> {
         let devices = collect_reported_inventory_devices()?;
-        let payload = ReportDevicesRequest {
-            name: self.config.agent.name.clone(),
-            devices: devices
-                .iter()
-                .map(|device| GrpcReportedInventoryDevice {
-                    name: device.name.clone(),
-                    host: device.host.clone(),
-                    port: device.port as u32,
-                    device_profile: device.device_profile.clone(),
-                })
-                .collect(),
+        let target_url = self.reporting_target(
+            "/api/agents/report-devices",
+            "/rauto.manager.v1.AgentReportingService/ReportDevices",
+        );
+        let response = match self.config.manager.report_mode {
+            ManagerReportMode::Grpc => {
+                let payload = GrpcReportDevicesRequest {
+                    name: self.config.agent.name.clone(),
+                    devices: devices
+                        .iter()
+                        .map(|device| GrpcReportedInventoryDevice {
+                            name: device.name.clone(),
+                            host: device.host.clone(),
+                            port: device.port as u32,
+                            device_profile: device.device_profile.clone(),
+                        })
+                        .collect(),
+                };
+                match self.grpc.report_devices(payload).await {
+                    Ok(response) => Ok(response.synced.max(devices.len() as u32)),
+                    Err(err) => Err(err),
+                }
+            }
+            ManagerReportMode::Http => {
+                let payload = HttpReportDevicesRequest {
+                    name: self.config.agent.name.clone(),
+                    devices: devices
+                        .iter()
+                        .map(|device| HttpReportedInventoryDevice {
+                            name: device.name.clone(),
+                            host: device.host.clone(),
+                            port: device.port,
+                            device_profile: device.device_profile.clone(),
+                        })
+                        .collect(),
+                };
+                let response = self
+                    .authed_post(target_url.clone())
+                    .json(&payload)
+                    .send()
+                    .await
+                    .and_then(|resp| resp.error_for_status())
+                    .map_err(anyhow::Error::from);
+                match response {
+                    Ok(response) => Ok(response
+                        .json::<ReportDevicesEnvelope>()
+                        .await
+                        .ok()
+                        .and_then(|body| body.data.map(|data| data.synced))
+                        .unwrap_or(devices.len() as u32)),
+                    Err(err) => Err(err),
+                }
+            }
         };
-        let target_url =
-            self.manager_endpoint("/grpc/rauto.manager.v1.AgentReportingService/ReportDevices");
-        let response = self.grpc.report_devices(payload).await;
-        let response = match response {
-            Ok(response) => response,
+
+        let synced = match response {
+            Ok(synced) => synced,
             Err(err) => {
                 self.report_async_error_best_effort(
                     AsyncErrorReportInput::new("device_inventory_sync_failed", err.to_string())
                         .with_category("sync")
                         .with_operation(Some("agent_device_inventory_sync".to_string()))
                         .with_target_url(Some(target_url))
-                        .with_http_method(Some("POST".to_string()))
+                        .with_http_method(Some(self.reporting_http_method().to_string()))
                         .with_details(Some(json!({
                             "devices_count": devices.len()
                         }))),
@@ -472,7 +819,6 @@ impl AgentRegistrar {
                 return Err(err);
             }
         };
-        let synced = response.synced.max(devices.len() as u32);
         info!(
             "synced {} devices for agent '{}'",
             synced, self.config.agent.name
@@ -480,6 +826,16 @@ impl AgentRegistrar {
         let mut runtime = self.runtime.lock().await;
         runtime.last_inventory_signature = Some(signature);
         Ok(synced)
+    }
+
+    fn authed_post(&self, url: String) -> reqwest::RequestBuilder {
+        let req = self.client.post(url);
+        match self.config.manager.token.as_deref() {
+            Some(token) if !token.trim().is_empty() => req
+                .bearer_auth(token)
+                .header("X-API-Key", token.to_string()),
+            _ => req,
+        }
     }
 
     fn begin_inventory_sync(&self) -> bool {
@@ -501,6 +857,11 @@ impl AgentRegistrar {
     fn finish_status_update(&self) {
         self.updating_status.store(false, Ordering::Release);
     }
+}
+
+enum ManagerShutdownRequest<FGrpc, FHttp> {
+    Grpc(FGrpc),
+    Http(FHttp),
 }
 
 pub fn current_agent_name(state: &AppState) -> String {

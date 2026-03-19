@@ -3,14 +3,16 @@ use anyhow::{Context, Result};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Executor, Row, SqlitePool};
 use std::future::Future;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
 
 static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
+static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 pub fn pool() -> &'static SqlitePool {
     DB_POOL.get_or_init(|| {
-        let path = default_db_path();
+        let path = db_path();
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
@@ -25,7 +27,7 @@ pub fn pool() -> &'static SqlitePool {
 }
 
 pub fn db_path() -> std::path::PathBuf {
-    default_db_path()
+    DB_PATH.get_or_init(default_db_path).clone()
 }
 
 pub fn init_sync() -> Result<()> {
