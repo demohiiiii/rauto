@@ -287,6 +287,11 @@ Agent mode adds:
 - Full inventory sync after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
 - Periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
 - `task_id` enables async task callbacks in agent mode; callbacks are reported back to manager through the selected transport.
+- Managed task APIs now also provide async accept-and-run endpoints for manager callers:
+- `POST /api/tx/block/async`
+- `POST /api/tx/workflow/async`
+- `POST /api/orchestrate/async`
+- These async endpoints require agent mode plus a non-empty `task_id`, return `202 Accepted` immediately, and complete through the existing task event/task callback reporting path.
 - Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
 - When agent mode is started with a token, browser-side Web UI requests must provide the same token in the page header token field.
 

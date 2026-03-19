@@ -287,6 +287,11 @@ Agent 模式新增能力：
 - 在注册成功后和已保存连接变更时，会自动做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
 - 按周期存活探测刷新时，会做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
 - agent 模式下只传 `task_id` 也可以启用异步任务回调；任务回调会通过当前选择的上报模式回传给 `rauto-manager`。
+- 受管任务接口另外提供了给 manager 调用的异步入口：
+- `POST /api/tx/block/async`
+- `POST /api/tx/workflow/async`
+- `POST /api/orchestrate/async`
+- 这些异步接口要求运行在 agent 模式下，并且请求中带非空 `task_id`；接口会立即返回 `202 Accepted`，后续执行结果仍通过现有的任务事件和任务回调链路回传。
 - 配置 token 时，对 manager 的外呼会同时带上 `Authorization: Bearer <token>` 和 `X-API-Key: <token>`。
 - 如果 agent 模式启动时配置了 token，浏览器中的 Web UI 请求也需要在页面头部填写同一个 token。
 

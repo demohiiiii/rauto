@@ -17,6 +17,7 @@ use std::collections::{HashMap, VecDeque};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::task::JoinSet;
 
@@ -205,6 +206,18 @@ struct ActionExecutionOutcome {
     workflow_result: Option<Value>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct OrchestrationRuntimeEvent {
+    pub event_type: String,
+    pub message: String,
+    pub level: String,
+    pub stage: Option<String>,
+    pub progress: Option<u8>,
+    pub details: Option<Value>,
+}
+
+pub type OrchestrationEventHook = Arc<dyn Fn(OrchestrationRuntimeEvent) + Send + Sync>;
+
 fn default_fail_fast() -> bool {
     true
 }
@@ -240,7 +253,7 @@ pub async fn run(args: OrchestrateArgs, opts: &GlobalOpts) -> Result<()> {
         return Ok(());
     }
 
-    let result = execute_plan(&plan, &inventory, &plan_root, opts, args.record_level).await?;
+    let result = execute_plan(&plan, &inventory, &plan_root, opts, args.record_level, None).await?;
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -261,6 +274,7 @@ pub fn load_plan_from_value(
     Ok((plan, inventory))
 }
 
+#[allow(dead_code)]
 pub async fn execute_loaded_plan(
     plan: &OrchestrationPlan,
     inventory: &OrchestrationInventory,
@@ -268,7 +282,18 @@ pub async fn execute_loaded_plan(
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
 ) -> Result<OrchestrationExecutionResult> {
-    execute_plan(plan, inventory, plan_root, opts, record_level).await
+    execute_loaded_plan_with_events(plan, inventory, plan_root, opts, record_level, None).await
+}
+
+pub async fn execute_loaded_plan_with_events(
+    plan: &OrchestrationPlan,
+    inventory: &OrchestrationInventory,
+    plan_root: &Path,
+    opts: &GlobalOpts,
+    record_level: RecordLevelOpt,
+    event_hook: Option<OrchestrationEventHook>,
+) -> Result<OrchestrationExecutionResult> {
+    execute_plan(plan, inventory, plan_root, opts, record_level, event_hook).await
 }
 
 fn validate_plan(plan: &OrchestrationPlan, inventory: &OrchestrationInventory) -> Result<()> {
@@ -501,13 +526,29 @@ async fn execute_plan(
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
+    event_hook: Option<OrchestrationEventHook>,
 ) -> Result<OrchestrationExecutionResult> {
     let mut stages = Vec::with_capacity(plan.stages.len());
     let mut failed = false;
 
-    for stage in &plan.stages {
+    for (stage_idx, stage) in plan.stages.iter().enumerate() {
         if failed && plan.fail_fast {
             let targets = resolve_stage_targets(stage, inventory)?;
+            emit_orchestration_event(
+                &event_hook,
+                OrchestrationRuntimeEvent {
+                    event_type: "warning".to_string(),
+                    message: format!("Skipping stage '{}' due to fail-fast", stage.name),
+                    level: "warning".to_string(),
+                    stage: Some("orchestrate".to_string()),
+                    progress: task_progress(stage_idx, plan.stages.len()),
+                    details: Some(serde_json::json!({
+                        "plan_name": plan.name,
+                        "stage_name": stage.name,
+                        "reason": "fail_fast"
+                    })),
+                },
+            );
             stages.push(build_skipped_stage(
                 stage,
                 stage.fail_fast.unwrap_or(plan.fail_fast),
@@ -516,8 +557,54 @@ async fn execute_plan(
             continue;
         }
 
-        let stage_result =
-            execute_stage(plan, inventory, stage, plan_root, opts, record_level).await?;
+        emit_orchestration_event(
+            &event_hook,
+            OrchestrationRuntimeEvent {
+                event_type: "step_started".to_string(),
+                message: format!("Stage '{}' started", stage.name),
+                level: "info".to_string(),
+                stage: Some("orchestrate".to_string()),
+                progress: task_progress(stage_idx, plan.stages.len()),
+                details: Some(serde_json::json!({
+                    "plan_name": plan.name,
+                    "stage_name": stage.name,
+                    "strategy": stage.strategy,
+                    "target_count": resolve_stage_targets(stage, inventory)?.len()
+                })),
+            },
+        );
+        let stage_result = execute_stage(
+            plan,
+            inventory,
+            stage,
+            plan_root,
+            opts,
+            record_level,
+            event_hook.clone(),
+        )
+        .await?;
+        emit_orchestration_event(
+            &event_hook,
+            OrchestrationRuntimeEvent {
+                event_type: "step_completed".to_string(),
+                message: format!("Stage '{}' finished", stage.name),
+                level: if matches!(stage_result.status, StageStatus::Failed) {
+                    "error".to_string()
+                } else {
+                    "success".to_string()
+                },
+                stage: Some("orchestrate".to_string()),
+                progress: task_progress(stage_idx + 1, plan.stages.len()),
+                details: Some(serde_json::json!({
+                    "plan_name": plan.name,
+                    "stage_name": stage.name,
+                    "status": stage_result.status,
+                    "targets_succeeded": stage_result.targets_succeeded,
+                    "targets_failed": stage_result.targets_failed,
+                    "targets_skipped": stage_result.targets_skipped
+                })),
+            },
+        );
         if matches!(stage_result.status, StageStatus::Failed) {
             failed = true;
         }
@@ -549,6 +636,7 @@ async fn execute_stage(
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
+    event_hook: Option<OrchestrationEventHook>,
 ) -> Result<StageExecutionResult> {
     let fail_fast = stage.fail_fast.unwrap_or(plan.fail_fast);
     let targets = resolve_stage_targets(stage, inventory)?;
@@ -562,6 +650,7 @@ async fn execute_stage(
                 opts,
                 record_level,
                 fail_fast,
+                event_hook.clone(),
             )
             .await?
         }
@@ -574,6 +663,7 @@ async fn execute_stage(
                 opts,
                 record_level,
                 fail_fast,
+                event_hook.clone(),
             )
             .await?
         }
@@ -582,6 +672,7 @@ async fn execute_stage(
     Ok(build_stage_result(stage, fail_fast, results))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn execute_serial_stage(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
@@ -590,10 +681,21 @@ async fn execute_serial_stage(
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
     fail_fast: bool,
+    event_hook: Option<OrchestrationEventHook>,
 ) -> Result<Vec<TargetExecutionResult>> {
     let mut results = Vec::with_capacity(targets.len());
     for (idx, target) in targets.iter().enumerate() {
-        let result = execute_target(plan, stage, target, idx, plan_root, opts, record_level).await;
+        let result = execute_target(
+            plan,
+            stage,
+            target,
+            idx,
+            plan_root,
+            opts,
+            record_level,
+            event_hook.clone(),
+        )
+        .await;
         let is_failed = matches!(result.status, TargetStatus::Failed);
         results.push(result);
         if is_failed && fail_fast {
@@ -606,6 +708,7 @@ async fn execute_serial_stage(
     Ok(results)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn execute_parallel_stage(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
@@ -614,6 +717,7 @@ async fn execute_parallel_stage(
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
     fail_fast: bool,
+    event_hook: Option<OrchestrationEventHook>,
 ) -> Result<Vec<TargetExecutionResult>> {
     let concurrency = stage
         .max_parallel
@@ -639,6 +743,7 @@ async fn execute_parallel_stage(
             let stage_cloned = stage_owned.clone();
             let opts_cloned = opts_owned.clone();
             let plan_root_cloned = plan_root_owned.clone();
+            let event_hook_cloned = event_hook.clone();
             join_set.spawn(async move {
                 let result = execute_target(
                     &plan_cloned,
@@ -648,6 +753,7 @@ async fn execute_parallel_stage(
                     &plan_root_cloned,
                     &opts_cloned,
                     record_level,
+                    event_hook_cloned,
                 )
                 .await;
                 (idx, result)
@@ -675,6 +781,7 @@ async fn execute_parallel_stage(
         .collect())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn execute_target(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
@@ -683,14 +790,49 @@ async fn execute_target(
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
+    event_hook: Option<OrchestrationEventHook>,
 ) -> TargetExecutionResult {
     let label = target_label(target, idx);
     let started = Instant::now();
+    emit_orchestration_event(
+        &event_hook,
+        OrchestrationRuntimeEvent {
+            event_type: "step_started".to_string(),
+            message: format!("Target '{}' started", label),
+            level: "info".to_string(),
+            stage: Some("orchestrate".to_string()),
+            progress: None,
+            details: Some(serde_json::json!({
+                "plan_name": plan.name,
+                "stage_name": stage.name,
+                "target_label": label,
+                "target_index": idx + 1,
+                "connection_name": target.connection,
+                "host": target.host
+            })),
+        },
+    );
 
     let resolved = resolve_target_connection(opts, target);
     let conn = match resolved {
         Ok(conn) => conn,
         Err(e) => {
+            emit_orchestration_event(
+                &event_hook,
+                OrchestrationRuntimeEvent {
+                    event_type: "failed".to_string(),
+                    message: format!("Target '{}' resolution failed", label),
+                    level: "error".to_string(),
+                    stage: Some("orchestrate".to_string()),
+                    progress: None,
+                    details: Some(serde_json::json!({
+                        "plan_name": plan.name,
+                        "stage_name": stage.name,
+                        "target_label": label,
+                        "error": e.to_string()
+                    })),
+                },
+            );
             return TargetExecutionResult {
                 label,
                 connection_name: target.connection.clone(),
@@ -706,29 +848,86 @@ async fn execute_target(
     };
 
     match execute_action(plan, stage, target, &conn, plan_root, record_level).await {
-        Ok(outcome) => TargetExecutionResult {
-            label,
-            connection_name: conn.connection_name.clone(),
-            host: Some(conn.host.clone()),
-            status: TargetStatus::Success,
-            operation: outcome.operation,
-            duration_ms: started.elapsed().as_millis(),
-            error: None,
-            tx_result: outcome.tx_result,
-            workflow_result: outcome.workflow_result,
-        },
-        Err(e) => TargetExecutionResult {
-            label,
-            connection_name: conn.connection_name.clone(),
-            host: Some(conn.host.clone()),
-            status: TargetStatus::Failed,
-            operation: action_kind_name(&stage.action).to_string(),
-            duration_ms: started.elapsed().as_millis(),
-            error: Some(e.to_string()),
-            tx_result: None,
-            workflow_result: None,
-        },
+        Ok(outcome) => {
+            emit_orchestration_event(
+                &event_hook,
+                OrchestrationRuntimeEvent {
+                    event_type: "step_completed".to_string(),
+                    message: format!("Target '{}' completed", label),
+                    level: "success".to_string(),
+                    stage: Some("orchestrate".to_string()),
+                    progress: None,
+                    details: Some(serde_json::json!({
+                        "plan_name": plan.name,
+                        "stage_name": stage.name,
+                        "target_label": label,
+                        "connection_name": conn.connection_name,
+                        "host": conn.host,
+                        "operation": outcome.operation
+                    })),
+                },
+            );
+            TargetExecutionResult {
+                label,
+                connection_name: conn.connection_name.clone(),
+                host: Some(conn.host.clone()),
+                status: TargetStatus::Success,
+                operation: outcome.operation,
+                duration_ms: started.elapsed().as_millis(),
+                error: None,
+                tx_result: outcome.tx_result,
+                workflow_result: outcome.workflow_result,
+            }
+        }
+        Err(e) => {
+            emit_orchestration_event(
+                &event_hook,
+                OrchestrationRuntimeEvent {
+                    event_type: "failed".to_string(),
+                    message: format!("Target '{}' failed", label),
+                    level: "error".to_string(),
+                    stage: Some("orchestrate".to_string()),
+                    progress: None,
+                    details: Some(serde_json::json!({
+                        "plan_name": plan.name,
+                        "stage_name": stage.name,
+                        "target_label": label,
+                        "connection_name": conn.connection_name,
+                        "host": conn.host,
+                        "error": e.to_string()
+                    })),
+                },
+            );
+            TargetExecutionResult {
+                label,
+                connection_name: conn.connection_name.clone(),
+                host: Some(conn.host.clone()),
+                status: TargetStatus::Failed,
+                operation: action_kind_name(&stage.action).to_string(),
+                duration_ms: started.elapsed().as_millis(),
+                error: Some(e.to_string()),
+                tx_result: None,
+                workflow_result: None,
+            }
+        }
     }
+}
+
+fn emit_orchestration_event(
+    hook: &Option<OrchestrationEventHook>,
+    event: OrchestrationRuntimeEvent,
+) {
+    if let Some(hook) = hook {
+        hook(event);
+    }
+}
+
+fn task_progress(current: usize, total: usize) -> Option<u8> {
+    if total == 0 {
+        return None;
+    }
+    let pct = ((current as f64 / total as f64) * 100.0).round() as i64;
+    Some(pct.clamp(0, 100) as u8)
 }
 
 async fn execute_action(

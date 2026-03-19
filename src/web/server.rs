@@ -8,7 +8,8 @@ use crate::web::handlers::{
     add_blacklist_pattern, check_blacklist_command, create_backup, create_or_update_custom_profile,
     create_template, delete_blacklist_pattern, delete_connection, delete_connection_history,
     delete_custom_profile, delete_template, diagnose_profile, download_backup, exec_command,
-    execute_orchestration, execute_template, execute_tx_block, execute_tx_workflow,
+    execute_orchestration, execute_orchestration_async, execute_template, execute_tx_block,
+    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async,
     get_builtin_profile_detail, get_builtin_profile_form, get_connection, get_connection_history,
     get_connection_history_detail, get_custom_profile, get_custom_profile_form, get_template,
     health, interactive_command, interactive_start, interactive_stop, list_backups,
@@ -103,6 +104,9 @@ fn build_managed_app(state: Arc<AppState>) -> Router {
     let protected_routes = Router::new()
         .route("/api/agent/status", get(agent_status))
         .route("/api/devices/probe", post(probe_devices))
+        .route("/api/tx/block/async", post(execute_tx_block_async))
+        .route("/api/tx/workflow/async", post(execute_tx_workflow_async))
+        .route("/api/orchestrate/async", post(execute_orchestration_async))
         .merge(local_api_routes())
         .layer(middleware::from_fn_with_state(
             state.clone(),

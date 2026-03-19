@@ -273,6 +273,14 @@ pub struct ExecuteOrchestrationResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct AsyncTaskAcceptedResponse {
+    pub accepted: bool,
+    pub task_id: String,
+    pub operation: String,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct AgentInfoResponse {
     pub name: String,
     pub version: String,
@@ -343,6 +351,22 @@ pub struct TaskCallback {
     pub result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskEvent {
+    pub task_id: String,
+    pub agent_name: String,
+    pub event_type: String,
+    pub message: String,
+    pub level: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<Value>,
+    pub occurred_at: String,
 }
 
 #[derive(Debug, Serialize)]

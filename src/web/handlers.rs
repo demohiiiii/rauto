@@ -10,24 +10,26 @@ use crate::orchestrator;
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    BackupCreateRequest, BackupCreateResponse, BackupMeta, BackupRestoreRequest,
-    BackupRestoreResponse, BlacklistCheckRequest, BlacklistCheckResponse, BlacklistDeleteResponse,
-    BlacklistPatternEntry, BlacklistUpsertRequest, BlacklistUpsertResponse, BuiltinProfileDetail,
-    CommandResult, ConnectionHistoryDetailResponse, ConnectionHistoryEntry, ConnectionRequest,
-    ConnectionTestRequest, ConnectionTestResponse, CreateTemplateRequest, CustomProfileDetail,
-    DeviceProfilesOverview, ExecRequest, ExecResponse, ExecuteOrchestrationRequest,
-    ExecuteOrchestrationResponse, ExecuteTemplateRequest, ExecuteTemplateResponse,
-    ExecuteTxBlockRequest, ExecuteTxBlockResponse, ExecuteTxWorkflowRequest,
-    ExecuteTxWorkflowResponse, InteractiveCommandRequest, InteractiveCommandResponse,
-    InteractiveStartRequest, InteractiveStartResponse, InteractiveStopResponse,
-    ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
-    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
-    SavedConnectionMeta, TaskCallback, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
-    UpsertConnectionRequest, UpsertCustomProfileRequest,
+    AsyncTaskAcceptedResponse, BackupCreateRequest, BackupCreateResponse, BackupMeta,
+    BackupRestoreRequest, BackupRestoreResponse, BlacklistCheckRequest, BlacklistCheckResponse,
+    BlacklistDeleteResponse, BlacklistPatternEntry, BlacklistUpsertRequest,
+    BlacklistUpsertResponse, BuiltinProfileDetail, CommandResult, ConnectionHistoryDetailResponse,
+    ConnectionHistoryEntry, ConnectionRequest, ConnectionTestRequest, ConnectionTestResponse,
+    CreateTemplateRequest, CustomProfileDetail, DeviceProfilesOverview, ExecRequest, ExecResponse,
+    ExecuteOrchestrationRequest, ExecuteOrchestrationResponse, ExecuteTemplateRequest,
+    ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
+    ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, InteractiveCommandRequest,
+    InteractiveCommandResponse, InteractiveStartRequest, InteractiveStartResponse,
+    InteractiveStopResponse, ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel,
+    RenderRequest, RenderResponse, ReplayContextDto, ReplayOutputDto, ReplayRequest,
+    ReplayResponse, SavedConnectionDetail, SavedConnectionMeta, TaskCallback, TaskEvent,
+    TemplateDetail, TemplateMeta, UpdateTemplateRequest, UpsertConnectionRequest,
+    UpsertCustomProfileRequest,
 };
 use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
 use crate::web::storage;
 use crate::{manager_connection_request, manager_execution_context_with_security};
+use axum::http::StatusCode;
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -36,17 +38,20 @@ use axum::{
 };
 use chrono::Utc;
 use rneter::session::{
-    CommandBlockKind, MANAGER, RollbackPolicy, SessionRecordLevel, SessionRecorder,
-    SessionReplayer, TxBlock, TxStep,
+    CommandBlockKind, MANAGER, RollbackPolicy, SessionEvent, SessionRecordEntry,
+    SessionRecordLevel, SessionRecorder, SessionReplayer, TxBlock, TxStep,
 };
 use rneter::templates as rneter_templates;
 use serde::Serialize;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 use std::time::UNIX_EPOCH;
+use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
 use tracing::warn;
 
 #[derive(Debug, serde::Deserialize)]
@@ -55,14 +60,14 @@ pub struct HistoryQuery {
 }
 
 #[derive(Debug, Clone)]
-struct TaskCallbackContext {
+struct TaskReportContext {
     task_id: String,
     operation: String,
     started_at: chrono::DateTime<Utc>,
     started_instant: Instant,
 }
 
-impl TaskCallbackContext {
+impl TaskReportContext {
     fn from_request(operation: &str, task_id: Option<String>, managed: bool) -> Option<Self> {
         if !managed {
             return None;
@@ -81,9 +86,596 @@ impl TaskCallbackContext {
     }
 }
 
+#[derive(Debug, Clone)]
+struct TaskEventInput {
+    event_type: String,
+    message: String,
+    level: String,
+    stage: Option<String>,
+    progress: Option<u8>,
+    details: Option<Value>,
+}
+
+impl TaskEventInput {
+    fn new(event_type: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            event_type: event_type.into(),
+            message: message.into(),
+            level: "info".to_string(),
+            stage: None,
+            progress: None,
+            details: None,
+        }
+    }
+
+    fn with_level(mut self, level: impl Into<String>) -> Self {
+        self.level = level.into();
+        self
+    }
+
+    fn with_stage(mut self, stage: impl Into<String>) -> Self {
+        self.stage = Some(stage.into());
+        self
+    }
+
+    fn with_progress(mut self, progress: Option<u8>) -> Self {
+        self.progress = progress;
+        self
+    }
+
+    fn with_details(mut self, details: Option<Value>) -> Self {
+        self.details = details;
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+enum RecordingEventPlan {
+    TxBlock {
+        total_steps: usize,
+    },
+    TxWorkflow {
+        total_blocks: usize,
+        total_steps: usize,
+        block_indices: HashMap<String, usize>,
+        block_step_counts: HashMap<String, usize>,
+        step_offsets: HashMap<String, usize>,
+    },
+}
+
+struct RecordingEventForwarder {
+    finish_tx: oneshot::Sender<usize>,
+    join_handle: JoinHandle<()>,
+}
+
+impl RecordingEventForwarder {
+    async fn finish(self, expected_entries: usize) {
+        let _ = self.finish_tx.send(expected_entries);
+        let _ = self.join_handle.await;
+    }
+}
+
+fn task_event_progress(current: usize, total: usize) -> Option<u8> {
+    if total == 0 {
+        return None;
+    }
+    let pct = ((current as f64 / total as f64) * 100.0).round() as i64;
+    Some(pct.clamp(0, 100) as u8)
+}
+
+fn task_event_progress_in_range(current: usize, total: usize, start: u8, end: u8) -> Option<u8> {
+    if total == 0 {
+        return None;
+    }
+    let span = end.saturating_sub(start) as f64;
+    let pct = start as f64 + ((current as f64 / total as f64) * span);
+    Some((pct.round() as i64).clamp(0, 100) as u8)
+}
+
+fn recording_entry_occurred_at(ts_ms: u128) -> String {
+    chrono::DateTime::<Utc>::from_timestamp_millis(ts_ms as i64)
+        .unwrap_or_else(Utc::now)
+        .to_rfc3339()
+}
+
+fn tx_block_step_progress(step_index: usize, total_steps: usize) -> Option<u8> {
+    task_event_progress_in_range(step_index + 1, total_steps, 60, 95)
+}
+
+fn tx_workflow_step_progress(
+    step_offsets: &HashMap<String, usize>,
+    block_name: &str,
+    step_index: usize,
+    total_steps: usize,
+) -> Option<u8> {
+    let offset = step_offsets.get(block_name).copied().unwrap_or_default();
+    task_event_progress_in_range(offset + step_index + 1, total_steps.max(1), 60, 95)
+}
+
+fn map_recording_entry_to_task_event(
+    entry: &SessionRecordEntry,
+    plan: &RecordingEventPlan,
+) -> Option<TaskEventInput> {
+    match &entry.event {
+        SessionEvent::ConnectionEstablished { device_addr, .. } => Some(
+            TaskEventInput::new("progress", format!("Connected to {}", device_addr))
+                .with_stage("connect")
+                .with_progress(Some(55)),
+        ),
+        SessionEvent::CommandOutput {
+            command,
+            success,
+            content,
+            ..
+        } => Some(
+            TaskEventInput::new("log", format!("Command output: {}", command))
+                .with_stage("command")
+                .with_level(if *success { "info" } else { "warning" })
+                .with_details(Some(json!({
+                    "command": command,
+                    "success": success,
+                    "content": content
+                }))),
+        ),
+        SessionEvent::TxBlockStarted {
+            block_name,
+            block_kind,
+        } => match plan {
+            RecordingEventPlan::TxBlock { .. } => Some(
+                TaskEventInput::new("step_started", format!("Tx block {} started", block_name))
+                    .with_stage("tx_block")
+                    .with_progress(Some(60))
+                    .with_details(Some(json!({
+                        "block_name": block_name,
+                        "block_kind": block_kind
+                    }))),
+            ),
+            RecordingEventPlan::TxWorkflow {
+                total_blocks,
+                block_indices,
+                ..
+            } => {
+                let progress = block_indices
+                    .get(block_name)
+                    .and_then(|idx| task_event_progress_in_range(*idx + 1, *total_blocks, 60, 90));
+                Some(
+                    TaskEventInput::new(
+                        "step_started",
+                        format!("Workflow block {} started", block_name),
+                    )
+                    .with_stage("workflow")
+                    .with_progress(progress)
+                    .with_details(Some(json!({
+                        "block_name": block_name,
+                        "block_kind": block_kind
+                    }))),
+                )
+            }
+        },
+        SessionEvent::TxStepSucceeded {
+            block_name,
+            step_index,
+            mode,
+            command,
+        } => match plan {
+            RecordingEventPlan::TxBlock { total_steps } => Some(
+                TaskEventInput::new(
+                    "step_completed",
+                    format!("Step {} completed", step_index + 1),
+                )
+                .with_stage("command")
+                .with_level("success")
+                .with_progress(tx_block_step_progress(*step_index, *total_steps))
+                .with_details(Some(json!({
+                    "block_name": block_name,
+                    "step_index": step_index,
+                    "mode": mode,
+                    "command": command
+                }))),
+            ),
+            RecordingEventPlan::TxWorkflow {
+                total_steps,
+                step_offsets,
+                ..
+            } => Some(
+                TaskEventInput::new(
+                    "step_completed",
+                    format!(
+                        "Workflow step {} completed in {}",
+                        step_index + 1,
+                        block_name
+                    ),
+                )
+                .with_stage("command")
+                .with_level("success")
+                .with_progress(tx_workflow_step_progress(
+                    step_offsets,
+                    block_name,
+                    *step_index,
+                    *total_steps,
+                ))
+                .with_details(Some(json!({
+                    "block_name": block_name,
+                    "step_index": step_index,
+                    "mode": mode,
+                    "command": command
+                }))),
+            ),
+        },
+        SessionEvent::TxStepFailed {
+            block_name,
+            step_index,
+            mode,
+            command,
+            reason,
+        } => match plan {
+            RecordingEventPlan::TxBlock { total_steps } => Some(
+                TaskEventInput::new("failed", format!("Step {} failed", step_index + 1))
+                    .with_stage("command")
+                    .with_level("error")
+                    .with_progress(tx_block_step_progress(*step_index, *total_steps))
+                    .with_details(Some(json!({
+                        "block_name": block_name,
+                        "step_index": step_index,
+                        "mode": mode,
+                        "command": command,
+                        "reason": reason
+                    }))),
+            ),
+            RecordingEventPlan::TxWorkflow {
+                total_steps,
+                step_offsets,
+                ..
+            } => Some(
+                TaskEventInput::new(
+                    "failed",
+                    format!("Workflow step {} failed in {}", step_index + 1, block_name),
+                )
+                .with_stage("command")
+                .with_level("error")
+                .with_progress(tx_workflow_step_progress(
+                    step_offsets,
+                    block_name,
+                    *step_index,
+                    *total_steps,
+                ))
+                .with_details(Some(json!({
+                    "block_name": block_name,
+                    "step_index": step_index,
+                    "mode": mode,
+                    "command": command,
+                    "reason": reason
+                }))),
+            ),
+        },
+        SessionEvent::TxRollbackStarted { block_name } => Some(
+            TaskEventInput::new("warning", format!("Rollback started for {}", block_name))
+                .with_stage("tx_block")
+                .with_level("warning")
+                .with_details(Some(json!({
+                    "block_name": block_name
+                }))),
+        ),
+        SessionEvent::TxRollbackStepSucceeded {
+            block_name,
+            step_index,
+            mode,
+            command,
+        } => Some(
+            TaskEventInput::new(
+                "step_completed",
+                format!("Rollback step completed for {}", block_name),
+            )
+            .with_stage("rollback")
+            .with_level("warning")
+            .with_details(Some(json!({
+                "block_name": block_name,
+                "step_index": step_index,
+                "mode": mode,
+                "command": command
+            }))),
+        ),
+        SessionEvent::TxRollbackStepFailed {
+            block_name,
+            step_index,
+            mode,
+            command,
+            reason,
+        } => Some(
+            TaskEventInput::new("failed", format!("Rollback step failed for {}", block_name))
+                .with_stage("rollback")
+                .with_level("error")
+                .with_details(Some(json!({
+                    "block_name": block_name,
+                    "step_index": step_index,
+                    "mode": mode,
+                    "command": command,
+                    "reason": reason
+                }))),
+        ),
+        SessionEvent::TxBlockFinished {
+            block_name,
+            committed,
+            rollback_attempted,
+            rollback_succeeded,
+        } => match plan {
+            RecordingEventPlan::TxBlock { .. } => Some(
+                TaskEventInput::new(
+                    if *committed { "completed" } else { "failed" },
+                    if *committed {
+                        format!("Tx block {} completed", block_name)
+                    } else {
+                        format!("Tx block {} finished with failure", block_name)
+                    },
+                )
+                .with_stage("tx_block")
+                .with_level(if *committed { "success" } else { "error" })
+                .with_progress(Some(100))
+                .with_details(Some(json!({
+                    "block_name": block_name,
+                    "committed": committed,
+                    "rollback_attempted": rollback_attempted,
+                    "rollback_succeeded": rollback_succeeded
+                }))),
+            ),
+            RecordingEventPlan::TxWorkflow {
+                total_blocks,
+                block_indices,
+                block_step_counts,
+                step_offsets,
+                total_steps,
+            } => {
+                let block_progress = block_indices
+                    .get(block_name)
+                    .and_then(|idx| task_event_progress_in_range(*idx + 1, *total_blocks, 60, 95));
+                let step_progress = block_step_counts.get(block_name).and_then(|count| {
+                    count.checked_sub(1).and_then(|last_idx| {
+                        tx_workflow_step_progress(step_offsets, block_name, last_idx, *total_steps)
+                    })
+                });
+                Some(
+                    TaskEventInput::new(
+                        if *committed {
+                            "step_completed"
+                        } else {
+                            "failed"
+                        },
+                        if *committed {
+                            format!("Workflow block {} completed", block_name)
+                        } else {
+                            format!("Workflow block {} finished with failure", block_name)
+                        },
+                    )
+                    .with_stage("workflow")
+                    .with_level(if *committed { "success" } else { "error" })
+                    .with_progress(step_progress.or(block_progress))
+                    .with_details(Some(json!({
+                        "block_name": block_name,
+                        "committed": committed,
+                        "rollback_attempted": rollback_attempted,
+                        "rollback_succeeded": rollback_succeeded
+                    }))),
+                )
+            }
+        },
+        SessionEvent::TxWorkflowStarted {
+            workflow_name,
+            total_blocks,
+        } => Some(
+            TaskEventInput::new("progress", format!("Workflow {} started", workflow_name))
+                .with_stage("workflow")
+                .with_progress(Some(60))
+                .with_details(Some(json!({
+                    "workflow_name": workflow_name,
+                    "total_blocks": total_blocks
+                }))),
+        ),
+        SessionEvent::TxWorkflowFinished {
+            workflow_name,
+            committed,
+            rollback_attempted,
+            rollback_succeeded,
+        } => Some(
+            TaskEventInput::new(
+                if *committed { "completed" } else { "failed" },
+                if *committed {
+                    format!("Workflow {} completed", workflow_name)
+                } else {
+                    format!("Workflow {} finished with failure", workflow_name)
+                },
+            )
+            .with_stage("workflow")
+            .with_level(if *committed { "success" } else { "error" })
+            .with_progress(Some(100))
+            .with_details(Some(json!({
+                "workflow_name": workflow_name,
+                "committed": committed,
+                "rollback_attempted": rollback_attempted,
+                "rollback_succeeded": rollback_succeeded
+            }))),
+        ),
+        SessionEvent::ConnectionClosed { reason, .. } => Some(
+            TaskEventInput::new("log", "Connection closed")
+                .with_stage("connect")
+                .with_details(Some(json!({ "reason": reason }))),
+        ),
+        SessionEvent::PromptChanged { .. }
+        | SessionEvent::StateChanged { .. }
+        | SessionEvent::RawChunk { .. } => None,
+    }
+}
+
+fn build_tx_workflow_recording_plan(workflow: &rneter::session::TxWorkflow) -> RecordingEventPlan {
+    let mut block_indices = HashMap::new();
+    let mut block_step_counts = HashMap::new();
+    let mut step_offsets = HashMap::new();
+    let mut offset = 0usize;
+
+    for (idx, block) in workflow.blocks.iter().enumerate() {
+        block_indices.entry(block.name.clone()).or_insert(idx);
+        block_step_counts
+            .entry(block.name.clone())
+            .or_insert(block.steps.len());
+        step_offsets.entry(block.name.clone()).or_insert(offset);
+        offset += block.steps.len();
+    }
+
+    RecordingEventPlan::TxWorkflow {
+        total_blocks: workflow.blocks.len(),
+        total_steps: workflow.blocks.iter().map(|block| block.steps.len()).sum(),
+        block_indices,
+        block_step_counts,
+        step_offsets,
+    }
+}
+
+fn spawn_recording_event_forwarder(
+    state: &Arc<AppState>,
+    task_ctx: &Option<TaskReportContext>,
+    recorder: &SessionRecorder,
+    plan: RecordingEventPlan,
+) -> Option<RecordingEventForwarder> {
+    let task_ctx = task_ctx.clone()?;
+    let registrar = state.registrar()?;
+    let agent_name = current_agent_name(state);
+    let mut rx = recorder.subscribe();
+    let (finish_tx, mut finish_rx) = oneshot::channel::<usize>();
+
+    let join_handle = tokio::spawn(async move {
+        let mut processed_entries = 0usize;
+        let mut expected_entries: Option<usize> = None;
+
+        loop {
+            tokio::select! {
+                result = &mut finish_rx, if expected_entries.is_none() => {
+                    match result {
+                        Ok(expected) => expected_entries = Some(expected),
+                        Err(_) => break,
+                    }
+                }
+                result = rx.recv() => {
+                    match result {
+                        Ok(entry) => {
+                            processed_entries += 1;
+                            if let Some(event_input) = map_recording_entry_to_task_event(&entry, &plan) {
+                                let event = TaskEvent {
+                                    task_id: task_ctx.task_id.clone(),
+                                    agent_name: agent_name.clone(),
+                                    event_type: event_input.event_type,
+                                    message: event_input.message,
+                                    level: event_input.level,
+                                    stage: event_input.stage,
+                                    progress: event_input.progress,
+                                    details: event_input.details,
+                                    occurred_at: recording_entry_occurred_at(entry.ts_ms),
+                                };
+                                registrar.report_task_event_best_effort(event).await;
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                            processed_entries += skipped as usize;
+                            let event = TaskEvent {
+                                task_id: task_ctx.task_id.clone(),
+                                agent_name: agent_name.clone(),
+                                event_type: "warning".to_string(),
+                                message: format!(
+                                    "Live task event stream lagged, skipped {} recorder events",
+                                    skipped
+                                ),
+                                level: "warning".to_string(),
+                                stage: Some(task_ctx.operation.clone()),
+                                progress: None,
+                                details: Some(json!({ "skipped_events": skipped })),
+                                occurred_at: Utc::now().to_rfc3339(),
+                            };
+                            registrar.report_task_event_best_effort(event).await;
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+            }
+
+            if let Some(expected) = expected_entries
+                && processed_entries >= expected
+            {
+                break;
+            }
+        }
+    });
+
+    Some(RecordingEventForwarder {
+        finish_tx,
+        join_handle,
+    })
+}
+
+fn emit_task_event(
+    state: &Arc<AppState>,
+    task_ctx: &Option<TaskReportContext>,
+    event: TaskEventInput,
+) {
+    let Some(task_ctx) = task_ctx.clone() else {
+        return;
+    };
+    let Some(registrar) = state.registrar() else {
+        return;
+    };
+    let state = state.clone();
+    tokio::spawn(async move {
+        let event = TaskEvent {
+            task_id: task_ctx.task_id,
+            agent_name: current_agent_name(&state),
+            event_type: event.event_type,
+            message: event.message,
+            level: event.level,
+            stage: event.stage,
+            progress: event.progress,
+            details: event.details,
+            occurred_at: Utc::now().to_rfc3339(),
+        };
+        registrar.report_task_event_best_effort(event).await;
+    });
+}
+
+fn require_managed_async_task(
+    operation: &str,
+    task_id: Option<String>,
+    managed: bool,
+) -> Result<String, ApiError> {
+    if !managed {
+        return Err(ApiError::bad_request(format!(
+            "{} async endpoint requires agent mode",
+            operation
+        )));
+    }
+    task_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            ApiError::bad_request(format!("{} async endpoint requires task_id", operation))
+        })
+}
+
+fn accepted_async_task_response(
+    task_id: String,
+    operation: &str,
+) -> (StatusCode, Json<AsyncTaskAcceptedResponse>) {
+    (
+        StatusCode::ACCEPTED,
+        Json(AsyncTaskAcceptedResponse {
+            accepted: true,
+            task_id,
+            operation: operation.to_string(),
+            status: "queued".to_string(),
+        }),
+    )
+}
+
 fn spawn_task_callback<T: Serialize>(
     state: Arc<AppState>,
-    task_ctx: Option<TaskCallbackContext>,
+    task_ctx: Option<TaskReportContext>,
     result: &Result<T, ApiError>,
 ) {
     let Some(task_ctx) = task_ctx else {
@@ -553,14 +1145,35 @@ pub async fn exec_command(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecRequest>,
 ) -> Result<Json<ExecResponse>, ApiError> {
-    let task_ctx =
-        TaskCallbackContext::from_request("exec", req.task_id.clone(), state.is_managed());
+    let task_ctx = TaskReportContext::from_request("exec", req.task_id.clone(), state.is_managed());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
+    emit_task_event(
+        &state,
+        &task_ctx,
+        TaskEventInput::new("started", "Starting direct command execution")
+            .with_stage("connect")
+            .with_progress(Some(0))
+            .with_details(Some(json!({
+                "command": req.command,
+                "mode": req.mode
+            }))),
+    );
     let result: Result<ExecResponse, ApiError> = async {
         let record_level = req.record_level;
         command_blacklist::ensure_command_allowed(&req.command, "direct execution")
             .map_err(|e| ApiError::bad_request(e.to_string()))?;
         let conn = merge_connection_options(&state.defaults, req.connection)?;
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Connecting to target device")
+                .with_stage("connect")
+                .with_progress(Some(10))
+                .with_details(Some(json!({
+                    "host": conn.host,
+                    "connection_name": conn.connection_name
+                }))),
+        );
         let handler = template_loader::load_device_profile(&conn.device_profile)?;
 
         let client = if let Some(level) = to_record_level(record_level) {
@@ -588,6 +1201,16 @@ pub async fn exec_command(
             .await?
         };
 
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Executing command")
+                .with_stage("command")
+                .with_progress(Some(60))
+                .with_details(Some(json!({
+                    "command": req.command
+                }))),
+        );
         let output = client.execute(&req.command, req.mode.as_deref()).await?;
         persist_history_if_recorded(
             &conn,
@@ -604,6 +1227,26 @@ pub async fn exec_command(
     }
     .await;
     drop(task_guard);
+    match &result {
+        Ok(_) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("completed", "Direct command execution completed")
+                .with_stage("command")
+                .with_level("success")
+                .with_progress(Some(100)),
+        ),
+        Err(err) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new(
+                "failed",
+                format!("Direct command execution failed: {}", err.message),
+            )
+            .with_stage("command")
+            .with_level("error"),
+        ),
+    }
     spawn_task_callback(state, task_ctx, &result);
     result.map(Json)
 }
@@ -950,17 +1593,39 @@ pub async fn execute_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTemplateRequest>,
 ) -> Result<Json<ExecuteTemplateResponse>, ApiError> {
-    let task_ctx = TaskCallbackContext::from_request(
+    let task_ctx = TaskReportContext::from_request(
         "template_execute",
         req.task_id.clone(),
         state.is_managed(),
     );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
+    emit_task_event(
+        &state,
+        &task_ctx,
+        TaskEventInput::new("started", "Starting template execution")
+            .with_stage("render")
+            .with_progress(Some(0))
+            .with_details(Some(json!({
+                "template": req.template,
+                "mode": req.mode
+            }))),
+    );
     let result: Result<ExecuteTemplateResponse, ApiError> = async {
         let record_level = req.record_level;
         let _ = req.template_dir.as_ref();
         let renderer = Renderer::new();
         let rendered_commands = renderer.render_file(&req.template, req.vars)?;
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Template rendered")
+                .with_stage("render")
+                .with_progress(Some(20))
+                .with_details(Some(json!({
+                    "template": req.template,
+                    "rendered_command_count": rendered_commands.lines().filter(|line| !line.trim().is_empty()).count()
+                }))),
+        );
 
         if req.dry_run.unwrap_or(false) {
             return Ok(ExecuteTemplateResponse {
@@ -1009,20 +1674,73 @@ pub async fn execute_template(
         };
 
         let mut executed = Vec::with_capacity(lines.len());
-        for cmd in lines {
+        let total_commands = lines.len();
+        for (idx, cmd) in lines.into_iter().enumerate() {
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new(
+                    "step_started",
+                    format!("Executing command {}/{}", idx + 1, total_commands),
+                )
+                .with_stage("command")
+                .with_progress(task_event_progress(idx + 1, total_commands))
+                .with_details(Some(json!({
+                    "command": cmd,
+                    "index": idx + 1,
+                    "total": total_commands
+                }))),
+            );
             match client.execute(&cmd, req.mode.as_deref()).await {
-                Ok(output) => executed.push(CommandResult {
-                    command: cmd,
-                    success: true,
-                    output: Some(output),
-                    error: None,
-                }),
-                Err(e) => executed.push(CommandResult {
-                    command: cmd,
-                    success: false,
-                    output: None,
-                    error: Some(e.to_string()),
-                }),
+                Ok(output) => {
+                    emit_task_event(
+                        &state,
+                        &task_ctx,
+                        TaskEventInput::new(
+                            "step_completed",
+                            format!("Command {}/{} completed", idx + 1, total_commands),
+                        )
+                        .with_stage("command")
+                        .with_level("success")
+                        .with_progress(task_event_progress(idx + 1, total_commands))
+                        .with_details(Some(json!({
+                            "command": cmd,
+                            "index": idx + 1,
+                            "total": total_commands
+                        }))),
+                    );
+                    executed.push(CommandResult {
+                        command: cmd,
+                        success: true,
+                        output: Some(output),
+                        error: None,
+                    })
+                }
+                Err(e) => {
+                    emit_task_event(
+                        &state,
+                        &task_ctx,
+                        TaskEventInput::new(
+                            "warning",
+                            format!("Command {}/{} failed", idx + 1, total_commands),
+                        )
+                        .with_stage("command")
+                        .with_level("warning")
+                        .with_progress(task_event_progress(idx + 1, total_commands))
+                        .with_details(Some(json!({
+                            "command": cmd,
+                            "index": idx + 1,
+                            "total": total_commands,
+                            "error": e.to_string()
+                        }))),
+                    );
+                    executed.push(CommandResult {
+                        command: cmd,
+                        success: false,
+                        output: None,
+                        error: Some(e.to_string()),
+                    })
+                }
             }
         }
 
@@ -1043,6 +1761,39 @@ pub async fn execute_template(
     }
     .await;
     drop(task_guard);
+    match &result {
+        Ok(response) => {
+            let failed_commands = response.executed.iter().filter(|cmd| !cmd.success).count();
+            let event = if failed_commands == 0 {
+                TaskEventInput::new("completed", "Template execution completed")
+                    .with_stage("command")
+                    .with_level("success")
+                    .with_progress(Some(100))
+            } else {
+                TaskEventInput::new(
+                    "completed",
+                    format!(
+                        "Template execution completed with {} failed command(s)",
+                        failed_commands
+                    ),
+                )
+                .with_stage("command")
+                .with_level("warning")
+                .with_progress(Some(100))
+            };
+            emit_task_event(&state, &task_ctx, event);
+        }
+        Err(err) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new(
+                "failed",
+                format!("Template execution failed: {}", err.message),
+            )
+            .with_stage("render")
+            .with_level("error"),
+        ),
+    }
     spawn_task_callback(state, task_ctx, &result);
     result.map(Json)
 }
@@ -1082,10 +1833,23 @@ pub async fn execute_tx_block(
     Json(req): Json<ExecuteTxBlockRequest>,
 ) -> Result<Json<ExecuteTxBlockResponse>, ApiError> {
     let task_ctx =
-        TaskCallbackContext::from_request("tx_block", req.task_id.clone(), state.is_managed());
+        TaskReportContext::from_request("tx_block", req.task_id.clone(), state.is_managed());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
+    emit_task_event(
+        &state,
+        &task_ctx,
+        TaskEventInput::new("started", "Starting tx block execution")
+            .with_stage("tx_block")
+            .with_progress(Some(0)),
+    );
     let result: Result<ExecuteTxBlockResponse, ApiError> = async {
         let record_level = req.record_level;
+        let requested_record_level = to_record_level(record_level);
+        let live_record_level = if task_ctx.is_some() {
+            requested_record_level.or(Some(SessionRecordLevel::KeyEventsOnly))
+        } else {
+            requested_record_level
+        };
         let template_key = req
             .template_profile
             .as_deref()
@@ -1212,6 +1976,17 @@ pub async fn execute_tx_block(
             tx_block
         };
         let tx_block_value = serde_json::to_value(&tx_block).map_err(ApiError::from)?;
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Tx block built")
+                .with_stage("tx_block")
+                .with_progress(Some(20))
+                .with_details(Some(json!({
+                    "name": block_name,
+                    "steps": tx_block.steps.len()
+                }))),
+        );
         if req.dry_run.unwrap_or(false) {
             return Ok(ExecuteTxBlockResponse {
                 tx_block: tx_block_value,
@@ -1227,8 +2002,20 @@ pub async fn execute_tx_block(
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
         let conn = merge_connection_options(&state.defaults, req.connection)?;
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Executing tx block")
+                .with_stage("tx_block")
+                .with_progress(Some(60))
+                .with_details(Some(json!({
+                    "name": block_name,
+                    "host": conn.host,
+                    "connection_name": conn.connection_name
+                }))),
+        );
         let handler = template_loader::load_device_profile(&conn.device_profile)?;
-        let (tx_result, recording_jsonl) = if let Some(level) = to_record_level(record_level) {
+        let (tx_result, recording_jsonl) = if let Some(level) = live_record_level {
             let request = manager_connection_request(
                 conn.username.clone(),
                 conn.host.clone(),
@@ -1244,6 +2031,14 @@ pub async fn execute_tx_block(
                     level,
                 )
                 .await?;
+            let forwarder = spawn_recording_event_forwarder(
+                &state,
+                &task_ctx,
+                &recorder,
+                RecordingEventPlan::TxBlock {
+                    total_steps: tx_block.steps.len(),
+                },
+            );
             let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
             let request = manager_connection_request(
                 conn.username.clone(),
@@ -1253,31 +2048,41 @@ pub async fn execute_tx_block(
                 conn.enable_password.clone(),
                 handler_for_tx,
             );
-            let result = MANAGER
+            let execution_result = MANAGER
                 .execute_tx_block_with_context(
                     request,
                     tx_block.clone(),
                     manager_execution_context_with_security(None, conn.ssh_security),
                 )
-                .await?;
-            let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
-            if let Err(e) = history_store::save_recording(
-                HistoryBinding {
-                    connection_name: conn.connection_name.as_deref(),
-                    host: &conn.host,
-                    port: conn.port,
-                    username: &conn.username,
-                    device_profile: &conn.device_profile,
-                },
-                "tx_block",
-                &block_name,
-                Some(&mode),
-                record_level_name(record_level),
-                &jsonl,
-            ) {
-                warn!("failed to persist execution history: {}", e);
+                .await;
+            let expected_entries = recorder.entries().map_err(ApiError::from)?.len();
+            if let Some(forwarder) = forwarder {
+                forwarder.finish(expected_entries).await;
             }
-            (result, Some(jsonl))
+            let result = execution_result?;
+            let jsonl = if requested_record_level.is_some() {
+                let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
+                if let Err(e) = history_store::save_recording(
+                    HistoryBinding {
+                        connection_name: conn.connection_name.as_deref(),
+                        host: &conn.host,
+                        port: conn.port,
+                        username: &conn.username,
+                        device_profile: &conn.device_profile,
+                    },
+                    "tx_block",
+                    &block_name,
+                    Some(&mode),
+                    record_level_name(record_level),
+                    &jsonl,
+                ) {
+                    warn!("failed to persist execution history: {}", e);
+                }
+                Some(jsonl)
+            } else {
+                None
+            };
+            (result, jsonl)
         } else {
             let request = manager_connection_request(
                 conn.username.clone(),
@@ -1297,16 +2102,85 @@ pub async fn execute_tx_block(
             (result, None)
         };
 
+        let tx_result_value = serde_json::to_value(&tx_result).map_err(ApiError::from)?;
+        if task_ctx.is_none() && tx_result.rollback_attempted {
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("warning", "Tx block performed rollback")
+                    .with_stage("tx_block")
+                    .with_level(if tx_result.rollback_succeeded {
+                        "warning"
+                    } else {
+                        "error"
+                    })
+                    .with_details(Some(json!({
+                        "name": block_name,
+                        "rollback_succeeded": tx_result.rollback_succeeded,
+                        "rollback_steps": tx_result.rollback_steps,
+                        "rollback_errors": tx_result.rollback_errors
+                    }))),
+            );
+        }
+
         Ok(ExecuteTxBlockResponse {
             tx_block: tx_block_value,
-            tx_result: Some(serde_json::to_value(&tx_result).map_err(ApiError::from)?),
+            tx_result: Some(tx_result_value),
             recording_jsonl,
         })
     }
     .await;
     drop(task_guard);
+    match &result {
+        Ok(response) if task_ctx.is_none() => {
+            let committed = response
+                .tx_result
+                .as_ref()
+                .and_then(|value| value.get("committed"))
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
+            let input = if committed {
+                TaskEventInput::new("completed", "Tx block completed")
+                    .with_stage("tx_block")
+                    .with_level("success")
+                    .with_progress(Some(100))
+            } else {
+                TaskEventInput::new("failed", "Tx block execution finished with failure")
+                    .with_stage("tx_block")
+                    .with_level("error")
+                    .with_progress(Some(100))
+            };
+            emit_task_event(&state, &task_ctx, input);
+        }
+        Ok(_) => {}
+        Err(err) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("failed", format!("Tx block failed: {}", err.message))
+                .with_stage("tx_block")
+                .with_level("error"),
+        ),
+    }
     spawn_task_callback(state, task_ctx, &result);
     result.map(Json)
+}
+
+pub async fn execute_tx_block_async(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteTxBlockRequest>,
+) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+    let task_id = require_managed_async_task("tx_block", req.task_id.clone(), state.is_managed())?;
+    let background_state = state.clone();
+    let background_req = req;
+    tokio::spawn(async move {
+        if let Err(err) = execute_tx_block(State(background_state), Json(background_req)).await {
+            warn!(
+                "background tx block task failed before callback reporting: {}",
+                err.message
+            );
+        }
+    });
+    Ok(accepted_async_task_response(task_id, "tx_block"))
 }
 
 pub async fn execute_tx_workflow(
@@ -1314,13 +2188,37 @@ pub async fn execute_tx_workflow(
     Json(req): Json<ExecuteTxWorkflowRequest>,
 ) -> Result<Json<ExecuteTxWorkflowResponse>, ApiError> {
     let task_ctx =
-        TaskCallbackContext::from_request("tx_workflow", req.task_id.clone(), state.is_managed());
+        TaskReportContext::from_request("tx_workflow", req.task_id.clone(), state.is_managed());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
+    emit_task_event(
+        &state,
+        &task_ctx,
+        TaskEventInput::new("started", "Starting tx workflow execution")
+            .with_stage("workflow")
+            .with_progress(Some(0)),
+    );
     let result: Result<ExecuteTxWorkflowResponse, ApiError> = async {
         let record_level = req.record_level;
+        let requested_record_level = to_record_level(record_level);
+        let live_record_level = if task_ctx.is_some() {
+            requested_record_level.or(Some(SessionRecordLevel::KeyEventsOnly))
+        } else {
+            requested_record_level
+        };
         let workflow: rneter::session::TxWorkflow =
             serde_json::from_value(req.workflow.clone()).map_err(ApiError::from)?;
         let workflow_value = serde_json::to_value(&workflow).map_err(ApiError::from)?;
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Workflow loaded")
+                .with_stage("workflow")
+                .with_progress(Some(15))
+                .with_details(Some(json!({
+                    "workflow_name": workflow.name,
+                    "blocks": workflow.blocks.len()
+                }))),
+        );
 
         if req.dry_run.unwrap_or(false) {
             return Ok(ExecuteTxWorkflowResponse {
@@ -1337,9 +2235,20 @@ pub async fn execute_tx_workflow(
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
         let conn = merge_connection_options(&state.defaults, req.connection)?;
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Executing workflow")
+                .with_stage("workflow")
+                .with_progress(Some(60))
+                .with_details(Some(json!({
+                    "workflow_name": workflow.name,
+                    "host": conn.host,
+                    "connection_name": conn.connection_name
+                }))),
+        );
         let handler = template_loader::load_device_profile(&conn.device_profile)?;
-        let (workflow_result, recording_jsonl) = if let Some(level) = to_record_level(record_level)
-        {
+        let (workflow_result, recording_jsonl) = if let Some(level) = live_record_level {
             let request = manager_connection_request(
                 conn.username.clone(),
                 conn.host.clone(),
@@ -1355,6 +2264,12 @@ pub async fn execute_tx_workflow(
                     level,
                 )
                 .await?;
+            let forwarder = spawn_recording_event_forwarder(
+                &state,
+                &task_ctx,
+                &recorder,
+                build_tx_workflow_recording_plan(&workflow),
+            );
             let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
             let request = manager_connection_request(
                 conn.username.clone(),
@@ -1364,31 +2279,41 @@ pub async fn execute_tx_workflow(
                 conn.enable_password.clone(),
                 handler_for_tx,
             );
-            let result = MANAGER
+            let execution_result = MANAGER
                 .execute_tx_workflow_with_context(
                     request,
                     workflow.clone(),
                     manager_execution_context_with_security(None, conn.ssh_security),
                 )
-                .await?;
-            let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
-            if let Err(e) = history_store::save_recording(
-                HistoryBinding {
-                    connection_name: conn.connection_name.as_deref(),
-                    host: &conn.host,
-                    port: conn.port,
-                    username: &conn.username,
-                    device_profile: &conn.device_profile,
-                },
-                "tx_workflow",
-                &workflow.name,
-                None,
-                record_level_name(record_level),
-                &jsonl,
-            ) {
-                warn!("failed to persist execution history: {}", e);
+                .await;
+            let expected_entries = recorder.entries().map_err(ApiError::from)?.len();
+            if let Some(forwarder) = forwarder {
+                forwarder.finish(expected_entries).await;
             }
-            (result, Some(jsonl))
+            let result = execution_result?;
+            let jsonl = if requested_record_level.is_some() {
+                let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
+                if let Err(e) = history_store::save_recording(
+                    HistoryBinding {
+                        connection_name: conn.connection_name.as_deref(),
+                        host: &conn.host,
+                        port: conn.port,
+                        username: &conn.username,
+                        device_profile: &conn.device_profile,
+                    },
+                    "tx_workflow",
+                    &workflow.name,
+                    None,
+                    record_level_name(record_level),
+                    &jsonl,
+                ) {
+                    warn!("failed to persist execution history: {}", e);
+                }
+                Some(jsonl)
+            } else {
+                None
+            };
+            (result, jsonl)
         } else {
             let request = manager_connection_request(
                 conn.username.clone(),
@@ -1418,8 +2343,88 @@ pub async fn execute_tx_workflow(
     }
     .await;
     drop(task_guard);
+    match &result {
+        Ok(response) if task_ctx.is_none() => {
+            if let Some(workflow_result) = &response.tx_workflow_result {
+                if let Some(blocks) = workflow_result
+                    .get("block_results")
+                    .and_then(Value::as_array)
+                {
+                    let total_blocks = blocks.len().max(1);
+                    for (idx, block) in blocks.iter().enumerate() {
+                        let block_name = block
+                            .get("block_name")
+                            .and_then(Value::as_str)
+                            .unwrap_or("block");
+                        let committed = block
+                            .get("committed")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(true);
+                        emit_task_event(
+                            &state,
+                            &task_ctx,
+                            TaskEventInput::new(
+                                "step_completed",
+                                format!("Workflow block {} completed", block_name),
+                            )
+                            .with_stage("workflow")
+                            .with_level(if committed { "success" } else { "error" })
+                            .with_progress(task_event_progress(idx + 1, total_blocks))
+                            .with_details(Some(block.clone())),
+                        );
+                    }
+                }
+                let committed = workflow_result
+                    .get("committed")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true);
+                emit_task_event(
+                    &state,
+                    &task_ctx,
+                    TaskEventInput::new(
+                        if committed { "completed" } else { "failed" },
+                        if committed {
+                            "Tx workflow completed"
+                        } else {
+                            "Tx workflow finished with failure"
+                        },
+                    )
+                    .with_stage("workflow")
+                    .with_level(if committed { "success" } else { "error" })
+                    .with_progress(Some(100)),
+                );
+            }
+        }
+        Ok(_) => {}
+        Err(err) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("failed", format!("Tx workflow failed: {}", err.message))
+                .with_stage("workflow")
+                .with_level("error"),
+        ),
+    }
     spawn_task_callback(state, task_ctx, &result);
     result.map(Json)
+}
+
+pub async fn execute_tx_workflow_async(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteTxWorkflowRequest>,
+) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+    let task_id =
+        require_managed_async_task("tx_workflow", req.task_id.clone(), state.is_managed())?;
+    let background_state = state.clone();
+    let background_req = req;
+    tokio::spawn(async move {
+        if let Err(err) = execute_tx_workflow(State(background_state), Json(background_req)).await {
+            warn!(
+                "background tx workflow task failed before callback reporting: {}",
+                err.message
+            );
+        }
+    });
+    Ok(accepted_async_task_response(task_id, "tx_workflow"))
 }
 
 pub async fn execute_orchestration(
@@ -1427,8 +2432,15 @@ pub async fn execute_orchestration(
     Json(req): Json<ExecuteOrchestrationRequest>,
 ) -> Result<Json<ExecuteOrchestrationResponse>, ApiError> {
     let task_ctx =
-        TaskCallbackContext::from_request("orchestrate", req.task_id.clone(), state.is_managed());
+        TaskReportContext::from_request("orchestrate", req.task_id.clone(), state.is_managed());
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
+    emit_task_event(
+        &state,
+        &task_ctx,
+        TaskEventInput::new("started", "Starting orchestration execution")
+            .with_stage("orchestrate")
+            .with_progress(Some(0)),
+    );
     let result: Result<ExecuteOrchestrationResponse, ApiError> = async {
         let plan_root = req
             .base_dir
@@ -1440,6 +2452,17 @@ pub async fn execute_orchestration(
             .map_err(ApiError::from)?;
         let plan_value = serde_json::to_value(&plan).map_err(ApiError::from)?;
         let inventory_value = serde_json::to_value(&inventory).map_err(ApiError::from)?;
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Orchestration plan loaded")
+                .with_stage("orchestrate")
+                .with_progress(Some(15))
+                .with_details(Some(json!({
+                    "plan_name": plan.name,
+                    "stages": plan.stages.len()
+                }))),
+        );
 
         if req.dry_run.unwrap_or(false) {
             return Ok(ExecuteOrchestrationResponse {
@@ -1449,12 +2472,30 @@ pub async fn execute_orchestration(
             });
         }
 
-        let orchestration_result = orchestrator::execute_loaded_plan(
+        let event_state = state.clone();
+        let event_ctx = task_ctx.clone();
+        let event_hook: orchestrator::OrchestrationEventHook = Arc::new(move |event| {
+            emit_task_event(
+                &event_state,
+                &event_ctx,
+                TaskEventInput {
+                    event_type: event.event_type,
+                    message: event.message,
+                    level: event.level,
+                    stage: event.stage,
+                    progress: event.progress,
+                    details: event.details,
+                },
+            );
+        });
+
+        let orchestration_result = orchestrator::execute_loaded_plan_with_events(
             &plan,
             &inventory,
             &plan_root,
             &state.defaults,
             to_cli_record_level(req.record_level),
+            Some(event_hook),
         )
         .await
         .map_err(ApiError::from)?;
@@ -1469,8 +2510,45 @@ pub async fn execute_orchestration(
     }
     .await;
     drop(task_guard);
+    match &result {
+        Ok(_) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("completed", "Orchestration completed")
+                .with_stage("orchestrate")
+                .with_level("success")
+                .with_progress(Some(100)),
+        ),
+        Err(err) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("failed", format!("Orchestration failed: {}", err.message))
+                .with_stage("orchestrate")
+                .with_level("error"),
+        ),
+    }
     spawn_task_callback(state, task_ctx, &result);
     result.map(Json)
+}
+
+pub async fn execute_orchestration_async(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteOrchestrationRequest>,
+) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+    let task_id =
+        require_managed_async_task("orchestrate", req.task_id.clone(), state.is_managed())?;
+    let background_state = state.clone();
+    let background_req = req;
+    tokio::spawn(async move {
+        if let Err(err) = execute_orchestration(State(background_state), Json(background_req)).await
+        {
+            warn!(
+                "background orchestration task failed before callback reporting: {}",
+                err.message
+            );
+        }
+    });
+    Ok(accepted_async_task_response(task_id, "orchestrate"))
 }
 
 pub async fn replay_session(
@@ -1517,8 +2595,8 @@ pub async fn replay_session(
 #[cfg(test)]
 mod tests {
     use super::{
-        TaskCallbackContext, merged_saved_secret, saved_connection_detail_response,
-        should_persist_secret,
+        TaskReportContext, merged_saved_secret, require_managed_async_task,
+        saved_connection_detail_response, should_persist_secret,
     };
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
@@ -1588,10 +2666,18 @@ mod tests {
 
     #[test]
     fn managed_mode_allows_task_callback_with_task_id_only() {
-        let managed = TaskCallbackContext::from_request("exec", Some("task-1".to_string()), true);
+        let managed = TaskReportContext::from_request("exec", Some("task-1".to_string()), true);
         assert!(managed.is_some());
 
-        let local = TaskCallbackContext::from_request("exec", Some("task-1".to_string()), false);
+        let local = TaskReportContext::from_request("exec", Some("task-1".to_string()), false);
         assert!(local.is_none());
+    }
+
+    #[test]
+    fn managed_async_task_requires_agent_mode_and_task_id() {
+        assert!(require_managed_async_task("tx_block", Some("task-1".to_string()), true).is_ok());
+        assert!(require_managed_async_task("tx_block", Some("   ".to_string()), true).is_err());
+        assert!(require_managed_async_task("tx_block", None, true).is_err());
+        assert!(require_managed_async_task("tx_block", Some("task-1".to_string()), false).is_err());
     }
 }

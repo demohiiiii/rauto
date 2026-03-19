@@ -14,7 +14,7 @@ use crate::manager_grpc::rauto::manager::v1::{
     TaskCallbackRequest as GrpcTaskCallbackRequest,
     UpdateDeviceStatusRequest as GrpcUpdateDeviceStatusRequest,
 };
-use crate::web::models::TaskCallback;
+use crate::web::models::{TaskCallback, TaskEvent};
 use crate::web::state::AppState;
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
@@ -113,6 +113,22 @@ struct HttpReportErrorRequest {
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     details: Option<Value>,
+}
+
+#[derive(Debug, Serialize)]
+struct HttpTaskEventRequest {
+    task_id: String,
+    agent_name: String,
+    event_type: String,
+    message: String,
+    level: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    progress: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<Value>,
+    occurred_at: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -524,6 +540,39 @@ impl AgentRegistrar {
         Ok(())
     }
 
+    pub async fn send_task_event(&self, event: &TaskEvent) -> Result<()> {
+        match self.config.manager.report_mode {
+            ManagerReportMode::Http => {
+                let payload = HttpTaskEventRequest {
+                    task_id: event.task_id.clone(),
+                    agent_name: event.agent_name.clone(),
+                    event_type: event.event_type.clone(),
+                    message: event.message.clone(),
+                    level: event.level.clone(),
+                    stage: event.stage.clone(),
+                    progress: event.progress,
+                    details: event.details.clone(),
+                    occurred_at: event.occurred_at.clone(),
+                };
+                self.authed_post(self.manager_endpoint("/api/agents/report-task-event"))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .context("failed to send task event to manager")?
+                    .error_for_status()
+                    .context("task event HTTP endpoint returned error")?;
+            }
+            ManagerReportMode::Grpc => {}
+        }
+        Ok(())
+    }
+
+    pub async fn report_task_event_best_effort(&self, event: TaskEvent) {
+        if let Err(err) = self.send_task_event(&event).await {
+            warn!("task event report failed: {}", err);
+        }
+    }
+
     pub async fn report_async_error(&self, input: AsyncErrorReportInput) -> Result<()> {
         match self.config.manager.report_mode {
             ManagerReportMode::Grpc => {
@@ -609,6 +658,14 @@ impl AgentRegistrar {
         self.reporting_target(
             "/api/agents/report-task-callback",
             "/rauto.manager.v1.AgentReportingService/ReportTaskCallback",
+        )
+    }
+
+    #[allow(dead_code)]
+    pub fn task_event_report_target(&self) -> String {
+        self.reporting_target(
+            "/api/agents/report-task-event",
+            "/rauto.manager.v1.AgentReportingService/ReportTaskEvent",
         )
     }
 
