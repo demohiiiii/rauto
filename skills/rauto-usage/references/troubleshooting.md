@@ -11,6 +11,15 @@ Use this file when users report failures, wrong output, or UI confusion.
 3. Verify username/password and optional enable password.
 4. Verify device profile matches vendor behavior.
 
+### `saved connection '<name>' is missing password` or password reuse fails
+
+1. Re-enter the password and save the connection again.
+2. Remember that saved passwords are encrypted into SQLite, not stored in plaintext.
+3. Verify both of these files exist together:
+   - `~/.rauto/rauto.db`
+   - `~/.rauto/master.key`
+4. If `master.key` was lost or replaced, old saved passwords can no longer be decrypted.
+
 ### "Web port 3000 overrides SSH port 22"
 
 - Clarify: Web server port (`rauto web --port 3000`) is HTTP port only.
@@ -22,7 +31,7 @@ Use this file when users report failures, wrong output, or UI confusion.
 ### Template not found
 
 1. Run `rauto templates list`.
-2. Confirm file exists under `~/.rauto/templates/commands/`.
+2. Confirm the template exists in the SQLite-backed template store.
 3. Confirm template name/path is correct.
 
 ### Tx rollback errors
@@ -72,6 +81,7 @@ Use this file when users report failures, wrong output, or UI confusion.
 - Use merge restore first (`Restore (Merge)`).
 - Use replace restore only for full reset (`Restore (Replace)` / `--replace`).
 - Re-check connections/templates/profiles after restore.
+- If saved passwords fail after restore, confirm the backup/restore also preserved `master.key`.
 
 ### Download backup fails
 
@@ -88,3 +98,24 @@ Use this file when users report failures, wrong output, or UI confusion.
 ### Drawer/floating actions not visible
 
 - Ensure required state is present (for recording drawer visibility, device context must be selected).
+
+## Agent / manager issues
+
+### Agent registers but manager receives nothing
+
+1. Verify `rauto agent` is using the expected `--report-mode`.
+2. If mode is `grpc`, verify manager exposes `AgentReportingService`.
+3. If mode is `http`, verify manager exposes the expected `/api/agents/...` endpoints.
+4. Verify token handling on manager accepts `Authorization` or `X-API-Key`.
+
+### Agent works on gRPC but not on HTTP
+
+1. Confirm manager URL is an HTTP(S) base URL, not a gRPC-only port.
+2. Confirm these endpoints exist:
+   - `/api/agents/register`
+   - `/api/agents/heartbeat`
+   - `/api/agents/offline`
+   - `/api/agents/report-devices`
+   - `/api/agents/update-device-status`
+   - `/api/agents/report-error`
+   - `/api/agents/report-task-callback`

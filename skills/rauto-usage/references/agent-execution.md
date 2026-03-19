@@ -69,7 +69,7 @@ Run startup commands directly when the user explicitly asks to launch the servic
 
 - `rauto web --bind 127.0.0.1 --port 3000`
   - local self-management UI only
-- `rauto agent --bind 0.0.0.0 --port 8123 --manager-url <url> --agent-name <name> [--agent-token <token>]`
+- `rauto agent --bind 0.0.0.0 --port 8123 --manager-url <url> --report-mode <grpc|http> --agent-name <name> [--agent-token <token>]`
   - manager-connected mode
   - full-sync saved device inventory, then update device status
   - periodic status refresh controlled by `--probe-report-interval`
@@ -141,6 +141,7 @@ rauto agent \
   --bind 0.0.0.0 \
   --port 8123 \
   --manager-url <manager-url> \
+  --report-mode <grpc|http> \
   --agent-name <agent-name> \
   --agent-token <token> \
   --probe-report-interval 300

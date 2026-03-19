@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Execute rauto directly for the user: run device commands, template execution, tx block, tx workflow, multi-device orchestration, replay, backup/restore, connection/profile/template/history operations, and service startup for local web UI or managed agent mode. Trigger on requests like run command for me, execute on device, start rauto web, start rauto agent, connect to rauto-manager, sync saved devices/status, check history, run workflow, orchestrate multiple devices, apply staged rollout, use inventory/groups, diagnose profile, manage templates/profiles/connections, replay records, or restore backup."
+description: "Execute rauto directly for the user: run device commands, template execution, tx block, tx workflow, multi-device orchestration, replay, backup/restore, connection/profile/template/history operations, and service startup for local web UI or managed agent mode. Trigger on requests like run command for me, execute on device, start rauto web, start rauto agent, connect to rauto-manager, choose agent report mode (http or grpc), sync saved devices/status, check history, run workflow, orchestrate multiple devices, apply staged rollout, use inventory/groups, diagnose profile, manage templates/profiles/connections, replay records, explain where rauto stores data, or restore backup."
 ---
 
 # Rauto Usage
@@ -25,7 +25,7 @@ Prefer action-first behavior:
    - examples: `device list`, `connection list`, `history list`, `templates list`, `replay --list`.
 2. For explicit service startup requests, execute immediately:
    - `rauto web` is local self-management UI only.
-   - `rauto agent` is managed mode for `rauto-manager`, saved-device sync, and periodic status probes.
+   - `rauto agent` is managed mode for `rauto-manager`, saved-device sync, periodic status probes, and manager reporting via `grpc` or `http`.
 3. For config-changing requests, prefer rollback-capable execution:
    - single block: `tx`
    - multi-step/multi-resource: `tx-workflow`
@@ -86,9 +86,9 @@ When command is executed, report:
 - Full CLI command cookbook: `references/cli.md`
 - Runnable multi-device orchestration JSON templates (EN): `references/orchestration-json-template.md`
 - Multi-device orchestration pre-flight review: `references/orchestration-risk-check.md`
-- Runtime storage paths: `references/paths.md`
+- Runtime storage and secret paths: `references/paths.md`
 - Troubleshooting and recovery: `references/troubleshooting.md`
-- End-to-end operation scenarios: `references/scenarios.md`
-- English Q/A examples: `references/examples.md`
+- End-to-end operation scenarios (heavy; load only for scenario-style guidance): `references/scenarios.md`
+- English Q/A examples (heavy; load only when few-shot wording helps): `references/examples.md`
 - Runnable workflow JSON templates (EN): `references/workflow-json-template.md`
 - Web tab/card mapping (only when user asks for Web operations): `references/web.md`

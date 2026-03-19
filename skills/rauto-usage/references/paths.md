@@ -8,19 +8,53 @@ Use this file for any "where is data stored?" question.
 ~/.rauto/
 ```
 
-## Default directories
+## Current persistent storage
+
+Primary runtime data is stored in SQLite:
 
 ```text
-~/.rauto/connections/            # saved connection profiles (*.toml)
-~/.rauto/profiles/               # custom profile files (legacy/custom store)
-~/.rauto/templates/commands/     # command templates (*.j2, etc.)
-~/.rauto/templates/devices/      # custom device profiles (*.toml)
-~/.rauto/records/                # recording files (*.jsonl)
-~/.rauto/records/by_connection/  # auto history recordings per saved connection
-~/.rauto/backups/                # backup archives (*.tar.gz)
+~/.rauto/rauto.db
 ```
 
-## Notes
+This includes:
 
-- Local `./templates/` may still be read as fallback for backward compatibility.
-- `rauto backup create` defaults to `~/.rauto/backups/rauto-backup-<timestamp>.tar.gz`.
+- saved connections metadata
+- encrypted saved passwords
+- command blacklist patterns
+- stored templates
+- stored custom device profiles
+- history metadata and history record bodies
+
+## Secret material
+
+Connection passwords are encrypted before being written to SQLite.
+The local encryption key is stored separately:
+
+```text
+~/.rauto/master.key
+```
+
+Notes:
+
+- `master.key` is required to decrypt saved connection passwords.
+- moving only `rauto.db` without `master.key` will break saved-password reuse.
+- on Unix-like systems, `master.key` should be file-permission restricted.
+
+## Backup location
+
+Backup archives are still file outputs:
+
+```text
+~/.rauto/backups/
+```
+
+Default backup file pattern:
+
+```text
+~/.rauto/backups/rauto-backup-<timestamp>.tar.gz
+```
+
+## Legacy path note
+
+Older versions used file-based runtime stores such as per-feature directories under `~/.rauto/`.
+For current behavior, answer with `rauto.db` first and treat those old paths as legacy, not the active source of truth.

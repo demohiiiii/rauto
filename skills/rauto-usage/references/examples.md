@@ -1,6 +1,7 @@
 # Rauto Execution-Style Prompt Examples (EN)
 
 Use these as few-shot examples for action-first agent behavior.
+Load this file only when wording examples or few-shot style is actually useful.
 Default output shape after execution:
 
 ```text
@@ -503,9 +504,9 @@ Start rauto in agent mode and connect it to my manager.
 Execution-style answer:
 ```text
 Operation: Start managed agent service for rauto-manager
-Command: rauto agent --bind 0.0.0.0 --port 8123 --manager-url http://manager:3000 --agent-name agent-beijing-01 --agent-token <token> --probe-report-interval 300
+Command: rauto agent --bind 0.0.0.0 --port 8123 --manager-url http://manager:50051 --report-mode grpc --agent-name agent-beijing-01 --agent-token <token> --probe-report-interval 300
 Result: Agent service started; manager registration and device sync loop enabled
-Notes: `rauto web` is local UI only; use `rauto agent` for manager registration and device reporting
+Notes: `rauto web` is local UI only; use `rauto agent` for manager registration and device reporting. If manager only exposes HTTP(S), switch to `--report-mode http`
 ```
 
 ### Example 10.2

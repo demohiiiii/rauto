@@ -1,6 +1,7 @@
 # Rauto Usage Scenarios
 
 Use these scenarios as ready-to-run examples or checklists. Each scenario includes CLI and Web UI steps when applicable.
+Load this file only when the user wants scenario-style guidance or end-to-end checklists.
 
 ## Table of Contents
 
@@ -546,17 +547,19 @@ rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 rauto agent \
   --bind 0.0.0.0 \
   --port 8123 \
-  --manager-url http://manager:3000 \
+  --manager-url http://manager:50051 \
+  --report-mode grpc \
   --agent-name agent-beijing-01 \
   --agent-token <token> \
   --probe-report-interval 300
 ```
 2. Verify manager receives initial registration.
-3. Verify manager receives full inventory sync from `POST /api/agents/report-devices`.
-4. Verify manager receives status refresh from `POST /api/agents/update-device-status`.
+3. Verify manager receives full inventory sync from `ReportDevices` or `POST /api/agents/report-devices`, depending on report mode.
+4. Verify manager receives status refresh from `UpdateDeviceStatus` or `POST /api/agents/update-device-status`, depending on report mode.
 5. Add or delete one saved connection and confirm manager sees another inventory sync.
 
 ### Notes
 
 - Use `rauto web` instead only for local browser-based operations.
+- If manager only exposes HTTP(S), use `--report-mode http` instead of `grpc`.
 - Status probe is TCP reachability to saved `host:port`, not SSH login validation.

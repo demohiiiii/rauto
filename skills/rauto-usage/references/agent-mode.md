@@ -8,8 +8,9 @@ Use this file when the user asks to start managed agent mode, connect to `rauto-
 2. Start local web UI
 3. Start managed agent
 4. Agent config file
-5. Sync and probe behavior
-6. Manager API expectations
+5. Report transport modes
+6. Sync and probe behavior
+7. Manager interface expectations
 
 ## 1) Choose startup mode
 
@@ -30,11 +31,27 @@ http://127.0.0.1:3000
 
 ## 3) Start managed agent
 
+### gRPC reporting mode
+
 ```bash
 rauto agent \
   --bind 0.0.0.0 \
   --port 8123 \
-  --manager-url http://manager:3000 \
+  --manager-url http://manager:50051 \
+  --report-mode grpc \
+  --agent-name agent-beijing-01 \
+  --agent-token <token> \
+  --probe-report-interval 300
+```
+
+### HTTP reporting mode
+
+```bash
+rauto agent \
+  --bind 0.0.0.0 \
+  --port 8123 \
+  --manager-url https://manager.example.com \
+  --report-mode http \
   --agent-name agent-beijing-01 \
   --agent-token <token> \
   --probe-report-interval 300
@@ -43,6 +60,7 @@ rauto agent \
 Key defaults:
 
 - Agent HTTP listen port defaults to `8123`.
+- `report_mode` defaults to `grpc`.
 - `probe_report_interval` defaults to `300` seconds.
 - Set `--probe-report-interval 0` to disable periodic status refresh.
 
@@ -58,8 +76,9 @@ Example:
 
 ```toml
 [manager]
-url = "http://manager:3000"
+url = "http://manager:50051"
 token = "my-secret-token"
+report_mode = "grpc"
 
 [agent]
 name = "agent-beijing-01"
@@ -67,7 +86,29 @@ heartbeat_interval = 30
 probe_report_interval = 300
 ```
 
-## 5) Sync and probe behavior
+## 5) Report transport modes
+
+### `grpc`
+
+Use this when manager can expose a real gRPC endpoint.
+
+Characteristics:
+
+- default mode
+- uses `rauto.manager.v1.AgentReportingService`
+- best choice when manager and agent can both use gRPC directly
+
+### `http`
+
+Use this when manager only exposes HTTP(S).
+
+Characteristics:
+
+- useful for HTTP-only deployments such as Vercel-style environments
+- keeps the same logical reporting events as gRPC
+- manager implements REST-style endpoints instead of protobuf RPCs
+
+## 6) Sync and probe behavior
 
 Startup sequence:
 
@@ -86,52 +127,38 @@ Probe semantics:
 - Reachability is TCP connect success to `host:port`.
 - It is not an SSH login or prompt-validation result.
 
-## 6) Manager API expectations
+## 7) Manager interface expectations
 
 Auth on outbound manager requests:
 
 - `Authorization: Bearer <token>`
 - `X-API-Key: <token>`
 
-Full inventory sync:
+### HTTP mode
 
-```text
-POST /api/agents/report-devices
-```
+Manager should expose:
 
-Request body:
+- `POST /api/agents/register`
+- `POST /api/agents/heartbeat`
+- `POST /api/agents/offline`
+- `POST /api/agents/report-devices`
+- `POST /api/agents/update-device-status`
+- `POST /api/agents/report-error`
+- `POST /api/agents/report-task-callback`
 
-```json
-{
-  "name": "agent-name",
-  "devices": [
-    {
-      "name": "core-sw-01",
-      "host": "192.168.1.1",
-      "port": 22,
-      "device_profile": "cisco_ios"
-    }
-  ]
-}
-```
+### gRPC mode
 
-Status update:
+Manager should expose:
 
-```text
-POST /api/agents/update-device-status
-```
+- package: `rauto.manager.v1`
+- service: `AgentReportingService`
 
-Request body:
+RPCs:
 
-```json
-{
-  "name": "agent-name",
-  "devices": [
-    {
-      "name": "core-sw-01",
-      "host": "192.168.1.1",
-      "reachable": true
-    }
-  ]
-}
-```
+- `RegisterAgent`
+- `SendHeartbeat`
+- `NotifyOffline`
+- `ReportDevices`
+- `UpdateDeviceStatus`
+- `ReportError`
+- `ReportTaskCallback`

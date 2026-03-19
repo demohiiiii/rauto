@@ -257,7 +257,18 @@ rauto web --bind 127.0.0.1 --port 3000
 rauto agent \
   --bind 0.0.0.0 \
   --port 8123 \
-  --manager-url http://manager:3000 \
+  --manager-url http://manager:50051 \
+  --report-mode grpc \
+  --agent-name agent-beijing-01 \
+  --agent-token <token> \
+  --probe-report-interval 300
+
+# Managed agent mode when manager only exposes HTTP(S)
+rauto agent \
+  --bind 0.0.0.0 \
+  --port 8123 \
+  --manager-url https://manager.example.com \
+  --report-mode http \
   --agent-name agent-beijing-01 \
   --agent-token <token> \
   --probe-report-interval 300
@@ -265,6 +276,7 @@ rauto agent \
 
 Use `rauto web` for local browser operations only.
 Use `rauto agent` when saved-device inventory and reachability status must be reported to manager.
+Prefer `grpc` when manager exposes gRPC; use `http` for HTTP-only deployments.
 
 ## 12) Global flags
 
