@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.2] - 2026-03-19
+
+### New Features
+- Added SQLite-backed runtime storage across saved connections, history entries/bodies, blacklist patterns, managed templates, and custom device profiles, consolidating active runtime state into `~/.rauto/rauto.db`.
+- Added encrypted saved-password storage using a local `~/.rauto/master.key`, replacing the previous external secret-backend dependency and allowing saved connection passwords to be restored together with backups.
+- Added gRPC manager reporting through `tonic` and `rauto.manager.v1.AgentReportingService`, covering agent registration, heartbeats, offline notification, inventory sync, device status updates, async error reports, and task callback reports.
+- Added configurable agent reporting transport selection with `--report-mode` / `report_mode = "..."`, so `rauto agent` can report to manager over either `grpc` or `http` depending on deployment constraints.
+
+### Optimizations
+- Simplified template/profile loading so current runtime reads managed templates and custom device profiles from SQLite instead of mixed file-backed fallback paths.
+- Unified agent reporting behavior across HTTP and gRPC modes, including token forwarding via both `Authorization` and `X-API-Key`, shared async error reporting, and transport-aware task callback delivery.
+- Refreshed README, manager integration docs, and `skills/rauto-usage` so operational guidance matches current agent modes, SQLite storage, and encrypted secret handling.
+
+### API Changes
+- Added manager-facing gRPC contract `rauto.manager.v1.AgentReportingService`; manager implementations can now integrate over protobuf RPCs instead of only REST-style reporting endpoints.
+- Added `rauto agent --report-mode <grpc|http>` and `agent.toml` `manager.report_mode`; `grpc` is now the default reporting transport, while `http` remains available for HTTP-only manager deployments.
+- Active runtime storage now uses `~/.rauto/rauto.db` plus `~/.rauto/master.key`; integrations and operator guidance should treat older file-based runtime stores as legacy rather than the current source of truth.
+
+### Risks
+- Manager and agent must agree on the selected reporting transport; choosing `grpc` against an HTTP-only deployment, or `http` against a gRPC-only deployment, will prevent registration and follow-up reports.
+- Saved passwords now depend on both `rauto.db` and `master.key`; losing or mismatching the key file will make previously saved passwords undecryptable even if the database is intact.
+- Older file-backed runtime data is no longer the active source of truth, so operators upgrading from older layouts should validate that required connections/templates/profiles exist in SQLite before relying on production runs.
+
 ## [0.3.1] - 2026-03-18
 
 ### New Features
