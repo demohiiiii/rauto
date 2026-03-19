@@ -49,11 +49,7 @@ pub async fn agent_status(
     };
 
     Ok(Json(AgentStatusResponse {
-        status: if active_sessions > 0 || running_tasks > 0 {
-            "busy".to_string()
-        } else {
-            "online".to_string()
-        },
+        status: "online".to_string(),
         active_sessions,
         running_tasks,
         last_heartbeat_at: registrar_snapshot

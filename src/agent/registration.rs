@@ -424,11 +424,7 @@ impl AgentRegistrar {
     async fn send_heartbeat(&self, state: &Arc<AppState>) -> Result<()> {
         let active_sessions = state.active_session_count().await;
         let running_tasks = state.running_task_count();
-        let status = if active_sessions > 0 || running_tasks > 0 {
-            "busy".to_string()
-        } else {
-            "online".to_string()
-        };
+        let status = "online".to_string();
         let connections_count = count_connections()?;
         let templates_count = count_templates(state.defaults.template_dir.as_ref())
             .map_err(|e| anyhow!(e.message))?;
