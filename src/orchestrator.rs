@@ -189,6 +189,7 @@ pub struct TargetExecutionResult {
     pub error: Option<String>,
     pub tx_result: Option<Value>,
     pub workflow_result: Option<Value>,
+    pub recording_jsonl: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -202,8 +203,11 @@ pub enum TargetStatus {
 #[derive(Debug, Clone)]
 struct ActionExecutionOutcome {
     operation: String,
+    success: bool,
+    error: Option<String>,
     tx_result: Option<Value>,
     workflow_result: Option<Value>,
+    recording_jsonl: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -843,18 +847,32 @@ async fn execute_target(
                 error: Some(e.to_string()),
                 tx_result: None,
                 workflow_result: None,
+                recording_jsonl: None,
             };
         }
     };
 
     match execute_action(plan, stage, target, &conn, plan_root, record_level).await {
         Ok(outcome) => {
+            let target_succeeded = outcome.success;
             emit_orchestration_event(
                 &event_hook,
                 OrchestrationRuntimeEvent {
-                    event_type: "step_completed".to_string(),
-                    message: format!("Target '{}' completed", label),
-                    level: "success".to_string(),
+                    event_type: if target_succeeded {
+                        "step_completed".to_string()
+                    } else {
+                        "failed".to_string()
+                    },
+                    message: if target_succeeded {
+                        format!("Target '{}' completed", label)
+                    } else {
+                        format!("Target '{}' finished with failure", label)
+                    },
+                    level: if target_succeeded {
+                        "success".to_string()
+                    } else {
+                        "error".to_string()
+                    },
                     stage: Some("orchestrate".to_string()),
                     progress: None,
                     details: Some(serde_json::json!({
@@ -863,7 +881,8 @@ async fn execute_target(
                         "target_label": label,
                         "connection_name": conn.connection_name,
                         "host": conn.host,
-                        "operation": outcome.operation
+                        "operation": outcome.operation,
+                        "error": outcome.error
                     })),
                 },
             );
@@ -871,12 +890,17 @@ async fn execute_target(
                 label,
                 connection_name: conn.connection_name.clone(),
                 host: Some(conn.host.clone()),
-                status: TargetStatus::Success,
+                status: if target_succeeded {
+                    TargetStatus::Success
+                } else {
+                    TargetStatus::Failed
+                },
                 operation: outcome.operation,
                 duration_ms: started.elapsed().as_millis(),
-                error: None,
+                error: outcome.error,
                 tx_result: outcome.tx_result,
                 workflow_result: outcome.workflow_result,
+                recording_jsonl: outcome.recording_jsonl,
             }
         }
         Err(e) => {
@@ -908,6 +932,7 @@ async fn execute_target(
                 error: Some(e.to_string()),
                 tx_result: None,
                 workflow_result: None,
+                recording_jsonl: None,
             }
         }
     }
@@ -1123,11 +1148,20 @@ async fn execute_tx_block_action(
         (result, Some(jsonl))
     };
 
-    let _ = recording_jsonl;
     Ok(ActionExecutionOutcome {
         operation: format!("tx_block: {}", tx_block_name),
+        success: tx_result.committed,
+        error: if tx_result.committed {
+            None
+        } else {
+            Some(format!(
+                "tx block '{}' finished with failure",
+                tx_block_name
+            ))
+        },
         tx_result: Some(serde_json::to_value(&tx_result)?),
         workflow_result: None,
+        recording_jsonl,
     })
 }
 
@@ -1209,11 +1243,20 @@ async fn execute_tx_workflow_action(
         (result, Some(jsonl))
     };
 
-    let _ = recording_jsonl;
     Ok(ActionExecutionOutcome {
         operation: format!("tx_workflow: {}", workflow_name),
+        success: workflow_result.committed,
+        error: if workflow_result.committed {
+            None
+        } else {
+            Some(format!(
+                "tx workflow '{}' finished with failure",
+                workflow_name
+            ))
+        },
         tx_result: None,
         workflow_result: Some(serde_json::to_value(&workflow_result)?),
+        recording_jsonl,
     })
 }
 
@@ -1452,6 +1495,7 @@ fn build_skipped_target(target: &OrchestrationTarget, idx: usize) -> TargetExecu
         error: Some("skipped due to fail_fast".to_string()),
         tx_result: None,
         workflow_result: None,
+        recording_jsonl: None,
     }
 }
 

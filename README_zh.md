@@ -286,7 +286,7 @@ Agent 模式新增能力：
 - `http`：通过 manager 的 HTTP 接口上报，适合只暴露 HTTP(S) 的部署形态，比如 Vercel 这一类环境。
 - 在注册成功后和已保存连接变更时，会自动做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
 - 按周期存活探测刷新时，会做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
-- agent 模式下只传 `task_id` 也可以启用异步任务回调；任务回调会通过当前选择的上报模式回传给 `rauto-manager`。
+- agent 模式下只传 `task_id` 也可以启用异步任务事件和任务回调；这两类上报都会通过当前选择的上报模式回传给 `rauto-manager`。
 - 受管任务接口另外提供了给 manager 调用的异步入口：
 - `POST /api/tx/block/async`
 - `POST /api/tx/workflow/async`

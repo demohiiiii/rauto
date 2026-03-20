@@ -2,12 +2,14 @@ use crate::manager_grpc::rauto::manager::v1::agent_reporting_service_client::Age
 use crate::manager_grpc::rauto::manager::v1::{
     AckResponse, HeartbeatRequest, OfflineRequest, RegisterAgentRequest, RegisterAgentResponse,
     ReportDevicesRequest, ReportDevicesResponse, ReportErrorRequest, TaskCallbackRequest,
-    UpdateDeviceStatusRequest, UpdateDeviceStatusResponse,
+    TaskEventRequest, UpdateDeviceStatusRequest, UpdateDeviceStatusResponse,
 };
 use anyhow::{Context, Result};
 use tonic::Request;
 use tonic::metadata::MetadataValue;
 use tonic::transport::{Channel, Endpoint};
+
+const DEFAULT_GRPC_MAX_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct ManagerGrpcClient {
@@ -92,6 +94,15 @@ impl ManagerGrpcClient {
             .into_inner())
     }
 
+    pub async fn report_task_event(&self, payload: TaskEventRequest) -> Result<AckResponse> {
+        Ok(self
+            .connect()
+            .await?
+            .report_task_event(self.authed_request(payload)?)
+            .await?
+            .into_inner())
+    }
+
     fn authed_request<T>(&self, payload: T) -> Result<Request<T>> {
         let mut request = Request::new(payload);
         if let Some(token) = self
@@ -108,6 +119,15 @@ impl ManagerGrpcClient {
         Ok(request)
     }
 
+    fn max_message_bytes(&self) -> usize {
+        std::env::var("RAUTO_MANAGER_GRPC_MAX_MESSAGE_BYTES")
+            .ok()
+            .or_else(|| std::env::var("MANAGER_GRPC_MAX_MESSAGE_BYTES").ok())
+            .and_then(|raw| raw.trim().parse::<usize>().ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(DEFAULT_GRPC_MAX_MESSAGE_BYTES)
+    }
+
     async fn connect(&self) -> Result<AgentReportingServiceClient<Channel>> {
         let endpoint = Endpoint::from_shared(self.endpoint.clone())
             .with_context(|| format!("invalid manager gRPC endpoint '{}'", self.endpoint))?;
@@ -117,6 +137,9 @@ impl ManagerGrpcClient {
                 self.endpoint
             )
         })?;
-        Ok(AgentReportingServiceClient::new(channel))
+        let max_message_bytes = self.max_message_bytes();
+        Ok(AgentReportingServiceClient::new(channel)
+            .max_decoding_message_size(max_message_bytes)
+            .max_encoding_message_size(max_message_bytes))
     }
 }

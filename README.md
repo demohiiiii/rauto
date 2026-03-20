@@ -286,7 +286,7 @@ Agent mode adds:
 - `http`: uses manager HTTP endpoints, useful when manager only exposes HTTP(S), such as Vercel-style deployments.
 - Full inventory sync after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
 - Periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
-- `task_id` enables async task callbacks in agent mode; callbacks are reported back to manager through the selected transport.
+- `task_id` enables async task events and task callbacks in agent mode; both are now reported back to manager through the selected transport.
 - Managed task APIs now also provide async accept-and-run endpoints for manager callers:
 - `POST /api/tx/block/async`
 - `POST /api/tx/workflow/async`

@@ -11,7 +11,7 @@ use crate::manager_grpc::rauto::manager::v1::{
     ReportDevicesRequest as GrpcReportDevicesRequest, ReportErrorRequest as GrpcReportErrorRequest,
     ReportedDeviceStatus as GrpcReportedDeviceStatus,
     ReportedInventoryDevice as GrpcReportedInventoryDevice,
-    TaskCallbackRequest as GrpcTaskCallbackRequest,
+    TaskCallbackRequest as GrpcTaskCallbackRequest, TaskEventRequest as GrpcTaskEventRequest,
     UpdateDeviceStatusRequest as GrpcUpdateDeviceStatusRequest,
 };
 use crate::web::models::{TaskCallback, TaskEvent};
@@ -27,6 +27,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::Mutex;
 use tokio::time::{Duration, MissedTickBehavior, interval, sleep, timeout};
 use tracing::{error, info, warn};
+
+fn json_string_size(value: &Value) -> Option<usize> {
+    serde_json::to_vec(value).ok().map(|bytes| bytes.len())
+}
+
+fn optional_json_string_size(value: Option<&Value>) -> Option<usize> {
+    value.and_then(json_string_size)
+}
 
 #[derive(Debug, Default)]
 struct RegistrarRuntime {
@@ -505,6 +513,8 @@ impl AgentRegistrar {
     }
 
     pub async fn send_task_callback(&self, callback: &TaskCallback) -> Result<()> {
+        let result_json_bytes = optional_json_string_size(callback.result.as_ref());
+        let error_bytes = callback.error.as_ref().map(|value| value.len());
         match self.config.manager.report_mode {
             ManagerReportMode::Grpc => {
                 let payload = GrpcTaskCallbackRequest {
@@ -521,23 +531,74 @@ impl AgentRegistrar {
                         .transpose()?,
                     error: callback.error.clone(),
                 };
-                self.grpc.report_task_callback(payload).await?;
+                self.grpc.report_task_callback(payload).await.with_context(|| {
+                    format!(
+                        "failed to send task callback to manager over grpc (task_id={}, status={}, result_json_bytes={:?}, error_bytes={:?})",
+                        callback.task_id,
+                        callback.status,
+                        result_json_bytes,
+                        error_bytes
+                    )
+                })?;
             }
             ManagerReportMode::Http => {
                 self.authed_post(self.manager_endpoint("/api/agents/report-task-callback"))
                     .json(callback)
                     .send()
                     .await
-                    .context("failed to send task callback to manager")?
+                    .with_context(|| {
+                        format!(
+                            "failed to send task callback to manager over http (task_id={}, status={}, result_json_bytes={:?}, error_bytes={:?})",
+                            callback.task_id,
+                            callback.status,
+                            result_json_bytes,
+                            error_bytes
+                        )
+                    })?
                     .error_for_status()
-                    .context("task callback HTTP endpoint returned error")?;
+                    .with_context(|| {
+                        format!(
+                            "task callback HTTP endpoint returned error (task_id={}, status={}, result_json_bytes={:?}, error_bytes={:?})",
+                            callback.task_id,
+                            callback.status,
+                            result_json_bytes,
+                            error_bytes
+                        )
+                    })?;
             }
         }
         Ok(())
     }
 
     pub async fn send_task_event(&self, event: &TaskEvent) -> Result<()> {
+        let details_json_bytes = optional_json_string_size(event.details.as_ref());
         match self.config.manager.report_mode {
+            ManagerReportMode::Grpc => {
+                let payload = GrpcTaskEventRequest {
+                    task_id: event.task_id.clone(),
+                    agent_name: event.agent_name.clone(),
+                    event_type: event.event_type.clone(),
+                    message: event.message.clone(),
+                    level: event.level.clone(),
+                    stage: event.stage.clone(),
+                    progress: event.progress.map(u32::from),
+                    details_json: event
+                        .details
+                        .as_ref()
+                        .map(serde_json::to_string)
+                        .transpose()?,
+                    occurred_at: event.occurred_at.clone(),
+                };
+                self.grpc.report_task_event(payload).await.with_context(|| {
+                    format!(
+                        "failed to send task event to manager over grpc (task_id={}, event_type={}, stage={:?}, details_json_bytes={:?})",
+                        event.task_id,
+                        event.event_type,
+                        event.stage,
+                        details_json_bytes
+                    )
+                })?;
+            }
             ManagerReportMode::Http => {
                 let payload = HttpTaskEventRequest {
                     task_id: event.task_id.clone(),
@@ -554,11 +615,26 @@ impl AgentRegistrar {
                     .json(&payload)
                     .send()
                     .await
-                    .context("failed to send task event to manager")?
+                    .with_context(|| {
+                        format!(
+                            "failed to send task event to manager over http (task_id={}, event_type={}, stage={:?}, details_json_bytes={:?})",
+                            event.task_id,
+                            event.event_type,
+                            event.stage,
+                            details_json_bytes
+                        )
+                    })?
                     .error_for_status()
-                    .context("task event HTTP endpoint returned error")?;
+                    .with_context(|| {
+                        format!(
+                            "task event HTTP endpoint returned error (task_id={}, event_type={}, stage={:?}, details_json_bytes={:?})",
+                            event.task_id,
+                            event.event_type,
+                            event.stage,
+                            details_json_bytes
+                        )
+                    })?;
             }
-            ManagerReportMode::Grpc => {}
         }
         Ok(())
     }

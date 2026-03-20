@@ -53,7 +53,11 @@ use std::time::Instant;
 use std::time::UNIX_EPOCH;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
-use tracing::warn;
+use tracing::{info, warn};
+
+fn json_value_size(value: &Value) -> Option<usize> {
+    serde_json::to_vec(value).ok().map(|bytes| bytes.len())
+}
 
 #[derive(Debug, serde::Deserialize)]
 pub struct HistoryQuery {
@@ -145,13 +149,15 @@ enum RecordingEventPlan {
 }
 
 struct RecordingEventForwarder {
+    initial_entries: usize,
     finish_tx: oneshot::Sender<usize>,
     join_handle: JoinHandle<()>,
 }
 
 impl RecordingEventForwarder {
     async fn finish(self, expected_entries: usize) {
-        let _ = self.finish_tx.send(expected_entries);
+        let expected_new_entries = expected_entries.saturating_sub(self.initial_entries);
+        let _ = self.finish_tx.send(expected_new_entries);
         let _ = self.join_handle.await;
     }
 }
@@ -205,8 +211,10 @@ fn map_recording_entry_to_task_event(
         ),
         SessionEvent::CommandOutput {
             command,
+            mode,
             success,
             content,
+            all,
             ..
         } => Some(
             TaskEventInput::new("log", format!("Command output: {}", command))
@@ -214,8 +222,10 @@ fn map_recording_entry_to_task_event(
                 .with_level(if *success { "info" } else { "warning" })
                 .with_details(Some(json!({
                     "command": command,
+                    "mode": mode,
                     "success": success,
-                    "content": content
+                    "content": content,
+                    "all": all
                 }))),
         ),
         SessionEvent::TxBlockStarted {
@@ -400,25 +410,7 @@ fn map_recording_entry_to_task_event(
             rollback_attempted,
             rollback_succeeded,
         } => match plan {
-            RecordingEventPlan::TxBlock { .. } => Some(
-                TaskEventInput::new(
-                    if *committed { "completed" } else { "failed" },
-                    if *committed {
-                        format!("Tx block {} completed", block_name)
-                    } else {
-                        format!("Tx block {} finished with failure", block_name)
-                    },
-                )
-                .with_stage("tx_block")
-                .with_level(if *committed { "success" } else { "error" })
-                .with_progress(Some(100))
-                .with_details(Some(json!({
-                    "block_name": block_name,
-                    "committed": committed,
-                    "rollback_attempted": rollback_attempted,
-                    "rollback_succeeded": rollback_succeeded
-                }))),
-            ),
+            RecordingEventPlan::TxBlock { .. } => None,
             RecordingEventPlan::TxWorkflow {
                 total_blocks,
                 block_indices,
@@ -471,30 +463,7 @@ fn map_recording_entry_to_task_event(
                     "total_blocks": total_blocks
                 }))),
         ),
-        SessionEvent::TxWorkflowFinished {
-            workflow_name,
-            committed,
-            rollback_attempted,
-            rollback_succeeded,
-        } => Some(
-            TaskEventInput::new(
-                if *committed { "completed" } else { "failed" },
-                if *committed {
-                    format!("Workflow {} completed", workflow_name)
-                } else {
-                    format!("Workflow {} finished with failure", workflow_name)
-                },
-            )
-            .with_stage("workflow")
-            .with_level(if *committed { "success" } else { "error" })
-            .with_progress(Some(100))
-            .with_details(Some(json!({
-                "workflow_name": workflow_name,
-                "committed": committed,
-                "rollback_attempted": rollback_attempted,
-                "rollback_succeeded": rollback_succeeded
-            }))),
-        ),
+        SessionEvent::TxWorkflowFinished { .. } => None,
         SessionEvent::ConnectionClosed { reason, .. } => Some(
             TaskEventInput::new("log", "Connection closed")
                 .with_stage("connect")
@@ -539,6 +508,10 @@ fn spawn_recording_event_forwarder(
     let task_ctx = task_ctx.clone()?;
     let registrar = state.registrar()?;
     let agent_name = current_agent_name(state);
+    // The recorder may already contain connection setup entries before we subscribe.
+    // The forwarder only observes entries emitted after subscription, so finish()
+    // must wait for the delta, not the absolute recorder length.
+    let initial_entries = recorder.entries().ok().map_or(0, |entries| entries.len());
     let mut rx = recorder.subscribe();
     let (finish_tx, mut finish_rx) = oneshot::channel::<usize>();
 
@@ -605,6 +578,7 @@ fn spawn_recording_event_forwarder(
     });
 
     Some(RecordingEventForwarder {
+        initial_entries,
         finish_tx,
         join_handle,
     })
@@ -841,11 +815,13 @@ fn build_task_callback<T: Serialize>(
     }
 }
 
-fn build_failed_task_callback(
+fn build_failed_task_callback<T: Serialize>(
     state: &Arc<AppState>,
     task_ctx: &TaskReportContext,
     message: impl Into<String>,
+    result: Option<&T>,
 ) -> TaskCallback {
+    let error_message = message.into();
     TaskCallback {
         task_id: task_ctx.task_id.clone(),
         agent_name: current_agent_name(state),
@@ -853,8 +829,8 @@ fn build_failed_task_callback(
         started_at: task_ctx.started_at.to_rfc3339(),
         completed_at: Utc::now().to_rfc3339(),
         execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
-        result: None,
-        error: Some(message.into()),
+        result: result.and_then(|value| serde_json::to_value(value).ok()),
+        error: Some(error_message),
     }
 }
 
@@ -2256,6 +2232,13 @@ pub async fn execute_tx_block(
             } else {
                 None
             };
+            let tx_result_value = serde_json::to_value(&result).ok();
+            info!(
+                "tx_block execution finished with recording_jsonl_bytes={:?}, tx_result_bytes={:?}, task_id={:?}",
+                jsonl.as_ref().map(|value| value.len()),
+                tx_result_value.as_ref().and_then(json_value_size),
+                task_ctx.as_ref().map(|ctx| ctx.task_id.as_str())
+            );
             (result, jsonl)
         } else {
             let request = manager_connection_request(
@@ -2277,7 +2260,7 @@ pub async fn execute_tx_block(
         };
 
         let tx_result_value = serde_json::to_value(&tx_result).map_err(ApiError::from)?;
-        if task_ctx.is_none() && tx_result.rollback_attempted {
+        if task_ctx.is_some() && tx_result.rollback_attempted {
             emit_task_event(
                 &state,
                 &task_ctx,
@@ -2306,23 +2289,26 @@ pub async fn execute_tx_block(
     .await;
     drop(task_guard);
     match &result {
-        Ok(response) if task_ctx.is_none() => {
+        Ok(response) if task_ctx.is_some() => {
             let committed = response
                 .tx_result
                 .as_ref()
                 .and_then(|value| value.get("committed"))
                 .and_then(Value::as_bool)
                 .unwrap_or(true);
+            let response_details = serde_json::to_value(response).ok();
             let input = if committed {
                 TaskEventInput::new("completed", "Tx block completed")
                     .with_stage("tx_block")
                     .with_level("success")
                     .with_progress(Some(100))
+                    .with_details(response_details)
             } else {
                 TaskEventInput::new("failed", "Tx block execution finished with failure")
                     .with_stage("tx_block")
                     .with_level("error")
                     .with_progress(Some(100))
+                    .with_details(response_details)
             };
             emit_task_event(&state, &task_ctx, input);
         }
@@ -2347,6 +2333,7 @@ pub async fn execute_tx_block(
                 &state,
                 task_ctx_ref,
                 "Tx block execution finished with failure",
+                Some(response),
             );
             spawn_prepared_task_callback(state, task_ctx, callback);
             return result.map(Json);
@@ -2506,6 +2493,13 @@ pub async fn execute_tx_workflow(
             } else {
                 None
             };
+            let workflow_result_value = serde_json::to_value(&result).ok();
+            info!(
+                "tx_workflow execution finished with recording_jsonl_bytes={:?}, workflow_result_bytes={:?}, task_id={:?}",
+                jsonl.as_ref().map(|value| value.len()),
+                workflow_result_value.as_ref().and_then(json_value_size),
+                task_ctx.as_ref().map(|ctx| ctx.task_id.as_str())
+            );
             (result, jsonl)
         } else {
             let request = manager_connection_request(
@@ -2537,7 +2531,7 @@ pub async fn execute_tx_workflow(
     .await;
     drop(task_guard);
     match &result {
-        Ok(response) if task_ctx.is_none() => {
+        Ok(response) if task_ctx.is_some() => {
             if let Some(workflow_result) = &response.tx_workflow_result {
                 if let Some(blocks) = workflow_result
                     .get("block_results")
@@ -2584,7 +2578,8 @@ pub async fn execute_tx_workflow(
                     )
                     .with_stage("workflow")
                     .with_level(if committed { "success" } else { "error" })
-                    .with_progress(Some(100)),
+                    .with_progress(Some(100))
+                    .with_details(serde_json::to_value(response).ok()),
                 );
             }
         }
@@ -2609,6 +2604,7 @@ pub async fn execute_tx_workflow(
                 &state,
                 task_ctx_ref,
                 "Tx workflow finished with failure",
+                Some(response),
             );
             spawn_prepared_task_callback(state, task_ctx, callback);
             return result.map(Json);
@@ -2723,14 +2719,28 @@ pub async fn execute_orchestration(
     .await;
     drop(task_guard);
     match &result {
-        Ok(_) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("completed", "Orchestration completed")
-                .with_stage("orchestrate")
-                .with_level("success")
-                .with_progress(Some(100)),
-        ),
+        Ok(response) => {
+            let succeeded = response
+                .orchestration_result
+                .as_ref()
+                .and_then(|value| value.get("success"))
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
+            let event = if succeeded {
+                TaskEventInput::new("completed", "Orchestration completed")
+                    .with_stage("orchestrate")
+                    .with_level("success")
+                    .with_progress(Some(100))
+                    .with_details(serde_json::to_value(response).ok())
+            } else {
+                TaskEventInput::new("failed", "Orchestration finished with failure")
+                    .with_stage("orchestrate")
+                    .with_level("error")
+                    .with_progress(Some(100))
+                    .with_details(serde_json::to_value(response).ok())
+            };
+            emit_task_event(&state, &task_ctx, event);
+        }
         Err(err) => emit_task_event(
             &state,
             &task_ctx,
@@ -2738,6 +2748,25 @@ pub async fn execute_orchestration(
                 .with_stage("orchestrate")
                 .with_level("error"),
         ),
+    }
+    if let (Some(task_ctx_ref), Ok(response)) = (task_ctx.as_ref(), &result) {
+        let succeeded = response
+            .orchestration_result
+            .as_ref()
+            .and_then(|value| value.get("success"))
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        if !succeeded {
+            let callback =
+                build_failed_task_callback(
+                    &state,
+                    task_ctx_ref,
+                    "Orchestration finished with failure",
+                    Some(response),
+                );
+            spawn_prepared_task_callback(state, task_ctx, callback);
+            return result.map(Json);
+        }
     }
     spawn_task_callback(state, task_ctx, &result);
     result.map(Json)
