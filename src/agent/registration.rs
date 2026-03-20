@@ -28,14 +28,6 @@ use tokio::sync::Mutex;
 use tokio::time::{Duration, MissedTickBehavior, interval, sleep, timeout};
 use tracing::{error, info, warn};
 
-fn json_string_size(value: &Value) -> Option<usize> {
-    serde_json::to_vec(value).ok().map(|bytes| bytes.len())
-}
-
-fn optional_json_string_size(value: Option<&Value>) -> Option<usize> {
-    value.and_then(json_string_size)
-}
-
 #[derive(Debug, Default)]
 struct RegistrarRuntime {
     registered_at: Option<String>,
@@ -513,8 +505,6 @@ impl AgentRegistrar {
     }
 
     pub async fn send_task_callback(&self, callback: &TaskCallback) -> Result<()> {
-        let result_json_bytes = optional_json_string_size(callback.result.as_ref());
-        let error_bytes = callback.error.as_ref().map(|value| value.len());
         match self.config.manager.report_mode {
             ManagerReportMode::Grpc => {
                 let payload = GrpcTaskCallbackRequest {
@@ -533,11 +523,9 @@ impl AgentRegistrar {
                 };
                 self.grpc.report_task_callback(payload).await.with_context(|| {
                     format!(
-                        "failed to send task callback to manager over grpc (task_id={}, status={}, result_json_bytes={:?}, error_bytes={:?})",
+                        "failed to send task callback to manager over grpc (task_id={}, status={})",
                         callback.task_id,
-                        callback.status,
-                        result_json_bytes,
-                        error_bytes
+                        callback.status
                     )
                 })?;
             }
@@ -548,21 +536,17 @@ impl AgentRegistrar {
                     .await
                     .with_context(|| {
                         format!(
-                            "failed to send task callback to manager over http (task_id={}, status={}, result_json_bytes={:?}, error_bytes={:?})",
+                            "failed to send task callback to manager over http (task_id={}, status={})",
                             callback.task_id,
-                            callback.status,
-                            result_json_bytes,
-                            error_bytes
+                            callback.status
                         )
                     })?
                     .error_for_status()
                     .with_context(|| {
                         format!(
-                            "task callback HTTP endpoint returned error (task_id={}, status={}, result_json_bytes={:?}, error_bytes={:?})",
+                            "task callback HTTP endpoint returned error (task_id={}, status={})",
                             callback.task_id,
-                            callback.status,
-                            result_json_bytes,
-                            error_bytes
+                            callback.status
                         )
                     })?;
             }
@@ -571,7 +555,6 @@ impl AgentRegistrar {
     }
 
     pub async fn send_task_event(&self, event: &TaskEvent) -> Result<()> {
-        let details_json_bytes = optional_json_string_size(event.details.as_ref());
         match self.config.manager.report_mode {
             ManagerReportMode::Grpc => {
                 let payload = GrpcTaskEventRequest {
@@ -591,11 +574,10 @@ impl AgentRegistrar {
                 };
                 self.grpc.report_task_event(payload).await.with_context(|| {
                     format!(
-                        "failed to send task event to manager over grpc (task_id={}, event_type={}, stage={:?}, details_json_bytes={:?})",
+                        "failed to send task event to manager over grpc (task_id={}, event_type={}, stage={:?})",
                         event.task_id,
                         event.event_type,
-                        event.stage,
-                        details_json_bytes
+                        event.stage
                     )
                 })?;
             }
@@ -617,21 +599,19 @@ impl AgentRegistrar {
                     .await
                     .with_context(|| {
                         format!(
-                            "failed to send task event to manager over http (task_id={}, event_type={}, stage={:?}, details_json_bytes={:?})",
+                            "failed to send task event to manager over http (task_id={}, event_type={}, stage={:?})",
                             event.task_id,
                             event.event_type,
-                            event.stage,
-                            details_json_bytes
+                            event.stage
                         )
                     })?
                     .error_for_status()
                     .with_context(|| {
                         format!(
-                            "task event HTTP endpoint returned error (task_id={}, event_type={}, stage={:?}, details_json_bytes={:?})",
+                            "task event HTTP endpoint returned error (task_id={}, event_type={}, stage={:?})",
                             event.task_id,
                             event.event_type,
-                            event.stage,
-                            details_json_bytes
+                            event.stage
                         )
                     })?;
             }

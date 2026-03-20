@@ -53,11 +53,7 @@ use std::time::Instant;
 use std::time::UNIX_EPOCH;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
-use tracing::{info, warn};
-
-fn json_value_size(value: &Value) -> Option<usize> {
-    serde_json::to_vec(value).ok().map(|bytes| bytes.len())
-}
+use tracing::warn;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct HistoryQuery {
@@ -2232,13 +2228,6 @@ pub async fn execute_tx_block(
             } else {
                 None
             };
-            let tx_result_value = serde_json::to_value(&result).ok();
-            info!(
-                "tx_block execution finished with recording_jsonl_bytes={:?}, tx_result_bytes={:?}, task_id={:?}",
-                jsonl.as_ref().map(|value| value.len()),
-                tx_result_value.as_ref().and_then(json_value_size),
-                task_ctx.as_ref().map(|ctx| ctx.task_id.as_str())
-            );
             (result, jsonl)
         } else {
             let request = manager_connection_request(
@@ -2493,13 +2482,6 @@ pub async fn execute_tx_workflow(
             } else {
                 None
             };
-            let workflow_result_value = serde_json::to_value(&result).ok();
-            info!(
-                "tx_workflow execution finished with recording_jsonl_bytes={:?}, workflow_result_bytes={:?}, task_id={:?}",
-                jsonl.as_ref().map(|value| value.len()),
-                workflow_result_value.as_ref().and_then(json_value_size),
-                task_ctx.as_ref().map(|ctx| ctx.task_id.as_str())
-            );
             (result, jsonl)
         } else {
             let request = manager_connection_request(
