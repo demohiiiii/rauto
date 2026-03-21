@@ -6,6 +6,11 @@ service AgentTaskService {
   rpc GetAgentInfo(AgentInfoRequest) returns (AgentInfoResponse);
   rpc GetAgentStatus(AgentStatusRequest) returns (AgentStatusResponse);
   rpc ProbeDevices(ProbeDevicesRequest) returns (ProbeDevicesResponse);
+  rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse);
+  rpc UpsertConnection(UpsertConnectionRequest) returns (UpsertConnectionResponse);
+  rpc TestConnection(TestConnectionRequest) returns (TestConnectionResponse);
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+  rpc ListDeviceProfiles(ListDeviceProfilesRequest) returns (ListDeviceProfilesResponse);
   rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
   rpc ExecuteTemplate(ExecuteTemplateRequest) returns (ExecuteTemplateResponse);
   rpc ExecuteTxBlock(ExecuteTxBlockRequest) returns (ExecuteTxBlockResponse);
@@ -18,6 +23,20 @@ message AgentInfoRequest {}
 
 message AgentStatusRequest {}
 
+message ListConnectionsRequest {}
+
+message ConnectionMeta {
+  string name = 1;
+  string host = 2;
+  uint32 port = 3;
+  string device_profile = 4;
+  bool has_password = 5;
+}
+
+message ListConnectionsResponse {
+  repeated ConnectionMeta connections = 1;
+}
+
 message ConnectionRef {
   string connection_name = 1;
   string host = 2;
@@ -27,6 +46,62 @@ message ConnectionRef {
   string enable_password = 6;
   string ssh_security = 7;
   string device_profile = 8;
+}
+
+message UpsertConnectionRequest {
+  string name = 1;
+  ConnectionRef connection = 2;
+  bool save_password = 3;
+}
+
+message UpsertConnectionResponse {
+  string name = 1;
+  string path = 2;
+  bool has_password = 3;
+  ConnectionRef connection = 4;
+}
+
+message TestConnectionRequest {
+  ConnectionRef connection = 1;
+}
+
+message TestConnectionResponse {
+  bool ok = 1;
+  string host = 2;
+  uint32 port = 3;
+  string username = 4;
+  string ssh_security = 5;
+  string device_profile = 6;
+}
+
+message ListTemplatesRequest {}
+
+message TemplateMeta {
+  string name = 1;
+  string path = 2;
+}
+
+message ListTemplatesResponse {
+  repeated TemplateMeta templates = 1;
+}
+
+message ListDeviceProfilesRequest {}
+
+message BuiltinProfileMeta {
+  string name = 1;
+  repeated string aliases = 2;
+  string summary = 3;
+}
+
+message CustomProfileMeta {
+  string name = 1;
+  string path = 2;
+}
+
+message ListDeviceProfilesResponse {
+  repeated BuiltinProfileMeta builtins = 1;
+  repeated CustomProfileMeta custom = 2;
+  repeated string all = 3;
 }
 
 message ExecuteCommandRequest {

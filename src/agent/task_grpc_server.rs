@@ -3,29 +3,37 @@ use crate::agent_task_grpc::rauto::agent::v1::agent_task_service_server::{
 };
 use crate::agent_task_grpc::rauto::agent::v1::{
     AcceptedTaskResponse, AgentInfoRequest, AgentInfoResponse, AgentStatusRequest,
-    AgentStatusResponse, CommandExecutionResult, ConnectionRef, DeviceProbeResult,
-    ExecuteCommandRequest, ExecuteCommandResponse,
+    AgentStatusResponse, BuiltinProfileMeta, CommandExecutionResult, ConnectionMeta, ConnectionRef,
+    CustomProfileMeta, DeviceProbeResult, ExecuteCommandRequest, ExecuteCommandResponse,
     ExecuteOrchestrationRequest as GrpcExecuteOrchestrationRequest,
     ExecuteTemplateRequest as GrpcExecuteTemplateRequest, ExecuteTemplateResponse,
-    ExecuteTxBlockResponse,
+    ExecuteTxBlockResponse, ListConnectionsRequest, ListConnectionsResponse,
+    ListDeviceProfilesRequest, ListDeviceProfilesResponse, ListTemplatesRequest,
+    ListTemplatesResponse, TemplateMeta, TestConnectionRequest, TestConnectionResponse,
     ExecuteTxBlockRequest as GrpcExecuteTxBlockRequest,
     ExecuteTxWorkflowRequest as GrpcExecuteTxWorkflowRequest, ProbeDevicesRequest,
-    ProbeDevicesResponse, SystemInfo,
+    ProbeDevicesResponse, SystemInfo, UpsertConnectionRequest as GrpcUpsertConnectionRequest,
+    UpsertConnectionResponse,
 };
+use crate::config::connection_store;
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::web::storage;
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::error::ApiError;
 use crate::web::handlers::{
     exec_command as exec_command_handler, execute_template as execute_template_handler,
-    execute_tx_block as execute_tx_block_handler, queue_orchestration_async_task,
-    queue_tx_block_async_task, queue_tx_workflow_async_task,
+    execute_tx_block as execute_tx_block_handler, list_templates as list_templates_handler,
+    profiles_overview as profiles_overview_handler, queue_orchestration_async_task,
+    queue_tx_block_async_task, queue_tx_workflow_async_task, test_connection as test_connection_handler,
+    upsert_connection as upsert_connection_handler,
 };
 use crate::web::models::{
-    CommandResult, ConnectionRequest, ExecRequest,
+    CommandResult, ConnectionRequest, ConnectionTestRequest, ExecRequest,
     ExecuteOrchestrationRequest as WebExecuteOrchestrationRequest,
     ExecuteTemplateRequest as WebExecuteTemplateRequest,
     ExecuteTxBlockRequest as WebExecuteTxBlockRequest,
     ExecuteTxWorkflowRequest as WebExecuteTxWorkflowRequest, RecordLevel,
+    UpsertConnectionRequest as WebUpsertConnectionRequest,
 };
 use crate::web::state::AppState;
 use axum::{Json, Router, extract::State};
@@ -180,6 +188,36 @@ fn map_command_result(result: CommandResult) -> CommandExecutionResult {
     }
 }
 
+fn connection_ref_to_request(connection: ConnectionRef) -> Result<ConnectionRequest, Status> {
+    Ok(ConnectionRequest {
+        connection_name: optional_string(connection.connection_name),
+        host: optional_string(connection.host),
+        username: optional_string(connection.username),
+        password: optional_string(connection.password),
+        port: connection.port.map(|value| value as u16),
+        enable_password: optional_string(connection.enable_password),
+        ssh_security: parse_ssh_security(&connection.ssh_security)?,
+        device_profile: optional_string(connection.device_profile),
+        template_dir: None,
+    })
+}
+
+fn sanitize_connection_ref(name: String, connection: ConnectionRequest) -> ConnectionRef {
+    ConnectionRef {
+        connection_name: name,
+        host: connection.host.unwrap_or_default(),
+        username: connection.username.unwrap_or_default(),
+        password: String::new(),
+        port: connection.port.map(u32::from),
+        enable_password: String::new(),
+        ssh_security: connection
+            .ssh_security
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+        device_profile: connection.device_profile.unwrap_or_default(),
+    }
+}
+
 #[tonic::async_trait]
 impl AgentTaskService for AgentTaskGrpcService {
     async fn get_agent_info(
@@ -257,6 +295,159 @@ impl AgentTaskService for AgentTaskGrpcService {
             total: response.total,
             reachable_count: response.reachable_count,
             unreachable_count: response.unreachable_count,
+        }))
+    }
+
+    async fn list_connections(
+        &self,
+        request: Request<ListConnectionsRequest>,
+    ) -> Result<Response<ListConnectionsResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let _ = request.into_inner();
+
+        let names = connection_store::list_connections().map_err(|err| {
+            Status::internal(format!("failed to list saved connections: {}", err))
+        })?;
+        let mut connections = Vec::new();
+        for name in names {
+            let loaded = match connection_store::load_connection_raw(&name) {
+                Ok(value) => value,
+                Err(err) => {
+                    tracing::warn!(
+                        "skipping saved connection '{}' in gRPC list_connections because it could not be loaded: {}",
+                        name,
+                        err
+                    );
+                    continue;
+                }
+            };
+            let has_password = connection_store::has_saved_password(&loaded);
+            connections.push(ConnectionMeta {
+                name,
+                host: loaded.host.unwrap_or_default(),
+                port: loaded.port.unwrap_or(22).into(),
+                device_profile: loaded.device_profile.unwrap_or_else(|| "cisco".to_string()),
+                has_password,
+            });
+        }
+
+        Ok(Response::new(ListConnectionsResponse { connections }))
+    }
+
+    async fn upsert_connection(
+        &self,
+        request: Request<GrpcUpsertConnectionRequest>,
+    ) -> Result<Response<UpsertConnectionResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let name = req.name.trim();
+        if name.is_empty() {
+            return Err(Status::invalid_argument("connection name is required"));
+        }
+        let connection = req
+            .connection
+            .ok_or_else(|| Status::invalid_argument("connection is required"))?;
+        let Json(response) = upsert_connection_handler(
+            State(self.state.clone()),
+            axum::extract::Path(name.to_string()),
+            Json(WebUpsertConnectionRequest {
+                connection: connection_ref_to_request(connection)?,
+                save_password: req.save_password,
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(UpsertConnectionResponse {
+            name: response.name.clone(),
+            path: response.path,
+            has_password: response.has_password,
+            connection: Some(sanitize_connection_ref(response.name, response.connection)),
+        }))
+    }
+
+    async fn test_connection(
+        &self,
+        request: Request<TestConnectionRequest>,
+    ) -> Result<Response<TestConnectionResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let connection = req
+            .connection
+            .map(connection_ref_to_request)
+            .transpose()?;
+        let Json(response) = test_connection_handler(
+            State(self.state.clone()),
+            Json(ConnectionTestRequest { connection }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(TestConnectionResponse {
+            ok: response.ok,
+            host: response.host,
+            port: u32::from(response.port),
+            username: response.username,
+            ssh_security: response.ssh_security.to_string(),
+            device_profile: response.device_profile,
+        }))
+    }
+
+    async fn list_templates(
+        &self,
+        request: Request<ListTemplatesRequest>,
+    ) -> Result<Response<ListTemplatesResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let _ = request.into_inner();
+        let Json(response) = list_templates_handler(State(self.state.clone()))
+            .await
+            .map_err(api_error_to_status)?;
+
+        Ok(Response::new(ListTemplatesResponse {
+            templates: response
+                .into_iter()
+                .map(|item| TemplateMeta {
+                    name: item.name,
+                    path: item.path,
+                })
+                .collect(),
+        }))
+    }
+
+    async fn list_device_profiles(
+        &self,
+        request: Request<ListDeviceProfilesRequest>,
+    ) -> Result<Response<ListDeviceProfilesResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let _ = request.into_inner();
+        let Json(response) = profiles_overview_handler(State(self.state.clone()))
+            .await
+            .map_err(api_error_to_status)?;
+        let all = storage::builtin_profiles()
+            .into_iter()
+            .map(|item| item.name)
+            .chain(response.custom.iter().map(|item| item.name.clone()))
+            .collect();
+
+        Ok(Response::new(ListDeviceProfilesResponse {
+            builtins: response
+                .builtins
+                .into_iter()
+                .map(|item| BuiltinProfileMeta {
+                    name: item.name,
+                    aliases: item.aliases,
+                    summary: item.summary,
+                })
+                .collect(),
+            custom: response
+                .custom
+                .into_iter()
+                .map(|item| CustomProfileMeta {
+                    name: item.name,
+                    path: item.path,
+                })
+                .collect(),
+            all,
         }))
     }
 
