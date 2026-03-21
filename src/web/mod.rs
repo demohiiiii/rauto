@@ -2,7 +2,7 @@ pub(crate) mod agent_handlers;
 mod assets;
 pub(crate) mod auth;
 pub(crate) mod error;
-mod handlers;
+pub(crate) mod handlers;
 pub(crate) mod models;
 mod server;
 pub(crate) mod state;

@@ -1,4 +1,5 @@
 mod agent;
+mod agent_task_grpc;
 mod cli;
 mod config;
 mod db;

@@ -1,5 +1,6 @@
-use crate::agent::config::resolve_agent_settings;
+use crate::agent::config::{AgentCliOverrides, resolve_agent_settings};
 use crate::agent::registration::AgentRegistrar;
+use crate::agent::task_grpc_server::build_agent_task_grpc_router;
 use crate::cli::{AgentArgs, GlobalOpts, WebArgs};
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::assets::{index_response, static_response};
@@ -8,8 +9,9 @@ use crate::web::handlers::{
     add_blacklist_pattern, check_blacklist_command, create_backup, create_or_update_custom_profile,
     create_template, delete_blacklist_pattern, delete_connection, delete_connection_history,
     delete_custom_profile, delete_template, diagnose_profile, download_backup, exec_command,
-    execute_orchestration, execute_orchestration_async, execute_template, execute_tx_block,
-    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async,
+    exec_command_async, execute_orchestration, execute_orchestration_async, execute_template,
+    execute_template_async, execute_tx_block, execute_tx_block_async, execute_tx_workflow,
+    execute_tx_workflow_async,
     get_builtin_profile_detail, get_builtin_profile_form, get_connection, get_connection_history,
     get_connection_history_detail, get_custom_profile, get_custom_profile_form, get_template,
     health, interactive_command, interactive_start, interactive_stop, list_backups,
@@ -41,11 +43,13 @@ pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<(
 pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Result<()> {
     let agent_settings = resolve_agent_settings(
         agent_args.agent_config.clone(),
-        agent_args.manager_url.clone(),
-        agent_args.agent_name.clone(),
-        agent_args.agent_token.clone(),
-        agent_args.report_mode,
-        agent_args.probe_report_interval,
+        AgentCliOverrides {
+            manager_url: agent_args.manager_url.clone(),
+            agent_name: agent_args.agent_name.clone(),
+            agent_token: agent_args.agent_token.clone(),
+            report_mode: agent_args.report_mode,
+            probe_report_interval: agent_args.probe_report_interval,
+        },
     )?;
     let Some(agent_config) = agent_settings.config else {
         return Err(anyhow!(
@@ -101,9 +105,12 @@ fn build_local_app(state: Arc<AppState>) -> Router {
 }
 
 fn build_managed_app(state: Arc<AppState>) -> Router {
+    let grpc_routes = build_agent_task_grpc_router(state.clone());
     let protected_routes = Router::new()
         .route("/api/agent/status", get(agent_status))
         .route("/api/devices/probe", post(probe_devices))
+        .route("/api/exec/async", post(exec_command_async))
+        .route("/api/template/execute/async", post(execute_template_async))
         .route("/api/tx/block/async", post(execute_tx_block_async))
         .route("/api/tx/workflow/async", post(execute_tx_workflow_async))
         .route("/api/orchestrate/async", post(execute_orchestration_async))
@@ -115,6 +122,7 @@ fn build_managed_app(state: Arc<AppState>) -> Router {
 
     Router::new()
         .merge(public_agent_routes())
+        .merge(grpc_routes)
         .merge(protected_routes)
         .fallback(any(not_found))
         .layer(middleware::from_fn(disable_cache))

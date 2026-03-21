@@ -629,19 +629,13 @@ fn require_managed_async_task(
         })
 }
 
-fn accepted_async_task_response(
-    task_id: String,
-    operation: &str,
-) -> (StatusCode, Json<AsyncTaskAcceptedResponse>) {
-    (
-        StatusCode::ACCEPTED,
-        Json(AsyncTaskAcceptedResponse {
-            accepted: true,
-            task_id,
-            operation: operation.to_string(),
-            status: "queued".to_string(),
-        }),
-    )
+fn build_async_task_accepted_response(task_id: String, operation: &str) -> AsyncTaskAcceptedResponse {
+    AsyncTaskAcceptedResponse {
+        accepted: true,
+        task_id,
+        operation: operation.to_string(),
+        status: "queued".to_string(),
+    }
 }
 
 struct AsyncTaskFailureSpec {
@@ -780,6 +774,102 @@ where
             }
         }
     });
+}
+
+pub(crate) fn queue_exec_async_task(
+    state: Arc<AppState>,
+    req: ExecRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id = require_managed_async_task("exec", req.task_id.clone(), state.is_managed())?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(background_state.clone(), task_id.clone(), "exec", async move {
+        exec_command(State(background_state), Json(req))
+            .await
+            .map(|_| ())
+    });
+    Ok(build_async_task_accepted_response(task_id, "exec"))
+}
+
+pub(crate) fn queue_template_async_task(
+    state: Arc<AppState>,
+    req: ExecuteTemplateRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id = require_managed_async_task(
+        "template_execute",
+        req.task_id.clone(),
+        state.is_managed(),
+    )?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "template_execute",
+        async move {
+            execute_template(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
+    );
+    Ok(build_async_task_accepted_response(task_id, "template_execute"))
+}
+
+pub(crate) fn queue_tx_block_async_task(
+    state: Arc<AppState>,
+    req: ExecuteTxBlockRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id = require_managed_async_task("tx_block", req.task_id.clone(), state.is_managed())?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "tx_block",
+        async move {
+            execute_tx_block(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
+    );
+    Ok(build_async_task_accepted_response(task_id, "tx_block"))
+}
+
+pub(crate) fn queue_tx_workflow_async_task(
+    state: Arc<AppState>,
+    req: ExecuteTxWorkflowRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id =
+        require_managed_async_task("tx_workflow", req.task_id.clone(), state.is_managed())?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "tx_workflow",
+        async move {
+            execute_tx_workflow(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
+    );
+    Ok(build_async_task_accepted_response(task_id, "tx_workflow"))
+}
+
+pub(crate) fn queue_orchestration_async_task(
+    state: Arc<AppState>,
+    req: ExecuteOrchestrationRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id =
+        require_managed_async_task("orchestrate", req.task_id.clone(), state.is_managed())?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "orchestrate",
+        async move {
+            execute_orchestration(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
+    );
+    Ok(build_async_task_accepted_response(task_id, "orchestrate"))
 }
 
 fn build_task_callback<T: Serialize>(
@@ -1397,6 +1487,14 @@ pub async fn exec_command(
     result.map(Json)
 }
 
+pub async fn exec_command_async(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecRequest>,
+) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+    let response = queue_exec_async_task(state, req)?;
+    Ok((StatusCode::ACCEPTED, Json(response)))
+}
+
 pub async fn interactive_start(
     State(state): State<Arc<AppState>>,
     Json(req): Json<InteractiveStartRequest>,
@@ -1944,6 +2042,14 @@ pub async fn execute_template(
     result.map(Json)
 }
 
+pub async fn execute_template_async(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteTemplateRequest>,
+) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+    let response = queue_template_async_task(state, req)?;
+    Ok((StatusCode::ACCEPTED, Json(response)))
+}
+
 fn resolve_tx_commands(
     renderer: &Renderer,
     template: Option<&str>,
@@ -2336,20 +2442,8 @@ pub async fn execute_tx_block_async(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxBlockRequest>,
 ) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
-    let task_id = require_managed_async_task("tx_block", req.task_id.clone(), state.is_managed())?;
-    let background_state = state.clone();
-    let background_req = req;
-    spawn_supervised_async_task(
-        background_state.clone(),
-        task_id.clone(),
-        "tx_block",
-        async move {
-            execute_tx_block(State(background_state), Json(background_req))
-                .await
-                .map(|_| ())
-        },
-    );
-    Ok(accepted_async_task_response(task_id, "tx_block"))
+    let response = queue_tx_block_async_task(state, req)?;
+    Ok((StatusCode::ACCEPTED, Json(response)))
 }
 
 pub async fn execute_tx_workflow(
@@ -2600,21 +2694,8 @@ pub async fn execute_tx_workflow_async(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxWorkflowRequest>,
 ) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
-    let task_id =
-        require_managed_async_task("tx_workflow", req.task_id.clone(), state.is_managed())?;
-    let background_state = state.clone();
-    let background_req = req;
-    spawn_supervised_async_task(
-        background_state.clone(),
-        task_id.clone(),
-        "tx_workflow",
-        async move {
-            execute_tx_workflow(State(background_state), Json(background_req))
-                .await
-                .map(|_| ())
-        },
-    );
-    Ok(accepted_async_task_response(task_id, "tx_workflow"))
+    let response = queue_tx_workflow_async_task(state, req)?;
+    Ok((StatusCode::ACCEPTED, Json(response)))
 }
 
 pub async fn execute_orchestration(
@@ -2758,21 +2839,8 @@ pub async fn execute_orchestration_async(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteOrchestrationRequest>,
 ) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
-    let task_id =
-        require_managed_async_task("orchestrate", req.task_id.clone(), state.is_managed())?;
-    let background_state = state.clone();
-    let background_req = req;
-    spawn_supervised_async_task(
-        background_state.clone(),
-        task_id.clone(),
-        "orchestrate",
-        async move {
-            execute_orchestration(State(background_state), Json(background_req))
-                .await
-                .map(|_| ())
-        },
-    );
-    Ok(accepted_async_task_response(task_id, "orchestrate"))
+    let response = queue_orchestration_async_task(state, req)?;
+    Ok((StatusCode::ACCEPTED, Json(response)))
 }
 
 pub async fn replay_session(

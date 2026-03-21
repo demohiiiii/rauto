@@ -33,6 +33,15 @@ pub struct ResolvedAgentSettings {
     pub api_token: Option<String>,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct AgentCliOverrides {
+    pub manager_url: Option<String>,
+    pub agent_name: Option<String>,
+    pub agent_token: Option<String>,
+    pub report_mode: Option<ManagerReportMode>,
+    pub probe_report_interval: Option<u64>,
+}
+
 #[derive(Debug, Default, Deserialize)]
 struct AgentConfigFile {
     #[serde(default)]
@@ -70,33 +79,19 @@ pub fn default_agent_config_path() -> PathBuf {
 #[allow(dead_code)]
 pub fn load_agent_config(
     config_path: Option<PathBuf>,
-    cli_manager_url: Option<String>,
-    cli_agent_name: Option<String>,
-    cli_agent_token: Option<String>,
-    cli_report_mode: Option<ManagerReportMode>,
+    overrides: AgentCliOverrides,
 ) -> Result<Option<AgentConfig>> {
-    Ok(resolve_agent_settings(
-        config_path,
-        cli_manager_url,
-        cli_agent_name,
-        cli_agent_token,
-        cli_report_mode,
-        None,
-    )?
-    .config)
+    Ok(resolve_agent_settings(config_path, overrides)?.config)
 }
 
 pub fn resolve_agent_settings(
     config_path: Option<PathBuf>,
-    cli_manager_url: Option<String>,
-    cli_agent_name: Option<String>,
-    cli_agent_token: Option<String>,
-    cli_report_mode: Option<ManagerReportMode>,
-    cli_probe_report_interval: Option<u64>,
+    overrides: AgentCliOverrides,
 ) -> Result<ResolvedAgentSettings> {
     let file_config = load_agent_file(config_path)?;
 
-    let manager_url = cli_manager_url
+    let manager_url = overrides
+        .manager_url
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -109,7 +104,8 @@ pub fn resolve_agent_settings(
                 .filter(|value| !value.is_empty())
                 .map(ToOwned::to_owned)
         });
-    let agent_name = cli_agent_name
+    let agent_name = overrides
+        .agent_name
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -122,7 +118,8 @@ pub fn resolve_agent_settings(
                 .filter(|value| !value.is_empty())
                 .map(ToOwned::to_owned)
         });
-    let api_token = cli_agent_token
+    let api_token = overrides
+        .agent_token
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -135,21 +132,22 @@ pub fn resolve_agent_settings(
                 .filter(|value| !value.is_empty())
                 .map(ToOwned::to_owned)
         });
-    let report_mode = cli_report_mode
+    let report_mode = overrides
+        .report_mode
         .or_else(|| file_config.as_ref().and_then(|cfg| cfg.manager.report_mode))
         .unwrap_or_default();
     let heartbeat_interval = file_config
         .as_ref()
         .and_then(|cfg| cfg.agent.heartbeat_interval)
         .unwrap_or_else(default_heartbeat);
-    let probe_report_interval = cli_probe_report_interval
+    let probe_report_interval = overrides
+        .probe_report_interval
         .or_else(|| {
             file_config
                 .as_ref()
                 .and_then(|cfg| cfg.agent.probe_report_interval)
         })
         .unwrap_or_else(default_probe_report_interval);
-
     let config = match (manager_url, agent_name) {
         (Some(url), Some(name)) => Some(AgentConfig {
             manager: ManagerConfig {
@@ -184,18 +182,20 @@ fn load_agent_file(config_path: Option<PathBuf>) -> Result<Option<AgentConfigFil
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_agent_settings;
+    use super::{AgentCliOverrides, resolve_agent_settings};
     use crate::agent::report_mode::ManagerReportMode;
 
     #[test]
     fn resolve_agent_settings_prefers_cli_values() {
         let settings = resolve_agent_settings(
             None,
-            Some("http://manager.local:3000".to_string()),
-            Some("agent-a".to_string()),
-            Some("token-a".to_string()),
-            Some(ManagerReportMode::Http),
-            Some(120),
+            AgentCliOverrides {
+                manager_url: Some("http://manager.local:3000".to_string()),
+                agent_name: Some("agent-a".to_string()),
+                agent_token: Some("token-a".to_string()),
+                report_mode: Some(ManagerReportMode::Http),
+                probe_report_interval: Some(120),
+            },
         )
         .expect("settings");
 
@@ -212,11 +212,11 @@ mod tests {
     fn resolve_agent_settings_uses_default_probe_interval() {
         let settings = resolve_agent_settings(
             None,
-            Some("http://manager.local:3000".to_string()),
-            Some("agent-a".to_string()),
-            None,
-            None,
-            None,
+            AgentCliOverrides {
+                manager_url: Some("http://manager.local:3000".to_string()),
+                agent_name: Some("agent-a".to_string()),
+                ..AgentCliOverrides::default()
+            },
         )
         .expect("settings");
 

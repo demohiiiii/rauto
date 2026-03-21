@@ -36,9 +36,11 @@ hostname = "0.4"
 base64 = "0.22.1"
 ring = "0.17.14"
 sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "sqlite", "macros"] }
-tonic = { version = "0.12.3", features = ["transport"] }
-prost = "0.13.5"
+tonic = { version = "0.14.5", features = ["transport"] }
+tonic-prost = "0.14.5"
+prost = "0.14.3"
 
 [build-dependencies]
-tonic-build = "0.12.3"
+tonic-build = "0.14.5"
+tonic-prost-build = "0.14.5"
 protoc-bin-vendored = "3.1.0"

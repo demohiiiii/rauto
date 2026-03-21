@@ -280,6 +280,7 @@ Agent 模式新增能力：
 - 公开 `GET /api/agent/info`，用于 Manager 做可达性检查和发现。
 - 受保护的 `GET /api/agent/status`，用于查看运行状态和心跳时间。
 - 受保护的 `POST /api/devices/probe`，用于批量探测已保存连接的 TCP 可达性。
+- 在同一个 agent 端口上额外暴露 gRPC 任务服务：`rauto.agent.v1.AgentTaskService`。
 - 启动后后台自动注册、定时心跳，以及退出时尽力发送离线通知。
 - 对 manager 的上报支持两种传输方式：
 - `grpc`（默认）：通过 `rauto.manager.v1.AgentReportingService` 上报，适合 manager 可以暴露 gRPC 端口的场景。
@@ -287,11 +288,26 @@ Agent 模式新增能力：
 - 在注册成功后和已保存连接变更时，会自动做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
 - 按周期存活探测刷新时，会做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
 - agent 模式下只传 `task_id` 也可以启用异步任务事件和任务回调；这两类上报都会通过当前选择的上报模式回传给 `rauto-manager`。
-- 受管任务接口另外提供了给 manager 调用的异步入口：
+- 受管任务接口另外提供了给 manager 调用的 HTTP 异步入口：
+- `POST /api/exec/async`
+- `POST /api/template/execute/async`
 - `POST /api/tx/block/async`
 - `POST /api/tx/workflow/async`
 - `POST /api/orchestrate/async`
 - 这些异步接口要求运行在 agent 模式下，并且请求中带非空 `task_id`；接口会立即返回 `202 Accepted`，后续执行结果仍通过现有的任务事件和任务回调链路回传。
+- 同一个 agent 端口也暴露了下面这些 gRPC 任务方法：
+- `GetAgentInfo`
+- `GetAgentStatus`
+- `ProbeDevices`
+- `ExecuteCommand`
+- `ExecuteTemplate`
+- `ExecuteTxBlock`
+- `ExecuteTxBlockAsync`
+- `ExecuteTxWorkflowAsync`
+- `ExecuteOrchestrationAsync`
+- `exec`、`template_execute`、`tx_block` 走同步 gRPC 方法。
+- `tx_block` 也额外提供异步 gRPC 方法，方便 manager 走立即接受、后台执行的模式。
+- `tx_workflow` 和 `orchestrate` 仍然只保留异步方法，因为这两类任务通常耗时较长。
 - 配置 token 时，对 manager 的外呼会同时带上 `Authorization: Bearer <token>` 和 `X-API-Key: <token>`。
 - 如果 agent 模式启动时配置了 token，浏览器中的 Web UI 请求也需要在页面头部填写同一个 token。
 

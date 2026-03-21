@@ -280,6 +280,7 @@ Agent mode adds:
 - Public `GET /api/agent/info` for manager-side reachability/discovery.
 - Protected `GET /api/agent/status` for runtime status and heartbeat metadata.
 - Protected `POST /api/devices/probe` for batch TCP reachability checks of saved connections.
+- A same-port gRPC task service for manager callers: `rauto.agent.v1.AgentTaskService`.
 - Background manager registration, heartbeat, and best-effort offline notification on shutdown.
 - Manager reporting supports two transports:
 - `grpc` (default): uses `rauto.manager.v1.AgentReportingService`, best when manager can expose a gRPC endpoint.
@@ -287,11 +288,26 @@ Agent mode adds:
 - Full inventory sync after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
 - Periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
 - `task_id` enables async task events and task callbacks in agent mode; both are now reported back to manager through the selected transport.
-- Managed task APIs now also provide async accept-and-run endpoints for manager callers:
+- Managed task APIs now provide async accept-and-run endpoints for manager callers over HTTP:
+- `POST /api/exec/async`
+- `POST /api/template/execute/async`
 - `POST /api/tx/block/async`
 - `POST /api/tx/workflow/async`
 - `POST /api/orchestrate/async`
 - These async endpoints require agent mode plus a non-empty `task_id`, return `202 Accepted` immediately, and complete through the existing task event/task callback reporting path.
+- The same agent port also exposes gRPC task methods:
+- `GetAgentInfo`
+- `GetAgentStatus`
+- `ProbeDevices`
+- `ExecuteCommand`
+- `ExecuteTemplate`
+- `ExecuteTxBlock`
+- `ExecuteTxBlockAsync`
+- `ExecuteTxWorkflowAsync`
+- `ExecuteOrchestrationAsync`
+- `exec`, `template_execute`, and `tx_block` use synchronous gRPC methods.
+- `tx_block` also provides an async gRPC method for manager callers that want immediate accept-and-run behavior.
+- `tx_workflow` and `orchestrate` stay async-only because they are typically long-running tasks.
 - Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
 - When agent mode is started with a token, browser-side Web UI requests must provide the same token in the page header token field.
 
