@@ -418,6 +418,18 @@ fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts) -> Result<
                 println!("{}", toml::to_string_pretty(&profile)?);
                 return Ok(());
             }
+            if let Some(detail) = web::storage::builtin_profile_detail(&name) {
+                println!("# built-in profile: {}", detail.name);
+                println!("# source: {}", detail.source);
+                println!("# summary: {}", detail.summary);
+                if !detail.aliases.is_empty() {
+                    println!("# aliases: {}", detail.aliases.join(", "));
+                }
+                for note in detail.notes {
+                    println!("- {}", note);
+                }
+                return Ok(());
+            }
 
             let safe_name = name.trim().trim_end_matches(".toml");
             let stored = content_store::load_custom_profile(safe_name)?;
@@ -433,12 +445,25 @@ fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts) -> Result<
             name,
             overwrite,
         } => {
-            let mut profile = web::storage::builtin_profile_form(&source).ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Built-in profile '{}' not found. Try one of: cisco, huawei, h3c, hillstone, juniper, array",
+            let mut profile = if let Some(profile) = web::storage::builtin_profile_form(&source) {
+                profile
+            } else if web::storage::builtin_profile_detail(&source).is_some() {
+                return Err(anyhow::anyhow!(
+                    "Built-in profile '{}' is available in rneter, but exporting it as editable TOML is not supported yet",
                     source
-                )
-            })?;
+                ));
+            } else {
+                let builtin_names = web::storage::builtin_profiles()
+                    .into_iter()
+                    .map(|profile| profile.name)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                return Err(anyhow::anyhow!(
+                    "Built-in profile '{}' not found. Try one of: {}",
+                    source,
+                    builtin_names
+                ));
+            };
 
             let normalized = name.trim().trim_end_matches(".toml");
             if normalized.is_empty()

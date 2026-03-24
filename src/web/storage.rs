@@ -2,100 +2,105 @@ use crate::config::content_store;
 use crate::config::device_profile::{
     DeviceProfile, InteractionConfig, PromptConfig, SysPromptConfig, TransitionConfig,
 };
+use crate::config::template_loader;
 use crate::web::error::ApiError;
 use crate::web::models::{
     BuiltinProfileDetail, BuiltinProfileMeta, CustomProfileMeta, TemplateMeta,
 };
-pub fn builtin_profiles() -> Vec<BuiltinProfileMeta> {
-    vec![
-        BuiltinProfileMeta {
-            name: "cisco".to_string(),
-            aliases: vec!["ios".to_string()],
-            summary: "Cisco IOS profile".to_string(),
-        },
-        BuiltinProfileMeta {
-            name: "huawei".to_string(),
-            aliases: vec!["vrp".to_string()],
-            summary: "Huawei VRP profile".to_string(),
-        },
-        BuiltinProfileMeta {
-            name: "h3c".to_string(),
-            aliases: vec!["comware".to_string()],
-            summary: "H3C Comware profile".to_string(),
-        },
-        BuiltinProfileMeta {
-            name: "hillstone".to_string(),
-            aliases: vec![],
-            summary: "Hillstone profile".to_string(),
-        },
-        BuiltinProfileMeta {
-            name: "juniper".to_string(),
-            aliases: vec!["junos".to_string()],
-            summary: "Juniper JunOS profile".to_string(),
-        },
-        BuiltinProfileMeta {
-            name: "array".to_string(),
-            aliases: vec![],
-            summary: "Array Networks profile".to_string(),
-        },
-    ]
-}
+use rneter::templates::{TemplateCapability, template_catalog, template_metadata};
 
-pub fn builtin_profile_detail(name: &str) -> Option<BuiltinProfileDetail> {
-    let key = name.to_lowercase();
-    match key.as_str() {
-        "cisco" | "ios" => Some(BuiltinProfileDetail {
-            name: "cisco".to_string(),
-            aliases: vec!["ios".to_string()],
-            summary: "Cisco IOS profile".to_string(),
-            source: "rneter::templates::cisco".to_string(),
-            notes: vec![
-                "适用于常见 Cisco IOS/IOS-XE 设备".to_string(),
-                "默认执行模式通常为 Enable".to_string(),
-            ],
-        }),
-        "huawei" | "vrp" => Some(BuiltinProfileDetail {
-            name: "huawei".to_string(),
-            aliases: vec!["vrp".to_string()],
-            summary: "Huawei VRP profile".to_string(),
-            source: "rneter::templates::huawei".to_string(),
-            notes: vec!["适用于华为 VRP 命令行交互".to_string()],
-        }),
-        "h3c" | "comware" => Some(BuiltinProfileDetail {
-            name: "h3c".to_string(),
-            aliases: vec!["comware".to_string()],
-            summary: "H3C Comware profile".to_string(),
-            source: "rneter::templates::h3c".to_string(),
-            notes: vec!["适用于 H3C Comware 设备".to_string()],
-        }),
-        "hillstone" => Some(BuiltinProfileDetail {
-            name: "hillstone".to_string(),
-            aliases: vec![],
-            summary: "Hillstone profile".to_string(),
-            source: "rneter::templates::hillstone".to_string(),
-            notes: vec!["适用于 Hillstone 设备".to_string()],
-        }),
-        "juniper" | "junos" => Some(BuiltinProfileDetail {
-            name: "juniper".to_string(),
-            aliases: vec!["junos".to_string()],
-            summary: "Juniper JunOS profile".to_string(),
-            source: "rneter::templates::juniper".to_string(),
-            notes: vec!["适用于 Juniper JunOS".to_string()],
-        }),
-        "array" => Some(BuiltinProfileDetail {
-            name: "array".to_string(),
-            aliases: vec![],
-            summary: "Array Networks profile".to_string(),
-            source: "rneter::templates::array".to_string(),
-            notes: vec!["适用于 Array Networks 设备".to_string()],
-        }),
-        _ => None,
+fn builtin_aliases(name: &str) -> Vec<String> {
+    match name {
+        "cisco" => vec!["ios".to_string()],
+        "huawei" => vec!["vrp".to_string()],
+        "h3c" => vec!["comware".to_string()],
+        "juniper" => vec!["junos".to_string()],
+        "arista" => vec!["eos".to_string()],
+        "fortinet" => vec!["fortigate".to_string(), "fortios".to_string()],
+        "paloalto" => vec!["palo-alto".to_string(), "panos".to_string()],
+        "chaitin" => vec!["safeline".to_string()],
+        "qianxin" => vec!["qax".to_string(), "qian-xin".to_string()],
+        "checkpoint" => vec!["check-point".to_string(), "check_point".to_string()],
+        _ => Vec::new(),
     }
 }
 
+fn builtin_summary(name: &str, vendor: &str, family: &str) -> String {
+    if name == "linux" {
+        "Linux server profile".to_string()
+    } else if family.is_empty() {
+        format!("{vendor} profile")
+    } else {
+        format!("{vendor} {family} profile")
+    }
+}
+
+fn capability_label(capability: TemplateCapability) -> &'static str {
+    match capability {
+        TemplateCapability::LoginMode => "login mode",
+        TemplateCapability::EnableMode => "enable mode",
+        TemplateCapability::ConfigMode => "config mode",
+        TemplateCapability::SysContext => "system context",
+        TemplateCapability::InteractiveInput => "interactive input",
+    }
+}
+
+fn builtin_notes(
+    name: &str,
+    vendor: &str,
+    family: &str,
+    capabilities: &[TemplateCapability],
+) -> Vec<String> {
+    let mut notes = Vec::new();
+    if !family.is_empty() {
+        notes.push(format!("Vendor: {vendor}; family: {family}."));
+    } else {
+        notes.push(format!("Vendor: {vendor}."));
+    }
+    if !capabilities.is_empty() {
+        let caps = capabilities
+            .iter()
+            .copied()
+            .map(capability_label)
+            .collect::<Vec<_>>()
+            .join(", ");
+        notes.push(format!("Capabilities: {caps}."));
+    }
+    if builtin_profile_form(name).is_none() {
+        notes.push(
+            "This built-in template is available for execution, but exporting an editable TOML form is not supported yet."
+                .to_string(),
+        );
+    }
+    notes
+}
+
+pub fn builtin_profiles() -> Vec<BuiltinProfileMeta> {
+    template_catalog()
+        .into_iter()
+        .map(|meta| BuiltinProfileMeta {
+            summary: builtin_summary(&meta.name, &meta.vendor, &meta.family),
+            aliases: builtin_aliases(&meta.name),
+            name: meta.name,
+        })
+        .collect()
+}
+
+pub fn builtin_profile_detail(name: &str) -> Option<BuiltinProfileDetail> {
+    let canonical = template_loader::canonical_builtin_profile_name(name)?;
+    let meta = template_metadata(canonical).ok()?;
+    Some(BuiltinProfileDetail {
+        name: meta.name.clone(),
+        aliases: builtin_aliases(&meta.name),
+        summary: builtin_summary(&meta.name, &meta.vendor, &meta.family),
+        source: format!("rneter::templates::{}", meta.name),
+        notes: builtin_notes(&meta.name, &meta.vendor, &meta.family, &meta.capabilities),
+    })
+}
+
 pub fn builtin_profile_form(name: &str) -> Option<DeviceProfile> {
-    let key = name.to_lowercase();
-    match key.as_str() {
+    let key = template_loader::canonical_builtin_profile_name(name).unwrap_or(name);
+    match key {
         "cisco" | "ios" => Some(DeviceProfile {
             name: "cisco".to_string(),
             prompts: vec![

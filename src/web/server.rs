@@ -11,13 +11,12 @@ use crate::web::handlers::{
     delete_custom_profile, delete_template, diagnose_profile, download_backup, exec_command,
     exec_command_async, execute_orchestration, execute_orchestration_async, execute_template,
     execute_template_async, execute_tx_block, execute_tx_block_async, execute_tx_workflow,
-    execute_tx_workflow_async,
-    get_builtin_profile_detail, get_builtin_profile_form, get_connection, get_connection_history,
-    get_connection_history_detail, get_custom_profile, get_custom_profile_form, get_template,
-    health, interactive_command, interactive_start, interactive_stop, list_backups,
-    list_blacklist_patterns, list_connections, list_profiles, list_templates, profiles_overview,
-    render_template, replay_session, restore_backup, test_connection, update_template,
-    upsert_connection, upsert_custom_profile_form,
+    execute_tx_workflow_async, get_builtin_profile_detail, get_builtin_profile_form,
+    get_connection, get_connection_history, get_connection_history_detail, get_custom_profile,
+    get_custom_profile_form, get_template, health, interactive_command, interactive_start,
+    interactive_stop, list_backups, list_blacklist_patterns, list_connections, list_profiles,
+    list_templates, profiles_overview, render_template, replay_session, restore_backup,
+    test_connection, update_template, upsert_connection, upsert_custom_profile_form,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};

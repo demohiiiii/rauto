@@ -169,6 +169,11 @@ rauto exec "show bgp neighbor" \
 
 `rauto` supports built-in device profiles (inherited from `rneter`) and custom TOML profiles.
 
+Current built-in profiles from `rneter 0.3.2` include:
+
+- Network vendors: `cisco`, `huawei`, `h3c`, `hillstone`, `juniper`, `array`, `arista`, `fortinet`, `paloalto`, `topsec`, `venustech`, `dptech`, `chaitin`, `qianxin`, `maipu`, `checkpoint`
+- Servers: `linux`
+
 **List Available Profiles:**
 
 ```bash
@@ -185,6 +190,17 @@ rauto template show_ver.j2 \
     --password secret \
     --ssh-port 22 \
     --device-profile huawei
+```
+
+**Using the Linux profile:**
+
+```bash
+rauto exec "systemctl status sshd" \
+    --host 192.168.1.10 \
+    --username admin \
+    --password secret \
+    --ssh-port 22 \
+    --device-profile linux
 ```
 
 **Custom Device Profile:**
@@ -206,6 +222,7 @@ rauto exec "show ver" \
 ```bash
 rauto device list
 rauto device show cisco
+rauto device show linux
 rauto device copy-builtin cisco my_cisco
 rauto device delete-custom my_cisco
 rauto connection test \
@@ -214,6 +231,11 @@ rauto connection test \
     --password secret \
     --ssh-port 22
 ```
+
+Notes:
+
+- `rauto device list` follows the current built-in catalog exposed by `rneter`.
+- Some newer built-in profiles are already available for execution and diagnostics, but `rauto device copy-builtin` still only works for built-ins that have an editable TOML form in `rauto`.
 
 ### 4. Web Console (Axum)
 
@@ -867,7 +889,7 @@ Default runtime data:
 | `--enable-password` | -                | Enable/Secret password                                          |
 | `--ssh-port`        | -                | SSH port (default: 22)                                          |
 | `--ssh-security`    | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible` |
-| `--device-profile`  | -                | Device type (default: cisco)                                    |
+| `--device-profile`  | -                | Device type/profile (default: `cisco`; examples: `huawei`, `linux`, `fortinet`) |
 | `--connection`      | -                | Load saved connection profile by name                           |
 | `--save-connection` | -                | Save effective connection profile after successful connect      |
 | `--save-password`   | -                | With `--save-connection`, also save password/enable_password    |

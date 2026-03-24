@@ -169,6 +169,11 @@ rauto exec "show bgp neighbor" \
 
 `rauto` 支持内置的设备配置（继承自 `rneter`）和自定义 TOML 配置。
 
+当前 `rneter 0.3.2` 提供的内置 profile 包括：
+
+- 网络设备厂商：`cisco`、`huawei`、`h3c`、`hillstone`、`juniper`、`array`、`arista`、`fortinet`、`paloalto`、`topsec`、`venustech`、`dptech`、`chaitin`、`qianxin`、`maipu`、`checkpoint`
+- 服务器：`linux`
+
 **列出可用配置：**
 
 ```bash
@@ -185,6 +190,17 @@ rauto template show_ver.j2 \
     --password secret \
     --ssh-port 22 \
     --device-profile huawei
+```
+
+**使用 Linux profile：**
+
+```bash
+rauto exec "systemctl status sshd" \
+    --host 192.168.1.10 \
+    --username admin \
+    --password secret \
+    --ssh-port 22 \
+    --device-profile linux
 ```
 
 **自定义设备配置：**
@@ -206,6 +222,7 @@ rauto exec "show ver" \
 ```bash
 rauto device list
 rauto device show cisco
+rauto device show linux
 rauto device copy-builtin cisco my_cisco
 rauto device delete-custom my_cisco
 rauto connection test \
@@ -214,6 +231,11 @@ rauto connection test \
     --password secret \
     --ssh-port 22
 ```
+
+说明：
+
+- `rauto device list` 会跟随当前 `rneter` 暴露的内置模板目录。
+- 一些较新的内置 profile 已经可以直接用于执行和诊断，但 `rauto device copy-builtin` 目前仍只支持那些在 `rauto` 中已经有可编辑 TOML 表单的 built-in。
 
 ### 4. Web 控制台（Axum）
 
@@ -867,7 +889,7 @@ rauto web \
 | `--enable-password` | -                | Enable/Secret 密码                                      |
 | `--ssh-port`        | -                | SSH 端口 (默认: 22)                                     |
 | `--ssh-security`    | -                | SSH 安全档位：`secure`、`balanced`、`legacy-compatible` |
-| `--device-profile`  | -                | 设备类型 (默认: cisco)                                  |
+| `--device-profile`  | -                | 设备类型/profile（默认：`cisco`；例如：`huawei`、`linux`、`fortinet`） |
 | `--connection`      | -                | 按名称加载已保存连接配置                                |
 | `--save-connection` | -                | 成功连接后保存当前有效连接配置                          |
 | `--save-password`   | -                | 配合 `--save-connection` 使用时保存密码/enable_password |

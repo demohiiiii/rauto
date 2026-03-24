@@ -7,25 +7,23 @@ use crate::agent_task_grpc::rauto::agent::v1::{
     CustomProfileMeta, DeviceProbeResult, ExecuteCommandRequest, ExecuteCommandResponse,
     ExecuteOrchestrationRequest as GrpcExecuteOrchestrationRequest,
     ExecuteTemplateRequest as GrpcExecuteTemplateRequest, ExecuteTemplateResponse,
-    ExecuteTxBlockResponse, ListConnectionsRequest, ListConnectionsResponse,
-    ListDeviceProfilesRequest, ListDeviceProfilesResponse, ListTemplatesRequest,
-    ListTemplatesResponse, TemplateMeta, TestConnectionRequest, TestConnectionResponse,
-    ExecuteTxBlockRequest as GrpcExecuteTxBlockRequest,
-    ExecuteTxWorkflowRequest as GrpcExecuteTxWorkflowRequest, ProbeDevicesRequest,
-    ProbeDevicesResponse, SystemInfo, UpsertConnectionRequest as GrpcUpsertConnectionRequest,
-    UpsertConnectionResponse,
+    ExecuteTxBlockRequest as GrpcExecuteTxBlockRequest, ExecuteTxBlockResponse,
+    ExecuteTxWorkflowRequest as GrpcExecuteTxWorkflowRequest, ListConnectionsRequest,
+    ListConnectionsResponse, ListDeviceProfilesRequest, ListDeviceProfilesResponse,
+    ListTemplatesRequest, ListTemplatesResponse, ProbeDevicesRequest, ProbeDevicesResponse,
+    SystemInfo, TemplateMeta, TestConnectionRequest, TestConnectionResponse,
+    UpsertConnectionRequest as GrpcUpsertConnectionRequest, UpsertConnectionResponse,
 };
 use crate::config::connection_store;
 use crate::config::ssh_security::SshSecurityProfile;
-use crate::web::storage;
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::error::ApiError;
 use crate::web::handlers::{
     exec_command as exec_command_handler, execute_template as execute_template_handler,
     execute_tx_block as execute_tx_block_handler, list_templates as list_templates_handler,
     profiles_overview as profiles_overview_handler, queue_orchestration_async_task,
-    queue_tx_block_async_task, queue_tx_workflow_async_task, test_connection as test_connection_handler,
-    upsert_connection as upsert_connection_handler,
+    queue_tx_block_async_task, queue_tx_workflow_async_task,
+    test_connection as test_connection_handler, upsert_connection as upsert_connection_handler,
 };
 use crate::web::models::{
     CommandResult, ConnectionRequest, ConnectionTestRequest, ExecRequest,
@@ -36,6 +34,7 @@ use crate::web::models::{
     UpsertConnectionRequest as WebUpsertConnectionRequest,
 };
 use crate::web::state::AppState;
+use crate::web::storage;
 use axum::{Json, Router, extract::State};
 use serde_json::Value;
 use std::sync::Arc;
@@ -151,7 +150,9 @@ fn parse_ssh_security(raw: &str) -> Result<Option<SshSecurityProfile>, Status> {
     }
 }
 
-fn map_connection_ref(connection: Option<ConnectionRef>) -> Result<Option<ConnectionRequest>, Status> {
+fn map_connection_ref(
+    connection: Option<ConnectionRef>,
+) -> Result<Option<ConnectionRequest>, Status> {
     let Some(connection) = connection else {
         return Ok(None);
     };
@@ -372,10 +373,7 @@ impl AgentTaskService for AgentTaskGrpcService {
     ) -> Result<Response<TestConnectionResponse>, Status> {
         self.validate_auth(request.metadata())?;
         let req = request.into_inner();
-        let connection = req
-            .connection
-            .map(connection_ref_to_request)
-            .transpose()?;
+        let connection = req.connection.map(connection_ref_to_request).transpose()?;
         let Json(response) = test_connection_handler(
             State(self.state.clone()),
             Json(ConnectionTestRequest { connection }),
@@ -500,7 +498,11 @@ impl AgentTaskService for AgentTaskGrpcService {
 
         Ok(Response::new(ExecuteTemplateResponse {
             rendered_commands: response.rendered_commands,
-            executed: response.executed.into_iter().map(map_command_result).collect(),
+            executed: response
+                .executed
+                .into_iter()
+                .map(map_command_result)
+                .collect(),
             recording_jsonl: response.recording_jsonl,
         }))
     }
@@ -520,7 +522,9 @@ impl AgentTaskService for AgentTaskGrpcService {
                 commands: req.commands,
                 rollback_commands: req.rollback_commands,
                 rollback_on_failure: Some(req.rollback_on_failure),
-                rollback_trigger_step_index: req.rollback_trigger_step_index.map(|value| value as usize),
+                rollback_trigger_step_index: req
+                    .rollback_trigger_step_index
+                    .map(|value| value as usize),
                 mode: optional_string(req.mode),
                 timeout_secs: req.timeout_secs,
                 resource_rollback_command: optional_string(req.resource_rollback_command),
@@ -535,13 +539,16 @@ impl AgentTaskService for AgentTaskGrpcService {
         .map_err(api_error_to_status)?;
 
         Ok(Response::new(ExecuteTxBlockResponse {
-            tx_block_json: serde_json::to_string(&response.tx_block)
-                .map_err(|err| Status::internal(format!("failed to serialize tx_block: {}", err)))?,
+            tx_block_json: serde_json::to_string(&response.tx_block).map_err(|err| {
+                Status::internal(format!("failed to serialize tx_block: {}", err))
+            })?,
             tx_result_json: response
                 .tx_result
                 .map(|value| serde_json::to_string(&value))
                 .transpose()
-                .map_err(|err| Status::internal(format!("failed to serialize tx_result: {}", err)))?,
+                .map_err(|err| {
+                    Status::internal(format!("failed to serialize tx_result: {}", err))
+                })?,
             recording_jsonl: response.recording_jsonl,
         }))
     }

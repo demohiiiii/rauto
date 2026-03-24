@@ -629,7 +629,10 @@ fn require_managed_async_task(
         })
 }
 
-fn build_async_task_accepted_response(task_id: String, operation: &str) -> AsyncTaskAcceptedResponse {
+fn build_async_task_accepted_response(
+    task_id: String,
+    operation: &str,
+) -> AsyncTaskAcceptedResponse {
     AsyncTaskAcceptedResponse {
         accepted: true,
         task_id,
@@ -782,11 +785,16 @@ pub(crate) fn queue_exec_async_task(
 ) -> Result<AsyncTaskAcceptedResponse, ApiError> {
     let task_id = require_managed_async_task("exec", req.task_id.clone(), state.is_managed())?;
     let background_state = state.clone();
-    spawn_supervised_async_task(background_state.clone(), task_id.clone(), "exec", async move {
-        exec_command(State(background_state), Json(req))
-            .await
-            .map(|_| ())
-    });
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "exec",
+        async move {
+            exec_command(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
+    );
     Ok(build_async_task_accepted_response(task_id, "exec"))
 }
 
@@ -794,11 +802,8 @@ pub(crate) fn queue_template_async_task(
     state: Arc<AppState>,
     req: ExecuteTemplateRequest,
 ) -> Result<AsyncTaskAcceptedResponse, ApiError> {
-    let task_id = require_managed_async_task(
-        "template_execute",
-        req.task_id.clone(),
-        state.is_managed(),
-    )?;
+    let task_id =
+        require_managed_async_task("template_execute", req.task_id.clone(), state.is_managed())?;
     let background_state = state.clone();
     spawn_supervised_async_task(
         background_state.clone(),
@@ -810,7 +815,10 @@ pub(crate) fn queue_template_async_task(
                 .map(|_| ())
         },
     );
-    Ok(build_async_task_accepted_response(task_id, "template_execute"))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        "template_execute",
+    ))
 }
 
 pub(crate) fn queue_tx_block_async_task(
@@ -1130,8 +1138,15 @@ pub async fn get_builtin_profile_detail(
 pub async fn get_builtin_profile_form(
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<DeviceProfile>, ApiError> {
-    let profile = storage::builtin_profile_form(&name)
-        .ok_or_else(|| ApiError::bad_request("builtin profile not found"))?;
+    let profile = if let Some(profile) = storage::builtin_profile_form(&name) {
+        profile
+    } else if storage::builtin_profile_detail(&name).is_some() {
+        return Err(ApiError::bad_request(
+            "builtin profile exists, but editable form export is not supported for this template",
+        ));
+    } else {
+        return Err(ApiError::bad_request("builtin profile not found"));
+    };
     Ok(Json(profile))
 }
 
@@ -2820,13 +2835,12 @@ pub async fn execute_orchestration(
             .and_then(Value::as_bool)
             .unwrap_or(true);
         if !succeeded {
-            let callback =
-                build_failed_task_callback(
-                    &state,
-                    task_ctx_ref,
-                    "Orchestration finished with failure",
-                    Some(response),
-                );
+            let callback = build_failed_task_callback(
+                &state,
+                task_ctx_ref,
+                "Orchestration finished with failure",
+                Some(response),
+            );
             spawn_prepared_task_callback(state, task_ctx, callback);
             return result.map(Json);
         }

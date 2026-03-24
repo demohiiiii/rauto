@@ -91,7 +91,7 @@ pub enum DeviceCommands {
     },
     /// Copy a built-in profile to a custom profile file
     CopyBuiltin {
-        /// Built-in profile name (e.g. cisco, huawei, juniper)
+        /// Built-in profile name (e.g. cisco, huawei, juniper, linux, fortinet)
         source: String,
         /// Target custom profile name (without .toml)
         name: String,
@@ -495,7 +495,7 @@ pub struct GlobalOpts {
     #[arg(long, global = true, value_enum)]
     pub ssh_security: Option<SshSecurityProfile>,
 
-    /// Device profile name (e.g. cisco, huawei, or custom)
+    /// Device profile name (e.g. cisco, huawei, linux, fortinet, or custom)
     #[arg(long, short = 'd', global = true)]
     pub device_profile: Option<String>,
 
