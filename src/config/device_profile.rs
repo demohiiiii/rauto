@@ -63,6 +63,28 @@ pub struct TransitionConfig {
 }
 
 impl DeviceProfile {
+    pub fn available_modes(&self) -> Vec<String> {
+        let mut modes = Vec::new();
+        for prompt in &self.prompts {
+            if !prompt.state.trim().is_empty() && !modes.iter().any(|m| m == &prompt.state) {
+                modes.push(prompt.state.clone());
+            }
+        }
+        for prompt in &self.sys_prompts {
+            if !prompt.state.trim().is_empty() && !modes.iter().any(|m| m == &prompt.state) {
+                modes.push(prompt.state.clone());
+            }
+        }
+        modes
+    }
+
+    pub fn default_mode(&self) -> String {
+        self.available_modes()
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "Enable".to_string())
+    }
+
     pub fn to_device_handler(&self) -> Result<DeviceHandler> {
         Ok(DeviceHandler::from_config(&DeviceHandlerConfig {
             prompt: self

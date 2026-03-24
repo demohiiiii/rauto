@@ -28,20 +28,59 @@ pub fn canonical_builtin_profile_name(name: &str) -> Option<&'static str> {
 }
 
 pub fn load_device_profile(name: &str) -> Result<DeviceHandler> {
-    // 1. Check built-in templates
+    load_device_profile_form(name)?.to_device_handler()
+}
+
+pub fn load_device_profile_form(name: &str) -> Result<DeviceProfile> {
     if let Some(canonical) = canonical_builtin_profile_name(name) {
-        return Ok(templates::by_name(canonical)?);
+        return Ok(DeviceProfile::from_handler_config(
+            canonical.to_string(),
+            templates::by_name_config(canonical)?,
+        ));
     }
 
     if let Some(stored) = content_store::load_custom_profile(name)? {
         let profile: DeviceProfile = toml::from_str(&stored.content)
             .with_context(|| format!("Failed to parse device profile from {}", stored.locator))?;
-        return profile.to_device_handler();
+        return Ok(profile);
     }
 
     Err(anyhow!(
         "Device profile '{}' not found in built-ins or SQLite store",
         name
+    ))
+}
+
+pub fn list_profile_modes(name: &str) -> Result<Vec<String>> {
+    Ok(load_device_profile_form(name)?.available_modes())
+}
+
+pub fn default_profile_mode(name: &str) -> Result<String> {
+    Ok(load_device_profile_form(name)?.default_mode())
+}
+
+pub fn resolve_profile_mode(name: &str, requested_mode: Option<&str>) -> Result<String> {
+    let profile = load_device_profile_form(name)?;
+    let available_modes = profile.available_modes();
+    let default_mode = profile.default_mode();
+
+    let Some(requested_mode) = requested_mode
+        .map(str::trim)
+        .filter(|mode| !mode.is_empty())
+    else {
+        return Ok(default_mode);
+    };
+
+    if available_modes.iter().any(|mode| mode == requested_mode) {
+        return Ok(requested_mode.to_string());
+    }
+
+    Err(anyhow!(
+        "invalid mode '{}' for profile '{}'; default_mode='{}'; available_modes=[{}]",
+        requested_mode,
+        name,
+        default_mode,
+        available_modes.join(", ")
     ))
 }
 

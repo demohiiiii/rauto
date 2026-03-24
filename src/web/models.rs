@@ -400,6 +400,13 @@ pub struct DeviceProfilesOverview {
 }
 
 #[derive(Debug, Serialize)]
+pub struct DeviceProfileModesResponse {
+    pub name: String,
+    pub default_mode: String,
+    pub modes: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct CustomProfileDetail {
     pub name: String,
     pub path: String,

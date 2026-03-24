@@ -15,9 +15,9 @@ use crate::web::models::{
     BlacklistDeleteResponse, BlacklistPatternEntry, BlacklistUpsertRequest,
     BlacklistUpsertResponse, BuiltinProfileDetail, CommandResult, ConnectionHistoryDetailResponse,
     ConnectionHistoryEntry, ConnectionRequest, ConnectionTestRequest, ConnectionTestResponse,
-    CreateTemplateRequest, CustomProfileDetail, DeviceProfilesOverview, ExecRequest, ExecResponse,
-    ExecuteOrchestrationRequest, ExecuteOrchestrationResponse, ExecuteTemplateRequest,
-    ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
+    CreateTemplateRequest, CustomProfileDetail, DeviceProfileModesResponse, DeviceProfilesOverview,
+    ExecRequest, ExecResponse, ExecuteOrchestrationRequest, ExecuteOrchestrationResponse,
+    ExecuteTemplateRequest, ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
     ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, InteractiveCommandRequest,
     InteractiveCommandResponse, InteractiveStartRequest, InteractiveStartResponse,
     InteractiveStopResponse, ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel,
@@ -1366,6 +1366,14 @@ fn persist_history_if_recorded(
     }
 }
 
+fn resolve_effective_mode(
+    requested_mode: Option<&str>,
+    device_profile: &str,
+) -> Result<String, ApiError> {
+    template_loader::resolve_profile_mode(device_profile, requested_mode)
+        .map_err(|e| ApiError::bad_request(e.to_string()))
+}
+
 pub async fn diagnose_profile(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ProfileDiagnoseRequest>,
@@ -1384,6 +1392,22 @@ pub async fn diagnose_profile(
     Ok(Json(ProfileDiagnoseResponse {
         name: name.to_string(),
         diagnostics,
+    }))
+}
+
+pub async fn get_profile_modes(
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<DeviceProfileModesResponse>, ApiError> {
+    let safe_name = name.trim();
+    if safe_name.is_empty() {
+        return Err(ApiError::bad_request("profile name is required"));
+    }
+    let modes = template_loader::list_profile_modes(safe_name).map_err(ApiError::from)?;
+    let default_mode = template_loader::default_profile_mode(safe_name).map_err(ApiError::from)?;
+    Ok(Json(DeviceProfileModesResponse {
+        name: safe_name.to_string(),
+        default_mode,
+        modes,
     }))
 }
 
@@ -1421,7 +1445,7 @@ pub async fn exec_command(
                 }))),
         );
         let handler = template_loader::load_device_profile(&conn.device_profile)?;
-
+        let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
         let client = if let Some(level) = to_record_level(record_level) {
             DeviceClient::connect_with_recording(
                 conn.host.clone(),
@@ -1430,6 +1454,7 @@ pub async fn exec_command(
                 conn.password.clone(),
                 conn.enable_password.clone(),
                 handler,
+                template_loader::default_profile_mode(&conn.device_profile)?,
                 level,
                 conn.ssh_security,
             )
@@ -1442,6 +1467,7 @@ pub async fn exec_command(
                 conn.password.clone(),
                 conn.enable_password.clone(),
                 handler,
+                template_loader::default_profile_mode(&conn.device_profile)?,
                 conn.ssh_security,
             )
             .await?
@@ -1458,7 +1484,7 @@ pub async fn exec_command(
                 }))),
         );
         let output = client
-            .execute_output(&req.command, req.mode.as_deref())
+            .execute_output(&req.command, Some(effective_mode.as_str()))
             .await?;
         let exit_code = output.exit_code;
         persist_history_if_recorded(
@@ -1466,7 +1492,7 @@ pub async fn exec_command(
             &client,
             "exec",
             &req.command,
-            req.mode.as_deref(),
+            Some(effective_mode.as_str()),
             record_level,
         );
         Ok(ExecResponse {
@@ -1527,6 +1553,7 @@ pub async fn interactive_start(
             conn.password.clone(),
             conn.enable_password.clone(),
             handler,
+            template_loader::default_profile_mode(&conn.device_profile)?,
             level,
             conn.ssh_security,
         )
@@ -1539,6 +1566,7 @@ pub async fn interactive_start(
             conn.password.clone(),
             conn.enable_password.clone(),
             handler,
+            template_loader::default_profile_mode(&conn.device_profile)?,
             conn.ssh_security,
         )
         .await?
@@ -1569,9 +1597,10 @@ pub async fn interactive_command(
         .ok_or_else(|| ApiError::bad_request("interactive session not found"))?;
     drop(sessions);
 
+    let effective_mode = resolve_effective_mode(req.mode.as_deref(), &session.conn.device_profile)?;
     let output = session
         .client
-        .execute_output(&req.command, req.mode.as_deref())
+        .execute_output(&req.command, Some(effective_mode.as_str()))
         .await?;
     session.last_used = Instant::now();
 
@@ -1599,7 +1628,7 @@ pub async fn interactive_stop(
         &session.client,
         "interactive",
         "interactive session",
-        None,
+        Some(session.client.default_mode()),
         session.record_level,
     );
     let recording_jsonl = session.client.recording_jsonl()?;
@@ -1623,6 +1652,7 @@ pub async fn test_connection(
         conn.password,
         conn.enable_password,
         handler,
+        template_loader::default_profile_mode(&conn.device_profile)?,
         conn.ssh_security,
     )
     .await?;
@@ -1912,6 +1942,7 @@ pub async fn execute_template(
 
         let conn = merge_connection_options(&state.defaults, req.connection)?;
         let handler = template_loader::load_device_profile(&conn.device_profile)?;
+        let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
         let client = if let Some(level) = to_record_level(record_level) {
             DeviceClient::connect_with_recording(
                 conn.host.clone(),
@@ -1920,6 +1951,7 @@ pub async fn execute_template(
                 conn.password.clone(),
                 conn.enable_password.clone(),
                 handler,
+                template_loader::default_profile_mode(&conn.device_profile)?,
                 level,
                 conn.ssh_security,
             )
@@ -1932,6 +1964,7 @@ pub async fn execute_template(
                 conn.password.clone(),
                 conn.enable_password.clone(),
                 handler,
+                template_loader::default_profile_mode(&conn.device_profile)?,
                 conn.ssh_security,
             )
             .await?
@@ -1955,7 +1988,7 @@ pub async fn execute_template(
                     "total": total_commands
                 }))),
             );
-            match client.execute_output(&cmd, req.mode.as_deref()).await {
+            match client.execute_output(&cmd, Some(effective_mode.as_str())).await {
                 Ok(output) => {
                     emit_task_event(
                         &state,
@@ -2016,7 +2049,7 @@ pub async fn execute_template(
             &client,
             "template_execute",
             &format!("template: {}", req.template),
-            req.mode.as_deref(),
+            Some(effective_mode.as_str()),
             record_level,
         );
 
@@ -2156,8 +2189,12 @@ pub async fn execute_tx_block(
             .mode
             .as_deref()
             .filter(|s| !s.trim().is_empty())
-            .unwrap_or("Config")
-            .to_string();
+            .map(|mode| {
+                template_loader::resolve_profile_mode(&template_key, Some(mode))
+                    .map_err(|e| ApiError::bad_request(e.to_string()))
+            })
+            .transpose()?
+            .unwrap_or_else(|| "Config".to_string());
 
         let renderer = Renderer::new();
         let resolved_commands =

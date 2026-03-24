@@ -723,7 +723,7 @@
 
                 <div id="op-exec-direct-fields" class="grid gap-3">
                   <input id="command" class="input" placeholder="show version" />
-                  <input id="mode" class="input" placeholder="mode (optional, default Enable)" />
+                  <select id="mode" class="input"></select>
                   <button id="exec-btn" class="btn">Execute</button>
                   <pre id="exec-out" class="output mt-2"></pre>
                 </div>
@@ -739,7 +739,7 @@
                     </div>
                   </div>
                   <textarea id="vars" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"vlan_id": 10}'></textarea>
-                  <input id="template-mode" class="input" placeholder="mode (optional, default Enable)" />
+                  <select id="template-mode" class="input"></select>
                   <div class="grid grid-cols-2 gap-2">
                     <button id="render-btn" class="btn">Preview Render</button>
                     <button id="template-exec-btn" class="btn">Run Template</button>
@@ -959,7 +959,7 @@
             </div>
             <div class="grid gap-2 md:grid-cols-2">
               <input id="interactive-command" class="input" placeholder="command, e.g. show version" />
-              <input id="interactive-mode" class="input" placeholder="mode (optional)" />
+              <select id="interactive-mode" class="input"></select>
             </div>
             <div class="inline-flex items-center gap-2">
               <button id="interactive-send-btn" class="btn" type="button">Send</button>

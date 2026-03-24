@@ -83,7 +83,13 @@ const i18n = {
     interactiveSendBtn: "Send",
     interactiveClearBtn: "Clear",
     interactiveCommandPlaceholder: "command, e.g. show version",
-    interactiveModePlaceholder: "mode (optional)",
+    interactiveModePlaceholder: "mode (optional, uses profile default)",
+    invalidModeTitle: "Invalid mode",
+    invalidModeProfile: "Profile",
+    invalidModeDefault: "Default",
+    invalidModeAvailable: "Available modes",
+    invalidModeHint:
+      "Choose one of the available modes, or leave the field empty to use the default.",
     recordFabTitle: "Recording",
     recordDrawerClose: "Close",
     recordDrawerSubtitle: "View recorded sessions and filters",
@@ -476,8 +482,8 @@ const i18n = {
     templatePlaceholder: "template file name or path",
     varsPlaceholder: 'JSON vars, e.g. {"vlan_id": 10}',
     commandPlaceholder: "show version",
-    modePlaceholder: "mode (optional, default Enable)",
-    templateModePlaceholder: "mode (optional, default Enable)",
+    modePlaceholder: "mode (optional, uses profile default)",
+    templateModePlaceholder: "mode (optional, uses profile default)",
     customProfilePickerPlaceholder: "search/select custom profile name",
     templateViewPickerPlaceholder: "search/select template name",
     templateContentPlaceholder: "Template content",
@@ -555,7 +561,7 @@ const i18n = {
     interactiveSendBtn: "发送",
     interactiveClearBtn: "清空",
     interactiveCommandPlaceholder: "命令，例如 show version",
-    interactiveModePlaceholder: "模式（可选）",
+    interactiveModePlaceholder: "模式（可选，默认使用 profile 的首个状态）",
     recordFabTitle: "会话录制",
     recordDrawerClose: "关闭",
     recordDrawerSubtitle: "查看录制历史与筛选条件",
@@ -942,8 +948,14 @@ const i18n = {
     templatePlaceholder: "模板文件名或路径",
     varsPlaceholder: 'JSON 变量，例如 {"vlan_id": 10}',
     commandPlaceholder: "show version",
-    modePlaceholder: "模式（可选，默认 Enable）",
-    templateModePlaceholder: "模式（可选，默认 Enable）",
+    modePlaceholder: "模式（可选，默认使用 profile 的首个状态）",
+    templateModePlaceholder: "模式（可选，默认使用 profile 的首个状态）",
+    interactiveModePlaceholder: "模式（可选，默认使用 profile 的首个状态）",
+    invalidModeTitle: "无效模式",
+    invalidModeProfile: "Profile",
+    invalidModeDefault: "默认模式",
+    invalidModeAvailable: "可用模式",
+    invalidModeHint: "请选择一个可用模式，或留空以使用默认模式。",
     customProfilePickerPlaceholder: "搜索/选择自定义 profile 名称",
     templateViewPickerPlaceholder: "搜索/选择 template 名称",
     templateContentPlaceholder: "Template 内容",
@@ -974,6 +986,7 @@ let cachedTemplates = [];
 let cachedTemplateMetas = [];
 let cachedBackups = [];
 let cachedBlacklistPatterns = [];
+let cachedProfileModes = new Map();
 let lastBuiltinProfile = null;
 let lastTemplateDetail = null;
 let lastDiagnoseSnapshot = null;
@@ -1661,9 +1674,14 @@ function applyTabs() {
   }
 }
 
-function setInteractiveStatus(text) {
+function setInteractiveStatus(text, tone = null) {
   const el = byId("interactive-status");
-  if (el) el.textContent = text;
+  if (!el) return;
+  if (tone) {
+    el.innerHTML = renderStatusMessageCard(text, tone);
+    return;
+  }
+  el.textContent = text;
 }
 
 function updateInteractiveButtons() {
@@ -1923,7 +1941,7 @@ async function loadSelectedTemplateContent() {
     preview.value = data.content || "";
   } catch (e) {
     preview.value = "";
-    out.textContent = e.message;
+    out.innerHTML = renderStatusMessageCard(e.message, "error");
   }
 }
 
@@ -1971,7 +1989,60 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function parseModeValidationMessage(message) {
+  const text = safeString(message || "").trim();
+  const match = text.match(
+    /^invalid mode '([^']+)' for profile '([^']+)'; default_mode='([^']+)'; available_modes=\[(.*)\]$/
+  );
+  if (!match) return null;
+  const [, invalidMode, profile, defaultMode, rawModes] = match;
+  return {
+    invalidMode,
+    profile,
+    defaultMode,
+    availableModes: rawModes
+      .split(",")
+      .map((mode) => mode.trim())
+      .filter(Boolean),
+  };
+}
+
+function renderModeValidationCard(message) {
+  const parsed = parseModeValidationMessage(message);
+  if (!parsed) return null;
+  const badges = parsed.availableModes.length
+    ? parsed.availableModes
+        .map(
+          (mode) =>
+            `<span class="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">${escapeHtml(
+              mode
+            )}</span>`
+        )
+        .join(" ")
+    : `<span class="text-xs text-rose-600">-</span>`;
+  return `
+    <div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+      <div class="font-medium">${escapeHtml(t("invalidModeTitle"))}: ${escapeHtml(parsed.invalidMode)}</div>
+      <div class="mt-2 space-y-1 text-xs">
+        <div><span class="font-medium">${escapeHtml(t("invalidModeProfile"))}:</span> ${escapeHtml(parsed.profile)}</div>
+        <div><span class="font-medium">${escapeHtml(t("invalidModeDefault"))}:</span> ${escapeHtml(parsed.defaultMode)}</div>
+      </div>
+      <div class="mt-3">
+        <div class="mb-1 text-xs font-medium uppercase tracking-wide text-rose-600">${escapeHtml(
+          t("invalidModeAvailable")
+        )}</div>
+        <div class="flex flex-wrap gap-1.5">${badges}</div>
+      </div>
+      <div class="mt-3 text-xs text-rose-600">${escapeHtml(t("invalidModeHint"))}</div>
+    </div>
+  `;
+}
+
 function renderStatusMessageCard(message, tone = "info") {
+  if (tone === "error") {
+    const modeCard = renderModeValidationCard(message);
+    if (modeCard) return modeCard;
+  }
   const text = safeString(message || "-");
   const cls =
     tone === "success"
@@ -4038,6 +4109,7 @@ async function loadSavedConnectionByName() {
   try {
     const data = await request("GET", `/api/connections/${encodeURIComponent(name)}`);
     applyConnectionForm(data.connection || {});
+    await refreshExecutionModeOptions();
     byId("saved-conn-name").value = data.name || name;
     setStatusMessage("saved-conn-out", `${t("loaded")}: ${data.name}`, "success");
   } catch (e) {
@@ -4276,7 +4348,7 @@ async function startInteractive() {
     }
   } catch (e) {
     interactiveSessionId = null;
-    setInteractiveStatus(e.message);
+    setInteractiveStatus(e.message, "error");
   }
   updateInteractiveButtons();
 }
@@ -4303,7 +4375,7 @@ async function sendInteractiveCommand() {
     appendInteractiveLog(command, data.output || "");
     setInteractiveStatus(`${t("interactiveStatusReady")} · ${interactiveSessionId}`);
   } catch (e) {
-    setInteractiveStatus(e.message);
+    setInteractiveStatus(e.message, "error");
   }
 }
 
@@ -4326,7 +4398,7 @@ async function stopInteractive() {
     }
     setInteractiveStatus(t("interactiveStatusStopped"));
   } catch (e) {
-    setInteractiveStatus(e.message);
+    setInteractiveStatus(e.message, "error");
   } finally {
     interactiveSessionId = null;
     updateInteractiveButtons();
@@ -5022,11 +5094,77 @@ async function request(method, url, body) {
   return data ?? {};
 }
 
+async function fetchProfileModes(profileName) {
+  const normalized = (profileName || "").trim() || "cisco";
+  if (cachedProfileModes.has(normalized)) {
+    return cachedProfileModes.get(normalized);
+  }
+  try {
+    const data = await request(
+      "GET",
+      `/api/device-profiles/${encodeURIComponent(normalized)}/modes`
+    );
+    const modes = Array.isArray(data.modes) ? data.modes.filter(Boolean) : [];
+    const resolved = {
+      name: data.name || normalized,
+      default_mode: data.default_mode || modes[0] || "Enable",
+      modes: modes.length > 0 ? modes : [data.default_mode || "Enable"],
+    };
+    cachedProfileModes.set(normalized, resolved);
+    return resolved;
+  } catch (_) {
+    return {
+      name: normalized,
+      default_mode: "Enable",
+      modes: ["Enable"],
+    };
+  }
+}
+
+function applyModeOptions(selectId, modes, preferredMode, defaultMode) {
+  const select = byId(selectId);
+  if (!select) return;
+  const normalizedModes = (modes || []).filter(Boolean);
+  const finalModes = normalizedModes.length > 0 ? normalizedModes : [defaultMode || "Enable"];
+  const selected =
+    (preferredMode || "").trim() && finalModes.includes((preferredMode || "").trim())
+      ? (preferredMode || "").trim()
+      : (defaultMode || finalModes[0] || "Enable");
+  select.innerHTML = finalModes
+    .map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`)
+    .join("");
+  select.value = finalModes.includes(selected) ? selected : finalModes[0];
+}
+
+async function refreshExecutionModeOptions(overrides = {}) {
+  const profileName = byId("device_profile").value.trim() || "cisco";
+  const data = await fetchProfileModes(profileName);
+  applyModeOptions(
+    "mode",
+    data.modes,
+    overrides.execMode ?? byId("mode").value,
+    data.default_mode
+  );
+  applyModeOptions(
+    "template-mode",
+    data.modes,
+    overrides.templateMode ?? byId("template-mode").value,
+    data.default_mode
+  );
+  applyModeOptions(
+    "interactive-mode",
+    data.modes,
+    overrides.interactiveMode ?? byId("interactive-mode").value,
+    data.default_mode
+  );
+}
+
 async function loadProfilesOverview() {
   const outBuiltin = byId("builtin-list");
   const builtinSelect = byId("builtin-profile-select");
   try {
     const data = await request("GET", "/api/device-profiles/all");
+    cachedProfileModes = new Map();
     cachedDeviceProfiles = [
       ...(data.builtins || []).map((item) => item.name),
       ...(data.custom || []).map((item) => item.name),
@@ -5053,13 +5191,16 @@ async function loadProfilesOverview() {
       renderCustomProfileOptions();
       renderDiagnoseProfileOptions();
     }
+    await refreshExecutionModeOptions();
   } catch (e) {
+    cachedProfileModes = new Map();
     cachedCustomProfiles = [];
     cachedDeviceProfiles = [];
     setStatusMessage("profile-out", e.message, "error");
     setStatusMessage("builtin-detail-status", e.message, "error");
     renderCustomProfileOptions();
     renderDiagnoseProfileOptions();
+    await refreshExecutionModeOptions();
   }
 }
 
@@ -6682,6 +6823,9 @@ function bindEvents() {
     el.addEventListener("input", updateRecordFabVisibility);
     el.addEventListener("change", updateRecordFabVisibility);
   });
+  byId("device_profile").addEventListener("change", () => {
+    refreshExecutionModeOptions();
+  });
 
   for (const tab of ["ops", "interactive", "replay", "prompts", "templates", "blacklist", "backup"]) {
     byId(`tab-${tab}`).onclick = () => {
@@ -6843,7 +6987,7 @@ function bindEvents() {
       });
       out.textContent = data.rendered_commands;
     } catch (e) {
-      out.textContent = e.message;
+      out.innerHTML = renderStatusMessageCard(e.message, "error");
     }
   };
 
@@ -6860,7 +7004,7 @@ function bindEvents() {
       out.textContent = data.output;
       applyRecordingFromResponse(data);
     } catch (e) {
-      out.textContent = e.message;
+      out.innerHTML = renderStatusMessageCard(e.message, "error");
     }
   };
 
@@ -6881,9 +7025,7 @@ function bindEvents() {
       renderTemplateExecVisual();
       applyRecordingFromResponse(data);
     } catch (e) {
-      visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
-        e.message
-      )}</div>`;
+      visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
     }
   };
 
@@ -6899,9 +7041,7 @@ function bindEvents() {
     } catch (e) {
       setStatusMessage("tx-plan-out", e.message, "error");
       if (visualOut) {
-        visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
-          e.message
-        )}</div>`;
+        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
       }
     }
   };
@@ -6920,9 +7060,7 @@ function bindEvents() {
     } catch (e) {
       setStatusMessage("tx-exec-out", e.message, "error");
       if (visualOut) {
-        visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
-          e.message
-        )}</div>`;
+        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
       }
     }
   };
@@ -6939,9 +7077,7 @@ function bindEvents() {
     } catch (e) {
       setStatusMessage("tx-workflow-plan-out", e.message, "error");
       if (visualOut) {
-        visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
-          e.message
-        )}</div>`;
+        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
       }
     }
   };
@@ -6976,9 +7112,7 @@ function bindEvents() {
     } catch (e) {
       setStatusMessage("orchestration-plan-out", e.message, "error");
       if (visualOut) {
-        visualOut.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
-          e.message
-        )}</div>`;
+        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
       }
     }
   };
@@ -7537,3 +7671,4 @@ setProfileForm({
   interactions: [],
   transitions: [],
 });
+refreshExecutionModeOptions();

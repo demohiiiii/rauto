@@ -12,10 +12,12 @@ use tracing::{debug, error, info};
 pub struct DeviceClient {
     sender: Sender<CmdJob>,
     default_timeout: u64,
+    default_mode: String,
     recorder: Option<SessionRecorder>,
 }
 
 impl DeviceClient {
+    #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         host: String,
         port: u16,
@@ -23,6 +25,7 @@ impl DeviceClient {
         password: String,
         enable_password: Option<String>,
         handler: DeviceHandler,
+        default_mode: String,
         ssh_security: SshSecurityProfile,
     ) -> Result<Self> {
         info!("Connecting to {}:{} as {}", host, port, username);
@@ -40,6 +43,7 @@ impl DeviceClient {
         Ok(Self {
             sender,
             default_timeout: 60,
+            default_mode,
             recorder: None,
         })
     }
@@ -52,6 +56,7 @@ impl DeviceClient {
         password: String,
         enable_password: Option<String>,
         handler: DeviceHandler,
+        default_mode: String,
         level: SessionRecordLevel,
         ssh_security: SshSecurityProfile,
     ) -> Result<Self> {
@@ -74,6 +79,7 @@ impl DeviceClient {
         Ok(Self {
             sender,
             default_timeout: 60,
+            default_mode,
             recorder: Some(recorder),
         })
     }
@@ -85,10 +91,7 @@ impl DeviceClient {
     ) -> Result<Output> {
         let (tx, rx) = oneshot::channel();
 
-        // Default to "Enable" mode if not specified,
-        // as most useful commands are run there (including entering config mode if needed by state machine)
-        // actually rneter expects specific state names defined in DeviceHandler
-        let mode = target_mode.unwrap_or("Enable").to_string();
+        let mode = target_mode.unwrap_or(&self.default_mode).to_string();
 
         let cmd = CmdJob {
             data: Command {
@@ -122,6 +125,10 @@ impl DeviceClient {
 
     pub async fn execute(&self, command_str: &str, target_mode: Option<&str>) -> Result<String> {
         Ok(self.execute_output(command_str, target_mode).await?.content)
+    }
+
+    pub fn default_mode(&self) -> &str {
+        &self.default_mode
     }
 
     #[allow(dead_code)]

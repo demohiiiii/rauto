@@ -147,6 +147,7 @@ async fn run(cli: Cli) -> Result<()> {
 
             let conn = resolve_effective_connection(&cli.global_opts)?;
             let handler = template_loader::load_device_profile(&conn.device_profile)?;
+            let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
             info!("Connecting to device...");
             let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
@@ -157,6 +158,7 @@ async fn run(cli: Cli) -> Result<()> {
                     conn.password.clone(),
                     conn.enable_password.clone(),
                     handler,
+                    default_mode.clone(),
                     to_record_level(args.record_level),
                     conn.ssh_security,
                 )
@@ -169,6 +171,7 @@ async fn run(cli: Cli) -> Result<()> {
                     conn.password.clone(),
                     conn.enable_password.clone(),
                     handler,
+                    default_mode.clone(),
                     conn.ssh_security,
                 )
                 .await?
@@ -192,7 +195,7 @@ async fn run(cli: Cli) -> Result<()> {
                 &conn,
                 "template_execute",
                 &format!("template: {}", args.template),
-                None,
+                Some(default_mode.as_str()),
                 args.record_level,
             )?;
         }
@@ -200,6 +203,9 @@ async fn run(cli: Cli) -> Result<()> {
             command_blacklist::ensure_command_allowed(&args.command, "direct execution")?;
             let conn = resolve_effective_connection(&cli.global_opts)?;
             let handler = template_loader::load_device_profile(&conn.device_profile)?;
+            let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+            let effective_mode =
+                template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
 
             let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
                 DeviceClient::connect_with_recording(
@@ -209,6 +215,7 @@ async fn run(cli: Cli) -> Result<()> {
                     conn.password.clone(),
                     conn.enable_password.clone(),
                     handler,
+                    default_mode.clone(),
                     to_record_level(args.record_level),
                     conn.ssh_security,
                 )
@@ -221,6 +228,7 @@ async fn run(cli: Cli) -> Result<()> {
                     conn.password.clone(),
                     conn.enable_password.clone(),
                     handler,
+                    default_mode.clone(),
                     conn.ssh_security,
                 )
                 .await?
@@ -229,14 +237,14 @@ async fn run(cli: Cli) -> Result<()> {
             maybe_save_connection_profile(&cli.global_opts, &conn)?;
 
             info!("Executing command: {}", args.command);
-            let output = client.execute(&args.command, args.mode.as_deref()).await?;
+            let output = client.execute(&args.command, Some(&effective_mode)).await?;
             write_recording_if_requested(args.record_file.as_ref(), &client)?;
             persist_auto_recording_history(
                 &client,
                 &conn,
                 "exec",
                 &args.command,
-                args.mode.as_deref(),
+                Some(effective_mode.as_str()),
                 args.record_level,
             )?;
             println!("{}", output);
@@ -551,6 +559,7 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
         ConnectionCommands::Test => {
             let conn = resolve_effective_connection(global_opts)?;
             let handler = template_loader::load_device_profile(&conn.device_profile)?;
+            let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
             let _client = DeviceClient::connect(
                 conn.host.clone(),
                 conn.port,
@@ -558,6 +567,7 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
                 conn.password.clone(),
                 conn.enable_password.clone(),
                 handler,
+                default_mode,
                 conn.ssh_security,
             )
             .await?;
@@ -1031,11 +1041,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
         .clone()
         .unwrap_or_else(|| conn.device_profile.clone());
     let commands = resolve_tx_commands(&args, &conn)?;
-    let mode = if args.mode.trim().is_empty() {
-        "Config".to_string()
-    } else {
-        args.mode.clone()
-    };
+    let mode = template_loader::resolve_profile_mode(&template_profile, Some(&args.mode))?;
 
     let mut rollback_commands = if let Some(path) = &args.rollback_commands_json {
         let raw = std::fs::read_to_string(path)?;
