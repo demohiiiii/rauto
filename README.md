@@ -310,6 +310,8 @@ Agent mode adds:
 - Full inventory sync after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
 - Periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
 - `task_id` enables async task events and task callbacks in agent mode; both are now reported back to manager through the selected transport.
+- From `rneter 0.3.3`, Linux-oriented command execution can expose `exit_code`; `exec`/`interactive` responses, template command results, and task-event details now carry it when available.
+- Transaction results now include step-level `step_results`, so manager-side callbacks can inspect per-step execution and rollback states instead of only block-level success/failure.
 - Managed task APIs now provide async accept-and-run endpoints for manager callers over HTTP:
 - `POST /api/exec/async`
 - `POST /api/template/execute/async`
@@ -900,6 +902,7 @@ Recording-related options (command-specific):
 - `exec/template --record-level <off|key-events-only|full>`: Recording granularity.
 - `replay <record_file> --list`: List recorded command output events.
 - `replay <record_file> --command <cmd> [--mode <mode>]`: Replay one command output.
+- With `rneter 0.3.3`, replayed `SessionEvent::CommandOutput` entries may include `exit_code` for Linux shell flows.
 
 ## Template Syntax
 

@@ -370,14 +370,22 @@ async fn run(cli: Cli) -> Result<()> {
                         command,
                         mode,
                         success,
+                        exit_code,
                         ..
                     } = entry.event
                     {
                         idx += 1;
-                        println!(
-                            "{}. mode={} success={} command={}",
-                            idx, mode, success, command
-                        );
+                        if let Some(exit_code) = exit_code {
+                            println!(
+                                "{}. mode={} success={} exit_code={} command={}",
+                                idx, mode, success, exit_code, command
+                            );
+                        } else {
+                            println!(
+                                "{}. mode={} success={} command={}",
+                                idx, mode, success, command
+                            );
+                        }
                     }
                 }
                 if idx == 0 {
@@ -1274,6 +1282,24 @@ fn print_tx_result(result: &rneter::session::TxResult) {
     }
     if !result.rollback_errors.is_empty() {
         println!("rollback_errors: {}", result.rollback_errors.join(" | "));
+    }
+    if !result.step_results.is_empty() {
+        println!("step_results:");
+        for step in &result.step_results {
+            println!(
+                "  - step={} exec={:?} rollback={:?} mode={} command={}",
+                step.step_index, step.execution_state, step.rollback_state, step.mode, step.command
+            );
+            if let Some(reason) = &step.failure_reason {
+                println!("    failure_reason: {}", reason);
+            }
+            if let Some(command) = &step.rollback_command {
+                println!("    rollback_command: {}", command);
+            }
+            if let Some(reason) = &step.rollback_reason {
+                println!("    rollback_reason: {}", reason);
+            }
+        }
     }
 }
 

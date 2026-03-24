@@ -310,6 +310,8 @@ Agent 模式新增能力：
 - 在注册成功后和已保存连接变更时，会自动做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
 - 按周期存活探测刷新时，会做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
 - agent 模式下只传 `task_id` 也可以启用异步任务事件和任务回调；这两类上报都会通过当前选择的上报模式回传给 `rauto-manager`。
+- 从 `rneter 0.3.3` 开始，Linux 场景下的命令执行可能返回 `exit_code`；`exec` / `interactive` 响应、模板逐条执行结果以及任务事件详情现在都会在可用时携带它。
+- 事务结果现在会包含逐步级别的 `step_results`，manager 在处理最终回调时可以直接拿到每一步的执行/回滚状态，而不只看块级成功失败。
 - 受管任务接口另外提供了给 manager 调用的 HTTP 异步入口：
 - `POST /api/exec/async`
 - `POST /api/template/execute/async`
@@ -900,6 +902,7 @@ rauto web \
 - `exec/template --record-level <off|key-events-only|full>`：录制粒度。
 - `replay <record_file> --list`：列出录制中的命令输出事件。
 - `replay <record_file> --command <cmd> [--mode <mode>]`：回放单条命令输出。
+- 在 `rneter 0.3.3` 下，回放得到的 `SessionEvent::CommandOutput` 可能额外包含 `exit_code`，尤其适用于 Linux shell 类流程。
 
 ## 模板语法
 

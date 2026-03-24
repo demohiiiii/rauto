@@ -166,6 +166,7 @@ message AcceptedTaskResponse {
 message ExecuteCommandResponse {
   string output = 1;
   optional string recording_jsonl = 2;
+  optional int32 exit_code = 3;
 }
 
 message CommandExecutionResult {
@@ -173,6 +174,7 @@ message CommandExecutionResult {
   bool success = 2;
   optional string output = 3;
   optional string error = 4;
+  optional int32 exit_code = 5;
 }
 
 message ExecuteTemplateResponse {

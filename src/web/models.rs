@@ -172,6 +172,7 @@ pub struct ExecRequest {
 #[derive(Debug, Serialize)]
 pub struct ExecResponse {
     pub output: String,
+    pub exit_code: Option<i32>,
     pub recording_jsonl: Option<String>,
 }
 
@@ -194,6 +195,7 @@ pub struct ExecuteTemplateRequest {
 pub struct CommandResult {
     pub command: String,
     pub success: bool,
+    pub exit_code: Option<i32>,
     pub output: Option<String>,
     pub error: Option<String>,
 }
@@ -509,6 +511,7 @@ pub struct InteractiveCommandRequest {
 #[derive(Debug, Serialize)]
 pub struct InteractiveCommandResponse {
     pub output: String,
+    pub exit_code: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]

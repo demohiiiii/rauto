@@ -3,7 +3,7 @@ use crate::{manager_connection_request, manager_execution_context_with_security}
 use anyhow::{Result, anyhow};
 use rneter::{
     device::DeviceHandler,
-    session::{CmdJob, Command, MANAGER, SessionRecordLevel, SessionRecorder},
+    session::{CmdJob, Command, MANAGER, Output, SessionRecordLevel, SessionRecorder},
 };
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
@@ -78,7 +78,11 @@ impl DeviceClient {
         })
     }
 
-    pub async fn execute(&self, command_str: &str, target_mode: Option<&str>) -> Result<String> {
+    pub async fn execute_output(
+        &self,
+        command_str: &str,
+        target_mode: Option<&str>,
+    ) -> Result<Output> {
         let (tx, rx) = oneshot::channel();
 
         // Default to "Enable" mode if not specified,
@@ -113,7 +117,11 @@ impl DeviceClient {
             error!("Command failed on device. Output: {}", output.content);
         }
 
-        Ok(output.content)
+        Ok(output)
+    }
+
+    pub async fn execute(&self, command_str: &str, target_mode: Option<&str>) -> Result<String> {
+        Ok(self.execute_output(command_str, target_mode).await?.content)
     }
 
     #[allow(dead_code)]

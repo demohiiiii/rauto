@@ -184,6 +184,7 @@ fn map_command_result(result: CommandResult) -> CommandExecutionResult {
     CommandExecutionResult {
         command: result.command,
         success: result.success,
+        exit_code: result.exit_code,
         output: result.output,
         error: result.error,
     }
@@ -470,6 +471,7 @@ impl AgentTaskService for AgentTaskGrpcService {
 
         Ok(Response::new(ExecuteCommandResponse {
             output: response.output,
+            exit_code: response.exit_code,
             recording_jsonl: response.recording_jsonl,
         }))
     }

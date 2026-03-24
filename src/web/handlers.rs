@@ -209,6 +209,7 @@ fn map_recording_entry_to_task_event(
             command,
             mode,
             success,
+            exit_code,
             content,
             all,
             ..
@@ -220,6 +221,7 @@ fn map_recording_entry_to_task_event(
                     "command": command,
                     "mode": mode,
                     "success": success,
+                    "exit_code": exit_code,
                     "content": content,
                     "all": all
                 }))),
@@ -1462,7 +1464,10 @@ pub async fn exec_command(
                     "command": req.command
                 }))),
         );
-        let output = client.execute(&req.command, req.mode.as_deref()).await?;
+        let output = client
+            .execute_output(&req.command, req.mode.as_deref())
+            .await?;
+        let exit_code = output.exit_code;
         persist_history_if_recorded(
             &conn,
             &client,
@@ -1472,20 +1477,24 @@ pub async fn exec_command(
             record_level,
         );
         Ok(ExecResponse {
-            output,
+            output: output.content,
+            exit_code,
             recording_jsonl: client.recording_jsonl()?,
         })
     }
     .await;
     drop(task_guard);
     match &result {
-        Ok(_) => emit_task_event(
+        Ok(response) => emit_task_event(
             &state,
             &task_ctx,
             TaskEventInput::new("completed", "Direct command execution completed")
                 .with_stage("command")
                 .with_level("success")
-                .with_progress(Some(100)),
+                .with_progress(Some(100))
+                .with_details(Some(json!({
+                    "exit_code": response.exit_code
+                }))),
         ),
         Err(err) => emit_task_event(
             &state,
@@ -1569,14 +1578,17 @@ pub async fn interactive_command(
 
     let output = session
         .client
-        .execute(&req.command, req.mode.as_deref())
+        .execute_output(&req.command, req.mode.as_deref())
         .await?;
     session.last_used = Instant::now();
 
     let mut sessions = state.interactive_sessions.lock().await;
     sessions.insert(req.session_id, session);
 
-    Ok(Json(InteractiveCommandResponse { output }))
+    Ok(Json(InteractiveCommandResponse {
+        output: output.content,
+        exit_code: output.exit_code,
+    }))
 }
 
 pub async fn interactive_stop(
@@ -1950,7 +1962,7 @@ pub async fn execute_template(
                     "total": total_commands
                 }))),
             );
-            match client.execute(&cmd, req.mode.as_deref()).await {
+            match client.execute_output(&cmd, req.mode.as_deref()).await {
                 Ok(output) => {
                     emit_task_event(
                         &state,
@@ -1965,13 +1977,15 @@ pub async fn execute_template(
                         .with_details(Some(json!({
                             "command": cmd,
                             "index": idx + 1,
-                            "total": total_commands
+                            "total": total_commands,
+                            "exit_code": output.exit_code
                         }))),
                     );
                     executed.push(CommandResult {
                         command: cmd,
                         success: true,
-                        output: Some(output),
+                        exit_code: output.exit_code,
+                        output: Some(output.content),
                         error: None,
                     })
                 }
@@ -1996,6 +2010,7 @@ pub async fn execute_template(
                     executed.push(CommandResult {
                         command: cmd,
                         success: false,
+                        exit_code: None,
                         output: None,
                         error: Some(e.to_string()),
                     })
