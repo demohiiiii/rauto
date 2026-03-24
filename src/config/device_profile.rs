@@ -1,9 +1,10 @@
 use anyhow::Result;
-use rneter::device::DeviceHandler;
+use rneter::device::{
+    DeviceCommandExecutionConfig, DeviceHandler, DeviceHandlerConfig, DeviceInputRule,
+    DevicePromptRule, DevicePromptWithSysRule, DeviceTransitionRule,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-type InteractionTuple = (String, (bool, String, bool), Vec<String>);
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeviceProfile {
@@ -18,6 +19,8 @@ pub struct DeviceProfile {
     pub transitions: Vec<TransitionConfig>,
     #[serde(default)]
     pub ignore_errors: Vec<String>,
+    #[serde(default)]
+    pub command_execution: DeviceCommandExecutionConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -61,53 +64,100 @@ pub struct TransitionConfig {
 
 impl DeviceProfile {
     pub fn to_device_handler(&self) -> Result<DeviceHandler> {
-        let prompts: Vec<(String, Vec<String>)> = self
-            .prompts
-            .iter()
-            .map(|p| (p.state.clone(), p.patterns.clone()))
-            .collect();
+        Ok(DeviceHandler::from_config(&DeviceHandlerConfig {
+            prompt: self
+                .prompts
+                .iter()
+                .map(|p| DevicePromptRule {
+                    state: p.state.clone(),
+                    patterns: p.patterns.clone(),
+                })
+                .collect(),
+            prompt_with_sys: self
+                .sys_prompts
+                .iter()
+                .map(|p| DevicePromptWithSysRule {
+                    state: p.state.clone(),
+                    capture_group: p.sys_name_group.clone(),
+                    pattern: p.pattern.clone(),
+                })
+                .collect(),
+            write: self
+                .interactions
+                .iter()
+                .map(|i| DeviceInputRule {
+                    state: i.state.clone(),
+                    dynamic: i.is_dynamic,
+                    value: i.input.clone(),
+                    record_input: i.record_input,
+                    patterns: i.patterns.clone(),
+                })
+                .collect(),
+            more_regex: self.more_patterns.clone(),
+            error_regex: self.error_patterns.clone(),
+            edges: self
+                .transitions
+                .iter()
+                .map(|t| DeviceTransitionRule {
+                    from_state: t.from.clone(),
+                    command: t.command.clone(),
+                    to_state: t.to.clone(),
+                    is_exit: t.is_exit,
+                    needs_format: t.format_sys,
+                })
+                .collect(),
+            ignore_errors: self.ignore_errors.clone(),
+            dyn_param: HashMap::new(),
+            command_execution: self.command_execution.clone(),
+        })?)
+    }
 
-        let sys_prompts: Vec<(String, String, String)> = self
-            .sys_prompts
-            .iter()
-            .map(|p| (p.state.clone(), p.sys_name_group.clone(), p.pattern.clone()))
-            .collect();
-
-        let interactions: Vec<InteractionTuple> = self
-            .interactions
-            .iter()
-            .map(|i| {
-                (
-                    i.state.clone(),
-                    (i.is_dynamic, i.input.clone(), i.record_input),
-                    i.patterns.clone(),
-                )
-            })
-            .collect();
-
-        let transitions: Vec<(String, String, String, bool, bool)> = self
-            .transitions
-            .iter()
-            .map(|t| {
-                (
-                    t.from.clone(),
-                    t.command.clone(),
-                    t.to.clone(),
-                    t.is_exit,
-                    t.format_sys,
-                )
-            })
-            .collect();
-
-        Ok(DeviceHandler::new(
-            prompts,
-            sys_prompts,
-            interactions,
-            self.more_patterns.clone(),
-            self.error_patterns.clone(),
-            transitions,
-            self.ignore_errors.clone(),
-            HashMap::new(), // dyn_param will be set later during connection or from args
-        )?)
+    pub fn from_handler_config(name: String, config: DeviceHandlerConfig) -> Self {
+        Self {
+            name,
+            prompts: config
+                .prompt
+                .into_iter()
+                .map(|p| PromptConfig {
+                    state: p.state,
+                    patterns: p.patterns,
+                })
+                .collect(),
+            sys_prompts: config
+                .prompt_with_sys
+                .into_iter()
+                .map(|p| SysPromptConfig {
+                    state: p.state,
+                    sys_name_group: p.capture_group,
+                    pattern: p.pattern,
+                })
+                .collect(),
+            interactions: config
+                .write
+                .into_iter()
+                .map(|i| InteractionConfig {
+                    state: i.state,
+                    input: i.value,
+                    is_dynamic: i.dynamic,
+                    record_input: i.record_input,
+                    patterns: i.patterns,
+                })
+                .collect(),
+            more_patterns: config.more_regex,
+            error_patterns: config.error_regex,
+            transitions: config
+                .edges
+                .into_iter()
+                .map(|t| TransitionConfig {
+                    from: t.from_state,
+                    command: t.command,
+                    to: t.to_state,
+                    is_exit: t.is_exit,
+                    format_sys: t.needs_format,
+                })
+                .collect(),
+            ignore_errors: config.ignore_errors,
+            command_execution: config.command_execution,
+        }
     }
 }

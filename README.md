@@ -235,7 +235,7 @@ rauto connection test \
 Notes:
 
 - `rauto device list` follows the current built-in catalog exposed by `rneter`.
-- Some newer built-in profiles are already available for execution and diagnostics, but `rauto device copy-builtin` still only works for built-ins that have an editable TOML form in `rauto`.
+- `rauto device show <builtin>` and `rauto device copy-builtin <builtin> <custom>` both use the current built-in handler configs exported by `rneter`.
 
 ### 4. Web Console (Axum)
 

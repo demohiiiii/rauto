@@ -1036,6 +1036,15 @@
             <textarea id="builtin-detail-notes" class="input min-h-24 font-mono" placeholder="notes" readonly></textarea>
             <div class="group-card">
               <div class="mb-2 flex items-center justify-between">
+                <span id="builtin-command-execution-title" class="text-sm font-semibold text-slate-700">command_execution</span>
+              </div>
+              <div class="group-body grid gap-2">
+                <select id="builtin-command-execution-mode" class="input" disabled></select>
+                <input id="builtin-command-execution-marker" class="input" placeholder="exit status marker" readonly />
+              </div>
+            </div>
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
                 <span class="text-sm font-semibold text-slate-700" data-i18n="labelMorePatterns">more_patterns</span>
               </div>
               <div id="builtin-more-list" class="group-body grid gap-2"></div>
@@ -1094,6 +1103,16 @@
 
           <div class="mt-3">
           <div class="grid gap-2">
+            <div class="group-card">
+              <div class="mb-2 flex items-center justify-between">
+                <span id="label-command-execution" class="text-sm font-semibold text-slate-700">command_execution</span>
+              </div>
+              <div class="group-body grid gap-2">
+                <select id="profile-command-execution-mode" class="input"></select>
+                <input id="profile-command-execution-marker" class="input" placeholder="exit status marker" />
+              </div>
+            </div>
+
             <div class="group-card">
               <div class="mb-2 flex items-center justify-between">
                 <span id="label-more-patterns" class="text-sm font-semibold text-slate-700">more_patterns</span>

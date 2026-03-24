@@ -235,7 +235,7 @@ rauto connection test \
 说明：
 
 - `rauto device list` 会跟随当前 `rneter` 暴露的内置模板目录。
-- 一些较新的内置 profile 已经可以直接用于执行和诊断，但 `rauto device copy-builtin` 目前仍只支持那些在 `rauto` 中已经有可编辑 TOML 表单的 built-in。
+- `rauto device show <builtin>` 和 `rauto device copy-builtin <builtin> <custom>` 都会基于当前 `rneter` 导出的内置 handler 配置工作。
 
 ### 4. Web 控制台（Axum）
 

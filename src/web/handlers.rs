@@ -1140,15 +1140,8 @@ pub async fn get_builtin_profile_detail(
 pub async fn get_builtin_profile_form(
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> Result<Json<DeviceProfile>, ApiError> {
-    let profile = if let Some(profile) = storage::builtin_profile_form(&name) {
-        profile
-    } else if storage::builtin_profile_detail(&name).is_some() {
-        return Err(ApiError::bad_request(
-            "builtin profile exists, but editable form export is not supported for this template",
-        ));
-    } else {
-        return Err(ApiError::bad_request("builtin profile not found"));
-    };
+    let profile = storage::builtin_profile_form(&name)
+        .ok_or_else(|| ApiError::bad_request("builtin profile not found"))?;
     Ok(Json(profile))
 }
 

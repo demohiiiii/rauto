@@ -433,6 +433,10 @@ const i18n = {
     diagSummaryNone: "No issues detected",
     builtinDetailBtn: "View Detail",
     builtinCopyBtn: "Copy To Custom Form",
+    commandExecutionTitle: "command_execution",
+    commandExecutionModePromptDriven: "prompt-driven",
+    commandExecutionModeShellExitStatus: "shell exit status",
+    commandExecutionMarkerPlaceholder: "exit status marker",
     templateSaveBtn: "Save",
     templateDeleteBtn: "Delete",
     deleteInlineBtn: "Delete",
@@ -895,6 +899,10 @@ const i18n = {
     diagSummaryNone: "未检测到问题",
     builtinDetailBtn: "查看详情",
     builtinCopyBtn: "复制到新增/修改",
+    commandExecutionTitle: "命令执行策略(command_execution)",
+    commandExecutionModePromptDriven: "prompt 驱动(prompt-driven)",
+    commandExecutionModeShellExitStatus: "shell 退出码(shell exit status)",
+    commandExecutionMarkerPlaceholder: "退出码标记(marker)",
     templateSaveBtn: "保存",
     templateDeleteBtn: "删除",
     deleteInlineBtn: "删除",
@@ -1325,8 +1333,18 @@ function applyI18n() {
   byId("diag-l-missing-src").textContent = t("diagMissingEdgeSources");
   byId("diag-l-missing-tgt").textContent = t("diagMissingEdgeTargets");
   byId("diag-l-ambiguous").textContent = t("diagAmbiguousPromptStates");
+  const builtinCommandExecutionValue =
+    byId("builtin-command-execution-mode").value ||
+    normalizeCommandExecutionConfig(lastBuiltinProfile?.command_execution).mode;
   byId("builtin-detail-btn").textContent = t("builtinDetailBtn");
   byId("builtin-copy-btn").textContent = t("builtinCopyBtn");
+  byId("builtin-command-execution-title").textContent = t("commandExecutionTitle");
+  byId("builtin-command-execution-mode").innerHTML = `
+    <option value="prompt_driven">${escapeHtml(t("commandExecutionModePromptDriven"))}</option>
+    <option value="shell_exit_status">${escapeHtml(t("commandExecutionModeShellExitStatus"))}</option>
+  `;
+  byId("builtin-command-execution-mode").value = builtinCommandExecutionValue;
+  byId("builtin-command-execution-marker").placeholder = t("commandExecutionMarkerPlaceholder");
   byId("template-save-btn").textContent = t("templateSaveBtn");
   byId("template-delete-btn").textContent = t("templateDeleteBtn");
   byId("add-more-pattern-btn").textContent = t("addInlineBtn");
@@ -1339,10 +1357,20 @@ function applyI18n() {
   byId("label-more-patterns").textContent = t("labelMorePatterns");
   byId("label-error-patterns").textContent = t("labelErrorPatterns");
   byId("label-ignore-errors").textContent = t("labelIgnoreErrors");
+  const profileCommandExecutionValue =
+    byId("profile-command-execution-mode").value ||
+    normalizeCommandExecutionConfig(lastBuiltinProfile?.command_execution).mode;
+  byId("label-command-execution").textContent = t("commandExecutionTitle");
   byId("label-prompts").textContent = t("labelPrompts");
   byId("label-sys-prompts").textContent = t("labelSysPrompts");
   byId("label-interactions").textContent = t("labelInteractions");
   byId("label-transitions").textContent = t("labelTransitions");
+  byId("profile-command-execution-mode").innerHTML = `
+    <option value="prompt_driven">${escapeHtml(t("commandExecutionModePromptDriven"))}</option>
+    <option value="shell_exit_status">${escapeHtml(t("commandExecutionModeShellExitStatus"))}</option>
+  `;
+  byId("profile-command-execution-mode").value = profileCommandExecutionValue;
+  byId("profile-command-execution-marker").placeholder = t("commandExecutionMarkerPlaceholder");
 
   byId("host").placeholder = t("hostPlaceholder");
   byId("port").placeholder = t("portPlaceholder");
@@ -1491,6 +1519,8 @@ function applyI18n() {
   applyTxWorkflowMoreActionsState();
   applyTxRollbackMode();
   applyTxRollbackRuleVisibility();
+  updateBuiltinCommandExecutionVisibility();
+  updateProfileCommandExecutionVisibility();
   updateSelectedBackupMeta();
   syncAgentAuthUi();
 
@@ -5250,7 +5280,51 @@ async function loadBuiltinProfileDetail() {
   }
 }
 
+function normalizeCommandExecutionConfig(config) {
+  if (!config || config === "prompt_driven") {
+    return { mode: "prompt_driven", marker: "" };
+  }
+  if (typeof config === "string") {
+    return { mode: config, marker: "" };
+  }
+  if (config.shell_exit_status) {
+    return {
+      mode: "shell_exit_status",
+      marker: config.shell_exit_status.marker || "",
+    };
+  }
+  return { mode: "prompt_driven", marker: "" };
+}
+
+function commandExecutionPayload(mode, marker) {
+  if (mode === "shell_exit_status") {
+    return {
+      shell_exit_status: {
+        marker: (marker || "").trim() || "__RNETER_EXIT_CODE__:",
+      },
+    };
+  }
+  return "prompt_driven";
+}
+
+function updateProfileCommandExecutionVisibility() {
+  const mode = byId("profile-command-execution-mode").value || "prompt_driven";
+  const markerInput = byId("profile-command-execution-marker");
+  const shellMode = mode === "shell_exit_status";
+  markerInput.hidden = !shellMode;
+  markerInput.disabled = !shellMode;
+}
+
+function updateBuiltinCommandExecutionVisibility() {
+  const mode = byId("builtin-command-execution-mode").value || "prompt_driven";
+  byId("builtin-command-execution-marker").hidden = mode !== "shell_exit_status";
+}
+
 function setBuiltinForm(profile) {
+  const commandExecution = normalizeCommandExecutionConfig(profile.command_execution);
+  byId("builtin-command-execution-mode").value = commandExecution.mode;
+  byId("builtin-command-execution-marker").value = commandExecution.marker;
+  updateBuiltinCommandExecutionVisibility();
   clearContainer("builtin-more-list");
   clearContainer("builtin-error-list");
   clearContainer("builtin-ignore-list");
@@ -5589,6 +5663,10 @@ function collectTransitionRows() {
 
 function setProfileForm(profile) {
   byId("custom-profile-picker").value = profile.name || "";
+  const commandExecution = normalizeCommandExecutionConfig(profile.command_execution);
+  byId("profile-command-execution-mode").value = commandExecution.mode;
+  byId("profile-command-execution-marker").value = commandExecution.marker;
+  updateProfileCommandExecutionVisibility();
   clearContainer("profile-more-list");
   clearContainer("profile-error-list");
   clearContainer("profile-ignore-list");
@@ -5611,8 +5689,14 @@ function setProfileForm(profile) {
 }
 
 function collectProfileForm() {
+  const commandExecutionMode =
+    byId("profile-command-execution-mode").value || "prompt_driven";
   return {
     name: byId("custom-profile-picker").value.trim(),
+    command_execution: commandExecutionPayload(
+      commandExecutionMode,
+      byId("profile-command-execution-marker").value
+    ),
     more_patterns: collectSimpleList("profile-more-list"),
     error_patterns: collectSimpleList("profile-error-list"),
     ignore_errors: collectSimpleList("profile-ignore-list"),
@@ -7316,6 +7400,7 @@ function bindEvents() {
     applyPromptMode();
     setStatusMessage("builtin-detail-status", t("copiedToCustom"), "success");
   };
+  byId("profile-command-execution-mode").onchange = updateProfileCommandExecutionVisibility;
   byId("profile-save-btn").onclick = saveCustomProfile;
   byId("profile-delete-btn").onclick = deleteCustomProfile;
   byId("profile-diagnose-btn").onclick = diagnoseCustomProfile;

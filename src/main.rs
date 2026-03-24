@@ -455,11 +455,6 @@ fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts) -> Result<
         } => {
             let mut profile = if let Some(profile) = web::storage::builtin_profile_form(&source) {
                 profile
-            } else if web::storage::builtin_profile_detail(&source).is_some() {
-                return Err(anyhow::anyhow!(
-                    "Built-in profile '{}' is available in rneter, but exporting it as editable TOML is not supported yet",
-                    source
-                ));
             } else {
                 let builtin_names = web::storage::builtin_profiles()
                     .into_iter()
