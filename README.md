@@ -1,11 +1,13 @@
 # rauto - Network Device Automation CLI
 
+> The hands for controlling network devices in the AI era.
+
 [![Crates.io](https://img.shields.io/crates/v/rauto.svg)](https://crates.io/crates/rauto)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Website](https://img.shields.io/badge/Website-rauto.top-0ea5e9?style=for-the-badge&logo=googlechrome&logoColor=white)](https://rauto.top)
 [中文文档](README_zh.md)
 
-`rauto` is a powerful CLI tool for network device automation, written in Rust. It leverages the [rneter](https://github.com/demohiiiii/rneter) library for intelligent SSH connection management and utilizes [minijinja](https://github.com/mitsuhiko/minijinja) for flexible command templating.
+`rauto` is a Rust-based network automation toolkit for operating network devices through CLI, Web, and agent APIs. Built on top of [rneter](https://github.com/demohiiiii/rneter) for SSH session handling and [minijinja](https://github.com/mitsuhiko/minijinja) for command templating, it is designed to provide a simple, high-performance interface for network engineers, automation developers, and AI-driven workflows that need reliable device access, transaction execution, and multi-device orchestration.
 
 ## Features
 

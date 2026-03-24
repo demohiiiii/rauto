@@ -1,4 +1,4 @@
 interface:
   display_name: "Rauto Operator"
-  short_description: "Operate rauto CLI, Web UI, and agent modes"
-  default_prompt: "Use $rauto-usage to run rauto directly for me, including local web mode, agent mode with http or grpc reporting, and multi-device orchestration, and ask only for missing required inputs."
+  short_description: "Operate rauto CLI, Web UI, agent mode, and manager-facing APIs"
+  default_prompt: "Use $rauto-usage to run rauto directly for me, including local web mode, agent mode with http or grpc reporting, same-port gRPC task APIs, profile-aware execution modes, and multi-device orchestration, and ask only for missing required inputs."

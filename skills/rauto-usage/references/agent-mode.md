@@ -97,6 +97,7 @@ Characteristics:
 - default mode
 - uses `rauto.manager.v1.AgentReportingService`
 - best choice when manager and agent can both use gRPC directly
+- supports `RegisterAgent`, `SendHeartbeat`, `NotifyOffline`, `ReportDevices`, `UpdateDeviceStatus`, `ReportError`, `ReportTaskCallback`, and `ReportTaskEvent`
 
 ### `http`
 
@@ -107,6 +108,7 @@ Characteristics:
 - useful for HTTP-only deployments such as Vercel-style environments
 - keeps the same logical reporting events as gRPC
 - manager implements REST-style endpoints instead of protobuf RPCs
+- supports the same logical reporting surface as gRPC, including task events and final callbacks
 
 ## 6) Sync and probe behavior
 
@@ -145,6 +147,7 @@ Manager should expose:
 - `POST /api/agents/update-device-status`
 - `POST /api/agents/report-error`
 - `POST /api/agents/report-task-callback`
+- `POST /api/agents/report-task-event`
 
 ### gRPC mode
 
@@ -162,3 +165,22 @@ RPCs:
 - `UpdateDeviceStatus`
 - `ReportError`
 - `ReportTaskCallback`
+- `ReportTaskEvent`
+
+### Manager calling the agent
+
+`rauto agent` also exposes a same-port gRPC task service:
+
+- package: `rauto.agent.v1`
+- service: `AgentTaskService`
+
+High-value methods for manager callers:
+
+- sync: `GetAgentInfo`, `GetAgentStatus`, `ProbeDevices`, `ListConnections`, `UpsertConnection`, `TestConnection`, `ListTemplates`, `ListDeviceProfiles`, `ExecuteCommand`, `ExecuteTemplate`, `ExecuteTxBlock`
+- async: `ExecuteTxBlockAsync`, `ExecuteTxWorkflowAsync`, `ExecuteOrchestrationAsync`
+
+Notes:
+
+- gRPC task dispatch and HTTP task dispatch are independent from the reporting mode.
+- `report_mode` is not currently included as a field in register/heartbeat payloads; manager should trust the actual inbound transport.
+- For the full current matrix, read `docs/manager-integration-reference.md`.

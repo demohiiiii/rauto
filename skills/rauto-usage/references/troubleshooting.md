@@ -43,6 +43,15 @@ Use this file when users report failures, wrong output, or UI confusion.
    - Ensure `resource_rollback_command` exists.
    - Ensure `trigger_step_index` is valid.
 
+### `invalid mode '<x>' for profile '<y>'`
+
+1. Do not retry with `Enable` by default.
+2. Treat the error as a validation failure before device connection.
+3. Use the returned `default_mode` and `available_modes` to choose a valid state.
+4. In Web, prefer the built-in mode dropdown sourced from the current profile.
+5. For manager integrations, use the HTTP helper:
+   - `GET /api/device-profiles/{name}/modes`
+
 ## Recording and replay issues
 
 ### Missing fields in record entries
@@ -107,6 +116,7 @@ Use this file when users report failures, wrong output, or UI confusion.
 2. If mode is `grpc`, verify manager exposes `AgentReportingService`.
 3. If mode is `http`, verify manager exposes the expected `/api/agents/...` endpoints.
 4. Verify token handling on manager accepts `Authorization` or `X-API-Key`.
+5. If manager UI shows the wrong reporting mode, remember current register/heartbeat payloads do not carry `report_mode`; manager should trust the actual inbound transport.
 
 ### Agent works on gRPC but not on HTTP
 
@@ -119,3 +129,12 @@ Use this file when users report failures, wrong output, or UI confusion.
    - `/api/agents/update-device-status`
    - `/api/agents/report-error`
    - `/api/agents/report-task-callback`
+   - `/api/agents/report-task-event`
+
+### gRPC task/event reporting fails
+
+1. Confirm manager exposes `rauto.manager.v1.AgentReportingService`.
+2. Confirm `ReportTaskEvent` is implemented, not only `ReportTaskCallback`.
+3. Confirm task-dispatch calls use the current gRPC matrix:
+   - sync: `ExecuteCommand`, `ExecuteTemplate`, `ExecuteTxBlock`
+   - async: `ExecuteTxBlockAsync`, `ExecuteTxWorkflowAsync`, `ExecuteOrchestrationAsync`

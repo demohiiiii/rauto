@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Execute rauto directly for the user: run device commands, template execution, tx block, tx workflow, multi-device orchestration, replay, backup/restore, connection/profile/template/history operations, and service startup for local web UI or managed agent mode. Trigger on requests like run command for me, execute on device, start rauto web, start rauto agent, connect to rauto-manager, choose agent report mode (http or grpc), sync saved devices/status, check history, run workflow, orchestrate multiple devices, apply staged rollout, use inventory/groups, diagnose profile, manage templates/profiles/connections, replay records, explain where rauto stores data, or restore backup."
+description: "Execute rauto directly for the user: run device commands, template execution, tx block, tx workflow, multi-device orchestration, replay, backup/restore, connection/profile/template/history operations, and service startup for local web UI or managed agent mode. Trigger on requests like run command for me, execute on device, start rauto web, start rauto agent, connect to rauto-manager, choose agent report mode (http or grpc), use same-port gRPC agent task APIs, sync saved devices/status, check history, run workflow, orchestrate multiple devices, apply staged rollout, use inventory/groups, diagnose profile, manage templates/profiles/connections, inspect storage paths, handle profile-aware execution modes, or restore backup."
 ---
 
 # Rauto Usage
@@ -35,8 +35,11 @@ Prefer action-first behavior:
 5. For explicit read-only commands (for example `show`), tx/workflow is not required.
 6. Resolve connection in this priority:
    - explicit command args > `--connection <name>` > ask for missing fields.
-7. Do not ask the user to manually run commands if agent can run them.
-8. Summarize outputs with important fields:
+7. Do not force `Enable` as the default mode:
+   - if user does not ask for a specific mode, let the resolved device profile decide the default mode.
+   - if user provides an invalid mode, surface the profile default and available modes.
+8. Do not ask the user to manually run commands if agent can run them.
+9. Summarize outputs with important fields:
    - target, mode, success/failure, key errors, next action.
 
 ## Risk Guardrails
@@ -84,6 +87,7 @@ When command is executed, report:
 - Agent execution decision tree and command templates: `references/agent-execution.md`
 - Agent mode startup, config, and manager sync behavior: `references/agent-mode.md`
 - Full CLI command cookbook: `references/cli.md`
+- Manager integration protocol reference in this repo: `docs/manager-integration-reference.md`
 - Runnable multi-device orchestration JSON templates (EN): `references/orchestration-json-template.md`
 - Multi-device orchestration pre-flight review: `references/orchestration-risk-check.md`
 - Runtime storage and secret paths: `references/paths.md`

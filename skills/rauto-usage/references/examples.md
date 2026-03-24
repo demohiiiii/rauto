@@ -45,15 +45,15 @@ Notes: If connection fails, verify SSH port/profile credentials
 
 User ask:
 ```text
-Run it in Enable mode.
+Run it with the profile default mode.
 ```
 
 Execution-style answer:
 ```text
-Operation: Execute direct command with explicit mode
-Command: rauto exec "show ip route" --host <host> --username <username> --password <password> --mode Enable
-Result: Command executed in Enable mode
-Notes: If mode mismatch appears, verify profile prompt/state mapping
+Operation: Execute direct command with profile-aware default mode
+Command: rauto exec "show ip route" --host <host> --username <username> --password <password>
+Result: Command executed using the first state from the resolved device profile
+Notes: If a specific mode is required, pass --mode <Mode>; invalid modes now return default_mode and available_modes
 ```
 
 ## 2) Templates
@@ -138,6 +138,21 @@ Notes: Inspect with: rauto device show my-cisco
 ```
 
 ### Example 4.2
+
+User ask:
+```text
+Copy the builtin linux profile so I can customize it.
+```
+
+Execution-style answer:
+```text
+Operation: Duplicate builtin linux profile to custom profile
+Command: rauto device copy-builtin linux my-linux --overwrite
+Result: Custom profile my-linux created/updated
+Notes: Inspect with: rauto device show my-linux
+```
+
+### Example 4.3
 
 User ask:
 ```text
@@ -506,7 +521,7 @@ Execution-style answer:
 Operation: Start managed agent service for rauto-manager
 Command: rauto agent --bind 0.0.0.0 --port 8123 --manager-url http://manager:50051 --report-mode grpc --agent-name agent-beijing-01 --agent-token <token> --probe-report-interval 300
 Result: Agent service started; manager registration and device sync loop enabled
-Notes: `rauto web` is local UI only; use `rauto agent` for manager registration and device reporting. If manager only exposes HTTP(S), switch to `--report-mode http`
+Notes: `rauto web` is local UI only; use `rauto agent` for manager registration and device reporting. If manager only exposes HTTP(S), switch to `--report-mode http`. In managed runs with task_id, the agent also reports task events and the final callback back to manager.
 ```
 
 ### Example 10.2
@@ -520,6 +535,6 @@ Execution-style answer:
 ```text
 Operation: Explain agent inventory and status reporting
 Command: (no command; behavior explanation)
-Result: Agent full-syncs device inventory with report-devices, then refreshes reachability with update-device-status
-Notes: Load `references/agent-mode.md` for exact request bodies and probe behavior
+Result: Agent reports register/heartbeat, full inventory sync, status refresh, real-time task events, and final task callbacks
+Notes: Load `references/agent-mode.md` for transport choice and `docs/manager-integration-reference.md` for the full HTTP/gRPC matrix
 ```

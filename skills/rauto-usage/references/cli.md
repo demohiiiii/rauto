@@ -32,7 +32,7 @@ Use this file when the user asks for exact CLI commands.
 rauto exec "show version" \
   --host <host> --username <username> --password <password> --ssh-port 22
 
-# Direct execute with mode
+# Direct execute with explicit mode
 rauto exec "show ip route" \
   --host <host> --username <username> --password <password> \
   --mode Enable
@@ -50,6 +50,11 @@ rauto template show_version.j2 \
 # Use saved connection
 rauto exec "show ip int brief" --connection <connection>
 ```
+
+Notes:
+
+- If `--mode` is omitted, `rauto` uses the first state defined by the resolved device profile.
+- If `--mode` is invalid, `rauto` rejects the request before connecting and returns the profile default plus `available_modes`.
 
 ## 3) Recording and replay
 
@@ -83,8 +88,14 @@ rauto device list
 # Show profile detail
 rauto device show cisco
 
+# Show a newer builtin profile detail
+rauto device show linux
+
 # Copy builtin profile to custom
 rauto device copy-builtin cisco my-cisco --overwrite
+
+# Copy builtin linux profile to custom
+rauto device copy-builtin linux my-linux --overwrite
 
 # Delete custom profile
 rauto device delete-custom my-cisco

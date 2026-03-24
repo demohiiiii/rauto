@@ -1,11 +1,13 @@
 # rauto - 网络设备自动化 CLI
 
+> AI 时代操控网络设备的双手
+
 [![Crates.io](https://img.shields.io/crates/v/rauto.svg)](https://crates.io/crates/rauto)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-rauto.top-0ea5e9?style=for-the-badge&logo=googlechrome&logoColor=white)](https://rauto.top)
 [English Documentation](README.md)
 
-`rauto` 是一个用 Rust 编写的强大的网络设备自动化 CLI 工具。它利用 [rneter](https://github.com/demohiiiii/rneter) 库进行智能 SSH 连接管理，并使用 [minijinja](https://github.com/mitsuhiko/minijinja) 实现灵活的命令模板功能。
+`rauto` 是一个用 Rust 编写的网络自动化工具集，提供 CLI、Web 和 agent API 三种操作入口，用于统一操作各类网络设备。它基于 [rneter](https://github.com/demohiiiii/rneter) 处理 SSH 会话连接，基于 [minijinja](https://github.com/mitsuhiko/minijinja) 实现命令模板渲染，目标是为网络工程师、自动化开发者以及 AI 驱动的网络控制场景提供简单、高性能、可扩展的设备访问、事务执行和多设备编排能力。
 
 ## 功能特性
 

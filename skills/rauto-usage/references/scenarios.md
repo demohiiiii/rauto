@@ -107,8 +107,10 @@ Inspect `unreachable_states`, `dead_end_states`, and missing edge lists.
 ```
 rauto exec "show version" --record-file ./session.jsonl --record-level key-events-only
 rauto replay ./session.jsonl --list
-rauto replay ./session.jsonl --command "show version" --mode Enable
+rauto replay ./session.jsonl --command "show version"
 ```
+
+If you need mode filtering, use the exact recorded mode returned by `--list` instead of assuming `Enable`.
 
 ### Web UI
 
@@ -159,12 +161,15 @@ rauto templates delete my.tpl
 ```
 rauto device copy-builtin cisco my-cisco --overwrite
 rauto device show my-cisco
+rauto device copy-builtin linux my-linux --overwrite
+rauto device show my-linux
 ```
 
 ### Web UI
 
 1. Prompt Profiles → Built-in → Load → Copy to custom.
 2. Edit fields and Save.
+3. For Linux-style shells, keep `command_execution` aligned with the copied builtin unless you know the target prompt behavior.
 
 ## 9) Use saved connection to execute
 
@@ -177,7 +182,8 @@ rauto exec "show ip int brief" --connection <name>
 ### Web UI
 
 1. Select saved connection from dropdown.
-2. Execute commands; history is stored under that connection.
+2. Leave `mode` empty to use the profile default, or choose from the mode dropdown.
+3. Execute commands; history is stored under that connection.
 
 ## 10) Use interactive session in Web
 
@@ -556,7 +562,8 @@ rauto agent \
 2. Verify manager receives initial registration.
 3. Verify manager receives full inventory sync from `ReportDevices` or `POST /api/agents/report-devices`, depending on report mode.
 4. Verify manager receives status refresh from `UpdateDeviceStatus` or `POST /api/agents/update-device-status`, depending on report mode.
-5. Add or delete one saved connection and confirm manager sees another inventory sync.
+5. Run a managed task with `task_id` and confirm manager receives `ReportTaskEvent` / `POST /api/agents/report-task-event` plus the final callback.
+6. Add or delete one saved connection and confirm manager sees another inventory sync.
 
 ### Notes
 

@@ -63,12 +63,12 @@ http://127.0.0.1:3000
 
 #### Direct Execute
 
-- Inputs: command, mode(optional)
+- Inputs: command, mode(optional; dropdown sourced from current device profile states)
 - Action: `Execute`
 
 #### Template Render + Execute
 
-- Inputs: template, vars JSON, mode(optional)
+- Inputs: template, vars JSON, mode(optional; dropdown sourced from current device profile states)
 - Actions:
   - `Preview Render`
   - `Run Template`
@@ -91,6 +91,7 @@ http://127.0.0.1:3000
 
 ### Interactive
 
+- `mode` is selected from the resolved device profile states
 - Actions:
   - `Start Session`
   - `Send`
@@ -157,7 +158,8 @@ http://127.0.0.1:3000
 
 1. Saved Connections: choose existing name
 2. Operations -> Direct Execute
-3. Fill command and click `Execute`
+3. Leave `mode` empty to use the profile default, or choose one from the dropdown
+4. Fill command and click `Execute`
 
 ### Recipe B: Template preview before run
 

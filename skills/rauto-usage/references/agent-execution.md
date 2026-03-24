@@ -23,6 +23,7 @@ Use this file when the agent should run `rauto` commands directly for the user.
    - Prefer existing `--connection <name>`.
    - Else use provided host/user/password/profile/port.
    - If still missing required fields, ask only for missing fields.
+   - Do not force `--mode Enable` unless the user explicitly asks for that state; let the resolved profile default apply when mode is omitted.
 3. For agent-generated change commands:
    - show planned commands + rollback path + dry-run command.
    - for `orchestrate`, also review target scope, `fail_fast`, concurrency, and rollback boundary.
@@ -75,6 +76,7 @@ Run startup commands directly when the user explicitly asks to launch the servic
   - periodic status refresh controlled by `--probe-report-interval`
 
 When the user asks about manager integration details, load `references/agent-mode.md`.
+For protocol-level details, also load `docs/manager-integration-reference.md`.
 
 ## 5) Destructive operations (confirmation required)
 
@@ -152,6 +154,11 @@ rauto agent \
 ```bash
 rauto exec "show version" --connection <connection>
 ```
+
+Notes:
+
+- If `--mode` is omitted, `rauto` uses the first state from the resolved device profile.
+- If a provided mode is invalid, `rauto` returns the profile default plus the available mode list.
 
 ### Execute one command via direct credentials
 
