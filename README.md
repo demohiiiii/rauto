@@ -1,13 +1,47 @@
-# rauto - Network Device Automation CLI
+<div align="center">
 
-> The hands for controlling network devices in the AI era.
+# rauto
+
+**The hands for controlling network devices in the AI era.**
 
 [![Crates.io](https://img.shields.io/crates/v/rauto.svg)](https://crates.io/crates/rauto)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Website](https://img.shields.io/badge/Website-rauto.top-0ea5e9?style=for-the-badge&logo=googlechrome&logoColor=white)](https://rauto.top)
-[中文文档](README_zh.md)
 
-`rauto` is a Rust-based network automation toolkit for operating network devices through CLI, Web, and agent APIs. Built on top of [rneter](https://github.com/demohiiiii/rneter) for SSH session handling and [minijinja](https://github.com/mitsuhiko/minijinja) for command templating, it is designed to provide a simple, high-performance interface for network engineers, automation developers, and AI-driven workflows that need reliable device access, transaction execution, and multi-device orchestration.
+[Website](https://rauto.top) · [中文文档](README_zh.md)
+
+</div>
+
+`rauto` is a Rust-based network automation toolkit for operating network devices through CLI, Web, and agent APIs. It builds on [rneter](https://github.com/demohiiiii/rneter) for SSH session handling and [minijinja](https://github.com/mitsuhiko/minijinja) for command templating, providing a simple, high-performance interface for network engineers, automation developers, and AI-driven workflows that need reliable device access, transaction execution, and multi-device orchestration.
+
+## Quick Start
+
+```bash
+cargo install rauto
+rauto exec "show version" --host 192.168.1.1 --username admin --password '******'
+rauto web --bind 127.0.0.1 --port 3000
+```
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Codex Skill (Optional)](#codex-skill-optional)
+- [Usage](#usage)
+  - [Template Mode (Recommended)](#1-template-mode-recommended)
+  - [Direct Execution](#2-direct-execution)
+  - [Device Profiles](#3-device-profiles)
+  - [Web Console (Axum)](#4-web-console-axum)
+  - [Template Storage Commands](#5-template-storage-commands)
+  - [Saved Connection Profiles](#6-saved-connection-profiles)
+  - [Backup & Restore](#7-backup--restore)
+  - [Command Blacklist](#8-command-blacklist)
+  - [CLI Quick Reference](#9-cli-quick-reference)
+- [Directory Structure](#directory-structure)
+- [Configuration](#configuration)
+- [Template Syntax](#template-syntax)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
