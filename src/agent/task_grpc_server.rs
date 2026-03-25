@@ -10,11 +10,13 @@ use crate::agent_task_grpc::rauto::agent::v1::{
     ExecuteTxBlockRequest as GrpcExecuteTxBlockRequest, ExecuteTxBlockResponse,
     ExecuteTxWorkflowRequest as GrpcExecuteTxWorkflowRequest, ListConnectionsRequest,
     ListConnectionsResponse, ListDeviceProfilesRequest, ListDeviceProfilesResponse,
-    ListTemplatesRequest, ListTemplatesResponse, ProbeDevicesRequest, ProbeDevicesResponse,
-    SystemInfo, TemplateMeta, TestConnectionRequest, TestConnectionResponse,
+    ListProfileModesRequest, ListProfileModesResponse, ListTemplatesRequest,
+    ListTemplatesResponse, ProbeDevicesRequest, ProbeDevicesResponse, SystemInfo,
+    TemplateMeta, TestConnectionRequest, TestConnectionResponse,
     UpsertConnectionRequest as GrpcUpsertConnectionRequest, UpsertConnectionResponse,
 };
 use crate::config::connection_store;
+use crate::config::template_loader;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::error::ApiError;
@@ -447,6 +449,29 @@ impl AgentTaskService for AgentTaskGrpcService {
                 })
                 .collect(),
             all,
+        }))
+    }
+
+    async fn list_profile_modes(
+        &self,
+        request: Request<ListProfileModesRequest>,
+    ) -> Result<Response<ListProfileModesResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let profile_name = req.name.trim();
+        if profile_name.is_empty() {
+            return Err(Status::invalid_argument("profile name is required"));
+        }
+
+        let modes = template_loader::list_profile_modes(profile_name)
+            .map_err(|err| Status::invalid_argument(err.to_string()))?;
+        let default_mode = template_loader::default_profile_mode(profile_name)
+            .map_err(|err| Status::invalid_argument(err.to_string()))?;
+
+        Ok(Response::new(ListProfileModesResponse {
+            name: profile_name.to_string(),
+            default_mode,
+            modes,
         }))
     }
 

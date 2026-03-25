@@ -11,6 +11,7 @@ service AgentTaskService {
   rpc TestConnection(TestConnectionRequest) returns (TestConnectionResponse);
   rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
   rpc ListDeviceProfiles(ListDeviceProfilesRequest) returns (ListDeviceProfilesResponse);
+  rpc ListProfileModes(ListProfileModesRequest) returns (ListProfileModesResponse);
   rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
   rpc ExecuteTemplate(ExecuteTemplateRequest) returns (ExecuteTemplateResponse);
   rpc ExecuteTxBlock(ExecuteTxBlockRequest) returns (ExecuteTxBlockResponse);
@@ -87,6 +88,10 @@ message ListTemplatesResponse {
 
 message ListDeviceProfilesRequest {}
 
+message ListProfileModesRequest {
+  string name = 1;
+}
+
 message BuiltinProfileMeta {
   string name = 1;
   repeated string aliases = 2;
@@ -102,6 +107,12 @@ message ListDeviceProfilesResponse {
   repeated BuiltinProfileMeta builtins = 1;
   repeated CustomProfileMeta custom = 2;
   repeated string all = 3;
+}
+
+message ListProfileModesResponse {
+  string name = 1;
+  string default_mode = 2;
+  repeated string modes = 3;
 }
 
 message ExecuteCommandRequest {
