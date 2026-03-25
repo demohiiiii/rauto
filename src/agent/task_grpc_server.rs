@@ -10,14 +10,14 @@ use crate::agent_task_grpc::rauto::agent::v1::{
     ExecuteTxBlockRequest as GrpcExecuteTxBlockRequest, ExecuteTxBlockResponse,
     ExecuteTxWorkflowRequest as GrpcExecuteTxWorkflowRequest, ListConnectionsRequest,
     ListConnectionsResponse, ListDeviceProfilesRequest, ListDeviceProfilesResponse,
-    ListProfileModesRequest, ListProfileModesResponse, ListTemplatesRequest,
-    ListTemplatesResponse, ProbeDevicesRequest, ProbeDevicesResponse, SystemInfo,
-    TemplateMeta, TestConnectionRequest, TestConnectionResponse,
-    UpsertConnectionRequest as GrpcUpsertConnectionRequest, UpsertConnectionResponse,
+    ListProfileModesRequest, ListProfileModesResponse, ListTemplatesRequest, ListTemplatesResponse,
+    ProbeDevicesRequest, ProbeDevicesResponse, SystemInfo, TemplateMeta, TestConnectionRequest,
+    TestConnectionResponse, UpsertConnectionRequest as GrpcUpsertConnectionRequest,
+    UpsertConnectionResponse,
 };
 use crate::config::connection_store;
-use crate::config::template_loader;
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::config::template_loader;
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::error::ApiError;
 use crate::web::handlers::{
