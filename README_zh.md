@@ -447,7 +447,9 @@ linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,
 - 导入按连接名做 upsert。
 - 某一行未提供密码字段时，如果该连接已存在，则会保留原有的加密密码。
 - 在 Web UI 中，可通过 `Saved Connections -> Download Template` 下载起始 CSV 模板。
-- 仓库里也提供了一个示例文件：[templates/examples/connection-import-template.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template.csv)
+- 仓库里也提供了中英文两份示例文件：
+- [templates/examples/connection-import-template-en.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template-en.csv)
+- [templates/examples/connection-import-template-zh.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template-zh.csv)
 
 ### 7. 数据备份与恢复
 

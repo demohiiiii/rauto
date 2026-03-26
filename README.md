@@ -447,7 +447,9 @@ Notes:
 - Import uses upsert semantics by connection name.
 - If a row omits password fields, existing encrypted passwords are preserved for that connection.
 - In the Web UI, use `Saved Connections -> Download Template` to get a starter CSV file.
-- A sample file is also included in the repository: [templates/examples/connection-import-template.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template.csv)
+- Sample files are also included in the repository:
+- [templates/examples/connection-import-template-en.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template-en.csv)
+- [templates/examples/connection-import-template-zh.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template-zh.csv)
 
 ### 7. Backup & Restore
 

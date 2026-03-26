@@ -1,0 +1,4 @@
+连接名,主机地址,用户名,密码,端口,特权密码,SSH安全级别,设备模板,模板目录
+core-sw-01,192.168.1.1,admin,secret,22,,balanced,cisco,
+dist-sw-01,192.168.1.2,admin,secret,22,,balanced,h3c,
+linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,

@@ -62,6 +62,11 @@ pub struct HistoryQuery {
     pub limit: Option<usize>,
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct ConnectionImportTemplateQuery {
+    pub lang: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 struct TaskReportContext {
     task_id: String,
@@ -1112,9 +1117,24 @@ pub async fn download_backup(Path(name): Path<String>) -> Result<Response, ApiEr
     Ok((headers, bytes).into_response())
 }
 
-pub async fn download_connection_import_template() -> Result<Response, ApiError> {
-    let filename = "rauto-connection-import-template.csv";
-    let content = "name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir\n";
+pub async fn download_connection_import_template(
+    Query(query): Query<ConnectionImportTemplateQuery>,
+) -> Result<Response, ApiError> {
+    let is_zh = query
+        .lang
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|value| value.eq_ignore_ascii_case("zh") || value.eq_ignore_ascii_case("zh-cn"));
+    let filename = if is_zh {
+        "rauto-connection-import-template-zh.csv"
+    } else {
+        "rauto-connection-import-template-en.csv"
+    };
+    let content = if is_zh {
+        "\u{feff}连接名,主机地址,用户名,密码,端口,特权密码,SSH安全级别,设备模板,模板目录\n"
+    } else {
+        "name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir\n"
+    };
     let mut headers = HeaderMap::new();
     headers.insert(
         header::CONTENT_TYPE,

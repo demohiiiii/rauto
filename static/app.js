@@ -4277,7 +4277,8 @@ async function importConnectionsFromFile() {
 }
 
 function downloadConnectionImportTemplate() {
-  const url = "/api/connections/import-template";
+  const lang = currentLang === "zh" ? "zh" : "en";
+  const url = `/api/connections/import-template?lang=${encodeURIComponent(lang)}`;
   fetch(url, { headers: buildRequestHeaders(false) })
     .then(async (res) => {
       if (!res.ok) {
@@ -4294,7 +4295,10 @@ function downloadConnectionImportTemplate() {
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objectUrl;
-      a.download = "rauto-connection-import-template.csv";
+      a.download =
+        currentLang === "zh"
+          ? "rauto-connection-import-template-zh.csv"
+          : "rauto-connection-import-template-en.csv";
       document.body.appendChild(a);
       a.click();
       a.remove();
