@@ -3,7 +3,9 @@ use crate::cli::RecordLevelOpt;
 use crate::config::command_blacklist;
 use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
-use crate::config::{backup, connection_store, connection_store::SavedConnection, content_store};
+use crate::config::{
+    backup, connection_import, connection_store, connection_store::SavedConnection, content_store,
+};
 use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
 use crate::orchestrator;
@@ -32,7 +34,7 @@ use crate::{manager_connection_request, manager_execution_context_with_security}
 use axum::http::StatusCode;
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Multipart, Path, Query, State},
     http::{HeaderMap, HeaderValue, header},
     response::{IntoResponse, Response},
 };
@@ -1110,6 +1112,22 @@ pub async fn download_backup(Path(name): Path<String>) -> Result<Response, ApiEr
     Ok((headers, bytes).into_response())
 }
 
+pub async fn download_connection_import_template() -> Result<Response, ApiError> {
+    let filename = "rauto-connection-import-template.csv";
+    let content = "name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir\n";
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/csv; charset=utf-8"),
+    );
+    let disposition = format!("attachment; filename=\"{}\"", filename);
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&disposition).map_err(ApiError::from)?,
+    );
+    Ok((headers, content.as_bytes().to_vec()).into_response())
+}
+
 pub async fn list_profiles(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<String>>, ApiError> {
@@ -1682,6 +1700,50 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
         }
     }
     Ok(Json(items))
+}
+
+pub async fn import_connections(
+    State(state): State<Arc<AppState>>,
+    mut multipart: Multipart,
+) -> Result<Json<connection_import::ConnectionImportReport>, ApiError> {
+    let mut file_name = None;
+    let mut file_bytes = None;
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| ApiError::bad_request(format!("failed to read upload field: {}", e)))?
+    {
+        if field.name() != Some("file") {
+            continue;
+        }
+        file_name = field.file_name().map(ToOwned::to_owned);
+        file_bytes =
+            Some(field.bytes().await.map_err(|e| {
+                ApiError::bad_request(format!("failed to read upload file: {}", e))
+            })?);
+        break;
+    }
+
+    let file_name = file_name
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| ApiError::bad_request("upload file name is required"))?;
+    let file_bytes = file_bytes.ok_or_else(|| ApiError::bad_request("upload file is required"))?;
+
+    let report = connection_import::import_connections_from_bytes(&file_name, &file_bytes)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+
+    if report.imported > 0
+        && let Some(registrar) = state.registrar()
+        && let Err(err) = registrar.trigger_device_inventory_sync_if_changed(5).await
+    {
+        warn!(
+            "failed to schedule device inventory sync after connection import: {}",
+            err
+        );
+    }
+
+    Ok(Json(report))
 }
 
 fn saved_connection_detail_response(

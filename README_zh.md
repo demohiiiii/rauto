@@ -295,6 +295,7 @@ Web 静态资源在构建时会嵌入二进制。
 Web 控制台主要能力：
 
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
+- 支持在页面中下载连接导入模板，并从 CSV / Excel 批量导入已保存连接。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。
 - 基于已保存连接执行命令（先加载连接，再选择直接执行或模板渲染执行）。
 - 分页管理 profile（内置/自定义）与 template。
@@ -413,6 +414,40 @@ rauto history list lab1 --limit 20
 - 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
 - 已保存密码会加密后写入 `~/.rauto/rauto.db`；本地解密密钥保存在 `~/.rauto/master.key` 中。
 - `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。
+
+批量导入：
+
+```bash
+# 从 CSV 导入已保存连接
+rauto connection import ./devices.csv
+
+# 从 Excel 导入已保存连接
+rauto connection import ./devices.xlsx
+```
+
+支持的文件类型：
+
+- `.csv`
+- `.xlsx`
+- `.xls`
+- `.xlsm`
+- `.xlsb`
+
+推荐表头：
+
+```csv
+name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir
+core-sw-01,192.168.1.1,admin,secret,22,,balanced,cisco,
+linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,
+```
+
+说明：
+
+- 如果未提供 `name`，`rauto` 会基于 `host` 自动生成连接名。
+- 导入按连接名做 upsert。
+- 某一行未提供密码字段时，如果该连接已存在，则会保留原有的加密密码。
+- 在 Web UI 中，可通过 `Saved Connections -> Download Template` 下载起始 CSV 模板。
+- 仓库里也提供了一个示例文件：[templates/examples/connection-import-template.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template.csv)
 
 ### 7. 数据备份与恢复
 

@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod command_blacklist;
+pub mod connection_import;
 pub mod connection_store;
 pub mod content_store;
 pub mod device_profile;

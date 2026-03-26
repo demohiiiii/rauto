@@ -660,12 +660,15 @@
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <label class="check-label"><input id="saved-conn-save-password" type="checkbox" class="check-input" /><span id="saved-conn-save-password-label">do not save password</span></label>
                 <div class="inline-flex flex-wrap items-center gap-2">
+                  <button id="saved-conn-template-btn" class="mini-btn" type="button">Download Template</button>
+                  <button id="saved-conn-import-btn" class="mini-btn" type="button">Import CSV/Excel</button>
                   <button id="saved-conn-save-btn" class="mini-btn" type="button">Save</button>
                   <button id="saved-conn-delete-btn" class="mini-btn delete" type="button">Delete</button>
                   <button id="saved-conn-history-btn" class="mini-btn" type="button">History</button>
                 </div>
               </div>
             </div>
+          <input id="saved-conn-import-file-input" type="file" accept=".csv,.xlsx,.xls,.xlsm,.xlsb,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
           <div id="saved-conn-list" class="mt-2 grid gap-2"></div>
           <div id="saved-conn-out" class="mt-2 grid gap-2"></div>
         </div>

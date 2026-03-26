@@ -130,6 +130,14 @@ pub enum ConnectionCommands {
         /// Saved connection profile name
         name: String,
     },
+    /// Import saved connections from CSV or Excel
+    Import {
+        /// Path to .csv, .xlsx, .xls, .xlsm, or .xlsb file
+        file: PathBuf,
+        /// Output import summary as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

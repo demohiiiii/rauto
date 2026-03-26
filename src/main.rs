@@ -16,6 +16,7 @@ use cli::{
     BackupCommands, BlacklistCommands, Cli, Commands, ConnectionCommands, DeviceCommands,
     GlobalOpts, HistoryCommands, RecordLevelOpt, TemplateCommands, TxArgs, TxWorkflowArgs,
 };
+use config::connection_import::{self, ConnectionImportReport};
 use config::connection_store::{
     SavedConnection, delete_connection, list_connections, load_connection, load_connection_raw,
     save_connection,
@@ -624,6 +625,20 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
                 path.to_string_lossy()
             );
         }
+        ConnectionCommands::Import { file, json } => {
+            let report = connection_import::import_connections_from_path(&file)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                print_connection_import_report(&report);
+            }
+            if report.failed > 0 {
+                return Err(anyhow::anyhow!(
+                    "connection import completed with {} failed row(s)",
+                    report.failed
+                ));
+            }
+        }
     }
 
     Ok(())
@@ -890,6 +905,29 @@ fn print_list(label: &str, values: &[String]) {
         println!("{}: -", label);
     } else {
         println!("{}: {}", label, values.join(", "));
+    }
+}
+
+fn print_connection_import_report(report: &ConnectionImportReport) {
+    println!(
+        "Imported connections from '{}' (total={}, imported={}, created={}, updated={}, failed={})",
+        report.file_name,
+        report.total_rows,
+        report.imported,
+        report.created,
+        report.updated,
+        report.failed
+    );
+    if report.failures.is_empty() {
+        return;
+    }
+    println!("# failed rows");
+    for failure in &report.failures {
+        if let Some(name) = failure.name.as_deref() {
+            println!("- row {} [{}]: {}", failure.row, name, failure.message);
+        } else {
+            println!("- row {}: {}", failure.row, failure.message);
+        }
     }
 }
 

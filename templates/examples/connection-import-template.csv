@@ -1,0 +1,4 @@
+name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir
+core-sw-01,192.168.1.1,admin,secret,22,,balanced,cisco,
+dist-sw-01,192.168.1.2,admin,secret,22,,balanced,h3c,
+linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,

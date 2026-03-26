@@ -29,9 +29,22 @@ const i18n = {
     savedConnTitle: "Saved Connections",
     savedConnNamePlaceholder: "saved connection name",
     savedConnSavePassword: "do not save password",
+    savedConnTemplateBtn: "Download Template",
+    savedConnImportBtn: "Import CSV/Excel",
     savedConnSaveBtn: "Save",
     savedConnDeleteBtn: "Delete",
     savedConnHistoryBtn: "History",
+    savedConnImportInvalid: "please choose a valid CSV or Excel file",
+    savedConnImportDone: "connection import completed",
+    savedConnImportTitle: "Connection Import",
+    savedConnImportSummaryTotal: "Total",
+    savedConnImportSummaryImported: "Imported",
+    savedConnImportSummaryCreated: "Created",
+    savedConnImportSummaryUpdated: "Updated",
+    savedConnImportSummaryFailed: "Failed",
+    savedConnImportFailuresTitle: "Failed Rows",
+    savedConnImportFailureRow: "Row",
+    savedConnTemplateDone: "connection import template downloaded",
     savedConnHistoryEmpty: "no execution history for this connection",
     savedConnListEmpty: "no saved connections",
     savedConnSecretSaved: "password saved",
@@ -508,9 +521,22 @@ const i18n = {
     savedConnTitle: "已保存连接",
     savedConnNamePlaceholder: "连接配置名称",
     savedConnSavePassword: "不保存密码",
+    savedConnTemplateBtn: "下载模板",
+    savedConnImportBtn: "导入 CSV/Excel",
     savedConnSaveBtn: "保存",
     savedConnDeleteBtn: "删除",
     savedConnHistoryBtn: "历史",
+    savedConnImportInvalid: "请选择有效的 CSV 或 Excel 文件",
+    savedConnImportDone: "连接导入完成",
+    savedConnImportTitle: "连接导入结果",
+    savedConnImportSummaryTotal: "总行数",
+    savedConnImportSummaryImported: "导入成功",
+    savedConnImportSummaryCreated: "新增",
+    savedConnImportSummaryUpdated: "更新",
+    savedConnImportSummaryFailed: "失败",
+    savedConnImportFailuresTitle: "失败行",
+    savedConnImportFailureRow: "行",
+    savedConnTemplateDone: "已下载连接导入模板",
     savedConnHistoryEmpty: "该连接暂无执行历史",
     savedConnListEmpty: "暂无已保存连接",
     savedConnSecretSaved: "已保存密码",
@@ -1214,6 +1240,8 @@ function applyI18n() {
   byId("connection-test-btn").textContent = t("connectionTestBtn");
   byId("saved-conn-title").textContent = t("savedConnTitle");
   byId("saved-conn-save-password-label").textContent = t("savedConnSavePassword");
+  byId("saved-conn-template-btn").textContent = t("savedConnTemplateBtn");
+  byId("saved-conn-import-btn").textContent = t("savedConnImportBtn");
   byId("saved-conn-save-btn").textContent = t("savedConnSaveBtn");
   byId("saved-conn-delete-btn").textContent = t("savedConnDeleteBtn");
   byId("saved-conn-history-btn").textContent = t("savedConnHistoryBtn");
@@ -4159,6 +4187,125 @@ async function deleteConnectionByName() {
   }
 }
 
+function formatConnectionImportSummary(report) {
+  return `${t("savedConnImportDone")}: ${t("savedConnImportSummaryTotal")}=${safeString(
+    report.total_rows
+  )}, ${t("savedConnImportSummaryImported")}=${safeString(
+    report.imported
+  )}, ${t("savedConnImportSummaryCreated")}=${safeString(
+    report.created
+  )}, ${t("savedConnImportSummaryUpdated")}=${safeString(
+    report.updated
+  )}, ${t("savedConnImportSummaryFailed")}=${safeString(report.failed)}`;
+}
+
+function formatConnectionImportDetail(report) {
+  const failures = Array.isArray(report && report.failures) ? report.failures : [];
+  const items = failures.length
+    ? failures
+        .map((item) => {
+          const nameSuffix = item && item.name ? ` [${escapeHtml(item.name)}]` : "";
+          return `<li class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"><span class="font-semibold">${escapeHtml(
+            `${t("savedConnImportFailureRow")} ${safeString(item.row)}`
+          )}</span>${nameSuffix}: ${escapeHtml(safeString(item.message))}</li>`;
+        })
+        .join("")
+    : `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+        "-"
+      )}</div>`;
+
+  return `
+    <div class="grid gap-3">
+      <section class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        <div class="grid gap-1 sm:grid-cols-2">
+          <div>${escapeHtml(t("savedConnImportSummaryTotal"))}: ${escapeHtml(
+            safeString(report.total_rows)
+          )}</div>
+          <div>${escapeHtml(t("savedConnImportSummaryImported"))}: ${escapeHtml(
+            safeString(report.imported)
+          )}</div>
+          <div>${escapeHtml(t("savedConnImportSummaryCreated"))}: ${escapeHtml(
+            safeString(report.created)
+          )}</div>
+          <div>${escapeHtml(t("savedConnImportSummaryUpdated"))}: ${escapeHtml(
+            safeString(report.updated)
+          )}</div>
+          <div>${escapeHtml(t("savedConnImportSummaryFailed"))}: ${escapeHtml(
+            safeString(report.failed)
+          )}</div>
+        </div>
+      </section>
+      <section>
+        <div class="mb-2 text-xs font-semibold text-slate-500">${escapeHtml(
+          t("savedConnImportFailuresTitle")
+        )}</div>
+        <ul class="grid gap-2">${items}</ul>
+      </section>
+    </div>
+  `;
+}
+
+async function importConnectionsFromFile() {
+  const input = byId("saved-conn-import-file-input");
+  const file = input && input.files && input.files[0];
+  if (!file) {
+    setStatusMessage("saved-conn-out", t("savedConnImportInvalid"), "error");
+    return;
+  }
+  setStatusMessage("saved-conn-out", t("running"), "running");
+  try {
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+    const data = await requestForm("POST", "/api/connections/import", formData);
+    await loadSavedConnections();
+    setStatusMessage(
+      "saved-conn-out",
+      formatConnectionImportSummary(data),
+      data.failed > 0 ? "error" : "success"
+    );
+    if ((data.failed || 0) > 0) {
+      openDetailModal(formatConnectionImportDetail(data), {
+        title: t("savedConnImportTitle"),
+        html: true,
+      });
+    }
+  } catch (e) {
+    setStatusMessage("saved-conn-out", e.message, "error");
+  } finally {
+    input.value = "";
+  }
+}
+
+function downloadConnectionImportTemplate() {
+  const url = "/api/connections/import-template";
+  fetch(url, { headers: buildRequestHeaders(false) })
+    .then(async (res) => {
+      if (!res.ok) {
+        const raw = await res.text();
+        throw new Error(
+          res.status === 401
+            ? getStoredAgentApiToken()
+              ? t("agentAuthInvalid")
+              : t("agentAuthRequired")
+            : raw || t("requestFailed")
+        );
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = "rauto-connection-import-template.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      setStatusMessage("saved-conn-out", t("savedConnTemplateDone"), "success");
+    })
+    .catch((e) => {
+      setStatusMessage("saved-conn-out", e.message, "error");
+    });
+}
+
 async function loadConnectionHistory() {
   const name = byId("saved-conn-name").value.trim();
   const out = byId("history-drawer-out");
@@ -5075,6 +5222,31 @@ async function request(method, url, body) {
     options.body = JSON.stringify(body);
   }
   const res = await fetch(url, options);
+  const raw = await res.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    data = null;
+  }
+  if (!res.ok) {
+    const msg =
+      res.status === 401
+        ? getStoredAgentApiToken()
+          ? t("agentAuthInvalid")
+          : t("agentAuthRequired")
+        : (data && data.error) || raw || t("requestFailed");
+    throw new Error(msg);
+  }
+  return data ?? {};
+}
+
+async function requestForm(method, url, formData) {
+  const res = await fetch(url, {
+    method,
+    headers: buildRequestHeaders(false),
+    body: formData,
+  });
   const raw = await res.text();
   let data = null;
   try {
@@ -6928,11 +7100,20 @@ function bindEvents() {
       setStatusMessage("connection-test-out", e.message, "error");
     }
   };
+  byId("saved-conn-template-btn").onclick = downloadConnectionImportTemplate;
   byId("saved-conn-save-btn").onclick = saveConnectionByName;
+  byId("saved-conn-import-btn").onclick = () => {
+    byId("saved-conn-import-file-input").click();
+  };
   byId("saved-conn-delete-btn").onclick = deleteConnectionByName;
   byId("saved-conn-history-btn").onclick = () => {
     openHistoryDrawer();
     loadConnectionHistory();
+  };
+  byId("saved-conn-import-file-input").onchange = async () => {
+    try {
+      await importConnectionsFromFile();
+    } catch (_) {}
   };
   byId("blacklist-refresh-btn").onclick = loadBlacklistPatterns;
   byId("blacklist-add-btn").onclick = addBlacklistPatternFromWeb;

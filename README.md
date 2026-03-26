@@ -295,6 +295,7 @@ For released binaries, users only need to run the executable (no extra `static/`
 Web console key capabilities:
 
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
+- Download a CSV import template and import saved connections from CSV / Excel in UI.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
 - Execute commands with saved connection info (load one connection, then run direct or template mode).
 - Manage profiles (builtin/custom) and templates in dedicated tabs.
@@ -413,6 +414,40 @@ Password behavior:
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
 - Saved passwords are encrypted and stored in `~/.rauto/rauto.db`; the local encryption key is stored in `~/.rauto/master.key`.
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections.
+
+Bulk import:
+
+```bash
+# Import saved connections from CSV
+rauto connection import ./devices.csv
+
+# Import saved connections from Excel
+rauto connection import ./devices.xlsx
+```
+
+Supported file types:
+
+- `.csv`
+- `.xlsx`
+- `.xls`
+- `.xlsm`
+- `.xlsb`
+
+Recommended headers:
+
+```csv
+name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir
+core-sw-01,192.168.1.1,admin,secret,22,,balanced,cisco,
+linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,
+```
+
+Notes:
+
+- If `name` is omitted, `rauto` derives a saved-connection name from `host`.
+- Import uses upsert semantics by connection name.
+- If a row omits password fields, existing encrypted passwords are preserved for that connection.
+- In the Web UI, use `Saved Connections -> Download Template` to get a starter CSV file.
+- A sample file is also included in the repository: [templates/examples/connection-import-template.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template.csv)
 
 ### 7. Backup & Restore
 
