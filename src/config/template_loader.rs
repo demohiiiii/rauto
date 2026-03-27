@@ -4,6 +4,8 @@ use anyhow::{Context, Result, anyhow};
 use rneter::{device::DeviceHandler, templates};
 use std::collections::BTreeSet;
 
+pub const DEFAULT_DEVICE_PROFILE: &str = "linux";
+
 pub fn canonical_builtin_profile_name(name: &str) -> Option<&'static str> {
     match name.to_lowercase().as_str() {
         "cisco" | "ios" => Some("cisco"),

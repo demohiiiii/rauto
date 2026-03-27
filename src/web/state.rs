@@ -3,6 +3,7 @@ use crate::agent::registration::AgentRegistrar;
 use crate::cli::GlobalOpts;
 use crate::config::connection_store::{self, SavedConnection};
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::device::DeviceClient;
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
@@ -201,7 +202,7 @@ fn merge_connection_sources(
         .device_profile
         .or_else(|| saved.and_then(|s| s.device_profile.clone()))
         .or_else(|| defaults.device_profile.clone())
-        .unwrap_or_else(|| "cisco".to_string());
+        .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
     Ok(ResolvedConnection {
         connection_name,
         host,
@@ -220,6 +221,7 @@ mod tests {
     use crate::cli::GlobalOpts;
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
+    use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
     use crate::web::models::ConnectionRequest;
     use std::path::PathBuf;
 
@@ -302,5 +304,28 @@ mod tests {
         assert_eq!(resolved.port, 22);
         assert_eq!(resolved.ssh_security, SshSecurityProfile::Balanced);
         assert_eq!(resolved.device_profile, "default-profile");
+    }
+
+    #[test]
+    fn merge_connection_sources_uses_linux_when_profile_is_not_set_anywhere() {
+        let defaults = GlobalOpts {
+            host: Some("default-host".to_string()),
+            username: None,
+            password: None,
+            port: None,
+            enable_password: None,
+            ssh_security: None,
+            device_profile: None,
+            template_dir: None,
+            connection: None,
+            save_connection: None,
+            save_password: false,
+        };
+
+        let resolved =
+            merge_connection_sources(&defaults, ConnectionRequest::default(), None, None)
+                .expect("resolved connection");
+
+        assert_eq!(resolved.device_profile, DEFAULT_DEVICE_PROFILE);
     }
 }

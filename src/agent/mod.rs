@@ -121,7 +121,9 @@ fn load_inventory_signature_devices() -> Result<Vec<InventorySignatureDevice>> {
                     name,
                     host,
                     port: loaded.port.unwrap_or(22),
-                    device_profile: loaded.device_profile.unwrap_or_else(|| "cisco".to_string()),
+                    device_profile: loaded
+                        .device_profile
+                        .unwrap_or_else(|| template_loader::DEFAULT_DEVICE_PROFILE.to_string()),
                 });
             }
             Err(err) => {

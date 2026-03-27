@@ -30,6 +30,7 @@ use config::history_store::{self, HistoryBinding};
 use config::paths::ensure_default_layout;
 use config::ssh_security::SshSecurityProfile;
 use config::template_loader;
+use config::template_loader::DEFAULT_DEVICE_PROFILE;
 use config::{backup, command_blacklist, content_store};
 use device::DeviceClient;
 use rneter::device::DeviceHandler;
@@ -845,7 +846,7 @@ fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConne
         .device_profile
         .clone()
         .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
-        .unwrap_or_else(|| "cisco".to_string());
+        .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
     let template_dir = opts.template_dir.clone().or_else(|| {
         saved
             .as_ref()

@@ -18,7 +18,13 @@
 
 ```bash
 cargo install rauto
-rauto exec "show version" --host 192.168.1.1 --username admin --password '******'
+
+# Linux is now the default device profile
+rauto exec "uname -a" --host 192.168.1.10 --username root --password '******'
+
+# Use an explicit network-device profile such as Cisco IOS
+rauto exec "show version" --host 192.168.1.1 --username admin --password '******' --device-profile cisco
+
 rauto web --bind 127.0.0.1 --port 3000
 ```
 
@@ -284,7 +290,7 @@ rauto device list
 ```
 
 **Using a Specific Profile:**
-Default is `cisco`. To use Huawei VRP:
+Default is `linux`. To use Huawei VRP:
 
 ```bash
 rauto template show_ver.j2 \
@@ -1041,7 +1047,7 @@ Default runtime data:
 | `--enable-password` | -                | Enable/Secret password                                          |
 | `--ssh-port`        | -                | SSH port (default: 22)                                          |
 | `--ssh-security`    | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible` |
-| `--device-profile`  | -                | Device type/profile (default: `cisco`; examples: `huawei`, `linux`, `fortinet`) |
+| `--device-profile`  | -                | Device type/profile (default: `linux`; examples: `huawei`, `linux`, `fortinet`) |
 | `--connection`      | -                | Load saved connection profile by name                           |
 | `--save-connection` | -                | Save effective connection profile after successful connect      |
 | `--save-password`   | -                | With `--save-connection`, also save password/enable_password    |

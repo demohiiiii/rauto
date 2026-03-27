@@ -8,6 +8,7 @@ use crate::config::command_flow_template::{
 };
 use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
+use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::config::{
     backup, connection_import, connection_store, connection_store::SavedConnection, content_store,
 };
@@ -2829,7 +2830,7 @@ pub async fn execute_tx_block(
                     .filter(|s| !s.trim().is_empty())
                     .cloned()
             })
-            .unwrap_or_else(|| "cisco".to_string());
+            .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
         let block_name = req
             .name
             .as_deref()

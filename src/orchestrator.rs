@@ -3,6 +3,7 @@ use crate::config::command_blacklist;
 use crate::config::connection_store::load_connection;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader;
+use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::template::renderer::Renderer;
 use crate::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
@@ -1366,7 +1367,7 @@ fn resolve_target_connection(
         .clone()
         .or_else(|| opts.device_profile.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
-        .unwrap_or_else(|| "cisco".to_string());
+        .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
     let ssh_security = target
         .ssh_security
         .or(opts.ssh_security)

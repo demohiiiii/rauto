@@ -283,7 +283,9 @@ fn sanitize_connection_ref(name: String, connection: ConnectionRequest) -> Conne
             .ssh_security
             .map(|value| value.to_string())
             .unwrap_or_default(),
-        device_profile: connection.device_profile.unwrap_or_default(),
+        device_profile: connection
+            .device_profile
+            .unwrap_or_else(|| template_loader::DEFAULT_DEVICE_PROFILE.to_string()),
     }
 }
 
@@ -395,7 +397,9 @@ impl AgentTaskService for AgentTaskGrpcService {
                 name,
                 host: loaded.host.unwrap_or_default(),
                 port: loaded.port.unwrap_or(22).into(),
-                device_profile: loaded.device_profile.unwrap_or_else(|| "cisco".to_string()),
+                device_profile: loaded
+                    .device_profile
+                    .unwrap_or_else(|| template_loader::DEFAULT_DEVICE_PROFILE.to_string()),
                 has_password,
             });
         }

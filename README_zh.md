@@ -18,7 +18,13 @@
 
 ```bash
 cargo install rauto
-rauto exec "show version" --host 192.168.1.1 --username admin --password '******'
+
+# 现在默认使用 linux profile
+rauto exec "uname -a" --host 192.168.1.10 --username root --password '******'
+
+# 如果要连接 Cisco 这类网络设备，显式指定 cisco profile
+rauto exec "show version" --host 192.168.1.1 --username admin --password '******' --device-profile cisco
+
 rauto web --bind 127.0.0.1 --port 3000
 ```
 
@@ -284,7 +290,7 @@ rauto device list
 ```
 
 **使用特定配置：**
-默认为 `cisco`。要使用 Huawei VRP：
+默认为 `linux`。要使用 Huawei VRP：
 
 ```bash
 rauto template show_ver.j2 \
@@ -1041,7 +1047,7 @@ rauto web \
 | `--enable-password` | -                | Enable/Secret 密码                                      |
 | `--ssh-port`        | -                | SSH 端口 (默认: 22)                                     |
 | `--ssh-security`    | -                | SSH 安全档位：`secure`、`balanced`、`legacy-compatible` |
-| `--device-profile`  | -                | 设备类型/profile（默认：`cisco`；例如：`huawei`、`linux`、`fortinet`） |
+| `--device-profile`  | -                | 设备类型/profile（默认：`linux`；例如：`huawei`、`linux`、`fortinet`） |
 | `--connection`      | -                | 按名称加载已保存连接配置                                |
 | `--save-connection` | -                | 成功连接后保存当前有效连接配置                          |
 | `--save-password`   | -                | 配合 `--save-connection` 使用时保存密码/enable_password |

@@ -3,6 +3,7 @@ use crate::agent::{
     list_agent_capabilities,
 };
 use crate::config::connection_store;
+use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::web::error::ApiError;
 use crate::web::models::{
     AgentInfoResponse, AgentStatusResponse, DeviceProbeRequest, DeviceProbeResponse,
@@ -122,7 +123,9 @@ async fn probe_one_connection(name: String, timeout_secs: u64) -> DeviceProbeRes
 
     let host = loaded.host.unwrap_or_default();
     let port = loaded.port.unwrap_or(22);
-    let device_profile = loaded.device_profile.unwrap_or_else(|| "cisco".to_string());
+    let device_profile = loaded
+        .device_profile
+        .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
 
     if host.trim().is_empty() {
         return DeviceProbeResult {
