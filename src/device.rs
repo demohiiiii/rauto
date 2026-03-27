@@ -98,6 +98,8 @@ impl DeviceClient {
                 mode,
                 command: command_str.to_string(),
                 timeout: Some(self.default_timeout),
+                dyn_params: Default::default(),
+                interaction: Default::default(),
             },
             sys: None, // Optional system name check
             responder: tx,

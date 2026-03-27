@@ -474,6 +474,42 @@ fn map_recording_entry_to_task_event(
                 .with_stage("connect")
                 .with_details(Some(json!({ "reason": reason }))),
         ),
+        SessionEvent::FileUploadStarted {
+            local_path,
+            remote_path,
+        } => Some(
+            TaskEventInput::new("progress", format!("Uploading file to {}", remote_path))
+                .with_stage("file_transfer")
+                .with_progress(Some(75))
+                .with_details(Some(json!({
+                    "local_path": local_path,
+                    "remote_path": remote_path
+                }))),
+        ),
+        SessionEvent::FileUploadFinished {
+            local_path,
+            remote_path,
+            success,
+            error,
+        } => Some(
+            TaskEventInput::new(
+                if *success { "completed" } else { "failed" },
+                if *success {
+                    format!("File upload finished: {}", remote_path)
+                } else {
+                    format!("File upload failed: {}", remote_path)
+                },
+            )
+            .with_stage("file_transfer")
+            .with_level(if *success { "success" } else { "error" })
+            .with_progress(Some(100))
+            .with_details(Some(json!({
+                "local_path": local_path,
+                "remote_path": remote_path,
+                "success": success,
+                "error": error
+            }))),
+        ),
         SessionEvent::PromptChanged { .. }
         | SessionEvent::StateChanged { .. }
         | SessionEvent::RawChunk { .. } => None,
