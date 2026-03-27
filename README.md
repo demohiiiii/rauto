@@ -30,6 +30,8 @@ rauto web --bind 127.0.0.1 --port 3000
 - [Usage](#usage)
   - [Template Mode (Recommended)](#1-template-mode-recommended)
   - [Direct Execution](#2-direct-execution)
+  - [Command Flow Templates](#command-flow-templates)
+  - [SFTP Upload](#sftp-upload)
   - [Device Profiles](#3-device-profiles)
   - [Web Console (Axum)](#4-web-console-axum)
   - [Template Storage Commands](#5-template-storage-commands)
@@ -54,6 +56,8 @@ rauto web --bind 127.0.0.1 --port 3000
 - **Embedded Web Assets**: Frontend files are embedded into the binary for release usage.
 - **Saved Connection Profiles**: Reuse named connection settings across commands.
 - **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
+- **Reusable Command Flow Templates**: Execute wizard-style interactive CLI workflows from saved TOML templates, including device-side file transfer, guided installers, or confirmation-heavy operational sequences.
+- **SFTP Upload**: Upload local files directly to SSH hosts that expose an `sftp` subsystem.
 - **Data Backup & Restore**: Backup full `~/.rauto` runtime data and restore when needed.
 - **Multi-device Orchestration (Web + CLI)**: Run staged serial/parallel plans across multiple devices, reusing saved connections and current `tx` / `tx-workflow` capabilities.
 - **Command Blacklist**: Block dangerous commands globally before they are sent, with `*` wildcard support.
@@ -201,11 +205,74 @@ rauto exec "show bgp neighbor" \
     --mode Enable
 ```
 
+### Command Flow Templates
+
+`rauto flow` executes a saved or ad-hoc interactive `CommandFlow` template. This is the generic abstraction for wizard-like CLI work: device-side file transfer, guided installers, feature selection prompts, or any multi-step prompt/response exchange that should stay reusable.
+
+Manage saved templates:
+
+```bash
+rauto flow-template list
+rauto flow-template show cisco_like_copy
+rauto flow-template create cisco_like_copy --file ./templates/examples/cisco-like-command-flow.toml
+rauto flow-template update cisco_like_copy --file ./my-flow-template.toml
+rauto flow-template delete cisco_like_copy
+```
+
+Execute a saved template with runtime variables:
+
+```bash
+rauto flow \
+    --template cisco_like_copy \
+    --vars-json '{"protocol":"scp","direction":"to_device","server_addr":"192.168.1.50","remote_path":"/images/new.bin","device_path":"flash:/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --connection core-01
+```
+
+Notes:
+
+- `rauto flow` is the preferred way to run interactive command flows from the CLI.
+- Saved flow templates live in SQLite and are reused by both CLI and Web.
+- Flow templates now follow `rneter 0.3.7`'s structured `CommandFlowTemplate` model instead of the older ad-hoc string template shape.
+- Flow templates can declare a `vars` schema with `name`, `type`, `required`, `default`, `options`, `label`, and `description`, so `rauto` can validate runtime vars and render form fields in the Web UI.
+- Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
+- If a step omits `mode`, `rauto` uses the first mode defined by the selected device profile.
+- `--record-level` and `--record-file` work the same way as other CLI execution commands.
+
+Ready-to-edit sample flow template:
+
+- [templates/examples/cisco-like-command-flow.toml](/Users/adam/Project/rauto-all/rauto/templates/examples/cisco-like-command-flow.toml)
+
+### SFTP Upload
+
+`rauto upload` is different from `rauto flow` with a built-in file transfer template:
+
+- `rauto flow` can drive interactive device-side `copy scp:` / `copy tftp:` flows through a saved or built-in command flow template.
+- `rauto upload` uploads a local file directly over the remote SSH server's `sftp` subsystem.
+
+Use `rauto upload` when the target host exposes SFTP, which is common on Linux hosts and uncommon on many network devices.
+
+```bash
+rauto upload \
+    --local-path ./configs/daemon.conf \
+    --remote-path /tmp/daemon.conf \
+    --host 192.168.1.20 \
+    --username admin \
+    --password secret
+```
+
+Optional flags:
+
+- `--buffer-size <bytes>`
+- `--timeout-secs <seconds>`
+- `--show-progress`
+- `--record-level <off|key-events-only|full>`
+- `--record-file <path>`
+
 ### 3. Device Profiles
 
 `rauto` supports built-in device profiles (inherited from `rneter`) and custom TOML profiles.
 
-Current built-in profiles from `rneter 0.3.2` include:
+Current built-in profiles from `rneter 0.3.7` include:
 
 - Network vendors: `cisco`, `huawei`, `h3c`, `hillstone`, `juniper`, `array`, `arista`, `fortinet`, `paloalto`, `topsec`, `venustech`, `dptech`, `chaitin`, `qianxin`, `maipu`, `checkpoint`
 - Servers: `linux`
@@ -360,13 +427,19 @@ Agent mode adds:
 - `GetAgentInfo`
 - `GetAgentStatus`
 - `ProbeDevices`
+- `ListCommandFlowTemplates`
+- `GetCommandFlowTemplate`
+- `UpsertCommandFlowTemplate`
+- `DeleteCommandFlowTemplate`
 - `ExecuteCommand`
 - `ExecuteTemplate`
+- `ExecuteCommandFlow`
+- `ExecuteUpload`
 - `ExecuteTxBlock`
 - `ExecuteTxBlockAsync`
 - `ExecuteTxWorkflowAsync`
 - `ExecuteOrchestrationAsync`
-- `exec`, `template_execute`, and `tx_block` use synchronous gRPC methods.
+- `exec`, `template_execute`, `command_flow`, `upload`, and `tx_block` use synchronous gRPC methods.
 - `tx_block` also provides an async gRPC method for manager callers that want immediate accept-and-run behavior.
 - `tx_workflow` and `orchestrate` stay async-only because they are typically long-running tasks.
 - Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
@@ -869,6 +942,8 @@ Operations (Web)                 CLI
 -------------------------------- ---------------------------------------------
 Direct Execute                   rauto exec
 Template Render + Execute        rauto template
+Command Flow Templates           rauto flow / rauto flow-template
+SFTP upload                      rauto upload
 Transaction Block (Tx Block)     rauto tx
 Transaction Workflow (Tx Flow)   rauto tx-workflow
 Multi-device Orchestration       rauto orchestrate
@@ -904,6 +979,8 @@ Execution history browser                Yes     Yes (by file)
 Session recording (auto)                 Yes     Yes
 Session replay list/inspect              Yes     Yes
 Session replay UI table/detail           Yes     No
+Device-side SCP/TFTP transfer            Yes     Yes
+SFTP upload                              Yes     Yes
 Prompt profile diagnose view             Yes     No
 Workflow builder (visual)                Yes     No
 Transaction workflow JSON execution      Yes     Yes

@@ -701,6 +701,7 @@
         <button id="tab-replay" class="tab-btn" data-tab="replay" role="tab">Session Replay</button>
         <button id="tab-prompts" class="tab-btn" data-tab="prompts" role="tab">Prompt Profiles</button>
         <button id="tab-templates" class="tab-btn" data-tab="templates" role="tab">Template Manager</button>
+        <button id="tab-transfer" class="tab-btn" data-tab="transfer" role="tab">Command Flow</button>
         <button id="tab-blacklist" class="tab-btn" data-tab="blacklist" role="tab">Command Blacklist</button>
         <button id="tab-backup" class="tab-btn" data-tab="backup" role="tab">Backup</button>
       </div>
@@ -1245,6 +1246,112 @@
           </div>
 
           <div id="template-out" class="grid gap-2"></div>
+        </div>
+      </div>
+
+      <div id="panel-transfer" class="tab-panel mt-4" role="tabpanel" hidden>
+        <h2 id="transfer-title" class="text-xl font-semibold">Command Flow</h2>
+        <div class="mt-4 grid gap-3">
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="flow-run-title" class="text-sm font-semibold text-slate-700">Run Saved Command Flow</span>
+            </div>
+            <div class="group-body grid gap-2">
+              <input id="flow-template-name" class="input" list="flow-template-options" placeholder="command flow template name" />
+              <div class="grid gap-2">
+                <div id="flow-vars-fields-title" class="text-xs font-semibold text-slate-600">Template Variables</div>
+                <div id="flow-vars-fields" class="grid gap-2"></div>
+                <div id="flow-vars-fields-hint" class="text-xs text-slate-500">Template-declared vars will appear here when available.</div>
+              </div>
+              <textarea id="flow-vars-json" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"package": "nginx"}'></textarea>
+              <div id="flow-vars-json-hint" class="text-xs text-slate-500">Use JSON for advanced overrides or extra vars not declared by the template.</div>
+              <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+                <div id="flow-hint" class="text-xs text-slate-500">Use a saved command flow template for wizard-style CLI interactions. Variables are optional and will be merged into the template render context.</div>
+                <button id="flow-exec-btn" class="btn" type="button">Run Flow</button>
+              </div>
+              <div id="flow-out" class="grid gap-2"></div>
+            </div>
+          </div>
+
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="transfer-device-title" class="text-sm font-semibold text-slate-700">Built-in File Transfer Template</span>
+            </div>
+            <div class="group-body grid gap-2">
+              <div class="grid gap-2 md:grid-cols-[1fr_auto_auto_auto]">
+                <input id="flow-template-picker" class="input" list="flow-template-options" placeholder="command flow template name (optional)" />
+                <button id="flow-template-load-btn" class="btn" type="button">Load</button>
+                <button id="flow-template-save-btn" class="btn" type="button">Save Template</button>
+                <button id="flow-template-delete-btn" class="btn btn-danger" type="button">Delete</button>
+              </div>
+              <datalist id="flow-template-options"></datalist>
+              <div class="grid gap-2 md:grid-cols-2">
+                <select id="transfer-protocol" class="input">
+                  <option value="scp">scp</option>
+                  <option value="tftp">tftp</option>
+                </select>
+                <select id="transfer-direction" class="input">
+                  <option value="to-device">to-device</option>
+                  <option value="from-device">from-device</option>
+                </select>
+              </div>
+              <div class="grid gap-2 md:grid-cols-2">
+                <input id="transfer-server-addr" class="input" placeholder="server address" />
+                <input id="transfer-remote-path" class="input" placeholder="remote path" />
+              </div>
+              <div class="grid gap-2 md:grid-cols-2">
+                <input id="transfer-device-path" class="input" placeholder="device path, e.g. flash:/image.bin" />
+                <select id="transfer-mode" class="input"></select>
+              </div>
+              <div class="grid gap-2 md:grid-cols-2">
+                <input id="transfer-username" class="input" placeholder="transfer username (required for scp)" />
+                <input id="transfer-password" class="input" type="password" placeholder="transfer password (required for scp)" />
+              </div>
+              <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+                <input id="transfer-timeout-secs" class="input" placeholder="timeout secs (default 300)" />
+                <button id="transfer-exec-btn" class="btn" type="button">Run Transfer</button>
+              </div>
+              <div class="text-xs text-slate-500" id="transfer-hint">Leave template name empty to use the built-in file transfer template.</div>
+              <div id="transfer-out" class="grid gap-2"></div>
+            </div>
+          </div>
+
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="flow-template-mgr-title" class="text-sm font-semibold text-slate-700">Command Flow Templates</span>
+            </div>
+            <div class="group-body grid gap-3">
+              <div id="flow-template-manage-hint" class="text-xs text-slate-500">Use the template name above as a reusable command flow template. Load it to edit, or save the current form as a template for next time.</div>
+              <div id="flow-template-list" class="grid gap-2"></div>
+              <textarea id="flow-template-content" class="input min-h-64 font-mono" placeholder="Command flow template TOML"></textarea>
+              <div id="flow-template-out" class="grid gap-2"></div>
+            </div>
+          </div>
+
+          <div class="group-card">
+            <div class="field-tools">
+              <span id="upload-title" class="text-sm font-semibold text-slate-700">SFTP Upload</span>
+            </div>
+            <div class="group-body grid gap-2">
+              <div class="grid gap-2 md:grid-cols-2">
+                <input id="upload-local-path" class="input" placeholder="local file path on the machine running rauto" />
+                <input id="upload-remote-path" class="input" placeholder="remote destination path" />
+              </div>
+              <div class="grid gap-2 md:grid-cols-2">
+                <input id="upload-timeout-secs" class="input" placeholder="timeout secs (default 300)" />
+                <input id="upload-buffer-size" class="input" placeholder="buffer size bytes (optional)" />
+              </div>
+              <label class="check-label">
+                <input id="upload-show-progress" type="checkbox" class="check-input" />
+                <span id="upload-show-progress-label">show progress</span>
+              </label>
+              <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+                <div class="text-xs text-slate-500" id="upload-hint">The local file path is resolved on the host running rauto.</div>
+                <button id="upload-exec-btn" class="btn" type="button">Run Upload</button>
+              </div>
+              <div id="upload-out" class="grid gap-2"></div>
+            </div>
+          </div>
         </div>
       </div>
 

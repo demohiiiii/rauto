@@ -208,6 +208,94 @@ pub struct ExecuteTemplateResponse {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ExecuteCommandFlowRequest {
+    #[serde(default)]
+    pub template_name: Option<String>,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub vars: Value,
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecuteCommandFlowResponse {
+    pub success: bool,
+    pub template_name: String,
+    pub outputs: Vec<CommandResult>,
+    pub recording_jsonl: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TransferProtocol {
+    Scp,
+    Tftp,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TransferDirection {
+    ToDevice,
+    FromDevice,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExecuteBuiltinFileTransferFlowRequest {
+    #[serde(default)]
+    pub profile: Option<String>,
+    pub protocol: TransferProtocol,
+    pub direction: TransferDirection,
+    pub server_addr: String,
+    pub remote_path: String,
+    pub device_path: String,
+    #[serde(default)]
+    pub transfer_username: Option<String>,
+    #[serde(default)]
+    pub transfer_password: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecuteBuiltinFileTransferFlowResponse {
+    pub success: bool,
+    pub resolved_mode: String,
+    pub outputs: Vec<CommandResult>,
+    pub recording_jsonl: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExecuteUploadRequest {
+    pub local_path: String,
+    pub remote_path: String,
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
+    #[serde(default)]
+    pub buffer_size: Option<usize>,
+    #[serde(default)]
+    pub show_progress: bool,
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecuteUploadResponse {
+    pub ok: bool,
+    pub local_path: String,
+    pub remote_path: String,
+    pub recording_jsonl: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ExecuteTxBlockRequest {
     pub name: Option<String>,
     pub template: Option<String>,
@@ -431,6 +519,34 @@ pub struct TemplateDetail {
     pub content: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct CommandFlowTemplateMeta {
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommandFlowTemplateVarField {
+    pub name: String,
+    pub label: String,
+    pub description: Option<String>,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub required: bool,
+    pub placeholder: Option<String>,
+    pub options: Vec<String>,
+    #[serde(rename = "default")]
+    pub default_value: Option<Value>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommandFlowTemplateDetail {
+    pub name: String,
+    pub path: String,
+    pub content: String,
+    pub vars_schema: Vec<CommandFlowTemplateVarField>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateTemplateRequest {
     pub name: String,
@@ -439,6 +555,17 @@ pub struct CreateTemplateRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateTemplateRequest {
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateCommandFlowTemplateRequest {
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateCommandFlowTemplateRequest {
     pub content: String,
 }
 

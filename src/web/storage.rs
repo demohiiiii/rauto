@@ -3,7 +3,8 @@ use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    BuiltinProfileDetail, BuiltinProfileMeta, CustomProfileMeta, TemplateMeta,
+    BuiltinProfileDetail, BuiltinProfileMeta, CommandFlowTemplateMeta, CustomProfileMeta,
+    TemplateMeta,
 };
 use rneter::templates::{TemplateCapability, by_name_config, template_catalog, template_metadata};
 
@@ -116,6 +117,17 @@ pub fn list_templates() -> Result<Vec<TemplateMeta>, ApiError> {
         .collect())
 }
 
+pub fn list_command_flow_templates() -> Result<Vec<CommandFlowTemplateMeta>, ApiError> {
+    Ok(content_store::list_command_flow_templates()
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(|item| CommandFlowTemplateMeta {
+            name: item.name,
+            path: item.locator,
+        })
+        .collect())
+}
+
 pub fn safe_profile_name(raw: &str) -> Result<String, ApiError> {
     let normalized = raw.trim().trim_end_matches(".toml");
     if normalized.is_empty() || !is_safe_name(normalized) {
@@ -128,6 +140,14 @@ pub fn safe_template_name(raw: &str) -> Result<String, ApiError> {
     let normalized = raw.trim();
     if normalized.is_empty() || !is_safe_template_name(normalized) {
         return Err(ApiError::bad_request("invalid template name"));
+    }
+    Ok(normalized.to_string())
+}
+
+pub fn safe_command_flow_template_name(raw: &str) -> Result<String, ApiError> {
+    let normalized = raw.trim().trim_end_matches(".toml");
+    if normalized.is_empty() || !is_safe_name(normalized) {
+        return Err(ApiError::bad_request("invalid command flow template name"));
     }
     Ok(normalized.to_string())
 }

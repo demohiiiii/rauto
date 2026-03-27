@@ -3,36 +3,55 @@ use crate::agent_task_grpc::rauto::agent::v1::agent_task_service_server::{
 };
 use crate::agent_task_grpc::rauto::agent::v1::{
     AcceptedTaskResponse, AgentInfoRequest, AgentInfoResponse, AgentStatusRequest,
-    AgentStatusResponse, BuiltinProfileMeta, CommandExecutionResult, ConnectionMeta, ConnectionRef,
-    CustomProfileMeta, DeviceProbeResult, ExecuteCommandRequest, ExecuteCommandResponse,
+    AgentStatusResponse, BuiltinProfileMeta, CommandExecutionResult,
+    CommandFlowTemplateDetail as GrpcCommandFlowTemplateDetail,
+    CommandFlowTemplateMeta as GrpcCommandFlowTemplateMeta,
+    CommandFlowTemplateVarField as GrpcCommandFlowTemplateVarField, ConnectionMeta, ConnectionRef,
+    CustomProfileMeta, DeleteCommandFlowTemplateRequest, DeleteCommandFlowTemplateResponse,
+    DeviceProbeResult, ExecuteCommandFlowRequest as GrpcExecuteCommandFlowRequest,
+    ExecuteCommandFlowResponse, ExecuteCommandRequest, ExecuteCommandResponse,
     ExecuteOrchestrationRequest as GrpcExecuteOrchestrationRequest,
     ExecuteTemplateRequest as GrpcExecuteTemplateRequest, ExecuteTemplateResponse,
     ExecuteTxBlockRequest as GrpcExecuteTxBlockRequest, ExecuteTxBlockResponse,
-    ExecuteTxWorkflowRequest as GrpcExecuteTxWorkflowRequest, ListConnectionsRequest,
-    ListConnectionsResponse, ListDeviceProfilesRequest, ListDeviceProfilesResponse,
-    ListProfileModesRequest, ListProfileModesResponse, ListTemplatesRequest, ListTemplatesResponse,
-    ProbeDevicesRequest, ProbeDevicesResponse, SystemInfo, TemplateMeta, TestConnectionRequest,
-    TestConnectionResponse, UpsertConnectionRequest as GrpcUpsertConnectionRequest,
+    ExecuteTxWorkflowRequest as GrpcExecuteTxWorkflowRequest,
+    ExecuteUploadRequest as GrpcExecuteUploadRequest, ExecuteUploadResponse,
+    GetCommandFlowTemplateRequest, ListCommandFlowTemplatesRequest,
+    ListCommandFlowTemplatesResponse, ListConnectionsRequest, ListConnectionsResponse,
+    ListDeviceProfilesRequest, ListDeviceProfilesResponse, ListProfileModesRequest,
+    ListProfileModesResponse, ListTemplatesRequest, ListTemplatesResponse, ProbeDevicesRequest,
+    ProbeDevicesResponse, SystemInfo, TemplateMeta, TestConnectionRequest, TestConnectionResponse,
+    UpsertCommandFlowTemplateRequest, UpsertConnectionRequest as GrpcUpsertConnectionRequest,
     UpsertConnectionResponse,
 };
-use crate::config::connection_store;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader;
+use crate::config::{connection_store, content_store};
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::error::ApiError;
 use crate::web::handlers::{
-    exec_command as exec_command_handler, execute_template as execute_template_handler,
-    execute_tx_block as execute_tx_block_handler, list_templates as list_templates_handler,
-    profiles_overview as profiles_overview_handler, queue_orchestration_async_task,
-    queue_tx_block_async_task, queue_tx_workflow_async_task,
-    test_connection as test_connection_handler, upsert_connection as upsert_connection_handler,
+    create_command_flow_template as create_command_flow_template_handler,
+    delete_command_flow_template as delete_command_flow_template_handler,
+    exec_command as exec_command_handler, execute_command_flow as execute_command_flow_handler,
+    execute_template as execute_template_handler, execute_tx_block as execute_tx_block_handler,
+    execute_upload as execute_upload_handler,
+    get_command_flow_template as get_command_flow_template_handler,
+    list_command_flow_templates as list_command_flow_templates_handler,
+    list_templates as list_templates_handler, profiles_overview as profiles_overview_handler,
+    queue_orchestration_async_task, queue_tx_block_async_task, queue_tx_workflow_async_task,
+    test_connection as test_connection_handler,
+    update_command_flow_template as update_command_flow_template_handler,
+    upsert_connection as upsert_connection_handler,
 };
 use crate::web::models::{
-    CommandResult, ConnectionRequest, ConnectionTestRequest, ExecRequest,
+    CommandFlowTemplateDetail as WebCommandFlowTemplateDetail,
+    CommandFlowTemplateMeta as WebCommandFlowTemplateMeta, CommandResult, ConnectionRequest,
+    ConnectionTestRequest, CreateCommandFlowTemplateRequest, ExecRequest,
+    ExecuteCommandFlowRequest as WebExecuteCommandFlowRequest,
     ExecuteOrchestrationRequest as WebExecuteOrchestrationRequest,
     ExecuteTemplateRequest as WebExecuteTemplateRequest,
     ExecuteTxBlockRequest as WebExecuteTxBlockRequest,
-    ExecuteTxWorkflowRequest as WebExecuteTxWorkflowRequest, RecordLevel,
+    ExecuteTxWorkflowRequest as WebExecuteTxWorkflowRequest,
+    ExecuteUploadRequest as WebExecuteUploadRequest, RecordLevel, UpdateCommandFlowTemplateRequest,
     UpsertConnectionRequest as WebUpsertConnectionRequest,
 };
 use crate::web::state::AppState;
@@ -190,6 +209,52 @@ fn map_command_result(result: CommandResult) -> CommandExecutionResult {
         output: result.output,
         error: result.error,
     }
+}
+
+fn encode_json_value(value: Option<Value>) -> Result<Option<String>, Status> {
+    value
+        .map(|item| {
+            serde_json::to_string(&item).map_err(|err| {
+                Status::internal(format!(
+                    "failed to serialize command flow template value: {}",
+                    err
+                ))
+            })
+        })
+        .transpose()
+}
+
+fn map_command_flow_template_meta(meta: WebCommandFlowTemplateMeta) -> GrpcCommandFlowTemplateMeta {
+    GrpcCommandFlowTemplateMeta {
+        name: meta.name,
+        path: meta.path,
+    }
+}
+
+fn map_command_flow_template_detail(
+    detail: WebCommandFlowTemplateDetail,
+) -> Result<GrpcCommandFlowTemplateDetail, Status> {
+    Ok(GrpcCommandFlowTemplateDetail {
+        name: detail.name,
+        path: detail.path,
+        content: detail.content,
+        vars_schema: detail
+            .vars_schema
+            .into_iter()
+            .map(|field| {
+                Ok(GrpcCommandFlowTemplateVarField {
+                    name: field.name,
+                    label: field.label,
+                    description: field.description,
+                    kind: field.kind,
+                    required: field.required,
+                    placeholder: field.placeholder,
+                    options: field.options,
+                    default_json: encode_json_value(field.default_value)?,
+                })
+            })
+            .collect::<Result<Vec<_>, Status>>()?,
+    })
 }
 
 fn connection_ref_to_request(connection: ConnectionRef) -> Result<ConnectionRequest, Status> {
@@ -415,6 +480,97 @@ impl AgentTaskService for AgentTaskGrpcService {
         }))
     }
 
+    async fn list_command_flow_templates(
+        &self,
+        request: Request<ListCommandFlowTemplatesRequest>,
+    ) -> Result<Response<ListCommandFlowTemplatesResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let _ = request.into_inner();
+        let Json(response) = list_command_flow_templates_handler(State(self.state.clone()))
+            .await
+            .map_err(api_error_to_status)?;
+
+        Ok(Response::new(ListCommandFlowTemplatesResponse {
+            templates: response
+                .into_iter()
+                .map(map_command_flow_template_meta)
+                .collect(),
+        }))
+    }
+
+    async fn get_command_flow_template(
+        &self,
+        request: Request<GetCommandFlowTemplateRequest>,
+    ) -> Result<Response<GrpcCommandFlowTemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = get_command_flow_template_handler(
+            State(self.state.clone()),
+            axum::extract::Path(req.name),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_command_flow_template_detail(response)?))
+    }
+
+    async fn upsert_command_flow_template(
+        &self,
+        request: Request<UpsertCommandFlowTemplateRequest>,
+    ) -> Result<Response<GrpcCommandFlowTemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let exists = content_store::load_command_flow_template(req.name.trim())
+            .map_err(|err| {
+                Status::internal(format!("failed to load command flow template: {}", err))
+            })?
+            .is_some();
+
+        let Json(response) = if exists {
+            update_command_flow_template_handler(
+                State(self.state.clone()),
+                axum::extract::Path(req.name),
+                Json(UpdateCommandFlowTemplateRequest {
+                    content: req.content,
+                }),
+            )
+            .await
+        } else {
+            create_command_flow_template_handler(
+                State(self.state.clone()),
+                Json(CreateCommandFlowTemplateRequest {
+                    name: req.name,
+                    content: req.content,
+                }),
+            )
+            .await
+        }
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_command_flow_template_detail(response)?))
+    }
+
+    async fn delete_command_flow_template(
+        &self,
+        request: Request<DeleteCommandFlowTemplateRequest>,
+    ) -> Result<Response<DeleteCommandFlowTemplateResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = delete_command_flow_template_handler(
+            State(self.state.clone()),
+            axum::extract::Path(req.name),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(DeleteCommandFlowTemplateResponse {
+            ok: response
+                .get("ok")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(true),
+        }))
+    }
+
     async fn list_device_profiles(
         &self,
         request: Request<ListDeviceProfilesRequest>,
@@ -530,6 +686,70 @@ impl AgentTaskService for AgentTaskGrpcService {
                 .into_iter()
                 .map(map_command_result)
                 .collect(),
+            recording_jsonl: response.recording_jsonl,
+        }))
+    }
+
+    async fn execute_command_flow(
+        &self,
+        request: Request<GrpcExecuteCommandFlowRequest>,
+    ) -> Result<Response<ExecuteCommandFlowResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = execute_command_flow_handler(
+            State(self.state.clone()),
+            Json(WebExecuteCommandFlowRequest {
+                template_name: req.template_name.and_then(optional_string),
+                content: req.content.and_then(optional_string),
+                vars: parse_json_value(
+                    req.vars_json.as_deref().unwrap_or_default(),
+                    "vars_json",
+                    Value::Null,
+                )?,
+                connection: map_connection_ref(req.connection)?,
+                record_level: parse_record_level(&req.record_level)?,
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(ExecuteCommandFlowResponse {
+            success: response.success,
+            template_name: response.template_name,
+            outputs: response
+                .outputs
+                .into_iter()
+                .map(map_command_result)
+                .collect(),
+            recording_jsonl: response.recording_jsonl,
+        }))
+    }
+
+    async fn execute_upload(
+        &self,
+        request: Request<GrpcExecuteUploadRequest>,
+    ) -> Result<Response<ExecuteUploadResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = execute_upload_handler(
+            State(self.state.clone()),
+            Json(WebExecuteUploadRequest {
+                local_path: req.local_path,
+                remote_path: req.remote_path,
+                timeout_secs: req.timeout_secs,
+                buffer_size: req.buffer_size.map(|value| value as usize),
+                show_progress: req.show_progress,
+                connection: map_connection_ref(req.connection)?,
+                record_level: parse_record_level(&req.record_level)?,
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(ExecuteUploadResponse {
+            ok: response.ok,
+            local_path: response.local_path,
+            remote_path: response.remote_path,
             recording_jsonl: response.recording_jsonl,
         }))
     }

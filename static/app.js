@@ -80,6 +80,8 @@ const i18n = {
     tabReplay: "Session Replay",
     tabPrompts: "Prompt Profiles",
     tabTemplates: "Template Manager",
+    tabTransfer: "Command Flow",
+    tabFlowTemplates: "Command Flow Templates",
     tabBlacklist: "Command Blacklist",
     tabBackup: "Backup",
     opsTitle: "Operations",
@@ -312,6 +314,11 @@ const i18n = {
     builtinFieldNotes: "notes",
     customTitle: "Custom Profiles",
     templateMgrTitle: "Template Manager",
+    transferTitle: "Command Flow",
+    flowRunTitle: "Run Saved Command Flow",
+    transferDeviceTitle: "Built-in File Transfer Template",
+    uploadTitle: "SFTP Upload",
+    flowTemplateMgrTitle: "Command Flow Templates",
     backupTitle: "Backup & Restore",
     backupCreateTitle: "Create Backup",
     backupListTitle: "Backup Archives",
@@ -358,7 +365,37 @@ const i18n = {
     templateListTitle: "Templates",
     templateListEmpty: "no templates",
     templateUseBtn: "Open",
+    flowHint:
+      "Use a saved command flow template for wizard-style CLI interactions. Variables are optional and will be merged into the template render context.",
+    flowVarsFieldsTitle: "Template Variables",
+    flowVarsFieldsHint: "Template-declared vars will appear here when available.",
+    flowVarsFieldsEmpty: "This template does not declare any vars.",
+    flowVarsJsonHint:
+      "Use JSON for advanced overrides or extra vars not declared by the template.",
+    flowVarTypeLabel: "Type",
+    flowVarRequiredLabel: "Required",
+    flowVarOptionalLabel: "Optional",
+    flowVarTypeString: "string",
+    flowVarTypeSecret: "secret",
+    flowVarTypeNumber: "number",
+    flowVarTypeBoolean: "boolean",
+    flowVarTypeJson: "json",
+    flowVarRequiredSuffix: "is required",
+    flowVarJsonInvalid: "must be valid JSON",
+    flowVarNumberInvalid: "must be a valid number",
+    flowVarsObjectRequired: "flow vars JSON must be an object",
+    flowExecBtn: "Run Flow",
+    transferHint:
+      "Select a command flow template name to use a saved manual flow. Leave it empty to use the built-in file transfer template.",
+    uploadHint: "The local file path is resolved on the host running rauto.",
+    transferExecBtn: "Run Transfer",
+    uploadExecBtn: "Run Upload",
+    uploadShowProgressLabel: "show progress",
+    flowTemplateListTitle: "Templates",
+    flowTemplateListEmpty: "no command flow templates",
+    flowTemplateUseBtn: "Open",
     templateEditorTitle: "Editor",
+    flowTemplateEditorTitle: "Editor",
     renderBtn: "Preview Render",
     execBtn: "Execute",
     templateExecBtn: "Run Template",
@@ -458,6 +495,9 @@ const i18n = {
     commandExecutionMarkerPlaceholder: "exit status marker",
     templateSaveBtn: "Save",
     templateDeleteBtn: "Delete",
+    flowTemplateLoadBtn: "Load",
+    flowTemplateSaveBtn: "Save Template",
+    flowTemplateDeleteBtn: "Delete",
     deleteInlineBtn: "Delete",
     addInlineBtn: "+ Add",
     addPatternInlineBtn: "+ Add Pattern",
@@ -500,6 +540,30 @@ const i18n = {
     customProfilePickerPlaceholder: "search/select custom profile name",
     templateViewPickerPlaceholder: "search/select template name",
     templateContentPlaceholder: "Template content",
+    flowTemplateRunPlaceholder: "command flow template name",
+    flowVarsPlaceholder: 'JSON vars, e.g. {"package": "nginx"}',
+    flowTemplatePickerPlaceholder: "command flow template name (optional)",
+    transferServerAddrPlaceholder: "server address",
+    transferRemotePathPlaceholder: "remote path",
+    transferDevicePathPlaceholder: "device path, e.g. flash:/image.bin",
+    transferModePlaceholder: "mode (optional, uses profile default)",
+    transferUsernamePlaceholder: "transfer username (required for scp)",
+    transferPasswordPlaceholder: "transfer password (required for scp)",
+    transferTimeoutPlaceholder: "timeout secs (default 300)",
+    flowTemplateViewPickerPlaceholder:
+      "search/select command flow template name",
+    flowTemplateContentPlaceholder: "Command flow template TOML",
+    flowTemplateManageHint:
+      "The template name above is used during execution. Load a saved command flow template to edit its TOML, or save the editor content as a reusable template.",
+    uploadLocalPathPlaceholder:
+      "local file path on the machine running rauto",
+    uploadRemotePathPlaceholder: "remote destination path",
+    uploadTimeoutPlaceholder: "timeout secs (default 300)",
+    uploadBufferSizePlaceholder: "buffer size bytes (optional)",
+    serverAddrRequired: "server address is required",
+    devicePathRequired: "device path is required",
+    localPathRequired: "local path is required",
+    remotePathRequired: "remote path is required",
     running: "running...",
     requestFailed: "Request failed",
     commandRequired: "command is required",
@@ -511,6 +575,7 @@ const i18n = {
     loaded: "Loaded",
     needLoadBuiltinFirst: "Load builtin detail first",
     copiedToCustom: "Copied to custom form",
+    flowTemplateNameRequired: "command flow template name is required",
   },
   zh: {
     title: "rauto Web 控制台",
@@ -571,6 +636,8 @@ const i18n = {
     tabReplay: "会话回放",
     tabPrompts: "Prompt 管理",
     tabTemplates: "Template 管理",
+    tabTransfer: "命令流程",
+    tabFlowTemplates: "命令流程模板",
     tabBlacklist: "命令黑名单",
     tabBackup: "备份恢复",
     opsTitle: "常用操作",
@@ -793,6 +860,11 @@ const i18n = {
     builtinFieldNotes: "说明",
     customTitle: "自定义 Profile",
     templateMgrTitle: "Template 管理",
+    transferTitle: "命令流程",
+    flowRunTitle: "执行已保存命令流程",
+    transferDeviceTitle: "内置文件传输模板",
+    uploadTitle: "SFTP 上传",
+    flowTemplateMgrTitle: "命令流程模板",
     backupTitle: "备份与恢复",
     backupCreateTitle: "创建备份",
     backupListTitle: "备份归档",
@@ -837,7 +909,36 @@ const i18n = {
     templateListTitle: "Template 列表",
     templateListEmpty: "暂无 template",
     templateUseBtn: "打开",
+    flowHint:
+      "已保存命令流程模板适合执行向导式 CLI 交互。变量可选，会并入模板渲染上下文。",
+    flowVarsFieldsTitle: "模板变量",
+    flowVarsFieldsHint: "模板声明的变量会在这里自动渲染。",
+    flowVarsFieldsEmpty: "该模板没有声明变量。",
+    flowVarsJsonHint: "JSON 区域可用于填写高级覆盖值，或补充模板未声明的额外变量。",
+    flowVarTypeLabel: "类型",
+    flowVarRequiredLabel: "必填",
+    flowVarOptionalLabel: "可选",
+    flowVarTypeString: "字符串",
+    flowVarTypeSecret: "密文",
+    flowVarTypeNumber: "数字",
+    flowVarTypeBoolean: "布尔值",
+    flowVarTypeJson: "JSON",
+    flowVarRequiredSuffix: "不能为空",
+    flowVarJsonInvalid: "必须是合法 JSON",
+    flowVarNumberInvalid: "必须是有效数字",
+    flowVarsObjectRequired: "命令流程变量 JSON 必须是对象",
+    flowExecBtn: "执行流程",
+    transferHint:
+      "填写命令流程模板名称时会使用已保存的手工交互流程；留空则使用内置设备传输流程。",
+    uploadHint: "本地文件路径会在运行 rauto 的主机上解析。",
+    transferExecBtn: "执行传输",
+    uploadExecBtn: "执行上传",
+    uploadShowProgressLabel: "显示进度",
+    flowTemplateListTitle: "模板列表",
+    flowTemplateListEmpty: "还没有命令流程模板",
+    flowTemplateUseBtn: "打开",
     templateEditorTitle: "编辑器",
+    flowTemplateEditorTitle: "编辑器",
     renderBtn: "预览渲染",
     execBtn: "执行",
     templateExecBtn: "运行模板",
@@ -937,6 +1038,9 @@ const i18n = {
     commandExecutionMarkerPlaceholder: "退出码标记(marker)",
     templateSaveBtn: "保存",
     templateDeleteBtn: "删除",
+    flowTemplateLoadBtn: "加载",
+    flowTemplateSaveBtn: "保存模板",
+    flowTemplateDeleteBtn: "删除",
     deleteInlineBtn: "删除",
     addInlineBtn: "+ 添加",
     addPatternInlineBtn: "+ 添加 Pattern",
@@ -985,6 +1089,28 @@ const i18n = {
     customProfilePickerPlaceholder: "搜索/选择自定义 profile 名称",
     templateViewPickerPlaceholder: "搜索/选择 template 名称",
     templateContentPlaceholder: "Template 内容",
+    flowTemplateRunPlaceholder: "命令流程模板名称",
+    flowVarsPlaceholder: 'JSON 变量，例如 {"package": "nginx"}',
+    flowTemplatePickerPlaceholder: "命令流程模板名称（可选）",
+    transferServerAddrPlaceholder: "服务器地址",
+    transferRemotePathPlaceholder: "远端路径",
+    transferDevicePathPlaceholder: "设备路径，例如 flash:/image.bin",
+    transferModePlaceholder: "模式（可选，默认使用 profile 的首个状态）",
+    transferUsernamePlaceholder: "传输用户名（scp 必填）",
+    transferPasswordPlaceholder: "传输密码（scp 必填）",
+    transferTimeoutPlaceholder: "超时秒数（默认 300）",
+    flowTemplateViewPickerPlaceholder: "搜索/选择命令流程模板名称",
+    flowTemplateContentPlaceholder: "命令流程模板 TOML",
+    flowTemplateManageHint:
+      "上面的模板名称会在执行时生效。可以先加载已有命令流程模板编辑其 TOML，也可以把编辑器中的内容保存成可复用模板。",
+    uploadLocalPathPlaceholder: "本地文件路径（rauto 所在主机）",
+    uploadRemotePathPlaceholder: "远端目标路径",
+    uploadTimeoutPlaceholder: "超时秒数（默认 300）",
+    uploadBufferSizePlaceholder: "缓冲区大小（字节，可选）",
+    serverAddrRequired: "服务器地址不能为空",
+    devicePathRequired: "设备路径不能为空",
+    localPathRequired: "本地路径不能为空",
+    remotePathRequired: "远端路径不能为空",
     running: "执行中...",
     requestFailed: "请求失败",
     commandRequired: "命令不能为空",
@@ -996,6 +1122,7 @@ const i18n = {
     loaded: "已加载",
     needLoadBuiltinFirst: "请先加载内置详情",
     copiedToCustom: "已复制到新增/修改表单",
+    flowTemplateNameRequired: "命令流程模板名称不能为空",
   },
 };
 
@@ -1010,11 +1137,15 @@ let cachedCustomProfiles = [];
 let cachedDeviceProfiles = [];
 let cachedTemplates = [];
 let cachedTemplateMetas = [];
+let cachedFlowTemplateNames = [];
+let cachedFlowTemplateMetas = [];
 let cachedBackups = [];
 let cachedBlacklistPatterns = [];
 let cachedProfileModes = new Map();
 let lastBuiltinProfile = null;
 let lastTemplateDetail = null;
+let lastFlowTemplateDetail = null;
+let lastFlowRunTemplateDetail = null;
 let lastDiagnoseSnapshot = null;
 let lastTemplateExecResult = null;
 let lastBlacklistCheckResult = null;
@@ -1252,6 +1383,7 @@ function applyI18n() {
   byId("tab-replay").textContent = t("tabReplay");
   byId("tab-prompts").textContent = t("tabPrompts");
   byId("tab-templates").textContent = t("tabTemplates");
+  byId("tab-transfer").textContent = t("tabTransfer");
   byId("tab-blacklist").textContent = t("tabBlacklist");
   byId("tab-backup").textContent = t("tabBackup");
 
@@ -1304,8 +1436,17 @@ function applyI18n() {
   byId("builtin-title").textContent = t("builtinTitle");
   byId("custom-title").textContent = t("customTitle");
   byId("template-mgr-title").textContent = t("templateMgrTitle");
+  byId("transfer-title").textContent = t("transferTitle");
+  byId("flow-run-title").textContent = t("flowRunTitle");
+  byId("flow-vars-fields-title").textContent = t("flowVarsFieldsTitle");
+  byId("flow-vars-fields-hint").textContent = t("flowVarsFieldsHint");
+  byId("flow-vars-json-hint").textContent = t("flowVarsJsonHint");
+  byId("transfer-device-title").textContent = t("transferDeviceTitle");
+  byId("upload-title").textContent = t("uploadTitle");
   byId("template-list-title").textContent = t("templateListTitle");
   byId("template-editor-title").textContent = t("templateEditorTitle");
+  byId("flow-template-mgr-title").textContent = t("flowTemplateMgrTitle");
+  byId("flow-template-manage-hint").textContent = t("flowTemplateManageHint");
   byId("blacklist-title").textContent = t("blacklistTitle");
   byId("blacklist-list-title").textContent = t("blacklistListTitle");
   byId("blacklist-add-title").textContent = t("blacklistAddTitle");
@@ -1388,6 +1529,13 @@ function applyI18n() {
   byId("builtin-command-execution-marker").placeholder = t("commandExecutionMarkerPlaceholder");
   byId("template-save-btn").textContent = t("templateSaveBtn");
   byId("template-delete-btn").textContent = t("templateDeleteBtn");
+  byId("flow-exec-btn").textContent = t("flowExecBtn");
+  byId("transfer-exec-btn").textContent = t("transferExecBtn");
+  byId("upload-exec-btn").textContent = t("uploadExecBtn");
+  byId("upload-show-progress-label").textContent = t("uploadShowProgressLabel");
+  byId("flow-template-load-btn").textContent = t("flowTemplateLoadBtn");
+  byId("flow-template-save-btn").textContent = t("flowTemplateSaveBtn");
+  byId("flow-template-delete-btn").textContent = t("flowTemplateDeleteBtn");
   byId("add-more-pattern-btn").textContent = t("addInlineBtn");
   byId("add-error-pattern-btn").textContent = t("addInlineBtn");
   byId("add-ignore-error-btn").textContent = t("addInlineBtn");
@@ -1539,8 +1687,22 @@ function applyI18n() {
   byId("builtin-detail-source").placeholder = t("builtinFieldSource");
   byId("builtin-detail-notes").placeholder = t("builtinFieldNotes");
   byId("template-pick-name").placeholder = t("templateViewPickerPlaceholder");
+  byId("flow-template-name").placeholder = t("flowTemplateRunPlaceholder");
+  byId("flow-vars-json").placeholder = t("flowVarsPlaceholder");
+  byId("flow-hint").textContent = t("flowHint");
+  byId("flow-template-picker").placeholder = t("flowTemplatePickerPlaceholder");
+  byId("transfer-server-addr").placeholder = t("transferServerAddrPlaceholder");
+  byId("transfer-remote-path").placeholder = t("transferRemotePathPlaceholder");
+  byId("transfer-device-path").placeholder = t("transferDevicePathPlaceholder");
+  byId("transfer-mode").placeholder = t("transferModePlaceholder");
+  byId("transfer-username").placeholder = t("transferUsernamePlaceholder");
+  byId("transfer-password").placeholder = t("transferPasswordPlaceholder");
+  byId("transfer-timeout-secs").placeholder = t("transferTimeoutPlaceholder");
+  byId("transfer-hint").textContent = t("transferHint");
   renderSavedConnectionList();
   renderTemplateList();
+  renderFlowTemplateOptions();
+  renderFlowTemplateList();
   renderCustomProfileOptions();
   renderDiagnoseProfileOptions();
   renderTemplateOptions();
@@ -1548,6 +1710,16 @@ function applyI18n() {
     renderDiagnoseResult(lastDiagnoseSnapshot.name, lastDiagnoseSnapshot.report);
   }
   byId("template-content").placeholder = t("templateContentPlaceholder");
+  byId("upload-local-path").placeholder = t("uploadLocalPathPlaceholder");
+  byId("upload-remote-path").placeholder = t("uploadRemotePathPlaceholder");
+  byId("upload-timeout-secs").placeholder = t("uploadTimeoutPlaceholder");
+  byId("upload-buffer-size").placeholder = t("uploadBufferSizePlaceholder");
+  byId("upload-hint").textContent = t("uploadHint");
+  byId("flow-template-content").placeholder = t("flowTemplateContentPlaceholder");
+  renderFlowTemplateVarFields(
+    lastFlowRunTemplateDetail,
+    getCurrentFlowTemplateFieldDraft()
+  );
   byId("interactive-command").placeholder = t("interactiveCommandPlaceholder");
   byId("interactive-mode").placeholder = t("interactiveModePlaceholder");
   setEventKindOptions("record-event-kind", recordEventKind);
@@ -1646,6 +1818,7 @@ async function refreshProtectedData() {
     loadSavedConnections(),
     loadProfilesOverview(),
     loadTemplates(),
+    loadFlowTemplates(),
     loadBlacklistPatterns(),
     loadBackups(),
   ]);
@@ -1682,7 +1855,16 @@ function localizeDynamicFields() {
 }
 
 function applyTabs() {
-  const tabs = ["ops", "interactive", "replay", "prompts", "templates", "blacklist", "backup"];
+  const tabs = [
+    "ops",
+    "interactive",
+    "replay",
+    "prompts",
+    "templates",
+    "transfer",
+    "blacklist",
+    "backup",
+  ];
   for (const tab of tabs) {
     const button = byId(`tab-${tab}`);
     const panel = byId(`panel-${tab}`);
@@ -2087,6 +2269,297 @@ function setStatusMessage(id, message, tone = "info") {
   const el = byId(id);
   if (!el) return;
   el.innerHTML = renderStatusMessageCard(message, tone);
+}
+
+function flowVarTypeLabel(kind) {
+  switch (safeString(kind).trim()) {
+    case "secret":
+      return t("flowVarTypeSecret");
+    case "number":
+      return t("flowVarTypeNumber");
+    case "boolean":
+      return t("flowVarTypeBoolean");
+    case "json":
+      return t("flowVarTypeJson");
+    case "string":
+    default:
+      return t("flowVarTypeString");
+  }
+}
+
+function normalizeFlowTemplateVarSchema(item) {
+  if (!item || !safeString(item.name).trim()) return null;
+  const kind = safeString(item.type || item.kind || "string")
+    .trim()
+    .toLowerCase();
+  return {
+    name: safeString(item.name).trim(),
+    label: safeString(item.label || item.name).trim() || safeString(item.name).trim(),
+    description: safeString(item.description).trim() || "",
+    kind: kind || "string",
+    required: !!item.required,
+    placeholder: safeString(item.placeholder).trim(),
+    options: Array.isArray(item.options)
+      ? item.options.map((value) => safeString(value)).filter(Boolean)
+      : [],
+    defaultValue:
+      item.default !== undefined ? item.default : item.default_value,
+  };
+}
+
+function getFlowRunVarsSchema(detail = lastFlowRunTemplateDetail) {
+  if (!detail || !Array.isArray(detail.vars_schema)) return [];
+  return detail.vars_schema
+    .map(normalizeFlowTemplateVarSchema)
+    .filter(Boolean);
+}
+
+function defaultFlowVarDraft(field) {
+  if (!field || field.defaultValue === undefined || field.defaultValue === null) {
+    return "";
+  }
+  if (field.kind === "boolean") {
+    if (field.defaultValue === true) return "true";
+    if (field.defaultValue === false) return "false";
+    return "";
+  }
+  if (field.kind === "json") {
+    try {
+      return JSON.stringify(field.defaultValue, null, 2);
+    } catch (_) {
+      return "";
+    }
+  }
+  return safeString(field.defaultValue);
+}
+
+function getCurrentFlowTemplateFieldDraft() {
+  const container = byId("flow-vars-fields");
+  if (!container) return {};
+  const draft = {};
+  container.querySelectorAll("[data-flow-var-name]").forEach((el) => {
+    const name = safeString(el.getAttribute("data-flow-var-name")).trim();
+    if (!name) return;
+    draft[name] = el.value;
+  });
+  return draft;
+}
+
+function renderFlowTemplateVarField(field, draftValue) {
+  const value = draftValue !== undefined ? safeString(draftValue) : defaultFlowVarDraft(field);
+  const requiredBadge = field.required
+    ? `<span class="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">${escapeHtml(
+        t("flowVarRequiredLabel")
+      )}</span>`
+    : `<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">${escapeHtml(
+        t("flowVarOptionalLabel")
+      )}</span>`;
+  const typeBadge = `<span class="inline-flex items-center rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">${escapeHtml(
+    `${t("flowVarTypeLabel")}: ${flowVarTypeLabel(field.kind)}`
+  )}</span>`;
+  const description = field.description
+    ? `<div class="text-xs text-slate-500">${escapeHtml(field.description)}</div>`
+    : "";
+  const placeholderAttr = field.placeholder
+    ? ` placeholder="${escapeHtml(field.placeholder)}"`
+    : "";
+  const elementId = `flow-var-${field.name}`;
+  let controlHtml = "";
+
+  if (field.options.length && field.kind !== "json" && field.kind !== "boolean") {
+    const allowEmpty = !field.required && (field.defaultValue === undefined || field.defaultValue === null);
+    const optionsHtml = [
+      allowEmpty
+        ? `<option value=""></option>`
+        : "",
+      ...field.options.map((option) => {
+        const selected = value === option ? "selected" : "";
+        return `<option value="${escapeHtml(option)}" ${selected}>${escapeHtml(option)}</option>`;
+      }),
+    ].join("");
+    controlHtml = `<select id="${escapeHtml(
+      elementId
+    )}" class="input" data-flow-var-name="${escapeHtml(field.name)}" data-flow-var-type="${escapeHtml(
+      field.kind
+    )}">${optionsHtml}</select>`;
+  } else if (field.kind === "boolean") {
+    const optionsHtml = `
+      <option value=""></option>
+      <option value="true" ${value === "true" ? "selected" : ""}>true</option>
+      <option value="false" ${value === "false" ? "selected" : ""}>false</option>
+    `;
+    controlHtml = `<select id="${escapeHtml(
+      elementId
+    )}" class="input" data-flow-var-name="${escapeHtml(field.name)}" data-flow-var-type="boolean">${optionsHtml}</select>`;
+  } else if (field.kind === "json") {
+    controlHtml = `<textarea id="${escapeHtml(
+      elementId
+    )}" class="input min-h-24 font-mono" data-flow-var-name="${escapeHtml(
+      field.name
+    )}" data-flow-var-type="json"${placeholderAttr}>${escapeHtml(value)}</textarea>`;
+  } else {
+    const inputType = field.kind === "secret" ? "password" : field.kind === "number" ? "number" : "text";
+    controlHtml = `<input id="${escapeHtml(
+      elementId
+    )}" class="input" type="${escapeHtml(inputType)}" value="${escapeHtml(
+      value
+    )}" data-flow-var-name="${escapeHtml(field.name)}" data-flow-var-type="${escapeHtml(
+      field.kind
+    )}"${placeholderAttr} />`;
+  }
+
+  return `
+    <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+      <div class="mb-2 flex flex-wrap items-center gap-2">
+        <div class="text-sm font-semibold text-slate-900">${escapeHtml(field.label)}</div>
+        ${requiredBadge}
+        ${typeBadge}
+      </div>
+      ${description}
+      <div class="${description ? "mt-2" : ""}">${controlHtml}</div>
+    </div>
+  `;
+}
+
+function renderFlowTemplateVarFields(detail = null, draft = {}) {
+  if (detail !== undefined) {
+    lastFlowRunTemplateDetail = detail;
+  }
+  const container = byId("flow-vars-fields");
+  const hint = byId("flow-vars-fields-hint");
+  if (!container || !hint) return;
+  const schema = getFlowRunVarsSchema();
+  if (!schema.length) {
+    container.innerHTML = "";
+    hint.textContent = lastFlowRunTemplateDetail
+      ? t("flowVarsFieldsEmpty")
+      : t("flowVarsFieldsHint");
+    return;
+  }
+  hint.textContent = t("flowVarsFieldsHint");
+  container.innerHTML = schema
+    .map((field) => renderFlowTemplateVarField(field, draft[field.name]))
+    .join("");
+}
+
+function renderFlowTemplateVarFieldsError(message) {
+  lastFlowRunTemplateDetail = null;
+  const container = byId("flow-vars-fields");
+  const hint = byId("flow-vars-fields-hint");
+  if (!container || !hint) return;
+  container.innerHTML = renderStatusMessageCard(message, "error");
+  hint.textContent = t("flowVarsFieldsHint");
+}
+
+async function ensureFlowRunTemplateDetail(templateName, options = {}) {
+  const name = safeString(templateName).trim();
+  if (!name) {
+    renderFlowTemplateVarFields(null, {});
+    return null;
+  }
+  if (lastFlowRunTemplateDetail && lastFlowRunTemplateDetail.name === name) {
+    return lastFlowRunTemplateDetail;
+  }
+  try {
+    const data = await request(
+      "GET",
+      `/api/flow-templates/${encodeURIComponent(name)}`
+    );
+    renderFlowTemplateVarFields(data, {});
+    return data;
+  } catch (e) {
+    if (!options.silent) {
+      renderFlowTemplateVarFieldsError(e.message);
+    } else {
+      renderFlowTemplateVarFields(null, {});
+    }
+    throw e;
+  }
+}
+
+function flowVarRequiredMessage(label) {
+  return currentLang === "zh"
+    ? `${label}${t("flowVarRequiredSuffix")}`
+    : `${label} ${t("flowVarRequiredSuffix")}`;
+}
+
+function collectFlowTemplateFieldValues() {
+  const values = {};
+  for (const field of getFlowRunVarsSchema()) {
+    const el = byId(`flow-var-${field.name}`);
+    if (!el) continue;
+    const raw = safeString(el.value);
+    const isBlank = raw.trim() === "";
+    const hasDefault =
+      field.defaultValue !== undefined && field.defaultValue !== null;
+
+    if (field.kind === "json") {
+      if (isBlank) {
+        if (field.required && !hasDefault) {
+          throw new Error(flowVarRequiredMessage(field.label));
+        }
+        continue;
+      }
+      try {
+        values[field.name] = JSON.parse(raw);
+      } catch (_) {
+        throw new Error(`${field.label} ${t("flowVarJsonInvalid")}`);
+      }
+      continue;
+    }
+
+    if (field.kind === "boolean") {
+      if (isBlank) {
+        if (field.required && !hasDefault) {
+          throw new Error(flowVarRequiredMessage(field.label));
+        }
+        continue;
+      }
+      values[field.name] = raw === "true";
+      continue;
+    }
+
+    if (isBlank) {
+      if (field.required && !hasDefault) {
+        throw new Error(flowVarRequiredMessage(field.label));
+      }
+      continue;
+    }
+
+    if (field.kind === "number") {
+      const parsed = Number(raw);
+      if (Number.isNaN(parsed)) {
+        throw new Error(`${field.label} ${t("flowVarNumberInvalid")}`);
+      }
+      values[field.name] = parsed;
+      continue;
+    }
+
+    values[field.name] = raw;
+  }
+  return values;
+}
+
+function parseFlowVarsJsonOverrides() {
+  const rawVars = (byId("flow-vars-json").value || "").trim();
+  if (!rawVars) {
+    return {};
+  }
+  const parsed = JSON.parse(rawVars);
+  if (parsed == null) {
+    return {};
+  }
+  if (Array.isArray(parsed) || typeof parsed !== "object") {
+    throw new Error(t("flowVarsObjectRequired"));
+  }
+  return parsed;
+}
+
+function buildFlowVarsPayload() {
+  const overrideVars = parseFlowVarsJsonOverrides();
+  const fieldVars = collectFlowTemplateFieldValues();
+  const merged = { ...overrideVars, ...fieldVars };
+  return Object.keys(merged).length ? merged : null;
 }
 
 function parseJsonl(jsonl) {
@@ -5333,6 +5806,12 @@ async function refreshExecutionModeOptions(overrides = {}) {
     overrides.interactiveMode ?? byId("interactive-mode").value,
     data.default_mode
   );
+  applyModeOptions(
+    "transfer-mode",
+    data.modes,
+    overrides.transferMode ?? byId("transfer-mode").value,
+    data.default_mode
+  );
 }
 
 async function loadProfilesOverview() {
@@ -6710,6 +7189,278 @@ async function deleteTemplate() {
   }
 }
 
+function renderFlowTemplateList(errorMessage = "") {
+  const out = byId("flow-template-list");
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      errorMessage
+    )}</div>`;
+    return;
+  }
+  if (
+    !Array.isArray(cachedFlowTemplateMetas) ||
+    cachedFlowTemplateMetas.length === 0
+  ) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("flowTemplateListEmpty")
+    )}</div>`;
+    return;
+  }
+  const selectedName = byId("flow-template-picker").value.trim();
+  out.innerHTML = cachedFlowTemplateMetas
+    .map((item) => {
+      const active = selectedName && item.name === selectedName;
+      const cls = active
+        ? "border-teal-300 bg-teal-50/70"
+        : "border-slate-200 bg-white hover:border-slate-300";
+      return `
+        <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-flow-template-row ${cls}" data-name="${escapeHtml(
+          item.name || ""
+        )}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+              item.name || "-"
+            )}</span>
+            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(
+              t("flowTemplateUseBtn")
+            )}</span>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+async function loadFlowTemplates() {
+  try {
+    const data = await request("GET", "/api/flow-templates");
+    const items = Array.isArray(data) ? data : [];
+    cachedFlowTemplateMetas = items;
+    cachedFlowTemplateNames = items.map((item) => item.name);
+    renderFlowTemplateOptions();
+    renderFlowTemplateList();
+  } catch (e) {
+    cachedFlowTemplateNames = [];
+    cachedFlowTemplateMetas = [];
+    renderFlowTemplateOptions();
+    renderFlowTemplateList(e.message);
+  }
+}
+
+function renderFlowTemplateOptions() {
+  const list = byId("flow-template-options");
+  if (!list) return;
+  list.innerHTML = cachedFlowTemplateNames
+    .map((name) => `<option value="${name}"></option>`)
+    .join("");
+}
+
+async function loadFlowTemplateDetail() {
+  const name = byId("flow-template-picker").value.trim();
+  if (!name) {
+    setStatusMessage(
+      "flow-template-out",
+      t("flowTemplateNameRequired"),
+      "error"
+    );
+    return;
+  }
+  setStatusMessage("flow-template-out", t("running"), "running");
+  try {
+    const data = await request(
+      "GET",
+      `/api/flow-templates/${encodeURIComponent(name)}`
+    );
+    lastFlowTemplateDetail = data;
+    byId("flow-template-picker").value = data.name || name;
+    byId("flow-template-content").value = data.content || "";
+    if (byId("flow-template-name").value.trim() === (data.name || name)) {
+      renderFlowTemplateVarFields(data, getCurrentFlowTemplateFieldDraft());
+    }
+    renderFlowTemplateList();
+    setStatusMessage(
+      "flow-template-out",
+      `${t("loaded")}: ${data.name || name}`,
+      "success"
+    );
+  } catch (e) {
+    lastFlowTemplateDetail = null;
+    setStatusMessage("flow-template-out", e.message, "error");
+  }
+}
+
+async function saveFlowTemplate() {
+  const name = byId("flow-template-picker").value.trim();
+  const content = byId("flow-template-content").value;
+  if (!name) {
+    setStatusMessage(
+      "flow-template-out",
+      t("flowTemplateNameRequired"),
+      "error"
+    );
+    return;
+  }
+  setStatusMessage("flow-template-out", t("running"), "running");
+  try {
+    const exists = cachedFlowTemplateNames.includes(name);
+    const data = exists
+      ? await request("PUT", `/api/flow-templates/${encodeURIComponent(name)}`, {
+          content,
+        })
+      : await request("POST", "/api/flow-templates", { name, content });
+    setStatusMessage(
+      "flow-template-out",
+      `${exists ? t("saved") : t("created")}: ${data.name || name}`,
+      "success"
+    );
+    await loadFlowTemplates();
+    byId("flow-template-picker").value = name;
+    lastFlowTemplateDetail = data;
+    byId("flow-template-content").value = data.content || content;
+    if (byId("flow-template-name").value.trim() === (data.name || name)) {
+      renderFlowTemplateVarFields(data, getCurrentFlowTemplateFieldDraft());
+    }
+    renderFlowTemplateList();
+  } catch (e) {
+    setStatusMessage("flow-template-out", e.message, "error");
+  }
+}
+
+async function deleteFlowTemplate() {
+  const name = byId("flow-template-picker").value.trim();
+  if (!name) {
+    setStatusMessage(
+      "flow-template-out",
+      t("flowTemplateNameRequired"),
+      "error"
+    );
+    return;
+  }
+  setStatusMessage("flow-template-out", t("running"), "running");
+  try {
+    await request("DELETE", `/api/flow-templates/${encodeURIComponent(name)}`);
+    byId("flow-template-content").value = "";
+    setStatusMessage("flow-template-out", `${t("deleted")}: ${name}`, "success");
+    await loadFlowTemplates();
+    if (byId("flow-template-picker").value.trim() === name) {
+      byId("flow-template-picker").value = "";
+    }
+    if (byId("flow-template-name").value.trim() === name) {
+      renderFlowTemplateVarFields(null, {});
+    }
+    lastFlowTemplateDetail = null;
+    renderFlowTemplateList();
+  } catch (e) {
+    setStatusMessage("flow-template-out", e.message, "error");
+  }
+}
+
+function transferPayload() {
+  const timeoutRaw = Number(byId("transfer-timeout-secs").value || 300);
+  return {
+    profile: byId("flow-template-picker").value.trim() || null,
+    protocol: byId("transfer-protocol").value || "scp",
+    direction: byId("transfer-direction").value || "to-device",
+    server_addr: byId("transfer-server-addr").value.trim(),
+    remote_path: byId("transfer-remote-path").value.trim(),
+    device_path: byId("transfer-device-path").value.trim(),
+    transfer_username: byId("transfer-username").value.trim() || null,
+    transfer_password: byId("transfer-password").value || null,
+    mode: byId("transfer-mode").value.trim() || null,
+    timeout_secs: Number.isFinite(timeoutRaw) ? timeoutRaw : 300,
+    connection: connectionPayload(),
+    record_level: recordLevelPayload(),
+  };
+}
+
+function uploadPayload() {
+  const timeoutRaw = Number(byId("upload-timeout-secs").value || 300);
+  const bufferRaw = Number(byId("upload-buffer-size").value || "");
+  return {
+    local_path: byId("upload-local-path").value.trim(),
+    remote_path: byId("upload-remote-path").value.trim(),
+    timeout_secs: Number.isFinite(timeoutRaw) ? timeoutRaw : 300,
+    buffer_size: Number.isFinite(bufferRaw) ? bufferRaw : null,
+    show_progress: !!byId("upload-show-progress").checked,
+    connection: connectionPayload(),
+    record_level: recordLevelPayload(),
+  };
+}
+
+function renderTransferResult(data) {
+  const outputs = Array.isArray(data && data.outputs) ? data.outputs : [];
+  const tone = data && data.success ? "success" : "error";
+  const summary = renderStatusMessageCard(
+    `${data && data.success ? t("orchestrationStatusSuccess") : t("orchestrationStatusFailed")} · mode=${safeString(
+      data && data.resolved_mode
+    )}`,
+    tone
+  );
+  const items = outputs
+    .map(
+      (item, idx) => `
+      <div class="rounded-xl border border-slate-200 bg-white px-3 py-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-sm font-semibold text-slate-800">${escapeHtml(`${idx + 1}. ${item.command || "-"}`)}</span>
+          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+            item.success
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-amber-100 text-amber-700"
+          }">${escapeHtml(item.success ? t("orchestrationStatusSuccess") : t("orchestrationStatusFailed"))}</span>
+        </div>
+        <div class="mt-2 text-xs text-slate-500">exit_code=${escapeHtml(safeString(item.exit_code))}</div>
+        <pre class="output mt-2">${escapeHtml(
+          safeString(item.output || item.error || "")
+        )}</pre>
+      </div>
+    `
+    )
+    .join("");
+  return `${summary}${items ? `<div class="grid gap-2">${items}</div>` : ""}`;
+}
+
+function renderCommandFlowResult(data) {
+  const outputs = Array.isArray(data && data.outputs) ? data.outputs : [];
+  const tone = data && data.success ? "success" : "error";
+  const summary = renderStatusMessageCard(
+    `${data && data.success ? t("orchestrationStatusSuccess") : t("orchestrationStatusFailed")} · template=${safeString(
+      data && data.template_name
+    )}`,
+    tone
+  );
+  const items = outputs
+    .map(
+      (item, idx) => `
+      <div class="rounded-xl border border-slate-200 bg-white px-3 py-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-sm font-semibold text-slate-800">${escapeHtml(`${idx + 1}. ${item.command || "-"}`)}</span>
+          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+            item.success
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-amber-100 text-amber-700"
+          }">${escapeHtml(item.success ? t("orchestrationStatusSuccess") : t("orchestrationStatusFailed"))}</span>
+        </div>
+        <div class="mt-2 text-xs text-slate-500">exit_code=${escapeHtml(safeString(item.exit_code))}</div>
+        <pre class="output mt-2">${escapeHtml(
+          safeString(item.output || item.error || "")
+        )}</pre>
+      </div>
+    `
+    )
+    .join("");
+  return `${summary}${items ? `<div class="grid gap-2">${items}</div>` : ""}`;
+}
+
+function renderUploadResult(data) {
+  return renderStatusMessageCard(
+    `${data && data.ok ? "ok" : t("orchestrationStatusFailed")} · ${safeString(
+      data && data.local_path
+    )} -> ${safeString(data && data.remote_path)}`,
+    data && data.ok ? "success" : "error"
+  );
+}
+
 function bindEvents() {
   const langFab = byId("lang-fab");
   const langMenu = byId("lang-menu");
@@ -7003,7 +7754,16 @@ function bindEvents() {
     refreshExecutionModeOptions();
   });
 
-  for (const tab of ["ops", "interactive", "replay", "prompts", "templates", "blacklist", "backup"]) {
+  for (const tab of [
+    "ops",
+    "interactive",
+    "replay",
+    "prompts",
+    "templates",
+    "transfer",
+    "blacklist",
+    "backup",
+  ]) {
     byId(`tab-${tab}`).onclick = () => {
       currentTab = tab;
       applyTabs();
@@ -7017,6 +7777,9 @@ function bindEvents() {
       }
       if (tab === "templates") {
         loadTemplates();
+      }
+      if (tab === "transfer") {
+        loadFlowTemplates();
       }
       if (tab === "blacklist") {
         loadBlacklistPatterns();
@@ -7753,6 +8516,114 @@ function bindEvents() {
   };
   byId("template-save-btn").onclick = saveTemplate;
   byId("template-delete-btn").onclick = deleteTemplate;
+  byId("flow-exec-btn").onclick = async () => {
+    const out = byId("flow-out");
+    out.innerHTML = renderStatusMessageCard(t("running"), "running");
+    try {
+      const templateName = byId("flow-template-name").value.trim();
+      if (!templateName) {
+        throw new Error(t("flowTemplateNameRequired"));
+      }
+      await ensureFlowRunTemplateDetail(templateName, { silent: true });
+      const payload = {
+        template_name: templateName,
+        vars: buildFlowVarsPayload(),
+        connection: connectionPayload(),
+        record_level: recordLevelPayload(),
+      };
+      const data = await request("POST", "/api/flow/execute", payload);
+      out.innerHTML = renderCommandFlowResult(data);
+      applyRecordingFromResponse(data);
+    } catch (e) {
+      out.innerHTML = renderStatusMessageCard(e.message, "error");
+    }
+  };
+  byId("flow-template-name").oninput = () => {
+    const name = byId("flow-template-name").value.trim();
+    if (!name) {
+      renderFlowTemplateVarFields(null, {});
+      return;
+    }
+    if (lastFlowRunTemplateDetail && lastFlowRunTemplateDetail.name !== name) {
+      renderFlowTemplateVarFields(null, {});
+    }
+  };
+  byId("flow-template-name").onchange = async () => {
+    const name = byId("flow-template-name").value.trim();
+    if (!name) {
+      renderFlowTemplateVarFields(null, {});
+      return;
+    }
+    try {
+      await ensureFlowRunTemplateDetail(name);
+    } catch (_) {
+      // The field renderer already shows the error state.
+    }
+  };
+  byId("transfer-exec-btn").onclick = async () => {
+    const out = byId("transfer-out");
+    out.innerHTML = renderStatusMessageCard(t("running"), "running");
+    try {
+      const payload = transferPayload();
+      if (!payload.server_addr) {
+        throw new Error(t("serverAddrRequired"));
+      }
+      if (!payload.remote_path) {
+        throw new Error(t("remotePathRequired"));
+      }
+      if (!payload.device_path) {
+        throw new Error(t("devicePathRequired"));
+      }
+      const data = await request(
+        "POST",
+        "/api/flow/builtins/file-transfer/execute",
+        payload
+      );
+      out.innerHTML = renderTransferResult(data);
+      applyRecordingFromResponse(data);
+    } catch (e) {
+      out.innerHTML = renderStatusMessageCard(e.message, "error");
+    }
+  };
+  byId("upload-exec-btn").onclick = async () => {
+    const out = byId("upload-out");
+    out.innerHTML = renderStatusMessageCard(t("running"), "running");
+    try {
+      const payload = uploadPayload();
+      if (!payload.local_path) {
+        throw new Error(t("localPathRequired"));
+      }
+      if (!payload.remote_path) {
+        throw new Error(t("remotePathRequired"));
+      }
+      const data = await request("POST", "/api/upload", payload);
+      out.innerHTML = renderUploadResult(data);
+      applyRecordingFromResponse(data);
+    } catch (e) {
+      out.innerHTML = renderStatusMessageCard(e.message, "error");
+    }
+  };
+  byId("flow-template-picker").oninput = () => {
+    renderFlowTemplateList();
+  };
+  byId("flow-template-list").addEventListener("click", async (e) => {
+    const row = e.target.closest(".js-flow-template-row");
+    if (!row) return;
+    const name = row.getAttribute("data-name") || "";
+    if (!name) return;
+    byId("flow-template-picker").value = name;
+    renderFlowTemplateList();
+    await loadFlowTemplateDetail();
+    renderFlowTemplateList();
+  });
+  byId("flow-template-picker").onchange = async () => {
+    if (!byId("flow-template-picker").value.trim()) return;
+    await loadFlowTemplateDetail();
+    renderFlowTemplateList();
+  };
+  byId("flow-template-load-btn").onclick = loadFlowTemplateDetail;
+  byId("flow-template-save-btn").onclick = saveFlowTemplate;
+  byId("flow-template-delete-btn").onclick = deleteFlowTemplate;
 
   byId("backup-create-btn").onclick = createBackupFromWeb;
   byId("backup-refresh-btn").onclick = loadBackups;
@@ -7819,6 +8690,10 @@ setStatusMessage("tx-workflow-exec-out", "-", "info");
 setStatusMessage("orchestration-plan-out", "-", "info");
 setStatusMessage("orchestration-exec-out", "-", "info");
 setStatusMessage("template-out", "-", "info");
+setStatusMessage("flow-out", "-", "info");
+setStatusMessage("transfer-out", "-", "info");
+setStatusMessage("upload-out", "-", "info");
+setStatusMessage("flow-template-out", "-", "info");
 setStatusMessage("blacklist-out", "-", "info");
 setStatusMessage("backup-out", "-", "info");
 setStatusMessage("builtin-detail-status", "-", "info");

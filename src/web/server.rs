@@ -6,19 +6,22 @@ use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::assets::{index_response, static_response};
 use crate::web::auth::auth_middleware;
 use crate::web::handlers::{
-    add_blacklist_pattern, check_blacklist_command, create_backup, create_or_update_custom_profile,
-    create_template, delete_blacklist_pattern, delete_connection, delete_connection_history,
+    add_blacklist_pattern, check_blacklist_command, create_backup, create_command_flow_template,
+    create_or_update_custom_profile, create_template, delete_blacklist_pattern,
+    delete_command_flow_template, delete_connection, delete_connection_history,
     delete_custom_profile, delete_template, diagnose_profile, download_backup,
-    download_connection_import_template, exec_command, exec_command_async, execute_orchestration,
+    download_connection_import_template, exec_command, exec_command_async,
+    execute_builtin_file_transfer_flow, execute_command_flow, execute_orchestration,
     execute_orchestration_async, execute_template, execute_template_async, execute_tx_block,
-    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async,
-    get_builtin_profile_detail, get_builtin_profile_form, get_connection,
-    get_connection_history, get_connection_history_detail, get_custom_profile,
+    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
+    get_builtin_profile_detail, get_builtin_profile_form, get_command_flow_template,
+    get_connection, get_connection_history, get_connection_history_detail, get_custom_profile,
     get_custom_profile_form, get_profile_modes, get_template, health, import_connections,
     interactive_command, interactive_start, interactive_stop, list_backups,
-    list_blacklist_patterns, list_connections, list_profiles, list_templates, profiles_overview,
-    render_template, replay_session, restore_backup, test_connection, update_template,
-    upsert_connection, upsert_custom_profile_form,
+    list_blacklist_patterns, list_command_flow_templates, list_connections, list_profiles,
+    list_templates, profiles_overview, render_template, replay_session, restore_backup,
+    test_connection, update_command_flow_template, update_template, upsert_connection,
+    upsert_custom_profile_form,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -182,6 +185,8 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         )
         .route("/api/device-profiles/diagnose", post(diagnose_profile))
         .route("/api/render", post(render_template))
+        .route("/api/command-flow/execute", post(execute_command_flow))
+        .route("/api/flow/execute", post(execute_command_flow))
         .route("/api/connections", get(list_connections))
         .route("/api/connections/import", post(import_connections))
         .route(
@@ -205,6 +210,11 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/connection/test", post(test_connection))
         .route("/api/exec", post(exec_command))
         .route("/api/template/execute", post(execute_template))
+        .route(
+            "/api/flow/builtins/file-transfer/execute",
+            post(execute_builtin_file_transfer_flow),
+        )
+        .route("/api/upload", post(execute_upload))
         .route("/api/tx/block", post(execute_tx_block))
         .route("/api/tx/workflow", post(execute_tx_workflow))
         .route("/api/orchestrate", post(execute_orchestration))
@@ -221,6 +231,26 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             get(get_template)
                 .put(update_template)
                 .delete(delete_template),
+        )
+        .route(
+            "/api/command-flow-templates",
+            get(list_command_flow_templates).post(create_command_flow_template),
+        )
+        .route(
+            "/api/flow-templates",
+            get(list_command_flow_templates).post(create_command_flow_template),
+        )
+        .route(
+            "/api/command-flow-templates/{name}",
+            get(get_command_flow_template)
+                .put(update_command_flow_template)
+                .delete(delete_command_flow_template),
+        )
+        .route(
+            "/api/flow-templates/{name}",
+            get(get_command_flow_template)
+                .put(update_command_flow_template)
+                .delete(delete_command_flow_template),
         )
 }
 

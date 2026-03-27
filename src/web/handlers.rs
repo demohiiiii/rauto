@@ -1,6 +1,11 @@
 use crate::agent::registration::{AsyncErrorReportInput, current_agent_name};
 use crate::cli::RecordLevelOpt;
 use crate::config::command_blacklist;
+use crate::config::command_flow_template::{
+    CommandFlowTemplate, CommandFlowTemplateVar, build_command_flow_runtime,
+    command_flow_var_kind_label, normalize_command_flow_template_body,
+    parse_command_flow_template_str,
+};
 use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
 use crate::config::{
@@ -15,18 +20,23 @@ use crate::web::models::{
     AsyncTaskAcceptedResponse, BackupCreateRequest, BackupCreateResponse, BackupMeta,
     BackupRestoreRequest, BackupRestoreResponse, BlacklistCheckRequest, BlacklistCheckResponse,
     BlacklistDeleteResponse, BlacklistPatternEntry, BlacklistUpsertRequest,
-    BlacklistUpsertResponse, BuiltinProfileDetail, CommandResult, ConnectionHistoryDetailResponse,
-    ConnectionHistoryEntry, ConnectionRequest, ConnectionTestRequest, ConnectionTestResponse,
+    BlacklistUpsertResponse, BuiltinProfileDetail, CommandFlowTemplateDetail,
+    CommandFlowTemplateMeta, CommandFlowTemplateVarField, CommandResult,
+    ConnectionHistoryDetailResponse, ConnectionHistoryEntry, ConnectionRequest,
+    ConnectionTestRequest, ConnectionTestResponse, CreateCommandFlowTemplateRequest,
     CreateTemplateRequest, CustomProfileDetail, DeviceProfileModesResponse, DeviceProfilesOverview,
-    ExecRequest, ExecResponse, ExecuteOrchestrationRequest, ExecuteOrchestrationResponse,
-    ExecuteTemplateRequest, ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
-    ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, InteractiveCommandRequest,
-    InteractiveCommandResponse, InteractiveStartRequest, InteractiveStartResponse,
-    InteractiveStopResponse, ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel,
-    RenderRequest, RenderResponse, ReplayContextDto, ReplayOutputDto, ReplayRequest,
-    ReplayResponse, SavedConnectionDetail, SavedConnectionMeta, TaskCallback, TaskEvent,
-    TemplateDetail, TemplateMeta, UpdateTemplateRequest, UpsertConnectionRequest,
-    UpsertCustomProfileRequest,
+    ExecRequest, ExecResponse, ExecuteBuiltinFileTransferFlowRequest,
+    ExecuteBuiltinFileTransferFlowResponse, ExecuteCommandFlowRequest, ExecuteCommandFlowResponse,
+    ExecuteOrchestrationRequest, ExecuteOrchestrationResponse, ExecuteTemplateRequest,
+    ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
+    ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, ExecuteUploadRequest,
+    ExecuteUploadResponse, InteractiveCommandRequest, InteractiveCommandResponse,
+    InteractiveStartRequest, InteractiveStartResponse, InteractiveStopResponse,
+    ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
+    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
+    SavedConnectionMeta, TaskCallback, TaskEvent, TemplateDetail, TemplateMeta, TransferDirection,
+    TransferProtocol, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
+    UpsertConnectionRequest, UpsertCustomProfileRequest,
 };
 use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
 use crate::web::storage;
@@ -1156,11 +1166,9 @@ pub async fn download_backup(Path(name): Path<String>) -> Result<Response, ApiEr
 pub async fn download_connection_import_template(
     Query(query): Query<ConnectionImportTemplateQuery>,
 ) -> Result<Response, ApiError> {
-    let is_zh = query
-        .lang
-        .as_deref()
-        .map(str::trim)
-        .is_some_and(|value| value.eq_ignore_ascii_case("zh") || value.eq_ignore_ascii_case("zh-cn"));
+    let is_zh = query.lang.as_deref().map(str::trim).is_some_and(|value| {
+        value.eq_ignore_ascii_case("zh") || value.eq_ignore_ascii_case("zh-cn")
+    });
     let filename = if is_zh {
         "rauto-connection-import-template-zh.csv"
     } else {
@@ -1367,6 +1375,148 @@ pub async fn delete_template(
     let safe_name = storage::safe_template_name(&name)?;
     content_store::delete_command_template(&safe_name).map_err(ApiError::from)?;
     Ok(Json(json!({"ok": true})))
+}
+
+fn normalize_command_flow_template_content(name: &str, content: &str) -> Result<String, ApiError> {
+    normalize_command_flow_template_body(name, content).map_err(ApiError::from)
+}
+
+fn to_command_flow_template_var_field(var: &CommandFlowTemplateVar) -> CommandFlowTemplateVarField {
+    CommandFlowTemplateVarField {
+        name: var.name.clone(),
+        label: var.display_label().to_string(),
+        description: var.description.clone(),
+        kind: command_flow_var_kind_label(var.kind).to_string(),
+        required: var.required,
+        placeholder: var.placeholder.clone(),
+        options: var.options.clone(),
+        default_value: var.default_value.clone(),
+    }
+}
+
+fn command_flow_template_detail_from_content(
+    name: &str,
+    content: String,
+    path: String,
+) -> Result<CommandFlowTemplateDetail, ApiError> {
+    let template = parse_command_flow_template_str(&content, Some(name)).map_err(ApiError::from)?;
+    Ok(CommandFlowTemplateDetail {
+        name: name.to_string(),
+        path,
+        vars_schema: template
+            .vars
+            .iter()
+            .map(to_command_flow_template_var_field)
+            .collect(),
+        content,
+    })
+}
+
+pub async fn list_command_flow_templates(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<CommandFlowTemplateMeta>>, ApiError> {
+    let _ = state;
+    let items = storage::list_command_flow_templates()?;
+    Ok(Json(items))
+}
+
+pub async fn get_command_flow_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<CommandFlowTemplateDetail>, ApiError> {
+    let safe_name = storage::safe_command_flow_template_name(&name)?;
+    let Some(stored) =
+        content_store::load_command_flow_template(&safe_name).map_err(ApiError::from)?
+    else {
+        return Err(ApiError::bad_request("command flow template not found"));
+    };
+    Ok(Json(command_flow_template_detail_from_content(
+        &safe_name,
+        stored.content,
+        content_store::command_flow_template_locator(&stored.name),
+    )?))
+}
+
+pub async fn create_command_flow_template(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<CreateCommandFlowTemplateRequest>,
+) -> Result<Json<CommandFlowTemplateDetail>, ApiError> {
+    let safe_name = storage::safe_command_flow_template_name(&req.name)?;
+    let content = normalize_command_flow_template_content(&safe_name, &req.content)?;
+    let created = content_store::create_command_flow_template(&safe_name, &content)
+        .map_err(ApiError::from)?;
+    if !created {
+        return Err(ApiError::bad_request(
+            "command flow template already exists",
+        ));
+    }
+    Ok(Json(command_flow_template_detail_from_content(
+        &safe_name,
+        content,
+        content_store::command_flow_template_locator(&safe_name),
+    )?))
+}
+
+pub async fn update_command_flow_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+    Json(req): Json<UpdateCommandFlowTemplateRequest>,
+) -> Result<Json<CommandFlowTemplateDetail>, ApiError> {
+    let safe_name = storage::safe_command_flow_template_name(&name)?;
+    let content = normalize_command_flow_template_content(&safe_name, &req.content)?;
+    let updated = content_store::update_command_flow_template(&safe_name, &content)
+        .map_err(ApiError::from)?;
+    if !updated {
+        return Err(ApiError::bad_request("command flow template not found"));
+    }
+    Ok(Json(command_flow_template_detail_from_content(
+        &safe_name,
+        content,
+        content_store::command_flow_template_locator(&safe_name),
+    )?))
+}
+
+pub async fn delete_command_flow_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let safe_name = storage::safe_command_flow_template_name(&name)?;
+    content_store::delete_command_flow_template(&safe_name).map_err(ApiError::from)?;
+    Ok(Json(json!({"ok": true})))
+}
+
+fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate, ApiError> {
+    let safe_name = storage::safe_command_flow_template_name(name)?;
+    let stored = content_store::load_command_flow_template(&safe_name)
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::bad_request("command flow template not found"))?;
+    parse_command_flow_template_str(&stored.content, Some(&safe_name)).map_err(ApiError::from)
+}
+
+fn persist_history_jsonl(
+    conn: &crate::web::state::ResolvedConnection,
+    operation: &str,
+    command_label: &str,
+    mode: Option<&str>,
+    level: Option<RecordLevel>,
+    jsonl: &str,
+) {
+    if let Err(e) = history_store::save_recording(
+        HistoryBinding {
+            connection_name: conn.connection_name.as_deref(),
+            host: &conn.host,
+            port: conn.port,
+            username: &conn.username,
+            device_profile: &conn.device_profile,
+        },
+        operation,
+        command_label,
+        mode,
+        record_level_name(level),
+        jsonl,
+    ) {
+        warn!("failed to persist execution history: {}", e);
+    }
 }
 
 pub async fn render_template(
@@ -2222,6 +2372,389 @@ pub async fn execute_template_async(
 ) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
     let response = queue_template_async_task(state, req)?;
     Ok((StatusCode::ACCEPTED, Json(response)))
+}
+
+pub async fn execute_command_flow(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteCommandFlowRequest>,
+) -> Result<Json<ExecuteCommandFlowResponse>, ApiError> {
+    let record_level = req.record_level;
+    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+
+    let mut template = match (
+        req.template_name
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        req.content
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+    ) {
+        (Some(name), None) => load_command_flow_template_form(name)?,
+        (None, Some(content)) => {
+            toml::from_str::<CommandFlowTemplate>(content).map_err(ApiError::from)?
+        }
+        (Some(_), Some(_)) => {
+            return Err(ApiError::bad_request(
+                "use either template_name or content for command flow execution",
+            ));
+        }
+        (None, None) => {
+            return Err(ApiError::bad_request(
+                "command flow execution requires template_name or content",
+            ));
+        }
+    };
+    if template.name.trim().is_empty() {
+        template.name = "inline_flow".to_string();
+    }
+
+    let flow = template
+        .to_command_flow(&build_command_flow_runtime(
+            default_mode.clone(),
+            conn.connection_name.as_deref(),
+            &conn.host,
+            &conn.username,
+            &conn.device_profile,
+            req.vars,
+        ))
+        .map_err(ApiError::from)?;
+
+    command_blacklist::ensure_commands_allowed(
+        flow.steps.iter().map(|command| command.command.as_str()),
+        "command flow",
+    )
+    .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    if flow.steps.is_empty() {
+        return Err(ApiError::bad_request("command flow has no steps"));
+    }
+
+    let flow_commands = flow
+        .steps
+        .iter()
+        .map(|step| step.command.clone())
+        .collect::<Vec<_>>();
+
+    let client = if let Some(level) = to_record_level(record_level) {
+        DeviceClient::connect_with_recording(
+            conn.host.clone(),
+            conn.port,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+            default_mode.clone(),
+            level,
+            conn.ssh_security,
+        )
+        .await?
+    } else {
+        DeviceClient::connect(
+            conn.host.clone(),
+            conn.port,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+            default_mode.clone(),
+            conn.ssh_security,
+        )
+        .await?
+    };
+
+    let result = client.execute_command_flow(flow).await?;
+    persist_history_if_recorded(
+        &conn,
+        &client,
+        "command_flow",
+        &format!("template: {}", template.name),
+        Some(default_mode.as_str()),
+        record_level,
+    );
+
+    let outputs = result
+        .outputs
+        .into_iter()
+        .enumerate()
+        .map(|(index, output)| CommandResult {
+            command: flow_commands
+                .get(index)
+                .cloned()
+                .unwrap_or_else(|| format!("step {}", index + 1)),
+            success: output.success,
+            exit_code: output.exit_code,
+            output: Some(output.content),
+            error: None,
+        })
+        .collect();
+
+    Ok(Json(ExecuteCommandFlowResponse {
+        success: result.success,
+        template_name: template.name,
+        outputs,
+        recording_jsonl: client.recording_jsonl()?,
+    }))
+}
+
+pub async fn execute_builtin_file_transfer_flow(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteBuiltinFileTransferFlowRequest>,
+) -> Result<Json<ExecuteBuiltinFileTransferFlowResponse>, ApiError> {
+    let record_level = req.record_level;
+    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let (mut flow, resolved_mode, history_label) =
+        if let Some(profile_name) = req.profile.as_deref() {
+            let profile = load_command_flow_template_form(profile_name)?;
+            let fallback_mode = if let Some(mode) = req.mode.as_deref() {
+                resolve_effective_mode(Some(mode), &conn.device_profile)?
+            } else if let Some(mode) = profile.default_mode.as_deref() {
+                resolve_effective_mode(Some(mode), &conn.device_profile)?
+            } else {
+                profile_default_mode.clone()
+            };
+            let flow = profile
+                .to_command_flow(&build_command_flow_runtime(
+                    fallback_mode.clone(),
+                    conn.connection_name.as_deref(),
+                    &conn.host,
+                    &conn.username,
+                    &conn.device_profile,
+                    json!({
+                        "protocol": match req.protocol {
+                            TransferProtocol::Scp => "scp",
+                            TransferProtocol::Tftp => "tftp",
+                        },
+                        "direction": match req.direction {
+                            TransferDirection::ToDevice => "to_device",
+                            TransferDirection::FromDevice => "from_device",
+                        },
+                        "server_addr": req.server_addr.trim(),
+                        "remote_path": req.remote_path.trim(),
+                        "device_path": req.device_path.trim(),
+                        "transfer_username": req.transfer_username.clone(),
+                        "transfer_password": req.transfer_password.clone(),
+                    }),
+                ))
+                .map_err(ApiError::from)?;
+            (
+                flow,
+                fallback_mode.clone(),
+                format!("profile:{} {}", profile.name, req.device_path.trim()),
+            )
+        } else {
+            let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+            if matches!(req.protocol, TransferProtocol::Scp) {
+                req.transfer_username.clone().ok_or_else(|| {
+                    ApiError::bad_request("scp transfers require transfer_username")
+                })?;
+                req.transfer_password.clone().ok_or_else(|| {
+                    ApiError::bad_request("scp transfers require transfer_password")
+                })?;
+            }
+            let runtime = rneter_templates::CommandFlowTemplateRuntime {
+                default_mode: Some(effective_mode.clone()),
+                connection_name: conn.connection_name.clone(),
+                host: Some(conn.host.clone()),
+                username: Some(conn.username.clone()),
+                device_profile: Some(conn.device_profile.clone()),
+                vars: json!({
+                    "protocol": match req.protocol {
+                        TransferProtocol::Scp => "scp",
+                        TransferProtocol::Tftp => "tftp",
+                    },
+                    "direction": match req.direction {
+                        TransferDirection::ToDevice => "to_device",
+                        TransferDirection::FromDevice => "from_device",
+                    },
+                    "server_addr": req.server_addr.trim(),
+                    "remote_path": req.remote_path.trim(),
+                    "device_path": req.device_path.trim(),
+                    "transfer_username": req.transfer_username,
+                    "transfer_password": req.transfer_password,
+                }),
+            };
+            let flow = rneter_templates::cisco_like_copy_template()
+                .to_command_flow(&runtime)
+                .map_err(ApiError::from)?;
+            (
+                flow,
+                effective_mode.clone(),
+                format!(
+                    "{}:{} {}",
+                    req.server_addr.trim(),
+                    match req.protocol {
+                        TransferProtocol::Scp => "scp",
+                        TransferProtocol::Tftp => "tftp",
+                    },
+                    req.device_path.trim()
+                ),
+            )
+        };
+
+    if let Some(timeout_secs) = req.timeout_secs {
+        for step in &mut flow.steps {
+            step.timeout = Some(timeout_secs);
+        }
+    }
+
+    command_blacklist::ensure_commands_allowed(
+        flow.steps.iter().map(|command| command.command.as_str()),
+        "file transfer flow",
+    )
+    .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    if flow.steps.is_empty() {
+        return Err(ApiError::bad_request("file transfer flow has no commands"));
+    }
+
+    let flow_commands = flow
+        .steps
+        .iter()
+        .map(|step| step.command.clone())
+        .collect::<Vec<_>>();
+
+    let client = if let Some(level) = to_record_level(record_level) {
+        DeviceClient::connect_with_recording(
+            conn.host.clone(),
+            conn.port,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+            profile_default_mode,
+            level,
+            conn.ssh_security,
+        )
+        .await?
+    } else {
+        DeviceClient::connect(
+            conn.host.clone(),
+            conn.port,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+            profile_default_mode,
+            conn.ssh_security,
+        )
+        .await?
+    };
+
+    let result = client.execute_command_flow(flow).await?;
+    persist_history_if_recorded(
+        &conn,
+        &client,
+        "file_transfer",
+        &history_label,
+        Some(resolved_mode.as_str()),
+        record_level,
+    );
+    let outputs = result
+        .outputs
+        .into_iter()
+        .enumerate()
+        .map(|(index, output)| CommandResult {
+            command: flow_commands
+                .get(index)
+                .cloned()
+                .unwrap_or_else(|| format!("step {}", index + 1)),
+            success: output.success,
+            exit_code: output.exit_code,
+            output: Some(output.content),
+            error: None,
+        })
+        .collect();
+
+    Ok(Json(ExecuteBuiltinFileTransferFlowResponse {
+        success: result.success,
+        resolved_mode,
+        outputs,
+        recording_jsonl: client.recording_jsonl()?,
+    }))
+}
+
+pub async fn execute_upload(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecuteUploadRequest>,
+) -> Result<Json<ExecuteUploadResponse>, ApiError> {
+    let record_level = req.record_level;
+    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let local_path = PathBuf::from(req.local_path.trim());
+    if !local_path.is_file() {
+        return Err(ApiError::bad_request(format!(
+            "local upload file '{}' does not exist or is not a file",
+            local_path.to_string_lossy()
+        )));
+    }
+
+    let mut upload = rneter::session::FileUploadRequest::new(
+        local_path.to_string_lossy().to_string(),
+        req.remote_path.trim().to_string(),
+    )
+    .with_timeout_secs(req.timeout_secs.unwrap_or(300))
+    .with_progress_reporting(req.show_progress);
+    if let Some(buffer_size) = req.buffer_size {
+        upload = upload.with_buffer_size(buffer_size);
+    }
+
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+    );
+    let context = manager_execution_context_with_security(None, conn.ssh_security);
+
+    let recording_jsonl = if let Some(level) = to_record_level(record_level) {
+        let (_sender, recorder) = MANAGER
+            .get_with_recording_level_and_context(request, context.clone(), level)
+            .await?;
+        let handler_for_upload = template_loader::load_device_profile(&conn.device_profile)?;
+        let request = manager_connection_request(
+            conn.username.clone(),
+            conn.host.clone(),
+            conn.port,
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler_for_upload,
+        );
+        MANAGER
+            .upload_file_with_context(request, upload, context)
+            .await?;
+        let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
+        persist_history_jsonl(
+            &conn,
+            "sftp_upload",
+            &format!(
+                "{} -> {}",
+                local_path.to_string_lossy(),
+                req.remote_path.trim()
+            ),
+            None,
+            record_level,
+            &jsonl,
+        );
+        Some(jsonl)
+    } else {
+        MANAGER
+            .upload_file_with_context(request, upload, context)
+            .await?;
+        None
+    };
+
+    Ok(Json(ExecuteUploadResponse {
+        ok: true,
+        local_path: local_path.to_string_lossy().to_string(),
+        remote_path: req.remote_path.trim().to_string(),
+        recording_jsonl,
+    }))
 }
 
 fn resolve_tx_commands(

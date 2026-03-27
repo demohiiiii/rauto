@@ -30,6 +30,8 @@ rauto web --bind 127.0.0.1 --port 3000
 - [使用方法](#使用方法)
   - [模板模式（推荐）](#1-模板模式推荐)
   - [直接执行](#2-直接执行)
+  - [命令流程模板](#命令流程模板)
+  - [SFTP 上传](#sftp-上传)
   - [设备配置模板](#3-设备配置模板)
   - [Web 控制台（Axum）](#4-web-控制台axum)
   - [Template 存储管理命令](#5-template-存储管理命令)
@@ -54,6 +56,8 @@ rauto web --bind 127.0.0.1 --port 3000
 - **内嵌静态资源**：发布二进制时前端资源已打包到可执行文件中。
 - **连接配置档复用**：支持按名称保存/加载连接参数。
 - **会话录制与回放**：支持将 SSH 会话录制为 JSONL 并离线回放。
+- **可复用命令流程模板**：支持把向导式 CLI 交互保存为可复用模板，用来执行设备侧文件传输、安装向导、功能确认等多步交互流程。
+- **SFTP 上传**：支持将本地文件直接上传到暴露 `sftp` 子系统的 SSH 主机。
 - **数据备份与恢复**：支持对 `~/.rauto` 运行数据做全量备份与恢复。
 - **多设备编排执行（Web + CLI）**：支持基于计划文件对多台设备分阶段串行/并发执行，并复用现有 `tx` / `tx-workflow` 能力。
 - **命令黑名单**：支持在命令真正下发前做全局拦截，并支持 `*` 通配符。
@@ -201,11 +205,74 @@ rauto exec "show bgp neighbor" \
     --mode Enable
 ```
 
+### 命令流程模板
+
+`rauto flow` 用来执行已保存或临时提供的交互式 `CommandFlow` 模板。这是更通用的一层能力，适合处理向导式 CLI 交互，例如设备侧文件传输、安装步骤选择、功能确认提示等。
+
+管理已保存模板：
+
+```bash
+rauto flow-template list
+rauto flow-template show cisco_like_copy
+rauto flow-template create cisco_like_copy --file ./templates/examples/cisco-like-command-flow.toml
+rauto flow-template update cisco_like_copy --file ./my-flow-template.toml
+rauto flow-template delete cisco_like_copy
+```
+
+执行已保存模板，并传入运行时变量：
+
+```bash
+rauto flow \
+    --template cisco_like_copy \
+    --vars-json '{"protocol":"scp","direction":"to_device","server_addr":"192.168.1.50","remote_path":"/images/new.bin","device_path":"flash:/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --connection core-01
+```
+
+说明：
+
+- `rauto flow` 是 CLI 里执行交互式命令流程的推荐入口。
+- 已保存的命令流程模板存放在 SQLite 中，CLI 和 Web 共用同一套模板。
+- 命令流程模板现在直接遵循 `rneter 0.3.7` 的结构化 `CommandFlowTemplate` 模型，不再使用之前那套临时字符串模板形态。
+- 命令流程模板现在可以声明 `vars` 列表，支持 `name`、`type`、`required`、`default`、`options`、`label`、`description` 等字段，便于运行时校验变量，也便于 Web 自动渲染输入表单。
+- 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
+- 如果某个步骤没有显式写 `mode`，`rauto` 会使用设备 profile 定义的第一个状态。
+- `--record-level` 和 `--record-file` 的行为与其他 CLI 执行命令一致。
+
+可直接修改的示例模板：
+
+- [templates/examples/cisco-like-command-flow.toml](/Users/adam/Project/rauto-all/rauto/templates/examples/cisco-like-command-flow.toml)
+
+### SFTP 上传
+
+`rauto upload` 和使用内置文件传输模板的 `rauto flow` 定位不同：
+
+- `rauto flow` 可以通过已保存或内置的命令流程模板，驱动设备侧 `copy scp:` / `copy tftp:` 交互流程。
+- `rauto upload` 用于通过远端 SSH 服务暴露的 `sftp` 子系统，直接上传本地文件。
+
+当目标主机支持 SFTP 时，优先使用 `rauto upload`。这在 Linux 主机上很常见，但很多网络设备并不提供 SFTP 子系统。
+
+```bash
+rauto upload \
+    --local-path ./configs/daemon.conf \
+    --remote-path /tmp/daemon.conf \
+    --host 192.168.1.20 \
+    --username admin \
+    --password secret
+```
+
+可选参数：
+
+- `--buffer-size <bytes>`
+- `--timeout-secs <seconds>`
+- `--show-progress`
+- `--record-level <off|key-events-only|full>`
+- `--record-file <path>`
+
 ### 3. 设备配置模板
 
 `rauto` 支持内置的设备配置（继承自 `rneter`）和自定义 TOML 配置。
 
-当前 `rneter 0.3.2` 提供的内置 profile 包括：
+当前 `rneter 0.3.7` 提供的内置 profile 包括：
 
 - 网络设备厂商：`cisco`、`huawei`、`h3c`、`hillstone`、`juniper`、`array`、`arista`、`fortinet`、`paloalto`、`topsec`、`venustech`、`dptech`、`chaitin`、`qianxin`、`maipu`、`checkpoint`
 - 服务器：`linux`
@@ -360,13 +427,19 @@ Agent 模式新增能力：
 - `GetAgentInfo`
 - `GetAgentStatus`
 - `ProbeDevices`
+- `ListCommandFlowTemplates`
+- `GetCommandFlowTemplate`
+- `UpsertCommandFlowTemplate`
+- `DeleteCommandFlowTemplate`
 - `ExecuteCommand`
 - `ExecuteTemplate`
+- `ExecuteCommandFlow`
+- `ExecuteUpload`
 - `ExecuteTxBlock`
 - `ExecuteTxBlockAsync`
 - `ExecuteTxWorkflowAsync`
 - `ExecuteOrchestrationAsync`
-- `exec`、`template_execute`、`tx_block` 走同步 gRPC 方法。
+- `exec`、`template_execute`、`command_flow`、`upload`、`tx_block` 走同步 gRPC 方法。
 - `tx_block` 也额外提供异步 gRPC 方法，方便 manager 走立即接受、后台执行的模式。
 - `tx_workflow` 和 `orchestrate` 仍然只保留异步方法，因为这两类任务通常耗时较长。
 - 配置 token 时，对 manager 的外呼会同时带上 `Authorization: Bearer <token>` 和 `X-API-Key: <token>`。
@@ -869,6 +942,8 @@ Web 操作界面                   CLI
 ------------------------------ ---------------------------------------------
 直接执行命令                   rauto exec
 模板渲染并执行                 rauto template
+命令流程模板                   rauto flow / rauto flow-template
+SFTP 上传                      rauto upload
 事务块执行                     rauto tx
 事务工作流                     rauto tx-workflow
 多设备编排执行                 rauto orchestrate
@@ -904,6 +979,8 @@ Template 管理                  CLI
 会话录制（自动）                          Yes     Yes
 会话回放列表/查看                          Yes     Yes
 回放表格/详情抽屉                          Yes     No
+设备侧 SCP/TFTP 文件传输                  Yes     Yes
+SFTP 上传                                 Yes     Yes
 Prompt profile 诊断页面                    Yes     No
 工作流构建器（可视化）                      Yes     No
 事务工作流 JSON 执行                       Yes     Yes

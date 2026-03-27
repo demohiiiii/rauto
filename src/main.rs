@@ -13,8 +13,13 @@ use anyhow::Result;
 use chrono::Local;
 use clap::Parser;
 use cli::{
-    BackupCommands, BlacklistCommands, Cli, Commands, ConnectionCommands, DeviceCommands,
-    GlobalOpts, HistoryCommands, RecordLevelOpt, TemplateCommands, TxArgs, TxWorkflowArgs,
+    BackupCommands, BlacklistCommands, Cli, CommandFlowArgs, CommandFlowTemplateCommands, Commands,
+    ConnectionCommands, DeviceCommands, GlobalOpts, HistoryCommands, RecordLevelOpt,
+    TemplateCommands, TxArgs, TxWorkflowArgs, UploadArgs,
+};
+use config::command_flow_template::{
+    CommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
+    parse_command_flow_template_str,
 };
 use config::connection_import::{self, ConnectionImportReport};
 use config::connection_store::{
@@ -249,6 +254,15 @@ async fn run(cli: Cli) -> Result<()> {
                 args.record_level,
             )?;
             println!("{}", output);
+        }
+        Commands::Flow(args) => {
+            run_command_flow(args, &cli.global_opts).await?;
+        }
+        Commands::FlowTemplate(cmd) => {
+            run_command_flow_template_command(cmd)?;
+        }
+        Commands::Upload(args) => {
+            run_upload(args, &cli.global_opts).await?;
         }
         Commands::Interactive(_) => {
             println!("Interactive mode not yet implemented");
@@ -931,6 +945,281 @@ fn print_connection_import_report(report: &ConnectionImportReport) {
     }
 }
 
+fn run_command_flow_template_command(cmd: CommandFlowTemplateCommands) -> Result<()> {
+    match cmd {
+        CommandFlowTemplateCommands::List => {
+            let names = content_store::list_command_flow_template_names()?;
+            if names.is_empty() {
+                println!("-");
+            } else {
+                for name in names {
+                    println!("- {}", name);
+                }
+            }
+        }
+        CommandFlowTemplateCommands::Show { name } => {
+            let safe_name = safe_command_flow_template_name(&name)?;
+            let stored =
+                content_store::load_command_flow_template(&safe_name)?.ok_or_else(|| {
+                    anyhow::anyhow!("command flow template '{}' not found", safe_name)
+                })?;
+            println!("{}", stored.content);
+        }
+        CommandFlowTemplateCommands::Create {
+            name,
+            file,
+            content,
+        } => {
+            let safe_name = safe_command_flow_template_name(&name)?;
+            let body = normalize_command_flow_template_body_from_input(&safe_name, file, content)?;
+            let created = content_store::create_command_flow_template(&safe_name, &body)?;
+            if !created {
+                return Err(anyhow::anyhow!(
+                    "command flow template '{}' already exists",
+                    safe_name
+                ));
+            }
+            println!("Created command flow template '{}'", safe_name);
+        }
+        CommandFlowTemplateCommands::Update {
+            name,
+            file,
+            content,
+        } => {
+            let safe_name = safe_command_flow_template_name(&name)?;
+            let body = normalize_command_flow_template_body_from_input(&safe_name, file, content)?;
+            let updated = content_store::update_command_flow_template(&safe_name, &body)?;
+            if !updated {
+                return Err(anyhow::anyhow!(
+                    "command flow template '{}' not found",
+                    safe_name
+                ));
+            }
+            println!("Updated command flow template '{}'", safe_name);
+        }
+        CommandFlowTemplateCommands::Delete { name } => {
+            let safe_name = safe_command_flow_template_name(&name)?;
+            let deleted = content_store::delete_command_flow_template(&safe_name)?;
+            if !deleted {
+                return Err(anyhow::anyhow!(
+                    "command flow template '{}' not found",
+                    safe_name
+                ));
+            }
+            println!("Deleted command flow template '{}'", safe_name);
+        }
+    }
+    Ok(())
+}
+
+async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Result<()> {
+    let template = resolve_command_flow_template(&args)?;
+    let vars = load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
+    let conn = resolve_effective_connection(opts)?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+
+    let flow = template.to_command_flow(&build_command_flow_runtime(
+        default_mode.clone(),
+        conn.connection_name.as_deref(),
+        &conn.host,
+        &conn.username,
+        &conn.device_profile,
+        vars,
+    ))?;
+
+    command_blacklist::ensure_commands_allowed(
+        flow.steps.iter().map(|command| command.command.as_str()),
+        "command flow",
+    )?;
+    if flow.steps.is_empty() {
+        return Err(anyhow::anyhow!("command flow has no steps"));
+    }
+
+    let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
+        DeviceClient::connect_with_recording(
+            conn.host.clone(),
+            conn.port,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+            default_mode.clone(),
+            to_record_level(args.record_level),
+            conn.ssh_security,
+        )
+        .await?
+    } else {
+        DeviceClient::connect(
+            conn.host.clone(),
+            conn.port,
+            conn.username.clone(),
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler,
+            default_mode.clone(),
+            conn.ssh_security,
+        )
+        .await?
+    };
+
+    maybe_save_connection_profile(opts, &conn)?;
+
+    let result = client.execute_command_flow(flow).await?;
+    print_command_flow_output(&result);
+    write_recording_if_requested(args.record_file.as_ref(), &client)?;
+    persist_auto_recording_history(
+        &client,
+        &conn,
+        "command_flow",
+        &format!("template: {}", template.name),
+        Some(default_mode.as_str()),
+        args.record_level,
+    )?;
+
+    if !result.success {
+        return Err(anyhow::anyhow!("command flow completed with errors"));
+    }
+    Ok(())
+}
+
+async fn run_upload(args: UploadArgs, opts: &cli::GlobalOpts) -> Result<()> {
+    let conn = resolve_effective_connection(opts)?;
+    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let upload = build_upload_request(&args)?;
+
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+    );
+    let context = manager_execution_context_with_security(None, conn.ssh_security);
+
+    if matches!(args.record_level, RecordLevelOpt::Off) {
+        MANAGER
+            .upload_file_with_context(request, upload, context)
+            .await?;
+    } else {
+        let (_sender, recorder) = MANAGER
+            .get_with_recording_level_and_context(
+                request,
+                context.clone(),
+                to_record_level(args.record_level),
+            )
+            .await?;
+        let handler_for_upload = template_loader::load_device_profile(&conn.device_profile)?;
+        let request = manager_connection_request(
+            conn.username.clone(),
+            conn.host.clone(),
+            conn.port,
+            conn.password.clone(),
+            conn.enable_password.clone(),
+            handler_for_upload,
+        );
+        MANAGER
+            .upload_file_with_context(request, upload, context)
+            .await?;
+
+        let jsonl = recorder.to_jsonl()?;
+        write_recording_text_if_requested(args.record_file.as_ref(), &jsonl)?;
+        persist_auto_recording_history_jsonl(
+            &jsonl,
+            &conn,
+            "sftp_upload",
+            &format!(
+                "{} -> {}",
+                args.local_path.to_string_lossy(),
+                args.remote_path
+            ),
+            None,
+            args.record_level,
+        )?;
+    }
+
+    maybe_save_connection_profile(opts, &conn)?;
+    println!(
+        "Uploaded '{}' to '{}'",
+        args.local_path.to_string_lossy(),
+        args.remote_path
+    );
+    Ok(())
+}
+
+fn print_command_flow_output(result: &rneter::session::CommandFlowOutput) {
+    println!("flow_success: {}", result.success);
+    for (index, output) in result.outputs.iter().enumerate() {
+        println!(
+            "step {} success={} exit_code={}",
+            index + 1,
+            output.success,
+            output
+                .exit_code
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "-".to_string())
+        );
+        println!("{}", output.content);
+        if index + 1 < result.outputs.len() {
+            println!("---");
+        }
+    }
+}
+
+fn build_upload_request(args: &UploadArgs) -> Result<rneter::session::FileUploadRequest> {
+    let local_path = args.local_path.to_string_lossy().to_string();
+    if !args.local_path.is_file() {
+        return Err(anyhow::anyhow!(
+            "local upload file '{}' does not exist or is not a file",
+            args.local_path.to_string_lossy()
+        ));
+    }
+    let mut request = rneter::session::FileUploadRequest::new(local_path, args.remote_path.clone())
+        .with_timeout_secs(args.timeout_secs)
+        .with_progress_reporting(args.show_progress);
+    if let Some(buffer_size) = args.buffer_size {
+        request = request.with_buffer_size(buffer_size);
+    }
+    Ok(request)
+}
+
+fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate> {
+    let safe_name = safe_command_flow_template_name(name)?;
+    let stored = content_store::load_command_flow_template(&safe_name)?
+        .ok_or_else(|| anyhow::anyhow!("command flow template '{}' not found", safe_name))?;
+    parse_command_flow_template_str(&stored.content, Some(&safe_name))
+}
+
+fn resolve_command_flow_template(args: &CommandFlowArgs) -> Result<CommandFlowTemplate> {
+    match (&args.template, &args.file) {
+        (Some(name), None) => load_command_flow_template_form(name),
+        (None, Some(file)) => {
+            let body = fs::read_to_string(file)?;
+            let name = file
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .unwrap_or("inline_flow");
+            parse_command_flow_template_str(&body, Some(name))
+        }
+        (Some(_), Some(_)) => Err(anyhow::anyhow!(
+            "use either --template or --file for command flow execution, not both"
+        )),
+        (None, None) => Err(anyhow::anyhow!(
+            "command flow execution requires --template <name> or --file <path>"
+        )),
+    }
+}
+
+fn normalize_command_flow_template_body_from_input(
+    name: &str,
+    file: Option<PathBuf>,
+    content: Option<String>,
+) -> Result<String> {
+    let body = read_text_body("command flow template", file, content)?;
+    normalize_command_flow_template_body(name, &body)
+}
+
 pub(crate) fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
     match level {
         RecordLevelOpt::Off => SessionRecordLevel::Off,
@@ -1025,22 +1314,41 @@ fn safe_template_name(raw: &str) -> Result<String> {
     Ok(normalized.to_string())
 }
 
+fn safe_command_flow_template_name(raw: &str) -> Result<String> {
+    let normalized = raw.trim();
+    if normalized.is_empty()
+        || normalized.contains('/')
+        || normalized.contains('\\')
+        || normalized.contains("..")
+        || !normalized
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+    {
+        return Err(anyhow::anyhow!("invalid command flow template name"));
+    }
+    Ok(normalized.to_string())
+}
+
 fn read_template_body(file: Option<PathBuf>, content: Option<String>) -> Result<String> {
+    read_text_body("template", file, content)
+}
+
+fn read_text_body(kind: &str, file: Option<PathBuf>, content: Option<String>) -> Result<String> {
     if let Some(text) = content {
         if text.trim().is_empty() {
-            return Err(anyhow::anyhow!("template content must not be empty"));
+            return Err(anyhow::anyhow!("{kind} content must not be empty"));
         }
         return Ok(text);
     }
     if let Some(path) = file {
         let text = fs::read_to_string(&path)?;
         if text.trim().is_empty() {
-            return Err(anyhow::anyhow!("template file content is empty"));
+            return Err(anyhow::anyhow!("{kind} file content is empty"));
         }
         return Ok(text);
     }
     Err(anyhow::anyhow!(
-        "template content required: use --content or --file"
+        "{kind} content required: use --content or --file"
     ))
 }
 
@@ -1302,6 +1610,23 @@ fn load_vars_json(path: Option<&PathBuf>) -> Result<serde_json::Value> {
             Ok(serde_json::from_str(&content)?)
         }
         None => Ok(serde_json::Value::Null),
+    }
+}
+
+fn load_vars_json_input(
+    path: Option<&PathBuf>,
+    inline_json: Option<&str>,
+) -> Result<serde_json::Value> {
+    match (
+        path,
+        inline_json.map(str::trim).filter(|value| !value.is_empty()),
+    ) {
+        (Some(_), Some(_)) => Err(anyhow::anyhow!(
+            "use either --vars or --vars-json, not both"
+        )),
+        (Some(path), None) => load_vars_json(Some(path)),
+        (None, Some(raw)) => Ok(serde_json::from_str(raw)?),
+        (None, None) => Ok(serde_json::Value::Null),
     }
 }
 

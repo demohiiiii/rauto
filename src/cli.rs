@@ -25,6 +25,18 @@ pub enum Commands {
     /// Start an interactive session
     Interactive(InteractiveArgs),
 
+    /// Execute a reusable interactive command flow template
+    #[command(name = "flow")]
+    Flow(CommandFlowArgs),
+
+    /// Manage saved command flow templates
+    #[command(name = "flow-template")]
+    #[command(subcommand)]
+    FlowTemplate(CommandFlowTemplateCommands),
+
+    /// Upload a local file to the remote host over SFTP
+    Upload(UploadArgs),
+
     /// Start web service with visual UI
     Web(WebArgs),
 
@@ -73,6 +85,44 @@ pub enum RecordLevelOpt {
     Off,
     KeyEventsOnly,
     Full,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum CommandFlowTemplateCommands {
+    /// List saved command flow templates
+    List,
+    /// Show a saved command flow template
+    Show {
+        /// Command flow template name
+        name: String,
+    },
+    /// Create a new command flow template
+    Create {
+        /// Command flow template name
+        name: String,
+        /// Path to TOML content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline TOML content
+        #[arg(long)]
+        content: Option<String>,
+    },
+    /// Update an existing command flow template
+    Update {
+        /// Command flow template name
+        name: String,
+        /// Path to TOML content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline TOML content
+        #[arg(long)]
+        content: Option<String>,
+    },
+    /// Delete a command flow template
+    Delete {
+        /// Command flow template name
+        name: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -270,6 +320,64 @@ pub struct TemplateArgs {
 
     /// Session recording level
     #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    pub record_level: RecordLevelOpt,
+}
+
+#[derive(Args, Debug)]
+pub struct CommandFlowArgs {
+    /// Saved command flow template name
+    #[arg(long)]
+    pub template: Option<String>,
+
+    /// Path to a TOML file containing an ad-hoc command flow template
+    #[arg(long)]
+    pub file: Option<PathBuf>,
+
+    /// Path to a JSON file containing template variables
+    #[arg(long, short = 'v')]
+    pub vars: Option<PathBuf>,
+
+    /// Inline JSON variables
+    #[arg(long)]
+    pub vars_json: Option<String>,
+
+    /// Save SSH session recording to this JSONL file
+    #[arg(long)]
+    pub record_file: Option<PathBuf>,
+
+    /// Session recording level
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::Off)]
+    pub record_level: RecordLevelOpt,
+}
+
+#[derive(Args, Debug)]
+pub struct UploadArgs {
+    /// Local file path on the machine running rauto
+    #[arg(long)]
+    pub local_path: PathBuf,
+
+    /// Destination file path on the remote host
+    #[arg(long)]
+    pub remote_path: String,
+
+    /// Upload timeout in seconds
+    #[arg(long, default_value_t = 300)]
+    pub timeout_secs: u64,
+
+    /// Optional upload buffer size in bytes
+    #[arg(long)]
+    pub buffer_size: Option<usize>,
+
+    /// Emit upload progress logs from the SFTP helper
+    #[arg(long)]
+    pub show_progress: bool,
+
+    /// Save SSH session recording to this JSONL file
+    #[arg(long)]
+    pub record_file: Option<PathBuf>,
+
+    /// Save SSH session recording level
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::Off)]
     pub record_level: RecordLevelOpt,
 }
 

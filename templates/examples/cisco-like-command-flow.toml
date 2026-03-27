@@ -1,0 +1,108 @@
+name = "cisco_like_copy"
+description = "Generic interactive SCP/TFTP copy flow for Cisco-like CLIs."
+stop_on_error = true
+default_mode = "Enable"
+
+[[vars]]
+name = "protocol"
+label = "Transfer Protocol"
+description = "Transfer protocol used by the device-side copy workflow."
+required = true
+options = ["scp", "tftp"]
+
+[[vars]]
+name = "direction"
+label = "Transfer Direction"
+description = "Choose whether the device pulls a file from the server or pushes a file to it."
+required = true
+options = ["to_device", "from_device"]
+
+[[vars]]
+name = "server_addr"
+label = "Server Address"
+description = "SCP/TFTP server reachable from the target device."
+required = true
+placeholder = "192.0.2.10"
+
+[[vars]]
+name = "remote_path"
+label = "Remote Path"
+description = "Remote filename or path used on the transfer server."
+required = true
+placeholder = "/images/image.bin"
+
+[[vars]]
+name = "device_path"
+label = "Device Path"
+description = "Destination or source path on the target device."
+required = true
+placeholder = "flash:/image.bin"
+
+[[vars]]
+name = "transfer_username"
+label = "Transfer Username"
+description = "Required when the protocol is SCP."
+placeholder = "backup"
+
+[[vars]]
+name = "transfer_password"
+label = "Transfer Password"
+description = "Required when the protocol is SCP."
+type = "secret"
+
+[[steps]]
+timeout_secs = 300
+command = { kind = "if_equals", var = "direction", value = "to_device", then_text = { kind = "concat", parts = [
+  { kind = "literal", value = "copy " },
+  { kind = "var", name = "protocol" },
+  { kind = "literal", value = ": " },
+  { kind = "var", name = "device_path" }
+] }, else_text = { kind = "concat", parts = [
+  { kind = "literal", value = "copy " },
+  { kind = "var", name = "device_path" },
+  { kind = "literal", value = " " },
+  { kind = "var", name = "protocol" },
+  { kind = "literal", value = ":" }
+] } }
+
+[[steps.prompts]]
+patterns = ["(?i)^Address or name of remote host.*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = { kind = "var", name = "server_addr" }
+
+[[steps.prompts]]
+patterns = ["(?i)^Source (?:file ?name|filename).*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = { kind = "if_equals", var = "direction", value = "to_device", then_text = { kind = "var", name = "remote_path" } }
+
+[[steps.prompts]]
+patterns = ["(?i)^Destination (?:file ?name|filename).*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = { kind = "if_equals", var = "direction", value = "from_device", then_text = { kind = "var", name = "remote_path" } }
+
+[[steps.prompts]]
+patterns = ["(?i)^Source username.*\\?\\s*$", "(?i)^Destination username.*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = { kind = "var", name = "transfer_username" }
+
+[[steps.prompts]]
+patterns = ["(?i)^.*password.*:\\s*$"]
+append_newline = true
+record_input = false
+response = { kind = "var", name = "transfer_password" }
+
+[[steps.prompts]]
+patterns = ["(?i)^.*\\[confirm\\]\\s*$"]
+append_newline = true
+record_input = false
+response = { kind = "literal", value = "" }
+
+[[steps.prompts]]
+patterns = ["(?i)^.*(?:overwrite|over write).*\\[(?:y/n|yes/no)\\].*$"]
+append_newline = true
+record_input = false
+response = { kind = "literal", value = "y" }

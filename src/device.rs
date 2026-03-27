@@ -3,7 +3,10 @@ use crate::{manager_connection_request, manager_execution_context_with_security}
 use anyhow::{Result, anyhow};
 use rneter::{
     device::DeviceHandler,
-    session::{CmdJob, Command, MANAGER, Output, SessionRecordLevel, SessionRecorder},
+    session::{
+        CmdJob, Command, CommandFlow, CommandFlowOutput, MANAGER, Output, SessionRecordLevel,
+        SessionRecorder,
+    },
 };
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
@@ -89,23 +92,27 @@ impl DeviceClient {
         command_str: &str,
         target_mode: Option<&str>,
     ) -> Result<Output> {
+        let mode = target_mode.unwrap_or(&self.default_mode).to_string();
+        self.execute_command_structured(Command {
+            mode,
+            command: command_str.to_string(),
+            timeout: Some(self.default_timeout),
+            dyn_params: Default::default(),
+            interaction: Default::default(),
+        })
+        .await
+    }
+
+    pub async fn execute_command_structured(&self, command: Command) -> Result<Output> {
         let (tx, rx) = oneshot::channel();
 
-        let mode = target_mode.unwrap_or(&self.default_mode).to_string();
-
         let cmd = CmdJob {
-            data: Command {
-                mode,
-                command: command_str.to_string(),
-                timeout: Some(self.default_timeout),
-                dyn_params: Default::default(),
-                interaction: Default::default(),
-            },
+            data: command.clone(),
             sys: None, // Optional system name check
             responder: tx,
         };
 
-        debug!("Sending command: {}", command_str);
+        debug!("Sending command: {}", command.command);
         self.sender
             .send(cmd)
             .await
@@ -123,6 +130,27 @@ impl DeviceClient {
         }
 
         Ok(output)
+    }
+
+    pub async fn execute_command_flow(&self, flow: CommandFlow) -> Result<CommandFlowOutput> {
+        let CommandFlow {
+            steps,
+            stop_on_error,
+        } = flow;
+        let mut outputs = Vec::with_capacity(steps.len());
+        for command in steps {
+            let output = self.execute_command_structured(command).await?;
+            let step_success = output.success;
+            outputs.push(output);
+            if stop_on_error && !step_success {
+                return Ok(CommandFlowOutput {
+                    success: false,
+                    outputs,
+                });
+            }
+        }
+        let success = outputs.iter().all(|output| output.success);
+        Ok(CommandFlowOutput { success, outputs })
     }
 
     pub async fn execute(&self, command_str: &str, target_mode: Option<&str>) -> Result<String> {
