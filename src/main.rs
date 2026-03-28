@@ -7,6 +7,7 @@ mod device;
 mod manager_grpc;
 mod orchestrator;
 mod template;
+mod tx_operation;
 mod web;
 
 use anyhow::Result;
@@ -36,8 +37,8 @@ use device::DeviceClient;
 use rneter::device::DeviceHandler;
 use rneter::session::{
     CommandBlockKind, ConnectionRequest as ManagerConnectionRequest, ExecutionContext, MANAGER,
-    RollbackPolicy, SessionEvent, SessionRecordLevel, SessionRecorder, SessionReplayer, TxBlock,
-    TxStep, TxWorkflowResult,
+    RollbackPolicy, SessionEvent, SessionOperation, SessionRecordLevel, SessionRecorder,
+    SessionReplayer, TxBlock, TxOperationStepResult, TxStep, TxWorkflowResult,
 };
 use rneter::templates as rneter_templates;
 use serde::Serialize;
@@ -49,6 +50,7 @@ use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt, fmt::format::Writer, fmt::time::FormatTime};
+use tx_operation::{command_timeout_secs, command_tx_step};
 use web::{run_agent_server, run_web_server};
 
 #[tokio::main]
@@ -1432,16 +1434,18 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
         let steps: Vec<TxStep> = commands
             .iter()
             .enumerate()
-            .map(|(idx, cmd)| TxStep {
-                mode: mode.to_string(),
-                command: cmd.clone(),
-                timeout_secs: args.timeout_secs,
-                rollback_command: if rollback_commands[idx].trim().is_empty() {
-                    None
-                } else {
-                    Some(rollback_commands[idx].clone())
-                },
-                rollback_on_failure: args.rollback_on_failure,
+            .map(|(idx, cmd)| {
+                command_tx_step(
+                    &mode,
+                    cmd.clone(),
+                    args.timeout_secs,
+                    if rollback_commands[idx].trim().is_empty() {
+                        None
+                    } else {
+                        Some(rollback_commands[idx].clone())
+                    },
+                    args.rollback_on_failure,
+                )
             })
             .collect();
         let tx_block = TxBlock {
@@ -1469,16 +1473,9 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
         }
         if let Some(trigger) = args.rollback_trigger_step_index {
             match tx_block.rollback_policy {
-                RollbackPolicy::WholeResource {
-                    mode,
-                    undo_command,
-                    timeout_secs,
-                    ..
-                } => {
+                RollbackPolicy::WholeResource { rollback, .. } => {
                     tx_block.rollback_policy = RollbackPolicy::WholeResource {
-                        mode,
-                        undo_command,
-                        timeout_secs,
+                        rollback,
                         trigger_step_index: trigger,
                     };
                 }
@@ -1648,22 +1645,56 @@ fn print_tx_result(result: &rneter::session::TxResult) {
     if !result.rollback_errors.is_empty() {
         println!("rollback_errors: {}", result.rollback_errors.join(" | "));
     }
+    if let Some(summary) = &result.block_rollback_operation_summary {
+        println!("block_rollback_operation_summary: {}", summary);
+    }
+    if !result.block_rollback_steps.is_empty() {
+        println!("block_rollback_steps:");
+        print_operation_step_results("  ", &result.block_rollback_steps);
+    }
     if !result.step_results.is_empty() {
         println!("step_results:");
         for step in &result.step_results {
             println!(
-                "  - step={} exec={:?} rollback={:?} mode={} command={}",
-                step.step_index, step.execution_state, step.rollback_state, step.mode, step.command
+                "  - step={} exec={:?} rollback={:?} mode={} operation={}",
+                step.step_index,
+                step.execution_state,
+                step.rollback_state,
+                step.mode,
+                step.operation_summary
             );
             if let Some(reason) = &step.failure_reason {
                 println!("    failure_reason: {}", reason);
             }
-            if let Some(command) = &step.rollback_command {
-                println!("    rollback_command: {}", command);
+            if !step.forward_operation_steps.is_empty() {
+                println!("    forward_operation_steps:");
+                print_operation_step_results("      ", &step.forward_operation_steps);
+            }
+            if let Some(summary) = &step.rollback_operation_summary {
+                println!("    rollback_operation: {}", summary);
             }
             if let Some(reason) = &step.rollback_reason {
                 println!("    rollback_reason: {}", reason);
             }
+            if !step.rollback_operation_steps.is_empty() {
+                println!("    rollback_operation_steps:");
+                print_operation_step_results("      ", &step.rollback_operation_steps);
+            }
+        }
+    }
+}
+
+fn print_operation_step_results(prefix: &str, steps: &[TxOperationStepResult]) {
+    for step in steps {
+        println!(
+            "{}- child_step={} success={} mode={} summary={}",
+            prefix, step.step_index, step.success, step.mode, step.operation_summary
+        );
+        if let Some(exit_code) = step.exit_code {
+            println!("{}  exit_code: {}", prefix, exit_code);
+        }
+        if let Some(prompt) = &step.prompt {
+            println!("{}  prompt: {}", prefix, prompt);
         }
     }
 }
@@ -1980,11 +2011,11 @@ fn render_tx_workflow_plan(
                 );
             }
             RollbackPolicy::WholeResource {
-                mode,
-                timeout_secs,
+                rollback,
                 trigger_step_index,
-                undo_command,
             } => {
+                let (rollback_mode, rollback_summary) =
+                    operation_mode_and_summary(rollback.as_ref());
                 let _ = writeln!(
                     &mut out,
                     "{}",
@@ -2010,10 +2041,10 @@ fn render_tx_workflow_plan(
                     "{}",
                     table_row(
                         &[
-                            "undo_mode".to_string(),
-                            mode.clone(),
-                            "undo_timeout".to_string(),
-                            timeout_secs
+                            "rb_mode".to_string(),
+                            rollback_mode,
+                            "rb_timeout".to_string(),
+                            command_timeout_secs(rollback.as_ref())
                                 .map(|sec| format!("{sec}s"))
                                 .unwrap_or_else(|| "-".to_string())
                         ],
@@ -2033,8 +2064,8 @@ fn render_tx_workflow_plan(
                     "{}",
                     table_row(
                         &[
-                            "undo_cmd".to_string(),
-                            undo_command.clone(),
+                            "rollback".to_string(),
+                            rollback_summary,
                             "-".to_string(),
                             "-".to_string()
                         ],
@@ -2060,16 +2091,15 @@ fn render_tx_workflow_plan(
         }
 
         for (step_idx, step) in block.steps.iter().enumerate() {
-            let timeout = step
-                .timeout_secs
+            let timeout = command_timeout_secs(&step.run)
                 .map(|sec| format!("{sec}s"))
                 .unwrap_or_else(|| "-".to_string());
+            let (mode_value, command_value) = operation_mode_and_summary(&step.run);
             let rollback_cmd = step
-                .rollback_command
-                .as_deref()
-                .filter(|cmd| !cmd.trim().is_empty())
-                .unwrap_or("-")
-                .to_string();
+                .rollback
+                .as_ref()
+                .map(|operation| operation_mode_and_summary(operation).1)
+                .unwrap_or_else(|| "-".to_string());
             let _ = writeln!(
                 &mut out,
                 "{}",
@@ -2084,7 +2114,7 @@ fn render_tx_workflow_plan(
                         "step".to_string(),
                         format!("{}/{}", step_idx + 1, block.steps.len()),
                         "mode".to_string(),
-                        step.mode.clone()
+                        mode_value
                     ],
                     &STEP_INFO_COLS,
                     &[
@@ -2133,7 +2163,7 @@ fn render_tx_workflow_plan(
                 table_row(
                     &[
                         "command".to_string(),
-                        step.command.clone(),
+                        command_value,
                         "rollback".to_string(),
                         rollback_cmd
                     ],
@@ -2213,16 +2243,28 @@ fn fit_cell(value: &str, width: usize) -> String {
 
 fn block_command_cell_width(block: &TxBlock) -> usize {
     let mut max_len = 24usize;
-    if let RollbackPolicy::WholeResource { undo_command, .. } = &block.rollback_policy {
-        max_len = max_len.max(undo_command.chars().count());
+    if let RollbackPolicy::WholeResource { rollback, .. } = &block.rollback_policy {
+        max_len = max_len.max(
+            operation_mode_and_summary(rollback.as_ref())
+                .1
+                .chars()
+                .count(),
+        );
     }
     for step in &block.steps {
-        max_len = max_len.max(step.command.chars().count());
-        if let Some(rollback) = &step.rollback_command {
-            max_len = max_len.max(rollback.chars().count());
+        max_len = max_len.max(operation_mode_and_summary(&step.run).1.chars().count());
+        if let Some(rollback) = &step.rollback {
+            max_len = max_len.max(operation_mode_and_summary(rollback).1.chars().count());
         }
     }
     max_len.clamp(24, 54)
+}
+
+fn operation_mode_and_summary(operation: &SessionOperation) -> (String, String) {
+    match operation.summary() {
+        Ok(summary) => (summary.mode, summary.description),
+        Err(_) => ("-".to_string(), "<invalid operation>".to_string()),
+    }
 }
 
 #[derive(Clone, Copy)]

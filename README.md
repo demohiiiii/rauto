@@ -238,7 +238,7 @@ Notes:
 
 - `rauto flow` is the preferred way to run interactive command flows from the CLI.
 - Saved flow templates live in SQLite and are reused by both CLI and Web.
-- Flow templates now follow `rneter 0.3.7`'s structured `CommandFlowTemplate` model instead of the older ad-hoc string template shape.
+- Flow templates now follow `rneter 0.4.0`'s structured `CommandFlowTemplate` model instead of the older ad-hoc string template shape.
 - Flow templates can declare a `vars` schema with `name`, `type`, `required`, `default`, `options`, `label`, and `description`, so `rauto` can validate runtime vars and render form fields in the Web UI.
 - Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
 - If a step omits `mode`, `rauto` uses the first mode defined by the selected device profile.
@@ -278,7 +278,7 @@ Optional flags:
 
 `rauto` supports built-in device profiles (inherited from `rneter`) and custom TOML profiles.
 
-Current built-in profiles from `rneter 0.3.7` include:
+Current built-in profiles from `rneter 0.4.0` include:
 
 - Network vendors: `cisco`, `huawei`, `h3c`, `hillstone`, `juniper`, `array`, `arista`, `fortinet`, `paloalto`, `topsec`, `venustech`, `dptech`, `chaitin`, `qianxin`, `maipu`, `checkpoint`
 - Servers: `linux`
@@ -745,10 +745,18 @@ rauto tx-workflow ./workflow.json --dry-run --json
       "rollback_policy": "per_step",
       "steps": [
         {
-          "mode": "Config",
-          "command": "address-book global address WEB01 10.0.10.1/32",
-          "timeout_secs": 10,
-          "rollback_command": "delete address-book global address WEB01"
+          "run": {
+            "kind": "command",
+            "mode": "Config",
+            "command": "address-book global address WEB01 10.0.10.1/32",
+            "timeout": 10
+          },
+          "rollback": {
+            "kind": "command",
+            "mode": "Config",
+            "command": "delete address-book global address WEB01",
+            "timeout": 10
+          }
         }
       ]
     },
@@ -758,17 +766,23 @@ rauto tx-workflow ./workflow.json --dry-run --json
       "fail_fast": true,
       "rollback_policy": {
         "whole_resource": {
-          "mode": "Config",
-          "undo_command": "delete security policies from-zone trust to-zone untrust policy allow-web",
-          "timeout_secs": 10
+          "rollback": {
+            "kind": "command",
+            "mode": "Config",
+            "command": "delete security policies from-zone trust to-zone untrust policy allow-web",
+            "timeout": 10
+          }
         }
       },
       "steps": [
         {
-          "mode": "Config",
-          "command": "set security policies from-zone trust to-zone untrust policy allow-web match source-address WEB01",
-          "timeout_secs": 10,
-          "rollback_command": null
+          "run": {
+            "kind": "command",
+            "mode": "Config",
+            "command": "set security policies from-zone trust to-zone untrust policy allow-web match source-address WEB01",
+            "timeout": 10
+          },
+          "rollback": null
         }
       ]
     }

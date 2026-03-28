@@ -16,6 +16,7 @@ use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
 use crate::orchestrator;
 use crate::template::renderer::Renderer;
+use crate::tx_operation::command_tx_step;
 use crate::web::error::ApiError;
 use crate::web::models::{
     AsyncTaskAcceptedResponse, BackupCreateRequest, BackupCreateResponse, BackupMeta,
@@ -283,7 +284,8 @@ fn map_recording_entry_to_task_event(
             block_name,
             step_index,
             mode,
-            command,
+            operation_summary,
+            operation_steps,
         } => match plan {
             RecordingEventPlan::TxBlock { total_steps } => Some(
                 TaskEventInput::new(
@@ -297,7 +299,8 @@ fn map_recording_entry_to_task_event(
                     "block_name": block_name,
                     "step_index": step_index,
                     "mode": mode,
-                    "command": command
+                    "operation_summary": operation_summary,
+                    "operation_steps": operation_steps
                 }))),
             ),
             RecordingEventPlan::TxWorkflow {
@@ -325,7 +328,8 @@ fn map_recording_entry_to_task_event(
                     "block_name": block_name,
                     "step_index": step_index,
                     "mode": mode,
-                    "command": command
+                    "operation_summary": operation_summary,
+                    "operation_steps": operation_steps
                 }))),
             ),
         },
@@ -333,7 +337,8 @@ fn map_recording_entry_to_task_event(
             block_name,
             step_index,
             mode,
-            command,
+            operation_summary,
+            operation_steps,
             reason,
         } => match plan {
             RecordingEventPlan::TxBlock { total_steps } => Some(
@@ -345,7 +350,8 @@ fn map_recording_entry_to_task_event(
                         "block_name": block_name,
                         "step_index": step_index,
                         "mode": mode,
-                        "command": command,
+                        "operation_summary": operation_summary,
+                        "operation_steps": operation_steps,
                         "reason": reason
                     }))),
             ),
@@ -370,7 +376,8 @@ fn map_recording_entry_to_task_event(
                     "block_name": block_name,
                     "step_index": step_index,
                     "mode": mode,
-                    "command": command,
+                    "operation_summary": operation_summary,
+                    "operation_steps": operation_steps,
                     "reason": reason
                 }))),
             ),
@@ -387,7 +394,8 @@ fn map_recording_entry_to_task_event(
             block_name,
             step_index,
             mode,
-            command,
+            operation_summary,
+            operation_steps,
         } => Some(
             TaskEventInput::new(
                 "step_completed",
@@ -399,14 +407,16 @@ fn map_recording_entry_to_task_event(
                 "block_name": block_name,
                 "step_index": step_index,
                 "mode": mode,
-                "command": command
+                "operation_summary": operation_summary,
+                "operation_steps": operation_steps
             }))),
         ),
         SessionEvent::TxRollbackStepFailed {
             block_name,
             step_index,
             mode,
-            command,
+            operation_summary,
+            operation_steps,
             reason,
         } => Some(
             TaskEventInput::new("failed", format!("Rollback step failed for {}", block_name))
@@ -416,7 +426,8 @@ fn map_recording_entry_to_task_event(
                     "block_name": block_name,
                     "step_index": step_index,
                     "mode": mode,
-                    "command": command,
+                    "operation_summary": operation_summary,
+                    "operation_steps": operation_steps,
                     "reason": reason
                 }))),
         ),
@@ -2880,16 +2891,18 @@ pub async fn execute_tx_block(
             let steps: Vec<TxStep> = resolved_commands
                 .iter()
                 .enumerate()
-                .map(|(idx, cmd)| TxStep {
-                    mode: mode.to_string(),
-                    command: cmd.clone(),
-                    timeout_secs: req.timeout_secs,
-                    rollback_command: if rollback_commands[idx].trim().is_empty() {
-                        None
-                    } else {
-                        Some(rollback_commands[idx].clone())
-                    },
-                    rollback_on_failure: req.rollback_on_failure.unwrap_or(false),
+                .map(|(idx, cmd)| {
+                    command_tx_step(
+                        &mode,
+                        cmd.clone(),
+                        req.timeout_secs,
+                        if rollback_commands[idx].trim().is_empty() {
+                            None
+                        } else {
+                            Some(rollback_commands[idx].clone())
+                        },
+                        req.rollback_on_failure.unwrap_or(false),
+                    )
                 })
                 .collect();
             let tx_block = TxBlock {
@@ -2917,16 +2930,9 @@ pub async fn execute_tx_block(
             }
             if let Some(trigger) = req.rollback_trigger_step_index {
                 match tx_block.rollback_policy {
-                    RollbackPolicy::WholeResource {
-                        mode,
-                        undo_command,
-                        timeout_secs,
-                        ..
-                    } => {
+                    RollbackPolicy::WholeResource { rollback, .. } => {
                         tx_block.rollback_policy = RollbackPolicy::WholeResource {
-                            mode,
-                            undo_command,
-                            timeout_secs,
+                            rollback,
                             trigger_step_index: trigger,
                         };
                     }

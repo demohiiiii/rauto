@@ -238,7 +238,7 @@ rauto flow \
 
 - `rauto flow` 是 CLI 里执行交互式命令流程的推荐入口。
 - 已保存的命令流程模板存放在 SQLite 中，CLI 和 Web 共用同一套模板。
-- 命令流程模板现在直接遵循 `rneter 0.3.7` 的结构化 `CommandFlowTemplate` 模型，不再使用之前那套临时字符串模板形态。
+- 命令流程模板现在直接遵循 `rneter 0.4.0` 的结构化 `CommandFlowTemplate` 模型，不再使用之前那套临时字符串模板形态。
 - 命令流程模板现在可以声明 `vars` 列表，支持 `name`、`type`、`required`、`default`、`options`、`label`、`description` 等字段，便于运行时校验变量，也便于 Web 自动渲染输入表单。
 - 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
 - 如果某个步骤没有显式写 `mode`，`rauto` 会使用设备 profile 定义的第一个状态。
@@ -278,7 +278,7 @@ rauto upload \
 
 `rauto` 支持内置的设备配置（继承自 `rneter`）和自定义 TOML 配置。
 
-当前 `rneter 0.3.7` 提供的内置 profile 包括：
+当前 `rneter 0.4.0` 提供的内置 profile 包括：
 
 - 网络设备厂商：`cisco`、`huawei`、`h3c`、`hillstone`、`juniper`、`array`、`arista`、`fortinet`、`paloalto`、`topsec`、`venustech`、`dptech`、`chaitin`、`qianxin`、`maipu`、`checkpoint`
 - 服务器：`linux`
@@ -745,10 +745,18 @@ rauto tx-workflow ./workflow.json --dry-run --json
       "rollback_policy": "per_step",
       "steps": [
         {
-          "mode": "Config",
-          "command": "address-book global address WEB01 10.0.10.1/32",
-          "timeout_secs": 10,
-          "rollback_command": "delete address-book global address WEB01"
+          "run": {
+            "kind": "command",
+            "mode": "Config",
+            "command": "address-book global address WEB01 10.0.10.1/32",
+            "timeout": 10
+          },
+          "rollback": {
+            "kind": "command",
+            "mode": "Config",
+            "command": "delete address-book global address WEB01",
+            "timeout": 10
+          }
         }
       ]
     },
@@ -758,17 +766,23 @@ rauto tx-workflow ./workflow.json --dry-run --json
       "fail_fast": true,
       "rollback_policy": {
         "whole_resource": {
-          "mode": "Config",
-          "undo_command": "delete security policies from-zone trust to-zone untrust policy allow-web",
-          "timeout_secs": 10
+          "rollback": {
+            "kind": "command",
+            "mode": "Config",
+            "command": "delete security policies from-zone trust to-zone untrust policy allow-web",
+            "timeout": 10
+          }
         }
       },
       "steps": [
         {
-          "mode": "Config",
-          "command": "set security policies from-zone trust to-zone untrust policy allow-web match source-address WEB01",
-          "timeout_secs": 10,
-          "rollback_command": null
+          "run": {
+            "kind": "command",
+            "mode": "Config",
+            "command": "set security policies from-zone trust to-zone untrust policy allow-web match source-address WEB01",
+            "timeout": 10
+          },
+          "rollback": null
         }
       ]
     }

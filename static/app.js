@@ -2885,7 +2885,7 @@ function renderTxBlockPreview(txBlock, txResult) {
   const modes = Array.from(
     new Set(
       steps
-        .map((step) => safeString(step && step.mode).trim())
+        .map((step) => txOperationMode(txStepRunOperation(step)))
         .filter((s) => !!s)
     )
   );
@@ -2897,6 +2897,7 @@ function renderTxBlockPreview(txBlock, txResult) {
     txBlock.rollback_policy.whole_resource
       ? txBlock.rollback_policy.whole_resource
       : null;
+  const wholeResourceOp = txWholeResourceRollbackOperation(txBlock.rollback_policy);
   const summary = `
     <div class="grid gap-2 md:grid-cols-3">
       ${renderTxWorkflowPreviewMeta(
@@ -2922,7 +2923,7 @@ function renderTxBlockPreview(txBlock, txResult) {
         <div class="grid gap-2 md:grid-cols-3">
           ${renderTxWorkflowPreviewMeta(
             t("txWorkflowVisualUndo"),
-            wholeResource.undo_command || "-"
+            txOperationDescription(wholeResourceOp) || "-"
           )}
           ${renderTxWorkflowPreviewMeta(
             t("txWorkflowVisualTriggerStep"),
@@ -2932,7 +2933,7 @@ function renderTxBlockPreview(txBlock, txResult) {
           )}
           ${renderTxWorkflowPreviewMeta(
             t("txWorkflowSummaryMode"),
-            wholeResource.mode || modeText
+            txOperationMode(wholeResourceOp) || modeText
           )}
         </div>
       </div>
@@ -2941,14 +2942,13 @@ function renderTxBlockPreview(txBlock, txResult) {
   const stepRows = steps.length
     ? steps
         .map((step, idx) => {
-          const rollbackCmd =
-            step && step.rollback_command != null
-              ? String(step.rollback_command).trim()
-              : "";
-          const timeoutLabel =
-            step && step.timeout_secs != null && String(step.timeout_secs).trim()
-              ? `${step.timeout_secs}s`
-              : "-";
+          const runOperation = txStepRunOperation(step);
+          const rollbackOperation = txStepRollbackOperation(step);
+          const rollbackCmd = txOperationDescription(rollbackOperation);
+          const timeoutSeconds = txOperationTimeoutSeconds(runOperation);
+          const timeoutLabel = Number.isFinite(timeoutSeconds)
+            ? `${timeoutSeconds}s`
+            : "-";
           return `
         <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -2958,7 +2958,7 @@ function renderTxBlockPreview(txBlock, txResult) {
             <div class="inline-flex flex-wrap items-center gap-1">
               <span class="tx-workflow-chip">${escapeHtml(
                 `${t("txWorkflowSummaryMode")}: ${
-                  safeString(step && step.mode).trim() || "Config"
+                  txOperationMode(runOperation) || "Config"
                 }`
               )}</span>
               <span class="tx-workflow-chip">${escapeHtml(
@@ -2979,7 +2979,7 @@ function renderTxBlockPreview(txBlock, txResult) {
                 t("fieldCommand")
               )}</div>
               <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
-                safeString(step && step.command)
+                txOperationDescription(runOperation)
               )}</div>
             </div>
             <div class="rounded-lg border ${
@@ -3102,7 +3102,7 @@ function renderTxWorkflowPreview(workflow) {
       const modes = Array.from(
         new Set(
           steps
-            .map((step) => safeString(step && step.mode).trim())
+            .map((step) => txOperationMode(txStepRunOperation(step)))
             .filter((s) => !!s)
         )
       );
@@ -3117,12 +3117,15 @@ function renderTxWorkflowPreview(workflow) {
         block.rollback_policy.whole_resource
           ? block.rollback_policy.whole_resource
           : null;
+      const wholeResourceOp = txWholeResourceRollbackOperation(
+        block ? block.rollback_policy : null
+      );
       const wholeResourceRow = wholeResource
         ? `
       <div class="grid gap-2 md:grid-cols-3">
         ${renderTxWorkflowPreviewMeta(
           t("txWorkflowVisualUndo"),
-          wholeResource.undo_command || "-"
+          txOperationDescription(wholeResourceOp) || "-"
         )}
         ${renderTxWorkflowPreviewMeta(
           t("txWorkflowVisualTriggerStep"),
@@ -3132,7 +3135,7 @@ function renderTxWorkflowPreview(workflow) {
         )}
         ${renderTxWorkflowPreviewMeta(
           t("txWorkflowSummaryMode"),
-          wholeResource.mode || modeText
+          txOperationMode(wholeResourceOp) || modeText
         )}
       </div>
       `
@@ -3140,14 +3143,13 @@ function renderTxWorkflowPreview(workflow) {
       const stepRows = steps.length
         ? steps
             .map((step, stepIdx) => {
-              const rollbackCmd =
-                step && step.rollback_command != null
-                  ? String(step.rollback_command).trim()
-                  : "";
-              const timeoutLabel =
-                step && step.timeout_secs != null && String(step.timeout_secs).trim()
-                  ? `${step.timeout_secs}s`
-                  : "-";
+              const runOperation = txStepRunOperation(step);
+              const rollbackOperation = txStepRollbackOperation(step);
+              const rollbackCmd = txOperationDescription(rollbackOperation);
+              const timeoutSeconds = txOperationTimeoutSeconds(runOperation);
+              const timeoutLabel = Number.isFinite(timeoutSeconds)
+                ? `${timeoutSeconds}s`
+                : "-";
               return `
           <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
@@ -3157,7 +3159,7 @@ function renderTxWorkflowPreview(workflow) {
               <div class="inline-flex flex-wrap items-center gap-1">
                 <span class="tx-workflow-chip">${escapeHtml(
                   `${t("txWorkflowSummaryMode")}: ${
-                    safeString(step && step.mode).trim() || "Config"
+                    txOperationMode(runOperation) || "Config"
                   }`
                 )}</span>
                 <span class="tx-workflow-chip">${escapeHtml(
@@ -3174,13 +3176,13 @@ function renderTxWorkflowPreview(workflow) {
             </div>
             <div class="mt-2 grid gap-2 md:grid-cols-2">
               <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2">
-                <div class="text-[11px] font-semibold text-cyan-700">${escapeHtml(
-                  t("fieldCommand")
-                )}</div>
-                <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
-                  safeString(step && step.command)
-                )}</div>
-              </div>
+                  <div class="text-[11px] font-semibold text-cyan-700">${escapeHtml(
+                    t("fieldCommand")
+                  )}</div>
+                  <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
+                    txOperationDescription(runOperation)
+                  )}</div>
+                </div>
               <div class="rounded-lg border ${
                 rollbackCmd
                   ? "border-amber-200 bg-amber-50"
@@ -5373,6 +5375,73 @@ function txWorkflowLines(text) {
     .filter((s) => !!s);
 }
 
+function txStepRunOperation(step) {
+  if (!step || typeof step !== "object") return null;
+  return step.run && typeof step.run === "object" ? step.run : null;
+}
+
+function txStepRollbackOperation(step) {
+  if (!step || typeof step !== "object") return null;
+  return step.rollback && typeof step.rollback === "object" ? step.rollback : null;
+}
+
+function txWholeResourceRollbackOperation(rollbackPolicy) {
+  if (!rollbackPolicy || typeof rollbackPolicy !== "object") return null;
+  const wholeResource = rollbackPolicy.whole_resource;
+  if (!wholeResource || typeof wholeResource !== "object") return null;
+  return wholeResource.rollback && typeof wholeResource.rollback === "object"
+    ? wholeResource.rollback
+    : null;
+}
+
+function txOperationMode(operation) {
+  if (!operation || typeof operation !== "object") return "";
+  if (typeof operation.mode === "string") return operation.mode.trim();
+  if (operation.kind === "flow") {
+    const steps = Array.isArray(operation.steps) ? operation.steps : [];
+    return safeString(steps[0] && steps[0].mode).trim();
+  }
+  if (operation.kind === "template") {
+    return safeString(operation.runtime && operation.runtime.default_mode).trim();
+  }
+  return "";
+}
+
+function txOperationTimeoutSeconds(operation) {
+  if (!operation || typeof operation !== "object") return null;
+  if (operation.timeout != null && String(operation.timeout).trim()) {
+    return Number(operation.timeout);
+  }
+  if (operation.kind === "flow") {
+    const steps = Array.isArray(operation.steps) ? operation.steps : [];
+    return steps[0] && steps[0].timeout != null ? Number(steps[0].timeout) : null;
+  }
+  return null;
+}
+
+function txOperationDescription(operation) {
+  if (!operation || typeof operation !== "object") return "";
+  if (operation.kind === "command" || operation.command != null) {
+    return safeString(operation.command).trim();
+  }
+  if (operation.kind === "flow") {
+    const steps = Array.isArray(operation.steps) ? operation.steps : [];
+    const first = safeString(steps[0] && steps[0].command).trim();
+    if (!steps.length) return "flow";
+    if (steps.length === 1) return first || "flow";
+    return first ? `${first} ... (${steps.length} steps)` : `${steps.length} steps`;
+  }
+  if (operation.kind === "template") {
+    const templateName = safeString(operation.template && operation.template.name).trim();
+    const runtimeMode = safeString(
+      operation.runtime && operation.runtime.default_mode
+    ).trim();
+    if (templateName && runtimeMode) return `${templateName} (${runtimeMode})`;
+    return templateName || "template";
+  }
+  return "";
+}
+
 function autoScrollDuringDrag(event, container) {
   const y = event.clientY;
   const threshold = 96;
@@ -5475,14 +5544,22 @@ function generateTxWorkflowJsonFromBuilder() {
     const applyRollbackOnFailure =
       block.rollbackPolicy === "per_step" && block.rollbackOnFailure === true;
     const steps = commands.map((command, idx) => ({
-      mode,
-      command,
-      timeout_secs: timeoutSecs,
-      rollback_command:
-        block.rollbackPolicy === "per_step"
-          ? rollbacks[idx] && rollbacks[idx].trim()
-            ? rollbacks[idx]
-            : null
+      run: {
+        kind: "command",
+        mode,
+        command,
+        timeout: timeoutSecs,
+      },
+      rollback:
+        block.rollbackPolicy === "per_step" &&
+        rollbacks[idx] &&
+        rollbacks[idx].trim()
+          ? {
+              kind: "command",
+              mode,
+              command: rollbacks[idx],
+              timeout: timeoutSecs,
+            }
           : null,
       rollback_on_failure: applyRollbackOnFailure,
     }));
@@ -5493,10 +5570,13 @@ function generateTxWorkflowJsonFromBuilder() {
     } else if (block.rollbackPolicy === "whole_resource") {
       rollbackPolicy = {
         whole_resource: {
-          mode,
-          undo_command: block.undoCommand.trim(),
+          rollback: {
+            kind: "command",
+            mode,
+            command: block.undoCommand.trim(),
+            timeout: timeoutSecs,
+          },
           trigger_step_index: triggerStepIndex,
-          timeout_secs: timeoutSecs,
         },
       };
     } else {
@@ -5529,9 +5609,10 @@ function loadTxWorkflowBuilderFromJson() {
   const blocks = Array.isArray(workflow.blocks) ? workflow.blocks : [];
   txWorkflowBlocks = blocks.map((b) => {
     const steps = Array.isArray(b.steps) ? b.steps : [];
-    const mode = (steps[0] && steps[0].mode) || "Config";
-    const timeoutSecs = (steps[0] && steps[0].timeout_secs) || null;
-    const rollbackOnFailure = steps.some((s) => s.rollback_on_failure === true);
+    const firstRun = txStepRunOperation(steps[0]);
+    const mode = txOperationMode(firstRun) || "Config";
+    const timeoutSecs = txOperationTimeoutSeconds(firstRun);
+    const rollbackOnFailure = steps.some((s) => s && s.rollback_on_failure === true);
     let rollbackPolicy = "per_step";
     let undoCommand = "";
     let triggerStepIndex = 0;
@@ -5543,7 +5624,8 @@ function loadTxWorkflowBuilderFromJson() {
       b.rollback_policy.whole_resource
     ) {
       rollbackPolicy = "whole_resource";
-      undoCommand = b.rollback_policy.whole_resource.undo_command || "";
+      undoCommand =
+        txOperationDescription(txWholeResourceRollbackOperation(b.rollback_policy)) || "";
       triggerStepIndex = b.rollback_policy.whole_resource.trigger_step_index || 0;
     }
     return createTxWorkflowBlock({
@@ -5555,9 +5637,11 @@ function loadTxWorkflowBuilderFromJson() {
       undoCommand,
       rollbackOnFailure,
       triggerStepIndex,
-      commandsText: steps.map((s) => s.command || "").join("\n"),
+      commandsText: steps
+        .map((s) => txOperationDescription(txStepRunOperation(s)))
+        .join("\n"),
       rollbackCommandsText: steps
-        .map((s) => (s.rollback_command != null ? String(s.rollback_command) : ""))
+        .map((s) => txOperationDescription(txStepRollbackOperation(s)))
         .join("\n"),
       failFast: b.fail_fast !== false,
     });
@@ -5643,8 +5727,9 @@ async function importOrchestrationFromFile() {
 
 function txBlockToBuilderSeed(block) {
   const steps = Array.isArray(block && block.steps) ? block.steps : [];
-  const mode = (steps[0] && steps[0].mode) || "Config";
-  const timeoutSecs = (steps[0] && steps[0].timeout_secs) || null;
+  const firstRun = txStepRunOperation(steps[0]);
+  const mode = txOperationMode(firstRun) || "Config";
+  const timeoutSecs = txOperationTimeoutSeconds(firstRun);
   let rollbackPolicy = "per_step";
   let triggerStepIndex = 0;
   let undoCommand = "";
@@ -5653,7 +5738,7 @@ function txBlockToBuilderSeed(block) {
     rollbackPolicy = rp;
   } else if (rp && typeof rp === "object" && rp.whole_resource) {
     rollbackPolicy = "whole_resource";
-    undoCommand = rp.whole_resource.undo_command || "";
+    undoCommand = txOperationDescription(txWholeResourceRollbackOperation(rp)) || "";
     triggerStepIndex = rp.whole_resource.trigger_step_index || 0;
   }
   return {
@@ -5665,9 +5750,11 @@ function txBlockToBuilderSeed(block) {
     undoCommand,
     rollbackOnFailure: steps.some((s) => s.rollback_on_failure === true),
     triggerStepIndex,
-    commandsText: steps.map((s) => s.command || "").join("\n"),
+    commandsText: steps
+      .map((s) => txOperationDescription(txStepRunOperation(s)))
+      .join("\n"),
     rollbackCommandsText: steps
-      .map((s) => (s.rollback_command != null ? String(s.rollback_command) : ""))
+      .map((s) => txOperationDescription(txStepRollbackOperation(s)))
       .join("\n"),
     failFast: block && block.fail_fast !== false,
   };

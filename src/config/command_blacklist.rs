@@ -1,4 +1,5 @@
 use crate::db;
+use crate::tx_operation::operation_commands;
 use anyhow::{Result, anyhow};
 use rneter::session::{RollbackPolicy, TxBlock, TxWorkflow};
 use sqlx::Row;
@@ -103,18 +104,24 @@ pub fn ensure_commands_allowed<'a>(
 
 pub fn ensure_tx_block_allowed(tx_block: &TxBlock, context: &str) -> Result<()> {
     for (idx, step) in tx_block.steps.iter().enumerate() {
-        ensure_command_allowed(&step.command, &format!("{} step {} command", context, idx))?;
-        if let Some(rollback) = step.rollback_command.as_deref() {
-            ensure_command_allowed(
-                rollback,
+        let commands = operation_commands(&step.run)?;
+        ensure_commands_allowed(
+            commands.iter().map(String::as_str),
+            &format!("{} step {} command", context, idx),
+        )?;
+        if let Some(rollback) = &step.rollback {
+            let rollback_commands = operation_commands(rollback)?;
+            ensure_commands_allowed(
+                rollback_commands.iter().map(String::as_str),
                 &format!("{} step {} rollback_command", context, idx),
             )?;
         }
     }
 
-    if let RollbackPolicy::WholeResource { undo_command, .. } = &tx_block.rollback_policy {
-        ensure_command_allowed(
-            undo_command,
+    if let RollbackPolicy::WholeResource { rollback, .. } = &tx_block.rollback_policy {
+        let rollback_commands = operation_commands(rollback)?;
+        ensure_commands_allowed(
+            rollback_commands.iter().map(String::as_str),
             &format!("{} whole_resource rollback", context),
         )?;
     }
@@ -188,7 +195,7 @@ fn now_epoch_ms() -> u128 {
 mod tests {
     use super::*;
     use crate::db;
-    use rneter::session::{CommandBlockKind, RollbackPolicy, TxStep};
+    use rneter::session::CommandBlockKind;
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -222,19 +229,16 @@ mod tests {
         let tx_block = TxBlock {
             name: "demo".to_string(),
             kind: CommandBlockKind::Config,
-            rollback_policy: RollbackPolicy::WholeResource {
-                mode: "Config".to_string(),
-                undo_command: "reload".to_string(),
-                timeout_secs: None,
-                trigger_step_index: 0,
-            },
-            steps: vec![TxStep {
-                mode: "Config".to_string(),
-                command: "configure terminal".to_string(),
-                timeout_secs: None,
-                rollback_command: Some("write erase".to_string()),
-                rollback_on_failure: false,
-            }],
+            rollback_policy: crate::tx_operation::whole_resource_rollback_policy(
+                "Config", "reload", None, 0,
+            ),
+            steps: vec![crate::tx_operation::command_tx_step(
+                "Config",
+                "configure terminal",
+                None,
+                Some("write erase".to_string()),
+                false,
+            )],
             fail_fast: true,
         };
 

@@ -5,12 +5,13 @@ use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::template::renderer::Renderer;
+use crate::tx_operation::command_tx_step;
 use crate::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
     persist_auto_recording_history_jsonl, to_record_level,
 };
 use anyhow::{Context, Result, anyhow};
-use rneter::session::{MANAGER, RollbackPolicy, TxBlock, TxStep, TxWorkflow};
+use rneter::session::{MANAGER, RollbackPolicy, TxBlock, TxWorkflow};
 use rneter::templates as rneter_templates;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -1022,16 +1023,18 @@ async fn execute_tx_block_action(
         let steps = commands
             .iter()
             .enumerate()
-            .map(|(idx, cmd)| TxStep {
-                mode: mode.clone(),
-                command: cmd.clone(),
-                timeout_secs: action.timeout_secs,
-                rollback_command: if rollback_commands[idx].trim().is_empty() {
-                    None
-                } else {
-                    Some(rollback_commands[idx].clone())
-                },
-                rollback_on_failure: action.rollback_on_failure,
+            .map(|(idx, cmd)| {
+                command_tx_step(
+                    &mode,
+                    cmd.clone(),
+                    action.timeout_secs,
+                    if rollback_commands[idx].trim().is_empty() {
+                        None
+                    } else {
+                        Some(rollback_commands[idx].clone())
+                    },
+                    action.rollback_on_failure,
+                )
             })
             .collect::<Vec<_>>();
         let tx_block = TxBlock {
@@ -1059,16 +1062,9 @@ async fn execute_tx_block_action(
         }
         if let Some(trigger) = action.rollback_trigger_step_index {
             match tx_block.rollback_policy {
-                RollbackPolicy::WholeResource {
-                    mode,
-                    undo_command,
-                    timeout_secs,
-                    ..
-                } => {
+                RollbackPolicy::WholeResource { rollback, .. } => {
                     tx_block.rollback_policy = RollbackPolicy::WholeResource {
-                        mode,
-                        undo_command,
-                        timeout_secs,
+                        rollback,
                         trigger_step_index: trigger,
                     };
                 }
