@@ -7,10 +7,14 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::sync::Mutex;
 
 static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
+static DB_MIGRATED: AtomicBool = AtomicBool::new(false);
+static DB_MIGRATE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 pub fn pool() -> &'static SqlitePool {
     DB_POOL.get_or_init(|| {
@@ -40,8 +44,19 @@ pub fn init_sync() -> Result<()> {
 }
 
 pub async fn init() -> Result<()> {
+    if DB_MIGRATED.load(Ordering::Acquire) {
+        return Ok(());
+    }
+    let _guard = DB_MIGRATE_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .await;
+    if DB_MIGRATED.load(Ordering::Acquire) {
+        return Ok(());
+    }
     let pool = pool();
     MIGRATOR.run(pool).await?;
+    DB_MIGRATED.store(true, Ordering::Release);
     Ok(())
 }
 

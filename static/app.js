@@ -80,7 +80,7 @@ const i18n = {
     tabReplay: "Session Replay",
     tabPrompts: "Prompt Profiles",
     tabTemplates: "Template Manager",
-    tabTransfer: "Command Flow",
+    tabTransfer: "SFTP Upload",
     tabFlowTemplates: "Command Flow Templates",
     tabBlacklist: "Command Blacklist",
     tabBackup: "Backup",
@@ -120,6 +120,9 @@ const i18n = {
     opKindTx: "Transaction Block",
     opExecDirect: "Direct Execute",
     opExecTemplate: "Template Render + Execute",
+    opExecFlow: "Command Flow",
+    txRunKindCommands: "Commands",
+    txRunKindFlow: "Command Flow",
     txNamePlaceholder: "tx block name",
     txTemplatePlaceholder: "template file name or path (optional)",
     txVarsPlaceholder: 'JSON vars, e.g. {"name":"WEB01"}',
@@ -137,6 +140,14 @@ const i18n = {
     txRollbackOnFailureLabel: "rollback failed step",
     txRollbackTriggerStepPlaceholder: "trigger step index (default 0)",
     txBasicTitle: "Transaction Block",
+    txFlowTemplatePlaceholder: "command flow template name",
+    txFlowVarsPlaceholder: 'JSON vars for command flow, e.g. {"package":"nginx"}',
+    txFlowRollbackTemplatePlaceholder:
+      "rollback command flow template name (optional)",
+    txFlowRollbackVarsPlaceholder: "JSON vars for rollback flow (optional)",
+    txFlowRollbackOnFailureLabel: "rollback failed step",
+    txFlowHint:
+      "A command flow tx block runs one flow operation as a single transaction step. Optional rollback flow runs as the compensating step.",
     txAdvancedBtn: "Advanced",
     txStageBlock: "Tx Block",
     txStageWorkflow: "Tx Workflow",
@@ -314,9 +325,8 @@ const i18n = {
     builtinFieldNotes: "notes",
     customTitle: "Custom Profiles",
     templateMgrTitle: "Template Manager",
-    transferTitle: "Command Flow",
+    transferTitle: "SFTP Upload",
     flowRunTitle: "Run Saved Command Flow",
-    transferDeviceTitle: "Built-in File Transfer Template",
     uploadTitle: "SFTP Upload",
     flowTemplateMgrTitle: "Command Flow Templates",
     backupTitle: "Backup & Restore",
@@ -385,10 +395,7 @@ const i18n = {
     flowVarNumberInvalid: "must be a valid number",
     flowVarsObjectRequired: "flow vars JSON must be an object",
     flowExecBtn: "Run Flow",
-    transferHint:
-      "Select a command flow template name to use a saved manual flow. Leave it empty to use the built-in file transfer template.",
     uploadHint: "The local file path is resolved on the host running rauto.",
-    transferExecBtn: "Run Transfer",
     uploadExecBtn: "Run Upload",
     uploadShowProgressLabel: "show progress",
     flowTemplateListTitle: "Templates",
@@ -636,7 +643,7 @@ const i18n = {
     tabReplay: "会话回放",
     tabPrompts: "Prompt 管理",
     tabTemplates: "Template 管理",
-    tabTransfer: "命令流程",
+    tabTransfer: "SFTP 上传",
     tabFlowTemplates: "命令流程模板",
     tabBlacklist: "命令黑名单",
     tabBackup: "备份恢复",
@@ -670,6 +677,9 @@ const i18n = {
     opKindTx: "事务块执行",
     opExecDirect: "直接执行命令",
     opExecTemplate: "模板渲染并执行",
+    opExecFlow: "命令流程",
+    txRunKindCommands: "命令",
+    txRunKindFlow: "命令流程",
     txNamePlaceholder: "事务块名称",
     txTemplatePlaceholder: "模板文件名或路径（可选）",
     txVarsPlaceholder: 'JSON 变量，例如 {"name":"WEB01"}',
@@ -686,6 +696,13 @@ const i18n = {
     txRollbackOnFailureLabel: "失败步也回滚",
     txRollbackTriggerStepPlaceholder: "回滚触发步序号（默认 0）",
     txBasicTitle: "事务块执行",
+    txFlowTemplatePlaceholder: "命令流程模板名称",
+    txFlowVarsPlaceholder: '命令流程变量 JSON，例如 {"package":"nginx"}',
+    txFlowRollbackTemplatePlaceholder: "回滚命令流程模板名称（可选）",
+    txFlowRollbackVarsPlaceholder: "回滚流程变量 JSON（可选）",
+    txFlowRollbackOnFailureLabel: "失败步也回滚",
+    txFlowHint:
+      "命令流程事务块会把一个 command flow 作为单个事务步骤执行；如果配置了回滚流程，就会作为补偿步骤执行。",
     txAdvancedBtn: "高级参数",
     txStageBlock: "事务块",
     txStageWorkflow: "事务工作流",
@@ -860,9 +877,8 @@ const i18n = {
     builtinFieldNotes: "说明",
     customTitle: "自定义 Profile",
     templateMgrTitle: "Template 管理",
-    transferTitle: "命令流程",
+    transferTitle: "SFTP 上传",
     flowRunTitle: "执行已保存命令流程",
-    transferDeviceTitle: "内置文件传输模板",
     uploadTitle: "SFTP 上传",
     flowTemplateMgrTitle: "命令流程模板",
     backupTitle: "备份与恢复",
@@ -928,10 +944,7 @@ const i18n = {
     flowVarNumberInvalid: "必须是有效数字",
     flowVarsObjectRequired: "命令流程变量 JSON 必须是对象",
     flowExecBtn: "执行流程",
-    transferHint:
-      "填写命令流程模板名称时会使用已保存的手工交互流程；留空则使用内置设备传输流程。",
     uploadHint: "本地文件路径会在运行 rauto 的主机上解析。",
-    transferExecBtn: "执行传输",
     uploadExecBtn: "执行上传",
     uploadShowProgressLabel: "显示进度",
     flowTemplateListTitle: "模板列表",
@@ -1130,6 +1143,7 @@ let currentLang = localStorage.getItem(STORAGE_KEYS.lang) || "zh";
 let currentTab = "ops";
 let currentOpKind = "exec";
 let currentExecMode = "direct";
+let currentTxBlockRunKind = "commands";
 let currentPromptMode = "view";
 let managedAgentMode = false;
 let cachedSavedConnections = [];
@@ -1427,6 +1441,7 @@ function applyI18n() {
   byId("op-kind-exec").textContent = t("opKindExec");
   byId("op-exec-direct").textContent = t("opExecDirect");
   byId("op-exec-template").textContent = t("opExecTemplate");
+  byId("op-exec-flow").textContent = t("opExecFlow");
   byId("op-kind-tx").textContent = t("opKindTx");
   byId("template-selected-content-title").textContent = t("templateSelectedContentTitle");
   byId("prompt-mgr-title").textContent = t("promptMgrTitle");
@@ -1437,11 +1452,9 @@ function applyI18n() {
   byId("custom-title").textContent = t("customTitle");
   byId("template-mgr-title").textContent = t("templateMgrTitle");
   byId("transfer-title").textContent = t("transferTitle");
-  byId("flow-run-title").textContent = t("flowRunTitle");
   byId("flow-vars-fields-title").textContent = t("flowVarsFieldsTitle");
   byId("flow-vars-fields-hint").textContent = t("flowVarsFieldsHint");
   byId("flow-vars-json-hint").textContent = t("flowVarsJsonHint");
-  byId("transfer-device-title").textContent = t("transferDeviceTitle");
   byId("upload-title").textContent = t("uploadTitle");
   byId("template-list-title").textContent = t("templateListTitle");
   byId("template-editor-title").textContent = t("templateEditorTitle");
@@ -1530,7 +1543,6 @@ function applyI18n() {
   byId("template-save-btn").textContent = t("templateSaveBtn");
   byId("template-delete-btn").textContent = t("templateDeleteBtn");
   byId("flow-exec-btn").textContent = t("flowExecBtn");
-  byId("transfer-exec-btn").textContent = t("transferExecBtn");
   byId("upload-exec-btn").textContent = t("uploadExecBtn");
   byId("upload-show-progress-label").textContent = t("uploadShowProgressLabel");
   byId("flow-template-load-btn").textContent = t("flowTemplateLoadBtn");
@@ -1615,6 +1627,16 @@ function applyI18n() {
   byId("tx-rollback-trigger-step").placeholder = t("txRollbackTriggerStepPlaceholder");
   byId("tx-rollback-empty-hint").textContent = t("txWorkflowRollbackEmptyHint");
   byId("tx-basic-title").textContent = t("txBasicTitle");
+  byId("tx-run-kind-commands").textContent = t("txRunKindCommands");
+  byId("tx-run-kind-flow").textContent = t("txRunKindFlow");
+  byId("tx-flow-template-name").placeholder = t("txFlowTemplatePlaceholder");
+  byId("tx-flow-vars").placeholder = t("txFlowVarsPlaceholder");
+  byId("tx-flow-rollback-on-failure-label").textContent =
+    t("txFlowRollbackOnFailureLabel");
+  byId("tx-rollback-flow-template-name").placeholder =
+    t("txFlowRollbackTemplatePlaceholder");
+  byId("tx-rollback-flow-vars").placeholder = t("txFlowRollbackVarsPlaceholder");
+  byId("tx-flow-hint").textContent = t("txFlowHint");
   byId("tx-stage-block").textContent = `1. ${t("txStageBlock")}`;
   byId("tx-stage-workflow").textContent = `2. ${t("txStageWorkflow")}`;
   byId("tx-stage-orchestrate").textContent = `3. ${t("txStageOrchestrate")}`;
@@ -1691,14 +1713,6 @@ function applyI18n() {
   byId("flow-vars-json").placeholder = t("flowVarsPlaceholder");
   byId("flow-hint").textContent = t("flowHint");
   byId("flow-template-picker").placeholder = t("flowTemplatePickerPlaceholder");
-  byId("transfer-server-addr").placeholder = t("transferServerAddrPlaceholder");
-  byId("transfer-remote-path").placeholder = t("transferRemotePathPlaceholder");
-  byId("transfer-device-path").placeholder = t("transferDevicePathPlaceholder");
-  byId("transfer-mode").placeholder = t("transferModePlaceholder");
-  byId("transfer-username").placeholder = t("transferUsernamePlaceholder");
-  byId("transfer-password").placeholder = t("transferPasswordPlaceholder");
-  byId("transfer-timeout-secs").placeholder = t("transferTimeoutPlaceholder");
-  byId("transfer-hint").textContent = t("transferHint");
   renderSavedConnectionList();
   renderTemplateList();
   renderFlowTemplateOptions();
@@ -1995,17 +2009,39 @@ function applyOperationKind() {
 
 function applyExecMode() {
   const isDirect = currentExecMode === "direct";
+  const isTemplate = currentExecMode === "template";
+  const isFlow = currentExecMode === "flow";
   byId("op-exec-direct-fields").hidden = !isDirect;
   byId("op-exec-direct-fields").style.display = isDirect ? "" : "none";
-  byId("op-exec-template-fields").hidden = isDirect;
-  byId("op-exec-template-fields").style.display = isDirect ? "none" : "";
+  byId("op-exec-template-fields").hidden = !isTemplate;
+  byId("op-exec-template-fields").style.display = isTemplate ? "" : "none";
+  byId("op-exec-flow-fields").hidden = !isFlow;
+  byId("op-exec-flow-fields").style.display = isFlow ? "" : "none";
   byId("op-exec-direct").classList.toggle("is-active", isDirect);
-  byId("op-exec-template").classList.toggle("is-active", !isDirect);
+  byId("op-exec-template").classList.toggle("is-active", isTemplate);
+  byId("op-exec-flow").classList.toggle("is-active", isFlow);
   byId("op-exec-direct").setAttribute("aria-selected", isDirect ? "true" : "false");
-  byId("op-exec-template").setAttribute("aria-selected", isDirect ? "false" : "true");
-  if (!isDirect && byId("template").value.trim()) {
+  byId("op-exec-template").setAttribute("aria-selected", isTemplate ? "true" : "false");
+  byId("op-exec-flow").setAttribute("aria-selected", isFlow ? "true" : "false");
+  if (isTemplate && byId("template").value.trim()) {
     loadSelectedTemplateContent();
   }
+}
+
+function applyTxBlockRunKind() {
+  const isCommands = currentTxBlockRunKind === "commands";
+  const commandsBtn = byId("tx-run-kind-commands");
+  const flowBtn = byId("tx-run-kind-flow");
+  const commandsPanel = byId("tx-block-command-fields");
+  const flowPanel = byId("tx-block-flow-fields");
+  commandsBtn.classList.toggle("is-active", isCommands);
+  flowBtn.classList.toggle("is-active", !isCommands);
+  commandsBtn.setAttribute("aria-selected", isCommands ? "true" : "false");
+  flowBtn.setAttribute("aria-selected", isCommands ? "false" : "true");
+  commandsPanel.hidden = !isCommands;
+  commandsPanel.style.display = isCommands ? "" : "none";
+  flowPanel.hidden = isCommands;
+  flowPanel.style.display = isCommands ? "none" : "";
 }
 
 function applyTxLayoutState() {
@@ -2052,6 +2088,9 @@ function applyTxStage() {
       : isWorkflow
         ? t("txStageHintWorkflow")
         : t("txStageHintOrchestrate");
+  }
+  if (isBlock) {
+    applyTxBlockRunKind();
   }
 }
 
@@ -4905,9 +4944,28 @@ function parseRollbackLinesRaw(text) {
 function txPayload(dryRun) {
   const timeoutRaw = byId("tx-timeout-secs").value.trim();
   const timeout = timeoutRaw ? Number(timeoutRaw) : null;
+  if (currentTxBlockRunKind === "flow") {
+    return {
+      name: byId("tx-name").value.trim() || null,
+      run_kind: "command-flow",
+      flow_template_name: byId("tx-flow-template-name").value.trim() || null,
+      flow_vars: parseJsonById("tx-flow-vars"),
+      rollback_flow_template_name:
+        byId("tx-rollback-flow-template-name").value.trim() || null,
+      rollback_flow_vars: parseJsonById("tx-rollback-flow-vars"),
+      mode: byId("tx-flow-mode").value.trim() || null,
+      timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
+      rollback_on_failure: byId("tx-flow-rollback-on-failure").checked,
+      template_profile: null,
+      dry_run: dryRun,
+      connection: connectionPayload(),
+      record_level: recordLevelPayload(),
+    };
+  }
   const rollbackMode = byId("tx-rollback-mode").value || "infer";
   return {
     name: byId("tx-name").value.trim() || null,
+    run_kind: "commands",
     template: byId("tx-template").value.trim() || null,
     vars: parseJsonById("tx-vars"),
     commands: parseTxCommands(),
@@ -5761,6 +5819,14 @@ function txBlockToBuilderSeed(block) {
 }
 
 async function importTxBlockIntoWorkflowBuilder() {
+  if (currentTxBlockRunKind === "flow") {
+    setStatusMessage(
+      "tx-workflow-plan-out",
+      "command flow tx block is not supported by the workflow builder yet",
+      "error"
+    );
+    return;
+  }
   setStatusMessage("tx-workflow-plan-out", t("running"), "running");
   try {
     const data = await request("POST", "/api/tx/block", txPayload(true));
@@ -5831,7 +5897,7 @@ async function requestForm(method, url, formData) {
 }
 
 async function fetchProfileModes(profileName) {
-  const normalized = (profileName || "").trim() || "cisco";
+  const normalized = (profileName || "").trim() || "linux";
   if (cachedProfileModes.has(normalized)) {
     return cachedProfileModes.get(normalized);
   }
@@ -5843,16 +5909,16 @@ async function fetchProfileModes(profileName) {
     const modes = Array.isArray(data.modes) ? data.modes.filter(Boolean) : [];
     const resolved = {
       name: data.name || normalized,
-      default_mode: data.default_mode || modes[0] || "Enable",
-      modes: modes.length > 0 ? modes : [data.default_mode || "Enable"],
+      default_mode: data.default_mode || modes[0] || "Root",
+      modes: modes.length > 0 ? modes : [data.default_mode || "Root"],
     };
     cachedProfileModes.set(normalized, resolved);
     return resolved;
   } catch (_) {
     return {
       name: normalized,
-      default_mode: "Enable",
-      modes: ["Enable"],
+      default_mode: "Root",
+      modes: ["Root"],
     };
   }
 }
@@ -5873,7 +5939,7 @@ function applyModeOptions(selectId, modes, preferredMode, defaultMode) {
 }
 
 async function refreshExecutionModeOptions(overrides = {}) {
-  const profileName = byId("device_profile").value.trim() || "cisco";
+  const profileName = byId("device_profile").value.trim() || "linux";
   const data = await fetchProfileModes(profileName);
   applyModeOptions(
     "mode",
@@ -5894,9 +5960,15 @@ async function refreshExecutionModeOptions(overrides = {}) {
     data.default_mode
   );
   applyModeOptions(
-    "transfer-mode",
+    "tx-mode",
     data.modes,
-    overrides.transferMode ?? byId("transfer-mode").value,
+    overrides.txMode ?? byId("tx-mode").value,
+    data.default_mode
+  );
+  applyModeOptions(
+    "tx-flow-mode",
+    data.modes,
+    overrides.txFlowMode ?? byId("tx-flow-mode").value,
     data.default_mode
   );
 }
@@ -7443,68 +7515,20 @@ async function deleteFlowTemplate() {
   }
 }
 
-function transferPayload() {
-  const timeoutRaw = Number(byId("transfer-timeout-secs").value || 300);
-  return {
-    profile: byId("flow-template-picker").value.trim() || null,
-    protocol: byId("transfer-protocol").value || "scp",
-    direction: byId("transfer-direction").value || "to-device",
-    server_addr: byId("transfer-server-addr").value.trim(),
-    remote_path: byId("transfer-remote-path").value.trim(),
-    device_path: byId("transfer-device-path").value.trim(),
-    transfer_username: byId("transfer-username").value.trim() || null,
-    transfer_password: byId("transfer-password").value || null,
-    mode: byId("transfer-mode").value.trim() || null,
-    timeout_secs: Number.isFinite(timeoutRaw) ? timeoutRaw : 300,
-    connection: connectionPayload(),
-    record_level: recordLevelPayload(),
-  };
-}
-
 function uploadPayload() {
   const timeoutRaw = Number(byId("upload-timeout-secs").value || 300);
-  const bufferRaw = Number(byId("upload-buffer-size").value || "");
+  const bufferInput = (byId("upload-buffer-size").value || "").trim();
+  const bufferRaw = bufferInput ? Number(bufferInput) : null;
   return {
     local_path: byId("upload-local-path").value.trim(),
     remote_path: byId("upload-remote-path").value.trim(),
     timeout_secs: Number.isFinite(timeoutRaw) ? timeoutRaw : 300,
-    buffer_size: Number.isFinite(bufferRaw) ? bufferRaw : null,
+    buffer_size:
+      bufferRaw !== null && Number.isFinite(bufferRaw) ? bufferRaw : null,
     show_progress: !!byId("upload-show-progress").checked,
     connection: connectionPayload(),
     record_level: recordLevelPayload(),
   };
-}
-
-function renderTransferResult(data) {
-  const outputs = Array.isArray(data && data.outputs) ? data.outputs : [];
-  const tone = data && data.success ? "success" : "error";
-  const summary = renderStatusMessageCard(
-    `${data && data.success ? t("orchestrationStatusSuccess") : t("orchestrationStatusFailed")} · mode=${safeString(
-      data && data.resolved_mode
-    )}`,
-    tone
-  );
-  const items = outputs
-    .map(
-      (item, idx) => `
-      <div class="rounded-xl border border-slate-200 bg-white px-3 py-2">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <span class="text-sm font-semibold text-slate-800">${escapeHtml(`${idx + 1}. ${item.command || "-"}`)}</span>
-          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-            item.success
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-amber-100 text-amber-700"
-          }">${escapeHtml(item.success ? t("orchestrationStatusSuccess") : t("orchestrationStatusFailed"))}</span>
-        </div>
-        <div class="mt-2 text-xs text-slate-500">exit_code=${escapeHtml(safeString(item.exit_code))}</div>
-        <pre class="output mt-2">${escapeHtml(
-          safeString(item.output || item.error || "")
-        )}</pre>
-      </div>
-    `
-    )
-    .join("");
-  return `${summary}${items ? `<div class="grid gap-2">${items}</div>` : ""}`;
 }
 
 function renderCommandFlowResult(data) {
@@ -7854,6 +7878,9 @@ function bindEvents() {
     byId(`tab-${tab}`).onclick = () => {
       currentTab = tab;
       applyTabs();
+      if (tab === "ops") {
+        loadFlowTemplates();
+      }
       if (tab === "replay") {
         renderReplayView();
       }
@@ -7864,8 +7891,6 @@ function bindEvents() {
       }
       if (tab === "templates") {
         loadTemplates();
-      }
-      if (tab === "transfer") {
         loadFlowTemplates();
       }
       if (tab === "blacklist") {
@@ -7891,6 +7916,10 @@ function bindEvents() {
   };
   byId("op-exec-template").onclick = () => {
     currentExecMode = "template";
+    applyExecMode();
+  };
+  byId("op-exec-flow").onclick = () => {
+    currentExecMode = "flow";
     applyExecMode();
   };
   byId("history-drawer-refresh-btn").onclick = loadConnectionHistory;
@@ -7925,6 +7954,14 @@ function bindEvents() {
   byId("tx-stage-block").onclick = () => {
     currentTxStage = "block";
     applyTxStage();
+  };
+  byId("tx-run-kind-commands").onclick = () => {
+    currentTxBlockRunKind = "commands";
+    applyTxBlockRunKind();
+  };
+  byId("tx-run-kind-flow").onclick = () => {
+    currentTxBlockRunKind = "flow";
+    applyTxBlockRunKind();
   };
   byId("tx-stage-workflow").onclick = () => {
     currentTxStage = "workflow";
@@ -8647,31 +8684,6 @@ function bindEvents() {
       // The field renderer already shows the error state.
     }
   };
-  byId("transfer-exec-btn").onclick = async () => {
-    const out = byId("transfer-out");
-    out.innerHTML = renderStatusMessageCard(t("running"), "running");
-    try {
-      const payload = transferPayload();
-      if (!payload.server_addr) {
-        throw new Error(t("serverAddrRequired"));
-      }
-      if (!payload.remote_path) {
-        throw new Error(t("remotePathRequired"));
-      }
-      if (!payload.device_path) {
-        throw new Error(t("devicePathRequired"));
-      }
-      const data = await request(
-        "POST",
-        "/api/flow/builtins/file-transfer/execute",
-        payload
-      );
-      out.innerHTML = renderTransferResult(data);
-      applyRecordingFromResponse(data);
-    } catch (e) {
-      out.innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
   byId("upload-exec-btn").onclick = async () => {
     const out = byId("upload-out");
     out.innerHTML = renderStatusMessageCard(t("running"), "running");
@@ -8778,7 +8790,6 @@ setStatusMessage("orchestration-plan-out", "-", "info");
 setStatusMessage("orchestration-exec-out", "-", "info");
 setStatusMessage("template-out", "-", "info");
 setStatusMessage("flow-out", "-", "info");
-setStatusMessage("transfer-out", "-", "info");
 setStatusMessage("upload-out", "-", "info");
 setStatusMessage("flow-template-out", "-", "info");
 setStatusMessage("blacklist-out", "-", "info");

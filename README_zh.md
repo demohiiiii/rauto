@@ -370,8 +370,9 @@ Web 控制台主要能力：
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
 - 支持在页面中下载连接导入模板，并从 CSV / Excel 批量导入已保存连接。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。
-- 基于已保存连接执行命令（先加载连接，再选择直接执行或模板渲染执行）。
-- 分页管理 profile（内置/自定义）与 template。
+- 在 `Operations` 里统一执行直接命令、模板执行、命令流程、事务块、事务工作流和多设备编排。
+- 在 `Template Manager` 中统一管理 profile、命令模板和命令流程模板。
+- 使用独立的 `SFTP 上传` 页面执行直接文件上传。
 - 在页面中管理命令黑名单：新增、删除、校验带 `*` 通配符的规则。
 - 在页面中管理数据备份：创建/列出/下载/恢复 `~/.rauto` 备份归档。
 - 在 Prompt 管理 -> 诊断页里可视化查看 profile 状态机诊断结果。
@@ -709,7 +710,23 @@ rauto tx \
     --host 192.168.1.1 \
     --username admin \
     --password secret
+
+# 使用命令流程模板作为事务块
+rauto tx \
+    --run-kind command-flow \
+    --flow-template cisco_like_copy \
+    --flow-vars-json '{"protocol":"scp","direction":"to_device","server_addr":"192.168.1.50","remote_path":"/images/new.bin","device_path":"flash:/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --rollback-flow-template cisco_like_copy \
+    --rollback-flow-vars-json '{"protocol":"scp","direction":"from_device","server_addr":"192.168.1.50","remote_path":"/images/old.bin","device_path":"flash:/old.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --rollback-on-failure \
+    --connection core-01
 ```
+
+说明：
+
+- `rauto tx --run-kind command-flow` 会把命令流程模板当成一个事务步骤来执行。
+- `--rollback-flow-template` / `--rollback-flow-file` 是可选的，提供后会作为补偿回滚步骤执行。
+- 传统命令式事务块仍然保持原来的 `--template`、`--command`、`--rollback-command`、`--resource-rollback-command` 语义。
 
 **事务工作流**
 
@@ -962,7 +979,7 @@ Web 操作界面                   CLI
 ------------------------------ ---------------------------------------------
 直接执行命令                   rauto exec
 模板渲染并执行                 rauto template
-命令流程模板                   rauto flow / rauto flow-template
+命令流程执行                   rauto flow
 SFTP 上传                      rauto upload
 事务块执行                     rauto tx
 事务工作流                     rauto tx-workflow
@@ -982,6 +999,7 @@ Template 管理                  CLI
 列出模板                       rauto templates list
 查看模板                       rauto templates show <name>
 删除模板                       rauto templates delete <name>
+命令流程模板                   rauto flow-template
 
 会话回放                        CLI
 ------------------------------ ---------------------------------------------

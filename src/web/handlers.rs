@@ -37,7 +37,7 @@ use crate::web::models::{
     ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
     ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
     SavedConnectionMeta, TaskCallback, TaskEvent, TemplateDetail, TemplateMeta, TransferDirection,
-    TransferProtocol, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
+    TransferProtocol, TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
     UpsertConnectionRequest, UpsertCustomProfileRequest,
 };
 use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
@@ -52,7 +52,7 @@ use axum::{
 };
 use chrono::Utc;
 use rneter::session::{
-    CommandBlockKind, MANAGER, RollbackPolicy, SessionEvent, SessionRecordEntry,
+    CommandBlockKind, MANAGER, RollbackPolicy, SessionEvent, SessionOperation, SessionRecordEntry,
     SessionRecordLevel, SessionRecorder, SessionReplayer, TxBlock, TxStep,
 };
 use rneter::templates as rneter_templates;
@@ -1505,6 +1505,55 @@ fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate, Ap
     parse_command_flow_template_str(&stored.content, Some(&safe_name)).map_err(ApiError::from)
 }
 
+fn load_command_flow_template_from_input(
+    template_name: Option<&str>,
+    content: Option<&str>,
+    inline_name: &str,
+) -> Result<CommandFlowTemplate, ApiError> {
+    match (
+        template_name.map(str::trim).filter(|value| !value.is_empty()),
+        content.map(str::trim).filter(|value| !value.is_empty()),
+    ) {
+        (Some(name), None) => load_command_flow_template_form(name),
+        (None, Some(content)) => {
+            let mut template =
+                toml::from_str::<CommandFlowTemplate>(content).map_err(ApiError::from)?;
+            if template.name.trim().is_empty() {
+                template.name = inline_name.to_string();
+            }
+            Ok(template)
+        }
+        (Some(_), Some(_)) => Err(ApiError::bad_request(
+            "use either template_name or content for command flow execution",
+        )),
+        (None, None) => Err(ApiError::bad_request(
+            "command flow execution requires template_name or content",
+        )),
+    }
+}
+
+fn render_command_flow_operation(
+    template: CommandFlowTemplate,
+    runtime: rneter_templates::CommandFlowTemplateRuntime,
+    timeout_secs: Option<u64>,
+) -> Result<SessionOperation, ApiError> {
+    let mut flow = template.to_command_flow(&runtime).map_err(ApiError::from)?;
+    if let Some(timeout_secs) = timeout_secs {
+        for step in &mut flow.steps {
+            step.timeout = Some(timeout_secs);
+        }
+    }
+    command_blacklist::ensure_commands_allowed(
+        flow.steps.iter().map(|step| step.command.as_str()),
+        "command flow",
+    )
+    .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    if flow.steps.is_empty() {
+        return Err(ApiError::bad_request("command flow has no steps"));
+    }
+    Ok(SessionOperation::from(flow))
+}
+
 fn persist_history_jsonl(
     conn: &crate::web::state::ResolvedConnection,
     operation: &str,
@@ -2395,34 +2444,11 @@ pub async fn execute_command_flow(
     let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
-    let mut template = match (
-        req.template_name
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty()),
-        req.content
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty()),
-    ) {
-        (Some(name), None) => load_command_flow_template_form(name)?,
-        (None, Some(content)) => {
-            toml::from_str::<CommandFlowTemplate>(content).map_err(ApiError::from)?
-        }
-        (Some(_), Some(_)) => {
-            return Err(ApiError::bad_request(
-                "use either template_name or content for command flow execution",
-            ));
-        }
-        (None, None) => {
-            return Err(ApiError::bad_request(
-                "command flow execution requires template_name or content",
-            ));
-        }
-    };
-    if template.name.trim().is_empty() {
-        template.name = "inline_flow".to_string();
-    }
+    let template = load_command_flow_template_from_input(
+        req.template_name.as_deref(),
+        req.content.as_deref(),
+        "inline_flow",
+    )?;
 
     let flow = template
         .to_command_flow(&build_command_flow_runtime(
@@ -2711,6 +2737,11 @@ pub async fn execute_upload(
     .with_timeout_secs(req.timeout_secs.unwrap_or(300))
     .with_progress_reporting(req.show_progress);
     if let Some(buffer_size) = req.buffer_size {
+        if buffer_size == 0 {
+            return Err(ApiError::bad_request(
+                "buffer_size must be greater than 0 when provided",
+            ));
+        }
         upload = upload.with_buffer_size(buffer_size);
     }
 
@@ -2814,6 +2845,7 @@ pub async fn execute_tx_block(
             .with_progress(Some(0)),
     );
     let result: Result<ExecuteTxBlockResponse, ApiError> = async {
+        let conn = merge_connection_options(&state.defaults, req.connection.clone())?;
         let record_level = req.record_level;
         let requested_record_level = to_record_level(record_level);
         let live_record_level = if task_ctx.is_some() {
@@ -2826,13 +2858,7 @@ pub async fn execute_tx_block(
             .as_deref()
             .filter(|s| !s.trim().is_empty())
             .map(|s| s.to_string())
-            .or_else(|| {
-                req.connection
-                    .as_ref()
-                    .and_then(|c| c.device_profile.as_ref())
-                    .filter(|s| !s.trim().is_empty())
-                    .cloned()
-            })
+            .or_else(|| Some(conn.device_profile.clone()))
             .or_else(|| {
                 state
                     .defaults
@@ -2848,7 +2874,7 @@ pub async fn execute_tx_block(
             .filter(|s| !s.trim().is_empty())
             .unwrap_or("tx-block")
             .to_string();
-        let mode = req
+        let requested_mode = req
             .mode
             .as_deref()
             .filter(|s| !s.trim().is_empty())
@@ -2856,94 +2882,181 @@ pub async fn execute_tx_block(
                 template_loader::resolve_profile_mode(&template_key, Some(mode))
                     .map_err(|e| ApiError::bad_request(e.to_string()))
             })
-            .transpose()?
-            .unwrap_or_else(|| "Config".to_string());
+            .transpose()?;
+        let run_kind = req.run_kind.unwrap_or(TxBlockRunKind::Commands);
 
-        let renderer = Renderer::new();
-        let resolved_commands =
-            resolve_tx_commands(&renderer, req.template.as_deref(), req.vars, &req.commands)?;
+        let (tx_block, effective_mode) = match run_kind {
+            TxBlockRunKind::Commands => {
+                let mode = requested_mode.unwrap_or_else(|| "Config".to_string());
+                let renderer = Renderer::new();
+                let resolved_commands =
+                    resolve_tx_commands(&renderer, req.template.as_deref(), req.vars, &req.commands)?;
 
-        if req.rollback_trigger_step_index.is_some() && req.resource_rollback_command.is_none() {
-            return Err(ApiError::bad_request(
-                "rollback_trigger_step_index requires resource_rollback_command",
-            ));
-        }
-
-        let mut rollback_commands = req.rollback_commands;
-        while rollback_commands.len() > resolved_commands.len()
-            && rollback_commands
-                .last()
-                .map(|s| s.trim().is_empty())
-                .unwrap_or(false)
-        {
-            rollback_commands.pop();
-        }
-
-        let tx_block = if !rollback_commands.is_empty() {
-            if rollback_commands.len() > resolved_commands.len() {
-                return Err(ApiError::bad_request(
-                    "rollback_commands length must not exceed commands length",
-                ));
-            }
-            while rollback_commands.len() < resolved_commands.len() {
-                rollback_commands.push(String::new());
-            }
-            let steps: Vec<TxStep> = resolved_commands
-                .iter()
-                .enumerate()
-                .map(|(idx, cmd)| {
-                    command_tx_step(
-                        &mode,
-                        cmd.clone(),
-                        req.timeout_secs,
-                        if rollback_commands[idx].trim().is_empty() {
-                            None
-                        } else {
-                            Some(rollback_commands[idx].clone())
-                        },
-                        req.rollback_on_failure.unwrap_or(false),
-                    )
-                })
-                .collect();
-            let tx_block = TxBlock {
-                name: block_name.to_string(),
-                kind: CommandBlockKind::Config,
-                rollback_policy: RollbackPolicy::PerStep,
-                steps,
-                fail_fast: true,
-            };
-            tx_block.validate().map_err(ApiError::from)?;
-            tx_block
-        } else {
-            let mut tx_block = rneter_templates::build_tx_block(
-                &template_key,
-                &block_name,
-                &mode,
-                &resolved_commands,
-                req.timeout_secs,
-                req.resource_rollback_command,
-            )?;
-            if req.rollback_on_failure.unwrap_or(false) {
-                for step in tx_block.steps.iter_mut() {
-                    step.rollback_on_failure = true;
+                if req.rollback_trigger_step_index.is_some()
+                    && req.resource_rollback_command.is_none()
+                {
+                    return Err(ApiError::bad_request(
+                        "rollback_trigger_step_index requires resource_rollback_command",
+                    ));
                 }
-            }
-            if let Some(trigger) = req.rollback_trigger_step_index {
-                match tx_block.rollback_policy {
-                    RollbackPolicy::WholeResource { rollback, .. } => {
-                        tx_block.rollback_policy = RollbackPolicy::WholeResource {
-                            rollback,
-                            trigger_step_index: trigger,
-                        };
-                    }
-                    _ => {
+
+                let mut rollback_commands = req.rollback_commands;
+                while rollback_commands.len() > resolved_commands.len()
+                    && rollback_commands
+                        .last()
+                        .map(|s| s.trim().is_empty())
+                        .unwrap_or(false)
+                {
+                    rollback_commands.pop();
+                }
+
+                if !rollback_commands.is_empty() {
+                    if rollback_commands.len() > resolved_commands.len() {
                         return Err(ApiError::bad_request(
-                            "rollback_trigger_step_index requires whole_resource rollback",
+                            "rollback_commands length must not exceed commands length",
                         ));
                     }
+                    while rollback_commands.len() < resolved_commands.len() {
+                        rollback_commands.push(String::new());
+                    }
+                    let steps: Vec<TxStep> = resolved_commands
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, cmd)| {
+                            command_tx_step(
+                                &mode,
+                                cmd.clone(),
+                                req.timeout_secs,
+                                if rollback_commands[idx].trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(rollback_commands[idx].clone())
+                                },
+                                req.rollback_on_failure.unwrap_or(false),
+                            )
+                        })
+                        .collect();
+                    let tx_block = TxBlock {
+                        name: block_name.to_string(),
+                        kind: CommandBlockKind::Config,
+                        rollback_policy: RollbackPolicy::PerStep,
+                        steps,
+                        fail_fast: true,
+                    };
+                    tx_block.validate().map_err(ApiError::from)?;
+                    (tx_block, mode)
+                } else {
+                    let mut tx_block = rneter_templates::build_tx_block(
+                        &template_key,
+                        &block_name,
+                        &mode,
+                        &resolved_commands,
+                        req.timeout_secs,
+                        req.resource_rollback_command,
+                    )?;
+                    if req.rollback_on_failure.unwrap_or(false) {
+                        for step in tx_block.steps.iter_mut() {
+                            step.rollback_on_failure = true;
+                        }
+                    }
+                    if let Some(trigger) = req.rollback_trigger_step_index {
+                        match tx_block.rollback_policy {
+                            RollbackPolicy::WholeResource { rollback, .. } => {
+                                tx_block.rollback_policy = RollbackPolicy::WholeResource {
+                                    rollback,
+                                    trigger_step_index: trigger,
+                                };
+                            }
+                            _ => {
+                                return Err(ApiError::bad_request(
+                                    "rollback_trigger_step_index requires whole_resource rollback",
+                                ));
+                            }
+                        }
+                    }
+                    (tx_block, mode)
                 }
             }
-            tx_block
+            TxBlockRunKind::CommandFlow => {
+                if req.template.as_deref().is_some_and(|value| !value.trim().is_empty())
+                    || !req.commands.is_empty()
+                    || !req.rollback_commands.is_empty()
+                    || req.resource_rollback_command.is_some()
+                    || req.rollback_trigger_step_index.is_some()
+                    || req
+                        .template_profile
+                        .as_deref()
+                        .is_some_and(|value| !value.trim().is_empty())
+                {
+                    return Err(ApiError::bad_request(
+                        "command flow tx block does not accept command/template rollback fields",
+                    ));
+                }
+
+                let default_mode = requested_mode.unwrap_or_else(|| {
+                    template_loader::default_profile_mode(&conn.device_profile)
+                        .unwrap_or_else(|_| "Config".to_string())
+                });
+                let flow_template = load_command_flow_template_from_input(
+                    req.flow_template_name.as_deref(),
+                    req.flow_content.as_deref(),
+                    "inline_tx_flow",
+                )?;
+                let flow_operation = render_command_flow_operation(
+                    flow_template,
+                    build_command_flow_runtime(
+                        default_mode.clone(),
+                        conn.connection_name.as_deref(),
+                        &conn.host,
+                        &conn.username,
+                        &conn.device_profile,
+                        req.flow_vars,
+                    ),
+                    req.timeout_secs,
+                )?;
+
+                let rollback_operation = match (
+                    req.rollback_flow_template_name.as_deref(),
+                    req.rollback_flow_content.as_deref(),
+                ) {
+                    (None, None) => None,
+                    _ => {
+                        let rollback_template = load_command_flow_template_from_input(
+                            req.rollback_flow_template_name.as_deref(),
+                            req.rollback_flow_content.as_deref(),
+                            "inline_tx_rollback_flow",
+                        )?;
+                        Some(render_command_flow_operation(
+                            rollback_template,
+                            build_command_flow_runtime(
+                                default_mode.clone(),
+                                conn.connection_name.as_deref(),
+                                &conn.host,
+                                &conn.username,
+                                &conn.device_profile,
+                                req.rollback_flow_vars,
+                            ),
+                            req.timeout_secs,
+                        )?)
+                    }
+                };
+
+                let mut step =
+                    TxStep::new(flow_operation).with_rollback_on_failure(req.rollback_on_failure.unwrap_or(false));
+                if let Some(rollback_operation) = rollback_operation {
+                    step = step.with_rollback(rollback_operation);
+                }
+
+                let tx_block = TxBlock {
+                    name: block_name.to_string(),
+                    kind: CommandBlockKind::Config,
+                    rollback_policy: RollbackPolicy::PerStep,
+                    steps: vec![step],
+                    fail_fast: true,
+                };
+                tx_block.validate().map_err(ApiError::from)?;
+                (tx_block, default_mode)
+            }
         };
         let tx_block_value = serde_json::to_value(&tx_block).map_err(ApiError::from)?;
         emit_task_event(
@@ -2970,8 +3083,6 @@ pub async fn execute_tx_block(
             &format!("tx block '{}'", block_name),
         )
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
-
-        let conn = merge_connection_options(&state.defaults, req.connection)?;
         emit_task_event(
             &state,
             &task_ctx,
@@ -3042,7 +3153,7 @@ pub async fn execute_tx_block(
                     },
                     "tx_block",
                     &block_name,
-                    Some(&mode),
+                    Some(&effective_mode),
                     record_level_name(record_level),
                     &jsonl,
                 ) {

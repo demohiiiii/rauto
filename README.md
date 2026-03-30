@@ -370,8 +370,9 @@ Web console key capabilities:
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
 - Download a CSV import template and import saved connections from CSV / Excel in UI.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
-- Execute commands with saved connection info (load one connection, then run direct or template mode).
-- Manage profiles (builtin/custom) and templates in dedicated tabs.
+- Run direct commands, template execution, command flow execution, tx blocks, tx workflows, and orchestration from `Operations`.
+- Manage profiles, command templates, and command flow templates in `Template Manager`.
+- Use `SFTP Upload` as a dedicated page for direct file uploads to SSH hosts with an `sftp` subsystem.
 - Manage command blacklist patterns in UI: add/delete/check `*` wildcard rules before execution.
 - Manage data backups in UI: create/list/download/restore `~/.rauto` backup archives.
 - Diagnose profile state machines in Prompt Management -> Diagnostics with visualized result fields.
@@ -709,7 +710,23 @@ rauto tx \
     --host 192.168.1.1 \
     --username admin \
     --password secret
+
+# Tx block backed by a command flow template
+rauto tx \
+    --run-kind command-flow \
+    --flow-template cisco_like_copy \
+    --flow-vars-json '{"protocol":"scp","direction":"to_device","server_addr":"192.168.1.50","remote_path":"/images/new.bin","device_path":"flash:/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --rollback-flow-template cisco_like_copy \
+    --rollback-flow-vars-json '{"protocol":"scp","direction":"from_device","server_addr":"192.168.1.50","remote_path":"/images/old.bin","device_path":"flash:/old.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --rollback-on-failure \
+    --connection core-01
 ```
+
+Notes:
+
+- `rauto tx --run-kind command-flow` runs a saved or ad-hoc command flow as one transaction step.
+- `--rollback-flow-template` and `--rollback-flow-file` are optional; when provided they become the compensating rollback step.
+- Command-based tx blocks keep the existing `--template`, `--command`, `--rollback-command`, and `--resource-rollback-command` behavior.
 
 **Transaction workflow**
 
@@ -962,7 +979,7 @@ Operations (Web)                 CLI
 -------------------------------- ---------------------------------------------
 Direct Execute                   rauto exec
 Template Render + Execute        rauto template
-Command Flow Templates           rauto flow / rauto flow-template
+Command Flow Execute             rauto flow
 SFTP upload                      rauto upload
 Transaction Block (Tx Block)     rauto tx
 Transaction Workflow (Tx Flow)   rauto tx-workflow
@@ -982,6 +999,7 @@ Template Manager (Web)           CLI
 List templates                   rauto templates list
 Show template                    rauto templates show <name>
 Delete template                  rauto templates delete <name>
+Command flow templates           rauto flow-template
 
 Session Replay (Web)             CLI
 -------------------------------- ---------------------------------------------

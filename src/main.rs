@@ -16,7 +16,7 @@ use clap::Parser;
 use cli::{
     BackupCommands, BlacklistCommands, Cli, CommandFlowArgs, CommandFlowTemplateCommands, Commands,
     ConnectionCommands, DeviceCommands, GlobalOpts, HistoryCommands, RecordLevelOpt,
-    TemplateCommands, TxArgs, TxWorkflowArgs, UploadArgs,
+    TemplateCommands, TxArgs, TxRunKind, TxWorkflowArgs, UploadArgs,
 };
 use config::command_flow_template::{
     CommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
@@ -1194,24 +1194,47 @@ fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate> {
     parse_command_flow_template_str(&stored.content, Some(&safe_name))
 }
 
-fn resolve_command_flow_template(args: &CommandFlowArgs) -> Result<CommandFlowTemplate> {
-    match (&args.template, &args.file) {
+fn resolve_command_flow_template_from_sources(
+    template: Option<&str>,
+    file: Option<&PathBuf>,
+    context: &str,
+    inline_name: &str,
+    template_flag: &str,
+    file_flag: &str,
+) -> Result<CommandFlowTemplate> {
+    match (
+        template.map(str::trim).filter(|value| !value.is_empty()),
+        file,
+    ) {
         (Some(name), None) => load_command_flow_template_form(name),
         (None, Some(file)) => {
             let body = fs::read_to_string(file)?;
-            let name = file
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .unwrap_or("inline_flow");
-            parse_command_flow_template_str(&body, Some(name))
+            parse_command_flow_template_str(&body, Some(inline_name))
         }
         (Some(_), Some(_)) => Err(anyhow::anyhow!(
-            "use either --template or --file for command flow execution, not both"
+            "use either {template_flag} or {file_flag} for {context}, not both"
         )),
         (None, None) => Err(anyhow::anyhow!(
-            "command flow execution requires --template <name> or --file <path>"
+            "{context} requires {template_flag} <name> or {file_flag} <path>"
         )),
     }
+}
+
+fn resolve_command_flow_template(args: &CommandFlowArgs) -> Result<CommandFlowTemplate> {
+    let inline_name = args
+        .file
+        .as_ref()
+        .and_then(|value| value.file_stem())
+        .and_then(|value| value.to_str())
+        .unwrap_or("inline_flow");
+    resolve_command_flow_template_from_sources(
+        args.template.as_deref(),
+        args.file.as_ref(),
+        "command flow execution",
+        inline_name,
+        "--template",
+        "--file",
+    )
 }
 
 fn normalize_command_flow_template_body_from_input(
@@ -1356,137 +1379,269 @@ fn read_text_body(kind: &str, file: Option<PathBuf>, content: Option<String>) ->
 }
 
 async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
-    if args.template.is_none() && args.commands.is_empty() {
-        return Err(anyhow::anyhow!(
-            "tx requires at least one --command or a --template"
-        ));
-    }
-    if args.rollback_commands_file.is_some() && !args.rollback_commands.is_empty() {
-        return Err(anyhow::anyhow!(
-            "use either --rollback-commands-file or repeated --rollback-command"
-        ));
-    }
-    if args.rollback_commands_json.is_some()
-        && (args.rollback_commands_file.is_some() || !args.rollback_commands.is_empty())
-    {
-        return Err(anyhow::anyhow!(
-            "use only one rollback command source: --rollback-commands-json, --rollback-commands-file, or repeated --rollback-command"
-        ));
-    }
-    if !args.rollback_commands.is_empty() && args.resource_rollback_command.is_some() {
-        return Err(anyhow::anyhow!(
-            "use either --rollback-command (per-step) or --resource-rollback-command (whole-resource)"
-        ));
-    }
-    if args.rollback_trigger_step_index.is_some() && args.resource_rollback_command.is_none() {
-        return Err(anyhow::anyhow!(
-            "--rollback-trigger-step-index requires --resource-rollback-command"
-        ));
-    }
-
     let conn = resolve_effective_connection(opts)?;
-    let template_profile = args
-        .template_profile
-        .clone()
-        .unwrap_or_else(|| conn.device_profile.clone());
-    let commands = resolve_tx_commands(&args, &conn)?;
-    let mode = template_loader::resolve_profile_mode(&template_profile, Some(&args.mode))?;
-
-    let mut rollback_commands = if let Some(path) = &args.rollback_commands_json {
-        let raw = std::fs::read_to_string(path)?;
-        let value: Value = serde_json::from_str(&raw)?;
-        let array = value
-            .as_array()
-            .ok_or_else(|| anyhow::anyhow!("rollback JSON must be an array of strings"))?;
-        array
-            .iter()
-            .map(|v| {
-                v.as_str()
-                    .map(|s| s.trim().to_string())
-                    .ok_or_else(|| anyhow::anyhow!("rollback JSON array must be strings"))
-            })
-            .collect::<Result<Vec<_>>>()?
-    } else if let Some(path) = &args.rollback_commands_file {
-        let text = std::fs::read_to_string(path)?;
-        text.lines()
-            .map(|s| s.trim().to_string())
-            .collect::<Vec<_>>()
-    } else {
-        args.rollback_commands.clone()
-    };
-    while rollback_commands.len() > commands.len()
-        && rollback_commands
-            .last()
-            .map(|s| s.trim().is_empty())
-            .unwrap_or(false)
-    {
-        rollback_commands.pop();
-    }
-    let tx_block = if !rollback_commands.is_empty() {
-        if rollback_commands.len() > commands.len() {
-            return Err(anyhow::anyhow!(
-                "--rollback-command count must not exceed command count"
-            ));
-        }
-        while rollback_commands.len() < commands.len() {
-            rollback_commands.push(String::new());
-        }
-        let steps: Vec<TxStep> = commands
-            .iter()
-            .enumerate()
-            .map(|(idx, cmd)| {
-                command_tx_step(
-                    &mode,
-                    cmd.clone(),
-                    args.timeout_secs,
-                    if rollback_commands[idx].trim().is_empty() {
-                        None
-                    } else {
-                        Some(rollback_commands[idx].clone())
-                    },
-                    args.rollback_on_failure,
-                )
-            })
-            .collect();
-        let tx_block = TxBlock {
-            name: args.name.clone(),
-            kind: CommandBlockKind::Config,
-            rollback_policy: RollbackPolicy::PerStep,
-            steps,
-            fail_fast: true,
-        };
-        tx_block.validate()?;
-        tx_block
-    } else {
-        let mut tx_block = rneter_templates::build_tx_block(
-            &template_profile,
-            &args.name,
-            &mode,
-            &commands,
-            args.timeout_secs,
-            args.resource_rollback_command.clone(),
-        )?;
-        if args.rollback_on_failure {
-            for step in tx_block.steps.iter_mut() {
-                step.rollback_on_failure = true;
+    let (tx_block, effective_mode) = match args.run_kind {
+        TxRunKind::Commands => {
+            if args.template.is_none() && args.commands.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "tx requires at least one --command or a --template"
+                ));
             }
-        }
-        if let Some(trigger) = args.rollback_trigger_step_index {
-            match tx_block.rollback_policy {
-                RollbackPolicy::WholeResource { rollback, .. } => {
-                    tx_block.rollback_policy = RollbackPolicy::WholeResource {
-                        rollback,
-                        trigger_step_index: trigger,
-                    };
-                }
-                _ => {
+            if args.flow_template.is_some()
+                || args.flow_file.is_some()
+                || args.flow_vars.is_some()
+                || args.flow_vars_json.is_some()
+                || args.rollback_flow_template.is_some()
+                || args.rollback_flow_file.is_some()
+                || args.rollback_flow_vars.is_some()
+                || args.rollback_flow_vars_json.is_some()
+            {
+                return Err(anyhow::anyhow!(
+                    "command-based tx does not accept --flow-* arguments"
+                ));
+            }
+            if args.rollback_commands_file.is_some() && !args.rollback_commands.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "use either --rollback-commands-file or repeated --rollback-command"
+                ));
+            }
+            if args.rollback_commands_json.is_some()
+                && (args.rollback_commands_file.is_some() || !args.rollback_commands.is_empty())
+            {
+                return Err(anyhow::anyhow!(
+                    "use only one rollback command source: --rollback-commands-json, --rollback-commands-file, or repeated --rollback-command"
+                ));
+            }
+            if !args.rollback_commands.is_empty() && args.resource_rollback_command.is_some() {
+                return Err(anyhow::anyhow!(
+                    "use either --rollback-command (per-step) or --resource-rollback-command (whole-resource)"
+                ));
+            }
+            if args.rollback_trigger_step_index.is_some() && args.resource_rollback_command.is_none()
+            {
+                return Err(anyhow::anyhow!(
+                    "--rollback-trigger-step-index requires --resource-rollback-command"
+                ));
+            }
+
+            let template_profile = args
+                .template_profile
+                .clone()
+                .unwrap_or_else(|| conn.device_profile.clone());
+            let commands = resolve_tx_commands(&args, &conn)?;
+            let mode = match args.mode.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+                Some(mode) => template_loader::resolve_profile_mode(&template_profile, Some(mode))?,
+                None => "Config".to_string(),
+            };
+
+            let mut rollback_commands = if let Some(path) = &args.rollback_commands_json {
+                let raw = std::fs::read_to_string(path)?;
+                let value: Value = serde_json::from_str(&raw)?;
+                let array = value
+                    .as_array()
+                    .ok_or_else(|| anyhow::anyhow!("rollback JSON must be an array of strings"))?;
+                array
+                    .iter()
+                    .map(|v| {
+                        v.as_str()
+                            .map(|s| s.trim().to_string())
+                            .ok_or_else(|| anyhow::anyhow!("rollback JSON array must be strings"))
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            } else if let Some(path) = &args.rollback_commands_file {
+                let text = std::fs::read_to_string(path)?;
+                text.lines()
+                    .map(|s| s.trim().to_string())
+                    .collect::<Vec<_>>()
+            } else {
+                args.rollback_commands.clone()
+            };
+            while rollback_commands.len() > commands.len()
+                && rollback_commands
+                    .last()
+                    .map(|s| s.trim().is_empty())
+                    .unwrap_or(false)
+            {
+                rollback_commands.pop();
+            }
+            let tx_block = if !rollback_commands.is_empty() {
+                if rollback_commands.len() > commands.len() {
                     return Err(anyhow::anyhow!(
-                        "--rollback-trigger-step-index requires whole-resource rollback"
+                        "--rollback-command count must not exceed command count"
                     ));
                 }
-            }
+                while rollback_commands.len() < commands.len() {
+                    rollback_commands.push(String::new());
+                }
+                let steps: Vec<TxStep> = commands
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, cmd)| {
+                        command_tx_step(
+                            &mode,
+                            cmd.clone(),
+                            args.timeout_secs,
+                            if rollback_commands[idx].trim().is_empty() {
+                                None
+                            } else {
+                                Some(rollback_commands[idx].clone())
+                            },
+                            args.rollback_on_failure,
+                        )
+                    })
+                    .collect();
+                let tx_block = TxBlock {
+                    name: args.name.clone(),
+                    kind: CommandBlockKind::Config,
+                    rollback_policy: RollbackPolicy::PerStep,
+                    steps,
+                    fail_fast: true,
+                };
+                tx_block.validate()?;
+                tx_block
+            } else {
+                let mut tx_block = rneter_templates::build_tx_block(
+                    &template_profile,
+                    &args.name,
+                    &mode,
+                    &commands,
+                    args.timeout_secs,
+                    args.resource_rollback_command.clone(),
+                )?;
+                if args.rollback_on_failure {
+                    for step in tx_block.steps.iter_mut() {
+                        step.rollback_on_failure = true;
+                    }
+                }
+                if let Some(trigger) = args.rollback_trigger_step_index {
+                    match tx_block.rollback_policy {
+                        RollbackPolicy::WholeResource { rollback, .. } => {
+                            tx_block.rollback_policy = RollbackPolicy::WholeResource {
+                                rollback,
+                                trigger_step_index: trigger,
+                            };
+                        }
+                        _ => {
+                            return Err(anyhow::anyhow!(
+                                "--rollback-trigger-step-index requires whole-resource rollback"
+                            ));
+                        }
+                    }
+                }
+                tx_block
+            };
+            (tx_block, mode)
         }
-        tx_block
+        TxRunKind::CommandFlow => {
+            if args.template.is_some()
+                || args.vars.is_some()
+                || !args.commands.is_empty()
+                || !args.rollback_commands.is_empty()
+                || args.rollback_commands_file.is_some()
+                || args.rollback_commands_json.is_some()
+                || args.resource_rollback_command.is_some()
+                || args.rollback_trigger_step_index.is_some()
+                || args.template_profile.is_some()
+            {
+                return Err(anyhow::anyhow!(
+                    "command flow tx does not accept command/template rollback arguments"
+                ));
+            }
+
+            let mode = match args.mode.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+                Some(mode) => template_loader::resolve_profile_mode(&conn.device_profile, Some(mode))?,
+                None => template_loader::default_profile_mode(&conn.device_profile)?,
+            };
+
+            let flow_template = resolve_command_flow_template_from_sources(
+                args.flow_template.as_deref(),
+                args.flow_file.as_ref(),
+                "command flow tx execution",
+                "inline_tx_flow",
+                "--flow-template",
+                "--flow-file",
+            )?;
+            let flow_vars =
+                load_vars_json_input(args.flow_vars.as_ref(), args.flow_vars_json.as_deref())?;
+            let mut flow = flow_template.to_command_flow(&build_command_flow_runtime(
+                mode.clone(),
+                conn.connection_name.as_deref(),
+                &conn.host,
+                &conn.username,
+                &conn.device_profile,
+                flow_vars,
+            ))?;
+            if let Some(timeout_secs) = args.timeout_secs {
+                for step in &mut flow.steps {
+                    step.timeout = Some(timeout_secs);
+                }
+            }
+            command_blacklist::ensure_commands_allowed(
+                flow.steps.iter().map(|step| step.command.as_str()),
+                "command flow",
+            )?;
+            if flow.steps.is_empty() {
+                return Err(anyhow::anyhow!("command flow has no steps"));
+            }
+
+            let rollback_operation = match (
+                args.rollback_flow_template.as_deref(),
+                args.rollback_flow_file.as_ref(),
+            ) {
+                (None, None) => None,
+                _ => {
+                    let rollback_template = resolve_command_flow_template_from_sources(
+                        args.rollback_flow_template.as_deref(),
+                        args.rollback_flow_file.as_ref(),
+                        "rollback command flow tx execution",
+                        "inline_tx_rollback_flow",
+                        "--rollback-flow-template",
+                        "--rollback-flow-file",
+                    )?;
+                    let rollback_vars = load_vars_json_input(
+                        args.rollback_flow_vars.as_ref(),
+                        args.rollback_flow_vars_json.as_deref(),
+                    )?;
+                    let mut rollback_flow =
+                        rollback_template.to_command_flow(&build_command_flow_runtime(
+                            mode.clone(),
+                            conn.connection_name.as_deref(),
+                            &conn.host,
+                            &conn.username,
+                            &conn.device_profile,
+                            rollback_vars,
+                        ))?;
+                    if let Some(timeout_secs) = args.timeout_secs {
+                        for step in &mut rollback_flow.steps {
+                            step.timeout = Some(timeout_secs);
+                        }
+                    }
+                    command_blacklist::ensure_commands_allowed(
+                        rollback_flow.steps.iter().map(|step| step.command.as_str()),
+                        "rollback command flow",
+                    )?;
+                    if rollback_flow.steps.is_empty() {
+                        return Err(anyhow::anyhow!("rollback command flow has no steps"));
+                    }
+                    Some(SessionOperation::from(rollback_flow))
+                }
+            };
+
+            let mut step = TxStep::new(SessionOperation::from(flow))
+                .with_rollback_on_failure(args.rollback_on_failure);
+            if let Some(rollback_operation) = rollback_operation {
+                step = step.with_rollback(rollback_operation);
+            }
+            let tx_block = TxBlock {
+                name: args.name.clone(),
+                kind: CommandBlockKind::Config,
+                rollback_policy: RollbackPolicy::PerStep,
+                steps: vec![step],
+                fail_fast: true,
+            };
+            tx_block.validate()?;
+            (tx_block, mode)
+        }
     };
 
     if args.dry_run {
@@ -1553,7 +1708,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             &conn,
             "tx_block",
             &args.name,
-            Some(&mode),
+            Some(&effective_mode),
             args.record_level,
         )?;
         if args.json {

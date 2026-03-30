@@ -228,6 +228,13 @@ pub struct ExecuteCommandFlowResponse {
     pub recording_jsonl: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum TxBlockRunKind {
+    Commands,
+    CommandFlow,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum TransferProtocol {
@@ -298,9 +305,23 @@ pub struct ExecuteUploadResponse {
 #[derive(Debug, Deserialize)]
 pub struct ExecuteTxBlockRequest {
     pub name: Option<String>,
+    #[serde(default)]
+    pub run_kind: Option<TxBlockRunKind>,
     pub template: Option<String>,
     #[serde(default)]
     pub vars: Value,
+    #[serde(default)]
+    pub flow_template_name: Option<String>,
+    #[serde(default)]
+    pub flow_content: Option<String>,
+    #[serde(default)]
+    pub flow_vars: Value,
+    #[serde(default)]
+    pub rollback_flow_template_name: Option<String>,
+    #[serde(default)]
+    pub rollback_flow_content: Option<String>,
+    #[serde(default)]
+    pub rollback_flow_vars: Value,
     #[serde(default)]
     pub commands: Vec<String>,
     #[serde(default)]

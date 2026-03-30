@@ -87,6 +87,12 @@ pub enum RecordLevelOpt {
     Full,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum TxRunKind {
+    Commands,
+    CommandFlow,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum CommandFlowTemplateCommands {
     /// List saved command flow templates
@@ -426,6 +432,10 @@ pub struct TxArgs {
     #[arg(long, default_value = "tx-block")]
     pub name: String,
 
+    /// Transaction block input mode
+    #[arg(long, value_enum, default_value_t = TxRunKind::Commands)]
+    pub run_kind: TxRunKind,
+
     /// Template file to render commands from (optional)
     #[arg(long)]
     pub template: Option<String>,
@@ -433,6 +443,38 @@ pub struct TxArgs {
     /// Path to a JSON file containing variables for --template
     #[arg(long, short = 'v')]
     pub vars: Option<PathBuf>,
+
+    /// Saved command flow template name for --run-kind command-flow
+    #[arg(long)]
+    pub flow_template: Option<String>,
+
+    /// Path to a TOML file containing an ad-hoc command flow template
+    #[arg(long)]
+    pub flow_file: Option<PathBuf>,
+
+    /// Path to a JSON file containing variables for the main command flow
+    #[arg(long)]
+    pub flow_vars: Option<PathBuf>,
+
+    /// Inline JSON variables for the main command flow
+    #[arg(long)]
+    pub flow_vars_json: Option<String>,
+
+    /// Saved rollback command flow template name
+    #[arg(long)]
+    pub rollback_flow_template: Option<String>,
+
+    /// Path to a TOML file containing an ad-hoc rollback command flow template
+    #[arg(long)]
+    pub rollback_flow_file: Option<PathBuf>,
+
+    /// Path to a JSON file containing variables for the rollback command flow
+    #[arg(long)]
+    pub rollback_flow_vars: Option<PathBuf>,
+
+    /// Inline JSON variables for the rollback command flow
+    #[arg(long)]
+    pub rollback_flow_vars_json: Option<String>,
 
     /// Direct command lines for transaction step(s), can be repeated
     #[arg(long = "command")]
@@ -458,9 +500,9 @@ pub struct TxArgs {
     #[arg(long)]
     pub rollback_trigger_step_index: Option<usize>,
 
-    /// Target mode for generated tx steps
-    #[arg(long, default_value = "Config")]
-    pub mode: String,
+    /// Target mode for generated tx steps or command flow execution
+    #[arg(long)]
+    pub mode: Option<String>,
 
     /// Timeout (seconds) for each tx step
     #[arg(long)]
