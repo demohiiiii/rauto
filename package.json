@@ -3,10 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "tailwind:build": "tailwindcss -c tailwind.config.js -i ./static/input.css -o ./static/output.css --minify",
-    "tailwind:watch": "tailwindcss -c tailwind.config.js -i ./static/input.css -o ./static/output.css --watch"
+    "vendor:sync": "mkdir -p ./static/vendor && cp ./node_modules/alpinejs/dist/cdn.min.js ./static/vendor/alpine.min.js && cp ./node_modules/htmx.org/dist/htmx.min.js ./static/vendor/htmx.min.js",
+    "tailwind:build": "npx @tailwindcss/cli -i ./static/input.css -o ./static/output.css --minify",
+    "tailwind:watch": "npx @tailwindcss/cli -i ./static/input.css -o ./static/output.css --watch"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.17"
+    "daisyui": "^5.5.19",
+    "playwright": "^1.58.2",
+    "tailwindcss": "^4.2.2"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "alpinejs": "^3.15.9",
+    "htmx.org": "^2.0.8"
   }
 }

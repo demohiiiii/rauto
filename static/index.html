@@ -5,1545 +5,1145 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>rauto web</title>
   <link rel="stylesheet" href="/static/output.css" />
-  <style>
-    #lang-fab-wrap {
-      position: fixed;
-      bottom: 20px;
-      right: 16px;
-      z-index: 9999;
-    }
-    #record-fab-wrap {
-      position: fixed;
-      bottom: 78px;
-      right: 16px;
-      z-index: 9999;
-    }
-    #record-fab {
-      width: 46px;
-      height: 46px;
-      border-radius: 9999px;
-      border: 1px solid rgba(185, 28, 28, 0.3);
-      background: radial-gradient(circle at 30% 30%, #fecaca, #dc2626);
-      color: #ffffff;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      font-size: 12px;
-      line-height: 1;
-      cursor: pointer;
-      box-shadow: 0 12px 24px rgba(220, 38, 38, 0.28);
-      position: relative;
-    }
-    #record-fab:hover {
-      transform: translateY(-1px);
-    }
-    #record-fab:active {
-      transform: translateY(0);
-    }
-    #record-fab-badge {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      min-width: 20px;
-      height: 20px;
-      border-radius: 999px;
-      background: #ef4444;
-      color: #ffffff;
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 6px;
-      box-shadow: 0 6px 14px rgba(239, 68, 68, 0.3);
-    }
-    #record-fab-badge::after {
-      content: "";
-      position: absolute;
-      width: 8px;
-      height: 8px;
-      right: -2px;
-      top: -2px;
-      border-radius: 999px;
-      background: #f97316;
-      border: 2px solid #ffffff;
-    }
-    #lang-fab {
-      width: 46px;
-      height: 46px;
-      border-radius: 9999px;
-      border: 1px solid #cbd5e1;
-      background: #ffffff;
-      box-shadow: 0 8px 20px rgba(2, 6, 23, 0.15);
-      font-size: 20px;
-      line-height: 1;
-      cursor: pointer;
-    }
-    #lang-menu {
-      margin-top: 8px;
-      min-width: 110px;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      background: #ffffff;
-      padding: 4px;
-      box-shadow: 0 10px 26px rgba(2, 6, 23, 0.18);
-    }
-    #lang-menu button {
-      width: 100%;
-      border: 0;
-      background: transparent;
-      border-radius: 8px;
-      padding: 8px 10px;
-      text-align: left;
-      cursor: pointer;
-    }
-    #lang-menu button:hover {
-      background: #f1f5f9;
-    }
-    .tab-group {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid #dbe3ef;
-      background: linear-gradient(180deg, #f8fafc, #f1f5f9);
-      border-radius: 14px;
-      padding: 6px;
-    }
-    .tab-btn {
-      border: 1px solid transparent;
-      border-radius: 10px;
-      padding: 9px 14px;
-      font-size: 14px;
-      font-weight: 700;
-      color: #334155;
-      background: transparent;
-      cursor: pointer;
-      transition: all 180ms ease;
-    }
-    .tab-btn:hover {
-      background: #e2e8f0;
-      color: #0f172a;
-    }
-    .tab-btn.is-active {
-      color: #ffffff;
-      background: linear-gradient(135deg, #0f766e, #0f172a);
-      border-color: rgba(15, 23, 42, 0.35);
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.26);
-      transform: translateY(-1px);
-    }
-    .mini-btn {
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      background: #f8fafc;
-      color: #0f172a;
-      font-size: 13px;
-      font-weight: 700;
-      padding: 6px 10px;
-      line-height: 1;
-      cursor: pointer;
-      transition: all 120ms ease;
-    }
-    .mini-btn:hover {
-      background: #e2e8f0;
-      border-color: #94a3b8;
-    }
-    .mini-btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-      background: #f1f5f9;
-      border-color: #cbd5e1;
-    }
-    .tx-workflow-drop-target {
-      position: relative;
-      border-color: #99f6e4 !important;
-      box-shadow: 0 0 0 1px rgba(15, 118, 110, 0.14);
-    }
-    .tx-workflow-drop-target.tx-workflow-drop-before::before {
-      content: "";
-      position: absolute;
-      left: 10px;
-      right: 10px;
-      top: -1px;
-      height: 3px;
-      border-radius: 9999px;
-      background: linear-gradient(90deg, #0f766e, #14b8a6);
-      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14);
-    }
-    .tx-workflow-drop-target.tx-workflow-drop-after::after {
-      content: "";
-      position: absolute;
-      left: 10px;
-      right: 10px;
-      bottom: -1px;
-      height: 3px;
-      border-radius: 9999px;
-      background: linear-gradient(90deg, #0f766e, #14b8a6);
-      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14);
-    }
-    .tx-workflow-chip {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 9999px;
-      border: 1px solid #dbe3ef;
-      background: #f8fafc;
-      color: #334155;
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1;
-      padding: 4px 8px;
-    }
-    .tx-workflow-pair-row .tx-workflow-pair-label {
-      border-style: dashed;
-      background: #f8fafc;
-      color: #0f172a;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-        "Courier New", monospace;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .tx-workflow-pair-index {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 30px;
-      height: 22px;
-      border-radius: 9999px;
-      background: #e2e8f0;
-      color: #0f172a;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .tx-workflow-pair-command {
-      flex: 1;
-      font-size: 12px;
-      color: #0f172a;
-      word-break: break-word;
-    }
-    .mini-btn.add {
-      border-color: #0f766e;
-      color: #0f766e;
-      background: #ecfeff;
-    }
-    .mini-btn.add:hover {
-      background: #ccfbf1;
-      border-color: #0f766e;
-    }
-    .mini-btn.delete {
-      border-color: #fecaca;
-      color: #b91c1c;
-      background: #fff1f2;
-    }
-    .mini-btn.delete:hover {
-      background: #ffe4e6;
-      border-color: #fda4af;
-    }
-    .field-card {
-      border: 1px solid #e8edf5;
-      border-radius: 14px;
-      background: linear-gradient(180deg, #ffffff, #fbfdff);
-      padding: 12px;
-      margin-bottom: 10px;
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-    }
-    .field-card:last-child {
-      margin-bottom: 0;
-    }
-    .group-card {
-      border: 1px solid #e3eaf4;
-      border-radius: 16px;
-      background: linear-gradient(180deg, #ffffff, #f8fbff);
-      padding: 14px;
-      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
-    }
-    .group-body {
-      margin-top: 6px;
-    }
-    .collapse-btn {
-      border: 1px solid #cbd5e1;
-      border-radius: 9999px;
-      padding: 3px 10px;
-      font-size: 12px;
-      font-weight: 700;
-      color: #334155;
-      background: #f8fafc;
-      cursor: pointer;
-    }
-    .collapse-btn:hover {
-      background: #e2e8f0;
-    }
-    .field-tools {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #eef3f8;
-    }
-    .field-tools span {
-      font-size: 13px;
-      font-weight: 700;
-      color: #334155;
-    }
-    .stack {
-      display: grid;
-      gap: 8px;
-    }
-    .inline-input-delete {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 8px;
-      align-items: center;
-    }
-    .fit-btn {
-      width: fit-content;
-    }
-    .check-input {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 18px;
-      height: 18px;
-      border: 1.5px solid #94a3b8;
-      border-radius: 5px;
-      background: #ffffff;
-      display: inline-grid;
-      place-content: center;
-      cursor: pointer;
-      transition: all 120ms ease;
-    }
-    .check-input:hover {
-      border-color: #0f766e;
-      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
-    }
-    .check-input::after {
-      content: "";
-      width: 10px;
-      height: 10px;
-      transform: scale(0);
-      transition: transform 120ms ease;
-      clip-path: polygon(14% 44%, 0 65%, 49% 100%, 100% 16%, 80% 0%, 43% 62%);
-      background: #ffffff;
-    }
-    .check-input:checked {
-      background: #0f766e;
-      border-color: #0f766e;
-    }
-    .check-input:checked::after {
-      transform: scale(1);
-    }
-    .check-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: #1e293b;
-    }
-    .diag-grid {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    }
-    .diag-card {
-      border: 1px solid #dbe3ef;
-      border-radius: 12px;
-      padding: 10px 12px;
-      background: #f8fafc;
-    }
-    .diag-card .k {
-      font-size: 12px;
-      color: #64748b;
-      margin-bottom: 6px;
-    }
-    .diag-card .v {
-      font-size: 18px;
-      font-weight: 800;
-      color: #0f172a;
-    }
-    .diag-badge {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 9999px;
-      padding: 4px 10px;
-      font-size: 12px;
-      font-weight: 700;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
-      color: #334155;
-    }
-    .diag-badge.ok {
-      border-color: #99f6e4;
-      background: #f0fdfa;
-      color: #0f766e;
-    }
-    .diag-badge.bad {
-      border-color: #fecaca;
-      background: #fff1f2;
-      color: #b91c1c;
-    }
-    .diag-list {
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      background: #ffffff;
-      padding: 10px 12px;
-    }
-    .diag-list h4 {
-      font-size: 13px;
-      font-weight: 700;
-      color: #334155;
-      margin-bottom: 8px;
-    }
-    .diag-list ul {
-      margin: 0;
-      padding-left: 16px;
-      color: #0f172a;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .diag-list li {
-      margin: 2px 0;
-    }
-    .btn-danger {
-      background: #dc2626;
-      border: 1px solid #dc2626;
-      color: #ffffff;
-    }
-    .btn-danger:hover {
-      background: #b91c1c;
-      border-color: #b91c1c;
-    }
-    .btn-danger:active {
-      background: #991b1b;
-      border-color: #991b1b;
-    }
-    .autocomplete-menu {
-      position: absolute;
-      z-index: 10010;
-      max-height: 260px;
-      overflow: auto;
-      border: 1px solid #dbe3ef;
-      border-radius: 12px;
-      background: #ffffff;
-      box-shadow: 0 14px 26px rgba(15, 23, 42, 0.16);
-      padding: 6px;
-    }
-    .autocomplete-item {
-      width: 100%;
-      border: 0;
-      border-radius: 8px;
-      background: transparent;
-      color: #0f172a;
-      text-align: left;
-      padding: 8px 10px;
-      font-size: 14px;
-      line-height: 1.3;
-      cursor: pointer;
-    }
-    .autocomplete-item:hover,
-    .autocomplete-item.is-active {
-      background: #e2e8f0;
-      color: #0f172a;
-    }
-    .op-mode-tabs {
-      margin-bottom: 22px;
-    }
-    .tx-stage-tabs .tab-btn {
-      min-width: 180px;
-      text-align: center;
-    }
-    .tx-stage-hint {
-      margin-top: 8px;
-      font-size: 13px;
-      color: #475569;
-    }
-    #entry-drawer-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 10040;
-      background: rgba(15, 23, 42, 0.42);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 180ms ease;
-    }
-    #entry-drawer-backdrop.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    #entry-drawer {
-      position: fixed;
-      top: 0;
-      right: 0;
-      height: 100vh;
-      width: min(760px, 96vw);
-      z-index: 10050;
-      background: #ffffff;
-      border-left: 1px solid #dbe3ef;
-      box-shadow: -14px 0 32px rgba(2, 6, 23, 0.24);
-      transform: translateX(100%);
-      transition: transform 180ms ease;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
-    #entry-drawer.open {
-      transform: translateX(0);
-    }
-    #record-drawer-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 10020;
-      background: rgba(15, 23, 42, 0.35);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 180ms ease;
-    }
-    #record-drawer-backdrop.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    #record-drawer {
-      position: fixed;
-      top: 0;
-      right: 0;
-      height: 100vh;
-      width: min(760px, 96vw);
-      z-index: 10030;
-      background: #ffffff;
-      border-left: 1px solid #dbe3ef;
-      box-shadow: -14px 0 32px rgba(2, 6, 23, 0.24);
-      transform: translateX(100%);
-      transition: transform 180ms ease;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
-    #record-drawer.open {
-      transform: translateX(0);
-    }
-    .record-drawer-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 16px 18px;
-      border-bottom: 1px solid #e2e8f0;
-      background: #f8fafc;
-    }
-    .record-drawer-body {
-      padding: 18px;
-      overflow: auto;
-    }
-    #history-drawer-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 10010;
-      background: rgba(15, 23, 42, 0.35);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 180ms ease;
-    }
-    #history-drawer-backdrop.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    #history-drawer {
-      position: fixed;
-      top: 0;
-      right: 0;
-      height: 100vh;
-      width: min(880px, 96vw);
-      z-index: 10015;
-      background: #ffffff;
-      border-left: 1px solid #dbe3ef;
-      box-shadow: -14px 0 32px rgba(2, 6, 23, 0.24);
-      transform: translateX(100%);
-      transition: transform 180ms ease;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
-    #history-drawer.open {
-      transform: translateX(0);
-    }
-    .record-drawer-section {
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      background: #ffffff;
-      padding: 14px;
-      display: grid;
-      gap: 10px;
-    }
-    .record-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-      justify-content: space-between;
-    }
-    .record-toolbar-left {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .record-filters {
-      display: grid;
-      gap: 10px;
-    }
-    .record-filters-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
-    }
-    #detail-modal {
-      z-index: 10060;
-    }
-  </style>
 </head>
-<body class="min-h-screen bg-slate-100 text-slate-900">
-  <div id="record-fab-wrap" hidden>
-    <button id="record-fab" type="button" title="Recording">
-      REC
-      <span id="record-fab-badge" hidden>0</span>
-    </button>
-  </div>
+<body class="dashboard-body" x-data x-bind:data-dashboard-theme="$store.app.currentTheme" x-bind:data-theme="$store.app.currentTheme" x-on:click="$store.app.closeLangMenu()" x-on:keydown.escape.window="$store.app.closeLangMenu(); $store.app.closeConnectionModal()">
+<script>
+  try {
+    const initialTheme = localStorage.getItem("rauto_theme") || "dark";
+    document.body.setAttribute("data-dashboard-theme", initialTheme);
+    document.body.setAttribute("data-theme", initialTheme);
+  } catch (_) {}
+</script>
 
-  <div id="lang-fab-wrap">
-    <button id="lang-fab" type="button" aria-haspopup="true" aria-expanded="false" title="Language">
-      🌐
-    </button>
-    <div id="lang-menu" hidden>
-      <button id="lang-en" type="button">English</button>
-      <button id="lang-zh" type="button">中文</button>
-    </div>
-  </div>
+<!-- ============================================================
+     仪表板主体：DaisyUI Drawer
+     ============================================================ -->
+<div class="dashboard-shell drawer lg:drawer-open min-h-screen">
+  <input id="sidebar-drawer" type="checkbox" class="drawer-toggle" />
 
-  <div class="mx-auto max-w-6xl px-4 py-8">
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div>
-        <h1 id="title" class="text-3xl font-bold tracking-tight">rauto Web Console</h1>
-        <p id="subtitle" class="mt-2 text-sm text-slate-600">Operate existing CLI capabilities from browser UI powered by axum APIs.</p>
+  <!-- ── 主内容区 ── -->
+  <div class="drawer-content flex flex-col">
+
+    <!-- 顶部导航栏 -->
+    <header class="dashboard-header navbar sticky top-0 z-30">
+      <div class="flex-none lg:hidden">
+        <label for="sidebar-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-5 w-5 stroke-current">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </label>
       </div>
-      <div id="agent-auth-wrap" class="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4" hidden>
-        <div class="grid gap-3 lg:grid-cols-[1fr_minmax(320px,460px)] lg:items-start">
-          <div>
-            <h2 id="agent-auth-title" class="text-sm font-semibold text-slate-900">Agent API Token</h2>
-            <p id="agent-auth-hint" class="mt-1 text-xs text-slate-600">
-              Managed agent mode requires a token for browser API requests.
-            </p>
-          </div>
-          <div class="grid gap-2">
-            <input
-              id="agent-api-token"
-              class="input"
-              type="password"
-              placeholder="agent api token"
-              autocomplete="off"
-            />
-            <div class="inline-flex flex-wrap items-center justify-end gap-2">
-              <button id="agent-api-token-save-btn" class="mini-btn" type="button">Save Token</button>
-              <button id="agent-api-token-clear-btn" class="mini-btn delete" type="button">Clear</button>
+      <div class="flex-1"></div>
+      <div class="dashboard-header-actions flex-none px-2">
+        <div class="dashboard-tool-group">
+          <button id="record-fab" class="dashboard-tool" type="button" title="Recording">
+            <span id="dashboard-tool-record" class="dashboard-tool-label">Recording</span>
+            <span id="record-fab-badge" class="dashboard-tool-badge" hidden>0</span>
+          </button>
+          <button id="history-topbar-btn" class="dashboard-tool" type="button">
+            <span id="dashboard-tool-history" class="dashboard-tool-label">History</span>
+          </button>
+        </div>
+        <div class="dashboard-tool-group dashboard-tool-group-muted">
+          <button id="theme-toggle-btn" class="dashboard-tool dashboard-tool-compact" type="button" x-on:click="$store.app.toggleTheme()">
+            <span id="dashboard-tool-theme" class="dashboard-tool-label">Theme</span>
+            <span id="dashboard-tool-theme-value" class="dashboard-tool-meta">Dark</span>
+          </button>
+          <div class="dashboard-lang-wrap" x-on:click.stop>
+            <button
+              id="lang-fab"
+              class="dashboard-tool dashboard-tool-compact"
+              type="button"
+              aria-haspopup="true"
+              x-bind:aria-expanded="$store.app.langMenuOpen.toString()"
+              x-on:click.stop="$store.app.toggleLangMenu()"
+            >
+              <span id="dashboard-tool-language" class="dashboard-tool-label">Language</span>
+              <span class="dashboard-tool-meta" x-text="$store.app.currentLang === 'zh' ? '中文' : 'EN'"></span>
+            </button>
+            <div id="lang-menu" class="dashboard-menu" x-cloak x-show="$store.app.langMenuOpen" x-transition.origin.top.right>
+              <button id="lang-en" type="button" x-on:click.stop="$store.app.setLanguage('en')">English</button>
+              <button id="lang-zh" type="button" x-on:click.stop="$store.app.setLanguage('zh')">中文</button>
             </div>
           </div>
         </div>
-        <div id="agent-auth-out" class="mt-3"></div>
       </div>
-    </section>
+    </header>
 
-    <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 id="connection-title" class="text-xl font-semibold">Connection Defaults</h2>
-      <div class="mt-3 group-card">
-        <div class="field-tools">
-          <span id="saved-conn-title" class="text-sm font-semibold text-slate-700">Saved Connections</span>
-        </div>
-        <div id="saved-conn-body" class="group-body">
-          <div class="grid max-w-[760px] gap-2">
-            <input id="saved-conn-name" class="input" list="saved-conn-options" placeholder="saved connection name" />
-            <datalist id="saved-conn-options"></datalist>
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <label class="check-label"><input id="saved-conn-save-password" type="checkbox" class="check-input" /><span id="saved-conn-save-password-label">do not save password</span></label>
-                <div class="inline-flex flex-wrap items-center gap-2">
-                  <button id="saved-conn-template-btn" class="mini-btn" type="button">Download Template</button>
-                  <button id="saved-conn-import-btn" class="mini-btn" type="button">Import CSV/Excel</button>
-                  <button id="saved-conn-save-btn" class="mini-btn" type="button">Save</button>
-                  <button id="saved-conn-delete-btn" class="mini-btn delete" type="button">Delete</button>
-                  <button id="saved-conn-history-btn" class="mini-btn" type="button">History</button>
-                </div>
+    <!-- 内容主区域 -->
+    <main class="main-scroll">
+      <div class="w-full max-w-none space-y-4">
+
+        <!-- Agent Auth Banner（按需显示） -->
+        <div id="agent-auth-wrap" class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4" hidden>
+          <div class="grid gap-3 lg:grid-cols-[1fr_minmax(320px,460px)] lg:items-start">
+            <div>
+              <h2 id="agent-auth-title" class="text-sm font-semibold text-slate-900">Agent API Token</h2>
+              <p id="agent-auth-hint" class="mt-1 text-xs text-slate-600">
+                Managed agent mode requires a token for browser API requests.
+              </p>
+            </div>
+            <div class="grid gap-2">
+              <input id="agent-api-token" class="input" type="password" placeholder="agent api token" autocomplete="off" />
+              <div class="inline-flex flex-wrap items-center justify-end gap-2">
+                <button id="agent-api-token-save-btn" class="btn btn-sm" type="button">Save Token</button>
+                <button id="agent-api-token-clear-btn" class="btn btn-sm btn-error" type="button">Clear</button>
               </div>
             </div>
-          <input id="saved-conn-import-file-input" type="file" accept=".csv,.xlsx,.xls,.xlsm,.xlsb,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
-          <div id="saved-conn-list" class="mt-2 grid gap-2"></div>
-          <div id="saved-conn-out" class="mt-2 grid gap-2"></div>
+          </div>
+          <div id="agent-auth-out" class="mt-3"></div>
         </div>
-      </div>
-      <div class="mt-4 grid gap-3 md:grid-cols-2">
-        <input id="host" class="input" placeholder="host" />
-        <input id="port" class="input" placeholder="port (default 22)" />
-        <input id="username" class="input" placeholder="username" />
-        <input id="password" class="input" placeholder="password" type="password" />
-        <input id="enable_password" class="input" placeholder="enable password (optional)" type="password" />
-        <select id="ssh_security" class="input">
-          <option id="ssh-security-option-default" value="">ssh security (default secure)</option>
-          <option id="ssh-security-option-secure" value="secure">secure</option>
-          <option id="ssh-security-option-balanced" value="balanced">balanced</option>
-          <option id="ssh-security-option-legacy" value="legacy-compatible">legacy-compatible</option>
-        </select>
-        <input id="device_profile" class="input" placeholder="device profile (default cisco)" />
-      </div>
-      <div class="mt-3 md:w-64">
-        <button id="connection-test-btn" class="btn" type="button">Test Connection</button>
-      </div>
-      <div id="connection-test-out" class="mt-3 grid gap-2"></div>
-      <p id="connection-help" class="mt-3 text-xs text-slate-500">Leave empty to fallback to CLI defaults used at server startup.</p>
-    </section>
 
-    <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="tab-group" role="tablist" aria-label="Feature tabs">
-        <button id="tab-ops" class="tab-btn is-active" data-tab="ops" role="tab">Operations</button>
-        <button id="tab-interactive" class="tab-btn" data-tab="interactive" role="tab">Interactive</button>
-        <button id="tab-replay" class="tab-btn" data-tab="replay" role="tab">Session Replay</button>
-        <button id="tab-prompts" class="tab-btn" data-tab="prompts" role="tab">Prompt Profiles</button>
-        <button id="tab-templates" class="tab-btn" data-tab="templates" role="tab">Template Manager</button>
-        <button id="tab-transfer" class="tab-btn" data-tab="transfer" role="tab">SFTP Upload</button>
-        <button id="tab-blacklist" class="tab-btn" data-tab="blacklist" role="tab">Command Blacklist</button>
-        <button id="tab-backup" class="tab-btn" data-tab="backup" role="tab">Backup</button>
-      </div>
+        <!-- 连接默认参数 -->
+        <!-- 功能面板 -->
+        <section class="dashboard-panel">
 
-      <div id="panel-ops" class="tab-panel mt-4" role="tabpanel">
-        <h2 id="ops-title" class="text-xl font-semibold">Operations</h2>
-        <div class="mt-3 grid gap-3">
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="op-card-title">Execute</span>
-            </div>
-            <div id="ops-main-body" class="group-body">
-              <div class="tab-group op-mode-tabs" role="tablist" aria-label="Operation mode tabs">
-                <button id="op-kind-exec" class="tab-btn is-active" type="button">Execute</button>
-                <button id="op-kind-tx" class="tab-btn" type="button">Transaction Block</button>
-              </div>
-
-              <div id="op-exec-fields" class="grid gap-3">
-                <div class="tab-group" role="tablist" aria-label="Execute mode tabs">
-                  <button id="op-exec-direct" class="tab-btn is-active" type="button">Direct Execute</button>
-                  <button id="op-exec-template" class="tab-btn" type="button">Template Render + Execute</button>
-                  <button id="op-exec-flow" class="tab-btn" type="button">Command Flow</button>
+          <!-- ── 操作面板 ── -->
+          <div id="panel-standard" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('standard')">
+            <h2 id="standard-title" class="text-xl font-semibold">Standard Delivery</h2>
+            <div class="mt-3 grid gap-3">
+              <div class="group-card">
+                <div class="field-tools">
+                  <span id="standard-op-card-title">Execute</span>
                 </div>
-
-                <div id="op-exec-direct-fields" class="grid gap-3">
-                  <input id="command" class="input" placeholder="show version" />
-                  <select id="mode" class="input"></select>
-                  <button id="exec-btn" class="btn">Execute</button>
-                  <pre id="exec-out" class="output mt-2"></pre>
-                </div>
-
-                <div id="op-exec-template-fields" class="grid gap-3" hidden>
-                  <input id="template" class="input" placeholder="template file name or path" />
-                  <div class="group-card">
-                    <div class="field-tools">
-                      <span id="template-selected-content-title">Selected Template Content</span>
+                <div id="ops-main-body" class="group-body">
+                  <div id="op-exec-fields" class="grid gap-3">
+                    <div id="op-exec-direct-fields" class="grid gap-3" x-show="$store.app.currentExecMode === 'direct'" x-cloak>
+                      <input id="command" class="input" placeholder="show version" />
+                      <select id="mode" class="input" title="Execution Mode" aria-label="Execution Mode"></select>
+                      <button id="exec-btn" class="btn btn-primary" type="button">Execute</button>
+                      <pre id="exec-out" class="output mt-2"></pre>
                     </div>
-                    <div id="template-selected-content-body" class="group-body">
-                      <textarea id="template-selected-content" class="input min-h-40 font-mono" placeholder="template content preview" readonly></textarea>
-                    </div>
-                  </div>
-                  <textarea id="vars" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"vlan_id": 10}'></textarea>
-                  <select id="template-mode" class="input"></select>
-                  <div class="grid grid-cols-2 gap-2">
-                    <button id="render-btn" class="btn">Preview Render</button>
-                    <button id="template-exec-btn" class="btn">Run Template</button>
-                  </div>
-                  <pre id="render-out" class="output mt-2"></pre>
-                  <div class="group-card">
-                    <div class="field-tools">
-                      <span id="template-exec-visual-title">Template Execution</span>
-                    </div>
-                    <div id="template-exec-visual" class="group-body"></div>
-                  </div>
-                </div>
 
-                <div id="op-exec-flow-fields" class="grid gap-3" hidden>
-                  <input id="flow-template-name" class="input" list="flow-template-options" placeholder="command flow template name" />
-                  <div class="grid gap-2">
-                    <div id="flow-vars-fields-title" class="text-xs font-semibold text-slate-600">Template Variables</div>
-                    <div id="flow-vars-fields" class="grid gap-2"></div>
-                    <div id="flow-vars-fields-hint" class="text-xs text-slate-500">Template-declared vars will appear here when available.</div>
-                  </div>
-                  <textarea id="flow-vars-json" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"package": "nginx"}'></textarea>
-                  <div id="flow-vars-json-hint" class="text-xs text-slate-500">Use JSON for advanced overrides or extra vars not declared by the template.</div>
-                  <div class="grid gap-2 md:grid-cols-[1fr_auto]">
-                    <div id="flow-hint" class="text-xs text-slate-500">Use a saved command flow template for wizard-style CLI interactions. Variables are optional and will be merged into the template render context.</div>
-                    <button id="flow-exec-btn" class="btn" type="button">Run Flow</button>
-                  </div>
-                  <div id="flow-out" class="grid gap-2"></div>
-                  <datalist id="flow-template-options"></datalist>
-                </div>
-              </div>
-
-              <div id="op-tx-fields" class="grid gap-3" hidden>
-                <div class="tab-group tx-stage-tabs" role="tablist" aria-label="Transaction mode tabs">
-                  <button id="tx-stage-block" class="tab-btn is-active" type="button">Tx Block</button>
-                  <button id="tx-stage-workflow" class="tab-btn" type="button">Tx Workflow</button>
-                  <button id="tx-stage-orchestrate" class="tab-btn" type="button">Orchestrate</button>
-                </div>
-                <div id="tx-stage-hint" class="tx-stage-hint">Step 1: build and run a single transaction block.</div>
-
-                <div id="tx-stage-block-panel" class="group-card">
-                  <div class="field-tools">
-                    <span id="tx-basic-title">Transaction Block</span>
-                    <button id="tx-advanced-toggle-btn" class="mini-btn" type="button">Advanced</button>
-                  </div>
-                  <div class="group-body grid gap-2">
-                    <div class="tab-group" role="tablist" aria-label="Tx block input mode tabs">
-                      <button id="tx-run-kind-commands" class="tab-btn is-active" type="button">Commands</button>
-                      <button id="tx-run-kind-flow" class="tab-btn" type="button">Command Flow</button>
+                    <div id="op-exec-template-fields" class="grid gap-3" x-show="$store.app.currentExecMode === 'template'" x-cloak>
+                      <input id="template" class="input" placeholder="template file name or path" />
+                      <div class="group-card">
+                        <div class="field-tools">
+                          <span id="template-selected-content-title">Selected Template Content</span>
+                        </div>
+                        <div id="template-selected-content-body" class="group-body">
+                          <textarea id="template-selected-content" class="input min-h-40 font-mono" placeholder="template content preview" readonly></textarea>
+                        </div>
+                      </div>
+                      <textarea id="vars" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"vlan_id": 10}'></textarea>
+                      <select id="template-mode" class="input" title="Template Mode" aria-label="Template Mode"></select>
+                      <div class="grid grid-cols-2 gap-2">
+                        <button id="render-btn" class="btn btn-primary" type="button">Preview Render</button>
+                        <button id="template-exec-btn" class="btn btn-primary" type="button">Run Template</button>
+                      </div>
+                      <pre id="render-out" class="output mt-2"></pre>
+                      <div class="group-card">
+                        <div class="field-tools">
+                          <span id="template-exec-visual-title">Template Execution</span>
+                        </div>
+                        <div id="template-exec-visual" class="group-body"></div>
+                      </div>
                     </div>
-                    <div id="tx-block-command-fields" class="grid gap-2">
-                      <input id="tx-template" class="input" placeholder="template file name or path (optional)" />
-                      <textarea id="tx-commands" class="input min-h-24 font-mono" placeholder="commands (one per line, optional when template is set)"></textarea>
-                      <textarea id="tx-vars" class="input min-h-24 font-mono" placeholder='JSON vars, e.g. {"name":"WEB01"}'></textarea>
-                      <select id="tx-mode" class="input"></select>
+
+                    <div id="op-exec-flow-fields" class="grid gap-3" x-show="$store.app.currentExecMode === 'flow'" x-cloak>
+                      <input id="flow-template-name" class="input" list="flow-template-options" placeholder="command flow template name" />
                       <div class="grid gap-2">
-                        <div class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
-                          <span id="tx-rollback-mode-label">Rollback mode</span>
-                          <select id="tx-rollback-mode" class="input md:w-[220px]">
-                            <option value="infer">infer per-step</option>
-                            <option value="per_step">custom per-step</option>
-                            <option value="whole_resource">whole resource</option>
-                          </select>
-                        </div>
-                        <div id="tx-rollback-per-step" class="grid gap-2" hidden>
-                          <label class="check-label">
-                            <input id="tx-rollback-on-failure" type="checkbox" class="check-input" />
-                            <span id="tx-rollback-on-failure-label">rollback failed step</span>
-                          </label>
-                          <div class="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
-                            <span id="tx-rollback-input-label">rollback input</span>
-                            <div class="tab-group">
-                              <button id="tx-rollback-input-text" class="tab-btn is-active" type="button">text</button>
-                              <button id="tx-rollback-input-pairs" class="tab-btn" type="button">per-command</button>
-                            </div>
-                          </div>
-                          <div class="inline-flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <button id="tx-rollback-auto-btn" class="mini-btn" type="button">Auto-generate rollback</button>
-                            <span id="tx-rollback-auto-hint">Generated by simple rule: prefix with 'no '</span>
-                            <span class="ml-2 text-slate-400" id="tx-rollback-rule-label">rule</span>
-                            <select id="tx-rollback-rule" class="input">
-                              <option value="no_prefix">prefix no</option>
-                              <option value="set_delete">set → delete</option>
-                              <option value="add_remove">add → remove</option>
-                              <option value="custom">custom template</option>
-                            </select>
-                            <input id="tx-rollback-template" class="input" placeholder="template, e.g. no {{cmd}}" />
-                          </div>
-                          <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-                            <select id="tx-rollback-template-pick" class="input"></select>
-                            <input id="tx-rollback-template-name" class="input" placeholder="template name" />
-                            <button id="tx-rollback-template-save" class="mini-btn" type="button">Save</button>
-                            <button id="tx-rollback-template-delete" class="mini-btn delete" type="button">Delete</button>
-                          </div>
-                          <textarea id="tx-rollback-commands" class="input min-h-24 font-mono" placeholder="rollback commands (one per line, used by per_step)"></textarea>
-                          <div id="tx-rollback-pairs" class="grid gap-2" hidden></div>
-                          <div id="tx-rollback-empty-hint" class="text-xs text-slate-500" hidden>enter commands above to edit per-command rollbacks</div>
-                        </div>
-                        <div id="tx-rollback-resource" class="grid gap-2" hidden>
-                          <input id="tx-resource-rollback" class="input" placeholder="resource rollback command (optional)" />
-                          <input id="tx-rollback-trigger-step" class="input" placeholder="trigger step index (default 0)" />
-                        </div>
+                        <div id="flow-vars-fields-title" class="text-xs font-semibold text-slate-600">Template Variables</div>
+                        <div id="flow-vars-fields" class="grid gap-2"></div>
+                        <div id="flow-vars-fields-hint" class="text-xs text-slate-500">Template-declared vars will appear here when available.</div>
                       </div>
-                    </div>
-                    <div id="tx-block-flow-fields" class="grid gap-2" hidden>
-                      <input id="tx-flow-template-name" class="input" list="flow-template-options" placeholder="command flow template name" />
-                      <textarea id="tx-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for command flow, e.g. {"package":"nginx"}'></textarea>
-                      <select id="tx-flow-mode" class="input"></select>
-                      <label class="check-label">
-                        <input id="tx-flow-rollback-on-failure" type="checkbox" class="check-input" />
-                        <span id="tx-flow-rollback-on-failure-label">rollback failed step</span>
-                      </label>
-                      <input id="tx-rollback-flow-template-name" class="input" list="flow-template-options" placeholder="rollback command flow template name (optional)" />
-                      <textarea id="tx-rollback-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for rollback flow (optional)'></textarea>
-                      <div id="tx-flow-hint" class="text-xs text-slate-500">A command flow tx block runs one flow operation as a single transaction step. Optional rollback flow runs as the compensating step.</div>
-                    </div>
-                    <div id="tx-advanced-fields" class="grid gap-2 md:grid-cols-2" hidden>
-                      <input id="tx-name" class="input" placeholder="tx block name" />
-                      <input id="tx-template-profile" class="input" placeholder="template profile for rollback inference (default device profile)" />
-                      <input id="tx-timeout-secs" class="input" placeholder="timeout secs (optional)" />
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                      <button id="tx-plan-btn" class="btn" type="button">Preview Tx Plan</button>
-                      <button id="tx-exec-btn" class="btn" type="button">Execute Tx Block</button>
-                    </div>
-                    <div class="group-card">
-                      <div class="field-tools">
-                        <span id="tx-block-visual-title">Tx Block Visual Preview</span>
+                      <textarea id="flow-vars-json" class="input min-h-28 font-mono" placeholder='JSON vars, e.g. {"package": "nginx"}'></textarea>
+                      <div id="flow-vars-json-hint" class="text-xs text-slate-500">Use JSON for advanced overrides or extra vars not declared by the template.</div>
+                      <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+                        <div id="flow-hint" class="text-xs text-slate-500">Use a saved command flow template for wizard-style CLI interactions.</div>
+                        <button id="flow-exec-btn" class="btn btn-primary" type="button">Run Flow</button>
                       </div>
-                      <div id="tx-block-visual" class="group-body grid gap-2"></div>
+                      <div id="flow-out" class="grid gap-2"></div>
+                      <datalist id="flow-template-options"></datalist>
                     </div>
-                    <div id="tx-plan-out" class="mt-2 grid gap-2"></div>
-                    <div id="tx-exec-out" class="mt-2 grid gap-2"></div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                <div id="tx-stage-workflow-panel" class="group-card" hidden>
-                  <div class="field-tools">
-                    <span id="tx-workflow-title">Transaction Workflow (JSON)</span>
-                  </div>
-                  <div id="tx-workflow-section" class="group-body grid gap-2">
-                    <div class="group-card">
+          <div id="panel-orchestrated" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('orchestrated')">
+            <h2 id="orchestrated-title" class="text-xl font-semibold">Orchestrated Delivery</h2>
+            <div class="mt-3 grid gap-3">
+              <div class="group-card">
+                <div class="field-tools">
+                  <span id="orchestrated-op-card-title">Execute</span>
+                </div>
+                <div class="group-body">
+                  <div id="op-tx-fields" class="grid gap-3">
+                    <div id="tx-stage-block-panel" class="group-card" x-show="$store.app.currentTxStage === 'block'" x-cloak>
                       <div class="field-tools">
-                        <span id="tx-workflow-builder-title">Workflow Builder</span>
-                        <div class="inline-flex items-center gap-2">
-                          <button id="tx-workflow-import-block-btn" class="mini-btn" type="button">Import From Tx Form</button>
-                          <button id="tx-workflow-add-block-btn" class="mini-btn add" type="button">+ Add Block</button>
-                          <button id="tx-workflow-collapse-all-btn" class="mini-btn" type="button">Collapse All</button>
-                          <button id="tx-workflow-expand-all-btn" class="mini-btn" type="button">Expand All</button>
-                        </div>
+                        <span id="tx-basic-title">Transaction Block</span>
+                        <button id="tx-advanced-toggle-btn" class="btn btn-sm" type="button">Advanced</button>
                       </div>
                       <div class="group-body grid gap-2">
-                        <div class="grid gap-2 md:grid-cols-2">
-                          <input id="tx-workflow-name" class="input" placeholder="workflow name" />
-                          <label class="check-label">
-                            <input id="tx-workflow-fail-fast" type="checkbox" class="check-input" checked />
-                            <span id="tx-workflow-fail-fast-label">fail fast</span>
-                          </label>
+                        <div class="tab-group" role="tablist" aria-label="Tx block input mode tabs">
+                          <button id="tx-run-kind-commands" class="tab-btn" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('commands')" x-bind:class="{ 'is-active': $store.app.currentTxBlockRunKind === 'commands' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'commands').toString()">Commands</button>
+                          <button id="tx-run-kind-flow" class="tab-btn" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('flow')" x-bind:class="{ 'is-active': $store.app.currentTxBlockRunKind === 'flow' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'flow').toString()">Command Flow</button>
                         </div>
-                        <div class="grid gap-2 md:grid-cols-[180px_220px_1fr_auto]">
-                          <select id="tx-workflow-filter-kind" class="input">
-                            <option value="all">all kinds</option>
-                            <option value="config">config</option>
-                            <option value="show">show</option>
-                          </select>
-                          <select id="tx-workflow-filter-rollback" class="input">
-                            <option value="all">all rollback</option>
-                            <option value="none">none</option>
-                            <option value="per_step">per_step</option>
-                            <option value="whole_resource">whole_resource</option>
-                          </select>
-                          <input id="tx-workflow-filter-query" class="input" placeholder="search block name/command" />
-                          <button id="tx-workflow-filter-clear-btn" class="mini-btn" type="button">Clear</button>
-                        </div>
-                        <div id="tx-workflow-blocks" class="grid gap-2"></div>
-                        <div class="grid gap-2 md:grid-cols-2">
-                          <button id="tx-workflow-generate-btn" class="btn" type="button">Generate JSON</button>
-                          <button id="tx-workflow-load-btn" class="btn" type="button">Load JSON To Builder</button>
-                        </div>
-                        <div class="grid gap-2">
-                          <button id="tx-workflow-more-btn" class="mini-btn fit-btn" type="button">More Actions</button>
-                          <div id="tx-workflow-more-panel" class="grid gap-2 md:grid-cols-2" hidden>
-                            <button id="tx-workflow-download-btn" class="mini-btn" type="button">Download JSON</button>
-                            <button id="tx-workflow-import-file-btn" class="mini-btn" type="button">Import JSON File</button>
+                        <div id="tx-block-command-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'commands'" x-cloak>
+                          <input id="tx-template" class="input" placeholder="template file name or path (optional)" />
+                          <textarea id="tx-commands" class="input min-h-24 font-mono" placeholder="commands (one per line, optional when template is set)"></textarea>
+                          <textarea id="tx-vars" class="input min-h-24 font-mono" placeholder='JSON vars, e.g. {"name":"WEB01"}'></textarea>
+                          <select id="tx-mode" class="input" title="TX Mode" aria-label="TX Mode"></select>
+                          <div class="grid gap-2">
+                            <div class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+                              <span id="tx-rollback-mode-label">Rollback mode</span>
+                              <select id="tx-rollback-mode" class="input md:w-[220px]" title="Rollback Mode" aria-label="Rollback Mode">
+                                <option value="per_step">custom per-step</option>
+                                <option value="whole_resource">whole resource</option>
+                              </select>
+                            </div>
+                            <div id="tx-rollback-per-step" class="grid gap-2" hidden>
+                              <label class="check-label">
+                                <input id="tx-rollback-on-failure" type="checkbox" class="check-input" />
+                                <span id="tx-rollback-on-failure-label">rollback failed step</span>
+                              </label>
+                              <div class="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
+                                <span id="tx-rollback-input-label">rollback input</span>
+                                <div class="tab-group">
+                                  <button id="tx-rollback-input-text" class="tab-btn is-active" type="button">text</button>
+                                  <button id="tx-rollback-input-pairs" class="tab-btn" type="button">per-command</button>
+                                </div>
+                              </div>
+                              <div class="inline-flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                <button id="tx-rollback-auto-btn" class="btn btn-sm" type="button">Auto-generate rollback</button>
+                                <span id="tx-rollback-auto-hint">Generated by simple rule: prefix with 'no '</span>
+                                <span class="ml-2 text-slate-400" id="tx-rollback-rule-label">rule</span>
+                                <select id="tx-rollback-rule" class="input" title="Rollback Rule" aria-label="Rollback Rule">
+                                  <option value="no_prefix">prefix no</option>
+                                  <option value="set_delete">set → delete</option>
+                                  <option value="add_remove">add → remove</option>
+                                  <option value="custom">custom template</option>
+                                </select>
+                                <input id="tx-rollback-template" class="input" placeholder="template, e.g. no {{cmd}}" />
+                              </div>
+                              <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+                                <select id="tx-rollback-template-pick" class="input" title="Rollback Template" aria-label="Rollback Template"></select>
+                                <input id="tx-rollback-template-name" class="input" placeholder="template name" />
+                                <button id="tx-rollback-template-save" class="btn btn-sm" type="button">Save</button>
+                                <button id="tx-rollback-template-delete" class="btn btn-sm btn-error" type="button">Delete</button>
+                              </div>
+                              <textarea id="tx-rollback-commands" class="input min-h-24 font-mono" placeholder="rollback commands (one per line, used by per_step)"></textarea>
+                              <div id="tx-rollback-pairs" class="grid gap-2" hidden></div>
+                              <div id="tx-rollback-empty-hint" class="text-xs text-slate-500" hidden>enter commands above to edit per-command rollbacks</div>
+                            </div>
+                            <div id="tx-rollback-resource" class="grid gap-2" hidden>
+                              <input id="tx-resource-rollback" class="input" placeholder="resource rollback command (optional)" />
+                              <input id="tx-rollback-trigger-step" class="input" placeholder="trigger step index (default 0)" />
+                            </div>
                           </div>
                         </div>
-                        <input id="tx-workflow-import-file-input" type="file" accept=".json,application/json" hidden />
+                        <div id="tx-block-flow-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'flow'" x-cloak>
+                          <input id="tx-flow-template-name" class="input" list="flow-template-options" placeholder="command flow template name" />
+                          <textarea id="tx-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for command flow, e.g. {"package":"nginx"}'></textarea>
+                          <select id="tx-flow-mode" class="input" title="Flow Mode" aria-label="Flow Mode"></select>
+                          <label class="check-label">
+                            <input id="tx-flow-rollback-on-failure" type="checkbox" class="check-input" />
+                            <span id="tx-flow-rollback-on-failure-label">rollback failed step</span>
+                          </label>
+                          <input id="tx-rollback-flow-template-name" class="input" list="flow-template-options" placeholder="rollback command flow template name (optional)" />
+                          <textarea id="tx-rollback-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for rollback flow (optional)'></textarea>
+                          <div id="tx-flow-hint" class="text-xs text-slate-500">A command flow tx block runs one flow operation as a single transaction step.</div>
+                        </div>
+                        <div id="tx-advanced-fields" class="grid gap-2 md:grid-cols-2" hidden>
+                          <input id="tx-name" class="input" placeholder="tx block name" />
+                          <input id="tx-timeout-secs" class="input" placeholder="timeout secs (optional)" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                          <button id="tx-plan-btn" class="btn btn-primary" type="button">Preview Tx Plan</button>
+                          <button id="tx-exec-btn" class="btn btn-primary" type="button">Execute Tx Block</button>
+                        </div>
+                        <div class="group-card">
+                          <div class="field-tools">
+                            <span id="tx-block-visual-title">Tx Block Visual Preview</span>
+                          </div>
+                          <div id="tx-block-visual" class="group-body grid gap-2"></div>
+                        </div>
+                        <div id="tx-plan-out" class="mt-2 grid gap-2"></div>
+                        <div id="tx-exec-out" class="mt-2 grid gap-2"></div>
                       </div>
                     </div>
-                    <textarea id="tx-workflow-json" class="input min-h-40 font-mono" placeholder='{"name":"fw-policy-publish","blocks":[],"fail_fast":true}'></textarea>
-                    <div class="grid grid-cols-2 gap-2">
-                      <button id="tx-workflow-plan-btn" class="btn" type="button">Preview Workflow</button>
-                      <button id="tx-workflow-exec-btn" class="btn" type="button">Execute Workflow</button>
-                    </div>
-                    <div class="group-card">
+
+                    <!-- Tx Workflow Panel -->
+                    <div id="tx-stage-workflow-panel" class="group-card" x-show="$store.app.currentTxStage === 'workflow'" x-cloak>
                       <div class="field-tools">
-                        <span id="tx-workflow-visual-title">Workflow Visual Preview</span>
+                        <span id="tx-workflow-title">Transaction Workflow (JSON)</span>
                       </div>
-                      <div id="tx-workflow-plan-visual" class="group-body grid gap-2"></div>
+                      <div id="tx-workflow-section" class="group-body grid gap-2">
+                        <div class="group-card">
+                          <div class="field-tools">
+                            <span id="tx-workflow-builder-title">Workflow Builder</span>
+                            <div class="inline-flex items-center gap-2">
+                              <button id="tx-workflow-import-block-btn" class="btn btn-sm" type="button">Import From Tx Form</button>
+                              <button id="tx-workflow-add-block-btn" class="mini-btn add" type="button">+ Add Block</button>
+                              <button id="tx-workflow-collapse-all-btn" class="btn btn-sm" type="button">Collapse All</button>
+                              <button id="tx-workflow-expand-all-btn" class="btn btn-sm" type="button">Expand All</button>
+                            </div>
+                          </div>
+                          <div class="group-body grid gap-2">
+                            <div class="grid gap-2 md:grid-cols-2">
+                              <input id="tx-workflow-name" class="input" placeholder="workflow name" />
+                              <label class="check-label">
+                                <input id="tx-workflow-fail-fast" type="checkbox" class="check-input" checked />
+                                <span id="tx-workflow-fail-fast-label">fail fast</span>
+                              </label>
+                            </div>
+                            <div class="grid gap-2 md:grid-cols-[180px_220px_1fr_auto]">
+                              <select id="tx-workflow-filter-kind" class="input" title="Filter Kind" aria-label="Filter Kind">
+                                <option value="all">all kinds</option>
+                                <option value="config">config</option>
+                                <option value="show">show</option>
+                              </select>
+                              <select id="tx-workflow-filter-rollback" class="input" title="Filter Rollback" aria-label="Filter Rollback">
+                                <option value="all">all rollback</option>
+                                <option value="none">none</option>
+                                <option value="per_step">per_step</option>
+                                <option value="whole_resource">whole_resource</option>
+                              </select>
+                              <input id="tx-workflow-filter-query" class="input" placeholder="search block name/command" />
+                              <button id="tx-workflow-filter-clear-btn" class="btn btn-sm" type="button">Clear</button>
+                            </div>
+                            <div id="tx-workflow-blocks" class="grid gap-2"></div>
+                            <div class="grid gap-2 md:grid-cols-2">
+                              <button id="tx-workflow-generate-btn" class="btn btn-primary" type="button">Generate JSON</button>
+                              <button id="tx-workflow-load-btn" class="btn btn-primary" type="button">Load JSON To Builder</button>
+                            </div>
+                            <div class="grid gap-2">
+                              <button id="tx-workflow-more-btn" class="mini-btn fit-btn" type="button">More Actions</button>
+                              <div id="tx-workflow-more-panel" class="grid gap-2 md:grid-cols-2" hidden>
+                                <button id="tx-workflow-download-btn" class="btn btn-sm" type="button">Download JSON</button>
+                                <button id="tx-workflow-import-file-btn" class="btn btn-sm" type="button">Import JSON File</button>
+                              </div>
+                            </div>
+                            <input id="tx-workflow-import-file-input" type="file" accept=".json,application/json" hidden />
+                          </div>
+                        </div>
+                        <textarea id="tx-workflow-json" class="input min-h-40 font-mono" placeholder='{"name":"fw-policy-publish","blocks":[],"fail_fast":true}'></textarea>
+                        <div class="grid grid-cols-2 gap-2">
+                          <button id="tx-workflow-plan-btn" class="btn btn-primary" type="button">Preview Workflow</button>
+                          <button id="tx-workflow-exec-btn" class="btn btn-primary" type="button">Execute Workflow</button>
+                        </div>
+                        <div class="group-card">
+                          <div class="field-tools">
+                            <span id="tx-workflow-visual-title">Workflow Visual Preview</span>
+                          </div>
+                          <div id="tx-workflow-plan-visual" class="group-body grid gap-2"></div>
+                        </div>
+                        <div id="tx-workflow-plan-out" class="mt-2 grid gap-2"></div>
+                        <div id="tx-workflow-exec-out" class="mt-2 grid gap-2"></div>
+                      </div>
                     </div>
-                    <div id="tx-workflow-plan-out" class="mt-2 grid gap-2"></div>
-                    <div id="tx-workflow-exec-out" class="mt-2 grid gap-2"></div>
+
+                    <!-- Orchestrate Panel -->
+                    <div id="tx-stage-orchestrate-panel" class="group-card" x-show="$store.app.currentTxStage === 'orchestrate'" x-cloak>
+                      <div class="field-tools">
+                        <span id="orchestration-title">Multi-device Orchestration</span>
+                      </div>
+                      <div class="group-body grid gap-2">
+                        <input id="orchestration-base-dir" class="input" placeholder="base dir for inventory/workflow relative paths (optional)" />
+                        <div class="grid gap-2">
+                          <div class="inline-flex flex-wrap items-center gap-2">
+                            <button id="orchestration-download-btn" class="btn btn-sm" type="button">Download JSON</button>
+                            <button id="orchestration-import-file-btn" class="btn btn-sm" type="button">Import JSON File</button>
+                          </div>
+                          <input id="orchestration-import-file-input" type="file" accept=".json,application/json" hidden />
+                        </div>
+                        <textarea id="orchestration-json" class="input min-h-40 font-mono" placeholder='{"name":"campus-rollout","stages":[]}'></textarea>
+                        <div class="grid grid-cols-2 gap-2">
+                          <button id="orchestration-plan-btn" class="btn btn-primary" type="button">Preview Orchestration</button>
+                          <button id="orchestration-exec-btn" class="btn btn-primary" type="button">Execute Orchestration</button>
+                        </div>
+                        <div class="group-card">
+                          <div class="field-tools">
+                            <span id="orchestration-visual-title">Orchestration Visual Preview</span>
+                          </div>
+                          <div id="orchestration-visual" class="group-body grid gap-2"></div>
+                        </div>
+                        <div id="orchestration-plan-out" class="mt-2 grid gap-2"></div>
+                        <div id="orchestration-exec-out" class="mt-2 grid gap-2"></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                <div id="tx-stage-orchestrate-panel" class="group-card" hidden>
-                  <div class="field-tools">
-                    <span id="orchestration-title">Multi-device Orchestration</span>
+          <!-- ── Interactive 面板 ── -->
+          <div id="panel-interactive" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('interactive')">
+            <h2 id="interactive-title" class="text-xl font-semibold">Interactive Session</h2>
+            <div class="mt-3 group-card">
+              <div class="field-tools">
+                <span id="interactive-card-title">Interactive</span>
+              </div>
+              <div class="group-body grid gap-2">
+                <div class="inline-flex flex-wrap items-center gap-2">
+                  <span id="interactive-status" class="text-sm text-slate-600">idle</span>
+                  <button id="interactive-start-btn" class="btn btn-primary" type="button">Start Session</button>
+                  <button id="interactive-stop-btn" class="btn btn-sm btn-error" type="button" disabled>Stop Session</button>
+                  <button id="interactive-clear-btn" class="btn btn-sm" type="button">Clear</button>
+                </div>
+                <div class="grid gap-2 md:grid-cols-2">
+                  <input id="interactive-command" class="input" placeholder="command, e.g. show version" />
+                  <select id="interactive-mode" class="input" title="Interactive Mode" aria-label="Interactive Mode"></select>
+                </div>
+                <div class="inline-flex items-center gap-2">
+                  <button id="interactive-send-btn" class="btn btn-primary" type="button">Send</button>
+                </div>
+                <pre id="interactive-out" class="output mt-2"></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Session Replay 面板 ── -->
+          <div id="panel-replay" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('replay')">
+            <h2 id="replay-page-title" class="text-xl font-semibold">Session Replay</h2>
+            <div class="mt-3 group-card">
+              <div class="field-tools">
+                <span id="replay-title">Session Replay</span>
+              </div>
+              <div class="group-body grid gap-2">
+                <textarea id="replay-jsonl" class="input min-h-28 font-mono" placeholder="paste recording JSONL"></textarea>
+                <div class="grid gap-2 md:grid-cols-2">
+                  <input id="replay-command" class="input" placeholder="command to replay, e.g. show version" />
+                  <input id="replay-mode" class="input" placeholder="mode for replay (optional)" />
+                </div>
+                <div class="inline-flex flex-wrap items-center gap-2">
+                  <button id="replay-list-btn" class="btn btn-primary" type="button">List Records</button>
+                  <button id="replay-run-btn" class="btn btn-primary" type="button">Replay Command</button>
+                </div>
+                <div class="inline-flex items-center gap-2">
+                  <span id="replay-view-label" class="text-sm font-semibold text-slate-600">Display</span>
+                  <div class="tab-group">
+                    <button id="replay-view-list" class="tab-btn is-active" type="button">List</button>
+                    <button id="replay-view-raw" class="tab-btn" type="button">Raw</button>
+                  </div>
+                  <label class="check-label">
+                    <input id="replay-failed-only" type="checkbox" class="check-input" />
+                    <span id="replay-failed-only-label">Failed only</span>
+                  </label>
+                  <select id="replay-event-kind" class="input w-[220px]" title="Event Kind" aria-label="Event Kind">
+                    <option value="all">All events</option>
+                    <option value="command_output">command_output</option>
+                    <option value="connection_established">connection_established</option>
+                    <option value="connection_closed">connection_closed</option>
+                    <option value="prompt_changed">prompt_changed</option>
+                    <option value="state_changed">state_changed</option>
+                    <option value="raw_chunk">raw_chunk</option>
+                  </select>
+                  <input id="replay-search" class="input w-[260px]" placeholder="search command/content" />
+                  <button id="replay-clear-filters" class="btn btn-sm" type="button">Clear</button>
+                </div>
+                <div id="replay-list-out" class="grid gap-3"></div>
+                <pre id="replay-out" class="output" hidden></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Prompt Profiles 面板 ── -->
+          <div id="panel-prompts" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('prompts')">
+            <h2 id="prompt-mgr-title" class="text-xl font-semibold">Device Prompt Profiles</h2>
+            <div id="prompt-view-panel" class="mt-4" x-show="$store.app.currentPromptMode === 'view'" x-cloak>
+              <h3 id="builtin-title" class="mb-2 text-sm font-semibold text-slate-700">Built-in Profiles</h3>
+              <div class="grid gap-2 md:w-[420px]">
+                <select id="builtin-profile-select" class="input" title="Built-in Profile" aria-label="Built-in Profile"></select>
+                <button id="builtin-detail-btn" class="btn btn-primary" type="button">View Detail</button>
+              </div>
+              <pre id="builtin-list" class="output mt-2"></pre>
+              <div class="mt-2 grid gap-2">
+                <input id="builtin-detail-name" class="input" placeholder="name" readonly />
+                <input id="builtin-detail-aliases" class="input" placeholder="aliases" readonly />
+                <input id="builtin-detail-summary" class="input" placeholder="summary" readonly />
+                <input id="builtin-detail-source" class="input" placeholder="source" readonly />
+                <textarea id="builtin-detail-notes" class="input min-h-24 font-mono" placeholder="notes" readonly></textarea>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="builtin-command-execution-title" class="text-sm font-semibold text-slate-700">command_execution</span>
                   </div>
                   <div class="group-body grid gap-2">
-                    <input id="orchestration-base-dir" class="input" placeholder="base dir for inventory/workflow relative paths (optional)" />
-                    <div class="grid gap-2">
-                      <div class="inline-flex flex-wrap items-center gap-2">
-                        <button id="orchestration-download-btn" class="mini-btn" type="button">Download JSON</button>
-                        <button id="orchestration-import-file-btn" class="mini-btn" type="button">Import JSON File</button>
-                      </div>
-                      <input id="orchestration-import-file-input" type="file" accept=".json,application/json" hidden />
-                    </div>
-                    <textarea id="orchestration-json" class="input min-h-40 font-mono" placeholder='{"name":"campus-rollout","stages":[]}'></textarea>
-                    <div class="grid grid-cols-2 gap-2">
-                      <button id="orchestration-plan-btn" class="btn" type="button">Preview Orchestration</button>
-                      <button id="orchestration-exec-btn" class="btn" type="button">Execute Orchestration</button>
-                    </div>
-                    <div class="group-card">
-                      <div class="field-tools">
-                        <span id="orchestration-visual-title">Orchestration Visual Preview</span>
-                      </div>
-                      <div id="orchestration-visual" class="group-body grid gap-2"></div>
-                    </div>
-                    <div id="orchestration-plan-out" class="mt-2 grid gap-2"></div>
-                    <div id="orchestration-exec-out" class="mt-2 grid gap-2"></div>
+                    <select id="builtin-command-execution-mode" class="input" disabled title="Command Execution Mode" aria-label="Command Execution Mode"></select>
+                    <input id="builtin-command-execution-marker" class="input" placeholder="exit status marker" readonly />
+                  </div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-700" data-i18n="labelMorePatterns">more_patterns</span>
+                  </div>
+                  <div id="builtin-more-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-700" data-i18n="labelErrorPatterns">error_patterns</span>
+                  </div>
+                  <div id="builtin-error-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-700" data-i18n="labelIgnoreErrors">ignore_errors</span>
+                  </div>
+                  <div id="builtin-ignore-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-700" data-i18n="labelPrompts">prompts</span>
+                  </div>
+                  <div id="builtin-prompts-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-700" data-i18n="labelSysPrompts">sys_prompts</span>
+                  </div>
+                  <div id="builtin-sys-prompts-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-700" data-i18n="labelInteractions">interactions</span>
+                  </div>
+                  <div id="builtin-interactions-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-700" data-i18n="labelTransitions">transitions</span>
+                  </div>
+                  <div id="builtin-transitions-list" class="group-body grid gap-2"></div>
+                </div>
+                <button id="builtin-copy-btn" class="btn btn-primary" type="button">复制到新增/修改</button>
+              </div>
+              <div id="builtin-detail-status" class="mt-3 grid gap-2"></div>
+            </div>
+
+            <div id="prompt-edit-panel" class="mt-4" x-show="$store.app.currentPromptMode === 'edit'" x-cloak>
+              <h3 id="custom-title" class="mb-2 text-sm font-semibold text-slate-700">Custom Profiles</h3>
+              <div class="grid gap-2 md:w-[640px]">
+                <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                  <input id="custom-profile-picker" class="input" list="custom-profile-options" placeholder="search/select custom profile name" />
+                  <button id="profile-save-btn" class="btn btn-primary" type="button">Save</button>
+                  <button id="profile-delete-btn" class="btn btn-error" type="button">Delete</button>
+                </div>
+                <datalist id="custom-profile-options"></datalist>
+              </div>
+              <div class="mt-3 grid gap-2">
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="label-command-execution" class="text-sm font-semibold text-slate-700">command_execution</span>
+                  </div>
+                  <div class="group-body grid gap-2">
+                    <select id="profile-command-execution-mode" class="input" title="Profile Command Execution Mode" aria-label="Profile Command Execution Mode"></select>
+                    <input id="profile-command-execution-marker" class="input" placeholder="exit status marker" />
+                  </div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="label-more-patterns" class="text-sm font-semibold text-slate-700">more_patterns</span>
+                    <button id="add-more-pattern-btn" type="button" class="mini-btn add">+ Add</button>
+                  </div>
+                  <div id="profile-more-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="label-error-patterns" class="text-sm font-semibold text-slate-700">error_patterns</span>
+                    <button id="add-error-pattern-btn" type="button" class="mini-btn add">+ Add</button>
+                  </div>
+                  <div id="profile-error-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="label-ignore-errors" class="text-sm font-semibold text-slate-700">ignore_errors</span>
+                    <button id="add-ignore-error-btn" type="button" class="mini-btn add">+ Add</button>
+                  </div>
+                  <div id="profile-ignore-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="label-prompts" class="text-sm font-semibold text-slate-700">prompts</span>
+                    <button id="add-prompt-row-btn" type="button" class="mini-btn add">+ Add</button>
+                  </div>
+                  <div id="prompts-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="label-sys-prompts" class="text-sm font-semibold text-slate-700">sys_prompts</span>
+                    <button id="add-sys-prompt-row-btn" type="button" class="mini-btn add">+ Add</button>
+                  </div>
+                  <div id="sys-prompts-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="label-interactions" class="text-sm font-semibold text-slate-700">interactions</span>
+                    <button id="add-interaction-row-btn" type="button" class="mini-btn add">+ Add</button>
+                  </div>
+                  <div id="interactions-list" class="group-body grid gap-2"></div>
+                </div>
+                <div class="group-card">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span id="label-transitions" class="text-sm font-semibold text-slate-700">transitions</span>
+                    <button id="add-transition-row-btn" type="button" class="mini-btn add">+ Add</button>
+                  </div>
+                  <div id="transitions-list" class="group-body grid gap-2"></div>
+                </div>
+                <div id="profile-out" class="mt-3 grid gap-2"></div>
+              </div>
+            </div>
+
+            <div id="prompt-diagnose-panel" class="mt-4" x-show="$store.app.currentPromptMode === 'diagnose'" x-cloak>
+              <div class="group-card">
+                <div class="field-tools">
+                  <span id="profile-diagnose-title">State Machine Diagnose</span>
+                </div>
+                <div class="group-body grid gap-2 md:w-[760px]">
+                  <input id="profile-diagnose-picker" class="input" list="profile-diagnose-options" placeholder="search/select profile name" />
+                  <datalist id="profile-diagnose-options"></datalist>
+                  <div class="md:w-64">
+                    <button id="profile-diagnose-btn" class="btn btn-primary" type="button">Diagnose</button>
                   </div>
                 </div>
               </div>
-
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-interactive" class="tab-panel mt-4" role="tabpanel" hidden>
-        <h2 id="interactive-title" class="text-xl font-semibold">Interactive Session</h2>
-        <div class="mt-3 group-card">
-          <div class="field-tools">
-            <span id="interactive-card-title">Interactive</span>
-          </div>
-          <div class="group-body grid gap-2">
-            <div class="inline-flex flex-wrap items-center gap-2">
-              <span id="interactive-status" class="text-sm text-slate-600">idle</span>
-              <button id="interactive-start-btn" class="btn" type="button">Start Session</button>
-              <button id="interactive-stop-btn" class="mini-btn delete" type="button" disabled>Stop Session</button>
-              <button id="interactive-clear-btn" class="mini-btn" type="button">Clear</button>
-            </div>
-            <div class="grid gap-2 md:grid-cols-2">
-              <input id="interactive-command" class="input" placeholder="command, e.g. show version" />
-              <select id="interactive-mode" class="input"></select>
-            </div>
-            <div class="inline-flex items-center gap-2">
-              <button id="interactive-send-btn" class="btn" type="button">Send</button>
-            </div>
-            <pre id="interactive-out" class="output mt-2"></pre>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-replay" class="tab-panel mt-4" role="tabpanel" hidden>
-        <h2 id="replay-page-title" class="text-xl font-semibold">Session Replay</h2>
-        <div class="mt-3 group-card">
-          <div class="field-tools">
-            <span id="replay-title">Session Replay</span>
-          </div>
-          <div class="group-body grid gap-2">
-            <textarea id="replay-jsonl" class="input min-h-28 font-mono" placeholder="paste recording JSONL"></textarea>
-            <div class="grid gap-2 md:grid-cols-2">
-              <input id="replay-command" class="input" placeholder="command to replay, e.g. show version" />
-              <input id="replay-mode" class="input" placeholder="mode for replay (optional)" />
-            </div>
-            <div class="inline-flex flex-wrap items-center gap-2">
-              <button id="replay-list-btn" class="btn" type="button">List Records</button>
-              <button id="replay-run-btn" class="btn" type="button">Replay Command</button>
-            </div>
-            <div class="inline-flex items-center gap-2">
-              <span id="replay-view-label" class="text-sm font-semibold text-slate-600">Display</span>
-              <div class="tab-group">
-                <button id="replay-view-list" class="tab-btn is-active" type="button">List</button>
-                <button id="replay-view-raw" class="tab-btn" type="button">Raw</button>
-              </div>
-              <label class="check-label">
-                <input id="replay-failed-only" type="checkbox" class="check-input" />
-                <span id="replay-failed-only-label">Failed only</span>
-              </label>
-              <select id="replay-event-kind" class="input w-[220px]">
-                <option value="all">All events</option>
-                <option value="command_output">command_output</option>
-                <option value="connection_established">connection_established</option>
-                <option value="connection_closed">connection_closed</option>
-                <option value="prompt_changed">prompt_changed</option>
-                <option value="state_changed">state_changed</option>
-                <option value="raw_chunk">raw_chunk</option>
-              </select>
-              <input id="replay-search" class="input w-[260px]" placeholder="search command/content" />
-              <button id="replay-clear-filters" class="mini-btn" type="button">Clear</button>
-            </div>
-            <div id="replay-list-out" class="grid gap-3"></div>
-            <pre id="replay-out" class="output" hidden></pre>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-prompts" class="tab-panel mt-4" role="tabpanel" hidden>
-        <h2 id="prompt-mgr-title" class="text-xl font-semibold">Device Prompt Profiles</h2>
-        <div class="mt-3 tab-group" role="tablist" aria-label="Prompt mode tabs">
-          <button id="prompt-mode-view" class="tab-btn is-active" type="button">查看详情</button>
-          <button id="prompt-mode-edit" class="tab-btn" type="button">新增/修改</button>
-          <button id="prompt-mode-diagnose" class="tab-btn" type="button">诊断</button>
-        </div>
-
-        <div id="prompt-view-panel" class="mt-4">
-          <h3 id="builtin-title" class="mb-2 text-sm font-semibold text-slate-700">Built-in Profiles</h3>
-          <div class="grid gap-2 md:w-[420px]">
-            <select id="builtin-profile-select" class="input"></select>
-            <button id="builtin-detail-btn" class="btn" type="button">View Detail</button>
-          </div>
-          <pre id="builtin-list" class="output mt-2"></pre>
-          <div class="mt-2 grid gap-2">
-            <input id="builtin-detail-name" class="input" placeholder="name" readonly />
-            <input id="builtin-detail-aliases" class="input" placeholder="aliases" readonly />
-            <input id="builtin-detail-summary" class="input" placeholder="summary" readonly />
-            <input id="builtin-detail-source" class="input" placeholder="source" readonly />
-            <textarea id="builtin-detail-notes" class="input min-h-24 font-mono" placeholder="notes" readonly></textarea>
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="builtin-command-execution-title" class="text-sm font-semibold text-slate-700">command_execution</span>
-              </div>
-              <div class="group-body grid gap-2">
-                <select id="builtin-command-execution-mode" class="input" disabled></select>
-                <input id="builtin-command-execution-marker" class="input" placeholder="exit status marker" readonly />
-              </div>
-            </div>
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-semibold text-slate-700" data-i18n="labelMorePatterns">more_patterns</span>
-              </div>
-              <div id="builtin-more-list" class="group-body grid gap-2"></div>
-            </div>
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-semibold text-slate-700" data-i18n="labelErrorPatterns">error_patterns</span>
-              </div>
-              <div id="builtin-error-list" class="group-body grid gap-2"></div>
-            </div>
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-semibold text-slate-700" data-i18n="labelIgnoreErrors">ignore_errors</span>
-              </div>
-              <div id="builtin-ignore-list" class="group-body grid gap-2"></div>
-            </div>
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-semibold text-slate-700" data-i18n="labelPrompts">prompts</span>
-              </div>
-              <div id="builtin-prompts-list" class="group-body grid gap-2"></div>
-            </div>
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-semibold text-slate-700" data-i18n="labelSysPrompts">sys_prompts</span>
-              </div>
-              <div id="builtin-sys-prompts-list" class="group-body grid gap-2"></div>
-            </div>
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-semibold text-slate-700" data-i18n="labelInteractions">interactions</span>
-              </div>
-              <div id="builtin-interactions-list" class="group-body grid gap-2"></div>
-            </div>
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-semibold text-slate-700" data-i18n="labelTransitions">transitions</span>
-              </div>
-              <div id="builtin-transitions-list" class="group-body grid gap-2"></div>
-            </div>
-            <button id="builtin-copy-btn" class="btn" type="button">复制到新增/修改</button>
-          </div>
-          <div id="builtin-detail-status" class="mt-3 grid gap-2"></div>
-        </div>
-
-        <div id="prompt-edit-panel" class="mt-4" hidden>
-          <h3 id="custom-title" class="mb-2 text-sm font-semibold text-slate-700">Custom Profiles</h3>
-          <div class="grid gap-2 md:w-[640px]">
-            <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
-              <input id="custom-profile-picker" class="input" list="custom-profile-options" placeholder="search/select custom profile name" />
-              <button id="profile-save-btn" class="btn" type="button">Save</button>
-              <button id="profile-delete-btn" class="btn btn-danger" type="button">Delete</button>
-            </div>
-            <datalist id="custom-profile-options"></datalist>
-          </div>
-
-          <div class="mt-3">
-          <div class="grid gap-2">
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="label-command-execution" class="text-sm font-semibold text-slate-700">command_execution</span>
-              </div>
-              <div class="group-body grid gap-2">
-                <select id="profile-command-execution-mode" class="input"></select>
-                <input id="profile-command-execution-marker" class="input" placeholder="exit status marker" />
-              </div>
-            </div>
-
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="label-more-patterns" class="text-sm font-semibold text-slate-700">more_patterns</span>
-                <button id="add-more-pattern-btn" type="button" class="mini-btn add">+ Add</button>
-              </div>
-              <div id="profile-more-list" class="group-body grid gap-2"></div>
-            </div>
-
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="label-error-patterns" class="text-sm font-semibold text-slate-700">error_patterns</span>
-                <button id="add-error-pattern-btn" type="button" class="mini-btn add">+ Add</button>
-              </div>
-              <div id="profile-error-list" class="group-body grid gap-2"></div>
-            </div>
-
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="label-ignore-errors" class="text-sm font-semibold text-slate-700">ignore_errors</span>
-                <button id="add-ignore-error-btn" type="button" class="mini-btn add">+ Add</button>
-              </div>
-              <div id="profile-ignore-list" class="group-body grid gap-2"></div>
-            </div>
-
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="label-prompts" class="text-sm font-semibold text-slate-700">prompts</span>
-                <button id="add-prompt-row-btn" type="button" class="mini-btn add">+ Add</button>
-              </div>
-              <div id="prompts-list" class="group-body grid gap-2"></div>
-            </div>
-
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="label-sys-prompts" class="text-sm font-semibold text-slate-700">sys_prompts</span>
-                <button id="add-sys-prompt-row-btn" type="button" class="mini-btn add">+ Add</button>
-              </div>
-              <div id="sys-prompts-list" class="group-body grid gap-2"></div>
-            </div>
-
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="label-interactions" class="text-sm font-semibold text-slate-700">interactions</span>
-                <button id="add-interaction-row-btn" type="button" class="mini-btn add">+ Add</button>
-              </div>
-              <div id="interactions-list" class="group-body grid gap-2"></div>
-            </div>
-
-            <div class="group-card">
-              <div class="mb-2 flex items-center justify-between">
-                <span id="label-transitions" class="text-sm font-semibold text-slate-700">transitions</span>
-                <button id="add-transition-row-btn" type="button" class="mini-btn add">+ Add</button>
-              </div>
-              <div id="transitions-list" class="group-body grid gap-2"></div>
-            </div>
-          </div>
-          <div id="profile-out" class="mt-3 grid gap-2"></div>
-        </div>
-        </div>
-
-        <div id="prompt-diagnose-panel" class="mt-4" hidden>
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="profile-diagnose-title">State Machine Diagnose</span>
-            </div>
-            <div class="group-body grid gap-2 md:w-[760px]">
-              <input id="profile-diagnose-picker" class="input" list="profile-diagnose-options" placeholder="search/select profile name" />
-              <datalist id="profile-diagnose-options"></datalist>
-              <div class="md:w-64">
-                <button id="profile-diagnose-btn" class="btn" type="button">Diagnose</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-3 group-card">
-            <div class="field-tools">
-              <span id="profile-diagnose-result-title">Diagnose Result</span>
-              <span id="profile-diagnose-badge" class="diag-badge">-</span>
-            </div>
-            <div class="group-body grid gap-3">
-              <div class="diag-grid">
-                <div class="diag-card"><div class="k" id="diag-k-total">total_states</div><div class="v" id="diag-total-states">-</div></div>
-                <div class="diag-card"><div class="k" id="diag-k-graph">graph_states</div><div class="v" id="diag-graph-states">-</div></div>
-                <div class="diag-card"><div class="k" id="diag-k-entry">entry_states</div><div class="v" id="diag-entry-states">-</div></div>
-                <div class="diag-card"><div class="k" id="diag-k-issues">issues</div><div class="v" id="diag-issues-count">-</div></div>
-              </div>
-              <div class="grid gap-2 md:grid-cols-2">
-                <div class="diag-list"><h4 id="diag-l-unreach">unreachable_states</h4><ul id="diag-unreachable-states"></ul></div>
-                <div class="diag-list"><h4 id="diag-l-deadend">dead_end_states</h4><ul id="diag-dead-end-states"></ul></div>
-                <div class="diag-list"><h4 id="diag-l-missing-src">missing_edge_sources</h4><ul id="diag-missing-sources"></ul></div>
-                <div class="diag-list"><h4 id="diag-l-missing-tgt">missing_edge_targets</h4><ul id="diag-missing-targets"></ul></div>
-                <div class="diag-list"><h4 id="diag-l-ambiguous">potentially_ambiguous_prompt_states</h4><ul id="diag-ambiguous-states"></ul></div>
-              </div>
-              <div id="profile-diagnose-out" class="grid gap-2"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-templates" class="tab-panel mt-4" role="tabpanel" hidden>
-        <h2 id="template-mgr-title" class="text-xl font-semibold">Template Manager</h2>
-        <div class="mt-4 grid gap-3">
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="template-list-title" class="text-sm font-semibold text-slate-700">Templates</span>
-            </div>
-            <div id="template-picker-body" class="group-body">
-              <div class="grid gap-2 md:w-[720px]">
-                <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
-                  <input id="template-pick-name" class="input" list="template-options" placeholder="search/select template name" />
-                  <button id="template-save-btn" class="btn" type="button">Save</button>
-                  <button id="template-delete-btn" class="btn btn-danger" type="button">Delete</button>
+              <div class="mt-3 group-card">
+                <div class="field-tools">
+                  <span id="profile-diagnose-result-title">Diagnose Result</span>
+                  <span id="profile-diagnose-badge" class="diag-badge">-</span>
                 </div>
-                <datalist id="template-options"></datalist>
-              </div>
-              <div id="template-list" class="mt-2 grid gap-2"></div>
-            </div>
-          </div>
-
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="template-editor-title" class="text-sm font-semibold text-slate-700">Editor</span>
-            </div>
-            <div id="template-editor-body" class="group-body">
-              <textarea id="template-content" class="input min-h-64 font-mono" placeholder="Template content"></textarea>
-            </div>
-          </div>
-
-          <div id="template-out" class="grid gap-2"></div>
-
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="flow-template-mgr-title" class="text-sm font-semibold text-slate-700">Command Flow Templates</span>
-            </div>
-            <div class="group-body grid gap-3">
-              <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
-                <input id="flow-template-picker" class="input" list="flow-template-options" placeholder="command flow template name (optional)" />
-                <button id="flow-template-load-btn" class="btn" type="button">Load</button>
-                <div class="inline-flex gap-2">
-                  <button id="flow-template-save-btn" class="btn" type="button">Save Template</button>
-                  <button id="flow-template-delete-btn" class="btn btn-danger" type="button">Delete</button>
+                <div class="group-body grid gap-3">
+                  <div class="diag-grid">
+                    <div class="diag-card"><div class="k" id="diag-k-total">total_states</div><div class="v" id="diag-total-states">-</div></div>
+                    <div class="diag-card"><div class="k" id="diag-k-graph">graph_states</div><div class="v" id="diag-graph-states">-</div></div>
+                    <div class="diag-card"><div class="k" id="diag-k-entry">entry_states</div><div class="v" id="diag-entry-states">-</div></div>
+                    <div class="diag-card"><div class="k" id="diag-k-issues">issues</div><div class="v" id="diag-issues-count">-</div></div>
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    <div class="diag-list"><h4 id="diag-l-unreach">unreachable_states</h4><ul id="diag-unreachable-states"></ul></div>
+                    <div class="diag-list"><h4 id="diag-l-deadend">dead_end_states</h4><ul id="diag-dead-end-states"></ul></div>
+                    <div class="diag-list"><h4 id="diag-l-missing-src">missing_edge_sources</h4><ul id="diag-missing-sources"></ul></div>
+                    <div class="diag-list"><h4 id="diag-l-missing-tgt">missing_edge_targets</h4><ul id="diag-missing-targets"></ul></div>
+                    <div class="diag-list"><h4 id="diag-l-ambiguous">potentially_ambiguous_prompt_states</h4><ul id="diag-ambiguous-states"></ul></div>
+                  </div>
+                  <div id="profile-diagnose-out" class="grid gap-2"></div>
                 </div>
               </div>
-              <div id="flow-template-manage-hint" class="text-xs text-slate-500">Use the template name above as a reusable command flow template. Load it to edit, or save the editor content as a reusable template for next time.</div>
-              <div id="flow-template-list" class="grid gap-2"></div>
-              <textarea id="flow-template-content" class="input min-h-64 font-mono" placeholder="Command flow template TOML"></textarea>
-              <div id="flow-template-out" class="grid gap-2"></div>
             </div>
           </div>
-        </div>
+
+          <!-- ── Template Manager 面板 ── -->
+          <div id="panel-templates" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('templates')">
+            <h2 id="template-mgr-title" class="text-xl font-semibold">Template Manager</h2>
+            <div class="mt-4 grid gap-3">
+              <div id="template-library-section" class="grid gap-3" x-show="$store.app.currentTemplateSection === 'templates'" x-cloak>
+                <div class="group-card">
+                  <div class="field-tools">
+                    <span id="template-list-title" class="text-sm font-semibold text-slate-700">Templates</span>
+                  </div>
+                  <div id="template-picker-body" class="group-body">
+                    <div class="grid gap-2 md:w-[720px]">
+                      <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                        <input id="template-pick-name" class="input" list="template-options" placeholder="search/select template name" />
+                        <button id="template-save-btn" class="btn btn-primary" type="button">Save</button>
+                        <button id="template-delete-btn" class="btn btn-error" type="button">Delete</button>
+                      </div>
+                      <datalist id="template-options"></datalist>
+                    </div>
+                    <div id="template-list" class="mt-2 grid gap-2"></div>
+                  </div>
+                </div>
+                <div class="group-card">
+                  <div class="field-tools">
+                    <span id="template-editor-title" class="text-sm font-semibold text-slate-700">Editor</span>
+                  </div>
+                  <div id="template-editor-body" class="group-body">
+                    <textarea id="template-content" class="input min-h-64 font-mono" placeholder="Template content"></textarea>
+                  </div>
+                </div>
+                <div id="template-out" class="grid gap-2"></div>
+              </div>
+              <div id="template-flows-section" class="grid gap-3" x-show="$store.app.currentTemplateSection === 'flows'" x-cloak>
+                <div class="group-card">
+                  <div class="field-tools">
+                    <span id="flow-template-mgr-title" class="text-sm font-semibold text-slate-700">Command Flow Templates</span>
+                  </div>
+                  <div class="group-body grid gap-3">
+                    <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                      <input id="flow-template-picker" class="input" list="flow-template-options" placeholder="command flow template name (optional)" />
+                      <button id="flow-template-load-btn" class="btn btn-primary" type="button">Load</button>
+                      <div class="inline-flex gap-2">
+                        <button id="flow-template-save-btn" class="btn btn-primary" type="button">Save Template</button>
+                        <button id="flow-template-delete-btn" class="btn btn-error" type="button">Delete</button>
+                      </div>
+                    </div>
+                    <div id="flow-template-manage-hint" class="text-xs text-slate-500">Use the template name above as a reusable command flow template.</div>
+                    <div id="flow-template-list" class="grid gap-2"></div>
+                    <textarea id="flow-template-content" class="input min-h-64 font-mono" placeholder="Command flow template TOML"></textarea>
+                    <div id="flow-template-out" class="grid gap-2"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── SFTP Upload 面板 ── -->
+          <div id="panel-transfer" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('transfer')">
+            <h2 id="transfer-title" class="text-xl font-semibold">SFTP Upload</h2>
+            <div class="mt-4 grid gap-3">
+              <div class="group-card">
+                <div class="field-tools">
+                  <span id="upload-title" class="text-sm font-semibold text-slate-700">SFTP Upload</span>
+                </div>
+                <div class="group-body grid gap-2">
+                  <div class="grid gap-2 md:grid-cols-2">
+                    <input id="upload-local-path" class="input" placeholder="local file path on the machine running rauto" />
+                    <input id="upload-remote-path" class="input" placeholder="remote destination path" />
+                  </div>
+                  <div class="grid gap-2 md:grid-cols-2">
+                    <input id="upload-timeout-secs" class="input" placeholder="timeout secs (default 300)" />
+                    <input id="upload-buffer-size" class="input" placeholder="buffer size bytes (optional)" />
+                  </div>
+                  <label class="check-label">
+                    <input id="upload-show-progress" type="checkbox" class="check-input" />
+                    <span id="upload-show-progress-label">show progress</span>
+                  </label>
+                  <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+                    <div class="text-xs text-slate-500" id="upload-hint">The local file path is resolved on the host running rauto.</div>
+                    <button id="upload-exec-btn" class="btn btn-primary" type="button">Run Upload</button>
+                  </div>
+                  <div id="upload-out" class="grid gap-2"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Command Blacklist 面板 ── -->
+          <div id="panel-blacklist" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('blacklist')">
+            <h2 id="blacklist-title" class="text-xl font-semibold">Command Blacklist</h2>
+            <div class="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
+              <div class="group-card">
+                <div class="field-tools">
+                  <span id="blacklist-list-title" class="text-sm font-semibold text-slate-700">Blocked Patterns</span>
+                  <button id="blacklist-refresh-btn" class="btn btn-sm" type="button">Refresh</button>
+                </div>
+                <div class="group-body grid gap-2">
+                  <div id="blacklist-file-hint" class="text-xs text-slate-500"></div>
+                  <div id="blacklist-list" class="grid gap-2"></div>
+                  <div id="blacklist-out" class="grid gap-2">-</div>
+                </div>
+              </div>
+              <div class="grid gap-3">
+                <div class="group-card">
+                  <div class="field-tools">
+                    <span id="blacklist-add-title" class="text-sm font-semibold text-slate-700">Add Pattern</span>
+                  </div>
+                  <div class="group-body grid gap-2">
+                    <input id="blacklist-pattern" class="input" placeholder="e.g. reload*" />
+                    <div class="text-xs text-slate-500" id="blacklist-pattern-hint">Use * as wildcard. Matching is case-insensitive.</div>
+                    <button id="blacklist-add-btn" class="mini-btn add" type="button">Add</button>
+                  </div>
+                </div>
+                <div class="group-card">
+                  <div class="field-tools">
+                    <span id="blacklist-check-title" class="text-sm font-semibold text-slate-700">Check Command</span>
+                  </div>
+                  <div class="group-body grid gap-2">
+                    <input id="blacklist-check-command" class="input" placeholder="e.g. reload in 5" />
+                    <button id="blacklist-check-btn" class="btn btn-sm" type="button">Check</button>
+                    <div id="blacklist-check-out" class="grid gap-2">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Backup 面板 ── -->
+          <div id="panel-backup" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('backup')">
+            <h2 id="backup-title" class="text-xl font-semibold">Backup &amp; Restore</h2>
+            <div class="mt-4 grid gap-3">
+              <div class="group-card">
+                <div class="field-tools">
+                  <span id="backup-create-title" class="text-sm font-semibold text-slate-700">Create Backup</span>
+                </div>
+                <div class="group-body grid gap-2 md:w-[900px]">
+                  <input id="backup-output-path" class="input" placeholder="optional output path (.tar.gz)" />
+                  <div class="inline-flex flex-wrap items-center gap-2">
+                    <button id="backup-create-btn" class="mini-btn add" type="button">Create</button>
+                    <button id="backup-refresh-btn" class="btn btn-sm" type="button">Refresh</button>
+                  </div>
+                </div>
+              </div>
+              <div class="group-card">
+                <div class="field-tools">
+                  <span id="backup-list-title" class="text-sm font-semibold text-slate-700">Backup Archives</span>
+                </div>
+                <div class="group-body grid gap-2 md:w-[900px]">
+                  <input id="backup-restore-archive" class="input" list="backup-archive-options" placeholder="select or input archive path" />
+                  <datalist id="backup-archive-options"></datalist>
+                  <div id="backup-selected-meta" class="text-xs text-slate-500">-</div>
+                  <div class="inline-flex flex-wrap items-center gap-2">
+                    <button id="backup-download-btn" class="btn btn-sm" type="button">Download</button>
+                    <button id="backup-restore-merge-btn" class="btn btn-sm" type="button">Restore (Merge)</button>
+                    <button id="backup-restore-replace-btn" class="btn btn-sm btn-error" type="button">Restore (Replace)</button>
+                  </div>
+                  <div id="backup-list" class="mt-2 grid gap-2"></div>
+                </div>
+              </div>
+              <div id="backup-out" class="grid gap-2">-</div>
+            </div>
+          </div>
+
+        </section>
       </div>
+    </main>
+  </div>
 
-      <div id="panel-transfer" class="tab-panel mt-4" role="tabpanel" hidden>
-        <h2 id="transfer-title" class="text-xl font-semibold">SFTP Upload</h2>
-        <div class="mt-4 grid gap-3">
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="upload-title" class="text-sm font-semibold text-slate-700">SFTP Upload</span>
-            </div>
-            <div class="group-body grid gap-2">
-              <div class="grid gap-2 md:grid-cols-2">
-                <input id="upload-local-path" class="input" placeholder="local file path on the machine running rauto" />
-                <input id="upload-remote-path" class="input" placeholder="remote destination path" />
-              </div>
-              <div class="grid gap-2 md:grid-cols-2">
-                <input id="upload-timeout-secs" class="input" placeholder="timeout secs (default 300)" />
-                <input id="upload-buffer-size" class="input" placeholder="buffer size bytes (optional)" />
-              </div>
-              <label class="check-label">
-                <input id="upload-show-progress" type="checkbox" class="check-input" />
-                <span id="upload-show-progress-label">show progress</span>
-              </label>
-              <div class="grid gap-2 md:grid-cols-[1fr_auto]">
-                <div class="text-xs text-slate-500" id="upload-hint">The local file path is resolved on the host running rauto.</div>
-                <button id="upload-exec-btn" class="btn" type="button">Run Upload</button>
-              </div>
-              <div id="upload-out" class="grid gap-2"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-blacklist" class="tab-panel mt-4" role="tabpanel" hidden>
-        <h2 id="blacklist-title" class="text-xl font-semibold">Command Blacklist</h2>
-        <div class="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="blacklist-list-title" class="text-sm font-semibold text-slate-700">Blocked Patterns</span>
-              <button id="blacklist-refresh-btn" class="mini-btn" type="button">Refresh</button>
-            </div>
-            <div class="group-body grid gap-2">
-              <div id="blacklist-file-hint" class="text-xs text-slate-500"></div>
-              <div id="blacklist-list" class="grid gap-2"></div>
-              <div id="blacklist-out" class="grid gap-2">-</div>
-            </div>
-          </div>
-
-          <div class="grid gap-3">
-            <div class="group-card">
-              <div class="field-tools">
-                <span id="blacklist-add-title" class="text-sm font-semibold text-slate-700">Add Pattern</span>
-              </div>
-              <div class="group-body grid gap-2">
-                <input id="blacklist-pattern" class="input" placeholder="e.g. reload*" />
-                <div class="text-xs text-slate-500" id="blacklist-pattern-hint">Use * as wildcard. Matching is case-insensitive.</div>
-                <button id="blacklist-add-btn" class="mini-btn add" type="button">Add</button>
-              </div>
-            </div>
-
-            <div class="group-card">
-              <div class="field-tools">
-                <span id="blacklist-check-title" class="text-sm font-semibold text-slate-700">Check Command</span>
-              </div>
-              <div class="group-body grid gap-2">
-                <input id="blacklist-check-command" class="input" placeholder="e.g. reload in 5" />
-                <button id="blacklist-check-btn" class="mini-btn" type="button">Check</button>
-                <div id="blacklist-check-out" class="grid gap-2">-</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-backup" class="tab-panel mt-4" role="tabpanel" hidden>
-        <h2 id="backup-title" class="text-xl font-semibold">Backup & Restore</h2>
-        <div class="mt-4 grid gap-3">
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="backup-create-title" class="text-sm font-semibold text-slate-700">Create Backup</span>
-            </div>
-            <div class="group-body grid gap-2 md:w-[900px]">
-              <input id="backup-output-path" class="input" placeholder="optional output path (.tar.gz)" />
-              <div class="inline-flex flex-wrap items-center gap-2">
-                <button id="backup-create-btn" class="mini-btn add" type="button">Create</button>
-                <button id="backup-refresh-btn" class="mini-btn" type="button">Refresh</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="group-card">
-            <div class="field-tools">
-              <span id="backup-list-title" class="text-sm font-semibold text-slate-700">Backup Archives</span>
-            </div>
-            <div class="group-body grid gap-2 md:w-[900px]">
-              <input id="backup-restore-archive" class="input" list="backup-archive-options" placeholder="select or input archive path" />
-              <datalist id="backup-archive-options"></datalist>
-              <div id="backup-selected-meta" class="text-xs text-slate-500">-</div>
-              <div class="inline-flex flex-wrap items-center gap-2">
-                <button id="backup-download-btn" class="mini-btn" type="button">Download</button>
-                <button id="backup-restore-merge-btn" class="mini-btn" type="button">Restore (Merge)</button>
-                <button id="backup-restore-replace-btn" class="mini-btn delete" type="button">Restore (Replace)</button>
-              </div>
-              <div id="backup-list" class="mt-2 grid gap-2"></div>
-            </div>
-          </div>
-
-          <div id="backup-out" class="grid gap-2">-</div>
-        </div>
-      </div>
-    </section>
-
-  <div id="record-drawer-backdrop" aria-hidden="true"></div>
-  <aside id="record-drawer" role="dialog" aria-modal="true" aria-labelledby="recording-title">
-      <div class="record-drawer-head">
+  <!-- ── 侧边栏 ── -->
+  <div class="drawer-side z-40">
+    <label for="sidebar-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+    <aside class="dashboard-sidebar w-56 min-h-full flex flex-col">
+      <!-- 品牌 Logo -->
+      <div class="dashboard-sidebar-brand">
+        <div class="dashboard-brand-mark">r</div>
         <div class="grid gap-1">
-          <span id="recording-title" class="text-sm font-semibold text-slate-700">Session Recording</span>
-          <span class="text-xs text-slate-500" id="recording-subtitle">View recorded sessions and filters</span>
-        </div>
-        <button id="record-drawer-close" class="mini-btn" type="button">Close</button>
-      </div>
-      <div class="record-drawer-body grid gap-3">
-        <div class="record-drawer-section">
-          <div class="record-toolbar">
-            <div class="record-toolbar-left">
-              <label class="check-label"><input id="record-enable" type="checkbox" class="check-input" /><span id="record-enable-label">Disable recording</span></label>
-              <select id="record-level" class="input md:w-[220px]">
-                <option value="key-events-only" selected>key-events-only</option>
-                <option value="full">full</option>
-                <option value="off">off</option>
-              </select>
-            </div>
-            <div class="record-toolbar-left">
-              <span id="record-view-label" class="text-sm font-semibold text-slate-600">Display</span>
-              <div class="tab-group">
-                <button id="record-view-list" class="tab-btn is-active" type="button">List</button>
-                <button id="record-view-raw" class="tab-btn" type="button">Raw</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="record-drawer-section record-filters">
-          <div class="record-filters-row">
-            <label class="check-label">
-              <input id="record-failed-only" type="checkbox" class="check-input" />
-              <span id="record-failed-only-label">Failed only</span>
-            </label>
-            <select id="record-event-kind" class="input w-[220px]">
-              <option value="all">All events</option>
-              <option value="command_output">command_output</option>
-              <option value="connection_established">connection_established</option>
-              <option value="connection_closed">connection_closed</option>
-              <option value="prompt_changed">prompt_changed</option>
-              <option value="state_changed">state_changed</option>
-              <option value="raw_chunk">raw_chunk</option>
-            </select>
-          </div>
-          <div class="record-filters-row">
-            <input id="record-search" class="input w-[260px]" placeholder="search command/content" />
-            <button id="record-clear-filters" class="mini-btn" type="button">Clear</button>
-          </div>
-        </div>
-        <div class="record-drawer-section">
-          <div id="record-list-out" class="grid gap-3"></div>
-          <textarea id="record-jsonl" class="input min-h-28 font-mono" placeholder="recording JSONL output" hidden></textarea>
-        </div>
-        <div class="record-drawer-section">
-          <div class="inline-flex flex-wrap items-center gap-2">
-            <button id="record-copy-btn" class="mini-btn" type="button">Copy Recording</button>
-            <button id="record-use-replay-btn" class="mini-btn" type="button">Use In Replay</button>
-          </div>
+          <span class="dashboard-sidebar-brand-title">rauto</span>
+          <p id="dashboard-sidebar-tagline" class="dashboard-sidebar-brand-tagline">AI 时代操控网络设备的双手</p>
         </div>
       </div>
+
+      <!-- 导航菜单 -->
+      <nav class="sidebar-nav flex-1 px-2 py-4">
+        <ul class="menu w-full gap-1">
+          <li>
+            <details
+              x-bind:open="$store.app.isNavGroupOpen('standard')"
+              x-on:toggle="$store.app.setNavGroupOpen('standard', $event.currentTarget.open)"
+            >
+              <summary id="tab-standard" data-tab="standard" x-on:click.prevent="$store.app.togglePrimaryGroup('standard')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('standard') }" x-bind:aria-selected="$store.app.isActiveTab('standard').toString()">Standard Delivery</summary>
+              <ul>
+                <li><button id="nav-standard-direct" type="button" x-on:click="$store.app.openStandardSection('direct')" x-bind:class="{ 'menu-active': $store.app.isStandardSection('direct') }">Direct Execute</button></li>
+                <li><button id="nav-standard-template" type="button" x-on:click="$store.app.openStandardSection('template')" x-bind:class="{ 'menu-active': $store.app.isStandardSection('template') }">Template Execute</button></li>
+                <li><button id="nav-standard-flow" type="button" x-on:click="$store.app.openStandardSection('flow')" x-bind:class="{ 'menu-active': $store.app.isStandardSection('flow') }">Command Flow</button></li>
+              </ul>
+            </details>
+          </li>
+          <li>
+            <details
+              x-bind:open="$store.app.isNavGroupOpen('orchestrated')"
+              x-on:toggle="$store.app.setNavGroupOpen('orchestrated', $event.currentTarget.open)"
+            >
+              <summary id="tab-orchestrated" data-tab="orchestrated" x-on:click.prevent="$store.app.togglePrimaryGroup('orchestrated')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('orchestrated') }" x-bind:aria-selected="$store.app.isActiveTab('orchestrated').toString()">Orchestrated Delivery</summary>
+              <ul>
+                <li><button id="nav-orchestrated-block" type="button" x-on:click="$store.app.openOrchestratedSection('block')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('block') }">Tx Block</button></li>
+                <li><button id="nav-orchestrated-workflow" type="button" x-on:click="$store.app.openOrchestratedSection('workflow')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('workflow') }">Tx Workflow</button></li>
+                <li><button id="nav-orchestrated-orchestrate" type="button" x-on:click="$store.app.openOrchestratedSection('orchestrate')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('orchestrate') }">Orchestrate</button></li>
+              </ul>
+            </details>
+          </li>
+          <li><button id="tab-interactive" type="button" data-tab="interactive" x-on:click="$store.app.setTab('interactive')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('interactive') }" x-bind:aria-selected="$store.app.isActiveTab('interactive').toString()">Interactive</button></li>
+          <li><button id="tab-replay" type="button" data-tab="replay" x-on:click="$store.app.setTab('replay')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('replay') }" x-bind:aria-selected="$store.app.isActiveTab('replay').toString()">Session Replay</button></li>
+          <li>
+            <details
+              x-bind:open="$store.app.isNavGroupOpen('prompts')"
+              x-on:toggle="$store.app.setNavGroupOpen('prompts', $event.currentTarget.open)"
+            >
+              <summary id="tab-prompts" data-tab="prompts" x-on:click.prevent="$store.app.togglePrimaryGroup('prompts')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('prompts') }" x-bind:aria-selected="$store.app.isActiveTab('prompts').toString()">Prompt Profiles</summary>
+              <ul>
+                <li><button id="nav-prompt-view" type="button" x-on:click="$store.app.openPromptSection('view')" x-bind:class="{ 'menu-active': $store.app.isPromptSection('view') }">View</button></li>
+                <li><button id="nav-prompt-edit" type="button" x-on:click="$store.app.openPromptSection('edit')" x-bind:class="{ 'menu-active': $store.app.isPromptSection('edit') }">Edit</button></li>
+                <li><button id="nav-prompt-diagnose" type="button" x-on:click="$store.app.openPromptSection('diagnose')" x-bind:class="{ 'menu-active': $store.app.isPromptSection('diagnose') }">Diagnose</button></li>
+              </ul>
+            </details>
+          </li>
+          <li>
+            <details
+              x-bind:open="$store.app.isNavGroupOpen('templates')"
+              x-on:toggle="$store.app.setNavGroupOpen('templates', $event.currentTarget.open)"
+            >
+              <summary id="tab-templates" data-tab="templates" x-on:click.prevent="$store.app.togglePrimaryGroup('templates')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('templates') }" x-bind:aria-selected="$store.app.isActiveTab('templates').toString()">Templates</summary>
+              <ul>
+                <li><button id="nav-template-library" type="button" x-on:click="$store.app.openTemplateSection('templates')" x-bind:class="{ 'menu-active': $store.app.isTemplateSection('templates') }">Templates</button></li>
+                <li><button id="nav-template-flows" type="button" x-on:click="$store.app.openTemplateSection('flows')" x-bind:class="{ 'menu-active': $store.app.isTemplateSection('flows') }">Command Flow Templates</button></li>
+              </ul>
+            </details>
+          </li>
+          <li><button id="tab-transfer" type="button" data-tab="transfer" x-on:click="$store.app.setTab('transfer')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('transfer') }" x-bind:aria-selected="$store.app.isActiveTab('transfer').toString()">SFTP Upload</button></li>
+          <li><button id="tab-blacklist" type="button" data-tab="blacklist" x-on:click="$store.app.setTab('blacklist')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('blacklist') }" x-bind:aria-selected="$store.app.isActiveTab('blacklist').toString()">Blacklist</button></li>
+          <li><button id="tab-backup" type="button" data-tab="backup" x-on:click="$store.app.setTab('backup')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('backup') }" x-bind:aria-selected="$store.app.isActiveTab('backup').toString()">Backup</button></li>
+        </ul>
+      </nav>
+
+      <section class="dashboard-sidebar-connection">
+        <div class="grid gap-1">
+          <div class="dashboard-sidebar-label-row">
+            <span id="sidebar-connection-title" class="dashboard-sidebar-label">Connection Target</span>
+            <button
+              id="sidebar-connection-help"
+              class="dashboard-help-trigger"
+              type="button"
+              aria-label="Connection Target Help"
+              title="Open the workspace to choose a saved connection or apply a temporary target."
+            >
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" class="dashboard-help-icon">
+                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.6"></circle>
+                <path d="M7.9 7.4a2.3 2.3 0 0 1 4.2 1.1c0 1.5-1.7 1.9-2.1 2.8-.1.2-.1.4-.1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                <circle cx="10" cy="13.95" r="0.8" fill="currentColor"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="sidebar-connection-meta" class="dashboard-sidebar-meta">-</div>
+        <div class="dashboard-sidebar-actions">
+          <button id="sidebar-connection-open-btn" class="dashboard-sidebar-action dashboard-sidebar-action-emphasis" type="button" x-on:click="$store.app.openConnectionModal()">Choose Target</button>
+          <button id="sidebar-connection-history-btn" class="dashboard-sidebar-action" type="button">History</button>
+        </div>
+      </section>
     </aside>
   </div>
+</div>
 
-  <div id="detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 px-4" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
-    <div class="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <h3 id="detail-modal-title" class="text-base font-semibold text-slate-800">Entry Details</h3>
-        <button id="detail-modal-close" class="mini-btn" type="button">Close</button>
+<!-- ============================================================
+     弹出层：录制 Drawer
+     ============================================================ -->
+<div id="record-drawer-backdrop" aria-hidden="true"></div>
+<aside id="record-drawer" role="dialog" aria-modal="true" aria-labelledby="recording-title">
+  <div class="record-drawer-head">
+    <div class="grid gap-1">
+      <span id="recording-title" class="text-sm font-semibold text-slate-700">Session Recording</span>
+      <span class="text-xs text-slate-500" id="recording-subtitle">View recorded sessions and filters</span>
+    </div>
+    <button id="record-drawer-close" class="btn btn-sm" type="button">Close</button>
+  </div>
+  <div class="record-drawer-body grid gap-3">
+    <div class="record-drawer-section">
+      <div class="record-toolbar">
+        <div class="record-toolbar-left">
+          <label class="check-label">
+            <input id="record-enable" type="checkbox" class="check-input" />
+            <span id="record-enable-label">Disable recording</span>
+          </label>
+          <select id="record-level" class="input md:w-[220px]" title="Record Level" aria-label="Record Level">
+            <option value="key-events-only" selected>key-events-only</option>
+            <option value="full">full</option>
+            <option value="off">off</option>
+          </select>
+        </div>
+        <div class="record-toolbar-left">
+          <span id="record-view-label" class="text-sm font-semibold text-slate-600">Display</span>
+          <div class="tab-group">
+            <button id="record-view-list" class="tab-btn is-active" type="button">List</button>
+            <button id="record-view-raw" class="tab-btn" type="button">Raw</button>
+          </div>
+        </div>
       </div>
-      <div id="detail-modal-body" class="p-4 max-h-[70vh] overflow-auto"></div>
+    </div>
+    <div class="record-drawer-section record-filters">
+      <div class="record-filters-row">
+        <label class="check-label">
+          <input id="record-failed-only" type="checkbox" class="check-input" />
+          <span id="record-failed-only-label">Failed only</span>
+        </label>
+        <select id="record-event-kind" class="input w-[220px]" title="Record Event Kind" aria-label="Record Event Kind">
+          <option value="all">All events</option>
+          <option value="command_output">command_output</option>
+          <option value="connection_established">connection_established</option>
+          <option value="connection_closed">connection_closed</option>
+          <option value="prompt_changed">prompt_changed</option>
+          <option value="state_changed">state_changed</option>
+          <option value="raw_chunk">raw_chunk</option>
+        </select>
+      </div>
+      <div class="record-filters-row">
+        <input id="record-search" class="input w-[260px]" placeholder="search command/content" />
+        <button id="record-clear-filters" class="btn btn-sm" type="button">Clear</button>
+      </div>
+    </div>
+    <div class="record-drawer-section">
+      <div id="record-list-out" class="grid gap-3"></div>
+      <textarea id="record-jsonl" class="input min-h-28 font-mono" placeholder="recording JSONL output" hidden></textarea>
+    </div>
+    <div class="record-drawer-section">
+      <div class="inline-flex flex-wrap items-center gap-2">
+        <button id="record-copy-btn" class="btn btn-sm" type="button">Copy Recording</button>
+        <button id="record-use-replay-btn" class="btn btn-sm" type="button">Use In Replay</button>
+      </div>
     </div>
   </div>
+</aside>
 
-  <div id="entry-drawer-backdrop" aria-hidden="true"></div>
-  <aside id="entry-drawer" role="dialog" aria-modal="true" aria-labelledby="entry-drawer-title">
+<!-- ============================================================
+     弹出层：详情 Modal
+     ============================================================ -->
+<div id="detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 px-4" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+  <div class="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
     <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-      <h3 id="entry-drawer-title" class="text-base font-semibold text-slate-800">Event Details</h3>
-      <button id="entry-drawer-close" class="mini-btn" type="button">Close</button>
+      <h3 id="detail-modal-title" class="text-base font-semibold text-slate-800">Entry Details</h3>
+      <button id="detail-modal-close" class="btn btn-sm" type="button">Close</button>
     </div>
-    <div id="entry-drawer-body" class="overflow-auto p-4"></div>
-  </aside>
+    <div id="detail-modal-body" class="p-4 max-h-[70vh] overflow-auto"></div>
+  </div>
+</div>
 
-  <div id="history-drawer-backdrop" aria-hidden="true"></div>
-  <aside id="history-drawer" role="dialog" aria-modal="true" aria-labelledby="history-drawer-title">
-    <div class="record-drawer-head">
+<div
+  id="connection-modal"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4"
+  x-cloak
+  x-show="$store.app.connectionModalOpen"
+  x-transition.opacity
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="connection-title"
+  x-on:click.self="$store.app.closeConnectionModal()"
+>
+  <div class="dashboard-modal-card">
+    <div class="dashboard-modal-head">
       <div class="grid gap-1">
-        <span id="history-drawer-title" class="text-sm font-semibold text-slate-700">Connection History</span>
-        <span class="text-xs text-slate-500" id="history-drawer-subtitle">View saved connection history</span>
+        <h3 id="connection-title" class="text-base font-semibold text-slate-900">Connection Workspace</h3>
+        <p id="connection-workspace-subtitle" class="text-sm text-slate-500">Use a saved connection or override the current execution target inline.</p>
       </div>
-      <button id="history-drawer-close" class="mini-btn" type="button">Close</button>
-    </div>
-    <div class="record-drawer-body grid gap-3">
-      <div class="record-drawer-section">
-        <div class="record-toolbar">
-          <div class="record-toolbar-left">
-            <span id="history-drawer-conn-label" class="text-sm font-semibold text-slate-600">Connection</span>
-            <span id="history-drawer-conn-name" class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-700">-</span>
-          </div>
-          <div class="record-toolbar-left">
-            <button id="history-drawer-refresh-btn" class="mini-btn" type="button">Refresh</button>
-          </div>
-        </div>
-      </div>
-      <div class="record-drawer-section record-filters">
-        <div class="record-filters-row">
-          <input id="history-filter-query" class="input w-[260px]" placeholder="search command/target" />
-          <select id="history-filter-operation" class="input w-[200px]">
-            <option value="all">All operations</option>
-            <option value="exec">exec</option>
-            <option value="template_execute">template_execute</option>
-            <option value="tx_block">tx_block</option>
-            <option value="tx_workflow">tx_workflow</option>
-            <option value="interactive">interactive</option>
-          </select>
-          <select id="history-filter-limit" class="input w-[140px]">
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="30" selected>30</option>
-            <option value="50">50</option>
-          </select>
-          <button id="history-filter-clear-btn" class="mini-btn" type="button">Clear</button>
-        </div>
-      </div>
-      <div class="record-drawer-section">
-        <div id="history-drawer-out" class="grid gap-2"></div>
+      <div class="inline-flex items-center gap-2">
+        <button id="connection-test-btn" class="btn btn-sm btn-primary" type="button">Test Connection</button>
+        <button id="connection-modal-close" class="btn btn-sm" type="button" x-on:click="$store.app.closeConnectionModal()">Close</button>
       </div>
     </div>
-  </aside>
+    <div class="dashboard-modal-body">
+      <div class="group-card dashboard-connection-library">
+        <div class="field-tools">
+          <div class="grid gap-1">
+            <span id="saved-conn-title" class="text-sm font-semibold text-slate-700">Saved Connections</span>
+            <span id="saved-conn-subtitle" class="text-xs text-slate-500">Pick a reusable connection profile or update it in place.</span>
+          </div>
+          <div class="inline-flex flex-wrap items-center gap-2">
+            <button id="saved-conn-template-btn" class="btn btn-sm" type="button">Download Template</button>
+            <button id="saved-conn-import-btn" class="btn btn-sm" type="button">Import CSV/Excel</button>
+          </div>
+        </div>
+        <div id="saved-conn-body" class="group-body">
+          <div class="grid gap-3">
+            <input id="saved-conn-name" class="input" list="saved-conn-options" placeholder="saved connection name" />
+            <datalist id="saved-conn-options"></datalist>
+            <div class="inline-flex flex-wrap items-center gap-2">
+              <button id="saved-conn-use-btn" class="btn btn-sm" type="button">Use</button>
+              <button id="saved-conn-save-btn" class="btn btn-primary btn-sm" type="button">Save</button>
+              <button id="saved-conn-delete-btn" class="btn btn-sm btn-error" type="button">Delete</button>
+              <button id="saved-conn-history-btn" class="btn btn-sm" type="button">History</button>
+            </div>
+            <label class="check-label">
+              <input id="saved-conn-save-password" type="checkbox" class="check-input" />
+              <span id="saved-conn-save-password-label">do not save password</span>
+            </label>
+          </div>
+          <input id="saved-conn-import-file-input" type="file"
+            accept=".csv,.xlsx,.xls,.xlsm,.xlsb,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            hidden />
+          <div id="saved-conn-out" class="grid gap-2"></div>
+        </div>
+      </div>
 
-  <script src="/static/app.js"></script>
+      <div class="group-card dashboard-connection-main">
+        <div class="field-tools">
+          <span id="connection-quick-title" class="text-sm font-semibold text-slate-700">Execution Target</span>
+          <span id="connection-help" class="text-xs text-slate-500">Leave empty to fallback to CLI defaults used at server startup.</span>
+        </div>
+        <div class="group-body">
+          <div class="dashboard-connection-form-grid">
+            <input id="host" class="input" placeholder="host" />
+            <input id="port" class="input" placeholder="port (default 22)" />
+            <input id="username" class="input" placeholder="username" />
+            <input id="password" class="input" placeholder="password" type="password" />
+            <input id="enable_password" class="input" placeholder="enable password (optional)" type="password" />
+            <select id="ssh_security" class="input" title="SSH Security Level" aria-label="SSH Security Level">
+              <option id="ssh-security-option-default" value="">ssh security (default secure)</option>
+              <option id="ssh-security-option-secure" value="secure">secure</option>
+              <option id="ssh-security-option-balanced" value="balanced">balanced</option>
+              <option id="ssh-security-option-legacy" value="legacy-compatible">legacy-compatible</option>
+            </select>
+            <input id="device_profile" class="input" placeholder="device profile (default linux)" />
+          </div>
+          <div id="connection-temp-hint" class="text-xs text-slate-500">Fill host, username, password, and profile here, then apply it as a temporary execution target.</div>
+          <div class="inline-flex flex-wrap items-center gap-2">
+            <button id="connection-temp-apply-btn" class="btn btn-primary btn-sm" type="button">Apply Temporary</button>
+          </div>
+          <div id="connection-test-out" class="grid gap-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     弹出层：Entry Drawer
+     ============================================================ -->
+<div id="entry-drawer-backdrop" aria-hidden="true"></div>
+<aside id="entry-drawer" role="dialog" aria-modal="true" aria-labelledby="entry-drawer-title">
+  <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+    <h3 id="entry-drawer-title" class="text-base font-semibold text-slate-800">Event Details</h3>
+    <button id="entry-drawer-close" class="btn btn-sm" type="button">Close</button>
+  </div>
+  <div id="entry-drawer-body" class="overflow-auto p-4"></div>
+</aside>
+
+<!-- ============================================================
+     弹出层：History Drawer
+     ============================================================ -->
+<div id="history-drawer-backdrop" aria-hidden="true"></div>
+<aside id="history-drawer" role="dialog" aria-modal="true" aria-labelledby="history-drawer-title">
+  <div class="record-drawer-head">
+    <div class="grid gap-1">
+      <span id="history-drawer-title" class="text-sm font-semibold text-slate-700">Connection History</span>
+      <span class="text-xs text-slate-500" id="history-drawer-subtitle">View saved connection history</span>
+    </div>
+    <button id="history-drawer-close" class="btn btn-sm" type="button">Close</button>
+  </div>
+  <div class="record-drawer-body grid gap-3">
+    <div class="record-drawer-section">
+      <div class="record-toolbar">
+        <div class="record-toolbar-left">
+          <span id="history-drawer-conn-label" class="text-sm font-semibold text-slate-600">Connection</span>
+          <span id="history-drawer-conn-name" class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-700">-</span>
+        </div>
+        <div class="record-toolbar-left">
+          <button id="history-drawer-refresh-btn" class="btn btn-sm" type="button">Refresh</button>
+        </div>
+      </div>
+    </div>
+    <div class="record-drawer-section record-filters">
+      <div class="record-filters-row">
+        <input id="history-filter-query" class="input w-[260px]" placeholder="search command/target" />
+        <select id="history-filter-operation" class="input w-[200px]" title="History Filter Operation" aria-label="History Filter Operation">
+          <option value="all">All operations</option>
+          <option value="exec">exec</option>
+          <option value="template_execute">template_execute</option>
+          <option value="tx_block">tx_block</option>
+          <option value="tx_workflow">tx_workflow</option>
+          <option value="interactive">interactive</option>
+        </select>
+        <select id="history-filter-limit" class="input w-[140px]" title="History Filter Limit" aria-label="History Filter Limit">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30" selected>30</option>
+          <option value="50">50</option>
+        </select>
+        <button id="history-filter-clear-btn" class="mini-btn" type="button">Clear</button>
+      </div>
+    </div>
+    <div class="record-drawer-section">
+      <div id="history-drawer-out" class="grid gap-2"></div>
+    </div>
+  </div>
+</aside>
+
+<script src="/static/state.js"></script>
+<script src="/static/store.js"></script>
+<script src="/static/vendor/htmx.min.js"></script>
+<script src="/static/vendor/alpine.min.js"></script>
+<script src="/static/i18n.js"></script>
+<script src="/static/utils.js"></script>
+<script src="/static/render.js"></script>
+<script src="/static/api.js"></script>
+<script src="/static/backup.js"></script>
+<script src="/static/blacklist.js"></script>
+<script src="/static/connections.js"></script>
+<script src="/static/history.js"></script>
+<script src="/static/interactive.js"></script>
+<script src="/static/replay.js"></script>
+<script src="/static/templates.js"></script>
+<script src="/static/profiles.js"></script>
+<script src="/static/tx.js"></script>
+<script src="/static/ui.js"></script>
+<script src="/static/app.js"></script>
 </body>
 </html>

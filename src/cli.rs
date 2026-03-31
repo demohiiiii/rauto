@@ -512,10 +512,6 @@ pub struct TxArgs {
     #[arg(long)]
     pub resource_rollback_command: Option<String>,
 
-    /// Profile/template key for rollback inference (defaults to effective --device-profile)
-    #[arg(long)]
-    pub template_profile: Option<String>,
-
     /// Dry run: print planned tx block and exit
     #[arg(long)]
     pub dry_run: bool,

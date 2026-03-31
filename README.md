@@ -667,7 +667,7 @@ rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 **Transaction blocks**
 
 ```bash
-# Tx block with inferred per-step rollback
+# Tx block without rollback
 rauto tx \
     --command "interface vlan 10" \
     --command "ip address 10.0.10.1 255.255.255.0" \

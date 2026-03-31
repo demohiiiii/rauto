@@ -667,7 +667,7 @@ rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
 **事务块执行**
 
 ```bash
-# 自动推断逐条回滚
+# 不启用回滚的事务块
 rauto tx \
     --command "interface vlan 10" \
     --command "ip address 10.0.10.1 255.255.255.0" \

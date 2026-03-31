@@ -8,7 +8,6 @@ use crate::config::command_flow_template::{
 };
 use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
-use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::config::{
     backup, connection_import, connection_store, connection_store::SavedConnection, content_store,
 };
@@ -16,7 +15,7 @@ use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
 use crate::orchestrator;
 use crate::template::renderer::Renderer;
-use crate::tx_operation::command_tx_step;
+use crate::tx_operation::build_command_tx_block;
 use crate::web::error::ApiError;
 use crate::web::models::{
     AsyncTaskAcceptedResponse, BackupCreateRequest, BackupCreateResponse, BackupMeta,
@@ -2853,21 +2852,7 @@ pub async fn execute_tx_block(
         } else {
             requested_record_level
         };
-        let template_key = req
-            .template_profile
-            .as_deref()
-            .filter(|s| !s.trim().is_empty())
-            .map(|s| s.to_string())
-            .or_else(|| Some(conn.device_profile.clone()))
-            .or_else(|| {
-                state
-                    .defaults
-                    .device_profile
-                    .as_ref()
-                    .filter(|s| !s.trim().is_empty())
-                    .cloned()
-            })
-            .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
+        let template_key = conn.device_profile.clone();
         let block_name = req
             .name
             .as_deref()
@@ -2910,72 +2895,18 @@ pub async fn execute_tx_block(
                     rollback_commands.pop();
                 }
 
-                if !rollback_commands.is_empty() {
-                    if rollback_commands.len() > resolved_commands.len() {
-                        return Err(ApiError::bad_request(
-                            "rollback_commands length must not exceed commands length",
-                        ));
-                    }
-                    while rollback_commands.len() < resolved_commands.len() {
-                        rollback_commands.push(String::new());
-                    }
-                    let steps: Vec<TxStep> = resolved_commands
-                        .iter()
-                        .enumerate()
-                        .map(|(idx, cmd)| {
-                            command_tx_step(
-                                &mode,
-                                cmd.clone(),
-                                req.timeout_secs,
-                                if rollback_commands[idx].trim().is_empty() {
-                                    None
-                                } else {
-                                    Some(rollback_commands[idx].clone())
-                                },
-                                req.rollback_on_failure.unwrap_or(false),
-                            )
-                        })
-                        .collect();
-                    let tx_block = TxBlock {
-                        name: block_name.to_string(),
-                        kind: CommandBlockKind::Config,
-                        rollback_policy: RollbackPolicy::PerStep,
-                        steps,
-                        fail_fast: true,
-                    };
-                    tx_block.validate().map_err(ApiError::from)?;
-                    (tx_block, mode)
-                } else {
-                    let mut tx_block = rneter_templates::build_tx_block(
-                        &template_key,
-                        &block_name,
-                        &mode,
-                        &resolved_commands,
-                        req.timeout_secs,
-                        req.resource_rollback_command,
-                    )?;
-                    if req.rollback_on_failure.unwrap_or(false) {
-                        for step in tx_block.steps.iter_mut() {
-                            step.rollback_on_failure = true;
-                        }
-                    }
-                    if let Some(trigger) = req.rollback_trigger_step_index {
-                        match tx_block.rollback_policy {
-                            RollbackPolicy::WholeResource { rollback, .. } => {
-                                tx_block.rollback_policy = RollbackPolicy::WholeResource {
-                                    rollback,
-                                    trigger_step_index: trigger,
-                                };
-                            }
-                            _ => {
-                                return Err(ApiError::bad_request(
-                                    "rollback_trigger_step_index requires whole_resource rollback",
-                                ));
-                            }
-                        }
-                    }
-                    (tx_block, mode)
-                }
+                let tx_block = build_command_tx_block(
+                    block_name.to_string(),
+                    &mode,
+                    &resolved_commands,
+                    &rollback_commands,
+                    req.timeout_secs,
+                    req.rollback_on_failure.unwrap_or(false),
+                    req.resource_rollback_command,
+                    req.rollback_trigger_step_index,
+                )
+                .map_err(ApiError::from)?;
+                (tx_block, mode)
             }
             TxBlockRunKind::CommandFlow => {
                 if req.template.as_deref().is_some_and(|value| !value.trim().is_empty())
@@ -2983,10 +2914,6 @@ pub async fn execute_tx_block(
                     || !req.rollback_commands.is_empty()
                     || req.resource_rollback_command.is_some()
                     || req.rollback_trigger_step_index.is_some()
-                    || req
-                        .template_profile
-                        .as_deref()
-                        .is_some_and(|value| !value.trim().is_empty())
                 {
                     return Err(ApiError::bad_request(
                         "command flow tx block does not accept command/template rollback fields",

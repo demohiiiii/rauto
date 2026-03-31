@@ -197,10 +197,9 @@ message ExecuteTxBlockRequest {
   string mode = 9;
   optional uint64 timeout_secs = 10;
   string resource_rollback_command = 11;
-  string template_profile = 12;
-  bool dry_run = 13;
-  ConnectionRef connection = 14;
-  string record_level = 15;
+  bool dry_run = 12;
+  ConnectionRef connection = 13;
+  string record_level = 14;
 }
 
 message ExecuteTxWorkflowRequest {

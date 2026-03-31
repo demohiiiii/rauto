@@ -5,14 +5,13 @@ use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::template::renderer::Renderer;
-use crate::tx_operation::command_tx_step;
+use crate::tx_operation::build_command_tx_block;
 use crate::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
     persist_auto_recording_history_jsonl, to_record_level,
 };
 use anyhow::{Context, Result, anyhow};
-use rneter::session::{MANAGER, RollbackPolicy, TxBlock, TxWorkflow};
-use rneter::templates as rneter_templates;
+use rneter::session::{MANAGER, TxWorkflow};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
@@ -137,7 +136,6 @@ pub struct TxBlockAction {
     pub mode: Option<String>,
     pub timeout_secs: Option<u64>,
     pub resource_rollback_command: Option<String>,
-    pub template_profile: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -983,10 +981,6 @@ async fn execute_tx_block_action(
     conn: &EffectiveConnection,
     record_level: RecordLevelOpt,
 ) -> Result<ActionExecutionOutcome> {
-    let template_profile = action
-        .template_profile
-        .clone()
-        .unwrap_or_else(|| conn.device_profile.clone());
     let mode = action
         .mode
         .as_deref()
@@ -1011,72 +1005,16 @@ async fn execute_tx_block_action(
         rollback_commands.pop();
     }
 
-    let tx_block = if !rollback_commands.is_empty() {
-        if rollback_commands.len() > commands.len() {
-            return Err(anyhow!(
-                "rollback_commands length must not exceed commands length"
-            ));
-        }
-        while rollback_commands.len() < commands.len() {
-            rollback_commands.push(String::new());
-        }
-        let steps = commands
-            .iter()
-            .enumerate()
-            .map(|(idx, cmd)| {
-                command_tx_step(
-                    &mode,
-                    cmd.clone(),
-                    action.timeout_secs,
-                    if rollback_commands[idx].trim().is_empty() {
-                        None
-                    } else {
-                        Some(rollback_commands[idx].clone())
-                    },
-                    action.rollback_on_failure,
-                )
-            })
-            .collect::<Vec<_>>();
-        let tx_block = TxBlock {
-            name: tx_block_name.clone(),
-            kind: rneter::session::CommandBlockKind::Config,
-            rollback_policy: RollbackPolicy::PerStep,
-            steps,
-            fail_fast: true,
-        };
-        tx_block.validate()?;
-        tx_block
-    } else {
-        let mut tx_block = rneter_templates::build_tx_block(
-            &template_profile,
-            &tx_block_name,
-            &mode,
-            &commands,
-            action.timeout_secs,
-            action.resource_rollback_command.clone(),
-        )?;
-        if action.rollback_on_failure {
-            for step in &mut tx_block.steps {
-                step.rollback_on_failure = true;
-            }
-        }
-        if let Some(trigger) = action.rollback_trigger_step_index {
-            match tx_block.rollback_policy {
-                RollbackPolicy::WholeResource { rollback, .. } => {
-                    tx_block.rollback_policy = RollbackPolicy::WholeResource {
-                        rollback,
-                        trigger_step_index: trigger,
-                    };
-                }
-                _ => {
-                    return Err(anyhow!(
-                        "rollback_trigger_step_index requires whole-resource rollback"
-                    ));
-                }
-            }
-        }
-        tx_block
-    };
+    let tx_block = build_command_tx_block(
+        tx_block_name.clone(),
+        &mode,
+        &commands,
+        &rollback_commands,
+        action.timeout_secs,
+        action.rollback_on_failure,
+        action.resource_rollback_command.clone(),
+        action.rollback_trigger_step_index,
+    )?;
 
     command_blacklist::ensure_tx_block_allowed(
         &tx_block,
@@ -1703,7 +1641,6 @@ mod tests {
                     mode: None,
                     timeout_secs: None,
                     resource_rollback_command: None,
-                    template_profile: None,
                 }),
             }],
         };
@@ -1737,7 +1674,6 @@ mod tests {
                 mode: None,
                 timeout_secs: None,
                 resource_rollback_command: None,
-                template_profile: None,
             }),
         };
         let inventory = OrchestrationInventory {
@@ -1781,7 +1717,6 @@ mod tests {
                 mode: None,
                 timeout_secs: None,
                 resource_rollback_command: None,
-                template_profile: None,
             }),
         };
         let inventory = OrchestrationInventory {

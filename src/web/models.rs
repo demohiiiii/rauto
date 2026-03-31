@@ -332,7 +332,6 @@ pub struct ExecuteTxBlockRequest {
     pub mode: Option<String>,
     pub timeout_secs: Option<u64>,
     pub resource_rollback_command: Option<String>,
-    pub template_profile: Option<String>,
     pub dry_run: Option<bool>,
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,

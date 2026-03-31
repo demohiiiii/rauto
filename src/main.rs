@@ -40,7 +40,6 @@ use rneter::session::{
     RollbackPolicy, SessionEvent, SessionOperation, SessionRecordLevel, SessionRecorder,
     SessionReplayer, TxBlock, TxOperationStepResult, TxStep, TxWorkflowResult,
 };
-use rneter::templates as rneter_templates;
 use serde::Serialize;
 use serde_json::Value;
 use std::fmt::Write as _;
@@ -50,7 +49,7 @@ use std::process;
 use template::renderer::Renderer;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt, fmt::format::Writer, fmt::time::FormatTime};
-use tx_operation::{command_timeout_secs, command_tx_step};
+use tx_operation::{build_command_tx_block, command_timeout_secs};
 use web::{run_agent_server, run_web_server};
 
 #[tokio::main]
@@ -1424,13 +1423,9 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                 ));
             }
 
-            let template_profile = args
-                .template_profile
-                .clone()
-                .unwrap_or_else(|| conn.device_profile.clone());
             let commands = resolve_tx_commands(&args, &conn)?;
             let mode = match args.mode.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-                Some(mode) => template_loader::resolve_profile_mode(&template_profile, Some(mode))?,
+                Some(mode) => template_loader::resolve_profile_mode(&conn.device_profile, Some(mode))?,
                 None => "Config".to_string(),
             };
 
@@ -1464,72 +1459,16 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             {
                 rollback_commands.pop();
             }
-            let tx_block = if !rollback_commands.is_empty() {
-                if rollback_commands.len() > commands.len() {
-                    return Err(anyhow::anyhow!(
-                        "--rollback-command count must not exceed command count"
-                    ));
-                }
-                while rollback_commands.len() < commands.len() {
-                    rollback_commands.push(String::new());
-                }
-                let steps: Vec<TxStep> = commands
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, cmd)| {
-                        command_tx_step(
-                            &mode,
-                            cmd.clone(),
-                            args.timeout_secs,
-                            if rollback_commands[idx].trim().is_empty() {
-                                None
-                            } else {
-                                Some(rollback_commands[idx].clone())
-                            },
-                            args.rollback_on_failure,
-                        )
-                    })
-                    .collect();
-                let tx_block = TxBlock {
-                    name: args.name.clone(),
-                    kind: CommandBlockKind::Config,
-                    rollback_policy: RollbackPolicy::PerStep,
-                    steps,
-                    fail_fast: true,
-                };
-                tx_block.validate()?;
-                tx_block
-            } else {
-                let mut tx_block = rneter_templates::build_tx_block(
-                    &template_profile,
-                    &args.name,
-                    &mode,
-                    &commands,
-                    args.timeout_secs,
-                    args.resource_rollback_command.clone(),
-                )?;
-                if args.rollback_on_failure {
-                    for step in tx_block.steps.iter_mut() {
-                        step.rollback_on_failure = true;
-                    }
-                }
-                if let Some(trigger) = args.rollback_trigger_step_index {
-                    match tx_block.rollback_policy {
-                        RollbackPolicy::WholeResource { rollback, .. } => {
-                            tx_block.rollback_policy = RollbackPolicy::WholeResource {
-                                rollback,
-                                trigger_step_index: trigger,
-                            };
-                        }
-                        _ => {
-                            return Err(anyhow::anyhow!(
-                                "--rollback-trigger-step-index requires whole-resource rollback"
-                            ));
-                        }
-                    }
-                }
-                tx_block
-            };
+            let tx_block = build_command_tx_block(
+                args.name.clone(),
+                &mode,
+                &commands,
+                &rollback_commands,
+                args.timeout_secs,
+                args.rollback_on_failure,
+                args.resource_rollback_command.clone(),
+                args.rollback_trigger_step_index,
+            )?;
             (tx_block, mode)
         }
         TxRunKind::CommandFlow => {
@@ -1541,7 +1480,6 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                 || args.rollback_commands_json.is_some()
                 || args.resource_rollback_command.is_some()
                 || args.rollback_trigger_step_index.is_some()
-                || args.template_profile.is_some()
             {
                 return Err(anyhow::anyhow!(
                     "command flow tx does not accept command/template rollback arguments"
