@@ -32,19 +32,7 @@ rauto web --bind 127.0.0.1 --port 3000
 
 - [Features](#features)
 - [Installation](#installation)
-- [Codex Skill (Optional)](#codex-skill-optional)
 - [Usage](#usage)
-  - [Template Mode (Recommended)](#1-template-mode-recommended)
-  - [Direct Execution](#2-direct-execution)
-  - [Command Flow Templates](#command-flow-templates)
-  - [SFTP Upload](#sftp-upload)
-  - [Device Profiles](#3-device-profiles)
-  - [Web Console (Axum)](#4-web-console-axum)
-  - [Template Storage Commands](#5-template-storage-commands)
-  - [Saved Connection Profiles](#6-saved-connection-profiles)
-  - [Backup & Restore](#7-backup--restore)
-  - [Command Blacklist](#8-command-blacklist)
-  - [CLI Quick Reference](#9-cli-quick-reference)
 - [Directory Structure](#directory-structure)
 - [Configuration](#configuration)
 - [Template Syntax](#template-syntax)
@@ -94,61 +82,15 @@ The binary will be available at `target/release/rauto`.
 
 ## Codex Skill (Optional)
 
-This repo includes a Codex skill for rauto usage under `skills/rauto-usage/`.
+This repo includes a Codex skill under `skills/rauto-usage/` for agent-driven workflows.
 
-Recommended usage:
-
-- If you are operating `rauto` through Codex or Claude Code, using the skill is the cleanest path.
-- The skill is action-first: it prefers running read-only `rauto` commands directly, and for config changes it prefers `tx` / `tx-workflow` with rollback or `--dry-run` first.
-- It also returns a compact execution summary instead of raw terminal noise.
-
-### Install to your machine
-
-1. Clone the repo:
-
-```bash
-git clone https://github.com/demohiiiii/rauto.git
-```
-
-2. Copy the skill into your Codex skills folder:
+Install it with:
 
 ```bash
 cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
 ```
 
-Notes:
-
-- If `CODEX_HOME` is not set, it usually defaults to `~/.codex`.
-- You can verify the skill is present at `$CODEX_HOME/skills/rauto-usage`.
-
-### Recommended prompts
-
-You can explicitly invoke the skill with `$rauto-usage`, for example:
-
-```text
-Use $rauto-usage to test connection lab1 and run "show version".
-Use $rauto-usage to preview templates/examples/fabric-advanced-orchestration.json, then wait for my confirmation before execution.
-Use $rauto-usage to show connection history for lab1 and summarize failures only.
-Use $rauto-usage to render configure_vlan.j2 with templates/example_vars.json and dry-run it first.
-```
-
-If your agent supports automatic skill routing, natural requests like these usually work too:
-
-```text
-Run one show command on my saved connection lab1.
-Preview this tx workflow and tell me the rollback plan.
-Check recent execution history for core-01 and summarize the errors.
-```
-
-### Claude Code example
-
-If you use Claude Code skills, copy the folder into your Claude Code skills directory:
-
-```bash
-cp -R rauto/skills/rauto-usage ~/.claude/skills/
-```
-
-`~/.claude/skills/` is a common personal skills location for Claude Code. If your local setup uses a different skills directory, copy it there instead.
+If you use Claude Code, the equivalent location is usually `~/.claude/skills/`.
 
 ## Usage
 
@@ -246,7 +188,7 @@ Notes:
 
 Ready-to-edit sample flow template:
 
-- [templates/examples/cisco-like-command-flow.toml](/Users/adam/Project/rauto-all/rauto/templates/examples/cisco-like-command-flow.toml)
+- [templates/examples/cisco-like-command-flow.toml](templates/examples/cisco-like-command-flow.toml)
 
 ### SFTP Upload
 
@@ -408,49 +350,13 @@ heartbeat_interval = 30
 probe_report_interval = 300
 ```
 
-Agent mode adds:
+Agent mode provides:
 
-- Public `GET /api/agent/info` for manager-side reachability/discovery.
-- Protected `GET /api/agent/status` for runtime status and heartbeat metadata.
-- Protected `POST /api/devices/probe` for batch TCP reachability checks of saved connections.
-- A same-port gRPC task service for manager callers: `rauto.agent.v1.AgentTaskService`.
-- Background manager registration, heartbeat, and best-effort offline notification on shutdown.
-- Manager reporting supports two transports:
-- `grpc` (default): uses `rauto.manager.v1.AgentReportingService`, best when manager can expose a gRPC endpoint.
-- `http`: uses manager HTTP endpoints, useful when manager only exposes HTTP(S), such as Vercel-style deployments.
-- Full inventory sync after registration and on saved-connection changes; this only syncs `name`, `host`, `port`, and `device_profile`.
-- Periodic liveness probe refresh (`probe_report_interval`, default `300`, set `0` to disable) with incremental `reachable` updates.
-- `task_id` enables async task events and task callbacks in agent mode; both are now reported back to manager through the selected transport.
-- From `rneter 0.3.3`, Linux-oriented command execution can expose `exit_code`; `exec`/`interactive` responses, template command results, and task-event details now carry it when available.
-- Transaction results now include step-level `step_results`, so manager-side callbacks can inspect per-step execution and rollback states instead of only block-level success/failure.
-- Managed task APIs now provide async accept-and-run endpoints for manager callers over HTTP:
-- `POST /api/exec/async`
-- `POST /api/template/execute/async`
-- `POST /api/tx/block/async`
-- `POST /api/tx/workflow/async`
-- `POST /api/orchestrate/async`
-- These async endpoints require agent mode plus a non-empty `task_id`, return `202 Accepted` immediately, and complete through the existing task event/task callback reporting path.
-- The same agent port also exposes gRPC task methods:
-- `GetAgentInfo`
-- `GetAgentStatus`
-- `ProbeDevices`
-- `ListCommandFlowTemplates`
-- `GetCommandFlowTemplate`
-- `UpsertCommandFlowTemplate`
-- `DeleteCommandFlowTemplate`
-- `ExecuteCommand`
-- `ExecuteTemplate`
-- `ExecuteCommandFlow`
-- `ExecuteUpload`
-- `ExecuteTxBlock`
-- `ExecuteTxBlockAsync`
-- `ExecuteTxWorkflowAsync`
-- `ExecuteOrchestrationAsync`
-- `exec`, `template_execute`, `command_flow`, `upload`, and `tx_block` use synchronous gRPC methods.
-- `tx_block` also provides an async gRPC method for manager callers that want immediate accept-and-run behavior.
-- `tx_workflow` and `orchestrate` stay async-only because they are typically long-running tasks.
-- Outbound manager requests now send both `Authorization: Bearer <token>` and `X-API-Key: <token>` when a token is configured.
-- When agent mode is started with a token, browser-side Web UI requests must provide the same token in the page header token field.
+- manager registration, heartbeat, inventory sync, and offline reporting over either `grpc` or `http`
+- same-port HTTP and gRPC task APIs for manager-side callers
+- async task events and final task callbacks through the selected reporting transport
+- protected status and probe endpoints for manager-side health checks
+- token-protected browser/API access when the agent is started with a token
 
 ### 5. Template Storage Commands
 
@@ -528,8 +434,8 @@ Notes:
 - If a row omits password fields, existing encrypted passwords are preserved for that connection.
 - In the Web UI, use `Saved Connections -> Download Template` to get a starter CSV file.
 - Sample files are also included in the repository:
-- [templates/examples/connection-import-template-en.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template-en.csv)
-- [templates/examples/connection-import-template-zh.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template-zh.csv)
+- [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
+- [templates/examples/connection-import-template-zh.csv](templates/examples/connection-import-template-zh.csv)
 
 ### 7. Backup & Restore
 
@@ -579,154 +485,6 @@ Notes:
 - `*` matches any character sequence, including spaces.
 - Matching is case-insensitive and applies to the full command text.
 - Blacklist data is stored in `~/.rauto/rauto.db`.
-
-### 9. CLI Quick Reference
-
-**Connection troubleshooting**
-
-```bash
-rauto connection test \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret \
-    --ssh-port 22
-```
-
-**Saved connection profiles**
-
-```bash
-rauto connection add lab1 \
-    --host 192.168.1.1 \
-    --username admin \
-    --ssh-port 22 \
-    --device-profile cisco
-rauto exec "show version" --connection lab1
-rauto connection list
-rauto history list lab1 --limit 20
-```
-
-**Command blacklist**
-
-```bash
-rauto blacklist add "reload*"
-rauto blacklist add "write erase"
-rauto blacklist list
-rauto blacklist check "reload in 5"
-```
-
-**Profile management**
-
-```bash
-rauto device list
-rauto device show cisco
-rauto device copy-builtin cisco my_cisco
-rauto device show my_cisco
-rauto device delete-custom my_cisco
-```
-
-**Template storage management**
-
-```bash
-rauto templates list
-rauto templates show show_version.j2
-rauto templates delete show_version.j2
-```
-
-**Session recording & replay**
-
-```bash
-# Record direct exec
-rauto exec "show version" \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret \
-    --record-file ~/.rauto/records/show_version.jsonl \
-    --record-level full
-
-# Record template execution
-rauto template show_version.j2 \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret \
-    --record-file ~/.rauto/records/template_run.jsonl \
-    --record-level key-events-only
-
-# Replay / inspect
-rauto replay ~/.rauto/records/show_version.jsonl --list
-rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
-```
-
-**Backup & restore**
-
-```bash
-rauto backup create
-rauto backup list
-rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
-```
-
-**Transaction blocks**
-
-```bash
-# Tx block without rollback
-rauto tx \
-    --command "interface vlan 10" \
-    --command "ip address 10.0.10.1 255.255.255.0" \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# Tx block with explicit per-step rollback (repeatable flags)
-rauto tx \
-    --command "interface vlan 10" \
-    --command "ip address 10.0.10.1 255.255.255.0" \
-    --rollback-command "no interface vlan 10" \
-    --rollback-command "no ip address 10.0.10.1 255.255.255.0" \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# Tx block with per-step rollback from file (one per line, empty lines ignored)
-rauto tx \
-    --command "interface vlan 10" \
-    --command "ip address 10.0.10.1 255.255.255.0" \
-    --rollback-commands-file ./rollback.txt \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# Tx block with per-step rollback from JSON array
-rauto tx \
-    --command "interface vlan 10" \
-    --command "ip address 10.0.10.1 255.255.255.0" \
-    --rollback-commands-json ./rollback.json \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# Tx block with whole-resource rollback
-rauto tx \
-    --command "vlan 10" \
-    --resource-rollback-command "no vlan 10" \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# Tx block backed by a command flow template
-rauto tx \
-    --run-kind command-flow \
-    --flow-template cisco_like_copy \
-    --flow-vars-json '{"protocol":"scp","direction":"to_device","server_addr":"192.168.1.50","remote_path":"/images/new.bin","device_path":"flash:/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
-    --rollback-flow-template cisco_like_copy \
-    --rollback-flow-vars-json '{"protocol":"scp","direction":"from_device","server_addr":"192.168.1.50","remote_path":"/images/old.bin","device_path":"flash:/old.bin","transfer_username":"backup","transfer_password":"secret"}' \
-    --rollback-on-failure \
-    --connection core-01
-```
-
-Notes:
-
-- `rauto tx --run-kind command-flow` runs a saved or ad-hoc command flow as one transaction step.
-- `--rollback-flow-template` and `--rollback-flow-file` are optional; when provided they become the compensating rollback step.
-- Command-based tx blocks keep the existing `--template`, `--command`, `--rollback-command`, and `--resource-rollback-command` behavior.
 
 **Transaction workflow**
 
@@ -809,11 +567,11 @@ rauto tx-workflow ./workflow.json --dry-run --json
 
 Ready-to-edit sample files:
 
-- [templates/examples/core-vlan-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/core-vlan-workflow.json)
+- [templates/examples/core-vlan-workflow.json](templates/examples/core-vlan-workflow.json)
 
 Advanced sample files:
 
-- [templates/examples/fabric-change-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-change-workflow.json)
+- [templates/examples/fabric-change-workflow.json](templates/examples/fabric-change-workflow.json)
 
 **Multi-device orchestration**
 
@@ -955,13 +713,13 @@ rauto orchestrate ./orchestration.json --json
 
 Ready-to-edit sample files:
 
-- [templates/examples/campus-vlan-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-vlan-orchestration.json)
-- [templates/examples/campus-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-inventory.json)
+- [templates/examples/campus-vlan-orchestration.json](templates/examples/campus-vlan-orchestration.json)
+- [templates/examples/campus-inventory.json](templates/examples/campus-inventory.json)
 
 Advanced sample files:
 
-- [templates/examples/fabric-advanced-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-orchestration.json)
-- [templates/examples/fabric-advanced-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-inventory.json)
+- [templates/examples/fabric-advanced-orchestration.json](templates/examples/fabric-advanced-orchestration.json)
+- [templates/examples/fabric-advanced-inventory.json](templates/examples/fabric-advanced-inventory.json)
 
 Notes:
 
@@ -971,78 +729,6 @@ Notes:
 - `tx_block` stages reuse existing template/rollback behavior and support per-target `vars`.
 - `tx_workflow` stages reuse existing single-device workflow JSON.
 - Multi-device orchestration is available in both Web UI and CLI.
-
-**CLI ⇄ Web UI mapping**
-
-```text
-Operations (Web)                 CLI
--------------------------------- ---------------------------------------------
-Direct Execute                   rauto exec
-Template Render + Execute        rauto template
-Command Flow Execute             rauto flow
-SFTP upload                      rauto upload
-Transaction Block (Tx Block)     rauto tx
-Transaction Workflow (Tx Flow)   rauto tx-workflow
-Multi-device Orchestration       rauto orchestrate
-Saved connections               rauto connection
-Connection history              rauto history
-Command blacklist               rauto blacklist
-
-Prompt Profiles (Web)            CLI
--------------------------------- ---------------------------------------------
-Built-in profiles                rauto device list / rauto device show <name>
-Copy builtin to custom           rauto device copy-builtin <builtin> <custom>
-Custom profiles CRUD             rauto device show/delete <custom>
-
-Template Manager (Web)           CLI
--------------------------------- ---------------------------------------------
-List templates                   rauto templates list
-Show template                    rauto templates show <name>
-Delete template                  rauto templates delete <name>
-Command flow templates           rauto flow-template
-
-Session Replay (Web)             CLI
--------------------------------- ---------------------------------------------
-List records                     rauto replay <jsonl> --list
-Replay command                   rauto replay <jsonl> --command "<cmd>" [--mode <Mode>]
-```
-
-**Feature availability**
-
-```text
-Feature                                   Web UI   CLI
------------------------------------------ ------- ----
-Connection profiles CRUD                 Yes     Yes
-Execution history browser                Yes     Yes (by file)
-Session recording (auto)                 Yes     Yes
-Session replay list/inspect              Yes     Yes
-Session replay UI table/detail           Yes     No
-Device-side SCP/TFTP transfer            Yes     Yes
-SFTP upload                              Yes     Yes
-Prompt profile diagnose view             Yes     No
-Workflow builder (visual)                Yes     No
-Transaction workflow JSON execution      Yes     Yes
-Multi-device orchestration (plan JSON)   Yes     Yes
-Command blacklist management             Yes     Yes
-```
-
-**Migration tips (Web ⇄ CLI)**
-
-```text
-Workflow Builder → CLI
-  1. In Web, open Tx Workflow step and click "Generate JSON".
-  2. Download JSON (More Actions → Download JSON).
-  3. Run: rauto tx-workflow ./workflow.json
-
-Tx Block (custom per-step rollback) → CLI
-  1. In Web, choose Rollback mode = "custom per-step".
-  2. Use "text" to copy rollback lines.
-  3. Run: rauto tx --rollback-commands-file ./rollback.txt ... (commands in same order)
-
-CLI recordings → Web Replay
-  1. Run with --record-file to create JSONL.
-  2. Open Web → Session Replay, paste JSONL and inspect.
-```
 
 **Start web console**
 
@@ -1071,18 +757,18 @@ Default runtime data:
 
 ## Configuration
 
-| Argument            | Env Var          | Description                                                     |
-| ------------------- | ---------------- | --------------------------------------------------------------- |
-| `--host`            | -                | Device hostname or IP                                           |
-| `--username`        | -                | SSH username                                                    |
-| `--password`        | `RAUTO_PASSWORD` | SSH password                                                    |
-| `--enable-password` | -                | Enable/Secret password                                          |
-| `--ssh-port`        | -                | SSH port (default: 22)                                          |
-| `--ssh-security`    | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible` |
+| Argument            | Env Var          | Description                                                                     |
+| ------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| `--host`            | -                | Device hostname or IP                                                           |
+| `--username`        | -                | SSH username                                                                    |
+| `--password`        | `RAUTO_PASSWORD` | SSH password                                                                    |
+| `--enable-password` | -                | Enable/Secret password                                                          |
+| `--ssh-port`        | -                | SSH port (default: 22)                                                          |
+| `--ssh-security`    | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible`                 |
 | `--device-profile`  | -                | Device type/profile (default: `linux`; examples: `huawei`, `linux`, `fortinet`) |
-| `--connection`      | -                | Load saved connection profile by name                           |
-| `--save-connection` | -                | Save effective connection profile after successful connect      |
-| `--save-password`   | -                | With `--save-connection`, also save password/enable_password    |
+| `--connection`      | -                | Load saved connection profile by name                                           |
+| `--save-connection` | -                | Save effective connection profile after successful connect                      |
+| `--save-password`   | -                | With `--save-connection`, also save password/enable_password                    |
 
 Recording-related options (command-specific):
 

@@ -32,19 +32,7 @@ rauto web --bind 127.0.0.1 --port 3000
 
 - [功能特性](#功能特性)
 - [安装](#安装)
-- [Codex Skill（可选）](#codex-skill可选)
 - [使用方法](#使用方法)
-  - [模板模式（推荐）](#1-模板模式推荐)
-  - [直接执行](#2-直接执行)
-  - [命令流程模板](#命令流程模板)
-  - [SFTP 上传](#sftp-上传)
-  - [设备配置模板](#3-设备配置模板)
-  - [Web 控制台（Axum）](#4-web-控制台axum)
-  - [Template 存储管理命令](#5-template-存储管理命令)
-  - [已保存连接配置](#6-已保存连接配置)
-  - [数据备份与恢复](#7-数据备份与恢复)
-  - [命令黑名单](#8-命令黑名单)
-  - [CLI 速查表](#9-cli-速查表)
 - [目录结构](#目录结构)
 - [配置选项](#配置选项)
 - [模板语法](#模板语法)
@@ -94,61 +82,15 @@ cargo build --release
 
 ## Codex Skill（可选）
 
-本仓库包含 rauto 使用 skill，位于 `skills/rauto-usage/`。
+本仓库包含一个 `skills/rauto-usage/`，适合在 Codex 或 Claude Code 中配合 `rauto` 使用。
 
-推荐用法：
-
-- 如果你是通过 Codex 或 Claude Code 来操作 `rauto`，优先安装并使用这个 skill。
-- 这个 skill 是“直接执行优先”的：读操作会直接运行对应 `rauto` 命令；变更操作会优先走 `tx` / `tx-workflow`，并优先做回滚设计或 `--dry-run`。
-- 返回结果也会更聚焦，通常只给你关键结论、执行命令和后续建议。
-
-### 安装到本机
-
-1. 拉取代码：
-
-```bash
-git clone https://github.com/demohiiiii/rauto.git
-```
-
-2. 复制 skill 到本机的 Codex skills 目录：
+安装方式：
 
 ```bash
 cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
 ```
 
-说明：
-
-- 如果未设置 `CODEX_HOME`，通常默认是 `~/.codex`。
-- 可检查 `$CODEX_HOME/skills/rauto-usage` 是否存在。
-
-### 推荐提示词
-
-你可以显式通过 `$rauto-usage` 调用这个 skill，例如：
-
-```text
-使用 $rauto-usage 测试已保存连接 lab1，并执行 "show version"。
-使用 $rauto-usage 先预览 templates/examples/fabric-advanced-orchestration.json，再等我确认后执行。
-使用 $rauto-usage 查看 lab1 的连接历史，只总结失败项。
-使用 $rauto-usage 渲染 configure_vlan.j2，变量文件用 templates/example_vars.json，并先 dry-run。
-```
-
-如果你的 agent 支持自动路由 skill，直接自然描述需求通常也可以：
-
-```text
-在我保存的连接 lab1 上执行一个 show 命令。
-帮我预览这个 tx workflow，并说明回滚策略。
-帮我检查 core-01 最近的执行历史，只看报错。
-```
-
-### Claude Code 示例
-
-如果你使用 Claude Code skills，请将目录复制到 Claude Code 的 skills 路径：
-
-```bash
-cp -R rauto/skills/rauto-usage ~/.claude/skills/
-```
-
-`~/.claude/skills/` 通常是 Claude Code 的个人 skills 路径；如果你的本地配置使用的是别的目录，就复制到对应目录即可。
+如果你使用 Claude Code，通常可复制到 `~/.claude/skills/`。
 
 ## 使用方法
 
@@ -246,7 +188,7 @@ rauto flow \
 
 可直接修改的示例模板：
 
-- [templates/examples/cisco-like-command-flow.toml](/Users/adam/Project/rauto-all/rauto/templates/examples/cisco-like-command-flow.toml)
+- [templates/examples/cisco-like-command-flow.toml](templates/examples/cisco-like-command-flow.toml)
 
 ### SFTP 上传
 
@@ -408,49 +350,13 @@ heartbeat_interval = 30
 probe_report_interval = 300
 ```
 
-Agent 模式新增能力：
+Agent 模式提供：
 
-- 公开 `GET /api/agent/info`，用于 Manager 做可达性检查和发现。
-- 受保护的 `GET /api/agent/status`，用于查看运行状态和心跳时间。
-- 受保护的 `POST /api/devices/probe`，用于批量探测已保存连接的 TCP 可达性。
-- 在同一个 agent 端口上额外暴露 gRPC 任务服务：`rauto.agent.v1.AgentTaskService`。
-- 启动后后台自动注册、定时心跳，以及退出时尽力发送离线通知。
-- 对 manager 的上报支持两种传输方式：
-- `grpc`（默认）：通过 `rauto.manager.v1.AgentReportingService` 上报，适合 manager 可以暴露 gRPC 端口的场景。
-- `http`：通过 manager 的 HTTP 接口上报，适合只暴露 HTTP(S) 的部署形态，比如 Vercel 这一类环境。
-- 在注册成功后和已保存连接变更时，会自动做设备清单全量同步，只同步 `name`、`host`、`port`、`device_profile`。
-- 按周期存活探测刷新时，会做状态增量更新（`probe_report_interval` 默认 `300` 秒，设为 `0` 可关闭）。
-- agent 模式下只传 `task_id` 也可以启用异步任务事件和任务回调；这两类上报都会通过当前选择的上报模式回传给 `rauto-manager`。
-- 从 `rneter 0.3.3` 开始，Linux 场景下的命令执行可能返回 `exit_code`；`exec` / `interactive` 响应、模板逐条执行结果以及任务事件详情现在都会在可用时携带它。
-- 事务结果现在会包含逐步级别的 `step_results`，manager 在处理最终回调时可以直接拿到每一步的执行/回滚状态，而不只看块级成功失败。
-- 受管任务接口另外提供了给 manager 调用的 HTTP 异步入口：
-- `POST /api/exec/async`
-- `POST /api/template/execute/async`
-- `POST /api/tx/block/async`
-- `POST /api/tx/workflow/async`
-- `POST /api/orchestrate/async`
-- 这些异步接口要求运行在 agent 模式下，并且请求中带非空 `task_id`；接口会立即返回 `202 Accepted`，后续执行结果仍通过现有的任务事件和任务回调链路回传。
-- 同一个 agent 端口也暴露了下面这些 gRPC 任务方法：
-- `GetAgentInfo`
-- `GetAgentStatus`
-- `ProbeDevices`
-- `ListCommandFlowTemplates`
-- `GetCommandFlowTemplate`
-- `UpsertCommandFlowTemplate`
-- `DeleteCommandFlowTemplate`
-- `ExecuteCommand`
-- `ExecuteTemplate`
-- `ExecuteCommandFlow`
-- `ExecuteUpload`
-- `ExecuteTxBlock`
-- `ExecuteTxBlockAsync`
-- `ExecuteTxWorkflowAsync`
-- `ExecuteOrchestrationAsync`
-- `exec`、`template_execute`、`command_flow`、`upload`、`tx_block` 走同步 gRPC 方法。
-- `tx_block` 也额外提供异步 gRPC 方法，方便 manager 走立即接受、后台执行的模式。
-- `tx_workflow` 和 `orchestrate` 仍然只保留异步方法，因为这两类任务通常耗时较长。
-- 配置 token 时，对 manager 的外呼会同时带上 `Authorization: Bearer <token>` 和 `X-API-Key: <token>`。
-- 如果 agent 模式启动时配置了 token，浏览器中的 Web UI 请求也需要在页面头部填写同一个 token。
+- 通过 `grpc` 或 `http` 完成 manager 注册、心跳、设备清单同步和离线通知
+- 在同一端口上提供给 manager 调用的 HTTP / gRPC 任务接口
+- 通过当前上报通道回传异步任务事件和最终任务回调
+- 提供受保护的状态查看与批量探测接口，方便 manager 做健康检查
+- 配置 token 后，浏览器端和 manager 侧请求都会按同一套 token 机制受保护
 
 ### 5. Template 存储管理命令
 
@@ -528,8 +434,8 @@ linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,
 - 某一行未提供密码字段时，如果该连接已存在，则会保留原有的加密密码。
 - 在 Web UI 中，可通过 `Saved Connections -> Download Template` 下载起始 CSV 模板。
 - 仓库里也提供了中英文两份示例文件：
-- [templates/examples/connection-import-template-en.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template-en.csv)
-- [templates/examples/connection-import-template-zh.csv](/Users/adam/Project/rauto-all/rauto/templates/examples/connection-import-template-zh.csv)
+- [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
+- [templates/examples/connection-import-template-zh.csv](templates/examples/connection-import-template-zh.csv)
 
 ### 7. 数据备份与恢复
 
@@ -579,154 +485,6 @@ rauto blacklist delete "reload*"
 - `*` 可以匹配任意长度字符，也包括空格。
 - 匹配不区分大小写，并且按整条命令文本匹配。
 - 黑名单数据保存在 `~/.rauto/rauto.db` 中。
-
-### 9. CLI 速查表
-
-**连接排障**
-
-```bash
-rauto connection test \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret \
-    --ssh-port 22
-```
-
-**连接配置档**
-
-```bash
-rauto connection add lab1 \
-    --host 192.168.1.1 \
-    --username admin \
-    --ssh-port 22 \
-    --device-profile cisco
-rauto exec "show version" --connection lab1
-rauto connection list
-rauto history list lab1 --limit 20
-```
-
-**命令黑名单**
-
-```bash
-rauto blacklist add "reload*"
-rauto blacklist add "write erase"
-rauto blacklist list
-rauto blacklist check "reload in 5"
-```
-
-**Profile 管理**
-
-```bash
-rauto device list
-rauto device show cisco
-rauto device copy-builtin cisco my_cisco
-rauto device show my_cisco
-rauto device delete-custom my_cisco
-```
-
-**Template 存储管理**
-
-```bash
-rauto templates list
-rauto templates show show_version.j2
-rauto templates delete show_version.j2
-```
-
-**会话录制与回放**
-
-```bash
-# 录制直接执行
-rauto exec "show version" \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret \
-    --record-file ~/.rauto/records/show_version.jsonl \
-    --record-level full
-
-# 录制模板执行
-rauto template show_version.j2 \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret \
-    --record-file ~/.rauto/records/template_run.jsonl \
-    --record-level key-events-only
-
-# 回放 / 查看
-rauto replay ~/.rauto/records/show_version.jsonl --list
-rauto replay ~/.rauto/records/show_version.jsonl --command "show version" --mode Enable
-```
-
-**数据备份与恢复**
-
-```bash
-rauto backup create
-rauto backup list
-rauto backup restore ~/.rauto/backups/rauto-backup-1234567890.tar.gz --replace
-```
-
-**事务块执行**
-
-```bash
-# 不启用回滚的事务块
-rauto tx \
-    --command "interface vlan 10" \
-    --command "ip address 10.0.10.1 255.255.255.0" \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# 显式逐条回滚（重复参数）
-rauto tx \
-    --command "interface vlan 10" \
-    --command "ip address 10.0.10.1 255.255.255.0" \
-    --rollback-command "no interface vlan 10" \
-    --rollback-command "no ip address 10.0.10.1 255.255.255.0" \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# 从文件读取逐条回滚（每行一条，空行会忽略）
-rauto tx \
-    --command "interface vlan 10" \
-    --command "ip address 10.0.10.1 255.255.255.0" \
-    --rollback-commands-file ./rollback.txt \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# 从 JSON 数组读取逐条回滚
-rauto tx \
-    --command "interface vlan 10" \
-    --command "ip address 10.0.10.1 255.255.255.0" \
-    --rollback-commands-json ./rollback.json \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# 整块回滚
-rauto tx \
-    --command "vlan 10" \
-    --resource-rollback-command "no vlan 10" \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
-
-# 使用命令流程模板作为事务块
-rauto tx \
-    --run-kind command-flow \
-    --flow-template cisco_like_copy \
-    --flow-vars-json '{"protocol":"scp","direction":"to_device","server_addr":"192.168.1.50","remote_path":"/images/new.bin","device_path":"flash:/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
-    --rollback-flow-template cisco_like_copy \
-    --rollback-flow-vars-json '{"protocol":"scp","direction":"from_device","server_addr":"192.168.1.50","remote_path":"/images/old.bin","device_path":"flash:/old.bin","transfer_username":"backup","transfer_password":"secret"}' \
-    --rollback-on-failure \
-    --connection core-01
-```
-
-说明：
-
-- `rauto tx --run-kind command-flow` 会把命令流程模板当成一个事务步骤来执行。
-- `--rollback-flow-template` / `--rollback-flow-file` 是可选的，提供后会作为补偿回滚步骤执行。
-- 传统命令式事务块仍然保持原来的 `--template`、`--command`、`--rollback-command`、`--resource-rollback-command` 语义。
 
 **事务工作流**
 
@@ -809,11 +567,11 @@ rauto tx-workflow ./workflow.json --dry-run --json
 
 可直接改的示例文件：
 
-- [templates/examples/core-vlan-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/core-vlan-workflow.json)
+- [templates/examples/core-vlan-workflow.json](templates/examples/core-vlan-workflow.json)
 
 更复杂的示例文件：
 
-- [templates/examples/fabric-change-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-change-workflow.json)
+- [templates/examples/fabric-change-workflow.json](templates/examples/fabric-change-workflow.json)
 
 **多设备编排**
 
@@ -955,13 +713,13 @@ rauto orchestrate ./orchestration.json --json
 
 可直接改的示例文件：
 
-- [templates/examples/campus-vlan-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-vlan-orchestration.json)
-- [templates/examples/campus-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/campus-inventory.json)
+- [templates/examples/campus-vlan-orchestration.json](templates/examples/campus-vlan-orchestration.json)
+- [templates/examples/campus-inventory.json](templates/examples/campus-inventory.json)
 
 更复杂的示例文件：
 
-- [templates/examples/fabric-advanced-orchestration.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-orchestration.json)
-- [templates/examples/fabric-advanced-inventory.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-advanced-inventory.json)
+- [templates/examples/fabric-advanced-orchestration.json](templates/examples/fabric-advanced-orchestration.json)
+- [templates/examples/fabric-advanced-inventory.json](templates/examples/fabric-advanced-inventory.json)
 
 说明：
 
@@ -971,78 +729,6 @@ rauto orchestrate ./orchestration.json --json
 - `tx_block` 阶段会复用现有模板/回滚能力，并支持按目标覆盖 `vars`。
 - `tx_workflow` 阶段会直接复用现有单设备工作流 JSON。
 - 多设备编排当前已同时支持 Web UI 与 CLI。
-
-**CLI 与 Web UI 对应关系**
-
-```text
-Web 操作界面                   CLI
------------------------------- ---------------------------------------------
-直接执行命令                   rauto exec
-模板渲染并执行                 rauto template
-命令流程执行                   rauto flow
-SFTP 上传                      rauto upload
-事务块执行                     rauto tx
-事务工作流                     rauto tx-workflow
-多设备编排执行                 rauto orchestrate
-连接配置管理                   rauto connection
-连接历史查看                   rauto history
-命令黑名单                     rauto blacklist
-
-Prompt 管理                    CLI
------------------------------- ---------------------------------------------
-内置 profile                   rauto device list / rauto device show <name>
-复制内置到自定义               rauto device copy-builtin <builtin> <custom>
-自定义 profile 管理            rauto device show/delete <custom>
-
-Template 管理                  CLI
------------------------------- ---------------------------------------------
-列出模板                       rauto templates list
-查看模板                       rauto templates show <name>
-删除模板                       rauto templates delete <name>
-命令流程模板                   rauto flow-template
-
-会话回放                        CLI
------------------------------- ---------------------------------------------
-列出记录                       rauto replay <jsonl> --list
-回放命令                       rauto replay <jsonl> --command "<cmd>" [--mode <Mode>]
-```
-
-**功能差异**
-
-```text
-功能                                      Web UI  CLI
------------------------------------------ ------- ----
-连接配置增删改查                          Yes     Yes
-执行历史浏览                              Yes     Yes (按文件)
-会话录制（自动）                          Yes     Yes
-会话回放列表/查看                          Yes     Yes
-回放表格/详情抽屉                          Yes     No
-设备侧 SCP/TFTP 文件传输                  Yes     Yes
-SFTP 上传                                 Yes     Yes
-Prompt profile 诊断页面                    Yes     No
-工作流构建器（可视化）                      Yes     No
-事务工作流 JSON 执行                       Yes     Yes
-多设备编排计划 JSON 执行                   Yes     Yes
-命令黑名单管理                              Yes     Yes
-```
-
-**迁移提示（Web ⇄ CLI）**
-
-```text
-工作流构建器 → CLI
-  1. Web 中进入事务工作流，点击“生成 JSON”。
-  2. 更多操作 → 下载 JSON。
-  3. CLI 执行：rauto tx-workflow ./workflow.json
-
-事务块逐条回滚 → CLI
-  1. Web 选择“自定义逐条回滚”。
-  2. 选择“文本”，复制回滚行。
-  3. CLI 执行：rauto tx --rollback-commands-file ./rollback.txt ...（顺序一致）
-
-CLI 录制 → Web 回放
-  1. CLI 使用 --record-file 生成 JSONL。
-  2. Web → 会话回放，粘贴 JSONL 查看。
-```
 
 **启动 Web 控制台**
 
