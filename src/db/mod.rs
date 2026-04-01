@@ -47,10 +47,7 @@ pub async fn init() -> Result<()> {
     if DB_MIGRATED.load(Ordering::Acquire) {
         return Ok(());
     }
-    let _guard = DB_MIGRATE_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .await;
+    let _guard = DB_MIGRATE_LOCK.get_or_init(|| Mutex::new(())).lock().await;
     if DB_MIGRATED.load(Ordering::Acquire) {
         return Ok(());
     }

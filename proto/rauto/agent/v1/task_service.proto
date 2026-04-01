@@ -200,6 +200,13 @@ message ExecuteTxBlockRequest {
   bool dry_run = 12;
   ConnectionRef connection = 13;
   string record_level = 14;
+  string run_kind = 15;
+  string flow_template_name = 16;
+  string flow_content = 17;
+  string flow_vars_json = 18;
+  string rollback_flow_template_name = 19;
+  string rollback_flow_content = 20;
+  string rollback_flow_vars_json = 21;
 }
 
 message ExecuteTxWorkflowRequest {

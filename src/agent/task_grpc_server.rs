@@ -52,8 +52,7 @@ use crate::web::models::{
     ExecuteTxBlockRequest as WebExecuteTxBlockRequest,
     ExecuteTxWorkflowRequest as WebExecuteTxWorkflowRequest,
     ExecuteUploadRequest as WebExecuteUploadRequest, RecordLevel, TxBlockRunKind,
-    UpdateCommandFlowTemplateRequest,
-    UpsertConnectionRequest as WebUpsertConnectionRequest,
+    UpdateCommandFlowTemplateRequest, UpsertConnectionRequest as WebUpsertConnectionRequest,
 };
 use crate::web::state::AppState;
 use crate::web::storage;
@@ -159,6 +158,18 @@ fn parse_record_level(raw: &str) -> Result<Option<RecordLevel>, Status> {
     }
 }
 
+fn parse_tx_block_run_kind(raw: &str) -> Result<Option<TxBlockRunKind>, Status> {
+    match raw.trim() {
+        "" => Ok(None),
+        "commands" => Ok(Some(TxBlockRunKind::Commands)),
+        "command-flow" => Ok(Some(TxBlockRunKind::CommandFlow)),
+        value => Err(Status::invalid_argument(format!(
+            "unsupported tx block run_kind '{}'",
+            value
+        ))),
+    }
+}
+
 fn parse_ssh_security(raw: &str) -> Result<Option<SshSecurityProfile>, Status> {
     match raw.trim() {
         "" => Ok(None),
@@ -200,6 +211,38 @@ fn map_async_response(
         operation: response.operation,
         status: response.status,
     }
+}
+
+fn map_execute_tx_block_request(
+    req: GrpcExecuteTxBlockRequest,
+) -> Result<WebExecuteTxBlockRequest, Status> {
+    Ok(WebExecuteTxBlockRequest {
+        name: optional_string(req.name),
+        run_kind: parse_tx_block_run_kind(&req.run_kind)?,
+        template: optional_string(req.template),
+        vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
+        flow_template_name: optional_string(req.flow_template_name),
+        flow_content: optional_string(req.flow_content),
+        flow_vars: parse_json_value(&req.flow_vars_json, "flow_vars_json", Value::Null)?,
+        rollback_flow_template_name: optional_string(req.rollback_flow_template_name),
+        rollback_flow_content: optional_string(req.rollback_flow_content),
+        rollback_flow_vars: parse_json_value(
+            &req.rollback_flow_vars_json,
+            "rollback_flow_vars_json",
+            Value::Null,
+        )?,
+        commands: req.commands,
+        rollback_commands: req.rollback_commands,
+        rollback_on_failure: Some(req.rollback_on_failure),
+        rollback_trigger_step_index: req.rollback_trigger_step_index.map(|value| value as usize),
+        mode: optional_string(req.mode),
+        timeout_secs: req.timeout_secs,
+        resource_rollback_command: optional_string(req.resource_rollback_command),
+        dry_run: Some(req.dry_run),
+        connection: map_connection_ref(req.connection)?,
+        record_level: parse_record_level(&req.record_level)?,
+        task_id: optional_string(req.task_id),
+    })
 }
 
 fn map_command_result(result: CommandResult) -> CommandExecutionResult {
@@ -764,34 +807,9 @@ impl AgentTaskService for AgentTaskGrpcService {
         request: Request<GrpcExecuteTxBlockRequest>,
     ) -> Result<Response<ExecuteTxBlockResponse>, Status> {
         self.validate_auth(request.metadata())?;
-        let req = request.into_inner();
         let Json(response) = execute_tx_block_handler(
             State(self.state.clone()),
-            Json(WebExecuteTxBlockRequest {
-                name: optional_string(req.name),
-                run_kind: Some(TxBlockRunKind::Commands),
-                template: optional_string(req.template),
-                vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
-                flow_template_name: None,
-                flow_content: None,
-                flow_vars: Value::Null,
-                rollback_flow_template_name: None,
-                rollback_flow_content: None,
-                rollback_flow_vars: Value::Null,
-                commands: req.commands,
-                rollback_commands: req.rollback_commands,
-                rollback_on_failure: Some(req.rollback_on_failure),
-                rollback_trigger_step_index: req
-                    .rollback_trigger_step_index
-                    .map(|value| value as usize),
-                mode: optional_string(req.mode),
-                timeout_secs: req.timeout_secs,
-                resource_rollback_command: optional_string(req.resource_rollback_command),
-                dry_run: Some(req.dry_run),
-                connection: map_connection_ref(req.connection)?,
-                record_level: parse_record_level(&req.record_level)?,
-                task_id: optional_string(req.task_id),
-            }),
+            Json(map_execute_tx_block_request(request.into_inner())?),
         )
         .await
         .map_err(api_error_to_status)?;
@@ -816,34 +834,9 @@ impl AgentTaskService for AgentTaskGrpcService {
         request: Request<GrpcExecuteTxBlockRequest>,
     ) -> Result<Response<AcceptedTaskResponse>, Status> {
         self.validate_auth(request.metadata())?;
-        let req = request.into_inner();
         let response = queue_tx_block_async_task(
             self.state.clone(),
-            WebExecuteTxBlockRequest {
-                name: optional_string(req.name),
-                run_kind: Some(TxBlockRunKind::Commands),
-                template: optional_string(req.template),
-                vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
-                flow_template_name: None,
-                flow_content: None,
-                flow_vars: Value::Null,
-                rollback_flow_template_name: None,
-                rollback_flow_content: None,
-                rollback_flow_vars: Value::Null,
-                commands: req.commands,
-                rollback_commands: req.rollback_commands,
-                rollback_on_failure: Some(req.rollback_on_failure),
-                rollback_trigger_step_index: req
-                    .rollback_trigger_step_index
-                    .map(|value| value as usize),
-                mode: optional_string(req.mode),
-                timeout_secs: req.timeout_secs,
-                resource_rollback_command: optional_string(req.resource_rollback_command),
-                dry_run: Some(req.dry_run),
-                connection: map_connection_ref(req.connection)?,
-                record_level: parse_record_level(&req.record_level)?,
-                task_id: optional_string(req.task_id),
-            },
+            map_execute_tx_block_request(request.into_inner())?,
         )
         .map_err(api_error_to_status)?;
         Ok(Response::new(map_async_response(response)))

@@ -62,7 +62,9 @@ pub fn build_command_tx_block(
     let whole_resource_rollback = resource_rollback_command
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
-    let has_per_step_rollbacks = rollback_commands.iter().any(|value| !value.trim().is_empty());
+    let has_per_step_rollbacks = rollback_commands
+        .iter()
+        .any(|value| !value.trim().is_empty());
 
     if has_per_step_rollbacks && whole_resource_rollback.is_some() {
         return Err(anyhow!(

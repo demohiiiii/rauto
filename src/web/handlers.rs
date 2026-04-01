@@ -1510,7 +1510,9 @@ fn load_command_flow_template_from_input(
     inline_name: &str,
 ) -> Result<CommandFlowTemplate, ApiError> {
     match (
-        template_name.map(str::trim).filter(|value| !value.is_empty()),
+        template_name
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
         content.map(str::trim).filter(|value| !value.is_empty()),
     ) {
         (Some(name), None) => load_command_flow_template_form(name),
@@ -2874,8 +2876,12 @@ pub async fn execute_tx_block(
             TxBlockRunKind::Commands => {
                 let mode = requested_mode.unwrap_or_else(|| "Config".to_string());
                 let renderer = Renderer::new();
-                let resolved_commands =
-                    resolve_tx_commands(&renderer, req.template.as_deref(), req.vars, &req.commands)?;
+                let resolved_commands = resolve_tx_commands(
+                    &renderer,
+                    req.template.as_deref(),
+                    req.vars,
+                    &req.commands,
+                )?;
 
                 if req.rollback_trigger_step_index.is_some()
                     && req.resource_rollback_command.is_none()
@@ -2909,7 +2915,10 @@ pub async fn execute_tx_block(
                 (tx_block, mode)
             }
             TxBlockRunKind::CommandFlow => {
-                if req.template.as_deref().is_some_and(|value| !value.trim().is_empty())
+                if req
+                    .template
+                    .as_deref()
+                    .is_some_and(|value| !value.trim().is_empty())
                     || !req.commands.is_empty()
                     || !req.rollback_commands.is_empty()
                     || req.resource_rollback_command.is_some()
@@ -2968,8 +2977,8 @@ pub async fn execute_tx_block(
                     }
                 };
 
-                let mut step =
-                    TxStep::new(flow_operation).with_rollback_on_failure(req.rollback_on_failure.unwrap_or(false));
+                let mut step = TxStep::new(flow_operation)
+                    .with_rollback_on_failure(req.rollback_on_failure.unwrap_or(false));
                 if let Some(rollback_operation) = rollback_operation {
                     step = step.with_rollback(rollback_operation);
                 }

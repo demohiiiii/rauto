@@ -1416,7 +1416,8 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                     "use either --rollback-command (per-step) or --resource-rollback-command (whole-resource)"
                 ));
             }
-            if args.rollback_trigger_step_index.is_some() && args.resource_rollback_command.is_none()
+            if args.rollback_trigger_step_index.is_some()
+                && args.resource_rollback_command.is_none()
             {
                 return Err(anyhow::anyhow!(
                     "--rollback-trigger-step-index requires --resource-rollback-command"
@@ -1424,8 +1425,15 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             }
 
             let commands = resolve_tx_commands(&args, &conn)?;
-            let mode = match args.mode.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-                Some(mode) => template_loader::resolve_profile_mode(&conn.device_profile, Some(mode))?,
+            let mode = match args
+                .mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                Some(mode) => {
+                    template_loader::resolve_profile_mode(&conn.device_profile, Some(mode))?
+                }
                 None => "Config".to_string(),
             };
 
@@ -1486,8 +1494,15 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                 ));
             }
 
-            let mode = match args.mode.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-                Some(mode) => template_loader::resolve_profile_mode(&conn.device_profile, Some(mode))?,
+            let mode = match args
+                .mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                Some(mode) => {
+                    template_loader::resolve_profile_mode(&conn.device_profile, Some(mode))?
+                }
                 None => template_loader::default_profile_mode(&conn.device_profile)?,
             };
 
