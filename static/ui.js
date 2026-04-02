@@ -856,10 +856,78 @@ function recordLevelPayload() {
   return level;
 }
 
+const INLINE_STATUS_TARGETS = new Set([
+  "connection-test-out",
+  "tx-plan-out",
+  "tx-exec-out",
+  "tx-workflow-plan-out",
+  "tx-workflow-exec-out",
+  "orchestration-plan-out",
+  "orchestration-exec-out",
+  "flow-out",
+  "upload-out",
+  "profile-diagnose-out",
+  "builtin-detail-status",
+]);
+
+let toastSequence = 0;
+
+function isPassiveLoadedStatus(message, tone) {
+  if (tone !== "info" && tone !== "success") return false;
+  const text = safeString(message || "").trim();
+  const loadedPrefix = safeString(t("loaded")).trim();
+  if (!text || !loadedPrefix) return false;
+  return text === loadedPrefix || text.startsWith(`${loadedPrefix}:`);
+}
+
+function shouldToastStatus(message, tone) {
+  const text = safeString(message || "").trim();
+  if (!text || text === "-") return false;
+  if (isPassiveLoadedStatus(text, tone)) return false;
+  return tone === "success" || tone === "error";
+}
+
+function shouldRenderInlineStatus(id, message, tone) {
+  const text = safeString(message || "").trim();
+  if (!text || text === "-") return false;
+  if (isPassiveLoadedStatus(text, tone)) return false;
+  if (tone === "running") return true;
+  return INLINE_STATUS_TARGETS.has(id);
+}
+
+function showToast(message, tone = "info") {
+  const stack = byId("toast-stack");
+  if (!stack || !shouldToastStatus(message, tone)) return;
+  const toastId = `toast-${++toastSequence}`;
+  const item = document.createElement("div");
+  item.dataset.toastId = toastId;
+  item.innerHTML = renderStatusToast(message, tone);
+  const toastEl = item.firstElementChild;
+  if (!toastEl) return;
+  const closeBtn = toastEl.querySelector(".js-toast-close");
+  const dismiss = () => {
+    toastEl.remove();
+  };
+  if (closeBtn) {
+    closeBtn.onclick = dismiss;
+  }
+  stack.appendChild(toastEl);
+  window.setTimeout(dismiss, tone === "error" ? 6500 : 3200);
+}
+
 function setStatusMessage(id, message, tone = "info") {
   const el = byId(id);
   if (!el) return;
-  el.innerHTML = renderStatusMessageCard(message, tone);
+  if (isPassiveLoadedStatus(message, tone)) {
+    el.innerHTML = "";
+    return;
+  }
+  if (shouldRenderInlineStatus(id, message, tone)) {
+    el.innerHTML = renderStatusMessageCard(message, tone);
+  } else {
+    el.innerHTML = "";
+  }
+  showToast(message, tone);
 }
 
 function flowVarTypeLabel(kind) {

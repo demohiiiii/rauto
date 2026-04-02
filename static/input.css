@@ -236,6 +236,27 @@
       inset 0 1px 0 rgb(255 255 255 / 0.04);
   }
 
+  #toast-stack {
+    top: 5rem;
+    right: 1rem;
+    width: min(24rem, calc(100vw - 1.5rem));
+  }
+
+  #toast-stack .alert {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-radius: 1rem;
+  }
+
+  #toast-stack .js-toast-close {
+    min-height: 1.5rem;
+    height: 1.5rem;
+    padding-inline: 0.35rem;
+    margin-top: -0.1rem;
+  }
+
   .dashboard-body[data-dashboard-theme="light"] .dashboard-panel {
     border-color: rgb(148 163 184 / 0.18);
     background:

@@ -50,6 +50,17 @@ function renderStatusMessageCard(message, tone = "info") {
   return `<div class="rounded-xl border px-3 py-2 text-sm ${cls}">${escapeHtml(text)}</div>`;
 }
 
+function renderStatusToast(message, tone = "info") {
+  const text = safeString(message || "-");
+  const cls = tone === "success" ? "alert-success" : "alert-error";
+  return `
+    <div class="alert ${cls} shadow-lg">
+      <span>${escapeHtml(text)}</span>
+      <button type="button" class="btn btn-ghost btn-xs js-toast-close" aria-label="Close">×</button>
+    </div>
+  `;
+}
+
 function renderFlowTemplateVarField(field, draftValue) {
   const value = draftValue !== undefined ? safeString(draftValue) : defaultFlowVarDraft(field);
   const requiredBadge = field.required

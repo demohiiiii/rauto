@@ -102,7 +102,7 @@ async function loadProfilesOverview() {
 
     if (data.custom.length > 0) {
       cachedCustomProfiles = data.custom.map((item) => item.name);
-      setStatusMessage("profile-out", `${t("loaded")}: ${data.custom.length}`, "info");
+      setStatusMessage("profile-out", "-", "info");
       renderCustomProfileOptions();
       renderDiagnoseProfileOptions();
     } else {
