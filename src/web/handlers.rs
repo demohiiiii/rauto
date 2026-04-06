@@ -14,6 +14,7 @@ use crate::config::{
 use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
 use crate::orchestrator;
+use crate::task::{TaskEventLevel, TaskEventType, TaskOperation, TaskStatus};
 use crate::template::renderer::Renderer;
 use crate::tx_operation::build_command_tx_block;
 use crate::web::error::ApiError;
@@ -81,13 +82,17 @@ pub struct ConnectionImportTemplateQuery {
 #[derive(Debug, Clone)]
 struct TaskReportContext {
     task_id: String,
-    operation: String,
+    operation: TaskOperation,
     started_at: chrono::DateTime<Utc>,
     started_instant: Instant,
 }
 
 impl TaskReportContext {
-    fn from_request(operation: &str, task_id: Option<String>, managed: bool) -> Option<Self> {
+    fn from_request(
+        operation: TaskOperation,
+        task_id: Option<String>,
+        managed: bool,
+    ) -> Option<Self> {
         if !managed {
             return None;
         }
@@ -98,7 +103,7 @@ impl TaskReportContext {
             .map(ToOwned::to_owned)?;
         Some(Self {
             task_id,
-            operation: operation.to_string(),
+            operation,
             started_at: Utc::now(),
             started_instant: Instant::now(),
         })
@@ -197,6 +202,14 @@ fn recording_entry_occurred_at(ts_ms: u128) -> String {
     chrono::DateTime::<Utc>::from_timestamp_millis(ts_ms as i64)
         .unwrap_or_else(Utc::now)
         .to_rfc3339()
+}
+
+fn parse_task_event_type(raw: &str) -> TaskEventType {
+    TaskEventType::parse(raw).unwrap_or(TaskEventType::Log)
+}
+
+fn parse_task_event_level(raw: &str) -> TaskEventLevel {
+    TaskEventLevel::parse(raw).unwrap_or(TaskEventLevel::Info)
 }
 
 fn tx_block_step_progress(step_index: usize, total_steps: usize) -> Option<u8> {
@@ -597,9 +610,9 @@ fn spawn_recording_event_forwarder(
                                 let event = TaskEvent {
                                     task_id: task_ctx.task_id.clone(),
                                     agent_name: agent_name.clone(),
-                                    event_type: event_input.event_type,
+                                    event_type: parse_task_event_type(&event_input.event_type),
                                     message: event_input.message,
-                                    level: event_input.level,
+                                    level: parse_task_event_level(&event_input.level),
                                     stage: event_input.stage,
                                     progress: event_input.progress,
                                     details: event_input.details,
@@ -613,13 +626,13 @@ fn spawn_recording_event_forwarder(
                             let event = TaskEvent {
                                 task_id: task_ctx.task_id.clone(),
                                 agent_name: agent_name.clone(),
-                                event_type: "warning".to_string(),
+                                event_type: TaskEventType::Warning,
                                 message: format!(
                                     "Live task event stream lagged, skipped {} recorder events",
                                     skipped
                                 ),
-                                level: "warning".to_string(),
-                                stage: Some(task_ctx.operation.clone()),
+                                level: TaskEventLevel::Warning,
+                                stage: Some(task_ctx.operation.to_string()),
                                 progress: None,
                                 details: Some(json!({ "skipped_events": skipped })),
                                 occurred_at: Utc::now().to_rfc3339(),
@@ -662,9 +675,9 @@ fn emit_task_event(
         let event = TaskEvent {
             task_id: task_ctx.task_id,
             agent_name: current_agent_name(&state),
-            event_type: event.event_type,
+            event_type: parse_task_event_type(&event.event_type),
             message: event.message,
-            level: event.level,
+            level: parse_task_event_level(&event.level),
             stage: event.stage,
             progress: event.progress,
             details: event.details,
@@ -675,7 +688,7 @@ fn emit_task_event(
 }
 
 fn require_managed_async_task(
-    operation: &str,
+    operation: TaskOperation,
     task_id: Option<String>,
     managed: bool,
 ) -> Result<String, ApiError> {
@@ -697,13 +710,13 @@ fn require_managed_async_task(
 
 fn build_async_task_accepted_response(
     task_id: String,
-    operation: &str,
+    operation: TaskOperation,
 ) -> AsyncTaskAcceptedResponse {
     AsyncTaskAcceptedResponse {
         accepted: true,
         task_id,
-        operation: operation.to_string(),
-        status: "queued".to_string(),
+        operation,
+        status: TaskStatus::Queued,
     }
 }
 
@@ -736,10 +749,10 @@ async fn report_async_task_failure(state: Arc<AppState>, spec: AsyncTaskFailureS
     let event = TaskEvent {
         task_id: task_id.clone(),
         agent_name: agent_name.clone(),
-        event_type: "failed".to_string(),
+        event_type: TaskEventType::Failed,
         message: failure_message.clone(),
-        level: "error".to_string(),
-        stage: Some(operation_name.clone()),
+        level: TaskEventLevel::Error,
+        stage: Some(operation_name.to_string()),
         progress: Some(100),
         details: Some(details),
         occurred_at: Utc::now().to_rfc3339(),
@@ -749,7 +762,7 @@ async fn report_async_task_failure(state: Arc<AppState>, spec: AsyncTaskFailureS
     let callback = TaskCallback {
         task_id: task_id.clone(),
         agent_name,
-        status: "failed".to_string(),
+        status: TaskStatus::Failed,
         started_at: started_at.to_rfc3339(),
         completed_at: Utc::now().to_rfc3339(),
         execution_time_ms: started_instant.elapsed().as_millis() as u64,
@@ -849,7 +862,11 @@ pub(crate) fn queue_exec_async_task(
     state: Arc<AppState>,
     req: ExecRequest,
 ) -> Result<AsyncTaskAcceptedResponse, ApiError> {
-    let task_id = require_managed_async_task("exec", req.task_id.clone(), state.is_managed())?;
+    let task_id = require_managed_async_task(
+        TaskOperation::Exec,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
     let background_state = state.clone();
     spawn_supervised_async_task(
         background_state.clone(),
@@ -861,15 +878,21 @@ pub(crate) fn queue_exec_async_task(
                 .map(|_| ())
         },
     );
-    Ok(build_async_task_accepted_response(task_id, "exec"))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::Exec,
+    ))
 }
 
 pub(crate) fn queue_template_async_task(
     state: Arc<AppState>,
     req: ExecuteTemplateRequest,
 ) -> Result<AsyncTaskAcceptedResponse, ApiError> {
-    let task_id =
-        require_managed_async_task("template_execute", req.task_id.clone(), state.is_managed())?;
+    let task_id = require_managed_async_task(
+        TaskOperation::TemplateExecute,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
     let background_state = state.clone();
     spawn_supervised_async_task(
         background_state.clone(),
@@ -883,7 +906,7 @@ pub(crate) fn queue_template_async_task(
     );
     Ok(build_async_task_accepted_response(
         task_id,
-        "template_execute",
+        TaskOperation::TemplateExecute,
     ))
 }
 
@@ -891,7 +914,11 @@ pub(crate) fn queue_tx_block_async_task(
     state: Arc<AppState>,
     req: ExecuteTxBlockRequest,
 ) -> Result<AsyncTaskAcceptedResponse, ApiError> {
-    let task_id = require_managed_async_task("tx_block", req.task_id.clone(), state.is_managed())?;
+    let task_id = require_managed_async_task(
+        TaskOperation::TxBlock,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
     let background_state = state.clone();
     spawn_supervised_async_task(
         background_state.clone(),
@@ -903,15 +930,21 @@ pub(crate) fn queue_tx_block_async_task(
                 .map(|_| ())
         },
     );
-    Ok(build_async_task_accepted_response(task_id, "tx_block"))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::TxBlock,
+    ))
 }
 
 pub(crate) fn queue_tx_workflow_async_task(
     state: Arc<AppState>,
     req: ExecuteTxWorkflowRequest,
 ) -> Result<AsyncTaskAcceptedResponse, ApiError> {
-    let task_id =
-        require_managed_async_task("tx_workflow", req.task_id.clone(), state.is_managed())?;
+    let task_id = require_managed_async_task(
+        TaskOperation::TxWorkflow,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
     let background_state = state.clone();
     spawn_supervised_async_task(
         background_state.clone(),
@@ -923,15 +956,21 @@ pub(crate) fn queue_tx_workflow_async_task(
                 .map(|_| ())
         },
     );
-    Ok(build_async_task_accepted_response(task_id, "tx_workflow"))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::TxWorkflow,
+    ))
 }
 
 pub(crate) fn queue_orchestration_async_task(
     state: Arc<AppState>,
     req: ExecuteOrchestrationRequest,
 ) -> Result<AsyncTaskAcceptedResponse, ApiError> {
-    let task_id =
-        require_managed_async_task("orchestrate", req.task_id.clone(), state.is_managed())?;
+    let task_id = require_managed_async_task(
+        TaskOperation::Orchestrate,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
     let background_state = state.clone();
     spawn_supervised_async_task(
         background_state.clone(),
@@ -943,7 +982,10 @@ pub(crate) fn queue_orchestration_async_task(
                 .map(|_| ())
         },
     );
-    Ok(build_async_task_accepted_response(task_id, "orchestrate"))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::Orchestrate,
+    ))
 }
 
 fn build_task_callback<T: Serialize>(
@@ -955,7 +997,7 @@ fn build_task_callback<T: Serialize>(
         Ok(value) => TaskCallback {
             task_id: task_ctx.task_id.clone(),
             agent_name: current_agent_name(state),
-            status: "success".to_string(),
+            status: TaskStatus::Success,
             started_at: task_ctx.started_at.to_rfc3339(),
             completed_at: Utc::now().to_rfc3339(),
             execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
@@ -965,7 +1007,7 @@ fn build_task_callback<T: Serialize>(
         Err(err) => TaskCallback {
             task_id: task_ctx.task_id.clone(),
             agent_name: current_agent_name(state),
-            status: "failed".to_string(),
+            status: TaskStatus::Failed,
             started_at: task_ctx.started_at.to_rfc3339(),
             completed_at: Utc::now().to_rfc3339(),
             execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
@@ -985,7 +1027,7 @@ fn build_failed_task_callback<T: Serialize>(
     TaskCallback {
         task_id: task_ctx.task_id.clone(),
         agent_name: current_agent_name(state),
-        status: "failed".to_string(),
+        status: TaskStatus::Failed,
         started_at: task_ctx.started_at.to_rfc3339(),
         completed_at: Utc::now().to_rfc3339(),
         execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
@@ -1018,7 +1060,7 @@ fn spawn_prepared_task_callback(
                     .report_async_error_best_effort(
                         AsyncErrorReportInput::new("task_callback_failed", err.to_string())
                             .with_task_id(Some(task_ctx.task_id.clone()))
-                            .with_operation(Some(task_ctx.operation.clone()))
+                            .with_operation(Some(task_ctx.operation.to_string()))
                             .with_target_url(Some(target_url))
                             .with_http_method(Some(transport_method))
                             .with_details(Some(json!({
@@ -1701,7 +1743,11 @@ pub async fn exec_command(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecRequest>,
 ) -> Result<Json<ExecResponse>, ApiError> {
-    let task_ctx = TaskReportContext::from_request("exec", req.task_id.clone(), state.is_managed());
+    let task_ctx = TaskReportContext::from_request(
+        TaskOperation::Exec,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     emit_task_event(
         &state,
@@ -1715,10 +1761,10 @@ pub async fn exec_command(
             }))),
     );
     let result: Result<ExecResponse, ApiError> = async {
-        let record_level = req.record_level;
+        let record_level = req.target.record_level;
         command_blacklist::ensure_command_allowed(&req.command, "direct execution")
             .map_err(|e| ApiError::bad_request(e.to_string()))?;
-        let conn = merge_connection_options(&state.defaults, req.connection)?;
+        let conn = merge_connection_options(&state.defaults, req.target.connection)?;
         emit_task_event(
             &state,
             &task_ctx,
@@ -2218,8 +2264,8 @@ pub async fn execute_template(
     Json(req): Json<ExecuteTemplateRequest>,
 ) -> Result<Json<ExecuteTemplateResponse>, ApiError> {
     let task_ctx = TaskReportContext::from_request(
-        "template_execute",
-        req.task_id.clone(),
+        TaskOperation::TemplateExecute,
+        req.task.task_id.clone(),
         state.is_managed(),
     );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
@@ -2235,7 +2281,7 @@ pub async fn execute_template(
             }))),
     );
     let result: Result<ExecuteTemplateResponse, ApiError> = async {
-        let record_level = req.record_level;
+        let record_level = req.target.record_level;
         let _ = req.template_dir.as_ref();
         let renderer = Renderer::new();
         let rendered_commands = renderer.render_file(&req.template, req.vars)?;
@@ -2251,7 +2297,7 @@ pub async fn execute_template(
                 }))),
         );
 
-        if req.dry_run.unwrap_or(false) {
+        if req.run.dry_run.unwrap_or(false) {
             return Ok(ExecuteTemplateResponse {
                 rendered_commands,
                 executed: Vec::new(),
@@ -2270,7 +2316,7 @@ pub async fn execute_template(
         )
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-        let conn = merge_connection_options(&state.defaults, req.connection)?;
+        let conn = merge_connection_options(&state.defaults, req.target.connection)?;
         let handler = template_loader::load_device_profile(&conn.device_profile)?;
         let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
         let client = if let Some(level) = to_record_level(record_level) {
@@ -2440,8 +2486,8 @@ pub async fn execute_command_flow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteCommandFlowRequest>,
 ) -> Result<Json<ExecuteCommandFlowResponse>, ApiError> {
-    let record_level = req.record_level;
-    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let record_level = req.target.record_level;
+    let conn = merge_connection_options(&state.defaults, req.target.connection)?;
     let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
@@ -2542,8 +2588,8 @@ pub async fn execute_builtin_file_transfer_flow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteBuiltinFileTransferFlowRequest>,
 ) -> Result<Json<ExecuteBuiltinFileTransferFlowResponse>, ApiError> {
-    let record_level = req.record_level;
-    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let record_level = req.target.record_level;
+    let conn = merge_connection_options(&state.defaults, req.target.connection)?;
     let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
     let (mut flow, resolved_mode, history_label) =
@@ -2720,8 +2766,8 @@ pub async fn execute_upload(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteUploadRequest>,
 ) -> Result<Json<ExecuteUploadResponse>, ApiError> {
-    let record_level = req.record_level;
-    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let record_level = req.target.record_level;
+    let conn = merge_connection_options(&state.defaults, req.target.connection)?;
     let handler = template_loader::load_device_profile(&conn.device_profile)?;
     let local_path = PathBuf::from(req.local_path.trim());
     if !local_path.is_file() {
@@ -2835,8 +2881,11 @@ pub async fn execute_tx_block(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxBlockRequest>,
 ) -> Result<Json<ExecuteTxBlockResponse>, ApiError> {
-    let task_ctx =
-        TaskReportContext::from_request("tx_block", req.task_id.clone(), state.is_managed());
+    let task_ctx = TaskReportContext::from_request(
+        TaskOperation::TxBlock,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     emit_task_event(
         &state,
@@ -2846,8 +2895,8 @@ pub async fn execute_tx_block(
             .with_progress(Some(0)),
     );
     let result: Result<ExecuteTxBlockResponse, ApiError> = async {
-        let conn = merge_connection_options(&state.defaults, req.connection.clone())?;
-        let record_level = req.record_level;
+        let conn = merge_connection_options(&state.defaults, req.target.connection.clone())?;
+        let record_level = req.target.record_level;
         let requested_record_level = to_record_level(record_level);
         let live_record_level = if task_ctx.is_some() {
             requested_record_level.or(Some(SessionRecordLevel::KeyEventsOnly))
@@ -3006,7 +3055,7 @@ pub async fn execute_tx_block(
                     "steps": tx_block.steps.len()
                 }))),
         );
-        if req.dry_run.unwrap_or(false) {
+        if req.run.dry_run.unwrap_or(false) {
             return Ok(ExecuteTxBlockResponse {
                 tx_block: tx_block_value,
                 tx_result: None,
@@ -3215,8 +3264,11 @@ pub async fn execute_tx_workflow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxWorkflowRequest>,
 ) -> Result<Json<ExecuteTxWorkflowResponse>, ApiError> {
-    let task_ctx =
-        TaskReportContext::from_request("tx_workflow", req.task_id.clone(), state.is_managed());
+    let task_ctx = TaskReportContext::from_request(
+        TaskOperation::TxWorkflow,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     emit_task_event(
         &state,
@@ -3226,7 +3278,7 @@ pub async fn execute_tx_workflow(
             .with_progress(Some(0)),
     );
     let result: Result<ExecuteTxWorkflowResponse, ApiError> = async {
-        let record_level = req.record_level;
+        let record_level = req.target.record_level;
         let requested_record_level = to_record_level(record_level);
         let live_record_level = if task_ctx.is_some() {
             requested_record_level.or(Some(SessionRecordLevel::KeyEventsOnly))
@@ -3248,7 +3300,7 @@ pub async fn execute_tx_workflow(
                 }))),
         );
 
-        if req.dry_run.unwrap_or(false) {
+        if req.run.dry_run.unwrap_or(false) {
             return Ok(ExecuteTxWorkflowResponse {
                 workflow: workflow_value,
                 tx_workflow_result: None,
@@ -3262,7 +3314,7 @@ pub async fn execute_tx_workflow(
         )
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-        let conn = merge_connection_options(&state.defaults, req.connection)?;
+        let conn = merge_connection_options(&state.defaults, req.target.connection)?;
         emit_task_event(
             &state,
             &task_ctx,
@@ -3467,8 +3519,11 @@ pub async fn execute_orchestration(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteOrchestrationRequest>,
 ) -> Result<Json<ExecuteOrchestrationResponse>, ApiError> {
-    let task_ctx =
-        TaskReportContext::from_request("orchestrate", req.task_id.clone(), state.is_managed());
+    let task_ctx = TaskReportContext::from_request(
+        TaskOperation::Orchestrate,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    );
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     emit_task_event(
         &state,
@@ -3500,7 +3555,7 @@ pub async fn execute_orchestration(
                 }))),
         );
 
-        if req.dry_run.unwrap_or(false) {
+        if req.run.dry_run.unwrap_or(false) {
             return Ok(ExecuteOrchestrationResponse {
                 plan: plan_value,
                 inventory: inventory_value,
@@ -3530,7 +3585,7 @@ pub async fn execute_orchestration(
             &inventory,
             &plan_root,
             &state.defaults,
-            to_cli_record_level(req.record_level),
+            to_cli_record_level(req.target.record_level),
             Some(event_hook),
         )
         .await
@@ -3656,6 +3711,7 @@ mod tests {
     };
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
+    use crate::task::TaskOperation;
     use std::path::PathBuf;
 
     #[test]
@@ -3722,18 +3778,29 @@ mod tests {
 
     #[test]
     fn managed_mode_allows_task_callback_with_task_id_only() {
-        let managed = TaskReportContext::from_request("exec", Some("task-1".to_string()), true);
+        let managed =
+            TaskReportContext::from_request(TaskOperation::Exec, Some("task-1".to_string()), true);
         assert!(managed.is_some());
 
-        let local = TaskReportContext::from_request("exec", Some("task-1".to_string()), false);
+        let local =
+            TaskReportContext::from_request(TaskOperation::Exec, Some("task-1".to_string()), false);
         assert!(local.is_none());
     }
 
     #[test]
     fn managed_async_task_requires_agent_mode_and_task_id() {
-        assert!(require_managed_async_task("tx_block", Some("task-1".to_string()), true).is_ok());
-        assert!(require_managed_async_task("tx_block", Some("   ".to_string()), true).is_err());
-        assert!(require_managed_async_task("tx_block", None, true).is_err());
-        assert!(require_managed_async_task("tx_block", Some("task-1".to_string()), false).is_err());
+        assert!(
+            require_managed_async_task(TaskOperation::TxBlock, Some("task-1".to_string()), true)
+                .is_ok()
+        );
+        assert!(
+            require_managed_async_task(TaskOperation::TxBlock, Some("   ".to_string()), true)
+                .is_err()
+        );
+        assert!(require_managed_async_task(TaskOperation::TxBlock, None, true).is_err());
+        assert!(
+            require_managed_async_task(TaskOperation::TxBlock, Some("task-1".to_string()), false)
+                .is_err()
+        );
     }
 }

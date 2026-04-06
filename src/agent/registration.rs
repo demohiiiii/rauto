@@ -510,7 +510,7 @@ impl AgentRegistrar {
                 let payload = GrpcTaskCallbackRequest {
                     agent_name: self.config.agent.name.clone(),
                     task_id: callback.task_id.clone(),
-                    status: callback.status.clone(),
+                    status: callback.status.to_string(),
                     started_at: callback.started_at.clone(),
                     completed_at: callback.completed_at.clone(),
                     execution_time_ms: callback.execution_time_ms,
@@ -560,9 +560,9 @@ impl AgentRegistrar {
                 let payload = GrpcTaskEventRequest {
                     task_id: event.task_id.clone(),
                     agent_name: event.agent_name.clone(),
-                    event_type: event.event_type.clone(),
+                    event_type: event.event_type.to_string(),
                     message: event.message.clone(),
-                    level: event.level.clone(),
+                    level: event.level.to_string(),
                     stage: event.stage.clone(),
                     progress: event.progress.map(u32::from),
                     details_json: event
@@ -585,9 +585,9 @@ impl AgentRegistrar {
                 let payload = HttpTaskEventRequest {
                     task_id: event.task_id.clone(),
                     agent_name: event.agent_name.clone(),
-                    event_type: event.event_type.clone(),
+                    event_type: event.event_type.to_string(),
                     message: event.message.clone(),
-                    level: event.level.clone(),
+                    level: event.level.to_string(),
                     stage: event.stage.clone(),
                     progress: event.progress,
                     details: event.details.clone(),

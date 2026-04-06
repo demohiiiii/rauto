@@ -6,6 +6,7 @@ mod db;
 mod device;
 mod manager_grpc;
 mod orchestrator;
+mod task;
 mod template;
 mod tx_operation;
 mod web;

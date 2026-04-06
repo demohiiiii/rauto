@@ -1,4 +1,5 @@
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::task::{TaskEventLevel, TaskEventType, TaskOperation, TaskStatus};
 use rneter::{device::StateMachineDiagnostics, session::SessionRecordEntry};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -158,15 +159,32 @@ pub struct UpsertConnectionRequest {
     pub save_password: bool,
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ExecutionTargetOptions {
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+    pub record_level: Option<RecordLevel>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ManagedTaskOptions {
+    #[serde(default)]
+    pub task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct DryRunOptions {
+    pub dry_run: Option<bool>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ExecRequest {
     pub command: String,
     pub mode: Option<String>,
-    #[serde(default)]
-    pub connection: Option<ConnectionRequest>,
-    pub record_level: Option<RecordLevel>,
-    #[serde(default)]
-    pub task_id: Option<String>,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -182,13 +200,13 @@ pub struct ExecuteTemplateRequest {
     #[serde(default)]
     pub vars: Value,
     pub mode: Option<String>,
-    pub dry_run: Option<bool>,
+    #[serde(flatten)]
+    pub run: DryRunOptions,
     pub template_dir: Option<String>,
-    #[serde(default)]
-    pub connection: Option<ConnectionRequest>,
-    pub record_level: Option<RecordLevel>,
-    #[serde(default)]
-    pub task_id: Option<String>,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -215,9 +233,8 @@ pub struct ExecuteCommandFlowRequest {
     pub content: Option<String>,
     #[serde(default)]
     pub vars: Value,
-    #[serde(default)]
-    pub connection: Option<ConnectionRequest>,
-    pub record_level: Option<RecordLevel>,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -266,9 +283,8 @@ pub struct ExecuteBuiltinFileTransferFlowRequest {
     pub mode: Option<String>,
     #[serde(default)]
     pub timeout_secs: Option<u64>,
-    #[serde(default)]
-    pub connection: Option<ConnectionRequest>,
-    pub record_level: Option<RecordLevel>,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -289,9 +305,8 @@ pub struct ExecuteUploadRequest {
     pub buffer_size: Option<usize>,
     #[serde(default)]
     pub show_progress: bool,
-    #[serde(default)]
-    pub connection: Option<ConnectionRequest>,
-    pub record_level: Option<RecordLevel>,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -332,12 +347,12 @@ pub struct ExecuteTxBlockRequest {
     pub mode: Option<String>,
     pub timeout_secs: Option<u64>,
     pub resource_rollback_command: Option<String>,
-    pub dry_run: Option<bool>,
-    #[serde(default)]
-    pub connection: Option<ConnectionRequest>,
-    pub record_level: Option<RecordLevel>,
-    #[serde(default)]
-    pub task_id: Option<String>,
+    #[serde(flatten)]
+    pub run: DryRunOptions,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -350,12 +365,12 @@ pub struct ExecuteTxBlockResponse {
 #[derive(Debug, Deserialize)]
 pub struct ExecuteTxWorkflowRequest {
     pub workflow: Value,
-    pub dry_run: Option<bool>,
-    #[serde(default)]
-    pub connection: Option<ConnectionRequest>,
-    pub record_level: Option<RecordLevel>,
-    #[serde(default)]
-    pub task_id: Option<String>,
+    #[serde(flatten)]
+    pub run: DryRunOptions,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -369,10 +384,12 @@ pub struct ExecuteTxWorkflowResponse {
 pub struct ExecuteOrchestrationRequest {
     pub plan: Value,
     pub base_dir: Option<String>,
-    pub dry_run: Option<bool>,
-    pub record_level: Option<RecordLevel>,
-    #[serde(default)]
-    pub task_id: Option<String>,
+    #[serde(flatten)]
+    pub run: DryRunOptions,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
 }
 
 #[derive(Debug, Serialize)]
@@ -386,8 +403,8 @@ pub struct ExecuteOrchestrationResponse {
 pub struct AsyncTaskAcceptedResponse {
     pub accepted: bool,
     pub task_id: String,
-    pub operation: String,
-    pub status: String,
+    pub operation: TaskOperation,
+    pub status: TaskStatus,
 }
 
 #[derive(Debug, Serialize)]
@@ -453,7 +470,7 @@ pub struct DeviceProbeResponse {
 pub struct TaskCallback {
     pub task_id: String,
     pub agent_name: String,
-    pub status: String,
+    pub status: TaskStatus,
     pub started_at: String,
     pub completed_at: String,
     pub execution_time_ms: u64,
@@ -467,9 +484,9 @@ pub struct TaskCallback {
 pub struct TaskEvent {
     pub task_id: String,
     pub agent_name: String,
-    pub event_type: String,
+    pub event_type: TaskEventType,
     pub message: String,
-    pub level: String,
+    pub level: TaskEventLevel,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stage: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

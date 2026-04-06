@@ -45,14 +45,15 @@ use crate::web::handlers::{
 use crate::web::models::{
     CommandFlowTemplateDetail as WebCommandFlowTemplateDetail,
     CommandFlowTemplateMeta as WebCommandFlowTemplateMeta, CommandResult, ConnectionRequest,
-    ConnectionTestRequest, CreateCommandFlowTemplateRequest, ExecRequest,
+    ConnectionTestRequest, CreateCommandFlowTemplateRequest, DryRunOptions, ExecRequest,
     ExecuteCommandFlowRequest as WebExecuteCommandFlowRequest,
     ExecuteOrchestrationRequest as WebExecuteOrchestrationRequest,
     ExecuteTemplateRequest as WebExecuteTemplateRequest,
     ExecuteTxBlockRequest as WebExecuteTxBlockRequest,
     ExecuteTxWorkflowRequest as WebExecuteTxWorkflowRequest,
-    ExecuteUploadRequest as WebExecuteUploadRequest, RecordLevel, TxBlockRunKind,
-    UpdateCommandFlowTemplateRequest, UpsertConnectionRequest as WebUpsertConnectionRequest,
+    ExecuteUploadRequest as WebExecuteUploadRequest, ExecutionTargetOptions, ManagedTaskOptions,
+    RecordLevel, TxBlockRunKind, UpdateCommandFlowTemplateRequest,
+    UpsertConnectionRequest as WebUpsertConnectionRequest,
 };
 use crate::web::state::AppState;
 use crate::web::storage;
@@ -158,6 +159,22 @@ fn parse_record_level(raw: &str) -> Result<Option<RecordLevel>, Status> {
     }
 }
 
+fn map_execution_target_options(
+    connection: Option<ConnectionRef>,
+    record_level: &str,
+) -> Result<ExecutionTargetOptions, Status> {
+    Ok(ExecutionTargetOptions {
+        connection: map_connection_ref(connection)?,
+        record_level: parse_record_level(record_level)?,
+    })
+}
+
+fn map_managed_task_options(task_id: String) -> ManagedTaskOptions {
+    ManagedTaskOptions {
+        task_id: optional_string(task_id),
+    }
+}
+
 fn parse_tx_block_run_kind(raw: &str) -> Result<Option<TxBlockRunKind>, Status> {
     match raw.trim() {
         "" => Ok(None),
@@ -208,8 +225,8 @@ fn map_async_response(
     AcceptedTaskResponse {
         accepted: response.accepted,
         task_id: response.task_id,
-        operation: response.operation,
-        status: response.status,
+        operation: response.operation.to_string(),
+        status: response.status.to_string(),
     }
 }
 
@@ -238,10 +255,11 @@ fn map_execute_tx_block_request(
         mode: optional_string(req.mode),
         timeout_secs: req.timeout_secs,
         resource_rollback_command: optional_string(req.resource_rollback_command),
-        dry_run: Some(req.dry_run),
-        connection: map_connection_ref(req.connection)?,
-        record_level: parse_record_level(&req.record_level)?,
-        task_id: optional_string(req.task_id),
+        run: DryRunOptions {
+            dry_run: Some(req.dry_run),
+        },
+        target: map_execution_target_options(req.connection, &req.record_level)?,
+        task: map_managed_task_options(req.task_id),
     })
 }
 
@@ -690,9 +708,8 @@ impl AgentTaskService for AgentTaskGrpcService {
             Json(ExecRequest {
                 command: req.command,
                 mode: optional_string(req.mode),
-                connection: map_connection_ref(req.connection)?,
-                record_level: parse_record_level(&req.record_level)?,
-                task_id: optional_string(req.task_id),
+                target: map_execution_target_options(req.connection, &req.record_level)?,
+                task: map_managed_task_options(req.task_id),
             }),
         )
         .await
@@ -717,11 +734,12 @@ impl AgentTaskService for AgentTaskGrpcService {
                 template: req.template,
                 vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
                 mode: optional_string(req.mode),
-                dry_run: Some(req.dry_run),
+                run: DryRunOptions {
+                    dry_run: Some(req.dry_run),
+                },
                 template_dir: None,
-                connection: map_connection_ref(req.connection)?,
-                record_level: parse_record_level(&req.record_level)?,
-                task_id: optional_string(req.task_id),
+                target: map_execution_target_options(req.connection, &req.record_level)?,
+                task: map_managed_task_options(req.task_id),
             }),
         )
         .await
@@ -754,8 +772,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                     "vars_json",
                     Value::Null,
                 )?,
-                connection: map_connection_ref(req.connection)?,
-                record_level: parse_record_level(&req.record_level)?,
+                target: map_execution_target_options(req.connection, &req.record_level)?,
             }),
         )
         .await
@@ -787,8 +804,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 timeout_secs: req.timeout_secs,
                 buffer_size: req.buffer_size.map(|value| value as usize),
                 show_progress: req.show_progress,
-                connection: map_connection_ref(req.connection)?,
-                record_level: parse_record_level(&req.record_level)?,
+                target: map_execution_target_options(req.connection, &req.record_level)?,
             }),
         )
         .await
@@ -852,10 +868,11 @@ impl AgentTaskService for AgentTaskGrpcService {
             self.state.clone(),
             WebExecuteTxWorkflowRequest {
                 workflow: parse_json_value(&req.workflow_json, "workflow_json", Value::Null)?,
-                dry_run: Some(req.dry_run),
-                connection: map_connection_ref(req.connection)?,
-                record_level: parse_record_level(&req.record_level)?,
-                task_id: optional_string(req.task_id),
+                run: DryRunOptions {
+                    dry_run: Some(req.dry_run),
+                },
+                target: map_execution_target_options(req.connection, &req.record_level)?,
+                task: map_managed_task_options(req.task_id),
             },
         )
         .map_err(api_error_to_status)?;
@@ -873,9 +890,11 @@ impl AgentTaskService for AgentTaskGrpcService {
             WebExecuteOrchestrationRequest {
                 plan: parse_json_value(&req.plan_json, "plan_json", Value::Null)?,
                 base_dir: optional_string(req.base_dir),
-                dry_run: Some(req.dry_run),
-                record_level: parse_record_level(&req.record_level)?,
-                task_id: optional_string(req.task_id),
+                run: DryRunOptions {
+                    dry_run: Some(req.dry_run),
+                },
+                target: map_execution_target_options(None, &req.record_level)?,
+                task: map_managed_task_options(req.task_id),
             },
         )
         .map_err(api_error_to_status)?;
