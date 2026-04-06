@@ -140,23 +140,23 @@ fn merge_with_existing(
             .username
             .or_else(|| existing.and_then(|item| item.username.clone())),
         password: incoming.password,
-        password_encrypted: if incoming_password.is_some() {
+        password_ref: if incoming_password.is_some() {
             None
         } else {
             incoming
-                .password_encrypted
-                .or_else(|| existing.and_then(|item| item.password_encrypted.clone()))
+                .password_ref
+                .or_else(|| existing.and_then(|item| item.password_ref.clone()))
         },
         port: incoming
             .port
             .or_else(|| existing.and_then(|item| item.port)),
         enable_password: incoming.enable_password,
-        enable_password_encrypted: if incoming_enable_password.is_some() {
+        enable_password_ref: if incoming_enable_password.is_some() {
             None
         } else {
             incoming
-                .enable_password_encrypted
-                .or_else(|| existing.and_then(|item| item.enable_password_encrypted.clone()))
+                .enable_password_ref
+                .or_else(|| existing.and_then(|item| item.enable_password_ref.clone()))
         },
         ssh_security: incoming
             .ssh_security
@@ -356,10 +356,10 @@ fn parse_row(
             host,
             username,
             password,
-            password_encrypted: None,
+            password_ref: None,
             port,
             enable_password,
-            enable_password_encrypted: None,
+            enable_password_ref: None,
             ssh_security,
             device_profile,
             template_dir,
@@ -539,15 +539,15 @@ mod tests {
     }
 
     #[test]
-    fn merge_preserves_existing_encrypted_secrets_when_missing_in_import() {
+    fn merge_preserves_existing_secret_refs_when_missing_in_import() {
         let existing = SavedConnection {
             host: Some("192.0.2.1".to_string()),
             username: Some("admin".to_string()),
             password: None,
-            password_encrypted: Some("enc-1".to_string()),
+            password_ref: Some("connection/lab1/password".to_string()),
             port: Some(22),
             enable_password: None,
-            enable_password_encrypted: Some("enc-2".to_string()),
+            enable_password_ref: Some("connection/lab1/enable_password".to_string()),
             ssh_security: Some(SshSecurityProfile::Balanced),
             device_profile: Some("cisco".to_string()),
             template_dir: None,
@@ -558,18 +558,24 @@ mod tests {
                 host: None,
                 username: Some("ops".to_string()),
                 password: None,
-                password_encrypted: None,
+                password_ref: None,
                 port: None,
                 enable_password: None,
-                enable_password_encrypted: None,
+                enable_password_ref: None,
                 ssh_security: None,
                 device_profile: None,
                 template_dir: None,
             },
         );
         assert_eq!(merged.username.as_deref(), Some("ops"));
-        assert_eq!(merged.password_encrypted.as_deref(), Some("enc-1"));
-        assert_eq!(merged.enable_password_encrypted.as_deref(), Some("enc-2"));
+        assert_eq!(
+            merged.password_ref.as_deref(),
+            Some("connection/lab1/password")
+        );
+        assert_eq!(
+            merged.enable_password_ref.as_deref(),
+            Some("connection/lab1/enable_password")
+        );
         assert_eq!(merged.host.as_deref(), Some("192.0.2.1"));
     }
 

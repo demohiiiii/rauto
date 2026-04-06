@@ -48,6 +48,7 @@ pub fn whole_resource_rollback_policy(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_command_tx_block(
     name: impl Into<String>,
     mode: &str,

@@ -2154,27 +2154,27 @@ pub async fn upsert_connection(
     let existing_password = connection_store::load_saved_secret(
         existing
             .as_ref()
-            .and_then(|item| item.password_encrypted.as_deref()),
+            .and_then(|item| item.password_ref.as_deref()),
     )
     .map_err(ApiError::from)?;
     let existing_enable_password = connection_store::load_saved_secret(
         existing
             .as_ref()
-            .and_then(|item| item.enable_password_encrypted.as_deref()),
+            .and_then(|item| item.enable_password_ref.as_deref()),
     )
     .map_err(ApiError::from)?;
     let data = SavedConnection {
         host: c.host,
         username: c.username,
         password: merged_saved_secret(save_password, c.password, existing_password.as_ref()),
-        password_encrypted: None,
+        password_ref: None,
         port: c.port,
         enable_password: merged_saved_secret(
             save_password,
             c.enable_password,
             existing_enable_password.as_ref(),
         ),
-        enable_password_encrypted: None,
+        enable_password_ref: None,
         ssh_security: c
             .ssh_security
             .or_else(|| existing.as_ref().and_then(|item| item.ssh_security)),
@@ -3667,10 +3667,10 @@ mod tests {
                 host: Some("192.0.2.10".to_string()),
                 username: Some("admin".to_string()),
                 password: Some("secret".to_string()),
-                password_encrypted: None,
+                password_ref: None,
                 port: Some(22),
                 enable_password: Some("enable-secret".to_string()),
-                enable_password_encrypted: None,
+                enable_password_ref: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 device_profile: Some("cisco_ios".to_string()),
                 template_dir: Some("/tmp/templates".to_string()),

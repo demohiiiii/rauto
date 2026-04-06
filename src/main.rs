@@ -897,14 +897,14 @@ fn save_named_connection(
         } else {
             None
         },
-        password_encrypted: None,
+        password_ref: None,
         port: Some(conn.port),
         enable_password: if save_password {
             conn.enable_password.clone()
         } else {
             None
         },
-        enable_password_encrypted: None,
+        enable_password_ref: None,
         ssh_security: Some(conn.ssh_security),
         device_profile: Some(conn.device_profile.clone()),
         template_dir: conn

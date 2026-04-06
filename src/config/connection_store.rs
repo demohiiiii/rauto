@@ -1,4 +1,4 @@
-use crate::config::secret_store;
+use crate::config::keyring_store;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::db;
 use anyhow::{Result, anyhow};
@@ -13,11 +13,11 @@ pub struct SavedConnection {
     pub username: Option<String>,
     pub password: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub password_encrypted: Option<String>,
+    pub password_ref: Option<String>,
     pub port: Option<u16>,
     pub enable_password: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enable_password_encrypted: Option<String>,
+    pub enable_password_ref: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
@@ -44,7 +44,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     db::run_sync(async move {
         let row = sqlx::query(
             r#"
-            SELECT host, username, password_encrypted, port, enable_password_encrypted, ssh_security, device_profile, template_dir
+            SELECT host, username, password_ref, port, enable_password_ref, ssh_security, device_profile, template_dir
             FROM connections
             WHERE name = ?
             "#,
@@ -58,12 +58,12 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
             host: row.try_get("host")?,
             username: row.try_get("username")?,
             password: None,
-            password_encrypted: row.try_get("password_encrypted")?,
+            password_ref: row.try_get("password_ref")?,
             port: row
                 .try_get::<Option<i64>, _>("port")?
                 .map(|value| value as u16),
             enable_password: None,
-            enable_password_encrypted: row.try_get("enable_password_encrypted")?,
+            enable_password_ref: row.try_get("enable_password_ref")?,
             ssh_security: row
                 .try_get::<Option<String>, _>("ssh_security")?
                 .map(|value| parse_ssh_security_profile(&value))
@@ -81,13 +81,13 @@ pub fn load_connection(name: &str) -> Result<SavedConnection> {
         &safe,
         "password",
         &mut data.password,
-        data.password_encrypted.as_deref(),
+        data.password_ref.as_deref(),
     )?;
     resolve_secret_field(
         &safe,
         "enable_password",
         &mut data.enable_password,
-        data.enable_password_encrypted.as_deref(),
+        data.enable_password_ref.as_deref(),
     )?;
     Ok(data)
 }
@@ -100,8 +100,23 @@ pub fn save_connection(name: &str, data: &SavedConnection) -> Result<PathBuf> {
 
 pub fn delete_connection(name: &str) -> Result<bool> {
     let safe = safe_connection_name(name)?;
-    if load_connection_raw(&safe).is_err() {
-        return Ok(false);
+    let existing = match load_connection_raw(&safe) {
+        Ok(item) => item,
+        Err(_) => return Ok(false),
+    };
+    if let Err(err) = keyring_store::delete_secret(existing.password_ref.as_deref()) {
+        return Err(anyhow!(
+            "failed to delete saved password for connection '{}': {}",
+            safe,
+            err
+        ));
+    }
+    if let Err(err) = keyring_store::delete_secret(existing.enable_password_ref.as_deref()) {
+        return Err(anyhow!(
+            "failed to delete saved enable password for connection '{}': {}",
+            safe,
+            err
+        ));
     }
 
     db::run_sync(async move {
@@ -117,16 +132,16 @@ pub fn delete_connection(name: &str) -> Result<bool> {
 
 pub fn has_saved_password(data: &SavedConnection) -> bool {
     has_non_empty_value(data.password.as_deref())
-        || secret_store::has_encrypted_secret(data.password_encrypted.as_deref())
+        || keyring_store::has_secret(data.password_ref.as_deref())
 }
 
 pub fn has_saved_enable_password(data: &SavedConnection) -> bool {
     has_non_empty_value(data.enable_password.as_deref())
-        || secret_store::has_encrypted_secret(data.enable_password_encrypted.as_deref())
+        || keyring_store::has_secret(data.enable_password_ref.as_deref())
 }
 
-pub fn load_saved_secret(encrypted_secret: Option<&str>) -> Result<Option<String>> {
-    Ok(secret_store::decrypt_secret(encrypted_secret)?.filter(|value| !value.is_empty()))
+pub fn load_saved_secret(secret_ref: Option<&str>) -> Result<Option<String>> {
+    Ok(keyring_store::load_secret(secret_ref)?.filter(|value| !value.is_empty()))
 }
 
 pub fn safe_connection_name(raw: &str) -> Result<String> {
@@ -146,11 +161,17 @@ pub fn safe_connection_name(raw: &str) -> Result<String> {
 
 fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<()> {
     let mut stored = data.clone();
-    stored.password_encrypted =
-        sync_connection_secret(data.password.as_deref(), data.password_encrypted.as_deref())?;
-    stored.enable_password_encrypted = sync_connection_secret(
+    stored.password_ref = sync_connection_secret(
+        connection_name,
+        "password",
+        data.password.as_deref(),
+        data.password_ref.as_deref(),
+    )?;
+    stored.enable_password_ref = sync_connection_secret(
+        connection_name,
+        "enable_password",
         data.enable_password.as_deref(),
-        data.enable_password_encrypted.as_deref(),
+        data.enable_password_ref.as_deref(),
     )?;
     stored.password = None;
     stored.enable_password = None;
@@ -168,16 +189,16 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         sqlx::query(
             r#"
             INSERT INTO connections (
-                name, host, username, password_encrypted, port, enable_password_encrypted, ssh_security,
+                name, host, username, password_ref, port, enable_password_ref, ssh_security,
                 device_profile, template_dir, created_at_ms, updated_at_ms
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
                 username = excluded.username,
-                password_encrypted = excluded.password_encrypted,
+                password_ref = excluded.password_ref,
                 port = excluded.port,
-                enable_password_encrypted = excluded.enable_password_encrypted,
+                enable_password_ref = excluded.enable_password_ref,
                 ssh_security = excluded.ssh_security,
                 device_profile = excluded.device_profile,
                 template_dir = excluded.template_dir,
@@ -187,9 +208,9 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(&name)
         .bind(&stored.host)
         .bind(&stored.username)
-        .bind(&stored.password_encrypted)
+        .bind(&stored.password_ref)
         .bind(stored.port.map(i64::from))
-        .bind(&stored.enable_password_encrypted)
+        .bind(&stored.enable_password_ref)
         .bind(stored.ssh_security.map(|value| value.to_string()))
         .bind(&stored.device_profile)
         .bind(&stored.template_dir)
@@ -205,15 +226,15 @@ fn resolve_secret_field(
     connection_name: &str,
     field_name: &str,
     field: &mut Option<String>,
-    encrypted_secret: Option<&str>,
+    secret_ref: Option<&str>,
 ) -> Result<()> {
-    if has_non_empty_value(field.as_deref()) || encrypted_secret.is_none() {
+    if has_non_empty_value(field.as_deref()) || secret_ref.is_none() {
         return Ok(());
     }
-    *field = load_saved_secret(encrypted_secret)?;
+    *field = load_saved_secret(secret_ref)?;
     if field.is_none() {
         return Err(anyhow!(
-            "saved connection '{}' has an unreadable {} secret; re-save the connection to repair it",
+            "saved connection '{}' is missing {} in keyring; re-save the connection to repair it",
             connection_name,
             field_name,
         ));
@@ -222,15 +243,17 @@ fn resolve_secret_field(
 }
 
 fn sync_connection_secret(
+    connection_name: &str,
+    field_name: &str,
     secret_value: Option<&str>,
-    incoming_encrypted: Option<&str>,
+    incoming_ref: Option<&str>,
 ) -> Result<Option<String>> {
     if let Some(secret_value) = secret_value.filter(|value| !value.is_empty()) {
-        return secret_store::encrypt_secret(secret_value);
+        return keyring_store::store_secret(connection_name, field_name, Some(secret_value));
     }
 
-    if let Some(encrypted) = incoming_encrypted.filter(|value| !value.is_empty()) {
-        return Ok(Some(encrypted.to_string()));
+    if let Some(secret_ref) = incoming_ref.filter(|value| !value.is_empty()) {
+        return Ok(Some(secret_ref.to_string()));
     }
 
     Ok(None)
@@ -259,8 +282,10 @@ fn now_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::{
-        SavedConnection, delete_connection, has_saved_password, load_connection, save_connection,
+        SavedConnection, delete_connection, has_saved_password, load_connection,
+        load_connection_raw, load_saved_secret, save_connection,
     };
+    use crate::config::keyring_store;
     use crate::config::ssh_security::SshSecurityProfile;
     use crate::db;
     use anyhow::Result;
@@ -313,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn save_and_load_connection_round_trips_password_via_encrypted_store() -> Result<()> {
+    fn save_and_load_connection_round_trips_password_via_keyring() -> Result<()> {
         let _env_guard = TestEnvGuard::new()?;
         db::init_sync()?;
         let name = "conn_store_roundtrip";
@@ -325,10 +350,10 @@ mod tests {
                 host: Some("192.0.2.10".to_string()),
                 username: Some("admin".to_string()),
                 password: Some("secret-123".to_string()),
-                password_encrypted: None,
+                password_ref: None,
                 port: Some(22),
                 enable_password: None,
-                enable_password_encrypted: None,
+                enable_password_ref: None,
                 ssh_security: Some(SshSecurityProfile::Secure),
                 device_profile: Some("cisco".to_string()),
                 template_dir: None,
@@ -342,7 +367,55 @@ mod tests {
     }
 
     #[test]
-    fn load_connection_fails_when_encrypted_secret_is_invalid() -> Result<()> {
+    fn save_connection_persists_keyring_refs_and_delete_cleans_up_secret() -> Result<()> {
+        let _env_guard = TestEnvGuard::new()?;
+        db::init_sync()?;
+        let name = "conn_store_keyring_refs";
+        let _ = delete_connection(name);
+
+        save_connection(
+            name,
+            &SavedConnection {
+                host: Some("192.0.2.30".to_string()),
+                username: Some("ops".to_string()),
+                password: Some("top-secret".to_string()),
+                password_ref: None,
+                port: Some(2222),
+                enable_password: Some("enable-me".to_string()),
+                enable_password_ref: None,
+                ssh_security: Some(SshSecurityProfile::Balanced),
+                device_profile: Some("linux".to_string()),
+                template_dir: None,
+            },
+        )?;
+
+        let raw = load_connection_raw(name)?;
+        let password_ref = raw.password_ref.clone();
+        let enable_ref = raw.enable_password_ref.clone();
+        let expected_password_ref = keyring_store::build_secret_ref(name, "password");
+        let expected_enable_ref = keyring_store::build_secret_ref(name, "enable_password");
+        assert_eq!(
+            password_ref.as_deref(),
+            Some(expected_password_ref.as_str())
+        );
+        assert_eq!(enable_ref.as_deref(), Some(expected_enable_ref.as_str()));
+        assert_eq!(
+            load_saved_secret(password_ref.as_deref())?.as_deref(),
+            Some("top-secret")
+        );
+        assert_eq!(
+            load_saved_secret(enable_ref.as_deref())?.as_deref(),
+            Some("enable-me")
+        );
+
+        assert!(delete_connection(name)?);
+        assert!(load_saved_secret(password_ref.as_deref())?.is_none());
+        assert!(load_saved_secret(enable_ref.as_deref())?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn load_connection_fails_when_keyring_secret_is_missing() -> Result<()> {
         let _env_guard = TestEnvGuard::new()?;
         db::init_sync()?;
         let name = "conn_store_invalid_secret";
@@ -354,10 +427,10 @@ mod tests {
                 host: Some("192.0.2.20".to_string()),
                 username: Some("admin".to_string()),
                 password: None,
-                password_encrypted: Some("not-valid-json".to_string()),
+                password_ref: Some("connection/conn_store_invalid_secret/password".to_string()),
                 port: Some(22),
                 enable_password: None,
-                enable_password_encrypted: None,
+                enable_password_ref: None,
                 ssh_security: Some(SshSecurityProfile::Secure),
                 device_profile: Some("h3c".to_string()),
                 template_dir: None,
@@ -365,9 +438,11 @@ mod tests {
         )?;
 
         let loaded_raw = super::load_connection_raw(name)?;
-        assert!(has_saved_password(&loaded_raw));
-        let err = load_connection(name).expect_err("invalid secret should fail");
-        assert!(err.to_string().contains("invalid encrypted secret payload"));
+        assert!(!has_saved_password(&loaded_raw));
+        let err = load_connection(name).expect_err("missing keyring secret should fail");
+        assert!(err.to_string().contains(
+            "saved connection 'conn_store_invalid_secret' is missing password in keyring"
+        ));
         Ok(())
     }
 }

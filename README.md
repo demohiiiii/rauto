@@ -398,7 +398,7 @@ Password behavior:
 
 - `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
-- Saved passwords are encrypted and stored in `~/.rauto/rauto.db`; the local encryption key is stored in `~/.rauto/master.key`.
+- Saved passwords are stored in the system keyring; `~/.rauto/rauto.db` keeps only connection metadata and secret references.
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections.
 
 Bulk import:
@@ -431,7 +431,7 @@ Notes:
 
 - If `name` is omitted, `rauto` derives a saved-connection name from `host`.
 - Import uses upsert semantics by connection name.
-- If a row omits password fields, existing encrypted passwords are preserved for that connection.
+- If a row omits password fields, existing saved keyring secrets are preserved for that connection.
 - In the Web UI, use `Saved Connections -> Download Template` to get a starter CSV file.
 - Sample files are also included in the repository:
 - [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
@@ -441,7 +441,7 @@ Notes:
 
 Backup the current `rauto` runtime data store and backup configuration:
 
-Note: backup archives include both `rauto.db` and `master.key`, so saved-connection passwords remain restorable from the backup.
+Note: backup archives include `rauto.db`, templates, and other runtime files, but do not export system keyring secrets. After restoring on another machine or clean OS account, re-save saved-connection passwords as needed.
 
 ```bash
 # Create backup to default path: ~/.rauto/backups/rauto-backup-<timestamp>.tar.gz

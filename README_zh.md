@@ -398,7 +398,7 @@ rauto history list lab1 --limit 20
 
 - 在 `exec/template/connection test` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
 - 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
-- 已保存密码会加密后写入 `~/.rauto/rauto.db`；本地解密密钥保存在 `~/.rauto/master.key` 中。
+- 已保存密码会写入系统 keyring；`~/.rauto/rauto.db` 中只保存连接元数据和 secret ref。
 - `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。
 
 批量导入：
@@ -431,7 +431,7 @@ linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,
 
 - 如果未提供 `name`，`rauto` 会基于 `host` 自动生成连接名。
 - 导入按连接名做 upsert。
-- 某一行未提供密码字段时，如果该连接已存在，则会保留原有的加密密码。
+- 某一行未提供密码字段时，如果该连接已存在，则会保留原有的 keyring 密码。
 - 在 Web UI 中，可通过 `Saved Connections -> Download Template` 下载起始 CSV 模板。
 - 仓库里也提供了中英文两份示例文件：
 - [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
@@ -441,7 +441,7 @@ linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,
 
 备份当前 `rauto` 的运行时数据存储和备份配置：
 
-注意：备份归档会同时包含 `rauto.db` 和 `master.key`，因此恢复备份时也会恢复已保存连接的密码。
+注意：备份归档会包含 `rauto.db`、模板和其他运行时文件，但不会导出系统 keyring 中的密码。恢复到另一台机器或全新的系统账号后，如需继续使用已保存连接，请重新保存密码。
 
 ```bash
 # 备份到默认路径：~/.rauto/backups/rauto-backup-<timestamp>.tar.gz
