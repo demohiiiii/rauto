@@ -184,7 +184,10 @@ rauto flow \
 - 命令流程模板现在可以声明 `vars` 列表，支持 `name`、`type`、`required`、`default`、`options`、`label`、`description` 等字段，便于运行时校验变量，也便于 Web 自动渲染输入表单。
 - 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
 - 如果某个步骤没有显式写 `mode`，`rauto` 会使用设备 profile 定义的第一个状态。
-- `--record-level` 和 `--record-file` 的行为与其他 CLI 执行命令一致。
+- 现在所有执行都会默认保存会话记录。
+- `--record-level key-events-only` 会保存最小审计信息：输入命令和设备回显。
+- `--record-level full` 会进一步保存更完整的 prompt 和状态变更信息。
+- `--record-file` 仍然可以把同一份 JSONL 录制额外导出到文件。
 
 可直接修改的示例模板：
 
@@ -213,7 +216,7 @@ rauto upload \
 - `--buffer-size <bytes>`
 - `--timeout-secs <seconds>`
 - `--show-progress`
-- `--record-level <off|key-events-only|full>`
+- `--record-level <key-events-only|full>`
 - `--record-file <path>`
 
 ### 3. 设备配置模板
@@ -773,7 +776,7 @@ rauto web \
 录制/回放相关参数（命令级参数）：
 
 - `exec/template --record-file <path>`：执行后保存录制 JSONL。
-- `exec/template --record-level <off|key-events-only|full>`：录制粒度。
+- `exec/template --record-level <key-events-only|full>`：录制粒度。
 - `replay <record_file> --list`：列出录制中的命令输出事件。
 - `replay <record_file> --command <cmd> [--mode <mode>]`：回放单条命令输出。
 - 在 `rneter 0.3.3` 下，回放得到的 `SessionEvent::CommandOutput` 可能额外包含 `exit_code`，尤其适用于 Linux shell 类流程。

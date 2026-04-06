@@ -1022,66 +1022,47 @@ async fn execute_tx_block_action(
     )?;
 
     let handler = template_loader::load_device_profile(&conn.device_profile)?;
-    let (tx_result, recording_jsonl) = if matches!(record_level, RecordLevelOpt::Off) {
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-        );
-        let result = MANAGER
-            .execute_tx_block_with_context(
-                request,
-                tx_block.clone(),
-                manager_execution_context_with_security(None, conn.ssh_security),
-            )
-            .await?;
-        (result, None)
-    } else {
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-        );
-        let (_sender, recorder) = MANAGER
-            .get_with_recording_level_and_context(
-                request,
-                manager_execution_context_with_security(None, conn.ssh_security),
-                to_record_level(record_level),
-            )
-            .await?;
-        let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler_for_tx,
-        );
-        let result = MANAGER
-            .execute_tx_block_with_context(
-                request,
-                tx_block,
-                manager_execution_context_with_security(None, conn.ssh_security),
-            )
-            .await?;
-        let jsonl = recorder.to_jsonl()?;
-        persist_auto_recording_history_jsonl(
-            &jsonl,
-            conn,
-            "orchestrate_tx_block",
-            &tx_block_name,
-            Some(&mode),
-            record_level,
-        )?;
-        (result, Some(jsonl))
-    };
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+    );
+    let (_sender, recorder) = MANAGER
+        .get_with_recording_level_and_context(
+            request,
+            manager_execution_context_with_security(None, conn.ssh_security),
+            to_record_level(record_level),
+        )
+        .await?;
+    let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler_for_tx,
+    );
+    let tx_result = MANAGER
+        .execute_tx_block_with_context(
+            request,
+            tx_block,
+            manager_execution_context_with_security(None, conn.ssh_security),
+        )
+        .await?;
+    let jsonl = recorder.to_jsonl()?;
+    persist_auto_recording_history_jsonl(
+        &jsonl,
+        conn,
+        "orchestrate_tx_block",
+        &tx_block_name,
+        Some(&mode),
+        record_level,
+    )?;
+    let recording_jsonl = Some(jsonl);
 
     Ok(ActionExecutionOutcome {
         operation: format!("tx_block: {}", tx_block_name),
@@ -1116,67 +1097,47 @@ async fn execute_tx_workflow_action(
         &format!("orchestration tx workflow '{}'", workflow_name),
     )?;
     let handler = template_loader::load_device_profile(&conn.device_profile)?;
-
-    let (workflow_result, recording_jsonl) = if matches!(record_level, RecordLevelOpt::Off) {
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-        );
-        let result = MANAGER
-            .execute_tx_workflow_with_context(
-                request,
-                workflow.clone(),
-                manager_execution_context_with_security(None, conn.ssh_security),
-            )
-            .await?;
-        (result, None)
-    } else {
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-        );
-        let (_sender, recorder) = MANAGER
-            .get_with_recording_level_and_context(
-                request,
-                manager_execution_context_with_security(None, conn.ssh_security),
-                to_record_level(record_level),
-            )
-            .await?;
-        let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler_for_tx,
-        );
-        let result = MANAGER
-            .execute_tx_workflow_with_context(
-                request,
-                workflow,
-                manager_execution_context_with_security(None, conn.ssh_security),
-            )
-            .await?;
-        let jsonl = recorder.to_jsonl()?;
-        persist_auto_recording_history_jsonl(
-            &jsonl,
-            conn,
-            "orchestrate_tx_workflow",
-            &operation_name,
-            None,
-            record_level,
-        )?;
-        (result, Some(jsonl))
-    };
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+    );
+    let (_sender, recorder) = MANAGER
+        .get_with_recording_level_and_context(
+            request,
+            manager_execution_context_with_security(None, conn.ssh_security),
+            to_record_level(record_level),
+        )
+        .await?;
+    let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler_for_tx,
+    );
+    let workflow_result = MANAGER
+        .execute_tx_workflow_with_context(
+            request,
+            workflow,
+            manager_execution_context_with_security(None, conn.ssh_security),
+        )
+        .await?;
+    let jsonl = recorder.to_jsonl()?;
+    persist_auto_recording_history_jsonl(
+        &jsonl,
+        conn,
+        "orchestrate_tx_workflow",
+        &operation_name,
+        None,
+        record_level,
+    )?;
+    let recording_jsonl = Some(jsonl);
 
     Ok(ActionExecutionOutcome {
         operation: format!("tx_workflow: {}", workflow_name),

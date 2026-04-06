@@ -149,7 +149,6 @@ fn parse_json_value(raw: &str, field_name: &str, default: Value) -> Result<Value
 fn parse_record_level(raw: &str) -> Result<Option<RecordLevel>, Status> {
     match raw.trim() {
         "" => Ok(None),
-        "off" => Ok(Some(RecordLevel::Off)),
         "key-events-only" => Ok(Some(RecordLevel::KeyEventsOnly)),
         "full" => Ok(Some(RecordLevel::Full)),
         value => Err(Status::invalid_argument(format!(

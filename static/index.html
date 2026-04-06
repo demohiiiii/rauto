@@ -36,6 +36,13 @@
       <div class="flex-1"></div>
       <div class="dashboard-header-actions flex-none px-2">
         <div class="dashboard-tool-group">
+          <label id="record-level-toolbar-wrap" class="dashboard-select-wrap" for="record-level-toolbar" title="Recording level">
+            <span id="dashboard-tool-record-level" class="dashboard-tool-meta">Record</span>
+            <select id="record-level-toolbar" class="dashboard-select" title="Recording Level" aria-label="Recording Level">
+              <option value="key-events-only" selected>Audit</option>
+              <option value="full">Full</option>
+            </select>
+          </label>
           <button id="record-fab" class="dashboard-tool" type="button" title="Recording">
             <span id="dashboard-tool-record" class="dashboard-tool-label">Recording</span>
             <span id="record-fab-badge" class="dashboard-tool-badge" hidden>0</span>
@@ -954,7 +961,7 @@
   <div class="record-drawer-head">
     <div class="grid gap-1">
       <span id="recording-title" class="text-sm font-semibold text-slate-700">Session Recording</span>
-      <span class="text-xs text-slate-500" id="recording-subtitle">View recorded sessions and filters</span>
+      <span class="text-xs text-slate-500" id="recording-subtitle">Every execution is recorded. Choose audit-only or full detail.</span>
     </div>
     <button id="record-drawer-close" class="btn btn-sm" type="button">Close</button>
   </div>
@@ -962,14 +969,9 @@
     <div class="record-drawer-section">
       <div class="record-toolbar">
         <div class="record-toolbar-left">
-          <label class="check-label">
-            <input id="record-enable" type="checkbox" class="check-input" />
-            <span id="record-enable-label">Disable recording</span>
-          </label>
           <select id="record-level" class="input md:w-[220px]" title="Record Level" aria-label="Record Level">
-            <option value="key-events-only" selected>key-events-only</option>
-            <option value="full">full</option>
-            <option value="off">off</option>
+            <option value="key-events-only" selected>key-events-only (command + output)</option>
+            <option value="full">full (prompt + state changes)</option>
           </select>
         </div>
         <div class="record-toolbar-left">

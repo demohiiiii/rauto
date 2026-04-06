@@ -258,8 +258,12 @@ pub fn save_task_callback(callback: &TaskCallback, operation: TaskOperation) -> 
         .execute(db::pool())
         .await?;
 
-        replace_task_artifacts(&callback.task_id, &callback.completed_at, callback.result.as_ref())
-            .await?;
+        replace_task_artifacts(
+            &callback.task_id,
+            &callback.completed_at,
+            callback.result.as_ref(),
+        )
+        .await?;
         Ok(())
     })
 }
@@ -359,11 +363,12 @@ pub fn list_task_artifacts(task_id: &str) -> Result<Vec<TaskArtifactRecord>> {
         return Ok(Vec::new());
     }
     db::run_sync(async move {
-        let rows =
-            sqlx::query("SELECT * FROM task_artifacts WHERE task_id = ? ORDER BY created_at ASC, id ASC")
-                .bind(task_id)
-                .fetch_all(db::pool())
-                .await?;
+        let rows = sqlx::query(
+            "SELECT * FROM task_artifacts WHERE task_id = ? ORDER BY created_at ASC, id ASC",
+        )
+        .bind(task_id)
+        .fetch_all(db::pool())
+        .await?;
         Ok(rows.into_iter().map(row_to_task_artifact_record).collect())
     })
 }
@@ -419,7 +424,9 @@ fn row_to_task_artifact_record(row: sqlx::sqlite::SqliteRow) -> TaskArtifactReco
         name: row.get("name"),
         storage_ref: row.get("storage_ref"),
         content_type: row.get("content_type"),
-        size_bytes: row.get::<Option<i64>, _>("size_bytes").map(|value| value as u64),
+        size_bytes: row
+            .get::<Option<i64>, _>("size_bytes")
+            .map(|value| value as u64),
         content_text: row.get("content_text"),
         created_at: row.get("created_at"),
     }

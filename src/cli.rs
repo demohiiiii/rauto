@@ -82,7 +82,6 @@ pub enum Commands {
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum RecordLevelOpt {
-    Off,
     KeyEventsOnly,
     Full,
 }
@@ -352,7 +351,7 @@ pub struct CommandFlowArgs {
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::Off)]
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 
@@ -383,7 +382,7 @@ pub struct UploadArgs {
     pub record_file: Option<PathBuf>,
 
     /// Save SSH session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::Off)]
+    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 

@@ -657,7 +657,6 @@ pub struct UpdateCommandFlowTemplateRequest {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RecordLevel {
-    Off,
     KeyEventsOnly,
     Full,
 }

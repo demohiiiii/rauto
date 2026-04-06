@@ -238,6 +238,24 @@ function bindEvents() {
   byId("record-fab").onclick = () => {
     openRecordDrawer();
   };
+  const syncRecordLevel = (sourceId, targetId) => {
+    const source = byId(sourceId);
+    const target = byId(targetId);
+    if (!source || !target) return;
+    target.value = source.value || "key-events-only";
+  };
+  byId("record-level-toolbar").onchange = () => {
+    syncRecordLevel("record-level-toolbar", "record-level");
+    if (typeof updateRecordLevelTooltip === "function") {
+      updateRecordLevelTooltip();
+    }
+  };
+  byId("record-level").onchange = () => {
+    syncRecordLevel("record-level", "record-level-toolbar");
+    if (typeof updateRecordLevelTooltip === "function") {
+      updateRecordLevelTooltip();
+    }
+  };
   byId("history-topbar-btn").onclick = () => {
     openHistoryDrawer();
     loadConnectionHistory();
@@ -911,9 +929,6 @@ function bindEvents() {
   });
 
   byId("template").onchange = loadSelectedTemplateContent;
-  byId("record-enable").onchange = () => {
-    byId("record-level").disabled = byId("record-enable").checked;
-  };
   byId("record-view-list").onclick = () => {
     recordViewMode = "list";
     saveFilterPrefs();
@@ -1311,7 +1326,6 @@ applyPromptMode();
 resetDiagnoseView();
 updateInteractiveButtons();
 updateRecordFabVisibility();
-byId("record-level").disabled = byId("record-enable").checked;
 byId("record-failed-only").checked = recordFailedOnly;
 byId("replay-failed-only").checked = replayFailedOnly;
 byId("record-event-kind").value = recordEventKind;

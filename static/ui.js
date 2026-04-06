@@ -105,10 +105,26 @@ function applyI18n() {
   byId("interactive-clear-btn").textContent = t("interactiveClearBtn");
   byId("record-fab").title = t("recordFabTitle");
   byId("dashboard-tool-record").textContent = t("recordFabTitle");
+  byId("dashboard-tool-record-level").textContent = t("recordLevelLabel");
   byId("history-topbar-btn").title = t("savedConnHistoryBtn");
   byId("dashboard-tool-history").textContent = t("savedConnHistoryBtn");
   byId("record-drawer-close").textContent = t("recordDrawerClose");
   byId("recording-subtitle").textContent = t("recordDrawerSubtitle");
+  const currentRecordLevel =
+    byId("record-level-toolbar").value ||
+    byId("record-level").value ||
+    "key-events-only";
+  const recordLevelOptions = `
+    <option value="key-events-only">${escapeHtml(t("recordLevelAudit"))}</option>
+    <option value="full">${escapeHtml(t("recordLevelFull"))}</option>
+  `;
+  const recordLevelEl = byId("record-level");
+  const recordLevelToolbarEl = byId("record-level-toolbar");
+  recordLevelEl.innerHTML = recordLevelOptions;
+  recordLevelToolbarEl.innerHTML = recordLevelOptions;
+  recordLevelEl.value = currentRecordLevel;
+  recordLevelToolbarEl.value = currentRecordLevel;
+  updateRecordLevelTooltip();
   byId("history-drawer-title").textContent = t("historyDrawerTitle");
   byId("history-drawer-subtitle").textContent = t("historyDrawerSubtitle");
   byId("history-drawer-refresh-btn").textContent = t("historyDrawerRefresh");
@@ -257,7 +273,6 @@ function applyI18n() {
   byId("record-event-kind").setAttribute("aria-label", t("eventTypeLabel"));
   byId("record-search").placeholder = t("searchPlaceholder");
   byId("record-clear-filters").textContent = t("clearFilters");
-  byId("record-enable-label").textContent = t("recordEnableLabel");
   byId("record-copy-btn").textContent = t("recordCopyBtn");
   byId("record-use-replay-btn").textContent = t("recordUseReplayBtn");
   byId("replay-title").textContent = t("replayTitle");
@@ -513,6 +528,21 @@ function applyI18n() {
   syncAgentAuthUi();
 
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
+}
+
+function updateRecordLevelTooltip() {
+  const level =
+    byId("record-level-toolbar")?.value ||
+    byId("record-level")?.value ||
+    "key-events-only";
+  const hint =
+    level === "full" ? t("recordLevelFullHint") : t("recordLevelAuditHint");
+  const toolbarWrap = byId("record-level-toolbar-wrap");
+  const toolbarSelect = byId("record-level-toolbar");
+  const drawerSelect = byId("record-level");
+  if (toolbarWrap) toolbarWrap.title = hint;
+  if (toolbarSelect) toolbarSelect.title = hint;
+  if (drawerSelect) drawerSelect.title = hint;
 }
 
 function localizeDynamicFields() {
@@ -923,10 +953,12 @@ function connectionPayload() {
 }
 
 function recordLevelPayload() {
-  if (byId("record-enable").checked) return "off";
-  const level = (byId("record-level").value || "key-events-only").trim();
-  if (!level || level === "off") return null;
-  return level;
+  const level = (
+    byId("record-level-toolbar").value ||
+    byId("record-level").value ||
+    "key-events-only"
+  ).trim();
+  return !level ? "key-events-only" : level;
 }
 
 const INLINE_STATUS_TARGETS = new Set([

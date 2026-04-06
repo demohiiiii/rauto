@@ -159,32 +159,18 @@ async fn run(cli: Cli) -> Result<()> {
             let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
             info!("Connecting to device...");
-            let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
-                DeviceClient::connect_with_recording(
-                    conn.host.clone(),
-                    conn.port,
-                    conn.username.clone(),
-                    conn.password.clone(),
-                    conn.enable_password.clone(),
-                    handler,
-                    default_mode.clone(),
-                    to_record_level(args.record_level),
-                    conn.ssh_security,
-                )
-                .await?
-            } else {
-                DeviceClient::connect(
-                    conn.host.clone(),
-                    conn.port,
-                    conn.username.clone(),
-                    conn.password.clone(),
-                    conn.enable_password.clone(),
-                    handler,
-                    default_mode.clone(),
-                    conn.ssh_security,
-                )
-                .await?
-            };
+            let client = DeviceClient::connect_with_recording(
+                conn.host.clone(),
+                conn.port,
+                conn.username.clone(),
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                default_mode.clone(),
+                to_record_level(args.record_level),
+                conn.ssh_security,
+            )
+            .await?;
 
             maybe_save_connection_profile(&cli.global_opts, &conn)?;
 
@@ -216,32 +202,18 @@ async fn run(cli: Cli) -> Result<()> {
             let effective_mode =
                 template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
 
-            let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
-                DeviceClient::connect_with_recording(
-                    conn.host.clone(),
-                    conn.port,
-                    conn.username.clone(),
-                    conn.password.clone(),
-                    conn.enable_password.clone(),
-                    handler,
-                    default_mode.clone(),
-                    to_record_level(args.record_level),
-                    conn.ssh_security,
-                )
-                .await?
-            } else {
-                DeviceClient::connect(
-                    conn.host.clone(),
-                    conn.port,
-                    conn.username.clone(),
-                    conn.password.clone(),
-                    conn.enable_password.clone(),
-                    handler,
-                    default_mode.clone(),
-                    conn.ssh_security,
-                )
-                .await?
-            };
+            let client = DeviceClient::connect_with_recording(
+                conn.host.clone(),
+                conn.port,
+                conn.username.clone(),
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                default_mode.clone(),
+                to_record_level(args.record_level),
+                conn.ssh_security,
+            )
+            .await?;
 
             maybe_save_connection_profile(&cli.global_opts, &conn)?;
 
@@ -1039,32 +1011,18 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
         return Err(anyhow::anyhow!("command flow has no steps"));
     }
 
-    let client = if !matches!(args.record_level, RecordLevelOpt::Off) {
-        DeviceClient::connect_with_recording(
-            conn.host.clone(),
-            conn.port,
-            conn.username.clone(),
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-            default_mode.clone(),
-            to_record_level(args.record_level),
-            conn.ssh_security,
-        )
-        .await?
-    } else {
-        DeviceClient::connect(
-            conn.host.clone(),
-            conn.port,
-            conn.username.clone(),
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-            default_mode.clone(),
-            conn.ssh_security,
-        )
-        .await?
-    };
+    let client = DeviceClient::connect_with_recording(
+        conn.host.clone(),
+        conn.port,
+        conn.username.clone(),
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+        default_mode.clone(),
+        to_record_level(args.record_level),
+        conn.ssh_security,
+    )
+    .await?;
 
     maybe_save_connection_profile(opts, &conn)?;
 
@@ -1101,46 +1059,40 @@ async fn run_upload(args: UploadArgs, opts: &cli::GlobalOpts) -> Result<()> {
     );
     let context = manager_execution_context_with_security(None, conn.ssh_security);
 
-    if matches!(args.record_level, RecordLevelOpt::Off) {
-        MANAGER
-            .upload_file_with_context(request, upload, context)
-            .await?;
-    } else {
-        let (_sender, recorder) = MANAGER
-            .get_with_recording_level_and_context(
-                request,
-                context.clone(),
-                to_record_level(args.record_level),
-            )
-            .await?;
-        let handler_for_upload = template_loader::load_device_profile(&conn.device_profile)?;
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler_for_upload,
-        );
-        MANAGER
-            .upload_file_with_context(request, upload, context)
-            .await?;
+    let (_sender, recorder) = MANAGER
+        .get_with_recording_level_and_context(
+            request,
+            context.clone(),
+            to_record_level(args.record_level),
+        )
+        .await?;
+    let handler_for_upload = template_loader::load_device_profile(&conn.device_profile)?;
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler_for_upload,
+    );
+    MANAGER
+        .upload_file_with_context(request, upload, context)
+        .await?;
 
-        let jsonl = recorder.to_jsonl()?;
-        write_recording_text_if_requested(args.record_file.as_ref(), &jsonl)?;
-        persist_auto_recording_history_jsonl(
-            &jsonl,
-            &conn,
-            "sftp_upload",
-            &format!(
-                "{} -> {}",
-                args.local_path.to_string_lossy(),
-                args.remote_path
-            ),
-            None,
-            args.record_level,
-        )?;
-    }
+    let jsonl = recorder.to_jsonl()?;
+    write_recording_text_if_requested(args.record_file.as_ref(), &jsonl)?;
+    persist_auto_recording_history_jsonl(
+        &jsonl,
+        &conn,
+        "sftp_upload",
+        &format!(
+            "{} -> {}",
+            args.local_path.to_string_lossy(),
+            args.remote_path
+        ),
+        None,
+        args.record_level,
+    )?;
 
     maybe_save_connection_profile(opts, &conn)?;
     println!(
@@ -1248,7 +1200,6 @@ fn normalize_command_flow_template_body_from_input(
 
 pub(crate) fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
     match level {
-        RecordLevelOpt::Off => SessionRecordLevel::Off,
         RecordLevelOpt::KeyEventsOnly => SessionRecordLevel::KeyEventsOnly,
         RecordLevelOpt::Full => SessionRecordLevel::Full,
     }
@@ -1256,7 +1207,6 @@ pub(crate) fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
 
 pub(crate) fn record_level_name(level: RecordLevelOpt) -> &'static str {
     match level {
-        RecordLevelOpt::Off => "off",
         RecordLevelOpt::KeyEventsOnly => "key-events-only",
         RecordLevelOpt::Full => "full",
     }
@@ -1270,9 +1220,6 @@ fn persist_auto_recording_history(
     mode: Option<&str>,
     record_level: RecordLevelOpt,
 ) -> Result<()> {
-    if matches!(record_level, RecordLevelOpt::Off) {
-        return Ok(());
-    }
     let Some(jsonl) = client.recording_jsonl()? else {
         return Ok(());
     };
@@ -1606,73 +1553,48 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
     command_blacklist::ensure_tx_block_allowed(&tx_block, &format!("tx block '{}'", args.name))?;
 
     let handler = template_loader::load_device_profile(&conn.device_profile)?;
-    let tx_result = if matches!(args.record_level, RecordLevelOpt::Off) {
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-        );
-        MANAGER
-            .execute_tx_block_with_context(
-                request,
-                tx_block.clone(),
-                manager_execution_context_with_security(None, conn.ssh_security),
-            )
-            .await?
-    } else {
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-        );
-        let (_sender, recorder) = MANAGER
-            .get_with_recording_level_and_context(
-                request,
-                manager_execution_context_with_security(None, conn.ssh_security),
-                to_record_level(args.record_level),
-            )
-            .await?;
-        let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler_for_tx,
-        );
-        let result = MANAGER
-            .execute_tx_block_with_context(
-                request,
-                tx_block.clone(),
-                manager_execution_context_with_security(None, conn.ssh_security),
-            )
-            .await?;
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+    );
+    let (_sender, recorder) = MANAGER
+        .get_with_recording_level_and_context(
+            request,
+            manager_execution_context_with_security(None, conn.ssh_security),
+            to_record_level(args.record_level),
+        )
+        .await?;
+    let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler_for_tx,
+    );
+    let tx_result = MANAGER
+        .execute_tx_block_with_context(
+            request,
+            tx_block.clone(),
+            manager_execution_context_with_security(None, conn.ssh_security),
+        )
+        .await?;
 
-        let jsonl = recorder.to_jsonl()?;
-        write_recording_text_if_requested(args.record_file.as_ref(), &jsonl)?;
-        persist_auto_recording_history_jsonl(
-            &jsonl,
-            &conn,
-            "tx_block",
-            &args.name,
-            Some(&effective_mode),
-            args.record_level,
-        )?;
-        if args.json {
-            println!("{}", serde_json::to_string_pretty(&result)?);
-        } else {
-            print_tx_result(&result);
-        }
-        maybe_save_connection_profile(opts, &conn)?;
-        return Ok(());
-    };
+    let jsonl = recorder.to_jsonl()?;
+    write_recording_text_if_requested(args.record_file.as_ref(), &jsonl)?;
+    persist_auto_recording_history_jsonl(
+        &jsonl,
+        &conn,
+        "tx_block",
+        &args.name,
+        Some(&effective_mode),
+        args.record_level,
+    )?;
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&tx_result)?);
@@ -1816,9 +1738,6 @@ pub(crate) fn persist_auto_recording_history_jsonl(
     mode: Option<&str>,
     record_level: RecordLevelOpt,
 ) -> Result<()> {
-    if matches!(record_level, RecordLevelOpt::Off) {
-        return Ok(());
-    }
     let result = history_store::save_recording(
         HistoryBinding {
             connection_name: conn.connection_name.as_deref(),
@@ -1886,70 +1805,47 @@ async fn run_tx_workflow(args: TxWorkflowArgs, opts: &cli::GlobalOpts) -> Result
 
     let conn = resolve_effective_connection(opts)?;
     let handler = template_loader::load_device_profile(&conn.device_profile)?;
-    let (workflow_result, recording_jsonl) = if matches!(args.record_level, RecordLevelOpt::Off) {
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-        );
-        let result = MANAGER
-            .execute_tx_workflow_with_context(
-                request,
-                workflow.clone(),
-                manager_execution_context_with_security(None, conn.ssh_security),
-            )
-            .await?;
-        (result, None)
-    } else {
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-        );
-        let (_sender, recorder) = MANAGER
-            .get_with_recording_level_and_context(
-                request,
-                manager_execution_context_with_security(None, conn.ssh_security),
-                to_record_level(args.record_level),
-            )
-            .await?;
-        let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler_for_tx,
-        );
-        let result = MANAGER
-            .execute_tx_workflow_with_context(
-                request,
-                workflow.clone(),
-                manager_execution_context_with_security(None, conn.ssh_security),
-            )
-            .await?;
-        let jsonl = recorder.to_jsonl()?;
-        (result, Some(jsonl))
-    };
-
-    if let Some(jsonl) = &recording_jsonl {
-        write_recording_text_if_requested(args.record_file.as_ref(), jsonl)?;
-        persist_auto_recording_history_jsonl(
-            jsonl,
-            &conn,
-            "tx_workflow",
-            &workflow.name,
-            None,
-            args.record_level,
-        )?;
-    }
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+    );
+    let (_sender, recorder) = MANAGER
+        .get_with_recording_level_and_context(
+            request,
+            manager_execution_context_with_security(None, conn.ssh_security),
+            to_record_level(args.record_level),
+        )
+        .await?;
+    let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+    let request = manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler_for_tx,
+    );
+    let workflow_result = MANAGER
+        .execute_tx_workflow_with_context(
+            request,
+            workflow.clone(),
+            manager_execution_context_with_security(None, conn.ssh_security),
+        )
+        .await?;
+    let recording_jsonl = recorder.to_jsonl()?;
+    write_recording_text_if_requested(args.record_file.as_ref(), &recording_jsonl)?;
+    persist_auto_recording_history_jsonl(
+        &recording_jsonl,
+        &conn,
+        "tx_workflow",
+        &workflow.name,
+        None,
+        args.record_level,
+    )?;
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&workflow_result)?);

@@ -184,7 +184,10 @@ Notes:
 - Flow templates can declare a `vars` schema with `name`, `type`, `required`, `default`, `options`, `label`, and `description`, so `rauto` can validate runtime vars and render form fields in the Web UI.
 - Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
 - If a step omits `mode`, `rauto` uses the first mode defined by the selected device profile.
-- `--record-level` and `--record-file` work the same way as other CLI execution commands.
+- Every execution records a session by default.
+- `--record-level key-events-only` keeps the audit-friendly minimum: input commands and device output.
+- `--record-level full` also captures richer prompt and state-transition details.
+- `--record-file` still exports the same JSONL recording to a file when you want a copy.
 
 Ready-to-edit sample flow template:
 
@@ -213,7 +216,7 @@ Optional flags:
 - `--buffer-size <bytes>`
 - `--timeout-secs <seconds>`
 - `--show-progress`
-- `--record-level <off|key-events-only|full>`
+- `--record-level <key-events-only|full>`
 - `--record-file <path>`
 
 ### 3. Device Profiles
@@ -773,7 +776,7 @@ Default runtime data:
 Recording-related options (command-specific):
 
 - `exec/template --record-file <path>`: Save recording JSONL after execution.
-- `exec/template --record-level <off|key-events-only|full>`: Recording granularity.
+- `exec/template --record-level <key-events-only|full>`: Recording granularity.
 - `replay <record_file> --list`: List recorded command output events.
 - `replay <record_file> --command <cmd> [--mode <mode>]`: Replay one command output.
 - With `rneter 0.3.3`, replayed `SessionEvent::CommandOutput` entries may include `exit_code` for Linux shell flows.

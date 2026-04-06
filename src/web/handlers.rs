@@ -44,9 +44,8 @@ use crate::web::models::{
     ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
     ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
     SavedConnectionMeta, TaskArtifactDto, TaskEvent, TaskEventDto, TaskRunDetailResponse,
-    TaskRunListItem,
-    TaskRunsQuery, TemplateDetail, TemplateMeta, TransferDirection, TransferProtocol,
-    TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
+    TaskRunListItem, TaskRunsQuery, TemplateDetail, TemplateMeta, TransferDirection,
+    TransferProtocol, TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
     UpsertConnectionRequest, UpsertCustomProfileRequest,
 };
 use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
@@ -1802,7 +1801,6 @@ pub async fn render_template(
 
 fn to_record_level(level: Option<RecordLevel>) -> Option<SessionRecordLevel> {
     match level {
-        Some(RecordLevel::Off) => None,
         Some(RecordLevel::KeyEventsOnly) => Some(SessionRecordLevel::KeyEventsOnly),
         Some(RecordLevel::Full) => Some(SessionRecordLevel::Full),
         None => Some(SessionRecordLevel::KeyEventsOnly),
@@ -1811,7 +1809,6 @@ fn to_record_level(level: Option<RecordLevel>) -> Option<SessionRecordLevel> {
 
 fn to_cli_record_level(level: Option<RecordLevel>) -> RecordLevelOpt {
     match level {
-        Some(RecordLevel::Off) => RecordLevelOpt::Off,
         Some(RecordLevel::KeyEventsOnly) | None => RecordLevelOpt::KeyEventsOnly,
         Some(RecordLevel::Full) => RecordLevelOpt::Full,
     }
@@ -1819,7 +1816,6 @@ fn to_cli_record_level(level: Option<RecordLevel>) -> RecordLevelOpt {
 
 fn record_level_name(level: Option<RecordLevel>) -> &'static str {
     match level {
-        Some(RecordLevel::Off) => "off",
         Some(RecordLevel::KeyEventsOnly) | None => "key-events-only",
         Some(RecordLevel::Full) => "full",
     }
@@ -1833,9 +1829,6 @@ fn persist_history_if_recorded(
     mode: Option<&str>,
     level: Option<RecordLevel>,
 ) {
-    if matches!(level, Some(RecordLevel::Off)) {
-        return;
-    }
     let Some(jsonl) = client.recording_jsonl().ok().flatten() else {
         return;
     };
