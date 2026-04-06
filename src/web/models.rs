@@ -1,5 +1,7 @@
 use crate::config::ssh_security::SshSecurityProfile;
-use crate::task::{TaskEventLevel, TaskEventType, TaskOperation, TaskStatus};
+pub use crate::task::TaskEvent;
+use crate::task::TaskResultSummary;
+pub use crate::task::{AsyncTaskAcceptedResponse, TaskCallback};
 use rneter::{device::StateMachineDiagnostics, session::SessionRecordEntry};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -192,6 +194,7 @@ pub struct ExecResponse {
     pub output: String,
     pub exit_code: Option<i32>,
     pub recording_jsonl: Option<String>,
+    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Deserialize)]
@@ -223,6 +226,7 @@ pub struct ExecuteTemplateResponse {
     pub rendered_commands: String,
     pub executed: Vec<CommandResult>,
     pub recording_jsonl: Option<String>,
+    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Deserialize)]
@@ -243,6 +247,7 @@ pub struct ExecuteCommandFlowResponse {
     pub template_name: String,
     pub outputs: Vec<CommandResult>,
     pub recording_jsonl: Option<String>,
+    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -293,6 +298,7 @@ pub struct ExecuteBuiltinFileTransferFlowResponse {
     pub resolved_mode: String,
     pub outputs: Vec<CommandResult>,
     pub recording_jsonl: Option<String>,
+    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Deserialize)]
@@ -315,6 +321,7 @@ pub struct ExecuteUploadResponse {
     pub local_path: String,
     pub remote_path: String,
     pub recording_jsonl: Option<String>,
+    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Deserialize)]
@@ -360,6 +367,7 @@ pub struct ExecuteTxBlockResponse {
     pub tx_block: Value,
     pub tx_result: Option<Value>,
     pub recording_jsonl: Option<String>,
+    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Deserialize)]
@@ -378,6 +386,7 @@ pub struct ExecuteTxWorkflowResponse {
     pub workflow: Value,
     pub tx_workflow_result: Option<Value>,
     pub recording_jsonl: Option<String>,
+    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Deserialize)]
@@ -397,14 +406,7 @@ pub struct ExecuteOrchestrationResponse {
     pub plan: Value,
     pub inventory: Value,
     pub orchestration_result: Option<Value>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct AsyncTaskAcceptedResponse {
-    pub accepted: bool,
-    pub task_id: String,
-    pub operation: TaskOperation,
-    pub status: TaskStatus,
+    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Serialize)]
@@ -466,34 +468,80 @@ pub struct DeviceProbeResponse {
     pub unreachable_count: u32,
 }
 
-#[derive(Debug, Serialize)]
-pub struct TaskCallback {
-    pub task_id: String,
-    pub agent_name: String,
-    pub status: TaskStatus,
-    pub started_at: String,
-    pub completed_at: String,
-    pub execution_time_ms: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+#[derive(Debug, Deserialize)]
+pub struct TaskRunsQuery {
+    pub limit: Option<usize>,
+    pub operation: Option<String>,
+    pub status: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct TaskEvent {
+#[derive(Debug, Serialize)]
+pub struct TaskRunListItem {
     pub task_id: String,
-    pub agent_name: String,
-    pub event_type: TaskEventType,
-    pub message: String,
-    pub level: TaskEventLevel,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operation: String,
+    pub status: String,
+    pub outcome: Option<String>,
+    pub summary: String,
+    pub success: bool,
+    pub agent_name: Option<String>,
+    pub source: Option<String>,
+    pub target_label: Option<String>,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub execution_time_ms: Option<u64>,
+    pub has_recording: bool,
+    pub has_error: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskEventDto {
+    pub seq: u64,
+    pub task_id: String,
+    pub operation: String,
+    pub event_type: String,
+    pub level: String,
     pub stage: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: String,
     pub progress: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<Value>,
     pub occurred_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskArtifactDto {
+    pub id: u64,
+    pub artifact_type: String,
+    pub name: String,
+    pub storage_ref: Option<String>,
+    pub content_type: Option<String>,
+    pub size_bytes: Option<u64>,
+    pub content_text: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskRunDetailResponse {
+    pub task_id: String,
+    pub operation: String,
+    pub status: String,
+    pub outcome: Option<String>,
+    pub summary: String,
+    pub success: bool,
+    pub agent_name: Option<String>,
+    pub source: Option<String>,
+    pub target_label: Option<String>,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub execution_time_ms: Option<u64>,
+    pub has_recording: bool,
+    pub has_error: bool,
+    pub result_summary: Option<Value>,
+    pub result: Option<Value>,
+    pub error: Option<Value>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub events: Vec<TaskEventDto>,
+    pub artifacts: Vec<TaskArtifactDto>,
 }
 
 #[derive(Debug, Serialize)]

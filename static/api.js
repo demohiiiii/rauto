@@ -97,6 +97,25 @@ async function saveAgentApiTokenFromWeb() {
   await refreshProtectedData();
 }
 
+async function fetchTaskRuns(params = {}) {
+  const search = new URLSearchParams();
+  if (params.limit !== undefined && params.limit !== null && params.limit !== "") {
+    search.set("limit", String(params.limit));
+  }
+  if (params.operation) {
+    search.set("operation", String(params.operation));
+  }
+  if (params.status) {
+    search.set("status", String(params.status));
+  }
+  const query = search.toString();
+  return request("GET", query ? `/api/tasks?${query}` : "/api/tasks");
+}
+
+async function fetchTaskDetail(taskId) {
+  return request("GET", `/api/tasks/${encodeURIComponent(taskId)}`);
+}
+
 
 async function request(method, url, body) {
   const options = {
@@ -150,4 +169,3 @@ async function requestForm(method, url, formData) {
   }
   return data ?? {};
 }
-

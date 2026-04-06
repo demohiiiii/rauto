@@ -236,6 +236,7 @@ message ExecuteCommandResponse {
   string output = 1;
   optional string recording_jsonl = 2;
   optional int32 exit_code = 3;
+  optional string result_summary_json = 4;
 }
 
 message CommandExecutionResult {
@@ -250,6 +251,7 @@ message ExecuteTemplateResponse {
   string rendered_commands = 1;
   repeated CommandExecutionResult executed = 2;
   optional string recording_jsonl = 3;
+  optional string result_summary_json = 4;
 }
 
 message ExecuteCommandFlowRequest {
@@ -265,6 +267,7 @@ message ExecuteCommandFlowResponse {
   string template_name = 2;
   repeated CommandExecutionResult outputs = 3;
   optional string recording_jsonl = 4;
+  optional string result_summary_json = 5;
 }
 
 message ExecuteUploadRequest {
@@ -282,12 +285,14 @@ message ExecuteUploadResponse {
   string local_path = 2;
   string remote_path = 3;
   optional string recording_jsonl = 4;
+  optional string result_summary_json = 5;
 }
 
 message ExecuteTxBlockResponse {
   string tx_block_json = 1;
   optional string tx_result_json = 2;
   optional string recording_jsonl = 3;
+  optional string result_summary_json = 4;
 }
 
 message AgentInfoResponse {

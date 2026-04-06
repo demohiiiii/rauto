@@ -55,6 +55,13 @@ function bindEvents() {
         deleteConnectionHistoryItem(historyId);
       }
     }
+    const taskDetailBtn = e.target.closest(".js-task-detail-btn");
+    if (taskDetailBtn) {
+      const taskId = taskDetailBtn.getAttribute("data-task-id") || "";
+      if (taskId) {
+        loadTaskDetail(taskId);
+      }
+    }
     const txDeleteBtn = e.target.closest(".js-tx-workflow-delete-block");
     if (txDeleteBtn) {
       const blockId = txDeleteBtn.getAttribute("data-tx-block-id") || "";
@@ -250,6 +257,54 @@ function bindEvents() {
   };
   byId("history-drawer-backdrop").onclick = () => {
     closeHistoryDrawer();
+  };
+  byId("tasks-refresh-btn").onclick = () => {
+    loadTasks();
+  };
+  byId("tasks-clear-btn").onclick = () => {
+    byId("tasks-search").value = "";
+    byId("tasks-operation").value = "";
+    byId("tasks-status").value = "";
+    byId("tasks-outcome").value = "all";
+    byId("tasks-time-range").value = "all";
+    byId("tasks-recording").value = "all";
+    byId("tasks-error").value = "all";
+    byId("tasks-limit").value = "50";
+    taskSearchQuery = "";
+    taskOutcomeFilter = "all";
+    taskTimeRangeFilter = "all";
+    taskRecordingFilter = "all";
+    taskErrorFilter = "all";
+    loadTasks();
+  };
+  byId("tasks-search").oninput = () => {
+    taskSearchQuery = byId("tasks-search").value || "";
+    renderTaskList();
+  };
+  byId("tasks-operation").onchange = () => {
+    loadTasks();
+  };
+  byId("tasks-status").onchange = () => {
+    loadTasks();
+  };
+  byId("tasks-outcome").onchange = () => {
+    taskOutcomeFilter = byId("tasks-outcome").value || "all";
+    renderTaskList();
+  };
+  byId("tasks-time-range").onchange = () => {
+    taskTimeRangeFilter = byId("tasks-time-range").value || "all";
+    renderTaskList();
+  };
+  byId("tasks-recording").onchange = () => {
+    taskRecordingFilter = byId("tasks-recording").value || "all";
+    renderTaskList();
+  };
+  byId("tasks-error").onchange = () => {
+    taskErrorFilter = byId("tasks-error").value || "all";
+    renderTaskList();
+  };
+  byId("tasks-limit").onchange = () => {
+    loadTasks();
   };
 
   byId("device_profile").addEventListener("change", () => {
@@ -1184,6 +1239,9 @@ window.onAlpineTabChange = function onAlpineTabChange(tab) {
   }
   if (tab === "backup") {
     loadBackups();
+  }
+  if (tab === "tasks") {
+    loadTasks();
   }
 };
 

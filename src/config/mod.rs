@@ -9,4 +9,5 @@ pub mod history_store;
 pub mod keyring_store;
 pub mod paths;
 pub mod ssh_security;
+pub mod task_store;
 pub mod template_loader;

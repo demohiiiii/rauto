@@ -103,6 +103,7 @@ message TaskCallbackRequest {
   uint64 execution_time_ms = 6;
   optional string result_json = 7;
   optional string error = 8;
+  optional string result_summary_json = 9;
 }
 
 message TaskEventRequest {

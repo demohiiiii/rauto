@@ -10,11 +10,18 @@ use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
 use crate::config::{
     backup, connection_import, connection_store, connection_store::SavedConnection, content_store,
+    task_store,
 };
 use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
 use crate::orchestrator;
-use crate::task::{TaskEventLevel, TaskEventType, TaskOperation, TaskStatus};
+use crate::task::{
+    TaskCallback, TaskEventLevel, TaskEventType, TaskOperation, TaskResultEnvelope,
+    TaskResultOutcome, TaskStatus, build_error_result_summary, build_result_summary,
+    count_non_empty_lines, extract_result_summary, result_counts, result_counts_with_skipped,
+    task_name_to_operation, task_result_with_counts, task_result_with_details,
+    task_result_with_recording,
+};
 use crate::template::renderer::Renderer;
 use crate::tx_operation::build_command_tx_block;
 use crate::web::error::ApiError;
@@ -36,8 +43,10 @@ use crate::web::models::{
     InteractiveStartRequest, InteractiveStartResponse, InteractiveStopResponse,
     ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
     ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
-    SavedConnectionMeta, TaskCallback, TaskEvent, TemplateDetail, TemplateMeta, TransferDirection,
-    TransferProtocol, TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
+    SavedConnectionMeta, TaskArtifactDto, TaskEvent, TaskEventDto, TaskRunDetailResponse,
+    TaskRunListItem,
+    TaskRunsQuery, TemplateDetail, TemplateMeta, TransferDirection, TransferProtocol,
+    TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
     UpsertConnectionRequest, UpsertCustomProfileRequest,
 };
 use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
@@ -77,6 +86,53 @@ pub struct HistoryQuery {
 #[derive(Debug, serde::Deserialize)]
 pub struct ConnectionImportTemplateQuery {
     pub lang: Option<String>,
+}
+
+fn to_task_run_list_item(record: task_store::TaskRunRecord) -> TaskRunListItem {
+    TaskRunListItem {
+        task_id: record.task_id,
+        operation: record.operation,
+        status: record.status,
+        outcome: record.outcome,
+        summary: record.summary,
+        success: record.success,
+        agent_name: record.agent_name,
+        source: record.source,
+        target_label: record.target_label,
+        started_at: record.started_at,
+        completed_at: record.completed_at,
+        execution_time_ms: record.execution_time_ms,
+        has_recording: record.has_recording,
+        has_error: record.has_error,
+    }
+}
+
+fn to_task_event_dto(record: task_store::TaskEventRecord) -> TaskEventDto {
+    TaskEventDto {
+        seq: record.seq,
+        task_id: record.task_id,
+        operation: record.operation,
+        event_type: record.event_type,
+        level: record.level,
+        stage: record.stage,
+        message: record.message,
+        progress: record.progress,
+        details: record.details,
+        occurred_at: record.occurred_at,
+    }
+}
+
+fn to_task_artifact_dto(record: task_store::TaskArtifactRecord) -> TaskArtifactDto {
+    TaskArtifactDto {
+        id: record.id,
+        artifact_type: record.artifact_type,
+        name: record.name,
+        storage_ref: record.storage_ref,
+        content_type: record.content_type,
+        size_bytes: record.size_bytes,
+        content_text: record.content_text,
+        created_at: record.created_at,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -683,6 +739,10 @@ fn emit_task_event(
             details: event.details,
             occurred_at: Utc::now().to_rfc3339(),
         };
+        if let Err(err) = task_store::append_task_event(&event.task_id, task_ctx.operation, &event)
+        {
+            warn!("failed to persist task event {}: {}", event.task_id, err);
+        }
         registrar.report_task_event_best_effort(event).await;
     });
 }
@@ -712,6 +772,9 @@ fn build_async_task_accepted_response(
     task_id: String,
     operation: TaskOperation,
 ) -> AsyncTaskAcceptedResponse {
+    if let Err(err) = task_store::save_task_accepted(&task_id, operation) {
+        warn!("failed to persist accepted task {}: {}", task_id, err);
+    }
     AsyncTaskAcceptedResponse {
         accepted: true,
         task_id,
@@ -766,6 +829,10 @@ async fn report_async_task_failure(state: Arc<AppState>, spec: AsyncTaskFailureS
         started_at: started_at.to_rfc3339(),
         completed_at: Utc::now().to_rfc3339(),
         execution_time_ms: started_instant.elapsed().as_millis() as u64,
+        result_summary: Some(build_error_result_summary(
+            task_name_to_operation(&operation_name),
+            failure_message.clone(),
+        )),
         result: None,
         error: Some(failure_message),
     };
@@ -994,26 +1061,59 @@ fn build_task_callback<T: Serialize>(
     result: &Result<T, ApiError>,
 ) -> TaskCallback {
     match result {
-        Ok(value) => TaskCallback {
-            task_id: task_ctx.task_id.clone(),
-            agent_name: current_agent_name(state),
-            status: TaskStatus::Success,
-            started_at: task_ctx.started_at.to_rfc3339(),
-            completed_at: Utc::now().to_rfc3339(),
-            execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
-            result: serde_json::to_value(value).ok(),
-            error: None,
-        },
-        Err(err) => TaskCallback {
-            task_id: task_ctx.task_id.clone(),
-            agent_name: current_agent_name(state),
-            status: TaskStatus::Failed,
-            started_at: task_ctx.started_at.to_rfc3339(),
-            completed_at: Utc::now().to_rfc3339(),
-            execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
-            result: None,
-            error: Some(err.message.clone()),
-        },
+        Ok(value) => {
+            let result_json = serde_json::to_value(value).ok();
+            callback_from_result_envelope(
+                state,
+                TaskResultEnvelope {
+                    task_id: task_ctx.task_id.clone(),
+                    operation: task_ctx.operation,
+                    status: TaskStatus::Success,
+                    started_at: task_ctx.started_at.to_rfc3339(),
+                    completed_at: Utc::now().to_rfc3339(),
+                    execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
+                    result_summary: extract_result_summary(value).unwrap_or_else(|| {
+                        build_error_result_summary(
+                            task_ctx.operation,
+                            "missing result_summary in successful task response",
+                        )
+                    }),
+                    result: result_json,
+                    error: None,
+                },
+            )
+        }
+        Err(err) => callback_from_result_envelope(
+            state,
+            TaskResultEnvelope {
+                task_id: task_ctx.task_id.clone(),
+                operation: task_ctx.operation,
+                status: TaskStatus::Failed,
+                started_at: task_ctx.started_at.to_rfc3339(),
+                completed_at: Utc::now().to_rfc3339(),
+                execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
+                result_summary: build_error_result_summary(task_ctx.operation, err.message.clone()),
+                result: None,
+                error: Some(err.message.clone()),
+            },
+        ),
+    }
+}
+
+fn callback_from_result_envelope(
+    state: &Arc<AppState>,
+    envelope: TaskResultEnvelope,
+) -> TaskCallback {
+    TaskCallback {
+        task_id: envelope.task_id,
+        agent_name: current_agent_name(state),
+        status: envelope.status,
+        started_at: envelope.started_at,
+        completed_at: envelope.completed_at,
+        execution_time_ms: envelope.execution_time_ms,
+        result_summary: Some(envelope.result_summary),
+        result: envelope.result,
+        error: envelope.error,
     }
 }
 
@@ -1024,16 +1124,22 @@ fn build_failed_task_callback<T: Serialize>(
     result: Option<&T>,
 ) -> TaskCallback {
     let error_message = message.into();
-    TaskCallback {
-        task_id: task_ctx.task_id.clone(),
-        agent_name: current_agent_name(state),
-        status: TaskStatus::Failed,
-        started_at: task_ctx.started_at.to_rfc3339(),
-        completed_at: Utc::now().to_rfc3339(),
-        execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
-        result: result.and_then(|value| serde_json::to_value(value).ok()),
-        error: Some(error_message),
-    }
+    callback_from_result_envelope(
+        state,
+        TaskResultEnvelope {
+            task_id: task_ctx.task_id.clone(),
+            operation: task_ctx.operation,
+            status: TaskStatus::Failed,
+            started_at: task_ctx.started_at.to_rfc3339(),
+            completed_at: Utc::now().to_rfc3339(),
+            execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
+            result_summary: result.and_then(extract_result_summary).unwrap_or_else(|| {
+                build_error_result_summary(task_ctx.operation, error_message.clone())
+            }),
+            result: result.and_then(|value| serde_json::to_value(value).ok()),
+            error: Some(error_message),
+        },
+    )
 }
 
 fn spawn_prepared_task_callback(
@@ -1047,6 +1153,12 @@ fn spawn_prepared_task_callback(
 
     let registrar = state.registrar();
     tokio::spawn(async move {
+        if let Err(err) = task_store::save_task_callback(&callback, task_ctx.operation) {
+            warn!(
+                "failed to persist task callback {}: {}",
+                task_ctx.task_id, err
+            );
+        }
         let Some(registrar) = registrar else {
             return;
         };
@@ -1090,6 +1202,57 @@ fn spawn_task_callback<T: Serialize>(
 
 pub async fn health() -> Json<Value> {
     Json(json!({"status": "ok"}))
+}
+
+pub async fn list_task_runs(
+    Query(query): Query<TaskRunsQuery>,
+) -> Result<Json<Vec<TaskRunListItem>>, ApiError> {
+    let limit = query.limit.unwrap_or(50);
+    let rows =
+        task_store::list_task_runs(limit, query.operation.as_deref(), query.status.as_deref())
+            .map_err(ApiError::from)?;
+    Ok(Json(rows.into_iter().map(to_task_run_list_item).collect()))
+}
+
+pub async fn get_task_run_detail(
+    Path(task_id): Path<String>,
+) -> Result<Json<TaskRunDetailResponse>, ApiError> {
+    let run = task_store::load_task_run(&task_id)
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::bad_request("task not found"))?;
+    let events = task_store::list_task_events(&task_id)
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(to_task_event_dto)
+        .collect::<Vec<_>>();
+    let artifacts = task_store::list_task_artifacts(&task_id)
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(to_task_artifact_dto)
+        .collect::<Vec<_>>();
+    Ok(Json(TaskRunDetailResponse {
+        task_id: run.task_id,
+        operation: run.operation,
+        status: run.status,
+        outcome: run.outcome,
+        summary: run.summary,
+        success: run.success,
+        agent_name: run.agent_name,
+        source: run.source,
+        target_label: run.target_label,
+        started_at: run.started_at,
+        completed_at: run.completed_at,
+        execution_time_ms: run.execution_time_ms,
+        has_recording: run.has_recording,
+        has_error: run.has_error,
+        result_summary: run.result_summary,
+        result: run.result,
+        error: run.error,
+        created_at: run.created_at,
+        updated_at: run.updated_at,
+        events,
+        artifacts,
+    }))
 }
 
 pub async fn list_backups() -> Result<Json<Vec<BackupMeta>>, ApiError> {
@@ -1827,10 +1990,34 @@ pub async fn exec_command(
             Some(effective_mode.as_str()),
             record_level,
         );
+        let recording_jsonl = client.recording_jsonl()?;
         Ok(ExecResponse {
             output: output.content,
             exit_code,
-            recording_jsonl: client.recording_jsonl()?,
+            result_summary: task_result_with_details(
+                task_result_with_recording(
+                    build_result_summary(
+                        TaskOperation::Exec,
+                        if exit_code.unwrap_or(0) == 0 {
+                            TaskResultOutcome::Success
+                        } else {
+                            TaskResultOutcome::Failed
+                        },
+                        if exit_code.unwrap_or(0) == 0 {
+                            "Command executed successfully"
+                        } else {
+                            "Command finished with a non-zero exit code"
+                        },
+                    ),
+                    &recording_jsonl,
+                ),
+                json!({
+                    "exit_code": exit_code,
+                    "mode": effective_mode,
+                    "command": req.command
+                }),
+            ),
+            recording_jsonl,
         })
     }
     .await;
@@ -2298,7 +2485,23 @@ pub async fn execute_template(
         );
 
         if req.run.dry_run.unwrap_or(false) {
+            let rendered_count = count_non_empty_lines(&rendered_commands);
             return Ok(ExecuteTemplateResponse {
+                result_summary: task_result_with_details(
+                    task_result_with_counts(
+                        build_result_summary(
+                            TaskOperation::TemplateExecute,
+                            TaskResultOutcome::DryRun,
+                            "Template rendered successfully (dry run)",
+                        ),
+                        result_counts(rendered_count, 0, 0),
+                    ),
+                    json!({
+                        "template": req.template,
+                        "mode": req.mode,
+                        "rendered_command_count": rendered_count
+                    }),
+                ),
                 rendered_commands,
                 executed: Vec::new(),
                 recording_jsonl: None,
@@ -2429,10 +2632,43 @@ pub async fn execute_template(
             record_level,
         );
 
+        let executed_count = executed.len() as u64;
+        let succeeded = executed.iter().filter(|item| item.success).count() as u64;
+        let failed = executed_count - succeeded;
+        let recording_jsonl = client.recording_jsonl()?;
         Ok(ExecuteTemplateResponse {
             rendered_commands,
             executed,
-            recording_jsonl: client.recording_jsonl()?,
+            result_summary: task_result_with_details(
+                task_result_with_recording(
+                    task_result_with_counts(
+                        build_result_summary(
+                            TaskOperation::TemplateExecute,
+                            if failed == 0 {
+                                TaskResultOutcome::Success
+                            } else if succeeded > 0 {
+                                TaskResultOutcome::PartialSuccess
+                            } else {
+                                TaskResultOutcome::Failed
+                            },
+                            if failed == 0 {
+                                "Template execution completed successfully"
+                            } else if succeeded > 0 {
+                                "Template execution completed with failed commands"
+                            } else {
+                                "Template execution failed for all commands"
+                            },
+                        ),
+                        result_counts(executed_count, succeeded, failed),
+                    ),
+                    &recording_jsonl,
+                ),
+                json!({
+                    "template": req.template,
+                    "mode": effective_mode
+                }),
+            ),
+            recording_jsonl,
         })
     }
     .await;
@@ -2560,7 +2796,7 @@ pub async fn execute_command_flow(
         record_level,
     );
 
-    let outputs = result
+    let outputs: Vec<CommandResult> = result
         .outputs
         .into_iter()
         .enumerate()
@@ -2576,11 +2812,44 @@ pub async fn execute_command_flow(
         })
         .collect();
 
+    let succeeded = outputs.iter().filter(|item| item.success).count() as u64;
+    let failed = outputs.len() as u64 - succeeded;
+    let recording_jsonl = client.recording_jsonl()?;
+
     Ok(Json(ExecuteCommandFlowResponse {
         success: result.success,
-        template_name: template.name,
+        template_name: template.name.clone(),
+        result_summary: task_result_with_details(
+            task_result_with_recording(
+                task_result_with_counts(
+                    build_result_summary(
+                        TaskOperation::CommandFlow,
+                        if result.success {
+                            TaskResultOutcome::Success
+                        } else if succeeded > 0 {
+                            TaskResultOutcome::PartialSuccess
+                        } else {
+                            TaskResultOutcome::Failed
+                        },
+                        if result.success {
+                            "Command flow completed successfully"
+                        } else if succeeded > 0 {
+                            "Command flow finished with failed steps"
+                        } else {
+                            "Command flow failed"
+                        },
+                    ),
+                    result_counts(outputs.len() as u64, succeeded, failed),
+                ),
+                &recording_jsonl,
+            ),
+            json!({
+                "template_name": template.name,
+                "mode": default_mode
+            }),
+        ),
         outputs,
-        recording_jsonl: client.recording_jsonl()?,
+        recording_jsonl,
     }))
 }
 
@@ -2738,7 +3007,7 @@ pub async fn execute_builtin_file_transfer_flow(
         Some(resolved_mode.as_str()),
         record_level,
     );
-    let outputs = result
+    let outputs: Vec<CommandResult> = result
         .outputs
         .into_iter()
         .enumerate()
@@ -2754,11 +3023,44 @@ pub async fn execute_builtin_file_transfer_flow(
         })
         .collect();
 
+    let succeeded = outputs.iter().filter(|item| item.success).count() as u64;
+    let failed = outputs.len() as u64 - succeeded;
+    let recording_jsonl = client.recording_jsonl()?;
+
     Ok(Json(ExecuteBuiltinFileTransferFlowResponse {
         success: result.success,
-        resolved_mode,
+        resolved_mode: resolved_mode.clone(),
+        result_summary: task_result_with_details(
+            task_result_with_recording(
+                task_result_with_counts(
+                    build_result_summary(
+                        TaskOperation::CommandFlow,
+                        if result.success {
+                            TaskResultOutcome::Success
+                        } else if succeeded > 0 {
+                            TaskResultOutcome::PartialSuccess
+                        } else {
+                            TaskResultOutcome::Failed
+                        },
+                        if result.success {
+                            "File transfer flow completed successfully"
+                        } else if succeeded > 0 {
+                            "File transfer flow finished with failed steps"
+                        } else {
+                            "File transfer flow failed"
+                        },
+                    ),
+                    result_counts(outputs.len() as u64, succeeded, failed),
+                ),
+                &recording_jsonl,
+            ),
+            json!({
+                "resolved_mode": resolved_mode,
+                "history_label": history_label
+            }),
+        ),
         outputs,
-        recording_jsonl: client.recording_jsonl()?,
+        recording_jsonl,
     }))
 }
 
@@ -2839,10 +3141,26 @@ pub async fn execute_upload(
         None
     };
 
+    let local_path_str = local_path.to_string_lossy().to_string();
+    let remote_path = req.remote_path.trim().to_string();
     Ok(Json(ExecuteUploadResponse {
         ok: true,
-        local_path: local_path.to_string_lossy().to_string(),
-        remote_path: req.remote_path.trim().to_string(),
+        local_path: local_path_str.clone(),
+        remote_path: remote_path.clone(),
+        result_summary: task_result_with_details(
+            task_result_with_recording(
+                build_result_summary(
+                    TaskOperation::Upload,
+                    TaskResultOutcome::Success,
+                    "File uploaded successfully",
+                ),
+                &recording_jsonl,
+            ),
+            json!({
+                "local_path": local_path_str,
+                "remote_path": remote_path
+            }),
+        ),
         recording_jsonl,
     }))
 }
@@ -3060,6 +3378,20 @@ pub async fn execute_tx_block(
                 tx_block: tx_block_value,
                 tx_result: None,
                 recording_jsonl: None,
+                result_summary: task_result_with_details(
+                    task_result_with_counts(
+                        build_result_summary(
+                            TaskOperation::TxBlock,
+                            TaskResultOutcome::DryRun,
+                            "Tx block built successfully (dry run)",
+                        ),
+                        result_counts(tx_block.steps.len() as u64, 0, 0),
+                    ),
+                    json!({
+                        "name": block_name,
+                        "mode": effective_mode
+                    }),
+                ),
             });
         }
 
@@ -3189,10 +3521,45 @@ pub async fn execute_tx_block(
             );
         }
 
+        let recording_available = recording_jsonl.is_some();
         Ok(ExecuteTxBlockResponse {
             tx_block: tx_block_value,
             tx_result: Some(tx_result_value),
             recording_jsonl,
+            result_summary: task_result_with_details(
+                {
+                    let mut summary = task_result_with_counts(
+                        build_result_summary(
+                            TaskOperation::TxBlock,
+                            if tx_result.committed {
+                                TaskResultOutcome::Success
+                            } else {
+                                TaskResultOutcome::Failed
+                            },
+                            if tx_result.committed {
+                                "Tx block committed successfully"
+                            } else {
+                                "Tx block finished with failure"
+                            },
+                        ),
+                        result_counts(
+                            tx_block.steps.len() as u64,
+                            tx_result.executed_steps as u64,
+                            if tx_result.committed { 0 } else { 1 },
+                        ),
+                    );
+                    summary.recording_available = Some(recording_available);
+                    summary
+                },
+                json!({
+                    "name": block_name,
+                    "mode": effective_mode,
+                    "committed": tx_result.committed,
+                    "rollback_attempted": tx_result.rollback_attempted,
+                    "rollback_succeeded": tx_result.rollback_succeeded,
+                    "failed_step": tx_result.failed_step
+                }),
+            ),
         })
     }
     .await;
@@ -3305,6 +3672,17 @@ pub async fn execute_tx_workflow(
                 workflow: workflow_value,
                 tx_workflow_result: None,
                 recording_jsonl: None,
+                result_summary: task_result_with_details(
+                    build_result_summary(
+                        TaskOperation::TxWorkflow,
+                        TaskResultOutcome::DryRun,
+                        "Tx workflow built successfully (dry run)",
+                    ),
+                    json!({
+                        "workflow_name": workflow.name,
+                        "total_blocks": workflow.blocks.len()
+                    }),
+                ),
             });
         }
 
@@ -3413,12 +3791,56 @@ pub async fn execute_tx_workflow(
             (result, None)
         };
 
+        let succeeded_blocks = workflow_result
+            .block_results
+            .iter()
+            .filter(|item| item.committed)
+            .count() as u64;
+        let failed_blocks = workflow_result.block_results.len() as u64 - succeeded_blocks;
+        let recording_available = recording_jsonl.is_some();
         Ok(ExecuteTxWorkflowResponse {
             workflow: workflow_value,
             tx_workflow_result: Some(
                 serde_json::to_value(&workflow_result).map_err(ApiError::from)?,
             ),
             recording_jsonl,
+            result_summary: task_result_with_details(
+                {
+                    let mut summary = task_result_with_counts(
+                        build_result_summary(
+                            TaskOperation::TxWorkflow,
+                            if workflow_result.committed {
+                                TaskResultOutcome::Success
+                            } else if succeeded_blocks > 0 {
+                                TaskResultOutcome::PartialSuccess
+                            } else {
+                                TaskResultOutcome::Failed
+                            },
+                            if workflow_result.committed {
+                                "Tx workflow committed successfully"
+                            } else if succeeded_blocks > 0 {
+                                "Tx workflow finished with failed blocks"
+                            } else {
+                                "Tx workflow failed"
+                            },
+                        ),
+                        result_counts(
+                            workflow_result.block_results.len() as u64,
+                            succeeded_blocks,
+                            failed_blocks,
+                        ),
+                    );
+                    summary.recording_available = Some(recording_available);
+                    summary
+                },
+                json!({
+                    "workflow_name": workflow_result.workflow_name,
+                    "committed": workflow_result.committed,
+                    "rollback_attempted": workflow_result.rollback_attempted,
+                    "rollback_succeeded": workflow_result.rollback_succeeded,
+                    "failed_block": workflow_result.failed_block
+                }),
+            ),
         })
     }
     .await;
@@ -3560,6 +3982,20 @@ pub async fn execute_orchestration(
                 plan: plan_value,
                 inventory: inventory_value,
                 orchestration_result: None,
+                result_summary: task_result_with_details(
+                    task_result_with_counts(
+                        build_result_summary(
+                            TaskOperation::Orchestrate,
+                            TaskResultOutcome::DryRun,
+                            "Orchestration plan loaded successfully (dry run)",
+                        ),
+                        result_counts(plan.stages.len() as u64, 0, 0),
+                    ),
+                    json!({
+                        "plan_name": plan.name,
+                        "base_dir": plan_root
+                    }),
+                ),
             });
         }
 
@@ -3596,6 +4032,52 @@ pub async fn execute_orchestration(
             inventory: inventory_value,
             orchestration_result: Some(
                 serde_json::to_value(&orchestration_result).map_err(ApiError::from)?,
+            ),
+            result_summary: task_result_with_details(
+                task_result_with_counts(
+                    build_result_summary(
+                        TaskOperation::Orchestrate,
+                        if orchestration_result.success {
+                            TaskResultOutcome::Success
+                        } else {
+                            TaskResultOutcome::Failed
+                        },
+                        if orchestration_result.success {
+                            "Orchestration completed successfully"
+                        } else {
+                            "Orchestration finished with failure"
+                        },
+                    ),
+                    result_counts_with_skipped(
+                        orchestration_result.total_stages as u64,
+                        orchestration_result
+                            .stages
+                            .iter()
+                            .filter(|stage| {
+                                matches!(stage.status, orchestrator::StageStatus::Success)
+                            })
+                            .count() as u64,
+                        orchestration_result
+                            .stages
+                            .iter()
+                            .filter(|stage| {
+                                matches!(stage.status, orchestrator::StageStatus::Failed)
+                            })
+                            .count() as u64,
+                        orchestration_result
+                            .stages
+                            .iter()
+                            .filter(|stage| {
+                                matches!(stage.status, orchestrator::StageStatus::Skipped)
+                            })
+                            .count() as u64,
+                    ),
+                ),
+                json!({
+                    "plan_name": orchestration_result.plan_name,
+                    "fail_fast": orchestration_result.fail_fast,
+                    "executed_stages": orchestration_result.executed_stages
+                }),
             ),
         })
     }

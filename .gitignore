@@ -13,3 +13,5 @@ node_modules/
 
 # Local config
 rauto.toml
+
+.codex

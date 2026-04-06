@@ -520,6 +520,11 @@ impl AgentRegistrar {
                         .map(serde_json::to_string)
                         .transpose()?,
                     error: callback.error.clone(),
+                    result_summary_json: callback
+                        .result_summary
+                        .as_ref()
+                        .map(serde_json::to_string)
+                        .transpose()?,
                 };
                 self.grpc.report_task_callback(payload).await.with_context(|| {
                     format!(

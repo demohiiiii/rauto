@@ -82,6 +82,7 @@ function applyI18n() {
   byId("tab-transfer").textContent = t("tabTransfer");
   byId("tab-blacklist").textContent = t("tabBlacklist");
   byId("tab-backup").textContent = t("tabBackup");
+  byId("tab-tasks").textContent = t("tabTasks");
   byId("nav-standard-direct").textContent = t("opExecDirect");
   byId("nav-standard-template").textContent = t("opExecTemplate");
   byId("nav-standard-flow").textContent = t("opExecFlow");
@@ -171,6 +172,77 @@ function applyI18n() {
   byId("backup-download-btn").textContent = t("backupDownloadBtn");
   byId("backup-restore-merge-btn").textContent = t("backupRestoreMergeBtn");
   byId("backup-restore-replace-btn").textContent = t("backupRestoreReplaceBtn");
+  byId("tasks-title").textContent = t("tasksTitle");
+  byId("tasks-filters-title").textContent = t("tasksFiltersTitle");
+  byId("tasks-list-title").textContent = t("tasksListTitle");
+  byId("tasks-detail-title").textContent = t("tasksDetailTitle");
+  byId("tasks-refresh-btn").textContent = t("tasksRefreshBtn");
+  byId("tasks-clear-btn").textContent = t("tasksClearBtn");
+  byId("tasks-search").placeholder = t("tasksSearchPlaceholder");
+  const currentTaskOperationValue = byId("tasks-operation").value || "";
+  const currentTaskStatusValue = byId("tasks-status").value || "";
+  const currentTaskOutcomeValue = byId("tasks-outcome").value || taskOutcomeFilter || "all";
+  const currentTaskTimeRangeValue =
+    byId("tasks-time-range").value || taskTimeRangeFilter || "all";
+  const currentTaskRecordingValue =
+    byId("tasks-recording").value || taskRecordingFilter || "all";
+  const currentTaskErrorValue = byId("tasks-error").value || taskErrorFilter || "all";
+  byId("tasks-operation").innerHTML = `
+    <option value="">${escapeHtml(t("tasksOperationAll"))}</option>
+    <option value="exec">exec</option>
+    <option value="template">template</option>
+    <option value="command_flow">command_flow</option>
+    <option value="file_transfer">file_transfer</option>
+    <option value="upload">upload</option>
+    <option value="tx_block">tx_block</option>
+    <option value="tx_workflow">tx_workflow</option>
+    <option value="orchestration">orchestration</option>
+  `;
+  byId("tasks-operation").value = currentTaskOperationValue;
+  byId("tasks-status").innerHTML = `
+    <option value="">${escapeHtml(t("tasksStatusAll"))}</option>
+    <option value="queued">queued</option>
+    <option value="running">running</option>
+    <option value="success">success</option>
+    <option value="failed">failed</option>
+  `;
+  byId("tasks-status").value = currentTaskStatusValue;
+  byId("tasks-outcome").innerHTML = `
+    <option value="all">${escapeHtml(t("tasksOutcomeAll"))}</option>
+    <option value="success">${escapeHtml(t("tasksOutcomeSuccess"))}</option>
+    <option value="partial_success">${escapeHtml(t("tasksOutcomePartial"))}</option>
+    <option value="failed">${escapeHtml(t("tasksOutcomeFailure"))}</option>
+    <option value="none">${escapeHtml(t("tasksOutcomeNone"))}</option>
+  `;
+  byId("tasks-outcome").value = currentTaskOutcomeValue;
+  byId("tasks-time-range").innerHTML = `
+    <option value="all">${escapeHtml(t("tasksTimeRangeAll"))}</option>
+    <option value="1h">${escapeHtml(t("tasksTimeRange1h"))}</option>
+    <option value="6h">${escapeHtml(t("tasksTimeRange6h"))}</option>
+    <option value="24h">${escapeHtml(t("tasksTimeRange24h"))}</option>
+    <option value="7d">${escapeHtml(t("tasksTimeRange7d"))}</option>
+  `;
+  byId("tasks-time-range").value = currentTaskTimeRangeValue;
+  byId("tasks-recording").innerHTML = `
+    <option value="all">${escapeHtml(t("tasksRecordingAll"))}</option>
+    <option value="yes">${escapeHtml(t("tasksRecordingYes"))}</option>
+    <option value="no">${escapeHtml(t("tasksRecordingNo"))}</option>
+  `;
+  byId("tasks-recording").value = currentTaskRecordingValue;
+  byId("tasks-error").innerHTML = `
+    <option value="all">${escapeHtml(t("tasksErrorAll"))}</option>
+    <option value="yes">${escapeHtml(t("tasksErrorYes"))}</option>
+    <option value="no">${escapeHtml(t("tasksErrorNo"))}</option>
+  `;
+  byId("tasks-error").value = currentTaskErrorValue;
+  byId("tasks-empty-state").textContent = t("tasksEmptyState");
+  byId("tasks-detail-empty").textContent = t("tasksDetailEmpty");
+  if (typeof renderTaskList === "function") {
+    renderTaskList();
+  }
+  if (typeof renderTaskDetail === "function") {
+    renderTaskDetail();
+  }
 
   byId("render-btn").textContent = t("renderBtn");
   byId("exec-btn").textContent = t("execBtn");
@@ -471,6 +543,7 @@ function applyTabs() {
     "transfer",
     "blacklist",
     "backup",
+    "tasks",
   ];
   for (const tab of tabs) {
     const button = byId(`tab-${tab}`);

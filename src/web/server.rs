@@ -16,12 +16,12 @@ use crate::web::handlers::{
     execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
     get_builtin_profile_detail, get_builtin_profile_form, get_command_flow_template,
     get_connection, get_connection_history, get_connection_history_detail, get_custom_profile,
-    get_custom_profile_form, get_profile_modes, get_template, health, import_connections,
-    interactive_command, interactive_start, interactive_stop, list_backups,
+    get_custom_profile_form, get_profile_modes, get_task_run_detail, get_template, health,
+    import_connections, interactive_command, interactive_start, interactive_stop, list_backups,
     list_blacklist_patterns, list_command_flow_templates, list_connections, list_profiles,
-    list_templates, profiles_overview, render_template, replay_session, restore_backup,
-    test_connection, update_command_flow_template, update_template, upsert_connection,
-    upsert_custom_profile_form,
+    list_task_runs, list_templates, profiles_overview, render_template, replay_session,
+    restore_backup, test_connection, update_command_flow_template, update_template,
+    upsert_connection, upsert_custom_profile_form,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -189,6 +189,8 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/flow/execute", post(execute_command_flow))
         .route("/api/connections", get(list_connections))
         .route("/api/connections/import", post(import_connections))
+        .route("/api/tasks", get(list_task_runs))
+        .route("/api/tasks/{task_id}", get(get_task_run_detail))
         .route(
             "/api/connections/import-template",
             get(download_connection_import_template),

@@ -786,6 +786,56 @@
             </div>
           </div>
 
+          <div id="panel-tasks" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('tasks')">
+            <h2 id="tasks-title" class="text-xl font-semibold">Task Center</h2>
+            <div class="mt-4 grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+              <div class="grid gap-3">
+                <div class="group-card">
+                  <div class="field-tools">
+                    <span id="tasks-filters-title" class="text-sm font-semibold text-slate-700">Filters</span>
+                  </div>
+                  <div class="group-body grid gap-2 md:grid-cols-[120px_1fr_1fr_1fr_1fr_1fr_1fr_auto_auto]">
+                    <select id="tasks-limit" class="input" title="Task Limit" aria-label="Task Limit">
+                      <option value="20">20</option>
+                      <option value="50" selected>50</option>
+                      <option value="100">100</option>
+                      <option value="200">200</option>
+                    </select>
+                    <input id="tasks-search" class="input" type="text" placeholder="search task/target/summary" />
+                    <select id="tasks-operation" class="input" title="Task Operation" aria-label="Task Operation"></select>
+                    <select id="tasks-status" class="input" title="Task Status" aria-label="Task Status"></select>
+                    <select id="tasks-outcome" class="input" title="Task Outcome" aria-label="Task Outcome"></select>
+                    <select id="tasks-time-range" class="input" title="Task Time Range" aria-label="Task Time Range"></select>
+                    <select id="tasks-recording" class="input" title="Task Recording" aria-label="Task Recording"></select>
+                    <select id="tasks-error" class="input" title="Task Error" aria-label="Task Error"></select>
+                    <button id="tasks-refresh-btn" class="btn btn-sm" type="button">Refresh</button>
+                    <button id="tasks-clear-btn" class="btn btn-sm" type="button">Clear</button>
+                  </div>
+                </div>
+                <div class="group-card">
+                  <div class="field-tools">
+                    <span id="tasks-list-title" class="text-sm font-semibold text-slate-700">Tasks</span>
+                    <span id="tasks-list-meta" class="text-xs text-slate-500">-</span>
+                  </div>
+                  <div class="group-body grid gap-2">
+                    <div id="tasks-out" class="grid gap-2"></div>
+                    <div id="tasks-list" class="grid gap-2"></div>
+                    <div id="tasks-empty-state" class="text-xs text-slate-500">no tasks yet</div>
+                  </div>
+                </div>
+              </div>
+              <div class="group-card">
+                <div class="field-tools">
+                  <span id="tasks-detail-title" class="text-sm font-semibold text-slate-700">Task Detail</span>
+                </div>
+                <div class="group-body grid gap-2">
+                  <div id="tasks-detail-empty" class="text-xs text-slate-500">select a task to inspect details</div>
+                  <div id="tasks-detail" class="grid gap-2"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </section>
       </div>
     </main>
@@ -863,6 +913,7 @@
           <li><button id="tab-transfer" type="button" data-tab="transfer" x-on:click="$store.app.setTab('transfer')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('transfer') }" x-bind:aria-selected="$store.app.isActiveTab('transfer').toString()">SFTP Upload</button></li>
           <li><button id="tab-blacklist" type="button" data-tab="blacklist" x-on:click="$store.app.setTab('blacklist')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('blacklist') }" x-bind:aria-selected="$store.app.isActiveTab('blacklist').toString()">Blacklist</button></li>
           <li><button id="tab-backup" type="button" data-tab="backup" x-on:click="$store.app.setTab('backup')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('backup') }" x-bind:aria-selected="$store.app.isActiveTab('backup').toString()">Backup</button></li>
+          <li><button id="tab-tasks" type="button" data-tab="tasks" x-on:click="$store.app.setTab('tasks')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('tasks') }" x-bind:aria-selected="$store.app.isActiveTab('tasks').toString()">Tasks</button></li>
         </ul>
       </nav>
 
@@ -1142,6 +1193,7 @@
 <script src="/static/history.js"></script>
 <script src="/static/interactive.js"></script>
 <script src="/static/replay.js"></script>
+<script src="/static/tasks.js"></script>
 <script src="/static/templates.js"></script>
 <script src="/static/profiles.js"></script>
 <script src="/static/tx.js"></script>

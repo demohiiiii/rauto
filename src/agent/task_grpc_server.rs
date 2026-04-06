@@ -714,11 +714,15 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
+            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
+        )?);
 
         Ok(Response::new(ExecuteCommandResponse {
             output: response.output,
             exit_code: response.exit_code,
             recording_jsonl: response.recording_jsonl,
+            result_summary_json,
         }))
     }
 
@@ -744,6 +748,9 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
+            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
+        )?);
 
         Ok(Response::new(ExecuteTemplateResponse {
             rendered_commands: response.rendered_commands,
@@ -753,6 +760,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 .map(map_command_result)
                 .collect(),
             recording_jsonl: response.recording_jsonl,
+            result_summary_json,
         }))
     }
 
@@ -777,6 +785,9 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
+            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
+        )?);
 
         Ok(Response::new(ExecuteCommandFlowResponse {
             success: response.success,
@@ -787,6 +798,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 .map(map_command_result)
                 .collect(),
             recording_jsonl: response.recording_jsonl,
+            result_summary_json,
         }))
     }
 
@@ -809,12 +821,16 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
+            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
+        )?);
 
         Ok(Response::new(ExecuteUploadResponse {
             ok: response.ok,
             local_path: response.local_path,
             remote_path: response.remote_path,
             recording_jsonl: response.recording_jsonl,
+            result_summary_json,
         }))
     }
 
@@ -829,6 +845,9 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
+            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
+        )?);
 
         Ok(Response::new(ExecuteTxBlockResponse {
             tx_block_json: serde_json::to_string(&response.tx_block).map_err(|err| {
@@ -842,6 +861,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                     Status::internal(format!("failed to serialize tx_result: {}", err))
                 })?,
             recording_jsonl: response.recording_jsonl,
+            result_summary_json,
         }))
     }
 
