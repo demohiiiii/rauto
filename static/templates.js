@@ -58,14 +58,11 @@ async function loadTemplates() {
   }
 }
 
-function renderTemplateOptions(keyword = "") {
-  const q = keyword.trim().toLowerCase();
-  const names = cachedTemplates.filter((name) =>
-    !q ? true : name.toLowerCase().includes(q)
-  );
-  byId("template-options").innerHTML = names
-    .map((name) => `<option value="${name}"></option>`)
-    .join("");
+function renderTemplateOptions(selectedName = "") {
+  populateSelectOptions("template-pick-name", cachedTemplates, {
+    placeholder: t("templateSelectPlaceholder"),
+    selected: selectedName,
+  });
 }
 
 async function loadTemplateDetail() {
@@ -106,11 +103,21 @@ async function saveTemplate() {
       "success"
     );
     await loadTemplates();
-    byId("template-pick-name").value = name;
+    ensureSelectValue("template-pick-name", data.name || name);
     lastTemplateDetail = data;
   } catch (e) {
     setStatusMessage("template-out", e.message, "error");
   }
+}
+
+function createTemplateDraft() {
+  const name = promptForResourceName(t("templateNewPrompt"));
+  if (!name) return;
+  ensureSelectValue("template-pick-name", name);
+  byId("template-content").value = "";
+  lastTemplateDetail = null;
+  renderTemplateList();
+  setStatusMessage("template-out", `${t("editingNew")}: ${name}`, "info");
 }
 
 async function deleteTemplate() {
@@ -194,11 +201,22 @@ async function loadFlowTemplates() {
 }
 
 function renderFlowTemplateOptions() {
-  const list = byId("flow-template-options");
-  if (!list) return;
-  list.innerHTML = cachedFlowTemplateNames
-    .map((name) => `<option value="${name}"></option>`)
-    .join("");
+  populateSelectOptions("flow-template-picker", cachedFlowTemplateNames, {
+    placeholder: t("flowTemplateSelectPlaceholder"),
+    selected: byId("flow-template-picker")?.value || "",
+  });
+  populateSelectOptions("flow-template-name", cachedFlowTemplateNames, {
+    placeholder: t("flowTemplateRunPlaceholder"),
+    selected: byId("flow-template-name")?.value || "",
+  });
+  populateSelectOptions("tx-flow-template-name", cachedFlowTemplateNames, {
+    placeholder: t("txFlowTemplatePlaceholder"),
+    selected: byId("tx-flow-template-name")?.value || "",
+  });
+  populateSelectOptions("tx-rollback-flow-template-name", cachedFlowTemplateNames, {
+    placeholder: t("txFlowRollbackTemplatePlaceholder"),
+    selected: byId("tx-rollback-flow-template-name")?.value || "",
+  });
 }
 
 async function loadFlowTemplateDetail() {
@@ -260,7 +278,7 @@ async function saveFlowTemplate() {
       "success"
     );
     await loadFlowTemplates();
-    byId("flow-template-picker").value = name;
+    ensureSelectValue("flow-template-picker", data.name || name);
     lastFlowTemplateDetail = data;
     byId("flow-template-content").value = data.content || content;
     if (byId("flow-template-name").value.trim() === (data.name || name)) {
@@ -270,6 +288,16 @@ async function saveFlowTemplate() {
   } catch (e) {
     setStatusMessage("flow-template-out", e.message, "error");
   }
+}
+
+function createFlowTemplateDraft() {
+  const name = promptForResourceName(t("flowTemplateNewPrompt"));
+  if (!name) return;
+  ensureSelectValue("flow-template-picker", name);
+  byId("flow-template-content").value = "";
+  lastFlowTemplateDetail = null;
+  renderFlowTemplateList();
+  setStatusMessage("flow-template-out", `${t("editingNew")}: ${name}`, "info");
 }
 
 async function deleteFlowTemplate() {

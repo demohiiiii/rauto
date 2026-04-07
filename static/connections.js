@@ -2,14 +2,15 @@
  * connections.js — connections
  */
 
-function renderSavedConnectionOptions(keyword = "") {
-  const datalist = byId("saved-conn-options");
-  if (!datalist) return;
-  const q = keyword.trim().toLowerCase();
-  const names = cachedSavedConnections
-    .map((item) => item.name)
-    .filter((name) => (!q ? true : name.toLowerCase().includes(q)));
-  datalist.innerHTML = names.map((name) => `<option value="${name}"></option>`).join("");
+function renderSavedConnectionOptions(selectedName = "") {
+  populateSelectOptions(
+    "saved-conn-name",
+    cachedSavedConnections.map((item) => item.name),
+    {
+      placeholder: t("savedConnSelectPlaceholder"),
+      selected: selectedName,
+    }
+  );
 }
 
 function currentTemporaryConnectionLabel() {
@@ -245,6 +246,7 @@ async function saveConnectionByName() {
       connection: payload,
       save_password: !dontSavePassword,
     });
+    ensureSelectValue("saved-conn-name", data.name || name);
     setCurrentConnectionTarget(
       savedConnectionDetails({
         ...payload,
@@ -281,6 +283,18 @@ async function deleteConnectionByName() {
   } catch (e) {
     setStatusMessage("saved-conn-out", e.message, "error");
   }
+}
+
+function createSavedConnectionDraft() {
+  const name = promptForResourceName(t("savedConnNewPrompt"));
+  if (!name) return;
+  ensureSelectValue("saved-conn-name", name);
+  applyConnectionForm({
+    port: 22,
+    device_profile: "linux",
+  });
+  clearTemporaryConnectionActive();
+  setStatusMessage("saved-conn-out", `${t("editingNew")}: ${name}`, "info");
 }
 
 function formatConnectionImportSummary(report) {

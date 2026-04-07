@@ -427,6 +427,7 @@ function bindEvents() {
       }
     } catch (_) {}
   };
+  byId("saved-conn-new-btn").onclick = createSavedConnectionDraft;
   byId("saved-conn-save-btn").onclick = saveConnectionByName;
   byId("connection-temp-apply-btn").onclick = async () => {
     byId("saved-conn-name").value = "";
@@ -474,9 +475,6 @@ function bindEvents() {
     if (!pattern) return;
     deleteBlacklistPatternFromWeb(pattern);
   });
-  byId("saved-conn-name").oninput = (e) => {
-    renderSavedConnectionOptions(e.target.value);
-  };
   byId("saved-conn-name").onchange = async () => {
     renderSavedConnectionOptions(byId("saved-conn-name").value || "");
   };
@@ -1011,16 +1009,11 @@ function bindEvents() {
   };
   byId("replay-list-btn").onclick = replayList;
   byId("replay-run-btn").onclick = replayCommand;
-  byId("custom-profile-picker").oninput = (e) => {
-    renderCustomProfileOptions(e.target.value);
-  };
   byId("custom-profile-picker").onchange = async () => {
     if (!byId("custom-profile-picker").value.trim()) return;
     await loadCustomProfile();
   };
-  byId("profile-diagnose-picker").oninput = (e) => {
-    renderDiagnoseProfileOptions(e.target.value);
-  };
+  byId("profile-new-btn").onclick = createCustomProfileDraft;
   byId("builtin-detail-btn").onclick = loadBuiltinProfileDetail;
   byId("builtin-copy-btn").onclick = () => {
     if (!lastBuiltinProfile) {
@@ -1047,16 +1040,12 @@ function bindEvents() {
   byId("add-interaction-row-btn").onclick = () => addInteractionRow();
   byId("add-transition-row-btn").onclick = () => addTransitionRow();
 
-  byId("template-pick-name").oninput = (e) => {
-    renderTemplateOptions(e.target.value);
-    renderTemplateList();
-  };
   byId("template-list").addEventListener("click", async (e) => {
     const row = e.target.closest(".js-template-row");
     if (!row) return;
     const name = row.getAttribute("data-name") || "";
     if (!name) return;
-    byId("template-pick-name").value = name;
+    ensureSelectValue("template-pick-name", name);
     renderTemplateOptions(name);
     renderTemplateList();
     await loadTemplateDetail();
@@ -1067,6 +1056,7 @@ function bindEvents() {
     await loadTemplateDetail();
     renderTemplateList();
   };
+  byId("template-new-btn").onclick = createTemplateDraft;
   byId("template-save-btn").onclick = saveTemplate;
   byId("template-delete-btn").onclick = deleteTemplate;
   byId("flow-exec-btn").onclick = async () => {
@@ -1089,16 +1079,6 @@ function bindEvents() {
       applyRecordingFromResponse(data);
     } catch (e) {
       out.innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
-  byId("flow-template-name").oninput = () => {
-    const name = byId("flow-template-name").value.trim();
-    if (!name) {
-      renderFlowTemplateVarFields(null, {});
-      return;
-    }
-    if (lastFlowRunTemplateDetail && lastFlowRunTemplateDetail.name !== name) {
-      renderFlowTemplateVarFields(null, {});
     }
   };
   byId("flow-template-name").onchange = async () => {
@@ -1131,15 +1111,12 @@ function bindEvents() {
       out.innerHTML = renderStatusMessageCard(e.message, "error");
     }
   };
-  byId("flow-template-picker").oninput = () => {
-    renderFlowTemplateList();
-  };
   byId("flow-template-list").addEventListener("click", async (e) => {
     const row = e.target.closest(".js-flow-template-row");
     if (!row) return;
     const name = row.getAttribute("data-name") || "";
     if (!name) return;
-    byId("flow-template-picker").value = name;
+    ensureSelectValue("flow-template-picker", name);
     renderFlowTemplateList();
     await loadFlowTemplateDetail();
     renderFlowTemplateList();
@@ -1149,7 +1126,7 @@ function bindEvents() {
     await loadFlowTemplateDetail();
     renderFlowTemplateList();
   };
-  byId("flow-template-load-btn").onclick = loadFlowTemplateDetail;
+  byId("flow-template-new-btn").onclick = createFlowTemplateDraft;
   byId("flow-template-save-btn").onclick = saveFlowTemplate;
   byId("flow-template-delete-btn").onclick = deleteFlowTemplate;
 

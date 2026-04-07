@@ -125,22 +125,17 @@ async function loadProfilesOverview() {
 }
 
 function renderCustomProfileOptions(keyword = "") {
-  const datalist = byId("custom-profile-options");
-  const q = keyword.trim().toLowerCase();
-  const names = cachedCustomProfiles.filter((name) =>
-    !q ? true : name.toLowerCase().includes(q)
-  );
-  const html = names.map((name) => `<option value="${name}"></option>`).join("");
-  datalist.innerHTML = html;
+  populateSelectOptions("custom-profile-picker", cachedCustomProfiles, {
+    placeholder: t("customProfileSelectPlaceholder"),
+    selected: byId("custom-profile-picker").value || "",
+  });
 }
 
 function renderDiagnoseProfileOptions(keyword = "") {
-  const datalist = byId("profile-diagnose-options");
-  const q = keyword.trim().toLowerCase();
-  const names = cachedDeviceProfiles.filter((name) =>
-    !q ? true : name.toLowerCase().includes(q)
-  );
-  datalist.innerHTML = names.map((name) => `<option value="${name}"></option>`).join("");
+  populateSelectOptions("profile-diagnose-picker", cachedDeviceProfiles, {
+    placeholder: t("profileDiagnoseSelectPlaceholder"),
+    selected: byId("profile-diagnose-picker").value || "",
+  });
 }
 
 async function loadBuiltinProfileDetail() {
@@ -662,12 +657,30 @@ async function saveCustomProfile() {
       `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
       profile
     );
-    byId("custom-profile-picker").value = name;
+    ensureSelectValue("custom-profile-picker", data.name || name);
     setStatusMessage("profile-out", `${t("saved")}: ${data.name || name}`, "success");
     await loadProfilesOverview();
   } catch (e) {
     setStatusMessage("profile-out", e.message, "error");
   }
+}
+
+function createCustomProfileDraft() {
+  const name = promptForResourceName(t("profileNewPrompt"));
+  if (!name) return;
+  ensureSelectValue("custom-profile-picker", name);
+  setProfileForm({
+    name,
+    command_execution: "prompt_driven",
+    more_patterns: [],
+    error_patterns: [],
+    ignore_errors: [],
+    prompts: [],
+    sys_prompts: [],
+    interactions: [],
+    transitions: [],
+  });
+  setStatusMessage("profile-out", `${t("editingNew")}: ${name}`, "info");
 }
 
 async function deleteCustomProfile() {

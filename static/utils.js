@@ -152,6 +152,72 @@ function safeString(value) {
   return JSON.stringify(value);
 }
 
+function populateSelectOptions(selectId, values, config = {}) {
+  const select = byId(selectId);
+  if (!select) return;
+  const {
+    placeholder = "—",
+    selected = "",
+    allowEmpty = true,
+    emptyValue = "",
+  } = config;
+  const items = Array.from(new Set((values || []).filter(Boolean)));
+  const options = [];
+  if (allowEmpty) {
+    options.push(
+      `<option value="${escapeHtml(emptyValue)}">${escapeHtml(placeholder)}</option>`
+    );
+  }
+  items.forEach((value) => {
+    options.push(
+      `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`
+    );
+  });
+  select.innerHTML = options.join("");
+  if (selected && items.includes(selected)) {
+    select.value = selected;
+  } else if (selected && !items.includes(selected)) {
+    const option = document.createElement("option");
+    option.value = selected;
+    option.textContent = selected;
+    select.appendChild(option);
+    select.value = selected;
+  } else if (allowEmpty) {
+    select.value = emptyValue;
+  } else if (items.length > 0) {
+    select.value = items[0];
+  } else {
+    select.value = "";
+  }
+}
+
+function ensureSelectValue(selectId, value, config = {}) {
+  const select = byId(selectId);
+  if (!select) return;
+  const normalized = safeString(value || "").trim();
+  if (!normalized) {
+    if (config.fallbackToEmpty !== false) {
+      select.value = "";
+    }
+    return;
+  }
+  const hasOption = Array.from(select.options).some((option) => option.value === normalized);
+  if (!hasOption) {
+    const option = document.createElement("option");
+    option.value = normalized;
+    option.textContent = normalized;
+    select.appendChild(option);
+  }
+  select.value = normalized;
+}
+
+function promptForResourceName(message, initialValue = "") {
+  const result = window.prompt(message, initialValue);
+  if (result == null) return null;
+  const normalized = result.trim();
+  return normalized || null;
+}
+
 function displayMode(mode) {
   const raw = String(mode || "").trim();
   return raw;

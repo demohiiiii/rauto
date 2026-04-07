@@ -61,6 +61,7 @@ function applyI18n() {
   byId("saved-conn-save-password-label").textContent = t("savedConnSavePassword");
   byId("saved-conn-template-btn").textContent = t("savedConnTemplateBtn");
   byId("saved-conn-import-btn").textContent = t("savedConnImportBtn");
+  byId("saved-conn-new-btn").textContent = t("newBtn");
   byId("saved-conn-use-btn").textContent = t("savedConnUseBtn");
   byId("saved-conn-save-btn").textContent = t("savedConnSaveBtn");
   byId("saved-conn-delete-btn").textContent = t("savedConnDeleteBtn");
@@ -292,6 +293,7 @@ function applyI18n() {
   byId("entry-drawer-title").textContent = t("entryDrawerTitle");
   byId("entry-drawer-close").textContent = t("entryDrawerClose");
   byId("profile-save-btn").textContent = t("profileSaveBtn");
+  byId("profile-new-btn").textContent = t("newBtn");
   byId("profile-delete-btn").textContent = t("profileDeleteBtn");
   byId("profile-diagnose-title").textContent = t("profileDiagnoseTitle");
   byId("profile-diagnose-btn").textContent = t("profileDiagnoseBtn");
@@ -318,11 +320,12 @@ function applyI18n() {
   byId("builtin-command-execution-mode").value = builtinCommandExecutionValue;
   byId("builtin-command-execution-marker").placeholder = t("commandExecutionMarkerPlaceholder");
   byId("template-save-btn").textContent = t("templateSaveBtn");
+  byId("template-new-btn").textContent = t("newBtn");
   byId("template-delete-btn").textContent = t("templateDeleteBtn");
   byId("flow-exec-btn").textContent = t("flowExecBtn");
   byId("upload-exec-btn").textContent = t("uploadExecBtn");
   byId("upload-show-progress-label").textContent = t("uploadShowProgressLabel");
-  byId("flow-template-load-btn").textContent = t("flowTemplateLoadBtn");
+  byId("flow-template-new-btn").textContent = t("newBtn");
   byId("flow-template-save-btn").textContent = t("flowTemplateSaveBtn");
   byId("flow-template-delete-btn").textContent = t("flowTemplateDeleteBtn");
   byId("add-more-pattern-btn").textContent = t("addInlineBtn");
@@ -360,7 +363,7 @@ function applyI18n() {
   byId("ssh-security-option-balanced").textContent = t("sshSecurityOptionBalanced");
   byId("ssh-security-option-legacy").textContent = t("sshSecurityOptionLegacy");
   byId("device_profile").placeholder = t("deviceProfilePlaceholder");
-  byId("saved-conn-name").placeholder = t("savedConnNamePlaceholder");
+  byId("saved-conn-name").setAttribute("title", t("savedConnSelectPlaceholder"));
   byId("template").placeholder = t("templatePlaceholder");
   byId("template-selected-content").placeholder = t("templateSelectedContentPlaceholder");
   byId("tx-name").placeholder = t("txNamePlaceholder");
@@ -473,18 +476,20 @@ function applyI18n() {
   byId("command").placeholder = t("commandPlaceholder");
   byId("mode").placeholder = t("modePlaceholder");
   byId("template-mode").placeholder = t("templateModePlaceholder");
-  byId("custom-profile-picker").placeholder = t("customProfilePickerPlaceholder");
-  byId("profile-diagnose-picker").placeholder = t("customProfilePickerPlaceholder");
+  byId("custom-profile-picker").setAttribute("title", t("customProfileSelectPlaceholder"));
+  byId("profile-diagnose-picker").setAttribute("title", t("profileDiagnoseSelectPlaceholder"));
   byId("builtin-detail-name").placeholder = t("builtinFieldName");
   byId("builtin-detail-aliases").placeholder = t("builtinFieldAliases");
   byId("builtin-detail-summary").placeholder = t("builtinFieldSummary");
   byId("builtin-detail-source").placeholder = t("builtinFieldSource");
   byId("builtin-detail-notes").placeholder = t("builtinFieldNotes");
-  byId("template-pick-name").placeholder = t("templateViewPickerPlaceholder");
-  byId("flow-template-name").placeholder = t("flowTemplateRunPlaceholder");
+  byId("template-pick-name").setAttribute("title", t("templateSelectPlaceholder"));
+  byId("flow-template-name").setAttribute("title", t("flowTemplateRunPlaceholder"));
   byId("flow-vars-json").placeholder = t("flowVarsPlaceholder");
   byId("flow-hint").textContent = t("flowHint");
-  byId("flow-template-picker").placeholder = t("flowTemplatePickerPlaceholder");
+  byId("flow-template-picker").setAttribute("title", t("flowTemplateSelectPlaceholder"));
+  byId("tx-flow-template-name").setAttribute("title", t("txFlowTemplatePlaceholder"));
+  byId("tx-rollback-flow-template-name").setAttribute("title", t("txFlowRollbackTemplatePlaceholder"));
   if (typeof renderSidebarConnectionSelector === "function") {
     renderSidebarConnectionSelector();
   }
@@ -1537,7 +1542,6 @@ function initAutocomplete(inputId, sourceFn) {
 function initTopLevelAutocomplete() {
   initAutocomplete("device_profile", () => cachedDeviceProfiles);
   initAutocomplete("template", () => cachedTemplates);
-  initAutocomplete("profile-diagnose-picker", () => cachedDeviceProfiles);
 }
 
 function initCollapsibleGroups() {
