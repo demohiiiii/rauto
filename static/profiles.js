@@ -111,6 +111,9 @@ async function loadProfilesOverview() {
       renderCustomProfileOptions();
       renderDiagnoseProfileOptions();
     }
+    if (typeof renderInventoryConnectionOptions === "function") {
+      renderInventoryConnectionOptions(byId("inventory-resolve-host")?.value || "");
+    }
     await refreshExecutionModeOptions();
   } catch (e) {
     cachedProfileModes = new Map();
@@ -120,6 +123,9 @@ async function loadProfilesOverview() {
     setStatusMessage("builtin-detail-status", e.message, "error");
     renderCustomProfileOptions();
     renderDiagnoseProfileOptions();
+    if (typeof renderInventoryConnectionOptions === "function") {
+      renderInventoryConnectionOptions(byId("inventory-resolve-host")?.value || "");
+    }
     await refreshExecutionModeOptions();
   }
 }

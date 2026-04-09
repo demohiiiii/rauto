@@ -2,6 +2,28 @@
  * connections.js — connections
  */
 
+function getMultiSelectValuesById(selectId) {
+  const select = byId(selectId);
+  if (!select) return [];
+  return Array.from(select.selectedOptions || [])
+    .map((option) => safeString(option.value || "").trim())
+    .filter(Boolean);
+}
+
+function renderConnectionGroupsForSelect(selectId, selectedValues = []) {
+  const select = byId(selectId);
+  if (!select) return;
+  const selected = new Set((selectedValues || []).filter(Boolean));
+  select.innerHTML = (cachedInventoryGroups || [])
+    .map((item) => safeString(item.name).trim())
+    .filter(Boolean)
+    .map((name) => {
+      const isSelected = selected.has(name) ? "selected" : "";
+      return `<option value="${escapeHtml(name)}" ${isSelected}>${escapeHtml(name)}</option>`;
+    })
+    .join("");
+}
+
 function renderSavedConnectionOptions(selectedName = "") {
   populateSelectOptions(
     "saved-conn-name",
@@ -11,6 +33,25 @@ function renderSavedConnectionOptions(selectedName = "") {
       selected: selectedName,
     }
   );
+}
+
+function renderSavedConnectionGroupOptions(selectedValues = []) {
+  renderConnectionGroupsForSelect("saved-conn-groups", selectedValues);
+  renderConnectionGroupsForSelect(
+    "saved-conn-edit-groups",
+    getMultiSelectValuesById("saved-conn-edit-groups")
+  );
+}
+
+async function ensureSavedConnectionDetail(name) {
+  const normalized = safeString(name || "").trim();
+  if (!normalized) return null;
+  if (cachedSavedConnectionDetails.has(normalized)) {
+    return cachedSavedConnectionDetails.get(normalized);
+  }
+  const data = await request("GET", `/api/connections/${encodeURIComponent(normalized)}`);
+  cachedSavedConnectionDetails.set(normalized, data);
+  return data;
 }
 
 function currentTemporaryConnectionLabel() {
@@ -184,6 +225,7 @@ async function loadSavedConnections() {
     const data = await request("GET", "/api/connections");
     cachedSavedConnections = Array.isArray(data) ? data : [];
     renderSavedConnectionOptions(byId("saved-conn-name").value || "");
+    renderSavedConnectionGroupOptions(getMultiSelectValues("saved-conn-groups"));
     if (currentConnectionTarget.kind === "saved" && currentConnectionTarget.details) {
       const targetName = safeString(currentConnectionTarget.details.name || "").trim();
       const selected = cachedSavedConnections.find((item) => item.name === targetName);
@@ -191,10 +233,22 @@ async function loadSavedConnections() {
         setCurrentConnectionTarget(savedConnectionDetails(selected));
       }
     }
+    if (typeof loadInventoryConnections === "function") {
+      loadInventoryConnections();
+    } else if (typeof renderInventoryConnectionOptions === "function") {
+      renderInventoryConnectionOptions("");
+    }
     renderSidebarConnectionSelector();
   } catch (e) {
     cachedSavedConnections = [];
+    cachedSavedConnectionDetails.clear();
     renderSavedConnectionOptions("");
+    renderSavedConnectionGroupOptions([]);
+    if (typeof loadInventoryConnections === "function") {
+      loadInventoryConnections();
+    } else if (typeof renderInventoryConnectionOptions === "function") {
+      renderInventoryConnectionOptions("");
+    }
     renderSidebarConnectionSelector(e.message);
   }
   updateRecordFabVisibility();
@@ -208,7 +262,7 @@ async function loadSavedConnectionByName() {
   }
   setStatusMessage("saved-conn-out", t("running"), "running");
   try {
-    const data = await request("GET", `/api/connections/${encodeURIComponent(name)}`);
+    const data = await ensureSavedConnectionDetail(name);
     applyConnectionForm(data.connection || {});
     await refreshExecutionModeOptions();
     byId("saved-conn-name").value = data.name || name;
@@ -225,6 +279,147 @@ async function loadSavedConnectionByName() {
   } catch (e) {
     setStatusMessage("saved-conn-out", e.message, "error");
     return false;
+  }
+}
+
+async function openSavedConnectionEditor() {
+  const name = byId("saved-conn-name").value.trim();
+  if (!name) {
+    setStatusMessage("saved-conn-out", t("connectionNameRequired"), "error");
+    return;
+  }
+  setStatusMessage("saved-conn-out", t("running"), "running");
+  try {
+    const data = await ensureSavedConnectionDetail(name);
+    applySavedConnectionEditorForm(data.name || name, data.connection || {});
+    showSavedConnectionEditorModal();
+    setStatusMessage("saved-conn-out", `${t("loaded")}: ${data.name || name}`, "success");
+  } catch (e) {
+    setStatusMessage("saved-conn-out", e.message, "error");
+  }
+}
+
+function showSavedConnectionEditorModal() {
+  const modal = byId("saved-conn-edit-modal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function hideSavedConnectionEditorModal() {
+  const modal = byId("saved-conn-edit-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function splitEditorCsv(raw) {
+  return String(raw || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseSavedConnectionEditorVars() {
+  const raw = byId("saved-conn-edit-vars")?.value.trim() || "";
+  if (!raw) return {};
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(err.message || String(err));
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(t("inventoryVarsMustBeObject"));
+  }
+  return parsed;
+}
+
+function applySavedConnectionEditorForm(name, connection = {}) {
+  byId("saved-conn-edit-name").value = name || "";
+  byId("saved-conn-edit-host").value = safeString(connection.host || "");
+  byId("saved-conn-edit-port").value = safeString(connection.port || 22);
+  byId("saved-conn-edit-username").value = safeString(connection.username || "");
+  byId("saved-conn-edit-password").value = "";
+  byId("saved-conn-edit-enable-password").value = "";
+  byId("saved-conn-edit-ssh-security").value = safeString(connection.ssh_security || "");
+  byId("saved-conn-edit-device-profile").value = safeString(connection.device_profile || "");
+  byId("saved-conn-edit-enabled").checked = connection.enabled !== false;
+  byId("saved-conn-edit-labels").value = Array.isArray(connection.labels)
+    ? connection.labels.join(", ")
+    : "";
+  renderConnectionGroupsForSelect(
+    "saved-conn-edit-groups",
+    Array.isArray(connection.groups) ? connection.groups : []
+  );
+  byId("saved-conn-edit-vars").value = JSON.stringify(connection.vars || {}, null, 2);
+  byId("saved-conn-edit-save-password").checked = !!(
+    connection.has_password === false && connection.has_enable_password === false
+  );
+  setStatusMessage("saved-conn-edit-out", "-", "info");
+}
+
+function savedConnectionEditorPayload() {
+  return {
+    host: byId("saved-conn-edit-host")?.value.trim() || "",
+    port: Number(byId("saved-conn-edit-port")?.value.trim() || 22),
+    username: byId("saved-conn-edit-username")?.value.trim() || "",
+    password: byId("saved-conn-edit-password")?.value || null,
+    enable_password: byId("saved-conn-edit-enable-password")?.value || null,
+    ssh_security: byId("saved-conn-edit-ssh-security")?.value.trim() || null,
+    device_profile: byId("saved-conn-edit-device-profile")?.value.trim() || null,
+    enabled: !!byId("saved-conn-edit-enabled")?.checked,
+    labels: splitEditorCsv(byId("saved-conn-edit-labels")?.value || ""),
+    groups: getMultiSelectValuesById("saved-conn-edit-groups"),
+    vars: parseSavedConnectionEditorVars(),
+  };
+}
+
+async function saveSavedConnectionEditor() {
+  const name = byId("saved-conn-edit-name")?.value.trim() || "";
+  if (!name) {
+    setStatusMessage("saved-conn-edit-out", t("connectionNameRequired"), "error");
+    return;
+  }
+  setStatusMessage("saved-conn-edit-out", t("running"), "running");
+  try {
+    const dontSavePassword = !!byId("saved-conn-edit-save-password")?.checked;
+    const payload = savedConnectionEditorPayload();
+    if (!payload.device_profile) {
+      payload.device_profile = "linux";
+    }
+    if (dontSavePassword) {
+      payload.password = null;
+      payload.enable_password = null;
+    }
+    const data = await request("PUT", `/api/connections/${encodeURIComponent(name)}`, {
+      connection: payload,
+      save_password: !dontSavePassword,
+    });
+    cachedSavedConnectionDetails.set(data.name || name, data);
+    await loadSavedConnections();
+    ensureSelectValue("saved-conn-name", data.name || name);
+    if (
+      currentConnectionTarget.kind === "saved" &&
+      safeString(currentConnectionTarget.details?.name || "").trim() === (data.name || name)
+    ) {
+      setCurrentConnectionTarget(
+        savedConnectionDetails({
+          ...((data && data.connection) || payload),
+          name: data.name || name,
+        })
+      );
+      renderSidebarConnectionSelector();
+    }
+    setStatusMessage("saved-conn-out", `${t("saved")}: ${data.name || name}`, "success");
+    setStatusMessage(
+      "saved-conn-edit-out",
+      `${t("saved")}: ${data.name || name}`,
+      "success"
+    );
+    hideSavedConnectionEditorModal();
+  } catch (e) {
+    setStatusMessage("saved-conn-edit-out", e.message, "error");
   }
 }
 
@@ -246,6 +441,7 @@ async function saveConnectionByName() {
       connection: payload,
       save_password: !dontSavePassword,
     });
+    cachedSavedConnectionDetails.set(data.name || name, data);
     ensureSelectValue("saved-conn-name", data.name || name);
     setCurrentConnectionTarget(
       savedConnectionDetails({
@@ -270,6 +466,7 @@ async function deleteConnectionByName() {
   setStatusMessage("saved-conn-out", t("running"), "running");
   try {
     await request("DELETE", `/api/connections/${encodeURIComponent(name)}`);
+    cachedSavedConnectionDetails.delete(name);
     setStatusMessage("saved-conn-out", `${t("deleted")}: ${name}`, "success");
     byId("saved-conn-name").value = "";
     if (
@@ -285,16 +482,48 @@ async function deleteConnectionByName() {
   }
 }
 
-function createSavedConnectionDraft() {
+async function createSavedConnectionDraft() {
   const name = promptForResourceName(t("savedConnNewPrompt"));
   if (!name) return;
+  const exists = (cachedSavedConnections || []).some((item) => item.name === name);
+  if (exists) {
+    setStatusMessage("saved-conn-out", `${name} already exists, use Save to update`, "error");
+    ensureSelectValue("saved-conn-name", name);
+    return;
+  }
+
   ensureSelectValue("saved-conn-name", name);
-  applyConnectionForm({
-    port: 22,
-    device_profile: "linux",
-  });
-  clearTemporaryConnectionActive();
-  setStatusMessage("saved-conn-out", `${t("editingNew")}: ${name}`, "info");
+  const dontSavePassword = byId("saved-conn-save-password").checked;
+  const payload = connectionPayload();
+  if (!payload.device_profile) {
+    payload.device_profile = "linux";
+  }
+  if (dontSavePassword) {
+    payload.password = null;
+    payload.enable_password = null;
+  }
+
+  setStatusMessage("saved-conn-out", t("running"), "running");
+  try {
+    const data = await request("PUT", `/api/connections/${encodeURIComponent(name)}`, {
+      connection: payload,
+      save_password: !dontSavePassword,
+    });
+    cachedSavedConnectionDetails.set(data.name || name, data);
+    await loadSavedConnections();
+    ensureSelectValue("saved-conn-name", data.name || name);
+    applyConnectionForm((data && data.connection) || payload);
+    clearTemporaryConnectionActive();
+    setCurrentConnectionTarget(
+      savedConnectionDetails({
+        ...((data && data.connection) || payload),
+        name: data.name || name,
+      })
+    );
+    setStatusMessage("saved-conn-out", `${t("created")}: ${data.name || name}`, "success");
+  } catch (e) {
+    setStatusMessage("saved-conn-out", e.message, "error");
+  }
 }
 
 function formatConnectionImportSummary(report) {

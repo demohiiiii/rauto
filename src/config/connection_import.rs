@@ -167,6 +167,33 @@ fn merge_with_existing(
         template_dir: incoming
             .template_dir
             .or_else(|| existing.and_then(|item| item.template_dir.clone())),
+        enabled: incoming.enabled,
+        labels: if incoming.labels.is_empty() {
+            existing
+                .map(|item| item.labels.clone())
+                .unwrap_or_default()
+        } else {
+            incoming.labels
+        },
+        vars: if incoming.vars.is_object()
+            && incoming
+                .vars
+                .as_object()
+                .is_none_or(|map| map.is_empty())
+        {
+            existing
+                .map(|item| item.vars.clone())
+                .unwrap_or_else(|| serde_json::json!({}))
+        } else {
+            incoming.vars
+        },
+        groups: if incoming.groups.is_empty() {
+            existing
+                .map(|item| item.groups.clone())
+                .unwrap_or_default()
+        } else {
+            incoming.groups
+        },
     }
 }
 
@@ -363,6 +390,10 @@ fn parse_row(
             ssh_security,
             device_profile,
             template_dir,
+            enabled: true,
+            labels: vec![],
+            vars: serde_json::json!({}),
+            groups: vec![],
         },
     }))
 }
@@ -551,6 +582,10 @@ mod tests {
             ssh_security: Some(SshSecurityProfile::Balanced),
             device_profile: Some("cisco".to_string()),
             template_dir: None,
+            enabled: true,
+            labels: vec!["edge".to_string()],
+            vars: serde_json::json!({"site":"lab-a"}),
+            groups: vec!["core".to_string()],
         };
         let merged = merge_with_existing(
             Some(&existing),
@@ -565,6 +600,10 @@ mod tests {
                 ssh_security: None,
                 device_profile: None,
                 template_dir: None,
+                enabled: true,
+                labels: vec![],
+                vars: serde_json::json!({}),
+                groups: vec![],
             },
         );
         assert_eq!(merged.username.as_deref(), Some("ops"));

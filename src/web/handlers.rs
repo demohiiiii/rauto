@@ -7,6 +7,7 @@ use crate::config::command_flow_template::{
     parse_command_flow_template_str,
 };
 use crate::config::device_profile::DeviceProfile;
+use crate::config::inventory_store;
 use crate::config::template_loader;
 use crate::config::{
     backup, connection_import, connection_store, connection_store::SavedConnection, content_store,
@@ -40,13 +41,14 @@ use crate::web::models::{
     ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
     ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, ExecuteUploadRequest,
     ExecuteUploadResponse, InteractiveCommandRequest, InteractiveCommandResponse,
-    InteractiveStartRequest, InteractiveStartResponse, InteractiveStopResponse,
+    InteractiveStartRequest, InteractiveStartResponse, InteractiveStopResponse, InventoryGroup,
     ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
-    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, SavedConnectionDetail,
+    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse,
+    ResolveInventoryVarsRequest, ResolveInventoryVarsResponse, SavedConnectionDetail,
     SavedConnectionMeta, TaskArtifactDto, TaskEvent, TaskEventDto, TaskRunDetailResponse,
     TaskRunListItem, TaskRunsQuery, TemplateDetail, TemplateMeta, TransferDirection,
     TransferProtocol, TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
-    UpsertConnectionRequest, UpsertCustomProfileRequest,
+    UpsertConnectionRequest, UpsertCustomProfileRequest, UpsertInventoryGroupRequest,
 };
 use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
 use crate::web::storage;
@@ -2190,6 +2192,14 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
                     .to_string_lossy()
                     .to_string(),
                 has_password: connection_store::has_saved_password(&data),
+                host: data.host.clone(),
+                username: data.username.clone(),
+                port: data.port,
+                device_profile: data.device_profile.clone(),
+                enabled: data.enabled,
+                labels: data.labels.clone(),
+                groups: data.groups.clone(),
+                vars: data.vars.clone(),
             });
         }
     }
@@ -2259,6 +2269,10 @@ fn saved_connection_detail_response(
             ssh_security: data.ssh_security,
             device_profile: data.device_profile.clone(),
             template_dir: data.template_dir.clone(),
+            enabled: data.enabled,
+            labels: data.labels.clone(),
+            groups: data.groups.clone(),
+            vars: data.vars.clone(),
         },
     }
 }
@@ -2406,6 +2420,10 @@ pub async fn upsert_connection(
             .or_else(|| existing.as_ref().and_then(|item| item.ssh_security)),
         device_profile: c.device_profile,
         template_dir: c.template_dir,
+        enabled: c.enabled,
+        labels: c.labels,
+        groups: c.groups,
+        vars: c.vars,
     };
     let path = connection_store::save_connection(&safe, &data).map_err(ApiError::from)?;
     if let Some(registrar) = state.registrar()
@@ -2437,6 +2455,45 @@ pub async fn delete_connection(
         );
     }
     Ok(Json(json!({ "ok": true, "deleted": deleted })))
+}
+
+pub async fn list_inventory_groups() -> Result<Json<Vec<InventoryGroup>>, ApiError> {
+    let items = inventory_store::list_groups().map_err(ApiError::from)?;
+    Ok(Json(items))
+}
+
+pub async fn get_inventory_group(
+    Path(name): Path<String>,
+) -> Result<Json<InventoryGroup>, ApiError> {
+    let item = inventory_store::get_group(&name)
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::bad_request("inventory group not found"))?;
+    Ok(Json(item))
+}
+
+pub async fn upsert_inventory_group(
+    Path(name): Path<String>,
+    Json(req): Json<UpsertInventoryGroupRequest>,
+) -> Result<Json<InventoryGroup>, ApiError> {
+    inventory_store::upsert_group(&name, &req.group).map_err(ApiError::from)?;
+    let item = inventory_store::get_group(&name)
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::internal("inventory group was not persisted"))?;
+    Ok(Json(item))
+}
+
+pub async fn delete_inventory_group(Path(name): Path<String>) -> Result<Json<Value>, ApiError> {
+    let deleted = inventory_store::delete_group(&name).map_err(ApiError::from)?;
+    Ok(Json(json!({ "ok": true, "deleted": deleted })))
+}
+
+pub async fn resolve_inventory_vars(
+    Json(req): Json<ResolveInventoryVarsRequest>,
+) -> Result<Json<ResolveInventoryVarsResponse>, ApiError> {
+    let resolution =
+        inventory_store::resolve_vars(req.host_name.as_deref(), &req.group_names, req.runtime_vars)
+            .map_err(ApiError::from)?;
+    Ok(Json(ResolveInventoryVarsResponse { resolution }))
 }
 
 pub async fn execute_template(
@@ -4205,6 +4262,10 @@ mod tests {
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 device_profile: Some("cisco_ios".to_string()),
                 template_dir: Some("/tmp/templates".to_string()),
+                enabled: true,
+                labels: vec!["edge".to_string()],
+                vars: serde_json::json!({"site":"lab"}),
+                groups: vec!["access".to_string()],
             },
         );
 

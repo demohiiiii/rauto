@@ -21,15 +21,18 @@ document.addEventListener("alpine:init", () => {
     currentTxBlockRunKind: readGlobalState("currentTxBlockRunKind", "commands"),
     currentPromptMode: readGlobalState("currentPromptMode", "view"),
     currentTemplateSection: readGlobalState("currentTemplateSection", "templates"),
+    currentInventorySection: readGlobalState("currentInventorySection", "groups"),
     navGroups: {
       standard: readGlobalState("currentTab", "standard") === "standard",
       orchestrated: readGlobalState("currentTab", "standard") === "orchestrated",
       prompts: readGlobalState("currentTab", "standard") === "prompts",
       templates: readGlobalState("currentTab", "standard") === "templates",
+      inventory: readGlobalState("currentTab", "standard") === "inventory",
     },
     sidebarOpen: false,
     langMenuOpen: false,
     connectionModalOpen: false,
+    connectionModalMode: "saved",
 
     isActiveTab(tab) {
       return this.currentTab === tab;
@@ -39,7 +42,13 @@ document.addEventListener("alpine:init", () => {
       if (!tab || this.currentTab === tab) return;
       this.currentTab = tab;
       currentTab = tab;
-      if (tab === "standard" || tab === "orchestrated" || tab === "prompts" || tab === "templates") {
+      if (
+        tab === "standard" ||
+        tab === "orchestrated" ||
+        tab === "prompts" ||
+        tab === "templates" ||
+        tab === "inventory"
+      ) {
         this.navGroups[tab] = true;
       }
       if (tab === "standard" && this.currentOpKind !== "exec") {
@@ -132,6 +141,15 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
+    setInventorySection(section) {
+      if (!section || this.currentInventorySection === section) return;
+      this.currentInventorySection = section;
+      currentInventorySection = section;
+      if (typeof window.onAlpineInventorySectionChange === "function") {
+        window.onAlpineInventorySectionChange(section);
+      }
+    },
+
     openStandardSection(section) {
       this.setTab("standard");
       this.navGroups.standard = true;
@@ -174,6 +192,16 @@ document.addEventListener("alpine:init", () => {
       return this.currentTab === "templates" && this.currentTemplateSection === section;
     },
 
+    openInventorySection(section) {
+      this.setTab("inventory");
+      this.navGroups.inventory = true;
+      this.setInventorySection(section || "groups");
+    },
+
+    isInventorySection(section) {
+      return this.currentTab === "inventory" && this.currentInventorySection === section;
+    },
+
     toggleSidebar() {
       this.sidebarOpen = !this.sidebarOpen;
     },
@@ -192,6 +220,10 @@ document.addEventListener("alpine:init", () => {
 
     openConnectionModal() {
       this.connectionModalOpen = true;
+      this.connectionModalMode = "saved";
+      if (typeof window.onAlpineConnectionModalModeChange === "function") {
+        window.onAlpineConnectionModalModeChange("saved");
+      }
       if (typeof window.onAlpineConnectionModalOpen === "function") {
         window.onAlpineConnectionModalOpen();
       }
@@ -199,6 +231,19 @@ document.addEventListener("alpine:init", () => {
 
     closeConnectionModal() {
       this.connectionModalOpen = false;
+    },
+
+    setConnectionModalMode(mode) {
+      const normalized = mode === "temporary" ? "temporary" : "saved";
+      if (this.connectionModalMode === normalized) return;
+      this.connectionModalMode = normalized;
+      if (typeof window.onAlpineConnectionModalModeChange === "function") {
+        window.onAlpineConnectionModalModeChange(normalized);
+      }
+    },
+
+    isConnectionModalMode(mode) {
+      return this.connectionModalMode === mode;
     },
 
     setLanguage(lang) {
@@ -244,6 +289,10 @@ document.addEventListener("alpine:init", () => {
       this.currentTemplateSection = readGlobalState(
         "currentTemplateSection",
         this.currentTemplateSection
+      );
+      this.currentInventorySection = readGlobalState(
+        "currentInventorySection",
+        this.currentInventorySection
       );
     },
   });

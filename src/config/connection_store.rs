@@ -3,6 +3,7 @@ use crate::config::ssh_security::SshSecurityProfile;
 use crate::db;
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use sqlx::Row;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -21,6 +22,14 @@ pub struct SavedConnection {
     pub ssh_security: Option<SshSecurityProfile>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub labels: Vec<String>,
+    #[serde(default = "default_vars")]
+    pub vars: Value,
+    #[serde(default)]
+    pub groups: Vec<String>,
 }
 
 pub fn storage_path() -> PathBuf {
@@ -45,6 +54,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
         let row = sqlx::query(
             r#"
             SELECT host, username, password_ref, port, enable_password_ref, ssh_security, device_profile, template_dir
+                 , enabled, labels_json, vars_json
             FROM connections
             WHERE name = ?
             "#,
@@ -53,6 +63,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
         .fetch_optional(db::pool())
         .await?
         .ok_or_else(|| anyhow!("saved connection '{}' not found", safe))?;
+        let groups = load_connection_groups_async(&safe).await?;
 
         Ok(SavedConnection {
             host: row.try_get("host")?,
@@ -70,6 +81,16 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
                 .transpose()?,
             device_profile: row.try_get("device_profile")?,
             template_dir: row.try_get("template_dir")?,
+            enabled: row.try_get::<i64, _>("enabled").unwrap_or(1) != 0,
+            labels: parse_labels_json(
+                row.try_get::<Option<String>, _>("labels_json")?
+                    .unwrap_or_else(|| "[]".to_string()),
+            )?,
+            vars: parse_vars_json(
+                row.try_get::<Option<String>, _>("vars_json")?
+                    .unwrap_or_else(|| "{}".to_string()),
+            )?,
+            groups,
         })
     })
 }
@@ -120,6 +141,10 @@ pub fn delete_connection(name: &str) -> Result<bool> {
     }
 
     db::run_sync(async move {
+        sqlx::query("DELETE FROM inventory_group_members WHERE connection_name = ?")
+            .bind(&safe)
+            .execute(db::pool())
+            .await?;
         let deleted = sqlx::query("DELETE FROM connections WHERE name = ?")
             .bind(&safe)
             .execute(db::pool())
@@ -175,6 +200,9 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
     )?;
     stored.password = None;
     stored.enable_password = None;
+    let labels_json = normalize_labels_json(&stored.labels)?;
+    let vars_json = normalize_vars_json(stored.vars.clone())?;
+    let groups = normalize_name_list(&stored.groups)?;
 
     let now_ms = now_ms();
     let name = connection_name.to_string();
@@ -190,9 +218,10 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
             r#"
             INSERT INTO connections (
                 name, host, username, password_ref, port, enable_password_ref, ssh_security,
-                device_profile, template_dir, created_at_ms, updated_at_ms
+                device_profile, template_dir, enabled, labels_json, vars_json,
+                created_at_ms, updated_at_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
                 username = excluded.username,
@@ -202,6 +231,9 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
                 ssh_security = excluded.ssh_security,
                 device_profile = excluded.device_profile,
                 template_dir = excluded.template_dir,
+                enabled = excluded.enabled,
+                labels_json = excluded.labels_json,
+                vars_json = excluded.vars_json,
                 updated_at_ms = excluded.updated_at_ms
             "#,
         )
@@ -214,10 +246,51 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(stored.ssh_security.map(|value| value.to_string()))
         .bind(&stored.device_profile)
         .bind(&stored.template_dir)
+        .bind(if stored.enabled { 1_i64 } else { 0_i64 })
+        .bind(labels_json)
+        .bind(vars_json)
         .bind(created_at_ms)
         .bind(now_ms as i64)
         .execute(db::pool())
         .await?;
+
+        sqlx::query("DELETE FROM inventory_group_members WHERE connection_name = ?")
+            .bind(&name)
+            .execute(db::pool())
+            .await?;
+
+        for group_name in &groups {
+            let group_created_at = sqlx::query_scalar::<_, i64>(
+                "SELECT created_at_ms FROM inventory_groups WHERE name = ?",
+            )
+            .bind(group_name)
+            .fetch_optional(db::pool())
+            .await?
+            .unwrap_or(now_ms as i64);
+
+            sqlx::query(
+                r#"
+                INSERT INTO inventory_groups (name, description, created_at_ms, updated_at_ms)
+                VALUES (?, NULL, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    updated_at_ms = excluded.updated_at_ms
+                "#,
+            )
+            .bind(group_name)
+            .bind(group_created_at)
+            .bind(now_ms as i64)
+            .execute(db::pool())
+            .await?;
+
+            sqlx::query(
+                "INSERT INTO inventory_group_members (group_name, connection_name, created_at_ms) VALUES (?, ?, ?)",
+            )
+            .bind(group_name)
+            .bind(&name)
+            .bind(now_ms as i64)
+            .execute(db::pool())
+            .await?;
+        }
         Ok(())
     })
 }
@@ -277,6 +350,95 @@ fn now_ms() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0)
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+fn default_vars() -> Value {
+    Value::Object(Map::new())
+}
+
+fn parse_labels_json(raw: String) -> Result<Vec<String>> {
+    let parsed: Value = serde_json::from_str(&raw)
+        .map_err(|err| anyhow!("failed to parse stored labels json: {}", err))?;
+    let items = parsed
+        .as_array()
+        .ok_or_else(|| anyhow!("stored labels must be a JSON array"))?;
+    let mut normalized = Vec::new();
+    for item in items {
+        let value = item
+            .as_str()
+            .ok_or_else(|| anyhow!("stored label values must be strings"))?;
+        normalized.push(normalize_simple_name(value)?);
+    }
+    normalized.sort();
+    normalized.dedup();
+    Ok(normalized)
+}
+
+fn normalize_labels_json(values: &[String]) -> Result<String> {
+    serde_json::to_string(&normalize_name_list(values)?).map_err(|err| anyhow!(err))
+}
+
+fn parse_vars_json(raw: String) -> Result<Value> {
+    let parsed: Value = serde_json::from_str(&raw)
+        .map_err(|err| anyhow!("failed to parse stored vars json: {}", err))?;
+    ensure_json_object(&parsed)?;
+    Ok(parsed)
+}
+
+fn normalize_vars_json(value: Value) -> Result<String> {
+    ensure_json_object(&value)?;
+    serde_json::to_string(&value).map_err(|err| anyhow!(err))
+}
+
+fn ensure_json_object(value: &Value) -> Result<()> {
+    if !value.is_object() {
+        return Err(anyhow!("vars must be a JSON object"));
+    }
+    Ok(())
+}
+
+fn normalize_simple_name(raw: &str) -> Result<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("name is required"));
+    }
+    if !trimmed
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
+    {
+        return Err(anyhow!(
+            "invalid name '{}', use only letters/numbers/_/./-",
+            raw
+        ));
+    }
+    Ok(trimmed.to_string())
+}
+
+fn normalize_name_list(values: &[String]) -> Result<Vec<String>> {
+    let mut items = values
+        .iter()
+        .map(|value| normalize_simple_name(value))
+        .collect::<Result<Vec<_>>>()?;
+    items.sort();
+    items.dedup();
+    Ok(items)
+}
+
+async fn load_connection_groups_async(name: &str) -> Result<Vec<String>> {
+    let rows = sqlx::query(
+        "SELECT group_name FROM inventory_group_members WHERE connection_name = ? ORDER BY group_name ASC",
+    )
+    .bind(name)
+    .fetch_all(db::pool())
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| row.get::<String, _>("group_name"))
+        .collect())
 }
 
 #[cfg(test)]
@@ -357,6 +519,10 @@ mod tests {
                 ssh_security: Some(SshSecurityProfile::Secure),
                 device_profile: Some("cisco".to_string()),
                 template_dir: None,
+                enabled: true,
+                labels: vec!["core".to_string()],
+                vars: serde_json::json!({"site":"lab-a"}),
+                groups: vec!["access".to_string()],
             },
         )?;
 
@@ -386,6 +552,10 @@ mod tests {
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 device_profile: Some("linux".to_string()),
                 template_dir: None,
+                enabled: true,
+                labels: vec!["edge".to_string()],
+                vars: serde_json::json!({"site":"lab-b"}),
+                groups: vec!["core".to_string()],
             },
         )?;
 
@@ -434,6 +604,10 @@ mod tests {
                 ssh_security: Some(SshSecurityProfile::Secure),
                 device_profile: Some("h3c".to_string()),
                 template_dir: None,
+                enabled: true,
+                labels: vec!["edge".to_string()],
+                vars: serde_json::json!({}),
+                groups: vec![],
             },
         )?;
 

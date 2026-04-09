@@ -76,6 +76,190 @@ function orchestrationPayload(dryRun) {
   };
 }
 
+function orchestrationInventoryGroupNames() {
+  return getMultiSelectValues("orchestration-inventory-groups");
+}
+
+function orchestrationInventoryConnectionNames() {
+  return getMultiSelectValues("orchestration-inventory-hosts");
+}
+
+function orchestrationInventoryLabelNames() {
+  return getMultiSelectValues("orchestration-inventory-labels");
+}
+
+function buildOrchestrationTargetFromSavedConnection(connection) {
+  if (!connection || typeof connection !== "object") return null;
+  const target = {};
+  if (connection.name) target.name = connection.name;
+  if (connection.name) target.connection = connection.name;
+  if (connection.host) target.host = connection.host;
+  if (connection.username) target.username = connection.username;
+  if (connection.port != null) target.port = Number(connection.port);
+  if (connection.ssh_security) target.ssh_security = connection.ssh_security;
+  if (connection.device_profile) target.device_profile = connection.device_profile;
+  if (
+    connection.vars &&
+    typeof connection.vars === "object" &&
+    !Array.isArray(connection.vars)
+  ) {
+    target.vars = connection.vars;
+  }
+  return Object.keys(target).length ? target : null;
+}
+
+function findSavedConnectionByName(name) {
+  const normalized = safeString(name || "").trim();
+  if (!normalized) return null;
+  return (cachedSavedConnections || []).find((item) => item.name === normalized) || null;
+}
+
+function buildOrchestrationInventoryGroupsFromSelection() {
+  const groupsMap = {};
+  const selectedGroupNames = orchestrationInventoryGroupNames();
+  const selectedConnectionNames = orchestrationInventoryConnectionNames();
+  const selectedLabelNames = orchestrationInventoryLabelNames();
+
+  for (const groupName of selectedGroupNames) {
+    const group = (cachedInventoryGroups || []).find((item) => item.name === groupName);
+    if (!group) continue;
+    const hosts = Array.isArray(group.hosts) ? group.hosts : [];
+    const targets = hosts
+      .map((connectionName) => findSavedConnectionByName(connectionName))
+      .map((connection) => buildOrchestrationTargetFromSavedConnection(connection))
+      .filter(Boolean);
+    groupsMap[groupName] = {
+      defaults:
+        group.vars && typeof group.vars === "object" && !Array.isArray(group.vars)
+          ? { vars: group.vars }
+          : {},
+      targets,
+    };
+  }
+
+  const standaloneConnections = selectedConnectionNames
+    .filter((connectionName) => {
+      return !selectedGroupNames.some((groupName) => {
+        const group = (cachedInventoryGroups || []).find((item) => item.name === groupName);
+        return Array.isArray(group?.hosts) && group.hosts.includes(connectionName);
+      });
+    })
+    .map((connectionName) => findSavedConnectionByName(connectionName))
+    .map((connection) => buildOrchestrationTargetFromSavedConnection(connection))
+    .filter(Boolean);
+
+  if (standaloneConnections.length) {
+    groupsMap.selected_connections = {
+      targets: standaloneConnections,
+    };
+  }
+
+  const labelConnections = (cachedSavedConnections || [])
+    .filter((connection) => {
+      const labels = Array.isArray(connection?.labels) ? connection.labels : [];
+      return selectedLabelNames.some((label) => labels.includes(label));
+    })
+    .filter((connection) => {
+      const connectionName = safeString(connection?.name || "").trim();
+      if (!connectionName) return false;
+      if (selectedConnectionNames.includes(connectionName)) return false;
+      return !selectedGroupNames.some((groupName) => {
+        const group = (cachedInventoryGroups || []).find((item) => item.name === groupName);
+        return Array.isArray(group?.hosts) && group.hosts.includes(connectionName);
+      });
+    })
+    .map((connection) => buildOrchestrationTargetFromSavedConnection(connection))
+    .filter(Boolean);
+
+  if (labelConnections.length) {
+    groupsMap.selected_labels = {
+      targets: labelConnections,
+    };
+  }
+
+  return groupsMap;
+}
+
+function buildOrchestrationInventoryPlanSkeleton(selectedGroupRefs) {
+  return {
+    name: "inventory-orchestration",
+    fail_fast: true,
+    inventory: {
+      groups: buildOrchestrationInventoryGroupsFromSelection(),
+    },
+    stages: [
+      {
+        name: "stage-1",
+        strategy: "serial",
+        target_groups: selectedGroupRefs,
+        action: {
+          kind: "tx_block",
+          name: "starter-block",
+          commands: ["show version"],
+          rollback_commands: [],
+          rollback_on_failure: false,
+          vars: {},
+        },
+      },
+    ],
+  };
+}
+
+function applyOrchestrationInventorySelection(mode = "merge") {
+  const selectedGroupNames = orchestrationInventoryGroupNames();
+  const selectedConnectionNames = orchestrationInventoryConnectionNames();
+  const selectedLabelNames = orchestrationInventoryLabelNames();
+  if (
+    !selectedGroupNames.length &&
+    !selectedConnectionNames.length &&
+    !selectedLabelNames.length
+  ) {
+    throw new Error(t("orchestrationInventorySelectionRequired"));
+  }
+
+  const selectedGroupRefs = [...selectedGroupNames];
+  if (selectedConnectionNames.length) {
+    selectedGroupRefs.push("selected_connections");
+  }
+  if (selectedLabelNames.length) {
+    selectedGroupRefs.push("selected_labels");
+  }
+
+  if (mode === "build") {
+    const plan = buildOrchestrationInventoryPlanSkeleton(selectedGroupRefs);
+    byId("orchestration-json").value = JSON.stringify(plan, null, 2);
+    renderOrchestrationPreviewFromEditor();
+    return;
+  }
+
+  const raw = byId("orchestration-json").value.trim();
+  const plan = raw ? JSON.parse(raw) : { name: "inventory-orchestration", fail_fast: true, stages: [] };
+  if (!plan || typeof plan !== "object" || Array.isArray(plan)) {
+    throw new Error(t("orchestrationJsonRequired"));
+  }
+  plan.inventory = plan.inventory && typeof plan.inventory === "object" && !Array.isArray(plan.inventory)
+    ? plan.inventory
+    : {};
+  plan.inventory.groups =
+    plan.inventory.groups &&
+    typeof plan.inventory.groups === "object" &&
+    !Array.isArray(plan.inventory.groups)
+      ? plan.inventory.groups
+      : {};
+  Object.assign(plan.inventory.groups, buildOrchestrationInventoryGroupsFromSelection());
+
+  if (Array.isArray(plan.stages) && plan.stages.length === 1) {
+    const stage = plan.stages[0];
+    const currentTargetGroups = Array.isArray(stage.target_groups) ? stage.target_groups : [];
+    if (!currentTargetGroups.length) {
+      stage.target_groups = Array.from(new Set(selectedGroupRefs));
+    }
+  }
+
+  byId("orchestration-json").value = JSON.stringify(plan, null, 2);
+  renderOrchestrationPreviewFromEditor();
+}
+
 function createTxWorkflowBlock(seed = {}) {
   txWorkflowBlockSeq += 1;
   return {

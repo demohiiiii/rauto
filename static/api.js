@@ -79,6 +79,8 @@ async function refreshProtectedData() {
     loadProfilesOverview(),
     loadTemplates(),
     loadFlowTemplates(),
+    loadInventoryConnections(),
+    loadInventoryGroups(),
     loadBlacklistPatterns(),
     loadBackups(),
   ]);

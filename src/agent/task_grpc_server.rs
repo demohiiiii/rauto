@@ -215,6 +215,10 @@ fn map_connection_ref(
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
         device_profile: optional_string(connection.device_profile),
         template_dir: None,
+        enabled: true,
+        labels: vec![],
+        groups: vec![],
+        vars: serde_json::json!({}),
     }))
 }
 
@@ -329,6 +333,10 @@ fn connection_ref_to_request(connection: ConnectionRef) -> Result<ConnectionRequ
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
         device_profile: optional_string(connection.device_profile),
         template_dir: None,
+        enabled: true,
+        labels: vec![],
+        groups: vec![],
+        vars: serde_json::json!({}),
     })
 }
 

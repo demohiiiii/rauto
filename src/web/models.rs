@@ -1,3 +1,4 @@
+pub use crate::config::inventory_store::{InventoryGroup, InventoryVarsResolution};
 use crate::config::ssh_security::SshSecurityProfile;
 pub use crate::task::TaskEvent;
 use crate::task::TaskResultSummary;
@@ -30,6 +31,14 @@ pub struct ConnectionRequest {
     pub ssh_security: Option<SshSecurityProfile>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub labels: Vec<String>,
+    #[serde(default)]
+    pub groups: Vec<String>,
+    #[serde(default = "default_vars")]
+    pub vars: Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,6 +62,14 @@ pub struct SavedConnectionMeta {
     pub name: String,
     pub path: String,
     pub has_password: bool,
+    pub host: Option<String>,
+    pub username: Option<String>,
+    pub port: Option<u16>,
+    pub device_profile: Option<String>,
+    pub enabled: bool,
+    pub labels: Vec<String>,
+    pub groups: Vec<String>,
+    pub vars: Value,
 }
 
 #[derive(Debug, Serialize)]
@@ -61,6 +78,34 @@ pub struct SavedConnectionDetail {
     pub path: String,
     pub has_password: bool,
     pub connection: ConnectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertInventoryGroupRequest {
+    pub group: InventoryGroup,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResolveInventoryVarsRequest {
+    #[serde(default)]
+    pub host_name: Option<String>,
+    #[serde(default)]
+    pub group_names: Vec<String>,
+    #[serde(default)]
+    pub runtime_vars: Value,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ResolveInventoryVarsResponse {
+    pub resolution: InventoryVarsResolution,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+fn default_vars() -> Value {
+    Value::Object(Default::default())
 }
 
 #[derive(Debug, Serialize)]

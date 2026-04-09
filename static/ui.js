@@ -2,6 +2,37 @@
  * ui.js - UI control and state management functions
  */
 
+function currentConnectionModalMode() {
+  try {
+    if (window.Alpine && typeof window.Alpine.store === "function") {
+      const appStore = window.Alpine.store("app");
+      if (appStore && appStore.connectionModalMode) {
+        return appStore.connectionModalMode;
+      }
+    }
+  } catch (_) {}
+  return "saved";
+}
+
+function renderConnectionModalModeCopy(mode = "") {
+  const currentMode = mode || currentConnectionModalMode();
+  const subtitle = byId("connection-workspace-subtitle");
+  if (subtitle) {
+    subtitle.textContent =
+      currentMode === "temporary"
+        ? t("connectionWorkspaceSubtitleTemporary")
+        : t("connectionWorkspaceSubtitleManage");
+  }
+  const savedTab = byId("connection-modal-tab-saved");
+  if (savedTab) {
+    savedTab.textContent = t("connectionModalModeManage");
+  }
+  const temporaryTab = byId("connection-modal-tab-temporary");
+  if (temporaryTab) {
+    temporaryTab.textContent = t("connectionModalModeTemporary");
+  }
+}
+
 function applyI18n() {
   if (byId("title")) byId("title").textContent = t("title");
   if (byId("subtitle")) byId("subtitle").textContent = t("subtitle");
@@ -48,7 +79,7 @@ function applyI18n() {
   byId("lang-en").textContent = t("langOptionEnglish");
   byId("lang-zh").textContent = t("langOptionChinese");
   byId("connection-title").textContent = t("connectionTitle");
-  byId("connection-workspace-subtitle").textContent = t("connectionWorkspaceSubtitle");
+  renderConnectionModalModeCopy();
   byId("connection-quick-title").textContent = t("connectionQuickTitle");
   byId("sidebar-connection-title").textContent = t("sidebarConnectionTitle");
   byId("sidebar-connection-help").setAttribute("aria-label", t("sidebarConnectionHint"));
@@ -59,17 +90,41 @@ function applyI18n() {
   byId("saved-conn-title").textContent = t("savedConnTitle");
   byId("saved-conn-subtitle").textContent = t("savedConnSubtitle");
   byId("saved-conn-save-password-label").textContent = t("savedConnSavePassword");
+  byId("saved-conn-enabled-label").textContent = t("inventoryFieldEnabled");
+  byId("saved-conn-labels-label").textContent = t("inventoryFieldLabels");
+  byId("saved-conn-groups-label").textContent = t("inventoryFieldGroups");
+  byId("saved-conn-vars-label").textContent = t("inventoryFieldVars");
+  byId("saved-conn-labels").placeholder = t("inventoryFieldLabelsPlaceholder");
+  byId("saved-conn-vars").placeholder = t("inventoryFieldVarsPlaceholder");
   byId("saved-conn-template-btn").textContent = t("savedConnTemplateBtn");
   byId("saved-conn-import-btn").textContent = t("savedConnImportBtn");
   byId("saved-conn-new-btn").textContent = t("newBtn");
   byId("saved-conn-use-btn").textContent = t("savedConnUseBtn");
+  byId("saved-conn-edit-btn").textContent = t("savedConnEditBtn");
   byId("saved-conn-save-btn").textContent = t("savedConnSaveBtn");
   byId("saved-conn-delete-btn").textContent = t("savedConnDeleteBtn");
   byId("saved-conn-history-btn").textContent = t("savedConnHistoryBtn");
+  byId("saved-conn-edit-title").textContent = t("savedConnEditTitle");
+  byId("saved-conn-edit-hint").textContent = t("savedConnEditHint");
+  byId("saved-conn-edit-name-label").textContent = t("inventoryFieldName");
+  byId("saved-conn-edit-save-password-label").textContent = t("savedConnSavePassword");
+  byId("saved-conn-edit-enabled-label").textContent = t("inventoryFieldEnabled");
+  byId("saved-conn-edit-labels-label").textContent = t("inventoryFieldLabels");
+  byId("saved-conn-edit-groups-label").textContent = t("inventoryFieldGroups");
+  byId("saved-conn-edit-vars-label").textContent = t("inventoryFieldVars");
+  byId("saved-conn-edit-labels").placeholder = t("inventoryFieldLabelsPlaceholder");
+  byId("saved-conn-edit-vars").placeholder = t("inventoryFieldVarsPlaceholder");
+  byId("saved-conn-edit-save-btn").textContent = t("savedConnSaveBtn");
+  byId("saved-conn-edit-cancel-btn").textContent = t("cancel");
+  byId("saved-conn-edit-close-btn").textContent = t("close");
   byId("connection-temp-apply-btn").textContent = t("connectionTempApplyBtn");
   byId("connection-modal-close").textContent = t("close");
   byId("connection-help").textContent = t("connectionHelp");
   byId("connection-temp-hint").textContent = t("connectionTempHint");
+  byId("saved-conn-edit-ssh-security-option-default").textContent = t("sshSecurityOptionDefault");
+  byId("saved-conn-edit-ssh-security-option-secure").textContent = t("sshSecurityOptionSecure");
+  byId("saved-conn-edit-ssh-security-option-balanced").textContent = t("sshSecurityOptionBalanced");
+  byId("saved-conn-edit-ssh-security-option-legacy").textContent = t("sshSecurityOptionLegacy");
   if (typeof window.onAlpineThemeChange === "function") {
     window.onAlpineThemeChange(currentTheme);
   }
@@ -80,6 +135,7 @@ function applyI18n() {
   byId("tab-replay").textContent = t("tabReplay");
   byId("tab-prompts").textContent = t("tabPrompts");
   byId("tab-templates").textContent = t("tabTemplates");
+  byId("tab-inventory").textContent = t("tabInventory");
   byId("tab-transfer").textContent = t("tabTransfer");
   byId("tab-blacklist").textContent = t("tabBlacklist");
   byId("tab-backup").textContent = t("tabBackup");
@@ -95,6 +151,8 @@ function applyI18n() {
   byId("nav-prompt-diagnose").textContent = t("promptModeDiagnose");
   byId("nav-template-library").textContent = t("templateListTitle");
   byId("nav-template-flows").textContent = t("flowTemplateMgrTitle");
+  byId("nav-inventory-groups").textContent = t("inventoryGroupsTitle");
+  byId("nav-inventory-resolve").textContent = t("inventoryResolveTitle");
 
   byId("standard-title").textContent = t("opSectionStandard");
   byId("orchestrated-title").textContent = t("opSectionOrchestrated");
@@ -129,6 +187,7 @@ function applyI18n() {
   byId("history-drawer-title").textContent = t("historyDrawerTitle");
   byId("history-drawer-subtitle").textContent = t("historyDrawerSubtitle");
   byId("history-drawer-refresh-btn").textContent = t("historyDrawerRefresh");
+  byId("history-drawer-close").textContent = t("close");
   byId("history-drawer-conn-label").textContent = t("historyDrawerConnLabel");
   byId("history-filter-query").placeholder = t("historyFilterPlaceholder");
   byId("history-filter-clear-btn").textContent = t("historyFilterClear");
@@ -159,6 +218,32 @@ function applyI18n() {
   byId("builtin-title").textContent = t("builtinTitle");
   byId("custom-title").textContent = t("customTitle");
   byId("template-mgr-title").textContent = t("templateMgrTitle");
+  byId("inventory-title").textContent = t("inventoryTitle");
+  byId("inventory-groups-title").textContent = t("inventoryGroupsTitle");
+  byId("inventory-group-editor-title").textContent = t("inventoryGroupEditorTitle");
+  byId("inventory-resolve-title").textContent = t("inventoryResolveTitle");
+  byId("inventory-group-new-btn").textContent = t("newBtn");
+  byId("inventory-group-save-btn").textContent = t("savedConnSaveBtn");
+  byId("inventory-group-delete-btn").textContent = t("savedConnDeleteBtn");
+  byId("inventory-resolve-btn").textContent = t("inventoryResolveBtn");
+  byId("inventory-group-name-label").textContent = t("inventoryFieldName");
+  byId("inventory-group-description-label").textContent = t("inventoryFieldDescription");
+  byId("inventory-group-hosts-label").textContent = t("inventoryFieldHosts");
+  byId("inventory-group-hosts-filter").placeholder = t("inventoryFieldHostsFilterPlaceholder");
+  byId("inventory-group-hosts-select-all-btn").textContent = t("inventoryHostsSelectAllBtn");
+  byId("inventory-group-hosts-clear-btn").textContent = t("inventoryHostsClearBtn");
+  byId("inventory-group-hosts-empty").textContent = t("inventoryHostsEmpty");
+  byId("inventory-group-vars-label").textContent = t("inventoryFieldVars");
+  if (typeof renderInventoryGroupHosts === "function") {
+    renderInventoryGroupHosts();
+  }
+  byId("inventory-resolve-host-label").textContent = t("inventoryResolveHostLabel");
+  byId("inventory-resolve-groups-label").textContent = t("inventoryResolveGroupsLabel");
+  byId("inventory-resolve-runtime-label").textContent = t("inventoryResolveRuntimeLabel");
+  byId("inventory-resolve-hint").textContent = t("inventoryResolveHint");
+  byId("inventory-group-description").placeholder = t("inventoryFieldDescriptionPlaceholder");
+  byId("inventory-group-vars").placeholder = t("inventoryFieldVarsPlaceholder");
+  byId("inventory-resolve-runtime").placeholder = t("inventoryFieldVarsPlaceholder");
   byId("transfer-title").textContent = t("transferTitle");
   byId("flow-vars-fields-title").textContent = t("flowVarsFieldsTitle");
   byId("flow-vars-fields-hint").textContent = t("flowVarsFieldsHint");
@@ -259,6 +344,15 @@ function applyI18n() {
   }
   if (typeof renderTaskDetail === "function") {
     renderTaskDetail();
+  }
+  if (typeof renderInventoryConnectionOptions === "function") {
+    renderInventoryConnectionOptions(byId("inventory-resolve-host")?.value || "");
+  }
+  if (typeof renderInventoryGroupOptions === "function") {
+    renderInventoryGroupOptions(byId("inventory-group-picker")?.value || "");
+  }
+  if (typeof renderInventoryGroupList === "function") {
+    renderInventoryGroupList();
   }
 
   byId("render-btn").textContent = t("renderBtn");
@@ -455,6 +549,13 @@ function applyI18n() {
   renderTxWorkflowBuilder();
   renderTxWorkflowPreviewFromEditor();
   byId("orchestration-title").textContent = t("orchestrationTitle");
+  byId("orchestration-inventory-assist-title").textContent = t("orchestrationInventoryAssistTitle");
+  byId("orchestration-inventory-groups-label").textContent = t("orchestrationInventoryGroupsLabel");
+  byId("orchestration-inventory-hosts-label").textContent = t("orchestrationInventoryHostsLabel");
+  byId("orchestration-inventory-labels-label").textContent = t("orchestrationInventoryLabelsLabel");
+  byId("orchestration-inventory-hint").textContent = t("orchestrationInventoryHint");
+  byId("orchestration-inventory-merge-btn").textContent = t("orchestrationInventoryMergeBtn");
+  byId("orchestration-inventory-build-btn").textContent = t("orchestrationInventoryBuildBtn");
   byId("orchestration-base-dir").placeholder = t("orchestrationBaseDirPlaceholder");
   byId("orchestration-json").placeholder = t("orchestrationJsonPlaceholder");
   byId("orchestration-plan-btn").textContent = t("orchestrationPlanBtn");
@@ -575,6 +676,7 @@ function applyTabs() {
     "replay",
     "prompts",
     "templates",
+    "inventory",
     "transfer",
     "blacklist",
     "backup",
@@ -923,6 +1025,28 @@ function applyTemplateSection() {
   } catch (_) {}
 }
 
+function applyInventorySection() {
+  const isGroups = currentInventorySection === "groups";
+  const groupsPanel = byId("inventory-groups-section");
+  const resolvePanel = byId("inventory-resolve-section");
+  if (groupsPanel) {
+    groupsPanel.hidden = !isGroups;
+    groupsPanel.style.display = isGroups ? "" : "none";
+  }
+  if (resolvePanel) {
+    resolvePanel.hidden = isGroups;
+    resolvePanel.style.display = isGroups ? "none" : "";
+  }
+  try {
+    if (window.Alpine && typeof window.Alpine.store === "function") {
+      const appStore = window.Alpine.store("app");
+      if (appStore && appStore.currentInventorySection !== currentInventorySection) {
+        appStore.currentInventorySection = currentInventorySection;
+      }
+    }
+  } catch (_) {}
+}
+
 async function loadSelectedTemplateContent() {
   const name = byId("template").value.trim();
   const preview = byId("template-selected-content");
@@ -954,6 +1078,10 @@ function connectionPayload() {
     enable_password: value("enable_password") || null,
     ssh_security: value("ssh_security") || null,
     device_profile: value("device_profile") || null,
+    enabled: !!byId("saved-conn-enabled")?.checked,
+    labels: splitCsvValues(byId("saved-conn-labels")?.value || ""),
+    groups: getMultiSelectValues("saved-conn-groups"),
+    vars: parseJsonById("saved-conn-vars"),
   };
 }
 
@@ -1402,6 +1530,20 @@ function applyConnectionForm(connection = {}) {
   byId("enable_password").value = "";
   byId("ssh_security").value = safeString(connection.ssh_security || "");
   byId("device_profile").value = safeString(connection.device_profile || "");
+  if (byId("saved-conn-enabled")) {
+    byId("saved-conn-enabled").checked = connection.enabled !== false;
+  }
+  if (byId("saved-conn-labels")) {
+    byId("saved-conn-labels").value = Array.isArray(connection.labels)
+      ? connection.labels.join(", ")
+      : "";
+  }
+  if (typeof renderSavedConnectionGroupOptions === "function") {
+    renderSavedConnectionGroupOptions(Array.isArray(connection.groups) ? connection.groups : []);
+  }
+  if (byId("saved-conn-vars")) {
+    byId("saved-conn-vars").value = JSON.stringify(connection.vars || {}, null, 2);
+  }
   if (byId("saved-conn-save-password")) {
     byId("saved-conn-save-password").checked = !!(
       connection.has_password === false && connection.has_enable_password === false

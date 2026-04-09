@@ -62,6 +62,12 @@ function bindEvents() {
         loadTaskDetail(taskId);
       }
     }
+    const inventoryGroupRow = e.target.closest(".js-inventory-group-row");
+    if (inventoryGroupRow) {
+      const name = inventoryGroupRow.getAttribute("data-name") || "";
+      ensureSelectValue("inventory-group-picker", name);
+      loadInventoryGroupDetail();
+    }
     const txDeleteBtn = e.target.closest(".js-tx-workflow-delete-block");
     if (txDeleteBtn) {
       const blockId = txDeleteBtn.getAttribute("data-tx-block-id") || "";
@@ -186,6 +192,13 @@ function bindEvents() {
     }
   };
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const savedConnEditModal = byId("saved-conn-edit-modal");
+      if (savedConnEditModal && !savedConnEditModal.classList.contains("hidden")) {
+        hideSavedConnectionEditorModal();
+        return;
+      }
+    }
     if (e.key === "Escape" && entryDrawer.classList.contains("open")) {
       closeEntryDrawer();
       return;
@@ -427,6 +440,7 @@ function bindEvents() {
       }
     } catch (_) {}
   };
+  byId("saved-conn-edit-btn").onclick = openSavedConnectionEditor;
   byId("saved-conn-new-btn").onclick = createSavedConnectionDraft;
   byId("saved-conn-save-btn").onclick = saveConnectionByName;
   byId("connection-temp-apply-btn").onclick = async () => {
@@ -453,6 +467,23 @@ function bindEvents() {
       await importConnectionsFromFile();
     } catch (_) {}
   };
+  byId("saved-conn-edit-close-btn").onclick = hideSavedConnectionEditorModal;
+  byId("saved-conn-edit-cancel-btn").onclick = hideSavedConnectionEditorModal;
+  byId("saved-conn-edit-save-btn").onclick = saveSavedConnectionEditor;
+  byId("saved-conn-edit-modal").onclick = (e) => {
+    if (e.target === byId("saved-conn-edit-modal")) {
+      hideSavedConnectionEditorModal();
+    }
+  };
+  byId("inventory-group-picker").onchange = loadInventoryGroupDetail;
+  byId("inventory-group-new-btn").onclick = createInventoryGroupDraft;
+  byId("inventory-group-save-btn").onclick = saveInventoryGroup;
+  byId("inventory-group-delete-btn").onclick = deleteInventoryGroup;
+  byId("inventory-group-hosts-filter").oninput = onInventoryGroupHostFilterInput;
+  byId("inventory-group-hosts-select-all-btn").onclick = selectAllInventoryGroupHosts;
+  byId("inventory-group-hosts-clear-btn").onclick = clearInventoryGroupHostsSelection;
+  byId("inventory-group-hosts").addEventListener("change", onInventoryGroupHostSelectionChange);
+  byId("inventory-resolve-btn").onclick = resolveInventoryVarsFromWeb;
   byId("blacklist-refresh-btn").onclick = loadBlacklistPatterns;
   byId("blacklist-add-btn").onclick = addBlacklistPatternFromWeb;
   byId("blacklist-check-btn").onclick = checkBlacklistCommandFromWeb;
@@ -646,6 +677,30 @@ function bindEvents() {
   };
   byId("orchestration-import-file-btn").onclick = () => {
     byId("orchestration-import-file-input").click();
+  };
+  byId("orchestration-inventory-merge-btn").onclick = () => {
+    try {
+      applyOrchestrationInventorySelection("merge");
+      setStatusMessage(
+        "orchestration-plan-out",
+        t("orchestrationInventoryMergeDone"),
+        "success"
+      );
+    } catch (e) {
+      setStatusMessage("orchestration-plan-out", e.message, "error");
+    }
+  };
+  byId("orchestration-inventory-build-btn").onclick = () => {
+    try {
+      applyOrchestrationInventorySelection("build");
+      setStatusMessage(
+        "orchestration-plan-out",
+        t("orchestrationInventoryBuildDone"),
+        "success"
+      );
+    } catch (e) {
+      setStatusMessage("orchestration-plan-out", e.message, "error");
+    }
   };
   byId("orchestration-import-file-input").onchange = async () => {
     try {
@@ -1208,6 +1263,20 @@ function focusConnectionModalField(id) {
 window.onAlpineConnectionModalOpen = function onAlpineConnectionModalOpen() {
   setStatusMessage("saved-conn-out", "", "info");
   focusConnectionModalField("saved-conn-name");
+  if (typeof renderConnectionModalModeCopy === "function") {
+    renderConnectionModalModeCopy("saved");
+  }
+};
+
+window.onAlpineConnectionModalModeChange = function onAlpineConnectionModalModeChange(mode) {
+  if (typeof renderConnectionModalModeCopy === "function") {
+    renderConnectionModalModeCopy(mode);
+  }
+  if (mode === "temporary") {
+    focusConnectionModalField("host");
+    return;
+  }
+  focusConnectionModalField("saved-conn-name");
 };
 
 window.onAlpineTabChange = function onAlpineTabChange(tab) {
@@ -1225,6 +1294,10 @@ window.onAlpineTabChange = function onAlpineTabChange(tab) {
   if (tab === "templates") {
     loadTemplates();
     loadFlowTemplates();
+  }
+  if (tab === "inventory") {
+    loadInventoryConnections();
+    loadInventoryGroups();
   }
   if (tab === "blacklist") {
     loadBlacklistPatterns();
@@ -1267,6 +1340,11 @@ window.onAlpineTemplateSectionChange = function onAlpineTemplateSectionChange(se
   applyTemplateSection();
 };
 
+window.onAlpineInventorySectionChange = function onAlpineInventorySectionChange(section) {
+  currentInventorySection = section;
+  applyInventorySection();
+};
+
 normalizeFilterPrefs();
 normalizeHistoryFilters();
 saveFilterPrefs();
@@ -1291,6 +1369,8 @@ setStatusMessage("template-out", "-", "info");
 setStatusMessage("flow-out", "-", "info");
 setStatusMessage("upload-out", "-", "info");
 setStatusMessage("flow-template-out", "-", "info");
+setStatusMessage("inventory-group-out", "-", "info");
+setStatusMessage("inventory-resolve-out", "-", "info");
 setStatusMessage("blacklist-out", "-", "info");
 setStatusMessage("backup-out", "-", "info");
 setStatusMessage("builtin-detail-status", "-", "info");
@@ -1300,6 +1380,8 @@ renderBlacklistCheckResult();
 applyTabs();
 applyOperationKind();
 applyPromptMode();
+applyTemplateSection();
+applyInventorySection();
 resetDiagnoseView();
 updateInteractiveButtons();
 updateRecordFabVisibility();

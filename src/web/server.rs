@@ -9,19 +9,21 @@ use crate::web::handlers::{
     add_blacklist_pattern, check_blacklist_command, create_backup, create_command_flow_template,
     create_or_update_custom_profile, create_template, delete_blacklist_pattern,
     delete_command_flow_template, delete_connection, delete_connection_history,
-    delete_custom_profile, delete_template, diagnose_profile, download_backup,
-    download_connection_import_template, exec_command, exec_command_async,
-    execute_builtin_file_transfer_flow, execute_command_flow, execute_orchestration,
-    execute_orchestration_async, execute_template, execute_template_async, execute_tx_block,
-    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
-    get_builtin_profile_detail, get_builtin_profile_form, get_command_flow_template,
-    get_connection, get_connection_history, get_connection_history_detail, get_custom_profile,
-    get_custom_profile_form, get_profile_modes, get_task_run_detail, get_template, health,
-    import_connections, interactive_command, interactive_start, interactive_stop, list_backups,
-    list_blacklist_patterns, list_command_flow_templates, list_connections, list_profiles,
-    list_task_runs, list_templates, profiles_overview, render_template, replay_session,
-    restore_backup, test_connection, update_command_flow_template, update_template,
-    upsert_connection, upsert_custom_profile_form,
+    delete_custom_profile, delete_inventory_group, delete_template,
+    diagnose_profile, download_backup, download_connection_import_template, exec_command,
+    exec_command_async, execute_builtin_file_transfer_flow, execute_command_flow,
+    execute_orchestration, execute_orchestration_async, execute_template, execute_template_async,
+    execute_tx_block, execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async,
+    execute_upload, get_builtin_profile_detail, get_builtin_profile_form,
+    get_command_flow_template, get_connection, get_connection_history,
+    get_connection_history_detail, get_custom_profile, get_custom_profile_form,
+    get_inventory_group, get_profile_modes, get_task_run_detail, get_template,
+    health, import_connections, interactive_command, interactive_start, interactive_stop,
+    list_backups, list_blacklist_patterns, list_command_flow_templates, list_connections,
+    list_inventory_groups, list_profiles, list_task_runs, list_templates,
+    profiles_overview, render_template, replay_session, resolve_inventory_vars, restore_backup,
+    test_connection, update_command_flow_template, update_template, upsert_connection,
+    upsert_custom_profile_form, upsert_inventory_group,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -188,6 +190,8 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/command-flow/execute", post(execute_command_flow))
         .route("/api/flow/execute", post(execute_command_flow))
         .route("/api/connections", get(list_connections))
+        .route("/api/inventory/groups", get(list_inventory_groups))
+        .route("/api/inventory/resolve-vars", post(resolve_inventory_vars))
         .route("/api/connections/import", post(import_connections))
         .route("/api/tasks", get(list_task_runs))
         .route("/api/tasks/{task_id}", get(get_task_run_detail))
@@ -200,6 +204,12 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             get(get_connection)
                 .put(upsert_connection)
                 .delete(delete_connection),
+        )
+        .route(
+            "/api/inventory/groups/{name}",
+            get(get_inventory_group)
+                .put(upsert_inventory_group)
+                .delete(delete_inventory_group),
         )
         .route(
             "/api/connections/{name}/history",

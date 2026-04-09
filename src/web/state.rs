@@ -141,6 +141,10 @@ pub fn merge_connection_options(
         ssh_security: None,
         device_profile: None,
         template_dir: None,
+        enabled: true,
+        labels: vec![],
+        groups: vec![],
+        vars: serde_json::json!({}),
     });
     let connection_name = incoming
         .connection_name
@@ -250,6 +254,10 @@ mod tests {
             ssh_security: Some(SshSecurityProfile::LegacyCompatible),
             device_profile: None,
             template_dir: None,
+            enabled: true,
+            labels: vec![],
+            groups: vec![],
+            vars: serde_json::json!({}),
         };
         let saved = SavedConnection {
             host: Some("saved-host".to_string()),
@@ -262,6 +270,10 @@ mod tests {
             ssh_security: Some(SshSecurityProfile::Secure),
             device_profile: Some("saved-profile".to_string()),
             template_dir: Some("/tmp/saved-templates".to_string()),
+            enabled: true,
+            labels: vec!["core".to_string()],
+            groups: vec!["access".to_string()],
+            vars: serde_json::json!({"site":"lab-a"}),
         };
 
         let resolved =

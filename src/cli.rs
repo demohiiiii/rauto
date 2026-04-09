@@ -51,6 +51,10 @@ pub enum Commands {
     #[command(subcommand)]
     Connection(ConnectionCommands),
 
+    /// Manage inventory groups and variable resolution over saved connections
+    #[command(subcommand)]
+    Inventory(InventoryCommands),
+
     /// Inspect saved connection execution history
     #[command(subcommand)]
     History(HistoryCommands),
@@ -192,6 +196,65 @@ pub enum ConnectionCommands {
         /// Output import summary as JSON
         #[arg(long)]
         json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum InventoryCommands {
+    /// Manage inventory groups
+    #[command(subcommand)]
+    Group(InventoryGroupCommands),
+    /// Preview merged vars from saved connection/group/runtime inputs
+    ResolveVars {
+        /// Saved connection name
+        #[arg(long)]
+        host: Option<String>,
+        /// Inventory group name (repeatable)
+        #[arg(long = "group")]
+        groups: Vec<String>,
+        /// Runtime vars JSON file
+        #[arg(long)]
+        vars_file: Option<PathBuf>,
+        /// Runtime vars JSON string
+        #[arg(long)]
+        vars_json: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum InventoryGroupCommands {
+    /// List inventory groups
+    List {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show an inventory group
+    Show {
+        /// Inventory group name
+        name: String,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Create or update an inventory group from JSON
+    Upsert {
+        /// Inventory group name
+        name: String,
+        /// Path to JSON content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline JSON content
+        #[arg(long)]
+        content: Option<String>,
+    },
+    /// Delete an inventory group
+    Delete {
+        /// Inventory group name
+        name: String,
     },
 }
 

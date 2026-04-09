@@ -733,6 +733,45 @@ Notes:
 - `tx_workflow` stages reuse existing single-device workflow JSON.
 - Multi-device orchestration is available in both Web UI and CLI.
 
+**Inventory CLI**
+
+There is no separate inventory target-record layer anymore.
+
+Saved connections are the inventory target source of truth (including `enabled`, `labels`,
+`groups`, and `vars`). Inventory CLI focuses on group management and merged vars preview.
+
+Manage groups:
+
+```bash
+rauto inventory group list
+rauto inventory group show access --json
+rauto inventory group upsert access --file ./group-access.json
+rauto inventory group delete access
+```
+
+Preview merged vars (`group vars -> saved connection vars -> runtime vars`):
+
+```bash
+rauto inventory resolve-vars \
+  --host edge-sw-01 \
+  --group access \
+  --vars-json '{"ticket":"CHG-42"}' \
+  --json
+```
+
+Group JSON shape:
+
+```json
+{
+  "name": "access",
+  "description": "Campus access switches",
+  "hosts": ["edge-sw-01", "edge-sw-02"],
+  "vars": {
+    "role": "access"
+  }
+}
+```
+
 **Start web console**
 
 ```bash

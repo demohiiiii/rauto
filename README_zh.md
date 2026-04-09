@@ -733,6 +733,45 @@ rauto orchestrate ./orchestration.json --json
 - `tx_workflow` 阶段会直接复用现有单设备工作流 JSON。
 - 多设备编排当前已同时支持 Web UI 与 CLI。
 
+**Inventory CLI**
+
+当前不再提供独立的 inventory 目标记录层。
+
+saved connection 就是 inventory 目标的来源（包含 `enabled`、`labels`、`groups`、`vars` 等元数据），
+Inventory CLI 重点保留分组管理和变量合并预览能力。
+
+管理 group：
+
+```bash
+rauto inventory group list
+rauto inventory group show access --json
+rauto inventory group upsert access --file ./group-access.json
+rauto inventory group delete access
+```
+
+预览变量合并结果（顺序：`group vars -> saved connection vars -> runtime vars`）：
+
+```bash
+rauto inventory resolve-vars \
+  --host edge-sw-01 \
+  --group access \
+  --vars-json '{"ticket":"CHG-42"}' \
+  --json
+```
+
+Group JSON 结构：
+
+```json
+{
+  "name": "access",
+  "description": "Campus access switches",
+  "hosts": ["edge-sw-01", "edge-sw-02"],
+  "vars": {
+    "role": "access"
+  }
+}
+```
+
 **启动 Web 控制台**
 
 ```bash

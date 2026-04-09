@@ -16,8 +16,9 @@ use chrono::Local;
 use clap::Parser;
 use cli::{
     BackupCommands, BlacklistCommands, Cli, CommandFlowArgs, CommandFlowTemplateCommands, Commands,
-    ConnectionCommands, DeviceCommands, GlobalOpts, HistoryCommands, RecordLevelOpt,
-    TemplateCommands, TxArgs, TxRunKind, TxWorkflowArgs, UploadArgs,
+    ConnectionCommands, DeviceCommands, GlobalOpts, HistoryCommands, InventoryCommands,
+    InventoryGroupCommands, RecordLevelOpt, TemplateCommands, TxArgs,
+    TxRunKind, TxWorkflowArgs, UploadArgs,
 };
 use config::command_flow_template::{
     CommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
@@ -29,6 +30,7 @@ use config::connection_store::{
     save_connection,
 };
 use config::history_store::{self, HistoryBinding};
+use config::inventory_store;
 use config::paths::ensure_default_layout;
 use config::ssh_security::SshSecurityProfile;
 use config::template_loader;
@@ -289,6 +291,9 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Connection(cmd) => {
             run_connection_command(cmd, &cli.global_opts).await?;
+        }
+        Commands::Inventory(cmd) => {
+            run_inventory_command(cmd)?;
         }
         Commands::History(cmd) => {
             run_history_command(cmd)?;
@@ -587,6 +592,10 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
                 ssh_security: data.ssh_security,
                 device_profile: data.device_profile.clone(),
                 template_dir: data.template_dir.clone(),
+                enabled: data.enabled,
+                labels: data.labels.clone(),
+                groups: data.groups.clone(),
+                vars: data.vars.clone(),
                 has_password: config::connection_store::has_saved_password(&data),
                 has_enable_password: config::connection_store::has_saved_enable_password(&data),
             };
@@ -777,6 +786,10 @@ struct ConnectionShowOutput {
     ssh_security: Option<SshSecurityProfile>,
     device_profile: Option<String>,
     template_dir: Option<String>,
+    enabled: bool,
+    labels: Vec<String>,
+    groups: Vec<String>,
+    vars: serde_json::Value,
     has_password: bool,
     has_enable_password: bool,
 }
@@ -884,6 +897,10 @@ fn save_named_connection(
             .template_dir
             .as_ref()
             .map(|p| p.to_string_lossy().to_string()),
+        enabled: true,
+        labels: vec![],
+        vars: serde_json::json!({}),
+        groups: vec![],
     };
 
     save_connection(name, &data)
@@ -916,6 +933,92 @@ fn print_connection_import_report(report: &ConnectionImportReport) {
             println!("- row {} [{}]: {}", failure.row, name, failure.message);
         } else {
             println!("- row {}: {}", failure.row, failure.message);
+        }
+    }
+}
+
+fn run_inventory_command(cmd: InventoryCommands) -> Result<()> {
+    match cmd {
+        InventoryCommands::Group(cmd) => run_inventory_group_command(cmd),
+        InventoryCommands::ResolveVars {
+            host,
+            groups,
+            vars_file,
+            vars_json,
+            json,
+        } => {
+            let runtime_vars = load_vars_json_input(vars_file.as_ref(), vars_json.as_deref())?;
+            let resolution = inventory_store::resolve_vars(host.as_deref(), &groups, runtime_vars)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&resolution)?);
+            } else {
+                println!("host: {}", resolution.host_name.as_deref().unwrap_or("-"));
+                print_list("groups", &resolution.group_names);
+                println!(
+                    "merged_vars:\n{}",
+                    serde_json::to_string_pretty(&resolution.merged_vars)?
+                );
+            }
+            Ok(())
+        }
+    }
+}
+
+fn run_inventory_group_command(cmd: InventoryGroupCommands) -> Result<()> {
+    match cmd {
+        InventoryGroupCommands::List { json } => {
+            let groups = inventory_store::list_groups()?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&groups)?);
+            } else if groups.is_empty() {
+                println!("-");
+            } else {
+                for group in groups {
+                    println!(
+                        "- {} [hosts={}] {}",
+                        group.name,
+                        group.hosts.len(),
+                        group.description.as_deref().unwrap_or("")
+                    );
+                }
+            }
+            Ok(())
+        }
+        InventoryGroupCommands::Show { name, json } => {
+            let group = inventory_store::get_group(&name)?
+                .ok_or_else(|| anyhow::anyhow!("inventory group '{}' not found", name))?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&group)?);
+            } else {
+                println!("name: {}", group.name);
+                println!(
+                    "description: {}",
+                    group.description.as_deref().unwrap_or("-")
+                );
+                print_list("hosts", &group.hosts);
+                println!("vars:\n{}", serde_json::to_string_pretty(&group.vars)?);
+            }
+            Ok(())
+        }
+        InventoryGroupCommands::Upsert {
+            name,
+            file,
+            content,
+        } => {
+            let body = read_required_text_input(file.as_ref(), content.as_deref())?;
+            let mut group: inventory_store::InventoryGroup = serde_json::from_str(&body)?;
+            group.name = name.clone();
+            inventory_store::upsert_group(&name, &group)?;
+            println!("Upserted inventory group '{}'", name);
+            Ok(())
+        }
+        InventoryGroupCommands::Delete { name } => {
+            let deleted = inventory_store::delete_group(&name)?;
+            if !deleted {
+                return Err(anyhow::anyhow!("inventory group '{}' not found", name));
+            }
+            println!("Deleted inventory group '{}'", name);
+            Ok(())
         }
     }
 }
@@ -1169,6 +1272,20 @@ fn resolve_command_flow_template_from_sources(
         (None, None) => Err(anyhow::anyhow!(
             "{context} requires {template_flag} <name> or {file_flag} <path>"
         )),
+    }
+}
+
+fn read_required_text_input(file: Option<&PathBuf>, content: Option<&str>) -> Result<String> {
+    match (
+        file.map(|path| path.as_path()),
+        content.map(str::trim).filter(|value| !value.is_empty()),
+    ) {
+        (Some(path), None) => Ok(fs::read_to_string(path)?),
+        (None, Some(inline)) => Ok(inline.to_string()),
+        (Some(_), Some(_)) => Err(anyhow::anyhow!(
+            "choose either --file or --content, not both"
+        )),
+        (None, None) => Err(anyhow::anyhow!("one of --file or --content is required")),
     }
 }
 
