@@ -191,18 +191,6 @@
     background: rgb(15 23 42 / 0.24);
   }
 
-  .dashboard-select-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: 2.35rem;
-    border: 1px solid rgb(148 163 184 / 0.16);
-    border-radius: 999px;
-    padding: 0.2rem 0.28rem 0.2rem 0.62rem;
-    background: rgb(15 23 42 / 0.56);
-    color: rgb(226 232 240 / 0.9);
-  }
-
   .dashboard-body[data-dashboard-theme="light"] .dashboard-tool-group {
     border-color: rgb(148 163 184 / 0.14);
     background: rgb(255 255 255 / 0.6);
@@ -210,12 +198,6 @@
 
   .dashboard-body[data-dashboard-theme="light"] .dashboard-tool-group-muted {
     background: rgb(255 255 255 / 0.45);
-  }
-
-  .dashboard-body[data-dashboard-theme="light"] .dashboard-select-wrap {
-    border-color: rgb(148 163 184 / 0.18);
-    background: rgb(255 255 255 / 0.74);
-    color: rgb(15 23 42 / 0.92);
   }
 
   .dashboard-tool {
@@ -248,21 +230,6 @@
     color: white;
   }
 
-  .dashboard-select {
-    min-width: 6.4rem;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    outline: none;
-    box-shadow: none;
-  }
-
-  .dashboard-select option {
-    color: rgb(15 23 42);
-  }
-
   .dashboard-body[data-dashboard-theme="light"] .dashboard-tool {
     border-color: rgb(148 163 184 / 0.18);
     background: rgb(255 255 255 / 0.74);
@@ -273,10 +240,6 @@
     border-color: rgb(16 185 129 / 0.24);
     background: rgb(255 255 255 / 0.94);
     color: rgb(15 23 42);
-  }
-
-  .dashboard-body[data-dashboard-theme="light"] .dashboard-select {
-    color: rgb(15 23 42 / 0.92);
   }
 
   .dashboard-tool-compact {

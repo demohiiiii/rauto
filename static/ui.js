@@ -101,7 +101,6 @@ function applyI18n() {
   byId("saved-conn-new-btn").textContent = t("newBtn");
   byId("saved-conn-use-btn").textContent = t("savedConnUseBtn");
   byId("saved-conn-edit-btn").textContent = t("savedConnEditBtn");
-  byId("saved-conn-save-btn").textContent = t("savedConnSaveBtn");
   byId("saved-conn-delete-btn").textContent = t("savedConnDeleteBtn");
   byId("saved-conn-history-btn").textContent = t("savedConnHistoryBtn");
   byId("saved-conn-edit-title").textContent = t("savedConnEditTitle");
@@ -167,25 +166,23 @@ function applyI18n() {
   byId("interactive-clear-btn").textContent = t("interactiveClearBtn");
   byId("record-fab").title = t("recordFabTitle");
   byId("dashboard-tool-record").textContent = t("recordFabTitle");
+  byId("record-level-toggle-btn").title = t("recordLevelLabel");
+  byId("record-level-toggle-btn").setAttribute("aria-label", t("recordLevelLabel"));
   byId("dashboard-tool-record-level").textContent = t("recordLevelLabel");
   byId("history-topbar-btn").title = t("savedConnHistoryBtn");
   byId("dashboard-tool-history").textContent = t("savedConnHistoryBtn");
   byId("record-drawer-close").textContent = t("recordDrawerClose");
   byId("recording-subtitle").textContent = t("recordDrawerSubtitle");
   const currentRecordLevel =
-    byId("record-level-toolbar").value ||
-    byId("record-level").value ||
+    byId("record-level")?.value ||
     "key-events-only";
   const recordLevelOptions = `
     <option value="key-events-only">${escapeHtml(t("recordLevelAudit"))}</option>
     <option value="full">${escapeHtml(t("recordLevelFull"))}</option>
   `;
   const recordLevelEl = byId("record-level");
-  const recordLevelToolbarEl = byId("record-level-toolbar");
   recordLevelEl.innerHTML = recordLevelOptions;
-  recordLevelToolbarEl.innerHTML = recordLevelOptions;
-  recordLevelEl.value = currentRecordLevel;
-  recordLevelToolbarEl.value = currentRecordLevel;
+  syncRecordLevelToggleView(currentRecordLevel, { updateSelect: true });
   updateRecordLevelTooltip();
   byId("history-drawer-title").textContent = t("historyDrawerTitle");
   byId("history-drawer-subtitle").textContent = t("historyDrawerSubtitle");
@@ -643,18 +640,37 @@ function applyI18n() {
 }
 
 function updateRecordLevelTooltip() {
-  const level =
-    byId("record-level-toolbar")?.value ||
-    byId("record-level")?.value ||
-    "key-events-only";
+  const level = normalizeRecordLevel(
+    byId("record-level")?.value || byId("record-level-toggle-btn")?.dataset.level
+  );
   const hint =
     level === "full" ? t("recordLevelFullHint") : t("recordLevelAuditHint");
-  const toolbarWrap = byId("record-level-toolbar-wrap");
-  const toolbarSelect = byId("record-level-toolbar");
+  const toolbarToggle = byId("record-level-toggle-btn");
   const drawerSelect = byId("record-level");
-  if (toolbarWrap) toolbarWrap.title = hint;
-  if (toolbarSelect) toolbarSelect.title = hint;
+  if (toolbarToggle) toolbarToggle.title = hint;
   if (drawerSelect) drawerSelect.title = hint;
+}
+
+function normalizeRecordLevel(level) {
+  return String(level || "").trim() === "full" ? "full" : "key-events-only";
+}
+
+function syncRecordLevelToggleView(level, options = {}) {
+  const normalized = normalizeRecordLevel(level);
+  const updateSelect = options.updateSelect !== false;
+  const drawerSelect = byId("record-level");
+  if (updateSelect && drawerSelect) {
+    drawerSelect.value = normalized;
+  }
+  const toggle = byId("record-level-toggle-btn");
+  if (toggle) {
+    toggle.dataset.level = normalized;
+  }
+  const valueLabel = byId("dashboard-tool-record-level-value");
+  if (valueLabel) {
+    valueLabel.textContent =
+      normalized === "full" ? t("recordLevelFull") : t("recordLevelAudit");
+  }
 }
 
 function localizeDynamicFields() {
@@ -1093,12 +1109,9 @@ function connectionPayload() {
 }
 
 function recordLevelPayload() {
-  const level = (
-    byId("record-level-toolbar").value ||
-    byId("record-level").value ||
-    "key-events-only"
-  ).trim();
-  return !level ? "key-events-only" : level;
+  return normalizeRecordLevel(
+    byId("record-level")?.value || byId("record-level-toggle-btn")?.dataset.level
+  );
 }
 
 const INLINE_STATUS_TARGETS = new Set([

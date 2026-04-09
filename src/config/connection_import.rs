@@ -145,9 +145,7 @@ fn merge_with_existing(
         password_ref: if incoming_password.is_some() {
             None
         } else {
-            incoming
-                .password_ref
-                .or_else(|| existing.and_then(|item| item.password_ref.clone()))
+            existing.and_then(|item| item.password_ref.clone())
         },
         port: incoming
             .port
@@ -156,9 +154,7 @@ fn merge_with_existing(
         enable_password_ref: if incoming_enable_password.is_some() {
             None
         } else {
-            incoming
-                .enable_password_ref
-                .or_else(|| existing.and_then(|item| item.enable_password_ref.clone()))
+            existing.and_then(|item| item.enable_password_ref.clone())
         },
         ssh_security: incoming
             .ssh_security
@@ -593,10 +589,10 @@ mod tests {
             host: Some("192.0.2.1".to_string()),
             username: Some("admin".to_string()),
             password: None,
-            password_ref: Some("connection/lab1/password".to_string()),
+            password_ref: Some("enc:v1:AAAA".to_string()),
             port: Some(22),
             enable_password: None,
-            enable_password_ref: Some("connection/lab1/enable_password".to_string()),
+            enable_password_ref: Some("enc:v1:BBBB".to_string()),
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
             device_profile: Some("cisco".to_string()),
@@ -627,14 +623,8 @@ mod tests {
             },
         );
         assert_eq!(merged.username.as_deref(), Some("ops"));
-        assert_eq!(
-            merged.password_ref.as_deref(),
-            Some("connection/lab1/password")
-        );
-        assert_eq!(
-            merged.enable_password_ref.as_deref(),
-            Some("connection/lab1/enable_password")
-        );
+        assert_eq!(merged.password_ref.as_deref(), Some("enc:v1:AAAA"));
+        assert_eq!(merged.enable_password_ref.as_deref(), Some("enc:v1:BBBB"));
         assert_eq!(merged.host.as_deref(), Some("192.0.2.1"));
     }
 

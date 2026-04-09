@@ -702,6 +702,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a"
 dependencies = [
  "generic-array 0.14.7",
+ "rand_core 0.6.4",
  "typenum",
 ]
 
@@ -2844,8 +2845,10 @@ dependencies = [
 name = "rauto"
 version = "0.3.2"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "axum",
+ "base64",
  "calamine",
  "chrono",
  "clap",
@@ -2859,6 +2862,7 @@ dependencies = [
  "minijinja",
  "prost",
  "protoc-bin-vendored",
+ "rand 0.8.5",
  "reqwest",
  "rneter",
  "rust-embed",

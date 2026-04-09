@@ -36,13 +36,10 @@
       <div class="flex-1"></div>
       <div class="dashboard-header-actions flex-none px-2">
         <div class="dashboard-tool-group">
-          <label id="record-level-toolbar-wrap" class="dashboard-select-wrap" for="record-level-toolbar" title="Recording level">
-            <span id="dashboard-tool-record-level" class="dashboard-tool-meta">Record</span>
-            <select id="record-level-toolbar" class="select select-sm dashboard-select" title="Recording Level" aria-label="Recording Level">
-              <option value="key-events-only" selected>Audit</option>
-              <option value="full">Full</option>
-            </select>
-          </label>
+          <button id="record-level-toggle-btn" class="dashboard-tool dashboard-tool-compact" type="button" title="Recording level" aria-label="Recording level">
+            <span id="dashboard-tool-record-level" class="dashboard-tool-label">Record</span>
+            <span id="dashboard-tool-record-level-value" class="dashboard-tool-meta">Audit</span>
+          </button>
           <button id="record-fab" class="dashboard-tool" type="button" title="Recording">
             <span id="dashboard-tool-record" class="dashboard-tool-label">Recording</span>
             <span id="record-fab-badge" class="dashboard-tool-badge" hidden>0</span>
@@ -1216,8 +1213,7 @@
           <span id="connection-quick-title" class="text-sm font-semibold text-slate-700">Execution Target</span>
           <div class="inline-flex items-center gap-2">
             <span id="connection-help" class="text-xs text-slate-500">Leave empty to fallback to CLI defaults used at server startup.</span>
-            <button id="saved-conn-new-btn" class="btn btn-sm" type="button">New</button>
-            <button id="saved-conn-save-btn" class="btn btn-sm btn-success" type="button">Save</button>
+            <button id="saved-conn-new-btn" class="btn btn-sm btn-primary" type="button">New</button>
           </div>
         </div>
         <div class="group-body">

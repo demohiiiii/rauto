@@ -425,40 +425,6 @@ async function saveSavedConnectionEditor() {
   }
 }
 
-async function saveConnectionByName() {
-  const name = byId("saved-conn-name").value.trim();
-  if (!name) {
-    setStatusMessage("saved-conn-out", t("connectionNameRequired"), "error");
-    return;
-  }
-  setStatusMessage("saved-conn-out", t("running"), "running");
-  try {
-    const dontSavePassword = byId("saved-conn-save-password").checked;
-    const payload = connectionPayload();
-    if (dontSavePassword) {
-      payload.password = null;
-      payload.enable_password = null;
-    }
-    const data = await request("PUT", `/api/connections/${encodeURIComponent(name)}`, {
-      connection: payload,
-      save_password: !dontSavePassword,
-    });
-    cachedSavedConnectionDetails.set(data.name || name, data);
-    ensureSelectValue("saved-conn-name", data.name || name);
-    setCurrentConnectionTarget(
-      savedConnectionDetails({
-        ...payload,
-        name: data.name || name,
-      })
-    );
-    setStatusMessage("saved-conn-out", `${t("saved")}: ${data.name || name}`, "success");
-    clearTemporaryConnectionActive();
-    await loadSavedConnections();
-  } catch (e) {
-    setStatusMessage("saved-conn-out", e.message, "error");
-  }
-}
-
 async function deleteConnectionByName() {
   const name = byId("saved-conn-name").value.trim();
   if (!name) {
@@ -489,7 +455,11 @@ async function createSavedConnectionDraft() {
   if (!name) return;
   const exists = (cachedSavedConnections || []).some((item) => item.name === name);
   if (exists) {
-    setStatusMessage("saved-conn-out", `${name} already exists, use Save to update`, "error");
+    setStatusMessage(
+      "saved-conn-out",
+      `${name} already exists, use ${t("savedConnEditBtn")} to update`,
+      "error"
+    );
     ensureSelectValue("saved-conn-name", name);
     return;
   }

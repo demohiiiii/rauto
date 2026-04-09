@@ -251,23 +251,29 @@ function bindEvents() {
   byId("record-fab").onclick = () => {
     openRecordDrawer();
   };
-  const syncRecordLevel = (sourceId, targetId) => {
-    const source = byId(sourceId);
-    const target = byId(targetId);
-    if (!source || !target) return;
-    target.value = source.value || "key-events-only";
-  };
-  byId("record-level-toolbar").onchange = () => {
-    syncRecordLevel("record-level-toolbar", "record-level");
+  const normalizeRecordLevelValue = (value) =>
+    String(value || "").trim() === "full" ? "full" : "key-events-only";
+  const applyRecordLevel = (level) => {
+    const normalized = normalizeRecordLevelValue(level);
+    const drawerSelect = byId("record-level");
+    if (drawerSelect) {
+      drawerSelect.value = normalized;
+    }
+    if (typeof syncRecordLevelToggleView === "function") {
+      syncRecordLevelToggleView(normalized, { updateSelect: false });
+    }
     if (typeof updateRecordLevelTooltip === "function") {
       updateRecordLevelTooltip();
     }
+  };
+  byId("record-level-toggle-btn").onclick = () => {
+    const current = normalizeRecordLevelValue(
+      byId("record-level")?.value || byId("record-level-toggle-btn")?.dataset.level
+    );
+    applyRecordLevel(current === "full" ? "key-events-only" : "full");
   };
   byId("record-level").onchange = () => {
-    syncRecordLevel("record-level", "record-level-toolbar");
-    if (typeof updateRecordLevelTooltip === "function") {
-      updateRecordLevelTooltip();
-    }
+    applyRecordLevel(byId("record-level")?.value);
   };
   byId("history-topbar-btn").onclick = () => {
     openHistoryDrawer();
@@ -442,7 +448,6 @@ function bindEvents() {
   };
   byId("saved-conn-edit-btn").onclick = openSavedConnectionEditor;
   byId("saved-conn-new-btn").onclick = createSavedConnectionDraft;
-  byId("saved-conn-save-btn").onclick = saveConnectionByName;
   byId("connection-temp-apply-btn").onclick = async () => {
     byId("saved-conn-name").value = "";
     markTemporaryConnectionActive();

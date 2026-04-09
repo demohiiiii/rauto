@@ -321,13 +321,9 @@ async function createInventoryGroupDraft() {
   }
   setStatusMessage("inventory-group-out", t("running"), "running");
   try {
+    const payload = inventoryGroupFormPayload(name);
     const data = await request("PUT", `/api/inventory/groups/${encodeURIComponent(name)}`, {
-      group: {
-        name,
-        description: null,
-        hosts: [],
-        vars: {},
-      },
+      group: payload,
     });
     ensureSelectValue("inventory-group-picker", data.name || name);
     applyInventoryGroupForm(data);
