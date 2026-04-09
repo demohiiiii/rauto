@@ -343,6 +343,7 @@ function applySavedConnectionEditorForm(name, connection = {}) {
   byId("saved-conn-edit-password").value = "";
   byId("saved-conn-edit-enable-password").value = "";
   byId("saved-conn-edit-ssh-security").value = safeString(connection.ssh_security || "");
+  byId("saved-conn-edit-linux-shell-flavor").value = safeString(connection.linux_shell_flavor || "");
   byId("saved-conn-edit-device-profile").value = safeString(connection.device_profile || "");
   byId("saved-conn-edit-enabled").checked = connection.enabled !== false;
   byId("saved-conn-edit-labels").value = Array.isArray(connection.labels)
@@ -367,6 +368,7 @@ function savedConnectionEditorPayload() {
     password: byId("saved-conn-edit-password")?.value || null,
     enable_password: byId("saved-conn-edit-enable-password")?.value || null,
     ssh_security: byId("saved-conn-edit-ssh-security")?.value.trim() || null,
+    linux_shell_flavor: byId("saved-conn-edit-linux-shell-flavor")?.value.trim() || null,
     device_profile: byId("saved-conn-edit-device-profile")?.value.trim() || null,
     enabled: !!byId("saved-conn-edit-enabled")?.checked,
     labels: splitEditorCsv(byId("saved-conn-edit-labels")?.value || ""),

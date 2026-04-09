@@ -1,4 +1,5 @@
 pub use crate::config::inventory_store::{InventoryGroup, InventoryVarsResolution};
+use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 pub use crate::task::TaskEvent;
 use crate::task::TaskResultSummary;
@@ -29,6 +30,7 @@ pub struct ConnectionRequest {
     pub port: Option<u16>,
     pub enable_password: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
     #[serde(default = "default_enabled")]
@@ -54,6 +56,7 @@ pub struct ConnectionTestResponse {
     pub port: u16,
     pub username: String,
     pub ssh_security: SshSecurityProfile,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: String,
 }
 
@@ -65,6 +68,7 @@ pub struct SavedConnectionMeta {
     pub host: Option<String>,
     pub username: Option<String>,
     pub port: Option<u16>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
     pub enabled: bool,
     pub labels: Vec<String>,

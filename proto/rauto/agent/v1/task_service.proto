@@ -38,6 +38,7 @@ message ConnectionMeta {
   uint32 port = 3;
   string device_profile = 4;
   bool has_password = 5;
+  string linux_shell_flavor = 6;
 }
 
 message ListConnectionsResponse {
@@ -53,6 +54,7 @@ message ConnectionRef {
   string enable_password = 6;
   string ssh_security = 7;
   string device_profile = 8;
+  string linux_shell_flavor = 9;
 }
 
 message UpsertConnectionRequest {
@@ -79,6 +81,7 @@ message TestConnectionResponse {
   string username = 4;
   string ssh_security = 5;
   string device_profile = 6;
+  string linux_shell_flavor = 7;
 }
 
 message ListTemplatesRequest {}

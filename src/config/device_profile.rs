@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rneter::device::{
     DeviceCommandExecutionConfig, DeviceHandler, DeviceHandlerConfig, DeviceInputRule,
-    DevicePromptRule, DevicePromptWithSysRule, DeviceTransitionRule,
+    DevicePromptRule, DevicePromptWithSysRule, DeviceShellFlavor, DeviceTransitionRule,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -132,6 +132,16 @@ impl DeviceProfile {
             dyn_param: HashMap::new(),
             command_execution: self.command_execution.clone(),
         })?)
+    }
+
+    pub fn apply_shell_flavor_override(&mut self, shell_flavor: DeviceShellFlavor) {
+        if let DeviceCommandExecutionConfig::ShellExitStatus {
+            marker: _,
+            shell_flavor: current,
+        } = &mut self.command_execution
+        {
+            *current = shell_flavor;
+        }
     }
 
     pub fn from_handler_config(name: String, config: DeviceHandlerConfig) -> Self {

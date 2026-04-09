@@ -125,6 +125,9 @@ function applyI18n() {
   byId("saved-conn-edit-ssh-security-option-secure").textContent = t("sshSecurityOptionSecure");
   byId("saved-conn-edit-ssh-security-option-balanced").textContent = t("sshSecurityOptionBalanced");
   byId("saved-conn-edit-ssh-security-option-legacy").textContent = t("sshSecurityOptionLegacy");
+  byId("saved-conn-edit-linux-shell-option-default").textContent = t("linuxShellOptionDefault");
+  byId("saved-conn-edit-linux-shell-option-posix").textContent = t("linuxShellOptionPosix");
+  byId("saved-conn-edit-linux-shell-option-fish").textContent = t("linuxShellOptionFish");
   if (typeof window.onAlpineThemeChange === "function") {
     window.onAlpineThemeChange(currentTheme);
   }
@@ -456,6 +459,9 @@ function applyI18n() {
   byId("ssh-security-option-secure").textContent = t("sshSecurityOptionSecure");
   byId("ssh-security-option-balanced").textContent = t("sshSecurityOptionBalanced");
   byId("ssh-security-option-legacy").textContent = t("sshSecurityOptionLegacy");
+  byId("linux-shell-option-default").textContent = t("linuxShellOptionDefault");
+  byId("linux-shell-option-posix").textContent = t("linuxShellOptionPosix");
+  byId("linux-shell-option-fish").textContent = t("linuxShellOptionFish");
   byId("device_profile").placeholder = t("deviceProfilePlaceholder");
   byId("saved-conn-name").setAttribute("title", t("savedConnSelectPlaceholder"));
   byId("template").placeholder = t("templatePlaceholder");
@@ -1077,6 +1083,7 @@ function connectionPayload() {
     password: value("password") || null,
     enable_password: value("enable_password") || null,
     ssh_security: value("ssh_security") || null,
+    linux_shell_flavor: value("linux_shell_flavor") || null,
     device_profile: value("device_profile") || null,
     enabled: !!byId("saved-conn-enabled")?.checked,
     labels: splitCsvValues(byId("saved-conn-labels")?.value || ""),
@@ -1529,6 +1536,7 @@ function applyConnectionForm(connection = {}) {
   byId("password").value = "";
   byId("enable_password").value = "";
   byId("ssh_security").value = safeString(connection.ssh_security || "");
+  byId("linux_shell_flavor").value = safeString(connection.linux_shell_flavor || "");
   byId("device_profile").value = safeString(connection.device_profile || "");
   if (byId("saved-conn-enabled")) {
     byId("saved-conn-enabled").checked = connection.enabled !== false;

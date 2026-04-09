@@ -23,6 +23,7 @@ use crate::agent_task_grpc::rauto::agent::v1::{
     UpsertCommandFlowTemplateRequest, UpsertConnectionRequest as GrpcUpsertConnectionRequest,
     UpsertConnectionResponse,
 };
+use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader;
 use crate::config::{connection_store, content_store};
@@ -199,6 +200,16 @@ fn parse_ssh_security(raw: &str) -> Result<Option<SshSecurityProfile>, Status> {
     }
 }
 
+fn parse_linux_shell_flavor(raw: &str) -> Result<Option<LinuxShellFlavor>, Status> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    trimmed.parse::<LinuxShellFlavor>().map(Some).map_err(|_| {
+        Status::invalid_argument(format!("unsupported linux_shell_flavor '{}'", trimmed))
+    })
+}
+
 fn map_connection_ref(
     connection: Option<ConnectionRef>,
 ) -> Result<Option<ConnectionRequest>, Status> {
@@ -213,6 +224,7 @@ fn map_connection_ref(
         port: connection.port.map(|value| value as u16),
         enable_password: optional_string(connection.enable_password),
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
+        linux_shell_flavor: parse_linux_shell_flavor(&connection.linux_shell_flavor)?,
         device_profile: optional_string(connection.device_profile),
         template_dir: None,
         enabled: true,
@@ -331,6 +343,7 @@ fn connection_ref_to_request(connection: ConnectionRef) -> Result<ConnectionRequ
         port: connection.port.map(|value| value as u16),
         enable_password: optional_string(connection.enable_password),
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
+        linux_shell_flavor: parse_linux_shell_flavor(&connection.linux_shell_flavor)?,
         device_profile: optional_string(connection.device_profile),
         template_dir: None,
         enabled: true,
@@ -350,6 +363,10 @@ fn sanitize_connection_ref(name: String, connection: ConnectionRequest) -> Conne
         enable_password: String::new(),
         ssh_security: connection
             .ssh_security
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+        linux_shell_flavor: connection
+            .linux_shell_flavor
             .map(|value| value.to_string())
             .unwrap_or_default(),
         device_profile: connection
@@ -470,6 +487,10 @@ impl AgentTaskService for AgentTaskGrpcService {
                     .device_profile
                     .unwrap_or_else(|| template_loader::DEFAULT_DEVICE_PROFILE.to_string()),
                 has_password,
+                linux_shell_flavor: loaded
+                    .linux_shell_flavor
+                    .map(|value| value.to_string())
+                    .unwrap_or_default(),
             });
         }
 
@@ -528,6 +549,10 @@ impl AgentTaskService for AgentTaskGrpcService {
             port: u32::from(response.port),
             username: response.username,
             ssh_security: response.ssh_security.to_string(),
+            linux_shell_flavor: response
+                .linux_shell_flavor
+                .map(|value| value.to_string())
+                .unwrap_or_default(),
             device_profile: response.device_profile,
         }))
     }

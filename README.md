@@ -403,6 +403,7 @@ Password behavior:
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
 - Saved passwords are stored in the system keyring; `~/.rauto/rauto.db` keeps only connection metadata and secret references.
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections.
+- `--linux-shell-flavor <posix|fish>` controls Linux shell exit-code parsing strategy (`posix` also accepts `bash` alias).
 
 Bulk import:
 
@@ -425,9 +426,9 @@ Supported file types:
 Recommended headers:
 
 ```csv
-name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir
-core-sw-01,192.168.1.1,admin,secret,22,,balanced,cisco,
-linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,
+name,host,username,password,port,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir
+core-sw-01,192.168.1.1,admin,secret,22,,balanced,,cisco,
+linux-jump-01,192.168.1.10,root,secret,22,,secure,posix,linux,
 ```
 
 Notes:
@@ -807,6 +808,7 @@ Default runtime data:
 | `--enable-password` | -                | Enable/Secret password                                                          |
 | `--ssh-port`        | -                | SSH port (default: 22)                                                          |
 | `--ssh-security`    | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible`                 |
+| `--linux-shell-flavor` | -             | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`     |
 | `--device-profile`  | -                | Device type/profile (default: `linux`; examples: `huawei`, `linux`, `fortinet`) |
 | `--connection`      | -                | Load saved connection profile by name                                           |
 | `--save-connection` | -                | Save effective connection profile after successful connect                      |

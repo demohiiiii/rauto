@@ -1,4 +1,5 @@
 use crate::config::keyring_store;
+use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::db;
 use anyhow::{Result, anyhow};
@@ -20,6 +21,7 @@ pub struct SavedConnection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enable_password_ref: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
     #[serde(default = "default_enabled")]
@@ -53,7 +55,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     db::run_sync(async move {
         let row = sqlx::query(
             r#"
-            SELECT host, username, password_ref, port, enable_password_ref, ssh_security, device_profile, template_dir
+            SELECT host, username, password_ref, port, enable_password_ref, ssh_security, linux_shell_flavor, device_profile, template_dir
                  , enabled, labels_json, vars_json
             FROM connections
             WHERE name = ?
@@ -78,6 +80,10 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
             ssh_security: row
                 .try_get::<Option<String>, _>("ssh_security")?
                 .map(|value| parse_ssh_security_profile(&value))
+                .transpose()?,
+            linux_shell_flavor: row
+                .try_get::<Option<String>, _>("linux_shell_flavor")?
+                .map(|value| parse_linux_shell_flavor(&value))
                 .transpose()?,
             device_profile: row.try_get("device_profile")?,
             template_dir: row.try_get("template_dir")?,
@@ -156,13 +162,12 @@ pub fn delete_connection(name: &str) -> Result<bool> {
 }
 
 pub fn has_saved_password(data: &SavedConnection) -> bool {
-    has_non_empty_value(data.password.as_deref())
-        || keyring_store::has_secret(data.password_ref.as_deref())
+    has_non_empty_value(data.password.as_deref()) || has_non_empty_value(data.password_ref.as_deref())
 }
 
 pub fn has_saved_enable_password(data: &SavedConnection) -> bool {
     has_non_empty_value(data.enable_password.as_deref())
-        || keyring_store::has_secret(data.enable_password_ref.as_deref())
+        || has_non_empty_value(data.enable_password_ref.as_deref())
 }
 
 pub fn load_saved_secret(secret_ref: Option<&str>) -> Result<Option<String>> {
@@ -217,11 +222,11 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         sqlx::query(
             r#"
             INSERT INTO connections (
-                name, host, username, password_ref, port, enable_password_ref, ssh_security,
+                name, host, username, password_ref, port, enable_password_ref, ssh_security, linux_shell_flavor,
                 device_profile, template_dir, enabled, labels_json, vars_json,
                 created_at_ms, updated_at_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
                 username = excluded.username,
@@ -229,6 +234,7 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
                 port = excluded.port,
                 enable_password_ref = excluded.enable_password_ref,
                 ssh_security = excluded.ssh_security,
+                linux_shell_flavor = excluded.linux_shell_flavor,
                 device_profile = excluded.device_profile,
                 template_dir = excluded.template_dir,
                 enabled = excluded.enabled,
@@ -244,6 +250,7 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(stored.port.map(i64::from))
         .bind(&stored.enable_password_ref)
         .bind(stored.ssh_security.map(|value| value.to_string()))
+        .bind(stored.linux_shell_flavor.map(|value| value.to_string()))
         .bind(&stored.device_profile)
         .bind(&stored.template_dir)
         .bind(if stored.enabled { 1_i64 } else { 0_i64 })
@@ -343,6 +350,14 @@ fn parse_ssh_security_profile(value: &str) -> Result<SshSecurityProfile> {
         "legacy-compatible" => Ok(SshSecurityProfile::LegacyCompatible),
         other => Err(anyhow!("invalid ssh security profile '{}'", other)),
     }
+}
+
+fn parse_linux_shell_flavor(value: &str) -> Result<LinuxShellFlavor> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("invalid linux shell flavor ''"));
+    }
+    trimmed.parse::<LinuxShellFlavor>()
 }
 
 fn now_ms() -> u128 {
@@ -517,6 +532,7 @@ mod tests {
                 enable_password: None,
                 enable_password_ref: None,
                 ssh_security: Some(SshSecurityProfile::Secure),
+                linux_shell_flavor: None,
                 device_profile: Some("cisco".to_string()),
                 template_dir: None,
                 enabled: true,
@@ -550,6 +566,7 @@ mod tests {
                 enable_password: Some("enable-me".to_string()),
                 enable_password_ref: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
+                linux_shell_flavor: None,
                 device_profile: Some("linux".to_string()),
                 template_dir: None,
                 enabled: true,
@@ -602,6 +619,7 @@ mod tests {
                 enable_password: None,
                 enable_password_ref: None,
                 ssh_security: Some(SshSecurityProfile::Secure),
+                linux_shell_flavor: None,
                 device_profile: Some("h3c".to_string()),
                 template_dir: None,
                 enabled: true,

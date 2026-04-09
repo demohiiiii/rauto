@@ -17,8 +17,8 @@ use clap::Parser;
 use cli::{
     BackupCommands, BlacklistCommands, Cli, CommandFlowArgs, CommandFlowTemplateCommands, Commands,
     ConnectionCommands, DeviceCommands, GlobalOpts, HistoryCommands, InventoryCommands,
-    InventoryGroupCommands, RecordLevelOpt, TemplateCommands, TxArgs,
-    TxRunKind, TxWorkflowArgs, UploadArgs,
+    InventoryGroupCommands, RecordLevelOpt, TemplateCommands, TxArgs, TxRunKind, TxWorkflowArgs,
+    UploadArgs,
 };
 use config::command_flow_template::{
     CommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
@@ -31,6 +31,7 @@ use config::connection_store::{
 };
 use config::history_store::{self, HistoryBinding};
 use config::inventory_store;
+use config::linux_shell::LinuxShellFlavor;
 use config::paths::ensure_default_layout;
 use config::ssh_security::SshSecurityProfile;
 use config::template_loader;
@@ -157,7 +158,10 @@ async fn run(cli: Cli) -> Result<()> {
             )?;
 
             let conn = resolve_effective_connection(&cli.global_opts)?;
-            let handler = template_loader::load_device_profile(&conn.device_profile)?;
+            let handler = template_loader::load_device_profile_for_connection(
+                &conn.device_profile,
+                conn.linux_shell_flavor,
+            )?;
             let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
             info!("Connecting to device...");
@@ -199,7 +203,10 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Exec(args) => {
             command_blacklist::ensure_command_allowed(&args.command, "direct execution")?;
             let conn = resolve_effective_connection(&cli.global_opts)?;
-            let handler = template_loader::load_device_profile(&conn.device_profile)?;
+            let handler = template_loader::load_device_profile_for_connection(
+                &conn.device_profile,
+                conn.linux_shell_flavor,
+            )?;
             let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
             let effective_mode =
                 template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
@@ -553,7 +560,10 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
     match cmd {
         ConnectionCommands::Test => {
             let conn = resolve_effective_connection(global_opts)?;
-            let handler = template_loader::load_device_profile(&conn.device_profile)?;
+            let handler = template_loader::load_device_profile_for_connection(
+                &conn.device_profile,
+                conn.linux_shell_flavor,
+            )?;
             let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
             let _client = DeviceClient::connect(
                 conn.host.clone(),
@@ -568,8 +578,15 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
             .await?;
             maybe_save_connection_profile(global_opts, &conn)?;
             println!(
-                "Connection OK: {}@{}:{} ({}, ssh_security={})",
-                conn.username, conn.host, conn.port, conn.device_profile, conn.ssh_security
+                "Connection OK: {}@{}:{} ({}, ssh_security={}, linux_shell_flavor={})",
+                conn.username,
+                conn.host,
+                conn.port,
+                conn.device_profile,
+                conn.ssh_security,
+                conn.linux_shell_flavor
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "-".to_string())
             );
         }
         ConnectionCommands::List => {
@@ -590,6 +607,7 @@ async fn run_connection_command(cmd: ConnectionCommands, global_opts: &GlobalOpt
                 username: data.username.clone(),
                 port: data.port,
                 ssh_security: data.ssh_security,
+                linux_shell_flavor: data.linux_shell_flavor,
                 device_profile: data.device_profile.clone(),
                 template_dir: data.template_dir.clone(),
                 enabled: data.enabled,
@@ -774,6 +792,7 @@ pub(crate) struct EffectiveConnection {
     port: u16,
     enable_password: Option<String>,
     ssh_security: SshSecurityProfile,
+    linux_shell_flavor: Option<LinuxShellFlavor>,
     device_profile: String,
     template_dir: Option<PathBuf>,
 }
@@ -784,6 +803,7 @@ struct ConnectionShowOutput {
     username: Option<String>,
     port: Option<u16>,
     ssh_security: Option<SshSecurityProfile>,
+    linux_shell_flavor: Option<LinuxShellFlavor>,
     device_profile: Option<String>,
     template_dir: Option<String>,
     enabled: bool,
@@ -829,6 +849,9 @@ fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConne
         .ssh_security
         .or_else(|| saved.as_ref().and_then(|s| s.ssh_security))
         .unwrap_or_default();
+    let linux_shell_flavor = opts
+        .linux_shell_flavor
+        .or_else(|| saved.as_ref().and_then(|s| s.linux_shell_flavor));
     let device_profile = opts
         .device_profile
         .clone()
@@ -851,6 +874,7 @@ fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConne
         port,
         enable_password,
         ssh_security,
+        linux_shell_flavor,
         device_profile,
         template_dir,
     })
@@ -892,6 +916,7 @@ fn save_named_connection(
         },
         enable_password_ref: None,
         ssh_security: Some(conn.ssh_security),
+        linux_shell_flavor: conn.linux_shell_flavor,
         device_profile: Some(conn.device_profile.clone()),
         template_dir: conn
             .template_dir
@@ -1094,7 +1119,10 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
     let template = resolve_command_flow_template(&args)?;
     let vars = load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
     let conn = resolve_effective_connection(opts)?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
     let flow = template.to_command_flow(&build_command_flow_runtime(
@@ -1149,7 +1177,10 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
 
 async fn run_upload(args: UploadArgs, opts: &cli::GlobalOpts) -> Result<()> {
     let conn = resolve_effective_connection(opts)?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let upload = build_upload_request(&args)?;
 
     let request = manager_connection_request(
@@ -1169,7 +1200,10 @@ async fn run_upload(args: UploadArgs, opts: &cli::GlobalOpts) -> Result<()> {
             to_record_level(args.record_level),
         )
         .await?;
-    let handler_for_upload = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler_for_upload = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),
@@ -1669,7 +1703,10 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
 
     command_blacklist::ensure_tx_block_allowed(&tx_block, &format!("tx block '{}'", args.name))?;
 
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),
@@ -1685,7 +1722,10 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             to_record_level(args.record_level),
         )
         .await?;
-    let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler_for_tx = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),
@@ -1921,7 +1961,10 @@ async fn run_tx_workflow(args: TxWorkflowArgs, opts: &cli::GlobalOpts) -> Result
     )?;
 
     let conn = resolve_effective_connection(opts)?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),
@@ -1937,7 +1980,10 @@ async fn run_tx_workflow(args: TxWorkflowArgs, opts: &cli::GlobalOpts) -> Result
             to_record_level(args.record_level),
         )
         .await?;
-    let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler_for_tx = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),

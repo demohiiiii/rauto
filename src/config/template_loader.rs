@@ -1,5 +1,6 @@
 use crate::config::content_store;
 use crate::config::device_profile::DeviceProfile;
+use crate::config::linux_shell::LinuxShellFlavor;
 use anyhow::{Context, Result, anyhow};
 use rneter::{device::DeviceHandler, templates};
 use std::collections::BTreeSet;
@@ -31,6 +32,17 @@ pub fn canonical_builtin_profile_name(name: &str) -> Option<&'static str> {
 
 pub fn load_device_profile(name: &str) -> Result<DeviceHandler> {
     load_device_profile_form(name)?.to_device_handler()
+}
+
+pub fn load_device_profile_for_connection(
+    name: &str,
+    linux_shell_flavor: Option<LinuxShellFlavor>,
+) -> Result<DeviceHandler> {
+    let mut profile = load_device_profile_form(name)?;
+    if let Some(flavor) = linux_shell_flavor {
+        profile.apply_shell_flavor_override(flavor.to_device_shell_flavor());
+    }
+    profile.to_device_handler()
 }
 
 pub fn load_device_profile_form(name: &str) -> Result<DeviceProfile> {

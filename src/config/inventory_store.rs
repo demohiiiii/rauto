@@ -350,9 +350,9 @@ mod tests {
     use crate::db;
     use anyhow::Result;
     use serde_json::json;
+    use std::fs;
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
-    use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static TEST_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -400,7 +400,11 @@ mod tests {
         }
     }
 
-    fn sample_connection(host: &str, groups: Vec<&str>, vars: serde_json::Value) -> SavedConnection {
+    fn sample_connection(
+        host: &str,
+        groups: Vec<&str>,
+        vars: serde_json::Value,
+    ) -> SavedConnection {
         SavedConnection {
             host: Some(host.to_string()),
             port: Some(22),
@@ -415,6 +419,7 @@ mod tests {
             enable_password: None,
             enable_password_ref: None,
             ssh_security: None,
+            linux_shell_flavor: None,
             template_dir: None,
         }
     }
@@ -425,7 +430,11 @@ mod tests {
         db::init_sync()?;
         save_connection(
             "edge-01",
-            &sample_connection("10.0.0.1", vec!["core"], json!({"mode":"root","site":"shanghai"})),
+            &sample_connection(
+                "10.0.0.1",
+                vec!["core"],
+                json!({"mode":"root","site":"shanghai"}),
+            ),
         )?;
         super::upsert_group(
             "core",
@@ -522,7 +531,10 @@ mod tests {
 
         let err = resolve_vars(Some("edge-01"), &["missing".into()], json!({}))
             .expect_err("unknown group should fail");
-        assert!(err.to_string().contains("inventory group 'missing' not found"));
+        assert!(
+            err.to_string()
+                .contains("inventory group 'missing' not found")
+        );
         Ok(())
     }
 }

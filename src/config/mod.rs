@@ -8,6 +8,7 @@ pub mod device_profile;
 pub mod history_store;
 pub mod inventory_store;
 pub mod keyring_store;
+pub mod linux_shell;
 pub mod paths;
 pub mod ssh_security;
 pub mod task_store;

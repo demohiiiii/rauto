@@ -2,6 +2,7 @@ use crate::agent::config::AgentConfig;
 use crate::agent::registration::AgentRegistrar;
 use crate::cli::GlobalOpts;
 use crate::config::connection_store::{self, SavedConnection};
+use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::device::DeviceClient;
@@ -117,6 +118,7 @@ pub struct ResolvedConnection {
     pub port: u16,
     pub enable_password: Option<String>,
     pub ssh_security: SshSecurityProfile,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: String,
 }
 
@@ -139,6 +141,7 @@ pub fn merge_connection_options(
         port: None,
         enable_password: None,
         ssh_security: None,
+        linux_shell_flavor: None,
         device_profile: None,
         template_dir: None,
         enabled: true,
@@ -202,6 +205,10 @@ fn merge_connection_sources(
         .or_else(|| saved.and_then(|s| s.ssh_security))
         .or(defaults.ssh_security)
         .unwrap_or_default();
+    let linux_shell_flavor = incoming
+        .linux_shell_flavor
+        .or_else(|| saved.and_then(|s| s.linux_shell_flavor))
+        .or(defaults.linux_shell_flavor);
     let device_profile = incoming
         .device_profile
         .or_else(|| saved.and_then(|s| s.device_profile.clone()))
@@ -215,6 +222,7 @@ fn merge_connection_sources(
         port,
         enable_password,
         ssh_security,
+        linux_shell_flavor,
         device_profile,
     })
 }
@@ -238,6 +246,7 @@ mod tests {
             port: Some(22),
             enable_password: Some("default-enable".to_string()),
             ssh_security: Some(SshSecurityProfile::Balanced),
+            linux_shell_flavor: None,
             device_profile: Some("default-profile".to_string()),
             template_dir: Some(PathBuf::from("/tmp/default-templates")),
             connection: Some("lab1".to_string()),
@@ -252,6 +261,7 @@ mod tests {
             port: None,
             enable_password: Some("explicit-enable".to_string()),
             ssh_security: Some(SshSecurityProfile::LegacyCompatible),
+            linux_shell_flavor: None,
             device_profile: None,
             template_dir: None,
             enabled: true,
@@ -268,6 +278,7 @@ mod tests {
             enable_password: Some("saved-enable".to_string()),
             enable_password_ref: None,
             ssh_security: Some(SshSecurityProfile::Secure),
+            linux_shell_flavor: None,
             device_profile: Some("saved-profile".to_string()),
             template_dir: Some("/tmp/saved-templates".to_string()),
             enabled: true,
@@ -299,6 +310,7 @@ mod tests {
             port: Some(22),
             enable_password: None,
             ssh_security: Some(SshSecurityProfile::Balanced),
+            linux_shell_flavor: None,
             device_profile: Some("default-profile".to_string()),
             template_dir: Some(PathBuf::from("/tmp/default-templates")),
             connection: None,
@@ -327,6 +339,7 @@ mod tests {
             port: None,
             enable_password: None,
             ssh_security: None,
+            linux_shell_flavor: None,
             device_profile: None,
             template_dir: None,
             connection: None,

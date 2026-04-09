@@ -1,6 +1,7 @@
 use crate::cli::{GlobalOpts, OrchestrateArgs, RecordLevelOpt};
 use crate::config::command_blacklist;
 use crate::config::connection_store::load_connection;
+use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
@@ -77,6 +78,7 @@ pub struct OrchestrationTargetDefaults {
     pub port: Option<u16>,
     pub enable_password: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
     #[serde(default)]
@@ -107,6 +109,7 @@ pub struct OrchestrationTarget {
     pub port: Option<u16>,
     pub enable_password: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
     #[serde(default)]
@@ -429,6 +432,7 @@ fn merge_target_defaults(
             .clone()
             .or_else(|| base.enable_password.clone()),
         ssh_security: overlay.ssh_security.or(base.ssh_security),
+        linux_shell_flavor: overlay.linux_shell_flavor.or(base.linux_shell_flavor),
         device_profile: overlay
             .device_profile
             .clone()
@@ -469,6 +473,9 @@ fn apply_target_defaults(
     }
     if target.ssh_security.is_none() {
         target.ssh_security = defaults.ssh_security;
+    }
+    if target.linux_shell_flavor.is_none() {
+        target.linux_shell_flavor = defaults.linux_shell_flavor;
     }
     if target.device_profile.is_none() {
         target.device_profile = defaults.device_profile.clone();
@@ -1021,7 +1028,10 @@ async fn execute_tx_block_action(
         &format!("orchestration tx block '{}'", tx_block_name),
     )?;
 
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),
@@ -1037,7 +1047,10 @@ async fn execute_tx_block_action(
             to_record_level(record_level),
         )
         .await?;
-    let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler_for_tx = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),
@@ -1096,7 +1109,10 @@ async fn execute_tx_workflow_action(
         &workflow,
         &format!("orchestration tx workflow '{}'", workflow_name),
     )?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),
@@ -1112,7 +1128,10 @@ async fn execute_tx_workflow_action(
             to_record_level(record_level),
         )
         .await?;
-    let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler_for_tx = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let request = manager_connection_request(
         conn.username.clone(),
         conn.host.clone(),
@@ -1268,6 +1287,10 @@ fn resolve_target_connection(
         .or(opts.ssh_security)
         .or_else(|| saved.as_ref().and_then(|s| s.ssh_security))
         .unwrap_or_default();
+    let linux_shell_flavor = target
+        .linux_shell_flavor
+        .or(opts.linux_shell_flavor)
+        .or_else(|| saved.as_ref().and_then(|s| s.linux_shell_flavor));
     let template_dir = target
         .template_dir
         .as_ref()
@@ -1290,6 +1313,7 @@ fn resolve_target_connection(
         port,
         enable_password,
         ssh_security,
+        linux_shell_flavor,
         device_profile,
         template_dir,
     })
@@ -1687,6 +1711,7 @@ mod tests {
                 port: Some(22),
                 enable_password: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
+                linux_shell_flavor: None,
                 device_profile: Some("cisco".to_string()),
                 template_dir: Some("/tmp/templates".to_string()),
                 vars: json!({
@@ -1703,6 +1728,7 @@ mod tests {
                         port: None,
                         enable_password: None,
                         ssh_security: Some(SshSecurityProfile::LegacyCompatible),
+                        linux_shell_flavor: None,
                         device_profile: Some("huawei".to_string()),
                         template_dir: None,
                         vars: json!({

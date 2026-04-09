@@ -1,4 +1,5 @@
 use crate::agent::report_mode::ManagerReportMode;
+use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
@@ -710,6 +711,10 @@ pub struct GlobalOpts {
     /// SSH security profile for key exchange / cipher compatibility
     #[arg(long, global = true, value_enum)]
     pub ssh_security: Option<SshSecurityProfile>,
+
+    /// Linux shell flavor used by linux profile exit-code capture (posix/bash or fish)
+    #[arg(long, global = true, value_enum)]
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
 
     /// Device profile name (e.g. cisco, huawei, linux, fortinet, or custom)
     #[arg(long, short = 'd', global = true)]

@@ -1,4 +1,5 @@
 use crate::config::connection_store::{self, SavedConnection};
+use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use anyhow::{Context, Result, anyhow};
 use calamine::{Data, Reader, open_workbook_auto_from_rs};
@@ -48,6 +49,7 @@ enum ColumnKey {
     Port,
     EnablePassword,
     SshSecurity,
+    LinuxShellFlavor,
     DeviceProfile,
     TemplateDir,
 }
@@ -161,6 +163,9 @@ fn merge_with_existing(
         ssh_security: incoming
             .ssh_security
             .or_else(|| existing.and_then(|item| item.ssh_security)),
+        linux_shell_flavor: incoming
+            .linux_shell_flavor
+            .or_else(|| existing.and_then(|item| item.linux_shell_flavor)),
         device_profile: incoming
             .device_profile
             .or_else(|| existing.and_then(|item| item.device_profile.clone())),
@@ -169,17 +174,12 @@ fn merge_with_existing(
             .or_else(|| existing.and_then(|item| item.template_dir.clone())),
         enabled: incoming.enabled,
         labels: if incoming.labels.is_empty() {
-            existing
-                .map(|item| item.labels.clone())
-                .unwrap_or_default()
+            existing.map(|item| item.labels.clone()).unwrap_or_default()
         } else {
             incoming.labels
         },
         vars: if incoming.vars.is_object()
-            && incoming
-                .vars
-                .as_object()
-                .is_none_or(|map| map.is_empty())
+            && incoming.vars.as_object().is_none_or(|map| map.is_empty())
         {
             existing
                 .map(|item| item.vars.clone())
@@ -188,9 +188,7 @@ fn merge_with_existing(
             incoming.vars
         },
         groups: if incoming.groups.is_empty() {
-            existing
-                .map(|item| item.groups.clone())
-                .unwrap_or_default()
+            existing.map(|item| item.groups.clone()).unwrap_or_default()
         } else {
             incoming.groups
         },
@@ -328,6 +326,7 @@ fn parse_row(
     let mut port = None;
     let mut enable_password = None;
     let mut ssh_security = None;
+    let mut linux_shell_flavor = None;
     let mut device_profile = None;
     let mut template_dir = None;
 
@@ -349,6 +348,14 @@ fn parse_row(
             ColumnKey::SshSecurity => {
                 ssh_security = parse_ssh_security(raw).with_context(|| {
                     format!("row {} has invalid ssh_security '{}'", row_number, raw)
+                })?
+            }
+            ColumnKey::LinuxShellFlavor => {
+                linux_shell_flavor = parse_linux_shell_flavor(raw).with_context(|| {
+                    format!(
+                        "row {} has invalid linux_shell_flavor '{}'",
+                        row_number, raw
+                    )
                 })?
             }
             ColumnKey::DeviceProfile => device_profile = normalize_text(raw),
@@ -388,6 +395,7 @@ fn parse_row(
             enable_password,
             enable_password_ref: None,
             ssh_security,
+            linux_shell_flavor,
             device_profile,
             template_dir,
             enabled: true,
@@ -433,6 +441,8 @@ fn map_header(header: &str) -> Option<ColumnKey> {
         "sshsecurity" | "security" | "securityprofile" | "ssh安全" | "ssh安全级别" | "安全级别" => {
             Some(ColumnKey::SshSecurity)
         }
+        "linuxshellflavor" | "shellflavor" | "linuxshell" | "shell" | "linuxshell类型"
+        | "linuxshell风格" | "shell类型" | "shell风格" => Some(ColumnKey::LinuxShellFlavor),
         "deviceprofile" | "profile" | "templateprofile" | "设备模板" | "设备类型" => {
             Some(ColumnKey::DeviceProfile)
         }
@@ -500,6 +510,14 @@ fn parse_ssh_security(raw: &str) -> Result<Option<SshSecurityProfile>> {
             other
         )),
     }
+}
+
+fn parse_linux_shell_flavor(raw: &str) -> Result<Option<LinuxShellFlavor>> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(trimmed.parse::<LinuxShellFlavor>()?))
 }
 
 fn derive_connection_name(host: &str) -> Result<String> {
@@ -580,6 +598,7 @@ mod tests {
             enable_password: None,
             enable_password_ref: Some("connection/lab1/enable_password".to_string()),
             ssh_security: Some(SshSecurityProfile::Balanced),
+            linux_shell_flavor: None,
             device_profile: Some("cisco".to_string()),
             template_dir: None,
             enabled: true,
@@ -598,6 +617,7 @@ mod tests {
                 enable_password: None,
                 enable_password_ref: None,
                 ssh_security: None,
+                linux_shell_flavor: None,
                 device_profile: None,
                 template_dir: None,
                 enabled: true,

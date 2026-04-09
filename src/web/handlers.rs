@@ -43,12 +43,12 @@ use crate::web::models::{
     ExecuteUploadResponse, InteractiveCommandRequest, InteractiveCommandResponse,
     InteractiveStartRequest, InteractiveStartResponse, InteractiveStopResponse, InventoryGroup,
     ProfileDiagnoseRequest, ProfileDiagnoseResponse, RecordLevel, RenderRequest, RenderResponse,
-    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse,
-    ResolveInventoryVarsRequest, ResolveInventoryVarsResponse, SavedConnectionDetail,
-    SavedConnectionMeta, TaskArtifactDto, TaskEvent, TaskEventDto, TaskRunDetailResponse,
-    TaskRunListItem, TaskRunsQuery, TemplateDetail, TemplateMeta, TransferDirection,
-    TransferProtocol, TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
-    UpsertConnectionRequest, UpsertCustomProfileRequest, UpsertInventoryGroupRequest,
+    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, ResolveInventoryVarsRequest,
+    ResolveInventoryVarsResponse, SavedConnectionDetail, SavedConnectionMeta, TaskArtifactDto,
+    TaskEvent, TaskEventDto, TaskRunDetailResponse, TaskRunListItem, TaskRunsQuery, TemplateDetail,
+    TemplateMeta, TransferDirection, TransferProtocol, TxBlockRunKind,
+    UpdateCommandFlowTemplateRequest, UpdateTemplateRequest, UpsertConnectionRequest,
+    UpsertCustomProfileRequest, UpsertInventoryGroupRequest,
 };
 use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
 use crate::web::storage;
@@ -1392,9 +1392,9 @@ pub async fn download_connection_import_template(
         "rauto-connection-import-template-en.csv"
     };
     let content = if is_zh {
-        "\u{feff}连接名,主机地址,用户名,密码,端口,特权密码,SSH安全级别,设备模板,模板目录\n"
+        "\u{feff}连接名,主机地址,用户名,密码,端口,特权密码,SSH安全级别,Linux Shell,设备模板,模板目录\n"
     } else {
-        "name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir\n"
+        "name,host,username,password,port,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir\n"
     };
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -1934,7 +1934,10 @@ pub async fn exec_command(
                     "connection_name": conn.connection_name
                 }))),
         );
-        let handler = template_loader::load_device_profile(&conn.device_profile)?;
+        let handler = template_loader::load_device_profile_for_connection(
+            &conn.device_profile,
+            conn.linux_shell_flavor,
+        )?;
         let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
         let client = if let Some(level) = to_record_level(record_level) {
             DeviceClient::connect_with_recording(
@@ -2058,7 +2061,10 @@ pub async fn interactive_start(
 ) -> Result<Json<InteractiveStartResponse>, ApiError> {
     let record_level = req.record_level;
     let conn = merge_connection_options(&state.defaults, req.connection)?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let client = if let Some(level) = to_record_level(record_level) {
         DeviceClient::connect_with_recording(
             conn.host.clone(),
@@ -2158,7 +2164,10 @@ pub async fn test_connection(
     Json(req): Json<ConnectionTestRequest>,
 ) -> Result<Json<ConnectionTestResponse>, ApiError> {
     let conn = merge_connection_options(&state.defaults, req.connection)?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let _client = DeviceClient::connect(
         conn.host.clone(),
         conn.port,
@@ -2177,6 +2186,7 @@ pub async fn test_connection(
         port: conn.port,
         username: conn.username,
         ssh_security: conn.ssh_security,
+        linux_shell_flavor: conn.linux_shell_flavor,
         device_profile: conn.device_profile,
     }))
 }
@@ -2195,6 +2205,7 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
                 host: data.host.clone(),
                 username: data.username.clone(),
                 port: data.port,
+                linux_shell_flavor: data.linux_shell_flavor,
                 device_profile: data.device_profile.clone(),
                 enabled: data.enabled,
                 labels: data.labels.clone(),
@@ -2267,6 +2278,7 @@ fn saved_connection_detail_response(
             port: data.port,
             enable_password: None,
             ssh_security: data.ssh_security,
+            linux_shell_flavor: data.linux_shell_flavor,
             device_profile: data.device_profile.clone(),
             template_dir: data.template_dir.clone(),
             enabled: data.enabled,
@@ -2418,6 +2430,9 @@ pub async fn upsert_connection(
         ssh_security: c
             .ssh_security
             .or_else(|| existing.as_ref().and_then(|item| item.ssh_security)),
+        linux_shell_flavor: c
+            .linux_shell_flavor
+            .or_else(|| existing.as_ref().and_then(|item| item.linux_shell_flavor)),
         device_profile: c.device_profile,
         template_dir: c.template_dir,
         enabled: c.enabled,
@@ -2570,7 +2585,10 @@ pub async fn execute_template(
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
         let conn = merge_connection_options(&state.defaults, req.target.connection)?;
-        let handler = template_loader::load_device_profile(&conn.device_profile)?;
+        let handler = template_loader::load_device_profile_for_connection(
+            &conn.device_profile,
+            conn.linux_shell_flavor,
+        )?;
         let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
         let client = if let Some(level) = to_record_level(record_level) {
             DeviceClient::connect_with_recording(
@@ -2774,7 +2792,10 @@ pub async fn execute_command_flow(
 ) -> Result<Json<ExecuteCommandFlowResponse>, ApiError> {
     let record_level = req.target.record_level;
     let conn = merge_connection_options(&state.defaults, req.target.connection)?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
     let template = load_command_flow_template_from_input(
@@ -2909,7 +2930,10 @@ pub async fn execute_builtin_file_transfer_flow(
 ) -> Result<Json<ExecuteBuiltinFileTransferFlowResponse>, ApiError> {
     let record_level = req.target.record_level;
     let conn = merge_connection_options(&state.defaults, req.target.connection)?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
     let (mut flow, resolved_mode, history_label) =
         if let Some(profile_name) = req.profile.as_deref() {
@@ -3120,7 +3144,10 @@ pub async fn execute_upload(
 ) -> Result<Json<ExecuteUploadResponse>, ApiError> {
     let record_level = req.target.record_level;
     let conn = merge_connection_options(&state.defaults, req.target.connection)?;
-    let handler = template_loader::load_device_profile(&conn.device_profile)?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
     let local_path = PathBuf::from(req.local_path.trim());
     if !local_path.is_file() {
         return Err(ApiError::bad_request(format!(
@@ -3158,7 +3185,10 @@ pub async fn execute_upload(
         let (_sender, recorder) = MANAGER
             .get_with_recording_level_and_context(request, context.clone(), level)
             .await?;
-        let handler_for_upload = template_loader::load_device_profile(&conn.device_profile)?;
+        let handler_for_upload = template_loader::load_device_profile_for_connection(
+            &conn.device_profile,
+            conn.linux_shell_flavor,
+        )?;
         let request = manager_connection_request(
             conn.username.clone(),
             conn.host.clone(),
@@ -3462,7 +3492,10 @@ pub async fn execute_tx_block(
                     "connection_name": conn.connection_name
                 }))),
         );
-        let handler = template_loader::load_device_profile(&conn.device_profile)?;
+        let handler = template_loader::load_device_profile_for_connection(
+            &conn.device_profile,
+            conn.linux_shell_flavor,
+        )?;
         let (tx_result, recording_jsonl) = if let Some(level) = live_record_level {
             let request = manager_connection_request(
                 conn.username.clone(),
@@ -3487,7 +3520,10 @@ pub async fn execute_tx_block(
                     total_steps: tx_block.steps.len(),
                 },
             );
-            let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+            let handler_for_tx = template_loader::load_device_profile_for_connection(
+                &conn.device_profile,
+                conn.linux_shell_flavor,
+            )?;
             let request = manager_connection_request(
                 conn.username.clone(),
                 conn.host.clone(),
@@ -3755,7 +3791,10 @@ pub async fn execute_tx_workflow(
                     "connection_name": conn.connection_name
                 }))),
         );
-        let handler = template_loader::load_device_profile(&conn.device_profile)?;
+        let handler = template_loader::load_device_profile_for_connection(
+            &conn.device_profile,
+            conn.linux_shell_flavor,
+        )?;
         let (workflow_result, recording_jsonl) = if let Some(level) = live_record_level {
             let request = manager_connection_request(
                 conn.username.clone(),
@@ -3778,7 +3817,10 @@ pub async fn execute_tx_workflow(
                 &recorder,
                 build_tx_workflow_recording_plan(&workflow),
             );
-            let handler_for_tx = template_loader::load_device_profile(&conn.device_profile)?;
+            let handler_for_tx = template_loader::load_device_profile_for_connection(
+                &conn.device_profile,
+                conn.linux_shell_flavor,
+            )?;
             let request = manager_connection_request(
                 conn.username.clone(),
                 conn.host.clone(),
@@ -4260,6 +4302,7 @@ mod tests {
                 enable_password: Some("enable-secret".to_string()),
                 enable_password_ref: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
+                linux_shell_flavor: None,
                 device_profile: Some("cisco_ios".to_string()),
                 template_dir: Some("/tmp/templates".to_string()),
                 enabled: true,

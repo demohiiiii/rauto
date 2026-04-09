@@ -403,6 +403,7 @@ rauto history list lab1 --limit 20
 - 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
 - 已保存密码会写入系统 keyring；`~/.rauto/rauto.db` 中只保存连接元数据和 secret ref。
 - `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。
+- `--linux-shell-flavor <posix|fish>` 用于控制 Linux shell 的退出码解析策略（`posix` 同时接受 `bash` 别名）。
 
 批量导入：
 
@@ -425,9 +426,9 @@ rauto connection import ./devices.xlsx
 推荐表头：
 
 ```csv
-name,host,username,password,port,enable_password,ssh_security,device_profile,template_dir
-core-sw-01,192.168.1.1,admin,secret,22,,balanced,cisco,
-linux-jump-01,192.168.1.10,root,secret,22,,secure,linux,
+name,host,username,password,port,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir
+core-sw-01,192.168.1.1,admin,secret,22,,balanced,,cisco,
+linux-jump-01,192.168.1.10,root,secret,22,,secure,posix,linux,
 ```
 
 说明：
@@ -807,6 +808,7 @@ rauto web \
 | `--enable-password` | -                | Enable/Secret 密码                                      |
 | `--ssh-port`        | -                | SSH 端口 (默认: 22)                                     |
 | `--ssh-security`    | -                | SSH 安全档位：`secure`、`balanced`、`legacy-compatible` |
+| `--linux-shell-flavor` | -             | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish` |
 | `--device-profile`  | -                | 设备类型/profile（默认：`linux`；例如：`huawei`、`linux`、`fortinet`） |
 | `--connection`      | -                | 按名称加载已保存连接配置                                |
 | `--save-connection` | -                | 成功连接后保存当前有效连接配置                          |

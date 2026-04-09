@@ -341,7 +341,7 @@ function bindEvents() {
   byId("device_profile").addEventListener("change", () => {
     refreshExecutionModeOptions();
   });
-  ["host", "port", "username", "password", "enable_password", "ssh_security", "device_profile"].forEach((id) => {
+  ["host", "port", "username", "password", "enable_password", "ssh_security", "linux_shell_flavor", "device_profile"].forEach((id) => {
     const el = byId(id);
     if (!el) return;
     el.addEventListener("input", () => {
@@ -423,7 +423,7 @@ function bindEvents() {
       });
     setStatusMessage(
       "connection-test-out",
-      `${t("connectionOk")}: ${data.username}@${data.host}:${data.port} (${data.device_profile}, ${safeString(data.ssh_security)})`,
+      `${t("connectionOk")}: ${data.username}@${data.host}:${data.port} (${data.device_profile}, ${safeString(data.ssh_security)}, ${safeString(data.linux_shell_flavor || "-")})`,
       "success"
     );
     } catch (e) {

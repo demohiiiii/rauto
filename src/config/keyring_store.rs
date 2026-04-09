@@ -35,13 +35,6 @@ pub fn delete_secret(secret_ref: Option<&str>) -> Result<()> {
     delete_secret_by_ref(secret_ref)
 }
 
-pub fn has_secret(secret_ref: Option<&str>) -> bool {
-    load_secret(secret_ref)
-        .ok()
-        .flatten()
-        .is_some_and(|value| !value.is_empty())
-}
-
 #[cfg(not(test))]
 fn entry(secret_ref: &str) -> Result<keyring::Entry> {
     use anyhow::anyhow;

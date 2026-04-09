@@ -97,6 +97,7 @@ function buildOrchestrationTargetFromSavedConnection(connection) {
   if (connection.username) target.username = connection.username;
   if (connection.port != null) target.port = Number(connection.port);
   if (connection.ssh_security) target.ssh_security = connection.ssh_security;
+  if (connection.linux_shell_flavor) target.linux_shell_flavor = connection.linux_shell_flavor;
   if (connection.device_profile) target.device_profile = connection.device_profile;
   if (
     connection.vars &&
