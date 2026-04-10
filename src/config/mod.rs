@@ -1,6 +1,7 @@
 pub mod backup;
 pub mod command_blacklist;
 pub mod command_flow_template;
+pub mod command_flow_vars;
 pub mod connection_import;
 pub mod connection_store;
 pub mod content_store;
@@ -12,4 +13,5 @@ pub mod linux_shell;
 pub mod paths;
 pub mod ssh_security;
 pub mod task_store;
+pub mod template_connection_refs;
 pub mod template_loader;

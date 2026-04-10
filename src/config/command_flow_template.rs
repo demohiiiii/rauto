@@ -103,12 +103,15 @@ pub fn build_command_flow_runtime(
 }
 
 fn is_safe_var_name(name: &str) -> bool {
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => {}
-        _ => return false,
+    if name.is_empty() {
+        return false;
     }
-    chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    name.split('.').all(|segment| {
+        !segment.is_empty()
+            && segment
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
+    })
 }
 
 fn validate_var_value(field: &CommandFlowTemplateVar, value: &Value) -> Result<()> {
@@ -171,5 +174,24 @@ command = { kind = "concat", parts = [
 
         assert_eq!(flow.steps.len(), 1);
         assert_eq!(flow.steps[0].command, "copy scp");
+    }
+
+    #[test]
+    fn accepts_connection_scoped_var_names() {
+        let body = r#"
+name = "demo"
+
+[[vars]]
+name = "edge-94.password"
+
+[[steps]]
+command = { kind = "concat", parts = [
+  { kind = "literal", value = "echo " },
+  { kind = "var", name = "edge-94.password" }
+] }
+"#;
+        let normalized = normalize_command_flow_template_body("demo", body).expect("normalize");
+        let parsed = parse_command_flow_template_str(&normalized, None).expect("parse");
+        assert_eq!(parsed.vars[0].name, "edge-94.password");
     }
 }

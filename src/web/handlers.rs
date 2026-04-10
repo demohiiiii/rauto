@@ -6,8 +6,15 @@ use crate::config::command_flow_template::{
     command_flow_var_kind_label, normalize_command_flow_template_body,
     parse_command_flow_template_str,
 };
+use crate::config::command_flow_vars::{
+    ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
+};
 use crate::config::device_profile::DeviceProfile;
 use crate::config::inventory_store;
+use crate::config::template_connection_refs::{
+    enrich_context_with_connection_refs_from_template,
+    enrich_context_with_connection_refs_from_value,
+};
 use crate::config::template_loader;
 use crate::config::{
     backup, connection_import, connection_store, connection_store::SavedConnection, content_store,
@@ -50,7 +57,9 @@ use crate::web::models::{
     UpdateCommandFlowTemplateRequest, UpdateTemplateRequest, UpsertConnectionRequest,
     UpsertCustomProfileRequest, UpsertInventoryGroupRequest,
 };
-use crate::web::state::{AppState, InteractiveSession, merge_connection_options};
+use crate::web::state::{
+    AppState, InteractiveSession, ResolvedConnection, merge_connection_options,
+};
 use crate::web::storage;
 use crate::{manager_connection_request, manager_execution_context_with_security};
 use axum::http::StatusCode;
@@ -1702,6 +1711,387 @@ pub async fn delete_command_flow_template(
     Ok(Json(json!({"ok": true})))
 }
 
+fn normalize_json_template_content(content: &str) -> Result<String, ApiError> {
+    let value: Value = serde_json::from_str(content).map_err(ApiError::from)?;
+    serde_json::to_string_pretty(&value).map_err(ApiError::from)
+}
+
+fn load_json_template_from_input(
+    template_name: Option<&str>,
+    template_content: Option<&str>,
+    inline_value: &Value,
+    load_by_name: impl Fn(&str) -> Result<Option<String>, ApiError>,
+    missing_error: &'static str,
+) -> Result<Value, ApiError> {
+    match (
+        template_name
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        template_content
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+    ) {
+        (Some(name), None) => {
+            let content =
+                load_by_name(name)?.ok_or_else(|| ApiError::bad_request(missing_error))?;
+            serde_json::from_str(&content).map_err(ApiError::from)
+        }
+        (None, Some(content)) => serde_json::from_str(content).map_err(ApiError::from),
+        (Some(_), Some(_)) => Err(ApiError::bad_request(
+            "use either template_name or template_content",
+        )),
+        (None, None) => Ok(inline_value.clone()),
+    }
+}
+
+fn build_json_template_context(
+    vars: Value,
+    conn: Option<&crate::web::state::ResolvedConnection>,
+) -> Value {
+    let vars_for_root = vars.clone();
+    let mut root = serde_json::Map::new();
+    root.insert("vars".to_string(), vars_for_root);
+    root.insert(
+        "now".to_string(),
+        json!({
+            "rfc3339": Utc::now().to_rfc3339(),
+            "timestamp_ms": Utc::now().timestamp_millis()
+        }),
+    );
+    let mut flattened = serde_json::Map::new();
+    if let Some(conn) = conn {
+        let mut connection = json!({
+            "name": conn.connection_name,
+            "host": conn.host,
+            "username": conn.username,
+            "password": conn.password,
+            "port": conn.port,
+            "enable_password": conn.enable_password,
+            "ssh_security": conn.ssh_security,
+            "linux_shell_flavor": conn.linux_shell_flavor,
+            "device_profile": conn.device_profile,
+            "vars": conn.vars
+        });
+        if let Some(name) = conn.connection_name.as_deref()
+            && let Ok(saved) = connection_store::load_connection(name)
+        {
+            connection["saved"] = json!({
+                "enabled": saved.enabled,
+                "labels": saved.labels,
+                "groups": saved.groups,
+                "vars": saved.vars
+            });
+        }
+        root.insert("connection".to_string(), connection);
+
+        if let Some(name) = conn.connection_name.as_deref()
+            && !name.trim().is_empty()
+        {
+            flattened.insert("name".to_string(), Value::String(name.to_string()));
+            flattened.insert(
+                "connection_name".to_string(),
+                Value::String(name.to_string()),
+            );
+        }
+        flattened.insert("host".to_string(), Value::String(conn.host.clone()));
+        flattened.insert("username".to_string(), Value::String(conn.username.clone()));
+        flattened.insert("password".to_string(), Value::String(conn.password.clone()));
+        flattened.insert("port".to_string(), Value::Number(conn.port.into()));
+        if let Some(value) = conn.enable_password.clone() {
+            flattened.insert("enable_password".to_string(), Value::String(value));
+        }
+        flattened.insert(
+            "ssh_security".to_string(),
+            Value::String(conn.ssh_security.to_string()),
+        );
+        if let Some(value) = conn.linux_shell_flavor {
+            flattened.insert(
+                "linux_shell_flavor".to_string(),
+                Value::String(value.to_string()),
+            );
+        }
+        flattened.insert(
+            "device_profile".to_string(),
+            Value::String(conn.device_profile.clone()),
+        );
+        if let Some(map) = conn.vars.as_object() {
+            for (key, value) in map {
+                flattened
+                    .entry(key.clone())
+                    .or_insert_with(|| value.clone());
+            }
+        }
+    }
+    if let Some(map) = vars.as_object() {
+        for (key, value) in map {
+            flattened.insert(key.clone(), value.clone());
+        }
+    }
+    for (key, value) in flattened {
+        if matches!(key.as_str(), "vars" | "connection" | "now" | "defaults") {
+            continue;
+        }
+        root.insert(key, value);
+    }
+    Value::Object(root)
+}
+
+fn render_json_template_value(
+    input: &Value,
+    context: &mut Value,
+    renderer: &Renderer<'_>,
+) -> Result<Value, ApiError> {
+    match input {
+        Value::Object(map) => {
+            let mut out = serde_json::Map::with_capacity(map.len());
+            for (k, v) in map {
+                out.insert(k.clone(), render_json_template_value(v, context, renderer)?);
+            }
+            Ok(Value::Object(out))
+        }
+        Value::Array(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(render_json_template_value(item, context, renderer)?);
+            }
+            Ok(Value::Array(out))
+        }
+        Value::String(text) => {
+            if !text.contains("{{") && !text.contains("{%") {
+                return Ok(Value::String(text.clone()));
+            }
+            enrich_context_with_connection_refs_from_template(context, text)
+                .map_err(ApiError::from)?;
+            let rendered = renderer
+                .render_string(text, context.clone())
+                .map_err(ApiError::from)?;
+            let trimmed = rendered.trim();
+            if trimmed.is_empty() {
+                return Ok(Value::String(rendered));
+            }
+            if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
+                return Ok(parsed);
+            }
+            Ok(Value::String(rendered))
+        }
+        _ => Ok(input.clone()),
+    }
+}
+
+pub async fn list_tx_block_templates(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<TemplateMeta>>, ApiError> {
+    let _ = state;
+    let items = storage::list_tx_block_templates()?;
+    Ok(Json(items))
+}
+
+pub async fn get_tx_block_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    let Some(stored) = content_store::load_tx_block_template(&safe_name).map_err(ApiError::from)?
+    else {
+        return Err(ApiError::bad_request("tx block template not found"));
+    };
+    Ok(Json(TemplateDetail {
+        name: safe_name,
+        path: stored.locator,
+        content: stored.content,
+    }))
+}
+
+pub async fn create_tx_block_template(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<CreateTemplateRequest>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&req.name)?;
+    let content = normalize_json_template_content(&req.content)?;
+    let created =
+        content_store::create_tx_block_template(&safe_name, &content).map_err(ApiError::from)?;
+    if !created {
+        return Err(ApiError::bad_request("tx block template already exists"));
+    }
+    Ok(Json(TemplateDetail {
+        name: safe_name.clone(),
+        path: content_store::tx_block_template_locator(&safe_name),
+        content,
+    }))
+}
+
+pub async fn update_tx_block_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+    Json(req): Json<UpdateTemplateRequest>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    let content = normalize_json_template_content(&req.content)?;
+    let updated =
+        content_store::update_tx_block_template(&safe_name, &content).map_err(ApiError::from)?;
+    if !updated {
+        return Err(ApiError::bad_request("tx block template not found"));
+    }
+    Ok(Json(TemplateDetail {
+        name: safe_name.clone(),
+        path: content_store::tx_block_template_locator(&safe_name),
+        content,
+    }))
+}
+
+pub async fn delete_tx_block_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    content_store::delete_tx_block_template(&safe_name).map_err(ApiError::from)?;
+    Ok(Json(json!({"ok": true})))
+}
+
+pub async fn list_tx_workflow_templates(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<TemplateMeta>>, ApiError> {
+    let _ = state;
+    let items = storage::list_tx_workflow_templates()?;
+    Ok(Json(items))
+}
+
+pub async fn get_tx_workflow_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    let Some(stored) =
+        content_store::load_tx_workflow_template(&safe_name).map_err(ApiError::from)?
+    else {
+        return Err(ApiError::bad_request("tx workflow template not found"));
+    };
+    Ok(Json(TemplateDetail {
+        name: safe_name,
+        path: stored.locator,
+        content: stored.content,
+    }))
+}
+
+pub async fn create_tx_workflow_template(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<CreateTemplateRequest>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&req.name)?;
+    let content = normalize_json_template_content(&req.content)?;
+    let created =
+        content_store::create_tx_workflow_template(&safe_name, &content).map_err(ApiError::from)?;
+    if !created {
+        return Err(ApiError::bad_request("tx workflow template already exists"));
+    }
+    Ok(Json(TemplateDetail {
+        name: safe_name.clone(),
+        path: content_store::tx_workflow_template_locator(&safe_name),
+        content,
+    }))
+}
+
+pub async fn update_tx_workflow_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+    Json(req): Json<UpdateTemplateRequest>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    let content = normalize_json_template_content(&req.content)?;
+    let updated =
+        content_store::update_tx_workflow_template(&safe_name, &content).map_err(ApiError::from)?;
+    if !updated {
+        return Err(ApiError::bad_request("tx workflow template not found"));
+    }
+    Ok(Json(TemplateDetail {
+        name: safe_name.clone(),
+        path: content_store::tx_workflow_template_locator(&safe_name),
+        content,
+    }))
+}
+
+pub async fn delete_tx_workflow_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    content_store::delete_tx_workflow_template(&safe_name).map_err(ApiError::from)?;
+    Ok(Json(json!({"ok": true})))
+}
+
+pub async fn list_orchestration_templates(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<TemplateMeta>>, ApiError> {
+    let _ = state;
+    let items = storage::list_orchestration_templates()?;
+    Ok(Json(items))
+}
+
+pub async fn get_orchestration_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    let Some(stored) =
+        content_store::load_orchestration_template(&safe_name).map_err(ApiError::from)?
+    else {
+        return Err(ApiError::bad_request("orchestration template not found"));
+    };
+    Ok(Json(TemplateDetail {
+        name: safe_name,
+        path: stored.locator,
+        content: stored.content,
+    }))
+}
+
+pub async fn create_orchestration_template(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<CreateTemplateRequest>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&req.name)?;
+    let content = normalize_json_template_content(&req.content)?;
+    let created = content_store::create_orchestration_template(&safe_name, &content)
+        .map_err(ApiError::from)?;
+    if !created {
+        return Err(ApiError::bad_request(
+            "orchestration template already exists",
+        ));
+    }
+    Ok(Json(TemplateDetail {
+        name: safe_name.clone(),
+        path: content_store::orchestration_template_locator(&safe_name),
+        content,
+    }))
+}
+
+pub async fn update_orchestration_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+    Json(req): Json<UpdateTemplateRequest>,
+) -> Result<Json<TemplateDetail>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    let content = normalize_json_template_content(&req.content)?;
+    let updated = content_store::update_orchestration_template(&safe_name, &content)
+        .map_err(ApiError::from)?;
+    if !updated {
+        return Err(ApiError::bad_request("orchestration template not found"));
+    }
+    Ok(Json(TemplateDetail {
+        name: safe_name.clone(),
+        path: content_store::orchestration_template_locator(&safe_name),
+        content,
+    }))
+}
+
+pub async fn delete_orchestration_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let safe_name = storage::safe_json_template_name(&name)?;
+    content_store::delete_orchestration_template(&safe_name).map_err(ApiError::from)?;
+    Ok(Json(json!({"ok": true})))
+}
+
 fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate, ApiError> {
     let safe_name = storage::safe_command_flow_template_name(name)?;
     let stored = content_store::load_command_flow_template(&safe_name)
@@ -1739,6 +2129,38 @@ fn load_command_flow_template_from_input(
     }
 }
 
+fn current_connection_param_context(conn: &ResolvedConnection) -> ConnectionParamContext {
+    ConnectionParamContext::new(
+        conn.connection_name.as_deref(),
+        Some(&conn.host),
+        Some(&conn.username),
+        Some(&conn.password),
+        Some(conn.port),
+        conn.enable_password.as_deref(),
+        Some(conn.ssh_security),
+        conn.linux_shell_flavor,
+        Some(&conn.device_profile),
+        &conn.vars,
+    )
+}
+
+fn resolve_flow_runtime_vars(
+    template: &CommandFlowTemplate,
+    vars: Value,
+    conn: &ResolvedConnection,
+) -> Result<Value, ApiError> {
+    resolve_command_flow_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
+        .map_err(ApiError::from)
+}
+
+fn resolve_runtime_vars_with_connection(
+    vars: Value,
+    conn: Option<&ResolvedConnection>,
+) -> Result<Value, ApiError> {
+    let context = conn.map(current_connection_param_context);
+    resolve_runtime_var_aliases(vars, context).map_err(ApiError::from)
+}
+
 fn render_command_flow_operation(
     template: CommandFlowTemplate,
     runtime: rneter_templates::CommandFlowTemplateRuntime,
@@ -1759,6 +2181,118 @@ fn render_command_flow_operation(
         return Err(ApiError::bad_request("command flow has no steps"));
     }
     Ok(SessionOperation::from(flow))
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct TxBlockTemplatePayload {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    run_kind: Option<TxBlockRunKind>,
+    #[serde(default)]
+    template: Option<String>,
+    #[serde(default)]
+    vars: Value,
+    #[serde(default)]
+    flow_template_name: Option<String>,
+    #[serde(default)]
+    flow_content: Option<String>,
+    #[serde(default)]
+    flow_vars: Value,
+    #[serde(default)]
+    rollback_flow_template_name: Option<String>,
+    #[serde(default)]
+    rollback_flow_content: Option<String>,
+    #[serde(default)]
+    rollback_flow_vars: Value,
+    #[serde(default)]
+    commands: Vec<String>,
+    #[serde(default)]
+    rollback_commands: Vec<String>,
+    #[serde(default)]
+    rollback_on_failure: Option<bool>,
+    #[serde(default)]
+    rollback_trigger_step_index: Option<usize>,
+    #[serde(default)]
+    mode: Option<String>,
+    #[serde(default)]
+    timeout_secs: Option<u64>,
+    #[serde(default)]
+    resource_rollback_command: Option<String>,
+}
+
+fn resolve_tx_block_request_from_template(
+    req: ExecuteTxBlockRequest,
+    defaults: &crate::cli::GlobalOpts,
+) -> Result<ExecuteTxBlockRequest, ApiError> {
+    if req
+        .tx_block_template_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+        && req
+            .tx_block_template_content
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_none()
+    {
+        return Ok(req);
+    }
+
+    let payload_source = load_json_template_from_input(
+        req.tx_block_template_name.as_deref(),
+        req.tx_block_template_content.as_deref(),
+        &Value::Null,
+        |name| {
+            let safe_name = storage::safe_json_template_name(name)?;
+            let content = content_store::load_tx_block_template(&safe_name)
+                .map_err(ApiError::from)?
+                .map(|item| item.content);
+            Ok(content)
+        },
+        "tx block template not found",
+    )?;
+    let connection_for_context =
+        merge_connection_options(defaults, req.target.connection.clone()).ok();
+    let renderer = Renderer::new();
+    let resolved_template_vars = resolve_runtime_vars_with_connection(
+        req.tx_block_template_vars.clone(),
+        connection_for_context.as_ref(),
+    )?;
+    let mut context =
+        build_json_template_context(resolved_template_vars, connection_for_context.as_ref());
+    enrich_context_with_connection_refs_from_value(&mut context, &payload_source)
+        .map_err(ApiError::from)?;
+    let rendered_payload = render_json_template_value(&payload_source, &mut context, &renderer)?;
+    let payload: TxBlockTemplatePayload =
+        serde_json::from_value(rendered_payload).map_err(ApiError::from)?;
+    Ok(ExecuteTxBlockRequest {
+        name: payload.name,
+        tx_block_template_name: None,
+        tx_block_template_content: None,
+        tx_block_template_vars: Value::Null,
+        run_kind: payload.run_kind,
+        template: payload.template,
+        vars: payload.vars,
+        flow_template_name: payload.flow_template_name,
+        flow_content: payload.flow_content,
+        flow_vars: payload.flow_vars,
+        rollback_flow_template_name: payload.rollback_flow_template_name,
+        rollback_flow_content: payload.rollback_flow_content,
+        rollback_flow_vars: payload.rollback_flow_vars,
+        commands: payload.commands,
+        rollback_commands: payload.rollback_commands,
+        rollback_on_failure: payload.rollback_on_failure,
+        rollback_trigger_step_index: payload.rollback_trigger_step_index,
+        mode: payload.mode,
+        timeout_secs: payload.timeout_secs,
+        resource_rollback_command: payload.resource_rollback_command,
+        run: req.run,
+        target: req.target,
+        task: req.task,
+    })
 }
 
 fn persist_history_jsonl(
@@ -2803,6 +3337,7 @@ pub async fn execute_command_flow(
         req.content.as_deref(),
         "inline_flow",
     )?;
+    let runtime_vars = resolve_flow_runtime_vars(&template, req.vars, &conn)?;
 
     let flow = template
         .to_command_flow(&build_command_flow_runtime(
@@ -2811,7 +3346,7 @@ pub async fn execute_command_flow(
             &conn.host,
             &conn.username,
             &conn.device_profile,
-            req.vars,
+            runtime_vars,
         ))
         .map_err(ApiError::from)?;
 
@@ -2945,6 +3480,22 @@ pub async fn execute_builtin_file_transfer_flow(
             } else {
                 profile_default_mode.clone()
             };
+            let transfer_vars = json!({
+                "protocol": match req.protocol {
+                    TransferProtocol::Scp => "scp",
+                    TransferProtocol::Tftp => "tftp",
+                },
+                "direction": match req.direction {
+                    TransferDirection::ToDevice => "to_device",
+                    TransferDirection::FromDevice => "from_device",
+                },
+                "server_addr": req.server_addr.trim(),
+                "remote_path": req.remote_path.trim(),
+                "device_path": req.device_path.trim(),
+                "transfer_username": req.transfer_username.clone(),
+                "transfer_password": req.transfer_password.clone(),
+            });
+            let runtime_vars = resolve_flow_runtime_vars(&profile, transfer_vars, &conn)?;
             let flow = profile
                 .to_command_flow(&build_command_flow_runtime(
                     fallback_mode.clone(),
@@ -2952,21 +3503,7 @@ pub async fn execute_builtin_file_transfer_flow(
                     &conn.host,
                     &conn.username,
                     &conn.device_profile,
-                    json!({
-                        "protocol": match req.protocol {
-                            TransferProtocol::Scp => "scp",
-                            TransferProtocol::Tftp => "tftp",
-                        },
-                        "direction": match req.direction {
-                            TransferDirection::ToDevice => "to_device",
-                            TransferDirection::FromDevice => "from_device",
-                        },
-                        "server_addr": req.server_addr.trim(),
-                        "remote_path": req.remote_path.trim(),
-                        "device_path": req.device_path.trim(),
-                        "transfer_username": req.transfer_username.clone(),
-                        "transfer_password": req.transfer_password.clone(),
-                    }),
+                    runtime_vars,
                 ))
                 .map_err(ApiError::from)?;
             (
@@ -2984,13 +3521,10 @@ pub async fn execute_builtin_file_transfer_flow(
                     ApiError::bad_request("scp transfers require transfer_password")
                 })?;
             }
-            let runtime = rneter_templates::CommandFlowTemplateRuntime {
-                default_mode: Some(effective_mode.clone()),
-                connection_name: conn.connection_name.clone(),
-                host: Some(conn.host.clone()),
-                username: Some(conn.username.clone()),
-                device_profile: Some(conn.device_profile.clone()),
-                vars: json!({
+            let builtin_template = rneter_templates::cisco_like_copy_template();
+            let runtime_vars = resolve_flow_runtime_vars(
+                &builtin_template,
+                json!({
                     "protocol": match req.protocol {
                         TransferProtocol::Scp => "scp",
                         TransferProtocol::Tftp => "tftp",
@@ -3002,11 +3536,20 @@ pub async fn execute_builtin_file_transfer_flow(
                     "server_addr": req.server_addr.trim(),
                     "remote_path": req.remote_path.trim(),
                     "device_path": req.device_path.trim(),
-                    "transfer_username": req.transfer_username,
-                    "transfer_password": req.transfer_password,
+                    "transfer_username": req.transfer_username.clone(),
+                    "transfer_password": req.transfer_password.clone(),
                 }),
+                &conn,
+            )?;
+            let runtime = rneter_templates::CommandFlowTemplateRuntime {
+                default_mode: Some(effective_mode.clone()),
+                connection_name: conn.connection_name.clone(),
+                host: Some(conn.host.clone()),
+                username: Some(conn.username.clone()),
+                device_profile: Some(conn.device_profile.clone()),
+                vars: runtime_vars,
             };
-            let flow = rneter_templates::cisco_like_copy_template()
+            let flow = builtin_template
                 .to_command_flow(&runtime)
                 .map_err(ApiError::from)?;
             (
@@ -3251,9 +3794,18 @@ fn resolve_tx_commands(
     vars: Value,
     commands: &[String],
 ) -> Result<Vec<String>, ApiError> {
+    let mut render_vars = match vars {
+        Value::Null => json!({}),
+        Value::Object(_) => vars,
+        _ => return Err(ApiError::bad_request("tx vars must be a JSON object")),
+    };
     let mut all = Vec::new();
     if let Some(name) = template {
-        let rendered = renderer.render_file(name, vars)?;
+        if let Some(stored) = content_store::load_command_template(name).map_err(ApiError::from)? {
+            enrich_context_with_connection_refs_from_template(&mut render_vars, &stored.content)
+                .map_err(ApiError::from)?;
+        }
+        let rendered = renderer.render_file(name, render_vars)?;
         all.extend(
             rendered
                 .lines()
@@ -3279,6 +3831,7 @@ pub async fn execute_tx_block(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxBlockRequest>,
 ) -> Result<Json<ExecuteTxBlockResponse>, ApiError> {
+    let req = resolve_tx_block_request_from_template(req, &state.defaults)?;
     let task_ctx = TaskReportContext::from_request(
         TaskOperation::TxBlock,
         req.task.task_id.clone(),
@@ -3323,10 +3876,11 @@ pub async fn execute_tx_block(
             TxBlockRunKind::Commands => {
                 let mode = requested_mode.unwrap_or_else(|| "Config".to_string());
                 let renderer = Renderer::new();
+                let resolved_vars = resolve_runtime_vars_with_connection(req.vars, Some(&conn))?;
                 let resolved_commands = resolve_tx_commands(
                     &renderer,
                     req.template.as_deref(),
-                    req.vars,
+                    resolved_vars,
                     &req.commands,
                 )?;
 
@@ -3385,6 +3939,8 @@ pub async fn execute_tx_block(
                     req.flow_content.as_deref(),
                     "inline_tx_flow",
                 )?;
+                let flow_runtime_vars =
+                    resolve_flow_runtime_vars(&flow_template, req.flow_vars, &conn)?;
                 let flow_operation = render_command_flow_operation(
                     flow_template,
                     build_command_flow_runtime(
@@ -3393,7 +3949,7 @@ pub async fn execute_tx_block(
                         &conn.host,
                         &conn.username,
                         &conn.device_profile,
-                        req.flow_vars,
+                        flow_runtime_vars,
                     ),
                     req.timeout_secs,
                 )?;
@@ -3409,6 +3965,11 @@ pub async fn execute_tx_block(
                             req.rollback_flow_content.as_deref(),
                             "inline_tx_rollback_flow",
                         )?;
+                        let rollback_runtime_vars = resolve_flow_runtime_vars(
+                            &rollback_template,
+                            req.rollback_flow_vars,
+                            &conn,
+                        )?;
                         Some(render_command_flow_operation(
                             rollback_template,
                             build_command_flow_runtime(
@@ -3417,7 +3978,7 @@ pub async fn execute_tx_block(
                                 &conn.host,
                                 &conn.username,
                                 &conn.device_profile,
-                                req.rollback_flow_vars,
+                                rollback_runtime_vars,
                             ),
                             req.timeout_secs,
                         )?)
@@ -3738,9 +4299,34 @@ pub async fn execute_tx_workflow(
         } else {
             requested_record_level
         };
+        let connection_for_context =
+            merge_connection_options(&state.defaults, req.target.connection.clone()).ok();
+        let workflow_source = load_json_template_from_input(
+            req.workflow_template_name.as_deref(),
+            req.workflow_template_content.as_deref(),
+            &req.workflow,
+            |name| {
+                let safe_name = storage::safe_json_template_name(name)?;
+                let content = content_store::load_tx_workflow_template(&safe_name)
+                    .map_err(ApiError::from)?
+                    .map(|item| item.content);
+                Ok(content)
+            },
+            "tx workflow template not found",
+        )?;
+        let renderer = Renderer::new();
+        let resolved_workflow_vars = resolve_runtime_vars_with_connection(
+            req.workflow_vars.clone(),
+            connection_for_context.as_ref(),
+        )?;
+        let mut workflow_context =
+            build_json_template_context(resolved_workflow_vars, connection_for_context.as_ref());
+        enrich_context_with_connection_refs_from_value(&mut workflow_context, &workflow_source)
+            .map_err(ApiError::from)?;
+        let workflow_value =
+            render_json_template_value(&workflow_source, &mut workflow_context, &renderer)?;
         let workflow: rneter::session::TxWorkflow =
-            serde_json::from_value(req.workflow.clone()).map_err(ApiError::from)?;
-        let workflow_value = serde_json::to_value(&workflow).map_err(ApiError::from)?;
+            serde_json::from_value(workflow_value.clone()).map_err(ApiError::from)?;
         emit_task_event(
             &state,
             &task_ctx,
@@ -3778,7 +4364,11 @@ pub async fn execute_tx_workflow(
         )
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-        let conn = merge_connection_options(&state.defaults, req.target.connection)?;
+        let conn = if let Some(conn) = connection_for_context {
+            conn
+        } else {
+            merge_connection_options(&state.defaults, req.target.connection.clone())?
+        };
         emit_task_event(
             &state,
             &task_ctx,
@@ -4047,13 +4637,54 @@ pub async fn execute_orchestration(
             .with_progress(Some(0)),
     );
     let result: Result<ExecuteOrchestrationResponse, ApiError> = async {
+        let connection_for_context =
+            merge_connection_options(&state.defaults, req.target.connection.clone()).ok();
+        let plan_source = load_json_template_from_input(
+            req.plan_template_name.as_deref(),
+            req.plan_template_content.as_deref(),
+            &req.plan,
+            |name| {
+                let safe_name = storage::safe_json_template_name(name)?;
+                let content = content_store::load_orchestration_template(&safe_name)
+                    .map_err(ApiError::from)?
+                    .map(|item| item.content);
+                Ok(content)
+            },
+            "orchestration template not found",
+        )?;
+        let renderer = Renderer::new();
+        let resolved_plan_vars = resolve_runtime_vars_with_connection(
+            req.plan_vars.clone(),
+            connection_for_context.as_ref(),
+        )?;
+        let mut plan_context =
+            build_json_template_context(resolved_plan_vars, connection_for_context.as_ref());
+        if let Value::Object(map) = &mut plan_context {
+            map.insert(
+                "defaults".to_string(),
+                json!({
+                    "host": state.defaults.host.clone(),
+                    "username": state.defaults.username.clone(),
+                    "password": state.defaults.password.clone(),
+                    "port": state.defaults.port,
+                    "enable_password": state.defaults.enable_password.clone(),
+                    "ssh_security": state.defaults.ssh_security,
+                    "linux_shell_flavor": state.defaults.linux_shell_flavor,
+                    "device_profile": state.defaults.device_profile.clone(),
+                    "connection": state.defaults.connection.clone()
+                }),
+            );
+        }
+        enrich_context_with_connection_refs_from_value(&mut plan_context, &plan_source)
+            .map_err(ApiError::from)?;
+        let rendered_plan = render_json_template_value(&plan_source, &mut plan_context, &renderer)?;
         let plan_root = req
             .base_dir
             .as_deref()
             .filter(|s| !s.trim().is_empty())
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        let (plan, inventory) = orchestrator::load_plan_from_value(req.plan.clone(), &plan_root)
+        let (plan, inventory) = orchestrator::load_plan_from_value(rendered_plan, &plan_root)
             .map_err(ApiError::from)?;
         let plan_value = serde_json::to_value(&plan).map_err(ApiError::from)?;
         let inventory_value = serde_json::to_value(&inventory).map_err(ApiError::from)?;
@@ -4280,12 +4911,14 @@ pub async fn replay_session(
 #[cfg(test)]
 mod tests {
     use super::{
-        TaskReportContext, merged_saved_secret, require_managed_async_task,
-        saved_connection_detail_response, should_persist_secret,
+        TaskReportContext, build_json_template_context, merged_saved_secret,
+        require_managed_async_task, saved_connection_detail_response, should_persist_secret,
     };
     use crate::config::connection_store::SavedConnection;
+    use crate::config::linux_shell::LinuxShellFlavor;
     use crate::config::ssh_security::SshSecurityProfile;
     use crate::task::TaskOperation;
+    use crate::web::state::ResolvedConnection;
     use std::path::PathBuf;
 
     #[test]
@@ -4380,6 +5013,40 @@ mod tests {
         assert!(
             require_managed_async_task(TaskOperation::TxBlock, Some("task-1".to_string()), false)
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn json_template_context_supports_flat_lookup_with_runtime_precedence() {
+        let conn = ResolvedConnection {
+            connection_name: None,
+            host: "192.168.30.92".to_string(),
+            username: "admin".to_string(),
+            password: "secret-92".to_string(),
+            port: 22,
+            enable_password: None,
+            ssh_security: SshSecurityProfile::Balanced,
+            linux_shell_flavor: Some(LinuxShellFlavor::Fish),
+            device_profile: "linux".to_string(),
+            vars: serde_json::json!({
+                "site": "lab-a",
+                "peer_host": "192.168.30.94"
+            }),
+        };
+        let context = build_json_template_context(
+            serde_json::json!({
+                "peer_host": "edge-94.host",
+                "deploy_env": "prod"
+            }),
+            Some(&conn),
+        );
+        assert_eq!(context["peer_host"], serde_json::json!("edge-94.host"));
+        assert_eq!(context["deploy_env"], serde_json::json!("prod"));
+        assert_eq!(context["site"], serde_json::json!("lab-a"));
+        assert_eq!(context["host"], serde_json::json!("192.168.30.92"));
+        assert_eq!(
+            context["vars"]["peer_host"],
+            serde_json::json!("edge-94.host")
         );
     }
 }

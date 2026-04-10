@@ -250,6 +250,9 @@ fn map_execute_tx_block_request(
 ) -> Result<WebExecuteTxBlockRequest, Status> {
     Ok(WebExecuteTxBlockRequest {
         name: optional_string(req.name),
+        tx_block_template_name: None,
+        tx_block_template_content: None,
+        tx_block_template_vars: Value::Null,
         run_kind: parse_tx_block_run_kind(&req.run_kind)?,
         template: optional_string(req.template),
         vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
@@ -919,6 +922,9 @@ impl AgentTaskService for AgentTaskGrpcService {
         let response = queue_tx_workflow_async_task(
             self.state.clone(),
             WebExecuteTxWorkflowRequest {
+                workflow_template_name: None,
+                workflow_template_content: None,
+                workflow_vars: Value::Null,
                 workflow: parse_json_value(&req.workflow_json, "workflow_json", Value::Null)?,
                 run: DryRunOptions {
                     dry_run: Some(req.dry_run),
@@ -940,6 +946,9 @@ impl AgentTaskService for AgentTaskGrpcService {
         let response = queue_orchestration_async_task(
             self.state.clone(),
             WebExecuteOrchestrationRequest {
+                plan_template_name: None,
+                plan_template_content: None,
+                plan_vars: Value::Null,
                 plan: parse_json_value(&req.plan_json, "plan_json", Value::Null)?,
                 base_dir: optional_string(req.base_dir),
                 run: DryRunOptions {

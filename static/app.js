@@ -900,9 +900,33 @@ function bindEvents() {
       const id = fieldEl.getAttribute("data-tx-block-id");
       const field = fieldEl.getAttribute("data-field");
       const item = txWorkflowBlocks.find((b) => b.id === id);
-      if (item && (field === "commandsText" || field === "rollbackPolicy")) {
+      if (
+        item &&
+        (field === "commandsText" || field === "rollbackPolicy" || field === "kind")
+      ) {
+        if (field === "kind") {
+          item.kind = fieldEl.value === "show" ? "show" : "config";
+          if (item.kind === "show") {
+            item.rollbackPolicy = "none";
+          } else if (item.rollbackPolicy === "none") {
+            item.rollbackPolicy = "per_step";
+          }
+          renderTxWorkflowBuilder();
+          return;
+        }
         if (field === "rollbackPolicy") {
-          item.rollbackPolicy = fieldEl.value;
+          item.rollbackPolicy =
+            fieldEl.value === "none" ||
+            fieldEl.value === "per_step" ||
+            fieldEl.value === "whole_resource"
+              ? fieldEl.value
+              : "per_step";
+          if (item.kind === "config" && item.rollbackPolicy === "none") {
+            item.rollbackPolicy = "per_step";
+          }
+          if (item.kind === "show") {
+            item.rollbackPolicy = "none";
+          }
           renderTxWorkflowBuilder();
           return;
         }

@@ -120,6 +120,7 @@ pub struct ResolvedConnection {
     pub ssh_security: SshSecurityProfile,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: String,
+    pub vars: serde_json::Value,
 }
 
 pub struct InteractiveSession {
@@ -172,6 +173,7 @@ fn merge_connection_sources(
     connection_name: Option<String>,
 ) -> Result<ResolvedConnection, ApiError> {
     let saved = saved.as_ref();
+    let incoming_vars = incoming.vars;
 
     let host = incoming
         .host
@@ -214,6 +216,14 @@ fn merge_connection_sources(
         .or_else(|| saved.and_then(|s| s.device_profile.clone()))
         .or_else(|| defaults.device_profile.clone())
         .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
+    let vars = if has_non_empty_json_object(&incoming_vars) {
+        incoming_vars
+    } else {
+        saved
+            .map(|s| s.vars.clone())
+            .filter(has_non_empty_json_object)
+            .unwrap_or_else(|| serde_json::json!({}))
+    };
     Ok(ResolvedConnection {
         connection_name,
         host,
@@ -224,7 +234,15 @@ fn merge_connection_sources(
         ssh_security,
         linux_shell_flavor,
         device_profile,
+        vars,
     })
+}
+
+fn has_non_empty_json_object(value: &serde_json::Value) -> bool {
+    value
+        .as_object()
+        .map(|map| !map.is_empty())
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -299,6 +317,7 @@ mod tests {
         assert_eq!(resolved.enable_password.as_deref(), Some("explicit-enable"));
         assert_eq!(resolved.ssh_security, SshSecurityProfile::LegacyCompatible);
         assert_eq!(resolved.device_profile, "saved-profile");
+        assert_eq!(resolved.vars, serde_json::json!({"site":"lab-a"}));
     }
 
     #[test]
@@ -328,6 +347,7 @@ mod tests {
         assert_eq!(resolved.port, 22);
         assert_eq!(resolved.ssh_security, SshSecurityProfile::Balanced);
         assert_eq!(resolved.device_profile, "default-profile");
+        assert_eq!(resolved.vars, serde_json::json!({}));
     }
 
     #[test]
@@ -352,5 +372,6 @@ mod tests {
                 .expect("resolved connection");
 
         assert_eq!(resolved.device_profile, DEFAULT_DEVICE_PROFILE);
+        assert_eq!(resolved.vars, serde_json::json!({}));
     }
 }

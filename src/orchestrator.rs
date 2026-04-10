@@ -1,5 +1,6 @@
 use crate::cli::{GlobalOpts, OrchestrateArgs, RecordLevelOpt};
 use crate::config::command_blacklist;
+use crate::config::command_flow_vars::{ConnectionParamContext, resolve_runtime_var_aliases};
 use crate::config::connection_store::load_connection;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
@@ -995,6 +996,8 @@ async fn execute_tx_block_action(
         .unwrap_or("Config")
         .to_string();
     let merged_vars = merge_values(&action.vars, &target.vars);
+    let merged_vars =
+        resolve_runtime_var_aliases(merged_vars, Some(current_connection_param_context(conn)))?;
     let renderer = Renderer::new();
     let commands = resolve_block_commands(&renderer, action, merged_vars)?;
     let tx_block_name = action
@@ -1315,8 +1318,27 @@ fn resolve_target_connection(
         ssh_security,
         linux_shell_flavor,
         device_profile,
+        vars: saved
+            .as_ref()
+            .map(|s| s.vars.clone())
+            .unwrap_or_else(|| serde_json::json!({})),
         template_dir,
     })
+}
+
+fn current_connection_param_context(conn: &EffectiveConnection) -> ConnectionParamContext {
+    ConnectionParamContext::new(
+        conn.connection_name.as_deref(),
+        Some(&conn.host),
+        Some(&conn.username),
+        Some(&conn.password),
+        Some(conn.port),
+        conn.enable_password.as_deref(),
+        Some(conn.ssh_security),
+        conn.linux_shell_flavor,
+        Some(&conn.device_profile),
+        &conn.vars,
+    )
 }
 
 fn merge_values(base: &Value, overlay: &Value) -> Value {

@@ -39,6 +39,30 @@ pub fn command_flow_template_locator(name: &str) -> String {
     )
 }
 
+pub fn tx_block_template_locator(name: &str) -> String {
+    format!(
+        "sqlite://{}#tx-block-templates/{}",
+        storage_path().display(),
+        name.trim()
+    )
+}
+
+pub fn tx_workflow_template_locator(name: &str) -> String {
+    format!(
+        "sqlite://{}#tx-workflow-templates/{}",
+        storage_path().display(),
+        name.trim()
+    )
+}
+
+pub fn orchestration_template_locator(name: &str) -> String {
+    format!(
+        "sqlite://{}#orchestration-templates/{}",
+        storage_path().display(),
+        name.trim()
+    )
+}
+
 pub fn list_command_templates() -> Result<Vec<StoredContent>> {
     db::run_sync(async {
         let rows = sqlx::query("SELECT name, content FROM command_templates ORDER BY name ASC")
@@ -305,6 +329,259 @@ pub fn delete_command_flow_template(name: &str) -> Result<bool> {
     let safe_name = name.trim().to_string();
     db::run_sync(async move {
         let result = sqlx::query("DELETE FROM command_flow_templates WHERE name = ?")
+            .bind(&safe_name)
+            .execute(db::pool())
+            .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn list_tx_block_templates() -> Result<Vec<StoredContent>> {
+    db::run_sync(async {
+        let rows = sqlx::query("SELECT name, content FROM tx_block_templates ORDER BY name ASC")
+            .fetch_all(db::pool())
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let name = row.get::<String, _>("name");
+                StoredContent {
+                    locator: tx_block_template_locator(&name),
+                    content: row.get("content"),
+                    name,
+                }
+            })
+            .collect())
+    })
+}
+
+pub fn load_tx_block_template(name: &str) -> Result<Option<StoredContent>> {
+    let safe_name = name.trim().to_string();
+    db::run_sync(async move {
+        let row = sqlx::query("SELECT content FROM tx_block_templates WHERE name = ?")
+            .bind(&safe_name)
+            .fetch_optional(db::pool())
+            .await?;
+        Ok(row.map(|row| StoredContent {
+            name: safe_name.clone(),
+            content: row.get("content"),
+            locator: tx_block_template_locator(&safe_name),
+        }))
+    })
+}
+
+pub fn create_tx_block_template(name: &str, content: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    let body = content.to_string();
+    let ts_ms = now_ms() as i64;
+    db::run_sync(async move {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO tx_block_templates (name, content, created_at_ms, updated_at_ms)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO NOTHING
+            "#,
+        )
+        .bind(&safe_name)
+        .bind(&body)
+        .bind(ts_ms)
+        .bind(ts_ms)
+        .execute(db::pool())
+        .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn update_tx_block_template(name: &str, content: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    let body = content.to_string();
+    let ts_ms = now_ms() as i64;
+    db::run_sync(async move {
+        let result = sqlx::query(
+            "UPDATE tx_block_templates SET content = ?, updated_at_ms = ? WHERE name = ?",
+        )
+        .bind(&body)
+        .bind(ts_ms)
+        .bind(&safe_name)
+        .execute(db::pool())
+        .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn delete_tx_block_template(name: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    db::run_sync(async move {
+        let result = sqlx::query("DELETE FROM tx_block_templates WHERE name = ?")
+            .bind(&safe_name)
+            .execute(db::pool())
+            .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn list_tx_workflow_templates() -> Result<Vec<StoredContent>> {
+    db::run_sync(async {
+        let rows = sqlx::query("SELECT name, content FROM tx_workflow_templates ORDER BY name ASC")
+            .fetch_all(db::pool())
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let name = row.get::<String, _>("name");
+                StoredContent {
+                    locator: tx_workflow_template_locator(&name),
+                    content: row.get("content"),
+                    name,
+                }
+            })
+            .collect())
+    })
+}
+
+pub fn load_tx_workflow_template(name: &str) -> Result<Option<StoredContent>> {
+    let safe_name = name.trim().to_string();
+    db::run_sync(async move {
+        let row = sqlx::query("SELECT content FROM tx_workflow_templates WHERE name = ?")
+            .bind(&safe_name)
+            .fetch_optional(db::pool())
+            .await?;
+        Ok(row.map(|row| StoredContent {
+            name: safe_name.clone(),
+            content: row.get("content"),
+            locator: tx_workflow_template_locator(&safe_name),
+        }))
+    })
+}
+
+pub fn create_tx_workflow_template(name: &str, content: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    let body = content.to_string();
+    let ts_ms = now_ms() as i64;
+    db::run_sync(async move {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO tx_workflow_templates (name, content, created_at_ms, updated_at_ms)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO NOTHING
+            "#,
+        )
+        .bind(&safe_name)
+        .bind(&body)
+        .bind(ts_ms)
+        .bind(ts_ms)
+        .execute(db::pool())
+        .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn update_tx_workflow_template(name: &str, content: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    let body = content.to_string();
+    let ts_ms = now_ms() as i64;
+    db::run_sync(async move {
+        let result = sqlx::query(
+            "UPDATE tx_workflow_templates SET content = ?, updated_at_ms = ? WHERE name = ?",
+        )
+        .bind(&body)
+        .bind(ts_ms)
+        .bind(&safe_name)
+        .execute(db::pool())
+        .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn delete_tx_workflow_template(name: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    db::run_sync(async move {
+        let result = sqlx::query("DELETE FROM tx_workflow_templates WHERE name = ?")
+            .bind(&safe_name)
+            .execute(db::pool())
+            .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn list_orchestration_templates() -> Result<Vec<StoredContent>> {
+    db::run_sync(async {
+        let rows =
+            sqlx::query("SELECT name, content FROM orchestration_templates ORDER BY name ASC")
+                .fetch_all(db::pool())
+                .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let name = row.get::<String, _>("name");
+                StoredContent {
+                    locator: orchestration_template_locator(&name),
+                    content: row.get("content"),
+                    name,
+                }
+            })
+            .collect())
+    })
+}
+
+pub fn load_orchestration_template(name: &str) -> Result<Option<StoredContent>> {
+    let safe_name = name.trim().to_string();
+    db::run_sync(async move {
+        let row = sqlx::query("SELECT content FROM orchestration_templates WHERE name = ?")
+            .bind(&safe_name)
+            .fetch_optional(db::pool())
+            .await?;
+        Ok(row.map(|row| StoredContent {
+            name: safe_name.clone(),
+            content: row.get("content"),
+            locator: orchestration_template_locator(&safe_name),
+        }))
+    })
+}
+
+pub fn create_orchestration_template(name: &str, content: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    let body = content.to_string();
+    let ts_ms = now_ms() as i64;
+    db::run_sync(async move {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO orchestration_templates (name, content, created_at_ms, updated_at_ms)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO NOTHING
+            "#,
+        )
+        .bind(&safe_name)
+        .bind(&body)
+        .bind(ts_ms)
+        .bind(ts_ms)
+        .execute(db::pool())
+        .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn update_orchestration_template(name: &str, content: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    let body = content.to_string();
+    let ts_ms = now_ms() as i64;
+    db::run_sync(async move {
+        let result = sqlx::query(
+            "UPDATE orchestration_templates SET content = ?, updated_at_ms = ? WHERE name = ?",
+        )
+        .bind(&body)
+        .bind(ts_ms)
+        .bind(&safe_name)
+        .execute(db::pool())
+        .await?;
+        Ok(result.rows_affected() > 0)
+    })
+}
+
+pub fn delete_orchestration_template(name: &str) -> Result<bool> {
+    let safe_name = name.trim().to_string();
+    db::run_sync(async move {
+        let result = sqlx::query("DELETE FROM orchestration_templates WHERE name = ?")
             .bind(&safe_name)
             .execute(db::pool())
             .await?;

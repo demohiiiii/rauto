@@ -354,6 +354,9 @@ const i18n = {
     txWorkflowDownloadDone: "workflow json downloaded",
     txWorkflowImportFileInvalid: "please choose a valid workflow json file",
     txWorkflowImportFileDone: "workflow json imported into builder",
+    txWorkflowLoadInvalidJsonShape: "workflow json must be an object",
+    txWorkflowLoadUnsupportedOperation:
+      "workflow builder JSON backfill currently supports command-only steps and rollback operations",
     orchestrationTitle: "Multi-device Orchestration",
     orchestrationInventoryAssistTitle: "Inventory Assist",
     orchestrationInventoryGroupsLabel: "Inventory Groups",
@@ -1115,6 +1118,9 @@ const i18n = {
     txWorkflowDownloadDone: "工作流 JSON 已下载",
     txWorkflowImportFileInvalid: "请选择有效的 workflow JSON 文件",
     txWorkflowImportFileDone: "已从文件导入 workflow JSON 并回填构建器",
+    txWorkflowLoadInvalidJsonShape: "workflow JSON 顶层必须是对象",
+    txWorkflowLoadUnsupportedOperation:
+      "工作流构建器回填当前仅支持 command 类型的步骤与回滚操作",
     orchestrationTitle: "多设备编排",
     orchestrationInventoryAssistTitle: "Inventory 助手",
     orchestrationInventoryGroupsLabel: "Inventory 分组",

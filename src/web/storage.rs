@@ -128,6 +128,39 @@ pub fn list_command_flow_templates() -> Result<Vec<CommandFlowTemplateMeta>, Api
         .collect())
 }
 
+pub fn list_tx_block_templates() -> Result<Vec<TemplateMeta>, ApiError> {
+    Ok(content_store::list_tx_block_templates()
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(|item| TemplateMeta {
+            name: item.name,
+            path: item.locator,
+        })
+        .collect())
+}
+
+pub fn list_tx_workflow_templates() -> Result<Vec<TemplateMeta>, ApiError> {
+    Ok(content_store::list_tx_workflow_templates()
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(|item| TemplateMeta {
+            name: item.name,
+            path: item.locator,
+        })
+        .collect())
+}
+
+pub fn list_orchestration_templates() -> Result<Vec<TemplateMeta>, ApiError> {
+    Ok(content_store::list_orchestration_templates()
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(|item| TemplateMeta {
+            name: item.name,
+            path: item.locator,
+        })
+        .collect())
+}
+
 pub fn safe_profile_name(raw: &str) -> Result<String, ApiError> {
     let normalized = raw.trim().trim_end_matches(".toml");
     if normalized.is_empty() || !is_safe_name(normalized) {
@@ -148,6 +181,14 @@ pub fn safe_command_flow_template_name(raw: &str) -> Result<String, ApiError> {
     let normalized = raw.trim().trim_end_matches(".toml");
     if normalized.is_empty() || !is_safe_name(normalized) {
         return Err(ApiError::bad_request("invalid command flow template name"));
+    }
+    Ok(normalized.to_string())
+}
+
+pub fn safe_json_template_name(raw: &str) -> Result<String, ApiError> {
+    let normalized = raw.trim().trim_end_matches(".json");
+    if normalized.is_empty() || !is_safe_name(normalized) {
+        return Err(ApiError::bad_request("invalid template name"));
     }
     Ok(normalized.to_string())
 }

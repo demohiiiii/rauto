@@ -377,6 +377,12 @@ pub struct ExecuteUploadResponse {
 pub struct ExecuteTxBlockRequest {
     pub name: Option<String>,
     #[serde(default)]
+    pub tx_block_template_name: Option<String>,
+    #[serde(default)]
+    pub tx_block_template_content: Option<String>,
+    #[serde(default)]
+    pub tx_block_template_vars: Value,
+    #[serde(default)]
     pub run_kind: Option<TxBlockRunKind>,
     pub template: Option<String>,
     #[serde(default)]
@@ -421,6 +427,12 @@ pub struct ExecuteTxBlockResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ExecuteTxWorkflowRequest {
+    #[serde(default)]
+    pub workflow_template_name: Option<String>,
+    #[serde(default)]
+    pub workflow_template_content: Option<String>,
+    #[serde(default)]
+    pub workflow_vars: Value,
     pub workflow: Value,
     #[serde(flatten)]
     pub run: DryRunOptions,
@@ -440,6 +452,12 @@ pub struct ExecuteTxWorkflowResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ExecuteOrchestrationRequest {
+    #[serde(default)]
+    pub plan_template_name: Option<String>,
+    #[serde(default)]
+    pub plan_template_content: Option<String>,
+    #[serde(default)]
+    pub plan_vars: Value,
     pub plan: Value,
     pub base_dir: Option<String>,
     #[serde(flatten)]

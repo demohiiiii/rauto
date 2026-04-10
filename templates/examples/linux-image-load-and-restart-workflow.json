@@ -1,0 +1,41 @@
+{
+  "name": "linux-image-load-and-restart-service",
+  "fail_fast": true,
+  "blocks": [
+    {
+      "name": "load-and-restart",
+      "kind": "config",
+      "fail_fast": true,
+      "rollback_policy": "per_step",
+      "steps": [
+        {
+          "run": {
+            "kind": "command",
+            "mode": "User",
+            "command": "docker load -i /tmp/myapp-1.2.3.tar",
+            "timeout": 900
+          },
+          "rollback": null
+        },
+        {
+          "run": {
+            "kind": "command",
+            "mode": "User",
+            "command": "cd /opt/myapp && docker-compose down",
+            "timeout": 600
+          },
+          "rollback": null
+        },
+        {
+          "run": {
+            "kind": "command",
+            "mode": "User",
+            "command": "cd /opt/myapp && docker-compose up -d",
+            "timeout": 600
+          },
+          "rollback": null
+        }
+      ]
+    }
+  ]
+}

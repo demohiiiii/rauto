@@ -724,6 +724,10 @@ rauto orchestrate ./orchestration.json --json
 
 - [templates/examples/fabric-advanced-orchestration.json](templates/examples/fabric-advanced-orchestration.json)
 - [templates/examples/fabric-advanced-inventory.json](templates/examples/fabric-advanced-inventory.json)
+- [templates/examples/linux-image-rollout-orchestration.json](templates/examples/linux-image-rollout-orchestration.json)
+- [templates/examples/linux-image-export-and-transfer-workflow.json](templates/examples/linux-image-export-and-transfer-workflow.json)
+- [templates/examples/linux-image-export-and-transfer-with-password-scp-workflow.json](templates/examples/linux-image-export-and-transfer-with-password-scp-workflow.json)
+- [templates/examples/linux-image-load-and-restart-workflow.json](templates/examples/linux-image-load-and-restart-workflow.json)
 
 说明：
 
@@ -733,6 +737,44 @@ rauto orchestrate ./orchestration.json --json
 - `tx_block` 阶段会复用现有模板/回滚能力，并支持按目标覆盖 `vars`。
 - `tx_workflow` 阶段会直接复用现有单设备工作流 JSON。
 - 多设备编排当前已同时支持 Web UI 与 CLI。
+
+**流程模板复用与 JSON 变量引用**
+
+`rauto` 现已支持将执行 JSON 存成可复用模板（SQLite），并在执行时进行变量渲染：
+
+- `tx block templates`：`/api/tx-block-templates`
+- `tx workflow templates`：`/api/tx-workflow-templates`
+- `orchestration templates`：`/api/orchestration-templates`
+
+执行接口新增模板输入（三选一模式：内联 JSON / 已保存模板名 / 模板内容）：
+
+- `POST /api/tx/block`：
+  - `tx_block_template_name`
+  - `tx_block_template_content`
+  - `tx_block_template_vars`
+- `POST /api/tx/workflow`：
+  - `workflow_template_name`
+  - `workflow_template_content`
+  - `workflow_vars`
+- `POST /api/orchestrate`：
+  - `plan_template_name`
+  - `plan_template_content`
+  - `plan_vars`
+
+变量渲染上下文说明：
+
+- `vars`：请求里传入的 `*_vars`
+- `connection`：单设备执行时的已解析连接参数（host/username/password/port/device_profile 等；如果是 saved connection，会额外提供 `connection.saved` 元数据）
+- `defaults`：编排执行时的全局默认连接参数（来自全局配置）
+- `now`：当前时间（`rfc3339` / `timestamp_ms`）
+
+字符串字段支持模板语法（minijinja），例如：
+
+```json
+{
+  "command": "scp /tmp/{{ vars.image_file }} {{ connection.username }}@{{ vars.target_host }}:/tmp/{{ vars.image_file }}"
+}
+```
 
 **Inventory CLI**
 

@@ -24,6 +24,9 @@ use config::command_flow_template::{
     CommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
     parse_command_flow_template_str,
 };
+use config::command_flow_vars::{
+    ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
+};
 use config::connection_import::{self, ConnectionImportReport};
 use config::connection_store::{
     SavedConnection, delete_connection, list_connections, load_connection, load_connection_raw,
@@ -34,6 +37,7 @@ use config::inventory_store;
 use config::linux_shell::LinuxShellFlavor;
 use config::paths::ensure_default_layout;
 use config::ssh_security::SshSecurityProfile;
+use config::template_connection_refs::enrich_context_with_connection_refs_from_template;
 use config::template_loader;
 use config::template_loader::DEFAULT_DEVICE_PROFILE;
 use config::{backup, command_blacklist, content_store};
@@ -794,6 +798,7 @@ pub(crate) struct EffectiveConnection {
     ssh_security: SshSecurityProfile,
     linux_shell_flavor: Option<LinuxShellFlavor>,
     device_profile: String,
+    vars: serde_json::Value,
     template_dir: Option<PathBuf>,
 }
 
@@ -862,6 +867,10 @@ fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConne
             .as_ref()
             .and_then(|s| s.template_dir.clone().map(PathBuf::from))
     });
+    let vars = saved
+        .as_ref()
+        .map(|s| s.vars.clone())
+        .unwrap_or_else(|| serde_json::json!({}));
 
     Ok(EffectiveConnection {
         connection_name: opts
@@ -876,6 +885,7 @@ fn resolve_effective_connection(opts: &cli::GlobalOpts) -> Result<EffectiveConne
         ssh_security,
         linux_shell_flavor,
         device_profile,
+        vars,
         template_dir,
     })
 }
@@ -924,11 +934,38 @@ fn save_named_connection(
             .map(|p| p.to_string_lossy().to_string()),
         enabled: true,
         labels: vec![],
-        vars: serde_json::json!({}),
+        vars: conn.vars.clone(),
         groups: vec![],
     };
 
     save_connection(name, &data)
+}
+
+fn current_connection_param_context(conn: &EffectiveConnection) -> ConnectionParamContext {
+    ConnectionParamContext::new(
+        conn.connection_name.as_deref(),
+        Some(&conn.host),
+        Some(&conn.username),
+        Some(&conn.password),
+        Some(conn.port),
+        conn.enable_password.as_deref(),
+        Some(conn.ssh_security),
+        conn.linux_shell_flavor,
+        Some(&conn.device_profile),
+        &conn.vars,
+    )
+}
+
+fn resolve_flow_runtime_vars(
+    template: &CommandFlowTemplate,
+    vars: Value,
+    conn: &EffectiveConnection,
+) -> Result<Value> {
+    resolve_command_flow_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
+}
+
+fn resolve_runtime_vars_for_connection(vars: Value, conn: &EffectiveConnection) -> Result<Value> {
+    resolve_runtime_var_aliases(vars, Some(current_connection_param_context(conn)))
 }
 
 fn print_list(label: &str, values: &[String]) {
@@ -1124,6 +1161,7 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
         conn.linux_shell_flavor,
     )?;
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let runtime_vars = resolve_flow_runtime_vars(&template, vars, &conn)?;
 
     let flow = template.to_command_flow(&build_command_flow_runtime(
         default_mode.clone(),
@@ -1131,7 +1169,7 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
         &conn.host,
         &conn.username,
         &conn.device_profile,
-        vars,
+        runtime_vars,
     ))?;
 
     command_blacklist::ensure_commands_allowed(
@@ -1615,13 +1653,14 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             )?;
             let flow_vars =
                 load_vars_json_input(args.flow_vars.as_ref(), args.flow_vars_json.as_deref())?;
+            let flow_runtime_vars = resolve_flow_runtime_vars(&flow_template, flow_vars, &conn)?;
             let mut flow = flow_template.to_command_flow(&build_command_flow_runtime(
                 mode.clone(),
                 conn.connection_name.as_deref(),
                 &conn.host,
                 &conn.username,
                 &conn.device_profile,
-                flow_vars,
+                flow_runtime_vars,
             ))?;
             if let Some(timeout_secs) = args.timeout_secs {
                 for step in &mut flow.steps {
@@ -1654,6 +1693,8 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                         args.rollback_flow_vars.as_ref(),
                         args.rollback_flow_vars_json.as_deref(),
                     )?;
+                    let rollback_runtime_vars =
+                        resolve_flow_runtime_vars(&rollback_template, rollback_vars, &conn)?;
                     let mut rollback_flow =
                         rollback_template.to_command_flow(&build_command_flow_runtime(
                             mode.clone(),
@@ -1661,7 +1702,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                             &conn.host,
                             &conn.username,
                             &conn.device_profile,
-                            rollback_vars,
+                            rollback_runtime_vars,
                         ))?;
                     if let Some(timeout_secs) = args.timeout_secs {
                         for step in &mut rollback_flow.steps {
@@ -1762,12 +1803,24 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
     Ok(())
 }
 
-fn resolve_tx_commands(args: &TxArgs, _conn: &EffectiveConnection) -> Result<Vec<String>> {
+fn resolve_tx_commands(args: &TxArgs, conn: &EffectiveConnection) -> Result<Vec<String>> {
     let mut commands = Vec::new();
     if let Some(template_name) = &args.template {
         let renderer = Renderer::new();
         let vars = load_vars_json(args.vars.as_ref())?;
-        let rendered = renderer.render_file(template_name, vars)?;
+        let vars = resolve_runtime_vars_for_connection(vars, conn)?;
+        let mut render_context = match vars {
+            Value::Null => serde_json::json!({}),
+            Value::Object(_) => vars,
+            _ => return Err(anyhow::anyhow!("tx vars must be a JSON object")),
+        };
+        if let Some(stored) = content_store::load_command_template(template_name)? {
+            enrich_context_with_connection_refs_from_template(
+                &mut render_context,
+                &stored.content,
+            )?;
+        }
+        let rendered = renderer.render_file(template_name, render_context)?;
         commands.extend(
             rendered
                 .lines()

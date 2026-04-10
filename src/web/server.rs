@@ -7,21 +7,26 @@ use crate::web::assets::{index_response, static_response};
 use crate::web::auth::auth_middleware;
 use crate::web::handlers::{
     add_blacklist_pattern, check_blacklist_command, create_backup, create_command_flow_template,
-    create_or_update_custom_profile, create_template, delete_blacklist_pattern,
+    create_or_update_custom_profile, create_orchestration_template, create_template,
+    create_tx_block_template, create_tx_workflow_template, delete_blacklist_pattern,
     delete_command_flow_template, delete_connection, delete_connection_history,
-    delete_custom_profile, delete_inventory_group, delete_template, diagnose_profile,
-    download_backup, download_connection_import_template, exec_command, exec_command_async,
+    delete_custom_profile, delete_inventory_group, delete_orchestration_template, delete_template,
+    delete_tx_block_template, delete_tx_workflow_template, diagnose_profile, download_backup,
+    download_connection_import_template, exec_command, exec_command_async,
     execute_builtin_file_transfer_flow, execute_command_flow, execute_orchestration,
     execute_orchestration_async, execute_template, execute_template_async, execute_tx_block,
     execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
     get_builtin_profile_detail, get_builtin_profile_form, get_command_flow_template,
     get_connection, get_connection_history, get_connection_history_detail, get_custom_profile,
-    get_custom_profile_form, get_inventory_group, get_profile_modes, get_task_run_detail,
-    get_template, health, import_connections, interactive_command, interactive_start,
-    interactive_stop, list_backups, list_blacklist_patterns, list_command_flow_templates,
-    list_connections, list_inventory_groups, list_profiles, list_task_runs, list_templates,
-    profiles_overview, render_template, replay_session, resolve_inventory_vars, restore_backup,
-    test_connection, update_command_flow_template, update_template, upsert_connection,
+    get_custom_profile_form, get_inventory_group, get_orchestration_template, get_profile_modes,
+    get_task_run_detail, get_template, get_tx_block_template, get_tx_workflow_template, health,
+    import_connections, interactive_command, interactive_start, interactive_stop, list_backups,
+    list_blacklist_patterns, list_command_flow_templates, list_connections, list_inventory_groups,
+    list_orchestration_templates, list_profiles, list_task_runs, list_templates,
+    list_tx_block_templates, list_tx_workflow_templates, profiles_overview, render_template,
+    replay_session, resolve_inventory_vars, restore_backup, test_connection,
+    update_command_flow_template, update_orchestration_template, update_template,
+    update_tx_block_template, update_tx_workflow_template, upsert_connection,
     upsert_custom_profile_form, upsert_inventory_group,
 };
 use crate::web::state::AppState;
@@ -262,6 +267,36 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             get(get_command_flow_template)
                 .put(update_command_flow_template)
                 .delete(delete_command_flow_template),
+        )
+        .route(
+            "/api/tx-block-templates",
+            get(list_tx_block_templates).post(create_tx_block_template),
+        )
+        .route(
+            "/api/tx-block-templates/{name}",
+            get(get_tx_block_template)
+                .put(update_tx_block_template)
+                .delete(delete_tx_block_template),
+        )
+        .route(
+            "/api/tx-workflow-templates",
+            get(list_tx_workflow_templates).post(create_tx_workflow_template),
+        )
+        .route(
+            "/api/tx-workflow-templates/{name}",
+            get(get_tx_workflow_template)
+                .put(update_tx_workflow_template)
+                .delete(delete_tx_workflow_template),
+        )
+        .route(
+            "/api/orchestration-templates",
+            get(list_orchestration_templates).post(create_orchestration_template),
+        )
+        .route(
+            "/api/orchestration-templates/{name}",
+            get(get_orchestration_template)
+                .put(update_orchestration_template)
+                .delete(delete_orchestration_template),
         )
 }
 

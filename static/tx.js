@@ -263,7 +263,7 @@ function applyOrchestrationInventorySelection(mode = "merge") {
 
 function createTxWorkflowBlock(seed = {}) {
   txWorkflowBlockSeq += 1;
-  return {
+  const block = {
     id: `tx-block-${txWorkflowBlockSeq}`,
     name: seed.name || "",
     kind: seed.kind || "config",
@@ -284,11 +284,50 @@ function createTxWorkflowBlock(seed = {}) {
         ? String(seed.triggerStepIndex)
         : "",
   };
+  return sanitizeTxWorkflowBlock(block);
+}
+
+function normalizeTxWorkflowKind(kind) {
+  return kind === "show" ? "show" : "config";
+}
+
+function normalizeTxWorkflowRollbackPolicy(kind, rollbackPolicy) {
+  const normalizedKind = normalizeTxWorkflowKind(kind);
+  const policy =
+    rollbackPolicy === "none" ||
+    rollbackPolicy === "per_step" ||
+    rollbackPolicy === "whole_resource"
+      ? rollbackPolicy
+      : "per_step";
+  if (normalizedKind === "show") {
+    return "none";
+  }
+  if (policy === "none") {
+    return "per_step";
+  }
+  return policy;
+}
+
+function sanitizeTxWorkflowBlock(block) {
+  if (!block || typeof block !== "object") return block;
+  block.kind = normalizeTxWorkflowKind(block.kind);
+  block.rollbackPolicy = normalizeTxWorkflowRollbackPolicy(
+    block.kind,
+    block.rollbackPolicy
+  );
+  if (block.rollbackPolicy !== "whole_resource") {
+    block.triggerStepIndex =
+      block.triggerStepIndex != null && block.triggerStepIndex !== ""
+        ? String(block.triggerStepIndex)
+        : "";
+  }
+  return block;
 }
 
 function renderTxWorkflowBuilder() {
   const wrap = byId("tx-workflow-blocks");
   if (!wrap) return;
+  txWorkflowBlocks.forEach((block) => sanitizeTxWorkflowBlock(block));
   const activeEl = document.activeElement;
   const active = activeEl
     ? {
@@ -389,9 +428,13 @@ function renderTxWorkflowBuilder() {
             <select class="input js-tx-workflow-field" data-field="rollbackPolicy" data-tx-block-id="${escapeHtml(
               block.id
             )}">
-              <option value="none" ${block.rollbackPolicy === "none" ? "selected" : ""}>${escapeHtml(
-        t("txWorkflowBlockRollbackNone")
-      )}</option>
+              ${
+                block.kind === "show"
+                  ? `<option value="none" selected>${escapeHtml(
+                      t("txWorkflowBlockRollbackNone")
+                    )}</option>`
+                  : ""
+              }
               <option value="per_step" ${block.rollbackPolicy === "per_step" ? "selected" : ""}>${escapeHtml(
         t("txWorkflowBlockRollbackPerStep")
       )}</option>
@@ -672,6 +715,11 @@ function txOperationDescription(operation) {
   return "";
 }
 
+function isCommandOperation(operation) {
+  if (!operation || typeof operation !== "object") return false;
+  return operation.kind === "command" || typeof operation.command === "string";
+}
+
 function autoScrollDuringDrag(event, container) {
   const y = event.clientY;
   const threshold = 96;
@@ -759,6 +807,7 @@ function generateTxWorkflowJsonFromBuilder() {
   const name = byId("tx-workflow-name").value.trim() || "tx-workflow";
   const failFast = byId("tx-workflow-fail-fast").checked;
   const blocks = txWorkflowBlocks.map((block) => {
+    sanitizeTxWorkflowBlock(block);
     const commands = txWorkflowLines(block.commandsText);
     const rollbacks = parseRollbackLinesRaw(block.rollbackCommandsText);
     const timeout = block.timeoutSecs ? Number(block.timeoutSecs) : null;
@@ -795,7 +844,7 @@ function generateTxWorkflowJsonFromBuilder() {
     }));
 
     let rollbackPolicy;
-    if (kind === "show" || block.rollbackPolicy === "none") {
+    if (kind === "show") {
       rollbackPolicy = "none";
     } else if (block.rollbackPolicy === "whole_resource") {
       rollbackPolicy = {
@@ -834,11 +883,36 @@ function loadTxWorkflowBuilderFromJson() {
   const raw = byId("tx-workflow-json").value.trim();
   if (!raw) return;
   const workflow = JSON.parse(raw);
+  if (!workflow || typeof workflow !== "object" || Array.isArray(workflow)) {
+    throw new Error(t("txWorkflowLoadInvalidJsonShape"));
+  }
   byId("tx-workflow-name").value = workflow.name || "";
   byId("tx-workflow-fail-fast").checked = workflow.fail_fast !== false;
   const blocks = Array.isArray(workflow.blocks) ? workflow.blocks : [];
   txWorkflowBlocks = blocks.map((b) => {
     const steps = Array.isArray(b.steps) ? b.steps : [];
+    if (
+      steps.some((s) => {
+        const run = txStepRunOperation(s);
+        const rollback = txStepRollbackOperation(s);
+        if (run && !isCommandOperation(run)) return true;
+        if (rollback && !isCommandOperation(rollback)) return true;
+        return false;
+      })
+    ) {
+      throw new Error(t("txWorkflowLoadUnsupportedOperation"));
+    }
+    if (
+      b &&
+      b.rollback_policy &&
+      typeof b.rollback_policy === "object" &&
+      b.rollback_policy.whole_resource
+    ) {
+      const wholeRollback = txWholeResourceRollbackOperation(b.rollback_policy);
+      if (wholeRollback && !isCommandOperation(wholeRollback)) {
+        throw new Error(t("txWorkflowLoadUnsupportedOperation"));
+      }
+    }
     const firstRun = txStepRunOperation(steps[0]);
     const mode = txOperationMode(firstRun) || "Config";
     const timeoutSecs = txOperationTimeoutSeconds(firstRun);

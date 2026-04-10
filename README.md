@@ -724,6 +724,10 @@ Advanced sample files:
 
 - [templates/examples/fabric-advanced-orchestration.json](templates/examples/fabric-advanced-orchestration.json)
 - [templates/examples/fabric-advanced-inventory.json](templates/examples/fabric-advanced-inventory.json)
+- [templates/examples/linux-image-rollout-orchestration.json](templates/examples/linux-image-rollout-orchestration.json)
+- [templates/examples/linux-image-export-and-transfer-workflow.json](templates/examples/linux-image-export-and-transfer-workflow.json)
+- [templates/examples/linux-image-export-and-transfer-with-password-scp-workflow.json](templates/examples/linux-image-export-and-transfer-with-password-scp-workflow.json)
+- [templates/examples/linux-image-load-and-restart-workflow.json](templates/examples/linux-image-load-and-restart-workflow.json)
 
 Notes:
 
@@ -733,6 +737,45 @@ Notes:
 - `tx_block` stages reuse existing template/rollback behavior and support per-target `vars`.
 - `tx_workflow` stages reuse existing single-device workflow JSON.
 - Multi-device orchestration is available in both Web UI and CLI.
+
+**Reusable Execution JSON + Template Vars**
+
+`rauto` now supports saving execution JSON as reusable SQLite-backed templates,
+and rendering template variables before execution:
+
+- `tx block templates`: `/api/tx-block-templates`
+- `tx workflow templates`: `/api/tx-workflow-templates`
+- `orchestration templates`: `/api/orchestration-templates`
+
+Execution APIs support template-based inputs (inline JSON / saved template name / template content):
+
+- `POST /api/tx/block`:
+  - `tx_block_template_name`
+  - `tx_block_template_content`
+  - `tx_block_template_vars`
+- `POST /api/tx/workflow`:
+  - `workflow_template_name`
+  - `workflow_template_content`
+  - `workflow_vars`
+- `POST /api/orchestrate`:
+  - `plan_template_name`
+  - `plan_template_content`
+  - `plan_vars`
+
+Template rendering context:
+
+- `vars`: request-level `*_vars`
+- `connection`: resolved single-target connection data (host/username/password/port/device_profile, etc.); for saved connections, `connection.saved` is also included
+- `defaults`: global default connection settings (for orchestration rendering)
+- `now`: current time (`rfc3339` / `timestamp_ms`)
+
+Any string field can use minijinja syntax, for example:
+
+```json
+{
+  "command": "scp /tmp/{{ vars.image_file }} {{ connection.username }}@{{ vars.target_host }}:/tmp/{{ vars.image_file }}"
+}
+```
 
 **Inventory CLI**
 
