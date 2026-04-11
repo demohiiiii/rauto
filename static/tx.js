@@ -5,9 +5,19 @@
 function txPayload(dryRun) {
   const timeoutRaw = byId("tx-timeout-secs").value.trim();
   const timeout = timeoutRaw ? Number(timeoutRaw) : null;
+  const templateMode = txBlockViewMode === "template";
+  const txBlockTemplateName = templateMode
+    ? byId("tx-block-template-name").value.trim() || null
+    : null;
+  const txBlockTemplateVars = templateMode
+    ? parseJsonById("tx-block-template-vars")
+    : {};
   if (currentTxBlockRunKind === "flow") {
     return {
       name: byId("tx-name").value.trim() || null,
+      tx_block_template_name: txBlockTemplateName,
+      tx_block_template_content: null,
+      tx_block_template_vars: txBlockTemplateVars,
       run_kind: "command-flow",
       flow_template_name: byId("tx-flow-template-name").value.trim() || null,
       flow_vars: parseJsonById("tx-flow-vars"),
@@ -25,6 +35,9 @@ function txPayload(dryRun) {
   const rollbackMode = byId("tx-rollback-mode").value || "per_step";
   return {
     name: byId("tx-name").value.trim() || null,
+    tx_block_template_name: txBlockTemplateName,
+    tx_block_template_content: null,
+    tx_block_template_vars: txBlockTemplateVars,
     run_kind: "commands",
     template: byId("tx-template").value.trim() || null,
     vars: parseJsonById("tx-vars"),
@@ -50,13 +63,107 @@ function txPayload(dryRun) {
   };
 }
 
+function buildTxBlockTemplatePayloadFromEditor() {
+  const timeoutRaw = byId("tx-timeout-secs").value.trim();
+  const timeout = timeoutRaw ? Number(timeoutRaw) : null;
+  if (currentTxBlockRunKind === "flow") {
+    return {
+      name: byId("tx-name").value.trim() || null,
+      run_kind: "command-flow",
+      flow_template_name: byId("tx-flow-template-name").value.trim() || null,
+      flow_vars: parseJsonById("tx-flow-vars"),
+      rollback_flow_template_name:
+        byId("tx-rollback-flow-template-name").value.trim() || null,
+      rollback_flow_vars: parseJsonById("tx-rollback-flow-vars"),
+      mode: byId("tx-flow-mode").value.trim() || null,
+      timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
+      rollback_on_failure: byId("tx-flow-rollback-on-failure").checked,
+    };
+  }
+  const rollbackMode = byId("tx-rollback-mode").value || "per_step";
+  return {
+    name: byId("tx-name").value.trim() || null,
+    run_kind: "commands",
+    template: byId("tx-template").value.trim() || null,
+    vars: parseJsonById("tx-vars"),
+    commands: parseTxCommands(),
+    mode: byId("tx-mode").value.trim() || null,
+    timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
+    resource_rollback_command:
+      rollbackMode === "whole_resource"
+        ? byId("tx-resource-rollback").value.trim() || null
+        : null,
+    rollback_on_failure: byId("tx-rollback-on-failure").checked,
+    rollback_trigger_step_index:
+      rollbackMode === "whole_resource"
+        ? Number(byId("tx-rollback-trigger-step").value || 0)
+        : null,
+    rollback_commands:
+      rollbackMode === "per_step"
+        ? parseRollbackLinesRaw(byId("tx-rollback-commands").value || "")
+        : [],
+  };
+}
+
+function applyTxBlockTemplatePayloadToEditor(payload) {
+  const data = payload && typeof payload === "object" ? payload : {};
+  const asInput = (value) => (value == null ? "" : String(value));
+  const runKind = String(data.run_kind || "").trim() === "command-flow" ? "flow" : "commands";
+  currentTxBlockRunKind = runKind;
+  applyTxBlockRunKind();
+  byId("tx-name").value = asInput(data.name);
+  byId("tx-timeout-secs").value =
+    data.timeout_secs != null && data.timeout_secs !== ""
+      ? String(data.timeout_secs)
+      : "";
+
+  if (runKind === "flow") {
+    byId("tx-flow-template-name").value = data.flow_template_name || "";
+    byId("tx-flow-vars").value = JSON.stringify(data.flow_vars || {}, null, 2);
+    byId("tx-rollback-flow-template-name").value =
+      data.rollback_flow_template_name || "";
+    byId("tx-rollback-flow-vars").value = JSON.stringify(
+      data.rollback_flow_vars || {},
+      null,
+      2
+    );
+    byId("tx-flow-mode").value = data.mode || "";
+    byId("tx-flow-rollback-on-failure").checked = !!data.rollback_on_failure;
+    return;
+  }
+
+  byId("tx-template").value = data.template || "";
+  byId("tx-vars").value = JSON.stringify(data.vars || {}, null, 2);
+  byId("tx-commands").value = Array.isArray(data.commands)
+    ? data.commands.join("\n")
+    : "";
+  byId("tx-mode").value = data.mode || "";
+  const rollbackMode = data.resource_rollback_command ? "whole_resource" : "per_step";
+  byId("tx-rollback-mode").value = rollbackMode;
+  byId("tx-resource-rollback").value = data.resource_rollback_command || "";
+  byId("tx-rollback-trigger-step").value =
+    data.rollback_trigger_step_index != null
+      ? String(data.rollback_trigger_step_index)
+      : "";
+  byId("tx-rollback-on-failure").checked = !!data.rollback_on_failure;
+  byId("tx-rollback-commands").value = Array.isArray(data.rollback_commands)
+    ? data.rollback_commands.join("\n")
+    : "";
+  applyTxRollbackMode();
+  renderTxRollbackPairs();
+}
+
 function txWorkflowPayload(dryRun) {
+  const workflowTemplateName = byId("tx-workflow-template-name").value.trim();
   const raw = byId("tx-workflow-json").value.trim();
-  if (!raw) {
+  if (!raw && !workflowTemplateName) {
     throw new Error(t("txWorkflowJsonRequired"));
   }
   return {
-    workflow: JSON.parse(raw),
+    workflow_template_name: workflowTemplateName || null,
+    workflow_template_content: null,
+    workflow: raw ? JSON.parse(raw) : {},
+    workflow_vars: parseJsonById("tx-workflow-vars-json"),
     dry_run: dryRun,
     connection: connectionPayload(),
     record_level: recordLevelPayload(),
@@ -64,14 +171,19 @@ function txWorkflowPayload(dryRun) {
 }
 
 function orchestrationPayload(dryRun) {
+  const planTemplateName = byId("orchestration-template-name").value.trim();
   const raw = byId("orchestration-json").value.trim();
-  if (!raw) {
+  if (!raw && !planTemplateName) {
     throw new Error(t("orchestrationJsonRequired"));
   }
   return {
-    plan: JSON.parse(raw),
+    plan_template_name: planTemplateName || null,
+    plan_template_content: null,
+    plan: raw ? JSON.parse(raw) : {},
+    plan_vars: parseJsonById("orchestration-vars-json"),
     base_dir: byId("orchestration-base-dir").value.trim() || null,
     dry_run: dryRun,
+    connection: connectionPayload(),
     record_level: recordLevelPayload(),
   };
 }
@@ -501,11 +613,11 @@ function renderTxWorkflowBuilder() {
           <div class="grid gap-2">
             <div class="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
               <span>${escapeHtml(t("txWorkflowRollbackInputModeLabel"))}</span>
-              <div class="tab-group">
-                <button type="button" class="tab-btn ${rollbackMode === "text" ? "is-active" : ""} js-tx-workflow-rollback-mode" data-mode="text" data-tx-block-id="${escapeHtml(
+              <div class="tabs tabs-box w-fit">
+                <button type="button" class="tab ${rollbackMode === "text" ? "tab-active" : ""} js-tx-workflow-rollback-mode" data-mode="text" data-tx-block-id="${escapeHtml(
                   block.id
                 )}">${escapeHtml(t("txWorkflowRollbackInputText"))}</button>
-                <button type="button" class="tab-btn ${rollbackMode === "pairs" ? "is-active" : ""} js-tx-workflow-rollback-mode" data-mode="pairs" data-tx-block-id="${escapeHtml(
+                <button type="button" class="tab ${rollbackMode === "pairs" ? "tab-active" : ""} js-tx-workflow-rollback-mode" data-mode="pairs" data-tx-block-id="${escapeHtml(
                   block.id
                 )}">${escapeHtml(t("txWorkflowRollbackInputPairs"))}</button>
               </div>

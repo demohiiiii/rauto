@@ -183,6 +183,7 @@ Notes:
 - Flow templates now follow `rneter 0.4.0`'s structured `CommandFlowTemplate` model instead of the older ad-hoc string template shape.
 - Flow templates can declare a `vars` schema with `name`, `type`, `required`, `default`, `options`, `label`, and `description`, so `rauto` can validate runtime vars and render form fields in the Web UI.
 - Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
+- Runtime var references support both `connection_name.param_name` (cross-connection lookup) and plain `param_name` (request vars first, then current target connection fallback).
 - If a step omits `mode`, `rauto` uses the first mode defined by the selected device profile.
 - Every execution records a session by default.
 - `--record-level key-events-only` keeps the audit-friendly minimum: input commands and device output.
@@ -768,14 +769,21 @@ Template rendering context:
 - `connection`: resolved single-target connection data (host/username/password/port/device_profile, etc.); for saved connections, `connection.saved` is also included
 - `defaults`: global default connection settings (for orchestration rendering)
 - `now`: current time (`rfc3339` / `timestamp_ms`)
+- Top-level shorthand is available: `{{ peer_host }}` resolves from request vars first, then falls back to current target connection params.
+- Direct connection object refs are supported in template strings: `{{ edge94.host }}`, `{{ edge94.password }}`, `{{ edge94.vars.site }}`.
 
 Any string field can use minijinja syntax, for example:
 
 ```json
 {
-  "command": "scp /tmp/{{ vars.image_file }} {{ connection.username }}@{{ vars.target_host }}:/tmp/{{ vars.image_file }}"
+  "command": "scp /tmp/{{ image_file }} {{ edge94.username }}@{{ edge94.host }}:/tmp/{{ image_file }}"
 }
 ```
+
+Web UI (`Operations -> Orchestrated Delivery`) now includes dedicated runtime vars inputs for:
+
+- `Tx Workflow`: `workflow_vars`
+- `Orchestration`: `plan_vars`
 
 **Inventory CLI**
 

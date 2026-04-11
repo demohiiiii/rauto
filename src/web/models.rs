@@ -13,6 +13,8 @@ pub struct RenderRequest {
     pub template: String,
     #[serde(default)]
     pub vars: Value,
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
     pub template_dir: Option<String>,
 }
 

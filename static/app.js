@@ -68,6 +68,15 @@ function bindEvents() {
       ensureSelectValue("inventory-group-picker", name);
       loadInventoryGroupDetail();
     }
+    const txBlockManageRow = e.target.closest(".js-tx-block-manage-row");
+    if (txBlockManageRow) {
+      const name = txBlockManageRow.getAttribute("data-name") || "";
+      if (!name) return;
+      ensureSelectValue("tx-block-manage-template-picker", name);
+      ensureSelectValue("tx-block-template-name", name);
+      renderTxBlockManageList();
+      loadTxBlockTemplateIntoEditorByName(name);
+    }
     const txDeleteBtn = e.target.closest(".js-tx-workflow-delete-block");
     if (txDeleteBtn) {
       const blockId = txDeleteBtn.getAttribute("data-tx-block-id") || "";
@@ -420,6 +429,25 @@ function bindEvents() {
     txWorkflowMoreExpanded = !txWorkflowMoreExpanded;
     applyTxWorkflowMoreActionsState();
   };
+  byId("tx-block-view-direct").onclick = () => {
+    txBlockViewMode = "direct";
+    applyTxBlockViewMode();
+  };
+  byId("tx-block-view-template").onclick = () => {
+    txBlockViewMode = "template";
+    applyTxBlockViewMode();
+  };
+  byId("tx-block-view-manage").onclick = () => {
+    txBlockViewMode = "manage";
+    applyTxBlockViewMode();
+  };
+  byId("tx-block-manage-template-picker").onchange = () => {
+    renderTxBlockManageList();
+  };
+  byId("tx-block-manage-new-btn").onclick = createTxBlockTemplateDraftFromManager;
+  byId("tx-block-manage-save-btn").onclick = saveTxBlockTemplateFromEditor;
+  byId("tx-block-manage-delete-btn").onclick = deleteTxBlockTemplateFromManager;
+  byId("tx-block-manage-load-btn").onclick = () => loadTxBlockTemplateIntoEditorByName();
 
   byId("connection-test-btn").onclick = async () => {
     setStatusMessage("connection-test-out", t("running"), "running");
@@ -522,6 +550,7 @@ function bindEvents() {
       const data = await request("POST", "/api/render", {
         template: byId("template").value.trim(),
         vars: parseVars(),
+        connection: connectionPayload(),
       });
       out.textContent = data.rendered_commands;
     } catch (e) {
@@ -567,41 +596,87 @@ function bindEvents() {
     }
   };
 
-  byId("tx-plan-btn").onclick = async () => {
-    const execOut = byId("tx-exec-out");
+  const runTxBlock = async (dryRun, statusId) => {
     const visualOut = byId("tx-block-visual");
-    setStatusMessage("tx-plan-out", t("running"), "running");
+    if (txBlockViewMode === "template" && !byId("tx-block-template-name").value.trim()) {
+      throw new Error(t("txBlockTemplateNameRequired"));
+    }
+    const payload = txPayload(dryRun);
+    if (
+      payload.run_kind === "commands" &&
+      !payload.tx_block_template_name &&
+      !payload.template &&
+      (!Array.isArray(payload.commands) || payload.commands.length === 0)
+    ) {
+      throw new Error(t("txCommandsRequired"));
+    }
+    if (
+      payload.run_kind === "command-flow" &&
+      !payload.tx_block_template_name &&
+      !payload.flow_template_name
+    ) {
+      throw new Error(t("flowTemplateNameRequired"));
+    }
+    setStatusMessage(statusId, t("running"), "running");
+    const data = await request("POST", "/api/tx/block", payload);
+    setTxBlockVisual(
+      data && data.tx_block ? data.tx_block : {},
+      dryRun ? null : data && data.tx_result ? data.tx_result : {}
+    );
+    if (dryRun) {
+      setStatusMessage(statusId, t("txBlockPreviewDone"), "success");
+      byId("tx-exec-out").innerHTML = "";
+    } else {
+      setStatusMessage(statusId, t("txBlockExecuteDone"), "success");
+      applyRecordingFromResponse(data);
+    }
+    if (!data && visualOut) {
+      visualOut.innerHTML = "";
+    }
+  };
+
+  byId("tx-plan-btn").onclick = async () => {
     try {
-      const data = await request("POST", "/api/tx/block", txPayload(true));
-      setTxBlockVisual(data && data.tx_block ? data.tx_block : {}, null);
-      setStatusMessage("tx-plan-out", t("txBlockPreviewDone"), "success");
-      execOut.innerHTML = "";
+      txBlockViewMode = "direct";
+      applyTxBlockViewMode();
+      await runTxBlock(true, "tx-plan-out");
     } catch (e) {
       setStatusMessage("tx-plan-out", e.message, "error");
-      if (visualOut) {
-        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
-      }
+      byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
     }
   };
 
   byId("tx-exec-btn").onclick = async () => {
-    const visualOut = byId("tx-block-visual");
-    setStatusMessage("tx-exec-out", t("running"), "running");
     try {
-      const data = await request("POST", "/api/tx/block", txPayload(false));
-      setTxBlockVisual(
-        data && data.tx_block ? data.tx_block : {},
-        data && data.tx_result ? data.tx_result : {}
-      );
-      setStatusMessage("tx-exec-out", t("txBlockExecuteDone"), "success");
-      applyRecordingFromResponse(data);
+      txBlockViewMode = "direct";
+      applyTxBlockViewMode();
+      await runTxBlock(false, "tx-exec-out");
     } catch (e) {
       setStatusMessage("tx-exec-out", e.message, "error");
-      if (visualOut) {
-        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
-      }
+      byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
     }
   };
+  byId("tx-template-plan-btn").onclick = async () => {
+    try {
+      txBlockViewMode = "template";
+      applyTxBlockViewMode();
+      await runTxBlock(true, "tx-plan-out");
+    } catch (e) {
+      setStatusMessage("tx-plan-out", e.message, "error");
+      byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
+    }
+  };
+  byId("tx-template-exec-btn").onclick = async () => {
+    try {
+      txBlockViewMode = "template";
+      applyTxBlockViewMode();
+      await runTxBlock(false, "tx-exec-out");
+    } catch (e) {
+      setStatusMessage("tx-exec-out", e.message, "error");
+      byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
+    }
+  };
+  byId("tx-block-template-apply-btn").onclick = loadSelectedTxBlockTemplateForExecution;
 
   byId("tx-workflow-plan-btn").onclick = async () => {
     const visualOut = byId("tx-workflow-plan-visual");
@@ -1213,6 +1288,74 @@ function bindEvents() {
   byId("flow-template-new-btn").onclick = createFlowTemplateDraft;
   byId("flow-template-save-btn").onclick = saveFlowTemplate;
   byId("flow-template-delete-btn").onclick = deleteFlowTemplate;
+  byId("tx-workflow-template-load-btn").onclick =
+    useSelectedTxWorkflowTemplateForExecution;
+  byId("orchestration-template-load-btn").onclick =
+    useSelectedOrchestrationTemplateForExecution;
+
+  const bindJsonTemplateListClick = (listId, kind) => {
+    const list = byId(listId);
+    if (!list) return;
+    list.addEventListener("click", async (e) => {
+      const row = e.target.closest(".js-json-template-row");
+      if (!row) return;
+      const manager = row.getAttribute("data-manager") || "";
+      if (manager !== kind) return;
+      const name = row.getAttribute("data-name") || "";
+      if (!name) return;
+      const pickerId =
+        kind === "tx_block"
+          ? "tx-block-template-picker"
+          : kind === "tx_workflow"
+            ? "tx-workflow-template-picker"
+            : "orchestration-template-picker";
+      ensureSelectValue(pickerId, name);
+      await loadJsonTemplateDetail(kind, name);
+      renderJsonTemplateListByKind(kind);
+    });
+  };
+  bindJsonTemplateListClick("tx-block-template-list", "tx_block");
+  bindJsonTemplateListClick("tx-workflow-template-list", "tx_workflow");
+  bindJsonTemplateListClick("orchestration-template-list", "orchestration");
+  byId("tx-block-template-picker").onchange = async () => {
+    if (!byId("tx-block-template-picker").value.trim()) return;
+    await loadJsonTemplateDetail("tx_block");
+    renderJsonTemplateListByKind("tx_block");
+  };
+  byId("tx-workflow-template-picker").onchange = async () => {
+    if (!byId("tx-workflow-template-picker").value.trim()) return;
+    await loadJsonTemplateDetail("tx_workflow");
+    renderJsonTemplateListByKind("tx_workflow");
+  };
+  byId("orchestration-template-picker").onchange = async () => {
+    if (!byId("orchestration-template-picker").value.trim()) return;
+    await loadJsonTemplateDetail("orchestration");
+    renderJsonTemplateListByKind("orchestration");
+  };
+  byId("tx-block-template-new-btn").onclick = () =>
+    createJsonTemplateDraftByKind("tx_block");
+  byId("tx-workflow-template-new-btn").onclick = () =>
+    createJsonTemplateDraftByKind("tx_workflow");
+  byId("orchestration-template-new-btn").onclick = () =>
+    createJsonTemplateDraftByKind("orchestration");
+  byId("tx-block-template-save-btn").onclick = () =>
+    saveJsonTemplateByKind("tx_block");
+  byId("tx-workflow-template-save-btn").onclick = () =>
+    saveJsonTemplateByKind("tx_workflow");
+  byId("orchestration-template-save-btn").onclick = () =>
+    saveJsonTemplateByKind("orchestration");
+  byId("tx-block-template-delete-btn").onclick = () =>
+    deleteJsonTemplateByKind("tx_block");
+  byId("tx-workflow-template-delete-btn").onclick = () =>
+    deleteJsonTemplateByKind("tx_workflow");
+  byId("orchestration-template-delete-btn").onclick = () =>
+    deleteJsonTemplateByKind("orchestration");
+  byId("tx-block-template-use-btn").onclick = () =>
+    useJsonTemplateByKind("tx_block");
+  byId("tx-workflow-template-use-btn").onclick = () =>
+    useJsonTemplateByKind("tx_workflow");
+  byId("orchestration-template-use-btn").onclick = () =>
+    useJsonTemplateByKind("orchestration");
 
   byId("backup-create-btn").onclick = createBackupFromWeb;
   byId("backup-refresh-btn").onclick = loadBackups;
@@ -1313,6 +1456,7 @@ window.onAlpineTabChange = function onAlpineTabChange(tab) {
   applyTabs();
   if (tab === "standard" || tab === "orchestrated") {
     loadFlowTemplates();
+    loadAllJsonTemplates();
   }
   if (tab === "replay") {
     renderReplayView();
@@ -1323,6 +1467,7 @@ window.onAlpineTabChange = function onAlpineTabChange(tab) {
   if (tab === "templates") {
     loadTemplates();
     loadFlowTemplates();
+    loadAllJsonTemplates();
   }
   if (tab === "inventory") {
     loadInventoryConnections();
@@ -1394,10 +1539,14 @@ setStatusMessage("tx-workflow-plan-out", "-", "info");
 setStatusMessage("tx-workflow-exec-out", "-", "info");
 setStatusMessage("orchestration-plan-out", "-", "info");
 setStatusMessage("orchestration-exec-out", "-", "info");
+setStatusMessage("tx-block-manage-out", "-", "info");
 setStatusMessage("template-out", "-", "info");
 setStatusMessage("flow-out", "-", "info");
 setStatusMessage("upload-out", "-", "info");
 setStatusMessage("flow-template-out", "-", "info");
+setStatusMessage("tx-block-template-out", "-", "info");
+setStatusMessage("tx-workflow-template-out", "-", "info");
+setStatusMessage("orchestration-template-out", "-", "info");
 setStatusMessage("inventory-group-out", "-", "info");
 setStatusMessage("inventory-resolve-out", "-", "info");
 setStatusMessage("blacklist-out", "-", "info");

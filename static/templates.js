@@ -110,14 +110,45 @@ async function saveTemplate() {
   }
 }
 
-function createTemplateDraft() {
+async function createTemplateDraft() {
   const name = promptForResourceName(t("templateNewPrompt"));
   if (!name) return;
-  ensureSelectValue("template-pick-name", name);
-  byId("template-content").value = "";
-  lastTemplateDetail = null;
-  renderTemplateList();
-  setStatusMessage("template-out", `${t("editingNew")}: ${name}`, "info");
+  const draftContent = byId("template-content").value || "";
+  const exists = cachedTemplates.includes(name);
+  if (exists) {
+    ensureSelectValue("template-pick-name", name);
+    renderTemplateOptions(name);
+    renderTemplateList();
+    await loadTemplateDetail();
+    renderTemplateList();
+    setStatusMessage("template-out", t("templateExistsHint"), "info");
+    return;
+  }
+  setStatusMessage("template-out", t("running"), "running");
+  try {
+    const data = await request("POST", "/api/templates", {
+      name,
+      content: draftContent,
+    });
+    await loadTemplates();
+    ensureSelectValue("template-pick-name", data.name || name);
+    byId("template-content").value = data.content || "";
+    lastTemplateDetail = data;
+    renderTemplateList();
+    setStatusMessage("template-out", `${t("created")}: ${data.name || name}`, "success");
+  } catch (e) {
+    const msg = String(e?.message || "");
+    if (msg.includes("already exists")) {
+      ensureSelectValue("template-pick-name", name);
+      renderTemplateOptions(name);
+      renderTemplateList();
+      await loadTemplateDetail();
+      renderTemplateList();
+      setStatusMessage("template-out", t("templateExistsHint"), "info");
+      return;
+    }
+    setStatusMessage("template-out", msg || t("requestFailed"), "error");
+  }
 }
 
 async function deleteTemplate() {
@@ -327,6 +358,542 @@ async function deleteFlowTemplate() {
   } catch (e) {
     setStatusMessage("flow-template-out", e.message, "error");
   }
+}
+
+const JSON_TEMPLATE_MANAGERS = {
+  tx_block: {
+    kind: "tx_block",
+    apiBase: "/api/tx-block-templates",
+    pickerId: "tx-block-template-picker",
+    editorId: "tx-block-template-content",
+    outId: "tx-block-template-out",
+    listId: "tx-block-template-list",
+    runSelectId: "tx-block-template-name",
+    emptyKey: "txBlockTemplateListEmpty",
+    newPromptKey: "txBlockTemplateNewPrompt",
+    nameRequiredKey: "txBlockTemplateNameRequired",
+    runStage: "block",
+    runOutId: "tx-plan-out",
+  },
+  tx_workflow: {
+    kind: "tx_workflow",
+    apiBase: "/api/tx-workflow-templates",
+    pickerId: "tx-workflow-template-picker",
+    editorId: "tx-workflow-template-content",
+    outId: "tx-workflow-template-out",
+    listId: "tx-workflow-template-list",
+    runSelectId: "tx-workflow-template-name",
+    emptyKey: "txWorkflowTemplateListEmpty",
+    newPromptKey: "txWorkflowTemplateNewPrompt",
+    nameRequiredKey: "txWorkflowTemplateNameRequired",
+    runStage: "workflow",
+    runOutId: "tx-workflow-plan-out",
+    runEditorId: "tx-workflow-json",
+  },
+  orchestration: {
+    kind: "orchestration",
+    apiBase: "/api/orchestration-templates",
+    pickerId: "orchestration-template-picker",
+    editorId: "orchestration-template-content",
+    outId: "orchestration-template-out",
+    listId: "orchestration-template-list",
+    runSelectId: "orchestration-template-name",
+    emptyKey: "orchestrationTemplateListEmpty",
+    newPromptKey: "orchestrationTemplateNewPrompt",
+    nameRequiredKey: "orchestrationTemplateNameRequired",
+    runStage: "orchestrate",
+    runOutId: "orchestration-plan-out",
+    runEditorId: "orchestration-json",
+  },
+};
+
+function jsonTemplateConfig(kind) {
+  return JSON_TEMPLATE_MANAGERS[kind] || null;
+}
+
+function setJsonTemplateCache(kind, items) {
+  const names = items.map((item) => item.name);
+  if (kind === "tx_block") {
+    cachedTxBlockTemplateMetas = items;
+    cachedTxBlockTemplateNames = names;
+    return;
+  }
+  if (kind === "tx_workflow") {
+    cachedTxWorkflowTemplateMetas = items;
+    cachedTxWorkflowTemplateNames = names;
+    return;
+  }
+  if (kind === "orchestration") {
+    cachedOrchestrationTemplateMetas = items;
+    cachedOrchestrationTemplateNames = names;
+  }
+}
+
+function getJsonTemplateMetas(kind) {
+  if (kind === "tx_block") return cachedTxBlockTemplateMetas || [];
+  if (kind === "tx_workflow") return cachedTxWorkflowTemplateMetas || [];
+  if (kind === "orchestration") return cachedOrchestrationTemplateMetas || [];
+  return [];
+}
+
+function getJsonTemplateNames(kind) {
+  if (kind === "tx_block") return cachedTxBlockTemplateNames || [];
+  if (kind === "tx_workflow") return cachedTxWorkflowTemplateNames || [];
+  if (kind === "orchestration") return cachedOrchestrationTemplateNames || [];
+  return [];
+}
+
+function renderJsonTemplateOptionsByKind(kind) {
+  const cfg = jsonTemplateConfig(kind);
+  if (!cfg) return;
+  const selectedPicker = byId(cfg.pickerId)?.value || "";
+  const selectedRun = byId(cfg.runSelectId)?.value || "";
+  const names = getJsonTemplateNames(kind);
+  populateSelectOptions(cfg.pickerId, names, {
+    placeholder: t("templateSelectPlaceholder"),
+    selected: selectedPicker,
+  });
+  populateSelectOptions(cfg.runSelectId, names, {
+    placeholder: t("templateSelectPlaceholder"),
+    selected: selectedRun,
+  });
+  if (kind === "tx_block") {
+    populateSelectOptions("tx-block-manage-template-picker", names, {
+      placeholder: t("templateSelectPlaceholder"),
+      selected: byId("tx-block-manage-template-picker")?.value || "",
+    });
+  }
+}
+
+function renderJsonTemplateListByKind(kind, errorMessage = "") {
+  const cfg = jsonTemplateConfig(kind);
+  if (!cfg) return;
+  const out = byId(cfg.listId);
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      errorMessage
+    )}</div>`;
+    return;
+  }
+  const metas = getJsonTemplateMetas(kind);
+  if (!Array.isArray(metas) || metas.length === 0) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t(cfg.emptyKey)
+    )}</div>`;
+    return;
+  }
+  const selectedName = byId(cfg.pickerId)?.value?.trim() || "";
+  out.innerHTML = metas
+    .map((item) => {
+      const active = selectedName && item.name === selectedName;
+      const cls = active
+        ? "border-teal-300 bg-teal-50/70"
+        : "border-slate-200 bg-white hover:border-slate-300";
+      return `
+        <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-json-template-row ${cls}" data-manager="${escapeHtml(
+          kind
+        )}" data-name="${escapeHtml(item.name || "")}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+              item.name || "-"
+            )}</span>
+            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(
+              t("templateUseBtn")
+            )}</span>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+async function loadJsonTemplatesByKind(kind) {
+  const cfg = jsonTemplateConfig(kind);
+  if (!cfg) return;
+  try {
+    const data = await request("GET", cfg.apiBase);
+    const items = Array.isArray(data) ? data : [];
+    setJsonTemplateCache(kind, items);
+    renderJsonTemplateOptionsByKind(kind);
+    renderJsonTemplateListByKind(kind);
+    if (kind === "tx_block") {
+      renderTxBlockManageList();
+    }
+  } catch (e) {
+    setJsonTemplateCache(kind, []);
+    renderJsonTemplateOptionsByKind(kind);
+    renderJsonTemplateListByKind(kind, e.message);
+    if (kind === "tx_block") {
+      renderTxBlockManageList(e.message);
+    }
+  }
+}
+
+async function loadTxBlockTemplates() {
+  await loadJsonTemplatesByKind("tx_block");
+}
+
+async function loadTxWorkflowTemplates() {
+  await loadJsonTemplatesByKind("tx_workflow");
+}
+
+async function loadOrchestrationTemplates() {
+  await loadJsonTemplatesByKind("orchestration");
+}
+
+async function loadAllJsonTemplates() {
+  await Promise.allSettled([
+    loadTxBlockTemplates(),
+    loadTxWorkflowTemplates(),
+    loadOrchestrationTemplates(),
+  ]);
+}
+
+async function loadJsonTemplateDetail(kind, nameOverride = "") {
+  const cfg = jsonTemplateConfig(kind);
+  if (!cfg) return null;
+  const name = (nameOverride || byId(cfg.pickerId)?.value || "").trim();
+  if (!name) {
+    setStatusMessage(cfg.outId, t(cfg.nameRequiredKey), "error");
+    return null;
+  }
+  setStatusMessage(cfg.outId, t("running"), "running");
+  try {
+    const data = await request("GET", `${cfg.apiBase}/${encodeURIComponent(name)}`);
+    ensureSelectValue(cfg.pickerId, data.name || name);
+    byId(cfg.editorId).value = data.content || "";
+    renderJsonTemplateListByKind(kind);
+    setStatusMessage(cfg.outId, `${t("loaded")}: ${data.name || name}`, "success");
+    return data;
+  } catch (e) {
+    setStatusMessage(cfg.outId, e.message, "error");
+    return null;
+  }
+}
+
+async function saveJsonTemplateByKind(kind) {
+  const cfg = jsonTemplateConfig(kind);
+  if (!cfg) return;
+  const name = (byId(cfg.pickerId)?.value || "").trim();
+  const content = byId(cfg.editorId)?.value || "";
+  if (!name) {
+    setStatusMessage(cfg.outId, t(cfg.nameRequiredKey), "error");
+    return;
+  }
+  setStatusMessage(cfg.outId, t("running"), "running");
+  try {
+    const exists = getJsonTemplateNames(kind).includes(name);
+    const data = exists
+      ? await request("PUT", `${cfg.apiBase}/${encodeURIComponent(name)}`, { content })
+      : await request("POST", cfg.apiBase, { name, content });
+    setStatusMessage(
+      cfg.outId,
+      `${exists ? t("saved") : t("created")}: ${data.name || name}`,
+      "success"
+    );
+    await loadJsonTemplatesByKind(kind);
+    ensureSelectValue(cfg.pickerId, data.name || name);
+    byId(cfg.editorId).value = data.content || content;
+    renderJsonTemplateListByKind(kind);
+  } catch (e) {
+    setStatusMessage(cfg.outId, e.message, "error");
+  }
+}
+
+function createJsonTemplateDraftByKind(kind) {
+  const cfg = jsonTemplateConfig(kind);
+  if (!cfg) return;
+  const name = promptForResourceName(t(cfg.newPromptKey));
+  if (!name) return;
+  ensureSelectValue(cfg.pickerId, name);
+  byId(cfg.editorId).value = "";
+  renderJsonTemplateListByKind(kind);
+  setStatusMessage(cfg.outId, `${t("editingNew")}: ${name}`, "info");
+}
+
+async function deleteJsonTemplateByKind(kind) {
+  const cfg = jsonTemplateConfig(kind);
+  if (!cfg) return;
+  const name = (byId(cfg.pickerId)?.value || "").trim();
+  if (!name) {
+    setStatusMessage(cfg.outId, t(cfg.nameRequiredKey), "error");
+    return;
+  }
+  setStatusMessage(cfg.outId, t("running"), "running");
+  try {
+    await request("DELETE", `${cfg.apiBase}/${encodeURIComponent(name)}`);
+    byId(cfg.editorId).value = "";
+    setStatusMessage(cfg.outId, `${t("deleted")}: ${name}`, "success");
+    await loadJsonTemplatesByKind(kind);
+    if ((byId(cfg.pickerId)?.value || "").trim() === name) {
+      byId(cfg.pickerId).value = "";
+    }
+    renderJsonTemplateListByKind(kind);
+  } catch (e) {
+    setStatusMessage(cfg.outId, e.message, "error");
+  }
+}
+
+function openOrchestratedStage(stage) {
+  try {
+    if (window.Alpine && typeof window.Alpine.store === "function") {
+      const appStore = window.Alpine.store("app");
+      if (appStore && typeof appStore.openOrchestratedSection === "function") {
+        appStore.openOrchestratedSection(stage);
+        return;
+      }
+    }
+  } catch (_) {}
+  currentTab = "orchestrated";
+  currentTxStage = stage;
+  applyTabs();
+  applyTxStage();
+}
+
+function setPrettyJsonToTextarea(id, rawContent) {
+  const textarea = byId(id);
+  if (!textarea) return;
+  const text = String(rawContent || "").trim();
+  if (!text) {
+    textarea.value = "";
+    return;
+  }
+  try {
+    textarea.value = JSON.stringify(JSON.parse(text), null, 2);
+  } catch (_) {
+    textarea.value = text;
+  }
+}
+
+async function useJsonTemplateByKind(kind) {
+  const cfg = jsonTemplateConfig(kind);
+  if (!cfg) return;
+  const name = (byId(cfg.pickerId)?.value || "").trim();
+  if (!name) {
+    setStatusMessage(cfg.outId, t(cfg.nameRequiredKey), "error");
+    return;
+  }
+  ensureSelectValue(cfg.runSelectId, name);
+  if (cfg.runEditorId) {
+    const detail = await loadJsonTemplateDetail(kind, name);
+    if (detail && detail.content) {
+      setPrettyJsonToTextarea(cfg.runEditorId, detail.content);
+      if (kind === "tx_workflow" && typeof renderTxWorkflowPreviewFromEditor === "function") {
+        renderTxWorkflowPreviewFromEditor();
+      }
+      if (
+        kind === "orchestration" &&
+        typeof renderOrchestrationPreviewFromEditor === "function"
+      ) {
+        renderOrchestrationPreviewFromEditor();
+      }
+    }
+  }
+  openOrchestratedStage(cfg.runStage);
+  setStatusMessage(cfg.runOutId, `${t("loaded")}: ${name}`, "success");
+}
+
+function renderAllJsonTemplateOptions() {
+  renderJsonTemplateOptionsByKind("tx_block");
+  renderJsonTemplateOptionsByKind("tx_workflow");
+  renderJsonTemplateOptionsByKind("orchestration");
+}
+
+function renderAllJsonTemplateLists() {
+  renderJsonTemplateListByKind("tx_block");
+  renderJsonTemplateListByKind("tx_workflow");
+  renderJsonTemplateListByKind("orchestration");
+}
+
+function renderTxBlockManageList(errorMessage = "") {
+  const out = byId("tx-block-manage-list");
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      errorMessage
+    )}</div>`;
+    return;
+  }
+  const metas = getJsonTemplateMetas("tx_block");
+  if (!Array.isArray(metas) || metas.length === 0) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("txBlockTemplateListEmpty")
+    )}</div>`;
+    return;
+  }
+  const selected = byId("tx-block-manage-template-picker")?.value?.trim() || "";
+  out.innerHTML = metas
+    .map((item) => {
+      const active = selected && item.name === selected;
+      const cls = active
+        ? "border-teal-300 bg-teal-50/70"
+        : "border-slate-200 bg-white hover:border-slate-300";
+      return `
+        <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-tx-block-manage-row ${cls}" data-name="${escapeHtml(
+          item.name || ""
+        )}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+              item.name || "-"
+            )}</span>
+            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(
+              t("templateUseBtn")
+            )}</span>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+async function loadTxBlockTemplateIntoEditorByName(nameOverride = "") {
+  const name =
+    (nameOverride || byId("tx-block-manage-template-picker")?.value || "").trim();
+  if (!name) {
+    setStatusMessage(
+      "tx-block-manage-out",
+      t("txBlockTemplateNameRequired"),
+      "error"
+    );
+    return null;
+  }
+  setStatusMessage("tx-block-manage-out", t("running"), "running");
+  try {
+    const data = await request("GET", `/api/tx-block-templates/${encodeURIComponent(name)}`);
+    ensureSelectValue("tx-block-manage-template-picker", data.name || name);
+    ensureSelectValue("tx-block-template-name", data.name || name);
+    let parsed = null;
+    try {
+      parsed = JSON.parse(data.content || "{}");
+    } catch (e) {
+      throw new Error(e.message || "invalid tx block template json");
+    }
+    applyTxBlockTemplatePayloadToEditor(parsed);
+    renderTxBlockManageList();
+    setStatusMessage(
+      "tx-block-manage-out",
+      `${t("loaded")}: ${data.name || name}`,
+      "success"
+    );
+    return data;
+  } catch (e) {
+    setStatusMessage("tx-block-manage-out", e.message, "error");
+    return null;
+  }
+}
+
+async function saveTxBlockTemplateFromEditor() {
+  const name = (byId("tx-block-manage-template-picker")?.value || "").trim();
+  if (!name) {
+    setStatusMessage(
+      "tx-block-manage-out",
+      t("txBlockTemplateNameRequired"),
+      "error"
+    );
+    return;
+  }
+  setStatusMessage("tx-block-manage-out", t("running"), "running");
+  try {
+    const payload = buildTxBlockTemplatePayloadFromEditor();
+    const content = JSON.stringify(payload, null, 2);
+    const exists = getJsonTemplateNames("tx_block").includes(name);
+    const data = exists
+      ? await request("PUT", `/api/tx-block-templates/${encodeURIComponent(name)}`, {
+          content,
+        })
+      : await request("POST", "/api/tx-block-templates", { name, content });
+    await loadTxBlockTemplates();
+    ensureSelectValue("tx-block-manage-template-picker", data.name || name);
+    ensureSelectValue("tx-block-template-name", data.name || name);
+    renderTxBlockManageList();
+    setStatusMessage(
+      "tx-block-manage-out",
+      `${exists ? t("saved") : t("created")}: ${data.name || name}`,
+      "success"
+    );
+  } catch (e) {
+    setStatusMessage("tx-block-manage-out", e.message, "error");
+  }
+}
+
+async function deleteTxBlockTemplateFromManager() {
+  const name = (byId("tx-block-manage-template-picker")?.value || "").trim();
+  if (!name) {
+    setStatusMessage(
+      "tx-block-manage-out",
+      t("txBlockTemplateNameRequired"),
+      "error"
+    );
+    return;
+  }
+  setStatusMessage("tx-block-manage-out", t("running"), "running");
+  try {
+    await request("DELETE", `/api/tx-block-templates/${encodeURIComponent(name)}`);
+    await loadTxBlockTemplates();
+    ensureSelectValue("tx-block-manage-template-picker", "");
+    renderTxBlockManageList();
+    setStatusMessage("tx-block-manage-out", `${t("deleted")}: ${name}`, "success");
+  } catch (e) {
+    setStatusMessage("tx-block-manage-out", e.message, "error");
+  }
+}
+
+function createTxBlockTemplateDraftFromManager() {
+  const name = promptForResourceName(t("txBlockTemplateNewPrompt"));
+  if (!name) return;
+  ensureSelectValue("tx-block-manage-template-picker", name);
+  setStatusMessage("tx-block-manage-out", `${t("editingNew")}: ${name}`, "info");
+  renderTxBlockManageList();
+}
+
+async function loadSelectedTxBlockTemplateForExecution() {
+  const name = (byId("tx-block-template-name")?.value || "").trim();
+  if (!name) {
+    setStatusMessage("tx-plan-out", t("txBlockTemplateNameRequired"), "error");
+    return null;
+  }
+  ensureSelectValue("tx-block-manage-template-picker", name);
+  const detail = await loadTxBlockTemplateIntoEditorByName(name);
+  if (!detail) return null;
+  setStatusMessage("tx-plan-out", `${t("loaded")}: ${name}`, "success");
+  return detail;
+}
+
+async function useSelectedTxWorkflowTemplateForExecution() {
+  const cfg = jsonTemplateConfig("tx_workflow");
+  const name = (byId(cfg.runSelectId)?.value || "").trim();
+  if (!name) {
+    setStatusMessage(cfg.runOutId, t(cfg.nameRequiredKey), "error");
+    return;
+  }
+  ensureSelectValue(cfg.pickerId, name);
+  const detail = await loadJsonTemplateDetail("tx_workflow", name);
+  if (detail && detail.content) {
+    setPrettyJsonToTextarea(cfg.runEditorId, detail.content);
+    if (typeof renderTxWorkflowPreviewFromEditor === "function") {
+      renderTxWorkflowPreviewFromEditor();
+    }
+  }
+  setStatusMessage(cfg.runOutId, `${t("loaded")}: ${name}`, "success");
+}
+
+async function useSelectedOrchestrationTemplateForExecution() {
+  const cfg = jsonTemplateConfig("orchestration");
+  const name = (byId(cfg.runSelectId)?.value || "").trim();
+  if (!name) {
+    setStatusMessage(cfg.runOutId, t(cfg.nameRequiredKey), "error");
+    return;
+  }
+  ensureSelectValue(cfg.pickerId, name);
+  const detail = await loadJsonTemplateDetail("orchestration", name);
+  if (detail && detail.content) {
+    setPrettyJsonToTextarea(cfg.runEditorId, detail.content);
+    if (typeof renderOrchestrationPreviewFromEditor === "function") {
+      renderOrchestrationPreviewFromEditor();
+    }
+  }
+  setStatusMessage(cfg.runOutId, `${t("loaded")}: ${name}`, "success");
 }
 
 function uploadPayload() {

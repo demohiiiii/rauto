@@ -183,6 +183,7 @@ rauto flow \
 - 命令流程模板现在直接遵循 `rneter 0.4.0` 的结构化 `CommandFlowTemplate` 模型，不再使用之前那套临时字符串模板形态。
 - 命令流程模板现在可以声明 `vars` 列表，支持 `name`、`type`、`required`、`default`、`options`、`label`、`description` 等字段，便于运行时校验变量，也便于 Web 自动渲染输入表单。
 - 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
+- 运行时变量支持两种引用：`连接名.参数名`（跨连接取值）与 `参数名`（先查请求变量，再回退当前目标连接参数）。
 - 如果某个步骤没有显式写 `mode`，`rauto` 会使用设备 profile 定义的第一个状态。
 - 现在所有执行都会默认保存会话记录。
 - `--record-level key-events-only` 会保存最小审计信息：输入命令和设备回显。
@@ -767,14 +768,21 @@ rauto orchestrate ./orchestration.json --json
 - `connection`：单设备执行时的已解析连接参数（host/username/password/port/device_profile 等；如果是 saved connection，会额外提供 `connection.saved` 元数据）
 - `defaults`：编排执行时的全局默认连接参数（来自全局配置）
 - `now`：当前时间（`rfc3339` / `timestamp_ms`）
+- 支持顶层简写：`{{ peer_host }}` 会先查请求 vars，再回退当前目标连接参数。
+- 支持直接连接对象引用：`{{ edge94.host }}`、`{{ edge94.password }}`、`{{ edge94.vars.site }}`。
 
 字符串字段支持模板语法（minijinja），例如：
 
 ```json
 {
-  "command": "scp /tmp/{{ vars.image_file }} {{ connection.username }}@{{ vars.target_host }}:/tmp/{{ vars.image_file }}"
+  "command": "scp /tmp/{{ image_file }} {{ edge94.username }}@{{ edge94.host }}:/tmp/{{ image_file }}"
 }
 ```
+
+Web UI（`Operations -> Orchestrated Delivery`）也已同步支持单独填写：
+
+- `Tx Workflow` 的 `workflow_vars`
+- `Orchestration` 的 `plan_vars`
 
 **Inventory CLI**
 

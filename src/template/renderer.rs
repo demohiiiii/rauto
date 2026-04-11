@@ -1,6 +1,6 @@
 use crate::config::content_store;
 use anyhow::{Result, anyhow};
-use minijinja::Environment;
+use minijinja::{Environment, UndefinedBehavior};
 use serde_json::Value;
 
 pub struct Renderer<'a> {
@@ -10,6 +10,8 @@ pub struct Renderer<'a> {
 impl<'a> Renderer<'a> {
     pub fn new() -> Self {
         let mut env = Environment::new();
+        // Fail fast when required variables are missing instead of silently rendering empty strings.
+        env.set_undefined_behavior(UndefinedBehavior::Strict);
 
         env.set_loader(move |name| {
             if let Some(stored) = content_store::load_command_template(name).map_err(|e| {
@@ -48,5 +50,23 @@ impl<'a> Renderer<'a> {
             .map_err(|e| anyhow!("Failed to render string template: {}", e))?;
 
         Ok(rendered)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Renderer;
+
+    #[test]
+    fn render_string_fails_on_missing_variables() {
+        let renderer = Renderer::new();
+        let err = renderer
+            .render_string("{{ required_var }}", serde_json::json!({}))
+            .expect_err("missing var should fail");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("undefined") || msg.contains("Undefined") || msg.contains("required_var"),
+            "unexpected error message: {msg}"
+        );
     }
 }

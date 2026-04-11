@@ -189,6 +189,21 @@ const i18n = {
     txRollbackOnFailureLabel: "rollback failed step",
     txRollbackTriggerStepPlaceholder: "trigger step index (default 0)",
     txBasicTitle: "Transaction Block",
+    txBlockEditorTitle: "Tx Block Editor",
+    txBlockViewDirect: "Direct Execute",
+    txBlockViewTemplate: "Template Execute",
+    txBlockViewManage: "Template Manage",
+    txBlockDirectHint:
+      "Build and run a tx block directly from the shared editor form.",
+    txBlockTemplateRunTitle: "Tx Block Template",
+    txBlockTemplateRunHint:
+      "Select a saved template and execute, or load it into the shared editor.",
+    txBlockTemplateVarsPlaceholder:
+      'tx block template vars JSON (optional), e.g. {"peer_host":"edge94.host"}',
+    txBlockTemplateApplyBtn: "Load To Editor",
+    txBlockManageHint:
+      "Create/update templates from the same editor form. Select one to load into the editor.",
+    txBlockManageLoadBtn: "Load",
     txFlowTemplatePlaceholder: "command flow template name",
     txFlowVarsPlaceholder: 'JSON vars for command flow, e.g. {"package":"nginx"}',
     txFlowRollbackTemplatePlaceholder:
@@ -333,6 +348,10 @@ const i18n = {
     txWorkflowBuilderEmpty: "no blocks yet, add one first",
     txWorkflowJsonPlaceholder:
       '{"name":"fw-policy-publish","blocks":[],"fail_fast":true}',
+    txWorkflowVarsPlaceholder:
+      'workflow vars JSON (optional), e.g. {"peer_host":"edge94.host"}',
+    txWorkflowVarsHint:
+      "Supports direct cross-connection refs like edge94.host. Plain keys fallback to current target connection params.",
     txWorkflowPlanBtn: "Preview Workflow",
     txWorkflowExecBtn: "Execute Workflow",
     txWorkflowVisualTitle: "Workflow Visual Preview",
@@ -357,7 +376,15 @@ const i18n = {
     txWorkflowLoadInvalidJsonShape: "workflow json must be an object",
     txWorkflowLoadUnsupportedOperation:
       "workflow builder JSON backfill currently supports command-only steps and rollback operations",
+    txWorkflowTemplateRunTitle: "Workflow Template",
+    txWorkflowTemplateLoadBtn: "Apply To JSON",
+    txWorkflowTemplateRunHint:
+      "Select a saved workflow template and optionally apply it to the JSON editor.",
     orchestrationTitle: "Multi-device Orchestration",
+    orchestrationTemplateRunTitle: "Orchestration Template",
+    orchestrationTemplateLoadBtn: "Apply To JSON",
+    orchestrationTemplateRunHint:
+      "Select a saved orchestration template and apply it to the plan JSON editor when needed.",
     orchestrationInventoryAssistTitle: "Inventory Assist",
     orchestrationInventoryGroupsLabel: "Inventory Groups",
     orchestrationInventoryHostsLabel: "Saved Connections",
@@ -372,6 +399,10 @@ const i18n = {
     orchestrationInventoryBuildDone: "starter orchestration plan created from inventory",
     orchestrationBaseDirPlaceholder:
       "base dir for inventory/workflow relative paths (optional)",
+    orchestrationVarsPlaceholder:
+      'plan vars JSON (optional), e.g. {"peer_host":"edge94.host"}',
+    orchestrationVarsHint:
+      "Template strings can use {{ peer_host }} (vars + fallback) or direct {{ edge94.host }}.",
     orchestrationJsonPlaceholder:
       '{"name":"campus-rollout","stages":[],"inventory_file":"./inventory.json"}',
     orchestrationPlanBtn: "Preview Orchestration",
@@ -437,6 +468,9 @@ const i18n = {
     builtinFieldNotes: "notes",
     customTitle: "Custom Profiles",
     templateMgrTitle: "Template Manager",
+    txBlockTemplateMgrTitle: "Tx Block Templates",
+    txWorkflowTemplateMgrTitle: "Tx Workflow Templates",
+    orchestrationTemplateMgrTitle: "Orchestration Templates",
     transferTitle: "SFTP Upload",
     flowRunTitle: "Run Saved Command Flow",
     uploadTitle: "SFTP Upload",
@@ -557,7 +591,11 @@ const i18n = {
     blacklistMatchedPattern: "Matched Pattern",
     blacklistCheckedCommand: "Command",
     templateListTitle: "Templates",
+    templateCommonTabTitle: "Standard Templates",
     templateListEmpty: "no templates",
+    txBlockTemplateListEmpty: "no tx block templates",
+    txWorkflowTemplateListEmpty: "no tx workflow templates",
+    orchestrationTemplateListEmpty: "no orchestration templates",
     templateUseBtn: "Open",
     flowHint:
       "Use a saved command flow template for wizard-style CLI interactions. Variables are optional and will be merged into the template render context.",
@@ -565,7 +603,7 @@ const i18n = {
     flowVarsFieldsHint: "Template-declared vars will appear here when available.",
     flowVarsFieldsEmpty: "This template does not declare any vars.",
     flowVarsJsonHint:
-      "Use JSON for advanced overrides or extra vars not declared by the template.",
+      "Use JSON for advanced overrides. Reference values support connection.param or plain param fallback lookup.",
     flowVarTypeLabel: "Type",
     flowVarRequiredLabel: "Required",
     flowVarOptionalLabel: "Optional",
@@ -663,6 +701,7 @@ const i18n = {
     diagnoseBad: "Issues Found",
     profileNameRequired: "profile name is required",
     templateNameRequired: "template name is required",
+    templateExistsHint: "template already exists, loaded existing template",
     diagTotalStates: "Total States",
     diagGraphStates: "States In Graph",
     diagEntryStates: "Entry States",
@@ -736,6 +775,12 @@ const i18n = {
     templateViewPickerPlaceholder: "search/select template name",
     templateSelectPlaceholder: "Select a template",
     templateContentPlaceholder: "Template content",
+    txBlockTemplateContentPlaceholder:
+      '{"run_kind":"commands","commands":["show version"]}',
+    txWorkflowTemplateContentPlaceholder:
+      '{"name":"fw-policy-publish","blocks":[],"fail_fast":true}',
+    orchestrationTemplateContentPlaceholder:
+      '{"name":"campus-rollout","stages":[]}',
     flowTemplateRunPlaceholder: "command flow template name",
     flowVarsPlaceholder: 'JSON vars, e.g. {"package": "nginx"}',
     flowTemplatePickerPlaceholder: "command flow template name (optional)",
@@ -763,10 +808,14 @@ const i18n = {
     remotePathRequired: "remote path is required",
     running: "running...",
     templateNewPrompt: "Enter a new template name",
+    txBlockTemplateNewPrompt: "Enter a new tx block template name",
+    txWorkflowTemplateNewPrompt: "Enter a new tx workflow template name",
+    orchestrationTemplateNewPrompt: "Enter a new orchestration template name",
     flowTemplateNewPrompt: "Enter a new command flow template name",
     profileNewPrompt: "Enter a new custom profile name",
     requestFailed: "Request failed",
     commandRequired: "command is required",
+    txCommandsRequired: "tx commands are required (or choose a tx block template)",
     connectionNameRequired: "connection name is required",
     saved: "Saved",
     deleted: "Deleted",
@@ -776,6 +825,10 @@ const i18n = {
     needLoadBuiltinFirst: "Load builtin detail first",
     copiedToCustom: "Copied to custom form",
     flowTemplateNameRequired: "command flow template name is required",
+    txBlockTemplateNameRequired: "tx block template name is required",
+    txWorkflowTemplateNameRequired: "tx workflow template name is required",
+    orchestrationTemplateNameRequired:
+      "orchestration template name is required",
   },
   zh: {
     title: "rauto Web 控制台",
@@ -956,6 +1009,19 @@ const i18n = {
     txRollbackOnFailureLabel: "失败步也回滚",
     txRollbackTriggerStepPlaceholder: "回滚触发步序号（默认 0）",
     txBasicTitle: "事务块执行",
+    txBlockEditorTitle: "事务块编辑表单",
+    txBlockViewDirect: "直接执行",
+    txBlockViewTemplate: "模板执行",
+    txBlockViewManage: "模板管理",
+    txBlockDirectHint: "使用下方统一编辑表单直接构建并执行事务块。",
+    txBlockTemplateRunTitle: "事务块模板",
+    txBlockTemplateRunHint: "选择模板后可直接执行，或回填到统一编辑表单。",
+    txBlockTemplateVarsPlaceholder:
+      '事务块模板变量 JSON（可选），例如 {"peer_host":"edge94.host"}',
+    txBlockTemplateApplyBtn: "回填到编辑表单",
+    txBlockManageHint:
+      "模板新增/更新都复用同一套编辑表单，选择模板可直接加载到编辑器。",
+    txBlockManageLoadBtn: "加载",
     txFlowTemplatePlaceholder: "命令流程模板名称",
     txFlowVarsPlaceholder: '命令流程变量 JSON，例如 {"package":"nginx"}',
     txFlowRollbackTemplatePlaceholder: "回滚命令流程模板名称（可选）",
@@ -1097,6 +1163,10 @@ const i18n = {
     txWorkflowBuilderEmpty: "还没有 block，请先添加",
     txWorkflowJsonPlaceholder:
       '{"name":"fw-policy-publish","blocks":[],"fail_fast":true}',
+    txWorkflowVarsPlaceholder:
+      'workflow 变量 JSON（可选），例如 {"peer_host":"edge94.host"}',
+    txWorkflowVarsHint:
+      "支持直接跨连接引用（如 edge94.host）；仅写变量名时会回退到当前目标连接参数。",
     txWorkflowPlanBtn: "预览工作流",
     txWorkflowExecBtn: "执行工作流",
     txWorkflowVisualTitle: "工作流可视化预览",
@@ -1121,7 +1191,14 @@ const i18n = {
     txWorkflowLoadInvalidJsonShape: "workflow JSON 顶层必须是对象",
     txWorkflowLoadUnsupportedOperation:
       "工作流构建器回填当前仅支持 command 类型的步骤与回滚操作",
+    txWorkflowTemplateRunTitle: "工作流模板",
+    txWorkflowTemplateLoadBtn: "应用到 JSON",
+    txWorkflowTemplateRunHint: "选择已保存工作流模板，可按需应用到 JSON 编辑器。",
     orchestrationTitle: "多设备编排",
+    orchestrationTemplateRunTitle: "编排模板",
+    orchestrationTemplateLoadBtn: "应用到 JSON",
+    orchestrationTemplateRunHint:
+      "选择已保存编排模板，可按需应用到计划 JSON 编辑器。",
     orchestrationInventoryAssistTitle: "Inventory 助手",
     orchestrationInventoryGroupsLabel: "Inventory 分组",
     orchestrationInventoryHostsLabel: "已保存连接",
@@ -1134,6 +1211,10 @@ const i18n = {
     orchestrationInventoryMergeDone: "已将 inventory 合并到编排计划",
     orchestrationInventoryBuildDone: "已根据 inventory 生成起始编排计划",
     orchestrationBaseDirPlaceholder: "inventory/workflow 相对路径的基准目录（可选）",
+    orchestrationVarsPlaceholder:
+      'plan 变量 JSON（可选），例如 {"peer_host":"edge94.host"}',
+    orchestrationVarsHint:
+      "模板字符串支持 {{ peer_host }}（变量+回退）或直接 {{ edge94.host }}。",
     orchestrationJsonPlaceholder:
       '{"name":"campus-rollout","stages":[],"inventory_file":"./inventory.json"}',
     orchestrationPlanBtn: "预览编排",
@@ -1199,6 +1280,9 @@ const i18n = {
     builtinFieldNotes: "说明",
     customTitle: "自定义 Profile",
     templateMgrTitle: "Template 管理",
+    txBlockTemplateMgrTitle: "事务块模板",
+    txWorkflowTemplateMgrTitle: "事务工作流模板",
+    orchestrationTemplateMgrTitle: "编排模板",
     transferTitle: "SFTP 上传",
     flowRunTitle: "执行已保存命令流程",
     uploadTitle: "SFTP 上传",
@@ -1317,14 +1401,19 @@ const i18n = {
     blacklistMatchedPattern: "命中规则",
     blacklistCheckedCommand: "命令",
     templateListTitle: "Template 列表",
+    templateCommonTabTitle: "普通模板",
     templateListEmpty: "暂无 template",
+    txBlockTemplateListEmpty: "暂无事务块模板",
+    txWorkflowTemplateListEmpty: "暂无事务工作流模板",
+    orchestrationTemplateListEmpty: "暂无编排模板",
     templateUseBtn: "打开",
     flowHint:
       "已保存命令流程模板适合执行向导式 CLI 交互。变量可选，会并入模板渲染上下文。",
     flowVarsFieldsTitle: "模板变量",
     flowVarsFieldsHint: "模板声明的变量会在这里自动渲染。",
     flowVarsFieldsEmpty: "该模板没有声明变量。",
-    flowVarsJsonHint: "JSON 区域可用于填写高级覆盖值，或补充模板未声明的额外变量。",
+    flowVarsJsonHint:
+      "JSON 区域可用于填写高级覆盖值。引用值支持 connection.param，也支持仅写 param 后自动回退查询。",
     flowVarTypeLabel: "类型",
     flowVarRequiredLabel: "必填",
     flowVarOptionalLabel: "可选",
@@ -1422,6 +1511,7 @@ const i18n = {
     diagnoseBad: "发现问题",
     profileNameRequired: "profile 名称不能为空",
     templateNameRequired: "template 名称不能为空",
+    templateExistsHint: "模板已存在，已加载现有模板",
     diagTotalStates: "状态总数",
     diagGraphStates: "参与图构建的状态数",
     diagEntryStates: "入口状态数",
@@ -1501,6 +1591,12 @@ const i18n = {
     templateViewPickerPlaceholder: "搜索/选择 template 名称",
     templateSelectPlaceholder: "选择模板",
     templateContentPlaceholder: "Template 内容",
+    txBlockTemplateContentPlaceholder:
+      '{"run_kind":"commands","commands":["show version"]}',
+    txWorkflowTemplateContentPlaceholder:
+      '{"name":"fw-policy-publish","blocks":[],"fail_fast":true}',
+    orchestrationTemplateContentPlaceholder:
+      '{"name":"campus-rollout","stages":[]}',
     flowTemplateRunPlaceholder: "命令流程模板名称",
     flowVarsPlaceholder: 'JSON 变量，例如 {"package": "nginx"}',
     flowTemplatePickerPlaceholder: "命令流程模板名称（可选）",
@@ -1526,10 +1622,14 @@ const i18n = {
     remotePathRequired: "远端路径不能为空",
     running: "执行中...",
     templateNewPrompt: "请输入新的模板名称",
+    txBlockTemplateNewPrompt: "请输入新的事务块模板名称",
+    txWorkflowTemplateNewPrompt: "请输入新的事务工作流模板名称",
+    orchestrationTemplateNewPrompt: "请输入新的编排模板名称",
     flowTemplateNewPrompt: "请输入新的命令流程模板名称",
     profileNewPrompt: "请输入新的自定义 profile 名称",
     requestFailed: "请求失败",
     commandRequired: "命令不能为空",
+    txCommandsRequired: "事务命令不能为空（或选择事务块模板）",
     connectionNameRequired: "连接配置名称不能为空",
     saved: "已保存",
     deleted: "已删除",
@@ -1539,5 +1639,8 @@ const i18n = {
     needLoadBuiltinFirst: "请先加载内置详情",
     copiedToCustom: "已复制到新增/修改表单",
     flowTemplateNameRequired: "命令流程模板名称不能为空",
+    txBlockTemplateNameRequired: "事务块模板名称不能为空",
+    txWorkflowTemplateNameRequired: "事务工作流模板名称不能为空",
+    orchestrationTemplateNameRequired: "编排模板名称不能为空",
   },
 };
