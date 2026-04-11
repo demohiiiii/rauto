@@ -2161,6 +2161,213 @@ fn resolve_runtime_vars_with_connection(
     resolve_runtime_var_aliases(vars, context).map_err(ApiError::from)
 }
 
+fn resolve_template_runtime_vars_with_connection(
+    vars: Value,
+    conn: Option<&ResolvedConnection>,
+) -> Result<Value, ApiError> {
+    if !vars.is_null() && !vars.is_object() {
+        return Err(ApiError::bad_request("template vars must be a JSON object"));
+    }
+    resolve_runtime_vars_with_connection(vars, conn)
+}
+
+fn is_sensitive_key_name(key: &str) -> bool {
+    let normalized = key.trim().to_ascii_lowercase().replace('-', "_");
+    normalized.contains("password")
+        || normalized.contains("passwd")
+        || normalized == "pass"
+        || normalized.ends_with("_pass")
+        || normalized.contains("secret")
+        || normalized.contains("token")
+        || normalized == "enable_password"
+        || normalized.contains("private_key")
+}
+
+fn collect_sensitive_strings(value: &Value, parent_key: Option<&str>, out: &mut Vec<String>) {
+    match value {
+        Value::Object(map) => {
+            for (key, item) in map {
+                collect_sensitive_strings(item, Some(key), out);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_sensitive_strings(item, parent_key, out);
+            }
+        }
+        Value::String(text) => {
+            if let Some(key) = parent_key
+                && is_sensitive_key_name(key)
+                && !text.trim().is_empty()
+            {
+                out.push(text.clone());
+            }
+        }
+        _ => {}
+    }
+}
+
+fn sanitize_rendered_output_for_response(rendered: &str, context: &Value) -> String {
+    let mut secrets = Vec::new();
+    collect_sensitive_strings(context, None, &mut secrets);
+    if secrets.is_empty() {
+        return rendered.to_string();
+    }
+    secrets.sort_by(|a, b| b.len().cmp(&a.len()));
+    secrets.dedup();
+    let mut masked = rendered.to_string();
+    for secret in secrets {
+        if secret.trim().is_empty() {
+            continue;
+        }
+        masked = masked.replace(&secret, "******");
+    }
+    masked
+}
+
+fn has_non_empty_object(value: &Value) -> bool {
+    value
+        .as_object()
+        .map(|map| !map.is_empty())
+        .unwrap_or(false)
+}
+
+fn resolve_render_connection_context_fallback(
+    defaults: &crate::cli::GlobalOpts,
+    incoming: Option<ConnectionRequest>,
+) -> Option<ResolvedConnection> {
+    let incoming = incoming.unwrap_or(ConnectionRequest {
+        connection_name: None,
+        host: None,
+        username: None,
+        password: None,
+        port: None,
+        enable_password: None,
+        ssh_security: None,
+        linux_shell_flavor: None,
+        device_profile: None,
+        template_dir: None,
+        enabled: true,
+        labels: vec![],
+        groups: vec![],
+        vars: serde_json::json!({}),
+    });
+
+    let connection_name = incoming
+        .connection_name
+        .clone()
+        .or_else(|| defaults.connection.clone());
+
+    let saved_raw = connection_name
+        .as_ref()
+        .and_then(|name| connection_store::load_connection_raw(name).ok());
+
+    let vars = if has_non_empty_object(&incoming.vars) {
+        incoming.vars.clone()
+    } else {
+        saved_raw
+            .as_ref()
+            .map(|saved| saved.vars.clone())
+            .filter(has_non_empty_object)
+            .unwrap_or_else(|| serde_json::json!({}))
+    };
+
+    let host = incoming
+        .host
+        .clone()
+        .or_else(|| saved_raw.as_ref().and_then(|saved| saved.host.clone()))
+        .or_else(|| defaults.host.clone())
+        .unwrap_or_default();
+
+    let username = incoming
+        .username
+        .clone()
+        .or_else(|| saved_raw.as_ref().and_then(|saved| saved.username.clone()))
+        .or_else(|| defaults.username.clone())
+        .unwrap_or_else(|| "admin".to_string());
+
+    let password = incoming
+        .password
+        .clone()
+        .or_else(|| defaults.password.clone())
+        .unwrap_or_default();
+
+    let port = incoming
+        .port
+        .or_else(|| saved_raw.as_ref().and_then(|saved| saved.port))
+        .or(defaults.port)
+        .unwrap_or(22);
+
+    let enable_password = incoming
+        .enable_password
+        .clone()
+        .or_else(|| defaults.enable_password.clone());
+
+    let ssh_security = incoming
+        .ssh_security
+        .or_else(|| saved_raw.as_ref().and_then(|saved| saved.ssh_security))
+        .or(defaults.ssh_security)
+        .unwrap_or_default();
+
+    let linux_shell_flavor = incoming
+        .linux_shell_flavor
+        .or_else(|| {
+            saved_raw
+                .as_ref()
+                .and_then(|saved| saved.linux_shell_flavor)
+        })
+        .or(defaults.linux_shell_flavor);
+
+    let device_profile = incoming
+        .device_profile
+        .clone()
+        .or_else(|| {
+            saved_raw
+                .as_ref()
+                .and_then(|saved| saved.device_profile.clone())
+        })
+        .or_else(|| defaults.device_profile.clone())
+        .unwrap_or_else(|| template_loader::DEFAULT_DEVICE_PROFILE.to_string());
+
+    if connection_name.is_none() && host.trim().is_empty() && !has_non_empty_object(&vars) {
+        return None;
+    }
+
+    Some(ResolvedConnection {
+        connection_name,
+        host,
+        username,
+        password,
+        port,
+        enable_password,
+        ssh_security,
+        linux_shell_flavor,
+        device_profile,
+        vars,
+    })
+}
+
+fn render_commands_with_runtime_context(
+    template_name: &str,
+    vars: Value,
+    conn: Option<&ResolvedConnection>,
+) -> Result<(String, String), ApiError> {
+    let resolved_vars = resolve_template_runtime_vars_with_connection(vars, conn)?;
+    let mut render_context = build_json_template_context(resolved_vars, conn);
+    if let Some(stored) =
+        content_store::load_command_template(template_name).map_err(ApiError::from)?
+    {
+        enrich_context_with_connection_refs_from_template(&mut render_context, &stored.content)
+            .map_err(ApiError::from)?;
+    }
+    let renderer = Renderer::new();
+    let rendered = renderer
+        .render_file(template_name, render_context.clone())
+        .map_err(ApiError::from)?;
+    let masked = sanitize_rendered_output_for_response(&rendered, &render_context);
+    Ok((rendered, masked))
+}
+
 fn render_command_flow_operation(
     template: CommandFlowTemplate,
     runtime: rneter_templates::CommandFlowTemplateRuntime,
@@ -2325,13 +2532,25 @@ pub async fn render_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RenderRequest>,
 ) -> Result<Json<RenderResponse>, ApiError> {
-    let _ = state;
+    let incoming_connection = req.connection.clone();
+    let resolved_conn = match merge_connection_options(&state.defaults, incoming_connection.clone())
+    {
+        Ok(conn) => Some(conn),
+        Err(err) => {
+            let fallback =
+                resolve_render_connection_context_fallback(&state.defaults, incoming_connection);
+            if fallback.is_none() {
+                warn!("render template context fallback skipped: {:?}", err);
+            }
+            fallback
+        }
+    };
     let _ = req.template_dir.as_ref();
-    let renderer = Renderer::new();
-    let rendered = renderer.render_file(&req.template, req.vars)?;
+    let (_, masked_rendered) =
+        render_commands_with_runtime_context(&req.template, req.vars, resolved_conn.as_ref())?;
 
     Ok(Json(RenderResponse {
-        rendered_commands: rendered,
+        rendered_commands: masked_rendered,
     }))
 }
 
@@ -3068,9 +3287,22 @@ pub async fn execute_template(
     );
     let result: Result<ExecuteTemplateResponse, ApiError> = async {
         let record_level = req.target.record_level;
+        let dry_run = req.run.dry_run.unwrap_or(false);
+        let incoming_connection = req.target.connection.clone();
+        let render_conn = if dry_run {
+            merge_connection_options(&state.defaults, incoming_connection.clone()).ok()
+        } else {
+            Some(merge_connection_options(
+                &state.defaults,
+                incoming_connection.clone(),
+            )?)
+        };
         let _ = req.template_dir.as_ref();
-        let renderer = Renderer::new();
-        let rendered_commands = renderer.render_file(&req.template, req.vars)?;
+        let (rendered_commands, masked_rendered_commands) = render_commands_with_runtime_context(
+            &req.template,
+            req.vars,
+            render_conn.as_ref(),
+        )?;
         emit_task_event(
             &state,
             &task_ctx,
@@ -3083,9 +3315,9 @@ pub async fn execute_template(
                 }))),
         );
 
-        if req.run.dry_run.unwrap_or(false) {
+        if dry_run {
             let rendered_count = count_non_empty_lines(&rendered_commands);
-            return Ok(ExecuteTemplateResponse {
+                return Ok(ExecuteTemplateResponse {
                 result_summary: task_result_with_details(
                     task_result_with_counts(
                         build_result_summary(
@@ -3101,11 +3333,11 @@ pub async fn execute_template(
                         "rendered_command_count": rendered_count
                     }),
                 ),
-                rendered_commands,
-                executed: Vec::new(),
-                recording_jsonl: None,
-            });
-        }
+                    rendered_commands: masked_rendered_commands,
+                    executed: Vec::new(),
+                    recording_jsonl: None,
+                });
+            }
 
         let lines: Vec<String> = rendered_commands
             .lines()
@@ -3118,7 +3350,10 @@ pub async fn execute_template(
         )
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-        let conn = merge_connection_options(&state.defaults, req.target.connection)?;
+        let conn = match render_conn {
+            Some(conn) => conn,
+            None => merge_connection_options(&state.defaults, incoming_connection)?,
+        };
         let handler = template_loader::load_device_profile_for_connection(
             &conn.device_profile,
             conn.linux_shell_flavor,
@@ -3239,7 +3474,7 @@ pub async fn execute_template(
         let failed = executed_count - succeeded;
         let recording_jsonl = client.recording_jsonl()?;
         Ok(ExecuteTemplateResponse {
-            rendered_commands,
+            rendered_commands: masked_rendered_commands,
             executed,
             result_summary: task_result_with_details(
                 task_result_with_recording(
@@ -4912,7 +5147,8 @@ pub async fn replay_session(
 mod tests {
     use super::{
         TaskReportContext, build_json_template_context, merged_saved_secret,
-        require_managed_async_task, saved_connection_detail_response, should_persist_secret,
+        require_managed_async_task, sanitize_rendered_output_for_response,
+        saved_connection_detail_response, should_persist_secret,
     };
     use crate::config::connection_store::SavedConnection;
     use crate::config::linux_shell::LinuxShellFlavor;
@@ -5048,5 +5284,27 @@ mod tests {
             context["vars"]["peer_host"],
             serde_json::json!("edge-94.host")
         );
+    }
+
+    #[test]
+    fn sanitize_rendered_output_masks_password_like_values() {
+        let context = serde_json::json!({
+            "host": "192.168.30.92",
+            "password": "secret-pass",
+            "enable_password": "enable-pass",
+            "api_token": "token-123",
+            "vars": {
+                "db_password": "db-pass"
+            }
+        });
+        let rendered = "ssh admin@192.168.30.92 password=secret-pass enable=enable-pass token=token-123 db=db-pass";
+        let masked = sanitize_rendered_output_for_response(rendered, &context);
+
+        assert!(!masked.contains("secret-pass"));
+        assert!(!masked.contains("enable-pass"));
+        assert!(!masked.contains("token-123"));
+        assert!(!masked.contains("db-pass"));
+        assert!(masked.contains("192.168.30.92"));
+        assert!(masked.matches("******").count() >= 4);
     }
 }
