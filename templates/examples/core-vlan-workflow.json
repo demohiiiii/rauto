@@ -4,7 +4,6 @@
   "blocks": [
     {
       "name": "create-vlan",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": "per_step",
       "steps": [
@@ -40,7 +39,6 @@
     },
     {
       "name": "create-svi",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": {
         "whole_resource": {

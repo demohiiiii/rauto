@@ -22,8 +22,7 @@ use cli::{
 };
 use config::command_flow_template::{
     CommandFlowTemplate, ParsedCommandFlowTemplate, build_command_flow_runtime,
-    normalize_command_flow_template_body,
-    parse_command_flow_template_with_extensions,
+    normalize_command_flow_template_body, parse_command_flow_template_with_extensions,
 };
 use config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -45,9 +44,9 @@ use config::{backup, command_blacklist, content_store};
 use device::DeviceClient;
 use rneter::device::DeviceHandler;
 use rneter::session::{
-    CommandBlockKind, ConnectionRequest as ManagerConnectionRequest, ExecutionContext, MANAGER,
-    RollbackPolicy, SessionEvent, SessionOperation, SessionRecordLevel, SessionRecorder,
-    SessionReplayer, TxBlock, TxOperationStepResult, TxStep, TxWorkflowResult,
+    ConnectionRequest as ManagerConnectionRequest, ExecutionContext, MANAGER, RollbackPolicy,
+    SessionEvent, SessionOperation, SessionRecordLevel, SessionRecorder, SessionReplayer, TxBlock,
+    TxOperationStepResult, TxStep, TxWorkflowResult,
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -1672,6 +1671,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                 args.rollback_on_failure,
                 args.resource_rollback_command.clone(),
                 args.rollback_trigger_step_index,
+                false,
             )?;
             (tx_block, mode)
         }
@@ -1765,16 +1765,17 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                         &conn,
                         rollback_template.current_connection_alias.as_deref(),
                     )?;
-                    let mut rollback_flow = rollback_template
-                        .template
-                        .to_command_flow(&build_command_flow_runtime(
-                            mode.clone(),
-                            conn.connection_name.as_deref(),
-                            &conn.host,
-                            &conn.username,
-                            &conn.device_profile,
-                            rollback_runtime_vars,
-                        ))?;
+                    let mut rollback_flow =
+                        rollback_template
+                            .template
+                            .to_command_flow(&build_command_flow_runtime(
+                                mode.clone(),
+                                conn.connection_name.as_deref(),
+                                &conn.host,
+                                &conn.username,
+                                &conn.device_profile,
+                                rollback_runtime_vars,
+                            ))?;
                     if let Some(timeout_secs) = args.timeout_secs {
                         for step in &mut rollback_flow.steps {
                             step.timeout = Some(timeout_secs);
@@ -1798,7 +1799,6 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             }
             let tx_block = TxBlock {
                 name: args.name.clone(),
-                kind: CommandBlockKind::Config,
                 rollback_policy: RollbackPolicy::PerStep,
                 steps: vec![step],
                 fail_fast: true,
@@ -2220,15 +2220,15 @@ fn render_tx_workflow_plan(
                 &[
                     "name".to_string(),
                     block.name.clone(),
-                    "kind".to_string(),
-                    format!("{:?}", block.kind)
+                    "steps".to_string(),
+                    block.steps.len().to_string()
                 ],
                 &BLOCK_META_COLS,
                 &[
                     CellStyle::Label,
                     CellStyle::Value,
                     CellStyle::Label,
-                    block_kind_style(block.kind),
+                    CellStyle::Info,
                 ],
                 &ansi,
             )
@@ -2636,13 +2636,6 @@ impl AnsiTheme {
 
     fn border(&self, text: &str) -> String {
         self.paint("2;37", text)
-    }
-}
-
-fn block_kind_style(kind: CommandBlockKind) -> CellStyle {
-    match kind {
-        CommandBlockKind::Show => CellStyle::Info,
-        CommandBlockKind::Config => CellStyle::Warn,
     }
 }
 

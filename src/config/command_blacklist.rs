@@ -195,7 +195,6 @@ fn now_epoch_ms() -> u128 {
 mod tests {
     use super::*;
     use crate::db;
-    use rneter::session::CommandBlockKind;
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -228,7 +227,6 @@ mod tests {
 
         let tx_block = TxBlock {
             name: "demo".to_string(),
-            kind: CommandBlockKind::Config,
             rollback_policy: crate::tx_operation::whole_resource_rollback_policy(
                 "Config", "reload", None, 0,
             ),

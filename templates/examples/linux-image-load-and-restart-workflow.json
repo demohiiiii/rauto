@@ -4,7 +4,6 @@
   "blocks": [
     {
       "name": "load-and-restart",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": "per_step",
       "steps": [

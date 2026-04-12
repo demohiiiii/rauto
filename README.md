@@ -534,7 +534,6 @@ rauto tx-workflow ./workflow.json --dry-run --json
   "blocks": [
     {
       "name": "addr-objects",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": "per_step",
       "steps": [
@@ -556,7 +555,6 @@ rauto tx-workflow ./workflow.json --dry-run --json
     },
     {
       "name": "policy",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": {
         "whole_resource": {

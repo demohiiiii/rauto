@@ -149,7 +149,7 @@
                     </div>
 
                     <div id="op-exec-template-fields" class="grid gap-3" x-show="$store.app.currentExecMode === 'template'" x-cloak>
-                      <input id="template" class="input" placeholder="template file name or path" />
+                      <select id="template" class="select" title="Template" aria-label="Template"></select>
                       <div class="group-card">
                         <div class="field-tools">
                           <span id="template-selected-content-title">Selected Template Content</span>
@@ -252,7 +252,7 @@
                       <button id="tx-run-kind-flow" class="tab" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('flow')" x-bind:class="{ 'tab-active': $store.app.currentTxBlockRunKind === 'flow' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'flow').toString()">Command Flow</button>
                     </div>
                         <div id="tx-block-command-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'commands'" x-cloak>
-                          <input id="tx-template" class="input" placeholder="template file name or path (optional)" />
+                          <select id="tx-template" class="select" title="Command Template" aria-label="Command Template"></select>
                           <textarea id="tx-commands" class="input min-h-24 font-mono" placeholder="commands (one per line, optional when template is set)"></textarea>
                           <textarea id="tx-vars" class="input min-h-24 font-mono" placeholder='JSON vars, e.g. {"name":"WEB01"}'></textarea>
                           <select id="tx-mode" class="select" title="TX Mode" aria-label="TX Mode"></select>
@@ -260,6 +260,7 @@
                             <div class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
                               <span id="tx-rollback-mode-label">Rollback mode</span>
                               <select id="tx-rollback-mode" class="select md:w-[220px]" title="Rollback Mode" aria-label="Rollback Mode">
+                                <option value="none">none</option>
                                 <option value="per_step">custom per-step</option>
                                 <option value="whole_resource">whole resource</option>
                               </select>
@@ -366,12 +367,7 @@
                                 <span id="tx-workflow-fail-fast-label">fail fast</span>
                               </label>
                             </div>
-                            <div class="grid gap-2 md:grid-cols-[180px_220px_1fr_auto]">
-                              <select id="tx-workflow-filter-kind" class="select" title="Filter Kind" aria-label="Filter Kind">
-                                <option value="all">all kinds</option>
-                                <option value="config">config</option>
-                                <option value="show">show</option>
-                              </select>
+                            <div class="grid gap-2 md:grid-cols-[220px_1fr_auto]">
                               <select id="tx-workflow-filter-rollback" class="select" title="Filter Rollback" aria-label="Filter Rollback">
                                 <option value="all">all rollback</option>
                                 <option value="none">none</option>

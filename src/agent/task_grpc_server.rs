@@ -268,6 +268,7 @@ fn map_execute_tx_block_request(
         )?,
         commands: req.commands,
         rollback_commands: req.rollback_commands,
+        rollback_mode: None,
         rollback_on_failure: Some(req.rollback_on_failure),
         rollback_trigger_step_index: req.rollback_trigger_step_index.map(|value| value as usize),
         mode: optional_string(req.mode),

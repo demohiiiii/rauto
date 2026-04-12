@@ -2,7 +2,7 @@
 
 Use this file when the agent needs to provide a runnable `workflow.json` for `rauto tx-workflow`.
 
-Important: `rauto` now follows the current `rneter` transaction schema. Use `run` / `rollback` operations and `whole_resource.rollback`. Do not use the deprecated `command`, `rollback_command`, or `undo_command` fields.
+Important: `rauto` now follows the current `rneter` transaction schema. Use `run` / `rollback` operations and `whole_resource.rollback`. Do not use deprecated fields such as block-level `kind`, `command`, `rollback_command`, or `undo_command`.
 
 ## 1) Minimal per-step rollback workflow
 
@@ -13,7 +13,6 @@ Important: `rauto` now follows the current `rneter` transaction schema. Use `run
   "blocks": [
     {
       "name": "vlan-10",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": "per_step",
       "steps": [
@@ -62,7 +61,6 @@ Important: `rauto` now follows the current `rneter` transaction schema. Use `run
   "blocks": [
     {
       "name": "publish-policy",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": {
         "whole_resource": {
@@ -106,8 +104,8 @@ Important: `rauto` now follows the current `rneter` transaction schema. Use `run
 
 See the repo examples:
 
-- [/Users/adam/Project/rauto-all/rauto/templates/examples/core-vlan-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/core-vlan-workflow.json)
-- [/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-change-workflow.json](/Users/adam/Project/rauto-all/rauto/templates/examples/fabric-change-workflow.json)
+- [templates/examples/core-vlan-workflow.json](../../../templates/examples/core-vlan-workflow.json)
+- [templates/examples/fabric-change-workflow.json](../../../templates/examples/fabric-change-workflow.json)
 
 ## Run
 

@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use rneter::session::{
-    Command, CommandBlockKind, CommandDynamicParams, CommandInteraction, RollbackPolicy,
-    SessionOperation, TxBlock, TxStep,
+    Command, CommandDynamicParams, CommandInteraction, RollbackPolicy, SessionOperation, TxBlock,
+    TxStep,
 };
 
 pub fn command(
@@ -60,6 +60,7 @@ pub fn build_command_tx_block(
     rollback_on_failure: bool,
     resource_rollback_command: Option<String>,
     rollback_trigger_step_index: Option<usize>,
+    force_no_rollback: bool,
 ) -> Result<TxBlock> {
     let name = name.into();
     let whole_resource_rollback = resource_rollback_command
@@ -79,9 +80,23 @@ pub fn build_command_tx_block(
             "rollback_trigger_step_index requires resource_rollback_command"
         ));
     }
+    if force_no_rollback && whole_resource_rollback.is_some() {
+        return Err(anyhow!(
+            "rollback_mode 'none' cannot be used with resource_rollback_command"
+        ));
+    }
     if rollback_commands.len() > commands.len() {
         return Err(anyhow!(
             "rollback_commands length must not exceed commands length"
+        ));
+    }
+    if force_no_rollback
+        && rollback_commands
+            .iter()
+            .any(|value| !value.trim().is_empty())
+    {
+        return Err(anyhow!(
+            "rollback_mode 'none' cannot be used with rollback_commands"
         ));
     }
 
@@ -115,15 +130,17 @@ pub fn build_command_tx_block(
             timeout_secs,
             rollback_trigger_step_index.unwrap_or(0),
         )
-    } else if has_per_step_rollbacks {
-        RollbackPolicy::PerStep
-    } else {
+    } else if force_no_rollback {
         RollbackPolicy::None
+    } else {
+        // Keep direct command tx blocks rollback-enabled by default.
+        // Even when rollback commands are omitted, callers can still populate
+        // per-step rollback commands later via template/runtime inputs.
+        RollbackPolicy::PerStep
     };
 
     let tx_block = TxBlock {
         name,
-        kind: CommandBlockKind::Config,
         rollback_policy,
         steps,
         fail_fast: true,
@@ -145,5 +162,44 @@ pub fn command_timeout_secs(operation: &SessionOperation) -> Option<u64> {
     match operation {
         SessionOperation::Command(command) => command.timeout,
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_to_per_step_policy_for_tx_block_without_explicit_rollbacks() {
+        let tx = build_command_tx_block(
+            "demo",
+            "Config",
+            &[String::from("set hostname edge-01")],
+            &[],
+            Some(30),
+            false,
+            None,
+            None,
+            false,
+        )
+        .expect("build tx block");
+        assert!(matches!(tx.rollback_policy, RollbackPolicy::PerStep));
+    }
+
+    #[test]
+    fn allows_none_policy_when_force_no_rollback_is_enabled() {
+        let tx = build_command_tx_block(
+            "demo",
+            "Config",
+            &[String::from("set hostname edge-01")],
+            &[],
+            Some(30),
+            false,
+            None,
+            None,
+            true,
+        )
+        .expect("build tx block");
+        assert!(matches!(tx.rollback_policy, RollbackPolicy::None));
     }
 }

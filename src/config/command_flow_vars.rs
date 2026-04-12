@@ -221,15 +221,19 @@ impl CommandFlowVarResolver {
                 .ok()
                 .map(|saved| ConnectionParamContext::from_saved_connection(connection_name, &saved))
                 .or_else(|| {
-                    self.resolve_connection_alias(connection_name).and_then(|alias_name| {
-                        if alias_name == CURRENT_CONNECTION_ALIAS_SENTINEL {
-                            self.current.clone()
-                        } else {
-                            load_connection(&alias_name).ok().map(|saved| {
-                                ConnectionParamContext::from_saved_connection(&alias_name, &saved)
-                            })
-                        }
-                    })
+                    self.resolve_connection_alias(connection_name)
+                        .and_then(|alias_name| {
+                            if alias_name == CURRENT_CONNECTION_ALIAS_SENTINEL {
+                                self.current.clone()
+                            } else {
+                                load_connection(&alias_name).ok().map(|saved| {
+                                    ConnectionParamContext::from_saved_connection(
+                                        &alias_name,
+                                        &saved,
+                                    )
+                                })
+                            }
+                        })
                 });
             self.named.insert(connection_name.to_string(), loaded);
         }
@@ -428,8 +432,9 @@ command = "show clock"
             Some("linux"),
             &json!({"site":"lab-a"}),
         );
-        let resolved = resolve_command_flow_runtime_vars(&template, Value::Null, Some(current), None)
-            .expect("ok");
+        let resolved =
+            resolve_command_flow_runtime_vars(&template, Value::Null, Some(current), None)
+                .expect("ok");
         assert_eq!(resolved["site"], json!("lab-a"));
     }
 

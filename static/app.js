@@ -815,10 +815,6 @@ function bindEvents() {
   byId("tx-workflow-expand-all-btn").onclick = () => {
     setAllTxWorkflowBlocksCollapsed(false);
   };
-  byId("tx-workflow-filter-kind").onchange = () => {
-    txWorkflowFilterKind = byId("tx-workflow-filter-kind").value || "all";
-    renderTxWorkflowBuilder();
-  };
   byId("tx-workflow-filter-rollback").onchange = () => {
     txWorkflowFilterRollback = byId("tx-workflow-filter-rollback").value || "all";
     renderTxWorkflowBuilder();
@@ -828,10 +824,8 @@ function bindEvents() {
     renderTxWorkflowBuilder();
   };
   byId("tx-workflow-filter-clear-btn").onclick = () => {
-    txWorkflowFilterKind = "all";
     txWorkflowFilterRollback = "all";
     txWorkflowFilterQuery = "";
-    byId("tx-workflow-filter-kind").value = "all";
     byId("tx-workflow-filter-rollback").value = "all";
     byId("tx-workflow-filter-query").value = "";
     renderTxWorkflowBuilder();
@@ -992,18 +986,8 @@ function bindEvents() {
       const item = txWorkflowBlocks.find((b) => b.id === id);
       if (
         item &&
-        (field === "commandsText" || field === "rollbackPolicy" || field === "kind")
+        (field === "commandsText" || field === "rollbackPolicy")
       ) {
-        if (field === "kind") {
-          item.kind = fieldEl.value === "show" ? "show" : "config";
-          if (item.kind === "show") {
-            item.rollbackPolicy = "none";
-          } else if (item.rollbackPolicy === "none") {
-            item.rollbackPolicy = "per_step";
-          }
-          renderTxWorkflowBuilder();
-          return;
-        }
         if (field === "rollbackPolicy") {
           item.rollbackPolicy =
             fieldEl.value === "none" ||
@@ -1011,12 +995,6 @@ function bindEvents() {
             fieldEl.value === "whole_resource"
               ? fieldEl.value
               : "per_step";
-          if (item.kind === "config" && item.rollbackPolicy === "none") {
-            item.rollbackPolicy = "per_step";
-          }
-          if (item.kind === "show") {
-            item.rollbackPolicy = "none";
-          }
           renderTxWorkflowBuilder();
           return;
         }

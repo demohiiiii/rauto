@@ -99,7 +99,8 @@ pub fn parse_command_flow_template_with_extensions(
         doc.template.name = name.to_string();
     }
     validate_command_flow_template_definition(&doc.template)?;
-    let current_connection_alias = normalize_current_connection_alias(doc.current_connection_alias)?;
+    let current_connection_alias =
+        normalize_current_connection_alias(doc.current_connection_alias)?;
     Ok(ParsedCommandFlowTemplate {
         template: doc.template,
         current_connection_alias,

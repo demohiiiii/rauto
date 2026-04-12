@@ -490,20 +490,26 @@ function applyI18n() {
   byId("linux-shell-option-fish").textContent = t("linuxShellOptionFish");
   byId("device_profile").placeholder = t("deviceProfilePlaceholder");
   byId("saved-conn-name").setAttribute("title", t("savedConnSelectPlaceholder"));
-  byId("template").placeholder = t("templatePlaceholder");
+  byId("template").setAttribute("title", t("templatePlaceholder"));
   byId("template-selected-content").placeholder = t("templateSelectedContentPlaceholder");
   byId("tx-name").placeholder = t("txNamePlaceholder");
-  byId("tx-template").placeholder = t("txTemplatePlaceholder");
+  byId("tx-template").setAttribute("title", t("txTemplatePlaceholder"));
   byId("tx-vars").placeholder = t("txVarsPlaceholder");
   byId("tx-commands").placeholder = t("txCommandsPlaceholder");
   byId("tx-mode").placeholder = t("txModePlaceholder");
   byId("tx-timeout-secs").placeholder = t("txTimeoutPlaceholder");
   byId("tx-resource-rollback").placeholder = t("txResourceRollbackPlaceholder");
   byId("tx-rollback-mode-label").textContent = t("txRollbackModeLabel");
+  const currentTxRollbackMode = byId("tx-rollback-mode").value || "per_step";
   byId("tx-rollback-mode").innerHTML = `
+    <option value="none">${escapeHtml(t("txRollbackModeNone"))}</option>
     <option value="per_step">${escapeHtml(t("txRollbackModePerStep"))}</option>
     <option value="whole_resource">${escapeHtml(t("txRollbackModeWhole"))}</option>
   `;
+  byId("tx-rollback-mode").value = currentTxRollbackMode;
+  if (!byId("tx-rollback-mode").value) {
+    byId("tx-rollback-mode").value = "per_step";
+  }
   byId("tx-rollback-input-label").textContent = t("txWorkflowRollbackInputModeLabel");
   byId("tx-rollback-input-text").textContent = t("txWorkflowRollbackInputText");
   byId("tx-rollback-input-pairs").textContent = t("txWorkflowRollbackInputPairs");
@@ -576,13 +582,6 @@ function applyI18n() {
   byId("tx-workflow-expand-all-btn").textContent = t("txWorkflowExpandAllBtn");
   byId("tx-workflow-name").placeholder = t("txWorkflowNamePlaceholder");
   byId("tx-workflow-fail-fast-label").textContent = t("txWorkflowFailFastLabel");
-  const txWorkflowFilterKindEl = byId("tx-workflow-filter-kind");
-  txWorkflowFilterKindEl.innerHTML = `
-    <option value="all">${escapeHtml(t("txWorkflowFilterKindAll"))}</option>
-    <option value="config">${escapeHtml(t("txWorkflowBlockKindConfig"))}</option>
-    <option value="show">${escapeHtml(t("txWorkflowBlockKindShow"))}</option>
-  `;
-  txWorkflowFilterKindEl.value = txWorkflowFilterKind;
   const txWorkflowFilterRollbackEl = byId("tx-workflow-filter-rollback");
   txWorkflowFilterRollbackEl.innerHTML = `
     <option value="all">${escapeHtml(t("txWorkflowFilterRollbackAll"))}</option>
@@ -1105,7 +1104,7 @@ function applyTxWorkflowMoreActionsState() {
 }
 
 function applyTxRollbackMode() {
-  const mode = byId("tx-rollback-mode").value || "infer";
+  const mode = byId("tx-rollback-mode").value || "per_step";
   const perStep = byId("tx-rollback-per-step");
   const whole = byId("tx-rollback-resource");
   perStep.hidden = mode !== "per_step";

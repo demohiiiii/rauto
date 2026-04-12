@@ -355,12 +355,6 @@ function renderTxWorkflowResult(result) {
   return `<div class="grid gap-3">${summary}${blockCards}</div>`;
 }
 
-function txWorkflowKindLabel(kind) {
-  return kind === "show"
-    ? t("txWorkflowBlockKindShow")
-    : t("txWorkflowBlockKindConfig");
-}
-
 function txWorkflowRollbackPolicyLabel(rollbackPolicy) {
   if (typeof rollbackPolicy === "string") {
     if (rollbackPolicy === "none") return t("txWorkflowBlockRollbackNone");
@@ -405,10 +399,6 @@ function renderTxBlockPreview(txBlock, txResult) {
       ${renderTxWorkflowPreviewMeta(
         t("txBlockSummaryName"),
         txBlock.name || "tx-block"
-      )}
-      ${renderTxWorkflowPreviewMeta(
-        t("txBlockSummaryKind"),
-        txWorkflowKindLabel(txBlock.kind)
       )}
       ${renderTxWorkflowPreviewMeta(t("txBlockSummaryMode"), modeText)}
       ${renderTxWorkflowPreviewMeta(t("txBlockSummaryRollback"), rollbackText)}
@@ -712,11 +702,6 @@ function renderTxWorkflowPreview(workflow) {
             safeString((block && block.name) || "tx-block")
           )}</div>
           <div class="inline-flex flex-wrap items-center gap-1">
-            <span class="tx-workflow-chip">${escapeHtml(
-              `${t("txWorkflowSummaryKind")}: ${txWorkflowKindLabel(
-                block && block.kind
-              )}`
-            )}</span>
             <span class="tx-workflow-chip">${escapeHtml(
               `${t("txWorkflowVisualRollbackPolicy")}: ${rollbackText}`
             )}</span>

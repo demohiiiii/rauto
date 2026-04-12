@@ -101,7 +101,6 @@ let orchestrationDetailSeq = 0;
 let txWorkflowBlockSeq = 0;
 let txWorkflowBlocks = [];
 let txWorkflowDragBlockId = "";
-let txWorkflowFilterKind = "all";
 let txWorkflowFilterRollback = "all";
 let txWorkflowFilterQuery = "";
 let lastTxBlockPreview = {

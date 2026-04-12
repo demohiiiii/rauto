@@ -1024,6 +1024,7 @@ async fn execute_tx_block_action(
         action.rollback_on_failure,
         action.resource_rollback_command.clone(),
         action.rollback_trigger_step_index,
+        false,
     )?;
 
     command_blacklist::ensure_tx_block_allowed(

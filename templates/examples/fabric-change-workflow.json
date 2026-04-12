@@ -4,7 +4,6 @@
   "blocks": [
     {
       "name": "vlan-and-svi",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": {
         "whole_resource": {
@@ -67,7 +66,6 @@
     },
     {
       "name": "trunk-allow-list",
-      "kind": "config",
       "fail_fast": true,
       "rollback_policy": "per_step",
       "steps": [
@@ -103,7 +101,6 @@
     },
     {
       "name": "edge-uplink-backup",
-      "kind": "config",
       "fail_fast": false,
       "rollback_policy": "per_step",
       "steps": [

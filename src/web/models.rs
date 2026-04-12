@@ -310,6 +310,14 @@ pub enum TxBlockRunKind {
     CommandFlow,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TxRollbackMode {
+    None,
+    PerStep,
+    WholeResource,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ExecuteUploadRequest {
     pub local_path: String,
@@ -363,6 +371,8 @@ pub struct ExecuteTxBlockRequest {
     pub commands: Vec<String>,
     #[serde(default)]
     pub rollback_commands: Vec<String>,
+    #[serde(default)]
+    pub rollback_mode: Option<TxRollbackMode>,
     #[serde(default)]
     pub rollback_on_failure: Option<bool>,
     pub rollback_trigger_step_index: Option<usize>,

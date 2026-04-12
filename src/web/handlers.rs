@@ -3,9 +3,8 @@ use crate::cli::RecordLevelOpt;
 use crate::config::command_blacklist;
 use crate::config::command_flow_template::{
     CommandFlowTemplate, CommandFlowTemplateVar, ParsedCommandFlowTemplate,
-    build_command_flow_runtime, command_flow_var_kind_label,
-    normalize_command_flow_template_body, parse_command_flow_template_str,
-    parse_command_flow_template_with_extensions,
+    build_command_flow_runtime, command_flow_var_kind_label, normalize_command_flow_template_body,
+    parse_command_flow_template_str, parse_command_flow_template_with_extensions,
 };
 use crate::config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -53,9 +52,9 @@ use crate::web::models::{
     ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, ResolveInventoryVarsRequest,
     ResolveInventoryVarsResponse, SavedConnectionDetail, SavedConnectionMeta, TaskArtifactDto,
     TaskEvent, TaskEventDto, TaskRunDetailResponse, TaskRunListItem, TaskRunsQuery, TemplateDetail,
-    TemplateMeta, TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
-    UpsertConnectionRequest,
-    UpsertCustomProfileRequest, UpsertInventoryGroupRequest,
+    TemplateMeta, TxBlockRunKind, TxRollbackMode, UpdateCommandFlowTemplateRequest,
+    UpdateTemplateRequest, UpsertConnectionRequest, UpsertCustomProfileRequest,
+    UpsertInventoryGroupRequest,
 };
 use crate::web::state::{
     AppState, InteractiveSession, ResolvedConnection, merge_connection_options,
@@ -71,7 +70,7 @@ use axum::{
 };
 use chrono::Utc;
 use rneter::session::{
-    CommandBlockKind, MANAGER, RollbackPolicy, SessionEvent, SessionOperation, SessionRecordEntry,
+    MANAGER, RollbackPolicy, SessionEvent, SessionOperation, SessionRecordEntry,
     SessionRecordLevel, SessionRecorder, SessionReplayer, TxBlock, TxStep,
 };
 use rneter::templates as rneter_templates;
@@ -323,17 +322,13 @@ fn map_recording_entry_to_task_event(
                     "all": all
                 }))),
         ),
-        SessionEvent::TxBlockStarted {
-            block_name,
-            block_kind,
-        } => match plan {
+        SessionEvent::TxBlockStarted { block_name } => match plan {
             RecordingEventPlan::TxBlock { .. } => Some(
                 TaskEventInput::new("step_started", format!("Tx block {} started", block_name))
                     .with_stage("tx_block")
                     .with_progress(Some(60))
                     .with_details(Some(json!({
-                        "block_name": block_name,
-                        "block_kind": block_kind
+                        "block_name": block_name
                     }))),
             ),
             RecordingEventPlan::TxWorkflow {
@@ -352,8 +347,7 @@ fn map_recording_entry_to_task_event(
                     .with_stage("workflow")
                     .with_progress(progress)
                     .with_details(Some(json!({
-                        "block_name": block_name,
-                        "block_kind": block_kind
+                        "block_name": block_name
                     }))),
                 )
             }
@@ -2220,8 +2214,8 @@ fn load_command_flow_template_from_input(
             })
             .ok_or_else(|| ApiError::bad_request("builtin command flow template not found")),
         (None, None, Some(content)) => {
-            let mut parsed =
-                parse_command_flow_template_with_extensions(content, None).map_err(ApiError::from)?;
+            let mut parsed = parse_command_flow_template_with_extensions(content, None)
+                .map_err(ApiError::from)?;
             if parsed.template.name.trim().is_empty() {
                 parsed.template.name = inline_name.to_string();
             }
@@ -2527,6 +2521,8 @@ struct TxBlockTemplatePayload {
     #[serde(default)]
     rollback_commands: Vec<String>,
     #[serde(default)]
+    rollback_mode: Option<TxRollbackMode>,
+    #[serde(default)]
     rollback_on_failure: Option<bool>,
     #[serde(default)]
     rollback_trigger_step_index: Option<usize>,
@@ -2601,6 +2597,7 @@ fn resolve_tx_block_request_from_template(
         rollback_flow_vars: payload.rollback_flow_vars,
         commands: payload.commands,
         rollback_commands: payload.rollback_commands,
+        rollback_mode: payload.rollback_mode,
         rollback_on_failure: payload.rollback_on_failure,
         rollback_trigger_step_index: payload.rollback_trigger_step_index,
         mode: payload.mode,
@@ -3923,19 +3920,21 @@ fn resolve_tx_commands(
     template: Option<&str>,
     vars: Value,
     commands: &[String],
+    conn: Option<&ResolvedConnection>,
 ) -> Result<Vec<String>, ApiError> {
-    let mut render_vars = match vars {
+    let render_vars = match vars {
         Value::Null => json!({}),
         Value::Object(_) => vars,
         _ => return Err(ApiError::bad_request("tx vars must be a JSON object")),
     };
     let mut all = Vec::new();
     if let Some(name) = template {
+        let mut render_context = build_json_template_context(render_vars, conn);
         if let Some(stored) = content_store::load_command_template(name).map_err(ApiError::from)? {
-            enrich_context_with_connection_refs_from_template(&mut render_vars, &stored.content)
+            enrich_context_with_connection_refs_from_template(&mut render_context, &stored.content)
                 .map_err(ApiError::from)?;
         }
-        let rendered = renderer.render_file(name, render_vars)?;
+        let rendered = renderer.render_file(name, render_context)?;
         all.extend(
             rendered
                 .lines()
@@ -4005,6 +4004,13 @@ pub async fn execute_tx_block(
         let (tx_block, effective_mode) = match run_kind {
             TxBlockRunKind::Commands => {
                 let mode = requested_mode.unwrap_or_else(|| "Config".to_string());
+                let rollback_mode = req.rollback_mode.unwrap_or_else(|| {
+                    if req.resource_rollback_command.is_some() {
+                        TxRollbackMode::WholeResource
+                    } else {
+                        TxRollbackMode::PerStep
+                    }
+                });
                 let renderer = Renderer::new();
                 let resolved_vars = resolve_runtime_vars_with_connection(req.vars, Some(&conn))?;
                 let resolved_commands = resolve_tx_commands(
@@ -4012,13 +4018,33 @@ pub async fn execute_tx_block(
                     req.template.as_deref(),
                     resolved_vars,
                     &req.commands,
+                    Some(&conn),
                 )?;
 
+                if matches!(rollback_mode, TxRollbackMode::WholeResource)
+                    && req.resource_rollback_command.is_none()
+                {
+                    return Err(ApiError::bad_request(
+                        "rollback_mode 'whole_resource' requires resource_rollback_command",
+                    ));
+                }
                 if req.rollback_trigger_step_index.is_some()
                     && req.resource_rollback_command.is_none()
                 {
                     return Err(ApiError::bad_request(
                         "rollback_trigger_step_index requires resource_rollback_command",
+                    ));
+                }
+                if matches!(rollback_mode, TxRollbackMode::None)
+                    && (req.resource_rollback_command.is_some()
+                        || req.rollback_trigger_step_index.is_some()
+                        || req
+                            .rollback_commands
+                            .iter()
+                            .any(|value| !value.trim().is_empty()))
+                {
+                    return Err(ApiError::bad_request(
+                        "rollback_mode 'none' does not accept rollback command fields",
                     ));
                 }
 
@@ -4041,6 +4067,7 @@ pub async fn execute_tx_block(
                     req.rollback_on_failure.unwrap_or(false),
                     req.resource_rollback_command,
                     req.rollback_trigger_step_index,
+                    matches!(rollback_mode, TxRollbackMode::None),
                 )
                 .map_err(ApiError::from)?;
                 (tx_block, mode)
@@ -4054,6 +4081,7 @@ pub async fn execute_tx_block(
                     || !req.rollback_commands.is_empty()
                     || req.resource_rollback_command.is_some()
                     || req.rollback_trigger_step_index.is_some()
+                    || req.rollback_mode.is_some()
                 {
                     return Err(ApiError::bad_request(
                         "command flow tx block does not accept command/template rollback fields",
@@ -4130,7 +4158,6 @@ pub async fn execute_tx_block(
 
                 let tx_block = TxBlock {
                     name: block_name.to_string(),
-                    kind: CommandBlockKind::Config,
                     rollback_policy: RollbackPolicy::PerStep,
                     steps: vec![step],
                     fail_fast: true,

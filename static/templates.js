@@ -63,6 +63,14 @@ function renderTemplateOptions(selectedName = "") {
     placeholder: t("templateSelectPlaceholder"),
     selected: selectedName,
   });
+  populateSelectOptions("template", cachedTemplates, {
+    placeholder: t("templateSelectPlaceholder"),
+    selected: byId("template")?.value || "",
+  });
+  populateSelectOptions("tx-template", cachedTemplates, {
+    placeholder: t("templateSelectPlaceholder"),
+    selected: byId("tx-template")?.value || "",
+  });
 }
 
 async function loadTemplateDetail() {
@@ -460,14 +468,50 @@ async function saveFlowTemplate() {
   }
 }
 
-function createFlowTemplateDraft() {
+async function createFlowTemplateDraft() {
   const name = promptForResourceName(t("flowTemplateNewPrompt"));
   if (!name) return;
-  ensureSelectValue("flow-template-picker", name);
-  byId("flow-template-content").value = "";
-  lastFlowTemplateDetail = null;
-  renderFlowTemplateList();
-  setStatusMessage("flow-template-out", `${t("editingNew")}: ${name}`, "info");
+  const editor = byId("flow-template-content");
+  const currentContent = (editor?.value || "").trim();
+  const fallbackDraft = `name = "${name}"
+description = ""
+stop_on_error = true
+default_mode = "User"
+
+[[steps]]
+command = "echo hello"
+`;
+  const draftContent = currentContent ? (editor?.value || "") : fallbackDraft;
+  setStatusMessage("flow-template-out", t("running"), "running");
+  try {
+    const data = await request("POST", "/api/flow-templates", {
+      name,
+      content: draftContent,
+    });
+    await loadFlowTemplates();
+    ensureSelectValue("flow-template-picker", data.name || name);
+    if (editor) {
+      editor.value = data.content || draftContent;
+    }
+    lastFlowTemplateDetail = data;
+    if (byId("flow-template-name").value.trim() === (data.name || name)) {
+      renderFlowTemplateVarFields(data, getCurrentFlowTemplateFieldDraft());
+    }
+    renderFlowTemplateList();
+    setStatusMessage(
+      "flow-template-out",
+      `${t("created")}: ${data.name || name}`,
+      "success"
+    );
+  } catch (e) {
+    ensureSelectValue("flow-template-picker", name);
+    if (editor) {
+      editor.value = draftContent;
+    }
+    lastFlowTemplateDetail = null;
+    renderFlowTemplateList();
+    setStatusMessage("flow-template-out", e.message, "error");
+  }
 }
 
 async function deleteFlowTemplate() {

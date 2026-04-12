@@ -42,13 +42,17 @@ function txPayload(dryRun) {
     template: byId("tx-template").value.trim() || null,
     vars: parseJsonById("tx-vars"),
     commands: parseTxCommands(),
+    rollback_mode: rollbackMode,
     mode: byId("tx-mode").value.trim() || null,
     timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
     resource_rollback_command:
       rollbackMode === "whole_resource"
         ? byId("tx-resource-rollback").value.trim() || null
         : null,
-    rollback_on_failure: byId("tx-rollback-on-failure").checked,
+    rollback_on_failure:
+      rollbackMode === "per_step"
+        ? byId("tx-rollback-on-failure").checked
+        : false,
     rollback_trigger_step_index:
       rollbackMode === "whole_resource"
         ? Number(byId("tx-rollback-trigger-step").value || 0)
@@ -87,13 +91,17 @@ function buildTxBlockTemplatePayloadFromEditor() {
     template: byId("tx-template").value.trim() || null,
     vars: parseJsonById("tx-vars"),
     commands: parseTxCommands(),
+    rollback_mode: rollbackMode,
     mode: byId("tx-mode").value.trim() || null,
     timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
     resource_rollback_command:
       rollbackMode === "whole_resource"
         ? byId("tx-resource-rollback").value.trim() || null
         : null,
-    rollback_on_failure: byId("tx-rollback-on-failure").checked,
+    rollback_on_failure:
+      rollbackMode === "per_step"
+        ? byId("tx-rollback-on-failure").checked
+        : false,
     rollback_trigger_step_index:
       rollbackMode === "whole_resource"
         ? Number(byId("tx-rollback-trigger-step").value || 0)
@@ -138,7 +146,9 @@ function applyTxBlockTemplatePayloadToEditor(payload) {
     ? data.commands.join("\n")
     : "";
   byId("tx-mode").value = data.mode || "";
-  const rollbackMode = data.resource_rollback_command ? "whole_resource" : "per_step";
+  const rollbackMode =
+    data.rollback_mode ||
+    (data.resource_rollback_command ? "whole_resource" : "per_step");
   byId("tx-rollback-mode").value = rollbackMode;
   byId("tx-resource-rollback").value = data.resource_rollback_command || "";
   byId("tx-rollback-trigger-step").value =
@@ -378,7 +388,6 @@ function createTxWorkflowBlock(seed = {}) {
   const block = {
     id: `tx-block-${txWorkflowBlockSeq}`,
     name: seed.name || "",
-    kind: seed.kind || "config",
     rollbackPolicy: seed.rollbackPolicy || "per_step",
     mode: seed.mode || "Config",
     timeoutSecs: seed.timeoutSecs != null ? String(seed.timeoutSecs) : "",
@@ -399,34 +408,19 @@ function createTxWorkflowBlock(seed = {}) {
   return sanitizeTxWorkflowBlock(block);
 }
 
-function normalizeTxWorkflowKind(kind) {
-  return kind === "show" ? "show" : "config";
-}
-
-function normalizeTxWorkflowRollbackPolicy(kind, rollbackPolicy) {
-  const normalizedKind = normalizeTxWorkflowKind(kind);
+function normalizeTxWorkflowRollbackPolicy(rollbackPolicy) {
   const policy =
     rollbackPolicy === "none" ||
     rollbackPolicy === "per_step" ||
     rollbackPolicy === "whole_resource"
       ? rollbackPolicy
       : "per_step";
-  if (normalizedKind === "show") {
-    return "none";
-  }
-  if (policy === "none") {
-    return "per_step";
-  }
   return policy;
 }
 
 function sanitizeTxWorkflowBlock(block) {
   if (!block || typeof block !== "object") return block;
-  block.kind = normalizeTxWorkflowKind(block.kind);
-  block.rollbackPolicy = normalizeTxWorkflowRollbackPolicy(
-    block.kind,
-    block.rollbackPolicy
-  );
+  block.rollbackPolicy = normalizeTxWorkflowRollbackPolicy(block.rollbackPolicy);
   if (block.rollbackPolicy !== "whole_resource") {
     block.triggerStepIndex =
       block.triggerStepIndex != null && block.triggerStepIndex !== ""
@@ -471,7 +465,6 @@ function renderTxWorkflowBuilder() {
         const fullIdx = txWorkflowBlocks.findIndex((b) => b.id === block.id);
         const commandCount = txWorkflowLines(block.commandsText).length;
         const modeText = block.mode && block.mode.trim() ? block.mode.trim() : "Config";
-        const kindText = block.kind === "show" ? "show" : "config";
         const rollbackText = block.rollbackPolicy || "per_step";
         const commandsList = txWorkflowLines(block.commandsText);
         const rollbackList = parseRollbackLinesRaw(block.rollbackCommandsText);
@@ -485,7 +478,6 @@ function renderTxWorkflowBuilder() {
             <span>#${fullIdx + 1}</span>
             <div class="inline-flex flex-wrap items-center gap-1">
               <span class="tx-workflow-chip">${escapeHtml(t("txWorkflowSummaryCommands"))}: ${commandCount}</span>
-              <span class="tx-workflow-chip">${escapeHtml(t("txWorkflowSummaryKind"))}: ${escapeHtml(kindText)}</span>
               <span class="tx-workflow-chip">${escapeHtml(t("txWorkflowSummaryMode"))}: ${escapeHtml(modeText)}</span>
               <span class="tx-workflow-chip">${escapeHtml(t("txWorkflowSummaryRollback"))}: ${escapeHtml(rollbackText)}</span>
             </div>
@@ -519,34 +511,18 @@ function renderTxWorkflowBuilder() {
           )}" value="${escapeHtml(block.name)}" placeholder="${escapeHtml(
         t("txWorkflowBlockNamePlaceholder")
       )}" />
-          <div class="grid gap-2 md:grid-cols-2">
-            <input class="input js-tx-workflow-field" data-field="mode" data-tx-block-id="${escapeHtml(
-              block.id
-            )}" value="${escapeHtml(block.mode)}" placeholder="${escapeHtml(
+          <input class="input js-tx-workflow-field" data-field="mode" data-tx-block-id="${escapeHtml(
+            block.id
+          )}" value="${escapeHtml(block.mode)}" placeholder="${escapeHtml(
         t("txWorkflowBlockModePlaceholder")
       )}" />
-            <select class="input js-tx-workflow-field" data-field="kind" data-tx-block-id="${escapeHtml(
-              block.id
-            )}">
-              <option value="config" ${block.kind === "config" ? "selected" : ""}>${escapeHtml(
-        t("txWorkflowBlockKindConfig")
-      )}</option>
-              <option value="show" ${block.kind === "show" ? "selected" : ""}>${escapeHtml(
-        t("txWorkflowBlockKindShow")
-      )}</option>
-            </select>
-          </div>
           <div class="grid gap-2 md:grid-cols-2">
             <select class="input js-tx-workflow-field" data-field="rollbackPolicy" data-tx-block-id="${escapeHtml(
               block.id
             )}">
-              ${
-                block.kind === "show"
-                  ? `<option value="none" selected>${escapeHtml(
-                      t("txWorkflowBlockRollbackNone")
-                    )}</option>`
-                  : ""
-              }
+              <option value="none" ${block.rollbackPolicy === "none" ? "selected" : ""}>${escapeHtml(
+        t("txWorkflowBlockRollbackNone")
+      )}</option>
               <option value="per_step" ${block.rollbackPolicy === "per_step" ? "selected" : ""}>${escapeHtml(
         t("txWorkflowBlockRollbackPerStep")
       )}</option>
@@ -896,7 +872,6 @@ function buildRollbackCommand(rule, cmd, template) {
 function getFilteredTxWorkflowBlocks() {
   const query = txWorkflowFilterQuery.trim().toLowerCase();
   return txWorkflowBlocks.filter((block) => {
-    const kindOk = txWorkflowFilterKind === "all" || block.kind === txWorkflowFilterKind;
     const rollbackOk =
       txWorkflowFilterRollback === "all" ||
       block.rollbackPolicy === txWorkflowFilterRollback;
@@ -904,7 +879,7 @@ function getFilteredTxWorkflowBlocks() {
       !query ||
       String(block.name || "").toLowerCase().includes(query) ||
       String(block.commandsText || "").toLowerCase().includes(query);
-    return kindOk && rollbackOk && queryOk;
+    return rollbackOk && queryOk;
   });
 }
 
@@ -925,7 +900,6 @@ function generateTxWorkflowJsonFromBuilder() {
     const timeout = block.timeoutSecs ? Number(block.timeoutSecs) : null;
     const timeoutSecs = Number.isFinite(timeout) && timeout > 0 ? timeout : null;
     const mode = block.mode.trim() || "Config";
-    const kind = block.kind === "show" ? "show" : "config";
     const triggerRaw =
       block.rollbackPolicy === "whole_resource" ? block.triggerStepIndex : "";
     const triggerStepIndex = Number.isFinite(Number(triggerRaw))
@@ -956,7 +930,7 @@ function generateTxWorkflowJsonFromBuilder() {
     }));
 
     let rollbackPolicy;
-    if (kind === "show") {
+    if (block.rollbackPolicy === "none") {
       rollbackPolicy = "none";
     } else if (block.rollbackPolicy === "whole_resource") {
       rollbackPolicy = {
@@ -976,7 +950,6 @@ function generateTxWorkflowJsonFromBuilder() {
 
     return {
       name: block.name.trim() || "tx-block",
-      kind,
       rollback_policy: rollbackPolicy,
       steps,
       fail_fast: block.failFast,
@@ -1046,7 +1019,6 @@ function loadTxWorkflowBuilderFromJson() {
     }
     return createTxWorkflowBlock({
       name: b.name || "",
-      kind: b.kind || "config",
       rollbackPolicy,
       mode,
       timeoutSecs,
@@ -1159,7 +1131,6 @@ function txBlockToBuilderSeed(block) {
   }
   return {
     name: (block && block.name) || "",
-    kind: (block && block.kind) || "config",
     rollbackPolicy,
     mode,
     timeoutSecs,
