@@ -163,6 +163,7 @@ rauto exec "show bgp neighbor" \
 rauto flow-template list
 rauto flow-template show cisco_like_copy
 rauto flow-template create cisco_like_copy --file ./templates/examples/cisco-like-command-flow.toml
+rauto flow-template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-command-flow.toml
 rauto flow-template update cisco_like_copy --file ./my-flow-template.toml
 rauto flow-template delete cisco_like_copy
 ```
@@ -185,6 +186,8 @@ rauto flow \
 - 命令流程模板现在可以声明 `vars` 列表，支持 `name`、`type`、`required`、`default`、`options`、`label`、`description` 等字段，便于运行时校验变量，也便于 Web 自动渲染输入表单。
 - 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
 - 运行时变量支持两种引用：`连接名.参数名`（跨连接取值）与 `参数名`（先查请求变量，再回退当前目标连接参数）。
+- 命令流程模板支持顶层字段 `current_connection_alias = "<别名>"`。配置后可直接在模板里使用 `{{别名.host}}`、`{{别名.username}}`、`{{别名.password}}` 等，且不需要把这个别名写进 `[[vars]]`。
+- 连接别名变量支持“变量值指向连接名”的模式。例如 `peer=edge94` 后，可直接引用 `{{peer.host}}` / `{{peer.username}}` / `{{peer.password}}`。
 - 如果某个步骤没有显式写 `mode`，`rauto` 会使用设备 profile 定义的第一个状态。
 - 现在所有执行都会默认保存会话记录。
 - `--record-level key-events-only` 会保存最小审计信息：输入命令和设备回显。
@@ -194,6 +197,16 @@ rauto flow \
 可直接修改的示例模板：
 
 - [templates/examples/cisco-like-command-flow.toml](templates/examples/cisco-like-command-flow.toml)
+- [templates/examples/linux-scp-with-current-and-peer-command-flow.toml](templates/examples/linux-scp-with-current-and-peer-command-flow.toml)
+
+示例：只传一个 `peer` 变量执行 Linux SCP 流程
+
+```bash
+rauto flow \
+    --template linux_scp_with_current_and_peer \
+    --connection edge92 \
+    --vars-json '{"peer":"edge94","local_path":"/tmp/app.tar","remote_path":"/tmp/app.tar"}'
+```
 
 ### SFTP 上传
 

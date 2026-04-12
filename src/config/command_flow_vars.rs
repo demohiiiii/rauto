@@ -4,7 +4,9 @@ use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use anyhow::{Result, anyhow};
 use serde_json::{Map, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+const CURRENT_CONNECTION_ALIAS_SENTINEL: &str = "__rauto_current_connection__";
 
 #[derive(Debug, Clone)]
 pub struct ConnectionParamContext {
@@ -155,6 +157,33 @@ impl CommandFlowVarResolver {
         }
     }
 
+    fn bind_current_connection_alias(&mut self, alias: Option<&str>) {
+        let Some(alias) = alias.map(str::trim).filter(|value| !value.is_empty()) else {
+            return;
+        };
+        self.runtime_vars.insert(
+            alias.to_string(),
+            Value::String(CURRENT_CONNECTION_ALIAS_SENTINEL.to_string()),
+        );
+    }
+
+    fn fill_template_inline_references(&mut self, template: &CommandFlowTemplate) {
+        let references = collect_template_inline_references(template);
+        for reference in references {
+            let missing = self
+                .runtime_vars
+                .get(&reference)
+                .map(|value| value.is_null())
+                .unwrap_or(true);
+            if !missing {
+                continue;
+            }
+            if let Some(resolved) = self.resolve_reference(&reference, None) {
+                self.runtime_vars.insert(reference, resolved);
+            }
+        }
+    }
+
     fn resolve_reference(
         &mut self,
         reference: &str,
@@ -188,15 +217,39 @@ impl CommandFlowVarResolver {
         param_name: &str,
     ) -> Option<Value> {
         if !self.named.contains_key(connection_name) {
-            let loaded = load_connection(connection_name).ok().map(|saved| {
-                ConnectionParamContext::from_saved_connection(connection_name, &saved)
-            });
+            let loaded = load_connection(connection_name)
+                .ok()
+                .map(|saved| ConnectionParamContext::from_saved_connection(connection_name, &saved))
+                .or_else(|| {
+                    self.resolve_connection_alias(connection_name).and_then(|alias_name| {
+                        if alias_name == CURRENT_CONNECTION_ALIAS_SENTINEL {
+                            self.current.clone()
+                        } else {
+                            load_connection(&alias_name).ok().map(|saved| {
+                                ConnectionParamContext::from_saved_connection(&alias_name, &saved)
+                            })
+                        }
+                    })
+                });
             self.named.insert(connection_name.to_string(), loaded);
         }
         self.named
             .get(connection_name)
             .and_then(|value| value.as_ref())
             .and_then(|value| value.lookup(param_name))
+    }
+
+    fn resolve_connection_alias(&self, alias: &str) -> Option<String> {
+        let candidate = self
+            .runtime_vars
+            .get(alias)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())?;
+        if candidate.contains('.') || !is_reference_token(candidate) {
+            return None;
+        }
+        Some(candidate.to_string())
     }
 }
 
@@ -213,11 +266,59 @@ pub fn resolve_command_flow_runtime_vars(
     template: &CommandFlowTemplate,
     runtime_vars: Value,
     current: Option<ConnectionParamContext>,
+    current_connection_alias: Option<&str>,
 ) -> Result<Value> {
     let mut resolver = CommandFlowVarResolver::new(runtime_vars, current)?;
+    resolver.bind_current_connection_alias(current_connection_alias);
     resolver.resolve_runtime_aliases();
     resolver.fill_template_vars(template);
+    resolver.fill_template_inline_references(template);
     Ok(Value::Object(resolver.runtime_vars))
+}
+
+fn collect_template_inline_references(template: &CommandFlowTemplate) -> Vec<String> {
+    let Ok(value) = serde_json::to_value(template) else {
+        return Vec::new();
+    };
+    let mut references = HashSet::new();
+    collect_inline_references_from_value(&value, &mut references);
+    let mut references: Vec<String> = references.into_iter().collect();
+    references.sort();
+    references
+}
+
+fn collect_inline_references_from_value(value: &Value, references: &mut HashSet<String>) {
+    match value {
+        Value::Object(map) => {
+            for item in map.values() {
+                collect_inline_references_from_value(item, references);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_inline_references_from_value(item, references);
+            }
+        }
+        Value::String(text) => {
+            collect_inline_references_from_text(text, references);
+        }
+        _ => {}
+    }
+}
+
+fn collect_inline_references_from_text(text: &str, references: &mut HashSet<String>) {
+    let mut rest = text;
+    while let Some(start) = rest.find("{{") {
+        let after_start = &rest[start + 2..];
+        let Some(end) = after_start.find("}}") else {
+            break;
+        };
+        let token = after_start[..end].trim();
+        if !token.is_empty() && is_reference_token(token) {
+            references.insert(token.to_string());
+        }
+        rest = &after_start[end + 2..];
+    }
 }
 
 fn is_reference_token(value: &str) -> bool {
@@ -230,7 +331,76 @@ fn is_reference_token(value: &str) -> bool {
 mod tests {
     use super::*;
     use crate::config::command_flow_template::parse_command_flow_template_str;
+    use crate::config::connection_store::{SavedConnection, save_connection};
+    use crate::db;
     use serde_json::json;
+    use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static TEST_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    struct TestEnvGuard {
+        original_home: Option<std::ffi::OsString>,
+        _root: PathBuf,
+        _guard: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl TestEnvGuard {
+        fn new() -> anyhow::Result<Self> {
+            let guard = TEST_ENV_LOCK
+                .get_or_init(|| Mutex::new(()))
+                .lock()
+                .expect("test env lock poisoned");
+            let root = std::env::temp_dir().join(format!(
+                "rauto-command-flow-vars-test-{}",
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
+            ));
+            let original_home = std::env::var_os("RAUTO_HOME");
+            unsafe {
+                std::env::set_var("RAUTO_HOME", &root);
+            }
+            Ok(Self {
+                original_home,
+                _root: root,
+                _guard: guard,
+            })
+        }
+    }
+
+    impl Drop for TestEnvGuard {
+        fn drop(&mut self) {
+            if let Some(value) = &self.original_home {
+                unsafe {
+                    std::env::set_var("RAUTO_HOME", value);
+                }
+            } else {
+                unsafe {
+                    std::env::remove_var("RAUTO_HOME");
+                }
+            }
+        }
+    }
+
+    fn sample_connection(host: &str, vars: serde_json::Value) -> SavedConnection {
+        SavedConnection {
+            host: Some(host.to_string()),
+            username: Some("ops".to_string()),
+            password: Some("secret-xyz".to_string()),
+            password_ref: None,
+            port: Some(22),
+            enable_password: None,
+            enable_password_ref: None,
+            ssh_security: None,
+            linux_shell_flavor: None,
+            device_profile: Some("linux".to_string()),
+            template_dir: None,
+            enabled: true,
+            labels: vec![],
+            vars,
+            groups: vec![],
+        }
+    }
 
     #[test]
     fn resolves_plain_name_from_current_connection_when_runtime_missing() {
@@ -258,8 +428,8 @@ command = "show clock"
             Some("linux"),
             &json!({"site":"lab-a"}),
         );
-        let resolved =
-            resolve_command_flow_runtime_vars(&template, Value::Null, Some(current)).expect("ok");
+        let resolved = resolve_command_flow_runtime_vars(&template, Value::Null, Some(current), None)
+            .expect("ok");
         assert_eq!(resolved["site"], json!("lab-a"));
     }
 
@@ -293,6 +463,7 @@ command = "show clock"
             &template,
             json!({"target_host":"host"}),
             Some(current),
+            None,
         )
         .expect("ok");
         assert_eq!(resolved["target_host"], json!("192.168.1.1"));
@@ -322,5 +493,139 @@ command = "show clock"
         .expect("ok");
         assert_eq!(resolved["target_password"], json!("secret"));
         assert_eq!(resolved["target_site"], json!("lab-a"));
+    }
+
+    #[test]
+    fn resolves_connection_alias_then_named_connection_param_lookup() {
+        let _env_guard = TestEnvGuard::new().expect("env");
+        db::init_sync().expect("db init");
+        save_connection(
+            "edge94",
+            &sample_connection("192.168.30.94", json!({"site":"dc-a"})),
+        )
+        .expect("save connection");
+
+        let template = parse_command_flow_template_str(
+            r#"
+name = "demo"
+[[vars]]
+name = "peer_host"
+[[vars]]
+name = "peer_site"
+[[vars]]
+name = "peer_pass"
+[[steps]]
+command = "show clock"
+"#,
+            None,
+        )
+        .expect("template");
+
+        let resolved = resolve_command_flow_runtime_vars(
+            &template,
+            json!({
+                "peer": "edge94",
+                "peer_host": "peer.host",
+                "peer_site": "peer.site",
+                "peer_pass": "peer.password"
+            }),
+            None,
+            None,
+        )
+        .expect("resolve");
+
+        assert_eq!(resolved["peer_host"], json!("192.168.30.94"));
+        assert_eq!(resolved["peer_site"], json!("dc-a"));
+        assert_eq!(resolved["peer_pass"], json!("secret-xyz"));
+    }
+
+    #[test]
+    fn resolves_inline_reference_from_connection_alias_only_peer_input() {
+        let _env_guard = TestEnvGuard::new().expect("env");
+        db::init_sync().expect("db init");
+        save_connection(
+            "edge94",
+            &sample_connection("192.168.30.94", json!({"site":"dc-a"})),
+        )
+        .expect("save connection");
+
+        let template = parse_command_flow_template_str(
+            r#"
+name = "linux_scp_push"
+[[vars]]
+name = "peer"
+required = true
+[[vars]]
+name = "local_path"
+required = true
+[[vars]]
+name = "remote_path"
+required = true
+[[steps]]
+command = "scp {{local_path}} {{peer.username}}@{{peer.host}}:{{remote_path}}"
+[[steps.prompts]]
+patterns = ["(?i)^.*password.*:\\s*$"]
+append_newline = true
+record_input = false
+response = "{{peer.password}}"
+"#,
+            None,
+        )
+        .expect("template");
+
+        let resolved = resolve_command_flow_runtime_vars(
+            &template,
+            json!({
+                "peer": "edge94",
+                "local_path": "/tmp/app.tar",
+                "remote_path": "/tmp/app.tar",
+            }),
+            None,
+            None,
+        )
+        .expect("resolve");
+
+        assert_eq!(resolved["peer.host"], json!("192.168.30.94"));
+        assert_eq!(resolved["peer.username"], json!("ops"));
+        assert_eq!(resolved["peer.password"], json!("secret-xyz"));
+    }
+
+    #[test]
+    fn resolves_inline_reference_from_current_connection_alias_field() {
+        let template = parse_command_flow_template_str(
+            r#"
+name = "linux_deploy"
+[[vars]]
+name = "service"
+required = true
+[[steps]]
+command = "ssh {{target.username}}@{{target.host}} \"systemctl restart {{service}}\""
+"#,
+            None,
+        )
+        .expect("template");
+
+        let current = ConnectionParamContext::new(
+            Some("edge-01"),
+            Some("192.168.30.10"),
+            Some("admin"),
+            Some("secret"),
+            Some(22),
+            None,
+            None,
+            None,
+            Some("linux"),
+            &json!({"site":"dc-a"}),
+        );
+        let resolved = resolve_command_flow_runtime_vars(
+            &template,
+            json!({"service":"nginx"}),
+            Some(current),
+            Some("target"),
+        )
+        .expect("resolve");
+
+        assert_eq!(resolved["target.host"], json!("192.168.30.10"));
+        assert_eq!(resolved["target.username"], json!("admin"));
     }
 }

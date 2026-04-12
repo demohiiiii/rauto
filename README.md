@@ -163,6 +163,7 @@ Manage saved templates:
 rauto flow-template list
 rauto flow-template show cisco_like_copy
 rauto flow-template create cisco_like_copy --file ./templates/examples/cisco-like-command-flow.toml
+rauto flow-template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-command-flow.toml
 rauto flow-template update cisco_like_copy --file ./my-flow-template.toml
 rauto flow-template delete cisco_like_copy
 ```
@@ -185,6 +186,8 @@ Notes:
 - Flow templates can declare a `vars` schema with `name`, `type`, `required`, `default`, `options`, `label`, and `description`, so `rauto` can validate runtime vars and render form fields in the Web UI.
 - Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
 - Runtime var references support both `connection_name.param_name` (cross-connection lookup) and plain `param_name` (request vars first, then current target connection fallback).
+- Command flow templates support `current_connection_alias = "<alias>"` at top level. This lets templates reference the selected execution target as `{{alias.host}}`, `{{alias.username}}`, `{{alias.password}}`, etc., without adding that alias to `[[vars]]`.
+- For alias-to-connection usage, set one runtime var to a saved connection name (for example `peer=edge94`) and reference `{{peer.host}}`/`{{peer.username}}`/`{{peer.password}}` directly in the template.
 - If a step omits `mode`, `rauto` uses the first mode defined by the selected device profile.
 - Every execution records a session by default.
 - `--record-level key-events-only` keeps the audit-friendly minimum: input commands and device output.
@@ -194,6 +197,16 @@ Notes:
 Ready-to-edit sample flow template:
 
 - [templates/examples/cisco-like-command-flow.toml](templates/examples/cisco-like-command-flow.toml)
+- [templates/examples/linux-scp-with-current-and-peer-command-flow.toml](templates/examples/linux-scp-with-current-and-peer-command-flow.toml)
+
+Example: run Linux SCP flow with only one peer var
+
+```bash
+rauto flow \
+    --template linux_scp_with_current_and_peer \
+    --connection edge92 \
+    --vars-json '{"peer":"edge94","local_path":"/tmp/app.tar","remote_path":"/tmp/app.tar"}'
+```
 
 ### SFTP Upload
 

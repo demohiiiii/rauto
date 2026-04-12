@@ -21,8 +21,9 @@ use cli::{
     UploadArgs,
 };
 use config::command_flow_template::{
-    CommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
-    parse_command_flow_template_str,
+    CommandFlowTemplate, ParsedCommandFlowTemplate, build_command_flow_runtime,
+    normalize_command_flow_template_body,
+    parse_command_flow_template_with_extensions,
 };
 use config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -960,8 +961,14 @@ fn resolve_flow_runtime_vars(
     template: &CommandFlowTemplate,
     vars: Value,
     conn: &EffectiveConnection,
+    current_connection_alias: Option<&str>,
 ) -> Result<Value> {
-    resolve_command_flow_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
+    resolve_command_flow_runtime_vars(
+        template,
+        vars,
+        Some(current_connection_param_context(conn)),
+        current_connection_alias,
+    )
 }
 
 fn resolve_runtime_vars_for_connection(vars: Value, conn: &EffectiveConnection) -> Result<Value> {
@@ -1153,7 +1160,8 @@ fn run_command_flow_template_command(cmd: CommandFlowTemplateCommands) -> Result
 }
 
 async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Result<()> {
-    let template = resolve_command_flow_template(&args)?;
+    let parsed_template = resolve_command_flow_template(&args)?;
+    let template = &parsed_template.template;
     let vars = load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
     let conn = resolve_effective_connection(opts)?;
     let handler = template_loader::load_device_profile_for_connection(
@@ -1161,7 +1169,12 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
         conn.linux_shell_flavor,
     )?;
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
-    let runtime_vars = resolve_flow_runtime_vars(&template, vars, &conn)?;
+    let runtime_vars = resolve_flow_runtime_vars(
+        template,
+        vars,
+        &conn,
+        parsed_template.current_connection_alias.as_deref(),
+    )?;
 
     let flow = template.to_command_flow(&build_command_flow_runtime(
         default_mode.clone(),
@@ -1339,13 +1352,16 @@ fn parse_builtin_command_flow_template_token(raw: &str) -> Option<String> {
     (!normalized.is_empty()).then_some(normalized)
 }
 
-fn load_builtin_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate> {
+fn load_builtin_command_flow_template_form(name: &str) -> Result<ParsedCommandFlowTemplate> {
     let normalized = normalize_builtin_command_flow_template_name(name);
     match normalized.as_str() {
         BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY => {
             let mut template = rneter::templates::cisco_like_copy_template();
             template.name = BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string();
-            Ok(template)
+            Ok(ParsedCommandFlowTemplate {
+                template,
+                current_connection_alias: None,
+            })
         }
         _ => Err(anyhow::anyhow!(
             "builtin command flow template '{}' not found",
@@ -1354,14 +1370,14 @@ fn load_builtin_command_flow_template_form(name: &str) -> Result<CommandFlowTemp
     }
 }
 
-fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate> {
+fn load_command_flow_template_form(name: &str) -> Result<ParsedCommandFlowTemplate> {
     if let Some(builtin_name) = parse_builtin_command_flow_template_token(name) {
         return load_builtin_command_flow_template_form(&builtin_name);
     }
     let safe_name = safe_command_flow_template_name(name)?;
     let stored = content_store::load_command_flow_template(&safe_name)?
         .ok_or_else(|| anyhow::anyhow!("command flow template '{}' not found", safe_name))?;
-    parse_command_flow_template_str(&stored.content, Some(&safe_name))
+    parse_command_flow_template_with_extensions(&stored.content, Some(&safe_name))
 }
 
 fn resolve_command_flow_template_from_sources(
@@ -1371,7 +1387,7 @@ fn resolve_command_flow_template_from_sources(
     inline_name: &str,
     template_flag: &str,
     file_flag: &str,
-) -> Result<CommandFlowTemplate> {
+) -> Result<ParsedCommandFlowTemplate> {
     match (
         template.map(str::trim).filter(|value| !value.is_empty()),
         file,
@@ -1379,7 +1395,7 @@ fn resolve_command_flow_template_from_sources(
         (Some(name), None) => load_command_flow_template_form(name),
         (None, Some(file)) => {
             let body = fs::read_to_string(file)?;
-            parse_command_flow_template_str(&body, Some(inline_name))
+            parse_command_flow_template_with_extensions(&body, Some(inline_name))
         }
         (Some(_), Some(_)) => Err(anyhow::anyhow!(
             "use either {template_flag} or {file_flag} for {context}, not both"
@@ -1404,7 +1420,7 @@ fn read_required_text_input(file: Option<&PathBuf>, content: Option<&str>) -> Re
     }
 }
 
-fn resolve_command_flow_template(args: &CommandFlowArgs) -> Result<CommandFlowTemplate> {
+fn resolve_command_flow_template(args: &CommandFlowArgs) -> Result<ParsedCommandFlowTemplate> {
     let inline_name = args
         .file
         .as_ref()
@@ -1696,15 +1712,22 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             )?;
             let flow_vars =
                 load_vars_json_input(args.flow_vars.as_ref(), args.flow_vars_json.as_deref())?;
-            let flow_runtime_vars = resolve_flow_runtime_vars(&flow_template, flow_vars, &conn)?;
-            let mut flow = flow_template.to_command_flow(&build_command_flow_runtime(
-                mode.clone(),
-                conn.connection_name.as_deref(),
-                &conn.host,
-                &conn.username,
-                &conn.device_profile,
-                flow_runtime_vars,
-            ))?;
+            let flow_runtime_vars = resolve_flow_runtime_vars(
+                &flow_template.template,
+                flow_vars,
+                &conn,
+                flow_template.current_connection_alias.as_deref(),
+            )?;
+            let mut flow = flow_template
+                .template
+                .to_command_flow(&build_command_flow_runtime(
+                    mode.clone(),
+                    conn.connection_name.as_deref(),
+                    &conn.host,
+                    &conn.username,
+                    &conn.device_profile,
+                    flow_runtime_vars,
+                ))?;
             if let Some(timeout_secs) = args.timeout_secs {
                 for step in &mut flow.steps {
                     step.timeout = Some(timeout_secs);
@@ -1736,10 +1759,15 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                         args.rollback_flow_vars.as_ref(),
                         args.rollback_flow_vars_json.as_deref(),
                     )?;
-                    let rollback_runtime_vars =
-                        resolve_flow_runtime_vars(&rollback_template, rollback_vars, &conn)?;
-                    let mut rollback_flow =
-                        rollback_template.to_command_flow(&build_command_flow_runtime(
+                    let rollback_runtime_vars = resolve_flow_runtime_vars(
+                        &rollback_template.template,
+                        rollback_vars,
+                        &conn,
+                        rollback_template.current_connection_alias.as_deref(),
+                    )?;
+                    let mut rollback_flow = rollback_template
+                        .template
+                        .to_command_flow(&build_command_flow_runtime(
                             mode.clone(),
                             conn.connection_name.as_deref(),
                             &conn.host,

@@ -2,9 +2,10 @@ use crate::agent::registration::{AsyncErrorReportInput, current_agent_name};
 use crate::cli::RecordLevelOpt;
 use crate::config::command_blacklist;
 use crate::config::command_flow_template::{
-    CommandFlowTemplate, CommandFlowTemplateVar, build_command_flow_runtime,
-    command_flow_var_kind_label, normalize_command_flow_template_body,
-    parse_command_flow_template_str,
+    CommandFlowTemplate, CommandFlowTemplateVar, ParsedCommandFlowTemplate,
+    build_command_flow_runtime, command_flow_var_kind_label,
+    normalize_command_flow_template_body, parse_command_flow_template_str,
+    parse_command_flow_template_with_extensions,
 };
 use crate::config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -2173,16 +2174,21 @@ pub async fn delete_orchestration_template(
     Ok(Json(json!({"ok": true})))
 }
 
-fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate, ApiError> {
+fn load_command_flow_template_form(name: &str) -> Result<ParsedCommandFlowTemplate, ApiError> {
     if let Some(builtin_name) = parse_builtin_command_flow_template_token(name) {
         return builtin_command_flow_template_by_name(&builtin_name)
+            .map(|template| ParsedCommandFlowTemplate {
+                template,
+                current_connection_alias: None,
+            })
             .ok_or_else(|| ApiError::bad_request("builtin command flow template not found"));
     }
     let safe_name = storage::safe_command_flow_template_name(name)?;
     let stored = content_store::load_command_flow_template(&safe_name)
         .map_err(ApiError::from)?
         .ok_or_else(|| ApiError::bad_request("command flow template not found"))?;
-    parse_command_flow_template_str(&stored.content, Some(&safe_name)).map_err(ApiError::from)
+    parse_command_flow_template_with_extensions(&stored.content, Some(&safe_name))
+        .map_err(ApiError::from)
 }
 
 fn load_command_flow_template_from_input(
@@ -2190,7 +2196,7 @@ fn load_command_flow_template_from_input(
     builtin_template_name: Option<&str>,
     content: Option<&str>,
     inline_name: &str,
-) -> Result<CommandFlowTemplate, ApiError> {
+) -> Result<ParsedCommandFlowTemplate, ApiError> {
     let template_name = template_name
         .map(str::trim)
         .filter(|value| !value.is_empty());
@@ -2208,14 +2214,18 @@ fn load_command_flow_template_from_input(
         )),
         (Some(name), None, None) => load_command_flow_template_form(name),
         (None, Some(name), None) => builtin_command_flow_template_by_name(name)
+            .map(|template| ParsedCommandFlowTemplate {
+                template,
+                current_connection_alias: None,
+            })
             .ok_or_else(|| ApiError::bad_request("builtin command flow template not found")),
         (None, None, Some(content)) => {
-            let mut template =
-                toml::from_str::<CommandFlowTemplate>(content).map_err(ApiError::from)?;
-            if template.name.trim().is_empty() {
-                template.name = inline_name.to_string();
+            let mut parsed =
+                parse_command_flow_template_with_extensions(content, None).map_err(ApiError::from)?;
+            if parsed.template.name.trim().is_empty() {
+                parsed.template.name = inline_name.to_string();
             }
-            Ok(template)
+            Ok(parsed)
         }
         (None, None, None) => Err(ApiError::bad_request(
             "command flow execution requires template_name, builtin_template_name, or content",
@@ -2242,9 +2252,15 @@ fn resolve_flow_runtime_vars(
     template: &CommandFlowTemplate,
     vars: Value,
     conn: &ResolvedConnection,
+    current_connection_alias: Option<&str>,
 ) -> Result<Value, ApiError> {
-    resolve_command_flow_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
-        .map_err(ApiError::from)
+    resolve_command_flow_runtime_vars(
+        template,
+        vars,
+        Some(current_connection_param_context(conn)),
+        current_connection_alias,
+    )
+    .map_err(ApiError::from)
 }
 
 fn resolve_runtime_vars_with_connection(
@@ -3661,15 +3677,21 @@ pub async fn execute_command_flow(
     )?;
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
-    let template = load_command_flow_template_from_input(
+    let parsed_template = load_command_flow_template_from_input(
         req.template_name.as_deref(),
         req.builtin_template_name.as_deref(),
         req.content.as_deref(),
         "inline_flow",
     )?;
-    let runtime_vars = resolve_flow_runtime_vars(&template, req.vars, &conn)?;
+    let runtime_vars = resolve_flow_runtime_vars(
+        &parsed_template.template,
+        req.vars,
+        &conn,
+        parsed_template.current_connection_alias.as_deref(),
+    )?;
 
-    let flow = template
+    let flow = parsed_template
+        .template
         .to_command_flow(&build_command_flow_runtime(
             default_mode.clone(),
             conn.connection_name.as_deref(),
@@ -3727,7 +3749,7 @@ pub async fn execute_command_flow(
         &conn,
         &client,
         "command_flow",
-        &format!("template: {}", template.name),
+        &format!("template: {}", parsed_template.template.name),
         Some(default_mode.as_str()),
         record_level,
     );
@@ -3754,7 +3776,7 @@ pub async fn execute_command_flow(
 
     Ok(Json(ExecuteCommandFlowResponse {
         success: result.success,
-        template_name: template.name.clone(),
+        template_name: parsed_template.template.name.clone(),
         result_summary: task_result_with_details(
             task_result_with_recording(
                 task_result_with_counts(
@@ -3780,7 +3802,7 @@ pub async fn execute_command_flow(
                 &recording_jsonl,
             ),
             json!({
-                "template_name": template.name,
+                "template_name": parsed_template.template.name,
                 "mode": default_mode
             }),
         ),
@@ -4048,10 +4070,14 @@ pub async fn execute_tx_block(
                     req.flow_content.as_deref(),
                     "inline_tx_flow",
                 )?;
-                let flow_runtime_vars =
-                    resolve_flow_runtime_vars(&flow_template, req.flow_vars, &conn)?;
+                let flow_runtime_vars = resolve_flow_runtime_vars(
+                    &flow_template.template,
+                    req.flow_vars,
+                    &conn,
+                    flow_template.current_connection_alias.as_deref(),
+                )?;
                 let flow_operation = render_command_flow_operation(
-                    flow_template,
+                    flow_template.template,
                     build_command_flow_runtime(
                         default_mode.clone(),
                         conn.connection_name.as_deref(),
@@ -4076,12 +4102,13 @@ pub async fn execute_tx_block(
                             "inline_tx_rollback_flow",
                         )?;
                         let rollback_runtime_vars = resolve_flow_runtime_vars(
-                            &rollback_template,
+                            &rollback_template.template,
                             req.rollback_flow_vars,
                             &conn,
+                            rollback_template.current_connection_alias.as_deref(),
                         )?;
                         Some(render_command_flow_operation(
-                            rollback_template,
+                            rollback_template.template,
                             build_command_flow_runtime(
                                 default_mode.clone(),
                                 conn.connection_name.as_deref(),

@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -6,6 +7,20 @@ pub type CommandFlowTemplate = rneter::templates::CommandFlowTemplate;
 pub type CommandFlowTemplateRuntime = rneter::templates::CommandFlowTemplateRuntime;
 pub type CommandFlowTemplateVar = rneter::templates::CommandFlowTemplateVar;
 pub type CommandFlowTemplateVarKind = rneter::templates::CommandFlowTemplateVarKind;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedCommandFlowTemplate {
+    pub template: CommandFlowTemplate,
+    pub current_connection_alias: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CommandFlowTemplateDocument {
+    #[serde(flatten)]
+    template: CommandFlowTemplate,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    current_connection_alias: Option<String>,
+}
 
 pub fn command_flow_var_kind_label(kind: CommandFlowTemplateVarKind) -> &'static str {
     match kind {
@@ -70,18 +85,34 @@ pub fn parse_command_flow_template_str(
     body: &str,
     name_override: Option<&str>,
 ) -> Result<CommandFlowTemplate> {
-    let mut template: CommandFlowTemplate =
+    let parsed = parse_command_flow_template_with_extensions(body, name_override)?;
+    Ok(parsed.template)
+}
+
+pub fn parse_command_flow_template_with_extensions(
+    body: &str,
+    name_override: Option<&str>,
+) -> Result<ParsedCommandFlowTemplate> {
+    let mut doc: CommandFlowTemplateDocument =
         toml::from_str(body).map_err(|e| anyhow!("invalid command flow template TOML: {}", e))?;
     if let Some(name) = name_override {
-        template.name = name.to_string();
+        doc.template.name = name.to_string();
     }
-    validate_command_flow_template_definition(&template)?;
-    Ok(template)
+    validate_command_flow_template_definition(&doc.template)?;
+    let current_connection_alias = normalize_current_connection_alias(doc.current_connection_alias)?;
+    Ok(ParsedCommandFlowTemplate {
+        template: doc.template,
+        current_connection_alias,
+    })
 }
 
 pub fn normalize_command_flow_template_body(name: &str, body: &str) -> Result<String> {
-    let template = parse_command_flow_template_str(body, Some(name))?;
-    toml::to_string_pretty(&template).map_err(Into::into)
+    let parsed = parse_command_flow_template_with_extensions(body, Some(name))?;
+    let doc = CommandFlowTemplateDocument {
+        template: parsed.template,
+        current_connection_alias: parsed.current_connection_alias,
+    };
+    toml::to_string_pretty(&doc).map_err(Into::into)
 }
 
 pub fn build_command_flow_runtime(
@@ -112,6 +143,31 @@ fn is_safe_var_name(name: &str) -> bool {
                 .chars()
                 .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
     })
+}
+
+fn normalize_current_connection_alias(alias: Option<String>) -> Result<Option<String>> {
+    let Some(alias) = alias.map(|value| value.trim().to_string()) else {
+        return Ok(None);
+    };
+    if alias.is_empty() {
+        return Ok(None);
+    }
+    if !is_safe_connection_alias(&alias) {
+        return Err(anyhow!(
+            "command flow template has invalid current_connection_alias '{}'",
+            alias
+        ));
+    }
+    Ok(Some(alias))
+}
+
+fn is_safe_connection_alias(alias: &str) -> bool {
+    let mut chars = alias.chars();
+    match chars.next() {
+        Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => {}
+        _ => return false,
+    }
+    chars.all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
 }
 
 fn validate_var_value(field: &CommandFlowTemplateVar, value: &Value) -> Result<()> {
@@ -187,5 +243,33 @@ command = "echo {{edge-94.password}}"
         let normalized = normalize_command_flow_template_body("demo", body).expect("normalize");
         let parsed = parse_command_flow_template_str(&normalized, None).expect("parse");
         assert_eq!(parsed.vars[0].name, "edge-94.password");
+    }
+
+    #[test]
+    fn parses_current_connection_alias_extension() {
+        let body = r#"
+name = "demo"
+current_connection_alias = "current"
+[[steps]]
+command = "echo {{current.host}}"
+"#;
+        let parsed =
+            parse_command_flow_template_with_extensions(body, Some("demo")).expect("parse");
+        assert_eq!(parsed.current_connection_alias.as_deref(), Some("current"));
+    }
+
+    #[test]
+    fn rejects_invalid_current_connection_alias() {
+        let body = r#"
+name = "demo"
+current_connection_alias = "bad.alias"
+[[steps]]
+command = "show clock"
+"#;
+        let err = parse_command_flow_template_with_extensions(body, None).expect_err("invalid");
+        assert!(
+            err.to_string().contains("current_connection_alias"),
+            "unexpected error: {err}"
+        );
     }
 }
