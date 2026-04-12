@@ -1314,7 +1314,50 @@ fn build_upload_request(args: &UploadArgs) -> Result<rneter::session::FileUpload
     Ok(request)
 }
 
+const BUILTIN_FLOW_TEMPLATE_PREFIX: &str = "builtin:";
+const BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY: &str = "cisco-like-copy";
+
+fn normalize_builtin_command_flow_template_name(raw: &str) -> String {
+    raw.trim().to_ascii_lowercase().replace('_', "-")
+}
+
+fn parse_builtin_command_flow_template_token(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if !trimmed
+        .get(..BUILTIN_FLOW_TEMPLATE_PREFIX.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(BUILTIN_FLOW_TEMPLATE_PREFIX))
+    {
+        return None;
+    }
+    let suffix = trimmed
+        .get(BUILTIN_FLOW_TEMPLATE_PREFIX.len()..)
+        .unwrap_or("");
+    let normalized = normalize_builtin_command_flow_template_name(suffix);
+    (!normalized.is_empty()).then_some(normalized)
+}
+
+fn load_builtin_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate> {
+    let normalized = normalize_builtin_command_flow_template_name(name);
+    match normalized.as_str() {
+        BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY => {
+            let mut template = rneter::templates::cisco_like_copy_template();
+            template.name = BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string();
+            Ok(template)
+        }
+        _ => Err(anyhow::anyhow!(
+            "builtin command flow template '{}' not found",
+            name.trim()
+        )),
+    }
+}
+
 fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate> {
+    if let Some(builtin_name) = parse_builtin_command_flow_template_token(name) {
+        return load_builtin_command_flow_template_form(&builtin_name);
+    }
     let safe_name = safe_command_flow_template_name(name)?;
     let stored = content_store::load_command_flow_template(&safe_name)?
         .ok_or_else(|| anyhow::anyhow!("command flow template '{}' not found", safe_name))?;

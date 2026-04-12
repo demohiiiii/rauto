@@ -152,6 +152,26 @@ function safeString(value) {
   return JSON.stringify(value);
 }
 
+const FLOW_BUILTIN_PREFIX = "builtin:";
+
+function buildBuiltinFlowTemplateValue(name) {
+  const normalized = safeString(name || "").trim();
+  if (!normalized) return "";
+  return `${FLOW_BUILTIN_PREFIX}${normalized}`;
+}
+
+function parseBuiltinFlowTemplateValue(value) {
+  const raw = safeString(value || "").trim();
+  if (!raw) return null;
+  if (!raw.toLowerCase().startsWith(FLOW_BUILTIN_PREFIX)) return null;
+  const name = raw.slice(FLOW_BUILTIN_PREFIX.length).trim();
+  return name || null;
+}
+
+function isBuiltinFlowTemplateValue(value) {
+  return !!parseBuiltinFlowTemplateValue(value);
+}
+
 function populateSelectOptions(selectId, values, config = {}) {
   const select = byId(selectId);
   if (!select) return;

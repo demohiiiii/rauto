@@ -2,7 +2,7 @@
 
 Use this file when the agent needs to provide a runnable `workflow.json` for `rauto tx-workflow`.
 
-Important: `rauto` now follows `rneter 0.4.0` transaction schema. Use `run` / `rollback` operations and `whole_resource.rollback`. Do not use the deprecated `command`, `rollback_command`, or `undo_command` fields.
+Important: `rauto` now follows the current `rneter` transaction schema. Use `run` / `rollback` operations and `whole_resource.rollback`. Do not use the deprecated `command`, `rollback_command`, or `undo_command` fields.
 
 ## 1) Minimal per-step rollback workflow
 

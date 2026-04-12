@@ -240,7 +240,7 @@ name = "demo"
 [[vars]]
 name = "site"
 [[steps]]
-command = { kind = "literal", value = "show clock" }
+command = "show clock"
 "#,
             None,
         )
@@ -271,7 +271,7 @@ name = "demo"
 [[vars]]
 name = "target_host"
 [[steps]]
-command = { kind = "literal", value = "show clock" }
+command = "show clock"
 "#,
             None,
         )

@@ -1177,6 +1177,9 @@ function txBlockToBuilderSeed(block) {
 }
 
 async function importTxBlockIntoWorkflowBuilder() {
+  if (!ensureConnectionTargetSelected("tx-workflow-plan-out")) {
+    return;
+  }
   if (currentTxBlockRunKind === "flow") {
     setStatusMessage(
       "tx-workflow-plan-out",

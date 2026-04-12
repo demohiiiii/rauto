@@ -261,6 +261,10 @@ function applyI18n() {
   byId("template-editor-title").textContent = t("templateEditorTitle");
   byId("flow-template-mgr-title").textContent = t("flowTemplateMgrTitle");
   byId("flow-template-manage-hint").textContent = t("flowTemplateManageHint");
+  byId("flow-template-builtin-title").textContent = t("flowBuiltinTemplateTitle");
+  byId("flow-template-builtin-detail-btn").textContent = t("builtinDetailBtn");
+  byId("flow-template-builtin-copy-btn").textContent = t("builtinCopyBtn");
+  byId("flow-template-builtin-hint").textContent = t("flowBuiltinTemplateHint");
   byId("tx-block-template-mgr-title").textContent = t("txBlockTemplateMgrTitle");
   byId("tx-workflow-template-mgr-title").textContent =
     t("txWorkflowTemplateMgrTitle");
@@ -651,6 +655,10 @@ function applyI18n() {
   byId("flow-vars-json").placeholder = t("flowVarsPlaceholder");
   byId("flow-hint").textContent = t("flowHint");
   byId("flow-template-picker").setAttribute("title", t("flowTemplateSelectPlaceholder"));
+  byId("flow-template-builtin-picker").setAttribute(
+    "title",
+    t("flowBuiltinTemplateSelectPlaceholder")
+  );
   byId("tx-flow-template-name").setAttribute("title", t("txFlowTemplatePlaceholder"));
   byId("tx-rollback-flow-template-name").setAttribute("title", t("txFlowRollbackTemplatePlaceholder"));
   byId("tx-block-template-name").setAttribute("title", t("templateSelectPlaceholder"));
@@ -684,6 +692,7 @@ function applyI18n() {
   renderTemplateList();
   renderFlowTemplateOptions();
   renderFlowTemplateList();
+  renderBuiltinFlowTemplateList();
   renderAllJsonTemplateOptions();
   renderAllJsonTemplateLists();
   renderTxBlockManageList();
@@ -700,6 +709,8 @@ function applyI18n() {
   byId("upload-buffer-size").placeholder = t("uploadBufferSizePlaceholder");
   byId("upload-hint").textContent = t("uploadHint");
   byId("flow-template-content").placeholder = t("flowTemplateContentPlaceholder");
+  byId("flow-template-builtin-content").placeholder =
+    t("flowBuiltinTemplateContentPlaceholder");
   byId("tx-block-template-content").placeholder =
     t("txBlockTemplateContentPlaceholder");
   byId("tx-workflow-template-content").placeholder =
@@ -856,6 +867,41 @@ function isDeviceSelected() {
   const saved = byId("saved-conn-name").value.trim();
   const profile = byId("device_profile").value.trim();
   return !!(host || saved || profile);
+}
+
+function hasSelectedConnectionTarget() {
+  if (currentConnectionTarget && currentConnectionTarget.kind !== "none") {
+    return true;
+  }
+  const saved = safeString(byId("saved-conn-name")?.value || "").trim();
+  if (saved) return true;
+  const host = safeString(byId("host")?.value || "").trim();
+  return !!host;
+}
+
+function ensureConnectionTargetSelected(statusId = "", outputId = "") {
+  if (hasSelectedConnectionTarget()) return true;
+  const message = t("connectionTargetRequired");
+  if (statusId) {
+    setStatusMessage(statusId, message, "warning");
+  } else {
+    showToast(message, "warning");
+  }
+  if (outputId) {
+    const out = byId(outputId);
+    if (out) {
+      out.innerHTML = renderStatusMessageCard(message, "warning");
+    }
+  }
+  try {
+    if (window.Alpine && typeof window.Alpine.store === "function") {
+      const appStore = window.Alpine.store("app");
+      if (appStore && typeof appStore.openConnectionModal === "function") {
+        appStore.openConnectionModal();
+      }
+    }
+  } catch (_) {}
+  return false;
 }
 
 function updateRecordFabVisibility() {
@@ -1257,7 +1303,7 @@ function shouldToastStatus(message, tone) {
   const text = safeString(message || "").trim();
   if (!text || text === "-") return false;
   if (isPassiveLoadedStatus(text, tone)) return false;
-  return tone === "success" || tone === "error";
+  return tone === "success" || tone === "error" || tone === "warning";
 }
 
 function shouldRenderInlineStatus(id, message, tone) {
@@ -1383,14 +1429,22 @@ async function ensureFlowRunTemplateDetail(templateName, options = {}) {
     renderFlowTemplateVarFields(null, {});
     return null;
   }
-  if (lastFlowRunTemplateDetail && lastFlowRunTemplateDetail.name === name) {
+  if (
+    lastFlowRunTemplateDetail &&
+    safeString(lastFlowRunTemplateDetail.__selection_key || "").trim() === name
+  ) {
     return lastFlowRunTemplateDetail;
   }
   try {
-    const data = await request(
-      "GET",
-      `/api/flow-templates/${encodeURIComponent(name)}`
-    );
+    const builtinName = parseBuiltinFlowTemplateValue(name);
+    const endpoint = builtinName
+      ? `/api/flow-templates/builtins/${encodeURIComponent(builtinName)}`
+      : `/api/flow-templates/${encodeURIComponent(name)}`;
+    const data = await request("GET", endpoint);
+    if (data && typeof data === "object") {
+      data.__selection_key = name;
+    }
+    lastFlowRunTemplateDetail = data;
     renderFlowTemplateVarFields(data, {});
     return data;
   } catch (e) {

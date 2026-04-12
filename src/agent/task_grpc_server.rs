@@ -809,6 +809,7 @@ impl AgentTaskService for AgentTaskGrpcService {
             State(self.state.clone()),
             Json(WebExecuteCommandFlowRequest {
                 template_name: req.template_name.and_then(optional_string),
+                builtin_template_name: None,
                 content: req.content.and_then(optional_string),
                 vars: parse_json_value(
                     req.vars_json.as_deref().unwrap_or_default(),

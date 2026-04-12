@@ -172,7 +172,7 @@ Execute a saved template with runtime variables:
 ```bash
 rauto flow \
     --template cisco_like_copy \
-    --vars-json '{"protocol":"scp","direction":"to_device","server_addr":"192.168.1.50","remote_path":"/images/new.bin","device_path":"flash:/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
     --connection core-01
 ```
 
@@ -180,7 +180,8 @@ Notes:
 
 - `rauto flow` is the preferred way to run interactive command flows from the CLI.
 - Saved flow templates live in SQLite and are reused by both CLI and Web.
-- Flow templates now follow `rneter 0.4.0`'s structured `CommandFlowTemplate` model instead of the older ad-hoc string template shape.
+- Built-in flow templates are exposed via `/api/flow-templates/builtins`; execution accepts `--template builtin:<name>` (CLI) or `builtin:<name>` values in Web selectors.
+- Flow templates now follow rneter's current inline `{{var}}` `CommandFlowTemplate` model (command/response are plain template strings), and support output-branch actions (`next` / `jump` / `stop_success` / `stop_failure`).
 - Flow templates can declare a `vars` schema with `name`, `type`, `required`, `default`, `options`, `label`, and `description`, so `rauto` can validate runtime vars and render form fields in the Web UI.
 - Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
 - Runtime var references support both `connection_name.param_name` (cross-connection lookup) and plain `param_name` (request vars first, then current target connection fallback).
@@ -224,7 +225,7 @@ Optional flags:
 
 `rauto` supports built-in device profiles (inherited from `rneter`) and custom TOML profiles.
 
-Current built-in profiles from `rneter 0.4.0` include:
+Current built-in profiles from `rneter` include:
 
 - Network vendors: `cisco`, `huawei`, `h3c`, `hillstone`, `juniper`, `array`, `arista`, `fortinet`, `paloalto`, `topsec`, `venustech`, `dptech`, `chaitin`, `qianxin`, `maipu`, `checkpoint`
 - Servers: `linux`

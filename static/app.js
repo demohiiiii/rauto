@@ -560,6 +560,9 @@ function bindEvents() {
 
   byId("exec-btn").onclick = async () => {
     const out = byId("exec-out");
+    if (!ensureConnectionTargetSelected("", "exec-out")) {
+      return;
+    }
     out.textContent = t("running");
     try {
       const data = await request("POST", "/api/exec", {
@@ -577,6 +580,9 @@ function bindEvents() {
 
   byId("template-exec-btn").onclick = async () => {
     const visualOut = byId("template-exec-visual");
+    if (!ensureConnectionTargetSelected("", "template-exec-visual")) {
+      return;
+    }
     visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
       t("running")
     )}</div>`;
@@ -598,6 +604,9 @@ function bindEvents() {
 
   const runTxBlock = async (dryRun, statusId) => {
     const visualOut = byId("tx-block-visual");
+    if (!ensureConnectionTargetSelected(statusId, "tx-block-visual")) {
+      return;
+    }
     if (txBlockViewMode === "template" && !byId("tx-block-template-name").value.trim()) {
       throw new Error(t("txBlockTemplateNameRequired"));
     }
@@ -680,6 +689,9 @@ function bindEvents() {
 
   byId("tx-workflow-plan-btn").onclick = async () => {
     const visualOut = byId("tx-workflow-plan-visual");
+    if (!ensureConnectionTargetSelected("tx-workflow-plan-out", "tx-workflow-plan-visual")) {
+      return;
+    }
     setStatusMessage("tx-workflow-plan-out", t("running"), "running");
     try {
       const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(true));
@@ -697,6 +709,9 @@ function bindEvents() {
 
   byId("tx-workflow-exec-btn").onclick = async () => {
     const out = byId("tx-workflow-exec-out");
+    if (!ensureConnectionTargetSelected("tx-workflow-exec-out", "tx-workflow-exec-out")) {
+      return;
+    }
     setStatusMessage("tx-workflow-exec-out", t("running"), "running");
     try {
       const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(false));
@@ -1220,15 +1235,20 @@ function bindEvents() {
   byId("template-delete-btn").onclick = deleteTemplate;
   byId("flow-exec-btn").onclick = async () => {
     const out = byId("flow-out");
+    if (!ensureConnectionTargetSelected("flow-out", "flow-out")) {
+      return;
+    }
     out.innerHTML = renderStatusMessageCard(t("running"), "running");
     try {
-      const templateName = byId("flow-template-name").value.trim();
-      if (!templateName) {
+      const templateSelection = byId("flow-template-name").value.trim();
+      if (!templateSelection) {
         throw new Error(t("flowTemplateNameRequired"));
       }
-      await ensureFlowRunTemplateDetail(templateName, { silent: true });
+      await ensureFlowRunTemplateDetail(templateSelection, { silent: true });
+      const builtinTemplateName = parseBuiltinFlowTemplateValue(templateSelection);
       const payload = {
-        template_name: templateName,
+        template_name: builtinTemplateName ? null : templateSelection,
+        builtin_template_name: builtinTemplateName,
         vars: buildFlowVarsPayload(),
         connection: connectionPayload(),
         record_level: recordLevelPayload(),
@@ -1254,6 +1274,9 @@ function bindEvents() {
   };
   byId("upload-exec-btn").onclick = async () => {
     const out = byId("upload-out");
+    if (!ensureConnectionTargetSelected("upload-out", "upload-out")) {
+      return;
+    }
     out.innerHTML = renderStatusMessageCard(t("running"), "running");
     try {
       const payload = uploadPayload();
@@ -1280,14 +1303,37 @@ function bindEvents() {
     await loadFlowTemplateDetail();
     renderFlowTemplateList();
   });
+  byId("flow-template-builtin-list").addEventListener("click", async (e) => {
+    const row = e.target.closest(".js-flow-builtin-template-row");
+    if (!row) return;
+    const name = row.getAttribute("data-name") || "";
+    if (!name) return;
+    ensureSelectValue("flow-template-builtin-picker", name);
+    renderBuiltinFlowTemplateList();
+    await loadBuiltinFlowTemplateDetail(name);
+    renderBuiltinFlowTemplateList();
+  });
   byId("flow-template-picker").onchange = async () => {
     if (!byId("flow-template-picker").value.trim()) return;
     await loadFlowTemplateDetail();
     renderFlowTemplateList();
   };
+  byId("flow-template-builtin-picker").onchange = async () => {
+    if (!byId("flow-template-builtin-picker").value.trim()) {
+      byId("flow-template-builtin-content").value = "";
+      renderBuiltinFlowTemplateList();
+      return;
+    }
+    await loadBuiltinFlowTemplateDetail();
+    renderBuiltinFlowTemplateList();
+  };
   byId("flow-template-new-btn").onclick = createFlowTemplateDraft;
   byId("flow-template-save-btn").onclick = saveFlowTemplate;
   byId("flow-template-delete-btn").onclick = deleteFlowTemplate;
+  byId("flow-template-builtin-detail-btn").onclick = () =>
+    loadBuiltinFlowTemplateDetail();
+  byId("flow-template-builtin-copy-btn").onclick =
+    copyBuiltinFlowTemplateToCustom;
   byId("tx-workflow-template-load-btn").onclick =
     useSelectedTxWorkflowTemplateForExecution;
   byId("orchestration-template-load-btn").onclick =

@@ -59,6 +59,8 @@ const i18n = {
     sidebarConnectionTemporaryApplied: "Temporary connection target applied.",
     sidebarConnectionTemporaryPrompt:
       "Temporary target mode is open. Fill in host, username, password, and profile, then apply it for this browser session.",
+    connectionTargetRequired:
+      "Please select a connection target first (saved connection template or temporary target).",
     savedConnNamePlaceholder: "saved connection name",
     savedConnSelectPlaceholder: "Select a saved connection",
     savedConnSavePassword: "do not save password",
@@ -598,7 +600,7 @@ const i18n = {
     orchestrationTemplateListEmpty: "no orchestration templates",
     templateUseBtn: "Open",
     flowHint:
-      "Use a saved command flow template for wizard-style CLI interactions. Variables are optional and will be merged into the template render context.",
+      "Use a saved or built-in command flow template for wizard-style CLI interactions. Variables are optional and will be merged into the template render context.",
     flowVarsFieldsTitle: "Template Variables",
     flowVarsFieldsHint: "Template-declared vars will appear here when available.",
     flowVarsFieldsEmpty: "This template does not declare any vars.",
@@ -622,6 +624,18 @@ const i18n = {
     uploadShowProgressLabel: "show progress",
     flowTemplateListTitle: "Templates",
     flowTemplateListEmpty: "no command flow templates",
+    flowBuiltinTemplateTitle: "Built-in Command Flow Templates",
+    flowBuiltinTemplateHint:
+      "Load built-in flow template TOML here, then copy it to custom editor for further editing and saving.",
+    flowBuiltinTemplateSelectPlaceholder: "Select a built-in command flow template",
+    flowBuiltinTemplateContentPlaceholder: "Built-in command flow template TOML",
+    flowBuiltinTemplateListEmpty: "no built-in command flow templates",
+    flowBuiltinTemplateNameRequired:
+      "built-in command flow template name is required",
+    flowBuiltinTemplateCopyPrompt:
+      "Enter a new custom template name copied from built-in template",
+    flowBuiltinTemplateCopied: "Built-in template copied to custom editor",
+    builtinLabel: "Built-in",
     flowTemplateUseBtn: "Open",
     templateEditorTitle: "Editor",
     flowTemplateEditorTitle: "Editor",
@@ -888,6 +902,8 @@ const i18n = {
     sidebarConnectionTemporaryApplied: "已应用临时连接目标。",
     sidebarConnectionTemporaryPrompt:
       "当前是临时目标模式。填写主机、用户名、密码和 profile 后，可以仅为这次浏览器会话应用临时连接。",
+    connectionTargetRequired:
+      "请先选择连接目标（已保存连接模板或临时目标），再执行该操作。",
     savedConnNamePlaceholder: "连接配置名称",
     savedConnSelectPlaceholder: "选择已保存连接",
     savedConnSavePassword: "不保存密码",
@@ -1408,7 +1424,7 @@ const i18n = {
     orchestrationTemplateListEmpty: "暂无编排模板",
     templateUseBtn: "打开",
     flowHint:
-      "已保存命令流程模板适合执行向导式 CLI 交互。变量可选，会并入模板渲染上下文。",
+      "可使用已保存或内置命令流程模板执行向导式 CLI 交互。变量可选，会并入模板渲染上下文。",
     flowVarsFieldsTitle: "模板变量",
     flowVarsFieldsHint: "模板声明的变量会在这里自动渲染。",
     flowVarsFieldsEmpty: "该模板没有声明变量。",
@@ -1432,6 +1448,16 @@ const i18n = {
     uploadShowProgressLabel: "显示进度",
     flowTemplateListTitle: "模板列表",
     flowTemplateListEmpty: "还没有命令流程模板",
+    flowBuiltinTemplateTitle: "内置命令流程模板",
+    flowBuiltinTemplateHint:
+      "可在这里查看内置模板转换后的 TOML，并复制到自定义编辑器继续修改保存。",
+    flowBuiltinTemplateSelectPlaceholder: "选择内置命令流程模板",
+    flowBuiltinTemplateContentPlaceholder: "内置命令流程模板 TOML",
+    flowBuiltinTemplateListEmpty: "暂无内置命令流程模板",
+    flowBuiltinTemplateNameRequired: "内置命令流程模板名称不能为空",
+    flowBuiltinTemplateCopyPrompt: "请输入复制后的自定义模板名称",
+    flowBuiltinTemplateCopied: "已复制内置模板到自定义编辑器",
+    builtinLabel: "内置",
     flowTemplateUseBtn: "打开",
     templateEditorTitle: "编辑器",
     flowTemplateEditorTitle: "编辑器",

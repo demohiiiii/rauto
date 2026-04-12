@@ -156,10 +156,7 @@ required = true
 options = ["scp", "tftp"]
 
 [[steps]]
-command = { kind = "concat", parts = [
-  { kind = "literal", value = "copy " },
-  { kind = "var", name = "protocol" }
-] }
+command = "copy {{protocol}}"
 "#;
 
         let normalized = normalize_command_flow_template_body("demo", body).expect("normalize");
@@ -185,10 +182,7 @@ name = "demo"
 name = "edge-94.password"
 
 [[steps]]
-command = { kind = "concat", parts = [
-  { kind = "literal", value = "echo " },
-  { kind = "var", name = "edge-94.password" }
-] }
+command = "echo {{edge-94.password}}"
 "#;
         let normalized = normalize_command_flow_template_body("demo", body).expect("normalize");
         let parsed = parse_command_flow_template_str(&normalized, None).expect("parse");

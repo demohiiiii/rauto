@@ -172,7 +172,7 @@ rauto flow-template delete cisco_like_copy
 ```bash
 rauto flow \
     --template cisco_like_copy \
-    --vars-json '{"protocol":"scp","direction":"to_device","server_addr":"192.168.1.50","remote_path":"/images/new.bin","device_path":"flash:/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
     --connection core-01
 ```
 
@@ -180,7 +180,8 @@ rauto flow \
 
 - `rauto flow` 是 CLI 里执行交互式命令流程的推荐入口。
 - 已保存的命令流程模板存放在 SQLite 中，CLI 和 Web 共用同一套模板。
-- 命令流程模板现在直接遵循 `rneter 0.4.0` 的结构化 `CommandFlowTemplate` 模型，不再使用之前那套临时字符串模板形态。
+- 内置命令流程模板可通过 `/api/flow-templates/builtins` 获取；执行时支持 `builtin:<name>`（CLI `--template` 与 Web 下拉值都可用）。
+- 命令流程模板现在遵循 rneter 当前的 `{{var}}` 内联 `CommandFlowTemplate` 模型（命令与响应均为模板字符串），并支持输出分支动作（`next` / `jump` / `stop_success` / `stop_failure`）。
 - 命令流程模板现在可以声明 `vars` 列表，支持 `name`、`type`、`required`、`default`、`options`、`label`、`description` 等字段，便于运行时校验变量，也便于 Web 自动渲染输入表单。
 - 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
 - 运行时变量支持两种引用：`连接名.参数名`（跨连接取值）与 `参数名`（先查请求变量，再回退当前目标连接参数）。
@@ -224,7 +225,7 @@ rauto upload \
 
 `rauto` 支持内置的设备配置（继承自 `rneter`）和自定义 TOML 配置。
 
-当前 `rneter 0.4.0` 提供的内置 profile 包括：
+当前 `rneter` 提供的内置 profile 包括：
 
 - 网络设备厂商：`cisco`、`huawei`、`h3c`、`hillstone`、`juniper`、`array`、`arista`、`fortinet`、`paloalto`、`topsec`、`venustech`、`dptech`、`chaitin`、`qianxin`、`maipu`、`checkpoint`
 - 服务器：`linux`

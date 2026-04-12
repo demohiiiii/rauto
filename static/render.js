@@ -42,6 +42,8 @@ function renderStatusMessageCard(message, tone = "info") {
   const cls =
     tone === "success"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
       : tone === "error"
         ? "border-rose-200 bg-rose-50 text-rose-700"
         : tone === "running"
@@ -52,7 +54,12 @@ function renderStatusMessageCard(message, tone = "info") {
 
 function renderStatusToast(message, tone = "info") {
   const text = safeString(message || "-");
-  const cls = tone === "success" ? "alert-success" : "alert-error";
+  const cls =
+    tone === "success"
+      ? "alert-success"
+      : tone === "warning"
+        ? "alert-warning"
+        : "alert-error";
   return `
     <div class="alert ${cls} shadow-lg">
       <span>${escapeHtml(text)}</span>

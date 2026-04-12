@@ -778,6 +778,21 @@
               <div id="template-flows-section" class="grid gap-3" x-show="$store.app.currentTemplateSection === 'flows'" x-cloak>
                 <div class="group-card">
                   <div class="field-tools">
+                    <span id="flow-template-builtin-title" class="text-sm font-semibold text-slate-700">Built-in Command Flow Templates</span>
+                  </div>
+                  <div class="group-body grid gap-3">
+                    <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                      <select id="flow-template-builtin-picker" class="select" title="Built-in Command Flow Template" aria-label="Built-in Command Flow Template"></select>
+                      <button id="flow-template-builtin-detail-btn" class="btn btn-sm" type="button">View Detail</button>
+                      <button id="flow-template-builtin-copy-btn" class="btn btn-primary btn-sm" type="button">Copy To Custom</button>
+                    </div>
+                    <div id="flow-template-builtin-hint" class="text-xs text-slate-500">Load built-in flow template as TOML, then copy to custom editor for reuse.</div>
+                    <div id="flow-template-builtin-list" class="grid gap-2"></div>
+                    <textarea id="flow-template-builtin-content" class="input min-h-48 font-mono" placeholder="Built-in command flow template TOML" readonly></textarea>
+                  </div>
+                </div>
+                <div class="group-card">
+                  <div class="field-tools">
                     <span id="flow-template-mgr-title" class="text-sm font-semibold text-slate-700">Command Flow Templates</span>
                   </div>
                   <div class="group-body grid gap-3">

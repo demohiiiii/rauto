@@ -285,6 +285,8 @@ pub struct ExecuteCommandFlowRequest {
     #[serde(default)]
     pub template_name: Option<String>,
     #[serde(default)]
+    pub builtin_template_name: Option<String>,
+    #[serde(default)]
     pub content: Option<String>,
     #[serde(default)]
     pub vars: Value,
@@ -306,50 +308,6 @@ pub struct ExecuteCommandFlowResponse {
 pub enum TxBlockRunKind {
     Commands,
     CommandFlow,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum TransferProtocol {
-    Scp,
-    Tftp,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum TransferDirection {
-    ToDevice,
-    FromDevice,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ExecuteBuiltinFileTransferFlowRequest {
-    #[serde(default)]
-    pub profile: Option<String>,
-    pub protocol: TransferProtocol,
-    pub direction: TransferDirection,
-    pub server_addr: String,
-    pub remote_path: String,
-    pub device_path: String,
-    #[serde(default)]
-    pub transfer_username: Option<String>,
-    #[serde(default)]
-    pub transfer_password: Option<String>,
-    #[serde(default)]
-    pub mode: Option<String>,
-    #[serde(default)]
-    pub timeout_secs: Option<u64>,
-    #[serde(flatten)]
-    pub target: ExecutionTargetOptions,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ExecuteBuiltinFileTransferFlowResponse {
-    pub success: bool,
-    pub resolved_mode: String,
-    pub outputs: Vec<CommandResult>,
-    pub recording_jsonl: Option<String>,
-    pub result_summary: TaskResultSummary,
 }
 
 #[derive(Debug, Deserialize)]

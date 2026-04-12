@@ -2863,6 +2863,7 @@ dependencies = [
  "prost",
  "protoc-bin-vendored",
  "rand 0.8.5",
+ "regex",
  "reqwest",
  "rneter",
  "rust-embed",
@@ -3025,8 +3026,7 @@ dependencies = [
 [[package]]
 name = "rneter"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff2714d18f27e134d188642e0ab40d3c0c475b83036fc43fab0c6d77428f33ce"
+source = "git+https://github.com/demohiiiii/rneter.git?rev=5b0cb9ecb965ab168a79dc4c2fe2c2b00e17eddf#5b0cb9ecb965ab168a79dc4c2fe2c2b00e17eddf"
 dependencies = [
  "anyhow",
  "async-ssh2-tokio",

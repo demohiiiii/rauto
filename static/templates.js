@@ -215,39 +215,178 @@ function renderFlowTemplateList(errorMessage = "") {
     .join("");
 }
 
+function renderBuiltinFlowTemplateList(errorMessage = "") {
+  const out = byId("flow-template-builtin-list");
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
+      errorMessage
+    )}</div>`;
+    return;
+  }
+  if (
+    !Array.isArray(cachedBuiltinFlowTemplateMetas) ||
+    cachedBuiltinFlowTemplateMetas.length === 0
+  ) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+      t("flowBuiltinTemplateListEmpty")
+    )}</div>`;
+    return;
+  }
+  const selectedName = byId("flow-template-builtin-picker").value.trim();
+  out.innerHTML = cachedBuiltinFlowTemplateMetas
+    .map((item) => {
+      const active = selectedName && item.name === selectedName;
+      const cls = active
+        ? "border-cyan-300 bg-cyan-50/60"
+        : "border-slate-200 bg-white hover:border-slate-300";
+      return `
+        <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-flow-builtin-template-row ${cls}" data-name="${escapeHtml(
+          item.name || ""
+        )}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+              item.name || "-"
+            )}</span>
+            <span class="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700">${escapeHtml(
+              t("builtinLabel")
+            )}</span>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
 async function loadFlowTemplates() {
   try {
-    const data = await request("GET", "/api/flow-templates");
-    const items = Array.isArray(data) ? data : [];
-    cachedFlowTemplateMetas = items;
-    cachedFlowTemplateNames = items.map((item) => item.name);
+    const [savedResult, builtinResult] = await Promise.allSettled([
+      request("GET", "/api/flow-templates"),
+      request("GET", "/api/flow-templates/builtins"),
+    ]);
+    const savedItems =
+      savedResult.status === "fulfilled" && Array.isArray(savedResult.value)
+        ? savedResult.value
+        : [];
+    const builtinItems =
+      builtinResult.status === "fulfilled" && Array.isArray(builtinResult.value)
+        ? builtinResult.value
+        : [];
+    cachedFlowTemplateMetas = savedItems;
+    cachedFlowTemplateNames = savedItems.map((item) => item.name);
+    cachedBuiltinFlowTemplateMetas = builtinItems;
     renderFlowTemplateOptions();
     renderFlowTemplateList();
+    renderBuiltinFlowTemplateList();
   } catch (e) {
     cachedFlowTemplateNames = [];
     cachedFlowTemplateMetas = [];
+    cachedBuiltinFlowTemplateMetas = [];
+    lastBuiltinFlowTemplateDetail = null;
+    byId("flow-template-builtin-content").value = "";
     renderFlowTemplateOptions();
     renderFlowTemplateList(e.message);
+    renderBuiltinFlowTemplateList(e.message);
   }
 }
 
 function renderFlowTemplateOptions() {
+  const builtinRunValues = (cachedBuiltinFlowTemplateMetas || [])
+    .map((item) => buildBuiltinFlowTemplateValue(item.name))
+    .filter(Boolean);
+  const runTemplateValues = [...cachedFlowTemplateNames, ...builtinRunValues];
+
   populateSelectOptions("flow-template-picker", cachedFlowTemplateNames, {
     placeholder: t("flowTemplateSelectPlaceholder"),
     selected: byId("flow-template-picker")?.value || "",
   });
-  populateSelectOptions("flow-template-name", cachedFlowTemplateNames, {
+  populateSelectOptions(
+    "flow-template-builtin-picker",
+    (cachedBuiltinFlowTemplateMetas || []).map((item) => item.name),
+    {
+      placeholder: t("flowBuiltinTemplateSelectPlaceholder"),
+      selected: byId("flow-template-builtin-picker")?.value || "",
+    }
+  );
+  populateSelectOptions("flow-template-name", runTemplateValues, {
     placeholder: t("flowTemplateRunPlaceholder"),
     selected: byId("flow-template-name")?.value || "",
   });
-  populateSelectOptions("tx-flow-template-name", cachedFlowTemplateNames, {
+  populateSelectOptions("tx-flow-template-name", runTemplateValues, {
     placeholder: t("txFlowTemplatePlaceholder"),
     selected: byId("tx-flow-template-name")?.value || "",
   });
-  populateSelectOptions("tx-rollback-flow-template-name", cachedFlowTemplateNames, {
+  populateSelectOptions("tx-rollback-flow-template-name", runTemplateValues, {
     placeholder: t("txFlowRollbackTemplatePlaceholder"),
     selected: byId("tx-rollback-flow-template-name")?.value || "",
   });
+}
+
+async function loadBuiltinFlowTemplateDetail(nameOverride = "") {
+  const name = safeString(nameOverride || byId("flow-template-builtin-picker").value || "").trim();
+  if (!name) {
+    lastBuiltinFlowTemplateDetail = null;
+    byId("flow-template-builtin-content").value = "";
+    setStatusMessage("flow-template-out", "-", "info");
+    renderBuiltinFlowTemplateList();
+    return null;
+  }
+  setStatusMessage("flow-template-out", t("running"), "running");
+  try {
+    const data = await request(
+      "GET",
+      `/api/flow-templates/builtins/${encodeURIComponent(name)}`
+    );
+    lastBuiltinFlowTemplateDetail = data;
+    ensureSelectValue("flow-template-builtin-picker", data.name || name);
+    byId("flow-template-builtin-content").value = data.content || "";
+    renderBuiltinFlowTemplateList();
+    setStatusMessage(
+      "flow-template-out",
+      `${t("loaded")}: ${data.name || name}`,
+      "success"
+    );
+    return data;
+  } catch (e) {
+    lastBuiltinFlowTemplateDetail = null;
+    byId("flow-template-builtin-content").value = "";
+    renderBuiltinFlowTemplateList();
+    setStatusMessage("flow-template-out", e.message, "error");
+    return null;
+  }
+}
+
+async function copyBuiltinFlowTemplateToCustom() {
+  const selectedName = byId("flow-template-builtin-picker").value.trim();
+  if (!selectedName) {
+    setStatusMessage("flow-template-out", t("flowBuiltinTemplateNameRequired"), "error");
+    return;
+  }
+  let detail = lastBuiltinFlowTemplateDetail;
+  if (!detail || safeString(detail.name || "").trim() !== selectedName) {
+    detail = await loadBuiltinFlowTemplateDetail(selectedName);
+  }
+  if (!detail) {
+    setStatusMessage("flow-template-out", t("needLoadBuiltinFirst"), "error");
+    return;
+  }
+  const targetName = promptForResourceName(
+    t("flowBuiltinTemplateCopyPrompt"),
+    `${detail.name}_custom`
+  );
+  if (!targetName) return;
+  ensureSelectValue("flow-template-picker", targetName);
+  byId("flow-template-content").value = detail.content || "";
+  lastFlowTemplateDetail = {
+    ...detail,
+    name: targetName,
+  };
+  renderFlowTemplateList();
+  setStatusMessage(
+    "flow-template-out",
+    `${t("flowBuiltinTemplateCopied")}: ${detail.name} -> ${targetName}`,
+    "success"
+  );
 }
 
 async function loadFlowTemplateDetail() {

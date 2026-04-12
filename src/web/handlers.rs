@@ -42,8 +42,7 @@ use crate::web::models::{
     ConnectionHistoryDetailResponse, ConnectionHistoryEntry, ConnectionRequest,
     ConnectionTestRequest, ConnectionTestResponse, CreateCommandFlowTemplateRequest,
     CreateTemplateRequest, CustomProfileDetail, DeviceProfileModesResponse, DeviceProfilesOverview,
-    ExecRequest, ExecResponse, ExecuteBuiltinFileTransferFlowRequest,
-    ExecuteBuiltinFileTransferFlowResponse, ExecuteCommandFlowRequest, ExecuteCommandFlowResponse,
+    ExecRequest, ExecResponse, ExecuteCommandFlowRequest, ExecuteCommandFlowResponse,
     ExecuteOrchestrationRequest, ExecuteOrchestrationResponse, ExecuteTemplateRequest,
     ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
     ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, ExecuteUploadRequest,
@@ -53,8 +52,8 @@ use crate::web::models::{
     ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse, ResolveInventoryVarsRequest,
     ResolveInventoryVarsResponse, SavedConnectionDetail, SavedConnectionMeta, TaskArtifactDto,
     TaskEvent, TaskEventDto, TaskRunDetailResponse, TaskRunListItem, TaskRunsQuery, TemplateDetail,
-    TemplateMeta, TransferDirection, TransferProtocol, TxBlockRunKind,
-    UpdateCommandFlowTemplateRequest, UpdateTemplateRequest, UpsertConnectionRequest,
+    TemplateMeta, TxBlockRunKind, UpdateCommandFlowTemplateRequest, UpdateTemplateRequest,
+    UpsertConnectionRequest,
     UpsertCustomProfileRequest, UpsertInventoryGroupRequest,
 };
 use crate::web::state::{
@@ -1607,6 +1606,53 @@ fn normalize_command_flow_template_content(name: &str, content: &str) -> Result<
     normalize_command_flow_template_body(name, content).map_err(ApiError::from)
 }
 
+const BUILTIN_FLOW_TEMPLATE_PREFIX: &str = "builtin:";
+const BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY: &str = "cisco-like-copy";
+
+fn normalize_builtin_command_flow_template_name(raw: &str) -> String {
+    raw.trim().to_ascii_lowercase().replace('_', "-")
+}
+
+fn parse_builtin_command_flow_template_token(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if !trimmed
+        .get(..BUILTIN_FLOW_TEMPLATE_PREFIX.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(BUILTIN_FLOW_TEMPLATE_PREFIX))
+    {
+        return None;
+    }
+    let suffix = trimmed
+        .get(BUILTIN_FLOW_TEMPLATE_PREFIX.len()..)
+        .unwrap_or("");
+    let normalized = normalize_builtin_command_flow_template_name(suffix);
+    (!normalized.is_empty()).then_some(normalized)
+}
+
+fn builtin_command_flow_template_by_name(name: &str) -> Option<CommandFlowTemplate> {
+    let normalized = normalize_builtin_command_flow_template_name(name);
+    match normalized.as_str() {
+        BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY => {
+            let mut template = rneter_templates::cisco_like_copy_template();
+            template.name = BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string();
+            Some(template)
+        }
+        _ => None,
+    }
+}
+
+fn builtin_command_flow_template_metas() -> Vec<CommandFlowTemplateMeta> {
+    vec![CommandFlowTemplateMeta {
+        name: BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string(),
+        path: format!(
+            "builtin://command-flow-templates/{}",
+            BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY
+        ),
+    }]
+}
+
 fn to_command_flow_template_var_field(var: &CommandFlowTemplateVar) -> CommandFlowTemplateVarField {
     CommandFlowTemplateVarField {
         name: var.name.clone(),
@@ -1638,12 +1684,28 @@ fn command_flow_template_detail_from_content(
     })
 }
 
+fn command_flow_template_detail_from_template(
+    template: CommandFlowTemplate,
+    path: String,
+) -> Result<CommandFlowTemplateDetail, ApiError> {
+    let name = template.name.clone();
+    let content = toml::to_string_pretty(&template).map_err(ApiError::from)?;
+    command_flow_template_detail_from_content(&name, content, path)
+}
+
 pub async fn list_command_flow_templates(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<CommandFlowTemplateMeta>>, ApiError> {
     let _ = state;
     let items = storage::list_command_flow_templates()?;
     Ok(Json(items))
+}
+
+pub async fn list_builtin_command_flow_templates(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<CommandFlowTemplateMeta>>, ApiError> {
+    let _ = state;
+    Ok(Json(builtin_command_flow_template_metas()))
 }
 
 pub async fn get_command_flow_template(
@@ -1660,6 +1722,25 @@ pub async fn get_command_flow_template(
         &safe_name,
         stored.content,
         content_store::command_flow_template_locator(&stored.name),
+    )?))
+}
+
+pub async fn get_builtin_command_flow_template(
+    State(_state): State<Arc<AppState>>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Result<Json<CommandFlowTemplateDetail>, ApiError> {
+    let normalized = parse_builtin_command_flow_template_token(&name)
+        .unwrap_or_else(|| normalize_builtin_command_flow_template_name(&name));
+    if normalized.is_empty() {
+        return Err(ApiError::bad_request(
+            "builtin command flow template name is required",
+        ));
+    }
+    let template = builtin_command_flow_template_by_name(&normalized)
+        .ok_or_else(|| ApiError::bad_request("builtin command flow template not found"))?;
+    Ok(Json(command_flow_template_detail_from_template(
+        template,
+        format!("builtin://command-flow-templates/{normalized}"),
     )?))
 }
 
@@ -2093,6 +2174,10 @@ pub async fn delete_orchestration_template(
 }
 
 fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate, ApiError> {
+    if let Some(builtin_name) = parse_builtin_command_flow_template_token(name) {
+        return builtin_command_flow_template_by_name(&builtin_name)
+            .ok_or_else(|| ApiError::bad_request("builtin command flow template not found"));
+    }
     let safe_name = storage::safe_command_flow_template_name(name)?;
     let stored = content_store::load_command_flow_template(&safe_name)
         .map_err(ApiError::from)?
@@ -2102,17 +2187,29 @@ fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate, Ap
 
 fn load_command_flow_template_from_input(
     template_name: Option<&str>,
+    builtin_template_name: Option<&str>,
     content: Option<&str>,
     inline_name: &str,
 ) -> Result<CommandFlowTemplate, ApiError> {
-    match (
-        template_name
-            .map(str::trim)
-            .filter(|value| !value.is_empty()),
-        content.map(str::trim).filter(|value| !value.is_empty()),
-    ) {
-        (Some(name), None) => load_command_flow_template_form(name),
-        (None, Some(content)) => {
+    let template_name = template_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let builtin_template_name = builtin_template_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let content = content.map(str::trim).filter(|value| !value.is_empty());
+
+    match (template_name, builtin_template_name, content) {
+        (Some(_), Some(_), _) => Err(ApiError::bad_request(
+            "use either template_name or builtin_template_name for command flow execution",
+        )),
+        (Some(_), None, Some(_)) | (None, Some(_), Some(_)) => Err(ApiError::bad_request(
+            "use either template_name/builtin_template_name or content for command flow execution",
+        )),
+        (Some(name), None, None) => load_command_flow_template_form(name),
+        (None, Some(name), None) => builtin_command_flow_template_by_name(name)
+            .ok_or_else(|| ApiError::bad_request("builtin command flow template not found")),
+        (None, None, Some(content)) => {
             let mut template =
                 toml::from_str::<CommandFlowTemplate>(content).map_err(ApiError::from)?;
             if template.name.trim().is_empty() {
@@ -2120,11 +2217,8 @@ fn load_command_flow_template_from_input(
             }
             Ok(template)
         }
-        (Some(_), Some(_)) => Err(ApiError::bad_request(
-            "use either template_name or content for command flow execution",
-        )),
-        (None, None) => Err(ApiError::bad_request(
-            "command flow execution requires template_name or content",
+        (None, None, None) => Err(ApiError::bad_request(
+            "command flow execution requires template_name, builtin_template_name, or content",
         )),
     }
 }
@@ -3569,6 +3663,7 @@ pub async fn execute_command_flow(
 
     let template = load_command_flow_template_from_input(
         req.template_name.as_deref(),
+        req.builtin_template_name.as_deref(),
         req.content.as_deref(),
         "inline_flow",
     )?;
@@ -3687,228 +3782,6 @@ pub async fn execute_command_flow(
             json!({
                 "template_name": template.name,
                 "mode": default_mode
-            }),
-        ),
-        outputs,
-        recording_jsonl,
-    }))
-}
-
-pub async fn execute_builtin_file_transfer_flow(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteBuiltinFileTransferFlowRequest>,
-) -> Result<Json<ExecuteBuiltinFileTransferFlowResponse>, ApiError> {
-    let record_level = req.target.record_level;
-    let conn = merge_connection_options(&state.defaults, req.target.connection)?;
-    let handler = template_loader::load_device_profile_for_connection(
-        &conn.device_profile,
-        conn.linux_shell_flavor,
-    )?;
-    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
-    let (mut flow, resolved_mode, history_label) =
-        if let Some(profile_name) = req.profile.as_deref() {
-            let profile = load_command_flow_template_form(profile_name)?;
-            let fallback_mode = if let Some(mode) = req.mode.as_deref() {
-                resolve_effective_mode(Some(mode), &conn.device_profile)?
-            } else if let Some(mode) = profile.default_mode.as_deref() {
-                resolve_effective_mode(Some(mode), &conn.device_profile)?
-            } else {
-                profile_default_mode.clone()
-            };
-            let transfer_vars = json!({
-                "protocol": match req.protocol {
-                    TransferProtocol::Scp => "scp",
-                    TransferProtocol::Tftp => "tftp",
-                },
-                "direction": match req.direction {
-                    TransferDirection::ToDevice => "to_device",
-                    TransferDirection::FromDevice => "from_device",
-                },
-                "server_addr": req.server_addr.trim(),
-                "remote_path": req.remote_path.trim(),
-                "device_path": req.device_path.trim(),
-                "transfer_username": req.transfer_username.clone(),
-                "transfer_password": req.transfer_password.clone(),
-            });
-            let runtime_vars = resolve_flow_runtime_vars(&profile, transfer_vars, &conn)?;
-            let flow = profile
-                .to_command_flow(&build_command_flow_runtime(
-                    fallback_mode.clone(),
-                    conn.connection_name.as_deref(),
-                    &conn.host,
-                    &conn.username,
-                    &conn.device_profile,
-                    runtime_vars,
-                ))
-                .map_err(ApiError::from)?;
-            (
-                flow,
-                fallback_mode.clone(),
-                format!("profile:{} {}", profile.name, req.device_path.trim()),
-            )
-        } else {
-            let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
-            if matches!(req.protocol, TransferProtocol::Scp) {
-                req.transfer_username.clone().ok_or_else(|| {
-                    ApiError::bad_request("scp transfers require transfer_username")
-                })?;
-                req.transfer_password.clone().ok_or_else(|| {
-                    ApiError::bad_request("scp transfers require transfer_password")
-                })?;
-            }
-            let builtin_template = rneter_templates::cisco_like_copy_template();
-            let runtime_vars = resolve_flow_runtime_vars(
-                &builtin_template,
-                json!({
-                    "protocol": match req.protocol {
-                        TransferProtocol::Scp => "scp",
-                        TransferProtocol::Tftp => "tftp",
-                    },
-                    "direction": match req.direction {
-                        TransferDirection::ToDevice => "to_device",
-                        TransferDirection::FromDevice => "from_device",
-                    },
-                    "server_addr": req.server_addr.trim(),
-                    "remote_path": req.remote_path.trim(),
-                    "device_path": req.device_path.trim(),
-                    "transfer_username": req.transfer_username.clone(),
-                    "transfer_password": req.transfer_password.clone(),
-                }),
-                &conn,
-            )?;
-            let runtime = rneter_templates::CommandFlowTemplateRuntime {
-                default_mode: Some(effective_mode.clone()),
-                connection_name: conn.connection_name.clone(),
-                host: Some(conn.host.clone()),
-                username: Some(conn.username.clone()),
-                device_profile: Some(conn.device_profile.clone()),
-                vars: runtime_vars,
-            };
-            let flow = builtin_template
-                .to_command_flow(&runtime)
-                .map_err(ApiError::from)?;
-            (
-                flow,
-                effective_mode.clone(),
-                format!(
-                    "{}:{} {}",
-                    req.server_addr.trim(),
-                    match req.protocol {
-                        TransferProtocol::Scp => "scp",
-                        TransferProtocol::Tftp => "tftp",
-                    },
-                    req.device_path.trim()
-                ),
-            )
-        };
-
-    if let Some(timeout_secs) = req.timeout_secs {
-        for step in &mut flow.steps {
-            step.timeout = Some(timeout_secs);
-        }
-    }
-
-    command_blacklist::ensure_commands_allowed(
-        flow.steps.iter().map(|command| command.command.as_str()),
-        "file transfer flow",
-    )
-    .map_err(|e| ApiError::bad_request(e.to_string()))?;
-    if flow.steps.is_empty() {
-        return Err(ApiError::bad_request("file transfer flow has no commands"));
-    }
-
-    let flow_commands = flow
-        .steps
-        .iter()
-        .map(|step| step.command.clone())
-        .collect::<Vec<_>>();
-
-    let client = if let Some(level) = to_record_level(record_level) {
-        DeviceClient::connect_with_recording(
-            conn.host.clone(),
-            conn.port,
-            conn.username.clone(),
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-            profile_default_mode,
-            level,
-            conn.ssh_security,
-        )
-        .await?
-    } else {
-        DeviceClient::connect(
-            conn.host.clone(),
-            conn.port,
-            conn.username.clone(),
-            conn.password.clone(),
-            conn.enable_password.clone(),
-            handler,
-            profile_default_mode,
-            conn.ssh_security,
-        )
-        .await?
-    };
-
-    let result = client.execute_command_flow(flow).await?;
-    persist_history_if_recorded(
-        &conn,
-        &client,
-        "file_transfer",
-        &history_label,
-        Some(resolved_mode.as_str()),
-        record_level,
-    );
-    let outputs: Vec<CommandResult> = result
-        .outputs
-        .into_iter()
-        .enumerate()
-        .map(|(index, output)| CommandResult {
-            command: flow_commands
-                .get(index)
-                .cloned()
-                .unwrap_or_else(|| format!("step {}", index + 1)),
-            success: output.success,
-            exit_code: output.exit_code,
-            output: Some(output.content),
-            error: None,
-        })
-        .collect();
-
-    let succeeded = outputs.iter().filter(|item| item.success).count() as u64;
-    let failed = outputs.len() as u64 - succeeded;
-    let recording_jsonl = client.recording_jsonl()?;
-
-    Ok(Json(ExecuteBuiltinFileTransferFlowResponse {
-        success: result.success,
-        resolved_mode: resolved_mode.clone(),
-        result_summary: task_result_with_details(
-            task_result_with_recording(
-                task_result_with_counts(
-                    build_result_summary(
-                        TaskOperation::CommandFlow,
-                        if result.success {
-                            TaskResultOutcome::Success
-                        } else if succeeded > 0 {
-                            TaskResultOutcome::PartialSuccess
-                        } else {
-                            TaskResultOutcome::Failed
-                        },
-                        if result.success {
-                            "File transfer flow completed successfully"
-                        } else if succeeded > 0 {
-                            "File transfer flow finished with failed steps"
-                        } else {
-                            "File transfer flow failed"
-                        },
-                    ),
-                    result_counts(outputs.len() as u64, succeeded, failed),
-                ),
-                &recording_jsonl,
-            ),
-            json!({
-                "resolved_mode": resolved_mode,
-                "history_label": history_label
             }),
         ),
         outputs,
@@ -4171,6 +4044,7 @@ pub async fn execute_tx_block(
                 });
                 let flow_template = load_command_flow_template_from_input(
                     req.flow_template_name.as_deref(),
+                    None,
                     req.flow_content.as_deref(),
                     "inline_tx_flow",
                 )?;
@@ -4197,6 +4071,7 @@ pub async fn execute_tx_block(
                     _ => {
                         let rollback_template = load_command_flow_template_from_input(
                             req.rollback_flow_template_name.as_deref(),
+                            None,
                             req.rollback_flow_content.as_deref(),
                             "inline_tx_rollback_flow",
                         )?;
@@ -5146,9 +5021,10 @@ pub async fn replay_session(
 #[cfg(test)]
 mod tests {
     use super::{
-        TaskReportContext, build_json_template_context, merged_saved_secret,
-        require_managed_async_task, sanitize_rendered_output_for_response,
-        saved_connection_detail_response, should_persist_secret,
+        TaskReportContext, build_json_template_context, builtin_command_flow_template_by_name,
+        merged_saved_secret, parse_builtin_command_flow_template_token, require_managed_async_task,
+        sanitize_rendered_output_for_response, saved_connection_detail_response,
+        should_persist_secret,
     };
     use crate::config::connection_store::SavedConnection;
     use crate::config::linux_shell::LinuxShellFlavor;
@@ -5306,5 +5182,29 @@ mod tests {
         assert!(!masked.contains("db-pass"));
         assert!(masked.contains("192.168.30.92"));
         assert!(masked.matches("******").count() >= 4);
+    }
+
+    #[test]
+    fn parse_builtin_flow_template_token_supports_prefix() {
+        assert_eq!(
+            parse_builtin_command_flow_template_token("builtin:cisco_like_copy").as_deref(),
+            Some("cisco-like-copy")
+        );
+        assert_eq!(
+            parse_builtin_command_flow_template_token("BUILTIN:cisco-like-copy").as_deref(),
+            Some("cisco-like-copy")
+        );
+        assert_eq!(
+            parse_builtin_command_flow_template_token("cisco-like-copy"),
+            None
+        );
+    }
+
+    #[test]
+    fn builtin_flow_template_can_be_loaded() {
+        let template = builtin_command_flow_template_by_name("cisco_like_copy")
+            .expect("builtin flow template should exist");
+        assert_eq!(template.name, "cisco-like-copy");
+        assert!(!template.steps.is_empty());
     }
 }
