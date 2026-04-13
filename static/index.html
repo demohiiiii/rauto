@@ -202,12 +202,7 @@
                   <span id="tx-basic-title">Transaction Block</span>
                   <button id="tx-advanced-toggle-btn" class="btn btn-sm" type="button">Advanced</button>
                 </div>
-                <div class="tabs tabs-box w-fit" role="tablist" aria-label="Tx block page mode tabs">
-                  <button id="tx-block-view-direct" class="tab tab-active" type="button">Direct Execute</button>
-                  <button id="tx-block-view-template" class="tab" type="button">Template Execute</button>
-                  <button id="tx-block-view-manage" class="tab" type="button">Template Manage</button>
-                </div>
-                <div id="tx-block-view-direct-panel" class="group-card">
+                <div id="tx-block-run-direct-panel" class="group-card">
                   <div class="group-body grid gap-2">
                     <div id="tx-block-direct-hint" class="text-xs text-slate-500">Build and run a tx block directly from the editor form below.</div>
                     <div class="grid grid-cols-2 gap-2">
@@ -216,113 +211,15 @@
                     </div>
                   </div>
                 </div>
-                <div id="tx-block-view-template-panel" class="group-card" hidden>
+                <div id="tx-block-run-template-panel" class="group-card" hidden>
                   <div class="group-body grid gap-2">
-                    <select id="tx-block-template-name" class="select" title="Tx Block Template" aria-label="Tx Block Template"></select>
-                    <textarea id="tx-block-template-vars" class="input min-h-20 font-mono" placeholder='tx block template vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
-                    <div id="tx-block-template-run-hint" class="text-xs text-slate-500">Select a saved template and execute, or load it into the shared editor.</div>
-                    <div class="grid gap-2 md:grid-cols-3">
-                      <button id="tx-block-template-apply-btn" class="btn btn-sm" type="button">Load To Editor</button>
+                    <div class="grid gap-2 md:grid-cols-2">
                       <button id="tx-template-plan-btn" class="btn btn-sm" type="button">Preview Tx Plan</button>
                       <button id="tx-template-exec-btn" class="btn btn-primary btn-sm" type="button">Execute Tx Block</button>
                     </div>
                   </div>
                 </div>
-                <div id="tx-block-view-manage-panel" class="group-card" hidden>
-                  <div class="group-body grid gap-2">
-                    <div class="grid gap-2 md:grid-cols-[1fr_auto_auto_auto_auto]">
-                      <select id="tx-block-manage-template-picker" class="select" title="Tx Block Template" aria-label="Tx Block Template"></select>
-                      <button id="tx-block-manage-new-btn" class="btn btn-sm" type="button">New</button>
-                      <button id="tx-block-manage-save-btn" class="btn btn-success btn-sm" type="button">Save</button>
-                      <button id="tx-block-manage-delete-btn" class="btn btn-error btn-sm" type="button">Delete</button>
-                      <button id="tx-block-manage-load-btn" class="btn btn-sm" type="button">Load</button>
-                    </div>
-                    <div id="tx-block-manage-hint" class="text-xs text-slate-500">Create/update templates from the same editor form. Select one to load into the editor.</div>
-                    <div id="tx-block-manage-list" class="grid gap-2"></div>
-                    <div id="tx-block-manage-out" class="grid gap-2"></div>
-                  </div>
-                </div>
-                <div class="group-card">
-                  <div class="field-tools">
-                    <span id="tx-block-editor-title">Tx Block Editor</span>
-                  </div>
-                  <div class="group-body grid gap-2">
-                    <div class="tabs tabs-box w-fit" role="tablist" aria-label="Tx block input mode tabs">
-                      <button id="tx-run-kind-commands" class="tab" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('commands')" x-bind:class="{ 'tab-active': $store.app.currentTxBlockRunKind === 'commands' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'commands').toString()">Commands</button>
-                      <button id="tx-run-kind-flow" class="tab" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('flow')" x-bind:class="{ 'tab-active': $store.app.currentTxBlockRunKind === 'flow' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'flow').toString()">Command Flow</button>
-                    </div>
-                        <div id="tx-block-command-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'commands'" x-cloak>
-                          <select id="tx-template" class="select" title="Command Template" aria-label="Command Template"></select>
-                          <textarea id="tx-commands" class="input min-h-24 font-mono" placeholder="commands (one per line, optional when template is set)"></textarea>
-                          <textarea id="tx-vars" class="input min-h-24 font-mono" placeholder='JSON vars, e.g. {"name":"WEB01"}'></textarea>
-                          <select id="tx-mode" class="select" title="TX Mode" aria-label="TX Mode"></select>
-                          <div class="grid gap-2">
-                            <div class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
-                              <span id="tx-rollback-mode-label">Rollback mode</span>
-                              <select id="tx-rollback-mode" class="select md:w-[220px]" title="Rollback Mode" aria-label="Rollback Mode">
-                                <option value="none">none</option>
-                                <option value="per_step">custom per-step</option>
-                                <option value="whole_resource">whole resource</option>
-                              </select>
-                            </div>
-                            <div id="tx-rollback-per-step" class="grid gap-2" hidden>
-                              <label class="check-label">
-                                <input id="tx-rollback-on-failure" type="checkbox" class="check-input" />
-                                <span id="tx-rollback-on-failure-label">rollback failed step</span>
-                              </label>
-                              <div class="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
-                                <span id="tx-rollback-input-label">rollback input</span>
-                                <div class="tabs tabs-box w-fit">
-                                  <button id="tx-rollback-input-text" class="tab tab-active" type="button">text</button>
-                                  <button id="tx-rollback-input-pairs" class="tab" type="button">per-command</button>
-                                </div>
-                              </div>
-                              <div class="inline-flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                                <button id="tx-rollback-auto-btn" class="btn btn-sm" type="button">Auto-generate rollback</button>
-                                <span id="tx-rollback-auto-hint">Generated by simple rule: prefix with 'no '</span>
-                                <span class="ml-2 text-slate-400" id="tx-rollback-rule-label">rule</span>
-                                <select id="tx-rollback-rule" class="select" title="Rollback Rule" aria-label="Rollback Rule">
-                                  <option value="no_prefix">prefix no</option>
-                                  <option value="set_delete">set → delete</option>
-                                  <option value="add_remove">add → remove</option>
-                                  <option value="custom">custom template</option>
-                                </select>
-                                <input id="tx-rollback-template" class="input" placeholder="template, e.g. no {{cmd}}" />
-                              </div>
-                              <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-                                <select id="tx-rollback-template-pick" class="select" title="Rollback Template" aria-label="Rollback Template"></select>
-                                <input id="tx-rollback-template-name" class="input" placeholder="template name" />
-                                <button id="tx-rollback-template-save" class="btn btn-sm btn-success" type="button">Save</button>
-                                <button id="tx-rollback-template-delete" class="btn btn-sm btn-error" type="button">Delete</button>
-                              </div>
-                              <textarea id="tx-rollback-commands" class="input min-h-24 font-mono" placeholder="rollback commands (one per line, used by per_step)"></textarea>
-                              <div id="tx-rollback-pairs" class="grid gap-2" hidden></div>
-                              <div id="tx-rollback-empty-hint" class="text-xs text-slate-500" hidden>enter commands above to edit per-command rollbacks</div>
-                            </div>
-                            <div id="tx-rollback-resource" class="grid gap-2" hidden>
-                              <input id="tx-resource-rollback" class="input" placeholder="resource rollback command (optional)" />
-                              <input id="tx-rollback-trigger-step" class="input" placeholder="trigger step index (default 0)" />
-                            </div>
-                          </div>
-                        </div>
-                        <div id="tx-block-flow-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'flow'" x-cloak>
-                          <select id="tx-flow-template-name" class="select" title="Tx Command Flow Template" aria-label="Tx Command Flow Template"></select>
-                          <textarea id="tx-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for command flow, e.g. {"package":"nginx"}'></textarea>
-                          <select id="tx-flow-mode" class="select" title="Flow Mode" aria-label="Flow Mode"></select>
-                          <label class="check-label">
-                            <input id="tx-flow-rollback-on-failure" type="checkbox" class="check-input" />
-                            <span id="tx-flow-rollback-on-failure-label">rollback failed step</span>
-                          </label>
-                          <select id="tx-rollback-flow-template-name" class="select" title="Rollback Command Flow Template" aria-label="Rollback Command Flow Template"></select>
-                          <textarea id="tx-rollback-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for rollback flow (optional)'></textarea>
-                          <div id="tx-flow-hint" class="text-xs text-slate-500">A command flow tx block runs one flow operation as a single transaction step.</div>
-                        </div>
-                    <div id="tx-advanced-fields" class="grid gap-2 md:grid-cols-2" hidden>
-                      <input id="tx-name" class="input" placeholder="tx block name" />
-                      <input id="tx-timeout-secs" class="input" placeholder="timeout secs (optional)" />
-                    </div>
-                  </div>
-                </div>
+                <div id="tx-shared-editor-block-host" class="grid gap-2"></div>
                 <div class="group-card">
                   <div class="field-tools">
                     <span id="tx-block-visual-title">Tx Block Visual Preview</span>
@@ -407,6 +304,111 @@
                         </div>
                         <div id="tx-workflow-plan-out" class="mt-2 grid gap-2"></div>
                         <div id="tx-workflow-exec-out" class="mt-2 grid gap-2"></div>
+                      </div>
+                    </div>
+
+                    <div id="tx-shared-editor-section" class="grid gap-2" hidden>
+                      <div class="tabs tabs-box w-fit" role="tablist" aria-label="Tx block page mode tabs">
+                        <button id="tx-block-view-direct" class="tab tab-active" type="button">Direct Execute</button>
+                        <button id="tx-block-view-template" class="tab" type="button">Template Execute</button>
+                      </div>
+                      <div id="tx-block-view-direct-panel" class="group-card">
+                        <div class="group-body grid gap-2">
+                          <div id="tx-block-view-direct-hint" class="text-xs text-slate-500">Use the unified tx block editor form below for direct block editing.</div>
+                        </div>
+                      </div>
+                      <div id="tx-block-view-template-panel" class="group-card" hidden>
+                        <div class="group-body grid gap-2">
+                          <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                            <select id="tx-block-template-name" class="select" title="Tx Block Template" aria-label="Tx Block Template"></select>
+                            <button id="tx-block-template-run-save-btn" class="btn btn-success btn-sm" type="button">Save</button>
+                            <button id="tx-block-template-run-delete-btn" class="btn btn-error btn-sm" type="button">Delete</button>
+                          </div>
+                          <textarea id="tx-block-template-vars" class="input min-h-20 font-mono" placeholder='tx block template vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
+                          <div id="tx-block-template-run-hint" class="text-xs text-slate-500">Select a saved template to auto-fill editor, then execute or save updates.</div>
+                        </div>
+                      </div>
+                      <div id="tx-shared-editor-card" class="group-card">
+                        <div class="field-tools">
+                          <span id="tx-block-editor-title">Tx Block Editor</span>
+                          <button id="tx-block-editor-new-btn" class="btn btn-sm" type="button">New</button>
+                        </div>
+                        <div class="group-body grid gap-2">
+                          <div class="tabs tabs-box w-fit" role="tablist" aria-label="Tx block input mode tabs">
+                            <button id="tx-run-kind-commands" class="tab" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('commands')" x-bind:class="{ 'tab-active': $store.app.currentTxBlockRunKind === 'commands' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'commands').toString()">Commands</button>
+                            <button id="tx-run-kind-flow" class="tab" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('flow')" x-bind:class="{ 'tab-active': $store.app.currentTxBlockRunKind === 'flow' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'flow').toString()">Command Flow</button>
+                          </div>
+                          <div id="tx-block-command-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'commands'" x-cloak>
+                            <select id="tx-template" class="select" title="Command Template" aria-label="Command Template"></select>
+                            <textarea id="tx-commands" class="input min-h-24 font-mono" placeholder="commands (one per line, optional when template is set)"></textarea>
+                            <textarea id="tx-vars" class="input min-h-24 font-mono" placeholder='JSON vars, e.g. {"name":"WEB01"}'></textarea>
+                            <select id="tx-mode" class="select" title="TX Mode" aria-label="TX Mode"></select>
+                            <div class="grid gap-2">
+                              <div class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                <span id="tx-rollback-mode-label">Rollback mode</span>
+                                <select id="tx-rollback-mode" class="select md:w-[220px]" title="Rollback Mode" aria-label="Rollback Mode">
+                                  <option value="none">none</option>
+                                  <option value="per_step">custom per-step</option>
+                                  <option value="whole_resource">whole resource</option>
+                                </select>
+                              </div>
+                              <div id="tx-rollback-per-step" class="grid gap-2" hidden>
+                                <label class="check-label">
+                                  <input id="tx-rollback-on-failure" type="checkbox" class="check-input" />
+                                  <span id="tx-rollback-on-failure-label">rollback failed step</span>
+                                </label>
+                                <div class="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
+                                  <span id="tx-rollback-input-label">rollback input</span>
+                                  <div class="tabs tabs-box w-fit">
+                                    <button id="tx-rollback-input-text" class="tab tab-active" type="button">text</button>
+                                    <button id="tx-rollback-input-pairs" class="tab" type="button">per-command</button>
+                                  </div>
+                                </div>
+                                <div class="inline-flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                  <button id="tx-rollback-auto-btn" class="btn btn-sm" type="button">Auto-generate rollback</button>
+                                  <span id="tx-rollback-auto-hint">Generated by simple rule: prefix with 'no '</span>
+                                  <span class="ml-2 text-slate-400" id="tx-rollback-rule-label">rule</span>
+                                  <select id="tx-rollback-rule" class="select" title="Rollback Rule" aria-label="Rollback Rule">
+                                    <option value="no_prefix">prefix no</option>
+                                    <option value="set_delete">set → delete</option>
+                                    <option value="add_remove">add → remove</option>
+                                    <option value="custom">custom template</option>
+                                  </select>
+                                  <input id="tx-rollback-template" class="input" placeholder="template, e.g. no {{cmd}}" />
+                                </div>
+                                <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+                                  <select id="tx-rollback-template-pick" class="select" title="Rollback Template" aria-label="Rollback Template"></select>
+                                  <input id="tx-rollback-template-name" class="input" placeholder="template name" />
+                                  <button id="tx-rollback-template-save" class="btn btn-sm btn-success" type="button">Save</button>
+                                  <button id="tx-rollback-template-delete" class="btn btn-sm btn-error" type="button">Delete</button>
+                                </div>
+                                <textarea id="tx-rollback-commands" class="input min-h-24 font-mono" placeholder="rollback commands (one per line, used by per_step)"></textarea>
+                                <div id="tx-rollback-pairs" class="grid gap-2" hidden></div>
+                                <div id="tx-rollback-empty-hint" class="text-xs text-slate-500" hidden>enter commands above to edit per-command rollbacks</div>
+                              </div>
+                              <div id="tx-rollback-resource" class="grid gap-2" hidden>
+                                <input id="tx-resource-rollback" class="input" placeholder="resource rollback command (optional)" />
+                                <input id="tx-rollback-trigger-step" class="input" placeholder="trigger step index (default 0)" />
+                              </div>
+                            </div>
+                          </div>
+                          <div id="tx-block-flow-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'flow'" x-cloak>
+                            <select id="tx-flow-template-name" class="select" title="Tx Command Flow Template" aria-label="Tx Command Flow Template"></select>
+                            <textarea id="tx-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for command flow, e.g. {"package":"nginx"}'></textarea>
+                            <select id="tx-flow-mode" class="select" title="Flow Mode" aria-label="Flow Mode"></select>
+                            <label class="check-label">
+                              <input id="tx-flow-rollback-on-failure" type="checkbox" class="check-input" />
+                              <span id="tx-flow-rollback-on-failure-label">rollback failed step</span>
+                            </label>
+                            <select id="tx-rollback-flow-template-name" class="select" title="Rollback Command Flow Template" aria-label="Rollback Command Flow Template"></select>
+                            <textarea id="tx-rollback-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for rollback flow (optional)'></textarea>
+                            <div id="tx-flow-hint" class="text-xs text-slate-500">A command flow tx block runs one flow operation as a single transaction step.</div>
+                          </div>
+                          <div id="tx-advanced-fields" class="grid gap-2 md:grid-cols-2" hidden>
+                            <input id="tx-name" class="input" placeholder="tx block name" />
+                            <input id="tx-timeout-secs" class="input" placeholder="timeout secs (optional)" />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1481,6 +1483,27 @@
     </div>
   </div>
 </div>
+
+<dialog id="tx-workflow-editor-modal" class="modal">
+  <div
+    class="modal-box p-0"
+    style="width: min(92vw, 980px); max-width: none; max-height: min(92dvh, calc(100vh - 1.5rem)); display: flex; flex-direction: column; overflow: hidden;"
+  >
+    <div class="dashboard-modal-head">
+      <div class="grid gap-1">
+        <h3 id="tx-workflow-editor-bridge-title" class="text-base font-semibold text-slate-900">Current Workflow Tx Block</h3>
+        <p id="tx-workflow-editor-current" class="text-sm text-slate-500">No workflow block selected.</p>
+      </div>
+      <button id="tx-workflow-editor-cancel-btn" class="btn btn-sm" type="button">Close</button>
+    </div>
+    <div class="dashboard-modal-body" style="min-height: 0; overflow: auto;">
+      <div id="tx-shared-editor-workflow-host" class="grid gap-2"></div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button id="tx-workflow-editor-backdrop-close" type="submit">close</button>
+  </form>
+</dialog>
 
 <!-- ============================================================
      弹出层：Entry Drawer

@@ -539,22 +539,29 @@ function applyI18n() {
   byId("tx-basic-title").textContent = t("txBasicTitle");
   byId("tx-block-view-direct").textContent = t("txBlockViewDirect");
   byId("tx-block-view-template").textContent = t("txBlockViewTemplate");
-  byId("tx-block-view-manage").textContent = t("txBlockViewManage");
   byId("tx-block-direct-hint").textContent = t("txBlockDirectHint");
+  if (byId("tx-block-view-direct-hint")) {
+    byId("tx-block-view-direct-hint").textContent = t("txBlockDirectHint");
+  }
   if (byId("tx-block-template-run-title")) {
     byId("tx-block-template-run-title").textContent = t("txBlockTemplateRunTitle");
   }
   byId("tx-block-template-run-hint").textContent = t("txBlockTemplateRunHint");
   byId("tx-block-template-vars").placeholder = t("txBlockTemplateVarsPlaceholder");
-  byId("tx-block-template-apply-btn").textContent = t("txBlockTemplateApplyBtn");
+  byId("tx-block-template-run-save-btn").textContent = t("templateSaveBtn");
+  byId("tx-block-template-run-delete-btn").textContent = t("templateDeleteBtn");
   byId("tx-template-plan-btn").textContent = t("txPlanBtn");
   byId("tx-template-exec-btn").textContent = t("txExecBtn");
-  byId("tx-block-manage-new-btn").textContent = t("newBtn");
-  byId("tx-block-manage-save-btn").textContent = t("templateSaveBtn");
-  byId("tx-block-manage-delete-btn").textContent = t("templateDeleteBtn");
-  byId("tx-block-manage-load-btn").textContent = t("txBlockManageLoadBtn");
-  byId("tx-block-manage-hint").textContent = t("txBlockManageHint");
   byId("tx-block-editor-title").textContent = t("txBlockEditorTitle");
+  byId("tx-block-editor-new-btn").textContent = t("newBtn");
+  if (byId("tx-workflow-editor-bridge-title")) {
+    byId("tx-workflow-editor-bridge-title").textContent = t(
+      "txWorkflowEditorBridgeTitle"
+    );
+  }
+  if (byId("tx-workflow-editor-cancel-btn")) {
+    byId("tx-workflow-editor-cancel-btn").textContent = t("close");
+  }
   byId("tx-run-kind-commands").textContent = t("txRunKindCommands");
   byId("tx-run-kind-flow").textContent = t("txRunKindFlow");
   byId("tx-flow-template-name").placeholder = t("txFlowTemplatePlaceholder");
@@ -661,10 +668,6 @@ function applyI18n() {
   byId("tx-flow-template-name").setAttribute("title", t("txFlowTemplatePlaceholder"));
   byId("tx-rollback-flow-template-name").setAttribute("title", t("txFlowRollbackTemplatePlaceholder"));
   byId("tx-block-template-name").setAttribute("title", t("templateSelectPlaceholder"));
-  byId("tx-block-manage-template-picker").setAttribute(
-    "title",
-    t("templateSelectPlaceholder")
-  );
   byId("tx-workflow-template-name").setAttribute(
     "title",
     t("templateSelectPlaceholder")
@@ -694,7 +697,6 @@ function applyI18n() {
   renderBuiltinFlowTemplateList();
   renderAllJsonTemplateOptions();
   renderAllJsonTemplateLists();
-  renderTxBlockManageList();
   renderCustomProfileOptions();
   renderDiagnoseProfileOptions();
   renderTemplateOptions();
@@ -1061,9 +1063,20 @@ function applyTxStage() {
         ? t("txStageHintWorkflow")
         : t("txStageHintOrchestrate");
   }
-  if (isBlock) {
+  if (isBlock || isWorkflow) {
     applyTxBlockRunKind();
     applyTxBlockViewMode();
+  }
+  if (byId("tx-block-editor-new-btn")) {
+    byId("tx-block-editor-new-btn").textContent = isWorkflow
+      ? t("txWorkflowAddBlockBtn")
+      : t("newBtn");
+  }
+  if (!isWorkflow && txWorkflowEditorModalOpen) {
+    hideTxWorkflowEditorModal({ clearSelection: true });
+  }
+  if (typeof syncTxSharedEditorMount === "function") {
+    syncTxSharedEditorMount();
   }
   try {
     if (window.Alpine && typeof window.Alpine.store === "function") {
@@ -1076,7 +1089,7 @@ function applyTxStage() {
 }
 
 function applyTxBlockViewMode() {
-  const modes = ["direct", "template", "manage"];
+  const modes = ["direct", "template"];
   modes.forEach((mode) => {
     const btn = byId(`tx-block-view-${mode}`);
     const panel = byId(`tx-block-view-${mode}-panel`);
@@ -1090,6 +1103,19 @@ function applyTxBlockViewMode() {
       panel.style.display = active ? "" : "none";
     }
   });
+  const showRunPanels = currentTxStage === "block";
+  const runDirect = byId("tx-block-run-direct-panel");
+  const runTemplate = byId("tx-block-run-template-panel");
+  if (runDirect) {
+    const active = showRunPanels && txBlockViewMode === "direct";
+    runDirect.hidden = !active;
+    runDirect.style.display = active ? "" : "none";
+  }
+  if (runTemplate) {
+    const active = showRunPanels && txBlockViewMode === "template";
+    runTemplate.hidden = !active;
+    runTemplate.style.display = active ? "" : "none";
+  }
 }
 
 function applyTxWorkflowMoreActionsState() {
