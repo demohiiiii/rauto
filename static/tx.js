@@ -164,16 +164,24 @@ function applyTxBlockTemplatePayloadToEditor(payload) {
 }
 
 function txWorkflowPayload(dryRun) {
-  const workflowTemplateName = byId("tx-workflow-template-name").value.trim();
-  const raw = byId("tx-workflow-json").value.trim();
-  if (!raw && !workflowTemplateName) {
+  const templateMode = txWorkflowViewMode === "template";
+  const workflowTemplateName = templateMode
+    ? byId("tx-workflow-template-name").value.trim()
+    : "";
+  const raw = templateMode ? "" : byId("tx-workflow-json").value.trim();
+  if (templateMode && !workflowTemplateName) {
+    throw new Error(t("txWorkflowTemplateNameRequired"));
+  }
+  if (!templateMode && !raw) {
     throw new Error(t("txWorkflowJsonRequired"));
   }
   return {
     workflow_template_name: workflowTemplateName || null,
     workflow_template_content: null,
     workflow: raw ? JSON.parse(raw) : {},
-    workflow_vars: parseJsonById("tx-workflow-vars-json"),
+    workflow_vars: parseJsonById(
+      templateMode ? "tx-workflow-template-vars-json" : "tx-workflow-vars-json"
+    ),
     dry_run: dryRun,
     connection: connectionPayload(),
     record_level: recordLevelPayload(),

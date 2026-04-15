@@ -23,6 +23,7 @@ use cli::{
 use config::command_flow_template::{
     CommandFlowTemplate, ParsedCommandFlowTemplate, build_command_flow_runtime,
     normalize_command_flow_template_body, parse_command_flow_template_with_extensions,
+    resolve_command_flow_runtime_default_mode,
 };
 use config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -1167,16 +1168,32 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
     let runtime_vars = resolve_flow_runtime_vars(
         template,
         vars,
         &conn,
         parsed_template.current_connection_alias.as_deref(),
     )?;
+    let runtime_default_mode = resolve_command_flow_runtime_default_mode(
+        None,
+        template.default_mode.as_deref(),
+        &profile_default_mode,
+    );
+    let effective_flow_mode = runtime_default_mode
+        .clone()
+        .or_else(|| {
+            template
+                .default_mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|mode| !mode.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| profile_default_mode.clone());
 
     let flow = template.to_command_flow(&build_command_flow_runtime(
-        default_mode.clone(),
+        runtime_default_mode,
         conn.connection_name.as_deref(),
         &conn.host,
         &conn.username,
@@ -1199,7 +1216,7 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
         conn.password.clone(),
         conn.enable_password.clone(),
         handler,
-        default_mode.clone(),
+        profile_default_mode.clone(),
         to_record_level(args.record_level),
         conn.ssh_security,
     )
@@ -1215,7 +1232,7 @@ async fn run_command_flow(args: CommandFlowArgs, opts: &cli::GlobalOpts) -> Resu
         &conn,
         "command_flow",
         &format!("template: {}", template.name),
-        Some(default_mode.as_str()),
+        Some(effective_flow_mode.as_str()),
         args.record_level,
     )?;
 
@@ -1690,17 +1707,14 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                 ));
             }
 
-            let mode = match args
+            let mode_override = args
                 .mode
                 .as_deref()
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
-            {
-                Some(mode) => {
-                    template_loader::resolve_profile_mode(&conn.device_profile, Some(mode))?
-                }
-                None => template_loader::default_profile_mode(&conn.device_profile)?,
-            };
+                .map(|mode| template_loader::resolve_profile_mode(&conn.device_profile, Some(mode)))
+                .transpose()?;
+            let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
             let flow_template = resolve_command_flow_template_from_sources(
                 args.flow_template.as_deref(),
@@ -1710,6 +1724,23 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                 "--flow-template",
                 "--flow-file",
             )?;
+            let flow_runtime_default_mode = resolve_command_flow_runtime_default_mode(
+                mode_override.as_deref(),
+                flow_template.template.default_mode.as_deref(),
+                &profile_default_mode,
+            );
+            let flow_effective_mode = flow_runtime_default_mode
+                .clone()
+                .or_else(|| {
+                    flow_template
+                        .template
+                        .default_mode
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|mode| !mode.is_empty())
+                        .map(ToOwned::to_owned)
+                })
+                .unwrap_or_else(|| profile_default_mode.clone());
             let flow_vars =
                 load_vars_json_input(args.flow_vars.as_ref(), args.flow_vars_json.as_deref())?;
             let flow_runtime_vars = resolve_flow_runtime_vars(
@@ -1721,7 +1752,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
             let mut flow = flow_template
                 .template
                 .to_command_flow(&build_command_flow_runtime(
-                    mode.clone(),
+                    flow_runtime_default_mode,
                     conn.connection_name.as_deref(),
                     &conn.host,
                     &conn.username,
@@ -1755,6 +1786,11 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                         "--rollback-flow-template",
                         "--rollback-flow-file",
                     )?;
+                    let rollback_runtime_default_mode = resolve_command_flow_runtime_default_mode(
+                        mode_override.as_deref(),
+                        rollback_template.template.default_mode.as_deref(),
+                        &profile_default_mode,
+                    );
                     let rollback_vars = load_vars_json_input(
                         args.rollback_flow_vars.as_ref(),
                         args.rollback_flow_vars_json.as_deref(),
@@ -1769,7 +1805,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                         rollback_template
                             .template
                             .to_command_flow(&build_command_flow_runtime(
-                                mode.clone(),
+                                rollback_runtime_default_mode,
                                 conn.connection_name.as_deref(),
                                 &conn.host,
                                 &conn.username,
@@ -1804,7 +1840,7 @@ async fn run_tx_block(args: TxArgs, opts: &cli::GlobalOpts) -> Result<()> {
                 fail_fast: true,
             };
             tx_block.validate()?;
-            (tx_block, mode)
+            (tx_block, flow_effective_mode)
         }
     };
 

@@ -77,6 +77,9 @@ async function refreshExecutionModeOptions(overrides = {}) {
     overrides.txFlowMode ?? byId("tx-flow-mode").value,
     data.default_mode
   );
+  if (typeof renderTxWorkflowBuilder === "function") {
+    renderTxWorkflowBuilder();
+  }
 }
 
 async function loadProfilesOverview() {

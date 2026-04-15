@@ -117,7 +117,7 @@ pub fn normalize_command_flow_template_body(name: &str, body: &str) -> Result<St
 }
 
 pub fn build_command_flow_runtime(
-    default_mode: impl Into<String>,
+    default_mode: Option<String>,
     connection_name: Option<&str>,
     host: &str,
     username: &str,
@@ -125,13 +125,35 @@ pub fn build_command_flow_runtime(
     vars: Value,
 ) -> CommandFlowTemplateRuntime {
     CommandFlowTemplateRuntime {
-        default_mode: Some(default_mode.into()),
+        default_mode,
         connection_name: connection_name.map(ToOwned::to_owned),
         host: Some(host.to_string()),
         username: Some(username.to_string()),
         device_profile: Some(device_profile.to_string()),
         vars,
     }
+}
+
+pub fn resolve_command_flow_runtime_default_mode(
+    requested_mode: Option<&str>,
+    template_default_mode: Option<&str>,
+    profile_default_mode: &str,
+) -> Option<String> {
+    if let Some(mode) = requested_mode
+        .map(str::trim)
+        .filter(|mode| !mode.is_empty())
+    {
+        return Some(mode.to_string());
+    }
+
+    if template_default_mode
+        .map(str::trim)
+        .is_some_and(|mode| !mode.is_empty())
+    {
+        return None;
+    }
+
+    Some(profile_default_mode.to_string())
 }
 
 fn is_safe_var_name(name: &str) -> bool {
@@ -272,5 +294,23 @@ command = "show clock"
             err.to_string().contains("current_connection_alias"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn runtime_default_mode_uses_request_override_first() {
+        let mode = resolve_command_flow_runtime_default_mode(Some("Root"), Some("User"), "Enable");
+        assert_eq!(mode.as_deref(), Some("Root"));
+    }
+
+    #[test]
+    fn runtime_default_mode_prefers_template_default_when_no_override() {
+        let mode = resolve_command_flow_runtime_default_mode(None, Some("User"), "Enable");
+        assert!(mode.is_none());
+    }
+
+    #[test]
+    fn runtime_default_mode_falls_back_to_profile_default() {
+        let mode = resolve_command_flow_runtime_default_mode(None, None, "Enable");
+        assert_eq!(mode.as_deref(), Some("Enable"));
     }
 }

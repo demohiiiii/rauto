@@ -5,6 +5,7 @@ use crate::config::command_flow_template::{
     CommandFlowTemplate, CommandFlowTemplateVar, ParsedCommandFlowTemplate,
     build_command_flow_runtime, command_flow_var_kind_label, normalize_command_flow_template_body,
     parse_command_flow_template_str, parse_command_flow_template_with_extensions,
+    resolve_command_flow_runtime_default_mode,
 };
 use crate::config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -2534,6 +2535,337 @@ struct TxBlockTemplatePayload {
     resource_rollback_command: Option<String>,
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct TxWorkflowBlockTemplateRefPayload {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    fail_fast: Option<bool>,
+    #[serde(default)]
+    tx_block_template_name: Option<String>,
+    #[serde(default)]
+    tx_block_template_content: Option<String>,
+    #[serde(default)]
+    tx_block_template_vars: Value,
+}
+
+fn build_tx_block_from_request(
+    req: ExecuteTxBlockRequest,
+    conn: Option<&ResolvedConnection>,
+) -> Result<(TxBlock, String, String), ApiError> {
+    let block_name = req
+        .name
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or("tx-block")
+        .to_string();
+    let requested_mode = req
+        .mode
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(|mode| {
+            if let Some(connection) = conn {
+                template_loader::resolve_profile_mode(&connection.device_profile, Some(mode))
+                    .map_err(|e| ApiError::bad_request(e.to_string()))
+            } else {
+                Ok(mode.to_string())
+            }
+        })
+        .transpose()?;
+    let run_kind = req.run_kind.unwrap_or(TxBlockRunKind::Commands);
+
+    let (tx_block, effective_mode) = match run_kind {
+        TxBlockRunKind::Commands => {
+            let mode = requested_mode.unwrap_or_else(|| "Config".to_string());
+            let rollback_mode = req.rollback_mode.unwrap_or_else(|| {
+                if req.resource_rollback_command.is_some() {
+                    TxRollbackMode::WholeResource
+                } else {
+                    TxRollbackMode::PerStep
+                }
+            });
+            let renderer = Renderer::new();
+            let resolved_vars = resolve_runtime_vars_with_connection(req.vars, conn)?;
+            let resolved_commands = resolve_tx_commands(
+                &renderer,
+                req.template.as_deref(),
+                resolved_vars,
+                &req.commands,
+                conn,
+            )?;
+
+            if matches!(rollback_mode, TxRollbackMode::WholeResource)
+                && req.resource_rollback_command.is_none()
+            {
+                return Err(ApiError::bad_request(
+                    "rollback_mode 'whole_resource' requires resource_rollback_command",
+                ));
+            }
+            if req.rollback_trigger_step_index.is_some() && req.resource_rollback_command.is_none()
+            {
+                return Err(ApiError::bad_request(
+                    "rollback_trigger_step_index requires resource_rollback_command",
+                ));
+            }
+            if matches!(rollback_mode, TxRollbackMode::None)
+                && (req.resource_rollback_command.is_some()
+                    || req.rollback_trigger_step_index.is_some()
+                    || req
+                        .rollback_commands
+                        .iter()
+                        .any(|value| !value.trim().is_empty()))
+            {
+                return Err(ApiError::bad_request(
+                    "rollback_mode 'none' does not accept rollback command fields",
+                ));
+            }
+
+            let mut rollback_commands = req.rollback_commands;
+            while rollback_commands.len() > resolved_commands.len()
+                && rollback_commands
+                    .last()
+                    .map(|s| s.trim().is_empty())
+                    .unwrap_or(false)
+            {
+                rollback_commands.pop();
+            }
+
+            let tx_block = build_command_tx_block(
+                block_name.to_string(),
+                &mode,
+                &resolved_commands,
+                &rollback_commands,
+                req.timeout_secs,
+                req.rollback_on_failure.unwrap_or(false),
+                req.resource_rollback_command,
+                req.rollback_trigger_step_index,
+                matches!(rollback_mode, TxRollbackMode::None),
+            )
+            .map_err(ApiError::from)?;
+            (tx_block, mode)
+        }
+        TxBlockRunKind::CommandFlow => {
+            if req
+                .template
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty())
+                || !req.commands.is_empty()
+                || !req.rollback_commands.is_empty()
+                || req.resource_rollback_command.is_some()
+                || req.rollback_trigger_step_index.is_some()
+                || req.rollback_mode.is_some()
+            {
+                return Err(ApiError::bad_request(
+                    "command flow tx block does not accept command/template rollback fields",
+                ));
+            }
+
+            let connection = conn.ok_or_else(|| {
+                ApiError::bad_request("command flow tx block requires connection context")
+            })?;
+            let profile_default_mode =
+                template_loader::default_profile_mode(&connection.device_profile)
+                    .unwrap_or_else(|_| "Config".to_string());
+            let flow_template = load_command_flow_template_from_input(
+                req.flow_template_name.as_deref(),
+                None,
+                req.flow_content.as_deref(),
+                "inline_tx_flow",
+            )?;
+            let flow_runtime_default_mode = resolve_command_flow_runtime_default_mode(
+                requested_mode.as_deref(),
+                flow_template.template.default_mode.as_deref(),
+                &profile_default_mode,
+            );
+            let flow_effective_mode = flow_runtime_default_mode
+                .clone()
+                .or_else(|| {
+                    flow_template
+                        .template
+                        .default_mode
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|mode| !mode.is_empty())
+                        .map(ToOwned::to_owned)
+                })
+                .unwrap_or_else(|| profile_default_mode.clone());
+            let flow_runtime_vars = resolve_flow_runtime_vars(
+                &flow_template.template,
+                req.flow_vars,
+                connection,
+                flow_template.current_connection_alias.as_deref(),
+            )?;
+            let flow_operation = render_command_flow_operation(
+                flow_template.template,
+                build_command_flow_runtime(
+                    flow_runtime_default_mode,
+                    connection.connection_name.as_deref(),
+                    &connection.host,
+                    &connection.username,
+                    &connection.device_profile,
+                    flow_runtime_vars,
+                ),
+                req.timeout_secs,
+            )?;
+
+            let rollback_operation = match (
+                req.rollback_flow_template_name.as_deref(),
+                req.rollback_flow_content.as_deref(),
+            ) {
+                (None, None) => None,
+                _ => {
+                    let rollback_template = load_command_flow_template_from_input(
+                        req.rollback_flow_template_name.as_deref(),
+                        None,
+                        req.rollback_flow_content.as_deref(),
+                        "inline_tx_rollback_flow",
+                    )?;
+                    let rollback_runtime_default_mode = resolve_command_flow_runtime_default_mode(
+                        requested_mode.as_deref(),
+                        rollback_template.template.default_mode.as_deref(),
+                        &profile_default_mode,
+                    );
+                    let rollback_runtime_vars = resolve_flow_runtime_vars(
+                        &rollback_template.template,
+                        req.rollback_flow_vars,
+                        connection,
+                        rollback_template.current_connection_alias.as_deref(),
+                    )?;
+                    Some(render_command_flow_operation(
+                        rollback_template.template,
+                        build_command_flow_runtime(
+                            rollback_runtime_default_mode,
+                            connection.connection_name.as_deref(),
+                            &connection.host,
+                            &connection.username,
+                            &connection.device_profile,
+                            rollback_runtime_vars,
+                        ),
+                        req.timeout_secs,
+                    )?)
+                }
+            };
+
+            let mut step = TxStep::new(flow_operation)
+                .with_rollback_on_failure(req.rollback_on_failure.unwrap_or(false));
+            if let Some(rollback_operation) = rollback_operation {
+                step = step.with_rollback(rollback_operation);
+            }
+
+            let tx_block = TxBlock {
+                name: block_name.to_string(),
+                rollback_policy: RollbackPolicy::PerStep,
+                steps: vec![step],
+                fail_fast: true,
+            };
+            tx_block.validate().map_err(ApiError::from)?;
+            (tx_block, flow_effective_mode)
+        }
+    };
+
+    Ok((tx_block, effective_mode, block_name))
+}
+
+fn resolve_tx_workflow_blocks_from_templates(
+    workflow: Value,
+    conn: Option<&ResolvedConnection>,
+    renderer: &Renderer<'_>,
+) -> Result<Value, ApiError> {
+    let mut root = match workflow {
+        Value::Object(map) => map,
+        other => return Ok(other),
+    };
+    let blocks = root
+        .get("blocks")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if blocks.is_empty() {
+        return Ok(Value::Object(root));
+    }
+
+    let mut resolved_blocks = Vec::with_capacity(blocks.len());
+    for block in blocks {
+        let Some(block_obj) = block.as_object() else {
+            resolved_blocks.push(block);
+            continue;
+        };
+        let has_template_name = block_obj
+            .get("tx_block_template_name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty());
+        let has_template_content = block_obj
+            .get("tx_block_template_content")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty());
+        if !has_template_name && !has_template_content {
+            resolved_blocks.push(block);
+            continue;
+        }
+
+        let block_ref: TxWorkflowBlockTemplateRefPayload =
+            serde_json::from_value(Value::Object(block_obj.clone())).map_err(ApiError::from)?;
+        let source = load_json_template_from_input(
+            block_ref.tx_block_template_name.as_deref(),
+            block_ref.tx_block_template_content.as_deref(),
+            &Value::Null,
+            |name| {
+                let safe_name = storage::safe_json_template_name(name)?;
+                let content = content_store::load_tx_block_template(&safe_name)
+                    .map_err(ApiError::from)?
+                    .map(|item| item.content);
+                Ok(content)
+            },
+            "tx block template not found",
+        )?;
+        let resolved_template_vars =
+            resolve_runtime_vars_with_connection(block_ref.tx_block_template_vars, conn)?;
+        let mut context = build_json_template_context(resolved_template_vars, conn);
+        enrich_context_with_connection_refs_from_value(&mut context, &source)
+            .map_err(ApiError::from)?;
+        let rendered_payload = render_json_template_value(&source, &mut context, renderer)?;
+        let payload: TxBlockTemplatePayload =
+            serde_json::from_value(rendered_payload).map_err(ApiError::from)?;
+        let request = ExecuteTxBlockRequest {
+            name: block_ref.name.or(payload.name),
+            tx_block_template_name: None,
+            tx_block_template_content: None,
+            tx_block_template_vars: Value::Null,
+            run_kind: payload.run_kind,
+            template: payload.template,
+            vars: payload.vars,
+            flow_template_name: payload.flow_template_name,
+            flow_content: payload.flow_content,
+            flow_vars: payload.flow_vars,
+            rollback_flow_template_name: payload.rollback_flow_template_name,
+            rollback_flow_content: payload.rollback_flow_content,
+            rollback_flow_vars: payload.rollback_flow_vars,
+            commands: payload.commands,
+            rollback_commands: payload.rollback_commands,
+            rollback_mode: payload.rollback_mode,
+            rollback_on_failure: payload.rollback_on_failure,
+            rollback_trigger_step_index: payload.rollback_trigger_step_index,
+            mode: payload.mode,
+            timeout_secs: payload.timeout_secs,
+            resource_rollback_command: payload.resource_rollback_command,
+            run: crate::web::models::DryRunOptions::default(),
+            target: crate::web::models::ExecutionTargetOptions::default(),
+            task: crate::web::models::ManagedTaskOptions::default(),
+        };
+        let (mut tx_block, _, _) = build_tx_block_from_request(request, conn)?;
+        if let Some(fail_fast) = block_ref.fail_fast {
+            tx_block.fail_fast = fail_fast;
+        }
+        tx_block.validate().map_err(ApiError::from)?;
+        resolved_blocks.push(serde_json::to_value(&tx_block).map_err(ApiError::from)?);
+    }
+
+    root.insert("blocks".to_string(), Value::Array(resolved_blocks));
+    Ok(Value::Object(root))
+}
+
 fn resolve_tx_block_request_from_template(
     req: ExecuteTxBlockRequest,
     defaults: &crate::cli::GlobalOpts,
@@ -3672,7 +4004,7 @@ pub async fn execute_command_flow(
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
     let parsed_template = load_command_flow_template_from_input(
         req.template_name.as_deref(),
@@ -3687,10 +4019,28 @@ pub async fn execute_command_flow(
         parsed_template.current_connection_alias.as_deref(),
     )?;
 
+    let runtime_default_mode = resolve_command_flow_runtime_default_mode(
+        None,
+        parsed_template.template.default_mode.as_deref(),
+        &profile_default_mode,
+    );
+    let effective_flow_mode = runtime_default_mode
+        .clone()
+        .or_else(|| {
+            parsed_template
+                .template
+                .default_mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|mode| !mode.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| profile_default_mode.clone());
+
     let flow = parsed_template
         .template
         .to_command_flow(&build_command_flow_runtime(
-            default_mode.clone(),
+            runtime_default_mode,
             conn.connection_name.as_deref(),
             &conn.host,
             &conn.username,
@@ -3722,7 +4072,7 @@ pub async fn execute_command_flow(
             conn.password.clone(),
             conn.enable_password.clone(),
             handler,
-            default_mode.clone(),
+            profile_default_mode.clone(),
             level,
             conn.ssh_security,
         )
@@ -3735,7 +4085,7 @@ pub async fn execute_command_flow(
             conn.password.clone(),
             conn.enable_password.clone(),
             handler,
-            default_mode.clone(),
+            profile_default_mode.clone(),
             conn.ssh_security,
         )
         .await?
@@ -3747,7 +4097,7 @@ pub async fn execute_command_flow(
         &client,
         "command_flow",
         &format!("template: {}", parsed_template.template.name),
-        Some(default_mode.as_str()),
+        Some(effective_flow_mode.as_str()),
         record_level,
     );
 
@@ -3800,7 +4150,7 @@ pub async fn execute_command_flow(
             ),
             json!({
                 "template_name": parsed_template.template.name,
-                "mode": default_mode
+                "mode": effective_flow_mode
             }),
         ),
         outputs,
@@ -3983,189 +4333,8 @@ pub async fn execute_tx_block(
         } else {
             requested_record_level
         };
-        let template_key = conn.device_profile.clone();
-        let block_name = req
-            .name
-            .as_deref()
-            .filter(|s| !s.trim().is_empty())
-            .unwrap_or("tx-block")
-            .to_string();
-        let requested_mode = req
-            .mode
-            .as_deref()
-            .filter(|s| !s.trim().is_empty())
-            .map(|mode| {
-                template_loader::resolve_profile_mode(&template_key, Some(mode))
-                    .map_err(|e| ApiError::bad_request(e.to_string()))
-            })
-            .transpose()?;
-        let run_kind = req.run_kind.unwrap_or(TxBlockRunKind::Commands);
-
-        let (tx_block, effective_mode) = match run_kind {
-            TxBlockRunKind::Commands => {
-                let mode = requested_mode.unwrap_or_else(|| "Config".to_string());
-                let rollback_mode = req.rollback_mode.unwrap_or_else(|| {
-                    if req.resource_rollback_command.is_some() {
-                        TxRollbackMode::WholeResource
-                    } else {
-                        TxRollbackMode::PerStep
-                    }
-                });
-                let renderer = Renderer::new();
-                let resolved_vars = resolve_runtime_vars_with_connection(req.vars, Some(&conn))?;
-                let resolved_commands = resolve_tx_commands(
-                    &renderer,
-                    req.template.as_deref(),
-                    resolved_vars,
-                    &req.commands,
-                    Some(&conn),
-                )?;
-
-                if matches!(rollback_mode, TxRollbackMode::WholeResource)
-                    && req.resource_rollback_command.is_none()
-                {
-                    return Err(ApiError::bad_request(
-                        "rollback_mode 'whole_resource' requires resource_rollback_command",
-                    ));
-                }
-                if req.rollback_trigger_step_index.is_some()
-                    && req.resource_rollback_command.is_none()
-                {
-                    return Err(ApiError::bad_request(
-                        "rollback_trigger_step_index requires resource_rollback_command",
-                    ));
-                }
-                if matches!(rollback_mode, TxRollbackMode::None)
-                    && (req.resource_rollback_command.is_some()
-                        || req.rollback_trigger_step_index.is_some()
-                        || req
-                            .rollback_commands
-                            .iter()
-                            .any(|value| !value.trim().is_empty()))
-                {
-                    return Err(ApiError::bad_request(
-                        "rollback_mode 'none' does not accept rollback command fields",
-                    ));
-                }
-
-                let mut rollback_commands = req.rollback_commands;
-                while rollback_commands.len() > resolved_commands.len()
-                    && rollback_commands
-                        .last()
-                        .map(|s| s.trim().is_empty())
-                        .unwrap_or(false)
-                {
-                    rollback_commands.pop();
-                }
-
-                let tx_block = build_command_tx_block(
-                    block_name.to_string(),
-                    &mode,
-                    &resolved_commands,
-                    &rollback_commands,
-                    req.timeout_secs,
-                    req.rollback_on_failure.unwrap_or(false),
-                    req.resource_rollback_command,
-                    req.rollback_trigger_step_index,
-                    matches!(rollback_mode, TxRollbackMode::None),
-                )
-                .map_err(ApiError::from)?;
-                (tx_block, mode)
-            }
-            TxBlockRunKind::CommandFlow => {
-                if req
-                    .template
-                    .as_deref()
-                    .is_some_and(|value| !value.trim().is_empty())
-                    || !req.commands.is_empty()
-                    || !req.rollback_commands.is_empty()
-                    || req.resource_rollback_command.is_some()
-                    || req.rollback_trigger_step_index.is_some()
-                    || req.rollback_mode.is_some()
-                {
-                    return Err(ApiError::bad_request(
-                        "command flow tx block does not accept command/template rollback fields",
-                    ));
-                }
-
-                let default_mode = requested_mode.unwrap_or_else(|| {
-                    template_loader::default_profile_mode(&conn.device_profile)
-                        .unwrap_or_else(|_| "Config".to_string())
-                });
-                let flow_template = load_command_flow_template_from_input(
-                    req.flow_template_name.as_deref(),
-                    None,
-                    req.flow_content.as_deref(),
-                    "inline_tx_flow",
-                )?;
-                let flow_runtime_vars = resolve_flow_runtime_vars(
-                    &flow_template.template,
-                    req.flow_vars,
-                    &conn,
-                    flow_template.current_connection_alias.as_deref(),
-                )?;
-                let flow_operation = render_command_flow_operation(
-                    flow_template.template,
-                    build_command_flow_runtime(
-                        default_mode.clone(),
-                        conn.connection_name.as_deref(),
-                        &conn.host,
-                        &conn.username,
-                        &conn.device_profile,
-                        flow_runtime_vars,
-                    ),
-                    req.timeout_secs,
-                )?;
-
-                let rollback_operation = match (
-                    req.rollback_flow_template_name.as_deref(),
-                    req.rollback_flow_content.as_deref(),
-                ) {
-                    (None, None) => None,
-                    _ => {
-                        let rollback_template = load_command_flow_template_from_input(
-                            req.rollback_flow_template_name.as_deref(),
-                            None,
-                            req.rollback_flow_content.as_deref(),
-                            "inline_tx_rollback_flow",
-                        )?;
-                        let rollback_runtime_vars = resolve_flow_runtime_vars(
-                            &rollback_template.template,
-                            req.rollback_flow_vars,
-                            &conn,
-                            rollback_template.current_connection_alias.as_deref(),
-                        )?;
-                        Some(render_command_flow_operation(
-                            rollback_template.template,
-                            build_command_flow_runtime(
-                                default_mode.clone(),
-                                conn.connection_name.as_deref(),
-                                &conn.host,
-                                &conn.username,
-                                &conn.device_profile,
-                                rollback_runtime_vars,
-                            ),
-                            req.timeout_secs,
-                        )?)
-                    }
-                };
-
-                let mut step = TxStep::new(flow_operation)
-                    .with_rollback_on_failure(req.rollback_on_failure.unwrap_or(false));
-                if let Some(rollback_operation) = rollback_operation {
-                    step = step.with_rollback(rollback_operation);
-                }
-
-                let tx_block = TxBlock {
-                    name: block_name.to_string(),
-                    rollback_policy: RollbackPolicy::PerStep,
-                    steps: vec![step],
-                    fail_fast: true,
-                };
-                tx_block.validate().map_err(ApiError::from)?;
-                (tx_block, default_mode)
-            }
-        };
+        let dry_run = req.run.dry_run.unwrap_or(false);
+        let (tx_block, effective_mode, block_name) = build_tx_block_from_request(req, Some(&conn))?;
         let tx_block_value = serde_json::to_value(&tx_block).map_err(ApiError::from)?;
         emit_task_event(
             &state,
@@ -4178,7 +4347,7 @@ pub async fn execute_tx_block(
                     "steps": tx_block.steps.len()
                 }))),
         );
-        if req.run.dry_run.unwrap_or(false) {
+        if dry_run {
             return Ok(ExecuteTxBlockResponse {
                 tx_block: tx_block_value,
                 tx_result: None,
@@ -4489,6 +4658,11 @@ pub async fn execute_tx_workflow(
             .map_err(ApiError::from)?;
         let workflow_value =
             render_json_template_value(&workflow_source, &mut workflow_context, &renderer)?;
+        let workflow_value = resolve_tx_workflow_blocks_from_templates(
+            workflow_value,
+            connection_for_context.as_ref(),
+            &renderer,
+        )?;
         let workflow: rneter::session::TxWorkflow =
             serde_json::from_value(workflow_value.clone()).map_err(ApiError::from)?;
         emit_task_event(

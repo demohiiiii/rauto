@@ -118,6 +118,7 @@ let lastOrchestrationPreview = {
 let txAdvancedExpanded = false;
 let currentTxStage = "block";
 let txBlockViewMode = "direct";
+let txWorkflowViewMode = "direct";
 let txWorkflowMoreExpanded = false;
 let rollbackTemplateLibrary = [];
 let txRollbackInputMode = "text";

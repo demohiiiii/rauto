@@ -590,6 +590,38 @@ function renderTxWorkflowPreview(workflow) {
   `;
   const blockCards = blocks
     .map((block, blockIdx) => {
+      const blockTemplateName = safeString(
+        block && block.tx_block_template_name
+      ).trim();
+      if (blockTemplateName) {
+        return `
+      <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-sm font-semibold text-slate-900">block[${blockIdx}] ${escapeHtml(
+            safeString((block && block.name) || "tx-block")
+          )}</div>
+          <div class="inline-flex flex-wrap items-center gap-1">
+            <span class="tx-workflow-chip">${escapeHtml(
+              `${t("txWorkflowSummarySource")}: ${t(
+                "txWorkflowBlockSourceTemplate"
+              )}`
+            )}</span>
+            <span class="tx-workflow-chip">${escapeHtml(
+              `${t("txWorkflowSummaryTemplate")}: ${blockTemplateName}`
+            )}</span>
+            <span class="tx-workflow-chip">${escapeHtml(
+              `${t("txWorkflowVisualFailFast")}: ${String(
+                block && block.fail_fast !== false
+              )}`
+            )}</span>
+          </div>
+        </div>
+        <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          ${escapeHtml(t("txWorkflowTemplateRefHint"))}
+        </div>
+      </section>
+    `;
+      }
       const steps = Array.isArray(block && block.steps) ? block.steps : [];
       const modes = Array.from(
         new Set(

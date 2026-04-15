@@ -415,6 +415,24 @@ function bindEvents() {
     applyTxBlockViewMode();
     syncSelectedTxWorkflowBlockFromEditor();
   };
+  byId("tx-workflow-view-direct").onclick = () => {
+    txWorkflowViewMode = "direct";
+    applyTxWorkflowViewMode();
+  };
+  byId("tx-workflow-view-template").onclick = () => {
+    txWorkflowViewMode = "template";
+    applyTxWorkflowViewMode();
+  };
+  byId("tx-workflow-template-run-new-btn").onclick =
+    createTxWorkflowTemplateDraftFromExecution;
+  byId("tx-workflow-template-run-save-btn").onclick =
+    saveTxWorkflowTemplateFromExecution;
+  byId("tx-workflow-template-run-delete-btn").onclick =
+    deleteTxWorkflowTemplateFromExecution;
+  byId("tx-workflow-template-name").onchange = async () => {
+    if (!byId("tx-workflow-template-name").value.trim()) return;
+    await loadSelectedTxWorkflowTemplateForExecution();
+  };
   byId("tx-block-editor-new-btn").onclick = () => {
     if (currentTxStage === "workflow") {
       const block = createTxWorkflowBlock();
@@ -1257,8 +1275,6 @@ function bindEvents() {
     loadBuiltinFlowTemplateDetail();
   byId("flow-template-builtin-copy-btn").onclick =
     copyBuiltinFlowTemplateToCustom;
-  byId("tx-workflow-template-load-btn").onclick =
-    useSelectedTxWorkflowTemplateForExecution;
   byId("orchestration-template-load-btn").onclick =
     useSelectedOrchestrationTemplateForExecution;
 

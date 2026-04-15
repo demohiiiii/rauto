@@ -33,6 +33,14 @@ function renderConnectionModalModeCopy(mode = "") {
   }
 }
 
+function currentOrchestratedStageTitle() {
+  return currentTxStage === "workflow"
+    ? t("txStageWorkflow")
+    : currentTxStage === "orchestrate"
+      ? t("txStageOrchestrate")
+      : t("txStageBlock");
+}
+
 function applyI18n() {
   if (byId("title")) byId("title").textContent = t("title");
   if (byId("subtitle")) byId("subtitle").textContent = t("subtitle");
@@ -132,7 +140,15 @@ function applyI18n() {
   }
 
   byId("tab-standard").textContent = t("opSectionStandard");
-  byId("tab-orchestrated").textContent = t("opSectionOrchestrated");
+  if (byId("tab-tx-block")) {
+    byId("tab-tx-block").textContent = t("txStageBlock");
+  }
+  if (byId("tab-tx-workflow")) {
+    byId("tab-tx-workflow").textContent = t("txStageWorkflow");
+  }
+  if (byId("tab-orchestrate")) {
+    byId("tab-orchestrate").textContent = t("txStageOrchestrate");
+  }
   byId("tab-interactive").textContent = t("tabInteractive");
   byId("tab-replay").textContent = t("tabReplay");
   byId("tab-prompts").textContent = t("tabPrompts");
@@ -145,9 +161,6 @@ function applyI18n() {
   byId("standard-mode-direct").textContent = t("opExecDirect");
   byId("standard-mode-template").textContent = t("opExecTemplate");
   byId("standard-mode-flow").textContent = t("opExecFlow");
-  byId("nav-orchestrated-block").textContent = t("txStageBlock");
-  byId("nav-orchestrated-workflow").textContent = t("txStageWorkflow");
-  byId("nav-orchestrated-orchestrate").textContent = t("txStageOrchestrate");
   byId("nav-prompt-view").textContent = t("promptModeView");
   byId("nav-prompt-edit").textContent = t("promptModeEdit");
   byId("nav-prompt-diagnose").textContent = t("promptModeDiagnose");
@@ -163,7 +176,7 @@ function applyI18n() {
   byId("nav-inventory-resolve").textContent = t("inventoryResolveTitle");
 
   byId("standard-title").textContent = t("opSectionStandard");
-  byId("orchestrated-title").textContent = t("opSectionOrchestrated");
+  byId("orchestrated-title").textContent = currentOrchestratedStageTitle();
   byId("interactive-title").textContent = t("interactiveTitle");
   byId("interactive-card-title").textContent = t("interactiveCardTitle");
   byId("interactive-start-btn").textContent = t("interactiveStartBtn");
@@ -536,10 +549,18 @@ function applyI18n() {
   byId("tx-rollback-on-failure-label").textContent = t("txRollbackOnFailureLabel");
   byId("tx-rollback-trigger-step").placeholder = t("txRollbackTriggerStepPlaceholder");
   byId("tx-rollback-empty-hint").textContent = t("txWorkflowRollbackEmptyHint");
-  byId("tx-basic-title").textContent = t("txBasicTitle");
+  if (byId("tx-basic-title")) {
+    byId("tx-basic-title").textContent = t("txBasicTitle");
+  }
   byId("tx-block-view-direct").textContent = t("txBlockViewDirect");
   byId("tx-block-view-template").textContent = t("txBlockViewTemplate");
   byId("tx-block-direct-hint").textContent = t("txBlockDirectHint");
+  byId("tx-workflow-view-direct").textContent = t("txBlockViewDirect");
+  byId("tx-workflow-view-template").textContent = t("txBlockViewTemplate");
+  byId("tx-workflow-template-run-new-btn").textContent = t("newBtn");
+  byId("tx-workflow-template-run-save-btn").textContent = t("templateSaveBtn");
+  byId("tx-workflow-template-run-delete-btn").textContent = t("templateDeleteBtn");
+  byId("tx-workflow-view-direct-hint").textContent = t("txWorkflowDirectHint");
   if (byId("tx-block-view-direct-hint")) {
     byId("tx-block-view-direct-hint").textContent = t("txBlockDirectHint");
   }
@@ -575,11 +596,9 @@ function applyI18n() {
   byId("tx-plan-btn").textContent = t("txPlanBtn");
   byId("tx-exec-btn").textContent = t("txExecBtn");
   byId("tx-block-visual-title").textContent = t("txBlockVisualTitle");
-  byId("tx-workflow-title").textContent = t("txWorkflowTitle");
-  byId("tx-workflow-template-run-title").textContent =
-    t("txWorkflowTemplateRunTitle");
-  byId("tx-workflow-template-load-btn").textContent =
-    t("txWorkflowTemplateLoadBtn");
+  if (byId("tx-workflow-title")) {
+    byId("tx-workflow-title").textContent = t("txWorkflowTitle");
+  }
   byId("tx-workflow-template-run-hint").textContent =
     t("txWorkflowTemplateRunHint");
   byId("tx-workflow-builder-title").textContent = t("txWorkflowBuilderTitle");
@@ -605,6 +624,7 @@ function applyI18n() {
   byId("tx-workflow-import-file-btn").textContent = t("txWorkflowImportFileBtn");
   byId("tx-workflow-json").placeholder = t("txWorkflowJsonPlaceholder");
   byId("tx-workflow-vars-json").placeholder = t("txWorkflowVarsPlaceholder");
+  byId("tx-workflow-template-vars-json").placeholder = t("txWorkflowVarsPlaceholder");
   byId("tx-workflow-vars-hint").textContent = t("txWorkflowVarsHint");
   byId("tx-workflow-plan-btn").textContent = t("txWorkflowPlanBtn");
   byId("tx-workflow-exec-btn").textContent = t("txWorkflowExecBtn");
@@ -612,7 +632,9 @@ function applyI18n() {
   byId("tx-workflow-visual-title").textContent = t("txWorkflowVisualTitle");
   renderTxWorkflowBuilder();
   renderTxWorkflowPreviewFromEditor();
-  byId("orchestration-title").textContent = t("orchestrationTitle");
+  if (byId("orchestration-title")) {
+    byId("orchestration-title").textContent = t("orchestrationTitle");
+  }
   byId("orchestration-template-run-title").textContent =
     t("orchestrationTemplateRunTitle");
   byId("orchestration-template-load-btn").textContent =
@@ -814,16 +836,23 @@ function applyTabs() {
     const panel = byId(`panel-${tab}`);
     const active = tab === currentTab;
 
-    if (active) {
-      button.classList.add("menu-active");
+    if (button) {
+      if (active) {
+        button.classList.add("menu-active");
+        button.setAttribute("aria-selected", "true");
+      } else {
+        button.classList.remove("menu-active");
+        button.setAttribute("aria-selected", "false");
+      }
+    }
+    if (panel) {
+      if (active) {
       panel.hidden = false;
       panel.style.display = "";
-      button.setAttribute("aria-selected", "true");
-    } else {
-      button.classList.remove("menu-active");
+      } else {
       panel.hidden = true;
       panel.style.display = "none";
-      button.setAttribute("aria-selected", "false");
+      }
     }
   }
 
@@ -1050,6 +1079,7 @@ function applyTxStage() {
   const workflowPanel = byId("tx-stage-workflow-panel");
   const orchestratePanel = byId("tx-stage-orchestrate-panel");
   const hint = byId("tx-stage-hint");
+  const title = byId("orchestrated-title");
   blockPanel.hidden = !isBlock;
   blockPanel.style.display = isBlock ? "" : "none";
   workflowPanel.hidden = !isWorkflow;
@@ -1063,9 +1093,15 @@ function applyTxStage() {
         ? t("txStageHintWorkflow")
         : t("txStageHintOrchestrate");
   }
+  if (title) {
+    title.textContent = currentOrchestratedStageTitle();
+  }
   if (isBlock || isWorkflow) {
     applyTxBlockRunKind();
     applyTxBlockViewMode();
+  }
+  if (isWorkflow) {
+    applyTxWorkflowViewMode();
   }
   if (byId("tx-block-editor-new-btn")) {
     byId("tx-block-editor-new-btn").textContent = isWorkflow
@@ -1086,6 +1122,23 @@ function applyTxStage() {
       }
     }
   } catch (_) {}
+}
+
+function applyTxWorkflowViewMode() {
+  const modes = ["direct", "template"];
+  modes.forEach((mode) => {
+    const btn = byId(`tx-workflow-view-${mode}`);
+    const panel = byId(`tx-workflow-view-${mode}-panel`);
+    const active = txWorkflowViewMode === mode;
+    if (btn) {
+      btn.classList.toggle("tab-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    }
+    if (panel) {
+      panel.hidden = !active;
+      panel.style.display = active ? "" : "none";
+    }
+  });
 }
 
 function applyTxBlockViewMode() {

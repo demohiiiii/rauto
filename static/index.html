@@ -195,11 +195,10 @@
           </div>
 
           <div id="panel-orchestrated" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('orchestrated')">
-            <h2 id="orchestrated-title" class="text-xl font-semibold">Orchestrated Delivery</h2>
+            <h2 id="orchestrated-title" class="text-xl font-semibold">Tx Block</h2>
             <div id="op-tx-fields" class="mt-3 grid gap-3">
               <div id="tx-stage-block-panel" class="grid gap-3" x-show="$store.app.currentTxStage === 'block'" x-cloak>
-                <div class="field-tools">
-                  <span id="tx-basic-title">Transaction Block</span>
+                <div class="flex justify-end">
                   <button id="tx-advanced-toggle-btn" class="btn btn-sm" type="button">Advanced</button>
                 </div>
                 <div id="tx-block-run-direct-panel" class="group-card">
@@ -231,25 +230,36 @@
                     </div>
 
                     <!-- Tx Workflow Panel -->
-                    <div id="tx-stage-workflow-panel" class="group-card" x-show="$store.app.currentTxStage === 'workflow'" x-cloak>
-                      <div class="field-tools">
-                        <span id="tx-workflow-title">Transaction Workflow (JSON)</span>
-                      </div>
-                      <div id="tx-workflow-section" class="group-body grid gap-2">
-                        <div class="group-card">
-                          <div class="field-tools">
-                            <span id="tx-workflow-template-run-title">Workflow Template</span>
-                            <button id="tx-workflow-template-load-btn" class="btn btn-sm" type="button">Apply To JSON</button>
-                          </div>
+                    <div id="tx-stage-workflow-panel" class="grid gap-2" x-show="$store.app.currentTxStage === 'workflow'" x-cloak>
+                      <div id="tx-workflow-section" class="grid gap-2">
+                        <div class="tabs tabs-box w-fit" role="tablist" aria-label="Tx workflow page mode tabs">
+                          <button id="tx-workflow-view-direct" class="tab tab-active" type="button">Direct Execute</button>
+                          <button id="tx-workflow-view-template" class="tab" type="button">Template Execute</button>
+                        </div>
+                        <div id="tx-workflow-view-direct-panel" class="group-card">
                           <div class="group-body grid gap-2">
-                            <select id="tx-workflow-template-name" class="select" title="Tx Workflow Template" aria-label="Tx Workflow Template"></select>
-                            <div id="tx-workflow-template-run-hint" class="text-xs text-slate-500">Select a saved workflow template and optionally apply it to the JSON editor.</div>
+                            <div id="tx-workflow-view-direct-hint" class="text-xs text-slate-500">Use the workflow editor form below for direct execution.</div>
+                            <textarea id="tx-workflow-json" class="input min-h-40 font-mono" placeholder='{"name":"fw-policy-publish","blocks":[],"fail_fast":true}'></textarea>
+                            <textarea id="tx-workflow-vars-json" class="input min-h-20 font-mono" placeholder='workflow vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
+                            <div id="tx-workflow-vars-hint" class="text-xs text-slate-500">Supports direct refs like edge94.host and fallback lookups by key name.</div>
+                          </div>
+                        </div>
+                        <div id="tx-workflow-view-template-panel" class="group-card" hidden>
+                          <div class="group-body grid gap-2">
+                            <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                              <select id="tx-workflow-template-name" class="select" title="Tx Workflow Template" aria-label="Tx Workflow Template"></select>
+                              <button id="tx-workflow-template-run-save-btn" class="btn btn-success btn-sm" type="button">Save</button>
+                              <button id="tx-workflow-template-run-delete-btn" class="btn btn-error btn-sm" type="button">Delete</button>
+                            </div>
+                            <textarea id="tx-workflow-template-vars-json" class="input min-h-20 font-mono" placeholder='workflow template vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
+                            <div id="tx-workflow-template-run-hint" class="text-xs text-slate-500">Select a saved workflow template and execute it with runtime vars.</div>
                           </div>
                         </div>
                         <div class="group-card">
                           <div class="field-tools">
                             <span id="tx-workflow-builder-title">Workflow Builder</span>
                             <div class="inline-flex items-center gap-2">
+                              <button id="tx-workflow-template-run-new-btn" class="btn btn-sm" type="button">New</button>
                               <button id="tx-workflow-import-block-btn" class="btn btn-sm" type="button">Import From Tx Form</button>
                               <button id="tx-workflow-add-block-btn" class="mini-btn add" type="button">+ Add Block</button>
                               <button id="tx-workflow-collapse-all-btn" class="btn btn-sm" type="button">Collapse All</button>
@@ -289,9 +299,6 @@
                             <input id="tx-workflow-import-file-input" type="file" accept=".json,application/json" hidden />
                           </div>
                         </div>
-                        <textarea id="tx-workflow-json" class="input min-h-40 font-mono" placeholder='{"name":"fw-policy-publish","blocks":[],"fail_fast":true}'></textarea>
-                        <textarea id="tx-workflow-vars-json" class="input min-h-20 font-mono" placeholder='workflow vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
-                        <div id="tx-workflow-vars-hint" class="text-xs text-slate-500">Supports direct refs like edge94.host and fallback lookups by key name.</div>
                         <div class="grid grid-cols-2 gap-2">
                           <button id="tx-workflow-plan-btn" class="btn btn-sm" type="button">Preview Workflow</button>
                           <button id="tx-workflow-exec-btn" class="btn btn-primary btn-sm" type="button">Execute Workflow</button>
@@ -413,11 +420,8 @@
                     </div>
 
                     <!-- Orchestrate Panel -->
-                    <div id="tx-stage-orchestrate-panel" class="group-card" x-show="$store.app.currentTxStage === 'orchestrate'" x-cloak>
-                      <div class="field-tools">
-                        <span id="orchestration-title">Multi-device Orchestration</span>
-                      </div>
-                      <div class="group-body grid gap-2">
+                    <div id="tx-stage-orchestrate-panel" class="grid gap-2" x-show="$store.app.currentTxStage === 'orchestrate'" x-cloak>
+                      <div class="grid gap-2">
                         <div class="group-card">
                           <div class="field-tools">
                             <span id="orchestration-inventory-assist-title">Inventory Assist</span>
@@ -1153,19 +1157,9 @@
           <li>
             <button id="tab-standard" type="button" data-tab="standard" x-on:click="$store.app.setTab('standard')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('standard') }" x-bind:aria-selected="$store.app.isActiveTab('standard').toString()">Standard Delivery</button>
           </li>
-          <li>
-            <details
-              x-bind:open="$store.app.isNavGroupOpen('orchestrated')"
-              x-on:toggle="$store.app.setNavGroupOpen('orchestrated', $event.currentTarget.open)"
-            >
-              <summary id="tab-orchestrated" data-tab="orchestrated" x-on:click.prevent="$store.app.togglePrimaryGroup('orchestrated')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('orchestrated') }" x-bind:aria-selected="$store.app.isActiveTab('orchestrated').toString()">Orchestrated Delivery</summary>
-              <ul>
-                <li><button id="nav-orchestrated-block" type="button" x-on:click="$store.app.openOrchestratedSection('block')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('block') }">Tx Block</button></li>
-                <li><button id="nav-orchestrated-workflow" type="button" x-on:click="$store.app.openOrchestratedSection('workflow')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('workflow') }">Tx Workflow</button></li>
-                <li><button id="nav-orchestrated-orchestrate" type="button" x-on:click="$store.app.openOrchestratedSection('orchestrate')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('orchestrate') }">Orchestrate</button></li>
-              </ul>
-            </details>
-          </li>
+          <li><button id="tab-tx-block" type="button" x-on:click="$store.app.openOrchestratedSection('block')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('block') }" x-bind:aria-selected="$store.app.isOrchestratedSection('block').toString()">Tx Block</button></li>
+          <li><button id="tab-tx-workflow" type="button" x-on:click="$store.app.openOrchestratedSection('workflow')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('workflow') }" x-bind:aria-selected="$store.app.isOrchestratedSection('workflow').toString()">Tx Workflow</button></li>
+          <li><button id="tab-orchestrate" type="button" x-on:click="$store.app.openOrchestratedSection('orchestrate')" x-bind:class="{ 'menu-active': $store.app.isOrchestratedSection('orchestrate') }" x-bind:aria-selected="$store.app.isOrchestratedSection('orchestrate').toString()">Orchestrate</button></li>
           <li><button id="tab-interactive" type="button" data-tab="interactive" x-on:click="$store.app.setTab('interactive')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('interactive') }" x-bind:aria-selected="$store.app.isActiveTab('interactive').toString()">Interactive</button></li>
           <li><button id="tab-replay" type="button" data-tab="replay" x-on:click="$store.app.setTab('replay')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('replay') }" x-bind:aria-selected="$store.app.isActiveTab('replay').toString()">Session Replay</button></li>
           <li>
@@ -1485,23 +1479,20 @@
 </div>
 
 <dialog id="tx-workflow-editor-modal" class="modal">
-  <div
-    class="modal-box p-0"
-    style="width: min(92vw, 980px); max-width: none; max-height: min(92dvh, calc(100vh - 1.5rem)); display: flex; flex-direction: column; overflow: hidden;"
-  >
-    <div class="dashboard-modal-head">
+  <div class="modal-box w-11/12 max-w-5xl p-0 shadow-2xl">
+    <div class="flex items-start justify-between gap-3 border-b border-base-300 px-5 py-4">
       <div class="grid gap-1">
-        <h3 id="tx-workflow-editor-bridge-title" class="text-base font-semibold text-slate-900">Current Workflow Tx Block</h3>
-        <p id="tx-workflow-editor-current" class="text-sm text-slate-500">No workflow block selected.</p>
+        <h3 id="tx-workflow-editor-bridge-title" class="text-base font-semibold">Current Workflow Tx Block</h3>
+        <p id="tx-workflow-editor-current" class="text-sm opacity-70">No workflow block selected.</p>
       </div>
       <button id="tx-workflow-editor-cancel-btn" class="btn btn-sm" type="button">Close</button>
     </div>
-    <div class="dashboard-modal-body" style="min-height: 0; overflow: auto;">
-      <div id="tx-shared-editor-workflow-host" class="grid gap-2"></div>
+    <div class="max-h-[calc(100dvh-10rem)] overflow-y-auto px-5 py-5">
+      <div id="tx-shared-editor-workflow-host" class="grid gap-3"></div>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop">
-    <button id="tx-workflow-editor-backdrop-close" type="submit">close</button>
+    <button aria-label="Close workflow editor">close</button>
   </form>
 </dialog>
 

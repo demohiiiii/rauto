@@ -640,12 +640,6 @@ function renderJsonTemplateOptionsByKind(kind) {
     placeholder: t("templateSelectPlaceholder"),
     selected: selectedRun,
   });
-  if (kind === "tx_block") {
-    populateSelectOptions("tx-block-manage-template-picker", names, {
-      placeholder: t("templateSelectPlaceholder"),
-      selected: byId("tx-block-manage-template-picker")?.value || "",
-    });
-  }
 }
 
 function renderJsonTemplateListByKind(kind, errorMessage = "") {
@@ -700,21 +694,18 @@ async function loadJsonTemplatesByKind(kind) {
     setJsonTemplateCache(kind, items);
     renderJsonTemplateOptionsByKind(kind);
     renderJsonTemplateListByKind(kind);
-    if (kind === "tx_block") {
-      renderTxBlockManageList();
-    }
   } catch (e) {
     setJsonTemplateCache(kind, []);
     renderJsonTemplateOptionsByKind(kind);
     renderJsonTemplateListByKind(kind, e.message);
-    if (kind === "tx_block") {
-      renderTxBlockManageList(e.message);
-    }
   }
 }
 
 async function loadTxBlockTemplates() {
   await loadJsonTemplatesByKind("tx_block");
+  if (typeof renderTxWorkflowBuilder === "function") {
+    renderTxWorkflowBuilder();
+  }
 }
 
 async function loadTxWorkflowTemplates() {
@@ -858,6 +849,15 @@ async function useJsonTemplateByKind(kind) {
     return;
   }
   ensureSelectValue(cfg.runSelectId, name);
+  if (kind === "tx_workflow") {
+    openOrchestratedStage(cfg.runStage);
+    txWorkflowViewMode = "template";
+    if (typeof applyTxWorkflowViewMode === "function") {
+      applyTxWorkflowViewMode();
+    }
+    setStatusMessage(cfg.runOutId, `${t("loaded")}: ${name}`, "success");
+    return;
+  }
   if (cfg.runEditorId) {
     const detail = await loadJsonTemplateDetail(kind, name);
     if (detail && detail.content) {
@@ -889,62 +889,15 @@ function renderAllJsonTemplateLists() {
   renderJsonTemplateListByKind("orchestration");
 }
 
-function renderTxBlockManageList(errorMessage = "") {
-  const out = byId("tx-block-manage-list");
-  if (!out) return;
-  if (errorMessage) {
-    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(
-      errorMessage
-    )}</div>`;
-    return;
-  }
-  const metas = getJsonTemplateMetas("tx_block");
-  if (!Array.isArray(metas) || metas.length === 0) {
-    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
-      t("txBlockTemplateListEmpty")
-    )}</div>`;
-    return;
-  }
-  const selected = byId("tx-block-manage-template-picker")?.value?.trim() || "";
-  out.innerHTML = metas
-    .map((item) => {
-      const active = selected && item.name === selected;
-      const cls = active
-        ? "border-teal-300 bg-teal-50/70"
-        : "border-slate-200 bg-white hover:border-slate-300";
-      return `
-        <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-tx-block-manage-row ${cls}" data-name="${escapeHtml(
-          item.name || ""
-        )}">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-sm font-semibold text-slate-800">${escapeHtml(
-              item.name || "-"
-            )}</span>
-            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(
-              t("templateUseBtn")
-            )}</span>
-          </div>
-        </button>
-      `;
-    })
-    .join("");
-}
-
 async function loadTxBlockTemplateIntoEditorByName(nameOverride = "") {
-  const name =
-    (nameOverride || byId("tx-block-manage-template-picker")?.value || "").trim();
+  const name = (nameOverride || byId("tx-block-template-name")?.value || "").trim();
   if (!name) {
-    setStatusMessage(
-      "tx-block-manage-out",
-      t("txBlockTemplateNameRequired"),
-      "error"
-    );
+    setStatusMessage("tx-plan-out", t("txBlockTemplateNameRequired"), "error");
     return null;
   }
-  setStatusMessage("tx-block-manage-out", t("running"), "running");
+  setStatusMessage("tx-plan-out", t("running"), "running");
   try {
     const data = await request("GET", `/api/tx-block-templates/${encodeURIComponent(name)}`);
-    ensureSelectValue("tx-block-manage-template-picker", data.name || name);
     ensureSelectValue("tx-block-template-name", data.name || name);
     let parsed = null;
     try {
@@ -953,30 +906,21 @@ async function loadTxBlockTemplateIntoEditorByName(nameOverride = "") {
       throw new Error(e.message || "invalid tx block template json");
     }
     applyTxBlockTemplatePayloadToEditor(parsed);
-    renderTxBlockManageList();
-    setStatusMessage(
-      "tx-block-manage-out",
-      `${t("loaded")}: ${data.name || name}`,
-      "success"
-    );
+    setStatusMessage("tx-plan-out", `${t("loaded")}: ${data.name || name}`, "success");
     return data;
   } catch (e) {
-    setStatusMessage("tx-block-manage-out", e.message, "error");
+    setStatusMessage("tx-plan-out", e.message, "error");
     return null;
   }
 }
 
 async function saveTxBlockTemplateFromEditor() {
-  const name = (byId("tx-block-manage-template-picker")?.value || "").trim();
+  const name = (byId("tx-block-template-name")?.value || "").trim();
   if (!name) {
-    setStatusMessage(
-      "tx-block-manage-out",
-      t("txBlockTemplateNameRequired"),
-      "error"
-    );
+    setStatusMessage("tx-plan-out", t("txBlockTemplateNameRequired"), "error");
     return;
   }
-  setStatusMessage("tx-block-manage-out", t("running"), "running");
+  setStatusMessage("tx-plan-out", t("running"), "running");
   try {
     const payload = buildTxBlockTemplatePayloadFromEditor();
     const content = JSON.stringify(payload, null, 2);
@@ -987,47 +931,54 @@ async function saveTxBlockTemplateFromEditor() {
         })
       : await request("POST", "/api/tx-block-templates", { name, content });
     await loadTxBlockTemplates();
-    ensureSelectValue("tx-block-manage-template-picker", data.name || name);
     ensureSelectValue("tx-block-template-name", data.name || name);
-    renderTxBlockManageList();
-    setStatusMessage(
-      "tx-block-manage-out",
-      `${exists ? t("saved") : t("created")}: ${data.name || name}`,
-      "success"
-    );
+    setStatusMessage("tx-plan-out", `${exists ? t("saved") : t("created")}: ${data.name || name}`, "success");
   } catch (e) {
-    setStatusMessage("tx-block-manage-out", e.message, "error");
+    setStatusMessage("tx-plan-out", e.message, "error");
   }
 }
 
 async function deleteTxBlockTemplateFromManager() {
-  const name = (byId("tx-block-manage-template-picker")?.value || "").trim();
+  const name = (byId("tx-block-template-name")?.value || "").trim();
   if (!name) {
-    setStatusMessage(
-      "tx-block-manage-out",
-      t("txBlockTemplateNameRequired"),
-      "error"
-    );
+    setStatusMessage("tx-plan-out", t("txBlockTemplateNameRequired"), "error");
     return;
   }
-  setStatusMessage("tx-block-manage-out", t("running"), "running");
+  setStatusMessage("tx-plan-out", t("running"), "running");
   try {
     await request("DELETE", `/api/tx-block-templates/${encodeURIComponent(name)}`);
     await loadTxBlockTemplates();
-    ensureSelectValue("tx-block-manage-template-picker", "");
-    renderTxBlockManageList();
-    setStatusMessage("tx-block-manage-out", `${t("deleted")}: ${name}`, "success");
+    ensureSelectValue("tx-block-template-name", "");
+    setStatusMessage("tx-plan-out", `${t("deleted")}: ${name}`, "success");
   } catch (e) {
-    setStatusMessage("tx-block-manage-out", e.message, "error");
+    setStatusMessage("tx-plan-out", e.message, "error");
   }
 }
 
-function createTxBlockTemplateDraftFromManager() {
+async function createTxBlockTemplateDraftFromManager() {
   const name = promptForResourceName(t("txBlockTemplateNewPrompt"));
   if (!name) return;
-  ensureSelectValue("tx-block-manage-template-picker", name);
-  setStatusMessage("tx-block-manage-out", `${t("editingNew")}: ${name}`, "info");
-  renderTxBlockManageList();
+  if (getJsonTemplateNames("tx_block").includes(name)) {
+    ensureSelectValue("tx-block-template-name", name);
+    await loadSelectedTxBlockTemplateForExecution();
+    setStatusMessage("tx-plan-out", t("templateExistsHint"), "warning");
+    return;
+  }
+  txBlockViewMode = "template";
+  if (typeof applyTxBlockViewMode === "function") {
+    applyTxBlockViewMode();
+  }
+  setStatusMessage("tx-plan-out", t("running"), "running");
+  try {
+    const payload = buildTxBlockTemplatePayloadFromEditor();
+    const content = JSON.stringify(payload, null, 2);
+    const data = await request("POST", "/api/tx-block-templates", { name, content });
+    await loadTxBlockTemplates();
+    ensureSelectValue("tx-block-template-name", data.name || name);
+    setStatusMessage("tx-plan-out", `${t("created")}: ${data.name || name}`, "success");
+  } catch (e) {
+    setStatusMessage("tx-plan-out", e.message, "error");
+  }
 }
 
 async function loadSelectedTxBlockTemplateForExecution() {
@@ -1036,11 +987,121 @@ async function loadSelectedTxBlockTemplateForExecution() {
     setStatusMessage("tx-plan-out", t("txBlockTemplateNameRequired"), "error");
     return null;
   }
-  ensureSelectValue("tx-block-manage-template-picker", name);
-  const detail = await loadTxBlockTemplateIntoEditorByName(name);
-  if (!detail) return null;
-  setStatusMessage("tx-plan-out", `${t("loaded")}: ${name}`, "success");
-  return detail;
+  return loadTxBlockTemplateIntoEditorByName(name);
+}
+
+function txWorkflowTemplateExecutionContent() {
+  try {
+    if (typeof generateTxWorkflowJsonFromBuilder === "function") {
+      generateTxWorkflowJsonFromBuilder();
+    }
+  } catch (_) {}
+  let raw = (byId("tx-workflow-json")?.value || "").trim();
+  if (!raw) {
+    throw new Error(t("txWorkflowJsonRequired"));
+  }
+  const normalized = JSON.stringify(JSON.parse(raw), null, 2);
+  byId("tx-workflow-json").value = normalized;
+  return normalized;
+}
+
+async function loadSelectedTxWorkflowTemplateForExecution() {
+  const name = (byId("tx-workflow-template-name")?.value || "").trim();
+  if (!name) {
+    setStatusMessage("tx-workflow-plan-out", t("txWorkflowTemplateNameRequired"), "error");
+    return null;
+  }
+  setStatusMessage("tx-workflow-plan-out", t("running"), "running");
+  try {
+    ensureSelectValue("tx-workflow-template-picker", name);
+    const detail = await loadJsonTemplateDetail("tx_workflow", name);
+    if (detail && detail.content) {
+      setPrettyJsonToTextarea("tx-workflow-json", detail.content);
+      if (typeof loadTxWorkflowBuilderFromJson === "function") {
+        loadTxWorkflowBuilderFromJson();
+      }
+      if (typeof renderTxWorkflowPreviewFromEditor === "function") {
+        renderTxWorkflowPreviewFromEditor();
+      }
+    }
+    setStatusMessage("tx-workflow-plan-out", `${t("loaded")}: ${detail?.name || name}`, "success");
+    return detail;
+  } catch (e) {
+    setStatusMessage("tx-workflow-plan-out", e.message, "error");
+    return null;
+  }
+}
+
+async function saveTxWorkflowTemplateFromExecution() {
+  const name = (byId("tx-workflow-template-name")?.value || "").trim();
+  if (!name) {
+    setStatusMessage("tx-workflow-plan-out", t("txWorkflowTemplateNameRequired"), "error");
+    return;
+  }
+  setStatusMessage("tx-workflow-plan-out", t("running"), "running");
+  try {
+    const content = txWorkflowTemplateExecutionContent();
+    const exists = getJsonTemplateNames("tx_workflow").includes(name);
+    const data = exists
+      ? await request("PUT", `/api/tx-workflow-templates/${encodeURIComponent(name)}`, {
+          content,
+        })
+      : await request("POST", "/api/tx-workflow-templates", { name, content });
+    await loadJsonTemplatesByKind("tx_workflow");
+    ensureSelectValue("tx-workflow-template-name", data.name || name);
+    ensureSelectValue("tx-workflow-template-picker", data.name || name);
+    setStatusMessage(
+      "tx-workflow-plan-out",
+      `${exists ? t("saved") : t("created")}: ${data.name || name}`,
+      "success"
+    );
+  } catch (e) {
+    setStatusMessage("tx-workflow-plan-out", e.message, "error");
+  }
+}
+
+async function deleteTxWorkflowTemplateFromExecution() {
+  const name = (byId("tx-workflow-template-name")?.value || "").trim();
+  if (!name) {
+    setStatusMessage("tx-workflow-plan-out", t("txWorkflowTemplateNameRequired"), "error");
+    return;
+  }
+  setStatusMessage("tx-workflow-plan-out", t("running"), "running");
+  try {
+    await request("DELETE", `/api/tx-workflow-templates/${encodeURIComponent(name)}`);
+    await loadJsonTemplatesByKind("tx_workflow");
+    ensureSelectValue("tx-workflow-template-name", "");
+    ensureSelectValue("tx-workflow-template-picker", "");
+    setStatusMessage("tx-workflow-plan-out", `${t("deleted")}: ${name}`, "success");
+  } catch (e) {
+    setStatusMessage("tx-workflow-plan-out", e.message, "error");
+  }
+}
+
+async function createTxWorkflowTemplateDraftFromExecution() {
+  const name = promptForResourceName(t("txWorkflowTemplateNewPrompt"));
+  if (!name) return;
+  if (getJsonTemplateNames("tx_workflow").includes(name)) {
+    ensureSelectValue("tx-workflow-template-name", name);
+    await loadSelectedTxWorkflowTemplateForExecution();
+    setStatusMessage("tx-workflow-plan-out", t("templateExistsHint"), "warning");
+    return;
+  }
+  txWorkflowViewMode = "template";
+  if (typeof applyTxWorkflowViewMode === "function") {
+    applyTxWorkflowViewMode();
+  }
+  setStatusMessage("tx-workflow-plan-out", t("running"), "running");
+  try {
+    const content = txWorkflowTemplateExecutionContent();
+    const data = await request("POST", "/api/tx-workflow-templates", { name, content });
+    await loadJsonTemplatesByKind("tx_workflow");
+    ensureSelectValue("tx-workflow-template-name", data.name || name);
+    ensureSelectValue("tx-workflow-template-picker", data.name || name);
+    setStatusMessage("tx-workflow-plan-out", `${t("created")}: ${data.name || name}`, "success");
+  } catch (e) {
+    setStatusMessage("tx-workflow-plan-out", e.message, "error");
+  }
 }
 
 async function useSelectedTxWorkflowTemplateForExecution() {
@@ -1050,15 +1111,12 @@ async function useSelectedTxWorkflowTemplateForExecution() {
     setStatusMessage(cfg.runOutId, t(cfg.nameRequiredKey), "error");
     return;
   }
-  ensureSelectValue(cfg.pickerId, name);
-  const detail = await loadJsonTemplateDetail("tx_workflow", name);
-  if (detail && detail.content) {
-    setPrettyJsonToTextarea(cfg.runEditorId, detail.content);
-    if (typeof renderTxWorkflowPreviewFromEditor === "function") {
-      renderTxWorkflowPreviewFromEditor();
-    }
+  openOrchestratedStage("workflow");
+  txWorkflowViewMode = "template";
+  if (typeof applyTxWorkflowViewMode === "function") {
+    applyTxWorkflowViewMode();
   }
-  setStatusMessage(cfg.runOutId, `${t("loaded")}: ${name}`, "success");
+  await loadSelectedTxWorkflowTemplateForExecution();
 }
 
 async function useSelectedOrchestrationTemplateForExecution() {
