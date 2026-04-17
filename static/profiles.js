@@ -44,37 +44,42 @@ function applyModeOptions(selectId, modes, preferredMode, defaultMode) {
   select.value = finalModes.includes(selected) ? selected : finalModes[0];
 }
 
+function safeSelectValue(selectId) {
+  const el = byId(selectId);
+  return el ? String(el.value || "").trim() : "";
+}
+
 async function refreshExecutionModeOptions(overrides = {}) {
-  const profileName = byId("device_profile").value.trim() || "linux";
+  const profileName = safeSelectValue("device_profile") || "linux";
   const data = await fetchProfileModes(profileName);
   applyModeOptions(
     "mode",
     data.modes,
-    overrides.execMode ?? byId("mode").value,
+    overrides.execMode ?? safeSelectValue("mode"),
     data.default_mode
   );
   applyModeOptions(
     "template-mode",
     data.modes,
-    overrides.templateMode ?? byId("template-mode").value,
+    overrides.templateMode ?? safeSelectValue("template-mode"),
     data.default_mode
   );
   applyModeOptions(
     "interactive-mode",
     data.modes,
-    overrides.interactiveMode ?? byId("interactive-mode").value,
+    overrides.interactiveMode ?? safeSelectValue("interactive-mode"),
     data.default_mode
   );
   applyModeOptions(
     "tx-mode",
     data.modes,
-    overrides.txMode ?? byId("tx-mode").value,
+    overrides.txMode ?? safeSelectValue("tx-mode"),
     data.default_mode
   );
   applyModeOptions(
     "tx-flow-mode",
     data.modes,
-    overrides.txFlowMode ?? byId("tx-flow-mode").value,
+    overrides.txFlowMode ?? safeSelectValue("tx-flow-mode"),
     data.default_mode
   );
   if (typeof renderTxWorkflowBuilder === "function") {

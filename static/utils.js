@@ -91,61 +91,6 @@ function setEventKindOptions(id, selected) {
   sel.value = selected || "all";
 }
 
-function loadRollbackTemplateLibrary() {
-  const raw = localStorage.getItem(STORAGE_KEYS.rollbackTemplateLibrary);
-  if (!raw) {
-    rollbackTemplateLibrary = [];
-    return;
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    rollbackTemplateLibrary = Array.isArray(parsed)
-      ? parsed.filter((item) => item && item.name && item.template)
-      : [];
-  } catch (_) {
-    rollbackTemplateLibrary = [];
-  }
-}
-
-function saveRollbackTemplateLibrary() {
-  localStorage.setItem(
-    STORAGE_KEYS.rollbackTemplateLibrary,
-    JSON.stringify(rollbackTemplateLibrary)
-  );
-}
-
-function upsertRollbackTemplate(name, template) {
-  const normalized = name.trim();
-  if (!normalized || !template.trim()) return;
-  const idx = rollbackTemplateLibrary.findIndex((t) => t.name === normalized);
-  const item = { name: normalized, template };
-  if (idx >= 0) {
-    rollbackTemplateLibrary[idx] = item;
-  } else {
-    rollbackTemplateLibrary.push(item);
-  }
-  saveRollbackTemplateLibrary();
-}
-
-function deleteRollbackTemplate(name) {
-  const normalized = name.trim();
-  if (!normalized) return;
-  rollbackTemplateLibrary = rollbackTemplateLibrary.filter((t) => t.name !== normalized);
-  saveRollbackTemplateLibrary();
-}
-
-function rollbackTemplateOptionsHtml(selectedName = "") {
-  const options = rollbackTemplateLibrary
-    .map((item) => {
-      const selected = item.name === selectedName ? "selected" : "";
-      return `<option value="${escapeHtml(item.name)}" ${selected}>${escapeHtml(
-        item.name
-      )}</option>`;
-    })
-    .join("");
-  return `<option value="">${escapeHtml(t("txWorkflowRollbackLibraryPick"))}</option>${options}`;
-}
-
 function safeString(value) {
   if (value == null) return "-";
   if (typeof value === "string") return value;
@@ -438,20 +383,6 @@ function parseJsonById(id) {
   const raw = byId(id).value.trim();
   if (!raw) return {};
   return JSON.parse(raw);
-}
-
-function parseTxCommands() {
-  const lines = (byId("tx-commands").value || "")
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => !!s);
-  return lines;
-}
-
-function parseRollbackLinesRaw(text) {
-  return String(text || "")
-    .split(/\r?\n/)
-    .map((s) => s.trim());
 }
 
 function linesToArray(raw) {

@@ -303,21 +303,6 @@ pub struct ExecuteCommandFlowResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-pub enum TxBlockRunKind {
-    Commands,
-    CommandFlow,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum TxRollbackMode {
-    None,
-    PerStep,
-    WholeResource,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct ExecuteUploadRequest {
     pub local_path: String,
@@ -343,7 +328,6 @@ pub struct ExecuteUploadResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ExecuteTxBlockRequest {
-    pub name: Option<String>,
     #[serde(default)]
     pub tx_block_template_name: Option<String>,
     #[serde(default)]
@@ -351,34 +335,7 @@ pub struct ExecuteTxBlockRequest {
     #[serde(default)]
     pub tx_block_template_vars: Value,
     #[serde(default)]
-    pub run_kind: Option<TxBlockRunKind>,
-    pub template: Option<String>,
-    #[serde(default)]
-    pub vars: Value,
-    #[serde(default)]
-    pub flow_template_name: Option<String>,
-    #[serde(default)]
-    pub flow_content: Option<String>,
-    #[serde(default)]
-    pub flow_vars: Value,
-    #[serde(default)]
-    pub rollback_flow_template_name: Option<String>,
-    #[serde(default)]
-    pub rollback_flow_content: Option<String>,
-    #[serde(default)]
-    pub rollback_flow_vars: Value,
-    #[serde(default)]
-    pub commands: Vec<String>,
-    #[serde(default)]
-    pub rollback_commands: Vec<String>,
-    #[serde(default)]
-    pub rollback_mode: Option<TxRollbackMode>,
-    #[serde(default)]
-    pub rollback_on_failure: Option<bool>,
-    pub rollback_trigger_step_index: Option<usize>,
-    pub mode: Option<String>,
-    pub timeout_secs: Option<u64>,
-    pub resource_rollback_command: Option<String>,
+    pub tx_block: Value,
     #[serde(flatten)]
     pub run: DryRunOptions,
     #[serde(flatten)]

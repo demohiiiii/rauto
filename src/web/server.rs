@@ -143,6 +143,7 @@ fn public_web_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/health", get(health))
         .route("/", get(index))
+        .route("/favicon.ico", get(favicon))
         .route("/static/{*path}", get(static_file))
 }
 
@@ -151,6 +152,7 @@ fn public_agent_routes() -> Router<Arc<AppState>> {
         .route("/health", get(health))
         .route("/api/agent/info", get(agent_info))
         .route("/", get(index))
+        .route("/favicon.ico", get(favicon))
         .route("/static/{*path}", get(static_file))
 }
 
@@ -344,6 +346,10 @@ async fn index() -> Response {
 
 async fn static_file(Path(path): Path<String>) -> Response {
     static_response(&path)
+}
+
+async fn favicon() -> Response {
+    static_response("favicon.svg")
 }
 
 async fn not_found(req: Request) -> Response {

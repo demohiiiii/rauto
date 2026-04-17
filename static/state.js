@@ -17,7 +17,6 @@ const STORAGE_KEYS = {
   historyFilterQuery: "rauto_history_filter_query",
   historyFilterOperation: "rauto_history_filter_operation",
   historyFilterLimit: "rauto_history_filter_limit",
-  rollbackTemplateLibrary: "rauto_rollback_templates",
 };
 
 
@@ -30,7 +29,6 @@ let currentTab = "standard";
 window._initialTab = currentTab;
 let currentOpKind = "exec";
 let currentExecMode = "direct";
-let currentTxBlockRunKind = "commands";
 let currentPromptMode = "view";
 let currentTemplateSection = "templates";
 let currentInventorySection = "groups";
@@ -115,13 +113,10 @@ let lastOrchestrationPreview = {
   inventory: null,
   result: null,
 };
-let txAdvancedExpanded = false;
 let currentTxStage = "block";
 let txBlockViewMode = "direct";
 let txWorkflowViewMode = "direct";
 let txWorkflowMoreExpanded = false;
-let rollbackTemplateLibrary = [];
-let txRollbackInputMode = "text";
 let interactiveSessionId = null;
 const detailEntryMap = new Map();
 const orchestrationDetailMap = new Map();

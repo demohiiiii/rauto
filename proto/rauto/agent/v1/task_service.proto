@@ -190,26 +190,13 @@ message ExecuteTemplateRequest {
 
 message ExecuteTxBlockRequest {
   string task_id = 1;
-  string name = 2;
-  string template = 3;
-  string vars_json = 4;
-  repeated string commands = 5;
-  repeated string rollback_commands = 6;
-  bool rollback_on_failure = 7;
-  optional uint32 rollback_trigger_step_index = 8;
-  string mode = 9;
-  optional uint64 timeout_secs = 10;
-  string resource_rollback_command = 11;
-  bool dry_run = 12;
-  ConnectionRef connection = 13;
-  string record_level = 14;
-  string run_kind = 15;
-  string flow_template_name = 16;
-  string flow_content = 17;
-  string flow_vars_json = 18;
-  string rollback_flow_template_name = 19;
-  string rollback_flow_content = 20;
-  string rollback_flow_vars_json = 21;
+  string tx_block_json = 2;
+  string tx_block_template_name = 3;
+  string tx_block_template_content = 4;
+  string tx_block_template_vars_json = 5;
+  bool dry_run = 6;
+  ConnectionRef connection = 7;
+  string record_level = 8;
 }
 
 message ExecuteTxWorkflowRequest {

@@ -505,56 +505,8 @@ function applyI18n() {
   byId("saved-conn-name").setAttribute("title", t("savedConnSelectPlaceholder"));
   byId("template").setAttribute("title", t("templatePlaceholder"));
   byId("template-selected-content").placeholder = t("templateSelectedContentPlaceholder");
-  byId("tx-name").placeholder = t("txNamePlaceholder");
-  byId("tx-template").setAttribute("title", t("txTemplatePlaceholder"));
-  byId("tx-vars").placeholder = t("txVarsPlaceholder");
-  byId("tx-commands").placeholder = t("txCommandsPlaceholder");
-  byId("tx-mode").placeholder = t("txModePlaceholder");
-  byId("tx-timeout-secs").placeholder = t("txTimeoutPlaceholder");
-  byId("tx-resource-rollback").placeholder = t("txResourceRollbackPlaceholder");
-  byId("tx-rollback-mode-label").textContent = t("txRollbackModeLabel");
-  const currentTxRollbackMode = byId("tx-rollback-mode").value || "per_step";
-  byId("tx-rollback-mode").innerHTML = `
-    <option value="none">${escapeHtml(t("txRollbackModeNone"))}</option>
-    <option value="per_step">${escapeHtml(t("txRollbackModePerStep"))}</option>
-    <option value="whole_resource">${escapeHtml(t("txRollbackModeWhole"))}</option>
-  `;
-  byId("tx-rollback-mode").value = currentTxRollbackMode;
-  if (!byId("tx-rollback-mode").value) {
-    byId("tx-rollback-mode").value = "per_step";
-  }
-  byId("tx-rollback-input-label").textContent = t("txWorkflowRollbackInputModeLabel");
-  byId("tx-rollback-input-text").textContent = t("txWorkflowRollbackInputText");
-  byId("tx-rollback-input-pairs").textContent = t("txWorkflowRollbackInputPairs");
-  byId("tx-rollback-auto-btn").textContent = t("txWorkflowRollbackAutoBtn");
-  byId("tx-rollback-auto-hint").textContent = t("txWorkflowRollbackAutoHint");
-  byId("tx-rollback-rule-label").textContent = t("txWorkflowRollbackRuleLabel");
-  byId("tx-rollback-rule").innerHTML = `
-    <option value="no_prefix">${escapeHtml(t("txWorkflowRollbackRuleNoPrefix"))}</option>
-    <option value="set_delete">${escapeHtml(t("txWorkflowRollbackRuleSetDelete"))}</option>
-    <option value="add_remove">${escapeHtml(t("txWorkflowRollbackRuleAddRemove"))}</option>
-    <option value="custom">${escapeHtml(t("txWorkflowRollbackRuleCustom"))}</option>
-  `;
-  if (!byId("tx-rollback-rule").value) {
-    byId("tx-rollback-rule").value = "no_prefix";
-  }
-  byId("tx-rollback-template").placeholder = t("txWorkflowRollbackTemplatePlaceholder");
-  byId("tx-rollback-template-pick").innerHTML = rollbackTemplateOptionsHtml(
-    byId("tx-rollback-template-name").value || ""
-  );
-  byId("tx-rollback-template-name").placeholder = t("txWorkflowRollbackLibraryName");
-  byId("tx-rollback-template-save").textContent = t("txWorkflowRollbackLibrarySave");
-  byId("tx-rollback-template-delete").textContent = t("txWorkflowRollbackLibraryDelete");
-  byId("tx-rollback-commands").placeholder = t("txRollbackCommandsPlaceholder");
-  byId("tx-rollback-on-failure-label").textContent = t("txRollbackOnFailureLabel");
-  byId("tx-rollback-trigger-step").placeholder = t("txRollbackTriggerStepPlaceholder");
-  byId("tx-rollback-empty-hint").textContent = t("txWorkflowRollbackEmptyHint");
-  if (byId("tx-basic-title")) {
-    byId("tx-basic-title").textContent = t("txBasicTitle");
-  }
   byId("tx-block-view-direct").textContent = t("txBlockViewDirect");
   byId("tx-block-view-template").textContent = t("txBlockViewTemplate");
-  byId("tx-block-direct-hint").textContent = t("txBlockDirectHint");
   byId("tx-workflow-view-direct").textContent = t("txBlockViewDirect");
   byId("tx-workflow-view-template").textContent = t("txBlockViewTemplate");
   byId("tx-workflow-template-run-new-btn").textContent = t("newBtn");
@@ -564,13 +516,13 @@ function applyI18n() {
   if (byId("tx-block-view-direct-hint")) {
     byId("tx-block-view-direct-hint").textContent = t("txBlockDirectHint");
   }
-  if (byId("tx-block-template-run-title")) {
-    byId("tx-block-template-run-title").textContent = t("txBlockTemplateRunTitle");
-  }
+  byId("tx-block-template-run-new-btn").textContent = t("newBtn");
   byId("tx-block-template-run-hint").textContent = t("txBlockTemplateRunHint");
   byId("tx-block-template-vars").placeholder = t("txBlockTemplateVarsPlaceholder");
   byId("tx-block-template-run-save-btn").textContent = t("templateSaveBtn");
   byId("tx-block-template-run-delete-btn").textContent = t("templateDeleteBtn");
+  byId("tx-block-json-hint").textContent = t("txBlockJsonHint");
+  byId("tx-block-json").placeholder = t("txBlockJsonPlaceholder");
   byId("tx-template-plan-btn").textContent = t("txPlanBtn");
   byId("tx-template-exec-btn").textContent = t("txExecBtn");
   byId("tx-block-editor-title").textContent = t("txBlockEditorTitle");
@@ -583,16 +535,6 @@ function applyI18n() {
   if (byId("tx-workflow-editor-cancel-btn")) {
     byId("tx-workflow-editor-cancel-btn").textContent = t("close");
   }
-  byId("tx-run-kind-commands").textContent = t("txRunKindCommands");
-  byId("tx-run-kind-flow").textContent = t("txRunKindFlow");
-  byId("tx-flow-template-name").placeholder = t("txFlowTemplatePlaceholder");
-  byId("tx-flow-vars").placeholder = t("txFlowVarsPlaceholder");
-  byId("tx-flow-rollback-on-failure-label").textContent =
-    t("txFlowRollbackOnFailureLabel");
-  byId("tx-rollback-flow-template-name").placeholder =
-    t("txFlowRollbackTemplatePlaceholder");
-  byId("tx-rollback-flow-vars").placeholder = t("txFlowRollbackVarsPlaceholder");
-  byId("tx-flow-hint").textContent = t("txFlowHint");
   byId("tx-plan-btn").textContent = t("txPlanBtn");
   byId("tx-exec-btn").textContent = t("txExecBtn");
   byId("tx-block-visual-title").textContent = t("txBlockVisualTitle");
@@ -601,25 +543,7 @@ function applyI18n() {
   }
   byId("tx-workflow-template-run-hint").textContent =
     t("txWorkflowTemplateRunHint");
-  byId("tx-workflow-builder-title").textContent = t("txWorkflowBuilderTitle");
-  byId("tx-workflow-import-block-btn").textContent = t("txWorkflowImportBlockBtn");
-  byId("tx-workflow-add-block-btn").textContent = t("txWorkflowAddBlockBtn");
-  byId("tx-workflow-collapse-all-btn").textContent = t("txWorkflowCollapseAllBtn");
-  byId("tx-workflow-expand-all-btn").textContent = t("txWorkflowExpandAllBtn");
-  byId("tx-workflow-name").placeholder = t("txWorkflowNamePlaceholder");
-  byId("tx-workflow-fail-fast-label").textContent = t("txWorkflowFailFastLabel");
-  const txWorkflowFilterRollbackEl = byId("tx-workflow-filter-rollback");
-  txWorkflowFilterRollbackEl.innerHTML = `
-    <option value="all">${escapeHtml(t("txWorkflowFilterRollbackAll"))}</option>
-    <option value="none">${escapeHtml(t("txWorkflowBlockRollbackNone"))}</option>
-    <option value="per_step">${escapeHtml(t("txWorkflowBlockRollbackPerStep"))}</option>
-    <option value="whole_resource">${escapeHtml(t("txWorkflowBlockRollbackWhole"))}</option>
-  `;
-  txWorkflowFilterRollbackEl.value = txWorkflowFilterRollback;
-  byId("tx-workflow-filter-query").placeholder = t("txWorkflowFilterSearchPlaceholder");
-  byId("tx-workflow-filter-clear-btn").textContent = t("txWorkflowFilterClearBtn");
-  byId("tx-workflow-generate-btn").textContent = t("txWorkflowGenerateBtn");
-  byId("tx-workflow-load-btn").textContent = t("txWorkflowLoadBtn");
+  byId("tx-workflow-json-new-btn").textContent = t("newBtn");
   byId("tx-workflow-download-btn").textContent = t("txWorkflowDownloadBtn");
   byId("tx-workflow-import-file-btn").textContent = t("txWorkflowImportFileBtn");
   byId("tx-workflow-json").placeholder = t("txWorkflowJsonPlaceholder");
@@ -630,7 +554,6 @@ function applyI18n() {
   byId("tx-workflow-exec-btn").textContent = t("txWorkflowExecBtn");
   renderTxBlockVisual();
   byId("tx-workflow-visual-title").textContent = t("txWorkflowVisualTitle");
-  renderTxWorkflowBuilder();
   renderTxWorkflowPreviewFromEditor();
   if (byId("orchestration-title")) {
     byId("orchestration-title").textContent = t("orchestrationTitle");
@@ -687,8 +610,6 @@ function applyI18n() {
     "title",
     t("flowBuiltinTemplateSelectPlaceholder")
   );
-  byId("tx-flow-template-name").setAttribute("title", t("txFlowTemplatePlaceholder"));
-  byId("tx-rollback-flow-template-name").setAttribute("title", t("txFlowRollbackTemplatePlaceholder"));
   byId("tx-block-template-name").setAttribute("title", t("templateSelectPlaceholder"));
   byId("tx-workflow-template-name").setAttribute(
     "title",
@@ -751,13 +672,10 @@ function applyI18n() {
   localizeDynamicFields();
   renderRecordingView();
   renderReplayView();
-  applyTxLayoutState();
   applyTxStage();
   applyPromptMode();
   applyTemplateSection();
   applyTxWorkflowMoreActionsState();
-  applyTxRollbackMode();
-  applyTxRollbackRuleVisibility();
   updateBuiltinCommandExecutionVisibility();
   updateProfileCommandExecutionVisibility();
   updateSelectedBackupMeta();
@@ -1035,42 +953,6 @@ function applyExecMode() {
   } catch (_) {}
 }
 
-function applyTxBlockRunKind() {
-  const isCommands = currentTxBlockRunKind === "commands";
-  const commandsBtn = byId("tx-run-kind-commands");
-  const flowBtn = byId("tx-run-kind-flow");
-  const commandsPanel = byId("tx-block-command-fields");
-  const flowPanel = byId("tx-block-flow-fields");
-  commandsBtn.classList.toggle("tab-active", isCommands);
-  flowBtn.classList.toggle("tab-active", !isCommands);
-  commandsBtn.setAttribute("aria-selected", isCommands ? "true" : "false");
-  flowBtn.setAttribute("aria-selected", isCommands ? "false" : "true");
-  commandsPanel.hidden = !isCommands;
-  commandsPanel.style.display = isCommands ? "" : "none";
-  flowPanel.hidden = isCommands;
-  flowPanel.style.display = isCommands ? "none" : "";
-  try {
-    if (window.Alpine && typeof window.Alpine.store === "function") {
-      const appStore = window.Alpine.store("app");
-      if (appStore && appStore.currentTxBlockRunKind !== currentTxBlockRunKind) {
-        appStore.currentTxBlockRunKind = currentTxBlockRunKind;
-      }
-    }
-  } catch (_) {}
-}
-
-function applyTxLayoutState() {
-  const advancedFields = byId("tx-advanced-fields");
-  const advancedToggleBtn = byId("tx-advanced-toggle-btn");
-  if (advancedFields) {
-    advancedFields.hidden = !txAdvancedExpanded;
-    advancedFields.style.display = txAdvancedExpanded ? "" : "none";
-  }
-  if (advancedToggleBtn) {
-    advancedToggleBtn.textContent = txAdvancedExpanded ? t("collapse") : t("txAdvancedBtn");
-  }
-}
-
 function applyTxStage() {
   const isBlock = currentTxStage === "block";
   const isWorkflow = currentTxStage === "workflow";
@@ -1097,7 +979,6 @@ function applyTxStage() {
     title.textContent = currentOrchestratedStageTitle();
   }
   if (isBlock || isWorkflow) {
-    applyTxBlockRunKind();
     applyTxBlockViewMode();
   }
   if (isWorkflow) {
@@ -1139,6 +1020,11 @@ function applyTxWorkflowViewMode() {
       panel.style.display = active ? "" : "none";
     }
   });
+  if (txWorkflowViewMode === "direct" && typeof resizeTxWorkflowJsonEditor === "function") {
+    window.requestAnimationFrame(() => {
+      resizeTxWorkflowJsonEditor();
+    });
+  }
 }
 
 function applyTxBlockViewMode() {
@@ -1180,66 +1066,6 @@ function applyTxWorkflowMoreActionsState() {
   btn.textContent = txWorkflowMoreExpanded
     ? `${t("txWorkflowMoreBtn")} · ${t("collapse")}`
     : `${t("txWorkflowMoreBtn")} · ${t("expand")}`;
-}
-
-function applyTxRollbackMode() {
-  const mode = byId("tx-rollback-mode").value || "per_step";
-  const perStep = byId("tx-rollback-per-step");
-  const whole = byId("tx-rollback-resource");
-  perStep.hidden = mode !== "per_step";
-  perStep.style.display = mode === "per_step" ? "" : "none";
-  whole.hidden = mode !== "whole_resource";
-  whole.style.display = mode === "whole_resource" ? "" : "none";
-  applyTxRollbackInputMode();
-}
-
-function applyTxRollbackInputMode() {
-  const isText = txRollbackInputMode === "text";
-  byId("tx-rollback-input-text").classList.toggle("tab-active", isText);
-  byId("tx-rollback-input-pairs").classList.toggle("tab-active", !isText);
-  byId("tx-rollback-commands").hidden = !isText;
-  byId("tx-rollback-commands").style.display = isText ? "" : "none";
-  byId("tx-rollback-pairs").hidden = isText;
-  byId("tx-rollback-pairs").style.display = isText ? "none" : "";
-  renderTxRollbackPairs();
-}
-
-function applyTxRollbackRuleVisibility() {
-  const isCustom = byId("tx-rollback-rule").value === "custom";
-  byId("tx-rollback-template").hidden = !isCustom;
-  byId("tx-rollback-template").style.display = isCustom ? "" : "none";
-}
-
-function renderTxRollbackPairs() {
-  if (txRollbackInputMode !== "pairs") return;
-  const commands = parseTxCommands();
-  const rollbacks = parseRollbackLinesRaw(byId("tx-rollback-commands").value || "");
-  const wrap = byId("tx-rollback-pairs");
-  const hint = byId("tx-rollback-empty-hint");
-  if (!commands.length) {
-    wrap.innerHTML = "";
-    hint.hidden = false;
-    hint.style.display = "";
-    return;
-  }
-  hint.hidden = true;
-  hint.style.display = "none";
-  wrap.innerHTML = commands
-    .map((cmd, idx) => {
-      const val = rollbacks[idx] || "";
-      return `
-        <div class="grid gap-2 md:grid-cols-[1fr_1fr] tx-workflow-pair-row">
-          <div class="input tx-workflow-pair-label">
-            <span class="tx-workflow-pair-index">#${idx + 1}</span>
-            <span class="tx-workflow-pair-command">${escapeHtml(cmd)}</span>
-          </div>
-          <input class="input js-tx-rollback-pair" data-index="${idx}" value="${escapeHtml(
-        val
-      )}" placeholder="${escapeHtml(t("txRollbackCommandsPlaceholder"))}" />
-        </div>
-      `;
-    })
-    .join("");
 }
 
 function applyPromptMode() {
@@ -1658,7 +1484,10 @@ function setTxWorkflowPreview(workflow) {
 function renderTxWorkflowPreviewFromEditor() {
   const visualOut = byId("tx-workflow-plan-visual");
   if (!visualOut) return;
-  const raw = byId("tx-workflow-json").value.trim();
+  const raw =
+    typeof txWorkflowEditorRaw === "function"
+      ? txWorkflowEditorRaw().trim()
+      : byId("tx-workflow-json").value.trim();
   if (!raw) {
     visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
       t("txWorkflowVisualEmpty")

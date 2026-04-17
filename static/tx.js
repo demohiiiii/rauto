@@ -2,65 +2,404 @@
  * tx.js — tx
  */
 
+function defaultTxBlockTemplatePayload() {
+  return {
+    name: "tx-block",
+    rollback_policy: "none",
+    steps: [
+      {
+        run: {
+          kind: "command",
+          mode: "User",
+          command: "show version",
+          timeout: 30,
+        },
+        rollback: null,
+        rollback_on_failure: false,
+      },
+    ],
+    fail_fast: true,
+  };
+}
+
+function defaultTxWorkflowTemplatePayload() {
+  return {
+    name: "linux-safe-deploy-demo",
+    fail_fast: true,
+    blocks: [
+      {
+        name: "precheck",
+        rollback_policy: "none",
+        fail_fast: true,
+        steps: [
+          {
+            run: {
+              kind: "command",
+              mode: "User",
+              command: "uname -a",
+              timeout: 30,
+            },
+            rollback: null,
+            rollback_on_failure: false,
+          },
+          {
+            run: {
+              kind: "command",
+              mode: "User",
+              command: "date",
+              timeout: 30,
+            },
+            rollback: null,
+            rollback_on_failure: false,
+          },
+        ],
+      },
+      {
+        name: "apply-change",
+        rollback_policy: "per_step",
+        fail_fast: true,
+        steps: [
+          {
+            run: {
+              kind: "command",
+              mode: "User",
+              command: "mkdir -p /tmp/rauto-demo",
+              timeout: 30,
+            },
+            rollback: {
+              kind: "command",
+              mode: "User",
+              command: "rm -rf /tmp/rauto-demo",
+              timeout: 30,
+            },
+            rollback_on_failure: false,
+          },
+          {
+            run: {
+              kind: "command",
+              mode: "User",
+              command: "echo version=2026.04.17 > /tmp/rauto-demo/release.txt",
+              timeout: 30,
+            },
+            rollback: {
+              kind: "command",
+              mode: "User",
+              command: "rm -f /tmp/rauto-demo/release.txt",
+              timeout: 30,
+            },
+            rollback_on_failure: true,
+          },
+        ],
+      },
+      {
+        name: "verify",
+        rollback_policy: {
+          whole_resource: {
+            rollback: {
+              kind: "command",
+              mode: "User",
+              command: "rm -rf /tmp/rauto-demo",
+              timeout: 30,
+            },
+            trigger_step_index: 0,
+          },
+        },
+        fail_fast: false,
+        steps: [
+          {
+            run: {
+              kind: "command",
+              mode: "User",
+              command: "ls -lah /tmp/rauto-demo",
+              timeout: 30,
+            },
+            rollback: null,
+            rollback_on_failure: false,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+let txBlockJsonAceEditor = null;
+let txBlockJsonEditorSyncing = false;
+let txWorkflowJsonAceEditor = null;
+let txWorkflowJsonEditorSyncing = false;
+
+function txBlockJsonEditorTheme(theme) {
+  return theme === "light" ? "ace/theme/github" : "ace/theme/tomorrow_night";
+}
+
+function txBlockJsonHiddenField() {
+  return byId("tx-block-json");
+}
+
+function txBlockJsonEditorHost() {
+  return byId("tx-block-json-editor");
+}
+
+function emitTxBlockJsonInput() {
+  const field = txBlockJsonHiddenField();
+  if (!field) return;
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function syncTxBlockJsonHiddenFromEditor({ notify = false } = {}) {
+  const field = txBlockJsonHiddenField();
+  if (!field || !txBlockJsonAceEditor) return;
+  const next = txBlockJsonAceEditor.getValue();
+  const changed = field.value !== next;
+  field.value = next;
+  if (notify && changed) {
+    emitTxBlockJsonInput();
+  }
+}
+
+function setTxBlockEditorText(text, { notify = false } = {}) {
+  const next = safeString(text || "");
+  const field = txBlockJsonHiddenField();
+  if (txBlockJsonAceEditor) {
+    if (txBlockJsonAceEditor.getValue() !== next) {
+      txBlockJsonEditorSyncing = true;
+      txBlockJsonAceEditor.setValue(next, -1);
+      txBlockJsonEditorSyncing = false;
+    }
+    syncTxBlockJsonHiddenFromEditor({ notify });
+    return;
+  }
+  if (!field) return;
+  const changed = field.value !== next;
+  field.value = next;
+  if (notify && changed) {
+    emitTxBlockJsonInput();
+  }
+}
+
+function setupTxBlockJsonEditor() {
+  if (txBlockJsonAceEditor || !window.ace) return;
+  const host = txBlockJsonEditorHost();
+  const field = txBlockJsonHiddenField();
+  if (!host || !field) return;
+  try {
+    const editor = window.ace.edit(host, {
+      mode: "ace/mode/json",
+      theme: txBlockJsonEditorTheme(window.currentTheme || currentTheme),
+      showPrintMargin: false,
+      tabSize: 2,
+      useSoftTabs: true,
+      wrap: true,
+      fontSize: "13px",
+    });
+    editor.session.setUseWrapMode(true);
+    editor.session.setUseWorker(false);
+    editor.session.on("change", () => {
+      if (txBlockJsonEditorSyncing) return;
+      syncTxBlockJsonHiddenFromEditor({ notify: true });
+    });
+    editor.commands.addCommand({
+      name: "formatJson",
+      bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+      exec() {
+        try {
+          const parsed = JSON.parse(editor.getValue());
+          setTxBlockEditorText(JSON.stringify(parsed, null, 2), { notify: true });
+        } catch (_) {}
+      },
+    });
+    txBlockJsonAceEditor = editor;
+    host.classList.remove("hidden");
+    field.classList.add("hidden");
+    field.setAttribute("aria-hidden", "true");
+    setTxBlockEditorText(field.value || "", { notify: false });
+    resizeTxBlockJsonEditor();
+  } catch (_) {
+    txBlockJsonAceEditor = null;
+    host.classList.add("hidden");
+    field.classList.remove("hidden");
+    field.removeAttribute("aria-hidden");
+  }
+}
+
+function setTxBlockJsonEditorTheme(theme) {
+  if (!txBlockJsonAceEditor) return;
+  txBlockJsonAceEditor.setTheme(txBlockJsonEditorTheme(theme));
+}
+
+function resizeTxBlockJsonEditor() {
+  if (!txBlockJsonAceEditor) return;
+  txBlockJsonAceEditor.resize(true);
+}
+
+function setTxBlockEditorRawText(rawText) {
+  setTxBlockEditorText(rawText, { notify: true });
+}
+
+function txWorkflowJsonHiddenField() {
+  return byId("tx-workflow-json");
+}
+
+function txWorkflowJsonEditorHost() {
+  return byId("tx-workflow-json-editor");
+}
+
+function emitTxWorkflowJsonInput() {
+  const field = txWorkflowJsonHiddenField();
+  if (!field) return;
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function syncTxWorkflowJsonHiddenFromEditor({ notify = false } = {}) {
+  const field = txWorkflowJsonHiddenField();
+  if (!field || !txWorkflowJsonAceEditor) return;
+  const next = txWorkflowJsonAceEditor.getValue();
+  const changed = field.value !== next;
+  field.value = next;
+  if (notify && changed) {
+    emitTxWorkflowJsonInput();
+  }
+}
+
+function setTxWorkflowEditorText(text, { notify = false } = {}) {
+  const next = safeString(text || "");
+  const field = txWorkflowJsonHiddenField();
+  if (txWorkflowJsonAceEditor) {
+    if (txWorkflowJsonAceEditor.getValue() !== next) {
+      txWorkflowJsonEditorSyncing = true;
+      txWorkflowJsonAceEditor.setValue(next, -1);
+      txWorkflowJsonEditorSyncing = false;
+    }
+    syncTxWorkflowJsonHiddenFromEditor({ notify });
+    return;
+  }
+  if (!field) return;
+  const changed = field.value !== next;
+  field.value = next;
+  if (notify && changed) {
+    emitTxWorkflowJsonInput();
+  }
+}
+
+function setupTxWorkflowJsonEditor() {
+  if (txWorkflowJsonAceEditor || !window.ace) return;
+  const host = txWorkflowJsonEditorHost();
+  const field = txWorkflowJsonHiddenField();
+  if (!host || !field) return;
+  try {
+    const editor = window.ace.edit(host, {
+      mode: "ace/mode/json",
+      theme: txBlockJsonEditorTheme(window.currentTheme || currentTheme),
+      showPrintMargin: false,
+      tabSize: 2,
+      useSoftTabs: true,
+      wrap: true,
+      fontSize: "13px",
+    });
+    editor.session.setUseWrapMode(true);
+    editor.session.setUseWorker(false);
+    editor.session.on("change", () => {
+      if (txWorkflowJsonEditorSyncing) return;
+      syncTxWorkflowJsonHiddenFromEditor({ notify: true });
+    });
+    editor.commands.addCommand({
+      name: "formatJson",
+      bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+      exec() {
+        try {
+          const parsed = JSON.parse(editor.getValue());
+          setTxWorkflowEditorText(JSON.stringify(parsed, null, 2), { notify: true });
+        } catch (_) {}
+      },
+    });
+    txWorkflowJsonAceEditor = editor;
+    host.classList.remove("hidden");
+    field.classList.add("hidden");
+    field.setAttribute("aria-hidden", "true");
+    setTxWorkflowEditorText(field.value || "", { notify: false });
+    resizeTxWorkflowJsonEditor();
+  } catch (_) {
+    txWorkflowJsonAceEditor = null;
+    host.classList.add("hidden");
+    field.classList.remove("hidden");
+    field.removeAttribute("aria-hidden");
+  }
+}
+
+function setTxWorkflowJsonEditorTheme(theme) {
+  if (!txWorkflowJsonAceEditor) return;
+  txWorkflowJsonAceEditor.setTheme(txBlockJsonEditorTheme(theme));
+}
+
+function resizeTxWorkflowJsonEditor() {
+  if (!txWorkflowJsonAceEditor) return;
+  txWorkflowJsonAceEditor.resize(true);
+}
+
+function txWorkflowEditorRaw() {
+  if (txWorkflowJsonAceEditor) {
+    return safeString(txWorkflowJsonAceEditor.getValue() || "");
+  }
+  return safeString(txWorkflowJsonHiddenField()?.value || "");
+}
+
+function setTxWorkflowEditorJson(payload) {
+  const next =
+    payload && typeof payload === "object"
+      ? JSON.stringify(payload, null, 2)
+      : JSON.stringify(defaultTxWorkflowTemplatePayload(), null, 2);
+  setTxWorkflowEditorText(next, { notify: true });
+}
+
+function txBlockEditorRaw() {
+  if (txBlockJsonAceEditor) {
+    return safeString(txBlockJsonAceEditor.getValue() || "");
+  }
+  return safeString(txBlockJsonHiddenField()?.value || "");
+}
+
+function setTxBlockEditorJson(payload) {
+  const next =
+    payload && typeof payload === "object"
+      ? JSON.stringify(payload, null, 2)
+      : JSON.stringify(defaultTxBlockTemplatePayload(), null, 2);
+  setTxBlockEditorText(next, { notify: true });
+}
+
+function parseTxBlockEditorJson() {
+  const raw = txBlockEditorRaw().trim();
+  if (!raw) {
+    throw new Error(t("txBlockJsonRequired"));
+  }
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(t("txBlockJsonInvalidShape"));
+  }
+  setTxBlockEditorJson(parsed);
+  return parsed;
+}
+
 function txPayload(dryRun) {
-  const timeoutRaw = byId("tx-timeout-secs").value.trim();
-  const timeout = timeoutRaw ? Number(timeoutRaw) : null;
   const templateMode = txBlockViewMode === "template";
-  const txBlockTemplateName = templateMode
-    ? byId("tx-block-template-name").value.trim() || null
-    : null;
-  const txBlockTemplateVars = templateMode
-    ? parseJsonById("tx-block-template-vars")
-    : {};
-  if (currentTxBlockRunKind === "flow") {
+  if (templateMode) {
+    const content = txBlockEditorRaw().trim();
+    if (!content) {
+      throw new Error(t("txBlockJsonRequired"));
+    }
     return {
-      name: byId("tx-name").value.trim() || null,
-      tx_block_template_name: txBlockTemplateName,
-      tx_block_template_content: null,
-      tx_block_template_vars: txBlockTemplateVars,
-      run_kind: "command-flow",
-      flow_template_name: byId("tx-flow-template-name").value.trim() || null,
-      flow_vars: parseJsonById("tx-flow-vars"),
-      rollback_flow_template_name:
-        byId("tx-rollback-flow-template-name").value.trim() || null,
-      rollback_flow_vars: parseJsonById("tx-rollback-flow-vars"),
-      mode: byId("tx-flow-mode").value.trim() || null,
-      timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
-      rollback_on_failure: byId("tx-flow-rollback-on-failure").checked,
+      tx_block: null,
+      tx_block_template_name: null,
+      tx_block_template_content: content,
+      tx_block_template_vars: parseJsonById("tx-block-template-vars"),
       dry_run: dryRun,
       connection: connectionPayload(),
       record_level: recordLevelPayload(),
     };
   }
-  const rollbackMode = byId("tx-rollback-mode").value || "per_step";
   return {
-    name: byId("tx-name").value.trim() || null,
-    tx_block_template_name: txBlockTemplateName,
+    tx_block: parseTxBlockEditorJson(),
+    tx_block_template_name: null,
     tx_block_template_content: null,
-    tx_block_template_vars: txBlockTemplateVars,
-    run_kind: "commands",
-    template: byId("tx-template").value.trim() || null,
-    vars: parseJsonById("tx-vars"),
-    commands: parseTxCommands(),
-    rollback_mode: rollbackMode,
-    mode: byId("tx-mode").value.trim() || null,
-    timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
-    resource_rollback_command:
-      rollbackMode === "whole_resource"
-        ? byId("tx-resource-rollback").value.trim() || null
-        : null,
-    rollback_on_failure:
-      rollbackMode === "per_step"
-        ? byId("tx-rollback-on-failure").checked
-        : false,
-    rollback_trigger_step_index:
-      rollbackMode === "whole_resource"
-        ? Number(byId("tx-rollback-trigger-step").value || 0)
-        : null,
-    rollback_commands:
-      rollbackMode === "per_step"
-        ? parseRollbackLinesRaw(byId("tx-rollback-commands").value || "")
-        : [],
+    tx_block_template_vars: {},
     dry_run: dryRun,
     connection: connectionPayload(),
     record_level: recordLevelPayload(),
@@ -68,99 +407,11 @@ function txPayload(dryRun) {
 }
 
 function buildTxBlockTemplatePayloadFromEditor() {
-  const timeoutRaw = byId("tx-timeout-secs").value.trim();
-  const timeout = timeoutRaw ? Number(timeoutRaw) : null;
-  if (currentTxBlockRunKind === "flow") {
-    return {
-      name: byId("tx-name").value.trim() || null,
-      run_kind: "command-flow",
-      flow_template_name: byId("tx-flow-template-name").value.trim() || null,
-      flow_vars: parseJsonById("tx-flow-vars"),
-      rollback_flow_template_name:
-        byId("tx-rollback-flow-template-name").value.trim() || null,
-      rollback_flow_vars: parseJsonById("tx-rollback-flow-vars"),
-      mode: byId("tx-flow-mode").value.trim() || null,
-      timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
-      rollback_on_failure: byId("tx-flow-rollback-on-failure").checked,
-    };
-  }
-  const rollbackMode = byId("tx-rollback-mode").value || "per_step";
-  return {
-    name: byId("tx-name").value.trim() || null,
-    run_kind: "commands",
-    template: byId("tx-template").value.trim() || null,
-    vars: parseJsonById("tx-vars"),
-    commands: parseTxCommands(),
-    rollback_mode: rollbackMode,
-    mode: byId("tx-mode").value.trim() || null,
-    timeout_secs: Number.isFinite(timeout) && timeout > 0 ? timeout : null,
-    resource_rollback_command:
-      rollbackMode === "whole_resource"
-        ? byId("tx-resource-rollback").value.trim() || null
-        : null,
-    rollback_on_failure:
-      rollbackMode === "per_step"
-        ? byId("tx-rollback-on-failure").checked
-        : false,
-    rollback_trigger_step_index:
-      rollbackMode === "whole_resource"
-        ? Number(byId("tx-rollback-trigger-step").value || 0)
-        : null,
-    rollback_commands:
-      rollbackMode === "per_step"
-        ? parseRollbackLinesRaw(byId("tx-rollback-commands").value || "")
-        : [],
-  };
+  return parseTxBlockEditorJson();
 }
 
 function applyTxBlockTemplatePayloadToEditor(payload) {
-  const data = payload && typeof payload === "object" ? payload : {};
-  const asInput = (value) => (value == null ? "" : String(value));
-  const runKind = String(data.run_kind || "").trim() === "command-flow" ? "flow" : "commands";
-  currentTxBlockRunKind = runKind;
-  applyTxBlockRunKind();
-  byId("tx-name").value = asInput(data.name);
-  byId("tx-timeout-secs").value =
-    data.timeout_secs != null && data.timeout_secs !== ""
-      ? String(data.timeout_secs)
-      : "";
-
-  if (runKind === "flow") {
-    byId("tx-flow-template-name").value = data.flow_template_name || "";
-    byId("tx-flow-vars").value = JSON.stringify(data.flow_vars || {}, null, 2);
-    byId("tx-rollback-flow-template-name").value =
-      data.rollback_flow_template_name || "";
-    byId("tx-rollback-flow-vars").value = JSON.stringify(
-      data.rollback_flow_vars || {},
-      null,
-      2
-    );
-    byId("tx-flow-mode").value = data.mode || "";
-    byId("tx-flow-rollback-on-failure").checked = !!data.rollback_on_failure;
-    return;
-  }
-
-  byId("tx-template").value = data.template || "";
-  byId("tx-vars").value = JSON.stringify(data.vars || {}, null, 2);
-  byId("tx-commands").value = Array.isArray(data.commands)
-    ? data.commands.join("\n")
-    : "";
-  byId("tx-mode").value = data.mode || "";
-  const rollbackMode =
-    data.rollback_mode ||
-    (data.resource_rollback_command ? "whole_resource" : "per_step");
-  byId("tx-rollback-mode").value = rollbackMode;
-  byId("tx-resource-rollback").value = data.resource_rollback_command || "";
-  byId("tx-rollback-trigger-step").value =
-    data.rollback_trigger_step_index != null
-      ? String(data.rollback_trigger_step_index)
-      : "";
-  byId("tx-rollback-on-failure").checked = !!data.rollback_on_failure;
-  byId("tx-rollback-commands").value = Array.isArray(data.rollback_commands)
-    ? data.rollback_commands.join("\n")
-    : "";
-  applyTxRollbackMode();
-  renderTxRollbackPairs();
+  setTxBlockEditorJson(payload);
 }
 
 function txWorkflowPayload(dryRun) {
@@ -168,7 +419,7 @@ function txWorkflowPayload(dryRun) {
   const workflowTemplateName = templateMode
     ? byId("tx-workflow-template-name").value.trim()
     : "";
-  const raw = templateMode ? "" : byId("tx-workflow-json").value.trim();
+  const raw = templateMode ? "" : txWorkflowEditorRaw().trim();
   if (templateMode && !workflowTemplateName) {
     throw new Error(t("txWorkflowTemplateNameRequired"));
   }
@@ -395,8 +646,6 @@ function createTxWorkflowBlock(seed = {}) {
   txWorkflowBlockSeq += 1;
   const sourceKind =
     seed.sourceKind === "tx_block_template" ? "tx_block_template" : "direct";
-  const currentTxMode = safeString(byId("tx-mode")?.value || "").trim();
-  const fallbackMode = txWorkflowAvailableModes()[0] || "User";
   const block = {
     id: `tx-block-${txWorkflowBlockSeq}`,
     name: seed.name || "",
@@ -406,31 +655,14 @@ function createTxWorkflowBlock(seed = {}) {
       seed.txBlockTemplateVarsText != null
         ? String(seed.txBlockTemplateVarsText)
         : JSON.stringify(seed.txBlockTemplateVars || {}, null, 2),
-    rollbackPolicy: seed.rollbackPolicy || "per_step",
-    mode: seed.mode || currentTxMode || fallbackMode,
-    timeoutSecs: seed.timeoutSecs != null ? String(seed.timeoutSecs) : "",
-    undoCommand: seed.undoCommand || "",
-    commandsText: seed.commandsText || "",
-    rollbackCommandsText: seed.rollbackCommandsText || "",
+    txBlockJsonText:
+      seed.txBlockJsonText != null && String(seed.txBlockJsonText).trim()
+        ? String(seed.txBlockJsonText)
+        : JSON.stringify(defaultTxBlockTemplatePayload(), null, 2),
     failFast: seed.failFast !== false,
     collapsed: seed.collapsed === true,
-    rollbackOnFailure: seed.rollbackOnFailure === true,
-    triggerStepIndex:
-      seed.triggerStepIndex != null && seed.triggerStepIndex !== ""
-        ? String(seed.triggerStepIndex)
-        : "",
   };
   return sanitizeTxWorkflowBlock(block);
-}
-
-function normalizeTxWorkflowRollbackPolicy(rollbackPolicy) {
-  const policy =
-    rollbackPolicy === "none" ||
-    rollbackPolicy === "per_step" ||
-    rollbackPolicy === "whole_resource"
-      ? rollbackPolicy
-      : "per_step";
-  return policy;
 }
 
 function sanitizeTxWorkflowBlock(block) {
@@ -440,27 +672,14 @@ function sanitizeTxWorkflowBlock(block) {
   if (block.txBlockTemplateVarsText == null || block.txBlockTemplateVarsText === "") {
     block.txBlockTemplateVarsText = "{}";
   }
-  const availableModes = txWorkflowAvailableModes();
-  const normalizedMode = safeString(block.mode || "").trim();
-  block.mode = availableModes.includes(normalizedMode)
-    ? normalizedMode
-    : availableModes[0] || "User";
-  block.rollbackPolicy = normalizeTxWorkflowRollbackPolicy(block.rollbackPolicy);
-  if (block.rollbackPolicy !== "whole_resource") {
-    block.triggerStepIndex =
-      block.triggerStepIndex != null && block.triggerStepIndex !== ""
-        ? String(block.triggerStepIndex)
-        : "";
+  if (block.txBlockJsonText == null || String(block.txBlockJsonText).trim() === "") {
+    block.txBlockJsonText = JSON.stringify(defaultTxBlockTemplatePayload(), null, 2);
   }
+  block.name = safeString(block.name || "").trim();
   return block;
 }
 
 function txWorkflowAvailableModes() {
-  const fromTxModeSelect = Array.from(byId("tx-mode")?.options || [])
-    .map((opt) => safeString(opt.value || "").trim())
-    .filter((mode) => !!mode);
-  if (fromTxModeSelect.length) return fromTxModeSelect;
-
   const profileName = safeString(byId("device_profile")?.value || "").trim() || "linux";
   const profileModes = cachedProfileModes.get(profileName);
   const fromProfileCache = Array.isArray(profileModes?.modes)
@@ -508,6 +727,7 @@ function mountTxSharedEditorTo(containerId) {
   }
   section.hidden = false;
   section.style.display = "";
+  resizeTxBlockJsonEditor();
 }
 
 function syncTxSharedEditorMount() {
@@ -613,38 +833,12 @@ async function loadTxWorkflowBlockIntoEditor(item) {
     if (item.txBlockTemplateName) {
       await loadSelectedTxBlockTemplateForExecution();
     }
-    byId("tx-name").value = item.name || "";
   } else {
     txBlockViewMode = "direct";
     applyTxBlockViewMode();
-    applyTxBlockTemplatePayloadToEditor({
-      name: item.name || "",
-      run_kind: "commands",
-      template: null,
-      vars: {},
-      commands: txWorkflowLines(item.commandsText),
-      rollback_mode: item.rollbackPolicy || "per_step",
-      mode: item.mode || "",
-      timeout_secs:
-        item.timeoutSecs != null && String(item.timeoutSecs).trim()
-          ? Number(item.timeoutSecs)
-          : null,
-      resource_rollback_command:
-        item.rollbackPolicy === "whole_resource"
-          ? item.undoCommand || null
-          : null,
-      rollback_on_failure:
-        item.rollbackPolicy === "per_step" ? !!item.rollbackOnFailure : false,
-      rollback_trigger_step_index:
-        item.rollbackPolicy === "whole_resource" &&
-        String(item.triggerStepIndex || "").trim()
-          ? Number(item.triggerStepIndex)
-          : null,
-      rollback_commands:
-        item.rollbackPolicy === "per_step"
-          ? parseRollbackLinesRaw(item.rollbackCommandsText)
-          : [],
-    });
+    applyTxBlockTemplatePayloadToEditor(
+      item.txBlockJsonText ? JSON.parse(item.txBlockJsonText) : defaultTxBlockTemplatePayload()
+    );
   }
   suppressTxWorkflowEditorSync = false;
 }
@@ -683,10 +877,6 @@ function applyTxEditorToWorkflowBlock({ silent = false } = {}) {
     item.txBlockTemplateName = templateName;
     item.txBlockTemplateVarsText =
       safeString(byId("tx-block-template-vars")?.value || "").trim() || "{}";
-    const editedName = safeString(byId("tx-name")?.value || "").trim();
-    if (editedName) {
-      item.name = editedName;
-    }
     sanitizeTxWorkflowBlock(item);
     renderTxWorkflowBuilder();
     if (!silent) {
@@ -695,38 +885,11 @@ function applyTxEditorToWorkflowBlock({ silent = false } = {}) {
     return;
   }
 
-  if (currentTxBlockRunKind !== "commands") {
-    currentTxBlockRunKind = "commands";
-    applyTxBlockRunKind();
-    if (!silent) {
-      setStatusMessage(
-        "tx-workflow-plan-out",
-        t("txWorkflowEditorBridgeRunKindUnsupported"),
-        "error"
-      );
-    }
-    return;
-  }
   const payload = buildTxBlockTemplatePayloadFromEditor();
   item.sourceKind = "direct";
-  item.name = safeString(payload.name || item.name || "tx-block").trim() || "tx-block";
-  item.mode = safeString(payload.mode || item.mode || "").trim();
-  item.timeoutSecs =
-    payload.timeout_secs != null && payload.timeout_secs !== ""
-      ? String(payload.timeout_secs)
-      : "";
-  item.rollbackPolicy = normalizeTxWorkflowRollbackPolicy(payload.rollback_mode || "per_step");
-  item.undoCommand = safeString(payload.resource_rollback_command || "").trim();
-  item.triggerStepIndex =
-    payload.rollback_trigger_step_index != null &&
-    payload.rollback_trigger_step_index !== ""
-      ? String(payload.rollback_trigger_step_index)
-      : "";
-  item.rollbackOnFailure = !!payload.rollback_on_failure;
-  item.commandsText = (Array.isArray(payload.commands) ? payload.commands : []).join("\n");
-  item.rollbackCommandsText = (
-    Array.isArray(payload.rollback_commands) ? payload.rollback_commands : []
-  ).join("\n");
+  item.txBlockJsonText = JSON.stringify(payload, null, 2);
+  item.name = safeString(payload.name || "").trim() || item.name || "";
+  item.failFast = payload.fail_fast !== false;
   sanitizeTxWorkflowBlock(item);
   renderTxWorkflowBuilder();
   if (!silent) {
@@ -772,24 +935,14 @@ function renderTxWorkflowBuilder() {
       (block) => {
         const fullIdx = txWorkflowBlocks.findIndex((b) => b.id === block.id);
         const editing = txWorkflowEditingBlockId === block.id;
-        const commandCount = txWorkflowLines(block.commandsText).length;
-        const sourceKind = block.sourceKind || "direct";
-        const templateName = safeString(block.txBlockTemplateName || "").trim();
-        const modeText =
-          block.mode && block.mode.trim()
-            ? block.mode.trim()
-            : txWorkflowAvailableModes()[0] || "User";
-        const rollbackText = block.rollbackPolicy || "per_step";
-        const commandsList = txWorkflowLines(block.commandsText);
-        const rollbackList = parseRollbackLinesRaw(block.rollbackCommandsText).filter(Boolean);
-        const rollbackPreview =
-          block.rollbackPolicy === "none"
-            ? t("txWorkflowBlockRollbackNone")
-            : block.rollbackPolicy === "whole_resource"
-              ? safeString(block.undoCommand || "").trim() || t("txWorkflowBlockUndoPlaceholder")
-              : rollbackList.length
-                ? rollbackList.join("\n")
-                : t("txWorkflowVisualNoRollback");
+        const summary = txWorkflowBlockSummary(block);
+        const sourceKind = summary.sourceKind;
+        const templateName = summary.templateName;
+        const modeText = summary.modeText;
+        const rollbackText = summary.rollbackText;
+        const rollbackPreview = summary.rollbackPreview;
+        const commandsList = summary.commandsList;
+        const commandCount = summary.commandCount;
         return `
       <div class="group-card ${
         editing ? "border-cyan-300 bg-cyan-50/40" : ""
@@ -851,7 +1004,7 @@ function renderTxWorkflowBuilder() {
         <div class="group-body grid gap-2" ${block.collapsed ? "hidden" : ""}>
           <div class="grid gap-2">
             <div class="text-sm font-semibold text-slate-700">${escapeHtml(
-              safeString(block.name || "").trim() || `tx-block-${fullIdx + 1}`
+              summary.displayName || `tx-block-${fullIdx + 1}`
             )}</div>
             ${
               sourceKind === "tx_block_template"
@@ -864,7 +1017,9 @@ function renderTxWorkflowBuilder() {
               }`
             )}</pre>`
                 : `<pre class="output text-xs whitespace-pre-wrap break-words">${escapeHtml(
-                    commandsList.length
+                    summary.invalidMessage
+                      ? summary.invalidMessage
+                      : commandsList.length
                       ? commandsList.join("\n")
                       : t("txWorkflowBlockCommandsPlaceholder")
                   )}</pre>
@@ -882,11 +1037,123 @@ function renderTxWorkflowBuilder() {
   renderTxWorkflowEditorBridge();
 }
 
-function txWorkflowLines(text) {
-  return String(text || "")
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => !!s);
+function parseTxWorkflowDirectBlock(block) {
+  const raw = safeString(block && block.txBlockJsonText).trim();
+  if (!raw) {
+    return { value: null, error: t("txBlockJsonRequired") };
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { value: null, error: t("txBlockJsonInvalidShape") };
+    }
+    return { value: parsed, error: "" };
+  } catch (e) {
+    return { value: null, error: e && e.message ? e.message : t("requestFailed") };
+  }
+}
+
+function txWorkflowRollbackValue(rollbackPolicy) {
+  if (typeof rollbackPolicy === "string") {
+    if (
+      rollbackPolicy === "none" ||
+      rollbackPolicy === "per_step" ||
+      rollbackPolicy === "whole_resource"
+    ) {
+      return rollbackPolicy;
+    }
+    return "per_step";
+  }
+  if (
+    rollbackPolicy &&
+    typeof rollbackPolicy === "object" &&
+    rollbackPolicy.whole_resource
+  ) {
+    return "whole_resource";
+  }
+  return "per_step";
+}
+
+function txWorkflowBlockSummary(block) {
+  const sourceKind = block.sourceKind === "tx_block_template" ? "tx_block_template" : "direct";
+  const templateName = safeString(block.txBlockTemplateName || "").trim();
+  const fallbackName = safeString(block.name || "").trim() || "tx-block";
+  if (sourceKind === "tx_block_template") {
+    return {
+      sourceKind,
+      templateName,
+      displayName: fallbackName,
+      commandCount: 0,
+      modeText: "-",
+      rollbackValue: "per_step",
+      rollbackText: "per_step",
+      commandsList: [],
+      rollbackList: [],
+      rollbackPreview: "",
+      queryText: `${fallbackName} ${templateName}`.toLowerCase(),
+      invalidMessage: "",
+      parsedBlock: null,
+    };
+  }
+
+  const { value: parsedBlock, error } = parseTxWorkflowDirectBlock(block);
+  if (!parsedBlock) {
+    const invalidMessage = `${t("txWorkflowVisualInvalid")}: ${error}`;
+    return {
+      sourceKind,
+      templateName: "",
+      displayName: fallbackName,
+      commandCount: 0,
+      modeText: "-",
+      rollbackValue: "per_step",
+      rollbackText: "per_step",
+      commandsList: [],
+      rollbackList: [],
+      rollbackPreview: invalidMessage,
+      queryText: `${fallbackName} ${invalidMessage}`.toLowerCase(),
+      invalidMessage,
+      parsedBlock: null,
+    };
+  }
+
+  const steps = Array.isArray(parsedBlock.steps) ? parsedBlock.steps : [];
+  const commandsList = steps
+    .map((step) => txOperationDescription(txStepRunOperation(step)))
+    .filter((line) => !!safeString(line).trim());
+  const rollbackList = steps
+    .map((step) => txOperationDescription(txStepRollbackOperation(step)))
+    .filter((line) => !!safeString(line).trim());
+  const rollbackValue = txWorkflowRollbackValue(parsedBlock.rollback_policy);
+  const wholeResourceOp = txWholeResourceRollbackOperation(parsedBlock.rollback_policy);
+  const wholeResourceRollback = txOperationDescription(wholeResourceOp);
+  const rollbackPreview =
+    rollbackValue === "none"
+      ? t("txWorkflowBlockRollbackNone")
+      : rollbackValue === "whole_resource"
+        ? safeString(wholeResourceRollback || "").trim() || t("txWorkflowBlockUndoPlaceholder")
+        : rollbackList.length
+          ? rollbackList.join("\n")
+          : t("txWorkflowVisualNoRollback");
+  const firstRun = txStepRunOperation(steps[0]);
+  const modeText = txOperationMode(firstRun) || txWorkflowAvailableModes()[0] || "User";
+  const displayName =
+    safeString(parsedBlock.name || "").trim() || fallbackName || "tx-block";
+
+  return {
+    sourceKind,
+    templateName: "",
+    displayName,
+    commandCount: steps.length,
+    modeText,
+    rollbackValue,
+    rollbackText: rollbackValue,
+    commandsList,
+    rollbackList,
+    rollbackPreview,
+    queryText: `${displayName} ${commandsList.join(" ")}`.toLowerCase(),
+    invalidMessage: "",
+    parsedBlock,
+  };
 }
 
 function txStepRunOperation(step) {
@@ -956,11 +1223,6 @@ function txOperationDescription(operation) {
   return "";
 }
 
-function isCommandOperation(operation) {
-  if (!operation || typeof operation !== "object") return false;
-  return operation.kind === "command" || typeof operation.command === "string";
-}
-
 function autoScrollDuringDrag(event, container) {
   const y = event.clientY;
   const threshold = 96;
@@ -1000,39 +1262,16 @@ function clearTxWorkflowDropMarkers(container) {
     });
 }
 
-function buildRollbackCommand(rule, cmd, template) {
-  const raw = String(cmd || "").trim();
-  if (!raw) return "";
-  if (rule === "set_delete") {
-    if (raw.startsWith("set ")) return `delete ${raw.slice(4).trim()}`;
-    if (raw.startsWith("delete ")) return raw;
-    return `no ${raw}`;
-  }
-  if (rule === "add_remove") {
-    if (raw.startsWith("add ")) return `remove ${raw.slice(4).trim()}`;
-    if (raw.startsWith("remove ")) return raw;
-    return `no ${raw}`;
-  }
-  if (rule === "custom") {
-    const tpl = String(template || "").trim();
-    if (!tpl) return "";
-    return tpl.replaceAll("{{cmd}}", raw);
-  }
-  if (raw.startsWith("no ")) return raw;
-  return `no ${raw}`;
-}
-
 function getFilteredTxWorkflowBlocks() {
   const query = txWorkflowFilterQuery.trim().toLowerCase();
   return txWorkflowBlocks.filter((block) => {
+    const summary = txWorkflowBlockSummary(block);
     const rollbackOk =
       txWorkflowFilterRollback === "all" ||
-      block.rollbackPolicy === txWorkflowFilterRollback;
+      summary.rollbackValue === txWorkflowFilterRollback;
     const queryOk =
       !query ||
-      String(block.name || "").toLowerCase().includes(query) ||
-      String(block.commandsText || "").toLowerCase().includes(query) ||
-      String(block.txBlockTemplateName || "").toLowerCase().includes(query);
+      summary.queryText.includes(query);
     return rollbackOk && queryOk;
   });
 }
@@ -1044,193 +1283,33 @@ function setAllTxWorkflowBlocksCollapsed(collapsed) {
   renderTxWorkflowBuilder();
 }
 
-function generateTxWorkflowJsonFromBuilder() {
-  const name = byId("tx-workflow-name").value.trim() || "tx-workflow";
-  const failFast = byId("tx-workflow-fail-fast").checked;
-  const blocks = txWorkflowBlocks.map((block) => {
-    sanitizeTxWorkflowBlock(block);
-    if (block.sourceKind === "tx_block_template") {
-      const templateName = safeString(block.txBlockTemplateName || "").trim();
-      if (!templateName) {
-        throw new Error(t("txWorkflowBlockTemplateNameRequired"));
-      }
-      return {
-        name: block.name.trim() || "tx-block",
-        tx_block_template_name: templateName,
-        tx_block_template_vars: txWorkflowBlockTemplateVarsObject(
-          block,
-          txWorkflowBlocks.indexOf(block)
-        ),
-        fail_fast: block.failFast,
-      };
-    }
-    const commands = txWorkflowLines(block.commandsText);
-    const rollbacks = parseRollbackLinesRaw(block.rollbackCommandsText);
-    const timeout = block.timeoutSecs ? Number(block.timeoutSecs) : null;
-    const timeoutSecs = Number.isFinite(timeout) && timeout > 0 ? timeout : null;
-    const mode = block.mode.trim() || txWorkflowAvailableModes()[0] || "User";
-    const triggerRaw =
-      block.rollbackPolicy === "whole_resource" ? block.triggerStepIndex : "";
-    const triggerStepIndex = Number.isFinite(Number(triggerRaw))
-      ? Number(triggerRaw)
-      : 0;
-
-    const applyRollbackOnFailure =
-      block.rollbackPolicy === "per_step" && block.rollbackOnFailure === true;
-    const steps = commands.map((command, idx) => ({
-      run: {
-        kind: "command",
-        mode,
-        command,
-        timeout: timeoutSecs,
-      },
-      rollback:
-        block.rollbackPolicy === "per_step" &&
-        rollbacks[idx] &&
-        rollbacks[idx].trim()
-          ? {
-              kind: "command",
-              mode,
-              command: rollbacks[idx],
-              timeout: timeoutSecs,
-            }
-          : null,
-      rollback_on_failure: applyRollbackOnFailure,
-    }));
-
-    let rollbackPolicy;
-    if (block.rollbackPolicy === "none") {
-      rollbackPolicy = "none";
-    } else if (block.rollbackPolicy === "whole_resource") {
-      rollbackPolicy = {
-        whole_resource: {
-          rollback: {
-            kind: "command",
-            mode,
-            command: block.undoCommand.trim(),
-            timeout: timeoutSecs,
-          },
-          trigger_step_index: triggerStepIndex,
-        },
-      };
-    } else {
-      rollbackPolicy = "per_step";
-    }
-
-    return {
-      name: block.name.trim() || "tx-block",
-      rollback_policy: rollbackPolicy,
-      steps,
-      fail_fast: block.failFast,
-    };
-  });
-  const workflow = {
-    name,
-    blocks,
-    fail_fast: failFast,
-  };
-  byId("tx-workflow-json").value = JSON.stringify(workflow, null, 2);
-  setTxWorkflowPreview(workflow);
-}
-
-function loadTxWorkflowBuilderFromJson() {
-  const raw = byId("tx-workflow-json").value.trim();
+function normalizeTxWorkflowJsonFromEditor() {
+  const raw = txWorkflowEditorRaw().trim();
   if (!raw) return;
   const workflow = JSON.parse(raw);
   if (!workflow || typeof workflow !== "object" || Array.isArray(workflow)) {
     throw new Error(t("txWorkflowLoadInvalidJsonShape"));
   }
-  byId("tx-workflow-name").value = workflow.name || "";
-  byId("tx-workflow-fail-fast").checked = workflow.fail_fast !== false;
-  const blocks = Array.isArray(workflow.blocks) ? workflow.blocks : [];
-  txWorkflowBlocks = blocks.map((b) => {
-    const templateName = safeString(b && b.tx_block_template_name).trim();
-    const templateContent = safeString(b && b.tx_block_template_content).trim();
-    if (templateName || templateContent) {
-      if (!templateName && templateContent) {
-        throw new Error(t("txWorkflowLoadUnsupportedTemplateContent"));
-      }
-      return createTxWorkflowBlock({
-        name: (b && b.name) || "",
-        sourceKind: "tx_block_template",
-        txBlockTemplateName: templateName,
-        txBlockTemplateVarsText: JSON.stringify(
-          (b && b.tx_block_template_vars) || {},
-          null,
-          2
-        ),
-        failFast: b && b.fail_fast !== false,
-      });
-    }
-    const steps = Array.isArray(b.steps) ? b.steps : [];
-    if (
-      steps.some((s) => {
-        const run = txStepRunOperation(s);
-        const rollback = txStepRollbackOperation(s);
-        if (run && !isCommandOperation(run)) return true;
-        if (rollback && !isCommandOperation(rollback)) return true;
-        return false;
-      })
-    ) {
-      throw new Error(t("txWorkflowLoadUnsupportedOperation"));
-    }
-    if (
-      b &&
-      b.rollback_policy &&
-      typeof b.rollback_policy === "object" &&
-      b.rollback_policy.whole_resource
-    ) {
-      const wholeRollback = txWholeResourceRollbackOperation(b.rollback_policy);
-      if (wholeRollback && !isCommandOperation(wholeRollback)) {
-        throw new Error(t("txWorkflowLoadUnsupportedOperation"));
-      }
-    }
-    const firstRun = txStepRunOperation(steps[0]);
-    const mode = txOperationMode(firstRun) || txWorkflowAvailableModes()[0] || "User";
-    const timeoutSecs = txOperationTimeoutSeconds(firstRun);
-    const rollbackOnFailure = steps.some((s) => s && s.rollback_on_failure === true);
-    let rollbackPolicy = "per_step";
-    let undoCommand = "";
-    let triggerStepIndex = 0;
-    if (typeof b.rollback_policy === "string") {
-      rollbackPolicy = b.rollback_policy;
-    } else if (
-      b.rollback_policy &&
-      typeof b.rollback_policy === "object" &&
-      b.rollback_policy.whole_resource
-    ) {
-      rollbackPolicy = "whole_resource";
-      undoCommand =
-        txOperationDescription(txWholeResourceRollbackOperation(b.rollback_policy)) || "";
-      triggerStepIndex = b.rollback_policy.whole_resource.trigger_step_index || 0;
-    }
-    return createTxWorkflowBlock({
-      name: b.name || "",
-      rollbackPolicy,
-      mode,
-      timeoutSecs,
-      undoCommand,
-      rollbackOnFailure,
-      triggerStepIndex,
-      commandsText: steps
-        .map((s) => txOperationDescription(txStepRunOperation(s)))
-        .join("\n"),
-      rollbackCommandsText: steps
-        .map((s) => txOperationDescription(txStepRollbackOperation(s)))
-        .join("\n"),
-      failFast: b.fail_fast !== false,
-    });
-  });
-  txWorkflowEditingBlockId = "";
-  hideTxWorkflowEditorModal({ rerender: false });
-  renderTxWorkflowBuilder();
+  setTxWorkflowEditorJson(workflow);
   renderTxWorkflowPreviewFromEditor();
 }
 
-function downloadTxWorkflowJsonFromBuilder() {
-  generateTxWorkflowJsonFromBuilder();
-  const content = byId("tx-workflow-json").value || "";
-  const nameRaw = (byId("tx-workflow-name").value || "").trim() || "tx-workflow";
+function generateTxWorkflowJsonFromBuilder() {
+  normalizeTxWorkflowJsonFromEditor();
+}
+
+function loadTxWorkflowBuilderFromJson() {
+  normalizeTxWorkflowJsonFromEditor();
+}
+
+function downloadTxWorkflowJson() {
+  normalizeTxWorkflowJsonFromEditor();
+  const content = txWorkflowEditorRaw();
+  let nameRaw = "tx-workflow";
+  try {
+    const parsed = JSON.parse(content || "{}");
+    nameRaw = safeString(parsed && parsed.name).trim() || "tx-workflow";
+  } catch (_) {}
   const safeName = nameRaw.replace(/[^a-zA-Z0-9._-]+/g, "-");
   const fileName = `${safeName}.json`;
   const blob = new Blob([content], { type: "application/json;charset=utf-8" });
@@ -1244,18 +1323,26 @@ function downloadTxWorkflowJsonFromBuilder() {
   URL.revokeObjectURL(url);
 }
 
-async function importTxWorkflowBuilderFromFile() {
+async function importTxWorkflowFromFile() {
   const input = byId("tx-workflow-import-file-input");
   const file = input && input.files && input.files[0] ? input.files[0] : null;
   if (!file) {
     throw new Error(t("txWorkflowImportFileInvalid"));
   }
   const text = await file.text();
-  byId("tx-workflow-json").value = text;
-  loadTxWorkflowBuilderFromJson();
+  setTxWorkflowEditorText(text, { notify: false });
+  normalizeTxWorkflowJsonFromEditor();
   renderTxWorkflowPreviewFromEditor();
   setStatusMessage("tx-workflow-plan-out", t("txWorkflowImportFileDone"), "success");
   input.value = "";
+}
+
+function downloadTxWorkflowJsonFromBuilder() {
+  downloadTxWorkflowJson();
+}
+
+async function importTxWorkflowBuilderFromFile() {
+  await importTxWorkflowFromFile();
 }
 
 function downloadOrchestrationJson() {
@@ -1302,50 +1389,8 @@ async function importOrchestrationFromFile() {
   input.value = "";
 }
 
-function txBlockToBuilderSeed(block) {
-  const steps = Array.isArray(block && block.steps) ? block.steps : [];
-  const firstRun = txStepRunOperation(steps[0]);
-  const mode = txOperationMode(firstRun) || txWorkflowAvailableModes()[0] || "User";
-  const timeoutSecs = txOperationTimeoutSeconds(firstRun);
-  let rollbackPolicy = "per_step";
-  let triggerStepIndex = 0;
-  let undoCommand = "";
-  const rp = block && block.rollback_policy;
-  if (typeof rp === "string") {
-    rollbackPolicy = rp;
-  } else if (rp && typeof rp === "object" && rp.whole_resource) {
-    rollbackPolicy = "whole_resource";
-    undoCommand = txOperationDescription(txWholeResourceRollbackOperation(rp)) || "";
-    triggerStepIndex = rp.whole_resource.trigger_step_index || 0;
-  }
-  return {
-    name: (block && block.name) || "",
-    rollbackPolicy,
-    mode,
-    timeoutSecs,
-    undoCommand,
-    rollbackOnFailure: steps.some((s) => s.rollback_on_failure === true),
-    triggerStepIndex,
-    commandsText: steps
-      .map((s) => txOperationDescription(txStepRunOperation(s)))
-      .join("\n"),
-    rollbackCommandsText: steps
-      .map((s) => txOperationDescription(txStepRollbackOperation(s)))
-      .join("\n"),
-    failFast: block && block.fail_fast !== false,
-  };
-}
-
 async function importTxBlockIntoWorkflowBuilder() {
   if (!ensureConnectionTargetSelected("tx-workflow-plan-out")) {
-    return;
-  }
-  if (currentTxBlockRunKind === "flow") {
-    setStatusMessage(
-      "tx-workflow-plan-out",
-      "command flow tx block is not supported by the workflow builder yet",
-      "error"
-    );
     return;
   }
   setStatusMessage("tx-workflow-plan-out", t("running"), "running");
@@ -1356,7 +1401,11 @@ async function importTxBlockIntoWorkflowBuilder() {
       setStatusMessage("tx-workflow-plan-out", t("txWorkflowImportEmpty"), "error");
       return;
     }
-    const importedBlock = createTxWorkflowBlock(txBlockToBuilderSeed(block));
+    const importedBlock = createTxWorkflowBlock({
+      name: (block && block.name) || "",
+      failFast: block && block.fail_fast !== false,
+      txBlockJsonText: JSON.stringify(block, null, 2),
+    });
     txWorkflowBlocks.push(importedBlock);
     await startTxWorkflowBlockEditor(importedBlock.id);
     setStatusMessage("tx-workflow-plan-out", t("txWorkflowImportDone"), "success");

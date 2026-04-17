@@ -18,7 +18,6 @@ document.addEventListener("alpine:init", () => {
     currentOpKind: readGlobalState("currentOpKind", "exec"),
     currentExecMode: readGlobalState("currentExecMode", "direct"),
     currentTxStage: readGlobalState("currentTxStage", "block"),
-    currentTxBlockRunKind: readGlobalState("currentTxBlockRunKind", "commands"),
     currentPromptMode: readGlobalState("currentPromptMode", "view"),
     currentTemplateSection: readGlobalState("currentTemplateSection", "templates"),
     currentInventorySection: readGlobalState("currentInventorySection", "groups"),
@@ -111,15 +110,6 @@ document.addEventListener("alpine:init", () => {
       currentTxStage = stage;
       if (typeof window.onAlpineTxStageChange === "function") {
         window.onAlpineTxStageChange(stage);
-      }
-    },
-
-    setTxBlockRunKind(kind) {
-      if (!kind || this.currentTxBlockRunKind === kind) return;
-      this.currentTxBlockRunKind = kind;
-      currentTxBlockRunKind = kind;
-      if (typeof window.onAlpineTxBlockRunKindChange === "function") {
-        window.onAlpineTxBlockRunKindChange(kind);
       }
     },
 
@@ -278,10 +268,6 @@ document.addEventListener("alpine:init", () => {
       this.currentOpKind = readGlobalState("currentOpKind", this.currentOpKind);
       this.currentExecMode = readGlobalState("currentExecMode", this.currentExecMode);
       this.currentTxStage = readGlobalState("currentTxStage", this.currentTxStage);
-      this.currentTxBlockRunKind = readGlobalState(
-        "currentTxBlockRunKind",
-        this.currentTxBlockRunKind
-      );
       this.currentPromptMode = readGlobalState(
         "currentPromptMode",
         this.currentPromptMode

@@ -68,7 +68,7 @@ function renderStatusToast(message, tone = "info") {
   `;
 }
 
-function renderFlowTemplateVarField(field, draftValue) {
+function renderFlowTemplateVarField(field, draftValue, options = {}) {
   const value = draftValue !== undefined ? safeString(draftValue) : defaultFlowVarDraft(field);
   const requiredBadge = field.required
     ? `<span class="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">${escapeHtml(
@@ -86,7 +86,8 @@ function renderFlowTemplateVarField(field, draftValue) {
   const placeholderAttr = field.placeholder
     ? ` placeholder="${escapeHtml(field.placeholder)}"`
     : "";
-  const elementId = `flow-var-${field.name}`;
+  const idPrefix = safeString(options.idPrefix || "flow-var").trim() || "flow-var";
+  const elementId = `${idPrefix}-${field.name}`;
   let controlHtml = "";
 
   if (field.options.length && field.kind !== "json" && field.kind !== "boolean") {

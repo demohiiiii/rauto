@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>rauto web</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <link rel="stylesheet" href="/static/output.css" />
 </head>
 <body class="dashboard-body" x-data x-bind:data-dashboard-theme="$store.app.currentTheme" x-bind:data-theme="$store.app.currentTheme" x-on:click="$store.app.closeLangMenu()" x-on:keydown.escape.window="$store.app.closeLangMenu(); $store.app.closeConnectionModal()">
@@ -198,9 +199,6 @@
             <h2 id="orchestrated-title" class="text-xl font-semibold">Tx Block</h2>
             <div id="op-tx-fields" class="mt-3 grid gap-3">
               <div id="tx-stage-block-panel" class="grid gap-3" x-show="$store.app.currentTxStage === 'block'" x-cloak>
-                <div class="flex justify-end">
-                  <button id="tx-advanced-toggle-btn" class="btn btn-sm" type="button">Advanced</button>
-                </div>
                 <div id="tx-block-run-direct-panel" class="group-card">
                   <div class="group-body grid gap-2">
                     <div id="tx-block-direct-hint" class="text-xs text-slate-500">Build and run a tx block directly from the editor form below.</div>
@@ -239,64 +237,28 @@
                         <div id="tx-workflow-view-direct-panel" class="group-card">
                           <div class="group-body grid gap-2">
                             <div id="tx-workflow-view-direct-hint" class="text-xs text-slate-500">Use the workflow editor form below for direct execution.</div>
-                            <textarea id="tx-workflow-json" class="input min-h-40 font-mono" placeholder='{"name":"fw-policy-publish","blocks":[],"fail_fast":true}'></textarea>
+                            <div class="inline-flex flex-wrap items-center gap-2">
+                              <button id="tx-workflow-json-new-btn" class="btn btn-sm" type="button">New</button>
+                              <button id="tx-workflow-download-btn" class="btn btn-sm" type="button">Download JSON</button>
+                              <button id="tx-workflow-import-file-btn" class="btn btn-sm" type="button">Import JSON File</button>
+                            </div>
+                            <div id="tx-workflow-json-editor" class="tx-json-editor tx-json-editor-compact hidden" aria-label="Tx Workflow JSON Editor"></div>
+                            <textarea id="tx-workflow-json" class="input min-h-40 font-mono tx-json-fallback" placeholder='{"name":"linux-safe-deploy-demo","fail_fast":true,"blocks":[{"name":"precheck","rollback_policy":"none","fail_fast":true,"steps":[{"run":{"kind":"command","mode":"User","command":"uname -a","timeout":30},"rollback":null,"rollback_on_failure":false},{"run":{"kind":"command","mode":"User","command":"date","timeout":30},"rollback":null,"rollback_on_failure":false}]},{"name":"apply-change","rollback_policy":"per_step","fail_fast":true,"steps":[{"run":{"kind":"command","mode":"User","command":"mkdir -p /tmp/rauto-demo","timeout":30},"rollback":{"kind":"command","mode":"User","command":"rm -rf /tmp/rauto-demo","timeout":30},"rollback_on_failure":false},{"run":{"kind":"command","mode":"User","command":"echo version=2026.04.17 > /tmp/rauto-demo/release.txt","timeout":30},"rollback":{"kind":"command","mode":"User","command":"rm -f /tmp/rauto-demo/release.txt","timeout":30},"rollback_on_failure":true}]},{"name":"verify","rollback_policy":{"whole_resource":{"rollback":{"kind":"command","mode":"User","command":"rm -rf /tmp/rauto-demo","timeout":30},"trigger_step_index":0}},"fail_fast":false,"steps":[{"run":{"kind":"command","mode":"User","command":"ls -lah /tmp/rauto-demo","timeout":30},"rollback":null,"rollback_on_failure":false}]}]}'></textarea>
                             <textarea id="tx-workflow-vars-json" class="input min-h-20 font-mono" placeholder='workflow vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
                             <div id="tx-workflow-vars-hint" class="text-xs text-slate-500">Supports direct refs like edge94.host and fallback lookups by key name.</div>
+                            <input id="tx-workflow-import-file-input" type="file" accept=".json,application/json" hidden />
                           </div>
                         </div>
                         <div id="tx-workflow-view-template-panel" class="group-card" hidden>
                           <div class="group-body grid gap-2">
-                            <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                            <div class="grid gap-2 md:grid-cols-[1fr_auto_auto_auto]">
                               <select id="tx-workflow-template-name" class="select" title="Tx Workflow Template" aria-label="Tx Workflow Template"></select>
+                              <button id="tx-workflow-template-run-new-btn" class="btn btn-sm" type="button">New</button>
                               <button id="tx-workflow-template-run-save-btn" class="btn btn-success btn-sm" type="button">Save</button>
                               <button id="tx-workflow-template-run-delete-btn" class="btn btn-error btn-sm" type="button">Delete</button>
                             </div>
                             <textarea id="tx-workflow-template-vars-json" class="input min-h-20 font-mono" placeholder='workflow template vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
                             <div id="tx-workflow-template-run-hint" class="text-xs text-slate-500">Select a saved workflow template and execute it with runtime vars.</div>
-                          </div>
-                        </div>
-                        <div class="group-card">
-                          <div class="field-tools">
-                            <span id="tx-workflow-builder-title">Workflow Builder</span>
-                            <div class="inline-flex items-center gap-2">
-                              <button id="tx-workflow-template-run-new-btn" class="btn btn-sm" type="button">New</button>
-                              <button id="tx-workflow-import-block-btn" class="btn btn-sm" type="button">Import From Tx Form</button>
-                              <button id="tx-workflow-add-block-btn" class="mini-btn add" type="button">+ Add Block</button>
-                              <button id="tx-workflow-collapse-all-btn" class="btn btn-sm" type="button">Collapse All</button>
-                              <button id="tx-workflow-expand-all-btn" class="btn btn-sm" type="button">Expand All</button>
-                            </div>
-                          </div>
-                          <div class="group-body grid gap-2">
-                            <div class="grid gap-2 md:grid-cols-2">
-                              <input id="tx-workflow-name" class="input" placeholder="workflow name" />
-                              <label class="check-label">
-                                <input id="tx-workflow-fail-fast" type="checkbox" class="check-input" checked />
-                                <span id="tx-workflow-fail-fast-label">fail fast</span>
-                              </label>
-                            </div>
-                            <div class="grid gap-2 md:grid-cols-[220px_1fr_auto]">
-                              <select id="tx-workflow-filter-rollback" class="select" title="Filter Rollback" aria-label="Filter Rollback">
-                                <option value="all">all rollback</option>
-                                <option value="none">none</option>
-                                <option value="per_step">per_step</option>
-                                <option value="whole_resource">whole_resource</option>
-                              </select>
-                              <input id="tx-workflow-filter-query" class="input" placeholder="search block name/command" />
-                              <button id="tx-workflow-filter-clear-btn" class="btn btn-sm" type="button">Clear</button>
-                            </div>
-                            <div id="tx-workflow-blocks" class="grid gap-2"></div>
-                            <div class="grid gap-2 md:grid-cols-2">
-                              <button id="tx-workflow-generate-btn" class="btn btn-sm" type="button">Generate JSON</button>
-                              <button id="tx-workflow-load-btn" class="btn btn-sm" type="button">Load JSON To Builder</button>
-                            </div>
-                            <div class="grid gap-2">
-                              <button id="tx-workflow-more-btn" class="mini-btn fit-btn" type="button">More Actions</button>
-                              <div id="tx-workflow-more-panel" class="grid gap-2 md:grid-cols-2" hidden>
-                                <button id="tx-workflow-download-btn" class="btn btn-sm" type="button">Download JSON</button>
-                                <button id="tx-workflow-import-file-btn" class="btn btn-sm" type="button">Import JSON File</button>
-                              </div>
-                            </div>
-                            <input id="tx-workflow-import-file-input" type="file" accept=".json,application/json" hidden />
                           </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
@@ -321,100 +283,30 @@
                       </div>
                       <div id="tx-block-view-direct-panel" class="group-card">
                         <div class="group-body grid gap-2">
-                          <div id="tx-block-view-direct-hint" class="text-xs text-slate-500">Use the unified tx block editor form below for direct block editing.</div>
+                          <div id="tx-block-view-direct-hint" class="text-xs text-slate-500">Edit and execute a raw tx block JSON document, aligned with CLI input.</div>
                         </div>
                       </div>
                       <div id="tx-block-view-template-panel" class="group-card" hidden>
                         <div class="group-body grid gap-2">
-                          <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                          <div class="grid gap-2 md:grid-cols-[1fr_auto_auto_auto]">
                             <select id="tx-block-template-name" class="select" title="Tx Block Template" aria-label="Tx Block Template"></select>
+                            <button id="tx-block-template-run-new-btn" class="btn btn-sm" type="button">New</button>
                             <button id="tx-block-template-run-save-btn" class="btn btn-success btn-sm" type="button">Save</button>
                             <button id="tx-block-template-run-delete-btn" class="btn btn-error btn-sm" type="button">Delete</button>
                           </div>
                           <textarea id="tx-block-template-vars" class="input min-h-20 font-mono" placeholder='tx block template vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
-                          <div id="tx-block-template-run-hint" class="text-xs text-slate-500">Select a saved template to auto-fill editor, then execute or save updates.</div>
+                          <div id="tx-block-template-run-hint" class="text-xs text-slate-500">Load a saved tx block JSON template, edit its JSON body below, and execute it with runtime vars.</div>
                         </div>
                       </div>
                       <div id="tx-shared-editor-card" class="group-card">
                         <div class="field-tools">
-                          <span id="tx-block-editor-title">Tx Block Editor</span>
+                          <span id="tx-block-editor-title">Tx Block JSON</span>
                           <button id="tx-block-editor-new-btn" class="btn btn-sm" type="button">New</button>
                         </div>
                         <div class="group-body grid gap-2">
-                          <div class="tabs tabs-box w-fit" role="tablist" aria-label="Tx block input mode tabs">
-                            <button id="tx-run-kind-commands" class="tab" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('commands')" x-bind:class="{ 'tab-active': $store.app.currentTxBlockRunKind === 'commands' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'commands').toString()">Commands</button>
-                            <button id="tx-run-kind-flow" class="tab" type="button" role="tab" x-on:click="$store.app.setTxBlockRunKind('flow')" x-bind:class="{ 'tab-active': $store.app.currentTxBlockRunKind === 'flow' }" x-bind:aria-selected="($store.app.currentTxBlockRunKind === 'flow').toString()">Command Flow</button>
-                          </div>
-                          <div id="tx-block-command-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'commands'" x-cloak>
-                            <select id="tx-template" class="select" title="Command Template" aria-label="Command Template"></select>
-                            <textarea id="tx-commands" class="input min-h-24 font-mono" placeholder="commands (one per line, optional when template is set)"></textarea>
-                            <textarea id="tx-vars" class="input min-h-24 font-mono" placeholder='JSON vars, e.g. {"name":"WEB01"}'></textarea>
-                            <select id="tx-mode" class="select" title="TX Mode" aria-label="TX Mode"></select>
-                            <div class="grid gap-2">
-                              <div class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                <span id="tx-rollback-mode-label">Rollback mode</span>
-                                <select id="tx-rollback-mode" class="select md:w-[220px]" title="Rollback Mode" aria-label="Rollback Mode">
-                                  <option value="none">none</option>
-                                  <option value="per_step">custom per-step</option>
-                                  <option value="whole_resource">whole resource</option>
-                                </select>
-                              </div>
-                              <div id="tx-rollback-per-step" class="grid gap-2" hidden>
-                                <label class="check-label">
-                                  <input id="tx-rollback-on-failure" type="checkbox" class="check-input" />
-                                  <span id="tx-rollback-on-failure-label">rollback failed step</span>
-                                </label>
-                                <div class="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
-                                  <span id="tx-rollback-input-label">rollback input</span>
-                                  <div class="tabs tabs-box w-fit">
-                                    <button id="tx-rollback-input-text" class="tab tab-active" type="button">text</button>
-                                    <button id="tx-rollback-input-pairs" class="tab" type="button">per-command</button>
-                                  </div>
-                                </div>
-                                <div class="inline-flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                                  <button id="tx-rollback-auto-btn" class="btn btn-sm" type="button">Auto-generate rollback</button>
-                                  <span id="tx-rollback-auto-hint">Generated by simple rule: prefix with 'no '</span>
-                                  <span class="ml-2 text-slate-400" id="tx-rollback-rule-label">rule</span>
-                                  <select id="tx-rollback-rule" class="select" title="Rollback Rule" aria-label="Rollback Rule">
-                                    <option value="no_prefix">prefix no</option>
-                                    <option value="set_delete">set → delete</option>
-                                    <option value="add_remove">add → remove</option>
-                                    <option value="custom">custom template</option>
-                                  </select>
-                                  <input id="tx-rollback-template" class="input" placeholder="template, e.g. no {{cmd}}" />
-                                </div>
-                                <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-                                  <select id="tx-rollback-template-pick" class="select" title="Rollback Template" aria-label="Rollback Template"></select>
-                                  <input id="tx-rollback-template-name" class="input" placeholder="template name" />
-                                  <button id="tx-rollback-template-save" class="btn btn-sm btn-success" type="button">Save</button>
-                                  <button id="tx-rollback-template-delete" class="btn btn-sm btn-error" type="button">Delete</button>
-                                </div>
-                                <textarea id="tx-rollback-commands" class="input min-h-24 font-mono" placeholder="rollback commands (one per line, used by per_step)"></textarea>
-                                <div id="tx-rollback-pairs" class="grid gap-2" hidden></div>
-                                <div id="tx-rollback-empty-hint" class="text-xs text-slate-500" hidden>enter commands above to edit per-command rollbacks</div>
-                              </div>
-                              <div id="tx-rollback-resource" class="grid gap-2" hidden>
-                                <input id="tx-resource-rollback" class="input" placeholder="resource rollback command (optional)" />
-                                <input id="tx-rollback-trigger-step" class="input" placeholder="trigger step index (default 0)" />
-                              </div>
-                            </div>
-                          </div>
-                          <div id="tx-block-flow-fields" class="grid gap-2" x-show="$store.app.currentTxBlockRunKind === 'flow'" x-cloak>
-                            <select id="tx-flow-template-name" class="select" title="Tx Command Flow Template" aria-label="Tx Command Flow Template"></select>
-                            <textarea id="tx-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for command flow, e.g. {"package":"nginx"}'></textarea>
-                            <select id="tx-flow-mode" class="select" title="Flow Mode" aria-label="Flow Mode"></select>
-                            <label class="check-label">
-                              <input id="tx-flow-rollback-on-failure" type="checkbox" class="check-input" />
-                              <span id="tx-flow-rollback-on-failure-label">rollback failed step</span>
-                            </label>
-                            <select id="tx-rollback-flow-template-name" class="select" title="Rollback Command Flow Template" aria-label="Rollback Command Flow Template"></select>
-                            <textarea id="tx-rollback-flow-vars" class="input min-h-24 font-mono" placeholder='JSON vars for rollback flow (optional)'></textarea>
-                            <div id="tx-flow-hint" class="text-xs text-slate-500">A command flow tx block runs one flow operation as a single transaction step.</div>
-                          </div>
-                          <div id="tx-advanced-fields" class="grid gap-2 md:grid-cols-2" hidden>
-                            <input id="tx-name" class="input" placeholder="tx block name" />
-                            <input id="tx-timeout-secs" class="input" placeholder="timeout secs (optional)" />
-                          </div>
+                          <div id="tx-block-json-hint" class="text-xs text-slate-500">Use the same raw tx block JSON shape as CLI. Templates also render to this exact JSON structure before execution.</div>
+                          <div id="tx-block-json-editor" class="tx-json-editor hidden" aria-label="Tx Block JSON Editor"></div>
+                          <textarea id="tx-block-json" class="input min-h-80 font-mono tx-json-fallback" placeholder='{"name":"tx-block","rollback_policy":"none","steps":[{"run":{"kind":"command","mode":"User","command":"show version","timeout":30},"rollback":null,"rollback_on_failure":false}],"fail_fast":true}'></textarea>
                         </div>
                       </div>
                     </div>
@@ -827,7 +719,7 @@
                   </div>
                   <div class="group-body grid gap-2">
                     <select id="tx-block-template-picker" class="select" title="Tx Block Template" aria-label="Tx Block Template"></select>
-                    <textarea id="tx-block-template-content" class="input min-h-64 font-mono" placeholder='{"run_kind":"commands","commands":["show version"]}'></textarea>
+                    <textarea id="tx-block-template-content" class="input min-h-64 font-mono" placeholder='{"name":"tx-block","rollback_policy":"none","steps":[{"run":{"kind":"command","mode":"User","command":"show version","timeout":30},"rollback":null,"rollback_on_failure":false}],"fail_fast":true}'></textarea>
                     <div id="tx-block-template-list" class="grid gap-2"></div>
                     <div id="tx-block-template-out" class="grid gap-2"></div>
                   </div>
@@ -1478,24 +1370,6 @@
   </div>
 </div>
 
-<dialog id="tx-workflow-editor-modal" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl p-0 shadow-2xl">
-    <div class="flex items-start justify-between gap-3 border-b border-base-300 px-5 py-4">
-      <div class="grid gap-1">
-        <h3 id="tx-workflow-editor-bridge-title" class="text-base font-semibold">Current Workflow Tx Block</h3>
-        <p id="tx-workflow-editor-current" class="text-sm opacity-70">No workflow block selected.</p>
-      </div>
-      <button id="tx-workflow-editor-cancel-btn" class="btn btn-sm" type="button">Close</button>
-    </div>
-    <div class="max-h-[calc(100dvh-10rem)] overflow-y-auto px-5 py-5">
-      <div id="tx-shared-editor-workflow-host" class="grid gap-3"></div>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop">
-    <button aria-label="Close workflow editor">close</button>
-  </form>
-</dialog>
-
 <!-- ============================================================
      弹出层：Entry Drawer
      ============================================================ -->
@@ -1564,6 +1438,10 @@
 <script src="/static/store.js"></script>
 <script src="/static/vendor/htmx.min.js"></script>
 <script src="/static/vendor/alpine.min.js"></script>
+<script src="/static/vendor/ace.js"></script>
+<script src="/static/vendor/mode-json.js"></script>
+<script src="/static/vendor/theme-github.js"></script>
+<script src="/static/vendor/theme-tomorrow_night.js"></script>
 <script src="/static/i18n.js"></script>
 <script src="/static/utils.js"></script>
 <script src="/static/render.js"></script>

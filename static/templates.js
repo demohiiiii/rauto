@@ -67,10 +67,6 @@ function renderTemplateOptions(selectedName = "") {
     placeholder: t("templateSelectPlaceholder"),
     selected: byId("template")?.value || "",
   });
-  populateSelectOptions("tx-template", cachedTemplates, {
-    placeholder: t("templateSelectPlaceholder"),
-    selected: byId("tx-template")?.value || "",
-  });
 }
 
 async function loadTemplateDetail() {
@@ -319,14 +315,6 @@ function renderFlowTemplateOptions() {
   populateSelectOptions("flow-template-name", runTemplateValues, {
     placeholder: t("flowTemplateRunPlaceholder"),
     selected: byId("flow-template-name")?.value || "",
-  });
-  populateSelectOptions("tx-flow-template-name", runTemplateValues, {
-    placeholder: t("txFlowTemplatePlaceholder"),
-    selected: byId("tx-flow-template-name")?.value || "",
-  });
-  populateSelectOptions("tx-rollback-flow-template-name", runTemplateValues, {
-    placeholder: t("txFlowRollbackTemplatePlaceholder"),
-    selected: byId("tx-rollback-flow-template-name")?.value || "",
   });
 }
 
@@ -826,6 +814,34 @@ function openOrchestratedStage(stage) {
 }
 
 function setPrettyJsonToTextarea(id, rawContent) {
+  if (id === "tx-block-json" && typeof setTxBlockEditorRawText === "function") {
+    const text = String(rawContent || "").trim();
+    if (!text) {
+      setTxBlockEditorRawText("");
+      return;
+    }
+    try {
+      setTxBlockEditorRawText(JSON.stringify(JSON.parse(text), null, 2));
+    } catch (_) {
+      setTxBlockEditorRawText(text);
+    }
+    return;
+  }
+  if (id === "tx-workflow-json" && typeof setTxWorkflowEditorText === "function") {
+    const text = String(rawContent || "").trim();
+    if (!text) {
+      setTxWorkflowEditorText("", { notify: true });
+      return;
+    }
+    try {
+      setTxWorkflowEditorText(JSON.stringify(JSON.parse(text), null, 2), {
+        notify: true,
+      });
+    } catch (_) {
+      setTxWorkflowEditorText(text, { notify: true });
+    }
+    return;
+  }
   const textarea = byId(id);
   if (!textarea) return;
   const text = String(rawContent || "").trim();
@@ -899,13 +915,7 @@ async function loadTxBlockTemplateIntoEditorByName(nameOverride = "") {
   try {
     const data = await request("GET", `/api/tx-block-templates/${encodeURIComponent(name)}`);
     ensureSelectValue("tx-block-template-name", data.name || name);
-    let parsed = null;
-    try {
-      parsed = JSON.parse(data.content || "{}");
-    } catch (e) {
-      throw new Error(e.message || "invalid tx block template json");
-    }
-    applyTxBlockTemplatePayloadToEditor(parsed);
+    setPrettyJsonToTextarea("tx-block-json", data.content || "");
     setStatusMessage("tx-plan-out", `${t("loaded")}: ${data.name || name}`, "success");
     return data;
   } catch (e) {
@@ -922,8 +932,7 @@ async function saveTxBlockTemplateFromEditor() {
   }
   setStatusMessage("tx-plan-out", t("running"), "running");
   try {
-    const payload = buildTxBlockTemplatePayloadFromEditor();
-    const content = JSON.stringify(payload, null, 2);
+    const content = JSON.stringify(buildTxBlockTemplatePayloadFromEditor(), null, 2);
     const exists = getJsonTemplateNames("tx_block").includes(name);
     const data = exists
       ? await request("PUT", `/api/tx-block-templates/${encodeURIComponent(name)}`, {
@@ -968,17 +977,10 @@ async function createTxBlockTemplateDraftFromManager() {
   if (typeof applyTxBlockViewMode === "function") {
     applyTxBlockViewMode();
   }
-  setStatusMessage("tx-plan-out", t("running"), "running");
-  try {
-    const payload = buildTxBlockTemplatePayloadFromEditor();
-    const content = JSON.stringify(payload, null, 2);
-    const data = await request("POST", "/api/tx-block-templates", { name, content });
-    await loadTxBlockTemplates();
-    ensureSelectValue("tx-block-template-name", data.name || name);
-    setStatusMessage("tx-plan-out", `${t("created")}: ${data.name || name}`, "success");
-  } catch (e) {
-    setStatusMessage("tx-plan-out", e.message, "error");
-  }
+  ensureSelectValue("tx-block-template-name", name);
+  setTxBlockEditorJson(defaultTxBlockTemplatePayload());
+  byId("tx-block-template-vars").value = "{}";
+  setStatusMessage("tx-plan-out", `${t("editingNew")}: ${name}`, "info");
 }
 
 async function loadSelectedTxBlockTemplateForExecution() {
@@ -991,17 +993,19 @@ async function loadSelectedTxBlockTemplateForExecution() {
 }
 
 function txWorkflowTemplateExecutionContent() {
-  try {
-    if (typeof generateTxWorkflowJsonFromBuilder === "function") {
-      generateTxWorkflowJsonFromBuilder();
-    }
-  } catch (_) {}
-  let raw = (byId("tx-workflow-json")?.value || "").trim();
+  let raw =
+    typeof txWorkflowEditorRaw === "function"
+      ? txWorkflowEditorRaw().trim()
+      : (byId("tx-workflow-json")?.value || "").trim();
   if (!raw) {
     throw new Error(t("txWorkflowJsonRequired"));
   }
   const normalized = JSON.stringify(JSON.parse(raw), null, 2);
-  byId("tx-workflow-json").value = normalized;
+  if (typeof setTxWorkflowEditorText === "function") {
+    setTxWorkflowEditorText(normalized, { notify: true });
+  } else {
+    byId("tx-workflow-json").value = normalized;
+  }
   return normalized;
 }
 
@@ -1017,9 +1021,6 @@ async function loadSelectedTxWorkflowTemplateForExecution() {
     const detail = await loadJsonTemplateDetail("tx_workflow", name);
     if (detail && detail.content) {
       setPrettyJsonToTextarea("tx-workflow-json", detail.content);
-      if (typeof loadTxWorkflowBuilderFromJson === "function") {
-        loadTxWorkflowBuilderFromJson();
-      }
       if (typeof renderTxWorkflowPreviewFromEditor === "function") {
         renderTxWorkflowPreviewFromEditor();
       }

@@ -53,7 +53,7 @@ use crate::web::models::{
     ExecuteTxBlockRequest as WebExecuteTxBlockRequest,
     ExecuteTxWorkflowRequest as WebExecuteTxWorkflowRequest,
     ExecuteUploadRequest as WebExecuteUploadRequest, ExecutionTargetOptions, ManagedTaskOptions,
-    RecordLevel, TxBlockRunKind, UpdateCommandFlowTemplateRequest,
+    RecordLevel, UpdateCommandFlowTemplateRequest,
     UpsertConnectionRequest as WebUpsertConnectionRequest,
 };
 use crate::web::state::AppState;
@@ -175,18 +175,6 @@ fn map_managed_task_options(task_id: String) -> ManagedTaskOptions {
     }
 }
 
-fn parse_tx_block_run_kind(raw: &str) -> Result<Option<TxBlockRunKind>, Status> {
-    match raw.trim() {
-        "" => Ok(None),
-        "commands" => Ok(Some(TxBlockRunKind::Commands)),
-        "command-flow" => Ok(Some(TxBlockRunKind::CommandFlow)),
-        value => Err(Status::invalid_argument(format!(
-            "unsupported tx block run_kind '{}'",
-            value
-        ))),
-    }
-}
-
 fn parse_ssh_security(raw: &str) -> Result<Option<SshSecurityProfile>, Status> {
     match raw.trim() {
         "" => Ok(None),
@@ -249,31 +237,14 @@ fn map_execute_tx_block_request(
     req: GrpcExecuteTxBlockRequest,
 ) -> Result<WebExecuteTxBlockRequest, Status> {
     Ok(WebExecuteTxBlockRequest {
-        name: optional_string(req.name),
-        tx_block_template_name: None,
-        tx_block_template_content: None,
-        tx_block_template_vars: Value::Null,
-        run_kind: parse_tx_block_run_kind(&req.run_kind)?,
-        template: optional_string(req.template),
-        vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
-        flow_template_name: optional_string(req.flow_template_name),
-        flow_content: optional_string(req.flow_content),
-        flow_vars: parse_json_value(&req.flow_vars_json, "flow_vars_json", Value::Null)?,
-        rollback_flow_template_name: optional_string(req.rollback_flow_template_name),
-        rollback_flow_content: optional_string(req.rollback_flow_content),
-        rollback_flow_vars: parse_json_value(
-            &req.rollback_flow_vars_json,
-            "rollback_flow_vars_json",
+        tx_block_template_name: optional_string(req.tx_block_template_name),
+        tx_block_template_content: optional_string(req.tx_block_template_content),
+        tx_block_template_vars: parse_json_value(
+            &req.tx_block_template_vars_json,
+            "tx_block_template_vars_json",
             Value::Null,
         )?,
-        commands: req.commands,
-        rollback_commands: req.rollback_commands,
-        rollback_mode: None,
-        rollback_on_failure: Some(req.rollback_on_failure),
-        rollback_trigger_step_index: req.rollback_trigger_step_index.map(|value| value as usize),
-        mode: optional_string(req.mode),
-        timeout_secs: req.timeout_secs,
-        resource_rollback_command: optional_string(req.resource_rollback_command),
+        tx_block: parse_json_value(&req.tx_block_json, "tx_block_json", Value::Null)?,
         run: DryRunOptions {
             dry_run: Some(req.dry_run),
         },
