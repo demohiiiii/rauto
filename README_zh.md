@@ -5,7 +5,7 @@
 **AI 时代操控网络设备的双手**
 
 [![Crates.io](https://img.shields.io/crates/v/rauto.svg)](https://crates.io/crates/rauto)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-rauto.top-0ea5e9?style=for-the-badge&logo=googlechrome&logoColor=white)](https://rauto.top)
 
 [官网](https://rauto.top) · [English Documentation](README.md)
@@ -922,4 +922,4 @@ end
 
 ## 许可证
 
-MIT
+Apache License 2.0

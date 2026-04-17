@@ -4330,6 +4330,7 @@ pub async fn execute_tx_workflow(
         )?;
         let workflow: rneter::session::TxWorkflow =
             serde_json::from_value(workflow_value.clone()).map_err(ApiError::from)?;
+        let workflow_response_value = serde_json::to_value(&workflow).map_err(ApiError::from)?;
         emit_task_event(
             &state,
             &task_ctx,
@@ -4344,7 +4345,7 @@ pub async fn execute_tx_workflow(
 
         if req.run.dry_run.unwrap_or(false) {
             return Ok(ExecuteTxWorkflowResponse {
-                workflow: workflow_value,
+                workflow: workflow_response_value,
                 tx_workflow_result: None,
                 recording_jsonl: None,
                 result_summary: task_result_with_details(
@@ -4484,7 +4485,7 @@ pub async fn execute_tx_workflow(
         let failed_blocks = workflow_result.block_results.len() as u64 - succeeded_blocks;
         let recording_available = recording_jsonl.is_some();
         Ok(ExecuteTxWorkflowResponse {
-            workflow: workflow_value,
+            workflow: workflow_response_value,
             tx_workflow_result: Some(
                 serde_json::to_value(&workflow_result).map_err(ApiError::from)?,
             ),

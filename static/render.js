@@ -591,9 +591,10 @@ function renderTxWorkflowPreview(workflow) {
   `;
   const blockCards = blocks
     .map((block, blockIdx) => {
-      const blockTemplateName = safeString(
-        block && block.tx_block_template_name
-      ).trim();
+      const blockTemplateName =
+        block && typeof block.tx_block_template_name === "string"
+          ? block.tx_block_template_name.trim()
+          : "";
       if (blockTemplateName) {
         return `
       <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">

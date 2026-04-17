@@ -199,9 +199,9 @@
             <h2 id="orchestrated-title" class="text-xl font-semibold">Tx Block</h2>
             <div id="op-tx-fields" class="mt-3 grid gap-3">
               <div id="tx-stage-block-panel" class="grid gap-3" x-show="$store.app.currentTxStage === 'block'" x-cloak>
+                <div id="tx-shared-editor-block-host" class="grid gap-2"></div>
                 <div id="tx-block-run-direct-panel" class="group-card">
                   <div class="group-body grid gap-2">
-                    <div id="tx-block-direct-hint" class="text-xs text-slate-500">Build and run a tx block directly from the editor form below.</div>
                     <div class="grid grid-cols-2 gap-2">
                       <button id="tx-plan-btn" class="btn btn-sm" type="button">Preview Tx Plan</button>
                       <button id="tx-exec-btn" class="btn btn-primary btn-sm" type="button">Execute Tx Block</button>
@@ -216,7 +216,6 @@
                     </div>
                   </div>
                 </div>
-                <div id="tx-shared-editor-block-host" class="grid gap-2"></div>
                 <div class="group-card">
                   <div class="field-tools">
                     <span id="tx-block-visual-title">Tx Block Visual Preview</span>
