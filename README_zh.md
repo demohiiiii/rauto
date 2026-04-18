@@ -747,8 +747,14 @@ rauto orchestrate ./orchestration.json --json
 - `targets` 可以直接引用已保存连接名，也可以写内联连接字段。
 - `target_groups` 可以从 `inventory_file` 或内联 `inventory.groups` 加载目标列表。
 - `inventory.defaults` 会作用到所有分组和阶段内联 `targets`；group 的 `defaults` 会覆盖 inventory 默认值。
-- `tx_block` 阶段会复用现有模板/回滚能力，并支持按目标覆盖 `vars`。
-- `tx_workflow` 阶段会直接复用现有单设备工作流 JSON。
+- `tx_block` 阶段支持两种来源模式：
+  - 命令模式（`template` / `commands` + `vars`）
+  - 事务块模板模式（`tx_block_template_name` / `tx_block_template_content` + `tx_block_template_vars`）
+- `tx_workflow` 阶段支持四种来源模式（四选一）：
+  - `workflow_file`
+  - 内联 `workflow`
+  - `workflow_template_name`
+  - `workflow_template_content`（配合 `workflow_vars`）
 - 多设备编排当前已同时支持 Web UI 与 CLI。
 
 **流程模板复用与 JSON 变量引用**

@@ -400,19 +400,14 @@ const i18n = {
     orchestrationTemplateRunTitle: "Orchestration Template",
     orchestrationTemplateLoadBtn: "Apply To JSON",
     orchestrationTemplateRunHint:
-      "Select a saved orchestration template and apply it to the plan JSON editor when needed.",
-    orchestrationInventoryAssistTitle: "Inventory Assist",
-    orchestrationInventoryGroupsLabel: "Inventory Groups",
-    orchestrationInventoryHostsLabel: "Saved Connections",
-    orchestrationInventoryLabelsLabel: "Labels",
-    orchestrationInventoryHint:
-      "Build or merge orchestration inventory from the managed host/group catalog.",
-    orchestrationInventoryMergeBtn: "Merge Inventory Into Plan",
-    orchestrationInventoryBuildBtn: "Build Starter Plan",
-    orchestrationInventorySelectionRequired:
-      "select at least one inventory group or saved connection",
-    orchestrationInventoryMergeDone: "inventory merged into orchestration plan",
-    orchestrationInventoryBuildDone: "starter orchestration plan created from inventory",
+      "Select a saved orchestration template and execute it directly with runtime vars.",
+    orchestrationTemplateEditHint:
+      "You can edit the loaded orchestration plan in the JSON editor below before preview/execute.",
+    orchestrationDirectHint:
+      "Use the orchestration plan JSON for direct execution.",
+    orchestrationEditorTitle: "Orchestration JSON",
+    orchestrationJsonHint:
+      "Edit the raw orchestration plan JSON. Template execution also uses this same editor for preview and adjustments.",
     orchestrationBaseDirPlaceholder:
       "base dir for inventory/workflow relative paths (optional)",
     orchestrationVarsPlaceholder:
@@ -1242,18 +1237,14 @@ const i18n = {
     orchestrationTemplateRunTitle: "编排模板",
     orchestrationTemplateLoadBtn: "应用到 JSON",
     orchestrationTemplateRunHint:
-      "选择已保存编排模板，可按需应用到计划 JSON 编辑器。",
-    orchestrationInventoryAssistTitle: "Inventory 助手",
-    orchestrationInventoryGroupsLabel: "Inventory 分组",
-    orchestrationInventoryHostsLabel: "已保存连接",
-    orchestrationInventoryLabelsLabel: "标签",
-    orchestrationInventoryHint: "从已管理的 host/group 目录生成或合并编排 inventory。",
-    orchestrationInventoryMergeBtn: "合并 Inventory 到计划",
-    orchestrationInventoryBuildBtn: "生成起始计划",
-    orchestrationInventorySelectionRequired:
-      "请至少选择一个 inventory 分组或已保存连接",
-    orchestrationInventoryMergeDone: "已将 inventory 合并到编排计划",
-    orchestrationInventoryBuildDone: "已根据 inventory 生成起始编排计划",
+      "选择已保存编排模板，并结合运行时变量直接执行。",
+    orchestrationTemplateEditHint:
+      "可在下方 JSON 编辑器中修改已加载的编排计划，再进行预览或执行。",
+    orchestrationDirectHint:
+      "使用编排计划 JSON 进行直接执行。",
+    orchestrationEditorTitle: "编排 JSON",
+    orchestrationJsonHint:
+      "编辑原始编排计划 JSON。模板执行也会复用这一编辑器进行预览与微调。",
     orchestrationBaseDirPlaceholder: "inventory/workflow 相对路径的基准目录（可选）",
     orchestrationVarsPlaceholder:
       'plan 变量 JSON（可选），例如 {"peer_host":"edge94.host"}',

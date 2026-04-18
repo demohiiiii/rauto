@@ -425,6 +425,27 @@ function bindEvents() {
     if (!byId("tx-workflow-template-name").value.trim()) return;
     await loadSelectedTxWorkflowTemplateForExecution();
   };
+  byId("orchestration-view-direct").onclick = () => {
+    orchestrationViewMode = "direct";
+    applyOrchestrationViewMode();
+  };
+  byId("orchestration-view-template").onclick = () => {
+    orchestrationViewMode = "template";
+    applyOrchestrationViewMode();
+  };
+  byId("orchestration-template-run-new-btn").onclick =
+    createOrchestrationTemplateDraftFromExecution;
+  byId("orchestration-template-run-save-btn").onclick =
+    saveOrchestrationTemplateFromExecution;
+  byId("orchestration-template-run-delete-btn").onclick =
+    deleteOrchestrationTemplateFromExecution;
+  byId("orchestration-template-name").onchange = async () => {
+    if (!byId("orchestration-template-name").value.trim()) return;
+    await loadSelectedOrchestrationTemplateForExecution();
+  };
+  byId("orchestration-json-new-btn").onclick = () => {
+    createOrchestrationTemplateDraftFromExecution();
+  };
   byId("tx-block-editor-new-btn").onclick = () => {
     setTxBlockEditorJson(defaultTxBlockTemplatePayload());
     setStatusMessage("tx-plan-out", t("editingNew"), "info");
@@ -704,13 +725,7 @@ function bindEvents() {
     }
   };
   byId("tx-workflow-json-new-btn").onclick = () => {
-    setTxWorkflowEditorJson(defaultTxWorkflowTemplatePayload());
-    byId("tx-workflow-vars-json").value = "{}";
-    if (typeof txVarsAssistantSyncFromTextarea === "function") {
-      txVarsAssistantSyncFromTextarea("tx-workflow-vars-json", { silent: true });
-    }
-    renderTxWorkflowPreviewFromEditor();
-    setStatusMessage("tx-workflow-plan-out", t("editingNew"), "info");
+    createTxWorkflowTemplateDraftFromExecution();
   };
   byId("orchestration-plan-btn").onclick = async () => {
     const visualOut = byId("orchestration-visual");
@@ -719,7 +734,7 @@ function bindEvents() {
       const data = await request("POST", "/api/orchestrate", orchestrationPayload(true));
       const plan = data && data.plan ? data.plan : {};
       const inventory = data && data.inventory ? data.inventory : {};
-      byId("orchestration-json").value = JSON.stringify(plan, null, 2);
+      setOrchestrationEditorJson(plan);
       setOrchestrationPreview(plan, inventory, null);
       setStatusMessage(
         "orchestration-plan-out",
@@ -748,58 +763,14 @@ function bindEvents() {
       setStatusMessage("orchestration-exec-out", e.message, "error");
     }
   };
-  byId("orchestration-download-btn").onclick = () => {
-    try {
-      downloadOrchestrationJson();
-      setStatusMessage(
-        "orchestration-plan-out",
-        t("orchestrationDownloadDone"),
-        "success"
-      );
-    } catch (e) {
-      setStatusMessage("orchestration-plan-out", e.message, "error");
-    }
-  };
   byId("orchestration-import-file-btn").onclick = () => {
     byId("orchestration-import-file-input").click();
-  };
-  byId("orchestration-inventory-merge-btn").onclick = () => {
-    try {
-      applyOrchestrationInventorySelection("merge");
-      setStatusMessage(
-        "orchestration-plan-out",
-        t("orchestrationInventoryMergeDone"),
-        "success"
-      );
-    } catch (e) {
-      setStatusMessage("orchestration-plan-out", e.message, "error");
-    }
-  };
-  byId("orchestration-inventory-build-btn").onclick = () => {
-    try {
-      applyOrchestrationInventorySelection("build");
-      setStatusMessage(
-        "orchestration-plan-out",
-        t("orchestrationInventoryBuildDone"),
-        "success"
-      );
-    } catch (e) {
-      setStatusMessage("orchestration-plan-out", e.message, "error");
-    }
   };
   byId("orchestration-import-file-input").onchange = async () => {
     try {
       await importOrchestrationFromFile();
     } catch (e) {
       setStatusMessage("orchestration-plan-out", e.message, "error");
-    }
-  };
-  byId("tx-workflow-download-btn").onclick = () => {
-    try {
-      downloadTxWorkflowJson();
-      setStatusMessage("tx-workflow-plan-out", t("txWorkflowDownloadDone"), "success");
-    } catch (e) {
-      setStatusMessage("tx-workflow-plan-out", e.message, "error");
     }
   };
   byId("tx-workflow-import-file-btn").onclick = () => {
@@ -1052,73 +1023,6 @@ function bindEvents() {
     loadBuiltinFlowTemplateDetail();
   byId("flow-template-builtin-copy-btn").onclick =
     copyBuiltinFlowTemplateToCustom;
-  byId("orchestration-template-load-btn").onclick =
-    useSelectedOrchestrationTemplateForExecution;
-
-  const bindJsonTemplateListClick = (listId, kind) => {
-    const list = byId(listId);
-    if (!list) return;
-    list.addEventListener("click", async (e) => {
-      const row = e.target.closest(".js-json-template-row");
-      if (!row) return;
-      const manager = row.getAttribute("data-manager") || "";
-      if (manager !== kind) return;
-      const name = row.getAttribute("data-name") || "";
-      if (!name) return;
-      const pickerId =
-        kind === "tx_block"
-          ? "tx-block-template-picker"
-          : kind === "tx_workflow"
-            ? "tx-workflow-template-picker"
-            : "orchestration-template-picker";
-      ensureSelectValue(pickerId, name);
-      await loadJsonTemplateDetail(kind, name);
-      renderJsonTemplateListByKind(kind);
-    });
-  };
-  bindJsonTemplateListClick("tx-block-template-list", "tx_block");
-  bindJsonTemplateListClick("tx-workflow-template-list", "tx_workflow");
-  bindJsonTemplateListClick("orchestration-template-list", "orchestration");
-  byId("tx-block-template-picker").onchange = async () => {
-    if (!byId("tx-block-template-picker").value.trim()) return;
-    await loadJsonTemplateDetail("tx_block");
-    renderJsonTemplateListByKind("tx_block");
-  };
-  byId("tx-workflow-template-picker").onchange = async () => {
-    if (!byId("tx-workflow-template-picker").value.trim()) return;
-    await loadJsonTemplateDetail("tx_workflow");
-    renderJsonTemplateListByKind("tx_workflow");
-  };
-  byId("orchestration-template-picker").onchange = async () => {
-    if (!byId("orchestration-template-picker").value.trim()) return;
-    await loadJsonTemplateDetail("orchestration");
-    renderJsonTemplateListByKind("orchestration");
-  };
-  byId("tx-block-template-new-btn").onclick = () =>
-    createJsonTemplateDraftByKind("tx_block");
-  byId("tx-workflow-template-new-btn").onclick = () =>
-    createJsonTemplateDraftByKind("tx_workflow");
-  byId("orchestration-template-new-btn").onclick = () =>
-    createJsonTemplateDraftByKind("orchestration");
-  byId("tx-block-template-save-btn").onclick = () =>
-    saveJsonTemplateByKind("tx_block");
-  byId("tx-workflow-template-save-btn").onclick = () =>
-    saveJsonTemplateByKind("tx_workflow");
-  byId("orchestration-template-save-btn").onclick = () =>
-    saveJsonTemplateByKind("orchestration");
-  byId("tx-block-template-delete-btn").onclick = () =>
-    deleteJsonTemplateByKind("tx_block");
-  byId("tx-workflow-template-delete-btn").onclick = () =>
-    deleteJsonTemplateByKind("tx_workflow");
-  byId("orchestration-template-delete-btn").onclick = () =>
-    deleteJsonTemplateByKind("orchestration");
-  byId("tx-block-template-use-btn").onclick = () =>
-    useJsonTemplateByKind("tx_block");
-  byId("tx-workflow-template-use-btn").onclick = () =>
-    useJsonTemplateByKind("tx_workflow");
-  byId("orchestration-template-use-btn").onclick = () =>
-    useJsonTemplateByKind("orchestration");
-
   byId("backup-create-btn").onclick = createBackupFromWeb;
   byId("backup-refresh-btn").onclick = loadBackups;
   byId("backup-download-btn").onclick = downloadBackupFromWeb;
@@ -1179,6 +1083,9 @@ window.onAlpineThemeChange = function onAlpineThemeChange(theme) {
   }
   if (typeof setTxWorkflowJsonEditorTheme === "function") {
     setTxWorkflowJsonEditorTheme(currentTheme);
+  }
+  if (typeof setOrchestrationJsonEditorTheme === "function") {
+    setOrchestrationJsonEditorTheme(currentTheme);
   }
   const themeValue = byId("dashboard-tool-theme-value");
   if (themeValue) {
@@ -1296,11 +1203,17 @@ if (!safeString(byId("tx-workflow-json")?.value || "").trim()) {
 if (!safeString(byId("tx-block-json")?.value || "").trim()) {
   setTxBlockEditorJson(defaultTxBlockTemplatePayload());
 }
+if (!safeString(byId("orchestration-json")?.value || "").trim()) {
+  setOrchestrationEditorJson(defaultOrchestrationTemplatePayload());
+}
 if (typeof setupTxWorkflowJsonEditor === "function") {
   setupTxWorkflowJsonEditor();
 }
 if (typeof setupTxBlockJsonEditor === "function") {
   setupTxBlockJsonEditor();
+}
+if (typeof setupOrchestrationJsonEditor === "function") {
+  setupOrchestrationJsonEditor();
 }
 if (typeof setupTxVarsAssistants === "function") {
   setupTxVarsAssistants();
@@ -1318,9 +1231,6 @@ setStatusMessage("template-out", "-", "info");
 setStatusMessage("flow-out", "-", "info");
 setStatusMessage("upload-out", "-", "info");
 setStatusMessage("flow-template-out", "-", "info");
-setStatusMessage("tx-block-template-out", "-", "info");
-setStatusMessage("tx-workflow-template-out", "-", "info");
-setStatusMessage("orchestration-template-out", "-", "info");
 setStatusMessage("inventory-group-out", "-", "info");
 setStatusMessage("inventory-resolve-out", "-", "info");
 setStatusMessage("blacklist-out", "-", "info");

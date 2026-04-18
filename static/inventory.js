@@ -163,28 +163,10 @@ function renderInventoryGroupOptions(selectedName = "") {
     groupNames,
     getMultiSelectValues("inventory-resolve-groups")
   );
-  renderInventoryMultiSelect(
-    "orchestration-inventory-groups",
-    groupNames,
-    getMultiSelectValues("orchestration-inventory-groups")
-  );
 
   if (typeof renderSavedConnectionGroupOptions === "function") {
     renderSavedConnectionGroupOptions(getMultiSelectValues("saved-conn-groups"));
   }
-}
-
-function renderOrchestrationInventoryConnectionOptions() {
-  renderInventoryMultiSelect(
-    "orchestration-inventory-hosts",
-    (cachedSavedConnections || []).map((item) => item.name),
-    getMultiSelectValues("orchestration-inventory-hosts")
-  );
-  renderInventoryMultiSelect(
-    "orchestration-inventory-labels",
-    inventoryLabelNames(),
-    getMultiSelectValues("orchestration-inventory-labels")
-  );
 }
 
 function splitCsvValues(raw) {
@@ -269,7 +251,6 @@ function renderInventoryGroupList(errorMessage = "") {
 async function loadInventoryConnections() {
   renderInventoryConnectionOptions();
   renderInventoryGroupHosts();
-  renderOrchestrationInventoryConnectionOptions();
 }
 
 async function loadInventoryGroups() {

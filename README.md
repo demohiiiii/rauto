@@ -747,8 +747,14 @@ Notes:
 - `targets` can reference saved connections by name or provide inline connection fields.
 - `target_groups` can load target lists from `inventory_file` or inline `inventory.groups`.
 - `inventory.defaults` applies to all groups and stage-level inline `targets`; group `defaults` override inventory defaults.
-- `tx_block` stages reuse existing template/rollback behavior and support per-target `vars`.
-- `tx_workflow` stages reuse existing single-device workflow JSON.
+- `tx_block` stages support two source modes:
+  - command mode (`template` / `commands` + `vars`)
+  - tx block template mode (`tx_block_template_name` / `tx_block_template_content` + `tx_block_template_vars`)
+- `tx_workflow` stages support four source modes (exactly one):
+  - `workflow_file`
+  - inline `workflow`
+  - `workflow_template_name`
+  - `workflow_template_content` (with `workflow_vars`)
 - Multi-device orchestration is available in both Web UI and CLI.
 
 **Reusable Execution JSON + Template Vars**

@@ -116,6 +116,7 @@ let lastOrchestrationPreview = {
 let currentTxStage = "block";
 let txBlockViewMode = "direct";
 let txWorkflowViewMode = "direct";
+let orchestrationViewMode = "direct";
 let txWorkflowMoreExpanded = false;
 let interactiveSessionId = null;
 const detailEntryMap = new Map();

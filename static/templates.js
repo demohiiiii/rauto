@@ -535,10 +535,6 @@ const JSON_TEMPLATE_MANAGERS = {
   tx_block: {
     kind: "tx_block",
     apiBase: "/api/tx-block-templates",
-    pickerId: "tx-block-template-picker",
-    editorId: "tx-block-template-content",
-    outId: "tx-block-template-out",
-    listId: "tx-block-template-list",
     runSelectId: "tx-block-template-name",
     emptyKey: "txBlockTemplateListEmpty",
     newPromptKey: "txBlockTemplateNewPrompt",
@@ -549,10 +545,6 @@ const JSON_TEMPLATE_MANAGERS = {
   tx_workflow: {
     kind: "tx_workflow",
     apiBase: "/api/tx-workflow-templates",
-    pickerId: "tx-workflow-template-picker",
-    editorId: "tx-workflow-template-content",
-    outId: "tx-workflow-template-out",
-    listId: "tx-workflow-template-list",
     runSelectId: "tx-workflow-template-name",
     emptyKey: "txWorkflowTemplateListEmpty",
     newPromptKey: "txWorkflowTemplateNewPrompt",
@@ -564,10 +556,6 @@ const JSON_TEMPLATE_MANAGERS = {
   orchestration: {
     kind: "orchestration",
     apiBase: "/api/orchestration-templates",
-    pickerId: "orchestration-template-picker",
-    editorId: "orchestration-template-content",
-    outId: "orchestration-template-out",
-    listId: "orchestration-template-list",
     runSelectId: "orchestration-template-name",
     emptyKey: "orchestrationTemplateListEmpty",
     newPromptKey: "orchestrationTemplateNewPrompt",
@@ -724,7 +712,10 @@ async function loadJsonTemplateDetail(kind, nameOverride = "") {
   try {
     const data = await request("GET", `${cfg.apiBase}/${encodeURIComponent(name)}`);
     ensureSelectValue(cfg.pickerId, data.name || name);
-    byId(cfg.editorId).value = data.content || "";
+    const editor = cfg.editorId ? byId(cfg.editorId) : null;
+    if (editor) {
+      editor.value = data.content || "";
+    }
     renderJsonTemplateListByKind(kind);
     setStatusMessage(cfg.outId, `${t("loaded")}: ${data.name || name}`, "success");
     return data;
@@ -756,7 +747,10 @@ async function saveJsonTemplateByKind(kind) {
     );
     await loadJsonTemplatesByKind(kind);
     ensureSelectValue(cfg.pickerId, data.name || name);
-    byId(cfg.editorId).value = data.content || content;
+    const editor = cfg.editorId ? byId(cfg.editorId) : null;
+    if (editor) {
+      editor.value = data.content || content;
+    }
     renderJsonTemplateListByKind(kind);
   } catch (e) {
     setStatusMessage(cfg.outId, e.message, "error");
@@ -769,7 +763,10 @@ function createJsonTemplateDraftByKind(kind) {
   const name = promptForResourceName(t(cfg.newPromptKey));
   if (!name) return;
   ensureSelectValue(cfg.pickerId, name);
-  byId(cfg.editorId).value = "";
+  const editor = cfg.editorId ? byId(cfg.editorId) : null;
+  if (editor) {
+    editor.value = "";
+  }
   renderJsonTemplateListByKind(kind);
   setStatusMessage(cfg.outId, `${t("editingNew")}: ${name}`, "info");
 }
@@ -785,11 +782,15 @@ async function deleteJsonTemplateByKind(kind) {
   setStatusMessage(cfg.outId, t("running"), "running");
   try {
     await request("DELETE", `${cfg.apiBase}/${encodeURIComponent(name)}`);
-    byId(cfg.editorId).value = "";
+    const editor = cfg.editorId ? byId(cfg.editorId) : null;
+    if (editor) {
+      editor.value = "";
+    }
     setStatusMessage(cfg.outId, `${t("deleted")}: ${name}`, "success");
     await loadJsonTemplatesByKind(kind);
-    if ((byId(cfg.pickerId)?.value || "").trim() === name) {
-      byId(cfg.pickerId).value = "";
+    const picker = cfg.pickerId ? byId(cfg.pickerId) : null;
+    if ((picker?.value || "").trim() === name) {
+      picker.value = "";
     }
     renderJsonTemplateListByKind(kind);
   } catch (e) {
@@ -842,6 +843,21 @@ function setPrettyJsonToTextarea(id, rawContent) {
     }
     return;
   }
+  if (id === "orchestration-json" && typeof setOrchestrationEditorText === "function") {
+    const text = String(rawContent || "").trim();
+    if (!text) {
+      setOrchestrationEditorText("", { notify: true });
+      return;
+    }
+    try {
+      setOrchestrationEditorText(JSON.stringify(JSON.parse(text), null, 2), {
+        notify: true,
+      });
+    } catch (_) {
+      setOrchestrationEditorText(text, { notify: true });
+    }
+    return;
+  }
   const textarea = byId(id);
   if (!textarea) return;
   const text = String(rawContent || "").trim();
@@ -872,6 +888,15 @@ async function useJsonTemplateByKind(kind) {
       applyTxWorkflowViewMode();
     }
     setStatusMessage(cfg.runOutId, `${t("loaded")}: ${name}`, "success");
+    return;
+  }
+  if (kind === "orchestration") {
+    openOrchestratedStage(cfg.runStage);
+    orchestrationViewMode = "template";
+    if (typeof applyOrchestrationViewMode === "function") {
+      applyOrchestrationViewMode();
+    }
+    await loadSelectedOrchestrationTemplateForExecution();
     return;
   }
   if (cfg.runEditorId) {
@@ -1020,8 +1045,10 @@ async function loadSelectedTxWorkflowTemplateForExecution() {
   }
   setStatusMessage("tx-workflow-plan-out", t("running"), "running");
   try {
-    ensureSelectValue("tx-workflow-template-picker", name);
-    const detail = await loadJsonTemplateDetail("tx_workflow", name);
+    const detail = await request(
+      "GET",
+      `/api/tx-workflow-templates/${encodeURIComponent(name)}`
+    );
     if (detail && detail.content) {
       setPrettyJsonToTextarea("tx-workflow-json", detail.content);
       if (typeof renderTxWorkflowPreviewFromEditor === "function") {
@@ -1053,7 +1080,6 @@ async function saveTxWorkflowTemplateFromExecution() {
       : await request("POST", "/api/tx-workflow-templates", { name, content });
     await loadJsonTemplatesByKind("tx_workflow");
     ensureSelectValue("tx-workflow-template-name", data.name || name);
-    ensureSelectValue("tx-workflow-template-picker", data.name || name);
     setStatusMessage(
       "tx-workflow-plan-out",
       `${exists ? t("saved") : t("created")}: ${data.name || name}`,
@@ -1075,7 +1101,6 @@ async function deleteTxWorkflowTemplateFromExecution() {
     await request("DELETE", `/api/tx-workflow-templates/${encodeURIComponent(name)}`);
     await loadJsonTemplatesByKind("tx_workflow");
     ensureSelectValue("tx-workflow-template-name", "");
-    ensureSelectValue("tx-workflow-template-picker", "");
     setStatusMessage("tx-workflow-plan-out", `${t("deleted")}: ${name}`, "success");
   } catch (e) {
     setStatusMessage("tx-workflow-plan-out", e.message, "error");
@@ -1101,7 +1126,6 @@ async function createTxWorkflowTemplateDraftFromExecution() {
     const data = await request("POST", "/api/tx-workflow-templates", { name, content });
     await loadJsonTemplatesByKind("tx_workflow");
     ensureSelectValue("tx-workflow-template-name", data.name || name);
-    ensureSelectValue("tx-workflow-template-picker", data.name || name);
     setStatusMessage("tx-workflow-plan-out", `${t("created")}: ${data.name || name}`, "success");
   } catch (e) {
     setStatusMessage("tx-workflow-plan-out", e.message, "error");
@@ -1123,6 +1147,118 @@ async function useSelectedTxWorkflowTemplateForExecution() {
   await loadSelectedTxWorkflowTemplateForExecution();
 }
 
+function orchestrationTemplateExecutionContent() {
+  const raw =
+    typeof orchestrationEditorRaw === "function"
+      ? orchestrationEditorRaw().trim()
+      : (byId("orchestration-json")?.value || "").trim();
+  if (!raw) {
+    throw new Error(t("orchestrationJsonRequired"));
+  }
+  const normalized = JSON.stringify(JSON.parse(raw), null, 2);
+  setPrettyJsonToTextarea("orchestration-json", normalized);
+  return normalized;
+}
+
+async function loadSelectedOrchestrationTemplateForExecution() {
+  const name = (byId("orchestration-template-name")?.value || "").trim();
+  if (!name) {
+    setStatusMessage("orchestration-plan-out", t("orchestrationTemplateNameRequired"), "error");
+    return null;
+  }
+  setStatusMessage("orchestration-plan-out", t("running"), "running");
+  try {
+    const detail = await request(
+      "GET",
+      `/api/orchestration-templates/${encodeURIComponent(name)}`
+    );
+    if (detail && detail.content) {
+      setPrettyJsonToTextarea("orchestration-json", detail.content);
+      if (typeof renderOrchestrationPreviewFromEditor === "function") {
+        renderOrchestrationPreviewFromEditor();
+      }
+    }
+    setStatusMessage(
+      "orchestration-plan-out",
+      `${t("loaded")}: ${detail?.name || name}`,
+      "success"
+    );
+    return detail;
+  } catch (e) {
+    setStatusMessage("orchestration-plan-out", e.message, "error");
+    return null;
+  }
+}
+
+async function saveOrchestrationTemplateFromExecution() {
+  const name = (byId("orchestration-template-name")?.value || "").trim();
+  if (!name) {
+    setStatusMessage("orchestration-plan-out", t("orchestrationTemplateNameRequired"), "error");
+    return;
+  }
+  setStatusMessage("orchestration-plan-out", t("running"), "running");
+  try {
+    const content = orchestrationTemplateExecutionContent();
+    const exists = getJsonTemplateNames("orchestration").includes(name);
+    const data = exists
+      ? await request("PUT", `/api/orchestration-templates/${encodeURIComponent(name)}`, {
+          content,
+        })
+      : await request("POST", "/api/orchestration-templates", { name, content });
+    await loadJsonTemplatesByKind("orchestration");
+    ensureSelectValue("orchestration-template-name", data.name || name);
+    setStatusMessage(
+      "orchestration-plan-out",
+      `${exists ? t("saved") : t("created")}: ${data.name || name}`,
+      "success"
+    );
+  } catch (e) {
+    setStatusMessage("orchestration-plan-out", e.message, "error");
+  }
+}
+
+async function deleteOrchestrationTemplateFromExecution() {
+  const name = (byId("orchestration-template-name")?.value || "").trim();
+  if (!name) {
+    setStatusMessage("orchestration-plan-out", t("orchestrationTemplateNameRequired"), "error");
+    return;
+  }
+  setStatusMessage("orchestration-plan-out", t("running"), "running");
+  try {
+    await request("DELETE", `/api/orchestration-templates/${encodeURIComponent(name)}`);
+    await loadJsonTemplatesByKind("orchestration");
+    ensureSelectValue("orchestration-template-name", "");
+    setStatusMessage("orchestration-plan-out", `${t("deleted")}: ${name}`, "success");
+  } catch (e) {
+    setStatusMessage("orchestration-plan-out", e.message, "error");
+  }
+}
+
+async function createOrchestrationTemplateDraftFromExecution() {
+  const name = promptForResourceName(t("orchestrationTemplateNewPrompt"));
+  if (!name) return;
+  if (getJsonTemplateNames("orchestration").includes(name)) {
+    ensureSelectValue("orchestration-template-name", name);
+    await loadSelectedOrchestrationTemplateForExecution();
+    setStatusMessage("orchestration-plan-out", t("templateExistsHint"), "warning");
+    return;
+  }
+  orchestrationViewMode = "template";
+  if (typeof applyOrchestrationViewMode === "function") {
+    applyOrchestrationViewMode();
+  }
+  setStatusMessage("orchestration-plan-out", t("running"), "running");
+  try {
+    const content = orchestrationTemplateExecutionContent();
+    const data = await request("POST", "/api/orchestration-templates", { name, content });
+    await loadJsonTemplatesByKind("orchestration");
+    ensureSelectValue("orchestration-template-name", data.name || name);
+    setStatusMessage("orchestration-plan-out", `${t("created")}: ${data.name || name}`, "success");
+  } catch (e) {
+    setStatusMessage("orchestration-plan-out", e.message, "error");
+  }
+}
+
 async function useSelectedOrchestrationTemplateForExecution() {
   const cfg = jsonTemplateConfig("orchestration");
   const name = (byId(cfg.runSelectId)?.value || "").trim();
@@ -1130,15 +1266,13 @@ async function useSelectedOrchestrationTemplateForExecution() {
     setStatusMessage(cfg.runOutId, t(cfg.nameRequiredKey), "error");
     return;
   }
-  ensureSelectValue(cfg.pickerId, name);
-  const detail = await loadJsonTemplateDetail("orchestration", name);
-  if (detail && detail.content) {
-    setPrettyJsonToTextarea(cfg.runEditorId, detail.content);
-    if (typeof renderOrchestrationPreviewFromEditor === "function") {
-      renderOrchestrationPreviewFromEditor();
-    }
+  openOrchestratedStage("orchestrate");
+  orchestrationViewMode = "template";
+  if (typeof applyOrchestrationViewMode === "function") {
+    applyOrchestrationViewMode();
   }
-  setStatusMessage(cfg.runOutId, `${t("loaded")}: ${name}`, "success");
+  ensureSelectValue(cfg.runSelectId, name);
+  await loadSelectedOrchestrationTemplateForExecution();
 }
 
 function uploadPayload() {

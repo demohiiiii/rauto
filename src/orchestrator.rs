@@ -1,9 +1,11 @@
 use crate::cli::{GlobalOpts, OrchestrateArgs, RecordLevelOpt};
 use crate::config::command_blacklist;
 use crate::config::command_flow_vars::{ConnectionParamContext, resolve_runtime_var_aliases};
+use crate::config::content_store;
 use crate::config::connection_store::load_connection;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::config::template_connection_refs::enrich_context_with_connection_refs_from_value;
 use crate::config::template_loader;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::template::renderer::Renderer;
@@ -13,9 +15,10 @@ use crate::{
     persist_auto_recording_history_jsonl, to_record_level,
 };
 use anyhow::{Context, Result, anyhow};
-use rneter::session::{MANAGER, TxWorkflow};
+use chrono::Utc;
+use rneter::session::{MANAGER, TxBlock, TxWorkflow};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Write as _;
 use std::fs;
@@ -129,6 +132,12 @@ pub struct TxBlockAction {
     pub name: Option<String>,
     pub template: Option<String>,
     #[serde(default)]
+    pub tx_block_template_name: Option<String>,
+    #[serde(default)]
+    pub tx_block_template_content: Option<String>,
+    #[serde(default)]
+    pub tx_block_template_vars: Value,
+    #[serde(default)]
     pub vars: Value,
     #[serde(default)]
     pub commands: Vec<String>,
@@ -147,6 +156,12 @@ pub struct TxWorkflowAction {
     pub workflow_file: Option<PathBuf>,
     #[serde(default)]
     pub workflow: Option<Value>,
+    #[serde(default)]
+    pub workflow_template_name: Option<String>,
+    #[serde(default)]
+    pub workflow_template_content: Option<String>,
+    #[serde(default)]
+    pub workflow_vars: Value,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -353,10 +368,33 @@ fn validate_tx_block_action(stage: &OrchestrationStage, action: &TxBlockAction) 
         .as_deref()
         .map(|s| !s.trim().is_empty())
         .unwrap_or(false);
+    let has_tx_block_template_name = action
+        .tx_block_template_name
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    let has_tx_block_template_content = action
+        .tx_block_template_content
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    let has_tx_block_template_source = has_tx_block_template_name || has_tx_block_template_content;
     let has_commands = action.commands.iter().any(|s| !s.trim().is_empty());
-    if !has_template && !has_commands {
+    if has_tx_block_template_name && has_tx_block_template_content {
         return Err(anyhow!(
-            "stage '{}' tx_block requires 'template' or non-empty 'commands'",
+            "stage '{}' tx_block uses either tx_block_template_name or tx_block_template_content, not both",
+            stage.name
+        ));
+    }
+    if has_tx_block_template_source && (has_template || has_commands) {
+        return Err(anyhow!(
+            "stage '{}' tx_block template source cannot be combined with template/commands",
+            stage.name
+        ));
+    }
+    if !has_tx_block_template_source && !has_template && !has_commands {
+        return Err(anyhow!(
+            "stage '{}' tx_block requires tx_block_template_name/tx_block_template_content or 'template'/non-empty 'commands'",
             stage.name
         ));
     }
@@ -373,11 +411,34 @@ fn validate_tx_workflow_action(
     stage: &OrchestrationStage,
     action: &TxWorkflowAction,
 ) -> Result<()> {
-    let has_file = action.workflow_file.is_some();
+    let has_file = action
+        .workflow_file
+        .as_ref()
+        .is_some_and(|path| !path.as_os_str().is_empty());
     let has_inline = action.workflow.is_some();
-    if has_file == has_inline {
+    let has_template_name = action
+        .workflow_template_name
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    let has_template_content = action
+        .workflow_template_content
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    if has_template_name && has_template_content {
         return Err(anyhow!(
-            "stage '{}' tx_workflow requires exactly one of workflow_file or workflow",
+            "stage '{}' tx_workflow uses either workflow_template_name or workflow_template_content, not both",
+            stage.name
+        ));
+    }
+    let source_count = [has_file, has_inline, has_template_name, has_template_content]
+        .into_iter()
+        .filter(|item| *item)
+        .count();
+    if source_count != 1 {
+        return Err(anyhow!(
+            "stage '{}' tx_workflow requires exactly one source: workflow_file/workflow/workflow_template_name/workflow_template_content",
             stage.name
         ));
     }
@@ -989,43 +1050,8 @@ async fn execute_tx_block_action(
     conn: &EffectiveConnection,
     record_level: RecordLevelOpt,
 ) -> Result<ActionExecutionOutcome> {
-    let mode = action
-        .mode
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or("Config")
-        .to_string();
-    let merged_vars = merge_values(&action.vars, &target.vars);
-    let merged_vars =
-        resolve_runtime_var_aliases(merged_vars, Some(current_connection_param_context(conn)))?;
-    let renderer = Renderer::new();
-    let commands = resolve_block_commands(&renderer, action, merged_vars)?;
-    let tx_block_name = action
-        .name
-        .clone()
-        .unwrap_or_else(|| format!("{}::{}", plan.name, stage.name));
-
-    let mut rollback_commands = action.rollback_commands.clone();
-    while rollback_commands.len() > commands.len()
-        && rollback_commands
-            .last()
-            .map(|s| s.trim().is_empty())
-            .unwrap_or(false)
-    {
-        rollback_commands.pop();
-    }
-
-    let tx_block = build_command_tx_block(
-        tx_block_name.clone(),
-        &mode,
-        &commands,
-        &rollback_commands,
-        action.timeout_secs,
-        action.rollback_on_failure,
-        action.resource_rollback_command.clone(),
-        action.rollback_trigger_step_index,
-        false,
-    )?;
+    let (tx_block, mode, tx_block_name) =
+        resolve_orchestration_tx_block(plan, stage, action, target, conn)?;
 
     command_blacklist::ensure_tx_block_allowed(
         &tx_block,
@@ -1106,7 +1132,7 @@ async fn execute_tx_workflow_action(
     plan_root: &Path,
     record_level: RecordLevelOpt,
 ) -> Result<ActionExecutionOutcome> {
-    let workflow = load_workflow(action, plan_root)?;
+    let workflow = load_workflow(action, plan_root, conn)?;
     let workflow_name = workflow.name.clone();
     let operation_name = format!("{}::{}::{}", plan.name, stage.name, workflow_name);
     command_blacklist::ensure_tx_workflow_allowed(
@@ -1179,6 +1205,97 @@ async fn execute_tx_workflow_action(
     })
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct TxWorkflowBlockTemplateRefPayload {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    fail_fast: Option<bool>,
+    #[serde(default)]
+    tx_block_template_name: Option<String>,
+    #[serde(default)]
+    tx_block_template_content: Option<String>,
+    #[serde(default)]
+    tx_block_template_vars: Value,
+}
+
+fn resolve_orchestration_tx_block(
+    plan: &OrchestrationPlan,
+    stage: &OrchestrationStage,
+    action: &TxBlockAction,
+    target: &OrchestrationTarget,
+    conn: &EffectiveConnection,
+) -> Result<(TxBlock, String, String)> {
+    let has_block_template_name = action
+        .tx_block_template_name
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    let has_block_template_content = action
+        .tx_block_template_content
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    if has_block_template_name || has_block_template_content {
+        let mut tx_block = resolve_tx_block_from_template_source(
+            action.tx_block_template_name.as_deref(),
+            action.tx_block_template_content.as_deref(),
+            action.tx_block_template_vars.clone(),
+            conn,
+        )?;
+        if let Some(name) = action.name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            tx_block.name = name.to_string();
+        }
+        tx_block.validate()?;
+        let tx_block_name = if tx_block.name.trim().is_empty() {
+            format!("{}::{}", plan.name, stage.name)
+        } else {
+            tx_block.name.clone()
+        };
+        let effective_mode = tx_block_primary_mode(&tx_block);
+        return Ok((tx_block, effective_mode, tx_block_name));
+    }
+
+    let mode = action
+        .mode
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or("Config")
+        .to_string();
+    let merged_vars = merge_values(&action.vars, &target.vars);
+    let merged_vars =
+        resolve_runtime_var_aliases(merged_vars, Some(current_connection_param_context(conn)))?;
+    let renderer = Renderer::new();
+    let commands = resolve_block_commands(&renderer, action, merged_vars)?;
+    let tx_block_name = action
+        .name
+        .clone()
+        .unwrap_or_else(|| format!("{}::{}", plan.name, stage.name));
+
+    let mut rollback_commands = action.rollback_commands.clone();
+    while rollback_commands.len() > commands.len()
+        && rollback_commands
+            .last()
+            .map(|s| s.trim().is_empty())
+            .unwrap_or(false)
+    {
+        rollback_commands.pop();
+    }
+
+    let tx_block = build_command_tx_block(
+        tx_block_name.clone(),
+        &mode,
+        &commands,
+        &rollback_commands,
+        action.timeout_secs,
+        action.rollback_on_failure,
+        action.resource_rollback_command.clone(),
+        action.rollback_trigger_step_index,
+        false,
+    )?;
+    Ok((tx_block, mode, tx_block_name))
+}
+
 fn resolve_block_commands(
     renderer: &Renderer,
     action: &TxBlockAction,
@@ -1207,23 +1324,317 @@ fn resolve_block_commands(
     Ok(commands)
 }
 
-fn load_workflow(action: &TxWorkflowAction, plan_root: &Path) -> Result<TxWorkflow> {
-    if let Some(value) = &action.workflow {
-        return serde_json::from_value(value.clone()).map_err(Into::into);
-    }
-    let path = action
-        .workflow_file
-        .as_ref()
-        .ok_or_else(|| anyhow!("workflow_file is required"))?;
-    let resolved = if path.is_absolute() {
-        path.clone()
+fn load_workflow(
+    action: &TxWorkflowAction,
+    plan_root: &Path,
+    conn: &EffectiveConnection,
+) -> Result<TxWorkflow> {
+    let mut workflow_value = if let Some(name) = action
+        .workflow_template_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        let content = load_tx_workflow_template_content(name)?;
+        let source: Value = serde_json::from_str(&content)
+            .with_context(|| format!("failed to parse tx workflow template '{}'", name))?;
+        render_json_template_source(&source, action.workflow_vars.clone(), conn)?
+    } else if let Some(content) = action
+        .workflow_template_content
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        let source: Value = serde_json::from_str(content)
+            .context("failed to parse workflow_template_content as JSON")?;
+        render_json_template_source(&source, action.workflow_vars.clone(), conn)?
+    } else if let Some(value) = &action.workflow {
+        value.clone()
     } else {
-        plan_root.join(path)
+        let path = action
+            .workflow_file
+            .as_ref()
+            .ok_or_else(|| anyhow!("workflow_file is required"))?;
+        let resolved = if path.is_absolute() {
+            path.clone()
+        } else {
+            plan_root.join(path)
+        };
+        let text = fs::read_to_string(&resolved)
+            .with_context(|| format!("failed to read workflow '{}'", resolved.to_string_lossy()))?;
+        serde_json::from_str(&text)
+            .with_context(|| format!("failed to parse workflow '{}'", resolved.to_string_lossy()))?
     };
-    let text = fs::read_to_string(&resolved)
-        .with_context(|| format!("failed to read workflow '{}'", resolved.to_string_lossy()))?;
-    serde_json::from_str(&text)
-        .with_context(|| format!("failed to parse workflow '{}'", resolved.to_string_lossy()))
+    workflow_value = resolve_tx_workflow_blocks_from_templates(workflow_value, conn)?;
+    serde_json::from_value(workflow_value).map_err(Into::into)
+}
+
+fn resolve_tx_workflow_blocks_from_templates(
+    workflow: Value,
+    conn: &EffectiveConnection,
+) -> Result<Value> {
+    let mut root = match workflow {
+        Value::Object(map) => map,
+        other => return Ok(other),
+    };
+    let blocks = root
+        .get("blocks")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if blocks.is_empty() {
+        return Ok(Value::Object(root));
+    }
+
+    let mut resolved_blocks = Vec::with_capacity(blocks.len());
+    for block in blocks {
+        let Some(block_obj) = block.as_object() else {
+            resolved_blocks.push(block);
+            continue;
+        };
+        let has_template_name = block_obj
+            .get("tx_block_template_name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty());
+        let has_template_content = block_obj
+            .get("tx_block_template_content")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty());
+        if !has_template_name && !has_template_content {
+            resolved_blocks.push(block);
+            continue;
+        }
+
+        let block_ref: TxWorkflowBlockTemplateRefPayload =
+            serde_json::from_value(Value::Object(block_obj.clone()))?;
+        let mut tx_block = resolve_tx_block_from_template_source(
+            block_ref.tx_block_template_name.as_deref(),
+            block_ref.tx_block_template_content.as_deref(),
+            block_ref.tx_block_template_vars,
+            conn,
+        )?;
+        if let Some(name) = block_ref.name.filter(|value| !value.trim().is_empty()) {
+            tx_block.name = name;
+        }
+        if let Some(fail_fast) = block_ref.fail_fast {
+            tx_block.fail_fast = fail_fast;
+        }
+        tx_block.validate()?;
+        resolved_blocks.push(serde_json::to_value(&tx_block)?);
+    }
+
+    root.insert("blocks".to_string(), Value::Array(resolved_blocks));
+    Ok(Value::Object(root))
+}
+
+fn resolve_tx_block_from_template_source(
+    template_name: Option<&str>,
+    template_content: Option<&str>,
+    template_vars: Value,
+    conn: &EffectiveConnection,
+) -> Result<TxBlock> {
+    let source = load_tx_block_template_source_value(template_name, template_content)?;
+    let rendered_value = render_json_template_source(&source, template_vars, conn)?;
+    let tx_block: TxBlock = serde_json::from_value(rendered_value)?;
+    Ok(tx_block)
+}
+
+fn load_tx_block_template_source_value(
+    template_name: Option<&str>,
+    template_content: Option<&str>,
+) -> Result<Value> {
+    match (
+        template_name
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        template_content
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+    ) {
+        (Some(name), None) => {
+            let content = load_tx_block_template_content(name)?;
+            serde_json::from_str(&content)
+                .with_context(|| format!("failed to parse tx block template '{}'", name))
+        }
+        (None, Some(content)) => {
+            serde_json::from_str(content).context("failed to parse tx_block_template_content")
+        }
+        (Some(_), Some(_)) => Err(anyhow!(
+            "use either tx_block_template_name or tx_block_template_content"
+        )),
+        (None, None) => Err(anyhow!(
+            "tx block template source requires tx_block_template_name or tx_block_template_content"
+        )),
+    }
+}
+
+fn load_tx_block_template_content(name: &str) -> Result<String> {
+    let safe_name = name.trim();
+    if safe_name.is_empty() {
+        return Err(anyhow!("tx block template name is required"));
+    }
+    content_store::load_tx_block_template(safe_name)?
+        .map(|item| item.content)
+        .ok_or_else(|| anyhow!("tx block template '{}' not found", safe_name))
+}
+
+fn load_tx_workflow_template_content(name: &str) -> Result<String> {
+    let safe_name = name.trim();
+    if safe_name.is_empty() {
+        return Err(anyhow!("tx workflow template name is required"));
+    }
+    content_store::load_tx_workflow_template(safe_name)?
+        .map(|item| item.content)
+        .ok_or_else(|| anyhow!("tx workflow template '{}' not found", safe_name))
+}
+
+fn render_json_template_source(
+    source: &Value,
+    vars: Value,
+    conn: &EffectiveConnection,
+) -> Result<Value> {
+    let resolved_vars = resolve_runtime_var_aliases(vars, Some(current_connection_param_context(conn)))?;
+    let mut context = build_stage_json_template_context(resolved_vars, conn);
+    enrich_context_with_connection_refs_from_value(&mut context, source)?;
+    let renderer = Renderer::new();
+    render_json_template_value(source, &mut context, &renderer)
+}
+
+fn build_stage_json_template_context(vars: Value, conn: &EffectiveConnection) -> Value {
+    let vars_for_root = vars.clone();
+    let mut root = serde_json::Map::new();
+    root.insert("vars".to_string(), vars_for_root);
+    root.insert(
+        "now".to_string(),
+        json!({
+            "rfc3339": Utc::now().to_rfc3339(),
+            "timestamp_ms": Utc::now().timestamp_millis()
+        }),
+    );
+    let mut flattened = serde_json::Map::new();
+    let mut connection = json!({
+        "name": conn.connection_name,
+        "host": conn.host,
+        "username": conn.username,
+        "password": conn.password,
+        "port": conn.port,
+        "enable_password": conn.enable_password,
+        "ssh_security": conn.ssh_security,
+        "linux_shell_flavor": conn.linux_shell_flavor,
+        "device_profile": conn.device_profile,
+        "vars": conn.vars
+    });
+    if let Some(name) = conn.connection_name.as_deref()
+        && let Ok(saved) = load_connection(name)
+    {
+        connection["saved"] = json!({
+            "enabled": saved.enabled,
+            "labels": saved.labels,
+            "groups": saved.groups,
+            "vars": saved.vars
+        });
+    }
+    root.insert("connection".to_string(), connection);
+
+    if let Some(name) = conn.connection_name.as_deref()
+        && !name.trim().is_empty()
+    {
+        flattened.insert("name".to_string(), Value::String(name.to_string()));
+        flattened.insert(
+            "connection_name".to_string(),
+            Value::String(name.to_string()),
+        );
+    }
+    flattened.insert("host".to_string(), Value::String(conn.host.clone()));
+    flattened.insert("username".to_string(), Value::String(conn.username.clone()));
+    flattened.insert("password".to_string(), Value::String(conn.password.clone()));
+    flattened.insert("port".to_string(), Value::Number(conn.port.into()));
+    if let Some(value) = conn.enable_password.clone() {
+        flattened.insert("enable_password".to_string(), Value::String(value));
+    }
+    flattened.insert(
+        "ssh_security".to_string(),
+        Value::String(conn.ssh_security.to_string()),
+    );
+    if let Some(value) = conn.linux_shell_flavor {
+        flattened.insert(
+            "linux_shell_flavor".to_string(),
+            Value::String(value.to_string()),
+        );
+    }
+    flattened.insert(
+        "device_profile".to_string(),
+        Value::String(conn.device_profile.clone()),
+    );
+    if let Some(map) = conn.vars.as_object() {
+        for (key, value) in map {
+            flattened
+                .entry(key.clone())
+                .or_insert_with(|| value.clone());
+        }
+    }
+
+    if let Some(map) = vars.as_object() {
+        for (key, value) in map {
+            flattened.insert(key.clone(), value.clone());
+        }
+    }
+    for (key, value) in flattened {
+        if matches!(key.as_str(), "vars" | "connection" | "now" | "defaults") {
+            continue;
+        }
+        root.insert(key, value);
+    }
+    Value::Object(root)
+}
+
+fn render_json_template_value(
+    input: &Value,
+    context: &mut Value,
+    renderer: &Renderer,
+) -> Result<Value> {
+    match input {
+        Value::Object(map) => {
+            let mut out = serde_json::Map::with_capacity(map.len());
+            for (k, v) in map {
+                out.insert(k.clone(), render_json_template_value(v, context, renderer)?);
+            }
+            Ok(Value::Object(out))
+        }
+        Value::Array(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(render_json_template_value(item, context, renderer)?);
+            }
+            Ok(Value::Array(out))
+        }
+        Value::String(text) => {
+            if !text.contains("{{") && !text.contains("{%") {
+                return Ok(Value::String(text.clone()));
+            }
+            let rendered = renderer.render_string(text, context.clone())?;
+            let trimmed = rendered.trim();
+            if trimmed.is_empty() {
+                return Ok(Value::String(rendered));
+            }
+            if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
+                return Ok(parsed);
+            }
+            Ok(Value::String(rendered))
+        }
+        _ => Ok(input.clone()),
+    }
+}
+
+fn tx_block_primary_mode(tx_block: &TxBlock) -> String {
+    tx_block
+        .steps
+        .first()
+        .and_then(|step| step.run.summary().ok())
+        .map(|summary| summary.mode)
+        .unwrap_or_else(|| "-".to_string())
 }
 
 fn expand_targets(inputs: &[OrchestrationTargetInput]) -> Vec<OrchestrationTarget> {
@@ -1464,6 +1875,19 @@ fn action_summary(action: &OrchestrationAction) -> String {
     match action {
         OrchestrationAction::TxBlock(spec) => {
             let mut parts = Vec::new();
+            if let Some(name) = spec
+                .tx_block_template_name
+                .as_deref()
+                .filter(|name| !name.trim().is_empty())
+            {
+                parts.push(format!("tx_block_template={}", name));
+            } else if spec
+                .tx_block_template_content
+                .as_deref()
+                .is_some_and(|content| !content.trim().is_empty())
+            {
+                parts.push("tx_block_template_content=inline".to_string());
+            }
             if let Some(template) = &spec.template {
                 parts.push(format!("template={}", template));
             }
@@ -1480,7 +1904,19 @@ fn action_summary(action: &OrchestrationAction) -> String {
             }
         }
         OrchestrationAction::TxWorkflow(spec) => {
-            if let Some(path) = &spec.workflow_file {
+            if let Some(name) = spec
+                .workflow_template_name
+                .as_deref()
+                .filter(|name| !name.trim().is_empty())
+            {
+                format!("workflow_template={}", name)
+            } else if spec
+                .workflow_template_content
+                .as_deref()
+                .is_some_and(|content| !content.trim().is_empty())
+            {
+                "workflow_template_content=inline".to_string()
+            } else if let Some(path) = &spec.workflow_file {
                 format!("workflow_file={}", path.to_string_lossy())
             } else {
                 "inline workflow".to_string()
@@ -1641,6 +2077,9 @@ mod tests {
                 action: OrchestrationAction::TxBlock(TxBlockAction {
                     name: None,
                     template: None,
+                    tx_block_template_name: None,
+                    tx_block_template_content: None,
+                    tx_block_template_vars: Value::Null,
                     vars: Value::Null,
                     commands: vec!["show ver".to_string()],
                     rollback_commands: Vec::new(),
@@ -1674,6 +2113,9 @@ mod tests {
             action: OrchestrationAction::TxBlock(TxBlockAction {
                 name: None,
                 template: Some("configure_vlan.j2".to_string()),
+                tx_block_template_name: None,
+                tx_block_template_content: None,
+                tx_block_template_vars: Value::Null,
                 vars: Value::Null,
                 commands: Vec::new(),
                 rollback_commands: Vec::new(),
@@ -1717,6 +2159,9 @@ mod tests {
             action: OrchestrationAction::TxBlock(TxBlockAction {
                 name: None,
                 template: Some("configure_vlan.j2".to_string()),
+                tx_block_template_name: None,
+                tx_block_template_content: None,
+                tx_block_template_vars: Value::Null,
                 vars: Value::Null,
                 commands: Vec::new(),
                 rollback_commands: Vec::new(),
@@ -1798,5 +2243,61 @@ mod tests {
                 }
             })
         );
+    }
+
+    #[test]
+    fn validate_tx_block_action_rejects_mixed_template_sources() {
+        let stage = OrchestrationStage {
+            name: "stage-1".to_string(),
+            strategy: StageStrategy::Serial,
+            max_parallel: None,
+            fail_fast: None,
+            target_groups: vec!["edge".to_string()],
+            targets: Vec::new(),
+            action: OrchestrationAction::TxBlock(TxBlockAction {
+                name: None,
+                template: Some("cmd.j2".to_string()),
+                tx_block_template_name: Some("saved-block".to_string()),
+                tx_block_template_content: None,
+                tx_block_template_vars: Value::Null,
+                vars: Value::Null,
+                commands: vec![],
+                rollback_commands: vec![],
+                rollback_on_failure: false,
+                rollback_trigger_step_index: None,
+                mode: None,
+                timeout_secs: None,
+                resource_rollback_command: None,
+            }),
+        };
+        let action = match &stage.action {
+            OrchestrationAction::TxBlock(action) => action,
+            _ => unreachable!(),
+        };
+        assert!(validate_tx_block_action(&stage, action).is_err());
+    }
+
+    #[test]
+    fn validate_tx_workflow_action_accepts_template_source() {
+        let stage = OrchestrationStage {
+            name: "stage-1".to_string(),
+            strategy: StageStrategy::Serial,
+            max_parallel: None,
+            fail_fast: None,
+            target_groups: vec!["edge".to_string()],
+            targets: Vec::new(),
+            action: OrchestrationAction::TxWorkflow(TxWorkflowAction {
+                workflow_file: None,
+                workflow: None,
+                workflow_template_name: Some("linux-rollout".to_string()),
+                workflow_template_content: None,
+                workflow_vars: json!({"peer":"edge94"}),
+            }),
+        };
+        let action = match &stage.action {
+            OrchestrationAction::TxWorkflow(action) => action,
+            _ => unreachable!(),
+        };
+        assert!(validate_tx_workflow_action(&stage, action).is_ok());
     }
 }

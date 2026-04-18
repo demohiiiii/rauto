@@ -122,10 +122,58 @@ function defaultTxWorkflowTemplatePayload() {
   };
 }
 
+function defaultOrchestrationTemplatePayload() {
+  return {
+    name: "campus-rollout-demo",
+    fail_fast: true,
+    inventory: {
+      groups: {
+        edge_nodes: {
+          defaults: {
+            vars: {
+              site: "dc-a",
+            },
+          },
+          targets: [
+            {
+              name: "edge-01",
+              connection: "edge-01",
+            },
+          ],
+        },
+      },
+    },
+    stages: [
+      {
+        name: "precheck",
+        strategy: "serial",
+        target_groups: ["edge_nodes"],
+        action: {
+          kind: "tx_block",
+          tx_block_template_name: "precheck",
+          tx_block_template_vars: {},
+        },
+      },
+      {
+        name: "deploy",
+        strategy: "serial",
+        target_groups: ["edge_nodes"],
+        action: {
+          kind: "tx_workflow",
+          workflow_template_name: "safe-deploy",
+          workflow_vars: {},
+        },
+      },
+    ],
+  };
+}
+
 let txBlockJsonAceEditor = null;
 let txBlockJsonEditorSyncing = false;
 let txWorkflowJsonAceEditor = null;
 let txWorkflowJsonEditorSyncing = false;
+let orchestrationJsonAceEditor = null;
+let orchestrationJsonEditorSyncing = false;
 let txVarsAssistantEntrySeq = 0;
 const txVarsAssistantState = new Map();
 const TX_VARS_ASSISTANTS = [
@@ -166,12 +214,21 @@ const TX_VARS_ASSISTANTS = [
     statusId: "tx-workflow-plan-out",
   },
   {
-    key: "orchestration-vars",
+    key: "orchestration-direct-vars",
     textareaId: "orchestration-vars-json",
-    formId: "orchestration-vars-form",
-    addBtnId: "orchestration-vars-add-btn",
-    syncBtnId: "orchestration-vars-sync-btn",
-    clearBtnId: "orchestration-vars-clear-btn",
+    formId: "orchestration-direct-vars-form",
+    addBtnId: "orchestration-direct-vars-add-btn",
+    syncBtnId: "orchestration-direct-vars-sync-btn",
+    clearBtnId: "orchestration-direct-vars-clear-btn",
+    statusId: "orchestration-plan-out",
+  },
+  {
+    key: "orchestration-template-vars",
+    textareaId: "orchestration-template-vars-json",
+    formId: "orchestration-template-vars-form",
+    addBtnId: "orchestration-template-vars-add-btn",
+    syncBtnId: "orchestration-template-vars-sync-btn",
+    clearBtnId: "orchestration-template-vars-clear-btn",
     statusId: "orchestration-plan-out",
   },
 ];
@@ -683,6 +740,123 @@ function setTxWorkflowEditorJson(payload) {
   setTxWorkflowEditorText(next, { notify: true });
 }
 
+function orchestrationJsonHiddenField() {
+  return byId("orchestration-json");
+}
+
+function orchestrationJsonEditorHost() {
+  return byId("orchestration-json-editor");
+}
+
+function emitOrchestrationJsonInput() {
+  const field = orchestrationJsonHiddenField();
+  if (!field) return;
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function syncOrchestrationJsonHiddenFromEditor({ notify = false } = {}) {
+  const field = orchestrationJsonHiddenField();
+  if (!field || !orchestrationJsonAceEditor) return;
+  const next = orchestrationJsonAceEditor.getValue();
+  const changed = field.value !== next;
+  field.value = next;
+  if (notify && changed) {
+    emitOrchestrationJsonInput();
+  }
+}
+
+function setOrchestrationEditorText(text, { notify = false } = {}) {
+  const next = safeString(text || "");
+  const field = orchestrationJsonHiddenField();
+  if (orchestrationJsonAceEditor) {
+    if (orchestrationJsonAceEditor.getValue() !== next) {
+      orchestrationJsonEditorSyncing = true;
+      orchestrationJsonAceEditor.setValue(next, -1);
+      orchestrationJsonEditorSyncing = false;
+    }
+    syncOrchestrationJsonHiddenFromEditor({ notify });
+    return;
+  }
+  if (!field) return;
+  const changed = field.value !== next;
+  field.value = next;
+  if (notify && changed) {
+    emitOrchestrationJsonInput();
+  }
+}
+
+function setupOrchestrationJsonEditor() {
+  if (orchestrationJsonAceEditor || !window.ace) return;
+  const host = orchestrationJsonEditorHost();
+  const field = orchestrationJsonHiddenField();
+  if (!host || !field) return;
+  try {
+    const editor = window.ace.edit(host, {
+      mode: "ace/mode/json",
+      theme: txBlockJsonEditorTheme(window.currentTheme || currentTheme),
+      showPrintMargin: false,
+      tabSize: 2,
+      useSoftTabs: true,
+      wrap: true,
+      fontSize: "13px",
+    });
+    editor.session.setUseWrapMode(true);
+    editor.session.setUseWorker(false);
+    editor.session.on("change", () => {
+      if (orchestrationJsonEditorSyncing) return;
+      syncOrchestrationJsonHiddenFromEditor({ notify: true });
+    });
+    editor.commands.addCommand({
+      name: "formatJson",
+      bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+      exec() {
+        try {
+          const parsed = JSON.parse(editor.getValue());
+          setOrchestrationEditorText(JSON.stringify(parsed, null, 2), {
+            notify: true,
+          });
+        } catch (_) {}
+      },
+    });
+    orchestrationJsonAceEditor = editor;
+    host.classList.remove("hidden");
+    field.classList.add("hidden");
+    field.setAttribute("aria-hidden", "true");
+    setOrchestrationEditorText(field.value || "", { notify: false });
+    resizeOrchestrationJsonEditor();
+  } catch (_) {
+    orchestrationJsonAceEditor = null;
+    host.classList.add("hidden");
+    field.classList.remove("hidden");
+    field.removeAttribute("aria-hidden");
+  }
+}
+
+function setOrchestrationJsonEditorTheme(theme) {
+  if (!orchestrationJsonAceEditor) return;
+  orchestrationJsonAceEditor.setTheme(txBlockJsonEditorTheme(theme));
+}
+
+function resizeOrchestrationJsonEditor() {
+  if (!orchestrationJsonAceEditor) return;
+  orchestrationJsonAceEditor.resize(true);
+}
+
+function orchestrationEditorRaw() {
+  if (orchestrationJsonAceEditor) {
+    return safeString(orchestrationJsonAceEditor.getValue() || "");
+  }
+  return safeString(orchestrationJsonHiddenField()?.value || "");
+}
+
+function setOrchestrationEditorJson(payload) {
+  const next =
+    payload && typeof payload === "object"
+      ? JSON.stringify(payload, null, 2)
+      : JSON.stringify(defaultOrchestrationTemplatePayload(), null, 2);
+  setOrchestrationEditorText(next, { notify: true });
+}
+
 function txBlockEditorRaw() {
   if (txBlockJsonAceEditor) {
     return safeString(txBlockJsonAceEditor.getValue() || "");
@@ -773,206 +947,29 @@ function txWorkflowPayload(dryRun) {
 }
 
 function orchestrationPayload(dryRun) {
-  const planTemplateName = byId("orchestration-template-name").value.trim();
-  const raw = byId("orchestration-json").value.trim();
-  if (!raw && !planTemplateName) {
+  const templateMode = orchestrationViewMode === "template";
+  const planTemplateName = templateMode
+    ? byId("orchestration-template-name").value.trim()
+    : "";
+  const raw = templateMode ? "" : orchestrationEditorRaw().trim();
+  if (templateMode && !planTemplateName) {
+    throw new Error(t("orchestrationTemplateNameRequired"));
+  }
+  if (!templateMode && !raw) {
     throw new Error(t("orchestrationJsonRequired"));
   }
   return {
     plan_template_name: planTemplateName || null,
     plan_template_content: null,
     plan: raw ? JSON.parse(raw) : {},
-    plan_vars: parseJsonById("orchestration-vars-json"),
-    base_dir: byId("orchestration-base-dir").value.trim() || null,
+    plan_vars: parseJsonById(
+      templateMode ? "orchestration-template-vars-json" : "orchestration-vars-json"
+    ),
+    base_dir: null,
     dry_run: dryRun,
     connection: connectionPayload(),
     record_level: recordLevelPayload(),
   };
-}
-
-function orchestrationInventoryGroupNames() {
-  return getMultiSelectValues("orchestration-inventory-groups");
-}
-
-function orchestrationInventoryConnectionNames() {
-  return getMultiSelectValues("orchestration-inventory-hosts");
-}
-
-function orchestrationInventoryLabelNames() {
-  return getMultiSelectValues("orchestration-inventory-labels");
-}
-
-function buildOrchestrationTargetFromSavedConnection(connection) {
-  if (!connection || typeof connection !== "object") return null;
-  const target = {};
-  if (connection.name) target.name = connection.name;
-  if (connection.name) target.connection = connection.name;
-  if (connection.host) target.host = connection.host;
-  if (connection.username) target.username = connection.username;
-  if (connection.port != null) target.port = Number(connection.port);
-  if (connection.ssh_security) target.ssh_security = connection.ssh_security;
-  if (connection.linux_shell_flavor) target.linux_shell_flavor = connection.linux_shell_flavor;
-  if (connection.device_profile) target.device_profile = connection.device_profile;
-  if (
-    connection.vars &&
-    typeof connection.vars === "object" &&
-    !Array.isArray(connection.vars)
-  ) {
-    target.vars = connection.vars;
-  }
-  return Object.keys(target).length ? target : null;
-}
-
-function findSavedConnectionByName(name) {
-  const normalized = safeString(name || "").trim();
-  if (!normalized) return null;
-  return (cachedSavedConnections || []).find((item) => item.name === normalized) || null;
-}
-
-function buildOrchestrationInventoryGroupsFromSelection() {
-  const groupsMap = {};
-  const selectedGroupNames = orchestrationInventoryGroupNames();
-  const selectedConnectionNames = orchestrationInventoryConnectionNames();
-  const selectedLabelNames = orchestrationInventoryLabelNames();
-
-  for (const groupName of selectedGroupNames) {
-    const group = (cachedInventoryGroups || []).find((item) => item.name === groupName);
-    if (!group) continue;
-    const hosts = Array.isArray(group.hosts) ? group.hosts : [];
-    const targets = hosts
-      .map((connectionName) => findSavedConnectionByName(connectionName))
-      .map((connection) => buildOrchestrationTargetFromSavedConnection(connection))
-      .filter(Boolean);
-    groupsMap[groupName] = {
-      defaults:
-        group.vars && typeof group.vars === "object" && !Array.isArray(group.vars)
-          ? { vars: group.vars }
-          : {},
-      targets,
-    };
-  }
-
-  const standaloneConnections = selectedConnectionNames
-    .filter((connectionName) => {
-      return !selectedGroupNames.some((groupName) => {
-        const group = (cachedInventoryGroups || []).find((item) => item.name === groupName);
-        return Array.isArray(group?.hosts) && group.hosts.includes(connectionName);
-      });
-    })
-    .map((connectionName) => findSavedConnectionByName(connectionName))
-    .map((connection) => buildOrchestrationTargetFromSavedConnection(connection))
-    .filter(Boolean);
-
-  if (standaloneConnections.length) {
-    groupsMap.selected_connections = {
-      targets: standaloneConnections,
-    };
-  }
-
-  const labelConnections = (cachedSavedConnections || [])
-    .filter((connection) => {
-      const labels = Array.isArray(connection?.labels) ? connection.labels : [];
-      return selectedLabelNames.some((label) => labels.includes(label));
-    })
-    .filter((connection) => {
-      const connectionName = safeString(connection?.name || "").trim();
-      if (!connectionName) return false;
-      if (selectedConnectionNames.includes(connectionName)) return false;
-      return !selectedGroupNames.some((groupName) => {
-        const group = (cachedInventoryGroups || []).find((item) => item.name === groupName);
-        return Array.isArray(group?.hosts) && group.hosts.includes(connectionName);
-      });
-    })
-    .map((connection) => buildOrchestrationTargetFromSavedConnection(connection))
-    .filter(Boolean);
-
-  if (labelConnections.length) {
-    groupsMap.selected_labels = {
-      targets: labelConnections,
-    };
-  }
-
-  return groupsMap;
-}
-
-function buildOrchestrationInventoryPlanSkeleton(selectedGroupRefs) {
-  return {
-    name: "inventory-orchestration",
-    fail_fast: true,
-    inventory: {
-      groups: buildOrchestrationInventoryGroupsFromSelection(),
-    },
-    stages: [
-      {
-        name: "stage-1",
-        strategy: "serial",
-        target_groups: selectedGroupRefs,
-        action: {
-          kind: "tx_block",
-          name: "starter-block",
-          commands: ["show version"],
-          rollback_commands: [],
-          rollback_on_failure: false,
-          vars: {},
-        },
-      },
-    ],
-  };
-}
-
-function applyOrchestrationInventorySelection(mode = "merge") {
-  const selectedGroupNames = orchestrationInventoryGroupNames();
-  const selectedConnectionNames = orchestrationInventoryConnectionNames();
-  const selectedLabelNames = orchestrationInventoryLabelNames();
-  if (
-    !selectedGroupNames.length &&
-    !selectedConnectionNames.length &&
-    !selectedLabelNames.length
-  ) {
-    throw new Error(t("orchestrationInventorySelectionRequired"));
-  }
-
-  const selectedGroupRefs = [...selectedGroupNames];
-  if (selectedConnectionNames.length) {
-    selectedGroupRefs.push("selected_connections");
-  }
-  if (selectedLabelNames.length) {
-    selectedGroupRefs.push("selected_labels");
-  }
-
-  if (mode === "build") {
-    const plan = buildOrchestrationInventoryPlanSkeleton(selectedGroupRefs);
-    byId("orchestration-json").value = JSON.stringify(plan, null, 2);
-    renderOrchestrationPreviewFromEditor();
-    return;
-  }
-
-  const raw = byId("orchestration-json").value.trim();
-  const plan = raw ? JSON.parse(raw) : { name: "inventory-orchestration", fail_fast: true, stages: [] };
-  if (!plan || typeof plan !== "object" || Array.isArray(plan)) {
-    throw new Error(t("orchestrationJsonRequired"));
-  }
-  plan.inventory = plan.inventory && typeof plan.inventory === "object" && !Array.isArray(plan.inventory)
-    ? plan.inventory
-    : {};
-  plan.inventory.groups =
-    plan.inventory.groups &&
-    typeof plan.inventory.groups === "object" &&
-    !Array.isArray(plan.inventory.groups)
-      ? plan.inventory.groups
-      : {};
-  Object.assign(plan.inventory.groups, buildOrchestrationInventoryGroupsFromSelection());
-
-  if (Array.isArray(plan.stages) && plan.stages.length === 1) {
-    const stage = plan.stages[0];
-    const currentTargetGroups = Array.isArray(stage.target_groups) ? stage.target_groups : [];
-    if (!currentTargetGroups.length) {
-      stage.target_groups = Array.from(new Set(selectedGroupRefs));
-    }
-  }
-
-  byId("orchestration-json").value = JSON.stringify(plan, null, 2);
-  renderOrchestrationPreviewFromEditor();
 }
 
 function createTxWorkflowBlock(seed = {}) {
@@ -1680,7 +1677,7 @@ async function importTxWorkflowBuilderFromFile() {
 }
 
 function downloadOrchestrationJson() {
-  const content = byId("orchestration-json").value || "";
+  const content = orchestrationEditorRaw() || "";
   const raw = content.trim();
   let safeName = "orchestration";
   if (raw) {
@@ -1713,8 +1710,12 @@ async function importOrchestrationFromFile() {
     throw new Error(t("orchestrationImportFileInvalid"));
   }
   const text = await file.text();
-  byId("orchestration-json").value = text;
-  renderOrchestrationPreviewFromEditor();
+  try {
+    const parsed = JSON.parse(text);
+    setOrchestrationEditorJson(parsed);
+  } catch (_) {
+    setOrchestrationEditorText(text, { notify: true });
+  }
   setStatusMessage(
     "orchestration-plan-out",
     t("orchestrationImportFileDone"),

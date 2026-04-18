@@ -166,12 +166,6 @@ function applyI18n() {
   byId("nav-prompt-diagnose").textContent = t("promptModeDiagnose");
   byId("template-section-btn-library").textContent = t("templateCommonTabTitle");
   byId("template-section-btn-flows").textContent = t("flowTemplateMgrTitle");
-  byId("template-section-btn-tx-block").textContent =
-    t("txBlockTemplateMgrTitle");
-  byId("template-section-btn-tx-workflow").textContent =
-    t("txWorkflowTemplateMgrTitle");
-  byId("template-section-btn-orchestration").textContent =
-    t("orchestrationTemplateMgrTitle");
   byId("nav-inventory-groups").textContent = t("inventoryGroupsTitle");
   byId("nav-inventory-resolve").textContent = t("inventoryResolveTitle");
 
@@ -278,11 +272,6 @@ function applyI18n() {
   byId("flow-template-builtin-detail-btn").textContent = t("builtinDetailBtn");
   byId("flow-template-builtin-copy-btn").textContent = t("builtinCopyBtn");
   byId("flow-template-builtin-hint").textContent = t("flowBuiltinTemplateHint");
-  byId("tx-block-template-mgr-title").textContent = t("txBlockTemplateMgrTitle");
-  byId("tx-workflow-template-mgr-title").textContent =
-    t("txWorkflowTemplateMgrTitle");
-  byId("orchestration-template-mgr-title").textContent =
-    t("orchestrationTemplateMgrTitle");
   byId("blacklist-title").textContent = t("blacklistTitle");
   byId("blacklist-list-title").textContent = t("blacklistListTitle");
   byId("blacklist-add-title").textContent = t("blacklistAddTitle");
@@ -452,18 +441,6 @@ function applyI18n() {
   byId("flow-template-new-btn").textContent = t("newBtn");
   byId("flow-template-save-btn").textContent = t("flowTemplateSaveBtn");
   byId("flow-template-delete-btn").textContent = t("flowTemplateDeleteBtn");
-  byId("tx-block-template-new-btn").textContent = t("newBtn");
-  byId("tx-workflow-template-new-btn").textContent = t("newBtn");
-  byId("orchestration-template-new-btn").textContent = t("newBtn");
-  byId("tx-block-template-save-btn").textContent = t("templateSaveBtn");
-  byId("tx-workflow-template-save-btn").textContent = t("templateSaveBtn");
-  byId("orchestration-template-save-btn").textContent = t("templateSaveBtn");
-  byId("tx-block-template-delete-btn").textContent = t("templateDeleteBtn");
-  byId("tx-workflow-template-delete-btn").textContent = t("templateDeleteBtn");
-  byId("orchestration-template-delete-btn").textContent = t("templateDeleteBtn");
-  byId("tx-block-template-use-btn").textContent = t("templateUseBtn");
-  byId("tx-workflow-template-use-btn").textContent = t("templateUseBtn");
-  byId("orchestration-template-use-btn").textContent = t("templateUseBtn");
   byId("add-more-pattern-btn").textContent = t("addInlineBtn");
   byId("add-error-pattern-btn").textContent = t("addInlineBtn");
   byId("add-ignore-error-btn").textContent = t("addInlineBtn");
@@ -570,17 +547,47 @@ function applyI18n() {
   if (byId("tx-workflow-template-vars-clear-btn")) {
     byId("tx-workflow-template-vars-clear-btn").textContent = t("txVarsFormClearBtn");
   }
-  if (byId("orchestration-vars-form-title")) {
-    byId("orchestration-vars-form-title").textContent = t("txVarsFormTitle");
+  if (byId("orchestration-view-direct")) {
+    byId("orchestration-view-direct").textContent = t("txBlockViewDirect");
   }
-  if (byId("orchestration-vars-add-btn")) {
-    byId("orchestration-vars-add-btn").textContent = t("txVarsFormAddBtn");
+  if (byId("orchestration-view-template")) {
+    byId("orchestration-view-template").textContent = t("txBlockViewTemplate");
   }
-  if (byId("orchestration-vars-sync-btn")) {
-    byId("orchestration-vars-sync-btn").textContent = t("txVarsFormSyncBtn");
+  if (byId("orchestration-view-direct-hint")) {
+    byId("orchestration-view-direct-hint").textContent = t("orchestrationDirectHint");
   }
-  if (byId("orchestration-vars-clear-btn")) {
-    byId("orchestration-vars-clear-btn").textContent = t("txVarsFormClearBtn");
+  if (byId("orchestration-template-run-new-btn")) {
+    byId("orchestration-template-run-new-btn").textContent = t("newBtn");
+  }
+  if (byId("orchestration-template-run-save-btn")) {
+    byId("orchestration-template-run-save-btn").textContent = t("templateSaveBtn");
+  }
+  if (byId("orchestration-template-run-delete-btn")) {
+    byId("orchestration-template-run-delete-btn").textContent = t("templateDeleteBtn");
+  }
+  if (byId("orchestration-direct-vars-form-title")) {
+    byId("orchestration-direct-vars-form-title").textContent = t("txVarsFormTitle");
+  }
+  if (byId("orchestration-direct-vars-add-btn")) {
+    byId("orchestration-direct-vars-add-btn").textContent = t("txVarsFormAddBtn");
+  }
+  if (byId("orchestration-direct-vars-sync-btn")) {
+    byId("orchestration-direct-vars-sync-btn").textContent = t("txVarsFormSyncBtn");
+  }
+  if (byId("orchestration-direct-vars-clear-btn")) {
+    byId("orchestration-direct-vars-clear-btn").textContent = t("txVarsFormClearBtn");
+  }
+  if (byId("orchestration-template-vars-form-title")) {
+    byId("orchestration-template-vars-form-title").textContent = t("txVarsFormTitle");
+  }
+  if (byId("orchestration-template-vars-add-btn")) {
+    byId("orchestration-template-vars-add-btn").textContent = t("txVarsFormAddBtn");
+  }
+  if (byId("orchestration-template-vars-sync-btn")) {
+    byId("orchestration-template-vars-sync-btn").textContent = t("txVarsFormSyncBtn");
+  }
+  if (byId("orchestration-template-vars-clear-btn")) {
+    byId("orchestration-template-vars-clear-btn").textContent = t("txVarsFormClearBtn");
   }
   byId("tx-block-template-run-new-btn").textContent = t("newBtn");
   byId("tx-block-template-run-hint").textContent = t("txBlockTemplateRunHint");
@@ -613,7 +620,6 @@ function applyI18n() {
   byId("tx-workflow-template-run-hint").textContent =
     t("txWorkflowTemplateRunHint");
   byId("tx-workflow-json-new-btn").textContent = t("newBtn");
-  byId("tx-workflow-download-btn").textContent = t("txWorkflowDownloadBtn");
   byId("tx-workflow-import-file-btn").textContent = t("txWorkflowImportFileBtn");
   byId("tx-workflow-json").placeholder = t("txWorkflowJsonPlaceholder");
   byId("tx-workflow-vars-json").placeholder = t("txWorkflowVarsPlaceholder");
@@ -627,26 +633,38 @@ function applyI18n() {
   if (byId("orchestration-title")) {
     byId("orchestration-title").textContent = t("orchestrationTitle");
   }
-  byId("orchestration-template-run-title").textContent =
-    t("orchestrationTemplateRunTitle");
-  byId("orchestration-template-load-btn").textContent =
-    t("orchestrationTemplateLoadBtn");
-  byId("orchestration-template-run-hint").textContent =
-    t("orchestrationTemplateRunHint");
-  byId("orchestration-inventory-assist-title").textContent = t("orchestrationInventoryAssistTitle");
-  byId("orchestration-inventory-groups-label").textContent = t("orchestrationInventoryGroupsLabel");
-  byId("orchestration-inventory-hosts-label").textContent = t("orchestrationInventoryHostsLabel");
-  byId("orchestration-inventory-labels-label").textContent = t("orchestrationInventoryLabelsLabel");
-  byId("orchestration-inventory-hint").textContent = t("orchestrationInventoryHint");
-  byId("orchestration-inventory-merge-btn").textContent = t("orchestrationInventoryMergeBtn");
-  byId("orchestration-inventory-build-btn").textContent = t("orchestrationInventoryBuildBtn");
-  byId("orchestration-base-dir").placeholder = t("orchestrationBaseDirPlaceholder");
+  if (byId("orchestration-template-run-title")) {
+    byId("orchestration-template-run-title").textContent =
+      t("orchestrationTemplateRunTitle");
+  }
+  if (byId("orchestration-template-load-btn")) {
+    byId("orchestration-template-load-btn").textContent =
+      t("orchestrationTemplateLoadBtn");
+  }
+  if (byId("orchestration-template-run-hint")) {
+    byId("orchestration-template-run-hint").textContent =
+      t("orchestrationTemplateRunHint");
+  }
   byId("orchestration-vars-json").placeholder = t("orchestrationVarsPlaceholder");
+  if (byId("orchestration-template-vars-json")) {
+    byId("orchestration-template-vars-json").placeholder = t("orchestrationVarsPlaceholder");
+  }
+  if (byId("orchestration-template-edit-hint")) {
+    byId("orchestration-template-edit-hint").textContent = t("orchestrationTemplateEditHint");
+  }
+  if (byId("orchestration-editor-title")) {
+    byId("orchestration-editor-title").textContent = t("orchestrationEditorTitle");
+  }
+  if (byId("orchestration-json-new-btn")) {
+    byId("orchestration-json-new-btn").textContent = t("newBtn");
+  }
+  if (byId("orchestration-json-hint")) {
+    byId("orchestration-json-hint").textContent = t("orchestrationJsonHint");
+  }
   byId("orchestration-vars-hint").textContent = t("orchestrationVarsHint");
   byId("orchestration-json").placeholder = t("orchestrationJsonPlaceholder");
   byId("orchestration-plan-btn").textContent = t("orchestrationPlanBtn");
   byId("orchestration-exec-btn").textContent = t("orchestrationExecBtn");
-  byId("orchestration-download-btn").textContent = t("orchestrationDownloadBtn");
   byId("orchestration-import-file-btn").textContent = t("orchestrationImportFileBtn");
   byId("orchestration-visual-title").textContent = t("orchestrationVisualTitle");
   if (lastOrchestrationPreview.plan) {
@@ -688,18 +706,6 @@ function applyI18n() {
     "title",
     t("templateSelectPlaceholder")
   );
-  byId("tx-block-template-picker").setAttribute(
-    "title",
-    t("templateSelectPlaceholder")
-  );
-  byId("tx-workflow-template-picker").setAttribute(
-    "title",
-    t("templateSelectPlaceholder")
-  );
-  byId("orchestration-template-picker").setAttribute(
-    "title",
-    t("templateSelectPlaceholder")
-  );
   if (typeof renderSidebarConnectionSelector === "function") {
     renderSidebarConnectionSelector();
   }
@@ -724,12 +730,6 @@ function applyI18n() {
   byId("flow-template-content").placeholder = t("flowTemplateContentPlaceholder");
   byId("flow-template-builtin-content").placeholder =
     t("flowBuiltinTemplateContentPlaceholder");
-  byId("tx-block-template-content").placeholder =
-    t("txBlockTemplateContentPlaceholder");
-  byId("tx-workflow-template-content").placeholder =
-    t("txWorkflowTemplateContentPlaceholder");
-  byId("orchestration-template-content").placeholder =
-    t("orchestrationTemplateContentPlaceholder");
   renderFlowTemplateVarFields(
     lastFlowRunTemplateDetail,
     getCurrentFlowTemplateFieldDraft()
@@ -1053,6 +1053,9 @@ function applyTxStage() {
   if (isWorkflow) {
     applyTxWorkflowViewMode();
   }
+  if (isOrchestrate) {
+    applyOrchestrationViewMode();
+  }
   if (byId("tx-block-editor-new-btn")) {
     byId("tx-block-editor-new-btn").textContent = isWorkflow
       ? t("txWorkflowAddBlockBtn")
@@ -1126,6 +1129,28 @@ function applyTxBlockViewMode() {
   }
 }
 
+function applyOrchestrationViewMode() {
+  const modes = ["direct", "template"];
+  modes.forEach((mode) => {
+    const btn = byId(`orchestration-view-${mode}`);
+    const panel = byId(`orchestration-view-${mode}-panel`);
+    const active = orchestrationViewMode === mode;
+    if (btn) {
+      btn.classList.toggle("tab-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    }
+    if (panel) {
+      panel.hidden = !active;
+      panel.style.display = active ? "" : "none";
+    }
+  });
+  if (typeof resizeOrchestrationJsonEditor === "function") {
+    window.requestAnimationFrame(() => {
+      resizeOrchestrationJsonEditor();
+    });
+  }
+}
+
 function applyTxWorkflowMoreActionsState() {
   const btn = byId("tx-workflow-more-btn");
   const panel = byId("tx-workflow-more-panel");
@@ -1156,13 +1181,13 @@ function applyPromptMode() {
 }
 
 function applyTemplateSection() {
-  const sections = ["templates", "flows", "tx_block", "tx_workflow", "orchestration"];
+  const sections = ["templates", "flows"];
+  if (!sections.includes(currentTemplateSection)) {
+    currentTemplateSection = "templates";
+  }
   const panelBySection = {
     templates: byId("template-library-section"),
     flows: byId("template-flows-section"),
-    tx_block: byId("template-tx-block-section"),
-    tx_workflow: byId("template-tx-workflow-section"),
-    orchestration: byId("template-orchestration-section"),
   };
   sections.forEach((section) => {
     const panel = panelBySection[section];
@@ -1601,7 +1626,10 @@ function renderOrchestrationPreview() {
 function renderOrchestrationPreviewFromEditor() {
   const visualOut = byId("orchestration-visual");
   if (!visualOut) return;
-  const raw = byId("orchestration-json").value.trim();
+  const raw =
+    typeof orchestrationEditorRaw === "function"
+      ? orchestrationEditorRaw().trim()
+      : byId("orchestration-json").value.trim();
   if (!raw) {
     visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
       t("orchestrationVisualEmpty")
