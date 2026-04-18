@@ -706,6 +706,9 @@ function bindEvents() {
   byId("tx-workflow-json-new-btn").onclick = () => {
     setTxWorkflowEditorJson(defaultTxWorkflowTemplatePayload());
     byId("tx-workflow-vars-json").value = "{}";
+    if (typeof txVarsAssistantSyncFromTextarea === "function") {
+      txVarsAssistantSyncFromTextarea("tx-workflow-vars-json", { silent: true });
+    }
     renderTxWorkflowPreviewFromEditor();
     setStatusMessage("tx-workflow-plan-out", t("editingNew"), "info");
   };
@@ -1298,6 +1301,9 @@ if (typeof setupTxWorkflowJsonEditor === "function") {
 }
 if (typeof setupTxBlockJsonEditor === "function") {
   setupTxBlockJsonEditor();
+}
+if (typeof setupTxVarsAssistants === "function") {
+  setupTxVarsAssistants();
 }
 applyI18n();
 setStatusMessage("saved-conn-out", "-", "info");

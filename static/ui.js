@@ -516,6 +516,72 @@ function applyI18n() {
   if (byId("tx-block-view-direct-hint")) {
     byId("tx-block-view-direct-hint").textContent = t("txBlockDirectHint");
   }
+  if (byId("tx-block-direct-vars-form-title")) {
+    byId("tx-block-direct-vars-form-title").textContent = t("txVarsFormTitle");
+  }
+  if (byId("tx-block-direct-vars-add-btn")) {
+    byId("tx-block-direct-vars-add-btn").textContent = t("txVarsFormAddBtn");
+  }
+  if (byId("tx-block-direct-vars-sync-btn")) {
+    byId("tx-block-direct-vars-sync-btn").textContent = t("txVarsFormSyncBtn");
+  }
+  if (byId("tx-block-direct-vars-clear-btn")) {
+    byId("tx-block-direct-vars-clear-btn").textContent = t("txVarsFormClearBtn");
+  }
+  if (byId("tx-block-direct-vars")) {
+    byId("tx-block-direct-vars").placeholder = t("txBlockDirectVarsPlaceholder");
+  }
+  if (byId("tx-block-direct-vars-hint")) {
+    byId("tx-block-direct-vars-hint").textContent = t("txBlockDirectVarsHint");
+  }
+  if (byId("tx-block-template-vars-form-title")) {
+    byId("tx-block-template-vars-form-title").textContent = t("txVarsFormTitle");
+  }
+  if (byId("tx-block-template-vars-add-btn")) {
+    byId("tx-block-template-vars-add-btn").textContent = t("txVarsFormAddBtn");
+  }
+  if (byId("tx-block-template-vars-sync-btn")) {
+    byId("tx-block-template-vars-sync-btn").textContent = t("txVarsFormSyncBtn");
+  }
+  if (byId("tx-block-template-vars-clear-btn")) {
+    byId("tx-block-template-vars-clear-btn").textContent = t("txVarsFormClearBtn");
+  }
+  if (byId("tx-workflow-direct-vars-form-title")) {
+    byId("tx-workflow-direct-vars-form-title").textContent = t("txVarsFormTitle");
+  }
+  if (byId("tx-workflow-direct-vars-add-btn")) {
+    byId("tx-workflow-direct-vars-add-btn").textContent = t("txVarsFormAddBtn");
+  }
+  if (byId("tx-workflow-direct-vars-sync-btn")) {
+    byId("tx-workflow-direct-vars-sync-btn").textContent = t("txVarsFormSyncBtn");
+  }
+  if (byId("tx-workflow-direct-vars-clear-btn")) {
+    byId("tx-workflow-direct-vars-clear-btn").textContent = t("txVarsFormClearBtn");
+  }
+  if (byId("tx-workflow-template-vars-form-title")) {
+    byId("tx-workflow-template-vars-form-title").textContent = t("txVarsFormTitle");
+  }
+  if (byId("tx-workflow-template-vars-add-btn")) {
+    byId("tx-workflow-template-vars-add-btn").textContent = t("txVarsFormAddBtn");
+  }
+  if (byId("tx-workflow-template-vars-sync-btn")) {
+    byId("tx-workflow-template-vars-sync-btn").textContent = t("txVarsFormSyncBtn");
+  }
+  if (byId("tx-workflow-template-vars-clear-btn")) {
+    byId("tx-workflow-template-vars-clear-btn").textContent = t("txVarsFormClearBtn");
+  }
+  if (byId("orchestration-vars-form-title")) {
+    byId("orchestration-vars-form-title").textContent = t("txVarsFormTitle");
+  }
+  if (byId("orchestration-vars-add-btn")) {
+    byId("orchestration-vars-add-btn").textContent = t("txVarsFormAddBtn");
+  }
+  if (byId("orchestration-vars-sync-btn")) {
+    byId("orchestration-vars-sync-btn").textContent = t("txVarsFormSyncBtn");
+  }
+  if (byId("orchestration-vars-clear-btn")) {
+    byId("orchestration-vars-clear-btn").textContent = t("txVarsFormClearBtn");
+  }
   byId("tx-block-template-run-new-btn").textContent = t("newBtn");
   byId("tx-block-template-run-hint").textContent = t("txBlockTemplateRunHint");
   byId("tx-block-template-vars").placeholder = t("txBlockTemplateVarsPlaceholder");
@@ -537,6 +603,9 @@ function applyI18n() {
   }
   byId("tx-plan-btn").textContent = t("txPlanBtn");
   byId("tx-exec-btn").textContent = t("txExecBtn");
+  if (typeof rerenderTxVarsAssistants === "function") {
+    rerenderTxVarsAssistants();
+  }
   byId("tx-block-visual-title").textContent = t("txBlockVisualTitle");
   if (byId("tx-workflow-title")) {
     byId("tx-workflow-title").textContent = t("txWorkflowTitle");

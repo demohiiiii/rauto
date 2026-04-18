@@ -126,6 +126,339 @@ let txBlockJsonAceEditor = null;
 let txBlockJsonEditorSyncing = false;
 let txWorkflowJsonAceEditor = null;
 let txWorkflowJsonEditorSyncing = false;
+let txVarsAssistantEntrySeq = 0;
+const txVarsAssistantState = new Map();
+const TX_VARS_ASSISTANTS = [
+  {
+    key: "tx-block-direct-vars",
+    textareaId: "tx-block-direct-vars",
+    formId: "tx-block-direct-vars-form",
+    addBtnId: "tx-block-direct-vars-add-btn",
+    syncBtnId: "tx-block-direct-vars-sync-btn",
+    clearBtnId: "tx-block-direct-vars-clear-btn",
+    statusId: "tx-plan-out",
+  },
+  {
+    key: "tx-block-template-vars",
+    textareaId: "tx-block-template-vars",
+    formId: "tx-block-template-vars-form",
+    addBtnId: "tx-block-template-vars-add-btn",
+    syncBtnId: "tx-block-template-vars-sync-btn",
+    clearBtnId: "tx-block-template-vars-clear-btn",
+    statusId: "tx-plan-out",
+  },
+  {
+    key: "tx-workflow-direct-vars",
+    textareaId: "tx-workflow-vars-json",
+    formId: "tx-workflow-direct-vars-form",
+    addBtnId: "tx-workflow-direct-vars-add-btn",
+    syncBtnId: "tx-workflow-direct-vars-sync-btn",
+    clearBtnId: "tx-workflow-direct-vars-clear-btn",
+    statusId: "tx-workflow-plan-out",
+  },
+  {
+    key: "tx-workflow-template-vars",
+    textareaId: "tx-workflow-template-vars-json",
+    formId: "tx-workflow-template-vars-form",
+    addBtnId: "tx-workflow-template-vars-add-btn",
+    syncBtnId: "tx-workflow-template-vars-sync-btn",
+    clearBtnId: "tx-workflow-template-vars-clear-btn",
+    statusId: "tx-workflow-plan-out",
+  },
+  {
+    key: "orchestration-vars",
+    textareaId: "orchestration-vars-json",
+    formId: "orchestration-vars-form",
+    addBtnId: "orchestration-vars-add-btn",
+    syncBtnId: "orchestration-vars-sync-btn",
+    clearBtnId: "orchestration-vars-clear-btn",
+    statusId: "orchestration-plan-out",
+  },
+];
+
+function txVarsAssistantConfig(textareaId) {
+  return TX_VARS_ASSISTANTS.find((item) => item.textareaId === textareaId) || null;
+}
+
+function txVarsAssistantEntry(
+  key = "",
+  type = "string",
+  valueText = ""
+) {
+  txVarsAssistantEntrySeq += 1;
+  return {
+    id: `tx-vars-${txVarsAssistantEntrySeq}`,
+    key: safeString(key),
+    type: safeString(type) || "string",
+    valueText: safeString(valueText),
+  };
+}
+
+function txVarsAssistantInferType(value) {
+  if (value === null) return "null";
+  if (typeof value === "string") return "string";
+  if (typeof value === "number") return "number";
+  if (typeof value === "boolean") return "boolean";
+  return "json";
+}
+
+function txVarsAssistantToEntries(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return Object.entries(source).map(([key, item]) => {
+    const type = txVarsAssistantInferType(item);
+    if (type === "json") {
+      return txVarsAssistantEntry(key, type, JSON.stringify(item, null, 2));
+    }
+    if (type === "null") {
+      return txVarsAssistantEntry(key, type, "");
+    }
+    return txVarsAssistantEntry(key, type, String(item));
+  });
+}
+
+function txVarsAssistantParseValue(entry) {
+  const type = safeString(entry.type).trim() || "string";
+  const text = safeString(entry.valueText);
+  const trimmed = text.trim();
+  if (type === "null") return null;
+  if (type === "number") {
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : text;
+  }
+  if (type === "boolean") {
+    const lowered = trimmed.toLowerCase();
+    if (["true", "1", "yes", "y", "on"].includes(lowered)) return true;
+    if (["false", "0", "no", "n", "off"].includes(lowered)) return false;
+    return text;
+  }
+  if (type === "json") {
+    if (!trimmed) return {};
+    try {
+      return JSON.parse(trimmed);
+    } catch (_) {
+      return text;
+    }
+  }
+  return text;
+}
+
+function txVarsAssistantEntriesToObject(entries) {
+  const out = {};
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const key = safeString(entry && entry.key).trim();
+    if (!key) continue;
+    out[key] = txVarsAssistantParseValue(entry || {});
+  }
+  return out;
+}
+
+function txVarsAssistantValueControlHtml(entry) {
+  const type = safeString(entry.type).trim() || "string";
+  const value = safeString(entry.valueText);
+  if (type === "json") {
+    return `<textarea class="input min-h-20 font-mono js-tx-vars-value" data-field="value">${escapeHtml(
+      value
+    )}</textarea>`;
+  }
+  const placeholder =
+    type === "boolean"
+      ? "true / false"
+      : type === "number"
+        ? "123"
+        : "";
+  return `<input class="input input-sm js-tx-vars-value" data-field="value" value="${escapeHtml(
+    value
+  )}" placeholder="${escapeHtml(placeholder)}" />`;
+}
+
+function txVarsAssistantRowHtml(entry) {
+  const type = safeString(entry.type).trim() || "string";
+  return `
+    <div class="rounded-xl border border-slate-200 bg-white px-3 py-3 js-tx-vars-row" data-row-id="${escapeHtml(
+      entry.id
+    )}">
+      <div class="grid gap-2 md:grid-cols-[1fr_140px_1fr_auto] md:items-start">
+        <input
+          class="input input-sm js-tx-vars-key"
+          data-field="key"
+          value="${escapeHtml(safeString(entry.key))}"
+          placeholder="${escapeHtml(t("txVarsFormKeyPlaceholder"))}"
+        />
+        <select class="select select-sm js-tx-vars-type" data-field="type">
+          <option value="string" ${type === "string" ? "selected" : ""}>${escapeHtml(
+            t("txVarsFormTypeString")
+          )}</option>
+          <option value="number" ${type === "number" ? "selected" : ""}>${escapeHtml(
+            t("txVarsFormTypeNumber")
+          )}</option>
+          <option value="boolean" ${type === "boolean" ? "selected" : ""}>${escapeHtml(
+            t("txVarsFormTypeBoolean")
+          )}</option>
+          <option value="null" ${type === "null" ? "selected" : ""}>${escapeHtml(
+            t("txVarsFormTypeNull")
+          )}</option>
+          <option value="json" ${type === "json" ? "selected" : ""}>${escapeHtml(
+            t("txVarsFormTypeJson")
+          )}</option>
+        </select>
+        ${txVarsAssistantValueControlHtml(entry)}
+        <button type="button" class="btn btn-sm js-tx-vars-remove">${escapeHtml(
+          t("txVarsFormRemoveBtn")
+        )}</button>
+      </div>
+    </div>
+  `;
+}
+
+function txVarsAssistantGetState(config) {
+  if (!txVarsAssistantState.has(config.key)) {
+    txVarsAssistantState.set(config.key, { entries: [] });
+  }
+  return txVarsAssistantState.get(config.key);
+}
+
+function txVarsAssistantRender(config) {
+  const form = byId(config.formId);
+  if (!form) return;
+  const state = txVarsAssistantGetState(config);
+  const entries = Array.isArray(state.entries) ? state.entries : [];
+  if (!entries.length) {
+    form.innerHTML = `<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-500">${escapeHtml(
+      t("txVarsFormHint")
+    )}</div>`;
+    return;
+  }
+  form.innerHTML = entries.map((entry) => txVarsAssistantRowHtml(entry)).join("");
+}
+
+function txVarsAssistantSyncTextarea(config, { notify = false } = {}) {
+  const textarea = byId(config.textareaId);
+  if (!textarea) return;
+  const state = txVarsAssistantGetState(config);
+  const next = JSON.stringify(txVarsAssistantEntriesToObject(state.entries), null, 2);
+  const changed = textarea.value !== next;
+  textarea.value = next;
+  if (notify && changed) {
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+function txVarsAssistantSyncFromTextarea(
+  textareaId,
+  { silent = false, keepStateOnError = true } = {}
+) {
+  const config = txVarsAssistantConfig(textareaId);
+  if (!config) return false;
+  const textarea = byId(config.textareaId);
+  if (!textarea) return false;
+  const raw = safeString(textarea.value || "").trim();
+  let parsed = {};
+  if (raw) {
+    try {
+      parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error(t("txVarsFormJsonObjectRequired"));
+      }
+    } catch (err) {
+      if (!silent) {
+        const message = err && err.message ? err.message : t("requestFailed");
+        setStatusMessage(config.statusId, `${t("txVarsFormJsonInvalid")}: ${message}`, "error");
+      }
+      if (!keepStateOnError) {
+        const state = txVarsAssistantGetState(config);
+        state.entries = [];
+        txVarsAssistantRender(config);
+      }
+      return false;
+    }
+  }
+  const state = txVarsAssistantGetState(config);
+  state.entries = txVarsAssistantToEntries(parsed);
+  txVarsAssistantRender(config);
+  return true;
+}
+
+function txVarsAssistantUpdateEntryFromRow(config, rowEl) {
+  const state = txVarsAssistantGetState(config);
+  const rowId = rowEl && rowEl.getAttribute("data-row-id");
+  const entry = state.entries.find((item) => item.id === rowId);
+  if (!entry) return null;
+  const keyInput = rowEl.querySelector(".js-tx-vars-key");
+  const typeSelect = rowEl.querySelector(".js-tx-vars-type");
+  const valueInput = rowEl.querySelector(".js-tx-vars-value");
+  entry.key = safeString(keyInput && keyInput.value);
+  entry.type = safeString(typeSelect && typeSelect.value).trim() || "string";
+  entry.valueText = safeString(valueInput && valueInput.value);
+  return entry;
+}
+
+function bindTxVarsAssistant(config) {
+  const form = byId(config.formId);
+  const addBtn = byId(config.addBtnId);
+  const syncBtn = byId(config.syncBtnId);
+  const clearBtn = byId(config.clearBtnId);
+  const textarea = byId(config.textareaId);
+  if (!form || !addBtn || !syncBtn || !clearBtn || !textarea) return;
+
+  addBtn.onclick = () => {
+    const state = txVarsAssistantGetState(config);
+    state.entries.push(txVarsAssistantEntry());
+    txVarsAssistantRender(config);
+    txVarsAssistantSyncTextarea(config, { notify: true });
+  };
+  syncBtn.onclick = () => {
+    if (txVarsAssistantSyncFromTextarea(config.textareaId)) {
+      setStatusMessage(config.statusId, t("txVarsFormSynced"), "success");
+    }
+  };
+  clearBtn.onclick = () => {
+    const state = txVarsAssistantGetState(config);
+    state.entries = [];
+    txVarsAssistantRender(config);
+    txVarsAssistantSyncTextarea(config, { notify: true });
+  };
+
+  form.addEventListener("click", (event) => {
+    const removeBtn = event.target.closest(".js-tx-vars-remove");
+    if (!removeBtn) return;
+    const row = removeBtn.closest(".js-tx-vars-row");
+    if (!row) return;
+    const rowId = row.getAttribute("data-row-id");
+    const state = txVarsAssistantGetState(config);
+    state.entries = state.entries.filter((item) => item.id !== rowId);
+    txVarsAssistantRender(config);
+    txVarsAssistantSyncTextarea(config, { notify: true });
+  });
+
+  form.addEventListener("input", (event) => {
+    const row = event.target.closest(".js-tx-vars-row");
+    if (!row) return;
+    txVarsAssistantUpdateEntryFromRow(config, row);
+    txVarsAssistantSyncTextarea(config, { notify: true });
+  });
+
+  form.addEventListener("change", (event) => {
+    const row = event.target.closest(".js-tx-vars-row");
+    if (!row) return;
+    txVarsAssistantUpdateEntryFromRow(config, row);
+    txVarsAssistantRender(config);
+    txVarsAssistantSyncTextarea(config, { notify: true });
+  });
+
+  textarea.addEventListener("change", () => {
+    txVarsAssistantSyncFromTextarea(config.textareaId, { silent: false });
+  });
+
+  txVarsAssistantSyncFromTextarea(config.textareaId, { silent: true });
+}
+
+function setupTxVarsAssistants() {
+  TX_VARS_ASSISTANTS.forEach((config) => bindTxVarsAssistant(config));
+}
+
+function rerenderTxVarsAssistants() {
+  TX_VARS_ASSISTANTS.forEach((config) => txVarsAssistantRender(config));
+}
 
 function txBlockJsonEditorTheme(theme) {
   return theme === "light" ? "ace/theme/github" : "ace/theme/tomorrow_night";
@@ -399,7 +732,7 @@ function txPayload(dryRun) {
     tx_block: parseTxBlockEditorJson(),
     tx_block_template_name: null,
     tx_block_template_content: null,
-    tx_block_template_vars: {},
+    tx_block_template_vars: parseJsonById("tx-block-direct-vars"),
     dry_run: dryRun,
     connection: connectionPayload(),
     record_level: recordLevelPayload(),
@@ -830,6 +1163,7 @@ async function loadTxWorkflowBlockIntoEditor(item) {
     applyTxBlockViewMode();
     ensureSelectValue("tx-block-template-name", item.txBlockTemplateName || "");
     byId("tx-block-template-vars").value = item.txBlockTemplateVarsText || "{}";
+    txVarsAssistantSyncFromTextarea("tx-block-template-vars", { silent: true });
     if (item.txBlockTemplateName) {
       await loadSelectedTxBlockTemplateForExecution();
     }

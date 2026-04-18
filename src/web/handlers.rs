@@ -2506,7 +2506,12 @@ fn resolve_tx_block_value_from_input(
                 "tx_block JSON is required when no tx block template is provided",
             ));
         }
-        return Ok(tx_block);
+        let renderer = Renderer::new();
+        let resolved_template_vars = resolve_runtime_vars_with_connection(template_vars, conn)?;
+        let mut context = build_json_template_context(resolved_template_vars, conn);
+        enrich_context_with_connection_refs_from_value(&mut context, &tx_block)
+            .map_err(ApiError::from)?;
+        return render_json_template_value(&tx_block, &mut context, &renderer);
     }
 
     let source = load_json_template_from_input(
@@ -4917,6 +4922,7 @@ mod tests {
     use super::{
         TaskReportContext, build_json_template_context, builtin_command_flow_template_by_name,
         merged_saved_secret, parse_builtin_command_flow_template_token, require_managed_async_task,
+        resolve_tx_block_value_from_input,
         sanitize_rendered_output_for_response, saved_connection_detail_response,
         should_persist_secret,
     };
@@ -5054,6 +5060,53 @@ mod tests {
             context["vars"]["peer_host"],
             serde_json::json!("edge-94.host")
         );
+    }
+
+    #[test]
+    fn tx_block_direct_input_supports_template_rendering_with_connection_context() {
+        let conn = ResolvedConnection {
+            connection_name: Some("edge92".to_string()),
+            host: "192.168.30.92".to_string(),
+            username: "admin".to_string(),
+            password: "secret-92".to_string(),
+            port: 22,
+            enable_password: None,
+            ssh_security: SshSecurityProfile::Balanced,
+            linux_shell_flavor: Some(LinuxShellFlavor::Posix),
+            device_profile: "linux".to_string(),
+            vars: serde_json::json!({}),
+        };
+        let raw_block = serde_json::json!({
+            "name": "deploy",
+            "rollback_policy": "none",
+            "steps": [{
+                "run": {
+                    "kind": "command",
+                    "mode": "User",
+                    "command": "scp /tmp/app.tar {{ username }}@{{ target_host }}:/tmp/app.tar # {{ password }}",
+                    "timeout": 30
+                },
+                "rollback": null,
+                "rollback_on_failure": false
+            }],
+            "fail_fast": true
+        });
+        let rendered = resolve_tx_block_value_from_input(
+            raw_block,
+            None,
+            None,
+            serde_json::json!({
+                "target_host": "host"
+            }),
+            Some(&conn),
+        )
+        .expect("tx block direct rendering should succeed");
+
+        let command = rendered["steps"][0]["run"]["command"]
+            .as_str()
+            .expect("rendered command should be a string");
+        assert!(command.contains("admin@192.168.30.92"));
+        assert!(command.contains("secret-92"));
     }
 
     #[test]

@@ -243,6 +243,17 @@
                             </div>
                             <div id="tx-workflow-json-editor" class="tx-json-editor tx-json-editor-compact hidden" aria-label="Tx Workflow JSON Editor"></div>
                             <textarea id="tx-workflow-json" class="input min-h-40 font-mono tx-json-fallback" placeholder='{"name":"linux-safe-deploy-demo","fail_fast":true,"blocks":[{"name":"precheck","rollback_policy":"none","fail_fast":true,"steps":[{"run":{"kind":"command","mode":"User","command":"uname -a","timeout":30},"rollback":null,"rollback_on_failure":false},{"run":{"kind":"command","mode":"User","command":"date","timeout":30},"rollback":null,"rollback_on_failure":false}]},{"name":"apply-change","rollback_policy":"per_step","fail_fast":true,"steps":[{"run":{"kind":"command","mode":"User","command":"mkdir -p /tmp/rauto-demo","timeout":30},"rollback":{"kind":"command","mode":"User","command":"rm -rf /tmp/rauto-demo","timeout":30},"rollback_on_failure":false},{"run":{"kind":"command","mode":"User","command":"echo version=2026.04.17 > /tmp/rauto-demo/release.txt","timeout":30},"rollback":{"kind":"command","mode":"User","command":"rm -f /tmp/rauto-demo/release.txt","timeout":30},"rollback_on_failure":true}]},{"name":"verify","rollback_policy":{"whole_resource":{"rollback":{"kind":"command","mode":"User","command":"rm -rf /tmp/rauto-demo","timeout":30},"trigger_step_index":0}},"fail_fast":false,"steps":[{"run":{"kind":"command","mode":"User","command":"ls -lah /tmp/rauto-demo","timeout":30},"rollback":null,"rollback_on_failure":false}]}]}'></textarea>
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                              <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                <div id="tx-workflow-direct-vars-form-title" class="text-sm font-semibold text-slate-700">Vars Form</div>
+                                <div class="inline-flex flex-wrap items-center gap-2">
+                                  <button id="tx-workflow-direct-vars-add-btn" class="btn btn-sm" type="button">Add Var</button>
+                                  <button id="tx-workflow-direct-vars-sync-btn" class="btn btn-sm" type="button">Sync From JSON</button>
+                                  <button id="tx-workflow-direct-vars-clear-btn" class="btn btn-sm" type="button">Clear</button>
+                                </div>
+                              </div>
+                              <div id="tx-workflow-direct-vars-form" class="grid gap-2"></div>
+                            </div>
                             <textarea id="tx-workflow-vars-json" class="input min-h-20 font-mono" placeholder='workflow vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
                             <div id="tx-workflow-vars-hint" class="text-xs text-slate-500">Supports direct refs like edge94.host and fallback lookups by key name.</div>
                             <input id="tx-workflow-import-file-input" type="file" accept=".json,application/json" hidden />
@@ -255,6 +266,17 @@
                               <button id="tx-workflow-template-run-new-btn" class="btn btn-sm" type="button">New</button>
                               <button id="tx-workflow-template-run-save-btn" class="btn btn-success btn-sm" type="button">Save</button>
                               <button id="tx-workflow-template-run-delete-btn" class="btn btn-error btn-sm" type="button">Delete</button>
+                            </div>
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                              <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                <div id="tx-workflow-template-vars-form-title" class="text-sm font-semibold text-slate-700">Vars Form</div>
+                                <div class="inline-flex flex-wrap items-center gap-2">
+                                  <button id="tx-workflow-template-vars-add-btn" class="btn btn-sm" type="button">Add Var</button>
+                                  <button id="tx-workflow-template-vars-sync-btn" class="btn btn-sm" type="button">Sync From JSON</button>
+                                  <button id="tx-workflow-template-vars-clear-btn" class="btn btn-sm" type="button">Clear</button>
+                                </div>
+                              </div>
+                              <div id="tx-workflow-template-vars-form" class="grid gap-2"></div>
                             </div>
                             <textarea id="tx-workflow-template-vars-json" class="input min-h-20 font-mono" placeholder='workflow template vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
                             <div id="tx-workflow-template-run-hint" class="text-xs text-slate-500">Select a saved workflow template and execute it with runtime vars.</div>
@@ -283,6 +305,19 @@
                       <div id="tx-block-view-direct-panel" class="group-card">
                         <div class="group-body grid gap-2">
                           <div id="tx-block-view-direct-hint" class="text-xs text-slate-500">Edit and execute a raw tx block JSON document, aligned with CLI input.</div>
+                          <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                              <div id="tx-block-direct-vars-form-title" class="text-sm font-semibold text-slate-700">Vars Form</div>
+                              <div class="inline-flex flex-wrap items-center gap-2">
+                                <button id="tx-block-direct-vars-add-btn" class="btn btn-sm" type="button">Add Var</button>
+                                <button id="tx-block-direct-vars-sync-btn" class="btn btn-sm" type="button">Sync From JSON</button>
+                                <button id="tx-block-direct-vars-clear-btn" class="btn btn-sm" type="button">Clear</button>
+                              </div>
+                            </div>
+                            <div id="tx-block-direct-vars-form" class="grid gap-2"></div>
+                          </div>
+                          <textarea id="tx-block-direct-vars" class="input min-h-20 font-mono" placeholder='tx block vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
+                          <div id="tx-block-direct-vars-hint" class="text-xs text-slate-500">Optional runtime vars for direct tx block rendering. Supports connection aliases and current connection fallbacks.</div>
                         </div>
                       </div>
                       <div id="tx-block-view-template-panel" class="group-card" hidden>
@@ -292,6 +327,17 @@
                             <button id="tx-block-template-run-new-btn" class="btn btn-sm" type="button">New</button>
                             <button id="tx-block-template-run-save-btn" class="btn btn-success btn-sm" type="button">Save</button>
                             <button id="tx-block-template-run-delete-btn" class="btn btn-error btn-sm" type="button">Delete</button>
+                          </div>
+                          <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                              <div id="tx-block-template-vars-form-title" class="text-sm font-semibold text-slate-700">Vars Form</div>
+                              <div class="inline-flex flex-wrap items-center gap-2">
+                                <button id="tx-block-template-vars-add-btn" class="btn btn-sm" type="button">Add Var</button>
+                                <button id="tx-block-template-vars-sync-btn" class="btn btn-sm" type="button">Sync From JSON</button>
+                                <button id="tx-block-template-vars-clear-btn" class="btn btn-sm" type="button">Clear</button>
+                              </div>
+                            </div>
+                            <div id="tx-block-template-vars-form" class="grid gap-2"></div>
                           </div>
                           <textarea id="tx-block-template-vars" class="input min-h-20 font-mono" placeholder='tx block template vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
                           <div id="tx-block-template-run-hint" class="text-xs text-slate-500">Load a saved tx block JSON template, edit its JSON body below, and execute it with runtime vars.</div>
@@ -356,6 +402,17 @@
                             <button id="orchestration-import-file-btn" class="btn btn-sm" type="button">Import JSON File</button>
                           </div>
                           <input id="orchestration-import-file-input" type="file" accept=".json,application/json" hidden />
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                          <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <div id="orchestration-vars-form-title" class="text-sm font-semibold text-slate-700">Vars Form</div>
+                            <div class="inline-flex flex-wrap items-center gap-2">
+                              <button id="orchestration-vars-add-btn" class="btn btn-sm" type="button">Add Var</button>
+                              <button id="orchestration-vars-sync-btn" class="btn btn-sm" type="button">Sync From JSON</button>
+                              <button id="orchestration-vars-clear-btn" class="btn btn-sm" type="button">Clear</button>
+                            </div>
+                          </div>
+                          <div id="orchestration-vars-form" class="grid gap-2"></div>
                         </div>
                         <textarea id="orchestration-vars-json" class="input min-h-20 font-mono" placeholder='plan vars JSON (optional), e.g. {"peer_host":"edge94.host"}'></textarea>
                         <div id="orchestration-vars-hint" class="text-xs text-slate-500">Template strings can use {{ peer_host }} or {{ edge94.host }}.</div>

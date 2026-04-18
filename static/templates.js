@@ -980,6 +980,9 @@ async function createTxBlockTemplateDraftFromManager() {
   ensureSelectValue("tx-block-template-name", name);
   setTxBlockEditorJson(defaultTxBlockTemplatePayload());
   byId("tx-block-template-vars").value = "{}";
+  if (typeof txVarsAssistantSyncFromTextarea === "function") {
+    txVarsAssistantSyncFromTextarea("tx-block-template-vars", { silent: true });
+  }
   setStatusMessage("tx-plan-out", `${t("editingNew")}: ${name}`, "info");
 }
 
