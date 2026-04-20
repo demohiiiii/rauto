@@ -5,8 +5,8 @@ use crate::web::models::{
 };
 use crate::web::state::AppState;
 use crate::web::storage;
-use axum::extract::{Path, State};
 use axum::Json;
+use axum::extract::{Path, State};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
@@ -28,7 +28,8 @@ pub async fn get_tx_block_template(
     Path(name): Path<String>,
 ) -> Result<Json<TemplateDetail>, ApiError> {
     let safe_name = storage::safe_json_template_name(&name)?;
-    let Some(stored) = content_store::load_tx_block_template(&safe_name).map_err(ApiError::from)? else {
+    let Some(stored) = content_store::load_tx_block_template(&safe_name).map_err(ApiError::from)?
+    else {
         return Err(ApiError::bad_request("tx block template not found"));
     };
     Ok(Json(TemplateDetail {
@@ -97,7 +98,8 @@ pub async fn get_tx_workflow_template(
     Path(name): Path<String>,
 ) -> Result<Json<TemplateDetail>, ApiError> {
     let safe_name = storage::safe_json_template_name(&name)?;
-    let Some(stored) = content_store::load_tx_workflow_template(&safe_name).map_err(ApiError::from)?
+    let Some(stored) =
+        content_store::load_tx_workflow_template(&safe_name).map_err(ApiError::from)?
     else {
         return Err(ApiError::bad_request("tx workflow template not found"));
     };
@@ -167,7 +169,8 @@ pub async fn get_orchestration_template(
     Path(name): Path<String>,
 ) -> Result<Json<TemplateDetail>, ApiError> {
     let safe_name = storage::safe_json_template_name(&name)?;
-    let Some(stored) = content_store::load_orchestration_template(&safe_name).map_err(ApiError::from)?
+    let Some(stored) =
+        content_store::load_orchestration_template(&safe_name).map_err(ApiError::from)?
     else {
         return Err(ApiError::bad_request("orchestration template not found"));
     };

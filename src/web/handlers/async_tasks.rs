@@ -16,7 +16,9 @@ pub(super) fn require_managed_async_task(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
-        .ok_or_else(|| ApiError::bad_request(format!("{} async endpoint requires task_id", operation)))
+        .ok_or_else(|| {
+            ApiError::bad_request(format!("{} async endpoint requires task_id", operation))
+        })
 }
 
 fn build_async_task_accepted_response(
@@ -190,9 +192,16 @@ pub(super) fn queue_exec_async_task(
         background_state.clone(),
         task_id.clone(),
         "exec",
-        async move { exec_command(State(background_state), Json(req)).await.map(|_| ()) },
+        async move {
+            exec_command(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
     );
-    Ok(build_async_task_accepted_response(task_id, TaskOperation::Exec))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::Exec,
+    ))
 }
 
 pub(super) fn queue_template_async_task(
@@ -209,7 +218,11 @@ pub(super) fn queue_template_async_task(
         background_state.clone(),
         task_id.clone(),
         "template_execute",
-        async move { execute_template(State(background_state), Json(req)).await.map(|_| ()) },
+        async move {
+            execute_template(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
     );
     Ok(build_async_task_accepted_response(
         task_id,
@@ -231,9 +244,16 @@ pub(crate) fn queue_tx_block_async_task(
         background_state.clone(),
         task_id.clone(),
         "tx_block",
-        async move { execute_tx_block(State(background_state), Json(req)).await.map(|_| ()) },
+        async move {
+            execute_tx_block(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
     );
-    Ok(build_async_task_accepted_response(task_id, TaskOperation::TxBlock))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::TxBlock,
+    ))
 }
 
 pub(crate) fn queue_tx_workflow_async_task(
@@ -250,9 +270,16 @@ pub(crate) fn queue_tx_workflow_async_task(
         background_state.clone(),
         task_id.clone(),
         "tx_workflow",
-        async move { execute_tx_workflow(State(background_state), Json(req)).await.map(|_| ()) },
+        async move {
+            execute_tx_workflow(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
     );
-    Ok(build_async_task_accepted_response(task_id, TaskOperation::TxWorkflow))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::TxWorkflow,
+    ))
 }
 
 pub(crate) fn queue_orchestration_async_task(
@@ -269,9 +296,16 @@ pub(crate) fn queue_orchestration_async_task(
         background_state.clone(),
         task_id.clone(),
         "orchestrate",
-        async move { execute_orchestration(State(background_state), Json(req)).await.map(|_| ()) },
+        async move {
+            execute_orchestration(State(background_state), Json(req))
+                .await
+                .map(|_| ())
+        },
     );
-    Ok(build_async_task_accepted_response(task_id, TaskOperation::Orchestrate))
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::Orchestrate,
+    ))
 }
 
 fn build_task_callback<T: Serialize>(
@@ -319,7 +353,10 @@ fn build_task_callback<T: Serialize>(
     }
 }
 
-fn callback_from_result_envelope(state: &Arc<AppState>, envelope: TaskResultEnvelope) -> TaskCallback {
+fn callback_from_result_envelope(
+    state: &Arc<AppState>,
+    envelope: TaskResultEnvelope,
+) -> TaskCallback {
     TaskCallback {
         task_id: envelope.task_id,
         agent_name: current_agent_name(state),

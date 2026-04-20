@@ -5,8 +5,8 @@ use crate::web::models::{
 };
 use crate::web::state::AppState;
 use crate::web::storage;
-use axum::extract::{Path, State};
 use axum::Json;
+use axum::extract::{Path, State};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
@@ -23,7 +23,8 @@ pub async fn get_template(
     Path(name): Path<String>,
 ) -> Result<Json<TemplateDetail>, ApiError> {
     let safe_name = storage::safe_template_name(&name)?;
-    let Some(stored) = content_store::load_command_template(&safe_name).map_err(ApiError::from)? else {
+    let Some(stored) = content_store::load_command_template(&safe_name).map_err(ApiError::from)?
+    else {
         return Err(ApiError::bad_request("template not found"));
     };
     Ok(Json(TemplateDetail {

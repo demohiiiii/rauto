@@ -3,8 +3,7 @@ use crate::cli::RecordLevelOpt;
 use crate::config::command_blacklist;
 use crate::config::command_flow_template::{
     CommandFlowTemplate, ParsedCommandFlowTemplate, build_command_flow_runtime,
-    parse_command_flow_template_with_extensions,
-    resolve_command_flow_runtime_default_mode,
+    parse_command_flow_template_with_extensions, resolve_command_flow_runtime_default_mode,
 };
 use crate::config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -30,29 +29,21 @@ use crate::task::{
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    AsyncTaskAcceptedResponse, CommandResult,
-    ConnectionRequest, ExecRequest, ExecResponse,
-    ExecuteCommandFlowRequest, ExecuteCommandFlowResponse,
-    ExecuteOrchestrationRequest, ExecuteOrchestrationResponse, ExecuteTemplateRequest,
-    ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
-    ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, ExecuteUploadRequest,
-    ExecuteUploadResponse, RecordLevel, RenderRequest, RenderResponse, SavedConnectionDetail,
-    TaskEvent,
+    AsyncTaskAcceptedResponse, CommandResult, ConnectionRequest, ExecRequest, ExecResponse,
+    ExecuteCommandFlowRequest, ExecuteCommandFlowResponse, ExecuteOrchestrationRequest,
+    ExecuteOrchestrationResponse, ExecuteTemplateRequest, ExecuteTemplateResponse,
+    ExecuteTxBlockRequest, ExecuteTxBlockResponse, ExecuteTxWorkflowRequest,
+    ExecuteTxWorkflowResponse, ExecuteUploadRequest, ExecuteUploadResponse, RecordLevel,
+    RenderRequest, RenderResponse, SavedConnectionDetail, TaskEvent,
 };
-use crate::web::state::{
-    AppState, ResolvedConnection, merge_connection_options,
-};
+use crate::web::state::{AppState, ResolvedConnection, merge_connection_options};
 use crate::web::storage;
 use crate::{manager_connection_request, manager_execution_context_with_security};
 use axum::http::StatusCode;
-use axum::{
-    Json,
-    extract::State,
-};
+use axum::{Json, extract::State};
 use chrono::Utc;
 use rneter::session::{
-    MANAGER, SessionEvent, SessionRecordEntry, SessionRecordLevel, SessionRecorder,
-    TxBlock,
+    MANAGER, SessionEvent, SessionRecordEntry, SessionRecordLevel, SessionRecorder, TxBlock,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -65,7 +56,6 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::warn;
 
-mod maintenance;
 mod async_tasks;
 mod command_templates;
 mod connections;
@@ -73,10 +63,15 @@ mod execute;
 mod flow_templates;
 mod interactive;
 mod json_templates;
+mod maintenance;
 mod profiles;
 mod replay;
 mod runtime;
 mod task_events;
+use async_tasks::*;
+pub(crate) use async_tasks::{
+    queue_orchestration_async_task, queue_tx_block_async_task, queue_tx_workflow_async_task,
+};
 pub use command_templates::{
     create_template, delete_template, get_template, list_templates, update_template,
 };
@@ -100,6 +95,7 @@ pub use flow_templates::{
     get_command_flow_template, list_builtin_command_flow_templates, list_command_flow_templates,
     update_command_flow_template,
 };
+pub use interactive::{interactive_command, interactive_start, interactive_stop};
 pub use json_templates::{
     create_orchestration_template, create_tx_block_template, create_tx_workflow_template,
     delete_orchestration_template, delete_tx_block_template, delete_tx_workflow_template,
@@ -107,22 +103,18 @@ pub use json_templates::{
     list_orchestration_templates, list_tx_block_templates, list_tx_workflow_templates,
     update_orchestration_template, update_tx_block_template, update_tx_workflow_template,
 };
-pub use interactive::{interactive_command, interactive_start, interactive_stop};
 pub use maintenance::{
     add_blacklist_pattern, check_blacklist_command, create_backup, delete_blacklist_pattern,
     download_backup, download_connection_import_template, get_task_run_detail, health,
     list_backups, list_blacklist_patterns, list_task_runs, restore_backup,
 };
 pub use profiles::{
-    create_or_update_custom_profile, delete_custom_profile, get_builtin_profile_detail,
-    get_builtin_profile_form, get_custom_profile, get_custom_profile_form, get_profile_modes,
-    diagnose_profile, list_profiles, profiles_overview, upsert_custom_profile_form,
+    create_or_update_custom_profile, delete_custom_profile, diagnose_profile,
+    get_builtin_profile_detail, get_builtin_profile_form, get_custom_profile,
+    get_custom_profile_form, get_profile_modes, list_profiles, profiles_overview,
+    upsert_custom_profile_form,
 };
 pub use replay::replay_session;
-use async_tasks::*;
-pub(crate) use async_tasks::{
-    queue_orchestration_async_task, queue_tx_block_async_task, queue_tx_workflow_async_task,
-};
 use runtime::*;
 use task_events::*;
 

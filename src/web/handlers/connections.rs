@@ -13,8 +13,8 @@ use crate::web::models::{
     UpsertConnectionRequest, UpsertInventoryGroupRequest,
 };
 use crate::web::state::{AppState, merge_connection_options};
-use axum::extract::{Multipart, Path, Query, State};
 use axum::Json;
+use axum::extract::{Multipart, Path, Query, State};
 use rneter::session::SessionRecorder;
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -122,7 +122,9 @@ pub async fn import_connections(
     Ok(Json(report))
 }
 
-pub async fn get_connection(Path(name): Path<String>) -> Result<Json<SavedConnectionDetail>, ApiError> {
+pub async fn get_connection(
+    Path(name): Path<String>,
+) -> Result<Json<SavedConnectionDetail>, ApiError> {
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let data = connection_store::load_connection_raw(&safe)
@@ -138,7 +140,8 @@ pub async fn get_connection_history(
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let limit = query.limit.unwrap_or(20);
-    let rows = history_store::list_history_by_connection_name(&safe, limit).map_err(ApiError::from)?;
+    let rows =
+        history_store::list_history_by_connection_name(&safe, limit).map_err(ApiError::from)?;
     let items = rows
         .into_iter()
         .map(|row| ConnectionHistoryEntry {
@@ -202,7 +205,8 @@ pub async fn delete_connection_history(
 ) -> Result<Json<Value>, ApiError> {
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
-    let deleted = history_store::delete_history_by_connection_name(&safe, &id).map_err(ApiError::from)?;
+    let deleted =
+        history_store::delete_history_by_connection_name(&safe, &id).map_err(ApiError::from)?;
     Ok(Json(json!({ "ok": true, "deleted": deleted })))
 }
 

@@ -65,8 +65,8 @@ pub async fn execute_orchestration(
             .filter(|s| !s.trim().is_empty())
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        let (plan, inventory) =
-            orchestrator::load_plan_from_value(rendered_plan, &plan_root).map_err(ApiError::from)?;
+        let (plan, inventory) = orchestrator::load_plan_from_value(rendered_plan, &plan_root)
+            .map_err(ApiError::from)?;
         let plan_value = serde_json::to_value(&plan).map_err(ApiError::from)?;
         let inventory_value = serde_json::to_value(&inventory).map_err(ApiError::from)?;
         emit_task_event(
@@ -157,17 +157,23 @@ pub async fn execute_orchestration(
                         orchestration_result
                             .stages
                             .iter()
-                            .filter(|stage| matches!(stage.status, orchestrator::StageStatus::Success))
+                            .filter(|stage| {
+                                matches!(stage.status, orchestrator::StageStatus::Success)
+                            })
                             .count() as u64,
                         orchestration_result
                             .stages
                             .iter()
-                            .filter(|stage| matches!(stage.status, orchestrator::StageStatus::Failed))
+                            .filter(|stage| {
+                                matches!(stage.status, orchestrator::StageStatus::Failed)
+                            })
                             .count() as u64,
                         orchestration_result
                             .stages
                             .iter()
-                            .filter(|stage| matches!(stage.status, orchestrator::StageStatus::Skipped))
+                            .filter(|stage| {
+                                matches!(stage.status, orchestrator::StageStatus::Skipped)
+                            })
                             .count() as u64,
                     ),
                 ),

@@ -1,5 +1,5 @@
-use super::*;
 use super::context::current_connection_param_context;
+use super::*;
 
 fn load_command_flow_template_form(name: &str) -> Result<ParsedCommandFlowTemplate, ApiError> {
     if let Some(builtin_name) = parse_builtin_command_flow_template_token(name) {
@@ -24,7 +24,9 @@ pub(crate) fn load_command_flow_template_from_input(
     content: Option<&str>,
     inline_name: &str,
 ) -> Result<ParsedCommandFlowTemplate, ApiError> {
-    let template_name = template_name.map(str::trim).filter(|value| !value.is_empty());
+    let template_name = template_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     let builtin_template_name = builtin_template_name
         .map(str::trim)
         .filter(|value| !value.is_empty());
@@ -45,8 +47,8 @@ pub(crate) fn load_command_flow_template_from_input(
             })
             .ok_or_else(|| ApiError::bad_request("builtin command flow template not found")),
         (None, None, Some(content)) => {
-            let mut parsed =
-                parse_command_flow_template_with_extensions(content, None).map_err(ApiError::from)?;
+            let mut parsed = parse_command_flow_template_with_extensions(content, None)
+                .map_err(ApiError::from)?;
             if parsed.template.name.trim().is_empty() {
                 parsed.template.name = inline_name.to_string();
             }

@@ -261,11 +261,16 @@ pub async fn execute_tx_workflow(
     match &result {
         Ok(response) if task_ctx.is_some() => {
             if let Some(workflow_result) = &response.tx_workflow_result {
-                if let Some(blocks) = workflow_result.get("block_results").and_then(Value::as_array) {
+                if let Some(blocks) = workflow_result
+                    .get("block_results")
+                    .and_then(Value::as_array)
+                {
                     let total_blocks = blocks.len().max(1);
                     for (idx, block) in blocks.iter().enumerate() {
-                        let block_name =
-                            block.get("block_name").and_then(Value::as_str).unwrap_or("block");
+                        let block_name = block
+                            .get("block_name")
+                            .and_then(Value::as_str)
+                            .unwrap_or("block");
                         let committed = block
                             .get("committed")
                             .and_then(Value::as_bool)

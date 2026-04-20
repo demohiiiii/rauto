@@ -133,7 +133,10 @@ fn json_template_context_supports_flat_lookup_with_runtime_precedence() {
     assert_eq!(context["deploy_env"], serde_json::json!("prod"));
     assert_eq!(context["site"], serde_json::json!("lab-a"));
     assert_eq!(context["host"], serde_json::json!("192.168.30.92"));
-    assert_eq!(context["vars"]["peer_host"], serde_json::json!("edge-94.host"));
+    assert_eq!(
+        context["vars"]["peer_host"],
+        serde_json::json!("edge-94.host")
+    );
 }
 
 #[test]

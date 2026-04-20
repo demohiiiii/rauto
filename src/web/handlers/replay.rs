@@ -1,7 +1,5 @@
 use crate::web::error::ApiError;
-use crate::web::models::{
-    ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse,
-};
+use crate::web::models::{ReplayContextDto, ReplayOutputDto, ReplayRequest, ReplayResponse};
 use axum::Json;
 use rneter::session::{SessionRecorder, SessionReplayer};
 

@@ -8,12 +8,14 @@ use crate::web::models::{
 };
 use crate::web::state::AppState;
 use crate::web::storage;
-use axum::extract::{Path, State};
 use axum::Json;
+use axum::extract::{Path, State};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-pub async fn list_profiles(State(state): State<Arc<AppState>>) -> Result<Json<Vec<String>>, ApiError> {
+pub async fn list_profiles(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<String>>, ApiError> {
     let _ = state;
     let profiles = crate::config::template_loader::list_available_profiles()?;
     Ok(Json(profiles))
@@ -38,7 +40,9 @@ pub async fn get_builtin_profile_detail(
     Ok(Json(detail))
 }
 
-pub async fn get_builtin_profile_form(Path(name): Path<String>) -> Result<Json<DeviceProfile>, ApiError> {
+pub async fn get_builtin_profile_form(
+    Path(name): Path<String>,
+) -> Result<Json<DeviceProfile>, ApiError> {
     let profile = storage::builtin_profile_form(&name)
         .ok_or_else(|| ApiError::bad_request("builtin profile not found"))?;
     Ok(Json(profile))
@@ -49,7 +53,8 @@ pub async fn get_custom_profile(
     Path(name): Path<String>,
 ) -> Result<Json<CustomProfileDetail>, ApiError> {
     let safe_name = storage::safe_profile_name(&name)?;
-    let Some(stored) = content_store::load_custom_profile(&safe_name).map_err(ApiError::from)? else {
+    let Some(stored) = content_store::load_custom_profile(&safe_name).map_err(ApiError::from)?
+    else {
         return Err(ApiError::bad_request("custom profile not found"));
     };
     Ok(Json(CustomProfileDetail {
@@ -83,7 +88,8 @@ pub async fn get_custom_profile_form(
     Path(name): Path<String>,
 ) -> Result<Json<DeviceProfile>, ApiError> {
     let safe_name = storage::safe_profile_name(&name)?;
-    let Some(stored) = content_store::load_custom_profile(&safe_name).map_err(ApiError::from)? else {
+    let Some(stored) = content_store::load_custom_profile(&safe_name).map_err(ApiError::from)?
+    else {
         return Err(ApiError::bad_request("custom profile not found"));
     };
     let mut profile: DeviceProfile = toml::from_str(&stored.content).map_err(ApiError::from)?;

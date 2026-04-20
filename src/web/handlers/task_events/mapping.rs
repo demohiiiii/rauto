@@ -1,5 +1,5 @@
-use super::*;
 use super::types::{RecordingEventPlan, TaskEventInput};
+use super::*;
 
 fn task_event_progress_in_range(current: usize, total: usize, start: u8, end: u8) -> Option<u8> {
     if total == 0 {
@@ -129,7 +129,11 @@ pub(crate) fn map_recording_entry_to_task_event(
             } => Some(
                 TaskEventInput::new(
                     "step_completed",
-                    format!("Workflow step {} completed in {}", step_index + 1, block_name),
+                    format!(
+                        "Workflow step {} completed in {}",
+                        step_index + 1,
+                        block_name
+                    ),
                 )
                 .with_stage("command")
                 .with_level("success")

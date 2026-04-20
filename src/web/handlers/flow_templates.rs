@@ -10,8 +10,8 @@ use crate::web::models::{
 };
 use crate::web::state::AppState;
 use crate::web::storage;
-use axum::extract::{Path, State};
 use axum::Json;
+use axum::extract::{Path, State};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
@@ -126,7 +126,8 @@ pub async fn get_command_flow_template(
     Path(name): Path<String>,
 ) -> Result<Json<CommandFlowTemplateDetail>, ApiError> {
     let safe_name = storage::safe_command_flow_template_name(&name)?;
-    let Some(stored) = content_store::load_command_flow_template(&safe_name).map_err(ApiError::from)?
+    let Some(stored) =
+        content_store::load_command_flow_template(&safe_name).map_err(ApiError::from)?
     else {
         return Err(ApiError::bad_request("command flow template not found"));
     };

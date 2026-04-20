@@ -63,8 +63,11 @@ pub async fn execute_tx_block(
             });
         }
 
-        command_blacklist::ensure_tx_block_allowed(&tx_block, &format!("tx block '{}'", block_name))
-            .map_err(|e| ApiError::bad_request(e.to_string()))?;
+        command_blacklist::ensure_tx_block_allowed(
+            &tx_block,
+            &format!("tx block '{}'", block_name),
+        )
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
         emit_task_event(
             &state,
             &task_ctx,

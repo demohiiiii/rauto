@@ -1,4 +1,3 @@
-use super::*;
 use super::mapping::{
     map_recording_entry_to_task_event, parse_task_event_level, parse_task_event_type,
     recording_entry_occurred_at,
@@ -6,6 +5,7 @@ use super::mapping::{
 use super::types::{
     RecordingEventForwarder, RecordingEventPlan, TaskEventInput, TaskReportContext,
 };
+use super::*;
 
 pub(crate) fn spawn_recording_event_forwarder(
     state: &Arc<AppState>,

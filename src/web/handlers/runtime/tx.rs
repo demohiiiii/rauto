@@ -1,8 +1,8 @@
-use super::*;
 use super::context::{
     build_json_template_context, load_json_template_from_input, render_json_template_value,
     resolve_runtime_vars_with_connection,
 };
+use super::*;
 
 #[derive(Debug, serde::Deserialize)]
 struct TxWorkflowBlockTemplateRefPayload {
@@ -145,7 +145,8 @@ pub(crate) fn resolve_tx_workflow_blocks_from_templates(
             block_ref.tx_block_template_vars,
             conn,
         )?;
-        let mut tx_block: TxBlock = serde_json::from_value(rendered_value).map_err(ApiError::from)?;
+        let mut tx_block: TxBlock =
+            serde_json::from_value(rendered_value).map_err(ApiError::from)?;
         if let Some(name) = block_ref.name.filter(|value| !value.trim().is_empty()) {
             tx_block.name = name;
         }
@@ -164,7 +165,8 @@ pub(crate) fn resolve_tx_block_request_from_template(
     req: ExecuteTxBlockRequest,
     defaults: &crate::cli::GlobalOpts,
 ) -> Result<ExecuteTxBlockRequest, ApiError> {
-    let connection_for_context = merge_connection_options(defaults, req.target.connection.clone()).ok();
+    let connection_for_context =
+        merge_connection_options(defaults, req.target.connection.clone()).ok();
     let rendered_value = resolve_tx_block_value_from_input(
         req.tx_block,
         req.tx_block_template_name.as_deref(),

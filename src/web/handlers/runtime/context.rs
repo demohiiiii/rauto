@@ -16,7 +16,8 @@ pub(crate) fn load_json_template_from_input(
             .filter(|value| !value.is_empty()),
     ) {
         (Some(name), None) => {
-            let content = load_by_name(name)?.ok_or_else(|| ApiError::bad_request(missing_error))?;
+            let content =
+                load_by_name(name)?.ok_or_else(|| ApiError::bad_request(missing_error))?;
             serde_json::from_str(&content).map_err(ApiError::from)
         }
         (None, Some(content)) => serde_json::from_str(content).map_err(ApiError::from),
@@ -71,7 +72,10 @@ pub(crate) fn build_json_template_context(
             && !name.trim().is_empty()
         {
             flattened.insert("name".to_string(), Value::String(name.to_string()));
-            flattened.insert("connection_name".to_string(), Value::String(name.to_string()));
+            flattened.insert(
+                "connection_name".to_string(),
+                Value::String(name.to_string()),
+            );
         }
         flattened.insert("host".to_string(), Value::String(conn.host.clone()));
         flattened.insert("username".to_string(), Value::String(conn.username.clone()));
@@ -96,7 +100,9 @@ pub(crate) fn build_json_template_context(
         );
         if let Some(map) = conn.vars.as_object() {
             for (key, value) in map {
-                flattened.entry(key.clone()).or_insert_with(|| value.clone());
+                flattened
+                    .entry(key.clone())
+                    .or_insert_with(|| value.clone());
             }
         }
     }
@@ -156,7 +162,9 @@ pub(crate) fn render_json_template_value(
     }
 }
 
-pub(crate) fn current_connection_param_context(conn: &ResolvedConnection) -> ConnectionParamContext {
+pub(crate) fn current_connection_param_context(
+    conn: &ResolvedConnection,
+) -> ConnectionParamContext {
     ConnectionParamContext::new(
         conn.connection_name.as_deref(),
         Some(&conn.host),
@@ -329,13 +337,21 @@ pub(crate) fn resolve_render_connection_context_fallback(
 
     let linux_shell_flavor = incoming
         .linux_shell_flavor
-        .or_else(|| saved_raw.as_ref().and_then(|saved| saved.linux_shell_flavor))
+        .or_else(|| {
+            saved_raw
+                .as_ref()
+                .and_then(|saved| saved.linux_shell_flavor)
+        })
         .or(defaults.linux_shell_flavor);
 
     let device_profile = incoming
         .device_profile
         .clone()
-        .or_else(|| saved_raw.as_ref().and_then(|saved| saved.device_profile.clone()))
+        .or_else(|| {
+            saved_raw
+                .as_ref()
+                .and_then(|saved| saved.device_profile.clone())
+        })
         .or_else(|| defaults.device_profile.clone())
         .unwrap_or_else(|| template_loader::DEFAULT_DEVICE_PROFILE.to_string());
 
@@ -364,7 +380,8 @@ pub(crate) fn render_commands_with_runtime_context(
 ) -> Result<(String, String), ApiError> {
     let resolved_vars = resolve_template_runtime_vars_with_connection(vars, conn)?;
     let mut render_context = build_json_template_context(resolved_vars, conn);
-    if let Some(stored) = content_store::load_command_template(template_name).map_err(ApiError::from)?
+    if let Some(stored) =
+        content_store::load_command_template(template_name).map_err(ApiError::from)?
     {
         enrich_context_with_connection_refs_from_template(&mut render_context, &stored.content)
             .map_err(ApiError::from)?;

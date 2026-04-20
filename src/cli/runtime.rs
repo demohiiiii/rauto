@@ -1,0 +1,360 @@
+use crate::cli::{GlobalOpts, RecordLevelOpt};
+use crate::config::command_flow_template::CommandFlowTemplate;
+use crate::config::command_flow_vars::{
+    ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
+};
+use crate::config::connection_store::{SavedConnection, load_connection, save_connection};
+use crate::config::history_store::{self, HistoryBinding};
+use crate::config::linux_shell::LinuxShellFlavor;
+use crate::config::ssh_security::SshSecurityProfile;
+use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
+use crate::device::DeviceClient;
+use anyhow::Result;
+use rneter::device::DeviceHandler;
+use rneter::session::{
+    ConnectionRequest as ManagerConnectionRequest, ExecutionContext, SessionRecordLevel,
+};
+use serde_json::Value;
+use std::fs;
+use std::path::PathBuf;
+use tracing::{error, info};
+
+pub(crate) fn manager_connection_request(
+    username: String,
+    host: String,
+    port: u16,
+    password: String,
+    enable_password: Option<String>,
+    handler: DeviceHandler,
+) -> ManagerConnectionRequest {
+    ManagerConnectionRequest::new(username, host, port, password, enable_password, handler)
+}
+
+pub(crate) fn manager_execution_context_with_security(
+    sys: Option<String>,
+    ssh_security: SshSecurityProfile,
+) -> ExecutionContext {
+    ExecutionContext::new()
+        .with_security_options(ssh_security.to_connection_security_options())
+        .with_sys(sys)
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct EffectiveConnection {
+    pub(crate) connection_name: Option<String>,
+    pub(crate) host: String,
+    pub(crate) username: String,
+    pub(crate) password: String,
+    pub(crate) port: u16,
+    pub(crate) enable_password: Option<String>,
+    pub(crate) ssh_security: SshSecurityProfile,
+    pub(crate) linux_shell_flavor: Option<LinuxShellFlavor>,
+    pub(crate) device_profile: String,
+    pub(crate) vars: serde_json::Value,
+    pub(crate) template_dir: Option<PathBuf>,
+}
+
+pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<EffectiveConnection> {
+    let saved = if let Some(name) = &opts.connection {
+        Some(load_connection(name)?)
+    } else {
+        None
+    };
+
+    let host = opts
+        .host
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.host.clone()))
+        .ok_or_else(|| anyhow::anyhow!("host is required"))?;
+    let username = opts
+        .username
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.username.clone()))
+        .unwrap_or_else(|| "admin".to_string());
+    let password = opts
+        .password
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.password.clone()))
+        .or_else(|| std::env::var("RAUTO_PASSWORD").ok())
+        .unwrap_or_default();
+    let port = opts
+        .port
+        .or_else(|| saved.as_ref().and_then(|s| s.port))
+        .unwrap_or(22);
+    let enable_password = opts
+        .enable_password
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()));
+    let ssh_security = opts
+        .ssh_security
+        .or_else(|| saved.as_ref().and_then(|s| s.ssh_security))
+        .unwrap_or_default();
+    let linux_shell_flavor = opts
+        .linux_shell_flavor
+        .or_else(|| saved.as_ref().and_then(|s| s.linux_shell_flavor));
+    let device_profile = opts
+        .device_profile
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
+        .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
+    let template_dir = opts.template_dir.clone().or_else(|| {
+        saved
+            .as_ref()
+            .and_then(|s| s.template_dir.clone().map(PathBuf::from))
+    });
+    let vars = saved
+        .as_ref()
+        .map(|s| s.vars.clone())
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    Ok(EffectiveConnection {
+        connection_name: opts
+            .connection
+            .clone()
+            .or_else(|| opts.save_connection.clone()),
+        host,
+        username,
+        password,
+        port,
+        enable_password,
+        ssh_security,
+        linux_shell_flavor,
+        device_profile,
+        vars,
+        template_dir,
+    })
+}
+
+pub(crate) fn maybe_save_connection_profile(
+    opts: &GlobalOpts,
+    conn: &EffectiveConnection,
+) -> Result<()> {
+    let Some(name) = &opts.save_connection else {
+        return Ok(());
+    };
+
+    let path = save_named_connection(name, conn, opts.save_password)?;
+    println!(
+        "Saved connection profile '{}' to '{}'",
+        name,
+        path.to_string_lossy()
+    );
+    Ok(())
+}
+
+pub(crate) fn save_named_connection(
+    name: &str,
+    conn: &EffectiveConnection,
+    save_password: bool,
+) -> Result<PathBuf> {
+    let data = SavedConnection {
+        host: Some(conn.host.clone()),
+        username: Some(conn.username.clone()),
+        password: if save_password {
+            Some(conn.password.clone())
+        } else {
+            None
+        },
+        password_ref: None,
+        port: Some(conn.port),
+        enable_password: if save_password {
+            conn.enable_password.clone()
+        } else {
+            None
+        },
+        enable_password_ref: None,
+        ssh_security: Some(conn.ssh_security),
+        linux_shell_flavor: conn.linux_shell_flavor,
+        device_profile: Some(conn.device_profile.clone()),
+        template_dir: conn
+            .template_dir
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string()),
+        enabled: true,
+        labels: vec![],
+        vars: conn.vars.clone(),
+        groups: vec![],
+    };
+
+    save_connection(name, &data)
+}
+
+fn current_connection_param_context(conn: &EffectiveConnection) -> ConnectionParamContext {
+    ConnectionParamContext::new(
+        conn.connection_name.as_deref(),
+        Some(&conn.host),
+        Some(&conn.username),
+        Some(&conn.password),
+        Some(conn.port),
+        conn.enable_password.as_deref(),
+        Some(conn.ssh_security),
+        conn.linux_shell_flavor,
+        Some(&conn.device_profile),
+        &conn.vars,
+    )
+}
+
+pub(crate) fn resolve_flow_runtime_vars(
+    template: &CommandFlowTemplate,
+    vars: Value,
+    conn: &EffectiveConnection,
+    current_connection_alias: Option<&str>,
+) -> Result<Value> {
+    resolve_command_flow_runtime_vars(
+        template,
+        vars,
+        Some(current_connection_param_context(conn)),
+        current_connection_alias,
+    )
+}
+
+pub(crate) fn resolve_runtime_vars_for_connection(
+    vars: Value,
+    conn: &EffectiveConnection,
+) -> Result<Value> {
+    resolve_runtime_var_aliases(vars, Some(current_connection_param_context(conn)))
+}
+
+pub(crate) fn read_required_text_input(
+    file: Option<&PathBuf>,
+    content: Option<&str>,
+) -> Result<String> {
+    match (
+        file.map(|path| path.as_path()),
+        content.map(str::trim).filter(|value| !value.is_empty()),
+    ) {
+        (Some(path), None) => Ok(fs::read_to_string(path)?),
+        (None, Some(inline)) => Ok(inline.to_string()),
+        (Some(_), Some(_)) => Err(anyhow::anyhow!(
+            "choose either --file or --content, not both"
+        )),
+        (None, None) => Err(anyhow::anyhow!("one of --file or --content is required")),
+    }
+}
+
+pub(crate) fn to_record_level(level: RecordLevelOpt) -> SessionRecordLevel {
+    match level {
+        RecordLevelOpt::KeyEventsOnly => SessionRecordLevel::KeyEventsOnly,
+        RecordLevelOpt::Full => SessionRecordLevel::Full,
+    }
+}
+
+pub(crate) fn record_level_name(level: RecordLevelOpt) -> &'static str {
+    match level {
+        RecordLevelOpt::KeyEventsOnly => "key-events-only",
+        RecordLevelOpt::Full => "full",
+    }
+}
+
+pub(crate) fn persist_auto_recording_history(
+    client: &DeviceClient,
+    conn: &EffectiveConnection,
+    operation: &str,
+    command_label: &str,
+    mode: Option<&str>,
+    record_level: RecordLevelOpt,
+) -> Result<()> {
+    let Some(jsonl) = client.recording_jsonl()? else {
+        return Ok(());
+    };
+    let result = history_store::save_recording(
+        HistoryBinding {
+            connection_name: conn.connection_name.as_deref(),
+            host: &conn.host,
+            port: conn.port,
+            username: &conn.username,
+            device_profile: &conn.device_profile,
+        },
+        operation,
+        command_label,
+        mode,
+        record_level_name(record_level),
+        &jsonl,
+    );
+    match result {
+        Ok(entry) => {
+            info!(
+                "Auto-saved recording history: {} -> {}",
+                entry.connection_key, entry.record_path
+            );
+        }
+        Err(e) => {
+            error!("Failed to auto-save recording history: {}", e);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn write_recording_if_requested(
+    record_file: Option<&PathBuf>,
+    client: &DeviceClient,
+) -> Result<()> {
+    let Some(path) = record_file else {
+        return Ok(());
+    };
+    let Some(jsonl) = client.recording_jsonl()? else {
+        return Ok(());
+    };
+
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, jsonl.as_bytes())?;
+    println!("Saved session recording to '{}'", path.to_string_lossy());
+    Ok(())
+}
+
+pub(crate) fn persist_auto_recording_history_jsonl(
+    jsonl: &str,
+    conn: &EffectiveConnection,
+    operation: &str,
+    command_label: &str,
+    mode: Option<&str>,
+    record_level: RecordLevelOpt,
+) -> Result<()> {
+    let result = history_store::save_recording(
+        HistoryBinding {
+            connection_name: conn.connection_name.as_deref(),
+            host: &conn.host,
+            port: conn.port,
+            username: &conn.username,
+            device_profile: &conn.device_profile,
+        },
+        operation,
+        command_label,
+        mode,
+        record_level_name(record_level),
+        jsonl,
+    );
+    match result {
+        Ok(entry) => {
+            info!(
+                "Auto-saved recording history: {} -> {}",
+                entry.connection_key, entry.record_path
+            );
+        }
+        Err(e) => {
+            error!("Failed to auto-save recording history: {}", e);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn write_recording_text_if_requested(
+    record_file: Option<&PathBuf>,
+    jsonl: &str,
+) -> Result<()> {
+    let Some(path) = record_file else {
+        return Ok(());
+    };
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, jsonl.as_bytes())?;
+    println!("Saved session recording to '{}'", path.to_string_lossy());
+    Ok(())
+}
