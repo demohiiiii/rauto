@@ -16,19 +16,21 @@ function renderModeValidationCard(message) {
         .join(" ")
     : `<span class="text-xs text-rose-600">-</span>`;
   return `
-    <div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-      <div class="font-medium">${escapeHtml(t("invalidModeTitle"))}: ${escapeHtml(parsed.invalidMode)}</div>
-      <div class="mt-2 space-y-1 text-xs">
-        <div><span class="font-medium">${escapeHtml(t("invalidModeProfile"))}:</span> ${escapeHtml(parsed.profile)}</div>
-        <div><span class="font-medium">${escapeHtml(t("invalidModeDefault"))}:</span> ${escapeHtml(parsed.defaultMode)}</div>
+    <div role="alert" class="alert alert-error">
+      <div class="grid gap-2">
+        <div class="font-medium">${escapeHtml(t("invalidModeTitle"))}: ${escapeHtml(parsed.invalidMode)}</div>
+        <div class="grid gap-1 text-xs">
+          <div><span class="font-medium">${escapeHtml(t("invalidModeProfile"))}:</span> ${escapeHtml(parsed.profile)}</div>
+          <div><span class="font-medium">${escapeHtml(t("invalidModeDefault"))}:</span> ${escapeHtml(parsed.defaultMode)}</div>
+        </div>
+        <div>
+          <div class="mb-1 text-xs font-medium uppercase tracking-wide">${escapeHtml(
+            t("invalidModeAvailable")
+          )}</div>
+          <div class="flex flex-wrap gap-1.5">${badges}</div>
+        </div>
+        <div class="text-xs">${escapeHtml(t("invalidModeHint"))}</div>
       </div>
-      <div class="mt-3">
-        <div class="mb-1 text-xs font-medium uppercase tracking-wide text-rose-600">${escapeHtml(
-          t("invalidModeAvailable")
-        )}</div>
-        <div class="flex flex-wrap gap-1.5">${badges}</div>
-      </div>
-      <div class="mt-3 text-xs text-rose-600">${escapeHtml(t("invalidModeHint"))}</div>
     </div>
   `;
 }
@@ -41,15 +43,22 @@ function renderStatusMessageCard(message, tone = "info") {
   const text = safeString(message || "-");
   const cls =
     tone === "success"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      ? "alert-success"
       : tone === "warning"
-        ? "border-amber-200 bg-amber-50 text-amber-700"
-      : tone === "error"
-        ? "border-rose-200 bg-rose-50 text-rose-700"
-        : tone === "running"
-          ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-          : "border-slate-200 bg-slate-50 text-slate-600";
-  return `<div class="rounded-xl border px-3 py-2 text-sm ${cls}">${escapeHtml(text)}</div>`;
+        ? "alert-warning"
+        : tone === "error"
+          ? "alert-error"
+          : "alert-info";
+  const leading =
+    tone === "running"
+      ? `<span class="loading loading-spinner loading-xs" aria-hidden="true"></span>`
+      : "";
+  return `
+    <div role="alert" class="alert ${cls}">
+      ${leading}
+      <span class="break-all whitespace-pre-wrap">${escapeHtml(text)}</span>
+    </div>
+  `;
 }
 
 function renderStatusToast(message, tone = "info") {
@@ -61,9 +70,9 @@ function renderStatusToast(message, tone = "info") {
         ? "alert-warning"
         : "alert-error";
   return `
-    <div class="alert ${cls} shadow-lg">
+    <div role="alert" class="pointer-events-auto alert ${cls}">
       <span>${escapeHtml(text)}</span>
-      <button type="button" class="btn btn-ghost btn-xs js-toast-close" aria-label="Close">×</button>
+      <button type="button" class="js-toast-close text-lg leading-none opacity-70 transition hover:opacity-100" aria-label="Close">✕</button>
     </div>
   `;
 }

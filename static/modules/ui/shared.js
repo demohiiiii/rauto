@@ -13,7 +13,6 @@ const INLINE_STATUS_TARGETS = new Set([
   "flow-out",
   "upload-out",
   "profile-diagnose-out",
-  "builtin-detail-status",
 ]);
 
 let toastSequence = 0;
@@ -43,7 +42,7 @@ function shouldRenderInlineStatus(id, message, tone) {
 
 function showToast(message, tone = "info") {
   const stack = byId("toast-stack");
-  if (!stack || !shouldToastStatus(message, tone)) return;
+  if (!stack) return;
   const toastId = `toast-${++toastSequence}`;
   const item = document.createElement("div");
   item.dataset.toastId = toastId;
@@ -73,7 +72,9 @@ function setStatusMessage(id, message, tone = "info") {
   } else {
     el.innerHTML = "";
   }
-  showToast(message, tone);
+  if (shouldToastStatus(message, tone)) {
+    showToast(message, tone);
+  }
 }
 
 function flowVarTypeLabel(kind) {

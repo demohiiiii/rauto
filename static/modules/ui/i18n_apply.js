@@ -423,7 +423,10 @@ function applyI18n() {
   const builtinCommandExecutionValue =
     byId("builtin-command-execution-mode").value ||
     normalizeCommandExecutionConfig(lastBuiltinProfile?.command_execution).mode;
-  byId("builtin-detail-btn").textContent = t("builtinDetailBtn");
+  byId("builtin-profile-select").setAttribute(
+    "title",
+    t("builtinProfileSelectPlaceholder")
+  );
   byId("builtin-copy-btn").textContent = t("builtinCopyBtn");
   byId("builtin-command-execution-title").textContent = t("commandExecutionTitle");
   byId("builtin-command-execution-mode").innerHTML = `

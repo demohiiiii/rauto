@@ -620,6 +620,11 @@ function initCollapsibleGroups() {
 function openDetailModal(content, options = {}) {
   const modal = byId("detail-modal");
   const body = byId("detail-modal-body");
+  const pendingResetTimer = Number(modal?.dataset?.detailModalResetTimer || 0);
+  if (pendingResetTimer) {
+    window.clearTimeout(pendingResetTimer);
+    delete modal.dataset.detailModalResetTimer;
+  }
   byId("detail-modal-title").textContent = options.title || t("detailModalTitle");
   if (options.html) {
     body.innerHTML = content;
@@ -628,16 +633,47 @@ function openDetailModal(content, options = {}) {
       safeString(content)
     )}</pre>`;
   }
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
+  if (typeof modal.showModal === "function") {
+    if (!modal.open) {
+      modal.showModal();
+    }
+  } else {
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  }
   document.body.classList.add("overflow-hidden");
 }
 
 function closeDetailModal() {
   const modal = byId("detail-modal");
-  modal.classList.add("hidden");
-  modal.classList.remove("flex");
-  byId("detail-modal-body").innerHTML = "";
-  byId("detail-modal-title").textContent = t("detailModalTitle");
-  document.body.classList.remove("overflow-hidden");
+  if (typeof modal.close === "function") {
+    if (modal.open) {
+      modal.close();
+    }
+  } else {
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+  }
+  const keepLocked =
+    byId("record-drawer")?.classList.contains("open") ||
+    byId("history-drawer")?.classList.contains("open") ||
+    byId("entry-drawer")?.classList.contains("open");
+  if (!keepLocked) {
+    document.body.classList.remove("overflow-hidden");
+  }
+  const pendingResetTimer = Number(modal?.dataset?.detailModalResetTimer || 0);
+  if (pendingResetTimer) {
+    window.clearTimeout(pendingResetTimer);
+  }
+  const timerId = window.setTimeout(() => {
+    const isStillOpen =
+      (typeof modal.open === "boolean" && modal.open) ||
+      !modal.classList.contains("hidden");
+    if (!isStillOpen) {
+      byId("detail-modal-body").innerHTML = "";
+      byId("detail-modal-title").textContent = t("detailModalTitle");
+    }
+    delete modal.dataset.detailModalResetTimer;
+  }, 240);
+  modal.dataset.detailModalResetTimer = String(timerId);
 }

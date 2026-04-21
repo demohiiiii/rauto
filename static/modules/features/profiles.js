@@ -103,10 +103,15 @@ async function loadProfilesOverview() {
       return `- ${item.name}${aliases}: ${item.summary}`;
     });
     outBuiltin.textContent = lines.join("\n") || "-";
-    builtinSelect.innerHTML = data.builtins
-      .map((item) => `<option value="${item.name}">${item.name}</option>`)
-      .join("");
-    setStatusMessage("builtin-detail-status", "-", "info");
+    const selectedBuiltinName = safeString(builtinSelect?.value || "").trim();
+    populateSelectOptions(
+      "builtin-profile-select",
+      data.builtins.map((item) => item.name),
+      {
+        placeholder: t("builtinProfileSelectPlaceholder"),
+        selected: selectedBuiltinName,
+      }
+    );
 
     if (data.custom.length > 0) {
       cachedCustomProfiles = data.custom.map((item) => item.name);
@@ -122,6 +127,11 @@ async function loadProfilesOverview() {
     if (typeof renderInventoryConnectionOptions === "function") {
       renderInventoryConnectionOptions(byId("inventory-resolve-host")?.value || "");
     }
+    if (byId("builtin-profile-select")?.value.trim()) {
+      await loadBuiltinProfileDetail();
+    } else {
+      clearBuiltinProfileDetail();
+    }
     await refreshExecutionModeOptions();
   } catch (e) {
     cachedProfileModes = new Map();
@@ -134,6 +144,7 @@ async function loadProfilesOverview() {
     if (typeof renderInventoryConnectionOptions === "function") {
       renderInventoryConnectionOptions(byId("inventory-resolve-host")?.value || "");
     }
+    clearBuiltinProfileDetail();
     await refreshExecutionModeOptions();
   }
 }
@@ -155,10 +166,9 @@ function renderDiagnoseProfileOptions(keyword = "") {
 async function loadBuiltinProfileDetail() {
   const name = byId("builtin-profile-select").value;
   if (!name) {
-    setStatusMessage("builtin-detail-status", "-", "info");
+    clearBuiltinProfileDetail();
     return;
   }
-  setStatusMessage("builtin-detail-status", t("running"), "running");
   try {
     const data = await request(
       "GET",
@@ -175,11 +185,31 @@ async function loadBuiltinProfileDetail() {
     byId("builtin-detail-source").value = data.source || "";
     byId("builtin-detail-notes").value = (data.notes || []).join("\n");
     setBuiltinForm(profile);
-    setStatusMessage("builtin-detail-status", `${data.name}: ${data.summary}`, "success");
+    setStatusMessage("builtin-detail-status", "-", "info");
   } catch (e) {
-    lastBuiltinProfile = null;
+    clearBuiltinProfileDetail();
     setStatusMessage("builtin-detail-status", e.message, "error");
   }
+}
+
+function clearBuiltinProfileDetail() {
+  lastBuiltinProfile = null;
+  byId("builtin-detail-name").value = "";
+  byId("builtin-detail-aliases").value = "";
+  byId("builtin-detail-summary").value = "";
+  byId("builtin-detail-source").value = "";
+  byId("builtin-detail-notes").value = "";
+  setBuiltinForm({
+    command_execution: "prompt_driven",
+    more_patterns: [],
+    error_patterns: [],
+    ignore_errors: [],
+    prompts: [],
+    sys_prompts: [],
+    interactions: [],
+    transitions: [],
+  });
+  setStatusMessage("builtin-detail-status", "-", "info");
 }
 
 function normalizeCommandExecutionConfig(config) {
@@ -679,22 +709,27 @@ async function saveCustomProfile() {
   }
 }
 
-function createCustomProfileDraft() {
+async function createCustomProfileDraft() {
   const name = promptForResourceName(t("profileNewPrompt"));
   if (!name) return;
-  ensureSelectValue("custom-profile-picker", name);
-  setProfileForm({
-    name,
-    command_execution: "prompt_driven",
-    more_patterns: [],
-    error_patterns: [],
-    ignore_errors: [],
-    prompts: [],
-    sys_prompts: [],
-    interactions: [],
-    transitions: [],
-  });
-  setStatusMessage("profile-out", `${t("editingNew")}: ${name}`, "info");
+  setStatusMessage("profile-out", t("running"), "running");
+  try {
+    const profile = collectProfileForm();
+    profile.name = name;
+    const data = await request(
+      "PUT",
+      `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
+      profile
+    );
+    ensureSelectValue("custom-profile-picker", data.name || name);
+    setStatusMessage("profile-out", `${t("saved")}: ${data.name || name}`, "success");
+    await loadProfilesOverview();
+    if (byId("custom-profile-picker").value.trim()) {
+      await loadCustomProfile();
+    }
+  } catch (e) {
+    setStatusMessage("profile-out", e.message, "error");
+  }
 }
 
 async function deleteCustomProfile() {

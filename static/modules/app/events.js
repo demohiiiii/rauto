@@ -198,7 +198,11 @@ function bindEvents() {
         }
       } catch (_) {}
     }
-    if (e.key === "Escape" && !detailModal.classList.contains("hidden")) {
+    if (
+      e.key === "Escape" &&
+      ((typeof detailModal.open === "boolean" && detailModal.open) ||
+        !detailModal.classList.contains("hidden"))
+    ) {
       closeDetailModal();
     }
     if (e.key === "Escape" && byId("record-drawer").classList.contains("open")) {
@@ -442,8 +446,13 @@ function bindEvents() {
     await loadCustomProfile();
   };
   byId("profile-new-btn").onclick = createCustomProfileDraft;
-  byId("builtin-detail-btn").onclick = loadBuiltinProfileDetail;
-  byId("builtin-copy-btn").onclick = () => {
+  byId("builtin-profile-select").onchange = async () => {
+    await loadBuiltinProfileDetail();
+  };
+  byId("builtin-copy-btn").onclick = async () => {
+    if (!lastBuiltinProfile && byId("builtin-profile-select").value.trim()) {
+      await loadBuiltinProfileDetail();
+    }
     if (!lastBuiltinProfile) {
       setStatusMessage("builtin-detail-status", t("needLoadBuiltinFirst"), "error");
       return;

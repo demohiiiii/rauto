@@ -94,15 +94,121 @@ function savedConnectionDetails(item) {
   };
 }
 
+function persistConnectionTarget(details = null) {
+  try {
+    if (!details || !details.kind || details.kind === "none") {
+      localStorage.removeItem(STORAGE_KEYS.connectionTarget);
+      return;
+    }
+    if (details.kind === "saved") {
+      const name = safeString(details.name || "").trim();
+      if (!name) {
+        localStorage.removeItem(STORAGE_KEYS.connectionTarget);
+        return;
+      }
+      localStorage.setItem(
+        STORAGE_KEYS.connectionTarget,
+        JSON.stringify({
+          kind: "saved",
+          name,
+        })
+      );
+      return;
+    }
+    if (details.kind === "temporary") {
+      localStorage.setItem(
+        STORAGE_KEYS.connectionTarget,
+        JSON.stringify({
+          kind: "temporary",
+          host: safeString(details.host || "").trim(),
+          port: Number(details.port || 22) || 22,
+          username: safeString(details.username || "").trim(),
+          device_profile: safeString(details.profile || "linux").trim() || "linux",
+          ssh_security: safeString(byId("ssh_security")?.value || "").trim(),
+          linux_shell_flavor: safeString(byId("linux_shell_flavor")?.value || "").trim(),
+        })
+      );
+      return;
+    }
+    localStorage.removeItem(STORAGE_KEYS.connectionTarget);
+  } catch (_) {}
+}
+
 function setCurrentConnectionTarget(details = null) {
   if (!details) {
     currentConnectionTarget = { kind: "none", details: null };
+    persistConnectionTarget(null);
     return;
   }
   currentConnectionTarget = {
     kind: details.kind || "saved",
     details: { ...details },
   };
+  persistConnectionTarget(currentConnectionTarget.details);
+}
+
+function restorePersistedConnectionTarget() {
+  if (currentConnectionTarget.kind !== "none") return;
+  let parsed = null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.connectionTarget);
+    if (!raw) return;
+    parsed = JSON.parse(raw);
+  } catch (_) {
+    localStorage.removeItem(STORAGE_KEYS.connectionTarget);
+    return;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    localStorage.removeItem(STORAGE_KEYS.connectionTarget);
+    return;
+  }
+
+  if (parsed.kind === "saved") {
+    const targetName = safeString(parsed.name || "").trim();
+    if (!targetName) {
+      localStorage.removeItem(STORAGE_KEYS.connectionTarget);
+      return;
+    }
+    const selected = cachedSavedConnections.find((item) => item.name === targetName);
+    if (!selected) {
+      localStorage.removeItem(STORAGE_KEYS.connectionTarget);
+      return;
+    }
+    ensureSelectValue("saved-conn-name", targetName);
+    clearTemporaryConnectionActive();
+    setCurrentConnectionTarget(savedConnectionDetails(selected));
+    return;
+  }
+
+  if (parsed.kind === "temporary") {
+    byId("saved-conn-name").value = "";
+    const host = safeString(parsed.host || "").trim();
+    const username = safeString(parsed.username || "").trim();
+    byId("host").value = host;
+    byId("port").value = safeString(parsed.port || 22);
+    byId("username").value = username;
+    byId("device_profile").value =
+      safeString(parsed.device_profile || "linux").trim() || "linux";
+    byId("ssh_security").value = safeString(parsed.ssh_security || "").trim();
+    byId("linux_shell_flavor").value = safeString(parsed.linux_shell_flavor || "").trim();
+    temporaryConnectionActive = true;
+    temporaryConnectionLabel = "";
+    temporaryConnectionDetails = {
+      name: currentTemporaryConnectionLabel(),
+      host: host || "-",
+      port: Number(parsed.port || 22) || 22,
+      username: username || "-",
+      profile: safeString(parsed.device_profile || "linux").trim() || "linux",
+      kind: "temporary",
+      note: t("sidebarConnectionTemporaryHint"),
+    };
+    setCurrentConnectionTarget(temporaryConnectionDetails);
+    if (typeof refreshExecutionModeOptions === "function") {
+      refreshExecutionModeOptions();
+    }
+    return;
+  }
+  localStorage.removeItem(STORAGE_KEYS.connectionTarget);
 }
 
 function renderTargetCard(details) {
@@ -231,7 +337,15 @@ async function loadSavedConnections() {
       const selected = cachedSavedConnections.find((item) => item.name === targetName);
       if (selected) {
         setCurrentConnectionTarget(savedConnectionDetails(selected));
+      } else {
+        if (byId("saved-conn-name")?.value === targetName) {
+          byId("saved-conn-name").value = "";
+        }
+        setCurrentConnectionTarget(null);
       }
+    }
+    if (currentConnectionTarget.kind === "none") {
+      restorePersistedConnectionTarget();
     }
     if (typeof loadInventoryConnections === "function") {
       loadInventoryConnections();

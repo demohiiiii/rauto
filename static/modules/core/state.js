@@ -17,6 +17,7 @@ const STORAGE_KEYS = {
   historyFilterQuery: "rauto_history_filter_query",
   historyFilterOperation: "rauto_history_filter_operation",
   historyFilterLimit: "rauto_history_filter_limit",
+  connectionTarget: "rauto_connection_target",
 };
 
 
