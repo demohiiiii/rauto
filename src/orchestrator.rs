@@ -130,6 +130,12 @@ pub struct TxBlockAction {
     #[serde(default)]
     pub tx_block_template_vars: Value,
     #[serde(default)]
+    pub flow_template_name: Option<String>,
+    #[serde(default)]
+    pub flow_template_content: Option<String>,
+    #[serde(default)]
+    pub flow_vars: Value,
+    #[serde(default)]
     pub vars: Value,
     #[serde(default)]
     pub commands: Vec<String>,
@@ -428,6 +434,19 @@ fn action_summary(action: &OrchestrationAction) -> String {
                 .is_some_and(|content| !content.trim().is_empty())
             {
                 parts.push("tx_block_template_content=inline".to_string());
+            }
+            if let Some(name) = spec
+                .flow_template_name
+                .as_deref()
+                .filter(|name| !name.trim().is_empty())
+            {
+                parts.push(format!("flow_template={}", name));
+            } else if spec
+                .flow_template_content
+                .as_deref()
+                .is_some_and(|content| !content.trim().is_empty())
+            {
+                parts.push("flow_template_content=inline".to_string());
             }
             if let Some(template) = &spec.template {
                 parts.push(format!("template={}", template));

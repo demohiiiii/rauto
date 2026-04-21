@@ -151,7 +151,6 @@ function bindTxExecutionEvents() {
     try {
       const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(true));
       const workflow = data && data.workflow ? data.workflow : {};
-      setTxWorkflowEditorJson(workflow);
       setTxWorkflowPreview(workflow);
       setStatusMessage("tx-workflow-plan-out", t("txWorkflowPreviewDone"), "success");
     } catch (e) {
@@ -187,7 +186,6 @@ function bindTxExecutionEvents() {
       const data = await request("POST", "/api/orchestrate", orchestrationPayload(true));
       const plan = data && data.plan ? data.plan : {};
       const inventory = data && data.inventory ? data.inventory : {};
-      setOrchestrationEditorJson(plan);
       setOrchestrationPreview(plan, inventory, null);
       setStatusMessage(
         "orchestration-plan-out",

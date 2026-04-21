@@ -72,6 +72,17 @@ pub(super) fn validate_tx_block_action(
         .map(|s| !s.trim().is_empty())
         .unwrap_or(false);
     let has_tx_block_template_source = has_tx_block_template_name || has_tx_block_template_content;
+    let has_flow_template_name = action
+        .flow_template_name
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    let has_flow_template_content = action
+        .flow_template_content
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    let has_flow_template_source = has_flow_template_name || has_flow_template_content;
     let has_commands = action.commands.iter().any(|s| !s.trim().is_empty());
     if has_tx_block_template_name && has_tx_block_template_content {
         return Err(anyhow!(
@@ -79,15 +90,29 @@ pub(super) fn validate_tx_block_action(
             stage.name
         ));
     }
-    if has_tx_block_template_source && (has_template || has_commands) {
+    if has_flow_template_name && has_flow_template_content {
         return Err(anyhow!(
-            "stage '{}' tx_block template source cannot be combined with template/commands",
+            "stage '{}' tx_block uses either flow_template_name or flow_template_content, not both",
             stage.name
         ));
     }
-    if !has_tx_block_template_source && !has_template && !has_commands {
+    if has_tx_block_template_source && has_flow_template_source {
         return Err(anyhow!(
-            "stage '{}' tx_block requires tx_block_template_name/tx_block_template_content or 'template'/non-empty 'commands'",
+            "stage '{}' tx_block template source cannot be combined with flow template source",
+            stage.name
+        ));
+    }
+    if (has_tx_block_template_source || has_flow_template_source) && (has_template || has_commands)
+    {
+        return Err(anyhow!(
+            "stage '{}' tx_block template/flow source cannot be combined with template/commands",
+            stage.name
+        ));
+    }
+    if !has_tx_block_template_source && !has_flow_template_source && !has_template && !has_commands
+    {
+        return Err(anyhow!(
+            "stage '{}' tx_block requires tx_block_template_name/tx_block_template_content, flow_template_name/flow_template_content, or 'template'/non-empty 'commands'",
             stage.name
         ));
     }

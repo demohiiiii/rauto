@@ -43,6 +43,9 @@ fn plan_validation_rejects_empty_stage_targets() {
                 tx_block_template_name: None,
                 tx_block_template_content: None,
                 tx_block_template_vars: Value::Null,
+                flow_template_name: None,
+                flow_template_content: None,
+                flow_vars: Value::Null,
                 vars: Value::Null,
                 commands: vec!["show ver".to_string()],
                 rollback_commands: Vec::new(),
@@ -79,6 +82,9 @@ fn resolve_stage_targets_supports_inventory_groups_and_inline_targets() {
             tx_block_template_name: None,
             tx_block_template_content: None,
             tx_block_template_vars: Value::Null,
+            flow_template_name: None,
+            flow_template_content: None,
+            flow_vars: Value::Null,
             vars: Value::Null,
             commands: Vec::new(),
             rollback_commands: Vec::new(),
@@ -125,6 +131,9 @@ fn resolve_stage_targets_merges_inventory_and_group_defaults() {
             tx_block_template_name: None,
             tx_block_template_content: None,
             tx_block_template_vars: Value::Null,
+            flow_template_name: None,
+            flow_template_content: None,
+            flow_vars: Value::Null,
             vars: Value::Null,
             commands: Vec::new(),
             rollback_commands: Vec::new(),
@@ -223,6 +232,79 @@ fn validate_tx_block_action_rejects_mixed_template_sources() {
             tx_block_template_name: Some("saved-block".to_string()),
             tx_block_template_content: None,
             tx_block_template_vars: Value::Null,
+            flow_template_name: None,
+            flow_template_content: None,
+            flow_vars: Value::Null,
+            vars: Value::Null,
+            commands: vec![],
+            rollback_commands: vec![],
+            rollback_on_failure: false,
+            rollback_trigger_step_index: None,
+            mode: None,
+            timeout_secs: None,
+            resource_rollback_command: None,
+        }),
+    };
+    let action = match &stage.action {
+        OrchestrationAction::TxBlock(action) => action,
+        _ => unreachable!(),
+    };
+    assert!(validate_tx_block_action(&stage, action).is_err());
+}
+
+#[test]
+fn validate_tx_block_action_accepts_flow_template_source() {
+    let stage = OrchestrationStage {
+        name: "stage-1".to_string(),
+        strategy: StageStrategy::Serial,
+        max_parallel: None,
+        fail_fast: None,
+        target_groups: vec!["edge".to_string()],
+        targets: Vec::new(),
+        action: OrchestrationAction::TxBlock(TxBlockAction {
+            name: None,
+            template: None,
+            tx_block_template_name: None,
+            tx_block_template_content: None,
+            tx_block_template_vars: Value::Null,
+            flow_template_name: Some("scp".to_string()),
+            flow_template_content: None,
+            flow_vars: json!({"peer":"edge94"}),
+            vars: Value::Null,
+            commands: vec![],
+            rollback_commands: vec![],
+            rollback_on_failure: false,
+            rollback_trigger_step_index: None,
+            mode: None,
+            timeout_secs: None,
+            resource_rollback_command: None,
+        }),
+    };
+    let action = match &stage.action {
+        OrchestrationAction::TxBlock(action) => action,
+        _ => unreachable!(),
+    };
+    assert!(validate_tx_block_action(&stage, action).is_ok());
+}
+
+#[test]
+fn validate_tx_block_action_rejects_flow_and_tx_block_template_mix() {
+    let stage = OrchestrationStage {
+        name: "stage-1".to_string(),
+        strategy: StageStrategy::Serial,
+        max_parallel: None,
+        fail_fast: None,
+        target_groups: vec!["edge".to_string()],
+        targets: Vec::new(),
+        action: OrchestrationAction::TxBlock(TxBlockAction {
+            name: None,
+            template: None,
+            tx_block_template_name: Some("saved-block".to_string()),
+            tx_block_template_content: None,
+            tx_block_template_vars: Value::Null,
+            flow_template_name: Some("scp".to_string()),
+            flow_template_content: None,
+            flow_vars: Value::Null,
             vars: Value::Null,
             commands: vec![],
             rollback_commands: vec![],

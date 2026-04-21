@@ -3,14 +3,20 @@ use super::{
     OrchestrationPlan, OrchestrationStage, OrchestrationTarget, TxBlockAction, TxWorkflowAction,
 };
 use crate::EffectiveConnection;
+use crate::config::command_flow_template::{
+    ParsedCommandFlowTemplate, build_command_flow_runtime,
+    parse_command_flow_template_with_extensions, resolve_command_flow_runtime_default_mode,
+};
 use crate::config::connection_store::load_connection;
 use crate::config::content_store;
 use crate::config::template_connection_refs::enrich_context_with_connection_refs_from_value;
+use crate::config::template_loader;
 use crate::template::renderer::Renderer;
 use crate::tx_operation::build_command_tx_block;
+use crate::tx_operation::command;
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
-use rneter::session::{TxBlock, TxWorkflow};
+use rneter::session::{RollbackPolicy, SessionOperation, TxBlock, TxStep, TxWorkflow};
 use serde_json::{Value, json};
 use std::fs;
 use std::path::Path;
@@ -51,6 +57,47 @@ pub(super) fn resolve_orchestration_tx_block(
             action.tx_block_template_name.as_deref(),
             action.tx_block_template_content.as_deref(),
             action.tx_block_template_vars.clone(),
+            conn,
+        )?;
+        if let Some(name) = action
+            .name
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            tx_block.name = name.to_string();
+        }
+        tx_block.validate()?;
+        let tx_block_name = if tx_block.name.trim().is_empty() {
+            format!("{}::{}", plan.name, stage.name)
+        } else {
+            tx_block.name.clone()
+        };
+        let effective_mode = tx_block_primary_mode(&tx_block);
+        return Ok((tx_block, effective_mode, tx_block_name));
+    }
+    let has_flow_template_name = action
+        .flow_template_name
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    let has_flow_template_content = action
+        .flow_template_content
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    if has_flow_template_name || has_flow_template_content {
+        let merged_vars = orchestrator_targets::merge_values(&action.flow_vars, &target.vars);
+        let mut tx_block = resolve_tx_block_from_flow_template_source(
+            action.flow_template_name.as_deref(),
+            action.flow_template_content.as_deref(),
+            merged_vars,
+            action.mode.as_deref(),
+            action.timeout_secs,
+            action.rollback_on_failure,
+            action.rollback_commands.as_slice(),
+            action.resource_rollback_command.clone(),
+            action.rollback_trigger_step_index,
             conn,
         )?;
         if let Some(name) = action
@@ -136,6 +183,154 @@ fn resolve_block_commands(
         return Err(anyhow!("no executable commands resolved for tx_block"));
     }
     Ok(commands)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn resolve_tx_block_from_flow_template_source(
+    template_name: Option<&str>,
+    template_content: Option<&str>,
+    runtime_vars: Value,
+    requested_mode: Option<&str>,
+    timeout_secs: Option<u64>,
+    rollback_on_failure: bool,
+    rollback_commands: &[String],
+    resource_rollback_command: Option<String>,
+    rollback_trigger_step_index: Option<usize>,
+    conn: &EffectiveConnection,
+) -> Result<TxBlock> {
+    let parsed_template = load_command_flow_template_source(template_name, template_content)?;
+    let mode_override = requested_mode
+        .map(str::trim)
+        .filter(|mode| !mode.is_empty())
+        .map(|mode| template_loader::resolve_profile_mode(&conn.device_profile, Some(mode)))
+        .transpose()?;
+    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let runtime_default_mode = resolve_command_flow_runtime_default_mode(
+        mode_override.as_deref(),
+        parsed_template.template.default_mode.as_deref(),
+        &profile_default_mode,
+    );
+    let effective_mode = runtime_default_mode
+        .clone()
+        .or_else(|| {
+            parsed_template
+                .template
+                .default_mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|mode| !mode.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| profile_default_mode.clone());
+
+    let flow_runtime_vars = crate::resolve_flow_runtime_vars(
+        &parsed_template.template,
+        runtime_vars,
+        conn,
+        parsed_template.current_connection_alias.as_deref(),
+    )?;
+    let mut flow = parsed_template
+        .template
+        .to_command_flow(&build_command_flow_runtime(
+            runtime_default_mode,
+            conn.connection_name.as_deref(),
+            &conn.host,
+            &conn.username,
+            &conn.device_profile,
+            flow_runtime_vars,
+        ))?;
+    if let Some(timeout_secs) = timeout_secs {
+        for step in &mut flow.steps {
+            step.timeout = Some(timeout_secs);
+        }
+    }
+    if flow.steps.is_empty() {
+        return Err(anyhow!("command flow has no steps"));
+    }
+
+    let mut non_empty_rollbacks = rollback_commands
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    let has_resource_rollback = resource_rollback_command
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
+    if !non_empty_rollbacks.is_empty() && has_resource_rollback {
+        return Err(anyhow!(
+            "flow-based tx block uses either rollback_commands or resource_rollback_command"
+        ));
+    }
+    if rollback_trigger_step_index.is_some() && !has_resource_rollback {
+        return Err(anyhow!(
+            "rollback_trigger_step_index requires resource_rollback_command"
+        ));
+    }
+    if non_empty_rollbacks.len() > 1 {
+        return Err(anyhow!(
+            "flow-based tx block accepts at most one rollback command"
+        ));
+    }
+
+    let mut tx_step =
+        TxStep::new(SessionOperation::from(flow)).with_rollback_on_failure(rollback_on_failure);
+    if let Some(rollback_command) = non_empty_rollbacks.pop() {
+        tx_step = tx_step.with_rollback(command(
+            effective_mode.clone(),
+            rollback_command,
+            timeout_secs,
+        ));
+    }
+
+    let rollback_policy = if let Some(rollback_command) = resource_rollback_command
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        RollbackPolicy::WholeResource {
+            rollback: Box::new(SessionOperation::from(command(
+                effective_mode.clone(),
+                rollback_command,
+                timeout_secs,
+            ))),
+            trigger_step_index: rollback_trigger_step_index.unwrap_or(0),
+        }
+    } else {
+        RollbackPolicy::PerStep
+    };
+
+    Ok(TxBlock {
+        name: parsed_template.template.name,
+        rollback_policy,
+        steps: vec![tx_step],
+        fail_fast: true,
+    })
+}
+
+fn load_command_flow_template_source(
+    template_name: Option<&str>,
+    template_content: Option<&str>,
+) -> Result<ParsedCommandFlowTemplate> {
+    match (
+        template_name
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        template_content
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+    ) {
+        (Some(name), None) => {
+            let content = load_command_flow_template_content(name)?;
+            parse_command_flow_template_with_extensions(&content, Some(name))
+        }
+        (None, Some(content)) => parse_command_flow_template_with_extensions(content, None),
+        (Some(_), Some(_)) => Err(anyhow!(
+            "use either flow_template_name or flow_template_content"
+        )),
+        (None, None) => Err(anyhow!(
+            "flow template source requires flow_template_name or flow_template_content"
+        )),
+    }
 }
 
 pub(super) fn load_workflow(
@@ -302,6 +497,16 @@ fn load_tx_workflow_template_content(name: &str) -> Result<String> {
     content_store::load_tx_workflow_template(safe_name)?
         .map(|item| item.content)
         .ok_or_else(|| anyhow!("tx workflow template '{}' not found", safe_name))
+}
+
+fn load_command_flow_template_content(name: &str) -> Result<String> {
+    let safe_name = name.trim();
+    if safe_name.is_empty() {
+        return Err(anyhow!("command flow template name is required"));
+    }
+    content_store::load_command_flow_template(safe_name)?
+        .map(|item| item.content)
+        .ok_or_else(|| anyhow!("command flow template '{}' not found", safe_name))
 }
 
 fn render_json_template_source(

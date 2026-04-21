@@ -20,9 +20,34 @@ function orchestrationActionSummary(action) {
   if (!action || typeof action !== "object") return "-";
   if (action.kind === "tx_block") {
     const parts = [];
+    const flowTemplateName =
+      typeof action.flow_template_name === "string"
+        ? action.flow_template_name.trim()
+        : "";
+    const flowTemplateContent =
+      typeof action.flow_template_content === "string"
+        ? action.flow_template_content.trim()
+        : "";
+    if (flowTemplateName) {
+      parts.push(`flow_template=${flowTemplateName}`);
+    } else if (flowTemplateContent) {
+      parts.push("flow_template_content=inline");
+    }
+    if (
+      action.flow_vars &&
+      typeof action.flow_vars === "object" &&
+      !Array.isArray(action.flow_vars)
+    ) {
+      parts.push(`flow_vars=${Object.keys(action.flow_vars).length}`);
+    }
     if (action.template) parts.push(`template=${action.template}`);
     if (Array.isArray(action.commands) && action.commands.length) {
       parts.push(`commands=${action.commands.length}`);
+    }
+    if (action.tx_block_template_name) {
+      parts.push(`tx_block_template=${action.tx_block_template_name}`);
+    } else if (action.tx_block_template_content) {
+      parts.push("tx_block_template_content=inline");
     }
     if (action.mode) parts.push(`mode=${action.mode}`);
     return parts.join(", ") || "tx_block";
@@ -66,14 +91,267 @@ function orchestrationJsonText(value) {
   }
 }
 
+function orchestrationJsonPrimitiveText(value) {
+  if (value == null) return "null";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return safeString(value);
+}
+
+function renderOrchestrationJsonTreeNode(value, label = "", depth = 0) {
+  const keyLabel = label || "value";
+  if (value == null || typeof value !== "object") {
+    return `
+      <div class="grid gap-1 rounded-md border border-slate-200 bg-white px-2 py-1.5">
+        <div class="font-mono text-xs text-slate-600">${escapeHtml(keyLabel)}</div>
+        <div class="font-mono text-xs text-slate-900 break-all whitespace-pre-wrap">${escapeHtml(
+          orchestrationJsonPrimitiveText(value)
+        )}</div>
+      </div>
+    `;
+  }
+
+  if (Array.isArray(value)) {
+    const count = value.length;
+    const children = count
+      ? value
+          .map((item, idx) =>
+            renderOrchestrationJsonTreeNode(item, `[${idx}]`, depth + 1)
+          )
+          .join("")
+      : `<div class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-500">[]</div>`;
+    return `
+      <details class="rounded-md border border-slate-200 bg-slate-50" ${
+        depth <= 1 ? "open" : ""
+      }>
+        <summary class="cursor-pointer px-2 py-1.5 font-mono text-xs text-slate-700">
+          ${escapeHtml(keyLabel)} <span class="text-slate-500">[${count}]</span>
+        </summary>
+        <div class="grid gap-2 border-t border-slate-200 px-2 py-2">
+          ${children}
+        </div>
+      </details>
+    `;
+  }
+
+  const entries = Object.entries(value);
+  const children = entries.length
+    ? entries
+        .map(([key, item]) => renderOrchestrationJsonTreeNode(item, key, depth + 1))
+        .join("")
+    : `<div class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-500">{}</div>`;
+  return `
+    <details class="rounded-md border border-slate-200 bg-slate-50" ${
+      depth <= 1 ? "open" : ""
+    }>
+      <summary class="cursor-pointer px-2 py-1.5 font-mono text-xs text-slate-700">
+        ${escapeHtml(keyLabel)} <span class="text-slate-500">{${entries.length}}</span>
+      </summary>
+      <div class="grid gap-2 border-t border-slate-200 px-2 py-2">
+        ${children}
+      </div>
+    </details>
+  `;
+}
+
 function renderOrchestrationJsonSection(title, value) {
+  const tree = renderOrchestrationJsonTreeNode(value, "payload", 0);
   return `
     <section class="rounded-xl border border-slate-200 bg-white p-3">
       <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(title)}</div>
-      <pre class="max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-900 p-2 text-xs text-slate-100">${escapeHtml(
-        orchestrationJsonText(value)
-      )}</pre>
+      <div class="max-h-96 overflow-auto rounded-md border border-slate-200 bg-slate-50 p-2">
+        ${tree}
+      </div>
+      <details class="mt-2">
+        <summary class="btn btn-xs">${escapeHtml(
+          t("orchestrationPayloadRawToggle")
+        )}</summary>
+        <pre class="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-900 p-2 text-xs text-slate-100">${escapeHtml(
+          orchestrationJsonText(value)
+        )}</pre>
+      </details>
     </section>
+  `;
+}
+
+function parseJsonObjectSafely(text) {
+  if (typeof text !== "string" || !text.trim()) return null;
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === "object" ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function orchestrationOperationText(operation) {
+  if (!operation || typeof operation !== "object") return "";
+  if (typeof txOperationDescription === "function") {
+    const text = safeString(txOperationDescription(operation)).trim();
+    if (text) return text;
+  }
+  if (typeof operation.command === "string") return operation.command.trim();
+  if (operation.kind === "flow" && Array.isArray(operation.steps)) {
+    const first = safeString(operation.steps[0] && operation.steps[0].command).trim();
+    if (first) return first;
+    return `${operation.steps.length} steps`;
+  }
+  if (operation.kind === "template" && operation.template) {
+    return safeString(operation.template.name || "template").trim();
+  }
+  return "";
+}
+
+function collectTxBlockCommandPreview(block, prefix = "") {
+  if (!block || typeof block !== "object") return [];
+  const steps = Array.isArray(block.steps) ? block.steps : [];
+  const items = [];
+  steps.forEach((step, idx) => {
+    const run = step && typeof step === "object" ? step.run : null;
+    const commandText = orchestrationOperationText(run);
+    if (!commandText) return;
+    const head = prefix ? `${prefix} ` : "";
+    items.push(`${head}step[${idx}] ${commandText}`);
+  });
+  return items;
+}
+
+function parseInlineFlowTemplateCommands(content) {
+  if (typeof content !== "string" || !content.trim()) return [];
+  const commands = [];
+  const lines = content.split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line.startsWith("command")) continue;
+    const match = line.match(/^command\s*=\s*"(.*)"\s*$/);
+    if (match && match[1]) {
+      commands.push(match[1]);
+    }
+  }
+  return commands;
+}
+
+function collectTxWorkflowCommandPreview(workflow) {
+  if (!workflow || typeof workflow !== "object") return [];
+  const blocks = Array.isArray(workflow.blocks) ? workflow.blocks : [];
+  const items = [];
+  blocks.forEach((block, blockIdx) => {
+    if (block && typeof block.tx_block_template_name === "string" && block.tx_block_template_name.trim()) {
+      items.push(
+        `[block ${blockIdx}] ${t("orchestrationCommandPreviewTemplateRef")}: tx_block_template=${block.tx_block_template_name.trim()}`
+      );
+      return;
+    }
+    items.push(
+      ...collectTxBlockCommandPreview(
+        block,
+        `block[${blockIdx}]`
+      )
+    );
+  });
+  return items;
+}
+
+function orchestrationActionCommandPreviewItems(action) {
+  if (!action || typeof action !== "object") return [];
+  if (action.kind === "tx_block") {
+    if (Array.isArray(action.commands) && action.commands.length) {
+      return action.commands
+        .map((cmd, idx) => `step[${idx}] ${safeString(cmd).trim()}`)
+        .filter((line) => !line.endsWith(" "));
+    }
+    if (
+      typeof action.tx_block_template_content === "string" &&
+      action.tx_block_template_content.trim()
+    ) {
+      const inlineBlock = parseJsonObjectSafely(action.tx_block_template_content);
+      if (inlineBlock) {
+        return collectTxBlockCommandPreview(inlineBlock);
+      }
+    }
+    if (
+      typeof action.flow_template_content === "string" &&
+      action.flow_template_content.trim()
+    ) {
+      const flowCommands = parseInlineFlowTemplateCommands(action.flow_template_content);
+      if (flowCommands.length) {
+        return flowCommands.map((cmd, idx) => `step[${idx}] ${cmd}`);
+      }
+    }
+    if (typeof action.flow_template_name === "string" && action.flow_template_name.trim()) {
+      return [
+        `${t("orchestrationCommandPreviewTemplateRef")}: flow_template=${action.flow_template_name.trim()}`,
+      ];
+    }
+    if (
+      typeof action.tx_block_template_name === "string" &&
+      action.tx_block_template_name.trim()
+    ) {
+      return [
+        `${t("orchestrationCommandPreviewTemplateRef")}: tx_block_template=${action.tx_block_template_name.trim()}`,
+      ];
+    }
+    return [];
+  }
+
+  if (action.kind === "tx_workflow") {
+    if (action.workflow && typeof action.workflow === "object") {
+      return collectTxWorkflowCommandPreview(action.workflow);
+    }
+    if (
+      typeof action.workflow_template_content === "string" &&
+      action.workflow_template_content.trim()
+    ) {
+      const inlineWorkflow = parseJsonObjectSafely(action.workflow_template_content);
+      if (inlineWorkflow) {
+        return collectTxWorkflowCommandPreview(inlineWorkflow);
+      }
+    }
+    if (
+      typeof action.workflow_template_name === "string" &&
+      action.workflow_template_name.trim()
+    ) {
+      return [
+        `${t("orchestrationCommandPreviewTemplateRef")}: workflow_template=${action.workflow_template_name.trim()}`,
+      ];
+    }
+    if (typeof action.workflow_file === "string" && action.workflow_file.trim()) {
+      return [
+        `${t("orchestrationCommandPreviewTemplateRef")}: workflow_file=${action.workflow_file.trim()}`,
+      ];
+    }
+  }
+  return [];
+}
+
+function renderOrchestrationActionCommandPreview(action) {
+  const items = orchestrationActionCommandPreviewItems(action);
+  const maxItems = 24;
+  const trimmed = items.slice(0, maxItems);
+  const rows = trimmed
+    .map(
+      (line) => `<div class="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1 font-mono text-xs text-cyan-900 break-all">${escapeHtml(
+        line
+      )}</div>`
+    )
+    .join("");
+  const more =
+    items.length > maxItems
+      ? `<div class="text-[11px] text-slate-500">${escapeHtml(
+          `${t("orchestrationCommandPreviewMorePrefix")} ${items.length - maxItems}`
+        )}</div>`
+      : "";
+  const body = rows || `<div class="text-xs text-slate-500">${escapeHtml(
+    t("orchestrationCommandPreviewEmpty")
+  )}</div>`;
+  return `
+    <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
+      <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">${escapeHtml(
+        t("orchestrationCommandPreviewTitle")
+      )}</div>
+      <div class="grid gap-1">${body}</div>
+      ${more}
+    </div>
   `;
 }
 
@@ -170,6 +448,7 @@ function renderOrchestrationPreviewHtml(plan, inventory) {
               orchestrationActionSummary(stage && stage.action)
             )}
           </div>
+          ${renderOrchestrationActionCommandPreview(stage && stage.action)}
           ${
             Array.isArray(stage && stage.target_groups) && stage.target_groups.length
               ? `<div class="mt-2 text-xs text-slate-500">groups: ${escapeHtml(

@@ -191,57 +191,57 @@ pub(crate) fn resolve_target_connection(
     let host = target
         .host
         .clone()
-        .or_else(|| opts.host.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.host.clone()))
+        .or_else(|| opts.host.clone())
         .ok_or_else(|| anyhow!("host is required (target.connection or target.host)"))?;
     let username = target
         .username
         .clone()
-        .or_else(|| opts.username.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.username.clone()))
+        .or_else(|| opts.username.clone())
         .unwrap_or_else(|| "admin".to_string());
     let password = target
         .password
         .clone()
-        .or_else(|| opts.password.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.password.clone()))
+        .or_else(|| opts.password.clone())
         .or_else(|| std::env::var("RAUTO_PASSWORD").ok())
         .unwrap_or_default();
     let port = target
         .port
-        .or(opts.port)
         .or_else(|| saved.as_ref().and_then(|s| s.port))
+        .or(opts.port)
         .unwrap_or(22);
     let enable_password = target
         .enable_password
         .clone()
-        .or_else(|| opts.enable_password.clone())
-        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()));
+        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()))
+        .or_else(|| opts.enable_password.clone());
     let device_profile = target
         .device_profile
         .clone()
-        .or_else(|| opts.device_profile.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
+        .or_else(|| opts.device_profile.clone())
         .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
     let ssh_security = target
         .ssh_security
-        .or(opts.ssh_security)
         .or_else(|| saved.as_ref().and_then(|s| s.ssh_security))
+        .or(opts.ssh_security)
         .unwrap_or_default();
     let linux_shell_flavor = target
         .linux_shell_flavor
-        .or(opts.linux_shell_flavor)
-        .or_else(|| saved.as_ref().and_then(|s| s.linux_shell_flavor));
+        .or_else(|| saved.as_ref().and_then(|s| s.linux_shell_flavor))
+        .or(opts.linux_shell_flavor);
     let template_dir = target
         .template_dir
         .as_ref()
         .map(PathBuf::from)
-        .or_else(|| opts.template_dir.clone())
         .or_else(|| {
             saved
                 .as_ref()
                 .and_then(|s| s.template_dir.clone().map(PathBuf::from))
-        });
+        })
+        .or_else(|| opts.template_dir.clone());
 
     Ok(EffectiveConnection {
         connection_name: target
