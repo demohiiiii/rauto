@@ -11,6 +11,7 @@ pub mod inventory_store;
 pub mod keyring_store;
 pub mod linux_shell;
 pub mod paths;
+pub mod session_recording;
 pub mod ssh_security;
 pub mod task_store;
 pub mod template_connection_refs;

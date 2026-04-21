@@ -148,7 +148,7 @@ pub(crate) async fn run_command_flow(
 
     let result = client.execute_command_flow(flow).await?;
     print_command_flow_output(&result);
-    crate::write_recording_if_requested(args.record_file.as_ref(), &client)?;
+    crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
         &client,
         &conn,
@@ -206,7 +206,7 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
         .await?;
 
     let jsonl = recorder.to_jsonl()?;
-    crate::write_recording_text_if_requested(args.record_file.as_ref(), &jsonl)?;
+    crate::write_recording_text_if_requested(args.record_file.as_ref(), &jsonl, args.record_level)?;
     crate::persist_auto_recording_history_jsonl(
         &jsonl,
         &conn,

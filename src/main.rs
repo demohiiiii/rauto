@@ -36,10 +36,11 @@ use web::{run_agent_server, run_web_server};
 
 pub(crate) use cli_runtime::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
-    maybe_save_connection_profile, persist_auto_recording_history,
-    persist_auto_recording_history_jsonl, read_required_text_input, resolve_effective_connection,
-    resolve_flow_runtime_vars, resolve_runtime_vars_for_connection, save_named_connection,
-    to_record_level, write_recording_if_requested, write_recording_text_if_requested,
+    maybe_save_connection_profile, normalize_recording_jsonl_for_cli_level,
+    persist_auto_recording_history, persist_auto_recording_history_jsonl, read_required_text_input,
+    resolve_effective_connection, resolve_flow_runtime_vars, resolve_runtime_vars_for_connection,
+    save_named_connection, to_record_level, write_recording_if_requested,
+    write_recording_text_if_requested,
 };
 
 #[tokio::main]

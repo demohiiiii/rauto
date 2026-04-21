@@ -133,7 +133,8 @@ pub async fn execute_tx_block(
             }
             let result = execution_result?;
             let jsonl = if requested_record_level.is_some() {
-                let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
+                let jsonl_raw = recorder.to_jsonl().map_err(ApiError::from)?;
+                let jsonl = normalize_recording_jsonl_for_web_level(record_level, &jsonl_raw);
                 if let Err(e) = history_store::save_recording(
                     HistoryBinding {
                         connection_name: conn.connection_name.as_deref(),

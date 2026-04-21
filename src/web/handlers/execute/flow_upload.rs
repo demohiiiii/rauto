@@ -226,7 +226,8 @@ pub async fn execute_upload(
         MANAGER
             .upload_file_with_context(request, upload, context)
             .await?;
-        let jsonl = recorder.to_jsonl().map_err(ApiError::from)?;
+        let jsonl_raw = recorder.to_jsonl().map_err(ApiError::from)?;
+        let jsonl = normalize_recording_jsonl_for_web_level(record_level, &jsonl_raw);
         persist_history_jsonl(
             &conn,
             "sftp_upload",

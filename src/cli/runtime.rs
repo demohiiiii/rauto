@@ -6,6 +6,7 @@ use crate::config::command_flow_vars::{
 use crate::config::connection_store::{SavedConnection, load_connection, save_connection};
 use crate::config::history_store::{self, HistoryBinding};
 use crate::config::linux_shell::LinuxShellFlavor;
+use crate::config::session_recording;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use crate::device::DeviceClient;
@@ -17,7 +18,7 @@ use rneter::session::{
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub(crate) fn manager_connection_request(
     username: String,
@@ -246,6 +247,25 @@ pub(crate) fn record_level_name(level: RecordLevelOpt) -> &'static str {
     }
 }
 
+pub(crate) fn normalize_recording_jsonl_for_cli_level(
+    jsonl: &str,
+    level: RecordLevelOpt,
+) -> String {
+    if !matches!(level, RecordLevelOpt::KeyEventsOnly) {
+        return jsonl.to_string();
+    }
+    match session_recording::command_output_only_jsonl(jsonl) {
+        Ok(value) => value,
+        Err(err) => {
+            warn!(
+                "failed to apply audit recording filter, fallback to raw jsonl: {}",
+                err
+            );
+            jsonl.to_string()
+        }
+    }
+}
+
 pub(crate) fn persist_auto_recording_history(
     client: &DeviceClient,
     conn: &EffectiveConnection,
@@ -257,6 +277,7 @@ pub(crate) fn persist_auto_recording_history(
     let Some(jsonl) = client.recording_jsonl()? else {
         return Ok(());
     };
+    let jsonl = normalize_recording_jsonl_for_cli_level(&jsonl, record_level);
     let result = history_store::save_recording(
         HistoryBinding {
             connection_name: conn.connection_name.as_deref(),
@@ -288,6 +309,7 @@ pub(crate) fn persist_auto_recording_history(
 pub(crate) fn write_recording_if_requested(
     record_file: Option<&PathBuf>,
     client: &DeviceClient,
+    record_level: RecordLevelOpt,
 ) -> Result<()> {
     let Some(path) = record_file else {
         return Ok(());
@@ -295,6 +317,7 @@ pub(crate) fn write_recording_if_requested(
     let Some(jsonl) = client.recording_jsonl()? else {
         return Ok(());
     };
+    let jsonl = normalize_recording_jsonl_for_cli_level(&jsonl, record_level);
 
     if let Some(parent) = path.parent()
         && !parent.as_os_str().is_empty()
@@ -314,6 +337,7 @@ pub(crate) fn persist_auto_recording_history_jsonl(
     mode: Option<&str>,
     record_level: RecordLevelOpt,
 ) -> Result<()> {
+    let jsonl = normalize_recording_jsonl_for_cli_level(jsonl, record_level);
     let result = history_store::save_recording(
         HistoryBinding {
             connection_name: conn.connection_name.as_deref(),
@@ -326,7 +350,7 @@ pub(crate) fn persist_auto_recording_history_jsonl(
         command_label,
         mode,
         record_level_name(record_level),
-        jsonl,
+        &jsonl,
     );
     match result {
         Ok(entry) => {
@@ -345,10 +369,12 @@ pub(crate) fn persist_auto_recording_history_jsonl(
 pub(crate) fn write_recording_text_if_requested(
     record_file: Option<&PathBuf>,
     jsonl: &str,
+    record_level: RecordLevelOpt,
 ) -> Result<()> {
     let Some(path) = record_file else {
         return Ok(());
     };
+    let jsonl = normalize_recording_jsonl_for_cli_level(jsonl, record_level);
     if let Some(parent) = path.parent()
         && !parent.as_os_str().is_empty()
     {

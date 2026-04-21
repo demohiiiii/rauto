@@ -12,7 +12,7 @@ use rneter::{
 use std::borrow::Cow;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 fn branch_source_text<'a>(source: &CommandOutputBranchSource, output: &'a Output) -> Cow<'a, str> {
     match source {
@@ -53,6 +53,7 @@ pub struct DeviceClient {
     sender: Sender<CmdJob>,
     default_timeout: u64,
     default_mode: String,
+    recording_level: Option<SessionRecordLevel>,
     recorder: Option<SessionRecorder>,
 }
 
@@ -84,6 +85,7 @@ impl DeviceClient {
             sender,
             default_timeout: 60,
             default_mode,
+            recording_level: None,
             recorder: None,
         })
     }
@@ -120,6 +122,7 @@ impl DeviceClient {
             sender,
             default_timeout: 60,
             default_mode,
+            recording_level: Some(level),
             recorder: Some(recorder),
         })
     }
@@ -264,10 +267,29 @@ impl DeviceClient {
 
     pub fn recording_jsonl(&self) -> Result<Option<String>> {
         match &self.recorder {
-            Some(r) => Ok(Some(
-                r.to_jsonl()
-                    .map_err(|e| anyhow!("record export failed: {}", e))?,
-            )),
+            Some(r) => {
+                let jsonl = r
+                    .to_jsonl()
+                    .map_err(|e| anyhow!("record export failed: {}", e))?;
+                let filtered = if matches!(
+                    self.recording_level,
+                    Some(SessionRecordLevel::KeyEventsOnly)
+                ) {
+                    match crate::config::session_recording::command_output_only_jsonl(&jsonl) {
+                        Ok(value) => value,
+                        Err(err) => {
+                            warn!(
+                                "failed to apply audit recording filter, fallback to raw jsonl: {}",
+                                err
+                            );
+                            jsonl
+                        }
+                    }
+                } else {
+                    jsonl
+                };
+                Ok(Some(filtered))
+            }
             None => Ok(None),
         }
     }

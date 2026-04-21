@@ -70,7 +70,7 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
             Err(error) => println!("Failed: {}", error),
         }
     }
-    crate::write_recording_if_requested(args.record_file.as_ref(), &client)?;
+    crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
         &client,
         &conn,
@@ -110,7 +110,7 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
 
     info!("Executing command: {}", args.command);
     let output = client.execute(&args.command, Some(&effective_mode)).await?;
-    crate::write_recording_if_requested(args.record_file.as_ref(), &client)?;
+    crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
         &client,
         &conn,

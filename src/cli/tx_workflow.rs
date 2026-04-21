@@ -73,7 +73,11 @@ pub(crate) async fn run_tx_workflow(
         )
         .await?;
     let recording_jsonl = recorder.to_jsonl()?;
-    crate::write_recording_text_if_requested(args.record_file.as_ref(), &recording_jsonl)?;
+    crate::write_recording_text_if_requested(
+        args.record_file.as_ref(),
+        &recording_jsonl,
+        args.record_level,
+    )?;
     crate::persist_auto_recording_history_jsonl(
         &recording_jsonl,
         &conn,

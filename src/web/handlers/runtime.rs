@@ -12,8 +12,8 @@ pub(crate) use context::{
     resolve_render_connection_context_fallback, resolve_runtime_vars_with_connection,
 };
 pub(crate) use history::{
-    persist_history_if_recorded, persist_history_jsonl, record_level_name, resolve_effective_mode,
-    to_cli_record_level, to_record_level,
+    normalize_recording_jsonl_for_web_level, persist_history_if_recorded, persist_history_jsonl,
+    record_level_name, resolve_effective_mode, to_cli_record_level, to_record_level,
 };
 pub(crate) use tx::{
     build_tx_block_from_request, resolve_tx_block_request_from_template,

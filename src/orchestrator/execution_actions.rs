@@ -7,7 +7,7 @@ use crate::config::command_blacklist;
 use crate::config::template_loader;
 use crate::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
-    persist_auto_recording_history_jsonl, to_record_level,
+    normalize_recording_jsonl_for_cli_level, persist_auto_recording_history_jsonl, to_record_level,
 };
 use anyhow::Result;
 use rneter::session::MANAGER;
@@ -124,7 +124,7 @@ async fn execute_tx_block_action(
             manager_execution_context_with_security(None, conn.ssh_security),
         )
         .await?;
-    let jsonl = recorder.to_jsonl()?;
+    let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);
     persist_auto_recording_history_jsonl(
         &jsonl,
         conn,
@@ -209,7 +209,7 @@ async fn execute_tx_workflow_action(
             manager_execution_context_with_security(None, conn.ssh_security),
         )
         .await?;
-    let jsonl = recorder.to_jsonl()?;
+    let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);
     persist_auto_recording_history_jsonl(
         &jsonl,
         conn,

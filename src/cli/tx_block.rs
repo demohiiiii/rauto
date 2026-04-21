@@ -319,7 +319,7 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
         .await?;
 
     let jsonl = recorder.to_jsonl()?;
-    crate::write_recording_text_if_requested(args.record_file.as_ref(), &jsonl)?;
+    crate::write_recording_text_if_requested(args.record_file.as_ref(), &jsonl, args.record_level)?;
     crate::persist_auto_recording_history_jsonl(
         &jsonl,
         &conn,

@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::session_recording;
 
 pub(crate) fn persist_history_jsonl(
     conn: &crate::web::state::ResolvedConnection,
@@ -8,6 +9,7 @@ pub(crate) fn persist_history_jsonl(
     level: Option<RecordLevel>,
     jsonl: &str,
 ) {
+    let jsonl = normalize_recording_jsonl_for_web_level(level, jsonl);
     if let Err(e) = history_store::save_recording(
         HistoryBinding {
             connection_name: conn.connection_name.as_deref(),
@@ -20,9 +22,28 @@ pub(crate) fn persist_history_jsonl(
         command_label,
         mode,
         record_level_name(level),
-        jsonl,
+        &jsonl,
     ) {
         warn!("failed to persist execution history: {}", e);
+    }
+}
+
+pub(crate) fn normalize_recording_jsonl_for_web_level(
+    level: Option<RecordLevel>,
+    jsonl: &str,
+) -> String {
+    if !matches!(level, Some(RecordLevel::KeyEventsOnly) | None) {
+        return jsonl.to_string();
+    }
+    match session_recording::command_output_only_jsonl(jsonl) {
+        Ok(value) => value,
+        Err(err) => {
+            warn!(
+                "failed to apply audit recording filter, fallback to raw jsonl: {}",
+                err
+            );
+            jsonl.to_string()
+        }
     }
 }
 
@@ -59,6 +80,7 @@ pub(crate) fn persist_history_if_recorded(
     let Some(jsonl) = client.recording_jsonl().ok().flatten() else {
         return;
     };
+    let jsonl = normalize_recording_jsonl_for_web_level(level, &jsonl);
     if let Err(e) = history_store::save_recording(
         HistoryBinding {
             connection_name: conn.connection_name.as_deref(),
