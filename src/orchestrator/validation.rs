@@ -1,6 +1,6 @@
 use super::targets as orchestrator_targets;
 use super::{
-    OrchestrationAction, OrchestrationInventory, OrchestrationPlan, OrchestrationStage,
+    OrchestrationAction, OrchestrationInventory, OrchestrationJob, OrchestrationPlan,
     TxBlockAction, TxWorkflowAction,
 };
 use anyhow::{Result, anyhow};
@@ -27,9 +27,9 @@ pub(super) fn validate_plan(
         if stage.name.trim().is_empty() {
             return Err(anyhow!("stage {} name must not be empty", idx + 1));
         }
-        if stage.target_groups.is_empty() && stage.targets.is_empty() {
+        if stage.jobs.is_empty() {
             return Err(anyhow!(
-                "stage '{}' must contain at least one target or target_groups entry",
+                "stage '{}' must contain at least one job",
                 stage.name
             ));
         }
@@ -40,22 +40,50 @@ pub(super) fn validate_plan(
                 stage.name
             ));
         }
-        let resolved_targets = orchestrator_targets::resolve_stage_targets(stage, inventory)?;
-        if resolved_targets.is_empty() {
-            return Err(anyhow!("stage '{}' resolved no targets", stage.name));
-        }
-        match &stage.action {
-            OrchestrationAction::TxBlock(action) => validate_tx_block_action(stage, action)?,
-            OrchestrationAction::TxWorkflow(action) => validate_tx_workflow_action(stage, action)?,
+        for (job_idx, job) in stage.jobs.iter().enumerate() {
+            validate_job(stage.name.as_str(), job, job_idx, inventory)?;
         }
     }
     Ok(())
 }
 
-pub(super) fn validate_tx_block_action(
-    stage: &OrchestrationStage,
-    action: &TxBlockAction,
+fn validate_job(
+    stage_name: &str,
+    job: &OrchestrationJob,
+    job_idx: usize,
+    inventory: &OrchestrationInventory,
 ) -> Result<()> {
+    if job.target_groups.is_empty() && job.targets.is_empty() {
+        return Err(anyhow!(
+            "stage '{}' job {} must contain at least one target or target_groups entry",
+            stage_name,
+            job_idx + 1
+        ));
+    }
+    if matches!(job.strategy, super::StageStrategy::Parallel) && job.max_parallel == Some(0) {
+        return Err(anyhow!(
+            "stage '{}' job {} max_parallel must be greater than zero",
+            stage_name,
+            job_idx + 1
+        ));
+    }
+    let resolved_targets = orchestrator_targets::resolve_job_targets(stage_name, job, inventory)?;
+    if resolved_targets.is_empty() {
+        return Err(anyhow!(
+            "stage '{}' job {} resolved no targets",
+            stage_name,
+            job_idx + 1
+        ));
+    }
+    let scope = format!("stage '{}' job {}", stage_name, job_idx + 1);
+    match &job.action {
+        OrchestrationAction::TxBlock(action) => validate_tx_block_action(&scope, action)?,
+        OrchestrationAction::TxWorkflow(action) => validate_tx_workflow_action(&scope, action)?,
+    }
+    Ok(())
+}
+
+pub(super) fn validate_tx_block_action(scope: &str, action: &TxBlockAction) -> Result<()> {
     let has_template = action
         .template
         .as_deref()
@@ -86,49 +114,46 @@ pub(super) fn validate_tx_block_action(
     let has_commands = action.commands.iter().any(|s| !s.trim().is_empty());
     if has_tx_block_template_name && has_tx_block_template_content {
         return Err(anyhow!(
-            "stage '{}' tx_block uses either tx_block_template_name or tx_block_template_content, not both",
-            stage.name
+            "{} tx_block uses either tx_block_template_name or tx_block_template_content, not both",
+            scope
         ));
     }
     if has_flow_template_name && has_flow_template_content {
         return Err(anyhow!(
-            "stage '{}' tx_block uses either flow_template_name or flow_template_content, not both",
-            stage.name
+            "{} tx_block uses either flow_template_name or flow_template_content, not both",
+            scope
         ));
     }
     if has_tx_block_template_source && has_flow_template_source {
         return Err(anyhow!(
-            "stage '{}' tx_block template source cannot be combined with flow template source",
-            stage.name
+            "{} tx_block template source cannot be combined with flow template source",
+            scope
         ));
     }
     if (has_tx_block_template_source || has_flow_template_source) && (has_template || has_commands)
     {
         return Err(anyhow!(
-            "stage '{}' tx_block template/flow source cannot be combined with template/commands",
-            stage.name
+            "{} tx_block template/flow source cannot be combined with template/commands",
+            scope
         ));
     }
     if !has_tx_block_template_source && !has_flow_template_source && !has_template && !has_commands
     {
         return Err(anyhow!(
-            "stage '{}' tx_block requires tx_block_template_name/tx_block_template_content, flow_template_name/flow_template_content, or 'template'/non-empty 'commands'",
-            stage.name
+            "{} tx_block requires tx_block_template_name/tx_block_template_content, flow_template_name/flow_template_content, or 'template'/non-empty 'commands'",
+            scope
         ));
     }
     if action.rollback_trigger_step_index.is_some() && action.resource_rollback_command.is_none() {
         return Err(anyhow!(
-            "stage '{}' rollback_trigger_step_index requires resource_rollback_command",
-            stage.name
+            "{} rollback_trigger_step_index requires resource_rollback_command",
+            scope
         ));
     }
     Ok(())
 }
 
-pub(super) fn validate_tx_workflow_action(
-    stage: &OrchestrationStage,
-    action: &TxWorkflowAction,
-) -> Result<()> {
+pub(super) fn validate_tx_workflow_action(scope: &str, action: &TxWorkflowAction) -> Result<()> {
     let has_file = action
         .workflow_file
         .as_ref()
@@ -146,8 +171,8 @@ pub(super) fn validate_tx_workflow_action(
         .unwrap_or(false);
     if has_template_name && has_template_content {
         return Err(anyhow!(
-            "stage '{}' tx_workflow uses either workflow_template_name or workflow_template_content, not both",
-            stage.name
+            "{} tx_workflow uses either workflow_template_name or workflow_template_content, not both",
+            scope
         ));
     }
     let source_count = [
@@ -161,8 +186,8 @@ pub(super) fn validate_tx_workflow_action(
     .count();
     if source_count != 1 {
         return Err(anyhow!(
-            "stage '{}' tx_workflow requires exactly one source: workflow_file/workflow/workflow_template_name/workflow_template_content",
-            stage.name
+            "{} tx_workflow requires exactly one source: workflow_file/workflow/workflow_template_name/workflow_template_content",
+            scope
         ));
     }
     Ok(())

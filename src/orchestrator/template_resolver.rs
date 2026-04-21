@@ -1,7 +1,5 @@
 use super::targets as orchestrator_targets;
-use super::{
-    OrchestrationPlan, OrchestrationStage, OrchestrationTarget, TxBlockAction, TxWorkflowAction,
-};
+use super::{OrchestrationPlan, OrchestrationTarget, TxBlockAction, TxWorkflowAction};
 use crate::EffectiveConnection;
 use crate::config::command_flow_template::{
     ParsedCommandFlowTemplate, build_command_flow_runtime,
@@ -37,7 +35,8 @@ struct TxWorkflowBlockTemplateRefPayload {
 
 pub(super) fn resolve_orchestration_tx_block(
     plan: &OrchestrationPlan,
-    stage: &OrchestrationStage,
+    stage_name: &str,
+    job_name: &str,
     action: &TxBlockAction,
     target: &OrchestrationTarget,
     conn: &EffectiveConnection,
@@ -69,7 +68,7 @@ pub(super) fn resolve_orchestration_tx_block(
         }
         tx_block.validate()?;
         let tx_block_name = if tx_block.name.trim().is_empty() {
-            format!("{}::{}", plan.name, stage.name)
+            format!("{}::{}::{}", plan.name, stage_name, job_name)
         } else {
             tx_block.name.clone()
         };
@@ -110,7 +109,7 @@ pub(super) fn resolve_orchestration_tx_block(
         }
         tx_block.validate()?;
         let tx_block_name = if tx_block.name.trim().is_empty() {
-            format!("{}::{}", plan.name, stage.name)
+            format!("{}::{}::{}", plan.name, stage_name, job_name)
         } else {
             tx_block.name.clone()
         };
@@ -131,7 +130,7 @@ pub(super) fn resolve_orchestration_tx_block(
     let tx_block_name = action
         .name
         .clone()
-        .unwrap_or_else(|| format!("{}::{}", plan.name, stage.name));
+        .unwrap_or_else(|| format!("{}::{}::{}", plan.name, stage_name, job_name));
 
     let mut rollback_commands = action.rollback_commands.clone();
     while rollback_commands.len() > commands.len()

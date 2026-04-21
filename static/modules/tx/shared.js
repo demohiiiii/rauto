@@ -145,40 +145,49 @@ function defaultOrchestrationTemplatePayload() {
     },
     stages: [
       {
-        name: "transfer-image",
-        strategy: "serial",
-        target_groups: ["edge_nodes"],
-        action: {
-          kind: "tx_block",
-          name: "scp-transfer",
-          flow_template_name: "scp",
-          flow_vars: {
-            peer: "edge94",
-            local_path: "/tmp/app.tar",
-            remote_path: "/tmp/app.tar",
+        name: "deploy-phase",
+        strategy: "parallel",
+        max_parallel: 2,
+        jobs: [
+          {
+            name: "transfer-image",
+            strategy: "serial",
+            target_groups: ["edge_nodes"],
+            action: {
+              kind: "tx_block",
+              name: "scp-transfer",
+              flow_template_name: "scp",
+              flow_vars: {
+                peer: "edge94",
+                local_path: "/tmp/app.tar",
+                remote_path: "/tmp/app.tar",
+              },
+              timeout_secs: 1200,
+            },
           },
-          timeout_secs: 1200,
-        },
-      },
-      {
-        name: "precheck",
-        strategy: "serial",
-        target_groups: ["edge_nodes"],
-        action: {
-          kind: "tx_block",
-          tx_block_template_name: "precheck",
-          tx_block_template_vars: {},
-        },
-      },
-      {
-        name: "deploy",
-        strategy: "serial",
-        target_groups: ["edge_nodes"],
-        action: {
-          kind: "tx_workflow",
-          workflow_template_name: "safe-deploy",
-          workflow_vars: {},
-        },
+          {
+            name: "precheck",
+            strategy: "parallel",
+            max_parallel: 4,
+            target_groups: ["edge_nodes"],
+            action: {
+              kind: "tx_block",
+              tx_block_template_name: "precheck",
+              tx_block_template_vars: {},
+            },
+          },
+          {
+            name: "deploy",
+            strategy: "parallel",
+            max_parallel: 4,
+            target_groups: ["edge_nodes"],
+            action: {
+              kind: "tx_workflow",
+              workflow_template_name: "safe-deploy",
+              workflow_vars: {},
+            },
+          },
+        ],
       },
     ],
   };

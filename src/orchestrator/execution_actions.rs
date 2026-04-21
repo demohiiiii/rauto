@@ -1,7 +1,7 @@
 use super::{
     ActionExecutionOutcome, OrchestrationAction, OrchestrationEventHook, OrchestrationPlan,
-    OrchestrationRuntimeEvent, OrchestrationStage, OrchestrationTarget, RecordLevelOpt,
-    TxBlockAction, TxWorkflowAction, template_resolver,
+    OrchestrationRuntimeEvent, OrchestrationTarget, RecordLevelOpt, TxBlockAction,
+    TxWorkflowAction, template_resolver,
 };
 use crate::config::command_blacklist;
 use crate::config::template_loader;
@@ -32,32 +32,54 @@ pub(super) fn task_progress(current: usize, total: usize) -> Option<u8> {
 
 pub(super) async fn execute_action(
     plan: &OrchestrationPlan,
-    stage: &OrchestrationStage,
+    stage_name: &str,
+    job_name: &str,
+    action: &OrchestrationAction,
     target: &OrchestrationTarget,
     conn: &EffectiveConnection,
     plan_root: &Path,
     record_level: RecordLevelOpt,
 ) -> Result<ActionExecutionOutcome> {
-    match &stage.action {
+    match action {
         OrchestrationAction::TxBlock(action) => {
-            execute_tx_block_action(plan, stage, action, target, conn, record_level).await
+            execute_tx_block_action(
+                plan,
+                stage_name,
+                job_name,
+                action,
+                target,
+                conn,
+                record_level,
+            )
+            .await
         }
         OrchestrationAction::TxWorkflow(action) => {
-            execute_tx_workflow_action(plan, stage, action, conn, plan_root, record_level).await
+            execute_tx_workflow_action(
+                plan,
+                stage_name,
+                job_name,
+                action,
+                conn,
+                plan_root,
+                record_level,
+            )
+            .await
         }
     }
 }
 
 async fn execute_tx_block_action(
     plan: &OrchestrationPlan,
-    stage: &OrchestrationStage,
+    stage_name: &str,
+    job_name: &str,
     action: &TxBlockAction,
     target: &OrchestrationTarget,
     conn: &EffectiveConnection,
     record_level: RecordLevelOpt,
 ) -> Result<ActionExecutionOutcome> {
-    let (tx_block, mode, tx_block_name) =
-        template_resolver::resolve_orchestration_tx_block(plan, stage, action, target, conn)?;
+    let (tx_block, mode, tx_block_name) = template_resolver::resolve_orchestration_tx_block(
+        plan, stage_name, job_name, action, target, conn,
+    )?;
 
     command_blacklist::ensure_tx_block_allowed(
         &tx_block,
@@ -132,7 +154,8 @@ async fn execute_tx_block_action(
 
 async fn execute_tx_workflow_action(
     plan: &OrchestrationPlan,
-    stage: &OrchestrationStage,
+    stage_name: &str,
+    job_name: &str,
     action: &TxWorkflowAction,
     conn: &EffectiveConnection,
     plan_root: &Path,
@@ -140,7 +163,10 @@ async fn execute_tx_workflow_action(
 ) -> Result<ActionExecutionOutcome> {
     let workflow = template_resolver::load_workflow(action, plan_root, conn)?;
     let workflow_name = workflow.name.clone();
-    let operation_name = format!("{}::{}::{}", plan.name, stage.name, workflow_name);
+    let operation_name = format!(
+        "{}::{}::{}::{}",
+        plan.name, stage_name, job_name, workflow_name
+    );
     command_blacklist::ensure_tx_workflow_allowed(
         &workflow,
         &format!("orchestration tx workflow '{}'", workflow_name),

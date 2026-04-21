@@ -1,6 +1,52 @@
 use super::validation::{validate_plan, validate_tx_block_action, validate_tx_workflow_action};
 use super::*;
 use serde_json::json;
+use std::collections::HashMap;
+
+fn sample_tx_block_action() -> TxBlockAction {
+    TxBlockAction {
+        name: None,
+        template: None,
+        tx_block_template_name: None,
+        tx_block_template_content: None,
+        tx_block_template_vars: Value::Null,
+        flow_template_name: None,
+        flow_template_content: None,
+        flow_vars: Value::Null,
+        vars: Value::Null,
+        commands: vec!["show version".to_string()],
+        rollback_commands: Vec::new(),
+        rollback_on_failure: false,
+        rollback_trigger_step_index: None,
+        mode: None,
+        timeout_secs: None,
+        resource_rollback_command: None,
+    }
+}
+
+fn sample_stage_with_job(job: OrchestrationJob) -> OrchestrationStage {
+    OrchestrationStage {
+        name: "stage-1".to_string(),
+        strategy: StageStrategy::Serial,
+        max_parallel: None,
+        fail_fast: None,
+        jobs: vec![job],
+    }
+}
+
+fn sample_job_with_targets() -> OrchestrationJob {
+    OrchestrationJob {
+        name: Some("job-1".to_string()),
+        strategy: StageStrategy::Serial,
+        max_parallel: None,
+        fail_fast: None,
+        target_groups: Vec::new(),
+        targets: vec![OrchestrationTargetInput::ConnectionName(
+            "sw-01".to_string(),
+        )],
+        action: OrchestrationAction::TxBlock(sample_tx_block_action()),
+    }
+}
 
 #[test]
 fn merge_values_recursively() {
@@ -24,7 +70,7 @@ fn merge_values_recursively() {
 }
 
 #[test]
-fn plan_validation_rejects_empty_stage_targets() {
+fn plan_validation_rejects_empty_stage_jobs() {
     let plan = OrchestrationPlan {
         name: "demo".to_string(),
         fail_fast: true,
@@ -35,26 +81,7 @@ fn plan_validation_rejects_empty_stage_targets() {
             strategy: StageStrategy::Serial,
             max_parallel: None,
             fail_fast: None,
-            target_groups: Vec::new(),
-            targets: Vec::new(),
-            action: OrchestrationAction::TxBlock(TxBlockAction {
-                name: None,
-                template: None,
-                tx_block_template_name: None,
-                tx_block_template_content: None,
-                tx_block_template_vars: Value::Null,
-                flow_template_name: None,
-                flow_template_content: None,
-                flow_vars: Value::Null,
-                vars: Value::Null,
-                commands: vec!["show ver".to_string()],
-                rollback_commands: Vec::new(),
-                rollback_on_failure: false,
-                rollback_trigger_step_index: None,
-                mode: None,
-                timeout_secs: None,
-                resource_rollback_command: None,
-            }),
+            jobs: Vec::new(),
         }],
     };
 
@@ -62,9 +89,52 @@ fn plan_validation_rejects_empty_stage_targets() {
 }
 
 #[test]
-fn resolve_stage_targets_supports_inventory_groups_and_inline_targets() {
-    let stage = OrchestrationStage {
-        name: "access".to_string(),
+fn plan_validation_rejects_job_without_targets() {
+    let mut job = sample_job_with_targets();
+    job.targets = Vec::new();
+    let plan = OrchestrationPlan {
+        name: "demo".to_string(),
+        fail_fast: true,
+        inventory_file: None,
+        inventory: None,
+        stages: vec![sample_stage_with_job(job)],
+    };
+
+    assert!(validate_plan(&plan, &OrchestrationInventory::default()).is_err());
+}
+
+#[test]
+fn plan_validation_rejects_parallel_max_parallel_zero_for_stage_and_job() {
+    let mut job = sample_job_with_targets();
+    job.strategy = StageStrategy::Parallel;
+    job.max_parallel = Some(0);
+    let stage_with_bad_job = sample_stage_with_job(job);
+    let plan_bad_job = OrchestrationPlan {
+        name: "demo".to_string(),
+        fail_fast: true,
+        inventory_file: None,
+        inventory: None,
+        stages: vec![stage_with_bad_job],
+    };
+    assert!(validate_plan(&plan_bad_job, &OrchestrationInventory::default()).is_err());
+
+    let mut stage_bad_parallel = sample_stage_with_job(sample_job_with_targets());
+    stage_bad_parallel.strategy = StageStrategy::Parallel;
+    stage_bad_parallel.max_parallel = Some(0);
+    let plan_bad_stage = OrchestrationPlan {
+        name: "demo".to_string(),
+        fail_fast: true,
+        inventory_file: None,
+        inventory: None,
+        stages: vec![stage_bad_parallel],
+    };
+    assert!(validate_plan(&plan_bad_stage, &OrchestrationInventory::default()).is_err());
+}
+
+#[test]
+fn resolve_job_targets_supports_inventory_groups_and_inline_targets() {
+    let job = OrchestrationJob {
+        name: Some("access-job".to_string()),
         strategy: StageStrategy::Parallel,
         max_parallel: Some(5),
         fail_fast: None,
@@ -76,24 +146,7 @@ fn resolve_stage_targets_supports_inventory_groups_and_inline_targets() {
                 ..OrchestrationTarget::default()
             },
         ))],
-        action: OrchestrationAction::TxBlock(TxBlockAction {
-            name: None,
-            template: Some("configure_vlan.j2".to_string()),
-            tx_block_template_name: None,
-            tx_block_template_content: None,
-            tx_block_template_vars: Value::Null,
-            flow_template_name: None,
-            flow_template_content: None,
-            flow_vars: Value::Null,
-            vars: Value::Null,
-            commands: Vec::new(),
-            rollback_commands: Vec::new(),
-            rollback_on_failure: false,
-            rollback_trigger_step_index: None,
-            mode: None,
-            timeout_secs: None,
-            resource_rollback_command: None,
-        }),
+        action: OrchestrationAction::TxBlock(sample_tx_block_action()),
     };
     let inventory = OrchestrationInventory {
         defaults: OrchestrationTargetDefaults::default(),
@@ -106,7 +159,8 @@ fn resolve_stage_targets_supports_inventory_groups_and_inline_targets() {
         )]),
     };
 
-    let targets = orchestrator_targets::resolve_stage_targets(&stage, &inventory).expect("targets");
+    let targets =
+        orchestrator_targets::resolve_job_targets("stage-1", &job, &inventory).expect("targets");
     let labels = targets
         .iter()
         .enumerate()
@@ -117,32 +171,15 @@ fn resolve_stage_targets_supports_inventory_groups_and_inline_targets() {
 }
 
 #[test]
-fn resolve_stage_targets_merges_inventory_and_group_defaults() {
-    let stage = OrchestrationStage {
-        name: "access".to_string(),
+fn resolve_job_targets_merges_inventory_and_group_defaults() {
+    let job = OrchestrationJob {
+        name: Some("access-job".to_string()),
         strategy: StageStrategy::Parallel,
         max_parallel: Some(5),
         fail_fast: None,
         target_groups: vec!["access".to_string()],
         targets: Vec::new(),
-        action: OrchestrationAction::TxBlock(TxBlockAction {
-            name: None,
-            template: Some("configure_vlan.j2".to_string()),
-            tx_block_template_name: None,
-            tx_block_template_content: None,
-            tx_block_template_vars: Value::Null,
-            flow_template_name: None,
-            flow_template_content: None,
-            flow_vars: Value::Null,
-            vars: Value::Null,
-            commands: Vec::new(),
-            rollback_commands: Vec::new(),
-            rollback_on_failure: false,
-            rollback_trigger_step_index: None,
-            mode: None,
-            timeout_secs: None,
-            resource_rollback_command: None,
-        }),
+        action: OrchestrationAction::TxBlock(sample_tx_block_action()),
     };
     let inventory = OrchestrationInventory {
         defaults: OrchestrationTargetDefaults {
@@ -190,7 +227,8 @@ fn resolve_stage_targets_merges_inventory_and_group_defaults() {
         )]),
     };
 
-    let targets = orchestrator_targets::resolve_stage_targets(&stage, &inventory).expect("targets");
+    let targets =
+        orchestrator_targets::resolve_job_targets("stage-1", &job, &inventory).expect("targets");
     let target = targets.first().expect("one target");
 
     assert_eq!(target.connection.as_deref(), Some("sw-01"));
@@ -219,129 +257,55 @@ fn resolve_stage_targets_merges_inventory_and_group_defaults() {
 
 #[test]
 fn validate_tx_block_action_rejects_mixed_template_sources() {
-    let stage = OrchestrationStage {
-        name: "stage-1".to_string(),
-        strategy: StageStrategy::Serial,
-        max_parallel: None,
-        fail_fast: None,
-        target_groups: vec!["edge".to_string()],
-        targets: Vec::new(),
-        action: OrchestrationAction::TxBlock(TxBlockAction {
-            name: None,
-            template: Some("cmd.j2".to_string()),
-            tx_block_template_name: Some("saved-block".to_string()),
-            tx_block_template_content: None,
-            tx_block_template_vars: Value::Null,
-            flow_template_name: None,
-            flow_template_content: None,
-            flow_vars: Value::Null,
-            vars: Value::Null,
-            commands: vec![],
-            rollback_commands: vec![],
-            rollback_on_failure: false,
-            rollback_trigger_step_index: None,
-            mode: None,
-            timeout_secs: None,
-            resource_rollback_command: None,
-        }),
-    };
-    let action = match &stage.action {
-        OrchestrationAction::TxBlock(action) => action,
-        _ => unreachable!(),
-    };
-    assert!(validate_tx_block_action(&stage, action).is_err());
+    let mut action = sample_tx_block_action();
+    action.template = Some("cmd.j2".to_string());
+    action.tx_block_template_name = Some("saved-block".to_string());
+    assert!(validate_tx_block_action("stage 'demo' job 1", &action).is_err());
 }
 
 #[test]
 fn validate_tx_block_action_accepts_flow_template_source() {
-    let stage = OrchestrationStage {
-        name: "stage-1".to_string(),
-        strategy: StageStrategy::Serial,
-        max_parallel: None,
-        fail_fast: None,
-        target_groups: vec!["edge".to_string()],
-        targets: Vec::new(),
-        action: OrchestrationAction::TxBlock(TxBlockAction {
-            name: None,
-            template: None,
-            tx_block_template_name: None,
-            tx_block_template_content: None,
-            tx_block_template_vars: Value::Null,
-            flow_template_name: Some("scp".to_string()),
-            flow_template_content: None,
-            flow_vars: json!({"peer":"edge94"}),
-            vars: Value::Null,
-            commands: vec![],
-            rollback_commands: vec![],
-            rollback_on_failure: false,
-            rollback_trigger_step_index: None,
-            mode: None,
-            timeout_secs: None,
-            resource_rollback_command: None,
-        }),
-    };
-    let action = match &stage.action {
-        OrchestrationAction::TxBlock(action) => action,
-        _ => unreachable!(),
-    };
-    assert!(validate_tx_block_action(&stage, action).is_ok());
+    let mut action = sample_tx_block_action();
+    action.commands.clear();
+    action.flow_template_name = Some("scp".to_string());
+    action.flow_vars = json!({"peer": "edge94"});
+    assert!(validate_tx_block_action("stage 'demo' job 1", &action).is_ok());
 }
 
 #[test]
-fn validate_tx_block_action_rejects_flow_and_tx_block_template_mix() {
-    let stage = OrchestrationStage {
-        name: "stage-1".to_string(),
-        strategy: StageStrategy::Serial,
-        max_parallel: None,
-        fail_fast: None,
-        target_groups: vec!["edge".to_string()],
-        targets: Vec::new(),
-        action: OrchestrationAction::TxBlock(TxBlockAction {
-            name: None,
-            template: None,
-            tx_block_template_name: Some("saved-block".to_string()),
-            tx_block_template_content: None,
-            tx_block_template_vars: Value::Null,
-            flow_template_name: Some("scp".to_string()),
-            flow_template_content: None,
-            flow_vars: Value::Null,
-            vars: Value::Null,
-            commands: vec![],
-            rollback_commands: vec![],
-            rollback_on_failure: false,
-            rollback_trigger_step_index: None,
-            mode: None,
-            timeout_secs: None,
-            resource_rollback_command: None,
-        }),
+fn validate_tx_workflow_action_requires_single_source() {
+    let action = TxWorkflowAction {
+        workflow_file: None,
+        workflow: None,
+        workflow_template_name: None,
+        workflow_template_content: None,
+        workflow_vars: Value::Null,
     };
-    let action = match &stage.action {
-        OrchestrationAction::TxBlock(action) => action,
-        _ => unreachable!(),
-    };
-    assert!(validate_tx_block_action(&stage, action).is_err());
+    assert!(validate_tx_workflow_action("stage 'demo' job 1", &action).is_err());
 }
 
 #[test]
-fn validate_tx_workflow_action_accepts_template_source() {
-    let stage = OrchestrationStage {
-        name: "stage-1".to_string(),
-        strategy: StageStrategy::Serial,
-        max_parallel: None,
-        fail_fast: None,
-        target_groups: vec!["edge".to_string()],
-        targets: Vec::new(),
-        action: OrchestrationAction::TxWorkflow(TxWorkflowAction {
-            workflow_file: None,
-            workflow: None,
-            workflow_template_name: Some("linux-rollout".to_string()),
-            workflow_template_content: None,
-            workflow_vars: json!({"peer":"edge94"}),
-        }),
-    };
-    let action = match &stage.action {
-        OrchestrationAction::TxWorkflow(action) => action,
-        _ => unreachable!(),
-    };
-    assert!(validate_tx_workflow_action(&stage, action).is_ok());
+fn orchestration_plan_rejects_legacy_stage_action_shape() {
+    let legacy_plan = json!({
+        "name": "legacy-shape",
+        "fail_fast": true,
+        "stages": [
+            {
+                "name": "phase-1",
+                "strategy": "serial",
+                "targets": ["edge-01"],
+                "action": {
+                    "kind": "tx_block",
+                    "commands": ["show version"]
+                }
+            }
+        ]
+    });
+
+    let err = serde_json::from_value::<OrchestrationPlan>(legacy_plan)
+        .expect_err("legacy stage.action shape must be rejected");
+    assert!(
+        err.to_string().contains("missing field `jobs`"),
+        "unexpected parse error: {err}"
+    );
 }

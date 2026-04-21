@@ -37,6 +37,15 @@ pub struct OrchestrationStage {
     pub strategy: StageStrategy,
     pub max_parallel: Option<usize>,
     pub fail_fast: Option<bool>,
+    pub jobs: Vec<OrchestrationJob>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrchestrationJob {
+    pub name: Option<String>,
+    pub strategy: StageStrategy,
+    pub max_parallel: Option<usize>,
+    pub fail_fast: Option<bool>,
     #[serde(default)]
     pub target_groups: Vec<String>,
     #[serde(default)]
@@ -174,6 +183,19 @@ pub struct OrchestrationExecutionResult {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct StageExecutionResult {
+    pub name: String,
+    pub strategy: StageStrategy,
+    pub status: StageStatus,
+    pub fail_fast: bool,
+    pub jobs_total: usize,
+    pub jobs_succeeded: usize,
+    pub jobs_failed: usize,
+    pub jobs_skipped: usize,
+    pub jobs: Vec<JobExecutionResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct JobExecutionResult {
     pub name: String,
     pub strategy: StageStrategy,
     pub status: StageStatus,
@@ -322,8 +344,48 @@ pub async fn execute_loaded_plan_with_events(
 fn build_stage_result(
     stage: &OrchestrationStage,
     fail_fast: bool,
-    results: Vec<TargetExecutionResult>,
+    jobs: Vec<JobExecutionResult>,
 ) -> StageExecutionResult {
+    let jobs_total = jobs.len();
+    let jobs_succeeded = jobs
+        .iter()
+        .filter(|item| matches!(item.status, StageStatus::Success))
+        .count();
+    let jobs_failed = jobs
+        .iter()
+        .filter(|item| matches!(item.status, StageStatus::Failed))
+        .count();
+    let jobs_skipped = jobs
+        .iter()
+        .filter(|item| matches!(item.status, StageStatus::Skipped))
+        .count();
+    let status = if jobs_failed > 0 {
+        StageStatus::Failed
+    } else if jobs_total > 0 && jobs_skipped == jobs_total {
+        StageStatus::Skipped
+    } else {
+        StageStatus::Success
+    };
+
+    StageExecutionResult {
+        name: stage.name.clone(),
+        strategy: stage.strategy,
+        status,
+        fail_fast,
+        jobs_total,
+        jobs_succeeded,
+        jobs_failed,
+        jobs_skipped,
+        jobs,
+    }
+}
+
+fn build_job_result(
+    job: &OrchestrationJob,
+    idx: usize,
+    fail_fast: bool,
+    results: Vec<TargetExecutionResult>,
+) -> JobExecutionResult {
     let targets_total = results.len();
     let targets_succeeded = results
         .iter()
@@ -339,19 +401,19 @@ fn build_stage_result(
         .count();
     let status = if targets_failed > 0 {
         StageStatus::Failed
-    } else if targets_skipped == targets_total {
+    } else if targets_total > 0 && targets_skipped == targets_total {
         StageStatus::Skipped
     } else {
         StageStatus::Success
     };
 
-    StageExecutionResult {
-        name: stage.name.clone(),
-        strategy: stage.strategy,
+    JobExecutionResult {
+        name: job_name(job, idx),
+        strategy: job.strategy,
         status,
         fail_fast,
-        action_kind: action_kind_name(&stage.action).to_string(),
-        action_summary: action_summary(&stage.action),
+        action_kind: action_kind_name(&job.action).to_string(),
+        action_summary: action_summary(&job.action),
         targets_total,
         targets_succeeded,
         targets_failed,
@@ -363,26 +425,27 @@ fn build_stage_result(
 fn build_skipped_stage(
     stage: &OrchestrationStage,
     fail_fast: bool,
-    targets: &[OrchestrationTarget],
+    jobs: Vec<JobExecutionResult>,
 ) -> StageExecutionResult {
+    let mut stage_result = build_stage_result(stage, fail_fast, jobs);
+    stage_result.status = StageStatus::Skipped;
+    stage_result
+}
+
+fn build_skipped_job(
+    job: &OrchestrationJob,
+    idx: usize,
+    fail_fast: bool,
+    targets: &[OrchestrationTarget],
+) -> JobExecutionResult {
     let results = targets
         .iter()
         .enumerate()
-        .map(|(idx, target)| build_skipped_target(target, idx))
+        .map(|(target_idx, target)| build_skipped_target(target, target_idx))
         .collect::<Vec<_>>();
-    StageExecutionResult {
-        name: stage.name.clone(),
-        strategy: stage.strategy,
-        status: StageStatus::Skipped,
-        fail_fast,
-        action_kind: action_kind_name(&stage.action).to_string(),
-        action_summary: action_summary(&stage.action),
-        targets_total: results.len(),
-        targets_succeeded: 0,
-        targets_failed: 0,
-        targets_skipped: results.len(),
-        results,
-    }
+    let mut job_result = build_job_result(job, idx, fail_fast, results);
+    job_result.status = StageStatus::Skipped;
+    job_result
 }
 
 fn build_skipped_target(target: &OrchestrationTarget, idx: usize) -> TargetExecutionResult {
@@ -409,6 +472,15 @@ fn target_label(target: &OrchestrationTarget, idx: usize) -> String {
         .or_else(|| target.connection.clone())
         .or_else(|| target.host.clone())
         .unwrap_or_else(|| format!("target-{}", idx + 1))
+}
+
+fn job_name(job: &OrchestrationJob, idx: usize) -> String {
+    job.name
+        .as_deref()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| format!("job-{}", idx + 1))
 }
 
 fn action_kind_name(action: &OrchestrationAction) -> &'static str {

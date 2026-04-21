@@ -616,44 +616,57 @@ rauto orchestrate ./orchestration.json --json
     {
       "name": "core",
       "strategy": "serial",
-      "targets": ["core-01", "core-02"],
-      "action": {
-        "kind": "tx_workflow",
-        "workflow_file": "./workflows/core-vlan.json"
-      }
+      "jobs": [
+        {
+          "name": "core-workflow",
+          "strategy": "serial",
+          "targets": ["core-01", "core-02"],
+          "action": {
+            "kind": "tx_workflow",
+            "workflow_file": "./workflows/core-vlan.json"
+          }
+        }
+      ]
     },
     {
       "name": "access",
       "strategy": "parallel",
-      "max_parallel": 10,
-      "targets": [
+      "max_parallel": 2,
+      "jobs": [
         {
-          "connection": "sw-01",
-          "vars": {
-            "hostname": "sw-01"
-          }
-        },
-        {
-          "connection": "sw-02",
-          "vars": {
-            "hostname": "sw-02"
-          }
-        }
-      ],
-      "action": {
-        "kind": "tx_block",
-        "name": "access-vlan",
-        "template": "configure_vlan.j2",
-        "mode": "Config",
-        "vars": {
-          "vlans": [
+          "name": "access-rollout",
+          "strategy": "parallel",
+          "max_parallel": 10,
+          "targets": [
             {
-              "id": 120,
-              "name": "STAFF"
+              "connection": "sw-01",
+              "vars": {
+                "hostname": "sw-01"
+              }
+            },
+            {
+              "connection": "sw-02",
+              "vars": {
+                "hostname": "sw-02"
+              }
             }
-          ]
+          ],
+          "action": {
+            "kind": "tx_block",
+            "name": "access-vlan",
+            "template": "configure_vlan.j2",
+            "mode": "Config",
+            "vars": {
+              "vlans": [
+                {
+                  "id": 120,
+                  "name": "STAFF"
+                }
+              ]
+            }
+          }
         }
-      }
+      ]
     }
   ]
 }
@@ -669,30 +682,42 @@ rauto orchestrate ./orchestration.json --json
     {
       "name": "core",
       "strategy": "serial",
-      "target_groups": ["core"],
-      "action": {
-        "kind": "tx_workflow",
-        "workflow_file": "./workflows/core-vlan.json"
-      }
+      "jobs": [
+        {
+          "name": "core-workflow",
+          "strategy": "serial",
+          "target_groups": ["core"],
+          "action": {
+            "kind": "tx_workflow",
+            "workflow_file": "./workflows/core-vlan.json"
+          }
+        }
+      ]
     },
     {
       "name": "access",
-      "strategy": "parallel",
-      "max_parallel": 20,
-      "target_groups": ["access"],
-      "action": {
-        "kind": "tx_block",
-        "template": "configure_vlan.j2",
-        "mode": "Config",
-        "vars": {
-          "vlans": [
-            {
-              "id": 120,
-              "name": "STAFF"
+      "strategy": "serial",
+      "jobs": [
+        {
+          "name": "access-rollout",
+          "strategy": "parallel",
+          "max_parallel": 20,
+          "target_groups": ["access"],
+          "action": {
+            "kind": "tx_block",
+            "template": "configure_vlan.j2",
+            "mode": "Config",
+            "vars": {
+              "vlans": [
+                {
+                  "id": 120,
+                  "name": "STAFF"
+                }
+              ]
             }
-          ]
+          }
         }
-      }
+      ]
     }
   ]
 }
@@ -744,13 +769,15 @@ Advanced sample files:
 
 Notes:
 
+- `stage.jobs` defines executable units in a stage; each job has its own `targets`/`target_groups` and `action`.
+- `stage.strategy` / `stage.max_parallel` controls job-level concurrency; `job.strategy` / `job.max_parallel` controls target-level concurrency.
 - `targets` can reference saved connections by name or provide inline connection fields.
 - `target_groups` can load target lists from `inventory_file` or inline `inventory.groups`.
-- `inventory.defaults` applies to all groups and stage-level inline `targets`; group `defaults` override inventory defaults.
-- `tx_block` stages support two source modes:
+- `inventory.defaults` applies to all groups and job-level inline `targets`; group `defaults` override inventory defaults.
+- `tx_block` jobs support two source modes:
   - command mode (`template` / `commands` + `vars`)
   - tx block template mode (`tx_block_template_name` / `tx_block_template_content` + `tx_block_template_vars`)
-- `tx_workflow` stages support four source modes (exactly one):
+- `tx_workflow` jobs support four source modes (exactly one):
   - `workflow_file`
   - inline `workflow`
   - `workflow_template_name`

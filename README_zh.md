@@ -616,44 +616,57 @@ rauto orchestrate ./orchestration.json --json
     {
       "name": "core",
       "strategy": "serial",
-      "targets": ["core-01", "core-02"],
-      "action": {
-        "kind": "tx_workflow",
-        "workflow_file": "./workflows/core-vlan.json"
-      }
+      "jobs": [
+        {
+          "name": "core-workflow",
+          "strategy": "serial",
+          "targets": ["core-01", "core-02"],
+          "action": {
+            "kind": "tx_workflow",
+            "workflow_file": "./workflows/core-vlan.json"
+          }
+        }
+      ]
     },
     {
       "name": "access",
       "strategy": "parallel",
-      "max_parallel": 10,
-      "targets": [
+      "max_parallel": 2,
+      "jobs": [
         {
-          "connection": "sw-01",
-          "vars": {
-            "hostname": "sw-01"
-          }
-        },
-        {
-          "connection": "sw-02",
-          "vars": {
-            "hostname": "sw-02"
-          }
-        }
-      ],
-      "action": {
-        "kind": "tx_block",
-        "name": "access-vlan",
-        "template": "configure_vlan.j2",
-        "mode": "Config",
-        "vars": {
-          "vlans": [
+          "name": "access-rollout",
+          "strategy": "parallel",
+          "max_parallel": 10,
+          "targets": [
             {
-              "id": 120,
-              "name": "STAFF"
+              "connection": "sw-01",
+              "vars": {
+                "hostname": "sw-01"
+              }
+            },
+            {
+              "connection": "sw-02",
+              "vars": {
+                "hostname": "sw-02"
+              }
             }
-          ]
+          ],
+          "action": {
+            "kind": "tx_block",
+            "name": "access-vlan",
+            "template": "configure_vlan.j2",
+            "mode": "Config",
+            "vars": {
+              "vlans": [
+                {
+                  "id": 120,
+                  "name": "STAFF"
+                }
+              ]
+            }
+          }
         }
-      }
+      ]
     }
   ]
 }
@@ -669,30 +682,42 @@ rauto orchestrate ./orchestration.json --json
     {
       "name": "core",
       "strategy": "serial",
-      "target_groups": ["core"],
-      "action": {
-        "kind": "tx_workflow",
-        "workflow_file": "./workflows/core-vlan.json"
-      }
+      "jobs": [
+        {
+          "name": "core-workflow",
+          "strategy": "serial",
+          "target_groups": ["core"],
+          "action": {
+            "kind": "tx_workflow",
+            "workflow_file": "./workflows/core-vlan.json"
+          }
+        }
+      ]
     },
     {
       "name": "access",
-      "strategy": "parallel",
-      "max_parallel": 20,
-      "target_groups": ["access"],
-      "action": {
-        "kind": "tx_block",
-        "template": "configure_vlan.j2",
-        "mode": "Config",
-        "vars": {
-          "vlans": [
-            {
-              "id": 120,
-              "name": "STAFF"
+      "strategy": "serial",
+      "jobs": [
+        {
+          "name": "access-rollout",
+          "strategy": "parallel",
+          "max_parallel": 20,
+          "target_groups": ["access"],
+          "action": {
+            "kind": "tx_block",
+            "template": "configure_vlan.j2",
+            "mode": "Config",
+            "vars": {
+              "vlans": [
+                {
+                  "id": 120,
+                  "name": "STAFF"
+                }
+              ]
             }
-          ]
+          }
         }
-      }
+      ]
     }
   ]
 }
@@ -744,13 +769,15 @@ rauto orchestrate ./orchestration.json --json
 
 说明：
 
+- `stage.jobs` 定义阶段内的执行单元；每个 job 独立定义 `targets` / `target_groups` 与 `action`。
+- `stage.strategy` / `stage.max_parallel` 控制 job 级并发；`job.strategy` / `job.max_parallel` 控制目标级并发。
 - `targets` 可以直接引用已保存连接名，也可以写内联连接字段。
 - `target_groups` 可以从 `inventory_file` 或内联 `inventory.groups` 加载目标列表。
-- `inventory.defaults` 会作用到所有分组和阶段内联 `targets`；group 的 `defaults` 会覆盖 inventory 默认值。
-- `tx_block` 阶段支持两种来源模式：
+- `inventory.defaults` 会作用到所有分组和 job 内联 `targets`；group 的 `defaults` 会覆盖 inventory 默认值。
+- `tx_block` job 支持两种来源模式：
   - 命令模式（`template` / `commands` + `vars`）
   - 事务块模板模式（`tx_block_template_name` / `tx_block_template_content` + `tx_block_template_vars`）
-- `tx_workflow` 阶段支持四种来源模式（四选一）：
+- `tx_workflow` job 支持四种来源模式（四选一）：
   - `workflow_file`
   - 内联 `workflow`
   - `workflow_template_name`

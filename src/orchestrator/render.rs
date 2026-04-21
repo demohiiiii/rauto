@@ -1,11 +1,26 @@
 use super::targets as orchestrator_targets;
 use super::{
     OrchestrationExecutionResult, OrchestrationInventory, OrchestrationPlan, StageStatus,
-    StageStrategy, action_kind_name, action_summary, target_label,
+    StageStrategy, action_kind_name, action_summary, job_name, target_label,
 };
 use anyhow::Result;
 use std::fmt::Write as _;
 use std::path::PathBuf;
+
+fn strategy_name(strategy: StageStrategy) -> &'static str {
+    match strategy {
+        StageStrategy::Serial => "serial",
+        StageStrategy::Parallel => "parallel",
+    }
+}
+
+fn stage_status_name(status: StageStatus) -> &'static str {
+    match status {
+        StageStatus::Success => "SUCCESS",
+        StageStatus::Failed => "FAILED",
+        StageStatus::Skipped => "SKIPPED",
+    }
+}
 
 pub(super) fn render_plan(
     plan: &OrchestrationPlan,
@@ -27,7 +42,6 @@ pub(super) fn render_plan(
     let _ = writeln!(&mut out);
 
     for (stage_idx, stage) in plan.stages.iter().enumerate() {
-        let targets = orchestrator_targets::resolve_stage_targets(stage, inventory)?;
         let _ = writeln!(
             &mut out,
             "[Stage {}/{}] {}",
@@ -37,24 +51,42 @@ pub(super) fn render_plan(
         );
         let _ = writeln!(
             &mut out,
-            "strategy={} fail_fast={} targets={} action={} ({})",
-            match stage.strategy {
-                StageStrategy::Serial => "serial",
-                StageStrategy::Parallel => "parallel",
-            },
-            stage.fail_fast.unwrap_or(plan.fail_fast),
-            targets.len(),
-            action_kind_name(&stage.action),
-            action_summary(&stage.action),
+            "strategy={} fail_fast={} jobs={}",
+            strategy_name(stage.strategy),
+            stage.fail_fast.unwrap_or(false),
+            stage.jobs.len()
         );
         if let Some(max_parallel) = stage.max_parallel {
             let _ = writeln!(&mut out, "max_parallel={}", max_parallel);
         }
-        if !stage.target_groups.is_empty() {
-            let _ = writeln!(&mut out, "target_groups={}", stage.target_groups.join(", "));
-        }
-        for (idx, target) in targets.iter().enumerate() {
-            let _ = writeln!(&mut out, "- {}", target_label(target, idx));
+        for (job_idx, job) in stage.jobs.iter().enumerate() {
+            let targets =
+                orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?;
+            let _ = writeln!(
+                &mut out,
+                "  [Job {}/{}] {}",
+                job_idx + 1,
+                stage.jobs.len(),
+                job_name(job, job_idx)
+            );
+            let _ = writeln!(
+                &mut out,
+                "  strategy={} fail_fast={} targets={} action={} ({})",
+                strategy_name(job.strategy),
+                job.fail_fast.unwrap_or(true),
+                targets.len(),
+                action_kind_name(&job.action),
+                action_summary(&job.action),
+            );
+            if let Some(max_parallel) = job.max_parallel {
+                let _ = writeln!(&mut out, "  max_parallel={}", max_parallel);
+            }
+            if !job.target_groups.is_empty() {
+                let _ = writeln!(&mut out, "  target_groups={}", job.target_groups.join(", "));
+            }
+            for (target_idx, target) in targets.iter().enumerate() {
+                let _ = writeln!(&mut out, "  - {}", target_label(target, target_idx));
+            }
         }
         let _ = writeln!(&mut out);
     }
@@ -77,37 +109,46 @@ pub(super) fn render_execution_result(result: &OrchestrationExecutionResult) -> 
     for stage in &result.stages {
         let _ = writeln!(
             &mut out,
-            "[{}] {} strategy={:?} targets={} ok={} failed={} skipped={} action={}",
-            match stage.status {
-                StageStatus::Success => "SUCCESS",
-                StageStatus::Failed => "FAILED",
-                StageStatus::Skipped => "SKIPPED",
-            },
+            "[{}] {} strategy={} jobs={} ok={} failed={} skipped={}",
+            stage_status_name(stage.status),
             stage.name,
-            stage.strategy,
-            stage.targets_total,
-            stage.targets_succeeded,
-            stage.targets_failed,
-            stage.targets_skipped,
-            stage.action_kind,
+            strategy_name(stage.strategy),
+            stage.jobs_total,
+            stage.jobs_succeeded,
+            stage.jobs_failed,
+            stage.jobs_skipped,
         );
-        let _ = writeln!(&mut out, "summary: {}", stage.action_summary);
-        for target in &stage.results {
+        for job in &stage.jobs {
             let _ = writeln!(
                 &mut out,
-                "- [{}] {} host={} op={} duration_ms={}",
-                match target.status {
-                    super::TargetStatus::Success => "ok",
-                    super::TargetStatus::Failed => "failed",
-                    super::TargetStatus::Skipped => "skipped",
-                },
-                target.label,
-                target.host.as_deref().unwrap_or("-"),
-                target.operation,
-                target.duration_ms,
+                "  [{}] {} strategy={} targets={} ok={} failed={} skipped={} action={}",
+                stage_status_name(job.status),
+                job.name,
+                strategy_name(job.strategy),
+                job.targets_total,
+                job.targets_succeeded,
+                job.targets_failed,
+                job.targets_skipped,
+                job.action_kind,
             );
-            if let Some(error) = &target.error {
-                let _ = writeln!(&mut out, "  error: {}", error);
+            let _ = writeln!(&mut out, "  summary: {}", job.action_summary);
+            for target in &job.results {
+                let _ = writeln!(
+                    &mut out,
+                    "  - [{}] {} host={} op={} duration_ms={}",
+                    match target.status {
+                        super::TargetStatus::Success => "ok",
+                        super::TargetStatus::Failed => "failed",
+                        super::TargetStatus::Skipped => "skipped",
+                    },
+                    target.label,
+                    target.host.as_deref().unwrap_or("-"),
+                    target.operation,
+                    target.duration_ms,
+                );
+                if let Some(error) = &target.error {
+                    let _ = writeln!(&mut out, "    error: {}", error);
+                }
             }
         }
         let _ = writeln!(&mut out);

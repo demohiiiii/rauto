@@ -415,7 +415,7 @@
                           <div class="group-body grid gap-2">
                             <div id="orchestration-json-hint" class="text-xs text-slate-500">Edit the raw orchestration plan JSON. Template execution also uses this same editor for preview and adjustments.</div>
                             <div id="orchestration-json-editor" class="tx-json-editor tx-json-editor-compact hidden" aria-label="Orchestration JSON Editor"></div>
-                            <textarea id="orchestration-json" class="input min-h-40 font-mono tx-json-fallback" placeholder='{"name":"campus-rollout","stages":[]}'></textarea>
+                            <textarea id="orchestration-json" class="input min-h-40 font-mono tx-json-fallback" placeholder='{"name":"campus-rollout","stages":[{"name":"phase-1","strategy":"parallel","jobs":[]}]}'></textarea>
                             <input id="orchestration-import-file-input" type="file" accept=".json,application/json" hidden />
                           </div>
                         </div>

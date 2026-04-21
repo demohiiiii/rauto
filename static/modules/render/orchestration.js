@@ -53,7 +53,16 @@ function orchestrationActionSummary(action) {
     return parts.join(", ") || "tx_block";
   }
   if (action.kind === "tx_workflow") {
+    if (action.workflow_template_name) {
+      return `workflow_template=${action.workflow_template_name}`;
+    }
+    if (action.workflow_template_content) {
+      return "workflow_template_content=inline";
+    }
     if (action.workflow_file) return `workflow_file=${action.workflow_file}`;
+    if (action.workflow && typeof action.workflow === "object") {
+      return "inline workflow";
+    }
     return "inline workflow";
   }
   return safeString(action.kind || "-");
@@ -355,13 +364,13 @@ function renderOrchestrationActionCommandPreview(action) {
   `;
 }
 
-function resolveOrchestrationTargetsPreview(stage, inventory) {
+function resolveOrchestrationJobTargetsPreview(job, inventory) {
   const labels = [];
   const groups = inventory && inventory.groups && typeof inventory.groups === "object"
     ? inventory.groups
     : {};
-  const groupNames = Array.isArray(stage && stage.target_groups)
-    ? stage.target_groups
+  const groupNames = Array.isArray(job && job.target_groups)
+    ? job.target_groups
     : [];
   for (const groupName of groupNames) {
     const group = groups[groupName];
@@ -373,7 +382,7 @@ function resolveOrchestrationTargetsPreview(stage, inventory) {
       }
     }
   }
-  const directTargets = Array.isArray(stage && stage.targets) ? stage.targets : [];
+  const directTargets = Array.isArray(job && job.targets) ? job.targets : [];
   for (const item of directTargets) {
     if (typeof item === "string") {
       labels.push(item);
@@ -382,6 +391,11 @@ function resolveOrchestrationTargetsPreview(stage, inventory) {
     }
   }
   return labels;
+}
+
+function resolveOrchestrationStageTargetsPreview(stage, inventory) {
+  const jobs = Array.isArray(stage && stage.jobs) ? stage.jobs : [];
+  return jobs.flatMap((job) => resolveOrchestrationJobTargetsPreview(job, inventory));
 }
 
 function renderOrchestrationPreviewHtml(plan, inventory) {
@@ -417,8 +431,9 @@ function renderOrchestrationPreviewHtml(plan, inventory) {
   `;
   const stageCards = stages
     .map((stage, idx) => {
-      const labels = resolveOrchestrationTargetsPreview(stage, inventory);
-      const targetTags = labels.length
+      const jobs = Array.isArray(stage && stage.jobs) ? stage.jobs : [];
+      const labels = resolveOrchestrationStageTargetsPreview(stage, inventory);
+      const stageTargetTags = labels.length
         ? labels
             .map(
               (label) =>
@@ -426,6 +441,56 @@ function renderOrchestrationPreviewHtml(plan, inventory) {
             )
             .join("")
         : `<span class="text-xs text-slate-500">-</span>`;
+      const jobCards = jobs.length
+        ? jobs
+            .map((job, jobIdx) => {
+              const jobLabels = resolveOrchestrationJobTargetsPreview(job, inventory);
+              const targetTags = jobLabels.length
+                ? jobLabels
+                    .map(
+                      (label) =>
+                        `<span class="tx-workflow-chip">${escapeHtml(
+                          safeString(label)
+                        )}</span>`
+                    )
+                    .join("")
+                : `<span class="text-xs text-slate-500">-</span>`;
+              return `
+                <section class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-xs font-semibold text-slate-900">job[${jobIdx}] ${escapeHtml(
+                      safeString(job && job.name) || "-"
+                    )}</div>
+                    <div class="inline-flex flex-wrap items-center gap-1">
+                      <span class="tx-workflow-chip">${escapeHtml(
+                        `${t("orchestrationStageStrategy")}: ${orchestrationStageStrategyLabel(
+                          job && job.strategy
+                        )}`
+                      )}</span>
+                      <span class="tx-workflow-chip">${escapeHtml(
+                        `${t("orchestrationStageTargets")}: ${jobLabels.length}`
+                      )}</span>
+                    </div>
+                  </div>
+                  <div class="mt-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">
+                    ${escapeHtml(t("orchestrationStageAction"))}: ${escapeHtml(
+                      orchestrationActionSummary(job && job.action)
+                    )}
+                  </div>
+                  ${renderOrchestrationActionCommandPreview(job && job.action)}
+                  ${
+                    Array.isArray(job && job.target_groups) && job.target_groups.length
+                      ? `<div class="mt-2 text-xs text-slate-500">groups: ${escapeHtml(
+                          job.target_groups.join(", ")
+                        )}</div>`
+                      : ""
+                  }
+                  <div class="mt-2 flex flex-wrap gap-2">${targetTags}</div>
+                </section>
+              `;
+            })
+            .join("")
+        : `<div class="text-xs text-slate-500">-</div>`;
       return `
         <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -441,22 +506,13 @@ function renderOrchestrationPreviewHtml(plan, inventory) {
               <span class="tx-workflow-chip">${escapeHtml(
                 `${t("orchestrationStageTargets")}: ${labels.length}`
               )}</span>
+              <span class="tx-workflow-chip">${escapeHtml(
+                `${t("orchestrationStageJobs")}: ${jobs.length}`
+              )}</span>
             </div>
           </div>
-          <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-            ${escapeHtml(t("orchestrationStageAction"))}: ${escapeHtml(
-              orchestrationActionSummary(stage && stage.action)
-            )}
-          </div>
-          ${renderOrchestrationActionCommandPreview(stage && stage.action)}
-          ${
-            Array.isArray(stage && stage.target_groups) && stage.target_groups.length
-              ? `<div class="mt-2 text-xs text-slate-500">groups: ${escapeHtml(
-                  stage.target_groups.join(", ")
-                )}</div>`
-              : ""
-          }
-          <div class="mt-2 flex flex-wrap gap-2">${targetTags}</div>
+          <div class="mt-2 flex flex-wrap gap-2">${stageTargetTags}</div>
+          <div class="mt-2 grid gap-2">${jobCards}</div>
         </section>
       `;
     })
@@ -468,34 +524,58 @@ function renderOrchestrationPreviewHtml(plan, inventory) {
 
 function renderOrchestrationStageDetail(detail) {
   const stage = (detail && detail.stage) || {};
-  const targets = Array.isArray(stage.results) ? stage.results : [];
-  const targetRows = targets.length
-    ? targets
-        .map(
-          (target) => `
-            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+  const jobs = Array.isArray(stage.jobs) ? stage.jobs : [];
+  const jobRows = jobs.length
+    ? jobs
+        .map((job, jobIdx) => {
+          const targets = Array.isArray(job && job.results) ? job.results : [];
+          const targetRows = targets.length
+            ? targets
+                .map(
+                  (target) => `
+                    <div class="rounded-md border border-slate-200 bg-white px-2 py-1.5">
+                      <div class="flex flex-wrap items-center justify-between gap-1">
+                        <div class="text-xs font-semibold text-slate-900">${escapeHtml(
+                          safeString(target.label)
+                        )}</div>
+                        ${orchestrationStatusBadge(target.status)}
+                      </div>
+                      <div class="mt-1 font-mono text-[11px] text-slate-600 break-all">
+                        host=${escapeHtml(safeString(target.host || "-"))}
+                        op=${escapeHtml(safeString(target.operation || "-"))}
+                        duration_ms=${escapeHtml(safeString(target.duration_ms || 0))}
+                      </div>
+                    </div>
+                  `
+                )
+                .join("")
+            : `<div class="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-500">-</div>`;
+          return `
+            <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="text-sm font-semibold text-slate-900">${escapeHtml(
-                  safeString(target.label)
+                <div class="text-sm font-semibold text-slate-900">job[${jobIdx}] ${escapeHtml(
+                  safeString(job.name || "-")
                 )}</div>
-                ${orchestrationStatusBadge(target.status)}
+                <div class="inline-flex items-center gap-2">
+                  ${orchestrationStatusBadge(job.status)}
+                  <span class="tx-workflow-chip">${escapeHtml(
+                    `ok=${safeString(job.targets_succeeded || 0)}`
+                  )}</span>
+                  <span class="tx-workflow-chip">${escapeHtml(
+                    `failed=${safeString(job.targets_failed || 0)}`
+                  )}</span>
+                  <span class="tx-workflow-chip">${escapeHtml(
+                    `skipped=${safeString(job.targets_skipped || 0)}`
+                  )}</span>
+                </div>
               </div>
-              <div class="mt-1 font-mono text-xs text-slate-600 break-all">
-                host=${escapeHtml(safeString(target.host || "-"))}
-                connection=${escapeHtml(safeString(target.connection_name || "-"))}
-                op=${escapeHtml(safeString(target.operation || "-"))}
-                duration_ms=${escapeHtml(safeString(target.duration_ms || 0))}
-              </div>
-              ${
-                target.error
-                  ? `<div class="mt-1 text-xs text-rose-700 break-all">${escapeHtml(
-                      target.error
-                    )}</div>`
-                  : ""
-              }
+              <div class="mt-1 text-xs text-slate-700">${escapeHtml(
+                `${t("orchestrationStageAction")}: ${safeString(job.action_summary || job.action_kind || "-")}`
+              )}</div>
+              <div class="mt-2 grid gap-2">${targetRows}</div>
             </div>
-          `
-        )
+          `;
+        })
         .join("")
     : `<div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">-</div>`;
 
@@ -530,20 +610,16 @@ function renderOrchestrationStageDetail(detail) {
             )}</div>
             <div class="mt-1">${detailBoolBadge(stage.fail_fast)}</div>
           </div>
-          ${detailField(
-            t("orchestrationStageAction"),
-            stage.action_summary || stage.action_kind || "-"
-          )}
-          ${detailField(t("orchestrationStatusSuccess"), stage.targets_succeeded ?? 0)}
-          ${detailField(t("orchestrationStatusFailed"), stage.targets_failed ?? 0)}
-          ${detailField(t("orchestrationStatusSkipped"), stage.targets_skipped ?? 0)}
+          ${detailField(t("orchestrationStatusSuccess"), stage.jobs_succeeded ?? 0)}
+          ${detailField(t("orchestrationStatusFailed"), stage.jobs_failed ?? 0)}
+          ${detailField(t("orchestrationStatusSkipped"), stage.jobs_skipped ?? 0)}
         </div>
       </section>
       <section class="rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div class="mb-2 text-xs font-semibold text-slate-600">${escapeHtml(
-          t("orchestrationDetailSectionTargets")
+          t("orchestrationDetailSectionJobs")
         )}</div>
-        <div class="grid gap-2">${targetRows}</div>
+        <div class="grid gap-2">${jobRows}</div>
       </section>
       ${renderOrchestrationJsonSection(t("detailSectionRaw"), stage)}
     </div>
@@ -596,6 +672,12 @@ function renderOrchestrationTargetDetail(detail) {
             t("orchestrationDetailLabelStage"),
             `stage[${detail && typeof detail.stageIndex === "number" ? detail.stageIndex : 0}] ${safeString(
               detail && detail.stageName ? detail.stageName : "-"
+            )}`
+          )}
+          ${detailField(
+            t("orchestrationDetailLabelJob"),
+            `job[${detail && typeof detail.jobIndex === "number" ? detail.jobIndex : 0}] ${safeString(
+              detail && detail.jobName ? detail.jobName : "-"
             )}`
           )}
           ${detailField(
@@ -681,42 +763,74 @@ function renderOrchestrationResult(result) {
         stageIndex: idx,
         stage,
       });
-      const targets = Array.isArray(stage.results) ? stage.results : [];
-      const targetRows = targets
-        .map((target, targetIdx) => {
-          const targetDetailId = rememberOrchestrationDetail({
-            kind: "target",
-            planName: result.plan_name || "-",
-            stageName: stage.name || "-",
-            stageIndex: idx,
-            targetIndex: targetIdx,
-            target,
-          });
+      const jobs = Array.isArray(stage.jobs) ? stage.jobs : [];
+      const jobRows = jobs
+        .map((job, jobIdx) => {
+          const targets = Array.isArray(job.results) ? job.results : [];
+          const targetRows = targets
+            .map((target, targetIdx) => {
+              const targetDetailId = rememberOrchestrationDetail({
+                kind: "target",
+                planName: result.plan_name || "-",
+                stageName: stage.name || "-",
+                stageIndex: idx,
+                jobName: job.name || `job-${jobIdx + 1}`,
+                jobIndex: jobIdx,
+                targetIndex: targetIdx,
+                target,
+              });
+              return `
+                <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="font-semibold text-slate-900">${escapeHtml(
+                      safeString(target.label)
+                    )}</div>
+                    <div class="inline-flex items-center gap-2">
+                      ${orchestrationStatusBadge(target.status)}
+                      <button
+                        class="mini-btn js-orchestration-detail-btn"
+                        type="button"
+                        data-orchestration-detail-id="${escapeHtml(targetDetailId)}"
+                      >${escapeHtml(t("orchestrationDetailBtn"))}</button>
+                    </div>
+                  </div>
+                  <div class="mt-1 break-all">host=${escapeHtml(
+                    safeString(target.host || "-")
+                  )} op=${escapeHtml(
+                    safeString(target.operation || "-")
+                  )} duration_ms=${escapeHtml(safeString(target.duration_ms || 0))}</div>
+                  ${
+                    target.error
+                      ? `<div class="mt-1 text-rose-700">${escapeHtml(target.error)}</div>`
+                      : ""
+                  }
+                </div>
+              `;
+            })
+            .join("");
           return `
             <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="font-semibold text-slate-900">${escapeHtml(
-                  safeString(target.label)
+                <div class="font-semibold text-slate-900">job[${jobIdx}] ${escapeHtml(
+                  safeString(job.name || "-")
                 )}</div>
-                <div class="inline-flex items-center gap-2">
-                  ${orchestrationStatusBadge(target.status)}
-                  <button
-                    class="mini-btn js-orchestration-detail-btn"
-                    type="button"
-                    data-orchestration-detail-id="${escapeHtml(targetDetailId)}"
-                  >${escapeHtml(t("orchestrationDetailBtn"))}</button>
+                <div class="inline-flex flex-wrap items-center gap-2">
+                  ${orchestrationStatusBadge(job.status)}
+                  <span class="tx-workflow-chip">${escapeHtml(
+                    `ok=${safeString(job.targets_succeeded || 0)}`
+                  )}</span>
+                  <span class="tx-workflow-chip">${escapeHtml(
+                    `failed=${safeString(job.targets_failed || 0)}`
+                  )}</span>
+                  <span class="tx-workflow-chip">${escapeHtml(
+                    `skipped=${safeString(job.targets_skipped || 0)}`
+                  )}</span>
                 </div>
               </div>
-              <div class="mt-1 break-all">host=${escapeHtml(
-                safeString(target.host || "-")
-              )} op=${escapeHtml(
-                safeString(target.operation || "-")
-              )} duration_ms=${escapeHtml(safeString(target.duration_ms || 0))}</div>
-              ${
-                target.error
-                  ? `<div class="mt-1 text-rose-700">${escapeHtml(target.error)}</div>`
-                  : ""
-              }
+              <div class="mt-1 break-all">${escapeHtml(
+                `${t("orchestrationStageAction")}: ${safeString(job.action_summary || job.action_kind || "-")}`
+              )}</div>
+              <div class="mt-2 grid gap-2">${targetRows || `<div class="text-xs text-slate-500">-</div>`}</div>
             </div>
           `;
         })
@@ -731,13 +845,16 @@ function renderOrchestrationResult(result) {
               ${orchestrationStatusBadge(stage.status)}
               <div class="inline-flex flex-wrap items-center gap-1">
               <span class="tx-workflow-chip">${escapeHtml(
-                `ok=${safeString(stage.targets_succeeded)}`
+                `ok=${safeString(stage.jobs_succeeded)}`
               )}</span>
               <span class="tx-workflow-chip">${escapeHtml(
-                `failed=${safeString(stage.targets_failed)}`
+                `failed=${safeString(stage.jobs_failed)}`
               )}</span>
               <span class="tx-workflow-chip">${escapeHtml(
-                `skipped=${safeString(stage.targets_skipped)}`
+                `skipped=${safeString(stage.jobs_skipped)}`
+              )}</span>
+              <span class="tx-workflow-chip">${escapeHtml(
+                `${t("orchestrationStageJobs")}=${safeString(stage.jobs_total)}`
               )}</span>
               </div>
               <button
@@ -747,12 +864,7 @@ function renderOrchestrationResult(result) {
               >${escapeHtml(t("orchestrationDetailBtn"))}</button>
             </div>
           </div>
-          <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-            ${escapeHtml(t("orchestrationStageAction"))}: ${escapeHtml(
-              safeString(stage.action_summary || stage.action_kind)
-            )}
-          </div>
-          <div class="mt-2 grid gap-2">${targetRows || `<div class="text-xs text-slate-500">-</div>`}</div>
+          <div class="mt-2 grid gap-2">${jobRows || `<div class="text-xs text-slate-500">-</div>`}</div>
         </section>
       `;
     })

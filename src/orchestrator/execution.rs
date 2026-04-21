@@ -1,10 +1,11 @@
 use super::execution_actions::{emit_orchestration_event, execute_action, task_progress};
 use super::targets as orchestrator_targets;
 use super::{
-    OrchestrationEventHook, OrchestrationExecutionResult, OrchestrationInventory,
-    OrchestrationPlan, OrchestrationRuntimeEvent, OrchestrationStage, OrchestrationTarget,
-    RecordLevelOpt, StageExecutionResult, StageStrategy, TargetExecutionResult, TargetStatus,
-    action_kind_name, build_skipped_stage, build_skipped_target, build_stage_result, target_label,
+    JobExecutionResult, OrchestrationEventHook, OrchestrationExecutionResult,
+    OrchestrationInventory, OrchestrationJob, OrchestrationPlan, OrchestrationRuntimeEvent,
+    OrchestrationStage, OrchestrationTarget, RecordLevelOpt, StageExecutionResult, StageStrategy,
+    TargetExecutionResult, TargetStatus, action_kind_name, build_job_result, build_skipped_job,
+    build_skipped_stage, build_skipped_target, build_stage_result, job_name, target_label,
 };
 use crate::cli::GlobalOpts;
 use anyhow::{Result, anyhow};
@@ -26,8 +27,9 @@ pub(super) async fn execute_plan(
     let mut failed = false;
 
     for (stage_idx, stage) in plan.stages.iter().enumerate() {
+        let stage_fail_fast = stage.fail_fast.unwrap_or(false);
         if failed && plan.fail_fast {
-            let targets = orchestrator_targets::resolve_stage_targets(stage, inventory)?;
+            let skipped_jobs = build_skipped_stage_jobs(stage, inventory)?;
             emit_orchestration_event(
                 &event_hook,
                 OrchestrationRuntimeEvent {
@@ -43,14 +45,11 @@ pub(super) async fn execute_plan(
                     })),
                 },
             );
-            stages.push(build_skipped_stage(
-                stage,
-                stage.fail_fast.unwrap_or(plan.fail_fast),
-                &targets,
-            ));
+            stages.push(build_skipped_stage(stage, stage_fail_fast, skipped_jobs));
             continue;
         }
 
+        let stage_target_count = count_stage_targets(stage, inventory)?;
         emit_orchestration_event(
             &event_hook,
             OrchestrationRuntimeEvent {
@@ -62,8 +61,10 @@ pub(super) async fn execute_plan(
                 details: Some(json!({
                     "plan_name": plan.name,
                     "stage_name": stage.name,
+                    "stage_index": stage_idx + 1,
                     "stage_strategy": format!("{:?}", stage.strategy).to_lowercase(),
-                    "target_count": orchestrator_targets::resolve_stage_targets(stage, inventory)?.len()
+                    "job_count": stage.jobs.len(),
+                    "target_count": stage_target_count
                 })),
             },
         );
@@ -71,6 +72,7 @@ pub(super) async fn execute_plan(
         let stage_result = execute_stage(
             plan,
             stage,
+            stage_idx,
             inventory,
             plan_root,
             opts,
@@ -105,9 +107,13 @@ pub(super) async fn execute_plan(
                 details: Some(json!({
                     "plan_name": plan.name,
                     "stage_name": stage.name,
-                    "targets_total": stage_result.targets_total,
-                    "targets_failed": stage_result.targets_failed,
-                    "targets_succeeded": stage_result.targets_succeeded
+                    "jobs_total": stage_result.jobs_total,
+                    "jobs_failed": stage_result.jobs_failed,
+                    "jobs_succeeded": stage_result.jobs_succeeded,
+                    "jobs_skipped": stage_result.jobs_skipped,
+                    "targets_total": stage_result.jobs.iter().map(|job| job.targets_total).sum::<usize>(),
+                    "targets_failed": stage_result.jobs.iter().map(|job| job.targets_failed).sum::<usize>(),
+                    "targets_succeeded": stage_result.jobs.iter().map(|job| job.targets_succeeded).sum::<usize>()
                 })),
             },
         );
@@ -158,54 +164,336 @@ pub(super) async fn execute_plan(
     })
 }
 
+fn count_stage_targets(
+    stage: &OrchestrationStage,
+    inventory: &OrchestrationInventory,
+) -> Result<usize> {
+    let mut total = 0usize;
+    for job in &stage.jobs {
+        total +=
+            orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?.len();
+    }
+    Ok(total)
+}
+
+fn build_skipped_stage_jobs(
+    stage: &OrchestrationStage,
+    inventory: &OrchestrationInventory,
+) -> Result<Vec<JobExecutionResult>> {
+    let mut jobs = Vec::with_capacity(stage.jobs.len());
+    for (job_idx, job) in stage.jobs.iter().enumerate() {
+        let targets =
+            orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?;
+        jobs.push(build_skipped_job(
+            job,
+            job_idx,
+            job.fail_fast.unwrap_or(true),
+            &targets,
+        ));
+    }
+    Ok(jobs)
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn execute_stage(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
+    stage_idx: usize,
     inventory: &OrchestrationInventory,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
     event_hook: Option<OrchestrationEventHook>,
 ) -> Result<StageExecutionResult> {
-    let fail_fast = stage.fail_fast.unwrap_or(plan.fail_fast);
-    let targets = orchestrator_targets::resolve_stage_targets(stage, inventory)?;
-    let results = match stage.strategy {
+    let stage_fail_fast = stage.fail_fast.unwrap_or(false);
+    let jobs = match stage.strategy {
         StageStrategy::Serial => {
-            execute_serial_stage(
+            execute_serial_stage_jobs(
                 plan,
                 stage,
-                &targets,
+                stage_idx,
+                inventory,
                 plan_root,
                 opts,
                 record_level,
-                fail_fast,
+                stage_fail_fast,
                 event_hook.clone(),
             )
             .await?
         }
         StageStrategy::Parallel => {
-            execute_parallel_stage(
+            execute_parallel_stage_jobs(
                 plan,
                 stage,
-                &targets,
+                stage_idx,
+                inventory,
                 plan_root,
                 opts,
                 record_level,
-                fail_fast,
+                stage_fail_fast,
                 event_hook.clone(),
             )
             .await?
         }
     };
 
-    Ok(build_stage_result(stage, fail_fast, results))
+    Ok(build_stage_result(stage, stage_fail_fast, jobs))
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn execute_serial_stage(
+async fn execute_serial_stage_jobs(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
+    stage_idx: usize,
+    inventory: &OrchestrationInventory,
+    plan_root: &Path,
+    opts: &GlobalOpts,
+    record_level: RecordLevelOpt,
+    stage_fail_fast: bool,
+    event_hook: Option<OrchestrationEventHook>,
+) -> Result<Vec<JobExecutionResult>> {
+    let mut jobs = Vec::with_capacity(stage.jobs.len());
+    for (job_idx, job) in stage.jobs.iter().enumerate() {
+        let job_result = execute_job(
+            plan,
+            stage,
+            stage_idx,
+            job,
+            job_idx,
+            inventory,
+            plan_root,
+            opts,
+            record_level,
+            event_hook.clone(),
+        )
+        .await?;
+        let is_failed = matches!(job_result.status, super::StageStatus::Failed);
+        jobs.push(job_result);
+        if is_failed && stage_fail_fast {
+            for (remaining_idx, remaining_job) in stage.jobs.iter().enumerate().skip(job_idx + 1) {
+                let targets = orchestrator_targets::resolve_job_targets(
+                    stage.name.as_str(),
+                    remaining_job,
+                    inventory,
+                )?;
+                jobs.push(build_skipped_job(
+                    remaining_job,
+                    remaining_idx,
+                    remaining_job.fail_fast.unwrap_or(true),
+                    &targets,
+                ));
+            }
+            break;
+        }
+    }
+    Ok(jobs)
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_parallel_stage_jobs(
+    plan: &OrchestrationPlan,
+    stage: &OrchestrationStage,
+    stage_idx: usize,
+    inventory: &OrchestrationInventory,
+    plan_root: &Path,
+    opts: &GlobalOpts,
+    record_level: RecordLevelOpt,
+    stage_fail_fast: bool,
+    event_hook: Option<OrchestrationEventHook>,
+) -> Result<Vec<JobExecutionResult>> {
+    let concurrency = stage
+        .max_parallel
+        .unwrap_or(4)
+        .max(1)
+        .min(stage.jobs.len().max(1));
+    let mut pending: VecDeque<(usize, OrchestrationJob)> =
+        stage.jobs.iter().cloned().enumerate().collect();
+    let mut join_set = JoinSet::new();
+    let mut results: Vec<Option<JobExecutionResult>> = std::iter::repeat_with(|| None)
+        .take(stage.jobs.len())
+        .collect();
+    let plan_owned = plan.clone();
+    let stage_owned = stage.clone();
+    let inventory_owned = inventory.clone();
+    let opts_owned = opts.clone();
+    let plan_root_owned = plan_root.to_path_buf();
+    let mut stop_spawning = false;
+
+    while !pending.is_empty() || !join_set.is_empty() {
+        while !stop_spawning && join_set.len() < concurrency && !pending.is_empty() {
+            let (job_idx, job) = pending.pop_front().expect("pending job");
+            let plan_cloned = plan_owned.clone();
+            let stage_cloned = stage_owned.clone();
+            let inventory_cloned = inventory_owned.clone();
+            let opts_cloned = opts_owned.clone();
+            let plan_root_cloned = plan_root_owned.clone();
+            let event_hook_cloned = event_hook.clone();
+            join_set.spawn(async move {
+                let result = execute_job(
+                    &plan_cloned,
+                    &stage_cloned,
+                    stage_idx,
+                    &job,
+                    job_idx,
+                    &inventory_cloned,
+                    &plan_root_cloned,
+                    &opts_cloned,
+                    record_level,
+                    event_hook_cloned,
+                )
+                .await;
+                (job_idx, result)
+            });
+        }
+
+        let Some(joined) = join_set.join_next().await else {
+            break;
+        };
+        let (job_idx, result) = joined.map_err(|e| anyhow!("parallel stage task failed: {}", e))?;
+        let job_result = result?;
+        if matches!(job_result.status, super::StageStatus::Failed) && stage_fail_fast {
+            stop_spawning = true;
+        }
+        results[job_idx] = Some(job_result);
+    }
+
+    for (job_idx, job) in pending {
+        let targets =
+            orchestrator_targets::resolve_job_targets(stage.name.as_str(), &job, inventory)?;
+        results[job_idx] = Some(build_skipped_job(
+            &job,
+            job_idx,
+            job.fail_fast.unwrap_or(true),
+            &targets,
+        ));
+    }
+
+    Ok(results
+        .into_iter()
+        .enumerate()
+        .map(|(job_idx, item)| {
+            item.unwrap_or_else(|| {
+                let job = &stage.jobs[job_idx];
+                build_job_result(job, job_idx, job.fail_fast.unwrap_or(true), Vec::new())
+            })
+        })
+        .collect())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_job(
+    plan: &OrchestrationPlan,
+    stage: &OrchestrationStage,
+    stage_idx: usize,
+    job: &OrchestrationJob,
+    job_idx: usize,
+    inventory: &OrchestrationInventory,
+    plan_root: &Path,
+    opts: &GlobalOpts,
+    record_level: RecordLevelOpt,
+    event_hook: Option<OrchestrationEventHook>,
+) -> Result<JobExecutionResult> {
+    let job_fail_fast = job.fail_fast.unwrap_or(true);
+    let targets = orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?;
+    let job_display_name = job_name(job, job_idx);
+
+    emit_orchestration_event(
+        &event_hook,
+        OrchestrationRuntimeEvent {
+            event_type: "step_started".to_string(),
+            message: format!("Job '{}' started", job_display_name),
+            level: "info".to_string(),
+            stage: Some("orchestrate".to_string()),
+            progress: None,
+            details: Some(json!({
+                "plan_name": plan.name,
+                "stage_name": stage.name,
+                "stage_index": stage_idx + 1,
+                "job_name": job_display_name,
+                "job_index": job_idx + 1,
+                "job_strategy": format!("{:?}", job.strategy).to_lowercase(),
+                "target_count": targets.len()
+            })),
+        },
+    );
+
+    let results = match job.strategy {
+        StageStrategy::Serial => {
+            execute_serial_job_targets(
+                plan,
+                stage,
+                job,
+                job_idx,
+                &targets,
+                plan_root,
+                opts,
+                record_level,
+                job_fail_fast,
+                event_hook.clone(),
+            )
+            .await?
+        }
+        StageStrategy::Parallel => {
+            execute_parallel_job_targets(
+                plan,
+                stage,
+                job,
+                job_idx,
+                &targets,
+                plan_root,
+                opts,
+                record_level,
+                job_fail_fast,
+                event_hook.clone(),
+            )
+            .await?
+        }
+    };
+
+    let job_result = build_job_result(job, job_idx, job_fail_fast, results);
+    let job_failed = matches!(job_result.status, super::StageStatus::Failed);
+    emit_orchestration_event(
+        &event_hook,
+        OrchestrationRuntimeEvent {
+            event_type: if job_failed {
+                "failed".to_string()
+            } else {
+                "step_completed".to_string()
+            },
+            message: if job_failed {
+                format!("Job '{}' failed", job_result.name)
+            } else {
+                format!("Job '{}' completed", job_result.name)
+            },
+            level: if job_failed {
+                "error".to_string()
+            } else {
+                "success".to_string()
+            },
+            stage: Some("orchestrate".to_string()),
+            progress: None,
+            details: Some(json!({
+                "plan_name": plan.name,
+                "stage_name": stage.name,
+                "stage_index": stage_idx + 1,
+                "job_name": job_result.name,
+                "job_index": job_idx + 1,
+                "targets_total": job_result.targets_total,
+                "targets_failed": job_result.targets_failed,
+                "targets_succeeded": job_result.targets_succeeded,
+                "targets_skipped": job_result.targets_skipped
+            })),
+        },
+    );
+    Ok(job_result)
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_serial_job_targets(
+    plan: &OrchestrationPlan,
+    stage: &OrchestrationStage,
+    job: &OrchestrationJob,
+    job_idx: usize,
     targets: &[OrchestrationTarget],
     plan_root: &Path,
     opts: &GlobalOpts,
@@ -214,12 +502,14 @@ async fn execute_serial_stage(
     event_hook: Option<OrchestrationEventHook>,
 ) -> Result<Vec<TargetExecutionResult>> {
     let mut results = Vec::with_capacity(targets.len());
-    for (idx, target) in targets.iter().enumerate() {
+    for (target_idx, target) in targets.iter().enumerate() {
         let result = execute_target(
             plan,
             stage,
+            job,
+            job_idx,
             target,
-            idx,
+            target_idx,
             plan_root,
             opts,
             record_level,
@@ -229,7 +519,8 @@ async fn execute_serial_stage(
         let is_failed = matches!(result.status, TargetStatus::Failed);
         results.push(result);
         if is_failed && fail_fast {
-            for (remaining_idx, remaining_target) in targets.iter().enumerate().skip(idx + 1) {
+            for (remaining_idx, remaining_target) in targets.iter().enumerate().skip(target_idx + 1)
+            {
                 results.push(build_skipped_target(remaining_target, remaining_idx));
             }
             break;
@@ -239,9 +530,11 @@ async fn execute_serial_stage(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn execute_parallel_stage(
+async fn execute_parallel_job_targets(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
+    job: &OrchestrationJob,
+    job_idx: usize,
     targets: &[OrchestrationTarget],
     plan_root: &Path,
     opts: &GlobalOpts,
@@ -249,7 +542,7 @@ async fn execute_parallel_stage(
     fail_fast: bool,
     event_hook: Option<OrchestrationEventHook>,
 ) -> Result<Vec<TargetExecutionResult>> {
-    let concurrency = stage
+    let concurrency = job
         .max_parallel
         .unwrap_or(4)
         .max(1)
@@ -262,15 +555,17 @@ async fn execute_parallel_stage(
         .collect();
     let plan_owned = plan.clone();
     let stage_owned = stage.clone();
+    let job_owned = job.clone();
     let opts_owned = opts.clone();
     let plan_root_owned = plan_root.to_path_buf();
     let mut stop_spawning = false;
 
     while !pending.is_empty() || !join_set.is_empty() {
         while !stop_spawning && join_set.len() < concurrency && !pending.is_empty() {
-            let (idx, target) = pending.pop_front().expect("pending target");
+            let (target_idx, target) = pending.pop_front().expect("pending target");
             let plan_cloned = plan_owned.clone();
             let stage_cloned = stage_owned.clone();
+            let job_cloned = job_owned.clone();
             let opts_cloned = opts_owned.clone();
             let plan_root_cloned = plan_root_owned.clone();
             let event_hook_cloned = event_hook.clone();
@@ -278,36 +573,41 @@ async fn execute_parallel_stage(
                 let result = execute_target(
                     &plan_cloned,
                     &stage_cloned,
+                    &job_cloned,
+                    job_idx,
                     &target,
-                    idx,
+                    target_idx,
                     &plan_root_cloned,
                     &opts_cloned,
                     record_level,
                     event_hook_cloned,
                 )
                 .await;
-                (idx, result)
+                (target_idx, result)
             });
         }
 
         let Some(joined) = join_set.join_next().await else {
             break;
         };
-        let (idx, result) = joined.map_err(|e| anyhow!("parallel stage task failed: {}", e))?;
+        let (target_idx, result) =
+            joined.map_err(|e| anyhow!("parallel stage task failed: {}", e))?;
         if matches!(result.status, TargetStatus::Failed) && fail_fast {
             stop_spawning = true;
         }
-        results[idx] = Some(result);
+        results[target_idx] = Some(result);
     }
 
-    for (idx, target) in pending {
-        results[idx] = Some(build_skipped_target(&target, idx));
+    for (target_idx, target) in pending {
+        results[target_idx] = Some(build_skipped_target(&target, target_idx));
     }
 
     Ok(results
         .into_iter()
         .enumerate()
-        .map(|(idx, item)| item.unwrap_or_else(|| build_skipped_target(&targets[idx], idx)))
+        .map(|(target_idx, item)| {
+            item.unwrap_or_else(|| build_skipped_target(&targets[target_idx], target_idx))
+        })
         .collect())
 }
 
@@ -315,14 +615,17 @@ async fn execute_parallel_stage(
 async fn execute_target(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
+    job: &OrchestrationJob,
+    job_idx: usize,
     target: &OrchestrationTarget,
-    idx: usize,
+    target_idx: usize,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
     event_hook: Option<OrchestrationEventHook>,
 ) -> TargetExecutionResult {
-    let label = target_label(target, idx);
+    let label = target_label(target, target_idx);
+    let job_display_name = job_name(job, job_idx);
     let started = Instant::now();
     emit_orchestration_event(
         &event_hook,
@@ -335,8 +638,10 @@ async fn execute_target(
             details: Some(json!({
                 "plan_name": plan.name,
                 "stage_name": stage.name,
+                "job_name": job_display_name,
+                "job_index": job_idx + 1,
                 "target_label": label,
-                "target_index": idx + 1,
+                "target_index": target_idx + 1,
                 "connection_name": target.connection,
                 "host": target.host
             })),
@@ -358,6 +663,8 @@ async fn execute_target(
                     details: Some(json!({
                         "plan_name": plan.name,
                         "stage_name": stage.name,
+                        "job_name": job_display_name,
+                        "job_index": job_idx + 1,
                         "target_label": label,
                         "error": e.to_string()
                     })),
@@ -368,7 +675,7 @@ async fn execute_target(
                 connection_name: target.connection.clone(),
                 host: target.host.clone(),
                 status: TargetStatus::Failed,
-                operation: action_kind_name(&stage.action).to_string(),
+                operation: action_kind_name(&job.action).to_string(),
                 duration_ms: started.elapsed().as_millis(),
                 error: Some(e.to_string()),
                 tx_result: None,
@@ -378,7 +685,18 @@ async fn execute_target(
         }
     };
 
-    match execute_action(plan, stage, target, &conn, plan_root, record_level).await {
+    match execute_action(
+        plan,
+        stage.name.as_str(),
+        job_display_name.as_str(),
+        &job.action,
+        target,
+        &conn,
+        plan_root,
+        record_level,
+    )
+    .await
+    {
         Ok(outcome) => {
             let target_succeeded = outcome.success;
             emit_orchestration_event(
@@ -404,6 +722,8 @@ async fn execute_target(
                     details: Some(json!({
                         "plan_name": plan.name,
                         "stage_name": stage.name,
+                        "job_name": job_display_name,
+                        "job_index": job_idx + 1,
                         "target_label": label,
                         "connection_name": conn.connection_name,
                         "host": conn.host,
@@ -441,6 +761,8 @@ async fn execute_target(
                     details: Some(json!({
                         "plan_name": plan.name,
                         "stage_name": stage.name,
+                        "job_name": job_display_name,
+                        "job_index": job_idx + 1,
                         "target_label": label,
                         "connection_name": conn.connection_name,
                         "host": conn.host,
@@ -453,7 +775,7 @@ async fn execute_target(
                 connection_name: conn.connection_name.clone(),
                 host: Some(conn.host.clone()),
                 status: TargetStatus::Failed,
-                operation: action_kind_name(&stage.action).to_string(),
+                operation: action_kind_name(&job.action).to_string(),
                 duration_ms: started.elapsed().as_millis(),
                 error: Some(e.to_string()),
                 tx_result: None,

@@ -1,6 +1,6 @@
 use super::{
-    InventoryGroup, InventoryGroupSpec, OrchestrationInventory, OrchestrationPlan,
-    OrchestrationStage, OrchestrationTarget, OrchestrationTargetDefaults, OrchestrationTargetInput,
+    InventoryGroup, InventoryGroupSpec, OrchestrationInventory, OrchestrationJob,
+    OrchestrationPlan, OrchestrationTarget, OrchestrationTargetDefaults, OrchestrationTargetInput,
 };
 use crate::EffectiveConnection;
 use crate::cli::GlobalOpts;
@@ -129,23 +129,32 @@ fn expand_targets_with_defaults(
         .collect()
 }
 
-pub(crate) fn resolve_stage_targets(
-    stage: &OrchestrationStage,
+pub(crate) fn resolve_job_targets(
+    stage_name: &str,
+    job: &OrchestrationJob,
     inventory: &OrchestrationInventory,
 ) -> Result<Vec<OrchestrationTarget>> {
     let mut targets = Vec::new();
-    for group_name in &stage.target_groups {
+    let job_label = job
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("unnamed-job");
+    for group_name in &job.target_groups {
         let normalized = group_name.trim();
         if normalized.is_empty() {
             return Err(anyhow!(
-                "stage '{}' has empty target_groups entry",
-                stage.name
+                "stage '{}' job '{}' has empty target_groups entry",
+                stage_name,
+                job_label
             ));
         }
         let group = inventory.groups.get(normalized).ok_or_else(|| {
             anyhow!(
-                "stage '{}' references unknown inventory group '{}'",
-                stage.name,
+                "stage '{}' job '{}' references unknown inventory group '{}'",
+                stage_name,
+                job_label,
                 normalized
             )
         })?;
@@ -157,7 +166,7 @@ pub(crate) fn resolve_stage_targets(
         ));
     }
     targets.extend(expand_targets_with_defaults(
-        &stage.targets,
+        &job.targets,
         &inventory.defaults,
     ));
     Ok(targets)
