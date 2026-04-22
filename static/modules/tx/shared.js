@@ -153,6 +153,7 @@ function defaultOrchestrationTemplatePayload() {
             name: "transfer-image",
             strategy: "serial",
             target_groups: ["edge_nodes"],
+            target_tags: ["edge"],
             action: {
               kind: "tx_block",
               name: "scp-transfer",

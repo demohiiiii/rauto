@@ -22,13 +22,6 @@ function updateInteractiveButtons() {
   if (sendBtn) sendBtn.disabled = !active;
 }
 
-function isDeviceSelected() {
-  const host = byId("host").value.trim();
-  const saved = byId("saved-conn-name").value.trim();
-  const profile = byId("device_profile").value.trim();
-  return !!(host || saved || profile);
-}
-
 function hasSelectedConnectionTarget() {
   if (currentConnectionTarget && currentConnectionTarget.kind !== "none") {
     return true;
@@ -172,7 +165,6 @@ function applyTxStage() {
   const blockPanel = byId("tx-stage-block-panel");
   const workflowPanel = byId("tx-stage-workflow-panel");
   const orchestratePanel = byId("tx-stage-orchestrate-panel");
-  const hint = byId("tx-stage-hint");
   const title = byId("orchestrated-title");
   blockPanel.hidden = !isBlock;
   blockPanel.style.display = isBlock ? "" : "none";
@@ -180,13 +172,6 @@ function applyTxStage() {
   workflowPanel.style.display = isWorkflow ? "" : "none";
   orchestratePanel.hidden = !isOrchestrate;
   orchestratePanel.style.display = isOrchestrate ? "" : "none";
-  if (hint) {
-    hint.textContent = isBlock
-      ? t("txStageHintBlock")
-      : isWorkflow
-        ? t("txStageHintWorkflow")
-        : t("txStageHintOrchestrate");
-  }
   if (title) {
     title.textContent = currentOrchestratedStageTitle();
   }
@@ -292,17 +277,6 @@ function applyOrchestrationViewMode() {
       resizeOrchestrationJsonEditor();
     });
   }
-}
-
-function applyTxWorkflowMoreActionsState() {
-  const btn = byId("tx-workflow-more-btn");
-  const panel = byId("tx-workflow-more-panel");
-  if (!btn || !panel) return;
-  panel.hidden = !txWorkflowMoreExpanded;
-  panel.style.display = txWorkflowMoreExpanded ? "" : "none";
-  btn.textContent = txWorkflowMoreExpanded
-    ? `${t("txWorkflowMoreBtn")} · ${t("collapse")}`
-    : `${t("txWorkflowMoreBtn")} · ${t("expand")}`;
 }
 
 function applyPromptMode() {

@@ -49,15 +49,31 @@ function showToast(message, tone = "info") {
   item.innerHTML = renderStatusToast(message, tone);
   const toastEl = item.firstElementChild;
   if (!toastEl) return;
+  const isError = tone === "error";
+  const duration = isError ? 7000 : tone === "warning" ? 5000 : 3600;
+  const limit = 5;
   const closeBtn = toastEl.querySelector(".js-toast-close");
   const dismiss = () => {
-    toastEl.remove();
+    if (!toastEl.isConnected) return;
+    toastEl.classList.add("is-leaving");
+    window.setTimeout(() => {
+      if (toastEl.isConnected) {
+        toastEl.remove();
+      }
+    }, 180);
   };
   if (closeBtn) {
     closeBtn.onclick = dismiss;
   }
+  if (stack.children.length >= limit) {
+    const oldest = stack.firstElementChild;
+    if (oldest) oldest.remove();
+  }
   stack.appendChild(toastEl);
-  window.setTimeout(dismiss, tone === "error" ? 6500 : 3200);
+  window.requestAnimationFrame(() => {
+    toastEl.classList.add("is-visible");
+  });
+  window.setTimeout(dismiss, duration);
 }
 
 function setStatusMessage(id, message, tone = "info") {

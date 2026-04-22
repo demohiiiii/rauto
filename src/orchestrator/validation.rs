@@ -53,9 +53,9 @@ fn validate_job(
     job_idx: usize,
     inventory: &OrchestrationInventory,
 ) -> Result<()> {
-    if job.target_groups.is_empty() && job.targets.is_empty() {
+    if job.target_groups.is_empty() && job.target_tags.is_empty() && job.targets.is_empty() {
         return Err(anyhow!(
-            "stage '{}' job {} must contain at least one target or target_groups entry",
+            "stage '{}' job {} must contain at least one target, target_groups, or target_tags entry",
             stage_name,
             job_idx + 1
         ));

@@ -2,22 +2,6 @@
  * inventory.js — inventory groups / vars preview
  */
 
-function inventoryProfileNames() {
-  return Array.from(
-    new Set([...(cachedDeviceProfiles || []), ...(cachedCustomProfiles || [])].filter(Boolean))
-  );
-}
-
-function inventoryLabelNames() {
-  return Array.from(
-    new Set(
-      (cachedSavedConnections || [])
-        .flatMap((item) => (Array.isArray(item.labels) ? item.labels : []))
-        .filter(Boolean)
-    )
-  ).sort((a, b) => String(a).localeCompare(String(b)));
-}
-
 let inventoryGroupHostSelection = new Set();
 
 function normalizeInventoryHostNames(values) {

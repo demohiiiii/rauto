@@ -485,6 +485,13 @@ function renderOrchestrationPreviewHtml(plan, inventory) {
                         )}</div>`
                       : ""
                   }
+                  ${
+                    Array.isArray(job && job.target_tags) && job.target_tags.length
+                      ? `<div class="mt-1 text-xs text-slate-500">tags: ${escapeHtml(
+                          job.target_tags.join(", ")
+                        )}</div>`
+                      : ""
+                  }
                   <div class="mt-2 flex flex-wrap gap-2">${targetTags}</div>
                 </section>
               `;

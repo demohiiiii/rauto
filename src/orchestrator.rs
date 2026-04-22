@@ -49,6 +49,8 @@ pub struct OrchestrationJob {
     #[serde(default)]
     pub target_groups: Vec<String>,
     #[serde(default)]
+    pub target_tags: Vec<String>,
+    #[serde(default)]
     pub targets: Vec<OrchestrationTargetInput>,
     pub action: OrchestrationAction,
 }

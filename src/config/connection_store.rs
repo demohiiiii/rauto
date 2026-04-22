@@ -57,6 +57,38 @@ pub fn list_connections() -> Result<Vec<String>> {
     })
 }
 
+pub fn list_connections_by_labels_any(labels: &[String]) -> Result<Vec<String>> {
+    let mut required = labels
+        .iter()
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+        .map(|item| item.to_string())
+        .collect::<Vec<_>>();
+    required.sort();
+    required.dedup();
+    if required.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    db::run_sync(async move {
+        let rows = sqlx::query("SELECT name, labels_json FROM connections ORDER BY name ASC")
+            .fetch_all(db::pool())
+            .await?;
+        let mut names = Vec::new();
+        for row in rows {
+            let name = row.get::<String, _>("name");
+            let parsed = parse_labels_json(
+                row.try_get::<Option<String>, _>("labels_json")?
+                    .unwrap_or_else(|| "[]".to_string()),
+            )?;
+            if required.iter().any(|wanted| parsed.iter().any(|label| label == wanted)) {
+                names.push(name);
+            }
+        }
+        Ok(names)
+    })
+}
+
 pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     let safe = safe_connection_name(name)?;
     db::run_sync(async move {
@@ -335,8 +367,8 @@ async fn load_connection_groups_async(name: &str) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        SavedConnection, delete_connection, has_saved_password, load_connection,
-        load_connection_raw, load_saved_secret, save_connection,
+        SavedConnection, delete_connection, has_saved_password, list_connections_by_labels_any,
+        load_connection, load_connection_raw, load_saved_secret, save_connection,
     };
     use crate::config::ssh_security::SshSecurityProfile;
     use crate::db;
@@ -513,6 +545,61 @@ mod tests {
                 "invalid stored secret reference format 'connection/conn_store_invalid_secret/password': expected enc:v1"
             )
         );
+        Ok(())
+    }
+
+    #[test]
+    fn list_connections_by_labels_any_matches_saved_labels() -> Result<()> {
+        let _env_guard = TestEnvGuard::new()?;
+        db::init_sync()?;
+        let left = "conn_store_label_left";
+        let right = "conn_store_label_right";
+        let _ = delete_connection(left);
+        let _ = delete_connection(right);
+
+        save_connection(
+            left,
+            &SavedConnection {
+                host: Some("192.0.2.41".to_string()),
+                username: Some("ops".to_string()),
+                password: Some("secret-left".to_string()),
+                password_ref: None,
+                port: Some(22),
+                enable_password: None,
+                enable_password_ref: None,
+                ssh_security: Some(SshSecurityProfile::Balanced),
+                linux_shell_flavor: None,
+                device_profile: Some("linux".to_string()),
+                template_dir: None,
+                enabled: true,
+                labels: vec!["edge".to_string(), "prod".to_string()],
+                vars: serde_json::json!({}),
+                groups: vec![],
+            },
+        )?;
+        save_connection(
+            right,
+            &SavedConnection {
+                host: Some("192.0.2.42".to_string()),
+                username: Some("ops".to_string()),
+                password: Some("secret-right".to_string()),
+                password_ref: None,
+                port: Some(22),
+                enable_password: None,
+                enable_password_ref: None,
+                ssh_security: Some(SshSecurityProfile::Balanced),
+                linux_shell_flavor: None,
+                device_profile: Some("linux".to_string()),
+                template_dir: None,
+                enabled: true,
+                labels: vec!["core".to_string()],
+                vars: serde_json::json!({}),
+                groups: vec![],
+            },
+        )?;
+
+        let items = list_connections_by_labels_any(&["edge".to_string(), "qa".to_string()])?;
+        assert_eq!(items, vec![left.to_string()]);
         Ok(())
     }
 }

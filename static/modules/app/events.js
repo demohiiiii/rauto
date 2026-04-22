@@ -68,88 +68,6 @@ function bindEvents() {
       ensureSelectValue("inventory-group-picker", name);
       loadInventoryGroupDetail();
     }
-    const txDeleteBtn = e.target.closest(".js-tx-workflow-delete-block");
-    if (txDeleteBtn) {
-      const blockId = txDeleteBtn.getAttribute("data-tx-block-id") || "";
-      if (blockId) {
-        const idx = txWorkflowBlocks.findIndex((b) => b.id === blockId);
-        const wasEditing = txWorkflowEditingBlockId === blockId;
-        if (idx >= 0) {
-          txWorkflowBlocks.splice(idx, 1);
-        }
-        if (wasEditing && txWorkflowEditorModalOpen) {
-          const fallback =
-            txWorkflowBlocks[idx] ||
-            txWorkflowBlocks[Math.max(0, idx - 1)] ||
-            null;
-          if (fallback) {
-            startTxWorkflowBlockEditor(fallback.id);
-          } else {
-            hideTxWorkflowEditorModal({ clearSelection: true });
-          }
-        } else {
-          if (wasEditing) {
-            txWorkflowEditingBlockId = "";
-          }
-          renderTxWorkflowBuilder();
-        }
-      }
-    }
-    const txToggleBtn = e.target.closest(".js-tx-workflow-toggle-block");
-    if (txToggleBtn) {
-      const blockId = txToggleBtn.getAttribute("data-tx-block-id") || "";
-      const item = txWorkflowBlocks.find((b) => b.id === blockId);
-      if (item) {
-        item.collapsed = !item.collapsed;
-        renderTxWorkflowBuilder();
-      }
-    }
-    const txCopyBtn = e.target.closest(".js-tx-workflow-copy-block");
-    if (txCopyBtn) {
-      const blockId = txCopyBtn.getAttribute("data-tx-block-id") || "";
-      const idx = txWorkflowBlocks.findIndex((b) => b.id === blockId);
-      if (idx >= 0) {
-        const src = txWorkflowBlocks[idx];
-        txWorkflowBlocks.splice(idx + 1, 0, createTxWorkflowBlock({ ...src }));
-        renderTxWorkflowBuilder();
-      }
-    }
-    const txMoveUpBtn = e.target.closest(".js-tx-workflow-move-up-block");
-    if (txMoveUpBtn) {
-      const blockId = txMoveUpBtn.getAttribute("data-tx-block-id") || "";
-      const idx = txWorkflowBlocks.findIndex((b) => b.id === blockId);
-      if (idx > 0) {
-        const tmp = txWorkflowBlocks[idx - 1];
-        txWorkflowBlocks[idx - 1] = txWorkflowBlocks[idx];
-        txWorkflowBlocks[idx] = tmp;
-        renderTxWorkflowBuilder();
-      }
-    }
-    const txMoveDownBtn = e.target.closest(".js-tx-workflow-move-down-block");
-    if (txMoveDownBtn) {
-      const blockId = txMoveDownBtn.getAttribute("data-tx-block-id") || "";
-      const idx = txWorkflowBlocks.findIndex((b) => b.id === blockId);
-      if (idx >= 0 && idx < txWorkflowBlocks.length - 1) {
-        const tmp = txWorkflowBlocks[idx + 1];
-        txWorkflowBlocks[idx + 1] = txWorkflowBlocks[idx];
-        txWorkflowBlocks[idx] = tmp;
-        renderTxWorkflowBuilder();
-      }
-    }
-    const txEditBtn = e.target.closest(".js-tx-workflow-edit-block");
-    if (txEditBtn) {
-      const blockId = txEditBtn.getAttribute("data-tx-block-id") || "";
-      if (blockId) {
-        startTxWorkflowBlockEditor(blockId);
-      }
-    }
-    const txSelectCard = e.target.closest(".js-tx-workflow-select-block");
-    if (txSelectCard && !e.target.closest("[data-workflow-action='true']")) {
-      const blockId = txSelectCard.getAttribute("data-tx-block-id") || "";
-      if (blockId && txWorkflowEditingBlockId !== blockId) {
-        startTxWorkflowBlockEditor(blockId);
-      }
-    }
   });
 
   byId("detail-modal-close").onclick = closeDetailModal;
@@ -166,17 +84,6 @@ function bindEvents() {
     }
   };
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      const txWorkflowEditorModal = byId("tx-workflow-editor-modal");
-      if (
-        txWorkflowEditorModal &&
-        (txWorkflowEditorModal.open === true ||
-          txWorkflowEditorModal.classList.contains("modal-open"))
-      ) {
-        hideTxWorkflowEditorModal({ clearSelection: true });
-        return;
-      }
-    }
     if (e.key === "Escape") {
       const savedConnEditModal = byId("saved-conn-edit-modal");
       if (savedConnEditModal && !savedConnEditModal.classList.contains("hidden")) {

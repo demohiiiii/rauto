@@ -84,6 +84,9 @@ pub(super) fn render_plan(
             if !job.target_groups.is_empty() {
                 let _ = writeln!(&mut out, "  target_groups={}", job.target_groups.join(", "));
             }
+            if !job.target_tags.is_empty() {
+                let _ = writeln!(&mut out, "  target_tags={}", job.target_tags.join(", "));
+            }
             for (target_idx, target) in targets.iter().enumerate() {
                 let _ = writeln!(&mut out, "  - {}", target_label(target, target_idx));
             }

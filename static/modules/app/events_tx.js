@@ -6,12 +6,10 @@ function bindTxExecutionEvents() {
   byId("tx-block-view-direct").onclick = () => {
     txBlockViewMode = "direct";
     applyTxBlockViewMode();
-    syncSelectedTxWorkflowBlockFromEditor();
   };
   byId("tx-block-view-template").onclick = () => {
     txBlockViewMode = "template";
     applyTxBlockViewMode();
-    syncSelectedTxWorkflowBlockFromEditor();
   };
   byId("tx-workflow-view-direct").onclick = () => {
     txWorkflowViewMode = "direct";
@@ -52,17 +50,13 @@ function bindTxExecutionEvents() {
   byId("orchestration-json-new-btn").onclick = () => {
     createOrchestrationTemplateDraftFromExecution();
   };
-  byId("tx-block-editor-new-btn").onclick = () => {
-    setTxBlockEditorJson(defaultTxBlockTemplatePayload());
-    setStatusMessage("tx-plan-out", t("editingNew"), "info");
-  };
+  byId("tx-block-editor-new-btn").onclick = createTxBlockTemplateDraftFromManager;
   byId("tx-block-template-run-new-btn").onclick = createTxBlockTemplateDraftFromManager;
   byId("tx-block-template-run-save-btn").onclick = saveTxBlockTemplateFromEditor;
   byId("tx-block-template-run-delete-btn").onclick = deleteTxBlockTemplateFromManager;
   byId("tx-block-template-name").onchange = async () => {
     if (!byId("tx-block-template-name").value.trim()) return;
     await loadSelectedTxBlockTemplateForExecution();
-    syncSelectedTxWorkflowBlockFromEditor();
   };
 
   const runTxBlock = async (dryRun, statusId) => {

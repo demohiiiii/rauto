@@ -41,6 +41,7 @@ fn sample_job_with_targets() -> OrchestrationJob {
         max_parallel: None,
         fail_fast: None,
         target_groups: Vec::new(),
+        target_tags: Vec::new(),
         targets: vec![OrchestrationTargetInput::ConnectionName(
             "sw-01".to_string(),
         )],
@@ -139,6 +140,7 @@ fn resolve_job_targets_supports_inventory_groups_and_inline_targets() {
         max_parallel: Some(5),
         fail_fast: None,
         target_groups: vec!["edge".to_string()],
+        target_tags: Vec::new(),
         targets: vec![OrchestrationTargetInput::Detailed(Box::new(
             OrchestrationTarget {
                 name: Some("adhoc-sw".to_string()),
@@ -178,6 +180,7 @@ fn resolve_job_targets_merges_inventory_and_group_defaults() {
         max_parallel: Some(5),
         fail_fast: None,
         target_groups: vec!["access".to_string()],
+        target_tags: Vec::new(),
         targets: Vec::new(),
         action: OrchestrationAction::TxBlock(sample_tx_block_action()),
     };

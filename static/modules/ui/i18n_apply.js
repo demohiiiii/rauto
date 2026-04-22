@@ -42,33 +42,6 @@ function currentOrchestratedStageTitle() {
 }
 
 function applyI18n() {
-  if (byId("title")) byId("title").textContent = t("title");
-  if (byId("subtitle")) byId("subtitle").textContent = t("subtitle");
-  if (byId("dashboard-header-subtitle")) {
-    byId("dashboard-header-subtitle").textContent = t("dashboardHeaderSubtitle");
-    if (byId("dashboard-chip-web")) byId("dashboard-chip-web").textContent = t("dashboardChipWeb");
-    if (byId("dashboard-chip-mode")) byId("dashboard-chip-mode").textContent = t("dashboardChipMode");
-    if (byId("dashboard-kicker")) byId("dashboard-kicker").textContent = t("dashboardKicker");
-    if (byId("dashboard-pill-exec")) byId("dashboard-pill-exec").textContent = t("dashboardPillExec");
-    if (byId("dashboard-pill-tx")) byId("dashboard-pill-tx").textContent = t("dashboardPillTx");
-    if (byId("dashboard-pill-flow")) byId("dashboard-pill-flow").textContent = t("dashboardPillFlow");
-    if (byId("dashboard-pill-upload")) byId("dashboard-pill-upload").textContent = t("dashboardPillUpload");
-    if (byId("dashboard-summary-label-execution")) byId("dashboard-summary-label-execution").textContent = t("dashboardSummaryLabelExecution");
-    if (byId("dashboard-summary-value-execution")) byId("dashboard-summary-value-execution").textContent = t("dashboardSummaryValueExecution");
-    if (byId("dashboard-summary-note-execution")) byId("dashboard-summary-note-execution").textContent = t("dashboardSummaryNoteExecution");
-    if (byId("dashboard-summary-label-connection")) byId("dashboard-summary-label-connection").textContent = t("dashboardSummaryLabelConnection");
-    if (byId("dashboard-summary-value-connection")) byId("dashboard-summary-value-connection").textContent = t("dashboardSummaryValueConnection");
-    if (byId("dashboard-summary-note-connection")) byId("dashboard-summary-note-connection").textContent = t("dashboardSummaryNoteConnection");
-    if (byId("dashboard-summary-label-flows")) byId("dashboard-summary-label-flows").textContent = t("dashboardSummaryLabelFlows");
-    if (byId("dashboard-summary-value-flows")) byId("dashboard-summary-value-flows").textContent = t("dashboardSummaryValueFlows");
-    if (byId("dashboard-summary-note-flows")) byId("dashboard-summary-note-flows").textContent = t("dashboardSummaryNoteFlows");
-    if (byId("dashboard-summary-label-records")) byId("dashboard-summary-label-records").textContent = t("dashboardSummaryLabelRecords");
-    if (byId("dashboard-summary-value-records")) byId("dashboard-summary-value-records").textContent = t("dashboardSummaryValueRecords");
-    if (byId("dashboard-summary-note-records")) byId("dashboard-summary-note-records").textContent = t("dashboardSummaryNoteRecords");
-  }
-  if (byId("dashboard-sidebar-tagline")) {
-    byId("dashboard-sidebar-tagline").textContent = t("dashboardSidebarTagline");
-  }
   if (byId("agent-auth-title")) {
     byId("agent-auth-title").textContent = t("agentAuthTitle");
     byId("agent-auth-hint").textContent = t("agentAuthHint");
@@ -225,9 +198,6 @@ function applyI18n() {
   }
   byId("replay-page-title").textContent = t("replayPageTitle");
   byId("standard-op-card-title").textContent = t("opCardTitle");
-  if (byId("orchestrated-op-card-title")) {
-    byId("orchestrated-op-card-title").textContent = t("opCardTitle");
-  }
   byId("template-selected-content-title").textContent = t("templateSelectedContentTitle");
   byId("prompt-mgr-title").textContent = t("promptMgrTitle");
   byId("builtin-title").textContent = t("builtinTitle");
@@ -603,23 +573,12 @@ function applyI18n() {
   byId("tx-template-exec-btn").textContent = t("txExecBtn");
   byId("tx-block-editor-title").textContent = t("txBlockEditorTitle");
   byId("tx-block-editor-new-btn").textContent = t("newBtn");
-  if (byId("tx-workflow-editor-bridge-title")) {
-    byId("tx-workflow-editor-bridge-title").textContent = t(
-      "txWorkflowEditorBridgeTitle"
-    );
-  }
-  if (byId("tx-workflow-editor-cancel-btn")) {
-    byId("tx-workflow-editor-cancel-btn").textContent = t("close");
-  }
   byId("tx-plan-btn").textContent = t("txPlanBtn");
   byId("tx-exec-btn").textContent = t("txExecBtn");
   if (typeof rerenderTxVarsAssistants === "function") {
     rerenderTxVarsAssistants();
   }
   byId("tx-block-visual-title").textContent = t("txBlockVisualTitle");
-  if (byId("tx-workflow-title")) {
-    byId("tx-workflow-title").textContent = t("txWorkflowTitle");
-  }
   byId("tx-workflow-template-run-hint").textContent =
     t("txWorkflowTemplateRunHint");
   byId("tx-workflow-json-new-btn").textContent = t("newBtn");
@@ -633,17 +592,6 @@ function applyI18n() {
   renderTxBlockVisual();
   byId("tx-workflow-visual-title").textContent = t("txWorkflowVisualTitle");
   renderTxWorkflowPreviewFromEditor();
-  if (byId("orchestration-title")) {
-    byId("orchestration-title").textContent = t("orchestrationTitle");
-  }
-  if (byId("orchestration-template-run-title")) {
-    byId("orchestration-template-run-title").textContent =
-      t("orchestrationTemplateRunTitle");
-  }
-  if (byId("orchestration-template-load-btn")) {
-    byId("orchestration-template-load-btn").textContent =
-      t("orchestrationTemplateLoadBtn");
-  }
   if (byId("orchestration-template-run-hint")) {
     byId("orchestration-template-run-hint").textContent =
       t("orchestrationTemplateRunHint");
@@ -747,7 +695,6 @@ function applyI18n() {
   applyTxStage();
   applyPromptMode();
   applyTemplateSection();
-  applyTxWorkflowMoreActionsState();
   updateBuiltinCommandExecutionVisibility();
   updateProfileCommandExecutionVisibility();
   updateSelectedBackupMeta();

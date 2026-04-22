@@ -5,7 +5,7 @@ use super::{
 use crate::EffectiveConnection;
 use crate::cli::GlobalOpts;
 use crate::config::command_flow_vars::{ConnectionParamContext, resolve_runtime_var_aliases};
-use crate::config::connection_store::load_connection;
+use crate::config::connection_store::{list_connections_by_labels_any, load_connection};
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use anyhow::{Context, Result, anyhow};
 use serde_json::Value;
@@ -164,6 +164,37 @@ pub(crate) fn resolve_job_targets(
             &group_spec.targets,
             &merged_defaults,
         ));
+    }
+    let tag_filters = job
+        .target_tags
+        .iter()
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+        .map(|item| item.to_string())
+        .collect::<Vec<_>>();
+    if tag_filters.len() != job.target_tags.len() {
+        return Err(anyhow!(
+            "stage '{}' job '{}' has empty target_tags entry",
+            stage_name,
+            job_label
+        ));
+    }
+    if !tag_filters.is_empty() {
+        let by_tags = list_connections_by_labels_any(&tag_filters).with_context(|| {
+            format!(
+                "stage '{}' job '{}' failed to resolve target_tags",
+                stage_name, job_label
+            )
+        })?;
+        for connection_name in by_tags {
+            targets.push(apply_target_defaults(
+                &inventory.defaults,
+                OrchestrationTarget {
+                    connection: Some(connection_name),
+                    ..OrchestrationTarget::default()
+                },
+            ));
+        }
     }
     targets.extend(expand_targets_with_defaults(
         &job.targets,

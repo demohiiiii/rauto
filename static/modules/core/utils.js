@@ -113,10 +113,6 @@ function parseBuiltinFlowTemplateValue(value) {
   return name || null;
 }
 
-function isBuiltinFlowTemplateValue(value) {
-  return !!parseBuiltinFlowTemplateValue(value);
-}
-
 function populateSelectOptions(selectId, values, config = {}) {
   const select = byId(selectId);
   if (!select) return;
@@ -383,11 +379,4 @@ function parseJsonById(id) {
   const raw = byId(id).value.trim();
   if (!raw) return {};
   return JSON.parse(raw);
-}
-
-function linesToArray(raw) {
-  return raw
-    .split("\n")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
 }

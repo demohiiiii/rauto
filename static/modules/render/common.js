@@ -68,11 +68,28 @@ function renderStatusToast(message, tone = "info") {
       ? "alert-success"
       : tone === "warning"
         ? "alert-warning"
-        : "alert-error";
+        : tone === "error"
+          ? "alert-error"
+          : "alert-info";
+  const icon =
+    tone === "success"
+      ? "✓"
+      : tone === "warning"
+        ? "!"
+        : tone === "error"
+          ? "×"
+          : "i";
   return `
-    <div role="alert" class="pointer-events-auto alert ${cls}">
-      <span>${escapeHtml(text)}</span>
-      <button type="button" class="js-toast-close text-lg leading-none opacity-70 transition hover:opacity-100" aria-label="Close">✕</button>
+    <div role="alert" class="app-toast pointer-events-auto alert ${cls}" data-tone="${escapeHtml(
+      tone
+    )}">
+      <span class="app-toast-icon" aria-hidden="true">${escapeHtml(icon)}</span>
+      <div class="min-w-0 flex-1">
+        <div class="app-toast-message">${escapeHtml(text)}</div>
+      </div>
+      <button type="button" class="js-toast-close btn btn-ghost btn-xs" aria-label="${escapeHtml(
+        t("close")
+      )}">✕</button>
     </div>
   `;
 }
