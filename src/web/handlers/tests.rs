@@ -24,6 +24,7 @@ fn saved_connection_detail_response_redacts_secrets() {
             port: Some(22),
             enable_password: Some("enable-secret".to_string()),
             enable_password_ref: None,
+            enable_password_empty_enter: false,
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
             device_profile: Some("cisco_ios".to_string()),
@@ -54,6 +55,7 @@ fn saved_connection_detail_response_redacts_secrets() {
     );
     assert_eq!(detail.connection.password, None);
     assert_eq!(detail.connection.enable_password, None);
+    assert_eq!(detail.connection.enable_password_empty_enter, Some(false));
 }
 
 #[test]
@@ -73,9 +75,10 @@ fn merged_saved_secret_preserves_existing_secret_when_request_is_blank() {
 #[test]
 fn explicit_secret_input_implies_secret_should_be_persisted() {
     assert!(should_persist_secret(false, Some("secret")));
+    assert!(should_persist_secret(false, Some("")));
+    assert!(should_persist_secret(false, Some("   ")));
     assert!(should_persist_secret(true, None));
     assert!(!should_persist_secret(false, None));
-    assert!(!should_persist_secret(false, Some("   ")));
 }
 
 #[test]

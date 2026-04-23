@@ -324,16 +324,19 @@ function applyTemplateSection() {
 }
 
 function applyInventorySection() {
+  if (currentInventorySection !== "groups" && currentInventorySection !== "labels") {
+    currentInventorySection = "groups";
+  }
   const isGroups = currentInventorySection === "groups";
   const groupsPanel = byId("inventory-groups-section");
-  const resolvePanel = byId("inventory-resolve-section");
+  const labelsPanel = byId("inventory-labels-section");
   if (groupsPanel) {
     groupsPanel.hidden = !isGroups;
     groupsPanel.style.display = isGroups ? "" : "none";
   }
-  if (resolvePanel) {
-    resolvePanel.hidden = isGroups;
-    resolvePanel.style.display = isGroups ? "none" : "";
+  if (labelsPanel) {
+    labelsPanel.hidden = isGroups;
+    labelsPanel.style.display = isGroups ? "none" : "";
   }
   try {
     if (window.Alpine && typeof window.Alpine.store === "function") {
@@ -374,6 +377,7 @@ function connectionPayload() {
     username: value("username") || null,
     password: value("password") || null,
     enable_password: value("enable_password") || null,
+    enable_password_empty_enter: !!byId("enable-password-empty-enter")?.checked,
     ssh_security: value("ssh_security") || null,
     linux_shell_flavor: value("linux_shell_flavor") || null,
     device_profile: value("device_profile") || null,
@@ -413,6 +417,9 @@ function applyConnectionForm(connection = {}) {
   }
   if (byId("saved-conn-vars")) {
     byId("saved-conn-vars").value = JSON.stringify(connection.vars || {}, null, 2);
+  }
+  if (byId("enable-password-empty-enter")) {
+    byId("enable-password-empty-enter").checked = !!connection.enable_password_empty_enter;
   }
   if (byId("saved-conn-save-password")) {
     byId("saved-conn-save-password").checked = !!(
@@ -552,7 +559,6 @@ function initAutocomplete(inputId, sourceFn) {
 }
 
 function initTopLevelAutocomplete() {
-  initAutocomplete("device_profile", () => cachedDeviceProfiles);
   initAutocomplete("template", () => cachedTemplates);
 }
 

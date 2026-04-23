@@ -791,6 +791,10 @@
 
           <div id="panel-inventory" class="tab-panel" role="tabpanel" x-cloak x-show="$store.app.isActiveTab('inventory')">
             <h2 id="inventory-title" class="text-xl font-semibold">Inventory</h2>
+            <nav class="tabs tabs-lifted mt-4" aria-label="Inventory Tabs" role="tablist" aria-orientation="horizontal">
+              <button id="inventory-tab-groups" class="tab" type="button" x-on:click="$store.app.openInventorySection('groups')" x-bind:class="{ 'tab-active': $store.app.isInventorySection('groups') }" x-bind:aria-selected="$store.app.isInventorySection('groups').toString()" role="tab" aria-selected="true">Groups</button>
+              <button id="inventory-tab-labels" class="tab" type="button" x-on:click="$store.app.openInventorySection('labels')" x-bind:class="{ 'tab-active': $store.app.isInventorySection('labels') }" x-bind:aria-selected="$store.app.isInventorySection('labels').toString()" role="tab" aria-selected="false">Labels</button>
+            </nav>
             <div id="inventory-groups-section" class="mt-4 grid gap-3 xl:grid-cols-[0.9fr_1.1fr]" x-show="$store.app.currentInventorySection === 'groups'" x-cloak>
               <div class="group-card">
                 <div class="field-tools">
@@ -840,37 +844,41 @@
               </div>
             </div>
 
-            <div id="inventory-resolve-section" class="mt-4 grid gap-3 xl:grid-cols-[0.85fr_1.15fr]" x-show="$store.app.currentInventorySection === 'resolve'" x-cloak>
+            <div id="inventory-labels-section" class="mt-4 grid gap-3 xl:grid-cols-[0.9fr_1.1fr]" x-show="$store.app.currentInventorySection === 'labels'" x-cloak>
               <div class="group-card">
                 <div class="field-tools">
-                  <span id="inventory-resolve-title" class="text-sm font-semibold text-slate-700">Vars Preview</span>
+                  <span id="inventory-labels-title" class="text-sm font-semibold text-slate-700">Labels</span>
                 </div>
                 <div class="group-body grid gap-3">
-                  <div class="grid gap-1">
-                    <span id="inventory-resolve-host-label" class="text-xs font-semibold text-slate-500">Saved Connection</span>
-                    <select id="inventory-resolve-host" class="select" title="Saved Connection" aria-label="Saved Connection"></select>
-                  </div>
-                  <div class="grid gap-1">
-                    <span id="inventory-resolve-groups-label" class="text-xs font-semibold text-slate-500">Groups</span>
-                    <select id="inventory-resolve-groups" class="select min-h-32" multiple title="Inventory Groups" aria-label="Inventory Groups"></select>
-                  </div>
-                  <div class="grid gap-1">
-                    <span id="inventory-resolve-runtime-label" class="text-xs font-semibold text-slate-500">Runtime Vars</span>
-                    <textarea id="inventory-resolve-runtime" class="input min-h-40 font-mono" placeholder='{"ticket":"CHG-1"}'></textarea>
-                  </div>
-                  <div id="inventory-resolve-hint" class="text-xs text-slate-500">Preview the final vars after merging group, saved connection, and runtime values.</div>
-                  <div class="inline-flex flex-wrap items-center gap-2">
-                    <button id="inventory-resolve-btn" class="btn btn-primary btn-sm" type="button">Resolve Vars</button>
-                  </div>
-                  <div id="inventory-resolve-out" class="grid gap-2"></div>
+                  <select id="inventory-label-picker" class="select" title="Inventory Label" aria-label="Inventory Label"></select>
+                  <div id="inventory-label-list" class="grid gap-2"></div>
                 </div>
               </div>
               <div class="group-card">
                 <div class="field-tools">
-                  <span class="text-sm font-semibold text-slate-700">Merged Vars</span>
+                  <span id="inventory-label-editor-title" class="text-sm font-semibold text-slate-700">Label Editor</span>
+                  <div class="inline-flex flex-wrap items-center gap-2">
+                    <button id="inventory-label-new-btn" class="btn btn-sm" type="button">New</button>
+                    <button id="inventory-label-save-btn" class="btn btn-success btn-sm" type="button">Save</button>
+                    <button id="inventory-label-delete-btn" class="btn btn-error btn-sm" type="button">Delete</button>
+                  </div>
                 </div>
-                <div class="group-body">
-                  <textarea id="inventory-resolve-result" class="input min-h-[28rem] font-mono" readonly></textarea>
+                <div class="group-body grid gap-3">
+                  <div class="grid gap-1">
+                    <span id="inventory-label-name-label" class="text-xs font-semibold text-slate-500">Name</span>
+                    <div id="inventory-label-name-value" class="input flex items-center bg-slate-50 text-slate-700">—</div>
+                  </div>
+                  <div class="grid gap-1">
+                    <span id="inventory-label-hosts-label" class="text-xs font-semibold text-slate-500">Saved Connections</span>
+                    <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+                      <input id="inventory-label-hosts-filter" class="input" placeholder="filter saved connections" />
+                      <button id="inventory-label-hosts-select-all-btn" class="btn btn-sm btn-ghost" type="button">All</button>
+                      <button id="inventory-label-hosts-clear-btn" class="btn btn-sm btn-ghost" type="button">Clear</button>
+                    </div>
+                    <div id="inventory-label-hosts" class="rounded-box border border-base-300 bg-base-100 min-h-40 max-h-72 overflow-auto p-2"></div>
+                    <div id="inventory-label-hosts-empty" class="text-xs text-slate-500" hidden>no saved connections</div>
+                  </div>
+                  <div id="inventory-label-out" class="grid gap-2"></div>
                 </div>
               </div>
             </div>
@@ -1079,18 +1087,7 @@
           <li><button id="tab-replay" type="button" data-tab="replay" x-on:click="$store.app.setTab('replay')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('replay') }" x-bind:aria-selected="$store.app.isActiveTab('replay').toString()">Session Replay</button></li>
           <li><button id="tab-prompts" type="button" data-tab="prompts" x-on:click="$store.app.setTab('prompts')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('prompts') }" x-bind:aria-selected="$store.app.isActiveTab('prompts').toString()">Prompt Profiles</button></li>
           <li><button id="tab-templates" type="button" data-tab="templates" x-on:click="$store.app.setTab('templates')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('templates') }" x-bind:aria-selected="$store.app.isActiveTab('templates').toString()">Templates</button></li>
-          <li>
-            <details
-              x-bind:open="$store.app.isNavGroupOpen('inventory')"
-              x-on:toggle="$store.app.setNavGroupOpen('inventory', $event.currentTarget.open)"
-            >
-              <summary id="tab-inventory" data-tab="inventory" x-on:click.prevent="$store.app.togglePrimaryGroup('inventory')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('inventory') }" x-bind:aria-selected="$store.app.isActiveTab('inventory').toString()">Inventory</summary>
-              <ul>
-                <li><button id="nav-inventory-groups" type="button" x-on:click="$store.app.openInventorySection('groups')" x-bind:class="{ 'menu-active': $store.app.isInventorySection('groups') }">Groups</button></li>
-                <li><button id="nav-inventory-resolve" type="button" x-on:click="$store.app.openInventorySection('resolve')" x-bind:class="{ 'menu-active': $store.app.isInventorySection('resolve') }">Vars Preview</button></li>
-              </ul>
-            </details>
-          </li>
+          <li><button id="tab-inventory" type="button" data-tab="inventory" x-on:click="$store.app.setTab('inventory')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('inventory') }" x-bind:aria-selected="$store.app.isActiveTab('inventory').toString()">Inventory</button></li>
           <li><button id="tab-transfer" type="button" data-tab="transfer" x-on:click="$store.app.setTab('transfer')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('transfer') }" x-bind:aria-selected="$store.app.isActiveTab('transfer').toString()">SFTP Upload</button></li>
           <li><button id="tab-blacklist" type="button" data-tab="blacklist" x-on:click="$store.app.setTab('blacklist')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('blacklist') }" x-bind:aria-selected="$store.app.isActiveTab('blacklist').toString()">Blacklist</button></li>
           <li><button id="tab-backup" type="button" data-tab="backup" x-on:click="$store.app.setTab('backup')" x-bind:class="{ 'menu-active': $store.app.isActiveTab('backup') }" x-bind:aria-selected="$store.app.isActiveTab('backup').toString()">Backup</button></li>
@@ -1272,9 +1269,13 @@
               <option id="linux-shell-option-posix" value="posix">posix/bash</option>
               <option id="linux-shell-option-fish" value="fish">fish</option>
             </select>
-            <input id="device_profile" class="input" placeholder="device profile (default linux)" />
+            <select id="device_profile" class="select" title="Device Profile" aria-label="Device Profile"></select>
           </div>
           <div class="mt-3 grid gap-3">
+            <label class="check-label">
+              <input id="enable-password-empty-enter" type="checkbox" class="check-input" />
+              <span id="enable-password-empty-enter-label">Empty enable password</span>
+            </label>
             <label class="check-label">
               <input id="saved-conn-save-password" type="checkbox" class="check-input" />
               <span id="saved-conn-save-password-label">do not save password</span>
@@ -1346,9 +1347,13 @@
               <option id="saved-conn-edit-linux-shell-option-posix" value="posix">posix/bash</option>
               <option id="saved-conn-edit-linux-shell-option-fish" value="fish">fish</option>
             </select>
-            <input id="saved-conn-edit-device-profile" class="input" placeholder="device profile (default linux)" />
+            <select id="saved-conn-edit-device-profile" class="select" title="Device Profile" aria-label="Device Profile"></select>
           </div>
           <div class="grid gap-3">
+            <label class="check-label">
+              <input id="saved-conn-edit-enable-password-empty-enter" type="checkbox" class="check-input" />
+              <span id="saved-conn-edit-enable-password-empty-enter-label">Empty enable password</span>
+            </label>
             <label class="check-label">
               <input id="saved-conn-edit-save-password" type="checkbox" class="check-input" />
               <span id="saved-conn-edit-save-password-label">do not save password</span>

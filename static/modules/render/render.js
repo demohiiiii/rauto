@@ -344,6 +344,44 @@ function renderTxBlockPreview(txBlock, txResult) {
             </div>`
           : ""
       }
+      ${
+        Array.isArray(txResult.step_results) && txResult.step_results.length
+          ? `<div class="mt-3 grid gap-3">
+               ${txResult.step_results
+                 .map((item, index) => renderTxStepResultDetail(item, index))
+                 .join("")}
+             </div>`
+          : `<div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">${escapeHtml(
+              t("txBlockResultNoStepDetails")
+            )}</div>`
+      }
+      ${
+        Array.isArray(txResult.block_rollback_steps) &&
+        txResult.block_rollback_steps.length
+          ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+               <div class="mb-2 text-sm font-semibold text-amber-700">${escapeHtml(
+                 t("txBlockResultBlockRollbackOutputs")
+               )}</div>
+               ${
+                 txResult.block_rollback_operation_summary
+                   ? `<div class="mb-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                        <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+                          t("fieldCommand")
+                        )}</div>
+                        <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
+                          safeString(txResult.block_rollback_operation_summary)
+                        )}</div>
+                      </div>`
+                   : ""
+               }
+               ${renderTxOperationStepOutputs(
+                 t("txBlockResultRollbackOutputs"),
+                 txResult.block_rollback_steps,
+                 "amber"
+               )}
+             </div>`
+          : ""
+      }
     </section>
   `
       : "";
@@ -370,6 +408,177 @@ function renderTxWorkflowPreviewMeta(label, value) {
         safeString(value)
       )}</div>
     </div>
+  `;
+}
+
+function renderTxOperationStepOutputs(title, operationSteps, tone = "cyan") {
+  const steps = Array.isArray(operationSteps) ? operationSteps : [];
+  const toneClass =
+    tone === "amber"
+      ? {
+          border: "border-amber-200",
+          bg: "bg-amber-50",
+          title: "text-amber-700",
+          chip: "bg-amber-100 text-amber-700",
+        }
+      : {
+          border: "border-cyan-200",
+          bg: "bg-cyan-50",
+          title: "text-cyan-700",
+          chip: "bg-cyan-100 text-cyan-700",
+        };
+  if (!steps.length) {
+    return `
+      <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        ${escapeHtml(t("txBlockResultNoOperationOutputs"))}
+      </div>
+    `;
+  }
+  return `
+    <div class="grid gap-2">
+      <div class="text-xs font-semibold text-slate-600">${escapeHtml(title)}</div>
+      ${steps
+        .map((item) => {
+          const success = !!(item && item.success);
+          const outputText = safeString(
+            item
+              ? success
+                ? item.content != null
+                  ? item.content
+                  : item.all
+                : item.all != null
+                  ? item.all
+                  : item.content
+              : null
+          );
+          const promptText = safeString(item && item.prompt);
+          const operationSummary = safeString(item && item.operation_summary);
+          const cardToneClass = success
+            ? toneClass
+            : {
+                border: "border-rose-200",
+                bg: "bg-rose-50",
+                title: "text-rose-700",
+                chip: "bg-rose-100 text-rose-700",
+              };
+          return `
+            <div class="rounded-lg border ${cardToneClass.border} ${cardToneClass.bg} px-3 py-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="text-[11px] font-semibold ${cardToneClass.title}">
+                  ${escapeHtml(
+                    `${t("txBlockResultOperationStep")} ${Number(item?.step_index || 0) + 1}`
+                  )}
+                </div>
+                <div class="inline-flex flex-wrap items-center gap-1">
+                  <span class="tx-workflow-chip ${cardToneClass.chip}">${escapeHtml(
+                    `${t("txBlockResultSuccess")}: ${success}`
+                  )}</span>
+                  <span class="tx-workflow-chip ${cardToneClass.chip}">${escapeHtml(
+                    `${t("txWorkflowSummaryMode")}: ${safeString(item && item.mode)}`
+                  )}</span>
+                  <span class="tx-workflow-chip ${cardToneClass.chip}">${escapeHtml(
+                    `${t("txBlockResultExitCode")}: ${
+                      item && item.exit_code != null ? item.exit_code : "-"
+                    }`
+                  )}</span>
+                </div>
+              </div>
+              <div class="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+                  t("fieldCommand")
+                )}</div>
+                <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
+                  operationSummary && operationSummary !== "-" ? operationSummary : "-"
+                )}</div>
+              </div>
+              <div class="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+                  t("txBlockResultOutput")
+                )}</div>
+                <pre class="output mt-1">${escapeHtml(
+                  outputText && outputText !== "-" ? outputText : "-"
+                )}</pre>
+              </div>
+              ${
+                promptText && promptText !== "-"
+                  ? `<div class="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                       <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+                         t("txBlockResultPrompt")
+                       )}</div>
+                       <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
+                         promptText
+                       )}</div>
+                     </div>`
+                  : ""
+              }
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderTxStepResultDetail(stepResult, index) {
+  if (!stepResult || typeof stepResult !== "object") return "";
+  const stepIndex =
+    stepResult.step_index != null && Number.isFinite(Number(stepResult.step_index))
+      ? Number(stepResult.step_index)
+      : index;
+  const executionState = safeString(stepResult.execution_state);
+  const rollbackState = safeString(stepResult.rollback_state);
+  const failureReason = safeString(stepResult.failure_reason);
+  const rollbackReason = safeString(stepResult.rollback_reason);
+  return `
+    <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm font-semibold text-slate-900">${escapeHtml(
+          `${t("txWorkflowVisualStep")} ${stepIndex + 1}`
+        )}</div>
+        <div class="inline-flex flex-wrap items-center gap-1">
+          <span class="tx-workflow-chip">${escapeHtml(
+            `${t("txBlockResultExecutionState")}: ${
+              executionState && executionState !== "-" ? executionState : "-"
+            }`
+          )}</span>
+          <span class="tx-workflow-chip">${escapeHtml(
+            `${t("txBlockResultRollbackState")}: ${
+              rollbackState && rollbackState !== "-" ? rollbackState : "-"
+            }`
+          )}</span>
+        </div>
+      </div>
+      <div class="mt-2 grid gap-2 md:grid-cols-2">
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+            t("txBlockResultFailureReason")
+          )}</div>
+          <div class="mt-1 break-all text-xs text-slate-900">${escapeHtml(
+            failureReason && failureReason !== "-" ? failureReason : "-"
+          )}</div>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+            t("txBlockResultRollbackReason")
+          )}</div>
+          <div class="mt-1 break-all text-xs text-slate-900">${escapeHtml(
+            rollbackReason && rollbackReason !== "-" ? rollbackReason : "-"
+          )}</div>
+        </div>
+      </div>
+      <div class="mt-3 grid gap-3">
+        ${renderTxOperationStepOutputs(
+          t("txBlockResultForwardOutputs"),
+          stepResult.forward_operation_steps,
+          "cyan"
+        )}
+        ${renderTxOperationStepOutputs(
+          t("txBlockResultRollbackOutputs"),
+          stepResult.rollback_operation_steps,
+          "amber"
+        )}
+      </div>
+    </section>
   `;
 }
 

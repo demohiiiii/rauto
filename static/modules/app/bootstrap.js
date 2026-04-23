@@ -45,7 +45,7 @@ setStatusMessage("flow-out", "-", "info");
 setStatusMessage("upload-out", "-", "info");
 setStatusMessage("flow-template-out", "-", "info");
 setStatusMessage("inventory-group-out", "-", "info");
-setStatusMessage("inventory-resolve-out", "-", "info");
+setStatusMessage("inventory-label-out", "-", "info");
 setStatusMessage("blacklist-out", "-", "info");
 setStatusMessage("backup-out", "-", "info");
 setStatusMessage("builtin-detail-status", "-", "info");

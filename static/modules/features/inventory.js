@@ -1,8 +1,9 @@
 /**
- * inventory.js — inventory groups / vars preview
+ * inventory.js — inventory groups / labels
  */
 
 let inventoryGroupHostSelection = new Set();
+let inventoryLabelHostSelection = new Set();
 
 function normalizeInventoryHostNames(values) {
   return Array.from(
@@ -14,24 +15,12 @@ function normalizeInventoryHostNames(values) {
   );
 }
 
-function setInventoryGroupHostSelection(values = []) {
-  inventoryGroupHostSelection = new Set(normalizeInventoryHostNames(values));
-}
-
-function inventoryGroupSelectedHosts() {
-  return Array.from(inventoryGroupHostSelection).sort((a, b) => a.localeCompare(b));
-}
-
-function inventoryGroupHostsFilterValue() {
-  return safeString(byId("inventory-group-hosts-filter")?.value || "").trim();
-}
-
-function inventoryGroupHostOptions() {
+function inventoryHostOptions(selectedHosts = []) {
   const available = normalizeInventoryHostNames(
     (cachedSavedConnections || []).map((item) => item.name)
   );
-  const merged = Array.from(new Set([...available, ...inventoryGroupSelectedHosts()])).sort(
-    (a, b) => a.localeCompare(b)
+  const merged = Array.from(new Set([...available, ...(selectedHosts || [])])).sort((a, b) =>
+    a.localeCompare(b)
   );
   return {
     availableSet: new Set(available),
@@ -39,13 +28,19 @@ function inventoryGroupHostOptions() {
   };
 }
 
-function renderInventoryGroupHosts() {
-  const list = byId("inventory-group-hosts");
-  const empty = byId("inventory-group-hosts-empty");
+function renderInventoryHostChecklist({
+  listId,
+  emptyId,
+  filterId,
+  selection,
+  checkboxAttr,
+}) {
+  const list = byId(listId);
+  const empty = byId(emptyId);
+  const filter = safeString(byId(filterId)?.value || "").trim().toLowerCase();
   if (!list || !empty) return;
-  const keyword = inventoryGroupHostsFilterValue().toLowerCase();
-  const { availableSet, names } = inventoryGroupHostOptions();
-  const filtered = names.filter((name) => !keyword || name.toLowerCase().includes(keyword));
+  const { availableSet, names } = inventoryHostOptions(Array.from(selection));
+  const filtered = names.filter((name) => !filter || name.toLowerCase().includes(filter));
   if (filtered.length === 0) {
     list.innerHTML = "";
     const hasAny = names.length > 0;
@@ -56,21 +51,37 @@ function renderInventoryGroupHosts() {
   empty.hidden = true;
   list.innerHTML = filtered
     .map((name) => {
-      const checked = inventoryGroupHostSelection.has(name) ? "checked" : "";
+      const checked = selection.has(name) ? "checked" : "";
       const missing = !availableSet.has(name);
       const missingTag = missing
-        ? ` <span class="text-xs text-amber-600">${escapeHtml(
-            t("inventoryHostMissingSuffix")
-          )}</span>`
+        ? ` <span class="text-xs text-amber-600">${escapeHtml(t("inventoryHostMissingSuffix"))}</span>`
         : "";
       return `<label class="label cursor-pointer justify-start gap-2 rounded-lg px-2 py-1 hover:bg-base-200">
-        <input type="checkbox" class="checkbox checkbox-sm" data-inventory-group-host="1" value="${escapeHtml(
+        <input type="checkbox" class="checkbox checkbox-sm" ${checkboxAttr} value="${escapeHtml(
           name
         )}" ${checked} />
         <span class="label-text font-medium">${escapeHtml(name)}</span>${missingTag}
       </label>`;
     })
     .join("");
+}
+
+function setInventoryGroupHostSelection(values = []) {
+  inventoryGroupHostSelection = new Set(normalizeInventoryHostNames(values));
+}
+
+function inventoryGroupSelectedHosts() {
+  return Array.from(inventoryGroupHostSelection).sort((a, b) => a.localeCompare(b));
+}
+
+function renderInventoryGroupHosts() {
+  renderInventoryHostChecklist({
+    listId: "inventory-group-hosts",
+    emptyId: "inventory-group-hosts-empty",
+    filterId: "inventory-group-hosts-filter",
+    selection: inventoryGroupHostSelection,
+    checkboxAttr: 'data-inventory-group-host="1"',
+  });
 }
 
 function onInventoryGroupHostFilterInput() {
@@ -90,10 +101,12 @@ function onInventoryGroupHostSelectionChange(event) {
 }
 
 function selectAllInventoryGroupHosts() {
-  const keyword = inventoryGroupHostsFilterValue().toLowerCase();
-  const { names } = inventoryGroupHostOptions();
+  const filter = safeString(byId("inventory-group-hosts-filter")?.value || "")
+    .trim()
+    .toLowerCase();
+  const { names } = inventoryHostOptions(Array.from(inventoryGroupHostSelection));
   names
-    .filter((name) => !keyword || name.toLowerCase().includes(keyword))
+    .filter((name) => !filter || name.toLowerCase().includes(filter))
     .forEach((name) => inventoryGroupHostSelection.add(name));
   renderInventoryGroupHosts();
 }
@@ -101,6 +114,56 @@ function selectAllInventoryGroupHosts() {
 function clearInventoryGroupHostsSelection() {
   inventoryGroupHostSelection.clear();
   renderInventoryGroupHosts();
+}
+
+function setInventoryLabelHostSelection(values = []) {
+  inventoryLabelHostSelection = new Set(normalizeInventoryHostNames(values));
+}
+
+function inventoryLabelSelectedHosts() {
+  return Array.from(inventoryLabelHostSelection).sort((a, b) => a.localeCompare(b));
+}
+
+function renderInventoryLabelHosts() {
+  renderInventoryHostChecklist({
+    listId: "inventory-label-hosts",
+    emptyId: "inventory-label-hosts-empty",
+    filterId: "inventory-label-hosts-filter",
+    selection: inventoryLabelHostSelection,
+    checkboxAttr: 'data-inventory-label-host="1"',
+  });
+}
+
+function onInventoryLabelHostFilterInput() {
+  renderInventoryLabelHosts();
+}
+
+function onInventoryLabelHostSelectionChange(event) {
+  const input = event?.target;
+  if (!input || !input.matches("[data-inventory-label-host]")) return;
+  const name = safeString(input.value || "").trim();
+  if (!name) return;
+  if (input.checked) {
+    inventoryLabelHostSelection.add(name);
+  } else {
+    inventoryLabelHostSelection.delete(name);
+  }
+}
+
+function selectAllInventoryLabelHosts() {
+  const filter = safeString(byId("inventory-label-hosts-filter")?.value || "")
+    .trim()
+    .toLowerCase();
+  const { names } = inventoryHostOptions(Array.from(inventoryLabelHostSelection));
+  names
+    .filter((name) => !filter || name.toLowerCase().includes(filter))
+    .forEach((name) => inventoryLabelHostSelection.add(name));
+  renderInventoryLabelHosts();
+}
+
+function clearInventoryLabelHostsSelection() {
+  inventoryLabelHostSelection.clear();
+  renderInventoryLabelHosts();
 }
 
 function getMultiSelectValues(selectId) {
@@ -111,30 +174,6 @@ function getMultiSelectValues(selectId) {
     .filter(Boolean);
 }
 
-function renderInventoryMultiSelect(selectId, values, selectedValues = []) {
-  const select = byId(selectId);
-  if (!select) return;
-  const selected = new Set((selectedValues || []).filter(Boolean));
-  select.innerHTML = Array.from(new Set((values || []).filter(Boolean)))
-    .map((value) => {
-      const isSelected = selected.has(value) ? "selected" : "";
-      return `<option value="${escapeHtml(value)}" ${isSelected}>${escapeHtml(value)}</option>`;
-    })
-    .join("");
-}
-
-function renderInventoryConnectionOptions(selectedName = "") {
-  const connectionNames = (cachedSavedConnections || []).map((item) => item.name);
-  const selects = ["inventory-resolve-host"];
-  for (const selectId of selects) {
-    const current = byId(selectId)?.value || selectedName || "";
-    populateSelectOptions(selectId, connectionNames, {
-      placeholder: t("inventoryResolveHostAny"),
-      selected: current,
-    });
-  }
-}
-
 function renderInventoryGroupOptions(selectedName = "") {
   const groupNames = (cachedInventoryGroups || []).map((item) => item.name);
   populateSelectOptions("inventory-group-picker", groupNames, {
@@ -142,22 +181,19 @@ function renderInventoryGroupOptions(selectedName = "") {
     selected: selectedName,
   });
   renderInventoryGroupHosts();
-  renderInventoryMultiSelect(
-    "inventory-resolve-groups",
-    groupNames,
-    getMultiSelectValues("inventory-resolve-groups")
-  );
 
   if (typeof renderSavedConnectionGroupOptions === "function") {
     renderSavedConnectionGroupOptions(getMultiSelectValues("saved-conn-groups"));
   }
 }
 
-function splitCsvValues(raw) {
-  return String(raw || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+function renderInventoryLabelOptions(selectedName = "") {
+  const labelNames = (cachedInventoryLabels || []).map((item) => item.name);
+  populateSelectOptions("inventory-label-picker", labelNames, {
+    placeholder: t("inventoryLabelSelectPlaceholder"),
+    selected: selectedName,
+  });
+  renderInventoryLabelHosts();
 }
 
 function parseInventoryJson(id) {
@@ -200,6 +236,23 @@ function applyInventoryGroupForm(item) {
   if (vars) vars.value = JSON.stringify(group.vars || {}, null, 2);
 }
 
+function resetInventoryLabelForm(name = "") {
+  ensureSelectValue("inventory-label-picker", name, { fallbackToEmpty: true });
+  const nameValue = byId("inventory-label-name-value");
+  if (nameValue) nameValue.textContent = name || "—";
+  setInventoryLabelHostSelection([]);
+  renderInventoryLabelHosts();
+}
+
+function applyInventoryLabelForm(item) {
+  const label = item || {};
+  ensureSelectValue("inventory-label-picker", label.name || "");
+  const nameValue = byId("inventory-label-name-value");
+  if (nameValue) nameValue.textContent = safeString(label.name || "—");
+  setInventoryLabelHostSelection(Array.isArray(label.hosts) ? label.hosts : []);
+  renderInventoryLabelHosts();
+}
+
 function renderInventoryGroupList(errorMessage = "") {
   const out = byId("inventory-group-list");
   if (!out) return;
@@ -232,9 +285,40 @@ function renderInventoryGroupList(errorMessage = "") {
     .join("");
 }
 
+function renderInventoryLabelList(errorMessage = "") {
+  const out = byId("inventory-label-list");
+  if (!out) return;
+  if (errorMessage) {
+    out.innerHTML = `<div class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(errorMessage)}</div>`;
+    return;
+  }
+  if (!Array.isArray(cachedInventoryLabels) || cachedInventoryLabels.length === 0) {
+    out.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(t("inventoryLabelsEmpty"))}</div>`;
+    return;
+  }
+  const selectedName = byId("inventory-label-picker")?.value.trim() || "";
+  out.innerHTML = cachedInventoryLabels
+    .map((item) => {
+      const active = selectedName && item.name === selectedName;
+      const cls = active
+        ? "border-teal-300 bg-teal-50/70"
+        : "border-slate-200 bg-white hover:border-slate-300";
+      const hostCount = Array.isArray(item.hosts) ? item.hosts.length : 0;
+      return `
+        <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-inventory-label-row ${cls}" data-name="${escapeHtml(item.name || "")}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-semibold text-slate-800">${escapeHtml(item.name || "-")}</span>
+            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(`${hostCount} ${t("inventoryHostsCountSuffix")}`)}</span>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
 async function loadInventoryConnections() {
-  renderInventoryConnectionOptions();
   renderInventoryGroupHosts();
+  renderInventoryLabelHosts();
 }
 
 async function loadInventoryGroups() {
@@ -255,6 +339,24 @@ async function loadInventoryGroups() {
   }
 }
 
+async function loadInventoryLabels() {
+  try {
+    const data = await request("GET", "/api/inventory/labels");
+    cachedInventoryLabels = Array.isArray(data) ? data : [];
+    renderInventoryLabelOptions(byId("inventory-label-picker")?.value || "");
+    renderInventoryLabelList();
+    const selectedName = byId("inventory-label-picker")?.value.trim() || "";
+    if (selectedName) {
+      const selected = cachedInventoryLabels.find((item) => item.name === selectedName);
+      if (selected) applyInventoryLabelForm(selected);
+    }
+  } catch (e) {
+    cachedInventoryLabels = [];
+    renderInventoryLabelOptions("");
+    renderInventoryLabelList(e.message);
+  }
+}
+
 async function loadInventoryGroupDetail() {
   const name = byId("inventory-group-picker")?.value.trim() || "";
   if (!name) {
@@ -271,6 +373,25 @@ async function loadInventoryGroupDetail() {
     setStatusMessage("inventory-group-out", `${t("loaded")}: ${data.name || name}`, "success");
   } catch (e) {
     setStatusMessage("inventory-group-out", e.message, "error");
+  }
+}
+
+async function loadInventoryLabelDetail() {
+  const name = byId("inventory-label-picker")?.value.trim() || "";
+  if (!name) {
+    resetInventoryLabelForm("");
+    setStatusMessage("inventory-label-out", "-", "info");
+    renderInventoryLabelList();
+    return;
+  }
+  setStatusMessage("inventory-label-out", t("running"), "running");
+  try {
+    const data = await request("GET", `/api/inventory/labels/${encodeURIComponent(name)}`);
+    applyInventoryLabelForm(data);
+    renderInventoryLabelList();
+    setStatusMessage("inventory-label-out", `${t("loaded")}: ${data.name || name}`, "success");
+  } catch (e) {
+    setStatusMessage("inventory-label-out", e.message, "error");
   }
 }
 
@@ -298,6 +419,34 @@ async function createInventoryGroupDraft() {
     await loadInventoryConnections();
   } catch (e) {
     setStatusMessage("inventory-group-out", e.message, "error");
+  }
+}
+
+async function createInventoryLabelDraft() {
+  const name = promptForResourceName(t("inventoryLabelNewPrompt"));
+  if (!name) return;
+  const exists = (cachedInventoryLabels || []).some((item) => item.name === name);
+  if (exists) {
+    ensureSelectValue("inventory-label-picker", name);
+    await loadInventoryLabelDetail();
+    setStatusMessage("inventory-label-out", t("inventoryLabelExistsHint"), "info");
+    return;
+  }
+  setStatusMessage("inventory-label-out", t("running"), "running");
+  try {
+    const data = await request("PUT", `/api/inventory/labels/${encodeURIComponent(name)}`, {
+      hosts: inventoryLabelSelectedHosts(),
+    });
+    ensureSelectValue("inventory-label-picker", data.name || name);
+    applyInventoryLabelForm(data);
+    renderInventoryLabelList();
+    setStatusMessage("inventory-label-out", `${t("created")}: ${data.name || name}`, "success");
+    await loadInventoryLabels();
+    if (typeof loadSavedConnections === "function") {
+      await loadSavedConnections();
+    }
+  } catch (e) {
+    setStatusMessage("inventory-label-out", e.message, "error");
   }
 }
 
@@ -330,6 +479,28 @@ async function saveInventoryGroup() {
   }
 }
 
+async function saveInventoryLabel() {
+  const name = byId("inventory-label-picker")?.value.trim() || "";
+  if (!name) {
+    setStatusMessage("inventory-label-out", t("inventoryLabelNameRequired"), "error");
+    return;
+  }
+  setStatusMessage("inventory-label-out", t("running"), "running");
+  try {
+    const data = await request("PUT", `/api/inventory/labels/${encodeURIComponent(name)}`, {
+      hosts: inventoryLabelSelectedHosts(),
+    });
+    applyInventoryLabelForm(data);
+    setStatusMessage("inventory-label-out", `${t("saved")}: ${data.name || name}`, "success");
+    await loadInventoryLabels();
+    if (typeof loadSavedConnections === "function") {
+      await loadSavedConnections();
+    }
+  } catch (e) {
+    setStatusMessage("inventory-label-out", e.message, "error");
+  }
+}
+
 async function deleteInventoryGroup() {
   const name = byId("inventory-group-picker")?.value.trim() || "";
   if (!name) {
@@ -348,22 +519,22 @@ async function deleteInventoryGroup() {
   }
 }
 
-async function resolveInventoryVarsFromWeb() {
-  setStatusMessage("inventory-resolve-out", t("running"), "running");
+async function deleteInventoryLabel() {
+  const name = byId("inventory-label-picker")?.value.trim() || "";
+  if (!name) {
+    setStatusMessage("inventory-label-out", t("inventoryLabelNameRequired"), "error");
+    return;
+  }
+  setStatusMessage("inventory-label-out", t("running"), "running");
   try {
-    const data = await request("POST", "/api/inventory/resolve-vars", {
-      host_name: byId("inventory-resolve-host")?.value.trim() || null,
-      group_names: getMultiSelectValues("inventory-resolve-groups"),
-      runtime_vars: parseInventoryJson("inventory-resolve-runtime"),
-    });
-    byId("inventory-resolve-result").textContent = JSON.stringify(
-      (data && data.resolution) || {},
-      null,
-      2
-    );
-    setStatusMessage("inventory-resolve-out", t("inventoryResolveDone"), "success");
+    await request("DELETE", `/api/inventory/labels/${encodeURIComponent(name)}`);
+    resetInventoryLabelForm("");
+    setStatusMessage("inventory-label-out", `${t("deleted")}: ${name}`, "success");
+    await loadInventoryLabels();
+    if (typeof loadSavedConnections === "function") {
+      await loadSavedConnections();
+    }
   } catch (e) {
-    byId("inventory-resolve-result").textContent = "";
-    setStatusMessage("inventory-resolve-out", e.message, "error");
+    setStatusMessage("inventory-label-out", e.message, "error");
   }
 }

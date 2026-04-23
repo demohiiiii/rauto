@@ -395,6 +395,7 @@ mod tests {
             port: Some(22),
             enable_password: None,
             enable_password_ref: None,
+            enable_password_empty_enter: false,
             ssh_security: None,
             linux_shell_flavor: None,
             device_profile: Some("linux".to_string()),

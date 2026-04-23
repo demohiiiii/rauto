@@ -82,10 +82,6 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         .port
         .or_else(|| saved.as_ref().and_then(|s| s.port))
         .unwrap_or(22);
-    let enable_password = opts
-        .enable_password
-        .clone()
-        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()));
     let ssh_security = opts
         .ssh_security
         .or_else(|| saved.as_ref().and_then(|s| s.ssh_security))
@@ -107,6 +103,20 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         .as_ref()
         .map(|s| s.vars.clone())
         .unwrap_or_else(|| serde_json::json!({}));
+    let enable_password_empty_enter = saved
+        .as_ref()
+        .is_some_and(|conn| conn.enable_password_empty_enter);
+    let enable_password = opts
+        .enable_password
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()))
+        .or_else(|| {
+            if enable_password_empty_enter {
+                Some(String::new())
+            } else {
+                None
+            }
+        });
 
     Ok(EffectiveConnection {
         connection_name: opts
@@ -164,6 +174,7 @@ pub(crate) fn save_named_connection(
             None
         },
         enable_password_ref: None,
+        enable_password_empty_enter: conn.enable_password == Some(String::new()),
         ssh_security: Some(conn.ssh_security),
         linux_shell_flavor: conn.linux_shell_flavor,
         device_profile: Some(conn.device_profile.clone()),

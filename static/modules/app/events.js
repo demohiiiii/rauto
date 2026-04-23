@@ -68,6 +68,12 @@ function bindEvents() {
       ensureSelectValue("inventory-group-picker", name);
       loadInventoryGroupDetail();
     }
+    const inventoryLabelRow = e.target.closest(".js-inventory-label-row");
+    if (inventoryLabelRow) {
+      const name = inventoryLabelRow.getAttribute("data-name") || "";
+      ensureSelectValue("inventory-label-picker", name);
+      loadInventoryLabelDetail();
+    }
   });
 
   byId("detail-modal-close").onclick = closeDetailModal;
@@ -151,7 +157,21 @@ function bindEvents() {
   byId("device_profile").addEventListener("change", () => {
     refreshExecutionModeOptions();
   });
-  ["host", "port", "username", "password", "enable_password", "ssh_security", "linux_shell_flavor", "device_profile"].forEach((id) => {
+  [
+    "host",
+    "port",
+    "username",
+    "password",
+    "enable_password",
+    "ssh_security",
+    "linux_shell_flavor",
+    "device_profile",
+    "enable-password-empty-enter",
+    "saved-conn-enabled",
+    "saved-conn-labels",
+    "saved-conn-vars",
+    "saved-conn-groups",
+  ].forEach((id) => {
     const el = byId(id);
     if (!el) return;
     el.addEventListener("input", () => {
@@ -262,7 +282,14 @@ function bindEvents() {
   byId("inventory-group-hosts-select-all-btn").onclick = selectAllInventoryGroupHosts;
   byId("inventory-group-hosts-clear-btn").onclick = clearInventoryGroupHostsSelection;
   byId("inventory-group-hosts").addEventListener("change", onInventoryGroupHostSelectionChange);
-  byId("inventory-resolve-btn").onclick = resolveInventoryVarsFromWeb;
+  byId("inventory-label-picker").onchange = loadInventoryLabelDetail;
+  byId("inventory-label-new-btn").onclick = createInventoryLabelDraft;
+  byId("inventory-label-save-btn").onclick = saveInventoryLabel;
+  byId("inventory-label-delete-btn").onclick = deleteInventoryLabel;
+  byId("inventory-label-hosts-filter").oninput = onInventoryLabelHostFilterInput;
+  byId("inventory-label-hosts-select-all-btn").onclick = selectAllInventoryLabelHosts;
+  byId("inventory-label-hosts-clear-btn").onclick = clearInventoryLabelHostsSelection;
+  byId("inventory-label-hosts").addEventListener("change", onInventoryLabelHostSelectionChange);
   byId("blacklist-refresh-btn").onclick = loadBlacklistPatterns;
   byId("blacklist-add-btn").onclick = addBlacklistPatternFromWeb;
   byId("blacklist-check-btn").onclick = checkBlacklistCommandFromWeb;

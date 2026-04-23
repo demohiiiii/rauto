@@ -126,6 +126,8 @@ pub struct ResolvedConnection {
 pub struct InteractiveSession {
     pub client: DeviceClient,
     pub conn: ResolvedConnection,
+    pub source_connection: Option<ConnectionRequest>,
+    pub profile_fingerprint: String,
     pub record_level: Option<RecordLevel>,
     pub last_used: Instant,
 }
@@ -141,6 +143,7 @@ pub fn merge_connection_options(
         password: None,
         port: None,
         enable_password: None,
+        enable_password_empty_enter: None,
         ssh_security: None,
         linux_shell_flavor: None,
         device_profile: None,
@@ -198,10 +201,29 @@ fn merge_connection_sources(
         .or_else(|| saved.and_then(|s| s.port))
         .or(defaults.port)
         .unwrap_or(22);
+    let vars = if has_non_empty_json_object(&incoming_vars) {
+        incoming_vars
+    } else {
+        saved
+            .map(|s| s.vars.clone())
+            .filter(has_non_empty_json_object)
+            .unwrap_or_else(|| serde_json::json!({}))
+    };
+    let enable_password_empty_enter = incoming
+        .enable_password_empty_enter
+        .or_else(|| saved.map(|s| s.enable_password_empty_enter))
+        .unwrap_or(false);
     let enable_password = incoming
         .enable_password
         .or_else(|| saved.and_then(|s| s.enable_password.clone()))
-        .or_else(|| defaults.enable_password.clone());
+        .or_else(|| defaults.enable_password.clone())
+        .or_else(|| {
+            if enable_password_empty_enter {
+                Some(String::new())
+            } else {
+                None
+            }
+        });
     let ssh_security = incoming
         .ssh_security
         .or_else(|| saved.and_then(|s| s.ssh_security))
@@ -216,14 +238,6 @@ fn merge_connection_sources(
         .or_else(|| saved.and_then(|s| s.device_profile.clone()))
         .or_else(|| defaults.device_profile.clone())
         .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
-    let vars = if has_non_empty_json_object(&incoming_vars) {
-        incoming_vars
-    } else {
-        saved
-            .map(|s| s.vars.clone())
-            .filter(has_non_empty_json_object)
-            .unwrap_or_else(|| serde_json::json!({}))
-    };
     Ok(ResolvedConnection {
         connection_name,
         host,
@@ -278,6 +292,7 @@ mod tests {
             password: None,
             port: None,
             enable_password: Some("explicit-enable".to_string()),
+            enable_password_empty_enter: None,
             ssh_security: Some(SshSecurityProfile::LegacyCompatible),
             linux_shell_flavor: None,
             device_profile: None,
@@ -295,6 +310,7 @@ mod tests {
             port: Some(2022),
             enable_password: Some("saved-enable".to_string()),
             enable_password_ref: None,
+            enable_password_empty_enter: false,
             ssh_security: Some(SshSecurityProfile::Secure),
             linux_shell_flavor: None,
             device_profile: Some("saved-profile".to_string()),
@@ -373,5 +389,37 @@ mod tests {
 
         assert_eq!(resolved.device_profile, DEFAULT_DEVICE_PROFILE);
         assert_eq!(resolved.vars, serde_json::json!({}));
+    }
+
+    #[test]
+    fn merge_connection_sources_supports_empty_enable_password_enter_flag() {
+        let defaults = GlobalOpts {
+            host: Some("default-host".to_string()),
+            username: Some("default-user".to_string()),
+            password: Some("default-pass".to_string()),
+            port: Some(22),
+            enable_password: None,
+            ssh_security: Some(SshSecurityProfile::Secure),
+            linux_shell_flavor: None,
+            device_profile: Some("linux".to_string()),
+            template_dir: None,
+            connection: None,
+            save_connection: None,
+            save_password: false,
+        };
+        let incoming = ConnectionRequest {
+            host: Some("demo-host".to_string()),
+            username: Some("ops".to_string()),
+            password: Some("ops-pass".to_string()),
+            enable_password_empty_enter: Some(true),
+            vars: serde_json::json!({
+                "site": "demo"
+            }),
+            ..ConnectionRequest::default()
+        };
+
+        let resolved =
+            merge_connection_sources(&defaults, incoming, None, None).expect("resolved connection");
+        assert_eq!(resolved.enable_password, Some(String::new()));
     }
 }

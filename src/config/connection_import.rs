@@ -159,6 +159,8 @@ fn merge_with_existing(
         } else {
             existing.and_then(|item| item.enable_password_ref.clone())
         },
+        enable_password_empty_enter: incoming.enable_password_empty_enter
+            || existing.is_some_and(|item| item.enable_password_empty_enter),
         ssh_security: incoming
             .ssh_security
             .or_else(|| existing.and_then(|item| item.ssh_security)),
@@ -235,6 +237,7 @@ mod tests {
             port: Some(22),
             enable_password: None,
             enable_password_ref: Some("enc:v1:BBBB".to_string()),
+            enable_password_empty_enter: false,
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
             device_profile: Some("cisco".to_string()),
@@ -254,6 +257,7 @@ mod tests {
                 port: None,
                 enable_password: None,
                 enable_password_ref: None,
+                enable_password_empty_enter: false,
                 ssh_security: None,
                 linux_shell_flavor: None,
                 device_profile: None,

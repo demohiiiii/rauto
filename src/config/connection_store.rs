@@ -27,6 +27,8 @@ pub struct SavedConnection {
     pub enable_password: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enable_password_ref: Option<String>,
+    #[serde(default)]
+    pub enable_password_empty_enter: bool,
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
@@ -81,7 +83,10 @@ pub fn list_connections_by_labels_any(labels: &[String]) -> Result<Vec<String>> 
                 row.try_get::<Option<String>, _>("labels_json")?
                     .unwrap_or_else(|| "[]".to_string()),
             )?;
-            if required.iter().any(|wanted| parsed.iter().any(|label| label == wanted)) {
+            if required
+                .iter()
+                .any(|wanted| parsed.iter().any(|label| label == wanted))
+            {
                 names.push(name);
             }
         }
@@ -95,7 +100,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
         let row = sqlx::query(
             r#"
             SELECT host, username, password_ref, port, enable_password_ref, ssh_security, linux_shell_flavor, device_profile, template_dir
-                 , enabled, labels_json, vars_json
+                 , enabled, labels_json, vars_json, enable_password_empty_enter
             FROM connections
             WHERE name = ?
             "#,
@@ -116,6 +121,10 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
                 .map(|value| value as u16),
             enable_password: None,
             enable_password_ref: row.try_get("enable_password_ref")?,
+            enable_password_empty_enter: row
+                .try_get::<Option<i64>, _>("enable_password_empty_enter")?
+                .unwrap_or(0)
+                != 0,
             ssh_security: row
                 .try_get::<Option<String>, _>("ssh_security")?
                 .map(|value| parse_ssh_security_profile(&value))
@@ -257,10 +266,10 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
             r#"
             INSERT INTO connections (
                 name, host, username, password_ref, port, enable_password_ref, ssh_security, linux_shell_flavor,
-                device_profile, template_dir, enabled, labels_json, vars_json,
+                device_profile, template_dir, enabled, labels_json, vars_json, enable_password_empty_enter,
                 created_at_ms, updated_at_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
                 username = excluded.username,
@@ -274,6 +283,7 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
                 enabled = excluded.enabled,
                 labels_json = excluded.labels_json,
                 vars_json = excluded.vars_json,
+                enable_password_empty_enter = excluded.enable_password_empty_enter,
                 updated_at_ms = excluded.updated_at_ms
             "#,
         )
@@ -290,6 +300,11 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(if stored.enabled { 1_i64 } else { 0_i64 })
         .bind(labels_json)
         .bind(vars_json)
+        .bind(if stored.enable_password_empty_enter {
+            1_i64
+        } else {
+            0_i64
+        })
         .bind(created_at_ms)
         .bind(now_ms as i64)
         .execute(db::pool())
@@ -438,6 +453,7 @@ mod tests {
                 port: Some(22),
                 enable_password: None,
                 enable_password_ref: None,
+                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Secure),
                 linux_shell_flavor: None,
                 device_profile: Some("cisco".to_string()),
@@ -472,6 +488,7 @@ mod tests {
                 port: Some(2222),
                 enable_password: Some("enable-me".to_string()),
                 enable_password_ref: None,
+                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
                 device_profile: Some("linux".to_string()),
@@ -529,6 +546,7 @@ mod tests {
                 port: Some(22),
                 enable_password: None,
                 enable_password_ref: None,
+                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Secure),
                 linux_shell_flavor: None,
                 device_profile: Some("h3c".to_string()),
@@ -567,6 +585,7 @@ mod tests {
                 port: Some(22),
                 enable_password: None,
                 enable_password_ref: None,
+                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
                 device_profile: Some("linux".to_string()),
@@ -587,6 +606,7 @@ mod tests {
                 port: Some(22),
                 enable_password: None,
                 enable_password_ref: None,
+                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
                 device_profile: Some("linux".to_string()),

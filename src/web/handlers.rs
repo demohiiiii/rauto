@@ -76,10 +76,11 @@ pub use command_templates::{
     create_template, delete_template, get_template, list_templates, update_template,
 };
 pub use connections::{
-    delete_connection, delete_connection_history, delete_inventory_group, get_connection,
-    get_connection_history, get_connection_history_detail, get_inventory_group, import_connections,
-    list_connections, list_inventory_groups, resolve_inventory_vars, test_connection,
-    upsert_connection, upsert_inventory_group,
+    delete_connection, delete_connection_history, delete_inventory_group, delete_inventory_label,
+    get_connection, get_connection_history, get_connection_history_detail, get_inventory_group,
+    get_inventory_label, import_connections, list_connections, list_inventory_groups,
+    list_inventory_labels, test_connection, upsert_connection, upsert_inventory_group,
+    upsert_inventory_label,
 };
 pub use execute::{
     exec_command, exec_command_async, execute_command_flow, execute_orchestration,
@@ -139,6 +140,7 @@ fn saved_connection_detail_response(
             password: None,
             port: data.port,
             enable_password: None,
+            enable_password_empty_enter: Some(data.enable_password_empty_enter),
             ssh_security: data.ssh_security,
             linux_shell_flavor: data.linux_shell_flavor,
             device_profile: data.device_profile.clone(),
@@ -163,7 +165,7 @@ fn merged_saved_secret(
 }
 
 fn should_persist_secret(save_password: bool, incoming_secret: Option<&str>) -> bool {
-    save_password || incoming_secret.is_some_and(|value| !value.trim().is_empty())
+    save_password || incoming_secret.is_some()
 }
 
 #[cfg(test)]

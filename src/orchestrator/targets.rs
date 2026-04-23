@@ -252,11 +252,6 @@ pub(crate) fn resolve_target_connection(
         .or_else(|| saved.as_ref().and_then(|s| s.port))
         .or(opts.port)
         .unwrap_or(22);
-    let enable_password = target
-        .enable_password
-        .clone()
-        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()))
-        .or_else(|| opts.enable_password.clone());
     let device_profile = target
         .device_profile
         .clone()
@@ -283,6 +278,26 @@ pub(crate) fn resolve_target_connection(
         })
         .or_else(|| opts.template_dir.clone());
 
+    let vars = saved
+        .as_ref()
+        .map(|s| s.vars.clone())
+        .unwrap_or_else(|| serde_json::json!({}));
+    let enable_password_empty_enter = saved
+        .as_ref()
+        .is_some_and(|conn| conn.enable_password_empty_enter);
+    let enable_password = target
+        .enable_password
+        .clone()
+        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()))
+        .or_else(|| opts.enable_password.clone())
+        .or_else(|| {
+            if enable_password_empty_enter {
+                Some(String::new())
+            } else {
+                None
+            }
+        });
+
     Ok(EffectiveConnection {
         connection_name: target
             .connection
@@ -296,10 +311,7 @@ pub(crate) fn resolve_target_connection(
         ssh_security,
         linux_shell_flavor,
         device_profile,
-        vars: saved
-            .as_ref()
-            .map(|s| s.vars.clone())
-            .unwrap_or_else(|| serde_json::json!({})),
+        vars,
         template_dir,
     })
 }

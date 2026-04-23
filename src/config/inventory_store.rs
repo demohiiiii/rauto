@@ -418,6 +418,7 @@ mod tests {
             password_ref: None,
             enable_password: None,
             enable_password_ref: None,
+            enable_password_empty_enter: false,
             ssh_security: None,
             linux_shell_flavor: None,
             template_dir: None,

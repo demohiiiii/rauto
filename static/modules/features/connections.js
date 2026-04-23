@@ -35,6 +35,21 @@ function renderSavedConnectionOptions(selectedName = "") {
   );
 }
 
+function renderConnectionProfileOptions() {
+  const profileValues = (cachedDeviceProfiles || []).filter(Boolean);
+  const mainSelected = safeString(byId("device_profile")?.value || "").trim() || "linux";
+  const editSelected =
+    safeString(byId("saved-conn-edit-device-profile")?.value || "").trim() || "linux";
+  populateSelectOptions("device_profile", profileValues, {
+    placeholder: t("deviceProfilePlaceholder"),
+    selected: mainSelected,
+  });
+  populateSelectOptions("saved-conn-edit-device-profile", profileValues, {
+    placeholder: t("deviceProfilePlaceholder"),
+    selected: editSelected,
+  });
+}
+
 function renderSavedConnectionGroupOptions(selectedValues = []) {
   renderConnectionGroupsForSelect("saved-conn-groups", selectedValues);
   renderConnectionGroupsForSelect(
@@ -89,9 +104,26 @@ function savedConnectionDetails(item) {
     port: Number(item?.port || 22) || 22,
     username: safeString(item?.username || "-"),
     profile: safeString(item?.device_profile || "linux") || "linux",
+    ssh_security: safeString(item?.ssh_security || "").trim(),
+    linux_shell_flavor: safeString(item?.linux_shell_flavor || "").trim(),
+    enable_password_empty_enter: !!item?.enable_password_empty_enter,
     kind: "saved",
     note: t("savedConnSubtitle"),
   };
+}
+
+function syncProfileAndModesFromTarget(details, refreshModes = false) {
+  if (!details) return;
+  const profile = safeString(details.profile || details.device_profile || "").trim();
+  if (!profile) return;
+  if (typeof ensureSelectValue === "function") {
+    ensureSelectValue("device_profile", profile, { fallbackToEmpty: false });
+  } else if (byId("device_profile")) {
+    byId("device_profile").value = profile;
+  }
+  if (refreshModes && typeof refreshExecutionModeOptions === "function") {
+    refreshExecutionModeOptions();
+  }
 }
 
 function persistConnectionTarget(details = null) {
@@ -126,6 +158,14 @@ function persistConnectionTarget(details = null) {
           device_profile: safeString(details.profile || "linux").trim() || "linux",
           ssh_security: safeString(byId("ssh_security")?.value || "").trim(),
           linux_shell_flavor: safeString(byId("linux_shell_flavor")?.value || "").trim(),
+          enable_password_empty_enter: !!byId("enable-password-empty-enter")?.checked,
+          enabled: !!byId("saved-conn-enabled")?.checked,
+          labels: safeString(byId("saved-conn-labels")?.value || ""),
+          groups:
+            typeof getMultiSelectValues === "function"
+              ? getMultiSelectValues("saved-conn-groups")
+              : [],
+          vars_text: safeString(byId("saved-conn-vars")?.value || ""),
         })
       );
       return;
@@ -176,7 +216,12 @@ function restorePersistedConnectionTarget() {
     }
     ensureSelectValue("saved-conn-name", targetName);
     clearTemporaryConnectionActive();
-    setCurrentConnectionTarget(savedConnectionDetails(selected));
+    if (typeof applyConnectionForm === "function") {
+      applyConnectionForm(selected);
+    }
+    const details = savedConnectionDetails(selected);
+    setCurrentConnectionTarget(details);
+    syncProfileAndModesFromTarget(details, true);
     return;
   }
 
@@ -191,6 +236,23 @@ function restorePersistedConnectionTarget() {
       safeString(parsed.device_profile || "linux").trim() || "linux";
     byId("ssh_security").value = safeString(parsed.ssh_security || "").trim();
     byId("linux_shell_flavor").value = safeString(parsed.linux_shell_flavor || "").trim();
+    if (byId("enable-password-empty-enter")) {
+      byId("enable-password-empty-enter").checked = !!parsed.enable_password_empty_enter;
+    }
+    if (byId("saved-conn-enabled")) {
+      byId("saved-conn-enabled").checked = parsed.enabled !== false;
+    }
+    if (byId("saved-conn-labels")) {
+      byId("saved-conn-labels").value = safeString(parsed.labels || "");
+    }
+    if (byId("saved-conn-vars")) {
+      byId("saved-conn-vars").value = safeString(parsed.vars_text || "");
+    }
+    if (typeof renderSavedConnectionGroupOptions === "function") {
+      renderSavedConnectionGroupOptions(
+        Array.isArray(parsed.groups) ? parsed.groups : []
+      );
+    }
     temporaryConnectionActive = true;
     temporaryConnectionLabel = "";
     temporaryConnectionDetails = {
@@ -336,7 +398,12 @@ async function loadSavedConnections() {
       const targetName = safeString(currentConnectionTarget.details.name || "").trim();
       const selected = cachedSavedConnections.find((item) => item.name === targetName);
       if (selected) {
-        setCurrentConnectionTarget(savedConnectionDetails(selected));
+        if (typeof applyConnectionForm === "function") {
+          applyConnectionForm(selected);
+        }
+        const details = savedConnectionDetails(selected);
+        setCurrentConnectionTarget(details);
+        syncProfileAndModesFromTarget(details, true);
       } else {
         if (byId("saved-conn-name")?.value === targetName) {
           byId("saved-conn-name").value = "";
@@ -349,8 +416,6 @@ async function loadSavedConnections() {
     }
     if (typeof loadInventoryConnections === "function") {
       loadInventoryConnections();
-    } else if (typeof renderInventoryConnectionOptions === "function") {
-      renderInventoryConnectionOptions("");
     }
     renderSidebarConnectionSelector();
   } catch (e) {
@@ -360,8 +425,6 @@ async function loadSavedConnections() {
     renderSavedConnectionGroupOptions([]);
     if (typeof loadInventoryConnections === "function") {
       loadInventoryConnections();
-    } else if (typeof renderInventoryConnectionOptions === "function") {
-      renderInventoryConnectionOptions("");
     }
     renderSidebarConnectionSelector(e.message);
   }
@@ -468,6 +531,10 @@ function applySavedConnectionEditorForm(name, connection = {}) {
     Array.isArray(connection.groups) ? connection.groups : []
   );
   byId("saved-conn-edit-vars").value = JSON.stringify(connection.vars || {}, null, 2);
+  if (byId("saved-conn-edit-enable-password-empty-enter")) {
+    byId("saved-conn-edit-enable-password-empty-enter").checked =
+      !!connection.enable_password_empty_enter;
+  }
   byId("saved-conn-edit-save-password").checked = !!(
     connection.has_password === false && connection.has_enable_password === false
   );
@@ -487,6 +554,7 @@ function savedConnectionEditorPayload() {
     enabled: !!byId("saved-conn-edit-enabled")?.checked,
     labels: splitEditorCsv(byId("saved-conn-edit-labels")?.value || ""),
     groups: getMultiSelectValuesById("saved-conn-edit-groups"),
+    enable_password_empty_enter: !!byId("saved-conn-edit-enable-password-empty-enter")?.checked,
     vars: parseSavedConnectionEditorVars(),
   };
 }

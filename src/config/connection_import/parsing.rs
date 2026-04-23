@@ -199,6 +199,7 @@ pub(super) fn parse_row(
             port,
             enable_password,
             enable_password_ref: None,
+            enable_password_empty_enter: false,
             ssh_security,
             linux_shell_flavor,
             device_profile,

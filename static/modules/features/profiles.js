@@ -124,8 +124,11 @@ async function loadProfilesOverview() {
       renderCustomProfileOptions();
       renderDiagnoseProfileOptions();
     }
-    if (typeof renderInventoryConnectionOptions === "function") {
-      renderInventoryConnectionOptions(byId("inventory-resolve-host")?.value || "");
+    if (typeof loadInventoryConnections === "function") {
+      loadInventoryConnections();
+    }
+    if (typeof renderConnectionProfileOptions === "function") {
+      renderConnectionProfileOptions();
     }
     if (byId("builtin-profile-select")?.value.trim()) {
       await loadBuiltinProfileDetail();
@@ -141,8 +144,11 @@ async function loadProfilesOverview() {
     setStatusMessage("builtin-detail-status", e.message, "error");
     renderCustomProfileOptions();
     renderDiagnoseProfileOptions();
-    if (typeof renderInventoryConnectionOptions === "function") {
-      renderInventoryConnectionOptions(byId("inventory-resolve-host")?.value || "");
+    if (typeof loadInventoryConnections === "function") {
+      loadInventoryConnections();
+    }
+    if (typeof renderConnectionProfileOptions === "function") {
+      renderConnectionProfileOptions();
     }
     clearBuiltinProfileDetail();
     await refreshExecutionModeOptions();

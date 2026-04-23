@@ -82,6 +82,7 @@ async function refreshProtectedData() {
     loadAllJsonTemplates(),
     loadInventoryConnections(),
     loadInventoryGroups(),
+    loadInventoryLabels(),
     loadBlacklistPatterns(),
     loadBackups(),
   ]);

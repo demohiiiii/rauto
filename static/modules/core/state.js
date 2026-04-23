@@ -57,6 +57,7 @@ let cachedTxWorkflowTemplateMetas = [];
 let cachedOrchestrationTemplateNames = [];
 let cachedOrchestrationTemplateMetas = [];
 let cachedInventoryGroups = [];
+let cachedInventoryLabels = [];
 let cachedBackups = [];
 let cachedBlacklistPatterns = [];
 let cachedProfileModes = new Map();

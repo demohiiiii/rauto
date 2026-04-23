@@ -82,6 +82,7 @@ window.onAlpineTabChange = function onAlpineTabChange(tab) {
   if (tab === "inventory") {
     loadInventoryConnections();
     loadInventoryGroups();
+    loadInventoryLabels();
   }
   if (tab === "blacklist") {
     loadBlacklistPatterns();

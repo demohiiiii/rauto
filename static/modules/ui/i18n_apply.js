@@ -70,6 +70,7 @@ function applyI18n() {
   byId("connection-test-btn").textContent = t("connectionTestBtn");
   byId("saved-conn-title").textContent = t("savedConnTitle");
   byId("saved-conn-subtitle").textContent = t("savedConnSubtitle");
+  byId("enable-password-empty-enter-label").textContent = t("enablePasswordEmptyEnter");
   byId("saved-conn-save-password-label").textContent = t("savedConnSavePassword");
   byId("saved-conn-enabled-label").textContent = t("inventoryFieldEnabled");
   byId("saved-conn-labels-label").textContent = t("inventoryFieldLabels");
@@ -87,6 +88,7 @@ function applyI18n() {
   byId("saved-conn-edit-title").textContent = t("savedConnEditTitle");
   byId("saved-conn-edit-hint").textContent = t("savedConnEditHint");
   byId("saved-conn-edit-name-label").textContent = t("inventoryFieldName");
+  byId("saved-conn-edit-enable-password-empty-enter-label").textContent = t("enablePasswordEmptyEnter");
   byId("saved-conn-edit-save-password-label").textContent = t("savedConnSavePassword");
   byId("saved-conn-edit-enabled-label").textContent = t("inventoryFieldEnabled");
   byId("saved-conn-edit-labels-label").textContent = t("inventoryFieldLabels");
@@ -139,8 +141,12 @@ function applyI18n() {
   byId("nav-prompt-diagnose").textContent = t("promptModeDiagnose");
   byId("template-section-btn-library").textContent = t("templateCommonTabTitle");
   byId("template-section-btn-flows").textContent = t("flowTemplateMgrTitle");
-  byId("nav-inventory-groups").textContent = t("inventoryGroupsTitle");
-  byId("nav-inventory-resolve").textContent = t("inventoryResolveTitle");
+  if (byId("inventory-tab-groups")) {
+    byId("inventory-tab-groups").textContent = t("inventoryGroupsTitle");
+  }
+  if (byId("inventory-tab-labels")) {
+    byId("inventory-tab-labels").textContent = t("inventoryLabelsTitle");
+  }
 
   byId("standard-title").textContent = t("opSectionStandard");
   byId("orchestrated-title").textContent = currentOrchestratedStageTitle();
@@ -206,11 +212,14 @@ function applyI18n() {
   byId("inventory-title").textContent = t("inventoryTitle");
   byId("inventory-groups-title").textContent = t("inventoryGroupsTitle");
   byId("inventory-group-editor-title").textContent = t("inventoryGroupEditorTitle");
-  byId("inventory-resolve-title").textContent = t("inventoryResolveTitle");
   byId("inventory-group-new-btn").textContent = t("newBtn");
   byId("inventory-group-save-btn").textContent = t("savedConnSaveBtn");
   byId("inventory-group-delete-btn").textContent = t("savedConnDeleteBtn");
-  byId("inventory-resolve-btn").textContent = t("inventoryResolveBtn");
+  byId("inventory-labels-title").textContent = t("inventoryLabelsTitle");
+  byId("inventory-label-editor-title").textContent = t("inventoryLabelEditorTitle");
+  byId("inventory-label-new-btn").textContent = t("newBtn");
+  byId("inventory-label-save-btn").textContent = t("savedConnSaveBtn");
+  byId("inventory-label-delete-btn").textContent = t("savedConnDeleteBtn");
   byId("inventory-group-name-label").textContent = t("inventoryFieldName");
   byId("inventory-group-description-label").textContent = t("inventoryFieldDescription");
   byId("inventory-group-hosts-label").textContent = t("inventoryFieldHosts");
@@ -222,13 +231,17 @@ function applyI18n() {
   if (typeof renderInventoryGroupHosts === "function") {
     renderInventoryGroupHosts();
   }
-  byId("inventory-resolve-host-label").textContent = t("inventoryResolveHostLabel");
-  byId("inventory-resolve-groups-label").textContent = t("inventoryResolveGroupsLabel");
-  byId("inventory-resolve-runtime-label").textContent = t("inventoryResolveRuntimeLabel");
-  byId("inventory-resolve-hint").textContent = t("inventoryResolveHint");
+  byId("inventory-label-name-label").textContent = t("inventoryFieldName");
+  byId("inventory-label-hosts-label").textContent = t("inventoryFieldHosts");
+  byId("inventory-label-hosts-filter").placeholder = t("inventoryFieldHostsFilterPlaceholder");
+  byId("inventory-label-hosts-select-all-btn").textContent = t("inventoryHostsSelectAllBtn");
+  byId("inventory-label-hosts-clear-btn").textContent = t("inventoryHostsClearBtn");
+  byId("inventory-label-hosts-empty").textContent = t("inventoryHostsEmpty");
+  if (typeof renderInventoryLabelHosts === "function") {
+    renderInventoryLabelHosts();
+  }
   byId("inventory-group-description").placeholder = t("inventoryFieldDescriptionPlaceholder");
   byId("inventory-group-vars").placeholder = t("inventoryFieldVarsPlaceholder");
-  byId("inventory-resolve-runtime").placeholder = t("inventoryFieldVarsPlaceholder");
   byId("transfer-title").textContent = t("transferTitle");
   byId("flow-vars-fields-title").textContent = t("flowVarsFieldsTitle");
   byId("flow-vars-fields-hint").textContent = t("flowVarsFieldsHint");
@@ -334,14 +347,17 @@ function applyI18n() {
   if (typeof renderTaskDetail === "function") {
     renderTaskDetail();
   }
-  if (typeof renderInventoryConnectionOptions === "function") {
-    renderInventoryConnectionOptions(byId("inventory-resolve-host")?.value || "");
-  }
   if (typeof renderInventoryGroupOptions === "function") {
     renderInventoryGroupOptions(byId("inventory-group-picker")?.value || "");
   }
   if (typeof renderInventoryGroupList === "function") {
     renderInventoryGroupList();
+  }
+  if (typeof renderInventoryLabelOptions === "function") {
+    renderInventoryLabelOptions(byId("inventory-label-picker")?.value || "");
+  }
+  if (typeof renderInventoryLabelList === "function") {
+    renderInventoryLabelList();
   }
 
   byId("render-btn").textContent = t("renderBtn");
@@ -451,7 +467,14 @@ function applyI18n() {
   byId("linux-shell-option-default").textContent = t("linuxShellOptionDefault");
   byId("linux-shell-option-posix").textContent = t("linuxShellOptionPosix");
   byId("linux-shell-option-fish").textContent = t("linuxShellOptionFish");
-  byId("device_profile").placeholder = t("deviceProfilePlaceholder");
+  byId("device_profile").setAttribute("title", t("deviceProfilePlaceholder"));
+  byId("saved-conn-edit-device-profile").setAttribute(
+    "title",
+    t("deviceProfilePlaceholder")
+  );
+  if (typeof renderConnectionProfileOptions === "function") {
+    renderConnectionProfileOptions();
+  }
   byId("saved-conn-name").setAttribute("title", t("savedConnSelectPlaceholder"));
   byId("template").setAttribute("title", t("templatePlaceholder"));
   byId("template-selected-content").placeholder = t("templateSelectedContentPlaceholder");
