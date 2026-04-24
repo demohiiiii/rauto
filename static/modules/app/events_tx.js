@@ -95,119 +95,130 @@ function bindTxExecutionEvents() {
     }
   };
 
-  byId("tx-plan-btn").onclick = async () => {
-    try {
-      txBlockViewMode = "direct";
-      applyTxBlockViewMode();
-      await runTxBlock(true, "tx-plan-out");
-    } catch (e) {
-      setStatusMessage("tx-plan-out", e.message, "error");
-      byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
-
-  byId("tx-exec-btn").onclick = async () => {
-    try {
-      txBlockViewMode = "direct";
-      applyTxBlockViewMode();
-      await runTxBlock(false, "tx-exec-out");
-    } catch (e) {
-      setStatusMessage("tx-exec-out", e.message, "error");
-      byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
-  byId("tx-template-plan-btn").onclick = async () => {
-    try {
-      txBlockViewMode = "template";
-      applyTxBlockViewMode();
-      await runTxBlock(true, "tx-plan-out");
-    } catch (e) {
-      setStatusMessage("tx-plan-out", e.message, "error");
-      byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
-  byId("tx-template-exec-btn").onclick = async () => {
-    try {
-      txBlockViewMode = "template";
-      applyTxBlockViewMode();
-      await runTxBlock(false, "tx-exec-out");
-    } catch (e) {
-      setStatusMessage("tx-exec-out", e.message, "error");
-      byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
-  byId("tx-workflow-plan-btn").onclick = async () => {
-    const visualOut = byId("tx-workflow-plan-visual");
-    if (!ensureConnectionTargetSelected("tx-workflow-plan-out", "tx-workflow-plan-visual")) {
-      return;
-    }
-    setStatusMessage("tx-workflow-plan-out", t("running"), "running");
-    try {
-      const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(true));
-      const workflow = data && data.workflow ? data.workflow : {};
-      setTxWorkflowPreview(workflow);
-      setStatusMessage("tx-workflow-plan-out", t("txWorkflowPreviewDone"), "success");
-    } catch (e) {
-      setStatusMessage("tx-workflow-plan-out", e.message, "error");
-      if (visualOut) {
-        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
+  byId("tx-plan-btn").onclick = () =>
+    withButtonLoading("tx-plan-btn", async () => {
+      try {
+        txBlockViewMode = "direct";
+        applyTxBlockViewMode();
+        await runTxBlock(true, "tx-plan-out");
+      } catch (e) {
+        setStatusMessage("tx-plan-out", e.message, "error");
+        byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
       }
-    }
-  };
+    });
 
-  byId("tx-workflow-exec-btn").onclick = async () => {
-    const out = byId("tx-workflow-exec-out");
-    if (!ensureConnectionTargetSelected("tx-workflow-exec-out", "tx-workflow-exec-out")) {
-      return;
-    }
-    setStatusMessage("tx-workflow-exec-out", t("running"), "running");
-    try {
-      const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(false));
-      const result = data.tx_workflow_result || {};
-      out.innerHTML = renderTxWorkflowResult(result);
-      applyRecordingFromResponse(data);
-    } catch (e) {
-      setStatusMessage("tx-workflow-exec-out", e.message, "error");
-    }
-  };
+  byId("tx-exec-btn").onclick = () =>
+    withButtonLoading("tx-exec-btn", async () => {
+      try {
+        txBlockViewMode = "direct";
+        applyTxBlockViewMode();
+        await runTxBlock(false, "tx-exec-out");
+      } catch (e) {
+        setStatusMessage("tx-exec-out", e.message, "error");
+        byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
+      }
+    });
+  byId("tx-template-plan-btn").onclick = () =>
+    withButtonLoading("tx-template-plan-btn", async () => {
+      try {
+        txBlockViewMode = "template";
+        applyTxBlockViewMode();
+        await runTxBlock(true, "tx-plan-out");
+      } catch (e) {
+        setStatusMessage("tx-plan-out", e.message, "error");
+        byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
+      }
+    });
+  byId("tx-template-exec-btn").onclick = () =>
+    withButtonLoading("tx-template-exec-btn", async () => {
+      try {
+        txBlockViewMode = "template";
+        applyTxBlockViewMode();
+        await runTxBlock(false, "tx-exec-out");
+      } catch (e) {
+        setStatusMessage("tx-exec-out", e.message, "error");
+        byId("tx-block-visual").innerHTML = renderStatusMessageCard(e.message, "error");
+      }
+    });
+  byId("tx-workflow-plan-btn").onclick = () =>
+    withButtonLoading("tx-workflow-plan-btn", async () => {
+      const visualOut = byId("tx-workflow-plan-visual");
+      if (!ensureConnectionTargetSelected("tx-workflow-plan-out", "tx-workflow-plan-visual")) {
+        return;
+      }
+      setStatusMessage("tx-workflow-plan-out", t("running"), "running");
+      try {
+        const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(true));
+        const workflow = data && data.workflow ? data.workflow : {};
+        setTxWorkflowPreview(workflow);
+        setStatusMessage("tx-workflow-plan-out", t("txWorkflowPreviewDone"), "success");
+      } catch (e) {
+        setStatusMessage("tx-workflow-plan-out", e.message, "error");
+        if (visualOut) {
+          visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
+        }
+      }
+    });
+
+  byId("tx-workflow-exec-btn").onclick = () =>
+    withButtonLoading("tx-workflow-exec-btn", async () => {
+      const out = byId("tx-workflow-exec-out");
+      if (!ensureConnectionTargetSelected("tx-workflow-exec-out", "tx-workflow-exec-out")) {
+        return;
+      }
+      setStatusMessage("tx-workflow-exec-out", t("running"), "running");
+      try {
+        const data = await request("POST", "/api/tx/workflow", txWorkflowPayload(false));
+        const result = data.tx_workflow_result || {};
+        out.innerHTML = renderTxWorkflowResult(result);
+        if (typeof showToast === "function") {
+          showToast(t("txWorkflowExecuteDone"), "success");
+        }
+        applyRecordingFromResponse(data);
+      } catch (e) {
+        setStatusMessage("tx-workflow-exec-out", e.message, "error");
+      }
+    });
   byId("tx-workflow-json-new-btn").onclick = () => {
     createTxWorkflowTemplateDraftFromExecution();
   };
-  byId("orchestration-plan-btn").onclick = async () => {
-    const visualOut = byId("orchestration-visual");
-    setStatusMessage("orchestration-plan-out", t("running"), "running");
-    try {
-      const data = await request("POST", "/api/orchestrate", orchestrationPayload(true));
-      const plan = data && data.plan ? data.plan : {};
-      const inventory = data && data.inventory ? data.inventory : {};
-      setOrchestrationPreview(plan, inventory, null);
-      setStatusMessage(
-        "orchestration-plan-out",
-        t("orchestrationPreviewDone"),
-        "success"
-      );
-      byId("orchestration-exec-out").innerHTML = "";
-    } catch (e) {
-      setStatusMessage("orchestration-plan-out", e.message, "error");
-      if (visualOut) {
-        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
+  byId("orchestration-plan-btn").onclick = () =>
+    withButtonLoading("orchestration-plan-btn", async () => {
+      const visualOut = byId("orchestration-visual");
+      setStatusMessage("orchestration-plan-out", t("running"), "running");
+      try {
+        const data = await request("POST", "/api/orchestrate", orchestrationPayload(true));
+        const plan = data && data.plan ? data.plan : {};
+        const inventory = data && data.inventory ? data.inventory : {};
+        setOrchestrationPreview(plan, inventory, null);
+        setStatusMessage(
+          "orchestration-plan-out",
+          t("orchestrationPreviewDone"),
+          "success"
+        );
+        byId("orchestration-exec-out").innerHTML = "";
+      } catch (e) {
+        setStatusMessage("orchestration-plan-out", e.message, "error");
+        if (visualOut) {
+          visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
+        }
       }
-    }
-  };
-  byId("orchestration-exec-btn").onclick = async () => {
-    const out = byId("orchestration-exec-out");
-    setStatusMessage("orchestration-exec-out", t("running"), "running");
-    try {
-      const data = await request("POST", "/api/orchestrate", orchestrationPayload(false));
-      const plan = data && data.plan ? data.plan : {};
-      const inventory = data && data.inventory ? data.inventory : {};
-      const result = data && data.orchestration_result ? data.orchestration_result : {};
-      setOrchestrationPreview(plan, inventory, result);
-      out.innerHTML = renderOrchestrationResult(result);
-    } catch (e) {
-      setStatusMessage("orchestration-exec-out", e.message, "error");
-    }
-  };
+    });
+  byId("orchestration-exec-btn").onclick = () =>
+    withButtonLoading("orchestration-exec-btn", async () => {
+      const out = byId("orchestration-exec-out");
+      setStatusMessage("orchestration-exec-out", t("running"), "running");
+      try {
+        const data = await request("POST", "/api/orchestrate", orchestrationPayload(false));
+        const plan = data && data.plan ? data.plan : {};
+        const inventory = data && data.inventory ? data.inventory : {};
+        const result = data && data.orchestration_result ? data.orchestration_result : {};
+        setOrchestrationPreview(plan, inventory, result);
+        out.innerHTML = renderOrchestrationResult(result);
+      } catch (e) {
+        setStatusMessage("orchestration-exec-out", e.message, "error");
+      }
+    });
   byId("orchestration-import-file-btn").onclick = () => {
     byId("orchestration-import-file-input").click();
   };

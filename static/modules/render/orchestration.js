@@ -649,6 +649,14 @@ function renderOrchestrationTargetDetail(detail) {
       )
     );
   }
+  if (target.compensation != null) {
+    payloadCards.push(
+      renderOrchestrationJsonSection(
+        t("orchestrationPayloadCompensation"),
+        target.compensation
+      )
+    );
+  }
   const payloadSection = payloadCards.length
     ? `
       <section class="rounded-xl border border-slate-200 bg-slate-50 p-3">

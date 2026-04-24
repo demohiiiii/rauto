@@ -215,33 +215,44 @@ function bindEvents() {
     bindTxExecutionEvents();
   }
 
-  byId("connection-test-btn").onclick = async () => {
-    setStatusMessage("connection-test-out", t("running"), "running");
-    try {
-      const data = await request("POST", "/api/connection/test", {
-        connection: connectionPayload(),
-      });
-    setStatusMessage(
-      "connection-test-out",
-      `${t("connectionOk")}: ${data.username}@${data.host}:${data.port} (${data.device_profile}, ${safeString(data.ssh_security)}, ${safeString(data.linux_shell_flavor || "-")})`,
-      "success"
-    );
-    } catch (e) {
-      setStatusMessage("connection-test-out", e.message, "error");
-    }
-  };
-  byId("saved-conn-template-btn").onclick = downloadConnectionImportTemplate;
-  byId("saved-conn-use-btn").onclick = async () => {
-    const ok = await loadSavedConnectionByName();
-    if (!ok) return;
-    try {
-      if (window.Alpine && typeof window.Alpine.store === "function") {
-        window.Alpine.store("app").closeConnectionModal();
+  byId("connection-test-btn").onclick = () =>
+    withButtonLoading("connection-test-btn", async () => {
+      setStatusMessage("connection-test-out", t("running"), "running");
+      try {
+        const data = await request("POST", "/api/connection/test", {
+          connection: connectionPayload(),
+        });
+        setStatusMessage(
+          "connection-test-out",
+          `${t("connectionOk")}: ${data.username}@${data.host}:${data.port} (${data.device_profile}, ${safeString(data.ssh_security)}, ${safeString(data.linux_shell_flavor || "-")})`,
+          "success"
+        );
+      } catch (e) {
+        setStatusMessage("connection-test-out", e.message, "error");
       }
-    } catch (_) {}
-  };
-  byId("saved-conn-edit-btn").onclick = openSavedConnectionEditor;
-  byId("saved-conn-new-btn").onclick = createSavedConnectionDraft;
+    });
+  byId("saved-conn-template-btn").onclick = () =>
+    withButtonLoading("saved-conn-template-btn", async () => {
+      await downloadConnectionImportTemplate();
+    });
+  byId("saved-conn-use-btn").onclick = () =>
+    withButtonLoading("saved-conn-use-btn", async () => {
+      const ok = await loadSavedConnectionByName();
+      if (!ok) return;
+      try {
+        if (window.Alpine && typeof window.Alpine.store === "function") {
+          window.Alpine.store("app").closeConnectionModal();
+        }
+      } catch (_) {}
+    });
+  byId("saved-conn-edit-btn").onclick = () =>
+    withButtonLoading("saved-conn-edit-btn", async () => {
+      await openSavedConnectionEditor();
+    });
+  byId("saved-conn-new-btn").onclick = () =>
+    withButtonLoading("saved-conn-new-btn", async () => {
+      await createSavedConnectionDraft();
+    });
   byId("connection-temp-apply-btn").onclick = async () => {
     byId("saved-conn-name").value = "";
     markTemporaryConnectionActive();
@@ -256,11 +267,15 @@ function bindEvents() {
   byId("saved-conn-import-btn").onclick = () => {
     byId("saved-conn-import-file-input").click();
   };
-  byId("saved-conn-delete-btn").onclick = deleteConnectionByName;
-  byId("saved-conn-history-btn").onclick = () => {
-    openHistoryDrawer();
-    loadConnectionHistory();
-  };
+  byId("saved-conn-delete-btn").onclick = () =>
+    withButtonLoading("saved-conn-delete-btn", async () => {
+      await deleteConnectionByName();
+    });
+  byId("saved-conn-history-btn").onclick = () =>
+    withButtonLoading("saved-conn-history-btn", async () => {
+      openHistoryDrawer();
+      await loadConnectionHistory();
+    });
   byId("saved-conn-import-file-input").onchange = async () => {
     try {
       await importConnectionsFromFile();
@@ -268,7 +283,10 @@ function bindEvents() {
   };
   byId("saved-conn-edit-close-btn").onclick = hideSavedConnectionEditorModal;
   byId("saved-conn-edit-cancel-btn").onclick = hideSavedConnectionEditorModal;
-  byId("saved-conn-edit-save-btn").onclick = saveSavedConnectionEditor;
+  byId("saved-conn-edit-save-btn").onclick = () =>
+    withButtonLoading("saved-conn-edit-save-btn", async () => {
+      await saveSavedConnectionEditor();
+    });
   byId("saved-conn-edit-modal").onclick = (e) => {
     if (e.target === byId("saved-conn-edit-modal")) {
       hideSavedConnectionEditorModal();
@@ -316,64 +334,67 @@ function bindEvents() {
     renderSavedConnectionOptions(byId("saved-conn-name").value || "");
   };
 
-  byId("render-btn").onclick = async () => {
-    const out = byId("render-out");
-    out.textContent = t("running");
-    try {
-      const data = await request("POST", "/api/render", {
-        template: byId("template").value.trim(),
-        vars: parseVars(),
-        connection: connectionPayload(),
-      });
-      out.textContent = data.rendered_commands;
-    } catch (e) {
-      out.innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
+  byId("render-btn").onclick = () =>
+    withButtonLoading("render-btn", async () => {
+      const out = byId("render-out");
+      out.textContent = t("running");
+      try {
+        const data = await request("POST", "/api/render", {
+          template: byId("template").value.trim(),
+          vars: parseVars(),
+          connection: connectionPayload(),
+        });
+        out.textContent = data.rendered_commands;
+      } catch (e) {
+        out.innerHTML = renderStatusMessageCard(e.message, "error");
+      }
+    });
 
-  byId("exec-btn").onclick = async () => {
-    const out = byId("exec-out");
-    if (!ensureConnectionTargetSelected("", "exec-out")) {
-      return;
-    }
-    out.textContent = t("running");
-    try {
-      const data = await request("POST", "/api/exec", {
-        command: byId("command").value.trim(),
-        mode: byId("mode").value.trim() || null,
-        connection: connectionPayload(),
-        record_level: recordLevelPayload(),
-      });
-      out.textContent = data.output;
-      applyRecordingFromResponse(data);
-    } catch (e) {
-      out.innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
+  byId("exec-btn").onclick = () =>
+    withButtonLoading("exec-btn", async () => {
+      const out = byId("exec-out");
+      if (!ensureConnectionTargetSelected("", "exec-out")) {
+        return;
+      }
+      out.textContent = t("running");
+      try {
+        const data = await request("POST", "/api/exec", {
+          command: byId("command").value.trim(),
+          mode: byId("mode").value.trim() || null,
+          connection: connectionPayload(),
+          record_level: recordLevelPayload(),
+        });
+        out.textContent = data.output;
+        applyRecordingFromResponse(data);
+      } catch (e) {
+        out.innerHTML = renderStatusMessageCard(e.message, "error");
+      }
+    });
 
-  byId("template-exec-btn").onclick = async () => {
-    const visualOut = byId("template-exec-visual");
-    if (!ensureConnectionTargetSelected("", "template-exec-visual")) {
-      return;
-    }
-    visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
-      t("running")
-    )}</div>`;
-    try {
-      const data = await request("POST", "/api/template/execute", {
-        template: byId("template").value.trim(),
-        vars: parseVars(),
-        mode: byId("template-mode").value.trim() || null,
-        connection: connectionPayload(),
-        record_level: recordLevelPayload(),
-      });
-      lastTemplateExecResult = data;
-      renderTemplateExecVisual();
-      applyRecordingFromResponse(data);
-    } catch (e) {
-      visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
+  byId("template-exec-btn").onclick = () =>
+    withButtonLoading("template-exec-btn", async () => {
+      const visualOut = byId("template-exec-visual");
+      if (!ensureConnectionTargetSelected("", "template-exec-visual")) {
+        return;
+      }
+      visualOut.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
+        t("running")
+      )}</div>`;
+      try {
+        const data = await request("POST", "/api/template/execute", {
+          template: byId("template").value.trim(),
+          vars: parseVars(),
+          mode: byId("template-mode").value.trim() || null,
+          connection: connectionPayload(),
+          record_level: recordLevelPayload(),
+        });
+        lastTemplateExecResult = data;
+        renderTemplateExecVisual();
+        applyRecordingFromResponse(data);
+      } catch (e) {
+        visualOut.innerHTML = renderStatusMessageCard(e.message, "error");
+      }
+    });
 
   byId("custom-profile-picker").onchange = async () => {
     if (!byId("custom-profile-picker").value.trim()) return;
@@ -402,10 +423,14 @@ function bindEvents() {
   byId("profile-command-execution-mode").onchange = updateProfileCommandExecutionVisibility;
   byId("profile-save-btn").onclick = saveCustomProfile;
   byId("profile-delete-btn").onclick = deleteCustomProfile;
-  byId("profile-diagnose-btn").onclick = diagnoseCustomProfile;
+  byId("profile-diagnose-btn").onclick = () =>
+    withButtonLoading("profile-diagnose-btn", async () => {
+      await diagnoseCustomProfile();
+    });
   byId("add-more-pattern-btn").onclick = () => addSimpleListRow("profile-more-list");
   byId("add-error-pattern-btn").onclick = () => addSimpleListRow("profile-error-list");
   byId("add-ignore-error-btn").onclick = () => addSimpleListRow("profile-ignore-list");
+  byId("add-prompt-prefix-btn").onclick = () => addSimpleListRow("profile-prompt-prefix-list");
   byId("add-prompt-row-btn").onclick = () => addPromptRow();
   byId("add-sys-prompt-row-btn").onclick = () => addSysPromptRow();
   byId("add-interaction-row-btn").onclick = () => addInteractionRow();
@@ -430,33 +455,34 @@ function bindEvents() {
   byId("template-new-btn").onclick = createTemplateDraft;
   byId("template-save-btn").onclick = saveTemplate;
   byId("template-delete-btn").onclick = deleteTemplate;
-  byId("flow-exec-btn").onclick = async () => {
-    const out = byId("flow-out");
-    if (!ensureConnectionTargetSelected("flow-out", "flow-out")) {
-      return;
-    }
-    out.innerHTML = renderStatusMessageCard(t("running"), "running");
-    try {
-      const templateSelection = byId("flow-template-name").value.trim();
-      if (!templateSelection) {
-        throw new Error(t("flowTemplateNameRequired"));
+  byId("flow-exec-btn").onclick = () =>
+    withButtonLoading("flow-exec-btn", async () => {
+      const out = byId("flow-out");
+      if (!ensureConnectionTargetSelected("flow-out", "flow-out")) {
+        return;
       }
-      await ensureFlowRunTemplateDetail(templateSelection, { silent: true });
-      const builtinTemplateName = parseBuiltinFlowTemplateValue(templateSelection);
-      const payload = {
-        template_name: builtinTemplateName ? null : templateSelection,
-        builtin_template_name: builtinTemplateName,
-        vars: buildFlowVarsPayload(),
-        connection: connectionPayload(),
-        record_level: recordLevelPayload(),
-      };
-      const data = await request("POST", "/api/flow/execute", payload);
-      out.innerHTML = renderCommandFlowResult(data);
-      applyRecordingFromResponse(data);
-    } catch (e) {
-      out.innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
+      out.innerHTML = renderStatusMessageCard(t("running"), "running");
+      try {
+        const templateSelection = byId("flow-template-name").value.trim();
+        if (!templateSelection) {
+          throw new Error(t("flowTemplateNameRequired"));
+        }
+        await ensureFlowRunTemplateDetail(templateSelection, { silent: true });
+        const builtinTemplateName = parseBuiltinFlowTemplateValue(templateSelection);
+        const payload = {
+          template_name: builtinTemplateName ? null : templateSelection,
+          builtin_template_name: builtinTemplateName,
+          vars: buildFlowVarsPayload(),
+          connection: connectionPayload(),
+          record_level: recordLevelPayload(),
+        };
+        const data = await request("POST", "/api/flow/execute", payload);
+        out.innerHTML = renderCommandFlowResult(data);
+        applyRecordingFromResponse(data);
+      } catch (e) {
+        out.innerHTML = renderStatusMessageCard(e.message, "error");
+      }
+    });
   byId("flow-template-name").onchange = async () => {
     const name = byId("flow-template-name").value.trim();
     if (!name) {
@@ -469,27 +495,28 @@ function bindEvents() {
       // The field renderer already shows the error state.
     }
   };
-  byId("upload-exec-btn").onclick = async () => {
-    const out = byId("upload-out");
-    if (!ensureConnectionTargetSelected("upload-out", "upload-out")) {
-      return;
-    }
-    out.innerHTML = renderStatusMessageCard(t("running"), "running");
-    try {
-      const payload = uploadPayload();
-      if (!payload.local_path) {
-        throw new Error(t("localPathRequired"));
+  byId("upload-exec-btn").onclick = () =>
+    withButtonLoading("upload-exec-btn", async () => {
+      const out = byId("upload-out");
+      if (!ensureConnectionTargetSelected("upload-out", "upload-out")) {
+        return;
       }
-      if (!payload.remote_path) {
-        throw new Error(t("remotePathRequired"));
+      out.innerHTML = renderStatusMessageCard(t("running"), "running");
+      try {
+        const payload = uploadPayload();
+        if (!payload.local_path) {
+          throw new Error(t("localPathRequired"));
+        }
+        if (!payload.remote_path) {
+          throw new Error(t("remotePathRequired"));
+        }
+        const data = await request("POST", "/api/upload", payload);
+        out.innerHTML = renderUploadResult(data);
+        applyRecordingFromResponse(data);
+      } catch (e) {
+        out.innerHTML = renderStatusMessageCard(e.message, "error");
       }
-      const data = await request("POST", "/api/upload", payload);
-      out.innerHTML = renderUploadResult(data);
-      applyRecordingFromResponse(data);
-    } catch (e) {
-      out.innerHTML = renderStatusMessageCard(e.message, "error");
-    }
-  };
+    });
   byId("flow-template-list").addEventListener("click", async (e) => {
     const row = e.target.closest(".js-flow-template-row");
     if (!row) return;
@@ -531,11 +558,26 @@ function bindEvents() {
     loadBuiltinFlowTemplateDetail();
   byId("flow-template-builtin-copy-btn").onclick =
     copyBuiltinFlowTemplateToCustom;
-  byId("backup-create-btn").onclick = createBackupFromWeb;
-  byId("backup-refresh-btn").onclick = loadBackups;
-  byId("backup-download-btn").onclick = downloadBackupFromWeb;
-  byId("backup-restore-merge-btn").onclick = () => restoreBackupFromWeb(false);
-  byId("backup-restore-replace-btn").onclick = () => restoreBackupFromWeb(true);
+  byId("backup-create-btn").onclick = () =>
+    withButtonLoading("backup-create-btn", async () => {
+      await createBackupFromWeb();
+    });
+  byId("backup-refresh-btn").onclick = () =>
+    withButtonLoading("backup-refresh-btn", async () => {
+      await loadBackups();
+    });
+  byId("backup-download-btn").onclick = () =>
+    withButtonLoading("backup-download-btn", async () => {
+      await downloadBackupFromWeb();
+    });
+  byId("backup-restore-merge-btn").onclick = () =>
+    withButtonLoading("backup-restore-merge-btn", async () => {
+      await restoreBackupFromWeb(false);
+    });
+  byId("backup-restore-replace-btn").onclick = () =>
+    withButtonLoading("backup-restore-replace-btn", async () => {
+      await restoreBackupFromWeb(true);
+    });
   byId("backup-restore-archive").oninput = (e) => {
     renderBackupOptions(e.target.value || "");
     updateSelectedBackupMeta();
@@ -545,26 +587,32 @@ function bindEvents() {
     updateSelectedBackupMeta();
     renderBackupList();
   };
-  byId("backup-list").addEventListener("click", (e) => {
+  byId("backup-list").addEventListener("click", async (e) => {
     const downloadBtn = e.target.closest(".js-backup-download");
     if (downloadBtn) {
       const path = downloadBtn.getAttribute("data-backup-path") || "";
       selectBackupPath(path);
-      downloadBackupFromWeb();
+      await withButtonLoading(downloadBtn, async () => {
+        await downloadBackupFromWeb();
+      });
       return;
     }
     const restoreMergeBtn = e.target.closest(".js-backup-restore-merge");
     if (restoreMergeBtn) {
       const path = restoreMergeBtn.getAttribute("data-backup-path") || "";
       selectBackupPath(path);
-      restoreBackupFromWeb(false);
+      await withButtonLoading(restoreMergeBtn, async () => {
+        await restoreBackupFromWeb(false);
+      });
       return;
     }
     const restoreReplaceBtn = e.target.closest(".js-backup-restore-replace");
     if (restoreReplaceBtn) {
       const path = restoreReplaceBtn.getAttribute("data-backup-path") || "";
       selectBackupPath(path);
-      restoreBackupFromWeb(true);
+      await withButtonLoading(restoreReplaceBtn, async () => {
+        await restoreBackupFromWeb(true);
+      });
       return;
     }
     const row = e.target.closest(".js-backup-row");

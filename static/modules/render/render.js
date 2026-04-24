@@ -86,11 +86,39 @@ function renderTemplateExecuteResult(data) {
   return `<div class="grid gap-3">${summary}${renderedCard}${executedCard}</div>`;
 }
 
+function extractFailureOutputFromReason(reason) {
+  const text = safeString(reason || "").trim();
+  if (!text || text === "-") return "";
+  const marker = " output='";
+  const start = text.indexOf(marker);
+  if (start < 0) return "";
+  const valueStart = start + marker.length;
+  const valueEnd = text.lastIndexOf("'");
+  if (valueEnd <= valueStart) return "";
+  return text.slice(valueStart, valueEnd).trim();
+}
+
+function renderFailureOutputFallback(reason) {
+  const output = extractFailureOutputFromReason(reason);
+  if (!output) return "";
+  return `
+    <div class="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+      <div class="text-[11px] font-semibold text-rose-700">${escapeHtml(
+        t("txBlockResultOutput")
+      )}</div>
+      <pre class="output mt-1">${escapeHtml(output)}</pre>
+    </div>
+  `;
+}
+
 function renderTxWorkflowResult(result) {
   if (!result) return `<pre class="output">${escapeHtml(t("requestFailed"))}</pre>`;
   const failedIdx =
     typeof result.failed_block === "number" ? result.failed_block : null;
   const blocks = Array.isArray(result.block_results) ? result.block_results : [];
+  const workflowRollbackErrors = Array.isArray(result.rollback_errors)
+    ? result.rollback_errors
+    : [];
   const summary = `
     <div class="grid gap-2 md:grid-cols-3">
       <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
@@ -113,12 +141,25 @@ function renderTxWorkflowResult(result) {
       </div>
     </div>
   `;
+  const workflowRollbackSection = workflowRollbackErrors.length
+    ? `<div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+         <div class="font-semibold">workflow_rollback_errors</div>
+         <div class="mt-1 break-all">${escapeHtml(
+           workflowRollbackErrors.join(" | ")
+         )}</div>
+       </div>`
+    : "";
   const blockCards = blocks
     .map((block, idx) => {
       const isFailed = failedIdx === idx;
       const rollbackErrors = Array.isArray(block.rollback_errors)
         ? block.rollback_errors
         : [];
+      const stepResults = Array.isArray(block.step_results) ? block.step_results : [];
+      const blockRollbackSteps = Array.isArray(block.block_rollback_steps)
+        ? block.block_rollback_steps
+        : [];
+      const failureReason = safeString(block.failure_reason);
       const failedSummary = isFailed
         ? `
       <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
@@ -130,6 +171,53 @@ function renderTxWorkflowResult(result) {
         }
       </div>`
         : "";
+      const stepDetailsSection = stepResults.length
+        ? `<div class="mt-3 grid gap-3">
+             ${stepResults
+               .map((item, index) => renderTxStepResultDetail(item, index))
+               .join("")}
+           </div>`
+        : `<div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">${escapeHtml(
+            t("txBlockResultNoStepDetails")
+          )}</div>`;
+      const blockRollbackSection = blockRollbackSteps.length
+        ? `<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+             <div class="mb-2 text-sm font-semibold text-amber-700">${escapeHtml(
+               t("txBlockResultBlockRollbackOutputs")
+             )}</div>
+             ${
+               block.block_rollback_operation_summary
+                 ? `<div class="mb-2 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                      <div class="text-[11px] font-semibold text-slate-500">${escapeHtml(
+                        t("fieldCommand")
+                      )}</div>
+                      <div class="mt-1 break-all font-mono text-xs text-slate-900">${escapeHtml(
+                        safeString(block.block_rollback_operation_summary)
+                      )}</div>
+                    </div>`
+                 : ""
+             }
+             ${renderTxOperationStepOutputs(
+               t("txBlockResultRollbackOutputs"),
+               blockRollbackSteps,
+               "amber"
+             )}
+           </div>`
+        : "";
+      const failureReasonSection =
+        failureReason && failureReason !== "-"
+          ? `<div class="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+               <div class="font-semibold">${escapeHtml(
+                 t("txBlockResultFailureReason")
+               )}</div>
+               <div class="mt-1 break-all">${escapeHtml(failureReason)}</div>
+             </div>
+             ${
+               stepResults.length
+                 ? ""
+                 : renderFailureOutputFallback(failureReason)
+             }`
+          : "";
       return `
       <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -152,12 +240,15 @@ function renderTxWorkflowResult(result) {
               </div>`
             : ""
         }
+        ${failureReasonSection}
         ${failedSummary}
+        ${stepDetailsSection}
+        ${blockRollbackSection}
       </section>
     `;
     })
     .join("");
-  return `<div class="grid gap-3">${summary}${blockCards}</div>`;
+  return `<div class="grid gap-3">${summary}${workflowRollbackSection}${blockCards}</div>`;
 }
 
 function txWorkflowRollbackPolicyLabel(rollbackPolicy) {

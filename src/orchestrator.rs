@@ -24,6 +24,10 @@ pub struct OrchestrationPlan {
     pub name: String,
     #[serde(default = "default_fail_fast")]
     pub fail_fast: bool,
+    #[serde(default)]
+    pub rollback_on_stage_failure: bool,
+    #[serde(default)]
+    pub rollback_completed_stages_on_failure: bool,
     pub inventory_file: Option<PathBuf>,
     #[serde(default)]
     pub inventory: Option<OrchestrationInventory>,
@@ -230,6 +234,20 @@ pub struct TargetExecutionResult {
     pub error: Option<String>,
     pub tx_result: Option<Value>,
     pub workflow_result: Option<Value>,
+    pub recording_jsonl: Option<String>,
+    pub compensation: Option<CompensationExecutionResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CompensationExecutionResult {
+    pub scope: String,
+    pub attempted: bool,
+    pub success: bool,
+    pub reason: Option<String>,
+    pub operation: Option<String>,
+    pub duration_ms: u128,
+    pub error: Option<String>,
+    pub tx_result: Option<Value>,
     pub recording_jsonl: Option<String>,
 }
 
@@ -462,6 +480,7 @@ fn build_skipped_target(target: &OrchestrationTarget, idx: usize) -> TargetExecu
         tx_result: None,
         workflow_result: None,
         recording_jsonl: None,
+        compensation: None,
     }
 }
 

@@ -612,6 +612,8 @@ rauto orchestrate ./orchestration.json --json
 {
   "name": "campus-vlan-rollout",
   "fail_fast": true,
+  "rollback_on_stage_failure": true,
+  "rollback_completed_stages_on_failure": false,
   "stages": [
     {
       "name": "core",
@@ -671,6 +673,11 @@ rauto orchestrate ./orchestration.json --json
   ]
 }
 ```
+
+Set `rollback_on_stage_failure=true` when a failed target in one stage should trigger
+compensation rollback for other successful targets in that same stage. Set
+`rollback_completed_stages_on_failure=true` when a later-stage failure should also
+compensate successful targets from earlier completed stages in reverse stage order.
 
 **Inventory + group example**
 

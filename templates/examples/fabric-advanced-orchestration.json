@@ -1,6 +1,8 @@
 {
   "name": "fabric-service-rollout-advanced",
   "fail_fast": true,
+  "rollback_on_stage_failure": true,
+  "rollback_completed_stages_on_failure": true,
   "inventory_file": "./fabric-advanced-inventory.json",
   "stages": [
     {

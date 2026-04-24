@@ -79,6 +79,7 @@ setProfileForm({
   more_patterns: [],
   error_patterns: [],
   ignore_errors: [],
+  prompt_prefix: [],
   prompts: [],
   sys_prompts: [],
   interactions: [],

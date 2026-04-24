@@ -210,6 +210,7 @@ function clearBuiltinProfileDetail() {
     more_patterns: [],
     error_patterns: [],
     ignore_errors: [],
+    prompt_prefix: [],
     prompts: [],
     sys_prompts: [],
     interactions: [],
@@ -268,6 +269,7 @@ function setBuiltinForm(profile) {
   clearContainer("builtin-ignore-list");
   clearContainer("builtin-prompts-list");
   clearContainer("builtin-sys-prompts-list");
+  clearContainer("builtin-prompt-prefix-list");
   clearContainer("builtin-interactions-list");
   clearContainer("builtin-transitions-list");
 
@@ -283,6 +285,9 @@ function setBuiltinForm(profile) {
   (profile.prompts || []).forEach((item) => addReadonlyPromptRow("builtin-prompts-list", item));
   (profile.sys_prompts || []).forEach((item) =>
     addReadonlySysPromptRow("builtin-sys-prompts-list", item)
+  );
+  (profile.prompt_prefix || []).forEach((v) =>
+    addReadonlySimpleListRow("builtin-prompt-prefix-list", v)
   );
   (profile.interactions || []).forEach((item) =>
     addReadonlyInteractionRow("builtin-interactions-list", item)
@@ -637,6 +642,7 @@ function setProfileForm(profile) {
   clearContainer("profile-more-list");
   clearContainer("profile-error-list");
   clearContainer("profile-ignore-list");
+  clearContainer("profile-prompt-prefix-list");
   clearContainer("prompts-list");
   clearContainer("sys-prompts-list");
   clearContainer("interactions-list");
@@ -645,6 +651,9 @@ function setProfileForm(profile) {
   (profile.more_patterns || []).forEach((v) => addSimpleListRow("profile-more-list", v));
   (profile.error_patterns || []).forEach((v) => addSimpleListRow("profile-error-list", v));
   (profile.ignore_errors || []).forEach((v) => addSimpleListRow("profile-ignore-list", v));
+  (profile.prompt_prefix || []).forEach((v) =>
+    addSimpleListRow("profile-prompt-prefix-list", v)
+  );
   (profile.prompts || []).forEach((item) => addPromptRow(item));
   (profile.sys_prompts || []).forEach((item) => addSysPromptRow(item));
   (profile.interactions || []).forEach((item) => addInteractionRow(item));
@@ -653,6 +662,9 @@ function setProfileForm(profile) {
   if ((profile.more_patterns || []).length === 0) addSimpleListRow("profile-more-list");
   if ((profile.error_patterns || []).length === 0) addSimpleListRow("profile-error-list");
   if ((profile.ignore_errors || []).length === 0) addSimpleListRow("profile-ignore-list");
+  if ((profile.prompt_prefix || []).length === 0) {
+    addSimpleListRow("profile-prompt-prefix-list");
+  }
 }
 
 function collectProfileForm() {
@@ -667,6 +679,7 @@ function collectProfileForm() {
     more_patterns: collectSimpleList("profile-more-list"),
     error_patterns: collectSimpleList("profile-error-list"),
     ignore_errors: collectSimpleList("profile-ignore-list"),
+    prompt_prefix: collectSimpleList("profile-prompt-prefix-list"),
     prompts: collectPromptRows(),
     sys_prompts: collectSysPromptRows(),
     interactions: collectInteractionRows(),
@@ -753,6 +766,7 @@ async function deleteCustomProfile() {
       more_patterns: [],
       error_patterns: [],
       ignore_errors: [],
+      prompt_prefix: [],
       prompts: [],
       sys_prompts: [],
       interactions: [],

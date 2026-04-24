@@ -13,6 +13,8 @@ pub struct DeviceProfile {
     #[serde(default)]
     pub sys_prompts: Vec<SysPromptConfig>,
     #[serde(default)]
+    pub prompt_prefix: Vec<String>,
+    #[serde(default)]
     pub interactions: Vec<InteractionConfig>,
     pub more_patterns: Vec<String>,
     pub error_patterns: Vec<String>,
@@ -104,6 +106,7 @@ impl DeviceProfile {
                     pattern: p.pattern.clone(),
                 })
                 .collect(),
+            prompt_prefix: self.prompt_prefix.clone(),
             write: self
                 .interactions
                 .iter()
@@ -164,6 +167,7 @@ impl DeviceProfile {
                     pattern: p.pattern,
                 })
                 .collect(),
+            prompt_prefix: config.prompt_prefix,
             interactions: config
                 .write
                 .into_iter()

@@ -1,11 +1,14 @@
-use super::execution_actions::{emit_orchestration_event, execute_action, task_progress};
+use super::execution_actions::{
+    emit_orchestration_event, execute_action, execute_compensation_action, task_progress,
+};
 use super::targets as orchestrator_targets;
 use super::{
     JobExecutionResult, OrchestrationEventHook, OrchestrationExecutionResult,
     OrchestrationInventory, OrchestrationJob, OrchestrationPlan, OrchestrationRuntimeEvent,
-    OrchestrationStage, OrchestrationTarget, RecordLevelOpt, StageExecutionResult, StageStrategy,
-    TargetExecutionResult, TargetStatus, action_kind_name, build_job_result, build_skipped_job,
-    build_skipped_stage, build_skipped_target, build_stage_result, job_name, target_label,
+    OrchestrationStage, OrchestrationTarget, RecordLevelOpt, StageExecutionResult, StageStatus,
+    StageStrategy, TargetExecutionResult, TargetStatus, action_kind_name, build_job_result,
+    build_skipped_job, build_skipped_stage, build_skipped_target, build_stage_result, job_name,
+    target_label,
 };
 use crate::cli::GlobalOpts;
 use anyhow::{Result, anyhow};
@@ -28,20 +31,25 @@ pub(super) async fn execute_plan(
 
     for (stage_idx, stage) in plan.stages.iter().enumerate() {
         let stage_fail_fast = stage.fail_fast.unwrap_or(false);
-        if failed && plan.fail_fast {
+        if failed && (plan.fail_fast || plan.rollback_completed_stages_on_failure) {
+            let skip_reason = if plan.rollback_completed_stages_on_failure {
+                "completed_stage_rollback"
+            } else {
+                "fail_fast"
+            };
             let skipped_jobs = build_skipped_stage_jobs(stage, inventory)?;
             emit_orchestration_event(
                 &event_hook,
                 OrchestrationRuntimeEvent {
                     event_type: "warning".to_string(),
-                    message: format!("Skipping stage '{}' due to fail-fast", stage.name),
+                    message: format!("Skipping stage '{}' due to {}", stage.name, skip_reason),
                     level: "warning".to_string(),
                     stage: Some("orchestrate".to_string()),
                     progress: task_progress(stage_idx, plan.stages.len()),
                     details: Some(json!({
                         "plan_name": plan.name,
                         "stage_name": stage.name,
-                        "reason": "fail_fast"
+                        "reason": skip_reason
                     })),
                 },
             );
@@ -69,7 +77,7 @@ pub(super) async fn execute_plan(
             },
         );
 
-        let stage_result = execute_stage(
+        let mut stage_result = execute_stage(
             plan,
             stage,
             stage_idx,
@@ -80,8 +88,37 @@ pub(super) async fn execute_plan(
             event_hook.clone(),
         )
         .await?;
-        let stage_failed = matches!(stage_result.status, super::StageStatus::Failed);
-        if stage_failed && plan.fail_fast {
+        let stage_failed = matches!(stage_result.status, StageStatus::Failed);
+        if stage_failed
+            && (plan.rollback_on_stage_failure || plan.rollback_completed_stages_on_failure)
+        {
+            compensate_stage(
+                "stage_failure",
+                plan,
+                stage,
+                stage_idx,
+                &mut stage_result,
+                inventory,
+                plan_root,
+                opts,
+                record_level,
+                event_hook.clone(),
+            )
+            .await?;
+        }
+        if stage_failed && plan.rollback_completed_stages_on_failure {
+            compensate_completed_stages(
+                plan,
+                &mut stages,
+                inventory,
+                plan_root,
+                opts,
+                record_level,
+                event_hook.clone(),
+            )
+            .await?;
+        }
+        if stage_failed && (plan.fail_fast || plan.rollback_completed_stages_on_failure) {
             failed = true;
         }
         emit_orchestration_event(
@@ -162,6 +199,188 @@ pub(super) async fn execute_plan(
         executed_stages,
         stages,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn compensate_completed_stages(
+    plan: &OrchestrationPlan,
+    stages: &mut [StageExecutionResult],
+    inventory: &OrchestrationInventory,
+    plan_root: &Path,
+    opts: &GlobalOpts,
+    record_level: RecordLevelOpt,
+    event_hook: Option<OrchestrationEventHook>,
+) -> Result<()> {
+    for (stage_idx, stage_result) in stages.iter_mut().enumerate().rev() {
+        let Some(stage) = plan.stages.get(stage_idx) else {
+            continue;
+        };
+        compensate_stage(
+            "completed_stage_failure",
+            plan,
+            stage,
+            stage_idx,
+            stage_result,
+            inventory,
+            plan_root,
+            opts,
+            record_level,
+            event_hook.clone(),
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn compensate_stage(
+    scope: &str,
+    plan: &OrchestrationPlan,
+    stage: &OrchestrationStage,
+    stage_idx: usize,
+    stage_result: &mut StageExecutionResult,
+    inventory: &OrchestrationInventory,
+    plan_root: &Path,
+    opts: &GlobalOpts,
+    record_level: RecordLevelOpt,
+    event_hook: Option<OrchestrationEventHook>,
+) -> Result<()> {
+    emit_orchestration_event(
+        &event_hook,
+        OrchestrationRuntimeEvent {
+            event_type: "warning".to_string(),
+            message: format!("Stage '{}' compensation started ({})", stage.name, scope),
+            level: "warning".to_string(),
+            stage: Some("orchestrate".to_string()),
+            progress: task_progress(stage_idx + 1, plan.stages.len()),
+            details: Some(json!({
+                "plan_name": plan.name,
+                "stage_name": stage.name,
+                "stage_index": stage_idx + 1,
+                "rollback_scope": scope
+            })),
+        },
+    );
+
+    for (job_idx, job_result) in stage_result.jobs.iter_mut().enumerate() {
+        let Some(job) = stage.jobs.get(job_idx) else {
+            continue;
+        };
+        let targets =
+            orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?;
+        for (target_idx, target_result) in job_result.results.iter_mut().enumerate() {
+            if !matches!(target_result.status, TargetStatus::Success)
+                || target_result.compensation.is_some()
+            {
+                continue;
+            }
+            let Some(target) = targets.get(target_idx) else {
+                continue;
+            };
+            let label = target_result.label.clone();
+            emit_orchestration_event(
+                &event_hook,
+                OrchestrationRuntimeEvent {
+                    event_type: "warning".to_string(),
+                    message: format!("Target '{}' compensation started", label),
+                    level: "warning".to_string(),
+                    stage: Some("orchestrate".to_string()),
+                    progress: None,
+                    details: Some(json!({
+                        "plan_name": plan.name,
+                        "stage_name": stage.name,
+                        "stage_index": stage_idx + 1,
+                        "job_name": job_result.name,
+                        "job_index": job_idx + 1,
+                        "target_label": label,
+                        "target_index": target_idx + 1,
+                        "rollback_scope": scope
+                    })),
+                },
+            );
+
+            let compensation = match orchestrator_targets::resolve_target_connection(opts, target) {
+                Ok(conn) => {
+                    match execute_compensation_action(
+                        scope,
+                        plan,
+                        stage.name.as_str(),
+                        job_result.name.as_str(),
+                        &job.action,
+                        target,
+                        &conn,
+                        plan_root,
+                        record_level,
+                    )
+                    .await
+                    {
+                        Ok(result) => result,
+                        Err(e) => super::CompensationExecutionResult {
+                            scope: scope.to_string(),
+                            attempted: true,
+                            success: false,
+                            reason: None,
+                            operation: Some(format!("compensation: {}", job_result.name)),
+                            duration_ms: 0,
+                            error: Some(e.to_string()),
+                            tx_result: None,
+                            recording_jsonl: None,
+                        },
+                    }
+                }
+                Err(e) => super::CompensationExecutionResult {
+                    scope: scope.to_string(),
+                    attempted: false,
+                    success: false,
+                    reason: Some("target connection resolution failed".to_string()),
+                    operation: Some(format!("compensation: {}", job_result.name)),
+                    duration_ms: 0,
+                    error: Some(e.to_string()),
+                    tx_result: None,
+                    recording_jsonl: None,
+                },
+            };
+
+            emit_orchestration_event(
+                &event_hook,
+                OrchestrationRuntimeEvent {
+                    event_type: if compensation.success {
+                        "step_completed".to_string()
+                    } else {
+                        "failed".to_string()
+                    },
+                    message: if compensation.success {
+                        format!("Target '{}' compensation completed", label)
+                    } else {
+                        format!("Target '{}' compensation failed", label)
+                    },
+                    level: if compensation.success {
+                        "success".to_string()
+                    } else {
+                        "error".to_string()
+                    },
+                    stage: Some("orchestrate".to_string()),
+                    progress: None,
+                    details: Some(json!({
+                        "plan_name": plan.name,
+                        "stage_name": stage.name,
+                        "stage_index": stage_idx + 1,
+                        "job_name": job_result.name,
+                        "job_index": job_idx + 1,
+                        "target_label": label,
+                        "target_index": target_idx + 1,
+                        "rollback_scope": scope,
+                        "attempted": compensation.attempted,
+                        "success": compensation.success,
+                        "reason": compensation.reason.as_ref(),
+                        "error": compensation.error.as_ref()
+                    })),
+                },
+            );
+            target_result.compensation = Some(compensation);
+        }
+    }
+    Ok(())
 }
 
 fn count_stage_targets(
@@ -681,6 +900,7 @@ async fn execute_target(
                 tx_result: None,
                 workflow_result: None,
                 recording_jsonl: None,
+                compensation: None,
             };
         }
     };
@@ -747,6 +967,7 @@ async fn execute_target(
                 tx_result: outcome.tx_result,
                 workflow_result: outcome.workflow_result,
                 recording_jsonl: outcome.recording_jsonl,
+                compensation: None,
             }
         }
         Err(e) => {
@@ -781,7 +1002,328 @@ async fn execute_target(
                 tx_result: None,
                 workflow_result: None,
                 recording_jsonl: None,
+                compensation: None,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::ssh_security::SshSecurityProfile;
+    use serde_json::json;
+
+    fn sample_opts() -> GlobalOpts {
+        GlobalOpts {
+            host: None,
+            username: None,
+            password: None,
+            port: None,
+            enable_password: None,
+            ssh_security: None,
+            linux_shell_flavor: None,
+            device_profile: None,
+            template_dir: None,
+            connection: None,
+            save_connection: None,
+            save_password: false,
+        }
+    }
+
+    fn none_rollback_action(name: &str) -> super::super::OrchestrationAction {
+        super::super::OrchestrationAction::TxBlock(super::super::TxBlockAction {
+            name: Some(name.to_string()),
+            template: None,
+            tx_block_template_name: None,
+            tx_block_template_content: Some(
+                json!({
+                    "name": name,
+                    "rollback_policy": "none",
+                    "steps": [
+                        {
+                            "run": {
+                                "kind": "command",
+                                "mode": "User",
+                                "command": "echo hello"
+                            }
+                        }
+                    ],
+                    "fail_fast": true
+                })
+                .to_string(),
+            ),
+            tx_block_template_vars: serde_json::Value::Null,
+            flow_template_name: None,
+            flow_template_content: None,
+            flow_vars: serde_json::Value::Null,
+            vars: serde_json::Value::Null,
+            commands: Vec::new(),
+            rollback_commands: Vec::new(),
+            rollback_on_failure: false,
+            rollback_trigger_step_index: None,
+            mode: None,
+            timeout_secs: None,
+            resource_rollback_command: None,
+        })
+    }
+
+    fn sample_target(name: &str, host: &str) -> OrchestrationTarget {
+        OrchestrationTarget {
+            name: Some(name.to_string()),
+            connection: None,
+            host: Some(host.to_string()),
+            username: Some("admin".to_string()),
+            password: Some("secret".to_string()),
+            port: Some(22),
+            enable_password: None,
+            ssh_security: Some(SshSecurityProfile::Balanced),
+            linux_shell_flavor: None,
+            device_profile: Some("linux".to_string()),
+            template_dir: None,
+            vars: json!({}),
+        }
+    }
+
+    fn sample_job(name: &str, targets: Vec<OrchestrationTarget>) -> OrchestrationJob {
+        OrchestrationJob {
+            name: Some(name.to_string()),
+            strategy: StageStrategy::Serial,
+            max_parallel: None,
+            fail_fast: Some(true),
+            target_groups: Vec::new(),
+            target_tags: Vec::new(),
+            targets: targets
+                .into_iter()
+                .map(|target| super::super::OrchestrationTargetInput::Detailed(Box::new(target)))
+                .collect(),
+            action: none_rollback_action(name),
+        }
+    }
+
+    fn sample_stage(name: &str, job: OrchestrationJob) -> OrchestrationStage {
+        OrchestrationStage {
+            name: name.to_string(),
+            strategy: StageStrategy::Serial,
+            max_parallel: None,
+            fail_fast: Some(true),
+            jobs: vec![job],
+        }
+    }
+
+    fn sample_plan(stages: Vec<OrchestrationStage>) -> OrchestrationPlan {
+        OrchestrationPlan {
+            name: "plan-demo".to_string(),
+            fail_fast: true,
+            rollback_on_stage_failure: true,
+            rollback_completed_stages_on_failure: true,
+            inventory_file: None,
+            inventory: None,
+            stages,
+        }
+    }
+
+    fn success_target_result(label: &str, host: &str) -> TargetExecutionResult {
+        TargetExecutionResult {
+            label: label.to_string(),
+            connection_name: None,
+            host: Some(host.to_string()),
+            status: TargetStatus::Success,
+            operation: "tx_block: demo".to_string(),
+            duration_ms: 12,
+            error: None,
+            tx_result: Some(json!({"committed": true})),
+            workflow_result: None,
+            recording_jsonl: None,
+            compensation: None,
+        }
+    }
+
+    fn failed_target_result(label: &str, host: &str) -> TargetExecutionResult {
+        TargetExecutionResult {
+            label: label.to_string(),
+            connection_name: None,
+            host: Some(host.to_string()),
+            status: TargetStatus::Failed,
+            operation: "tx_block: demo".to_string(),
+            duration_ms: 12,
+            error: Some("failed".to_string()),
+            tx_result: Some(json!({"committed": false})),
+            workflow_result: None,
+            recording_jsonl: None,
+            compensation: None,
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn compensate_stage_only_marks_successful_targets() {
+        let inventory = OrchestrationInventory::default();
+        let stage = sample_stage(
+            "stage-a",
+            sample_job(
+                "job-a",
+                vec![
+                    sample_target("edge-a", "192.0.2.10"),
+                    sample_target("edge-b", "192.0.2.11"),
+                ],
+            ),
+        );
+        let plan = sample_plan(vec![stage.clone()]);
+        let mut stage_result = StageExecutionResult {
+            name: stage.name.clone(),
+            strategy: stage.strategy,
+            status: StageStatus::Failed,
+            fail_fast: true,
+            jobs_total: 1,
+            jobs_succeeded: 0,
+            jobs_failed: 1,
+            jobs_skipped: 0,
+            jobs: vec![JobExecutionResult {
+                name: "job-a".to_string(),
+                strategy: StageStrategy::Serial,
+                status: StageStatus::Failed,
+                fail_fast: true,
+                action_kind: "tx_block".to_string(),
+                action_summary: "tx block".to_string(),
+                targets_total: 2,
+                targets_succeeded: 1,
+                targets_failed: 1,
+                targets_skipped: 0,
+                results: vec![
+                    success_target_result("edge-a", "192.0.2.10"),
+                    failed_target_result("edge-b", "192.0.2.11"),
+                ],
+            }],
+        };
+
+        compensate_stage(
+            "stage_failure",
+            &plan,
+            &stage,
+            0,
+            &mut stage_result,
+            &inventory,
+            Path::new("."),
+            &sample_opts(),
+            RecordLevelOpt::KeyEventsOnly,
+            None,
+        )
+        .await
+        .expect("stage compensation");
+
+        let first = &stage_result.jobs[0].results[0];
+        let second = &stage_result.jobs[0].results[1];
+        assert!(first.compensation.is_some());
+        assert_eq!(
+            first
+                .compensation
+                .as_ref()
+                .and_then(|item| item.reason.as_deref()),
+            Some("no rollback operations planned")
+        );
+        assert!(second.compensation.is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn compensate_completed_stages_marks_previous_success_targets_once() {
+        let stage_a = sample_stage(
+            "stage-a",
+            sample_job("job-a", vec![sample_target("edge-a", "192.0.2.10")]),
+        );
+        let stage_b = sample_stage(
+            "stage-b",
+            sample_job("job-b", vec![sample_target("edge-b", "192.0.2.11")]),
+        );
+        let plan = sample_plan(vec![stage_a.clone(), stage_b.clone()]);
+        let mut stages = vec![
+            StageExecutionResult {
+                name: stage_a.name.clone(),
+                strategy: stage_a.strategy,
+                status: StageStatus::Success,
+                fail_fast: true,
+                jobs_total: 1,
+                jobs_succeeded: 1,
+                jobs_failed: 0,
+                jobs_skipped: 0,
+                jobs: vec![JobExecutionResult {
+                    name: "job-a".to_string(),
+                    strategy: StageStrategy::Serial,
+                    status: StageStatus::Success,
+                    fail_fast: true,
+                    action_kind: "tx_block".to_string(),
+                    action_summary: "tx block".to_string(),
+                    targets_total: 1,
+                    targets_succeeded: 1,
+                    targets_failed: 0,
+                    targets_skipped: 0,
+                    results: vec![success_target_result("edge-a", "192.0.2.10")],
+                }],
+            },
+            StageExecutionResult {
+                name: stage_b.name.clone(),
+                strategy: stage_b.strategy,
+                status: StageStatus::Failed,
+                fail_fast: true,
+                jobs_total: 1,
+                jobs_succeeded: 0,
+                jobs_failed: 1,
+                jobs_skipped: 0,
+                jobs: vec![JobExecutionResult {
+                    name: "job-b".to_string(),
+                    strategy: StageStrategy::Serial,
+                    status: StageStatus::Failed,
+                    fail_fast: true,
+                    action_kind: "tx_block".to_string(),
+                    action_summary: "tx block".to_string(),
+                    targets_total: 1,
+                    targets_succeeded: 1,
+                    targets_failed: 0,
+                    targets_skipped: 0,
+                    results: vec![TargetExecutionResult {
+                        compensation: Some(super::super::CompensationExecutionResult {
+                            scope: "stage_failure".to_string(),
+                            attempted: false,
+                            success: true,
+                            reason: Some("already compensated".to_string()),
+                            operation: Some("compensation: job-b".to_string()),
+                            duration_ms: 0,
+                            error: None,
+                            tx_result: None,
+                            recording_jsonl: None,
+                        }),
+                        ..success_target_result("edge-b", "192.0.2.11")
+                    }],
+                }],
+            },
+        ];
+
+        compensate_completed_stages(
+            &plan,
+            &mut stages,
+            &OrchestrationInventory::default(),
+            Path::new("."),
+            &sample_opts(),
+            RecordLevelOpt::KeyEventsOnly,
+            None,
+        )
+        .await
+        .expect("completed stage compensation");
+
+        let previous = &stages[0].jobs[0].results[0];
+        let current = &stages[1].jobs[0].results[0];
+        assert_eq!(
+            previous
+                .compensation
+                .as_ref()
+                .map(|item| item.scope.as_str()),
+            Some("completed_stage_failure")
+        );
+        assert_eq!(
+            current
+                .compensation
+                .as_ref()
+                .and_then(|item| item.reason.as_deref()),
+            Some("already compensated")
+        );
     }
 }

@@ -50,9 +50,10 @@ function bindRecordingHistoryTaskEvents() {
   byId("history-drawer-backdrop").onclick = () => {
     closeHistoryDrawer();
   };
-  byId("tasks-refresh-btn").onclick = () => {
-    loadTasks();
-  };
+  byId("tasks-refresh-btn").onclick = () =>
+    withButtonLoading("tasks-refresh-btn", async () => {
+      await loadTasks();
+    });
   byId("tasks-clear-btn").onclick = () => {
     byId("tasks-search").value = "";
     byId("tasks-operation").value = "";
@@ -99,7 +100,10 @@ function bindRecordingHistoryTaskEvents() {
     loadTasks();
   };
 
-  byId("history-drawer-refresh-btn").onclick = loadConnectionHistory;
+  byId("history-drawer-refresh-btn").onclick = () =>
+    withButtonLoading("history-drawer-refresh-btn", async () => {
+      await loadConnectionHistory();
+    });
   byId("history-filter-query").oninput = () => {
     historyFilterQuery = byId("history-filter-query").value || "";
     saveHistoryFilterPrefs();
@@ -205,6 +209,12 @@ function bindRecordingHistoryTaskEvents() {
   byId("replay-clear-filters").onclick = () => {
     resetReplayFilters();
   };
-  byId("replay-list-btn").onclick = replayList;
-  byId("replay-run-btn").onclick = replayCommand;
+  byId("replay-list-btn").onclick = () =>
+    withButtonLoading("replay-list-btn", async () => {
+      await replayList();
+    });
+  byId("replay-run-btn").onclick = () =>
+    withButtonLoading("replay-run-btn", async () => {
+      await replayCommand();
+    });
 }

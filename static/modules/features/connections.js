@@ -769,36 +769,35 @@ async function importConnectionsFromFile() {
   }
 }
 
-function downloadConnectionImportTemplate() {
+async function downloadConnectionImportTemplate() {
   const lang = currentLang === "zh" ? "zh" : "en";
   const url = `/api/connections/import-template?lang=${encodeURIComponent(lang)}`;
-  fetch(url, { headers: buildRequestHeaders(false) })
-    .then(async (res) => {
-      if (!res.ok) {
-        const raw = await res.text();
-        throw new Error(
-          res.status === 401
-            ? getStoredAgentApiToken()
-              ? t("agentAuthInvalid")
-              : t("agentAuthRequired")
-            : raw || t("requestFailed")
-        );
-      }
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download =
-        currentLang === "zh"
-          ? "rauto-connection-import-template-zh.csv"
-          : "rauto-connection-import-template-en.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objectUrl);
-      setStatusMessage("saved-conn-out", t("savedConnTemplateDone"), "success");
-    })
-    .catch((e) => {
-      setStatusMessage("saved-conn-out", e.message, "error");
-    });
+  try {
+    const res = await fetch(url, { headers: buildRequestHeaders(false) });
+    if (!res.ok) {
+      const raw = await res.text();
+      throw new Error(
+        res.status === 401
+          ? getStoredAgentApiToken()
+            ? t("agentAuthInvalid")
+            : t("agentAuthRequired")
+          : raw || t("requestFailed")
+      );
+    }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download =
+      currentLang === "zh"
+        ? "rauto-connection-import-template-zh.csv"
+        : "rauto-connection-import-template-en.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+    setStatusMessage("saved-conn-out", t("savedConnTemplateDone"), "success");
+  } catch (e) {
+    setStatusMessage("saved-conn-out", e.message, "error");
+  }
 }

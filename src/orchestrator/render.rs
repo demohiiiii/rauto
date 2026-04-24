@@ -34,8 +34,10 @@ pub(super) fn render_plan(
     }
     let _ = writeln!(
         &mut out,
-        "overview: fail_fast={} stages={} inventory_groups={}",
+        "overview: fail_fast={} rollback_on_stage_failure={} rollback_completed_stages_on_failure={} stages={} inventory_groups={}",
         plan.fail_fast,
+        plan.rollback_on_stage_failure,
+        plan.rollback_completed_stages_on_failure,
         plan.stages.len(),
         inventory.groups.len()
     );
@@ -151,6 +153,22 @@ pub(super) fn render_execution_result(result: &OrchestrationExecutionResult) -> 
                 );
                 if let Some(error) = &target.error {
                     let _ = writeln!(&mut out, "    error: {}", error);
+                }
+                if let Some(compensation) = &target.compensation {
+                    let _ = writeln!(
+                        &mut out,
+                        "    compensation: scope={} attempted={} success={} duration_ms={}",
+                        compensation.scope,
+                        compensation.attempted,
+                        compensation.success,
+                        compensation.duration_ms
+                    );
+                    if let Some(reason) = &compensation.reason {
+                        let _ = writeln!(&mut out, "    compensation_reason: {}", reason);
+                    }
+                    if let Some(error) = &compensation.error {
+                        let _ = writeln!(&mut out, "    compensation_error: {}", error);
+                    }
                 }
             }
         }

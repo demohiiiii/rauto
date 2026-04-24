@@ -126,6 +126,8 @@ function defaultOrchestrationTemplatePayload() {
   return {
     name: "campus-rollout-demo",
     fail_fast: true,
+    rollback_on_stage_failure: true,
+    rollback_completed_stages_on_failure: false,
     inventory: {
       groups: {
         edge_nodes: {

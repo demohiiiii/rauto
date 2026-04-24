@@ -43,6 +43,7 @@ function normalizeHistoryFilters() {
       "tx_workflow",
       "orchestrate_tx_block",
       "orchestrate_tx_workflow",
+      "orchestrate_compensation",
       "interactive",
     ].includes(historyFilterOperation)
   ) {
@@ -62,6 +63,52 @@ function setPanelVisible(el, visible, displayValue = "block") {
   el.hidden = !visible;
   el.classList.toggle("hidden", !visible);
   el.style.display = visible ? displayValue : "none";
+}
+
+function resolveButtonElement(buttonOrId) {
+  if (!buttonOrId) return null;
+  if (typeof buttonOrId === "string") return byId(buttonOrId);
+  if (buttonOrId instanceof HTMLElement) return buttonOrId;
+  return null;
+}
+
+async function withButtonLoading(buttonOrId, action) {
+  const button = resolveButtonElement(buttonOrId);
+  if (!button) {
+    return await action();
+  }
+  if (button.dataset.loading === "1") {
+    return undefined;
+  }
+  const wasDisabled = button.disabled;
+  const hadDisabledClass = button.classList.contains("btn-disabled");
+  const originalHtml = button.innerHTML;
+  const originalMinWidth = button.style.minWidth || "";
+  const buttonWidth = Math.ceil(button.getBoundingClientRect().width);
+  button.dataset.loading = "1";
+  button.dataset.loadingOriginalHtml = originalHtml;
+  button.dataset.loadingOriginalMinWidth = originalMinWidth;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  button.classList.add("btn-disabled");
+  if (buttonWidth > 0) {
+    button.style.minWidth = `${buttonWidth}px`;
+  }
+  button.innerHTML = `<span class="inline-flex items-center gap-2"><span class="loading loading-spinner loading-xs" aria-hidden="true"></span><span class="js-btn-label">${originalHtml}</span></span>`;
+  try {
+    return await action();
+  } finally {
+    delete button.dataset.loading;
+    button.disabled = wasDisabled;
+    button.removeAttribute("aria-busy");
+    button.innerHTML = button.dataset.loadingOriginalHtml || originalHtml;
+    button.style.minWidth = button.dataset.loadingOriginalMinWidth || "";
+    delete button.dataset.loadingOriginalHtml;
+    delete button.dataset.loadingOriginalMinWidth;
+    if (!hadDisabledClass) {
+      button.classList.remove("btn-disabled");
+    }
+  }
 }
 
 function setEventKindOptions(id, selected) {
@@ -177,6 +224,13 @@ function promptForResourceName(message, initialValue = "") {
   if (result == null) return null;
   const normalized = result.trim();
   return normalized || null;
+}
+
+function splitCsvValues(rawValue) {
+  return String(rawValue ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function displayMode(mode) {

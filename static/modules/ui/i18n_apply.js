@@ -192,6 +192,7 @@ function applyI18n() {
     <option value="tx_workflow">tx_workflow</option>
     <option value="orchestrate_tx_block">orchestrate_tx_block</option>
     <option value="orchestrate_tx_workflow">orchestrate_tx_workflow</option>
+    <option value="orchestrate_compensation">orchestrate_compensation</option>
     <option value="interactive">interactive</option>
   `;
   historyOpEl.value = historyFilterOperation;
@@ -433,6 +434,7 @@ function applyI18n() {
   byId("add-more-pattern-btn").textContent = t("addInlineBtn");
   byId("add-error-pattern-btn").textContent = t("addInlineBtn");
   byId("add-ignore-error-btn").textContent = t("addInlineBtn");
+  byId("add-prompt-prefix-btn").textContent = t("addInlineBtn");
   byId("add-prompt-row-btn").textContent = t("addInlineBtn");
   byId("add-sys-prompt-row-btn").textContent = t("addInlineBtn");
   byId("add-interaction-row-btn").textContent = t("addInlineBtn");
@@ -440,6 +442,8 @@ function applyI18n() {
   byId("label-more-patterns").textContent = t("labelMorePatterns");
   byId("label-error-patterns").textContent = t("labelErrorPatterns");
   byId("label-ignore-errors").textContent = t("labelIgnoreErrors");
+  byId("label-prompt-prefix").textContent = t("labelPromptPrefix");
+  byId("label-builtin-prompt-prefix").textContent = t("labelPromptPrefix");
   const profileCommandExecutionValue =
     byId("profile-command-execution-mode").value ||
     normalizeCommandExecutionConfig(lastBuiltinProfile?.command_execution).mode;

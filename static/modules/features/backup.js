@@ -181,38 +181,37 @@ async function restoreBackupFromWeb(replace = false) {
   }
 }
 
-function downloadBackupFromWeb() {
+async function downloadBackupFromWeb() {
   const name = selectedBackupNameFromInput();
   if (!name) {
     setStatusMessage("backup-out", t("backupPickOne"), "error");
     return;
   }
   const url = `/api/backups/${encodeURIComponent(name)}/download`;
-  fetch(url, { headers: buildRequestHeaders(false) })
-    .then(async (res) => {
-      if (!res.ok) {
-        const raw = await res.text();
-        throw new Error(
-          res.status === 401
-            ? getStoredAgentApiToken()
-              ? t("agentAuthInvalid")
-              : t("agentAuthRequired")
-            : raw || t("requestFailed")
-        );
-      }
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objectUrl);
-    })
-    .catch((e) => {
-      setStatusMessage("backup-out", e.message, "error");
-    });
+  try {
+    const res = await fetch(url, { headers: buildRequestHeaders(false) });
+    if (!res.ok) {
+      const raw = await res.text();
+      throw new Error(
+        res.status === 401
+          ? getStoredAgentApiToken()
+            ? t("agentAuthInvalid")
+            : t("agentAuthRequired")
+          : raw || t("requestFailed")
+      );
+    }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (e) {
+    setStatusMessage("backup-out", e.message, "error");
+  }
 }
 
 function selectBackupPath(path) {

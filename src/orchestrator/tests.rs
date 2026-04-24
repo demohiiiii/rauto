@@ -75,6 +75,8 @@ fn plan_validation_rejects_empty_stage_jobs() {
     let plan = OrchestrationPlan {
         name: "demo".to_string(),
         fail_fast: true,
+        rollback_on_stage_failure: false,
+        rollback_completed_stages_on_failure: false,
         inventory_file: None,
         inventory: None,
         stages: vec![OrchestrationStage {
@@ -90,12 +92,33 @@ fn plan_validation_rejects_empty_stage_jobs() {
 }
 
 #[test]
+fn plan_accepts_compensation_switches() {
+    let plan = OrchestrationPlan {
+        name: "demo".to_string(),
+        fail_fast: true,
+        rollback_on_stage_failure: true,
+        rollback_completed_stages_on_failure: true,
+        inventory_file: None,
+        inventory: None,
+        stages: vec![sample_stage_with_job(sample_job_with_targets())],
+    };
+
+    validate_plan(&plan, &OrchestrationInventory::default()).expect("plan should validate");
+    let rendered = render::render_plan(&plan, &OrchestrationInventory::default(), None)
+        .expect("plan should render");
+    assert!(rendered.contains("rollback_on_stage_failure=true"));
+    assert!(rendered.contains("rollback_completed_stages_on_failure=true"));
+}
+
+#[test]
 fn plan_validation_rejects_job_without_targets() {
     let mut job = sample_job_with_targets();
     job.targets = Vec::new();
     let plan = OrchestrationPlan {
         name: "demo".to_string(),
         fail_fast: true,
+        rollback_on_stage_failure: false,
+        rollback_completed_stages_on_failure: false,
         inventory_file: None,
         inventory: None,
         stages: vec![sample_stage_with_job(job)],
@@ -113,6 +136,8 @@ fn plan_validation_rejects_parallel_max_parallel_zero_for_stage_and_job() {
     let plan_bad_job = OrchestrationPlan {
         name: "demo".to_string(),
         fail_fast: true,
+        rollback_on_stage_failure: false,
+        rollback_completed_stages_on_failure: false,
         inventory_file: None,
         inventory: None,
         stages: vec![stage_with_bad_job],
@@ -125,6 +150,8 @@ fn plan_validation_rejects_parallel_max_parallel_zero_for_stage_and_job() {
     let plan_bad_stage = OrchestrationPlan {
         name: "demo".to_string(),
         fail_fast: true,
+        rollback_on_stage_failure: false,
+        rollback_completed_stages_on_failure: false,
         inventory_file: None,
         inventory: None,
         stages: vec![stage_bad_parallel],

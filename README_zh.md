@@ -612,6 +612,8 @@ rauto orchestrate ./orchestration.json --json
 {
   "name": "campus-vlan-rollout",
   "fail_fast": true,
+  "rollback_on_stage_failure": true,
+  "rollback_completed_stages_on_failure": false,
   "stages": [
     {
       "name": "core",
@@ -671,6 +673,10 @@ rauto orchestrate ./orchestration.json --json
   ]
 }
 ```
+
+`rollback_on_stage_failure=true` 表示同一 stage 内某个目标失败后，会对该
+stage 中其它已经成功的目标执行补偿回滚。`rollback_completed_stages_on_failure=true`
+表示后续 stage 失败时，还会按 stage 逆序对之前已完成 stage 的成功目标执行补偿回滚。
 
 **Inventory + 分组示例**
 
