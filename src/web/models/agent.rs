@@ -15,7 +15,6 @@ pub struct AgentInfoResponse {
 #[derive(Debug, Serialize)]
 pub struct AgentStatusResponse {
     pub status: String,
-    pub active_sessions: u32,
     pub running_tasks: u32,
     pub last_heartbeat_at: Option<String>,
     pub registered_at: Option<String>,

@@ -183,7 +183,6 @@ impl AgentRegistrar {
     }
 
     async fn send_heartbeat(&self, state: &Arc<AppState>) -> Result<()> {
-        let active_sessions = state.active_session_count().await;
         let running_tasks = state.running_task_count();
         let status = "online".to_string();
         let connections_count = count_connections()?;
@@ -196,7 +195,6 @@ impl AgentRegistrar {
                 let payload = GrpcHeartbeatRequest {
                     name: self.config.agent.name.clone(),
                     status,
-                    active_sessions,
                     running_tasks,
                     connections_count,
                     templates_count,
@@ -208,7 +206,6 @@ impl AgentRegistrar {
                 let payload = HttpHeartbeatRequest {
                     name: self.config.agent.name.clone(),
                     status,
-                    active_sessions,
                     running_tasks,
                     connections_count,
                     templates_count,

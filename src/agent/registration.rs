@@ -72,7 +72,6 @@ struct HttpRegisterRequest {
 struct HttpHeartbeatRequest {
     name: String,
     status: String,
-    active_sessions: u32,
     running_tasks: u32,
     connections_count: u32,
     templates_count: u32,

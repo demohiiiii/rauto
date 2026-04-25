@@ -31,7 +31,6 @@ impl AgentTaskService for AgentTaskGrpcService {
             .map_err(api_error_to_status)?;
         Ok(Response::new(AgentStatusResponse {
             status: response.status,
-            active_sessions: response.active_sessions,
             running_tasks: response.running_tasks,
             last_heartbeat_at: response.last_heartbeat_at.unwrap_or_default(),
             registered_at: response.registered_at.unwrap_or_default(),

@@ -41,7 +41,6 @@ pub async fn agent_info(
 pub async fn agent_status(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<AgentStatusResponse>, ApiError> {
-    let active_sessions = state.active_session_count().await;
     let running_tasks = state.running_task_count();
     let registrar_snapshot = if let Some(registrar) = state.registrar() {
         Some(registrar.snapshot().await)
@@ -51,7 +50,6 @@ pub async fn agent_status(
 
     Ok(Json(AgentStatusResponse {
         status: "online".to_string(),
-        active_sessions,
         running_tasks,
         last_heartbeat_at: registrar_snapshot
             .as_ref()
