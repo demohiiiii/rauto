@@ -65,12 +65,6 @@ async function refreshExecutionModeOptions(overrides = {}) {
     data.default_mode
   );
   applyModeOptions(
-    "interactive-mode",
-    data.modes,
-    overrides.interactiveMode ?? safeSelectValue("interactive-mode"),
-    data.default_mode
-  );
-  applyModeOptions(
     "tx-mode",
     data.modes,
     overrides.txMode ?? safeSelectValue("tx-mode"),

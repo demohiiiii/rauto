@@ -2,26 +2,6 @@
  * ui/runtime.js - runtime UI interactions
  */
 
-function setInteractiveStatus(text, tone = null) {
-  const el = byId("interactive-status");
-  if (!el) return;
-  if (tone) {
-    el.innerHTML = renderStatusMessageCard(text, tone);
-    return;
-  }
-  el.textContent = text;
-}
-
-function updateInteractiveButtons() {
-  const active = !!interactiveSessionId;
-  const startBtn = byId("interactive-start-btn");
-  const stopBtn = byId("interactive-stop-btn");
-  const sendBtn = byId("interactive-send-btn");
-  if (startBtn) startBtn.disabled = active;
-  if (stopBtn) stopBtn.disabled = !active;
-  if (sendBtn) sendBtn.disabled = !active;
-}
-
 function hasSelectedConnectionTarget() {
   if (currentConnectionTarget && currentConnectionTarget.kind !== "none") {
     return true;
@@ -107,15 +87,6 @@ function closeHistoryDrawer() {
   backdrop.classList.remove("open");
   drawer.classList.remove("open");
   document.body.classList.remove("overflow-hidden");
-}
-
-function appendInteractiveLog(label, content) {
-  const out = byId("interactive-out");
-  if (!out) return;
-  const ts = new Date().toLocaleTimeString();
-  const prefix = label ? `${label}` : "output";
-  out.textContent += `[${ts}] ${prefix}\n${content}\n\n`;
-  out.scrollTop = out.scrollHeight;
 }
 
 function applyOperationKind() {
@@ -220,7 +191,10 @@ function applyTxWorkflowViewMode() {
       panel.style.display = active ? "" : "none";
     }
   });
-  if (txWorkflowViewMode === "direct" && typeof resizeTxWorkflowJsonEditor === "function") {
+  if (
+    txWorkflowViewMode === "direct" &&
+    typeof resizeTxWorkflowJsonEditor === "function"
+  ) {
     window.requestAnimationFrame(() => {
       resizeTxWorkflowJsonEditor();
     });
@@ -316,7 +290,10 @@ function applyTemplateSection() {
   try {
     if (window.Alpine && typeof window.Alpine.store === "function") {
       const appStore = window.Alpine.store("app");
-      if (appStore && appStore.currentTemplateSection !== currentTemplateSection) {
+      if (
+        appStore &&
+        appStore.currentTemplateSection !== currentTemplateSection
+      ) {
         appStore.currentTemplateSection = currentTemplateSection;
       }
     }
@@ -324,7 +301,10 @@ function applyTemplateSection() {
 }
 
 function applyInventorySection() {
-  if (currentInventorySection !== "groups" && currentInventorySection !== "labels") {
+  if (
+    currentInventorySection !== "groups" &&
+    currentInventorySection !== "labels"
+  ) {
     currentInventorySection = "groups";
   }
   const isGroups = currentInventorySection === "groups";
@@ -341,7 +321,10 @@ function applyInventorySection() {
   try {
     if (window.Alpine && typeof window.Alpine.store === "function") {
       const appStore = window.Alpine.store("app");
-      if (appStore && appStore.currentInventorySection !== currentInventorySection) {
+      if (
+        appStore &&
+        appStore.currentInventorySection !== currentInventorySection
+      ) {
         appStore.currentInventorySection = currentInventorySection;
       }
     }
@@ -357,7 +340,10 @@ async function loadSelectedTemplateContent() {
     return;
   }
   try {
-    const data = await request("GET", `/api/templates/${encodeURIComponent(name)}`);
+    const data = await request(
+      "GET",
+      `/api/templates/${encodeURIComponent(name)}`,
+    );
     preview.value = data.content || "";
   } catch (e) {
     preview.value = "";
@@ -390,7 +376,8 @@ function connectionPayload() {
 
 function recordLevelPayload() {
   return normalizeRecordLevel(
-    byId("record-level")?.value || byId("record-level-toggle-btn")?.dataset.level
+    byId("record-level")?.value ||
+      byId("record-level-toggle-btn")?.dataset.level,
   );
 }
 
@@ -402,7 +389,9 @@ function applyConnectionForm(connection = {}) {
   byId("password").value = "";
   byId("enable_password").value = "";
   byId("ssh_security").value = safeString(connection.ssh_security || "");
-  byId("linux_shell_flavor").value = safeString(connection.linux_shell_flavor || "");
+  byId("linux_shell_flavor").value = safeString(
+    connection.linux_shell_flavor || "",
+  );
   byId("device_profile").value = safeString(connection.device_profile || "");
   if (byId("saved-conn-enabled")) {
     byId("saved-conn-enabled").checked = connection.enabled !== false;
@@ -413,17 +402,25 @@ function applyConnectionForm(connection = {}) {
       : "";
   }
   if (typeof renderSavedConnectionGroupOptions === "function") {
-    renderSavedConnectionGroupOptions(Array.isArray(connection.groups) ? connection.groups : []);
+    renderSavedConnectionGroupOptions(
+      Array.isArray(connection.groups) ? connection.groups : [],
+    );
   }
   if (byId("saved-conn-vars")) {
-    byId("saved-conn-vars").value = JSON.stringify(connection.vars || {}, null, 2);
+    byId("saved-conn-vars").value = JSON.stringify(
+      connection.vars || {},
+      null,
+      2,
+    );
   }
   if (byId("enable-password-empty-enter")) {
-    byId("enable-password-empty-enter").checked = !!connection.enable_password_empty_enter;
+    byId("enable-password-empty-enter").checked =
+      !!connection.enable_password_empty_enter;
   }
   if (byId("saved-conn-save-password")) {
     byId("saved-conn-save-password").checked = !!(
-      connection.has_password === false && connection.has_enable_password === false
+      connection.has_password === false &&
+      connection.has_enable_password === false
     );
   }
   if (typeof renderSidebarConnectionSelector === "function") {
@@ -460,7 +457,9 @@ function initAutocomplete(inputId, sourceFn) {
   const render = () => {
     const all = Array.from(new Set((sourceFn() || []).filter(Boolean)));
     const q = input.value.trim().toLowerCase();
-    items = all.filter((name) => (!q ? true : name.toLowerCase().includes(q))).slice(0, 24);
+    items = all
+      .filter((name) => (!q ? true : name.toLowerCase().includes(q)))
+      .slice(0, 24);
     if (items.length === 0) {
       hide();
       return;
@@ -469,7 +468,10 @@ function initAutocomplete(inputId, sourceFn) {
     items.forEach((name, idx) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = idx === activeIndex ? "autocomplete-item is-active" : "autocomplete-item";
+      btn.className =
+        idx === activeIndex
+          ? "autocomplete-item is-active"
+          : "autocomplete-item";
       btn.setAttribute("data-idx", String(idx));
       btn.textContent = name;
       menu.appendChild(btn);
@@ -554,7 +556,7 @@ function initAutocomplete(inputId, sourceFn) {
     () => {
       if (!menu.hidden) position();
     },
-    true
+    true,
   );
 }
 
@@ -605,12 +607,13 @@ function openDetailModal(content, options = {}) {
     window.clearTimeout(pendingResetTimer);
     delete modal.dataset.detailModalResetTimer;
   }
-  byId("detail-modal-title").textContent = options.title || t("detailModalTitle");
+  byId("detail-modal-title").textContent =
+    options.title || t("detailModalTitle");
   if (options.html) {
     body.innerHTML = content;
   } else {
     body.innerHTML = `<pre class="output max-h-[70vh] overflow-auto whitespace-pre-wrap break-all">${escapeHtml(
-      safeString(content)
+      safeString(content),
     )}</pre>`;
   }
   if (typeof modal.showModal === "function") {

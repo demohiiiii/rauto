@@ -251,10 +251,6 @@ impl DeviceClient {
         Ok(self.execute_output(command_str, target_mode).await?.content)
     }
 
-    pub fn default_mode(&self) -> &str {
-        &self.default_mode
-    }
-
     #[allow(dead_code)]
     pub async fn execute_batch(&self, commands: Vec<String>) -> Result<Vec<String>> {
         let mut results = Vec::new();

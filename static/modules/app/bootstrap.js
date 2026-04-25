@@ -58,7 +58,6 @@ applyPromptMode();
 applyTemplateSection();
 applyInventorySection();
 resetDiagnoseView();
-updateInteractiveButtons();
 updateRecordFabVisibility();
 byId("record-failed-only").checked = recordFailedOnly;
 byId("replay-failed-only").checked = replayFailedOnly;

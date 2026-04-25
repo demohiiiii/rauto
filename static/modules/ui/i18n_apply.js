@@ -124,7 +124,6 @@ function applyI18n() {
   if (byId("tab-orchestrate")) {
     byId("tab-orchestrate").textContent = t("txStageOrchestrate");
   }
-  byId("tab-interactive").textContent = t("tabInteractive");
   byId("tab-replay").textContent = t("tabReplay");
   byId("tab-prompts").textContent = t("tabPrompts");
   byId("tab-templates").textContent = t("tabTemplates");
@@ -150,12 +149,6 @@ function applyI18n() {
 
   byId("standard-title").textContent = t("opSectionStandard");
   byId("orchestrated-title").textContent = currentOrchestratedStageTitle();
-  byId("interactive-title").textContent = t("interactiveTitle");
-  byId("interactive-card-title").textContent = t("interactiveCardTitle");
-  byId("interactive-start-btn").textContent = t("interactiveStartBtn");
-  byId("interactive-stop-btn").textContent = t("interactiveStopBtn");
-  byId("interactive-send-btn").textContent = t("interactiveSendBtn");
-  byId("interactive-clear-btn").textContent = t("interactiveClearBtn");
   byId("record-fab").title = t("recordFabTitle");
   byId("dashboard-tool-record").textContent = t("recordFabTitle");
   byId("record-level-toggle-btn").title = t("recordLevelLabel");
@@ -193,16 +186,10 @@ function applyI18n() {
     <option value="orchestrate_tx_block">orchestrate_tx_block</option>
     <option value="orchestrate_tx_workflow">orchestrate_tx_workflow</option>
     <option value="orchestrate_compensation">orchestrate_compensation</option>
-    <option value="interactive">interactive</option>
   `;
   historyOpEl.value = historyFilterOperation;
   byId("history-filter-limit").value = String(historyFilterLimit || 30);
   byId("history-filter-query").value = historyFilterQuery || "";
-  if (interactiveSessionId) {
-    setInteractiveStatus(`${t("interactiveStatusReady")} · ${interactiveSessionId}`);
-  } else {
-    setInteractiveStatus(t("interactiveStatusIdle"));
-  }
   byId("replay-page-title").textContent = t("replayPageTitle");
   byId("standard-op-card-title").textContent = t("opCardTitle");
   byId("template-selected-content-title").textContent = t("templateSelectedContentTitle");
@@ -712,8 +699,6 @@ function applyI18n() {
     lastFlowRunTemplateDetail,
     getCurrentFlowTemplateFieldDraft()
   );
-  byId("interactive-command").placeholder = t("interactiveCommandPlaceholder");
-  byId("interactive-mode").placeholder = t("interactiveModePlaceholder");
   setEventKindOptions("record-event-kind", recordEventKind);
   setEventKindOptions("replay-event-kind", replayEventKind);
   localizeDynamicFields();

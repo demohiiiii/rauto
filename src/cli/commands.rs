@@ -1,6 +1,6 @@
 use super::args::{
-    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, InteractiveArgs, OrchestrateArgs, ReplayArgs,
-    TemplateArgs, TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
+    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, ReplayArgs, TemplateArgs,
+    TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -23,9 +23,6 @@ pub enum Commands {
 
     /// Execute a raw command directly
     Exec(ExecArgs),
-
-    /// Start an interactive session
-    Interactive(InteractiveArgs),
 
     /// Execute a reusable interactive command flow template
     #[command(name = "flow")]

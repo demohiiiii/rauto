@@ -6,7 +6,6 @@ function applyTabs() {
   const tabs = [
     "standard",
     "orchestrated",
-    "interactive",
     "replay",
     "prompts",
     "templates",

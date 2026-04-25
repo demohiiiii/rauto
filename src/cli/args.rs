@@ -115,9 +115,6 @@ pub struct ExecArgs {
 }
 
 #[derive(Args, Debug)]
-pub struct InteractiveArgs {}
-
-#[derive(Args, Debug)]
 pub struct ReplayArgs {
     /// Path to session recording JSONL file
     pub record_file: PathBuf,

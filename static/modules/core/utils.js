@@ -44,7 +44,6 @@ function normalizeHistoryFilters() {
       "orchestrate_tx_block",
       "orchestrate_tx_workflow",
       "orchestrate_compensation",
-      "interactive",
     ].includes(historyFilterOperation)
   ) {
     historyFilterOperation = "all";

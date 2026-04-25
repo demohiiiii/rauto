@@ -21,14 +21,14 @@ use crate::web::handlers::{
     get_connection_history_detail, get_custom_profile, get_custom_profile_form,
     get_inventory_group, get_inventory_label, get_orchestration_template, get_profile_modes,
     get_task_run_detail, get_template, get_tx_block_template, get_tx_workflow_template, health,
-    import_connections, interactive_command, interactive_start, interactive_stop, list_backups,
-    list_blacklist_patterns, list_builtin_command_flow_templates, list_command_flow_templates,
-    list_connections, list_inventory_groups, list_inventory_labels, list_orchestration_templates,
-    list_profiles, list_task_runs, list_templates, list_tx_block_templates,
-    list_tx_workflow_templates, profiles_overview, render_template, replay_session, restore_backup,
-    test_connection, update_command_flow_template, update_orchestration_template, update_template,
-    update_tx_block_template, update_tx_workflow_template, upsert_connection,
-    upsert_custom_profile_form, upsert_inventory_group, upsert_inventory_label,
+    import_connections, list_backups, list_blacklist_patterns, list_builtin_command_flow_templates,
+    list_command_flow_templates, list_connections, list_inventory_groups, list_inventory_labels,
+    list_orchestration_templates, list_profiles, list_task_runs, list_templates,
+    list_tx_block_templates, list_tx_workflow_templates, profiles_overview, render_template,
+    replay_session, restore_backup, test_connection, update_command_flow_template,
+    update_orchestration_template, update_template, update_tx_block_template,
+    update_tx_workflow_template, upsert_connection, upsert_custom_profile_form,
+    upsert_inventory_group, upsert_inventory_label,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -40,6 +40,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{any, get, post},
 };
+use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::signal;
@@ -67,11 +68,20 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
             "agent mode requires manager_url and agent_name via CLI, env, or agent.toml"
         ));
     };
-    let state = AppState::new(
-        defaults,
-        Some(agent_config.clone()),
-        agent_settings.api_token.clone(),
-    );
+    let api_token = agent_settings.api_token.clone();
+    if api_token
+        .as_deref()
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+        .is_none()
+        && !bind_is_loopback_only(&agent_args.bind)
+    {
+        return Err(anyhow!(
+            "agent mode listening on non-loopback address '{}' requires --agent-token (or RAUTO_AGENT_TOKEN / agent.toml token)",
+            agent_args.bind
+        ));
+    }
+    let state = AppState::new(defaults, Some(agent_config.clone()), api_token);
     let app = build_managed_app(state.clone());
 
     let registrar = Arc::new(AgentRegistrar::new(agent_config.clone()));
@@ -240,12 +250,6 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/tx/workflow", post(execute_tx_workflow))
         .route("/api/orchestrate", post(execute_orchestration))
         .route("/api/replay", post(replay_session))
-        .route("/api/interactive/start", post(interactive_start))
-        .route("/api/interactive/command", post(interactive_command))
-        .route(
-            "/api/interactive/{id}",
-            axum::routing::delete(interactive_stop),
-        )
         .route("/api/templates", get(list_templates).post(create_template))
         .route(
             "/api/templates/{name}",
@@ -321,6 +325,17 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         )
 }
 
+fn bind_is_loopback_only(bind: &str) -> bool {
+    let normalized = bind.trim();
+    if normalized.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    match normalized.parse::<IpAddr>() {
+        Ok(ip) => ip.is_loopback(),
+        Err(_) => false,
+    }
+}
+
 async fn serve_app(
     bind: String,
     port: u16,
@@ -376,4 +391,24 @@ async fn disable_cache(req: Request, next: Next) -> Response {
     res.headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bind_is_loopback_only;
+
+    #[test]
+    fn bind_is_loopback_only_accepts_localhost_and_loopback_ips() {
+        assert!(bind_is_loopback_only("localhost"));
+        assert!(bind_is_loopback_only("127.0.0.1"));
+        assert!(bind_is_loopback_only("::1"));
+    }
+
+    #[test]
+    fn bind_is_loopback_only_rejects_non_loopback_or_unspecified_hosts() {
+        assert!(!bind_is_loopback_only("0.0.0.0"));
+        assert!(!bind_is_loopback_only("::"));
+        assert!(!bind_is_loopback_only("192.168.1.10"));
+        assert!(!bind_is_loopback_only("agent.local"));
+    }
 }

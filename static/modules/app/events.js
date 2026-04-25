@@ -126,30 +126,6 @@ function bindEvents() {
     }
   });
 
-  byId("interactive-start-btn").onclick = () => {
-    startInteractive();
-  };
-  byId("interactive-stop-btn").onclick = () => {
-    stopInteractive();
-  };
-  byId("interactive-send-btn").onclick = () => {
-    sendInteractiveCommand();
-  };
-  byId("interactive-clear-btn").onclick = () => {
-    byId("interactive-out").textContent = "";
-    if (interactiveSessionId) {
-      setInteractiveStatus(`${t("interactiveStatusReady")} · ${interactiveSessionId}`);
-    } else {
-      setInteractiveStatus(t("interactiveStatusIdle"));
-    }
-  };
-  byId("interactive-command").addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendInteractiveCommand();
-    }
-  });
-
   if (typeof bindRecordingHistoryTaskEvents === "function") {
     bindRecordingHistoryTaskEvents();
   }

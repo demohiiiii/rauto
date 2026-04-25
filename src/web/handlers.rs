@@ -61,7 +61,6 @@ mod command_templates;
 mod connections;
 mod execute;
 mod flow_templates;
-mod interactive;
 mod json_templates;
 mod maintenance;
 mod profiles;
@@ -96,7 +95,6 @@ pub use flow_templates::{
     get_command_flow_template, list_builtin_command_flow_templates, list_command_flow_templates,
     update_command_flow_template,
 };
-pub use interactive::{interactive_command, interactive_start, interactive_stop};
 pub use json_templates::{
     create_orchestration_template, create_tx_block_template, create_tx_workflow_template,
     delete_orchestration_template, delete_tx_block_template, delete_tx_workflow_template,

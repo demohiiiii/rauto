@@ -120,7 +120,6 @@ let txBlockViewMode = "direct";
 let txWorkflowViewMode = "direct";
 let orchestrationViewMode = "direct";
 let txWorkflowMoreExpanded = false;
-let interactiveSessionId = null;
 const detailEntryMap = new Map();
 const orchestrationDetailMap = new Map();
 const autocompleteMenus = [];

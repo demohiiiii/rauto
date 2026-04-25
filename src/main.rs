@@ -104,9 +104,6 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Upload(args) => {
             cli_flow::run_upload(args, &cli.global_opts).await?;
         }
-        Commands::Interactive(_) => {
-            println!("Interactive mode not yet implemented");
-        }
         Commands::Tx(args) => {
             cli_tx_block::run_tx_block(args, &cli.global_opts).await?;
         }

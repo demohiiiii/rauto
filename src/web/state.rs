@@ -5,22 +5,16 @@ use crate::config::connection_store::{self, SavedConnection};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
-use crate::device::DeviceClient;
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
-use crate::web::models::RecordLevel;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
-use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct AppState {
     pub defaults: GlobalOpts,
-    pub interactive_sessions: Arc<Mutex<HashMap<String, InteractiveSession>>>,
-    interactive_seq: Arc<AtomicU64>,
     pub agent_config: Option<AgentConfig>,
     pub api_token: Option<String>,
     pub started_at: Instant,
@@ -36,8 +30,6 @@ impl AppState {
     ) -> Arc<Self> {
         Arc::new(Self {
             defaults,
-            interactive_sessions: Arc::new(Mutex::new(HashMap::new())),
-            interactive_seq: Arc::new(AtomicU64::new(1)),
             agent_config,
             api_token,
             started_at: Instant::now(),
@@ -46,21 +38,12 @@ impl AppState {
         })
     }
 
-    pub fn next_interactive_id(&self) -> String {
-        let id = self.interactive_seq.fetch_add(1, Ordering::Relaxed);
-        format!("interactive-{}", id)
-    }
-
     pub fn agent_name(&self) -> Option<String> {
         self.agent_config.as_ref().map(|cfg| cfg.agent.name.clone())
     }
 
     pub fn uptime_seconds(&self) -> u64 {
         self.started_at.elapsed().as_secs()
-    }
-
-    pub async fn active_session_count(&self) -> u32 {
-        self.interactive_sessions.lock().await.len() as u32
     }
 
     pub fn running_task_count(&self) -> u32 {
@@ -121,15 +104,6 @@ pub struct ResolvedConnection {
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: String,
     pub vars: serde_json::Value,
-}
-
-pub struct InteractiveSession {
-    pub client: DeviceClient,
-    pub conn: ResolvedConnection,
-    pub source_connection: Option<ConnectionRequest>,
-    pub profile_fingerprint: String,
-    pub record_level: Option<RecordLevel>,
-    pub last_used: Instant,
 }
 
 pub fn merge_connection_options(
