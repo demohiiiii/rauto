@@ -83,12 +83,11 @@ fn collect_connection_roots_from_value(value: &Value, out: &mut BTreeSet<String>
                 collect_connection_roots_from_value(item, out);
             }
         }
-        Value::String(text) => {
-            if text.contains("{{") || text.contains("{%") {
-                let roots = extract_connection_roots_from_template(text);
-                out.extend(roots);
-            }
+        Value::String(text) if text.contains("{{") || text.contains("{%") => {
+            let roots = extract_connection_roots_from_template(text);
+            out.extend(roots);
         }
+        Value::String(_) => {}
         _ => {}
     }
 }
