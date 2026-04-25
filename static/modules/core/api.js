@@ -70,6 +70,7 @@ async function detectManagedAgentMode() {
     return false;
   } finally {
     syncAgentAuthUi();
+    applyTabs();
   }
 }
 

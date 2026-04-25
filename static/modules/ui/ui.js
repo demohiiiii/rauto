@@ -15,10 +15,22 @@ function applyTabs() {
     "backup",
     "tasks",
   ];
+  const tasksVisible = managedAgentMode === true;
+  if (!tasksVisible && currentTab === "tasks") {
+    currentTab = "standard";
+  }
   for (const tab of tabs) {
     const button = byId(`tab-${tab}`);
     const panel = byId(`panel-${tab}`);
-    const active = tab === currentTab;
+    const navItem = button ? button.closest("li") : null;
+    const visible = tab !== "tasks" || tasksVisible;
+    const active = visible && tab === currentTab;
+
+    if (navItem) {
+      navItem.hidden = !visible;
+    } else if (button) {
+      button.hidden = !visible;
+    }
 
     if (button) {
       if (active) {
