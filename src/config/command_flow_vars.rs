@@ -14,6 +14,7 @@ pub struct ConnectionParamContext {
 }
 
 impl ConnectionParamContext {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         connection_name: Option<&str>,
         host: Option<&str>,

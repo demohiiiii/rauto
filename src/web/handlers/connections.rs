@@ -31,7 +31,7 @@ fn resolve_enable_password_update(
     let explicit_empty_enable_password = incoming_enable_password
         .as_ref()
         .is_some_and(|value| value.trim().is_empty());
-    let final_empty_enter = incoming_empty_enter.unwrap_or_else(|| {
+    let final_empty_enter = incoming_empty_enter.unwrap_or({
         if explicit_empty_enable_password {
             true
         } else {

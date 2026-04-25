@@ -1,4 +1,5 @@
 use super::*;
+use std::cmp::Reverse;
 
 pub(crate) fn load_json_template_from_input(
     template_name: Option<&str>,
@@ -239,7 +240,7 @@ pub(crate) fn sanitize_rendered_output_for_response(rendered: &str, context: &Va
     if secrets.is_empty() {
         return rendered.to_string();
     }
-    secrets.sort_by(|a, b| b.len().cmp(&a.len()));
+    secrets.sort_by_key(|value| Reverse(value.len()));
     secrets.dedup();
     let mut masked = rendered.to_string();
     for secret in secrets {

@@ -31,6 +31,7 @@ pub(super) fn task_progress(current: usize, total: usize) -> Option<u8> {
     Some(pct.clamp(0, 100) as u8)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn execute_action(
     plan: &OrchestrationPlan,
     stage_name: &str,

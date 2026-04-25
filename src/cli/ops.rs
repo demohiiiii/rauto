@@ -328,7 +328,6 @@ pub(crate) fn run_history_command(cmd: HistoryCommands) -> Result<()> {
             }
         }
     }
-
     Ok(())
 }
 
