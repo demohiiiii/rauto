@@ -32,7 +32,28 @@ rauto web --bind 127.0.0.1 --port 3000
 
 - [Features](#features)
 - [Installation](#installation)
+  - [From Binary (Recommended)](#from-binary-recommended)
+  - [From Crates.io](#from-cratesio)
+  - [From Source](#from-source)
+- [Codex Skill (Optional)](#codex-skill-optional)
 - [Usage](#usage)
+  - [Command Selection Guide](#command-selection-guide)
+  - [Template Mode](#template-mode)
+  - [Direct Execution](#direct-execution)
+  - [Command Flow Templates](#command-flow-templates)
+  - [SFTP Upload](#sftp-upload)
+  - [Device Profiles](#device-profiles)
+  - [Web Console](#web-console)
+    - [Agent Mode](#agent-mode)
+  - [Template Storage Commands](#template-storage-commands)
+  - [Saved Connection Profiles](#saved-connection-profiles)
+  - [Backup & Restore](#backup--restore)
+  - [Command Blacklist](#command-blacklist)
+  - [Transaction Block](#transaction-block)
+  - [Transaction Workflow](#transaction-workflow)
+  - [Multi-device Orchestration](#multi-device-orchestration)
+  - [Reusable Execution Templates](#reusable-execution-templates)
+  - [Inventory CLI](#inventory-cli)
 - [Directory Structure](#directory-structure)
 - [Configuration](#configuration)
 - [Template Syntax](#template-syntax)
@@ -49,10 +70,16 @@ rauto web --bind 127.0.0.1 --port 3000
 - **Built-in Web Console**: Start browser UI with `rauto web`.
 - **Embedded Web Assets**: Frontend files are embedded into the binary for release usage.
 - **Saved Connection Profiles**: Reuse named connection settings across commands.
+- **Bulk Connection Import**: Import saved connections from CSV / Excel with upsert behavior.
+- **SSH Security Profiles**: Choose `secure`, `balanced`, or `legacy-compatible` per target.
+- **Inventory Groups & Labels**: Organize saved connections with reusable grouping metadata.
 - **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
 - **Reusable Command Flow Templates**: Execute wizard-style interactive CLI workflows from saved TOML templates, including device-side file transfer, guided installers, or confirmation-heavy operational sequences.
+- **Reusable Execution Templates**: Save tx block / workflow / orchestration JSON as reusable templates with variable rendering.
 - **SFTP Upload**: Upload local files directly to SSH hosts that expose an `sftp` subsystem.
 - **Data Backup & Restore**: Backup full `~/.rauto` runtime data and restore when needed.
+- **Async Task Tracking**: Inspect queued/running/completed async jobs, events, artifacts, and recordings in Web UI.
+- **Agent Mode**: Run `rauto agent` for manager registration, heartbeat, protected APIs, and task callbacks.
 - **Multi-device Orchestration (Web + CLI)**: Run staged serial/parallel plans across multiple devices, reusing saved connections and current `tx` / `tx-workflow` capabilities.
 - **Command Blacklist**: Block dangerous commands globally before they are sent, with `*` wildcard support.
 
@@ -84,17 +111,33 @@ The binary will be available at `target/release/rauto`.
 
 This repo includes a Codex skill under `skills/rauto-usage/` for agent-driven workflows.
 
+Use it when you already have a Codex-compatible client with skill loading enabled.
+Copy the folder into that client's configured skills directory.
+
 Install it with:
 
 ```bash
-cp -R rauto/skills/rauto-usage "$CODEX_HOME/skills/"
+cp -R skills/rauto-usage "$CODEX_HOME/skills/"
 ```
 
+If your Codex setup does not expose `$CODEX_HOME`, copy `skills/rauto-usage/` into the skills directory configured by your client.
 If you use Claude Code, the equivalent location is usually `~/.claude/skills/`.
 
 ## Usage
 
-### 1. Template Mode (Recommended)
+### Command Selection Guide
+
+| If you need to...                            | Use                 | Notes                                                                              |
+| -------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| Run one command immediately                  | `rauto exec`        | Best for direct ad-hoc commands; optional `--mode` narrows the target prompt/mode. |
+| Render a reusable command template with vars | `rauto template`    | Best when command text should come from stored Jinja templates.                    |
+| Drive interactive prompt/response flows      | `rauto flow`        | Best for wizard-like CLI exchanges, copy dialogs, and confirmation-heavy steps.    |
+| Upload a local file over remote SFTP         | `rauto upload`      | Requires the SSH server to expose an `sftp` subsystem.                             |
+| Execute one rollback-aware transaction block | `rauto tx`          | Best for one target with step rollback or resource rollback semantics.             |
+| Execute a multi-step workflow from JSON      | `rauto tx-workflow` | Best when a transaction is modeled as named blocks/stages in a workflow file.      |
+| Execute a multi-device staged plan           | `rauto orchestrate` | Best for serial/parallel rollout plans across many saved connections.              |
+
+### Template Mode
 
 Render commands from a template and execute them on a device.
 Templates are stored in SQLite and managed with `rauto templates` or the Web UI.
@@ -129,7 +172,7 @@ rauto template configure_vlan.j2 \
     --dry-run
 ```
 
-### 2. Direct Execution
+### Direct Execution
 
 Execute raw commands directly without templates.
 
@@ -234,7 +277,7 @@ Optional flags:
 - `--record-level <key-events-only|full>`
 - `--record-file <path>`
 
-### 3. Device Profiles
+### Device Profiles
 
 `rauto` supports built-in device profiles (inherited from `rneter`) and custom TOML profiles.
 
@@ -306,7 +349,7 @@ Notes:
 - `rauto device list` follows the current built-in catalog exposed by `rneter`.
 - `rauto device show <builtin>` and `rauto device copy-builtin <builtin> <custom>` both use the current built-in handler configs exported by `rneter`.
 
-### 4. Web Console (Axum)
+### Web Console
 
 Start the built-in web service and open the visual console in your browser:
 
@@ -332,10 +375,12 @@ Web console key capabilities:
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
 - Run direct commands, template execution, command flow execution, tx blocks, tx workflows, and orchestration from `Operations`.
 - Manage profiles, command templates, and command flow templates in `Template Manager`.
+- Organize saved connections in `Inventory` with groups and labels (web-only management UI).
+- Track and inspect async task runs in `Task Center` (status, events, artifacts, recordings).
 - Use `SFTP Upload` as a dedicated page for direct file uploads to SSH hosts with an `sftp` subsystem.
 - Manage command blacklist patterns in UI: add/delete/check `*` wildcard rules before execution.
 - Manage data backups in UI: create/list/download/restore `~/.rauto` backup archives.
-- Diagnose profile state machines in Prompt Management -> Diagnostics with visualized result fields.
+- Diagnose profile state machines in `Prompt Profiles` -> Diagnostics with visualized result fields.
 - Switch Chinese/English in UI.
 - Record execution sessions and replay recorded outputs in browser (list events or replay by command/mode).
 
@@ -376,7 +421,7 @@ Agent mode provides:
 - protected status and probe endpoints for manager-side health checks
 - token-protected browser/API access when the agent is started with a token
 
-### 5. Template Storage Commands
+### Template Storage Commands
 
 ```bash
 rauto templates list
@@ -384,7 +429,7 @@ rauto templates show show_version.j2
 rauto templates delete show_version.j2
 ```
 
-### 6. Saved Connection Profiles
+### Saved Connection Profiles
 
 You can save and reuse connection settings by name:
 
@@ -456,7 +501,7 @@ Notes:
 - [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
 - [templates/examples/connection-import-template-zh.csv](templates/examples/connection-import-template-zh.csv)
 
-### 7. Backup & Restore
+### Backup & Restore
 
 Backup the current `rauto` runtime data store and backup configuration:
 
@@ -479,9 +524,9 @@ rauto backup restore ./rauto-backup.tar.gz
 rauto backup restore ./rauto-backup.tar.gz --replace
 ```
 
-### 8. Command Blacklist
+### Command Blacklist
 
-Use a global blacklist to reject commands before they are sent from CLI or Web execution paths (`exec`, template execute, `tx`, `tx-workflow`, `orchestrate`, interactive command).
+Use a global blacklist to reject commands before they are sent from CLI or Web execution paths (`exec`, template execute, `flow`, `tx`, `tx-workflow`, `orchestrate`).
 
 ```bash
 # List current patterns
@@ -505,7 +550,47 @@ Notes:
 - Matching is case-insensitive and applies to the full command text.
 - Blacklist data is stored in `~/.rauto/rauto.db`.
 
-**Transaction workflow**
+### Transaction Block
+
+`rauto tx` executes a single rollback-aware transaction block on one target.
+Use it when you need a compact unit of work with explicit rollback behavior, but do not need the extra structure of a full `tx-workflow` JSON file.
+
+Common usage patterns:
+
+```bash
+# Command list mode with per-step rollback commands
+rauto tx \
+    --name vlan-change \
+    --command "vlan 120" \
+    --command "name campus-users" \
+    --rollback-command "no vlan 120" \
+    --rollback-command "default name" \
+    --rollback-on-failure \
+    --mode Config \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+
+# Command-flow mode with reusable flow templates
+rauto tx \
+    --run-kind command-flow \
+    --flow-template cisco_like_copy \
+    --flow-vars ./flow-vars.json \
+    --rollback-flow-file ./rollback-flow.toml \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret
+```
+
+Notes:
+
+- `--run-kind commands` uses repeated `--command` entries and optional per-step rollback commands.
+- `--run-kind command-flow` uses saved/ad-hoc command flow templates for both forward and rollback paths.
+- `--dry-run` prints the normalized tx block without executing it.
+- `--json` prints tx execution results as JSON.
+- `--record-file` and `--record-level` work the same way as other execution commands.
+
+### Transaction Workflow
 
 ```bash
 # Visualize workflow structure in terminal (ANSI colors enabled by default)
@@ -590,7 +675,7 @@ Advanced sample files:
 
 - [templates/examples/fabric-change-workflow.json](templates/examples/fabric-change-workflow.json)
 
-**Multi-device orchestration**
+### Multi-device Orchestration
 
 ```bash
 # Preview orchestration structure in terminal
@@ -791,7 +876,7 @@ Notes:
   - `workflow_template_content` (with `workflow_vars`)
 - Multi-device orchestration is available in both Web UI and CLI.
 
-**Reusable Execution JSON + Template Vars**
+### Reusable Execution Templates
 
 `rauto` now supports saving execution JSON as reusable SQLite-backed templates,
 and rendering template variables before execution:
@@ -837,7 +922,7 @@ Web UI (`Operations -> Orchestrated Delivery`) now includes dedicated runtime va
 - `Tx Workflow`: `workflow_vars`
 - `Orchestration`: `plan_vars`
 
-**Inventory CLI**
+### Inventory CLI
 
 There is no separate inventory target-record layer anymore.
 
@@ -876,14 +961,6 @@ Group JSON shape:
 }
 ```
 
-**Start web console**
-
-```bash
-rauto web \
-    --bind 127.0.0.1 \
-    --port 3000
-```
-
 ## Directory Structure
 
 By default, `rauto` stores runtime data under `~/.rauto/`.
@@ -903,19 +980,27 @@ Default runtime data:
 
 ## Configuration
 
-| Argument            | Env Var          | Description                                                                     |
-| ------------------- | ---------------- | ------------------------------------------------------------------------------- |
-| `--host`            | -                | Device hostname or IP                                                           |
-| `--username`        | -                | SSH username                                                                    |
-| `--password`        | `RAUTO_PASSWORD` | SSH password                                                                    |
-| `--enable-password` | -                | Enable/Secret password                                                          |
-| `--ssh-port`        | -                | SSH port (default: 22)                                                          |
-| `--ssh-security`    | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible`                 |
-| `--linux-shell-flavor` | -             | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`     |
-| `--device-profile`  | -                | Device type/profile (default: `linux`; examples: `huawei`, `linux`, `fortinet`) |
-| `--connection`      | -                | Load saved connection profile by name                                           |
-| `--save-connection` | -                | Save effective connection profile after successful connect                      |
-| `--save-password`   | -                | With `--save-connection`, also save password/enable_password                    |
+| Argument               | Env Var          | Description                                                                     |
+| ---------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| `--host`               | -                | Device hostname or IP                                                           |
+| `--username`           | -                | SSH username                                                                    |
+| `--password`           | `RAUTO_PASSWORD` | SSH password                                                                    |
+| `--enable-password`    | -                | Enable/Secret password                                                          |
+| `--ssh-port`           | -                | SSH port (default: 22)                                                          |
+| `--ssh-security`       | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible`                 |
+| `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`      |
+| `--device-profile`     | -                | Device type/profile (default: `linux`; examples: `huawei`, `linux`, `fortinet`) |
+| `--connection`         | -                | Load saved connection profile by name                                           |
+| `--save-connection`    | -                | Save effective connection profile after successful connect                      |
+| `--save-password`      | -                | With `--save-connection`, also save password/enable_password                    |
+
+Common command-specific options:
+
+- `exec --mode <mode>`: Execute a raw command in a specific mode such as `Enable`, `Config`, or `Shell`.
+- `template --vars <file>`: Load JSON/YAML vars for a stored command template.
+- `flow --vars <file>` / `flow --vars-json <json>`: Provide file-based or inline JSON vars to a command flow template.
+- `template --dry-run`: Render the command template without executing it on the target.
+- `tx --dry-run`: Print the planned tx block without executing it.
 
 Recording-related options (command-specific):
 
@@ -923,7 +1008,7 @@ Recording-related options (command-specific):
 - `exec/template --record-level <key-events-only|full>`: Recording granularity.
 - `replay <record_file> --list`: List recorded command output events.
 - `replay <record_file> --command <cmd> [--mode <mode>]`: Replay one command output.
-- With `rneter 0.3.3`, replayed `SessionEvent::CommandOutput` entries may include `exit_code` for Linux shell flows.
+- Replayed `SessionEvent::CommandOutput` entries may include `exit_code` for Linux shell flows.
 
 ## Template Syntax
 
