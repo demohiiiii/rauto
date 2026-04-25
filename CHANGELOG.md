@@ -2,6 +2,35 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.0] - 2026-04-25
+
+### New Features
+- Added manager-facing gRPC task dispatch support via `rauto.agent.v1.TaskService`, including async task run tracking, task artifacts, and task-center APIs/UI integration.
+- Added real-time task event reporting and expanded async execution flows so long-running operations can return immediately and continue reporting progress/outcome.
+- Added orchestration `stage -> jobs` execution modeling with mixed `tx_block` / `tx_workflow` actions, `target_tags` dispatch, and plan-level compensation rollback switches for stage-local and cross-stage rollback handling.
+- Added JSON template persistence and execution for tx blocks, tx workflows, and orchestrations, plus command-flow template runtime variable enhancements (`current` alias and peer-connection parameter rendering).
+- Added inventory and connection operations upgrades, including group/label-based inventory management and CSV/Excel connection import with localized template files.
+
+### Optimizations
+- Refactored oversized backend modules into focused submodules (`cli`, `orchestrator`, `web handlers`, `agent registration`), reducing coupling and improving maintainability.
+- Rebuilt the Web UI into modular feature/runtime/render layers under `static/modules/*`, replacing the previous monolithic `static/app.js` structure.
+- Simplified tx/workflow/orchestration authoring to JSON-first flows with unified editor/runtime behavior and reusable template execution paths.
+- Tightened recording and result UX by defaulting audit filtering to `command_output`-centric views and improving execution payload visibility in Web task/result panels.
+- Added CI automation through `.github/workflows/ci.yml` for baseline build/test checks on repository changes.
+
+### API Changes
+- Upgraded `rneter` integration to the `0.4.x` operation model (now pinned at `0.4.4`), including transaction/workflow result schema changes (`SessionOperation`, operation-step outputs, and rollback metadata fields).
+- Added gRPC task service contract `proto/rauto/agent/v1/task_service.proto`; manager-side integrations can now dispatch and manage agent tasks over gRPC instead of relying only on HTTP callbacks.
+- Orchestration JSON now requires `stages[*].jobs[*]` and no longer supports legacy `stage.action` payload shape; callers must migrate plan generation accordingly.
+- Runtime secret handling moved back to keyring-backed storage (`keyring`) and removed the previous local encryption-key secret-store path; saved-connection password persistence now depends on host keychain availability.
+- Removed legacy interactive-session flows from agent/web runtime paths; integrations should use current task/tx/workflow/orchestration execution APIs.
+
+### Risks
+- The `rneter 0.4.x` schema migration and orchestration payload changes are breaking for strict JSON consumers; manager/tooling parsers may need updates before rollout.
+- Compensation rollback is best-effort by design and not distributed ACID rollback; partial rollback outcomes can still occur when device/network failures happen during compensation.
+- Keyring-backed secret persistence depends on OS credential backend behavior; headless/minimal environments may need extra setup and can surface unlock prompts.
+- Large-scale frontend/runtime refactors were validated with compile and targeted tests, but browser-level end-to-end coverage remains limited for all interaction paths.
+
 ## [0.3.2] - 2026-03-19
 
 ### New Features

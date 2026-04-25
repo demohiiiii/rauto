@@ -1,6 +1,6 @@
 [package]
 name = "rauto"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2024"
 description = "A powerful CLI tool for network device automation using minijinja templates and rneter."
 license = "Apache-2.0"
@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "network-programming"]
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }
 minijinja = { version = "2.15", features = ["loader", "json"] }
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "3eb50f9e03c0b20ab4a6c1775a228d23ddf34dc0" }
+rneter = "0.4.4"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 futures-util = "0.3"
