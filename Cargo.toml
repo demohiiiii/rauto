@@ -16,6 +16,7 @@ minijinja = { version = "2.15", features = ["loader", "json"] }
 rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "3eb50f9e03c0b20ab4a6c1775a228d23ddf34dc0" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
+futures-util = "0.3"
 serde = { version = "1.0.216", features = ["derive"] }
 serde_json = "1.0.133"
 toml = "0.8.23"

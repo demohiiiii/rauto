@@ -1,4 +1,6 @@
 use super::*;
+use futures_util::FutureExt;
+use std::panic::AssertUnwindSafe;
 
 pub(super) fn require_managed_async_task(
     operation: TaskOperation,
@@ -119,8 +121,7 @@ where
     let accepted_at = Utc::now();
     let accepted_instant = Instant::now();
     tokio::spawn(async move {
-        let worker = tokio::spawn(task);
-        match worker.await {
+        match AssertUnwindSafe(task).catch_unwind().await {
             Ok(Ok(())) => {}
             Ok(Err(err)) => {
                 warn!(
@@ -146,14 +147,14 @@ where
                 )
                 .await;
             }
-            Err(join_err) => {
-                let failure_message = if join_err.is_panic() {
-                    format!("Background {} task panicked", operation_name)
-                } else if join_err.is_cancelled() {
-                    format!("Background {} task was cancelled", operation_name)
-                } else {
-                    format!("Background {} task terminated unexpectedly", operation_name)
-                };
+            Err(panic_payload) => {
+                let panic_payload = panic_payload.as_ref();
+                let panic_message = panic_payload
+                    .downcast_ref::<&str>()
+                    .map(|value| (*value).to_string())
+                    .or_else(|| panic_payload.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "unknown panic payload".to_string());
+                let failure_message = format!("Background {} task panicked", operation_name);
                 warn!("{} for task_id={}", failure_message, task_id);
                 report_async_task_failure(
                     state,
@@ -164,12 +165,10 @@ where
                         started_instant: accepted_instant,
                         failure_message,
                         details: json!({
-                            "failure_type": "join_error",
-                            "join_error": join_err.to_string(),
-                            "panic": join_err.is_panic(),
-                            "cancelled": join_err.is_cancelled()
+                            "failure_type": "panic",
+                            "panic_message": panic_message
                         }),
-                        fallback_reason: join_err.to_string(),
+                        fallback_reason: panic_message,
                     },
                 )
                 .await;

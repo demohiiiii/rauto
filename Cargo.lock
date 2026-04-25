@@ -2855,6 +2855,7 @@ dependencies = [
  "csv",
  "dirs",
  "flate2",
+ "futures-util",
  "hostname",
  "keyring",
  "log",
