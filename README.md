@@ -8,7 +8,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Website](https://img.shields.io/badge/Website-rauto.top-0ea5e9?style=for-the-badge&logo=googlechrome&logoColor=white)](https://rauto.top)
 
-[Website](https://rauto.top) · [中文文档](README_zh.md)
+[Website](https://rauto.top) · [中文文档](README_zh.md) · [Tutorial Book (EN)](docs/src/README.md) · [教程手册 (ZH)](docs/src/zh-CN/README.md)
 
 </div>
 
@@ -27,6 +27,30 @@ rauto exec "show version" --host 192.168.1.1 --username admin --password '******
 
 rauto web --bind 127.0.0.1 --port 3000
 ```
+
+## Tutorial Book
+
+A bilingual `mdBook` tutorial now lives under `docs/`, with **English as the default language** and `zh-CN` as the Chinese translation.
+
+Install `mdbook`:
+
+```bash
+cargo install mdbook
+```
+
+Preview locally:
+
+```bash
+mdbook serve docs
+```
+
+Build static HTML:
+
+```bash
+mdbook build docs
+```
+
+The generated site is written to `docs/book/`.
 
 ## Table of Contents
 

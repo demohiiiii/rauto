@@ -8,7 +8,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-rauto.top-0ea5e9?style=for-the-badge&logo=googlechrome&logoColor=white)](https://rauto.top)
 
-[官网](https://rauto.top) · [English Documentation](README.md)
+[官网](https://rauto.top) · [English Documentation](README.md) · [Tutorial Book (EN)](docs/src/README.md) · [教程手册 (ZH)](docs/src/zh-CN/README.md)
 
 </div>
 
@@ -27,6 +27,30 @@ rauto exec "show version" --host 192.168.1.1 --username admin --password '******
 
 rauto web --bind 127.0.0.1 --port 3000
 ```
+
+## 教程手册
+
+现在仓库已经提供基于 `mdBook` 的双语教程文档，位于 `docs/` 目录，**默认语言为英文**，并提供 `zh-CN` 中文翻译。
+
+先安装 `mdbook`：
+
+```bash
+cargo install mdbook
+```
+
+本地预览：
+
+```bash
+mdbook serve docs
+```
+
+生成静态 HTML：
+
+```bash
+mdbook build docs
+```
+
+生成结果默认位于 `docs/book/`。
 
 ## 目录导航
 

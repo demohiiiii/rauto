@@ -11,6 +11,9 @@
 node_modules/
 .npm-cache/
 
+# Generated docs
+docs/book/
+
 # Local config
 rauto.toml
 

@@ -55,3 +55,19 @@ jobs:
 
       - name: Build frontend assets
         run: npm run tailwind:build
+
+  docs:
+    name: Docs Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install mdBook
+        run: cargo install mdbook --version 0.4.47 --locked
+
+      - name: Build documentation
+        run: mdbook build docs
