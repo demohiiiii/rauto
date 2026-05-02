@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="static/rauto-icon.svg" alt="rauto icon" width="112" />
+
 # rauto
 
 **The hands for controlling network devices in the AI era.**

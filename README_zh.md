@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="static/rauto-icon.svg" alt="rauto icon" width="112" />
+
 # rauto
 
 **AI 时代操控网络设备的双手**
