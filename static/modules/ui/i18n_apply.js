@@ -70,7 +70,6 @@ function applyI18n() {
   byId("connection-test-btn").textContent = t("connectionTestBtn");
   byId("saved-conn-title").textContent = t("savedConnTitle");
   byId("saved-conn-subtitle").textContent = t("savedConnSubtitle");
-  byId("enable-password-empty-enter-label").textContent = t("enablePasswordEmptyEnter");
   byId("saved-conn-save-password-label").textContent = t("savedConnSavePassword");
   byId("saved-conn-enabled-label").textContent = t("inventoryFieldEnabled");
   byId("saved-conn-labels-label").textContent = t("inventoryFieldLabels");
@@ -88,7 +87,6 @@ function applyI18n() {
   byId("saved-conn-edit-title").textContent = t("savedConnEditTitle");
   byId("saved-conn-edit-hint").textContent = t("savedConnEditHint");
   byId("saved-conn-edit-name-label").textContent = t("inventoryFieldName");
-  byId("saved-conn-edit-enable-password-empty-enter-label").textContent = t("enablePasswordEmptyEnter");
   byId("saved-conn-edit-save-password-label").textContent = t("savedConnSavePassword");
   byId("saved-conn-edit-enabled-label").textContent = t("inventoryFieldEnabled");
   byId("saved-conn-edit-labels-label").textContent = t("inventoryFieldLabels");

@@ -363,7 +363,6 @@ function connectionPayload() {
     username: value("username") || null,
     password: value("password") || null,
     enable_password: value("enable_password") || null,
-    enable_password_empty_enter: !!byId("enable-password-empty-enter")?.checked,
     ssh_security: value("ssh_security") || null,
     linux_shell_flavor: value("linux_shell_flavor") || null,
     device_profile: value("device_profile") || null,
@@ -412,10 +411,6 @@ function applyConnectionForm(connection = {}) {
       null,
       2,
     );
-  }
-  if (byId("enable-password-empty-enter")) {
-    byId("enable-password-empty-enter").checked =
-      !!connection.enable_password_empty_enter;
   }
   if (byId("saved-conn-save-password")) {
     byId("saved-conn-save-password").checked = !!(

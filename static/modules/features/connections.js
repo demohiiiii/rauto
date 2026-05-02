@@ -31,15 +31,17 @@ function renderSavedConnectionOptions(selectedName = "") {
     {
       placeholder: t("savedConnSelectPlaceholder"),
       selected: selectedName,
-    }
+    },
   );
 }
 
 function renderConnectionProfileOptions() {
   const profileValues = (cachedDeviceProfiles || []).filter(Boolean);
-  const mainSelected = safeString(byId("device_profile")?.value || "").trim() || "linux";
+  const mainSelected =
+    safeString(byId("device_profile")?.value || "").trim() || "linux";
   const editSelected =
-    safeString(byId("saved-conn-edit-device-profile")?.value || "").trim() || "linux";
+    safeString(byId("saved-conn-edit-device-profile")?.value || "").trim() ||
+    "linux";
   populateSelectOptions("device_profile", profileValues, {
     placeholder: t("deviceProfilePlaceholder"),
     selected: mainSelected,
@@ -54,7 +56,7 @@ function renderSavedConnectionGroupOptions(selectedValues = []) {
   renderConnectionGroupsForSelect("saved-conn-groups", selectedValues);
   renderConnectionGroupsForSelect(
     "saved-conn-edit-groups",
-    getMultiSelectValuesById("saved-conn-edit-groups")
+    getMultiSelectValuesById("saved-conn-edit-groups"),
   );
 }
 
@@ -64,7 +66,10 @@ async function ensureSavedConnectionDetail(name) {
   if (cachedSavedConnectionDetails.has(normalized)) {
     return cachedSavedConnectionDetails.get(normalized);
   }
-  const data = await request("GET", `/api/connections/${encodeURIComponent(normalized)}`);
+  const data = await request(
+    "GET",
+    `/api/connections/${encodeURIComponent(normalized)}`,
+  );
   cachedSavedConnectionDetails.set(normalized, data);
   return data;
 }
@@ -91,7 +96,8 @@ function currentTemporaryConnectionDetails() {
     host: safeString(byId("host")?.value || "").trim() || "-",
     port: Number(byId("port")?.value || 22) || 22,
     username: safeString(byId("username")?.value || "").trim() || "-",
-    profile: safeString(byId("device_profile")?.value || "linux").trim() || "linux",
+    profile:
+      safeString(byId("device_profile")?.value || "linux").trim() || "linux",
     kind: "temporary",
     note: t("sidebarConnectionTemporaryHint"),
   };
@@ -106,7 +112,6 @@ function savedConnectionDetails(item) {
     profile: safeString(item?.device_profile || "linux") || "linux",
     ssh_security: safeString(item?.ssh_security || "").trim(),
     linux_shell_flavor: safeString(item?.linux_shell_flavor || "").trim(),
-    enable_password_empty_enter: !!item?.enable_password_empty_enter,
     kind: "saved",
     note: t("savedConnSubtitle"),
   };
@@ -114,7 +119,9 @@ function savedConnectionDetails(item) {
 
 function syncProfileAndModesFromTarget(details, refreshModes = false) {
   if (!details) return;
-  const profile = safeString(details.profile || details.device_profile || "").trim();
+  const profile = safeString(
+    details.profile || details.device_profile || "",
+  ).trim();
   if (!profile) return;
   if (typeof ensureSelectValue === "function") {
     ensureSelectValue("device_profile", profile, { fallbackToEmpty: false });
@@ -143,7 +150,7 @@ function persistConnectionTarget(details = null) {
         JSON.stringify({
           kind: "saved",
           name,
-        })
+        }),
       );
       return;
     }
@@ -155,10 +162,12 @@ function persistConnectionTarget(details = null) {
           host: safeString(details.host || "").trim(),
           port: Number(details.port || 22) || 22,
           username: safeString(details.username || "").trim(),
-          device_profile: safeString(details.profile || "linux").trim() || "linux",
+          device_profile:
+            safeString(details.profile || "linux").trim() || "linux",
           ssh_security: safeString(byId("ssh_security")?.value || "").trim(),
-          linux_shell_flavor: safeString(byId("linux_shell_flavor")?.value || "").trim(),
-          enable_password_empty_enter: !!byId("enable-password-empty-enter")?.checked,
+          linux_shell_flavor: safeString(
+            byId("linux_shell_flavor")?.value || "",
+          ).trim(),
           enabled: !!byId("saved-conn-enabled")?.checked,
           labels: safeString(byId("saved-conn-labels")?.value || ""),
           groups:
@@ -166,7 +175,7 @@ function persistConnectionTarget(details = null) {
               ? getMultiSelectValues("saved-conn-groups")
               : [],
           vars_text: safeString(byId("saved-conn-vars")?.value || ""),
-        })
+        }),
       );
       return;
     }
@@ -209,7 +218,9 @@ function restorePersistedConnectionTarget() {
       localStorage.removeItem(STORAGE_KEYS.connectionTarget);
       return;
     }
-    const selected = cachedSavedConnections.find((item) => item.name === targetName);
+    const selected = cachedSavedConnections.find(
+      (item) => item.name === targetName,
+    );
     if (!selected) {
       localStorage.removeItem(STORAGE_KEYS.connectionTarget);
       return;
@@ -235,10 +246,9 @@ function restorePersistedConnectionTarget() {
     byId("device_profile").value =
       safeString(parsed.device_profile || "linux").trim() || "linux";
     byId("ssh_security").value = safeString(parsed.ssh_security || "").trim();
-    byId("linux_shell_flavor").value = safeString(parsed.linux_shell_flavor || "").trim();
-    if (byId("enable-password-empty-enter")) {
-      byId("enable-password-empty-enter").checked = !!parsed.enable_password_empty_enter;
-    }
+    byId("linux_shell_flavor").value = safeString(
+      parsed.linux_shell_flavor || "",
+    ).trim();
     if (byId("saved-conn-enabled")) {
       byId("saved-conn-enabled").checked = parsed.enabled !== false;
     }
@@ -250,7 +260,7 @@ function restorePersistedConnectionTarget() {
     }
     if (typeof renderSavedConnectionGroupOptions === "function") {
       renderSavedConnectionGroupOptions(
-        Array.isArray(parsed.groups) ? parsed.groups : []
+        Array.isArray(parsed.groups) ? parsed.groups : [],
       );
     }
     temporaryConnectionActive = true;
@@ -303,7 +313,9 @@ function renderTargetCard(details) {
       <div class="dashboard-target-head">
         <div class="grid gap-1">
           <div class="dashboard-target-context">${escapeHtml(
-            details.kind === "temporary" ? t("sidebarConnectionTemporaryLabel") : details.name
+            details.kind === "temporary"
+              ? t("sidebarConnectionTemporaryLabel")
+              : details.name,
           )}</div>
           <div class="dashboard-target-name">${escapeHtml(summary)}</div>
           <div class="dashboard-target-meta-line">${escapeHtml(details.profile)}</div>
@@ -323,7 +335,10 @@ function renderSidebarConnectionSelector(errorMessage = "") {
     return;
   }
 
-  if (currentConnectionTarget.kind === "temporary" && currentConnectionTarget.details) {
+  if (
+    currentConnectionTarget.kind === "temporary" &&
+    currentConnectionTarget.details
+  ) {
     meta.innerHTML = renderTargetCard({
       ...currentTemporaryConnectionDetails(),
       ...currentConnectionTarget.details,
@@ -332,9 +347,16 @@ function renderSidebarConnectionSelector(errorMessage = "") {
     return;
   }
 
-  if (currentConnectionTarget.kind === "saved" && currentConnectionTarget.details) {
-    const targetName = safeString(currentConnectionTarget.details.name || "").trim();
-    const selected = cachedSavedConnections.find((item) => item.name === targetName);
+  if (
+    currentConnectionTarget.kind === "saved" &&
+    currentConnectionTarget.details
+  ) {
+    const targetName = safeString(
+      currentConnectionTarget.details.name || "",
+    ).trim();
+    const selected = cachedSavedConnections.find(
+      (item) => item.name === targetName,
+    );
     meta.innerHTML = renderTargetCard(
       selected
         ? {
@@ -345,7 +367,7 @@ function renderSidebarConnectionSelector(errorMessage = "") {
         : {
             ...currentConnectionTarget.details,
             kind: "saved",
-          }
+          },
     );
     return;
   }
@@ -370,7 +392,8 @@ function markTemporaryConnectionActive() {
     host: safeString(byId("host")?.value || "").trim() || "-",
     port: Number(byId("port")?.value || 22) || 22,
     username: safeString(byId("username")?.value || "").trim() || "-",
-    profile: safeString(byId("device_profile")?.value || "linux").trim() || "linux",
+    profile:
+      safeString(byId("device_profile")?.value || "linux").trim() || "linux",
     kind: "temporary",
     note: t("sidebarConnectionTemporaryHint"),
   };
@@ -393,10 +416,19 @@ async function loadSavedConnections() {
     const data = await request("GET", "/api/connections");
     cachedSavedConnections = Array.isArray(data) ? data : [];
     renderSavedConnectionOptions(byId("saved-conn-name").value || "");
-    renderSavedConnectionGroupOptions(getMultiSelectValues("saved-conn-groups"));
-    if (currentConnectionTarget.kind === "saved" && currentConnectionTarget.details) {
-      const targetName = safeString(currentConnectionTarget.details.name || "").trim();
-      const selected = cachedSavedConnections.find((item) => item.name === targetName);
+    renderSavedConnectionGroupOptions(
+      getMultiSelectValues("saved-conn-groups"),
+    );
+    if (
+      currentConnectionTarget.kind === "saved" &&
+      currentConnectionTarget.details
+    ) {
+      const targetName = safeString(
+        currentConnectionTarget.details.name || "",
+      ).trim();
+      const selected = cachedSavedConnections.find(
+        (item) => item.name === targetName,
+      );
       if (selected) {
         if (typeof applyConnectionForm === "function") {
           applyConnectionForm(selected);
@@ -448,10 +480,14 @@ async function loadSavedConnectionByName() {
       savedConnectionDetails({
         ...(data.connection || {}),
         name: data.name || name,
-      })
+      }),
     );
     renderSidebarConnectionSelector();
-    setStatusMessage("saved-conn-out", `${t("loaded")}: ${data.name}`, "success");
+    setStatusMessage(
+      "saved-conn-out",
+      `${t("loaded")}: ${data.name}`,
+      "success",
+    );
     return true;
   } catch (e) {
     setStatusMessage("saved-conn-out", e.message, "error");
@@ -470,7 +506,11 @@ async function openSavedConnectionEditor() {
     const data = await ensureSavedConnectionDetail(name);
     applySavedConnectionEditorForm(data.name || name, data.connection || {});
     showSavedConnectionEditorModal();
-    setStatusMessage("saved-conn-out", `${t("loaded")}: ${data.name || name}`, "success");
+    setStatusMessage(
+      "saved-conn-out",
+      `${t("loaded")}: ${data.name || name}`,
+      "success",
+    );
   } catch (e) {
     setStatusMessage("saved-conn-out", e.message, "error");
   }
@@ -516,27 +556,36 @@ function applySavedConnectionEditorForm(name, connection = {}) {
   byId("saved-conn-edit-name").value = name || "";
   byId("saved-conn-edit-host").value = safeString(connection.host || "");
   byId("saved-conn-edit-port").value = safeString(connection.port || 22);
-  byId("saved-conn-edit-username").value = safeString(connection.username || "");
+  byId("saved-conn-edit-username").value = safeString(
+    connection.username || "",
+  );
   byId("saved-conn-edit-password").value = "";
   byId("saved-conn-edit-enable-password").value = "";
-  byId("saved-conn-edit-ssh-security").value = safeString(connection.ssh_security || "");
-  byId("saved-conn-edit-linux-shell-flavor").value = safeString(connection.linux_shell_flavor || "");
-  byId("saved-conn-edit-device-profile").value = safeString(connection.device_profile || "");
+  byId("saved-conn-edit-ssh-security").value = safeString(
+    connection.ssh_security || "",
+  );
+  byId("saved-conn-edit-linux-shell-flavor").value = safeString(
+    connection.linux_shell_flavor || "",
+  );
+  byId("saved-conn-edit-device-profile").value = safeString(
+    connection.device_profile || "",
+  );
   byId("saved-conn-edit-enabled").checked = connection.enabled !== false;
   byId("saved-conn-edit-labels").value = Array.isArray(connection.labels)
     ? connection.labels.join(", ")
     : "";
   renderConnectionGroupsForSelect(
     "saved-conn-edit-groups",
-    Array.isArray(connection.groups) ? connection.groups : []
+    Array.isArray(connection.groups) ? connection.groups : [],
   );
-  byId("saved-conn-edit-vars").value = JSON.stringify(connection.vars || {}, null, 2);
-  if (byId("saved-conn-edit-enable-password-empty-enter")) {
-    byId("saved-conn-edit-enable-password-empty-enter").checked =
-      !!connection.enable_password_empty_enter;
-  }
+  byId("saved-conn-edit-vars").value = JSON.stringify(
+    connection.vars || {},
+    null,
+    2,
+  );
   byId("saved-conn-edit-save-password").checked = !!(
-    connection.has_password === false && connection.has_enable_password === false
+    connection.has_password === false &&
+    connection.has_enable_password === false
   );
   setStatusMessage("saved-conn-edit-out", "-", "info");
 }
@@ -549,12 +598,13 @@ function savedConnectionEditorPayload() {
     password: byId("saved-conn-edit-password")?.value || null,
     enable_password: byId("saved-conn-edit-enable-password")?.value || null,
     ssh_security: byId("saved-conn-edit-ssh-security")?.value.trim() || null,
-    linux_shell_flavor: byId("saved-conn-edit-linux-shell-flavor")?.value.trim() || null,
-    device_profile: byId("saved-conn-edit-device-profile")?.value.trim() || null,
+    linux_shell_flavor:
+      byId("saved-conn-edit-linux-shell-flavor")?.value.trim() || null,
+    device_profile:
+      byId("saved-conn-edit-device-profile")?.value.trim() || null,
     enabled: !!byId("saved-conn-edit-enabled")?.checked,
     labels: splitEditorCsv(byId("saved-conn-edit-labels")?.value || ""),
     groups: getMultiSelectValuesById("saved-conn-edit-groups"),
-    enable_password_empty_enter: !!byId("saved-conn-edit-enable-password-empty-enter")?.checked,
     vars: parseSavedConnectionEditorVars(),
   };
 }
@@ -562,7 +612,11 @@ function savedConnectionEditorPayload() {
 async function saveSavedConnectionEditor() {
   const name = byId("saved-conn-edit-name")?.value.trim() || "";
   if (!name) {
-    setStatusMessage("saved-conn-edit-out", t("connectionNameRequired"), "error");
+    setStatusMessage(
+      "saved-conn-edit-out",
+      t("connectionNameRequired"),
+      "error",
+    );
     return;
   }
   setStatusMessage("saved-conn-edit-out", t("running"), "running");
@@ -576,30 +630,39 @@ async function saveSavedConnectionEditor() {
       payload.password = null;
       payload.enable_password = null;
     }
-    const data = await request("PUT", `/api/connections/${encodeURIComponent(name)}`, {
-      connection: payload,
-      save_password: !dontSavePassword,
-    });
+    const data = await request(
+      "PUT",
+      `/api/connections/${encodeURIComponent(name)}`,
+      {
+        connection: payload,
+        save_password: !dontSavePassword,
+      },
+    );
     cachedSavedConnectionDetails.set(data.name || name, data);
     await loadSavedConnections();
     ensureSelectValue("saved-conn-name", data.name || name);
     if (
       currentConnectionTarget.kind === "saved" &&
-      safeString(currentConnectionTarget.details?.name || "").trim() === (data.name || name)
+      safeString(currentConnectionTarget.details?.name || "").trim() ===
+        (data.name || name)
     ) {
       setCurrentConnectionTarget(
         savedConnectionDetails({
           ...((data && data.connection) || payload),
           name: data.name || name,
-        })
+        }),
       );
       renderSidebarConnectionSelector();
     }
-    setStatusMessage("saved-conn-out", `${t("saved")}: ${data.name || name}`, "success");
+    setStatusMessage(
+      "saved-conn-out",
+      `${t("saved")}: ${data.name || name}`,
+      "success",
+    );
     setStatusMessage(
       "saved-conn-edit-out",
       `${t("saved")}: ${data.name || name}`,
-      "success"
+      "success",
     );
     hideSavedConnectionEditorModal();
   } catch (e) {
@@ -635,12 +698,14 @@ async function deleteConnectionByName() {
 async function createSavedConnectionDraft() {
   const name = promptForResourceName(t("savedConnNewPrompt"));
   if (!name) return;
-  const exists = (cachedSavedConnections || []).some((item) => item.name === name);
+  const exists = (cachedSavedConnections || []).some(
+    (item) => item.name === name,
+  );
   if (exists) {
     setStatusMessage(
       "saved-conn-out",
       `${name} already exists, use ${t("savedConnEditBtn")} to update`,
-      "error"
+      "error",
     );
     ensureSelectValue("saved-conn-name", name);
     return;
@@ -659,10 +724,14 @@ async function createSavedConnectionDraft() {
 
   setStatusMessage("saved-conn-out", t("running"), "running");
   try {
-    const data = await request("PUT", `/api/connections/${encodeURIComponent(name)}`, {
-      connection: payload,
-      save_password: !dontSavePassword,
-    });
+    const data = await request(
+      "PUT",
+      `/api/connections/${encodeURIComponent(name)}`,
+      {
+        connection: payload,
+        save_password: !dontSavePassword,
+      },
+    );
     cachedSavedConnectionDetails.set(data.name || name, data);
     await loadSavedConnections();
     ensureSelectValue("saved-conn-name", data.name || name);
@@ -672,9 +741,13 @@ async function createSavedConnectionDraft() {
       savedConnectionDetails({
         ...((data && data.connection) || payload),
         name: data.name || name,
-      })
+      }),
     );
-    setStatusMessage("saved-conn-out", `${t("created")}: ${data.name || name}`, "success");
+    setStatusMessage(
+      "saved-conn-out",
+      `${t("created")}: ${data.name || name}`,
+      "success",
+    );
   } catch (e) {
     setStatusMessage("saved-conn-out", e.message, "error");
   }
@@ -682,29 +755,32 @@ async function createSavedConnectionDraft() {
 
 function formatConnectionImportSummary(report) {
   return `${t("savedConnImportDone")}: ${t("savedConnImportSummaryTotal")}=${safeString(
-    report.total_rows
+    report.total_rows,
   )}, ${t("savedConnImportSummaryImported")}=${safeString(
-    report.imported
+    report.imported,
   )}, ${t("savedConnImportSummaryCreated")}=${safeString(
-    report.created
+    report.created,
   )}, ${t("savedConnImportSummaryUpdated")}=${safeString(
-    report.updated
+    report.updated,
   )}, ${t("savedConnImportSummaryFailed")}=${safeString(report.failed)}`;
 }
 
 function formatConnectionImportDetail(report) {
-  const failures = Array.isArray(report && report.failures) ? report.failures : [];
+  const failures = Array.isArray(report && report.failures)
+    ? report.failures
+    : [];
   const items = failures.length
     ? failures
         .map((item) => {
-          const nameSuffix = item && item.name ? ` [${escapeHtml(item.name)}]` : "";
+          const nameSuffix =
+            item && item.name ? ` [${escapeHtml(item.name)}]` : "";
           return `<li class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"><span class="font-semibold">${escapeHtml(
-            `${t("savedConnImportFailureRow")} ${safeString(item.row)}`
+            `${t("savedConnImportFailureRow")} ${safeString(item.row)}`,
           )}</span>${nameSuffix}: ${escapeHtml(safeString(item.message))}</li>`;
         })
         .join("")
     : `<div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">${escapeHtml(
-        "-"
+        "-",
       )}</div>`;
 
   return `
@@ -712,25 +788,25 @@ function formatConnectionImportDetail(report) {
       <section class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
         <div class="grid gap-1 sm:grid-cols-2">
           <div>${escapeHtml(t("savedConnImportSummaryTotal"))}: ${escapeHtml(
-            safeString(report.total_rows)
+            safeString(report.total_rows),
           )}</div>
           <div>${escapeHtml(t("savedConnImportSummaryImported"))}: ${escapeHtml(
-            safeString(report.imported)
+            safeString(report.imported),
           )}</div>
           <div>${escapeHtml(t("savedConnImportSummaryCreated"))}: ${escapeHtml(
-            safeString(report.created)
+            safeString(report.created),
           )}</div>
           <div>${escapeHtml(t("savedConnImportSummaryUpdated"))}: ${escapeHtml(
-            safeString(report.updated)
+            safeString(report.updated),
           )}</div>
           <div>${escapeHtml(t("savedConnImportSummaryFailed"))}: ${escapeHtml(
-            safeString(report.failed)
+            safeString(report.failed),
           )}</div>
         </div>
       </section>
       <section>
         <div class="mb-2 text-xs font-semibold text-slate-500">${escapeHtml(
-          t("savedConnImportFailuresTitle")
+          t("savedConnImportFailuresTitle"),
         )}</div>
         <ul class="grid gap-2">${items}</ul>
       </section>
@@ -754,7 +830,7 @@ async function importConnectionsFromFile() {
     setStatusMessage(
       "saved-conn-out",
       formatConnectionImportSummary(data),
-      data.failed > 0 ? "error" : "success"
+      data.failed > 0 ? "error" : "success",
     );
     if ((data.failed || 0) > 0) {
       openDetailModal(formatConnectionImportDetail(data), {
@@ -781,7 +857,7 @@ async function downloadConnectionImportTemplate() {
           ? getStoredAgentApiToken()
             ? t("agentAuthInvalid")
             : t("agentAuthRequired")
-          : raw || t("requestFailed")
+          : raw || t("requestFailed"),
       );
     }
     const blob = await res.blob();

@@ -57,7 +57,6 @@ const i18nZh = {
   "connectionTargetRequired": "请先选择连接目标（已保存连接模板或临时目标），再执行该操作。",
   "savedConnNamePlaceholder": "连接配置名称",
   "savedConnSelectPlaceholder": "选择已保存连接",
-  "enablePasswordEmptyEnter": "空 enable 密码",
   "savedConnSavePassword": "不保存密码",
   "savedConnTemplateBtn": "下载模板",
   "savedConnImportBtn": "导入 CSV/Excel",

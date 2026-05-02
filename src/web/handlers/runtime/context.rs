@@ -326,26 +326,11 @@ pub(crate) fn resolve_render_connection_context_fallback(
         .or(defaults.port)
         .unwrap_or(22);
 
-    let enable_password_empty_enter = incoming
-        .enable_password_empty_enter
-        .or_else(|| {
-            saved_raw
-                .as_ref()
-                .map(|saved| saved.enable_password_empty_enter)
-        })
-        .unwrap_or(false);
-
     let enable_password = incoming
         .enable_password
         .clone()
         .or_else(|| defaults.enable_password.clone())
-        .or_else(|| {
-            if enable_password_empty_enter {
-                Some(String::new())
-            } else {
-                None
-            }
-        });
+        .or_else(|| Some(String::new()));
 
     let ssh_security = incoming
         .ssh_security

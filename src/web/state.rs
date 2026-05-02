@@ -183,21 +183,11 @@ fn merge_connection_sources(
             .filter(has_non_empty_json_object)
             .unwrap_or_else(|| serde_json::json!({}))
     };
-    let enable_password_empty_enter = incoming
-        .enable_password_empty_enter
-        .or_else(|| saved.map(|s| s.enable_password_empty_enter))
-        .unwrap_or(false);
     let enable_password = incoming
         .enable_password
         .or_else(|| saved.and_then(|s| s.enable_password.clone()))
         .or_else(|| defaults.enable_password.clone())
-        .or_else(|| {
-            if enable_password_empty_enter {
-                Some(String::new())
-            } else {
-                None
-            }
-        });
+        .or_else(|| Some(String::new()));
     let ssh_security = incoming
         .ssh_security
         .or_else(|| saved.and_then(|s| s.ssh_security))

@@ -282,21 +282,12 @@ pub(crate) fn resolve_target_connection(
         .as_ref()
         .map(|s| s.vars.clone())
         .unwrap_or_else(|| serde_json::json!({}));
-    let enable_password_empty_enter = saved
-        .as_ref()
-        .is_some_and(|conn| conn.enable_password_empty_enter);
     let enable_password = target
         .enable_password
         .clone()
         .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()))
         .or_else(|| opts.enable_password.clone())
-        .or_else(|| {
-            if enable_password_empty_enter {
-                Some(String::new())
-            } else {
-                None
-            }
-        });
+        .or_else(|| Some(String::new()));
 
     Ok(EffectiveConnection {
         connection_name: target

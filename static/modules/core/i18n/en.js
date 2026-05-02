@@ -57,7 +57,6 @@ const i18nEn = {
   "connectionTargetRequired": "Please select a connection target first (saved connection template or temporary target).",
   "savedConnNamePlaceholder": "saved connection name",
   "savedConnSelectPlaceholder": "Select a saved connection",
-  "enablePasswordEmptyEnter": "Empty enable password",
   "savedConnSavePassword": "do not save password",
   "savedConnTemplateBtn": "Download Template",
   "savedConnImportBtn": "Import CSV/Excel",

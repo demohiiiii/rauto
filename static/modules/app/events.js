@@ -142,7 +142,6 @@ function bindEvents() {
     "ssh_security",
     "linux_shell_flavor",
     "device_profile",
-    "enable-password-empty-enter",
     "saved-conn-enabled",
     "saved-conn-labels",
     "saved-conn-vars",

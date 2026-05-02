@@ -31,12 +31,12 @@ fn resolve_enable_password_update(
     let explicit_empty_enable_password = incoming_enable_password
         .as_ref()
         .is_some_and(|value| value.trim().is_empty());
-    let final_empty_enter = incoming_empty_enter.unwrap_or({
-        if explicit_empty_enable_password {
-            true
-        } else {
-            existing_empty_enter
-        }
+    let has_existing_enable_password =
+        existing_enable_password.is_some_and(|value| !value.is_empty());
+    let final_empty_enter = incoming_empty_enter.unwrap_or_else(|| {
+        explicit_empty_enable_password
+            || (incoming_enable_password.is_none()
+                && (!has_existing_enable_password || existing_empty_enter))
     });
     let normalized_incoming_enable_password =
         if final_empty_enter && incoming_enable_password.is_none() {
