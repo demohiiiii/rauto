@@ -26,6 +26,7 @@ const i18nZh = {
   "langOptionEnglish": "English",
   "langOptionChinese": "中文",
   "themeToggleTitle": "主题",
+  "themeSystem": "跟随系统",
   "themeDark": "深色",
   "themeLight": "浅色",
   "langFabTitle": "切换语言",

@@ -14,6 +14,7 @@ document.addEventListener("alpine:init", () => {
   Alpine.store("app", {
     currentLang: readGlobalState("currentLang", "zh"),
     currentTheme: readGlobalState("currentTheme", "dark"),
+    currentThemePreference: readGlobalState("currentThemePreference", "system"),
     currentTab: readGlobalState("currentTab", "standard"),
     currentOpKind: readGlobalState("currentOpKind", "exec"),
     currentExecMode: readGlobalState("currentExecMode", "direct"),
@@ -248,22 +249,42 @@ document.addEventListener("alpine:init", () => {
     },
 
     setTheme(theme) {
-      const nextTheme = theme === "light" ? "light" : "dark";
+      const nextPreference = normalizeThemePreference(theme);
+      const nextTheme = resolveThemePreference(nextPreference);
+      this.currentThemePreference = nextPreference;
       this.currentTheme = nextTheme;
+      currentThemePreference = nextPreference;
       currentTheme = nextTheme;
-      localStorage.setItem(STORAGE_KEYS.theme, nextTheme);
+      window.currentThemePreference = nextPreference;
+      window.currentTheme = nextTheme;
+      localStorage.setItem(STORAGE_KEYS.theme, nextPreference);
       if (typeof window.onAlpineThemeChange === "function") {
-        window.onAlpineThemeChange(nextTheme);
+        window.onAlpineThemeChange(nextTheme, nextPreference);
       }
     },
 
     toggleTheme() {
-      this.setTheme(this.currentTheme === "dark" ? "light" : "dark");
+      const nextPreference =
+        this.currentThemePreference === "system"
+          ? "light"
+          : this.currentThemePreference === "light"
+            ? "dark"
+            : "system";
+      this.setTheme(nextPreference);
+    },
+
+    syncSystemTheme() {
+      if (this.currentThemePreference !== "system") return;
+      this.setTheme("system");
     },
 
     syncFromGlobals() {
       this.currentLang = readGlobalState("currentLang", this.currentLang);
       this.currentTheme = readGlobalState("currentTheme", this.currentTheme);
+      this.currentThemePreference = readGlobalState(
+        "currentThemePreference",
+        this.currentThemePreference
+      );
       this.currentTab = readGlobalState("currentTab", this.currentTab);
       this.currentOpKind = readGlobalState("currentOpKind", this.currentOpKind);
       this.currentExecMode = readGlobalState("currentExecMode", this.currentExecMode);

@@ -31,6 +31,9 @@ if (typeof setupOrchestrationJsonEditor === "function") {
 if (typeof setupTxVarsAssistants === "function") {
   setupTxVarsAssistants();
 }
+if (typeof bindSystemThemeListener === "function") {
+  bindSystemThemeListener();
+}
 applyI18n();
 setStatusMessage("saved-conn-out", "-", "info");
 setStatusMessage("connection-test-out", "-", "info");

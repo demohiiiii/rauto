@@ -26,6 +26,7 @@ const i18nEn = {
   "langOptionEnglish": "English",
   "langOptionChinese": "中文",
   "themeToggleTitle": "Theme",
+  "themeSystem": "System",
   "themeDark": "Dark",
   "themeLight": "Light",
   "langFabTitle": "Switch language",

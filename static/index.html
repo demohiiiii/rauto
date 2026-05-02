@@ -17,7 +17,14 @@
   >
     <script>
       try {
-        const initialTheme = localStorage.getItem("rauto_theme") || "dark";
+        const themePreference = localStorage.getItem("rauto_theme") || "system";
+        const initialTheme =
+          themePreference === "light" || themePreference === "dark"
+            ? themePreference
+            : window.matchMedia &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
         document.body.setAttribute("data-dashboard-theme", initialTheme);
         document.body.setAttribute("data-theme", initialTheme);
       } catch (_) {}

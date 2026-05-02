@@ -55,7 +55,11 @@ function applyI18n() {
   byId("theme-toggle-btn").setAttribute("aria-label", t("themeToggleTitle"));
   byId("dashboard-tool-theme").textContent = t("themeToggleTitle");
   byId("dashboard-tool-theme-value").textContent =
-    currentTheme === "dark" ? t("themeDark") : t("themeLight");
+    typeof themePreferenceLabel === "function"
+      ? themePreferenceLabel(currentThemePreference, currentTheme)
+      : currentTheme === "dark"
+        ? t("themeDark")
+        : t("themeLight");
   byId("dashboard-tool-language").textContent = t("langMenuLabel");
   byId("lang-en").textContent = t("langOptionEnglish");
   byId("lang-zh").textContent = t("langOptionChinese");

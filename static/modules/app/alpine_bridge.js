@@ -8,9 +8,18 @@ window.onAlpineLanguageChange = function onAlpineLanguageChange(lang) {
   applyI18n();
 };
 
-window.onAlpineThemeChange = function onAlpineThemeChange(theme) {
+function themePreferenceLabel(preference, theme) {
+  if (preference === "system") {
+    return t("themeSystem");
+  }
+  return theme === "dark" ? t("themeDark") : t("themeLight");
+}
+
+window.onAlpineThemeChange = function onAlpineThemeChange(theme, preference = "system") {
   currentTheme = theme === "light" ? "light" : "dark";
+  currentThemePreference = normalizeThemePreference(preference);
   window.currentTheme = currentTheme;
+  window.currentThemePreference = currentThemePreference;
   document.body.setAttribute("data-dashboard-theme", currentTheme);
   document.body.setAttribute("data-theme", currentTheme);
   if (typeof setTxBlockJsonEditorTheme === "function") {
@@ -24,10 +33,25 @@ window.onAlpineThemeChange = function onAlpineThemeChange(theme) {
   }
   const themeValue = byId("dashboard-tool-theme-value");
   if (themeValue) {
-    themeValue.textContent =
-      currentTheme === "dark" ? t("themeDark") : t("themeLight");
+    themeValue.textContent = themePreferenceLabel(currentThemePreference, currentTheme);
   }
 };
+
+function bindSystemThemeListener() {
+  if (!window.matchMedia) return;
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const sync = () => {
+    const store = window.Alpine && Alpine.store && Alpine.store("app");
+    if (store && typeof store.syncSystemTheme === "function") {
+      store.syncSystemTheme();
+    }
+  };
+  if (typeof media.addEventListener === "function") {
+    media.addEventListener("change", sync);
+  } else if (typeof media.addListener === "function") {
+    media.addListener(sync);
+  }
+}
 
 function focusConnectionModalField(id) {
   window.requestAnimationFrame(() => {

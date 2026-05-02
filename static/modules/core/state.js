@@ -20,11 +20,26 @@ const STORAGE_KEYS = {
   connectionTarget: "rauto_connection_target",
 };
 
+function normalizeThemePreference(value) {
+  return value === "light" || value === "dark" ? value : "system";
+}
 
+function resolveThemePreference(value) {
+  const preference = normalizeThemePreference(value);
+  if (preference !== "system") {
+    return preference;
+  }
+  if (window.matchMedia) {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return "dark";
+}
 
 let currentLang = localStorage.getItem(STORAGE_KEYS.lang) || "zh";
-let currentTheme = localStorage.getItem(STORAGE_KEYS.theme) || "dark";
+let currentThemePreference = normalizeThemePreference(localStorage.getItem(STORAGE_KEYS.theme));
+let currentTheme = resolveThemePreference(currentThemePreference);
 window.currentLang = currentLang;
+window.currentThemePreference = currentThemePreference;
 window.currentTheme = currentTheme;
 let currentTab = "standard";
 window._initialTab = currentTab;
