@@ -73,6 +73,16 @@ pub fn default_profile_mode(name: &str) -> Result<String> {
     Ok(load_device_profile_form(name)?.default_mode())
 }
 
+fn canonicalize_profile_mode<'a>(
+    available_modes: &'a [String],
+    requested_mode: &str,
+) -> Option<&'a str> {
+    available_modes
+        .iter()
+        .find(|mode| mode.eq_ignore_ascii_case(requested_mode))
+        .map(String::as_str)
+}
+
 pub fn resolve_profile_mode(name: &str, requested_mode: Option<&str>) -> Result<String> {
     let profile = load_device_profile_form(name)?;
     let available_modes = profile.available_modes();
@@ -85,8 +95,8 @@ pub fn resolve_profile_mode(name: &str, requested_mode: Option<&str>) -> Result<
         return Ok(default_mode);
     };
 
-    if available_modes.iter().any(|mode| mode == requested_mode) {
-        return Ok(requested_mode.to_string());
+    if let Some(canonical_mode) = canonicalize_profile_mode(&available_modes, requested_mode) {
+        return Ok(canonical_mode.to_string());
     }
 
     Err(anyhow!(
@@ -107,4 +117,29 @@ pub fn list_available_profiles() -> Result<Vec<String>> {
         profiles.insert(custom);
     }
     Ok(profiles.into_iter().collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::canonicalize_profile_mode;
+
+    #[test]
+    fn canonicalizes_mode_case_insensitively() {
+        let modes = vec![
+            "Enable".to_string(),
+            "Config".to_string(),
+            "Shell".to_string(),
+        ];
+
+        assert_eq!(canonicalize_profile_mode(&modes, "enable"), Some("Enable"));
+        assert_eq!(canonicalize_profile_mode(&modes, "CONFIG"), Some("Config"));
+        assert_eq!(canonicalize_profile_mode(&modes, "sHeLl"), Some("Shell"));
+    }
+
+    #[test]
+    fn returns_none_for_unknown_mode() {
+        let modes = vec!["Enable".to_string(), "Config".to_string()];
+
+        assert_eq!(canonicalize_profile_mode(&modes, "user"), None);
+    }
 }

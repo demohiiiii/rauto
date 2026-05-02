@@ -42,13 +42,14 @@ pub enum Commands {
     /// Start managed agent service for rauto-manager
     Agent(AgentArgs),
 
-    /// Manage device profiles
+    /// Manage saved device connections and connectivity checks
+    #[command(visible_alias = "connection")]
     #[command(subcommand)]
     Device(DeviceCommands),
 
-    /// Manage saved connection profiles and connectivity checks
+    /// Manage device profiles
     #[command(subcommand)]
-    Connection(ConnectionCommands),
+    Profile(ProfileCommands),
 
     /// Manage inventory groups and variable resolution over saved connections
     #[command(subcommand)]
@@ -122,7 +123,7 @@ pub enum CommandFlowTemplateCommands {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum DeviceCommands {
+pub enum ProfileCommands {
     /// List available device profiles
     List,
     /// Show details of a specific device profile
@@ -156,27 +157,27 @@ pub enum DeviceCommands {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum ConnectionCommands {
+pub enum DeviceCommands {
     /// Test SSH connection without executing commands
     Test,
-    /// List saved connection profiles
+    /// List saved devices
     List,
-    /// Show a saved connection profile
+    /// Show a saved device connection
     Show {
-        /// Saved connection profile name
+        /// Saved device name
         name: String,
     },
-    /// Delete a saved connection profile
+    /// Delete a saved device connection
     Delete {
-        /// Saved connection profile name
+        /// Saved device name
         name: String,
     },
-    /// Add or update a saved connection profile directly from CLI options
+    /// Add or update a saved device connection directly from CLI options
     Add {
-        /// Saved connection profile name
+        /// Saved device name
         name: String,
     },
-    /// Import saved connections from CSV or Excel
+    /// Import saved devices from CSV or Excel
     Import {
         /// Path to .csv, .xlsx, .xls, .xlsm, or .xlsb file
         file: PathBuf,

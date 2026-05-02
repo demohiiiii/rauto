@@ -1,6 +1,6 @@
 use crate::cli::{
-    BlacklistCommands, ConnectionCommands, DeviceCommands, GlobalOpts, HistoryCommands,
-    InventoryCommands, InventoryGroupCommands,
+    BlacklistCommands, DeviceCommands, GlobalOpts, HistoryCommands, InventoryCommands,
+    InventoryGroupCommands, ProfileCommands,
 };
 use crate::config::connection_import::{self, ConnectionImportReport};
 use crate::config::connection_store::{
@@ -13,9 +13,9 @@ use anyhow::{Result, anyhow};
 use rneter::session::SessionRecorder;
 use serde::Serialize;
 
-pub(crate) fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts) -> Result<()> {
+pub(crate) fn run_profile_command(cmd: ProfileCommands, _global_opts: &GlobalOpts) -> Result<()> {
     match cmd {
-        DeviceCommands::List => {
+        ProfileCommands::List => {
             let mut profiles = template_loader::list_available_profiles()?;
             profiles.sort();
             profiles.dedup();
@@ -24,7 +24,7 @@ pub(crate) fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts)
                 println!("- {}", p);
             }
         }
-        DeviceCommands::Show { name } => {
+        ProfileCommands::Show { name } => {
             if let Some(mut profile) = crate::web::storage::builtin_profile_form(&name) {
                 println!("# built-in profile: {}", name);
                 println!("# source: rneter built-in");
@@ -54,7 +54,7 @@ pub(crate) fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts)
             println!("# path: {}", stored.locator);
             println!("{}", stored.content);
         }
-        DeviceCommands::CopyBuiltin {
+        ProfileCommands::CopyBuiltin {
             source,
             name,
             overwrite,
@@ -103,7 +103,7 @@ pub(crate) fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts)
             }
             println!("Copied built-in profile '{}' to '{}'", source, normalized);
         }
-        DeviceCommands::DeleteCustom { name } => {
+        ProfileCommands::DeleteCustom { name } => {
             let safe_name = name.trim().trim_end_matches(".toml");
             if safe_name.is_empty()
                 || !safe_name
@@ -121,7 +121,7 @@ pub(crate) fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts)
             }
             println!("Deleted custom profile '{}'", safe_name);
         }
-        DeviceCommands::Diagnose { name, json } => {
+        ProfileCommands::Diagnose { name, json } => {
             let handler = template_loader::load_device_profile(&name)?;
             let report = handler.diagnose_state_machine();
 
@@ -153,12 +153,12 @@ pub(crate) fn run_device_command(cmd: DeviceCommands, _global_opts: &GlobalOpts)
     Ok(())
 }
 
-pub(crate) async fn run_connection_command(
-    cmd: ConnectionCommands,
+pub(crate) async fn run_device_command(
+    cmd: DeviceCommands,
     global_opts: &GlobalOpts,
 ) -> Result<()> {
     match cmd {
-        ConnectionCommands::Test => {
+        DeviceCommands::Test => {
             let conn = crate::resolve_effective_connection(global_opts)?;
             let handler = template_loader::load_device_profile_for_connection(
                 &conn.device_profile,
@@ -189,7 +189,7 @@ pub(crate) async fn run_connection_command(
                     .unwrap_or_else(|| "-".to_string())
             );
         }
-        ConnectionCommands::List => {
+        DeviceCommands::List => {
             let names = list_connections()?;
             if names.is_empty() {
                 println!("-");
@@ -199,7 +199,7 @@ pub(crate) async fn run_connection_command(
                 }
             }
         }
-        ConnectionCommands::Show { name } => {
+        DeviceCommands::Show { name } => {
             let safe = connection_store::safe_connection_name(&name)?;
             let data = load_connection_raw(&safe)?;
             let output = ConnectionShowOutput {
@@ -217,31 +217,27 @@ pub(crate) async fn run_connection_command(
                 has_password: connection_store::has_saved_password(&data),
                 has_enable_password: connection_store::has_saved_enable_password(&data),
             };
-            println!("# saved connection: {}", safe);
+            println!("# saved device: {}", safe);
             println!("{}", toml::to_string_pretty(&output)?);
         }
-        ConnectionCommands::Delete { name } => {
+        DeviceCommands::Delete { name } => {
             let deleted = delete_connection(&name)?;
             if deleted {
-                println!("Deleted saved connection '{}'", name);
+                println!("Deleted saved device '{}'", name);
             } else {
-                println!("Saved connection '{}' not found", name);
+                println!("Saved device '{}' not found", name);
             }
         }
-        ConnectionCommands::Add { name } => {
+        DeviceCommands::Add { name } => {
             let conn = crate::resolve_effective_connection(global_opts)?;
             let path = crate::save_named_connection(
                 &name,
                 &conn,
                 global_opts.password.is_some() || global_opts.enable_password.is_some(),
             )?;
-            println!(
-                "Saved connection profile '{}' to '{}'",
-                name,
-                path.to_string_lossy()
-            );
+            println!("Saved device '{}' to '{}'", name, path.to_string_lossy());
         }
-        ConnectionCommands::Import { file, json } => {
+        DeviceCommands::Import { file, json } => {
             let report = connection_import::import_connections_from_path(&file)?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);

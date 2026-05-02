@@ -147,10 +147,10 @@ async fn run(cli: Cli) -> Result<()> {
             run_agent_server(args, cli.global_opts).await?;
         }
         Commands::Device(cmd) => {
-            cli_ops::run_device_command(cmd, &cli.global_opts)?;
+            cli_ops::run_device_command(cmd, &cli.global_opts).await?;
         }
-        Commands::Connection(cmd) => {
-            cli_ops::run_connection_command(cmd, &cli.global_opts).await?;
+        Commands::Profile(cmd) => {
+            cli_ops::run_profile_command(cmd, &cli.global_opts)?;
         }
         Commands::Inventory(cmd) => {
             cli_ops::run_inventory_command(cmd)?;
