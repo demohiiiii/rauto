@@ -192,14 +192,41 @@ impl AgentTaskService for AgentTaskGrpcService {
             .map_err(api_error_to_status)?;
 
         Ok(Response::new(ListTemplatesResponse {
-            templates: response
-                .into_iter()
-                .map(|item| TemplateMeta {
-                    name: item.name,
-                    path: item.path,
-                })
-                .collect(),
+            templates: response.into_iter().map(map_template_meta).collect(),
         }))
+    }
+
+    async fn get_template(
+        &self,
+        request: Request<GetTemplateRequest>,
+    ) -> Result<Response<TemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) =
+            get_template_handler(State(self.state.clone()), axum::extract::Path(req.name))
+                .await
+                .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_template_detail(response)))
+    }
+
+    async fn create_template(
+        &self,
+        request: Request<GrpcCreateTemplateRequest>,
+    ) -> Result<Response<TemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = create_template_handler(
+            State(self.state.clone()),
+            Json(CreateTemplateRequest {
+                name: req.name,
+                content: req.content,
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_template_detail(response)))
     }
 
     async fn list_command_flow_templates(
@@ -291,6 +318,154 @@ impl AgentTaskService for AgentTaskGrpcService {
                 .and_then(|value| value.as_bool())
                 .unwrap_or(true),
         }))
+    }
+
+    async fn list_tx_block_templates(
+        &self,
+        request: Request<ListTxBlockTemplatesRequest>,
+    ) -> Result<Response<ListTemplatesResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let _ = request.into_inner();
+        let Json(response) = list_tx_block_templates_handler(State(self.state.clone()))
+            .await
+            .map_err(api_error_to_status)?;
+
+        Ok(Response::new(ListTemplatesResponse {
+            templates: response.into_iter().map(map_template_meta).collect(),
+        }))
+    }
+
+    async fn get_tx_block_template(
+        &self,
+        request: Request<GetTemplateRequest>,
+    ) -> Result<Response<TemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) =
+            get_tx_block_template_handler(State(self.state.clone()), axum::extract::Path(req.name))
+                .await
+                .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_template_detail(response)))
+    }
+
+    async fn create_tx_block_template(
+        &self,
+        request: Request<GrpcCreateTemplateRequest>,
+    ) -> Result<Response<TemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = create_tx_block_template_handler(
+            State(self.state.clone()),
+            Json(CreateTemplateRequest {
+                name: req.name,
+                content: req.content,
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_template_detail(response)))
+    }
+
+    async fn list_tx_workflow_templates(
+        &self,
+        request: Request<ListTxWorkflowTemplatesRequest>,
+    ) -> Result<Response<ListTemplatesResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let _ = request.into_inner();
+        let Json(response) = list_tx_workflow_templates_handler(State(self.state.clone()))
+            .await
+            .map_err(api_error_to_status)?;
+
+        Ok(Response::new(ListTemplatesResponse {
+            templates: response.into_iter().map(map_template_meta).collect(),
+        }))
+    }
+
+    async fn get_tx_workflow_template(
+        &self,
+        request: Request<GetTemplateRequest>,
+    ) -> Result<Response<TemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = get_tx_workflow_template_handler(
+            State(self.state.clone()),
+            axum::extract::Path(req.name),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_template_detail(response)))
+    }
+
+    async fn create_tx_workflow_template(
+        &self,
+        request: Request<GrpcCreateTemplateRequest>,
+    ) -> Result<Response<TemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = create_tx_workflow_template_handler(
+            State(self.state.clone()),
+            Json(CreateTemplateRequest {
+                name: req.name,
+                content: req.content,
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_template_detail(response)))
+    }
+
+    async fn list_orchestration_templates(
+        &self,
+        request: Request<ListOrchestrationTemplatesRequest>,
+    ) -> Result<Response<ListTemplatesResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let _ = request.into_inner();
+        let Json(response) = list_orchestration_templates_handler(State(self.state.clone()))
+            .await
+            .map_err(api_error_to_status)?;
+
+        Ok(Response::new(ListTemplatesResponse {
+            templates: response.into_iter().map(map_template_meta).collect(),
+        }))
+    }
+
+    async fn get_orchestration_template(
+        &self,
+        request: Request<GetTemplateRequest>,
+    ) -> Result<Response<TemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = get_orchestration_template_handler(
+            State(self.state.clone()),
+            axum::extract::Path(req.name),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_template_detail(response)))
+    }
+
+    async fn create_orchestration_template(
+        &self,
+        request: Request<GrpcCreateTemplateRequest>,
+    ) -> Result<Response<TemplateDetail>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = create_orchestration_template_handler(
+            State(self.state.clone()),
+            Json(CreateTemplateRequest {
+                name: req.name,
+                content: req.content,
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_template_detail(response)))
     }
 
     async fn list_device_profiles(

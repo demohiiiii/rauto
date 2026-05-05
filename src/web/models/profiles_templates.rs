@@ -52,20 +52,29 @@ pub struct UpsertCustomProfileRequest {
 #[derive(Debug, Serialize)]
 pub struct TemplateMeta {
     pub name: String,
-    pub path: String,
+    pub kind: String,
+    pub source: String,
+    pub content_type: String,
+    pub size_bytes: u64,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct TemplateDetail {
     pub name: String,
-    pub path: String,
     pub content: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct CommandFlowTemplateMeta {
     pub name: String,
-    pub path: String,
+    pub kind: String,
+    pub source: String,
+    pub content_type: String,
+    pub size_bytes: u64,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -85,7 +94,6 @@ pub struct CommandFlowTemplateVarField {
 #[derive(Debug, Serialize)]
 pub struct CommandFlowTemplateDetail {
     pub name: String,
-    pub path: String,
     pub content: String,
     pub vars_schema: Vec<CommandFlowTemplateVarField>,
 }

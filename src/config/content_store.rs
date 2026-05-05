@@ -9,6 +9,8 @@ pub struct StoredContent {
     pub name: String,
     pub content: String,
     pub locator: String,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
 }
 
 pub fn storage_path() -> PathBuf {
@@ -65,9 +67,11 @@ pub fn orchestration_template_locator(name: &str) -> String {
 
 pub fn list_command_templates() -> Result<Vec<StoredContent>> {
     db::run_sync(async {
-        let rows = sqlx::query("SELECT name, content FROM command_templates ORDER BY name ASC")
-            .fetch_all(db::pool())
-            .await?;
+        let rows = sqlx::query(
+            "SELECT name, content, created_at_ms, updated_at_ms FROM command_templates ORDER BY name ASC",
+        )
+        .fetch_all(db::pool())
+        .await?;
         Ok(rows
             .into_iter()
             .map(|row| {
@@ -75,6 +79,8 @@ pub fn list_command_templates() -> Result<Vec<StoredContent>> {
                 StoredContent {
                     locator: template_locator(&name),
                     content: row.get("content"),
+                    created_at_ms: row.get("created_at_ms"),
+                    updated_at_ms: row.get("updated_at_ms"),
                     name,
                 }
             })
@@ -92,14 +98,18 @@ pub fn list_command_template_names() -> Result<Vec<String>> {
 pub fn load_command_template(name: &str) -> Result<Option<StoredContent>> {
     let safe_name = name.trim().to_string();
     db::run_sync(async move {
-        let row = sqlx::query("SELECT content FROM command_templates WHERE name = ?")
-            .bind(&safe_name)
-            .fetch_optional(db::pool())
-            .await?;
+        let row = sqlx::query(
+            "SELECT content, created_at_ms, updated_at_ms FROM command_templates WHERE name = ?",
+        )
+        .bind(&safe_name)
+        .fetch_optional(db::pool())
+        .await?;
         Ok(row.map(|row| StoredContent {
             name: safe_name.clone(),
             content: row.get("content"),
             locator: template_locator(&safe_name),
+            created_at_ms: row.get("created_at_ms"),
+            updated_at_ms: row.get("updated_at_ms"),
         }))
     })
 }
@@ -156,9 +166,11 @@ pub fn delete_command_template(name: &str) -> Result<bool> {
 
 pub fn list_custom_profiles() -> Result<Vec<StoredContent>> {
     db::run_sync(async {
-        let rows = sqlx::query("SELECT name, content FROM custom_profiles ORDER BY name ASC")
-            .fetch_all(db::pool())
-            .await?;
+        let rows = sqlx::query(
+            "SELECT name, content, created_at_ms, updated_at_ms FROM custom_profiles ORDER BY name ASC",
+        )
+        .fetch_all(db::pool())
+        .await?;
         Ok(rows
             .into_iter()
             .map(|row| {
@@ -166,6 +178,8 @@ pub fn list_custom_profiles() -> Result<Vec<StoredContent>> {
                 StoredContent {
                     locator: custom_profile_locator(&name),
                     content: row.get("content"),
+                    created_at_ms: row.get("created_at_ms"),
+                    updated_at_ms: row.get("updated_at_ms"),
                     name,
                 }
             })
@@ -183,14 +197,18 @@ pub fn list_custom_profile_names() -> Result<Vec<String>> {
 pub fn load_custom_profile(name: &str) -> Result<Option<StoredContent>> {
     let safe_name = name.trim().to_string();
     db::run_sync(async move {
-        let row = sqlx::query("SELECT content FROM custom_profiles WHERE name = ?")
-            .bind(&safe_name)
-            .fetch_optional(db::pool())
-            .await?;
+        let row = sqlx::query(
+            "SELECT content, created_at_ms, updated_at_ms FROM custom_profiles WHERE name = ?",
+        )
+        .bind(&safe_name)
+        .fetch_optional(db::pool())
+        .await?;
         Ok(row.map(|row| StoredContent {
             name: safe_name.clone(),
             content: row.get("content"),
             locator: custom_profile_locator(&safe_name),
+            created_at_ms: row.get("created_at_ms"),
+            updated_at_ms: row.get("updated_at_ms"),
         }))
     })
 }
@@ -246,10 +264,11 @@ pub fn delete_custom_profile(name: &str) -> Result<bool> {
 
 pub fn list_command_flow_templates() -> Result<Vec<StoredContent>> {
     db::run_sync(async {
-        let rows =
-            sqlx::query("SELECT name, content FROM command_flow_templates ORDER BY name ASC")
-                .fetch_all(db::pool())
-                .await?;
+        let rows = sqlx::query(
+            "SELECT name, content, created_at_ms, updated_at_ms FROM command_flow_templates ORDER BY name ASC",
+        )
+        .fetch_all(db::pool())
+        .await?;
         Ok(rows
             .into_iter()
             .map(|row| {
@@ -257,6 +276,8 @@ pub fn list_command_flow_templates() -> Result<Vec<StoredContent>> {
                 StoredContent {
                     locator: command_flow_template_locator(&name),
                     content: row.get("content"),
+                    created_at_ms: row.get("created_at_ms"),
+                    updated_at_ms: row.get("updated_at_ms"),
                     name,
                 }
             })
@@ -274,7 +295,8 @@ pub fn list_command_flow_template_names() -> Result<Vec<String>> {
 pub fn load_command_flow_template(name: &str) -> Result<Option<StoredContent>> {
     let safe_name = name.trim().to_string();
     db::run_sync(async move {
-        let row = sqlx::query("SELECT content FROM command_flow_templates WHERE name = ?")
+        let row =
+            sqlx::query("SELECT content, created_at_ms, updated_at_ms FROM command_flow_templates WHERE name = ?")
             .bind(&safe_name)
             .fetch_optional(db::pool())
             .await?;
@@ -282,6 +304,8 @@ pub fn load_command_flow_template(name: &str) -> Result<Option<StoredContent>> {
             name: safe_name.clone(),
             content: row.get("content"),
             locator: command_flow_template_locator(&safe_name),
+            created_at_ms: row.get("created_at_ms"),
+            updated_at_ms: row.get("updated_at_ms"),
         }))
     })
 }
@@ -338,9 +362,11 @@ pub fn delete_command_flow_template(name: &str) -> Result<bool> {
 
 pub fn list_tx_block_templates() -> Result<Vec<StoredContent>> {
     db::run_sync(async {
-        let rows = sqlx::query("SELECT name, content FROM tx_block_templates ORDER BY name ASC")
-            .fetch_all(db::pool())
-            .await?;
+        let rows = sqlx::query(
+            "SELECT name, content, created_at_ms, updated_at_ms FROM tx_block_templates ORDER BY name ASC",
+        )
+        .fetch_all(db::pool())
+        .await?;
         Ok(rows
             .into_iter()
             .map(|row| {
@@ -348,6 +374,8 @@ pub fn list_tx_block_templates() -> Result<Vec<StoredContent>> {
                 StoredContent {
                     locator: tx_block_template_locator(&name),
                     content: row.get("content"),
+                    created_at_ms: row.get("created_at_ms"),
+                    updated_at_ms: row.get("updated_at_ms"),
                     name,
                 }
             })
@@ -358,14 +386,18 @@ pub fn list_tx_block_templates() -> Result<Vec<StoredContent>> {
 pub fn load_tx_block_template(name: &str) -> Result<Option<StoredContent>> {
     let safe_name = name.trim().to_string();
     db::run_sync(async move {
-        let row = sqlx::query("SELECT content FROM tx_block_templates WHERE name = ?")
-            .bind(&safe_name)
-            .fetch_optional(db::pool())
-            .await?;
+        let row = sqlx::query(
+            "SELECT content, created_at_ms, updated_at_ms FROM tx_block_templates WHERE name = ?",
+        )
+        .bind(&safe_name)
+        .fetch_optional(db::pool())
+        .await?;
         Ok(row.map(|row| StoredContent {
             name: safe_name.clone(),
             content: row.get("content"),
             locator: tx_block_template_locator(&safe_name),
+            created_at_ms: row.get("created_at_ms"),
+            updated_at_ms: row.get("updated_at_ms"),
         }))
     })
 }
@@ -422,9 +454,11 @@ pub fn delete_tx_block_template(name: &str) -> Result<bool> {
 
 pub fn list_tx_workflow_templates() -> Result<Vec<StoredContent>> {
     db::run_sync(async {
-        let rows = sqlx::query("SELECT name, content FROM tx_workflow_templates ORDER BY name ASC")
-            .fetch_all(db::pool())
-            .await?;
+        let rows = sqlx::query(
+            "SELECT name, content, created_at_ms, updated_at_ms FROM tx_workflow_templates ORDER BY name ASC",
+        )
+        .fetch_all(db::pool())
+        .await?;
         Ok(rows
             .into_iter()
             .map(|row| {
@@ -432,6 +466,8 @@ pub fn list_tx_workflow_templates() -> Result<Vec<StoredContent>> {
                 StoredContent {
                     locator: tx_workflow_template_locator(&name),
                     content: row.get("content"),
+                    created_at_ms: row.get("created_at_ms"),
+                    updated_at_ms: row.get("updated_at_ms"),
                     name,
                 }
             })
@@ -442,7 +478,8 @@ pub fn list_tx_workflow_templates() -> Result<Vec<StoredContent>> {
 pub fn load_tx_workflow_template(name: &str) -> Result<Option<StoredContent>> {
     let safe_name = name.trim().to_string();
     db::run_sync(async move {
-        let row = sqlx::query("SELECT content FROM tx_workflow_templates WHERE name = ?")
+        let row =
+            sqlx::query("SELECT content, created_at_ms, updated_at_ms FROM tx_workflow_templates WHERE name = ?")
             .bind(&safe_name)
             .fetch_optional(db::pool())
             .await?;
@@ -450,6 +487,8 @@ pub fn load_tx_workflow_template(name: &str) -> Result<Option<StoredContent>> {
             name: safe_name.clone(),
             content: row.get("content"),
             locator: tx_workflow_template_locator(&safe_name),
+            created_at_ms: row.get("created_at_ms"),
+            updated_at_ms: row.get("updated_at_ms"),
         }))
     })
 }
@@ -506,10 +545,11 @@ pub fn delete_tx_workflow_template(name: &str) -> Result<bool> {
 
 pub fn list_orchestration_templates() -> Result<Vec<StoredContent>> {
     db::run_sync(async {
-        let rows =
-            sqlx::query("SELECT name, content FROM orchestration_templates ORDER BY name ASC")
-                .fetch_all(db::pool())
-                .await?;
+        let rows = sqlx::query(
+            "SELECT name, content, created_at_ms, updated_at_ms FROM orchestration_templates ORDER BY name ASC",
+        )
+        .fetch_all(db::pool())
+        .await?;
         Ok(rows
             .into_iter()
             .map(|row| {
@@ -517,6 +557,8 @@ pub fn list_orchestration_templates() -> Result<Vec<StoredContent>> {
                 StoredContent {
                     locator: orchestration_template_locator(&name),
                     content: row.get("content"),
+                    created_at_ms: row.get("created_at_ms"),
+                    updated_at_ms: row.get("updated_at_ms"),
                     name,
                 }
             })
@@ -527,7 +569,8 @@ pub fn list_orchestration_templates() -> Result<Vec<StoredContent>> {
 pub fn load_orchestration_template(name: &str) -> Result<Option<StoredContent>> {
     let safe_name = name.trim().to_string();
     db::run_sync(async move {
-        let row = sqlx::query("SELECT content FROM orchestration_templates WHERE name = ?")
+        let row =
+            sqlx::query("SELECT content, created_at_ms, updated_at_ms FROM orchestration_templates WHERE name = ?")
             .bind(&safe_name)
             .fetch_optional(db::pool())
             .await?;
@@ -535,6 +578,8 @@ pub fn load_orchestration_template(name: &str) -> Result<Option<StoredContent>> 
             name: safe_name.clone(),
             content: row.get("content"),
             locator: orchestration_template_locator(&safe_name),
+            created_at_ms: row.get("created_at_ms"),
+            updated_at_ms: row.get("updated_at_ms"),
         }))
     })
 }

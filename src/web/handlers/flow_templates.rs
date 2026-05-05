@@ -57,12 +57,16 @@ pub(super) fn builtin_command_flow_template_by_name(name: &str) -> Option<Comman
 }
 
 fn builtin_command_flow_template_metas() -> Vec<CommandFlowTemplateMeta> {
+    let content =
+        toml::to_string_pretty(&rneter::templates::cisco_like_copy_template()).unwrap_or_default();
     vec![CommandFlowTemplateMeta {
         name: BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string(),
-        path: format!(
-            "builtin://command-flow-templates/{}",
-            BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY
-        ),
+        kind: "command_flow".to_string(),
+        source: "builtin".to_string(),
+        content_type: "application/toml".to_string(),
+        size_bytes: content.len() as u64,
+        created_at_ms: 0,
+        updated_at_ms: 0,
     }]
 }
 
@@ -82,12 +86,10 @@ fn to_command_flow_template_var_field(var: &CommandFlowTemplateVar) -> CommandFl
 fn command_flow_template_detail_from_content(
     name: &str,
     content: String,
-    path: String,
 ) -> Result<CommandFlowTemplateDetail, ApiError> {
     let template = parse_command_flow_template_str(&content, Some(name)).map_err(ApiError::from)?;
     Ok(CommandFlowTemplateDetail {
         name: name.to_string(),
-        path,
         vars_schema: template
             .vars
             .iter()
@@ -99,11 +101,10 @@ fn command_flow_template_detail_from_content(
 
 fn command_flow_template_detail_from_template(
     template: CommandFlowTemplate,
-    path: String,
 ) -> Result<CommandFlowTemplateDetail, ApiError> {
     let name = template.name.clone();
     let content = toml::to_string_pretty(&template).map_err(ApiError::from)?;
-    command_flow_template_detail_from_content(&name, content, path)
+    command_flow_template_detail_from_content(&name, content)
 }
 
 pub async fn list_command_flow_templates(
@@ -134,7 +135,6 @@ pub async fn get_command_flow_template(
     Ok(Json(command_flow_template_detail_from_content(
         &safe_name,
         stored.content,
-        content_store::command_flow_template_locator(&stored.name),
     )?))
 }
 
@@ -151,10 +151,7 @@ pub async fn get_builtin_command_flow_template(
     }
     let template = builtin_command_flow_template_by_name(&normalized)
         .ok_or_else(|| ApiError::bad_request("builtin command flow template not found"))?;
-    Ok(Json(command_flow_template_detail_from_template(
-        template,
-        format!("builtin://command-flow-templates/{normalized}"),
-    )?))
+    Ok(Json(command_flow_template_detail_from_template(template)?))
 }
 
 pub async fn create_command_flow_template(
@@ -171,9 +168,7 @@ pub async fn create_command_flow_template(
         ));
     }
     Ok(Json(command_flow_template_detail_from_content(
-        &safe_name,
-        content,
-        content_store::command_flow_template_locator(&safe_name),
+        &safe_name, content,
     )?))
 }
 
@@ -190,9 +185,7 @@ pub async fn update_command_flow_template(
         return Err(ApiError::bad_request("command flow template not found"));
     }
     Ok(Json(command_flow_template_detail_from_content(
-        &safe_name,
-        content,
-        content_store::command_flow_template_locator(&safe_name),
+        &safe_name, content,
     )?))
 }
 

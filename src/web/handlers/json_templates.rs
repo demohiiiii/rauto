@@ -34,7 +34,6 @@ pub async fn get_tx_block_template(
     };
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: stored.locator,
         content: stored.content,
     }))
 }
@@ -52,7 +51,6 @@ pub async fn create_tx_block_template(
     }
     Ok(Json(TemplateDetail {
         name: safe_name.clone(),
-        path: content_store::tx_block_template_locator(&safe_name),
         content,
     }))
 }
@@ -71,7 +69,6 @@ pub async fn update_tx_block_template(
     }
     Ok(Json(TemplateDetail {
         name: safe_name.clone(),
-        path: content_store::tx_block_template_locator(&safe_name),
         content,
     }))
 }
@@ -105,7 +102,6 @@ pub async fn get_tx_workflow_template(
     };
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: stored.locator,
         content: stored.content,
     }))
 }
@@ -123,7 +119,6 @@ pub async fn create_tx_workflow_template(
     }
     Ok(Json(TemplateDetail {
         name: safe_name.clone(),
-        path: content_store::tx_workflow_template_locator(&safe_name),
         content,
     }))
 }
@@ -142,7 +137,6 @@ pub async fn update_tx_workflow_template(
     }
     Ok(Json(TemplateDetail {
         name: safe_name.clone(),
-        path: content_store::tx_workflow_template_locator(&safe_name),
         content,
     }))
 }
@@ -176,7 +170,6 @@ pub async fn get_orchestration_template(
     };
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: stored.locator,
         content: stored.content,
     }))
 }
@@ -196,7 +189,6 @@ pub async fn create_orchestration_template(
     }
     Ok(Json(TemplateDetail {
         name: safe_name.clone(),
-        path: content_store::orchestration_template_locator(&safe_name),
         content,
     }))
 }
@@ -215,7 +207,6 @@ pub async fn update_orchestration_template(
     }
     Ok(Json(TemplateDetail {
         name: safe_name.clone(),
-        path: content_store::orchestration_template_locator(&safe_name),
         content,
     }))
 }

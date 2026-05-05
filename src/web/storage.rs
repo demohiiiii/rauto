@@ -110,10 +110,7 @@ pub fn list_templates() -> Result<Vec<TemplateMeta>, ApiError> {
     Ok(content_store::list_command_templates()
         .map_err(ApiError::from)?
         .into_iter()
-        .map(|item| TemplateMeta {
-            name: item.name,
-            path: item.locator,
-        })
+        .map(|item| template_meta(item, "command", "text/plain"))
         .collect())
 }
 
@@ -121,10 +118,7 @@ pub fn list_command_flow_templates() -> Result<Vec<CommandFlowTemplateMeta>, Api
     Ok(content_store::list_command_flow_templates()
         .map_err(ApiError::from)?
         .into_iter()
-        .map(|item| CommandFlowTemplateMeta {
-            name: item.name,
-            path: item.locator,
-        })
+        .map(|item| command_flow_template_meta(item, "command_flow", "application/toml"))
         .collect())
 }
 
@@ -132,10 +126,7 @@ pub fn list_tx_block_templates() -> Result<Vec<TemplateMeta>, ApiError> {
     Ok(content_store::list_tx_block_templates()
         .map_err(ApiError::from)?
         .into_iter()
-        .map(|item| TemplateMeta {
-            name: item.name,
-            path: item.locator,
-        })
+        .map(|item| template_meta(item, "tx_block", "application/json"))
         .collect())
 }
 
@@ -143,10 +134,7 @@ pub fn list_tx_workflow_templates() -> Result<Vec<TemplateMeta>, ApiError> {
     Ok(content_store::list_tx_workflow_templates()
         .map_err(ApiError::from)?
         .into_iter()
-        .map(|item| TemplateMeta {
-            name: item.name,
-            path: item.locator,
-        })
+        .map(|item| template_meta(item, "tx_workflow", "application/json"))
         .collect())
 }
 
@@ -154,11 +142,42 @@ pub fn list_orchestration_templates() -> Result<Vec<TemplateMeta>, ApiError> {
     Ok(content_store::list_orchestration_templates()
         .map_err(ApiError::from)?
         .into_iter()
-        .map(|item| TemplateMeta {
-            name: item.name,
-            path: item.locator,
-        })
+        .map(|item| template_meta(item, "orchestration", "application/json"))
         .collect())
+}
+
+fn template_meta(
+    item: content_store::StoredContent,
+    kind: &str,
+    content_type: &str,
+) -> TemplateMeta {
+    let size_bytes = item.content.len() as u64;
+    TemplateMeta {
+        name: item.name,
+        kind: kind.to_string(),
+        source: "database".to_string(),
+        content_type: content_type.to_string(),
+        size_bytes,
+        created_at_ms: item.created_at_ms,
+        updated_at_ms: item.updated_at_ms,
+    }
+}
+
+fn command_flow_template_meta(
+    item: content_store::StoredContent,
+    kind: &str,
+    content_type: &str,
+) -> CommandFlowTemplateMeta {
+    let size_bytes = item.content.len() as u64;
+    CommandFlowTemplateMeta {
+        name: item.name,
+        kind: kind.to_string(),
+        source: "database".to_string(),
+        content_type: content_type.to_string(),
+        size_bytes,
+        created_at_ms: item.created_at_ms,
+        updated_at_ms: item.updated_at_ms,
+    }
 }
 
 pub fn safe_profile_name(raw: &str) -> Result<String, ApiError> {

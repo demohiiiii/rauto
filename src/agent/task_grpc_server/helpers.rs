@@ -169,7 +169,31 @@ pub(super) fn map_command_flow_template_meta(
 ) -> GrpcCommandFlowTemplateMeta {
     GrpcCommandFlowTemplateMeta {
         name: meta.name,
-        path: meta.path,
+        kind: meta.kind,
+        source: meta.source,
+        content_type: meta.content_type,
+        size_bytes: meta.size_bytes,
+        created_at_ms: meta.created_at_ms,
+        updated_at_ms: meta.updated_at_ms,
+    }
+}
+
+pub(super) fn map_template_meta(meta: WebTemplateMeta) -> TemplateMeta {
+    TemplateMeta {
+        name: meta.name,
+        kind: meta.kind,
+        source: meta.source,
+        content_type: meta.content_type,
+        size_bytes: meta.size_bytes,
+        created_at_ms: meta.created_at_ms,
+        updated_at_ms: meta.updated_at_ms,
+    }
+}
+
+pub(super) fn map_template_detail(detail: WebTemplateDetail) -> TemplateDetail {
+    TemplateDetail {
+        name: detail.name,
+        content: detail.content,
     }
 }
 
@@ -178,7 +202,6 @@ pub(super) fn map_command_flow_template_detail(
 ) -> Result<GrpcCommandFlowTemplateDetail, Status> {
     Ok(GrpcCommandFlowTemplateDetail {
         name: detail.name,
-        path: detail.path,
         content: detail.content,
         vars_schema: detail
             .vars_schema

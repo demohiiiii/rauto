@@ -29,7 +29,6 @@ pub async fn get_template(
     };
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: stored.locator,
         content: stored.content,
     }))
 }
@@ -44,10 +43,8 @@ pub async fn create_template(
     if !created {
         return Err(ApiError::bad_request("template already exists"));
     }
-    let locator = content_store::template_locator(&safe_name);
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: locator,
         content: req.content,
     }))
 }
@@ -63,10 +60,8 @@ pub async fn update_template(
     if !updated {
         return Err(ApiError::bad_request("template not found"));
     }
-    let locator = content_store::template_locator(&safe_name);
     Ok(Json(TemplateDetail {
         name: safe_name,
-        path: locator,
         content: req.content,
     }))
 }
