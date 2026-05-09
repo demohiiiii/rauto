@@ -21,7 +21,7 @@
 ```bash
 cargo install rauto
 
-# Linux is now the default device profile
+# The default device profile is autodetect
 rauto exec "uname -a" --host 192.168.1.10 --username root --password '******'
 
 # Use an explicit network-device profile such as Cisco IOS
@@ -227,7 +227,7 @@ Notes:
 - `rauto flow` is the preferred way to run interactive command flows from the CLI.
 - Saved flow templates live in SQLite and are reused by both CLI and Web.
 - Built-in flow templates are exposed via `/api/flow-templates/builtins`; execution accepts `--template builtin:<name>` (CLI) or `builtin:<name>` values in Web selectors.
-- Flow templates now follow rneter's current inline `{{var}}` `CommandFlowTemplate` model (command/response are plain template strings), and support output-branch actions (`next` / `jump` / `stop_success` / `stop_failure`).
+- Flow templates follow rneter's current inline `{{var}}` `CommandFlowTemplate` model and execute steps linearly with prompt-driven interactions.
 - Flow templates can declare a `vars` schema with `name`, `type`, `required`, `default`, `options`, `label`, and `description`, so `rauto` can validate runtime vars and render form fields in the Web UI.
 - Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
 - Runtime var references support both `connection_name.param_name` (cross-connection lookup) and plain `param_name` (request vars first, then current target connection fallback).
@@ -291,11 +291,29 @@ Current built-in profiles from `rneter` include:
 **List Available Profiles:**
 
 ```bash
-rauto device list
+rauto profile list
+```
+
+**Autodetect a Profile:**
+The default profile is `autodetect`, so normal execution resolves the actual built-in profile before running commands. You can also probe a device explicitly:
+
+```bash
+rauto profile autodetect \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
+```
+
+Use `-v` to print ranked candidate summaries, or `-vv` to include the full debug report:
+
+```bash
+rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
+rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secret
 ```
 
 **Using a Specific Profile:**
-Default is `linux`. To use Huawei VRP:
+Use `--device-profile` when you want to bypass autodetect. For example, to select the Huawei profile:
 
 ```bash
 rauto template show_ver.j2 \
@@ -334,11 +352,13 @@ rauto exec "show ver" \
 **Useful profile management commands:**
 
 ```bash
-rauto device list
-rauto device show cisco
-rauto device show linux
-rauto device copy-builtin cisco my_cisco
-rauto device delete-custom my_cisco
+rauto profile list
+rauto profile autodetect --host 192.168.1.1 --username admin --password secret
+rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
+rauto profile show cisco
+rauto profile show linux
+rauto profile copy-builtin cisco my_cisco
+rauto profile delete-custom my_cisco
 rauto connection test \
     --host 192.168.1.1 \
     --username admin \
@@ -348,8 +368,8 @@ rauto connection test \
 
 Notes:
 
-- `rauto device list` follows the current built-in catalog exposed by `rneter`.
-- `rauto device show <builtin>` and `rauto device copy-builtin <builtin> <custom>` both use the current built-in handler configs exported by `rneter`.
+- `rauto profile list` includes the `autodetect` pseudo-profile, current built-in profiles exposed by `rneter`, and custom profiles stored in SQLite.
+- `rauto profile show <builtin>` and `rauto profile copy-builtin <builtin> <custom>` both use the current built-in handler configs exported by `rneter`.
 
 ### Web Console
 
@@ -982,19 +1002,19 @@ Default runtime data:
 
 ## Configuration
 
-| Argument               | Env Var          | Description                                                                     |
-| ---------------------- | ---------------- | ------------------------------------------------------------------------------- |
-| `--host`               | -                | Device hostname or IP                                                           |
-| `--username`           | -                | SSH username                                                                    |
-| `--password`           | `RAUTO_PASSWORD` | SSH password                                                                    |
-| `--enable-password`    | -                | Enable/Secret password                                                          |
-| `--ssh-port`           | -                | SSH port (default: 22)                                                          |
-| `--ssh-security`       | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible`                 |
-| `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`      |
-| `--device-profile`     | -                | Device type/profile (default: `linux`; examples: `huawei`, `linux`, `fortinet`) |
-| `--connection`         | -                | Load saved connection profile by name                                           |
-| `--save-connection`    | -                | Save effective connection profile after successful connect                      |
-| `--save-password`      | -                | With `--save-connection`, also save password/enable_password                    |
+| Argument               | Env Var          | Description                                                                          |
+| ---------------------- | ---------------- | ------------------------------------------------------------------------------------ |
+| `--host`               | -                | Device hostname or IP                                                                |
+| `--username`           | -                | SSH username                                                                         |
+| `--password`           | `RAUTO_PASSWORD` | SSH password                                                                         |
+| `--enable-password`    | -                | Enable/Secret password                                                               |
+| `--ssh-port`           | -                | SSH port (default: 22)                                                               |
+| `--ssh-security`       | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible`                      |
+| `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`           |
+| `--device-profile`     | -                | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`) |
+| `--connection`         | -                | Load saved connection profile by name                                                |
+| `--save-connection`    | -                | Save effective connection profile after successful connect                           |
+| `--save-password`      | -                | With `--save-connection`, also save password/enable_password                         |
 
 Common command-specific options:
 

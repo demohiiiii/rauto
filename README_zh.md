@@ -21,7 +21,7 @@
 ```bash
 cargo install rauto
 
-# 现在默认使用 linux profile
+# 默认使用 autodetect 自动识别设备 profile
 rauto exec "uname -a" --host 192.168.1.10 --username root --password '******'
 
 # 如果要连接 Cisco 这类网络设备，显式指定 cisco profile
@@ -227,7 +227,7 @@ rauto flow \
 - `rauto flow` 是 CLI 里执行交互式命令流程的推荐入口。
 - 已保存的命令流程模板存放在 SQLite 中，CLI 和 Web 共用同一套模板。
 - 内置命令流程模板可通过 `/api/flow-templates/builtins` 获取；执行时支持 `builtin:<name>`（CLI `--template` 与 Web 下拉值都可用）。
-- 命令流程模板现在遵循 rneter 当前的 `{{var}}` 内联 `CommandFlowTemplate` 模型（命令与响应均为模板字符串），并支持输出分支动作（`next` / `jump` / `stop_success` / `stop_failure`）。
+- 命令流程模板遵循 rneter 当前的 `{{var}}` 内联 `CommandFlowTemplate` 模型，并按线性步骤执行，通过 prompt 交互规则驱动多轮问答。
 - 命令流程模板现在可以声明 `vars` 列表，支持 `name`、`type`、`required`、`default`、`options`、`label`、`description` 等字段，便于运行时校验变量，也便于 Web 自动渲染输入表单。
 - 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
 - 运行时变量支持两种引用：`连接名.参数名`（跨连接取值）与 `参数名`（先查请求变量，再回退当前目标连接参数）。
@@ -291,11 +291,29 @@ rauto upload \
 **列出可用配置：**
 
 ```bash
-rauto device list
+rauto profile list
+```
+
+**自动探测 profile：**
+默认 profile 是 `autodetect`，普通执行会在运行命令前自动解析出实际内置 profile。也可以显式探测某台设备：
+
+```bash
+rauto profile autodetect \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
+```
+
+使用 `-v` 打印按分数排序的候选摘要，使用 `-vv` 追加完整 debug 报告：
+
+```bash
+rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
+rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secret
 ```
 
 **使用特定配置：**
-默认为 `linux`。要使用 Huawei VRP：
+需要绕过自动探测时，可以使用 `--device-profile` 显式指定设备 profile。例如指定 Huawei profile：
 
 ```bash
 rauto template show_ver.j2 \
@@ -334,11 +352,13 @@ rauto exec "show ver" \
 **常用 profile 管理命令：**
 
 ```bash
-rauto device list
-rauto device show cisco
-rauto device show linux
-rauto device copy-builtin cisco my_cisco
-rauto device delete-custom my_cisco
+rauto profile list
+rauto profile autodetect --host 192.168.1.1 --username admin --password secret
+rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
+rauto profile show cisco
+rauto profile show linux
+rauto profile copy-builtin cisco my_cisco
+rauto profile delete-custom my_cisco
 rauto connection test \
     --host 192.168.1.1 \
     --username admin \
@@ -347,8 +367,8 @@ rauto connection test \
 
 说明：
 
-- `rauto device list` 会跟随当前 `rneter` 暴露的内置模板目录。
-- `rauto device show <builtin>` 和 `rauto device copy-builtin <builtin> <custom>` 都会基于当前 `rneter` 导出的内置 handler 配置工作。
+- `rauto profile list` 会包含 `autodetect` 伪 profile、当前 `rneter` 暴露的内置 profile，以及保存在 SQLite 中的自定义 profile。
+- `rauto profile show <builtin>` 和 `rauto profile copy-builtin <builtin> <custom>` 都会基于当前 `rneter` 导出的内置 handler 配置工作。
 
 ### Web 控制台
 
@@ -976,19 +996,19 @@ Group JSON 结构：
 
 ## 配置选项
 
-| 参数                   | 环境变量         | 描述                                                                   |
-| ---------------------- | ---------------- | ---------------------------------------------------------------------- |
-| `--host`               | -                | 设备主机名或 IP                                                        |
-| `--username`           | -                | SSH 用户名                                                             |
-| `--password`           | `RAUTO_PASSWORD` | SSH 密码                                                               |
-| `--enable-password`    | -                | Enable/Secret 密码                                                     |
-| `--ssh-port`           | -                | SSH 端口 (默认: 22)                                                    |
-| `--ssh-security`       | -                | SSH 安全档位：`secure`、`balanced`、`legacy-compatible`                |
-| `--linux-shell-flavor` | -                | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`            |
-| `--device-profile`     | -                | 设备类型/profile（默认：`linux`；例如：`huawei`、`linux`、`fortinet`） |
-| `--connection`         | -                | 按名称加载已保存连接配置                                               |
-| `--save-connection`    | -                | 成功连接后保存当前有效连接配置                                         |
-| `--save-password`      | -                | 配合 `--save-connection` 使用时保存密码/enable_password                |
+| 参数                   | 环境变量         | 描述                                                                        |
+| ---------------------- | ---------------- | --------------------------------------------------------------------------- |
+| `--host`               | -                | 设备主机名或 IP                                                             |
+| `--username`           | -                | SSH 用户名                                                                  |
+| `--password`           | `RAUTO_PASSWORD` | SSH 密码                                                                    |
+| `--enable-password`    | -                | Enable/Secret 密码                                                          |
+| `--ssh-port`           | -                | SSH 端口 (默认: 22)                                                         |
+| `--ssh-security`       | -                | SSH 安全档位：`secure`、`balanced`、`legacy-compatible`                     |
+| `--linux-shell-flavor` | -                | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                 |
+| `--device-profile`     | -                | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`） |
+| `--connection`         | -                | 按名称加载已保存连接配置                                                    |
+| `--save-connection`    | -                | 成功连接后保存当前有效连接配置                                              |
+| `--save-password`      | -                | 配合 `--save-connection` 使用时保存密码/enable_password                     |
 
 常用命令级参数：
 
