@@ -3,14 +3,14 @@
  */
 
 async function fetchProfileModes(profileName) {
-  const normalized = (profileName || "").trim() || "linux";
+  const normalized = (profileName || "").trim() || "autodetect";
   if (cachedProfileModes.has(normalized)) {
     return cachedProfileModes.get(normalized);
   }
   try {
     const data = await request(
       "GET",
-      `/api/device-profiles/${encodeURIComponent(normalized)}/modes`
+      `/api/device-profiles/${encodeURIComponent(normalized)}/modes`,
     );
     const modes = Array.isArray(data.modes) ? data.modes.filter(Boolean) : [];
     const resolved = {
@@ -33,13 +33,18 @@ function applyModeOptions(selectId, modes, preferredMode, defaultMode) {
   const select = byId(selectId);
   if (!select) return;
   const normalizedModes = (modes || []).filter(Boolean);
-  const finalModes = normalizedModes.length > 0 ? normalizedModes : [defaultMode || "Enable"];
+  const finalModes =
+    normalizedModes.length > 0 ? normalizedModes : [defaultMode || "Enable"];
   const selected =
-    (preferredMode || "").trim() && finalModes.includes((preferredMode || "").trim())
+    (preferredMode || "").trim() &&
+    finalModes.includes((preferredMode || "").trim())
       ? (preferredMode || "").trim()
-      : (defaultMode || finalModes[0] || "Enable");
+      : defaultMode || finalModes[0] || "Enable";
   select.innerHTML = finalModes
-    .map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`)
+    .map(
+      (mode) =>
+        `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`,
+    )
     .join("");
   select.value = finalModes.includes(selected) ? selected : finalModes[0];
 }
@@ -50,31 +55,31 @@ function safeSelectValue(selectId) {
 }
 
 async function refreshExecutionModeOptions(overrides = {}) {
-  const profileName = safeSelectValue("device_profile") || "linux";
+  const profileName = safeSelectValue("device_profile") || "autodetect";
   const data = await fetchProfileModes(profileName);
   applyModeOptions(
     "mode",
     data.modes,
     overrides.execMode ?? safeSelectValue("mode"),
-    data.default_mode
+    data.default_mode,
   );
   applyModeOptions(
     "template-mode",
     data.modes,
     overrides.templateMode ?? safeSelectValue("template-mode"),
-    data.default_mode
+    data.default_mode,
   );
   applyModeOptions(
     "tx-mode",
     data.modes,
     overrides.txMode ?? safeSelectValue("tx-mode"),
-    data.default_mode
+    data.default_mode,
   );
   applyModeOptions(
     "tx-flow-mode",
     data.modes,
     overrides.txFlowMode ?? safeSelectValue("tx-flow-mode"),
-    data.default_mode
+    data.default_mode,
   );
   if (typeof renderTxWorkflowBuilder === "function") {
     renderTxWorkflowBuilder();
@@ -88,12 +93,14 @@ async function loadProfilesOverview() {
     const data = await request("GET", "/api/device-profiles/all");
     cachedProfileModes = new Map();
     cachedDeviceProfiles = [
+      "autodetect",
       ...(data.builtins || []).map((item) => item.name),
       ...(data.custom || []).map((item) => item.name),
     ].filter((name, idx, arr) => !!name && arr.indexOf(name) === idx);
 
     const lines = data.builtins.map((item) => {
-      const aliases = item.aliases.length > 0 ? ` (aliases: ${item.aliases.join(",")})` : "";
+      const aliases =
+        item.aliases.length > 0 ? ` (aliases: ${item.aliases.join(",")})` : "";
       return `- ${item.name}${aliases}: ${item.summary}`;
     });
     outBuiltin.textContent = lines.join("\n") || "-";
@@ -104,7 +111,7 @@ async function loadProfilesOverview() {
       {
         placeholder: t("builtinProfileSelectPlaceholder"),
         selected: selectedBuiltinName,
-      }
+      },
     );
 
     if (data.custom.length > 0) {
@@ -157,7 +164,7 @@ function renderCustomProfileOptions(keyword = "") {
 }
 
 function renderDiagnoseProfileOptions(keyword = "") {
-  populateSelectOptions("profile-diagnose-picker", cachedDeviceProfiles, {
+  populateSelectOptions("profile-diagnose-picker", cachedDeviceProfiles.filter((name) => name !== "autodetect"), {
     placeholder: t("profileDiagnoseSelectPlaceholder"),
     selected: byId("profile-diagnose-picker").value || "",
   });
@@ -172,11 +179,11 @@ async function loadBuiltinProfileDetail() {
   try {
     const data = await request(
       "GET",
-      `/api/device-profiles/builtin/${encodeURIComponent(name)}`
+      `/api/device-profiles/builtin/${encodeURIComponent(name)}`,
     );
     const profile = await request(
       "GET",
-      `/api/device-profiles/builtin/${encodeURIComponent(name)}/form`
+      `/api/device-profiles/builtin/${encodeURIComponent(name)}/form`,
     );
     lastBuiltinProfile = profile;
     byId("builtin-detail-name").value = data.name || "";
@@ -209,6 +216,7 @@ function clearBuiltinProfileDetail() {
     sys_prompts: [],
     interactions: [],
     transitions: [],
+    hooks: {},
   });
   setStatusMessage("builtin-detail-status", "-", "info");
 }
@@ -250,11 +258,14 @@ function updateProfileCommandExecutionVisibility() {
 
 function updateBuiltinCommandExecutionVisibility() {
   const mode = byId("builtin-command-execution-mode").value || "prompt_driven";
-  byId("builtin-command-execution-marker").hidden = mode !== "shell_exit_status";
+  byId("builtin-command-execution-marker").hidden =
+    mode !== "shell_exit_status";
 }
 
 function setBuiltinForm(profile) {
-  const commandExecution = normalizeCommandExecutionConfig(profile.command_execution);
+  const commandExecution = normalizeCommandExecutionConfig(
+    profile.command_execution,
+  );
   byId("builtin-command-execution-mode").value = commandExecution.mode;
   byId("builtin-command-execution-marker").value = commandExecution.marker;
   updateBuiltinCommandExecutionVisibility();
@@ -266,29 +277,33 @@ function setBuiltinForm(profile) {
   clearContainer("builtin-prompt-prefix-list");
   clearContainer("builtin-interactions-list");
   clearContainer("builtin-transitions-list");
+  clearContainer("builtin-hooks-list");
 
   (profile.more_patterns || []).forEach((v) =>
-    addReadonlySimpleListRow("builtin-more-list", v)
+    addReadonlySimpleListRow("builtin-more-list", v),
   );
   (profile.error_patterns || []).forEach((v) =>
-    addReadonlySimpleListRow("builtin-error-list", v)
+    addReadonlySimpleListRow("builtin-error-list", v),
   );
   (profile.ignore_errors || []).forEach((v) =>
-    addReadonlySimpleListRow("builtin-ignore-list", v)
+    addReadonlySimpleListRow("builtin-ignore-list", v),
   );
-  (profile.prompts || []).forEach((item) => addReadonlyPromptRow("builtin-prompts-list", item));
+  (profile.prompts || []).forEach((item) =>
+    addReadonlyPromptRow("builtin-prompts-list", item),
+  );
   (profile.sys_prompts || []).forEach((item) =>
-    addReadonlySysPromptRow("builtin-sys-prompts-list", item)
+    addReadonlySysPromptRow("builtin-sys-prompts-list", item),
   );
   (profile.prompt_prefix || []).forEach((v) =>
-    addReadonlySimpleListRow("builtin-prompt-prefix-list", v)
+    addReadonlySimpleListRow("builtin-prompt-prefix-list", v),
   );
   (profile.interactions || []).forEach((item) =>
-    addReadonlyInteractionRow("builtin-interactions-list", item)
+    addReadonlyInteractionRow("builtin-interactions-list", item),
   );
   (profile.transitions || []).forEach((item) =>
-    addReadonlyTransitionRow("builtin-transitions-list", item)
+    addReadonlyTransitionRow("builtin-transitions-list", item),
   );
+  renderReadonlyHooks("builtin-hooks-list", profile.hooks);
 }
 
 function addSimpleListRow(containerId, value = "") {
@@ -327,6 +342,466 @@ function clearContainer(containerId) {
   byId(containerId).innerHTML = "";
 }
 
+function defaultHookOperation() {
+  return {
+    kind: "command",
+    mode: "Enable",
+    command: "terminal length 0",
+    timeout: 60,
+  };
+}
+
+function normalizeHooks(hooks) {
+  return {
+    after_connect: Array.isArray(hooks?.after_connect)
+      ? hooks.after_connect
+      : [],
+    before_disconnect: Array.isArray(hooks?.before_disconnect)
+      ? hooks.before_disconnect
+      : [],
+    after_enter_state:
+      hooks?.after_enter_state && typeof hooks.after_enter_state === "object"
+        ? hooks.after_enter_state
+        : {},
+    before_exit_state:
+      hooks?.before_exit_state && typeof hooks.before_exit_state === "object"
+        ? hooks.before_exit_state
+        : {},
+  };
+}
+
+function profilePromptModes() {
+  const list = byId("prompts-list");
+  if (!list) return ["Enable"];
+  const modes = Array.from(list.querySelectorAll(".js-state"))
+    .map((input) => input.value.trim())
+    .filter(Boolean);
+  return modes.filter((mode, idx, arr) => arr.indexOf(mode) === idx);
+}
+
+function applyHookModeOptions(select, preferredMode) {
+  if (!select) return;
+  const modes = profilePromptModes();
+  const current = (preferredMode || select.value || "").trim();
+  const finalModes = modes.length > 0 ? modes : [current || "Enable"];
+  if (current && !finalModes.includes(current)) {
+    finalModes.push(current);
+  }
+  select.innerHTML = finalModes
+    .map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`)
+    .join("");
+  select.value = finalModes.includes(current) ? current : finalModes[0] || "";
+}
+
+function updateHookModeOptions() {
+  document
+    .querySelectorAll(".js-hook-mode, .js-hook-flow-mode, .js-hook-state")
+    .forEach((select) => applyHookModeOptions(select, select.value));
+}
+
+function normalizeHookCommand(operation) {
+  if (!operation || typeof operation !== "object") {
+    return defaultHookOperation();
+  }
+  return {
+    kind: "command",
+    mode: operation.mode || "Enable",
+    command: operation.command || "",
+    timeout: operation.timeout == null ? 60 : operation.timeout,
+  };
+}
+
+function normalizeHookFlow(operation) {
+  const flow = operation && operation.kind === "flow" ? operation : {};
+  const steps = Array.isArray(flow.steps) ? flow.steps : [];
+  return {
+    kind: "flow",
+    steps: steps.length > 0 ? steps : [defaultHookOperation()],
+    stop_on_error: flow.stop_on_error === undefined ? true : !!flow.stop_on_error,
+    max_steps: flow.max_steps == null ? "" : flow.max_steps,
+  };
+}
+
+function hookOperationLabel(operation) {
+  if (!operation || typeof operation !== "object") return "";
+  if (typeof txOperationDescription === "function") {
+    return txOperationDescription(operation);
+  }
+  return operation.command || operation.kind || "";
+}
+
+function hookOperationKindLabel(operation) {
+  if (!operation || typeof operation !== "object") return "command";
+  if (operation.kind === "flow") return "flow";
+  if (operation.kind === "command" || operation.command != null) return "command";
+  return operation.kind || "unsupported";
+}
+
+function setHookOperationPanels(row) {
+  const kind = row.querySelector(".js-hook-operation-kind").value;
+  row.querySelector(".js-hook-command-panel").hidden = kind !== "command";
+  row.querySelector(".js-hook-flow-panel").hidden = kind !== "flow";
+  row.querySelector(".js-hook-unsupported-panel").hidden = kind !== "unsupported";
+}
+
+function addHookFlowStep(container, command = {}) {
+  const step = normalizeHookCommand(command);
+  const row = document.createElement("div");
+  row.className = "grid gap-2 md:grid-cols-[160px_1fr_120px_auto]";
+  row.innerHTML = `
+    <select class="select js-hook-flow-mode"></select>
+    <textarea class="input min-h-16 font-mono js-hook-flow-command" placeholder="${escapeHtml(t("fieldHookCommand"))}"></textarea>
+    <input class="input js-hook-flow-timeout" type="number" min="1" step="1" placeholder="${escapeHtml(t("fieldHookTimeout"))}" />
+    <div class="flex items-start justify-end">
+      <button type="button" class="mini-btn delete js-delete-row"></button>
+    </div>
+  `;
+  applyHookModeOptions(row.querySelector(".js-hook-flow-mode"), step.mode);
+  row.querySelector(".js-hook-flow-command").value = step.command || "";
+  row.querySelector(".js-hook-flow-timeout").value =
+    step.timeout == null ? "" : String(step.timeout);
+  row.querySelector(".js-delete-row").textContent = t("deleteInlineBtn");
+  row.querySelector(".js-delete-row").onclick = () => row.remove();
+  container.appendChild(row);
+}
+
+function collectHookCommandFields(row, triggerName, name, selectors) {
+  const command = row.querySelector(selectors.command).value.trim();
+  const mode = row.querySelector(selectors.mode).value.trim();
+  const timeoutRaw = row.querySelector(selectors.timeout).value.trim();
+  if (!command) {
+    throw new Error(`${t("hookCommandRequired")}: ${triggerName}/${name}`);
+  }
+  const operation = {
+    mode: mode || "Enable",
+    command,
+  };
+  if (timeoutRaw) {
+    const timeout = Number(timeoutRaw);
+    if (!Number.isFinite(timeout) || timeout <= 0) {
+      throw new Error(`${t("hookTimeoutInvalid")}: ${triggerName}/${name}`);
+    }
+    operation.timeout = timeout;
+  }
+  return operation;
+}
+
+function setHookOperationFields(row, operation) {
+  const kindSelect = row.querySelector(".js-hook-operation-kind");
+  row.querySelector(".js-hook-flow-steps").innerHTML = "";
+  if (!operation || operation.kind === "command" || operation.command != null) {
+    const normalized = normalizeHookCommand(operation);
+    row.dataset.unsupportedOperation = "";
+    row.dataset.unsupportedOperationLabel = "";
+    kindSelect.value = "command";
+    applyHookModeOptions(row.querySelector(".js-hook-mode"), normalized.mode);
+    row.querySelector(".js-hook-command").value = normalized.command || "";
+    row.querySelector(".js-hook-timeout").value =
+      normalized.timeout == null ? "" : String(normalized.timeout);
+    setHookOperationPanels(row);
+    return;
+  }
+  if (operation.kind === "flow") {
+    const flow = normalizeHookFlow(operation);
+    row.dataset.unsupportedOperation = "";
+    row.dataset.unsupportedOperationLabel = "";
+    kindSelect.value = "flow";
+    row.querySelector(".js-hook-flow-stop-on-error").checked = flow.stop_on_error;
+    row.querySelector(".js-hook-flow-max-steps").value =
+      flow.max_steps == null ? "" : String(flow.max_steps);
+    flow.steps.forEach((step) => addHookFlowStep(row.querySelector(".js-hook-flow-steps"), step));
+    setHookOperationPanels(row);
+    return;
+  }
+  const label = hookOperationLabel(operation);
+  row.dataset.unsupportedOperation = JSON.stringify(operation);
+  row.dataset.unsupportedOperationLabel = label;
+  kindSelect.value = "unsupported";
+  row.querySelector(".js-hook-unsupported-operation").value =
+    JSON.stringify(operation, null, 2);
+  setHookOperationPanels(row);
+}
+
+function hookRowHasOperationInput(row) {
+  const kind = row.querySelector(".js-hook-operation-kind")?.value || "command";
+  if (kind === "unsupported") {
+    return !!(row.dataset.unsupportedOperation || "").trim();
+  }
+  if (kind === "flow") {
+    return Array.from(row.querySelectorAll(".js-hook-flow-command")).some(
+      (input) => input.value.trim(),
+    );
+  }
+  return !!row.querySelector(".js-hook-command").value.trim();
+}
+
+function collectHookOperation(row, triggerName, name) {
+  const unsupported = (row.dataset.unsupportedOperation || "").trim();
+  const kind = row.querySelector(".js-hook-operation-kind").value;
+  if (kind === "unsupported" && unsupported) {
+    return JSON.parse(unsupported);
+  }
+  if (kind === "flow") {
+    const steps = Array.from(row.querySelector(".js-hook-flow-steps").children).map(
+      (step, idx) =>
+        collectHookCommandFields(step, triggerName, `${name}[${idx + 1}]`, {
+          mode: ".js-hook-flow-mode",
+          command: ".js-hook-flow-command",
+          timeout: ".js-hook-flow-timeout",
+        }),
+    );
+    if (steps.length === 0) {
+      throw new Error(`${t("hookFlowStepRequired")}: ${triggerName}/${name}`);
+    }
+    const flow = {
+      kind: "flow",
+      steps,
+      stop_on_error: row.querySelector(".js-hook-flow-stop-on-error").checked,
+    };
+    const maxStepsRaw = row.querySelector(".js-hook-flow-max-steps").value.trim();
+    if (maxStepsRaw) {
+      const maxSteps = Number(maxStepsRaw);
+      if (!Number.isFinite(maxSteps) || maxSteps <= 0) {
+        throw new Error(`${t("hookMaxStepsInvalid")}: ${triggerName}/${name}`);
+      }
+      flow.max_steps = maxSteps;
+    }
+    return flow;
+  }
+  return {
+    kind: "command",
+    ...collectHookCommandFields(row, triggerName, name, {
+      mode: ".js-hook-mode",
+      command: ".js-hook-command",
+      timeout: ".js-hook-timeout",
+    }),
+  };
+}
+
+function addHookRow(containerId, item = {}, state = "") {
+  const container = byId(containerId);
+  const withState = containerId.includes("-state-");
+  const row = document.createElement("div");
+  row.className = "field-card grid gap-2";
+  row.innerHTML = `
+    <div class="grid gap-2 md:grid-cols-4">
+      ${
+        withState
+          ? `<select class="select js-hook-state" title="${escapeHtml(t("fieldHookState"))}" aria-label="${escapeHtml(t("fieldHookState"))}"></select>`
+          : ""
+      }
+      <input class="input js-hook-name" placeholder="${escapeHtml(t("fieldHookName"))}" />
+      <select class="select js-hook-failure-policy">
+        <option value="best_effort">${escapeHtml(t("hookFailureBestEffort"))}</option>
+        <option value="required">${escapeHtml(t("hookFailureRequired"))}</option>
+      </select>
+      <div class="flex items-start justify-end">
+        <button type="button" class="mini-btn delete js-delete-row"></button>
+      </div>
+    </div>
+    <label class="check-label">
+      <input type="checkbox" class="check-input js-hook-record-output" />
+      <span>${escapeHtml(t("fieldHookRecordOutput"))}</span>
+    </label>
+    <select class="select js-hook-operation-kind">
+      <option value="command">${escapeHtml(t("hookOperationKindCommand"))}</option>
+      <option value="flow">${escapeHtml(t("hookOperationKindFlow"))}</option>
+      <option value="unsupported">${escapeHtml(t("hookOperationKindUnsupported"))}</option>
+    </select>
+    <div class="grid gap-2 md:grid-cols-[160px_1fr_120px] js-hook-command-panel">
+      <select class="select js-hook-mode"></select>
+      <textarea class="input min-h-20 font-mono js-hook-command" placeholder="${escapeHtml(t("fieldHookCommand"))}"></textarea>
+      <input class="input js-hook-timeout" type="number" min="1" step="1" placeholder="${escapeHtml(t("fieldHookTimeout"))}" />
+    </div>
+    <div class="grid gap-2 js-hook-flow-panel" hidden>
+      <div class="grid gap-2 md:grid-cols-[auto_auto_1fr] md:items-center">
+        <label class="check-label">
+          <input type="checkbox" class="check-input js-hook-flow-stop-on-error" checked />
+          <span>${escapeHtml(t("fieldHookStopOnError"))}</span>
+        </label>
+        <input class="input js-hook-flow-max-steps" type="number" min="1" step="1" placeholder="${escapeHtml(t("fieldHookMaxSteps"))}" />
+        <div class="flex justify-end">
+          <button type="button" class="mini-btn add js-add-hook-flow-step"></button>
+        </div>
+      </div>
+      <div class="grid gap-2 js-hook-flow-steps"></div>
+    </div>
+    <div class="grid gap-2 js-hook-unsupported-panel" hidden>
+      <div class="text-xs text-slate-500">${escapeHtml(t("hookUnsupportedOperationHint"))}</div>
+      <textarea class="input min-h-24 font-mono js-hook-unsupported-operation" readonly></textarea>
+    </div>
+  `;
+  if (withState) {
+    applyHookModeOptions(row.querySelector(".js-hook-state"), state || "");
+  }
+  row.querySelector(".js-hook-name").value = item.name || "";
+  row.querySelector(".js-hook-failure-policy").value =
+    item.failure_policy || "best_effort";
+  row.querySelector(".js-hook-record-output").checked = !!item.record_output;
+  setHookOperationFields(row, item.operation);
+  row.querySelector(".js-delete-row").textContent = t("deleteInlineBtn");
+  row.querySelector(".js-delete-row").onclick = () => row.remove();
+  row.querySelector(".js-add-hook-flow-step").textContent = t("addInlineBtn");
+  row.querySelector(".js-add-hook-flow-step").onclick = () => {
+    addHookFlowStep(row.querySelector(".js-hook-flow-steps"), defaultHookOperation());
+  };
+  row.querySelector(".js-hook-operation-kind").onchange = () => {
+    if (row.querySelector(".js-hook-operation-kind").value === "flow") {
+      const steps = row.querySelector(".js-hook-flow-steps");
+      if (steps.children.length === 0) {
+        addHookFlowStep(steps, defaultHookOperation());
+      }
+    }
+    setHookOperationPanels(row);
+  };
+  row.querySelector(".js-hook-command").addEventListener("input", () => {
+    row.dataset.unsupportedOperation = "";
+  });
+  container.appendChild(row);
+}
+
+function collectHookRows(containerId, triggerName) {
+  return Array.from(byId(containerId).children)
+    .map((row) => {
+      const name = row.querySelector(".js-hook-name").value.trim();
+      if (!name && !hookRowHasOperationInput(row)) {
+        return null;
+      }
+      if (!name) {
+        throw new Error(t("hookNameRequired"));
+      }
+      const operation = collectHookOperation(row, triggerName, name);
+      return {
+        name,
+        operation,
+        failure_policy:
+          row.querySelector(".js-hook-failure-policy").value || "best_effort",
+        record_output: row.querySelector(".js-hook-record-output").checked,
+      };
+    })
+    .filter(Boolean);
+}
+
+function collectStateHookRows(containerId, triggerName) {
+  const grouped = {};
+  Array.from(byId(containerId).children).forEach((row) => {
+    const state = row.querySelector(".js-hook-state").value.trim();
+    const name = row.querySelector(".js-hook-name").value.trim();
+    if (!state && !name && !hookRowHasOperationInput(row)) {
+      return;
+    }
+    if (!state) {
+      throw new Error(t("hookStateRequired"));
+    }
+    if (!name) {
+      throw new Error(t("hookNameRequired"));
+    }
+    const operation = collectHookOperation(row, `${triggerName}/${state}`, name);
+    if (!grouped[state]) {
+      grouped[state] = [];
+    }
+    grouped[state].push({
+      name,
+      operation,
+      failure_policy:
+        row.querySelector(".js-hook-failure-policy").value || "best_effort",
+      record_output: row.querySelector(".js-hook-record-output").checked,
+    });
+  });
+  return grouped;
+}
+
+function addReadonlyHookRow(container, trigger, item = {}, state = "") {
+  const row = document.createElement("div");
+  row.className = "field-card grid gap-2";
+  const operation = item.operation || defaultHookOperation();
+  row.innerHTML = `
+    <div class="grid gap-2 md:grid-cols-4">
+      <input class="input js-hook-trigger" readonly />
+      <input class="input js-hook-state" readonly />
+      <input class="input js-hook-name" readonly />
+      <input class="input js-hook-failure-policy" readonly />
+    </div>
+    <label class="check-label">
+      <input type="checkbox" class="check-input js-hook-record-output" disabled />
+      <span>${escapeHtml(t("fieldHookRecordOutput"))}</span>
+    </label>
+    <input class="input js-hook-kind" readonly />
+    ${
+      operation.kind === "flow"
+        ? `<div class="grid gap-2 js-hook-flow-readonly"></div>`
+        : `<div class="grid gap-2 md:grid-cols-[160px_1fr_120px]">
+             <input class="input js-hook-mode" readonly />
+             <textarea class="input min-h-20 font-mono js-hook-command" readonly></textarea>
+             <input class="input js-hook-timeout" readonly />
+           </div>`
+    }
+  `;
+  row.querySelector(".js-hook-trigger").value = trigger;
+  row.querySelector(".js-hook-state").value = state || "-";
+  row.querySelector(".js-hook-name").value = item.name || "";
+  row.querySelector(".js-hook-failure-policy").value =
+    item.failure_policy || "best_effort";
+  row.querySelector(".js-hook-record-output").checked = !!item.record_output;
+  row.querySelector(".js-hook-kind").value = hookOperationKindLabel(operation);
+  if (operation.kind === "flow") {
+    const flow = normalizeHookFlow(operation);
+    flow.steps.forEach((step, idx) => {
+      const normalizedStep = normalizeHookCommand(step);
+      const stepRow = document.createElement("div");
+      stepRow.className = "grid gap-2 md:grid-cols-[80px_160px_1fr_120px]";
+      stepRow.innerHTML = `
+        <input class="input js-step-index" readonly />
+        <input class="input js-hook-mode" readonly />
+        <textarea class="input min-h-16 font-mono js-hook-command" readonly></textarea>
+        <input class="input js-hook-timeout" readonly />
+      `;
+      stepRow.querySelector(".js-step-index").value = `#${idx + 1}`;
+      stepRow.querySelector(".js-hook-mode").value = normalizedStep.mode || "";
+      stepRow.querySelector(".js-hook-command").value = normalizedStep.command || "";
+      stepRow.querySelector(".js-hook-timeout").value =
+        normalizedStep.timeout == null ? "" : String(normalizedStep.timeout);
+      row.querySelector(".js-hook-flow-readonly").appendChild(stepRow);
+    });
+  } else {
+    const command = normalizeHookCommand(operation);
+    row.querySelector(".js-hook-mode").value = command.mode || "";
+    row.querySelector(".js-hook-command").value =
+      command.command || hookOperationLabel(operation);
+    row.querySelector(".js-hook-timeout").value =
+      command.timeout == null ? "" : String(command.timeout);
+  }
+  container.appendChild(row);
+}
+
+function renderReadonlyHooks(containerId, hooks) {
+  const container = byId(containerId);
+  container.innerHTML = "";
+  const normalized = normalizeHooks(hooks);
+  normalized.after_connect.forEach((item) =>
+    addReadonlyHookRow(container, "after_connect", item),
+  );
+  normalized.before_disconnect.forEach((item) =>
+    addReadonlyHookRow(container, "before_disconnect", item),
+  );
+  Object.entries(normalized.after_enter_state).forEach(([state, actions]) => {
+    (Array.isArray(actions) ? actions : []).forEach((item) =>
+      addReadonlyHookRow(container, "after_enter_state", item, state),
+    );
+  });
+  Object.entries(normalized.before_exit_state).forEach(([state, actions]) => {
+    (Array.isArray(actions) ? actions : []).forEach((item) =>
+      addReadonlyHookRow(container, "before_exit_state", item, state),
+    );
+  });
+  if (container.children.length === 0) {
+    const row = document.createElement("div");
+    row.className = "field-card text-xs text-slate-500";
+    row.textContent = "-";
+    container.appendChild(row);
+  }
+}
+
 function addPromptRow(item = { state: "", patterns: [] }) {
   const container = byId("prompts-list");
   const row = document.createElement("div");
@@ -346,7 +821,11 @@ function addPromptRow(item = { state: "", patterns: [] }) {
   row.querySelector(".js-state").value = item.state || "";
   row.querySelector(".js-delete-row").textContent = t("deleteInlineBtn");
   row.querySelector(".js-add-pattern").textContent = t("addPatternInlineBtn");
-  row.querySelector(".js-delete-row").onclick = () => row.remove();
+  row.querySelector(".js-delete-row").onclick = () => {
+    row.remove();
+    updateHookModeOptions();
+  };
+  row.querySelector(".js-state").addEventListener("input", updateHookModeOptions);
   row.querySelector(".js-add-pattern").onclick = () => {
     addPatternRow(row.querySelector(".js-pattern-list"));
   };
@@ -371,19 +850,23 @@ function addReadonlyPromptRow(containerId, item = { state: "", patterns: [] }) {
   row.querySelector(".js-state").value = item.state || "";
   const patternList = row.querySelector(".js-pattern-list");
   (Array.isArray(item.patterns) ? item.patterns : []).forEach((pattern) =>
-    addReadonlyPatternRow(patternList, pattern)
+    addReadonlyPatternRow(patternList, pattern),
   );
   container.appendChild(row);
 }
 
 function collectPromptRows() {
-  return Array.from(byId("prompts-list").children).map((row) => ({
-    state: row.querySelector(".js-state").value.trim(),
-    patterns: collectPatternRows(row.querySelector(".js-pattern-list")),
-  })).filter((item) => item.state || item.patterns.length > 0);
+  return Array.from(byId("prompts-list").children)
+    .map((row) => ({
+      state: row.querySelector(".js-state").value.trim(),
+      patterns: collectPatternRows(row.querySelector(".js-pattern-list")),
+    }))
+    .filter((item) => item.state || item.patterns.length > 0);
 }
 
-function addSysPromptRow(item = { state: "", sys_name_group: "", pattern: "" }) {
+function addSysPromptRow(
+  item = { state: "", sys_name_group: "", pattern: "" },
+) {
   const container = byId("sys-prompts-list");
   const row = document.createElement("div");
   row.className = "field-card grid gap-2 md:grid-cols-[1fr_1fr_1.2fr_auto]";
@@ -405,8 +888,8 @@ function addSysPromptRow(item = { state: "", sys_name_group: "", pattern: "" }) 
 
 function addReadonlySysPromptRow(
   containerId,
-  item = { state: "", sys_name_group: "", pattern: "" }
-){
+  item = { state: "", sys_name_group: "", pattern: "" },
+) {
   const container = byId(containerId);
   const row = document.createElement("div");
   row.className = "field-card grid gap-2 md:grid-cols-3";
@@ -422,14 +905,24 @@ function addReadonlySysPromptRow(
 }
 
 function collectSysPromptRows() {
-  return Array.from(byId("sys-prompts-list").children).map((row) => ({
-    state: row.querySelector(".js-state").value.trim(),
-    sys_name_group: row.querySelector(".js-group").value.trim(),
-    pattern: row.querySelector(".js-pattern").value.trim(),
-  })).filter((item) => item.state || item.sys_name_group || item.pattern);
+  return Array.from(byId("sys-prompts-list").children)
+    .map((row) => ({
+      state: row.querySelector(".js-state").value.trim(),
+      sys_name_group: row.querySelector(".js-group").value.trim(),
+      pattern: row.querySelector(".js-pattern").value.trim(),
+    }))
+    .filter((item) => item.state || item.sys_name_group || item.pattern);
 }
 
-function addInteractionRow(item = { state: "", input: "", is_dynamic: false, record_input: true, patterns: [] }) {
+function addInteractionRow(
+  item = {
+    state: "",
+    input: "",
+    is_dynamic: false,
+    record_input: true,
+    patterns: [],
+  },
+) {
   const container = byId("interactions-list");
   const row = document.createElement("div");
   row.className = "field-card grid gap-2";
@@ -477,8 +970,14 @@ function addInteractionRow(item = { state: "", input: "", is_dynamic: false, rec
 
 function addReadonlyInteractionRow(
   containerId,
-  item = { state: "", input: "", is_dynamic: false, record_input: true, patterns: [] }
-){
+  item = {
+    state: "",
+    input: "",
+    is_dynamic: false,
+    record_input: true,
+    patterns: [],
+  },
+) {
   const container = byId(containerId);
   const row = document.createElement("div");
   row.className = "field-card grid gap-2";
@@ -506,19 +1005,21 @@ function addReadonlyInteractionRow(
     item.record_input === undefined ? true : !!item.record_input;
   const patternList = row.querySelector(".js-pattern-list");
   (Array.isArray(item.patterns) ? item.patterns : []).forEach((pattern) =>
-    addReadonlyPatternRow(patternList, pattern)
+    addReadonlyPatternRow(patternList, pattern),
   );
   container.appendChild(row);
 }
 
 function collectInteractionRows() {
-  return Array.from(byId("interactions-list").children).map((row) => ({
-    state: row.querySelector(".js-state").value.trim(),
-    input: row.querySelector(".js-input").value.trim(),
-    is_dynamic: row.querySelector(".js-is-dynamic").checked,
-    record_input: row.querySelector(".js-record-input").checked,
-    patterns: collectPatternRows(row.querySelector(".js-pattern-list")),
-  })).filter((item) => item.state || item.input || item.patterns.length > 0);
+  return Array.from(byId("interactions-list").children)
+    .map((row) => ({
+      state: row.querySelector(".js-state").value.trim(),
+      input: row.querySelector(".js-input").value.trim(),
+      is_dynamic: row.querySelector(".js-is-dynamic").checked,
+      record_input: row.querySelector(".js-record-input").checked,
+      patterns: collectPatternRows(row.querySelector(".js-pattern-list")),
+    }))
+    .filter((item) => item.state || item.input || item.patterns.length > 0);
 }
 
 function addPatternRow(container, value = "") {
@@ -551,7 +1052,9 @@ function collectPatternRows(container) {
     .filter((v) => v.length > 0);
 }
 
-function addTransitionRow(item = { from: "", command: "", to: "", is_exit: false, format_sys: false }) {
+function addTransitionRow(
+  item = { from: "", command: "", to: "", is_exit: false, format_sys: false },
+) {
   const container = byId("transitions-list");
   const row = document.createElement("div");
   row.className = "field-card grid gap-2";
@@ -587,8 +1090,8 @@ function addTransitionRow(item = { from: "", command: "", to: "", is_exit: false
 
 function addReadonlyTransitionRow(
   containerId,
-  item = { from: "", command: "", to: "", is_exit: false, format_sys: false }
-){
+  item = { from: "", command: "", to: "", is_exit: false, format_sys: false },
+) {
   const container = byId(containerId);
   const row = document.createElement("div");
   row.className = "field-card grid gap-2";
@@ -618,18 +1121,22 @@ function addReadonlyTransitionRow(
 }
 
 function collectTransitionRows() {
-  return Array.from(byId("transitions-list").children).map((row) => ({
-    from: row.querySelector(".js-from").value.trim(),
-    command: row.querySelector(".js-command").value.trim(),
-    to: row.querySelector(".js-to").value.trim(),
-    is_exit: row.querySelector(".js-is-exit").checked,
-    format_sys: row.querySelector(".js-format-sys").checked,
-  })).filter((item) => item.from || item.command || item.to);
+  return Array.from(byId("transitions-list").children)
+    .map((row) => ({
+      from: row.querySelector(".js-from").value.trim(),
+      command: row.querySelector(".js-command").value.trim(),
+      to: row.querySelector(".js-to").value.trim(),
+      is_exit: row.querySelector(".js-is-exit").checked,
+      format_sys: row.querySelector(".js-format-sys").checked,
+    }))
+    .filter((item) => item.from || item.command || item.to);
 }
 
 function setProfileForm(profile) {
   byId("custom-profile-picker").value = profile.name || "";
-  const commandExecution = normalizeCommandExecutionConfig(profile.command_execution);
+  const commandExecution = normalizeCommandExecutionConfig(
+    profile.command_execution,
+  );
   byId("profile-command-execution-mode").value = commandExecution.mode;
   byId("profile-command-execution-marker").value = commandExecution.marker;
   updateProfileCommandExecutionVisibility();
@@ -641,21 +1148,49 @@ function setProfileForm(profile) {
   clearContainer("sys-prompts-list");
   clearContainer("interactions-list");
   clearContainer("transitions-list");
+  clearContainer("hooks-after-connect-list");
+  clearContainer("hooks-before-disconnect-list");
+  clearContainer("hooks-after-enter-state-list");
+  clearContainer("hooks-before-exit-state-list");
 
-  (profile.more_patterns || []).forEach((v) => addSimpleListRow("profile-more-list", v));
-  (profile.error_patterns || []).forEach((v) => addSimpleListRow("profile-error-list", v));
-  (profile.ignore_errors || []).forEach((v) => addSimpleListRow("profile-ignore-list", v));
+  (profile.more_patterns || []).forEach((v) =>
+    addSimpleListRow("profile-more-list", v),
+  );
+  (profile.error_patterns || []).forEach((v) =>
+    addSimpleListRow("profile-error-list", v),
+  );
+  (profile.ignore_errors || []).forEach((v) =>
+    addSimpleListRow("profile-ignore-list", v),
+  );
   (profile.prompt_prefix || []).forEach((v) =>
-    addSimpleListRow("profile-prompt-prefix-list", v)
+    addSimpleListRow("profile-prompt-prefix-list", v),
   );
   (profile.prompts || []).forEach((item) => addPromptRow(item));
   (profile.sys_prompts || []).forEach((item) => addSysPromptRow(item));
   (profile.interactions || []).forEach((item) => addInteractionRow(item));
   (profile.transitions || []).forEach((item) => addTransitionRow(item));
+  const hooks = normalizeHooks(profile.hooks);
+  hooks.after_connect.forEach((item) => addHookRow("hooks-after-connect-list", item));
+  hooks.before_disconnect.forEach((item) =>
+    addHookRow("hooks-before-disconnect-list", item)
+  );
+  Object.entries(hooks.after_enter_state).forEach(([state, actions]) => {
+    (Array.isArray(actions) ? actions : []).forEach((item) =>
+      addHookRow("hooks-after-enter-state-list", item, state)
+    );
+  });
+  Object.entries(hooks.before_exit_state).forEach(([state, actions]) => {
+    (Array.isArray(actions) ? actions : []).forEach((item) =>
+      addHookRow("hooks-before-exit-state-list", item, state)
+    );
+  });
 
-  if ((profile.more_patterns || []).length === 0) addSimpleListRow("profile-more-list");
-  if ((profile.error_patterns || []).length === 0) addSimpleListRow("profile-error-list");
-  if ((profile.ignore_errors || []).length === 0) addSimpleListRow("profile-ignore-list");
+  if ((profile.more_patterns || []).length === 0)
+    addSimpleListRow("profile-more-list");
+  if ((profile.error_patterns || []).length === 0)
+    addSimpleListRow("profile-error-list");
+  if ((profile.ignore_errors || []).length === 0)
+    addSimpleListRow("profile-ignore-list");
   if ((profile.prompt_prefix || []).length === 0) {
     addSimpleListRow("profile-prompt-prefix-list");
   }
@@ -668,7 +1203,7 @@ function collectProfileForm() {
     name: byId("custom-profile-picker").value.trim(),
     command_execution: commandExecutionPayload(
       commandExecutionMode,
-      byId("profile-command-execution-marker").value
+      byId("profile-command-execution-marker").value,
     ),
     more_patterns: collectSimpleList("profile-more-list"),
     error_patterns: collectSimpleList("profile-error-list"),
@@ -678,6 +1213,15 @@ function collectProfileForm() {
     sys_prompts: collectSysPromptRows(),
     interactions: collectInteractionRows(),
     transitions: collectTransitionRows(),
+    hooks: {
+      after_connect: collectHookRows("hooks-after-connect-list", "after_connect"),
+      before_disconnect: collectHookRows("hooks-before-disconnect-list", "before_disconnect"),
+      after_enter_state: collectStateHookRows(
+        "hooks-after-enter-state-list",
+        "after_enter_state"
+      ),
+      before_exit_state: collectStateHookRows("hooks-before-exit-state-list", "before_exit_state"),
+    },
   };
 }
 
@@ -691,7 +1235,7 @@ async function loadCustomProfile() {
   try {
     const data = await request(
       "GET",
-      `/api/device-profiles/custom/${encodeURIComponent(name)}/form`
+      `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
     );
     setProfileForm(data);
     setStatusMessage("profile-out", `${t("loaded")}: ${name}`, "success");
@@ -712,10 +1256,14 @@ async function saveCustomProfile() {
     const data = await request(
       "PUT",
       `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
-      profile
+      profile,
     );
     ensureSelectValue("custom-profile-picker", data.name || name);
-    setStatusMessage("profile-out", `${t("saved")}: ${data.name || name}`, "success");
+    setStatusMessage(
+      "profile-out",
+      `${t("saved")}: ${data.name || name}`,
+      "success",
+    );
     await loadProfilesOverview();
   } catch (e) {
     setStatusMessage("profile-out", e.message, "error");
@@ -732,10 +1280,14 @@ async function createCustomProfileDraft() {
     const data = await request(
       "PUT",
       `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
-      profile
+      profile,
     );
     ensureSelectValue("custom-profile-picker", data.name || name);
-    setStatusMessage("profile-out", `${t("saved")}: ${data.name || name}`, "success");
+    setStatusMessage(
+      "profile-out",
+      `${t("saved")}: ${data.name || name}`,
+      "success",
+    );
     await loadProfilesOverview();
     if (byId("custom-profile-picker").value.trim()) {
       await loadCustomProfile();
@@ -753,7 +1305,10 @@ async function deleteCustomProfile() {
   }
   setStatusMessage("profile-out", t("running"), "running");
   try {
-    await request("DELETE", `/api/device-profiles/custom/${encodeURIComponent(name)}`);
+    await request(
+      "DELETE",
+      `/api/device-profiles/custom/${encodeURIComponent(name)}`,
+    );
     byId("custom-profile-picker").value = "";
     setProfileForm({
       name: "",
@@ -765,6 +1320,7 @@ async function deleteCustomProfile() {
       sys_prompts: [],
       interactions: [],
       transitions: [],
+      hooks: {},
     });
     setStatusMessage("profile-out", `${t("deleted")}: ${name}`, "success");
     await loadProfilesOverview();

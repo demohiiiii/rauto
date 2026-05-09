@@ -5,7 +5,16 @@ use anyhow::{Context, Result, anyhow};
 use rneter::{device::DeviceHandler, templates};
 use std::collections::BTreeSet;
 
-pub const DEFAULT_DEVICE_PROFILE: &str = "linux";
+pub const AUTODETECT_DEVICE_PROFILE: &str = "autodetect";
+pub const DEFAULT_DEVICE_PROFILE: &str = AUTODETECT_DEVICE_PROFILE;
+const AUTODETECT_MODE_FALLBACK_PROFILE: &str = "linux";
+
+pub fn is_autodetect_profile_name(name: &str) -> bool {
+    matches!(
+        name.trim().to_lowercase().as_str(),
+        "auto" | "autodetect" | "detect"
+    )
+}
 
 pub fn canonical_builtin_profile_name(name: &str) -> Option<&'static str> {
     match name.to_lowercase().as_str() {
@@ -66,10 +75,18 @@ pub fn load_device_profile_form(name: &str) -> Result<DeviceProfile> {
 }
 
 pub fn list_profile_modes(name: &str) -> Result<Vec<String>> {
+    if is_autodetect_profile_name(name) {
+        return list_profile_modes(AUTODETECT_MODE_FALLBACK_PROFILE);
+    }
+
     Ok(load_device_profile_form(name)?.available_modes())
 }
 
 pub fn default_profile_mode(name: &str) -> Result<String> {
+    if is_autodetect_profile_name(name) {
+        return default_profile_mode(AUTODETECT_MODE_FALLBACK_PROFILE);
+    }
+
     Ok(load_device_profile_form(name)?.default_mode())
 }
 
@@ -84,6 +101,10 @@ fn canonicalize_profile_mode<'a>(
 }
 
 pub fn resolve_profile_mode(name: &str, requested_mode: Option<&str>) -> Result<String> {
+    if is_autodetect_profile_name(name) {
+        return resolve_profile_mode(AUTODETECT_MODE_FALLBACK_PROFILE, requested_mode);
+    }
+
     let profile = load_device_profile_form(name)?;
     let available_modes = profile.available_modes();
     let default_mode = profile.default_mode();
@@ -110,6 +131,7 @@ pub fn resolve_profile_mode(name: &str, requested_mode: Option<&str>) -> Result<
 
 pub fn list_available_profiles() -> Result<Vec<String>> {
     let mut profiles = BTreeSet::new();
+    profiles.insert(AUTODETECT_DEVICE_PROFILE.to_string());
     for builtin in templates::available_templates() {
         profiles.insert((*builtin).to_string());
     }

@@ -19,14 +19,24 @@ pub async fn execute_tx_workflow(
     );
     let result: Result<ExecuteTxWorkflowResponse, ApiError> = async {
         let record_level = req.target.record_level;
+        let dry_run = req.run.dry_run.unwrap_or(false);
         let requested_record_level = to_record_level(record_level);
         let live_record_level = if task_ctx.is_some() {
             requested_record_level.or(Some(SessionRecordLevel::KeyEventsOnly))
         } else {
             requested_record_level
         };
-        let connection_for_context =
-            merge_connection_options(&state.defaults, req.target.connection.clone()).ok();
+        let connection_for_context = if dry_run {
+            merge_connection_options(&state.defaults, req.target.connection.clone()).ok()
+        } else {
+            Some(
+                resolve_autodetect_connection(merge_connection_options(
+                    &state.defaults,
+                    req.target.connection.clone(),
+                )?)
+                .await?,
+            )
+        };
         let workflow_source = load_json_template_from_input(
             req.workflow_template_name.as_deref(),
             req.workflow_template_content.as_deref(),
@@ -70,7 +80,7 @@ pub async fn execute_tx_workflow(
                 }))),
         );
 
-        if req.run.dry_run.unwrap_or(false) {
+        if dry_run {
             return Ok(ExecuteTxWorkflowResponse {
                 workflow: workflow_response_value,
                 tx_workflow_result: None,

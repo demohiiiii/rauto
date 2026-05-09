@@ -10,10 +10,15 @@ use crate::config::history_store;
 use crate::config::{command_blacklist, content_store, inventory_store, template_loader};
 use crate::device::DeviceClient;
 use anyhow::{Result, anyhow};
+use rneter::session::DetectRequest;
 use rneter::session::SessionRecorder;
+use rneter::templates::{DetectConnectPolicy, autodetect_with_context};
 use serde::Serialize;
 
-pub(crate) fn run_profile_command(cmd: ProfileCommands, _global_opts: &GlobalOpts) -> Result<()> {
+pub(crate) async fn run_profile_command(
+    cmd: ProfileCommands,
+    global_opts: &GlobalOpts,
+) -> Result<()> {
     match cmd {
         ProfileCommands::List => {
             let mut profiles = template_loader::list_available_profiles()?;
@@ -23,6 +28,34 @@ pub(crate) fn run_profile_command(cmd: ProfileCommands, _global_opts: &GlobalOpt
             for p in profiles {
                 println!("- {}", p);
             }
+        }
+        ProfileCommands::Autodetect => {
+            let conn = crate::resolve_effective_connection(global_opts)?;
+            let request = DetectRequest::new(
+                conn.username.clone(),
+                conn.host.clone(),
+                conn.port,
+                conn.password.clone(),
+            );
+            let context = crate::manager_execution_context_with_security(None, conn.ssh_security);
+            let report = autodetect_with_context(request, context).await?;
+            let policy = DetectConnectPolicy::default();
+            println!("# device profile autodetect");
+            println!("target: {}@{}:{}", conn.username, conn.host, conn.port);
+            println!("minimum_confidence: {:?}", policy.minimum_confidence);
+            if let Some(best) = report.best_match.as_ref() {
+                println!("best_match: {}", best.template_name);
+                println!("confidence: {:?}", best.confidence);
+                println!("score: {}", best.score);
+                println!(
+                    "accepted: {}",
+                    best.confidence.satisfies_minimum(policy.minimum_confidence)
+                );
+            } else {
+                println!("best_match: -");
+                println!("accepted: false");
+            }
+            println!("details:\n{:#?}", report);
         }
         ProfileCommands::Show { name } => {
             if let Some(mut profile) = crate::web::storage::builtin_profile_form(&name) {
@@ -159,7 +192,10 @@ pub(crate) async fn run_device_command(
 ) -> Result<()> {
     match cmd {
         DeviceCommands::Test => {
-            let conn = crate::resolve_effective_connection(global_opts)?;
+            let conn = crate::resolve_autodetect_connection(crate::resolve_effective_connection(
+                global_opts,
+            )?)
+            .await?;
             let handler = template_loader::load_device_profile_for_connection(
                 &conn.device_profile,
                 conn.linux_shell_flavor,

@@ -157,7 +157,7 @@ function bindEvents() {
           host: safeString(byId("host")?.value || "").trim() || "-",
           port: Number(byId("port")?.value || 22) || 22,
           username: safeString(byId("username")?.value || "").trim() || "-",
-          profile: safeString(byId("device_profile")?.value || "linux").trim() || "linux",
+          profile: safeString(byId("device_profile")?.value || "autodetect").trim() || "autodetect",
           kind: "temporary",
           note: t("sidebarConnectionTemporaryHint"),
         };
@@ -175,7 +175,7 @@ function bindEvents() {
           host: safeString(byId("host")?.value || "").trim() || "-",
           port: Number(byId("port")?.value || 22) || 22,
           username: safeString(byId("username")?.value || "").trim() || "-",
-          profile: safeString(byId("device_profile")?.value || "linux").trim() || "linux",
+          profile: safeString(byId("device_profile")?.value || "autodetect").trim() || "autodetect",
           kind: "temporary",
           note: t("sidebarConnectionTemporaryHint"),
         };
@@ -410,6 +410,13 @@ function bindEvents() {
   byId("add-sys-prompt-row-btn").onclick = () => addSysPromptRow();
   byId("add-interaction-row-btn").onclick = () => addInteractionRow();
   byId("add-transition-row-btn").onclick = () => addTransitionRow();
+  byId("add-after-connect-hook-btn").onclick = () => addHookRow("hooks-after-connect-list");
+  byId("add-before-disconnect-hook-btn").onclick = () =>
+    addHookRow("hooks-before-disconnect-list");
+  byId("add-after-enter-state-hook-btn").onclick = () =>
+    addHookRow("hooks-after-enter-state-list");
+  byId("add-before-exit-state-hook-btn").onclick = () =>
+    addHookRow("hooks-before-exit-state-list");
 
   byId("template-list").addEventListener("click", async (e) => {
     const row = e.target.closest(".js-template-row");

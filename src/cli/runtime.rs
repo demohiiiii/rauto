@@ -8,13 +8,15 @@ use crate::config::history_store::{self, HistoryBinding};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::session_recording;
 use crate::config::ssh_security::SshSecurityProfile;
-use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
+use crate::config::template_loader::{self, AUTODETECT_DEVICE_PROFILE};
 use crate::device::DeviceClient;
 use anyhow::Result;
 use rneter::device::DeviceHandler;
 use rneter::session::{
-    ConnectionRequest as ManagerConnectionRequest, ExecutionContext, SessionRecordLevel,
+    ConnectionRequest as ManagerConnectionRequest, DetectRequest, ExecutionContext,
+    SessionRecordLevel,
 };
+use rneter::templates::{DetectConnectPolicy, autodetect_with_context};
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
@@ -93,7 +95,7 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         .device_profile
         .clone()
         .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
-        .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
+        .unwrap_or_else(|| AUTODETECT_DEVICE_PROFILE.to_string());
     let template_dir = opts.template_dir.clone().or_else(|| {
         saved
             .as_ref()
@@ -125,6 +127,44 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         vars,
         template_dir,
     })
+}
+
+pub(crate) async fn resolve_autodetect_connection(
+    mut conn: EffectiveConnection,
+) -> Result<EffectiveConnection> {
+    if !template_loader::is_autodetect_profile_name(&conn.device_profile) {
+        return Ok(conn);
+    }
+
+    let request = DetectRequest::new(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+    );
+    let context = manager_execution_context_with_security(None, conn.ssh_security);
+    let report = autodetect_with_context(request, context).await?;
+    let policy = DetectConnectPolicy::default();
+    let best = report
+        .best_match
+        .as_ref()
+        .filter(|candidate| {
+            candidate
+                .confidence
+                .satisfies_minimum(policy.minimum_confidence)
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "device profile autodetect failed: no candidate met minimum confidence {:?}",
+                policy.minimum_confidence
+            )
+        })?;
+    info!(
+        "Device profile autodetected as '{}' (confidence={:?}, score={})",
+        best.template_name, best.confidence, best.score
+    );
+    conn.device_profile = best.template_name.clone();
+    Ok(conn)
 }
 
 pub(crate) fn maybe_save_connection_profile(

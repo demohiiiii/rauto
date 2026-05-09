@@ -126,6 +126,8 @@ pub enum CommandFlowTemplateCommands {
 pub enum ProfileCommands {
     /// List available device profiles
     List,
+    /// Probe a device and show profile autodetect details
+    Autodetect,
     /// Show details of a specific device profile
     Show {
         /// Name of the device profile

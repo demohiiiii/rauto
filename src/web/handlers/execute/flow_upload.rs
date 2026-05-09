@@ -5,7 +5,11 @@ pub async fn execute_command_flow(
     Json(req): Json<ExecuteCommandFlowRequest>,
 ) -> Result<Json<ExecuteCommandFlowResponse>, ApiError> {
     let record_level = req.target.record_level;
-    let conn = merge_connection_options(&state.defaults, req.target.connection)?;
+    let conn = resolve_autodetect_connection(merge_connection_options(
+        &state.defaults,
+        req.target.connection,
+    )?)
+    .await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,
@@ -169,7 +173,11 @@ pub async fn execute_upload(
     Json(req): Json<ExecuteUploadRequest>,
 ) -> Result<Json<ExecuteUploadResponse>, ApiError> {
     let record_level = req.target.record_level;
-    let conn = merge_connection_options(&state.defaults, req.target.connection)?;
+    let conn = resolve_autodetect_connection(merge_connection_options(
+        &state.defaults,
+        req.target.connection,
+    )?)
+    .await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,

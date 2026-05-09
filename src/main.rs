@@ -38,9 +38,9 @@ pub(crate) use cli_runtime::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
     maybe_save_connection_profile, normalize_recording_jsonl_for_cli_level,
     persist_auto_recording_history, persist_auto_recording_history_jsonl, read_required_text_input,
-    resolve_effective_connection, resolve_flow_runtime_vars, resolve_runtime_vars_for_connection,
-    save_named_connection, to_record_level, write_recording_if_requested,
-    write_recording_text_if_requested,
+    resolve_autodetect_connection, resolve_effective_connection, resolve_flow_runtime_vars,
+    resolve_runtime_vars_for_connection, save_named_connection, to_record_level,
+    write_recording_if_requested, write_recording_text_if_requested,
 };
 
 #[tokio::main]
@@ -150,7 +150,7 @@ async fn run(cli: Cli) -> Result<()> {
             cli_ops::run_device_command(cmd, &cli.global_opts).await?;
         }
         Commands::Profile(cmd) => {
-            cli_ops::run_profile_command(cmd, &cli.global_opts)?;
+            cli_ops::run_profile_command(cmd, &cli.global_opts).await?;
         }
         Commands::Inventory(cmd) => {
             cli_ops::run_inventory_command(cmd)?;

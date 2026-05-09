@@ -17,7 +17,8 @@ use std::fs;
 use std::path::PathBuf;
 
 pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
-    let conn = crate::resolve_effective_connection(opts)?;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let (tx_block, effective_mode) = match args.run_kind {
         TxRunKind::Commands => {
             if args.template.is_none() && args.commands.is_empty() {

@@ -85,7 +85,8 @@ pub(crate) async fn run_command_flow(
     let template = &parsed_template.template;
     let vars =
         crate::cli_tx_block::load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
-    let conn = crate::resolve_effective_connection(opts)?;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,
@@ -165,7 +166,8 @@ pub(crate) async fn run_command_flow(
 }
 
 pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
-    let conn = crate::resolve_effective_connection(opts)?;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,

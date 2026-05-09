@@ -3,6 +3,7 @@ use rneter::device::{
     DeviceCommandExecutionConfig, DeviceHandler, DeviceHandlerConfig, DeviceInputRule,
     DevicePromptRule, DevicePromptWithSysRule, DeviceShellFlavor, DeviceTransitionRule,
 };
+use rneter::session::SessionHooks;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -21,6 +22,8 @@ pub struct DeviceProfile {
     pub transitions: Vec<TransitionConfig>,
     #[serde(default)]
     pub ignore_errors: Vec<String>,
+    #[serde(default)]
+    pub hooks: SessionHooks,
     #[serde(default)]
     pub command_execution: DeviceCommandExecutionConfig,
 }
@@ -133,6 +136,7 @@ impl DeviceProfile {
                 .collect(),
             ignore_errors: self.ignore_errors.clone(),
             dyn_param: HashMap::new(),
+            hooks: self.hooks.clone(),
             command_execution: self.command_execution.clone(),
         })?)
     }
@@ -193,7 +197,62 @@ impl DeviceProfile {
                 })
                 .collect(),
             ignore_errors: config.ignore_errors,
+            hooks: config.hooks,
             command_execution: config.command_execution,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rneter::session::{Command, HookAction, SessionOperation};
+
+    fn sample_profile_with_hook() -> DeviceProfile {
+        DeviceProfile {
+            name: "sample".to_string(),
+            prompts: vec![PromptConfig {
+                state: "Root".to_string(),
+                patterns: vec![r"^root#\s*$".to_string()],
+            }],
+            sys_prompts: Vec::new(),
+            prompt_prefix: Vec::new(),
+            interactions: Vec::new(),
+            more_patterns: Vec::new(),
+            error_patterns: Vec::new(),
+            transitions: Vec::new(),
+            ignore_errors: Vec::new(),
+            hooks: SessionHooks {
+                after_connect: vec![HookAction::new(
+                    "disable-paging",
+                    SessionOperation::from(Command {
+                        mode: "Root".to_string(),
+                        command: "stty -echo".to_string(),
+                        ..Command::default()
+                    }),
+                )],
+                ..SessionHooks::default()
+            },
+            command_execution: DeviceCommandExecutionConfig::PromptDriven,
+        }
+    }
+
+    #[test]
+    fn device_profile_passes_hooks_to_device_handler() {
+        let profile = sample_profile_with_hook();
+        let handler = profile.to_device_handler().expect("device handler");
+
+        assert_eq!(handler.hooks().after_connect.len(), 1);
+        assert_eq!(handler.hooks().after_connect[0].name, "disable-paging");
+    }
+
+    #[test]
+    fn device_profile_toml_roundtrip_preserves_hooks() {
+        let profile = sample_profile_with_hook();
+        let toml = toml::to_string_pretty(&profile).expect("serialize profile");
+        let parsed: DeviceProfile = toml::from_str(&toml).expect("parse profile");
+
+        assert_eq!(parsed.hooks.after_connect.len(), 1);
+        assert_eq!(parsed.hooks.after_connect[0].name, "disable-paging");
     }
 }

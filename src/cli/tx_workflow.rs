@@ -33,7 +33,8 @@ pub(crate) async fn run_tx_workflow(
         &format!("tx workflow '{}'", workflow.name),
     )?;
 
-    let conn = crate::resolve_effective_connection(opts)?;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,

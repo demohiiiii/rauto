@@ -69,6 +69,51 @@ pub(crate) fn map_recording_entry_to_task_event(
                     "all": all
                 }))),
         ),
+        SessionEvent::HookStarted {
+            trigger,
+            hook_name,
+            state,
+        } => Some(
+            TaskEventInput::new("log", format!("Hook {} started", hook_name))
+                .with_stage("hook")
+                .with_details(Some(json!({
+                    "trigger": trigger,
+                    "hook_name": hook_name,
+                    "state": state
+                }))),
+        ),
+        SessionEvent::HookSucceeded {
+            trigger,
+            hook_name,
+            state,
+            output_summary,
+        } => Some(
+            TaskEventInput::new("log", format!("Hook {} succeeded", hook_name))
+                .with_stage("hook")
+                .with_level("success")
+                .with_details(Some(json!({
+                    "trigger": trigger,
+                    "hook_name": hook_name,
+                    "state": state,
+                    "output_summary": output_summary
+                }))),
+        ),
+        SessionEvent::HookFailed {
+            trigger,
+            hook_name,
+            state,
+            error,
+        } => Some(
+            TaskEventInput::new("warning", format!("Hook {} failed", hook_name))
+                .with_stage("hook")
+                .with_level("warning")
+                .with_details(Some(json!({
+                    "trigger": trigger,
+                    "hook_name": hook_name,
+                    "state": state,
+                    "error": error
+                }))),
+        ),
         SessionEvent::TxBlockStarted { block_name } => match plan {
             RecordingEventPlan::TxBlock { .. } => Some(
                 TaskEventInput::new("step_started", format!("Tx block {} started", block_name))

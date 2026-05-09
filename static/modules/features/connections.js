@@ -38,10 +38,10 @@ function renderSavedConnectionOptions(selectedName = "") {
 function renderConnectionProfileOptions() {
   const profileValues = (cachedDeviceProfiles || []).filter(Boolean);
   const mainSelected =
-    safeString(byId("device_profile")?.value || "").trim() || "linux";
+    safeString(byId("device_profile")?.value || "").trim() || "autodetect";
   const editSelected =
     safeString(byId("saved-conn-edit-device-profile")?.value || "").trim() ||
-    "linux";
+    "autodetect";
   populateSelectOptions("device_profile", profileValues, {
     placeholder: t("deviceProfilePlaceholder"),
     selected: mainSelected,
@@ -97,7 +97,8 @@ function currentTemporaryConnectionDetails() {
     port: Number(byId("port")?.value || 22) || 22,
     username: safeString(byId("username")?.value || "").trim() || "-",
     profile:
-      safeString(byId("device_profile")?.value || "linux").trim() || "linux",
+      safeString(byId("device_profile")?.value || "autodetect").trim() ||
+      "autodetect",
     kind: "temporary",
     note: t("sidebarConnectionTemporaryHint"),
   };
@@ -109,7 +110,7 @@ function savedConnectionDetails(item) {
     host: safeString(item?.host || "-"),
     port: Number(item?.port || 22) || 22,
     username: safeString(item?.username || "-"),
-    profile: safeString(item?.device_profile || "linux") || "linux",
+    profile: safeString(item?.device_profile || "autodetect") || "autodetect",
     ssh_security: safeString(item?.ssh_security || "").trim(),
     linux_shell_flavor: safeString(item?.linux_shell_flavor || "").trim(),
     kind: "saved",
@@ -163,7 +164,8 @@ function persistConnectionTarget(details = null) {
           port: Number(details.port || 22) || 22,
           username: safeString(details.username || "").trim(),
           device_profile:
-            safeString(details.profile || "linux").trim() || "linux",
+            safeString(details.profile || "autodetect").trim() ||
+            "autodetect",
           ssh_security: safeString(byId("ssh_security")?.value || "").trim(),
           linux_shell_flavor: safeString(
             byId("linux_shell_flavor")?.value || "",
@@ -244,7 +246,7 @@ function restorePersistedConnectionTarget() {
     byId("port").value = safeString(parsed.port || 22);
     byId("username").value = username;
     byId("device_profile").value =
-      safeString(parsed.device_profile || "linux").trim() || "linux";
+      safeString(parsed.device_profile || "autodetect").trim() || "autodetect";
     byId("ssh_security").value = safeString(parsed.ssh_security || "").trim();
     byId("linux_shell_flavor").value = safeString(
       parsed.linux_shell_flavor || "",
@@ -270,7 +272,9 @@ function restorePersistedConnectionTarget() {
       host: host || "-",
       port: Number(parsed.port || 22) || 22,
       username: username || "-",
-      profile: safeString(parsed.device_profile || "linux").trim() || "linux",
+      profile:
+        safeString(parsed.device_profile || "autodetect").trim() ||
+        "autodetect",
       kind: "temporary",
       note: t("sidebarConnectionTemporaryHint"),
     };
@@ -393,7 +397,8 @@ function markTemporaryConnectionActive() {
     port: Number(byId("port")?.value || 22) || 22,
     username: safeString(byId("username")?.value || "").trim() || "-",
     profile:
-      safeString(byId("device_profile")?.value || "linux").trim() || "linux",
+      safeString(byId("device_profile")?.value || "autodetect").trim() ||
+      "autodetect",
     kind: "temporary",
     note: t("sidebarConnectionTemporaryHint"),
   };
@@ -624,7 +629,7 @@ async function saveSavedConnectionEditor() {
     const dontSavePassword = !!byId("saved-conn-edit-save-password")?.checked;
     const payload = savedConnectionEditorPayload();
     if (!payload.device_profile) {
-      payload.device_profile = "linux";
+      payload.device_profile = "autodetect";
     }
     if (dontSavePassword) {
       payload.password = null;
@@ -715,7 +720,7 @@ async function createSavedConnectionDraft() {
   const dontSavePassword = byId("saved-conn-save-password").checked;
   const payload = connectionPayload();
   if (!payload.device_profile) {
-    payload.device_profile = "linux";
+    payload.device_profile = "autodetect";
   }
   if (dontSavePassword) {
     payload.password = null;

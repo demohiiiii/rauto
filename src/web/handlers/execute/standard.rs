@@ -51,7 +51,11 @@ pub async fn exec_command(
         let record_level = req.target.record_level;
         command_blacklist::ensure_command_allowed(&req.command, "direct execution")
             .map_err(|e| ApiError::bad_request(e.to_string()))?;
-        let conn = merge_connection_options(&state.defaults, req.target.connection)?;
+        let conn = resolve_autodetect_connection(merge_connection_options(
+            &state.defaults,
+            req.target.connection,
+        )?)
+        .await?;
         emit_task_event(
             &state,
             &task_ctx,
@@ -212,10 +216,13 @@ pub async fn execute_template(
         let render_conn = if dry_run {
             merge_connection_options(&state.defaults, incoming_connection.clone()).ok()
         } else {
-            Some(merge_connection_options(
-                &state.defaults,
-                incoming_connection.clone(),
-            )?)
+            Some(
+                resolve_autodetect_connection(merge_connection_options(
+                    &state.defaults,
+                    incoming_connection.clone(),
+                )?)
+                .await?,
+            )
         };
         let _ = req.template_dir.as_ref();
         let (rendered_commands, masked_rendered_commands) = render_commands_with_runtime_context(

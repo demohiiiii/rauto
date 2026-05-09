@@ -300,8 +300,8 @@ async fn compensate_stage(
             );
 
             let compensation = match orchestrator_targets::resolve_target_connection(opts, target) {
-                Ok(conn) => {
-                    match execute_compensation_action(
+                Ok(conn) => match crate::resolve_autodetect_connection(conn).await {
+                    Ok(conn) => match execute_compensation_action(
                         scope,
                         plan,
                         stage.name.as_str(),
@@ -326,8 +326,19 @@ async fn compensate_stage(
                             tx_result: None,
                             recording_jsonl: None,
                         },
-                    }
-                }
+                    },
+                    Err(e) => super::CompensationExecutionResult {
+                        scope: scope.to_string(),
+                        attempted: false,
+                        success: false,
+                        reason: Some("target connection autodetect failed".to_string()),
+                        operation: Some(format!("compensation: {}", job_result.name)),
+                        duration_ms: 0,
+                        error: Some(e.to_string()),
+                        tx_result: None,
+                        recording_jsonl: None,
+                    },
+                },
                 Err(e) => super::CompensationExecutionResult {
                     scope: scope.to_string(),
                     attempted: false,
@@ -867,7 +878,10 @@ async fn execute_target(
         },
     );
 
-    let resolved = orchestrator_targets::resolve_target_connection(opts, target);
+    let resolved = match orchestrator_targets::resolve_target_connection(opts, target) {
+        Ok(conn) => crate::resolve_autodetect_connection(conn).await,
+        Err(e) => Err(e),
+    };
     let conn = match resolved {
         Ok(conn) => conn,
         Err(e) => {

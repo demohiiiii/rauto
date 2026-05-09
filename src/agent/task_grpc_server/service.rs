@@ -477,11 +477,8 @@ impl AgentTaskService for AgentTaskGrpcService {
         let Json(response) = profiles_overview_handler(State(self.state.clone()))
             .await
             .map_err(api_error_to_status)?;
-        let all = storage::builtin_profiles()
-            .into_iter()
-            .map(|item| item.name)
-            .chain(response.custom.iter().map(|item| item.name.clone()))
-            .collect();
+        let all = template_loader::list_available_profiles()
+            .map_err(|err| Status::internal(err.to_string()))?;
 
         Ok(Response::new(ListDeviceProfilesResponse {
             builtins: response

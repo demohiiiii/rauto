@@ -39,7 +39,8 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
         "template execution",
     )?;
 
-    let conn = crate::resolve_effective_connection(opts)?;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,
@@ -84,7 +85,8 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
 
 pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
     command_blacklist::ensure_command_allowed(&args.command, "direct execution")?;
-    let conn = crate::resolve_effective_connection(opts)?;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,

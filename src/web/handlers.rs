@@ -36,7 +36,9 @@ use crate::web::models::{
     ExecuteTxWorkflowResponse, ExecuteUploadRequest, ExecuteUploadResponse, RecordLevel,
     RenderRequest, RenderResponse, SavedConnectionDetail, TaskEvent,
 };
-use crate::web::state::{AppState, ResolvedConnection, merge_connection_options};
+use crate::web::state::{
+    AppState, ResolvedConnection, merge_connection_options, resolve_autodetect_connection,
+};
 use crate::web::storage;
 use crate::{manager_connection_request, manager_execution_context_with_security};
 use axum::http::StatusCode;

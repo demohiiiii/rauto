@@ -19,7 +19,6 @@ pub async fn execute_tx_block(
             .with_progress(Some(0)),
     );
     let result: Result<ExecuteTxBlockResponse, ApiError> = async {
-        let conn = merge_connection_options(&state.defaults, req.target.connection.clone())?;
         let record_level = req.target.record_level;
         let requested_record_level = to_record_level(record_level);
         let live_record_level = if task_ctx.is_some() {
@@ -28,6 +27,12 @@ pub async fn execute_tx_block(
             requested_record_level
         };
         let dry_run = req.run.dry_run.unwrap_or(false);
+        let conn = merge_connection_options(&state.defaults, req.target.connection.clone())?;
+        let conn = if dry_run {
+            conn
+        } else {
+            resolve_autodetect_connection(conn).await?
+        };
         let (tx_block, effective_mode, block_name) = build_tx_block_from_request(req, Some(&conn))?;
         let tx_block_value = serde_json::to_value(&tx_block).map_err(ApiError::from)?;
         emit_task_event(

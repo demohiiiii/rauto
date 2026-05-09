@@ -4,9 +4,11 @@ use crate::cli::GlobalOpts;
 use crate::config::connection_store::{self, SavedConnection};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
-use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
+use crate::config::template_loader::{self, DEFAULT_DEVICE_PROFILE};
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
+use rneter::session::DetectRequest;
+use rneter::templates::{DetectConnectPolicy, autodetect_with_context};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -141,6 +143,42 @@ pub fn merge_connection_options(
     };
 
     merge_connection_sources(defaults, incoming, saved, connection_name)
+}
+
+pub async fn resolve_autodetect_connection(
+    mut conn: ResolvedConnection,
+) -> Result<ResolvedConnection, ApiError> {
+    if !template_loader::is_autodetect_profile_name(&conn.device_profile) {
+        return Ok(conn);
+    }
+
+    let request = DetectRequest::new(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.password.clone(),
+    );
+    let context = crate::manager_execution_context_with_security(None, conn.ssh_security);
+    let report = autodetect_with_context(request, context)
+        .await
+        .map_err(ApiError::from)?;
+    let policy = DetectConnectPolicy::default();
+    let best = report
+        .best_match
+        .as_ref()
+        .filter(|candidate| {
+            candidate
+                .confidence
+                .satisfies_minimum(policy.minimum_confidence)
+        })
+        .ok_or_else(|| {
+            ApiError::bad_request(format!(
+                "device profile autodetect failed: no candidate met minimum confidence {:?}",
+                policy.minimum_confidence
+            ))
+        })?;
+    conn.device_profile = best.template_name.clone();
+    Ok(conn)
 }
 
 fn merge_connection_sources(

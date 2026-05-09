@@ -428,6 +428,10 @@ function applyI18n() {
   byId("add-sys-prompt-row-btn").textContent = t("addInlineBtn");
   byId("add-interaction-row-btn").textContent = t("addInlineBtn");
   byId("add-transition-row-btn").textContent = t("addInlineBtn");
+  byId("add-after-connect-hook-btn").textContent = t("addInlineBtn");
+  byId("add-before-disconnect-hook-btn").textContent = t("addInlineBtn");
+  byId("add-after-enter-state-hook-btn").textContent = t("addInlineBtn");
+  byId("add-before-exit-state-hook-btn").textContent = t("addInlineBtn");
   byId("label-more-patterns").textContent = t("labelMorePatterns");
   byId("label-error-patterns").textContent = t("labelErrorPatterns");
   byId("label-ignore-errors").textContent = t("labelIgnoreErrors");
@@ -441,6 +445,13 @@ function applyI18n() {
   byId("label-sys-prompts").textContent = t("labelSysPrompts");
   byId("label-interactions").textContent = t("labelInteractions");
   byId("label-transitions").textContent = t("labelTransitions");
+  byId("label-hooks").textContent = t("labelHooks");
+  byId("label-builtin-hooks").textContent = t("labelHooks");
+  byId("profile-hooks-hint").textContent = t("profileHooksHint");
+  byId("label-hook-after-connect").textContent = "after_connect";
+  byId("label-hook-before-disconnect").textContent = "before_disconnect";
+  byId("label-hook-after-enter-state").textContent = "after_enter_state";
+  byId("label-hook-before-exit-state").textContent = "before_exit_state";
   byId("profile-command-execution-mode").innerHTML = `
     <option value="prompt_driven">${escapeHtml(t("commandExecutionModePromptDriven"))}</option>
     <option value="shell_exit_status">${escapeHtml(t("commandExecutionModeShellExitStatus"))}</option>

@@ -12,7 +12,7 @@ use crate::web::models::{
     SavedConnectionMeta, UpsertConnectionRequest, UpsertInventoryGroupRequest,
     UpsertInventoryLabelRequest,
 };
-use crate::web::state::{AppState, merge_connection_options};
+use crate::web::state::{AppState, merge_connection_options, resolve_autodetect_connection};
 use axum::Json;
 use axum::extract::{Multipart, Path, Query, State};
 use rneter::session::SessionRecorder;
@@ -60,7 +60,9 @@ pub async fn test_connection(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ConnectionTestRequest>,
 ) -> Result<Json<ConnectionTestResponse>, ApiError> {
-    let conn = merge_connection_options(&state.defaults, req.connection)?;
+    let conn =
+        resolve_autodetect_connection(merge_connection_options(&state.defaults, req.connection)?)
+            .await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,
