@@ -15,8 +15,6 @@ pub fn command(
         timeout: timeout_secs,
         dyn_params: CommandDynamicParams::default(),
         interaction: CommandInteraction::default(),
-        output_branches: Vec::new(),
-        output_fallback: Default::default(),
     }
 }
 

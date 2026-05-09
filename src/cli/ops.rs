@@ -12,8 +12,112 @@ use crate::device::DeviceClient;
 use anyhow::{Result, anyhow};
 use rneter::session::DetectRequest;
 use rneter::session::SessionRecorder;
-use rneter::templates::{DetectConnectPolicy, autodetect_with_context};
+use rneter::templates::{
+    DetectConnectPolicy, DetectFactKind, TemplateDetectCandidate, TemplateDetectFact,
+    TemplateDetectReport, autodetect_with_context,
+};
 use serde::Serialize;
+
+fn truncate_autodetect_sample(sample: &str) -> String {
+    const MAX_LEN: usize = 160;
+    let compact = sample.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut truncated = String::new();
+    for ch in compact.chars().take(MAX_LEN) {
+        truncated.push(ch);
+    }
+    if compact.chars().count() > MAX_LEN {
+        truncated.push('…');
+    }
+    truncated
+}
+
+fn print_autodetect_fact_summary(fact: &TemplateDetectFact) {
+    let sample = truncate_autodetect_sample(&fact.sample);
+    println!(
+        "  - {:?} from {:?}: command=\"{}\" weight={} pattern=\"{}\" sample=\"{}\"",
+        fact.kind, fact.source, fact.command, fact.weight, fact.pattern, sample
+    );
+}
+
+fn print_autodetect_candidate_summary(
+    candidate: &TemplateDetectCandidate,
+    policy: DetectConnectPolicy,
+) {
+    println!(
+        "- {}: score={} confidence={:?} accepted={}",
+        candidate.template_name,
+        candidate.score,
+        candidate.confidence,
+        candidate
+            .confidence
+            .satisfies_minimum(policy.minimum_confidence)
+    );
+    let positive_facts: Vec<_> = candidate
+        .matched_facts
+        .iter()
+        .filter(|fact| fact.kind == DetectFactKind::PositiveMatch)
+        .collect();
+    if positive_facts.is_empty() {
+        println!("  matched_facts: -");
+    } else {
+        println!("  why:");
+        for fact in positive_facts.into_iter().take(3) {
+            print_autodetect_fact_summary(fact);
+        }
+    }
+}
+
+fn print_autodetect_report(
+    report: &TemplateDetectReport,
+    policy: DetectConnectPolicy,
+    verbose: u8,
+) {
+    if let Some(best) = report.best_match.as_ref() {
+        println!("best_match: {}", best.template_name);
+        println!("confidence: {:?}", best.confidence);
+        println!("score: {}", best.score);
+        println!(
+            "accepted: {}",
+            best.confidence.satisfies_minimum(policy.minimum_confidence)
+        );
+        println!("why:");
+        let positive_facts: Vec<_> = best
+            .matched_facts
+            .iter()
+            .filter(|fact| fact.kind == DetectFactKind::PositiveMatch)
+            .collect();
+        if positive_facts.is_empty() {
+            println!("  -");
+        } else {
+            for fact in positive_facts.into_iter().take(5) {
+                print_autodetect_fact_summary(fact);
+            }
+        }
+    } else {
+        println!("best_match: -");
+        println!("accepted: false");
+    }
+
+    if verbose >= 1 {
+        println!("candidates:");
+        let mut printed = false;
+        for candidate in report
+            .candidates
+            .iter()
+            .filter(|candidate| candidate.score > 0 || !candidate.matched_facts.is_empty())
+        {
+            printed = true;
+            print_autodetect_candidate_summary(candidate, policy);
+        }
+        if !printed {
+            println!("-");
+        }
+    }
+
+    if verbose >= 2 {
+        println!("details:\n{:#?}", report);
+    }
+}
 
 pub(crate) async fn run_profile_command(
     cmd: ProfileCommands,
@@ -29,7 +133,7 @@ pub(crate) async fn run_profile_command(
                 println!("- {}", p);
             }
         }
-        ProfileCommands::Autodetect => {
+        ProfileCommands::Autodetect { verbose } => {
             let conn = crate::resolve_effective_connection(global_opts)?;
             let request = DetectRequest::new(
                 conn.username.clone(),
@@ -43,19 +147,7 @@ pub(crate) async fn run_profile_command(
             println!("# device profile autodetect");
             println!("target: {}@{}:{}", conn.username, conn.host, conn.port);
             println!("minimum_confidence: {:?}", policy.minimum_confidence);
-            if let Some(best) = report.best_match.as_ref() {
-                println!("best_match: {}", best.template_name);
-                println!("confidence: {:?}", best.confidence);
-                println!("score: {}", best.score);
-                println!(
-                    "accepted: {}",
-                    best.confidence.satisfies_minimum(policy.minimum_confidence)
-                );
-            } else {
-                println!("best_match: -");
-                println!("accepted: false");
-            }
-            println!("details:\n{:#?}", report);
+            print_autodetect_report(&report, policy, verbose);
         }
         ProfileCommands::Show { name } => {
             if let Some(mut profile) = crate::web::storage::builtin_profile_form(&name) {

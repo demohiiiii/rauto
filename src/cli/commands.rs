@@ -127,7 +127,10 @@ pub enum ProfileCommands {
     /// List available device profiles
     List,
     /// Probe a device and show profile autodetect details
-    Autodetect,
+    Autodetect {
+        #[arg(short, long, action = clap::ArgAction::Count, help = "Increase output detail: -v shows ranked candidates, -vv shows the full debug report")]
+        verbose: u8,
+    },
     /// Show details of a specific device profile
     Show {
         /// Name of the device profile

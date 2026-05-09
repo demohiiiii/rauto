@@ -1,53 +1,16 @@
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::{manager_connection_request, manager_execution_context_with_security};
 use anyhow::{Result, anyhow};
-use regex::RegexSet;
 use rneter::{
     device::DeviceHandler,
     session::{
-        CmdJob, Command, CommandBranchTarget, CommandFlow, CommandFlowOutput,
-        CommandOutputBranchSource, MANAGER, Output, SessionRecordLevel, SessionRecorder,
+        CmdJob, Command, CommandFlow, CommandFlowOutput, MANAGER, Output, SessionRecordLevel,
+        SessionRecorder,
     },
 };
-use std::borrow::Cow;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
-
-fn branch_source_text<'a>(source: &CommandOutputBranchSource, output: &'a Output) -> Cow<'a, str> {
-    match source {
-        CommandOutputBranchSource::All => Cow::Borrowed(output.all.as_str()),
-        CommandOutputBranchSource::Content => Cow::Borrowed(output.content.as_str()),
-        CommandOutputBranchSource::Prompt => {
-            Cow::Borrowed(output.prompt.as_deref().unwrap_or_default())
-        }
-    }
-}
-
-fn resolve_output_branch_target(command: &Command, output: &Output) -> Result<CommandBranchTarget> {
-    for (rule_index, rule) in command.output_branches.iter().enumerate() {
-        if rule.patterns.is_empty() {
-            return Err(anyhow!(
-                "command '{}' has an output branch rule with no patterns at index {}",
-                command.command,
-                rule_index
-            ));
-        }
-        let patterns = RegexSet::new(&rule.patterns).map_err(|err| {
-            anyhow!(
-                "command '{}' has invalid output branch regex at index {}: {}",
-                command.command,
-                rule_index,
-                err
-            )
-        })?;
-        let source_text = branch_source_text(&rule.source, output);
-        if patterns.is_match(source_text.as_ref()) {
-            return Ok(rule.target.clone());
-        }
-    }
-    Ok(command.output_fallback.clone())
-}
 
 pub struct DeviceClient {
     sender: Sender<CmdJob>,
@@ -139,8 +102,6 @@ impl DeviceClient {
             timeout: Some(self.default_timeout),
             dyn_params: Default::default(),
             interaction: Default::default(),
-            output_branches: Default::default(),
-            output_fallback: Default::default(),
         })
         .await
     }
@@ -188,11 +149,10 @@ impl DeviceClient {
         }
 
         let mut outputs = Vec::with_capacity(steps.len());
-        let mut cursor = 0usize;
         let mut executed_steps = 0usize;
         let limit = max_steps.unwrap_or_else(|| steps.len().saturating_mul(16).max(steps.len()));
 
-        while cursor < steps.len() {
+        for command in steps {
             if executed_steps >= limit {
                 return Err(anyhow!(
                     "command flow exceeded max executed steps (limit: {})",
@@ -200,10 +160,8 @@ impl DeviceClient {
                 ));
             }
 
-            let command = &steps[cursor];
-            let output = self.execute_command_structured(command.clone()).await?;
+            let output = self.execute_command_structured(command).await?;
             let step_success = output.success;
-            let branch_target = resolve_output_branch_target(command, &output)?;
             outputs.push(output);
             executed_steps += 1;
 
@@ -212,34 +170,6 @@ impl DeviceClient {
                     success: false,
                     outputs,
                 });
-            }
-
-            match branch_target {
-                CommandBranchTarget::Next => {
-                    cursor += 1;
-                }
-                CommandBranchTarget::StopSuccess => {
-                    return Ok(CommandFlowOutput {
-                        success: true,
-                        outputs,
-                    });
-                }
-                CommandBranchTarget::StopFailure => {
-                    return Ok(CommandFlowOutput {
-                        success: false,
-                        outputs,
-                    });
-                }
-                CommandBranchTarget::Jump { step_index } => {
-                    if step_index >= steps.len() {
-                        return Err(anyhow!(
-                            "command flow branch target step {} is out of range (total steps: {})",
-                            step_index,
-                            steps.len()
-                        ));
-                    }
-                    cursor = step_index;
-                }
             }
         }
 
