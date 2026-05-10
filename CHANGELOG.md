@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.1] - 2026-05-10
+
+### New Features
+- Added device profile autodetect across CLI, Web execution, and orchestration paths, including a new `rauto profile autodetect` entrypoint with ranked candidate reporting.
+- Added manager template APIs so manager-facing gRPC services can list and fetch stored command templates, flow templates, tx templates, and orchestration templates from the agent runtime.
+- Added a system-aware Web theme and bundled `rauto` icon assets for the dashboard, favicon, and README branding.
+
+### Optimizations
+- Refined autodetect CLI output with `-v` / `-vv` levels so operators can switch between concise profile summaries and full matching diagnostics.
+- Updated the `rneter` integration to `0.4.5` from the published crate and aligned local command-flow handling with the current linear step model.
+- Fixed command-flow step accounting in `src/device.rs` by using enumerated execution indexes directly, reducing off-by-one style bookkeeping drift in max-step enforcement.
+- Defaulted empty enable-password handling more cleanly across CLI, Web, and orchestration runtime paths so Enter-only enable prompts do not require synthetic placeholder secrets.
+
+### API Changes
+- `rauto profile autodetect` is now available as a first-class CLI workflow; callers can inspect accepted candidates and verbose detection details without running a command.
+- Default profile resolution now prefers `autodetect` behavior in more runtime paths, so CLI/Web/orchestration executions may resolve the effective built-in profile at run time instead of requiring an explicit saved profile.
+- `rneter` is now consumed as crates.io `0.4.5` instead of a pinned git revision, which changes dependency sourcing for downstream builds and reproducibility workflows.
+
+### Risks
+- Autodetect can choose a different effective profile than older explicitly pinned runs; environments with ambiguous prompts should still validate candidate output before large rollouts.
+- Manager integrations that start using the new template APIs must align request/response handling with the expanded gRPC task-service surface.
+- Saved command-flow templates created before the latest `rneter` linear-template cleanup may still contain legacy no-op fields in storage until operators resave or normalize them.
+
 ## [0.4.0] - 2026-04-25
 
 ### New Features

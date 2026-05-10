@@ -149,10 +149,9 @@ impl DeviceClient {
         }
 
         let mut outputs = Vec::with_capacity(steps.len());
-        let mut executed_steps = 0usize;
         let limit = max_steps.unwrap_or_else(|| steps.len().saturating_mul(16).max(steps.len()));
 
-        for command in steps {
+        for (executed_steps, command) in steps.into_iter().enumerate() {
             if executed_steps >= limit {
                 return Err(anyhow!(
                     "command flow exceeded max executed steps (limit: {})",
@@ -163,7 +162,6 @@ impl DeviceClient {
             let output = self.execute_command_structured(command).await?;
             let step_success = output.success;
             outputs.push(output);
-            executed_steps += 1;
 
             if stop_on_error && !step_success {
                 return Ok(CommandFlowOutput {
