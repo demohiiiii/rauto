@@ -1,4 +1,5 @@
 use crate::cli::{GlobalOpts, RecordLevelOpt};
+use crate::config::autodetect_cache;
 use crate::config::command_flow_template::CommandFlowTemplate;
 use crate::config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -55,6 +56,7 @@ pub(crate) struct EffectiveConnection {
     pub(crate) device_profile: String,
     pub(crate) vars: serde_json::Value,
     pub(crate) template_dir: Option<PathBuf>,
+    pub(crate) force_autodetect: bool,
 }
 
 pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<EffectiveConnection> {
@@ -126,6 +128,7 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         device_profile,
         vars,
         template_dir,
+        force_autodetect: opts.force_autodetect,
     })
 }
 
@@ -134,6 +137,31 @@ pub(crate) async fn resolve_autodetect_connection(
 ) -> Result<EffectiveConnection> {
     if !template_loader::is_autodetect_profile_name(&conn.device_profile) {
         return Ok(conn);
+    }
+
+    if conn.force_autodetect {
+        info!(
+            "Bypassing autodetect cache and reprobe requested for {}:{}",
+            conn.host, conn.port
+        );
+    } else {
+        match autodetect_cache::load_cached_profile(&conn.host, conn.port) {
+            Ok(Some(profile)) => {
+                info!(
+                    "Reusing cached autodetected device profile '{}' for {}:{}",
+                    profile, conn.host, conn.port
+                );
+                conn.device_profile = profile;
+                return Ok(conn);
+            }
+            Ok(None) => {}
+            Err(err) => {
+                warn!(
+                    "failed to load autodetect cache for {}:{}: {}",
+                    conn.host, conn.port, err
+                );
+            }
+        }
     }
 
     let request = DetectRequest::new(
@@ -163,6 +191,14 @@ pub(crate) async fn resolve_autodetect_connection(
         "Device profile autodetected as '{}' (confidence={:?}, score={})",
         best.template_name, best.confidence, best.score
     );
+    if let Err(err) =
+        autodetect_cache::save_cached_profile(&conn.host, conn.port, &best.template_name)
+    {
+        warn!(
+            "failed to save autodetect cache for {}:{} -> {}: {}",
+            conn.host, conn.port, best.template_name, err
+        );
+    }
     conn.device_profile = best.template_name.clone();
     Ok(conn)
 }

@@ -30,22 +30,22 @@ pub struct TemplateArgs {
     pub dry_run: bool,
 
     /// Save SSH session recording to this JSONL file
-    #[arg(long)]
+    #[arg(long, short = 'r')]
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 
 #[derive(Args, Debug)]
 pub struct CommandFlowArgs {
     /// Saved command flow template name
-    #[arg(long)]
+    #[arg(long, short = 't')]
     pub template: Option<String>,
 
     /// Path to a TOML file containing an ad-hoc command flow template
-    #[arg(long)]
+    #[arg(long, short = 'f')]
     pub file: Option<PathBuf>,
 
     /// Path to a JSON file containing template variables
@@ -57,11 +57,11 @@ pub struct CommandFlowArgs {
     pub vars_json: Option<String>,
 
     /// Save SSH session recording to this JSONL file
-    #[arg(long)]
+    #[arg(long, short = 'r')]
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 
@@ -88,11 +88,11 @@ pub struct UploadArgs {
     pub show_progress: bool,
 
     /// Save SSH session recording to this JSONL file
-    #[arg(long)]
+    #[arg(long, short = 'r')]
     pub record_file: Option<PathBuf>,
 
     /// Save SSH session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 
@@ -106,11 +106,11 @@ pub struct ExecArgs {
     pub mode: Option<String>,
 
     /// Save SSH session recording to this JSONL file
-    #[arg(long)]
+    #[arg(long, short = 'r')]
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 
@@ -143,7 +143,7 @@ pub struct TxArgs {
     pub run_kind: TxRunKind,
 
     /// Template file to render commands from (optional)
-    #[arg(long)]
+    #[arg(long, short = 't')]
     pub template: Option<String>,
 
     /// Path to a JSON file containing variables for --template
@@ -207,7 +207,7 @@ pub struct TxArgs {
     pub rollback_trigger_step_index: Option<usize>,
 
     /// Target mode for generated tx steps or command flow execution
-    #[arg(long)]
+    #[arg(long, short = 'm')]
     pub mode: Option<String>,
 
     /// Timeout (seconds) for each tx step
@@ -227,11 +227,11 @@ pub struct TxArgs {
     pub json: bool,
 
     /// Save SSH session recording to this JSONL file
-    #[arg(long)]
+    #[arg(long, short = 'r')]
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 
@@ -253,11 +253,11 @@ pub struct TxWorkflowArgs {
     pub json: bool,
 
     /// Save SSH session recording to this JSONL file
-    #[arg(long)]
+    #[arg(long, short = 'r')]
     pub record_file: Option<PathBuf>,
 
     /// Session recording level
-    #[arg(long, value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
     pub record_level: RecordLevelOpt,
 }
 
@@ -332,7 +332,7 @@ pub struct AgentArgs {
 #[derive(Args, Debug, Clone)]
 pub struct GlobalOpts {
     /// Device hostname or IP address
-    #[arg(long, global = true)]
+    #[arg(long, short = 'H', global = true)]
     pub host: Option<String>,
 
     /// SSH username
@@ -367,12 +367,16 @@ pub struct GlobalOpts {
     #[arg(long, global = true, env = "RAUTO_TEMPLATE_DIR")]
     pub template_dir: Option<PathBuf>,
 
+    /// Ignore autodetect cache and probe the target again, then refresh the cached profile
+    #[arg(long, global = true, default_value_t = false)]
+    pub force_autodetect: bool,
+
     /// Use saved connection profile by name
-    #[arg(long, global = true)]
+    #[arg(long, short = 'c', global = true)]
     pub connection: Option<String>,
 
     /// Save effective connection profile with this name after successful connect
-    #[arg(long, global = true)]
+    #[arg(long, short = 'S', global = true)]
     pub save_connection: Option<String>,
 
     /// When used with --save-connection, also save password/enable_password

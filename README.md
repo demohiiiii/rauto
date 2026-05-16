@@ -186,6 +186,14 @@ rauto exec "show ip int br" \
     --ssh-port 22
 ```
 
+If you do not pass `--device-profile`, `rauto exec` uses the default `autodetect` profile resolution and tries to detect the real built-in profile before execution.
+This autodetect step selects the device profile only. It does not inspect the command text to decide whether a command is a `show` command, a `config` command, or any other mode-specific command.
+
+Mode selection for `exec` works like this:
+
+- If you pass `--mode`, that mode is used after validation against the selected profile.
+- If you omit `--mode`, `rauto` uses the selected profile's `default_mode`.
+
 **Specifying Execution Mode:**
 Execute a command in a specific mode (e.g., `Enable`, `Config`).
 
@@ -288,6 +296,16 @@ Current built-in profiles from `rneter` include:
 - Network vendors: `cisco`, `huawei`, `h3c`, `hillstone`, `juniper`, `array`, `arista`, `fortinet`, `paloalto`, `topsec`, `venustech`, `dptech`, `chaitin`, `qianxin`, `maipu`, `checkpoint`
 - Servers: `linux`
 
+**Mode Naming Recommendation:**
+When you create or customize a device profile, prefer reusing established mode names such as `Login`, `Enable`, and `Config` whenever the device semantics match those states.
+
+Benefits of following these names:
+
+- Keeps `exec --mode`, `tx --mode`, and flow step `mode` values consistent across vendors.
+- Makes examples, templates, and operator habits easier to reuse without remembering profile-specific naming differences.
+- Makes default-mode fallback and mode validation behavior easier to understand when switching between built-in and custom profiles.
+- Reduces surprise when reading recordings, tx results, orchestration plans, or troubleshooting mode-related failures.
+
 **List Available Profiles:**
 
 ```bash
@@ -311,6 +329,9 @@ Use `-v` to print ranked candidate summaries, or `-vv` to include the full debug
 rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
 rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secret
 ```
+
+When normal execution uses autodetect, the detected profile controls mode validation and default-mode fallback. Autodetect does not infer command mode from the command text; use `exec --mode <mode>` when a command must run in a specific state such as `Enable`, `Config`, or `Shell`.
+Successful autodetect results are cached locally by `host:port` in the runtime database, so later connections to the same target can reuse the detected profile instead of probing again unless you explicitly override the profile.
 
 **Using a Specific Profile:**
 Use `--device-profile` when you want to bypass autodetect. For example, to select the Huawei profile:
@@ -1004,7 +1025,7 @@ Default runtime data:
 
 | Argument               | Env Var          | Description                                                                          |
 | ---------------------- | ---------------- | ------------------------------------------------------------------------------------ |
-| `--host`               | -                | Device hostname or IP                                                                |
+| `--host`               | -                | Device hostname or IP (`-H`)                                                         |
 | `--username`           | -                | SSH username                                                                         |
 | `--password`           | `RAUTO_PASSWORD` | SSH password                                                                         |
 | `--enable-password`    | -                | Enable/Secret password                                                               |
@@ -1012,22 +1033,35 @@ Default runtime data:
 | `--ssh-security`       | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible`                      |
 | `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`           |
 | `--device-profile`     | -                | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`) |
-| `--connection`         | -                | Load saved connection profile by name                                                |
-| `--save-connection`    | -                | Save effective connection profile after successful connect                           |
+| `--force-autodetect`   | -                | Ignore cached autodetect result and probe the target again                           |
+| `--connection`         | -                | Load saved connection profile by name (`-c`)                                         |
+| `--save-connection`    | -                | Save effective connection profile after successful connect (`-S`)                    |
 | `--save-password`      | -                | With `--save-connection`, also save password/enable_password                         |
+
+Common shorthand aliases:
+
+- Global: `-H/--host`, `-u/--username`, `-p/--password`, `-P/--ssh-port`, `-e/--enable-password`, `-d/--device-profile`, `-c/--connection`, `-S/--save-connection`
+- Flow: `-t/--template`, `-f/--file`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
+- Exec: `-m/--mode`, `-r/--record-file`, `-l/--record-level`
+- Tx: `-t/--template`, `-m/--mode`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
 
 Common command-specific options:
 
-- `exec --mode <mode>`: Execute a raw command in a specific mode such as `Enable`, `Config`, or `Shell`.
-- `template --vars <file>`: Load JSON/YAML vars for a stored command template.
-- `flow --vars <file>` / `flow --vars-json <json>`: Provide file-based or inline JSON vars to a command flow template.
+- `exec --mode <mode>` / `exec -m <mode>`: Execute a raw command in a specific mode such as `Enable`, `Config`, or `Shell`.
+- `exec` without `--mode`: Use the selected profile's `default_mode`; this is not inferred from command text such as `show ...` or `interface ...`.
+- `--force-autodetect`: Bypass the local `host:port` autodetect cache, probe again, and refresh the cached profile. Useful when the device behind an existing IP/port has changed.
+- `template --vars <file>` / `template -v <file>`: Load JSON/YAML vars for a stored command template.
+- `flow --template <name>` / `flow -t <name>`: Run a saved command flow template.
+- `flow --file <path>` / `flow -f <path>`: Run an ad-hoc command flow template from a TOML file.
+- `flow --vars <file>` / `flow -v <file>` / `flow --vars-json <json>`: Provide file-based or inline JSON vars to a command flow template.
 - `template --dry-run`: Render the command template without executing it on the target.
+- `tx --mode <mode>` / `tx -m <mode>`: Force tx commands or command-flow steps to run in a specific mode.
 - `tx --dry-run`: Print the planned tx block without executing it.
 
 Recording-related options (command-specific):
 
-- `exec/template --record-file <path>`: Save recording JSONL after execution.
-- `exec/template --record-level <key-events-only|full>`: Recording granularity.
+- `exec/template/flow/tx --record-file <path>` / `-r <path>`: Save recording JSONL after execution.
+- `exec/template/flow/tx --record-level <key-events-only|full>` / `-l <level>`: Recording granularity.
 - `replay <record_file> --list`: List recorded command output events.
 - `replay <record_file> --command <cmd> [--mode <mode>]`: Replay one command output.
 - Replayed `SessionEvent::CommandOutput` entries may include `exit_code` for Linux shell flows.

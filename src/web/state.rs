@@ -1,6 +1,7 @@
 use crate::agent::config::AgentConfig;
 use crate::agent::registration::AgentRegistrar;
 use crate::cli::GlobalOpts;
+use crate::config::autodetect_cache;
 use crate::config::connection_store::{self, SavedConnection};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
@@ -13,6 +14,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
+use tracing::{info, warn};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -106,6 +108,7 @@ pub struct ResolvedConnection {
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: String,
     pub vars: serde_json::Value,
+    pub force_autodetect: bool,
 }
 
 pub fn merge_connection_options(
@@ -152,6 +155,31 @@ pub async fn resolve_autodetect_connection(
         return Ok(conn);
     }
 
+    if conn.force_autodetect {
+        info!(
+            "Bypassing autodetect cache and reprobe requested for {}:{}",
+            conn.host, conn.port
+        );
+    } else {
+        match autodetect_cache::load_cached_profile(&conn.host, conn.port) {
+            Ok(Some(profile)) => {
+                info!(
+                    "Reusing cached autodetected device profile '{}' for {}:{}",
+                    profile, conn.host, conn.port
+                );
+                conn.device_profile = profile;
+                return Ok(conn);
+            }
+            Ok(None) => {}
+            Err(err) => {
+                warn!(
+                    "failed to load autodetect cache for {}:{}: {}",
+                    conn.host, conn.port, err
+                );
+            }
+        }
+    }
+
     let request = DetectRequest::new(
         conn.username.clone(),
         conn.host.clone(),
@@ -177,6 +205,14 @@ pub async fn resolve_autodetect_connection(
                 policy.minimum_confidence
             ))
         })?;
+    if let Err(err) =
+        autodetect_cache::save_cached_profile(&conn.host, conn.port, &best.template_name)
+    {
+        warn!(
+            "failed to save autodetect cache for {}:{} -> {}: {}",
+            conn.host, conn.port, best.template_name, err
+        );
+    }
     conn.device_profile = best.template_name.clone();
     Ok(conn)
 }
@@ -251,6 +287,7 @@ fn merge_connection_sources(
         linux_shell_flavor,
         device_profile,
         vars,
+        force_autodetect: defaults.force_autodetect,
     })
 }
 
@@ -283,6 +320,7 @@ mod tests {
             linux_shell_flavor: None,
             device_profile: Some("default-profile".to_string()),
             template_dir: Some(PathBuf::from("/tmp/default-templates")),
+            force_autodetect: false,
             connection: Some("lab1".to_string()),
             save_connection: None,
             save_password: false,
@@ -350,6 +388,7 @@ mod tests {
             linux_shell_flavor: None,
             device_profile: Some("default-profile".to_string()),
             template_dir: Some(PathBuf::from("/tmp/default-templates")),
+            force_autodetect: false,
             connection: None,
             save_connection: None,
             save_password: false,
@@ -380,6 +419,7 @@ mod tests {
             linux_shell_flavor: None,
             device_profile: None,
             template_dir: None,
+            force_autodetect: false,
             connection: None,
             save_connection: None,
             save_password: false,
@@ -405,6 +445,7 @@ mod tests {
             linux_shell_flavor: None,
             device_profile: Some("linux".to_string()),
             template_dir: None,
+            force_autodetect: false,
             connection: None,
             save_connection: None,
             save_password: false,

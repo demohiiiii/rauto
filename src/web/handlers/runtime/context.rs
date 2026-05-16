@@ -373,6 +373,7 @@ pub(crate) fn resolve_render_connection_context_fallback(
         linux_shell_flavor,
         device_profile,
         vars,
+        force_autodetect: false,
     })
 }
 

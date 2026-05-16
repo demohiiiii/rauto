@@ -304,6 +304,7 @@ pub(crate) fn resolve_target_connection(
         device_profile,
         vars,
         template_dir,
+        force_autodetect: opts.force_autodetect,
     })
 }
 

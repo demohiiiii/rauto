@@ -186,6 +186,14 @@ rauto exec "show ip int br" \
     --ssh-port 22
 ```
 
+如果没有传 `--device-profile`，`rauto exec` 会使用默认的 `autodetect` 解析流程，在执行前尝试识别实际应使用的内置 profile。
+这个自动探测步骤只负责选择设备 profile，不会分析命令文本来判断它是 `show` 命令、`config` 命令，还是其他依赖模式的命令。
+
+`exec` 的模式选择规则如下：
+
+- 传了 `--mode` 时，会先根据当前选中的 profile 校验该 mode，再按这个 mode 执行。
+- 未传 `--mode` 时，会使用当前 profile 的 `default_mode`。
+
 **指定执行模式：**
 在特定模式下执行命令（例如 `Enable`, `Config`）。
 
@@ -288,6 +296,16 @@ rauto upload \
 - 网络设备厂商：`cisco`、`huawei`、`h3c`、`hillstone`、`juniper`、`array`、`arista`、`fortinet`、`paloalto`、`topsec`、`venustech`、`dptech`、`chaitin`、`qianxin`、`maipu`、`checkpoint`
 - 服务器：`linux`
 
+**Mode 命名建议：**
+当你创建或修改自定义设备 profile 时，如果设备语义能够对应，建议尽量复用已有的模式命名，例如 `Login`、`Enable`、`Config`。
+
+这样做的好处：
+
+- 让 `exec --mode`、`tx --mode` 和命令流程步骤中的 `mode` 在不同厂商 profile 之间保持一致。
+- 便于复用示例、模板和日常操作习惯，不必为不同 profile 反复记忆一套新的模式命名。
+- 在内置 profile 和自定义 profile 之间切换时，更容易理解默认 mode 回退和 mode 校验行为。
+- 阅读录制结果、tx 输出、编排计划，或排查 mode 相关问题时，整体会更直观、更少歧义。
+
 **列出可用配置：**
 
 ```bash
@@ -311,6 +329,9 @@ rauto profile autodetect \
 rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
 rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secret
 ```
+
+当普通执行路径使用 autodetect 时，探测出的 profile 会决定后续的 mode 校验和默认 mode 回退逻辑。autodetect 不会根据命令文本自动推断执行模式；如果某条命令必须在 `Enable`、`Config`、`Shell` 等特定状态下运行，请显式使用 `exec --mode <mode>`。
+成功的 autodetect 结果会按 `host:port` 缓存在本地运行数据库里，因此后续连接同一目标时可以直接复用已识别出的 profile，而不必重复探测；如果你显式指定了 profile，则仍然以显式指定为准。
 
 **使用特定配置：**
 需要绕过自动探测时，可以使用 `--device-profile` 显式指定设备 profile。例如指定 Huawei profile：
@@ -998,7 +1019,7 @@ Group JSON 结构：
 
 | 参数                   | 环境变量         | 描述                                                                        |
 | ---------------------- | ---------------- | --------------------------------------------------------------------------- |
-| `--host`               | -                | 设备主机名或 IP                                                             |
+| `--host`               | -                | 设备主机名或 IP（`-H`）                                                     |
 | `--username`           | -                | SSH 用户名                                                                  |
 | `--password`           | `RAUTO_PASSWORD` | SSH 密码                                                                    |
 | `--enable-password`    | -                | Enable/Secret 密码                                                          |
@@ -1006,22 +1027,35 @@ Group JSON 结构：
 | `--ssh-security`       | -                | SSH 安全档位：`secure`、`balanced`、`legacy-compatible`                     |
 | `--linux-shell-flavor` | -                | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                 |
 | `--device-profile`     | -                | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`） |
-| `--connection`         | -                | 按名称加载已保存连接配置                                                    |
-| `--save-connection`    | -                | 成功连接后保存当前有效连接配置                                              |
+| `--force-autodetect`   | -                | 忽略已缓存的 autodetect 结果并重新探测目标设备                                |
+| `--connection`         | -                | 按名称加载已保存连接配置（`-c`）                                            |
+| `--save-connection`    | -                | 成功连接后保存当前有效连接配置（`-S`）                                      |
 | `--save-password`      | -                | 配合 `--save-connection` 使用时保存密码/enable_password                     |
+
+常用短选项速查：
+
+- 全局：`-H/--host`、`-u/--username`、`-p/--password`、`-P/--ssh-port`、`-e/--enable-password`、`-d/--device-profile`、`-c/--connection`、`-S/--save-connection`
+- Flow：`-t/--template`、`-f/--file`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
+- Exec：`-m/--mode`、`-r/--record-file`、`-l/--record-level`
+- Tx：`-t/--template`、`-m/--mode`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
 
 常用命令级参数：
 
-- `exec --mode <mode>`：在指定模式下执行原始命令，例如 `Enable`、`Config`、`Shell`。
-- `template --vars <file>`：为已保存命令模板加载 JSON/YAML 变量文件。
-- `flow --vars <file>` / `flow --vars-json <json>`：为命令流程模板提供文件变量或内联 JSON 变量。
+- `exec --mode <mode>` / `exec -m <mode>`：在指定模式下执行原始命令，例如 `Enable`、`Config`、`Shell`。
+- `exec` 不带 `--mode`：使用当前 profile 的 `default_mode`；不会根据 `show ...`、`interface ...` 这类命令文本自动判断模式。
+- `--force-autodetect`：跳过本地 `host:port` autodetect 缓存，重新探测并刷新缓存。适合设备更换、同 IP/端口后的设备类型变化等特殊情况。
+- `template --vars <file>` / `template -v <file>`：为已保存命令模板加载 JSON/YAML 变量文件。
+- `flow --template <name>` / `flow -t <name>`：运行已保存的命令流程模板。
+- `flow --file <path>` / `flow -f <path>`：从 TOML 文件运行临时命令流程模板。
+- `flow --vars <file>` / `flow -v <file>` / `flow --vars-json <json>`：为命令流程模板提供文件变量或内联 JSON 变量。
 - `template --dry-run`：只渲染模板，不在目标上执行。
+- `tx --mode <mode>` / `tx -m <mode>`：强制 tx 命令或命令流程步骤在指定模式下运行。
 - `tx --dry-run`：只打印计划中的 tx block，而不真正执行。
 
 录制/回放相关参数（命令级参数）：
 
-- `exec/template --record-file <path>`：执行后保存录制 JSONL。
-- `exec/template --record-level <key-events-only|full>`：录制粒度。
+- `exec/template/flow/tx --record-file <path>` / `-r <path>`：执行后保存录制 JSONL。
+- `exec/template/flow/tx --record-level <key-events-only|full>` / `-l <level>`：录制粒度。
 - `replay <record_file> --list`：列出录制中的命令输出事件。
 - `replay <record_file> --command <cmd> [--mode <mode>]`：回放单条命令输出。
 - 回放得到的 `SessionEvent::CommandOutput` 可能额外包含 `exit_code`，尤其适用于 Linux shell 类流程。

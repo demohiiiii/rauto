@@ -425,6 +425,7 @@ mod tests {
             device_profile: "linux".to_string(),
             vars: json!({}),
             template_dir: None,
+            force_autodetect: false,
         }
     }
 

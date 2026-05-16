@@ -1039,6 +1039,7 @@ mod tests {
             linux_shell_flavor: None,
             device_profile: None,
             template_dir: None,
+            force_autodetect: false,
             connection: None,
             save_connection: None,
             save_password: false,
