@@ -7,6 +7,12 @@ normalizeHistoryFilters();
 saveFilterPrefs();
 saveHistoryFilterPrefs();
 bindEvents();
+if (typeof initConnectionSelectionPickers === "function") {
+  initConnectionSelectionPickers();
+}
+if (typeof initConnectionVarsForms === "function") {
+  initConnectionVarsForms();
+}
 initTopLevelAutocomplete();
 initCollapsibleGroups();
 txWorkflowBlocks = [createTxWorkflowBlock()];

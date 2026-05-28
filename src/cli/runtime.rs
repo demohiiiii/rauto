@@ -17,7 +17,7 @@ use rneter::session::{
     ConnectionRequest as ManagerConnectionRequest, DetectRequest, ExecutionContext,
     SessionRecordLevel,
 };
-use rneter::templates::{DetectConnectPolicy, autodetect_with_context};
+use rneter::templates::{DetectConnectPolicy, autodetect_with_builtin_and_templates_and_context};
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
@@ -171,7 +171,12 @@ pub(crate) async fn resolve_autodetect_connection(
         conn.password.clone(),
     );
     let context = manager_execution_context_with_security(None, conn.ssh_security);
-    let report = autodetect_with_context(request, context).await?;
+    let report = autodetect_with_builtin_and_templates_and_context(
+        request,
+        context,
+        template_loader::custom_detect_template_definitions()?,
+    )
+    .await?;
     let policy = DetectConnectPolicy::default();
     let best = report
         .best_match

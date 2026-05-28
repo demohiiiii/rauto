@@ -37,7 +37,7 @@ function applyModeOptions(selectId, modes, preferredMode, defaultMode) {
     normalizedModes.length > 0 ? normalizedModes : [defaultMode || "Enable"];
   const selected =
     (preferredMode || "").trim() &&
-    finalModes.includes((preferredMode || "").trim())
+      finalModes.includes((preferredMode || "").trim())
       ? (preferredMode || "").trim()
       : defaultMode || finalModes[0] || "Enable";
   select.innerHTML = finalModes
@@ -217,6 +217,7 @@ function clearBuiltinProfileDetail() {
     interactions: [],
     transitions: [],
     hooks: {},
+    detect_profile: null,
   });
   setStatusMessage("builtin-detail-status", "-", "info");
 }
@@ -278,6 +279,7 @@ function setBuiltinForm(profile) {
   clearContainer("builtin-interactions-list");
   clearContainer("builtin-transitions-list");
   clearContainer("builtin-hooks-list");
+  clearContainer("builtin-detect-profile-list");
 
   (profile.more_patterns || []).forEach((v) =>
     addReadonlySimpleListRow("builtin-more-list", v),
@@ -303,7 +305,97 @@ function setBuiltinForm(profile) {
   (profile.transitions || []).forEach((item) =>
     addReadonlyTransitionRow("builtin-transitions-list", item),
   );
+  renderReadonlyDetectProfile("builtin-detect-profile-list", profile.detect_profile);
   renderReadonlyHooks("builtin-hooks-list", profile.hooks);
+}
+
+function addReadonlyDetectRuleRow(container, item = {}) {
+  const row = document.createElement("div");
+  row.className = "field-card grid gap-2 md:grid-cols-[1fr_120px]";
+  row.innerHTML = `
+    <input class="input js-pattern" readonly />
+    <input class="input js-weight" readonly />
+  `;
+  row.querySelector(".js-pattern").value = item.pattern || "";
+  row.querySelector(".js-weight").value =
+    item.weight == null ? "50" : String(item.weight);
+  container.appendChild(row);
+}
+
+function renderReadonlyDetectRules(container, rules = []) {
+  const normalized = Array.isArray(rules) ? rules : [];
+  if (normalized.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "text-xs text-slate-500";
+    empty.textContent = t("detectRulesEmpty");
+    container.appendChild(empty);
+    return;
+  }
+  normalized.forEach((rule) => addReadonlyDetectRuleRow(container, rule));
+}
+
+function renderReadonlyDetectProfile(containerId, detectProfile) {
+  const container = byId(containerId);
+  container.innerHTML = "";
+  if (!detectProfile) {
+    const empty = document.createElement("div");
+    empty.className = "text-xs text-slate-500";
+    empty.textContent = t("detectProfileEmpty");
+    container.appendChild(empty);
+    return;
+  }
+
+  const initial = document.createElement("div");
+  initial.className = "grid gap-2";
+  initial.innerHTML = `<span class="text-xs font-semibold text-slate-600">${escapeHtml(t("detectInitialRulesLabel"))}</span><div class="grid gap-2 js-readonly-detect-initial"></div>`;
+  container.appendChild(initial);
+  renderReadonlyDetectRules(
+    initial.querySelector(".js-readonly-detect-initial"),
+    detectProfile.initial_rules,
+  );
+
+  const probesWrap = document.createElement("div");
+  probesWrap.className = "grid gap-2";
+  probesWrap.innerHTML = `<span class="text-xs font-semibold text-slate-600">${escapeHtml(t("detectProbesLabel"))}</span><div class="grid gap-2 js-readonly-detect-probes"></div>`;
+  container.appendChild(probesWrap);
+  const probesContainer = probesWrap.querySelector(".js-readonly-detect-probes");
+  const probes = Array.isArray(detectProfile.probes) ? detectProfile.probes : [];
+  if (probes.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "text-xs text-slate-500";
+    empty.textContent = t("detectProbesEmpty");
+    probesContainer.appendChild(empty);
+    return;
+  }
+  probes.forEach((probe) => {
+    const row = document.createElement("div");
+    row.className = "field-card grid gap-3";
+    row.innerHTML = `
+      <input class="input js-command" readonly />
+      <div class="grid gap-2">
+        <span class="text-xs font-semibold text-slate-600">${escapeHtml(t("detectRulesLabel"))}</span>
+        <div class="grid gap-2 js-probe-rules"></div>
+      </div>
+      <div class="grid gap-2">
+        <span class="text-xs font-semibold text-slate-600">${escapeHtml(t("detectErrorPatternsLabel"))}</span>
+        <div class="grid gap-2 js-probe-errors"></div>
+      </div>
+    `;
+    row.querySelector(".js-command").value = probe.command || "";
+    renderReadonlyDetectRules(row.querySelector(".js-probe-rules"), probe.rules);
+    const errors = Array.isArray(probe.error_patterns) ? probe.error_patterns : [];
+    if (errors.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "text-xs text-slate-500";
+      empty.textContent = t("detectErrorPatternsEmpty");
+      row.querySelector(".js-probe-errors").appendChild(empty);
+    } else {
+      errors.forEach((pattern) =>
+        addReadonlyPatternRow(row.querySelector(".js-probe-errors"), pattern),
+      );
+    }
+    probesContainer.appendChild(row);
+  });
 }
 
 function addSimpleListRow(containerId, value = "") {
@@ -340,6 +432,146 @@ function collectSimpleList(containerId) {
 
 function clearContainer(containerId) {
   byId(containerId).innerHTML = "";
+}
+
+function updateProfileDetectVisibility() {
+  const enabled = byId("profile-detect-enabled").checked;
+  const body = byId("profile-detect-body");
+  body.hidden = !enabled;
+  body.querySelectorAll("input, button").forEach((el) => {
+    el.disabled = !enabled;
+  });
+  if (enabled) {
+    if (byId("detect-initial-rules-list").children.length === 0) {
+      addDetectRuleRow(byId("detect-initial-rules-list"));
+    }
+    if (byId("detect-probes-list").children.length === 0) {
+      addDetectProbeRow();
+    }
+  }
+}
+
+function addDetectRuleRow(container, item = { pattern: "", weight: 50 }) {
+  const row = document.createElement("div");
+  row.className = "field-card grid gap-2 md:grid-cols-[1fr_120px_auto]";
+  row.innerHTML = `
+    <input class="input js-pattern" placeholder="${escapeHtml(t("fieldPattern"))}" />
+    <input class="input js-weight" type="number" min="0" step="1" placeholder="${escapeHtml(t("fieldWeight"))}" />
+    <div class="flex items-start justify-end">
+      <button type="button" class="mini-btn delete js-delete-row"></button>
+    </div>
+  `;
+  row.querySelector(".js-pattern").value = item.pattern || "";
+  row.querySelector(".js-weight").value = item.weight == null ? "50" : String(item.weight);
+  row.querySelector(".js-delete-row").textContent = t("deleteInlineBtn");
+  row.querySelector(".js-delete-row").onclick = () => row.remove();
+  container.appendChild(row);
+}
+
+function collectDetectRuleRows(container) {
+  return Array.from(container.children)
+    .map((row) => {
+      const pattern = row.querySelector(".js-pattern").value.trim();
+      const rawWeight = row.querySelector(".js-weight").value.trim();
+      const weight = rawWeight ? Number(rawWeight) : 50;
+      if (!pattern) return null;
+      if (!Number.isFinite(weight) || weight < 0 || !Number.isInteger(weight)) {
+        throw new Error(t("detectWeightInvalid"));
+      }
+      return { pattern, weight };
+    })
+    .filter(Boolean);
+}
+
+function addDetectProbeRow(
+  item = { command: "", rules: [], error_patterns: [] },
+) {
+  const container = byId("detect-probes-list");
+  const row = document.createElement("div");
+  row.className = "field-card grid gap-3";
+  row.innerHTML = `
+    <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+      <input class="input js-command" placeholder="${escapeHtml(t("fieldCommand"))}" />
+      <div class="flex items-start justify-end">
+        <button type="button" class="mini-btn delete js-delete-row"></button>
+      </div>
+    </div>
+    <div class="grid gap-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-slate-600">${escapeHtml(t("detectRulesLabel"))}</span>
+        <button type="button" class="mini-btn add js-add-rule"></button>
+      </div>
+      <div class="js-detect-probe-rules grid gap-2"></div>
+    </div>
+    <div class="grid gap-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-slate-600">${escapeHtml(t("detectErrorPatternsLabel"))}</span>
+        <button type="button" class="mini-btn add js-add-error-pattern"></button>
+      </div>
+      <div class="js-detect-error-patterns grid gap-2"></div>
+    </div>
+  `;
+  row.querySelector(".js-command").value = item.command || "";
+  row.querySelector(".js-delete-row").textContent = t("deleteInlineBtn");
+  row.querySelector(".js-add-rule").textContent = t("addInlineBtn");
+  row.querySelector(".js-add-error-pattern").textContent = t("addInlineBtn");
+  row.querySelector(".js-delete-row").onclick = () => row.remove();
+  row.querySelector(".js-add-rule").onclick = () =>
+    addDetectRuleRow(row.querySelector(".js-detect-probe-rules"));
+  row.querySelector(".js-add-error-pattern").onclick = () =>
+    addPatternRow(row.querySelector(".js-detect-error-patterns"));
+  const rules = Array.isArray(item.rules) ? item.rules : [];
+  if (rules.length === 0) {
+    addDetectRuleRow(row.querySelector(".js-detect-probe-rules"));
+  } else {
+    rules.forEach((rule) =>
+      addDetectRuleRow(row.querySelector(".js-detect-probe-rules"), rule),
+    );
+  }
+  (Array.isArray(item.error_patterns) ? item.error_patterns : []).forEach(
+    (pattern) => addPatternRow(row.querySelector(".js-detect-error-patterns"), pattern),
+  );
+  container.appendChild(row);
+}
+
+function setDetectProfileForm(detectProfile) {
+  clearContainer("detect-initial-rules-list");
+  clearContainer("detect-probes-list");
+  byId("profile-detect-enabled").checked = !!detectProfile;
+  if (detectProfile) {
+    (detectProfile.initial_rules || []).forEach((rule) =>
+      addDetectRuleRow(byId("detect-initial-rules-list"), rule),
+    );
+    (detectProfile.probes || []).forEach((probe) => addDetectProbeRow(probe));
+  }
+  updateProfileDetectVisibility();
+}
+
+function collectDetectProfileForm() {
+  if (!byId("profile-detect-enabled").checked) {
+    return null;
+  }
+  const initialRules = collectDetectRuleRows(byId("detect-initial-rules-list"));
+  const probes = Array.from(byId("detect-probes-list").children)
+    .map((row) => {
+      const command = row.querySelector(".js-command").value.trim();
+      const rules = collectDetectRuleRows(row.querySelector(".js-detect-probe-rules"));
+      const errorPatterns = collectPatternRows(row.querySelector(".js-detect-error-patterns"));
+      if (!command && rules.length === 0 && errorPatterns.length === 0) return null;
+      if (!command) {
+        throw new Error(t("detectProbeCommandRequired"));
+      }
+      return {
+        command,
+        rules,
+        error_patterns: errorPatterns,
+      };
+    })
+    .filter(Boolean);
+  return {
+    initial_rules: initialRules,
+    probes,
+  };
 }
 
 function defaultHookOperation() {
@@ -585,11 +817,10 @@ function addHookRow(containerId, item = {}, state = "") {
   row.className = "field-card grid gap-2";
   row.innerHTML = `
     <div class="grid gap-2 md:grid-cols-4">
-      ${
-        withState
-          ? `<select class="select js-hook-state" title="${escapeHtml(t("fieldHookState"))}" aria-label="${escapeHtml(t("fieldHookState"))}"></select>`
-          : ""
-      }
+      ${withState
+      ? `<select class="select js-hook-state" title="${escapeHtml(t("fieldHookState"))}" aria-label="${escapeHtml(t("fieldHookState"))}"></select>`
+      : ""
+    }
       <input class="input js-hook-name" placeholder="${escapeHtml(t("fieldHookName"))}" />
       <select class="select js-hook-failure-policy">
         <option value="best_effort">${escapeHtml(t("hookFailureBestEffort"))}</option>
@@ -727,10 +958,9 @@ function addReadonlyHookRow(container, trigger, item = {}, state = "") {
       <span>${escapeHtml(t("fieldHookRecordOutput"))}</span>
     </label>
     <input class="input js-hook-kind" readonly />
-    ${
-      operation.kind === "flow"
-        ? `<div class="grid gap-2 js-hook-flow-readonly"></div>`
-        : `<div class="grid gap-2 md:grid-cols-[160px_1fr_120px]">
+    ${operation.kind === "flow"
+      ? `<div class="grid gap-2 js-hook-flow-readonly"></div>`
+      : `<div class="grid gap-2 md:grid-cols-[160px_1fr_120px]">
              <input class="input js-hook-mode" readonly />
              <textarea class="input min-h-20 font-mono js-hook-command" readonly></textarea>
              <input class="input js-hook-timeout" readonly />
@@ -1148,10 +1378,13 @@ function setProfileForm(profile) {
   clearContainer("sys-prompts-list");
   clearContainer("interactions-list");
   clearContainer("transitions-list");
+  clearContainer("detect-initial-rules-list");
+  clearContainer("detect-probes-list");
   clearContainer("hooks-after-connect-list");
   clearContainer("hooks-before-disconnect-list");
   clearContainer("hooks-after-enter-state-list");
   clearContainer("hooks-before-exit-state-list");
+  setDetectProfileForm(profile.detect_profile || null);
 
   (profile.more_patterns || []).forEach((v) =>
     addSimpleListRow("profile-more-list", v),
@@ -1199,7 +1432,8 @@ function setProfileForm(profile) {
 function collectProfileForm() {
   const commandExecutionMode =
     byId("profile-command-execution-mode").value || "prompt_driven";
-  return {
+  const detectProfile = collectDetectProfileForm();
+  const profile = {
     name: byId("custom-profile-picker").value.trim(),
     command_execution: commandExecutionPayload(
       commandExecutionMode,
@@ -1223,6 +1457,10 @@ function collectProfileForm() {
       before_exit_state: collectStateHookRows("hooks-before-exit-state-list", "before_exit_state"),
     },
   };
+  if (detectProfile) {
+    profile.detect_profile = detectProfile;
+  }
+  return profile;
 }
 
 async function loadCustomProfile() {
@@ -1320,6 +1558,7 @@ async function deleteCustomProfile() {
       sys_prompts: [],
       interactions: [],
       transitions: [],
+      detect_profile: null,
       hooks: {},
     });
     setStatusMessage("profile-out", `${t("deleted")}: ${name}`, "success");

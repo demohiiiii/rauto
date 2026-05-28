@@ -937,6 +937,29 @@ stage 中其它已经成功的目标执行补偿回滚。`rollback_completed_sta
   - `plan_template_content`
   - `plan_vars`
 
+CLI 模板管理入口放在对应执行命令下面：
+
+```bash
+rauto tx-workflow template list
+rauto tx-workflow template show workflow-rollout
+rauto tx-workflow template create workflow-rollout --file ./workflow-template.json
+rauto tx-workflow template update workflow-rollout --file ./workflow-template.json
+rauto tx-workflow template delete workflow-rollout
+
+rauto orchestrate template list
+rauto orchestrate template show campus-rollout
+rauto orchestrate template create campus-rollout --file ./orchestration-template.json
+rauto orchestrate template update campus-rollout --file ./orchestration-template.json
+rauto orchestrate template delete campus-rollout
+```
+
+基于已保存模板执行：
+
+```bash
+rauto tx-workflow --template workflow-rollout --vars ./workflow-vars.json --dry-run
+rauto orchestrate --template campus-rollout --vars-json '{"site":"dc-a"}' --view
+```
+
 变量渲染上下文说明：
 
 - `vars`：请求里传入的 `*_vars`

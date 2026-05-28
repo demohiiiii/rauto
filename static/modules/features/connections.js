@@ -2,6 +2,490 @@
  * connections.js — connections
  */
 
+let savedConnectionAutodetectResult = null;
+let connectionVarsRowSeq = 0;
+
+const CONNECTION_MULTI_PICKERS = {
+  labels: {
+    allowCustom: true,
+    inputIds: ["saved-conn-labels-picker", "saved-conn-edit-labels-picker"],
+    hiddenIds: ["saved-conn-labels", "saved-conn-edit-labels"],
+  },
+  groups: {
+    allowCustom: false,
+    inputIds: ["saved-conn-groups-picker", "saved-conn-edit-groups-picker"],
+    hiddenIds: ["saved-conn-groups", "saved-conn-edit-groups"],
+  },
+};
+
+function normalizeConnectionPickerValues(values = []) {
+  const seen = new Set();
+  return (values || [])
+    .map((item) => safeString(item || "").trim())
+    .filter((item) => {
+      if (!item || seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+}
+
+function connectionPickerConfig(key) {
+  const map = {
+    "saved-conn-labels": {
+      key: "saved-conn-labels",
+      kind: "labels",
+      hiddenId: "saved-conn-labels",
+      inputId: "saved-conn-labels-picker",
+      selectedId: "saved-conn-labels-selected",
+      menuId: "saved-conn-labels-menu",
+    },
+    "saved-conn-edit-labels": {
+      key: "saved-conn-edit-labels",
+      kind: "labels",
+      hiddenId: "saved-conn-edit-labels",
+      inputId: "saved-conn-edit-labels-picker",
+      selectedId: "saved-conn-edit-labels-selected",
+      menuId: "saved-conn-edit-labels-menu",
+    },
+    "saved-conn-groups": {
+      key: "saved-conn-groups",
+      kind: "groups",
+      hiddenId: "saved-conn-groups",
+      inputId: "saved-conn-groups-picker",
+      selectedId: "saved-conn-groups-selected",
+      menuId: "saved-conn-groups-menu",
+    },
+    "saved-conn-edit-groups": {
+      key: "saved-conn-edit-groups",
+      kind: "groups",
+      hiddenId: "saved-conn-edit-groups",
+      inputId: "saved-conn-edit-groups-picker",
+      selectedId: "saved-conn-edit-groups-selected",
+      menuId: "saved-conn-edit-groups-menu",
+    },
+  };
+  return map[key] || null;
+}
+
+function connectionPickerOptionValues(kind, selectedValues = []) {
+  const selected = normalizeConnectionPickerValues(selectedValues);
+  const available =
+    kind === "groups"
+      ? (cachedInventoryGroups || []).map((item) => safeString(item?.name || "").trim())
+      : (cachedInventoryLabels || []).map((item) => safeString(item?.name || "").trim());
+  return normalizeConnectionPickerValues([...available, ...selected]).sort((a, b) =>
+    a.localeCompare(b)
+  );
+}
+
+function connectionPickerValues(key) {
+  const config = connectionPickerConfig(key);
+  if (!config) return [];
+  if (config.kind === "groups") {
+    return getMultiSelectValuesById(config.hiddenId);
+  }
+  return splitCsvValues(byId(config.hiddenId)?.value || "");
+}
+
+function hideConnectionPickerMenu(key) {
+  const config = connectionPickerConfig(key);
+  const menu = byId(config?.menuId || "");
+  if (!menu) return;
+  menu.innerHTML = "";
+  menu.classList.add("hidden");
+}
+
+function syncConnectionPickerHiddenValue(key, values, triggerEvents = true) {
+  const config = connectionPickerConfig(key);
+  if (!config) return;
+  const normalized = normalizeConnectionPickerValues(values);
+  const hidden = byId(config.hiddenId);
+  if (!hidden) return;
+  if (config.kind === "groups") {
+    hidden.innerHTML = normalized
+      .map(
+        (value) =>
+          `<option value="${escapeHtml(value)}" selected>${escapeHtml(value)}</option>`
+      )
+      .join("");
+  } else {
+    hidden.value = normalized.join(", ");
+  }
+  if (triggerEvents) {
+    hidden.dispatchEvent(new Event("input", { bubbles: true }));
+    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+
+function renderConnectionPickerSelected(key) {
+  const config = connectionPickerConfig(key);
+  const out = byId(config?.selectedId || "");
+  if (!config || !out) return;
+  const selected = connectionPickerValues(key);
+  if (selected.length === 0) {
+    out.innerHTML = "";
+    return;
+  }
+  out.innerHTML = selected
+    .map(
+      (value) => `<span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+        <span>${escapeHtml(value)}</span>
+        <button
+          type="button"
+          class="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+          data-connection-picker-remove="${escapeHtml(key)}"
+          data-value="${escapeHtml(value)}"
+          aria-label="${escapeHtml(t("connectionPickerRemoveItem"))}"
+          title="${escapeHtml(t("connectionPickerRemoveItem"))}"
+        >x</button>
+      </span>`
+    )
+    .join("");
+}
+
+function renderConnectionPickerMenu(key) {
+  const config = connectionPickerConfig(key);
+  const input = byId(config?.inputId || "");
+  const menu = byId(config?.menuId || "");
+  if (!config || !input || !menu) return;
+  const selected = new Set(connectionPickerValues(key));
+  const query = safeString(input.value || "").trim();
+  const lowerQuery = query.toLowerCase();
+  const options = connectionPickerOptionValues(config.kind, Array.from(selected)).filter(
+    (value) => !selected.has(value) && (!lowerQuery || value.toLowerCase().includes(lowerQuery))
+  );
+  const canAddCustom =
+    CONNECTION_MULTI_PICKERS[config.kind]?.allowCustom &&
+    !!query &&
+    !selected.has(query) &&
+    !options.some((value) => value === query);
+  if (options.length === 0 && !canAddCustom) {
+    menu.innerHTML = `<li><span class="px-3 py-2 text-xs text-slate-500">${escapeHtml(
+      t("connectionPickerNoMatch")
+    )}</span></li>`;
+    menu.classList.remove("hidden");
+    return;
+  }
+  const customHtml = canAddCustom
+    ? `<li><button
+          type="button"
+          class="justify-between"
+          data-connection-picker-add="${escapeHtml(key)}"
+          data-value="${escapeHtml(query)}"
+        >
+          <span>${escapeHtml(t("connectionLabelsAddCustom"))}</span>
+          <span class="font-medium">${escapeHtml(query)}</span>
+        </button></li>`
+    : "";
+  menu.innerHTML = `${customHtml}${options
+    .map(
+      (value) => `<li><button
+          type="button"
+          data-connection-picker-add="${escapeHtml(key)}"
+          data-value="${escapeHtml(value)}"
+        >
+          <span>${escapeHtml(value)}</span>
+        </button></li>`
+    )
+    .join("")}`;
+  menu.classList.remove("hidden");
+}
+
+function renderConnectionPicker(key) {
+  renderConnectionPickerSelected(key);
+  renderConnectionPickerMenu(key);
+}
+
+function setConnectionPickerValues(key, values, triggerEvents = true) {
+  syncConnectionPickerHiddenValue(key, values, triggerEvents);
+  const input = byId(connectionPickerConfig(key)?.inputId || "");
+  if (input) input.value = "";
+  renderConnectionPicker(key);
+  if (input && triggerEvents) {
+    input.focus({ preventScroll: true });
+  }
+}
+
+function addConnectionPickerValue(key, rawValue) {
+  const value = safeString(rawValue || "").trim();
+  if (!value) return false;
+  const config = connectionPickerConfig(key);
+  if (!config) return false;
+  if (config.kind === "groups") {
+    const available = connectionPickerOptionValues("groups");
+    if (!available.includes(value)) {
+      return false;
+    }
+  }
+  const next = normalizeConnectionPickerValues([...connectionPickerValues(key), value]);
+  setConnectionPickerValues(key, next);
+  return true;
+}
+
+function removeConnectionPickerValue(key, rawValue) {
+  const value = safeString(rawValue || "").trim();
+  if (!value) return;
+  const next = connectionPickerValues(key).filter((item) => item !== value);
+  setConnectionPickerValues(key, next);
+}
+
+function commitConnectionPickerInput(key) {
+  const config = connectionPickerConfig(key);
+  const input = byId(config?.inputId || "");
+  if (!config || !input) return false;
+  const raw = safeString(input.value || "").trim();
+  if (!raw) {
+    hideConnectionPickerMenu(key);
+    return false;
+  }
+  if (config.kind === "labels") {
+    return addConnectionPickerValue(key, raw);
+  }
+  const options = connectionPickerOptionValues("groups");
+  const filtered = options.filter((value) =>
+    value.toLowerCase().includes(raw.toLowerCase())
+  );
+  const exact = filtered.find((value) => value.toLowerCase() === raw.toLowerCase());
+  if (exact) {
+    return addConnectionPickerValue(key, exact);
+  }
+  if (filtered.length === 1) {
+    return addConnectionPickerValue(key, filtered[0]);
+  }
+  renderConnectionPickerMenu(key);
+  return false;
+}
+
+function renderConnectionGroupsForSelect(selectId, selectedValues = []) {
+  setConnectionPickerValues(selectId, selectedValues, false);
+}
+
+function connectionVarsConfig(key) {
+  const map = {
+    "saved-conn-vars": {
+      hiddenId: "saved-conn-vars",
+      formId: "saved-conn-vars-form",
+    },
+    "saved-conn-edit-vars": {
+      hiddenId: "saved-conn-edit-vars",
+      formId: "saved-conn-edit-vars-form",
+    },
+  };
+  return map[key] || null;
+}
+
+function inferConnectionVarType(value) {
+  if (value === null) return "null";
+  if (typeof value === "number") return "number";
+  if (typeof value === "boolean") return "boolean";
+  return "string";
+}
+
+function connectionVarValueToInput(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch (_) {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
+function parseConnectionVarValue(type, rawValue) {
+  const value = safeString(rawValue || "");
+  if (type === "number") {
+    if (!value.trim()) return null;
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      throw new Error(t("connectionVarNumberInvalid"));
+    }
+    return number;
+  }
+  if (type === "boolean") {
+    return value === "true";
+  }
+  if (type === "null") {
+    return null;
+  }
+  return value;
+}
+
+function connectionVarsFromHidden(key) {
+  const config = connectionVarsConfig(key);
+  const raw = byId(config?.hiddenId || "")?.value.trim() || "";
+  if (!raw) return {};
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(t("inventoryVarsMustBeObject"));
+  }
+  return parsed;
+}
+
+function setConnectionVarsValue(key, vars = {}, triggerEvents = true) {
+  const config = connectionVarsConfig(key);
+  const hidden = byId(config?.hiddenId || "");
+  if (!config || !hidden) return;
+  const normalized = vars && typeof vars === "object" && !Array.isArray(vars) ? vars : {};
+  hidden.value = JSON.stringify(normalized);
+  renderConnectionVarsForm(key, normalized);
+  if (triggerEvents) {
+    hidden.dispatchEvent(new Event("input", { bubbles: true }));
+    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+
+function connectionVarsRows(key, options = {}) {
+  const { strict = true } = options;
+  const config = connectionVarsConfig(key);
+  const form = byId(config?.formId || "");
+  if (!form) return {};
+  const vars = {};
+  form.querySelectorAll(".js-connection-vars-row").forEach((row) => {
+    const keyInput = row.querySelector(".js-connection-vars-key");
+    const typeInput = row.querySelector(".js-connection-vars-type");
+    const valueInput = row.querySelector(".js-connection-vars-value");
+    const name = safeString(keyInput?.value || "").trim();
+    if (!name) return;
+    try {
+      vars[name] = parseConnectionVarValue(
+        safeString(typeInput?.value || "string"),
+        valueInput?.value || "",
+      );
+    } catch (err) {
+      if (strict) throw err;
+    }
+  });
+  return vars;
+}
+
+function syncConnectionVarsFromForm(key, triggerEvents = true, options = {}) {
+  const config = connectionVarsConfig(key);
+  const hidden = byId(config?.hiddenId || "");
+  if (!config || !hidden) return false;
+  const vars = connectionVarsRows(key, { strict: !!options.strict });
+  hidden.value = JSON.stringify(vars);
+  if (triggerEvents) {
+    hidden.dispatchEvent(new Event("input", { bubbles: true }));
+    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  return true;
+}
+
+function connectionVarRowHtml(key, name = "", value = "") {
+  const rowId = `connection-var-${++connectionVarsRowSeq}`;
+  const type = inferConnectionVarType(value);
+  const renderedValue = connectionVarValueToInput(value);
+  return `<div class="connection-vars-row js-connection-vars-row" data-vars-key="${escapeHtml(key)}" data-row-id="${escapeHtml(rowId)}">
+    <input class="input input-sm js-connection-vars-key" value="${escapeHtml(name)}" placeholder="${escapeHtml(t("connectionVarKeyPlaceholder"))}" />
+    <select class="select select-sm js-connection-vars-type" title="${escapeHtml(t("connectionVarTypeLabel"))}" aria-label="${escapeHtml(t("connectionVarTypeLabel"))}">
+      <option value="string"${type === "string" ? " selected" : ""}>${escapeHtml(t("connectionVarTypeString"))}</option>
+      <option value="number"${type === "number" ? " selected" : ""}>${escapeHtml(t("connectionVarTypeNumber"))}</option>
+      <option value="boolean"${type === "boolean" ? " selected" : ""}>${escapeHtml(t("connectionVarTypeBoolean"))}</option>
+      <option value="null"${type === "null" ? " selected" : ""}>${escapeHtml(t("connectionVarTypeNull"))}</option>
+    </select>
+    <input class="input input-sm js-connection-vars-value" value="${escapeHtml(renderedValue)}" placeholder="${escapeHtml(t("connectionVarValuePlaceholder"))}" />
+    <button type="button" class="btn btn-sm connection-vars-remove js-connection-vars-remove" title="${escapeHtml(t("delete"))}" aria-label="${escapeHtml(t("delete"))}">x</button>
+  </div>`;
+}
+
+function renderConnectionVarsForm(key, vars = null) {
+  const config = connectionVarsConfig(key);
+  const form = byId(config?.formId || "");
+  if (!config || !form) return;
+  let source = vars;
+  if (!source) {
+    try {
+      source = connectionVarsFromHidden(key);
+    } catch (_) {
+      source = {};
+    }
+  }
+  const entries = Object.entries(source || {});
+  if (entries.length === 0) {
+    form.innerHTML = `<div class="connection-vars-empty">${escapeHtml(t("connectionVarsEmpty"))}</div>`;
+    return;
+  }
+  form.innerHTML = entries
+    .map(([name, value]) => connectionVarRowHtml(key, name, value))
+    .join("");
+  form.querySelectorAll(".js-connection-vars-row").forEach(updateConnectionVarRowType);
+}
+
+function addConnectionVarsRow(key) {
+  const config = connectionVarsConfig(key);
+  const form = byId(config?.formId || "");
+  if (!config || !form) return;
+  const empty = form.querySelector(".connection-vars-empty");
+  if (empty) empty.remove();
+  form.insertAdjacentHTML("beforeend", connectionVarRowHtml(key));
+  syncConnectionVarsFromForm(key);
+  form.querySelector(".js-connection-vars-row:last-child .js-connection-vars-key")?.focus();
+}
+
+function getConnectionVarsValue(key) {
+  syncConnectionVarsFromForm(key, false, { strict: true });
+  return connectionVarsFromHidden(key);
+}
+
+function updateConnectionVarRowType(row) {
+  const type = row?.querySelector(".js-connection-vars-type")?.value || "string";
+  const valueInput = row?.querySelector(".js-connection-vars-value");
+  if (!valueInput) return;
+  valueInput.disabled = type === "null";
+  if (type === "boolean") {
+    valueInput.setAttribute("list", "connection-vars-boolean-options");
+    if (valueInput.value !== "true" && valueInput.value !== "false") {
+      valueInput.value = "false";
+    }
+  } else {
+    valueInput.removeAttribute("list");
+  }
+  if (type === "null") {
+    valueInput.value = "";
+  }
+}
+
+function initConnectionVarsForms() {
+  if (!byId("connection-vars-boolean-options")) {
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      '<datalist id="connection-vars-boolean-options"><option value="true"></option><option value="false"></option></datalist>',
+    );
+  }
+  ["saved-conn-vars", "saved-conn-edit-vars"].forEach((key) => {
+    renderConnectionVarsForm(key, {});
+    const addBtn = byId(`${key}-add-btn`);
+    if (addBtn && addBtn.dataset.connectionVarsBound !== "1") {
+      addBtn.dataset.connectionVarsBound = "1";
+      addBtn.addEventListener("click", () => addConnectionVarsRow(key));
+    }
+  });
+  if (document.body?.dataset.connectionVarsBound === "1") return;
+  document.body.dataset.connectionVarsBound = "1";
+  document.addEventListener("input", (event) => {
+    const row = event.target.closest(".js-connection-vars-row");
+    if (!row) return;
+    syncConnectionVarsFromForm(row.getAttribute("data-vars-key") || "");
+  });
+  document.addEventListener("change", (event) => {
+    const row = event.target.closest(".js-connection-vars-row");
+    if (!row) return;
+    updateConnectionVarRowType(row);
+    syncConnectionVarsFromForm(row.getAttribute("data-vars-key") || "");
+  });
+  document.addEventListener("click", (event) => {
+    const removeBtn = event.target.closest(".js-connection-vars-remove");
+    if (!removeBtn) return;
+    const row = removeBtn.closest(".js-connection-vars-row");
+    const key = row?.getAttribute("data-vars-key") || "";
+    row?.remove();
+    syncConnectionVarsFromForm(key);
+    renderConnectionVarsForm(key);
+  });
+}
+
 function getMultiSelectValuesById(selectId) {
   const select = byId(selectId);
   if (!select) return [];
@@ -58,6 +542,115 @@ function renderSavedConnectionGroupOptions(selectedValues = []) {
     "saved-conn-edit-groups",
     getMultiSelectValuesById("saved-conn-edit-groups"),
   );
+}
+
+function renderSavedConnectionLabelOptions(selectedValues = null) {
+  if (selectedValues !== null) {
+    setConnectionPickerValues("saved-conn-labels", selectedValues, false);
+  } else {
+    renderConnectionPicker("saved-conn-labels");
+  }
+  renderConnectionPicker("saved-conn-edit-labels");
+}
+
+function getConnectionLabelValues(key) {
+  return connectionPickerValues(key);
+}
+
+function getConnectionGroupValues(key) {
+  return connectionPickerValues(key);
+}
+
+function initConnectionSelectionPickers() {
+  Object.values(CONNECTION_MULTI_PICKERS)
+    .flatMap((group) => group.inputIds)
+    .forEach((inputId) => {
+      const input = byId(inputId);
+      if (!input || input.dataset.connectionPickerBound === "1") return;
+      const hiddenId = Object.keys(connectionPickerConfigMap()).find(
+        (key) => connectionPickerConfig(key)?.inputId === inputId
+      );
+      input.dataset.connectionPickerBound = "1";
+      input.addEventListener("focus", () => {
+        renderConnectionPicker(hiddenId);
+      });
+      input.addEventListener("input", () => {
+        renderConnectionPicker(hiddenId);
+      });
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          hideConnectionPickerMenu(hiddenId);
+          input.blur();
+          return;
+        }
+        if (event.key === "Backspace" && !safeString(input.value || "").trim()) {
+          const values = connectionPickerValues(hiddenId);
+          if (values.length > 0) {
+            event.preventDefault();
+            removeConnectionPickerValue(hiddenId, values[values.length - 1]);
+          }
+          return;
+        }
+        const isLabelPicker = connectionPickerConfig(hiddenId)?.kind === "labels";
+        if (event.key === "Enter" || (isLabelPicker && event.key === ",")) {
+          event.preventDefault();
+          commitConnectionPickerInput(hiddenId);
+        }
+      });
+    });
+  if (document.body?.dataset.connectionPickerBound !== "1") {
+    document.body.dataset.connectionPickerBound = "1";
+    document.addEventListener("click", (event) => {
+      const addBtn = event.target.closest("[data-connection-picker-add]");
+      if (addBtn) {
+        const key = addBtn.getAttribute("data-connection-picker-add") || "";
+        const value = addBtn.getAttribute("data-value") || "";
+        addConnectionPickerValue(key, value);
+        return;
+      }
+      const removeBtn = event.target.closest("[data-connection-picker-remove]");
+      if (removeBtn) {
+        const key = removeBtn.getAttribute("data-connection-picker-remove") || "";
+        const value = removeBtn.getAttribute("data-value") || "";
+        removeConnectionPickerValue(key, value);
+        return;
+      }
+      connectionPickerKeys().forEach((key) => {
+        const config = connectionPickerConfig(key);
+        const input = byId(config?.inputId || "");
+        const menu = byId(config?.menuId || "");
+        const selected = byId(config?.selectedId || "");
+        if (
+          input?.contains(event.target) ||
+          menu?.contains(event.target) ||
+          selected?.contains(event.target)
+        ) {
+          return;
+        }
+        hideConnectionPickerMenu(key);
+      });
+    });
+  }
+  renderSavedConnectionLabelOptions([]);
+  renderSavedConnectionGroupOptions([]);
+}
+
+function connectionPickerKeys() {
+  return [
+    "saved-conn-labels",
+    "saved-conn-edit-labels",
+    "saved-conn-groups",
+    "saved-conn-edit-groups",
+  ];
+}
+
+function connectionPickerConfigMap() {
+  return {
+    "saved-conn-labels": connectionPickerConfig("saved-conn-labels"),
+    "saved-conn-edit-labels": connectionPickerConfig("saved-conn-edit-labels"),
+    "saved-conn-groups": connectionPickerConfig("saved-conn-groups"),
+    "saved-conn-edit-groups": connectionPickerConfig("saved-conn-edit-groups"),
+  };
 }
 
 async function ensureSavedConnectionDetail(name) {
@@ -171,12 +764,12 @@ function persistConnectionTarget(details = null) {
             byId("linux_shell_flavor")?.value || "",
           ).trim(),
           enabled: !!byId("saved-conn-enabled")?.checked,
-          labels: safeString(byId("saved-conn-labels")?.value || ""),
+          labels: getConnectionLabelValues("saved-conn-labels"),
           groups:
-            typeof getMultiSelectValues === "function"
-              ? getMultiSelectValues("saved-conn-groups")
+            typeof getConnectionGroupValues === "function"
+              ? getConnectionGroupValues("saved-conn-groups")
               : [],
-          vars_text: safeString(byId("saved-conn-vars")?.value || ""),
+          vars_text: JSON.stringify(getConnectionVarsValue("saved-conn-vars")),
         }),
       );
       return;
@@ -254,11 +847,23 @@ function restorePersistedConnectionTarget() {
     if (byId("saved-conn-enabled")) {
       byId("saved-conn-enabled").checked = parsed.enabled !== false;
     }
-    if (byId("saved-conn-labels")) {
-      byId("saved-conn-labels").value = safeString(parsed.labels || "");
+    if (typeof setConnectionPickerValues === "function") {
+      setConnectionPickerValues(
+        "saved-conn-labels",
+        Array.isArray(parsed.labels)
+          ? parsed.labels
+          : splitCsvValues(parsed.labels || ""),
+        false,
+      );
     }
-    if (byId("saved-conn-vars")) {
-      byId("saved-conn-vars").value = safeString(parsed.vars_text || "");
+    try {
+      setConnectionVarsValue(
+        "saved-conn-vars",
+        parsed.vars_text ? JSON.parse(parsed.vars_text) : {},
+        false,
+      );
+    } catch (_) {
+      setConnectionVarsValue("saved-conn-vars", {}, false);
     }
     if (typeof renderSavedConnectionGroupOptions === "function") {
       renderSavedConnectionGroupOptions(
@@ -533,6 +1138,7 @@ function hideSavedConnectionEditorModal() {
   if (!modal) return;
   modal.classList.add("hidden");
   modal.classList.remove("flex");
+  resetSavedConnectionAutodetectState();
 }
 
 function splitEditorCsv(raw) {
@@ -542,19 +1148,31 @@ function splitEditorCsv(raw) {
     .filter(Boolean);
 }
 
-function parseSavedConnectionEditorVars() {
-  const raw = byId("saved-conn-edit-vars")?.value.trim() || "";
-  if (!raw) return {};
-  let parsed = null;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw new Error(err.message || String(err));
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(t("inventoryVarsMustBeObject"));
-  }
-  return parsed;
+function updateSavedConnectionAutodetectUi() {
+  const applyBtn = byId("saved-conn-edit-apply-detected-profile-btn");
+  if (!applyBtn) return;
+  const currentName = byId("saved-conn-edit-name")?.value.trim() || "";
+  const currentProfile =
+    safeString(byId("saved-conn-edit-device-profile")?.value || "").trim() ||
+    "autodetect";
+  const detectedProfile =
+    safeString(savedConnectionAutodetectResult?.device_profile || "").trim() ||
+    "";
+  const detectedName =
+    safeString(savedConnectionAutodetectResult?.connection_name || "").trim() ||
+    "";
+  const canApply =
+    !!detectedProfile &&
+    !!currentName &&
+    detectedName === currentName &&
+    detectedProfile !== currentProfile;
+  applyBtn.hidden = !canApply;
+  applyBtn.disabled = !canApply;
+}
+
+function resetSavedConnectionAutodetectState() {
+  savedConnectionAutodetectResult = null;
+  updateSavedConnectionAutodetectUi();
 }
 
 function applySavedConnectionEditorForm(name, connection = {}) {
@@ -576,27 +1194,23 @@ function applySavedConnectionEditorForm(name, connection = {}) {
     connection.device_profile || "",
   );
   byId("saved-conn-edit-enabled").checked = connection.enabled !== false;
-  byId("saved-conn-edit-labels").value = Array.isArray(connection.labels)
-    ? connection.labels.join(", ")
-    : "";
+  setConnectionPickerValues(
+    "saved-conn-edit-labels",
+    Array.isArray(connection.labels) ? connection.labels : [],
+    false,
+  );
   renderConnectionGroupsForSelect(
     "saved-conn-edit-groups",
     Array.isArray(connection.groups) ? connection.groups : [],
   );
-  byId("saved-conn-edit-vars").value = JSON.stringify(
-    connection.vars || {},
-    null,
-    2,
-  );
-  byId("saved-conn-edit-save-password").checked = !!(
-    connection.has_password === false &&
-    connection.has_enable_password === false
-  );
+  setConnectionVarsValue("saved-conn-edit-vars", connection.vars || {}, false);
+  resetSavedConnectionAutodetectState();
   setStatusMessage("saved-conn-edit-out", "-", "info");
 }
 
 function savedConnectionEditorPayload() {
   return {
+    connection_name: byId("saved-conn-edit-name")?.value.trim() || null,
     host: byId("saved-conn-edit-host")?.value.trim() || "",
     port: Number(byId("saved-conn-edit-port")?.value.trim() || 22),
     username: byId("saved-conn-edit-username")?.value.trim() || "",
@@ -608,13 +1222,13 @@ function savedConnectionEditorPayload() {
     device_profile:
       byId("saved-conn-edit-device-profile")?.value.trim() || null,
     enabled: !!byId("saved-conn-edit-enabled")?.checked,
-    labels: splitEditorCsv(byId("saved-conn-edit-labels")?.value || ""),
-    groups: getMultiSelectValuesById("saved-conn-edit-groups"),
-    vars: parseSavedConnectionEditorVars(),
+    labels: getConnectionLabelValues("saved-conn-edit-labels"),
+    groups: getConnectionGroupValues("saved-conn-edit-groups"),
+    vars: getConnectionVarsValue("saved-conn-edit-vars"),
   };
 }
 
-async function saveSavedConnectionEditor() {
+async function detectSavedConnectionProfile() {
   const name = byId("saved-conn-edit-name")?.value.trim() || "";
   if (!name) {
     setStatusMessage(
@@ -626,21 +1240,67 @@ async function saveSavedConnectionEditor() {
   }
   setStatusMessage("saved-conn-edit-out", t("running"), "running");
   try {
-    const dontSavePassword = !!byId("saved-conn-edit-save-password")?.checked;
     const payload = savedConnectionEditorPayload();
+    payload.device_profile = "autodetect";
+    const data = await request("POST", "/api/connection/test", {
+      connection: payload,
+    });
+    savedConnectionAutodetectResult = {
+      connection_name: name,
+      ...data,
+    };
+    updateSavedConnectionAutodetectUi();
+    const currentProfile =
+      safeString(byId("saved-conn-edit-device-profile")?.value || "").trim() ||
+      "autodetect";
+    if (data.device_profile === currentProfile) {
+      setStatusMessage(
+        "saved-conn-edit-out",
+        `${t("savedConnAutodetectMatched")}: ${data.device_profile}`,
+        "success",
+      );
+      return;
+    }
+    setStatusMessage(
+      "saved-conn-edit-out",
+      `${t("savedConnAutodetectDetected")}: ${data.device_profile} (${t("savedConnAutodetectCurrent")}: ${currentProfile})`,
+      "info",
+    );
+  } catch (e) {
+    resetSavedConnectionAutodetectState();
+    setStatusMessage("saved-conn-edit-out", e.message, "error");
+  }
+}
+
+async function saveSavedConnectionEditor(options = {}) {
+  const name = byId("saved-conn-edit-name")?.value.trim() || "";
+  const {
+    overrideDeviceProfile = null,
+    keepModalOpen = false,
+    successMessage = "",
+  } = options;
+  if (!name) {
+    setStatusMessage(
+      "saved-conn-edit-out",
+      t("connectionNameRequired"),
+      "error",
+    );
+    return;
+  }
+  setStatusMessage("saved-conn-edit-out", t("running"), "running");
+  try {
+    const payload = savedConnectionEditorPayload();
+    if (overrideDeviceProfile) {
+      payload.device_profile = overrideDeviceProfile;
+    }
     if (!payload.device_profile) {
       payload.device_profile = "autodetect";
-    }
-    if (dontSavePassword) {
-      payload.password = null;
-      payload.enable_password = null;
     }
     const data = await request(
       "PUT",
       `/api/connections/${encodeURIComponent(name)}`,
       {
         connection: payload,
-        save_password: !dontSavePassword,
       },
     );
     cachedSavedConnectionDetails.set(data.name || name, data);
@@ -659,20 +1319,60 @@ async function saveSavedConnectionEditor() {
       );
       renderSidebarConnectionSelector();
     }
+    const savedMessage = successMessage || `${t("saved")}: ${data.name || name}`;
     setStatusMessage(
       "saved-conn-out",
-      `${t("saved")}: ${data.name || name}`,
+      savedMessage,
       "success",
     );
     setStatusMessage(
       "saved-conn-edit-out",
-      `${t("saved")}: ${data.name || name}`,
+      savedMessage,
       "success",
     );
-    hideSavedConnectionEditorModal();
+    if (!keepModalOpen) {
+      hideSavedConnectionEditorModal();
+      return;
+    }
+    updateSavedConnectionAutodetectUi();
   } catch (e) {
     setStatusMessage("saved-conn-edit-out", e.message, "error");
   }
+}
+
+async function replaceSavedConnectionProfileWithDetected() {
+  const name = byId("saved-conn-edit-name")?.value.trim() || "";
+  const detectedProfile =
+    safeString(savedConnectionAutodetectResult?.device_profile || "").trim() ||
+    "";
+  if (!name || !detectedProfile) {
+    setStatusMessage(
+      "saved-conn-edit-out",
+      t("savedConnAutodetectMissing"),
+      "error",
+    );
+    return;
+  }
+  const currentProfile =
+    safeString(byId("saved-conn-edit-device-profile")?.value || "").trim() ||
+    "autodetect";
+  if (currentProfile === detectedProfile) {
+    setStatusMessage(
+      "saved-conn-edit-out",
+      `${t("savedConnAutodetectMatched")}: ${detectedProfile}`,
+      "success",
+    );
+    updateSavedConnectionAutodetectUi();
+    return;
+  }
+  ensureSelectValue("saved-conn-edit-device-profile", detectedProfile, {
+    fallbackToEmpty: false,
+  });
+  await saveSavedConnectionEditor({
+    overrideDeviceProfile: detectedProfile,
+    keepModalOpen: true,
+    successMessage: `${t("savedConnAutodetectReplaced")}: ${name} (${detectedProfile})`,
+  });
 }
 
 async function deleteConnectionByName() {
@@ -717,24 +1417,18 @@ async function createSavedConnectionDraft() {
   }
 
   ensureSelectValue("saved-conn-name", name);
-  const dontSavePassword = byId("saved-conn-save-password").checked;
-  const payload = connectionPayload();
-  if (!payload.device_profile) {
-    payload.device_profile = "autodetect";
-  }
-  if (dontSavePassword) {
-    payload.password = null;
-    payload.enable_password = null;
-  }
 
   setStatusMessage("saved-conn-out", t("running"), "running");
   try {
+    const payload = connectionPayload();
+    if (!payload.device_profile) {
+      payload.device_profile = "autodetect";
+    }
     const data = await request(
       "PUT",
       `/api/connections/${encodeURIComponent(name)}`,
       {
         connection: payload,
-        save_password: !dontSavePassword,
       },
     );
     cachedSavedConnectionDetails.set(data.name || name, data);

@@ -139,7 +139,6 @@ impl AgentTaskService for AgentTaskGrpcService {
             axum::extract::Path(name.to_string()),
             Json(WebUpsertConnectionRequest {
                 connection: connection_ref_to_request(connection)?,
-                save_password: req.save_password,
             }),
         )
         .await

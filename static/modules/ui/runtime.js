@@ -367,9 +367,18 @@ function connectionPayload() {
     linux_shell_flavor: value("linux_shell_flavor") || null,
     device_profile: value("device_profile") || null,
     enabled: !!byId("saved-conn-enabled")?.checked,
-    labels: splitCsvValues(byId("saved-conn-labels")?.value || ""),
-    groups: getMultiSelectValues("saved-conn-groups"),
-    vars: parseJsonById("saved-conn-vars"),
+    labels:
+      typeof getConnectionLabelValues === "function"
+        ? getConnectionLabelValues("saved-conn-labels")
+        : splitCsvValues(byId("saved-conn-labels")?.value || ""),
+    groups:
+      typeof getConnectionGroupValues === "function"
+        ? getConnectionGroupValues("saved-conn-groups")
+        : getMultiSelectValues("saved-conn-groups"),
+    vars:
+      typeof getConnectionVarsValue === "function"
+        ? getConnectionVarsValue("saved-conn-vars")
+        : parseJsonById("saved-conn-vars"),
   };
 }
 
@@ -395,28 +404,22 @@ function applyConnectionForm(connection = {}) {
   if (byId("saved-conn-enabled")) {
     byId("saved-conn-enabled").checked = connection.enabled !== false;
   }
-  if (byId("saved-conn-labels")) {
-    byId("saved-conn-labels").value = Array.isArray(connection.labels)
-      ? connection.labels.join(", ")
-      : "";
+  if (typeof setConnectionPickerValues === "function") {
+    setConnectionPickerValues(
+      "saved-conn-labels",
+      Array.isArray(connection.labels) ? connection.labels : [],
+      false,
+    );
   }
   if (typeof renderSavedConnectionGroupOptions === "function") {
     renderSavedConnectionGroupOptions(
       Array.isArray(connection.groups) ? connection.groups : [],
     );
   }
-  if (byId("saved-conn-vars")) {
-    byId("saved-conn-vars").value = JSON.stringify(
-      connection.vars || {},
-      null,
-      2,
-    );
-  }
-  if (byId("saved-conn-save-password")) {
-    byId("saved-conn-save-password").checked = !!(
-      connection.has_password === false &&
-      connection.has_enable_password === false
-    );
+  if (typeof setConnectionVarsValue === "function") {
+    setConnectionVarsValue("saved-conn-vars", connection.vars || {}, false);
+  } else if (byId("saved-conn-vars")) {
+    byId("saved-conn-vars").value = JSON.stringify(connection.vars || {});
   }
   if (typeof renderSidebarConnectionSelector === "function") {
     renderSidebarConnectionSelector();

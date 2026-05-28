@@ -1,4 +1,5 @@
-use crate::cli::{GlobalOpts, OrchestrateArgs, RecordLevelOpt};
+use crate::cli::{GlobalOpts, JsonTemplateCommands, OrchestrateArgs, RecordLevelOpt};
+use crate::config::content_store;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use anyhow::{Context, Result};
@@ -287,24 +288,12 @@ fn default_fail_fast() -> bool {
 }
 
 pub async fn run(args: OrchestrateArgs, opts: &GlobalOpts) -> Result<()> {
-    let plan_text = fs::read_to_string(&args.plan_file).with_context(|| {
-        format!(
-            "failed to read orchestration plan '{}'",
-            args.plan_file.to_string_lossy()
-        )
-    })?;
-    let plan: OrchestrationPlan = serde_json::from_str(&plan_text)
-        .with_context(|| format!("failed to parse '{}'", args.plan_file.to_string_lossy()))?;
-    let plan_root = args
-        .plan_file
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."));
+    let (plan, plan_root, source) = load_plan_from_args(&args, opts)?;
     let inventory = orchestrator_targets::load_inventory(&plan, &plan_root)?;
     validate_plan(&plan, &inventory)?;
 
     if args.view {
-        println!("{}", render_plan(&plan, &inventory, Some(&args.plan_file))?);
+        println!("{}", render_plan(&plan, &inventory, source.as_ref())?);
         return Ok(());
     }
 
@@ -312,7 +301,7 @@ pub async fn run(args: OrchestrateArgs, opts: &GlobalOpts) -> Result<()> {
         if args.json {
             println!("{}", serde_json::to_string_pretty(&plan)?);
         } else {
-            println!("{}", render_plan(&plan, &inventory, Some(&args.plan_file))?);
+            println!("{}", render_plan(&plan, &inventory, source.as_ref())?);
         }
         return Ok(());
     }
@@ -328,6 +317,127 @@ pub async fn run(args: OrchestrateArgs, opts: &GlobalOpts) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn run_orchestration_template_command(cmd: JsonTemplateCommands) -> Result<()> {
+    match cmd {
+        JsonTemplateCommands::List => {
+            let items = content_store::list_orchestration_templates()?;
+            if items.is_empty() {
+                println!("-");
+            } else {
+                for item in items {
+                    println!("- {}", item.name);
+                }
+            }
+        }
+        JsonTemplateCommands::Show { name } => {
+            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let stored =
+                content_store::load_orchestration_template(&safe_name)?.ok_or_else(|| {
+                    anyhow::anyhow!("orchestration template '{}' not found", safe_name)
+                })?;
+            println!("{}", stored.content);
+        }
+        JsonTemplateCommands::Create {
+            name,
+            file,
+            content,
+        } => {
+            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let body = crate::cli_json_templates::read_json_template_body(
+                crate::cli_json_templates::JsonTemplateKind::Orchestration,
+                file,
+                content,
+            )?;
+            let created = content_store::create_orchestration_template(&safe_name, &body)?;
+            if !created {
+                return Err(anyhow::anyhow!(
+                    "orchestration template '{}' already exists",
+                    safe_name
+                ));
+            }
+            println!("Created orchestration template '{}'", safe_name);
+        }
+        JsonTemplateCommands::Update {
+            name,
+            file,
+            content,
+        } => {
+            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let body = crate::cli_json_templates::read_json_template_body(
+                crate::cli_json_templates::JsonTemplateKind::Orchestration,
+                file,
+                content,
+            )?;
+            let updated = content_store::update_orchestration_template(&safe_name, &body)?;
+            if !updated {
+                return Err(anyhow::anyhow!(
+                    "orchestration template '{}' not found",
+                    safe_name
+                ));
+            }
+            println!("Updated orchestration template '{}'", safe_name);
+        }
+        JsonTemplateCommands::Delete { name } => {
+            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let deleted = content_store::delete_orchestration_template(&safe_name)?;
+            if !deleted {
+                return Err(anyhow::anyhow!(
+                    "orchestration template '{}' not found",
+                    safe_name
+                ));
+            }
+            println!("Deleted orchestration template '{}'", safe_name);
+        }
+    }
+    Ok(())
+}
+
+fn load_plan_from_args(
+    args: &OrchestrateArgs,
+    opts: &GlobalOpts,
+) -> Result<(OrchestrationPlan, PathBuf, Option<PathBuf>)> {
+    match (&args.plan_file, &args.template) {
+        (Some(_), Some(_)) => Err(anyhow::anyhow!(
+            "use either plan_file or --template, not both"
+        )),
+        (None, None) => Err(anyhow::anyhow!(
+            "orchestrate requires plan_file or --template <name>"
+        )),
+        (Some(path), None) => {
+            let plan_text = fs::read_to_string(path).with_context(|| {
+                format!(
+                    "failed to read orchestration plan '{}'",
+                    path.to_string_lossy()
+                )
+            })?;
+            let plan: OrchestrationPlan = serde_json::from_str(&plan_text)
+                .with_context(|| format!("failed to parse '{}'", path.to_string_lossy()))?;
+            let plan_root = path
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| PathBuf::from("."));
+            Ok((plan, plan_root, Some(path.clone())))
+        }
+        (None, Some(name)) => {
+            let content = crate::cli_json_templates::load_json_template_content(
+                crate::cli_json_templates::JsonTemplateKind::Orchestration,
+                name,
+            )?;
+            let source: Value = serde_json::from_str(&content)?;
+            let vars = crate::cli_json_templates::read_json_vars(
+                args.vars.as_deref(),
+                args.vars_json.as_deref(),
+            )?;
+            let conn = crate::resolve_effective_connection(opts).ok();
+            let mut context = crate::cli_json_templates::template_context(vars, conn.as_ref());
+            let rendered =
+                crate::cli_json_templates::render_json_template_value(&source, &mut context)?;
+            let plan: OrchestrationPlan = serde_json::from_value(rendered)?;
+            Ok((plan, PathBuf::from("."), None))
+        }
+    }
 }
 
 pub fn load_plan_from_value(

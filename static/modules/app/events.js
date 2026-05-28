@@ -109,7 +109,7 @@ function bindEvents() {
             appStore.closeLangMenu();
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
     if (
       e.key === "Escape" &&
@@ -218,7 +218,7 @@ function bindEvents() {
         if (window.Alpine && typeof window.Alpine.store === "function") {
           window.Alpine.store("app").closeConnectionModal();
         }
-      } catch (_) {}
+      } catch (_) { }
     });
   byId("saved-conn-edit-btn").onclick = () =>
     withButtonLoading("saved-conn-edit-btn", async () => {
@@ -237,7 +237,7 @@ function bindEvents() {
       if (window.Alpine && typeof window.Alpine.store === "function") {
         window.Alpine.store("app").closeConnectionModal();
       }
-    } catch (_) {}
+    } catch (_) { }
   };
   byId("saved-conn-import-btn").onclick = () => {
     byId("saved-conn-import-file-input").click();
@@ -254,14 +254,43 @@ function bindEvents() {
   byId("saved-conn-import-file-input").onchange = async () => {
     try {
       await importConnectionsFromFile();
-    } catch (_) {}
+    } catch (_) { }
   };
   byId("saved-conn-edit-close-btn").onclick = hideSavedConnectionEditorModal;
   byId("saved-conn-edit-cancel-btn").onclick = hideSavedConnectionEditorModal;
+  byId("saved-conn-edit-detect-profile-btn").onclick = () =>
+    withButtonLoading("saved-conn-edit-detect-profile-btn", async () => {
+      await detectSavedConnectionProfile();
+    });
+  byId("saved-conn-edit-apply-detected-profile-btn").onclick = () =>
+    withButtonLoading("saved-conn-edit-apply-detected-profile-btn", async () => {
+      await replaceSavedConnectionProfileWithDetected();
+    });
   byId("saved-conn-edit-save-btn").onclick = () =>
     withButtonLoading("saved-conn-edit-save-btn", async () => {
       await saveSavedConnectionEditor();
     });
+  byId("saved-conn-edit-device-profile").addEventListener("change", () => {
+    updateSavedConnectionAutodetectUi();
+  });
+  [
+    "saved-conn-edit-host",
+    "saved-conn-edit-port",
+    "saved-conn-edit-username",
+    "saved-conn-edit-password",
+    "saved-conn-edit-enable-password",
+    "saved-conn-edit-ssh-security",
+    "saved-conn-edit-linux-shell-flavor",
+  ].forEach((id) => {
+    const el = byId(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      resetSavedConnectionAutodetectState();
+    });
+    el.addEventListener("change", () => {
+      resetSavedConnectionAutodetectState();
+    });
+  });
   byId("saved-conn-edit-modal").onclick = (e) => {
     if (e.target === byId("saved-conn-edit-modal")) {
       hideSavedConnectionEditorModal();
@@ -396,6 +425,7 @@ function bindEvents() {
     setStatusMessage("builtin-detail-status", t("copiedToCustom"), "success");
   };
   byId("profile-command-execution-mode").onchange = updateProfileCommandExecutionVisibility;
+  byId("profile-detect-enabled").onchange = updateProfileDetectVisibility;
   byId("profile-save-btn").onclick = saveCustomProfile;
   byId("profile-delete-btn").onclick = deleteCustomProfile;
   byId("profile-diagnose-btn").onclick = () =>
@@ -410,6 +440,9 @@ function bindEvents() {
   byId("add-sys-prompt-row-btn").onclick = () => addSysPromptRow();
   byId("add-interaction-row-btn").onclick = () => addInteractionRow();
   byId("add-transition-row-btn").onclick = () => addTransitionRow();
+  byId("add-detect-initial-rule-btn").onclick = () =>
+    addDetectRuleRow(byId("detect-initial-rules-list"));
+  byId("add-detect-probe-btn").onclick = () => addDetectProbeRow();
   byId("add-after-connect-hook-btn").onclick = () => addHookRow("hooks-after-connect-list");
   byId("add-before-disconnect-hook-btn").onclick = () =>
     addHookRow("hooks-before-disconnect-list");

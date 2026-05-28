@@ -9,7 +9,7 @@ use crate::config::template_loader::{self, DEFAULT_DEVICE_PROFILE};
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
 use rneter::session::DetectRequest;
-use rneter::templates::{DetectConnectPolicy, autodetect_with_context};
+use rneter::templates::{DetectConnectPolicy, autodetect_with_builtin_and_templates_and_context};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -187,9 +187,13 @@ pub async fn resolve_autodetect_connection(
         conn.password.clone(),
     );
     let context = crate::manager_execution_context_with_security(None, conn.ssh_security);
-    let report = autodetect_with_context(request, context)
-        .await
-        .map_err(ApiError::from)?;
+    let report = autodetect_with_builtin_and_templates_and_context(
+        request,
+        context,
+        template_loader::custom_detect_template_definitions().map_err(ApiError::from)?,
+    )
+    .await
+    .map_err(ApiError::from)?;
     let policy = DetectConnectPolicy::default();
     let best = report
         .best_match

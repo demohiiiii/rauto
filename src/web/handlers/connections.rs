@@ -259,7 +259,7 @@ pub async fn upsert_connection(
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let c = req.connection;
-    let persist_password = should_persist_secret(req.save_password, c.password.as_deref());
+    let persist_password = should_persist_secret(true, c.password.as_deref());
     let existing = connection_store::load_connection_raw(&safe).ok();
     let existing_password = connection_store::load_saved_secret(
         existing
@@ -274,7 +274,7 @@ pub async fn upsert_connection(
     )
     .map_err(ApiError::from)?;
     let (enable_password, enable_password_empty_enter) = resolve_enable_password_update(
-        req.save_password,
+        true,
         c.enable_password,
         c.enable_password_empty_enter,
         existing_enable_password.as_ref(),

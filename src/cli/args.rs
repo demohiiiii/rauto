@@ -238,7 +238,19 @@ pub struct TxArgs {
 #[derive(Args, Debug)]
 pub struct TxWorkflowArgs {
     /// Path to TxWorkflow JSON file
-    pub workflow_file: PathBuf,
+    pub workflow_file: Option<PathBuf>,
+
+    /// Saved TxWorkflow JSON template name
+    #[arg(long, short = 't')]
+    pub template: Option<String>,
+
+    /// Path to a JSON file containing variables for --template
+    #[arg(long, short = 'v')]
+    pub vars: Option<PathBuf>,
+
+    /// Inline JSON variables for --template
+    #[arg(long)]
+    pub vars_json: Option<String>,
 
     /// Dry run: print workflow plan and exit (use --json for raw JSON)
     #[arg(long)]
@@ -264,7 +276,19 @@ pub struct TxWorkflowArgs {
 #[derive(Args, Debug)]
 pub struct OrchestrateArgs {
     /// Path to orchestration plan JSON file
-    pub plan_file: PathBuf,
+    pub plan_file: Option<PathBuf>,
+
+    /// Saved orchestration JSON template name
+    #[arg(long, short = 't')]
+    pub template: Option<String>,
+
+    /// Path to a JSON file containing variables for --template
+    #[arg(long, short = 'v')]
+    pub vars: Option<PathBuf>,
+
+    /// Inline JSON variables for --template
+    #[arg(long)]
+    pub vars_json: Option<String>,
 
     /// Dry run: print orchestration plan and exit (use --json for raw JSON)
     #[arg(long)]

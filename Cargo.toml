@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "network-programming"]
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }
 minijinja = { version = "2.15", features = ["loader", "json"] }
-rneter = "0.4.5"
+rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "b624d9e1846e7d2eb7c8dfbf0e4fc1a20e7cf486" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 futures-util = "0.3"

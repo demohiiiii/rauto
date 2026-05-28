@@ -5,6 +5,8 @@ mod cli;
 mod cli_exec;
 #[path = "cli/flow.rs"]
 mod cli_flow;
+#[path = "cli/json_templates.rs"]
+mod cli_json_templates;
 #[path = "cli/ops.rs"]
 mod cli_ops;
 #[path = "cli/runtime.rs"]
@@ -26,7 +28,7 @@ mod web;
 use anyhow::Result;
 use chrono::Local;
 use clap::Parser;
-use cli::{BackupCommands, Cli, Commands};
+use cli::{BackupCommands, Cli, Commands, OrchestrateSubcommand, TxWorkflowSubcommand};
 use config::backup;
 use config::paths::ensure_default_layout;
 use std::process;
@@ -107,12 +109,22 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Tx(args) => {
             cli_tx_block::run_tx_block(args, &cli.global_opts).await?;
         }
-        Commands::TxWorkflow(args) => {
-            cli_tx_workflow::run_tx_workflow(args, &cli.global_opts).await?;
-        }
-        Commands::Orchestrate(args) => {
-            orchestrator::run(args, &cli.global_opts).await?;
-        }
+        Commands::TxWorkflow(cmd) => match cmd.command {
+            Some(TxWorkflowSubcommand::Template { command }) => {
+                cli_tx_workflow::run_tx_workflow_template_command(command)?;
+            }
+            None => {
+                cli_tx_workflow::run_tx_workflow(cmd.run, &cli.global_opts).await?;
+            }
+        },
+        Commands::Orchestrate(cmd) => match cmd.command {
+            Some(OrchestrateSubcommand::Template { command }) => {
+                orchestrator::run_orchestration_template_command(command)?;
+            }
+            None => {
+                orchestrator::run(cmd.run, &cli.global_opts).await?;
+            }
+        },
         Commands::Backup(cmd) => match cmd {
             BackupCommands::Create { output } => {
                 let path = backup::create_backup(output.as_deref())?;

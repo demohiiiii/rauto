@@ -4,6 +4,7 @@ use rneter::device::{
     DevicePromptRule, DevicePromptWithSysRule, DeviceShellFlavor, DeviceTransitionRule,
 };
 use rneter::session::SessionHooks;
+use rneter::templates::TemplateDetectProfile;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -26,6 +27,8 @@ pub struct DeviceProfile {
     pub hooks: SessionHooks,
     #[serde(default)]
     pub command_execution: DeviceCommandExecutionConfig,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detect_profile: Option<TemplateDetectProfile>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -91,7 +94,13 @@ impl DeviceProfile {
     }
 
     pub fn to_device_handler(&self) -> Result<DeviceHandler> {
-        Ok(DeviceHandler::from_config(&DeviceHandlerConfig {
+        Ok(DeviceHandler::from_config(
+            &self.to_device_handler_config(),
+        )?)
+    }
+
+    pub fn to_device_handler_config(&self) -> DeviceHandlerConfig {
+        DeviceHandlerConfig {
             prompt: self
                 .prompts
                 .iter()
@@ -138,7 +147,7 @@ impl DeviceProfile {
             dyn_param: HashMap::new(),
             hooks: self.hooks.clone(),
             command_execution: self.command_execution.clone(),
-        })?)
+        }
     }
 
     pub fn apply_shell_flavor_override(&mut self, shell_flavor: DeviceShellFlavor) {
@@ -199,6 +208,7 @@ impl DeviceProfile {
             ignore_errors: config.ignore_errors,
             hooks: config.hooks,
             command_execution: config.command_execution,
+            detect_profile: None,
         }
     }
 }
@@ -234,6 +244,7 @@ mod tests {
                 ..SessionHooks::default()
             },
             command_execution: DeviceCommandExecutionConfig::PromptDriven,
+            detect_profile: None,
         }
     }
 

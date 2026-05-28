@@ -943,6 +943,29 @@ Execution APIs support template-based inputs (inline JSON / saved template name 
   - `plan_template_content`
   - `plan_vars`
 
+CLI template management lives under the execution command:
+
+```bash
+rauto tx-workflow template list
+rauto tx-workflow template show workflow-rollout
+rauto tx-workflow template create workflow-rollout --file ./workflow-template.json
+rauto tx-workflow template update workflow-rollout --file ./workflow-template.json
+rauto tx-workflow template delete workflow-rollout
+
+rauto orchestrate template list
+rauto orchestrate template show campus-rollout
+rauto orchestrate template create campus-rollout --file ./orchestration-template.json
+rauto orchestrate template update campus-rollout --file ./orchestration-template.json
+rauto orchestrate template delete campus-rollout
+```
+
+Template execution:
+
+```bash
+rauto tx-workflow --template workflow-rollout --vars ./workflow-vars.json --dry-run
+rauto orchestrate --template campus-rollout --vars-json '{"site":"dc-a"}' --view
+```
+
 Template rendering context:
 
 - `vars`: request-level `*_vars`

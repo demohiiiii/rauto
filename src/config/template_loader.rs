@@ -2,7 +2,10 @@ use crate::config::content_store;
 use crate::config::device_profile::DeviceProfile;
 use crate::config::linux_shell::LinuxShellFlavor;
 use anyhow::{Context, Result, anyhow};
-use rneter::{device::DeviceHandler, templates};
+use rneter::{
+    device::DeviceHandler,
+    templates::{self, DetectTemplateDefinition},
+};
 use std::collections::BTreeSet;
 
 pub const AUTODETECT_DEVICE_PROFILE: &str = "autodetect";
@@ -139,6 +142,23 @@ pub fn list_available_profiles() -> Result<Vec<String>> {
         profiles.insert(custom);
     }
     Ok(profiles.into_iter().collect())
+}
+
+pub fn custom_detect_template_definitions() -> Result<Vec<DetectTemplateDefinition>> {
+    let mut templates = Vec::new();
+    for stored in content_store::list_custom_profiles()? {
+        let profile: DeviceProfile = toml::from_str(&stored.content)
+            .with_context(|| format!("Failed to parse device profile from {}", stored.locator))?;
+        let Some(detect_profile) = profile.detect_profile.clone() else {
+            continue;
+        };
+        templates.push(DetectTemplateDefinition::new(
+            profile.name.clone(),
+            profile.to_device_handler_config(),
+            detect_profile,
+        ));
+    }
+    Ok(templates)
 }
 
 #[cfg(test)]

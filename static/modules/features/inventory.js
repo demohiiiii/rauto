@@ -194,6 +194,9 @@ function renderInventoryLabelOptions(selectedName = "") {
     selected: selectedName,
   });
   renderInventoryLabelHosts();
+  if (typeof renderSavedConnectionLabelOptions === "function") {
+    renderSavedConnectionLabelOptions();
+  }
 }
 
 function parseInventoryJson(id) {

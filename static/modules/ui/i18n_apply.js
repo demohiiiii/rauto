@@ -10,7 +10,7 @@ function currentConnectionModalMode() {
         return appStore.connectionModalMode;
       }
     }
-  } catch (_) {}
+  } catch (_) { }
   return "saved";
 }
 
@@ -74,13 +74,13 @@ function applyI18n() {
   byId("connection-test-btn").textContent = t("connectionTestBtn");
   byId("saved-conn-title").textContent = t("savedConnTitle");
   byId("saved-conn-subtitle").textContent = t("savedConnSubtitle");
-  byId("saved-conn-save-password-label").textContent = t("savedConnSavePassword");
   byId("saved-conn-enabled-label").textContent = t("inventoryFieldEnabled");
   byId("saved-conn-labels-label").textContent = t("inventoryFieldLabels");
   byId("saved-conn-groups-label").textContent = t("inventoryFieldGroups");
   byId("saved-conn-vars-label").textContent = t("inventoryFieldVars");
-  byId("saved-conn-labels").placeholder = t("inventoryFieldLabelsPlaceholder");
-  byId("saved-conn-vars").placeholder = t("inventoryFieldVarsPlaceholder");
+  byId("saved-conn-labels-picker").placeholder = t("connectionLabelsPickerPlaceholder");
+  byId("saved-conn-groups-picker").placeholder = t("connectionGroupsPickerPlaceholder");
+  byId("saved-conn-vars-add-btn").textContent = t("addInlineBtn");
   byId("saved-conn-template-btn").textContent = t("savedConnTemplateBtn");
   byId("saved-conn-import-btn").textContent = t("savedConnImportBtn");
   byId("saved-conn-new-btn").textContent = t("newBtn");
@@ -91,13 +91,15 @@ function applyI18n() {
   byId("saved-conn-edit-title").textContent = t("savedConnEditTitle");
   byId("saved-conn-edit-hint").textContent = t("savedConnEditHint");
   byId("saved-conn-edit-name-label").textContent = t("inventoryFieldName");
-  byId("saved-conn-edit-save-password-label").textContent = t("savedConnSavePassword");
   byId("saved-conn-edit-enabled-label").textContent = t("inventoryFieldEnabled");
   byId("saved-conn-edit-labels-label").textContent = t("inventoryFieldLabels");
   byId("saved-conn-edit-groups-label").textContent = t("inventoryFieldGroups");
   byId("saved-conn-edit-vars-label").textContent = t("inventoryFieldVars");
-  byId("saved-conn-edit-labels").placeholder = t("inventoryFieldLabelsPlaceholder");
-  byId("saved-conn-edit-vars").placeholder = t("inventoryFieldVarsPlaceholder");
+  byId("saved-conn-edit-labels-picker").placeholder = t("connectionLabelsPickerPlaceholder");
+  byId("saved-conn-edit-groups-picker").placeholder = t("connectionGroupsPickerPlaceholder");
+  byId("saved-conn-edit-vars-add-btn").textContent = t("addInlineBtn");
+  byId("saved-conn-edit-detect-profile-btn").textContent = t("savedConnAutodetectBtn");
+  byId("saved-conn-edit-apply-detected-profile-btn").textContent = t("savedConnAutodetectReplaceBtn");
   byId("saved-conn-edit-save-btn").textContent = t("savedConnSaveBtn");
   byId("saved-conn-edit-cancel-btn").textContent = t("cancel");
   byId("saved-conn-edit-close-btn").textContent = t("close");
@@ -428,6 +430,8 @@ function applyI18n() {
   byId("add-sys-prompt-row-btn").textContent = t("addInlineBtn");
   byId("add-interaction-row-btn").textContent = t("addInlineBtn");
   byId("add-transition-row-btn").textContent = t("addInlineBtn");
+  byId("add-detect-initial-rule-btn").textContent = t("addInlineBtn");
+  byId("add-detect-probe-btn").textContent = t("addInlineBtn");
   byId("add-after-connect-hook-btn").textContent = t("addInlineBtn");
   byId("add-before-disconnect-hook-btn").textContent = t("addInlineBtn");
   byId("add-after-enter-state-hook-btn").textContent = t("addInlineBtn");
@@ -437,6 +441,7 @@ function applyI18n() {
   byId("label-ignore-errors").textContent = t("labelIgnoreErrors");
   byId("label-prompt-prefix").textContent = t("labelPromptPrefix");
   byId("label-builtin-prompt-prefix").textContent = t("labelPromptPrefix");
+  byId("label-builtin-detect-profile").textContent = t("labelDetectProfile");
   const profileCommandExecutionValue =
     byId("profile-command-execution-mode").value ||
     normalizeCommandExecutionConfig(lastBuiltinProfile?.command_execution).mode;
@@ -445,6 +450,10 @@ function applyI18n() {
   byId("label-sys-prompts").textContent = t("labelSysPrompts");
   byId("label-interactions").textContent = t("labelInteractions");
   byId("label-transitions").textContent = t("labelTransitions");
+  byId("label-detect-profile").textContent = t("labelDetectProfile");
+  byId("profile-detect-hint").textContent = t("detectProfileHint");
+  byId("label-detect-initial-rules").textContent = t("detectInitialRulesLabel");
+  byId("label-detect-probes").textContent = t("detectProbesLabel");
   byId("label-hooks").textContent = t("labelHooks");
   byId("label-builtin-hooks").textContent = t("labelHooks");
   byId("profile-hooks-hint").textContent = t("profileHooksHint");

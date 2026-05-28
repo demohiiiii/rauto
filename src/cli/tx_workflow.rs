@@ -1,5 +1,5 @@
-use crate::cli::TxWorkflowArgs;
-use crate::config::{command_blacklist, template_loader};
+use crate::cli::{JsonTemplateCommands, TxWorkflowArgs};
+use crate::config::{command_blacklist, content_store, template_loader};
 use crate::tx_operation::command_timeout_secs;
 use anyhow::Result;
 use rneter::session::{MANAGER, RollbackPolicy, SessionOperation, TxBlock, TxWorkflowResult};
@@ -11,11 +11,10 @@ pub(crate) async fn run_tx_workflow(
     args: TxWorkflowArgs,
     opts: &crate::cli::GlobalOpts,
 ) -> Result<()> {
-    let workflow_text = fs::read_to_string(&args.workflow_file)?;
-    let workflow: rneter::session::TxWorkflow = serde_json::from_str(&workflow_text)?;
+    let (workflow, source) = load_tx_workflow_from_args(&args, opts).await?;
 
     if args.view {
-        print_tx_workflow_plan(&workflow, Some(&args.workflow_file));
+        print_tx_workflow_plan(&workflow, source.as_ref());
         return Ok(());
     }
 
@@ -23,7 +22,7 @@ pub(crate) async fn run_tx_workflow(
         if args.json {
             println!("{}", serde_json::to_string_pretty(&workflow)?);
         } else {
-            print_tx_workflow_plan(&workflow, Some(&args.workflow_file));
+            print_tx_workflow_plan(&workflow, source.as_ref());
         }
         return Ok(());
     }
@@ -95,6 +94,118 @@ pub(crate) async fn run_tx_workflow(
     }
     crate::maybe_save_connection_profile(opts, &conn)?;
     Ok(())
+}
+
+pub(crate) fn run_tx_workflow_template_command(cmd: JsonTemplateCommands) -> Result<()> {
+    run_json_template_command(crate::cli_json_templates::JsonTemplateKind::TxWorkflow, cmd)
+}
+
+fn run_json_template_command(
+    kind: crate::cli_json_templates::JsonTemplateKind,
+    cmd: JsonTemplateCommands,
+) -> Result<()> {
+    match cmd {
+        JsonTemplateCommands::List => {
+            let items = content_store::list_tx_workflow_templates()?;
+            if items.is_empty() {
+                println!("-");
+            } else {
+                for item in items {
+                    println!("- {}", item.name);
+                }
+            }
+        }
+        JsonTemplateCommands::Show { name } => {
+            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let stored = content_store::load_tx_workflow_template(&safe_name)?
+                .ok_or_else(|| anyhow::anyhow!("tx workflow template '{}' not found", safe_name))?;
+            println!("{}", stored.content);
+        }
+        JsonTemplateCommands::Create {
+            name,
+            file,
+            content,
+        } => {
+            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let body = crate::cli_json_templates::read_json_template_body(kind, file, content)?;
+            let created = content_store::create_tx_workflow_template(&safe_name, &body)?;
+            if !created {
+                return Err(anyhow::anyhow!(
+                    "tx workflow template '{}' already exists",
+                    safe_name
+                ));
+            }
+            println!("Created tx workflow template '{}'", safe_name);
+        }
+        JsonTemplateCommands::Update {
+            name,
+            file,
+            content,
+        } => {
+            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let body = crate::cli_json_templates::read_json_template_body(kind, file, content)?;
+            let updated = content_store::update_tx_workflow_template(&safe_name, &body)?;
+            if !updated {
+                return Err(anyhow::anyhow!(
+                    "tx workflow template '{}' not found",
+                    safe_name
+                ));
+            }
+            println!("Updated tx workflow template '{}'", safe_name);
+        }
+        JsonTemplateCommands::Delete { name } => {
+            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let deleted = content_store::delete_tx_workflow_template(&safe_name)?;
+            if !deleted {
+                return Err(anyhow::anyhow!(
+                    "tx workflow template '{}' not found",
+                    safe_name
+                ));
+            }
+            println!("Deleted tx workflow template '{}'", safe_name);
+        }
+    }
+    Ok(())
+}
+
+async fn load_tx_workflow_from_args(
+    args: &TxWorkflowArgs,
+    opts: &crate::cli::GlobalOpts,
+) -> Result<(rneter::session::TxWorkflow, Option<PathBuf>)> {
+    match (&args.workflow_file, &args.template) {
+        (Some(_), Some(_)) => {
+            return Err(anyhow::anyhow!(
+                "use either workflow_file or --template, not both"
+            ));
+        }
+        (None, None) => {
+            return Err(anyhow::anyhow!(
+                "tx-workflow requires workflow_file or --template <name>"
+            ));
+        }
+        (Some(path), None) => {
+            let workflow_text = fs::read_to_string(path)?;
+            let workflow = serde_json::from_str(&workflow_text)?;
+            Ok((workflow, Some(path.clone())))
+        }
+        (None, Some(name)) => {
+            let content = crate::cli_json_templates::load_json_template_content(
+                crate::cli_json_templates::JsonTemplateKind::TxWorkflow,
+                name,
+            )?;
+            let source: serde_json::Value = serde_json::from_str(&content)?;
+            let vars = crate::cli_json_templates::read_json_vars(
+                args.vars.as_deref(),
+                args.vars_json.as_deref(),
+            )?;
+            let conn = crate::resolve_effective_connection(opts).ok();
+            let mut context = crate::cli_json_templates::template_context(vars, conn.as_ref());
+            let rendered =
+                crate::cli_json_templates::render_json_template_value(&source, &mut context)?;
+            let workflow = serde_json::from_value(rendered)?;
+            Ok((workflow, None))
+        }
+    }
 }
 
 fn print_tx_workflow_plan(workflow: &rneter::session::TxWorkflow, source: Option<&PathBuf>) {

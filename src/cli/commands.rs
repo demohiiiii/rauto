@@ -2,7 +2,7 @@ use super::args::{
     AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, ReplayArgs, TemplateArgs,
     TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -73,15 +73,51 @@ pub enum Commands {
     /// Execute commands as a transaction-like block with rollback support
     Tx(TxArgs),
 
-    /// Execute a transaction workflow loaded from JSON
-    TxWorkflow(TxWorkflowArgs),
+    /// Execute transaction workflows and manage workflow templates
+    #[command(name = "tx-workflow")]
+    TxWorkflow(TxWorkflowCommand),
 
-    /// Execute a multi-device orchestration plan loaded from JSON
-    Orchestrate(OrchestrateArgs),
+    /// Execute orchestration plans and manage orchestration templates
+    #[command(name = "orchestrate")]
+    Orchestrate(OrchestrateCommand),
 
     /// Backup and restore rauto runtime data
     #[command(subcommand)]
     Backup(BackupCommands),
+}
+
+#[derive(Args, Debug)]
+pub struct TxWorkflowCommand {
+    #[command(flatten)]
+    pub run: TxWorkflowArgs,
+    #[command(subcommand)]
+    pub command: Option<TxWorkflowSubcommand>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TxWorkflowSubcommand {
+    /// Manage saved transaction workflow JSON templates
+    Template {
+        #[command(subcommand)]
+        command: JsonTemplateCommands,
+    },
+}
+
+#[derive(Args, Debug)]
+pub struct OrchestrateCommand {
+    #[command(flatten)]
+    pub run: OrchestrateArgs,
+    #[command(subcommand)]
+    pub command: Option<OrchestrateSubcommand>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum OrchestrateSubcommand {
+    /// Manage saved orchestration JSON templates
+    Template {
+        #[command(subcommand)]
+        command: JsonTemplateCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -118,6 +154,44 @@ pub enum CommandFlowTemplateCommands {
     /// Delete a command flow template
     Delete {
         /// Command flow template name
+        name: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum JsonTemplateCommands {
+    /// List saved JSON templates
+    List,
+    /// Show a saved JSON template
+    Show {
+        /// Template name
+        name: String,
+    },
+    /// Create a new JSON template
+    Create {
+        /// Template name
+        name: String,
+        /// Path to JSON content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline JSON content
+        #[arg(long)]
+        content: Option<String>,
+    },
+    /// Update an existing JSON template
+    Update {
+        /// Template name
+        name: String,
+        /// Path to JSON content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline JSON content
+        #[arg(long)]
+        content: Option<String>,
+    },
+    /// Delete a JSON template
+    Delete {
+        /// Template name
         name: String,
     },
 }

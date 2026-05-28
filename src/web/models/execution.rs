@@ -7,8 +7,6 @@ use serde_json::Value;
 pub struct UpsertConnectionRequest {
     #[serde(default)]
     pub connection: ConnectionRequest,
-    #[serde(default)]
-    pub save_password: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
