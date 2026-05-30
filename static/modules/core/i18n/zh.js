@@ -795,7 +795,7 @@ const i18nZh = {
   "usernamePlaceholder": "用户名",
   "passwordPlaceholder": "密码",
   "enablePasswordPlaceholder": "enable 密码（可选）",
-  "sshSecurityOptionDefault": "SSH 安全档位（默认 secure）",
+  "sshSecurityOptionDefault": "SSH 安全档位（默认 legacy-compatible）",
   "sshSecurityOptionSecure": "secure",
   "sshSecurityOptionBalanced": "balanced",
   "sshSecurityOptionLegacy": "legacy-compatible",

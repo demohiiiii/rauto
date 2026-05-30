@@ -73,7 +73,7 @@ rauto web --bind 127.0.0.1 --port 3000
 - **Embedded Web Assets**: Frontend files are embedded into the binary for release usage.
 - **Saved Connection Profiles**: Reuse named connection settings across commands.
 - **Bulk Connection Import**: Import saved connections from CSV / Excel with upsert behavior.
-- **SSH Security Profiles**: Choose `secure`, `balanced`, or `legacy-compatible` per target.
+- **SSH Security Profiles**: Choose `secure`, `balanced`, or `legacy-compatible` per target; the default is `legacy-compatible`.
 - **Inventory Groups & Labels**: Organize saved connections with reusable grouping metadata.
 - **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
 - **Reusable Command Flow Templates**: Execute wizard-style interactive CLI workflows from saved TOML templates, including device-side file transfer, guided installers, or confirmation-heavy operational sequences.
@@ -505,7 +505,7 @@ Password behavior:
 - `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
 - `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
 - Saved passwords are encrypted in `~/.rauto/rauto.db` with a local master key. The master key is stored once in the system keyring (single authorization, then cached in process).
-- `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections.
+- `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections. When omitted, rauto uses `legacy-compatible` for the broadest device compatibility.
 - `--linux-shell-flavor <posix|fish>` controls Linux shell exit-code parsing strategy (`posix` also accepts `bash` alias).
 
 Bulk import:
@@ -1053,7 +1053,7 @@ Default runtime data:
 | `--password`           | `RAUTO_PASSWORD` | SSH password                                                                         |
 | `--enable-password`    | -                | Enable/Secret password                                                               |
 | `--ssh-port`           | -                | SSH port (default: 22)                                                               |
-| `--ssh-security`       | -                | SSH security profile: `secure`, `balanced`, `legacy-compatible`                      |
+| `--ssh-security`       | -                | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible` |
 | `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`           |
 | `--device-profile`     | -                | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`) |
 | `--force-autodetect`   | -                | Ignore cached autodetect result and probe the target again                           |

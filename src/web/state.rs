@@ -434,6 +434,7 @@ mod tests {
                 .expect("resolved connection");
 
         assert_eq!(resolved.device_profile, DEFAULT_DEVICE_PROFILE);
+        assert_eq!(resolved.ssh_security, SshSecurityProfile::LegacyCompatible);
         assert_eq!(resolved.vars, serde_json::json!({}));
     }
 

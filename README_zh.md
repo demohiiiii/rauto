@@ -73,7 +73,7 @@ rauto web --bind 127.0.0.1 --port 3000
 - **内嵌静态资源**：发布二进制时前端资源已打包到可执行文件中。
 - **连接配置档复用**：支持按名称保存/加载连接参数。
 - **批量导入连接**：支持从 CSV / Excel 批量导入并按名称 upsert 已保存连接。
-- **SSH 安全档位**：可按目标选择 `secure`、`balanced`、`legacy-compatible`。
+- **SSH 安全档位**：可按目标选择 `secure`、`balanced`、`legacy-compatible`；默认使用 `legacy-compatible`。
 - **Inventory 分组与标签**：支持用分组和标签组织已保存连接。
 - **会话录制与回放**：支持将 SSH 会话录制为 JSONL 并离线回放。
 - **可复用命令流程模板**：支持把向导式 CLI 交互保存为可复用模板，用来执行设备侧文件传输、安装向导、功能确认等多步交互流程。
@@ -503,7 +503,7 @@ rauto history list lab1 --limit 20
 - 在 `exec/template/connection test` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
 - 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
 - 已保存密码会先加密后写入 `~/.rauto/rauto.db`；解密主密钥仅在系统 keyring 中保存一份（一次授权后进程内缓存）。
-- `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。
+- `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。未指定时默认使用兼容性最广的 `legacy-compatible`。
 - `--linux-shell-flavor <posix|fish>` 用于控制 Linux shell 的退出码解析策略（`posix` 同时接受 `bash` 别名）。
 
 批量导入：
@@ -1047,7 +1047,7 @@ Group JSON 结构：
 | `--password`           | `RAUTO_PASSWORD` | SSH 密码                                                                    |
 | `--enable-password`    | -                | Enable/Secret 密码                                                          |
 | `--ssh-port`           | -                | SSH 端口 (默认: 22)                                                         |
-| `--ssh-security`       | -                | SSH 安全档位：`secure`、`balanced`、`legacy-compatible`                     |
+| `--ssh-security`       | -                | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible` |
 | `--linux-shell-flavor` | -                | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                 |
 | `--device-profile`     | -                | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`） |
 | `--force-autodetect`   | -                | 忽略已缓存的 autodetect 结果并重新探测目标设备                                |

@@ -800,7 +800,7 @@ const i18nEn = {
   "usernamePlaceholder": "username",
   "passwordPlaceholder": "password",
   "enablePasswordPlaceholder": "enable password (optional)",
-  "sshSecurityOptionDefault": "ssh security (default secure)",
+  "sshSecurityOptionDefault": "ssh security (default legacy-compatible)",
   "sshSecurityOptionSecure": "secure",
   "sshSecurityOptionBalanced": "balanced",
   "sshSecurityOptionLegacy": "legacy-compatible",

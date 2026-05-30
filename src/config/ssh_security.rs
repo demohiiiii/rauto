@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum SshSecurityProfile {
-    #[default]
     Secure,
     Balanced,
+    #[default]
     LegacyCompatible,
 }
 
