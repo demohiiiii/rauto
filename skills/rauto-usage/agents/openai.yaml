@@ -1,4 +1,4 @@
 interface:
   display_name: "Rauto Operations"
-  short_description: "Execute and validate rauto operations, with strong tx/workflow/orchestration JSON guidance"
-  default_prompt: "Use $rauto-usage to execute rauto tasks directly, with emphasis on authoring and validating tx block / tx workflow / orchestration JSON plans via the bundled validator script before execution."
+  short_description: "Run rauto CLI/Web/Agent workflows safely"
+  default_prompt: "Use $rauto-usage to execute or validate rauto CLI/Web/Agent operations, including saved JSON templates, autodetect behavior, and tx/workflow/orchestration plans."

@@ -19,7 +19,15 @@ rauto connection add core-01 --host 192.168.1.10 --username admin --password '**
 rauto device list
 rauto device show linux
 rauto device diagnose linux --json
+rauto profile autodetect --host 192.168.1.10 --username admin --password '***'
+rauto profile autodetect -v --host 192.168.1.10 --username admin --password '***'
 ```
+
+Notes:
+
+- Omit `--device-profile` to use `autodetect`; successful detections are cached by `host:port`.
+- Add `--force-autodetect` to bypass the cache after device replacement or IP reuse.
+- Omit `--ssh-security` to use the default `legacy-compatible` SSH algorithms.
 
 ## Standard Execution
 
@@ -39,10 +47,28 @@ rauto flow --template builtin:cisco_like_copy --connection core-01 --vars-json '
 ## Transaction Family (JSON)
 
 ```bash
-rauto tx --file ./tx-block.json --connection edge92
-rauto tx-workflow --file ./tx-workflow.json --connection edge92
-rauto orchestrate --file ./orchestration.json
+rauto tx --command "show version" --rollback-command "show version" --connection edge92 --dry-run
+rauto tx-workflow ./tx-workflow.json --connection edge92 --dry-run
+rauto orchestrate ./orchestration.json --dry-run
 ```
+
+`tx` is parameter-driven from CLI. Use tx-block JSON for Web/API payloads and saved template flows.
+
+## Reusable JSON Templates
+
+```bash
+rauto tx-workflow template list
+rauto tx-workflow template show workflow-rollout
+rauto tx-workflow template create workflow-rollout --file ./workflow-template.json
+rauto tx-workflow --template workflow-rollout --vars ./workflow-vars.json --dry-run
+
+rauto orchestrate template list
+rauto orchestrate template show campus-rollout
+rauto orchestrate template create campus-rollout --file ./orchestration-template.json
+rauto orchestrate --template campus-rollout --vars-json '{"site":"dc-a"}' --view
+```
+
+Use nested `template` subcommands under `tx-workflow` and `orchestrate`; do not invent flat commands like `tx-workflow-template`.
 
 ## Inventory, History, Replay, Upload, Backup
 
@@ -61,4 +87,3 @@ rauto backup list
 - Every execution is recorded by default.
 - Use `--record-level key-events-only` for command + output audit.
 - Use `--record-level full` for richer prompt/state details.
-

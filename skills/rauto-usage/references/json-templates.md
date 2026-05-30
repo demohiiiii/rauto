@@ -3,8 +3,9 @@
 Use this guide when creating runnable JSON for:
 
 - Web/API tx-block execution payloads
-- `rauto tx-workflow <file>`
-- `rauto orchestrate <file>`
+- `rauto tx-workflow <workflow-file>`
+- `rauto orchestrate <plan-file>`
+- saved JSON templates executed with `--template`
 
 ## Authoring Workflow
 
@@ -308,7 +309,25 @@ Orchestration file is a single plan object:
 - `{{edge94.host}}`, `{{edge94.username}}`, `{{edge94.password}}`: cross-connection direct access.
 - Secret fields should be masked in preview/log outputs.
 
-## 5) Validation Command
+## 5) CLI Template Commands
+
+Workflow/orchestration JSON template management is nested under the execution command:
+
+```bash
+rauto tx-workflow template list
+rauto tx-workflow template create workflow-rollout --file ./workflow-template.json
+rauto tx-workflow --template workflow-rollout --vars ./workflow-vars.json --dry-run
+
+rauto orchestrate template list
+rauto orchestrate template create campus-rollout --file ./orchestration-template.json
+rauto orchestrate --template campus-rollout --vars-json '{"site":"dc-a"}' --view
+```
+
+Do not use flat command names such as `tx-workflow-template`.
+
+Template render context includes `vars`, `now`, current connection fields, and top-level aliases for runtime vars. String values containing Jinja syntax are rendered recursively; if a rendered string parses as JSON, the JSON value is preserved.
+
+## 6) Validation Command
 
 ```bash
 # Auto-detect kind

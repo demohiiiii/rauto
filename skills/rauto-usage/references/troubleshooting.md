@@ -10,7 +10,11 @@ Use this checklist when `rauto` execution does not behave as expected.
 
 ```bash
 rauto connection test --connection <name>
+rauto connection test --connection <name> --force-autodetect
 ```
+
+- If autodetect previously succeeded but the device changed, retry with `--force-autodetect`.
+- If old devices fail key exchange, remember the default is `legacy-compatible`; only raise to `balanced` or `secure` when the target supports stricter algorithms.
 
 ## 2) Mode / Prompt Mismatch
 
@@ -41,4 +45,3 @@ rauto connection test --connection <name>
 - Saved connections are stored in SQLite metadata.
 - Secrets rely on keyring-based storage and app-level encrypted data flow.
 - If keyring init/read fails, validate keyring availability and permissions on host OS.
-

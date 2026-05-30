@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Operate rauto end-to-end for the user through CLI/Web/Agent: execute commands and templates, run command-flow templates, run tx/tx-workflow/orchestrate JSON plans, manage saved connections/device profiles/inventory/templates/history, run replay/backup/restore/upload, and start or troubleshoot web/agent services. Trigger when the user asks to directly perform or validate rauto operations instead of only explaining them."
+description: "Operate rauto end-to-end for the user through CLI/Web/Agent: execute commands and templates, run command-flow templates, run tx/tx-workflow/orchestrate JSON plans or saved JSON templates, manage saved connections/device profiles/autodetect/inventory/templates/history, run replay/backup/restore/upload, and start or troubleshoot web/agent services. Trigger when the user asks to directly perform or validate rauto operations instead of only explaining them."
 ---
 
 # Rauto Usage
@@ -32,11 +32,16 @@ Apply action-first behavior:
    - manage with `rauto flow-template`
 5. Resolve connection using:
    - explicit host flags > `--connection <name>` > ask only for missing must-have inputs.
-6. Keep mode behavior profile-aware:
+6. Keep SSH/profile defaults current:
+   - default device profile is `autodetect`
+   - default SSH security is `legacy-compatible`
+   - successful autodetect results are cached by `host:port`
+   - use `--force-autodetect` when the device behind an IP/port may have changed.
+7. Keep mode behavior profile-aware:
    - do not force `Enable`
    - let profile default apply when mode is omitted
    - if mode invalid, return default and available modes.
-7. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
+8. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
 
 ## Tx / Workflow / Orchestration Authoring Protocol
 
