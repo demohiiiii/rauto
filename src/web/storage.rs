@@ -10,16 +10,25 @@ use rneter::templates::{TemplateCapability, by_name_config, template_catalog, te
 
 fn builtin_aliases(name: &str) -> Vec<String> {
     match name {
-        "cisco" => vec!["ios".to_string()],
+        "cisco_ios" => vec!["cisco".to_string(), "ios".to_string()],
+        "cisco_xe" => vec!["iosxe".to_string(), "cisco_iosxe".to_string()],
         "huawei" => vec!["vrp".to_string()],
-        "h3c" => vec!["comware".to_string()],
-        "juniper" => vec!["junos".to_string()],
-        "arista" => vec!["eos".to_string()],
+        "h3c_comware" => vec!["h3c".to_string(), "comware".to_string()],
+        "hp_comware" => vec!["hp".to_string(), "comware".to_string()],
+        "hillstone_stoneos" => vec!["hillstone".to_string()],
+        "juniper_junos" => vec!["juniper".to_string(), "junos".to_string()],
+        "arista_eos" => vec!["arista".to_string(), "eos".to_string()],
         "fortinet" => vec!["fortigate".to_string(), "fortios".to_string()],
-        "paloalto" => vec!["palo-alto".to_string(), "panos".to_string()],
+        "paloalto_panos" => vec!["paloalto".to_string(), "palo-alto".to_string(), "panos".to_string()],
         "chaitin" => vec!["safeline".to_string()],
         "qianxin" => vec!["qax".to_string(), "qian-xin".to_string()],
-        "checkpoint" => vec!["check-point".to_string(), "check_point".to_string()],
+        "checkpoint_gaia" => vec!["check-point".to_string(), "check_point".to_string()],
+        "aruba_aoscx" => vec!["aruba".to_string(), "aoscx".to_string()],
+        "cisco_nxos" => vec!["nxos".to_string()],
+        "cisco_asa" => vec!["asa".to_string()],
+        "dell_os10" => vec!["dell".to_string(), "os10".to_string()],
+        "ruijie_os" => vec!["ruijie".to_string()],
+        "zte_zxros" => vec!["zte".to_string(), "zxros".to_string()],
         _ => Vec::new(),
     }
 }

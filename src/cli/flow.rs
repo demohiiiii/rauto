@@ -3,7 +3,7 @@ use crate::config::command_flow_template::{
     ParsedCommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
     parse_command_flow_template_with_extensions, resolve_command_flow_runtime_default_mode,
 };
-use crate::config::{command_blacklist, content_store, template_loader};
+use crate::config::{command_blacklist, content_store, template_loader, textfsm};
 use crate::device::DeviceClient;
 use anyhow::Result;
 use rneter::session::MANAGER;
@@ -147,8 +147,20 @@ pub(crate) async fn run_command_flow(
 
     crate::maybe_save_connection_profile(opts, &conn)?;
 
+    let flow_commands = flow
+        .steps
+        .iter()
+        .map(|step| step.command.clone())
+        .collect::<Vec<_>>();
     let result = client.execute_command_flow(flow).await?;
-    print_command_flow_output(&result);
+    let parse_options = textfsm::ParseOptions {
+        template_file: args.textfsm_template.clone(),
+        enabled: args.parse_textfsm || args.textfsm_template.is_some(),
+        platform: args.textfsm_platform.clone(),
+        device_profile: Some(conn.device_profile.clone()),
+        ..Default::default()
+    };
+    print_command_flow_output(&result, &flow_commands, &parse_options)?;
     crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
         &client,
@@ -231,7 +243,11 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
     Ok(())
 }
 
-fn print_command_flow_output(result: &rneter::session::CommandFlowOutput) {
+fn print_command_flow_output(
+    result: &rneter::session::CommandFlowOutput,
+    commands: &[String],
+    parse_options: &textfsm::ParseOptions,
+) -> Result<()> {
     println!("flow_success: {}", result.success);
     for (index, output) in result.outputs.iter().enumerate() {
         println!(
@@ -244,10 +260,23 @@ fn print_command_flow_output(result: &rneter::session::CommandFlowOutput) {
                 .unwrap_or_else(|| "-".to_string())
         );
         println!("{}", output.content);
+        let command = commands.get(index).map(String::as_str).unwrap_or("");
+        let (parsed_output, parse_error) =
+            textfsm::parse_command_output_optional(&output.content, command, parse_options);
+        if let Some(parsed_output) = parsed_output {
+            println!(
+                "Parsed Output:\n{}",
+                textfsm::format_parsed_output_table(&parsed_output)
+            );
+        }
+        if let Some(err) = parse_error {
+            println!("Parse Error: {}", err);
+        }
         if index + 1 < result.outputs.len() {
             println!("---");
         }
     }
+    Ok(())
 }
 
 fn build_upload_request(args: &UploadArgs) -> Result<rneter::session::FileUploadRequest> {

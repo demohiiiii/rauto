@@ -17,3 +17,4 @@ pub mod ssh_security;
 pub mod task_store;
 pub mod template_connection_refs;
 pub mod template_loader;
+pub mod textfsm;

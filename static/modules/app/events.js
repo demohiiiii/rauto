@@ -365,10 +365,15 @@ function bindEvents() {
         const data = await request("POST", "/api/exec", {
           command: byId("command").value.trim(),
           mode: byId("mode").value.trim() || null,
+          textfsm_template: byId("textfsm-template").value.trim() || null,
+          parse_textfsm: byId("parse-textfsm").checked,
+          textfsm_platform: byId("textfsm-platform").value.trim() || null,
           connection: connectionPayload(),
           record_level: recordLevelPayload(),
         });
-        out.textContent = data.output;
+        out.innerHTML = `<pre class="output">${escapeHtml(
+          safeString(data.output)
+        )}</pre>${renderParsedOutputBlock(data)}`;
         applyRecordingFromResponse(data);
       } catch (e) {
         out.innerHTML = renderStatusMessageCard(e.message, "error");
@@ -389,6 +394,9 @@ function bindEvents() {
           template: byId("template").value.trim(),
           vars: parseVars(),
           mode: byId("template-mode").value.trim() || null,
+          textfsm_template: byId("textfsm-template").value.trim() || null,
+          parse_textfsm: byId("parse-textfsm").checked,
+          textfsm_platform: byId("textfsm-platform").value.trim() || null,
           connection: connectionPayload(),
           record_level: recordLevelPayload(),
         });
@@ -488,6 +496,9 @@ function bindEvents() {
           template_name: builtinTemplateName ? null : templateSelection,
           builtin_template_name: builtinTemplateName,
           vars: buildFlowVarsPayload(),
+          textfsm_template: byId("textfsm-template").value.trim() || null,
+          parse_textfsm: byId("parse-textfsm").checked,
+          textfsm_platform: byId("textfsm-platform").value.trim() || null,
           connection: connectionPayload(),
           record_level: recordLevelPayload(),
         };

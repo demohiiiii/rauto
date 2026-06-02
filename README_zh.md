@@ -194,6 +194,17 @@ rauto exec "show ip int br" \
 - 传了 `--mode` 时，会先根据当前选中的 profile 校验该 mode，再按这个 mode 执行。
 - 未传 `--mode` 时，会使用当前 profile 的 `default_mode`。
 
+### TextFSM 解析
+
+`exec`、`template` 和 `flow` 可以在命令执行后用 TextFSM 解析输出。
+
+- 默认不会解析。需要解析时传 `--parse-textfsm`。
+- 手动解析：传 `--textfsm-template <path>`，使用指定 TextFSM 模板文件，优先级最高。
+- 平台推断：启用解析且未传 `--textfsm-platform` 时，`rauto` 会从当前连接的 device profile 推断 NTC platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
+- 平台覆盖：只有在你想在启用解析后强制覆盖推断结果，或者按其他 NTC platform 解析时，才传 `--textfsm-platform <platform>`。
+- 如果没有启用解析，也没有指定模板，则只展示原始输出。
+- 解析失败不会阻断命令执行；原始输出仍会返回，解析错误会单独展示。
+
 **指定执行模式：**
 在特定模式下执行命令（例如 `Enable`, `Config`）。
 
@@ -204,6 +215,31 @@ rauto exec "show bgp neighbor" \
     --password secret \
     --ssh-port 22 \
     --mode Enable
+```
+
+**启用 TextFSM 解析：**
+
+```bash
+rauto exec "show version" \
+    --connection core-01 \
+    --parse-textfsm
+```
+
+**在需要时覆盖推断的平台：**
+
+```bash
+rauto exec "show version" \
+    --connection core-01 \
+    --parse-textfsm \
+    --textfsm-platform cisco_ios
+```
+
+**使用指定 TextFSM 模板文件解析输出：**
+
+```bash
+rauto template show_version.j2 \
+    --connection core-01 \
+    --textfsm-template ./templates/cisco_ios_show_version.textfsm
 ```
 
 ### 命令流程模板
@@ -293,7 +329,7 @@ rauto upload \
 
 当前 `rneter` 提供的内置 profile 包括：
 
-- 网络设备厂商：`cisco`、`huawei`、`h3c`、`hillstone`、`juniper`、`array`、`arista`、`fortinet`、`paloalto`、`topsec`、`venustech`、`dptech`、`chaitin`、`qianxin`、`maipu`、`checkpoint`
+- 网络设备厂商：`cisco_ios`、`cisco_xe`、`huawei`、`h3c_comware`、`hp_comware`、`hillstone_stoneos`、`juniper_junos`、`array`、`arista_eos`、`aruba_aoscx`、`cisco_asa`、`cisco_nxos`、`dell_os10`、`fortinet`、`paloalto_panos`、`topsec`、`venustech`、`dptech`、`chaitin`、`qianxin`、`maipu`、`ruijie_os`、`zte_zxros`、`checkpoint_gaia`
 - 服务器：`linux`
 
 **Mode 命名建议：**
@@ -332,6 +368,7 @@ rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secr
 
 当普通执行路径使用 autodetect 时，探测出的 profile 会决定后续的 mode 校验和默认 mode 回退逻辑。autodetect 不会根据命令文本自动推断执行模式；如果某条命令必须在 `Enable`、`Config`、`Shell` 等特定状态下运行，请显式使用 `exec --mode <mode>`。
 成功的 autodetect 结果会按 `host:port` 缓存在本地运行数据库里，因此后续连接同一目标时可以直接复用已识别出的 profile，而不必重复探测；如果你显式指定了 profile，则仍然以显式指定为准。
+当启用 `--parse-textfsm` 且没有传 `--textfsm-platform` 时，`rauto` 会根据当前连接的 device profile 自动推断对应的 NTC platform，用于 TextFSM 解析。
 
 **使用特定配置：**
 需要绕过自动探测时，可以使用 `--device-profile` 显式指定设备 profile。例如指定 Huawei profile：
@@ -376,9 +413,9 @@ rauto exec "show ver" \
 rauto profile list
 rauto profile autodetect --host 192.168.1.1 --username admin --password secret
 rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
-rauto profile show cisco
+rauto profile show cisco_ios
 rauto profile show linux
-rauto profile copy-builtin cisco my_cisco
+rauto profile copy-builtin cisco_ios my_cisco
 rauto profile delete-custom my_cisco
 rauto connection test \
     --host 192.168.1.1 \
@@ -1049,7 +1086,7 @@ Group JSON 结构：
 | `--ssh-port`           | -                | SSH 端口 (默认: 22)                                                         |
 | `--ssh-security`       | -                | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible` |
 | `--linux-shell-flavor` | -                | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                 |
-| `--device-profile`     | -                | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`） |
+| `--device-profile`     | -                | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
 | `--force-autodetect`   | -                | 忽略已缓存的 autodetect 结果并重新探测目标设备                                |
 | `--connection`         | -                | 按名称加载已保存连接配置（`-c`）                                            |
 | `--save-connection`    | -                | 成功连接后保存当前有效连接配置（`-S`）                                      |
@@ -1067,6 +1104,9 @@ Group JSON 结构：
 - `exec --mode <mode>` / `exec -m <mode>`：在指定模式下执行原始命令，例如 `Enable`、`Config`、`Shell`。
 - `exec` 不带 `--mode`：使用当前 profile 的 `default_mode`；不会根据 `show ...`、`interface ...` 这类命令文本自动判断模式。
 - `--force-autodetect`：跳过本地 `host:port` autodetect 缓存，重新探测并刷新缓存。适合设备更换、同 IP/端口后的设备类型变化等特殊情况。
+- `exec/template/flow --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
+- `exec/template/flow --textfsm-platform <platform>`：在启用解析后覆盖内置 TextFSM 自动选择时推断的平台。
+- `exec/template/flow --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。
 - `template --vars <file>` / `template -v <file>`：为已保存命令模板加载 JSON/YAML 变量文件。
 - `flow --template <name>` / `flow -t <name>`：运行已保存的命令流程模板。
 - `flow --file <path>` / `flow -f <path>`：从 TOML 文件运行临时命令流程模板。

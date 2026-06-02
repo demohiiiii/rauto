@@ -397,3 +397,26 @@ pub(crate) fn render_commands_with_runtime_context(
     let masked = sanitize_rendered_output_for_response(&rendered, &render_context);
     Ok((rendered, masked))
 }
+
+pub(crate) fn parse_textfsm_output_optional(
+    output: &str,
+    command: &str,
+    template_file: Option<&str>,
+    enabled: bool,
+    platform: Option<&str>,
+    device_profile: Option<&str>,
+    vendor: Option<&str>,
+) -> (Option<Value>, Option<String>) {
+    if !enabled {
+        return (None, None);
+    }
+    let options = crate::config::textfsm::ParseOptions {
+        template_file: template_file.map(std::path::PathBuf::from),
+        template_content: None,
+        enabled,
+        platform: platform.map(str::to_string),
+        device_profile: device_profile.map(str::to_string),
+        vendor: vendor.map(str::to_string),
+    };
+    crate::config::textfsm::parse_command_output_optional(output, command, &options)
+}

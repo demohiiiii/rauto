@@ -31,6 +31,13 @@ pub struct DryRunOptions {
 pub struct ExecRequest {
     pub command: String,
     pub mode: Option<String>,
+    pub textfsm_template: Option<String>,
+    #[serde(default)]
+    pub parse_textfsm: bool,
+    #[serde(default)]
+    pub textfsm_platform: Option<String>,
+    #[serde(default)]
+    pub textfsm_vendor: Option<String>,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
     #[serde(flatten)]
@@ -41,6 +48,8 @@ pub struct ExecRequest {
 pub struct ExecResponse {
     pub output: String,
     pub exit_code: Option<i32>,
+    pub parsed_output: Option<Value>,
+    pub parse_error: Option<String>,
     pub recording_jsonl: Option<String>,
     pub result_summary: TaskResultSummary,
 }
@@ -51,6 +60,13 @@ pub struct ExecuteTemplateRequest {
     #[serde(default)]
     pub vars: Value,
     pub mode: Option<String>,
+    pub textfsm_template: Option<String>,
+    #[serde(default)]
+    pub parse_textfsm: bool,
+    #[serde(default)]
+    pub textfsm_platform: Option<String>,
+    #[serde(default)]
+    pub textfsm_vendor: Option<String>,
     #[serde(flatten)]
     pub run: DryRunOptions,
     pub template_dir: Option<String>,
@@ -67,6 +83,8 @@ pub struct CommandResult {
     pub exit_code: Option<i32>,
     pub output: Option<String>,
     pub error: Option<String>,
+    pub parsed_output: Option<Value>,
+    pub parse_error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -87,6 +105,13 @@ pub struct ExecuteCommandFlowRequest {
     pub content: Option<String>,
     #[serde(default)]
     pub vars: Value,
+    pub textfsm_template: Option<String>,
+    #[serde(default)]
+    pub parse_textfsm: bool,
+    #[serde(default)]
+    pub textfsm_platform: Option<String>,
+    #[serde(default)]
+    pub textfsm_vendor: Option<String>,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
 }

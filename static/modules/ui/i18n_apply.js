@@ -668,6 +668,9 @@ function applyI18n() {
   byId("command").placeholder = t("commandPlaceholder");
   byId("mode").placeholder = t("modePlaceholder");
   byId("template-mode").placeholder = t("templateModePlaceholder");
+  byId("textfsm-template").placeholder = t("textfsmTemplatePlaceholder");
+  byId("textfsm-platform").placeholder = t("textfsmPlatformPlaceholder");
+  byId("parse-textfsm").nextElementSibling.textContent = t("textfsmParseToggle");
   byId("custom-profile-picker").setAttribute("title", t("customProfileSelectPlaceholder"));
   byId("profile-diagnose-picker").setAttribute("title", t("profileDiagnoseSelectPlaceholder"));
   byId("builtin-detail-name").placeholder = t("builtinFieldName");

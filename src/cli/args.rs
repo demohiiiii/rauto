@@ -25,6 +25,18 @@ pub struct TemplateArgs {
     #[arg(long, short = 'v')]
     pub vars: Option<PathBuf>,
 
+    /// Optional TextFSM template file to parse each rendered command output
+    #[arg(long)]
+    pub textfsm_template: Option<PathBuf>,
+
+    /// Parse command output with TextFSM. If platform is omitted, infer it from the device profile.
+    #[arg(long)]
+    pub parse_textfsm: bool,
+
+    /// NTC TextFSM platform for automatic template selection (for example cisco_ios)
+    #[arg(long)]
+    pub textfsm_platform: Option<String>,
+
     /// Dry run: render the template but do not execute on device
     #[arg(long)]
     pub dry_run: bool,
@@ -55,6 +67,18 @@ pub struct CommandFlowArgs {
     /// Inline JSON variables
     #[arg(long)]
     pub vars_json: Option<String>,
+
+    /// Optional TextFSM template file to parse each command output
+    #[arg(long)]
+    pub textfsm_template: Option<PathBuf>,
+
+    /// Parse command output with TextFSM. If platform is omitted, infer it from the device profile.
+    #[arg(long)]
+    pub parse_textfsm: bool,
+
+    /// NTC TextFSM platform for automatic template selection (for example cisco_ios)
+    #[arg(long)]
+    pub textfsm_platform: Option<String>,
 
     /// Save SSH session recording to this JSONL file
     #[arg(long, short = 'r')]
@@ -100,6 +124,18 @@ pub struct UploadArgs {
 pub struct ExecArgs {
     /// The command string to execute
     pub command: String,
+
+    /// Optional TextFSM template file to parse the command output
+    #[arg(long)]
+    pub textfsm_template: Option<PathBuf>,
+
+    /// Parse command output with TextFSM. If platform is omitted, infer it from the device profile.
+    #[arg(long)]
+    pub parse_textfsm: bool,
+
+    /// NTC TextFSM platform for automatic template selection (for example cisco_ios)
+    #[arg(long)]
+    pub textfsm_platform: Option<String>,
 
     /// Execution mode (e.g. "Enable", "Config", "Shell")
     #[arg(long, short = 'm')]
@@ -248,6 +284,10 @@ pub struct TxWorkflowArgs {
     #[arg(long, short = 'v')]
     pub vars: Option<PathBuf>,
 
+    /// Optional TextFSM template file to parse each command output
+    #[arg(long)]
+    pub textfsm_template: Option<PathBuf>,
+
     /// Inline JSON variables for --template
     #[arg(long)]
     pub vars_json: Option<String>,
@@ -285,6 +325,10 @@ pub struct OrchestrateArgs {
     /// Path to a JSON file containing variables for --template
     #[arg(long, short = 'v')]
     pub vars: Option<PathBuf>,
+
+    /// Optional TextFSM template file to parse each command output
+    #[arg(long)]
+    pub textfsm_template: Option<PathBuf>,
 
     /// Inline JSON variables for --template
     #[arg(long)]

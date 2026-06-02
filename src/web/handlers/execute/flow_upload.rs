@@ -115,15 +115,29 @@ pub async fn execute_command_flow(
         .outputs
         .into_iter()
         .enumerate()
-        .map(|(index, output)| CommandResult {
-            command: flow_commands
+        .map(|(index, output)| {
+            let command = flow_commands
                 .get(index)
                 .cloned()
-                .unwrap_or_else(|| format!("step {}", index + 1)),
-            success: output.success,
-            exit_code: output.exit_code,
-            output: Some(output.content),
-            error: None,
+                .unwrap_or_else(|| format!("step {}", index + 1));
+            let (parsed_output, parse_error) = parse_textfsm_output_optional(
+                &output.content,
+                &command,
+                req.textfsm_template.as_deref(),
+                req.parse_textfsm,
+                req.textfsm_platform.as_deref(),
+                Some(conn.device_profile.as_str()),
+                req.textfsm_vendor.as_deref(),
+            );
+            CommandResult {
+                command,
+                success: output.success,
+                exit_code: output.exit_code,
+                output: Some(output.content),
+                error: None,
+                parsed_output,
+                parse_error,
+            }
         })
         .collect();
 

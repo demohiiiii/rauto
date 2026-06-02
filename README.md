@@ -194,6 +194,17 @@ Mode selection for `exec` works like this:
 - If you pass `--mode`, that mode is used after validation against the selected profile.
 - If you omit `--mode`, `rauto` uses the selected profile's `default_mode`.
 
+### TextFSM Parse
+
+`exec`, `template`, and `flow` can parse command output with TextFSM after execution.
+
+- Parsing is off by default. Pass `--parse-textfsm` to enable TextFSM parsing.
+- Manual parsing: pass `--textfsm-template <path>` to use a specific TextFSM template file. This has the highest priority.
+- Platform selection: when parsing is enabled and `--textfsm-platform` is omitted, `rauto` infers the NTC platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
+- Platform override: pass `--textfsm-platform <platform>` only when you want to override the inferred platform after enabling parsing.
+- If parsing is disabled and no manual template is provided, only raw output is shown.
+- Parsing never blocks execution. If parsing fails, raw output is still returned and the parse error is reported separately.
+
 **Specifying Execution Mode:**
 Execute a command in a specific mode (e.g., `Enable`, `Config`).
 
@@ -204,6 +215,31 @@ rauto exec "show bgp neighbor" \
     --password secret \
     --ssh-port 22 \
     --mode Enable
+```
+
+**Enable TextFSM parsing:**
+
+```bash
+rauto exec "show version" \
+    --connection core-01 \
+    --parse-textfsm
+```
+
+**Override the inferred NTC platform when needed:**
+
+```bash
+rauto exec "show version" \
+    --connection core-01 \
+    --parse-textfsm \
+    --textfsm-platform cisco_ios
+```
+
+**Parse output with a specific TextFSM template file:**
+
+```bash
+rauto template show_version.j2 \
+    --connection core-01 \
+    --textfsm-template ./templates/cisco_ios_show_version.textfsm
 ```
 
 ### Command Flow Templates
@@ -291,9 +327,9 @@ Optional flags:
 
 `rauto` supports built-in device profiles (inherited from `rneter`) and custom TOML profiles.
 
-Current built-in profiles from `rneter` include:
+- Current built-in profiles from `rneter` include:
 
-- Network vendors: `cisco`, `huawei`, `h3c`, `hillstone`, `juniper`, `array`, `arista`, `fortinet`, `paloalto`, `topsec`, `venustech`, `dptech`, `chaitin`, `qianxin`, `maipu`, `checkpoint`
+- Network vendors: `cisco_ios`, `cisco_xe`, `huawei`, `h3c_comware`, `hp_comware`, `hillstone_stoneos`, `juniper_junos`, `array`, `arista_eos`, `aruba_aoscx`, `cisco_asa`, `cisco_nxos`, `dell_os10`, `fortinet`, `paloalto_panos`, `topsec`, `venustech`, `dptech`, `chaitin`, `qianxin`, `maipu`, `ruijie_os`, `zte_zxros`, `checkpoint_gaia`
 - Servers: `linux`
 
 **Mode Naming Recommendation:**
@@ -332,6 +368,7 @@ rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secr
 
 When normal execution uses autodetect, the detected profile controls mode validation and default-mode fallback. Autodetect does not infer command mode from the command text; use `exec --mode <mode>` when a command must run in a specific state such as `Enable`, `Config`, or `Shell`.
 Successful autodetect results are cached locally by `host:port` in the runtime database, so later connections to the same target can reuse the detected profile instead of probing again unless you explicitly override the profile.
+For TextFSM parsing, `rauto` will infer a matching NTC platform from the resolved device profile when `--parse-textfsm` is enabled and `--textfsm-platform` is omitted.
 
 **Using a Specific Profile:**
 Use `--device-profile` when you want to bypass autodetect. For example, to select the Huawei profile:
@@ -376,9 +413,9 @@ rauto exec "show ver" \
 rauto profile list
 rauto profile autodetect --host 192.168.1.1 --username admin --password secret
 rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
-rauto profile show cisco
+rauto profile show cisco_ios
 rauto profile show linux
-rauto profile copy-builtin cisco my_cisco
+rauto profile copy-builtin cisco_ios my_cisco
 rauto profile delete-custom my_cisco
 rauto connection test \
     --host 192.168.1.1 \
@@ -1055,7 +1092,7 @@ Default runtime data:
 | `--ssh-port`           | -                | SSH port (default: 22)                                                               |
 | `--ssh-security`       | -                | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible` |
 | `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`           |
-| `--device-profile`     | -                | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`) |
+| `--device-profile`     | -                | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
 | `--force-autodetect`   | -                | Ignore cached autodetect result and probe the target again                           |
 | `--connection`         | -                | Load saved connection profile by name (`-c`)                                         |
 | `--save-connection`    | -                | Save effective connection profile after successful connect (`-S`)                    |
@@ -1073,6 +1110,9 @@ Common command-specific options:
 - `exec --mode <mode>` / `exec -m <mode>`: Execute a raw command in a specific mode such as `Enable`, `Config`, or `Shell`.
 - `exec` without `--mode`: Use the selected profile's `default_mode`; this is not inferred from command text such as `show ...` or `interface ...`.
 - `--force-autodetect`: Bypass the local `host:port` autodetect cache, probe again, and refresh the cached profile. Useful when the device behind an existing IP/port has changed.
+- `exec/template/flow --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
+- `exec/template/flow --textfsm-platform <platform>`: Override the inferred NTC platform after parsing is enabled.
+- `exec/template/flow --textfsm-template <path>`: Parse command output with a specific TextFSM template file.
 - `template --vars <file>` / `template -v <file>`: Load JSON/YAML vars for a stored command template.
 - `flow --template <name>` / `flow -t <name>`: Run a saved command flow template.
 - `flow --file <path>` / `flow -f <path>`: Run an ad-hoc command flow template from a TOML file.

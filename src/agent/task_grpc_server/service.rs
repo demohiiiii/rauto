@@ -535,6 +535,10 @@ impl AgentTaskService for AgentTaskGrpcService {
             Json(ExecRequest {
                 command: req.command,
                 mode: optional_string(req.mode),
+                textfsm_template: None,
+                parse_textfsm: false,
+                textfsm_platform: None,
+                textfsm_vendor: None,
                 target: map_execution_target_options(req.connection, &req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -565,6 +569,10 @@ impl AgentTaskService for AgentTaskGrpcService {
                 template: req.template,
                 vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
                 mode: optional_string(req.mode),
+                textfsm_template: None,
+                parse_textfsm: false,
+                textfsm_platform: None,
+                textfsm_vendor: None,
                 run: DryRunOptions {
                     dry_run: Some(req.dry_run),
                 },
@@ -608,6 +616,10 @@ impl AgentTaskService for AgentTaskGrpcService {
                     "vars_json",
                     Value::Null,
                 )?,
+                textfsm_template: None,
+                parse_textfsm: false,
+                textfsm_platform: None,
+                textfsm_vendor: None,
                 target: map_execution_target_options(req.connection, &req.record_level)?,
             }),
         )

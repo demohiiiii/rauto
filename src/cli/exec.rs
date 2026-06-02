@@ -1,5 +1,5 @@
 use crate::cli::{ExecArgs, ReplayArgs, TemplateArgs, TemplateCommands};
-use crate::config::{command_blacklist, content_store, template_loader};
+use crate::config::{command_blacklist, content_store, template_loader, textfsm};
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use anyhow::Result;
@@ -67,7 +67,30 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
     for command in lines {
         print!("Executing '{}' ... ", command);
         match client.execute(&command, None).await {
-            Ok(output) => println!("Success\nOutput:\n{}", output),
+            Ok(output) => {
+                println!("Success\nOutput:\n{}", output);
+                let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
+                    &output,
+                    &command,
+                    &textfsm::ParseOptions {
+                        template_file: args.textfsm_template.clone(),
+                        enabled: args.parse_textfsm
+                            || args.textfsm_template.is_some(),
+                        platform: args.textfsm_platform.clone(),
+                        device_profile: Some(conn.device_profile.clone()),
+                        ..Default::default()
+                    },
+                );
+                if let Some(parsed_output) = parsed_output {
+                    println!(
+                        "Parsed Output:\n{}",
+                        textfsm::format_parsed_output_table(&parsed_output)
+                    );
+                }
+                if let Some(err) = parse_error {
+                    println!("Parse Error: {}", err);
+                }
+            }
             Err(error) => println!("Failed: {}", error),
         }
     }
@@ -112,6 +135,17 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
 
     info!("Executing command: {}", args.command);
     let output = client.execute(&args.command, Some(&effective_mode)).await?;
+    let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
+        &output,
+        &args.command,
+        &textfsm::ParseOptions {
+            template_file: args.textfsm_template.clone(),
+            enabled: args.parse_textfsm || args.textfsm_template.is_some(),
+            platform: args.textfsm_platform.clone(),
+            device_profile: Some(conn.device_profile.clone()),
+            ..Default::default()
+        },
+    );
     crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
         &client,
@@ -122,6 +156,14 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
         args.record_level,
     )?;
     println!("{}", output);
+    if let Some(parsed_output) = parsed_output {
+        println!("--- Parsed Output ---");
+        println!("{}", textfsm::format_parsed_output_table(&parsed_output));
+    }
+    if let Some(err) = parse_error {
+        println!("--- Parse Error ---");
+        println!("{}", err);
+    }
     Ok(())
 }
 

@@ -113,6 +113,15 @@ pub async fn exec_command(
             .execute_output(&req.command, Some(effective_mode.as_str()))
             .await?;
         let exit_code = output.exit_code;
+        let (parsed_output, parse_error) = parse_textfsm_output_optional(
+            &output.content,
+            &req.command,
+            req.textfsm_template.as_deref(),
+            req.parse_textfsm,
+            req.textfsm_platform.as_deref(),
+            Some(conn.device_profile.as_str()),
+            req.textfsm_vendor.as_deref(),
+        );
         persist_history_if_recorded(
             &conn,
             &client,
@@ -125,6 +134,8 @@ pub async fn exec_command(
         Ok(ExecResponse {
             output: output.content,
             exit_code,
+            parsed_output,
+            parse_error,
             result_summary: task_result_with_details(
                 task_result_with_recording(
                     build_result_summary(
@@ -333,6 +344,15 @@ pub async fn execute_template(
             );
             match client.execute_output(&cmd, Some(effective_mode.as_str())).await {
                 Ok(output) => {
+                    let (parsed_output, parse_error) = parse_textfsm_output_optional(
+                        &output.content,
+                        &cmd,
+                        req.textfsm_template.as_deref(),
+                        req.parse_textfsm,
+                        req.textfsm_platform.as_deref(),
+                        Some(conn.device_profile.as_str()),
+                        req.textfsm_vendor.as_deref(),
+                    );
                     emit_task_event(
                         &state,
                         &task_ctx,
@@ -356,6 +376,8 @@ pub async fn execute_template(
                         exit_code: output.exit_code,
                         output: Some(output.content),
                         error: None,
+                        parsed_output,
+                        parse_error,
                     })
                 }
                 Err(e) => {
@@ -382,6 +404,8 @@ pub async fn execute_template(
                         exit_code: None,
                         output: None,
                         error: Some(e.to_string()),
+                        parsed_output: None,
+                        parse_error: None,
                     })
                 }
             }

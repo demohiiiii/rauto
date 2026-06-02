@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "network-programming"]
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }
 minijinja = { version = "2.15", features = ["loader", "json"] }
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "b624d9e1846e7d2eb7c8dfbf0e4fc1a20e7cf486" }
+rneter = { git = "https://github.com/demohiiiii/rneter", rev = "26f0e38182443ae23131e9f0df950ad491b842dd" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 futures-util = "0.3"
@@ -57,6 +57,7 @@ aes-gcm = "0.10.3"
 base64 = "0.22.1"
 rand = "0.8.5"
 regex = "1.12.2"
+textfsm-rust = { version = "0.3", features = ["serde"] }
 
 [build-dependencies]
 tonic-build = "0.14.5"

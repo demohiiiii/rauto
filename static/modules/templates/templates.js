@@ -572,6 +572,7 @@ function renderCommandFlowResult(data) {
         <pre class="output mt-2">${escapeHtml(
           safeString(item.output || item.error || "")
         )}</pre>
+        ${renderParsedOutputBlock(item)}
       </div>
     `
     )

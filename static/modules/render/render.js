@@ -57,6 +57,7 @@ function renderTemplateExecuteResult(data) {
             ? `<pre class="output mt-2">${escapeHtml(safeString(item.output))}</pre>`
             : ""
         }
+        ${renderParsedOutputBlock(item)}
         ${
           item && item.error
             ? `<div class="mt-2 rounded-lg border border-rose-200 bg-rose-100 px-3 py-2 text-xs text-rose-700">${escapeHtml(
@@ -84,6 +85,94 @@ function renderTemplateExecuteResult(data) {
     </section>
   `;
   return `<div class="grid gap-3">${summary}${renderedCard}${executedCard}</div>`;
+}
+
+function isParsedOutputTableValue(value) {
+  return Array.isArray(value) && value.every((row) => row && typeof row === "object" && !Array.isArray(row));
+}
+
+function parsedOutputCellText(value) {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map(parsedOutputCellText).join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return safeString(value);
+}
+
+function renderParsedOutputTable(value) {
+  if (!isParsedOutputTableValue(value)) return "";
+  if (!value.length) {
+    return `<div class="alert py-2 text-xs">No parsed rows</div>`;
+  }
+  const columns = [];
+  value.forEach((row) => {
+    Object.keys(row).forEach((key) => {
+      if (!columns.includes(key)) columns.push(key);
+    });
+  });
+  if (!columns.length) {
+    return `<div class="alert py-2 text-xs">No parsed columns</div>`;
+  }
+  const header = columns
+    .map(
+      (column) =>
+        `<th class="whitespace-nowrap text-[11px] uppercase tracking-wide">${escapeHtml(
+          column
+        )}</th>`
+    )
+    .join("");
+  const rows = value
+    .map((row) => {
+      const cells = columns
+        .map(
+          (column) =>
+            `<td class="max-w-[22rem] whitespace-pre-wrap break-words align-top text-xs">${escapeHtml(
+              parsedOutputCellText(row[column])
+            )}</td>`
+        )
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+  return `
+    <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+      <table class="table table-zebra table-sm">
+        <thead><tr>${header}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderParsedOutputBlock(item) {
+  if (!item || typeof item !== "object") return "";
+  if (item.parsed_output !== undefined && item.parsed_output !== null) {
+    const table = renderParsedOutputTable(item.parsed_output);
+    return `
+      <section class="card mt-3 border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body gap-3 p-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs font-semibold uppercase tracking-wide text-base-content/70">parsed_output</div>
+            <div class="badge badge-outline badge-sm">TextFSM</div>
+          </div>
+          ${
+            table ||
+            `<pre class="output">${escapeHtml(JSON.stringify(item.parsed_output, null, 2))}</pre>`
+          }
+        </div>
+      </section>
+    `;
+  }
+  if (item.parse_error) {
+    return `
+      <div class="alert alert-warning mt-3 items-start py-2 text-xs">
+        <div>
+          <div class="font-semibold">parse_error</div>
+          <div class="mt-1 break-all">${escapeHtml(safeString(item.parse_error))}</div>
+        </div>
+      </div>
+    `;
+  }
+  return "";
 }
 
 function extractFailureOutputFromReason(reason) {
@@ -590,6 +679,7 @@ function renderTxOperationStepOutputs(title, operationSteps, tone = "cyan") {
                   outputText && outputText !== "-" ? outputText : "-"
                 )}</pre>
               </div>
+              ${renderParsedOutputBlock(item)}
               ${
                 promptText && promptText !== "-"
                   ? `<div class="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
