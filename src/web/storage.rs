@@ -19,7 +19,11 @@ fn builtin_aliases(name: &str) -> Vec<String> {
         "juniper_junos" => vec!["juniper".to_string(), "junos".to_string()],
         "arista_eos" => vec!["arista".to_string(), "eos".to_string()],
         "fortinet" => vec!["fortigate".to_string(), "fortios".to_string()],
-        "paloalto_panos" => vec!["paloalto".to_string(), "palo-alto".to_string(), "panos".to_string()],
+        "paloalto_panos" => vec![
+            "paloalto".to_string(),
+            "palo-alto".to_string(),
+            "panos".to_string(),
+        ],
         "chaitin" => vec!["safeline".to_string()],
         "qianxin" => vec!["qax".to_string(), "qian-xin".to_string()],
         "checkpoint_gaia" => vec!["check-point".to_string(), "check_point".to_string()],

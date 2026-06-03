@@ -7,7 +7,7 @@ use rust_embed::RustEmbed;
 #[folder = "static/"]
 struct StaticAssets;
 
-pub fn index_response() -> Response<Body> {
+pub fn svelte_index_response() -> Response<Body> {
     asset_response("index.html")
 }
 

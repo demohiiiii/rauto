@@ -31,6 +31,18 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run web:build
+
       - name: Run clippy
         run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
@@ -53,5 +65,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check frontend formatting
+        run: npm run frontend:format:check
+
       - name: Build frontend assets
-        run: npm run tailwind:build
+        run: npm run web:build

@@ -30,16 +30,38 @@ pub struct ParseOptions {
     pub vendor: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct TextfsmTemplateDebugContext {
+    name: String,
+    content: String,
+    index_line: Option<usize>,
+}
+
 impl AutoParseAttributes {
     pub fn to_map(&self) -> HashMap<String, String> {
         let mut attrs = HashMap::new();
-        if let Some(value) = self.command.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+        if let Some(value) = self
+            .command
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+        {
             attrs.insert("Command".to_string(), value.to_string());
         }
-        if let Some(value) = self.platform.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+        if let Some(value) = self
+            .platform
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+        {
             attrs.insert("Platform".to_string(), value.to_string());
         }
-        if let Some(value) = self.vendor.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+        if let Some(value) = self
+            .vendor
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+        {
             attrs.insert("Vendor".to_string(), value.to_string());
         }
         attrs
@@ -47,6 +69,10 @@ impl AutoParseAttributes {
 }
 
 pub fn parse_output_with_template_content(template_content: &str, output: &str) -> Result<Value> {
+    parse_output_with_template_content_named("<inline>", template_content, output)
+}
+
+fn parse_output_with_template_content_inner(template_content: &str, output: &str) -> Result<Value> {
     let template = textfsm_rust::Template::parse_str(template_content)
         .context("failed to parse TextFSM template")?;
     let mut parser = template.parser();
@@ -56,6 +82,23 @@ pub fn parse_output_with_template_content(template_content: &str, output: &str) 
     serde_json::to_value(records).context("failed to serialize TextFSM records")
 }
 
+fn parse_output_with_template_content_named(
+    template_name: &str,
+    template_content: &str,
+    output: &str,
+) -> Result<Value> {
+    parse_output_with_template_content_inner(template_content, output).map_err(|err| {
+        textfsm_error_with_template_contexts(
+            err,
+            &[TextfsmTemplateDebugContext {
+                name: template_name.to_string(),
+                content: template_content.to_string(),
+                index_line: None,
+            }],
+        )
+    })
+}
+
 pub fn parse_output_with_template_file(template_file: &Path, output: &str) -> Result<Value> {
     let template_content = fs::read_to_string(template_file).with_context(|| {
         format!(
@@ -63,22 +106,24 @@ pub fn parse_output_with_template_file(template_file: &Path, output: &str) -> Re
             template_file.display()
         )
     })?;
-    parse_output_with_template_content(&template_content, output)
+    parse_output_with_template_content_named(
+        &template_file.display().to_string(),
+        &template_content,
+        output,
+    )
 }
 
-pub fn parse_output_with_auto_selection(
-    output: &str,
-    attrs: AutoParseAttributes,
-) -> Result<Value> {
-    let table = cli_table()?.parse_cmd(output, &attrs.to_map())?;
-    table_to_json(&table)
+pub fn parse_output_with_auto_selection(output: &str, attrs: AutoParseAttributes) -> Result<Value> {
+    let table = cli_table()?;
+    let attrs = attrs.to_map();
+    let template_contexts = selected_ntc_template_contexts(table, &attrs);
+    let parsed = table
+        .parse_cmd(output, &attrs)
+        .map_err(|err| textfsm_error_with_template_contexts(err, &template_contexts))?;
+    table_to_json(&parsed)
 }
 
-pub fn parse_command_output(
-    output: &str,
-    command: &str,
-    options: &ParseOptions,
-) -> Result<Value> {
+pub fn parse_command_output(output: &str, command: &str, options: &ParseOptions) -> Result<Value> {
     if let Some(template_content) = options
         .template_content
         .as_deref()
@@ -137,9 +182,10 @@ pub fn parse_command_output_optional(
 pub fn ntc_platform_for_device_profile(device_profile: &str) -> Option<String> {
     let canonical = crate::config::template_loader::canonical_builtin_profile_name(device_profile)?;
     let platform = match canonical {
-        "cisco_ios" | "cisco_asa" | "cisco_nxos" | "arista_eos" | "aruba_aoscx"
-        | "fortinet" | "juniper_junos" | "linux" | "paloalto_panos" | "zte_zxros"
-        | "checkpoint_gaia" => canonical,
+        "cisco_ios" | "cisco_asa" | "cisco_nxos" | "arista_eos" | "aruba_aoscx" | "fortinet"
+        | "juniper_junos" | "linux" | "paloalto_panos" | "zte_zxros" | "checkpoint_gaia" => {
+            canonical
+        }
         "cisco_xe" => "cisco_ios",
         "huawei" => "huawei_vrp",
         "h3c_comware" | "hp_comware" => "hp_comware",
@@ -187,7 +233,10 @@ pub fn format_parsed_output_table(value: &Value) -> String {
         })
         .collect::<Vec<_>>();
 
-    let mut widths = columns.iter().map(|column| column.len()).collect::<Vec<_>>();
+    let mut widths = columns
+        .iter()
+        .map(|column| column.len())
+        .collect::<Vec<_>>();
     for row in &table_rows {
         for (index, cell) in row.iter().enumerate() {
             widths[index] = widths[index].max(cell.len());
@@ -265,12 +314,91 @@ fn effective_platform(options: &ParseOptions) -> Option<String> {
         })
 }
 
+fn selected_ntc_template_contexts(
+    table: &textfsm_rust::CliTable,
+    attrs: &HashMap<String, String>,
+) -> Vec<TextfsmTemplateDebugContext> {
+    table
+        .index()
+        .find_match(attrs)
+        .map(|entry| {
+            entry
+                .templates()
+                .iter()
+                .map(|template_name| TextfsmTemplateDebugContext {
+                    name: template_name.clone(),
+                    content: embedded_ntc_template_content(template_name)
+                        .unwrap_or_else(|| "<template content unavailable>".to_string()),
+                    index_line: Some(entry.line_num()),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn embedded_ntc_template_content(template_name: &str) -> Option<String> {
+    NtcTemplates::get(template_name)
+        .map(|content| String::from_utf8_lossy(content.data.as_ref()).into_owned())
+}
+
+fn textfsm_error_with_template_contexts<E>(
+    err: E,
+    contexts: &[TextfsmTemplateDebugContext],
+) -> anyhow::Error
+where
+    E: std::fmt::Display,
+{
+    anyhow::anyhow!(
+        "{}",
+        format_textfsm_error_with_template_contexts(err, contexts)
+    )
+}
+
+fn format_textfsm_error_with_template_contexts<E>(
+    err: E,
+    contexts: &[TextfsmTemplateDebugContext],
+) -> String
+where
+    E: std::fmt::Display,
+{
+    let mut message = err.to_string();
+    if contexts.is_empty() {
+        return message;
+    }
+
+    message.push_str("\n\nTextFSM template context:");
+    for context in contexts {
+        let index_line = context
+            .index_line
+            .map(|line| format!("; index line {line}"))
+            .unwrap_or_default();
+        message.push_str(&format!(
+            "\n\n--- template: {}{} ---\n{}",
+            context.name,
+            index_line,
+            line_numbered_template_content(&context.content)
+        ));
+    }
+    message
+}
+
+fn line_numbered_template_content(content: &str) -> String {
+    content
+        .lines()
+        .enumerate()
+        .map(|(index, line)| format!("{:>4}: {}", index + 1, line))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn cli_table() -> Result<&'static textfsm_rust::CliTable> {
     let table = CLI_TABLE.get_or_init(|| {
         let root = embedded_ntc_template_root().ok()?;
         textfsm_rust::CliTable::new(root.join("index"), &root).ok()
     });
-    table.as_ref().context("ntc templates CliTable is not available")
+    table
+        .as_ref()
+        .context("ntc templates CliTable is not available")
 }
 
 fn table_to_json(table: &textfsm_rust::TextTable) -> Result<Value> {
@@ -304,7 +432,10 @@ fn embedded_ntc_template_root() -> Result<std::path::PathBuf> {
         let target = cache_root.join(rel);
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).with_context(|| {
-                format!("failed to create ntc template cache dir '{}'", parent.display())
+                format!(
+                    "failed to create ntc template cache dir '{}'",
+                    parent.display()
+                )
             })?;
         }
         let Some(content) = NtcTemplates::get(path.as_ref()) else {
@@ -322,7 +453,7 @@ fn embedded_ntc_template_root() -> Result<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::ntc_platform_for_device_profile;
+    use super::*;
 
     #[test]
     fn maps_builtin_profile_to_ntc_platform() {
@@ -347,5 +478,23 @@ mod tests {
     #[test]
     fn returns_none_for_unmapped_profiles() {
         assert_eq!(ntc_platform_for_device_profile("array"), None);
+    }
+
+    #[test]
+    fn textfsm_errors_include_template_context() {
+        let message = format_textfsm_error_with_template_contexts(
+            "failed to parse TextFSM template",
+            &[TextfsmTemplateDebugContext {
+                name: "cisco_ios_show_version.textfsm".to_string(),
+                content: "Value VERSION (\\S+)\n\nStart\n  ^Version ${VERSION} -> Record"
+                    .to_string(),
+                index_line: Some(42),
+            }],
+        );
+
+        assert!(message.contains("failed to parse TextFSM template"));
+        assert!(message.contains("template: cisco_ios_show_version.textfsm; index line 42"));
+        assert!(message.contains("   1: Value VERSION"));
+        assert!(message.contains("   4:   ^Version ${VERSION} -> Record"));
     }
 }

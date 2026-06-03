@@ -1,0 +1,5 @@
+node_modules/
+target/
+static/
+assets/ntc_templates/
+package-lock.json

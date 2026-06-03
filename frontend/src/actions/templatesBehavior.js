@@ -1,0 +1,1038 @@
+import {
+  createTemplate,
+  deleteTemplate as deleteTemplateByName,
+  createTemplateResource,
+  deleteTemplateResource,
+  getTemplate,
+  getTemplateResource,
+  listTemplates,
+  listTemplateResource,
+  updateTemplate,
+  updateTemplateResource,
+} from "../api/client.js";
+
+const FLOW_TEMPLATE_BASE = "/api/flow-templates";
+const FLOW_BUILTIN_TEMPLATE_BASE = "/api/flow-templates/builtins";
+const FLOW_BUILTIN_PREFIX = "builtin:";
+
+function tr(key, fallback = key) {
+  return typeof window.t === "function" ? window.t(key) : fallback;
+}
+
+function safeString(value) {
+  if (value == null) return "";
+  return typeof value === "string" ? value : String(value);
+}
+
+function escapeHtml(value) {
+  return safeString(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function statusCard(message, tone = "info") {
+  if (typeof window.renderStatusMessageCard === "function") {
+    return window.renderStatusMessageCard(message, tone);
+  }
+  const toneClass =
+    tone === "error"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : tone === "success"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : "border-slate-200 bg-slate-50 text-slate-600";
+  return `<div class="rounded-xl border ${toneClass} px-3 py-2 text-sm">${escapeHtml(message)}</div>`;
+}
+
+function setStatus(id, message, tone = "info") {
+  if (typeof window.setStatusMessage === "function") {
+    window.setStatusMessage(id, message, tone);
+    return;
+  }
+  const out = document.getElementById(id);
+  if (!out) return;
+  out.innerHTML = statusCard(message, tone);
+}
+
+function populateSelect(select, values, config = {}) {
+  if (!select) return;
+  const {
+    placeholder = "-",
+    selected = "",
+    allowEmpty = true,
+    emptyValue = "",
+  } = config;
+  const items = Array.from(new Set((values || []).filter(Boolean)));
+  const options = [];
+  if (allowEmpty) {
+    options.push(
+      `<option value="${escapeHtml(emptyValue)}">${escapeHtml(placeholder)}</option>`,
+    );
+  }
+  items.forEach((value) => {
+    options.push(
+      `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`,
+    );
+  });
+  select.innerHTML = options.join("");
+  if (selected && items.includes(selected)) {
+    select.value = selected;
+  } else if (selected && !items.includes(selected)) {
+    const option = document.createElement("option");
+    option.value = selected;
+    option.textContent = selected;
+    select.appendChild(option);
+    select.value = selected;
+  } else if (allowEmpty) {
+    select.value = emptyValue;
+  } else if (items.length > 0) {
+    select.value = items[0];
+  } else {
+    select.value = "";
+  }
+}
+
+function ensureSelectValue(select, value, config = {}) {
+  if (!select) return;
+  const normalized = safeString(value).trim();
+  if (!normalized) {
+    if (config.fallbackToEmpty !== false) {
+      select.value = "";
+    }
+    return;
+  }
+  const hasOption = Array.from(select.options).some(
+    (option) => option.value === normalized,
+  );
+  if (!hasOption) {
+    const option = document.createElement("option");
+    option.value = normalized;
+    option.textContent = normalized;
+    select.appendChild(option);
+  }
+  select.value = normalized;
+}
+
+function promptResourceName(message, initialValue = "") {
+  if (typeof window.promptForResourceName === "function") {
+    return window.promptForResourceName(message, initialValue);
+  }
+  const result = window.prompt(message, initialValue);
+  if (result == null) return null;
+  const normalized = result.trim();
+  return normalized || null;
+}
+
+function buildBuiltinFlowTemplateValue(name) {
+  const normalized = safeString(name).trim();
+  return normalized ? `${FLOW_BUILTIN_PREFIX}${normalized}` : "";
+}
+
+function renderFlowTemplateVarsIfSelected(name, detail) {
+  const runPicker = document.getElementById("flow-template-name");
+  if (!runPicker || runPicker.value.trim() !== safeString(name).trim()) return;
+  const draft =
+    typeof window.getCurrentFlowTemplateFieldDraft === "function"
+      ? window.getCurrentFlowTemplateFieldDraft()
+      : {};
+  window.renderFlowTemplateVarFields?.(detail, draft);
+}
+
+function renderParsedOutputBlock(data) {
+  return typeof window.renderParsedOutputBlock === "function"
+    ? window.renderParsedOutputBlock(data)
+    : "";
+}
+
+function renderCommandFlowResult(data) {
+  const outputs = Array.isArray(data?.outputs) ? data.outputs : [];
+  const tone = data?.success ? "success" : "error";
+  const summary = statusCard(
+    `${
+      data?.success
+        ? tr("orchestrationStatusSuccess", "Success")
+        : tr("orchestrationStatusFailed", "Failed")
+    } · template=${safeString(data?.template_name) || "-"}`,
+    tone,
+  );
+  const items = outputs
+    .map(
+      (item, idx) => `
+      <div class="rounded-xl border border-slate-200 bg-white px-3 py-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+            `${idx + 1}. ${item.command || "-"}`,
+          )}</span>
+          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+            item.success
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-amber-100 text-amber-700"
+          }">${escapeHtml(
+            item.success
+              ? tr("orchestrationStatusSuccess", "Success")
+              : tr("orchestrationStatusFailed", "Failed"),
+          )}</span>
+        </div>
+        <div class="mt-2 text-xs text-slate-500">exit_code=${escapeHtml(
+          safeString(item.exit_code),
+        )}</div>
+        <pre class="output mt-2">${escapeHtml(safeString(item.output || item.error || ""))}</pre>
+        ${renderParsedOutputBlock(item)}
+      </div>`,
+    )
+    .join("");
+  return `${summary}${items ? `<div class="grid gap-2">${items}</div>` : ""}`;
+}
+
+async function withLoading(buttonOrId, handler) {
+  if (typeof window.withButtonLoading === "function") {
+    return window.withButtonLoading(buttonOrId, handler);
+  }
+  const button =
+    typeof buttonOrId === "string"
+      ? document.getElementById(buttonOrId)
+      : buttonOrId;
+  const previousDisabled = button?.disabled;
+  if (button) button.disabled = true;
+  try {
+    return await handler();
+  } finally {
+    if (button) button.disabled = previousDisabled;
+  }
+}
+
+export function templatesBehavior(node) {
+  let cachedTemplateMetas = [];
+  let cachedTemplates = [];
+  let cachedFlowTemplateMetas = [];
+  let cachedFlowTemplateNames = [];
+  let cachedBuiltinFlowTemplateMetas = [];
+  let lastTemplateDetail = null;
+  let lastFlowTemplateDetail = null;
+  let lastBuiltinFlowTemplateDetail = null;
+
+  const byId = (id) =>
+    node.querySelector(`#${id}`) || document.getElementById(id);
+
+  function syncRuntimeSnapshot() {
+    window.setTemplateRuntimeSnapshots?.({
+      templates: cachedTemplates,
+      metas: cachedTemplateMetas,
+      detail: lastTemplateDetail,
+    });
+  }
+
+  function syncFlowRuntimeSnapshot() {
+    window.setFlowTemplateRuntimeSnapshots?.({
+      names: cachedFlowTemplateNames,
+      metas: cachedFlowTemplateMetas,
+      builtinMetas: cachedBuiltinFlowTemplateMetas,
+      detail: lastFlowTemplateDetail,
+      builtinDetail: lastBuiltinFlowTemplateDetail,
+    });
+  }
+
+  function renderTemplateList(errorMessage = "") {
+    const out = byId("template-list");
+    if (!out) return;
+    if (errorMessage) {
+      out.innerHTML = statusCard(errorMessage, "error");
+      return;
+    }
+    if (
+      !Array.isArray(cachedTemplateMetas) ||
+      cachedTemplateMetas.length === 0
+    ) {
+      out.innerHTML = statusCard(
+        tr("templateListEmpty", "No templates"),
+        "info",
+      );
+      return;
+    }
+    const selectedName = byId("template-pick-name")?.value.trim() || "";
+    out.innerHTML = cachedTemplateMetas
+      .map((item) => {
+        const active = selectedName && item.name === selectedName;
+        const cls = active
+          ? "border-teal-300 bg-teal-50/70"
+          : "border-slate-200 bg-white hover:border-slate-300";
+        return `
+          <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-template-row ${cls}" data-name="${escapeHtml(
+            item.name || "",
+          )}">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+                item.name || "-",
+              )}</span>
+              <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(
+                tr("templateUseBtn", "Use"),
+              )}</span>
+            </div>
+          </button>`;
+      })
+      .join("");
+  }
+
+  function renderTemplateOptions(selectedName = "") {
+    populateSelect(byId("template-pick-name"), cachedTemplates, {
+      placeholder: tr("templateSelectPlaceholder", "Select template"),
+      selected: selectedName,
+    });
+    populateSelect(document.getElementById("template"), cachedTemplates, {
+      placeholder: tr("templateSelectPlaceholder", "Select template"),
+      selected: document.getElementById("template")?.value || "",
+    });
+  }
+
+  async function loadTemplatesFromWeb() {
+    try {
+      const data = await listTemplates();
+      const items = Array.isArray(data) ? data : [];
+      cachedTemplateMetas = items;
+      cachedTemplates = items.map((item) => item.name).filter(Boolean);
+      syncRuntimeSnapshot();
+      renderTemplateOptions(byId("template-pick-name")?.value || "");
+      renderTemplateList();
+    } catch (error) {
+      cachedTemplateMetas = [];
+      cachedTemplates = [];
+      lastTemplateDetail = null;
+      syncRuntimeSnapshot();
+      renderTemplateOptions("");
+      renderTemplateList(error.message);
+    }
+  }
+
+  async function loadTemplateDetailFromWeb() {
+    const name = byId("template-pick-name")?.value.trim() || "";
+    if (!name) {
+      setStatus(
+        "template-out",
+        tr("templateNameRequired", "template name is required"),
+        "error",
+      );
+      return;
+    }
+    setStatus("template-out", tr("running", "running"), "running");
+    try {
+      const data = await getTemplate(name);
+      lastTemplateDetail = data;
+      syncRuntimeSnapshot();
+      ensureSelectValue(byId("template-pick-name"), data.name || name);
+      byId("template-content").value = data.content || "";
+      setStatus(
+        "template-out",
+        `${tr("loaded", "Loaded")}: ${data.name || name}`,
+        "success",
+      );
+    } catch (error) {
+      lastTemplateDetail = null;
+      syncRuntimeSnapshot();
+      setStatus("template-out", error.message, "error");
+    }
+  }
+
+  async function saveTemplateFromWeb() {
+    const name = byId("template-pick-name")?.value.trim() || "";
+    const content = byId("template-content")?.value || "";
+    if (!name) {
+      setStatus(
+        "template-out",
+        tr("templateNameRequired", "template name is required"),
+        "error",
+      );
+      return;
+    }
+    setStatus("template-out", tr("running", "running"), "running");
+    try {
+      const exists = cachedTemplates.includes(name);
+      const data = exists
+        ? await updateTemplate(name, content)
+        : await createTemplate(name, content);
+      setStatus(
+        "template-out",
+        `${exists ? tr("saved", "Saved") : tr("created", "Created")}: ${data.name || name}`,
+        "success",
+      );
+      await loadTemplatesFromWeb();
+      ensureSelectValue(byId("template-pick-name"), data.name || name);
+      lastTemplateDetail = data;
+      syncRuntimeSnapshot();
+      renderTemplateList();
+    } catch (error) {
+      setStatus("template-out", error.message, "error");
+    }
+  }
+
+  async function createTemplateDraftFromWeb() {
+    const name = promptResourceName(
+      tr("templateNewPrompt", "New template name"),
+    );
+    if (!name) return;
+    const draftContent = byId("template-content")?.value || "";
+    const exists = cachedTemplates.includes(name);
+    if (exists) {
+      ensureSelectValue(byId("template-pick-name"), name);
+      renderTemplateOptions(name);
+      renderTemplateList();
+      await loadTemplateDetailFromWeb();
+      renderTemplateList();
+      setStatus(
+        "template-out",
+        tr("templateExistsHint", "Template already exists"),
+        "info",
+      );
+      return;
+    }
+    setStatus("template-out", tr("running", "running"), "running");
+    try {
+      const data = await createTemplate(name, draftContent);
+      await loadTemplatesFromWeb();
+      ensureSelectValue(byId("template-pick-name"), data.name || name);
+      byId("template-content").value = data.content || "";
+      lastTemplateDetail = data;
+      syncRuntimeSnapshot();
+      renderTemplateList();
+      setStatus(
+        "template-out",
+        `${tr("created", "Created")}: ${data.name || name}`,
+        "success",
+      );
+    } catch (error) {
+      const message = String(error?.message || "");
+      if (message.includes("already exists")) {
+        ensureSelectValue(byId("template-pick-name"), name);
+        renderTemplateOptions(name);
+        renderTemplateList();
+        await loadTemplateDetailFromWeb();
+        renderTemplateList();
+        setStatus(
+          "template-out",
+          tr("templateExistsHint", "Template already exists"),
+          "info",
+        );
+        return;
+      }
+      setStatus(
+        "template-out",
+        message || tr("requestFailed", "request failed"),
+        "error",
+      );
+    }
+  }
+
+  async function deleteTemplateFromWeb() {
+    const name = byId("template-pick-name")?.value.trim() || "";
+    if (!name) {
+      setStatus(
+        "template-out",
+        tr("templateNameRequired", "template name is required"),
+        "error",
+      );
+      return;
+    }
+    setStatus("template-out", tr("running", "running"), "running");
+    try {
+      await deleteTemplateByName(name);
+      byId("template-content").value = "";
+      setStatus(
+        "template-out",
+        `${tr("deleted", "Deleted")}: ${name}`,
+        "success",
+      );
+      await loadTemplatesFromWeb();
+      if ((byId("template-pick-name")?.value.trim() || "") === name) {
+        byId("template-pick-name").value = "";
+      }
+      lastTemplateDetail = null;
+      syncRuntimeSnapshot();
+      renderTemplateList();
+    } catch (error) {
+      setStatus("template-out", error.message, "error");
+    }
+  }
+
+  function renderFlowTemplateList(errorMessage = "") {
+    const out = byId("flow-template-list");
+    if (!out) return;
+    if (errorMessage) {
+      out.innerHTML = statusCard(errorMessage, "error");
+      return;
+    }
+    if (
+      !Array.isArray(cachedFlowTemplateMetas) ||
+      cachedFlowTemplateMetas.length === 0
+    ) {
+      out.innerHTML = statusCard(
+        tr("flowTemplateListEmpty", "No command flow templates"),
+        "info",
+      );
+      return;
+    }
+    const selectedName = byId("flow-template-picker")?.value.trim() || "";
+    out.innerHTML = cachedFlowTemplateMetas
+      .map((item) => {
+        const active = selectedName && item.name === selectedName;
+        const cls = active
+          ? "border-teal-300 bg-teal-50/70"
+          : "border-slate-200 bg-white hover:border-slate-300";
+        return `
+          <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-flow-template-row ${cls}" data-name="${escapeHtml(
+            item.name || "",
+          )}">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+                item.name || "-",
+              )}</span>
+              <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600">${escapeHtml(
+                tr("flowTemplateUseBtn", "Use"),
+              )}</span>
+            </div>
+          </button>`;
+      })
+      .join("");
+  }
+
+  function renderBuiltinFlowTemplateList(errorMessage = "") {
+    const out = byId("flow-template-builtin-list");
+    if (!out) return;
+    if (errorMessage) {
+      out.innerHTML = statusCard(errorMessage, "error");
+      return;
+    }
+    if (
+      !Array.isArray(cachedBuiltinFlowTemplateMetas) ||
+      cachedBuiltinFlowTemplateMetas.length === 0
+    ) {
+      out.innerHTML = statusCard(
+        tr(
+          "flowBuiltinTemplateListEmpty",
+          "No built-in command flow templates",
+        ),
+        "info",
+      );
+      return;
+    }
+    const selectedName =
+      byId("flow-template-builtin-picker")?.value.trim() || "";
+    out.innerHTML = cachedBuiltinFlowTemplateMetas
+      .map((item) => {
+        const active = selectedName && item.name === selectedName;
+        const cls = active
+          ? "border-cyan-300 bg-cyan-50/60"
+          : "border-slate-200 bg-white hover:border-slate-300";
+        return `
+          <button type="button" class="w-full rounded-xl border px-3 py-2 text-left transition js-flow-builtin-template-row ${cls}" data-name="${escapeHtml(
+            item.name || "",
+          )}">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-sm font-semibold text-slate-800">${escapeHtml(
+                item.name || "-",
+              )}</span>
+              <span class="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700">${escapeHtml(
+                tr("builtinLabel", "Built-in"),
+              )}</span>
+            </div>
+          </button>`;
+      })
+      .join("");
+  }
+
+  function renderFlowTemplateOptions() {
+    const builtinRunValues = cachedBuiltinFlowTemplateMetas
+      .map((item) => buildBuiltinFlowTemplateValue(item.name))
+      .filter(Boolean);
+    const runTemplateValues = [...cachedFlowTemplateNames, ...builtinRunValues];
+
+    populateSelect(byId("flow-template-picker"), cachedFlowTemplateNames, {
+      placeholder: tr(
+        "flowTemplateSelectPlaceholder",
+        "Select command flow template",
+      ),
+      selected: byId("flow-template-picker")?.value || "",
+    });
+    populateSelect(
+      byId("flow-template-builtin-picker"),
+      cachedBuiltinFlowTemplateMetas.map((item) => item.name).filter(Boolean),
+      {
+        placeholder: tr(
+          "flowBuiltinTemplateSelectPlaceholder",
+          "Select built-in command flow template",
+        ),
+        selected: byId("flow-template-builtin-picker")?.value || "",
+      },
+    );
+    populateSelect(
+      document.getElementById("flow-template-name"),
+      runTemplateValues,
+      {
+        placeholder: tr(
+          "flowTemplateRunPlaceholder",
+          "Select command flow template",
+        ),
+        selected: document.getElementById("flow-template-name")?.value || "",
+      },
+    );
+  }
+
+  async function loadFlowTemplatesFromWeb() {
+    try {
+      const [savedResult, builtinResult] = await Promise.allSettled([
+        listTemplateResource(FLOW_TEMPLATE_BASE),
+        listTemplateResource(FLOW_BUILTIN_TEMPLATE_BASE),
+      ]);
+      cachedFlowTemplateMetas =
+        savedResult.status === "fulfilled" && Array.isArray(savedResult.value)
+          ? savedResult.value
+          : [];
+      cachedFlowTemplateNames = cachedFlowTemplateMetas
+        .map((item) => item.name)
+        .filter(Boolean);
+      cachedBuiltinFlowTemplateMetas =
+        builtinResult.status === "fulfilled" &&
+        Array.isArray(builtinResult.value)
+          ? builtinResult.value
+          : [];
+      syncFlowRuntimeSnapshot();
+      renderFlowTemplateOptions();
+      renderFlowTemplateList();
+      renderBuiltinFlowTemplateList();
+    } catch (error) {
+      cachedFlowTemplateNames = [];
+      cachedFlowTemplateMetas = [];
+      cachedBuiltinFlowTemplateMetas = [];
+      lastBuiltinFlowTemplateDetail = null;
+      syncFlowRuntimeSnapshot();
+      if (byId("flow-template-builtin-content")) {
+        byId("flow-template-builtin-content").value = "";
+      }
+      renderFlowTemplateOptions();
+      renderFlowTemplateList(error.message);
+      renderBuiltinFlowTemplateList(error.message);
+    }
+  }
+
+  async function loadBuiltinFlowTemplateDetailFromWeb(nameOverride = "") {
+    const name = safeString(
+      nameOverride || byId("flow-template-builtin-picker")?.value || "",
+    ).trim();
+    if (!name) {
+      lastBuiltinFlowTemplateDetail = null;
+      syncFlowRuntimeSnapshot();
+      if (byId("flow-template-builtin-content")) {
+        byId("flow-template-builtin-content").value = "";
+      }
+      setStatus("flow-template-out", "-", "info");
+      renderBuiltinFlowTemplateList();
+      return null;
+    }
+    setStatus("flow-template-out", tr("running", "running"), "running");
+    try {
+      const data = await getTemplateResource(FLOW_BUILTIN_TEMPLATE_BASE, name);
+      lastBuiltinFlowTemplateDetail = data;
+      syncFlowRuntimeSnapshot();
+      ensureSelectValue(
+        byId("flow-template-builtin-picker"),
+        data.name || name,
+      );
+      byId("flow-template-builtin-content").value = data.content || "";
+      renderBuiltinFlowTemplateList();
+      setStatus(
+        "flow-template-out",
+        `${tr("loaded", "Loaded")}: ${data.name || name}`,
+        "success",
+      );
+      return data;
+    } catch (error) {
+      lastBuiltinFlowTemplateDetail = null;
+      syncFlowRuntimeSnapshot();
+      if (byId("flow-template-builtin-content")) {
+        byId("flow-template-builtin-content").value = "";
+      }
+      renderBuiltinFlowTemplateList();
+      setStatus("flow-template-out", error.message, "error");
+      return null;
+    }
+  }
+
+  async function copyBuiltinFlowTemplateToCustomFromWeb() {
+    const selectedName =
+      byId("flow-template-builtin-picker")?.value.trim() || "";
+    if (!selectedName) {
+      setStatus(
+        "flow-template-out",
+        tr(
+          "flowBuiltinTemplateNameRequired",
+          "built-in command flow template is required",
+        ),
+        "error",
+      );
+      return;
+    }
+    let detail = lastBuiltinFlowTemplateDetail;
+    if (!detail || safeString(detail.name).trim() !== selectedName) {
+      detail = await loadBuiltinFlowTemplateDetailFromWeb(selectedName);
+    }
+    if (!detail) {
+      setStatus(
+        "flow-template-out",
+        tr("needLoadBuiltinFirst", "load built-in template first"),
+        "error",
+      );
+      return;
+    }
+    const targetName = promptResourceName(
+      tr("flowBuiltinTemplateCopyPrompt", "Copy as custom template name"),
+      `${detail.name}_custom`,
+    );
+    if (!targetName) return;
+    ensureSelectValue(byId("flow-template-picker"), targetName);
+    byId("flow-template-content").value = detail.content || "";
+    lastFlowTemplateDetail = {
+      ...detail,
+      name: targetName,
+    };
+    syncFlowRuntimeSnapshot();
+    renderFlowTemplateList();
+    setStatus(
+      "flow-template-out",
+      `${tr("flowBuiltinTemplateCopied", "Copied")}: ${detail.name} -> ${targetName}`,
+      "success",
+    );
+  }
+
+  async function loadFlowTemplateDetailFromWeb() {
+    const name = byId("flow-template-picker")?.value.trim() || "";
+    if (!name) {
+      setStatus(
+        "flow-template-out",
+        tr(
+          "flowTemplateNameRequired",
+          "command flow template name is required",
+        ),
+        "error",
+      );
+      return;
+    }
+    setStatus("flow-template-out", tr("running", "running"), "running");
+    try {
+      const data = await getTemplateResource(FLOW_TEMPLATE_BASE, name);
+      lastFlowTemplateDetail = data;
+      syncFlowRuntimeSnapshot();
+      ensureSelectValue(byId("flow-template-picker"), data.name || name);
+      byId("flow-template-content").value = data.content || "";
+      renderFlowTemplateVarsIfSelected(data.name || name, data);
+      renderFlowTemplateList();
+      setStatus(
+        "flow-template-out",
+        `${tr("loaded", "Loaded")}: ${data.name || name}`,
+        "success",
+      );
+    } catch (error) {
+      lastFlowTemplateDetail = null;
+      syncFlowRuntimeSnapshot();
+      setStatus("flow-template-out", error.message, "error");
+    }
+  }
+
+  async function saveFlowTemplateFromWeb() {
+    const name = byId("flow-template-picker")?.value.trim() || "";
+    const content = byId("flow-template-content")?.value || "";
+    if (!name) {
+      setStatus(
+        "flow-template-out",
+        tr(
+          "flowTemplateNameRequired",
+          "command flow template name is required",
+        ),
+        "error",
+      );
+      return;
+    }
+    setStatus("flow-template-out", tr("running", "running"), "running");
+    try {
+      const exists = cachedFlowTemplateNames.includes(name);
+      const data = exists
+        ? await updateTemplateResource(FLOW_TEMPLATE_BASE, name, content)
+        : await createTemplateResource(FLOW_TEMPLATE_BASE, name, content);
+      setStatus(
+        "flow-template-out",
+        `${exists ? tr("saved", "Saved") : tr("created", "Created")}: ${data.name || name}`,
+        "success",
+      );
+      await loadFlowTemplatesFromWeb();
+      ensureSelectValue(byId("flow-template-picker"), data.name || name);
+      lastFlowTemplateDetail = data;
+      byId("flow-template-content").value = data.content || content;
+      syncFlowRuntimeSnapshot();
+      renderFlowTemplateVarsIfSelected(data.name || name, data);
+      renderFlowTemplateList();
+    } catch (error) {
+      setStatus("flow-template-out", error.message, "error");
+    }
+  }
+
+  async function createFlowTemplateDraftFromWeb() {
+    const name = promptResourceName(
+      tr("flowTemplateNewPrompt", "New command flow template name"),
+    );
+    if (!name) return;
+    const editor = byId("flow-template-content");
+    const currentContent = (editor?.value || "").trim();
+    const fallbackDraft = `name = "${name}"
+description = ""
+stop_on_error = true
+default_mode = "User"
+
+[[steps]]
+command = "echo hello"
+`;
+    const draftContent = currentContent ? editor?.value || "" : fallbackDraft;
+    setStatus("flow-template-out", tr("running", "running"), "running");
+    try {
+      const data = await createTemplateResource(
+        FLOW_TEMPLATE_BASE,
+        name,
+        draftContent,
+      );
+      await loadFlowTemplatesFromWeb();
+      ensureSelectValue(byId("flow-template-picker"), data.name || name);
+      if (editor) {
+        editor.value = data.content || draftContent;
+      }
+      lastFlowTemplateDetail = data;
+      syncFlowRuntimeSnapshot();
+      renderFlowTemplateVarsIfSelected(data.name || name, data);
+      renderFlowTemplateList();
+      setStatus(
+        "flow-template-out",
+        `${tr("created", "Created")}: ${data.name || name}`,
+        "success",
+      );
+    } catch (error) {
+      ensureSelectValue(byId("flow-template-picker"), name);
+      if (editor) {
+        editor.value = draftContent;
+      }
+      lastFlowTemplateDetail = null;
+      syncFlowRuntimeSnapshot();
+      renderFlowTemplateList();
+      setStatus("flow-template-out", error.message, "error");
+    }
+  }
+
+  async function deleteFlowTemplateFromWeb() {
+    const name = byId("flow-template-picker")?.value.trim() || "";
+    if (!name) {
+      setStatus(
+        "flow-template-out",
+        tr(
+          "flowTemplateNameRequired",
+          "command flow template name is required",
+        ),
+        "error",
+      );
+      return;
+    }
+    setStatus("flow-template-out", tr("running", "running"), "running");
+    try {
+      await deleteTemplateResource(FLOW_TEMPLATE_BASE, name);
+      byId("flow-template-content").value = "";
+      setStatus(
+        "flow-template-out",
+        `${tr("deleted", "Deleted")}: ${name}`,
+        "success",
+      );
+      await loadFlowTemplatesFromWeb();
+      if ((byId("flow-template-picker")?.value.trim() || "") === name) {
+        byId("flow-template-picker").value = "";
+      }
+      if (
+        (document.getElementById("flow-template-name")?.value.trim() || "") ===
+        name
+      ) {
+        window.renderFlowTemplateVarFields?.(null, {});
+      }
+      lastFlowTemplateDetail = null;
+      syncFlowRuntimeSnapshot();
+      renderFlowTemplateList();
+    } catch (error) {
+      setStatus("flow-template-out", error.message, "error");
+    }
+  }
+
+  async function selectTemplateName(name) {
+    if (!name) return;
+    ensureSelectValue(byId("template-pick-name"), name);
+    renderTemplateOptions(name);
+    renderTemplateList();
+    await loadTemplateDetailFromWeb();
+    renderTemplateList();
+  }
+
+  function onTemplateListClick(event) {
+    const row = event.target.closest(".js-template-row");
+    if (!row) return;
+    selectTemplateName(row.getAttribute("data-name") || "");
+  }
+
+  async function onTemplatePickerChange() {
+    if (!(byId("template-pick-name")?.value.trim() || "")) return;
+    await loadTemplateDetailFromWeb();
+    renderTemplateList();
+  }
+
+  async function selectFlowTemplateName(name) {
+    if (!name) return;
+    ensureSelectValue(byId("flow-template-picker"), name);
+    renderFlowTemplateList();
+    await loadFlowTemplateDetailFromWeb();
+    renderFlowTemplateList();
+  }
+
+  async function selectBuiltinFlowTemplateName(name) {
+    if (!name) return;
+    ensureSelectValue(byId("flow-template-builtin-picker"), name);
+    renderBuiltinFlowTemplateList();
+    await loadBuiltinFlowTemplateDetailFromWeb(name);
+    renderBuiltinFlowTemplateList();
+  }
+
+  function onFlowTemplateListClick(event) {
+    const row = event.target.closest(".js-flow-template-row");
+    if (!row) return;
+    selectFlowTemplateName(row.getAttribute("data-name") || "");
+  }
+
+  function onBuiltinFlowTemplateListClick(event) {
+    const row = event.target.closest(".js-flow-builtin-template-row");
+    if (!row) return;
+    selectBuiltinFlowTemplateName(row.getAttribute("data-name") || "");
+  }
+
+  async function onFlowTemplatePickerChange() {
+    if (!(byId("flow-template-picker")?.value.trim() || "")) return;
+    await loadFlowTemplateDetailFromWeb();
+    renderFlowTemplateList();
+  }
+
+  async function onBuiltinFlowTemplatePickerChange() {
+    if (!(byId("flow-template-builtin-picker")?.value.trim() || "")) {
+      if (byId("flow-template-builtin-content")) {
+        byId("flow-template-builtin-content").value = "";
+      }
+      renderBuiltinFlowTemplateList();
+      return;
+    }
+    await loadBuiltinFlowTemplateDetailFromWeb();
+    renderBuiltinFlowTemplateList();
+  }
+
+  const list = byId("template-list");
+  const picker = byId("template-pick-name");
+  const newBtn = byId("template-new-btn");
+  const saveBtn = byId("template-save-btn");
+  const deleteBtn = byId("template-delete-btn");
+  const flowList = byId("flow-template-list");
+  const builtinFlowList = byId("flow-template-builtin-list");
+  const flowPicker = byId("flow-template-picker");
+  const builtinFlowPicker = byId("flow-template-builtin-picker");
+  const flowNewBtn = byId("flow-template-new-btn");
+  const flowSaveBtn = byId("flow-template-save-btn");
+  const flowDeleteBtn = byId("flow-template-delete-btn");
+  const builtinDetailBtn = byId("flow-template-builtin-detail-btn");
+  const builtinCopyBtn = byId("flow-template-builtin-copy-btn");
+
+  const onNewClick = () =>
+    withLoading("template-new-btn", createTemplateDraftFromWeb);
+  const onSaveClick = () =>
+    withLoading("template-save-btn", saveTemplateFromWeb);
+  const onDeleteClick = () =>
+    withLoading("template-delete-btn", deleteTemplateFromWeb);
+  const onFlowNewClick = () =>
+    withLoading("flow-template-new-btn", createFlowTemplateDraftFromWeb);
+  const onFlowSaveClick = () =>
+    withLoading("flow-template-save-btn", saveFlowTemplateFromWeb);
+  const onFlowDeleteClick = () =>
+    withLoading("flow-template-delete-btn", deleteFlowTemplateFromWeb);
+  const onBuiltinDetailClick = () =>
+    withLoading("flow-template-builtin-detail-btn", () =>
+      loadBuiltinFlowTemplateDetailFromWeb(),
+    );
+  const onBuiltinCopyClick = () =>
+    withLoading(
+      "flow-template-builtin-copy-btn",
+      copyBuiltinFlowTemplateToCustomFromWeb,
+    );
+
+  list?.addEventListener("click", onTemplateListClick);
+  picker?.addEventListener("change", onTemplatePickerChange);
+  newBtn?.addEventListener("click", onNewClick);
+  saveBtn?.addEventListener("click", onSaveClick);
+  deleteBtn?.addEventListener("click", onDeleteClick);
+  flowList?.addEventListener("click", onFlowTemplateListClick);
+  builtinFlowList?.addEventListener("click", onBuiltinFlowTemplateListClick);
+  flowPicker?.addEventListener("change", onFlowTemplatePickerChange);
+  builtinFlowPicker?.addEventListener(
+    "change",
+    onBuiltinFlowTemplatePickerChange,
+  );
+  flowNewBtn?.addEventListener("click", onFlowNewClick);
+  flowSaveBtn?.addEventListener("click", onFlowSaveClick);
+  flowDeleteBtn?.addEventListener("click", onFlowDeleteClick);
+  builtinDetailBtn?.addEventListener("click", onBuiltinDetailClick);
+  builtinCopyBtn?.addEventListener("click", onBuiltinCopyClick);
+
+  window.renderTemplateList = renderTemplateList;
+  window.renderTemplateOptions = renderTemplateOptions;
+  window.loadTemplates = loadTemplatesFromWeb;
+  window.loadTemplateDetail = loadTemplateDetailFromWeb;
+  window.saveTemplate = saveTemplateFromWeb;
+  window.createTemplateDraft = createTemplateDraftFromWeb;
+  window.deleteTemplate = deleteTemplateFromWeb;
+  window.renderFlowTemplateList = renderFlowTemplateList;
+  window.renderBuiltinFlowTemplateList = renderBuiltinFlowTemplateList;
+  window.renderFlowTemplateOptions = renderFlowTemplateOptions;
+  window.loadFlowTemplates = loadFlowTemplatesFromWeb;
+  window.loadBuiltinFlowTemplateDetail = loadBuiltinFlowTemplateDetailFromWeb;
+  window.copyBuiltinFlowTemplateToCustom =
+    copyBuiltinFlowTemplateToCustomFromWeb;
+  window.loadFlowTemplateDetail = loadFlowTemplateDetailFromWeb;
+  window.saveFlowTemplate = saveFlowTemplateFromWeb;
+  window.createFlowTemplateDraft = createFlowTemplateDraftFromWeb;
+  window.deleteFlowTemplate = deleteFlowTemplateFromWeb;
+  window.renderCommandFlowResult = renderCommandFlowResult;
+
+  syncRuntimeSnapshot();
+  syncFlowRuntimeSnapshot();
+  renderTemplateList();
+  renderFlowTemplateList();
+  renderBuiltinFlowTemplateList();
+
+  return {
+    destroy() {
+      list?.removeEventListener("click", onTemplateListClick);
+      picker?.removeEventListener("change", onTemplatePickerChange);
+      newBtn?.removeEventListener("click", onNewClick);
+      saveBtn?.removeEventListener("click", onSaveClick);
+      deleteBtn?.removeEventListener("click", onDeleteClick);
+      flowList?.removeEventListener("click", onFlowTemplateListClick);
+      builtinFlowList?.removeEventListener(
+        "click",
+        onBuiltinFlowTemplateListClick,
+      );
+      flowPicker?.removeEventListener("change", onFlowTemplatePickerChange);
+      builtinFlowPicker?.removeEventListener(
+        "change",
+        onBuiltinFlowTemplatePickerChange,
+      );
+      flowNewBtn?.removeEventListener("click", onFlowNewClick);
+      flowSaveBtn?.removeEventListener("click", onFlowSaveClick);
+      flowDeleteBtn?.removeEventListener("click", onFlowDeleteClick);
+      builtinDetailBtn?.removeEventListener("click", onBuiltinDetailClick);
+      builtinCopyBtn?.removeEventListener("click", onBuiltinCopyClick);
+    },
+  };
+}

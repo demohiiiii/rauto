@@ -74,8 +74,7 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
                     &command,
                     &textfsm::ParseOptions {
                         template_file: args.textfsm_template.clone(),
-                        enabled: args.parse_textfsm
-                            || args.textfsm_template.is_some(),
+                        enabled: args.parse_textfsm || args.textfsm_template.is_some(),
                         platform: args.textfsm_platform.clone(),
                         device_profile: Some(conn.device_profile.clone()),
                         ..Default::default()

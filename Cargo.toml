@@ -9,6 +9,19 @@ repository = "https://github.com/demohiiiii/rauto"
 readme = "README.md"
 keywords = ["network", "automation", "cli", "ssh", "minijinja"]
 categories = ["command-line-utilities", "network-programming"]
+include = [
+    "assets/**",
+    "build.rs",
+    "Cargo.lock",
+    "Cargo.toml",
+    "LICENSE",
+    "migrations/**",
+    "proto/**",
+    "README.md",
+    "src/**",
+    "static/**",
+    "templates/**",
+]
 
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }

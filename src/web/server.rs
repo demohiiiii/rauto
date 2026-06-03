@@ -3,7 +3,7 @@ use crate::agent::registration::AgentRegistrar;
 use crate::agent::task_grpc_server::build_agent_task_grpc_router;
 use crate::cli::{AgentArgs, GlobalOpts, WebArgs};
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
-use crate::web::assets::{index_response, static_response};
+use crate::web::assets::{static_response, svelte_index_response};
 use crate::web::auth::auth_middleware;
 use crate::web::handlers::{
     add_blacklist_pattern, check_blacklist_command, create_backup, create_command_flow_template,
@@ -153,7 +153,9 @@ fn build_managed_app(state: Arc<AppState>) -> Router {
 fn public_web_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/health", get(health))
-        .route("/", get(index))
+        .route("/", get(svelte_index))
+        .route("/app", get(svelte_index))
+        .route("/app/{*path}", get(svelte_index))
         .route("/favicon.ico", get(favicon))
         .route("/static/{*path}", get(static_file))
 }
@@ -162,7 +164,9 @@ fn public_agent_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/health", get(health))
         .route("/api/agent/info", get(agent_info))
-        .route("/", get(index))
+        .route("/", get(svelte_index))
+        .route("/app", get(svelte_index))
+        .route("/app/{*path}", get(svelte_index))
         .route("/favicon.ico", get(favicon))
         .route("/static/{*path}", get(static_file))
 }
@@ -362,8 +366,8 @@ async fn serve_app(
     Ok(())
 }
 
-async fn index() -> Response {
-    index_response()
+async fn svelte_index() -> Response {
+    svelte_index_response()
 }
 
 async fn static_file(Path(path): Path<String>) -> Response {

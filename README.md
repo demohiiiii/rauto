@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="static/rauto-icon.svg" alt="rauto icon" width="112" />
+<img src="frontend/public/rauto-icon.svg" alt="rauto icon" width="112" />
 
 # rauto
 
@@ -99,11 +99,13 @@ cargo install rauto
 
 ### From Source
 
-Ensure you have Rust and Cargo installed.
+Ensure you have Rust, Cargo, Node.js, and npm installed.
 
 ```bash
 git clone https://github.com/demohiiiii/rauto.git
 cd rauto
+npm ci
+npm run web:build
 cargo build --release
 ```
 
@@ -447,6 +449,14 @@ Then visit `http://127.0.0.1:3000`.
 
 Web assets are embedded into the binary at build time.  
 For released binaries, users only need to run the executable (no extra `static/` files required at runtime).
+
+The web frontend is built with Svelte 5.
+When building from source, run `npm run web:build` before compiling the Rust binary.
+
+```bash
+npm run frontend:build  # build only the Svelte dashboard entry
+npm run web:build       # build the embedded web dashboard assets
+```
 
 Web console key capabilities:
 

@@ -83,10 +83,7 @@ fn ensure_vars_object(value: Value) -> Result<Value> {
     }
 }
 
-pub(crate) fn template_context(
-    vars: Value,
-    conn: Option<&crate::EffectiveConnection>,
-) -> Value {
+pub(crate) fn template_context(vars: Value, conn: Option<&crate::EffectiveConnection>) -> Value {
     let vars_for_root = vars.clone();
     let mut root = serde_json::Map::new();
     root.insert("vars".to_string(), vars_for_root);
@@ -181,7 +178,9 @@ fn render_json_template_value_with_renderer(
         Value::Array(items) => {
             let mut out = Vec::with_capacity(items.len());
             for item in items {
-                out.push(render_json_template_value_with_renderer(item, context, renderer)?);
+                out.push(render_json_template_value_with_renderer(
+                    item, context, renderer,
+                )?);
             }
             Ok(Value::Array(out))
         }

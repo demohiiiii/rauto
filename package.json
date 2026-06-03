@@ -2,21 +2,32 @@
   "name": "rauto-web-ui",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "license": "Apache-2.0",
   "scripts": {
-    "vendor:sync": "mkdir -p ./static/vendor && cp ./node_modules/alpinejs/dist/cdn.min.js ./static/vendor/alpine.min.js && cp ./node_modules/htmx.org/dist/htmx.min.js ./static/vendor/htmx.min.js && cp ./node_modules/ace-builds/src-min-noconflict/ace.js ./static/vendor/ace.js && cp ./node_modules/ace-builds/src-min-noconflict/mode-json.js ./static/vendor/mode-json.js && cp ./node_modules/ace-builds/src-min-noconflict/theme-github.js ./static/vendor/theme-github.js && cp ./node_modules/ace-builds/src-min-noconflict/theme-tomorrow_night.js ./static/vendor/theme-tomorrow_night.js",
-    "tailwind:build": "npx @tailwindcss/cli -i ./static/input.css -o ./static/output.css --minify",
-    "tailwind:watch": "npx @tailwindcss/cli -i ./static/input.css -o ./static/output.css --watch"
+    "prepare": "npm run hooks:install || true",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "format": "cargo fmt --all && npm run frontend:format",
+    "format:check": "cargo fmt --all --check && npm run frontend:format:check",
+    "frontend:format": "prettier --write \"frontend/**/*.{js,svelte,css,html}\" package.json vite.config.js",
+    "frontend:format:check": "prettier --check \"frontend/**/*.{js,svelte,css,html}\" package.json vite.config.js",
+    "frontend:dev": "vite --host 127.0.0.1",
+    "frontend:build": "vite build",
+    "frontend:preview": "vite preview --host 127.0.0.1",
+    "web:build": "npm run frontend:build"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@tailwindcss/vite": "^4.3.0",
     "daisyui": "^5.5.19",
     "playwright": "^1.58.2",
-    "tailwindcss": "^4.2.2"
+    "prettier": "^3.8.3",
+    "prettier-plugin-svelte": "^4.1.0",
+    "svelte": "^5.56.1",
+    "tailwindcss": "^4.2.2",
+    "vite": "^8.0.16"
   },
   "dependencies": {
-    "@tailwindcss/cli": "^4.2.2",
-    "ace-builds": "^1.36.1",
-    "alpinejs": "^3.15.9",
-    "htmx.org": "^2.0.8"
+    "ace-builds": "^1.36.1"
   }
 }

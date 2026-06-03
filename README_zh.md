@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="static/rauto-icon.svg" alt="rauto icon" width="112" />
+<img src="frontend/public/rauto-icon.svg" alt="rauto icon" width="112" />
 
 # rauto
 
@@ -99,11 +99,13 @@ cargo install rauto
 
 ### 源码安装
 
-确保你已经安装了 Rust 和 Cargo。
+确保你已经安装了 Rust、Cargo、Node.js 和 npm。
 
 ```bash
 git clone https://github.com/demohiiiii/rauto.git
 cd rauto
+npm ci
+npm run web:build
 cargo build --release
 ```
 
@@ -445,6 +447,14 @@ rauto web \
 
 Web 静态资源在构建时会嵌入二进制。  
 对于发布后的可执行文件，运行时不再依赖本地 `static/` 目录。
+
+Web 前端由 Svelte 5 构建。
+从源码构建时，请先执行 `npm run web:build` 再编译 Rust 二进制。
+
+```bash
+npm run frontend:build  # 仅构建 Svelte 控制台入口
+npm run web:build       # 构建嵌入式 Web 控制台资源
+```
 
 Web 控制台主要能力：
 
