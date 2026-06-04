@@ -6,15 +6,62 @@
   import TxSharedBlockEditor from "../components/orchestrated/TxSharedBlockEditor.svelte";
   import TxWorkflowStage from "../components/orchestrated/TxWorkflowStage.svelte";
   import { dashboardView } from "../state/dashboardView.js";
-  import { installTxJsonEditors } from "../services/txJsonEditors.js";
   import { installTxRuntimeBridge } from "../services/txRuntimeBridge.js";
   import { installTxSharedRuntime } from "../services/txSharedRuntime.js";
 
   installTxSharedRuntime();
-  installTxJsonEditors();
   installTxRuntimeBridge();
 
   let { active = false } = $props();
+  let txJsonEditorsPromise = null;
+
+  function safeCall(name, ...args) {
+    const fn = window[name];
+    return typeof fn === "function" ? fn(...args) : undefined;
+  }
+
+  function valueById(id) {
+    return document.getElementById(id)?.value.trim() || "";
+  }
+
+  async function ensureTxJsonEditors() {
+    if (txJsonEditorsPromise) {
+      return txJsonEditorsPromise;
+    }
+    txJsonEditorsPromise = import("../services/txJsonEditors.js").then(
+      ({ installTxJsonEditors }) => {
+        installTxJsonEditors();
+        if (!valueById("tx-workflow-json")) {
+          safeCall(
+            "setTxWorkflowEditorJson",
+            safeCall("defaultTxWorkflowTemplatePayload"),
+          );
+        }
+        if (!valueById("tx-block-json")) {
+          safeCall(
+            "setTxBlockEditorJson",
+            safeCall("defaultTxBlockTemplatePayload"),
+          );
+        }
+        if (!valueById("orchestration-json")) {
+          safeCall(
+            "setOrchestrationEditorJson",
+            safeCall("defaultOrchestrationTemplatePayload"),
+          );
+        }
+        safeCall("setupTxWorkflowJsonEditor");
+        safeCall("setupTxBlockJsonEditor");
+        safeCall("setupOrchestrationJsonEditor");
+      },
+    );
+    return txJsonEditorsPromise;
+  }
+
+  $effect(() => {
+    if (active) {
+      ensureTxJsonEditors();
+    }
+  });
 </script>
 
 <div

@@ -35,6 +35,8 @@ import {
 } from "../services/standardPayloads.js";
 import { loadSelectedTemplateContent } from "../services/standardTemplates.js";
 
+let showObjectsRequestSeq = 0;
+
 async function renderTemplatePreview() {
   const out = byId("render-out");
   out.textContent = t("running");
@@ -87,7 +89,9 @@ function renderShowObjectOptions(data, selected = "") {
       (item) =>
         `<option value="${escapeHtml(safeString(item.object))}" data-command="${escapeHtml(
           safeString(item.command),
-        )}">${escapeHtml(safeString(item.object))}</option>`,
+        )}" data-mode="${escapeHtml(safeString(item.mode))}">${escapeHtml(
+          safeString(item.object),
+        )}</option>`,
     ),
   ];
   select.innerHTML = options.join("");
@@ -103,23 +107,31 @@ function updateShowCommandPreview(platform = "") {
   if (!out || !select) return;
   const option = select.selectedOptions?.[0];
   const command = option?.dataset?.command || "";
+  const mode = option?.dataset?.mode || "";
   const object = select.value.trim();
   const platformText = platform || byId("show-object")?.dataset?.platform || "";
   out.textContent = object
-    ? `platform=${platformText || "-"} command=${command || "-"}`
+    ? `platform=${platformText || "-"} mode=${mode || "-"} command=${command || "-"}`
     : "-";
 }
 
 async function loadShowObjects() {
   const select = byId("show-object");
   const selected = select?.value.trim() || "";
+  const requestSeq = ++showObjectsRequestSeq;
   try {
     const data = await listShowObjects(showObjectQueryPayload());
+    if (requestSeq !== showObjectsRequestSeq) {
+      return;
+    }
     if (select) {
       select.dataset.platform = data?.platform || "";
     }
     renderShowObjectOptions(data, selected);
   } catch (error) {
+    if (requestSeq !== showObjectsRequestSeq) {
+      return;
+    }
     const out = byId("show-out");
     if (out) out.innerHTML = renderStatusMessage(error.message, "error");
   }
@@ -147,6 +159,8 @@ async function executeShowObject() {
       <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
         object=${escapeHtml(safeString(data.object))} · platform=${escapeHtml(
           safeString(data.platform),
+        )} · mode=${escapeHtml(
+          safeString(data.mode),
         )} · command=<span class="font-mono">${escapeHtml(
           safeString(data.command),
         )}</span>

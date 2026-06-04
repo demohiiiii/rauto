@@ -7,3 +7,5 @@ if ! git diff --quiet; then
   echo "Formatting changed files. Review and stage the changes, then commit again."
   exit 1
 fi
+
+npm run clippy

@@ -143,12 +143,10 @@ pub fn parse_command_output(output: &str, command: &str, options: &ParseOptions)
     {
         return parse_output_with_template_content_named(
             &format!(
-                "db://custom-textfsm/{}/{}",
+                "db://custom-textfsm/{}/{}?template={}",
                 custom_template.device_profile,
-                format!(
-                    "{}?template={}",
-                    custom_template.command, custom_template.template_name
-                )
+                custom_template.command,
+                custom_template.template_name
             ),
             &custom_template.template_content,
             output,

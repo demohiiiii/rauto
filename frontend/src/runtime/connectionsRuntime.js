@@ -758,6 +758,13 @@ function syncProfileAndModesFromTarget(details, refreshModes = false) {
   if (refreshModes && typeof refreshExecutionModeOptions === "function") {
     refreshExecutionModeOptions();
   }
+  refreshShowObjectsForCurrentTarget();
+}
+
+function refreshShowObjectsForCurrentTarget() {
+  if (typeof window.loadShowObjects === "function") {
+    window.loadShowObjects();
+  }
 }
 
 function persistConnectionTarget(details = null) {
@@ -919,6 +926,7 @@ function restorePersistedConnectionTarget() {
     if (typeof refreshExecutionModeOptions === "function") {
       refreshExecutionModeOptions();
     }
+    refreshShowObjectsForCurrentTarget();
     return;
   }
   localStorage.removeItem(STORAGE_KEYS.connectionTarget);
@@ -1041,6 +1049,7 @@ function markTemporaryConnectionActive() {
   };
   setCurrentConnectionTarget(temporaryConnectionDetails);
   renderSidebarConnectionSelector();
+  refreshShowObjectsForCurrentTarget();
 }
 
 function clearTemporaryConnectionActive() {
@@ -1118,12 +1127,12 @@ async function loadSavedConnectionByName() {
     await refreshExecutionModeOptions();
     byId("saved-conn-name").value = data.name || name;
     clearTemporaryConnectionActive();
-    setCurrentConnectionTarget(
-      savedConnectionDetails({
-        ...(data.connection || {}),
-        name: data.name || name,
-      }),
-    );
+    const details = savedConnectionDetails({
+      ...(data.connection || {}),
+      name: data.name || name,
+    });
+    setCurrentConnectionTarget(details);
+    syncProfileAndModesFromTarget(details, false);
     renderSidebarConnectionSelector();
     setStatusMessage(
       "saved-conn-out",

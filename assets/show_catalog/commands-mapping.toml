@@ -1,3 +1,19 @@
+# Platform-level mode applies to every object under that platform unless an
+# object uses { command = "...", mode = "..." } to override it.
+[platform_modes]
+arista_eos = "Enable"
+aruba_aoscx = "Enable"
+checkpoint_gaia = "Enable"
+cisco_asa = "Enable"
+cisco_ios = "Enable"
+cisco_nxos = "Enable"
+fortinet = "Enable"
+huawei_vrp = "Enable"
+hp_comware = "Enable"
+juniper_junos = "Enable"
+paloalto_panos = "Enable"
+zte_zxros = "Enable"
+
 [platforms.arista_eos]
 version = "show version"
 interfaces = "show interfaces"
@@ -329,10 +345,10 @@ arp = "show arp"
 "ip-link-show" = "ip link show"
 "ip-vrf-show" = "ip vrf show"
 "nmcli-connection-show" = "nmcli connection show"
-"dmidecode-t-system" = "dmidecode -t system"
-"dmidecode-t-bios" = "dmidecode -t bios"
-"dmidecode-t-processor" = "dmidecode -t processor"
-"dmidecode-t-memory" = "dmidecode -t memory"
+"dmidecode-t-system" = { command = "dmidecode -t system", mode = "Root" }
+"dmidecode-t-bios" = { command = "dmidecode -t bios", mode = "Root" }
+"dmidecode-t-processor" = { command = "dmidecode -t processor", mode = "Root" }
+"dmidecode-t-memory" = { command = "dmidecode -t memory", mode = "Root" }
 "bluetoothctl-show" = "bluetoothctl show"
 pveversion = "pveversion"
 iwconfig = "iwconfig"

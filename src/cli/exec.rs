@@ -239,8 +239,9 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         conn.linux_shell_flavor,
     )?;
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let requested_mode = args.mode.as_deref().or(show.mode.as_deref());
     let effective_mode =
-        template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
+        template_loader::resolve_profile_mode(&conn.device_profile, requested_mode)?;
 
     let client = DeviceClient::connect_with_recording(
         conn.host.clone(),
@@ -259,6 +260,10 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
 
     if args.print_command {
         println!("# command: {}", show.command);
+        if let Some(mode) = show.mode.as_deref() {
+            println!("# mapping_mode: {}", mode);
+        }
+        println!("# effective_mode: {}", effective_mode);
     }
     info!(
         "Executing show object '{}' as command: {}",
@@ -314,20 +319,25 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
 }
 
 fn print_show_objects(platform: Option<&str>) {
-    let objects = if let Some(platform) = platform.filter(|value| !value.trim().is_empty()) {
-        let objects = show_catalog::list_show_objects_for_platform(platform);
-        if objects.is_empty() {
+    if let Some(platform) = platform.filter(|value| !value.trim().is_empty()) {
+        let commands = show_catalog::list_show_commands_for_platform(platform);
+        if commands.is_empty() {
             println!("# platform: {}", platform);
             println!("-");
             return;
         }
         println!("# platform: {}", platform);
-        objects
+        for command in commands {
+            if let Some(mode) = command.mode.as_deref() {
+                println!("- {} (mode: {})", command.object, mode);
+            } else {
+                println!("- {}", command.object);
+            }
+        }
     } else {
-        show_catalog::list_all_show_objects()
-    };
-    for object in objects {
-        println!("- {}", object);
+        for object in show_catalog::list_all_show_objects() {
+            println!("- {}", object);
+        }
     }
 }
 

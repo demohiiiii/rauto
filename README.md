@@ -212,7 +212,8 @@ rauto show interfaces \
 ```
 
 Useful objects include `version`, `interfaces`, `interface-brief`, `route`, `arp`, `lldp`, `mac`, `vlan`, `access-list`, `object-group`, `security-policy`, and `nat-policy`; use `--list` to view every object available for the selected platform.
-Objects are defined in the bundled `assets/show_catalog/commands-mapping.toml` command table. TextFSM parsing still uses the bundled NTC templates after execution.
+Objects are defined in the bundled `assets/show_catalog/commands-mapping.toml` command table. The table can bind a platform-level or per-object execution mode; explicit `--mode` still takes precedence, then the mapping mode, then the profile default mode.
+TextFSM parsing still uses the bundled NTC templates after execution.
 
 ```bash
 rauto show --list --device-profile cisco_ios

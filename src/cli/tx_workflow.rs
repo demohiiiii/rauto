@@ -173,16 +173,12 @@ async fn load_tx_workflow_from_args(
     opts: &crate::cli::GlobalOpts,
 ) -> Result<(rneter::session::TxWorkflow, Option<PathBuf>)> {
     match (&args.workflow_file, &args.template) {
-        (Some(_), Some(_)) => {
-            return Err(anyhow::anyhow!(
-                "use either workflow_file or --template, not both"
-            ));
-        }
-        (None, None) => {
-            return Err(anyhow::anyhow!(
-                "tx-workflow requires workflow_file or --template <name>"
-            ));
-        }
+        (Some(_), Some(_)) => Err(anyhow::anyhow!(
+            "use either workflow_file or --template, not both"
+        )),
+        (None, None) => Err(anyhow::anyhow!(
+            "tx-workflow requires workflow_file or --template <name>"
+        )),
         (Some(path), None) => {
             let workflow_text = fs::read_to_string(path)?;
             let workflow = serde_json::from_str(&workflow_text)?;

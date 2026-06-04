@@ -220,6 +220,7 @@ pub async fn list_show_objects(
             .map(|item| ShowObjectEntry {
                 object: item.object,
                 command: item.command,
+                mode: item.mode,
             })
             .collect()
     } else {
@@ -228,6 +229,7 @@ pub async fn list_show_objects(
             .map(|object| ShowObjectEntry {
                 object,
                 command: String::new(),
+                mode: None,
             })
             .collect()
     };
@@ -293,7 +295,8 @@ pub async fn execute_show(
             &conn.device_profile,
             conn.linux_shell_flavor,
         )?;
-        let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+        let requested_mode = req.mode.as_deref().or(show.mode.as_deref());
+        let effective_mode = resolve_effective_mode(requested_mode, &conn.device_profile)?;
         let client = if let Some(level) = to_record_level(record_level) {
             DeviceClient::connect_with_recording(
                 conn.host.clone(),
@@ -329,7 +332,8 @@ pub async fn execute_show(
                 .with_progress(Some(60))
                 .with_details(Some(json!({
                     "object": show.object,
-                    "command": show.command
+                    "command": show.command,
+                    "mode": effective_mode.as_str()
                 }))),
         );
         let output = client
@@ -361,6 +365,7 @@ pub async fn execute_show(
             object,
             platform,
             command: command.clone(),
+            mode: effective_mode.clone(),
             output: output.content,
             exit_code,
             parsed_output,

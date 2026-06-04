@@ -212,7 +212,8 @@ rauto show interfaces \
 ```
 
 对象包括 `version`、`interfaces`、`interface-brief`、`route`、`arp`、`lldp`、`mac`、`vlan`、`access-list`、`object-group`、`security-policy`、`nat-policy` 等；可用 `--list` 查看当前平台支持的全部对象。
-这些对象定义在内置的 `assets/show_catalog/commands-mapping.toml` 命令表中；命令执行后的 TextFSM 解析仍然使用内置 NTC 模板。
+这些对象定义在内置的 `assets/show_catalog/commands-mapping.toml` 命令表中；命令表可以绑定平台级或单个对象的执行 mode。显式传入的 `--mode` 优先级最高，其次是命令表绑定的 mode，最后才是 profile 默认 mode。
+命令执行后的 TextFSM 解析仍然使用内置 NTC 模板。
 
 ```bash
 rauto show --list --device-profile cisco_ios

@@ -9,6 +9,7 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "format": "cargo fmt --all && npm run frontend:format",
     "format:check": "cargo fmt --all --check && npm run frontend:format:check",
+    "clippy": "cargo clippy --all-targets --all-features -- -D warnings",
     "frontend:format": "prettier --write \"frontend/**/*.{js,svelte,css,html}\" package.json vite.config.js",
     "frontend:format:check": "prettier --check \"frontend/**/*.{js,svelte,css,html}\" package.json vite.config.js",
     "frontend:dev": "vite --host 127.0.0.1",

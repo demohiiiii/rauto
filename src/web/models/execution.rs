@@ -58,6 +58,7 @@ pub struct ExecResponse {
 pub struct ShowObjectEntry {
     pub object: String,
     pub command: String,
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -85,6 +86,7 @@ pub struct ShowExecuteResponse {
     pub object: String,
     pub platform: String,
     pub command: String,
+    pub mode: String,
     pub output: String,
     pub exit_code: Option<i32>,
     pub parsed_output: Option<Value>,

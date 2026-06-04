@@ -9,11 +9,44 @@ pub struct ShowCommand {
     pub object: String,
     pub platform: String,
     pub command: String,
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct FriendlyShowCatalogConfig {
-    platforms: BTreeMap<String, BTreeMap<String, String>>,
+    #[serde(default)]
+    platform_modes: BTreeMap<String, String>,
+    platforms: BTreeMap<String, BTreeMap<String, ShowCommandConfig>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ShowCommandConfig {
+    Command(String),
+    Detailed {
+        command: String,
+        #[serde(default)]
+        mode: Option<String>,
+    },
+}
+
+impl ShowCommandConfig {
+    fn command(&self) -> &str {
+        match self {
+            Self::Command(command) => command,
+            Self::Detailed { command, .. } => command,
+        }
+    }
+
+    fn mode(&self) -> Option<&str> {
+        match self {
+            Self::Command(_) => None,
+            Self::Detailed { mode, .. } => mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty()),
+        }
+    }
 }
 
 static FRIENDLY_SHOW_COMMANDS: OnceLock<Vec<ShowCommand>> = OnceLock::new();
@@ -129,11 +162,21 @@ fn load_friendly_show_commands() -> Vec<ShowCommand> {
     let config = show_catalog_config();
     let mut commands = Vec::new();
     for (platform, object_commands) in &config.platforms {
-        for (object, command) in object_commands {
+        let platform_mode = config
+            .platform_modes
+            .get(platform)
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        for (object, command_config) in object_commands {
             commands.push(ShowCommand {
                 object: object.clone(),
                 platform: platform.clone(),
-                command: command.clone(),
+                command: command_config.command().to_string(),
+                mode: command_config
+                    .mode()
+                    .or(platform_mode)
+                    .map(ToOwned::to_owned),
             });
         }
     }
