@@ -364,11 +364,12 @@
               class="input"
               placeholder="Show object, e.g. access-list"
             />
-            <input
+            <select
               id="show-object-mode"
-              class="input"
-              placeholder="Mode override, e.g. enable or config"
-            />
+              class="select"
+              title="Mode override"
+              aria-label="Mode override"
+            ></select>
             <label
               class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 lg:col-span-2"
             >

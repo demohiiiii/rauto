@@ -11,6 +11,7 @@ import {
   getTemplateResource,
   getTextfsmTemplate,
   getDeviceProfilesOverview,
+  getProfileModes,
   listCustomShowObjects,
   listTextfsmMappings,
   listTextfsmTemplates,
@@ -227,6 +228,8 @@ export function templatesBehavior(node) {
   let cachedShowObjectTextfsmMappings = [];
   let cachedCustomShowObjects = [];
   let cachedDeviceProfileNames = [];
+  let cachedShowObjectModes = [];
+  let cachedShowObjectDefaultMode = "";
   let lastTemplateDetail = null;
   let lastFlowTemplateDetail = null;
   let lastBuiltinFlowTemplateDetail = null;
@@ -942,6 +945,43 @@ command = "echo hello"
     });
   }
 
+  function renderShowObjectModeOptions(selectedMode = "") {
+    populateSelect(byId("show-object-mode"), cachedShowObjectModes, {
+      selected:
+        selectedMode ||
+        byId("show-object-mode")?.value ||
+        cachedShowObjectDefaultMode ||
+        "",
+      allowEmpty: false,
+    });
+  }
+
+  async function loadShowObjectModeOptionsFromWeb(
+    profileOverride = "",
+    selectedMode = "",
+  ) {
+    const profile = safeString(
+      profileOverride || byId("show-object-profile")?.value || "",
+    ).trim();
+    if (!profile) {
+      cachedShowObjectModes = [];
+      cachedShowObjectDefaultMode = "";
+      renderShowObjectModeOptions(selectedMode);
+      return;
+    }
+    try {
+      const data = await getProfileModes(profile);
+      cachedShowObjectModes = Array.isArray(data?.modes)
+        ? data.modes.filter(Boolean)
+        : [];
+      cachedShowObjectDefaultMode = data?.default_mode || "";
+    } catch (_) {
+      cachedShowObjectModes = [];
+      cachedShowObjectDefaultMode = "";
+    }
+    renderShowObjectModeOptions(selectedMode);
+  }
+
   function renderShowObjectTextfsmMappingOptions() {
     const select = byId("show-object-textfsm-mapping");
     if (!select) return;
@@ -1191,12 +1231,14 @@ command = "echo hello"
       );
       window.cachedDeviceProfiles = cachedDeviceProfileNames;
       renderDeviceProfileOptions();
+      loadShowObjectModeOptionsFromWeb();
       window.renderTextfsmPlatformOptions?.();
     } catch (_) {
       cachedDeviceProfileNames = Array.isArray(window.cachedDeviceProfiles)
         ? window.cachedDeviceProfiles
         : [];
       renderDeviceProfileOptions();
+      loadShowObjectModeOptionsFromWeb();
       window.renderTextfsmPlatformOptions?.();
     }
   }
@@ -1449,6 +1491,14 @@ command = "echo hello"
       );
       return;
     }
+    if (!mode) {
+      setStatus(
+        "show-object-out",
+        tr("showObjectModeRequired", "mode is required"),
+        "error",
+      );
+      return;
+    }
     if (useMapping && !textfsmMappingCommand) {
       setStatus(
         "show-object-out",
@@ -1483,7 +1533,7 @@ command = "echo hello"
       await window.loadShowObjects?.();
       byId("show-object-name").value = data.object || object;
       byId("show-object-command").value = data.command || command;
-      byId("show-object-mode").value = data.mode || "";
+      ensureSelectValue(byId("show-object-mode"), data.mode || "");
       ensureSelectValue(
         byId("show-object-textfsm-mapping"),
         data.textfsm_mapping_command || "",
@@ -1569,10 +1619,11 @@ command = "echo hello"
     const profile = row.getAttribute("data-profile") || "";
     const mappingCommand =
       row.getAttribute("data-textfsm-mapping-command") || "";
+    const mode = row.getAttribute("data-mode") || "";
     byId("show-object-profile").value = profile;
     byId("show-object-name").value = row.getAttribute("data-object") || "";
     byId("show-object-command").value = row.getAttribute("data-command") || "";
-    byId("show-object-mode").value = row.getAttribute("data-mode") || "";
+    await loadShowObjectModeOptionsFromWeb(profile, mode);
     await loadShowObjectTextfsmMappingsFromWeb(profile);
     ensureSelectValue(byId("show-object-textfsm-mapping"), mappingCommand);
     ensureSelectValue(
@@ -1753,6 +1804,7 @@ command = "echo hello"
   const onCustomShowObjectProfileChange = () => {
     loadCustomShowObjectsFromWeb();
     loadShowObjectTextfsmMappingsFromWeb();
+    loadShowObjectModeOptionsFromWeb();
   };
   const onCustomShowObjectTextfsmMappingChange = () =>
     applyShowObjectTextfsmMappingSelection();
@@ -1873,6 +1925,7 @@ command = "echo hello"
   renderTextfsmTemplateList();
   renderTextfsmMappingList();
   renderShowObjectTextfsmMappingOptions();
+  renderShowObjectModeOptions();
   syncShowObjectInputMode();
   renderCustomShowObjectList();
 

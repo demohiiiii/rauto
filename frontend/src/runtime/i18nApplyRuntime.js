@@ -374,7 +374,11 @@ function applyI18n() {
   byId("show-object-command").placeholder = t(
     "showObjectCustomCommandPlaceholder",
   );
-  byId("show-object-mode").placeholder = t("showObjectCustomModePlaceholder");
+  byId("show-object-mode").title = t("showObjectCustomModePlaceholder");
+  byId("show-object-mode").setAttribute(
+    "aria-label",
+    t("showObjectCustomModePlaceholder"),
+  );
   byId("show-object-textfsm-template").title = t(
     "textfsmTemplateSelectPlaceholder",
   );

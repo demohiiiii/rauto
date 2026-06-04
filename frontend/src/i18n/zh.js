@@ -695,6 +695,7 @@ export const i18nZh = {
     "自定义查询对象会覆盖同一 profile 和 object 下的内置命令映射。可引用 Profile 命令映射复用 command；如果不显式绑定 TextFSM 模板，解析时会按 profile + command 查找命令映射。",
   showObjectCustomListEmpty: "暂无自定义查询对象",
   showObjectCustomRequired: "profile、查询对象和命令不能为空",
+  showObjectModeRequired: "请选择 mode",
   showObjectMappingRequired: "请选择 Profile 命令映射",
   showObjectCustomDeleteRequired: "profile 和查询对象不能为空",
   enabled: "已启用",

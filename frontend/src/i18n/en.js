@@ -728,6 +728,7 @@ export const i18nEn = {
     "Custom show objects override built-in command mappings for the same profile and object. Use a profile command mapping to reuse its command; when no TextFSM template is explicitly bound, parsing resolves by profile + command.",
   showObjectCustomListEmpty: "No custom show objects",
   showObjectCustomRequired: "profile, object, and command are required",
+  showObjectModeRequired: "mode is required",
   showObjectMappingRequired: "profile command mapping is required",
   showObjectCustomDeleteRequired: "profile and object are required",
   enabled: "Enabled",
