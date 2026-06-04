@@ -1,9 +1,10 @@
 use crate::cli::{CommandFlowArgs, CommandFlowTemplateCommands, UploadArgs};
+use crate::cli_exec::textfsm_template_for_index;
 use crate::config::command_flow_template::{
     ParsedCommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
     parse_command_flow_template_with_extensions, resolve_command_flow_runtime_default_mode,
 };
-use crate::config::{command_blacklist, content_store, template_loader, textfsm};
+use crate::config::{command_blacklist, content_store, template_loader, textfsm, textfsm_export};
 use crate::device::DeviceClient;
 use anyhow::Result;
 use rneter::session::MANAGER;
@@ -153,14 +154,19 @@ pub(crate) async fn run_command_flow(
         .map(|step| step.command.clone())
         .collect::<Vec<_>>();
     let result = client.execute_command_flow(flow).await?;
-    let parse_options = textfsm::ParseOptions {
-        template_file: args.textfsm_template.clone(),
-        enabled: args.parse_textfsm || args.textfsm_template.is_some(),
+    let parse_options = CommandFlowParseOptions {
+        template_files: args.textfsm_template.clone(),
+        enabled: args.parse_textfsm
+            || !args.textfsm_template.is_empty()
+            || args.textfsm_excel.is_some(),
         platform: args.textfsm_platform.clone(),
         device_profile: Some(conn.device_profile.clone()),
-        ..Default::default()
     };
-    print_command_flow_output(&result, &flow_commands, &parse_options)?;
+    let parsed_sheets = print_command_flow_output(&result, &flow_commands, &parse_options)?;
+    if let Some(path) = args.textfsm_excel.as_deref() {
+        textfsm_export::write_parsed_outputs_xlsx(path, &parsed_sheets)?;
+        println!("TextFSM Excel: {}", path.display());
+    }
     crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
         &client,
@@ -243,12 +249,20 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
     Ok(())
 }
 
+struct CommandFlowParseOptions {
+    template_files: Vec<PathBuf>,
+    enabled: bool,
+    platform: Option<String>,
+    device_profile: Option<String>,
+}
+
 fn print_command_flow_output(
     result: &rneter::session::CommandFlowOutput,
     commands: &[String],
-    parse_options: &textfsm::ParseOptions,
-) -> Result<()> {
+    parse_options: &CommandFlowParseOptions,
+) -> Result<Vec<textfsm_export::ParsedOutputSheet>> {
     println!("flow_success: {}", result.success);
+    let mut parsed_sheets = Vec::new();
     for (index, output) in result.outputs.iter().enumerate() {
         println!(
             "step {} success={} exit_code={}",
@@ -261,13 +275,24 @@ fn print_command_flow_output(
         );
         println!("{}", output.content);
         let command = commands.get(index).map(String::as_str).unwrap_or("");
+        let step_parse_options = textfsm::ParseOptions {
+            template_file: textfsm_template_for_index(&parse_options.template_files, index),
+            enabled: parse_options.enabled,
+            platform: parse_options.platform.clone(),
+            device_profile: parse_options.device_profile.clone(),
+            ..Default::default()
+        };
         let (parsed_output, parse_error) =
-            textfsm::parse_command_output_optional(&output.content, command, parse_options);
+            textfsm::parse_command_output_optional(&output.content, command, &step_parse_options);
         if let Some(parsed_output) = parsed_output {
             println!(
                 "Parsed Output:\n{}",
                 textfsm::format_parsed_output_table(&parsed_output)
             );
+            parsed_sheets.push(textfsm_export::ParsedOutputSheet {
+                name: format!("{} {}", index + 1, command),
+                parsed_output,
+            });
         }
         if let Some(err) = parse_error {
             println!("Parse Error: {}", err);
@@ -276,7 +301,7 @@ fn print_command_flow_output(
             println!("---");
         }
     }
-    Ok(())
+    Ok(parsed_sheets)
 }
 
 fn build_upload_request(args: &UploadArgs) -> Result<rneter::session::FileUploadRequest> {

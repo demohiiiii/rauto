@@ -97,6 +97,9 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Exec(args) => {
             cli_exec::run_exec(args, &cli.global_opts).await?;
         }
+        Commands::Show(args) => {
+            cli_exec::run_show(args, &cli.global_opts).await?;
+        }
         Commands::Flow(args) => {
             cli_flow::run_command_flow(args, &cli.global_opts).await?;
         }
@@ -175,6 +178,9 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Templates(cmd) => {
             cli_exec::run_templates_command(cmd)?;
+        }
+        Commands::Textfsm(cmd) => {
+            cli_exec::run_textfsm_command(cmd)?;
         }
         Commands::Replay(args) => {
             cli_exec::run_replay(args)?;

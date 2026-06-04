@@ -2,6 +2,7 @@
   import { standardDeliveryBehavior } from "../actions/standardDeliveryBehavior.js";
   import CommandFlowFields from "./standard/CommandFlowFields.svelte";
   import DirectExecuteFields from "./standard/DirectExecuteFields.svelte";
+  import ShowExecuteFields from "./standard/ShowExecuteFields.svelte";
   import StandardModeTabs from "./standard/StandardModeTabs.svelte";
   import TemplateExecuteFields from "./standard/TemplateExecuteFields.svelte";
   import TextfsmControls from "./standard/TextfsmControls.svelte";
@@ -30,6 +31,9 @@
         <div id="op-exec-fields" class="grid gap-3">
           <DirectExecuteFields
             active={$dashboardView.currentExecMode === "direct"}
+          />
+          <ShowExecuteFields
+            active={$dashboardView.currentExecMode === "show"}
           />
           <TemplateExecuteFields
             active={$dashboardView.currentExecMode === "template"}

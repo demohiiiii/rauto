@@ -1,6 +1,6 @@
 use super::args::{
-    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, ReplayArgs, TemplateArgs,
-    TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
+    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, ReplayArgs, ShowArgs,
+    TemplateArgs, TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -23,6 +23,9 @@ pub enum Commands {
 
     /// Execute a raw command directly
     Exec(ExecArgs),
+
+    /// Execute an NTC-supported show object for the selected device profile
+    Show(ShowArgs),
 
     /// Execute a reusable interactive command flow template
     #[command(name = "flow")]
@@ -66,6 +69,10 @@ pub enum Commands {
     /// Manage stored command templates
     #[command(subcommand)]
     Templates(TemplateCommands),
+
+    /// Manage custom TextFSM templates and profile command mappings
+    #[command(subcommand)]
+    Textfsm(TextfsmCommands),
 
     /// Replay or inspect recorded session JSONL data
     Replay(ReplayArgs),
@@ -155,6 +162,89 @@ pub enum CommandFlowTemplateCommands {
     Delete {
         /// Command flow template name
         name: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TextfsmCommands {
+    /// Manage custom TextFSM templates saved in SQLite
+    Template {
+        #[command(subcommand)]
+        command: TextfsmTemplateCommands,
+    },
+    /// Manage device profile command to TextFSM template mappings
+    Mapping {
+        #[command(subcommand)]
+        command: TextfsmMappingCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TextfsmTemplateCommands {
+    /// List custom TextFSM templates
+    List,
+    /// Show a custom TextFSM template
+    Show {
+        /// TextFSM template name
+        name: String,
+    },
+    /// Create a custom TextFSM template
+    Create {
+        /// TextFSM template name
+        name: String,
+        /// Path to TextFSM template content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline TextFSM template content
+        #[arg(long)]
+        content: Option<String>,
+    },
+    /// Update a custom TextFSM template
+    Update {
+        /// TextFSM template name
+        name: String,
+        /// Path to TextFSM template content file
+        #[arg(long)]
+        file: Option<PathBuf>,
+        /// Inline TextFSM template content
+        #[arg(long)]
+        content: Option<String>,
+    },
+    /// Delete a custom TextFSM template and related mappings
+    Delete {
+        /// TextFSM template name
+        name: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TextfsmMappingCommands {
+    /// List custom TextFSM mappings
+    List {
+        /// Filter by device profile
+        #[arg(long)]
+        profile: Option<String>,
+    },
+    /// Bind a device profile command to a custom TextFSM template
+    Set {
+        /// Device profile name
+        #[arg(long)]
+        profile: String,
+        /// Exact command text after whitespace normalization
+        #[arg(long)]
+        command: String,
+        /// Custom TextFSM template name
+        #[arg(long)]
+        template: String,
+    },
+    /// Delete a device profile command mapping
+    Delete {
+        /// Device profile name
+        #[arg(long)]
+        profile: String,
+        /// Exact command text after whitespace normalization
+        #[arg(long)]
+        command: String,
     },
 }
 

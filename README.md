@@ -134,6 +134,7 @@ If you use Claude Code, the equivalent location is usually `~/.claude/skills/`.
 | If you need to...                            | Use                 | Notes                                                                              |
 | -------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------- |
 | Run one command immediately                  | `rauto exec`        | Best for direct ad-hoc commands; optional `--mode` narrows the target prompt/mode. |
+| Run a configured show object by profile      | `rauto show`        | Maps objects like `interfaces` or `route` to the right device command.           |
 | Render a reusable command template with vars | `rauto template`    | Best when command text should come from stored Jinja templates.                    |
 | Drive interactive prompt/response flows      | `rauto flow`        | Best for wizard-like CLI exchanges, copy dialogs, and confirmation-heavy steps.    |
 | Upload a local file over remote SFTP         | `rauto upload`      | Requires the SSH server to expose an `sftp` subsystem.                             |
@@ -196,16 +197,46 @@ Mode selection for `exec` works like this:
 - If you pass `--mode`, that mode is used after validation against the selected profile.
 - If you omit `--mode`, `rauto` uses the selected profile's `default_mode`.
 
+### Show Mode
+
+Run configured operational show objects without writing the device-specific command.
+`rauto show` resolves the target profile, maps the object to the matching platform command, executes it, and parses the output with TextFSM by default.
+The web UI exposes the same capability under **Standard Delivery -> Show**.
+
+```bash
+rauto show interfaces \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
+```
+
+Useful objects include `version`, `interfaces`, `interface-brief`, `route`, `arp`, `lldp`, `mac`, `vlan`, `access-list`, `object-group`, `security-policy`, and `nat-policy`; use `--list` to view every object available for the selected platform.
+Objects are defined in the bundled `assets/show_catalog/commands-mapping.toml` command table. TextFSM parsing still uses the bundled NTC templates after execution.
+
+```bash
+rauto show --list --device-profile cisco_ios
+rauto show route --print-command
+rauto show interfaces --no-parse
+```
+
 ### TextFSM Parse
 
-`exec`, `template`, and `flow` can parse command output with TextFSM after execution.
+`show`, `exec`, `template`, and `flow` can parse command output with TextFSM after execution.
 
+- `show` enables TextFSM parsing by default. Pass `--no-parse` to print raw output only.
 - Parsing is off by default. Pass `--parse-textfsm` to enable TextFSM parsing.
 - Manual parsing: pass `--textfsm-template <path>` to use a specific TextFSM template file. This has the highest priority.
+- Multi-command parsing: `template` and `flow` can repeat `--textfsm-template <path>` to match template files by command order. If fewer template files are provided than commands, the last template file is reused for the remaining commands.
 - Platform selection: when parsing is enabled and `--textfsm-platform` is omitted, `rauto` infers the NTC platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
 - Platform override: pass `--textfsm-platform <platform>` only when you want to override the inferred platform after enabling parsing.
+- Excel export: pass `--textfsm-excel <file.xlsx>` to export successful parsed rows to an Excel workbook. This also enables TextFSM parsing for `exec`, `template`, and `flow`.
 - If parsing is disabled and no manual template is provided, only raw output is shown.
 - Parsing never blocks execution. If parsing fails, raw output is still returned and the parse error is reported separately.
+
+Custom TextFSM templates and mappings can be saved in SQLite. When parsing is enabled and no explicit `--textfsm-template` is provided, rauto first checks the custom mapping `(device_profile, command) -> template`; if no custom mapping matches, it falls back to the bundled NTC templates.
+
+In the web UI, open **Template Manager -> TextFSM Templates** to manage the same custom TextFSM templates and profile command mappings.
 
 **Specifying Execution Mode:**
 Execute a command in a specific mode (e.g., `Enable`, `Config`).
@@ -227,6 +258,15 @@ rauto exec "show version" \
     --parse-textfsm
 ```
 
+**Export parsed rows to Excel:**
+
+```bash
+rauto exec "show version" \
+    --connection core-01 \
+    --parse-textfsm \
+    --textfsm-excel ./show-version.xlsx
+```
+
 **Override the inferred NTC platform when needed:**
 
 ```bash
@@ -242,6 +282,27 @@ rauto exec "show version" \
 rauto template show_version.j2 \
     --connection core-01 \
     --textfsm-template ./templates/cisco_ios_show_version.textfsm
+```
+
+**Parse multi-command template output with templates by command order:**
+
+```bash
+rauto template check_basic.j2 \
+    --connection core-01 \
+    --textfsm-template ./templates/cisco_ios_show_version.textfsm \
+    --textfsm-template ./templates/cisco_ios_show_interfaces.textfsm
+```
+
+**Save a custom TextFSM template and bind it to a profile command:**
+
+```bash
+rauto textfsm template create my_show_version \
+    --file ./templates/my_show_version.textfsm
+
+rauto textfsm mapping set \
+    --profile my_custom_profile \
+    --command "show version" \
+    --template my_show_version
 ```
 
 ### Command Flow Templates
@@ -1113,16 +1174,24 @@ Common shorthand aliases:
 - Global: `-H/--host`, `-u/--username`, `-p/--password`, `-P/--ssh-port`, `-e/--enable-password`, `-d/--device-profile`, `-c/--connection`, `-S/--save-connection`
 - Flow: `-t/--template`, `-f/--file`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
 - Exec: `-m/--mode`, `-r/--record-file`, `-l/--record-level`
+- Show: `-m/--mode`, `-r/--record-file`, `-l/--record-level`
 - Tx: `-t/--template`, `-m/--mode`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
 
 Common command-specific options:
 
 - `exec --mode <mode>` / `exec -m <mode>`: Execute a raw command in a specific mode such as `Enable`, `Config`, or `Shell`.
 - `exec` without `--mode`: Use the selected profile's `default_mode`; this is not inferred from command text such as `show ...` or `interface ...`.
+- `show <object>`: Execute a built-in show object such as `version`, `interfaces`, `route`, or `arp`.
+- `show --list`: List available show objects. Pass `--device-profile` or `--textfsm-platform` to narrow the list.
+- `show --no-parse`: Disable the default TextFSM parsing and print raw output only.
+- `show --print-command`: Print the resolved device command before execution.
 - `--force-autodetect`: Bypass the local `host:port` autodetect cache, probe again, and refresh the cached profile. Useful when the device behind an existing IP/port has changed.
 - `exec/template/flow --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
 - `exec/template/flow --textfsm-platform <platform>`: Override the inferred NTC platform after parsing is enabled.
-- `exec/template/flow --textfsm-template <path>`: Parse command output with a specific TextFSM template file.
+- `exec/template/flow --textfsm-template <path>`: Parse command output with a specific TextFSM template file. For `template` and `flow`, repeat this option to match templates by command order; the last template is reused for remaining commands.
+- `show/exec/template/flow --textfsm-excel <file.xlsx>`: Export successful TextFSM parsed rows to Excel.
+- `textfsm template ...`: Manage custom TextFSM templates saved in SQLite.
+- `textfsm mapping ...`: Manage custom `(device profile, command) -> TextFSM template` mappings. These mappings have higher priority than bundled NTC templates when parsing is enabled and no explicit template file is provided.
 - `template --vars <file>` / `template -v <file>`: Load JSON/YAML vars for a stored command template.
 - `flow --template <name>` / `flow -t <name>`: Run a saved command flow template.
 - `flow --file <path>` / `flow -f <path>`: Run an ad-hoc command flow template from a TOML file.

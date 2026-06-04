@@ -135,6 +135,25 @@ pub fn parse_command_output(output: &str, command: &str, options: &ParseOptions)
     if let Some(template_file) = options.template_file.as_deref() {
         return parse_output_with_template_file(template_file, output);
     }
+    if let Some(custom_template) =
+        crate::config::custom_textfsm_store::resolve_template_for_command(
+            options.device_profile.as_deref(),
+            command,
+        )?
+    {
+        return parse_output_with_template_content_named(
+            &format!(
+                "db://custom-textfsm/{}/{}",
+                custom_template.device_profile,
+                format!(
+                    "{}?template={}",
+                    custom_template.command, custom_template.template_name
+                )
+            ),
+            &custom_template.template_content,
+            output,
+        );
+    }
     let platform = effective_platform(options);
     parse_output_with_auto_selection(
         output,

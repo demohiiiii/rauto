@@ -8,27 +8,30 @@ use crate::web::auth::auth_middleware;
 use crate::web::handlers::{
     add_blacklist_pattern, check_blacklist_command, create_backup, create_command_flow_template,
     create_or_update_custom_profile, create_orchestration_template, create_template,
-    create_tx_block_template, create_tx_workflow_template, delete_blacklist_pattern,
-    delete_command_flow_template, delete_connection, delete_connection_history,
-    delete_custom_profile, delete_inventory_group, delete_inventory_label,
-    delete_orchestration_template, delete_template, delete_tx_block_template,
-    delete_tx_workflow_template, diagnose_profile, download_backup,
-    download_connection_import_template, exec_command, exec_command_async, execute_command_flow,
-    execute_orchestration, execute_orchestration_async, execute_template, execute_template_async,
-    execute_tx_block, execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async,
-    execute_upload, get_builtin_command_flow_template, get_builtin_profile_detail,
+    create_textfsm_template, create_tx_block_template, create_tx_workflow_template,
+    delete_blacklist_pattern, delete_command_flow_template, delete_connection,
+    delete_connection_history, delete_custom_profile, delete_inventory_group,
+    delete_inventory_label, delete_orchestration_template, delete_template, delete_textfsm_mapping,
+    delete_textfsm_template, delete_tx_block_template, delete_tx_workflow_template,
+    diagnose_profile, download_backup, download_connection_import_template, exec_command,
+    exec_command_async, execute_command_flow, execute_orchestration, execute_orchestration_async,
+    execute_show, execute_template, execute_template_async, execute_tx_block,
+    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
+    export_textfsm_excel, get_builtin_command_flow_template, get_builtin_profile_detail,
     get_builtin_profile_form, get_command_flow_template, get_connection, get_connection_history,
     get_connection_history_detail, get_custom_profile, get_custom_profile_form,
     get_inventory_group, get_inventory_label, get_orchestration_template, get_profile_modes,
-    get_task_run_detail, get_template, get_tx_block_template, get_tx_workflow_template, health,
-    import_connections, list_backups, list_blacklist_patterns, list_builtin_command_flow_templates,
-    list_command_flow_templates, list_connections, list_inventory_groups, list_inventory_labels,
-    list_orchestration_templates, list_profiles, list_task_runs, list_templates,
-    list_tx_block_templates, list_tx_workflow_templates, profiles_overview, render_template,
-    replay_session, restore_backup, test_connection, update_command_flow_template,
-    update_orchestration_template, update_template, update_tx_block_template,
-    update_tx_workflow_template, upsert_connection, upsert_custom_profile_form,
-    upsert_inventory_group, upsert_inventory_label,
+    get_task_run_detail, get_template, get_textfsm_template, get_tx_block_template,
+    get_tx_workflow_template, health, import_connections, list_backups, list_blacklist_patterns,
+    list_builtin_command_flow_templates, list_command_flow_templates, list_connections,
+    list_inventory_groups, list_inventory_labels, list_orchestration_templates, list_profiles,
+    list_show_objects, list_task_runs, list_templates, list_textfsm_mappings,
+    list_textfsm_templates, list_tx_block_templates, list_tx_workflow_templates, profiles_overview,
+    render_template, replay_session, restore_backup, test_connection, update_command_flow_template,
+    update_orchestration_template, update_template, update_textfsm_template,
+    update_tx_block_template, update_tx_workflow_template, upsert_connection,
+    upsert_custom_profile_form, upsert_inventory_group, upsert_inventory_label,
+    upsert_textfsm_mapping,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -208,6 +211,7 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         )
         .route("/api/device-profiles/diagnose", post(diagnose_profile))
         .route("/api/render", post(render_template))
+        .route("/api/textfsm/export/xlsx", post(export_textfsm_excel))
         .route("/api/command-flow/execute", post(execute_command_flow))
         .route("/api/flow/execute", post(execute_command_flow))
         .route("/api/connections", get(list_connections))
@@ -248,6 +252,8 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         )
         .route("/api/connection/test", post(test_connection))
         .route("/api/exec", post(exec_command))
+        .route("/api/show/objects", get(list_show_objects))
+        .route("/api/show/execute", post(execute_show))
         .route("/api/template/execute", post(execute_template))
         .route("/api/upload", post(execute_upload))
         .route("/api/tx/block", post(execute_tx_block))
@@ -260,6 +266,22 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             get(get_template)
                 .put(update_template)
                 .delete(delete_template),
+        )
+        .route(
+            "/api/textfsm/templates",
+            get(list_textfsm_templates).post(create_textfsm_template),
+        )
+        .route(
+            "/api/textfsm/templates/{name}",
+            get(get_textfsm_template)
+                .put(update_textfsm_template)
+                .delete(delete_textfsm_template),
+        )
+        .route(
+            "/api/textfsm/mappings",
+            get(list_textfsm_mappings)
+                .post(upsert_textfsm_mapping)
+                .delete(delete_textfsm_mapping),
         )
         .route(
             "/api/command-flow-templates",

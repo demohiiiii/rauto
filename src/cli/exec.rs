@@ -1,12 +1,18 @@
-use crate::cli::{ExecArgs, ReplayArgs, TemplateArgs, TemplateCommands};
-use crate::config::{command_blacklist, content_store, template_loader, textfsm};
+use crate::cli::{
+    ExecArgs, ReplayArgs, ShowArgs, TemplateArgs, TemplateCommands, TextfsmCommands,
+    TextfsmMappingCommands, TextfsmTemplateCommands,
+};
+use crate::config::{
+    command_blacklist, content_store, custom_textfsm_store, show_catalog, template_loader, textfsm,
+    textfsm_export,
+};
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use anyhow::Result;
 use rneter::session::{SessionEvent, SessionRecorder, SessionReplayer};
 use serde_json::Value;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::info;
 
 pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
@@ -64,7 +70,8 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
     crate::maybe_save_connection_profile(opts, &conn)?;
 
     info!("Executing {} commands...", lines.len());
-    for command in lines {
+    let mut parsed_sheets = Vec::new();
+    for (command_index, command) in lines.into_iter().enumerate() {
         print!("Executing '{}' ... ", command);
         match client.execute(&command, None).await {
             Ok(output) => {
@@ -73,8 +80,13 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
                     &output,
                     &command,
                     &textfsm::ParseOptions {
-                        template_file: args.textfsm_template.clone(),
-                        enabled: args.parse_textfsm || args.textfsm_template.is_some(),
+                        template_file: textfsm_template_for_index(
+                            &args.textfsm_template,
+                            command_index,
+                        ),
+                        enabled: args.parse_textfsm
+                            || !args.textfsm_template.is_empty()
+                            || args.textfsm_excel.is_some(),
                         platform: args.textfsm_platform.clone(),
                         device_profile: Some(conn.device_profile.clone()),
                         ..Default::default()
@@ -85,6 +97,10 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
                         "Parsed Output:\n{}",
                         textfsm::format_parsed_output_table(&parsed_output)
                     );
+                    parsed_sheets.push(textfsm_export::ParsedOutputSheet {
+                        name: command.clone(),
+                        parsed_output,
+                    });
                 }
                 if let Some(err) = parse_error {
                     println!("Parse Error: {}", err);
@@ -92,6 +108,9 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
             }
             Err(error) => println!("Failed: {}", error),
         }
+    }
+    if let Some(path) = args.textfsm_excel.as_deref() {
+        write_textfsm_excel(path, parsed_sheets)?;
     }
     crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
@@ -139,7 +158,9 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
         &args.command,
         &textfsm::ParseOptions {
             template_file: args.textfsm_template.clone(),
-            enabled: args.parse_textfsm || args.textfsm_template.is_some(),
+            enabled: args.parse_textfsm
+                || args.textfsm_template.is_some()
+                || args.textfsm_excel.is_some(),
             platform: args.textfsm_platform.clone(),
             device_profile: Some(conn.device_profile.clone()),
             ..Default::default()
@@ -158,12 +179,169 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
     if let Some(parsed_output) = parsed_output {
         println!("--- Parsed Output ---");
         println!("{}", textfsm::format_parsed_output_table(&parsed_output));
+        if let Some(path) = args.textfsm_excel.as_deref() {
+            textfsm_export::write_parsed_output_xlsx(
+                path,
+                textfsm_export::ParsedOutputSheet {
+                    name: args.command.clone(),
+                    parsed_output,
+                },
+            )?;
+            println!("--- TextFSM Excel ---");
+            println!("{}", path.display());
+        }
     }
     if let Some(err) = parse_error {
         println!("--- Parse Error ---");
         println!("{}", err);
     }
     Ok(())
+}
+
+pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
+    if args.no_parse && args.textfsm_excel.is_some() {
+        return Err(anyhow::anyhow!(
+            "--textfsm-excel requires TextFSM parsing; remove --no-parse"
+        ));
+    }
+
+    if args.list {
+        let platform = show_catalog::platform_for_show(
+            opts.device_profile.as_deref().unwrap_or_default(),
+            args.textfsm_platform.as_deref(),
+        );
+        print_show_objects(platform.as_deref());
+        return Ok(());
+    }
+
+    let object = args
+        .object
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("show object required, or use --list"))?;
+
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
+    let platform =
+        show_catalog::platform_for_show(&conn.device_profile, args.textfsm_platform.as_deref())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "cannot infer NTC platform from device profile '{}'; pass --textfsm-platform",
+                    conn.device_profile
+                )
+            })?;
+    let show = show_catalog::resolve_show_command(object, &platform, &conn.device_profile)?;
+    command_blacklist::ensure_command_allowed(&show.command, "show execution")?;
+
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
+    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let effective_mode =
+        template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
+
+    let client = DeviceClient::connect_with_recording(
+        conn.host.clone(),
+        conn.port,
+        conn.username.clone(),
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+        default_mode,
+        crate::to_record_level(args.record_level),
+        conn.ssh_security,
+    )
+    .await?;
+
+    crate::maybe_save_connection_profile(opts, &conn)?;
+
+    if args.print_command {
+        println!("# command: {}", show.command);
+    }
+    info!(
+        "Executing show object '{}' as command: {}",
+        show.object, show.command
+    );
+    let output = client
+        .execute_output(&show.command, Some(&effective_mode))
+        .await?;
+    let exit_code = output.exit_code;
+    crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
+    crate::persist_auto_recording_history(
+        &client,
+        &conn,
+        "show",
+        &show.command,
+        Some(effective_mode.as_str()),
+        args.record_level,
+    )?;
+
+    println!("{}", output.content);
+    if !args.no_parse && exit_code.unwrap_or(0) == 0 {
+        let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
+            &output.content,
+            &show.command,
+            &textfsm::ParseOptions {
+                enabled: true,
+                platform: Some(platform),
+                device_profile: Some(conn.device_profile.clone()),
+                ..Default::default()
+            },
+        );
+        if let Some(parsed_output) = parsed_output {
+            println!("--- Parsed Output ---");
+            println!("{}", textfsm::format_parsed_output_table(&parsed_output));
+            if let Some(path) = args.textfsm_excel.as_deref() {
+                textfsm_export::write_parsed_output_xlsx(
+                    path,
+                    textfsm_export::ParsedOutputSheet {
+                        name: show.object.clone(),
+                        parsed_output,
+                    },
+                )?;
+                println!("--- TextFSM Excel ---");
+                println!("{}", path.display());
+            }
+        }
+        if let Some(err) = parse_error {
+            println!("--- Parse Error ---");
+            println!("{}", err);
+        }
+    }
+    Ok(())
+}
+
+fn print_show_objects(platform: Option<&str>) {
+    let objects = if let Some(platform) = platform.filter(|value| !value.trim().is_empty()) {
+        let objects = show_catalog::list_show_objects_for_platform(platform);
+        if objects.is_empty() {
+            println!("# platform: {}", platform);
+            println!("-");
+            return;
+        }
+        println!("# platform: {}", platform);
+        objects
+    } else {
+        show_catalog::list_all_show_objects()
+    };
+    for object in objects {
+        println!("- {}", object);
+    }
+}
+
+fn write_textfsm_excel(path: &Path, sheets: Vec<textfsm_export::ParsedOutputSheet>) -> Result<()> {
+    textfsm_export::write_parsed_outputs_xlsx(path, &sheets)?;
+    println!("TextFSM Excel: {}", path.display());
+    Ok(())
+}
+
+pub(crate) fn textfsm_template_for_index(templates: &[PathBuf], index: usize) -> Option<PathBuf> {
+    if templates.is_empty() {
+        return None;
+    }
+    templates.get(index).or_else(|| templates.last()).cloned()
 }
 
 pub(crate) fn run_templates_command(cmd: TemplateCommands) -> Result<()> {
@@ -217,6 +395,119 @@ pub(crate) fn run_templates_command(cmd: TemplateCommands) -> Result<()> {
                 return Err(anyhow::anyhow!("template '{}' not found", safe_name));
             }
             println!("Deleted template '{}'", safe_name);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn run_textfsm_command(cmd: TextfsmCommands) -> Result<()> {
+    match cmd {
+        TextfsmCommands::Template { command } => run_textfsm_template_command(command),
+        TextfsmCommands::Mapping { command } => run_textfsm_mapping_command(command),
+    }
+}
+
+fn run_textfsm_template_command(cmd: TextfsmTemplateCommands) -> Result<()> {
+    match cmd {
+        TextfsmTemplateCommands::List => {
+            let items = custom_textfsm_store::list_templates()?;
+            if items.is_empty() {
+                println!("-");
+                return Ok(());
+            }
+            for item in items {
+                println!(
+                    "- {} created_at_ms={} updated_at_ms={}",
+                    item.name, item.created_at_ms, item.updated_at_ms
+                );
+            }
+        }
+        TextfsmTemplateCommands::Show { name } => {
+            let item = custom_textfsm_store::load_template(&name)?
+                .ok_or_else(|| anyhow::anyhow!("TextFSM template '{}' not found", name))?;
+            println!("{}", item.content);
+        }
+        TextfsmTemplateCommands::Create {
+            name,
+            file,
+            content,
+        } => {
+            let body = read_text_body("TextFSM template", file, content)?;
+            let created = custom_textfsm_store::create_template(&name, &body)?;
+            if !created {
+                return Err(anyhow::anyhow!(
+                    "TextFSM template '{}' already exists",
+                    name
+                ));
+            }
+            println!("Created TextFSM template '{}'", name);
+        }
+        TextfsmTemplateCommands::Update {
+            name,
+            file,
+            content,
+        } => {
+            let body = read_text_body("TextFSM template", file, content)?;
+            let updated = custom_textfsm_store::update_template(&name, &body)?;
+            if !updated {
+                return Err(anyhow::anyhow!("TextFSM template '{}' not found", name));
+            }
+            println!("Updated TextFSM template '{}'", name);
+        }
+        TextfsmTemplateCommands::Delete { name } => {
+            let deleted = custom_textfsm_store::delete_template(&name)?;
+            if !deleted {
+                return Err(anyhow::anyhow!("TextFSM template '{}' not found", name));
+            }
+            println!("Deleted TextFSM template '{}'", name);
+        }
+    }
+    Ok(())
+}
+
+fn run_textfsm_mapping_command(cmd: TextfsmMappingCommands) -> Result<()> {
+    match cmd {
+        TextfsmMappingCommands::List { profile } => {
+            let items = custom_textfsm_store::list_mappings(profile.as_deref())?;
+            if items.is_empty() {
+                println!("-");
+                return Ok(());
+            }
+            for item in items {
+                println!(
+                    "- profile={} command={} template={} created_at_ms={} updated_at_ms={}",
+                    item.device_profile,
+                    item.command,
+                    item.template_name,
+                    item.created_at_ms,
+                    item.updated_at_ms
+                );
+            }
+        }
+        TextfsmMappingCommands::Set {
+            profile,
+            command,
+            template,
+        } => {
+            custom_textfsm_store::upsert_mapping(&profile, &command, &template)?;
+            println!(
+                "Mapped profile='{}' command='{}' to TextFSM template '{}'",
+                profile, command, template
+            );
+        }
+        TextfsmMappingCommands::Delete { profile, command } => {
+            let deleted = custom_textfsm_store::delete_mapping(&profile, &command)?;
+            if !deleted {
+                return Err(anyhow::anyhow!(
+                    "TextFSM mapping not found for profile='{}' command='{}'",
+                    profile,
+                    command
+                ));
+            }
+            println!(
+                "Deleted TextFSM mapping for profile='{}' command='{}'",
+                profile, command
+            );
         }
     }
     Ok(())

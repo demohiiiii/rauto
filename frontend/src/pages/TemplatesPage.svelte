@@ -8,6 +8,7 @@
   const templateSections = [
     ["templates", "template-section-btn-library", "Standard Templates"],
     ["flows", "template-section-btn-flows", "Command Flow Templates"],
+    ["textfsm", "template-section-btn-textfsm", "TextFSM Templates"],
   ];
 
   let { active = false } = $props();
@@ -209,6 +210,116 @@
             placeholder="Command flow template TOML"
           ></textarea>
           <div id="flow-template-out" class="grid gap-2"></div>
+        </div>
+      </div>
+    </div>
+    <div
+      id="template-textfsm-section"
+      class="grid gap-3"
+      hidden={$dashboardView.currentTemplateSection !== "textfsm"}
+    >
+      <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
+        <div class="group-card">
+          <div class="field-tools">
+            <span class="text-sm font-semibold text-slate-700">
+              Custom TextFSM Templates
+            </span>
+            <button
+              id="textfsm-template-new-btn"
+              class="btn btn-sm"
+              type="button"
+            >
+              New
+            </button>
+          </div>
+          <div class="group-body grid gap-3">
+            <div class="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+              <select
+                id="textfsm-template-picker"
+                class="select"
+                title="TextFSM Template"
+                aria-label="TextFSM Template"
+              ></select>
+              <button
+                id="textfsm-template-save-btn"
+                class="btn btn-success btn-sm"
+                type="button"
+              >
+                Save
+              </button>
+              <button
+                id="textfsm-template-delete-btn"
+                class="btn btn-error btn-sm"
+                type="button"
+              >
+                Delete
+              </button>
+            </div>
+            <div id="textfsm-template-list" class="grid gap-2"></div>
+            <textarea
+              id="textfsm-template-content"
+              class="input min-h-80 font-mono"
+              placeholder="TextFSM template content"
+            ></textarea>
+            <div id="textfsm-template-out" class="grid gap-2"></div>
+          </div>
+        </div>
+        <div class="group-card">
+          <div class="field-tools">
+            <span class="text-sm font-semibold text-slate-700">
+              Profile Command Mappings
+            </span>
+            <button
+              id="textfsm-mapping-refresh-btn"
+              class="btn btn-sm"
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
+          <div class="group-body grid gap-3">
+            <input
+              id="textfsm-mapping-profile"
+              class="input"
+              placeholder="Device profile, e.g. my_custom_profile"
+            />
+            <input
+              id="textfsm-mapping-command"
+              class="input font-mono"
+              placeholder="Command, e.g. show version"
+            />
+            <select
+              id="textfsm-mapping-template"
+              class="select"
+              title="TextFSM Template"
+              aria-label="TextFSM Template"
+            ></select>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                id="textfsm-mapping-save-btn"
+                class="btn btn-primary btn-sm"
+                type="button"
+              >
+                Save Mapping
+              </button>
+              <button
+                id="textfsm-mapping-delete-btn"
+                class="btn btn-error btn-sm"
+                type="button"
+              >
+                Delete Mapping
+              </button>
+            </div>
+            <div
+              id="textfsm-mapping-hint"
+              class="text-xs leading-relaxed text-slate-500"
+            >
+              Custom mappings are used before bundled NTC templates when TextFSM
+              parsing is enabled and no explicit template file is selected.
+            </div>
+            <div id="textfsm-mapping-list" class="grid gap-2"></div>
+            <div id="textfsm-mapping-out" class="grid gap-2"></div>
+          </div>
         </div>
       </div>
     </div>

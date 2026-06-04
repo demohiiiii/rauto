@@ -54,6 +54,45 @@ pub struct ExecResponse {
     pub result_summary: TaskResultSummary,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ShowObjectEntry {
+    pub object: String,
+    pub command: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ShowObjectsResponse {
+    pub platform: Option<String>,
+    pub objects: Vec<ShowObjectEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ShowExecuteRequest {
+    pub object: String,
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub textfsm_platform: Option<String>,
+    #[serde(default)]
+    pub no_parse: bool,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ShowExecuteResponse {
+    pub object: String,
+    pub platform: String,
+    pub command: String,
+    pub output: String,
+    pub exit_code: Option<i32>,
+    pub parsed_output: Option<Value>,
+    pub parse_error: Option<String>,
+    pub recording_jsonl: Option<String>,
+    pub result_summary: TaskResultSummary,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ExecuteTemplateRequest {
     pub template: String,

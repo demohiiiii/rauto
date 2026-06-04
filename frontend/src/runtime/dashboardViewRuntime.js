@@ -123,6 +123,7 @@ function onDashboardTabChange(tab) {
   setDashboardTab(tab);
   safeCall("applyTabs");
   if (tab === "standard" || tab === "orchestrated") {
+    safeCall("loadShowObjects");
     safeCall("loadFlowTemplates");
     safeCall("loadAllJsonTemplates");
   }
@@ -135,6 +136,8 @@ function onDashboardTabChange(tab) {
   if (tab === "templates") {
     safeCall("loadTemplates");
     safeCall("loadFlowTemplates");
+    safeCall("loadTextfsmTemplates");
+    safeCall("loadTextfsmMappings");
     safeCall("loadAllJsonTemplates");
   }
   if (tab === "inventory") {
@@ -180,6 +183,10 @@ function onDashboardTemplateSectionChange(section) {
   setRuntimeValue("currentTemplateSection", section);
   setDashboardTemplateSection(section);
   safeCall("applyTemplateSection");
+  if (section === "textfsm") {
+    safeCall("loadTextfsmTemplates");
+    safeCall("loadTextfsmMappings");
+  }
 }
 
 function onDashboardInventorySectionChange(section) {

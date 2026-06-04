@@ -174,6 +174,7 @@ function applyI18n() {
   byId("tab-blacklist").textContent = t("tabBlacklist");
   byId("tab-backup").textContent = t("tabBackup");
   byId("tab-tasks").textContent = t("tabTasks");
+  byId("standard-mode-show").textContent = t("opExecShow");
   byId("standard-mode-direct").textContent = t("opExecDirect");
   byId("standard-mode-template").textContent = t("opExecTemplate");
   byId("standard-mode-flow").textContent = t("opExecFlow");

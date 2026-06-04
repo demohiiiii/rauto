@@ -25,9 +25,10 @@ pub struct TemplateArgs {
     #[arg(long, short = 'v')]
     pub vars: Option<PathBuf>,
 
-    /// Optional TextFSM template file to parse each rendered command output
+    /// TextFSM template file(s) to parse rendered command output.
+    /// Repeat this option to match templates by command order; the last template is reused when there are more commands than templates.
     #[arg(long)]
-    pub textfsm_template: Option<PathBuf>,
+    pub textfsm_template: Vec<PathBuf>,
 
     /// Parse command output with TextFSM. If platform is omitted, infer it from the device profile.
     #[arg(long)]
@@ -36,6 +37,10 @@ pub struct TemplateArgs {
     /// NTC TextFSM platform for automatic template selection (for example cisco_ios)
     #[arg(long)]
     pub textfsm_platform: Option<String>,
+
+    /// Export successful TextFSM parsed output to an Excel .xlsx file
+    #[arg(long)]
+    pub textfsm_excel: Option<PathBuf>,
 
     /// Dry run: render the template but do not execute on device
     #[arg(long)]
@@ -68,9 +73,10 @@ pub struct CommandFlowArgs {
     #[arg(long)]
     pub vars_json: Option<String>,
 
-    /// Optional TextFSM template file to parse each command output
+    /// TextFSM template file(s) to parse command output.
+    /// Repeat this option to match templates by command order; the last template is reused when there are more commands than templates.
     #[arg(long)]
-    pub textfsm_template: Option<PathBuf>,
+    pub textfsm_template: Vec<PathBuf>,
 
     /// Parse command output with TextFSM. If platform is omitted, infer it from the device profile.
     #[arg(long)]
@@ -79,6 +85,10 @@ pub struct CommandFlowArgs {
     /// NTC TextFSM platform for automatic template selection (for example cisco_ios)
     #[arg(long)]
     pub textfsm_platform: Option<String>,
+
+    /// Export successful TextFSM parsed output to an Excel .xlsx file
+    #[arg(long)]
+    pub textfsm_excel: Option<PathBuf>,
 
     /// Save SSH session recording to this JSONL file
     #[arg(long, short = 'r')]
@@ -137,9 +147,51 @@ pub struct ExecArgs {
     #[arg(long)]
     pub textfsm_platform: Option<String>,
 
+    /// Export successful TextFSM parsed output to an Excel .xlsx file
+    #[arg(long)]
+    pub textfsm_excel: Option<PathBuf>,
+
     /// Execution mode (e.g. "Enable", "Config", "Shell")
     #[arg(long, short = 'm')]
     pub mode: Option<String>,
+
+    /// Save SSH session recording to this JSONL file
+    #[arg(long, short = 'r')]
+    pub record_file: Option<PathBuf>,
+
+    /// Session recording level
+    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    pub record_level: RecordLevelOpt,
+}
+
+#[derive(Args, Debug)]
+pub struct ShowArgs {
+    /// NTC-supported show object, for example version, interfaces, route, arp
+    pub object: Option<String>,
+
+    /// List available show objects for the resolved or selected platform
+    #[arg(long)]
+    pub list: bool,
+
+    /// NTC TextFSM platform override for command selection and parsing
+    #[arg(long)]
+    pub textfsm_platform: Option<String>,
+
+    /// Execution mode (e.g. "Enable", "Config", "Shell")
+    #[arg(long, short = 'm')]
+    pub mode: Option<String>,
+
+    /// Print the resolved device command before execution
+    #[arg(long)]
+    pub print_command: bool,
+
+    /// Disable automatic TextFSM parsing for show output
+    #[arg(long)]
+    pub no_parse: bool,
+
+    /// Export successful TextFSM parsed output to an Excel .xlsx file
+    #[arg(long)]
+    pub textfsm_excel: Option<PathBuf>,
 
     /// Save SSH session recording to this JSONL file
     #[arg(long, short = 'r')]

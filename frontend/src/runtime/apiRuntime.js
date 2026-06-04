@@ -100,8 +100,11 @@ async function refreshProtectedData() {
   await Promise.allSettled([
     safeCall("loadSavedConnections"),
     safeCall("loadProfilesOverview"),
+    safeCall("loadShowObjects"),
     safeCall("loadTemplates"),
     safeCall("loadFlowTemplates"),
+    safeCall("loadTextfsmTemplates"),
+    safeCall("loadTextfsmMappings"),
     safeCall("loadAllJsonTemplates"),
     safeCall("loadInventoryConnections"),
     safeCall("loadInventoryGroups"),

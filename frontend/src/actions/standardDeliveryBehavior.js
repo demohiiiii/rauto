@@ -1,7 +1,9 @@
 import {
   executeCommand,
   executeCommandFlow as executeCommandFlowRequest,
+  executeShow as executeShowRequest,
   executeTemplate as executeTemplateRequest,
+  listShowObjects,
   renderTemplate,
 } from "../api/client.js";
 import {
@@ -28,6 +30,7 @@ import {
   parseVars,
   recordLevelPayload,
   selectedTemplateContent,
+  showExecutionPayload,
   templateExecutionPayload,
 } from "../services/standardPayloads.js";
 import { loadSelectedTemplateContent } from "../services/standardTemplates.js";
@@ -61,6 +64,97 @@ async function executeDirectCommand() {
       }),
     );
     out.innerHTML = `<pre class="output">${escapeHtml(safeString(data.output))}</pre>${renderParsedOutputBlock(data)}`;
+    applyRecordingFromResponse(data);
+  } catch (error) {
+    out.innerHTML = renderStatusMessage(error.message, "error");
+  }
+}
+
+function showObjectQueryPayload() {
+  return {
+    deviceProfile: byId("device_profile")?.value.trim() || "",
+    textfsmPlatform: byId("textfsm-platform")?.value.trim() || "",
+  };
+}
+
+function renderShowObjectOptions(data, selected = "") {
+  const select = byId("show-object");
+  if (!select) return;
+  const objects = Array.isArray(data?.objects) ? data.objects : [];
+  const options = [
+    `<option value="">${escapeHtml(t("showObjectPlaceholder"))}</option>`,
+    ...objects.map(
+      (item) =>
+        `<option value="${escapeHtml(safeString(item.object))}" data-command="${escapeHtml(
+          safeString(item.command),
+        )}">${escapeHtml(safeString(item.object))}</option>`,
+    ),
+  ];
+  select.innerHTML = options.join("");
+  if (selected && objects.some((item) => item.object === selected)) {
+    select.value = selected;
+  }
+  updateShowCommandPreview(data?.platform || "");
+}
+
+function updateShowCommandPreview(platform = "") {
+  const out = byId("show-command-preview");
+  const select = byId("show-object");
+  if (!out || !select) return;
+  const option = select.selectedOptions?.[0];
+  const command = option?.dataset?.command || "";
+  const object = select.value.trim();
+  const platformText = platform || byId("show-object")?.dataset?.platform || "";
+  out.textContent = object
+    ? `platform=${platformText || "-"} command=${command || "-"}`
+    : "-";
+}
+
+async function loadShowObjects() {
+  const select = byId("show-object");
+  const selected = select?.value.trim() || "";
+  try {
+    const data = await listShowObjects(showObjectQueryPayload());
+    if (select) {
+      select.dataset.platform = data?.platform || "";
+    }
+    renderShowObjectOptions(data, selected);
+  } catch (error) {
+    const out = byId("show-out");
+    if (out) out.innerHTML = renderStatusMessage(error.message, "error");
+  }
+}
+
+async function executeShowObject() {
+  const out = byId("show-out");
+  if (!ensureConnectionTargetSelected("", "show-out")) {
+    return;
+  }
+  const object = byId("show-object")?.value.trim() || "";
+  if (!object) {
+    out.innerHTML = renderStatusMessage(t("showObjectRequired"), "error");
+    return;
+  }
+  out.textContent = t("running");
+  try {
+    const data = await executeShowRequest(
+      showExecutionPayload({
+        connection: connectionPayload(),
+        recordLevel: recordLevelPayload(),
+      }),
+    );
+    const meta = `
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        object=${escapeHtml(safeString(data.object))} · platform=${escapeHtml(
+          safeString(data.platform),
+        )} · command=<span class="font-mono">${escapeHtml(
+          safeString(data.command),
+        )}</span>
+      </div>
+    `;
+    out.innerHTML = `${meta}<pre class="output">${escapeHtml(
+      safeString(data.output),
+    )}</pre>${renderParsedOutputBlock(data)}`;
     applyRecordingFromResponse(data);
   } catch (error) {
     out.innerHTML = renderStatusMessage(error.message, "error");
@@ -154,14 +248,25 @@ function bindChange(id, handler) {
 }
 
 export function standardDeliveryBehavior() {
+  window.loadShowObjects = loadShowObjects;
+  if ((window.currentExecMode || "") === "show" && byId("parse-textfsm")) {
+    byId("parse-textfsm").checked = true;
+  }
   const cleanups = [
     bindClick("render-btn", renderTemplatePreview),
     bindClick("exec-btn", executeDirectCommand),
+    bindClick("show-refresh-btn", loadShowObjects),
+    bindClick("show-exec-btn", executeShowObject),
     bindClick("template-exec-btn", executeTemplate),
     bindClick("flow-exec-btn", executeCommandFlow),
+    bindChange("show-object", () => updateShowCommandPreview()),
+    bindChange("device_profile", loadShowObjects),
+    bindChange("textfsm-platform", loadShowObjects),
     bindChange("template", loadTemplateContent),
     bindChange("flow-template-name", loadFlowTemplateDetail),
   ];
+
+  loadShowObjects();
 
   return {
     destroy() {

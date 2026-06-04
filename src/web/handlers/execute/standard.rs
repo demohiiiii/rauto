@@ -199,6 +199,230 @@ pub async fn exec_command_async(
     Ok((StatusCode::ACCEPTED, Json(response)))
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct ShowObjectsQuery {
+    #[serde(default)]
+    pub device_profile: Option<String>,
+    #[serde(default)]
+    pub textfsm_platform: Option<String>,
+}
+
+pub async fn list_show_objects(
+    Query(query): Query<ShowObjectsQuery>,
+) -> Result<Json<ShowObjectsResponse>, ApiError> {
+    let platform = show_catalog::platform_for_show(
+        query.device_profile.as_deref().unwrap_or_default(),
+        query.textfsm_platform.as_deref(),
+    );
+    let objects = if let Some(platform) = platform.as_deref() {
+        show_catalog::list_show_commands_for_platform(platform)
+            .into_iter()
+            .map(|item| ShowObjectEntry {
+                object: item.object,
+                command: item.command,
+            })
+            .collect()
+    } else {
+        show_catalog::list_all_show_objects()
+            .into_iter()
+            .map(|object| ShowObjectEntry {
+                object,
+                command: String::new(),
+            })
+            .collect()
+    };
+    Ok(Json(ShowObjectsResponse { platform, objects }))
+}
+
+pub async fn execute_show(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ShowExecuteRequest>,
+) -> Result<Json<ShowExecuteResponse>, ApiError> {
+    let task_ctx = TaskReportContext::from_request(
+        TaskOperation::Exec,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    );
+    let task_guard = state.acquire_task_guard(task_ctx.is_some());
+    emit_task_event(
+        &state,
+        &task_ctx,
+        TaskEventInput::new("started", "Starting show object execution")
+            .with_stage("connect")
+            .with_progress(Some(0))
+            .with_details(Some(json!({
+                "object": req.object,
+                "mode": req.mode
+            }))),
+    );
+
+    let result: Result<ShowExecuteResponse, ApiError> = async {
+        let record_level = req.target.record_level;
+        let conn = resolve_autodetect_connection(merge_connection_options(
+            &state.defaults,
+            req.target.connection,
+        )?)
+        .await?;
+        let platform =
+            show_catalog::platform_for_show(&conn.device_profile, req.textfsm_platform.as_deref())
+                .ok_or_else(|| {
+                    ApiError::bad_request(format!(
+                        "cannot infer NTC platform from device profile '{}'",
+                        conn.device_profile
+                    ))
+                })?;
+        let show = show_catalog::resolve_show_command(&req.object, &platform, &conn.device_profile)
+            .map_err(|err| ApiError::bad_request(err.to_string()))?;
+        command_blacklist::ensure_command_allowed(&show.command, "show execution")
+            .map_err(|err| ApiError::bad_request(err.to_string()))?;
+
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Connecting to target device")
+                .with_stage("connect")
+                .with_progress(Some(10))
+                .with_details(Some(json!({
+                    "host": conn.host,
+                    "connection_name": conn.connection_name,
+                    "object": show.object,
+                    "command": show.command
+                }))),
+        );
+        let handler = template_loader::load_device_profile_for_connection(
+            &conn.device_profile,
+            conn.linux_shell_flavor,
+        )?;
+        let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+        let client = if let Some(level) = to_record_level(record_level) {
+            DeviceClient::connect_with_recording(
+                conn.host.clone(),
+                conn.port,
+                conn.username.clone(),
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                template_loader::default_profile_mode(&conn.device_profile)?,
+                level,
+                conn.ssh_security,
+            )
+            .await?
+        } else {
+            DeviceClient::connect(
+                conn.host.clone(),
+                conn.port,
+                conn.username.clone(),
+                conn.password.clone(),
+                conn.enable_password.clone(),
+                handler,
+                template_loader::default_profile_mode(&conn.device_profile)?,
+                conn.ssh_security,
+            )
+            .await?
+        };
+
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Executing show command")
+                .with_stage("command")
+                .with_progress(Some(60))
+                .with_details(Some(json!({
+                    "object": show.object,
+                    "command": show.command
+                }))),
+        );
+        let output = client
+            .execute_output(&show.command, Some(effective_mode.as_str()))
+            .await?;
+        let exit_code = output.exit_code;
+        let should_parse = !req.no_parse && exit_code.unwrap_or(0) == 0;
+        let (parsed_output, parse_error) = parse_textfsm_output_optional(
+            &output.content,
+            &show.command,
+            None,
+            should_parse,
+            Some(platform.as_str()),
+            Some(conn.device_profile.as_str()),
+            None,
+        );
+        persist_history_if_recorded(
+            &conn,
+            &client,
+            "show",
+            &show.command,
+            Some(effective_mode.as_str()),
+            record_level,
+        );
+        let recording_jsonl = client.recording_jsonl()?;
+        let object = show.object.clone();
+        let command = show.command.clone();
+        Ok(ShowExecuteResponse {
+            object,
+            platform,
+            command: command.clone(),
+            output: output.content,
+            exit_code,
+            parsed_output,
+            parse_error,
+            result_summary: task_result_with_details(
+                task_result_with_recording(
+                    build_result_summary(
+                        TaskOperation::Exec,
+                        if exit_code.unwrap_or(0) == 0 {
+                            TaskResultOutcome::Success
+                        } else {
+                            TaskResultOutcome::Failed
+                        },
+                        if exit_code.unwrap_or(0) == 0 {
+                            "Show command executed successfully"
+                        } else {
+                            "Show command finished with a non-zero exit code"
+                        },
+                    ),
+                    &recording_jsonl,
+                ),
+                json!({
+                    "exit_code": exit_code,
+                    "mode": effective_mode,
+                    "object": req.object,
+                    "command": command
+                }),
+            ),
+            recording_jsonl,
+        })
+    }
+    .await;
+    drop(task_guard);
+    match &result {
+        Ok(response) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("completed", "Show object execution completed")
+                .with_stage("command")
+                .with_level("success")
+                .with_progress(Some(100))
+                .with_details(Some(json!({
+                    "exit_code": response.exit_code,
+                    "object": response.object,
+                    "command": response.command
+                }))),
+        ),
+        Err(err) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new(
+                "failed",
+                format!("Show object execution failed: {}", err.message),
+            )
+            .with_stage("command")
+            .with_level("error"),
+        ),
+    }
+    spawn_task_callback(state, task_ctx, &result);
+    result.map(Json)
+}
+
 pub async fn execute_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTemplateRequest>,

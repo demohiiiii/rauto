@@ -1,6 +1,5 @@
 use crate::agent::registration::{AsyncErrorReportInput, current_agent_name};
 use crate::cli::RecordLevelOpt;
-use crate::config::command_blacklist;
 use crate::config::command_flow_template::{
     CommandFlowTemplate, ParsedCommandFlowTemplate, build_command_flow_runtime,
     parse_command_flow_template_with_extensions, resolve_command_flow_runtime_default_mode,
@@ -13,6 +12,7 @@ use crate::config::template_connection_refs::{
     enrich_context_with_connection_refs_from_value,
 };
 use crate::config::template_loader;
+use crate::config::{command_blacklist, show_catalog};
 use crate::config::{
     connection_store, connection_store::SavedConnection, content_store, task_store,
 };
@@ -34,7 +34,8 @@ use crate::web::models::{
     ExecuteOrchestrationResponse, ExecuteTemplateRequest, ExecuteTemplateResponse,
     ExecuteTxBlockRequest, ExecuteTxBlockResponse, ExecuteTxWorkflowRequest,
     ExecuteTxWorkflowResponse, ExecuteUploadRequest, ExecuteUploadResponse, RecordLevel,
-    RenderRequest, RenderResponse, SavedConnectionDetail, TaskEvent,
+    RenderRequest, RenderResponse, SavedConnectionDetail, ShowExecuteRequest, ShowExecuteResponse,
+    ShowObjectEntry, ShowObjectsResponse, TaskEvent,
 };
 use crate::web::state::{
     AppState, ResolvedConnection, merge_connection_options, resolve_autodetect_connection,
@@ -42,7 +43,10 @@ use crate::web::state::{
 use crate::web::storage;
 use crate::{manager_connection_request, manager_execution_context_with_security};
 use axum::http::StatusCode;
-use axum::{Json, extract::State};
+use axum::{
+    Json,
+    extract::{Query, State},
+};
 use chrono::Utc;
 use rneter::session::{
     MANAGER, SessionEvent, SessionRecordEntry, SessionRecordLevel, SessionRecorder, TxBlock,
@@ -69,6 +73,8 @@ mod profiles;
 mod replay;
 mod runtime;
 mod task_events;
+mod textfsm_custom;
+mod textfsm_exports;
 use async_tasks::*;
 pub(crate) use async_tasks::{
     queue_orchestration_async_task, queue_tx_block_async_task, queue_tx_workflow_async_task,
@@ -85,9 +91,9 @@ pub use connections::{
 };
 pub use execute::{
     exec_command, exec_command_async, execute_command_flow, execute_orchestration,
-    execute_orchestration_async, execute_template, execute_template_async, execute_tx_block,
-    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
-    render_template,
+    execute_orchestration_async, execute_show, execute_template, execute_template_async,
+    execute_tx_block, execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async,
+    execute_upload, list_show_objects, render_template,
 };
 use flow_templates::{
     builtin_command_flow_template_by_name, parse_builtin_command_flow_template_token,
@@ -118,6 +124,11 @@ pub use profiles::{
 pub use replay::replay_session;
 use runtime::*;
 use task_events::*;
+pub use textfsm_custom::{
+    create_textfsm_template, delete_textfsm_mapping, delete_textfsm_template, get_textfsm_template,
+    list_textfsm_mappings, list_textfsm_templates, update_textfsm_template, upsert_textfsm_mapping,
+};
+pub use textfsm_exports::export_textfsm_excel;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct HistoryQuery {

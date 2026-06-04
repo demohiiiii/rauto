@@ -5,6 +5,7 @@
   } from "../../state/dashboardView.js";
 
   const modes = [
+    ["show", "standard-mode-show", "Show"],
     ["direct", "standard-mode-direct", "Direct Execute"],
     ["template", "standard-mode-template", "Template Execute"],
     ["flow", "standard-mode-flow", "Command Flow"],

@@ -107,6 +107,17 @@ export function directCommandPayload({ connection, recordLevel }) {
   };
 }
 
+export function showExecutionPayload({ connection, recordLevel }) {
+  return {
+    object: byId("show-object").value.trim(),
+    mode: byId("show-mode").value.trim() || null,
+    textfsm_platform: byId("textfsm-platform")?.value.trim() || null,
+    no_parse: !byId("parse-textfsm")?.checked,
+    connection,
+    record_level: recordLevel,
+  };
+}
+
 export function templateExecutionPayload({ connection, recordLevel }) {
   return {
     template: selectedTemplateContent(),

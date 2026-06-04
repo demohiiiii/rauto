@@ -14,7 +14,7 @@ export const dashboardView = writable({
   currentTab: DEFAULT_TAB,
   connectionModalMode: "saved",
   connectionModalOpen: false,
-  currentExecMode: "direct",
+  currentExecMode: "show",
   currentInventorySection: "groups",
   currentLang: "zh",
   currentPromptMode: "view",
@@ -63,9 +63,9 @@ export function setDashboardTxStage(stage) {
 }
 
 export function setDashboardExecMode(mode) {
-  const currentExecMode = ["direct", "template", "flow"].includes(mode)
+  const currentExecMode = ["direct", "show", "template", "flow"].includes(mode)
     ? mode
-    : "direct";
+    : "show";
   dashboardView.update((view) => ({
     ...view,
     currentExecMode,
@@ -89,7 +89,9 @@ export function setDashboardPromptMode(mode) {
 }
 
 export function setDashboardTemplateSection(section) {
-  const currentTemplateSection = ["templates", "flows"].includes(section)
+  const currentTemplateSection = ["templates", "flows", "textfsm"].includes(
+    section,
+  )
     ? section
     : "templates";
   dashboardView.update((view) => ({

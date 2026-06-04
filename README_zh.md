@@ -134,6 +134,7 @@ cp -R skills/rauto-usage "$CODEX_HOME/skills/"
 | 如果你想要...                  | 推荐命令            | 说明                                                      |
 | ------------------------------ | ------------------- | --------------------------------------------------------- |
 | 立即执行一条命令               | `rauto exec`        | 适合临时直连执行；可配合 `--mode` 限定目标模式。          |
+| 按 profile 执行 NTC 支持的 show 对象 | `rauto show`        | 将 `interfaces`、`route` 等对象映射为设备实际命令。    |
 | 用变量渲染一个可复用命令模板   | `rauto template`    | 适合命令文本来自已保存 Jinja 模板的场景。                 |
 | 驱动交互式问答/确认流程        | `rauto flow`        | 适合复制向导、安装向导和多轮 prompt/response 场景。       |
 | 通过远端 SFTP 直接上传本地文件 | `rauto upload`      | 要求目标 SSH 服务暴露 `sftp` 子系统。                     |
@@ -196,16 +197,46 @@ rauto exec "show ip int br" \
 - 传了 `--mode` 时，会先根据当前选中的 profile 校验该 mode，再按这个 mode 执行。
 - 未传 `--mode` 时，会使用当前 profile 的 `default_mode`。
 
+### Show 模式
+
+执行内置命令表支持的 show 对象时，不需要手写具体设备命令。
+`rauto show` 会解析目标 profile，把对象映射为对应平台的实际命令，执行后默认用 TextFSM 解析输出。
+Web UI 中也可以在 **普通下发 -> 查询** 使用同样的能力。
+
+```bash
+rauto show interfaces \
+    --host 192.168.1.1 \
+    --username admin \
+    --password secret \
+    --ssh-port 22
+```
+
+对象包括 `version`、`interfaces`、`interface-brief`、`route`、`arp`、`lldp`、`mac`、`vlan`、`access-list`、`object-group`、`security-policy`、`nat-policy` 等；可用 `--list` 查看当前平台支持的全部对象。
+这些对象定义在内置的 `assets/show_catalog/commands-mapping.toml` 命令表中；命令执行后的 TextFSM 解析仍然使用内置 NTC 模板。
+
+```bash
+rauto show --list --device-profile cisco_ios
+rauto show route --print-command
+rauto show interfaces --no-parse
+```
+
 ### TextFSM 解析
 
-`exec`、`template` 和 `flow` 可以在命令执行后用 TextFSM 解析输出。
+`show`、`exec`、`template` 和 `flow` 可以在命令执行后用 TextFSM 解析输出。
 
+- `show` 默认启用 TextFSM 解析。只想看原始输出时传 `--no-parse`。
 - 默认不会解析。需要解析时传 `--parse-textfsm`。
 - 手动解析：传 `--textfsm-template <path>`，使用指定 TextFSM 模板文件，优先级最高。
+- 多命令解析：`template` 和 `flow` 可以重复传多个 `--textfsm-template <path>`，按命令顺序匹配模板文件；如果模板文件数量少于命令数量，最后一个模板会用于后续所有命令。
 - 平台推断：启用解析且未传 `--textfsm-platform` 时，`rauto` 会从当前连接的 device profile 推断 NTC platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
 - 平台覆盖：只有在你想在启用解析后强制覆盖推断结果，或者按其他 NTC platform 解析时，才传 `--textfsm-platform <platform>`。
+- Excel 导出：传 `--textfsm-excel <file.xlsx>` 可以把解析成功的表格行导出为 Excel 工作簿。对 `exec`、`template` 和 `flow` 来说，这个参数也会启用 TextFSM 解析。
 - 如果没有启用解析，也没有指定模板，则只展示原始输出。
 - 解析失败不会阻断命令执行；原始输出仍会返回，解析错误会单独展示。
+
+自定义 TextFSM 模板和映射可以保存到 SQLite。启用解析且没有显式传 `--textfsm-template` 时，`rauto` 会先查自定义映射 `(device_profile, command) -> template`；没有命中时，才回退到内置 NTC 模板。
+
+Web UI 中可以在 **Template Manager -> TextFSM Templates** 管理同一套自定义 TextFSM 模板和 profile 命令映射。
 
 **指定执行模式：**
 在特定模式下执行命令（例如 `Enable`, `Config`）。
@@ -227,6 +258,15 @@ rauto exec "show version" \
     --parse-textfsm
 ```
 
+**导出解析结果到 Excel：**
+
+```bash
+rauto exec "show version" \
+    --connection core-01 \
+    --parse-textfsm \
+    --textfsm-excel ./show-version.xlsx
+```
+
 **在需要时覆盖推断的平台：**
 
 ```bash
@@ -242,6 +282,27 @@ rauto exec "show version" \
 rauto template show_version.j2 \
     --connection core-01 \
     --textfsm-template ./templates/cisco_ios_show_version.textfsm
+```
+
+**按命令顺序为多命令模板指定多个解析模板：**
+
+```bash
+rauto template check_basic.j2 \
+    --connection core-01 \
+    --textfsm-template ./templates/cisco_ios_show_version.textfsm \
+    --textfsm-template ./templates/cisco_ios_show_interfaces.textfsm
+```
+
+**保存自定义 TextFSM 模板，并绑定到某个 profile 的命令：**
+
+```bash
+rauto textfsm template create my_show_version \
+    --file ./templates/my_show_version.textfsm
+
+rauto textfsm mapping set \
+    --profile my_custom_profile \
+    --command "show version" \
+    --template my_show_version
 ```
 
 ### 命令流程模板
@@ -1107,16 +1168,24 @@ Group JSON 结构：
 - 全局：`-H/--host`、`-u/--username`、`-p/--password`、`-P/--ssh-port`、`-e/--enable-password`、`-d/--device-profile`、`-c/--connection`、`-S/--save-connection`
 - Flow：`-t/--template`、`-f/--file`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
 - Exec：`-m/--mode`、`-r/--record-file`、`-l/--record-level`
+- Show：`-m/--mode`、`-r/--record-file`、`-l/--record-level`
 - Tx：`-t/--template`、`-m/--mode`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
 
 常用命令级参数：
 
 - `exec --mode <mode>` / `exec -m <mode>`：在指定模式下执行原始命令，例如 `Enable`、`Config`、`Shell`。
 - `exec` 不带 `--mode`：使用当前 profile 的 `default_mode`；不会根据 `show ...`、`interface ...` 这类命令文本自动判断模式。
+- `show <object>`：执行内置 show 对象，例如 `version`、`interfaces`、`route`、`arp`。
+- `show --list`：列出可用 show 对象。可配合 `--device-profile` 或 `--textfsm-platform` 缩小范围。
+- `show --no-parse`：关闭默认 TextFSM 解析，只展示原始输出。
+- `show --print-command`：执行前打印内部解析出的设备命令。
 - `--force-autodetect`：跳过本地 `host:port` autodetect 缓存，重新探测并刷新缓存。适合设备更换、同 IP/端口后的设备类型变化等特殊情况。
 - `exec/template/flow --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
 - `exec/template/flow --textfsm-platform <platform>`：在启用解析后覆盖内置 TextFSM 自动选择时推断的平台。
-- `exec/template/flow --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。
+- `exec/template/flow --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。对 `template` 和 `flow` 可以重复传多个，按命令顺序匹配；数量不足时复用最后一个模板。
+- `show/exec/template/flow --textfsm-excel <file.xlsx>`：把 TextFSM 解析成功的表格行导出为 Excel。
+- `textfsm template ...`：管理保存到 SQLite 的自定义 TextFSM 模板。
+- `textfsm mapping ...`：管理自定义 `(device profile, command) -> TextFSM template` 映射。启用解析且没有显式指定模板文件时，自定义映射优先级高于内置 NTC 模板。
 - `template --vars <file>` / `template -v <file>`：为已保存命令模板加载 JSON/YAML 变量文件。
 - `flow --template <name>` / `flow -t <name>`：运行已保存的命令流程模板。
 - `flow --file <path>` / `flow -f <path>`：从 TOML 文件运行临时命令流程模板。

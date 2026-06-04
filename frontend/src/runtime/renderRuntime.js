@@ -1,6 +1,11 @@
 /**
  * render.js - Pure HTML rendering functions (extracted from app.js)
  */
+import { exportTextfsmExcel } from "../api/client.js";
+
+let parsedOutputExportSeq = 0;
+const parsedOutputExports = new Map();
+let parsedOutputExportHandlerInstalled = false;
 
 function renderTemplateExecuteResult(data) {
   if (!data || typeof data !== "object") {
@@ -148,16 +153,86 @@ function renderParsedOutputTable(value) {
   `;
 }
 
+function registerParsedOutputExport(item) {
+  const id = `textfsm-export-${++parsedOutputExportSeq}`;
+  parsedOutputExports.set(id, {
+    filename: exportFilenameForParsedOutput(item),
+    sheet_name: exportSheetNameForParsedOutput(item),
+    parsed_output: item.parsed_output,
+  });
+  return id;
+}
+
+function exportFilenameForParsedOutput(item) {
+  const command = safeString(item.command || "").trim();
+  if (command) return `textfsm-${command}.xlsx`;
+  return "textfsm-parsed-output.xlsx";
+}
+
+function exportSheetNameForParsedOutput(item) {
+  const command = safeString(item.command || "").trim();
+  return command || "parsed_output";
+}
+
+async function exportParsedOutputExcel(exportId, button) {
+  const payload = parsedOutputExports.get(exportId);
+  if (!payload) return;
+  const originalText = button?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.textContent = t("running");
+  }
+  try {
+    const { blob, filename } = await exportTextfsmExcel(payload);
+    downloadBlob(blob, filename || payload.filename || "textfsm.xlsx");
+  } catch (error) {
+    window.showToast?.(error.message || t("requestFailed"), "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function installParsedOutputExportHandler() {
+  if (parsedOutputExportHandlerInstalled) return;
+  parsedOutputExportHandlerInstalled = true;
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest?.(".js-textfsm-export-excel");
+    if (!button) return;
+    const exportId = button.getAttribute("data-textfsm-export-id") || "";
+    exportParsedOutputExcel(exportId, button);
+  });
+}
+
 function renderParsedOutputBlock(item) {
   if (!item || typeof item !== "object") return "";
   if (item.parsed_output !== undefined && item.parsed_output !== null) {
     const table = renderParsedOutputTable(item.parsed_output);
+    const exportId = registerParsedOutputExport(item);
     return `
       <section class="card mt-3 border border-base-300 bg-base-100 shadow-sm">
         <div class="card-body gap-3 p-3">
           <div class="flex items-center justify-between gap-2">
             <div class="text-xs font-semibold uppercase tracking-wide text-base-content/70">parsed_output</div>
-            <div class="badge badge-outline badge-sm">TextFSM</div>
+            <div class="flex items-center gap-2">
+              <button class="btn btn-outline btn-xs js-textfsm-export-excel" type="button" data-textfsm-export-id="${escapeHtml(
+                exportId,
+              )}">${escapeHtml(t("textfsmExportExcel"))}</button>
+              <div class="badge badge-outline badge-sm">TextFSM</div>
+            </div>
           </div>
           ${
             table ||
@@ -1079,12 +1154,14 @@ function renderEntriesTable(entries) {
 }
 
 export function installRenderRuntime() {
+  installParsedOutputExportHandler();
   Object.assign(window, {
     renderTemplateExecuteResult,
     isParsedOutputTableValue,
     parsedOutputCellText,
     renderParsedOutputTable,
     renderParsedOutputBlock,
+    exportParsedOutputExcel,
     extractFailureOutputFromReason,
     renderFailureOutputFallback,
     renderTxWorkflowResult,

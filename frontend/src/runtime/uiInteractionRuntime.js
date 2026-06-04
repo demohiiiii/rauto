@@ -138,9 +138,17 @@ function applyOperationKind() {
 function applyExecMode() {
   const currentExecMode = runtimeValue("currentExecMode");
   const isTemplate = currentExecMode === "template";
+  const isShow = currentExecMode === "show";
   setDashboardExecMode(currentExecMode);
   if (isTemplate && byId("template").value.trim()) {
     loadSelectedTemplateContent();
+  }
+  if (isShow) {
+    const parseTextfsm = byId("parse-textfsm");
+    if (parseTextfsm) {
+      parseTextfsm.checked = true;
+    }
+    callRuntimeFunction("loadShowObjects", () => undefined);
   }
 }
 
@@ -263,7 +271,7 @@ function applyPromptMode() {
 
 function applyTemplateSection() {
   let currentTemplateSection = runtimeValue("currentTemplateSection");
-  const sections = ["templates", "flows"];
+  const sections = ["templates", "flows", "textfsm"];
   if (!sections.includes(currentTemplateSection)) {
     currentTemplateSection = "templates";
     setRuntimeValue("currentTemplateSection", currentTemplateSection);

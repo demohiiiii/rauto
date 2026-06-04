@@ -36,6 +36,44 @@ export async function apiRequest(method, path, body) {
   return payload;
 }
 
+export async function apiRequestBlob(method, path, body) {
+  const headers = {};
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+  const token = (localStorage.getItem("rauto_agent_api_token") || "").trim();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+    headers["X-API-Key"] = token;
+  }
+  const response = await fetch(path, {
+    method,
+    headers: Object.keys(headers).length ? headers : undefined,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json()
+      : await response.text();
+    const message =
+      typeof payload === "string"
+        ? payload || response.statusText
+        : payload.error || payload.message || response.statusText;
+    throw new ApiError(message, { status: response.status, payload });
+  }
+  return {
+    blob: await response.blob(),
+    filename: responseFilename(response.headers) || "textfsm.xlsx",
+  };
+}
+
+function responseFilename(headers) {
+  const disposition = headers.get("content-disposition") || "";
+  const match = disposition.match(/filename="([^"]+)"/i);
+  return match ? match[1] : "";
+}
+
 export function getHealth() {
   return apiRequest("GET", "/health");
 }
@@ -48,6 +86,21 @@ export function executeCommand(payload) {
   return apiRequest("POST", "/api/exec", payload);
 }
 
+export function listShowObjects({
+  deviceProfile = "",
+  textfsmPlatform = "",
+} = {}) {
+  const params = new URLSearchParams();
+  if (deviceProfile) params.set("device_profile", deviceProfile);
+  if (textfsmPlatform) params.set("textfsm_platform", textfsmPlatform);
+  const query = params.toString();
+  return apiRequest("GET", `/api/show/objects${query ? `?${query}` : ""}`);
+}
+
+export function executeShow(payload) {
+  return apiRequest("POST", "/api/show/execute", payload);
+}
+
 export function executeTemplate(payload) {
   return apiRequest("POST", "/api/template/execute", payload);
 }
@@ -58,6 +111,10 @@ export function renderTemplate(payload) {
 
 export function executeCommandFlow(payload) {
   return apiRequest("POST", "/api/command-flow/execute", payload);
+}
+
+export function exportTextfsmExcel(payload) {
+  return apiRequestBlob("POST", "/api/textfsm/export/xlsx", payload);
 }
 
 export function executeUpload(payload) {
@@ -251,6 +308,60 @@ export function updateTemplate(name, content) {
 
 export function deleteTemplate(name) {
   return apiRequest("DELETE", `/api/templates/${encodeURIComponent(name)}`);
+}
+
+export function listTextfsmTemplates() {
+  return apiRequest("GET", "/api/textfsm/templates");
+}
+
+export function getTextfsmTemplate(name) {
+  return apiRequest(
+    "GET",
+    `/api/textfsm/templates/${encodeURIComponent(name)}`,
+  );
+}
+
+export function createTextfsmTemplate(name, content) {
+  return apiRequest("POST", "/api/textfsm/templates", { name, content });
+}
+
+export function updateTextfsmTemplate(name, content) {
+  return apiRequest(
+    "PUT",
+    `/api/textfsm/templates/${encodeURIComponent(name)}`,
+    {
+      content,
+    },
+  );
+}
+
+export function deleteTextfsmTemplate(name) {
+  return apiRequest(
+    "DELETE",
+    `/api/textfsm/templates/${encodeURIComponent(name)}`,
+  );
+}
+
+export function listTextfsmMappings(profile = "") {
+  const params = new URLSearchParams();
+  if (profile) params.set("profile", profile);
+  const query = params.toString();
+  return apiRequest("GET", `/api/textfsm/mappings${query ? `?${query}` : ""}`);
+}
+
+export function saveTextfsmMapping({ device_profile, command, template_name }) {
+  return apiRequest("POST", "/api/textfsm/mappings", {
+    device_profile,
+    command,
+    template_name,
+  });
+}
+
+export function deleteTextfsmMapping({ device_profile, command }) {
+  return apiRequest("DELETE", "/api/textfsm/mappings", {
+    device_profile,
+    command,
+  });
 }
 
 export function listTemplateResource(basePath) {
