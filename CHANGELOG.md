@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.2] - 2026-06-04
+
+### New Features
+- Added bundled TextFSM parsing with embedded NTC templates, automatic template selection by device profile and command, formatted table output in CLI/Web, and Excel export support for parsed results.
+- Added `rauto show` and configurable show objects so operators can run normalized objects such as `interfaces`, `route`, `mac`, and `lldp` without manually entering platform-specific show commands.
+- Added SQLite-backed custom TextFSM templates, profile command mappings, and custom show objects, including Web management UI and CLI commands for template/mapping/show-object lifecycle operations.
+- Added autodetect profile caching with an explicit force-redetect option so repeated connections to the same host/port can reuse the detected profile unless operators request a fresh probe.
+- Migrated the Web dashboard to a Svelte 5/Vite frontend while preserving the existing dashboard workflows and embedding the built static assets into the Rust binary.
+- Added workflow/orchestration template CLI subcommands and expanded runtime support for TextFSM parsing across direct command, template, flow, and Web execution paths.
+
+### Optimizations
+- Moved show-object command mappings into `assets/show_catalog/commands-mapping.toml`, making platform/object/mode mappings easier to audit and extend without editing Rust code.
+- Refined Web execution UX with localized Show/TextFSM controls, table-based parsed output, horizontal scrolling for wide parsed tables, and profile-backed selectors for platform and mode fields.
+- Defaulted SSH security to `legacy-compatible` across CLI and Web saved/temporary execution paths for broader compatibility with older network devices.
+- Reworked frontend build/release plumbing with generated `static/` assets, npm-based Vite builds in CI/release workflows, Prettier formatting, and a pre-commit hook that also runs clippy.
+- Updated bundled `rneter` integration to `0.4.6` and aligned built-in profile names with NTC platform matching for automatic parser selection.
+
+### API Changes
+- Added CLI surfaces `rauto show`, `rauto show-object`, `rauto textfsm template`, and `rauto textfsm mapping`; scripts can now manage show objects and custom TextFSM mappings through first-class commands instead of only ad-hoc execution.
+- Added Web APIs and response fields for TextFSM parsing/export, custom TextFSM templates, profile command mappings, and custom show objects; clients should handle parsed-table metadata and optional parser diagnostics in execution responses.
+- Added SQLite migrations `202605170001_autodetect_profile_cache.sql`, `202606040001_custom_textfsm.sql`, and `202606040002_custom_show_objects.sql`; deployments must let migrations run before using profile cache, custom TextFSM, or custom show-object features.
+- `static/` is now a generated frontend build output while source assets live under `frontend/`; source builds and release builds must run the npm/Vite build step before packaging.
+- Saved/temporary execution defaults now use `legacy-compatible` SSH security when no explicit level is provided, which can change negotiated SSH algorithms compared with stricter previous defaults.
+
+### Risks
+- The Svelte frontend migration is large and compile/build validated, but browser-level end-to-end coverage remains limited, so less common dashboard interactions can still surface UI regressions.
+- Automatic TextFSM selection depends on NTC template index coverage and profile/platform mapping quality; unsupported command/profile combinations may return raw output or parser diagnostics instead of parsed rows.
+- New database-backed custom TextFSM/show-object features add migration and referential-integrity requirements; environments with partially applied migrations or pre-existing local databases should validate startup migration logs before production use.
+- Defaulting to legacy-compatible SSH improves old-device reachability but permits weaker algorithms than stricter security profiles; security-sensitive deployments should explicitly choose `balanced` or `secure`.
+
 ## [0.4.1] - 2026-05-10
 
 ### New Features
