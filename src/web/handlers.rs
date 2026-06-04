@@ -12,7 +12,7 @@ use crate::config::template_connection_refs::{
     enrich_context_with_connection_refs_from_value,
 };
 use crate::config::template_loader;
-use crate::config::{command_blacklist, show_catalog};
+use crate::config::{command_blacklist, custom_textfsm_store, show_catalog};
 use crate::config::{
     connection_store, connection_store::SavedConnection, content_store, task_store,
 };
@@ -72,6 +72,7 @@ mod maintenance;
 mod profiles;
 mod replay;
 mod runtime;
+mod show_objects_custom;
 mod task_events;
 mod textfsm_custom;
 mod textfsm_exports;
@@ -123,6 +124,9 @@ pub use profiles::{
 };
 pub use replay::replay_session;
 use runtime::*;
+pub use show_objects_custom::{
+    delete_custom_show_object, list_custom_show_objects, upsert_custom_show_object,
+};
 use task_events::*;
 pub use textfsm_custom::{
     create_textfsm_template, delete_textfsm_mapping, delete_textfsm_template, get_textfsm_template,

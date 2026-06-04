@@ -27,6 +27,11 @@ pub enum Commands {
     /// Execute an NTC-supported show object for the selected device profile
     Show(ShowArgs),
 
+    /// Manage custom show objects for device profiles
+    #[command(name = "show-object")]
+    #[command(subcommand)]
+    ShowObject(ShowObjectCommands),
+
     /// Execute a reusable interactive command flow template
     #[command(name = "flow")]
     Flow(CommandFlowArgs),
@@ -245,6 +250,49 @@ pub enum TextfsmMappingCommands {
         /// Exact command text after whitespace normalization
         #[arg(long)]
         command: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ShowObjectCommands {
+    /// List custom show objects
+    List {
+        /// Filter by device profile
+        #[arg(long)]
+        profile: Option<String>,
+    },
+    /// Add or update a custom show object
+    Set {
+        /// Device profile name
+        #[arg(long)]
+        profile: String,
+        /// Friendly object name, for example route or access-list
+        #[arg(long)]
+        object: String,
+        /// Exact command to execute for this object
+        #[arg(long)]
+        command: String,
+        /// Optional execution mode override, for example enable or config
+        #[arg(long, short = 'm')]
+        mode: Option<String>,
+        /// Optional custom TextFSM template name used to parse this show object
+        #[arg(long)]
+        textfsm_template: Option<String>,
+        /// Optional strong reference to a Profile TextFSM command mapping
+        #[arg(long)]
+        textfsm_mapping_command: Option<String>,
+        /// Disable this custom object without deleting it
+        #[arg(long)]
+        disabled: bool,
+    },
+    /// Delete a custom show object
+    Delete {
+        /// Device profile name
+        #[arg(long)]
+        profile: String,
+        /// Friendly object name
+        #[arg(long)]
+        object: String,
     },
 }
 

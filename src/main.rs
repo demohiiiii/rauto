@@ -100,6 +100,9 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Show(args) => {
             cli_exec::run_show(args, &cli.global_opts).await?;
         }
+        Commands::ShowObject(cmd) => {
+            cli_exec::run_show_object_command(cmd)?;
+        }
         Commands::Flow(args) => {
             cli_flow::run_command_flow(args, &cli.global_opts).await?;
         }

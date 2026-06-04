@@ -9,6 +9,7 @@
     ["templates", "template-section-btn-library", "Standard Templates"],
     ["flows", "template-section-btn-flows", "Command Flow Templates"],
     ["textfsm", "template-section-btn-textfsm", "TextFSM Templates"],
+    ["show-objects", "template-section-btn-show-objects", "Show Objects"],
   ];
 
   let { active = false } = $props();
@@ -221,7 +222,10 @@
       <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
         <div class="group-card">
           <div class="field-tools">
-            <span class="text-sm font-semibold text-slate-700">
+            <span
+              id="textfsm-template-title"
+              class="text-sm font-semibold text-slate-700"
+            >
               Custom TextFSM Templates
             </span>
             <button
@@ -264,62 +268,176 @@
             <div id="textfsm-template-out" class="grid gap-2"></div>
           </div>
         </div>
-        <div class="group-card">
-          <div class="field-tools">
-            <span class="text-sm font-semibold text-slate-700">
-              Profile Command Mappings
-            </span>
+        <div class="grid gap-3">
+          <div class="group-card">
+            <div class="field-tools">
+              <span
+                id="textfsm-mapping-title"
+                class="text-sm font-semibold text-slate-700"
+              >
+                Profile Command Mappings
+              </span>
+              <button
+                id="textfsm-mapping-refresh-btn"
+                class="btn btn-sm"
+                type="button"
+              >
+                Refresh
+              </button>
+            </div>
+            <div class="group-body grid gap-3">
+              <select
+                id="textfsm-mapping-profile"
+                class="select"
+                title="Device profile"
+                aria-label="Device profile"
+              ></select>
+              <input
+                id="textfsm-mapping-command"
+                class="input font-mono"
+                placeholder="Command, e.g. show version"
+              />
+              <select
+                id="textfsm-mapping-template"
+                class="select"
+                title="TextFSM Template"
+                aria-label="TextFSM Template"
+              ></select>
+              <div class="grid gap-2 sm:grid-cols-2">
+                <button
+                  id="textfsm-mapping-save-btn"
+                  class="btn btn-primary btn-sm"
+                  type="button"
+                >
+                  Save Mapping
+                </button>
+                <button
+                  id="textfsm-mapping-delete-btn"
+                  class="btn btn-error btn-sm"
+                  type="button"
+                >
+                  Delete Mapping
+                </button>
+              </div>
+              <div
+                id="textfsm-mapping-hint"
+                class="text-xs leading-relaxed text-slate-500"
+              >
+                Custom mappings are used before bundled NTC templates when
+                TextFSM parsing is enabled and no explicit template file is
+                selected.
+              </div>
+              <div id="textfsm-mapping-list" class="grid gap-2"></div>
+              <div id="textfsm-mapping-out" class="grid gap-2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      id="template-show-objects-section"
+      class="grid gap-3"
+      hidden={$dashboardView.currentTemplateSection !== "show-objects"}
+    >
+      <div class="group-card">
+        <div class="field-tools">
+          <span
+            id="show-object-title"
+            class="text-sm font-semibold text-slate-700"
+          >
+            Custom Show Objects
+          </span>
+          <button id="show-object-refresh-btn" class="btn btn-sm" type="button">
+            Refresh
+          </button>
+        </div>
+        <div class="group-body grid gap-3">
+          <div class="grid gap-3 lg:grid-cols-2">
+            <select
+              id="show-object-profile"
+              class="select"
+              title="Device profile"
+              aria-label="Device profile"
+            ></select>
+            <input
+              id="show-object-name"
+              class="input"
+              placeholder="Show object, e.g. access-list"
+            />
+            <input
+              id="show-object-mode"
+              class="input"
+              placeholder="Mode override, e.g. enable or config"
+            />
+            <label
+              class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 lg:col-span-2"
+            >
+              <input
+                id="show-object-use-mapping"
+                type="checkbox"
+                class="toggle toggle-sm"
+              />
+              <span id="show-object-use-mapping-label"
+                >Use profile command mapping</span
+              >
+            </label>
+            <div id="show-object-manual-fields" class="contents">
+              <input
+                id="show-object-command"
+                class="input font-mono"
+                placeholder="Command, e.g. show access-lists"
+              />
+              <select
+                id="show-object-textfsm-template"
+                class="select"
+                title="TextFSM Template"
+                aria-label="TextFSM Template"
+              ></select>
+            </div>
+            <div id="show-object-mapping-fields" class="contents" hidden>
+              <select
+                id="show-object-textfsm-mapping"
+                class="select lg:col-span-2"
+                title="Profile command mapping"
+                aria-label="Profile command mapping"
+              ></select>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                id="show-object-enabled"
+                type="checkbox"
+                class="checkbox checkbox-sm"
+                checked
+              />
+              <span id="show-object-enabled-label">Enabled</span>
+            </label>
+          </div>
+          <div class="grid gap-2 sm:grid-cols-2">
             <button
-              id="textfsm-mapping-refresh-btn"
-              class="btn btn-sm"
+              id="show-object-save-btn"
+              class="btn btn-primary btn-sm"
               type="button"
             >
-              Refresh
+              Save Show Object
+            </button>
+            <button
+              id="show-object-delete-btn"
+              class="btn btn-error btn-sm"
+              type="button"
+            >
+              Delete Show Object
             </button>
           </div>
-          <div class="group-body grid gap-3">
-            <input
-              id="textfsm-mapping-profile"
-              class="input"
-              placeholder="Device profile, e.g. my_custom_profile"
-            />
-            <input
-              id="textfsm-mapping-command"
-              class="input font-mono"
-              placeholder="Command, e.g. show version"
-            />
-            <select
-              id="textfsm-mapping-template"
-              class="select"
-              title="TextFSM Template"
-              aria-label="TextFSM Template"
-            ></select>
-            <div class="grid gap-2 sm:grid-cols-2">
-              <button
-                id="textfsm-mapping-save-btn"
-                class="btn btn-primary btn-sm"
-                type="button"
-              >
-                Save Mapping
-              </button>
-              <button
-                id="textfsm-mapping-delete-btn"
-                class="btn btn-error btn-sm"
-                type="button"
-              >
-                Delete Mapping
-              </button>
-            </div>
-            <div
-              id="textfsm-mapping-hint"
-              class="text-xs leading-relaxed text-slate-500"
-            >
-              Custom mappings are used before bundled NTC templates when TextFSM
-              parsing is enabled and no explicit template file is selected.
-            </div>
-            <div id="textfsm-mapping-list" class="grid gap-2"></div>
-            <div id="textfsm-mapping-out" class="grid gap-2"></div>
+          <div
+            id="show-object-hint"
+            class="text-xs leading-relaxed text-slate-500"
+          >
+            Custom show objects override built-in command mappings for the same
+            profile and object. Optional TextFSM template binding is used before
+            command mappings and bundled NTC templates.
           </div>
+          <div id="show-object-list" class="grid gap-2"></div>
+          <div id="show-object-out" class="grid gap-2"></div>
         </div>
       </div>
     </div>

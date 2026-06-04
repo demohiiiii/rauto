@@ -123,11 +123,14 @@ pub async fn execute_command_flow(
             let (parsed_output, parse_error) = parse_textfsm_output_optional(
                 &output.content,
                 &command,
-                req.textfsm_template.as_deref(),
-                req.parse_textfsm,
-                req.textfsm_platform.as_deref(),
-                Some(conn.device_profile.as_str()),
-                req.textfsm_vendor.as_deref(),
+                WebTextfsmParseOptions {
+                    template_file: req.textfsm_template.as_deref(),
+                    enabled: req.parse_textfsm,
+                    platform: req.textfsm_platform.as_deref(),
+                    device_profile: Some(conn.device_profile.as_str()),
+                    vendor: req.textfsm_vendor.as_deref(),
+                    ..Default::default()
+                },
             );
             CommandResult {
                 command,

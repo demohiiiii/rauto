@@ -89,9 +89,12 @@ export function setDashboardPromptMode(mode) {
 }
 
 export function setDashboardTemplateSection(section) {
-  const currentTemplateSection = ["templates", "flows", "textfsm"].includes(
-    section,
-  )
+  const currentTemplateSection = [
+    "templates",
+    "flows",
+    "textfsm",
+    "show-objects",
+  ].includes(section)
     ? section
     : "templates";
   dashboardView.update((view) => ({

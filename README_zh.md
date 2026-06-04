@@ -213,12 +213,26 @@ rauto show interfaces \
 
 对象包括 `version`、`interfaces`、`interface-brief`、`route`、`arp`、`lldp`、`mac`、`vlan`、`access-list`、`object-group`、`security-policy`、`nat-policy` 等；可用 `--list` 查看当前平台支持的全部对象。
 这些对象定义在内置的 `assets/show_catalog/commands-mapping.toml` 命令表中；命令表可以绑定平台级或单个对象的执行 mode。显式传入的 `--mode` 优先级最高，其次是命令表绑定的 mode，最后才是 profile 默认 mode。
-命令执行后的 TextFSM 解析仍然使用内置 NTC 模板。
+命令执行后的 TextFSM 解析默认使用内置 NTC 模板；如果自定义 show object 绑定了自定义 TextFSM 模板，则优先使用绑定模板。
 
 ```bash
 rauto show --list --device-profile cisco_ios
 rauto show route --print-command
 rauto show interfaces --no-parse
+```
+
+你也可以把某个 profile 的自定义 show object 保存到 SQLite。同一个 `(device_profile, object)` 下，自定义 show object 会覆盖内置命令表，可以绑定执行 mode，也可以绑定自定义 TextFSM 模板；绑定模板的优先级高于命令映射和内置 NTC 模板。
+
+```bash
+rauto show-object set \
+    --profile my_custom_profile \
+    --object access-list \
+    --command "show access-lists" \
+    --mode enable \
+    --textfsm-template my_access_list
+
+rauto show-object list --profile my_custom_profile
+rauto show-object delete --profile my_custom_profile --object access-list
 ```
 
 ### TextFSM 解析
@@ -237,7 +251,7 @@ rauto show interfaces --no-parse
 
 自定义 TextFSM 模板和映射可以保存到 SQLite。启用解析且没有显式传 `--textfsm-template` 时，`rauto` 会先查自定义映射 `(device_profile, command) -> template`；没有命中时，才回退到内置 NTC 模板。
 
-Web UI 中可以在 **Template Manager -> TextFSM Templates** 管理同一套自定义 TextFSM 模板和 profile 命令映射。
+Web UI 中可以在 **Template Manager -> TextFSM Templates** 管理同一套自定义 TextFSM 模板、profile 命令映射和自定义 show object。
 
 **指定执行模式：**
 在特定模式下执行命令（例如 `Enable`, `Config`）。
@@ -1180,6 +1194,7 @@ Group JSON 结构：
 - `show --list`：列出可用 show 对象。可配合 `--device-profile` 或 `--textfsm-platform` 缩小范围。
 - `show --no-parse`：关闭默认 TextFSM 解析，只展示原始输出。
 - `show --print-command`：执行前打印内部解析出的设备命令。
+- `show-object set/list/delete`：管理保存到 SQLite 的 profile 级自定义 show object。同一 profile 和 object 下，自定义对象会覆盖内置 show 映射。
 - `--force-autodetect`：跳过本地 `host:port` autodetect 缓存，重新探测并刷新缓存。适合设备更换、同 IP/端口后的设备类型变化等特殊情况。
 - `exec/template/flow --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
 - `exec/template/flow --textfsm-platform <platform>`：在启用解析后覆盖内置 TextFSM 自动选择时推断的平台。

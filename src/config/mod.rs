@@ -6,6 +6,7 @@ pub mod command_flow_vars;
 pub mod connection_import;
 pub mod connection_store;
 pub mod content_store;
+pub mod custom_show_object_store;
 pub mod custom_textfsm_store;
 pub mod device_profile;
 pub mod history_store;

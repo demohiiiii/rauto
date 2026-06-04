@@ -562,6 +562,9 @@ function renderConnectionProfileOptions() {
     placeholder: t("deviceProfilePlaceholder"),
     selected: editSelected,
   });
+  if (typeof window.renderTextfsmPlatformOptions === "function") {
+    window.renderTextfsmPlatformOptions();
+  }
 }
 
 function renderSavedConnectionGroupOptions(selectedValues = []) {

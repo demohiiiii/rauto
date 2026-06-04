@@ -213,12 +213,26 @@ rauto show interfaces \
 
 Useful objects include `version`, `interfaces`, `interface-brief`, `route`, `arp`, `lldp`, `mac`, `vlan`, `access-list`, `object-group`, `security-policy`, and `nat-policy`; use `--list` to view every object available for the selected platform.
 Objects are defined in the bundled `assets/show_catalog/commands-mapping.toml` command table. The table can bind a platform-level or per-object execution mode; explicit `--mode` still takes precedence, then the mapping mode, then the profile default mode.
-TextFSM parsing still uses the bundled NTC templates after execution.
+TextFSM parsing still uses the bundled NTC templates after execution unless a custom show object binds a custom TextFSM template.
 
 ```bash
 rauto show --list --device-profile cisco_ios
 rauto show route --print-command
 rauto show interfaces --no-parse
+```
+
+You can save profile-specific custom show objects in SQLite. A custom show object overrides the bundled command table for the same `(device_profile, object)`, can bind an execution mode, and can optionally bind a custom TextFSM template that is used before command mappings and bundled NTC templates.
+
+```bash
+rauto show-object set \
+    --profile my_custom_profile \
+    --object access-list \
+    --command "show access-lists" \
+    --mode enable \
+    --textfsm-template my_access_list
+
+rauto show-object list --profile my_custom_profile
+rauto show-object delete --profile my_custom_profile --object access-list
 ```
 
 ### TextFSM Parse
@@ -237,7 +251,7 @@ rauto show interfaces --no-parse
 
 Custom TextFSM templates and mappings can be saved in SQLite. When parsing is enabled and no explicit `--textfsm-template` is provided, rauto first checks the custom mapping `(device_profile, command) -> template`; if no custom mapping matches, it falls back to the bundled NTC templates.
 
-In the web UI, open **Template Manager -> TextFSM Templates** to manage the same custom TextFSM templates and profile command mappings.
+In the web UI, open **Template Manager -> TextFSM Templates** to manage the same custom TextFSM templates, profile command mappings, and custom show objects.
 
 **Specifying Execution Mode:**
 Execute a command in a specific mode (e.g., `Enable`, `Config`).
@@ -1186,6 +1200,7 @@ Common command-specific options:
 - `show --list`: List available show objects. Pass `--device-profile` or `--textfsm-platform` to narrow the list.
 - `show --no-parse`: Disable the default TextFSM parsing and print raw output only.
 - `show --print-command`: Print the resolved device command before execution.
+- `show-object set/list/delete`: Manage profile-specific custom show objects saved in SQLite. Custom objects override bundled show mappings for the same profile and object.
 - `--force-autodetect`: Bypass the local `host:port` autodetect cache, probe again, and refresh the cached profile. Useful when the device behind an existing IP/port has changed.
 - `exec/template/flow --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
 - `exec/template/flow --textfsm-platform <platform>`: Override the inferred NTC platform after parsing is enabled.

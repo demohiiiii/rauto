@@ -1,4 +1,6 @@
 <script>
+  import TextfsmControls from "./TextfsmControls.svelte";
+
   let { active = false } = $props();
 </script>
 
@@ -30,6 +32,9 @@
     title="Template Mode"
     aria-label="Template Mode"
   ></select>
+  {#if active}
+    <TextfsmControls />
+  {/if}
   <div class="grid grid-cols-2 gap-2">
     <button id="render-btn" class="btn btn-sm" type="button">
       Preview Render

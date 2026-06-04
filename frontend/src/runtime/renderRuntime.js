@@ -125,7 +125,7 @@ function renderParsedOutputTable(value) {
   const header = columns
     .map(
       (column) =>
-        `<th class="whitespace-nowrap text-[11px] uppercase tracking-wide">${escapeHtml(
+        `<th class="min-w-40 whitespace-nowrap text-[11px] uppercase tracking-wide">${escapeHtml(
           column,
         )}</th>`,
     )
@@ -135,7 +135,7 @@ function renderParsedOutputTable(value) {
       const cells = columns
         .map(
           (column) =>
-            `<td class="max-w-[22rem] whitespace-pre-wrap break-words align-top text-xs">${escapeHtml(
+            `<td class="min-w-40 max-w-[28rem] whitespace-pre-wrap break-words align-top text-xs">${escapeHtml(
               parsedOutputCellText(row[column]),
             )}</td>`,
         )
@@ -144,8 +144,8 @@ function renderParsedOutputTable(value) {
     })
     .join("");
   return `
-    <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
-      <table class="table table-zebra table-sm">
+    <div class="min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-box border border-base-300 bg-base-100">
+      <table class="table table-zebra table-sm min-w-max">
         <thead><tr>${header}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -223,8 +223,8 @@ function renderParsedOutputBlock(item) {
     const table = renderParsedOutputTable(item.parsed_output);
     const exportId = registerParsedOutputExport(item);
     return `
-      <section class="card mt-3 border border-base-300 bg-base-100 shadow-sm">
-        <div class="card-body gap-3 p-3">
+      <section class="card mt-3 min-w-0 border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body min-w-0 gap-3 p-3">
           <div class="flex items-center justify-between gap-2">
             <div class="text-xs font-semibold uppercase tracking-wide text-base-content/70">parsed_output</div>
             <div class="flex items-center gap-2">

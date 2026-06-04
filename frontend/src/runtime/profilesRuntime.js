@@ -29,24 +29,42 @@ async function fetchProfileModes(profileName) {
   }
 }
 
-function applyModeOptions(selectId, modes, preferredMode, defaultMode) {
+function applyModeOptions(
+  selectId,
+  modes,
+  preferredMode,
+  defaultMode,
+  config = {},
+) {
   const select = byId(selectId);
   if (!select) return;
+  const { allowEmpty = false, emptyLabel = "—" } = config;
   const normalizedModes = (modes || []).filter(Boolean);
   const finalModes =
     normalizedModes.length > 0 ? normalizedModes : [defaultMode || "Enable"];
+  const preferred = (preferredMode || "").trim();
   const selected =
-    (preferredMode || "").trim() &&
-    finalModes.includes((preferredMode || "").trim())
-      ? (preferredMode || "").trim()
-      : defaultMode || finalModes[0] || "Enable";
-  select.innerHTML = finalModes
-    .map(
+    preferred && finalModes.includes(preferred)
+      ? preferred
+      : allowEmpty
+        ? ""
+        : defaultMode || finalModes[0] || "Enable";
+  const options = [
+    ...(allowEmpty
+      ? [`<option value="">${escapeHtml(emptyLabel)}</option>`]
+      : []),
+    ...finalModes.map(
       (mode) =>
         `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`,
-    )
-    .join("");
-  select.value = finalModes.includes(selected) ? selected : finalModes[0];
+    ),
+  ];
+  select.innerHTML = options.join("");
+  select.value =
+    allowEmpty && !selected
+      ? ""
+      : finalModes.includes(selected)
+        ? selected
+        : finalModes[0];
 }
 
 function safeSelectValue(selectId) {
@@ -68,6 +86,13 @@ async function refreshExecutionModeOptions(overrides = {}) {
     data.modes,
     overrides.templateMode ?? safeSelectValue("template-mode"),
     data.default_mode,
+  );
+  applyModeOptions(
+    "show-mode",
+    data.modes,
+    overrides.showMode ?? safeSelectValue("show-mode"),
+    data.default_mode,
+    { allowEmpty: true, emptyLabel: t("showModeAutoPlaceholder") },
   );
   applyModeOptions(
     "tx-mode",
@@ -131,6 +156,7 @@ async function loadProfilesOverview() {
     if (typeof renderConnectionProfileOptions === "function") {
       renderConnectionProfileOptions();
     }
+    renderTextfsmPlatformOptions();
     if (byId("builtin-profile-select")?.value.trim()) {
       await loadBuiltinProfileDetail();
     } else {
@@ -151,6 +177,7 @@ async function loadProfilesOverview() {
     if (typeof renderConnectionProfileOptions === "function") {
       renderConnectionProfileOptions();
     }
+    renderTextfsmPlatformOptions();
     clearBuiltinProfileDetail();
     await refreshExecutionModeOptions();
   }
@@ -172,6 +199,22 @@ function renderDiagnoseProfileOptions(keyword = "") {
       selected: byId("profile-diagnose-picker").value || "",
     },
   );
+}
+
+function renderTextfsmPlatformOptions() {
+  const selected = safeSelectValue("textfsm-platform");
+  const profiles = Array.from(
+    new Set(
+      (cachedDeviceProfiles || [])
+        .map((name) => safeString(name).trim())
+        .filter((name) => name && name !== "autodetect"),
+    ),
+  ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+
+  populateSelectOptions("textfsm-platform", profiles, {
+    placeholder: t("textfsmPlatformPlaceholder"),
+    selected,
+  });
 }
 
 async function loadBuiltinProfileDetail() {
@@ -1638,6 +1681,7 @@ export function installProfilesRuntime() {
     loadProfilesOverview,
     renderCustomProfileOptions,
     renderDiagnoseProfileOptions,
+    renderTextfsmPlatformOptions,
     loadBuiltinProfileDetail,
     clearBuiltinProfileDetail,
     normalizeCommandExecutionConfig,

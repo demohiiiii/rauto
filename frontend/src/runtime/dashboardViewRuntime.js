@@ -134,10 +134,12 @@ function onDashboardTabChange(tab) {
     safeCall("loadProfilesOverview");
   }
   if (tab === "templates") {
+    safeCall("loadTemplateProfileOptions");
     safeCall("loadTemplates");
     safeCall("loadFlowTemplates");
     safeCall("loadTextfsmTemplates");
     safeCall("loadTextfsmMappings");
+    safeCall("loadCustomShowObjects");
     safeCall("loadAllJsonTemplates");
   }
   if (tab === "inventory") {
@@ -165,6 +167,10 @@ function onDashboardExecModeChange(mode) {
   setRuntimeValue("currentExecMode", mode);
   setDashboardExecMode(mode);
   safeCall("applyExecMode");
+  window.requestAnimationFrame(() => {
+    safeCall("prepareTextfsmControlsForMode", mode);
+    safeCall("applyI18n");
+  });
 }
 
 function onDashboardTxStageChange(stage) {
@@ -184,8 +190,15 @@ function onDashboardTemplateSectionChange(section) {
   setDashboardTemplateSection(section);
   safeCall("applyTemplateSection");
   if (section === "textfsm") {
+    safeCall("loadTemplateProfileOptions");
     safeCall("loadTextfsmTemplates");
     safeCall("loadTextfsmMappings");
+  }
+  if (section === "show-objects") {
+    safeCall("loadTemplateProfileOptions");
+    safeCall("loadTextfsmTemplates");
+    safeCall("loadShowObjectTextfsmMappings");
+    safeCall("loadCustomShowObjects");
   }
 }
 

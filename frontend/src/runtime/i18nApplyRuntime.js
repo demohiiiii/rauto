@@ -185,6 +185,11 @@ function applyI18n() {
     "templateCommonTabTitle",
   );
   byId("template-section-btn-flows").textContent = t("flowTemplateMgrTitle");
+  byId("template-section-btn-textfsm").textContent = t(
+    "textfsmTemplateTabTitle",
+  );
+  byId("template-section-btn-show-objects").textContent =
+    t("showObjectTabTitle");
   if (byId("inventory-tab-groups")) {
     byId("inventory-tab-groups").textContent = t("inventoryGroupsTitle");
   }
@@ -313,6 +318,76 @@ function applyI18n() {
   byId("flow-template-builtin-detail-btn").textContent = t("builtinDetailBtn");
   byId("flow-template-builtin-copy-btn").textContent = t("builtinCopyBtn");
   byId("flow-template-builtin-hint").textContent = t("flowBuiltinTemplateHint");
+  byId("textfsm-template-title").textContent = t("textfsmTemplateMgrTitle");
+  byId("textfsm-template-new-btn").textContent = t("newBtn");
+  byId("textfsm-template-save-btn").textContent = t("savedConnSaveBtn");
+  byId("textfsm-template-delete-btn").textContent = t("savedConnDeleteBtn");
+  byId("textfsm-template-picker").title = t("textfsmTemplateSelectPlaceholder");
+  byId("textfsm-template-picker").setAttribute(
+    "aria-label",
+    t("textfsmTemplateSelectPlaceholder"),
+  );
+  byId("textfsm-template-content").placeholder = t(
+    "textfsmTemplateContentPlaceholder",
+  );
+  byId("textfsm-mapping-title").textContent = t("textfsmMappingMgrTitle");
+  byId("textfsm-mapping-refresh-btn").textContent = t("historyDrawerRefresh");
+  byId("textfsm-mapping-profile").title = t(
+    "inventoryProfileSelectPlaceholder",
+  );
+  byId("textfsm-mapping-profile").setAttribute(
+    "aria-label",
+    t("inventoryProfileSelectPlaceholder"),
+  );
+  byId("textfsm-mapping-command").placeholder = t(
+    "textfsmMappingCommandPlaceholder",
+  );
+  byId("textfsm-mapping-template").title = t(
+    "textfsmTemplateSelectPlaceholder",
+  );
+  byId("textfsm-mapping-template").setAttribute(
+    "aria-label",
+    t("textfsmTemplateSelectPlaceholder"),
+  );
+  byId("textfsm-mapping-save-btn").textContent = t("savedConnSaveBtn");
+  byId("textfsm-mapping-delete-btn").textContent = t("savedConnDeleteBtn");
+  byId("textfsm-mapping-hint").textContent = t("textfsmMappingHint");
+  byId("show-object-title").textContent = t("showObjectCustomMgrTitle");
+  byId("show-object-refresh-btn").textContent = t("historyDrawerRefresh");
+  byId("show-object-profile").title = t("inventoryProfileSelectPlaceholder");
+  byId("show-object-profile").setAttribute(
+    "aria-label",
+    t("inventoryProfileSelectPlaceholder"),
+  );
+  byId("show-object-name").placeholder = t("showObjectCustomNamePlaceholder");
+  byId("show-object-use-mapping-label").textContent = t(
+    "showObjectUseMappingLabel",
+  );
+  byId("show-object-textfsm-mapping").title = t(
+    "showObjectMappingSelectPlaceholder",
+  );
+  byId("show-object-textfsm-mapping").setAttribute(
+    "aria-label",
+    t("showObjectMappingSelectPlaceholder"),
+  );
+  callDashboardHook("renderShowObjectTextfsmMappingOptions");
+  byId("show-object-command").placeholder = t(
+    "showObjectCustomCommandPlaceholder",
+  );
+  byId("show-object-mode").placeholder = t("showObjectCustomModePlaceholder");
+  byId("show-object-textfsm-template").title = t(
+    "textfsmTemplateSelectPlaceholder",
+  );
+  byId("show-object-textfsm-template").setAttribute(
+    "aria-label",
+    t("textfsmTemplateSelectPlaceholder"),
+  );
+  byId("show-object-enabled-label").textContent = t(
+    "showObjectCustomEnabledLabel",
+  );
+  byId("show-object-save-btn").textContent = t("showObjectCustomSaveBtn");
+  byId("show-object-delete-btn").textContent = t("showObjectCustomDeleteBtn");
+  byId("show-object-hint").textContent = t("showObjectCustomHint");
   byId("blacklist-title").textContent = t("blacklistTitle");
   byId("blacklist-list-title").textContent = t("blacklistListTitle");
   byId("blacklist-add-title").textContent = t("blacklistAddTitle");
@@ -802,11 +877,25 @@ function applyI18n() {
   byId("vars").placeholder = t("varsPlaceholder");
   byId("command").placeholder = t("commandPlaceholder");
   byId("mode").placeholder = t("modePlaceholder");
+  byId("show-mode").setAttribute("title", t("modePlaceholder"));
+  byId("show-mode").setAttribute("aria-label", t("modePlaceholder"));
+  byId("show-object").setAttribute("title", t("showObjectPlaceholder"));
+  byId("show-object").setAttribute("aria-label", t("showObjectPlaceholder"));
+  byId("show-exec-btn").textContent = t("showExecuteBtn");
   byId("template-mode").placeholder = t("templateModePlaceholder");
   byId("textfsm-template").placeholder = t("textfsmTemplatePlaceholder");
-  byId("textfsm-platform").placeholder = t("textfsmPlatformPlaceholder");
+  byId("textfsm-platform").setAttribute(
+    "title",
+    t("textfsmPlatformPlaceholder"),
+  );
+  byId("textfsm-platform").setAttribute(
+    "aria-label",
+    t("textfsmPlatformPlaceholder"),
+  );
+  callDashboardHook("renderTextfsmPlatformOptions");
   byId("parse-textfsm").nextElementSibling.textContent =
     t("textfsmParseToggle");
+  byId("textfsm-parse-hint").textContent = t("textfsmParseHint");
   byId("custom-profile-picker").setAttribute(
     "title",
     t("customProfileSelectPlaceholder"),

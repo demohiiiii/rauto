@@ -271,7 +271,7 @@ function applyPromptMode() {
 
 function applyTemplateSection() {
   let currentTemplateSection = runtimeValue("currentTemplateSection");
-  const sections = ["templates", "flows", "textfsm"];
+  const sections = ["templates", "flows", "textfsm", "show-objects"];
   if (!sections.includes(currentTemplateSection)) {
     currentTemplateSection = "templates";
     setRuntimeValue("currentTemplateSection", currentTemplateSection);

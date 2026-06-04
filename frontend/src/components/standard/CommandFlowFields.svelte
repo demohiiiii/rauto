@@ -1,4 +1,6 @@
 <script>
+  import TextfsmControls from "./TextfsmControls.svelte";
+
   let { active = false } = $props();
 </script>
 
@@ -29,6 +31,9 @@
   <div id="flow-vars-json-hint" class="text-xs text-slate-500">
     Use JSON for advanced overrides or extra vars not declared by the template.
   </div>
+  {#if active}
+    <TextfsmControls />
+  {/if}
   <div class="grid gap-2 md:grid-cols-[1fr_auto]">
     <div id="flow-hint" class="text-xs text-slate-500">
       Use a saved command flow template for wizard-style CLI interactions.

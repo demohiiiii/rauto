@@ -89,9 +89,13 @@ function renderShowObjectOptions(data, selected = "") {
       (item) =>
         `<option value="${escapeHtml(safeString(item.object))}" data-command="${escapeHtml(
           safeString(item.command),
-        )}" data-mode="${escapeHtml(safeString(item.mode))}">${escapeHtml(
-          safeString(item.object),
-        )}</option>`,
+        )}" data-mode="${escapeHtml(safeString(item.mode))}" data-source="${escapeHtml(
+          safeString(item.source),
+        )}" data-textfsm-mapping-command="${escapeHtml(
+          safeString(item.textfsm_mapping_command),
+        )}" data-textfsm-template="${escapeHtml(
+          safeString(item.textfsm_template_name),
+        )}">${escapeHtml(safeString(item.object))}</option>`,
     ),
   ];
   select.innerHTML = options.join("");
@@ -108,10 +112,13 @@ function updateShowCommandPreview(platform = "") {
   const option = select.selectedOptions?.[0];
   const command = option?.dataset?.command || "";
   const mode = option?.dataset?.mode || "";
+  const source = option?.dataset?.source || "";
+  const mapping = option?.dataset?.textfsmMappingCommand || "";
+  const template = option?.dataset?.textfsmTemplate || "";
   const object = select.value.trim();
   const platformText = platform || byId("show-object")?.dataset?.platform || "";
   out.textContent = object
-    ? `platform=${platformText || "-"} mode=${mode || "-"} command=${command || "-"}`
+    ? `platform=${platformText || "-"} source=${source || "-"} mode=${mode || "-"} mapping=${mapping || "-"} textfsm=${template || "-"} command=${command || "-"}`
     : "-";
 }
 
@@ -159,8 +166,10 @@ async function executeShowObject() {
       <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
         object=${escapeHtml(safeString(data.object))} · platform=${escapeHtml(
           safeString(data.platform),
-        )} · mode=${escapeHtml(
-          safeString(data.mode),
+        )} · mode=${escapeHtml(safeString(data.mode))} · source=${escapeHtml(
+          safeString(data.source),
+        )} · textfsm=${escapeHtml(
+          safeString(data.textfsm_template_name || "-"),
         )} · command=<span class="font-mono">${escapeHtml(
           safeString(data.command),
         )}</span>
@@ -261,21 +270,45 @@ function bindChange(id, handler) {
   return () => element.removeEventListener("change", handler);
 }
 
-export function standardDeliveryBehavior() {
-  window.loadShowObjects = loadShowObjects;
-  if ((window.currentExecMode || "") === "show" && byId("parse-textfsm")) {
-    byId("parse-textfsm").checked = true;
+function syncTextfsmControlVisibility() {
+  const parseToggle = byId("parse-textfsm");
+  const extraFields = byId("textfsm-extra-fields");
+  if (!extraFields || !parseToggle) return;
+  extraFields.hidden = !parseToggle.checked;
+}
+
+function prepareTextfsmControlsForMode(mode = window.currentExecMode || "") {
+  const parseToggle = byId("parse-textfsm");
+  if (parseToggle && mode === "show") {
+    parseToggle.checked = true;
   }
+  syncTextfsmControlVisibility();
+}
+
+export function standardDeliveryBehavior(node) {
+  window.loadShowObjects = loadShowObjects;
+  window.syncTextfsmControlVisibility = syncTextfsmControlVisibility;
+  window.prepareTextfsmControlsForMode = prepareTextfsmControlsForMode;
+  prepareTextfsmControlsForMode();
+  const onPanelChange = (event) => {
+    if (event.target?.id === "parse-textfsm") {
+      syncTextfsmControlVisibility();
+    }
+    if (event.target?.id === "textfsm-platform") {
+      loadShowObjects();
+    }
+  };
+  node?.addEventListener("change", onPanelChange);
   const cleanups = [
     bindClick("render-btn", renderTemplatePreview),
     bindClick("exec-btn", executeDirectCommand),
-    bindClick("show-refresh-btn", loadShowObjects),
     bindClick("show-exec-btn", executeShowObject),
     bindClick("template-exec-btn", executeTemplate),
     bindClick("flow-exec-btn", executeCommandFlow),
-    bindChange("show-object", () => updateShowCommandPreview()),
+    bindChange("show-object", () => {
+      updateShowCommandPreview();
+    }),
     bindChange("device_profile", loadShowObjects),
-    bindChange("textfsm-platform", loadShowObjects),
     bindChange("template", loadTemplateContent),
     bindChange("flow-template-name", loadFlowTemplateDetail),
   ];
@@ -284,6 +317,7 @@ export function standardDeliveryBehavior() {
 
   return {
     destroy() {
+      node?.removeEventListener("change", onPanelChange);
       cleanups.forEach((cleanup) => cleanup());
     },
   };

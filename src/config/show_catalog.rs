@@ -1,4 +1,4 @@
-use crate::config::textfsm;
+use crate::config::{custom_show_object_store, textfsm};
 use anyhow::{Result, anyhow};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -10,6 +10,15 @@ pub struct ShowCommand {
     pub platform: String,
     pub command: String,
     pub mode: Option<String>,
+    pub textfsm_mapping_command: Option<String>,
+    pub textfsm_template_name: Option<String>,
+    pub source: ShowCommandSource,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShowCommandSource {
+    Builtin,
+    Custom,
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,11 +87,33 @@ pub fn platform_for_show(device_profile: &str, override_platform: Option<&str>) 
 
 pub fn resolve_show_command(
     object: &str,
-    platform: &str,
+    platform: Option<&str>,
     device_profile: &str,
 ) -> Result<ShowCommand> {
     let normalized_object =
         normalize_show_object(object).ok_or_else(|| anyhow!("unknown show object '{}'", object))?;
+    if let Some(custom) =
+        custom_show_object_store::load_enabled(device_profile, &normalized_object)?
+    {
+        return Ok(ShowCommand {
+            object: custom.object,
+            platform: platform.unwrap_or_default().to_string(),
+            command: custom.command,
+            mode: custom.mode,
+            textfsm_mapping_command: custom.textfsm_mapping_command,
+            textfsm_template_name: custom.textfsm_template_name,
+            source: ShowCommandSource::Custom,
+        });
+    }
+
+    let Some(platform) = platform.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Err(anyhow!(
+            "show object '{}' is not available for profile '{}'; cannot infer NTC platform and no custom show object matches",
+            normalized_object,
+            device_profile
+        ));
+    };
+
     show_commands_for_platform(platform)
         .into_iter()
         .find(|entry| entry.object == normalized_object)
@@ -114,8 +145,39 @@ pub fn list_show_objects_for_platform(platform: &str) -> Vec<String> {
         .collect()
 }
 
-pub fn list_show_commands_for_platform(platform: &str) -> Vec<ShowCommand> {
-    show_commands_for_platform(platform)
+pub fn list_show_commands_for_profile(
+    device_profile: Option<&str>,
+    platform: Option<&str>,
+) -> Result<Vec<ShowCommand>> {
+    let mut commands = BTreeMap::new();
+
+    if let Some(platform) = platform.map(str::trim).filter(|value| !value.is_empty()) {
+        for command in show_commands_for_platform(platform) {
+            commands.insert(command.object.clone(), command);
+        }
+    }
+
+    if let Some(device_profile) = device_profile
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        for item in custom_show_object_store::list_enabled_for_profile(device_profile)? {
+            commands.insert(
+                item.object.clone(),
+                ShowCommand {
+                    object: item.object,
+                    platform: platform.unwrap_or_default().to_string(),
+                    command: item.command,
+                    mode: item.mode,
+                    textfsm_mapping_command: item.textfsm_mapping_command,
+                    textfsm_template_name: item.textfsm_template_name,
+                    source: ShowCommandSource::Custom,
+                },
+            );
+        }
+    }
+
+    Ok(commands.into_values().collect())
 }
 
 pub fn list_all_show_objects() -> Vec<String> {
@@ -177,6 +239,9 @@ fn load_friendly_show_commands() -> Vec<ShowCommand> {
                     .mode()
                     .or(platform_mode)
                     .map(ToOwned::to_owned),
+                textfsm_mapping_command: None,
+                textfsm_template_name: None,
+                source: ShowCommandSource::Builtin,
             });
         }
     }

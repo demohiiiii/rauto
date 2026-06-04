@@ -5,7 +5,6 @@
   import ShowExecuteFields from "./standard/ShowExecuteFields.svelte";
   import StandardModeTabs from "./standard/StandardModeTabs.svelte";
   import TemplateExecuteFields from "./standard/TemplateExecuteFields.svelte";
-  import TextfsmControls from "./standard/TextfsmControls.svelte";
   import { dashboardView } from "../state/dashboardView.js";
 
   let { active = false } = $props();
@@ -26,7 +25,6 @@
       </div>
       <div id="ops-main-body" class="group-body">
         <StandardModeTabs />
-        <TextfsmControls />
 
         <div id="op-exec-fields" class="grid gap-3">
           <DirectExecuteFields

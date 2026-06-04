@@ -1,10 +1,10 @@
 use crate::cli::{
-    ExecArgs, ReplayArgs, ShowArgs, TemplateArgs, TemplateCommands, TextfsmCommands,
-    TextfsmMappingCommands, TextfsmTemplateCommands,
+    ExecArgs, ReplayArgs, ShowArgs, ShowObjectCommands, TemplateArgs, TemplateCommands,
+    TextfsmCommands, TextfsmMappingCommands, TextfsmTemplateCommands,
 };
 use crate::config::{
-    command_blacklist, content_store, custom_textfsm_store, show_catalog, template_loader, textfsm,
-    textfsm_export,
+    command_blacklist, content_store, custom_show_object_store, custom_textfsm_store, show_catalog,
+    template_loader, textfsm, textfsm_export,
 };
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
@@ -210,7 +210,7 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
             opts.device_profile.as_deref().unwrap_or_default(),
             args.textfsm_platform.as_deref(),
         );
-        print_show_objects(platform.as_deref());
+        print_show_objects(opts.device_profile.as_deref(), platform.as_deref())?;
         return Ok(());
     }
 
@@ -224,14 +224,9 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let platform =
-        show_catalog::platform_for_show(&conn.device_profile, args.textfsm_platform.as_deref())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "cannot infer NTC platform from device profile '{}'; pass --textfsm-platform",
-                    conn.device_profile
-                )
-            })?;
-    let show = show_catalog::resolve_show_command(object, &platform, &conn.device_profile)?;
+        show_catalog::platform_for_show(&conn.device_profile, args.textfsm_platform.as_deref());
+    let show =
+        show_catalog::resolve_show_command(object, platform.as_deref(), &conn.device_profile)?;
     command_blacklist::ensure_command_allowed(&show.command, "show execution")?;
 
     let handler = template_loader::load_device_profile_for_connection(
@@ -263,6 +258,9 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         if let Some(mode) = show.mode.as_deref() {
             println!("# mapping_mode: {}", mode);
         }
+        if let Some(template_name) = show.textfsm_template_name.as_deref() {
+            println!("# textfsm_template: {}", template_name);
+        }
         println!("# effective_mode: {}", effective_mode);
     }
     info!(
@@ -285,12 +283,22 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
 
     println!("{}", output.content);
     if !args.no_parse && exit_code.unwrap_or(0) == 0 {
+        let template_content = show
+            .textfsm_template_name
+            .as_deref()
+            .map(|name| {
+                custom_textfsm_store::load_template(name)?
+                    .ok_or_else(|| anyhow::anyhow!("TextFSM template '{}' not found", name))
+            })
+            .transpose()?
+            .map(|template| template.content);
         let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
             &output.content,
             &show.command,
             &textfsm::ParseOptions {
+                template_content,
                 enabled: true,
-                platform: Some(platform),
+                platform,
                 device_profile: Some(conn.device_profile.clone()),
                 ..Default::default()
             },
@@ -318,27 +326,56 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
     Ok(())
 }
 
-fn print_show_objects(platform: Option<&str>) {
+fn print_show_objects(device_profile: Option<&str>, platform: Option<&str>) -> Result<()> {
     if let Some(platform) = platform.filter(|value| !value.trim().is_empty()) {
-        let commands = show_catalog::list_show_commands_for_platform(platform);
+        let commands =
+            show_catalog::list_show_commands_for_profile(device_profile, Some(platform))?;
         if commands.is_empty() {
             println!("# platform: {}", platform);
             println!("-");
-            return;
+            return Ok(());
         }
         println!("# platform: {}", platform);
         for command in commands {
+            let source = match command.source {
+                show_catalog::ShowCommandSource::Builtin => "builtin",
+                show_catalog::ShowCommandSource::Custom => "custom",
+            };
+            let mut suffixes = vec![format!("source: {source}")];
             if let Some(mode) = command.mode.as_deref() {
-                println!("- {} (mode: {})", command.object, mode);
-            } else {
-                println!("- {}", command.object);
+                suffixes.push(format!("mode: {mode}"));
             }
+            if let Some(template_name) = command.textfsm_template_name.as_deref() {
+                suffixes.push(format!("textfsm: {template_name}"));
+            }
+            println!("- {} ({})", command.object, suffixes.join(", "));
+        }
+    } else if let Some(device_profile) = device_profile
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let commands = show_catalog::list_show_commands_for_profile(Some(device_profile), None)?;
+        if commands.is_empty() {
+            println!("-");
+            return Ok(());
+        }
+        println!("# profile: {}", device_profile);
+        for command in commands {
+            let mut suffixes = vec!["source: custom".to_string()];
+            if let Some(mode) = command.mode.as_deref() {
+                suffixes.push(format!("mode: {mode}"));
+            }
+            if let Some(template_name) = command.textfsm_template_name.as_deref() {
+                suffixes.push(format!("textfsm: {template_name}"));
+            }
+            println!("- {} ({})", command.object, suffixes.join(", "));
         }
     } else {
         for object in show_catalog::list_all_show_objects() {
             println!("- {}", object);
         }
     }
+    Ok(())
 }
 
 fn write_textfsm_excel(path: &Path, sheets: Vec<textfsm_export::ParsedOutputSheet>) -> Result<()> {
@@ -415,6 +452,70 @@ pub(crate) fn run_textfsm_command(cmd: TextfsmCommands) -> Result<()> {
         TextfsmCommands::Template { command } => run_textfsm_template_command(command),
         TextfsmCommands::Mapping { command } => run_textfsm_mapping_command(command),
     }
+}
+
+pub(crate) fn run_show_object_command(cmd: ShowObjectCommands) -> Result<()> {
+    match cmd {
+        ShowObjectCommands::List { profile } => {
+            let items = custom_show_object_store::list(profile.as_deref())?;
+            if items.is_empty() {
+                println!("-");
+                return Ok(());
+            }
+            for item in items {
+                let mode = item.mode.as_deref().unwrap_or("-");
+                let mapping = item.textfsm_mapping_command.as_deref().unwrap_or("-");
+                let template = item.textfsm_template_name.as_deref().unwrap_or("-");
+                println!(
+                    "- profile={} object={} command={} mode={} textfsm_mapping_command={} textfsm_template={} enabled={} created_at_ms={} updated_at_ms={}",
+                    item.device_profile,
+                    item.object,
+                    item.command,
+                    mode,
+                    mapping,
+                    template,
+                    item.enabled,
+                    item.created_at_ms,
+                    item.updated_at_ms
+                );
+            }
+        }
+        ShowObjectCommands::Set {
+            profile,
+            object,
+            command,
+            mode,
+            textfsm_template,
+            textfsm_mapping_command,
+            disabled,
+        } => {
+            custom_show_object_store::upsert(
+                &profile,
+                &object,
+                &command,
+                mode.as_deref(),
+                textfsm_mapping_command.as_deref(),
+                textfsm_template.as_deref(),
+                !disabled,
+            )?;
+            println!(
+                "Saved show object '{}' for profile='{}' command='{}'",
+                object, profile, command
+            );
+        }
+        ShowObjectCommands::Delete { profile, object } => {
+            let deleted = custom_show_object_store::delete(&profile, &object)?;
+            if !deleted {
+                return Err(anyhow::anyhow!(
+                    "show object '{}' not found for profile='{}'",
+                    object,
+                    profile
+                ));
+            }
+            println!("Deleted show object '{}' for profile='{}'", object, profile);
+        }
+    }
+    Ok(())
 }
 
 fn run_textfsm_template_command(cmd: TextfsmTemplateCommands) -> Result<()> {

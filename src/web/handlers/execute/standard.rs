@@ -116,11 +116,14 @@ pub async fn exec_command(
         let (parsed_output, parse_error) = parse_textfsm_output_optional(
             &output.content,
             &req.command,
-            req.textfsm_template.as_deref(),
-            req.parse_textfsm,
-            req.textfsm_platform.as_deref(),
-            Some(conn.device_profile.as_str()),
-            req.textfsm_vendor.as_deref(),
+            WebTextfsmParseOptions {
+                template_file: req.textfsm_template.as_deref(),
+                enabled: req.parse_textfsm,
+                platform: req.textfsm_platform.as_deref(),
+                device_profile: Some(conn.device_profile.as_str()),
+                vendor: req.textfsm_vendor.as_deref(),
+                ..Default::default()
+            },
         );
         persist_history_if_recorded(
             &conn,
@@ -215,12 +218,38 @@ pub async fn list_show_objects(
         query.textfsm_platform.as_deref(),
     );
     let objects = if let Some(platform) = platform.as_deref() {
-        show_catalog::list_show_commands_for_platform(platform)
+        show_catalog::list_show_commands_for_profile(
+            query.device_profile.as_deref(),
+            Some(platform),
+        )
+        .map_err(ApiError::from)?
+        .into_iter()
+        .map(|item| ShowObjectEntry {
+            object: item.object,
+            command: item.command,
+            mode: item.mode,
+            textfsm_mapping_command: item.textfsm_mapping_command,
+            source: show_command_source_label(item.source).to_string(),
+            textfsm_template_name: item.textfsm_template_name,
+        })
+        .collect()
+    } else if query
+        .device_profile
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some()
+    {
+        show_catalog::list_show_commands_for_profile(query.device_profile.as_deref(), None)
+            .map_err(ApiError::from)?
             .into_iter()
             .map(|item| ShowObjectEntry {
                 object: item.object,
                 command: item.command,
                 mode: item.mode,
+                textfsm_mapping_command: item.textfsm_mapping_command,
+                source: show_command_source_label(item.source).to_string(),
+                textfsm_template_name: item.textfsm_template_name,
             })
             .collect()
     } else {
@@ -230,6 +259,9 @@ pub async fn list_show_objects(
                 object,
                 command: String::new(),
                 mode: None,
+                textfsm_mapping_command: None,
+                source: "builtin".to_string(),
+                textfsm_template_name: None,
             })
             .collect()
     };
@@ -266,15 +298,13 @@ pub async fn execute_show(
         )?)
         .await?;
         let platform =
-            show_catalog::platform_for_show(&conn.device_profile, req.textfsm_platform.as_deref())
-                .ok_or_else(|| {
-                    ApiError::bad_request(format!(
-                        "cannot infer NTC platform from device profile '{}'",
-                        conn.device_profile
-                    ))
-                })?;
-        let show = show_catalog::resolve_show_command(&req.object, &platform, &conn.device_profile)
-            .map_err(|err| ApiError::bad_request(err.to_string()))?;
+            show_catalog::platform_for_show(&conn.device_profile, req.textfsm_platform.as_deref());
+        let show = show_catalog::resolve_show_command(
+            &req.object,
+            platform.as_deref(),
+            &conn.device_profile,
+        )
+        .map_err(|err| ApiError::bad_request(err.to_string()))?;
         command_blacklist::ensure_command_allowed(&show.command, "show execution")
             .map_err(|err| ApiError::bad_request(err.to_string()))?;
 
@@ -341,14 +371,28 @@ pub async fn execute_show(
             .await?;
         let exit_code = output.exit_code;
         let should_parse = !req.no_parse && exit_code.unwrap_or(0) == 0;
+        let textfsm_template_content = show
+            .textfsm_template_name
+            .as_deref()
+            .map(|name| {
+                custom_textfsm_store::load_template(name)
+                    .map_err(ApiError::from)?
+                    .ok_or_else(|| {
+                        ApiError::bad_request(format!("TextFSM template '{}' not found", name))
+                    })
+            })
+            .transpose()?
+            .map(|template| template.content);
         let (parsed_output, parse_error) = parse_textfsm_output_optional(
             &output.content,
             &show.command,
-            None,
-            should_parse,
-            Some(platform.as_str()),
-            Some(conn.device_profile.as_str()),
-            None,
+            WebTextfsmParseOptions {
+                template_content: textfsm_template_content.as_deref(),
+                enabled: should_parse,
+                platform: platform.as_deref(),
+                device_profile: Some(conn.device_profile.as_str()),
+                ..Default::default()
+            },
         );
         persist_history_if_recorded(
             &conn,
@@ -361,11 +405,17 @@ pub async fn execute_show(
         let recording_jsonl = client.recording_jsonl()?;
         let object = show.object.clone();
         let command = show.command.clone();
+        let source = show_command_source_label(show.source).to_string();
+        let textfsm_mapping_command = show.textfsm_mapping_command.clone();
+        let textfsm_template_name = show.textfsm_template_name.clone();
         Ok(ShowExecuteResponse {
             object,
-            platform,
+            platform: platform.unwrap_or_default(),
             command: command.clone(),
             mode: effective_mode.clone(),
+            source,
+            textfsm_mapping_command,
+            textfsm_template_name,
             output: output.content,
             exit_code,
             parsed_output,
@@ -426,6 +476,13 @@ pub async fn execute_show(
     }
     spawn_task_callback(state, task_ctx, &result);
     result.map(Json)
+}
+
+fn show_command_source_label(source: show_catalog::ShowCommandSource) -> &'static str {
+    match source {
+        show_catalog::ShowCommandSource::Builtin => "builtin",
+        show_catalog::ShowCommandSource::Custom => "custom",
+    }
 }
 
 pub async fn execute_template(
@@ -576,11 +633,14 @@ pub async fn execute_template(
                     let (parsed_output, parse_error) = parse_textfsm_output_optional(
                         &output.content,
                         &cmd,
-                        req.textfsm_template.as_deref(),
-                        req.parse_textfsm,
-                        req.textfsm_platform.as_deref(),
-                        Some(conn.device_profile.as_str()),
-                        req.textfsm_vendor.as_deref(),
+                        WebTextfsmParseOptions {
+                            template_file: req.textfsm_template.as_deref(),
+                            enabled: req.parse_textfsm,
+                            platform: req.textfsm_platform.as_deref(),
+                            device_profile: Some(conn.device_profile.as_str()),
+                            vendor: req.textfsm_vendor.as_deref(),
+                            ..Default::default()
+                        },
                     );
                     emit_task_event(
                         &state,

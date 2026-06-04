@@ -59,6 +59,9 @@ pub struct ShowObjectEntry {
     pub object: String,
     pub command: String,
     pub mode: Option<String>,
+    pub textfsm_mapping_command: Option<String>,
+    pub source: String,
+    pub textfsm_template_name: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -87,6 +90,9 @@ pub struct ShowExecuteResponse {
     pub platform: String,
     pub command: String,
     pub mode: String,
+    pub source: String,
+    pub textfsm_mapping_command: Option<String>,
+    pub textfsm_template_name: Option<String>,
     pub output: String,
     pub exit_code: Option<i32>,
     pub parsed_output: Option<Value>,

@@ -364,6 +364,43 @@ export function deleteTextfsmMapping({ device_profile, command }) {
   });
 }
 
+export function listCustomShowObjects(profile = "") {
+  const params = new URLSearchParams();
+  if (profile) params.set("profile", profile);
+  const query = params.toString();
+  return apiRequest(
+    "GET",
+    `/api/show/custom-objects${query ? `?${query}` : ""}`,
+  );
+}
+
+export function saveCustomShowObject({
+  device_profile,
+  object,
+  command,
+  mode,
+  textfsm_mapping_command,
+  textfsm_template_name,
+  enabled = true,
+}) {
+  return apiRequest("POST", "/api/show/custom-objects", {
+    device_profile,
+    object,
+    command,
+    mode,
+    textfsm_mapping_command,
+    textfsm_template_name,
+    enabled,
+  });
+}
+
+export function deleteCustomShowObject({ device_profile, object }) {
+  return apiRequest("DELETE", "/api/show/custom-objects", {
+    device_profile,
+    object,
+  });
+}
+
 export function listTemplateResource(basePath) {
   return apiRequest("GET", basePath);
 }
