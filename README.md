@@ -14,7 +14,7 @@
 
 </div>
 
-`rauto` is a Rust-based network automation toolkit for operating network devices through CLI, Web, and agent APIs. It builds on [rneter](https://github.com/demohiiiii/rneter) for SSH session handling and [minijinja](https://github.com/mitsuhiko/minijinja) for command templating, providing a simple, high-performance interface for network engineers, automation developers, and AI-driven workflows that need reliable device access, transaction execution, and multi-device orchestration.
+`rauto` is an out-of-the-box Rust-based network automation toolkit for operating network devices through CLI, Web, and agent APIs. It builds on [rneter](https://github.com/demohiiiii/rneter) for SSH session handling and [minijinja](https://github.com/mitsuhiko/minijinja) for command templating, providing a simple, high-performance interface for network engineers, automation developers, and AI-driven workflows that need reliable device access, transaction execution, and multi-device orchestration.
 
 ## Quick Start
 
@@ -64,6 +64,7 @@ rauto web --bind 127.0.0.1 --port 3000
 
 ## Features
 
+- **Out-of-the-box Show Queries**: Built-in show objects, TextFSM parsing, and Excel export for single-device and multi-device queries across saved connections, inventory groups, and labels.
 - **Double Template System**: Command Templates (Jinja2) & Device Profiles (TOML).
 - **Intelligent Connection Handling**: Uses `rneter` for SSH state management.
 - **Dry Run Support**: Preview commands before execution.
@@ -213,7 +214,7 @@ rauto show interfaces \
 
 Useful objects include `version`, `interfaces`, `interface-brief`, `route`, `arp`, `lldp`, `mac`, `vlan`, `access-list`, `object-group`, `security-policy`, and `nat-policy`; use `--list` to view every object available for the selected platform.
 Objects are defined in the bundled `assets/show_catalog/commands-mapping.toml` command table. The table can bind a platform-level or per-object execution mode; explicit `--mode` still takes precedence, then the mapping mode, then the profile default mode.
-TextFSM parsing still uses the bundled NTC templates after execution unless a custom show object binds a custom TextFSM template.
+The show feature is mainly powered by command indexes and TextFSM parsers from [ntc-templates](https://github.com/networktocode/ntc-templates): `rauto` consolidates semantically equivalent queries across platforms into stable objects such as `interfaces`, `route`, `arp`, and `vlan`. TextFSM parsing uses the bundled [ntc-templates](https://github.com/networktocode/ntc-templates) templates after execution unless a custom show object binds a custom TextFSM template.
 
 ```bash
 rauto show --list --device-profile cisco_ios
@@ -256,13 +257,13 @@ rauto show-object delete --profile my_custom_profile --object access-list
 - Parsing is off by default. Pass `--parse-textfsm` to enable TextFSM parsing.
 - Manual parsing: pass `--textfsm-template <path>` to use a specific TextFSM template file. This has the highest priority.
 - Multi-command parsing: `template` and `flow` can repeat `--textfsm-template <path>` to match template files by command order. If fewer template files are provided than commands, the last template file is reused for the remaining commands.
-- Platform selection: when parsing is enabled and `--textfsm-platform` is omitted, `rauto` infers the NTC platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
+- Platform selection: when parsing is enabled and `--textfsm-platform` is omitted, `rauto` infers the [ntc-templates](https://github.com/networktocode/ntc-templates) platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
 - Platform override: pass `--textfsm-platform <platform>` only when you want to override the inferred platform after enabling parsing.
 - Excel export: pass `--textfsm-excel <file.xlsx>` to export successful parsed rows to an Excel workbook. This also enables TextFSM parsing for `exec`, `template`, and `flow`.
 - If parsing is disabled and no manual template is provided, only raw output is shown.
 - Parsing never blocks execution. If parsing fails, raw output is still returned and the parse error is reported separately.
 
-Custom TextFSM templates and mappings can be saved in SQLite. When parsing is enabled and no explicit `--textfsm-template` is provided, rauto first checks the custom mapping `(device_profile, command) -> template`; if no custom mapping matches, it falls back to the bundled NTC templates.
+Custom TextFSM templates and mappings can be saved in SQLite. When parsing is enabled and no explicit `--textfsm-template` is provided, rauto first checks the custom mapping `(device_profile, command) -> template`; if no custom mapping matches, it falls back to the bundled [ntc-templates](https://github.com/networktocode/ntc-templates) templates.
 
 In the web UI, open **Template Manager -> TextFSM Templates** to manage the same custom TextFSM templates, profile command mappings, and custom show objects.
 

@@ -14,7 +14,7 @@
 
 </div>
 
-`rauto` 是一个用 Rust 编写的网络自动化工具集，提供 CLI、Web 和 agent API 三种操作入口，用于统一操作各类网络设备。它基于 [rneter](https://github.com/demohiiiii/rneter) 处理 SSH 会话连接，基于 [minijinja](https://github.com/mitsuhiko/minijinja) 实现命令模板渲染，为网络工程师、自动化开发者以及 AI 驱动的网络控制场景提供简单、高性能、可扩展的设备访问、事务执行和多设备编排能力。
+`rauto` 是一个用 Rust 编写的开箱即用的网络自动化工具集，提供 CLI、Web 和 agent API 三种操作入口，用于统一操作各类网络设备。它基于 [rneter](https://github.com/demohiiiii/rneter) 处理 SSH 会话连接，基于 [minijinja](https://github.com/mitsuhiko/minijinja) 实现命令模板渲染，为网络工程师、自动化开发者以及 AI 驱动的网络控制场景提供简单、高性能、可扩展的设备访问、事务执行和多设备编排能力。
 
 ## 快速开始
 
@@ -64,6 +64,7 @@ rauto web --bind 127.0.0.1 --port 3000
 
 ## 功能特性
 
+- **开箱即用的查询能力**：内置 show 对象、TextFSM 解析和 Excel 导出，Web 端支持单设备/多设备按对象查询，CLI 支持按连接名、分组和标签批量执行。
 - **双层模板系统**：命令模板 (Jinja2) 与 设备配置模板 (TOML)。
 - **智能连接处理**：使用 `rneter` 管理 SSH 会话状态。
 - **Dry Run 支持**：在执行前预览命令。
@@ -213,7 +214,7 @@ rauto show interfaces \
 
 对象包括 `version`、`interfaces`、`interface-brief`、`route`、`arp`、`lldp`、`mac`、`vlan`、`access-list`、`object-group`、`security-policy`、`nat-policy` 等；可用 `--list` 查看当前平台支持的全部对象。
 这些对象定义在内置的 `assets/show_catalog/commands-mapping.toml` 命令表中；命令表可以绑定平台级或单个对象的执行 mode。显式传入的 `--mode` 优先级最高，其次是命令表绑定的 mode，最后才是 profile 默认 mode。
-命令执行后的 TextFSM 解析默认使用内置 NTC 模板；如果自定义 show object 绑定了自定义 TextFSM 模板，则优先使用绑定模板。
+当前 show 功能主要基于 [ntc-templates](https://github.com/networktocode/ntc-templates) 提供的命令索引和 TextFSM 解析模板：`rauto` 把不同平台中语义相同的查询整合成统一 object，例如 `interfaces`、`route`、`arp`、`vlan`。命令执行后的 TextFSM 解析默认使用内置的 [ntc-templates](https://github.com/networktocode/ntc-templates) 模板；如果自定义 show object 绑定了自定义 TextFSM 模板，则优先使用绑定模板。
 
 ```bash
 rauto show --list --device-profile cisco_ios
@@ -256,13 +257,13 @@ rauto show-object delete --profile my_custom_profile --object access-list
 - 默认不会解析。需要解析时传 `--parse-textfsm`。
 - 手动解析：传 `--textfsm-template <path>`，使用指定 TextFSM 模板文件，优先级最高。
 - 多命令解析：`template` 和 `flow` 可以重复传多个 `--textfsm-template <path>`，按命令顺序匹配模板文件；如果模板文件数量少于命令数量，最后一个模板会用于后续所有命令。
-- 平台推断：启用解析且未传 `--textfsm-platform` 时，`rauto` 会从当前连接的 device profile 推断 NTC platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
+- 平台推断：启用解析且未传 `--textfsm-platform` 时，`rauto` 会从当前连接的 device profile 推断 [ntc-templates](https://github.com/networktocode/ntc-templates) platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
 - 平台覆盖：只有在你想在启用解析后强制覆盖推断结果，或者按其他 NTC platform 解析时，才传 `--textfsm-platform <platform>`。
 - Excel 导出：传 `--textfsm-excel <file.xlsx>` 可以把解析成功的表格行导出为 Excel 工作簿。对 `exec`、`template` 和 `flow` 来说，这个参数也会启用 TextFSM 解析。
 - 如果没有启用解析，也没有指定模板，则只展示原始输出。
 - 解析失败不会阻断命令执行；原始输出仍会返回，解析错误会单独展示。
 
-自定义 TextFSM 模板和映射可以保存到 SQLite。启用解析且没有显式传 `--textfsm-template` 时，`rauto` 会先查自定义映射 `(device_profile, command) -> template`；没有命中时，才回退到内置 NTC 模板。
+自定义 TextFSM 模板和映射可以保存到 SQLite。启用解析且没有显式传 `--textfsm-template` 时，`rauto` 会先查自定义映射 `(device_profile, command) -> template`；没有命中时，才回退到内置 [ntc-templates](https://github.com/networktocode/ntc-templates) 模板。
 
 Web UI 中可以在 **Template Manager -> TextFSM Templates** 管理同一套自定义 TextFSM 模板、profile 命令映射和自定义 show object。
 
