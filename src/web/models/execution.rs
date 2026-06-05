@@ -38,6 +38,8 @@ pub struct ExecRequest {
     pub textfsm_platform: Option<String>,
     #[serde(default)]
     pub textfsm_vendor: Option<String>,
+    #[serde(default)]
+    pub textfsm_strict_errors: bool,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
     #[serde(flatten)]
@@ -78,6 +80,8 @@ pub struct ShowExecuteRequest {
     pub textfsm_platform: Option<String>,
     #[serde(default)]
     pub no_parse: bool,
+    #[serde(default)]
+    pub textfsm_strict_errors: bool,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
     #[serde(flatten)]
@@ -111,6 +115,8 @@ pub struct ShowBatchExecuteRequest {
     pub textfsm_platform: Option<String>,
     #[serde(default)]
     pub no_parse: bool,
+    #[serde(default)]
+    pub textfsm_strict_errors: bool,
     #[serde(default)]
     pub targets: Vec<String>,
     #[serde(default)]
@@ -162,6 +168,8 @@ pub struct ExecuteTemplateRequest {
     pub textfsm_platform: Option<String>,
     #[serde(default)]
     pub textfsm_vendor: Option<String>,
+    #[serde(default)]
+    pub textfsm_strict_errors: bool,
     #[serde(flatten)]
     pub run: DryRunOptions,
     pub template_dir: Option<String>,
@@ -207,6 +215,8 @@ pub struct ExecuteCommandFlowRequest {
     pub textfsm_platform: Option<String>,
     #[serde(default)]
     pub textfsm_vendor: Option<String>,
+    #[serde(default)]
+    pub textfsm_strict_errors: bool,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
 }

@@ -900,9 +900,11 @@ export const i18nZh = {
   templateModePlaceholder: "模式（可选，默认使用 profile 的首个状态）",
   textfsmTemplatePlaceholder: "TextFSM 模板文件路径（可选）",
   textfsmPlatformPlaceholder: "不覆盖平台",
+  textfsmPlatformOverride: "TextFSM 平台覆盖",
   textfsmParseToggle: "启用 TextFSM 解析",
   textfsmParseHint:
-    "关闭时跳过解析。可以填写模板文件手动解析，也可以启用解析并配合平台信息，让 NTC 模板自动选择解析器。",
+    "关闭时跳过解析。默认会过滤 NTC 模板里的 Error 兜底规则；如需严格保留，可以打开严格模式。",
+  textfsmStrictErrorsToggle: "严格保留 TextFSM Error 规则",
   textfsmExportExcel: "导出 Excel",
   textfsmExportAllExcel: "全量导出 Excel",
   invalidModeTitle: "无效模式",

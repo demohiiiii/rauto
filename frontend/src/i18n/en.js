@@ -937,9 +937,11 @@ export const i18nEn = {
   templateModePlaceholder: "mode (optional, uses profile default)",
   textfsmTemplatePlaceholder: "TextFSM template file path (optional)",
   textfsmPlatformPlaceholder: "No platform override",
+  textfsmPlatformOverride: "TextFSM platform override",
   textfsmParseToggle: "Enable TextFSM parsing",
   textfsmParseHint:
-    "Leave it off to skip parsing. Use a template file for manual parsing, or enable it with platform to let NTC templates auto-select the parser.",
+    "Leave it off to skip parsing. NTC template Error fallback rules are filtered by default; enable strict mode to keep them.",
+  textfsmStrictErrorsToggle: "Keep TextFSM Error rules",
   textfsmExportExcel: "Export Excel",
   textfsmExportAllExcel: "Export All Excel",
   customProfilePickerPlaceholder: "search/select custom profile name",

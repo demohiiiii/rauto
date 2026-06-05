@@ -153,16 +153,28 @@
     <select
       id="batch-textfsm-platform"
       class="select"
-      title="TextFSM platform override"
-      aria-label="TextFSM platform override"
+      title={tr("textfsmPlatformOverride")}
+      aria-label={tr("textfsmPlatformOverride")}
     >
       <option value="">{tr("textfsmPlatformPlaceholder")}</option>
     </select>
     <input
       id="batch-textfsm-excel-name"
       class="input"
-      placeholder="Excel filename, e.g. route.xlsx"
+      placeholder={tr("batchShowExcelNamePlaceholder")}
     />
+    <label
+      class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 md:col-span-2"
+    >
+      <input
+        id="batch-textfsm-strict-errors"
+        type="checkbox"
+        class="toggle toggle-sm"
+      />
+      <span id="batch-textfsm-strict-errors-label"
+        >{tr("textfsmStrictErrorsToggle")}</span
+      >
+    </label>
   </div>
 
   <div
@@ -177,7 +189,7 @@
       class="btn btn-primary btn-sm"
       type="button"
     >
-      Execute Batch Show
+      {tr("batchShowExecuteBtn")}
     </button>
   </div>
   <div id="batch-show-out" class="grid min-w-0 max-w-full gap-2"></div>

@@ -937,21 +937,23 @@ function applyI18n() {
   if (byId("textfsm-platform")) {
     byId("textfsm-platform").setAttribute(
       "title",
-      t("textfsmPlatformPlaceholder"),
+      t("textfsmPlatformOverride"),
     );
     byId("textfsm-platform").setAttribute(
       "aria-label",
-      t("textfsmPlatformPlaceholder"),
+      t("textfsmPlatformOverride"),
     );
   }
-  byId("batch-textfsm-platform").setAttribute(
-    "title",
-    t("textfsmPlatformPlaceholder"),
-  );
-  byId("batch-textfsm-platform").setAttribute(
-    "aria-label",
-    t("textfsmPlatformPlaceholder"),
-  );
+  if (byId("batch-textfsm-platform")) {
+    byId("batch-textfsm-platform").setAttribute(
+      "title",
+      t("textfsmPlatformOverride"),
+    );
+    byId("batch-textfsm-platform").setAttribute(
+      "aria-label",
+      t("textfsmPlatformOverride"),
+    );
+  }
   callDashboardHook("renderTextfsmPlatformOptions");
   if (byId("parse-textfsm")?.nextElementSibling) {
     byId("parse-textfsm").nextElementSibling.textContent =
@@ -960,8 +962,22 @@ function applyI18n() {
   if (byId("textfsm-parse-hint")) {
     byId("textfsm-parse-hint").textContent = t("textfsmParseHint");
   }
-  byId("batch-textfsm-parse-label").textContent = t("textfsmParseToggle");
-  byId("batch-textfsm-parse-hint").textContent = t("batchTextfsmParseHint");
+  if (byId("textfsm-strict-errors-label")) {
+    byId("textfsm-strict-errors-label").textContent = t(
+      "textfsmStrictErrorsToggle",
+    );
+  }
+  if (byId("batch-textfsm-parse-label")) {
+    byId("batch-textfsm-parse-label").textContent = t("textfsmParseToggle");
+  }
+  if (byId("batch-textfsm-parse-hint")) {
+    byId("batch-textfsm-parse-hint").textContent = t("batchTextfsmParseHint");
+  }
+  if (byId("batch-textfsm-strict-errors-label")) {
+    byId("batch-textfsm-strict-errors-label").textContent = t(
+      "textfsmStrictErrorsToggle",
+    );
+  }
   byId("custom-profile-picker").setAttribute(
     "title",
     t("customProfileSelectPlaceholder"),

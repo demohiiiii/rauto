@@ -259,6 +259,7 @@ rauto show-object delete --profile my_custom_profile --object access-list
 - Multi-command parsing: `template` and `flow` can repeat `--textfsm-template <path>` to match template files by command order. If fewer template files are provided than commands, the last template file is reused for the remaining commands.
 - Platform selection: when parsing is enabled and `--textfsm-platform` is omitted, `rauto` infers the [ntc-templates](https://github.com/networktocode/ntc-templates) platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
 - Platform override: pass `--textfsm-platform <platform>` only when you want to override the inferred platform after enabling parsing.
+- Lenient NTC parsing: by default, `rauto` filters TextFSM fallback rules such as `^. -> Error` before parsing, which avoids failing the whole parse when a template does not match a non-essential line. Pass `--textfsm-strict-errors` to keep those Error rules.
 - Excel export: pass `--textfsm-excel <file.xlsx>` to export successful parsed rows to an Excel workbook. This also enables TextFSM parsing for `exec`, `template`, and `flow`.
 - If parsing is disabled and no manual template is provided, only raw output is shown.
 - Parsing never blocks execution. If parsing fails, raw output is still returned and the parse error is reported separately.
@@ -1219,6 +1220,7 @@ Common command-specific options:
 - `exec/template/flow --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
 - `exec/template/flow --textfsm-platform <platform>`: Override the inferred NTC platform after parsing is enabled.
 - `exec/template/flow --textfsm-template <path>`: Parse command output with a specific TextFSM template file. For `template` and `flow`, repeat this option to match templates by command order; the last template is reused for remaining commands.
+- `show/exec/template/flow --textfsm-strict-errors`: Keep TextFSM `-> Error` rules instead of filtering them before parsing.
 - `show/exec/template/flow --textfsm-excel <file.xlsx>`: Export successful TextFSM parsed rows to Excel.
 - `textfsm template ...`: Manage custom TextFSM templates saved in SQLite.
 - `textfsm mapping ...`: Manage custom `(device profile, command) -> TextFSM template` mappings. These mappings have higher priority than bundled NTC templates when parsing is enabled and no explicit template file is provided.

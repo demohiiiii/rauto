@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use rust_embed::RustEmbed;
 use serde_json::Value;
-use std::borrow::ToOwned;
+use std::borrow::{Cow, ToOwned};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -20,7 +20,7 @@ pub struct AutoParseAttributes {
     pub vendor: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ParseOptions {
     pub template_file: Option<std::path::PathBuf>,
     pub template_content: Option<String>,
@@ -28,6 +28,21 @@ pub struct ParseOptions {
     pub platform: Option<String>,
     pub device_profile: Option<String>,
     pub vendor: Option<String>,
+    pub filter_error_rules: bool,
+}
+
+impl Default for ParseOptions {
+    fn default() -> Self {
+        Self {
+            template_file: None,
+            template_content: None,
+            enabled: false,
+            platform: None,
+            device_profile: None,
+            vendor: None,
+            filter_error_rules: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -69,11 +84,16 @@ impl AutoParseAttributes {
 }
 
 pub fn parse_output_with_template_content(template_content: &str, output: &str) -> Result<Value> {
-    parse_output_with_template_content_named("<inline>", template_content, output)
+    parse_output_with_template_content_named("<inline>", template_content, output, true)
 }
 
-fn parse_output_with_template_content_inner(template_content: &str, output: &str) -> Result<Value> {
-    let template = textfsm_rust::Template::parse_str(template_content)
+fn parse_output_with_template_content_inner(
+    template_content: &str,
+    output: &str,
+    filter_error_rules: bool,
+) -> Result<Value> {
+    let effective_content = maybe_filter_textfsm_error_rules(template_content, filter_error_rules);
+    let template = textfsm_rust::Template::parse_str(&effective_content)
         .context("failed to parse TextFSM template")?;
     let mut parser = template.parser();
     let records = parser
@@ -86,17 +106,22 @@ fn parse_output_with_template_content_named(
     template_name: &str,
     template_content: &str,
     output: &str,
+    filter_error_rules: bool,
 ) -> Result<Value> {
-    parse_output_with_template_content_inner(template_content, output).map_err(|err| {
-        textfsm_error_with_template_contexts(
-            err,
-            &[TextfsmTemplateDebugContext {
-                name: template_name.to_string(),
-                content: template_content.to_string(),
-                index_line: None,
-            }],
-        )
-    })
+    parse_output_with_template_content_inner(template_content, output, filter_error_rules).map_err(
+        |err| {
+            let effective_content =
+                maybe_filter_textfsm_error_rules(template_content, filter_error_rules).into_owned();
+            textfsm_error_with_template_contexts(
+                err,
+                &[TextfsmTemplateDebugContext {
+                    name: template_name.to_string(),
+                    content: effective_content,
+                    index_line: None,
+                }],
+            )
+        },
+    )
 }
 
 pub fn parse_output_with_template_file(template_file: &Path, output: &str) -> Result<Value> {
@@ -110,13 +135,38 @@ pub fn parse_output_with_template_file(template_file: &Path, output: &str) -> Re
         &template_file.display().to_string(),
         &template_content,
         output,
+        true,
     )
 }
 
 pub fn parse_output_with_auto_selection(output: &str, attrs: AutoParseAttributes) -> Result<Value> {
+    parse_output_with_auto_selection_filtered(output, attrs, true)
+}
+
+fn parse_output_with_auto_selection_filtered(
+    output: &str,
+    attrs: AutoParseAttributes,
+    filter_error_rules: bool,
+) -> Result<Value> {
     let table = cli_table()?;
     let attrs = attrs.to_map();
     let template_contexts = selected_ntc_template_contexts(table, &attrs);
+    if filter_error_rules && !template_contexts.is_empty() {
+        let effective_contexts = filtered_template_contexts(&template_contexts);
+        let mut last_error = None;
+        for context in &effective_contexts {
+            match parse_output_with_template_content_inner(&context.content, output, false) {
+                Ok(value) => return Ok(value),
+                Err(err) => last_error = Some(err),
+            }
+        }
+        if let Some(err) = last_error {
+            return Err(textfsm_error_with_template_contexts(
+                err,
+                &effective_contexts,
+            ));
+        }
+    }
     let parsed = table
         .parse_cmd(output, &attrs)
         .map_err(|err| textfsm_error_with_template_contexts(err, &template_contexts))?;
@@ -130,10 +180,32 @@ pub fn parse_command_output(output: &str, command: &str, options: &ParseOptions)
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        return parse_output_with_template_content(template_content, output);
+        if options.filter_error_rules {
+            return parse_output_with_template_content(template_content, output);
+        }
+        return parse_output_with_template_content_named(
+            "<inline>",
+            template_content,
+            output,
+            options.filter_error_rules,
+        );
     }
     if let Some(template_file) = options.template_file.as_deref() {
-        return parse_output_with_template_file(template_file, output);
+        if options.filter_error_rules {
+            return parse_output_with_template_file(template_file, output);
+        }
+        let template_content = fs::read_to_string(template_file).with_context(|| {
+            format!(
+                "failed to read TextFSM template '{}'",
+                template_file.display()
+            )
+        })?;
+        return parse_output_with_template_content_named(
+            &template_file.display().to_string(),
+            &template_content,
+            output,
+            options.filter_error_rules,
+        );
     }
     if let Some(custom_template) =
         crate::config::custom_textfsm_store::resolve_template_for_command(
@@ -150,17 +222,19 @@ pub fn parse_command_output(output: &str, command: &str, options: &ParseOptions)
             ),
             &custom_template.template_content,
             output,
+            options.filter_error_rules,
         );
     }
     let platform = effective_platform(options);
-    parse_output_with_auto_selection(
-        output,
-        AutoParseAttributes {
-            command: Some(command.to_string()),
-            platform,
-            vendor: options.vendor.clone(),
-        },
-    )
+    let attrs = AutoParseAttributes {
+        command: Some(command.to_string()),
+        platform,
+        vendor: options.vendor.clone(),
+    };
+    if options.filter_error_rules {
+        return parse_output_with_auto_selection(output, attrs);
+    }
+    parse_output_with_auto_selection_filtered(output, attrs, false)
 }
 
 pub fn parse_command_output_optional(
@@ -353,9 +427,53 @@ fn selected_ntc_template_contexts(
         .unwrap_or_default()
 }
 
+fn filtered_template_contexts(
+    contexts: &[TextfsmTemplateDebugContext],
+) -> Vec<TextfsmTemplateDebugContext> {
+    contexts
+        .iter()
+        .map(|context| TextfsmTemplateDebugContext {
+            name: context.name.clone(),
+            content: maybe_filter_textfsm_error_rules(&context.content, true).into_owned(),
+            index_line: context.index_line,
+        })
+        .collect()
+}
+
 fn embedded_ntc_template_content(template_name: &str) -> Option<String> {
     NtcTemplates::get(template_name)
         .map(|content| String::from_utf8_lossy(content.data.as_ref()).into_owned())
+}
+
+fn maybe_filter_textfsm_error_rules(content: &str, filter_error_rules: bool) -> Cow<'_, str> {
+    if !filter_error_rules {
+        return Cow::Borrowed(content);
+    }
+    let mut changed = false;
+    let mut filtered = content
+        .lines()
+        .filter(|line| {
+            let keep = !is_textfsm_error_rule(line);
+            changed |= !keep;
+            keep
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if !changed {
+        return Cow::Borrowed(content);
+    }
+    if content.ends_with('\n') {
+        filtered.push('\n');
+    }
+    Cow::Owned(filtered)
+}
+
+fn is_textfsm_error_rule(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed == "^. -> Error"
+        || trimmed.starts_with("^. -> Error ")
+        || trimmed == "^.* -> Error"
+        || trimmed.starts_with("^.* -> Error ")
 }
 
 fn textfsm_error_with_template_contexts<E>(
@@ -513,5 +631,27 @@ mod tests {
         assert!(message.contains("template: cisco_ios_show_version.textfsm; index line 42"));
         assert!(message.contains("   1: Value VERSION"));
         assert!(message.contains("   4:   ^Version ${VERSION} -> Record"));
+    }
+
+    #[test]
+    fn filters_textfsm_error_rules_by_default() {
+        let content = "Value NAME (\\S+)\n\nStart\n  ^Name: ${NAME} -> Record\n  ^. -> Error\n";
+
+        let filtered = maybe_filter_textfsm_error_rules(content, true);
+
+        assert!(!filtered.contains("^. -> Error"));
+        assert!(filtered.ends_with('\n'));
+        assert!(maybe_filter_textfsm_error_rules(content, false).contains("^. -> Error"));
+    }
+
+    #[test]
+    fn parses_output_after_filtering_error_rule() {
+        let template = "Value NAME (\\S+)\n\nStart\n  ^Name: ${NAME} -> Record\n  ^. -> Error\n";
+        let output = "Name: rauto\nignored line\n";
+
+        let parsed =
+            parse_output_with_template_content_inner(template, output, true).expect("parse output");
+
+        assert_eq!(parsed.as_array().map(Vec::len), Some(1));
     }
 }

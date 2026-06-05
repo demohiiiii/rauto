@@ -42,6 +42,10 @@ pub struct TemplateArgs {
     #[arg(long)]
     pub textfsm_excel: Option<PathBuf>,
 
+    /// Keep TextFSM Error rules such as `^. -> Error` instead of filtering them
+    #[arg(long)]
+    pub textfsm_strict_errors: bool,
+
     /// Dry run: render the template but do not execute on device
     #[arg(long)]
     pub dry_run: bool,
@@ -89,6 +93,10 @@ pub struct CommandFlowArgs {
     /// Export successful TextFSM parsed output to an Excel .xlsx file
     #[arg(long)]
     pub textfsm_excel: Option<PathBuf>,
+
+    /// Keep TextFSM Error rules such as `^. -> Error` instead of filtering them
+    #[arg(long)]
+    pub textfsm_strict_errors: bool,
 
     /// Save SSH session recording to this JSONL file
     #[arg(long, short = 'r')]
@@ -151,6 +159,10 @@ pub struct ExecArgs {
     #[arg(long)]
     pub textfsm_excel: Option<PathBuf>,
 
+    /// Keep TextFSM Error rules such as `^. -> Error` instead of filtering them
+    #[arg(long)]
+    pub textfsm_strict_errors: bool,
+
     /// Execution mode (e.g. "Enable", "Config", "Shell")
     #[arg(long, short = 'm')]
     pub mode: Option<String>,
@@ -204,6 +216,10 @@ pub struct ShowArgs {
     /// Export successful TextFSM parsed output to an Excel .xlsx file
     #[arg(long)]
     pub textfsm_excel: Option<PathBuf>,
+
+    /// Keep TextFSM Error rules such as `^. -> Error` instead of filtering them
+    #[arg(long)]
+    pub textfsm_strict_errors: bool,
 
     /// Save SSH session recording to this JSONL file
     #[arg(long, short = 'r')]

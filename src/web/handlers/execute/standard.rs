@@ -122,6 +122,7 @@ pub async fn exec_command(
                 platform: req.textfsm_platform.as_deref(),
                 device_profile: Some(conn.device_profile.as_str()),
                 vendor: req.textfsm_vendor.as_deref(),
+                filter_error_rules: !req.textfsm_strict_errors,
                 ..Default::default()
             },
         );
@@ -391,6 +392,7 @@ pub async fn execute_show(
                 enabled: should_parse,
                 platform: platform.as_deref(),
                 device_profile: Some(conn.device_profile.as_str()),
+                filter_error_rules: !req.textfsm_strict_errors,
                 ..Default::default()
             },
         );
@@ -553,7 +555,15 @@ pub async fn execute_show_batch(
         let record_level = req.record_level;
         let mut results = Vec::with_capacity(resolved_targets.len());
         for target in resolved_targets {
-            results.push(execute_batch_show_target(&target, req.no_parse, record_level).await);
+            results.push(
+                execute_batch_show_target(
+                    &target,
+                    req.no_parse,
+                    record_level,
+                    !req.textfsm_strict_errors,
+                )
+                .await,
+            );
         }
 
         let total = results.len() as u64;
@@ -708,8 +718,10 @@ async fn execute_batch_show_target(
     target: &ResolvedBatchShowTarget,
     no_parse: bool,
     record_level: Option<RecordLevel>,
+    filter_error_rules: bool,
 ) -> ShowBatchTargetResponse {
-    match execute_batch_show_target_inner(target, no_parse, record_level).await {
+    match execute_batch_show_target_inner(target, no_parse, record_level, filter_error_rules).await
+    {
         Ok(response) => response,
         Err(err) => ShowBatchTargetResponse {
             target: target.name.clone(),
@@ -735,6 +747,7 @@ async fn execute_batch_show_target_inner(
     target: &ResolvedBatchShowTarget,
     no_parse: bool,
     record_level: Option<RecordLevel>,
+    filter_error_rules: bool,
 ) -> Result<ShowBatchTargetResponse, ApiError> {
     let handler = template_loader::load_device_profile_for_connection(
         &target.conn.device_profile,
@@ -793,6 +806,7 @@ async fn execute_batch_show_target_inner(
             enabled: should_parse,
             platform: target.platform.as_deref(),
             device_profile: Some(target.conn.device_profile.as_str()),
+            filter_error_rules,
             ..Default::default()
         },
     );
@@ -985,6 +999,7 @@ pub async fn execute_template(
                             platform: req.textfsm_platform.as_deref(),
                             device_profile: Some(conn.device_profile.as_str()),
                             vendor: req.textfsm_vendor.as_deref(),
+                            filter_error_rules: !req.textfsm_strict_errors,
                             ..Default::default()
                         },
                     );

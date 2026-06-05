@@ -90,6 +90,7 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
                             || args.textfsm_excel.is_some(),
                         platform: args.textfsm_platform.clone(),
                         device_profile: Some(conn.device_profile.clone()),
+                        filter_error_rules: !args.textfsm_strict_errors,
                         ..Default::default()
                     },
                 );
@@ -164,6 +165,7 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
                 || args.textfsm_excel.is_some(),
             platform: args.textfsm_platform.clone(),
             device_profile: Some(conn.device_profile.clone()),
+            filter_error_rules: !args.textfsm_strict_errors,
             ..Default::default()
         },
     );
@@ -319,6 +321,7 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
                 enabled: true,
                 platform,
                 device_profile: Some(conn.device_profile.clone()),
+                filter_error_rules: !args.textfsm_strict_errors,
                 ..Default::default()
             },
         );
@@ -545,6 +548,7 @@ async fn execute_resolved_show_target(
             enabled: true,
             platform: target.platform.clone(),
             device_profile: Some(target.conn.device_profile.clone()),
+            filter_error_rules: !args.textfsm_strict_errors,
             ..Default::default()
         },
     );

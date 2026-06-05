@@ -398,7 +398,7 @@ pub(crate) fn render_commands_with_runtime_context(
     Ok((rendered, masked))
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct WebTextfsmParseOptions<'a> {
     pub template_file: Option<&'a str>,
     pub template_content: Option<&'a str>,
@@ -406,6 +406,21 @@ pub(crate) struct WebTextfsmParseOptions<'a> {
     pub platform: Option<&'a str>,
     pub device_profile: Option<&'a str>,
     pub vendor: Option<&'a str>,
+    pub filter_error_rules: bool,
+}
+
+impl Default for WebTextfsmParseOptions<'_> {
+    fn default() -> Self {
+        Self {
+            template_file: None,
+            template_content: None,
+            enabled: false,
+            platform: None,
+            device_profile: None,
+            vendor: None,
+            filter_error_rules: true,
+        }
+    }
 }
 
 pub(crate) fn parse_textfsm_output_optional(
@@ -423,6 +438,7 @@ pub(crate) fn parse_textfsm_output_optional(
         platform: options.platform.map(str::to_string),
         device_profile: options.device_profile.map(str::to_string),
         vendor: options.vendor.map(str::to_string),
+        filter_error_rules: options.filter_error_rules,
     };
     crate::config::textfsm::parse_command_output_optional(output, command, &parse_options)
 }

@@ -259,6 +259,7 @@ rauto show-object delete --profile my_custom_profile --object access-list
 - 多命令解析：`template` 和 `flow` 可以重复传多个 `--textfsm-template <path>`，按命令顺序匹配模板文件；如果模板文件数量少于命令数量，最后一个模板会用于后续所有命令。
 - 平台推断：启用解析且未传 `--textfsm-platform` 时，`rauto` 会从当前连接的 device profile 推断 [ntc-templates](https://github.com/networktocode/ntc-templates) platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
 - 平台覆盖：只有在你想在启用解析后强制覆盖推断结果，或者按其他 NTC platform 解析时，才传 `--textfsm-platform <platform>`。
+- 宽松解析：默认会在解析前过滤 TextFSM 模板里的 `^. -> Error` 这类兜底 Error 规则，避免某些非关键行未匹配时导致整次解析失败。需要严格保留 Error 规则时，传 `--textfsm-strict-errors`。
 - Excel 导出：传 `--textfsm-excel <file.xlsx>` 可以把解析成功的表格行导出为 Excel 工作簿。对 `exec`、`template` 和 `flow` 来说，这个参数也会启用 TextFSM 解析。
 - 如果没有启用解析，也没有指定模板，则只展示原始输出。
 - 解析失败不会阻断命令执行；原始输出仍会返回，解析错误会单独展示。
@@ -1213,6 +1214,7 @@ Group JSON 结构：
 - `exec/template/flow --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
 - `exec/template/flow --textfsm-platform <platform>`：在启用解析后覆盖内置 TextFSM 自动选择时推断的平台。
 - `exec/template/flow --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。对 `template` 和 `flow` 可以重复传多个，按命令顺序匹配；数量不足时复用最后一个模板。
+- `show/exec/template/flow --textfsm-strict-errors`：严格保留 TextFSM `-> Error` 规则，不在解析前过滤。
 - `show/exec/template/flow --textfsm-excel <file.xlsx>`：把 TextFSM 解析成功的表格行导出为 Excel。
 - `textfsm template ...`：管理保存到 SQLite 的自定义 TextFSM 模板。
 - `textfsm mapping ...`：管理自定义 `(device profile, command) -> TextFSM template` 映射。启用解析且没有显式指定模板文件时，自定义映射优先级高于内置 NTC 模板。

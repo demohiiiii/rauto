@@ -38,9 +38,21 @@
   <select
     id="textfsm-platform"
     class="select"
-    title="TextFSM platform override"
-    aria-label="TextFSM platform override"
+    title={tr("textfsmPlatformOverride")}
+    aria-label={tr("textfsmPlatformOverride")}
   >
     <option value="">{tr("textfsmPlatformPlaceholder")}</option>
   </select>
+  <label
+    class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 md:col-span-2"
+  >
+    <input
+      id="textfsm-strict-errors"
+      type="checkbox"
+      class="toggle toggle-sm"
+    />
+    <span id="textfsm-strict-errors-label"
+      >{tr("textfsmStrictErrorsToggle")}</span
+    >
+  </label>
 </div>

@@ -98,6 +98,7 @@ export function textfsmPayload() {
     textfsm_template: byId("textfsm-template")?.value.trim() || null,
     parse_textfsm: !!byId("parse-textfsm")?.checked,
     textfsm_platform: byId("textfsm-platform")?.value.trim() || null,
+    textfsm_strict_errors: !!byId("textfsm-strict-errors")?.checked,
   };
 }
 
@@ -119,6 +120,7 @@ export function showExecutionPayload({ connection, recordLevel }) {
     mode: byId("show-mode").value.trim() || null,
     textfsm_platform: byId("textfsm-platform")?.value.trim() || null,
     no_parse: !byId("parse-textfsm")?.checked,
+    textfsm_strict_errors: !!byId("textfsm-strict-errors")?.checked,
     connection,
     record_level: recordLevel,
   };
@@ -133,6 +135,7 @@ export function batchShowExecutionPayload({ recordLevel }) {
     mode: byId("batch-show-mode")?.value.trim() || null,
     textfsm_platform: byId("batch-textfsm-platform")?.value.trim() || null,
     no_parse: !byId("batch-parse-textfsm")?.checked,
+    textfsm_strict_errors: !!byId("batch-textfsm-strict-errors")?.checked,
     targets: pickerValues
       ? pickerValues("batch-show-targets")
       : splitCsvValues(byId("batch-show-targets")?.value || ""),

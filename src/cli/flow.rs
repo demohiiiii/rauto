@@ -161,6 +161,7 @@ pub(crate) async fn run_command_flow(
             || args.textfsm_excel.is_some(),
         platform: args.textfsm_platform.clone(),
         device_profile: Some(conn.device_profile.clone()),
+        filter_error_rules: !args.textfsm_strict_errors,
     };
     let parsed_sheets = print_command_flow_output(&result, &flow_commands, &parse_options)?;
     if let Some(path) = args.textfsm_excel.as_deref() {
@@ -254,6 +255,7 @@ struct CommandFlowParseOptions {
     enabled: bool,
     platform: Option<String>,
     device_profile: Option<String>,
+    filter_error_rules: bool,
 }
 
 fn print_command_flow_output(
@@ -280,6 +282,7 @@ fn print_command_flow_output(
             enabled: parse_options.enabled,
             platform: parse_options.platform.clone(),
             device_profile: parse_options.device_profile.clone(),
+            filter_error_rules: parse_options.filter_error_rules,
             ..Default::default()
         };
         let (parsed_output, parse_error) =

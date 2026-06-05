@@ -539,6 +539,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 parse_textfsm: false,
                 textfsm_platform: None,
                 textfsm_vendor: None,
+                textfsm_strict_errors: false,
                 target: map_execution_target_options(req.connection, &req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -573,6 +574,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 parse_textfsm: false,
                 textfsm_platform: None,
                 textfsm_vendor: None,
+                textfsm_strict_errors: false,
                 run: DryRunOptions {
                     dry_run: Some(req.dry_run),
                 },
@@ -620,6 +622,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 parse_textfsm: false,
                 textfsm_platform: None,
                 textfsm_vendor: None,
+                textfsm_strict_errors: false,
                 target: map_execution_target_options(req.connection, &req.record_level)?,
             }),
         )

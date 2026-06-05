@@ -129,6 +129,7 @@ pub async fn execute_command_flow(
                     platform: req.textfsm_platform.as_deref(),
                     device_profile: Some(conn.device_profile.as_str()),
                     vendor: req.textfsm_vendor.as_deref(),
+                    filter_error_rules: !req.textfsm_strict_errors,
                     ..Default::default()
                 },
             );
