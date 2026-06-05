@@ -6,6 +6,13 @@
 
   const navItems = [
     {
+      id: "tab-show",
+      routeId: "show",
+      label: "查询",
+      dataTab: "show",
+      activeWhen: "show",
+    },
+    {
       id: "tab-standard",
       routeId: "standard",
       label: "Standard Delivery",

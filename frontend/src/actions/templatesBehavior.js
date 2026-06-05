@@ -162,6 +162,13 @@ function renderParsedOutputBlock(data) {
 function renderCommandFlowResult(data) {
   const outputs = Array.isArray(data?.outputs) ? data.outputs : [];
   const tone = data?.success ? "success" : "error";
+  const exportButton = window.renderParsedOutputSheetsExportButton?.(
+    window.parsedOutputSheetsFromItems?.(outputs, {
+      filename: "textfsm-flow.xlsx",
+      sheetName: (item, index) => item.command || `command_${index + 1}`,
+    }) || [],
+    { filename: "textfsm-flow.xlsx" },
+  );
   const summary = statusCard(
     `${
       data?.success
@@ -196,7 +203,7 @@ function renderCommandFlowResult(data) {
       </div>`,
     )
     .join("");
-  return `${summary}${items ? `<div class="grid gap-2">${items}</div>` : ""}`;
+  return `${summary}${exportButton ? `<div class="mb-2 flex justify-end">${exportButton}</div>` : ""}${items ? `<div class="grid gap-2">${items}</div>` : ""}`;
 }
 
 async function withLoading(buttonOrId, handler) {

@@ -15,9 +15,9 @@ use crate::web::handlers::{
     delete_textfsm_mapping, delete_textfsm_template, delete_tx_block_template,
     delete_tx_workflow_template, diagnose_profile, download_backup,
     download_connection_import_template, exec_command, exec_command_async, execute_command_flow,
-    execute_orchestration, execute_orchestration_async, execute_show, execute_template,
-    execute_template_async, execute_tx_block, execute_tx_block_async, execute_tx_workflow,
-    execute_tx_workflow_async, execute_upload, export_textfsm_excel,
+    execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
+    execute_template, execute_template_async, execute_tx_block, execute_tx_block_async,
+    execute_tx_workflow, execute_tx_workflow_async, execute_upload, export_textfsm_excel,
     get_builtin_command_flow_template, get_builtin_profile_detail, get_builtin_profile_form,
     get_command_flow_template, get_connection, get_connection_history,
     get_connection_history_detail, get_custom_profile, get_custom_profile_form,
@@ -261,6 +261,7 @@ fn local_api_routes() -> Router<Arc<AppState>> {
                 .delete(delete_custom_show_object),
         )
         .route("/api/show/execute", post(execute_show))
+        .route("/api/show/batch-execute", post(execute_show_batch))
         .route("/api/template/execute", post(execute_template))
         .route("/api/upload", post(execute_upload))
         .route("/api/tx/block", post(execute_tx_block))

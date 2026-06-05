@@ -102,6 +102,54 @@ pub struct ShowExecuteResponse {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ShowBatchExecuteRequest {
+    pub object: String,
+    #[serde(default)]
+    pub objects: Vec<String>,
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub textfsm_platform: Option<String>,
+    #[serde(default)]
+    pub no_parse: bool,
+    #[serde(default)]
+    pub targets: Vec<String>,
+    #[serde(default)]
+    pub groups: Vec<String>,
+    #[serde(default, alias = "tags")]
+    pub labels: Vec<String>,
+    pub record_level: Option<RecordLevel>,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ShowBatchTargetResponse {
+    pub target: String,
+    pub host: String,
+    pub profile: String,
+    pub object: String,
+    pub platform: String,
+    pub command: String,
+    pub mode: String,
+    pub source: String,
+    pub textfsm_mapping_command: Option<String>,
+    pub textfsm_template_name: Option<String>,
+    pub output: Option<String>,
+    pub exit_code: Option<i32>,
+    pub parsed_output: Option<Value>,
+    pub parse_error: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ShowBatchExecuteResponse {
+    pub object: String,
+    pub targets: Vec<String>,
+    pub results: Vec<ShowBatchTargetResponse>,
+    pub result_summary: TaskResultSummary,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ExecuteTemplateRequest {
     pub template: String,
     #[serde(default)]

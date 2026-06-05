@@ -3,14 +3,15 @@ use crate::cli::{
     TextfsmCommands, TextfsmMappingCommands, TextfsmTemplateCommands,
 };
 use crate::config::{
-    command_blacklist, content_store, custom_show_object_store, custom_textfsm_store, show_catalog,
-    template_loader, textfsm, textfsm_export,
+    command_blacklist, connection_store, content_store, custom_show_object_store,
+    custom_textfsm_store, show_catalog, template_loader, textfsm, textfsm_export,
 };
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use anyhow::Result;
 use rneter::session::{SessionEvent, SessionRecorder, SessionReplayer};
-use serde_json::Value;
+use serde_json::{Map, Value};
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::info;
@@ -198,6 +199,19 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
     Ok(())
 }
 
+struct ResolvedShowTarget {
+    name: String,
+    conn: crate::EffectiveConnection,
+    platform: Option<String>,
+    show: show_catalog::ShowCommand,
+    effective_mode: String,
+}
+
+struct MultiShowParsedOutput {
+    object: String,
+    rows: Vec<Value>,
+}
+
 pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
     if args.no_parse && args.textfsm_excel.is_some() {
         return Err(anyhow::anyhow!(
@@ -220,6 +234,11 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| anyhow::anyhow!("show object required, or use --list"))?;
+
+    if has_multi_show_target_selectors(&args) {
+        run_multi_show(&args, opts, object).await?;
+        return Ok(());
+    }
 
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
@@ -324,6 +343,283 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         }
     }
     Ok(())
+}
+
+fn has_multi_show_target_selectors(args: &ShowArgs) -> bool {
+    !args.targets.is_empty() || !args.groups.is_empty() || !args.labels.is_empty()
+}
+
+async fn run_multi_show(
+    args: &ShowArgs,
+    opts: &crate::cli::GlobalOpts,
+    object: &str,
+) -> Result<()> {
+    if args.record_file.is_some() {
+        return Err(anyhow::anyhow!(
+            "--record-file is not supported with multi-target show; session history is still saved automatically"
+        ));
+    }
+    if opts.host.is_some() {
+        return Err(anyhow::anyhow!(
+            "--host cannot be used with multi-target show; use saved --target connections, --group, or --label"
+        ));
+    }
+
+    let target_names = resolve_show_target_names(args, opts)?;
+    if target_names.is_empty() {
+        return Err(anyhow::anyhow!(
+            "multi-target show resolved no saved connections"
+        ));
+    }
+
+    let mut resolved_targets = Vec::with_capacity(target_names.len());
+    let mut errors = Vec::new();
+    for name in target_names {
+        match resolve_show_target(&name, args, opts, object).await {
+            Ok(target) => resolved_targets.push(target),
+            Err(err) => errors.push(format!("{}: {err:#}", name)),
+        }
+    }
+    if !errors.is_empty() {
+        return Err(anyhow::anyhow!(
+            "show object precheck failed for {} target(s):\n{}",
+            errors.len(),
+            errors.join("\n")
+        ));
+    }
+
+    println!(
+        "# precheck: show object '{}' is available on {} target(s)",
+        object,
+        resolved_targets.len()
+    );
+    let mut parsed_outputs = Vec::new();
+    let mut execution_errors = Vec::new();
+    for target in resolved_targets {
+        match execute_resolved_show_target(&target, args).await {
+            Ok(Some(parsed_output)) => parsed_outputs.push(parsed_output),
+            Ok(None) => {}
+            Err(err) => {
+                eprintln!("target '{}' failed: {err:#}", target.name);
+                execution_errors.push(format!("{}: {err:#}", target.name));
+            }
+        }
+    }
+    if let Some(path) = args.textfsm_excel.as_deref()
+        && !parsed_outputs.is_empty()
+    {
+        let parsed_sheets = merge_multi_show_parsed_outputs(parsed_outputs);
+        write_textfsm_excel(path, parsed_sheets)?;
+    }
+    if !execution_errors.is_empty() {
+        return Err(anyhow::anyhow!(
+            "multi-target show failed on {} target(s):\n{}",
+            execution_errors.len(),
+            execution_errors.join("\n")
+        ));
+    }
+    Ok(())
+}
+
+fn resolve_show_target_names(
+    args: &ShowArgs,
+    opts: &crate::cli::GlobalOpts,
+) -> Result<Vec<String>> {
+    let mut names = BTreeSet::new();
+    if let Some(connection) = opts.connection.as_deref() {
+        names.insert(connection_store::safe_connection_name(connection)?);
+    }
+    for target in &args.targets {
+        names.insert(connection_store::safe_connection_name(target)?);
+    }
+    for connection in connection_store::list_connections_by_groups_any(&args.groups)? {
+        names.insert(connection);
+    }
+    for connection in connection_store::list_connections_by_labels_any(&args.labels)? {
+        names.insert(connection);
+    }
+    Ok(names.into_iter().collect())
+}
+
+async fn resolve_show_target(
+    name: &str,
+    args: &ShowArgs,
+    opts: &crate::cli::GlobalOpts,
+    object: &str,
+) -> Result<ResolvedShowTarget> {
+    let mut target_opts = opts.clone();
+    target_opts.connection = Some(name.to_string());
+    target_opts.save_connection = None;
+    target_opts.host = None;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(&target_opts)?)
+            .await?;
+    let platform =
+        show_catalog::platform_for_show(&conn.device_profile, args.textfsm_platform.as_deref());
+    let show =
+        show_catalog::resolve_show_command(object, platform.as_deref(), &conn.device_profile)?;
+    command_blacklist::ensure_command_allowed(&show.command, "multi-target show execution")?;
+    let requested_mode = args.mode.as_deref().or(show.mode.as_deref());
+    let effective_mode =
+        template_loader::resolve_profile_mode(&conn.device_profile, requested_mode)?;
+    Ok(ResolvedShowTarget {
+        name: name.to_string(),
+        conn,
+        platform,
+        show,
+        effective_mode,
+    })
+}
+
+async fn execute_resolved_show_target(
+    target: &ResolvedShowTarget,
+    args: &ShowArgs,
+) -> Result<Option<MultiShowParsedOutput>> {
+    println!("=== target: {} ({}) ===", target.name, target.conn.host);
+    if args.print_command {
+        println!("# command: {}", target.show.command);
+        if let Some(mode) = target.show.mode.as_deref() {
+            println!("# mapping_mode: {}", mode);
+        }
+        if let Some(template_name) = target.show.textfsm_template_name.as_deref() {
+            println!("# textfsm_template: {}", template_name);
+        }
+        println!("# effective_mode: {}", target.effective_mode);
+    }
+
+    let handler = template_loader::load_device_profile_for_connection(
+        &target.conn.device_profile,
+        target.conn.linux_shell_flavor,
+    )?;
+    let default_mode = template_loader::default_profile_mode(&target.conn.device_profile)?;
+    let client = DeviceClient::connect_with_recording(
+        target.conn.host.clone(),
+        target.conn.port,
+        target.conn.username.clone(),
+        target.conn.password.clone(),
+        target.conn.enable_password.clone(),
+        handler,
+        default_mode,
+        crate::to_record_level(args.record_level),
+        target.conn.ssh_security,
+    )
+    .await?;
+
+    info!(
+        "Executing show object '{}' on '{}' as command: {}",
+        target.show.object, target.name, target.show.command
+    );
+    let output = client
+        .execute_output(&target.show.command, Some(&target.effective_mode))
+        .await?;
+    let exit_code = output.exit_code;
+    crate::persist_auto_recording_history(
+        &client,
+        &target.conn,
+        "show",
+        &target.show.command,
+        Some(target.effective_mode.as_str()),
+        args.record_level,
+    )?;
+
+    println!("{}", output.content);
+    if args.no_parse || exit_code.unwrap_or(0) != 0 {
+        return Ok(None);
+    }
+
+    let template_content = target
+        .show
+        .textfsm_template_name
+        .as_deref()
+        .map(|name| {
+            custom_textfsm_store::load_template(name)?
+                .ok_or_else(|| anyhow::anyhow!("TextFSM template '{}' not found", name))
+        })
+        .transpose()?
+        .map(|template| template.content);
+    let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
+        &output.content,
+        &target.show.command,
+        &textfsm::ParseOptions {
+            template_content,
+            enabled: true,
+            platform: target.platform.clone(),
+            device_profile: Some(target.conn.device_profile.clone()),
+            ..Default::default()
+        },
+    );
+    if let Some(err) = parse_error {
+        println!("--- Parse Error ---");
+        println!("{}", err);
+    }
+    let Some(parsed_output) = parsed_output else {
+        return Ok(None);
+    };
+    println!("--- Parsed Output ---");
+    println!("{}", textfsm::format_parsed_output_table(&parsed_output));
+    Ok(Some(MultiShowParsedOutput {
+        object: target.show.object.clone(),
+        rows: add_multi_show_metadata(target, parsed_output)?,
+    }))
+}
+
+fn add_multi_show_metadata(
+    target: &ResolvedShowTarget,
+    parsed_output: Value,
+) -> Result<Vec<Value>> {
+    let rows = parsed_output
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("TextFSM parsed output must be a JSON array"))?;
+    let mut enriched_rows = Vec::with_capacity(rows.len());
+    for row in rows {
+        let source = row
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("TextFSM parsed output rows must be JSON objects"))?;
+        let mut enriched = source.clone();
+        insert_multi_show_metadata(&mut enriched, "device", Value::String(target.name.clone()));
+        insert_multi_show_metadata(
+            &mut enriched,
+            "profile",
+            Value::String(target.conn.device_profile.clone()),
+        );
+        insert_multi_show_metadata(
+            &mut enriched,
+            "command",
+            Value::String(target.show.command.clone()),
+        );
+        enriched_rows.push(Value::Object(enriched));
+    }
+    Ok(enriched_rows)
+}
+
+fn insert_multi_show_metadata(object: &mut Map<String, Value>, key: &str, value: Value) {
+    if let Some(existing) = object.remove(key) {
+        object.insert(format!("parsed_{key}"), existing);
+    }
+    object.insert(key.to_string(), value);
+}
+
+fn merge_multi_show_parsed_outputs(
+    outputs: Vec<MultiShowParsedOutput>,
+) -> Vec<textfsm_export::ParsedOutputSheet> {
+    let mut object_order = Vec::new();
+    let mut grouped: BTreeMap<String, Vec<Value>> = BTreeMap::new();
+    for output in outputs {
+        if !grouped.contains_key(&output.object) {
+            object_order.push(output.object.clone());
+        }
+        grouped
+            .entry(output.object)
+            .or_default()
+            .extend(output.rows);
+    }
+    object_order
+        .into_iter()
+        .map(|object| textfsm_export::ParsedOutputSheet {
+            parsed_output: Value::Array(grouped.remove(&object).unwrap_or_default()),
+            name: object,
+        })
+        .collect()
 }
 
 fn print_show_objects(device_profile: Option<&str>, platform: Option<&str>) -> Result<()> {
@@ -719,4 +1015,28 @@ fn safe_template_name(raw: &str) -> Result<String> {
 
 fn read_template_body(file: Option<PathBuf>, content: Option<String>) -> Result<String> {
     read_text_body("template", file, content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn multi_show_excel_sheets_are_grouped_by_object() {
+        let sheets = merge_multi_show_parsed_outputs(vec![
+            MultiShowParsedOutput {
+                object: "route".to_string(),
+                rows: vec![json!({"device": "sw1", "command": "show ip route"})],
+            },
+            MultiShowParsedOutput {
+                object: "route".to_string(),
+                rows: vec![json!({"device": "sw2", "command": "display ip routing-table"})],
+            },
+        ]);
+
+        assert_eq!(sheets.len(), 1);
+        assert_eq!(sheets[0].name, "route");
+        assert_eq!(sheets[0].parsed_output.as_array().unwrap().len(), 2);
+    }
 }

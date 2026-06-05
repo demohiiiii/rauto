@@ -71,6 +71,14 @@ fn parsed_rows(value: &Value) -> Result<&[Value]> {
 
 fn parsed_columns(rows: &[Value]) -> Vec<String> {
     let mut columns = Vec::new();
+    for preferred in ["device", "profile", "command"] {
+        if rows.iter().any(|row| {
+            row.as_object()
+                .is_some_and(|object| object.contains_key(preferred))
+        }) {
+            columns.push(preferred.to_string());
+        }
+    }
     for row in rows {
         if let Some(object) = row.as_object() {
             for key in object.keys() {
@@ -162,4 +170,23 @@ fn truncate_sheet_name(base: &str, suffix: Option<usize>) -> String {
     let mut value = base.chars().take(max_base_len).collect::<String>();
     value.push_str(&suffix_text);
     value
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parsed_columns_prefers_multi_show_metadata_and_merges_fields() {
+        let rows = vec![
+            json!({"device": "sw1", "profile": "cisco_ios", "command": "show version", "version": "17"}),
+            json!({"device": "sw2", "profile": "huawei_vrp", "command": "display version", "uptime": "1 day"}),
+        ];
+
+        assert_eq!(
+            parsed_columns(&rows),
+            vec!["device", "profile", "command", "version", "uptime"]
+        );
+    }
 }

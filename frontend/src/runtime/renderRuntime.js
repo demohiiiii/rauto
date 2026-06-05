@@ -17,6 +17,13 @@ function renderTemplateExecuteResult(data) {
   const executed = Array.isArray(data.executed) ? data.executed : [];
   const successCount = executed.filter((item) => item && item.success).length;
   const failedCount = Math.max(0, executed.length - successCount);
+  const parsedExportButton = renderParsedOutputSheetsExportButton(
+    parsedOutputSheetsFromItems(executed, {
+      filename: "textfsm-template.xlsx",
+      sheetName: (item, index) => item.command || `command_${index + 1}`,
+    }),
+    { filename: "textfsm-template.xlsx" },
+  );
   const summary = `
     <div class="grid gap-2 md:grid-cols-3">
       ${renderTxWorkflowPreviewMeta(t("templateExecSummaryTotal"), executed.length)}
@@ -78,9 +85,12 @@ function renderTemplateExecuteResult(data) {
     .join("");
   const executedCard = `
     <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
-      <div class="text-sm font-semibold text-slate-900">${escapeHtml(
-        t("templateExecExecutedTitle"),
-      )}</div>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm font-semibold text-slate-900">${escapeHtml(
+          t("templateExecExecutedTitle"),
+        )}</div>
+        ${parsedExportButton}
+      </div>
       <div class="mt-2 grid gap-2">
         ${
           rows ||
@@ -144,7 +154,7 @@ function renderParsedOutputTable(value) {
     })
     .join("");
   return `
-    <div class="min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-box border border-base-300 bg-base-100">
+    <div class="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-box border border-base-300 bg-base-100">
       <table class="table table-zebra table-sm min-w-max">
         <thead><tr>${header}</tr></thead>
         <tbody>${rows}</tbody>
@@ -163,15 +173,126 @@ function registerParsedOutputExport(item) {
   return id;
 }
 
+function registerParsedOutputSheetsExport(sheets, options = {}) {
+  const normalizedSheets = (Array.isArray(sheets) ? sheets : [])
+    .map((sheet, index) => ({
+      name: safeString(sheet?.name || `parsed_output_${index + 1}`).trim(),
+      parsed_output: sheet?.parsed_output,
+    }))
+    .filter(
+      (sheet) =>
+        sheet.parsed_output !== undefined && sheet.parsed_output !== null,
+    );
+  if (!normalizedSheets.length) {
+    return "";
+  }
+  const id = `textfsm-export-${++parsedOutputExportSeq}`;
+  parsedOutputExports.set(id, {
+    filename: timestampedExcelFilename(
+      options.filename || "textfsm-parsed-output.xlsx",
+    ),
+    sheets: normalizedSheets,
+  });
+  return id;
+}
+
+function timestampedExcelFilename(rawFilename) {
+  const filename = safeString(
+    rawFilename || "textfsm-parsed-output.xlsx",
+  ).trim();
+  const normalized = filename || "textfsm-parsed-output.xlsx";
+  const timestamp = excelExportTimestamp();
+  if (/\.xlsx$/i.test(normalized)) {
+    return normalized.replace(/\.xlsx$/i, `-${timestamp}.xlsx`);
+  }
+  return `${normalized}-${timestamp}.xlsx`;
+}
+
+function excelExportTimestamp(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    "-",
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join("");
+}
+
+function parsedOutputSheetsFromItems(items, options = {}) {
+  return (Array.isArray(items) ? items : [])
+    .map((item, index) => {
+      if (
+        !item ||
+        item.parsed_output === undefined ||
+        item.parsed_output === null
+      ) {
+        return null;
+      }
+      const name =
+        typeof options.sheetName === "function"
+          ? options.sheetName(item, index)
+          : item.object || item.command || `parsed_output_${index + 1}`;
+      return {
+        name: safeString(name || `parsed_output_${index + 1}`),
+        parsed_output: item.parsed_output,
+      };
+    })
+    .filter(Boolean);
+}
+
+function renderParsedOutputSheetsExportButton(sheets, options = {}) {
+  const exportId = registerParsedOutputSheetsExport(sheets, options);
+  if (!exportId) {
+    return "";
+  }
+  return `<button class="btn btn-outline btn-xs js-textfsm-export-excel" type="button" data-textfsm-export-id="${escapeHtml(
+    exportId,
+  )}">${escapeHtml(options.label || t("textfsmExportAllExcel"))}</button>`;
+}
+
 function exportFilenameForParsedOutput(item) {
-  const command = safeString(item.command || "").trim();
-  if (command) return `textfsm-${command}.xlsx`;
-  return "textfsm-parsed-output.xlsx";
+  const device = filenamePart(deviceNameForParsedOutput(item));
+  const command = filenamePart(item?.command || "parsed_output");
+  const base = [device, command].filter(Boolean).join("-");
+  return timestampedExcelFilename(`${base || "textfsm-parsed-output"}.xlsx`);
 }
 
 function exportSheetNameForParsedOutput(item) {
   const command = safeString(item.command || "").trim();
   return command || "parsed_output";
+}
+
+function deviceNameForParsedOutput(item) {
+  const explicit = safeString(
+    item?.device || item?.target || item?.connection_name || item?.host || "",
+  ).trim();
+  if (explicit) {
+    return explicit;
+  }
+  const details = window.currentConnectionTarget?.details || null;
+  const fromTarget = safeString(details?.name || details?.host || "").trim();
+  if (fromTarget && fromTarget !== "-") {
+    return fromTarget;
+  }
+  const savedName = safeString(
+    document.getElementById("saved-conn-name")?.value || "",
+  ).trim();
+  if (savedName) {
+    return savedName;
+  }
+  const host = safeString(document.getElementById("host")?.value || "").trim();
+  return host || "device";
+}
+
+function filenamePart(value) {
+  return safeString(value || "")
+    .trim()
+    .replace(/[\\/:*?"<>|\[\]\s]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
 
 async function exportParsedOutputExcel(exportId, button) {
@@ -223,8 +344,8 @@ function renderParsedOutputBlock(item) {
     const table = renderParsedOutputTable(item.parsed_output);
     const exportId = registerParsedOutputExport(item);
     return `
-      <section class="card mt-3 min-w-0 border border-base-300 bg-base-100 shadow-sm">
-        <div class="card-body min-w-0 gap-3 p-3">
+      <section class="card mt-3 min-w-0 max-w-full overflow-hidden border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body min-w-0 max-w-full gap-3 overflow-hidden p-3">
           <div class="flex items-center justify-between gap-2">
             <div class="text-xs font-semibold uppercase tracking-wide text-base-content/70">parsed_output</div>
             <div class="flex items-center gap-2">
@@ -1162,6 +1283,8 @@ export function installRenderRuntime() {
     renderParsedOutputTable,
     renderParsedOutputBlock,
     exportParsedOutputExcel,
+    parsedOutputSheetsFromItems,
+    renderParsedOutputSheetsExportButton,
     extractFailureOutputFromReason,
     renderFailureOutputFallback,
     renderTxWorkflowResult,

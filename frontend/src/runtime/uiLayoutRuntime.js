@@ -11,6 +11,7 @@ import {
 function applyTabs() {
   const tabs = [
     "standard",
+    "show",
     "orchestrated",
     "replay",
     "prompts",

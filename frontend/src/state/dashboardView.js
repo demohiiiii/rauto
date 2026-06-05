@@ -14,7 +14,7 @@ export const dashboardView = writable({
   currentTab: DEFAULT_TAB,
   connectionModalMode: "saved",
   connectionModalOpen: false,
-  currentExecMode: "show",
+  currentExecMode: "direct",
   currentInventorySection: "groups",
   currentLang: "zh",
   currentPromptMode: "view",
@@ -63,9 +63,9 @@ export function setDashboardTxStage(stage) {
 }
 
 export function setDashboardExecMode(mode) {
-  const currentExecMode = ["direct", "show", "template", "flow"].includes(mode)
+  const currentExecMode = ["direct", "template", "flow"].includes(mode)
     ? mode
-    : "show";
+    : "direct";
   dashboardView.update((view) => ({
     ...view,
     currentExecMode,

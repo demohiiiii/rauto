@@ -169,6 +169,18 @@ pub struct ShowArgs {
     /// NTC-supported show object, for example version, interfaces, route, arp
     pub object: Option<String>,
 
+    /// Saved connection name to execute against. Repeat to target multiple devices.
+    #[arg(long = "target", value_name = "CONNECTION")]
+    pub targets: Vec<String>,
+
+    /// Inventory group name. Repeat to include devices from multiple groups.
+    #[arg(long = "group", value_name = "GROUP")]
+    pub groups: Vec<String>,
+
+    /// Saved connection label/tag. Repeat to include devices matching any label.
+    #[arg(long = "label", visible_alias = "tag", value_name = "LABEL")]
+    pub labels: Vec<String>,
+
     /// List available show objects for the resolved or selected platform
     #[arg(long)]
     pub list: bool,

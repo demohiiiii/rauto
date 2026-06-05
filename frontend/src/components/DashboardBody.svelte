@@ -1,6 +1,7 @@
 <script>
   import { agentAuthBehavior } from "../actions/agentAuthBehavior.js";
   import { appEventsBehavior } from "../actions/appEventsBehavior.js";
+  import { standardDeliveryBehavior } from "../actions/standardDeliveryBehavior.js";
   import ConnectionModal from "./fragments/ConnectionModal.svelte";
   import DetailModal from "./fragments/DetailModal.svelte";
   import EntryDrawer from "./fragments/EntryDrawer.svelte";
@@ -19,6 +20,7 @@
   import OrchestratedPage from "../pages/OrchestratedPage.svelte";
   import PromptsPage from "../pages/PromptsPage.svelte";
   import ReplayPage from "../pages/ReplayPage.svelte";
+  import ShowPage from "../pages/ShowPage.svelte";
   import StandardPage from "../pages/StandardPage.svelte";
   import TasksPage from "../pages/TasksPage.svelte";
   import TemplatesPage from "../pages/TemplatesPage.svelte";
@@ -93,7 +95,8 @@
             <div id="agent-auth-out" class="mt-3"></div>
           </div>
 
-          <section class="dashboard-panel">
+          <section class="dashboard-panel" use:standardDeliveryBehavior>
+            <ShowPage active={isDashboardTabActive($dashboardView, "show")} />
             <StandardPage
               active={isDashboardTabActive($dashboardView, "standard")}
             />

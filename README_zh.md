@@ -221,6 +221,19 @@ rauto show route --print-command
 rauto show interfaces --no-parse
 ```
 
+也可以对多个已保存连接批量执行同一个 show 对象。目标可以直接通过连接名指定，也可以通过 inventory 分组或标签选择。真正执行命令前，`rauto` 会先解析所有目标的 profile，并检查每个设备是否都有该对象对应的 show 命令；只要有任一目标缺少映射，整次执行会在下发命令前报错退出。
+
+```bash
+rauto show interfaces \
+    --target core-sw1 \
+    --target core-sw2 \
+    --group access \
+    --label campus \
+    --print-command
+
+rauto show route --group core --tag prod --textfsm-excel ./routes.xlsx
+```
+
 你也可以把某个 profile 的自定义 show object 保存到 SQLite。同一个 `(device_profile, object)` 下，自定义 show object 会覆盖内置命令表，可以绑定执行 mode，也可以绑定自定义 TextFSM 模板；绑定模板的优先级高于命令映射和内置 NTC 模板。
 
 ```bash

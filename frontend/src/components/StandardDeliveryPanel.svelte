@@ -1,8 +1,6 @@
 <script>
-  import { standardDeliveryBehavior } from "../actions/standardDeliveryBehavior.js";
   import CommandFlowFields from "./standard/CommandFlowFields.svelte";
   import DirectExecuteFields from "./standard/DirectExecuteFields.svelte";
-  import ShowExecuteFields from "./standard/ShowExecuteFields.svelte";
   import StandardModeTabs from "./standard/StandardModeTabs.svelte";
   import TemplateExecuteFields from "./standard/TemplateExecuteFields.svelte";
   import { dashboardView } from "../state/dashboardView.js";
@@ -10,13 +8,7 @@
   let { active = false } = $props();
 </script>
 
-<div
-  id="panel-standard"
-  class="tab-panel"
-  role="tabpanel"
-  hidden={!active}
-  use:standardDeliveryBehavior
->
+<div id="panel-standard" class="tab-panel" role="tabpanel" hidden={!active}>
   <h2 id="standard-title" class="text-xl font-semibold">Standard Delivery</h2>
   <div class="mt-3 grid gap-3">
     <div class="group-card">
@@ -28,16 +20,13 @@
 
         <div id="op-exec-fields" class="grid gap-3">
           <DirectExecuteFields
-            active={$dashboardView.currentExecMode === "direct"}
-          />
-          <ShowExecuteFields
-            active={$dashboardView.currentExecMode === "show"}
+            active={active && $dashboardView.currentExecMode === "direct"}
           />
           <TemplateExecuteFields
-            active={$dashboardView.currentExecMode === "template"}
+            active={active && $dashboardView.currentExecMode === "template"}
           />
           <CommandFlowFields
-            active={$dashboardView.currentExecMode === "flow"}
+            active={active && $dashboardView.currentExecMode === "flow"}
           />
         </div>
       </div>

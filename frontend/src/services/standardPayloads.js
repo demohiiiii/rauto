@@ -12,7 +12,7 @@ function optionalFunction(name) {
 
 function splitCsvValues(rawValue) {
   return String(rawValue ?? "")
-    .split(",")
+    .split(/[,\n]/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -25,6 +25,10 @@ function getMultiSelectValues(selectId) {
   return Array.from(select.selectedOptions || [])
     .map((option) => String(option.value || "").trim())
     .filter(Boolean);
+}
+
+function selectedShowObjects(selectId) {
+  return getMultiSelectValues(selectId);
 }
 
 function parseJsonById(id) {
@@ -108,12 +112,36 @@ export function directCommandPayload({ connection, recordLevel }) {
 }
 
 export function showExecutionPayload({ connection, recordLevel }) {
+  const objects = selectedShowObjects("show-object");
   return {
-    object: byId("show-object").value.trim(),
+    object: objects[0] || "",
+    objects,
     mode: byId("show-mode").value.trim() || null,
     textfsm_platform: byId("textfsm-platform")?.value.trim() || null,
     no_parse: !byId("parse-textfsm")?.checked,
     connection,
+    record_level: recordLevel,
+  };
+}
+
+export function batchShowExecutionPayload({ recordLevel }) {
+  const pickerValues = optionalFunction("connectionPickerValues");
+  const objects = selectedShowObjects("batch-show-object");
+  return {
+    object: objects[0] || "",
+    objects,
+    mode: byId("batch-show-mode")?.value.trim() || null,
+    textfsm_platform: byId("batch-textfsm-platform")?.value.trim() || null,
+    no_parse: !byId("batch-parse-textfsm")?.checked,
+    targets: pickerValues
+      ? pickerValues("batch-show-targets")
+      : splitCsvValues(byId("batch-show-targets")?.value || ""),
+    groups: pickerValues
+      ? pickerValues("batch-show-groups")
+      : getMultiSelectValues("batch-show-groups"),
+    labels: pickerValues
+      ? pickerValues("batch-show-labels")
+      : splitCsvValues(byId("batch-show-labels")?.value || ""),
     record_level: recordLevel,
   };
 }

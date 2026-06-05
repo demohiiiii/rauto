@@ -6,15 +6,37 @@ let savedConnectionAutodetectResult = null;
 let connectionVarsRowSeq = 0;
 
 const CONNECTION_MULTI_PICKERS = {
+  devices: {
+    allowCustom: false,
+    inputIds: ["batch-show-targets-picker"],
+    hiddenIds: ["batch-show-targets"],
+  },
   labels: {
     allowCustom: true,
     inputIds: ["saved-conn-labels-picker", "saved-conn-edit-labels-picker"],
-    hiddenIds: ["saved-conn-labels", "saved-conn-edit-labels"],
+    hiddenIds: [
+      "saved-conn-labels",
+      "saved-conn-edit-labels",
+      "batch-show-labels",
+    ],
   },
   groups: {
     allowCustom: false,
-    inputIds: ["saved-conn-groups-picker", "saved-conn-edit-groups-picker"],
-    hiddenIds: ["saved-conn-groups", "saved-conn-edit-groups"],
+    inputIds: [
+      "saved-conn-groups-picker",
+      "saved-conn-edit-groups-picker",
+      "batch-show-groups-picker",
+    ],
+    hiddenIds: [
+      "saved-conn-groups",
+      "saved-conn-edit-groups",
+      "batch-show-groups",
+    ],
+  },
+  "show-objects": {
+    allowCustom: false,
+    inputIds: ["show-object-picker", "batch-show-object-picker"],
+    hiddenIds: ["show-object", "batch-show-object"],
   },
 };
 
@@ -63,20 +85,96 @@ function connectionPickerConfig(key) {
       selectedId: "saved-conn-edit-groups-selected",
       menuId: "saved-conn-edit-groups-menu",
     },
+    "batch-show-targets": {
+      key: "batch-show-targets",
+      kind: "devices",
+      hiddenId: "batch-show-targets",
+      inputId: "batch-show-targets-picker",
+      selectedId: "batch-show-targets-selected",
+      menuId: "batch-show-targets-menu",
+    },
+    "batch-show-groups": {
+      key: "batch-show-groups",
+      kind: "groups",
+      hiddenId: "batch-show-groups",
+      inputId: "batch-show-groups-picker",
+      selectedId: "batch-show-groups-selected",
+      menuId: "batch-show-groups-menu",
+    },
+    "batch-show-labels": {
+      key: "batch-show-labels",
+      kind: "labels",
+      hiddenId: "batch-show-labels",
+      inputId: "batch-show-labels-picker",
+      selectedId: "batch-show-labels-selected",
+      menuId: "batch-show-labels-menu",
+    },
+    "show-object": {
+      key: "show-object",
+      kind: "show-objects",
+      hiddenId: "show-object",
+      inputId: "show-object-picker",
+      selectedId: "show-object-selected",
+      menuId: "show-object-menu",
+    },
+    "batch-show-object": {
+      key: "batch-show-object",
+      kind: "show-objects",
+      hiddenId: "batch-show-object",
+      inputId: "batch-show-object-picker",
+      selectedId: "batch-show-object-selected",
+      menuId: "batch-show-object-menu",
+    },
   };
   return map[key] || null;
 }
 
-function connectionPickerOptionValues(kind, selectedValues = []) {
+function showObjectOptionValues(selectId) {
+  const select = byId(selectId);
+  if (!select) return [];
+  return Array.from(select.options || []).map((option) =>
+    safeString(option.value || "").trim(),
+  );
+}
+
+function showObjectOptionMeta(selectId, value) {
+  const select = byId(selectId);
+  const option = Array.from(select?.options || []).find(
+    (item) => safeString(item.value || "").trim() === value,
+  );
+  return {
+    object: value,
+    command: safeString(option?.dataset?.command || "").trim(),
+    mode: safeString(option?.dataset?.mode || "").trim(),
+    source: safeString(option?.dataset?.source || "").trim(),
+    textfsmTemplate: safeString(option?.dataset?.textfsmTemplate || "").trim(),
+  };
+}
+
+function showObjectSearchText(selectId, value) {
+  return showObjectOptionMeta(selectId, value).object.toLowerCase();
+}
+
+function connectionPickerOptionValues(
+  kind,
+  selectedValues = [],
+  sourceId = "",
+) {
   const selected = normalizeConnectionPickerValues(selectedValues);
   const available =
     kind === "groups"
       ? (cachedInventoryGroups || []).map((item) =>
           safeString(item?.name || "").trim(),
         )
-      : (cachedInventoryLabels || []).map((item) =>
-          safeString(item?.name || "").trim(),
-        );
+      : kind === "devices"
+        ? (cachedSavedConnections || []).map((item) =>
+            safeString(item?.name || "").trim(),
+          )
+        : kind === "show-objects"
+          ? showObjectOptionValues(sourceId)
+          : (cachedInventoryLabels || []).map((item) =>
+              safeString(item?.name || "").trim(),
+            );
   return normalizeConnectionPickerValues([...available, ...selected]).sort(
     (a, b) => a.localeCompare(b),
   );
@@ -85,7 +183,7 @@ function connectionPickerOptionValues(kind, selectedValues = []) {
 function connectionPickerValues(key) {
   const config = connectionPickerConfig(key);
   if (!config) return [];
-  if (config.kind === "groups") {
+  if (config.kind === "groups" || config.kind === "show-objects") {
     return getMultiSelectValuesById(config.hiddenId);
   }
   return splitCsvValues(byId(config.hiddenId)?.value || "");
@@ -112,6 +210,10 @@ function syncConnectionPickerHiddenValue(key, values, triggerEvents = true) {
           `<option value="${escapeHtml(value)}" selected>${escapeHtml(value)}</option>`,
       )
       .join("");
+  } else if (config.kind === "show-objects") {
+    Array.from(hidden.options || []).forEach((option) => {
+      option.selected = normalized.includes(safeString(option.value).trim());
+    });
   } else {
     hidden.value = normalized.join(", ");
   }
@@ -154,16 +256,24 @@ function renderConnectionPickerMenu(key) {
   const input = byId(config?.inputId || "");
   const menu = byId(config?.menuId || "");
   if (!config || !input || !menu) return;
+  menu.classList.toggle(
+    "connection-show-object-menu",
+    config.kind === "show-objects",
+  );
   const selected = new Set(connectionPickerValues(key));
   const query = safeString(input.value || "").trim();
   const lowerQuery = query.toLowerCase();
   const options = connectionPickerOptionValues(
     config.kind,
     Array.from(selected),
+    config.hiddenId,
   ).filter(
     (value) =>
       !selected.has(value) &&
-      (!lowerQuery || value.toLowerCase().includes(lowerQuery)),
+      (!lowerQuery ||
+        (config.kind === "show-objects"
+          ? showObjectSearchText(config.hiddenId, value).includes(lowerQuery)
+          : value.toLowerCase().includes(lowerQuery))),
   );
   const canAddCustom =
     CONNECTION_MULTI_PICKERS[config.kind]?.allowCustom &&
@@ -189,8 +299,10 @@ function renderConnectionPickerMenu(key) {
         </button></li>`
     : "";
   menu.innerHTML = `${customHtml}${options
-    .map(
-      (value) => `<li><button
+    .map((value) =>
+      config.kind === "show-objects"
+        ? renderShowObjectPickerOption(key, config.hiddenId, value)
+        : `<li><button
           type="button"
           data-connection-picker-add="${escapeHtml(key)}"
           data-value="${escapeHtml(value)}"
@@ -200,6 +312,23 @@ function renderConnectionPickerMenu(key) {
     )
     .join("")}`;
   menu.classList.remove("hidden");
+}
+
+function renderShowObjectPickerOption(key, selectId, value) {
+  const meta = showObjectOptionMeta(selectId, value);
+  return `<li>
+    <button
+      type="button"
+      class="connection-show-object-option"
+      data-connection-picker-add="${escapeHtml(key)}"
+      data-value="${escapeHtml(value)}"
+    >
+      <span class="connection-show-object-option-head">
+        <span class="connection-show-object-name">${escapeHtml(meta.object)}</span>
+        <span class="connection-show-object-add">+</span>
+      </span>
+    </button>
+  </li>`;
 }
 
 function renderConnectionPicker(key) {
@@ -222,8 +351,16 @@ function addConnectionPickerValue(key, rawValue) {
   if (!value) return false;
   const config = connectionPickerConfig(key);
   if (!config) return false;
-  if (config.kind === "groups") {
-    const available = connectionPickerOptionValues("groups");
+  if (
+    config.kind === "groups" ||
+    config.kind === "devices" ||
+    config.kind === "show-objects"
+  ) {
+    const available = connectionPickerOptionValues(
+      config.kind,
+      [],
+      config.hiddenId,
+    );
     if (!available.includes(value)) {
       return false;
     }
@@ -255,7 +392,11 @@ function commitConnectionPickerInput(key) {
   if (config.kind === "labels") {
     return addConnectionPickerValue(key, raw);
   }
-  const options = connectionPickerOptionValues("groups");
+  const options = connectionPickerOptionValues(
+    config.kind,
+    [],
+    config.hiddenId,
+  );
   const filtered = options.filter((value) =>
     value.toLowerCase().includes(raw.toLowerCase()),
   );
@@ -539,6 +680,7 @@ function renderSavedConnectionOptions(selectedName = "") {
       selected: selectedName,
     },
   );
+  renderConnectionPicker("batch-show-targets");
 }
 
 function renderConnectionProfileOptions() {
@@ -573,6 +715,11 @@ function renderSavedConnectionGroupOptions(selectedValues = []) {
     "saved-conn-edit-groups",
     getMultiSelectValuesById("saved-conn-edit-groups"),
   );
+  renderConnectionGroupsForSelect(
+    "batch-show-groups",
+    getMultiSelectValuesById("batch-show-groups"),
+  );
+  renderConnectionPicker("batch-show-groups");
 }
 
 function renderSavedConnectionLabelOptions(selectedValues = null) {
@@ -582,6 +729,13 @@ function renderSavedConnectionLabelOptions(selectedValues = null) {
     renderConnectionPicker("saved-conn-labels");
   }
   renderConnectionPicker("saved-conn-edit-labels");
+  renderConnectionPicker("batch-show-labels");
+}
+
+function renderBatchShowTargetPickerOptions() {
+  renderConnectionPicker("batch-show-targets");
+  renderConnectionPicker("batch-show-groups");
+  renderConnectionPicker("batch-show-labels");
 }
 
 function getConnectionLabelValues(key) {
@@ -669,6 +823,7 @@ function initConnectionSelectionPickers() {
   }
   renderSavedConnectionLabelOptions([]);
   renderSavedConnectionGroupOptions([]);
+  renderBatchShowTargetPickerOptions();
 }
 
 function connectionPickerKeys() {
@@ -677,6 +832,11 @@ function connectionPickerKeys() {
     "saved-conn-edit-labels",
     "saved-conn-groups",
     "saved-conn-edit-groups",
+    "batch-show-targets",
+    "batch-show-groups",
+    "batch-show-labels",
+    "show-object",
+    "batch-show-object",
   ];
 }
 
@@ -686,6 +846,11 @@ function connectionPickerConfigMap() {
     "saved-conn-edit-labels": connectionPickerConfig("saved-conn-edit-labels"),
     "saved-conn-groups": connectionPickerConfig("saved-conn-groups"),
     "saved-conn-edit-groups": connectionPickerConfig("saved-conn-edit-groups"),
+    "batch-show-targets": connectionPickerConfig("batch-show-targets"),
+    "batch-show-groups": connectionPickerConfig("batch-show-groups"),
+    "batch-show-labels": connectionPickerConfig("batch-show-labels"),
+    "show-object": connectionPickerConfig("show-object"),
+    "batch-show-object": connectionPickerConfig("batch-show-object"),
   };
 }
 

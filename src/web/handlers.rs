@@ -34,7 +34,8 @@ use crate::web::models::{
     ExecuteOrchestrationResponse, ExecuteTemplateRequest, ExecuteTemplateResponse,
     ExecuteTxBlockRequest, ExecuteTxBlockResponse, ExecuteTxWorkflowRequest,
     ExecuteTxWorkflowResponse, ExecuteUploadRequest, ExecuteUploadResponse, RecordLevel,
-    RenderRequest, RenderResponse, SavedConnectionDetail, ShowExecuteRequest, ShowExecuteResponse,
+    RenderRequest, RenderResponse, SavedConnectionDetail, ShowBatchExecuteRequest,
+    ShowBatchExecuteResponse, ShowBatchTargetResponse, ShowExecuteRequest, ShowExecuteResponse,
     ShowObjectEntry, ShowObjectsResponse, TaskEvent,
 };
 use crate::web::state::{
@@ -53,7 +54,7 @@ use rneter::session::{
 };
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -92,9 +93,9 @@ pub use connections::{
 };
 pub use execute::{
     exec_command, exec_command_async, execute_command_flow, execute_orchestration,
-    execute_orchestration_async, execute_show, execute_template, execute_template_async,
-    execute_tx_block, execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async,
-    execute_upload, list_show_objects, render_template,
+    execute_orchestration_async, execute_show, execute_show_batch, execute_template,
+    execute_template_async, execute_tx_block, execute_tx_block_async, execute_tx_workflow,
+    execute_tx_workflow_async, execute_upload, list_show_objects, render_template,
 };
 use flow_templates::{
     builtin_command_flow_template_by_name, parse_builtin_command_flow_template_token,

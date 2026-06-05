@@ -94,6 +94,43 @@ pub fn list_connections_by_labels_any(labels: &[String]) -> Result<Vec<String>> 
     })
 }
 
+pub fn list_connections_by_groups_any(groups: &[String]) -> Result<Vec<String>> {
+    let mut required = groups
+        .iter()
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+        .map(|item| item.to_string())
+        .collect::<Vec<_>>();
+    required.sort();
+    required.dedup();
+    if required.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    db::run_sync(async move {
+        let mut names = Vec::new();
+        for group in required {
+            let rows = sqlx::query(
+                r#"
+                SELECT connection_name
+                FROM inventory_group_members
+                WHERE group_name = ?
+                ORDER BY connection_name ASC
+                "#,
+            )
+            .bind(group)
+            .fetch_all(db::pool())
+            .await?;
+            for row in rows {
+                names.push(row.get::<String, _>("connection_name"));
+            }
+        }
+        names.sort();
+        names.dedup();
+        Ok(names)
+    })
+}
+
 pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     let safe = safe_connection_name(name)?;
     db::run_sync(async move {
@@ -382,8 +419,9 @@ async fn load_connection_groups_async(name: &str) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        SavedConnection, delete_connection, has_saved_password, list_connections_by_labels_any,
-        load_connection, load_connection_raw, load_saved_secret, save_connection,
+        SavedConnection, delete_connection, has_saved_password, list_connections_by_groups_any,
+        list_connections_by_labels_any, load_connection, load_connection_raw, load_saved_secret,
+        save_connection,
     };
     use crate::config::ssh_security::SshSecurityProfile;
     use crate::db;
@@ -620,6 +658,63 @@ mod tests {
 
         let items = list_connections_by_labels_any(&["edge".to_string(), "qa".to_string()])?;
         assert_eq!(items, vec![left.to_string()]);
+        Ok(())
+    }
+
+    #[test]
+    fn list_connections_by_groups_any_matches_saved_groups() -> Result<()> {
+        let _env_guard = TestEnvGuard::new()?;
+        db::init_sync()?;
+        let left = "conn_store_group_left";
+        let right = "conn_store_group_right";
+        let _ = delete_connection(left);
+        let _ = delete_connection(right);
+
+        save_connection(
+            left,
+            &SavedConnection {
+                host: Some("192.0.2.51".to_string()),
+                username: Some("ops".to_string()),
+                password: Some("secret-left".to_string()),
+                password_ref: None,
+                port: Some(22),
+                enable_password: None,
+                enable_password_ref: None,
+                enable_password_empty_enter: false,
+                ssh_security: Some(SshSecurityProfile::Balanced),
+                linux_shell_flavor: None,
+                device_profile: Some("linux".to_string()),
+                template_dir: None,
+                enabled: true,
+                labels: vec![],
+                vars: serde_json::json!({}),
+                groups: vec!["access".to_string(), "lab".to_string()],
+            },
+        )?;
+        save_connection(
+            right,
+            &SavedConnection {
+                host: Some("192.0.2.52".to_string()),
+                username: Some("ops".to_string()),
+                password: Some("secret-right".to_string()),
+                password_ref: None,
+                port: Some(22),
+                enable_password: None,
+                enable_password_ref: None,
+                enable_password_empty_enter: false,
+                ssh_security: Some(SshSecurityProfile::Balanced),
+                linux_shell_flavor: None,
+                device_profile: Some("linux".to_string()),
+                template_dir: None,
+                enabled: true,
+                labels: vec![],
+                vars: serde_json::json!({}),
+                groups: vec!["core".to_string()],
+            },
+        )?;
+
+        let items = list_connections_by_groups_any(&["access".to_string(), "core".to_string()])?;
+        assert_eq!(items, vec![left.to_string(), right.to_string()]);
         Ok(())
     }
 }

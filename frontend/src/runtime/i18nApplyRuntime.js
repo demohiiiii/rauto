@@ -166,6 +166,9 @@ function applyI18n() {
   if (byId("tab-orchestrate")) {
     byId("tab-orchestrate").textContent = t("txStageOrchestrate");
   }
+  if (byId("tab-show")) {
+    byId("tab-show").textContent = t("opExecShow");
+  }
   byId("tab-replay").textContent = t("tabReplay");
   byId("tab-prompts").textContent = t("tabPrompts");
   byId("tab-templates").textContent = t("tabTemplates");
@@ -174,7 +177,9 @@ function applyI18n() {
   byId("tab-blacklist").textContent = t("tabBlacklist");
   byId("tab-backup").textContent = t("tabBackup");
   byId("tab-tasks").textContent = t("tabTasks");
-  byId("standard-mode-show").textContent = t("opExecShow");
+  if (byId("standard-mode-show")) {
+    byId("standard-mode-show").textContent = t("opExecShow");
+  }
   byId("standard-mode-direct").textContent = t("opExecDirect");
   byId("standard-mode-template").textContent = t("opExecTemplate");
   byId("standard-mode-flow").textContent = t("opExecFlow");
@@ -198,6 +203,18 @@ function applyI18n() {
   }
 
   byId("standard-title").textContent = t("opSectionStandard");
+  if (byId("show-page-title")) {
+    byId("show-page-title").textContent = t("opExecShow");
+  }
+  if (byId("show-page-card-title")) {
+    byId("show-page-card-title").textContent = t("opExecShow");
+  }
+  if (byId("show-tab-single")) {
+    byId("show-tab-single").textContent = t("showSingleTabTitle");
+  }
+  if (byId("show-tab-batch")) {
+    byId("show-tab-batch").textContent = t("showBatchTabTitle");
+  }
   byId("orchestrated-title").textContent = currentOrchestratedStageTitle();
   byId("record-fab").title = t("recordFabTitle");
   byId("dashboard-tool-record").textContent = t("recordFabTitle");
@@ -883,23 +900,68 @@ function applyI18n() {
   byId("mode").placeholder = t("modePlaceholder");
   byId("show-mode").setAttribute("title", t("modePlaceholder"));
   byId("show-mode").setAttribute("aria-label", t("modePlaceholder"));
+  byId("show-object-label").textContent = t("showObjectPlaceholder");
+  byId("show-object-picker").placeholder = t("showObjectPlaceholder");
   byId("show-object").setAttribute("title", t("showObjectPlaceholder"));
   byId("show-object").setAttribute("aria-label", t("showObjectPlaceholder"));
   byId("show-exec-btn").textContent = t("showExecuteBtn");
+  byId("batch-show-mode").setAttribute("title", t("modePlaceholder"));
+  byId("batch-show-mode").setAttribute("aria-label", t("modePlaceholder"));
+  byId("batch-show-object-label").textContent = t("showObjectPlaceholder");
+  byId("batch-show-object-picker").placeholder = t("showObjectPlaceholder");
+  byId("batch-show-object").setAttribute("title", t("showObjectPlaceholder"));
+  byId("batch-show-object").setAttribute(
+    "aria-label",
+    t("showObjectPlaceholder"),
+  );
+  byId("batch-show-targets-label").textContent = t("batchShowTargetsLabel");
+  byId("batch-show-groups-label").textContent = t("batchShowGroupsLabel");
+  byId("batch-show-labels-label").textContent = t("batchShowLabelsLabel");
+  byId("batch-show-targets-picker").placeholder = t(
+    "batchShowTargetsPlaceholder",
+  );
+  byId("batch-show-groups-picker").placeholder = t(
+    "batchShowGroupsPlaceholder",
+  );
+  byId("batch-show-labels-picker").placeholder = t(
+    "batchShowLabelsPlaceholder",
+  );
+  byId("batch-textfsm-excel-name").placeholder = t(
+    "batchShowExcelNamePlaceholder",
+  );
+  byId("batch-show-exec-btn").textContent = t("batchShowExecuteBtn");
   byId("template-mode").placeholder = t("templateModePlaceholder");
-  byId("textfsm-template").placeholder = t("textfsmTemplatePlaceholder");
-  byId("textfsm-platform").setAttribute(
+  if (byId("textfsm-template")) {
+    byId("textfsm-template").placeholder = t("textfsmTemplatePlaceholder");
+  }
+  if (byId("textfsm-platform")) {
+    byId("textfsm-platform").setAttribute(
+      "title",
+      t("textfsmPlatformPlaceholder"),
+    );
+    byId("textfsm-platform").setAttribute(
+      "aria-label",
+      t("textfsmPlatformPlaceholder"),
+    );
+  }
+  byId("batch-textfsm-platform").setAttribute(
     "title",
     t("textfsmPlatformPlaceholder"),
   );
-  byId("textfsm-platform").setAttribute(
+  byId("batch-textfsm-platform").setAttribute(
     "aria-label",
     t("textfsmPlatformPlaceholder"),
   );
   callDashboardHook("renderTextfsmPlatformOptions");
-  byId("parse-textfsm").nextElementSibling.textContent =
-    t("textfsmParseToggle");
-  byId("textfsm-parse-hint").textContent = t("textfsmParseHint");
+  if (byId("parse-textfsm")?.nextElementSibling) {
+    byId("parse-textfsm").nextElementSibling.textContent =
+      t("textfsmParseToggle");
+  }
+  if (byId("textfsm-parse-hint")) {
+    byId("textfsm-parse-hint").textContent = t("textfsmParseHint");
+  }
+  byId("batch-textfsm-parse-label").textContent = t("textfsmParseToggle");
+  byId("batch-textfsm-parse-hint").textContent = t("batchTextfsmParseHint");
   byId("custom-profile-picker").setAttribute(
     "title",
     t("customProfileSelectPlaceholder"),

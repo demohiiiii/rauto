@@ -478,6 +478,352 @@ pub async fn execute_show(
     result.map(Json)
 }
 
+struct ResolvedBatchShowTarget {
+    name: String,
+    conn: ResolvedConnection,
+    platform: Option<String>,
+    show: show_catalog::ShowCommand,
+    effective_mode: String,
+}
+
+pub async fn execute_show_batch(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ShowBatchExecuteRequest>,
+) -> Result<Json<ShowBatchExecuteResponse>, ApiError> {
+    let task_ctx = TaskReportContext::from_request(
+        TaskOperation::Exec,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    );
+    let task_guard = state.acquire_task_guard(task_ctx.is_some());
+    emit_task_event(
+        &state,
+        &task_ctx,
+        TaskEventInput::new("started", "Starting batch show object execution")
+            .with_stage("precheck")
+            .with_progress(Some(0))
+            .with_details(Some(json!({
+                "object": &req.object,
+                "objects": &req.objects,
+                "targets": &req.targets,
+                "groups": &req.groups,
+                "labels": &req.labels
+            }))),
+    );
+
+    let result: Result<ShowBatchExecuteResponse, ApiError> = async {
+        let objects = resolve_batch_show_objects(&req)?;
+        let target_names = resolve_batch_show_target_names(&req)?;
+        if target_names.is_empty() {
+            return Err(ApiError::bad_request(
+                "batch show resolved no saved connections",
+            ));
+        }
+
+        let mut resolved_targets = Vec::with_capacity(target_names.len());
+        let mut precheck_errors = Vec::new();
+        for name in &target_names {
+            for object in &objects {
+                match resolve_batch_show_target(&state, name, &req, object).await {
+                    Ok(target) => resolved_targets.push(target),
+                    Err(err) => precheck_errors.push(format!("{name}/{object}: {}", err.message)),
+                }
+            }
+        }
+        if !precheck_errors.is_empty() {
+            return Err(ApiError::bad_request(format!(
+                "show object precheck failed for {} target(s):\n{}",
+                precheck_errors.len(),
+                precheck_errors.join("\n")
+            )));
+        }
+
+        emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("progress", "Executing batch show commands")
+                .with_stage("command")
+                .with_progress(Some(40))
+                .with_details(Some(json!({
+                    "objects": &objects,
+                    "target_count": resolved_targets.len()
+                }))),
+        );
+
+        let record_level = req.record_level;
+        let mut results = Vec::with_capacity(resolved_targets.len());
+        for target in resolved_targets {
+            results.push(execute_batch_show_target(&target, req.no_parse, record_level).await);
+        }
+
+        let total = results.len() as u64;
+        let failed = results
+            .iter()
+            .filter(|item| item.error.is_some() || item.exit_code.unwrap_or(0) != 0)
+            .count() as u64;
+        let succeeded = total.saturating_sub(failed);
+        let outcome = if failed == 0 {
+            TaskResultOutcome::Success
+        } else if succeeded > 0 {
+            TaskResultOutcome::PartialSuccess
+        } else {
+            TaskResultOutcome::Failed
+        };
+
+        Ok(ShowBatchExecuteResponse {
+            object: objects.join(", "),
+            targets: target_names,
+            result_summary: task_result_with_details(
+                task_result_with_counts(
+                    build_result_summary(
+                        TaskOperation::Exec,
+                        outcome,
+                        format!(
+                            "Batch show completed: {} succeeded, {} failed",
+                            succeeded, failed
+                        ),
+                    ),
+                    result_counts(total, succeeded, failed),
+                ),
+                json!({
+                    "objects": &objects,
+                    "total": total,
+                    "succeeded": succeeded,
+                    "failed": failed
+                }),
+            ),
+            results,
+        })
+    }
+    .await;
+
+    drop(task_guard);
+    match &result {
+        Ok(response) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new("completed", "Batch show object execution completed")
+                .with_stage("command")
+                .with_level(if response.result_summary.success {
+                    "success"
+                } else {
+                    "warning"
+                })
+                .with_progress(Some(100))
+                .with_details(Some(json!({
+                    "object": response.object,
+                    "target_count": response.targets.len(),
+                    "counts": response.result_summary.counts.as_ref()
+                }))),
+        ),
+        Err(err) => emit_task_event(
+            &state,
+            &task_ctx,
+            TaskEventInput::new(
+                "failed",
+                format!("Batch show object execution failed: {}", err.message),
+            )
+            .with_stage("precheck")
+            .with_level("error"),
+        ),
+    }
+    spawn_task_callback(state, task_ctx, &result);
+    result.map(Json)
+}
+
+fn resolve_batch_show_target_names(req: &ShowBatchExecuteRequest) -> Result<Vec<String>, ApiError> {
+    let mut names = BTreeSet::new();
+    for target in &req.targets {
+        let trimmed = target.trim();
+        if !trimmed.is_empty() {
+            names.insert(
+                connection_store::safe_connection_name(trimmed)
+                    .map_err(|err| ApiError::bad_request(err.to_string()))?,
+            );
+        }
+    }
+    for connection in
+        connection_store::list_connections_by_groups_any(&req.groups).map_err(ApiError::from)?
+    {
+        names.insert(connection);
+    }
+    for connection in
+        connection_store::list_connections_by_labels_any(&req.labels).map_err(ApiError::from)?
+    {
+        names.insert(connection);
+    }
+    Ok(names.into_iter().collect())
+}
+
+fn resolve_batch_show_objects(req: &ShowBatchExecuteRequest) -> Result<Vec<String>, ApiError> {
+    let mut objects = BTreeSet::new();
+    let single = req.object.trim();
+    if !single.is_empty() {
+        objects.insert(single.to_string());
+    }
+    for object in &req.objects {
+        let trimmed = object.trim();
+        if !trimmed.is_empty() {
+            objects.insert(trimmed.to_string());
+        }
+    }
+    if objects.is_empty() {
+        return Err(ApiError::bad_request("show object is required"));
+    }
+    Ok(objects.into_iter().collect())
+}
+
+async fn resolve_batch_show_target(
+    state: &Arc<AppState>,
+    name: &str,
+    req: &ShowBatchExecuteRequest,
+    object: &str,
+) -> Result<ResolvedBatchShowTarget, ApiError> {
+    let connection = ConnectionRequest {
+        connection_name: Some(name.to_string()),
+        ..Default::default()
+    };
+    let conn =
+        resolve_autodetect_connection(merge_connection_options(&state.defaults, Some(connection))?)
+            .await?;
+    let platform =
+        show_catalog::platform_for_show(&conn.device_profile, req.textfsm_platform.as_deref());
+    let show =
+        show_catalog::resolve_show_command(object, platform.as_deref(), &conn.device_profile)
+            .map_err(|err| ApiError::bad_request(err.to_string()))?;
+    command_blacklist::ensure_command_allowed(&show.command, "batch show execution")
+        .map_err(|err| ApiError::bad_request(err.to_string()))?;
+    let requested_mode = req.mode.as_deref().or(show.mode.as_deref());
+    let effective_mode = resolve_effective_mode(requested_mode, &conn.device_profile)?;
+    Ok(ResolvedBatchShowTarget {
+        name: name.to_string(),
+        conn,
+        platform,
+        show,
+        effective_mode,
+    })
+}
+
+async fn execute_batch_show_target(
+    target: &ResolvedBatchShowTarget,
+    no_parse: bool,
+    record_level: Option<RecordLevel>,
+) -> ShowBatchTargetResponse {
+    match execute_batch_show_target_inner(target, no_parse, record_level).await {
+        Ok(response) => response,
+        Err(err) => ShowBatchTargetResponse {
+            target: target.name.clone(),
+            host: target.conn.host.clone(),
+            profile: target.conn.device_profile.clone(),
+            object: target.show.object.clone(),
+            platform: target.platform.clone().unwrap_or_default(),
+            command: target.show.command.clone(),
+            mode: target.effective_mode.clone(),
+            source: show_command_source_label(target.show.source).to_string(),
+            textfsm_mapping_command: target.show.textfsm_mapping_command.clone(),
+            textfsm_template_name: target.show.textfsm_template_name.clone(),
+            output: None,
+            exit_code: None,
+            parsed_output: None,
+            parse_error: None,
+            error: Some(err.message),
+        },
+    }
+}
+
+async fn execute_batch_show_target_inner(
+    target: &ResolvedBatchShowTarget,
+    no_parse: bool,
+    record_level: Option<RecordLevel>,
+) -> Result<ShowBatchTargetResponse, ApiError> {
+    let handler = template_loader::load_device_profile_for_connection(
+        &target.conn.device_profile,
+        target.conn.linux_shell_flavor,
+    )?;
+    let client = if let Some(level) = to_record_level(record_level) {
+        DeviceClient::connect_with_recording(
+            target.conn.host.clone(),
+            target.conn.port,
+            target.conn.username.clone(),
+            target.conn.password.clone(),
+            target.conn.enable_password.clone(),
+            handler,
+            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            level,
+            target.conn.ssh_security,
+        )
+        .await?
+    } else {
+        DeviceClient::connect(
+            target.conn.host.clone(),
+            target.conn.port,
+            target.conn.username.clone(),
+            target.conn.password.clone(),
+            target.conn.enable_password.clone(),
+            handler,
+            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            target.conn.ssh_security,
+        )
+        .await?
+    };
+
+    let output = client
+        .execute_output(&target.show.command, Some(target.effective_mode.as_str()))
+        .await?;
+    let exit_code = output.exit_code;
+    let should_parse = !no_parse && exit_code.unwrap_or(0) == 0;
+    let textfsm_template_content = target
+        .show
+        .textfsm_template_name
+        .as_deref()
+        .map(|name| {
+            custom_textfsm_store::load_template(name)
+                .map_err(ApiError::from)?
+                .ok_or_else(|| {
+                    ApiError::bad_request(format!("TextFSM template '{}' not found", name))
+                })
+        })
+        .transpose()?
+        .map(|template| template.content);
+    let (parsed_output, parse_error) = parse_textfsm_output_optional(
+        &output.content,
+        &target.show.command,
+        WebTextfsmParseOptions {
+            template_content: textfsm_template_content.as_deref(),
+            enabled: should_parse,
+            platform: target.platform.as_deref(),
+            device_profile: Some(target.conn.device_profile.as_str()),
+            ..Default::default()
+        },
+    );
+    persist_history_if_recorded(
+        &target.conn,
+        &client,
+        "show",
+        &target.show.command,
+        Some(target.effective_mode.as_str()),
+        record_level,
+    );
+
+    Ok(ShowBatchTargetResponse {
+        target: target.name.clone(),
+        host: target.conn.host.clone(),
+        profile: target.conn.device_profile.clone(),
+        object: target.show.object.clone(),
+        platform: target.platform.clone().unwrap_or_default(),
+        command: target.show.command.clone(),
+        mode: target.effective_mode.clone(),
+        source: show_command_source_label(target.show.source).to_string(),
+        textfsm_mapping_command: target.show.textfsm_mapping_command.clone(),
+        textfsm_template_name: target.show.textfsm_template_name.clone(),
+        output: Some(output.content),
+        exit_code,
+        parsed_output,
+        parse_error,
+        error: None,
+    })
+}
+
 fn show_command_source_label(source: show_catalog::ShowCommandSource) -> &'static str {
     match source {
         show_catalog::ShowCommandSource::Builtin => "builtin",

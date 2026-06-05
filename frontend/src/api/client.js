@@ -101,6 +101,10 @@ export function executeShow(payload) {
   return apiRequest("POST", "/api/show/execute", payload);
 }
 
+export function executeShowBatch(payload) {
+  return apiRequest("POST", "/api/show/batch-execute", payload);
+}
+
 export function executeTemplate(payload) {
   return apiRequest("POST", "/api/template/execute", payload);
 }

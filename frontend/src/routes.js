@@ -1,5 +1,11 @@
 export const dashboardRoutes = [
   {
+    id: "show",
+    path: "/app/show",
+    navButtonId: "tab-show",
+    tab: "show",
+  },
+  {
     id: "standard",
     path: "/app/standard",
     navButtonId: "tab-standard",

@@ -221,6 +221,19 @@ rauto show route --print-command
 rauto show interfaces --no-parse
 ```
 
+Run the same show object across multiple saved connections by naming targets directly, selecting inventory groups, or selecting labels/tags. Before connecting for command execution, `rauto` resolves every target profile and verifies that the requested object has a matching show command for every device; if any target is missing the mapping, the whole run fails before executing commands.
+
+```bash
+rauto show interfaces \
+    --target core-sw1 \
+    --target core-sw2 \
+    --group access \
+    --label campus \
+    --print-command
+
+rauto show route --group core --tag prod --textfsm-excel ./routes.xlsx
+```
+
 You can save profile-specific custom show objects in SQLite. A custom show object overrides the bundled command table for the same `(device_profile, object)`, can bind an execution mode, and can optionally bind a custom TextFSM template that is used before command mappings and bundled NTC templates.
 
 ```bash

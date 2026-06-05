@@ -95,6 +95,13 @@ async function refreshExecutionModeOptions(overrides = {}) {
     { allowEmpty: true, emptyLabel: t("showModeAutoPlaceholder") },
   );
   applyModeOptions(
+    "batch-show-mode",
+    data.modes,
+    overrides.batchShowMode ?? safeSelectValue("batch-show-mode"),
+    data.default_mode,
+    { allowEmpty: true, emptyLabel: t("showModeAutoPlaceholder") },
+  );
+  applyModeOptions(
     "tx-mode",
     data.modes,
     overrides.txMode ?? safeSelectValue("tx-mode"),
@@ -214,6 +221,10 @@ function renderTextfsmPlatformOptions() {
   populateSelectOptions("textfsm-platform", profiles, {
     placeholder: t("textfsmPlatformPlaceholder"),
     selected,
+  });
+  populateSelectOptions("batch-textfsm-platform", profiles, {
+    placeholder: t("textfsmPlatformPlaceholder"),
+    selected: safeSelectValue("batch-textfsm-platform"),
   });
 }
 

@@ -60,7 +60,7 @@ export function installDashboardState() {
   window.currentTab = "standard";
   window._initialTab = window.currentTab;
   window.currentOpKind = "exec";
-  window.currentExecMode = "show";
+  window.currentExecMode = "direct";
   window.currentPromptMode = "view";
   window.currentTemplateSection = "templates";
   window.currentInventorySection = "groups";
