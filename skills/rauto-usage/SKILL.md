@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Operate rauto end-to-end for the user through CLI/Web/Agent: execute commands and templates, run command-flow templates, run tx/tx-workflow/orchestrate JSON plans or saved JSON templates, manage saved connections/device profiles/autodetect/inventory/templates/history, run replay/backup/restore/upload, and start or troubleshoot web/agent services. Trigger when the user asks to directly perform or validate rauto operations instead of only explaining them."
+description: "Operate rauto end-to-end for the user through CLI/Web/Agent: prefer show objects for reading device state/config, prefer rollback-aware tx/tx-workflow/orchestrate for config changes, run direct commands/templates/command-flow only when appropriate, manage saved connections/device profiles/autodetect/inventory/templates/TextFSM/show objects/history, export parsed TextFSM results, run replay/backup/restore/upload, and start or troubleshoot web/agent services. Trigger when the user asks to directly perform or validate rauto operations instead of only explaining them."
 ---
 
 # Rauto Usage
@@ -13,35 +13,56 @@ Avoid tutorial-only responses when execution can be done in-session.
 Apply action-first behavior:
 
 1. Classify request as read-only, config-changing, or service startup.
-2. Execute read-only operations immediately.
-3. Prefer rollback-aware flows (`tx`, `tx-workflow`, `orchestrate`) for config changes.
-4. Start services directly when user asks for `web` or `agent`.
-5. Ask confirmation before running destructive or ambiguous change operations.
-6. Return concise result summary with the exact command used.
+2. For device state/config retrieval, prefer `rauto show <object>` or Web **Show/查询** before raw `exec`.
+3. Execute safe read-only operations immediately.
+4. Prefer rollback-aware flows (`tx`, `tx-workflow`, `orchestrate`) for config changes.
+5. Start services directly when user asks for `web` or `agent`.
+6. Ask confirmation before running destructive or ambiguous change operations.
+7. Return concise result summary with the exact command used.
 
 ## Execution Rules
 
 1. Execute read/query commands immediately (for example `device list`, `connection list`, `history list`, `templates list`, `replay --list`).
-2. Execute `rauto web` / `rauto agent` immediately when startup is explicitly requested.
-3. Use transaction-family execution with the correct entrypoint (high priority):
+2. Prefer the show catalog for operational reads:
+   - use `rauto show --list` to discover objects
+   - use `rauto show <object>` for supported reads such as `version`, `interfaces`, `route`, `arp`, `vlan`, `mac`, `lldp`, `access-list`, and platform-specific objects
+   - use multi-target show for saved connections, groups, and labels
+   - fall back to `exec` only when no show object or custom show object fits.
+3. Execute `rauto web` / `rauto agent` immediately when startup is explicitly requested.
+4. Use transaction-family execution with the correct entrypoint (high priority):
    - `tx`: CLI parameter-driven transaction construction, plus tx-block JSON authoring for Web/API/template flows
    - `tx-workflow`: workflow JSON
    - `orchestrate`: multi-device plan JSON
-4. Treat command-flow as the reusable interactive path:
+5. Treat command-flow as the reusable interactive path:
    - run with `rauto flow`
    - manage with `rauto flow-template`
-5. Resolve connection using:
+6. Resolve connection using:
    - explicit host flags > `--connection <name>` > ask only for missing must-have inputs.
-6. Keep SSH/profile defaults current:
+7. Keep SSH/profile defaults current:
    - default device profile is `autodetect`
    - default SSH security is `legacy-compatible`
    - successful autodetect results are cached by `host:port`
    - use `--force-autodetect` when the device behind an IP/port may have changed.
-7. Keep mode behavior profile-aware:
+8. Keep mode behavior profile-aware:
    - do not force `Enable`
    - let profile default apply when mode is omitted
    - if mode invalid, return default and available modes.
-8. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
+9. Keep TextFSM behavior current:
+   - `show` parses with TextFSM by default unless `--no-parse`
+   - `exec/template/flow` parse only when requested, when a template is supplied, or when Excel export needs parsed rows
+   - default parsing filters TextFSM fallback Error rules such as `^. -> Error`; use strict mode only when user asks to preserve template errors.
+10. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
+
+## Preferred Execution Matrix
+
+- Reading device state/config: `show` first, `exec` only as fallback.
+- Running one harmless raw command: `exec`.
+- Running saved command text with vars: `template`.
+- Handling interactive prompts or wizard-like workflows: `flow`.
+- Changing config on one target: `tx`.
+- Changing config through reusable multi-block workflow: `tx-workflow`.
+- Changing config across devices/groups/sites: `orchestrate`.
+- Querying many saved devices/groups/labels: multi-target `show`; use Web batch show for multiple objects in one request.
 
 ## Tx / Workflow / Orchestration Authoring Protocol
 
@@ -67,10 +88,12 @@ Require explicit confirmation before destructive actions:
 - `rauto backup restore ... --replace`
 - profile/template/connection delete operations
 - tx/workflow/orchestrate execution when user intent is ambiguous
+- raw `exec` or command-template config changes when a rollback-capable transaction path is available
 
 Enforce safety for config changes:
 
 - prefer rollback-capable plans
+- include precheck/read steps with `show` where useful
 - use preview/dry-run style checks when available
 - review orchestration scope, `fail_fast`, and concurrency
 - include rollback strategy before execution
@@ -83,6 +106,8 @@ Ask only for missing mandatory fields:
 
 - `exec/template/flow/tx/tx-workflow/orchestrate/upload/connection test`:
   require either complete host credentials or a valid `--connection`.
+- `show`:
+  require an object unless the user asks to list/discover objects; require a saved target, group, label, or complete connection for execution.
 - `agent`:
   require `manager_url` and `agent_name`.
 - `replay`:

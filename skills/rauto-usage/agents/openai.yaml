@@ -1,4 +1,4 @@
 interface:
   display_name: "Rauto Operations"
-  short_description: "Run rauto CLI/Web/Agent workflows safely"
-  default_prompt: "Use $rauto-usage to execute or validate rauto CLI/Web/Agent operations, including saved JSON templates, autodetect behavior, and tx/workflow/orchestration plans."
+  short_description: "Run safe rauto show, tx, Web, and Agent flows"
+  default_prompt: "Use $rauto-usage to operate rauto safely: prefer show for reads, tx/workflow/orchestrate for config changes, and validate CLI/Web/Agent workflows."

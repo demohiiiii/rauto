@@ -9,6 +9,13 @@ Use this file when creating or debugging command-flow templates (`rauto flow-tem
 - Step execution: each step can define command, optional mode, timeout, prompt-response rules.
 - Output branching: support `next`, `jump`, `stop_success`, `stop_failure`.
 - Vars schema: `name`, `type`, `required`, `default`, `options`, `label`, `description`.
+- TextFSM parsing can be enabled for flow output; repeated `--textfsm-template` values match command order and the last template is reused for remaining commands.
+
+## Usage Boundary
+
+- Use `flow` for reusable prompt/response interactions, device-side copy wizards, installers, and guided multi-step CLI operations.
+- Do not use `flow` as the first choice for simple state retrieval; prefer `show`.
+- Do not use `flow` as the first choice for config changes that need rollback; wrap flow steps in `tx`/`tx-workflow` when rollback-aware execution is needed.
 
 ## Practical Pattern: Current + Peer Connection
 
@@ -54,4 +61,3 @@ rauto flow \
 
 - If step `mode` is omitted, `rauto` uses template/runtime default first.
 - If still omitted, `rauto` falls back to the first mode of the active device profile.
-

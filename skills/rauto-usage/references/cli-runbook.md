@@ -36,6 +36,45 @@ rauto exec "uname -a" --connection edge92
 rauto template show_ver.j2 --connection core-01 --vars-json '{"vlan":100}'
 ```
 
+Use raw `exec` for one-off harmless commands or when no show object exists.
+For device state/config retrieval, prefer `rauto show`.
+For config changes, prefer `tx`, `tx-workflow`, or `orchestrate`.
+
+## Show Queries
+
+```bash
+rauto show --list --device-profile cisco_ios
+rauto show version --connection core-01
+rauto show interfaces --connection core-01 --print-command
+rauto show route --group core --label prod --textfsm-excel ./routes.xlsx
+rauto show interfaces --target core-01 --target core-02 --no-parse
+```
+
+Rules:
+
+- Use `show` first when the user wants to get configuration/state.
+- `show` maps a stable object to the real platform command using the resolved profile and bundled show catalog.
+- `show` parses with TextFSM by default; use `--no-parse` for raw output.
+- Multi-target show supports saved targets, inventory groups, and labels/tags. It prechecks that every target has the requested object before executing.
+- `--textfsm-platform` overrides platform selection only when needed.
+- `--textfsm-strict-errors` keeps TextFSM `-> Error` rules; default parsing filters fallback Error rules for better NTC template compatibility.
+
+Custom show objects and TextFSM mappings:
+
+```bash
+rauto textfsm template list
+rauto textfsm template create my_show_version --file ./templates/my_show_version.textfsm
+rauto textfsm mapping set --profile cisco_ios --command "show version" --template my_show_version
+
+rauto show-object list --profile cisco_ios
+rauto show-object set \
+  --profile cisco_ios \
+  --object access-list \
+  --command "show access-lists" \
+  --mode Enable \
+  --textfsm-mapping-command "show access-lists"
+```
+
 ## Command Flow
 
 ```bash
@@ -53,6 +92,8 @@ rauto orchestrate ./orchestration.json --dry-run
 ```
 
 `tx` is parameter-driven from CLI. Use tx-block JSON for Web/API payloads and saved template flows.
+Use transaction-family commands for config-changing work instead of direct `exec`/`template` whenever a rollback or staged plan is practical.
+For multi-device changes, use `orchestrate`; for reusable single-target change plans, use `tx-workflow`; for one target/one transactional unit, use `tx`.
 
 ## Reusable JSON Templates
 
@@ -74,6 +115,7 @@ Use nested `template` subcommands under `tx-workflow` and `orchestrate`; do not 
 
 ```bash
 rauto inventory group list --json
+rauto inventory group show access --json
 rauto inventory resolve-vars --host edge92 --group dc-a --json
 rauto history list edge92 --limit 20 --json
 rauto replay --list --record-file ./record.jsonl

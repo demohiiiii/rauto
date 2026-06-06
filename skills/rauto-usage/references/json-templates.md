@@ -15,6 +15,9 @@ Use this guide when creating runnable JSON for:
 4. Validate before execution using `scripts/validate_json_plans.py`.
 5. Run native CLI dry-run first for `tx-workflow` / `orchestrate` when available.
 
+Use this JSON family for config-changing work. For read-only state/config retrieval, prefer `rauto show` or Web **Show/查询** instead of authoring a transaction solely to run show commands.
+When a config change benefits from prechecks, add `show`-equivalent read commands as precheck steps before the change block or run `rauto show` separately first.
+
 ## 1) Tx Block JSON
 
 Tx block JSON is a single `TxBlock` object, not a wrapper.
