@@ -7,34 +7,98 @@ service AgentTaskService {
   rpc GetAgentStatus(AgentStatusRequest) returns (AgentStatusResponse);
   rpc ProbeDevices(ProbeDevicesRequest) returns (ProbeDevicesResponse);
   rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse);
+  rpc GetConnection(GetConnectionRequest) returns (JsonResponse);
   rpc UpsertConnection(UpsertConnectionRequest) returns (UpsertConnectionResponse);
+  rpc DeleteConnection(DeleteConnectionRequest) returns (JsonResponse);
   rpc TestConnection(TestConnectionRequest) returns (TestConnectionResponse);
+  rpc GetConnectionHistory(GetConnectionHistoryRequest) returns (JsonResponse);
+  rpc GetConnectionHistoryDetail(GetConnectionHistoryDetailRequest) returns (JsonResponse);
+  rpc DeleteConnectionHistory(DeleteConnectionHistoryRequest) returns (JsonResponse);
+  rpc ListInventoryGroups(ListInventoryGroupsRequest) returns (JsonResponse);
+  rpc GetInventoryGroup(GetInventoryGroupRequest) returns (JsonResponse);
+  rpc UpsertInventoryGroup(UpsertInventoryGroupRequest) returns (JsonResponse);
+  rpc DeleteInventoryGroup(DeleteInventoryGroupRequest) returns (JsonResponse);
+  rpc ListInventoryLabels(ListInventoryLabelsRequest) returns (JsonResponse);
+  rpc GetInventoryLabel(GetInventoryLabelRequest) returns (JsonResponse);
+  rpc UpsertInventoryLabel(UpsertInventoryLabelRequest) returns (JsonResponse);
+  rpc DeleteInventoryLabel(DeleteInventoryLabelRequest) returns (JsonResponse);
+  rpc ImportConnections(ImportConnectionsRequest) returns (JsonResponse);
+  rpc DownloadConnectionImportTemplate(DownloadConnectionImportTemplateRequest) returns (BytesResponse);
   rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
   rpc GetTemplate(GetTemplateRequest) returns (TemplateDetail);
   rpc CreateTemplate(CreateTemplateRequest) returns (TemplateDetail);
+  rpc UpdateTemplate(UpdateTemplateRequest) returns (TemplateDetail);
+  rpc DeleteTemplate(DeleteTemplateRequest) returns (JsonResponse);
   rpc ListCommandFlowTemplates(ListCommandFlowTemplatesRequest) returns (ListCommandFlowTemplatesResponse);
+  rpc ListBuiltinCommandFlowTemplates(ListBuiltinCommandFlowTemplatesRequest) returns (ListCommandFlowTemplatesResponse);
   rpc GetCommandFlowTemplate(GetCommandFlowTemplateRequest) returns (CommandFlowTemplateDetail);
+  rpc GetBuiltinCommandFlowTemplate(GetBuiltinCommandFlowTemplateRequest) returns (CommandFlowTemplateDetail);
   rpc UpsertCommandFlowTemplate(UpsertCommandFlowTemplateRequest) returns (CommandFlowTemplateDetail);
   rpc DeleteCommandFlowTemplate(DeleteCommandFlowTemplateRequest) returns (DeleteCommandFlowTemplateResponse);
   rpc ListTxBlockTemplates(ListTxBlockTemplatesRequest) returns (ListTemplatesResponse);
   rpc GetTxBlockTemplate(GetTemplateRequest) returns (TemplateDetail);
   rpc CreateTxBlockTemplate(CreateTemplateRequest) returns (TemplateDetail);
+  rpc UpdateTxBlockTemplate(UpdateTemplateRequest) returns (TemplateDetail);
+  rpc DeleteTxBlockTemplate(DeleteTemplateRequest) returns (JsonResponse);
   rpc ListTxWorkflowTemplates(ListTxWorkflowTemplatesRequest) returns (ListTemplatesResponse);
   rpc GetTxWorkflowTemplate(GetTemplateRequest) returns (TemplateDetail);
   rpc CreateTxWorkflowTemplate(CreateTemplateRequest) returns (TemplateDetail);
+  rpc UpdateTxWorkflowTemplate(UpdateTemplateRequest) returns (TemplateDetail);
+  rpc DeleteTxWorkflowTemplate(DeleteTemplateRequest) returns (JsonResponse);
   rpc ListOrchestrationTemplates(ListOrchestrationTemplatesRequest) returns (ListTemplatesResponse);
   rpc GetOrchestrationTemplate(GetTemplateRequest) returns (TemplateDetail);
   rpc CreateOrchestrationTemplate(CreateTemplateRequest) returns (TemplateDetail);
+  rpc UpdateOrchestrationTemplate(UpdateTemplateRequest) returns (TemplateDetail);
+  rpc DeleteOrchestrationTemplate(DeleteTemplateRequest) returns (JsonResponse);
   rpc ListDeviceProfiles(ListDeviceProfilesRequest) returns (ListDeviceProfilesResponse);
+  rpc GetBuiltinProfileDetail(GetProfileRequest) returns (JsonResponse);
+  rpc GetBuiltinProfileForm(GetProfileRequest) returns (JsonResponse);
+  rpc GetCustomProfile(GetProfileRequest) returns (JsonResponse);
+  rpc UpsertCustomProfile(UpsertCustomProfileRequest) returns (JsonResponse);
+  rpc GetCustomProfileForm(GetProfileRequest) returns (JsonResponse);
+  rpc UpsertCustomProfileForm(UpsertCustomProfileRequest) returns (JsonResponse);
+  rpc DeleteCustomProfile(DeleteProfileRequest) returns (JsonResponse);
+  rpc DiagnoseProfile(DiagnoseProfileRequest) returns (JsonResponse);
   rpc ListProfileModes(ListProfileModesRequest) returns (ListProfileModesResponse);
+  rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse);
+  rpc ListShowObjects(ListShowObjectsRequest) returns (ListShowObjectsResponse);
+  rpc ExecuteShow(ExecuteShowRequest) returns (ExecuteShowResponse);
+  rpc ExecuteShowBatch(ExecuteShowBatchRequest) returns (ExecuteShowBatchResponse);
   rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
+  rpc ExecuteCommandAsync(ExecuteCommandRequest) returns (AcceptedTaskResponse);
   rpc ExecuteTemplate(ExecuteTemplateRequest) returns (ExecuteTemplateResponse);
+  rpc ExecuteTemplateAsync(ExecuteTemplateRequest) returns (AcceptedTaskResponse);
   rpc ExecuteCommandFlow(ExecuteCommandFlowRequest) returns (ExecuteCommandFlowResponse);
   rpc ExecuteUpload(ExecuteUploadRequest) returns (ExecuteUploadResponse);
   rpc ExecuteTxBlock(ExecuteTxBlockRequest) returns (ExecuteTxBlockResponse);
   rpc ExecuteTxBlockAsync(ExecuteTxBlockRequest) returns (AcceptedTaskResponse);
+  rpc ExecuteTxWorkflow(ExecuteTxWorkflowRequest) returns (ExecuteTxWorkflowResponse);
   rpc ExecuteTxWorkflowAsync(ExecuteTxWorkflowRequest) returns (AcceptedTaskResponse);
+  rpc ExecuteOrchestration(ExecuteOrchestrationRequest) returns (ExecuteOrchestrationResponse);
   rpc ExecuteOrchestrationAsync(ExecuteOrchestrationRequest) returns (AcceptedTaskResponse);
+  rpc ReplaySession(ReplaySessionRequest) returns (JsonResponse);
+  rpc ListTextfsmTemplates(ListTextfsmTemplatesRequest) returns (JsonResponse);
+  rpc GetTextfsmTemplate(GetTextfsmTemplateRequest) returns (JsonResponse);
+  rpc CreateTextfsmTemplate(UpsertTextfsmTemplateRequest) returns (JsonResponse);
+  rpc UpdateTextfsmTemplate(UpsertTextfsmTemplateRequest) returns (JsonResponse);
+  rpc DeleteTextfsmTemplate(DeleteTextfsmTemplateRequest) returns (JsonResponse);
+  rpc ListTextfsmMappings(ListTextfsmMappingsRequest) returns (JsonResponse);
+  rpc UpsertTextfsmMapping(UpsertTextfsmMappingRequest) returns (JsonResponse);
+  rpc DeleteTextfsmMapping(DeleteTextfsmMappingRequest) returns (JsonResponse);
+  rpc ExportTextfsmExcel(TextfsmExcelExportRequest) returns (BytesResponse);
+  rpc ListCustomShowObjects(ListCustomShowObjectsRequest) returns (JsonResponse);
+  rpc UpsertCustomShowObject(UpsertCustomShowObjectRequest) returns (JsonResponse);
+  rpc DeleteCustomShowObject(DeleteCustomShowObjectRequest) returns (JsonResponse);
+  rpc ListTaskRuns(ListTaskRunsRequest) returns (JsonResponse);
+  rpc GetTaskRunDetail(GetTaskRunDetailRequest) returns (JsonResponse);
+  rpc ListBackups(ListBackupsRequest) returns (JsonResponse);
+  rpc CreateBackup(CreateBackupRequest) returns (JsonResponse);
+  rpc RestoreBackup(RestoreBackupRequest) returns (JsonResponse);
+  rpc DownloadBackup(DownloadBackupRequest) returns (BytesResponse);
+  rpc ListBlacklistPatterns(ListBlacklistPatternsRequest) returns (JsonResponse);
+  rpc AddBlacklistPattern(BlacklistPatternRequest) returns (JsonResponse);
+  rpc DeleteBlacklistPattern(BlacklistPatternRequest) returns (JsonResponse);
+  rpc CheckBlacklistCommand(CheckBlacklistCommandRequest) returns (JsonResponse);
 }
 
 message AgentInfoRequest {}
@@ -56,6 +120,16 @@ message ListConnectionsResponse {
   repeated ConnectionMeta connections = 1;
 }
 
+message JsonResponse {
+  string json = 1;
+}
+
+message BytesResponse {
+  bytes  data         = 1;
+  string filename     = 2;
+  string content_type = 3;
+}
+
 message ConnectionRef {
   string          connection_name    = 1;
   string          host               = 2;
@@ -66,6 +140,20 @@ message ConnectionRef {
   string          ssh_security       = 7;
   string          device_profile     = 8;
   string          linux_shell_flavor = 9;
+  optional bool   enabled            = 10;
+  repeated string labels             = 11;
+  repeated string groups             = 12;
+  string          vars_json          = 13;
+  optional bool   enable_password_empty_enter = 14;
+  string          template_dir       = 15;
+}
+
+message GetConnectionRequest {
+  string name = 1;
+}
+
+message DeleteConnectionRequest {
+  string name = 1;
 }
 
 message UpsertConnectionRequest {
@@ -93,6 +181,62 @@ message TestConnectionResponse {
   string ssh_security       = 5;
   string device_profile     = 6;
   string linux_shell_flavor = 7;
+}
+
+message GetConnectionHistoryRequest {
+  string name  = 1;
+  uint32 limit = 2;
+}
+
+message GetConnectionHistoryDetailRequest {
+  string name = 1;
+  string id   = 2;
+}
+
+message DeleteConnectionHistoryRequest {
+  string name = 1;
+  string id   = 2;
+}
+
+message ListInventoryGroupsRequest {}
+
+message GetInventoryGroupRequest {
+  string name = 1;
+}
+
+message UpsertInventoryGroupRequest {
+  string name       = 1;
+  repeated string hosts = 2;
+  string vars_json  = 3;
+  string description = 4;
+}
+
+message DeleteInventoryGroupRequest {
+  string name = 1;
+}
+
+message ListInventoryLabelsRequest {}
+
+message GetInventoryLabelRequest {
+  string name = 1;
+}
+
+message UpsertInventoryLabelRequest {
+  string name = 1;
+  repeated string hosts = 2;
+}
+
+message DeleteInventoryLabelRequest {
+  string name = 1;
+}
+
+message ImportConnectionsRequest {
+  string file_name = 1;
+  bytes  content   = 2;
+}
+
+message DownloadConnectionImportTemplateRequest {
+  string lang = 1;
 }
 
 message ListTemplatesRequest {}
@@ -125,7 +269,18 @@ message CreateTemplateRequest {
   string content = 2;
 }
 
+message UpdateTemplateRequest {
+  string name    = 1;
+  string content = 2;
+}
+
+message DeleteTemplateRequest {
+  string name = 1;
+}
+
 message ListCommandFlowTemplatesRequest {}
+
+message ListBuiltinCommandFlowTemplatesRequest {}
 
 message CommandFlowTemplateMeta {
   string name          = 1;
@@ -142,6 +297,10 @@ message ListCommandFlowTemplatesResponse {
 }
 
 message GetCommandFlowTemplateRequest {
+  string name = 1;
+}
+
+message GetBuiltinCommandFlowTemplateRequest {
   string name = 1;
 }
 
@@ -183,6 +342,24 @@ message ListOrchestrationTemplatesRequest {}
 
 message ListDeviceProfilesRequest {}
 
+message GetProfileRequest {
+  string name = 1;
+}
+
+message DeleteProfileRequest {
+  string name = 1;
+}
+
+message UpsertCustomProfileRequest {
+  string name    = 1;
+  string content = 2;
+}
+
+message DiagnoseProfileRequest {
+  string name         = 1;
+  string template_dir = 2;
+}
+
 message ListProfileModesRequest {
   string name = 1;
 }
@@ -210,12 +387,95 @@ message ListProfileModesResponse {
   repeated string modes        = 3;
 }
 
+message RenderTemplateRequest {
+  string        template     = 1;
+  string        vars_json    = 2;
+  ConnectionRef connection   = 3;
+  string        template_dir = 4;
+}
+
+message RenderTemplateResponse {
+  string rendered_commands = 1;
+}
+
+message ListShowObjectsRequest {
+  string device_profile   = 1;
+  string textfsm_platform = 2;
+}
+
+message ShowObjectEntry {
+  string          object                   = 1;
+  string          command                  = 2;
+  optional string mode                     = 3;
+  optional string textfsm_mapping_command  = 4;
+  string          source                   = 5;
+  optional string textfsm_template_name    = 6;
+}
+
+message ListShowObjectsResponse {
+  optional string           platform = 1;
+  repeated ShowObjectEntry  objects  = 2;
+}
+
+message ExecuteShowRequest {
+  string        task_id                = 1;
+  string        object                 = 2;
+  string        mode                   = 3;
+  string        textfsm_platform       = 4;
+  bool          no_parse               = 5;
+  bool          textfsm_strict_errors  = 6;
+  ConnectionRef connection             = 7;
+  string        record_level           = 8;
+}
+
+message ExecuteShowResponse {
+  string          object                    = 1;
+  string          platform                  = 2;
+  string          command                   = 3;
+  string          mode                      = 4;
+  string          source                    = 5;
+  optional string textfsm_mapping_command   = 6;
+  optional string textfsm_template_name     = 7;
+  string          output                    = 8;
+  optional int32  exit_code                 = 9;
+  optional string parsed_output_json        = 10;
+  optional string parse_error               = 11;
+  optional string recording_jsonl           = 12;
+  optional string result_summary_json       = 13;
+}
+
+message ExecuteShowBatchRequest {
+  string          task_id               = 1;
+  string          object                = 2;
+  repeated string objects               = 3;
+  string          mode                  = 4;
+  string          textfsm_platform      = 5;
+  bool            no_parse              = 6;
+  bool            textfsm_strict_errors = 7;
+  repeated string targets               = 8;
+  repeated string groups                = 9;
+  repeated string labels                = 10;
+  string          record_level          = 11;
+}
+
+message ExecuteShowBatchResponse {
+  string          object              = 1;
+  repeated string targets             = 2;
+  string          results_json        = 3;
+  optional string result_summary_json = 4;
+}
+
 message ExecuteCommandRequest {
   string        task_id      = 1;
   string        command      = 2;
   string        mode         = 3;
   ConnectionRef connection   = 4;
   string        record_level = 5;
+  string        textfsm_template       = 6;
+  bool          parse_textfsm          = 7;
+  string        textfsm_platform       = 8;
+  string        textfsm_vendor         = 9;
+  bool          textfsm_strict_errors  = 10;
 }
 
 message ExecuteTemplateRequest {
@@ -226,6 +486,12 @@ message ExecuteTemplateRequest {
   bool          dry_run      = 5;
   ConnectionRef connection   = 6;
   string        record_level = 7;
+  string        textfsm_template       = 8;
+  bool          parse_textfsm          = 9;
+  string        textfsm_platform       = 10;
+  string        textfsm_vendor         = 11;
+  bool          textfsm_strict_errors  = 12;
+  string        template_dir           = 13;
 }
 
 message ExecuteTxBlockRequest {
@@ -245,6 +511,9 @@ message ExecuteTxWorkflowRequest {
   bool          dry_run       = 3;
   ConnectionRef connection    = 4;
   string        record_level  = 5;
+  string        workflow_template_name      = 6;
+  string        workflow_template_content   = 7;
+  string        workflow_vars_json          = 8;
 }
 
 message ExecuteOrchestrationRequest {
@@ -253,6 +522,10 @@ message ExecuteOrchestrationRequest {
   string base_dir     = 3;
   bool   dry_run      = 4;
   string record_level = 5;
+  string plan_template_name    = 6;
+  string plan_template_content = 7;
+  string plan_vars_json        = 8;
+  ConnectionRef connection     = 9;
 }
 
 message AcceptedTaskResponse {
@@ -267,6 +540,8 @@ message ExecuteCommandResponse {
   optional string recording_jsonl     = 2;
   optional int32  exit_code           = 3;
   optional string result_summary_json = 4;
+  optional string parsed_output_json  = 5;
+  optional string parse_error         = 6;
 }
 
 message CommandExecutionResult {
@@ -275,6 +550,8 @@ message CommandExecutionResult {
   optional string output    = 3;
   optional string error     = 4;
   optional int32  exit_code = 5;
+  optional string parsed_output_json = 6;
+  optional string parse_error        = 7;
 }
 
 message ExecuteTemplateResponse {
@@ -290,6 +567,12 @@ message ExecuteCommandFlowRequest {
   optional string vars_json     = 3;
   ConnectionRef   connection    = 4;
   string          record_level  = 5;
+  optional string builtin_template_name = 6;
+  string          textfsm_template      = 7;
+  bool            parse_textfsm         = 8;
+  string          textfsm_platform      = 9;
+  string          textfsm_vendor        = 10;
+  bool            textfsm_strict_errors = 11;
 }
 
 message ExecuteCommandFlowResponse {
@@ -323,6 +606,20 @@ message ExecuteTxBlockResponse {
   optional string tx_result_json      = 2;
   optional string recording_jsonl     = 3;
   optional string result_summary_json = 4;
+}
+
+message ExecuteTxWorkflowResponse {
+  string          workflow_json        = 1;
+  optional string tx_workflow_result_json = 2;
+  optional string recording_jsonl      = 3;
+  optional string result_summary_json  = 4;
+}
+
+message ExecuteOrchestrationResponse {
+  string          plan_json                 = 1;
+  string          inventory_json            = 2;
+  optional string orchestration_result_json = 3;
+  optional string result_summary_json       = 4;
 }
 
 message AgentInfoResponse {
@@ -370,4 +667,107 @@ message ProbeDevicesResponse {
   uint32                     total             = 2;
   uint32                     reachable_count   = 3;
   uint32                     unreachable_count = 4;
+}
+
+message ReplaySessionRequest {
+  string jsonl   = 1;
+  string command = 2;
+  string mode    = 3;
+  bool   list    = 4;
+}
+
+message ListTextfsmTemplatesRequest {}
+
+message GetTextfsmTemplateRequest {
+  string name = 1;
+}
+
+message UpsertTextfsmTemplateRequest {
+  string name    = 1;
+  string content = 2;
+}
+
+message DeleteTextfsmTemplateRequest {
+  string name = 1;
+}
+
+message ListTextfsmMappingsRequest {
+  string profile = 1;
+}
+
+message UpsertTextfsmMappingRequest {
+  string device_profile = 1;
+  string command        = 2;
+  string template_name  = 3;
+}
+
+message DeleteTextfsmMappingRequest {
+  string device_profile = 1;
+  string command        = 2;
+}
+
+message TextfsmExcelExportSheet {
+  string name               = 1;
+  string parsed_output_json = 2;
+}
+
+message TextfsmExcelExportRequest {
+  string filename = 1;
+  repeated TextfsmExcelExportSheet sheets = 2;
+  string sheet_name = 3;
+  string parsed_output_json = 4;
+}
+
+message ListCustomShowObjectsRequest {
+  string profile = 1;
+}
+
+message UpsertCustomShowObjectRequest {
+  string device_profile           = 1;
+  string object                   = 2;
+  string command                  = 3;
+  string mode                     = 4;
+  string textfsm_mapping_command  = 5;
+  string textfsm_template_name    = 6;
+  optional bool enabled           = 7;
+}
+
+message DeleteCustomShowObjectRequest {
+  string device_profile = 1;
+  string object         = 2;
+}
+
+message ListTaskRunsRequest {
+  uint32 limit     = 1;
+  string operation = 2;
+  string status    = 3;
+}
+
+message GetTaskRunDetailRequest {
+  string task_id = 1;
+}
+
+message ListBackupsRequest {}
+
+message CreateBackupRequest {
+  string output = 1;
+}
+
+message RestoreBackupRequest {
+  string archive = 1;
+  bool   replace = 2;
+}
+
+message DownloadBackupRequest {
+  string name = 1;
+}
+
+message ListBlacklistPatternsRequest {}
+
+message BlacklistPatternRequest {
+  string pattern = 1;
+}
+
+message CheckBlacklistCommandRequest {
+  string command = 1;
 }

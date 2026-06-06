@@ -92,10 +92,11 @@ pub use connections::{
     upsert_inventory_label,
 };
 pub use execute::{
-    exec_command, exec_command_async, execute_command_flow, execute_orchestration,
-    execute_orchestration_async, execute_show, execute_show_batch, execute_template,
-    execute_template_async, execute_tx_block, execute_tx_block_async, execute_tx_workflow,
-    execute_tx_workflow_async, execute_upload, list_show_objects, render_template,
+    ShowObjectsQuery, exec_command, exec_command_async, execute_command_flow,
+    execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
+    execute_template, execute_template_async, execute_tx_block, execute_tx_block_async,
+    execute_tx_workflow, execute_tx_workflow_async, execute_upload, list_show_objects,
+    render_template,
 };
 use flow_templates::{
     builtin_command_flow_template_by_name, parse_builtin_command_flow_template_token,
@@ -126,12 +127,15 @@ pub use profiles::{
 pub use replay::replay_session;
 use runtime::*;
 pub use show_objects_custom::{
+    CustomShowObjectQuery, DeleteCustomShowObjectRequest, UpsertCustomShowObjectRequest,
     delete_custom_show_object, list_custom_show_objects, upsert_custom_show_object,
 };
 use task_events::*;
 pub use textfsm_custom::{
-    create_textfsm_template, delete_textfsm_mapping, delete_textfsm_template, get_textfsm_template,
-    list_textfsm_mappings, list_textfsm_templates, update_textfsm_template, upsert_textfsm_mapping,
+    CreateTextfsmTemplateRequest, DeleteTextfsmMappingRequest, TextfsmMappingQuery,
+    UpdateTextfsmTemplateRequest, UpsertTextfsmMappingRequest, create_textfsm_template,
+    delete_textfsm_mapping, delete_textfsm_template, get_textfsm_template, list_textfsm_mappings,
+    list_textfsm_templates, update_textfsm_template, upsert_textfsm_mapping,
 };
 pub use textfsm_exports::export_textfsm_excel;
 
