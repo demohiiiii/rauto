@@ -10,17 +10,50 @@ import {
   saveInventoryLabel,
 } from "../api/client.js";
 import {
-  normalizeHostNames,
-  renderHostChecklistView,
+  createInventoryDraft,
+  deleteInventoryEntity,
+  loadInventoryCollection,
+  loadInventoryDetail,
+  requireInventoryName,
+  saveInventoryEntity,
+} from "../services/inventoryActions.js";
+import {
+  applyInventoryGroupFormView,
+  applyInventoryLabelFormView,
+  ensureInventorySelectValue,
+  inventoryGroupFormPayload as buildInventoryGroupFormPayload,
+  resetInventoryGroupFormView,
+  resetInventoryLabelFormView,
+  sortedInventoryHosts,
+} from "../services/inventoryForms.js";
+import {
   renderInventoryGroupListView,
   renderInventoryLabelListView,
 } from "../services/inventoryRender.js";
 import {
-  populateSelect,
-  safeString,
-  statusCard,
-  tr,
-} from "../services/templateUi.js";
+  clearInventoryHosts,
+  onInventoryHostSelectionChange,
+  renderInventoryHostChecklist,
+  selectAllInventoryHosts,
+} from "../services/inventoryHostSelection.js";
+import {
+  applySelectedInventoryItem,
+  normalizeInventoryItems,
+} from "../services/inventoryLoaders.js";
+import {
+  inventoryGroupPlaceholder,
+  inventoryLabelPlaceholder,
+  refreshSavedConnectionGroupOptions,
+  refreshSavedConnectionLabelOptions,
+  renderInventoryEntityOptions,
+} from "../services/inventoryOptions.js";
+import {
+  attachInventoryBindings,
+  createInventoryBindings,
+  registerInventoryGlobals,
+  selectInventoryListRow,
+} from "../services/inventoryRuntimeBindings.js";
+import { statusCard, tr } from "../services/templateUi.js";
 
 export function inventoryBehavior(node) {
   let savedConnections = [];
@@ -43,93 +76,52 @@ export function inventoryBehavior(node) {
     }
   }
 
-  function ensureSelectValue(id, value) {
-    const select = byId(id);
-    if (!select) return;
-    select.value = value || "";
-  }
-
-  function hostOptions(selectedHosts = []) {
-    const available = normalizeHostNames(
-      savedConnections.map((item) => item.name),
-    );
-    return {
-      availableSet: new Set(available),
-      names: normalizeHostNames([...available, ...selectedHosts]),
-    };
-  }
-
-  function renderHostChecklist({
-    listId,
-    emptyId,
-    filterId,
-    selection,
-    checkboxAttr,
-  }) {
-    const { availableSet, names } = hostOptions(Array.from(selection));
-    renderHostChecklistView({
-      availableSet,
-      checkboxAttr,
-      empty: byId(emptyId),
-      filterValue: byId(filterId)?.value || "",
-      list: byId(listId),
-      names,
-      selection,
-    });
-  }
-
   function renderInventoryGroupHosts() {
-    renderHostChecklist({
+    renderInventoryHostChecklist({
+      byId,
       listId: "inventory-group-hosts",
       emptyId: "inventory-group-hosts-empty",
       filterId: "inventory-group-hosts-filter",
+      savedConnections,
       selection: groupHostSelection,
       checkboxAttr: 'data-inventory-group-host="1"',
     });
   }
 
   function renderInventoryLabelHosts() {
-    renderHostChecklist({
+    renderInventoryHostChecklist({
+      byId,
       listId: "inventory-label-hosts",
       emptyId: "inventory-label-hosts-empty",
       filterId: "inventory-label-hosts-filter",
+      savedConnections,
       selection: labelHostSelection,
       checkboxAttr: 'data-inventory-label-host="1"',
     });
   }
 
   function renderInventoryGroupOptions(selectedName = "") {
-    populateSelect(
-      byId("inventory-group-picker"),
-      groups.map((item) => item.name).filter(Boolean),
-      {
-        placeholder: tr("inventoryGroupSelectPlaceholder", "select group"),
-        selected: selectedName,
-      },
-    );
+    renderInventoryEntityOptions({
+      byId,
+      items: groups,
+      pickerId: "inventory-group-picker",
+      placeholder: inventoryGroupPlaceholder(),
+      selectedName,
+    });
     renderInventoryGroupHosts();
-    if (typeof window.renderSavedConnectionGroupOptions === "function") {
-      window.renderSavedConnectionGroupOptions(
-        Array.from(
-          document.getElementById("saved-conn-groups")?.selectedOptions || [],
-        ).map((option) => option.value),
-      );
-    }
+    refreshSavedConnectionGroupOptions();
   }
 
   function renderInventoryLabelOptions(selectedName = "") {
-    populateSelect(
-      byId("inventory-label-picker"),
-      labels.map((item) => item.name).filter(Boolean),
-      {
-        placeholder: tr("inventoryLabelSelectPlaceholder", "select label"),
-        selected: selectedName,
-      },
-    );
+    renderInventoryEntityOptions({
+      byId,
+      items: labels,
+      pickerId: "inventory-label-picker",
+      placeholder: inventoryLabelPlaceholder(),
+      selectedName,
+    });
     renderInventoryLabelHosts();
-    if (typeof window.renderSavedConnectionLabelOptions === "function") {
-      window.renderSavedConnectionLabelOptions();
-    }
+    refreshSavedConnectionLabelOptions();
   }
 
   function renderInventoryGroupList(errorMessage = "") {
@@ -151,74 +143,35 @@ export function inventoryBehavior(node) {
   }
 
   function resetInventoryGroupForm(name = "") {
-    ensureSelectValue("inventory-group-picker", name);
-    byId("inventory-group-name-value").textContent = name || "—";
-    byId("inventory-group-description").value = "";
-    groupHostSelection = new Set();
-    byId("inventory-group-vars").value = "{\n  \n}";
+    groupHostSelection = resetInventoryGroupFormView({ byId, name });
     renderInventoryGroupHosts();
   }
 
   function applyInventoryGroupForm(item) {
-    const group = item || {};
-    ensureSelectValue("inventory-group-picker", group.name || "");
-    byId("inventory-group-name-value").textContent = safeString(
-      group.name || "—",
-    );
-    byId("inventory-group-description").value = safeString(
-      group.description || "",
-    );
-    groupHostSelection = new Set(
-      normalizeHostNames(Array.isArray(group.hosts) ? group.hosts : []),
-    );
-    byId("inventory-group-vars").value = JSON.stringify(
-      group.vars || {},
-      null,
-      2,
-    );
+    groupHostSelection = applyInventoryGroupFormView({
+      byId,
+      group: item || {},
+    });
     renderInventoryGroupHosts();
   }
 
   function resetInventoryLabelForm(name = "") {
-    ensureSelectValue("inventory-label-picker", name);
-    byId("inventory-label-name-value").textContent = name || "—";
-    labelHostSelection = new Set();
+    labelHostSelection = resetInventoryLabelFormView({ byId, name });
     renderInventoryLabelHosts();
   }
 
   function applyInventoryLabelForm(item) {
-    const label = item || {};
-    ensureSelectValue("inventory-label-picker", label.name || "");
-    byId("inventory-label-name-value").textContent = safeString(
-      label.name || "—",
-    );
-    labelHostSelection = new Set(
-      normalizeHostNames(Array.isArray(label.hosts) ? label.hosts : []),
-    );
+    labelHostSelection = applyInventoryLabelFormView({
+      byId,
+      label: item || {},
+    });
     renderInventoryLabelHosts();
-  }
-
-  function parseInventoryJson(id) {
-    const raw = byId(id)?.value.trim() || "";
-    if (!raw) return {};
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (error) {
-      throw new Error(error.message || String(error));
-    }
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error(
-        tr("inventoryVarsMustBeObject", "vars must be a JSON object"),
-      );
-    }
-    return parsed;
   }
 
   async function loadInventoryConnections() {
     try {
       const data = await listConnections();
-      savedConnections = Array.isArray(data) ? data : [];
+      savedConnections = normalizeInventoryItems(data);
     } catch (_) {
       savedConnections = [];
     }
@@ -227,367 +180,308 @@ export function inventoryBehavior(node) {
   }
 
   async function loadInventoryGroups() {
-    try {
-      const data = await listInventoryGroups();
-      groups = Array.isArray(data) ? data : [];
-      syncInventoryRuntimeSnapshots();
-      renderInventoryGroupOptions(byId("inventory-group-picker")?.value || "");
-      renderInventoryGroupList();
-      const selectedName = byId("inventory-group-picker")?.value.trim() || "";
-      const selected = groups.find((item) => item.name === selectedName);
-      if (selected) applyInventoryGroupForm(selected);
-    } catch (error) {
-      groups = [];
-      syncInventoryRuntimeSnapshots();
-      renderInventoryGroupOptions("");
-      renderInventoryGroupList(error.message);
-    }
+    await loadInventoryCollection({
+      applySelected: () =>
+        applySelectedInventoryItem({
+          applyForm: applyInventoryGroupForm,
+          byId,
+          items: groups,
+          pickerId: "inventory-group-picker",
+        }),
+      listItems: async () =>
+        normalizeInventoryItems(await listInventoryGroups()),
+      onLoaded: (items) => {
+        groups = items;
+      },
+      onReset: () => {
+        groups = [];
+      },
+      renderList: renderInventoryGroupList,
+      renderOptions: renderInventoryGroupOptions,
+      selectedName: byId("inventory-group-picker")?.value || "",
+      syncSnapshots: syncInventoryRuntimeSnapshots,
+    });
   }
 
   async function loadInventoryLabels() {
-    try {
-      const data = await listInventoryLabels();
-      labels = Array.isArray(data) ? data : [];
-      syncInventoryRuntimeSnapshots();
-      renderInventoryLabelOptions(byId("inventory-label-picker")?.value || "");
-      renderInventoryLabelList();
-      const selectedName = byId("inventory-label-picker")?.value.trim() || "";
-      const selected = labels.find((item) => item.name === selectedName);
-      if (selected) applyInventoryLabelForm(selected);
-    } catch (error) {
-      labels = [];
-      syncInventoryRuntimeSnapshots();
-      renderInventoryLabelOptions("");
-      renderInventoryLabelList(error.message);
-    }
+    await loadInventoryCollection({
+      applySelected: () =>
+        applySelectedInventoryItem({
+          applyForm: applyInventoryLabelForm,
+          byId,
+          items: labels,
+          pickerId: "inventory-label-picker",
+        }),
+      listItems: async () =>
+        normalizeInventoryItems(await listInventoryLabels()),
+      onLoaded: (items) => {
+        labels = items;
+      },
+      onReset: () => {
+        labels = [];
+      },
+      renderList: renderInventoryLabelList,
+      renderOptions: renderInventoryLabelOptions,
+      selectedName: byId("inventory-label-picker")?.value || "",
+      syncSnapshots: syncInventoryRuntimeSnapshots,
+    });
   }
 
   async function loadInventoryGroupDetail() {
-    const name = byId("inventory-group-picker")?.value.trim() || "";
-    if (!name) {
-      resetInventoryGroupForm("");
-      setStatus("inventory-group-out", "-", "info");
-      renderInventoryGroupList();
-      return;
-    }
-    setStatus("inventory-group-out", tr("running", "running"), "running");
-    try {
-      const data = await getInventoryGroup(name);
-      applyInventoryGroupForm(data);
-      renderInventoryGroupList();
-      setStatus(
-        "inventory-group-out",
-        `${tr("loaded", "loaded")}: ${data.name || name}`,
-        "success",
-      );
-    } catch (error) {
-      setStatus("inventory-group-out", error.message, "error");
-    }
+    await loadInventoryDetail({
+      applyForm: applyInventoryGroupForm,
+      byId,
+      getDetail: getInventoryGroup,
+      pickerId: "inventory-group-picker",
+      renderList: renderInventoryGroupList,
+      resetForm: resetInventoryGroupForm,
+      setStatus,
+      statusId: "inventory-group-out",
+    });
   }
 
   async function loadInventoryLabelDetail() {
-    const name = byId("inventory-label-picker")?.value.trim() || "";
-    if (!name) {
-      resetInventoryLabelForm("");
-      setStatus("inventory-label-out", "-", "info");
-      renderInventoryLabelList();
-      return;
-    }
-    setStatus("inventory-label-out", tr("running", "running"), "running");
-    try {
-      const data = await getInventoryLabel(name);
-      applyInventoryLabelForm(data);
-      renderInventoryLabelList();
-      setStatus(
-        "inventory-label-out",
-        `${tr("loaded", "loaded")}: ${data.name || name}`,
-        "success",
-      );
-    } catch (error) {
-      setStatus("inventory-label-out", error.message, "error");
-    }
+    await loadInventoryDetail({
+      applyForm: applyInventoryLabelForm,
+      byId,
+      getDetail: getInventoryLabel,
+      pickerId: "inventory-label-picker",
+      renderList: renderInventoryLabelList,
+      resetForm: resetInventoryLabelForm,
+      setStatus,
+      statusId: "inventory-label-out",
+    });
   }
 
   function inventoryGroupFormPayload(name) {
-    return {
+    return buildInventoryGroupFormPayload({
+      byId,
+      hostSelection: groupHostSelection,
       name,
-      description: byId("inventory-group-description")?.value.trim() || null,
-      hosts: Array.from(groupHostSelection).sort((a, b) => a.localeCompare(b)),
-      vars: parseInventoryJson("inventory-group-vars"),
-    };
+    });
   }
 
   async function createInventoryGroupDraft() {
-    const name = window.prompt(
-      tr("inventoryGroupNewPrompt", "New inventory group name"),
-    );
-    if (!name?.trim()) return;
-    if (groups.some((item) => item.name === name.trim())) {
-      ensureSelectValue("inventory-group-picker", name.trim());
-      await loadInventoryGroupDetail();
-      setStatus(
-        "inventory-group-out",
-        tr("inventoryGroupExistsHint", "group already exists"),
-        "info",
-      );
-      return;
-    }
-    await saveGroupByName(name.trim(), tr("created", "created"));
+    await createInventoryDraft({
+      byId,
+      existsHint: tr("inventoryGroupExistsHint", "group already exists"),
+      items: groups,
+      loadDetail: loadInventoryGroupDetail,
+      pickerId: "inventory-group-picker",
+      promptMessage: tr("inventoryGroupNewPrompt", "New inventory group name"),
+      saveByName: saveGroupByName,
+      setStatus,
+      statusId: "inventory-group-out",
+    });
   }
 
   async function createInventoryLabelDraft() {
-    const name = window.prompt(
-      tr("inventoryLabelNewPrompt", "New inventory label name"),
-    );
-    if (!name?.trim()) return;
-    if (labels.some((item) => item.name === name.trim())) {
-      ensureSelectValue("inventory-label-picker", name.trim());
-      await loadInventoryLabelDetail();
-      setStatus(
-        "inventory-label-out",
-        tr("inventoryLabelExistsHint", "label already exists"),
-        "info",
-      );
-      return;
-    }
-    await saveLabelByName(name.trim(), tr("created", "created"));
+    await createInventoryDraft({
+      byId,
+      existsHint: tr("inventoryLabelExistsHint", "label already exists"),
+      items: labels,
+      loadDetail: loadInventoryLabelDetail,
+      pickerId: "inventory-label-picker",
+      promptMessage: tr("inventoryLabelNewPrompt", "New inventory label name"),
+      saveByName: saveLabelByName,
+      setStatus,
+      statusId: "inventory-label-out",
+    });
   }
 
   async function saveGroupByName(name, verb = tr("saved", "saved")) {
-    setStatus("inventory-group-out", tr("running", "running"), "running");
-    try {
-      const data = await saveInventoryGroup(
-        name,
-        inventoryGroupFormPayload(name),
-      );
-      applyInventoryGroupForm(data);
-      setStatus(
-        "inventory-group-out",
-        `${verb}: ${data.name || name}`,
-        "success",
-      );
-      await loadInventoryGroups();
-      await loadInventoryConnections();
-    } catch (error) {
-      setStatus("inventory-group-out", error.message, "error");
+    await saveInventoryEntity({
+      applyForm: applyInventoryGroupForm,
+      buildPayload: inventoryGroupFormPayload,
+      name,
+      reload: reloadGroupsAndConnections,
+      saveEntity: saveInventoryGroup,
+      setStatus,
+      statusId: "inventory-group-out",
+      verb,
+    });
+  }
+
+  async function refreshSavedConnections() {
+    if (typeof window.loadSavedConnections === "function") {
+      await window.loadSavedConnections();
     }
   }
 
+  async function reloadLabelsAndSavedConnections() {
+    await loadInventoryLabels();
+    await refreshSavedConnections();
+  }
+
+  async function reloadGroupsAndConnections() {
+    await loadInventoryGroups();
+    await loadInventoryConnections();
+  }
+
   async function saveGroupFromForm() {
-    const name = byId("inventory-group-picker")?.value.trim() || "";
-    if (!name) {
-      setStatus(
-        "inventory-group-out",
-        tr("inventoryGroupNameRequired", "group name is required"),
-        "error",
-      );
-      return;
-    }
+    const name = requireInventoryName({
+      byId,
+      message: tr("inventoryGroupNameRequired", "group name is required"),
+      pickerId: "inventory-group-picker",
+      setStatus,
+      statusId: "inventory-group-out",
+    });
+    if (!name) return;
     await saveGroupByName(name);
   }
 
   async function saveLabelByName(name, verb = tr("saved", "saved")) {
-    setStatus("inventory-label-out", tr("running", "running"), "running");
-    try {
-      const data = await saveInventoryLabel(
-        name,
-        Array.from(labelHostSelection).sort((a, b) => a.localeCompare(b)),
-      );
-      applyInventoryLabelForm(data);
-      setStatus(
-        "inventory-label-out",
-        `${verb}: ${data.name || name}`,
-        "success",
-      );
-      await loadInventoryLabels();
-      if (typeof window.loadSavedConnections === "function") {
-        await window.loadSavedConnections();
-      }
-    } catch (error) {
-      setStatus("inventory-label-out", error.message, "error");
-    }
+    await saveInventoryEntity({
+      applyForm: applyInventoryLabelForm,
+      buildPayload: () => sortedInventoryHosts(labelHostSelection),
+      name,
+      reload: reloadLabelsAndSavedConnections,
+      saveEntity: saveInventoryLabel,
+      setStatus,
+      statusId: "inventory-label-out",
+      verb,
+    });
   }
 
   async function saveLabelFromForm() {
-    const name = byId("inventory-label-picker")?.value.trim() || "";
-    if (!name) {
-      setStatus(
-        "inventory-label-out",
-        tr("inventoryLabelNameRequired", "label name is required"),
-        "error",
-      );
-      return;
-    }
+    const name = requireInventoryName({
+      byId,
+      message: tr("inventoryLabelNameRequired", "label name is required"),
+      pickerId: "inventory-label-picker",
+      setStatus,
+      statusId: "inventory-label-out",
+    });
+    if (!name) return;
     await saveLabelByName(name);
   }
 
   async function deleteGroupFromForm() {
-    const name = byId("inventory-group-picker")?.value.trim() || "";
-    if (!name) {
-      setStatus(
-        "inventory-group-out",
-        tr("inventoryGroupNameRequired", "group name is required"),
-        "error",
-      );
-      return;
-    }
-    setStatus("inventory-group-out", tr("running", "running"), "running");
-    try {
-      await deleteInventoryGroup(name);
-      resetInventoryGroupForm("");
-      setStatus(
-        "inventory-group-out",
-        `${tr("deleted", "deleted")}: ${name}`,
-        "success",
-      );
-      await loadInventoryGroups();
-      await loadInventoryConnections();
-    } catch (error) {
-      setStatus("inventory-group-out", error.message, "error");
-    }
+    const name = requireInventoryName({
+      byId,
+      message: tr("inventoryGroupNameRequired", "group name is required"),
+      pickerId: "inventory-group-picker",
+      setStatus,
+      statusId: "inventory-group-out",
+    });
+    if (!name) return;
+    await deleteInventoryEntity({
+      deleteEntity: deleteInventoryGroup,
+      name,
+      reload: reloadGroupsAndConnections,
+      resetForm: resetInventoryGroupForm,
+      setStatus,
+      statusId: "inventory-group-out",
+    });
   }
 
   async function deleteLabelFromForm() {
-    const name = byId("inventory-label-picker")?.value.trim() || "";
-    if (!name) {
-      setStatus(
-        "inventory-label-out",
-        tr("inventoryLabelNameRequired", "label name is required"),
-        "error",
-      );
-      return;
-    }
-    setStatus("inventory-label-out", tr("running", "running"), "running");
-    try {
-      await deleteInventoryLabel(name);
-      resetInventoryLabelForm("");
-      setStatus(
-        "inventory-label-out",
-        `${tr("deleted", "deleted")}: ${name}`,
-        "success",
-      );
-      await loadInventoryLabels();
-      if (typeof window.loadSavedConnections === "function") {
-        await window.loadSavedConnections();
-      }
-    } catch (error) {
-      setStatus("inventory-label-out", error.message, "error");
-    }
+    const name = requireInventoryName({
+      byId,
+      message: tr("inventoryLabelNameRequired", "label name is required"),
+      pickerId: "inventory-label-picker",
+      setStatus,
+      statusId: "inventory-label-out",
+    });
+    if (!name) return;
+    await deleteInventoryEntity({
+      deleteEntity: deleteInventoryLabel,
+      name,
+      reload: reloadLabelsAndSavedConnections,
+      resetForm: resetInventoryLabelForm,
+      setStatus,
+      statusId: "inventory-label-out",
+    });
   }
 
   function selectAllGroupHosts() {
-    const filter = safeString(byId("inventory-group-hosts-filter")?.value || "")
-      .trim()
-      .toLowerCase();
-    hostOptions(Array.from(groupHostSelection))
-      .names.filter((name) => !filter || name.toLowerCase().includes(filter))
-      .forEach((name) => groupHostSelection.add(name));
-    renderInventoryGroupHosts();
+    selectAllInventoryHosts({
+      byId,
+      filterId: "inventory-group-hosts-filter",
+      renderHosts: renderInventoryGroupHosts,
+      savedConnections,
+      selection: groupHostSelection,
+    });
   }
 
   function selectAllLabelHosts() {
-    const filter = safeString(byId("inventory-label-hosts-filter")?.value || "")
-      .trim()
-      .toLowerCase();
-    hostOptions(Array.from(labelHostSelection))
-      .names.filter((name) => !filter || name.toLowerCase().includes(filter))
-      .forEach((name) => labelHostSelection.add(name));
-    renderInventoryLabelHosts();
+    selectAllInventoryHosts({
+      byId,
+      filterId: "inventory-label-hosts-filter",
+      renderHosts: renderInventoryLabelHosts,
+      savedConnections,
+      selection: labelHostSelection,
+    });
   }
 
   function clearGroupHosts() {
-    groupHostSelection.clear();
-    renderInventoryGroupHosts();
+    clearInventoryHosts(groupHostSelection, renderInventoryGroupHosts);
   }
 
   function clearLabelHosts() {
-    labelHostSelection.clear();
-    renderInventoryLabelHosts();
+    clearInventoryHosts(labelHostSelection, renderInventoryLabelHosts);
   }
 
   function onGroupHostChange(event) {
-    const input = event.target;
-    if (!input?.matches("[data-inventory-group-host]")) return;
-    if (input.checked) groupHostSelection.add(input.value);
-    else groupHostSelection.delete(input.value);
+    onInventoryHostSelectionChange({
+      event,
+      selection: groupHostSelection,
+      selector: "[data-inventory-group-host]",
+    });
   }
 
   function onLabelHostChange(event) {
-    const input = event.target;
-    if (!input?.matches("[data-inventory-label-host]")) return;
-    if (input.checked) labelHostSelection.add(input.value);
-    else labelHostSelection.delete(input.value);
+    onInventoryHostSelectionChange({
+      event,
+      selection: labelHostSelection,
+      selector: "[data-inventory-label-host]",
+    });
   }
 
   function onGroupListClick(event) {
-    const row = event.target.closest(".js-inventory-group-row");
-    if (!row) return;
-    ensureSelectValue(
-      "inventory-group-picker",
-      row.getAttribute("data-name") || "",
-    );
-    loadInventoryGroupDetail();
+    selectInventoryListRow(event, ".js-inventory-group-row", (name) => {
+      ensureInventorySelectValue(byId, "inventory-group-picker", name);
+      loadInventoryGroupDetail();
+    });
   }
 
   function onLabelListClick(event) {
-    const row = event.target.closest(".js-inventory-label-row");
-    if (!row) return;
-    ensureSelectValue(
-      "inventory-label-picker",
-      row.getAttribute("data-name") || "",
-    );
-    loadInventoryLabelDetail();
+    selectInventoryListRow(event, ".js-inventory-label-row", (name) => {
+      ensureInventorySelectValue(byId, "inventory-label-picker", name);
+      loadInventoryLabelDetail();
+    });
   }
 
-  const groupPicker = byId("inventory-group-picker");
-  const labelPicker = byId("inventory-label-picker");
-  const groupNew = byId("inventory-group-new-btn");
-  const groupSave = byId("inventory-group-save-btn");
-  const groupDelete = byId("inventory-group-delete-btn");
-  const labelNew = byId("inventory-label-new-btn");
-  const labelSave = byId("inventory-label-save-btn");
-  const labelDelete = byId("inventory-label-delete-btn");
-  const groupFilter = byId("inventory-group-hosts-filter");
-  const labelFilter = byId("inventory-label-hosts-filter");
-  const groupSelectAll = byId("inventory-group-hosts-select-all-btn");
-  const labelSelectAll = byId("inventory-label-hosts-select-all-btn");
-  const groupClear = byId("inventory-group-hosts-clear-btn");
-  const labelClear = byId("inventory-label-hosts-clear-btn");
-  const groupHosts = byId("inventory-group-hosts");
-  const labelHosts = byId("inventory-label-hosts");
-  const groupList = byId("inventory-group-list");
-  const labelList = byId("inventory-label-list");
-
-  groupPicker?.addEventListener("change", loadInventoryGroupDetail);
-  labelPicker?.addEventListener("change", loadInventoryLabelDetail);
-  groupNew?.addEventListener("click", createInventoryGroupDraft);
-  groupSave?.addEventListener("click", saveGroupFromForm);
-  groupDelete?.addEventListener("click", deleteGroupFromForm);
-  labelNew?.addEventListener("click", createInventoryLabelDraft);
-  labelSave?.addEventListener("click", saveLabelFromForm);
-  labelDelete?.addEventListener("click", deleteLabelFromForm);
-  groupFilter?.addEventListener("input", renderInventoryGroupHosts);
-  labelFilter?.addEventListener("input", renderInventoryLabelHosts);
-  groupSelectAll?.addEventListener("click", selectAllGroupHosts);
-  labelSelectAll?.addEventListener("click", selectAllLabelHosts);
-  groupClear?.addEventListener("click", clearGroupHosts);
-  labelClear?.addEventListener("click", clearLabelHosts);
-  groupHosts?.addEventListener("change", onGroupHostChange);
-  labelHosts?.addEventListener("change", onLabelHostChange);
-  groupList?.addEventListener("click", onGroupListClick);
-  labelList?.addEventListener("click", onLabelListClick);
-
-  window.loadInventoryConnections = loadInventoryConnections;
-  window.loadInventoryGroups = loadInventoryGroups;
-  window.loadInventoryLabels = loadInventoryLabels;
-  window.loadInventoryGroupDetail = loadInventoryGroupDetail;
-  window.loadInventoryLabelDetail = loadInventoryLabelDetail;
-  window.renderInventoryGroupHosts = renderInventoryGroupHosts;
-  window.renderInventoryLabelHosts = renderInventoryLabelHosts;
-  window.renderInventoryGroupOptions = renderInventoryGroupOptions;
-  window.renderInventoryLabelOptions = renderInventoryLabelOptions;
-  window.renderInventoryGroupList = renderInventoryGroupList;
-  window.renderInventoryLabelList = renderInventoryLabelList;
+  const handlers = {
+    clearGroupHosts,
+    clearLabelHosts,
+    createInventoryGroupDraft,
+    createInventoryLabelDraft,
+    deleteGroupFromForm,
+    deleteLabelFromForm,
+    loadInventoryConnections,
+    loadInventoryGroupDetail,
+    loadInventoryGroups,
+    loadInventoryLabelDetail,
+    loadInventoryLabels,
+    onGroupHostChange,
+    onGroupListClick,
+    onLabelHostChange,
+    onLabelListClick,
+    renderInventoryGroupHosts,
+    renderInventoryGroupList,
+    renderInventoryGroupOptions,
+    renderInventoryLabelHosts,
+    renderInventoryLabelList,
+    renderInventoryLabelOptions,
+    saveGroupFromForm,
+    saveLabelFromForm,
+    selectAllGroupHosts,
+    selectAllLabelHosts,
+  };
+  const detachInventoryBindings = attachInventoryBindings(
+    createInventoryBindings(byId, handlers),
+  );
+  registerInventoryGlobals(handlers);
 
   renderInventoryGroupHosts();
   renderInventoryLabelHosts();
@@ -596,24 +490,7 @@ export function inventoryBehavior(node) {
 
   return {
     destroy() {
-      groupPicker?.removeEventListener("change", loadInventoryGroupDetail);
-      labelPicker?.removeEventListener("change", loadInventoryLabelDetail);
-      groupNew?.removeEventListener("click", createInventoryGroupDraft);
-      groupSave?.removeEventListener("click", saveGroupFromForm);
-      groupDelete?.removeEventListener("click", deleteGroupFromForm);
-      labelNew?.removeEventListener("click", createInventoryLabelDraft);
-      labelSave?.removeEventListener("click", saveLabelFromForm);
-      labelDelete?.removeEventListener("click", deleteLabelFromForm);
-      groupFilter?.removeEventListener("input", renderInventoryGroupHosts);
-      labelFilter?.removeEventListener("input", renderInventoryLabelHosts);
-      groupSelectAll?.removeEventListener("click", selectAllGroupHosts);
-      labelSelectAll?.removeEventListener("click", selectAllLabelHosts);
-      groupClear?.removeEventListener("click", clearGroupHosts);
-      labelClear?.removeEventListener("click", clearLabelHosts);
-      groupHosts?.removeEventListener("change", onGroupHostChange);
-      labelHosts?.removeEventListener("change", onLabelHostChange);
-      groupList?.removeEventListener("click", onGroupListClick);
-      labelList?.removeEventListener("click", onLabelListClick);
+      detachInventoryBindings();
     },
   };
 }
