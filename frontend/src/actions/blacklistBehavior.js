@@ -4,18 +4,10 @@ import {
   deleteBlacklistPattern,
   listBlacklistPatterns,
 } from "../api/client.js";
+import { escapeHtml } from "../services/htmlFormat.js";
 
 function tr(key, fallback = key) {
   return typeof window.t === "function" ? window.t(key) : fallback;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function statusCard(message, tone = "info") {

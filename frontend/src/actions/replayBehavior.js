@@ -1,4 +1,8 @@
 import { replaySession } from "../api/client.js";
+import {
+  emptyString as safeString,
+  escapeHtml,
+} from "../services/htmlFormat.js";
 
 const STORAGE = {
   replayViewMode: "rauto_replay_view_mode",
@@ -9,20 +13,6 @@ const STORAGE = {
 
 function tr(key, fallback = key) {
   return typeof window.t === "function" ? window.t(key) : fallback;
-}
-
-function safeString(value) {
-  if (value == null) return "";
-  return typeof value === "string" ? value : JSON.stringify(value);
-}
-
-function escapeHtml(value) {
-  return safeString(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function statusCard(text) {

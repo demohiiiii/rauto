@@ -527,7 +527,7 @@ pub struct GlobalOpts {
     #[arg(long, short = 'S', global = true)]
     pub save_connection: Option<String>,
 
-    /// When used with --save-connection, also save password/enable_password
-    #[arg(long, global = true, default_value_t = false)]
+    /// Deprecated no-op: passwords are saved with --save-connection.
+    #[arg(long, global = true, default_value_t = false, hide = true)]
     pub save_password: bool,
 }

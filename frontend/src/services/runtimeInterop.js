@@ -1,4 +1,5 @@
 import { safeCall } from "./runtimeGlobals.js";
+import { escapeHtml as escapeHtmlValue, safeString } from "./htmlFormat.js";
 
 export { safeCall };
 
@@ -62,21 +63,7 @@ export function parseBuiltinFlowTemplateValue(value) {
 }
 
 export function escapeHtml(value) {
-  const raw = value == null ? "-" : String(value);
-  return raw
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return escapeHtmlValue(value, "-");
 }
 
-export function safeString(value) {
-  if (value == null) {
-    return "-";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return JSON.stringify(value);
-}
+export { safeString };

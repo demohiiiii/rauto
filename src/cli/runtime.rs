@@ -216,31 +216,19 @@ pub(crate) fn maybe_save_connection_profile(
         return Ok(());
     };
 
-    let path = save_named_connection(name, conn, opts.save_password)?;
+    let path = save_named_connection(name, conn)?;
     println!("Saved device '{}' to '{}'", name, path.to_string_lossy());
     Ok(())
 }
 
-pub(crate) fn save_named_connection(
-    name: &str,
-    conn: &EffectiveConnection,
-    save_password: bool,
-) -> Result<PathBuf> {
+pub(crate) fn save_named_connection(name: &str, conn: &EffectiveConnection) -> Result<PathBuf> {
     let data = SavedConnection {
         host: Some(conn.host.clone()),
         username: Some(conn.username.clone()),
-        password: if save_password {
-            Some(conn.password.clone())
-        } else {
-            None
-        },
+        password: Some(conn.password.clone()),
         password_ref: None,
         port: Some(conn.port),
-        enable_password: if save_password {
-            conn.enable_password.clone()
-        } else {
-            None
-        },
+        enable_password: conn.enable_password.clone(),
         enable_password_ref: None,
         enable_password_empty_enter: conn.enable_password == Some(String::new()),
         ssh_security: Some(conn.ssh_security),
@@ -462,4 +450,92 @@ pub(crate) fn write_recording_text_if_requested(
     fs::write(path, jsonl.as_bytes())?;
     println!("Saved session recording to '{}'", path.to_string_lossy());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EffectiveConnection, save_named_connection};
+    use crate::config::connection_store;
+    use crate::config::linux_shell::LinuxShellFlavor;
+    use crate::config::ssh_security::SshSecurityProfile;
+    use crate::db;
+    use anyhow::Result;
+    use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static TEST_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    struct TestEnvGuard {
+        original_home: Option<std::ffi::OsString>,
+        _root: PathBuf,
+        _guard: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl TestEnvGuard {
+        fn new() -> Result<Self> {
+            let guard = TEST_ENV_LOCK
+                .get_or_init(|| Mutex::new(()))
+                .lock()
+                .expect("test env lock poisoned");
+            let root = std::env::temp_dir().join(format!(
+                "rauto-cli-runtime-test-{}",
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
+            ));
+            let original_home = std::env::var_os("RAUTO_HOME");
+            unsafe {
+                std::env::set_var("RAUTO_HOME", &root);
+            }
+            Ok(Self {
+                original_home,
+                _root: root,
+                _guard: guard,
+            })
+        }
+    }
+
+    impl Drop for TestEnvGuard {
+        fn drop(&mut self) {
+            if let Some(value) = &self.original_home {
+                unsafe {
+                    std::env::set_var("RAUTO_HOME", value);
+                }
+            } else {
+                unsafe {
+                    std::env::remove_var("RAUTO_HOME");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn save_named_connection_persists_passwords_by_default() -> Result<()> {
+        let _env_guard = TestEnvGuard::new()?;
+        db::init_sync()?;
+
+        save_named_connection(
+            "cli_saved_secret",
+            &EffectiveConnection {
+                connection_name: None,
+                host: "192.0.2.10".to_string(),
+                username: "admin".to_string(),
+                password: "login-secret".to_string(),
+                port: 22,
+                enable_password: Some("enable-secret".to_string()),
+                ssh_security: SshSecurityProfile::LegacyCompatible,
+                linux_shell_flavor: Some(LinuxShellFlavor::Posix),
+                device_profile: "cisco_ios".to_string(),
+                vars: serde_json::json!({"site":"lab"}),
+                template_dir: None,
+                force_autodetect: false,
+            },
+        )?;
+
+        let saved = connection_store::load_connection("cli_saved_secret")?;
+        assert_eq!(saved.password.as_deref(), Some("login-secret"));
+        assert_eq!(saved.enable_password.as_deref(), Some("enable-secret"));
+        assert!(connection_store::has_saved_password(&saved));
+        assert!(connection_store::has_saved_enable_password(&saved));
+        Ok(())
+    }
 }

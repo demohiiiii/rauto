@@ -2,6 +2,8 @@
  * ui/i18n_apply.js - i18n + dynamic label sync
  */
 
+import { dashboardNavigationItems } from "../config/dashboardNavigation.js";
+
 function currentConnectionModalMode() {
   return window.connectionModalMode === "temporary" ? "temporary" : "saved";
 }
@@ -156,27 +158,12 @@ function applyI18n() {
     window.onDashboardThemeChange(currentTheme);
   }
 
-  byId("tab-standard").textContent = t("opSectionStandard");
-  if (byId("tab-tx-block")) {
-    byId("tab-tx-block").textContent = t("txStageBlock");
+  for (const item of dashboardNavigationItems) {
+    const navButton = byId(item.id);
+    if (navButton) {
+      navButton.textContent = t(item.labelKey);
+    }
   }
-  if (byId("tab-tx-workflow")) {
-    byId("tab-tx-workflow").textContent = t("txStageWorkflow");
-  }
-  if (byId("tab-orchestrate")) {
-    byId("tab-orchestrate").textContent = t("txStageOrchestrate");
-  }
-  if (byId("tab-show")) {
-    byId("tab-show").textContent = t("opExecShow");
-  }
-  byId("tab-replay").textContent = t("tabReplay");
-  byId("tab-prompts").textContent = t("tabPrompts");
-  byId("tab-templates").textContent = t("tabTemplates");
-  byId("tab-inventory").textContent = t("tabInventory");
-  byId("tab-transfer").textContent = t("tabTransfer");
-  byId("tab-blacklist").textContent = t("tabBlacklist");
-  byId("tab-backup").textContent = t("tabBackup");
-  byId("tab-tasks").textContent = t("tabTasks");
   if (byId("standard-mode-show")) {
     byId("standard-mode-show").textContent = t("opExecShow");
   }

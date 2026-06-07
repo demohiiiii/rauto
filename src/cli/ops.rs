@@ -363,11 +363,7 @@ pub(crate) async fn run_device_command(
         }
         DeviceCommands::Add { name } => {
             let conn = crate::resolve_effective_connection(global_opts)?;
-            let path = crate::save_named_connection(
-                &name,
-                &conn,
-                global_opts.password.is_some() || global_opts.enable_password.is_some(),
-            )?;
+            let path = crate::save_named_connection(&name, &conn)?;
             println!("Saved device '{}' to '{}'", name, path.to_string_lossy());
         }
         DeviceCommands::Import { file, json } => {

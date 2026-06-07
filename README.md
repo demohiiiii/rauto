@@ -640,8 +640,8 @@ rauto history list lab1 --limit 20
 
 Password behavior:
 
-- `--save-connection` (used in `exec/template/connection test`) saves without password by default; add `--save-password` to include password fields.
-- `connection add` saves password only when `--password` / `--enable-password` is explicitly provided.
+- `--save-connection` (used in `exec/template/connection test`) saves the effective connection, including password fields when they are available.
+- `connection add` saves password fields when `--password` / `--enable-password` is provided.
 - Saved passwords are encrypted in `~/.rauto/rauto.db` with a local master key. The master key is stored once in the system keyring (single authorization, then cached in process).
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections. When omitted, rauto uses `legacy-compatible` for the broadest device compatibility.
 - `--linux-shell-flavor <posix|fish>` controls Linux shell exit-code parsing strategy (`posix` also accepts `bash` alias).
@@ -1197,7 +1197,6 @@ Default runtime data:
 | `--force-autodetect`   | -                | Ignore cached autodetect result and probe the target again                           |
 | `--connection`         | -                | Load saved connection profile by name (`-c`)                                         |
 | `--save-connection`    | -                | Save effective connection profile after successful connect (`-S`)                    |
-| `--save-password`      | -                | With `--save-connection`, also save password/enable_password                         |
 
 Common shorthand aliases:
 

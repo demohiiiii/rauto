@@ -638,8 +638,8 @@ rauto history list lab1 --limit 20
 
 密码保存规则：
 
-- 在 `exec/template/connection test` 中使用 `--save-connection` 时，默认不保存密码；加上 `--save-password` 才会保存密码字段。
-- 使用 `connection add` 时，仅当显式传入 `--password` / `--enable-password` 才会保存密码字段。
+- 在 `exec/template/connection test` 中使用 `--save-connection` 时，会保存当前有效连接配置；如果连接中包含密码字段，也会一并保存。
+- 使用 `connection add` 时，如果显式传入 `--password` / `--enable-password`，会保存对应密码字段。
 - 已保存密码会先加密后写入 `~/.rauto/rauto.db`；解密主密钥仅在系统 keyring 中保存一份（一次授权后进程内缓存）。
 - `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。未指定时默认使用兼容性最广的 `legacy-compatible`。
 - `--linux-shell-flavor <posix|fish>` 用于控制 Linux shell 的退出码解析策略（`posix` 同时接受 `bash` 别名）。
@@ -1191,7 +1191,6 @@ Group JSON 结构：
 | `--force-autodetect`   | -                | 忽略已缓存的 autodetect 结果并重新探测目标设备                                |
 | `--connection`         | -                | 按名称加载已保存连接配置（`-c`）                                            |
 | `--save-connection`    | -                | 成功连接后保存当前有效连接配置（`-S`）                                      |
-| `--save-password`      | -                | 配合 `--save-connection` 使用时保存密码/enable_password                     |
 
 常用短选项速查：
 

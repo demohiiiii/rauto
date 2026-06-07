@@ -3,6 +3,10 @@ import {
   getConnectionHistoryDetail,
   listConnectionHistory,
 } from "../api/client.js";
+import {
+  emptyString as safeString,
+  escapeHtml,
+} from "../services/htmlFormat.js";
 
 const HISTORY_STORAGE = {
   query: "rauto_history_filter_query",
@@ -12,20 +16,6 @@ const HISTORY_STORAGE = {
 
 function tr(key, fallback = key) {
   return typeof window.t === "function" ? window.t(key) : fallback;
-}
-
-function safeString(value) {
-  if (value == null) return "";
-  return typeof value === "string" ? value : JSON.stringify(value);
-}
-
-function escapeHtml(value) {
-  return safeString(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function statusCard(message, tone = "info") {

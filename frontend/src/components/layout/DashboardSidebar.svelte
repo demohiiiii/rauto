@@ -1,102 +1,9 @@
 <script>
   import { sidebarHistoryBehavior } from "../../actions/sidebarHistoryBehavior.js";
   import { RAUTO_ICON_URL } from "../../assets/publicAssets.js";
+  import { dashboardNavigationItems } from "../../config/dashboardNavigation.js";
   import { navigateDashboardRoute } from "../../router/dashboardRouter.js";
   import { dashboardView } from "../../state/dashboardView.js";
-
-  const navItems = [
-    {
-      id: "tab-show",
-      routeId: "show",
-      label: "查询",
-      dataTab: "show",
-      activeWhen: "show",
-    },
-    {
-      id: "tab-standard",
-      routeId: "standard",
-      label: "Standard Delivery",
-      dataTab: "standard",
-      activeWhen: "standard",
-    },
-    {
-      id: "tab-tx-block",
-      routeId: "tx-block",
-      label: "Tx Block",
-      activeWhen: "orchestrated",
-      txStage: "block",
-    },
-    {
-      id: "tab-tx-workflow",
-      routeId: "tx-workflow",
-      label: "Tx Workflow",
-      activeWhen: "orchestrated",
-      txStage: "workflow",
-    },
-    {
-      id: "tab-orchestrate",
-      routeId: "orchestrate",
-      label: "Orchestrate",
-      activeWhen: "orchestrated",
-      txStage: "orchestrate",
-    },
-    {
-      id: "tab-replay",
-      routeId: "replay",
-      label: "Session Replay",
-      dataTab: "replay",
-      activeWhen: "replay",
-    },
-    {
-      id: "tab-prompts",
-      routeId: "prompts",
-      label: "Prompt Profiles",
-      dataTab: "prompts",
-      activeWhen: "prompts",
-    },
-    {
-      id: "tab-templates",
-      routeId: "templates",
-      label: "Templates",
-      dataTab: "templates",
-      activeWhen: "templates",
-    },
-    {
-      id: "tab-inventory",
-      routeId: "inventory",
-      label: "Inventory",
-      dataTab: "inventory",
-      activeWhen: "inventory",
-    },
-    {
-      id: "tab-transfer",
-      routeId: "transfer",
-      label: "SFTP Upload",
-      dataTab: "transfer",
-      activeWhen: "transfer",
-    },
-    {
-      id: "tab-blacklist",
-      routeId: "blacklist",
-      label: "Blacklist",
-      dataTab: "blacklist",
-      activeWhen: "blacklist",
-    },
-    {
-      id: "tab-backup",
-      routeId: "backup",
-      label: "Backup",
-      dataTab: "backup",
-      activeWhen: "backup",
-    },
-    {
-      id: "tab-tasks",
-      routeId: "tasks",
-      label: "Tasks",
-      dataTab: "tasks",
-      activeWhen: "tasks",
-    },
-  ];
 
   const isNavItemActive = (item) =>
     item.activeWhen === $dashboardView.currentTab &&
@@ -183,7 +90,7 @@
 
   <nav class="sidebar-nav flex-1 px-2 py-3">
     <ul class="menu w-full gap-1">
-      {#each navItems as item}
+      {#each dashboardNavigationItems as item}
         <li hidden={!isNavItemVisible(item)}>
           <button
             id={item.id}
