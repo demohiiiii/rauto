@@ -40,6 +40,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Build web assets
         run: npm run web:build
 
@@ -65,8 +68,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check frontend formatting
-        run: npm run frontend:format:check
-
-      - name: Build frontend assets
+      - name: Build frontend
         run: npm run web:build

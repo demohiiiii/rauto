@@ -1,45 +1,76 @@
 <script>
-  import { onMount } from "svelte";
-  import DashboardBody from "./components/DashboardBody.svelte";
-  import { bootstrapDashboardApp } from "./runtime/dashboardBootstrap.js";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Card from "$lib/components/ui/card/index.js";
+  import { Skeleton } from "$lib/components/ui/skeleton/index.js";
+  import { createDashboardAppWorkspace } from "./modules/dashboardApp.js";
 
-  let status = $state("loading");
-  let error = $state("");
-  let destroyDashboardRouter = null;
+  const dashboardAppWorkspace = createDashboardAppWorkspace();
+  const {
+    applyAppBootstrap,
+    bootstrapDisplayStateStore,
+    dashboardBodyComponentStateStore,
+    dashboardBodyLoadErrorStateStore,
+    ensureDashboardBodyComponentLoaded,
+  } = dashboardAppWorkspace;
+  let LoadedBodyComponent = $derived($dashboardBodyComponentStateStore);
+  let bodyLoadError = $derived($dashboardBodyLoadErrorStateStore);
+  let bootstrapDisplay = $derived($bootstrapDisplayStateStore);
 
-  onMount(() => {
-    bootstrapDashboardApp()
-      .then((destroy) => {
-        destroyDashboardRouter = destroy;
-        status = "ready";
-      })
-      .catch((nextError) => {
-        error =
-          nextError instanceof Error ? nextError.message : String(nextError);
-        status = "error";
-      });
+  $effect(() => {
+    return ensureDashboardBodyComponentLoaded();
+  });
 
-    return () => {
-      if (destroyDashboardRouter) {
-        destroyDashboardRouter();
-        destroyDashboardRouter = null;
-      }
-    };
+  $effect(() => {
+    return applyAppBootstrap();
   });
 </script>
 
-{#if status === "error"}
-  <main class="min-h-screen bg-slate-50 p-6 text-slate-900">
-    <section
-      class="mx-auto max-w-2xl rounded-2xl border border-rose-200 bg-white p-5 shadow-sm"
-    >
-      <h1 class="text-lg font-semibold text-rose-700">
-        Failed to load rauto web dashboard
-      </h1>
-      <p class="mt-2 text-sm text-slate-600">{error}</p>
-      <a class="btn btn-sm mt-4" href="/app">Reload dashboard</a>
+{#snippet loadingSkeleton()}
+  <div class="grid gap-4" aria-label={bootstrapDisplay.loadFailedTitle}>
+    <Skeleton class="h-8 w-56" />
+    <div class="grid gap-3 md:grid-cols-3" aria-hidden="true">
+      <Skeleton class="h-24" />
+      <Skeleton class="h-24" />
+      <Skeleton class="h-24" />
+    </div>
+    <Skeleton class="h-72" />
+  </div>
+{/snippet}
+
+{#if bootstrapDisplay.showError}
+  <main class="min-h-screen bg-background p-6 text-foreground">
+    <Card.Root class="mx-auto max-w-2xl">
+      <Card.Header>
+        <Card.Title>{bootstrapDisplay.loadFailedTitle}</Card.Title>
+        <Card.Description>{bootstrapDisplay.errorMessage}</Card.Description>
+      </Card.Header>
+      <Card.Footer>
+        <Button href="/app" size="sm" variant="outline">
+          {bootstrapDisplay.reloadButtonLabel}
+        </Button>
+      </Card.Footer>
+    </Card.Root>
+  </main>
+{:else if bodyLoadError}
+  <main class="min-h-screen bg-background p-6 text-foreground">
+    <Card.Root class="mx-auto max-w-2xl">
+      <Card.Header>
+        <Card.Title>{bootstrapDisplay.loadFailedTitle}</Card.Title>
+        <Card.Description>{bodyLoadError}</Card.Description>
+      </Card.Header>
+      <Card.Footer>
+        <Button href="/app" size="sm" variant="outline">
+          {bootstrapDisplay.reloadButtonLabel}
+        </Button>
+      </Card.Footer>
+    </Card.Root>
+  </main>
+{:else if LoadedBodyComponent}
+  <LoadedBodyComponent busy={bootstrapDisplay.busy} />
+{:else}
+  <main class="min-h-screen bg-background p-6 text-foreground">
+    <section class="mx-auto max-w-6xl">
+      {@render loadingSkeleton()}
     </section>
   </main>
 {/if}
-
-<DashboardBody busy={status === "loading"} />

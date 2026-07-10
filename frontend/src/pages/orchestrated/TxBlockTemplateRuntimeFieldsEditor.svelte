@@ -1,0 +1,50 @@
+<script>
+  import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
+  import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
+  import { t } from "../../lib/i18n.js";
+  import { createTxBlockTemplateRuntimeFieldsEditorWorkspace } from "../../modules/transactionBlockTemplateWorkspaces.js";
+
+  let { operation, onChange, jsonValueTypeRows } = $props();
+  const txBlockTemplateRuntimeFieldsEditorWorkspace =
+    createTxBlockTemplateRuntimeFieldsEditorWorkspace();
+  const {
+    runtimeActionHandlersStateStore,
+    runtimeExtraSourceStateStore,
+    runtimeFieldRowsStateStore,
+    runtimeMetadataFieldRowsStateStore,
+    setTemplateRuntimeFieldsContext,
+  } = txBlockTemplateRuntimeFieldsEditorWorkspace;
+  let runtimeActionHandlers = $derived($runtimeActionHandlersStateStore);
+  let runtimeExtraSource = $derived($runtimeExtraSourceStateStore);
+  let runtimeFieldRows = $derived($runtimeFieldRowsStateStore);
+  let runtimeMetadataFieldRows = $derived($runtimeMetadataFieldRowsStateStore);
+
+  $effect(() => {
+    setTemplateRuntimeFieldsContext({ operation, onChange });
+  });
+</script>
+
+<div class="grid gap-4">
+  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <PresenceFieldGrid
+      fieldRows={runtimeFieldRows}
+      hostClass="contents"
+      showPresenceToggleFallback={true}
+      onValueChangeForKey={runtimeActionHandlers.fieldValueHandler}
+      onNullableModeChangeForKey={runtimeActionHandlers.fieldNullableModeHandler}
+      onPresenceChangeForKey={runtimeActionHandlers.fieldPresenceHandler}
+    />
+    <PresenceFieldGrid
+      fieldRows={runtimeMetadataFieldRows}
+      hostClass="contents"
+      onValueChangeForKey={runtimeActionHandlers.metadataValueHandler}
+      onPresenceChangeForKey={runtimeActionHandlers.metadataPresenceHandler}
+    />
+  </div>
+  <JsonObjectFieldsEditor
+    title={t("txBlockFormTemplateRuntimeExtra")}
+    source={runtimeExtraSource}
+    typeRows={jsonValueTypeRows}
+    onChange={runtimeActionHandlers.setRuntimeExtra}
+  />
+</div>

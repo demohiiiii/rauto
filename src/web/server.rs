@@ -52,8 +52,8 @@ use tracing::info;
 
 pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<()> {
     let state = AppState::new(defaults, None, None);
-    let app = build_local_app(state);
-    serve_app(web_args.bind, web_args.port, app, None).await
+    let app = build_local_app(state.clone());
+    serve_app(web_args.bind, web_args.port, app, state).await
 }
 
 pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Result<()> {
@@ -117,7 +117,7 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
         agent_config.agent.name
     );
 
-    serve_app(agent_args.bind, agent_args.port, app, Some(state)).await
+    serve_app(agent_args.bind, agent_args.port, app, state).await
 }
 
 fn build_local_app(state: Arc<AppState>) -> Router {
@@ -374,7 +374,7 @@ async fn serve_app(
     bind: String,
     port: u16,
     app: Router,
-    shutdown_state: Option<Arc<AppState>>,
+    shutdown_state: Arc<AppState>,
 ) -> Result<()> {
     let addr: SocketAddr = format!("{}:{}", bind, port)
         .parse()
@@ -386,9 +386,8 @@ async fn serve_app(
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
             signal::ctrl_c().await.ok();
-            if let Some(state) = shutdown_state
-                && let Some(registrar) = state.registrar()
-            {
+            shutdown_state.begin_shutdown();
+            if let Some(registrar) = shutdown_state.registrar() {
                 registrar.shutdown_notify().await;
             }
         })
@@ -422,14 +421,35 @@ async fn not_found(req: Request) -> Response {
 
 async fn disable_cache(req: Request, next: Next) -> Response {
     let mut res = next.run(req).await;
-    res.headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    if !res.headers().contains_key(header::CACHE_CONTROL) {
+        res.headers_mut().insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("no-store, max-age=0, must-revalidate"),
+        );
+    }
+    if !res.headers().contains_key(header::PRAGMA) {
+        res.headers_mut()
+            .insert(header::PRAGMA, HeaderValue::from_static("no-cache"));
+    }
+    if !res.headers().contains_key(header::EXPIRES) {
+        res.headers_mut()
+            .insert(header::EXPIRES, HeaderValue::from_static("0"));
+    }
     res
 }
 
 #[cfg(test)]
 mod tests {
     use super::bind_is_loopback_only;
+    use super::disable_cache;
+    use axum::{
+        Router,
+        body::Body,
+        http::{HeaderValue, Request, StatusCode, header},
+        middleware,
+        routing::get,
+    };
+    use tower::util::ServiceExt;
 
     #[test]
     fn bind_is_loopback_only_accepts_localhost_and_loopback_ips() {
@@ -444,5 +464,70 @@ mod tests {
         assert!(!bind_is_loopback_only("::"));
         assert!(!bind_is_loopback_only("192.168.1.10"));
         assert!(!bind_is_loopback_only("agent.local"));
+    }
+
+    #[tokio::test]
+    async fn disable_cache_preserves_existing_cache_control_policy() {
+        let app = Router::new()
+            .route(
+                "/",
+                get(|| async {
+                    (
+                        [(
+                            header::CACHE_CONTROL,
+                            "no-store, max-age=0, must-revalidate",
+                        )],
+                        StatusCode::OK,
+                    )
+                }),
+            )
+            .layer(middleware::from_fn(disable_cache));
+
+        let response = app
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .expect("route should respond");
+
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static(
+                "no-store, max-age=0, must-revalidate"
+            )),
+        );
+        assert_eq!(
+            response.headers().get(header::PRAGMA),
+            Some(&HeaderValue::from_static("no-cache")),
+        );
+        assert_eq!(
+            response.headers().get(header::EXPIRES),
+            Some(&HeaderValue::from_static("0")),
+        );
+    }
+
+    #[tokio::test]
+    async fn disable_cache_sets_full_cache_control_policy_when_missing() {
+        let app = Router::new()
+            .route("/", get(|| async { StatusCode::OK }))
+            .layer(middleware::from_fn(disable_cache));
+
+        let response = app
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .expect("route should respond");
+
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static(
+                "no-store, max-age=0, must-revalidate"
+            )),
+        );
+        assert_eq!(
+            response.headers().get(header::PRAGMA),
+            Some(&HeaderValue::from_static("no-cache")),
+        );
+        assert_eq!(
+            response.headers().get(header::EXPIRES),
+            Some(&HeaderValue::from_static("0")),
+        );
     }
 }

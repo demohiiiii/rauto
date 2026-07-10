@@ -1,71 +1,95 @@
 <script>
-  import { uploadBehavior } from "../actions/uploadBehavior.js";
+  import * as Card from "$lib/components/ui/card";
+  import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
+  import PlainCheckboxField from "../components/fragments/PlainCheckboxField.svelte";
+  import PlainInputField from "../components/fragments/PlainInputField.svelte";
+  import LoadingButton from "../components/fragments/LoadingButton.svelte";
+  import StatusCard from "../components/fragments/StatusCard.svelte";
+  import { createTransferPageWorkspace } from "../modules/transfer.js";
 
-  let { active = false } = $props();
+  let { active } = $props();
+  const transferPageWorkspace = createTransferPageWorkspace();
+  const { transferUploadDisplayStateStore } = transferPageWorkspace;
+  let transferUploadDisplay = $derived($transferUploadDisplayStateStore);
+  let transferUploadFields = $derived(
+    transferUploadDisplay.transferUploadInputFields,
+  );
 </script>
 
-<div
-  id="panel-transfer"
-  class="tab-panel"
-  role="tabpanel"
-  hidden={!active}
-  use:uploadBehavior
->
-  <h2 id="transfer-title" class="text-xl font-semibold">SFTP Upload</h2>
+<DashboardTabPanel {active} titleKey="transferTitle">
   <div class="mt-4 grid gap-3">
-    <div class="group-card">
-      <div class="field-tools">
-        <span id="upload-title" class="text-sm font-semibold text-slate-700"
-          >SFTP Upload</span
-        >
-      </div>
-      <div class="group-body grid gap-2">
+    <Card.Root>
+      <Card.Header>
+        <Card.Title>
+          {transferUploadDisplay.transferUploadCardDisplay.title}
+        </Card.Title>
+      </Card.Header>
+      <Card.Content class="grid gap-2">
         <div class="grid gap-2 md:grid-cols-2">
-          <input
-            id="upload-local-path"
-            class="input"
-            placeholder="local file path on the machine running rauto"
+          <PlainInputField
+            value={transferUploadFields.localPath.value}
+            aria-label={transferUploadFields.localPath.ariaLabelText}
+            placeholderText={transferUploadFields.localPath.placeholder}
+            onValueInput={transferPageWorkspace.updateLocalPath}
           />
-          <input
-            id="upload-remote-path"
-            class="input"
-            placeholder="remote destination path"
+          <PlainInputField
+            value={transferUploadFields.remotePath.value}
+            aria-label={transferUploadFields.remotePath.ariaLabelText}
+            placeholderText={transferUploadFields.remotePath.placeholder}
+            onValueInput={transferPageWorkspace.updateRemotePath}
           />
         </div>
+
         <div class="grid gap-2 md:grid-cols-2">
-          <input
-            id="upload-timeout-secs"
-            class="input"
-            placeholder="timeout secs (default 300)"
+          <PlainInputField
+            value={transferUploadFields.timeoutSecs.value}
+            aria-label={transferUploadFields.timeoutSecs.ariaLabelText}
+            placeholderText={transferUploadFields.timeoutSecs.placeholder}
+            onValueInput={transferPageWorkspace.updateTimeoutSecs}
           />
-          <input
-            id="upload-buffer-size"
-            class="input"
-            placeholder="buffer size bytes (optional)"
+          <PlainInputField
+            value={transferUploadFields.bufferSize.value}
+            aria-label={transferUploadFields.bufferSize.ariaLabelText}
+            placeholderText={transferUploadFields.bufferSize.placeholder}
+            onValueInput={transferPageWorkspace.updateBufferSize}
           />
         </div>
-        <label class="check-label">
-          <input
-            id="upload-show-progress"
-            type="checkbox"
-            class="check-input"
-          />
-          <span id="upload-show-progress-label">show progress</span>
-        </label>
+
+        <PlainCheckboxField
+          checked={transferUploadFields.showProgress}
+          labelText={transferUploadFields.showProgressLabel}
+          title={transferUploadFields.showProgressLabel}
+          onCheckedChange={transferPageWorkspace.updateShowProgress}
+        />
+
         <div class="grid gap-2 md:grid-cols-[1fr_auto]">
-          <div class="text-xs text-slate-500" id="upload-hint">
-            The local file path is resolved on the host running rauto.
+          <div class="text-xs text-slate-500">
+            {transferUploadDisplay.transferUploadCardDisplay.hint}
           </div>
-          <button
-            id="upload-exec-btn"
-            class="btn btn-primary btn-sm"
-            type="button"
+          <LoadingButton
+            variant="default"
+            size="sm"
+            loading={transferUploadDisplay.transferUploadRunButtonDisplay
+              .uploadLoading}
+            onclick={transferPageWorkspace.runUpload}
           >
-            Run Upload
-          </button>
+            <span>
+              {transferUploadDisplay.transferUploadRunButtonDisplay
+                .uploadButtonLabel}
+            </span>
+          </LoadingButton>
         </div>
-        <div id="upload-out" class="grid gap-2"></div>
-      </div>
-    </div>
+        <div class="grid gap-2">
+          {#if transferUploadDisplay.transferUploadStatusDisplay.showStatus}
+            <StatusCard
+              message={transferUploadDisplay.transferUploadStatusDisplay
+                .statusText}
+              tone={transferUploadDisplay.transferUploadStatusDisplay
+                .statusTone}
+            />
+          {/if}
+        </div>
+      </Card.Content>
+    </Card.Root>
   </div>
-</div>
+</DashboardTabPanel>

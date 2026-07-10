@@ -132,16 +132,16 @@ cp -R skills/rauto-usage "$CODEX_HOME/skills/"
 
 ### 命令选型指南
 
-| 如果你想要...                  | 推荐命令            | 说明                                                      |
-| ------------------------------ | ------------------- | --------------------------------------------------------- |
-| 立即执行一条命令               | `rauto exec`        | 适合临时直连执行；可配合 `--mode` 限定目标模式。          |
-| 按 profile 执行 NTC 支持的 show 对象 | `rauto show`        | 将 `interfaces`、`route` 等对象映射为设备实际命令。    |
-| 用变量渲染一个可复用命令模板   | `rauto template`    | 适合命令文本来自已保存 Jinja 模板的场景。                 |
-| 驱动交互式问答/确认流程        | `rauto flow`        | 适合复制向导、安装向导和多轮 prompt/response 场景。       |
-| 通过远端 SFTP 直接上传本地文件 | `rauto upload`      | 要求目标 SSH 服务暴露 `sftp` 子系统。                     |
-| 执行一个带回滚能力的事务块     | `rauto tx`          | 适合单目标、单事务单元、需要步骤级或资源级回滚的场景。    |
-| 从 JSON 执行多步骤事务工作流   | `rauto tx-workflow` | 适合把事务拆成命名 block/stage 并保存在 workflow 文件中。 |
-| 执行多设备分阶段计划           | `rauto orchestrate` | 适合面向多台已保存连接做串行/并发编排发布。               |
+| 如果你想要...                        | 推荐命令            | 说明                                                      |
+| ------------------------------------ | ------------------- | --------------------------------------------------------- |
+| 立即执行一条命令                     | `rauto exec`        | 适合临时直连执行；可配合 `--mode` 限定目标模式。          |
+| 按 profile 执行 NTC 支持的 show 对象 | `rauto show`        | 将 `interfaces`、`route` 等对象映射为设备实际命令。       |
+| 用变量渲染一个可复用命令模板         | `rauto template`    | 适合命令文本来自已保存 Jinja 模板的场景。                 |
+| 驱动交互式问答/确认流程              | `rauto flow`        | 适合复制向导、安装向导和多轮 prompt/response 场景。       |
+| 通过远端 SFTP 直接上传本地文件       | `rauto upload`      | 要求目标 SSH 服务暴露 `sftp` 子系统。                     |
+| 执行一个带回滚能力的事务块           | `rauto tx`          | 适合单目标、单事务单元、需要步骤级或资源级回滚的场景。    |
+| 从 JSON 执行多步骤事务工作流         | `rauto tx-workflow` | 适合把事务拆成命名 block/stage 并保存在 workflow 文件中。 |
+| 执行多设备分阶段计划                 | `rauto orchestrate` | 适合面向多台已保存连接做串行/并发编排发布。               |
 
 ### 模板模式
 
@@ -540,11 +540,11 @@ Web 静态资源在构建时会嵌入二进制。
 对于发布后的可执行文件，运行时不再依赖本地 `static/` 目录。
 
 Web 前端由 Svelte 5 构建。
-从源码构建时，请先执行 `npm run web:build` 再编译 Rust 二进制。
+从源码构建时，请先执行 `npm run web:build` 再编译 Rust 二进制；该命令会校验前端结构、国际化键、Svelte 诊断结果，然后构建嵌入式静态资源。
 
 ```bash
 npm run frontend:build  # 仅构建 Svelte 控制台入口
-npm run web:build       # 构建嵌入式 Web 控制台资源
+npm run web:build       # 校验并构建嵌入式 Web 控制台资源
 ```
 
 Web 控制台主要能力：
@@ -1178,19 +1178,19 @@ Group JSON 结构：
 
 ## 配置选项
 
-| 参数                   | 环境变量         | 描述                                                                        |
-| ---------------------- | ---------------- | --------------------------------------------------------------------------- |
-| `--host`               | -                | 设备主机名或 IP（`-H`）                                                     |
-| `--username`           | -                | SSH 用户名                                                                  |
-| `--password`           | `RAUTO_PASSWORD` | SSH 密码                                                                    |
-| `--enable-password`    | -                | Enable/Secret 密码                                                          |
-| `--ssh-port`           | -                | SSH 端口 (默认: 22)                                                         |
-| `--ssh-security`       | -                | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible` |
-| `--linux-shell-flavor` | -                | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                 |
+| 参数                   | 环境变量         | 描述                                                                                     |
+| ---------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
+| `--host`               | -                | 设备主机名或 IP（`-H`）                                                                  |
+| `--username`           | -                | SSH 用户名                                                                               |
+| `--password`           | `RAUTO_PASSWORD` | SSH 密码                                                                                 |
+| `--enable-password`    | -                | Enable/Secret 密码                                                                       |
+| `--ssh-port`           | -                | SSH 端口 (默认: 22)                                                                      |
+| `--ssh-security`       | -                | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible`     |
+| `--linux-shell-flavor` | -                | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                              |
 | `--device-profile`     | -                | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
-| `--force-autodetect`   | -                | 忽略已缓存的 autodetect 结果并重新探测目标设备                                |
-| `--connection`         | -                | 按名称加载已保存连接配置（`-c`）                                            |
-| `--save-connection`    | -                | 成功连接后保存当前有效连接配置（`-S`）                                      |
+| `--force-autodetect`   | -                | 忽略已缓存的 autodetect 结果并重新探测目标设备                                           |
+| `--connection`         | -                | 按名称加载已保存连接配置（`-c`）                                                         |
+| `--save-connection`    | -                | 成功连接后保存当前有效连接配置（`-S`）                                                   |
 
 常用短选项速查：
 

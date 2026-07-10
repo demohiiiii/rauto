@@ -251,6 +251,17 @@ pub async fn delete_connection_history(
     Ok(Json(json!({ "ok": true, "deleted": deleted })))
 }
 
+pub(super) fn upsert_connection_target_name(
+    route_name: &str,
+    request_connection_name: Option<&str>,
+) -> Result<String, anyhow::Error> {
+    let requested = request_connection_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(route_name);
+    connection_store::safe_connection_name(requested)
+}
+
 pub async fn upsert_connection(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -259,6 +270,14 @@ pub async fn upsert_connection(
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let c = req.connection;
+    let target_safe = upsert_connection_target_name(&safe, c.connection_name.as_deref())
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
+    if target_safe != safe && connection_store::load_connection_raw(&target_safe).is_ok() {
+        return Err(ApiError::bad_request(format!(
+            "saved connection '{}' already exists",
+            target_safe
+        )));
+    }
     let persist_password = should_persist_secret(true, c.password.as_deref());
     let existing = connection_store::load_connection_raw(&safe).ok();
     let existing_password = connection_store::load_saved_secret(
@@ -304,7 +323,10 @@ pub async fn upsert_connection(
         groups: c.groups,
         vars: c.vars,
     };
-    let path = connection_store::save_connection(&safe, &data).map_err(ApiError::from)?;
+    let path = connection_store::save_connection(&target_safe, &data).map_err(ApiError::from)?;
+    if target_safe != safe && existing.is_some() {
+        connection_store::delete_connection(&safe).map_err(ApiError::from)?;
+    }
     if let Some(registrar) = state.registrar()
         && let Err(err) = registrar.trigger_device_inventory_sync_if_changed(5).await
     {
@@ -314,7 +336,11 @@ pub async fn upsert_connection(
         );
     }
 
-    Ok(Json(saved_connection_detail_response(&safe, &path, &data)))
+    Ok(Json(saved_connection_detail_response(
+        &target_safe,
+        &path,
+        &data,
+    )))
 }
 
 pub async fn delete_connection(

@@ -1,59 +1,107 @@
 <script>
-  import BatchShowExecuteFields from "../components/standard/BatchShowExecuteFields.svelte";
-  import ShowExecuteFields from "../components/standard/ShowExecuteFields.svelte";
+  import * as Card from "$lib/components/ui/card";
+  import { showQueryTabs } from "../config/dashboardModes.js";
+  import { afterDomUpdate } from "../lib/svelte.js";
+  import {
+    createShowPageWorkspace,
+    showConnectionTargetState,
+    showExecutionConnectionProfileState,
+  } from "../modules/show.js";
+  import BatchShowInputPanel from "./show/BatchShowInputPanel.svelte";
+  import BatchShowResultsPanel from "./show/BatchShowResultsPanel.svelte";
+  import SingleShowPanel from "./show/SingleShowPanel.svelte";
 
-  let { active = false } = $props();
-  let currentShowTab = $state("single");
+  let { active } = $props();
+  const showPageWorkspace = createShowPageWorkspace({ afterDomUpdate });
+  const {
+    batchResultDisplayStateStore,
+    batchResultsPresentationStateStore,
+    currentQueryState,
+    pageDisplayStateStore,
+  } = showPageWorkspace;
+  let currentTab = $derived($currentQueryState);
+  let pageDisplay = $derived($pageDisplayStateStore);
+  let singleActive = $derived(active && pageDisplay.singleActive);
+  let batchActive = $derived(active && pageDisplay.batchActive);
+  let batchResultDisplay = $derived($batchResultDisplayStateStore);
+  let batchResultsPresentation = $derived($batchResultsPresentationStateStore);
+  let targetName = $derived.by(() => {
+    const details = $showConnectionTargetState?.details || {};
+    return details.name || details.host || "";
+  });
 
-  function selectShowTab(tab) {
-    currentShowTab = tab === "batch" ? "batch" : "single";
-    requestAnimationFrame(() => {
-      window.loadShowObjects?.();
-      window.loadBatchShowObjects?.();
+  $effect(() => {
+    showPageWorkspace.setRouteContext({
+      active,
+      profile: $showExecutionConnectionProfileState,
+      target: $showConnectionTargetState,
     });
-  }
+  });
+
+  $effect(() => {
+    if (active) return;
+    showPageWorkspace.destroy();
+  });
 </script>
 
-<div id="panel-show" class="tab-panel" role="tabpanel" hidden={!active}>
-  <h2 id="show-page-title" class="text-xl font-semibold">查询</h2>
-  <div class="mt-3 grid gap-3">
-    <div class="group-card">
-      <div class="field-tools">
-        <span id="show-page-card-title">查询</span>
-      </div>
-      <div class="group-body">
-        <div class="tabs tabs-box w-fit" role="tablist" aria-label="Show tabs">
-          <button
-            id="show-tab-single"
-            class="tab"
-            class:tab-active={currentShowTab === "single"}
-            type="button"
-            role="tab"
-            aria-selected={(currentShowTab === "single").toString()}
-            onclick={() => selectShowTab("single")}
-          >
-            单个查询
-          </button>
-          <button
-            id="show-tab-batch"
-            class="tab"
-            class:tab-active={currentShowTab === "batch"}
-            type="button"
-            role="tab"
-            aria-selected={(currentShowTab === "batch").toString()}
-            onclick={() => selectShowTab("batch")}
-          >
-            批量查询
-          </button>
+<div class="tab-panel" role="tabpanel" hidden={!active}>
+  <div class="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <Card.Root class="contents bg-transparent p-0 shadow-none ring-0">
+      <Card.Header class="sr-only">
+        <Card.Title class="sr-only">{pageDisplay.title}</Card.Title>
+      </Card.Header>
+      <Card.Content class="flex flex-col gap-6 p-0">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <div
+              class="mb-1.5 flex items-center gap-2 text-xs font-medium text-muted-foreground"
+            >
+              <span>控制台</span>
+              <span class="text-muted-foreground/40" aria-hidden="true">/</span>
+              <span class="text-primary">{pageDisplay.title}</span>
+            </div>
+            <h2 class="text-2xl font-bold tracking-tight text-foreground">
+              {pageDisplay.title}
+            </h2>
+            <p class="mt-1 text-sm text-muted-foreground">
+              向目标设备下发只读命令，并按需解析为结构化结果
+            </p>
+          </div>
+          {#if targetName}
+            <span
+              class="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-xs sm:inline-flex"
+            >
+              <span class="size-2 rounded-full bg-primary"></span>
+              目标
+              <span class="font-mono text-foreground">{targetName}</span>
+            </span>
+          {/if}
         </div>
 
-        <div class="mt-3 grid gap-3">
-          <ShowExecuteFields active={active && currentShowTab === "single"} />
-          <BatchShowExecuteFields
-            active={active && currentShowTab === "batch"}
+        {#if singleActive}
+          <SingleShowPanel
+            active={true}
+            tabItems={showQueryTabs}
+            {currentTab}
+            queryAriaLabel={pageDisplay.queryAriaLabel}
+            onSelectQuery={showPageWorkspace.selectQuery}
           />
-        </div>
-      </div>
-    </div>
+        {:else if batchActive}
+          <div class="grid gap-6">
+            <BatchShowInputPanel
+              active={true}
+              tabItems={showQueryTabs}
+              {currentTab}
+              queryAriaLabel={pageDisplay.queryAriaLabel}
+              onSelectQuery={showPageWorkspace.selectQuery}
+            />
+            <BatchShowResultsPanel
+              {batchResultDisplay}
+              {batchResultsPresentation}
+            />
+          </div>
+        {/if}
+      </Card.Content>
+    </Card.Root>
   </div>
 </div>

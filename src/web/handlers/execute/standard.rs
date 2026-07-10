@@ -47,126 +47,127 @@ pub async fn exec_command(
                 "mode": req.mode
             }))),
     );
-    let result: Result<ExecResponse, ApiError> = async {
-        let record_level = req.target.record_level;
-        command_blacklist::ensure_command_allowed(&req.command, "direct execution")
-            .map_err(|e| ApiError::bad_request(e.to_string()))?;
-        let conn = resolve_autodetect_connection(merge_connection_options(
-            &state.defaults,
-            req.target.connection,
-        )?)
-        .await?;
-        emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("progress", "Connecting to target device")
-                .with_stage("connect")
-                .with_progress(Some(10))
-                .with_details(Some(json!({
-                    "host": conn.host,
-                    "connection_name": conn.connection_name
-                }))),
-        );
-        let handler = template_loader::load_device_profile_for_connection(
-            &conn.device_profile,
-            conn.linux_shell_flavor,
-        )?;
-        let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
-        let client = if let Some(level) = to_record_level(record_level) {
-            DeviceClient::connect_with_recording(
-                conn.host.clone(),
-                conn.port,
-                conn.username.clone(),
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
-                template_loader::default_profile_mode(&conn.device_profile)?,
-                level,
-                conn.ssh_security,
-            )
-            .await?
-        } else {
-            DeviceClient::connect(
-                conn.host.clone(),
-                conn.port,
-                conn.username.clone(),
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
-                template_loader::default_profile_mode(&conn.device_profile)?,
-                conn.ssh_security,
-            )
-            .await?
-        };
-
-        emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("progress", "Executing command")
-                .with_stage("command")
-                .with_progress(Some(60))
-                .with_details(Some(json!({
-                    "command": req.command
-                }))),
-        );
-        let output = client
-            .execute_output(&req.command, Some(effective_mode.as_str()))
+    let result: Result<ExecResponse, ApiError> = state
+        .run_until_shutdown(async {
+            let record_level = req.target.record_level;
+            command_blacklist::ensure_command_allowed(&req.command, "direct execution")
+                .map_err(|e| ApiError::bad_request(e.to_string()))?;
+            let conn = resolve_autodetect_connection(merge_connection_options(
+                &state.defaults,
+                req.target.connection,
+            )?)
             .await?;
-        let exit_code = output.exit_code;
-        let (parsed_output, parse_error) = parse_textfsm_output_optional(
-            &output.content,
-            &req.command,
-            WebTextfsmParseOptions {
-                template_file: req.textfsm_template.as_deref(),
-                enabled: req.parse_textfsm,
-                platform: req.textfsm_platform.as_deref(),
-                device_profile: Some(conn.device_profile.as_str()),
-                vendor: req.textfsm_vendor.as_deref(),
-                filter_error_rules: !req.textfsm_strict_errors,
-                ..Default::default()
-            },
-        );
-        persist_history_if_recorded(
-            &conn,
-            &client,
-            "exec",
-            &req.command,
-            Some(effective_mode.as_str()),
-            record_level,
-        );
-        let recording_jsonl = client.recording_jsonl()?;
-        Ok(ExecResponse {
-            output: output.content,
-            exit_code,
-            parsed_output,
-            parse_error,
-            result_summary: task_result_with_details(
-                task_result_with_recording(
-                    build_result_summary(
-                        TaskOperation::Exec,
-                        if exit_code.unwrap_or(0) == 0 {
-                            TaskResultOutcome::Success
-                        } else {
-                            TaskResultOutcome::Failed
-                        },
-                        if exit_code.unwrap_or(0) == 0 {
-                            "Command executed successfully"
-                        } else {
-                            "Command finished with a non-zero exit code"
-                        },
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("progress", "Connecting to target device")
+                    .with_stage("connect")
+                    .with_progress(Some(10))
+                    .with_details(Some(json!({
+                        "host": conn.host,
+                        "connection_name": conn.connection_name
+                    }))),
+            );
+            let handler = template_loader::load_device_profile_for_connection(
+                &conn.device_profile,
+                conn.linux_shell_flavor,
+            )?;
+            let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+            let client = if let Some(level) = to_record_level(record_level) {
+                DeviceClient::connect_with_recording(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    level,
+                    conn.ssh_security,
+                )
+                .await?
+            } else {
+                DeviceClient::connect(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    conn.ssh_security,
+                )
+                .await?
+            };
+
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("progress", "Executing command")
+                    .with_stage("command")
+                    .with_progress(Some(60))
+                    .with_details(Some(json!({
+                        "command": req.command
+                    }))),
+            );
+            let output = client
+                .execute_output(&req.command, Some(effective_mode.as_str()))
+                .await?;
+            let exit_code = output.exit_code;
+            let (parsed_output, parse_error) = parse_textfsm_output_optional(
+                &output.content,
+                &req.command,
+                WebTextfsmParseOptions {
+                    template_file: req.textfsm_template.as_deref(),
+                    enabled: req.parse_textfsm,
+                    platform: req.textfsm_platform.as_deref(),
+                    device_profile: Some(conn.device_profile.as_str()),
+                    vendor: req.textfsm_vendor.as_deref(),
+                    filter_error_rules: !req.textfsm_strict_errors,
+                    ..Default::default()
+                },
+            );
+            persist_history_if_recorded(
+                &conn,
+                &client,
+                "exec",
+                &req.command,
+                Some(effective_mode.as_str()),
+                record_level,
+            );
+            let recording_jsonl = client.recording_jsonl()?;
+            Ok(ExecResponse {
+                output: output.content,
+                exit_code,
+                parsed_output,
+                parse_error,
+                result_summary: task_result_with_details(
+                    task_result_with_recording(
+                        build_result_summary(
+                            TaskOperation::Exec,
+                            if exit_code.unwrap_or(0) == 0 {
+                                TaskResultOutcome::Success
+                            } else {
+                                TaskResultOutcome::Failed
+                            },
+                            if exit_code.unwrap_or(0) == 0 {
+                                "Command executed successfully"
+                            } else {
+                                "Command finished with a non-zero exit code"
+                            },
+                        ),
+                        &recording_jsonl,
                     ),
-                    &recording_jsonl,
+                    json!({
+                        "exit_code": exit_code,
+                        "mode": effective_mode,
+                        "command": req.command
+                    }),
                 ),
-                json!({
-                    "exit_code": exit_code,
-                    "mode": effective_mode,
-                    "command": req.command
-                }),
-            ),
-            recording_jsonl,
+                recording_jsonl,
+            })
         })
-    }
-    .await;
+        .await;
     drop(task_guard);
     match &result {
         Ok(response) => emit_task_event(
@@ -291,165 +292,168 @@ pub async fn execute_show(
             }))),
     );
 
-    let result: Result<ShowExecuteResponse, ApiError> = async {
-        let record_level = req.target.record_level;
-        let conn = resolve_autodetect_connection(merge_connection_options(
-            &state.defaults,
-            req.target.connection,
-        )?)
-        .await?;
-        let platform =
-            show_catalog::platform_for_show(&conn.device_profile, req.textfsm_platform.as_deref());
-        let show = show_catalog::resolve_show_command(
-            &req.object,
-            platform.as_deref(),
-            &conn.device_profile,
-        )
-        .map_err(|err| ApiError::bad_request(err.to_string()))?;
-        command_blacklist::ensure_command_allowed(&show.command, "show execution")
-            .map_err(|err| ApiError::bad_request(err.to_string()))?;
-
-        emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("progress", "Connecting to target device")
-                .with_stage("connect")
-                .with_progress(Some(10))
-                .with_details(Some(json!({
-                    "host": conn.host,
-                    "connection_name": conn.connection_name,
-                    "object": show.object,
-                    "command": show.command
-                }))),
-        );
-        let handler = template_loader::load_device_profile_for_connection(
-            &conn.device_profile,
-            conn.linux_shell_flavor,
-        )?;
-        let requested_mode = req.mode.as_deref().or(show.mode.as_deref());
-        let effective_mode = resolve_effective_mode(requested_mode, &conn.device_profile)?;
-        let client = if let Some(level) = to_record_level(record_level) {
-            DeviceClient::connect_with_recording(
-                conn.host.clone(),
-                conn.port,
-                conn.username.clone(),
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
-                template_loader::default_profile_mode(&conn.device_profile)?,
-                level,
-                conn.ssh_security,
-            )
-            .await?
-        } else {
-            DeviceClient::connect(
-                conn.host.clone(),
-                conn.port,
-                conn.username.clone(),
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
-                template_loader::default_profile_mode(&conn.device_profile)?,
-                conn.ssh_security,
-            )
-            .await?
-        };
-
-        emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("progress", "Executing show command")
-                .with_stage("command")
-                .with_progress(Some(60))
-                .with_details(Some(json!({
-                    "object": show.object,
-                    "command": show.command,
-                    "mode": effective_mode.as_str()
-                }))),
-        );
-        let output = client
-            .execute_output(&show.command, Some(effective_mode.as_str()))
+    let result: Result<ShowExecuteResponse, ApiError> = state
+        .run_until_shutdown(async {
+            let record_level = req.target.record_level;
+            let conn = resolve_autodetect_connection(merge_connection_options(
+                &state.defaults,
+                req.target.connection,
+            )?)
             .await?;
-        let exit_code = output.exit_code;
-        let should_parse = !req.no_parse && exit_code.unwrap_or(0) == 0;
-        let textfsm_template_content = show
-            .textfsm_template_name
-            .as_deref()
-            .map(|name| {
-                custom_textfsm_store::load_template(name)
-                    .map_err(ApiError::from)?
-                    .ok_or_else(|| {
-                        ApiError::bad_request(format!("TextFSM template '{}' not found", name))
-                    })
-            })
-            .transpose()?
-            .map(|template| template.content);
-        let (parsed_output, parse_error) = parse_textfsm_output_optional(
-            &output.content,
-            &show.command,
-            WebTextfsmParseOptions {
-                template_content: textfsm_template_content.as_deref(),
-                enabled: should_parse,
-                platform: platform.as_deref(),
-                device_profile: Some(conn.device_profile.as_str()),
-                filter_error_rules: !req.textfsm_strict_errors,
-                ..Default::default()
-            },
-        );
-        persist_history_if_recorded(
-            &conn,
-            &client,
-            "show",
-            &show.command,
-            Some(effective_mode.as_str()),
-            record_level,
-        );
-        let recording_jsonl = client.recording_jsonl()?;
-        let object = show.object.clone();
-        let command = show.command.clone();
-        let source = show_command_source_label(show.source).to_string();
-        let textfsm_mapping_command = show.textfsm_mapping_command.clone();
-        let textfsm_template_name = show.textfsm_template_name.clone();
-        Ok(ShowExecuteResponse {
-            object,
-            platform: platform.unwrap_or_default(),
-            command: command.clone(),
-            mode: effective_mode.clone(),
-            source,
-            textfsm_mapping_command,
-            textfsm_template_name,
-            output: output.content,
-            exit_code,
-            parsed_output,
-            parse_error,
-            result_summary: task_result_with_details(
-                task_result_with_recording(
-                    build_result_summary(
-                        TaskOperation::Exec,
-                        if exit_code.unwrap_or(0) == 0 {
-                            TaskResultOutcome::Success
-                        } else {
-                            TaskResultOutcome::Failed
-                        },
-                        if exit_code.unwrap_or(0) == 0 {
-                            "Show command executed successfully"
-                        } else {
-                            "Show command finished with a non-zero exit code"
-                        },
+            let platform = show_catalog::platform_for_show(
+                &conn.device_profile,
+                req.textfsm_platform.as_deref(),
+            );
+            let show = show_catalog::resolve_show_command(
+                &req.object,
+                platform.as_deref(),
+                &conn.device_profile,
+            )
+            .map_err(|err| ApiError::bad_request(err.to_string()))?;
+            command_blacklist::ensure_command_allowed(&show.command, "show execution")
+                .map_err(|err| ApiError::bad_request(err.to_string()))?;
+
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("progress", "Connecting to target device")
+                    .with_stage("connect")
+                    .with_progress(Some(10))
+                    .with_details(Some(json!({
+                        "host": conn.host,
+                        "connection_name": conn.connection_name,
+                        "object": show.object,
+                        "command": show.command
+                    }))),
+            );
+            let handler = template_loader::load_device_profile_for_connection(
+                &conn.device_profile,
+                conn.linux_shell_flavor,
+            )?;
+            let requested_mode = req.mode.as_deref().or(show.mode.as_deref());
+            let effective_mode = resolve_effective_mode(requested_mode, &conn.device_profile)?;
+            let client = if let Some(level) = to_record_level(record_level) {
+                DeviceClient::connect_with_recording(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    level,
+                    conn.ssh_security,
+                )
+                .await?
+            } else {
+                DeviceClient::connect(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    conn.ssh_security,
+                )
+                .await?
+            };
+
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("progress", "Executing show command")
+                    .with_stage("command")
+                    .with_progress(Some(60))
+                    .with_details(Some(json!({
+                        "object": show.object,
+                        "command": show.command,
+                        "mode": effective_mode.as_str()
+                    }))),
+            );
+            let output = client
+                .execute_output(&show.command, Some(effective_mode.as_str()))
+                .await?;
+            let exit_code = output.exit_code;
+            let should_parse = !req.no_parse && exit_code.unwrap_or(0) == 0;
+            let textfsm_template_content = show
+                .textfsm_template_name
+                .as_deref()
+                .map(|name| {
+                    custom_textfsm_store::load_template(name)
+                        .map_err(ApiError::from)?
+                        .ok_or_else(|| {
+                            ApiError::bad_request(format!("TextFSM template '{}' not found", name))
+                        })
+                })
+                .transpose()?
+                .map(|template| template.content);
+            let (parsed_output, parse_error) = parse_textfsm_output_optional(
+                &output.content,
+                &show.command,
+                WebTextfsmParseOptions {
+                    template_content: textfsm_template_content.as_deref(),
+                    enabled: should_parse,
+                    platform: platform.as_deref(),
+                    device_profile: Some(conn.device_profile.as_str()),
+                    filter_error_rules: !req.textfsm_strict_errors,
+                    ..Default::default()
+                },
+            );
+            persist_history_if_recorded(
+                &conn,
+                &client,
+                "show",
+                &show.command,
+                Some(effective_mode.as_str()),
+                record_level,
+            );
+            let recording_jsonl = client.recording_jsonl()?;
+            let object = show.object.clone();
+            let command = show.command.clone();
+            let source = show_command_source_label(show.source).to_string();
+            let textfsm_mapping_command = show.textfsm_mapping_command.clone();
+            let textfsm_template_name = show.textfsm_template_name.clone();
+            Ok(ShowExecuteResponse {
+                object,
+                platform: platform.unwrap_or_default(),
+                command: command.clone(),
+                mode: effective_mode.clone(),
+                source,
+                textfsm_mapping_command,
+                textfsm_template_name,
+                output: output.content,
+                exit_code,
+                parsed_output,
+                parse_error,
+                result_summary: task_result_with_details(
+                    task_result_with_recording(
+                        build_result_summary(
+                            TaskOperation::Exec,
+                            if exit_code.unwrap_or(0) == 0 {
+                                TaskResultOutcome::Success
+                            } else {
+                                TaskResultOutcome::Failed
+                            },
+                            if exit_code.unwrap_or(0) == 0 {
+                                "Show command executed successfully"
+                            } else {
+                                "Show command finished with a non-zero exit code"
+                            },
+                        ),
+                        &recording_jsonl,
                     ),
-                    &recording_jsonl,
+                    json!({
+                        "exit_code": exit_code,
+                        "mode": effective_mode,
+                        "object": req.object,
+                        "command": command
+                    }),
                 ),
-                json!({
-                    "exit_code": exit_code,
-                    "mode": effective_mode,
-                    "object": req.object,
-                    "command": command
-                }),
-            ),
-            recording_jsonl,
+                recording_jsonl,
+            })
         })
-    }
-    .await;
+        .await;
     drop(task_guard);
     match &result {
         Ok(response) => emit_task_event(
@@ -513,99 +517,102 @@ pub async fn execute_show_batch(
             }))),
     );
 
-    let result: Result<ShowBatchExecuteResponse, ApiError> = async {
-        let objects = resolve_batch_show_objects(&req)?;
-        let target_names = resolve_batch_show_target_names(&req)?;
-        if target_names.is_empty() {
-            return Err(ApiError::bad_request(
-                "batch show resolved no saved connections",
-            ));
-        }
+    let result: Result<ShowBatchExecuteResponse, ApiError> = state
+        .run_until_shutdown(async {
+            let objects = resolve_batch_show_objects(&req)?;
+            let target_names = resolve_batch_show_target_names(&req)?;
+            if target_names.is_empty() {
+                return Err(ApiError::bad_request(
+                    "batch show resolved no saved connections",
+                ));
+            }
 
-        let mut resolved_targets = Vec::with_capacity(target_names.len());
-        let mut precheck_errors = Vec::new();
-        for name in &target_names {
-            for object in &objects {
-                match resolve_batch_show_target(&state, name, &req, object).await {
-                    Ok(target) => resolved_targets.push(target),
-                    Err(err) => precheck_errors.push(format!("{name}/{object}: {}", err.message)),
+            let mut resolved_targets = Vec::with_capacity(target_names.len());
+            let mut precheck_errors = Vec::new();
+            for name in &target_names {
+                for object in &objects {
+                    match resolve_batch_show_target(&state, name, &req, object).await {
+                        Ok(target) => resolved_targets.push(target),
+                        Err(err) => {
+                            precheck_errors.push(format!("{name}/{object}: {}", err.message))
+                        }
+                    }
                 }
             }
-        }
-        if !precheck_errors.is_empty() {
-            return Err(ApiError::bad_request(format!(
-                "show object precheck failed for {} target(s):\n{}",
-                precheck_errors.len(),
-                precheck_errors.join("\n")
-            )));
-        }
+            if !precheck_errors.is_empty() {
+                return Err(ApiError::bad_request(format!(
+                    "show object precheck failed for {} target(s):\n{}",
+                    precheck_errors.len(),
+                    precheck_errors.join("\n")
+                )));
+            }
 
-        emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("progress", "Executing batch show commands")
-                .with_stage("command")
-                .with_progress(Some(40))
-                .with_details(Some(json!({
-                    "objects": &objects,
-                    "target_count": resolved_targets.len()
-                }))),
-        );
-
-        let record_level = req.record_level;
-        let mut results = Vec::with_capacity(resolved_targets.len());
-        for target in resolved_targets {
-            results.push(
-                execute_batch_show_target(
-                    &target,
-                    req.no_parse,
-                    record_level,
-                    !req.textfsm_strict_errors,
-                )
-                .await,
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("progress", "Executing batch show commands")
+                    .with_stage("command")
+                    .with_progress(Some(40))
+                    .with_details(Some(json!({
+                        "objects": &objects,
+                        "target_count": resolved_targets.len()
+                    }))),
             );
-        }
 
-        let total = results.len() as u64;
-        let failed = results
-            .iter()
-            .filter(|item| item.error.is_some() || item.exit_code.unwrap_or(0) != 0)
-            .count() as u64;
-        let succeeded = total.saturating_sub(failed);
-        let outcome = if failed == 0 {
-            TaskResultOutcome::Success
-        } else if succeeded > 0 {
-            TaskResultOutcome::PartialSuccess
-        } else {
-            TaskResultOutcome::Failed
-        };
+            let record_level = req.record_level;
+            let mut results = Vec::with_capacity(resolved_targets.len());
+            for target in resolved_targets {
+                results.push(
+                    execute_batch_show_target(
+                        &target,
+                        req.no_parse,
+                        record_level,
+                        !req.textfsm_strict_errors,
+                    )
+                    .await,
+                );
+            }
 
-        Ok(ShowBatchExecuteResponse {
-            object: objects.join(", "),
-            targets: target_names,
-            result_summary: task_result_with_details(
-                task_result_with_counts(
-                    build_result_summary(
-                        TaskOperation::Exec,
-                        outcome,
-                        format!(
-                            "Batch show completed: {} succeeded, {} failed",
-                            succeeded, failed
+            let total = results.len() as u64;
+            let failed = results
+                .iter()
+                .filter(|item| item.error.is_some() || item.exit_code.unwrap_or(0) != 0)
+                .count() as u64;
+            let succeeded = total.saturating_sub(failed);
+            let outcome = if failed == 0 {
+                TaskResultOutcome::Success
+            } else if succeeded > 0 {
+                TaskResultOutcome::PartialSuccess
+            } else {
+                TaskResultOutcome::Failed
+            };
+
+            Ok(ShowBatchExecuteResponse {
+                object: objects.join(", "),
+                targets: target_names,
+                result_summary: task_result_with_details(
+                    task_result_with_counts(
+                        build_result_summary(
+                            TaskOperation::Exec,
+                            outcome,
+                            format!(
+                                "Batch show completed: {} succeeded, {} failed",
+                                succeeded, failed
+                            ),
                         ),
+                        result_counts(total, succeeded, failed),
                     ),
-                    result_counts(total, succeeded, failed),
+                    json!({
+                        "objects": &objects,
+                        "total": total,
+                        "succeeded": succeeded,
+                        "failed": failed
+                    }),
                 ),
-                json!({
-                    "objects": &objects,
-                    "total": total,
-                    "succeeded": succeeded,
-                    "failed": failed
-                }),
-            ),
-            results,
+                results,
+            })
         })
-    }
-    .await;
+        .await;
 
     drop(task_guard);
     match &result {
@@ -866,7 +873,7 @@ pub async fn execute_template(
                 "mode": req.mode
             }))),
     );
-    let result: Result<ExecuteTemplateResponse, ApiError> = async {
+    let result: Result<ExecuteTemplateResponse, ApiError> = state.run_until_shutdown(async {
         let record_level = req.target.record_level;
         let dry_run = req.run.dry_run.unwrap_or(false);
         let incoming_connection = req.target.connection.clone();
@@ -1108,7 +1115,7 @@ pub async fn execute_template(
             ),
             recording_jsonl,
         })
-    }
+    })
     .await;
     drop(task_guard);
     match &result {

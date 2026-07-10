@@ -135,7 +135,7 @@ If you use Claude Code, the equivalent location is usually `~/.claude/skills/`.
 | If you need to...                            | Use                 | Notes                                                                              |
 | -------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------- |
 | Run one command immediately                  | `rauto exec`        | Best for direct ad-hoc commands; optional `--mode` narrows the target prompt/mode. |
-| Run a configured show object by profile      | `rauto show`        | Maps objects like `interfaces` or `route` to the right device command.           |
+| Run a configured show object by profile      | `rauto show`        | Maps objects like `interfaces` or `route` to the right device command.             |
 | Render a reusable command template with vars | `rauto template`    | Best when command text should come from stored Jinja templates.                    |
 | Drive interactive prompt/response flows      | `rauto flow`        | Best for wizard-like CLI exchanges, copy dialogs, and confirmation-heavy steps.    |
 | Upload a local file over remote SFTP         | `rauto upload`      | Requires the SSH server to expose an `sftp` subsystem.                             |
@@ -542,11 +542,11 @@ Web assets are embedded into the binary at build time.
 For released binaries, users only need to run the executable (no extra `static/` files required at runtime).
 
 The web frontend is built with Svelte 5.
-When building from source, run `npm run web:build` before compiling the Rust binary.
+When building from source, run `npm run web:build` before compiling the Rust binary; it validates frontend structure, i18n keys, Svelte diagnostics, and then builds the embedded assets.
 
 ```bash
 npm run frontend:build  # build only the Svelte dashboard entry
-npm run web:build       # build the embedded web dashboard assets
+npm run web:build       # validate and build embedded web dashboard assets
 ```
 
 Web console key capabilities:
@@ -1184,19 +1184,19 @@ Default runtime data:
 
 ## Configuration
 
-| Argument               | Env Var          | Description                                                                          |
-| ---------------------- | ---------------- | ------------------------------------------------------------------------------------ |
-| `--host`               | -                | Device hostname or IP (`-H`)                                                         |
-| `--username`           | -                | SSH username                                                                         |
-| `--password`           | `RAUTO_PASSWORD` | SSH password                                                                         |
-| `--enable-password`    | -                | Enable/Secret password                                                               |
-| `--ssh-port`           | -                | SSH port (default: 22)                                                               |
-| `--ssh-security`       | -                | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible` |
-| `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`           |
+| Argument               | Env Var          | Description                                                                                       |
+| ---------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
+| `--host`               | -                | Device hostname or IP (`-H`)                                                                      |
+| `--username`           | -                | SSH username                                                                                      |
+| `--password`           | `RAUTO_PASSWORD` | SSH password                                                                                      |
+| `--enable-password`    | -                | Enable/Secret password                                                                            |
+| `--ssh-port`           | -                | SSH port (default: 22)                                                                            |
+| `--ssh-security`       | -                | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible`    |
+| `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`                        |
 | `--device-profile`     | -                | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
-| `--force-autodetect`   | -                | Ignore cached autodetect result and probe the target again                           |
-| `--connection`         | -                | Load saved connection profile by name (`-c`)                                         |
-| `--save-connection`    | -                | Save effective connection profile after successful connect (`-S`)                    |
+| `--force-autodetect`   | -                | Ignore cached autodetect result and probe the target again                                        |
+| `--connection`         | -                | Load saved connection profile by name (`-c`)                                                      |
+| `--save-connection`    | -                | Save effective connection profile after successful connect (`-S`)                                 |
 
 Common shorthand aliases:
 

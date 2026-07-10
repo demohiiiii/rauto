@@ -1,3 +1,4 @@
+use super::connections::upsert_connection_target_name;
 use super::{
     TaskReportContext, build_json_template_context, builtin_command_flow_template_by_name,
     merged_saved_secret, parse_builtin_command_flow_template_token, require_managed_async_task,
@@ -56,6 +57,22 @@ fn saved_connection_detail_response_redacts_secrets() {
     assert_eq!(detail.connection.password, None);
     assert_eq!(detail.connection.enable_password, None);
     assert_eq!(detail.connection.enable_password_empty_enter, Some(false));
+}
+
+#[test]
+fn upsert_connection_target_name_prefers_request_connection_name() {
+    assert_eq!(
+        upsert_connection_target_name("edge-old", Some("edge-new")).expect("safe name"),
+        "edge-new"
+    );
+    assert_eq!(
+        upsert_connection_target_name("edge-old", Some("   ")).expect("safe name"),
+        "edge-old"
+    );
+    assert_eq!(
+        upsert_connection_target_name("edge-old", None).expect("safe name"),
+        "edge-old"
+    );
 }
 
 #[test]

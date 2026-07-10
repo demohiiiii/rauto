@@ -1,109 +1,234 @@
 <script>
-  import { sidebarHistoryBehavior } from "../../actions/sidebarHistoryBehavior.js";
-  import { RAUTO_ICON_URL } from "../../assets/publicAssets.js";
-  import { dashboardNavigationItems } from "../../config/dashboardNavigation.js";
-  import { navigateDashboardRoute } from "../../router/dashboardRouter.js";
-  import { dashboardView } from "../../state/dashboardView.js";
+  import SearchIcon from "@lucide/svelte/icons/search";
+  import SendIcon from "@lucide/svelte/icons/send";
+  import BoxesIcon from "@lucide/svelte/icons/boxes";
+  import WorkflowIcon from "@lucide/svelte/icons/workflow";
+  import NetworkIcon from "@lucide/svelte/icons/network";
+  import HistoryIcon from "@lucide/svelte/icons/history";
+  import UserCogIcon from "@lucide/svelte/icons/user-cog";
+  import FileCode2Icon from "@lucide/svelte/icons/file-code-2";
+  import ListTreeIcon from "@lucide/svelte/icons/list-tree";
+  import UploadIcon from "@lucide/svelte/icons/upload";
+  import ShieldBanIcon from "@lucide/svelte/icons/shield-ban";
+  import DatabaseBackupIcon from "@lucide/svelte/icons/database-backup";
+  import HelpCircleIcon from "@lucide/svelte/icons/help-circle";
+  import BookmarkIcon from "@lucide/svelte/icons/bookmark";
+  import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { cn } from "$lib/utils.js";
+  import { createDashboardSidebarWorkspace } from "../../modules/dashboardShell.js";
 
-  const isNavItemActive = (item) =>
-    item.activeWhen === $dashboardView.currentTab &&
-    (!item.txStage || item.txStage === $dashboardView.currentTxStage);
-  const isNavItemVisible = (item) =>
-    item.activeWhen !== "tasks" || $dashboardView.tasksVisible;
+  const rautoIconUrl = `${import.meta.env.BASE_URL}rauto-icon.svg`;
+  let { onClose } = $props();
+  const dashboardSidebarWorkspace = createDashboardSidebarWorkspace();
+  const {
+    navigationItemsStateStore,
+    navigateRoute,
+    openConnectionEditor,
+    sidebarConnectionDisplayStateStore,
+  } = dashboardSidebarWorkspace;
+  let sidebarConnection = $derived($sidebarConnectionDisplayStateStore);
+  let navigationItems = $derived($navigationItemsStateStore);
+  const navGroups = [
+    { key: "operations", label: "操作" },
+    { key: "management", label: "管理" },
+  ];
+  const navIconComponents = {
+    show: SearchIcon,
+    standard: SendIcon,
+    "tx-block": BoxesIcon,
+    "tx-workflow": WorkflowIcon,
+    orchestrate: NetworkIcon,
+    replay: HistoryIcon,
+    prompts: UserCogIcon,
+    templates: FileCode2Icon,
+    inventory: ListTreeIcon,
+    transfer: UploadIcon,
+    blacklist: ShieldBanIcon,
+    backup: DatabaseBackupIcon,
+    tasks: HistoryIcon,
+  };
+  let groupedNavigationItems = $derived(
+    navGroups
+      .map((group) => ({
+        ...group,
+        items: navigationItems.filter(
+          (navigationItem) =>
+            navigationItem.visible &&
+            (navigationItem.group || "operations") === group.key,
+        ),
+      }))
+      .filter((group) => group.items.length),
+  );
 
-  function openConnectionModal() {
-    window.onDashboardConnectionModalOpen?.();
+  function handleClose() {
+    if (typeof onClose === "function") {
+      onClose();
+    }
+  }
+
+  function openConnectionEditorAction() {
+    openConnectionEditor();
+    handleClose();
+  }
+
+  function navigateRouteAction(routeId) {
+    return () => {
+      navigateRoute(routeId);
+      handleClose();
+    };
   }
 </script>
 
-<label for="sidebar-drawer" aria-label="close sidebar" class="drawer-overlay"
-></label>
 <aside
-  class="dashboard-sidebar w-56 min-h-full flex flex-col"
-  use:sidebarHistoryBehavior
+  class="flex h-dvh min-h-full w-72 shrink-0 flex-col gap-4 overflow-hidden border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground"
 >
-  <section class="dashboard-sidebar-brand">
-    <span class="dashboard-brand-mark" aria-hidden="true">
-      <img src={RAUTO_ICON_URL} alt="" />
+  <section class="flex items-center gap-2.5 px-2 py-1">
+    <span
+      class="flex size-9 items-center justify-center overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-sm"
+      aria-hidden="true"
+    >
+      <img
+        class="size-full object-cover"
+        src={rautoIconUrl}
+        alt=""
+        loading="eager"
+      />
     </span>
-    <div>
-      <div
-        id="dashboard-sidebar-brand-title"
-        class="dashboard-sidebar-brand-title"
-      >
-        rauto
+    <div class="leading-tight">
+      <div class="text-base font-bold tracking-tight text-sidebar-foreground">
+        RAUTO
+      </div>
+      <div class="text-[11px] font-medium text-muted-foreground">
+        网络自动化控制台
       </div>
     </div>
   </section>
 
-  <section
-    class="dashboard-sidebar-connection dashboard-sidebar-connection-top"
-  >
-    <div class="dashboard-sidebar-label-row">
-      <span id="sidebar-connection-title" class="dashboard-sidebar-label"
-        >Connection Target</span
-      >
-      <button
-        id="sidebar-connection-help"
-        class="dashboard-help-trigger"
-        type="button"
-        aria-label="Connection Target Help"
-        title="Open the workspace to choose a saved connection or apply a temporary target."
-      >
-        <svg
-          viewBox="0 0 20 20"
-          fill="none"
+  <section class="rounded-2xl border border-sidebar-border bg-card p-4">
+    <div class="mb-3 flex items-center justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-1.5">
+        <span class="text-xs font-semibold text-muted-foreground">
+          {sidebarConnection.title}
+        </span>
+        <HelpCircleIcon
+          class="size-3.5 text-muted-foreground/70"
           aria-hidden="true"
-          class="dashboard-help-icon"
+        />
+      </div>
+      {#if sidebarConnection.hasCard}
+        <span
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-foreground"
         >
-          <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.6"
-          ></circle>
-          <path
-            d="M7.9 7.4a2.3 2.3 0 0 1 4.2 1.1c0 1.5-1.7 1.9-2.1 2.8-.1.2-.1.4-.1.7"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-          ></path>
-          <circle cx="10" cy="13.95" r="0.8" fill="currentColor"></circle>
-        </svg>
-      </button>
+          <span class="size-1.5 rounded-full bg-primary" aria-hidden="true"
+          ></span>
+          {sidebarConnection.statusLabel}
+        </span>
+      {/if}
     </div>
-    <div id="sidebar-connection-meta" class="dashboard-sidebar-meta">-</div>
-    <div class="dashboard-sidebar-actions">
-      <button
-        id="sidebar-connection-open-btn"
-        class="dashboard-sidebar-action dashboard-sidebar-action-emphasis"
+
+    {#if sidebarConnection.showError}
+      <span class="text-sm font-medium text-destructive">
+        {sidebarConnection.errorMessage}
+      </span>
+    {:else if sidebarConnection.hasCard}
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p
+            class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            {sidebarConnection.contextLabel}
+          </p>
+          <p
+            class="truncate font-mono text-sm font-semibold text-card-foreground"
+          >
+            {sidebarConnection.summary}
+          </p>
+          {#if sidebarConnection.profile}
+            <span
+              class="mt-1.5 inline-flex rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium text-secondary-foreground"
+            >
+              {sidebarConnection.profile}
+            </span>
+          {/if}
+        </div>
+        <span
+          class="rounded-lg p-1.5 text-muted-foreground"
+          title={sidebarConnection.badgeLabel}
+          aria-label={sidebarConnection.badgeLabel}
+        >
+          {#if sidebarConnection.showTemporaryIcon}
+            <NetworkIcon class="size-4" aria-hidden="true" />
+          {:else if sidebarConnection.showSavedIcon}
+            <BookmarkIcon class="size-4" aria-hidden="true" />
+          {/if}
+        </span>
+      </div>
+    {:else}
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p
+            class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            {sidebarConnection.emptyContextText}
+          </p>
+          <p class="text-sm font-semibold leading-snug text-card-foreground">
+            {sidebarConnection.emptyNameText}
+          </p>
+        </div>
+      </div>
+    {/if}
+
+    <div class="mt-4">
+      <Button
+        class="w-full justify-between"
+        size="lg"
         type="button"
-        onclick={openConnectionModal}
+        onclick={openConnectionEditorAction}
       >
-        Choose Target
-      </button>
-      <button
-        id="sidebar-connection-history-btn"
-        class="dashboard-sidebar-action"
-        type="button"
-      >
-        History
-      </button>
+        {sidebarConnection.openButtonLabel}
+        <ChevronsUpDownIcon class="size-4 opacity-80" aria-hidden="true" />
+      </Button>
     </div>
   </section>
 
-  <nav class="sidebar-nav flex-1 px-2 py-3">
-    <ul class="menu w-full gap-1">
-      {#each dashboardNavigationItems as item}
-        <li hidden={!isNavItemVisible(item)}>
-          <button
-            id={item.id}
-            type="button"
-            data-tab={item.dataTab || undefined}
-            class:menu-active={isNavItemActive(item)}
-            aria-current={isNavItemActive(item) ? "page" : undefined}
-            onclick={() => navigateDashboardRoute(item.routeId)}
-          >
-            {item.label}
-          </button>
-        </li>
-      {/each}
-    </ul>
+  <nav class="flex-1 overflow-y-auto">
+    {#each groupedNavigationItems as navGroup}
+      <section class="mb-4">
+        <div
+          class="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70"
+        >
+          {navGroup.label}
+        </div>
+        <ul class="flex flex-col gap-0.5">
+          {#each navGroup.items as navItemState}
+            {@const IconComponent =
+              navIconComponents[navItemState.routeId] || SearchIcon}
+            <li>
+              <button
+                class={cn(
+                  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  navItemState.active
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-sidebar-foreground",
+                )}
+                type="button"
+                aria-current={navItemState.active ? "page" : undefined}
+                onclick={navigateRouteAction(navItemState.routeId)}
+              >
+                <IconComponent
+                  class={cn(
+                    "size-4",
+                    navItemState.active && "text-sidebar-primary-foreground",
+                  )}
+                  aria-hidden="true"
+                />
+                <span>{navItemState.labelText}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/each}
   </nav>
 </aside>

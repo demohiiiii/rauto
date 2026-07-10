@@ -10,10 +10,12 @@ use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
 use rneter::session::DetectRequest;
 use rneter::templates::{DetectConnectPolicy, autodetect_with_builtin_and_templates_and_context};
+use std::future::Future;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
+use tokio::sync::watch;
 use tracing::{info, warn};
 
 #[derive(Clone)]
@@ -24,6 +26,7 @@ pub struct AppState {
     pub started_at: Instant,
     registrar: Arc<OnceLock<Arc<AgentRegistrar>>>,
     running_tasks: Arc<AtomicU32>,
+    shutdown_tx: watch::Sender<bool>,
 }
 
 impl AppState {
@@ -32,6 +35,7 @@ impl AppState {
         agent_config: Option<AgentConfig>,
         api_token: Option<String>,
     ) -> Arc<Self> {
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
         Arc::new(Self {
             defaults,
             agent_config,
@@ -39,6 +43,7 @@ impl AppState {
             started_at: Instant::now(),
             registrar: Arc::new(OnceLock::new()),
             running_tasks: Arc::new(AtomicU32::new(0)),
+            shutdown_tx,
         })
     }
 
@@ -64,6 +69,28 @@ impl AppState {
 
     pub fn is_managed(&self) -> bool {
         self.agent_config.is_some()
+    }
+
+    pub fn begin_shutdown(&self) {
+        let _ = self.shutdown_tx.send(true);
+    }
+
+    pub async fn run_until_shutdown<T, F>(&self, future: F) -> Result<T, ApiError>
+    where
+        F: Future<Output = Result<T, ApiError>>,
+    {
+        let mut shutdown_rx = self.shutdown_tx.subscribe();
+        tokio::select! {
+            result = future => result,
+            _ = async {
+                if *self.shutdown_tx.borrow() {
+                    return;
+                }
+                let _ = shutdown_rx.changed().await;
+            } => Err(ApiError::service_unavailable(
+                "server is shutting down; cancelled in-flight request",
+            )),
+        }
     }
 
     pub fn set_registrar(&self, registrar: Arc<AgentRegistrar>) {
@@ -304,13 +331,17 @@ fn has_non_empty_json_object(value: &serde_json::Value) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::AppState;
     use super::merge_connection_sources;
     use crate::cli::GlobalOpts;
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
     use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
+    use crate::web::error::ApiError;
     use crate::web::models::ConnectionRequest;
+    use axum::http::StatusCode;
     use std::path::PathBuf;
+    use tokio::time::{Duration, sleep};
 
     #[test]
     fn merge_connection_sources_prefers_explicit_then_saved_then_defaults() {
@@ -469,5 +500,44 @@ mod tests {
         let resolved =
             merge_connection_sources(&defaults, incoming, None, None).expect("resolved connection");
         assert_eq!(resolved.enable_password, Some(String::new()));
+    }
+
+    #[tokio::test]
+    async fn shutdown_cancels_pending_request_future() {
+        let state = AppState::new(
+            GlobalOpts {
+                host: None,
+                username: None,
+                password: None,
+                port: None,
+                enable_password: None,
+                ssh_security: None,
+                linux_shell_flavor: None,
+                device_profile: None,
+                template_dir: None,
+                force_autodetect: false,
+                connection: None,
+                save_connection: None,
+                save_password: false,
+            },
+            None,
+            None,
+        );
+        let shutdown_state = state.clone();
+        tokio::spawn(async move {
+            sleep(Duration::from_millis(25)).await;
+            shutdown_state.begin_shutdown();
+        });
+
+        let err = state
+            .run_until_shutdown(async {
+                sleep(Duration::from_secs(30)).await;
+                Ok::<(), ApiError>(())
+            })
+            .await
+            .expect_err("shutdown should cancel the in-flight request");
+
+        assert_eq!(err.status, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(err.message.contains("shutting down"));
     }
 }

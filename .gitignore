@@ -13,8 +13,11 @@
 *.iml
 node_modules/
 .npm-cache/
+.superpowers/
 
 # Local config
 rauto.toml
 
 .codex
+demo/
+docs/superpowers/

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "$lib": ["frontend/src/lib"],
+      "$lib/*": ["frontend/src/lib/*"]
+    }
+  },
+  "include": ["frontend/src/**/*.js", "frontend/src/**/*.svelte"]
+}

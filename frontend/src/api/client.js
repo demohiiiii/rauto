@@ -1,4 +1,8 @@
-export class ApiError extends Error {
+import { storageGet, storageRemove, storageSet } from "../lib/browser.js";
+
+const AGENT_API_TOKEN_KEY = "rauto_agent_api_token";
+
+class ApiError extends Error {
   constructor(message, { status, payload } = {}) {
     super(message);
     this.name = "ApiError";
@@ -7,65 +11,43 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest(method, path, body) {
+function authHeaders(body) {
   const headers = {};
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
   }
-  const token = (localStorage.getItem("rauto_agent_api_token") || "").trim();
+  const token = getAgentApiToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
     headers["X-API-Key"] = token;
   }
-  const response = await fetch(path, {
-    method,
-    headers: Object.keys(headers).length ? headers : undefined,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const contentType = response.headers.get("content-type") || "";
-  const payload = contentType.includes("application/json")
-    ? await response.json()
-    : await response.text();
-  if (!response.ok) {
-    const message =
-      typeof payload === "string"
-        ? payload || response.statusText
-        : payload.error || payload.message || response.statusText;
-    throw new ApiError(message, { status: response.status, payload });
-  }
-  return payload;
+  return headers;
 }
 
-export async function apiRequestBlob(method, path, body) {
-  const headers = {};
-  if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
+export function getAgentApiToken() {
+  return storageGet(AGENT_API_TOKEN_KEY).trim();
+}
+
+export function setAgentApiToken(token) {
+  const normalized = String(token || "").trim();
+  if (normalized) {
+    storageSet(AGENT_API_TOKEN_KEY, normalized);
+  } else {
+    storageRemove(AGENT_API_TOKEN_KEY);
   }
-  const token = (localStorage.getItem("rauto_agent_api_token") || "").trim();
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-    headers["X-API-Key"] = token;
-  }
-  const response = await fetch(path, {
-    method,
-    headers: Object.keys(headers).length ? headers : undefined,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("application/json")
-      ? await response.json()
-      : await response.text();
-    const message =
-      typeof payload === "string"
-        ? payload || response.statusText
-        : payload.error || payload.message || response.statusText;
-    throw new ApiError(message, { status: response.status, payload });
-  }
-  return {
-    blob: await response.blob(),
-    filename: responseFilename(response.headers) || "textfsm.xlsx",
-  };
+}
+
+function responseErrorMessage(payload, response) {
+  return typeof payload === "string"
+    ? payload || response.statusText
+    : payload.error || payload.message || response.statusText;
+}
+
+async function responsePayload(response) {
+  const contentType = response.headers.get("content-type") || "";
+  return contentType.includes("application/json")
+    ? await response.json()
+    : await response.text();
 }
 
 function responseFilename(headers) {
@@ -74,71 +56,108 @@ function responseFilename(headers) {
   return match ? match[1] : "";
 }
 
-export function getHealth() {
-  return apiRequest("GET", "/health");
+async function apiRequest(method, path, body) {
+  const headers = authHeaders(body);
+  const response = await fetch(path, {
+    method,
+    headers: Object.keys(headers).length ? headers : undefined,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const payload = await responsePayload(response);
+  if (!response.ok) {
+    throw new ApiError(responseErrorMessage(payload, response), {
+      status: response.status,
+      payload,
+    });
+  }
+  return payload;
+}
+
+async function apiRequestBlob(
+  method,
+  path,
+  body,
+  fallbackFilename = "textfsm.xlsx",
+) {
+  const headers = authHeaders(body);
+  const response = await fetch(path, {
+    method,
+    headers: Object.keys(headers).length ? headers : undefined,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const payload = await responsePayload(response);
+    throw new ApiError(responseErrorMessage(payload, response), {
+      status: response.status,
+      payload,
+    });
+  }
+  return {
+    blob: await response.blob(),
+    filename: responseFilename(response.headers) || fallbackFilename,
+  };
+}
+
+async function apiRequestForm(method, path, formData) {
+  const headers = authHeaders(undefined);
+  const response = await fetch(path, {
+    method,
+    headers: Object.keys(headers).length ? headers : undefined,
+    body: formData,
+  });
+  const payload = await responsePayload(response);
+  if (!response.ok) {
+    throw new ApiError(responseErrorMessage(payload, response), {
+      status: response.status,
+      payload,
+    });
+  }
+  return payload;
 }
 
 export function getAgentInfo() {
   return apiRequest("GET", "/api/agent/info");
 }
 
-export function executeCommand(payload) {
-  return apiRequest("POST", "/api/exec", payload);
+export function listBlacklistPatterns() {
+  return apiRequest("GET", "/api/blacklist");
 }
 
-export function listShowObjects({
-  deviceProfile = "",
-  textfsmPlatform = "",
-} = {}) {
-  const params = new URLSearchParams();
-  if (deviceProfile) params.set("device_profile", deviceProfile);
-  if (textfsmPlatform) params.set("textfsm_platform", textfsmPlatform);
-  const query = params.toString();
-  return apiRequest("GET", `/api/show/objects${query ? `?${query}` : ""}`);
+export function addBlacklistPattern(pattern) {
+  return apiRequest("POST", "/api/blacklist", { pattern });
 }
 
-export function executeShow(payload) {
-  return apiRequest("POST", "/api/show/execute", payload);
+export function deleteBlacklistPattern(pattern) {
+  return apiRequest("DELETE", `/api/blacklist/${encodeURIComponent(pattern)}`);
 }
 
-export function executeShowBatch(payload) {
-  return apiRequest("POST", "/api/show/batch-execute", payload);
+export function checkBlacklistCommand(command) {
+  return apiRequest("POST", "/api/blacklist/check", { command });
 }
 
-export function executeTemplate(payload) {
-  return apiRequest("POST", "/api/template/execute", payload);
+export function listBackups() {
+  return apiRequest("GET", "/api/backups");
 }
 
-export function renderTemplate(payload) {
-  return apiRequest("POST", "/api/render", payload);
+export function createBackup(output) {
+  return apiRequest("POST", "/api/backups", {
+    output: output?.trim() ? output.trim() : null,
+  });
 }
 
-export function executeCommandFlow(payload) {
-  return apiRequest("POST", "/api/command-flow/execute", payload);
+export function restoreBackup(archive, replace = false) {
+  return apiRequest("POST", "/api/backups/restore", {
+    archive,
+    replace,
+  });
 }
 
-export function exportTextfsmExcel(payload) {
-  return apiRequestBlob("POST", "/api/textfsm/export/xlsx", payload);
+function backupDownloadUrl(name) {
+  return `/api/backups/${encodeURIComponent(name)}/download`;
 }
 
-export function executeUpload(payload) {
-  return apiRequest("POST", "/api/upload", payload);
-}
-
-export function executeTxBlock(payload) {
-  return apiRequest("POST", "/api/tx/block", payload);
-}
-
-export function executeTxWorkflow(payload) {
-  return apiRequest("POST", "/api/tx/workflow", payload);
-}
-
-export function executeOrchestration(payload) {
-  return apiRequest("POST", "/api/orchestrate", payload);
-}
-
-export function replaySession(payload) {
-  return apiRequest("POST", "/api/replay", payload);
+export function downloadBackupBlob(name) {
+  return apiRequestBlob("GET", backupDownloadUrl(name), undefined, name);
 }
 
 export function listConnections() {
@@ -187,6 +206,55 @@ export function deleteConnectionHistory(name, historyId) {
     "DELETE",
     `/api/connections/${encodeURIComponent(name)}/history/${encodeURIComponent(historyId)}`,
   );
+}
+
+export function importConnections(file) {
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+  return apiRequestForm("POST", "/api/connections/import", formData);
+}
+
+export function downloadConnectionImportTemplateBlob(lang = "en") {
+  return apiRequestBlob(
+    "GET",
+    `/api/connections/import-template?lang=${encodeURIComponent(lang)}`,
+  );
+}
+
+export function executeCommand(payload) {
+  return apiRequest("POST", "/api/exec", payload);
+}
+
+export function executeTemplate(payload) {
+  return apiRequest("POST", "/api/template/execute", payload);
+}
+
+export function renderTemplate(payload) {
+  return apiRequest("POST", "/api/render", payload);
+}
+
+export function executeCommandFlow(payload) {
+  return apiRequest("POST", "/api/command-flow/execute", payload);
+}
+
+export function executeUpload(payload) {
+  return apiRequest("POST", "/api/upload", payload);
+}
+
+export function executeTxBlock(payload) {
+  return apiRequest("POST", "/api/tx/block", payload);
+}
+
+export function executeTxWorkflow(payload) {
+  return apiRequest("POST", "/api/tx/workflow", payload);
+}
+
+export function executeOrchestration(payload) {
+  return apiRequest("POST", "/api/orchestrate", payload);
+}
+
+export function replaySession(payload) {
+  return apiRequest("POST", "/api/replay", payload);
 }
 
 export function listInventoryGroups() {
@@ -257,10 +325,10 @@ export function getBuiltinProfileForm(name) {
   );
 }
 
-export function getCustomProfile(name) {
+export function getCustomProfileForm(name) {
   return apiRequest(
     "GET",
-    `/api/device-profiles/custom/${encodeURIComponent(name)}`,
+    `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
   );
 }
 
@@ -271,6 +339,14 @@ export function saveCustomProfile(name, content) {
     {
       content,
     },
+  );
+}
+
+export function saveCustomProfileForm(name, profile) {
+  return apiRequest(
+    "PUT",
+    `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
+    profile,
   );
 }
 
@@ -290,6 +366,75 @@ export function getProfileModes(name) {
 
 export function diagnoseProfile(name) {
   return apiRequest("POST", "/api/device-profiles/diagnose", { name });
+}
+
+export function listShowObjects({
+  deviceProfile = "",
+  textfsmPlatform = "",
+} = {}) {
+  const params = new URLSearchParams();
+  if (deviceProfile) params.set("device_profile", deviceProfile);
+  if (textfsmPlatform) params.set("textfsm_platform", textfsmPlatform);
+  const query = params.toString();
+  return apiRequest("GET", `/api/show/objects${query ? `?${query}` : ""}`);
+}
+
+export function executeShow(payload) {
+  return apiRequest("POST", "/api/show/execute", payload);
+}
+
+export function executeShowBatch(payload) {
+  return apiRequest("POST", "/api/show/batch-execute", payload);
+}
+
+export function listCustomShowObjects(profile = "") {
+  const params = new URLSearchParams();
+  if (profile) params.set("profile", profile);
+  const query = params.toString();
+  return apiRequest(
+    "GET",
+    `/api/show/custom-objects${query ? `?${query}` : ""}`,
+  );
+}
+
+export function saveCustomShowObject({
+  device_profile,
+  object,
+  command,
+  mode,
+  textfsm_mapping_command,
+  textfsm_template_name,
+  enabled = true,
+}) {
+  return apiRequest("POST", "/api/show/custom-objects", {
+    device_profile,
+    object,
+    command,
+    mode,
+    textfsm_mapping_command,
+    textfsm_template_name,
+    enabled,
+  });
+}
+
+export function deleteCustomShowObject({ device_profile, object }) {
+  return apiRequest("DELETE", "/api/show/custom-objects", {
+    device_profile,
+    object,
+  });
+}
+
+export function listTasks({ limit = 50, operation = "", status = "" } = {}) {
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", String(limit));
+  if (operation?.trim()) params.set("operation", operation.trim());
+  if (status?.trim()) params.set("status", status.trim());
+  const query = params.toString();
+  return apiRequest("GET", `/api/tasks${query ? `?${query}` : ""}`);
+}
+
+export function getTask(taskId) {
+  return apiRequest("GET", `/api/tasks/${encodeURIComponent(taskId)}`);
 }
 
 export function listTemplates() {
@@ -312,6 +457,32 @@ export function updateTemplate(name, content) {
 
 export function deleteTemplate(name) {
   return apiRequest("DELETE", `/api/templates/${encodeURIComponent(name)}`);
+}
+
+export function listTemplateResource(basePath) {
+  return apiRequest("GET", basePath);
+}
+
+export function getTemplateResource(basePath, name) {
+  return apiRequest("GET", `${basePath}/${encodeURIComponent(name)}`);
+}
+
+export function createTemplateResource(basePath, name, content) {
+  return apiRequest("POST", basePath, { name, content });
+}
+
+export function updateTemplateResource(basePath, name, content) {
+  return apiRequest("PUT", `${basePath}/${encodeURIComponent(name)}`, {
+    content,
+  });
+}
+
+export function deleteTemplateResource(basePath, name) {
+  return apiRequest("DELETE", `${basePath}/${encodeURIComponent(name)}`);
+}
+
+export function exportTextfsmExcel(payload) {
+  return apiRequestBlob("POST", "/api/textfsm/export/xlsx", payload);
 }
 
 export function listTextfsmTemplates() {
@@ -366,113 +537,4 @@ export function deleteTextfsmMapping({ device_profile, command }) {
     device_profile,
     command,
   });
-}
-
-export function listCustomShowObjects(profile = "") {
-  const params = new URLSearchParams();
-  if (profile) params.set("profile", profile);
-  const query = params.toString();
-  return apiRequest(
-    "GET",
-    `/api/show/custom-objects${query ? `?${query}` : ""}`,
-  );
-}
-
-export function saveCustomShowObject({
-  device_profile,
-  object,
-  command,
-  mode,
-  textfsm_mapping_command,
-  textfsm_template_name,
-  enabled = true,
-}) {
-  return apiRequest("POST", "/api/show/custom-objects", {
-    device_profile,
-    object,
-    command,
-    mode,
-    textfsm_mapping_command,
-    textfsm_template_name,
-    enabled,
-  });
-}
-
-export function deleteCustomShowObject({ device_profile, object }) {
-  return apiRequest("DELETE", "/api/show/custom-objects", {
-    device_profile,
-    object,
-  });
-}
-
-export function listTemplateResource(basePath) {
-  return apiRequest("GET", basePath);
-}
-
-export function getTemplateResource(basePath, name) {
-  return apiRequest("GET", `${basePath}/${encodeURIComponent(name)}`);
-}
-
-export function createTemplateResource(basePath, name, content) {
-  return apiRequest("POST", basePath, { name, content });
-}
-
-export function updateTemplateResource(basePath, name, content) {
-  return apiRequest("PUT", `${basePath}/${encodeURIComponent(name)}`, {
-    content,
-  });
-}
-
-export function deleteTemplateResource(basePath, name) {
-  return apiRequest("DELETE", `${basePath}/${encodeURIComponent(name)}`);
-}
-
-export function listBlacklistPatterns() {
-  return apiRequest("GET", "/api/blacklist");
-}
-
-export function addBlacklistPattern(pattern) {
-  return apiRequest("POST", "/api/blacklist", { pattern });
-}
-
-export function deleteBlacklistPattern(pattern) {
-  return apiRequest("DELETE", `/api/blacklist/${encodeURIComponent(pattern)}`);
-}
-
-export function checkBlacklistCommand(command) {
-  return apiRequest("POST", "/api/blacklist/check", { command });
-}
-
-export function listBackups() {
-  return apiRequest("GET", "/api/backups");
-}
-
-export function createBackup(output) {
-  return apiRequest("POST", "/api/backups", {
-    output: output?.trim() ? output.trim() : null,
-  });
-}
-
-export function restoreBackup(archive, replace = false) {
-  return apiRequest("POST", "/api/backups/restore", {
-    archive,
-    replace,
-  });
-}
-
-export function backupDownloadUrl(name) {
-  return `/api/backups/${encodeURIComponent(name)}/download`;
-}
-
-export function listTasks({ limit = 50, operation = "", status = "" } = {}) {
-  const params = new URLSearchParams();
-  if (limit) params.set("limit", String(limit));
-  if (operation?.trim()) params.set("operation", operation.trim());
-  if (status?.trim()) params.set("status", status.trim());
-  const query = params.toString();
-  return apiRequest("GET", `/api/tasks${query ? `?${query}` : ""}`);
-}
-
-export function getTask(taskId) {
-  return apiRequest("GET", `/api/tasks/${encodeURIComponent(taskId)}`);
 }
