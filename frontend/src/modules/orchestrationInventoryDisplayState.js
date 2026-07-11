@@ -6,7 +6,7 @@ import { getCachedDeviceProfiles } from "./templates.js";
 import {
   orchestrationTargetDefaultsModelFromJson,
   orchestrationTargetModelFromJson,
-} from "./orchestrationForms.js";
+} from "./orchestrationFormState.js";
 
 const cloneOrchestrationJsonValue = cloneJsonValue;
 const orchestrationPlainObject = plainObject;

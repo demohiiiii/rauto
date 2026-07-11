@@ -78,7 +78,7 @@ export { dashboardRecordToolsPresentation };
 // checks can verify transaction template resources still resolve from the
 // focused transactions workspace module.
 async function loadTransactionsWorkspaceModule() {
-  return import("./transactionsWorkspace.js");
+  return import("./transactionPanelState.js");
 }
 
 function isDashboardTabActive(dashboard = {}, tab = "") {

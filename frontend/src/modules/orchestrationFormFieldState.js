@@ -10,7 +10,7 @@ import { txStructureMappingEntry } from "./transactionStructure.js";
 import {
   ORCHESTRATION_DEFAULTS_FIELD_DEFS,
   ORCHESTRATION_TARGET_DETAIL_FIELD_DEFS,
-} from "./orchestrationInventoryState.js";
+} from "./orchestrationInventoryDisplayState.js";
 
 const orchestrationPlainObject = plainObject;
 const orchestrationStringValue = stringValue;

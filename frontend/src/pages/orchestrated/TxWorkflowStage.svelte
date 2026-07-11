@@ -2,7 +2,7 @@
   import { txTemplateModeTabs } from "../../config/dashboardModes.js";
   import TxWorkflowInputPanel from "./TxWorkflowInputPanel.svelte";
   import TxWorkflowRunPanel from "./TxWorkflowRunPanel.svelte";
-  import { createTxWorkflowStageWorkspace } from "../../modules/transactionsWorkspace.js";
+  import { createTxWorkflowStageWorkspace } from "../../modules/transactionPanelState.js";
 
   let {
     active,

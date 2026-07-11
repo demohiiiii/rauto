@@ -13,9 +13,9 @@ import {
   orchestrationNormalizeConnectionPatch,
   orchestrationNullableFieldModePatch,
   orchestrationToggleTargetFieldPresence,
-} from "./orchestrationForms.js";
+} from "./orchestrationFormState.js";
 import { orchestrationInventoryGroupTargetsDisplay } from "./orchestrationFormDisplayState.js";
-import { orchestrationPatchInventoryGroup } from "./orchestrationInventoryState.js";
+import { orchestrationPatchInventoryGroup } from "./orchestrationInventoryGroupsState.js";
 
 const orchestrationStringValue = stringValue;
 

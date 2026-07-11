@@ -1,7 +1,7 @@
 <script>
   import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
-  import { createOrchestrationJobSettingsEditorWorkspace } from "../../modules/orchestrationStageState.js";
+  import { createOrchestrationJobSettingsEditorWorkspace } from "../../modules/orchestrationStageEditorsState.js";
 
   let { model, stageIndex, jobIndex, job, visualDisplay, onChange } = $props();
   const orchestrationJobSettingsEditorWorkspace =

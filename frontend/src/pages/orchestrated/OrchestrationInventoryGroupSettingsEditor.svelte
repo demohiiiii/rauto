@@ -4,7 +4,7 @@
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
-  import { createOrchestrationInventoryGroupSettingsEditorWorkspace } from "../../modules/orchestrationInventoryState.js";
+  import { createOrchestrationInventoryGroupSettingsEditorWorkspace } from "../../modules/orchestrationInventoryGroupsState.js";
 
   let { model, groupRow, inventoryDisplay, onChange, onErrorChange } = $props();
   const orchestrationInventoryGroupSettingsEditorWorkspace =

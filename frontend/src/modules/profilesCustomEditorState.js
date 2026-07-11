@@ -34,7 +34,7 @@ import {
   setProfileListPattern,
   setProfileListPatternState,
   setProfileListSimpleValue,
-} from "./profilesEditor.js";
+} from "./profilesListState.js";
 import {
   applyCustomProfileForm,
   builtinProfileFormValue,

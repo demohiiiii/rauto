@@ -17,8 +17,16 @@ import { historyDrawerPresentation, overlayDrawerState } from "./overlays.js";
 import {
   CONNECTION_MODAL_FOCUS_TARGET,
   connectionModalDisplay,
+  savedConnectionEditModalDisplay,
+  savedConnectionLibraryPresentation,
+} from "./connectionTargetDisplayState.js";
+import {
   connectionModalFocusRequest,
   connectionOverlayState,
+  savedConnectionSelectState,
+  savedConnectionStatusState,
+} from "./connectionTargetStoreState.js";
+import {
   createConnectionTestState,
   deleteConnectionByName,
   downloadConnectionImportTemplate,
@@ -26,12 +34,8 @@ import {
   loadSavedConnectionByName,
   refreshSavedConnectionOptions,
   runConnectionTest,
-  savedConnectionEditModalDisplay,
-  savedConnectionLibraryPresentation,
-  savedConnectionSelectState,
-  savedConnectionStatusState,
   setConnectionTestLoadingKeys,
-} from "./connectionsWorkspace.js";
+} from "./connectionTargetRuntimeState.js";
 import { openSavedConnectionEditor } from "./connectionsEditor.js";
 
 export function createHistoryDrawerWorkspace() {

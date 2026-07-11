@@ -19,18 +19,20 @@ import {
   TX_EDITOR,
   TX_TEMPLATE_KIND,
   clearTxJsonEditorsHost,
-  createJsonTemplateLibrary,
   createTxJsonEditorWorkspace,
   createTxJsonEditorsHost,
+  requireTxJsonEditor,
+  setTxJsonEditorRawText,
+  txJsonEditorRawText,
+} from "./transactionJsonEditorState.js";
+import {
+  createJsonTemplateLibrary,
   jsonTemplateSelectStateFor,
   jsonTemplateSelectValue,
   loadAllJsonTemplates,
-  requireTxJsonEditor,
   setJsonTemplateSelectValue,
-  setTxJsonEditorRawText,
-  txJsonEditorRawText,
   updateJsonTemplateSelectOptions,
-} from "./transactionEditorState.js";
+} from "./transactionJsonTemplateState.js";
 import {
   transactionFallbackDisplay,
   txBlockRunDisplayPresentation,

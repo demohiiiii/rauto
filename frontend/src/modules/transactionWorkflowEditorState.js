@@ -11,7 +11,7 @@ import {
   txBlockFormModelFromJson,
   txWorkflowBlockFormModelFromJson,
   txWorkflowTemplateRefBlockModelFromJson,
-} from "./transactionFormModels.js";
+} from "./transactionBlockFormModels.js";
 import {
   TX_WORKFLOW_INLINE_BLOCK_METADATA_FIELD_DEFS,
   TX_WORKFLOW_ROOT_METADATA_FIELD_DEFS,

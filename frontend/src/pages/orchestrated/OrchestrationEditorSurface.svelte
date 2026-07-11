@@ -1,6 +1,6 @@
 <script>
   import OrchestrationPlanFormEditor from "./OrchestrationPlanFormEditor.svelte";
-  import { TX_EDITOR } from "../../modules/transactionsWorkspace.js";
+  import { TX_EDITOR } from "../../modules/transactionPanelState.js";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
 
   let {

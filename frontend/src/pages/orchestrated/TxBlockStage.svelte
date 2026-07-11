@@ -1,7 +1,7 @@
 <script>
   import TxBlockInputPanel from "./TxBlockInputPanel.svelte";
   import TxBlockRunPanel from "./TxBlockRunPanel.svelte";
-  import { createTxBlockStageWorkspace } from "../../modules/transactionsWorkspace.js";
+  import { createTxBlockStageWorkspace } from "../../modules/transactionPanelState.js";
 
   let {
     active,

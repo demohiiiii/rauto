@@ -7,19 +7,34 @@ import {
 import { derived, get, writable } from "svelte/store";
 import {
   CONNECTION_MODAL_FOCUS_TARGET,
-  activeConnectionTarget,
-  applyTemporaryConnection,
   batchShowTargetPickerFields,
-  closeConnectionModal,
-  connectionModalFocusRequest,
   connectionModalDisplay,
-  connectionOverlayState,
-  connectionPayload,
-  connectionTargetState,
-  createConnectionTestState,
-  createSavedConnectionDraft,
   savedConnectionEditModalDisplay,
   savedConnectionLibraryPresentation,
+  sidebarConnectionPresentation,
+  temporaryConnectionFocusDisplay,
+  temporaryConnectionPanelPresentation,
+} from "./connectionTargetDisplayState.js";
+import {
+  activeConnectionTarget,
+  closeConnectionModal,
+  connectionModalFocusRequest,
+  connectionOverlayState,
+  connectionTargetState,
+  openConnectionModal,
+  savedConnectionSelectState,
+  savedConnectionStatusState,
+  savedConnectionsRefreshState,
+  setConnectionModalMode,
+  setSavedConnectionStatus,
+  sidebarConnectionState,
+  visibleSavedConnectionNames,
+} from "./connectionTargetStoreState.js";
+import {
+  applyTemporaryConnection,
+  connectionPayload,
+  createConnectionTestState,
+  createSavedConnectionDraft,
   currentExecutionConnectionProfile,
   currentTemporaryConnectionDetails,
   deleteConnectionByName,
@@ -28,28 +43,17 @@ import {
   importConnectionsFromFile,
   loadSavedConnectionByName,
   loadSavedConnections,
-  openConnectionModal,
   refreshActiveTemporaryConnectionTarget,
   refreshConnectionProfileOptions,
   refreshSavedConnectionOptions,
   refreshSidebarConnectionSelector,
   runConnectionTest,
-  savedConnectionSelectState,
-  savedConnectionStatusState,
-  savedConnectionsRefreshState,
   setConnectionDeviceProfiles,
-  setConnectionModalMode,
   setConnectionTestLoadingKeys,
-  setSavedConnectionStatus,
-  sidebarConnectionPresentation,
-  sidebarConnectionState,
-  temporaryConnectionFocusDisplay,
   temporaryConnectionFormStateStore,
   temporaryConnectionBasicFieldWiring,
-  temporaryConnectionPanelPresentation,
   updateTemporaryConnectionDraftEnabled,
-  visibleSavedConnectionNames,
-} from "./connectionsWorkspace.js";
+} from "./connectionTargetRuntimeState.js";
 import {
   detectSavedConnectionProfile,
   hideSavedConnectionEditorModal,
@@ -90,10 +94,12 @@ import {
   createConnectionModalWorkspace as createConnectionModalBaseWorkspace,
   createHistoryDrawerWorkspace as createHistoryDrawerBaseWorkspace,
   createSavedConnectionEditModalWorkspace as createSavedConnectionEditModalBaseWorkspace,
-  createSavedConnectionEditorWorkspace as createSavedConnectionEditorBaseWorkspace,
   createSavedConnectionLibraryWorkspace as createSavedConnectionLibraryBaseWorkspace,
+} from "./connectionPanelState.js";
+import {
+  createSavedConnectionEditorWorkspace as createSavedConnectionEditorBaseWorkspace,
   createTemporaryConnectionPanelWorkspace as createTemporaryConnectionPanelBaseWorkspace,
-} from "./connectionsPanels.js";
+} from "./connectionPanelFormState.js";
 
 export {
   CONNECTION_PROFILE_SELECT,

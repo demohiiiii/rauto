@@ -5,14 +5,16 @@ import { safeString as safeTemplateString } from "../lib/ui.js";
 import {
   defaultFullTxBlockTemplatePayload,
   defaultTxBlockTemplatePayload,
-  defaultTxWorkflowTemplatePayload,
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
+} from "./transactionBlockFormModels.js";
+import {
+  defaultTxWorkflowTemplatePayload,
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
-} from "./transactionFormModels.js";
+} from "./transactionWorkflowFormModels.js";
 import {
   createTxInputLoadingKeysStore,
   createTxInputPanelActionWorkspace,
@@ -40,7 +42,7 @@ import {
   setTxVarsRawText,
   txExecutionModes,
   txVarsTextStateFor,
-} from "./transactionsWorkspace.js";
+} from "./transactionPanelState.js";
 
 export * from "./transactionInputState.js";
 

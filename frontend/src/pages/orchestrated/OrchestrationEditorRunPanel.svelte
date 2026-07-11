@@ -5,7 +5,7 @@
   import {
     createOrchestrationEditorPanelWorkspace,
     orchestrationJsonPlaceholder,
-  } from "../../modules/orchestrationWorkspace.js";
+  } from "../../modules/orchestrationPanelState.js";
   import OrchestrationEditorSurface from "./OrchestrationEditorSurface.svelte";
 
   let {

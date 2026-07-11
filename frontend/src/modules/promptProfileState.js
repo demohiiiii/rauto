@@ -43,7 +43,7 @@ import {
   PROMPT_MODE,
 } from "../config/dashboardModes.js";
 import { derived, get as getStore, writable } from "svelte/store";
-import { builtinProfileReadonlyDisplay as builtinProfileReadonlyDisplayFromEditor } from "./profilesEditor.js";
+import { builtinProfileReadonlyDisplay as builtinProfileReadonlyDisplayFromEditor } from "./profilesEditorState.js";
 import {
   builtinProfileFormValue as builtinProfileFormValueFromEditor,
   customProfileStatusState as customProfileStatusStateFromEditor,

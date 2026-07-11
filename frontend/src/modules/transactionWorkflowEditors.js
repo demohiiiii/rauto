@@ -9,7 +9,7 @@ import {
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
-} from "./transactionFormModels.js";
+} from "./transactionBlockFormModels.js";
 import {
   txWorkflowBlockEditorBindings,
   txWorkflowTemplateRefEditorDisplay,

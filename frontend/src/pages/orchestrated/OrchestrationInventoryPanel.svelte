@@ -1,7 +1,7 @@
 <script>
   import PlainCheckboxField from "../../components/fragments/PlainCheckboxField.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { createOrchestrationInventoryPanelWorkspace } from "../../modules/orchestrationInventoryState.js";
+  import { createOrchestrationInventoryPanelWorkspace } from "../../modules/orchestrationInventoryGroupsState.js";
   import OrchestrationInventoryDefaultsEditor from "./OrchestrationInventoryDefaultsEditor.svelte";
   import OrchestrationInventoryGroupEditor from "./OrchestrationInventoryGroupEditor.svelte";
 

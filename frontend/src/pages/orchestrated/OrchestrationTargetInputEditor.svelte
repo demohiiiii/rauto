@@ -4,7 +4,7 @@
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
-  import { createOrchestrationTargetInputEditorWorkspace } from "../../modules/orchestrationForms.js";
+  import { createOrchestrationTargetInputEditorWorkspace } from "../../modules/orchestrationFormState.js";
 
   let {
     titleText,

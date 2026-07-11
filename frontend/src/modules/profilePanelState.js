@@ -16,7 +16,7 @@ import {
   setProfileDetectEnabled,
   setProfileDiagnoseSelected,
   builtinProfilesPanelDisplay,
-} from "./promptProfileWorkspace.js";
+} from "./promptProfileState.js";
 import {
   builtinProfileDetectDetailsPresentation,
   builtinProfileHooksDetailsPresentation,
@@ -30,7 +30,7 @@ import {
   profileListRowEditorPresentation,
   profilePatternListEditorDisplay,
   profileTransitionRowEditorPresentation,
-} from "./profilesEditor.js";
+} from "./profilesEditorState.js";
 import { customProfileSettingsDisplay } from "./profilesCustomEditorState.js";
 
 export {
@@ -42,7 +42,7 @@ export {
   profileDiagnosePanelDisplay,
   customProfileDetectPanelDisplay,
   createProfileDiagnoseState,
-} from "./promptProfileWorkspace.js";
+} from "./promptProfileState.js";
 
 export {
   builtinProfileDetectDetailsPresentation,
@@ -56,7 +56,7 @@ export {
   profileHookFlowStepsEditorDisplay,
   profilePatternListEditorDisplay,
   hookOperationEditorDisplay,
-} from "./profilesEditor.js";
+} from "./profilesEditorState.js";
 
 export { customProfileSettingsDisplay } from "./profilesCustomEditorState.js";
 

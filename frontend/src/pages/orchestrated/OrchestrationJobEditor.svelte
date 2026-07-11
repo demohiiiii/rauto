@@ -1,5 +1,5 @@
 <script>
-  import { createOrchestrationJobEditorWorkspace } from "../../modules/orchestrationStageState.js";
+  import { createOrchestrationJobEditorWorkspace } from "../../modules/orchestrationStageEditorsState.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import OrchestrationJobActionEditor from "./OrchestrationJobActionEditor.svelte";
   import OrchestrationJobSettingsEditor from "./OrchestrationJobSettingsEditor.svelte";

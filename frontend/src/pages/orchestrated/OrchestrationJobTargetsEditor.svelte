@@ -2,7 +2,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
   import StringListEditor from "../../components/fragments/StringListEditor.svelte";
-  import { createOrchestrationJobTargetsEditorWorkspace } from "../../modules/orchestrationStageState.js";
+  import { createOrchestrationJobTargetsEditorWorkspace } from "../../modules/orchestrationStageTargetsState.js";
   import OrchestrationTargetInputEditor from "./OrchestrationTargetInputEditor.svelte";
 
   let {

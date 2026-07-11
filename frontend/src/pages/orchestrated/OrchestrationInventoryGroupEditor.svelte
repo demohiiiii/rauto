@@ -2,7 +2,7 @@
   import * as Card from "$lib/components/ui/card";
   import { t } from "../../lib/i18n.js";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { createOrchestrationInventoryGroupEditorWorkspace } from "../../modules/orchestrationInventoryState.js";
+  import { createOrchestrationInventoryGroupEditorWorkspace } from "../../modules/orchestrationInventoryGroupsState.js";
   import OrchestrationInventoryGroupSettingsEditor from "./OrchestrationInventoryGroupSettingsEditor.svelte";
   import OrchestrationInventoryGroupTargetsSection from "./OrchestrationInventoryGroupTargetsSection.svelte";
 

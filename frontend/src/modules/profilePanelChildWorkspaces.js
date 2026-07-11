@@ -30,7 +30,7 @@ import {
   profileHookRowStatePatch,
   profileListRowEditorPresentation,
   profileListRowFieldPatches,
-} from "./profilesEditor.js";
+} from "./profilesEditorState.js";
 import {
   addHookListFlowStep,
   addProfileListPattern,

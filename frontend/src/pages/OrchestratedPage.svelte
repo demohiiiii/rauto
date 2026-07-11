@@ -2,7 +2,7 @@
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import { afterDomUpdate } from "../lib/svelte.js";
-  import { createOrchestratedPageWorkspace } from "../modules/orchestrationWorkspace.js";
+  import { createOrchestratedPageWorkspace } from "../modules/orchestrationPanelState.js";
 
   let { active } = $props();
   const stageDefinitions = [

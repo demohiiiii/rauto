@@ -1,6 +1,6 @@
 <script>
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
-  import { createOrchestrationStageDetailPanelWorkspace } from "../../modules/orchestrationWorkspace.js";
+  import { createOrchestrationStageDetailPanelWorkspace } from "../../modules/orchestrationPanelState.js";
   import OrchestrationJsonSection from "./OrchestrationJsonSection.svelte";
 
   let {

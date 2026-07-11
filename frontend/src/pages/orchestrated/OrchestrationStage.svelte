@@ -3,7 +3,7 @@
   import OrchestrationExecutionPanel from "./OrchestrationExecutionPanel.svelte";
   import OrchestrationInputPanel from "./OrchestrationInputPanel.svelte";
   import OrchestrationPreviewPanel from "./OrchestrationPreviewPanel.svelte";
-  import { createOrchestrationStageWorkspace } from "../../modules/orchestrationWorkspace.js";
+  import { createOrchestrationStageWorkspace } from "../../modules/orchestrationPanelState.js";
 
   let {
     active,

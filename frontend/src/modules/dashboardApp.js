@@ -177,7 +177,7 @@ function loadProfilesModule() {
 function loadTransactionsWorkspaceModule() {
   return loadFeatureModule(
     "transactionsWorkspace",
-    () => import("./transactionsWorkspace.js"),
+    () => import("./transactionPanelState.js"),
   );
 }
 

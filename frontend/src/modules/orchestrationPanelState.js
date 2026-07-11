@@ -28,7 +28,7 @@ import {
   TX_VISUAL,
   txExecutionModes,
   visualOutputState,
-} from "./transactionsWorkspace.js";
+} from "./transactionPanelState.js";
 
 export {
   createOrchestrationEditorPanelWorkspace,

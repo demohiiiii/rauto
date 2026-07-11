@@ -1,7 +1,8 @@
 import { transactionFallbackDisplay } from "./transactionExecutionDisplays.js";
-import { orchestrationExecutionPresentation } from "./orchestrationResultPresentationState.js";
+import { orchestrationExecutionPresentation } from "./orchestrationResultDetailState.js";
 
-export * from "./orchestrationResultPresentationState.js";
+export * from "./orchestrationResultPreviewState.js";
+export * from "./orchestrationResultDetailState.js";
 
 function orchestrationOutputModePresentation(mode = "") {
   return {

@@ -3,7 +3,7 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
   import { txBlockEditorViewTabs } from "../../config/dashboardModes.js";
-  import { TX_EDITOR } from "../../modules/transactionsWorkspace.js";
+  import { TX_EDITOR } from "../../modules/transactionPanelState.js";
   import TxJsonEditor from "./TxJsonEditor.svelte";
 
   let {

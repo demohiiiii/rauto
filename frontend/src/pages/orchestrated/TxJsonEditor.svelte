@@ -1,6 +1,6 @@
 <script>
   import JsonTextEditor from "../../components/fragments/JsonTextEditor.svelte";
-  import { createTxJsonEditorWorkspace } from "../../modules/transactionsWorkspace.js";
+  import { createTxJsonEditorWorkspace } from "../../modules/transactionPanelState.js";
 
   let {
     "aria-label": ariaLabel,

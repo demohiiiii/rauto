@@ -5,17 +5,17 @@ import {
 } from "svelte/store";
 import { currentLanguageState, t } from "../lib/i18n.js";
 import { stringValue } from "../lib/jsonValue.js";
-import { orchestrationVisualEditorDisplay } from "./orchestrationStageState.js";
+import { orchestrationVisualEditorDisplay } from "./orchestrationStageEditorsState.js";
 import {
   orchestrationPlanFormModelFromJson,
   orchestrationPlanFormModelFromJsonText,
   orchestrationPlanFormModelToJsonText,
-} from "./orchestrationForms.js";
+} from "./orchestrationFormState.js";
 import {
   setTxJsonEditorRawText,
   TX_EDITOR,
   txJsonEditorRawText,
-} from "./transactionsWorkspace.js";
+} from "./transactionPanelState.js";
 
 export * from "./orchestrationEditorSourceState.js";
 

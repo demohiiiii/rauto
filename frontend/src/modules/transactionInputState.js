@@ -18,14 +18,16 @@ import {
 } from "../lib/ui.js";
 import {
   defaultTxBlockTemplatePayload,
-  defaultTxWorkflowTemplatePayload,
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
+} from "./transactionBlockFormModels.js";
+import {
+  defaultTxWorkflowTemplatePayload,
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
-} from "./transactionFormModels.js";
+} from "./transactionWorkflowFormModels.js";
 import {
   jsonTemplateSelectStateFor,
   runTxExecutionModeHandler,
@@ -37,7 +39,7 @@ import {
   txVarsTextStateFor,
   TX_EDITOR,
   TX_VARS,
-} from "./transactionsWorkspace.js";
+} from "./transactionPanelState.js";
 
 export const jsonTemplateNameValue = (templateName) =>
   safeTemplateString(templateName).trim();

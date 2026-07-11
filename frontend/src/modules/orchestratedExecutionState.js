@@ -15,10 +15,8 @@ import {
   recordLevelPayload as recordLevelPayloadFromOverlays,
   showToast,
 } from "./overlays.js";
-import {
-  defaultTxBlockTemplatePayload,
-  defaultTxWorkflowTemplatePayload,
-} from "./transactionFormModels.js";
+import { defaultTxBlockTemplatePayload } from "./transactionBlockFormModels.js";
+import { defaultTxWorkflowTemplatePayload } from "./transactionWorkflowFormModels.js";
 import {
   TX_EDITOR,
   TX_OUTPUT,
@@ -36,7 +34,7 @@ import {
   setTxWorkflowExecutionResult,
   setVisualOutputStatus,
   txVarsTextStateFor,
-} from "./transactionsWorkspace.js";
+} from "./transactionPanelState.js";
 
 function tr(key, fallback = key) {
   return translate(key, fallback);

@@ -2,6 +2,9 @@ export {
   flowVarsPresentation,
   builtinFlowTemplatePanelDisplay,
   customFlowTemplatePanelDisplay,
+} from "./templatesFlowDisplayState.js";
+
+export {
   buildFlowVarsPayload,
   ensureFlowRunTemplateDetail,
   flowTemplateContentText,
@@ -26,7 +29,7 @@ export {
   builtinFlowTemplateListState,
   builtinFlowTemplateNames,
   builtinFlowTemplateSelectedName,
-} from "./templatesFlow.js";
+} from "./templatesFlowRuntimeState.js";
 
 export {
   customShowObjectCommandDisplay,

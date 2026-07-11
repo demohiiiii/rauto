@@ -4,11 +4,13 @@ import { createLoadingStateRunner } from "../lib/svelte.js";
 import { derived, writable } from "svelte/store";
 import {
   builtinFlowTemplatePanelDisplay,
+  customFlowTemplatePanelDisplay,
+} from "./templatesFlowDisplayState.js";
+import {
   builtinFlowTemplateContentText,
   builtinFlowTemplateListState,
   builtinFlowTemplateNames,
   builtinFlowTemplateSelectedName,
-  customFlowTemplatePanelDisplay,
   flowTemplateContentText,
   flowTemplateListState,
   flowTemplateNames,
@@ -17,7 +19,7 @@ import {
   setBuiltinFlowTemplatePickerValue,
   setFlowTemplateContent,
   setFlowTemplatePickerValue,
-} from "./templatesFlow.js";
+} from "./templatesFlowRuntimeState.js";
 import {
   customShowObjectCommandDisplay,
   customShowObjectFormPresentation,

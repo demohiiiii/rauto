@@ -29,7 +29,7 @@ import {
   TX_EDITOR,
   TX_OUTPUT,
   TX_TEMPLATE_KIND,
-} from "./transactionsWorkspace.js";
+} from "./transactionPanelState.js";
 import {
   createOrchestratedExecutionDependencies,
   defaultOrchestrationTemplatePayload,

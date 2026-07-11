@@ -18,10 +18,12 @@ import {
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
+} from "./transactionBlockFormModels.js";
+import {
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
-} from "./transactionFormModels.js";
+} from "./transactionWorkflowFormModels.js";
 
 const orchestrationStringValue = stringValue;
 const orchestrationPlainObject = plainObject;

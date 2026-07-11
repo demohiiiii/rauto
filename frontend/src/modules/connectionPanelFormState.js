@@ -13,16 +13,18 @@ import {
   visibleConnectionProfileOptions,
 } from "./connectionFields.js";
 import {
-  connectionModalFocusRequest,
   CONNECTION_MODAL_FOCUS_TARGET,
-  createSavedConnectionDraft,
   savedConnectionEditorPresentation,
-  temporaryConnectionBasicFieldWiring,
   temporaryConnectionFocusDisplay,
-  temporaryConnectionFormStateStore,
   temporaryConnectionPanelPresentation,
+} from "./connectionTargetDisplayState.js";
+import { connectionModalFocusRequest } from "./connectionTargetStoreState.js";
+import {
+  createSavedConnectionDraft,
+  temporaryConnectionBasicFieldWiring,
+  temporaryConnectionFormStateStore,
   updateTemporaryConnectionDraftEnabled,
-} from "./connectionsWorkspace.js";
+} from "./connectionTargetRuntimeState.js";
 import {
   detectSavedConnectionProfile,
   hideSavedConnectionEditorModal,

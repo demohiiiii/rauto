@@ -2,7 +2,7 @@
   import OrchestrationTxBlockActionEditor from "./OrchestrationTxBlockActionEditor.svelte";
   import OrchestrationTxWorkflowActionEditor from "./OrchestrationTxWorkflowActionEditor.svelte";
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
-  import { createOrchestrationJobActionEditorWorkspace } from "../../modules/orchestrationStageState.js";
+  import { createOrchestrationJobActionEditorWorkspace } from "../../modules/orchestrationStageEditorsState.js";
 
   let {
     model,

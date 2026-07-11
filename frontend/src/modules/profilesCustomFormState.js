@@ -22,7 +22,7 @@ import {
   collectSysPromptRows,
   collectTransitionRows,
   normalizeHooks,
-} from "./profilesEditor.js";
+} from "./profilesListState.js";
 
 const CUSTOM_LIST_IDS = [
   PROFILE_LIST.morePatterns,

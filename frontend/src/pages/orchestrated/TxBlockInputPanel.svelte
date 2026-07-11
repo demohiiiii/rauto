@@ -17,7 +17,7 @@
   import {
     TX_TEMPLATE_KIND,
     TX_VARS,
-  } from "../../modules/transactionsWorkspace.js";
+  } from "../../modules/transactionPanelState.js";
 
   let {
     active,

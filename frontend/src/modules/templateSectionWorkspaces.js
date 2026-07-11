@@ -18,7 +18,7 @@ import {
   templatesProtectedResourcesRefreshState,
 } from "./templateSectionRuntimeState.js";
 import { templatePageDisplay } from "./templateSectionDisplayState.js";
-import { createFlowTemplateSectionWorkspace as createFlowTemplateSectionWorkspaceOwner } from "./templatesFlow.js";
+import { createFlowTemplateSectionWorkspace as createFlowTemplateSectionWorkspaceOwner } from "./templatesFlowRuntimeState.js";
 export * from "./templateSectionDisplayState.js";
 export * from "./templateSectionRuntimeState.js";
 

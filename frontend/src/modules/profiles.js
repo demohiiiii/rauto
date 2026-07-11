@@ -7,7 +7,7 @@ export {
   profileDiagnosePanelDisplay,
   customProfileDetectPanelDisplay,
   createProfileDiagnoseState,
-} from "./promptProfileWorkspace.js";
+} from "./promptProfileState.js";
 
 export {
   builtinProfileDetectDetailsPresentation,
@@ -21,7 +21,7 @@ export {
   profileHookFlowStepsEditorDisplay,
   profilePatternListEditorDisplay,
   hookOperationEditorDisplay,
-} from "./profilesEditor.js";
+} from "./profilesEditorState.js";
 
 export { customProfileSettingsDisplay } from "./profilesCustomEditorState.js";
 
@@ -47,13 +47,6 @@ export {
   builtinDetailStatusState,
   profileDiagnoseOptionsState,
   profileDetectFormStateStore,
-  executionModeOptionsVersion,
-  MODE_SELECT,
-  TEXTFSM_PLATFORM_SELECT,
-  executionConnectionProfileState,
-  modeSelection,
-  textfsmPlatformSelection,
-  refreshExecutionModeOptionsForCurrentConnection,
   setProfileDiagnoseSelected,
   diagnoseSelectedCustomProfile,
   ensureProfileDetectDefaults,
@@ -62,7 +55,17 @@ export {
   setNormalizedPromptMode,
   refreshPromptProfileLanguageOptions,
   loadProfilesOverview,
-} from "./promptProfileWorkspace.js";
+} from "./promptProfileState.js";
+
+export {
+  executionModeOptionsVersion,
+  MODE_SELECT,
+  TEXTFSM_PLATFORM_SELECT,
+  executionConnectionProfileState,
+  modeSelection,
+  textfsmPlatformSelection,
+  refreshExecutionModeOptionsForCurrentConnection,
+} from "./promptProfileExecutionState.js";
 
 export {
   customProfileBaseState,
@@ -114,16 +117,22 @@ export {
   profileHookRowRecordOutputPatch,
   profileHookRowStatePatch,
   profileListRowFieldPatches,
-} from "./profilesEditor.js";
+} from "./profilesEditorState.js";
 
 export {
   createBuiltinProfileDetectSectionWorkspace,
   createBuiltinProfileHooksSectionWorkspace,
   createBuiltinProfileStateListsSectionWorkspace,
+} from "./profilePanelEditorState.js";
+
+export {
   createCustomProfileDetectPanelWorkspace,
+  createProfileDiagnosePanelWorkspace,
+} from "./profilePanelState.js";
+
+export {
   createCustomProfilesEditorWorkspace,
   createProfileDetectProbeCardWorkspace,
-  createProfileDiagnosePanelWorkspace,
   createProfileHookRowEditorWorkspace,
   createProfileListRowEditorWorkspace,
-} from "./profilePanelWorkspaces.js";
+} from "./profilePanelChildWorkspaces.js";

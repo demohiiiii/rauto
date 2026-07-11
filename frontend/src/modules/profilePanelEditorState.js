@@ -4,7 +4,7 @@ import {
   builtinProfileDetectDetailsPresentation,
   builtinProfileHooksDetailsPresentation,
   builtinProfileStateListsPresentation,
-} from "./profilesEditor.js";
+} from "./profilesEditorState.js";
 
 export function createBuiltinProfileHooksSectionWorkspace() {
   return {
