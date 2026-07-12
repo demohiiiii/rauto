@@ -24,6 +24,8 @@ pub struct SavedConnection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub password_ref: Option<String>,
     pub port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connect_timeout_secs: Option<u64>,
     pub enable_password: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enable_password_ref: Option<String>,
@@ -136,7 +138,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     db::run_sync(async move {
         let row = sqlx::query(
             r#"
-            SELECT host, username, password_ref, port, enable_password_ref, ssh_security, linux_shell_flavor, device_profile, template_dir
+            SELECT host, username, password_ref, port, connect_timeout_secs, enable_password_ref, ssh_security, linux_shell_flavor, device_profile, template_dir
                  , enabled, labels_json, vars_json, enable_password_empty_enter
             FROM connections
             WHERE name = ?
@@ -156,6 +158,15 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
             port: row
                 .try_get::<Option<i64>, _>("port")?
                 .map(|value| value as u16),
+            connect_timeout_secs: row
+                .try_get::<Option<i64>, _>("connect_timeout_secs")?
+                .map(|value| {
+                    u64::try_from(value)
+                        .ok()
+                        .filter(|value| *value > 0)
+                        .ok_or_else(|| anyhow!("connect_timeout_secs must be positive"))
+                })
+                .transpose()?,
             enable_password: None,
             enable_password_ref: row.try_get("enable_password_ref")?,
             enable_password_empty_enter: row
@@ -276,6 +287,15 @@ pub fn safe_connection_name(raw: &str) -> Result<String> {
 }
 
 fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<()> {
+    if data
+        .connect_timeout_secs
+        .is_some_and(|value| value == 0 || value > i64::MAX as u64)
+    {
+        return Err(anyhow!(
+            "connect_timeout_secs must be between 1 and {}",
+            i64::MAX
+        ));
+    }
     let mut stored = data.clone();
     stored.password_ref =
         sync_connection_secret(data.password.as_deref(), data.password_ref.as_deref())?;
@@ -302,16 +322,17 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         sqlx::query(
             r#"
             INSERT INTO connections (
-                name, host, username, password_ref, port, enable_password_ref, ssh_security, linux_shell_flavor,
+                name, host, username, password_ref, port, connect_timeout_secs, enable_password_ref, ssh_security, linux_shell_flavor,
                 device_profile, template_dir, enabled, labels_json, vars_json, enable_password_empty_enter,
                 created_at_ms, updated_at_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
                 username = excluded.username,
                 password_ref = excluded.password_ref,
                 port = excluded.port,
+                connect_timeout_secs = excluded.connect_timeout_secs,
                 enable_password_ref = excluded.enable_password_ref,
                 ssh_security = excluded.ssh_security,
                 linux_shell_flavor = excluded.linux_shell_flavor,
@@ -329,6 +350,7 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(&stored.username)
         .bind(&stored.password_ref)
         .bind(stored.port.map(i64::from))
+        .bind(stored.connect_timeout_secs.map(|value| value as i64))
         .bind(&stored.enable_password_ref)
         .bind(stored.ssh_security.map(|value| value.to_string()))
         .bind(stored.linux_shell_flavor.map(|value| value.to_string()))
@@ -489,6 +511,7 @@ mod tests {
                 password: Some("secret-123".to_string()),
                 password_ref: None,
                 port: Some(22),
+                connect_timeout_secs: Some(19),
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -505,6 +528,7 @@ mod tests {
 
         let loaded = load_connection(name)?;
         assert_eq!(loaded.password.as_deref(), Some("secret-123"));
+        assert_eq!(loaded.connect_timeout_secs, Some(19));
         assert!(has_saved_password(&loaded));
         Ok(())
     }
@@ -524,6 +548,7 @@ mod tests {
                 password: Some("top-secret".to_string()),
                 password_ref: None,
                 port: Some(2222),
+                connect_timeout_secs: None,
                 enable_password: Some("enable-me".to_string()),
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -582,6 +607,7 @@ mod tests {
                 password: None,
                 password_ref: Some("connection/conn_store_invalid_secret/password".to_string()),
                 port: Some(22),
+                connect_timeout_secs: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -621,6 +647,7 @@ mod tests {
                 password: Some("secret-left".to_string()),
                 password_ref: None,
                 port: Some(22),
+                connect_timeout_secs: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -642,6 +669,7 @@ mod tests {
                 password: Some("secret-right".to_string()),
                 password_ref: None,
                 port: Some(22),
+                connect_timeout_secs: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -678,6 +706,7 @@ mod tests {
                 password: Some("secret-left".to_string()),
                 password_ref: None,
                 port: Some(22),
+                connect_timeout_secs: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -699,6 +728,7 @@ mod tests {
                 password: Some("secret-right".to_string()),
                 password_ref: None,
                 port: Some(22),
+                connect_timeout_secs: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,

@@ -269,6 +269,7 @@ pub(crate) fn resolve_render_connection_context_fallback(
         username: None,
         password: None,
         port: None,
+        connect_timeout_secs: None,
         enable_password: None,
         enable_password_empty_enter: None,
         ssh_security: None,
@@ -325,6 +326,11 @@ pub(crate) fn resolve_render_connection_context_fallback(
         .or_else(|| saved_raw.as_ref().and_then(|saved| saved.port))
         .or(defaults.port)
         .unwrap_or(22);
+    let connect_timeout_secs = incoming.connect_timeout_secs.or_else(|| {
+        saved_raw
+            .as_ref()
+            .and_then(|saved| saved.connect_timeout_secs)
+    });
 
     let enable_password = incoming
         .enable_password
@@ -368,6 +374,7 @@ pub(crate) fn resolve_render_connection_context_fallback(
         username,
         password,
         port,
+        connect_timeout_secs,
         enable_password,
         ssh_security,
         linux_shell_flavor,

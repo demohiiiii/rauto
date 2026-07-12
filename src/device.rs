@@ -31,6 +31,7 @@ impl DeviceClient {
         handler: DeviceHandler,
         default_mode: String,
         ssh_security: SshSecurityProfile,
+        connect_timeout_secs: Option<u64>,
     ) -> Result<Self> {
         info!("Connecting to {}:{} as {}", host, port, username);
 
@@ -39,7 +40,7 @@ impl DeviceClient {
         let sender = MANAGER
             .get_with_context(
                 request,
-                manager_execution_context_with_security(None, ssh_security),
+                manager_execution_context_with_security(None, ssh_security, connect_timeout_secs),
             )
             .await
             .map_err(|e| anyhow!("Failed to connect: {}", e))?;
@@ -64,6 +65,7 @@ impl DeviceClient {
         default_mode: String,
         level: SessionRecordLevel,
         ssh_security: SshSecurityProfile,
+        connect_timeout_secs: Option<u64>,
     ) -> Result<Self> {
         info!(
             "Connecting with recording to {}:{} as {}",
@@ -75,7 +77,7 @@ impl DeviceClient {
         let (sender, recorder) = MANAGER
             .get_with_recording_level_and_context(
                 request,
-                manager_execution_context_with_security(None, ssh_security),
+                manager_execution_context_with_security(None, ssh_security, connect_timeout_secs),
                 level,
             )
             .await

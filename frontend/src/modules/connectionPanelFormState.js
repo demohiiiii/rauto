@@ -74,6 +74,11 @@ export function createSavedConnectionEditorWorkspace() {
   const savedEditorFieldWiring =
     savedConnectionEditorBasicFieldWiring(editorDraft);
 
+  function onSavedEditorConnectTimeoutSecsInput(fieldValue) {
+    savedEditorFieldWiring.onConnectTimeoutSecsInput(fieldValue);
+    publishEditorDraft();
+  }
+
   function onSavedEditorDeviceProfileChange(fieldValue) {
     savedEditorFieldWiring.onDeviceProfileChange(fieldValue);
     publishEditorDraft();
@@ -205,6 +210,7 @@ export function createSavedConnectionEditorWorkspace() {
     editorDisplayStateStore,
     editorDraftStateStore,
     metadataFieldsDisplayStateStore,
+    onSavedEditorConnectTimeoutSecsInput,
     onSavedEditorDeviceProfileChange,
     onSavedEditorEnablePasswordInput,
     onSavedEditorHostInput,
@@ -255,6 +261,11 @@ export function createTemporaryConnectionPanelWorkspace() {
 
   const temporaryFieldWiring =
     temporaryConnectionBasicFieldWiring(temporaryDraft);
+
+  function onTemporaryConnectTimeoutSecsInput(fieldValue) {
+    temporaryFieldWiring.onConnectTimeoutSecsInput(fieldValue);
+    publishTemporaryDraft();
+  }
 
   function onTemporaryDeviceProfileChange(fieldValue) {
     temporaryFieldWiring.onDeviceProfileChange(fieldValue);
@@ -362,6 +373,7 @@ export function createTemporaryConnectionPanelWorkspace() {
   return {
     createTemporaryDraft,
     metadataFieldsDisplayStateStore,
+    onTemporaryConnectTimeoutSecsInput,
     onTemporaryDeviceProfileChange,
     onTemporaryEnablePasswordInput,
     onTemporaryHostInput,

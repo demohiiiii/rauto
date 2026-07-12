@@ -28,6 +28,16 @@
     }
   }
 
+  function keepOpenForToastInteraction(event) {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest("[data-sonner-toaster], [data-sonner-toast]")
+    ) {
+      event.preventDefault();
+    }
+  }
+
   $effect(() => {
     const nextOpen = Boolean(modalDisplay?.open);
     if (nextOpen === lastDisplayOpen) return;
@@ -51,6 +61,7 @@
       cardClass,
     )}
     aria-label={modalDisplay?.ariaLabelText || modalDisplay?.title}
+    onInteractOutside={keepOpenForToastInteraction}
     showCloseButton={false}
   >
     <Dialog.Header

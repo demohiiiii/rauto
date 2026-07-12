@@ -1,5 +1,6 @@
 <script>
   import * as Card from "$lib/components/ui/card";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import {
     createSavedConnectionEditorWorkspace,
@@ -31,6 +32,7 @@
     editorDraftStateStore,
     savedConnectionEditorLoadingStateStore,
     metadataFieldsDisplayStateStore,
+    onSavedEditorConnectTimeoutSecsInput,
     onSavedEditorDeviceProfileChange,
     onSavedEditorEnablePasswordInput,
     onSavedEditorHostInput,
@@ -109,6 +111,7 @@
         {active}
         basicFieldsDisplay={editorBasicFieldsDisplay}
         splitSections={true}
+        onConnectTimeoutSecsInput={onSavedEditorConnectTimeoutSecsInput}
         onDeviceProfileChange={onSavedEditorDeviceProfileChange}
         onEnablePasswordInput={onSavedEditorEnablePasswordInput}
         onHostInput={onSavedEditorHostInput}
@@ -151,38 +154,53 @@
     </div>
   </Card.Content>
   <Card.Footer
-    class="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/30 px-7 py-4"
+    class="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-7 py-4"
   >
-    <LoadingButton
-      variant="outline"
-      size="sm"
-      loading={savedConnectionEditorLoadingState.detectProfileLoading}
-      onclick={detectProfile}
-    >
-      <RadarIcon data-icon="inline-start" aria-hidden="true" />
-      <span>{editorDisplay.buttons.detectProfile.label}</span>
-    </LoadingButton>
-    {#if editorDisplay.canApplyDetectedProfile}
+    <div class="min-w-0 flex-1">
+      {#if editorDisplay.detectedProfile}
+        <div class="flex min-h-8 min-w-0 items-center gap-2 text-sm">
+          <RadarIcon class="size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span class="shrink-0 text-muted-foreground">
+            {editorDisplay.detectedProfileLabel}
+          </span>
+          <Badge variant="secondary" class="max-w-full font-mono">
+            <span class="truncate">{editorDisplay.detectedProfile}</span>
+          </Badge>
+        </div>
+      {/if}
+    </div>
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <LoadingButton
+        variant="outline"
+        size="sm"
+        loading={savedConnectionEditorLoadingState.detectProfileLoading}
+        onclick={detectProfile}
+      >
+        <RadarIcon data-icon="inline-start" aria-hidden="true" />
+        <span>{editorDisplay.buttons.detectProfile.label}</span>
+      </LoadingButton>
+      {#if editorDisplay.canApplyDetectedProfile}
+        <LoadingButton
+          variant="default"
+          size="sm"
+          loading={savedConnectionEditorLoadingState.applyDetectedProfileLoading}
+          onclick={applyDetectedProfile}
+        >
+          <span>{editorDisplay.buttons.applyDetectedProfile.label}</span>
+        </LoadingButton>
+      {/if}
+      <Button variant="ghost" size="sm" type="button" onclick={closeEditor}>
+        {editorDisplay.buttons.cancel.label}
+      </Button>
       <LoadingButton
         variant="default"
         size="sm"
-        loading={savedConnectionEditorLoadingState.applyDetectedProfileLoading}
-        onclick={applyDetectedProfile}
+        loading={savedConnectionEditorLoadingState.saveLoading}
+        onclick={saveConnection}
       >
-        <span>{editorDisplay.buttons.applyDetectedProfile.label}</span>
+        <SaveIcon data-icon="inline-start" aria-hidden="true" />
+        <span>{editorDisplay.buttons.save.label}</span>
       </LoadingButton>
-    {/if}
-    <Button variant="ghost" size="sm" type="button" onclick={closeEditor}>
-      {editorDisplay.buttons.cancel.label}
-    </Button>
-    <LoadingButton
-      variant="default"
-      size="sm"
-      loading={savedConnectionEditorLoadingState.saveLoading}
-      onclick={saveConnection}
-    >
-      <SaveIcon data-icon="inline-start" aria-hidden="true" />
-      <span>{editorDisplay.buttons.save.label}</span>
-    </LoadingButton>
+    </div>
   </Card.Footer>
 </Card.Root>

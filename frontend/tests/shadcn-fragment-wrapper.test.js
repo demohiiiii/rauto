@@ -309,6 +309,45 @@ test("connection modal shell composes shadcn Dialog instead of dashboard modal g
   assert.doesNotMatch(appCss, /dashboard-modal-|connection-modal-tabs/);
 });
 
+test("Sonner portals above dialog overlays without changing modal dismissal", () => {
+  const modalSource = read(
+    "frontend/src/components/connections/ConnectionModalShell.svelte",
+  );
+  const dialogSource = read(
+    "frontend/src/lib/components/ui/dialog/dialog-content.svelte",
+  );
+  const overlaySource = read(
+    "frontend/src/lib/components/ui/dialog/dialog-overlay.svelte",
+  );
+  const sonnerSource = read(
+    "frontend/src/lib/components/ui/sonner/sonner.svelte",
+  );
+
+  assert.match(sonnerSource, /import \{ Portal \} from "bits-ui"/);
+  assert.match(sonnerSource, /<Portal>[\s\S]*<Sonner[\s\S]*<\/Portal>/);
+  assert.match(
+    sonnerSource,
+    /<div class="pointer-events-none fixed inset-0 z-\[100\]">/,
+  );
+  assert.match(sonnerSource, /z-index: 100/);
+  assert.match(sonnerSource, /pointer-events: auto/);
+  assert.match(overlaySource, /isolate z-40/);
+  assert.match(dialogSource, /z-50/);
+  assert.doesNotMatch(modalSource, /interactOutsideBehavior="ignore"/);
+  assert.doesNotMatch(modalSource, /overlayProps=/);
+  assert.doesNotMatch(dialogSource, /overlayProps/);
+  assert.match(modalSource, /function keepOpenForToastInteraction\(event\)/);
+  assert.match(
+    modalSource,
+    /closest\("\[data-sonner-toaster\], \[data-sonner-toast\]"\)/,
+  );
+  assert.match(modalSource, /event\.preventDefault\(\)/);
+  assert.match(
+    modalSource,
+    /<Dialog\.Content[\s\S]*onInteractOutside=\{keepOpenForToastInteraction\}/,
+  );
+});
+
 test("connection workbench modal follows the demo wide two-pane design", () => {
   const shellSource = read(
     "frontend/src/components/connections/ConnectionModalShell.svelte",
@@ -533,6 +572,73 @@ test("connection test result shows sonner toast feedback", () => {
   assert.ok(runConnectionTestBody);
   assert.match(runConnectionTestBody, /showToast\(message,\s*"success"\)/);
   assert.match(runConnectionTestBody, /showToast\(error\.message,\s*"error"\)/);
+});
+
+test("saved connection profile detection reports its detected profile with toast", () => {
+  const source = read("frontend/src/modules/connectionsEditor.js");
+  const detectProfileBody = source.match(
+    /export async function detectSavedConnectionProfile[\s\S]*?^}/m,
+  )?.[0];
+
+  assert.ok(detectProfileBody);
+  assert.match(
+    detectProfileBody,
+    /const detectedProfile =[^;]*detectResult\?\.device_profile/,
+  );
+  assert.match(
+    detectProfileBody,
+    /const message =[\s\S]*savedConnAutodetectDetected[\s\S]*detectedProfile/,
+  );
+  assert.match(detectProfileBody, /showToast\(message,\s*"success"\)/);
+  assert.match(detectProfileBody, /showToast\(message,\s*"error"\)/);
+});
+
+test("saved connection editor displays detected profile left of its actions", () => {
+  const editorStateSource = read("frontend/src/modules/connectionsEditor.js");
+  const displaySource = read(
+    "frontend/src/modules/connectionTargetDisplayState.js",
+  );
+  const formSource = read(
+    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
+  );
+
+  assert.match(
+    editorStateSource,
+    /savedConnectionAutodetectState\.set\(\{\s*canApply,\s*detectedProfile,?\s*\}\)/,
+  );
+  assert.match(
+    displaySource,
+    /detectedProfileLabel:\s*tr\("savedConnAutodetectDetected"\)/,
+  );
+  assert.match(
+    displaySource,
+    /const detectedProfile =[\s\S]*autodetectState\?\.detectedProfile/,
+  );
+  assert.match(displaySource, /canApplyDetectedProfile,\s*detectedProfile,/);
+  assert.match(formSource, /from "\$lib\/components\/ui\/badge/);
+  assert.match(
+    formSource,
+    /editorDisplay\.detectedProfile[\s\S]*<Badge[\s\S]*editorDisplay\.detectedProfile[\s\S]*<LoadingButton[\s\S]*detectProfile/,
+  );
+});
+
+test("connection workbench tests the saved row selection instead of the applied target", () => {
+  const modalSource = read(
+    "frontend/src/components/connections/ConnectionModal.svelte",
+  );
+  const runtimeSource = read(
+    "frontend/src/modules/connectionTargetRuntimeState.js",
+  );
+
+  assert.match(
+    modalSource,
+    /onclick=\{\(\) => testConnection\(modalDisplay\.activeMode\)\}/,
+  );
+  assert.match(runtimeSource, /function connectionTestPayload\(mode/);
+  assert.match(
+    runtimeSource,
+    /mode === "saved"[\s\S]*const savedConnectionName = selectedSavedConnectionName\(\)[\s\S]*connection_name: savedConnectionName/,
+  );
 });
 
 test("saved connection editor saves renamed connections through original route name", () => {

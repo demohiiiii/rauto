@@ -394,6 +394,7 @@ mod tests {
             password: Some("secret-xyz".to_string()),
             password_ref: None,
             port: Some(22),
+            connect_timeout_secs: None,
             enable_password: None,
             enable_password_ref: None,
             enable_password_empty_enter: false,

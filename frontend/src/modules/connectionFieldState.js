@@ -100,6 +100,7 @@ const SAVED_CONNECTION_EDITOR_DRAFT_FIELDS = [
   ["name", "name"],
   ["host", "host"],
   ["port", "port"],
+  ["connect_timeout_secs", "connectTimeoutSecs"],
   ["username", "username"],
   ["password", "password"],
   ["enable_password", "enablePassword"],
@@ -110,6 +111,7 @@ const SAVED_CONNECTION_EDITOR_DRAFT_FIELDS = [
 const TEMPORARY_CONNECTION_DRAFT_FIELDS = [
   ["host", "host"],
   ["port", "port"],
+  ["connect_timeout_secs", "connectTimeoutSecs"],
   ["username", "username"],
   ["password", "password"],
   ["enable_password", "enablePassword"],
@@ -139,6 +141,7 @@ function connectionSelectOption(optionValue, labelKey) {
 
 function connectionDraftDefaults(overrides = {}) {
   return {
+    connectTimeoutSecs: "",
     deviceProfile: "",
     enabled: true,
     enablePassword: "",
@@ -183,6 +186,9 @@ export function connectionBasicFieldsPresentation({
   const linuxShellTitle = tr("linuxShellOptionDefault");
   const deviceProfileTitle = tr("deviceProfilePlaceholder");
   return {
+    connectTimeoutSecsInput: connectionInputDisplay(
+      "connectTimeoutSecsPlaceholder",
+    ),
     deviceProfileSelect: {
       ariaLabelText: deviceProfileTitle,
       deviceProfileOptionRows: [
@@ -217,6 +223,7 @@ export function connectionBasicFieldsPresentation({
     },
     usernameInput: connectionInputDisplay("usernamePlaceholder"),
     values: {
+      connectTimeoutSecs: displayString(fieldValues.connectTimeoutSecs),
       deviceProfile: displayString(fieldValues.deviceProfile),
       enablePassword: displayString(fieldValues.enablePassword),
       host: displayString(fieldValues.host),
@@ -290,6 +297,8 @@ export function connectionBasicFieldWiring(
         },
         fieldCfg.deviceProfileEffect || "",
       ),
+    onConnectTimeoutSecsInput: (fieldValue) =>
+      update({ connectTimeoutSecs: text(fieldValue) }),
     onEnablePasswordInput: (fieldValue) =>
       update({ enablePassword: text(fieldValue) }),
     onHostInput: (fieldValue) => update({ host: text(fieldValue) }),
@@ -302,6 +311,16 @@ export function connectionBasicFieldWiring(
       update({ sshSecurity: text(fieldValue) }),
     onUsernameInput: (fieldValue) => update({ username: text(fieldValue) }),
   };
+}
+
+export function connectionTimeoutSecsValue(fieldValue = "") {
+  const rawValue = displayString(fieldValue).trim();
+  if (!rawValue) return null;
+  const timeoutSecs = Number(rawValue);
+  if (!Number.isSafeInteger(timeoutSecs) || timeoutSecs <= 0) {
+    throw new Error(t("connectTimeoutSecsInvalid"));
+  }
+  return timeoutSecs;
 }
 
 export function connectionMetadataFieldsPresentation() {

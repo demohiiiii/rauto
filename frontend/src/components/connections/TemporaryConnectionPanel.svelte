@@ -27,6 +27,7 @@
   const {
     createTemporaryDraft,
     metadataFieldsDisplayStateStore,
+    onTemporaryConnectTimeoutSecsInput,
     onTemporaryDeviceProfileChange,
     onTemporaryEnablePasswordInput,
     onTemporaryHostInput,
@@ -112,6 +113,7 @@
         {active}
         basicFieldsDisplay={temporaryBasicFieldsDisplay}
         splitSections={true}
+        onConnectTimeoutSecsInput={onTemporaryConnectTimeoutSecsInput}
         onDeviceProfileChange={onTemporaryDeviceProfileChange}
         onEnablePasswordInput={onTemporaryEnablePasswordInput}
         onHostInput={onTemporaryHostInput}

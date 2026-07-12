@@ -65,6 +65,7 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
         default_mode.clone(),
         crate::to_record_level(args.record_level),
         conn.ssh_security,
+        conn.connect_timeout_secs,
     )
     .await?;
 
@@ -148,6 +149,7 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
         default_mode.clone(),
         crate::to_record_level(args.record_level),
         conn.ssh_security,
+        conn.connect_timeout_secs,
     )
     .await?;
 
@@ -269,6 +271,7 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         default_mode,
         crate::to_record_level(args.record_level),
         conn.ssh_security,
+        conn.connect_timeout_secs,
     )
     .await?;
 
@@ -505,6 +508,7 @@ async fn execute_resolved_show_target(
         default_mode,
         crate::to_record_level(args.record_level),
         target.conn.ssh_security,
+        target.conn.connect_timeout_secs,
     )
     .await?;
 

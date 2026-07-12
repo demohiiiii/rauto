@@ -41,11 +41,7 @@
     return `tx-block-command-${pathPrefix || "operation"}-${suffix}`;
   }
 
-  let dynParamCount = $derived(
-    commandDisplay.dynParamExtraRows.length +
-      Number(commandDisplay.dynParamEnablePasswordPresent) +
-      Number(commandDisplay.dynParamSudoPasswordPresent),
-  );
+  let dynParamCount = $derived(commandDisplay.dynParamExtraRows.length);
   let promptCount = $derived(commandDisplay.promptRows.length);
 </script>
 

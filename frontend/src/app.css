@@ -523,6 +523,20 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  @media (min-width: 64rem) {
+    body.dashboard-body {
+      height: 100dvh;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    body.dashboard-body > #app {
+      height: 100%;
+      overflow: hidden;
+    }
+  }
+
   body {
     @apply bg-background text-foreground;
   }

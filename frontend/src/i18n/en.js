@@ -109,6 +109,8 @@ export const i18nEn = {
   savedConnAutodetectCurrent: "Current profile",
   savedConnAutodetectMatched:
     "Detected profile already matches the current saved profile",
+  savedConnAutodetectNoResult:
+    "Profile detection completed without returning a profile",
   savedConnAutodetectReplaced: "Saved connection profile replaced",
   savedConnAutodetectMissing:
     "Run profile autodetect first, then choose whether to replace the saved profile.",
@@ -602,7 +604,6 @@ export const i18nEn = {
   fieldConnection: "Connection",
   fieldHost: "Host",
   fieldEnablePassword: "Enable Password",
-  fieldSudoPassword: "Sudo Password",
   fieldSshSecurity: "SSH Security",
   fieldLinuxShellFlavor: "Shell Flavor",
   connectionEnablePassword: "Enable Password",
@@ -1057,6 +1058,9 @@ export const i18nEn = {
   expand: "Expand",
   hostPlaceholder: "host",
   portPlaceholder: "port (default 22)",
+  connectTimeoutSecsPlaceholder: "connection timeout (default 60s)",
+  connectTimeoutSecsInvalid:
+    "connection timeout must be a positive whole number of seconds",
   usernamePlaceholder: "username",
   passwordPlaceholder: "password",
   enablePasswordPlaceholder: "enable password (optional)",

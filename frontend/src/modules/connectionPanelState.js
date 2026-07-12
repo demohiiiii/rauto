@@ -103,9 +103,9 @@ export function createConnectionModalWorkspace() {
     },
   );
 
-  async function testConnection() {
+  async function testConnection(mode = "temporary") {
     return connectionTestLoadingRunner.run("test", async () => {
-      const connectionTestRun = runConnectionTest(connectionTestState);
+      const connectionTestRun = runConnectionTest(connectionTestState, mode);
       connectionTestStateStore.set({ ...connectionTestState });
       await connectionTestRun;
       connectionTestStateStore.set({ ...connectionTestState });

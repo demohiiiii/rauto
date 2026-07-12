@@ -50,7 +50,7 @@
     "sticky top-0 z-30 flex min-h-16 w-full items-center border-b border-border bg-background/80 px-6 backdrop-blur-lg max-lg:px-3.5";
   const mainScrollClass =
     "min-h-0 p-5 md:p-8 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain";
-  const panelClass = "min-h-[calc(100dvh-6.5rem)] border-0 bg-transparent";
+  const panelClass = "border-0 bg-transparent";
   const topbarPrimaryClass =
     "flex min-w-0 flex-1 items-center gap-2 max-lg:overflow-x-auto max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden";
   const topbarActionsClass = "inline-flex flex-none items-center gap-3 px-2";

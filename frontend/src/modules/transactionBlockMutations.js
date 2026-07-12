@@ -10,15 +10,6 @@ const txPlainObject = plainObject;
 const txStringValue = stringValue;
 const txJsonValueText = jsonValueText;
 
-const TX_COMMAND_DYN_PARAM_ENABLE_PASSWORD_KEYS = Object.freeze([
-  "enable_password",
-  "EnablePassword",
-]);
-const TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS = Object.freeze([
-  "sudo_password",
-  "SudoPassword",
-]);
-
 function txBoolStringValue(value) {
   return value === "true" || value === true;
 }
@@ -428,71 +419,6 @@ export function txBlockRemoveCommandDynParam(command, key) {
   return {
     ...command,
     dynParams: next,
-    hasDynParams: true,
-  };
-}
-
-function txBlockCommandDynParamFieldAliases(field) {
-  if (field === "enablePassword") {
-    return TX_COMMAND_DYN_PARAM_ENABLE_PASSWORD_KEYS;
-  }
-  if (field === "sudoPassword") {
-    return TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS;
-  }
-  return [];
-}
-
-function txBlockCommandDynParamCanonicalKey(field) {
-  if (field === "enablePassword") {
-    return TX_COMMAND_DYN_PARAM_ENABLE_PASSWORD_KEYS[0];
-  }
-  if (field === "sudoPassword") {
-    return TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS[0];
-  }
-  return "";
-}
-
-export function txBlockUpdateCommandDynParamField(command = {}, field, value) {
-  const aliases = txBlockCommandDynParamFieldAliases(field);
-  const key = txBlockCommandDynParamCanonicalKey(field);
-  if (!key || aliases.length === 0) return command;
-  const dynParams = {
-    ...(txPlainObject(command.dynParams) ? command.dynParams : {}),
-  };
-  for (const alias of aliases) {
-    delete dynParams[alias];
-  }
-  const normalized = txBlockNullableTextValue(value);
-  if (normalized !== null) {
-    dynParams[key] = normalized;
-  }
-  return {
-    ...command,
-    dynParams,
-    hasDynParams: true,
-  };
-}
-
-export function txBlockSetCommandDynParamFieldPresence(
-  command = {},
-  field,
-  enabled,
-) {
-  const aliases = txBlockCommandDynParamFieldAliases(field);
-  const key = txBlockCommandDynParamCanonicalKey(field);
-  if (!key || aliases.length === 0) return command;
-  const dynParams = {
-    ...(txPlainObject(command.dynParams) ? command.dynParams : {}),
-  };
-  for (const alias of aliases) {
-    delete dynParams[alias];
-  }
-  if (enabled) {
-    dynParams[key] = txBlockCommandDynParamFieldValue(command, aliases);
-  }
-  return {
-    ...command,
-    dynParams,
     hasDynParams: true,
   };
 }

@@ -142,7 +142,11 @@ pub async fn execute_tx_workflow(
                 let (_sender, recorder) = MANAGER
                     .get_with_recording_level_and_context(
                         request,
-                        manager_execution_context_with_security(None, conn.ssh_security),
+                        manager_execution_context_with_security(
+                            None,
+                            conn.ssh_security,
+                            conn.connect_timeout_secs,
+                        ),
                         level,
                     )
                     .await?;
@@ -168,7 +172,11 @@ pub async fn execute_tx_workflow(
                     .execute_tx_workflow_with_context(
                         request,
                         workflow.clone(),
-                        manager_execution_context_with_security(None, conn.ssh_security),
+                        manager_execution_context_with_security(
+                            None,
+                            conn.ssh_security,
+                            conn.connect_timeout_secs,
+                        ),
                     )
                     .await;
                 let expected_entries = recorder.entries().map_err(ApiError::from)?.len();
@@ -213,7 +221,11 @@ pub async fn execute_tx_workflow(
                     .execute_tx_workflow_with_context(
                         request,
                         workflow.clone(),
-                        manager_execution_context_with_security(None, conn.ssh_security),
+                        manager_execution_context_with_security(
+                            None,
+                            conn.ssh_security,
+                            conn.connect_timeout_secs,
+                        ),
                     )
                     .await?;
                 (result, None)

@@ -141,7 +141,11 @@ pub(crate) async fn run_profile_command(
                 conn.port,
                 conn.password.clone(),
             );
-            let context = crate::manager_execution_context_with_security(None, conn.ssh_security);
+            let context = crate::manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            );
             let report = autodetect_with_builtin_and_templates_and_context(
                 request,
                 context,
@@ -307,6 +311,7 @@ pub(crate) async fn run_device_command(
                 handler,
                 default_mode,
                 conn.ssh_security,
+                conn.connect_timeout_secs,
             )
             .await?;
             crate::maybe_save_connection_profile(global_opts, &conn)?;

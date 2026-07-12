@@ -1,6 +1,5 @@
 import { currentLanguage, t, tr } from "../lib/i18n.js";
 import {
-  jsonValueText,
   nullableNumberValue,
   plainObject,
   stringValue,
@@ -16,7 +15,6 @@ import { txExtraStringFieldRows } from "./transactionMetadataFields.js";
 const txPlainObject = plainObject;
 const txStringValue = stringValue;
 const txNullableNumberValue = nullableNumberValue;
-const txJsonValueText = jsonValueText;
 
 export function txBlockValidationErrorText(errors = [], path = "") {
   const error = Array.isArray(errors)
@@ -63,19 +61,6 @@ export const TX_BLOCK_JSON_VALUE_TYPE_ROWS = Object.freeze([
   "boolean",
   "null",
   "json",
-]);
-
-const TX_COMMAND_DYN_PARAM_ENABLE_PASSWORD_KEYS = Object.freeze([
-  "enable_password",
-  "EnablePassword",
-]);
-const TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS = Object.freeze([
-  "sudo_password",
-  "SudoPassword",
-]);
-const TX_COMMAND_DYN_PARAM_RESERVED_KEYS = new Set([
-  ...TX_COMMAND_DYN_PARAM_ENABLE_PASSWORD_KEYS,
-  ...TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS,
 ]);
 
 const TX_BLOCK_COMMAND_FIELD_DEFS = Object.freeze([
@@ -203,29 +188,12 @@ function txBlockCommandModeOptionRows(
   ];
 }
 
-function txBlockCommandDynParamFieldValue(command = {}, aliases = []) {
-  const dynParams = txPlainObject(command.dynParams) ? command.dynParams : {};
-  for (const alias of aliases) {
-    if (Object.hasOwn(dynParams, alias)) {
-      return txJsonValueText(dynParams[alias]);
-    }
-  }
-  return "";
-}
-
-function txBlockCommandDynParamFieldPresent(command = {}, aliases = []) {
-  const dynParams = txPlainObject(command.dynParams) ? command.dynParams : {};
-  return aliases.some((alias) => Object.hasOwn(dynParams, alias));
-}
-
 function txBlockCommandDynParamExtraRows(command = {}) {
   const dynParams = txPlainObject(command.dynParams) ? command.dynParams : {};
-  return Object.entries(dynParams)
-    .filter(([key]) => !TX_COMMAND_DYN_PARAM_RESERVED_KEYS.has(key))
-    .map(([key, value]) => ({
-      keyText: String(key),
-      valueText: txStringValue(value),
-    }));
+  return Object.entries(dynParams).map(([key, value]) => ({
+    keyText: String(key),
+    valueText: txStringValue(value),
+  }));
 }
 
 function txBlockCommandPromptRows(command = {}) {
@@ -635,23 +603,7 @@ export function txBlockCommandEditorDisplay(
   pathPrefix = "",
 ) {
   return {
-    dynParamEnablePasswordPresent: txBlockCommandDynParamFieldPresent(
-      command,
-      TX_COMMAND_DYN_PARAM_ENABLE_PASSWORD_KEYS,
-    ),
-    dynParamEnablePasswordValue: txBlockCommandDynParamFieldValue(
-      command,
-      TX_COMMAND_DYN_PARAM_ENABLE_PASSWORD_KEYS,
-    ),
     dynParamExtraRows: txBlockCommandDynParamExtraRows(command),
-    dynParamSudoPasswordPresent: txBlockCommandDynParamFieldPresent(
-      command,
-      TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS,
-    ),
-    dynParamSudoPasswordValue: txBlockCommandDynParamFieldValue(
-      command,
-      TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS,
-    ),
     fieldRows: txBlockCommandFieldsDisplay(
       command,
       commandModeState,
@@ -677,25 +629,10 @@ export function txBlockCommandDynParamsDisplay(
   const dynParamExtraRows = Array.isArray(commandDisplayValue.dynParamExtraRows)
     ? commandDisplayValue.dynParamExtraRows
     : [];
-  const dynParamEnablePasswordPresent =
-    !!commandDisplayValue.dynParamEnablePasswordPresent;
-  const dynParamSudoPasswordPresent =
-    !!commandDisplayValue.dynParamSudoPasswordPresent;
   return {
-    dynParamEnablePasswordPresent,
-    dynParamEnablePasswordValue: txStringValue(
-      commandDisplayValue.dynParamEnablePasswordValue,
-    ),
     dynParamExtraRows,
-    dynParamSudoPasswordPresent,
-    dynParamSudoPasswordValue: txStringValue(
-      commandDisplayValue.dynParamSudoPasswordValue,
-    ),
     dynParamsPresent:
-      !!commandValue.hasDynParams ||
-      dynParamEnablePasswordPresent ||
-      dynParamSudoPasswordPresent ||
-      dynParamExtraRows.length > 0,
+      !!commandValue.hasDynParams || dynParamExtraRows.length > 0,
   };
 }
 

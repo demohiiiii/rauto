@@ -37,10 +37,15 @@ pub(crate) fn manager_connection_request(
 pub(crate) fn manager_execution_context_with_security(
     sys: Option<String>,
     ssh_security: SshSecurityProfile,
+    connect_timeout_secs: Option<u64>,
 ) -> ExecutionContext {
-    ExecutionContext::new()
+    let context = ExecutionContext::new()
         .with_security_options(ssh_security.to_connection_security_options())
-        .with_sys(sys)
+        .with_sys(sys);
+    match connect_timeout_secs {
+        Some(timeout_secs) => context.with_connect_timeout_secs(timeout_secs),
+        None => context,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -50,6 +55,7 @@ pub(crate) struct EffectiveConnection {
     pub(crate) username: String,
     pub(crate) password: String,
     pub(crate) port: u16,
+    pub(crate) connect_timeout_secs: Option<u64>,
     pub(crate) enable_password: Option<String>,
     pub(crate) ssh_security: SshSecurityProfile,
     pub(crate) linux_shell_flavor: Option<LinuxShellFlavor>,
@@ -86,6 +92,9 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         .port
         .or_else(|| saved.as_ref().and_then(|s| s.port))
         .unwrap_or(22);
+    let connect_timeout_secs = saved
+        .as_ref()
+        .and_then(|connection| connection.connect_timeout_secs);
     let ssh_security = opts
         .ssh_security
         .or_else(|| saved.as_ref().and_then(|s| s.ssh_security))
@@ -122,6 +131,7 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         username,
         password,
         port,
+        connect_timeout_secs,
         enable_password,
         ssh_security,
         linux_shell_flavor,
@@ -170,7 +180,8 @@ pub(crate) async fn resolve_autodetect_connection(
         conn.port,
         conn.password.clone(),
     );
-    let context = manager_execution_context_with_security(None, conn.ssh_security);
+    let context =
+        manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);
     let report = autodetect_with_builtin_and_templates_and_context(
         request,
         context,
@@ -228,6 +239,7 @@ pub(crate) fn save_named_connection(name: &str, conn: &EffectiveConnection) -> R
         password: Some(conn.password.clone()),
         password_ref: None,
         port: Some(conn.port),
+        connect_timeout_secs: conn.connect_timeout_secs,
         enable_password: conn.enable_password.clone(),
         enable_password_ref: None,
         enable_password_empty_enter: conn.enable_password == Some(String::new()),
@@ -454,7 +466,9 @@ pub(crate) fn write_recording_text_if_requested(
 
 #[cfg(test)]
 mod tests {
-    use super::{EffectiveConnection, save_named_connection};
+    use super::{
+        EffectiveConnection, manager_execution_context_with_security, save_named_connection,
+    };
     use crate::config::connection_store;
     use crate::config::linux_shell::LinuxShellFlavor;
     use crate::config::ssh_security::SshSecurityProfile;
@@ -462,6 +476,7 @@ mod tests {
     use anyhow::Result;
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
+    use std::time::Duration;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static TEST_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -509,6 +524,17 @@ mod tests {
     }
 
     #[test]
+    fn manager_execution_context_applies_optional_connect_timeout() {
+        let default_context =
+            manager_execution_context_with_security(None, SshSecurityProfile::default(), None);
+        assert_eq!(default_context.connect_timeout, Duration::from_secs(60));
+
+        let custom_context =
+            manager_execution_context_with_security(None, SshSecurityProfile::default(), Some(23));
+        assert_eq!(custom_context.connect_timeout, Duration::from_secs(23));
+    }
+
+    #[test]
     fn save_named_connection_persists_passwords_by_default() -> Result<()> {
         let _env_guard = TestEnvGuard::new()?;
         db::init_sync()?;
@@ -521,6 +547,7 @@ mod tests {
                 username: "admin".to_string(),
                 password: "login-secret".to_string(),
                 port: 22,
+                connect_timeout_secs: Some(25),
                 enable_password: Some("enable-secret".to_string()),
                 ssh_security: SshSecurityProfile::LegacyCompatible,
                 linux_shell_flavor: Some(LinuxShellFlavor::Posix),
@@ -534,6 +561,7 @@ mod tests {
         let saved = connection_store::load_connection("cli_saved_secret")?;
         assert_eq!(saved.password.as_deref(), Some("login-secret"));
         assert_eq!(saved.enable_password.as_deref(), Some("enable-secret"));
+        assert_eq!(saved.connect_timeout_secs, Some(25));
         assert!(connection_store::has_saved_password(&saved));
         assert!(connection_store::has_saved_enable_password(&saved));
         Ok(())

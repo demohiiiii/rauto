@@ -40,6 +40,8 @@ pub struct ConnectionRequest {
     pub username: Option<String>,
     pub password: Option<String>,
     pub port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connect_timeout_secs: Option<u64>,
     pub enable_password: Option<String>,
     #[serde(default)]
     pub enable_password_empty_enter: Option<bool>,
@@ -84,6 +86,7 @@ pub struct SavedConnectionMeta {
     pub host: Option<String>,
     pub username: Option<String>,
     pub port: Option<u16>,
+    pub connect_timeout_secs: Option<u64>,
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,

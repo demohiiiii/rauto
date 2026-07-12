@@ -14,5 +14,14 @@ test("desktop dashboard keeps sidebar fixed and scrolls main content", () => {
   assert.match(bodySource, /lg:h-dvh lg:min-h-0/);
   assert.match(bodySource, /lg:overflow-y-auto/);
   assert.match(bodySource, /lg:overscroll-contain/);
+  assert.doesNotMatch(bodySource, /min-h-\[calc\(100dvh-6\.5rem\)\]/);
+  assert.match(
+    cssSource,
+    /@media \(min-width: 64rem\)[\s\S]*body\.dashboard-body[\s\S]*height: 100dvh[\s\S]*overflow: hidden/,
+  );
+  assert.match(
+    cssSource,
+    /body\.dashboard-body > #app[\s\S]*height: 100%[\s\S]*overflow: hidden/,
+  );
   assert.doesNotMatch(cssSource, /\.main-scroll\b/);
 });

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
+import { txBlockCommandEditorDisplay } from "../src/modules/transactionBlockDisplayState.js";
 import { collapsibleGroupBindings } from "../src/lib/events.js";
 import {
   createTxBlockTemplateStepEditorWorkspace,
@@ -124,6 +125,44 @@ test("nested operation editors are unframed and use repeated row separators", ()
       ).match(/variant="section"/g) || []
     ).length,
     4,
+  );
+});
+
+test("transaction dynamic params use only the generic parameter editor", () => {
+  const editor = read(
+    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
+  );
+  const bindings = read("frontend/src/modules/transactionBlockBindingState.js");
+  const displayState = read(
+    "frontend/src/modules/transactionBlockDisplayState.js",
+  );
+  const mutations = read("frontend/src/modules/transactionBlockMutations.js");
+
+  assert.doesNotMatch(editor, /fieldEnablePassword|fieldSudoPassword/);
+  assert.doesNotMatch(editor, /specialFieldValueHandler/);
+  assert.doesNotMatch(bindings, /specialFieldValueHandler/);
+  assert.doesNotMatch(bindings, /setSpecialField/);
+  assert.doesNotMatch(displayState, /dynParamEnablePassword/);
+  assert.doesNotMatch(displayState, /dynParamSudoPassword/);
+  assert.doesNotMatch(displayState, /TX_COMMAND_DYN_PARAM_RESERVED_KEYS/);
+  assert.doesNotMatch(mutations, /TX_COMMAND_DYN_PARAM_ENABLE_PASSWORD_KEYS/);
+  assert.doesNotMatch(mutations, /TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS/);
+});
+
+test("legacy password dynamic params remain editable as generic rows", () => {
+  const display = txBlockCommandEditorDisplay(
+    {
+      dynParams: {
+        EnablePassword: "enable-secret",
+        SudoPassword: "legacy-sudo-secret",
+      },
+    },
+    {},
+  );
+
+  assert.deepEqual(
+    display.dynParamExtraRows.map((row) => row.keyText),
+    ["EnablePassword", "SudoPassword"],
   );
 });
 

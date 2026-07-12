@@ -408,6 +408,7 @@ mod tests {
         SavedConnection {
             host: Some(host.to_string()),
             port: Some(22),
+            connect_timeout_secs: None,
             username: Some("ops".into()),
             device_profile: Some("linux".into()),
             enabled: true,

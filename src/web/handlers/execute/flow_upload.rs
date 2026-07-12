@@ -85,6 +85,7 @@ pub async fn execute_command_flow(
             profile_default_mode.clone(),
             level,
             conn.ssh_security,
+            conn.connect_timeout_secs,
         )
         .await?
     } else {
@@ -97,6 +98,7 @@ pub async fn execute_command_flow(
             handler,
             profile_default_mode.clone(),
             conn.ssh_security,
+            conn.connect_timeout_secs,
         )
         .await?
     };
@@ -231,7 +233,8 @@ pub async fn execute_upload(
         conn.enable_password.clone(),
         handler,
     );
-    let context = manager_execution_context_with_security(None, conn.ssh_security);
+    let context =
+        manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);
 
     let recording_jsonl = if let Some(level) = to_record_level(record_level) {
         let (_sender, recorder) = MANAGER

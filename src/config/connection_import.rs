@@ -50,6 +50,7 @@ enum ColumnKey {
     Username,
     Password,
     Port,
+    ConnectTimeoutSecs,
     EnablePassword,
     SshSecurity,
     LinuxShellFlavor,
@@ -153,6 +154,9 @@ fn merge_with_existing(
         port: incoming
             .port
             .or_else(|| existing.and_then(|item| item.port)),
+        connect_timeout_secs: incoming
+            .connect_timeout_secs
+            .or_else(|| existing.and_then(|item| item.connect_timeout_secs)),
         enable_password: incoming.enable_password,
         enable_password_ref: if incoming_enable_password.is_some() {
             None
@@ -220,6 +224,39 @@ mod tests {
     }
 
     #[test]
+    fn connection_timeout_header_and_value_are_parsed() {
+        let mapping =
+            build_header_mapping(&["host".to_string(), "connect_timeout_secs".to_string()])
+                .expect("headers should be recognized");
+        assert_eq!(mapping.get(&1), Some(&ColumnKey::ConnectTimeoutSecs));
+
+        let row = parse_row(
+            2,
+            &mapping,
+            &["10.0.0.2".to_string(), "45".to_string()],
+            &mut HashSet::new(),
+        )
+        .expect("row parses")
+        .expect("row exists");
+        assert_eq!(row.connection.connect_timeout_secs, Some(45));
+    }
+
+    #[test]
+    fn zero_connection_timeout_is_rejected() {
+        let mapping =
+            build_header_mapping(&["host".to_string(), "connect_timeout_secs".to_string()])
+                .expect("headers should be recognized");
+        let error = parse_row(
+            2,
+            &mapping,
+            &["10.0.0.3".to_string(), "0".to_string()],
+            &mut HashSet::new(),
+        )
+        .expect_err("zero timeout should be rejected");
+        assert!(error.to_string().contains("invalid connect_timeout_secs"));
+    }
+
+    #[test]
     fn host_can_derive_safe_connection_name() {
         assert_eq!(
             derive_connection_name("192.0.2.10").expect("derived name"),
@@ -235,6 +272,7 @@ mod tests {
             password: None,
             password_ref: Some("enc:v1:AAAA".to_string()),
             port: Some(22),
+            connect_timeout_secs: Some(30),
             enable_password: None,
             enable_password_ref: Some("enc:v1:BBBB".to_string()),
             enable_password_empty_enter: false,
@@ -255,6 +293,7 @@ mod tests {
                 password: None,
                 password_ref: None,
                 port: None,
+                connect_timeout_secs: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,

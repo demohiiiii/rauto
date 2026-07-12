@@ -20,6 +20,7 @@ import {
   CONNECTION_PICKER,
   CONNECTION_VARS,
   connectionBasicFieldWiring,
+  connectionTimeoutSecsValue,
   getConnectionGroupValues,
   getConnectionLabelValues,
   getConnectionVarsValue,
@@ -65,6 +66,7 @@ export function createConnectionTestState() {
 }
 
 let temporaryConnectionFormState = {
+  connect_timeout_secs: "",
   device_profile: "autodetect",
   enabled: true,
   enable_password: "",
@@ -82,6 +84,7 @@ export const temporaryConnectionFormStateStore = writable({
 
 function temporaryConnectionFormStateFromDraft(draft = {}) {
   return {
+    connect_timeout_secs: draft.connectTimeoutSecs,
     device_profile: draft.deviceProfile || "autodetect",
     enabled: draft.enabled,
     enable_password: draft.enablePassword,
@@ -135,6 +138,7 @@ export function updateTemporaryConnectionDraftEnabled(
 function mergeConnectionFormState(current = {}, formVals = {}, mergeCfg = {}) {
   const next = { ...current };
   [
+    "connect_timeout_secs",
     "device_profile",
     "enable_password",
     "host",
@@ -577,6 +581,9 @@ export function connectionPayload() {
     connection_name: selectedSavedConnectionName() || null,
     host: safeString(temporaryConnectionFormState.host || "").trim() || null,
     port: Number.isFinite(parsedPort) ? parsedPort : 22,
+    connect_timeout_secs: connectionTimeoutSecsValue(
+      temporaryConnectionFormState.connect_timeout_secs,
+    ),
     username:
       safeString(temporaryConnectionFormState.username || "").trim() || null,
     password: temporaryConnectionFormState.password || null,
@@ -598,8 +605,19 @@ export function connectionPayload() {
   };
 }
 
-async function testCurrentConnectionTarget() {
-  const testResult = await testConnection(connectionPayload());
+function connectionTestPayload(mode = "temporary") {
+  if (mode === "saved") {
+    const savedConnectionName = selectedSavedConnectionName();
+    if (!savedConnectionName) {
+      throw new Error(t("connectionNameRequired"));
+    }
+    return { connection_name: savedConnectionName };
+  }
+  return connectionPayload();
+}
+
+async function testCurrentConnectionTarget(connection = connectionPayload()) {
+  const testResult = await testConnection(connection);
   return `${t("connectionOk")}: ${testResult.username}@${testResult.host}:${testResult.port} (${testResult.device_profile}, ${displayString(testResult.ssh_security)}, ${displayString(testResult.linux_shell_flavor || "-")})`;
 }
 
@@ -607,10 +625,15 @@ export function setConnectionTestLoadingKeys(connectionTest = {}, keys = []) {
   connectionTest.loading = Array.isArray(keys) && keys.includes("test");
 }
 
-export async function runConnectionTest(connectionTest = {}) {
+export async function runConnectionTest(
+  connectionTest = {},
+  mode = "temporary",
+) {
   connectionTest.status = { message: t("running"), tone: "running" };
   try {
-    const message = await testCurrentConnectionTarget();
+    const message = await testCurrentConnectionTarget(
+      connectionTestPayload(mode),
+    );
     connectionTest.status = {
       message,
       tone: "success",

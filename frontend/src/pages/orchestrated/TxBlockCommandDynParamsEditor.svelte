@@ -22,37 +22,6 @@
 
 <div class="grid gap-3">
   <div class="grid gap-3">
-    <div class="grid gap-3 md:grid-cols-2">
-      <label class="flex flex-col gap-2">
-        <div class="mb-1 flex items-center gap-3">
-          <span class="text-sm font-medium text-foreground">
-            {t("fieldEnablePassword")}
-          </span>
-        </div>
-        <PlainInputField
-          type="password"
-          value={dynParamsDisplay.dynParamEnablePasswordValue}
-          onInput={dynParamActionHandlers.specialFieldValueHandler(
-            "enablePassword",
-          )}
-        />
-      </label>
-      <label class="flex flex-col gap-2">
-        <div class="mb-1 flex items-center gap-3">
-          <span class="text-sm font-medium text-foreground">
-            {t("fieldSudoPassword")}
-          </span>
-        </div>
-        <PlainInputField
-          type="password"
-          value={dynParamsDisplay.dynParamSudoPasswordValue}
-          onInput={dynParamActionHandlers.specialFieldValueHandler(
-            "sudoPassword",
-          )}
-        />
-      </label>
-    </div>
-
     <div class="flex flex-wrap items-center justify-between gap-3">
       <span>{t("txBlockFormDynParamsExtra")}</span>
       <Button

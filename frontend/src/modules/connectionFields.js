@@ -4,6 +4,7 @@ export {
   CONNECTION_VARS,
   connectionBasicFieldWiring,
   connectionBasicFieldsPresentation,
+  connectionTimeoutSecsValue,
   connectionMetadataFieldsPresentation,
   connectionPickerState,
   connectionPickerValues,

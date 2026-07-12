@@ -183,6 +183,9 @@ function normalizeOptionalHandler(handler) {
 
 function basicFieldsWorkspaceInputState(inputState = {}) {
   return {
+    onConnectTimeoutSecsInput: normalizeOptionalHandler(
+      inputState.onConnectTimeoutSecsInput,
+    ),
     onDeviceProfileChange: normalizeOptionalHandler(
       inputState.onDeviceProfileChange,
     ),
@@ -208,6 +211,9 @@ export function createConnectionBasicFieldsWorkspace(initialInputState = {}) {
   );
 
   return {
+    connectTimeoutSecsInputHandler() {
+      return actionHandlers.connectTimeoutSecsInputHandler();
+    },
     deviceProfileChangeHandler() {
       return actionHandlers.deviceProfileChangeHandler();
     },
@@ -361,6 +367,7 @@ export function createHistoryDrawerContentWorkspace(initialInputState = {}) {
 }
 
 function connectionBasicFieldInputHandlers({
+  onConnectTimeoutSecsInput = null,
   onDeviceProfileChange = null,
   onEnablePasswordInput = null,
   onHostInput = null,
@@ -371,6 +378,9 @@ function connectionBasicFieldInputHandlers({
   onUsernameInput = null,
 } = {}) {
   return {
+    connectTimeoutSecsInputHandler() {
+      return callbackHandler(onConnectTimeoutSecsInput);
+    },
     deviceProfileChangeHandler() {
       return callbackHandler(onDeviceProfileChange);
     },
@@ -401,6 +411,8 @@ function connectionBasicFieldInputHandlers({
 function connectionBasicFieldActionHandlers(options = {}) {
   const inputHandlers = connectionBasicFieldInputHandlers(options);
   return {
+    connectTimeoutSecsInputHandler:
+      inputHandlers.connectTimeoutSecsInputHandler,
     deviceProfileChangeHandler: inputHandlers.deviceProfileChangeHandler,
     enablePasswordInputHandler: inputHandlers.enablePasswordInputHandler,
     hostInputHandler: inputHandlers.hostInputHandler,

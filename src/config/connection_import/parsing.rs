@@ -129,6 +129,7 @@ pub(super) fn parse_row(
     let mut username = None;
     let mut password = None;
     let mut port = None;
+    let mut connect_timeout_secs = None;
     let mut enable_password = None;
     let mut ssh_security = None;
     let mut linux_shell_flavor = None;
@@ -148,6 +149,14 @@ pub(super) fn parse_row(
             ColumnKey::Port => {
                 port = parse_port(raw)
                     .with_context(|| format!("row {} has invalid port '{}'", row_number, raw))?
+            }
+            ColumnKey::ConnectTimeoutSecs => {
+                connect_timeout_secs = parse_connect_timeout_secs(raw).with_context(|| {
+                    format!(
+                        "row {} has invalid connect_timeout_secs '{}'",
+                        row_number, raw
+                    )
+                })?
             }
             ColumnKey::EnablePassword => enable_password = normalize_secret(raw),
             ColumnKey::SshSecurity => {
@@ -197,6 +206,7 @@ pub(super) fn parse_row(
             password,
             password_ref: None,
             port,
+            connect_timeout_secs,
             enable_password,
             enable_password_ref: None,
             enable_password_empty_enter: false,
@@ -242,6 +252,12 @@ fn map_header(header: &str) -> Option<ColumnKey> {
         }
         "password" | "pass" | "passwd" | "密码" | "登录密码" => Some(ColumnKey::Password),
         "port" | "端口" => Some(ColumnKey::Port),
+        "connecttimeoutsecs"
+        | "connectiontimeoutsecs"
+        | "connecttimeout"
+        | "connectiontimeout"
+        | "连接超时"
+        | "连接超时秒" => Some(ColumnKey::ConnectTimeoutSecs),
         "enablepassword" | "enablepass" | "enablepasswd" | "privilegepassword"
         | "privilegedpassword" | "特权密码" | "enable密码" => Some(ColumnKey::EnablePassword),
         "sshsecurity" | "security" | "securityprofile" | "ssh安全" | "ssh安全级别" | "安全级别" => {
@@ -297,6 +313,21 @@ fn parse_port(raw: &str) -> Result<Option<u16>> {
         return Ok(None);
     }
     let parsed = trimmed.parse::<u16>()?;
+    Ok(Some(parsed))
+}
+
+fn parse_connect_timeout_secs(raw: &str) -> Result<Option<u64>> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    let parsed = trimmed.parse::<u64>()?;
+    if parsed == 0 || parsed > i64::MAX as u64 {
+        return Err(anyhow!(
+            "connection timeout must be between 1 and {} seconds",
+            i64::MAX
+        ));
+    }
     Ok(Some(parsed))
 }
 

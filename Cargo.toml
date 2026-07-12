@@ -26,7 +26,7 @@ include = [
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }
 minijinja = { version = "2.15", features = ["loader", "json"] }
-rneter = "0.4.6"
+rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "3d81f6b668be451ceab57c042228db42c9d78528" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 futures-util = "0.3"

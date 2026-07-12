@@ -40,7 +40,6 @@ import {
   txBlockRemoveFlowStep,
   txBlockRemoveStep,
   txBlockRenameCommandDynParam,
-  txBlockSetCommandDynParamFieldPresence,
   txBlockSetCommandInteractionPresence,
   txBlockSetCommandInteractionPromptsPresence,
   txBlockSetCommandPromptFieldPresence,
@@ -54,7 +53,6 @@ import {
   txBlockSetStepRollbackEnabled,
   txBlockSetWholeResourceTriggerPresence,
   txBlockUpdateCommandDynParam,
-  txBlockUpdateCommandDynParamField,
   txBlockUpdateCommandPrompt,
   txBlockUpdateFlowStep,
   txCommandPromptExtraSource,
@@ -353,18 +351,6 @@ export function txBlockCommandDynParamsBindings(command, onChange) {
         txBlockUpdateCommandDynParam(command, key, value),
       );
     },
-    setSpecialFieldPresence(field, enabled) {
-      txBlockApplyChange(
-        onChange,
-        txBlockSetCommandDynParamFieldPresence(command, field, enabled),
-      );
-    },
-    setSpecialFieldValue(field, value) {
-      txBlockApplyChange(
-        onChange,
-        txBlockUpdateCommandDynParamField(command, field, value),
-      );
-    },
   };
 }
 
@@ -391,16 +377,6 @@ export function txBlockCommandDynParamsEditorBindings(command, onChange) {
     },
     removeExtraParamHandler(paramKey) {
       return () => bindings.removeExtraParam(paramKey);
-    },
-    specialFieldPresenceHandler(fieldName) {
-      return formCheckedHandler((enabled) =>
-        bindings.setSpecialFieldPresence(fieldName, enabled),
-      );
-    },
-    specialFieldValueHandler(fieldName) {
-      return formValueHandler((fieldValue) =>
-        bindings.setSpecialFieldValue(fieldName, fieldValue),
-      );
     },
   };
 }

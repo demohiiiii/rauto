@@ -143,6 +143,7 @@ pub(crate) async fn run_command_flow(
         profile_default_mode.clone(),
         crate::to_record_level(args.record_level),
         conn.ssh_security,
+        conn.connect_timeout_secs,
     )
     .await?;
 
@@ -201,7 +202,11 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
         conn.enable_password.clone(),
         handler,
     );
-    let context = crate::manager_execution_context_with_security(None, conn.ssh_security);
+    let context = crate::manager_execution_context_with_security(
+        None,
+        conn.ssh_security,
+        conn.connect_timeout_secs,
+    );
 
     let (_sender, recorder) = MANAGER
         .get_with_recording_level_and_context(

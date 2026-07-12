@@ -38,7 +38,7 @@
     variant="outline"
     size="sm"
     loading={connectionTestState.loading}
-    onclick={testConnection}
+    onclick={() => testConnection(modalDisplay.activeMode)}
   >
     <PlugIcon data-icon="inline-start" aria-hidden="true" />
     <span>{modalDisplay.testButtonLabel}</span>

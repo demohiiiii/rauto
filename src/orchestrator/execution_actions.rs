@@ -119,7 +119,11 @@ pub(super) async fn execute_compensation_action(
     let (_sender, recorder) = MANAGER
         .get_with_recording_level_and_context(
             request,
-            manager_execution_context_with_security(None, conn.ssh_security),
+            manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            ),
             to_record_level(record_level),
         )
         .await?;
@@ -140,7 +144,11 @@ pub(super) async fn execute_compensation_action(
         .execute_tx_block_with_context(
             request,
             rollback_block,
-            manager_execution_context_with_security(None, conn.ssh_security),
+            manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            ),
         )
         .await?;
     let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);
@@ -257,7 +265,11 @@ async fn execute_tx_block_action(
     let (_sender, recorder) = MANAGER
         .get_with_recording_level_and_context(
             request,
-            manager_execution_context_with_security(None, conn.ssh_security),
+            manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            ),
             to_record_level(record_level),
         )
         .await?;
@@ -277,7 +289,11 @@ async fn execute_tx_block_action(
         .execute_tx_block_with_context(
             request,
             tx_block,
-            manager_execution_context_with_security(None, conn.ssh_security),
+            manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            ),
         )
         .await?;
     let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);
@@ -342,7 +358,11 @@ async fn execute_tx_workflow_action(
     let (_sender, recorder) = MANAGER
         .get_with_recording_level_and_context(
             request,
-            manager_execution_context_with_security(None, conn.ssh_security),
+            manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            ),
             to_record_level(record_level),
         )
         .await?;
@@ -362,7 +382,11 @@ async fn execute_tx_workflow_action(
         .execute_tx_workflow_with_context(
             request,
             workflow,
-            manager_execution_context_with_security(None, conn.ssh_security),
+            manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            ),
         )
         .await?;
     let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);
@@ -419,6 +443,7 @@ mod tests {
             username: "admin".to_string(),
             password: "secret".to_string(),
             port: 22,
+            connect_timeout_secs: None,
             enable_password: None,
             ssh_security: SshSecurityProfile::Balanced,
             linux_shell_flavor: None,

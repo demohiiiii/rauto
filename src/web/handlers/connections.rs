@@ -76,6 +76,7 @@ pub async fn test_connection(
         handler,
         template_loader::default_profile_mode(&conn.device_profile)?,
         conn.ssh_security,
+        conn.connect_timeout_secs,
     )
     .await?;
 
@@ -106,6 +107,7 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
                 host: data.host.clone(),
                 username: data.username.clone(),
                 port: data.port,
+                connect_timeout_secs: data.connect_timeout_secs,
                 ssh_security: data.ssh_security,
                 linux_shell_flavor: data.linux_shell_flavor,
                 device_profile: data.device_profile.clone(),
@@ -262,6 +264,18 @@ pub(super) fn upsert_connection_target_name(
     connection_store::safe_connection_name(requested)
 }
 
+pub(super) fn validate_persisted_connect_timeout(
+    connect_timeout_secs: Option<u64>,
+) -> Result<(), ApiError> {
+    if connect_timeout_secs.is_some_and(|value| value == 0 || value > i64::MAX as u64) {
+        return Err(ApiError::bad_request(format!(
+            "connect_timeout_secs must be between 1 and {}",
+            i64::MAX
+        )));
+    }
+    Ok(())
+}
+
 pub async fn upsert_connection(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -270,6 +284,7 @@ pub async fn upsert_connection(
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let c = req.connection;
+    validate_persisted_connect_timeout(c.connect_timeout_secs)?;
     let target_safe = upsert_connection_target_name(&safe, c.connection_name.as_deref())
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     if target_safe != safe && connection_store::load_connection_raw(&target_safe).is_ok() {
@@ -307,6 +322,7 @@ pub async fn upsert_connection(
         password: merged_saved_secret(persist_password, c.password, existing_password.as_ref()),
         password_ref: None,
         port: c.port,
+        connect_timeout_secs: c.connect_timeout_secs,
         enable_password,
         enable_password_ref: None,
         enable_password_empty_enter,

@@ -6,6 +6,7 @@ import {
   CONNECTION_PICKER,
   CONNECTION_VARS,
   connectionBasicFieldWiring,
+  connectionTimeoutSecsValue,
   getConnectionGroupValues,
   getConnectionLabelValues,
   getConnectionVarsValue,
@@ -16,6 +17,7 @@ import {
 import { writable } from "svelte/store";
 
 let savedConnectionEditorFormState = {
+  connect_timeout_secs: "",
   device_profile: "",
   enabled: true,
   enable_password: "",
@@ -57,6 +59,7 @@ export const savedConnectionEditorStatusState = writable({
 
 export const savedConnectionAutodetectState = writable({
   canApply: false,
+  detectedProfile: "",
 });
 
 export function configureConnectionsEditor(nextHooks = {}) {
@@ -103,6 +106,7 @@ function setSavedConnectionEditorStatus(
 
 function savedConnectionEditorFormStateFromDraft(draft = {}) {
   return {
+    connect_timeout_secs: draft.connectTimeoutSecs,
     device_profile: draft.deviceProfile,
     enabled: draft.enabled,
     enable_password: draft.enablePassword,
@@ -140,7 +144,22 @@ function applySavedConnectionEditorDraftChange(
   );
   if (autodetectEffect === "refresh") {
     updateSavedConnectionAutodetectUi();
-  } else if (autodetectEffect === "reset") {
+  } else if (
+    autodetectEffect === "reset" ||
+    Object.keys(patch).some((field) =>
+      [
+        "connectTimeoutSecs",
+        "enablePassword",
+        "host",
+        "linuxShellFlavor",
+        "name",
+        "password",
+        "port",
+        "sshSecurity",
+        "username",
+      ].includes(field),
+    )
+  ) {
     resetSavedConnectionAutodetectState();
   }
 }
@@ -194,7 +213,10 @@ function savedConnectionAutodetectCanApply() {
 
 function updateSavedConnectionAutodetectUi() {
   const canApply = savedConnectionAutodetectCanApply();
-  savedConnectionAutodetectState.set({ canApply });
+  const detectedProfile = safeString(
+    savedConnectionAutodetectResult?.device_profile || "",
+  ).trim();
+  savedConnectionAutodetectState.set({ canApply, detectedProfile });
   return canApply;
 }
 
@@ -210,6 +232,9 @@ function savedConnectionEditorPayload() {
       safeString(savedConnectionEditorFormState.name || "").trim() || null,
     host: safeString(savedConnectionEditorFormState.host || "").trim() || "",
     port: Number(rawPort || 22),
+    connect_timeout_secs: connectionTimeoutSecsValue(
+      savedConnectionEditorFormState.connect_timeout_secs,
+    ),
     username:
       safeString(savedConnectionEditorFormState.username || "").trim() || "",
     password: savedConnectionEditorFormState.password || null,
@@ -236,6 +261,7 @@ function applySavedConnectionEditorForm(savedConnectionName, connection = {}) {
     savedConnectionName || "",
   ).trim();
   setSavedConnectionEditorFormState({
+    connect_timeout_secs: safeString(connection.connect_timeout_secs || ""),
     device_profile: safeString(connection.device_profile || ""),
     enabled: connection.enabled !== false,
     enable_password: "",
@@ -271,6 +297,12 @@ export async function detectSavedConnectionProfile() {
     const payload = savedConnectionEditorPayload();
     payload.device_profile = "autodetect";
     const detectResult = await testConnection(payload);
+    const detectedProfile = safeString(
+      detectResult?.device_profile || "",
+    ).trim();
+    if (!detectedProfile) {
+      throw new Error(t("savedConnAutodetectNoResult"));
+    }
     setSavedConnectionAutodetectState({
       connection_name: name,
       ...detectResult,
@@ -278,20 +310,17 @@ export async function detectSavedConnectionProfile() {
     const currentProfile =
       safeString(savedConnectionEditorFormState.device_profile || "").trim() ||
       "autodetect";
-    if (detectResult.device_profile === currentProfile) {
-      setSavedConnectionEditorStatus(
-        `${t("savedConnAutodetectMatched")}: ${detectResult.device_profile}`,
-        "success",
-      );
-      return;
-    }
-    setSavedConnectionEditorStatus(
-      `${t("savedConnAutodetectDetected")}: ${detectResult.device_profile} (${t("savedConnAutodetectCurrent")}: ${currentProfile})`,
-      "info",
-    );
+    const message =
+      detectedProfile === currentProfile
+        ? `${t("savedConnAutodetectMatched")}: ${detectedProfile}`
+        : `${t("savedConnAutodetectDetected")}: ${detectedProfile} (${t("savedConnAutodetectCurrent")}: ${currentProfile})`;
+    setSavedConnectionEditorStatus(message, "success", { toast: false });
+    showToast(message, "success");
   } catch (error) {
     resetSavedConnectionAutodetectState();
-    setSavedConnectionEditorStatus(error.message, "error");
+    const message = error?.message || t("savedConnAutodetectNoResult");
+    setSavedConnectionEditorStatus(message, "error", { toast: false });
+    showToast(message, "error");
   }
 }
 

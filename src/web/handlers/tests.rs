@@ -1,4 +1,4 @@
-use super::connections::upsert_connection_target_name;
+use super::connections::{upsert_connection_target_name, validate_persisted_connect_timeout};
 use super::{
     TaskReportContext, build_json_template_context, builtin_command_flow_template_by_name,
     merged_saved_secret, parse_builtin_command_flow_template_token, require_managed_async_task,
@@ -23,6 +23,7 @@ fn saved_connection_detail_response_redacts_secrets() {
             password: Some("secret".to_string()),
             password_ref: None,
             port: Some(22),
+            connect_timeout_secs: Some(17),
             enable_password: Some("enable-secret".to_string()),
             enable_password_ref: None,
             enable_password_empty_enter: false,
@@ -42,6 +43,7 @@ fn saved_connection_detail_response_redacts_secrets() {
     assert_eq!(detail.connection.host.as_deref(), Some("192.0.2.10"));
     assert_eq!(detail.connection.username.as_deref(), Some("admin"));
     assert_eq!(detail.connection.port, Some(22));
+    assert_eq!(detail.connection.connect_timeout_secs, Some(17));
     assert_eq!(
         detail.connection.ssh_security,
         Some(SshSecurityProfile::Balanced)
@@ -73,6 +75,19 @@ fn upsert_connection_target_name_prefers_request_connection_name() {
         upsert_connection_target_name("edge-old", None).expect("safe name"),
         "edge-old"
     );
+}
+
+#[test]
+fn persisted_connection_timeout_accepts_blank_and_database_range() {
+    assert!(validate_persisted_connect_timeout(None).is_ok());
+    assert!(validate_persisted_connect_timeout(Some(1)).is_ok());
+    assert!(validate_persisted_connect_timeout(Some(i64::MAX as u64)).is_ok());
+}
+
+#[test]
+fn persisted_connection_timeout_rejects_zero_and_values_above_database_range() {
+    assert!(validate_persisted_connect_timeout(Some(0)).is_err());
+    assert!(validate_persisted_connect_timeout(Some(i64::MAX as u64 + 1)).is_err());
 }
 
 #[test]
@@ -133,6 +148,7 @@ fn json_template_context_supports_flat_lookup_with_runtime_precedence() {
         username: "admin".to_string(),
         password: "secret-92".to_string(),
         port: 22,
+        connect_timeout_secs: None,
         enable_password: None,
         ssh_security: SshSecurityProfile::Balanced,
         linux_shell_flavor: Some(LinuxShellFlavor::Fish),
@@ -168,6 +184,7 @@ fn tx_block_direct_input_supports_template_rendering_with_connection_context() {
         username: "admin".to_string(),
         password: "secret-92".to_string(),
         port: 22,
+        connect_timeout_secs: None,
         enable_password: None,
         ssh_security: SshSecurityProfile::Balanced,
         linux_shell_flavor: Some(LinuxShellFlavor::Posix),

@@ -49,7 +49,11 @@ pub(crate) async fn run_tx_workflow(
     let (_sender, recorder) = MANAGER
         .get_with_recording_level_and_context(
             request,
-            crate::manager_execution_context_with_security(None, conn.ssh_security),
+            crate::manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            ),
             crate::to_record_level(args.record_level),
         )
         .await?;
@@ -69,7 +73,11 @@ pub(crate) async fn run_tx_workflow(
         .execute_tx_workflow_with_context(
             request,
             workflow.clone(),
-            crate::manager_execution_context_with_security(None, conn.ssh_security),
+            crate::manager_execution_context_with_security(
+                None,
+                conn.ssh_security,
+                conn.connect_timeout_secs,
+            ),
         )
         .await?;
     let recording_jsonl = recorder.to_jsonl()?;

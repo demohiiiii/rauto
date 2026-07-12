@@ -84,6 +84,7 @@ pub async fn exec_command(
                     template_loader::default_profile_mode(&conn.device_profile)?,
                     level,
                     conn.ssh_security,
+                    conn.connect_timeout_secs,
                 )
                 .await?
             } else {
@@ -96,6 +97,7 @@ pub async fn exec_command(
                     handler,
                     template_loader::default_profile_mode(&conn.device_profile)?,
                     conn.ssh_security,
+                    conn.connect_timeout_secs,
                 )
                 .await?
             };
@@ -343,6 +345,7 @@ pub async fn execute_show(
                     template_loader::default_profile_mode(&conn.device_profile)?,
                     level,
                     conn.ssh_security,
+                    conn.connect_timeout_secs,
                 )
                 .await?
             } else {
@@ -355,6 +358,7 @@ pub async fn execute_show(
                     handler,
                     template_loader::default_profile_mode(&conn.device_profile)?,
                     conn.ssh_security,
+                    conn.connect_timeout_secs,
                 )
                 .await?
             };
@@ -771,6 +775,7 @@ async fn execute_batch_show_target_inner(
             template_loader::default_profile_mode(&target.conn.device_profile)?,
             level,
             target.conn.ssh_security,
+            target.conn.connect_timeout_secs,
         )
         .await?
     } else {
@@ -783,6 +788,7 @@ async fn execute_batch_show_target_inner(
             handler,
             template_loader::default_profile_mode(&target.conn.device_profile)?,
             target.conn.ssh_security,
+            target.conn.connect_timeout_secs,
         )
         .await?
     };
@@ -961,6 +967,7 @@ pub async fn execute_template(
                 template_loader::default_profile_mode(&conn.device_profile)?,
                 level,
                 conn.ssh_security,
+                conn.connect_timeout_secs,
             )
             .await?
         } else {
@@ -973,6 +980,7 @@ pub async fn execute_template(
                 handler,
                 template_loader::default_profile_mode(&conn.device_profile)?,
                 conn.ssh_security,
+                conn.connect_timeout_secs,
             )
             .await?
         };

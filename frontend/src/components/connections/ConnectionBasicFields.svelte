@@ -8,6 +8,7 @@
   let {
     active = true,
     basicFieldsDisplay,
+    onConnectTimeoutSecsInput,
     onDeviceProfileChange,
     onEnablePasswordInput,
     onHostInput,
@@ -22,6 +23,13 @@
   function handleDeviceProfileChange(value) {
     if (typeof onDeviceProfileChange === "function") {
       return onDeviceProfileChange(value);
+    }
+    return undefined;
+  }
+
+  function handleConnectTimeoutSecsInput(value) {
+    if (typeof onConnectTimeoutSecsInput === "function") {
+      return onConnectTimeoutSecsInput(value);
     }
     return undefined;
   }
@@ -77,6 +85,7 @@
 
   let connectionValues = $derived(basicFieldsDisplay.values);
   const connectionBasicFieldsWorkspace = createConnectionBasicFieldsWorkspace({
+    onConnectTimeoutSecsInput: handleConnectTimeoutSecsInput,
     onDeviceProfileChange: handleDeviceProfileChange,
     onEnablePasswordInput: handleEnablePasswordInput,
     onHostInput: handleHostInput,
@@ -87,6 +96,7 @@
     onUsernameInput: handleUsernameInput,
   });
   const {
+    connectTimeoutSecsInputHandler,
     deviceProfileChangeHandler,
     enablePasswordInputHandler,
     hostInputHandler,
@@ -154,6 +164,22 @@
             placeholderText={basicFieldsDisplay.portInput.placeholder}
             type="text"
             onValueInput={portInputHandler()}
+          />
+        </div>
+        <div class="grid gap-1.5">
+          {@render fieldLabel(
+            basicFieldsDisplay.connectTimeoutSecsInput.placeholder,
+          )}
+          <PlainInputField
+            value={connectionValues.connectTimeoutSecs}
+            aria-label={basicFieldsDisplay.connectTimeoutSecsInput
+              .ariaLabelText}
+            placeholderText={basicFieldsDisplay.connectTimeoutSecsInput
+              .placeholder}
+            type="number"
+            min="1"
+            step="1"
+            onValueInput={connectTimeoutSecsInputHandler()}
           />
         </div>
         <div class="grid gap-1.5">
@@ -267,6 +293,15 @@
       placeholderText={basicFieldsDisplay.usernameInput.placeholder}
       type="text"
       onValueInput={usernameInputHandler()}
+    />
+    <PlainInputField
+      value={connectionValues.connectTimeoutSecs}
+      aria-label={basicFieldsDisplay.connectTimeoutSecsInput.ariaLabelText}
+      placeholderText={basicFieldsDisplay.connectTimeoutSecsInput.placeholder}
+      type="number"
+      min="1"
+      step="1"
+      onValueInput={connectTimeoutSecsInputHandler()}
     />
     <PlainInputField
       value={connectionValues.password}

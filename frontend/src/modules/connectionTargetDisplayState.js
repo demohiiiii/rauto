@@ -141,6 +141,9 @@ export function savedConnectionEditorPresentation(
 ) {
   const status = connectionStatusPresentation(statusState);
   const canApplyDetectedProfile = !!autodetectState?.canApply;
+  const detectedProfile = safeString(
+    autodetectState?.detectedProfile || "",
+  ).trim();
   return {
     buttons: {
       applyDetectedProfile: {
@@ -155,6 +158,8 @@ export function savedConnectionEditorPresentation(
       save: { label: tr("savedConnSaveBtn"), loadingKey: "save" },
     },
     canApplyDetectedProfile,
+    detectedProfile,
+    detectedProfileLabel: tr("savedConnAutodetectDetected"),
     fields: {
       enabled: tr("inventoryFieldEnabled"),
       name: tr("inventoryFieldName"),

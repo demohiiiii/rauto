@@ -130,6 +130,7 @@ pub struct ResolvedConnection {
     pub username: String,
     pub password: String,
     pub port: u16,
+    pub connect_timeout_secs: Option<u64>,
     pub enable_password: Option<String>,
     pub ssh_security: SshSecurityProfile,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
@@ -148,6 +149,7 @@ pub fn merge_connection_options(
         username: None,
         password: None,
         port: None,
+        connect_timeout_secs: None,
         enable_password: None,
         enable_password_empty_enter: None,
         ssh_security: None,
@@ -213,7 +215,11 @@ pub async fn resolve_autodetect_connection(
         conn.port,
         conn.password.clone(),
     );
-    let context = crate::manager_execution_context_with_security(None, conn.ssh_security);
+    let context = crate::manager_execution_context_with_security(
+        None,
+        conn.ssh_security,
+        conn.connect_timeout_secs,
+    );
     let report = autodetect_with_builtin_and_templates_and_context(
         request,
         context,
@@ -254,6 +260,11 @@ fn merge_connection_sources(
     saved: Option<SavedConnection>,
     connection_name: Option<String>,
 ) -> Result<ResolvedConnection, ApiError> {
+    if incoming.connect_timeout_secs == Some(0) {
+        return Err(ApiError::bad_request(
+            "connect_timeout_secs must be a positive integer",
+        ));
+    }
     let saved = saved.as_ref();
     let incoming_vars = incoming.vars;
 
@@ -280,6 +291,9 @@ fn merge_connection_sources(
         .or_else(|| saved.and_then(|s| s.port))
         .or(defaults.port)
         .unwrap_or(22);
+    let connect_timeout_secs = incoming
+        .connect_timeout_secs
+        .or_else(|| saved.and_then(|s| s.connect_timeout_secs));
     let vars = if has_non_empty_json_object(&incoming_vars) {
         incoming_vars
     } else {
@@ -313,6 +327,7 @@ fn merge_connection_sources(
         username,
         password,
         port,
+        connect_timeout_secs,
         enable_password,
         ssh_security,
         linux_shell_flavor,
@@ -366,6 +381,7 @@ mod tests {
             username: None,
             password: None,
             port: None,
+            connect_timeout_secs: None,
             enable_password: Some("explicit-enable".to_string()),
             enable_password_empty_enter: None,
             ssh_security: Some(SshSecurityProfile::LegacyCompatible),
@@ -383,6 +399,7 @@ mod tests {
             password: Some("saved-pass".to_string()),
             password_ref: None,
             port: Some(2022),
+            connect_timeout_secs: Some(45),
             enable_password: Some("saved-enable".to_string()),
             enable_password_ref: None,
             enable_password_empty_enter: false,
@@ -405,6 +422,7 @@ mod tests {
         assert_eq!(resolved.username, "saved-user");
         assert_eq!(resolved.password, "saved-pass");
         assert_eq!(resolved.port, 2022);
+        assert_eq!(resolved.connect_timeout_secs, Some(45));
         assert_eq!(resolved.enable_password.as_deref(), Some("explicit-enable"));
         assert_eq!(resolved.ssh_security, SshSecurityProfile::LegacyCompatible);
         assert_eq!(resolved.device_profile, "saved-profile");

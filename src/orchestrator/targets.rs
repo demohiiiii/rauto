@@ -252,6 +252,9 @@ pub(crate) fn resolve_target_connection(
         .or_else(|| saved.as_ref().and_then(|s| s.port))
         .or(opts.port)
         .unwrap_or(22);
+    let connect_timeout_secs = saved
+        .as_ref()
+        .and_then(|connection| connection.connect_timeout_secs);
     let device_profile = target
         .device_profile
         .clone()
@@ -298,6 +301,7 @@ pub(crate) fn resolve_target_connection(
         username,
         password,
         port,
+        connect_timeout_secs,
         enable_password,
         ssh_security,
         linux_shell_flavor,

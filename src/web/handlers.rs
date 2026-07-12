@@ -159,6 +159,7 @@ fn saved_connection_detail_response(
             username: data.username.clone(),
             password: None,
             port: data.port,
+            connect_timeout_secs: data.connect_timeout_secs,
             enable_password: None,
             enable_password_empty_enter: Some(data.enable_password_empty_enter),
             ssh_security: data.ssh_security,
