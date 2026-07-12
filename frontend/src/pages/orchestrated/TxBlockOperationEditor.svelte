@@ -1,11 +1,9 @@
 <script>
-  import TerminalIcon from "@lucide/svelte/icons/terminal";
-  import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
+  import * as Tabs from "$lib/components/ui/tabs/index.js";
   import TxBlockCommandEditor from "./TxBlockCommandEditor.svelte";
   import TxBlockFlowEditor from "./TxBlockFlowEditor.svelte";
   import TxBlockTemplateEditor from "./TxBlockTemplateEditor.svelte";
   import { t } from "../../lib/i18n.js";
-  import TxFormSection from "./TxFormSection.svelte";
   import { createTxBlockOperationEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
 
   let {
@@ -14,6 +12,8 @@
     editorDisplay,
     commandMetadataFieldDefs = [],
     onChange,
+    validationErrors = [],
+    pathPrefix = "",
   } = $props();
   const txBlockOperationEditorWorkspace =
     createTxBlockOperationEditorWorkspace();
@@ -30,27 +30,37 @@
       operation,
       onChange,
       titleText: title,
+      validationErrors,
+      pathPrefix,
     });
   });
 </script>
 
-<div class="rounded-2xl border border-border bg-muted/30 p-4">
-  <TxFormSection
-    icon={TerminalIcon}
-    {title}
-    description={t("txBlockFormOperationHint")}
-  >
-    <PresenceFieldGrid
-      fieldRows={operationFieldRows}
-      hostClass="grid gap-3 md:grid-cols-2"
+<div class="grid gap-4">
+  <div class="grid gap-2">
+    <h3 class="text-sm font-semibold text-foreground">{title}</h3>
+    <Tabs.Root
+      value={operation.kind}
       onValueChange={operationActionHandlers.setKind}
-    />
-  </TxFormSection>
-  <div class="mt-4">
+      class="w-full"
+    >
+      <Tabs.List class="grid w-full grid-cols-3" aria-label={title}>
+        <Tabs.Trigger value="command">{t("txBlockFormCommand")}</Tabs.Trigger>
+        <Tabs.Trigger value="flow">{t("txBlockOperationKindFlow")}</Tabs.Trigger
+        >
+        <Tabs.Trigger value="template"
+          >{t("txBlockOperationKindTemplate")}</Tabs.Trigger
+        >
+      </Tabs.List>
+    </Tabs.Root>
+  </div>
+  <div>
     {#if operation.kind === "flow"}
       <TxBlockFlowEditor
         {operation}
         {onChange}
+        {validationErrors}
+        pathPrefix={`${pathPrefix}.flow`}
         booleanRows={editorDisplay.booleanRows}
         jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
       />
@@ -58,6 +68,8 @@
       <TxBlockTemplateEditor
         {operation}
         {onChange}
+        {validationErrors}
+        pathPrefix={`${pathPrefix}.template`}
         booleanRows={editorDisplay.booleanRows}
         jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
         templateVarTypeRows={editorDisplay.templateVarTypeRows}
@@ -67,6 +79,8 @@
         command={operation.command}
         metadataFieldDefs={commandMetadataFieldDefs}
         onChange={operationActionHandlers.setCommand}
+        {validationErrors}
+        pathPrefix={`${pathPrefix}.command`}
         jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
       />
     {/if}

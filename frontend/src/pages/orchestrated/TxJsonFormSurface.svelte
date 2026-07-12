@@ -1,8 +1,11 @@
 <script>
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import JsonTextEditor from "../../components/fragments/JsonTextEditor.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
   import { txBlockEditorViewTabs } from "../../config/dashboardModes.js";
+  import { callIfFunction } from "../../lib/events.js";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import { TX_EDITOR } from "../../modules/transactionPanelState.js";
   import TxJsonEditor from "./TxJsonEditor.svelte";
 
@@ -16,55 +19,108 @@
     editorTheme = "",
     formContent,
     formError = "",
+    formErrorDetail = null,
     hostClass = "tx-json-editor",
     jsonHintText = "",
     onEditorInput,
     onInlineEditorChange,
     onEditorViewSelect,
     placeholder = "",
+    syncStatus = "synced",
+    syncStatusText = "",
+    syncStatusTone = "primary",
   } = $props();
 
+  let editorHost = $state();
+  let currentLanguage = $derived($currentLanguageState);
   let editorPlaceholder = $derived(placeholder);
   let editorAriaLabel = $derived(placeholder || editorTitle);
   let showInlineEditor = $derived(editorKind === "inline");
+  let syncBadgeVariant = $derived(
+    syncStatusTone === "warning"
+      ? "destructive"
+      : syncStatusTone === "muted"
+        ? "secondary"
+        : "default",
+  );
+  let formErrorLocation = $derived.by(() => {
+    currentLanguage;
+    if (formErrorDetail?.line == null || formErrorDetail?.column == null) {
+      return "";
+    }
+    return t("txEditorErrorLocation")
+      .replace("{line}", String(formErrorDetail.line))
+      .replace("{column}", String(formErrorDetail.column));
+  });
+
+  function selectEditorView(nextView) {
+    const selected = callIfFunction(onEditorViewSelect, nextView);
+    if (selected === false) {
+      requestAnimationFrame(() => {
+        editorHost
+          ?.querySelector('.cm-content, [contenteditable="true"], textarea')
+          ?.focus();
+      });
+    }
+    return selected;
+  }
 </script>
 
 <div class="grid gap-2">
-  <TabList
-    tabItems={txBlockEditorViewTabs}
-    activeValue={editorDisplayMode}
-    aria-label={editorTitle || placeholder}
-    onSelect={onEditorViewSelect}
-  />
+  <div class="flex min-w-0 flex-wrap items-center gap-2">
+    <TabList
+      tabItems={txBlockEditorViewTabs}
+      activeValue={editorDisplayMode}
+      aria-label={editorTitle || placeholder}
+      onSelect={selectEditorView}
+    />
+    {#if syncStatusText}
+      <Badge
+        role="status"
+        aria-live="polite"
+        variant={syncBadgeVariant}
+        data-sync-status={syncStatus}>{syncStatusText}</Badge
+      >
+    {/if}
+  </div>
   {#if formError}
-    <StatusCard message={formError} tone="warning" variant="alert" />
+    <StatusCard message={formError} tone="warning" variant="alert">
+      <div class="grid gap-1">
+        <span class="break-all whitespace-pre-wrap">{formError}</span>
+        {#if formErrorLocation}
+          <span class="text-xs">{formErrorLocation}</span>
+        {/if}
+      </div>
+    </StatusCard>
   {/if}
   {#if editorDisplayMode === "form"}
     {@render formContent()}
   {:else}
-    {#if jsonHintText}
-      <div class="text-xs text-slate-500">{jsonHintText}</div>
-    {/if}
-    {#if showInlineEditor}
-      <JsonTextEditor
-        {active}
-        class={hostClass}
-        aria-label={editorAriaLabel}
-        {placeholder}
-        theme={editorTheme}
-        value={editorValue}
-        onChange={onInlineEditorChange}
-      />
-    {:else}
-      <TxJsonEditor
-        {active}
-        {editorKey}
-        host-class={hostClass}
-        placeholder={editorPlaceholder}
-        aria-label={editorAriaLabel}
-        value={editorValue}
-        onInput={onEditorInput}
-      />
-    {/if}
+    <div bind:this={editorHost} class="grid gap-2">
+      {#if jsonHintText}
+        <div class="text-xs text-slate-500">{jsonHintText}</div>
+      {/if}
+      {#if showInlineEditor}
+        <JsonTextEditor
+          {active}
+          class={hostClass}
+          aria-label={editorAriaLabel}
+          {placeholder}
+          theme={editorTheme}
+          value={editorValue}
+          onChange={onInlineEditorChange}
+        />
+      {:else}
+        <TxJsonEditor
+          {active}
+          {editorKey}
+          host-class={hostClass}
+          placeholder={editorPlaceholder}
+          aria-label={editorAriaLabel}
+          value={editorValue}
+          onInput={onEditorInput}
+        />
+      {/if}
+    </div>
   {/if}
 </div>

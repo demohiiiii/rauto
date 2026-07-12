@@ -124,14 +124,69 @@ function createOrchestrationEditorPanelActionWorkspace(
   editorWorkspace,
   dependencies = {},
 ) {
+  let editorInputVersion = 0;
+  let externalActionVersion = 0;
+  let internalEditorInputDepth = 0;
+  let ownedEditorActionContext = null;
+  let ownedEditorInputDepth = 0;
+
+  function beginExternalAction() {
+    const requestVersion = externalActionVersion + 1;
+    externalActionVersion = requestVersion;
+    const startInputVersion = editorInputVersion;
+    let synchronizedByOwnedNotification = false;
+    const actionContext = {
+      didSynchronizeEditor: () => synchronizedByOwnedNotification,
+      isCurrent: () =>
+        requestVersion === externalActionVersion &&
+        startInputVersion === editorInputVersion,
+      recordOwnedEditorSynchronization() {
+        synchronizedByOwnedNotification = true;
+      },
+      runOwnedEditorMutation(operation) {
+        const previousActionContext = ownedEditorActionContext;
+        ownedEditorActionContext = actionContext;
+        ownedEditorInputDepth += 1;
+        try {
+          return typeof operation === "function" ? operation() : undefined;
+        } finally {
+          ownedEditorInputDepth -= 1;
+          ownedEditorActionContext = previousActionContext;
+        }
+      },
+    };
+    return actionContext;
+  }
+
   async function createJsonDraft() {
-    const nextModel = editorWorkspace.resetToDraft({ notify: true });
+    const actionContext = beginExternalAction();
+    let resetResult;
+    internalEditorInputDepth += 1;
+    try {
+      resetResult = editorWorkspace.resetToDraft({ notify: true });
+    } finally {
+      internalEditorInputDepth -= 1;
+    }
+    const nextModel = resetResult.formModel;
     const result = await callOptionalOrchestrationDependency(
       dependencies,
       "onCreateDraft",
+      actionContext,
     );
-    editorWorkspace.refreshFromFormModel(nextModel);
+    if (actionContext.isCurrent()) {
+      editorWorkspace.refreshFromFormModel(nextModel);
+    }
     return result;
+  }
+
+  function changeFormModel(nextModel, options = {}) {
+    editorInputVersion += 1;
+    internalEditorInputDepth += 1;
+    try {
+      editorWorkspace.changeFormModel(nextModel, options);
+    } finally {
+      internalEditorInputDepth -= 1;
+    }
   }
 
   function handleEditorJsonInput(jsonText = "") {
@@ -140,20 +195,37 @@ function createOrchestrationEditorPanelActionWorkspace(
       "onEditorInput",
       jsonText,
     );
-    editorWorkspace.handleJsonInput(jsonText);
+    const notificationIsActionOwned =
+      internalEditorInputDepth > 0 || ownedEditorInputDepth > 0;
+    const notificationMatchesCanonical =
+      (typeof jsonText === "string" ? jsonText : String(jsonText || "")) ===
+      getStore(editorWorkspace.jsonTextStateStore);
+    if (!(notificationIsActionOwned && notificationMatchesCanonical)) {
+      editorWorkspace.handleJsonInput(jsonText);
+    }
+    if (ownedEditorInputDepth > 0 && ownedEditorActionContext) {
+      ownedEditorActionContext.recordOwnedEditorSynchronization();
+    } else if (internalEditorInputDepth === 0) {
+      editorInputVersion += 1;
+    }
   }
 
   async function importFile(file) {
+    const actionContext = beginExternalAction();
     const result = await callOptionalOrchestrationDependency(
       dependencies,
       "onImportFile",
       file,
+      actionContext,
     );
-    editorWorkspace.refreshFromFormModel();
+    if (actionContext.isCurrent() && !actionContext.didSynchronizeEditor()) {
+      editorWorkspace.refreshFromFormModel();
+    }
     return result;
   }
 
   return {
+    changeFormModel,
     createJsonDraft,
     handleEditorJsonInput,
     importFile,
@@ -197,6 +269,7 @@ export function createOrchestrationEditorPanelWorkspace(inputState = {}) {
       }).visualDisplay,
   );
   let initialized = false;
+  let editorInputRevision = 0;
   let lastEditorSyncVersion = 0;
 
   function currentFormModel() {
@@ -217,6 +290,13 @@ export function createOrchestrationEditorPanelWorkspace(inputState = {}) {
 
   function refreshFromFormModel(currentModel = currentFormModel()) {
     const nextState = orchestrationEditorSyncState(currentModel);
+    const nextFormError = nextState.formError || "";
+    if (nextState.jsonText === getStore(jsonTextStateStore)) {
+      if (nextFormError !== getStore(formErrorStateStore)) {
+        formErrorStateStore.set(nextFormError);
+      }
+      return nextState;
+    }
     setEditorState(nextState, nextState.jsonText);
     return nextState;
   }
@@ -233,10 +313,14 @@ export function createOrchestrationEditorPanelWorkspace(inputState = {}) {
     refreshFromFormModel();
   }
 
-  function changeFormModel(nextModel, { notify = true } = {}) {
+  function publishFormModel(nextModel) {
     formModelStateStore.set(nextModel);
     formErrorStateStore.set("");
     jsonTextStateStore.set(orchestrationPlanFormModelToJsonText(nextModel));
+  }
+
+  function changeFormModel(nextModel, { notify = true } = {}) {
+    publishFormModel(nextModel);
     saveOrchestrationEditorFormModel(nextModel, { notify });
   }
 
@@ -248,6 +332,7 @@ export function createOrchestrationEditorPanelWorkspace(inputState = {}) {
     formModelStateStore.set(nextState.formModel);
     formErrorStateStore.set(nextState.formError || "");
     jsonTextStateStore.set(jsonText || "");
+    editorInputRevision += 1;
     return nextState;
   }
 
@@ -279,9 +364,17 @@ export function createOrchestrationEditorPanelWorkspace(inputState = {}) {
   }
 
   function resetToDraft({ notify = true } = {}) {
+    const inputRevisionBeforeReset = editorInputRevision;
     const nextModel = createOrchestrationEditorDraft({ notify });
-    changeFormModel(nextModel, { notify });
-    return nextModel;
+    const synchronizedByEditor =
+      editorInputRevision !== inputRevisionBeforeReset;
+    if (!synchronizedByEditor) {
+      publishFormModel(nextModel);
+    }
+    return {
+      formModel: nextModel,
+      synchronizedByEditor,
+    };
   }
 
   const editorWorkspace = {

@@ -4,14 +4,7 @@
   import { t } from "../../lib/i18n.js";
   import TxFormSection from "./TxFormSection.svelte";
 
-  let {
-    fieldRows = [],
-    metadataFieldRows = [],
-    onValueChange,
-    onPresenceChange,
-    onMetadataValueChange,
-    onMetadataPresenceChange,
-  } = $props();
+  let { fieldRows = [], onValueChange, onPresenceChange } = $props();
 </script>
 
 <TxFormSection
@@ -21,16 +14,10 @@
 >
   <PresenceFieldGrid
     {fieldRows}
+    valueHandlerMode="event"
     hostClass="grid gap-3 md:grid-cols-2"
-    presenceControlsMode="advanced"
+    presenceControlsMode="hidden"
     onValueChangeForKey={onValueChange}
     onPresenceChangeForKey={onPresenceChange}
-  />
-  <PresenceFieldGrid
-    fieldRows={metadataFieldRows}
-    hostClass="grid gap-3 md:grid-cols-2"
-    presenceControlsMode="advanced"
-    onValueChangeForKey={onMetadataValueChange}
-    onPresenceChangeForKey={onMetadataPresenceChange}
   />
 </TxFormSection>

@@ -36,7 +36,7 @@ function normalizeTxEditorKey(editorKey) {
 
 function attachTxJsonEditorHost(key, hostConfig = {}) {
   const normalizedKey = normalizeTxEditorKey(key);
-  txJsonEditorHosts.set(normalizedKey, {
+  const registeredHost = {
     onInput:
       typeof hostConfig.onInput === "function" ? hostConfig.onInput : null,
     refreshEditor:
@@ -51,49 +51,88 @@ function attachTxJsonEditorHost(key, hostConfig = {}) {
       typeof hostConfig.setEditorTheme === "function"
         ? hostConfig.setEditorTheme
         : null,
-  });
+  };
+  txJsonEditorHosts.set(normalizedKey, registeredHost);
   callObjectFunction(
     activeTxJsonEditors,
     "applyEditorHostState",
     normalizedKey,
   );
   return () => {
-    if (txJsonEditorHosts.get(normalizedKey)) {
+    if (txJsonEditorHosts.get(normalizedKey) === registeredHost) {
       txJsonEditorHosts.delete(normalizedKey);
     }
   };
 }
 
 function txJsonEditorBindings({
-  connectHost = attachTxJsonEditorHost,
+  connectHost: attachHost = attachTxJsonEditorHost,
   editorKey,
   onInput,
   setRawText = setTxJsonEditorRawText,
+  value,
 } = {}) {
   const dependencyState = {
     editorKey,
+    hasValue: value !== undefined,
     onInput,
+    value: txEditorText(value || EMPTY_TEXT),
   };
-  const editorTextStore = writable(EMPTY_TEXT);
+  const editorTextStore = writable(
+    dependencyState.hasValue ? dependencyState.value : EMPTY_TEXT,
+  );
   const editorThemeStore = writable("dark");
+  let connectionOwner = 0;
+  let disconnectHost = null;
+  let hostConnected = false;
+
+  function syncCurrentValue() {
+    if (!dependencyState.hasValue) return;
+    setRawText(dependencyState.editorKey, dependencyState.value, {
+      notify: false,
+    });
+  }
+
+  function disconnectCurrentHost() {
+    const disconnect = disconnectHost;
+    disconnectHost = null;
+    hostConnected = false;
+    if (typeof disconnect === "function") disconnect();
+  }
+
+  function connectCurrentHost() {
+    syncCurrentValue();
+    disconnectHost = attachHost(dependencyState.editorKey, {
+      onInput: dependencyState.onInput,
+      refreshEditor() {},
+      setEditorText(jsonText) {
+        editorTextStore.set(txEditorText(jsonText || EMPTY_TEXT));
+      },
+      setEditorTheme(theme) {
+        editorThemeStore.set(txEditorText(theme || "dark") || "dark");
+      },
+    });
+    hostConnected = true;
+  }
 
   return {
     connectHost() {
-      return connectHost(dependencyState.editorKey, {
-        onInput: dependencyState.onInput,
-        refreshEditor() {},
-        setEditorText(jsonText) {
-          editorTextStore.set(txEditorText(jsonText || EMPTY_TEXT));
-        },
-        setEditorTheme(theme) {
-          editorThemeStore.set(txEditorText(theme || "dark") || "dark");
-        },
-      });
+      connectionOwner += 1;
+      const owner = connectionOwner;
+      disconnectCurrentHost();
+      connectCurrentHost();
+      return () => {
+        if (owner !== connectionOwner) return;
+        connectionOwner += 1;
+        disconnectCurrentHost();
+      };
     },
     editorTextStore,
     editorThemeStore,
     handleChange(jsonText) {
       const nextText = txEditorText(jsonText || EMPTY_TEXT);
+      dependencyState.hasValue = true;
+      dependencyState.value = nextText;
       editorTextStore.set(nextText);
       setRawText(dependencyState.editorKey, nextText, { notify: true });
     },
@@ -102,13 +141,25 @@ function txJsonEditorBindings({
       onInput: nextOnInput = dependencyState.onInput,
       value,
     } = {}) {
+      const connectionChanged =
+        nextEditorKey !== dependencyState.editorKey ||
+        nextOnInput !== dependencyState.onInput;
       dependencyState.editorKey = nextEditorKey;
       dependencyState.onInput = nextOnInput;
-      if (value === undefined) return;
-      const nextText = txEditorText(value || EMPTY_TEXT);
-      if (getStore(editorTextStore) !== nextText) {
-        editorTextStore.set(nextText);
+      if (value !== undefined) {
+        const nextText = txEditorText(value || EMPTY_TEXT);
+        dependencyState.hasValue = true;
+        dependencyState.value = nextText;
+        if (getStore(editorTextStore) !== nextText) {
+          editorTextStore.set(nextText);
+        }
       }
+      if (connectionChanged && hostConnected) {
+        disconnectCurrentHost();
+        connectCurrentHost();
+        return;
+      }
+      if (hostConnected) syncCurrentValue();
     },
   };
 }
@@ -171,12 +222,14 @@ export function createTxJsonEditorWorkspace({
   editorKey,
   onInput,
   setRawText = setTxJsonEditorRawText,
+  value,
 } = {}) {
   return txJsonEditorBindings({
     connectHost,
     editorKey,
     onInput,
     setRawText,
+    value,
   });
 }
 
@@ -278,7 +331,10 @@ export function createTxJsonEditorsHost({
   return editors;
 }
 
-export function clearTxJsonEditorsHost() {
+export function clearTxJsonEditorsHost(expectedHost) {
+  if (expectedHost !== undefined && activeTxJsonEditors !== expectedHost) {
+    return;
+  }
   activeTxJsonEditors = null;
 }
 

@@ -3,6 +3,7 @@
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "../../lib/i18n.js";
+  import { txBlockValidationErrorText } from "../../modules/transactionBlockDisplayState.js";
   import { createTxBlockFlowEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
 
   import {
@@ -11,7 +12,14 @@
   } from "../../modules/transactionStructure.js";
   import TxBlockCommandEditor from "./TxBlockCommandEditor.svelte";
 
-  let { operation, onChange, booleanRows, jsonValueTypeRows } = $props();
+  let {
+    operation,
+    onChange,
+    booleanRows,
+    jsonValueTypeRows,
+    validationErrors = [],
+    pathPrefix = "",
+  } = $props();
   const txBlockFlowEditorWorkspace = createTxBlockFlowEditorWorkspace();
   const {
     flowActionHandlersStateStore,
@@ -30,23 +38,30 @@
       operation,
       onChange,
       booleanRows,
+      validationErrors,
+      pathPrefix,
     });
   });
+  let stepsErrorText = $derived(
+    txBlockValidationErrorText(validationErrors, `${pathPrefix}.steps`),
+  );
 </script>
 
 <div class="grid gap-3">
   <div class="grid gap-3 md:grid-cols-3">
     <PresenceFieldGrid
       fieldRows={flowFieldRows}
+      valueHandlerMode="event"
       hostClass="contents"
-      presenceControlsMode="advanced"
+      presenceControlsMode="hidden"
       onValueChangeForKey={flowActionHandlers.flowFieldValueHandler}
       onPresenceChangeForKey={flowActionHandlers.flowFieldPresenceHandler}
     />
     <PresenceFieldGrid
       fieldRows={flowMetadataFieldRows}
+      valueHandlerMode="event"
       hostClass="contents"
-      presenceControlsMode="advanced"
+      presenceControlsMode="hidden"
       onValueChangeForKey={flowActionHandlers.metadataValueHandler}
       onPresenceChangeForKey={flowActionHandlers.metadataPresenceHandler}
     />
@@ -63,8 +78,11 @@
       {t("txBlockFormAddFlowStep")}
     </Button>
   </div>
+  {#if stepsErrorText}
+    <p class="text-xs text-destructive" role="alert">{stepsErrorText}</p>
+  {/if}
   {#each flowStepRows as flowStepRow (flowStepRow.stepIndex)}
-    <div class="rounded-xl border border-border bg-card p-3 shadow-xs">
+    <div class="rounded-lg border border-border p-3">
       <div class="mb-3 flex items-center justify-between">
         <span class="text-xs font-semibold text-muted-foreground">
           {flowStepRow.titleText}
@@ -82,6 +100,8 @@
         command={flowStepRow.flowStep}
         metadataFieldDefs={txBlockFlowStepMetadataFieldDefs()}
         onChange={flowActionHandlers.stepChangeHandler(flowStepRow.stepIndex)}
+        {validationErrors}
+        pathPrefix={`${pathPrefix}.steps[${flowStepRow.stepIndex}]`}
         {jsonValueTypeRows}
       />
     </div>

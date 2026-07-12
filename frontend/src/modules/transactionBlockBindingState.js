@@ -19,12 +19,13 @@ import {
   txBlockChangeOperationKind,
   txBlockChangeRollbackKind,
   txBlockChangeRoot,
-  txBlockChangeStepRollbackState,
   txBlockChangeWholeResourceExtra,
   txBlockChangeWholeResourceRollback,
   txBlockChangeWholeResourceTrigger,
   txBlockCommandDraft,
   txBlockCommandPromptPatternsFromText,
+  txBlockDuplicateStep,
+  txBlockMoveStep,
   txBlockNullableTextValue,
   txBlockNumberFormValue,
   txBlockPatchCommand,
@@ -50,6 +51,7 @@ import {
   txBlockSetFlowMaxStepsPresence,
   txBlockSetRootFieldPresence,
   txBlockSetStepFieldPresence,
+  txBlockSetStepRollbackEnabled,
   txBlockSetWholeResourceTriggerPresence,
   txBlockUpdateCommandDynParam,
   txBlockUpdateCommandDynParamField,
@@ -60,7 +62,6 @@ import {
 } from "./transactionBlockMutations.js";
 
 export {
-  txBlockChangeStepRollbackState,
   txBlockNullableTextValue,
   txBlockPatchStepRun,
   txBlockSetCommandDynParamsPresence,
@@ -71,15 +72,35 @@ export {
   txBlockSetFlowMaxStepsPresence,
   txBlockSetRootFieldPresence,
   txBlockSetStepFieldPresence,
+  txBlockSetStepRollbackEnabled,
   txBlockUpdateCommandDynParam,
   txCommandPromptExtraSource,
   txInteractionExtraSource,
 } from "./transactionBlockMutations.js";
 
 export function txBlockEditorBindings(model, onChange) {
+  const stepCount = Array.isArray(model?.steps) ? model.steps.length : 0;
+  const validStepIndex = (stepIndex) =>
+    Number.isInteger(stepIndex) && stepIndex >= 0 && stepIndex < stepCount;
   return {
     addStep() {
       txBlockApplyChange(onChange, txBlockAddStep(model));
+    },
+    duplicateStep(stepIndex) {
+      if (!validStepIndex(stepIndex)) return false;
+      txBlockApplyChange(onChange, txBlockDuplicateStep(model, stepIndex));
+      return true;
+    },
+    moveStep(fromIndex, toIndex) {
+      if (
+        !validStepIndex(fromIndex) ||
+        !validStepIndex(toIndex) ||
+        fromIndex === toIndex
+      ) {
+        return false;
+      }
+      txBlockApplyChange(onChange, txBlockMoveStep(model, fromIndex, toIndex));
+      return true;
     },
     patchStep(stepIndex, patch) {
       txBlockApplyChange(onChange, txBlockPatchStep(model, stepIndex, patch));
@@ -89,9 +110,6 @@ export function txBlockEditorBindings(model, onChange) {
     },
     setRollbackKind(kind) {
       txBlockApplyChange(onChange, txBlockChangeRollbackKind(model, kind));
-    },
-    setRootExtra(extra) {
-      txBlockApplyChange(onChange, txBlockChangeRoot(model, "extra", extra));
     },
     setRootFieldPresence(field, enabled) {
       txBlockApplyChange(
@@ -114,10 +132,10 @@ export function txBlockEditorBindings(model, onChange) {
         txBlockPatchStepRollback(model, stepIndex, operation),
       );
     },
-    setStepRollbackState(stepIndex, state) {
+    setStepRollbackEnabled(stepIndex, enabled) {
       txBlockApplyChange(
         onChange,
-        txBlockChangeStepRollbackState(model, stepIndex, state),
+        txBlockSetStepRollbackEnabled(model, stepIndex, enabled),
       );
     },
     setStepRun(stepIndex, operation) {
@@ -165,20 +183,6 @@ export function txBlockVisualEditorBindings(model, onChange) {
         (value) => value,
       );
     },
-    rootExtraPresenceHandler(fieldKey) {
-      return txExtraStringPresenceChangeHandler(
-        bindings.setRootExtra,
-        () => model?.extra,
-        fieldKey,
-      );
-    },
-    rootExtraValueHandler(fieldKey) {
-      return txExtraStringValueChangeHandler(
-        bindings.setRootExtra,
-        () => model?.extra,
-        fieldKey,
-      );
-    },
     rootPresenceHandler(field) {
       return callbackMappedFormCheckedHandler(
         (enabled) => bindings.setRootFieldPresence(field, enabled),
@@ -190,9 +194,6 @@ export function txBlockVisualEditorBindings(model, onChange) {
         (value) => bindings.setRootValue(field, value),
         (value) => value,
       );
-    },
-    setRootExtra(extra) {
-      bindings.setRootExtra(extra);
     },
     setWholeResourceExtra(extra) {
       bindings.setWholeResourceExtra(extra);
@@ -212,8 +213,8 @@ export function txBlockVisualEditorBindings(model, onChange) {
     stepRollbackChangeAction(stepIndex) {
       return (operation) => bindings.setStepRollback(stepIndex, operation);
     },
-    stepRollbackStateAction(stepIndex) {
-      return (state) => bindings.setStepRollbackState(stepIndex, state);
+    stepRollbackEnabledAction(stepIndex) {
+      return (enabled) => bindings.setStepRollbackEnabled(stepIndex, enabled);
     },
     stepRunChangeAction(stepIndex) {
       return (operation) => bindings.setStepRun(stepIndex, operation);
@@ -420,7 +421,7 @@ export function txBlockOperationBindings(operation, onChange) {
 
 export function txBlockStepEditorBindings(
   step = {},
-  { onRollbackStateChange = null, onStepChange = null } = {},
+  { onStepChange = null } = {},
 ) {
   return {
     fieldPresenceHandler(fieldKey) {
@@ -433,12 +434,6 @@ export function txBlockStepEditorBindings(
       );
     },
     fieldValueHandler(fieldKey) {
-      if (fieldKey === "rollbackState") {
-        return callbackMappedFormValueHandler(
-          onRollbackStateChange,
-          (value) => value,
-        );
-      }
       return callbackMappedFormValueHandler(
         (value) =>
           typeof onStepChange === "function"
@@ -449,29 +444,6 @@ export function txBlockStepEditorBindings(
             : undefined,
         (value) => value,
       );
-    },
-    metadataPresenceHandler(fieldKey) {
-      return txExtraStringPresenceChangeHandler(
-        (patch) =>
-          typeof onStepChange === "function" ? onStepChange(patch) : undefined,
-        () => step.extra,
-        fieldKey,
-        (extra) => ({ extra }),
-      );
-    },
-    metadataValueHandler(fieldKey) {
-      return txExtraStringValueChangeHandler(
-        (patch) =>
-          typeof onStepChange === "function" ? onStepChange(patch) : undefined,
-        () => step.extra,
-        fieldKey,
-        (extra) => ({ extra }),
-      );
-    },
-    setExtra(extra) {
-      if (typeof onStepChange === "function") {
-        onStepChange({ extra });
-      }
     },
   };
 }

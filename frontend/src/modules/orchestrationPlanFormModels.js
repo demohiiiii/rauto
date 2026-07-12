@@ -17,6 +17,21 @@ const orchestrationPlainObject = plainObject;
 const orchestrationStringValue = stringValue;
 const orchestrationNullableNumberValue = nullableNumberValue;
 
+function orchestrationWithoutUnsupportedLabels(value) {
+  if (Array.isArray(value)) {
+    return value.map(orchestrationWithoutUnsupportedLabels);
+  }
+  if (!orchestrationPlainObject(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !key.endsWith("_label"))
+      .map(([key, entryValue]) => [
+        key,
+        orchestrationWithoutUnsupportedLabels(entryValue),
+      ]),
+  );
+}
+
 function orchestrationTxBlockActionModelFromJson(source = {}) {
   const value = orchestrationPlainObject(source) ? source : {};
   return {
@@ -570,5 +585,11 @@ export function orchestrationPlanFormModelFromJsonText(jsonText = "") {
 }
 
 export function orchestrationPlanFormModelToJsonText(model = {}) {
-  return JSON.stringify(orchestrationPlanJsonFromFormModel(model), null, 2);
+  return JSON.stringify(
+    orchestrationWithoutUnsupportedLabels(
+      orchestrationPlanJsonFromFormModel(model),
+    ),
+    null,
+    2,
+  );
 }

@@ -3,12 +3,14 @@
   import FilePickerButton from "../../components/fragments/FilePickerButton.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
+  import { currentLanguageState } from "../../lib/i18n.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxTemplateRunPanel from "./TxTemplateRunPanel.svelte";
   import TxWorkflowVisualEditor from "./TxWorkflowVisualEditor.svelte";
   import {
     createTxWorkflowInputPanelWorkspace,
+    transactionEditorSyncPresentation,
     txWorkflowTemplateVarsPlaceholder,
     txWorkflowVarsPlaceholder,
   } from "../../modules/transactionInputWorkspaces.js";
@@ -43,6 +45,7 @@
     editorDisplayStateStore,
     editorDisplayModeStateStore,
     ensureInitialized,
+    formErrorDetailStateStore,
     formErrorStateStore,
     formModelStateStore,
     handleWorkflowEditorInput,
@@ -52,13 +55,21 @@
     panelDisplayStateStore,
     setWorkflowInputPanelContext,
     selectEditorView,
+    syncStatusStateStore,
   } = txWorkflowInputWorkspace;
+  let currentLanguage = $derived($currentLanguageState);
   let txWorkflowInputDisplay = $derived($panelDisplayStateStore);
   let txWorkflowEditorDisplay = $derived($editorDisplayStateStore);
   let editorDisplayMode = $derived($editorDisplayModeStateStore);
   let txWorkflowFormModel = $derived($formModelStateStore);
   let txWorkflowFormError = $derived($formErrorStateStore);
+  let txWorkflowFormErrorDetail = $derived($formErrorDetailStateStore);
   let txWorkflowJsonText = $derived($jsonTextStateStore);
+  let txWorkflowSyncStatus = $derived($syncStatusStateStore);
+  let txWorkflowSyncPresentation = $derived.by(() => {
+    currentLanguage;
+    return transactionEditorSyncPresentation(txWorkflowSyncStatus);
+  });
   let directPanelActive = $derived(
     active && txWorkflowInputDisplay.mode.isDirect,
   );
@@ -129,10 +140,14 @@
           editorValue={txWorkflowJsonText}
           editorTitle={txWorkflowEditorDisplay.editorTitle}
           formError={txWorkflowFormError}
+          formErrorDetail={txWorkflowFormErrorDetail}
           hostClass={txWorkflowEditorDisplay.hostClass}
           onEditorInput={handleWorkflowEditorInput}
           onEditorViewSelect={selectEditorView}
           placeholder={txWorkflowEditorDisplay.placeholder}
+          syncStatus={txWorkflowSyncStatus}
+          syncStatusText={txWorkflowSyncPresentation.text}
+          syncStatusTone={txWorkflowSyncPresentation.tone}
         >
           {#snippet formContent()}
             <TxWorkflowVisualEditor

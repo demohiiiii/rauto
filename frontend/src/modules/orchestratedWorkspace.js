@@ -55,6 +55,12 @@ function callObjectFunction(target, name, ...args) {
     : undefined;
 }
 
+function externalActionIsCurrent(actionContext = null) {
+  return (
+    typeof actionContext?.isCurrent !== "function" || actionContext.isCurrent()
+  );
+}
+
 function normalizeTransactionKey(rawKey, validKeys, fallback = "") {
   const key =
     rawKey == null ? "" : typeof rawKey === "string" ? rawKey : String(rawKey);
@@ -334,7 +340,7 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
     if (typeof deactivateJsonTemplateLibrary === "function") {
       deactivateJsonTemplateLibrary();
     }
-    clearTxJsonEditorsHost();
+    clearTxJsonEditorsHost(txJsonEditorsHost);
     txJsonEditorsPromise = null;
     txJsonEditors = null;
     txJsonEditorsHost = null;
@@ -371,38 +377,42 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
     }
   }
 
-  async function importTxWorkflowFile(file) {
+  async function importTxWorkflowFile(file, actionContext = null) {
     const executionActions = orchestratedExecutionOperations({
       dependencies: txExecutionDependencies,
       txJsonEditorsHost,
     });
     try {
-      await executionActions.importTxWorkflowFile(file);
+      await executionActions.importTxWorkflowFile(file, actionContext);
     } catch (error) {
-      setErrorStatus(TX_OUTPUT.txWorkflowPlan, error);
+      if (externalActionIsCurrent(actionContext)) {
+        setErrorStatus(TX_OUTPUT.txWorkflowPlan, error);
+      }
     }
   }
 
-  async function importOrchestrationFile(file) {
+  async function importOrchestrationFile(file, actionContext = null) {
     const executionActions = orchestratedExecutionOperations({
       dependencies: txExecutionDependencies,
       txJsonEditorsHost,
     });
     try {
-      await executionActions.importOrchestrationFile(file);
+      await executionActions.importOrchestrationFile(file, actionContext);
     } catch (error) {
-      setErrorStatus(TX_OUTPUT.orchestrationPlan, error);
+      if (externalActionIsCurrent(actionContext)) {
+        setErrorStatus(TX_OUTPUT.orchestrationPlan, error);
+      }
     }
   }
 
   function jsonTemplateStageBindings(kind) {
     return {
-      onCreateJsonTemplateDraft: () =>
-        jsonTemplateLibrary.createTemplateDraft(kind),
+      onCreateJsonTemplateDraft: (actionContext) =>
+        jsonTemplateLibrary.createTemplateDraft(kind, actionContext),
       onDeleteJsonTemplate: () =>
         jsonTemplateLibrary.deleteTemplateFromExecution(kind),
-      onLoadJsonTemplate: (name) =>
-        jsonTemplateLibrary.loadTemplateIntoEditor(kind, name),
+      onLoadJsonTemplate: (name, actionContext) =>
+        jsonTemplateLibrary.loadTemplateIntoEditor(kind, name, actionContext),
       onSaveJsonTemplate: () =>
         jsonTemplateLibrary.saveTemplateFromExecution(kind),
     };

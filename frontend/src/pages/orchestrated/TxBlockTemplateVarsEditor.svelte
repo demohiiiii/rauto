@@ -1,5 +1,4 @@
 <script>
-  import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "../../lib/i18n.js";
   import TxBlockTemplateVarEditor from "./TxBlockTemplateVarEditor.svelte";
@@ -12,17 +11,17 @@
     present = true,
     jsonValueTypeRows,
     templateVarTypeRows,
+    validationErrors = [],
+    pathPrefix = "",
   } = $props();
   const txBlockTemplateVarsEditorWorkspace =
     createTxBlockTemplateVarsEditorWorkspace();
   const {
-    presentStateStore,
     setTemplateVarsContext,
     templateDisplayStateStore,
     templateVarActionHandlersStateStore,
   } = txBlockTemplateVarsEditorWorkspace;
   let syncedTemplateDisplay = $derived($templateDisplayStateStore);
-  let syncedPresent = $derived($presentStateStore);
   let templateVarActionHandlers = $derived(
     $templateVarActionHandlersStateStore,
   );
@@ -34,26 +33,20 @@
 
 <div class="grid gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <div class="flex flex-wrap items-center gap-3">
-      <span>{t("txBlockFormTemplateVars")}</span>
-      <PresenceToggle
-        checked={syncedPresent}
-        onChange={templateVarActionHandlers.presenceHandler()}
-      />
-    </div>
+    <span>{t("txBlockFormTemplateVars")}</span>
     <Button size="sm" type="button" onclick={templateVarActionHandlers.addVar}>
       {t("txBlockFormAddVar")}
     </Button>
   </div>
-  {#if syncedPresent || syncedTemplateDisplay.varRows.length > 0}
-    {#each syncedTemplateDisplay.varRows as variableRow}
-      <TxBlockTemplateVarEditor
-        {operation}
-        {variableRow}
-        {onChange}
-        {jsonValueTypeRows}
-        {templateVarTypeRows}
-      />
-    {/each}
-  {/if}
+  {#each syncedTemplateDisplay.varRows as variableRow}
+    <TxBlockTemplateVarEditor
+      {operation}
+      {variableRow}
+      {onChange}
+      {jsonValueTypeRows}
+      {templateVarTypeRows}
+      {validationErrors}
+      pathPrefix={`${pathPrefix}[${variableRow.varIndex}]`}
+    />
+  {/each}
 </div>

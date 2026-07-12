@@ -1,9 +1,10 @@
 import { getProfileModes } from "../api/client.js";
-import { derived as deriveStore, writable } from "svelte/store";
+import { derived as deriveStore, get, readonly, writable } from "svelte/store";
 import { createLatestAsyncValueLoader } from "../lib/svelte.js";
-import { currentLanguageState, t } from "../lib/i18n.js";
+import { currentLanguage, currentLanguageState, t, tr } from "../lib/i18n.js";
 import { plainObject, stringValue } from "../lib/jsonValue.js";
 import { currentExecutionConnectionProfile } from "./connections.js";
+import { validateTxBlockFormModel } from "./transactionBlockFormModels.js";
 import {
   txBlockCommandEditorBindings,
   txBlockCommandDynParamsEditorBindings,
@@ -13,13 +14,18 @@ import {
   txBlockStepEditorBindings,
   txBlockVisualEditorBindings,
 } from "./transactionBlockBindingState.js";
+import {
+  txBlockAddStep,
+  txBlockDuplicateStep,
+  txBlockMoveStep,
+  txBlockRemoveStep,
+} from "./transactionBlockMutations.js";
 import { txExtraStringFieldRows } from "./transactionMetadataFields.js";
 import {
   TX_BLOCK_BOOLEAN_ROWS,
   TX_BLOCK_JSON_VALUE_TYPE_ROWS,
   TX_BLOCK_OPERATION_KIND_ROWS,
   TX_BLOCK_ROLLBACK_KIND_ROWS,
-  TX_BLOCK_STEP_ROLLBACK_STATE_ROWS,
   TX_BLOCK_TEMPLATE_VAR_TYPE_ROWS,
   txBlockCommandInteractionDisplay,
   txBlockCommandDynParamsDisplay,
@@ -30,9 +36,8 @@ import {
   txBlockRollbackPolicyPanelDisplay,
   txBlockRootPanelDisplay,
   txBlockStepFieldsDisplay,
-  txBlockStepMetadataFieldRows,
   txBlockStepsPanelDisplay,
-  txBlockInteractionMetadataFieldRows,
+  txBlockTimelineDisplay,
 } from "./transactionBlockDisplayState.js";
 
 export * from "./transactionBlockDisplayState.js";
@@ -64,10 +69,6 @@ const TX_BLOCK_VISUAL_EDITOR_COVERAGE = Object.freeze({
       "rollback_policy.whole_resource.rollback.template.prompt",
       "rollback_policy.whole_resource.rollback.template.runtime",
     ]),
-  }),
-  rootExtra: Object.freeze({
-    component: "JsonObjectFieldsEditor",
-    scopes: Object.freeze(["root"]),
   }),
   steps: Object.freeze({
     component: "TxBlockStepEditor",
@@ -150,12 +151,6 @@ export function txBlockVisualEditorDisplay() {
     jsonValueTypeRows: TX_BLOCK_JSON_VALUE_TYPE_ROWS,
     operationKindRows: TX_BLOCK_OPERATION_KIND_ROWS,
     rollbackKindRows: TX_BLOCK_ROLLBACK_KIND_ROWS,
-    stepRollbackStateRows: TX_BLOCK_STEP_ROLLBACK_STATE_ROWS.map(
-      (optionRow) => ({
-        label: t(optionRow.labelKey),
-        value: optionRow.value,
-      }),
-    ),
     templateVarTypeRows: TX_BLOCK_TEMPLATE_VAR_TYPE_ROWS,
   };
 }
@@ -168,14 +163,137 @@ export function createTxBlockVisualEditorWorkspace({
   model = {},
   onChange = null,
 } = {}) {
-  const modelStateStore = writable(model);
+  const initialModel = txPlainObject(model) ? model : {};
+  const initialSteps = Array.isArray(initialModel.steps)
+    ? initialModel.steps
+    : [];
+  const modelStateStore = writable(initialModel);
   const onChangeStateStore = writable(onChange);
+  const selectedTargetWritableStateStore = writable(
+    initialSteps.length > 0
+      ? { kind: "step", stepIndex: 0 }
+      : { kind: "root", stepIndex: -1 },
+  );
+  const selectedTargetStateStore = readonly(selectedTargetWritableStateStore);
+
+  function modelSteps(currentModel = get(modelStateStore)) {
+    return Array.isArray(currentModel?.steps) ? currentModel.steps : [];
+  }
+
+  function stepSelection(stepIndex) {
+    return { kind: "step", stepIndex };
+  }
+
+  function rootSelection() {
+    return { kind: "root", stepIndex: -1 };
+  }
+
+  function normalizedSelection(selection, currentModel) {
+    const steps = modelSteps(currentModel);
+    if (selection?.kind !== "step" || steps.length === 0) {
+      return rootSelection();
+    }
+    const stepIndex = Number.isInteger(selection.stepIndex)
+      ? Math.min(Math.max(selection.stepIndex, 0), steps.length - 1)
+      : 0;
+    return stepSelection(stepIndex);
+  }
+
+  function applyVisualEditorModel(nextModel) {
+    modelStateStore.set(nextModel);
+    const currentOnChange = get(onChangeStateStore);
+    if (typeof currentOnChange === "function") currentOnChange(nextModel);
+  }
+
+  function selectRoot() {
+    selectedTargetWritableStateStore.set(rootSelection());
+    return true;
+  }
+
+  function selectStep(stepIndex) {
+    const steps = modelSteps();
+    if (
+      !Number.isInteger(stepIndex) ||
+      stepIndex < 0 ||
+      stepIndex >= steps.length
+    ) {
+      return false;
+    }
+    selectedTargetWritableStateStore.set(stepSelection(stepIndex));
+    return true;
+  }
+
+  function addAndSelectStep() {
+    const currentModel = get(modelStateStore);
+    const stepIndex = modelSteps(currentModel).length;
+    applyVisualEditorModel(txBlockAddStep(currentModel));
+    selectedTargetWritableStateStore.set(stepSelection(stepIndex));
+    return true;
+  }
+
+  function duplicateSelectedStep() {
+    const selection = get(selectedTargetStateStore);
+    const steps = modelSteps();
+    if (
+      selection.kind !== "step" ||
+      selection.stepIndex < 0 ||
+      selection.stepIndex >= steps.length
+    ) {
+      return false;
+    }
+    applyVisualEditorModel(
+      txBlockDuplicateStep(get(modelStateStore), selection.stepIndex),
+    );
+    selectedTargetWritableStateStore.set(
+      stepSelection(selection.stepIndex + 1),
+    );
+    return true;
+  }
+
+  function moveSelectedStep(delta) {
+    const selection = get(selectedTargetStateStore);
+    if (selection.kind !== "step" || !Number.isInteger(delta) || delta === 0) {
+      return false;
+    }
+    const toIndex = selection.stepIndex + delta;
+    if (toIndex < 0 || toIndex >= modelSteps().length) return false;
+    applyVisualEditorModel(
+      txBlockMoveStep(get(modelStateStore), selection.stepIndex, toIndex),
+    );
+    selectedTargetWritableStateStore.set(stepSelection(toIndex));
+    return true;
+  }
+
+  function removeSelectedStep() {
+    const selection = get(selectedTargetStateStore);
+    const steps = modelSteps();
+    if (
+      selection.kind !== "step" ||
+      selection.stepIndex < 0 ||
+      selection.stepIndex >= steps.length
+    ) {
+      return false;
+    }
+    const nextModel = txBlockRemoveStep(
+      get(modelStateStore),
+      selection.stepIndex,
+    );
+    applyVisualEditorModel(nextModel);
+    selectedTargetWritableStateStore.set(
+      normalizedSelection(selection, nextModel),
+    );
+    return true;
+  }
+
   const editorDisplayStateStore = deriveStore(currentLanguageState, () =>
     txBlockVisualEditorDisplay(),
   );
   const editorActionHandlersStateStore = deriveStore(
-    [modelStateStore, onChangeStateStore],
-    ([$model, $onChange]) => txBlockVisualEditorBindings($model, $onChange),
+    modelStateStore,
+    ($model) => txBlockVisualEditorBindings($model, applyVisualEditorModel),
+  );
+  const validationErrorsStateStore = deriveStore(modelStateStore, ($model) =>
+    validateTxBlockFormModel($model),
   );
   const rootPanelStateStore = deriveStore(
     [modelStateStore, editorDisplayStateStore, currentLanguageState],
@@ -183,28 +301,104 @@ export function createTxBlockVisualEditorWorkspace({
       txBlockRootPanelDisplay($model, $editorDisplay),
   );
   const rollbackPanelStateStore = deriveStore(
-    [modelStateStore, editorDisplayStateStore, currentLanguageState],
-    ([$model, $editorDisplay]) =>
-      txBlockRollbackPolicyPanelDisplay($model, $editorDisplay),
+    [
+      modelStateStore,
+      editorDisplayStateStore,
+      validationErrorsStateStore,
+      currentLanguageState,
+    ],
+    ([$model, $editorDisplay, $validationErrors]) =>
+      txBlockRollbackPolicyPanelDisplay(
+        $model,
+        $editorDisplay,
+        $validationErrors,
+      ),
   );
   const stepsPanelStateStore = deriveStore(
     [modelStateStore, currentLanguageState],
     ([$model]) => txBlockStepsPanelDisplay($model),
   );
+  const timelineDisplayStateStore = deriveStore(
+    [modelStateStore, currentLanguageState, selectedTargetStateStore],
+    ([$model, , $selectedTarget]) => {
+      const timelineDisplay = txBlockTimelineDisplay($model);
+      return {
+        ...timelineDisplay,
+        stepRows: timelineDisplay.stepRows.map((stepRow) => ({
+          ...stepRow,
+          selected:
+            $selectedTarget.kind === "step" &&
+            $selectedTarget.stepIndex === stepRow.stepIndex,
+        })),
+      };
+    },
+  );
+  const editorSummaryStateStore = deriveStore(
+    [modelStateStore, currentLanguageState],
+    ([$model]) => {
+      const rollbackKind = txStringValue($model?.rollbackPolicy?.kind, "none");
+      const rollbackLabelKeys = {
+        none: "txWorkflowBlockRollbackNone",
+        per_step: "txWorkflowBlockRollbackPerStep",
+        whole_resource: "txWorkflowBlockRollbackWhole",
+      };
+      const unnamedBlockText = tr(
+        "txBlockTimelineUnnamedBlock",
+        currentLanguage() === "zh" ? "未命名事务块" : "Unnamed block",
+      );
+      return {
+        cellRows: [
+          {
+            labelText: t("txBlockFormName"),
+            valueText: txStringValue($model?.name).trim() || unnamedBlockText,
+          },
+          {
+            labelText: t("txBlockSummaryRollback"),
+            valueText: t(
+              rollbackLabelKeys[rollbackKind] ||
+                "txWorkflowBlockRollbackPerStep",
+            ),
+          },
+          {
+            labelText: t("txBlockSummarySteps"),
+            valueText: String(modelSteps($model).length),
+          },
+          {
+            labelText: t("txBlockSummaryFailFast"),
+            valueText: t($model?.failFast !== false ? "enabled" : "disabled"),
+          },
+        ],
+      };
+    },
+  );
 
   return {
+    addAndSelectStep,
+    duplicateSelectedStep,
     editorActionHandlersStateStore,
     editorDisplayStateStore,
+    editorSummaryStateStore,
+    moveSelectedStep,
+    removeSelectedStep,
     rollbackPanelStateStore,
     rootPanelStateStore,
+    selectedTargetStateStore,
+    selectRoot,
+    selectStep,
     setVisualEditorContext({
       model: nextModel = {},
       onChange: nextOnChange = null,
     } = {}) {
-      modelStateStore.set(txPlainObject(nextModel) ? nextModel : {});
+      const nextModelValue = txPlainObject(nextModel) ? nextModel : {};
+      modelStateStore.set(nextModelValue);
       onChangeStateStore.set(nextOnChange);
+      selectedTargetWritableStateStore.set(
+        normalizedSelection(get(selectedTargetStateStore), nextModelValue),
+      );
     },
     stepsPanelStateStore,
+    timelineDisplayStateStore,
+    validationErrorsStateStore,
   };
 }
 
@@ -212,12 +406,16 @@ export function createTxBlockCommandEditorWorkspace({
   command = {},
   metadataFieldDefs = [],
   onChange = null,
+  pathPrefix = "",
+  validationErrors = [],
 } = {}) {
   const commandStateStore = writable(command);
   const metadataFieldDefsStateStore = writable(
     Array.isArray(metadataFieldDefs) ? metadataFieldDefs : [],
   );
   const onChangeStateStore = writable(onChange);
+  const pathPrefixStateStore = writable(pathPrefix);
+  const validationErrorsStateStore = writable(validationErrors);
   const commandModeLoader = createLatestAsyncValueLoader({
     initialValue: txProfileModeInitialState(),
     loadValue: ({ currentMode, profileName }) =>
@@ -229,9 +427,20 @@ export function createTxBlockCommandEditorWorkspace({
       txBlockCommandEditorBindings($command, $onChange),
   );
   const commandDisplayStateStore = deriveStore(
-    [commandStateStore, commandModeLoader.state, currentLanguageState],
-    ([$command, $commandModeState]) =>
-      txBlockCommandEditorDisplay($command, $commandModeState),
+    [
+      commandStateStore,
+      commandModeLoader.state,
+      validationErrorsStateStore,
+      pathPrefixStateStore,
+      currentLanguageState,
+    ],
+    ([$command, $commandModeState, $validationErrors, $pathPrefix]) =>
+      txBlockCommandEditorDisplay(
+        $command,
+        $commandModeState,
+        $validationErrors,
+        $pathPrefix,
+      ),
   );
   const metadataFieldRowsStateStore = deriveStore(
     [commandStateStore, metadataFieldDefsStateStore, currentLanguageState],
@@ -247,6 +456,8 @@ export function createTxBlockCommandEditorWorkspace({
       command: nextCommand = {},
       metadataFieldDefs: nextMetadataFieldDefs = [],
       onChange: nextOnChange = null,
+      pathPrefix: nextPathPrefix = "",
+      validationErrors: nextValidationErrors = [],
     } = {}) {
       const commandValue = txPlainObject(nextCommand) ? nextCommand : {};
       commandStateStore.set(commandValue);
@@ -254,6 +465,10 @@ export function createTxBlockCommandEditorWorkspace({
         Array.isArray(nextMetadataFieldDefs) ? nextMetadataFieldDefs : [],
       );
       onChangeStateStore.set(nextOnChange);
+      pathPrefixStateStore.set(txStringValue(nextPathPrefix));
+      validationErrorsStateStore.set(
+        Array.isArray(nextValidationErrors) ? nextValidationErrors : [],
+      );
       void commandModeLoader.refresh({
         currentMode: commandValue.mode ?? "",
         profileName: currentExecutionConnectionProfile(),
@@ -266,10 +481,14 @@ export function createTxBlockOperationEditorWorkspace({
   operation = {},
   onChange = null,
   titleText = "",
+  pathPrefix = "",
+  validationErrors = [],
 } = {}) {
   const operationStateStore = writable(operation);
   const onChangeStateStore = writable(onChange);
   const titleStateStore = writable(titleText);
+  const pathPrefixStateStore = writable(pathPrefix);
+  const validationErrorsStateStore = writable(validationErrors);
   const operationActionHandlersStateStore = deriveStore(
     [operationStateStore, onChangeStateStore],
     ([$operation, $onChange]) =>
@@ -287,63 +506,62 @@ export function createTxBlockOperationEditorWorkspace({
       onChange: nextOnChange = null,
       operation: nextOperation = {},
       titleText: nextTitleText = "",
+      pathPrefix: nextPathPrefix = "",
+      validationErrors: nextValidationErrors = [],
     } = {}) {
       onChangeStateStore.set(nextOnChange);
       operationStateStore.set(
         txPlainObject(nextOperation) ? nextOperation : {},
       );
       titleStateStore.set(txStringValue(nextTitleText));
+      pathPrefixStateStore.set(txStringValue(nextPathPrefix));
+      validationErrorsStateStore.set(
+        Array.isArray(nextValidationErrors) ? nextValidationErrors : [],
+      );
     },
   };
 }
 
 export function createTxBlockStepEditorWorkspace({
   step = {},
-  onRollbackStateChange = null,
   onStepChange = null,
+  pathPrefix = "",
+  validationErrors = [],
 } = {}) {
   const stepStateStore = writable(step);
-  const onRollbackStateChangeStateStore = writable(onRollbackStateChange);
   const onStepChangeStateStore = writable(onStepChange);
-  const rollbackStateStore = deriveStore(stepStateStore, ($step) =>
-    $step && typeof $step === "object" && $step.hasRollback === false
-      ? "absent"
-      : $step?.rollback
-        ? "operation"
-        : $step?.hasRollback
-          ? "null"
-          : "absent",
+  const pathPrefixStateStore = writable(pathPrefix);
+  const validationErrorsStateStore = writable(validationErrors);
+  const rollbackEnabledStateStore = deriveStore(
+    stepStateStore,
+    ($step) => !!$step?.rollback,
   );
   const stepFieldRowsStateStore = deriveStore(
     [stepStateStore, currentLanguageState],
     ([$step]) => txBlockStepFieldsDisplay($step),
   );
-  const stepMetadataFieldRowsStateStore = deriveStore(
-    [stepStateStore, currentLanguageState],
-    ([$step]) => txBlockStepMetadataFieldRows($step),
-  );
   const stepActionHandlersStateStore = deriveStore(
-    [stepStateStore, onRollbackStateChangeStateStore, onStepChangeStateStore],
-    ([$step, $onRollbackStateChange, $onStepChange]) =>
-      txBlockStepEditorBindings($step, {
-        onRollbackStateChange: $onRollbackStateChange,
-        onStepChange: $onStepChange,
-      }),
+    [stepStateStore, onStepChangeStateStore],
+    ([$step, $onStepChange]) =>
+      txBlockStepEditorBindings($step, { onStepChange: $onStepChange }),
   );
   return {
-    rollbackStateStore,
+    rollbackEnabledStateStore,
     setStepEditorContext({
-      onRollbackStateChange: nextOnRollbackStateChange = null,
       onStepChange: nextOnStepChange = null,
       step: nextStep = {},
+      pathPrefix: nextPathPrefix = "",
+      validationErrors: nextValidationErrors = [],
     } = {}) {
-      onRollbackStateChangeStateStore.set(nextOnRollbackStateChange);
       onStepChangeStateStore.set(nextOnStepChange);
       stepStateStore.set(txPlainObject(nextStep) ? nextStep : {});
+      pathPrefixStateStore.set(txStringValue(nextPathPrefix));
+      validationErrorsStateStore.set(
+        Array.isArray(nextValidationErrors) ? nextValidationErrors : [],
+      );
     },
     stepActionHandlersStateStore,
     stepFieldRowsStateStore,
-    stepMetadataFieldRowsStateStore,
   };
 }
 
@@ -351,6 +569,8 @@ export function createTxBlockFlowEditorWorkspace({
   operation = {},
   onChange = null,
   booleanRows = [],
+  pathPrefix = "",
+  validationErrors = [],
 } = {}) {
   const operationStateStore = writable(
     txPlainObject(operation) ? operation : {},
@@ -359,17 +579,32 @@ export function createTxBlockFlowEditorWorkspace({
   const booleanRowsStateStore = writable(
     Array.isArray(booleanRows) ? booleanRows : [],
   );
+  const pathPrefixStateStore = writable(pathPrefix);
+  const validationErrorsStateStore = writable(validationErrors);
   const flowActionHandlersStateStore = deriveStore(
     [operationStateStore, onChangeStateStore],
     ([$operationStateStore, $onChangeStateStore]) =>
       txBlockFlowEditorBindings($operationStateStore, $onChangeStateStore),
   );
   const flowFieldRowsStateStore = deriveStore(
-    [operationStateStore, booleanRowsStateStore, currentLanguageState],
-    ([$operationStateStore, $booleanRowsStateStore]) =>
+    [
+      operationStateStore,
+      booleanRowsStateStore,
+      validationErrorsStateStore,
+      pathPrefixStateStore,
+      currentLanguageState,
+    ],
+    ([
+      $operationStateStore,
+      $booleanRowsStateStore,
+      $validationErrors,
+      $pathPrefix,
+    ]) =>
       txBlockFlowFieldsDisplay(
         $operationStateStore.flow,
         $booleanRowsStateStore,
+        $validationErrors,
+        $pathPrefix,
       ),
   );
   const flowMetadataFieldRowsStateStore = deriveStore(
@@ -378,8 +613,8 @@ export function createTxBlockFlowEditorWorkspace({
       txBlockFlowMetadataFieldRows($operationStateStore),
   );
   const flowStepRowsStateStore = deriveStore(
-    operationStateStore,
-    ($operationStateStore) =>
+    [operationStateStore, currentLanguageState],
+    ([$operationStateStore]) =>
       (Array.isArray($operationStateStore.flow?.steps)
         ? $operationStateStore.flow.steps
         : []
@@ -396,11 +631,17 @@ export function createTxBlockFlowEditorWorkspace({
     flowStepRowsStateStore,
     setFlowEditorContext({
       booleanRows: nextBooleanRows = [],
+      pathPrefix: nextPathPrefix = "",
+      validationErrors: nextValidationErrors = [],
       onChange: nextOnChange = null,
       operation: nextOperation = {},
     } = {}) {
       booleanRowsStateStore.set(
         Array.isArray(nextBooleanRows) ? nextBooleanRows : [],
+      );
+      pathPrefixStateStore.set(txStringValue(nextPathPrefix));
+      validationErrorsStateStore.set(
+        Array.isArray(nextValidationErrors) ? nextValidationErrors : [],
       );
       onChangeStateStore.set(nextOnChange);
       operationStateStore.set(
@@ -444,15 +685,9 @@ export function createTxBlockCommandInteractionEditorWorkspace({
         TX_BLOCK_BOOLEAN_ROWS,
       ),
   );
-  const interactionMetadataFieldRowsStateStore = deriveStore(
-    [commandStateStore, currentLanguageState],
-    ([$commandStateStore]) =>
-      txBlockInteractionMetadataFieldRows($commandStateStore),
-  );
   return {
     interactionActionHandlersStateStore,
     interactionDisplayStateStore,
-    interactionMetadataFieldRowsStateStore,
     setInteractionEditorContext({
       command: nextCommand = {},
       commandDisplay: nextCommandDisplay = {},

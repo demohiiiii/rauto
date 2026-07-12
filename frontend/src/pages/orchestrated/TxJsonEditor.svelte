@@ -1,4 +1,5 @@
 <script>
+  import { untrack } from "svelte";
   import JsonTextEditor from "../../components/fragments/JsonTextEditor.svelte";
   import { createTxJsonEditorWorkspace } from "../../modules/transactionPanelState.js";
 
@@ -11,28 +12,34 @@
     placeholder,
     value,
   } = $props();
-  let editorWorkspace = $derived(
-    createTxJsonEditorWorkspace({
-      editorKey,
-      onInput,
-    }),
-  );
-  let editorTextStore = $derived(editorWorkspace.editorTextStore);
-  let editorThemeStore = $derived(editorWorkspace.editorThemeStore);
+  const initialEditorContext = untrack(() => ({
+    editorKey,
+    onInput,
+    value,
+  }));
+  const editorWorkspace = createTxJsonEditorWorkspace(initialEditorContext);
+  const editorTextStore = editorWorkspace.editorTextStore;
+  const editorThemeStore = editorWorkspace.editorThemeStore;
   let editorText = $derived($editorTextStore);
   let editorTheme = $derived($editorThemeStore);
+  let connectedValue = initialEditorContext.value;
 
   $effect(() => {
     if (!active) return;
+    const connectionValue = untrack(() => value);
+    connectedValue = connectionValue;
+    editorWorkspace.setEditorContext({
+      editorKey,
+      onInput,
+      value: connectionValue,
+    });
     return editorWorkspace.connectHost();
   });
 
   $effect(() => {
-    editorWorkspace.setEditorContext({
-      editorKey,
-      onInput,
-      value,
-    });
+    if (value === connectedValue) return;
+    connectedValue = value;
+    editorWorkspace.setEditorContext({ value });
   });
 </script>
 

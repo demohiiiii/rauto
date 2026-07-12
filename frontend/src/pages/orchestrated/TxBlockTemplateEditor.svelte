@@ -1,6 +1,6 @@
 <script>
   import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
-  import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
+  import CollapsibleGroup from "../../components/fragments/CollapsibleGroup.svelte";
   import { t } from "../../lib/i18n.js";
   import TxBlockTemplateDefinitionEditor from "./TxBlockTemplateDefinitionEditor.svelte";
   import { createTxBlockTemplateEditorWorkspace } from "../../modules/transactionBlockTemplateWorkspaces.js";
@@ -14,6 +14,8 @@
     booleanRows,
     jsonValueTypeRows,
     templateVarTypeRows,
+    validationErrors = [],
+    pathPrefix = "",
   } = $props();
   const txBlockTemplateEditorWorkspace = createTxBlockTemplateEditorWorkspace();
   const {
@@ -27,54 +29,114 @@
   $effect(() => {
     setTemplateEditorContext({ operation, onChange });
   });
+
+  function templateScopeKey(suffix) {
+    return `tx-block-template-${pathPrefix || "operation"}-${suffix}`;
+  }
 </script>
 
 <div class="grid gap-4">
-  <TxBlockTemplateDefinitionEditor
-    {operation}
-    {onChange}
-    {booleanRows}
-    {jsonValueTypeRows}
-  />
+  <CollapsibleGroup
+    variant="section"
+    label={t("txBlockFormTemplateDefinition")}
+    persistenceKey={templateScopeKey("definition")}
+    body-class="pt-3"
+  >
+    {#snippet header()}
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-semibold text-foreground">
+          {t("txBlockFormTemplateDefinition")}
+        </div>
+        <div class="text-xs text-muted-foreground">
+          {operation.template.template.name || t("txBlockFormTemplateName")}
+        </div>
+      </div>
+    {/snippet}
+    <TxBlockTemplateDefinitionEditor
+      {operation}
+      {onChange}
+      {booleanRows}
+      {jsonValueTypeRows}
+      {validationErrors}
+      pathPrefix={`${pathPrefix}.template`}
+    />
+  </CollapsibleGroup>
 
-  <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-    <div
-      class="mb-3 flex items-center justify-between gap-3 text-sm font-semibold text-slate-700"
-    >
-      <span>{t("txBlockFormTemplateRuntime")}</span>
-      <PresenceToggle
-        checked={templateDisplay.runtime.present}
-        onChange={templateActionHandlers.runtimePresenceHandler()}
-      />
-    </div>
-    {#if templateDisplay.runtime.present}
-      <TxBlockTemplateRuntimeEditor
-        {operation}
-        {templateDisplay}
-        {onChange}
-        {jsonValueTypeRows}
-      />
-    {/if}
-  </div>
+  <CollapsibleGroup
+    variant="section"
+    label={t("txBlockFormTemplateVars")}
+    persistenceKey={templateScopeKey("variables")}
+    body-class="pt-3"
+  >
+    {#snippet header()}
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-semibold text-foreground">
+          {t("txBlockFormTemplateVars")}
+        </div>
+        <div class="text-xs text-muted-foreground">
+          {templateDisplay.varRows.length}
+        </div>
+      </div>
+    {/snippet}
+    <TxBlockTemplateVarsEditor
+      {operation}
+      {templateDisplay}
+      {onChange}
+      {jsonValueTypeRows}
+      {templateVarTypeRows}
+      {validationErrors}
+      pathPrefix={`${pathPrefix}.template.vars`}
+    />
+  </CollapsibleGroup>
 
-  <TxBlockTemplateVarsEditor
-    {operation}
-    {templateDisplay}
-    {onChange}
-    present={operation.template.template.hasVars ||
-      templateDisplay.varRows.length > 0}
-    {jsonValueTypeRows}
-    {templateVarTypeRows}
-  />
+  <CollapsibleGroup
+    variant="section"
+    label={t("txBlockFormTemplateSteps")}
+    persistenceKey={templateScopeKey("steps")}
+    body-class="pt-3"
+  >
+    {#snippet header()}
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-semibold text-foreground">
+          {t("txBlockFormTemplateSteps")}
+        </div>
+        <div class="text-xs text-muted-foreground">
+          {templateDisplay.stepRows.length}
+        </div>
+      </div>
+    {/snippet}
+    <TxBlockTemplateStepsEditor
+      {operation}
+      {templateDisplay}
+      {onChange}
+      {jsonValueTypeRows}
+      {validationErrors}
+      pathPrefix={`${pathPrefix}.template.steps`}
+    />
+  </CollapsibleGroup>
 
-  <TxBlockTemplateStepsEditor
-    {operation}
-    {templateDisplay}
-    {onChange}
-    present={operation.template.template.hasSteps ||
-      templateDisplay.stepRows.length > 0}
-    {jsonValueTypeRows}
-  />
+  <CollapsibleGroup
+    variant="section"
+    label={t("txBlockFormTemplateRuntime")}
+    persistenceKey={templateScopeKey("runtime")}
+    body-class="pt-3"
+  >
+    {#snippet header()}
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-semibold text-foreground">
+          {t("txBlockFormTemplateRuntime")}
+        </div>
+      </div>
+    {/snippet}
+    <TxBlockTemplateRuntimeEditor
+      {operation}
+      {templateDisplay}
+      {onChange}
+      {jsonValueTypeRows}
+      {validationErrors}
+      pathPrefix={`${pathPrefix}.runtime`}
+    />
+  </CollapsibleGroup>
 
   <JsonObjectFieldsEditor
     title={t("txBlockFormTemplateOperationExtra")}

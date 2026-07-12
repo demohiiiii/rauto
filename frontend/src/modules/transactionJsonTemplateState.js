@@ -79,6 +79,10 @@ function normalizeJsonTemplateLibraryConfig(libraryCfg = {}) {
       typeof libraryCfg.configFor === "function"
         ? libraryCfg.configFor
         : () => null,
+    createTemplateResource:
+      typeof libraryCfg.createTemplateResource === "function"
+        ? libraryCfg.createTemplateResource
+        : createTemplateResource,
     getEditorContext:
       typeof libraryCfg.getEditorContext === "function"
         ? libraryCfg.getEditorContext
@@ -87,10 +91,18 @@ function normalizeJsonTemplateLibraryConfig(libraryCfg = {}) {
       typeof libraryCfg.getSelectedName === "function"
         ? libraryCfg.getSelectedName
         : () => "",
+    listTemplateResource:
+      typeof libraryCfg.listTemplateResource === "function"
+        ? libraryCfg.listTemplateResource
+        : listTemplateResource,
     normalizeEditorKey:
       typeof libraryCfg.normalizeEditorKey === "function"
         ? libraryCfg.normalizeEditorKey
         : normalizeTxEditorKey,
+    promptForResourceName:
+      typeof libraryCfg.promptForResourceName === "function"
+        ? libraryCfg.promptForResourceName
+        : promptForResourceName,
     setErrorStatus:
       typeof libraryCfg.setErrorStatus === "function"
         ? libraryCfg.setErrorStatus
@@ -134,26 +146,38 @@ function setPrettyJsonToEditor(
   getEditorContext,
   normalizeEditorKey,
   txEditor,
+  actionContext = null,
 ) {
   const normalizedEditorKey = normalizeEditorKey(editorKey);
   const text = prettyJsonText(rawContent);
   const editors = jsonTemplateEditorContext(getEditorContext).editors || null;
   const setTxBlockText = editors?.setTxBlockEditorRawText;
   if (normalizedEditorKey === txEditor.txBlock && setTxBlockText) {
-    setTxBlockText(text);
+    runOwnedEditorMutation(actionContext, () => setTxBlockText(text));
     return;
   }
   const setTxWorkflowText = editors?.setTxWorkflowEditorText;
   if (normalizedEditorKey === txEditor.txWorkflow && setTxWorkflowText) {
-    setTxWorkflowText(text, { notify: true });
+    runOwnedEditorMutation(actionContext, () =>
+      setTxWorkflowText(text, { notify: true }),
+    );
     return;
   }
   const setOrchestrationText = editors?.setOrchestrationEditorText;
   if (normalizedEditorKey === txEditor.orchestration && setOrchestrationText) {
-    setOrchestrationText(text, { notify: true });
+    runOwnedEditorMutation(actionContext, () =>
+      setOrchestrationText(text, { notify: true }),
+    );
     return;
   }
   throw new Error(`${normalizedEditorKey} editor is not ready`);
+}
+
+function runOwnedEditorMutation(actionContext, operation) {
+  if (typeof actionContext?.runOwnedEditorMutation === "function") {
+    return actionContext.runOwnedEditorMutation(operation);
+  }
+  return typeof operation === "function" ? operation() : undefined;
 }
 
 function editorRaw(editorKey, getEditorContext, normalizeEditorKey, txEditor) {
@@ -197,7 +221,12 @@ function switchTxExecutionMode(kind, txTemplateKind, setExecutionModes) {
   });
 }
 
-function normalizeJsonEditorContent(editorKey, requiredKey, libraryConfig) {
+function normalizeJsonEditorContent(
+  editorKey,
+  requiredKey,
+  libraryConfig,
+  actionContext = null,
+) {
   const raw = editorRaw(
     editorKey,
     libraryConfig.getEditorContext,
@@ -214,11 +243,17 @@ function normalizeJsonEditorContent(editorKey, requiredKey, libraryConfig) {
     libraryConfig.getEditorContext,
     libraryConfig.normalizeEditorKey,
     libraryConfig.txEditor,
+    actionContext,
   );
   return normalized;
 }
 
-function jsonTemplateContentFromEditor(kind, cfg, libraryConfig) {
+function jsonTemplateContentFromEditor(
+  kind,
+  cfg,
+  libraryConfig,
+  actionContext = null,
+) {
   if (kind === libraryConfig.txTemplateKind.txBlock) {
     return JSON.stringify(
       callObjectFunction(
@@ -235,6 +270,7 @@ function jsonTemplateContentFromEditor(kind, cfg, libraryConfig) {
       ? "txWorkflowJsonRequired"
       : "orchestrationJsonRequired",
     libraryConfig,
+    actionContext,
   );
 }
 
@@ -258,7 +294,11 @@ function createJsonTemplateLoader({
   libraryConfig,
   setSelectedName,
 }) {
-  return async function loadTemplateIntoEditor(kind, nameOverride = "") {
+  return async function loadTemplateIntoEditor(
+    kind,
+    nameOverride = "",
+    actionContext = null,
+  ) {
     const cfg = configFor(kind);
     const name = safeTemplateString(
       nameOverride || getSelectedName(kind),
@@ -274,6 +314,12 @@ function createJsonTemplateLoader({
     libraryConfig.setRunningStatus(cfg.runOutput);
     try {
       const detail = await getTemplateResource(cfg.apiBase, name);
+      if (
+        typeof actionContext?.isCurrent === "function" &&
+        !actionContext.isCurrent()
+      ) {
+        return detail;
+      }
       setSelectedName(kind, detail.name || name);
       if (detail?.content) {
         setPrettyJsonToEditor(
@@ -282,6 +328,7 @@ function createJsonTemplateLoader({
           libraryConfig.getEditorContext,
           libraryConfig.normalizeEditorKey,
           libraryConfig.txEditor,
+          actionContext,
         );
         refreshJsonTemplateEditorPreview(
           kind,
@@ -297,6 +344,12 @@ function createJsonTemplateLoader({
       );
       return detail;
     } catch (error) {
+      if (
+        typeof actionContext?.isCurrent === "function" &&
+        !actionContext.isCurrent()
+      ) {
+        return null;
+      }
       libraryConfig.setErrorStatus(cfg.runOutput, error);
       return null;
     }
@@ -385,13 +438,21 @@ function createJsonTemplateDraftOperation({
   namesFor,
   setSelectedName,
 }) {
-  return async function createTemplateDraft(kind) {
+  return async function createTemplateDraft(kind, actionContext = null) {
     const cfg = configFor(kind);
-    const name = promptForResourceName(libraryConfig.tr(cfg.newPromptKey));
+    const name = libraryConfig.promptForResourceName(
+      libraryConfig.tr(cfg.newPromptKey),
+    );
     if (!name) return;
     if (namesFor(kind).includes(name)) {
       setSelectedName(kind, name);
-      await loadTemplateIntoEditor(kind);
+      await loadTemplateIntoEditor(kind, "", actionContext);
+      if (
+        typeof actionContext?.isCurrent === "function" &&
+        !actionContext.isCurrent()
+      ) {
+        return;
+      }
       libraryConfig.setStatus(
         cfg.runOutput,
         libraryConfig.tr("templateExistsHint", "Template already exists"),
@@ -406,13 +467,30 @@ function createJsonTemplateDraftOperation({
     );
     libraryConfig.setRunningStatus(cfg.runOutput);
     try {
-      const content = jsonTemplateContentFromEditor(kind, cfg, libraryConfig);
-      const createdTemplatePayload = await createTemplateResource(
+      const content = jsonTemplateContentFromEditor(
+        kind,
+        cfg,
+        libraryConfig,
+        actionContext,
+      );
+      const createdTemplatePayload = await libraryConfig.createTemplateResource(
         cfg.apiBase,
         name,
         content,
       );
-      await loadJsonTemplatesByKind(kind);
+      if (
+        typeof actionContext?.isCurrent === "function" &&
+        !actionContext.isCurrent()
+      ) {
+        return createdTemplatePayload;
+      }
+      await loadJsonTemplatesByKind(kind, actionContext);
+      if (
+        typeof actionContext?.isCurrent === "function" &&
+        !actionContext.isCurrent()
+      ) {
+        return createdTemplatePayload;
+      }
       setSelectedName(kind, createdTemplatePayload.name || name);
       if (kind === libraryConfig.txTemplateKind.txBlock) {
         refreshTxWorkflowBuilderFromContext(libraryConfig.getEditorContext);
@@ -424,6 +502,12 @@ function createJsonTemplateDraftOperation({
         createdTemplatePayload.name || name,
       );
     } catch (error) {
+      if (
+        typeof actionContext?.isCurrent === "function" &&
+        !actionContext.isCurrent()
+      ) {
+        return null;
+      }
       libraryConfig.setErrorStatus(cfg.runOutput, error);
     }
   };
@@ -497,17 +581,31 @@ export function createJsonTemplateLibrary(libraryCfg = {}) {
     refreshJsonTemplateListByKind(libraryConfig.txTemplateKind.orchestration);
   }
 
-  async function loadJsonTemplatesByKind(kind) {
+  async function loadJsonTemplatesByKind(kind, actionContext = null) {
     const cfg = libraryConfig.configFor(kind);
     if (!cfg) return;
     try {
-      const templateListPayload = await listTemplateResource(cfg.apiBase);
+      const templateListPayload = await libraryConfig.listTemplateResource(
+        cfg.apiBase,
+      );
+      if (
+        typeof actionContext?.isCurrent === "function" &&
+        !actionContext.isCurrent()
+      ) {
+        return;
+      }
       cache[kind] = Array.isArray(templateListPayload)
         ? templateListPayload
         : [];
       refreshJsonTemplateOptionsByKind(kind);
       refreshJsonTemplateListByKind(kind);
     } catch (error) {
+      if (
+        typeof actionContext?.isCurrent === "function" &&
+        !actionContext.isCurrent()
+      ) {
+        return;
+      }
       cache[kind] = [];
       refreshJsonTemplateOptionsByKind(kind);
       refreshJsonTemplateListByKind(kind, error.message);

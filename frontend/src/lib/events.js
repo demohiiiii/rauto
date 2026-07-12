@@ -99,6 +99,22 @@ export function collapsibleGroupBindings({
   };
 }
 
+export function tabListSelectionBindings({
+  getActiveValue = () => "",
+  onSelect = null,
+  onSelectedValueChange = null,
+} = {}) {
+  return {
+    valueChangeHandler(nextValue) {
+      const selected = callIfFunction(onSelect, nextValue);
+      if (selected === false) {
+        callIfFunction(onSelectedValueChange, getActiveValue());
+      }
+      return selected;
+    },
+  };
+}
+
 export function formValueCheckedHandler(fieldHandler, fallback = "") {
   return (event) =>
     fieldHandler(formValue(event, fallback), formChecked(event));

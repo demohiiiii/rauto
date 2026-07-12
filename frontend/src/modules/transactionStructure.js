@@ -1,147 +1,3 @@
-export const TX_WORKFLOW_ROOT_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "workflow_label",
-    labelKey: "txWorkflowFormWorkflowLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-export const TX_WORKFLOW_INLINE_BLOCK_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "inline_block_label",
-    labelKey: "txWorkflowFormInlineBlockLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-export const TX_WORKFLOW_TEMPLATE_REF_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "template_ref_label",
-    labelKey: "txWorkflowFormTemplateRefLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_WORKFLOW_INLINE_COMMAND_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "inline_command_label",
-    labelKey: "txWorkflowFormInlineCommandLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_ROOT_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "root_label",
-    labelKey: "txBlockFormRootLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_WHOLE_RESOURCE_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "reason",
-    labelKey: "txBlockFormRollbackReason",
-    placeholderKey: "txBlockFormDescriptionPlaceholder",
-  },
-]);
-
-const TX_BLOCK_STEP_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "step_label",
-    labelKey: "txBlockFormStepLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_COMMAND_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "command_label",
-    labelKey: "txBlockFormCommandLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_ROLLBACK_COMMAND_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "rollback_label",
-    labelKey: "txBlockFormRollbackLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_FLOW_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "flow_label",
-    labelKey: "txBlockFormFlowLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_FLOW_STEP_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "flow_step_label",
-    labelKey: "txBlockFormFlowStepLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_INTERACTION_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "interaction_label",
-    labelKey: "txBlockFormInteractionLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_PROMPT_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "prompt_label",
-    labelKey: "txBlockFormPromptLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_TEMPLATE_DEFINITION_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "template_definition_label",
-    labelKey: "txBlockFormTemplateDefinitionLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_TEMPLATE_OPERATION_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "template_operation_label",
-    labelKey: "txBlockFormTemplateOperationLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_TEMPLATE_RUNTIME_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "runtime_label",
-    labelKey: "txBlockFormRuntimeLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_TEMPLATE_VAR_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "variable_label",
-    labelKey: "txBlockFormVariableLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-const TX_BLOCK_TEMPLATE_STEP_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "template_step_label",
-    labelKey: "txBlockFormTemplateStepLabelField",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
 export function txStructureMappingEntry({
   editorKind = "field",
   formPath = "",
@@ -157,6 +13,8 @@ export function txStructureMappingEntry({
     scope,
   });
 }
+
+const EMPTY_METADATA_FIELD_DEFS = Object.freeze([]);
 
 const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
   txStructureMappingEntry({
@@ -186,13 +44,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "root",
-    jsonPath: "root_label",
-    formPath: "extra.root_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormRootLabel",
-  }),
-  txStructureMappingEntry({
-    scope: "root",
     jsonPath: "extra.*",
     formPath: "extra.*",
     editorKind: "json-object-extra",
@@ -209,13 +60,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     jsonPath: "trigger_step_index",
     formPath: "wholeResource.triggerStepIndex",
     labelKey: "txBlockFormTriggerStepIndex",
-  }),
-  txStructureMappingEntry({
-    scope: "rollback_policy.whole_resource",
-    jsonPath: "reason",
-    formPath: "wholeResource.extra.reason",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormReason",
   }),
   txStructureMappingEntry({
     scope: "rollback_policy.whole_resource",
@@ -247,13 +91,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     formPath: "rollbackOnFailure",
     editorKind: "presence-field",
     labelKey: "txBlockFormRollbackOnFailure",
-  }),
-  txStructureMappingEntry({
-    scope: "step",
-    jsonPath: "step_label",
-    formPath: "extra.step_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormStepLabel",
   }),
   txStructureMappingEntry({
     scope: "step",
@@ -302,13 +139,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "operation.command",
-    jsonPath: "command_label",
-    formPath: "command.extra.command_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormCommandLabel",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.command",
     jsonPath: "extra.*",
     formPath: "command.extra.*",
     editorKind: "json-object-extra",
@@ -318,13 +148,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     jsonPath: "prompts",
     formPath: "prompts",
     editorKind: "prompt-list",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.command.interaction",
-    jsonPath: "interaction_label",
-    formPath: "extra.interaction_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormInteractionLabel",
   }),
   txStructureMappingEntry({
     scope: "operation.command.interaction",
@@ -354,13 +177,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "operation.command.prompt",
-    jsonPath: "prompt_label",
-    formPath: "extra.prompt_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormPromptLabel",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.command.prompt",
     jsonPath: "extra.*",
     formPath: "extra.*",
     editorKind: "json-object-extra",
@@ -384,13 +200,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     formPath: "flow.maxSteps",
     editorKind: "presence-field",
     labelKey: "txBlockFormMaxSteps",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.flow",
-    jsonPath: "flow_label",
-    formPath: "flow.extra.flow_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormFlowLabel",
   }),
   txStructureMappingEntry({
     scope: "operation.flow",
@@ -432,13 +241,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "operation.flow.step",
-    jsonPath: "flow_step_label",
-    formPath: "extra.flow_step_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormFlowStepLabel",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.flow.step",
     jsonPath: "extra.*",
     formPath: "extra.*",
     editorKind: "json-object-extra",
@@ -461,13 +263,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     jsonPath: "runtime",
     formPath: "template.runtime",
     editorKind: "template-runtime-editor",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.template",
-    jsonPath: "template_operation_label",
-    formPath: "template.extra.template_operation_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormTemplateOperationLabel",
   }),
   txStructureMappingEntry({
     scope: "operation.template",
@@ -513,13 +308,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     jsonPath: "steps",
     formPath: "steps",
     editorKind: "template-step-list",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.template.definition",
-    jsonPath: "template_definition_label",
-    formPath: "extra.template_definition_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormTemplateDefinitionLabel",
   }),
   txStructureMappingEntry({
     scope: "operation.template.definition",
@@ -584,13 +372,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "operation.template.var",
-    jsonPath: "variable_label",
-    formPath: "extra.variable_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormVariableLabel",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.template.var",
     jsonPath: "extra.*",
     formPath: "extra.*",
     editorKind: "json-object-extra",
@@ -620,13 +401,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     jsonPath: "prompts",
     formPath: "prompts",
     editorKind: "template-prompt-list",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.template.step",
-    jsonPath: "template_step_label",
-    formPath: "extra.template_step_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormTemplateStepLabelField",
   }),
   txStructureMappingEntry({
     scope: "operation.template.step",
@@ -660,13 +434,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     formPath: "recordInput",
     editorKind: "presence-field",
     labelKey: "txBlockFormRecordInput",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.template.prompt",
-    jsonPath: "prompt_label",
-    formPath: "extra.prompt_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormPromptLabel",
   }),
   txStructureMappingEntry({
     scope: "operation.template.prompt",
@@ -718,13 +485,6 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "operation.template.runtime",
-    jsonPath: "runtime_label",
-    formPath: "extra.runtime_label",
-    editorKind: "metadata-field",
-    labelKey: "txBlockFormRuntimeLabel",
-  }),
-  txStructureMappingEntry({
-    scope: "operation.template.runtime",
     jsonPath: "extra.*",
     formPath: "extra.*",
     editorKind: "json-object-extra",
@@ -738,24 +498,12 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
 ]);
 
 function txWorkflowInlineBlockMappingEntries() {
-  return TX_BLOCK_JSON_STRUCTURE_MAPPING.map((entry) => {
-    if (
-      entry.scope === "operation.command" &&
-      entry.jsonPath === "command_label"
-    ) {
-      return txStructureMappingEntry({
-        ...entry,
-        formPath: "command.extra.inline_command_label",
-        jsonPath: "inline_command_label",
-        labelKey: "txWorkflowFormInlineCommandLabel",
-        scope: "block.inline.operation.command",
-      });
-    }
-    return txStructureMappingEntry({
+  return TX_BLOCK_JSON_STRUCTURE_MAPPING.map((entry) =>
+    txStructureMappingEntry({
       ...entry,
       scope: `block.inline.${entry.scope}`,
-    });
-  });
+    }),
+  );
 }
 
 const TX_WORKFLOW_JSON_STRUCTURE_MAPPING = Object.freeze([
@@ -781,23 +529,9 @@ const TX_WORKFLOW_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "root",
-    jsonPath: "workflow_label",
-    formPath: "extra.workflow_label",
-    editorKind: "metadata-field",
-    labelKey: "txWorkflowFormWorkflowLabel",
-  }),
-  txStructureMappingEntry({
-    scope: "root",
     jsonPath: "extra.*",
     formPath: "extra.*",
     editorKind: "json-object-extra",
-  }),
-  txStructureMappingEntry({
-    scope: "block",
-    jsonPath: "inline_block_label",
-    formPath: "inlineBlock.extra.inline_block_label",
-    editorKind: "metadata-field",
-    labelKey: "txWorkflowFormInlineBlockLabel",
   }),
   txStructureMappingEntry({
     scope: "block",
@@ -844,78 +578,11 @@ const TX_WORKFLOW_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "block.template_ref",
-    jsonPath: "template_ref_label",
-    formPath: "extra.template_ref_label",
-    editorKind: "metadata-field",
-    labelKey: "txWorkflowFormTemplateRefLabel",
-  }),
-  txStructureMappingEntry({
-    scope: "block.template_ref",
     jsonPath: "extra.*",
     formPath: "extra.*",
     editorKind: "json-object-extra",
   }),
 ]);
-
-export function txWorkflowInlineCommandMetadataFieldDefs() {
-  return TX_WORKFLOW_INLINE_COMMAND_METADATA_FIELD_DEFS;
-}
-
-export function txBlockRootMetadataFieldDefs() {
-  return TX_BLOCK_ROOT_METADATA_FIELD_DEFS;
-}
-
-export function txBlockWholeResourceMetadataFieldDefs() {
-  return TX_BLOCK_WHOLE_RESOURCE_METADATA_FIELD_DEFS;
-}
-
-export function txBlockStepMetadataFieldDefs() {
-  return TX_BLOCK_STEP_METADATA_FIELD_DEFS;
-}
-
-export function txBlockCommandMetadataFieldDefs() {
-  return TX_BLOCK_COMMAND_METADATA_FIELD_DEFS;
-}
-
-export function txBlockRollbackCommandMetadataFieldDefs() {
-  return TX_BLOCK_ROLLBACK_COMMAND_METADATA_FIELD_DEFS;
-}
-
-export function txBlockFlowMetadataFieldDefs() {
-  return TX_BLOCK_FLOW_METADATA_FIELD_DEFS;
-}
-
-export function txBlockFlowStepMetadataFieldDefs() {
-  return TX_BLOCK_FLOW_STEP_METADATA_FIELD_DEFS;
-}
-
-export function txBlockInteractionMetadataFieldDefs() {
-  return TX_BLOCK_INTERACTION_METADATA_FIELD_DEFS;
-}
-
-export function txBlockPromptMetadataFieldDefs() {
-  return TX_BLOCK_PROMPT_METADATA_FIELD_DEFS;
-}
-
-export function txBlockTemplateDefinitionMetadataFieldDefs() {
-  return TX_BLOCK_TEMPLATE_DEFINITION_METADATA_FIELD_DEFS;
-}
-
-export function txBlockTemplateOperationMetadataFieldDefs() {
-  return TX_BLOCK_TEMPLATE_OPERATION_METADATA_FIELD_DEFS;
-}
-
-export function txBlockTemplateRuntimeMetadataFieldDefs() {
-  return TX_BLOCK_TEMPLATE_RUNTIME_METADATA_FIELD_DEFS;
-}
-
-export function txBlockTemplateVarMetadataFieldDefs() {
-  return TX_BLOCK_TEMPLATE_VAR_METADATA_FIELD_DEFS;
-}
-
-export function txBlockTemplateStepMetadataFieldDefs() {
-  return TX_BLOCK_TEMPLATE_STEP_METADATA_FIELD_DEFS;
-}
 
 export function txBlockJsonStructureMapping() {
   return TX_BLOCK_JSON_STRUCTURE_MAPPING;
@@ -923,4 +590,43 @@ export function txBlockJsonStructureMapping() {
 
 export function txWorkflowJsonStructureMapping() {
   return TX_WORKFLOW_JSON_STRUCTURE_MAPPING;
+}
+export const TX_WORKFLOW_ROOT_METADATA_FIELD_DEFS = Object.freeze([]);
+export const TX_WORKFLOW_INLINE_BLOCK_METADATA_FIELD_DEFS = Object.freeze([]);
+export const TX_WORKFLOW_TEMPLATE_REF_METADATA_FIELD_DEFS = Object.freeze([]);
+
+export function txWorkflowInlineCommandMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
+}
+
+export function txBlockFlowMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
+}
+
+export function txBlockFlowStepMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
+}
+
+export function txBlockPromptMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
+}
+
+export function txBlockTemplateDefinitionMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
+}
+
+export function txBlockTemplateOperationMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
+}
+
+export function txBlockTemplateRuntimeMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
+}
+
+export function txBlockTemplateVarMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
+}
+
+export function txBlockTemplateStepMetadataFieldDefs() {
+  return EMPTY_METADATA_FIELD_DEFS;
 }

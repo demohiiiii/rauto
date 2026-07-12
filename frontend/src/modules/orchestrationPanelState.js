@@ -112,10 +112,11 @@ export function createOrchestrationInputPanelWorkspace(inputState = {}) {
     editorSyncVersionStateStore.update((version) => Number(version || 0) + 1);
   }
 
-  function createJsonDraft() {
-    return loadingRunner.run(
-      "json-new",
-      dependencyState.onCreateJsonTemplateDraft,
+  function createJsonDraft(actionContext = null) {
+    return loadingRunner.run("json-new", () =>
+      typeof dependencyState.onCreateJsonTemplateDraft === "function"
+        ? dependencyState.onCreateJsonTemplateDraft(actionContext)
+        : undefined,
     );
   }
 
@@ -132,9 +133,9 @@ export function createOrchestrationInputPanelWorkspace(inputState = {}) {
     return loadingRunner.run("execute", dependencyState.onExecute);
   }
 
-  function importFile(file) {
+  function importFile(file, actionContext = null) {
     return typeof dependencyState.onImportFile === "function"
-      ? dependencyState.onImportFile(file)
+      ? dependencyState.onImportFile(file, actionContext)
       : undefined;
   }
 

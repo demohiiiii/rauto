@@ -2,7 +2,14 @@
   import TxBlockTemplateRuntimeFieldsEditor from "./TxBlockTemplateRuntimeFieldsEditor.svelte";
   import TxBlockTemplateRuntimeVarsEditor from "./TxBlockTemplateRuntimeVarsEditor.svelte";
 
-  let { operation, templateDisplay, onChange, jsonValueTypeRows } = $props();
+  let {
+    operation,
+    templateDisplay,
+    onChange,
+    jsonValueTypeRows,
+    validationErrors = [],
+    pathPrefix = "",
+  } = $props();
 </script>
 
 <div class="grid gap-4">
@@ -10,11 +17,15 @@
     {operation}
     {onChange}
     {jsonValueTypeRows}
+    {validationErrors}
+    {pathPrefix}
   />
   <TxBlockTemplateRuntimeVarsEditor
     {operation}
     {templateDisplay}
     {onChange}
     {jsonValueTypeRows}
+    {validationErrors}
+    {pathPrefix}
   />
 </div>

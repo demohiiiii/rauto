@@ -10,6 +10,8 @@
     templateStepIndex,
     onChange,
     jsonValueTypeRows,
+    validationErrors = [],
+    pathPrefix = "",
   } = $props();
   const txBlockTemplatePromptEditorWorkspace =
     createTxBlockTemplatePromptEditorWorkspace();
@@ -34,12 +36,14 @@
   });
 </script>
 
-<div class="grid gap-3 rounded-lg bg-slate-50 p-2">
+<div class="grid gap-3 rounded-lg border border-border bg-muted/20 p-2">
   <TxBlockTemplatePromptPatternsEditor
     patternRows={syncedPromptRow.patternRows}
     onAddPattern={promptActionHandlers.addPatternAction()}
     onPatternInput={promptActionHandlers.patternValueHandler}
     onRemovePattern={promptActionHandlers.removePatternAction}
+    {validationErrors}
+    pathPrefix={`${pathPrefix}.patterns`}
   />
   <TxBlockTemplatePromptResponseEditor
     {prompt}
@@ -49,13 +53,7 @@
     onAppendNewlineChange={promptActionHandlers.booleanValueHandler(
       "appendNewline",
     )}
-    onAppendNewlinePresenceChange={promptActionHandlers.booleanPresenceToggle(
-      "appendNewline",
-    )}
     onRecordInputChange={promptActionHandlers.booleanValueHandler(
-      "recordInput",
-    )}
-    onRecordInputPresenceChange={promptActionHandlers.booleanPresenceToggle(
       "recordInput",
     )}
     onDeletePrompt={promptActionHandlers.removePromptAction()}

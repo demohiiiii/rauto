@@ -3,6 +3,7 @@
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "../../lib/i18n.js";
+  import { txBlockFieldRowsWithValidation } from "../../modules/transactionBlockDisplayState.js";
   import TxBlockTemplateVarDefaultEditor from "./TxBlockTemplateVarDefaultEditor.svelte";
   import TxBlockTemplateVarOptionsEditor from "./TxBlockTemplateVarOptionsEditor.svelte";
   import { createTxBlockTemplateVarEditorWorkspace } from "../../modules/transactionBlockTemplateWorkspaces.js";
@@ -13,6 +14,8 @@
     onChange,
     jsonValueTypeRows,
     templateVarTypeRows,
+    validationErrors = [],
+    pathPrefix = "",
   } = $props();
 
   const txBlockTemplateVarEditorWorkspace =
@@ -30,7 +33,14 @@
     $variableMetadataFieldRowsStateStore,
   );
   let syncedVariableRow = $derived($variableRowStateStore);
-  let variable = $derived(syncedVariableRow.variable);
+  let variable = $derived(syncedVariableRow.variable ?? {});
+  let validatedVariableFieldRows = $derived(
+    txBlockFieldRowsWithValidation(
+      variableFieldRows,
+      validationErrors,
+      pathPrefix,
+    ),
+  );
 
   $effect(() => {
     setTemplateVarContext({
@@ -43,10 +53,12 @@
 </script>
 
 <div
-  class="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-4"
+  class="grid gap-3 rounded-lg border border-border bg-muted/20 p-3 md:grid-cols-4"
 >
   <PresenceFieldGrid
-    fieldRows={variableFieldRows}
+    fieldRows={validatedVariableFieldRows}
+    valueHandlerMode="event"
+    presenceControlsMode="hidden"
     hostClass="contents"
     itemClassByFieldKey={{ description: "md:col-span-2" }}
     onValueChangeForKey={variableActionHandlers.fieldValueHandler}
@@ -55,6 +67,8 @@
   />
   <PresenceFieldGrid
     fieldRows={variableMetadataFieldRows}
+    valueHandlerMode="event"
+    presenceControlsMode="hidden"
     hostClass="contents"
     onValueChangeForKey={variableActionHandlers.metadataValueHandler}
     onPresenceChangeForKey={variableActionHandlers.metadataPresenceHandler}

@@ -89,29 +89,26 @@ const ORCHESTRATION_JOB_FIELD_DEFS = Object.freeze([
   ...ORCHESTRATION_STAGE_FIELD_DEFS.slice(1),
 ]);
 
-export const ORCHESTRATION_PLAN_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "plan_label",
-    labelKey: "orchestrationFormPlanLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-export const ORCHESTRATION_STAGE_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "stage_label",
-    labelKey: "orchestrationFormStageLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-export const ORCHESTRATION_JOB_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "job_label",
-    labelKey: "orchestrationFormJobLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
+export const ORCHESTRATION_PLAN_METADATA_FIELD_DEFS = Object.freeze([]);
+export const ORCHESTRATION_STAGE_METADATA_FIELD_DEFS = Object.freeze([]);
+export const ORCHESTRATION_JOB_METADATA_FIELD_DEFS = Object.freeze([]);
+export const ORCHESTRATION_INVENTORY_DEFAULTS_METADATA_FIELD_DEFS =
+  Object.freeze([]);
+export const ORCHESTRATION_INVENTORY_GROUP_DEFAULTS_METADATA_FIELD_DEFS =
+  Object.freeze([]);
+export const ORCHESTRATION_INVENTORY_GROUP_METADATA_FIELD_DEFS = Object.freeze(
+  [],
+);
+export const ORCHESTRATION_TARGET_METADATA_FIELD_DEFS = Object.freeze([]);
+export const ORCHESTRATION_TX_BLOCK_DIRECT_METADATA_FIELD_DEFS = Object.freeze(
+  [],
+);
+export const ORCHESTRATION_TX_BLOCK_TEMPLATE_METADATA_FIELD_DEFS =
+  Object.freeze([]);
+export const ORCHESTRATION_TX_BLOCK_FLOW_METADATA_FIELD_DEFS = Object.freeze(
+  [],
+);
+export const ORCHESTRATION_TX_WORKFLOW_METADATA_FIELD_DEFS = Object.freeze([]);
 
 export const ORCHESTRATION_CONNECTION_NULLABLE_FIELD_KEYS = new Set([
   "name",
@@ -124,73 +121,6 @@ export const ORCHESTRATION_CONNECTION_NULLABLE_FIELD_KEYS = new Set([
   "linuxShellFlavor",
   "deviceProfile",
   "templateDir",
-]);
-
-export const ORCHESTRATION_INVENTORY_DEFAULTS_METADATA_FIELD_DEFS =
-  Object.freeze([
-    {
-      fieldKey: "defaults_label",
-      labelKey: "orchestrationFormInventoryDefaultsLabel",
-      placeholderKey: "txBlockFormLabelPlaceholder",
-    },
-  ]);
-
-export const ORCHESTRATION_INVENTORY_GROUP_DEFAULTS_METADATA_FIELD_DEFS =
-  Object.freeze([
-    {
-      fieldKey: "group_defaults_label",
-      labelKey: "orchestrationFormInventoryGroupDefaultsLabel",
-      placeholderKey: "txBlockFormLabelPlaceholder",
-    },
-  ]);
-
-export const ORCHESTRATION_INVENTORY_GROUP_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "group_label",
-    labelKey: "orchestrationFormInventoryGroupLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-export const ORCHESTRATION_TARGET_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "target_label",
-    labelKey: "orchestrationFormTargetLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-export const ORCHESTRATION_TX_BLOCK_DIRECT_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "tx_block_direct_label",
-    labelKey: "orchestrationFormTxBlockDirectLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-export const ORCHESTRATION_TX_BLOCK_TEMPLATE_METADATA_FIELD_DEFS =
-  Object.freeze([
-    {
-      fieldKey: "tx_block_template_label",
-      labelKey: "orchestrationFormTxBlockTemplateLabel",
-      placeholderKey: "txBlockFormLabelPlaceholder",
-    },
-  ]);
-
-export const ORCHESTRATION_TX_BLOCK_FLOW_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "flow_template_label",
-    labelKey: "orchestrationFormFlowTemplateLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
-]);
-
-export const ORCHESTRATION_TX_WORKFLOW_METADATA_FIELD_DEFS = Object.freeze([
-  {
-    fieldKey: "workflow_action_label",
-    labelKey: "orchestrationFormTxWorkflowLabel",
-    placeholderKey: "txBlockFormLabelPlaceholder",
-  },
 ]);
 
 export const ORCHESTRATION_TX_BLOCK_EXECUTION_FIELD_DEFS = Object.freeze([
@@ -821,7 +751,7 @@ function buildOrchestrationJsonStructureMapping() {
       jsonPath: "rollback_commands",
       formPath: "rollbackCommands",
       editorKind: "string-list",
-      labelKey: "txBlockFormRollbackLabel",
+      labelKey: "orchestrationFormRollbackCommands",
     }),
     txStructureMappingEntry({
       scope: "job.action.tx_block",

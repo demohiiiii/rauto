@@ -94,7 +94,7 @@ test("action wrappers compose shadcn buttons without Daisy defaults", () => {
   }
 });
 
-test("collapsible group composes shadcn Card instead of legacy shell classes", () => {
+test("collapsible group supports card and plain section variants", () => {
   const source = read(
     "frontend/src/components/fragments/CollapsibleGroup.svelte",
   );
@@ -104,6 +104,10 @@ test("collapsible group composes shadcn Card instead of legacy shell classes", (
   assert.match(source, /<Card\.Root/);
   assert.match(source, /<Card\.Header/);
   assert.match(source, /<Card\.Content/);
+  assert.match(source, /variant = "card"/);
+  assert.match(source, /variant === "section"/);
+  assert.match(source, /<section/);
+  assert.match(source, /border-b/);
   assert.doesNotMatch(uiSource, /group-card/);
   assert.doesNotMatch(uiSource, /group-body/);
   assert.doesNotMatch(uiSource, /field-tools/);
@@ -889,15 +893,10 @@ test("orchestrated panels compose shadcn Card instead of group-card shells", () 
   }
 });
 
-test("orchestrated editor cards compose shadcn Card instead of group-card shells", () => {
+test("framed orchestrated editors compose shadcn Card", () => {
   const panelPaths = [
     "frontend/src/pages/orchestrated/OrchestrationInventoryGroupEditor.svelte",
     "frontend/src/pages/orchestrated/OrchestrationStageEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeVarsEditor.svelte",
     "frontend/src/pages/orchestrated/TxWorkflowBlockEditor.svelte",
   ];
 
@@ -911,6 +910,56 @@ test("orchestrated editor cards compose shadcn Card instead of group-card shells
     assert.match(source, /<Card\.Content/);
     assert.doesNotMatch(source, /group-card/);
   }
+});
+
+test("nested transaction block editors stay unframed", () => {
+  const panelPaths = [
+    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
+    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
+    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeVarsEditor.svelte",
+  ];
+
+  for (const path of panelPaths) {
+    const source = read(path);
+
+    assert.doesNotMatch(source, /ui\/card/);
+    assert.doesNotMatch(source, /<Card\./);
+    assert.doesNotMatch(source, /group-card/);
+  }
+});
+
+test("tx block visual editor owns the single inspector card shell", () => {
+  const visualEditorSource = read(
+    "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
+  );
+  const stepEditorSource = read(
+    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
+  );
+  const rootInspectorSource = read(
+    "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
+  );
+  const rollbackEditorSource = read(
+    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
+  );
+
+  const inspectorComposition = [
+    visualEditorSource,
+    rootInspectorSource,
+    rollbackEditorSource,
+    stepEditorSource,
+  ].join("\n");
+
+  assert.equal(inspectorComposition.match(/<Card\.Root/g)?.length, 1);
+  assert.match(visualEditorSource, /<TxBlockStepEditor/);
+  assert.match(visualEditorSource, /<TxBlockRootInspector/);
+  assert.match(stepEditorSource, /ui\/card/);
+  assert.match(stepEditorSource, /<Card\.Content/);
+  assert.doesNotMatch(stepEditorSource, /<Card\.Root/);
+  assert.doesNotMatch(stepEditorSource, /<Card\.Header/);
+  assert.doesNotMatch(stepEditorSource, /<Card\.Title/);
+  assert.doesNotMatch(rootInspectorSource, /<Card\.Root/);
+  assert.doesNotMatch(rollbackEditorSource, /ui\/card/);
+  assert.doesNotMatch(rollbackEditorSource, /<Card\.(Root|Header|Content)/);
 });
 
 test("task page subpanels compose shadcn Card instead of group-card shells", () => {

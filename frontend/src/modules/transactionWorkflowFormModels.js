@@ -1,4 +1,10 @@
-import { cloneJsonValue, plainObject, stringValue } from "../lib/jsonValue.js";
+import {
+  cloneJsonValue,
+  jsonParseErrorDetail,
+  plainObject,
+  stringValue,
+} from "../lib/jsonValue.js";
+import { t } from "../lib/i18n.js";
 import {
   txWorkflowBlockFormModelFromJson,
   txWorkflowBlockJsonFromFormModel,
@@ -14,6 +20,19 @@ function txObjectExtra(source, knownKeys) {
     Object.entries(source)
       .filter(([key]) => !knownKeys.has(key))
       .map(([key, value]) => [key, cloneTxJsonValue(value)]),
+  );
+}
+
+function txWithoutUnsupportedLabels(value) {
+  if (Array.isArray(value)) return value.map(txWithoutUnsupportedLabels);
+  if (!txPlainObject(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !key.endsWith("_label"))
+      .map(([key, entryValue]) => [
+        key,
+        txWithoutUnsupportedLabels(entryValue),
+      ]),
   );
 }
 
@@ -148,19 +167,33 @@ function txWorkflowJsonFromFormModel(model = {}) {
 
 function txWorkflowFormModelFromJsonText(jsonText = "") {
   if (typeof jsonText !== "string" || !jsonText.trim()) {
-    return { error: "", model: null };
+    const message = t("txWorkflowJsonRequired");
+    return {
+      error: message,
+      errorDetail: { message, line: null, column: null },
+      model: null,
+    };
   }
   try {
+    const parsedValue = JSON.parse(jsonText);
+    if (!txPlainObject(parsedValue)) {
+      const message = t("txWorkflowLoadInvalidJsonShape");
+      return {
+        error: message,
+        errorDetail: { message, line: null, column: null },
+        model: null,
+      };
+    }
     return {
       error: "",
-      model: txWorkflowFormModelFromJson(JSON.parse(jsonText)),
+      errorDetail: null,
+      model: txWorkflowFormModelFromJson(parsedValue),
     };
   } catch (error) {
+    const errorDetail = jsonParseErrorDetail(jsonText, error);
     return {
-      error:
-        error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : String(error || ""),
+      error: errorDetail.message,
+      errorDetail,
       model: null,
     };
   }
@@ -173,10 +206,15 @@ export function txWorkflowEditorFormStateFromJsonText(
   const result = txWorkflowFormModelFromJsonText(jsonText);
   return {
     formError: result.error,
+    formErrorDetail: result.errorDetail,
     formModel: result.model || currentModel,
   };
 }
 
 export function txWorkflowFormModelToJsonText(model = {}) {
-  return JSON.stringify(txWorkflowJsonFromFormModel(model), null, 2);
+  return JSON.stringify(
+    txWithoutUnsupportedLabels(txWorkflowJsonFromFormModel(model)),
+    null,
+    2,
+  );
 }

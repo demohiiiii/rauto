@@ -291,29 +291,58 @@ function orchestrationExecutionPayload({ dependencies, dryRun }) {
 function normalizeTxWorkflowJsonFromEditor(
   txJsonEditorsHost = null,
   dependencies = {},
+  actionContext = null,
 ) {
   const raw = txWorkflowEditorRaw();
-  if (!raw) return;
+  if (!raw) return false;
   const workflow = JSON.parse(raw);
   if (!workflow || typeof workflow !== "object" || Array.isArray(workflow)) {
     throw new Error(tr("txWorkflowLoadInvalidJsonShape"));
   }
-  callObjectFunction(txJsonEditorsHost, "setTxWorkflowEditorJson", workflow);
+  if (!externalActionIsCurrent(actionContext)) return false;
+  runOwnedEditorMutation(actionContext, () =>
+    callObjectFunction(txJsonEditorsHost, "setTxWorkflowEditorJson", workflow),
+  );
   callOptionalTxDependency(dependencies, "updateTxWorkflowPreviewFromEditor");
+  return true;
+}
+
+function externalActionIsCurrent(actionContext = null) {
+  return (
+    typeof actionContext?.isCurrent !== "function" || actionContext.isCurrent()
+  );
+}
+
+function runOwnedEditorMutation(actionContext, operation) {
+  if (typeof actionContext?.runOwnedEditorMutation === "function") {
+    return actionContext.runOwnedEditorMutation(operation);
+  }
+  return typeof operation === "function" ? operation() : undefined;
 }
 
 async function importTxWorkflowFromFileWithDependencies(
   txJsonEditorsHost = null,
   dependencies = {},
   file,
+  actionContext = null,
 ) {
   if (!file) throw new Error(tr("txWorkflowImportFileInvalid"));
   const text = await file.text();
+  if (!externalActionIsCurrent(actionContext)) return null;
   callObjectFunction(txJsonEditorsHost, "setTxWorkflowEditorText", text, {
     notify: false,
   });
-  normalizeTxWorkflowJsonFromEditor(txJsonEditorsHost, dependencies);
+  if (
+    !normalizeTxWorkflowJsonFromEditor(
+      txJsonEditorsHost,
+      dependencies,
+      actionContext,
+    )
+  ) {
+    return null;
+  }
   callOptionalTxDependency(dependencies, "updateTxWorkflowPreviewFromEditor");
+  if (!externalActionIsCurrent(actionContext)) return null;
   setStatus(
     TX_OUTPUT.txWorkflowPlan,
     tr("txWorkflowImportFileDone"),
@@ -324,20 +353,31 @@ async function importTxWorkflowFromFileWithDependencies(
 async function importOrchestrationFromFileWithDependencies(
   txJsonEditorsHost = null,
   file,
+  actionContext = null,
 ) {
   if (!file) throw new Error(tr("orchestrationImportFileInvalid"));
   const text = await file.text();
+  if (!externalActionIsCurrent(actionContext)) return null;
   try {
-    callObjectFunction(
-      txJsonEditorsHost,
-      "setOrchestrationEditorJson",
-      JSON.parse(text),
+    const plan = JSON.parse(text);
+    if (!externalActionIsCurrent(actionContext)) return null;
+    runOwnedEditorMutation(actionContext, () =>
+      callObjectFunction(txJsonEditorsHost, "setOrchestrationEditorJson", plan),
     );
   } catch {
-    callObjectFunction(txJsonEditorsHost, "setOrchestrationEditorText", text, {
-      notify: true,
-    });
+    if (!externalActionIsCurrent(actionContext)) return null;
+    runOwnedEditorMutation(actionContext, () =>
+      callObjectFunction(
+        txJsonEditorsHost,
+        "setOrchestrationEditorText",
+        text,
+        {
+          notify: true,
+        },
+      ),
+    );
   }
+  if (!externalActionIsCurrent(actionContext)) return null;
   setStatus(
     TX_OUTPUT.orchestrationPlan,
     tr("orchestrationImportFileDone"),
@@ -485,13 +525,18 @@ export function orchestratedExecutionOperations({
     executeOrchestration: () =>
       executeOrchestrationRunWithDependencies(dependencies),
     executeTxWorkflow: () => executeWorkflowWithDependencies(dependencies),
-    importOrchestrationFile: (file) =>
-      importOrchestrationFromFileWithDependencies(txJsonEditorsHost, file),
-    importTxWorkflowFile: (file) =>
+    importOrchestrationFile: (file, actionContext = null) =>
+      importOrchestrationFromFileWithDependencies(
+        txJsonEditorsHost,
+        file,
+        actionContext,
+      ),
+    importTxWorkflowFile: (file, actionContext = null) =>
       importTxWorkflowFromFileWithDependencies(
         txJsonEditorsHost,
         dependencies,
         file,
+        actionContext,
       ),
     previewOrchestration: () =>
       previewOrchestrationWithDependencies(dependencies),

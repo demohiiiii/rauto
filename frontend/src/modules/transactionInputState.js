@@ -28,6 +28,7 @@ import {
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
 } from "./transactionWorkflowFormModels.js";
+import { createTransactionEditorSession } from "./transactionEditorSession.js";
 import {
   jsonTemplateSelectStateFor,
   runTxExecutionModeHandler,
@@ -54,6 +55,25 @@ const txExecutionModePresentation = (mode = "") => {
 };
 
 const txDisplayText = (displaySource) => displayText(displaySource);
+
+export function transactionEditorSyncPresentation(status = "synced") {
+  if (status === "invalid-json") {
+    return {
+      text: t("txEditorSyncInvalid"),
+      tone: "warning",
+    };
+  }
+  if (status === "dirty") {
+    return {
+      text: t("txEditorSyncDirty"),
+      tone: "muted",
+    };
+  }
+  return {
+    text: t("txEditorSyncSynced"),
+    tone: "primary",
+  };
+}
 
 const txOptionRowsWithCurrent = (optionValues = [], selected = "") =>
   selectOptionsWithCurrent(optionValues, selected).map((optionValue) => ({
@@ -280,12 +300,6 @@ export function saveTxBlockEditorFormModel(
 export function txBlockInputFormState(jsonText = "", currentModel = null) {
   const baseModel =
     currentModel || txBlockFormModelFromJson(defaultTxBlockTemplatePayload());
-  if (typeof jsonText !== "string" || !jsonText.trim()) {
-    return {
-      formError: "",
-      formModel: baseModel,
-    };
-  }
   return txBlockEditorFormStateFromJsonText(jsonText, baseModel);
 }
 
@@ -297,12 +311,13 @@ function txBlockInputFormStateFromEditor(currentModel = null) {
 }
 
 export function txBlockInputEditorSyncState(currentModel = null) {
+  const jsonText = txJsonEditorRawText(TX_EDITOR.txBlock);
   const nextState = txBlockInputFormStateFromEditor(currentModel);
   return {
     ...nextState,
-    jsonText:
-      txJsonEditorRawText(TX_EDITOR.txBlock) ||
-      txBlockFormModelToJsonText(nextState.formModel),
+    jsonText: nextState.formError
+      ? jsonText
+      : jsonText || txBlockFormModelToJsonText(nextState.formModel),
   };
 }
 
@@ -321,12 +336,6 @@ export function txWorkflowInputFormState(jsonText = "", currentModel = null) {
   const baseModel =
     currentModel ||
     txWorkflowFormModelFromJson(defaultTxWorkflowTemplatePayload());
-  if (typeof jsonText !== "string" || !jsonText.trim()) {
-    return {
-      formError: "",
-      formModel: baseModel,
-    };
-  }
   return txWorkflowEditorFormStateFromJsonText(jsonText, baseModel);
 }
 
@@ -338,12 +347,13 @@ function txWorkflowInputFormStateFromEditor(currentModel = null) {
 }
 
 export function txWorkflowInputEditorSyncState(currentModel = null) {
+  const jsonText = txJsonEditorRawText(TX_EDITOR.txWorkflow);
   const nextState = txWorkflowInputFormStateFromEditor(currentModel);
   return {
     ...nextState,
-    jsonText:
-      txJsonEditorRawText(TX_EDITOR.txWorkflow) ||
-      txWorkflowFormModelToJsonText(nextState.formModel),
+    jsonText: nextState.formError
+      ? jsonText
+      : jsonText || txWorkflowFormModelToJsonText(nextState.formModel),
   };
 }
 
@@ -354,51 +364,39 @@ export function createTxInputPanelWorkspace({
   inputFormStateFromJsonText,
   saveEditorFormModel,
 } = {}) {
-  const baseModel = buildDefaultFormModel();
-  const formModelStateStore = writable(baseModel);
-  const formErrorStateStore = writable("");
-  const jsonTextStateStore = writable(formModelToJsonText(baseModel));
-  const editorDisplayModeStateStore = writable("form");
+  const session = createTransactionEditorSession({
+    buildDefaultFormModel,
+    formModelToJsonText,
+    inputFormStateFromJsonText,
+  });
   const { loadingKeysStore, loadingRunner } = createTxInputLoadingKeysStore();
   let initialized = false;
 
-  function setEditorState(nextState = {}, nextJsonText = "") {
-    formModelStateStore.set(nextState.formModel || buildDefaultFormModel());
-    formErrorStateStore.set(txInputText(nextState.formError));
-    jsonTextStateStore.set(
-      txInputText(nextJsonText) ||
-        formModelToJsonText(nextState.formModel || buildDefaultFormModel()),
-    );
-  }
-
-  function currentFormModel() {
-    return getStore(formModelStateStore) || buildDefaultFormModel();
-  }
-
-  function refreshFromFormModel(currentModel = currentFormModel()) {
+  function refreshFromFormModel(currentModel = session.currentFormModel()) {
     const nextState = inputEditorSyncState(currentModel);
-    setEditorState(nextState, nextState.jsonText);
+    session.replaceExternalJson(nextState.jsonText, nextState);
     return nextState;
-  }
-
-  function changeFormModel(nextModel, { notify = true } = {}) {
-    const nextJsonText = formModelToJsonText(nextModel);
-    formModelStateStore.set(nextModel);
-    formErrorStateStore.set("");
-    jsonTextStateStore.set(nextJsonText);
-    saveEditorFormModel(nextModel, { notify });
   }
 
   function handleJsonInput(jsonText = "") {
-    const nextState = inputFormStateFromJsonText(jsonText, currentFormModel());
-    formModelStateStore.set(nextState.formModel);
-    formErrorStateStore.set(txInputText(nextState.formError));
-    jsonTextStateStore.set(txInputText(jsonText));
+    const nextJsonText = txInputText(jsonText);
+    const nextState = inputFormStateFromJsonText(
+      nextJsonText,
+      session.currentFormModel(),
+    );
+    session.replaceJsonText(nextJsonText, nextState);
     return nextState;
   }
 
-  function selectEditorView(nextView = "") {
-    editorDisplayModeStateStore.set(nextView === "json" ? "json" : "form");
+  function changeFormModel(
+    nextModel,
+    { editorDisplayMode, notify = true } = {},
+  ) {
+    session.changeFormModel(nextModel, {
+      editorDisplayMode,
+      notify: false,
+    });
+    saveEditorFormModel(nextModel, { notify });
   }
 
   function ensureInitialized() {
@@ -409,31 +407,26 @@ export function createTxInputPanelWorkspace({
 
   function reset() {
     initialized = false;
-    setEditorState(
-      {
-        formError: "",
-        formModel: buildDefaultFormModel(),
-      },
-      formModelToJsonText(buildDefaultFormModel()),
-    );
-    editorDisplayModeStateStore.set("form");
+    const defaultFormModel = buildDefaultFormModel();
+    session.replaceJsonText(formModelToJsonText(defaultFormModel), {
+      formError: "",
+      formErrorDetail: null,
+      formModel: defaultFormModel,
+    });
+    session.selectEditorView("form");
     loadingKeysStore.set([]);
   }
 
   return {
+    ...session,
     changeFormModel,
-    editorDisplayModeStateStore,
     ensureInitialized,
-    formErrorStateStore,
-    formModelStateStore,
     handleJsonInput,
-    jsonTextStateStore,
     loadingKeysStore,
     refreshFromFormModel,
     reset,
     runLoading: (loadingKey, operation) =>
       loadingRunner.run(loadingKey, operation),
-    selectEditorView,
   };
 }
 
@@ -441,55 +434,144 @@ export function createTxInputPanelActionWorkspace(
   txInputWorkspace,
   dependencies = {},
 ) {
+  let editorInputVersion = 0;
+  let activeExternalActionGroup = null;
+  let externalActionVersion = 0;
+  let internalEditorInputDepth = 0;
+  let ownedEditorActionGroup = null;
+  let ownedEditorInputDepth = 0;
+
+  async function runExternalAction(operation) {
+    const parentGroup = activeExternalActionGroup;
+    const actionGroup = parentGroup || {
+      pendingActions: 0,
+      requestVersion: externalActionVersion + 1,
+      startInputVersion: editorInputVersion,
+      succeeded: false,
+      synchronizedByOwnedNotification: false,
+    };
+    if (!parentGroup) externalActionVersion = actionGroup.requestVersion;
+    const actionContext = {
+      didSynchronizeEditor: () => actionGroup.synchronizedByOwnedNotification,
+      isCurrent: () =>
+        actionGroup.requestVersion === externalActionVersion &&
+        editorInputVersion === actionGroup.startInputVersion,
+      runOwnedEditorMutation(operation) {
+        const previousActionGroup = ownedEditorActionGroup;
+        ownedEditorActionGroup = actionGroup;
+        ownedEditorInputDepth += 1;
+        try {
+          return typeof operation === "function" ? operation() : undefined;
+        } finally {
+          ownedEditorInputDepth -= 1;
+          ownedEditorActionGroup = previousActionGroup;
+        }
+      },
+    };
+    actionGroup.pendingActions += 1;
+    let succeeded = false;
+    try {
+      let operationResult;
+      activeExternalActionGroup = actionGroup;
+      try {
+        operationResult = operation(actionContext);
+      } finally {
+        activeExternalActionGroup = parentGroup;
+      }
+      const result = await operationResult;
+      succeeded = true;
+      return result;
+    } finally {
+      actionGroup.succeeded ||= succeeded;
+      actionGroup.pendingActions -= 1;
+      if (actionGroup.pendingActions === 0) {
+        const shouldRefresh =
+          actionGroup.succeeded &&
+          actionContext.isCurrent() &&
+          !actionGroup.synchronizedByOwnedNotification;
+        if (shouldRefresh) txInputWorkspace.refreshFromFormModel();
+      }
+    }
+  }
+
   async function createJsonDraft() {
-    const result = await txInputWorkspace.runLoading("json-new", () =>
-      callOptionalTxDependency(dependencies, "onCreateJsonTemplateDraft"),
+    return runExternalAction((actionContext) =>
+      txInputWorkspace.runLoading("json-new", () =>
+        callOptionalTxDependency(
+          dependencies,
+          "onCreateJsonTemplateDraft",
+          actionContext,
+        ),
+      ),
     );
-    txInputWorkspace.refreshFromFormModel();
-    return result;
   }
 
   async function createTemplateDraft() {
-    const result = await callOptionalTxDependency(
-      dependencies,
-      "onCreateJsonTemplateDraft",
+    return runExternalAction((actionContext) =>
+      callOptionalTxDependency(
+        dependencies,
+        "onCreateJsonTemplateDraft",
+        actionContext,
+      ),
     );
-    txInputWorkspace.refreshFromFormModel();
-    return result;
   }
 
   async function createDirectDraft() {
-    const result = await callOptionalTxDependency(
-      dependencies,
-      "onCreateDirectDraft",
+    return runExternalAction((actionContext) =>
+      callOptionalTxDependency(
+        dependencies,
+        "onCreateDirectDraft",
+        actionContext,
+      ),
     );
-    txInputWorkspace.refreshFromFormModel();
-    return result;
+  }
+
+  function changeFormModel(nextModel, options = {}) {
+    editorInputVersion += 1;
+    internalEditorInputDepth += 1;
+    try {
+      txInputWorkspace.changeFormModel(nextModel, options);
+    } finally {
+      internalEditorInputDepth -= 1;
+    }
   }
 
   function handleEditorJsonInput(jsonText = "") {
     callOptionalTxDependency(dependencies, "onEditorInput", jsonText);
-    txInputWorkspace.handleJsonInput(jsonText);
+    const notificationIsActionOwned =
+      internalEditorInputDepth > 0 || ownedEditorInputDepth > 0;
+    const notificationMatchesCanonical =
+      txInputText(jsonText) === getStore(txInputWorkspace.jsonTextStateStore);
+    if (!(notificationIsActionOwned && notificationMatchesCanonical)) {
+      txInputWorkspace.handleJsonInput(jsonText);
+    }
+    if (ownedEditorInputDepth > 0 && ownedEditorActionGroup) {
+      ownedEditorActionGroup.synchronizedByOwnedNotification = true;
+    } else if (internalEditorInputDepth === 0) {
+      editorInputVersion += 1;
+    }
   }
 
   async function importFile(file) {
-    const result = await callOptionalTxDependency(
-      dependencies,
-      "onImportFile",
-      file,
+    return runExternalAction((actionContext) =>
+      callOptionalTxDependency(
+        dependencies,
+        "onImportFile",
+        file,
+        actionContext,
+      ),
     );
-    txInputWorkspace.refreshFromFormModel();
-    return result;
   }
 
   async function loadJsonTemplate(templateName = "") {
-    const result = await callOptionalTxDependency(
-      dependencies,
-      "onLoadJsonTemplate",
-      templateName,
+    return runExternalAction((actionContext) =>
+      callOptionalTxDependency(
+        dependencies,
+        "onLoadJsonTemplate",
+        templateName,
+        actionContext,
+      ),
     );
-    txInputWorkspace.refreshFromFormModel();
-    return result;
   }
 
   function selectMode(txExecutionMode = "") {
@@ -501,6 +583,7 @@ export function createTxInputPanelActionWorkspace(
   }
 
   return {
+    changeFormModel,
     createDirectDraft,
     createJsonDraft,
     createTemplateDraft,

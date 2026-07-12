@@ -4,12 +4,14 @@
   import TabList from "../../components/fragments/TabList.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { txTemplateModeTabs } from "../../config/dashboardModes.js";
+  import { currentLanguageState } from "../../lib/i18n.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
   import TxTemplateRunPanel from "./TxTemplateRunPanel.svelte";
   import {
     createTxBlockInputPanelWorkspace,
+    transactionEditorSyncPresentation,
     txBlockTemplateVarsPlaceholder,
     txBlockVarsPlaceholder,
   } from "../../modules/transactionInputWorkspaces.js";
@@ -42,6 +44,7 @@
     editorDisplayStateStore,
     editorDisplayModeStateStore,
     ensureInitialized,
+    formErrorDetailStateStore,
     formErrorStateStore,
     formModelStateStore,
     handleEditorJsonInput,
@@ -52,13 +55,21 @@
     setBlockInputPanelContext,
     selectMode,
     selectEditorView,
+    syncStatusStateStore,
   } = txBlockInputWorkspace;
+  let currentLanguage = $derived($currentLanguageState);
   let txBlockInputDisplay = $derived($panelDisplayStateStore);
   let txBlockEditorDisplay = $derived($editorDisplayStateStore);
   let editorDisplayMode = $derived($editorDisplayModeStateStore);
   let txBlockFormModel = $derived($formModelStateStore);
   let txBlockFormError = $derived($formErrorStateStore);
+  let txBlockFormErrorDetail = $derived($formErrorDetailStateStore);
   let txBlockJsonText = $derived($jsonTextStateStore);
+  let txBlockSyncStatus = $derived($syncStatusStateStore);
+  let txBlockSyncPresentation = $derived.by(() => {
+    currentLanguage;
+    return transactionEditorSyncPresentation(txBlockSyncStatus);
+  });
   let directPanelActive = $derived(active && txBlockInputDisplay.mode.isDirect);
   let templatePanelActive = $derived(
     active && txBlockInputDisplay.mode.isTemplate,
@@ -164,11 +175,15 @@
         editorValue={txBlockJsonText}
         editorTitle={txBlockEditorDisplay.editorTitle}
         formError={txBlockFormError}
+        formErrorDetail={txBlockFormErrorDetail}
         hostClass={txBlockEditorDisplay.hostClass}
         jsonHintText={txBlockEditorDisplay.jsonHintText}
         onEditorInput={handleEditorJsonInput}
         onEditorViewSelect={selectEditorView}
         placeholder={txBlockEditorDisplay.placeholder}
+        syncStatus={txBlockSyncStatus}
+        syncStatusText={txBlockSyncPresentation.text}
+        syncStatusTone={txBlockSyncPresentation.tone}
       >
         {#snippet formContent()}
           <TxBlockVisualEditor

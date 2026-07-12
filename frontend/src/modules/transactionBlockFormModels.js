@@ -1,10 +1,12 @@
 import {
   cloneJsonValue,
+  jsonParseErrorDetail,
   jsonValueText,
   nullableNumberValue,
   plainObject,
   stringValue,
 } from "../lib/jsonValue.js";
+import { t } from "../lib/i18n.js";
 
 const TX_BLOCK_ROLLBACK_KINDS = new Set(["none", "per_step", "whole_resource"]);
 const TX_OPERATION_KINDS = new Set(["command", "flow", "template"]);
@@ -40,6 +42,19 @@ function txObjectExtra(source, knownKeys) {
   );
 }
 
+function txWithoutUnsupportedLabels(value) {
+  if (Array.isArray(value)) return value.map(txWithoutUnsupportedLabels);
+  if (!txPlainObject(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !key.endsWith("_label"))
+      .map(([key, entryValue]) => [
+        key,
+        txWithoutUnsupportedLabels(entryValue),
+      ]),
+  );
+}
+
 function txRuntimePromptModelFromJson(source = {}) {
   const value = txPlainObject(source) ? source : {};
   return {
@@ -57,17 +72,14 @@ function txRuntimePromptModelFromJson(source = {}) {
 }
 
 function txRuntimePromptJsonFromModel(prompt = {}) {
-  const result = {
+  return {
     ...(txPlainObject(prompt.extra) ? cloneTxJsonValue(prompt.extra, {}) : {}),
     patterns: Array.isArray(prompt.patterns)
       ? prompt.patterns.map((pattern) => String(pattern))
       : [],
     response: txStringValue(prompt.response),
+    record_input: !!prompt.recordInput,
   };
-  if (prompt.hasRecordInput || prompt.recordInput) {
-    result.record_input = !!prompt.recordInput;
-  }
-  return result;
 }
 
 function txCommandModelFromJson(source = {}) {
@@ -89,69 +101,34 @@ function txCommandModelFromJson(source = {}) {
           )
         : [],
       hasPrompts: Object.hasOwn(interactionValue, "prompts"),
-      extra: txObjectExtra(interactionValue, new Set(["prompts"])),
+      extra: txObjectExtra(
+        interactionValue,
+        new Set(["prompts", "interaction_label"]),
+      ),
     },
     hasInteraction: Object.hasOwn(value, "interaction"),
-    extra: txObjectExtra(
-      value,
-      new Set([
-        "kind",
-        "mode",
-        "command",
-        "timeout",
-        "dyn_params",
-        "interaction",
-      ]),
-    ),
+    extra: {},
   };
 }
 
 function txCommandJsonFromModel(command = {}, { includeKind = true } = {}) {
-  const result = {
-    ...(txPlainObject(command.extra)
-      ? cloneTxJsonValue(command.extra, {})
-      : {}),
-  };
+  const result = {};
   if (includeKind) result.kind = "command";
   result.mode = txStringValue(command.mode);
   result.command = txStringValue(command.command);
-  if (command.hasTimeout || command.timeout !== null) {
-    result.timeout = txNullableNumberValue(command.timeout);
-  }
-  if (
-    command.hasDynParams ||
-    (txPlainObject(command.dynParams) &&
-      Object.keys(command.dynParams).length > 0)
-  ) {
-    result.dyn_params = txStringMapValue(command.dynParams);
-  }
-  if (
-    command.hasInteraction ||
-    (txPlainObject(command.interaction) &&
-      Array.isArray(command.interaction.prompts) &&
-      command.interaction.prompts.length > 0) ||
-    (txPlainObject(command.interaction) &&
-      txPlainObject(command.interaction.extra) &&
-      Object.keys(command.interaction.extra).length > 0)
-  ) {
-    const interactionValue = {
-      ...(txPlainObject(command.interaction.extra)
-        ? cloneTxJsonValue(command.interaction.extra, {})
-        : {}),
-    };
-    if (
-      command.interaction?.hasPrompts ||
-      (Array.isArray(command.interaction?.prompts) &&
-        command.interaction.prompts.length > 0)
-    ) {
-      interactionValue.prompts = Array.isArray(command.interaction.prompts)
-        ? command.interaction.prompts.map((prompt) =>
-            txRuntimePromptJsonFromModel(prompt),
-          )
-        : [];
-    }
-    result.interaction = interactionValue;
-  }
+  result.timeout = txNullableNumberValue(command.timeout);
+  result.dyn_params = txStringMapValue(command.dynParams);
+  result.interaction = {
+    ...txObjectExtra(
+      command.interaction?.extra,
+      new Set(["interaction_label"]),
+    ),
+    prompts: Array.isArray(command.interaction?.prompts)
+      ? command.interaction.prompts.map((prompt) =>
+          txRuntimePromptJsonFromModel(prompt),
+        )
+      : [],
+  };
   return result;
 }
 
@@ -183,12 +160,8 @@ function txFlowJsonFromModel(flow = {}) {
         )
       : [],
   };
-  if (flow.hasStopOnError || flow.stopOnError !== true) {
-    result.stop_on_error = !!flow.stopOnError;
-  }
-  if (flow.hasMaxSteps || flow.maxSteps !== null) {
-    result.max_steps = txNullableNumberValue(flow.maxSteps);
-  }
+  result.stop_on_error = !!flow.stopOnError;
+  result.max_steps = txNullableNumberValue(flow.maxSteps);
   return result;
 }
 
@@ -229,37 +202,19 @@ function txTemplateVarModelFromJson(source = {}) {
 }
 
 function txTemplateVarJsonFromModel(variable = {}) {
-  const result = {
+  return {
     ...(txPlainObject(variable.extra)
       ? cloneTxJsonValue(variable.extra, {})
       : {}),
     name: txStringValue(variable.name),
+    label: variable.label ?? null,
+    description: variable.description ?? null,
+    type: txStringValue(variable.type, "string"),
+    required: !!variable.required,
+    placeholder: variable.placeholder ?? null,
+    options: txStringListValue(variable.options),
+    default: cloneTxJsonValue(variable.defaultValue),
   };
-  if (variable.hasLabel || variable.label !== null) {
-    result.label = variable.label ?? null;
-  }
-  if (variable.hasDescription || variable.description !== null) {
-    result.description = variable.description ?? null;
-  }
-  if (variable.hasType || variable.type !== "string") {
-    result.type = txStringValue(variable.type, "string");
-  }
-  if (variable.hasRequired || variable.required) {
-    result.required = !!variable.required;
-  }
-  if (variable.hasPlaceholder || variable.placeholder !== null) {
-    result.placeholder = variable.placeholder ?? null;
-  }
-  if (
-    variable.hasOptions ||
-    (Array.isArray(variable.options) && variable.options.length > 0)
-  ) {
-    result.options = txStringListValue(variable.options);
-  }
-  if (variable.hasDefault || variable.defaultValue !== null) {
-    result.default = cloneTxJsonValue(variable.defaultValue);
-  }
-  return result;
 }
 
 function txTemplatePromptModelFromJson(source = {}) {
@@ -281,20 +236,15 @@ function txTemplatePromptModelFromJson(source = {}) {
 }
 
 function txTemplatePromptJsonFromModel(prompt = {}) {
-  const result = {
+  return {
     ...(txPlainObject(prompt.extra) ? cloneTxJsonValue(prompt.extra, {}) : {}),
     patterns: Array.isArray(prompt.patterns)
       ? prompt.patterns.map((pattern) => String(pattern))
       : [],
     response: txStringValue(prompt.response),
+    append_newline: !!prompt.appendNewline,
+    record_input: !!prompt.recordInput,
   };
-  if (prompt.hasAppendNewline || prompt.appendNewline) {
-    result.append_newline = !!prompt.appendNewline;
-  }
-  if (prompt.hasRecordInput || prompt.recordInput) {
-    result.record_input = !!prompt.recordInput;
-  }
-  return result;
 }
 
 function txTemplateStepModelFromJson(source = {}) {
@@ -317,25 +267,15 @@ function txTemplateStepModelFromJson(source = {}) {
 }
 
 function txTemplateStepJsonFromModel(step = {}) {
-  const result = {
+  return {
     ...(txPlainObject(step.extra) ? cloneTxJsonValue(step.extra, {}) : {}),
     command: txStringValue(step.command),
-  };
-  if (step.hasMode || step.mode !== null) {
-    result.mode = step.mode ?? null;
-  }
-  if (step.hasTimeoutSecs || step.timeoutSecs !== null) {
-    result.timeout_secs = txNullableNumberValue(step.timeoutSecs);
-  }
-  if (
-    step.hasPrompts ||
-    (Array.isArray(step.prompts) && step.prompts.length > 0)
-  ) {
-    result.prompts = Array.isArray(step.prompts)
+    mode: step.mode ?? null,
+    timeout_secs: txNullableNumberValue(step.timeoutSecs),
+    prompts: Array.isArray(step.prompts)
       ? step.prompts.map((prompt) => txTemplatePromptJsonFromModel(prompt))
-      : [];
-  }
-  return result;
+      : [],
+  };
 }
 
 function txTemplateOperationModelFromJson(source = {}) {
@@ -422,68 +362,34 @@ function txTemplateOperationJsonFromModel(templateOperation = {}) {
         ? cloneTxJsonValue(template.extra, {})
         : {}),
       name: txStringValue(template.name),
+      description: template.description ?? null,
+      vars: Array.isArray(template.vars)
+        ? template.vars.map((variable) => txTemplateVarJsonFromModel(variable))
+        : [],
+      stop_on_error: !!template.stopOnError,
+      default_mode: template.defaultMode ?? null,
+      steps: Array.isArray(template.steps)
+        ? template.steps.map((step) => txTemplateStepJsonFromModel(step))
+        : [],
+    },
+    runtime: {
+      ...(txPlainObject(runtime.extra)
+        ? cloneTxJsonValue(runtime.extra, {})
+        : {}),
+      default_mode: runtime.defaultMode ?? null,
+      connection_name: runtime.connectionName ?? null,
+      host: runtime.host ?? null,
+      username: runtime.username ?? null,
+      device_profile: runtime.deviceProfile ?? null,
+      vars: cloneTxJsonValue(runtime.vars, {}),
     },
   };
-  if (template.hasDescription || template.description !== null) {
-    result.template.description = template.description ?? null;
-  }
   if (
     templateOperation.hasCurrentConnectionAlias ||
     templateOperation.currentConnectionAlias !== null
   ) {
     result.current_connection_alias =
       templateOperation.currentConnectionAlias ?? null;
-  }
-  if (
-    template.hasVars ||
-    (Array.isArray(template.vars) && template.vars.length > 0)
-  ) {
-    result.template.vars = Array.isArray(template.vars)
-      ? template.vars.map((variable) => txTemplateVarJsonFromModel(variable))
-      : [];
-  }
-  if (template.hasStopOnError || template.stopOnError !== true) {
-    result.template.stop_on_error = !!template.stopOnError;
-  }
-  if (template.hasDefaultMode || template.defaultMode !== null) {
-    result.template.default_mode = template.defaultMode ?? null;
-  }
-  if (
-    template.hasSteps ||
-    (Array.isArray(template.steps) && template.steps.length > 0)
-  ) {
-    result.template.steps = Array.isArray(template.steps)
-      ? template.steps.map((step) => txTemplateStepJsonFromModel(step))
-      : [];
-  }
-  const runtimeValue = {
-    ...(txPlainObject(runtime.extra)
-      ? cloneTxJsonValue(runtime.extra, {})
-      : {}),
-  };
-  if (runtime.hasDefaultMode || runtime.defaultMode !== null) {
-    runtimeValue.default_mode = runtime.defaultMode ?? null;
-  }
-  if (runtime.hasConnectionName || runtime.connectionName !== null) {
-    runtimeValue.connection_name = runtime.connectionName ?? null;
-  }
-  if (runtime.hasHost || runtime.host !== null) {
-    runtimeValue.host = runtime.host ?? null;
-  }
-  if (runtime.hasUsername || runtime.username !== null) {
-    runtimeValue.username = runtime.username ?? null;
-  }
-  if (runtime.hasDeviceProfile || runtime.deviceProfile !== null) {
-    runtimeValue.device_profile = runtime.deviceProfile ?? null;
-  }
-  if (
-    runtime.hasVars ||
-    (txPlainObject(runtime.vars) && Object.keys(runtime.vars).length > 0)
-  ) {
-    runtimeValue.vars = cloneTxJsonValue(runtime.vars, {});
-  }
-  if (templateOperation.hasRuntime || Object.keys(runtimeValue).length > 0) {
-    result.runtime = runtimeValue;
   }
   return result;
 }
@@ -507,6 +413,156 @@ function txOperationJsonFromModel(operation = {}) {
   return txCommandJsonFromModel(operation.command, { includeKind: true });
 }
 
+function txValidationError(errors, path, messageKey) {
+  errors.push({ path, messageKey });
+}
+
+function txValidateOptionalInteger(errors, path, value) {
+  if (value === null) return;
+  if (!Number.isSafeInteger(value) || value < 0) {
+    txValidationError(errors, path, "txBlockValidationNonNegativeInteger");
+  }
+}
+
+function txValidatePrompts(errors, path, prompts) {
+  if (!Array.isArray(prompts)) return;
+  prompts.forEach((prompt, index) => {
+    if (!Array.isArray(prompt.patterns) || prompt.patterns.length === 0) {
+      txValidationError(
+        errors,
+        `${path}[${index}].patterns`,
+        "txBlockValidationPromptPatterns",
+      );
+    }
+  });
+}
+
+function txValidateCommand(errors, path, command = {}) {
+  if (!txStringValue(command.mode).trim()) {
+    txValidationError(errors, `${path}.mode`, "txBlockValidationCommandMode");
+  }
+  if (!txStringValue(command.command).trim()) {
+    txValidationError(
+      errors,
+      `${path}.command`,
+      "txBlockValidationCommandText",
+    );
+  }
+  txValidateOptionalInteger(errors, `${path}.timeout`, command.timeout);
+  txValidatePrompts(
+    errors,
+    `${path}.interaction.prompts`,
+    command.interaction?.prompts,
+  );
+}
+
+function txValidateFlow(errors, path, flow = {}) {
+  const steps = Array.isArray(flow.steps) ? flow.steps : [];
+  if (steps.length === 0) {
+    txValidationError(errors, `${path}.steps`, "txBlockValidationFlowSteps");
+  }
+  steps.forEach((command, index) =>
+    txValidateCommand(errors, `${path}.steps[${index}]`, command),
+  );
+  txValidateOptionalInteger(errors, `${path}.maxSteps`, flow.maxSteps);
+}
+
+function txValidateTemplate(errors, path, operation = {}) {
+  const template = txPlainObject(operation.template) ? operation.template : {};
+  const runtime = txPlainObject(operation.runtime) ? operation.runtime : {};
+  if (!txStringValue(template.name).trim()) {
+    txValidationError(
+      errors,
+      `${path}.template.name`,
+      "txBlockValidationTemplateName",
+    );
+  }
+
+  const steps = Array.isArray(template.steps) ? template.steps : [];
+  if (steps.length === 0) {
+    txValidationError(
+      errors,
+      `${path}.template.steps`,
+      "txBlockValidationTemplateSteps",
+    );
+  }
+
+  const variables = Array.isArray(template.vars) ? template.vars : [];
+  const variableNames = new Set();
+  variables.forEach((variable, index) => {
+    const name = txStringValue(variable.name).trim();
+    if (!name) {
+      txValidationError(
+        errors,
+        `${path}.template.vars[${index}].name`,
+        "txBlockValidationVariableName",
+      );
+    } else if (variableNames.has(name)) {
+      txValidationError(
+        errors,
+        `${path}.template.vars[${index}].name`,
+        "txBlockValidationDuplicateVariable",
+      );
+    } else {
+      variableNames.add(name);
+    }
+  });
+
+  const definitionDefaultMode = txStringValue(template.defaultMode).trim();
+  const runtimeDefaultMode = txStringValue(runtime.defaultMode).trim();
+  steps.forEach((step, index) => {
+    const stepPath = `${path}.template.steps[${index}]`;
+    if (!txStringValue(step.command).trim()) {
+      txValidationError(
+        errors,
+        `${stepPath}.command`,
+        "txBlockValidationCommandText",
+      );
+    }
+    if (
+      !txStringValue(step.mode).trim() &&
+      !runtimeDefaultMode &&
+      !definitionDefaultMode
+    ) {
+      txValidationError(
+        errors,
+        `${stepPath}.mode`,
+        "txBlockValidationCommandMode",
+      );
+    }
+    txValidateOptionalInteger(
+      errors,
+      `${stepPath}.timeoutSecs`,
+      step.timeoutSecs,
+    );
+    txValidatePrompts(errors, `${stepPath}.prompts`, step.prompts);
+  });
+
+  if (
+    runtime.hasVars &&
+    runtime.vars !== null &&
+    !txPlainObject(runtime.vars)
+  ) {
+    txValidationError(
+      errors,
+      `${path}.runtime.vars`,
+      "txBlockValidationRuntimeVarsObject",
+    );
+  }
+}
+
+function txValidateOperation(errors, path, operation = {}) {
+  if (operation.kind === "flow") {
+    txValidateFlow(errors, `${path}.flow`, operation.flow);
+    return;
+  }
+  if (operation.kind === "template") {
+    txValidateTemplate(errors, `${path}.template`, operation.template);
+    return;
+  }
+  txValidateCommand(errors, `${path}.command`, operation.command);
+}
+
 function txRollbackPolicyModelFromJson(policy) {
   if (policy === "per_step") return { kind: "per_step" };
   if (txPlainObject(policy) && txPlainObject(policy.whole_resource)) {
@@ -523,7 +579,7 @@ function txRollbackPolicyModelFromJson(policy) {
         ),
         extra: txObjectExtra(
           policy.whole_resource,
-          new Set(["rollback", "trigger_step_index"]),
+          new Set(["rollback", "trigger_step_index", "reason"]),
         ),
       },
     };
@@ -537,19 +593,11 @@ function txRollbackPolicyJsonFromModel(policy = {}) {
   if (kind === "whole_resource") {
     const wholeResource = policy.wholeResource || {};
     const wholeResourceValue = {
-      ...(txPlainObject(wholeResource.extra)
-        ? cloneTxJsonValue(wholeResource.extra, {})
-        : {}),
+      ...txObjectExtra(wholeResource.extra, new Set(["reason"])),
       rollback: txOperationJsonFromModel(wholeResource.rollback),
     };
-    if (
-      wholeResource.hasTriggerStepIndex ||
-      wholeResource.triggerStepIndex !== null
-    ) {
-      wholeResourceValue.trigger_step_index = txNullableNumberValue(
-        wholeResource.triggerStepIndex,
-      );
-    }
+    wholeResourceValue.trigger_step_index =
+      txNullableNumberValue(wholeResource.triggerStepIndex) ?? 0;
     return {
       whole_resource: wholeResourceValue,
     };
@@ -565,27 +613,15 @@ function txStepModelFromJson(source = {}) {
     hasRollback: Object.hasOwn(value, "rollback"),
     rollbackOnFailure: !!value.rollback_on_failure,
     hasRollbackOnFailure: Object.hasOwn(value, "rollback_on_failure"),
-    extra: txObjectExtra(
-      value,
-      new Set(["run", "rollback", "rollback_on_failure"]),
-    ),
   };
 }
 
 function txStepJsonFromModel(step = {}) {
-  const result = {
-    ...(txPlainObject(step.extra) ? cloneTxJsonValue(step.extra, {}) : {}),
+  return {
     run: txOperationJsonFromModel(step.run),
+    rollback: step.rollback ? txOperationJsonFromModel(step.rollback) : null,
+    rollback_on_failure: !!step.rollbackOnFailure,
   };
-  if (step.hasRollback || step.rollback) {
-    result.rollback = step.rollback
-      ? txOperationJsonFromModel(step.rollback)
-      : null;
-  }
-  if (step.hasRollbackOnFailure || step.rollbackOnFailure) {
-    result.rollback_on_failure = !!step.rollbackOnFailure;
-  }
-  return result;
 }
 
 export function defaultTxBlockTemplatePayload() {
@@ -612,29 +648,24 @@ export function defaultFullTxBlockTemplatePayload() {
   return {
     name: "tx-block-full",
     fail_fast: true,
-    root_label: "full-draft",
     rollback_policy: {
       whole_resource: {
         trigger_step_index: 0,
-        reason: "rollback when the resource-level validation fails",
         rollback: {
           kind: "command",
           mode: "Enable",
           command: "configure replace flash:backup.cfg force",
           timeout: 60,
-          rollback_label: "whole-resource-rollback",
           dyn_params: {
             enable_password: "",
             sudo_password: "",
           },
           interaction: {
-            interaction_label: "whole-resource-confirm",
             prompts: [
               {
                 patterns: ["confirm", "Continue?"],
                 response: "yes",
                 record_input: false,
-                prompt_label: "whole-resource-confirm-prompt",
               },
             ],
           },
@@ -643,26 +674,22 @@ export function defaultFullTxBlockTemplatePayload() {
     },
     steps: [
       {
-        step_label: "command-step",
         rollback_on_failure: true,
         run: {
           kind: "command",
           mode: "Enable",
           command: "show running-config",
           timeout: 30,
-          command_label: "collect-running-config",
           dyn_params: {
             enable_password: "",
             sudo_password: "",
           },
           interaction: {
-            interaction_label: "command-confirm",
             prompts: [
               {
                 patterns: ["confirm", "Continue?"],
                 response: "yes",
                 record_input: false,
-                prompt_label: "command-confirm-prompt",
               },
             ],
           },
@@ -672,47 +699,39 @@ export function defaultFullTxBlockTemplatePayload() {
           mode: "Enable",
           command: "clear logging",
           timeout: 30,
-          rollback_label: "command-step-rollback",
         },
       },
       {
-        step_label: "flow-step",
         rollback_on_failure: false,
         run: {
           kind: "flow",
           stop_on_error: true,
           max_steps: 2,
-          flow_label: "precheck-flow",
           steps: [
             {
               mode: "Enable",
               command: "show ip route",
               timeout: 30,
-              flow_step_label: "route-check",
             },
             {
               mode: "Enable",
               command: "show interfaces status",
               timeout: 30,
-              flow_step_label: "interface-check",
             },
           ],
         },
         rollback: null,
       },
       {
-        step_label: "template-step",
         rollback_on_failure: false,
         run: {
           kind: "template",
           current_connection_alias: "",
-          template_operation_label: "template-operation",
           template: {
             name: "saved-template",
             description: "",
             stop_on_error: true,
             default_mode: "Enable",
-            template_definition_label: "template-definition",
             vars: [
               {
                 name: "hostname",
@@ -723,7 +742,6 @@ export function defaultFullTxBlockTemplatePayload() {
                 placeholder: "",
                 options: ["edge-01", "edge-02"],
                 default: "edge-01",
-                variable_label: "hostname-var",
               },
             ],
             steps: [
@@ -731,14 +749,12 @@ export function defaultFullTxBlockTemplatePayload() {
                 command: "show running-config interface ${hostname}",
                 mode: "Enable",
                 timeout_secs: 30,
-                template_step_label: "template-step-1",
                 prompts: [
                   {
                     patterns: ["confirm"],
                     response: "yes",
                     append_newline: true,
                     record_input: false,
-                    prompt_label: "template-confirm-prompt",
                   },
                 ],
               },
@@ -750,7 +766,6 @@ export function defaultFullTxBlockTemplatePayload() {
             host: "",
             username: "",
             device_profile: "",
-            runtime_label: "runtime-override",
             vars: {
               dry_run: true,
               retries: 1,
@@ -775,43 +790,90 @@ export function txBlockFormModelFromJson(txBlockValue = {}) {
       : [],
     failFast: typeof source.fail_fast === "boolean" ? source.fail_fast : true,
     hasFailFast: Object.hasOwn(source, "fail_fast"),
-    extra: txObjectExtra(
-      source,
-      new Set(["name", "rollback_policy", "steps", "fail_fast"]),
-    ),
   };
+}
+
+export function validateTxBlockFormModel(model = {}) {
+  const errors = [];
+  const steps = Array.isArray(model.steps) ? model.steps : [];
+  if (steps.length === 0) {
+    txValidationError(errors, "steps", "txBlockValidationStepsRequired");
+  }
+
+  steps.forEach((step, index) => {
+    txValidateOperation(errors, `steps[${index}].run`, step.run);
+    if (step.rollback) {
+      txValidateOperation(errors, `steps[${index}].rollback`, step.rollback);
+    }
+  });
+
+  if (model.rollbackPolicy?.kind === "whole_resource") {
+    const wholeResource = model.rollbackPolicy.wholeResource || {};
+    txValidateOperation(
+      errors,
+      "rollbackPolicy.wholeResource.rollback",
+      wholeResource.rollback,
+    );
+    const triggerStepIndex = wholeResource.hasTriggerStepIndex
+      ? wholeResource.triggerStepIndex
+      : 0;
+    if (
+      !Number.isInteger(triggerStepIndex) ||
+      triggerStepIndex < 0 ||
+      triggerStepIndex >= steps.length
+    ) {
+      txValidationError(
+        errors,
+        "rollbackPolicy.wholeResource.triggerStepIndex",
+        "txBlockValidationTriggerRange",
+      );
+    }
+  }
+
+  return errors;
 }
 
 function txBlockJsonFromFormModel(model = {}) {
   const result = {
-    ...(txPlainObject(model.extra) ? cloneTxJsonValue(model.extra, {}) : {}),
     name: txStringValue(model.name, "tx-block"),
     rollback_policy: txRollbackPolicyJsonFromModel(model.rollbackPolicy),
     steps: Array.isArray(model.steps)
       ? model.steps.map((step) => txStepJsonFromModel(step))
       : [],
+    fail_fast: !!model.failFast,
   };
-  if (model.hasFailFast || model.failFast !== true) {
-    result.fail_fast = !!model.failFast;
-  }
   return result;
 }
 
 function txBlockFormModelFromJsonText(jsonText = "") {
   if (typeof jsonText !== "string" || !jsonText.trim()) {
-    return { error: "", model: null };
+    const message = t("txBlockJsonRequired");
+    return {
+      error: message,
+      errorDetail: { message, line: null, column: null },
+      model: null,
+    };
   }
   try {
+    const parsedValue = JSON.parse(jsonText);
+    if (!txPlainObject(parsedValue)) {
+      const message = t("txBlockJsonInvalidShape");
+      return {
+        error: message,
+        errorDetail: { message, line: null, column: null },
+        model: null,
+      };
+    }
     return {
       error: "",
-      model: txBlockFormModelFromJson(JSON.parse(jsonText)),
+      errorDetail: null,
+      model: txBlockFormModelFromJson(parsedValue),
     };
   } catch (error) {
+    const errorDetail = jsonParseErrorDetail(jsonText, error);
     return {
-      error:
-        error && typeof error === "object" && "message" in error
-          ? String(error.message)
-          : String(error || ""),
+      error: errorDetail.message,
+      errorDetail,
       model: null,
     };
   }
@@ -824,12 +886,17 @@ export function txBlockEditorFormStateFromJsonText(
   const result = txBlockFormModelFromJsonText(jsonText);
   return {
     formError: result.error,
+    formErrorDetail: result.errorDetail,
     formModel: result.model || currentModel,
   };
 }
 
 export function txBlockFormModelToJsonText(model = {}) {
-  return JSON.stringify(txBlockJsonFromFormModel(model), null, 2);
+  return JSON.stringify(
+    txWithoutUnsupportedLabels(txBlockJsonFromFormModel(model)),
+    null,
+    2,
+  );
 }
 
 export function defaultTxWorkflowTemplateRefBlockPayload() {

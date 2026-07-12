@@ -1,19 +1,10 @@
 <script>
-  import FileCode2Icon from "@lucide/svelte/icons/file-code-2";
-  import ListTreeIcon from "@lucide/svelte/icons/list-tree";
-  import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { t } from "../../lib/i18n.js";
-  import TxBlockRollbackPolicyEditor from "./TxBlockRollbackPolicyEditor.svelte";
-  import TxBlockRootSettingsEditor from "./TxBlockRootSettingsEditor.svelte";
+  import * as Card from "$lib/components/ui/card";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
+  import TxBlockRootInspector from "./TxBlockRootInspector.svelte";
   import TxBlockStepEditor from "./TxBlockStepEditor.svelte";
-  import TxFormSection from "./TxFormSection.svelte";
+  import TxBlockTimeline from "./TxBlockTimeline.svelte";
   import { createTxBlockVisualEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
-
-  import {
-    txBlockCommandMetadataFieldDefs,
-    txBlockRollbackCommandMetadataFieldDefs,
-  } from "../../modules/transactionStructure.js";
 
   let {
     model,
@@ -26,96 +17,121 @@
   const {
     editorActionHandlersStateStore,
     editorDisplayStateStore,
+    editorSummaryStateStore,
+    addAndSelectStep,
+    duplicateSelectedStep,
+    moveSelectedStep,
+    removeSelectedStep,
     rollbackPanelStateStore,
     rootPanelStateStore,
+    selectedTargetStateStore,
+    selectRoot,
+    selectStep,
     setVisualEditorContext,
     stepsPanelStateStore,
+    timelineDisplayStateStore,
+    validationErrorsStateStore,
   } = txBlockVisualEditorWorkspace;
 
   let editorDisplay = $derived($editorDisplayStateStore);
   let editorActionHandlers = $derived($editorActionHandlersStateStore);
+  let editorSummary = $derived($editorSummaryStateStore);
   let rootPanel = $derived($rootPanelStateStore);
   let rollbackPanel = $derived($rollbackPanelStateStore);
+  let selectedTarget = $derived($selectedTargetStateStore);
   let stepsPanel = $derived($stepsPanelStateStore);
+  let timelineDisplay = $derived({
+    ...$timelineDisplayStateStore,
+    rootSelected: selectedTarget.kind === "root",
+  });
+  let validationErrors = $derived($validationErrorsStateStore);
+  let currentLanguage = $derived($currentLanguageState);
+  let selectedStepRow = $derived(
+    selectedTarget.kind === "step"
+      ? stepsPanel.stepRows.find(
+          (stepRow) => stepRow.stepIndex === selectedTarget.stepIndex,
+        ) || null
+      : null,
+  );
 
   $effect(() => {
     setVisualEditorContext({ model, onChange });
   });
 </script>
 
-<div class="grid gap-4">
-  <TxBlockRootSettingsEditor
-    fieldRows={rootPanel.fieldRows}
-    metadataFieldRows={rootPanel.metadataFieldRows}
-    onValueChange={editorActionHandlers.rootValueHandler}
-    onPresenceChange={editorActionHandlers.rootPresenceHandler}
-    onMetadataValueChange={editorActionHandlers.rootExtraValueHandler}
-    onMetadataPresenceChange={editorActionHandlers.rootExtraPresenceHandler}
-  />
-
-  <TxBlockRollbackPolicyEditor
-    {editorDisplay}
-    jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
-    rollbackKindRows={editorDisplay.rollbackKindRows}
-    rollbackKindValue={rollbackPanel.rollbackKindValue}
-    showWholeResource={rollbackPanel.showWholeResource}
-    wholeResourceFieldRows={rollbackPanel.wholeResourceFieldRows}
-    metadataFieldRows={rollbackPanel.metadataFieldRows}
-    wholeResourceExtra={rollbackPanel.wholeResourceExtra}
-    wholeResourceRollback={rollbackPanel.wholeResourceRollback}
-    onRollbackKindChange={editorActionHandlers.rollbackKindValueHandler()}
-    onWholeResourceFieldInput={editorActionHandlers.wholeFieldValueHandler}
-    onWholeResourceFieldPresenceChange={editorActionHandlers.wholeFieldPresenceHandler}
-    onWholeResourceMetadataInput={editorActionHandlers.wholeResourceExtraValueHandler}
-    onWholeResourceMetadataPresenceChange={editorActionHandlers.wholeResourceExtraPresenceHandler}
-    onWholeResourceExtraChange={editorActionHandlers.setWholeResourceExtra}
-    onWholeResourceRollbackChange={editorActionHandlers.setWholeResourceRollback}
-  />
-
-  <TxFormSection
-    icon={FileCode2Icon}
-    title={t("txBlockFormRootExtra")}
-    description={t("txBlockFormJsonExtraHint")}
+<div class="grid min-w-0 gap-4">
+  <button
+    type="button"
+    class="grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-border bg-muted/30 p-4 text-left transition-colors hover:bg-muted/50 sm:grid-cols-4"
+    title={t("txBlockSummaryEditSettings")}
+    onclick={selectRoot}
   >
-    <JsonObjectFieldsEditor
-      title={t("txBlockFormRootExtra")}
-      source={rootPanel.extraSource}
-      typeRows={editorDisplay.jsonValueTypeRows}
-      onChange={editorActionHandlers.setRootExtra}
-    />
-  </TxFormSection>
-
-  <TxFormSection
-    icon={ListTreeIcon}
-    title={t("txBlockFormSteps")}
-    description={t("txBlockFormStepsHint")}
-  >
-    {#snippet actions()}
-      <Button size="sm" type="button" onclick={editorActionHandlers.appendStep}>
-        {t("txBlockFormAddStep")}
-      </Button>
-    {/snippet}
-    {#each stepsPanel.stepRows as stepRow (stepRow.stepIndex)}
-      <TxBlockStepEditor
-        step={stepRow.step}
-        titleText={stepRow.titleText}
-        {editorDisplay}
-        runCommandMetadataFieldDefs={stepRunCommandMetadataFieldDefs ||
-          txBlockCommandMetadataFieldDefs()}
-        rollbackCommandMetadataFieldDefs={stepRollbackCommandMetadataFieldDefs ||
-          txBlockRollbackCommandMetadataFieldDefs()}
-        onRemove={editorActionHandlers.stepRemoveAction(stepRow.stepIndex)}
-        onRunChange={editorActionHandlers.stepRunChangeAction(
-          stepRow.stepIndex,
-        )}
-        onRollbackChange={editorActionHandlers.stepRollbackChangeAction(
-          stepRow.stepIndex,
-        )}
-        onRollbackStateChange={editorActionHandlers.stepRollbackStateAction(
-          stepRow.stepIndex,
-        )}
-        onStepChange={editorActionHandlers.stepChangeAction(stepRow.stepIndex)}
-      />
+    {#each editorSummary.cellRows as cellRow}
+      <span class="min-w-0">
+        <span class="block text-xs text-muted-foreground">
+          {cellRow.labelText}
+        </span>
+        <span class="mt-0.5 block truncate text-sm font-medium text-foreground">
+          {cellRow.valueText}
+        </span>
+      </span>
     {/each}
-  </TxFormSection>
+  </button>
+
+  <div
+    data-testid="tx-block-editor-layout"
+    class="grid min-w-0 gap-4 lg:grid-cols-[minmax(18rem,34%)_minmax(0,66%)] lg:gap-0"
+  >
+    <div class="min-w-0 lg:pr-4">
+      <TxBlockTimeline
+        display={timelineDisplay}
+        {selectRoot}
+        {selectStep}
+        addStep={addAndSelectStep}
+        {duplicateSelectedStep}
+        {moveSelectedStep}
+        {removeSelectedStep}
+      />
+    </div>
+
+    {#key currentLanguage}
+      <Card.Root size="sm" class="min-w-0">
+        {#if selectedTarget.kind === "root" || !selectedStepRow}
+          <TxBlockRootInspector
+            {editorDisplay}
+            {editorActionHandlers}
+            {rootPanel}
+            {rollbackPanel}
+            {validationErrors}
+            pathPrefix=""
+          />
+        {:else}
+          {@const stepRow = selectedStepRow}
+          <TxBlockStepEditor
+            step={stepRow.step}
+            titleText={stepRow.titleText}
+            {editorDisplay}
+            {validationErrors}
+            pathPrefix={`steps[${stepRow.stepIndex}]`}
+            runCommandMetadataFieldDefs={stepRunCommandMetadataFieldDefs || []}
+            rollbackCommandMetadataFieldDefs={stepRollbackCommandMetadataFieldDefs ||
+              []}
+            perStepRollbackEnabled={model.rollbackPolicy?.kind === "per_step"}
+            onRunChange={editorActionHandlers.stepRunChangeAction(
+              stepRow.stepIndex,
+            )}
+            onRollbackChange={editorActionHandlers.stepRollbackChangeAction(
+              stepRow.stepIndex,
+            )}
+            onRollbackEnabledChange={editorActionHandlers.stepRollbackEnabledAction(
+              stepRow.stepIndex,
+            )}
+            onStepChange={editorActionHandlers.stepChangeAction(
+              stepRow.stepIndex,
+            )}
+          />
+        {/if}
+      </Card.Root>
+    {/key}
+  </div>
 </div>

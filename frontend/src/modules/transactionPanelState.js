@@ -393,12 +393,18 @@ export function createTxWorkflowStageWorkspace(inputState = {}) {
   );
 
   return {
-    createDirectDraft: () =>
-      loadingRunner.run("json-new", dependencyState.onCreateJsonTemplateDraft),
+    createDirectDraft: (actionContext = null) =>
+      loadingRunner.run("json-new", () =>
+        callObjectFunction(
+          dependencyState,
+          "onCreateJsonTemplateDraft",
+          actionContext,
+        ),
+      ),
     executeWorkflow: () =>
       loadingRunner.run("execute", dependencyState.onExecute),
-    importFile: (file) =>
-      callObjectFunction(dependencyState, "onImportFile", file),
+    importFile: (file, actionContext = null) =>
+      callObjectFunction(dependencyState, "onImportFile", file, actionContext),
     jsonNewLoadingStateStore,
     previewWorkflow: () =>
       loadingRunner.run("preview", dependencyState.onPreview),

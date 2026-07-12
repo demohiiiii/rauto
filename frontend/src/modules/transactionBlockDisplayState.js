@@ -1,4 +1,4 @@
-import { t } from "../lib/i18n.js";
+import { currentLanguage, t, tr } from "../lib/i18n.js";
 import {
   jsonValueText,
   nullableNumberValue,
@@ -6,17 +6,10 @@ import {
   stringValue,
 } from "../lib/jsonValue.js";
 import { selectOptionsWithCurrent } from "../lib/ui.js";
-import {
-  txCommandPromptExtraSource,
-  txInteractionExtraSource,
-} from "./transactionBlockMutations.js";
+import { txCommandPromptExtraSource } from "./transactionBlockMutations.js";
 import {
   txBlockFlowMetadataFieldDefs,
-  txBlockInteractionMetadataFieldDefs,
   txBlockPromptMetadataFieldDefs,
-  txBlockRootMetadataFieldDefs,
-  txBlockStepMetadataFieldDefs,
-  txBlockWholeResourceMetadataFieldDefs,
 } from "./transactionStructure.js";
 import { txExtraStringFieldRows } from "./transactionMetadataFields.js";
 
@@ -24,6 +17,27 @@ const txPlainObject = plainObject;
 const txStringValue = stringValue;
 const txNullableNumberValue = nullableNumberValue;
 const txJsonValueText = jsonValueText;
+
+export function txBlockValidationErrorText(errors = [], path = "") {
+  const error = Array.isArray(errors)
+    ? errors.find((validationError) => validationError?.path === path)
+    : null;
+  return error?.messageKey ? t(error.messageKey) : "";
+}
+
+export function txBlockFieldRowsWithValidation(
+  fieldRows = [],
+  errors = [],
+  pathPrefix = "",
+) {
+  return fieldRows.map((fieldRow) => ({
+    ...fieldRow,
+    errorText: txBlockValidationErrorText(
+      errors,
+      pathPrefix ? `${pathPrefix}.${fieldRow.fieldKey}` : fieldRow.fieldKey,
+    ),
+  }));
+}
 
 export const TX_BLOCK_OPERATION_KIND_ROWS = Object.freeze([
   "command",
@@ -34,11 +48,6 @@ export const TX_BLOCK_ROLLBACK_KIND_ROWS = Object.freeze([
   "none",
   "per_step",
   "whole_resource",
-]);
-export const TX_BLOCK_STEP_ROLLBACK_STATE_ROWS = Object.freeze([
-  { value: "absent", labelKey: "txBlockRollbackStateAbsent" },
-  { value: "null", labelKey: "txBlockRollbackStateNull" },
-  { value: "operation", labelKey: "txBlockRollbackStateOperation" },
 ]);
 export const TX_BLOCK_BOOLEAN_ROWS = Object.freeze(["true", "false"]);
 export const TX_BLOCK_TEMPLATE_VAR_TYPE_ROWS = Object.freeze([
@@ -147,12 +156,6 @@ const TX_BLOCK_ROOT_FIELD_DEFS = Object.freeze([
 const TX_BLOCK_STEP_FIELD_DEFS = Object.freeze([
   {
     controlType: "select",
-    fieldKey: "rollbackState",
-    labelKey: "txBlockFormStepRollbackField",
-    optionKind: "rollbackState",
-  },
-  {
-    controlType: "select",
     fieldKey: "rollbackOnFailure",
     labelKey: "txBlockFormRollbackOnFailure",
     optionKind: "boolean",
@@ -198,11 +201,6 @@ function txBlockCommandModeOptionRows(
       }),
     ),
   ];
-}
-
-function txBlockStepRollbackState(step = {}) {
-  if (!step.hasRollback) return "absent";
-  return step.rollback ? "operation" : "null";
 }
 
 function txBlockCommandDynParamFieldValue(command = {}, aliases = []) {
@@ -277,9 +275,11 @@ function txBlockCommandInteractionPromptRow(
 export function txBlockCommandFieldsDisplay(
   command = {},
   commandModeState = {},
+  validationErrors = [],
+  pathPrefix = "",
 ) {
   const commandValue = txPlainObject(command) ? command : {};
-  return TX_BLOCK_COMMAND_FIELD_DEFS.map((fieldDef) => {
+  const fieldRows = TX_BLOCK_COMMAND_FIELD_DEFS.map((fieldDef) => {
     const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
     const enabled =
       fieldDef.fieldKey === "timeout"
@@ -312,11 +312,21 @@ export function txBlockCommandFieldsDisplay(
       valueText,
     };
   });
+  return txBlockFieldRowsWithValidation(
+    fieldRows,
+    validationErrors,
+    pathPrefix,
+  );
 }
 
-export function txBlockFlowFieldsDisplay(flow = {}, booleanRows = []) {
+export function txBlockFlowFieldsDisplay(
+  flow = {},
+  booleanRows = [],
+  validationErrors = [],
+  pathPrefix = "",
+) {
   const flowValue = txPlainObject(flow) ? flow : {};
-  return TX_BLOCK_FLOW_FIELD_DEFS.map((fieldDef) => {
+  const fieldRows = TX_BLOCK_FLOW_FIELD_DEFS.map((fieldDef) => {
     const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
     const enabled =
       fieldDef.fieldKey === "stopOnError"
@@ -350,6 +360,11 @@ export function txBlockFlowFieldsDisplay(flow = {}, booleanRows = []) {
       valueText: txNullableNumberValue(flowValue[fieldDef.fieldKey]) ?? "",
     };
   });
+  return txBlockFieldRowsWithValidation(
+    fieldRows,
+    validationErrors,
+    pathPrefix,
+  );
 }
 
 export function txBlockCommandPromptFieldsDisplay(
@@ -454,66 +469,53 @@ export function txBlockRootFieldsDisplay(model = {}, booleanRows = []) {
   });
 }
 
-export function txBlockWholeResourceFieldsDisplay(wholeResource = {}) {
+export function txBlockWholeResourceFieldsDisplay(
+  wholeResource = {},
+  validationErrors = [],
+  pathPrefix = "rollbackPolicy.wholeResource",
+) {
   const wholeResourceValue = txPlainObject(wholeResource) ? wholeResource : {};
-  return TX_BLOCK_WHOLE_RESOURCE_FIELD_DEFS.map((fieldDef) => ({
-    ...fieldDef,
-    enabled:
-      !!wholeResourceValue.hasTriggerStepIndex ||
-      wholeResourceValue[fieldDef.fieldKey] !== null,
-    labelText: t(fieldDef.labelKey),
-    placeholderText: fieldDef.placeholderKey ? t(fieldDef.placeholderKey) : "",
-    showPresenceToggle: true,
-    valueText:
-      txNullableNumberValue(wholeResourceValue[fieldDef.fieldKey]) ?? "",
-  }));
+  return txBlockFieldRowsWithValidation(
+    TX_BLOCK_WHOLE_RESOURCE_FIELD_DEFS.map((fieldDef) => ({
+      ...fieldDef,
+      enabled:
+        !!wholeResourceValue.hasTriggerStepIndex ||
+        wholeResourceValue[fieldDef.fieldKey] !== null,
+      labelText: t(fieldDef.labelKey),
+      placeholderText: fieldDef.placeholderKey
+        ? t(fieldDef.placeholderKey)
+        : "",
+      showPresenceToggle: true,
+      valueText:
+        txNullableNumberValue(wholeResourceValue[fieldDef.fieldKey]) ?? "",
+    })),
+    validationErrors,
+    pathPrefix,
+  );
 }
 
 export function txBlockStepFieldsDisplay(step = {}) {
   const stepValue = txPlainObject(step) ? step : {};
-  const rollbackStateValue = txBlockStepRollbackState(stepValue);
-  return TX_BLOCK_STEP_FIELD_DEFS.map((fieldDef) => {
-    if (fieldDef.optionKind === "rollbackState") {
-      return {
-        ...fieldDef,
-        enabled: true,
-        labelText: t(fieldDef.labelKey),
-        optionRows: TX_BLOCK_STEP_ROLLBACK_STATE_ROWS.map((optionRow) => ({
-          optionLabel: t(optionRow.labelKey),
-          optionValue: optionRow.value,
-        })),
-        placeholderText: "",
-        showPresenceToggle: false,
-        valueText: rollbackStateValue,
-      };
-    }
-    return {
-      ...fieldDef,
-      enabled:
-        !!stepValue.hasRollbackOnFailure || !!stepValue.rollbackOnFailure,
-      labelText: t(fieldDef.labelKey),
-      optionRows: TX_BLOCK_BOOLEAN_ROWS.map((optionValue) => ({
-        optionLabel: optionValue,
-        optionValue,
-      })),
-      placeholderText: "",
-      showPresenceToggle: true,
-      valueText: stepValue.rollbackOnFailure ? "true" : "false",
-    };
-  });
+  return TX_BLOCK_STEP_FIELD_DEFS.map((fieldDef) => ({
+    ...fieldDef,
+    enabled: !!stepValue.hasRollbackOnFailure || !!stepValue.rollbackOnFailure,
+    labelText: t(fieldDef.labelKey),
+    optionRows: TX_BLOCK_BOOLEAN_ROWS.map((optionValue) => ({
+      optionLabel: optionValue,
+      optionValue,
+    })),
+    placeholderText: "",
+    showPresenceToggle: true,
+    valueText: stepValue.rollbackOnFailure ? "true" : "false",
+  }));
 }
 
 export function txBlockRootPanelDisplay(model = {}, visualDisplay = {}) {
   const rootValue = txPlainObject(model) ? model : {};
   return {
-    extraSource: txPlainObject(rootValue.extra) ? rootValue.extra : {},
     fieldRows: txBlockRootFieldsDisplay(
       rootValue,
       Array.isArray(visualDisplay.booleanRows) ? visualDisplay.booleanRows : [],
-    ),
-    metadataFieldRows: txExtraStringFieldRows(
-      rootValue.extra,
-      txBlockRootMetadataFieldDefs(),
     ),
   };
 }
@@ -521,6 +523,7 @@ export function txBlockRootPanelDisplay(model = {}, visualDisplay = {}) {
 export function txBlockRollbackPolicyPanelDisplay(
   model = {},
   visualDisplay = {},
+  validationErrors = [],
 ) {
   const rootValue = txPlainObject(model) ? model : {};
   const wholeResourcePolicy =
@@ -528,10 +531,6 @@ export function txBlockRollbackPolicyPanelDisplay(
       ? rootValue.rollbackPolicy?.wholeResource || null
       : null;
   return {
-    metadataFieldRows: txExtraStringFieldRows(
-      wholeResourcePolicy?.extra || {},
-      txBlockWholeResourceMetadataFieldDefs(),
-    ),
     rollbackKindValue: txStringValue(rootValue.rollbackPolicy?.kind, "none"),
     showWholeResource: rootValue.rollbackPolicy?.kind === "whole_resource",
     wholeResourceExtra: txPlainObject(wholeResourcePolicy?.extra)
@@ -539,6 +538,7 @@ export function txBlockRollbackPolicyPanelDisplay(
       : {},
     wholeResourceFieldRows: txBlockWholeResourceFieldsDisplay(
       wholeResourcePolicy || {},
+      validationErrors,
     ),
     wholeResourceRollback: wholeResourcePolicy?.rollback || null,
     wholeResourceTypeRows: Array.isArray(visualDisplay.jsonValueTypeRows)
@@ -557,6 +557,58 @@ export function txBlockStepsPanelDisplay(model = {}) {
         titleText: `${t("txBlockFormStep")} ${stepIndex + 1}`,
       }),
     ),
+  };
+}
+
+function txBlockLocalizedFallback(key, englishText, chineseText) {
+  return tr(key, currentLanguage() === "zh" ? chineseText : englishText);
+}
+
+function txBlockOperationKindText(kind) {
+  if (kind === "flow") return t("txBlockFormFlowSteps");
+  if (kind === "template") return t("txBlockFormTemplateDefinition");
+  return t("txBlockFormCommand");
+}
+
+function txBlockOperationSummaryText(operation = {}) {
+  if (operation?.kind === "flow") {
+    const stepCount = Array.isArray(operation.flow?.steps)
+      ? operation.flow.steps.length
+      : 0;
+    return `${t("txBlockFormFlowSteps")} · ${stepCount}`;
+  }
+  if (operation?.kind === "template") {
+    return (
+      txStringValue(operation.template?.template?.name).trim() ||
+      txBlockLocalizedFallback(
+        "txBlockTimelineUnnamedTemplate",
+        "Unnamed template",
+        "未命名模板",
+      )
+    );
+  }
+  return (
+    txStringValue(operation?.command?.command).trim() ||
+    txBlockLocalizedFallback(
+      "txBlockTimelineEmptyCommand",
+      "Empty command",
+      "空命令",
+    )
+  );
+}
+
+export function txBlockTimelineDisplay(model = {}) {
+  const steps = Array.isArray(model?.steps) ? model.steps : [];
+  return {
+    stepRows: steps.map((step, stepIndex) => ({
+      canMoveDown: stepIndex < steps.length - 1,
+      canMoveUp: stepIndex > 0,
+      kindText: txBlockOperationKindText(step?.run?.kind),
+      rollbackConfigured: !!step?.rollback,
+      stepIndex,
+      summaryText: txBlockOperationSummaryText(step?.run),
+      titleText: `${t("txBlockFormStep")} ${stepIndex + 1}`,
+    })),
   };
 }
 
@@ -579,6 +631,8 @@ export function txBlockOperationFieldsDisplay(operation = {}, titleText = "") {
 export function txBlockCommandEditorDisplay(
   command = {},
   commandModeState = {},
+  validationErrors = [],
+  pathPrefix = "",
 ) {
   return {
     dynParamEnablePasswordPresent: txBlockCommandDynParamFieldPresent(
@@ -598,7 +652,12 @@ export function txBlockCommandEditorDisplay(
       command,
       TX_COMMAND_DYN_PARAM_SUDO_PASSWORD_KEYS,
     ),
-    fieldRows: txBlockCommandFieldsDisplay(command, commandModeState),
+    fieldRows: txBlockCommandFieldsDisplay(
+      command,
+      commandModeState,
+      validationErrors,
+      pathPrefix,
+    ),
     interactionDisplay: txBlockCommandInteractionDisplay(
       command,
       TX_BLOCK_BOOLEAN_ROWS,
@@ -640,20 +699,9 @@ export function txBlockCommandDynParamsDisplay(
   };
 }
 
-export function txBlockInteractionMetadataFieldRows(command = {}) {
-  return txExtraStringFieldRows(
-    txInteractionExtraSource(command),
-    txBlockInteractionMetadataFieldDefs(),
-  );
-}
-
 export function txBlockFlowMetadataFieldRows(operation = {}) {
   return txExtraStringFieldRows(
     operation?.flow?.extra,
     txBlockFlowMetadataFieldDefs(),
   );
-}
-
-export function txBlockStepMetadataFieldRows(step = {}) {
-  return txExtraStringFieldRows(step.extra, txBlockStepMetadataFieldDefs());
 }

@@ -285,8 +285,10 @@ export function createTxBlockInputPanelWorkspace(inputState = {}) {
     const nextModel = txBlockFormModelFromJson(
       defaultFullTxBlockTemplatePayload(),
     );
-    txInputWorkspace.changeFormModel(nextModel, { notify: true });
-    txInputWorkspace.selectEditorView("form");
+    actionWorkspace.changeFormModel(nextModel, {
+      editorDisplayMode: "form",
+      notify: true,
+    });
     return nextModel;
   }
 

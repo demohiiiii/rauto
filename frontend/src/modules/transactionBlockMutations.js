@@ -267,7 +267,41 @@ export function txBlockChangeWholeResourceExtra(model, extra) {
 
 export function txBlockAddStep(model) {
   const next = txBlockCloneModel(model);
+  if (!Array.isArray(next.steps)) next.steps = [];
   next.steps.push(txBlockStepDraft());
+  return next;
+}
+
+export function txBlockDuplicateStep(model, stepIndex) {
+  const next = txBlockCloneModel(model);
+  if (
+    !Array.isArray(next.steps) ||
+    !Number.isInteger(stepIndex) ||
+    stepIndex < 0 ||
+    stepIndex >= next.steps.length
+  ) {
+    return next;
+  }
+  next.steps.splice(stepIndex + 1, 0, structuredClone(next.steps[stepIndex]));
+  return next;
+}
+
+export function txBlockMoveStep(model, fromIndex, toIndex) {
+  const next = txBlockCloneModel(model);
+  if (
+    !Array.isArray(next.steps) ||
+    !Number.isInteger(fromIndex) ||
+    !Number.isInteger(toIndex) ||
+    fromIndex < 0 ||
+    fromIndex >= next.steps.length ||
+    toIndex < 0 ||
+    toIndex >= next.steps.length ||
+    fromIndex === toIndex
+  ) {
+    return next;
+  }
+  const [step] = next.steps.splice(fromIndex, 1);
+  next.steps.splice(toIndex, 0, step);
   return next;
 }
 
@@ -629,18 +663,14 @@ export function txBlockPatchStepRun(model, stepIndex, operation) {
   return txBlockPatchStep(model, stepIndex, { run: operation });
 }
 
-export function txBlockChangeStepRollbackState(model, stepIndex, state) {
+export function txBlockSetStepRollbackEnabled(model, stepIndex, enabled) {
   const step = model.steps?.[stepIndex] || {};
-  if (state === "absent") {
-    return txBlockPatchStep(model, stepIndex, {
-      hasRollback: false,
-      rollback: null,
-    });
-  }
-  if (state === "null") {
+  if (!enabled) {
     return txBlockPatchStep(model, stepIndex, {
       hasRollback: true,
       rollback: null,
+      hasRollbackOnFailure: true,
+      rollbackOnFailure: false,
     });
   }
   return txBlockPatchStep(model, stepIndex, {
