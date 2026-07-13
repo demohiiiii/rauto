@@ -301,12 +301,9 @@ function txBlockTemplateRuntimeModeOptionRows(
   const modeOptions = Array.isArray(runtimeModeState?.modes)
     ? runtimeModeState.modes
     : [];
-  const placeholderText =
-    txStringValue(runtimeModeState?.defaultMode).trim() ||
-    t("txBlockFormRuntimeDefaultModePlaceholder");
   return [
     {
-      optionLabel: placeholderText,
+      optionLabel: t("txBlockFormRuntimeDefaultModePlaceholder"),
       optionValue: "",
     },
     ...selectOptionsWithCurrent(modeOptions, selectedMode).map(
@@ -326,12 +323,9 @@ function txBlockTemplateDefinitionModeOptionRows(
   const modeOptions = Array.isArray(templateModeState?.modes)
     ? templateModeState.modes
     : [];
-  const placeholderText =
-    txStringValue(templateModeState?.defaultMode).trim() ||
-    t("modePlaceholder");
   return [
     {
-      optionLabel: placeholderText,
+      optionLabel: t("modePlaceholder"),
       optionValue: "",
     },
     ...selectOptionsWithCurrent(modeOptions, selectedMode).map(

@@ -15,6 +15,7 @@
   const txBlockTemplateDefinitionEditorWorkspace =
     createTxBlockTemplateDefinitionEditorWorkspace();
   const {
+    destroy,
     setTemplateDefinitionContext,
     templateDefinitionActionHandlersStateStore,
     templateDefinitionFieldRowsStateStore,
@@ -46,6 +47,8 @@
   $effect(() => {
     setTemplateDefinitionContext({ operation, onChange });
   });
+
+  $effect(() => destroy);
 </script>
 
 <div class="grid gap-3">

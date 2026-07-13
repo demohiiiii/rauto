@@ -632,7 +632,7 @@ export function defaultTxBlockTemplatePayload() {
       {
         run: {
           kind: "command",
-          mode: "User",
+          mode: "",
           command: "show version",
           timeout: 30,
         },
@@ -641,140 +641,6 @@ export function defaultTxBlockTemplatePayload() {
       },
     ],
     fail_fast: true,
-  };
-}
-
-export function defaultFullTxBlockTemplatePayload() {
-  return {
-    name: "tx-block-full",
-    fail_fast: true,
-    rollback_policy: {
-      whole_resource: {
-        trigger_step_index: 0,
-        rollback: {
-          kind: "command",
-          mode: "Enable",
-          command: "configure replace flash:backup.cfg force",
-          timeout: 60,
-          dyn_params: {
-            enable_password: "",
-            sudo_password: "",
-          },
-          interaction: {
-            prompts: [
-              {
-                patterns: ["confirm", "Continue?"],
-                response: "yes",
-                record_input: false,
-              },
-            ],
-          },
-        },
-      },
-    },
-    steps: [
-      {
-        rollback_on_failure: true,
-        run: {
-          kind: "command",
-          mode: "Enable",
-          command: "show running-config",
-          timeout: 30,
-          dyn_params: {
-            enable_password: "",
-            sudo_password: "",
-          },
-          interaction: {
-            prompts: [
-              {
-                patterns: ["confirm", "Continue?"],
-                response: "yes",
-                record_input: false,
-              },
-            ],
-          },
-        },
-        rollback: {
-          kind: "command",
-          mode: "Enable",
-          command: "clear logging",
-          timeout: 30,
-        },
-      },
-      {
-        rollback_on_failure: false,
-        run: {
-          kind: "flow",
-          stop_on_error: true,
-          max_steps: 2,
-          steps: [
-            {
-              mode: "Enable",
-              command: "show ip route",
-              timeout: 30,
-            },
-            {
-              mode: "Enable",
-              command: "show interfaces status",
-              timeout: 30,
-            },
-          ],
-        },
-        rollback: null,
-      },
-      {
-        rollback_on_failure: false,
-        run: {
-          kind: "template",
-          current_connection_alias: "",
-          template: {
-            name: "saved-template",
-            description: "",
-            stop_on_error: true,
-            default_mode: "Enable",
-            vars: [
-              {
-                name: "hostname",
-                label: "Hostname",
-                description: "",
-                type: "string",
-                required: true,
-                placeholder: "",
-                options: ["edge-01", "edge-02"],
-                default: "edge-01",
-              },
-            ],
-            steps: [
-              {
-                command: "show running-config interface ${hostname}",
-                mode: "Enable",
-                timeout_secs: 30,
-                prompts: [
-                  {
-                    patterns: ["confirm"],
-                    response: "yes",
-                    append_newline: true,
-                    record_input: false,
-                  },
-                ],
-              },
-            ],
-          },
-          runtime: {
-            default_mode: "Enable",
-            connection_name: "",
-            host: "",
-            username: "",
-            device_profile: "",
-            vars: {
-              dry_run: true,
-              retries: 1,
-            },
-          },
-        },
-        rollback: null,
-      },
-    ],
   };
 }
 

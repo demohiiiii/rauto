@@ -1,5 +1,5 @@
 <script>
-  import { getContext } from "svelte";
+  import { getContext, untrack } from "svelte";
   import { readable } from "svelte/store";
   import CodeMirror from "svelte-codemirror-editor";
   import { json } from "@codemirror/lang-json";
@@ -33,7 +33,7 @@
         ? "light"
         : "dark",
   );
-  let editorText = $state("");
+  let editorText = $state(untrack(() => (value == null ? "" : String(value))));
   let editorBindings = $derived(
     jsonTextEditorBindings({
       onChange,

@@ -5,6 +5,11 @@ const sessionText = (value) => {
   return typeof value === "string" ? value : String(value);
 };
 
+const editorView = (value) => {
+  if (value === "json" || value === "readonly") return value;
+  return "form";
+};
+
 export function createTransactionEditorSession({
   buildDefaultFormModel,
   formModelToJsonText,
@@ -82,9 +87,7 @@ export function createTransactionEditorSession({
       editorDisplayMode:
         editorDisplayMode === undefined
           ? currentState.editorDisplayMode
-          : editorDisplayMode === "json"
-            ? "json"
-            : "form",
+          : editorView(editorDisplayMode),
       formError: "",
       formErrorDetail: null,
       formModel: nextModel,
@@ -98,10 +101,10 @@ export function createTransactionEditorSession({
   }
 
   function selectEditorView(nextView = "") {
-    const normalizedView = nextView === "json" ? "json" : "form";
+    const normalizedView = editorView(nextView);
     const currentState = get(sessionStateStore);
     if (
-      normalizedView === "form" &&
+      normalizedView !== "json" &&
       currentState.syncStatus === "invalid-json"
     ) {
       return false;

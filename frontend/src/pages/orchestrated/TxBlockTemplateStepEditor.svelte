@@ -18,6 +18,7 @@
   const txBlockTemplateStepEditorWorkspace =
     createTxBlockTemplateStepEditorWorkspace();
   const {
+    destroy,
     setTemplateStepContext,
     stepActionHandlersStateStore,
     templateStepFieldRowsStateStore,
@@ -43,6 +44,8 @@
   $effect(() => {
     setTemplateStepContext({ operation, templateStepRow, onChange });
   });
+
+  $effect(() => destroy);
 </script>
 
 <div class="grid gap-3 rounded-lg border border-border bg-muted/20 p-3">

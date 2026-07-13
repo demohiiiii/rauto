@@ -46,6 +46,7 @@
     editorKind="inline"
     editorTitle={panelDisplay.textareaLabel}
     editorValue={panelDisplay.varsText}
+    formError={panelDisplay.formError}
     jsonHintText={panelDisplay.showHint ? panelDisplay.hintText : ""}
     onInlineEditorChange={changeVarsText}
     onEditorViewSelect={selectEditorView}

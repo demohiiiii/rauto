@@ -1,9 +1,7 @@
-import { getProfileModes } from "../api/client.js";
 import { derived as deriveStore, get, readonly, writable } from "svelte/store";
-import { createLatestAsyncValueLoader } from "../lib/svelte.js";
 import { currentLanguage, currentLanguageState, t, tr } from "../lib/i18n.js";
 import { plainObject, stringValue } from "../lib/jsonValue.js";
-import { currentExecutionConnectionProfile } from "./connections.js";
+import { createTxProfileModeLoader } from "./transactionProfileModes.js";
 import { validateTxBlockFormModel } from "./transactionBlockFormModels.js";
 import {
   txBlockCommandEditorBindings,
@@ -44,7 +42,6 @@ export * from "./transactionBlockDisplayState.js";
 
 const txPlainObject = plainObject;
 const txStringValue = stringValue;
-let txProfileModesCache = new Map();
 
 const TX_BLOCK_VISUAL_EDITOR_COVERAGE = Object.freeze({
   root: Object.freeze({
@@ -89,61 +86,6 @@ const TX_BLOCK_VISUAL_EDITOR_COVERAGE = Object.freeze({
     ]),
   }),
 });
-
-function txProfileModeFallback(profileName = "", currentValue = "") {
-  const normalizedProfile = txStringValue(profileName).trim();
-  const fallbackMode = txStringValue(currentValue).trim();
-  if (normalizedProfile === "autodetect") {
-    return {
-      defaultMode: fallbackMode || "Root",
-      modes: fallbackMode ? [fallbackMode] : ["Root"],
-      name: normalizedProfile || "autodetect",
-    };
-  }
-  return {
-    defaultMode: fallbackMode,
-    modes: fallbackMode ? [fallbackMode] : [],
-    name: normalizedProfile,
-  };
-}
-
-async function loadTxProfileModes(profileName = "", currentValue = "") {
-  const normalizedProfile = txStringValue(profileName).trim();
-  if (!normalizedProfile) {
-    return txProfileModeFallback("", currentValue);
-  }
-  if (txProfileModesCache.has(normalizedProfile)) {
-    return txProfileModesCache.get(normalizedProfile);
-  }
-  try {
-    const modePayload = await getProfileModes(normalizedProfile);
-    const modeOptions = Array.isArray(modePayload?.modes)
-      ? modePayload.modes.filter(Boolean)
-      : [];
-    const defaultMode =
-      txStringValue(modePayload?.default_mode).trim() ||
-      modeOptions[0] ||
-      txStringValue(currentValue).trim();
-    const resolved = {
-      defaultMode,
-      modes:
-        modeOptions.length > 0 ? modeOptions : defaultMode ? [defaultMode] : [],
-      name: txStringValue(modePayload?.name).trim() || normalizedProfile,
-    };
-    txProfileModesCache.set(normalizedProfile, resolved);
-    return resolved;
-  } catch (_) {
-    return txProfileModeFallback(normalizedProfile, currentValue);
-  }
-}
-
-function txProfileModeInitialState() {
-  return {
-    defaultMode: "",
-    modes: [],
-    name: "",
-  };
-}
 
 export function txBlockVisualEditorDisplay() {
   return {
@@ -416,11 +358,24 @@ export function createTxBlockCommandEditorWorkspace({
   const onChangeStateStore = writable(onChange);
   const pathPrefixStateStore = writable(pathPrefix);
   const validationErrorsStateStore = writable(validationErrors);
-  const commandModeLoader = createLatestAsyncValueLoader({
-    initialValue: txProfileModeInitialState(),
-    loadValue: ({ currentMode, profileName }) =>
-      loadTxProfileModes(profileName, currentMode),
+  const commandModeLoader = createTxProfileModeLoader({
+    currentMode: () => get(commandStateStore)?.mode ?? "",
   });
+  const unsubscribeCommandModeInitialization =
+    commandModeLoader.state.subscribe((modeState) => {
+      const commandValue = get(commandStateStore);
+      if (txStringValue(commandValue?.mode).trim()) return;
+      const defaultMode = txStringValue(modeState?.defaultMode).trim();
+      const availableModes = Array.isArray(modeState?.modes)
+        ? modeState.modes
+        : [];
+      if (!defaultMode || !availableModes.includes(defaultMode)) return;
+      const currentOnChange = get(onChangeStateStore);
+      if (typeof currentOnChange !== "function") return;
+      const nextCommand = { ...commandValue, mode: defaultMode };
+      commandStateStore.set(nextCommand);
+      currentOnChange(nextCommand);
+    });
   const commandActionHandlersStateStore = deriveStore(
     [commandStateStore, onChangeStateStore],
     ([$command, $onChange]) =>
@@ -451,6 +406,10 @@ export function createTxBlockCommandEditorWorkspace({
   return {
     commandActionHandlersStateStore,
     commandDisplayStateStore,
+    destroy() {
+      unsubscribeCommandModeInitialization();
+      commandModeLoader.destroy();
+    },
     metadataFieldRowsStateStore,
     setCommandEditorContext({
       command: nextCommand = {},
@@ -469,10 +428,7 @@ export function createTxBlockCommandEditorWorkspace({
       validationErrorsStateStore.set(
         Array.isArray(nextValidationErrors) ? nextValidationErrors : [],
       );
-      void commandModeLoader.refresh({
-        currentMode: commandValue.mode ?? "",
-        profileName: currentExecutionConnectionProfile(),
-      });
+      void commandModeLoader.refresh();
     },
   };
 }

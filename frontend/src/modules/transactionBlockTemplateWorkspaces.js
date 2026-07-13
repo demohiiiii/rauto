@@ -1,8 +1,7 @@
-import { getProfileModes } from "../api/client.js";
-import { derived as deriveStore, writable } from "svelte/store";
+import { derived as deriveStore, get, writable } from "svelte/store";
 import { currentLanguageState } from "../lib/i18n.js";
 import { plainObject, stringValue } from "../lib/jsonValue.js";
-import { createLatestAsyncValueLoader } from "../lib/svelte.js";
+import { createTxProfileModeLoader } from "./transactionProfileModes.js";
 import {
   txBlockPromptMetadataFieldDefs,
   txBlockTemplateDefinitionMetadataFieldDefs,
@@ -41,63 +40,6 @@ export * from "./transactionBlockTemplateDisplayState.js";
 
 const txPlainObject = plainObject;
 const txStringValue = stringValue;
-let txProfileModesCache = new Map();
-
-function txProfileModeFallback(profileName = "", currentValue = "") {
-  const normalizedProfile = txStringValue(profileName).trim();
-  const fallbackMode = txStringValue(currentValue).trim();
-  if (normalizedProfile === "autodetect") {
-    return {
-      defaultMode: fallbackMode || "Root",
-      modes: fallbackMode ? [fallbackMode] : ["Root"],
-      name: normalizedProfile || "autodetect",
-    };
-  }
-  return {
-    defaultMode: fallbackMode,
-    modes: fallbackMode ? [fallbackMode] : [],
-    name: normalizedProfile,
-  };
-}
-
-async function loadTxProfileModes(profileName = "", currentValue = "") {
-  const normalizedProfile = txStringValue(profileName).trim();
-  if (!normalizedProfile) {
-    return txProfileModeFallback("", currentValue);
-  }
-  if (txProfileModesCache.has(normalizedProfile)) {
-    return txProfileModesCache.get(normalizedProfile);
-  }
-  try {
-    const modePayload = await getProfileModes(normalizedProfile);
-    const modeOptions = Array.isArray(modePayload?.modes)
-      ? modePayload.modes.filter(Boolean)
-      : [];
-    const defaultMode =
-      txStringValue(modePayload?.default_mode).trim() ||
-      modeOptions[0] ||
-      txStringValue(currentValue).trim();
-    const resolved = {
-      defaultMode,
-      modes:
-        modeOptions.length > 0 ? modeOptions : defaultMode ? [defaultMode] : [],
-      name: txStringValue(modePayload?.name).trim() || normalizedProfile,
-    };
-    txProfileModesCache.set(normalizedProfile, resolved);
-    return resolved;
-  } catch (_) {
-    return txProfileModeFallback(normalizedProfile, currentValue);
-  }
-}
-
-function txProfileModeInitialState() {
-  return {
-    defaultMode: "",
-    modes: [],
-    name: "",
-  };
-}
-
 export function createTxBlockTemplateDefinitionEditorWorkspace({
   operation = {},
   onChange = null,
@@ -106,10 +48,11 @@ export function createTxBlockTemplateDefinitionEditorWorkspace({
     txPlainObject(operation) ? operation : {},
   );
   const onChangeStateStore = writable(onChange);
-  const templateModeLoader = createLatestAsyncValueLoader({
-    initialValue: txProfileModeInitialState(),
-    loadValue: ({ currentMode, profileName }) =>
-      loadTxProfileModes(profileName, currentMode),
+  const templateModeLoader = createTxProfileModeLoader({
+    currentMode: () =>
+      get(operationStateStore)?.template?.template?.defaultMode ?? "",
+    explicitProfile: () =>
+      get(operationStateStore)?.template?.runtime?.deviceProfile ?? "",
   });
   const templateDefinitionActionHandlersStateStore = deriveStore(
     [operationStateStore, onChangeStateStore],
@@ -152,6 +95,7 @@ export function createTxBlockTemplateDefinitionEditorWorkspace({
   );
 
   return {
+    destroy: templateModeLoader.destroy,
     setTemplateDefinitionContext({
       operation: nextOperation = {},
       onChange: nextOnChange = null,
@@ -159,9 +103,7 @@ export function createTxBlockTemplateDefinitionEditorWorkspace({
       const operationValue = txPlainObject(nextOperation) ? nextOperation : {};
       operationStateStore.set(operationValue);
       onChangeStateStore.set(nextOnChange);
-      const profileName = operationValue.template?.runtime?.deviceProfile ?? "";
-      const currentMode = operationValue.template?.template?.defaultMode ?? "";
-      void templateModeLoader.refresh({ currentMode, profileName });
+      void templateModeLoader.refresh();
     },
     templateDefinitionActionHandlersStateStore,
     templateDefinitionFieldRowsStateStore,
@@ -179,10 +121,11 @@ export function createTxBlockTemplateRuntimeFieldsEditorWorkspace({
     txPlainObject(operation) ? operation : {},
   );
   const onChangeStateStore = writable(onChange);
-  const runtimeModeLoader = createLatestAsyncValueLoader({
-    initialValue: txProfileModeInitialState(),
-    loadValue: ({ currentMode, profileName }) =>
-      loadTxProfileModes(profileName, currentMode),
+  const runtimeModeLoader = createTxProfileModeLoader({
+    currentMode: () =>
+      get(operationStateStore)?.template?.runtime?.defaultMode ?? "",
+    explicitProfile: () =>
+      get(operationStateStore)?.template?.runtime?.deviceProfile ?? "",
   });
   const runtimeActionHandlersStateStore = deriveStore(
     [operationStateStore, onChangeStateStore],
@@ -217,6 +160,7 @@ export function createTxBlockTemplateRuntimeFieldsEditorWorkspace({
   );
 
   return {
+    destroy: runtimeModeLoader.destroy,
     runtimeActionHandlersStateStore,
     runtimeExtraSourceStateStore,
     runtimeFieldRowsStateStore,
@@ -228,9 +172,7 @@ export function createTxBlockTemplateRuntimeFieldsEditorWorkspace({
       const operationValue = txPlainObject(nextOperation) ? nextOperation : {};
       operationStateStore.set(operationValue);
       onChangeStateStore.set(nextOnChange);
-      const profileName = operationValue.template?.runtime?.deviceProfile ?? "";
-      const currentMode = operationValue.template?.runtime?.defaultMode ?? "";
-      void runtimeModeLoader.refresh({ currentMode, profileName });
+      void runtimeModeLoader.refresh();
     },
   };
 }
@@ -407,10 +349,10 @@ export function createTxBlockTemplateStepEditorWorkspace({
   const templateStepRowStateStore = writable(
     txPlainObject(templateStepRow) ? templateStepRow : {},
   );
-  const templateStepModeLoader = createLatestAsyncValueLoader({
-    initialValue: txProfileModeInitialState(),
-    loadValue: ({ currentMode, profileName }) =>
-      loadTxProfileModes(profileName, currentMode),
+  const templateStepModeLoader = createTxProfileModeLoader({
+    currentMode: () => get(templateStepRowStateStore)?.step?.mode ?? "",
+    explicitProfile: () =>
+      get(operationStateStore)?.template?.runtime?.deviceProfile ?? "",
   });
   const stepActionHandlersStateStore = deriveStore(
     [operationStateStore, onChangeStateStore, templateStepRowStateStore],
@@ -464,6 +406,7 @@ export function createTxBlockTemplateStepEditorWorkspace({
   );
 
   return {
+    destroy: templateStepModeLoader.destroy,
     setTemplateStepContext({
       operation: nextOperation = {},
       onChange: nextOnChange = null,
@@ -476,9 +419,7 @@ export function createTxBlockTemplateStepEditorWorkspace({
       operationStateStore.set(operationValue);
       onChangeStateStore.set(nextOnChange);
       templateStepRowStateStore.set(templateStepRowValue);
-      const profileName = operationValue.template?.runtime?.deviceProfile ?? "";
-      const currentMode = templateStepRowValue.step?.mode ?? "";
-      void templateStepModeLoader.refresh({ currentMode, profileName });
+      void templateStepModeLoader.refresh();
     },
     stepActionHandlersStateStore,
     templateStepFieldRowsStateStore,

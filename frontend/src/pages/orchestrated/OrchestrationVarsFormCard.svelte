@@ -40,14 +40,6 @@
         variant="outline"
         size="sm"
         type="button"
-        onclick={assistantActions.applyEntriesFromText}
-      >
-        {assistantDisplay.syncButtonLabel}
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        type="button"
         onclick={assistantActions.clearEntries}
       >
         {assistantDisplay.clearButtonLabel}
@@ -71,7 +63,7 @@
               value={assistantEntryInput.keyValue}
               aria-label={assistantEntryInput.keyPlaceholder}
               placeholderText={assistantEntryInput.keyPlaceholder}
-              onInput={assistantActions.updateEntryKey(
+              onValueInput={assistantActions.updateEntryKey(
                 assistantEntryInput.entryId,
               )}
             />
@@ -99,7 +91,7 @@
                 value={assistantEntryInput.valueText}
                 aria-label={assistantDisplay.title}
                 placeholderText={assistantEntryInput.placeholder}
-                onInput={assistantActions.updateEntryValue(
+                onValueInput={assistantActions.updateEntryValue(
                   assistantEntryInput.entryId,
                 )}
               />

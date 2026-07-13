@@ -171,21 +171,12 @@ function txBlockCommandModeOptionRows(
   const modeOptions = Array.isArray(commandModeState?.modes)
     ? commandModeState.modes
     : [];
-  const placeholderText =
-    txStringValue(commandModeState?.defaultMode).trim() ||
-    t("txBlockFormModePlaceholder");
-  return [
-    {
-      optionLabel: placeholderText,
-      optionValue: "",
-    },
-    ...selectOptionsWithCurrent(modeOptions, selectedMode).map(
-      (modeOption) => ({
-        optionLabel: modeOption,
-        optionValue: modeOption,
-      }),
-    ),
-  ];
+  return selectOptionsWithCurrent(modeOptions, selectedMode).map(
+    (modeOption) => ({
+      optionLabel: modeOption,
+      optionValue: modeOption,
+    }),
+  );
 }
 
 function txBlockCommandDynParamExtraRows(command = {}) {

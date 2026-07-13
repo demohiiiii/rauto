@@ -2,12 +2,15 @@
   import * as Card from "$lib/components/ui/card";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { txTemplateModeTabs } from "../../config/dashboardModes.js";
+  import {
+    txBlockReadonlyEditorViewTabs,
+    txTemplateModeTabs,
+  } from "../../config/dashboardModes.js";
   import { currentLanguageState } from "../../lib/i18n.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
+  import TxBlockPreviewPanel from "./TxBlockPreviewPanel.svelte";
   import TxTemplateRunPanel from "./TxTemplateRunPanel.svelte";
   import {
     createTxBlockInputPanelWorkspace,
@@ -15,6 +18,8 @@
     txBlockTemplateVarsPlaceholder,
     txBlockVarsPlaceholder,
   } from "../../modules/transactionInputWorkspaces.js";
+  import { txBlockFormModelToJsonText } from "../../modules/transactionBlockFormModels.js";
+  import { txBlockPreviewPresentation } from "../../modules/transactionExecutionDisplays.js";
 
   import {
     TX_TEMPLATE_KIND,
@@ -38,7 +43,6 @@
   const txBlockInputWorkspace = createTxBlockInputPanelWorkspace();
   const {
     changeFormModel,
-    createFullDraft,
     createJsonDraft,
     createTemplateDraft,
     editorDisplayStateStore,
@@ -69,6 +73,13 @@
   let txBlockSyncPresentation = $derived.by(() => {
     currentLanguage;
     return transactionEditorSyncPresentation(txBlockSyncStatus);
+  });
+  let txBlockReadonlyPreview = $derived.by(() => {
+    currentLanguage;
+    return txBlockPreviewPresentation(
+      JSON.parse(txBlockFormModelToJsonText(txBlockFormModel)),
+      null,
+    );
   });
   let directPanelActive = $derived(active && txBlockInputDisplay.mode.isDirect);
   let templatePanelActive = $derived(
@@ -146,14 +157,6 @@
       <Card.Title>{txBlockInputDisplay.editorTitle}</Card.Title>
       <Card.Action>
         <div class="inline-flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onclick={createFullDraft}
-          >
-            <span>{txBlockInputDisplay.fullDraftButtonLabel}</span>
-          </Button>
           <LoadingButton
             size="sm"
             loading={jsonNewLoading}
@@ -184,11 +187,19 @@
         syncStatus={txBlockSyncStatus}
         syncStatusText={txBlockSyncPresentation.text}
         syncStatusTone={txBlockSyncPresentation.tone}
+        tabItems={txBlockReadonlyEditorViewTabs}
       >
         {#snippet formContent()}
           <TxBlockVisualEditor
             model={txBlockFormModel}
             onChange={changeFormModel}
+          />
+        {/snippet}
+        {#snippet readonlyContent()}
+          <TxBlockPreviewPanel
+            previewPresentation={txBlockReadonlyPreview}
+            showResult={false}
+            showSummary={true}
           />
         {/snippet}
       </TxJsonFormSurface>

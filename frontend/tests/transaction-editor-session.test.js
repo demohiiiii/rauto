@@ -8,7 +8,6 @@ import {
   transactionEditorSyncPresentation,
 } from "../src/modules/transactionInputState.js";
 import {
-  defaultFullTxBlockTemplatePayload,
   defaultTxBlockTemplatePayload,
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
@@ -439,6 +438,25 @@ test("invalid JSON blocks form view until repaired", () => {
   assert.equal(session.selectEditorView("anything-else"), true);
   assert.equal(get(session.editorDisplayModeStateStore), "form");
   assert.deepEqual(session.currentFormModel(), { name: "repaired" });
+});
+
+test("read-only view shares the canonical model and rejects invalid JSON", () => {
+  const session = createSession();
+
+  session.changeFormModel({ name: "form-live", enabled: false });
+  assert.equal(session.selectEditorView("readonly"), true);
+  assert.equal(get(session.editorDisplayModeStateStore), "readonly");
+  assert.equal(session.currentFormModel().name, "form-live");
+
+  session.selectEditorView("json");
+  session.replaceJsonText("{");
+  assert.equal(session.selectEditorView("readonly"), false);
+  assert.equal(get(session.editorDisplayModeStateStore), "json");
+
+  session.replaceJsonText('{"name":"json-live","enabled":true}');
+  assert.equal(session.selectEditorView("readonly"), true);
+  assert.equal(get(session.editorDisplayModeStateStore), "readonly");
+  assert.equal(session.currentFormModel().name, "json-live");
 });
 
 test("transaction editors reject empty and non-object JSON roots", async (testContext) => {
@@ -937,7 +955,7 @@ test("manual block and workflow Form changes invalidate pending external actions
   }
 });
 
-test("Full Draft invalidates a pending block template load", async () => {
+test("manual block form changes invalidate a pending template load", async () => {
   const host = createTxJsonEditorsHost();
   const deferred = createDeferredPromise();
   let loadActionContext = null;
@@ -979,7 +997,14 @@ test("Full Draft invalidates a pending block template load", async () => {
   sessionPublications = 0;
 
   const loadPromise = workspace.loadJsonTemplate("pending");
-  const fullDraft = workspace.createFullDraft();
+  const replacementModel = txBlockFormModelFromJson({
+    ...defaultTxBlockTemplatePayload(),
+    name: "replacement",
+  });
+  workspace.changeFormModel(replacementModel, {
+    editorDisplayMode: "form",
+    notify: true,
+  });
   assert.equal(loadActionContext?.isCurrent(), false);
   assert.equal(hostNotifications, 1);
   assert.equal(modelPublications, 1);
@@ -987,14 +1012,10 @@ test("Full Draft invalidates a pending block template load", async () => {
   deferred.resolve("loaded");
   await loadPromise;
 
-  assert.deepEqual(
-    workspace.currentFormModel(),
-    txBlockFormModelFromJson(defaultFullTxBlockTemplatePayload()),
-  );
-  assert.deepEqual(workspace.currentFormModel(), fullDraft);
+  assert.deepEqual(workspace.currentFormModel(), replacementModel);
   assert.equal(
     get(workspace.jsonTextStateStore),
-    txBlockFormModelToJsonText(fullDraft),
+    txBlockFormModelToJsonText(replacementModel),
   );
   assert.equal(hostNotifications, 1);
   assert.equal(modelPublications, 1);

@@ -111,6 +111,11 @@ export const txBlockEditorViewTabs = Object.freeze([
   { value: "json", labelKey: "txBlockEditorJsonTab" },
 ]);
 
+export const txBlockReadonlyEditorViewTabs = Object.freeze([
+  ...txBlockEditorViewTabs,
+  { value: "readonly", labelKey: "txBlockEditorReadonlyTab" },
+]);
+
 export function normalizeTxExecutionMode(
   txExecutionMode = "",
   fallback = TX_EXECUTION_MODE.direct,

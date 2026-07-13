@@ -99,6 +99,19 @@ export const txBlockTemplateVarsPlaceholder =
 export const txBlockJsonPlaceholder =
   '{"name":"tx-block","rollback_policy":"none","steps":[{"run":{"kind":"command","mode":"User","command":"show version","timeout":30},"rollback":null,"rollback_on_failure":false}],"fail_fast":true}';
 
+function txVarsFormError(varsTextState = {}) {
+  if (varsTextState?.errorKind === "object-required") {
+    return t("txVarsFormJsonObjectRequired");
+  }
+  if (varsTextState?.errorKind === "invalid") {
+    const detail = txDisplayText(varsTextState.errorMessage);
+    return detail
+      ? `${t("txVarsFormJsonInvalid")}: ${detail}`
+      : t("txVarsFormJsonInvalid");
+  }
+  return "";
+}
+
 export function txDirectVarsPanelDisplay({
   ariaLabel = "",
   hintKey = "",
@@ -108,6 +121,7 @@ export function txDirectVarsPanelDisplay({
 } = {}) {
   const placeholderText = t(placeholderKey, placeholderFallback);
   return {
+    formError: txVarsFormError(varsTextState),
     hintText: hintKey ? t(hintKey) : "",
     placeholderText,
     showHint: !!hintKey,
@@ -140,6 +154,7 @@ export function txTemplateRunPanelDisplay({
       selectedTemplate,
     ),
     textareaLabel: ariaLabel || t("txTemplateVarsJsonAria"),
+    varsFormError: txVarsFormError(varsTextState),
     varsPlaceholderText,
     varsText: txDisplayText(varsTextState?.raw),
   };
@@ -152,7 +167,6 @@ export const txBlockInputPanelDisplay = (
   activeMode: txDisplayText(modes.txBlock || ""),
   directHint: t("txBlockDirectHint"),
   editorTitle: t("txBlockEditorTitle"),
-  fullDraftButtonLabel: t("txBlockFullDraftBtn"),
   jsonHint: t("txBlockJsonHint"),
   jsonPlaceholderText: t("txBlockJsonPlaceholder", jsonPlaceholder),
   mode: txExecutionModePresentation(modes.txBlock),

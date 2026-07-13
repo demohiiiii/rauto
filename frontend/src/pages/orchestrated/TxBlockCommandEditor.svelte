@@ -20,6 +20,7 @@
   const {
     commandActionHandlersStateStore,
     commandDisplayStateStore,
+    destroy,
     metadataFieldRowsStateStore,
     setCommandEditorContext,
   } = txBlockCommandEditorWorkspace;
@@ -36,6 +37,8 @@
       pathPrefix,
     });
   });
+
+  $effect(() => destroy);
 
   function commandScopeKey(suffix) {
     return `tx-block-command-${pathPrefix || "operation"}-${suffix}`;

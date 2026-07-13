@@ -26,9 +26,11 @@
     onInlineEditorChange,
     onEditorViewSelect,
     placeholder = "",
+    readonlyContent = null,
     syncStatus = "synced",
     syncStatusText = "",
     syncStatusTone = "primary",
+    tabItems = txBlockEditorViewTabs,
   } = $props();
 
   let editorHost = $state();
@@ -69,7 +71,7 @@
 <div class="grid gap-2">
   <div class="flex min-w-0 flex-wrap items-center gap-2">
     <TabList
-      tabItems={txBlockEditorViewTabs}
+      {tabItems}
       activeValue={editorDisplayMode}
       aria-label={editorTitle || placeholder}
       onSelect={selectEditorView}
@@ -95,6 +97,8 @@
   {/if}
   {#if editorDisplayMode === "form"}
     {@render formContent()}
+  {:else if editorDisplayMode === "readonly" && readonlyContent}
+    {@render readonlyContent()}
   {:else}
     <div bind:this={editorHost} class="grid gap-2">
       {#if jsonHintText}

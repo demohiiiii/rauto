@@ -36,9 +36,7 @@
     previewOrchestration,
     previewTxWorkflow,
     runTxBlockDirectExecute,
-    runTxBlockDirectPlan,
     runTxBlockTemplateExecute,
-    runTxBlockTemplatePlan,
     saveOrchestrationJsonTemplate,
     saveTxBlockJsonTemplate,
     saveTxWorkflowJsonTemplate,
@@ -64,13 +62,11 @@
     onDeleteJsonTemplate: deleteTxBlockJsonTemplate,
     onDirectMode: setTxBlockDirectMode,
     onDirectExecute: runTxBlockDirectExecute,
-    onDirectPlan: runTxBlockDirectPlan,
     onEditorInput: updateTxBlockEditorInput,
     onLoadJsonTemplate: loadTxBlockJsonTemplate,
     onSaveJsonTemplate: saveTxBlockJsonTemplate,
     onTemplateMode: setTxBlockTemplateMode,
     onTemplateExecute: runTxBlockTemplateExecute,
-    onTemplatePlan: runTxBlockTemplatePlan,
   });
   let txWorkflowStageProps = $derived({
     active: true,

@@ -38,6 +38,19 @@ test("transaction JSON editor applies untracked canonical context before connect
   );
 });
 
+test("inline JSON editor initializes CodeMirror with its current value", () => {
+  const source = read(
+    "frontend/src/components/fragments/JsonTextEditor.svelte",
+  );
+
+  assert.ok(
+    source.includes(
+      'let editorText = $state(untrack(() => (value == null ? "" : String(value))));',
+    ),
+  );
+  assert.doesNotMatch(source, /let editorText = \$state\(""\)/);
+});
+
 test("transaction JSON/Form surface exposes sync status and invalid JSON detail", () => {
   const source = read(
     "frontend/src/pages/orchestrated/TxJsonFormSurface.svelte",

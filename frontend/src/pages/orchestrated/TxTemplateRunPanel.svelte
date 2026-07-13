@@ -112,6 +112,7 @@
     editorKind="inline"
     editorTitle={panelDisplay.textareaLabel}
     editorValue={panelDisplay.varsText}
+    formError={panelDisplay.varsFormError}
     onInlineEditorChange={changeVarsText}
     onEditorViewSelect={selectEditorView}
     placeholder={panelDisplay.varsPlaceholderText}

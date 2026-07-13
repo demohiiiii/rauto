@@ -3,6 +3,7 @@ import {
   get as getStore,
   writable,
 } from "svelte/store";
+import { jsonLanguage } from "@codemirror/lang-json";
 
 import { formValueHandler } from "../lib/events.js";
 import { currentLanguageState, t } from "../lib/i18n.js";
@@ -96,6 +97,8 @@ function txVarsTextStoreFor(varsKey) {
     txVarsTextStates.set(
       key,
       writable({
+        errorKind: "",
+        errorMessage: "",
         raw: txVarsTextState.get(key) || "",
         source: "external",
         version: 0,
@@ -116,12 +119,30 @@ export function setTxVarsRawText(
 ) {
   const key = normalizeTxVarsKey(varsKey);
   const next = txVarsSafeString(rawText);
+  const parseResult = txVarsParseText(next);
   txVarsTextState.set(key, next);
   txVarsTextStoreFor(key).update((state) => ({
+    errorKind: parseResult.errorKind,
+    errorMessage: parseResult.errorMessage,
     raw: next,
     source,
     version: (state?.version || 0) + 1,
   }));
+
+  // Keep the structured form in sync with JSON edits. Assistant-originated
+  // updates already come from the structured form and must not re-enter it.
+  if (source !== "assistant" && !parseResult.errorKind) {
+    const assistantConfig = txVarsAssistantConfig(key);
+    if (assistantConfig) {
+      setTxVarsAssistantEntries(
+        assistantConfig,
+        txVarsAssistantEntriesFromValue(
+          parseResult.parsedValue,
+          parseResult.orderedKeys,
+        ),
+      );
+    }
+  }
 }
 
 function txVarsRawText(varsKey) {
@@ -195,8 +216,6 @@ export function txVarsAssistantPresentation(
     clearButtonLabel: t("txVarsFormClearBtn"),
     hasAssistantEntries: assistantEntries.length > 0,
     hintText: t("txVarsFormHint"),
-    syncButtonLabel: t("txVarsFormSyncBtn"),
-    syncedMessage: t("txVarsFormSynced"),
     title: t("txVarsFormTitle"),
   };
 }
@@ -223,12 +242,16 @@ function txVarsAssistantInferType(varsValue) {
   return "json";
 }
 
-function txVarsAssistantEntriesFromValue(varsValue) {
+function txVarsAssistantEntriesFromValue(varsValue, orderedKeys = null) {
   const objectValue =
     varsValue && typeof varsValue === "object" && !Array.isArray(varsValue)
       ? varsValue
       : {};
-  return Object.entries(objectValue).map(([entryKey, assistantValue]) => {
+  const entryKeys = Array.isArray(orderedKeys)
+    ? orderedKeys.filter((entryKey) => Object.hasOwn(objectValue, entryKey))
+    : Object.keys(objectValue);
+  return entryKeys.map((entryKey) => {
+    const assistantValue = objectValue[entryKey];
     const entryType = txVarsAssistantInferType(assistantValue);
     if (entryType === "json") {
       return txVarsAssistantEntry(
@@ -242,6 +265,71 @@ function txVarsAssistantEntriesFromValue(varsValue) {
     }
     return txVarsAssistantEntry(entryKey, entryType, String(assistantValue));
   });
+}
+
+function txVarsOrderedKeysFromJson(rawText) {
+  const tree = jsonLanguage.parser.parse(rawText);
+  const cursor = tree.cursor();
+  if (!cursor.firstChild()) return [];
+  do {
+    if (cursor.name !== "Object" || !cursor.firstChild()) continue;
+    const keys = [];
+    do {
+      if (cursor.name !== "Property" || !cursor.firstChild()) continue;
+      do {
+        if (cursor.name !== "PropertyName") continue;
+        keys.push(JSON.parse(rawText.slice(cursor.from, cursor.to)));
+        break;
+      } while (cursor.nextSibling());
+      cursor.parent();
+    } while (cursor.nextSibling());
+    cursor.parent();
+
+    const lastIndexes = new Map(keys.map((key, index) => [key, index]));
+    return keys.filter((key, index) => lastIndexes.get(key) === index);
+  } while (cursor.nextSibling());
+  return [];
+}
+
+function txVarsParseText(rawText = "") {
+  const trimmedText = txVarsSafeString(rawText).trim();
+  if (!trimmedText) {
+    return {
+      errorKind: "",
+      errorMessage: "",
+      orderedKeys: [],
+      parsedValue: {},
+    };
+  }
+
+  try {
+    const parsedValue = JSON.parse(trimmedText);
+    if (
+      !parsedValue ||
+      typeof parsedValue !== "object" ||
+      Array.isArray(parsedValue)
+    ) {
+      return {
+        errorKind: "object-required",
+        errorMessage: "",
+        orderedKeys: [],
+        parsedValue: {},
+      };
+    }
+    return {
+      errorKind: "",
+      errorMessage: "",
+      orderedKeys: txVarsOrderedKeysFromJson(trimmedText),
+      parsedValue,
+    };
+  } catch (error) {
+    return {
+      errorKind: "invalid",
+      errorMessage: error?.message || String(error || ""),
+      orderedKeys: [],
+      parsedValue: {},
+    };
+  }
 }
 
 function txVarsAssistantParseValue(assistantEntry) {
@@ -270,16 +358,28 @@ function txVarsAssistantParseValue(assistantEntry) {
   return entryValueText;
 }
 
-function txVarsAssistantEntriesToObject(assistantEntries) {
-  const objectValue = {};
-  for (const assistantEntry of Array.isArray(assistantEntries)
-    ? assistantEntries
-    : []) {
-    const entryKey = txVarsSafeString(assistantEntry?.key).trim();
-    if (!entryKey) continue;
-    objectValue[entryKey] = txVarsAssistantParseValue(assistantEntry || {});
-  }
-  return objectValue;
+function txVarsAssistantEntriesToJsonText(assistantEntries) {
+  const entries = (Array.isArray(assistantEntries) ? assistantEntries : [])
+    .map((assistantEntry) => ({
+      key: txVarsSafeString(assistantEntry?.key).trim(),
+      value: txVarsAssistantParseValue(assistantEntry || {}),
+    }))
+    .filter((entry) => entry.key);
+  const lastIndexes = new Map(
+    entries.map((entry, index) => [entry.key, index]),
+  );
+  const serializedEntries = entries
+    .filter((entry, index) => lastIndexes.get(entry.key) === index)
+    .map((entry) => {
+      const valueText = JSON.stringify(entry.value, null, 2).replace(
+        /\n/g,
+        "\n  ",
+      );
+      return `  ${JSON.stringify(entry.key)}: ${valueText}`;
+    });
+
+  if (!serializedEntries.length) return "{}";
+  return `{\n${serializedEntries.join(",\n")}\n}`;
 }
 
 function txVarsAssistantGetState(assistantConfig) {
@@ -325,10 +425,8 @@ function txVarsAssistantEntries(assistantConfig) {
 
 function txVarsAssistantSyncTextarea(assistantConfig) {
   const assistantState = txVarsAssistantGetState(assistantConfig);
-  const nextText = JSON.stringify(
-    txVarsAssistantEntriesToObject(assistantState.assistantEntries),
-    null,
-    2,
+  const nextText = txVarsAssistantEntriesToJsonText(
+    assistantState.assistantEntries,
   );
   const changed = txVarsRawText(assistantConfig.key) !== nextText;
   setTxVarsRawText(assistantConfig.key, nextText, { source: "assistant" });
@@ -395,37 +493,31 @@ export function applyTxVarsAssistantEntriesFromText(
 ) {
   const assistantConfig = txVarsAssistantConfig(varsKey);
   if (!assistantConfig) return false;
-  const rawText = txVarsRawText(assistantConfig.key).trim();
-  let parsedValue = {};
-  if (rawText) {
-    try {
-      parsedValue = JSON.parse(rawText);
-      if (
-        !parsedValue ||
-        typeof parsedValue !== "object" ||
-        Array.isArray(parsedValue)
-      ) {
-        throw new Error(t("txVarsFormJsonObjectRequired"));
-      }
-    } catch (error) {
-      if (!silent) {
-        const message = error?.message || t("requestFailed");
-        setAssistantStatus(
-          setStatus,
-          assistantConfig.statusOutput,
-          `${t("txVarsFormJsonInvalid")}: ${message}`,
-          "error",
-        );
-      }
-      if (!keepStateOnError) {
-        setTxVarsAssistantEntries(assistantConfig, []);
-      }
-      return false;
+  const parseResult = txVarsParseText(txVarsRawText(assistantConfig.key));
+  if (parseResult.errorKind) {
+    if (!silent) {
+      const message =
+        parseResult.errorKind === "object-required"
+          ? t("txVarsFormJsonObjectRequired")
+          : `${t("txVarsFormJsonInvalid")}: ${parseResult.errorMessage}`;
+      setAssistantStatus(
+        setStatus,
+        assistantConfig.statusOutput,
+        message,
+        "error",
+      );
     }
+    if (!keepStateOnError) {
+      setTxVarsAssistantEntries(assistantConfig, []);
+    }
+    return false;
   }
   setTxVarsAssistantEntries(
     assistantConfig,
-    txVarsAssistantEntriesFromValue(parsedValue),
+    txVarsAssistantEntriesFromValue(
+      parseResult.parsedValue,
+      parseResult.orderedKeys,
+    ),
   );
   return true;
 }
@@ -447,27 +539,7 @@ export function refreshTxVarsAssistants() {
   });
 }
 
-function applyTxVarsAssistantEntriesFromTextWithStatus(
-  assistantConfig,
-  setStatus,
-) {
-  if (!assistantConfig) return false;
-  const synced = applyTxVarsAssistantEntriesFromText(assistantConfig.key, {
-    setStatus,
-    silent: false,
-  });
-  if (synced) {
-    setAssistantStatus(
-      setStatus,
-      assistantConfig.statusOutput,
-      t("txVarsFormSynced"),
-      "success",
-    );
-  }
-  return synced;
-}
-
-function txVarsAssistantCardActions(assistantConfig, setStatus) {
+function txVarsAssistantCardActions(assistantConfig) {
   return {
     addEntry() {
       addTxVarsAssistantEntry(assistantConfig);
@@ -478,9 +550,6 @@ function txVarsAssistantCardActions(assistantConfig, setStatus) {
     removeEntryAction(entryId) {
       return () => removeTxVarsAssistantEntry(assistantConfig, entryId);
     },
-    applyEntriesFromText() {
-      applyTxVarsAssistantEntriesFromTextWithStatus(assistantConfig, setStatus);
-    },
     updateEntryJsonValue(entryId) {
       return (entryValueText) =>
         updateTxVarsAssistantEntry(
@@ -490,13 +559,12 @@ function txVarsAssistantCardActions(assistantConfig, setStatus) {
         );
     },
     updateEntryKey(entryId) {
-      return formValueHandler((entryKey) =>
+      return (entryKey) =>
         updateTxVarsAssistantEntry(
           assistantConfig,
           entryId,
           txVarsAssistantEntryFieldPatches.key(entryKey),
-        ),
-      );
+        );
     },
     updateEntryType(entryId) {
       return formValueHandler((entryType) =>
@@ -508,21 +576,17 @@ function txVarsAssistantCardActions(assistantConfig, setStatus) {
       );
     },
     updateEntryValue(entryId) {
-      return formValueHandler((entryValueText) =>
+      return (entryValueText) =>
         updateTxVarsAssistantEntry(
           assistantConfig,
           entryId,
           txVarsAssistantEntryFieldPatches.valueText(entryValueText),
-        ),
-      );
+        );
     },
   };
 }
 
-export function createTxVarsAssistantCardWorkspace({
-  getPrefix = null,
-  setStatus = null,
-} = {}) {
+export function createTxVarsAssistantCardWorkspace({ getPrefix = null } = {}) {
   const resolvePrefix = (prefix = "") =>
     txVarsSafeString(prefix || "") ||
     (typeof getPrefix === "function"
@@ -551,13 +615,15 @@ export function createTxVarsAssistantCardWorkspace({
     {
       raw: "",
       source: "external",
+      errorKind: "",
+      errorMessage: "",
       version: 0,
     },
   );
   const assistantActionsStateStore = deriveStore(
     assistantConfigStateStore,
     ($assistantConfigStateStore) =>
-      txVarsAssistantCardActions($assistantConfigStateStore, setStatus),
+      txVarsAssistantCardActions($assistantConfigStateStore),
   );
   const assistantDisplayStateStore = deriveStore(
     [assistantStateStore, currentLanguageState],
@@ -600,7 +666,6 @@ export function createTxVarsAssistantCardWorkspace({
 
     if (varsTextState.source === "assistant") return;
     applyTxVarsAssistantEntriesFromText(assistantConfig.key, {
-      setStatus,
       silent: true,
     });
   }

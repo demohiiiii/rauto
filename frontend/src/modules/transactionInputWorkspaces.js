@@ -3,7 +3,6 @@ import { derived as deriveStore, writable } from "svelte/store";
 import { currentLanguageState } from "../lib/i18n.js";
 import { safeString as safeTemplateString } from "../lib/ui.js";
 import {
-  defaultFullTxBlockTemplatePayload,
   defaultTxBlockTemplatePayload,
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
@@ -281,17 +280,6 @@ export function createTxBlockInputPanelWorkspace(inputState = {}) {
     dependencyState,
   );
 
-  function createFullDraft() {
-    const nextModel = txBlockFormModelFromJson(
-      defaultFullTxBlockTemplatePayload(),
-    );
-    actionWorkspace.changeFormModel(nextModel, {
-      editorDisplayMode: "form",
-      notify: true,
-    });
-    return nextModel;
-  }
-
   function setBlockInputPanelContext(nextInputState = {}) {
     if ("newButtonLabelKey" in nextInputState) {
       panelConfigStateStore.update((currentConfig) => ({
@@ -337,7 +325,6 @@ export function createTxBlockInputPanelWorkspace(inputState = {}) {
   }
 
   return {
-    createFullDraft,
     editorDisplayStateStore,
     panelDisplayStateStore,
     setBlockInputPanelContext,

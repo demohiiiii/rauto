@@ -9,21 +9,17 @@
     onCreateJsonTemplateDraft,
     onDeleteJsonTemplate,
     onDirectMode,
-    onDirectPlan,
     onDirectExecute,
     onEditorInput,
     onLoadJsonTemplate,
     onSaveJsonTemplate,
     onTemplateMode,
-    onTemplatePlan,
     onTemplateExecute,
   } = $props();
   const txBlockStageWorkspace = createTxBlockStageWorkspace();
   const {
     runDirectExecute,
-    runDirectPlan,
     runTemplateExecute,
-    runTemplatePlan,
     setTxBlockStageContext,
     txBlockRunPanelDisplayStateStore,
   } = txBlockStageWorkspace;
@@ -33,9 +29,7 @@
     setTxBlockStageContext({
       active,
       onDirectExecute,
-      onDirectPlan,
       onTemplateExecute,
-      onTemplatePlan,
     });
   });
 </script>
@@ -54,9 +48,7 @@
   />
   <TxBlockRunPanel
     onDirectExecute={runDirectExecute}
-    onDirectPlan={runDirectPlan}
     onTemplateExecute={runTemplateExecute}
-    onTemplatePlan={runTemplatePlan}
     panelDisplay={txBlockRunPanelDisplay}
   />
 </div>

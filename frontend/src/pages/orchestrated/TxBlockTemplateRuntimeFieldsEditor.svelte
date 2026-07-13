@@ -15,6 +15,7 @@
   const txBlockTemplateRuntimeFieldsEditorWorkspace =
     createTxBlockTemplateRuntimeFieldsEditorWorkspace();
   const {
+    destroy,
     runtimeActionHandlersStateStore,
     runtimeExtraSourceStateStore,
     runtimeFieldRowsStateStore,
@@ -36,6 +37,8 @@
   $effect(() => {
     setTemplateRuntimeFieldsContext({ operation, onChange });
   });
+
+  $effect(() => destroy);
 </script>
 
 <div class="grid gap-4">

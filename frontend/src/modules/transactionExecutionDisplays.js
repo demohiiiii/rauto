@@ -878,7 +878,7 @@ function txBlockResultPresentation(txResult = null) {
   };
 }
 
-function txBlockPreviewPresentation(txBlock = null, txResult = null) {
+export function txBlockPreviewPresentation(txBlock = null, txResult = null) {
   const steps = Array.isArray(txBlock?.steps) ? txBlock.steps : [];
   const modeText = txBlockModeText(steps);
   const failFastText = String(txBlock?.fail_fast !== false);
