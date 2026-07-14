@@ -75,12 +75,9 @@ function txOperationDraft(kind = "command") {
       extra: {},
     },
     template: {
-      currentConnectionAlias: null,
-      hasCurrentConnectionAlias: false,
       hasRuntime: false,
       template: {
         name: "",
-        description: null,
         vars: [],
         stopOnError: true,
         hasStopOnError: true,
@@ -343,6 +340,34 @@ export function txBlockAddFlowStep(operation) {
   return txBlockPatchFlow(operation, {
     steps: [...operation.flow.steps, txCommandDraft()],
   });
+}
+
+export function txBlockDuplicateFlowStep(operation, stepIndex) {
+  const steps = Array.isArray(operation.flow?.steps)
+    ? cloneTxJsonValue(operation.flow.steps, [])
+    : [];
+  if (stepIndex < 0 || stepIndex >= steps.length) return operation;
+  steps.splice(stepIndex + 1, 0, cloneTxJsonValue(steps[stepIndex]));
+  return txBlockPatchFlow(operation, { steps });
+}
+
+export function txBlockMoveFlowStep(operation, fromIndex, toIndex) {
+  const sourceSteps = Array.isArray(operation.flow?.steps)
+    ? operation.flow.steps
+    : [];
+  if (
+    fromIndex < 0 ||
+    fromIndex >= sourceSteps.length ||
+    toIndex < 0 ||
+    toIndex >= sourceSteps.length ||
+    fromIndex === toIndex
+  ) {
+    return operation;
+  }
+  const steps = [...sourceSteps];
+  const [step] = steps.splice(fromIndex, 1);
+  steps.splice(toIndex, 0, step);
+  return txBlockPatchFlow(operation, { steps });
 }
 
 export function txBlockUpdateFlowStep(operation, stepIndex, command) {

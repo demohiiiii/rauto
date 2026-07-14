@@ -509,12 +509,6 @@ function hookOperationLabel(operation) {
       ? `${first} ... (${steps.length} steps)`
       : `${steps.length} steps`;
   }
-  if (operation.kind === "template") {
-    const templateName = safeString(operation.template?.name).trim();
-    const defaultMode = safeString(operation.runtime?.default_mode).trim();
-    if (templateName && defaultMode) return `${templateName} (${defaultMode})`;
-    return templateName || "template";
-  }
   return operation.kind || "";
 }
 

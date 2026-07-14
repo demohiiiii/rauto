@@ -9,7 +9,7 @@ import {
 import { t } from "../lib/i18n.js";
 
 const TX_BLOCK_ROLLBACK_KINDS = new Set(["none", "per_step", "whole_resource"]);
-const TX_OPERATION_KINDS = new Set(["command", "flow", "template"]);
+const TX_OPERATION_KINDS = new Set(["command", "flow"]);
 
 const cloneTxJsonValue = cloneJsonValue;
 const txPlainObject = plainObject;
@@ -165,251 +165,21 @@ function txFlowJsonFromModel(flow = {}) {
   return result;
 }
 
-function txTemplateVarModelFromJson(source = {}) {
-  const value = txPlainObject(source) ? source : {};
-  return {
-    name: txStringValue(value.name),
-    label: value.label ?? null,
-    hasLabel: Object.hasOwn(value, "label"),
-    description: value.description ?? null,
-    hasDescription: Object.hasOwn(value, "description"),
-    type: txStringValue(value.type, "string"),
-    hasType: Object.hasOwn(value, "type"),
-    required: !!value.required,
-    hasRequired: Object.hasOwn(value, "required"),
-    placeholder: value.placeholder ?? null,
-    hasPlaceholder: Object.hasOwn(value, "placeholder"),
-    options: txStringListValue(value.options),
-    hasOptions: Object.hasOwn(value, "options"),
-    defaultValue: Object.hasOwn(value, "default")
-      ? cloneTxJsonValue(value.default)
-      : null,
-    hasDefault: Object.hasOwn(value, "default"),
-    extra: txObjectExtra(
-      value,
-      new Set([
-        "name",
-        "label",
-        "description",
-        "type",
-        "required",
-        "placeholder",
-        "options",
-        "default",
-      ]),
-    ),
-  };
-}
-
-function txTemplateVarJsonFromModel(variable = {}) {
-  return {
-    ...(txPlainObject(variable.extra)
-      ? cloneTxJsonValue(variable.extra, {})
-      : {}),
-    name: txStringValue(variable.name),
-    label: variable.label ?? null,
-    description: variable.description ?? null,
-    type: txStringValue(variable.type, "string"),
-    required: !!variable.required,
-    placeholder: variable.placeholder ?? null,
-    options: txStringListValue(variable.options),
-    default: cloneTxJsonValue(variable.defaultValue),
-  };
-}
-
-function txTemplatePromptModelFromJson(source = {}) {
-  const value = txPlainObject(source) ? source : {};
-  return {
-    patterns: Array.isArray(value.patterns)
-      ? value.patterns.map((pattern) => String(pattern))
-      : [],
-    response: txStringValue(value.response),
-    appendNewline: !!value.append_newline,
-    hasAppendNewline: Object.hasOwn(value, "append_newline"),
-    recordInput: !!value.record_input,
-    hasRecordInput: Object.hasOwn(value, "record_input"),
-    extra: txObjectExtra(
-      value,
-      new Set(["patterns", "response", "append_newline", "record_input"]),
-    ),
-  };
-}
-
-function txTemplatePromptJsonFromModel(prompt = {}) {
-  return {
-    ...(txPlainObject(prompt.extra) ? cloneTxJsonValue(prompt.extra, {}) : {}),
-    patterns: Array.isArray(prompt.patterns)
-      ? prompt.patterns.map((pattern) => String(pattern))
-      : [],
-    response: txStringValue(prompt.response),
-    append_newline: !!prompt.appendNewline,
-    record_input: !!prompt.recordInput,
-  };
-}
-
-function txTemplateStepModelFromJson(source = {}) {
-  const value = txPlainObject(source) ? source : {};
-  return {
-    command: txStringValue(value.command),
-    mode: value.mode ?? null,
-    hasMode: Object.hasOwn(value, "mode"),
-    timeoutSecs: txNullableNumberValue(value.timeout_secs),
-    hasTimeoutSecs: Object.hasOwn(value, "timeout_secs"),
-    prompts: Array.isArray(value.prompts)
-      ? value.prompts.map((prompt) => txTemplatePromptModelFromJson(prompt))
-      : [],
-    hasPrompts: Object.hasOwn(value, "prompts"),
-    extra: txObjectExtra(
-      value,
-      new Set(["command", "mode", "timeout_secs", "prompts"]),
-    ),
-  };
-}
-
-function txTemplateStepJsonFromModel(step = {}) {
-  return {
-    ...(txPlainObject(step.extra) ? cloneTxJsonValue(step.extra, {}) : {}),
-    command: txStringValue(step.command),
-    mode: step.mode ?? null,
-    timeout_secs: txNullableNumberValue(step.timeoutSecs),
-    prompts: Array.isArray(step.prompts)
-      ? step.prompts.map((prompt) => txTemplatePromptJsonFromModel(prompt))
-      : [],
-  };
-}
-
-function txTemplateOperationModelFromJson(source = {}) {
-  const value = txPlainObject(source) ? source : {};
-  const template = txPlainObject(value.template) ? value.template : {};
-  const runtime = txPlainObject(value.runtime) ? value.runtime : {};
-  return {
-    currentConnectionAlias: value.current_connection_alias ?? null,
-    hasCurrentConnectionAlias: Object.hasOwn(value, "current_connection_alias"),
-    hasRuntime: Object.hasOwn(value, "runtime"),
-    template: {
-      name: txStringValue(template.name),
-      description: template.description ?? null,
-      hasDescription: Object.hasOwn(template, "description"),
-      vars: Array.isArray(template.vars)
-        ? template.vars.map((variable) => txTemplateVarModelFromJson(variable))
-        : [],
-      hasVars: Object.hasOwn(template, "vars"),
-      stopOnError:
-        typeof template.stop_on_error === "boolean"
-          ? template.stop_on_error
-          : true,
-      hasStopOnError: Object.hasOwn(template, "stop_on_error"),
-      defaultMode: template.default_mode ?? null,
-      hasDefaultMode: Object.hasOwn(template, "default_mode"),
-      steps: Array.isArray(template.steps)
-        ? template.steps.map((step) => txTemplateStepModelFromJson(step))
-        : [],
-      hasSteps: Object.hasOwn(template, "steps"),
-      extra: txObjectExtra(
-        template,
-        new Set([
-          "name",
-          "description",
-          "vars",
-          "stop_on_error",
-          "default_mode",
-          "steps",
-        ]),
-      ),
-    },
-    runtime: {
-      defaultMode: runtime.default_mode ?? null,
-      hasDefaultMode: Object.hasOwn(runtime, "default_mode"),
-      connectionName: runtime.connection_name ?? null,
-      hasConnectionName: Object.hasOwn(runtime, "connection_name"),
-      host: runtime.host ?? null,
-      hasHost: Object.hasOwn(runtime, "host"),
-      username: runtime.username ?? null,
-      hasUsername: Object.hasOwn(runtime, "username"),
-      deviceProfile: runtime.device_profile ?? null,
-      hasDeviceProfile: Object.hasOwn(runtime, "device_profile"),
-      vars: cloneTxJsonValue(runtime.vars, {}),
-      hasVars: Object.hasOwn(runtime, "vars"),
-      extra: txObjectExtra(
-        runtime,
-        new Set([
-          "default_mode",
-          "connection_name",
-          "host",
-          "username",
-          "device_profile",
-          "vars",
-        ]),
-      ),
-    },
-    extra: txObjectExtra(
-      value,
-      new Set(["kind", "current_connection_alias", "template", "runtime"]),
-    ),
-  };
-}
-
-function txTemplateOperationJsonFromModel(templateOperation = {}) {
-  const template = templateOperation.template || {};
-  const runtime = templateOperation.runtime || {};
-  const result = {
-    ...(txPlainObject(templateOperation.extra)
-      ? cloneTxJsonValue(templateOperation.extra, {})
-      : {}),
-    kind: "template",
-    template: {
-      ...(txPlainObject(template.extra)
-        ? cloneTxJsonValue(template.extra, {})
-        : {}),
-      name: txStringValue(template.name),
-      description: template.description ?? null,
-      vars: Array.isArray(template.vars)
-        ? template.vars.map((variable) => txTemplateVarJsonFromModel(variable))
-        : [],
-      stop_on_error: !!template.stopOnError,
-      default_mode: template.defaultMode ?? null,
-      steps: Array.isArray(template.steps)
-        ? template.steps.map((step) => txTemplateStepJsonFromModel(step))
-        : [],
-    },
-    runtime: {
-      ...(txPlainObject(runtime.extra)
-        ? cloneTxJsonValue(runtime.extra, {})
-        : {}),
-      default_mode: runtime.defaultMode ?? null,
-      connection_name: runtime.connectionName ?? null,
-      host: runtime.host ?? null,
-      username: runtime.username ?? null,
-      device_profile: runtime.deviceProfile ?? null,
-      vars: cloneTxJsonValue(runtime.vars, {}),
-    },
-  };
-  if (
-    templateOperation.hasCurrentConnectionAlias ||
-    templateOperation.currentConnectionAlias !== null
-  ) {
-    result.current_connection_alias =
-      templateOperation.currentConnectionAlias ?? null;
-  }
-  return result;
-}
-
 function txOperationModelFromJson(source = {}) {
   const value = txPlainObject(source) ? source : {};
-  const kind = TX_OPERATION_KINDS.has(value.kind) ? value.kind : "command";
+  const kind = value.kind ?? "command";
+  if (!TX_OPERATION_KINDS.has(kind)) {
+    throw new Error(`unsupported transaction operation kind: ${kind}`);
+  }
   return {
     kind,
     command: txCommandModelFromJson(value),
     flow: txFlowModelFromJson(value),
-    template: txTemplateOperationModelFromJson(value),
   };
 }
 
 function txOperationJsonFromModel(operation = {}) {
   if (operation.kind === "flow") return txFlowJsonFromModel(operation.flow);
-  if (operation.kind === "template") {
-    return txTemplateOperationJsonFromModel(operation.template);
-  }
   return txCommandJsonFromModel(operation.command, { includeKind: true });
 }
 
@@ -467,97 +237,9 @@ function txValidateFlow(errors, path, flow = {}) {
   txValidateOptionalInteger(errors, `${path}.maxSteps`, flow.maxSteps);
 }
 
-function txValidateTemplate(errors, path, operation = {}) {
-  const template = txPlainObject(operation.template) ? operation.template : {};
-  const runtime = txPlainObject(operation.runtime) ? operation.runtime : {};
-  if (!txStringValue(template.name).trim()) {
-    txValidationError(
-      errors,
-      `${path}.template.name`,
-      "txBlockValidationTemplateName",
-    );
-  }
-
-  const steps = Array.isArray(template.steps) ? template.steps : [];
-  if (steps.length === 0) {
-    txValidationError(
-      errors,
-      `${path}.template.steps`,
-      "txBlockValidationTemplateSteps",
-    );
-  }
-
-  const variables = Array.isArray(template.vars) ? template.vars : [];
-  const variableNames = new Set();
-  variables.forEach((variable, index) => {
-    const name = txStringValue(variable.name).trim();
-    if (!name) {
-      txValidationError(
-        errors,
-        `${path}.template.vars[${index}].name`,
-        "txBlockValidationVariableName",
-      );
-    } else if (variableNames.has(name)) {
-      txValidationError(
-        errors,
-        `${path}.template.vars[${index}].name`,
-        "txBlockValidationDuplicateVariable",
-      );
-    } else {
-      variableNames.add(name);
-    }
-  });
-
-  const definitionDefaultMode = txStringValue(template.defaultMode).trim();
-  const runtimeDefaultMode = txStringValue(runtime.defaultMode).trim();
-  steps.forEach((step, index) => {
-    const stepPath = `${path}.template.steps[${index}]`;
-    if (!txStringValue(step.command).trim()) {
-      txValidationError(
-        errors,
-        `${stepPath}.command`,
-        "txBlockValidationCommandText",
-      );
-    }
-    if (
-      !txStringValue(step.mode).trim() &&
-      !runtimeDefaultMode &&
-      !definitionDefaultMode
-    ) {
-      txValidationError(
-        errors,
-        `${stepPath}.mode`,
-        "txBlockValidationCommandMode",
-      );
-    }
-    txValidateOptionalInteger(
-      errors,
-      `${stepPath}.timeoutSecs`,
-      step.timeoutSecs,
-    );
-    txValidatePrompts(errors, `${stepPath}.prompts`, step.prompts);
-  });
-
-  if (
-    runtime.hasVars &&
-    runtime.vars !== null &&
-    !txPlainObject(runtime.vars)
-  ) {
-    txValidationError(
-      errors,
-      `${path}.runtime.vars`,
-      "txBlockValidationRuntimeVarsObject",
-    );
-  }
-}
-
 function txValidateOperation(errors, path, operation = {}) {
   if (operation.kind === "flow") {
     txValidateFlow(errors, `${path}.flow`, operation.flow);
-    return;
-  }
-  if (operation.kind === "template") {
-    txValidateTemplate(errors, `${path}.template`, operation.template);
     return;
   }
   txValidateCommand(errors, `${path}.command`, operation.command);

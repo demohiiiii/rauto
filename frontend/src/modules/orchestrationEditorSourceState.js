@@ -40,6 +40,46 @@ function sourceFieldChecked(value) {
     : !!value;
 }
 
+export function orchestrationCommandFlowVarsFromJson(jsonText = "") {
+  const raw = orchestrationStringValue(jsonText).trim();
+  if (!raw) return {};
+  const parsed = JSON.parse(raw);
+  if (!orchestrationPlainObject(parsed)) {
+    throw new Error("command flow vars JSON must be an object");
+  }
+  return parsed;
+}
+
+function orchestrationCommandFlowVarValue(currentValue, rawValue) {
+  const raw = sourceFieldValue(rawValue);
+  if (typeof currentValue === "boolean") return raw === true || raw === "true";
+  if (typeof currentValue === "number") {
+    const numberValue = Number(raw);
+    if (!Number.isFinite(numberValue)) {
+      throw new Error("command flow variable must be a valid number");
+    }
+    return numberValue;
+  }
+  if (currentValue !== null && typeof currentValue === "object") {
+    return JSON.parse(orchestrationStringValue(raw));
+  }
+  return orchestrationStringValue(raw);
+}
+
+export function orchestrationCommandFlowVarPatch(
+  flowVars = {},
+  fieldName = "",
+  rawValue = "",
+) {
+  const source = orchestrationPlainObject(flowVars) ? flowVars : {};
+  const key = orchestrationStringValue(fieldName).trim();
+  if (!key) return { ...source };
+  return {
+    ...source,
+    [key]: orchestrationCommandFlowVarValue(source[key], rawValue),
+  };
+}
+
 export function orchestrationTxBlockEmbeddedFormState(
   jsonText = "",
   currentModel = null,
@@ -653,7 +693,19 @@ export function createOrchestrationTxBlockDirectSourceWorkspace({
   };
 }
 
-function orchestrationTxBlockFlowSourceEditorBindings(sourceBindings = null) {
+function orchestrationTxBlockFlowSourceEditorBindings(
+  sourceBindings = null,
+  txBlock = {},
+  setRuntimeError = null,
+  setRuntimeJsonText = null,
+) {
+  const flowVars = orchestrationPlainObject(txBlock?.flowVars)
+    ? txBlock.flowVars
+    : {};
+  function applyFlowVars(nextFlowVars) {
+    sourceBindingHandler(sourceBindings, "setFlowVars")?.(nextFlowVars);
+    setRuntimeError?.("");
+  }
   return {
     appendListItem(listName = "") {
       return sourceBindingHandler(
@@ -692,6 +744,26 @@ function orchestrationTxBlockFlowSourceEditorBindings(sourceBindings = null) {
     },
     flowVarsChangeHandler() {
       return sourceBindingHandler(sourceBindings, "setFlowVars");
+    },
+    flowVarValueHandler(fieldName) {
+      return (value) => {
+        try {
+          applyFlowVars(
+            orchestrationCommandFlowVarPatch(flowVars, fieldName, value),
+          );
+        } catch (error) {
+          setRuntimeError?.(error?.message || String(error));
+        }
+      };
+    },
+    flowVarsJsonHandler(value) {
+      const jsonText = sourceFieldValue(value);
+      setRuntimeJsonText?.(orchestrationStringValue(jsonText));
+      try {
+        applyFlowVars(orchestrationCommandFlowVarsFromJson(jsonText));
+      } catch (error) {
+        setRuntimeError?.(error?.message || String(error));
+      }
     },
     listToggleHandler(field) {
       const directHandler = sourceBindingHandler(
@@ -738,8 +810,18 @@ function orchestrationTxBlockFlowSourceEditorBindings(sourceBindings = null) {
   };
 }
 
-function orchestrationTxBlockFlowSourceActionHandlers(sourceBindings = null) {
-  return orchestrationTxBlockFlowSourceEditorBindings(sourceBindings);
+function orchestrationTxBlockFlowSourceActionHandlers(
+  sourceBindings = null,
+  txBlock = {},
+  setRuntimeError = null,
+  setRuntimeJsonText = null,
+) {
+  return orchestrationTxBlockFlowSourceEditorBindings(
+    sourceBindings,
+    txBlock,
+    setRuntimeError,
+    setRuntimeJsonText,
+  );
 }
 
 export function createOrchestrationTxBlockFlowSourceWorkspace({
@@ -750,17 +832,38 @@ export function createOrchestrationTxBlockFlowSourceWorkspace({
   const sourceBindingsStateStore = writable(sourceBindings);
   const txBlockStateStore = writable(txBlock);
   const txBlockRowsStateStore = writable(txBlockRows);
+  const runtimeErrorStateStore = writable("");
+  const runtimeJsonTextStateStore = writable(null);
+  let lastFlowVarsCanonical = "";
   const sourceActionHandlersStateStore = deriveStore(
-    sourceBindingsStateStore,
-    ($sourceBindingsStateStore) =>
-      orchestrationTxBlockFlowSourceActionHandlers($sourceBindingsStateStore),
+    [sourceBindingsStateStore, txBlockStateStore],
+    ([$sourceBindingsStateStore, $txBlockStateStore]) =>
+      orchestrationTxBlockFlowSourceActionHandlers(
+        $sourceBindingsStateStore,
+        $txBlockStateStore,
+        (message) => runtimeErrorStateStore.set(message),
+        (jsonText) => runtimeJsonTextStateStore.set(jsonText),
+      ),
   );
   const sourceDisplayStateStore = deriveStore(
-    [txBlockStateStore, txBlockRowsStateStore, currentLanguageState],
-    ([$txBlockStateStore, $txBlockRowsStateStore]) =>
+    [
+      txBlockStateStore,
+      txBlockRowsStateStore,
+      runtimeErrorStateStore,
+      runtimeJsonTextStateStore,
+      currentLanguageState,
+    ],
+    ([
+      $txBlockStateStore,
+      $txBlockRowsStateStore,
+      $runtimeErrorStateStore,
+      $runtimeJsonTextStateStore,
+    ]) =>
       orchestrationTxBlockFlowSourcePanelDisplay(
         $txBlockStateStore,
         $txBlockRowsStateStore,
+        $runtimeErrorStateStore,
+        $runtimeJsonTextStateStore,
       ),
   );
 
@@ -772,6 +875,15 @@ export function createOrchestrationTxBlockFlowSourceWorkspace({
     sourceBindingsStateStore.set(nextSourceBindings);
     txBlockStateStore.set(nextTxBlock);
     txBlockRowsStateStore.set(nextTxBlockRows);
+    const nextFlowVars = orchestrationPlainObject(nextTxBlock?.flowVars)
+      ? nextTxBlock.flowVars
+      : {};
+    const nextFlowVarsCanonical = JSON.stringify(nextFlowVars, null, 2);
+    if (nextFlowVarsCanonical !== lastFlowVarsCanonical) {
+      lastFlowVarsCanonical = nextFlowVarsCanonical;
+      runtimeJsonTextStateStore.set(nextFlowVarsCanonical);
+      runtimeErrorStateStore.set("");
+    }
   }
 
   return {

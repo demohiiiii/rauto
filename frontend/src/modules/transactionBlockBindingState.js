@@ -24,7 +24,9 @@ import {
   txBlockChangeWholeResourceTrigger,
   txBlockCommandDraft,
   txBlockCommandPromptPatternsFromText,
+  txBlockDuplicateFlowStep,
   txBlockDuplicateStep,
+  txBlockMoveFlowStep,
   txBlockMoveStep,
   txBlockNullableTextValue,
   txBlockNumberFormValue,
@@ -729,6 +731,18 @@ export function txBlockFlowBindings(operation, onChange) {
     addStep() {
       txBlockApplyChange(onChange, txBlockAddFlowStep(operation));
     },
+    duplicateStep(stepIndex) {
+      txBlockApplyChange(
+        onChange,
+        txBlockDuplicateFlowStep(operation, stepIndex),
+      );
+    },
+    moveStep(fromIndex, toIndex) {
+      txBlockApplyChange(
+        onChange,
+        txBlockMoveFlowStep(operation, fromIndex, toIndex),
+      );
+    },
     patchStep(stepIndex, patch) {
       const currentStep =
         operation.flow?.steps?.[stepIndex] || txBlockCommandDraft();
@@ -780,6 +794,12 @@ export function txBlockFlowEditorBindings(operation, onChange) {
     addStep() {
       bindings.addStep();
     },
+    duplicateStep(stepIndex) {
+      bindings.duplicateStep(stepIndex);
+    },
+    moveStep(fromIndex, toIndex) {
+      bindings.moveStep(fromIndex, toIndex);
+    },
     patchStep(stepIndex, patch) {
       bindings.patchStep(stepIndex, patch);
     },
@@ -795,16 +815,6 @@ export function txBlockFlowEditorBindings(operation, onChange) {
     setMaxSteps(value) {
       bindings.setMaxSteps(value);
     },
-    setMetadataPresence(fieldKey, enabled) {
-      bindings.setExtra(
-        txSetExtraStringFieldPresence(operation.flow?.extra, fieldKey, enabled),
-      );
-    },
-    setMetadataValue(fieldKey, value) {
-      bindings.setExtra(
-        txSetExtraStringFieldValue(operation.flow?.extra, fieldKey, value),
-      );
-    },
     setStopOnError(value) {
       bindings.setStopOnError(value);
     },
@@ -816,23 +826,11 @@ export function txBlockFlowEditorBindings(operation, onChange) {
         ? bindings.setStopOnError
         : bindings.setMaxSteps;
     },
-    metadataPresenceHandler(fieldKey) {
-      return (enabled) => {
-        bindings.setExtra(
-          txSetExtraStringFieldPresence(
-            operation.flow?.extra,
-            fieldKey,
-            enabled,
-          ),
-        );
-      };
+    duplicateStepHandler(stepIndex) {
+      return () => bindings.duplicateStep(stepIndex);
     },
-    metadataValueHandler(fieldKey) {
-      return (value) => {
-        bindings.setExtra(
-          txSetExtraStringFieldValue(operation.flow?.extra, fieldKey, value),
-        );
-      };
+    moveStepHandler(fromIndex, toIndex) {
+      return () => bindings.moveStep(fromIndex, toIndex);
     },
     removeStepHandler(stepIndex) {
       return () => bindings.removeStep(stepIndex);

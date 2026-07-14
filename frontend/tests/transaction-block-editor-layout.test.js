@@ -97,15 +97,10 @@ test("transaction block inspectors do not expose advanced JSON presence controls
   const editorPaths = [
     "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
+    "frontend/src/components/command-flow/CommandFlowSettings.svelte",
     "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockRootSettingsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateDefinitionEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplatePromptResponseEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeFieldsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarEditor.svelte",
   ];
 
   for (const path of editorPaths) {
@@ -137,14 +132,6 @@ test("transaction block editors do not expose JSON presence toggles", () => {
   const presenceOnlyEditors = [
     "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplatePromptResponseEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeVarsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarDefaultEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarOptionsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarsEditor.svelte",
   ];
 
   for (const path of presenceOnlyEditors) {

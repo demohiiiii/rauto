@@ -123,14 +123,6 @@ function orchestrationOperationDescription(operation) {
       ? `${first} ... (${steps.length} steps)`
       : `${steps.length} steps`;
   }
-  if (operation.kind === "template") {
-    const templateName = orchestrationText(operation.template?.name).trim();
-    const defaultMode = orchestrationText(
-      operation.runtime?.default_mode,
-    ).trim();
-    if (templateName && defaultMode) return `${templateName} (${defaultMode})`;
-    return templateName || "template";
-  }
   return "";
 }
 
@@ -145,9 +137,6 @@ function orchestrationOperationText(operation) {
     const first = orchestrationText(operation.steps[0]?.command).trim();
     if (first) return first;
     return `${operation.steps.length} steps`;
-  }
-  if (operation.kind === "template" && operation.template) {
-    return orchestrationText(operation.template.name || "template").trim();
   }
   return "";
 }

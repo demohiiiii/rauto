@@ -16,29 +16,23 @@ pub async fn execute_command_flow(
     )?;
     let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
-    let parsed_template = load_command_flow_template_from_input(
+    let template = load_command_flow_template_from_input(
         req.template_name.as_deref(),
         req.builtin_template_name.as_deref(),
         req.content.as_deref(),
         "inline_flow",
     )?;
-    let runtime_vars = resolve_flow_runtime_vars(
-        &parsed_template.template,
-        req.vars,
-        &conn,
-        parsed_template.current_connection_alias.as_deref(),
-    )?;
+    let runtime_vars = resolve_flow_runtime_vars(&template, req.vars, &conn)?;
 
     let runtime_default_mode = resolve_command_flow_runtime_default_mode(
         None,
-        parsed_template.template.default_mode.as_deref(),
+        template.default_mode.as_deref(),
         &profile_default_mode,
     );
     let effective_flow_mode = runtime_default_mode
         .clone()
         .or_else(|| {
-            parsed_template
-                .template
+            template
                 .default_mode
                 .as_deref()
                 .map(str::trim)
@@ -47,14 +41,9 @@ pub async fn execute_command_flow(
         })
         .unwrap_or_else(|| profile_default_mode.clone());
 
-    let flow = parsed_template
-        .template
+    let flow = template
         .to_command_flow(&build_command_flow_runtime(
             runtime_default_mode,
-            conn.connection_name.as_deref(),
-            &conn.host,
-            &conn.username,
-            &conn.device_profile,
             runtime_vars,
         ))
         .map_err(ApiError::from)?;
@@ -108,7 +97,7 @@ pub async fn execute_command_flow(
         &conn,
         &client,
         "command_flow",
-        &format!("template: {}", parsed_template.template.name),
+        &format!("template: {}", template.name),
         Some(effective_flow_mode.as_str()),
         record_level,
     );
@@ -153,7 +142,7 @@ pub async fn execute_command_flow(
 
     Ok(Json(ExecuteCommandFlowResponse {
         success: result.success,
-        template_name: parsed_template.template.name.clone(),
+        template_name: template.name.clone(),
         result_summary: task_result_with_details(
             task_result_with_recording(
                 task_result_with_counts(
@@ -179,7 +168,7 @@ pub async fn execute_command_flow(
                 &recording_jsonl,
             ),
             json!({
-                "template_name": parsed_template.template.name,
+                "template_name": template.name,
                 "mode": effective_flow_mode
             }),
         ),

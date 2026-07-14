@@ -28,6 +28,12 @@ test("plain text field wrappers compose shadcn form controls", () => {
     const source = read(path);
     assert.match(source, new RegExp(importPath));
   }
+
+  const textAreaField = read(
+    "frontend/src/components/fragments/TextAreaField.svelte",
+  );
+  assert.match(textAreaField, /onValueInput/);
+  assert.match(textAreaField, /\{onValueInput\}/);
 });
 
 test("select and checkbox wrappers compose shadcn controls", () => {
@@ -136,12 +142,8 @@ test("editor panels use component-local toolbar layout instead of field-tools", 
     "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplatePromptPatternsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarDefaultEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarOptionsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarsEditor.svelte",
+    "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
+    "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
     "frontend/src/pages/orchestrated/TxWorkflowVisualEditor.svelte",
   ];
@@ -1022,7 +1024,6 @@ test("nested transaction block editors stay unframed", () => {
   const panelPaths = [
     "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeVarsEditor.svelte",
   ];
 
   for (const path of panelPaths) {

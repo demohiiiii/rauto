@@ -71,6 +71,12 @@ export const standardExecModeTabs = Object.freeze([
   { value: STANDARD_EXEC_MODE.flow, labelKey: "opExecFlow" },
 ]);
 
+export const commandFlowEditorViewTabs = Object.freeze([
+  { value: "visual", labelKey: "flowVisualTab" },
+  { value: "toml", labelKey: "flowTomlTab" },
+  { value: "readonly", labelKey: "txBlockEditorReadonlyTab" },
+]);
+
 export const defaultStandardExecMode = STANDARD_EXEC_MODE.direct;
 
 export function normalizeStandardExecMode(standardExecMode = "") {

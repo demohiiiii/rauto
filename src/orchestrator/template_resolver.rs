@@ -2,8 +2,8 @@ use super::targets as orchestrator_targets;
 use super::{OrchestrationPlan, OrchestrationTarget, TxBlockAction, TxWorkflowAction};
 use crate::EffectiveConnection;
 use crate::config::command_flow_template::{
-    ParsedCommandFlowTemplate, build_command_flow_runtime,
-    parse_command_flow_template_with_extensions, resolve_command_flow_runtime_default_mode,
+    CommandFlowTemplate, build_command_flow_runtime, parse_command_flow_template,
+    resolve_command_flow_runtime_default_mode,
 };
 use crate::config::connection_store::load_connection;
 use crate::config::content_store;
@@ -206,14 +206,13 @@ fn resolve_tx_block_from_flow_template_source(
     let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
     let runtime_default_mode = resolve_command_flow_runtime_default_mode(
         mode_override.as_deref(),
-        parsed_template.template.default_mode.as_deref(),
+        parsed_template.default_mode.as_deref(),
         &profile_default_mode,
     );
     let effective_mode = runtime_default_mode
         .clone()
         .or_else(|| {
             parsed_template
-                .template
                 .default_mode
                 .as_deref()
                 .map(str::trim)
@@ -222,22 +221,11 @@ fn resolve_tx_block_from_flow_template_source(
         })
         .unwrap_or_else(|| profile_default_mode.clone());
 
-    let flow_runtime_vars = crate::resolve_flow_runtime_vars(
-        &parsed_template.template,
-        runtime_vars,
-        conn,
-        parsed_template.current_connection_alias.as_deref(),
-    )?;
-    let mut flow = parsed_template
-        .template
-        .to_command_flow(&build_command_flow_runtime(
-            runtime_default_mode,
-            conn.connection_name.as_deref(),
-            &conn.host,
-            &conn.username,
-            &conn.device_profile,
-            flow_runtime_vars,
-        ))?;
+    let flow_runtime_vars = crate::resolve_flow_runtime_vars(&parsed_template, runtime_vars, conn)?;
+    let mut flow = parsed_template.to_command_flow(&build_command_flow_runtime(
+        runtime_default_mode,
+        flow_runtime_vars,
+    ))?;
     if let Some(timeout_secs) = timeout_secs {
         for step in &mut flow.steps {
             step.timeout = Some(timeout_secs);
@@ -299,7 +287,7 @@ fn resolve_tx_block_from_flow_template_source(
     };
 
     Ok(TxBlock {
-        name: parsed_template.template.name,
+        name: parsed_template.name,
         rollback_policy,
         steps: vec![tx_step],
         fail_fast: true,
@@ -309,7 +297,7 @@ fn resolve_tx_block_from_flow_template_source(
 fn load_command_flow_template_source(
     template_name: Option<&str>,
     template_content: Option<&str>,
-) -> Result<ParsedCommandFlowTemplate> {
+) -> Result<CommandFlowTemplate> {
     match (
         template_name
             .map(str::trim)
@@ -320,9 +308,9 @@ fn load_command_flow_template_source(
     ) {
         (Some(name), None) => {
             let content = load_command_flow_template_content(name)?;
-            parse_command_flow_template_with_extensions(&content, Some(name))
+            parse_command_flow_template(&content, Some(name))
         }
-        (None, Some(content)) => parse_command_flow_template_with_extensions(content, None),
+        (None, Some(content)) => parse_command_flow_template(content, None),
         (Some(_), Some(_)) => Err(anyhow!(
             "use either flow_template_name or flow_template_content"
         )),

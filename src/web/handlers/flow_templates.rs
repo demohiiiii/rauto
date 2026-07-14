@@ -1,12 +1,14 @@
 use crate::config::command_flow_template::{
-    CommandFlowTemplate, CommandFlowTemplateVar, command_flow_var_kind_label,
-    normalize_command_flow_template_body, parse_command_flow_template_str,
+    CommandFlowTemplate, cisco_like_copy_command_flow_template,
+    normalize_command_flow_template_body, parse_command_flow_template,
 };
+use crate::config::command_flow_vars::command_flow_runtime_var_names;
 use crate::config::content_store;
 use crate::web::error::ApiError;
 use crate::web::models::{
     CommandFlowTemplateDetail, CommandFlowTemplateMeta, CommandFlowTemplateVarField,
-    CreateCommandFlowTemplateRequest, UpdateCommandFlowTemplateRequest,
+    CreateCommandFlowTemplateRequest, InspectCommandFlowTemplateRequest,
+    UpdateCommandFlowTemplateRequest,
 };
 use crate::web::state::AppState;
 use crate::web::storage;
@@ -48,7 +50,7 @@ pub(super) fn builtin_command_flow_template_by_name(name: &str) -> Option<Comman
     let normalized = normalize_builtin_command_flow_template_name(name);
     match normalized.as_str() {
         BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY => {
-            let mut template = rneter::templates::cisco_like_copy_template();
+            let mut template = cisco_like_copy_command_flow_template().ok()?;
             template.name = BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string();
             Some(template)
         }
@@ -57,8 +59,10 @@ pub(super) fn builtin_command_flow_template_by_name(name: &str) -> Option<Comman
 }
 
 fn builtin_command_flow_template_metas() -> Vec<CommandFlowTemplateMeta> {
-    let content =
-        toml::to_string_pretty(&rneter::templates::cisco_like_copy_template()).unwrap_or_default();
+    let Ok(template) = cisco_like_copy_command_flow_template() else {
+        return Vec::new();
+    };
+    let content = toml::to_string_pretty(&template).unwrap_or_default();
     vec![CommandFlowTemplateMeta {
         name: BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string(),
         kind: "command_flow".to_string(),
@@ -70,32 +74,65 @@ fn builtin_command_flow_template_metas() -> Vec<CommandFlowTemplateMeta> {
     }]
 }
 
-fn to_command_flow_template_var_field(var: &CommandFlowTemplateVar) -> CommandFlowTemplateVarField {
+fn to_command_flow_template_var_field(
+    name: String,
+    allow_empty: bool,
+) -> CommandFlowTemplateVarField {
+    let normalized_name = name.to_ascii_lowercase();
+    let secret = ["password", "passwd", "secret", "token"]
+        .iter()
+        .any(|marker| normalized_name.contains(marker));
     CommandFlowTemplateVarField {
-        name: var.name.clone(),
-        label: var.display_label().to_string(),
-        description: var.description.clone(),
-        kind: command_flow_var_kind_label(var.kind).to_string(),
-        required: var.required,
-        placeholder: var.placeholder.clone(),
-        options: var.options.clone(),
-        default_value: var.default_value.clone(),
+        label: name.clone(),
+        name,
+        description: None,
+        kind: if secret { "secret" } else { "string" }.to_string(),
+        required: true,
+        allow_empty,
+        placeholder: None,
+        options: Vec::new(),
+        default_value: None,
     }
+}
+
+fn command_flow_template_var_fields(
+    template: &CommandFlowTemplate,
+    builtin: bool,
+) -> Vec<CommandFlowTemplateVarField> {
+    command_flow_runtime_var_names(template)
+        .into_iter()
+        .map(|name| {
+            let allow_empty =
+                builtin && matches!(name.as_str(), "transfer_username" | "transfer_password");
+            to_command_flow_template_var_field(name, allow_empty)
+        })
+        .collect()
 }
 
 fn command_flow_template_detail_from_content(
     name: &str,
     content: String,
 ) -> Result<CommandFlowTemplateDetail, ApiError> {
-    let template = parse_command_flow_template_str(&content, Some(name)).map_err(ApiError::from)?;
+    let content = normalize_command_flow_template_body(name, &content).map_err(ApiError::from)?;
+    let template = parse_command_flow_template(&content, Some(name)).map_err(ApiError::from)?;
     Ok(CommandFlowTemplateDetail {
         name: name.to_string(),
-        vars_schema: template
-            .vars
-            .iter()
-            .map(to_command_flow_template_var_field)
-            .collect(),
+        vars_schema: command_flow_template_var_fields(&template, false),
         content,
+    })
+}
+
+fn inspect_command_flow_template_content(
+    content: &str,
+) -> Result<CommandFlowTemplateDetail, ApiError> {
+    let template = parse_command_flow_template(content, None)
+        .map_err(|error| ApiError::bad_request(error.to_string()))?;
+    let normalized_content =
+        normalize_command_flow_template_body(&template.name, content).map_err(ApiError::from)?;
+    Ok(CommandFlowTemplateDetail {
+        name: template.name.clone(),
+        vars_schema: command_flow_template_var_fields(&template, false),
+        content: normalized_content,
     })
 }
 
@@ -104,7 +141,11 @@ fn command_flow_template_detail_from_template(
 ) -> Result<CommandFlowTemplateDetail, ApiError> {
     let name = template.name.clone();
     let content = toml::to_string_pretty(&template).map_err(ApiError::from)?;
-    command_flow_template_detail_from_content(&name, content)
+    Ok(CommandFlowTemplateDetail {
+        name,
+        vars_schema: command_flow_template_var_fields(&template, true),
+        content,
+    })
 }
 
 pub async fn list_command_flow_templates(
@@ -120,6 +161,13 @@ pub async fn list_builtin_command_flow_templates(
 ) -> Result<Json<Vec<CommandFlowTemplateMeta>>, ApiError> {
     let _ = state;
     Ok(Json(builtin_command_flow_template_metas()))
+}
+
+pub async fn inspect_command_flow_template(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<InspectCommandFlowTemplateRequest>,
+) -> Result<Json<CommandFlowTemplateDetail>, ApiError> {
+    Ok(Json(inspect_command_flow_template_content(&req.content)?))
 }
 
 pub async fn get_command_flow_template(
@@ -196,4 +244,105 @@ pub async fn delete_command_flow_template(
     let safe_name = storage::safe_command_flow_template_name(&name)?;
     content_store::delete_command_flow_template(&safe_name).map_err(ApiError::from)?;
     Ok(Json(json!({"ok": true})))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_template_schema_infers_runtime_roots_and_filters_current_fields() {
+        let detail = command_flow_template_detail_from_content(
+            "deploy",
+            r#"
+name = "deploy"
+
+[[steps]]
+command = "scp {{local_path}} {{peer.username}}@{{peer.host}}:{{remote_path}} {{host}} {{api_token}}"
+"#
+            .to_string(),
+        )
+        .expect("template detail");
+
+        let fields = detail
+            .vars_schema
+            .iter()
+            .map(|field| (field.name.as_str(), field.kind.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            fields,
+            vec![
+                ("api_token", "secret"),
+                ("local_path", "string"),
+                ("peer", "string"),
+                ("remote_path", "string"),
+            ]
+        );
+    }
+
+    #[test]
+    fn builtin_copy_schema_keeps_explicit_empty_credentials() {
+        let template = builtin_command_flow_template_by_name("cisco-like-copy")
+            .expect("builtin copy template");
+        let detail = command_flow_template_detail_from_template(template).expect("detail");
+
+        let username = detail
+            .vars_schema
+            .iter()
+            .find(|field| field.name == "transfer_username")
+            .expect("transfer username");
+        let password = detail
+            .vars_schema
+            .iter()
+            .find(|field| field.name == "transfer_password")
+            .expect("transfer password");
+        let overwrite = detail
+            .vars_schema
+            .iter()
+            .find(|field| field.name == "overwrite_answer")
+            .expect("overwrite answer");
+
+        assert!(username.required);
+        assert!(username.allow_empty);
+        assert!(password.required);
+        assert!(password.allow_empty);
+        assert_eq!(password.kind, "secret");
+        assert!(overwrite.required);
+        assert!(!overwrite.allow_empty);
+    }
+
+    #[test]
+    fn inspects_unsaved_command_flow_content_without_persisting_it() {
+        let detail = inspect_command_flow_template_content(
+            r#"
+name = "temporary-copy"
+
+[[steps]]
+command = "copy {{source}} {{peer.host}} {{host}} {{api_token}}"
+"#,
+        )
+        .expect("inspect temporary flow");
+
+        assert_eq!(detail.name, "temporary-copy");
+        assert_eq!(
+            detail
+                .vars_schema
+                .iter()
+                .map(|field| (field.name.as_str(), field.kind.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("api_token", "secret"),
+                ("peer", "string"),
+                ("source", "string"),
+            ]
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_unsaved_command_flow_content() {
+        let error =
+            inspect_command_flow_template_content("name = [").expect_err("invalid TOML must fail");
+        assert_eq!(error.status, axum::http::StatusCode::BAD_REQUEST);
+        assert!(error.message.contains("invalid command flow template TOML"));
+    }
 }

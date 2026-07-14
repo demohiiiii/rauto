@@ -1,46 +1,6 @@
 name = "cisco_like_copy"
-description = "Generic interactive SCP/TFTP copy flow for Cisco-like CLIs."
 stop_on_error = true
 default_mode = "Enable"
-
-[[vars]]
-name = "command"
-label = "Copy Command"
-description = "Full device-side copy command, e.g. `copy scp: flash:/image.bin`."
-required = true
-placeholder = "copy scp: flash:/image.bin"
-
-[[vars]]
-name = "server_addr"
-label = "Server Address"
-description = "SCP/TFTP server reachable from the target device."
-required = true
-placeholder = "192.0.2.10"
-
-[[vars]]
-name = "remote_path"
-label = "Remote Path"
-description = "Response used for Source/Destination file name prompts."
-required = true
-placeholder = "/images/image.bin"
-
-[[vars]]
-name = "transfer_username"
-label = "Transfer Username"
-description = "Required when the protocol is SCP."
-placeholder = "backup"
-
-[[vars]]
-name = "transfer_password"
-label = "Transfer Password"
-description = "Required when the protocol is SCP."
-type = "secret"
-
-[[vars]]
-name = "overwrite_answer"
-label = "Overwrite Answer"
-description = "Response for overwrite confirmation prompts."
-default = "y"
 
 [[steps]]
 timeout_secs = 300

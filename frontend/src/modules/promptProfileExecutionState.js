@@ -27,6 +27,7 @@ export const MODE_SELECT = Object.freeze({
   showBatch: "showBatch",
   showSingle: "showSingle",
   standardDirect: "standardDirect",
+  standardFlow: "standardFlow",
   standardTemplate: "standardTemplate",
 });
 const MODE_SELECT_KEYS = new Set(Object.values(MODE_SELECT));
@@ -282,6 +283,7 @@ async function refreshExecutionModeOptions(overrides = {}) {
   };
   const modeSelectTargets = [
     [MODE_SELECT.standardDirect, "execMode"],
+    [MODE_SELECT.standardFlow, "flowMode"],
     [MODE_SELECT.standardTemplate, "templateMode"],
     [MODE_SELECT.showSingle, "showMode", autoModeSelect],
     [MODE_SELECT.showBatch, "batchShowMode", autoModeSelect],

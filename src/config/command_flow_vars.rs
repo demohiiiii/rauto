@@ -6,7 +6,19 @@ use anyhow::{Result, anyhow};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 
-const CURRENT_CONNECTION_ALIAS_SENTINEL: &str = "__rauto_current_connection__";
+const IMPLICIT_RUNTIME_VAR_NAMES: &[&str] = &[
+    "connection_name",
+    "default_mode",
+    "device_profile",
+    "enable_password",
+    "host",
+    "linux_shell_flavor",
+    "name",
+    "password",
+    "port",
+    "ssh_security",
+    "username",
+];
 
 #[derive(Debug, Clone)]
 pub struct ConnectionParamContext {
@@ -138,36 +150,6 @@ impl CommandFlowVarResolver {
         }
     }
 
-    fn fill_template_vars(&mut self, template: &CommandFlowTemplate) {
-        for field in &template.vars {
-            let name = field.name.trim();
-            if name.is_empty() {
-                continue;
-            }
-            let missing = self
-                .runtime_vars
-                .get(name)
-                .map(|value| value.is_null())
-                .unwrap_or(true);
-            if !missing {
-                continue;
-            }
-            if let Some(resolved) = self.resolve_reference(name, None) {
-                self.runtime_vars.insert(name.to_string(), resolved);
-            }
-        }
-    }
-
-    fn bind_current_connection_alias(&mut self, alias: Option<&str>) {
-        let Some(alias) = alias.map(str::trim).filter(|value| !value.is_empty()) else {
-            return;
-        };
-        self.runtime_vars.insert(
-            alias.to_string(),
-            Value::String(CURRENT_CONNECTION_ALIAS_SENTINEL.to_string()),
-        );
-    }
-
     fn fill_template_inline_references(&mut self, template: &CommandFlowTemplate) {
         let references = collect_template_inline_references(template);
         for reference in references {
@@ -224,16 +206,9 @@ impl CommandFlowVarResolver {
                 .or_else(|| {
                     self.resolve_connection_alias(connection_name)
                         .and_then(|alias_name| {
-                            if alias_name == CURRENT_CONNECTION_ALIAS_SENTINEL {
-                                self.current.clone()
-                            } else {
-                                load_connection(&alias_name).ok().map(|saved| {
-                                    ConnectionParamContext::from_saved_connection(
-                                        &alias_name,
-                                        &saved,
-                                    )
-                                })
-                            }
+                            load_connection(&alias_name).ok().map(|saved| {
+                                ConnectionParamContext::from_saved_connection(&alias_name, &saved)
+                            })
                         })
                 });
             self.named.insert(connection_name.to_string(), loaded);
@@ -271,14 +246,27 @@ pub fn resolve_command_flow_runtime_vars(
     template: &CommandFlowTemplate,
     runtime_vars: Value,
     current: Option<ConnectionParamContext>,
-    current_connection_alias: Option<&str>,
 ) -> Result<Value> {
     let mut resolver = CommandFlowVarResolver::new(runtime_vars, current)?;
-    resolver.bind_current_connection_alias(current_connection_alias);
     resolver.resolve_runtime_aliases();
-    resolver.fill_template_vars(template);
     resolver.fill_template_inline_references(template);
     Ok(Value::Object(resolver.runtime_vars))
+}
+
+pub fn command_flow_runtime_var_names(template: &CommandFlowTemplate) -> Vec<String> {
+    let mut names = HashSet::new();
+    for reference in collect_template_inline_references(template) {
+        let name = reference
+            .split_once('.')
+            .map_or(reference.as_str(), |item| item.0);
+        if IMPLICIT_RUNTIME_VAR_NAMES.contains(&name) {
+            continue;
+        }
+        names.insert(name.to_string());
+    }
+    let mut names = names.into_iter().collect::<Vec<_>>();
+    names.sort();
+    names
 }
 
 fn collect_template_inline_references(template: &CommandFlowTemplate) -> Vec<String> {
@@ -414,10 +402,8 @@ mod tests {
         let template = parse_command_flow_template_str(
             r#"
 name = "demo"
-[[vars]]
-name = "site"
 [[steps]]
-command = "show clock"
+command = "show {{site}}"
 "#,
             None,
         )
@@ -436,8 +422,7 @@ command = "show clock"
             &json!({"site":"lab-a"}),
         );
         let resolved =
-            resolve_command_flow_runtime_vars(&template, Value::Null, Some(current), None)
-                .expect("ok");
+            resolve_command_flow_runtime_vars(&template, Value::Null, Some(current)).expect("ok");
         assert_eq!(resolved["site"], json!("lab-a"));
     }
 
@@ -446,8 +431,6 @@ command = "show clock"
         let template = parse_command_flow_template_str(
             r#"
 name = "demo"
-[[vars]]
-name = "target_host"
 [[steps]]
 command = "show clock"
 "#,
@@ -471,7 +454,6 @@ command = "show clock"
             &template,
             json!({"target_host":"host"}),
             Some(current),
-            None,
         )
         .expect("ok");
         assert_eq!(resolved["target_host"], json!("192.168.1.1"));
@@ -516,12 +498,6 @@ command = "show clock"
         let template = parse_command_flow_template_str(
             r#"
 name = "demo"
-[[vars]]
-name = "peer_host"
-[[vars]]
-name = "peer_site"
-[[vars]]
-name = "peer_pass"
 [[steps]]
 command = "show clock"
 "#,
@@ -537,7 +513,6 @@ command = "show clock"
                 "peer_site": "peer.site",
                 "peer_pass": "peer.password"
             }),
-            None,
             None,
         )
         .expect("resolve");
@@ -560,15 +535,6 @@ command = "show clock"
         let template = parse_command_flow_template_str(
             r#"
 name = "linux_scp_push"
-[[vars]]
-name = "peer"
-required = true
-[[vars]]
-name = "local_path"
-required = true
-[[vars]]
-name = "remote_path"
-required = true
 [[steps]]
 command = "scp {{local_path}} {{peer.username}}@{{peer.host}}:{{remote_path}}"
 [[steps.prompts]]
@@ -589,7 +555,6 @@ response = "{{peer.password}}"
                 "remote_path": "/tmp/app.tar",
             }),
             None,
-            None,
         )
         .expect("resolve");
 
@@ -599,15 +564,12 @@ response = "{{peer.password}}"
     }
 
     #[test]
-    fn resolves_inline_reference_from_current_connection_alias_field() {
+    fn resolves_flat_inline_references_from_current_connection() {
         let template = parse_command_flow_template_str(
             r#"
 name = "linux_deploy"
-[[vars]]
-name = "service"
-required = true
 [[steps]]
-command = "ssh {{target.username}}@{{target.host}} \"systemctl restart {{service}}\""
+command = "ssh {{username}}@{{host}} \"systemctl restart {{service}}\""
 "#,
             None,
         )
@@ -625,15 +587,36 @@ command = "ssh {{target.username}}@{{target.host}} \"systemctl restart {{service
             Some("linux"),
             &json!({"site":"dc-a"}),
         );
-        let resolved = resolve_command_flow_runtime_vars(
-            &template,
-            json!({"service":"nginx"}),
-            Some(current),
-            Some("target"),
-        )
-        .expect("resolve");
+        let resolved =
+            resolve_command_flow_runtime_vars(&template, json!({"service":"nginx"}), Some(current))
+                .expect("resolve");
 
-        assert_eq!(resolved["target.host"], json!("192.168.30.10"));
-        assert_eq!(resolved["target.username"], json!("admin"));
+        assert_eq!(resolved["host"], json!("192.168.30.10"));
+        assert_eq!(resolved["username"], json!("admin"));
+    }
+
+    #[test]
+    fn derives_only_explicit_runtime_inputs_from_inline_references() {
+        let template = parse_command_flow_template_str(
+            r#"
+name = "demo"
+[[steps]]
+command = "copy {{source}} {{peer.host}} {{host}}"
+[[steps.prompts]]
+patterns = ["password"]
+response = "{{transfer_password}}"
+"#,
+            None,
+        )
+        .expect("template");
+
+        assert_eq!(
+            command_flow_runtime_var_names(&template),
+            vec![
+                "peer".to_string(),
+                "source".to_string(),
+                "transfer_password".to_string()
+            ]
+        );
     }
 }

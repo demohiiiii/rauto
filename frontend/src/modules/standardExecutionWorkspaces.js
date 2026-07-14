@@ -1,4 +1,11 @@
-import { derived, writable } from "svelte/store";
+import { derived, get, writable } from "svelte/store";
+import {
+  createCommandFlowTemplate,
+  getCommandFlowTemplate,
+  inspectCommandFlowTemplate,
+  updateCommandFlowTemplate,
+} from "../api/client.js";
+import { browserConfirm } from "../lib/browser.js";
 import { createLoadingRunner } from "../lib/svelte.js";
 import { callbackFormValueHandler } from "../lib/events.js";
 import {
@@ -16,11 +23,15 @@ import {
 import {
   flowVarsFieldState,
   flowVarsPresentation,
+  getCurrentFlowTemplateFieldDraft,
+  loadFlowTemplates,
+  parseBuiltinFlowTemplateValue,
   runFlowTemplateSelectState,
   runTemplateSelectState,
   setFlowVarDraftValue,
-  setFlowVarsJsonOverridesText,
+  updateFlowTemplateVarFields,
 } from "./templates.js";
+import { createStandardCommandFlowAuthoringState } from "./standardCommandFlowAuthoringState.js";
 import {
   MODE_SELECT,
   TEXTFSM_PLATFORM_SELECT,
@@ -45,12 +56,8 @@ import {
   executeTemplate,
   exportCommandFlowExcel,
   loadSelectedTemplateContent,
-  prepareCommandFlowOnActive,
   previewTemplate,
-  refreshCommandFlowLanguageFields,
   refreshStandardExecutionModeOptions,
-  setCommandFlowFields,
-  selectCommandFlowTemplate,
   setDirectExecutionFields,
   setStandardRunTemplateSelectValue,
   setStandardTextfsmEnabled,
@@ -70,7 +77,6 @@ export {
   runFlowTemplateSelectState as standardRunFlowTemplateSelectState,
   runTemplateSelectState as standardRunTemplateSelectState,
   setFlowVarDraftValue as setStandardFlowVarDraftValue,
-  setFlowVarsJsonOverridesText as setStandardFlowVarsJsonOverridesText,
 } from "./templates.js";
 
 export {
@@ -321,10 +327,37 @@ function flowExecutionInputPresentation({
 } = {}) {
   const templatePlaceholder = t("flowTemplateRunPlaceholder");
   return {
+    builtinSourceLabel: t("flowBuiltinSourceLabel"),
+    cancelButtonLabel: t("cancel"),
+    customSourceLabel: t("flowCustomSourceLabel"),
+    currentDraftLabel: t("flowCurrentDraftLabel"),
+    descriptionText: t("flowHint"),
     executeButtonLabel: t("flowExecBtn"),
-    hintText: t("flowHint"),
+    nameDialogDescription: t("flowNameDialogDescription"),
+    nameDialogNewTitle: t("flowNameDialogNewTitle"),
+    nameDialogSaveAsTitle: t("flowNameDialogSaveAsTitle"),
+    nameDialogSubmitLabel: t("confirmBtn"),
+    newButtonLabel: t("flowNewButton"),
+    newSourceLabel: t("flowNewSourceLabel"),
+    saveButtonLabel: t("flowTemplateSaveBtn"),
+    saveAsButtonLabel: t("flowSaveAsButton"),
+    inspectingText: t("flowInspecting"),
+    resultsDescriptionText: t("flowResultsHint"),
+    resultsTitleText: t("flowResultsTitle"),
+    flowStepCountLabel: t("flowStepCountLabel"),
+    flowVariableCountLabel: t("flowVariableCountLabel"),
+    templateDescriptionText: t("flowTemplateSourceHint"),
     templateField: standardInputField(templateName, templatePlaceholder),
     templateOptionRows: selectOptionsWithCurrent(templateOptions, templateName),
+    templateTitleText: t("flowTemplateSourceTitle"),
+    tomlTabLabel: t("flowTomlTab"),
+    tomlFieldLabel: t("flowTomlLabel"),
+    tomlFieldHint: t("flowTomlHint"),
+    textfsmDescriptionText: t("textfsmParseHint"),
+    textfsmTitleText: t("flowTextfsmTitle"),
+    visualTabLabel: t("flowVisualTab"),
+    workbenchDescriptionText: t("flowWorkbenchHint"),
+    workbenchTitleText: t("flowWorkbenchTitle"),
   };
 }
 
@@ -516,12 +549,8 @@ export function createStandardPageWorkspace() {
   };
 }
 
-function createFlowVarsInputPanelWorkspace({
-  onJsonChange = null,
-  onValueChange = null,
-} = {}) {
+function createFlowVarsInputPanelWorkspace({ onValueChange = null } = {}) {
   return {
-    changeJsonOverrides: onJsonChange,
     changeFlowVarValue(flowVarName) {
       return callbackFormValueHandler(onValueChange, flowVarName);
     },
@@ -790,6 +819,7 @@ export function createDirectExecutionPanelWorkspace() {
 export function createFlowExecutionPanelWorkspace() {
   const commandFlowExecutionResultStateStore =
     commandFlowExecutionResultState();
+  const authoringModePicker = modeSelection(MODE_SELECT.standardFlow);
   const textfsmPlatformPicker = textfsmPlatformSelection(
     TEXTFSM_PLATFORM_SELECT.standard,
   );
@@ -797,33 +827,62 @@ export function createFlowExecutionPanelWorkspace() {
   const { loadingKeysStore, loadingRunner } =
     createStandardLoadingKeysStore(createLoadingRunner);
   const flowVarsInputPanelWorkspace = createFlowVarsInputPanelWorkspace({
-    onJsonChange: setFlowVarsJsonOverridesText,
     onValueChange: setFlowVarDraftValue,
+  });
+  const authoring = createStandardCommandFlowAuthoringState({
+    confirmDiscard: browserConfirm,
+    createTemplate: createCommandFlowTemplate,
+    getTemplate: getCommandFlowTemplate,
+    inspectTemplate: inspectCommandFlowTemplate,
+    onInspection(detail) {
+      updateFlowTemplateVarFields(detail, getCurrentFlowTemplateFieldDraft());
+    },
+    parseBuiltinSelection: parseBuiltinFlowTemplateValue,
+    refreshTemplates: loadFlowTemplates,
+    updateTemplate: updateCommandFlowTemplate,
   });
   const flowPanelDisplayStateStore = derived(
     [
       runFlowTemplateSelectState,
       flowVarsFieldState,
+      authoringModePicker.state,
       textfsmPlatformPicker.state,
       flowTextfsmStateStore,
       commandFlowExecutionResultStateStore,
       loadingKeysStore,
+      authoring.selectionStateStore,
+      authoring.actionStateStore,
+      authoring.nameDialogStateStore,
+      authoring.draft.modelStateStore,
+      authoring.draft.tomlTextStateStore,
+      authoring.draft.errorStateStore,
+      authoring.draft.activeTabStateStore,
+      authoring.draft.inspectionStateStore,
       currentLanguageState,
     ],
     ([
       $runFlowTemplateSelectState,
       $flowVarsFieldState,
+      $authoringModeState,
       $textfsmPlatformState,
       $flowTextfsmState,
       $commandFlowExecutionResult,
       $loadingKeysStore,
+      $authoringSelection,
+      $authoringActions,
+      $nameDialog,
+      $authoringModel,
+      $authoringTomlText,
+      $authoringError,
+      $authoringActiveTab,
+      $authoringInspection,
       $currentLanguageState,
     ]) => {
       const flowTemplateSelectDisplay = standardFlowTemplateSelectDisplay(
         $runFlowTemplateSelectState,
       );
       const flowTemplateFields = standardFlowTemplateFieldsPresentation({
-        templateName: flowTemplateSelectDisplay.selectedTemplate,
+        templateName: $authoringSelection.value,
         templateOptions: flowTemplateSelectDisplay.templateOptions,
       });
       const flowTextfsmFields = standardTextfsmFieldsForState({
@@ -835,7 +894,21 @@ export function createFlowExecutionPanelWorkspace() {
       const executionStatusDisplay = standardExecutionResultDisplay(
         $commandFlowExecutionResult,
       );
+      const authoringModeDisplay =
+        standardModeSelectDisplay($authoringModeState);
       return {
+        authoringDisplay: {
+          ...$authoringActions,
+          activeTab: $authoringActiveTab,
+          errorMessage:
+            $authoringError || $authoringInspection.errorMessage || "",
+          inspecting: !!$authoringInspection.loading,
+          modeOptions: authoringModeDisplay.modeOptions,
+          model: $authoringModel,
+          nameDialog: $nameDialog,
+          selection: $authoringSelection,
+          tomlText: $authoringTomlText,
+        },
         executionStatusDisplay,
         exportLoading: $loadingKeysStore.includes("export"),
         flowInputDisplay: flowExecutionInputPresentation({
@@ -858,8 +931,26 @@ export function createFlowExecutionPanelWorkspace() {
   let commandFlowPrepared = false;
   let lastCommandFlowLanguage = "";
 
-  function changeFlowTemplateName(flowTemplateName = "") {
-    selectCommandFlowTemplate(flowTemplateName);
+  function syncAuthoringSelection() {
+    setStandardRunTemplateSelectValue(get(authoring.selectionStateStore).value);
+  }
+
+  async function changeFlowTemplateName(flowTemplateName = "") {
+    const changed = await authoring.selectTemplate(flowTemplateName);
+    if (changed) syncAuthoringSelection();
+    return changed;
+  }
+
+  function changeFlowEditorTab(editorTab = "visual") {
+    authoring.draft.selectTab(editorTab);
+  }
+
+  function changeFlowModel(model = {}) {
+    authoring.setModel(model);
+  }
+
+  function changeFlowToml(tomlText = "") {
+    return authoring.setTomlText(tomlText);
   }
 
   function changeFlowTextfsmEnabled(textfsmEnabled = false) {
@@ -879,7 +970,37 @@ export function createFlowExecutionPanelWorkspace() {
   }
 
   function executeFlowExecution() {
-    return loadingRunner.run("execute", executeCommandFlow);
+    return loadingRunner.run("execute", () =>
+      executeCommandFlow(authoring.executeSource()),
+    );
+  }
+
+  async function saveFlowTemplate() {
+    const saved = await authoring.save();
+    if (saved) syncAuthoringSelection();
+    return saved;
+  }
+
+  function openNewFlowDialog() {
+    authoring.openNewDialog();
+  }
+
+  function openSaveAsFlowDialog() {
+    authoring.openSaveAsDialog();
+  }
+
+  function closeFlowNameDialog() {
+    authoring.closeNameDialog();
+  }
+
+  function changeFlowNameDialogValue(value = "") {
+    authoring.setNameDialogValue(value);
+  }
+
+  async function submitFlowNameDialog() {
+    const saved = await authoring.submitNameDialog();
+    if (saved) syncAuthoringSelection();
+    return saved;
   }
 
   function exportFlowExecutionExcel() {
@@ -897,6 +1018,14 @@ export function createFlowExecutionPanelWorkspace() {
     export: exportFlowExecutionExcelHandler(),
   };
 
+  async function prepareAuthoringOnActive() {
+    await loadFlowTemplates();
+    const selected = safeString(
+      get(runFlowTemplateSelectState).selected,
+    ).trim();
+    if (selected) await changeFlowTemplateName(selected);
+  }
+
   function setPanelContext({ active = false, flowPanelDisplay = null } = {}) {
     if (!active) {
       commandFlowPrepared = false;
@@ -906,30 +1035,44 @@ export function createFlowExecutionPanelWorkspace() {
     if (!flowPanelDisplay) return;
     if (!commandFlowPrepared) {
       commandFlowPrepared = true;
-      void prepareCommandFlowOnActive();
+      void prepareAuthoringOnActive();
     }
     const language = safeString(flowPanelDisplay.language);
     if (lastCommandFlowLanguage !== language) {
       lastCommandFlowLanguage = language;
-      refreshCommandFlowLanguageFields();
+      updateFlowTemplateVarFields(
+        {
+          vars_schema: get(authoring.draft.inspectionStateStore).varsSchema,
+        },
+        getCurrentFlowTemplateFieldDraft(),
+      );
     }
-    setCommandFlowFields(flowPanelDisplay.flowTemplateFields.templateName);
     setStandardTextfsmFields(flowPanelDisplay.flowTextfsmFields);
   }
 
   return {
+    authoring,
+    changeFlowEditorTab,
+    changeFlowModel,
+    changeFlowNameDialogValue,
     changeFlowTemplateName,
-    changeFlowJsonOverrides: flowVarsInputPanelWorkspace.changeJsonOverrides,
     changeFlowTextfsmEnabled,
     changeFlowTextfsmPlatform,
     changeFlowTextfsmStrictErrors,
     changeFlowTextfsmTemplate,
+    changeFlowToml,
     changeFlowVarValue: flowVarsInputPanelWorkspace.changeFlowVarValue,
+    closeFlowNameDialog,
     executeFlowExecution,
     exportFlowExecutionExcel,
     flowPanelDisplayStateStore,
+    openNewFlowDialog,
+    openSaveAsFlowDialog,
     runActionHandlers,
+    saveFlowTemplate,
+    saveFlowTemplateAs: authoring.saveAs,
     setPanelContext,
+    submitFlowNameDialog,
   };
 }
 

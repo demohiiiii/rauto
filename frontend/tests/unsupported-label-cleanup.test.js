@@ -63,31 +63,6 @@ test("transaction models remove every unsupported underscore label", () => {
         },
         rollback: null,
       },
-      {
-        run: {
-          kind: "template",
-          template_operation_label: "operation",
-          template: {
-            name: "template",
-            template_definition_label: "definition",
-            vars: [
-              {
-                name: "hostname",
-                label: "Hostname",
-                variable_label: "variable",
-              },
-            ],
-            steps: [
-              {
-                command: "show {{hostname}}",
-                template_step_label: "template-step",
-              },
-            ],
-          },
-          runtime: { runtime_label: "runtime", vars: {} },
-        },
-        rollback: null,
-      },
     ],
   };
   const json = JSON.parse(
@@ -95,7 +70,6 @@ test("transaction models remove every unsupported underscore label", () => {
   );
 
   assert.deepEqual(collectUnsupportedLabels(json), []);
-  assert.equal(json.steps[1].run.template.vars[0].label, "Hostname");
   assert.equal(
     Object.hasOwn(json.steps[0].run.steps[0], "command_extension"),
     false,

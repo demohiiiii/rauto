@@ -1,35 +1,191 @@
 use anyhow::{Result, anyhow};
+use rneter::session::{
+    Command, CommandDynamicParams, CommandFlow, CommandInteraction, PromptResponseRule,
+};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::collections::HashSet;
+use serde_json::{Map, Value};
 
-pub type CommandFlowTemplate = rneter::templates::CommandFlowTemplate;
-pub type CommandFlowTemplateRuntime = rneter::templates::CommandFlowTemplateRuntime;
-pub type CommandFlowTemplateVar = rneter::templates::CommandFlowTemplateVar;
-pub type CommandFlowTemplateVarKind = rneter::templates::CommandFlowTemplateVarKind;
+const CISCO_LIKE_COPY_TEMPLATE_TOML: &str =
+    include_str!("../../templates/examples/cisco-like-command-flow.toml");
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParsedCommandFlowTemplate {
-    pub template: CommandFlowTemplate,
-    pub current_connection_alias: Option<String>,
+fn default_true() -> bool {
+    true
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct CommandFlowTemplateDocument {
-    #[serde(flatten)]
-    template: CommandFlowTemplate,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    current_connection_alias: Option<String>,
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CommandFlowTemplate {
+    pub name: String,
+    #[serde(default = "default_true")]
+    pub stop_on_error: bool,
+    #[serde(default)]
+    pub default_mode: Option<String>,
+    #[serde(default)]
+    pub steps: Vec<CommandFlowTemplateStep>,
 }
 
-pub fn command_flow_var_kind_label(kind: CommandFlowTemplateVarKind) -> &'static str {
-    match kind {
-        CommandFlowTemplateVarKind::String => "string",
-        CommandFlowTemplateVarKind::Secret => "secret",
-        CommandFlowTemplateVarKind::Number => "number",
-        CommandFlowTemplateVarKind::Boolean => "boolean",
-        CommandFlowTemplateVarKind::Json => "json",
+impl CommandFlowTemplate {
+    pub fn to_command_flow(&self, runtime: &CommandFlowTemplateRuntime) -> Result<CommandFlow> {
+        render_command_flow_template(self, runtime)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CommandFlowTemplateStep {
+    pub command: String,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
+    #[serde(default)]
+    pub prompts: Vec<CommandFlowTemplatePrompt>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CommandFlowTemplatePrompt {
+    pub patterns: Vec<String>,
+    pub response: String,
+    #[serde(default)]
+    pub append_newline: bool,
+    #[serde(default)]
+    pub record_input: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CommandFlowTemplateRuntime {
+    #[serde(default)]
+    pub default_mode: Option<String>,
+    #[serde(default)]
+    pub vars: Value,
+}
+
+fn render_value_as_text(value: &Value) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::String(value) => value.clone(),
+        Value::Number(value) => value.to_string(),
+        Value::Bool(value) => value.to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn render_inline_template(template: &str, values: &Map<String, Value>) -> Result<String> {
+    let mut output = String::new();
+    let mut rest = template;
+
+    while let Some(start) = rest.find("{{") {
+        output.push_str(&rest[..start]);
+        let after_start = &rest[start + 2..];
+        let Some(end) = after_start.find("}}") else {
+            output.push_str(&rest[start..]);
+            rest = "";
+            break;
+        };
+        let raw_name = &after_start[..end];
+        let name = raw_name.trim();
+        if name.is_empty() {
+            output.push_str("{{");
+            output.push_str(raw_name);
+            output.push_str("}}");
+        } else if let Some(value) = values.get(name).filter(|value| !value.is_null()) {
+            output.push_str(&render_value_as_text(value));
+        } else {
+            return Err(anyhow!("missing command flow template var '{name}'"));
+        }
+        rest = &after_start[end + 2..];
+    }
+
+    output.push_str(rest);
+    Ok(output)
+}
+
+fn command_flow_template_values(
+    template: &CommandFlowTemplate,
+    runtime: &CommandFlowTemplateRuntime,
+) -> Result<Map<String, Value>> {
+    let mut values = match &runtime.vars {
+        Value::Null => Map::new(),
+        Value::Object(values) => values.clone(),
+        _ => return Err(anyhow!("command flow template vars must be a JSON object")),
+    };
+    if let Some(default_mode) = runtime
+        .default_mode
+        .clone()
+        .or_else(|| template.default_mode.clone())
+    {
+        values.insert("default_mode".to_string(), Value::String(default_mode));
+    }
+    Ok(values)
+}
+
+pub fn render_command_flow_template(
+    template: &CommandFlowTemplate,
+    runtime: &CommandFlowTemplateRuntime,
+) -> Result<CommandFlow> {
+    validate_command_flow_template_definition(template)?;
+    let values = command_flow_template_values(template, runtime)?;
+    let fallback_mode = runtime
+        .default_mode
+        .as_deref()
+        .or(template.default_mode.as_deref())
+        .unwrap_or_default()
+        .to_string();
+    let mut steps = Vec::with_capacity(template.steps.len());
+
+    for step in &template.steps {
+        let command = render_inline_template(&step.command, &values)?;
+        if command.trim().is_empty() {
+            return Err(anyhow!(
+                "command flow template '{}' rendered an empty command",
+                template.name
+            ));
+        }
+        let mode = match step.mode.as_deref() {
+            Some(mode) => {
+                let rendered = render_inline_template(mode, &values)?;
+                let rendered = rendered.trim();
+                if rendered.is_empty() {
+                    fallback_mode.clone()
+                } else {
+                    rendered.to_string()
+                }
+            }
+            None => fallback_mode.clone(),
+        };
+        let mut prompts = Vec::with_capacity(step.prompts.len());
+        for prompt in &step.prompts {
+            if prompt.patterns.is_empty() {
+                return Err(anyhow!(
+                    "command flow template '{}' contains a prompt with no patterns",
+                    template.name
+                ));
+            }
+            let mut response = render_inline_template(&prompt.response, &values)?;
+            if prompt.append_newline {
+                response.push('\n');
+            }
+            prompts.push(
+                PromptResponseRule::new(prompt.patterns.clone(), response)
+                    .with_record_input(prompt.record_input),
+            );
+        }
+        steps.push(Command {
+            mode,
+            command,
+            timeout: step.timeout_secs,
+            dyn_params: CommandDynamicParams::default(),
+            interaction: CommandInteraction { prompts },
+        });
+    }
+
+    Ok(CommandFlow {
+        steps,
+        stop_on_error: template.stop_on_error,
+        max_steps: None,
+    })
+}
+
+pub fn cisco_like_copy_command_flow_template() -> Result<CommandFlowTemplate> {
+    parse_command_flow_template(CISCO_LIKE_COPY_TEMPLATE_TOML, Some("cisco_like_copy"))
 }
 
 pub fn validate_command_flow_template_definition(template: &CommandFlowTemplate) -> Result<()> {
@@ -43,95 +199,47 @@ pub fn validate_command_flow_template_definition(template: &CommandFlowTemplate)
         ));
     }
 
-    let mut seen = HashSet::new();
-    for field in &template.vars {
-        let name = field.name.trim();
-        if name.is_empty() {
-            return Err(anyhow!(
-                "command flow template '{}' contains a var with an empty name",
-                template.name
-            ));
-        }
-        if !is_safe_var_name(name) {
-            return Err(anyhow!(
-                "command flow template '{}' has invalid var name '{}'",
-                template.name,
-                field.name
-            ));
-        }
-        if !seen.insert(name.to_string()) {
-            return Err(anyhow!(
-                "command flow template '{}' contains duplicate var '{}'",
-                template.name,
-                field.name
-            ));
-        }
-        if let Some(default_value) = &field.default_value {
-            validate_var_value(field, default_value).map_err(|err| {
-                anyhow!(
-                    "command flow template '{}' has invalid default for var '{}': {}",
-                    template.name,
-                    field.name,
-                    err
-                )
-            })?;
-        }
-    }
-
     Ok(())
 }
 
+#[cfg(test)]
 pub fn parse_command_flow_template_str(
     body: &str,
     name_override: Option<&str>,
 ) -> Result<CommandFlowTemplate> {
-    let parsed = parse_command_flow_template_with_extensions(body, name_override)?;
-    Ok(parsed.template)
+    parse_command_flow_template(body, name_override)
 }
 
-pub fn parse_command_flow_template_with_extensions(
+pub fn parse_command_flow_template(
     body: &str,
     name_override: Option<&str>,
-) -> Result<ParsedCommandFlowTemplate> {
-    let mut doc: CommandFlowTemplateDocument =
+) -> Result<CommandFlowTemplate> {
+    let root: toml::Table =
+        toml::from_str(body).map_err(|e| anyhow!("invalid command flow template TOML: {}", e))?;
+    if root.contains_key("current_connection_alias") {
+        return Err(anyhow!(
+            "unsupported command flow field: current_connection_alias"
+        ));
+    }
+    let mut template: CommandFlowTemplate =
         toml::from_str(body).map_err(|e| anyhow!("invalid command flow template TOML: {}", e))?;
     if let Some(name) = name_override {
-        doc.template.name = name.to_string();
+        template.name = name.to_string();
     }
-    validate_command_flow_template_definition(&doc.template)?;
-    let current_connection_alias =
-        normalize_current_connection_alias(doc.current_connection_alias)?;
-    Ok(ParsedCommandFlowTemplate {
-        template: doc.template,
-        current_connection_alias,
-    })
+    validate_command_flow_template_definition(&template)?;
+    Ok(template)
 }
 
 pub fn normalize_command_flow_template_body(name: &str, body: &str) -> Result<String> {
-    let parsed = parse_command_flow_template_with_extensions(body, Some(name))?;
-    let doc = CommandFlowTemplateDocument {
-        template: parsed.template,
-        current_connection_alias: parsed.current_connection_alias,
-    };
-    toml::to_string_pretty(&doc).map_err(Into::into)
+    let template = parse_command_flow_template(body, Some(name))?;
+    toml::to_string_pretty(&template).map_err(Into::into)
 }
 
 pub fn build_command_flow_runtime(
     default_mode: Option<String>,
-    connection_name: Option<&str>,
-    host: &str,
-    username: &str,
-    device_profile: &str,
     vars: Value,
 ) -> CommandFlowTemplateRuntime {
-    CommandFlowTemplateRuntime {
-        default_mode,
-        connection_name: connection_name.map(ToOwned::to_owned),
-        host: Some(host.to_string()),
-        username: Some(username.to_string()),
-        device_profile: Some(device_profile.to_string()),
-        vars,
-    }
+    CommandFlowTemplateRuntime { default_mode, vars }
 }
 
 pub fn resolve_command_flow_runtime_default_mode(
@@ -156,69 +264,6 @@ pub fn resolve_command_flow_runtime_default_mode(
     Some(profile_default_mode.to_string())
 }
 
-fn is_safe_var_name(name: &str) -> bool {
-    if name.is_empty() {
-        return false;
-    }
-    name.split('.').all(|segment| {
-        !segment.is_empty()
-            && segment
-                .chars()
-                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
-    })
-}
-
-fn normalize_current_connection_alias(alias: Option<String>) -> Result<Option<String>> {
-    let Some(alias) = alias.map(|value| value.trim().to_string()) else {
-        return Ok(None);
-    };
-    if alias.is_empty() {
-        return Ok(None);
-    }
-    if !is_safe_connection_alias(&alias) {
-        return Err(anyhow!(
-            "command flow template has invalid current_connection_alias '{}'",
-            alias
-        ));
-    }
-    Ok(Some(alias))
-}
-
-fn is_safe_connection_alias(alias: &str) -> bool {
-    let mut chars = alias.chars();
-    match chars.next() {
-        Some(ch) if ch.is_ascii_alphabetic() || ch == '_' => {}
-        _ => return false,
-    }
-    chars.all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
-}
-
-fn validate_var_value(field: &CommandFlowTemplateVar, value: &Value) -> Result<()> {
-    let kind_ok = match field.kind {
-        CommandFlowTemplateVarKind::String | CommandFlowTemplateVarKind::Secret => {
-            value.is_string()
-        }
-        CommandFlowTemplateVarKind::Number => value.is_number(),
-        CommandFlowTemplateVarKind::Boolean => value.is_boolean(),
-        CommandFlowTemplateVarKind::Json => true,
-    };
-    if !kind_ok {
-        return Err(anyhow!(
-            "expected {}",
-            command_flow_var_kind_label(field.kind)
-        ));
-    }
-    if !field.options.is_empty() && !matches!(field.kind, CommandFlowTemplateVarKind::Json) {
-        let Some(text) = value.as_str() else {
-            return Err(anyhow!("expected one of [{}]", field.options.join(", ")));
-        };
-        if !field.options.iter().any(|option| option == text) {
-            return Err(anyhow!("expected one of [{}]", field.options.join(", ")));
-        }
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,70 +273,49 @@ mod tests {
     fn validates_and_normalizes_structured_template() {
         let body = r#"
 name = "demo"
-
-[[vars]]
-name = "protocol"
-required = true
-options = ["scp", "tftp"]
+description = "legacy description"
 
 [[steps]]
 command = "copy {{protocol}}"
 "#;
 
         let normalized = normalize_command_flow_template_body("demo", body).expect("normalize");
+        assert!(!normalized.contains("description"));
         let template = parse_command_flow_template_str(&normalized, None).expect("parse");
-        let flow = template
-            .to_command_flow(
-                &CommandFlowTemplateRuntime::new()
-                    .with_default_mode("Enable")
-                    .with_vars(json!({"protocol": "scp"})),
-            )
-            .expect("render");
+        let runtime =
+            build_command_flow_runtime(Some("Enable".to_string()), json!({"protocol": "scp"}));
+        let flow = template.to_command_flow(&runtime).expect("render");
 
         assert_eq!(flow.steps.len(), 1);
         assert_eq!(flow.steps[0].command, "copy scp");
     }
 
     #[test]
-    fn accepts_connection_scoped_var_names() {
+    fn accepts_connection_scoped_inline_references() {
         let body = r#"
 name = "demo"
-
-[[vars]]
-name = "edge-94.password"
 
 [[steps]]
 command = "echo {{edge-94.password}}"
 "#;
         let normalized = normalize_command_flow_template_body("demo", body).expect("normalize");
         let parsed = parse_command_flow_template_str(&normalized, None).expect("parse");
-        assert_eq!(parsed.vars[0].name, "edge-94.password");
+        let serialized = toml::to_string(&parsed).expect("serialize");
+        assert!(serialized.contains("edge-94.password"));
     }
 
     #[test]
-    fn parses_current_connection_alias_extension() {
+    fn rejects_removed_current_connection_alias() {
         let body = r#"
 name = "demo"
 current_connection_alias = "current"
 [[steps]]
 command = "echo {{current.host}}"
 "#;
-        let parsed =
-            parse_command_flow_template_with_extensions(body, Some("demo")).expect("parse");
-        assert_eq!(parsed.current_connection_alias.as_deref(), Some("current"));
-    }
-
-    #[test]
-    fn rejects_invalid_current_connection_alias() {
-        let body = r#"
-name = "demo"
-current_connection_alias = "bad.alias"
-[[steps]]
-command = "show clock"
-"#;
-        let err = parse_command_flow_template_with_extensions(body, None).expect_err("invalid");
+        let err =
+            parse_command_flow_template(body, Some("demo")).expect_err("removed alias must fail");
         assert!(
-            err.to_string().contains("current_connection_alias"),
+            err.to_string().contains("unsupported command flow field"),
             "unexpected error: {err}"
         );
     }
@@ -312,5 +336,78 @@ command = "show clock"
     fn runtime_default_mode_falls_back_to_profile_default() {
         let mode = resolve_command_flow_runtime_default_mode(None, None, "Enable");
         assert_eq!(mode.as_deref(), Some("Enable"));
+    }
+
+    #[test]
+    fn command_flow_runtime_contains_only_mode_and_explicit_vars() {
+        let vars = json!({"host":"192.0.2.10", "username":"admin"});
+        let runtime = build_command_flow_runtime(Some("Enable".to_string()), vars.clone());
+
+        assert_eq!(runtime.default_mode.as_deref(), Some("Enable"));
+        assert_eq!(runtime.vars, vars);
+    }
+
+    #[test]
+    fn rauto_renders_command_flow_templates_into_concrete_flows() {
+        let template = parse_command_flow_template_str(
+            r#"
+name = "deploy"
+default_mode = "Enable"
+
+[[steps]]
+command = "copy {{protocol}}: {{path}}"
+timeout_secs = 120
+
+[[steps.prompts]]
+patterns = ["(?i)^Proceed\\?$"]
+response = "{{answer}}"
+append_newline = true
+record_input = true
+"#,
+            None,
+        )
+        .expect("parse template");
+        let runtime = build_command_flow_runtime(
+            None,
+            json!({"protocol": "scp", "path": "flash:/image.bin", "answer": "yes"}),
+        );
+
+        let flow = render_command_flow_template(&template, &runtime).expect("render flow");
+
+        assert_eq!(flow.steps.len(), 1);
+        assert_eq!(flow.steps[0].mode, "Enable");
+        assert_eq!(flow.steps[0].command, "copy scp: flash:/image.bin");
+        assert_eq!(flow.steps[0].timeout, Some(120));
+        assert_eq!(flow.steps[0].interaction.prompts.len(), 1);
+        assert_eq!(flow.steps[0].interaction.prompts[0].response, "yes\n");
+        assert!(flow.steps[0].interaction.prompts[0].record_input);
+    }
+
+    #[test]
+    fn rauto_owns_and_renders_the_cisco_like_copy_template() {
+        let template = cisco_like_copy_command_flow_template().expect("built-in template");
+        let runtime = build_command_flow_runtime(
+            None,
+            json!({
+                "command": "copy scp: flash:/image.bin",
+                "server_addr": "192.0.2.10",
+                "remote_path": "/images/image.bin",
+                "transfer_username": "deploy",
+                "transfer_password": "secret",
+                "overwrite_answer": "y"
+            }),
+        );
+
+        let flow = render_command_flow_template(&template, &runtime).expect("render flow");
+
+        assert_eq!(template.name, "cisco_like_copy");
+        assert_eq!(flow.steps.len(), 1);
+        assert_eq!(flow.steps[0].interaction.prompts.len(), 7);
+        assert_eq!(
+            flow.steps[0].interaction.prompts[0].response,
+            "192.0.2.10\n"
+        );
+        assert_eq!(flow.steps[0].interaction.prompts[4].response, "secret\n");
+        assert_eq!(flow.steps[0].interaction.prompts[5].response, "\n");
     }
 }

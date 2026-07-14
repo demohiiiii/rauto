@@ -284,9 +284,8 @@ Current runtime model uses:
 
 - `kind: "command"`
 - `kind: "flow"`
-- `kind: "template"`
 
-It does not use `kind: "command_flow"`.
+It does not use `kind: "command_flow"` or `kind: "template"`.
 
 ### Fix
 
@@ -314,4 +313,3 @@ When fixing invalid JSON, prefer this order:
 4. Fix source-selection conflicts (`template` vs inline vs file).
 5. Fix rollback details.
 6. Re-run validator and only then propose execution.
-

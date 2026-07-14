@@ -1,8 +1,8 @@
 use crate::agent::registration::{AsyncErrorReportInput, current_agent_name};
 use crate::cli::RecordLevelOpt;
 use crate::config::command_flow_template::{
-    CommandFlowTemplate, ParsedCommandFlowTemplate, build_command_flow_runtime,
-    parse_command_flow_template_with_extensions, resolve_command_flow_runtime_default_mode,
+    CommandFlowTemplate, build_command_flow_runtime, parse_command_flow_template,
+    resolve_command_flow_runtime_default_mode,
 };
 use crate::config::command_flow_vars::{
     ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
@@ -103,8 +103,8 @@ use flow_templates::{
 };
 pub use flow_templates::{
     create_command_flow_template, delete_command_flow_template, get_builtin_command_flow_template,
-    get_command_flow_template, list_builtin_command_flow_templates, list_command_flow_templates,
-    update_command_flow_template,
+    get_command_flow_template, inspect_command_flow_template, list_builtin_command_flow_templates,
+    list_command_flow_templates, update_command_flow_template,
 };
 pub use json_templates::{
     create_orchestration_template, create_tx_block_template, create_tx_workflow_template,

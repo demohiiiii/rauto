@@ -1,64 +1,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { get } from "svelte/store";
 import { txBlockCommandEditorDisplay } from "../src/modules/transactionBlockDisplayState.js";
 import { collapsibleGroupBindings } from "../src/lib/events.js";
-import {
-  createTxBlockTemplateStepEditorWorkspace,
-  createTxBlockTemplateVarEditorWorkspace,
-} from "../src/modules/transactionBlockTemplateWorkspaces.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
 }
 
-test("template row editors are safe before context and preserve complete rows", () => {
-  const variableSource = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarEditor.svelte",
-  );
-  const stepSource = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepEditor.svelte",
-  );
-  assert.match(
-    variableSource,
-    /let variable = \$derived\(syncedVariableRow\.variable \?\? \{\}\)/,
-  );
-  assert.match(
-    stepSource,
-    /let templateStep = \$derived\(syncedTemplateStepRow\.step \?\? \{\}\)/,
-  );
-
-  const variable = {
-    name: "hostname",
-    type: "string",
-    extra: { variable_label: "hostname-var" },
-  };
-  const variableWorkspace = createTxBlockTemplateVarEditorWorkspace();
-  variableWorkspace.setTemplateVarContext({
-    variableRow: { varIndex: 2, variable },
-  });
-  assert.deepEqual(get(variableWorkspace.variableRowStateStore), {
-    varIndex: 2,
-    variable,
-  });
-
-  const step = {
-    command: "show {{hostname}}",
-    mode: "Enable",
-    extra: { template_step_label: "verify-step" },
-  };
-  const stepWorkspace = createTxBlockTemplateStepEditorWorkspace();
-  stepWorkspace.setTemplateStepContext({
-    templateStepRow: { stepIndex: 3, step },
-  });
-  assert.deepEqual(get(stepWorkspace.templateStepRowStateStore), {
-    stepIndex: 3,
-    step,
-  });
-});
-
-test("operation kinds use a three-column shadcn Tabs control", () => {
+test("operation kinds expose only command and flow tabs", () => {
   const source = read(
     "frontend/src/pages/orchestrated/TxBlockOperationEditor.svelte",
   );
@@ -66,10 +16,12 @@ test("operation kinds use a three-column shadcn Tabs control", () => {
   assert.match(source, /import \* as Tabs from "\$lib\/components\/ui\/tabs/);
   assert.match(source, /<Tabs\.Root[\s\S]*value=\{operation\.kind\}/);
   assert.match(source, /onValueChange=\{operationActionHandlers\.setKind\}/);
-  assert.match(source, /<Tabs\.List[^>]*grid-cols-3/);
-  for (const kind of ["command", "flow", "template"]) {
+  assert.match(source, /<Tabs\.List[^>]*grid-cols-2/);
+  for (const kind of ["command", "flow"]) {
     assert.match(source, new RegExp(`<Tabs\\.Trigger[^>]*value="${kind}"`));
   }
+  assert.doesNotMatch(source, /value="template"/);
+  assert.doesNotMatch(source, /TxBlockTemplateEditor/);
   assert.doesNotMatch(source, /rounded-2xl border border-border bg-muted/);
 });
 
@@ -96,7 +48,6 @@ test("nested operation editors are unframed and use repeated row separators", ()
   const unframedPaths = [
     "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeVarsEditor.svelte",
   ];
 
   for (const path of unframedPaths) {
@@ -108,23 +59,14 @@ test("nested operation editors are unframed and use repeated row separators", ()
 
   for (const path of [
     "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
   ]) {
     assert.doesNotMatch(read(path), /<Card\./);
   }
 
   assert.match(
-    read("frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte"),
+    read("frontend/src/components/command-flow/CommandFlowStepsEditor.svelte"),
     /rounded-lg/,
-  );
-  assert.equal(
-    (
-      read(
-        "frontend/src/pages/orchestrated/TxBlockTemplateEditor.svelte",
-      ).match(/variant="section"/g) || []
-    ).length,
-    4,
   );
 });
 
@@ -194,7 +136,6 @@ test("validation errors derive from the model and render inline alerts", () => {
     "frontend/src/pages/orchestrated/TxBlockOperationEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
   ]) {
     const source = read(path);
@@ -207,20 +148,20 @@ test("field row validation matches only the exact form-model path", async () => 
   const { txBlockFieldRowsWithValidation } =
     await import("../src/modules/transactionBlockDisplayState.js");
   const fieldRows = [
-    { fieldKey: "name", labelText: "Name" },
+    { fieldKey: "command", labelText: "Command" },
     { fieldKey: "mode", labelText: "Mode" },
   ];
   const errors = [
     {
-      path: "steps[0].run.template.template.vars[2].name",
-      messageKey: "txBlockValidationVariableName",
+      path: "steps[0].run.flow.steps[2].command",
+      messageKey: "txBlockValidationCommandText",
     },
   ];
 
   const rows = txBlockFieldRowsWithValidation(
     fieldRows,
     errors,
-    "steps[0].run.template.template.vars[2]",
+    "steps[0].run.flow.steps[2]",
   );
 
   assert.equal(rows[0].errorText.length > 0, true);
@@ -229,98 +170,10 @@ test("field row validation matches only the exact form-model path", async () => 
     txBlockFieldRowsWithValidation(
       fieldRows,
       errors,
-      "steps[0].run.template.template.vars[20]",
+      "steps[0].run.flow.steps[20]",
     )[0].errorText,
     "",
   );
-});
-
-test("template validation paths thread through indexed child editors", () => {
-  const template = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateEditor.svelte",
-  );
-  const vars = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarsEditor.svelte",
-  );
-  const variable = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarEditor.svelte",
-  );
-  const steps = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepsEditor.svelte",
-  );
-  const step = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepEditor.svelte",
-  );
-  const prompt = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplatePromptEditor.svelte",
-  );
-  const runtime = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeEditor.svelte",
-  );
-
-  for (const source of [
-    template,
-    vars,
-    variable,
-    steps,
-    step,
-    prompt,
-    runtime,
-  ]) {
-    assert.match(source, /validationErrors/);
-    assert.match(source, /pathPrefix/);
-  }
-  assert.match(template, /pathPrefix=\{`\$\{pathPrefix\}\.template`\}/);
-  assert.match(template, /pathPrefix=\{`\$\{pathPrefix\}\.template\.vars`\}/);
-  assert.match(template, /pathPrefix=\{`\$\{pathPrefix\}\.template\.steps`\}/);
-  assert.match(template, /pathPrefix=\{`\$\{pathPrefix\}\.runtime`\}/);
-  assert.match(template, /<TxBlockTemplateRuntimeEditor/);
-  assert.doesNotMatch(template, /templateDisplay\.runtime\.present/);
-  assert.match(
-    vars,
-    /pathPrefix=\{`\$\{pathPrefix\}\[\$\{variableRow\.varIndex\}\]`\}/,
-  );
-  assert.match(
-    steps,
-    /pathPrefix=\{`\$\{pathPrefix\}\[\$\{templateStepRow\.stepIndex\}\]`\}/,
-  );
-  assert.match(
-    step,
-    /pathPrefix=\{`\$\{pathPrefix\}\.prompts\[\$\{promptRow\.promptIndex\}\]`\}/,
-  );
-  assert.match(prompt, /pathPrefix=\{`\$\{pathPrefix\}\.patterns`\}/);
-});
-
-test("template owning controls receive exact validation rows and alerts", () => {
-  const definition = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateDefinitionEditor.svelte",
-  );
-  const variable = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarEditor.svelte",
-  );
-  const step = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepEditor.svelte",
-  );
-  const patterns = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplatePromptPatternsEditor.svelte",
-  );
-  const runtimeVars = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeVarsEditor.svelte",
-  );
-
-  for (const source of [definition, variable, step]) {
-    assert.match(source, /txBlockFieldRowsWithValidation/);
-    assert.match(source, /fieldRows=\{validated/);
-  }
-  for (const source of [patterns, runtimeVars]) {
-    assert.match(source, /txBlockValidationErrorText/);
-    assert.match(source, /role="alert"/);
-    assert.match(source, /text-destructive/);
-  }
-  assert.match(runtimeVars, /`\$\{pathPrefix\}\.vars`/);
-  assert.match(patterns, /use:invalidPatternControl/);
-  assert.match(patterns, /setAttribute\("aria-invalid", "true"\)/);
-  assert.doesNotMatch(patterns, /role="group"/);
 });
 
 test("root inspector owns the empty steps validation alert", () => {
@@ -334,24 +187,21 @@ test("root inspector owns the empty steps validation alert", () => {
   assert.match(source, /text-destructive/);
 });
 
-test("template surfaces flatten definition and retain approved repeated rows", () => {
-  const definition = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateDefinitionEditor.svelte",
+test("shared command flow surfaces use the transaction visual language", () => {
+  const editor = read(
+    "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
   );
-  assert.doesNotMatch(definition, /rounded-(?:xl|lg)[^\n]*border/);
-  assert.doesNotMatch(definition, /(?:slate|gray)-/);
+  const steps = read(
+    "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
+  );
 
-  for (const path of [
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplatePromptEditor.svelte",
-  ]) {
-    const source = read(path);
-    assert.match(source, /rounded-lg/);
-    assert.match(source, /border-border/);
-    assert.match(source, /bg-muted\/20/);
-    assert.doesNotMatch(source, /(?:slate|gray)-/);
-  }
+  assert.match(editor, /CommandFlowSettings/);
+  assert.match(editor, /CommandFlowStepsEditor/);
+  assert.match(steps, /rounded-lg/);
+  assert.match(steps, /border-border/);
+  assert.match(steps, /bg-muted\/30/);
+  assert.doesNotMatch(editor, /(?:slate|gray)-/);
+  assert.doesNotMatch(steps, /(?:slate|gray)-/);
 });
 
 test("collapsible persistence reads each active key without initialization writes", () => {
@@ -401,23 +251,12 @@ test("Task 5 collapsibles and operation tabs have localized accessible labels", 
   const command = read(
     "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
   );
-  const template = read(
-    "frontend/src/pages/orchestrated/TxBlockTemplateEditor.svelte",
-  );
   const operation = read(
     "frontend/src/pages/orchestrated/TxBlockOperationEditor.svelte",
   );
 
   for (const labelKey of ["txBlockFormDynParams", "txBlockFormInteraction"]) {
     assert.match(command, new RegExp(`label=\\{t\\("${labelKey}"\\)\\}`));
-  }
-  for (const labelKey of [
-    "txBlockFormTemplateDefinition",
-    "txBlockFormTemplateVars",
-    "txBlockFormTemplateSteps",
-    "txBlockFormTemplateRuntime",
-  ]) {
-    assert.match(template, new RegExp(`label=\\{t\\("${labelKey}"\\)\\}`));
   }
   assert.match(operation, /<Tabs\.List[^>]*aria-label=\{title\}/);
 });

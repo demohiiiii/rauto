@@ -76,11 +76,12 @@ export function builtinFlowTemplatePanelDisplay({
   };
 }
 
-function flowVarAllowsEmpty(typeValue = "") {
-  return typeValue === "null" || typeValue === "json";
+function flowVarAllowsEmpty(field = {}) {
+  return !!field.allowEmpty || field.kind === "null";
 }
 
 function flowVarInputType(typeValue = "") {
+  if (typeValue === "secret") return "password";
   return typeValue === "number" ? "number" : "text";
 }
 
@@ -97,35 +98,65 @@ function flowVarTypeLabel(typeValue = "") {
   );
 }
 
-function flowVarRow(fieldName, fieldDraft = {}) {
-  const typeValue = safeString(fieldDraft.type || "string");
-  const optionValues = Array.isArray(fieldDraft.options)
-    ? fieldDraft.options
-    : [];
+function flowVarControlKind(typeValue = "", optionValues = []) {
+  if (flowVarHasOptions(optionValues)) return "options-select";
+  if (typeValue === "boolean") return "boolean-select";
+  if (typeValue === "json") return "json-editor";
+  return "input";
+}
+
+function flowVarRow(field = {}, value = "") {
+  const fieldName = safeString(field.name);
+  const typeValue = safeString(field.kind || "string");
+  const optionValues = Array.isArray(field.options) ? field.options : [];
+  const required = !!field.required;
   return {
-    allowsEmpty: flowVarAllowsEmpty(typeValue),
-    currentValue: fieldDraft.value ?? "",
-    fieldName: safeString(fieldName),
+    allowsEmpty: flowVarAllowsEmpty(field),
+    booleanValueOptions: ["true", "false"],
+    controlKind: flowVarControlKind(typeValue, optionValues),
+    descriptionText: safeString(field.description),
+    fieldName,
     hasOptions: flowVarHasOptions(optionValues),
+    hasDescription: !!safeString(field.description),
+    inputAriaLabel: safeString(field.label || fieldName),
+    inputContainerClass: "mt-2",
     inputType: flowVarInputType(typeValue),
+    labelText: safeString(field.label || fieldName),
     optionValues,
-    placeholder: safeString(fieldDraft.placeholder || ""),
-    required: !!fieldDraft.required,
-    typeLabel: flowVarTypeLabel(typeValue),
+    placeholderText: safeString(field.placeholder),
+    required,
+    requirementBadgeClass: required
+      ? "inline-flex items-center rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive"
+      : "inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground",
+    requirementLabelText: tr(
+      required ? "flowVarRequiredLabel" : "flowVarOptionalLabel",
+    ),
+    typeBadgeText: flowVarTypeLabel(typeValue),
     typeValue,
+    value,
   };
 }
 
 export function flowVarsPresentation(flowVarsState = {}) {
-  const draft = flowVarsState.draft || {};
-  const fieldNames = Array.isArray(flowVarsState.fieldNames)
-    ? flowVarsState.fieldNames
+  const fields = Array.isArray(flowVarsState.fields)
+    ? flowVarsState.fields
     : [];
-  const rows = fieldNames.map((fieldName) =>
-    flowVarRow(fieldName, draft[fieldName] || {}),
+  const values =
+    flowVarsState.values && typeof flowVarsState.values === "object"
+      ? flowVarsState.values
+      : {};
+  const fieldRows = fields.map((field) =>
+    flowVarRow(field, values[field.name] ?? ""),
   );
+  const errorMessage = safeString(flowVarsState.errorMessage);
   return {
-    emptyMessage: tr("flowVarsEmpty"),
-    rows,
+    countMetaText: String(fieldRows.length),
+    emptyText: tr("flowVarsFieldsEmpty"),
+    errorMessage,
+    errorStatus: statusPresentation(errorMessage, "error"),
+    fieldRows,
+    hasFields: fieldRows.length > 0,
+    hintText: safeString(flowVarsState.hintText),
+    titleText: tr("flowVarsFieldsTitle"),
   };
 }

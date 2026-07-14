@@ -206,15 +206,10 @@ test("transaction interaction record input select preserves true", () => {
 test("transaction block grids declare their event or raw value contract", () => {
   const txBlockEditorPaths = [
     "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
+    "frontend/src/components/command-flow/CommandFlowSettings.svelte",
     "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockRootSettingsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateDefinitionEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplatePromptResponseEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateRuntimeFieldsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockTemplateVarEditor.svelte",
   ];
 
   for (const path of txBlockEditorPaths) {

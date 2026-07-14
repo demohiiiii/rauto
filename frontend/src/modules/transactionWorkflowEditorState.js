@@ -103,12 +103,6 @@ const TX_WORKFLOW_VISUAL_EDITOR_COVERAGE = Object.freeze({
       "block.inline.operation.command.prompt",
       "block.inline.operation.flow",
       "block.inline.operation.flow.step",
-      "block.inline.operation.template",
-      "block.inline.operation.template.definition",
-      "block.inline.operation.template.var",
-      "block.inline.operation.template.step",
-      "block.inline.operation.template.prompt",
-      "block.inline.operation.template.runtime",
     ]),
   }),
 });

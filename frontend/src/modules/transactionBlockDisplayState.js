@@ -37,24 +37,13 @@ export function txBlockFieldRowsWithValidation(
   }));
 }
 
-export const TX_BLOCK_OPERATION_KIND_ROWS = Object.freeze([
-  "command",
-  "flow",
-  "template",
-]);
+export const TX_BLOCK_OPERATION_KIND_ROWS = Object.freeze(["command", "flow"]);
 export const TX_BLOCK_ROLLBACK_KIND_ROWS = Object.freeze([
   "none",
   "per_step",
   "whole_resource",
 ]);
 export const TX_BLOCK_BOOLEAN_ROWS = Object.freeze(["true", "false"]);
-export const TX_BLOCK_TEMPLATE_VAR_TYPE_ROWS = Object.freeze([
-  "string",
-  "secret",
-  "number",
-  "boolean",
-  "json",
-]);
 export const TX_BLOCK_JSON_VALUE_TYPE_ROWS = Object.freeze([
   "string",
   "number",
@@ -525,7 +514,6 @@ function txBlockLocalizedFallback(key, englishText, chineseText) {
 
 function txBlockOperationKindText(kind) {
   if (kind === "flow") return t("txBlockFormFlowSteps");
-  if (kind === "template") return t("txBlockFormTemplateDefinition");
   return t("txBlockFormCommand");
 }
 
@@ -535,16 +523,6 @@ function txBlockOperationSummaryText(operation = {}) {
       ? operation.flow.steps.length
       : 0;
     return `${t("txBlockFormFlowSteps")} · ${stepCount}`;
-  }
-  if (operation?.kind === "template") {
-    return (
-      txStringValue(operation.template?.template?.name).trim() ||
-      txBlockLocalizedFallback(
-        "txBlockTimelineUnnamedTemplate",
-        "Unnamed template",
-        "未命名模板",
-      )
-    );
   }
   return (
     txStringValue(operation?.command?.command).trim() ||

@@ -278,14 +278,8 @@ pub(crate) fn resolve_flow_runtime_vars(
     template: &CommandFlowTemplate,
     vars: Value,
     conn: &EffectiveConnection,
-    current_connection_alias: Option<&str>,
 ) -> Result<Value> {
-    resolve_command_flow_runtime_vars(
-        template,
-        vars,
-        Some(current_connection_param_context(conn)),
-        current_connection_alias,
-    )
+    resolve_command_flow_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
 }
 
 pub(crate) fn resolve_runtime_vars_for_connection(

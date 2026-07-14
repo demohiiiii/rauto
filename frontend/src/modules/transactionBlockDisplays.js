@@ -24,12 +24,10 @@ import {
   TX_BLOCK_JSON_VALUE_TYPE_ROWS,
   TX_BLOCK_OPERATION_KIND_ROWS,
   TX_BLOCK_ROLLBACK_KIND_ROWS,
-  TX_BLOCK_TEMPLATE_VAR_TYPE_ROWS,
   txBlockCommandInteractionDisplay,
   txBlockCommandDynParamsDisplay,
   txBlockCommandEditorDisplay,
   txBlockFlowFieldsDisplay,
-  txBlockFlowMetadataFieldRows,
   txBlockOperationFieldsDisplay,
   txBlockRollbackPolicyPanelDisplay,
   txBlockRootPanelDisplay,
@@ -59,12 +57,6 @@ const TX_BLOCK_VISUAL_EDITOR_COVERAGE = Object.freeze({
       "rollback_policy.whole_resource.rollback.command.prompt",
       "rollback_policy.whole_resource.rollback.flow",
       "rollback_policy.whole_resource.rollback.flow.step",
-      "rollback_policy.whole_resource.rollback.template",
-      "rollback_policy.whole_resource.rollback.template.definition",
-      "rollback_policy.whole_resource.rollback.template.var",
-      "rollback_policy.whole_resource.rollback.template.step",
-      "rollback_policy.whole_resource.rollback.template.prompt",
-      "rollback_policy.whole_resource.rollback.template.runtime",
     ]),
   }),
   steps: Object.freeze({
@@ -77,12 +69,6 @@ const TX_BLOCK_VISUAL_EDITOR_COVERAGE = Object.freeze({
       "step.operation.command.prompt",
       "step.operation.flow",
       "step.operation.flow.step",
-      "step.operation.template",
-      "step.operation.template.definition",
-      "step.operation.template.var",
-      "step.operation.template.step",
-      "step.operation.template.prompt",
-      "step.operation.template.runtime",
     ]),
   }),
 });
@@ -93,7 +79,6 @@ export function txBlockVisualEditorDisplay() {
     jsonValueTypeRows: TX_BLOCK_JSON_VALUE_TYPE_ROWS,
     operationKindRows: TX_BLOCK_OPERATION_KIND_ROWS,
     rollbackKindRows: TX_BLOCK_ROLLBACK_KIND_ROWS,
-    templateVarTypeRows: TX_BLOCK_TEMPLATE_VAR_TYPE_ROWS,
   };
 }
 
@@ -563,11 +548,6 @@ export function createTxBlockFlowEditorWorkspace({
         $pathPrefix,
       ),
   );
-  const flowMetadataFieldRowsStateStore = deriveStore(
-    [operationStateStore, currentLanguageState],
-    ([$operationStateStore]) =>
-      txBlockFlowMetadataFieldRows($operationStateStore),
-  );
   const flowStepRowsStateStore = deriveStore(
     [operationStateStore, currentLanguageState],
     ([$operationStateStore]) =>
@@ -583,7 +563,6 @@ export function createTxBlockFlowEditorWorkspace({
   return {
     flowActionHandlersStateStore,
     flowFieldRowsStateStore,
-    flowMetadataFieldRowsStateStore,
     flowStepRowsStateStore,
     setFlowEditorContext({
       booleanRows: nextBooleanRows = [],

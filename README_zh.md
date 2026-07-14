@@ -355,7 +355,7 @@ rauto flow-template delete cisco_like_copy
 ```bash
 rauto flow \
     --template cisco_like_copy \
-    --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret","overwrite_answer":"y"}' \
     --connection core-01
 ```
 
@@ -365,10 +365,10 @@ rauto flow \
 - 已保存的命令流程模板存放在 SQLite 中，CLI 和 Web 共用同一套模板。
 - 内置命令流程模板可通过 `/api/flow-templates/builtins` 获取；执行时支持 `builtin:<name>`（CLI `--template` 与 Web 下拉值都可用）。
 - 命令流程模板遵循 rneter 当前的 `{{var}}` 内联 `CommandFlowTemplate` 模型，并按线性步骤执行，通过 prompt 交互规则驱动多轮问答。
-- 命令流程模板现在可以声明 `vars` 列表，支持 `name`、`type`、`required`、`default`、`options`、`label`、`description` 等字段，便于运行时校验变量，也便于 Web 自动渲染输入表单。
+- 命令流程模板的输入字段会从 `{{var}}` 引用自动推导，并且必须在运行时提供。`{{peer.host}}` 这类点号引用会生成一个名为 `peer` 的根输入。
 - 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
 - 运行时变量支持两种引用：`连接名.参数名`（跨连接取值）与 `参数名`（先查请求变量，再回退当前目标连接参数）。
-- 命令流程模板支持顶层字段 `current_connection_alias = "<别名>"`。配置后可直接在模板里使用 `{{别名.host}}`、`{{别名.username}}`、`{{别名.password}}` 等，且不需要把这个别名写进 `[[vars]]`。
+- 当前执行目标可直接通过 `{{host}}`、`{{username}}`、`{{password}}` 等扁平字段访问，不再需要声明当前连接别名。
 - 连接别名变量支持“变量值指向连接名”的模式。例如 `peer=edge94` 后，可直接引用 `{{peer.host}}` / `{{peer.username}}` / `{{peer.password}}`。
 - 如果某个步骤没有显式写 `mode`，`rauto` 会使用设备 profile 定义的第一个状态。
 - 现在所有执行都会默认保存会话记录。

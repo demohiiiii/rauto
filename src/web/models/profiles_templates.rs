@@ -85,6 +85,7 @@ pub struct CommandFlowTemplateVarField {
     #[serde(rename = "type")]
     pub kind: String,
     pub required: bool,
+    pub allow_empty: bool,
     pub placeholder: Option<String>,
     pub options: Vec<String>,
     #[serde(rename = "default")]
@@ -96,6 +97,11 @@ pub struct CommandFlowTemplateDetail {
     pub name: String,
     pub content: String,
     pub vars_schema: Vec<CommandFlowTemplateVarField>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InspectCommandFlowTemplateRequest {
+    pub content: String,
 }
 
 #[derive(Debug, Deserialize)]

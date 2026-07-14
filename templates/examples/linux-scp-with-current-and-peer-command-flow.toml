@@ -1,27 +1,6 @@
 name = "linux_scp_with_current_and_peer"
-description = "SCP from current Linux target to another saved connection by alias."
-current_connection_alias = "current"
 stop_on_error = true
 default_mode = "User"
-
-[[vars]]
-name = "peer"
-label = "Target Connection Name"
-description = "Saved connection name (for example: edge94)."
-required = true
-placeholder = "edge94"
-
-[[vars]]
-name = "local_path"
-label = "Local File Path"
-required = true
-placeholder = "/tmp/app.tar"
-
-[[vars]]
-name = "remote_path"
-label = "Remote File Path"
-required = true
-placeholder = "/tmp/app.tar"
 
 [[steps]]
 timeout_secs = 900

@@ -235,18 +235,48 @@ function templateExecutionPayload({ connection, recordLevel }) {
   };
 }
 
-function commandFlowPayload({
-  builtinTemplateName,
+export function normalizeCommandFlowExecutionSource(source = {}) {
+  const kind = source?.kind === "temporary" ? "temporary" : "saved";
+  if (kind === "temporary") {
+    const content = String(source?.content ?? "");
+    if (!content.trim()) {
+      throw new Error(t("flowDraftContentRequired"));
+    }
+    return { content, kind };
+  }
+
+  const templateSelection = String(source?.templateSelection ?? "").trim();
+  if (!templateSelection) {
+    throw new Error(t("flowTemplateNameRequired"));
+  }
+  return {
+    builtinTemplateName: parseBuiltinFlowTemplateValue(templateSelection),
+    kind,
+    templateSelection,
+  };
+}
+
+export function commandFlowExecutionPayload({
   connection,
   recordLevel,
-  templateSelection,
+  source,
+  textfsm = {},
   vars,
 }) {
+  const normalizedSource = normalizeCommandFlowExecutionSource(source);
+  const sourcePayload =
+    normalizedSource.kind === "temporary"
+      ? { content: normalizedSource.content }
+      : {
+          template_name: normalizedSource.builtinTemplateName
+            ? null
+            : normalizedSource.templateSelection,
+          builtin_template_name: normalizedSource.builtinTemplateName,
+        };
   return {
-    template_name: builtinTemplateName ? null : templateSelection,
-    builtin_template_name: builtinTemplateName,
+    ...sourcePayload,
     vars,
-    ...textfsmPayload(),
+    ...textfsm,
     connection,
     record_level: recordLevel,
   };
@@ -302,28 +332,30 @@ export async function executeDirectCommand() {
   }
 }
 
-export async function executeCommandFlow() {
+export async function executeCommandFlow(executionSource = null) {
   if (!ensureConnectionTargetSelected()) {
     return;
   }
   setCommandFlowExecutionResult({ kind: "running" });
   try {
     const flowForm = standardFormFields("flow");
-    const templateSelection = safeString(
-      flowForm.templateSelection ?? "",
-    ).trim();
-    if (!templateSelection) {
-      throw new Error(t("flowTemplateNameRequired"));
+    const source = normalizeCommandFlowExecutionSource(
+      executionSource || {
+        kind: "saved",
+        templateSelection: flowForm.templateSelection,
+      },
+    );
+    if (source.kind === "saved") {
+      await ensureFlowRunTemplateDetail(source.templateSelection, {
+        silent: true,
+      });
     }
-    await ensureFlowRunTemplateDetail(templateSelection, { silent: true });
-    const builtinTemplateName =
-      parseBuiltinFlowTemplateValue(templateSelection);
     const flowResult = await executeCommandFlowRequest(
-      commandFlowPayload({
-        builtinTemplateName,
+      commandFlowExecutionPayload({
         connection: connectionPayload(),
         recordLevel: recordLevelPayload(),
-        templateSelection,
+        source,
+        textfsm: textfsmPayload(),
         vars: buildFlowVarsPayload(),
       }),
     );

@@ -237,6 +237,25 @@ export function executeCommandFlow(payload) {
   return apiRequest("POST", "/api/command-flow/execute", payload);
 }
 
+export function inspectCommandFlowTemplate(content) {
+  return apiRequest("POST", "/api/flow-templates/inspect", { content });
+}
+
+export function getCommandFlowTemplate(name, { builtin = false } = {}) {
+  return getTemplateResource(
+    builtin ? "/api/flow-templates/builtins" : "/api/flow-templates",
+    name,
+  );
+}
+
+export function createCommandFlowTemplate(name, content) {
+  return createTemplateResource("/api/flow-templates", name, content);
+}
+
+export function updateCommandFlowTemplate(name, content) {
+  return updateTemplateResource("/api/flow-templates", name, content);
+}
+
 export function executeUpload(payload) {
   return apiRequest("POST", "/api/upload", payload);
 }

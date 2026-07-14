@@ -39,7 +39,6 @@ export const flowVarsFieldState = writable({
   errorMessage: "",
   fields: [],
   hintText: tr("flowVarsFieldsHint"),
-  jsonOverridesText: "",
   values: {},
 });
 export const flowTemplateListState = writable({
@@ -190,6 +189,7 @@ function normalizeFlowTemplateVarSchema(flowVarSchemaItem) {
     description: safeString(flowVarSchemaItem.description).trim() || "",
     kind: kind || "string",
     required: !!flowVarSchemaItem.required,
+    allowEmpty: !!flowVarSchemaItem.allow_empty,
     placeholder: safeString(flowVarSchemaItem.placeholder).trim(),
     options: Array.isArray(flowVarSchemaItem.options)
       ? flowVarSchemaItem.options
@@ -254,13 +254,6 @@ export function setFlowVarDraftValue(name, fieldValue = "") {
   }));
 }
 
-export function setFlowVarsJsonOverridesText(jsonOverridesText = "") {
-  flowVarsFieldState.update((state) => ({
-    ...state,
-    jsonOverridesText: safeString(jsonOverridesText),
-  }));
-}
-
 export async function ensureFlowRunTemplateDetail(templateName, loadCfg = {}) {
   const name = safeString(templateName).trim();
   if (!name) {
@@ -322,9 +315,10 @@ function collectFlowTemplateFieldValues() {
 
     if (field.kind === "json") {
       if (isBlank) {
-        if (field.required && !hasDefault) {
+        if (field.required && !field.allowEmpty && !hasDefault) {
           throw new Error(flowVarRequiredMessage(field.label));
         }
+        if (field.allowEmpty) fieldValues[field.name] = "";
         continue;
       }
       try {
@@ -337,9 +331,10 @@ function collectFlowTemplateFieldValues() {
 
     if (field.kind === "boolean") {
       if (isBlank) {
-        if (field.required && !hasDefault) {
+        if (field.required && !field.allowEmpty && !hasDefault) {
           throw new Error(flowVarRequiredMessage(field.label));
         }
+        if (field.allowEmpty) fieldValues[field.name] = "";
         continue;
       }
       fieldValues[field.name] = raw === "true";
@@ -347,9 +342,10 @@ function collectFlowTemplateFieldValues() {
     }
 
     if (isBlank) {
-      if (field.required && !hasDefault) {
+      if (field.required && !field.allowEmpty && !hasDefault) {
         throw new Error(flowVarRequiredMessage(field.label));
       }
+      if (field.allowEmpty) fieldValues[field.name] = "";
       continue;
     }
 
@@ -367,28 +363,9 @@ function collectFlowTemplateFieldValues() {
   return fieldValues;
 }
 
-function parseFlowVarsJsonOverrides() {
-  const rawVars = safeString(
-    getStore(flowVarsFieldState).jsonOverridesText ?? "",
-  ).trim();
-  if (!rawVars) {
-    return {};
-  }
-  const parsed = JSON.parse(rawVars);
-  if (parsed == null) {
-    return {};
-  }
-  if (Array.isArray(parsed) || typeof parsed !== "object") {
-    throw new Error(tr("flowVarsObjectRequired"));
-  }
-  return parsed;
-}
-
 export function buildFlowVarsPayload() {
-  const overrideVars = parseFlowVarsJsonOverrides();
   const fieldVars = collectFlowTemplateFieldValues();
-  const merged = { ...overrideVars, ...fieldVars };
-  return Object.keys(merged).length ? merged : null;
+  return Object.keys(fieldVars).length ? fieldVars : null;
 }
 
 function setFlowTemplatePickerState(pickerState) {

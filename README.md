@@ -355,7 +355,7 @@ Execute a saved template with runtime variables:
 ```bash
 rauto flow \
     --template cisco_like_copy \
-    --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret"}' \
+    --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret","overwrite_answer":"y"}' \
     --connection core-01
 ```
 
@@ -365,10 +365,10 @@ Notes:
 - Saved flow templates live in SQLite and are reused by both CLI and Web.
 - Built-in flow templates are exposed via `/api/flow-templates/builtins`; execution accepts `--template builtin:<name>` (CLI) or `builtin:<name>` values in Web selectors.
 - Flow templates follow rneter's current inline `{{var}}` `CommandFlowTemplate` model and execute steps linearly with prompt-driven interactions.
-- Flow templates can declare a `vars` schema with `name`, `type`, `required`, `default`, `options`, `label`, and `description`, so `rauto` can validate runtime vars and render form fields in the Web UI.
 - Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
 - Runtime var references support both `connection_name.param_name` (cross-connection lookup) and plain `param_name` (request vars first, then current target connection fallback).
-- Command flow templates support `current_connection_alias = "<alias>"` at top level. This lets templates reference the selected execution target as `{{alias.host}}`, `{{alias.username}}`, `{{alias.password}}`, etc., without adding that alias to `[[vars]]`.
+- Command flow template inputs are inferred from `{{var}}` references and must be supplied at runtime. Dotted references such as `{{peer.host}}` produce one root input named `peer`.
+- The selected execution target is available through flat fields such as `{{host}}`, `{{username}}`, and `{{password}}`; no current-connection alias declaration is required.
 - For alias-to-connection usage, set one runtime var to a saved connection name (for example `peer=edge94`) and reference `{{peer.host}}`/`{{peer.username}}`/`{{peer.password}}` directly in the template.
 - If a step omits `mode`, `rauto` uses the first mode defined by the selected device profile.
 - Every execution records a session by default.

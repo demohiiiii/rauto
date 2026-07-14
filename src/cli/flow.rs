@@ -1,8 +1,9 @@
 use crate::cli::{CommandFlowArgs, CommandFlowTemplateCommands, UploadArgs};
 use crate::cli_exec::textfsm_template_for_index;
 use crate::config::command_flow_template::{
-    ParsedCommandFlowTemplate, build_command_flow_runtime, normalize_command_flow_template_body,
-    parse_command_flow_template_with_extensions, resolve_command_flow_runtime_default_mode,
+    CommandFlowTemplate, build_command_flow_runtime, cisco_like_copy_command_flow_template,
+    normalize_command_flow_template_body, parse_command_flow_template,
+    resolve_command_flow_runtime_default_mode,
 };
 use crate::config::{command_blacklist, content_store, template_loader, textfsm, textfsm_export};
 use crate::device::DeviceClient;
@@ -82,8 +83,7 @@ pub(crate) async fn run_command_flow(
     args: CommandFlowArgs,
     opts: &crate::cli::GlobalOpts,
 ) -> Result<()> {
-    let parsed_template = resolve_command_flow_template(&args)?;
-    let template = &parsed_template.template;
+    let template = resolve_command_flow_template(&args)?;
     let vars =
         crate::cli_tx_block::load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
     let conn =
@@ -93,12 +93,7 @@ pub(crate) async fn run_command_flow(
         conn.linux_shell_flavor,
     )?;
     let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
-    let runtime_vars = crate::resolve_flow_runtime_vars(
-        template,
-        vars,
-        &conn,
-        parsed_template.current_connection_alias.as_deref(),
-    )?;
+    let runtime_vars = crate::resolve_flow_runtime_vars(&template, vars, &conn)?;
     let runtime_default_mode = resolve_command_flow_runtime_default_mode(
         None,
         template.default_mode.as_deref(),
@@ -118,10 +113,6 @@ pub(crate) async fn run_command_flow(
 
     let flow = template.to_command_flow(&build_command_flow_runtime(
         runtime_default_mode,
-        conn.connection_name.as_deref(),
-        &conn.host,
-        &conn.username,
-        &conn.device_profile,
         runtime_vars,
     ))?;
 
@@ -354,16 +345,13 @@ fn parse_builtin_command_flow_template_token(raw: &str) -> Option<String> {
     (!normalized.is_empty()).then_some(normalized)
 }
 
-fn load_builtin_command_flow_template_form(name: &str) -> Result<ParsedCommandFlowTemplate> {
+fn load_builtin_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate> {
     let normalized = normalize_builtin_command_flow_template_name(name);
     match normalized.as_str() {
         BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY => {
-            let mut template = rneter::templates::cisco_like_copy_template();
+            let mut template = cisco_like_copy_command_flow_template()?;
             template.name = BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string();
-            Ok(ParsedCommandFlowTemplate {
-                template,
-                current_connection_alias: None,
-            })
+            Ok(template)
         }
         _ => Err(anyhow::anyhow!(
             "builtin command flow template '{}' not found",
@@ -372,14 +360,14 @@ fn load_builtin_command_flow_template_form(name: &str) -> Result<ParsedCommandFl
     }
 }
 
-fn load_command_flow_template_form(name: &str) -> Result<ParsedCommandFlowTemplate> {
+fn load_command_flow_template_form(name: &str) -> Result<CommandFlowTemplate> {
     if let Some(builtin_name) = parse_builtin_command_flow_template_token(name) {
         return load_builtin_command_flow_template_form(&builtin_name);
     }
     let safe_name = safe_command_flow_template_name(name)?;
     let stored = content_store::load_command_flow_template(&safe_name)?
         .ok_or_else(|| anyhow::anyhow!("command flow template '{}' not found", safe_name))?;
-    parse_command_flow_template_with_extensions(&stored.content, Some(&safe_name))
+    parse_command_flow_template(&stored.content, Some(&safe_name))
 }
 
 pub(crate) fn resolve_command_flow_template_from_sources(
@@ -389,7 +377,7 @@ pub(crate) fn resolve_command_flow_template_from_sources(
     inline_name: &str,
     template_flag: &str,
     file_flag: &str,
-) -> Result<ParsedCommandFlowTemplate> {
+) -> Result<CommandFlowTemplate> {
     match (
         template.map(str::trim).filter(|value| !value.is_empty()),
         file,
@@ -397,7 +385,7 @@ pub(crate) fn resolve_command_flow_template_from_sources(
         (Some(name), None) => load_command_flow_template_form(name),
         (None, Some(file)) => {
             let body = fs::read_to_string(file)?;
-            parse_command_flow_template_with_extensions(&body, Some(inline_name))
+            parse_command_flow_template(&body, Some(inline_name))
         }
         (Some(_), Some(_)) => Err(anyhow::anyhow!(
             "use either {template_flag} or {file_flag} for {context}, not both"
@@ -408,7 +396,7 @@ pub(crate) fn resolve_command_flow_template_from_sources(
     }
 }
 
-fn resolve_command_flow_template(args: &CommandFlowArgs) -> Result<ParsedCommandFlowTemplate> {
+fn resolve_command_flow_template(args: &CommandFlowArgs) -> Result<CommandFlowTemplate> {
     let inline_name = args
         .file
         .as_ref()

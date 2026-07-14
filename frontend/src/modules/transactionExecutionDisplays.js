@@ -485,9 +485,6 @@ function txOperationMode(operation) {
     const steps = Array.isArray(operation.steps) ? operation.steps : [];
     return transactionText(steps[0]?.mode).trim();
   }
-  if (operation.kind === "template") {
-    return transactionText(operation.runtime?.default_mode).trim();
-  }
   return "";
 }
 
@@ -516,12 +513,6 @@ function txOperationDescription(operation) {
     return first
       ? `${first} ... (${steps.length} steps)`
       : `${steps.length} steps`;
-  }
-  if (operation.kind === "template") {
-    const templateName = transactionText(operation.template?.name).trim();
-    const defaultMode = transactionText(operation.runtime?.default_mode).trim();
-    if (templateName && defaultMode) return `${templateName} (${defaultMode})`;
-    return templateName || "template";
   }
   return "";
 }

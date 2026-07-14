@@ -28,6 +28,26 @@ test("minimal transaction form serializes every supported backend field", () => 
   assert.deepEqual(json.steps[0].run.interaction, { prompts: [] });
 });
 
+test("rejects removed transaction template operations", () => {
+  assert.throws(
+    () =>
+      txBlockFormModelFromJson({
+        name: "removed-template-operation",
+        rollback_policy: "none",
+        steps: [
+          {
+            run: {
+              kind: "template",
+              template: { name: "legacy", steps: [] },
+              runtime: { vars: {} },
+            },
+          },
+        ],
+      }),
+    /unsupported transaction operation kind: template/,
+  );
+});
+
 const completeTxBlock = {
   name: "fixture-block",
   fail_fast: true,
@@ -116,65 +136,6 @@ const completeTxBlock = {
       rollback: null,
       rollback_on_failure: false,
     },
-    {
-      step_extension: "template-step",
-      run: {
-        kind: "template",
-        current_connection_alias: "primary",
-        operation_extension: "template-operation",
-        template: {
-          name: "interface-check",
-          description: "Inspect a selected interface",
-          stop_on_error: true,
-          default_mode: "Enable",
-          template_extension: { revision: 3 },
-          vars: [
-            {
-              name: "interface",
-              label: "Interface",
-              description: "Interface name",
-              type: "string",
-              required: true,
-              placeholder: "GigabitEthernet0/1",
-              options: ["GigabitEthernet0/1", "GigabitEthernet0/2"],
-              default: "GigabitEthernet0/1",
-              variable_extension: "inventory-backed",
-            },
-          ],
-          steps: [
-            {
-              command: "show interface {{interface}}",
-              mode: "Enable",
-              timeout_secs: 45,
-              template_step_extension: "inspect-interface",
-              prompts: [
-                {
-                  patterns: ["confirm"],
-                  response: "yes",
-                  append_newline: true,
-                  record_input: false,
-                  prompt_extension: { audit: true },
-                },
-              ],
-            },
-          ],
-        },
-        runtime: {
-          default_mode: "Enable",
-          connection_name: "edge-01",
-          host: "192.0.2.10",
-          username: "operator",
-          device_profile: "cisco_ios",
-          vars: {
-            interface: "GigabitEthernet0/2",
-            nested: { dry_run: true },
-          },
-          runtime_extension: ["ticket-123"],
-        },
-      },
-      rollback: null,
-      rollback_on_failure: false,
-    },
   ],
 };
 
@@ -196,14 +157,6 @@ test("normalizes complete transaction JSON and drops unsupported root fields", (
     false,
   );
   assert.equal(roundTripped.steps[1].run.flow_extension[0], "precheck");
-  assert.equal(
-    roundTripped.steps[2].run.template.template_extension.revision,
-    3,
-  );
-  assert.equal(
-    roundTripped.steps[2].run.runtime.runtime_extension[0],
-    "ticket-123",
-  );
 });
 
 test("drops unsupported transaction metadata and root fields", () => {
@@ -452,7 +405,7 @@ test("returns validation errors in stable execution order", () => {
   );
 });
 
-test("validates command, flow, template, and rollback execution invariants", () => {
+test("validates command, flow, and rollback execution invariants", () => {
   const commandModel = txBlockFormModelFromJson({
     name: "invalid-operations",
     rollback_policy: "per_step",
@@ -463,13 +416,6 @@ test("validates command, flow, template, and rollback execution invariants", () 
         rollback: {
           kind: "flow",
           steps: [{ mode: "Enable", command: "", timeout: 1.5 }],
-        },
-      },
-      {
-        run: {
-          kind: "template",
-          template: { name: "", vars: [{ name: "" }], steps: [] },
-          runtime: {},
         },
       },
     ],
@@ -496,18 +442,6 @@ test("validates command, flow, template, and rollback execution invariants", () 
       path: "steps[0].rollback.flow.steps[0].timeout",
       messageKey: "txBlockValidationNonNegativeInteger",
     },
-    {
-      path: "steps[1].run.template.template.name",
-      messageKey: "txBlockValidationTemplateName",
-    },
-    {
-      path: "steps[1].run.template.template.steps",
-      messageKey: "txBlockValidationTemplateSteps",
-    },
-    {
-      path: "steps[1].run.template.template.vars[0].name",
-      messageKey: "txBlockValidationVariableName",
-    },
   ]);
 
   assert.deepEqual(
@@ -523,7 +457,7 @@ test("validates command, flow, template, and rollback execution invariants", () 
   );
 });
 
-test("validates command and template prompt pattern lists", () => {
+test("validates command prompt pattern lists", () => {
   const invalid = structuredClone(completeTxBlock);
   invalid.steps = [
     {
@@ -532,22 +466,6 @@ test("validates command and template prompt pattern lists", () => {
         mode: "Enable",
         command: "copy running-config startup-config",
         interaction: { prompts: [{ patterns: [], response: "yes" }] },
-      },
-    },
-    {
-      run: {
-        kind: "template",
-        template: {
-          name: "prompt-template",
-          default_mode: "Enable",
-          steps: [
-            {
-              command: "write memory",
-              prompts: [{ patterns: [], response: "yes" }],
-            },
-          ],
-        },
-        runtime: {},
       },
     },
   ];
@@ -560,156 +478,8 @@ test("validates command and template prompt pattern lists", () => {
         path: "steps[0].run.command.interaction.prompts[0].patterns",
         messageKey: "txBlockValidationPromptPatterns",
       },
-      {
-        path: "steps[1].run.template.template.steps[0].prompts[0].patterns",
-        messageKey: "txBlockValidationPromptPatterns",
-      },
     ],
   );
-});
-
-test("requires a template step mode only when every fallback is blank", () => {
-  const templateBlock = (template, runtime = {}) =>
-    txBlockFormModelFromJson({
-      name: "template-modes",
-      rollback_policy: "none",
-      steps: [{ run: { kind: "template", template, runtime } }],
-      fail_fast: true,
-    });
-  const baseTemplate = {
-    name: "mode-template",
-    default_mode: " ",
-    steps: [{ command: "show version", mode: "  " }],
-  };
-
-  assert.deepEqual(
-    validateTxBlockFormModel(
-      templateBlock(baseTemplate, { default_mode: " " }),
-    ),
-    [
-      {
-        path: "steps[0].run.template.template.steps[0].mode",
-        messageKey: "txBlockValidationCommandMode",
-      },
-    ],
-  );
-  assert.deepEqual(
-    validateTxBlockFormModel(
-      templateBlock({
-        ...baseTemplate,
-        steps: [{ command: "show version", mode: "Enable" }],
-      }),
-    ),
-    [],
-  );
-  assert.deepEqual(
-    validateTxBlockFormModel(
-      templateBlock({ ...baseTemplate, default_mode: "Enable" }),
-    ),
-    [],
-  );
-  assert.deepEqual(
-    validateTxBlockFormModel(
-      templateBlock(baseTemplate, { default_mode: "Enable" }),
-    ),
-    [],
-  );
-});
-
-test("validates blank and duplicate template variable names in order", () => {
-  const model = txBlockFormModelFromJson({
-    name: "template-vars",
-    rollback_policy: "none",
-    steps: [
-      {
-        run: {
-          kind: "template",
-          template: {
-            name: "variable-template",
-            default_mode: "Enable",
-            vars: [{ name: "hostname" }, { name: "" }, { name: "hostname" }],
-            steps: [{ command: "show running-config" }],
-          },
-          runtime: {},
-        },
-      },
-    ],
-    fail_fast: true,
-  });
-
-  assert.deepEqual(validateTxBlockFormModel(model), [
-    {
-      path: "steps[0].run.template.template.vars[1].name",
-      messageKey: "txBlockValidationVariableName",
-    },
-    {
-      path: "steps[0].run.template.template.vars[2].name",
-      messageKey: "txBlockValidationDuplicateVariable",
-    },
-  ]);
-});
-
-test("rejects preserved non-object template runtime vars", () => {
-  const model = txBlockFormModelFromJson({
-    name: "runtime-vars",
-    rollback_policy: "none",
-    steps: [
-      {
-        run: {
-          kind: "template",
-          template: {
-            name: "runtime-template",
-            default_mode: "Enable",
-            steps: [{ command: "show version" }],
-          },
-          runtime: { vars: ["not", "an", "object"] },
-        },
-      },
-    ],
-    fail_fast: true,
-  });
-
-  assert.equal(Array.isArray(model.steps[0].run.template.runtime.vars), true);
-  assert.equal(model.steps[0].run.template.runtime.hasVars, true);
-  assert.deepEqual(validateTxBlockFormModel(model), [
-    {
-      path: "steps[0].run.template.runtime.vars",
-      messageKey: "txBlockValidationRuntimeVarsObject",
-    },
-  ]);
-
-  model.steps[0].run.template.runtime.vars = 42;
-  assert.deepEqual(validateTxBlockFormModel(model), [
-    {
-      path: "steps[0].run.template.runtime.vars",
-      messageKey: "txBlockValidationRuntimeVarsObject",
-    },
-  ]);
-});
-
-test("accepts null template runtime vars", () => {
-  const model = txBlockFormModelFromJson({
-    name: "nullable-runtime-vars",
-    rollback_policy: "none",
-    steps: [
-      {
-        run: {
-          kind: "template",
-          template: {
-            name: "runtime-template",
-            default_mode: "Enable",
-            steps: [{ command: "show version" }],
-          },
-          runtime: { vars: null },
-        },
-      },
-    ],
-    fail_fast: true,
-  });
-
-  assert.equal(model.steps[0].run.template.runtime.vars, null);
-  assert.equal(model.steps[0].run.template.runtime.hasVars, true);
-  assert.deepEqual(validateTxBlockFormModel(model), []);
 });
 
 test("validates flow max steps as an optional non-negative safe integer", () => {

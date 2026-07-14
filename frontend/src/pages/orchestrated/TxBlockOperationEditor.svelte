@@ -2,7 +2,6 @@
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import TxBlockCommandEditor from "./TxBlockCommandEditor.svelte";
   import TxBlockFlowEditor from "./TxBlockFlowEditor.svelte";
-  import TxBlockTemplateEditor from "./TxBlockTemplateEditor.svelte";
   import { t } from "../../lib/i18n.js";
   import { createTxBlockOperationEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
 
@@ -44,12 +43,9 @@
       onValueChange={operationActionHandlers.setKind}
       class="w-full"
     >
-      <Tabs.List class="grid w-full grid-cols-3" aria-label={title}>
+      <Tabs.List class="grid w-full grid-cols-2" aria-label={title}>
         <Tabs.Trigger value="command">{t("txBlockFormCommand")}</Tabs.Trigger>
         <Tabs.Trigger value="flow">{t("txBlockOperationKindFlow")}</Tabs.Trigger
-        >
-        <Tabs.Trigger value="template"
-          >{t("txBlockOperationKindTemplate")}</Tabs.Trigger
         >
       </Tabs.List>
     </Tabs.Root>
@@ -63,16 +59,6 @@
         pathPrefix={`${pathPrefix}.flow`}
         booleanRows={editorDisplay.booleanRows}
         jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
-      />
-    {:else if operation.kind === "template"}
-      <TxBlockTemplateEditor
-        {operation}
-        {onChange}
-        {validationErrors}
-        pathPrefix={`${pathPrefix}.template`}
-        booleanRows={editorDisplay.booleanRows}
-        jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
-        templateVarTypeRows={editorDisplay.templateVarTypeRows}
       />
     {:else}
       <TxBlockCommandEditor

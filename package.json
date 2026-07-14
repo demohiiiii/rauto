@@ -41,6 +41,7 @@
     "@codemirror/lang-json": "^6.0.2",
     "@fontsource-variable/geist": "^5.2.9",
     "codemirror": "^6.0.2",
+    "smol-toml": "^1.7.0",
     "svelte-codemirror-editor": "^2.1.0"
   }
 }

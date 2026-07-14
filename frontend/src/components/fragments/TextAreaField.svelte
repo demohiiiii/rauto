@@ -15,6 +15,7 @@
     value = "",
     onChange,
     onInput,
+    onValueInput,
   } = $props();
 </script>
 
@@ -39,6 +40,7 @@
       {value}
       {disabled}
       {onInput}
+      {onValueInput}
     />
   {/if}
   {#if hintText}

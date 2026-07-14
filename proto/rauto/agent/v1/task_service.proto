@@ -313,6 +313,7 @@ message CommandFlowTemplateVarField {
   optional string placeholder  = 6;
   repeated string options      = 7;
   optional string default_json = 8;
+  bool allow_empty = 9;
 }
 
 message CommandFlowTemplateDetail {

@@ -18,9 +18,6 @@ function operation(kind, value = "") {
       flow: { steps: [{ command: "show version" }, { command: "show clock" }] },
     };
   }
-  if (kind === "template") {
-    return { kind, template: { template: { name: value } } };
-  }
   return { kind: "command", command: { command: value } };
 }
 
@@ -147,8 +144,6 @@ test("timeline rows expose localized operation summaries and movement flags", as
     model([
       step("command", "show interfaces", operation("command", "undo")),
       step("flow"),
-      step("template", "saved-template"),
-      step("template", ""),
       step("command", ""),
     ]),
   );
@@ -174,22 +169,10 @@ test("timeline rows expose localized operation summaries and movement flags", as
         stepIndex: 1,
       },
       {
-        canMoveDown: true,
-        canMoveUp: true,
-        rollbackConfigured: false,
-        stepIndex: 2,
-      },
-      {
-        canMoveDown: true,
-        canMoveUp: true,
-        rollbackConfigured: false,
-        stepIndex: 3,
-      },
-      {
         canMoveDown: false,
         canMoveUp: true,
         rollbackConfigured: false,
-        stepIndex: 4,
+        stepIndex: 2,
       },
     ],
   );
@@ -198,9 +181,7 @@ test("timeline rows expose localized operation summaries and movement flags", as
   assert.equal(display.stepRows[0].summaryText, "show interfaces");
   assert.match(display.stepRows[1].summaryText, /Flow steps/);
   assert.match(display.stepRows[1].summaryText, /2/);
-  assert.equal(display.stepRows[2].summaryText, "saved-template");
-  assert.equal(display.stepRows[3].summaryText, "Unnamed template");
-  assert.equal(display.stepRows[4].summaryText, "Empty command");
+  assert.equal(display.stepRows[2].summaryText, "Empty command");
 });
 
 test("workspace selection follows add, duplicate, move, and delete actions", () => {
@@ -330,27 +311,26 @@ test("default empty workspace adds and selects its first step", () => {
 test("timeline selection and localized displays react to language changes", async () => {
   await loadI18nLanguage("en");
   const workspace = createTxBlockVisualEditorWorkspace({
-    model: model([step("flow"), step("template", ""), step("command", "")]),
+    model: model([step("flow"), step("command", "")]),
   });
 
   assert.deepEqual(
     get(workspace.timelineDisplayStateStore).stepRows.map(
       (row) => row.selected,
     ),
-    [true, false, false],
+    [true, false],
   );
   workspace.selectStep(1);
   assert.deepEqual(
     get(workspace.timelineDisplayStateStore).stepRows.map(
       (row) => row.selected,
     ),
-    [false, true, false],
+    [false, true],
   );
 
   const englishTimeline = get(workspace.timelineDisplayStateStore).stepRows;
   assert.match(englishTimeline[0].summaryText, /Flow steps/);
-  assert.equal(englishTimeline[1].summaryText, "Unnamed template");
-  assert.equal(englishTimeline[2].summaryText, "Empty command");
+  assert.equal(englishTimeline[1].summaryText, "Empty command");
 
   const english = get(workspace.editorSummaryStateStore).cellRows;
   assert.deepEqual(
@@ -359,14 +339,13 @@ test("timeline selection and localized displays react to language changes", asyn
   );
   assert.deepEqual(
     english.map((cell) => cell.valueText),
-    ["deploy edge", "per_step", "3", "Enabled"],
+    ["deploy edge", "per_step", "2", "Enabled"],
   );
 
   await loadI18nLanguage("zh");
   const chineseTimeline = get(workspace.timelineDisplayStateStore).stepRows;
   assert.match(chineseTimeline[0].summaryText, /命令流步骤/);
-  assert.equal(chineseTimeline[1].summaryText, "未命名模板");
-  assert.equal(chineseTimeline[2].summaryText, "空命令");
+  assert.equal(chineseTimeline[1].summaryText, "空命令");
 
   const chinese = get(workspace.editorSummaryStateStore).cellRows;
   assert.deepEqual(
@@ -375,7 +354,7 @@ test("timeline selection and localized displays react to language changes", asyn
   );
   assert.deepEqual(
     chinese.map((cell) => cell.valueText),
-    ["deploy edge", "per_step", "3", "已启用"],
+    ["deploy edge", "per_step", "2", "已启用"],
   );
   setCurrentLanguage("en");
 });

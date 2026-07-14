@@ -25,6 +25,82 @@ function orchestrationNonEmptyText(value) {
   return orchestrationStringValue(value).trim();
 }
 
+function orchestrationCommandFlowVarKind(value) {
+  if (typeof value === "boolean") return "boolean";
+  if (typeof value === "number") return "number";
+  if (value !== null && typeof value === "object") return "json";
+  return "string";
+}
+
+function orchestrationCommandFlowVarText(value, kind) {
+  if (kind === "json") {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch (_) {
+      return "";
+    }
+  }
+  return value == null ? "" : String(value);
+}
+
+export function orchestrationCommandFlowVarsPresentation(
+  flowVars = {},
+  errorMessage = "",
+  jsonDraftText = null,
+) {
+  const source = orchestrationPlainObject(flowVars) ? flowVars : {};
+  const fieldRows = Object.entries(source).map(([fieldName, value]) => {
+    const kind = orchestrationCommandFlowVarKind(value);
+    return {
+      allowsEmpty: true,
+      booleanValueOptions: ["true", "false"],
+      controlKind:
+        kind === "boolean"
+          ? "boolean-select"
+          : kind === "json"
+            ? "json-editor"
+            : "input",
+      descriptionText: "",
+      fieldName,
+      hasDescription: false,
+      inputAriaLabel: fieldName,
+      inputType: kind === "number" ? "number" : "text",
+      kind,
+      labelText: fieldName,
+      optionValues: [],
+      placeholderText: "",
+      requirementBadgeClass:
+        "inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground",
+      requirementLabelText: t("flowVarOptionalLabel"),
+      typeBadgeText: t(
+        `flowVarType${kind.replace(/^./u, (character) => character.toUpperCase())}`,
+      ),
+      value: orchestrationCommandFlowVarText(value, kind),
+    };
+  });
+  let jsonOverridesText = jsonDraftText;
+  if (typeof jsonOverridesText !== "string") {
+    try {
+      jsonOverridesText = JSON.stringify(source, null, 2);
+    } catch (_) {
+      jsonOverridesText = "{}";
+    }
+  }
+  return {
+    emptyText: t("flowVarsFieldsEmpty"),
+    errorMessage: orchestrationStringValue(errorMessage),
+    errorStatus: { tone: "error" },
+    fieldRows,
+    hasFields: fieldRows.length > 0,
+    hintText: t("flowVarsFieldsHint"),
+    jsonHintText: t("flowVarsJsonHint"),
+    jsonLabelText: t("orchestrationFormFlowVars"),
+    jsonOverridesText,
+    jsonPlaceholder: t("flowVarsPlaceholder"),
+    titleText: t("flowVarsFieldsTitle"),
+  };
+}
+
 function orchestrationTxBlockActionSourceValue(action = {}) {
   if (action.hasTxBlockTemplateName) {
     return "tx_block_template_name";
@@ -259,6 +335,8 @@ export function orchestrationTxBlockTemplateSourceDisplay(
 export function orchestrationTxBlockFlowSourceDisplay(
   txBlock = {},
   txBlockRows = {},
+  runtimeErrorMessage = "",
+  runtimeJsonDraftText = null,
 ) {
   const txBlockValue = orchestrationPlainObject(txBlock) ? txBlock : {};
   const nullableModeRows = orchestrationNullableModeRows();
@@ -304,6 +382,9 @@ export function orchestrationTxBlockFlowSourceDisplay(
             txBlockValue.flowTemplateContent ?? "",
           ),
         };
+  const flowVarsSource = orchestrationPlainObject(txBlockValue.flowVars)
+    ? txBlockValue.flowVars
+    : {};
   return {
     flowVarsField: {
       editorKind: "json-text",
@@ -312,9 +393,12 @@ export function orchestrationTxBlockFlowSourceDisplay(
       present:
         !!txBlockValue.hasFlowVars ||
         Object.keys(txBlockValue.flowVars || {}).length > 0,
-      source: orchestrationPlainObject(txBlockValue.flowVars)
-        ? txBlockValue.flowVars
-        : {},
+      runtimeDisplay: orchestrationCommandFlowVarsPresentation(
+        flowVarsSource,
+        runtimeErrorMessage,
+        runtimeJsonDraftText,
+      ),
+      source: flowVarsSource,
       valueText: orchestrationStringValue(txBlockRows.flowVarsText ?? "{}"),
     },
     primaryField,
@@ -336,10 +420,14 @@ export function orchestrationTxBlockFlowSourceDisplay(
 export function orchestrationTxBlockFlowSourcePanelDisplay(
   txBlock = {},
   txBlockRows = {},
+  runtimeErrorMessage = "",
+  runtimeJsonDraftText = null,
 ) {
   const sourceDisplay = orchestrationTxBlockFlowSourceDisplay(
     txBlock,
     txBlockRows,
+    runtimeErrorMessage,
+    runtimeJsonDraftText,
   );
   return {
     ...sourceDisplay,

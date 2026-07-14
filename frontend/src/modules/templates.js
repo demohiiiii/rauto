@@ -22,7 +22,6 @@ export {
   setFlowTemplateContent,
   setFlowTemplatePickerValue,
   setFlowVarDraftValue,
-  setFlowVarsJsonOverridesText,
   setRunFlowTemplateSelectValue,
   updateFlowTemplateVarFields,
   builtinFlowTemplateContentText,

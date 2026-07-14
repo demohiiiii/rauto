@@ -154,14 +154,13 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
             )?;
             let flow_runtime_default_mode = resolve_command_flow_runtime_default_mode(
                 mode_override.as_deref(),
-                flow_template.template.default_mode.as_deref(),
+                flow_template.default_mode.as_deref(),
                 &profile_default_mode,
             );
             let flow_effective_mode = flow_runtime_default_mode
                 .clone()
                 .or_else(|| {
                     flow_template
-                        .template
                         .default_mode
                         .as_deref()
                         .map(str::trim)
@@ -171,22 +170,12 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                 .unwrap_or_else(|| profile_default_mode.clone());
             let flow_vars =
                 load_vars_json_input(args.flow_vars.as_ref(), args.flow_vars_json.as_deref())?;
-            let flow_runtime_vars = crate::resolve_flow_runtime_vars(
-                &flow_template.template,
-                flow_vars,
-                &conn,
-                flow_template.current_connection_alias.as_deref(),
-            )?;
-            let mut flow = flow_template
-                .template
-                .to_command_flow(&build_command_flow_runtime(
-                    flow_runtime_default_mode,
-                    conn.connection_name.as_deref(),
-                    &conn.host,
-                    &conn.username,
-                    &conn.device_profile,
-                    flow_runtime_vars,
-                ))?;
+            let flow_runtime_vars =
+                crate::resolve_flow_runtime_vars(&flow_template, flow_vars, &conn)?;
+            let mut flow = flow_template.to_command_flow(&build_command_flow_runtime(
+                flow_runtime_default_mode,
+                flow_runtime_vars,
+            ))?;
             if let Some(timeout_secs) = args.timeout_secs {
                 for step in &mut flow.steps {
                     step.timeout = Some(timeout_secs);
@@ -217,30 +206,20 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                         )?;
                     let rollback_runtime_default_mode = resolve_command_flow_runtime_default_mode(
                         mode_override.as_deref(),
-                        rollback_template.template.default_mode.as_deref(),
+                        rollback_template.default_mode.as_deref(),
                         &profile_default_mode,
                     );
                     let rollback_vars = load_vars_json_input(
                         args.rollback_flow_vars.as_ref(),
                         args.rollback_flow_vars_json.as_deref(),
                     )?;
-                    let rollback_runtime_vars = crate::resolve_flow_runtime_vars(
-                        &rollback_template.template,
-                        rollback_vars,
-                        &conn,
-                        rollback_template.current_connection_alias.as_deref(),
-                    )?;
+                    let rollback_runtime_vars =
+                        crate::resolve_flow_runtime_vars(&rollback_template, rollback_vars, &conn)?;
                     let mut rollback_flow =
-                        rollback_template
-                            .template
-                            .to_command_flow(&build_command_flow_runtime(
-                                rollback_runtime_default_mode,
-                                conn.connection_name.as_deref(),
-                                &conn.host,
-                                &conn.username,
-                                &conn.device_profile,
-                                rollback_runtime_vars,
-                            ))?;
+                        rollback_template.to_command_flow(&build_command_flow_runtime(
+                            rollback_runtime_default_mode,
+                            rollback_runtime_vars,
+                        ))?;
                     if let Some(timeout_secs) = args.timeout_secs {
                         for step in &mut rollback_flow.steps {
                             step.timeout = Some(timeout_secs);

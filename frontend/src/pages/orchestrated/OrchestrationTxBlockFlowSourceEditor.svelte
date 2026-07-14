@@ -1,5 +1,8 @@
 <script>
-  import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
+  import {
+    CommandFlowRuntimeFields,
+    CommandFlowTemplateSource,
+  } from "../../components/command-flow/index.js";
   import PlainTextAreaField from "../../components/fragments/PlainTextAreaField.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
@@ -30,74 +33,75 @@
   });
 </script>
 
-<OrchestrationTxBlockExecutionSettings
-  {txBlock}
-  on-mode-input={sourceBindings.setMode}
-  on-timeout-input={sourceBindings.setTimeoutSecs}
-  on-resource-rollback-input={sourceBindings.setResourceRollbackCommand}
-  on-rollback-on-failure-change={sourceBindings.setRollbackOnFailure}
-  on-rollback-trigger-input={sourceBindings.setRollbackTriggerStepIndex}
-  on-set-field-presence={sourceBindings.fieldPresenceChange}
-/>
-
-{#if sourceDisplay.showInputField}
-  <PresenceFieldGrid
-    fieldRows={[sourceDisplay.primaryField]}
-    hostClass="contents"
-    onValueChange={sourceActionHandlers.sourceInputHandler(
-      sourceDisplay.primaryFieldHandlerKey,
-    )}
-    onNullableModeChange={sourceActionHandlers.nullableModeHandler(
-      sourceDisplay.primaryField.fieldKey,
-    )}
-    onPresenceChange={sourceActionHandlers.fieldToggleHandler(
-      sourceDisplay.primaryField.fieldKey,
-    )}
-  />
-{:else if sourceDisplay.showTextAreaField}
-  <label class="flex flex-col gap-2 md:col-span-2">
-    <div class="mb-1 flex items-center justify-between gap-3">
-      <span class="text-sm font-medium text-foreground">
-        {sourceDisplay.primaryField.labelText}
-      </span>
-      <PresenceToggle
-        checked={sourceDisplay.primaryField.enabled}
-        onCheckedChange={sourceActionHandlers.fieldToggleHandler(
+<div class="grid gap-5 md:col-span-2">
+  <CommandFlowTemplateSource
+    title={t("flowTemplateSourceTitle")}
+    description={t("flowTemplateSourceHint")}
+  >
+    {#if sourceDisplay.showInputField}
+      <PresenceFieldGrid
+        fieldRows={[sourceDisplay.primaryField]}
+        hostClass="contents"
+        onValueChange={sourceActionHandlers.sourceInputHandler(
+          sourceDisplay.primaryFieldHandlerKey,
+        )}
+        onNullableModeChange={sourceActionHandlers.nullableModeHandler(
+          sourceDisplay.primaryField.fieldKey,
+        )}
+        onPresenceChange={sourceActionHandlers.fieldToggleHandler(
           sourceDisplay.primaryField.fieldKey,
         )}
       />
-    </div>
-    <PlainTextAreaField
-      class="min-h-28 font-mono text-sm"
-      value={sourceDisplay.primaryField.valueText}
-      onValueInput={sourceActionHandlers.sourceInputHandler(
-        sourceDisplay.primaryFieldHandlerKey,
-      )}
-      disabled={!sourceDisplay.primaryField.enabled}
-    />
-  </label>
-{/if}
+    {:else if sourceDisplay.showTextAreaField}
+      <label class="flex flex-col gap-2">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-sm font-medium text-foreground">
+            {sourceDisplay.primaryField.labelText}
+          </span>
+          <PresenceToggle
+            checked={sourceDisplay.primaryField.enabled}
+            onCheckedChange={sourceActionHandlers.fieldToggleHandler(
+              sourceDisplay.primaryField.fieldKey,
+            )}
+          />
+        </div>
+        <PlainTextAreaField
+          class="min-h-36 font-mono text-sm"
+          value={sourceDisplay.primaryField.valueText}
+          onValueInput={sourceActionHandlers.sourceInputHandler(
+            sourceDisplay.primaryFieldHandlerKey,
+          )}
+          disabled={!sourceDisplay.primaryField.enabled}
+        />
+      </label>
+    {/if}
+  </CommandFlowTemplateSource>
 
-<div class="flex flex-col gap-2 md:col-span-2">
-  <div class="mb-1 flex items-center justify-between gap-3">
-    <span class="text-sm font-medium text-foreground">
-      {sourceDisplay.flowVarsField.labelText}
-    </span>
-    <PresenceToggle
-      checked={sourceDisplay.flowVarsField.present}
-      onCheckedChange={sourceActionHandlers.objectToggleHandler(
-        sourceDisplay.flowVarsField.fieldKey,
-      )}
-    />
-  </div>
-  {#if sourceDisplay.flowVarsField.present}
-    <JsonObjectFieldsEditor
-      title={sourceDisplay.flowVarsField.labelText}
-      source={sourceDisplay.flowVarsField.source}
-      typeRows={visualDisplay.jsonValueTypeRows}
-      onChange={sourceActionHandlers.flowVarsChangeHandler()}
-    />
-  {/if}
+  <CommandFlowRuntimeFields
+    display={sourceDisplay.flowVarsField.runtimeDisplay}
+    onFieldValueChange={sourceActionHandlers.flowVarValueHandler}
+    onJsonOverridesChange={sourceActionHandlers.flowVarsJsonHandler}
+    showJsonOverrides={true}
+  >
+    {#snippet actions()}
+      <PresenceToggle
+        checked={sourceDisplay.flowVarsField.present}
+        onCheckedChange={sourceActionHandlers.objectToggleHandler(
+          sourceDisplay.flowVarsField.fieldKey,
+        )}
+      />
+    {/snippet}
+  </CommandFlowRuntimeFields>
+
+  <OrchestrationTxBlockExecutionSettings
+    {txBlock}
+    on-mode-input={sourceBindings.setMode}
+    on-timeout-input={sourceBindings.setTimeoutSecs}
+    on-resource-rollback-input={sourceBindings.setResourceRollbackCommand}
+    on-rollback-on-failure-change={sourceBindings.setRollbackOnFailure}
+    on-rollback-trigger-input={sourceBindings.setRollbackTriggerStepIndex}
+    on-set-field-presence={sourceBindings.fieldPresenceChange}
+  />
 </div>
 
 <div class="md:col-span-2">

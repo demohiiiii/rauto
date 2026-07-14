@@ -362,6 +362,7 @@ pub(super) fn map_command_flow_template_detail(
                     description: field.description,
                     kind: field.kind,
                     required: field.required,
+                    allow_empty: field.allow_empty,
                     placeholder: field.placeholder,
                     options: field.options,
                     default_json: encode_json_value(field.default_value)?,
