@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Operate rauto end-to-end for the user through CLI/Web/Agent: prefer show objects for reading device state/config, prefer rollback-aware tx/tx-workflow/orchestrate for config changes, run direct commands/templates/command-flow only when appropriate, manage saved connections/device profiles/autodetect/inventory/templates/TextFSM/show objects/history, export parsed TextFSM results, run replay/backup/restore/upload, and start or troubleshoot web/agent services. Trigger when the user asks to directly perform or validate rauto operations instead of only explaining them."
+description: "Operate, author, validate, and troubleshoot rauto through its CLI. Prefer show objects for device reads; use rollback-aware tx, tx-workflow, or orchestrate for configuration changes; handle command templates, command flows, multiline structured commands, connections, profiles, inventory, TextFSM, history, replay, backup, upload, local Web workbench startup, and managed-agent startup. Use when Codex needs to run rauto commands, start its services, build valid plans/templates, or diagnose CLI/runtime behavior."
 ---
 
 # Rauto Usage
@@ -12,11 +12,11 @@ Avoid tutorial-only responses when execution can be done in-session.
 
 Apply action-first behavior:
 
-1. Classify request as read-only, config-changing, or service startup.
-2. For device state/config retrieval, prefer `rauto show <object>` or Web **Show/查询** before raw `exec`.
+1. Classify request as read-only, config-changing, local Web startup, or managed-agent startup.
+2. For device state/config retrieval, prefer `rauto show <object>` before raw `exec`.
 3. Execute safe read-only operations immediately.
 4. Prefer rollback-aware flows (`tx`, `tx-workflow`, `orchestrate`) for config changes.
-5. Start services directly when user asks for `web` or `agent`.
+5. Start local Web or managed-agent mode directly when the user asks for `rauto web` or `rauto agent`.
 6. Ask confirmation before running destructive or ambiguous change operations.
 7. Return concise result summary with the exact command used.
 
@@ -28,9 +28,9 @@ Apply action-first behavior:
    - use `rauto show <object>` for supported reads such as `version`, `interfaces`, `route`, `arp`, `vlan`, `mac`, `lldp`, `access-list`, and platform-specific objects
    - use multi-target show for saved connections, groups, and labels
    - fall back to `exec` only when no show object or custom show object fits.
-3. Execute `rauto web` / `rauto agent` immediately when startup is explicitly requested.
+3. Execute `rauto web` or `rauto agent` immediately when the corresponding service startup is explicitly requested. Keep the Web service on its loopback default unless network access is requested explicitly.
 4. Use transaction-family execution with the correct entrypoint (high priority):
-   - `tx`: CLI parameter-driven transaction construction, plus tx-block JSON authoring for Web/API/template flows
+   - `tx`: CLI parameter-driven transaction construction
    - `tx-workflow`: workflow JSON
    - `orchestrate`: multi-device plan JSON
 5. Treat command-flow as the reusable interactive path:
@@ -47,11 +47,16 @@ Apply action-first behavior:
    - do not force `Enable`
    - let profile default apply when mode is omitted
    - if mode invalid, return default and available modes.
+   - do not classify parenthesized Cisco-like prompts as Enable; current rneter templates reserve them for Config/submodes.
 9. Keep TextFSM behavior current:
    - `show` parses with TextFSM by default unless `--no-parse`
    - `exec/template/flow` parse only when requested, when a template is supplied, or when Excel export needs parsed rows
    - default parsing filters TextFSM fallback Error rules such as `^. -> Error`; use strict mode only when user asks to preserve template errors.
 10. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
+11. Keep multiline behavior explicit where the model supports it:
+   - `split_lines`: execute non-empty trimmed lines separately and stop after the first failed command
+   - `whole`: preserve and submit the full text once
+   - legacy missing values normalize to `split_lines`.
 
 ## Preferred Execution Matrix
 
@@ -62,7 +67,7 @@ Apply action-first behavior:
 - Changing config on one target: `tx`.
 - Changing config through reusable multi-block workflow: `tx-workflow`.
 - Changing config across devices/groups/sites: `orchestrate`.
-- Querying many saved devices/groups/labels: multi-target `show`; use Web batch show for multiple objects in one request.
+- Querying many saved devices/groups/labels: multi-target `show`.
 
 ## Tx / Workflow / Orchestration Authoring Protocol
 
@@ -74,6 +79,7 @@ When user asks to create JSON plans, always follow:
    - This validator is CLI-backed and calls `rauto ... --dry-run` internally.
 4. If validation has errors, fix JSON and rerun validation.
 5. For risky changes, suggest native dry-run before real execution when the chosen entrypoint supports it.
+6. Use only transaction operation kinds `command` and `flow`; do not generate retired `kind: "template"` or `kind: "command_flow"` operations.
 
 Validation command:
 
@@ -110,6 +116,8 @@ Ask only for missing mandatory fields:
   require an object unless the user asks to list/discover objects; require a saved target, group, label, or complete connection for execution.
 - `agent`:
   require `manager_url` and `agent_name`.
+- `web`:
+  has no mandatory connection input; `rauto web` starts on `127.0.0.1:3000`, and connection flags only preconfigure the workbench.
 - `replay`:
   require record file path (or inline JSONL when API path supports it).
 - `history`:
@@ -132,6 +140,5 @@ Report executed operations with:
 - JSON failure-to-fix cookbook: `references/json-common-errors.md`
 - Scenario-driven tx/workflow/orchestration patterns: `references/tx-orchestration-use-cases.md`
 - Command-flow template model and runtime vars: `references/flow-templates.md`
-- Web UI operation map (current dashboard layout): `references/web-runbook.md`
 - Agent mode + manager integration pointers: `references/agent-runbook.md`
 - Troubleshooting and recovery checklist: `references/troubleshooting.md`

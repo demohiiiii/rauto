@@ -5,9 +5,34 @@ Use this file when executing `rauto` commands directly for users.
 ## Service Startup
 
 ```bash
-rauto web --bind 127.0.0.1 --port 3000
+rauto web
+rauto web --bind 127.0.0.1 --port 3000 --connection core-01
 rauto agent --bind 0.0.0.0 --port 3000 --manager-url http://manager:3000 --agent-name edge-sh-01 --report-mode grpc
 ```
+
+### Local Web Workbench
+
+`rauto web` starts the local browser workbench. It does not require a device connection at startup. The defaults are `127.0.0.1:3000`; open `http://127.0.0.1:3000` after startup. The service remains in the foreground, so keep its process/session running.
+
+| Option | Meaning |
+| --- | --- |
+| `--bind <ADDRESS>` | Web server listen address; defaults to `127.0.0.1`. |
+| `--port <PORT>` | Web server listen port; defaults to `3000`. |
+| `-c, --connection <NAME>` | Preload a saved connection as the workbench default target. |
+| `-H, --host <HOST>` | Preconfigure a device hostname or IP address. |
+| `-u, --username <USERNAME>` | Preconfigure the SSH username. |
+| `-p, --password <PASSWORD>` | Preconfigure the SSH password; prefer a saved connection to avoid exposing secrets in shell history. |
+| `-e, --enable-password <PASSWORD>` | Preconfigure the privilege escalation password. |
+| `-d, --device-profile <PROFILE>` | Preselect a device profile; omit it to use autodetection. |
+| `--ssh-security <PROFILE>` | Set `secure`, `balanced`, or `legacy-compatible` SSH compatibility. |
+| `--linux-shell-flavor <FLAVOR>` | Set Linux exit-code capture behavior to `posix` or `fish`. |
+| `--force-autodetect` | Ignore the cached profile, probe the target again, and refresh the cache. |
+| `-S, --save-connection <NAME>` | Save the effective connection under this name after a successful connection. |
+| `--template-dir <DIR>` | Deprecated; do not recommend it because templates and custom profiles are stored in SQLite. |
+
+Keep `--bind 127.0.0.1` for local-only use. Use `--bind 0.0.0.0` only when the user explicitly needs network access, and warn that it exposes the service on available network interfaces.
+
+Connection options are optional startup defaults. Use either `--connection <NAME>` or inline host credentials; when both are supplied, explicit inline fields override the corresponding saved values. Prefer a saved connection when credentials already exist.
 
 ## Connection and Profile Operations
 
@@ -37,8 +62,16 @@ rauto template show_ver.j2 --connection core-01 --vars-json '{"vlan":100}'
 ```
 
 Use raw `exec` for one-off harmless commands or when no show object exists.
+Keep `exec` and stored `template` distinct: use `exec` for literal command text and `template` for a saved command template plus vars.
 For device state/config retrieval, prefer `rauto show`.
 For config changes, prefer `tx`, `tx-workflow`, or `orchestrate`.
+
+Command-flow TOML and transaction JSON support `multiline_mode`:
+
+- `split_lines`: execute non-empty trimmed lines independently and stop on the first failed command.
+- `whole`: preserve the original newlines and submit the text once.
+
+Do not invent a CLI `exec --multiline-mode` option; use a structured flow/transaction model when explicit multiline behavior is required.
 
 ## Show Queries
 
@@ -83,6 +116,8 @@ rauto flow-template show cisco_like_copy
 rauto flow --template builtin:cisco_like_copy --connection core-01 --vars-json '{"command":"copy scp: flash:/new.bin"}'
 ```
 
+`rauto` owns command-flow parsing and rendering. rneter executes the resulting concrete flow but no longer owns a command-flow-template model.
+
 ## Transaction Family (JSON)
 
 ```bash
@@ -91,7 +126,7 @@ rauto tx-workflow ./tx-workflow.json --connection edge92 --dry-run
 rauto orchestrate ./orchestration.json --dry-run
 ```
 
-`tx` is parameter-driven from CLI. Use tx-block JSON for Web/API payloads and saved template flows.
+`tx` is parameter-driven from CLI. Use tx-block JSON as an authoring unit inside workflow/orchestration templates and validate it with the bundled validator.
 Use transaction-family commands for config-changing work instead of direct `exec`/`template` whenever a rollback or staged plan is practical.
 For multi-device changes, use `orchestrate`; for reusable single-target change plans, use `tx-workflow`; for one target/one transactional unit, use `tx`.
 

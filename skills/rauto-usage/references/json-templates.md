@@ -2,7 +2,7 @@
 
 Use this guide when creating runnable JSON for:
 
-- Web/API tx-block execution payloads
+- reusable tx-block authoring units embedded in workflows or orchestration
 - `rauto tx-workflow <workflow-file>`
 - `rauto orchestrate <plan-file>`
 - saved JSON templates executed with `--template`
@@ -15,7 +15,7 @@ Use this guide when creating runnable JSON for:
 4. Validate before execution using `scripts/validate_json_plans.py`.
 5. Run native CLI dry-run first for `tx-workflow` / `orchestrate` when available.
 
-Use this JSON family for config-changing work. For read-only state/config retrieval, prefer `rauto show` or Web **Show/查询** instead of authoring a transaction solely to run show commands.
+Use this JSON family for config-changing work. For read-only state/config retrieval, prefer `rauto show` instead of authoring a transaction solely to run show commands.
 When a config change benefits from prechecks, add `show`-equivalent read commands as precheck steps before the change block or run `rauto show` separately first.
 
 ## 1) Tx Block JSON
@@ -24,9 +24,11 @@ Tx block JSON is a single `TxBlock` object, not a wrapper.
 
 Notes:
 
-- This shape is used directly by Web/API execution and template rendering.
+- This shape is used for tx-block template rendering and as an inline unit in larger JSON plans.
 - Current CLI `rauto tx` is still parameter-driven, not `rauto tx <file>`.
 - The bundled validator checks tx-block JSON by wrapping it into a temporary one-block workflow and delegating validation to `rauto tx-workflow --dry-run`.
+- Use only operation kinds `command` and `flow`; do not create a `kind: "template"` operation.
+- Write `multiline_mode` explicitly for commands, rollback commands, and flow steps. Use `split_lines` unless the complete text must be submitted once.
 
 ### 1.1 Basic command operation (recommended baseline)
 
@@ -41,6 +43,7 @@ Notes:
         "kind": "command",
         "mode": "User",
         "command": "docker load -i /tmp/app.tar",
+        "multiline_mode": "split_lines",
         "timeout": 900
       },
       "rollback": null,
@@ -51,12 +54,14 @@ Notes:
         "kind": "command",
         "mode": "User",
         "command": "cd /srv/app && docker compose down && docker compose up -d",
+        "multiline_mode": "split_lines",
         "timeout": 900
       },
       "rollback": {
         "kind": "command",
         "mode": "User",
         "command": "cd /srv/app && docker compose up -d",
+        "multiline_mode": "split_lines",
         "timeout": 900
       },
       "rollback_on_failure": true
@@ -82,6 +87,7 @@ Use this when one step itself is multi-command interactive logic.
           {
             "mode": "Enable",
             "command": "copy scp: flash:/new.bin",
+            "multiline_mode": "split_lines",
             "timeout": 300,
             "interaction": {
               "prompts": [
