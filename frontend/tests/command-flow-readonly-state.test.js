@@ -13,6 +13,7 @@ test("command flow read-only presentation covers settings, steps, and prompts", 
       steps: [
         {
           command: "copy running-config {{target}}",
+          multilineMode: "whole",
           hasMode: false,
           hasTimeoutSecs: true,
           mode: null,
@@ -42,6 +43,14 @@ test("command flow read-only presentation covers settings, steps, and prompts", 
   );
   assert.equal(display.stepRows[0].modeText, "commandFlowReadonlyInherited");
   assert.equal(display.stepRows[0].timeoutText, "45s");
+  assert.equal(
+    display.stepRows[0].multilineModeLabelText,
+    "commandMultilineMode",
+  );
+  assert.equal(
+    display.stepRows[0].multilineModeText,
+    "commandMultilineModeWhole",
+  );
   assert.deepEqual(display.stepRows[0].promptRows[0].patternRows, [
     "Destination filename",
     "Overwrite",

@@ -25,6 +25,12 @@ function stepPresentation(step = {}, stepIndex = 0, translate = t) {
   return {
     commandLabelText: translate("txBlockFormCommand"),
     commandText: textValue(step.command),
+    multilineModeLabelText: translate("commandMultilineMode"),
+    multilineModeText: translate(
+      step.multilineMode === "whole"
+        ? "commandMultilineModeWhole"
+        : "commandMultilineModeSplitLines",
+    ),
     modeLabelText: translate("txBlockFormMode"),
     modeText: step.hasMode ? textValue(step.mode) || "-" : inheritedText,
     promptRows: Array.isArray(step.prompts)

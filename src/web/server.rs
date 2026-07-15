@@ -24,16 +24,16 @@ use crate::web::handlers::{
     get_inventory_group, get_inventory_label, get_orchestration_template, get_profile_modes,
     get_task_run_detail, get_template, get_textfsm_template, get_tx_block_template,
     get_tx_workflow_template, health, import_connections, inspect_command_flow_template,
-    list_backups, list_blacklist_patterns, list_builtin_command_flow_templates,
-    list_command_flow_templates, list_connections, list_custom_show_objects, list_inventory_groups,
-    list_inventory_labels, list_orchestration_templates, list_profiles, list_show_objects,
-    list_task_runs, list_templates, list_textfsm_mappings, list_textfsm_templates,
-    list_tx_block_templates, list_tx_workflow_templates, profiles_overview, render_template,
-    replay_session, restore_backup, test_connection, update_command_flow_template,
-    update_orchestration_template, update_template, update_textfsm_template,
-    update_tx_block_template, update_tx_workflow_template, upsert_connection,
-    upsert_custom_profile_form, upsert_custom_show_object, upsert_inventory_group,
-    upsert_inventory_label, upsert_textfsm_mapping,
+    inspect_command_template, list_backups, list_blacklist_patterns,
+    list_builtin_command_flow_templates, list_command_flow_templates, list_connections,
+    list_custom_show_objects, list_inventory_groups, list_inventory_labels,
+    list_orchestration_templates, list_profiles, list_show_objects, list_task_runs, list_templates,
+    list_textfsm_mappings, list_textfsm_templates, list_tx_block_templates,
+    list_tx_workflow_templates, profiles_overview, render_template, replay_session, restore_backup,
+    test_connection, update_command_flow_template, update_orchestration_template, update_template,
+    update_textfsm_template, update_tx_block_template, update_tx_workflow_template,
+    upsert_connection, upsert_custom_profile_form, upsert_custom_show_object,
+    upsert_inventory_group, upsert_inventory_label, upsert_textfsm_mapping,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -270,6 +270,7 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/orchestrate", post(execute_orchestration))
         .route("/api/replay", post(replay_session))
         .route("/api/templates", get(list_templates).post(create_template))
+        .route("/api/templates/inspect", post(inspect_command_template))
         .route(
             "/api/templates/{name}",
             get(get_template)

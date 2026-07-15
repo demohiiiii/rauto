@@ -1,7 +1,13 @@
 import { derived as deriveStore, get, readonly, writable } from "svelte/store";
+import { getTemplate } from "../api/client.js";
+import { browserConfirm } from "../lib/browser.js";
 import { currentLanguage, currentLanguageState, t, tr } from "../lib/i18n.js";
 import { plainObject, stringValue } from "../lib/jsonValue.js";
 import { createTxProfileModeLoader } from "./transactionProfileModes.js";
+import {
+  MANUAL_COMMAND_SOURCE,
+  commandTemplateCatalog,
+} from "./commandTemplateCatalog.js";
 import { validateTxBlockFormModel } from "./transactionBlockFormModels.js";
 import {
   txBlockCommandEditorBindings,
@@ -331,9 +337,12 @@ export function createTxBlockVisualEditorWorkspace({
 
 export function createTxBlockCommandEditorWorkspace({
   command = {},
+  confirmReplace = browserConfirm,
   metadataFieldDefs = [],
   onChange = null,
   pathPrefix = "",
+  templateApi = { getTemplate },
+  templateCatalog = commandTemplateCatalog,
   validationErrors = [],
 } = {}) {
   const commandStateStore = writable(command);
@@ -343,6 +352,15 @@ export function createTxBlockCommandEditorWorkspace({
   const onChangeStateStore = writable(onChange);
   const pathPrefixStateStore = writable(pathPrefix);
   const validationErrorsStateStore = writable(validationErrors);
+  const templateSourceStateStore = writable({
+    baselineContent: "",
+    loading: false,
+    selection: MANUAL_COMMAND_SOURCE,
+    statusMessage: "",
+    statusTone: "info",
+  });
+  let templateLoadVersion = 0;
+  let destroyed = false;
   const commandModeLoader = createTxProfileModeLoader({
     currentMode: () => get(commandStateStore)?.mode ?? "",
   });
@@ -387,15 +405,105 @@ export function createTxBlockCommandEditorWorkspace({
     ([$command, $metadataFieldDefs]) =>
       txExtraStringFieldRows($command?.extra, $metadataFieldDefs),
   );
+  const commandTemplateSourceStateStore = deriveStore(
+    [
+      commandStateStore,
+      templateCatalog.state,
+      templateSourceStateStore,
+      currentLanguageState,
+    ],
+    ([$command, $catalog, $source]) => ({
+      dirty:
+        txStringValue($command?.command) !==
+        txStringValue($source.baselineContent),
+      loading: !!$catalog.loading || !!$source.loading,
+      optionValues: Array.isArray($catalog.names) ? $catalog.names : [],
+      selection: $source.selection,
+      statusMessage: $source.statusMessage || $catalog.errorMessage || "",
+      statusTone: $source.statusMessage ? $source.statusTone : "error",
+    }),
+  );
+
+  function applyCommandPatch(patch) {
+    const commandValue = get(commandStateStore);
+    commandStateStore.set({ ...commandValue, ...patch });
+    const currentOnChange = get(onChangeStateStore);
+    if (typeof currentOnChange === "function") currentOnChange(patch);
+  }
+
+  async function initializeCommandTemplates() {
+    return templateCatalog.ensureLoaded();
+  }
+
+  async function selectCommandTemplate(sourceValue = MANUAL_COMMAND_SOURCE) {
+    const source = txStringValue(sourceValue).trim() || MANUAL_COMMAND_SOURCE;
+    const sourceState = get(templateSourceStateStore);
+    if (source === sourceState.selection) return true;
+    const commandText = txStringValue(get(commandStateStore)?.command);
+    if (
+      commandText !== txStringValue(sourceState.baselineContent) &&
+      !(await confirmReplace(t("commandReplaceConfirm")))
+    ) {
+      return false;
+    }
+
+    const version = ++templateLoadVersion;
+    if (source === MANUAL_COMMAND_SOURCE) {
+      templateSourceStateStore.set({
+        baselineContent: "",
+        loading: false,
+        selection: MANUAL_COMMAND_SOURCE,
+        statusMessage: "",
+        statusTone: "info",
+      });
+      applyCommandPatch({ command: "" });
+      return true;
+    }
+
+    templateSourceStateStore.update((current) => ({
+      ...current,
+      loading: true,
+      statusMessage: "",
+    }));
+    try {
+      const detail = await templateApi.getTemplate(source);
+      if (destroyed || version !== templateLoadVersion) return false;
+      const content = txStringValue(detail?.content);
+      templateSourceStateStore.set({
+        baselineContent: content,
+        loading: false,
+        selection: source,
+        statusMessage: "",
+        statusTone: "info",
+      });
+      applyCommandPatch({ command: content });
+      return true;
+    } catch (error) {
+      if (!destroyed && version === templateLoadVersion) {
+        templateSourceStateStore.update((current) => ({
+          ...current,
+          loading: false,
+          statusMessage: error?.message || t("commandTemplateLoadFailed"),
+          statusTone: "error",
+        }));
+      }
+      return false;
+    }
+  }
 
   return {
     commandActionHandlersStateStore,
     commandDisplayStateStore,
+    commandTemplateSourceStateStore,
     destroy() {
+      destroyed = true;
+      templateLoadVersion += 1;
       unsubscribeCommandModeInitialization();
       commandModeLoader.destroy();
     },
+    initializeCommandTemplates,
     metadataFieldRowsStateStore,
+    selectCommandTemplate,
     setCommandEditorContext({
       command: nextCommand = {},
       metadataFieldDefs: nextMetadataFieldDefs = [],
@@ -404,6 +512,17 @@ export function createTxBlockCommandEditorWorkspace({
       validationErrors: nextValidationErrors = [],
     } = {}) {
       const commandValue = txPlainObject(nextCommand) ? nextCommand : {};
+      const previousPathPrefix = get(pathPrefixStateStore);
+      if (previousPathPrefix && previousPathPrefix !== nextPathPrefix) {
+        templateLoadVersion += 1;
+        templateSourceStateStore.set({
+          baselineContent: "",
+          loading: false,
+          selection: MANUAL_COMMAND_SOURCE,
+          statusMessage: "",
+          statusTone: "info",
+        });
+      }
       commandStateStore.set(commandValue);
       metadataFieldDefsStateStore.set(
         Array.isArray(nextMetadataFieldDefs) ? nextMetadataFieldDefs : [],
@@ -548,22 +667,9 @@ export function createTxBlockFlowEditorWorkspace({
         $pathPrefix,
       ),
   );
-  const flowStepRowsStateStore = deriveStore(
-    [operationStateStore, currentLanguageState],
-    ([$operationStateStore]) =>
-      (Array.isArray($operationStateStore.flow?.steps)
-        ? $operationStateStore.flow.steps
-        : []
-      ).map((flowStep, stepIndex) => ({
-        flowStep,
-        stepIndex,
-        titleText: `${t("txBlockFormFlowStep")} ${stepIndex + 1}`,
-      })),
-  );
   return {
     flowActionHandlersStateStore,
     flowFieldRowsStateStore,
-    flowStepRowsStateStore,
     setFlowEditorContext({
       booleanRows: nextBooleanRows = [],
       pathPrefix: nextPathPrefix = "",

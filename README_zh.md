@@ -376,6 +376,39 @@ rauto flow \
 - `--record-level full` 会进一步保存更完整的 prompt 和状态变更信息。
 - `--record-file` 仍然可以把同一份 JSONL 录制额外导出到文件。
 
+#### 多行命令提交
+
+结构化命令会始终显式序列化 `multiline_mode`。`split_lines` 会去除空行并把每个非空行作为独立命令执行；`whole` 会保留原始换行并将整段文本提交一次。旧数据缺少该字段时仍保持兼容，并统一规范化为 `split_lines`。
+
+`split_lines` 采用失败即停策略：第一条实际命令失败后，后续行不会继续执行。
+
+命令流程 TOML：
+
+```toml
+[[steps]]
+mode = "Config"
+command = "interface Gi0/1\nno shutdown"
+multiline_mode = "split_lines"
+
+[[steps]]
+mode = "Shell"
+command = "cat <<'EOF'\nline one\nline two\nEOF"
+multiline_mode = "whole"
+```
+
+事务 JSON 的普通命令和回滚命令使用相同字段：
+
+```json
+{
+  "kind": "command",
+  "mode": "Config",
+  "command": "interface Gi0/1\nno shutdown",
+  "multiline_mode": "split_lines"
+}
+```
+
+`POST /api/exec` 同样接受 `multiline_mode`。原有顶层 `output` 和 `exit_code` 保持兼容，新增的 `outputs` 会返回多行展开后每条实际命令的执行结果。
+
 可直接修改的示例模板：
 
 - [templates/examples/cisco-like-command-flow.toml](templates/examples/cisco-like-command-flow.toml)
@@ -552,7 +585,9 @@ Web 控制台主要能力：
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
 - 支持在页面中下载连接导入模板，并从 CSV / Excel 批量导入已保存连接。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。
-- 在 `Operations` 里统一执行直接命令、模板执行、命令流程、事务块、事务工作流和多设备编排。
+- 在 `Operations` 里统一执行命令、命令流程、事务块、事务工作流和多设备编排。
+- 命令工作台支持手动输入，也可以把已保存的普通命令模板导入为可编辑的本地快照。
+- 手动命令和模板快照共用 `{{var}}` 变量、渲染预览、TextFSM 解析和多行提交模式；执行页面不会覆盖已保存模板。
 - 在 `Template 管理` 中统一管理 profile、命令模板和命令流程模板。
 - 在 `资源清单` 中通过分组（Groups）与标签（Labels）组织已保存连接（仅 Web 提供完整管理界面）。
 - 在 `任务中心` 中查看异步任务运行情况（状态、事件、附件、录制）。

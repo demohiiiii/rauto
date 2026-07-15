@@ -2,7 +2,13 @@ import { parse, stringify } from "smol-toml";
 import { plainObject, stringValue } from "../lib/jsonValue.js";
 
 const ROOT_FIELDS = new Set(["name", "stop_on_error", "default_mode", "steps"]);
-const STEP_FIELDS = new Set(["command", "mode", "timeout_secs", "prompts"]);
+const STEP_FIELDS = new Set([
+  "command",
+  "multiline_mode",
+  "mode",
+  "timeout_secs",
+  "prompts",
+]);
 const PROMPT_FIELDS = new Set([
   "patterns",
   "response",
@@ -35,6 +41,12 @@ function optionalStringField(source, field) {
   return { present, value };
 }
 
+function multilineModeValue(value, path) {
+  if (value == null || value === "") return "split_lines";
+  if (value === "split_lines" || value === "whole") return value;
+  throw new Error(`${path} must be split_lines or whole`);
+}
+
 export function defaultCommandFlowTemplatePromptModel() {
   return {
     patterns: [""],
@@ -47,6 +59,7 @@ export function defaultCommandFlowTemplatePromptModel() {
 export function defaultCommandFlowTemplateStepModel() {
   return {
     command: "",
+    multilineMode: "split_lines",
     mode: null,
     hasMode: false,
     timeoutSecs: null,
@@ -105,6 +118,10 @@ function commandFlowStepModelFromDocument(step, stepIndex) {
   const prompts = Array.isArray(source.prompts) ? source.prompts : [];
   return {
     command: stringValue(source.command),
+    multilineMode: multilineModeValue(
+      source.multiline_mode,
+      `steps[${stepIndex}].multiline_mode`,
+    ),
     mode: mode.value,
     hasMode: mode.present,
     timeoutSecs,
@@ -157,6 +174,10 @@ function commandFlowPromptDocumentFromModel(prompt = {}) {
 function commandFlowStepDocumentFromModel(step = {}) {
   const document = {
     command: stringValue(step.command),
+    multiline_mode: multilineModeValue(
+      step.multilineMode,
+      "step.multiline_mode",
+    ),
   };
   if (step.hasMode || step.mode !== null) {
     document.mode = step.mode ?? "";

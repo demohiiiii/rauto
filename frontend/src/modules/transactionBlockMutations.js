@@ -46,6 +46,7 @@ function txCommandDraft(command = {}) {
   return {
     mode: command.mode || "User",
     command: command.command || "",
+    multilineMode: command.multilineMode === "whole" ? "whole" : "split_lines",
     timeout: command.timeout ?? 30,
     hasTimeout: true,
     dynParams: command.dynParams || {},

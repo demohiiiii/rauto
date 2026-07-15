@@ -53,13 +53,6 @@ pub struct TaskResultSummary {
     pub details: Option<Value>,
 }
 
-pub fn count_non_empty_lines(content: &str) -> u64 {
-    content
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .count() as u64
-}
-
 pub fn result_counts(total: u64, succeeded: u64, failed: u64) -> TaskResultCounts {
     TaskResultCounts {
         total,

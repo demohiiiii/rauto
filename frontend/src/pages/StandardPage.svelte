@@ -7,9 +7,8 @@
     createStandardPageWorkspace,
     standardExecutionConnectionProfileState,
   } from "../modules/standard.js";
-  import DirectExecutionPanel from "./standard/DirectExecutionPanel.svelte";
+  import CommandExecutionPanel from "./standard/CommandExecutionPanel.svelte";
   import FlowExecutionPanel from "./standard/FlowExecutionPanel.svelte";
-  import TemplateExecutionPanel from "./standard/TemplateExecutionPanel.svelte";
 
   let { active } = $props();
   const standardPageWorkspace = createStandardPageWorkspace();
@@ -17,7 +16,6 @@
   let currentExecMode = $derived($currentExecModeState);
   let pageDisplay = $derived($pageDisplayStateStore);
   let directActive = $derived(active && pageDisplay.directActive);
-  let templateActive = $derived(active && pageDisplay.templateActive);
   let flowActive = $derived(active && pageDisplay.flowActive);
 
   $effect(() => {
@@ -48,9 +46,7 @@
 
       <div class="grid gap-3">
         {#if directActive}
-          <DirectExecutionPanel active={true} />
-        {:else if templateActive}
-          <TemplateExecutionPanel active={true} />
+          <CommandExecutionPanel active={true} />
         {:else if flowActive}
           <FlowExecutionPanel active={true} />
         {/if}

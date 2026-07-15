@@ -1020,7 +1020,8 @@ impl AgentTaskService for AgentTaskGrpcService {
         let Json(response) = render_template(
             State(self.state.clone()),
             Json(RenderRequest {
-                template: req.template,
+                template: Some(req.template),
+                template_content: None,
                 vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
                 connection,
                 template_dir: optional_string(req.template_dir),
@@ -1120,6 +1121,7 @@ impl AgentTaskService for AgentTaskGrpcService {
             Json(ExecRequest {
                 command: req.command,
                 mode: optional_string(req.mode),
+                multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
                 textfsm_platform: optional_string(req.textfsm_platform),
@@ -1142,6 +1144,11 @@ impl AgentTaskService for AgentTaskGrpcService {
             parse_error: response.parse_error,
             recording_jsonl: response.recording_jsonl,
             result_summary_json,
+            outputs: response
+                .outputs
+                .into_iter()
+                .map(map_command_result)
+                .collect(),
         }))
     }
 
@@ -1156,6 +1163,7 @@ impl AgentTaskService for AgentTaskGrpcService {
             Json(ExecRequest {
                 command: req.command,
                 mode: optional_string(req.mode),
+                multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
                 textfsm_platform: optional_string(req.textfsm_platform),
@@ -1180,9 +1188,11 @@ impl AgentTaskService for AgentTaskGrpcService {
         let Json(response) = execute_template_handler(
             State(self.state.clone()),
             Json(WebExecuteTemplateRequest {
-                template: req.template,
+                template: Some(req.template),
+                template_content: None,
                 vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
                 mode: optional_string(req.mode),
+                multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
                 textfsm_platform: optional_string(req.textfsm_platform),
@@ -1223,9 +1233,11 @@ impl AgentTaskService for AgentTaskGrpcService {
         let (_, Json(response)) = execute_template_async(
             State(self.state.clone()),
             Json(WebExecuteTemplateRequest {
-                template: req.template,
+                template: Some(req.template),
+                template_content: None,
                 vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
                 mode: optional_string(req.mode),
+                multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
                 textfsm_platform: optional_string(req.textfsm_platform),

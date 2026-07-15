@@ -583,6 +583,7 @@ export function txBlockCommandEditorDisplay(
       command,
       TX_BLOCK_BOOLEAN_ROWS,
     ),
+    multilineMode: command?.multilineMode === "whole" ? "whole" : "split_lines",
     promptRows: txBlockCommandPromptRows(command),
   };
 }

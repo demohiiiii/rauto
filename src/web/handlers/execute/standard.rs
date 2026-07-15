@@ -1,5 +1,53 @@
 use super::*;
 
+struct CommandResultsAggregate {
+    output: String,
+    exit_code: Option<i32>,
+    succeeded: u64,
+    failed: u64,
+}
+
+fn aggregate_command_results(outputs: &[CommandResult]) -> CommandResultsAggregate {
+    let succeeded = outputs.iter().filter(|output| output.success).count() as u64;
+    let failed = outputs.len() as u64 - succeeded;
+    let exit_code = if outputs.len() == 1 {
+        outputs[0].exit_code
+    } else if failed == 0 {
+        Some(0)
+    } else {
+        outputs
+            .iter()
+            .find(|output| !output.success)
+            .and_then(|output| output.exit_code)
+            .or(Some(1))
+    };
+    CommandResultsAggregate {
+        output: outputs
+            .iter()
+            .filter_map(|output| output.output.as_deref())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        exit_code,
+        succeeded,
+        failed,
+    }
+}
+
+fn rendered_template_command(
+    mode: String,
+    content: String,
+    multiline_mode: MultilineMode,
+) -> Command {
+    Command {
+        mode,
+        command: content,
+        multiline_mode,
+        timeout: Some(60),
+        dyn_params: CommandDynamicParams::default(),
+        interaction: CommandInteraction::default(),
+    }
+}
+
 pub async fn render_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RenderRequest>,
@@ -18,8 +66,12 @@ pub async fn render_template(
         }
     };
     let _ = req.template_dir.as_ref();
-    let (_, masked_rendered) =
-        render_commands_with_runtime_context(&req.template, req.vars, resolved_conn.as_ref())?;
+    let (_, masked_rendered) = render_commands_with_runtime_context(
+        req.template.as_deref(),
+        req.template_content.as_deref(),
+        req.vars,
+        resolved_conn.as_ref(),
+    )?;
 
     Ok(Json(RenderResponse {
         rendered_commands: masked_rendered,
@@ -50,8 +102,6 @@ pub async fn exec_command(
     let result: Result<ExecResponse, ApiError> = state
         .run_until_shutdown(async {
             let record_level = req.target.record_level;
-            command_blacklist::ensure_command_allowed(&req.command, "direct execution")
-                .map_err(|e| ApiError::bad_request(e.to_string()))?;
             let conn = resolve_autodetect_connection(merge_connection_options(
                 &state.defaults,
                 req.target.connection,
@@ -73,6 +123,23 @@ pub async fn exec_command(
                 conn.linux_shell_flavor,
             )?;
             let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+            let command = Command {
+                mode: effective_mode.clone(),
+                command: req.command.clone(),
+                multiline_mode: req.multiline_mode,
+                timeout: Some(60),
+                dyn_params: CommandDynamicParams::default(),
+                interaction: CommandInteraction::default(),
+            };
+            let concrete_flow = command
+                .clone()
+                .into_flow()
+                .map_err(|error| ApiError::bad_request(error.to_string()))?;
+            command_blacklist::ensure_commands_allowed(
+                concrete_flow.steps.iter().map(|step| step.command.as_str()),
+                "direct execution",
+            )
+            .map_err(|error| ApiError::bad_request(error.to_string()))?;
             let client = if let Some(level) = to_record_level(record_level) {
                 DeviceClient::connect_with_recording(
                     conn.host.clone(),
@@ -112,12 +179,36 @@ pub async fn exec_command(
                         "command": req.command
                     }))),
             );
-            let output = client
-                .execute_output(&req.command, Some(effective_mode.as_str()))
-                .await?;
-            let exit_code = output.exit_code;
+            let concrete_commands = concrete_flow.steps.clone();
+            let flow_output = client.execute_multiline_command_structured(command).await?;
+            let mut outputs = Vec::with_capacity(flow_output.outputs.len());
+            for (command, output) in concrete_commands.into_iter().zip(flow_output.outputs) {
+                let (parsed_output, parse_error) = parse_textfsm_output_optional(
+                    &output.content,
+                    &command.command,
+                    WebTextfsmParseOptions {
+                        template_file: req.textfsm_template.as_deref(),
+                        enabled: req.parse_textfsm,
+                        platform: req.textfsm_platform.as_deref(),
+                        device_profile: Some(conn.device_profile.as_str()),
+                        vendor: req.textfsm_vendor.as_deref(),
+                        filter_error_rules: !req.textfsm_strict_errors,
+                        ..Default::default()
+                    },
+                );
+                outputs.push(CommandResult {
+                    command: command.command,
+                    success: output.success,
+                    exit_code: output.exit_code,
+                    output: Some(output.content),
+                    error: None,
+                    parsed_output,
+                    parse_error,
+                });
+            }
+            let aggregate = aggregate_command_results(&outputs);
             let (parsed_output, parse_error) = parse_textfsm_output_optional(
-                &output.content,
+                &aggregate.output,
                 &req.command,
                 WebTextfsmParseOptions {
                     template_file: req.textfsm_template.as_deref(),
@@ -139,31 +230,44 @@ pub async fn exec_command(
             );
             let recording_jsonl = client.recording_jsonl()?;
             Ok(ExecResponse {
-                output: output.content,
-                exit_code,
+                output: aggregate.output,
+                exit_code: aggregate.exit_code,
+                outputs,
                 parsed_output,
                 parse_error,
                 result_summary: task_result_with_details(
                     task_result_with_recording(
-                        build_result_summary(
-                            TaskOperation::Exec,
-                            if exit_code.unwrap_or(0) == 0 {
-                                TaskResultOutcome::Success
-                            } else {
-                                TaskResultOutcome::Failed
-                            },
-                            if exit_code.unwrap_or(0) == 0 {
-                                "Command executed successfully"
-                            } else {
-                                "Command finished with a non-zero exit code"
-                            },
+                        task_result_with_counts(
+                            build_result_summary(
+                                TaskOperation::Exec,
+                                if aggregate.failed == 0 {
+                                    TaskResultOutcome::Success
+                                } else if aggregate.succeeded > 0 {
+                                    TaskResultOutcome::PartialSuccess
+                                } else {
+                                    TaskResultOutcome::Failed
+                                },
+                                if aggregate.failed == 0 {
+                                    "Command executed successfully"
+                                } else if aggregate.succeeded > 0 {
+                                    "Command execution completed with failed lines"
+                                } else {
+                                    "Command execution failed"
+                                },
+                            ),
+                            result_counts(
+                                aggregate.succeeded + aggregate.failed,
+                                aggregate.succeeded,
+                                aggregate.failed,
+                            ),
                         ),
                         &recording_jsonl,
                     ),
                     json!({
-                        "exit_code": exit_code,
+                        "exit_code": aggregate.exit_code,
                         "mode": effective_mode,
-                        "command": req.command
+                        "command": req.command,
+                        "multiline_mode": req.multiline_mode
                     }),
                 ),
                 recording_jsonl,
@@ -862,6 +966,13 @@ pub async fn execute_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTemplateRequest>,
 ) -> Result<Json<ExecuteTemplateResponse>, ApiError> {
+    let template_source = req
+        .template
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("inline")
+        .to_string();
     let task_ctx = TaskReportContext::from_request(
         TaskOperation::TemplateExecute,
         req.task.task_id.clone(),
@@ -875,256 +986,255 @@ pub async fn execute_template(
             .with_stage("render")
             .with_progress(Some(0))
             .with_details(Some(json!({
-                "template": req.template,
+                "template": template_source.as_str(),
                 "mode": req.mode
             }))),
     );
-    let result: Result<ExecuteTemplateResponse, ApiError> = state.run_until_shutdown(async {
-        let record_level = req.target.record_level;
-        let dry_run = req.run.dry_run.unwrap_or(false);
-        let incoming_connection = req.target.connection.clone();
-        let render_conn = if dry_run {
-            merge_connection_options(&state.defaults, incoming_connection.clone()).ok()
-        } else {
-            Some(
-                resolve_autodetect_connection(merge_connection_options(
-                    &state.defaults,
-                    incoming_connection.clone(),
-                )?)
-                .await?,
+    let result: Result<ExecuteTemplateResponse, ApiError> = state
+        .run_until_shutdown(async {
+            let record_level = req.target.record_level;
+            let dry_run = req.run.dry_run.unwrap_or(false);
+            let incoming_connection = req.target.connection.clone();
+            let render_conn = if dry_run {
+                merge_connection_options(&state.defaults, incoming_connection.clone()).ok()
+            } else {
+                Some(
+                    resolve_autodetect_connection(merge_connection_options(
+                        &state.defaults,
+                        incoming_connection.clone(),
+                    )?)
+                    .await?,
+                )
+            };
+            let _ = req.template_dir.as_ref();
+            let (rendered_commands, masked_rendered_commands) =
+                render_commands_with_runtime_context(
+                    req.template.as_deref(),
+                    req.template_content.as_deref(),
+                    req.vars,
+                    render_conn.as_ref(),
+                )?;
+            let preview_flow = rendered_template_command(
+                req.mode.clone().unwrap_or_default(),
+                rendered_commands.clone(),
+                req.multiline_mode,
             )
-        };
-        let _ = req.template_dir.as_ref();
-        let (rendered_commands, masked_rendered_commands) = render_commands_with_runtime_context(
-            &req.template,
-            req.vars,
-            render_conn.as_ref(),
-        )?;
-        emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("progress", "Template rendered")
-                .with_stage("render")
-                .with_progress(Some(20))
-                .with_details(Some(json!({
-                    "template": req.template,
-                    "rendered_command_count": rendered_commands.lines().filter(|line| !line.trim().is_empty()).count()
-                }))),
-        );
-
-        if dry_run {
-            let rendered_count = count_non_empty_lines(&rendered_commands);
-            return Ok(ExecuteTemplateResponse {
-                result_summary: task_result_with_details(
-                    task_result_with_counts(
-                        build_result_summary(
-                            TaskOperation::TemplateExecute,
-                            TaskResultOutcome::DryRun,
-                            "Template rendered successfully (dry run)",
-                        ),
-                        result_counts(rendered_count, 0, 0),
-                    ),
-                    json!({
-                        "template": req.template,
-                        "mode": req.mode,
-                        "rendered_command_count": rendered_count
-                    }),
-                ),
-                rendered_commands: masked_rendered_commands,
-                executed: Vec::new(),
-                recording_jsonl: None,
-            });
-        }
-
-        let lines: Vec<String> = rendered_commands
-            .lines()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
-        command_blacklist::ensure_commands_allowed(
-            lines.iter().map(String::as_str),
-            "template execution",
-        )
-        .map_err(|e| ApiError::bad_request(e.to_string()))?;
-
-        let conn = match render_conn {
-            Some(conn) => conn,
-            None => merge_connection_options(&state.defaults, incoming_connection)?,
-        };
-        let handler = template_loader::load_device_profile_for_connection(
-            &conn.device_profile,
-            conn.linux_shell_flavor,
-        )?;
-        let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
-        let client = if let Some(level) = to_record_level(record_level) {
-            DeviceClient::connect_with_recording(
-                conn.host.clone(),
-                conn.port,
-                conn.username.clone(),
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
-                template_loader::default_profile_mode(&conn.device_profile)?,
-                level,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            )
-            .await?
-        } else {
-            DeviceClient::connect(
-                conn.host.clone(),
-                conn.port,
-                conn.username.clone(),
-                conn.password.clone(),
-                conn.enable_password.clone(),
-                handler,
-                template_loader::default_profile_mode(&conn.device_profile)?,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            )
-            .await?
-        };
-
-        let mut executed = Vec::with_capacity(lines.len());
-        let total_commands = lines.len();
-        for (idx, cmd) in lines.into_iter().enumerate() {
+            .into_flow()
+            .map_err(|error| ApiError::bad_request(error.to_string()))?;
+            let rendered_count = preview_flow.steps.len() as u64;
             emit_task_event(
                 &state,
                 &task_ctx,
-                TaskEventInput::new(
-                    "step_started",
-                    format!("Executing command {}/{}", idx + 1, total_commands),
-                )
-                .with_stage("command")
-                .with_progress(task_event_progress(idx + 1, total_commands))
-                .with_details(Some(json!({
-                    "command": cmd,
-                    "index": idx + 1,
-                    "total": total_commands
-                }))),
+                TaskEventInput::new("progress", "Template rendered")
+                    .with_stage("render")
+                    .with_progress(Some(20))
+                    .with_details(Some(json!({
+                        "template": template_source.as_str(),
+                        "rendered_command_count": rendered_count,
+                        "multiline_mode": req.multiline_mode
+                    }))),
             );
-            match client.execute_output(&cmd, Some(effective_mode.as_str())).await {
-                Ok(output) => {
-                    let (parsed_output, parse_error) = parse_textfsm_output_optional(
-                        &output.content,
-                        &cmd,
-                        WebTextfsmParseOptions {
-                            template_file: req.textfsm_template.as_deref(),
-                            enabled: req.parse_textfsm,
-                            platform: req.textfsm_platform.as_deref(),
-                            device_profile: Some(conn.device_profile.as_str()),
-                            vendor: req.textfsm_vendor.as_deref(),
-                            filter_error_rules: !req.textfsm_strict_errors,
-                            ..Default::default()
-                        },
-                    );
-                    emit_task_event(
-                        &state,
-                        &task_ctx,
-                        TaskEventInput::new(
-                            "step_completed",
-                            format!("Command {}/{} completed", idx + 1, total_commands),
-                        )
-                        .with_stage("command")
-                        .with_level("success")
-                        .with_progress(task_event_progress(idx + 1, total_commands))
-                        .with_details(Some(json!({
-                            "command": cmd,
-                            "index": idx + 1,
-                            "total": total_commands,
-                            "exit_code": output.exit_code
-                        }))),
-                    );
-                    executed.push(CommandResult {
-                        command: cmd,
-                        success: true,
-                        exit_code: output.exit_code,
-                        output: Some(output.content),
-                        error: None,
-                        parsed_output,
-                        parse_error,
-                    })
-                }
-                Err(e) => {
-                    emit_task_event(
-                        &state,
-                        &task_ctx,
-                        TaskEventInput::new(
-                            "warning",
-                            format!("Command {}/{} failed", idx + 1, total_commands),
-                        )
-                        .with_stage("command")
-                        .with_level("warning")
-                        .with_progress(task_event_progress(idx + 1, total_commands))
-                        .with_details(Some(json!({
-                            "command": cmd,
-                            "index": idx + 1,
-                            "total": total_commands,
-                            "error": e.to_string()
-                        }))),
-                    );
-                    executed.push(CommandResult {
-                        command: cmd,
-                        success: false,
-                        exit_code: None,
-                        output: None,
-                        error: Some(e.to_string()),
-                        parsed_output: None,
-                        parse_error: None,
-                    })
-                }
-            }
-        }
 
-        persist_history_if_recorded(
-            &conn,
-            &client,
-            "template_execute",
-            &format!("template: {}", req.template),
-            Some(effective_mode.as_str()),
-            record_level,
-        );
-
-        let executed_count = executed.len() as u64;
-        let succeeded = executed.iter().filter(|item| item.success).count() as u64;
-        let failed = executed_count - succeeded;
-        let recording_jsonl = client.recording_jsonl()?;
-        Ok(ExecuteTemplateResponse {
-            rendered_commands: masked_rendered_commands,
-            executed,
-            result_summary: task_result_with_details(
-                task_result_with_recording(
-                    task_result_with_counts(
-                        build_result_summary(
-                            TaskOperation::TemplateExecute,
-                            if failed == 0 {
-                                TaskResultOutcome::Success
-                            } else if succeeded > 0 {
-                                TaskResultOutcome::PartialSuccess
-                            } else {
-                                TaskResultOutcome::Failed
-                            },
-                            if failed == 0 {
-                                "Template execution completed successfully"
-                            } else if succeeded > 0 {
-                                "Template execution completed with failed commands"
-                            } else {
-                                "Template execution failed for all commands"
-                            },
+            if dry_run {
+                return Ok(ExecuteTemplateResponse {
+                    result_summary: task_result_with_details(
+                        task_result_with_counts(
+                            build_result_summary(
+                                TaskOperation::TemplateExecute,
+                                TaskResultOutcome::DryRun,
+                                "Template rendered successfully (dry run)",
+                            ),
+                            result_counts(rendered_count, 0, 0),
                         ),
-                        result_counts(executed_count, succeeded, failed),
+                        json!({
+                            "template": template_source.as_str(),
+                            "mode": req.mode,
+                            "rendered_command_count": rendered_count,
+                            "multiline_mode": req.multiline_mode
+                        }),
                     ),
-                    &recording_jsonl,
+                    rendered_commands: masked_rendered_commands,
+                    executed: Vec::new(),
+                    recording_jsonl: None,
+                });
+            }
+
+            command_blacklist::ensure_commands_allowed(
+                preview_flow.steps.iter().map(|step| step.command.as_str()),
+                "template execution",
+            )
+            .map_err(|e| ApiError::bad_request(e.to_string()))?;
+
+            let conn = match render_conn {
+                Some(conn) => conn,
+                None => merge_connection_options(&state.defaults, incoming_connection)?,
+            };
+            let handler = template_loader::load_device_profile_for_connection(
+                &conn.device_profile,
+                conn.linux_shell_flavor,
+            )?;
+            let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+            let client = if let Some(level) = to_record_level(record_level) {
+                DeviceClient::connect_with_recording(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    level,
+                    conn.ssh_security,
+                    conn.connect_timeout_secs,
+                )
+                .await?
+            } else {
+                DeviceClient::connect(
+                    conn.host.clone(),
+                    conn.port,
+                    conn.username.clone(),
+                    conn.password.clone(),
+                    conn.enable_password.clone(),
+                    handler,
+                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    conn.ssh_security,
+                    conn.connect_timeout_secs,
+                )
+                .await?
+            };
+
+            let command = rendered_template_command(
+                effective_mode.clone(),
+                rendered_commands.clone(),
+                req.multiline_mode,
+            );
+            let concrete_commands = command
+                .clone()
+                .into_flow()
+                .map_err(|error| ApiError::bad_request(error.to_string()))?
+                .steps;
+            let total_commands = concrete_commands.len();
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("progress", "Executing rendered commands")
+                    .with_stage("command")
+                    .with_progress(Some(60))
+                    .with_details(Some(json!({
+                        "total": total_commands,
+                        "multiline_mode": req.multiline_mode
+                    }))),
+            );
+            let flow_output = client.execute_multiline_command_structured(command).await?;
+            let mut executed = Vec::with_capacity(flow_output.outputs.len());
+            for (idx, (command, output)) in concrete_commands
+                .into_iter()
+                .zip(flow_output.outputs)
+                .enumerate()
+            {
+                let (parsed_output, parse_error) = parse_textfsm_output_optional(
+                    &output.content,
+                    &command.command,
+                    WebTextfsmParseOptions {
+                        template_file: req.textfsm_template.as_deref(),
+                        enabled: req.parse_textfsm,
+                        platform: req.textfsm_platform.as_deref(),
+                        device_profile: Some(conn.device_profile.as_str()),
+                        vendor: req.textfsm_vendor.as_deref(),
+                        filter_error_rules: !req.textfsm_strict_errors,
+                        ..Default::default()
+                    },
+                );
+                emit_task_event(
+                    &state,
+                    &task_ctx,
+                    TaskEventInput::new(
+                        if output.success {
+                            "step_completed"
+                        } else {
+                            "warning"
+                        },
+                        format!(
+                            "Command {}/{} {}",
+                            idx + 1,
+                            total_commands,
+                            if output.success {
+                                "completed"
+                            } else {
+                                "failed"
+                            }
+                        ),
+                    )
+                    .with_stage("command")
+                    .with_level(if output.success { "success" } else { "warning" })
+                    .with_progress(task_event_progress(idx + 1, total_commands))
+                    .with_details(Some(json!({
+                        "command": command.command,
+                        "index": idx + 1,
+                        "total": total_commands,
+                        "exit_code": output.exit_code
+                    }))),
+                );
+                executed.push(CommandResult {
+                    command: command.command,
+                    success: output.success,
+                    exit_code: output.exit_code,
+                    output: Some(output.content),
+                    error: None,
+                    parsed_output,
+                    parse_error,
+                });
+            }
+
+            persist_history_if_recorded(
+                &conn,
+                &client,
+                "template_execute",
+                &format!("template: {}", template_source),
+                Some(effective_mode.as_str()),
+                record_level,
+            );
+
+            let executed_count = executed.len() as u64;
+            let succeeded = executed.iter().filter(|item| item.success).count() as u64;
+            let failed = executed_count - succeeded;
+            let recording_jsonl = client.recording_jsonl()?;
+            Ok(ExecuteTemplateResponse {
+                rendered_commands: masked_rendered_commands,
+                executed,
+                result_summary: task_result_with_details(
+                    task_result_with_recording(
+                        task_result_with_counts(
+                            build_result_summary(
+                                TaskOperation::TemplateExecute,
+                                if failed == 0 {
+                                    TaskResultOutcome::Success
+                                } else if succeeded > 0 {
+                                    TaskResultOutcome::PartialSuccess
+                                } else {
+                                    TaskResultOutcome::Failed
+                                },
+                                if failed == 0 {
+                                    "Template execution completed successfully"
+                                } else if succeeded > 0 {
+                                    "Template execution completed with failed commands"
+                                } else {
+                                    "Template execution failed for all commands"
+                                },
+                            ),
+                            result_counts(executed_count, succeeded, failed),
+                        ),
+                        &recording_jsonl,
+                    ),
+                    json!({
+                        "template": template_source.as_str(),
+                        "mode": effective_mode
+                    }),
                 ),
-                json!({
-                    "template": req.template,
-                    "mode": effective_mode
-                }),
-            ),
-            recording_jsonl,
+                recording_jsonl,
+            })
         })
-    })
-    .await;
+        .await;
     drop(task_guard);
     match &result {
         Ok(response) => {
@@ -1169,4 +1279,113 @@ pub async fn execute_template_async(
 ) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
     let response = queue_template_async_task(state, req)?;
     Ok((StatusCode::ACCEPTED, Json(response)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn command_result(
+        command: &str,
+        success: bool,
+        exit_code: Option<i32>,
+        output: &str,
+    ) -> CommandResult {
+        CommandResult {
+            command: command.to_string(),
+            success,
+            exit_code,
+            output: Some(output.to_string()),
+            error: None,
+            parsed_output: None,
+            parse_error: None,
+        }
+    }
+
+    #[test]
+    fn multiline_exec_response_aggregates_child_outputs() {
+        let outputs = vec![
+            command_result("show version", true, Some(0), "v1"),
+            command_result("show inventory", true, Some(0), "inv"),
+        ];
+
+        let aggregate = aggregate_command_results(&outputs);
+
+        assert_eq!(aggregate.output, "v1\ninv");
+        assert_eq!(aggregate.exit_code, Some(0));
+        assert_eq!(aggregate.succeeded, 2);
+        assert_eq!(aggregate.failed, 0);
+    }
+
+    #[test]
+    fn multiline_exec_response_reports_mixed_failure() {
+        let outputs = vec![
+            command_result("show version", true, Some(0), "v1"),
+            command_result("show inventory", false, Some(7), "denied"),
+        ];
+
+        let aggregate = aggregate_command_results(&outputs);
+
+        assert_eq!(aggregate.output, "v1\ndenied");
+        assert_eq!(aggregate.exit_code, Some(7));
+        assert_eq!(aggregate.succeeded, 1);
+        assert_eq!(aggregate.failed, 1);
+    }
+
+    #[test]
+    fn rendered_template_command_preserves_multiline_mode() {
+        let command = rendered_template_command(
+            "Config".to_string(),
+            "interface Gi0/1\nno shutdown".to_string(),
+            rneter::session::MultilineMode::Whole,
+        );
+        assert_eq!(
+            command.multiline_mode,
+            rneter::session::MultilineMode::Whole
+        );
+        assert_eq!(
+            command.into_flow().expect("whole command flow").steps.len(),
+            1
+        );
+    }
+
+    #[test]
+    fn rendered_template_split_lines_is_fail_fast() {
+        let flow = rendered_template_command(
+            "Config".to_string(),
+            "interface Gi0/1\nno shutdown".to_string(),
+            rneter::session::MultilineMode::SplitLines,
+        )
+        .into_flow()
+        .expect("split command flow");
+        assert_eq!(flow.steps.len(), 2);
+        assert!(flow.stop_on_error);
+    }
+
+    #[test]
+    fn inline_command_template_renders_without_template_lookup() {
+        let (rendered, masked) =
+            render_commands_with_runtime_context(None, Some("show version"), json!({}), None)
+                .expect("inline command template");
+
+        assert_eq!(rendered, "show version");
+        assert_eq!(masked, "show version");
+    }
+
+    #[test]
+    fn command_template_source_must_be_unambiguous() {
+        let error = render_commands_with_runtime_context(
+            Some("saved-template"),
+            Some("show version"),
+            json!({}),
+            None,
+        )
+        .expect_err("ambiguous template source");
+
+        assert!(
+            error
+                .message
+                .contains("either template or template_content")
+        );
+    }
 }

@@ -42,6 +42,12 @@ function txObjectExtra(source, knownKeys) {
   );
 }
 
+function txMultilineModeValue(value) {
+  if (value == null || value === "") return "split_lines";
+  if (value === "split_lines" || value === "whole") return value;
+  throw new Error("multiline_mode must be split_lines or whole");
+}
+
 function txWithoutUnsupportedLabels(value) {
   if (Array.isArray(value)) return value.map(txWithoutUnsupportedLabels);
   if (!txPlainObject(value)) return value;
@@ -90,6 +96,7 @@ function txCommandModelFromJson(source = {}) {
   return {
     mode: txStringValue(value.mode),
     command: txStringValue(value.command),
+    multilineMode: txMultilineModeValue(value.multiline_mode),
     timeout: txNullableNumberValue(value.timeout),
     hasTimeout: Object.hasOwn(value, "timeout"),
     dynParams: txStringMapValue(value.dyn_params),
@@ -116,6 +123,7 @@ function txCommandJsonFromModel(command = {}, { includeKind = true } = {}) {
   if (includeKind) result.kind = "command";
   result.mode = txStringValue(command.mode);
   result.command = txStringValue(command.command);
+  result.multiline_mode = txMultilineModeValue(command.multilineMode);
   result.timeout = txNullableNumberValue(command.timeout);
   result.dyn_params = txStringMapValue(command.dynParams);
   result.interaction = {

@@ -1,7 +1,12 @@
 <script>
   import TerminalIcon from "@lucide/svelte/icons/terminal";
+  import {
+    CommandEditor,
+    CommandTemplateSourceField,
+  } from "../../components/command-flow/index.js";
   import CollapsibleGroup from "../../components/fragments/CollapsibleGroup.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
+  import StatusCard from "../../components/fragments/StatusCard.svelte";
   import { t } from "../../lib/i18n.js";
   import TxBlockCommandDynParamsEditor from "./TxBlockCommandDynParamsEditor.svelte";
   import TxBlockCommandInteractionEditor from "./TxBlockCommandInteractionEditor.svelte";
@@ -20,12 +25,16 @@
   const {
     commandActionHandlersStateStore,
     commandDisplayStateStore,
+    commandTemplateSourceStateStore,
     destroy,
+    initializeCommandTemplates,
     metadataFieldRowsStateStore,
     setCommandEditorContext,
+    selectCommandTemplate,
   } = txBlockCommandEditorWorkspace;
   let commandActionHandlers = $derived($commandActionHandlersStateStore);
   let commandDisplay = $derived($commandDisplayStateStore);
+  let commandTemplateSource = $derived($commandTemplateSourceStateStore);
   let metadataFieldRows = $derived($metadataFieldRowsStateStore);
 
   $effect(() => {
@@ -40,12 +49,21 @@
 
   $effect(() => destroy);
 
+  $effect(() => {
+    void initializeCommandTemplates();
+  });
+
   function commandScopeKey(suffix) {
     return `tx-block-command-${pathPrefix || "operation"}-${suffix}`;
   }
 
   let dynParamCount = $derived(commandDisplay.dynParamExtraRows.length);
   let promptCount = $derived(commandDisplay.promptRows.length);
+  let compactFieldRows = $derived(
+    commandDisplay.fieldRows.filter(
+      (fieldRow) => fieldRow.fieldKey !== "command",
+    ),
+  );
 </script>
 
 <div class="grid gap-3">
@@ -54,24 +72,42 @@
     title={t("txBlockFormCommand")}
     description={t("txBlockFormCommandHint")}
   >
-    <PresenceFieldGrid
-      fieldRows={commandDisplay.fieldRows}
-      valueHandlerMode="event"
-      hostClass="grid gap-3 md:grid-cols-3"
-      itemClassByFieldKey={{ command: "md:col-span-2" }}
-      controlClassByFieldKey={{ command: "font-mono" }}
-      presenceControlsMode="hidden"
-      onValueChangeForKey={commandActionHandlers.fieldValueHandler}
-      onPresenceChangeForKey={commandActionHandlers.fieldPresenceHandler}
+    <CommandTemplateSourceField
+      value={commandTemplateSource.selection}
+      optionValues={commandTemplateSource.optionValues}
+      disabled={commandTemplateSource.loading}
+      onValueChange={selectCommandTemplate}
     />
-    <PresenceFieldGrid
-      fieldRows={metadataFieldRows}
-      valueHandlerMode="event"
-      hostClass="grid gap-3 md:grid-cols-2"
-      presenceControlsMode="hidden"
-      onValueChangeForKey={commandActionHandlers.metadataValueHandler}
-      onPresenceChangeForKey={commandActionHandlers.metadataPresenceHandler}
-    />
+    {#if commandTemplateSource.statusMessage}
+      <StatusCard
+        message={commandTemplateSource.statusMessage}
+        tone={commandTemplateSource.statusTone}
+      />
+    {/if}
+    <CommandEditor
+      command={command.command || ""}
+      multilineMode={command.multilineMode || "split_lines"}
+      placeholderText={t("txBlockFormCommandPlaceholder")}
+      onCommandChange={(commandText) => onChange?.({ command: commandText })}
+      onMultilineModeChange={(multilineMode) => onChange?.({ multilineMode })}
+    >
+      <PresenceFieldGrid
+        fieldRows={compactFieldRows}
+        valueHandlerMode="event"
+        hostClass="grid gap-3 md:grid-cols-2"
+        presenceControlsMode="hidden"
+        onValueChangeForKey={commandActionHandlers.fieldValueHandler}
+        onPresenceChangeForKey={commandActionHandlers.fieldPresenceHandler}
+      />
+      <PresenceFieldGrid
+        fieldRows={metadataFieldRows}
+        valueHandlerMode="event"
+        hostClass="grid gap-3 md:grid-cols-2"
+        presenceControlsMode="hidden"
+        onValueChangeForKey={commandActionHandlers.metadataValueHandler}
+        onPresenceChangeForKey={commandActionHandlers.metadataPresenceHandler}
+      />
+    </CommandEditor>
   </TxFormSection>
   <CollapsibleGroup
     variant="section"

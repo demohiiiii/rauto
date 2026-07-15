@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow};
 use rneter::session::{
-    Command, CommandDynamicParams, CommandFlow, CommandInteraction, PromptResponseRule,
+    Command, CommandDynamicParams, CommandFlow, CommandInteraction, MultilineMode,
+    PromptResponseRule,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -32,6 +33,8 @@ impl CommandFlowTemplate {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommandFlowTemplateStep {
     pub command: String,
+    #[serde(default)]
+    pub multiline_mode: MultilineMode,
     #[serde(default)]
     pub mode: Option<String>,
     #[serde(default)]
@@ -171,6 +174,7 @@ pub fn render_command_flow_template(
         steps.push(Command {
             mode,
             command,
+            multiline_mode: step.multiline_mode,
             timeout: step.timeout_secs,
             dyn_params: CommandDynamicParams::default(),
             interaction: CommandInteraction { prompts },
@@ -267,7 +271,54 @@ pub fn resolve_command_flow_runtime_default_mode(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rneter::session::MultilineMode;
     use serde_json::json;
+
+    #[test]
+    fn command_flow_template_renders_multiline_modes() {
+        let template = parse_command_flow_template_str(
+            r#"
+name = "multiline"
+
+[[steps]]
+command = "show version\nshow inventory"
+multiline_mode = "split_lines"
+
+[[steps]]
+command = "cat <<'EOF'\na\nb\nEOF"
+multiline_mode = "whole"
+"#,
+            None,
+        )
+        .expect("parse template");
+
+        let flow = template
+            .to_command_flow(&CommandFlowTemplateRuntime::default())
+            .expect("render flow");
+
+        assert_eq!(flow.steps[0].multiline_mode, MultilineMode::SplitLines);
+        assert_eq!(flow.steps[1].multiline_mode, MultilineMode::Whole);
+    }
+
+    #[test]
+    fn command_flow_template_defaults_multiline_mode_to_split_lines() {
+        let template = parse_command_flow_template_str(
+            r#"
+name = "default-multiline"
+
+[[steps]]
+command = "show version"
+"#,
+            None,
+        )
+        .expect("parse template");
+
+        let flow = template
+            .to_command_flow(&CommandFlowTemplateRuntime::default())
+            .expect("render flow");
+
+        assert_eq!(flow.steps[0].multiline_mode, MultilineMode::SplitLines);
+    }
 
     #[test]
     fn validates_and_normalizes_structured_template() {

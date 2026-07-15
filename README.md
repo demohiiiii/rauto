@@ -376,6 +376,39 @@ Notes:
 - `--record-level full` also captures richer prompt and state-transition details.
 - `--record-file` still exports the same JSONL recording to a file when you want a copy.
 
+#### Multiline command submission
+
+Structured commands always serialize `multiline_mode` explicitly. Use `split_lines` to execute each non-empty trimmed line as an independent command, or `whole` to preserve the original text and submit it once. Missing legacy fields remain compatible and normalize to `split_lines`.
+
+`split_lines` is fail-fast: after the first failed concrete command, later lines are not executed.
+
+Command-flow TOML:
+
+```toml
+[[steps]]
+mode = "Config"
+command = "interface Gi0/1\nno shutdown"
+multiline_mode = "split_lines"
+
+[[steps]]
+mode = "Shell"
+command = "cat <<'EOF'\nline one\nline two\nEOF"
+multiline_mode = "whole"
+```
+
+Transaction JSON commands, including rollback commands, use the same field:
+
+```json
+{
+  "kind": "command",
+  "mode": "Config",
+  "command": "interface Gi0/1\nno shutdown",
+  "multiline_mode": "split_lines"
+}
+```
+
+`POST /api/exec` accepts the same `multiline_mode`. Its existing top-level `output` and `exit_code` remain available, while `outputs` contains one result per concrete command produced by multiline expansion.
+
 Ready-to-edit sample flow template:
 
 - [templates/examples/cisco-like-command-flow.toml](templates/examples/cisco-like-command-flow.toml)
@@ -554,7 +587,9 @@ Web console key capabilities:
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
 - Download a CSV import template and import saved connections from CSV / Excel in UI.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
-- Run direct commands, template execution, command flow execution, tx blocks, tx workflows, and orchestration from `Operations`.
+- Run commands, command flows, tx blocks, tx workflows, and orchestration from `Operations`.
+- The command workbench accepts manual content or imports a saved command template as an editable local snapshot.
+- Manual and imported commands share `{{var}}` inputs, rendered preview, TextFSM parsing, and multiline submission controls; the execution page never overwrites the saved template.
 - Manage profiles, command templates, and command flow templates in `Template Manager`.
 - Organize saved connections in `Inventory` with groups and labels (web-only management UI).
 - Track and inspect async task runs in `Task Center` (status, events, artifacts, recordings).

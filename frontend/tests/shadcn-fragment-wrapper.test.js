@@ -787,10 +787,8 @@ test("output surfaces use OutputBlock instead of global output css", () => {
     "frontend/src/pages/replay/ReplayResultsPanel.svelte",
     "frontend/src/pages/show/BatchShowResultsPanel.svelte",
     "frontend/src/pages/show/SingleShowPanel.svelte",
-    "frontend/src/pages/standard/DirectExecutionPanel.svelte",
+    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
     "frontend/src/pages/standard/FlowExecutionPanel.svelte",
-    "frontend/src/pages/standard/TemplateExecutionPanel.svelte",
-    "frontend/src/pages/standard/TemplateExecutionResultsPanel.svelte",
     "frontend/src/pages/tasks/TaskDetailOverviewPanel.svelte",
     "frontend/src/pages/tasks/TaskDetailPanel.svelte",
   ];
@@ -891,23 +889,6 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
   ];
 
   for (const path of pagePaths) {
-    const source = read(path);
-
-    assert.match(source, /ui\/card/);
-    assert.match(source, /<Card\.Root/);
-    assert.match(source, /<Card\.Header/);
-    assert.match(source, /<Card\.Title/);
-    assert.match(source, /<Card\.Content/);
-    assert.doesNotMatch(source, /group-card/);
-  }
-});
-
-test("standard result panels compose shadcn Card instead of group-card shells", () => {
-  const panelPaths = [
-    "frontend/src/pages/standard/TemplateExecutionResultsPanel.svelte",
-  ];
-
-  for (const path of panelPaths) {
     const source = read(path);
 
     assert.match(source, /ui\/card/);

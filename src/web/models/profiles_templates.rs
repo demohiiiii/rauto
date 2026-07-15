@@ -92,6 +92,36 @@ pub struct CommandFlowTemplateVarField {
     pub default_value: Option<Value>,
 }
 
+impl CommandFlowTemplateVarField {
+    pub fn inferred(name: String, allow_empty: bool) -> Self {
+        let normalized_name = name.to_ascii_lowercase();
+        let secret = ["password", "passwd", "secret", "token"]
+            .iter()
+            .any(|marker| normalized_name.contains(marker));
+        Self {
+            label: name.clone(),
+            name,
+            description: None,
+            kind: if secret { "secret" } else { "string" }.to_string(),
+            required: true,
+            allow_empty,
+            placeholder: None,
+            options: Vec::new(),
+            default_value: None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InspectCommandTemplateRequest {
+    pub content: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommandTemplateInspection {
+    pub vars_schema: Vec<CommandFlowTemplateVarField>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct CommandFlowTemplateDetail {
     pub name: String,

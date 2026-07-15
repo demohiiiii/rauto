@@ -7,6 +7,10 @@ function read(path) {
 }
 
 const sharedComponentPaths = [
+  "frontend/src/components/command-flow/CommandEditor.svelte",
+  "frontend/src/components/command-flow/CommandMultilineModeField.svelte",
+  "frontend/src/components/command-flow/CommandTextAreaField.svelte",
+  "frontend/src/components/command-flow/CommandTemplateSourceField.svelte",
   "frontend/src/components/command-flow/CommandFlowRuntimeFields.svelte",
   "frontend/src/components/command-flow/CommandFlowReadonlyView.svelte",
   "frontend/src/components/command-flow/CommandFlowSettings.svelte",
@@ -59,7 +63,11 @@ test("shared command flow barrel exports every surface", () => {
   const index = read("frontend/src/components/command-flow/index.js");
 
   for (const componentName of [
+    "CommandEditor",
     "CommandFlowRuntimeFields",
+    "CommandMultilineModeField",
+    "CommandTextAreaField",
+    "CommandTemplateSourceField",
     "CommandFlowReadonlyView",
     "CommandFlowSettings",
     "CommandFlowStepsEditor",
@@ -157,13 +165,24 @@ test("standard command flow execution composes shared surfaces", () => {
   assert.doesNotMatch(panel, /FlowVarsInputPanel/);
 });
 
-test("inline transaction flows compose shared settings and steps", () => {
+test("inline transaction flows compose the same editor as standard flows", () => {
   const editor = read(
     "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
   );
+  const standard = read(
+    "frontend/src/pages/standard/FlowExecutionPanel.svelte",
+  );
 
-  assert.match(editor, /CommandFlowSettings/);
-  assert.match(editor, /CommandFlowStepsEditor/);
+  assert.match(editor, /CommandFlowTemplateEditor/);
+  assert.match(standard, /CommandFlowTemplateEditor/);
+  assert.match(editor, /renderSettings/);
+  assert.match(editor, /renderStepContent/);
+  assert.match(editor, /showDefaultSettings=\{false\}/);
+  assert.match(editor, /createStep=\{txBlockCommandDraft\}/);
+  assert.match(
+    editor,
+    /flowStepRow\.onChange\(\{ \.\.\.flowStepRow\.flowStep, \.\.\.patch \}\)/,
+  );
   assert.doesNotMatch(editor, /JsonObjectFieldsEditor/);
   assert.doesNotMatch(editor, /txBlockFlowMetadataFieldDefs/);
 });
@@ -199,6 +218,8 @@ test("shared command flow template editor exposes only executable fields", () =>
   for (const field of ["command", "mode", "timeoutSecs", "prompts"]) {
     assert.match(stepEditor, new RegExp(field));
   }
+  assert.match(stepEditor, /CommandEditor/);
+  assert.match(stepEditor, /multilineMode/);
   for (const field of [
     "patterns",
     "response",
@@ -218,4 +239,41 @@ test("shared template editor can hide its name field", () => {
   assert.match(editor, /showNameField = true/);
   assert.match(editor, /\{#if showNameField\}/);
   assert.match(editor, /model\.name/);
+});
+
+test("all command surfaces compose one shared command editor", () => {
+  const shared = read(
+    "frontend/src/components/command-flow/CommandEditor.svelte",
+  );
+  const standard = read(
+    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+  );
+  const transaction = read(
+    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
+  );
+  const flowStep = read(
+    "frontend/src/components/command-flow/CommandFlowTemplateStepEditor.svelte",
+  );
+
+  assert.match(shared, /CommandTextAreaField/);
+  assert.match(shared, /CommandMultilineModeField/);
+  for (const surface of [standard, transaction, flowStep]) {
+    assert.match(surface, /CommandEditor/);
+    assert.doesNotMatch(surface, /CommandTextAreaField/);
+    assert.doesNotMatch(surface, /CommandMultilineModeField/);
+  }
+});
+
+test("standard and transaction commands share the template source field", () => {
+  const standard = read(
+    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+  );
+  const transaction = read(
+    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
+  );
+
+  assert.match(standard, /CommandTemplateSourceField/);
+  assert.match(transaction, /CommandTemplateSourceField/);
+  assert.match(transaction, /selectCommandTemplate/);
+  assert.doesNotMatch(transaction, /template_name|templateName/);
 });

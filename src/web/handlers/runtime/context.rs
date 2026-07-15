@@ -385,22 +385,48 @@ pub(crate) fn resolve_render_connection_context_fallback(
 }
 
 pub(crate) fn render_commands_with_runtime_context(
-    template_name: &str,
+    template_name: Option<&str>,
+    template_content: Option<&str>,
     vars: Value,
     conn: Option<&ResolvedConnection>,
 ) -> Result<(String, String), ApiError> {
+    let template_name = template_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let template_content = template_content.filter(|value| !value.trim().is_empty());
+    if template_name.is_some() == template_content.is_some() {
+        return Err(ApiError::bad_request(
+            "use either template or template_content",
+        ));
+    }
+
     let resolved_vars = resolve_template_runtime_vars_with_connection(vars, conn)?;
     let mut render_context = build_json_template_context(resolved_vars, conn);
-    if let Some(stored) =
-        content_store::load_command_template(template_name).map_err(ApiError::from)?
-    {
-        enrich_context_with_connection_refs_from_template(&mut render_context, &stored.content)
-            .map_err(ApiError::from)?;
-    }
     let renderer = Renderer::new();
-    let rendered = renderer
-        .render_file(template_name, render_context.clone())
-        .map_err(ApiError::from)?;
+    let rendered = match (template_name, template_content) {
+        (Some(name), None) => {
+            if let Some(stored) =
+                content_store::load_command_template(name).map_err(ApiError::from)?
+            {
+                enrich_context_with_connection_refs_from_template(
+                    &mut render_context,
+                    &stored.content,
+                )
+                .map_err(ApiError::from)?;
+            }
+            renderer
+                .render_file(name, render_context.clone())
+                .map_err(ApiError::from)?
+        }
+        (None, Some(content)) => {
+            enrich_context_with_connection_refs_from_template(&mut render_context, content)
+                .map_err(ApiError::from)?;
+            renderer
+                .render_string(content, render_context.clone())
+                .map_err(ApiError::from)?
+        }
+        _ => unreachable!("template source validation handled above"),
+    };
     let masked = sanitize_rendered_output_for_response(&rendered, &render_context);
     Ok((rendered, masked))
 }

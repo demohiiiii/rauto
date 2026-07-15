@@ -5,13 +5,7 @@ import {
   defaultStandardExecMode,
   normalizeStandardExecMode,
 } from "../config/dashboardModes.js";
-import {
-  executeCommand,
-  executeCommandFlow as executeCommandFlowRequest,
-  executeTemplate as executeTemplateRequest,
-  getTemplate,
-  renderTemplate,
-} from "../api/client.js";
+import { executeCommandFlow as executeCommandFlowRequest } from "../api/client.js";
 import {
   buildFlowVarsPayload,
   ensureFlowRunTemplateDetail,
@@ -20,7 +14,6 @@ import {
   loadFlowTemplates,
   parseBuiltinFlowTemplateValue,
   setRunFlowTemplateSelectValue,
-  setRunTemplateSelectValue,
   updateFlowTemplateVarFields,
 } from "./templates.js";
 import { applyRecordDrawerRecording, recordLevelPayload } from "./overlays.js";
@@ -41,11 +34,7 @@ export const refreshStandardExecutionModeOptions =
 function createStandardStateContext() {
   return {
     commandFlowExecutionResult: writable(EMPTY_RESULT),
-    directExecutionResult: writable(EMPTY_RESULT),
     standardFormFieldsState: new Map(),
-    templateContentText: writable(""),
-    templateExecutionResult: writable(EMPTY_RESULT),
-    templatePreviewResult: writable(EMPTY_RESULT),
   };
 }
 
@@ -58,23 +47,8 @@ function currentStandardStateContext() {
   return standardStateContext;
 }
 
-export const templateContentText =
-  currentStandardStateContext().templateContentText;
-
-export function directExecutionResultState() {
-  return currentStandardStateContext().directExecutionResult;
-}
-
 export function commandFlowExecutionResultState() {
   return currentStandardStateContext().commandFlowExecutionResult;
-}
-
-export function templatePreviewResultState() {
-  return currentStandardStateContext().templatePreviewResult;
-}
-
-export function templateExecutionResultState() {
-  return currentStandardStateContext().templateExecutionResult;
 }
 
 export function createStandardLoadingKeysStore(createLoadingRunner) {
@@ -118,44 +92,10 @@ export function setStandardTextfsmTemplate(textfsmStateStore, template = "") {
   }));
 }
 
-function standardTemplateNameValue(templateName = "") {
-  return String(templateName || "").trim();
-}
-
-export function standardTemplateVarsObject(varsValue = {}) {
-  if (varsValue && typeof varsValue === "object" && !Array.isArray(varsValue)) {
-    return { ...varsValue };
-  }
-  const raw = safeString(varsValue).trim();
-  if (!raw) {
-    return {};
-  }
-  const parsed = JSON.parse(raw);
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("template vars must be a JSON object");
-  }
-  return parsed;
-}
-
-function standardTemplateVarsText(varsValue = {}) {
-  return JSON.stringify(standardTemplateVarsObject(varsValue), null, 2);
-}
-
-const setCommandFlowExecutionResult = (executionResult = {}) =>
+function setCommandFlowExecutionResult(executionResult = {}) {
   currentStandardStateContext().commandFlowExecutionResult.set(
     executionResult || EMPTY_RESULT,
   );
-const setTemplatePreviewResult = (previewResult = {}) =>
-  currentStandardStateContext().templatePreviewResult.set(
-    previewResult || EMPTY_RESULT,
-  );
-const setTemplateExecutionResult = (executionResult = {}) =>
-  currentStandardStateContext().templateExecutionResult.set(
-    executionResult || EMPTY_RESULT,
-  );
-
-function setSelectedTemplateContentText(content = "") {
-  currentStandardStateContext().templateContentText.set(safeString(content));
 }
 
 function setStandardFormFields(key, fields = {}) {
@@ -174,26 +114,6 @@ function standardFormFields(key) {
     : {};
 }
 
-function selectedTemplateContent() {
-  const templateForm = standardFormFields("template");
-  return (
-    safeString(get(currentStandardStateContext().templateContentText)).trim() ||
-    safeString(templateForm.templateName || "").trim()
-  );
-}
-
-function parseVars() {
-  const templateForm = standardFormFields("template");
-  if (
-    templateForm.vars &&
-    typeof templateForm.vars === "object" &&
-    !Array.isArray(templateForm.vars)
-  ) {
-    return standardTemplateVarsObject(templateForm.vars);
-  }
-  return standardTemplateVarsObject(templateForm.varsText ?? "");
-}
-
 function textfsmPayload() {
   const textfsmForm = standardFormFields("textfsm");
   return {
@@ -209,29 +129,6 @@ function textfsmPayload() {
     textfsm_strict_errors: !!(
       textfsmForm.textfsmStrictErrors ?? textfsmForm.textfsm_strict_errors
     ),
-  };
-}
-
-function directCommandPayload({ connection, recordLevel }) {
-  const directForm = standardFormFields("direct");
-  return {
-    command: safeString(directForm.command ?? "").trim(),
-    mode: safeString(directForm.mode ?? "").trim() || null,
-    ...textfsmPayload(),
-    connection,
-    record_level: recordLevel,
-  };
-}
-
-function templateExecutionPayload({ connection, recordLevel }) {
-  const templateForm = standardFormFields("template");
-  return {
-    template: selectedTemplateContent(),
-    vars: parseVars(),
-    mode: safeString(templateForm.mode ?? "").trim() || null,
-    ...textfsmPayload(),
-    connection,
-    record_level: recordLevel,
   };
 }
 
@@ -282,16 +179,6 @@ export function commandFlowExecutionPayload({
   };
 }
 
-function setDirectExecutionResult(executionResult = {}) {
-  currentStandardStateContext().directExecutionResult.set(
-    executionResult || EMPTY_RESULT,
-  );
-}
-
-export function setDirectExecutionFields(commandText = "", commandMode = "") {
-  setStandardFormFields("direct", { command: commandText, mode: commandMode });
-}
-
 function setStandardTextfsmPayload(nextTextfsmPayload = {}) {
   setStandardFormFields("textfsm", nextTextfsmPayload);
 }
@@ -305,37 +192,8 @@ export function setStandardTextfsmFields(textfsmFields = {}) {
   });
 }
 
-export async function executeDirectCommand() {
-  if (!ensureConnectionTargetSelected()) {
-    return;
-  }
-  setDirectExecutionResult({ kind: "running" });
-  try {
-    const connection = connectionPayload();
-    const payload = directCommandPayload({
-      connection,
-      recordLevel: recordLevelPayload(),
-    });
-    const commandResult = await executeCommand(payload);
-    setDirectExecutionResult({
-      kind: "result",
-      output: safeString(commandResult.output),
-      parsedItem: {
-        ...commandResult,
-        command: payload.command,
-        device: connection.connection_name || connection.host,
-      },
-    });
-    applyRecordDrawerRecording(commandResult);
-  } catch (error) {
-    setDirectExecutionResult({ kind: "error", message: error.message });
-  }
-}
-
 export async function executeCommandFlow(executionSource = null) {
-  if (!ensureConnectionTargetSelected()) {
-    return;
-  }
+  if (!ensureConnectionTargetSelected()) return;
   setCommandFlowExecutionResult({ kind: "running" });
   try {
     const flowForm = standardFormFields("flow");
@@ -396,9 +254,7 @@ export function refreshCommandFlowLanguageFields() {
 }
 
 export function setCommandFlowFields(templateSelection = "") {
-  setStandardFormFields("flow", {
-    templateSelection,
-  });
+  setStandardFormFields("flow", { templateSelection });
 }
 
 export function selectCommandFlowTemplate(templateName = "") {
@@ -412,79 +268,6 @@ export async function exportCommandFlowExcel(exportParsedOutputSheetsExcel) {
   await exportParsedOutputSheetsExcel(commandFlowParsedOutputSheets(), {
     filename: "textfsm-flow.xlsx",
   });
-}
-
-export async function executeTemplate() {
-  if (!ensureConnectionTargetSelected()) {
-    return;
-  }
-  setTemplateExecutionResult({ kind: "running" });
-  try {
-    const templateResult = await executeTemplateRequest(
-      templateExecutionPayload({
-        connection: connectionPayload(),
-        recordLevel: recordLevelPayload(),
-      }),
-    );
-    setTemplateExecutionResult({
-      kind: "result",
-      resultPayload: templateResult,
-    });
-    applyRecordDrawerRecording(templateResult);
-  } catch (error) {
-    setTemplateExecutionResult({ kind: "error", message: error.message });
-  }
-}
-
-export async function previewTemplate() {
-  setTemplatePreviewResult({ kind: "running" });
-  try {
-    const renderPayload = await renderTemplate({
-      template: selectedTemplateContent(),
-      vars: parseVars(),
-      connection: connectionPayload(),
-    });
-    setTemplatePreviewResult({
-      kind: "result",
-      renderedCommands: renderPayload.rendered_commands || "",
-    });
-  } catch (error) {
-    setTemplatePreviewResult({ kind: "error", message: error.message });
-  }
-}
-
-export async function loadSelectedTemplateContent() {
-  const templateForm = standardFormFields("template");
-  const name = standardTemplateNameValue(templateForm.templateName ?? "");
-  if (!name) {
-    setSelectedTemplateContentText("");
-    return;
-  }
-  try {
-    const templatePayload = await getTemplate(name);
-    setSelectedTemplateContentText(templatePayload.content || "");
-  } catch (error) {
-    setSelectedTemplateContentText("");
-    setTemplatePreviewResult({ kind: "error", message: error.message });
-  }
-}
-
-export function setTemplateExecutionFields(
-  templateName = "",
-  mode = "",
-  vars = {},
-) {
-  const nextVars = standardTemplateVarsObject(vars);
-  setStandardFormFields("template", {
-    mode,
-    templateName,
-    vars: nextVars,
-    varsText: standardTemplateVarsText(nextVars),
-  });
-}
-
-export function setStandardRunTemplateSelectValue(templateName = "") {
-  setRunTemplateSelectValue(standardTemplateNameValue(templateName));
 }
 
 export function commandFlowParsedOutputSheets(

@@ -22,9 +22,8 @@ use crate::orchestrator;
 use crate::task::{
     TaskCallback, TaskEventLevel, TaskEventType, TaskOperation, TaskResultEnvelope,
     TaskResultOutcome, TaskStatus, build_error_result_summary, build_result_summary,
-    count_non_empty_lines, extract_result_summary, result_counts, result_counts_with_skipped,
-    task_name_to_operation, task_result_with_counts, task_result_with_details,
-    task_result_with_recording,
+    extract_result_summary, result_counts, result_counts_with_skipped, task_name_to_operation,
+    task_result_with_counts, task_result_with_details, task_result_with_recording,
 };
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
@@ -50,7 +49,8 @@ use axum::{
 };
 use chrono::Utc;
 use rneter::session::{
-    MANAGER, SessionEvent, SessionRecordEntry, SessionRecordLevel, SessionRecorder, TxBlock,
+    Command, CommandDynamicParams, CommandInteraction, MANAGER, MultilineMode, SessionEvent,
+    SessionRecordEntry, SessionRecordLevel, SessionRecorder, TxBlock,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -82,7 +82,8 @@ pub(crate) use async_tasks::{
     queue_orchestration_async_task, queue_tx_block_async_task, queue_tx_workflow_async_task,
 };
 pub use command_templates::{
-    create_template, delete_template, get_template, list_templates, update_template,
+    create_template, delete_template, get_template, inspect_command_template, list_templates,
+    update_template,
 };
 pub use connections::{
     delete_connection, delete_connection_history, delete_inventory_group, delete_inventory_label,

@@ -57,6 +57,9 @@
               <Badge variant="secondary">
                 {stepRow.timeoutLabelText}: {stepRow.timeoutText}
               </Badge>
+              <Badge variant="outline">
+                {stepRow.multilineModeLabelText}: {stepRow.multilineModeText}
+              </Badge>
             </div>
           </div>
 

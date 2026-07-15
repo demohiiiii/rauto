@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  commandFlowTemplateDocumentFromModel,
+  commandFlowTemplateModelFromDocument,
   commandFlowTemplateModelFromToml,
   commandFlowTemplateModelToToml,
   defaultCommandFlowTemplateModel,
@@ -36,6 +38,7 @@ test("command flow TOML maps every supported field into the visual model", () =>
   assert.deepEqual(model.steps, [
     {
       command: "copy {{source}} flash:{{destination}}",
+      multilineMode: "split_lines",
       mode: "Enable",
       hasMode: true,
       timeoutSecs: 300,
@@ -110,4 +113,35 @@ test("default temporary command flow contains one editable step", () => {
   assert.equal(model.stopOnError, true);
   assert.equal(model.steps.length, 1);
   assert.equal(model.steps[0].command, "");
+  assert.equal(model.steps[0].multilineMode, "split_lines");
+});
+
+test("command flow steps normalize and serialize multiline modes", () => {
+  const model = commandFlowTemplateModelFromDocument({
+    name: "multiline",
+    steps: [
+      { command: "show version\nshow inventory" },
+      { command: "cat <<'EOF'\na\nEOF", multiline_mode: "whole" },
+    ],
+  });
+
+  assert.equal(model.steps[0].multilineMode, "split_lines");
+  assert.equal(model.steps[1].multilineMode, "whole");
+  assert.deepEqual(
+    commandFlowTemplateDocumentFromModel(model).steps.map(
+      (step) => step.multiline_mode,
+    ),
+    ["split_lines", "whole"],
+  );
+});
+
+test("command flow steps reject unsupported multiline modes", () => {
+  assert.throws(
+    () =>
+      commandFlowTemplateModelFromDocument({
+        name: "invalid-multiline",
+        steps: [{ command: "show version", multiline_mode: "batch" }],
+      }),
+    /steps\[0\]\.multiline_mode must be split_lines or whole/,
+  );
 });

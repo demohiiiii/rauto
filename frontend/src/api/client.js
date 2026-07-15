@@ -241,6 +241,10 @@ export function inspectCommandFlowTemplate(content) {
   return apiRequest("POST", "/api/flow-templates/inspect", { content });
 }
 
+export function inspectCommandTemplate(content) {
+  return apiRequest("POST", "/api/templates/inspect", { content });
+}
+
 export function getCommandFlowTemplate(name, { builtin = false } = {}) {
   return getTemplateResource(
     builtin ? "/api/flow-templates/builtins" : "/api/flow-templates",

@@ -1,4 +1,8 @@
 export { default as CommandFlowRuntimeFields } from "./CommandFlowRuntimeFields.svelte";
+export { default as CommandEditor } from "./CommandEditor.svelte";
+export { default as CommandTemplateSourceField } from "./CommandTemplateSourceField.svelte";
+export { default as CommandMultilineModeField } from "./CommandMultilineModeField.svelte";
+export { default as CommandTextAreaField } from "./CommandTextAreaField.svelte";
 export { default as CommandFlowReadonlyView } from "./CommandFlowReadonlyView.svelte";
 export { default as CommandFlowSettings } from "./CommandFlowSettings.svelte";
 export { default as CommandFlowStepsEditor } from "./CommandFlowStepsEditor.svelte";

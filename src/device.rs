@@ -4,8 +4,8 @@ use anyhow::{Result, anyhow};
 use rneter::{
     device::DeviceHandler,
     session::{
-        CmdJob, Command, CommandFlow, CommandFlowOutput, MANAGER, Output, SessionRecordLevel,
-        SessionRecorder,
+        CmdJob, Command, CommandFlow, CommandFlowOutput, MANAGER, MultilineMode, Output,
+        SessionRecordLevel, SessionRecorder,
     },
 };
 use tokio::sync::mpsc::Sender;
@@ -101,6 +101,7 @@ impl DeviceClient {
         self.execute_command_structured(Command {
             mode,
             command: command_str.to_string(),
+            multiline_mode: MultilineMode::SplitLines,
             timeout: Some(self.default_timeout),
             dyn_params: Default::default(),
             interaction: Default::default(),
@@ -137,7 +138,15 @@ impl DeviceClient {
         Ok(output)
     }
 
+    pub async fn execute_multiline_command_structured(
+        &self,
+        command: Command,
+    ) -> Result<CommandFlowOutput> {
+        self.execute_command_flow(command.into_flow()?).await
+    }
+
     pub async fn execute_command_flow(&self, flow: CommandFlow) -> Result<CommandFlowOutput> {
+        let flow = flow.expand_multiline()?;
         let CommandFlow {
             steps,
             stop_on_error,

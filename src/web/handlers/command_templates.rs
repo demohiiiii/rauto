@@ -1,7 +1,9 @@
+use crate::config::command_flow_vars::inline_runtime_var_names;
 use crate::config::content_store;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    CreateTemplateRequest, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
+    CommandFlowTemplateVarField, CommandTemplateInspection, CreateTemplateRequest,
+    InspectCommandTemplateRequest, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
 };
 use crate::web::state::AppState;
 use crate::web::storage;
@@ -9,6 +11,22 @@ use axum::Json;
 use axum::extract::{Path, State};
 use serde_json::{Value, json};
 use std::sync::Arc;
+
+fn inspect_command_template_content(content: &str) -> CommandTemplateInspection {
+    CommandTemplateInspection {
+        vars_schema: inline_runtime_var_names(content)
+            .into_iter()
+            .map(|name| CommandFlowTemplateVarField::inferred(name, false))
+            .collect(),
+    }
+}
+
+pub async fn inspect_command_template(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<InspectCommandTemplateRequest>,
+) -> Result<Json<CommandTemplateInspection>, ApiError> {
+    Ok(Json(inspect_command_template_content(&req.content)))
+}
 
 pub async fn list_templates(
     State(state): State<Arc<AppState>>,
@@ -73,4 +91,25 @@ pub async fn delete_template(
     let safe_name = storage::safe_template_name(&name)?;
     content_store::delete_command_template(&safe_name).map_err(ApiError::from)?;
     Ok(Json(json!({"ok": true})))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_template_inspection_returns_ordered_runtime_fields() {
+        let detail = inspect_command_template_content(
+            "copy {{source}} {{peer.host}}\nverify {{source}} {{transfer_password}}",
+        );
+        assert_eq!(
+            detail
+                .vars_schema
+                .iter()
+                .map(|field| field.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["peer", "source", "transfer_password"]
+        );
+        assert_eq!(detail.vars_schema[2].kind, "secret");
+    }
 }

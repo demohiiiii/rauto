@@ -9,9 +9,8 @@ mod summary;
 pub use envelope::{AsyncTaskAcceptedResponse, TaskCallback, TaskEvent, TaskResultEnvelope};
 pub use summary::{
     TaskResultOutcome, TaskResultSummary, build_error_result_summary, build_result_summary,
-    count_non_empty_lines, extract_result_summary, result_counts, result_counts_with_skipped,
-    task_name_to_operation, task_result_with_counts, task_result_with_details,
-    task_result_with_recording,
+    extract_result_summary, result_counts, result_counts_with_skipped, task_name_to_operation,
+    task_result_with_counts, task_result_with_details, task_result_with_recording,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

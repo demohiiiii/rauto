@@ -303,7 +303,31 @@ with:
 
 and provide a valid `CommandFlow` object with `steps`.
 
-## 5) Repair Strategy
+## 5) Invalid Multiline Mode
+
+### Error
+
+`multiline_mode must be split_lines or whole` or `unsupported multiline_mode`
+
+### Cause
+
+A command, rollback command, or command-flow step uses an unsupported multiline submission value.
+
+### Fix
+
+Use one of:
+
+```json
+"multiline_mode": "split_lines"
+```
+
+```json
+"multiline_mode": "whole"
+```
+
+Missing legacy fields normalize to `split_lines`, but newly serialized JSON writes the field explicitly.
+
+## 6) Repair Strategy
 
 When fixing invalid JSON, prefer this order:
 

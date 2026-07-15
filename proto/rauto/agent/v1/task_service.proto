@@ -477,6 +477,7 @@ message ExecuteCommandRequest {
   string        textfsm_platform       = 8;
   string        textfsm_vendor         = 9;
   bool          textfsm_strict_errors  = 10;
+  string        multiline_mode         = 11;
 }
 
 message ExecuteTemplateRequest {
@@ -493,6 +494,7 @@ message ExecuteTemplateRequest {
   string        textfsm_vendor         = 11;
   bool          textfsm_strict_errors  = 12;
   string        template_dir           = 13;
+  string        multiline_mode         = 14;
 }
 
 message ExecuteTxBlockRequest {
@@ -543,6 +545,7 @@ message ExecuteCommandResponse {
   optional string result_summary_json = 4;
   optional string parsed_output_json  = 5;
   optional string parse_error         = 6;
+  repeated CommandExecutionResult outputs = 7;
 }
 
 message CommandExecutionResult {

@@ -6,7 +6,7 @@ Use this file when creating or debugging command-flow templates (`rauto flow-tem
 
 - Template format: TOML.
 - Runtime rendering: inline `{{var}}`.
-- Step execution: each step can define command, optional mode, timeout, prompt-response rules.
+- Step execution: each step can define command, explicit multiline mode, optional mode, timeout, and prompt-response rules.
 - Template inputs are inferred from inline references instead of declared in a vars schema.
 - Current target fields are flat values such as `{{host}}` and `{{username}}`.
 - Saved connections can be referenced through runtime aliases such as `{{peer.host}}`.
@@ -26,6 +26,7 @@ default_mode = "User"
 
 [[steps]]
 command = "scp {{local_path}} {{peer.username}}@{{peer.host}}:{{remote_path}}"
+multiline_mode = "split_lines"
 ```
 
 Run example:
@@ -41,3 +42,22 @@ rauto flow \
 
 - If step `mode` is omitted, `rauto` uses template/runtime default first.
 - If still omitted, `rauto` falls back to the first mode of the active device profile.
+
+## Multiline Submission
+
+- `multiline_mode = "split_lines"` executes every non-empty trimmed line as a separate command.
+- `multiline_mode = "whole"` preserves newline characters and submits the complete text once, which is useful for heredocs and shell blocks.
+- `split_lines` stops after the first concrete command failure; later lines are not executed.
+- Legacy content without the field loads as `split_lines`; visual and TOML editors write the normalized field explicitly.
+
+```toml
+[[steps]]
+mode = "Config"
+command = "interface Gi0/1\nno shutdown"
+multiline_mode = "split_lines"
+
+[[steps]]
+mode = "Shell"
+command = "cat <<'EOF'\nline one\nline two\nEOF"
+multiline_mode = "whole"
+```

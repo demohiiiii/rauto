@@ -27,7 +27,6 @@ import {
   loadFlowTemplates,
   parseBuiltinFlowTemplateValue,
   runFlowTemplateSelectState,
-  runTemplateSelectState,
   setFlowVarDraftValue,
   updateFlowTemplateVarFields,
 } from "./templates.js";
@@ -50,32 +49,19 @@ import {
   createStandardLoadingKeysStore,
   createStandardTextfsmStateStore,
   DEFAULT_STANDARD_PAGE_MODE,
-  directExecutionResultState,
   executeCommandFlow,
-  executeDirectCommand,
-  executeTemplate,
   exportCommandFlowExcel,
-  loadSelectedTemplateContent,
-  previewTemplate,
   refreshStandardExecutionModeOptions,
-  setDirectExecutionFields,
-  setStandardRunTemplateSelectValue,
   setStandardTextfsmEnabled,
   setStandardTextfsmFields,
   setStandardTextfsmStrictErrors,
   setStandardTextfsmTemplate,
-  setTemplateExecutionFields,
-  standardTemplateVarsObject,
-  templateContentText,
-  templateExecutionResultState,
-  templatePreviewResultState,
 } from "./standardExecutionState.js";
 
 export {
   flowVarsFieldState as standardFlowVarsFieldState,
   flowVarsPresentation as standardFlowVarsPresentation,
   runFlowTemplateSelectState as standardRunFlowTemplateSelectState,
-  runTemplateSelectState as standardRunTemplateSelectState,
   setFlowVarDraftValue as setStandardFlowVarDraftValue,
 } from "./templates.js";
 
@@ -90,13 +76,10 @@ export { refreshStandardExecutionModeOptions } from "./standardExecutionState.js
 
 const standardExecutionResultDisplay = executionResultDisplay;
 export const exportStandardParsedOutputItemExcel = exportParsedOutputItemExcel;
-const exportStandardParsedOutputSheetsExcel = exportParsedOutputSheetsExcel;
 
 const standardExecModePresentation = (mode = "") => ({
   directActive: normalizeStandardExecMode(mode) === STANDARD_EXEC_MODE.direct,
   flowActive: normalizeStandardExecMode(mode) === STANDARD_EXEC_MODE.flow,
-  templateActive:
-    normalizeStandardExecMode(mode) === STANDARD_EXEC_MODE.template,
 });
 
 function standardPageDisplay(mode = "") {
@@ -152,172 +135,11 @@ function standardFlowTemplateFieldsPresentation({
   };
 }
 
-function standardTemplateSelectDisplay(templateState = {}) {
-  return {
-    selectedTemplate: safeString(templateState?.selected),
-    templateOptions: Array.isArray(templateState?.names)
-      ? templateState.names
-      : [],
-  };
-}
-
-function directExecutionEmptyDisplay(overrides = {}) {
-  return {
-    output: "",
-    parsedOutputBlock: null,
-    statusMessage: "",
-    statusTone: "info",
-    ...overrides,
-  };
-}
-
-function directExecutionDisplay(executionResult = {}) {
-  const kind = executionResult?.kind || "empty";
-  if (kind === "running") {
-    return directExecutionEmptyDisplay({
-      statusMessage: t("running"),
-      statusTone: "running",
-    });
-  }
-  if (kind === "error") {
-    return directExecutionEmptyDisplay({
-      statusMessage: executionResult.message || "",
-      statusTone: "error",
-    });
-  }
-  if (kind === "result") {
-    const parsedItem = executionResult.parsedItem || null;
-    return directExecutionEmptyDisplay({
-      output: executionResult.output || "",
-      parsedOutputBlock: parsedItem
-        ? parsedOutputBlockDisplayFromItem(parsedItem)
-        : null,
-    });
-  }
-  return directExecutionEmptyDisplay();
-}
-
-function modeOptionRowsPresentation({
-  hasModeOptions = false,
-  mode = "",
-  modeOptions = [],
-  placeholder = "",
-} = {}) {
-  const optionRows = selectOptionsWithCurrent(modeOptions, mode).map(
-    (modeOptionValue) => ({
-      labelText: modeOptionValue,
-      valueText: modeOptionValue,
-    }),
-  );
-  return hasModeOptions
-    ? optionRows
-    : [{ labelText: placeholder, valueText: "" }, ...optionRows];
-}
-
 function standardInputField(value, placeholder) {
   return {
     ariaLabelText: placeholder,
     placeholder,
     value: safeString(value),
-  };
-}
-
-function directExecutionRunPresentation({
-  command = "",
-  hasModeOptions = false,
-  mode = "",
-  modeOptions = [],
-} = {}) {
-  const modePlaceholder = t("modePlaceholder");
-  const commandPlaceholder = t("commandPlaceholder");
-  return {
-    commandField: standardInputField(command, commandPlaceholder),
-    executeButtonLabel: t("execBtn"),
-    modeField: standardInputField(mode, modePlaceholder),
-    modeOptionRows: modeOptionRowsPresentation({
-      hasModeOptions,
-      mode,
-      modeOptions,
-      placeholder: modePlaceholder,
-    }),
-  };
-}
-
-function templatePreviewEmptyDisplay(overrides = {}) {
-  return { message: "", text: "", tone: "info", ...overrides };
-}
-
-function templatePreviewExecutionDisplay(previewResult = {}) {
-  const kind = previewResult?.kind || "empty";
-  if (kind === "running") {
-    return templatePreviewEmptyDisplay({ text: t("running") });
-  }
-  if (kind === "result") {
-    return templatePreviewEmptyDisplay({
-      text: safeString(previewResult.renderedCommands || ""),
-    });
-  }
-  if (kind === "error") {
-    return templatePreviewEmptyDisplay({
-      message: previewResult.message || "",
-      tone: "error",
-    });
-  }
-  return templatePreviewEmptyDisplay();
-}
-
-const templatePreviewStatusPresentation = (previewDisplay = {}) => ({
-  message: previewDisplay.message || "",
-  text: previewDisplay.text || "",
-  tone: previewDisplay.tone || "info",
-});
-
-function templateExecutionRunPresentation() {
-  return {
-    executeButtonLabel: t("templateExecBtn"),
-    previewButtonLabel: t("renderBtn"),
-  };
-}
-
-function templateExecutionInputPresentation({
-  hasModeOptions = false,
-  mode = "",
-  modeOptions = [],
-  selectedContentText = "",
-  templateName = "",
-  templateOptions = [],
-  vars = {},
-} = {}) {
-  const modePlaceholder = t("templateModePlaceholder");
-  const templatePlaceholder = t("templatePlaceholder");
-  const templateSelectPlaceholder = t("templateSelectPlaceholder");
-  const selectedContentPlaceholder = t("templateSelectedContentPlaceholder");
-  const varsPlaceholder = t("varsPlaceholder");
-  return {
-    modeField: standardInputField(mode, modePlaceholder),
-    modeOptionRows: modeOptionRowsPresentation({
-      hasModeOptions,
-      mode,
-      modeOptions,
-      placeholder: modePlaceholder,
-    }),
-    selectedContentField: {
-      ariaLabelText: selectedContentPlaceholder,
-      placeholder: selectedContentPlaceholder,
-    },
-    selectedContentText,
-    selectedContentTitle: t("templateSelectedContentTitle"),
-    templateOptionRows: selectOptionsWithCurrent(templateOptions, templateName),
-    templateField: standardInputField(templateName, templatePlaceholder),
-    templateSelectField: {
-      ariaLabelText: templateSelectPlaceholder,
-      placeholder: templateSelectPlaceholder,
-    },
-    varsField: {
-      ariaLabelText: varsPlaceholder,
-      placeholder: varsPlaceholder,
-      source: standardTemplateVarsObject(vars),
-    },
   };
 }
 
@@ -436,68 +258,6 @@ function commandFlowResultPresentation(flowPayload = null) {
   };
 }
 
-function templateExecutionSummaryCards(executedRows = []) {
-  const normalizedExecutedRows = Array.isArray(executedRows)
-    ? executedRows
-    : [];
-  const successCount = normalizedExecutedRows.filter(
-    (executionRow) => executionRow.success,
-  ).length;
-  const failedCount = Math.max(0, normalizedExecutedRows.length - successCount);
-  return [
-    {
-      label: t("templateExecSummaryTotal"),
-      summaryValue: normalizedExecutedRows.length,
-    },
-    { label: t("templateExecSummarySuccess"), summaryValue: successCount },
-    { label: t("templateExecSummaryFailed"), summaryValue: failedCount },
-  ];
-}
-
-function templateExecutionPresentation(executionDisplay = {}) {
-  const templateResult = executionDisplay?.resultPayload || null;
-  const statusMessage =
-    executionDisplay?.statusMessage ||
-    (executionDisplay?.kind === "empty" ? t("templateExecVisualEmpty") : "");
-  const executedRows = standardParsedExecutionRows(templateResult?.executed);
-  return {
-    commandLabel: t("fieldCommand"),
-    executedRows,
-    executedTitle: t("templateExecExecutedTitle"),
-    exportButtonLabel: t("textfsmExportAllExcel"),
-    hasResult: Boolean(templateResult),
-    noItemsText: t("templateExecNoItems"),
-    renderedTitle: t("templateExecRenderedTitle"),
-    renderedCommandsText: safeString(templateResult?.rendered_commands || ""),
-    showResultSection:
-      executionDisplay?.kind === "result" && Boolean(templateResult),
-    showStatusCard:
-      executionDisplay?.kind === "empty" || Boolean(statusMessage),
-    summaryCards: templateExecutionSummaryCards(executedRows),
-    statusMessage,
-    statusTone: executionDisplay?.statusTone || "info",
-    visualTitle: t("templateExecVisualTitle"),
-  };
-}
-
-function templateExecutionRowsPresentation(executedRows = []) {
-  const normalizedExecutedRows = Array.isArray(executedRows)
-    ? executedRows
-    : [];
-  const exportSheets = parsedOutputSheetsFromParsedOutputItems(
-    normalizedExecutedRows.map((executionRow) => executionRow.exportItem || {}),
-    {
-      sheetName: (executionExportItem, index) =>
-        executionExportItem.command || `command_${index + 1}`,
-    },
-  );
-  return {
-    exportAvailable: exportSheets.length > 0,
-    exportSheets,
-    hasExecutedRows: normalizedExecutedRows.length > 0,
-  };
-}
-
 function commandFlowParsedOutputSheets(flowExecutionResult = {}) {
   const resultPayload =
     flowExecutionResult?.kind === "result"
@@ -554,265 +314,6 @@ function createFlowVarsInputPanelWorkspace({ onValueChange = null } = {}) {
     changeFlowVarValue(flowVarName) {
       return callbackFormValueHandler(onValueChange, flowVarName);
     },
-  };
-}
-
-export function createTemplateExecutionPanelWorkspace() {
-  const templatePreviewResultStateStore = templatePreviewResultState();
-  const templateExecutionResultStateStore = templateExecutionResultState();
-  const templateModePicker = modeSelection(MODE_SELECT.standardTemplate);
-  const templateTextfsmPlatformPicker = textfsmPlatformSelection(
-    TEXTFSM_PLATFORM_SELECT.standard,
-  );
-  const templateVarsStateStore = writable({});
-  const templateTextfsmStateStore = createStandardTextfsmStateStore();
-  const { loadingKeysStore, loadingRunner } =
-    createStandardLoadingKeysStore(createLoadingRunner);
-  const templatePanelDisplayStateStore = derived(
-    [
-      templateModePicker.state,
-      runTemplateSelectState,
-      templateTextfsmPlatformPicker.state,
-      templateVarsStateStore,
-      templateTextfsmStateStore,
-      templatePreviewResultStateStore,
-      templateExecutionResultStateStore,
-      loadingKeysStore,
-      templateContentText,
-      currentLanguageState,
-    ],
-    ([
-      $templateModeState,
-      $runTemplateSelectState,
-      $templateTextfsmPlatformState,
-      $templateVarsState,
-      $templateTextfsmState,
-      $templatePreviewResult,
-      $templateExecutionResult,
-      $loadingKeysStore,
-      $templateContentText,
-      _currentLanguageState,
-    ]) => {
-      const templateModeDisplay = standardModeSelectDisplay($templateModeState);
-      const templateSelectDisplay = standardTemplateSelectDisplay(
-        $runTemplateSelectState,
-      );
-      const templateTextfsmFields = standardTextfsmFieldsForState({
-        enabled: $templateTextfsmState.enabled,
-        platformState: $templateTextfsmPlatformState,
-        strictErrors: $templateTextfsmState.strictErrors,
-        template: $templateTextfsmState.template,
-      });
-      const templatePreviewDisplay = templatePreviewExecutionDisplay(
-        $templatePreviewResult,
-      );
-      const templateExecutionDisplay = templateExecutionPresentation(
-        standardExecutionResultDisplay($templateExecutionResult, {
-          emptyMessageKey: "templateExecVisualEmpty",
-        }),
-      );
-      return {
-        executeLoading: $loadingKeysStore.includes("execute"),
-        previewLoading: $loadingKeysStore.includes("preview"),
-        runDisplay: templateExecutionRunPresentation(),
-        templateExecutionDisplay,
-        templateInputDisplay: templateExecutionInputPresentation({
-          hasModeOptions: templateModeDisplay.hasModeOptions,
-          mode: templateModeDisplay.selectedMode,
-          modeOptions: templateModeDisplay.modeOptions,
-          selectedContentText: $templateContentText,
-          templateName: templateSelectDisplay.selectedTemplate,
-          templateOptions: templateSelectDisplay.templateOptions,
-          vars: $templateVarsState,
-        }),
-        templatePreviewStatus: templatePreviewStatusPresentation(
-          templatePreviewDisplay,
-        ),
-        textfsmFields: templateTextfsmFields,
-      };
-    },
-  );
-  let loadedTemplateName = null;
-
-  function changeTemplateName(templateName = "") {
-    setStandardRunTemplateSelectValue(templateName);
-  }
-
-  function changeTemplateMode(commandMode = "") {
-    templateModePicker.setValue(commandMode);
-  }
-
-  function changeTemplateVars(nextVars = {}) {
-    templateVarsStateStore.set(standardTemplateVarsObject(nextVars));
-  }
-
-  function changeTemplateTextfsmEnabled(textfsmEnabled = false) {
-    setStandardTextfsmEnabled(templateTextfsmStateStore, textfsmEnabled);
-  }
-
-  function changeTemplateTextfsmPlatform(textfsmPlatform = "") {
-    templateTextfsmPlatformPicker.setValue(textfsmPlatform);
-  }
-
-  function changeTemplateTextfsmStrictErrors(textfsmStrictErrors = false) {
-    setStandardTextfsmStrictErrors(
-      templateTextfsmStateStore,
-      textfsmStrictErrors,
-    );
-  }
-
-  function changeTemplateTextfsmTemplate(textfsmTemplate = "") {
-    setStandardTextfsmTemplate(templateTextfsmStateStore, textfsmTemplate);
-  }
-
-  const runActionHandlers = {
-    execute: executeTemplateExecution,
-    preview: previewTemplateExecution,
-  };
-
-  function previewTemplateExecution() {
-    return loadingRunner.run("preview", previewTemplate);
-  }
-
-  function executeTemplateExecution() {
-    return loadingRunner.run("execute", executeTemplate);
-  }
-
-  function setPanelContext({
-    active = false,
-    templatePanelDisplay = null,
-  } = {}) {
-    if (!active) {
-      loadedTemplateName = null;
-      return;
-    }
-    if (!templatePanelDisplay) return;
-    setTemplateExecutionFields(
-      templatePanelDisplay.templateInputDisplay.templateField.value,
-      templatePanelDisplay.templateInputDisplay.modeField.value,
-      templatePanelDisplay.templateInputDisplay.varsField.source,
-    );
-    setStandardTextfsmFields(templatePanelDisplay.textfsmFields);
-    const templateName =
-      templatePanelDisplay.templateInputDisplay.templateField.value;
-    if (loadedTemplateName === templateName) return;
-    loadedTemplateName = templateName;
-    void loadSelectedTemplateContent();
-  }
-
-  return {
-    changeTemplateMode,
-    changeTemplateName,
-    changeTemplateTextfsmEnabled,
-    changeTemplateTextfsmPlatform,
-    changeTemplateTextfsmStrictErrors,
-    changeTemplateTextfsmTemplate,
-    changeTemplateVars,
-    runActionHandlers,
-    setPanelContext,
-    templatePanelDisplayStateStore,
-  };
-}
-
-export function createDirectExecutionPanelWorkspace() {
-  const directExecutionResultStateStore = directExecutionResultState();
-  const directModePicker = modeSelection(MODE_SELECT.standardDirect);
-  const directTextfsmPlatformPicker = textfsmPlatformSelection(
-    TEXTFSM_PLATFORM_SELECT.standard,
-  );
-  const directCommandStateStore = writable("");
-  const directTextfsmStateStore = createStandardTextfsmStateStore();
-  const { loadingKeysStore, loadingRunner } =
-    createStandardLoadingKeysStore(createLoadingRunner);
-  const directPanelDisplayStateStore = derived(
-    [
-      directCommandStateStore,
-      directModePicker.state,
-      directTextfsmPlatformPicker.state,
-      directTextfsmStateStore,
-      directExecutionResultStateStore,
-      loadingKeysStore,
-      currentLanguageState,
-    ],
-    ([
-      $directCommandStateStore,
-      $directModeState,
-      $directTextfsmPlatformState,
-      $directTextfsmState,
-      $directExecutionResult,
-      $loadingKeysStore,
-      _currentLanguageState,
-    ]) => {
-      const directModeDisplay = standardModeSelectDisplay($directModeState);
-      return {
-        directResultDisplay: directExecutionDisplay($directExecutionResult),
-        executeLoading: $loadingKeysStore.includes("execute"),
-        runDisplay: directExecutionRunPresentation({
-          command: $directCommandStateStore,
-          hasModeOptions: directModeDisplay.hasModeOptions,
-          mode: directModeDisplay.selectedMode,
-          modeOptions: directModeDisplay.modeOptions,
-        }),
-        textfsmFields: standardTextfsmFieldsForState({
-          enabled: $directTextfsmState.enabled,
-          platformState: $directTextfsmPlatformState,
-          strictErrors: $directTextfsmState.strictErrors,
-          template: $directTextfsmState.template,
-        }),
-      };
-    },
-  );
-
-  function changeDirectCommand(commandText = "") {
-    directCommandStateStore.set(safeString(commandText));
-  }
-
-  function changeDirectMode(commandMode = "") {
-    directModePicker.setValue(commandMode);
-  }
-
-  function changeDirectTextfsmEnabled(textfsmEnabled = false) {
-    setStandardTextfsmEnabled(directTextfsmStateStore, textfsmEnabled);
-  }
-
-  function changeDirectTextfsmPlatform(textfsmPlatform = "") {
-    directTextfsmPlatformPicker.setValue(textfsmPlatform);
-  }
-
-  function changeDirectTextfsmStrictErrors(textfsmStrictErrors = false) {
-    setStandardTextfsmStrictErrors(
-      directTextfsmStateStore,
-      textfsmStrictErrors,
-    );
-  }
-
-  function changeDirectTextfsmTemplate(textfsmTemplate = "") {
-    setStandardTextfsmTemplate(directTextfsmStateStore, textfsmTemplate);
-  }
-
-  function setPanelContext({ active = false, directPanelDisplay = null } = {}) {
-    if (!active || !directPanelDisplay) return;
-    setDirectExecutionFields(
-      directPanelDisplay.runDisplay.commandField.value,
-      directPanelDisplay.runDisplay.modeField.value,
-    );
-    setStandardTextfsmFields(directPanelDisplay.textfsmFields);
-  }
-
-  function executeDirectExecution() {
-    return loadingRunner.run("execute", executeDirectCommand);
-  }
-
-  return {
-    changeDirectCommand,
-    changeDirectMode,
-    changeDirectTextfsmEnabled,
-    changeDirectTextfsmPlatform,
-    changeDirectTextfsmStrictErrors,
-    changeDirectTextfsmTemplate,
-    directPanelDisplayStateStore,
-    executeDirectExecution,
-    setPanelContext,
   };
 }
 
@@ -1073,46 +574,5 @@ export function createFlowExecutionPanelWorkspace() {
     saveFlowTemplateAs: authoring.saveAs,
     setPanelContext,
     submitFlowNameDialog,
-  };
-}
-
-export function createTemplateExecutionResultsPanelWorkspace() {
-  const { loadingKeysStore, loadingRunner } =
-    createStandardLoadingKeysStore(createLoadingRunner);
-  const panelDisplayStateStore = writable(templateExecutionPresentation());
-  const executionRowsDisplayStateStore = writable(
-    templateExecutionRowsPresentation(),
-  );
-  const exportLoadingStateStore = derived(
-    loadingKeysStore,
-    ($loadingKeysStore) => ({
-      exportLoading: $loadingKeysStore.includes("export"),
-    }),
-  );
-
-  function exportTemplateExecutionResults(executionRowsDisplay = {}) {
-    return loadingRunner.run("export", () =>
-      exportParsedOutputSheetsExcel(executionRowsDisplay.exportSheets || [], {
-        filename: "textfsm-template.xlsx",
-      }),
-    );
-  }
-
-  return {
-    executionRowsDisplayStateStore,
-    exportLoadingStateStore,
-    exportTemplateExecutionResults,
-    loadingKeysStore,
-    panelDisplayStateStore,
-    setResultsContext({ templateExecutionDisplay = {} } = {}) {
-      panelDisplayStateStore.set(
-        templateExecutionPresentation(templateExecutionDisplay),
-      );
-      executionRowsDisplayStateStore.set(
-        templateExecutionRowsPresentation(
-          templateExecutionDisplay.executedRows,
-        ),
-      );
-    },
   };
 }

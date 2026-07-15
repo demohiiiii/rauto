@@ -62,12 +62,10 @@ export function normalizeShowQuery(showQuery = "") {
 export const STANDARD_EXEC_MODE = Object.freeze({
   direct: "direct",
   flow: "flow",
-  template: "template",
 });
 
 export const standardExecModeTabs = Object.freeze([
-  { value: STANDARD_EXEC_MODE.direct, labelKey: "opExecDirect" },
-  { value: STANDARD_EXEC_MODE.template, labelKey: "opExecTemplate" },
+  { value: STANDARD_EXEC_MODE.direct, labelKey: "opExecCommand" },
   { value: STANDARD_EXEC_MODE.flow, labelKey: "opExecFlow" },
 ]);
 

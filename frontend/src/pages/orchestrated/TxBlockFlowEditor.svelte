@@ -1,9 +1,7 @@
 <script>
-  import {
-    CommandFlowSettings,
-    CommandFlowStepsEditor,
-  } from "../../components/command-flow/index.js";
-  import { t } from "../../lib/i18n.js";
+  import { CommandFlowTemplateEditor } from "../../components/command-flow/index.js";
+  import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
+  import { txBlockCommandDraft } from "../../modules/transactionBlockMutations.js";
   import { txBlockValidationErrorText } from "../../modules/transactionBlockDisplayState.js";
   import { createTxBlockFlowEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
 
@@ -21,12 +19,10 @@
   const {
     flowActionHandlersStateStore,
     flowFieldRowsStateStore,
-    flowStepRowsStateStore,
     setFlowEditorContext,
   } = txBlockFlowEditorWorkspace;
   let flowActionHandlers = $derived($flowActionHandlersStateStore);
   let flowFieldRows = $derived($flowFieldRowsStateStore);
-  let flowStepRows = $derived($flowStepRowsStateStore);
 
   $effect(() => {
     setFlowEditorContext({
@@ -43,39 +39,36 @@
 </script>
 
 <div class="grid gap-5">
-  <CommandFlowSettings
-    title={t("txBlockFormFlowSettings")}
-    description={t("txBlockFormFlowSettingsHint")}
-    fieldRows={flowFieldRows}
-    onValueChangeForKey={flowActionHandlers.flowFieldValueHandler}
-    onPresenceChangeForKey={flowActionHandlers.flowFieldPresenceHandler}
-  />
   {#if stepsErrorText}
     <p class="text-xs text-destructive" role="alert">{stepsErrorText}</p>
   {/if}
-  <CommandFlowStepsEditor
-    title={t("txBlockFormFlowSteps")}
-    description={t("txBlockFormFlowStepsHint")}
-    addLabel={t("txBlockFormAddFlowStep")}
-    emptyText={t("txBlockFormFlowStepsEmpty")}
-    removeLabel={t("deleteBtn")}
-    duplicateLabel={t("txBlockTimelineDuplicateStep")}
-    moveUpLabel={t("txBlockTimelineMoveUp")}
-    moveDownLabel={t("txBlockTimelineMoveDown")}
-    stepRows={flowStepRows}
-    onAddStep={flowActionHandlers.addStep}
-    onRemoveStep={flowActionHandlers.removeStep}
-    onDuplicateStep={flowActionHandlers.duplicateStep}
-    onMoveStep={flowActionHandlers.moveStep}
+  <CommandFlowTemplateEditor
+    model={operation.flow}
+    createStep={txBlockCommandDraft}
+    showNameField={false}
+    showDefaultSettings={false}
+    addStepPlacement="footer"
+    onChange={(flow) => onChange?.({ ...operation, flow })}
   >
-    {#snippet renderStep(flowStepRow)}
+    {#snippet renderSettings()}
+      <PresenceFieldGrid
+        fieldRows={flowFieldRows}
+        valueHandlerMode="event"
+        hostClass="grid gap-3 md:grid-cols-2"
+        presenceControlsMode="hidden"
+        onValueChangeForKey={flowActionHandlers.flowFieldValueHandler}
+        onPresenceChangeForKey={flowActionHandlers.flowFieldPresenceHandler}
+      />
+    {/snippet}
+    {#snippet renderStepContent(flowStepRow)}
       <TxBlockCommandEditor
         command={flowStepRow.flowStep}
-        onChange={flowActionHandlers.stepChangeHandler(flowStepRow.stepIndex)}
+        onChange={(patch) =>
+          flowStepRow.onChange({ ...flowStepRow.flowStep, ...patch })}
         {validationErrors}
         pathPrefix={`${pathPrefix}.steps[${flowStepRow.stepIndex}]`}
         {jsonValueTypeRows}
       />
     {/snippet}
-  </CommandFlowStepsEditor>
+  </CommandFlowTemplateEditor>
 </div>

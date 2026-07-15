@@ -46,6 +46,17 @@ pub(super) fn parse_record_level(raw: &str) -> Result<Option<RecordLevel>, Statu
     }
 }
 
+pub(super) fn parse_multiline_mode(raw: &str) -> Result<MultilineMode, Status> {
+    match raw.trim() {
+        "" | "split_lines" => Ok(MultilineMode::SplitLines),
+        "whole" => Ok(MultilineMode::Whole),
+        value => Err(Status::invalid_argument(format!(
+            "unsupported multiline_mode '{}'",
+            value
+        ))),
+    }
+}
+
 pub(super) fn map_execution_target_options(
     connection: Option<ConnectionRef>,
     record_level: &str,

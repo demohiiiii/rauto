@@ -119,6 +119,13 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
   txStructureMappingEntry({
     scope: "operation.command",
+    jsonPath: "multiline_mode",
+    formPath: "command.multilineMode",
+    editorKind: "multiline-mode",
+    labelKey: "commandMultilineMode",
+  }),
+  txStructureMappingEntry({
+    scope: "operation.command",
     jsonPath: "timeout",
     formPath: "command.timeout",
     editorKind: "presence-field",
@@ -218,6 +225,13 @@ const TX_BLOCK_JSON_STRUCTURE_MAPPING = Object.freeze([
     jsonPath: "command",
     formPath: "command",
     labelKey: "txBlockFormCommand",
+  }),
+  txStructureMappingEntry({
+    scope: "operation.flow.step",
+    jsonPath: "multiline_mode",
+    formPath: "multilineMode",
+    editorKind: "multiline-mode",
+    labelKey: "commandMultilineMode",
   }),
   txStructureMappingEntry({
     scope: "operation.flow.step",

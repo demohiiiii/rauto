@@ -42,6 +42,8 @@ test("command progressive sections use plain collapsible section variants", () =
   assert.match(source, /`tx-block-command-\$\{pathPrefix/);
   assert.match(source, /commandScopeKey\("dynamic"\)/);
   assert.match(source, /commandScopeKey\("interaction"\)/);
+  assert.match(source, /CommandEditor/);
+  assert.match(source, /command\.multilineMode/);
 });
 
 test("nested operation editors are unframed and use repeated row separators", () => {

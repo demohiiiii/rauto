@@ -254,17 +254,28 @@ pub fn resolve_command_flow_runtime_vars(
 }
 
 pub fn command_flow_runtime_var_names(template: &CommandFlowTemplate) -> Vec<String> {
-    let mut names = HashSet::new();
-    for reference in collect_template_inline_references(template) {
-        let name = reference
-            .split_once('.')
-            .map_or(reference.as_str(), |item| item.0);
-        if IMPLICIT_RUNTIME_VAR_NAMES.contains(&name) {
-            continue;
-        }
-        names.insert(name.to_string());
-    }
-    let mut names = names.into_iter().collect::<Vec<_>>();
+    runtime_var_names_from_references(collect_template_inline_references(template))
+}
+
+pub fn inline_runtime_var_names(text: &str) -> Vec<String> {
+    let mut references = HashSet::new();
+    collect_inline_references_from_text(text, &mut references);
+    runtime_var_names_from_references(references)
+}
+
+fn runtime_var_names_from_references(references: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut names = references
+        .into_iter()
+        .map(|reference| {
+            reference
+                .split_once('.')
+                .map_or(reference.as_str(), |item| item.0)
+                .to_string()
+        })
+        .filter(|name| !IMPLICIT_RUNTIME_VAR_NAMES.contains(&name.as_str()))
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
     names.sort();
     names
 }
@@ -330,6 +341,30 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn derives_runtime_names_from_inline_command_content() {
+        assert_eq!(
+            inline_runtime_var_names(
+                "ssh {{username}}@{{host}} 'restart {{service}} on {{peer.host}} with {{token}}'",
+            ),
+            vec![
+                "peer".to_string(),
+                "service".to_string(),
+                "token".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn ignores_non_reference_template_expressions() {
+        assert_eq!(
+            inline_runtime_var_names(
+                "{{ service | upper }} {{valid_name}} {% if enabled %}x{% endif %}",
+            ),
+            vec!["valid_name".to_string()]
+        );
+    }
 
     static TEST_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 

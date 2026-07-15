@@ -20,7 +20,10 @@ pub use self::task_runs::*;
 
 #[derive(Debug, Deserialize)]
 pub struct RenderRequest {
-    pub template: String,
+    #[serde(default)]
+    pub template: Option<String>,
+    #[serde(default)]
+    pub template_content: Option<String>,
     #[serde(default)]
     pub vars: Value,
     #[serde(default)]

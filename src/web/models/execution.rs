@@ -1,5 +1,6 @@
 use super::ConnectionRequest;
 use crate::task::TaskResultSummary;
+use rneter::session::MultilineMode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -30,6 +31,8 @@ pub struct DryRunOptions {
 #[derive(Debug, Deserialize)]
 pub struct ExecRequest {
     pub command: String,
+    #[serde(default)]
+    pub multiline_mode: MultilineMode,
     pub mode: Option<String>,
     pub textfsm_template: Option<String>,
     #[serde(default)]
@@ -50,6 +53,7 @@ pub struct ExecRequest {
 pub struct ExecResponse {
     pub output: String,
     pub exit_code: Option<i32>,
+    pub outputs: Vec<CommandResult>,
     pub parsed_output: Option<Value>,
     pub parse_error: Option<String>,
     pub recording_jsonl: Option<String>,
@@ -157,10 +161,15 @@ pub struct ShowBatchExecuteResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ExecuteTemplateRequest {
-    pub template: String,
+    #[serde(default)]
+    pub template: Option<String>,
+    #[serde(default)]
+    pub template_content: Option<String>,
     #[serde(default)]
     pub vars: Value,
     pub mode: Option<String>,
+    #[serde(default)]
+    pub multiline_mode: MultilineMode,
     pub textfsm_template: Option<String>,
     #[serde(default)]
     pub parse_textfsm: bool,

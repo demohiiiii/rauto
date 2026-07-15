@@ -26,6 +26,88 @@ test("minimal transaction form serializes every supported backend field", () => 
   assert.equal(json.steps[0].run.timeout, null);
   assert.deepEqual(json.steps[0].run.dyn_params, {});
   assert.deepEqual(json.steps[0].run.interaction, { prompts: [] });
+  assert.equal(json.steps[0].run.multiline_mode, "split_lines");
+  assert.equal(model.steps[0].run.command.multilineMode, "split_lines");
+});
+
+test("transaction commands normalize and serialize multiline modes", () => {
+  const model = txBlockFormModelFromJson({
+    name: "multiline",
+    rollback_policy: {
+      whole_resource: {
+        rollback: {
+          kind: "command",
+          mode: "Config",
+          command: "configure replace backup.cfg\nend",
+          multiline_mode: "whole",
+        },
+      },
+    },
+    steps: [
+      {
+        run: {
+          kind: "command",
+          mode: "Config",
+          command: "interface Gi0/1\nno shutdown",
+        },
+        rollback: {
+          kind: "command",
+          mode: "Config",
+          command: "default interface Gi0/1\nend",
+          multiline_mode: "whole",
+        },
+      },
+      {
+        run: {
+          kind: "flow",
+          steps: [
+            {
+              mode: "Enable",
+              command: "show version\nshow inventory",
+              multiline_mode: "split_lines",
+            },
+          ],
+        },
+      },
+    ],
+  });
+  const json = JSON.parse(txBlockFormModelToJsonText(model));
+
+  assert.equal(model.steps[0].run.command.multilineMode, "split_lines");
+  assert.equal(model.steps[0].rollback.command.multilineMode, "whole");
+  assert.equal(model.steps[1].run.flow.steps[0].multilineMode, "split_lines");
+  assert.equal(
+    model.rollbackPolicy.wholeResource.rollback.command.multilineMode,
+    "whole",
+  );
+  assert.equal(json.steps[0].run.multiline_mode, "split_lines");
+  assert.equal(json.steps[0].rollback.multiline_mode, "whole");
+  assert.equal(json.steps[1].run.steps[0].multiline_mode, "split_lines");
+  assert.equal(
+    json.rollback_policy.whole_resource.rollback.multiline_mode,
+    "whole",
+  );
+});
+
+test("transaction commands reject unsupported multiline modes", () => {
+  assert.throws(
+    () =>
+      txBlockFormModelFromJson({
+        name: "invalid-multiline",
+        rollback_policy: "none",
+        steps: [
+          {
+            run: {
+              kind: "command",
+              mode: "Enable",
+              command: "show version",
+              multiline_mode: "batch",
+            },
+          },
+        ],
+      }),
+    /multiline_mode must be split_lines or whole/,
+  );
 });
 
 test("rejects removed transaction template operations", () => {

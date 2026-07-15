@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use rneter::session::{
-    Command, CommandDynamicParams, CommandInteraction, RollbackPolicy, SessionOperation, TxBlock,
-    TxStep,
+    Command, CommandDynamicParams, CommandInteraction, MultilineMode, RollbackPolicy,
+    SessionOperation, TxBlock, TxStep,
 };
 
 pub fn command(
@@ -12,6 +12,7 @@ pub fn command(
     Command {
         mode: mode.into(),
         command: command.into(),
+        multiline_mode: MultilineMode::SplitLines,
         timeout: timeout_secs,
         dyn_params: CommandDynamicParams::default(),
         interaction: CommandInteraction::default(),
@@ -166,6 +167,14 @@ pub fn command_timeout_secs(operation: &SessionOperation) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rneter::session::MultilineMode;
+
+    #[test]
+    fn helper_commands_default_to_split_lines() {
+        let command = command("Config", "interface Gi0/1\nno shutdown", Some(30));
+
+        assert_eq!(command.multiline_mode, MultilineMode::SplitLines);
+    }
 
     #[test]
     fn defaults_to_per_step_policy_for_tx_block_without_explicit_rollbacks() {

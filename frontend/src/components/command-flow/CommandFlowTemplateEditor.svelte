@@ -10,10 +10,14 @@
 
   let {
     addStepPlacement = "header",
+    createStep = defaultCommandFlowTemplateStepModel,
     modeOptions = [],
     model = {},
     onChange,
+    renderSettings,
+    renderStepContent,
     settingsIndexText = "",
+    showDefaultSettings = true,
     showNameField = true,
     stepsIndexText = "",
     surfaceVariant = "section",
@@ -35,7 +39,7 @@
 
   function addStep() {
     patchModel({
-      steps: [...(model.steps || []), defaultCommandFlowTemplateStepModel()],
+      steps: [...(model.steps || []), createStep()],
     });
   }
 
@@ -74,50 +78,53 @@
     indexText={settingsIndexText}
     {surfaceVariant}
   >
-    <div class="grid gap-3 md:grid-cols-2">
-      {#if showNameField}
-        <label class="grid gap-2">
-          <span class="text-sm font-medium text-foreground">
-            {t("txBlockFormTemplateName")}
-          </span>
-          <PlainInputField
-            value={model.name || ""}
-            placeholderText={t("commandFlowNamePlaceholder")}
-            onValueInput={(name) => patchModel({ name })}
-          />
-        </label>
-      {/if}
+    {#if showDefaultSettings}
+      <div class="grid gap-3 md:grid-cols-2">
+        {#if showNameField}
+          <label class="grid gap-2">
+            <span class="text-sm font-medium text-foreground">
+              {t("txBlockFormTemplateName")}
+            </span>
+            <PlainInputField
+              value={model.name || ""}
+              placeholderText={t("commandFlowNamePlaceholder")}
+              onValueInput={(name) => patchModel({ name })}
+            />
+          </label>
+        {/if}
 
-      <div class="grid gap-2">
+        <div class="grid gap-2">
+          <PlainCheckboxField
+            controlKind="switch"
+            checked={!!model.hasDefaultMode}
+            labelText={t("commandFlowUseDefaultMode")}
+            onCheckedChange={(hasDefaultMode) =>
+              patchModel({
+                hasDefaultMode,
+                defaultMode: hasDefaultMode ? (model.defaultMode ?? "") : null,
+              })}
+          />
+          <StringSelectField
+            value={model.defaultMode || ""}
+            optionValues={modeOptions}
+            includeEmptyOption={true}
+            placeholderText={t("txBlockFormDefaultMode")}
+            disabled={!model.hasDefaultMode}
+            onValueChange={(defaultMode) =>
+              patchModel({ defaultMode, hasDefaultMode: true })}
+          />
+        </div>
+
         <PlainCheckboxField
+          class="md:col-span-2"
           controlKind="switch"
-          checked={!!model.hasDefaultMode}
-          labelText={t("commandFlowUseDefaultMode")}
-          onCheckedChange={(hasDefaultMode) =>
-            patchModel({
-              hasDefaultMode,
-              defaultMode: hasDefaultMode ? (model.defaultMode ?? "") : null,
-            })}
-        />
-        <StringSelectField
-          value={model.defaultMode || ""}
-          optionValues={modeOptions}
-          includeEmptyOption={true}
-          placeholderText={t("txBlockFormDefaultMode")}
-          disabled={!model.hasDefaultMode}
-          onValueChange={(defaultMode) =>
-            patchModel({ defaultMode, hasDefaultMode: true })}
+          checked={model.stopOnError !== false}
+          labelText={t("txBlockFormStopOnError")}
+          onCheckedChange={(stopOnError) => patchModel({ stopOnError })}
         />
       </div>
-
-      <PlainCheckboxField
-        class="md:col-span-2"
-        controlKind="switch"
-        checked={model.stopOnError !== false}
-        labelText={t("txBlockFormStopOnError")}
-        onCheckedChange={(stopOnError) => patchModel({ stopOnError })}
-      />
-    </div>
+    {/if}
+    {@render renderSettings?.({ model, patchModel })}
   </CommandFlowSettings>
 
   <CommandFlowStepsEditor
@@ -139,12 +146,19 @@
     onMoveStep={moveStep}
   >
     {#snippet renderStep(stepRow)}
-      <CommandFlowTemplateStepEditor
-        step={stepRow.flowStep}
-        accentIndex={stepRow.accentIndex}
-        {modeOptions}
-        onChange={(step) => updateStep(stepRow.stepIndex, step)}
-      />
+      {#if renderStepContent}
+        {@render renderStepContent({
+          ...stepRow,
+          onChange: (step) => updateStep(stepRow.stepIndex, step),
+        })}
+      {:else}
+        <CommandFlowTemplateStepEditor
+          step={stepRow.flowStep}
+          accentIndex={stepRow.accentIndex}
+          {modeOptions}
+          onChange={(step) => updateStep(stepRow.stepIndex, step)}
+        />
+      {/if}
     {/snippet}
   </CommandFlowStepsEditor>
 </div>

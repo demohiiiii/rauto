@@ -74,27 +74,6 @@ fn builtin_command_flow_template_metas() -> Vec<CommandFlowTemplateMeta> {
     }]
 }
 
-fn to_command_flow_template_var_field(
-    name: String,
-    allow_empty: bool,
-) -> CommandFlowTemplateVarField {
-    let normalized_name = name.to_ascii_lowercase();
-    let secret = ["password", "passwd", "secret", "token"]
-        .iter()
-        .any(|marker| normalized_name.contains(marker));
-    CommandFlowTemplateVarField {
-        label: name.clone(),
-        name,
-        description: None,
-        kind: if secret { "secret" } else { "string" }.to_string(),
-        required: true,
-        allow_empty,
-        placeholder: None,
-        options: Vec::new(),
-        default_value: None,
-    }
-}
-
 fn command_flow_template_var_fields(
     template: &CommandFlowTemplate,
     builtin: bool,
@@ -104,7 +83,7 @@ fn command_flow_template_var_fields(
         .map(|name| {
             let allow_empty =
                 builtin && matches!(name.as_str(), "transfer_username" | "transfer_password");
-            to_command_flow_template_var_field(name, allow_empty)
+            CommandFlowTemplateVarField::inferred(name, allow_empty)
         })
         .collect()
 }
