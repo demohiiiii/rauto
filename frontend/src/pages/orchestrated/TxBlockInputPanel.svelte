@@ -1,21 +1,17 @@
 <script>
   import * as Card from "$lib/components/ui/card";
+  import { CommandTemplateSourceField } from "../../components/command-flow/index.js";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
-  import TabList from "../../components/fragments/TabList.svelte";
-  import {
-    txBlockReadonlyEditorViewTabs,
-    txTemplateModeTabs,
-  } from "../../config/dashboardModes.js";
-  import { currentLanguageState } from "../../lib/i18n.js";
+  import { txBlockReadonlyEditorViewTabs } from "../../config/dashboardModes.js";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
+  import { MANUAL_COMMAND_SOURCE } from "../../modules/commandTemplateCatalog.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
   import TxBlockPreviewPanel from "./TxBlockPreviewPanel.svelte";
-  import TxTemplateRunPanel from "./TxTemplateRunPanel.svelte";
   import {
     createTxBlockInputPanelWorkspace,
     transactionEditorSyncPresentation,
-    txBlockTemplateVarsPlaceholder,
     txBlockVarsPlaceholder,
   } from "../../modules/transactionInputWorkspaces.js";
   import { txBlockFormModelToJsonText } from "../../modules/transactionBlockFormModels.js";
@@ -24,27 +20,26 @@
   import {
     TX_TEMPLATE_KIND,
     TX_VARS,
+    jsonTemplateSelectStateFor,
+    setJsonTemplateSelectValue,
   } from "../../modules/transactionPanelState.js";
 
   let {
     active,
     onCreateJsonTemplateDraft,
-    onDeleteJsonTemplate,
-    onDirectMode,
     onEditorInput,
     onLoadJsonTemplate,
     newButtonLabelKey,
-    onSaveJsonTemplate,
-    onTemplateMode,
   } = $props();
 
   const directVarsKey = TX_VARS.txBlockDirect;
-  const templateVarsKey = TX_VARS.txBlockTemplate;
+  const txBlockTemplateSelectStateStore = jsonTemplateSelectStateFor(
+    TX_TEMPLATE_KIND.txBlock,
+  );
   const txBlockInputWorkspace = createTxBlockInputPanelWorkspace();
   const {
     changeFormModel,
     createJsonDraft,
-    createTemplateDraft,
     editorDisplayStateStore,
     editorDisplayModeStateStore,
     ensureInitialized,
@@ -57,7 +52,6 @@
     loadingKeysStore,
     panelDisplayStateStore,
     setBlockInputPanelContext,
-    selectMode,
     selectEditorView,
     syncStatusStateStore,
   } = txBlockInputWorkspace;
@@ -70,6 +64,14 @@
   let txBlockFormErrorDetail = $derived($formErrorDetailStateStore);
   let txBlockJsonText = $derived($jsonTextStateStore);
   let txBlockSyncStatus = $derived($syncStatusStateStore);
+  let txBlockTemplateSelectState = $derived($txBlockTemplateSelectStateStore);
+  let txBlockSourceSelection = $state(MANUAL_COMMAND_SOURCE);
+  let txBlockSourceLoading = $state(false);
+  let txBlockSourceOptions = $derived(
+    Array.isArray(txBlockTemplateSelectState?.names)
+      ? txBlockTemplateSelectState.names
+      : [],
+  );
   let txBlockSyncPresentation = $derived.by(() => {
     currentLanguage;
     return transactionEditorSyncPresentation(txBlockSyncStatus);
@@ -81,96 +83,85 @@
       null,
     );
   });
-  let directPanelActive = $derived(active && txBlockInputDisplay.mode.isDirect);
-  let templatePanelActive = $derived(
-    active && txBlockInputDisplay.mode.isTemplate,
-  );
   let jsonNewLoading = $derived($loadingKeysStore.includes("json-new"));
+
+  function resetTxBlockSourceSelection() {
+    setJsonTemplateSelectValue(TX_TEMPLATE_KIND.txBlock, "");
+    txBlockSourceSelection = MANUAL_COMMAND_SOURCE;
+  }
+
+  async function createManualTxBlockDraft() {
+    const result = await createJsonDraft();
+    resetTxBlockSourceSelection();
+    return result;
+  }
+
+  async function selectTxBlockSource(sourceValue) {
+    const nextSource =
+      String(sourceValue || "").trim() || MANUAL_COMMAND_SOURCE;
+    if (nextSource === txBlockSourceSelection) return true;
+    txBlockSourceLoading = true;
+    try {
+      if (nextSource === MANUAL_COMMAND_SOURCE) {
+        await createManualTxBlockDraft();
+        return true;
+      }
+      const loadedTemplate = await loadJsonTemplate(nextSource);
+      if (!loadedTemplate) return false;
+      txBlockSourceSelection = nextSource;
+      return true;
+    } finally {
+      txBlockSourceLoading = false;
+    }
+  }
 
   $effect(() => {
     setBlockInputPanelContext({
       newButtonLabelKey,
       onCreateJsonTemplateDraft,
-      onDirectMode,
       onEditorInput,
       onLoadJsonTemplate,
-      onTemplateMode,
     });
     ensureInitialized();
   });
 </script>
 
 <div class="grid gap-2">
-  <div class="grid gap-2">
-    <TabList
-      tabItems={txTemplateModeTabs}
-      activeValue={txBlockInputDisplay.activeMode}
-      aria-label={txBlockInputDisplay.tabAriaLabel}
-      onSelect={selectMode}
-    />
-    {#if txBlockInputDisplay.mode.isDirect}
-      <Card.Root>
-        <Card.Header>
-          <Card.Title>{txBlockInputDisplay.tabAriaLabel}</Card.Title>
-        </Card.Header>
-        <Card.Content class="grid gap-2">
-          <div class="text-xs text-slate-500">
-            {txBlockInputDisplay.directHint}
-          </div>
-          <TxDirectVarsPanel
-            active={directPanelActive}
-            hidden-textarea={false}
-            hintKey="txBlockDirectVarsHint"
-            placeholderFallback={txBlockVarsPlaceholder}
-            placeholderKey="txBlockDirectVarsPlaceholder"
-            prefix="tx-block-direct"
-            varsKey={directVarsKey}
-          />
-        </Card.Content>
-      </Card.Root>
-    {:else if txBlockInputDisplay.mode.isTemplate}
-      <Card.Root>
-        <Card.Header>
-          <Card.Title>{txBlockInputDisplay.tabAriaLabel}</Card.Title>
-        </Card.Header>
-        <Card.Content class="grid gap-2">
-          <TxTemplateRunPanel
-            active={templatePanelActive}
-            hidden-textarea={false}
-            hintKeys={["txBlockTemplateRunHint"]}
-            onCreateTemplateDraft={createTemplateDraft}
-            onDeleteTemplate={onDeleteJsonTemplate}
-            onLoadTemplate={loadJsonTemplate}
-            onSaveTemplate={onSaveJsonTemplate}
-            templateKind={TX_TEMPLATE_KIND.txBlock}
-            varsKey={templateVarsKey}
-            varsPlaceholderFallback={txBlockTemplateVarsPlaceholder}
-            varsPlaceholderKey="txBlockTemplateVarsPlaceholder"
-            varsPrefix="tx-block-template"
-          />
-        </Card.Content>
-      </Card.Root>
-    {/if}
-  </div>
   <Card.Root>
     <Card.Header>
       <Card.Title>{txBlockInputDisplay.editorTitle}</Card.Title>
+      <Card.Description>{txBlockInputDisplay.directHint}</Card.Description>
       <Card.Action>
         <div class="inline-flex flex-wrap items-center gap-2">
           <LoadingButton
             size="sm"
             loading={jsonNewLoading}
-            onclick={createJsonDraft}
+            onclick={createManualTxBlockDraft}
           >
             <span>{txBlockInputDisplay.newButtonLabel}</span>
           </LoadingButton>
         </div>
       </Card.Action>
     </Card.Header>
-    <Card.Content class="grid gap-2">
-      <div class="text-xs text-slate-500">
-        {txBlockInputDisplay.jsonHint}
-      </div>
+    <Card.Content class="grid gap-4">
+      <CommandTemplateSourceField
+        value={txBlockSourceSelection}
+        optionValues={txBlockSourceOptions}
+        disabled={txBlockSourceLoading}
+        labelText={t("txBlockSourceLabel")}
+        hintText={t("txBlockSourceHint")}
+        manualLabelText={t("txBlockSourceManual")}
+        onValueChange={selectTxBlockSource}
+      />
+      <TxDirectVarsPanel
+        {active}
+        hidden-textarea={false}
+        hintKey="txBlockDirectVarsHint"
+        placeholderFallback={txBlockVarsPlaceholder}
+        placeholderKey="txBlockDirectVarsPlaceholder"
+        prefix="tx-block-direct"
+        varsKey={directVarsKey}
+      />
       <TxJsonFormSurface
         {active}
         {editorDisplayMode}

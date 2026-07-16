@@ -118,13 +118,17 @@ test("standard flow workspace composes one unified authoring state", () => {
 
 test("standard command flow page renders one unified authoring workspace", () => {
   const panel = read("frontend/src/pages/standard/FlowExecutionPanel.svelte");
+  const authoringViews = read(
+    "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
+  );
   const modes = read("frontend/src/config/dashboardModes.js");
 
-  assert.match(panel, /CommandFlowTemplateEditor/);
-  assert.match(panel, /CommandFlowReadonlyView/);
-  assert.match(panel, /TextAreaField/);
-  assert.match(panel, /import TabList/);
-  assert.match(panel, /commandFlowEditorViewTabs/);
+  assert.match(panel, /CommandFlowAuthoringViews/);
+  assert.match(authoringViews, /CommandFlowTemplateEditor/);
+  assert.match(authoringViews, /CommandFlowReadonlyView/);
+  assert.match(authoringViews, /TextAreaField/);
+  assert.match(authoringViews, /import TabList/);
+  assert.match(authoringViews, /commandFlowEditorViewTabs/);
   assert.doesNotMatch(
     panel,
     /import \* as Tabs from "\$lib\/components\/ui\/tabs/,
@@ -138,15 +142,15 @@ test("standard command flow page renders one unified authoring workspace", () =>
   assert.match(panel, /openNewFlowDialog/);
   assert.match(panel, /saveFlowTemplate/);
   assert.match(panel, /openSaveAsFlowDialog/);
-  assert.match(panel, /showNameField=\{false\}/);
+  assert.match(authoringViews, /showNameField=\{false\}/);
   assert.doesNotMatch(panel, /value="saved"/);
   assert.doesNotMatch(panel, /value="temporary"/);
-  assert.match(panel, /activeValue=\{authoringDisplay\.activeTab\}/);
-  assert.match(panel, /authoringDisplay\.activeTab === "visual"/);
-  assert.match(panel, /authoringDisplay\.activeTab === "readonly"/);
-  assert.match(panel, /tabItems=\{commandFlowEditorViewTabs\}/);
-  assert.match(panel, /addStepPlacement="footer"/);
-  assert.match(panel, /onValueInput=\{changeFlowToml\}/);
+  assert.match(authoringViews, /activeValue=\{activeTab\}/);
+  assert.match(authoringViews, /activeTab === "visual"/);
+  assert.match(authoringViews, /activeTab === "readonly"/);
+  assert.match(authoringViews, /tabItems=\{commandFlowEditorViewTabs\}/);
+  assert.match(authoringViews, /addStepPlacement="footer"/);
+  assert.match(authoringViews, /onValueInput=\{onTomlChange\}/);
   assert.match(modes, /value: "visual", labelKey: "flowVisualTab"/);
   assert.match(modes, /value: "toml", labelKey: "flowTomlTab"/);
   assert.match(
@@ -157,8 +161,8 @@ test("standard command flow page renders one unified authoring workspace", () =>
   assert.match(panel, /data-command-flow-workbench/);
   assert.match(panel, /surfaceVariant="workbench-header"/);
   assert.match(panel, /surfaceVariant="workbench-section"/);
-  assert.match(panel, /settingsIndexText="01"/);
-  assert.match(panel, /stepsIndexText="02"/);
+  assert.match(authoringViews, /settingsIndexText="01"/);
+  assert.match(authoringViews, /stepsIndexText="02"/);
   assert.match(panel, /indexText="03"/);
   assert.match(panel, /indexText="04"/);
   assert.match(panel, /bg-muted\/30/);

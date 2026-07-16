@@ -83,23 +83,6 @@ export function normalizeStandardExecMode(standardExecMode = "") {
     : defaultStandardExecMode;
 }
 
-export const templatePageSections = Object.freeze([
-  { value: "templates", labelKey: "templateCommonTabTitle" },
-  { value: "flows", labelKey: "flowTemplatesTitle" },
-  { value: "textfsm", labelKey: "textfsmTemplateTabTitle" },
-  { value: "show-objects", labelKey: "showObjectTabTitle" },
-]);
-
-export const defaultTemplatePageSection = "templates";
-
-export function normalizeTemplatePageSection(templatePageSection) {
-  return templatePageSections.some(
-    (templateSectionTab) => templateSectionTab.value === templatePageSection,
-  )
-    ? templatePageSection
-    : defaultTemplatePageSection;
-}
-
 export const TX_EXECUTION_MODE = Object.freeze({
   direct: "direct",
   template: "template",

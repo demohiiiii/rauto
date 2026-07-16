@@ -5,12 +5,11 @@
   import { createTxBlockRunPanelWorkspace } from "../../modules/transactionExecutionDisplays.js";
   import TxBlockResultPanel from "./TxBlockResultPanel.svelte";
 
-  let { onDirectExecute, onTemplateExecute, panelDisplay } = $props();
+  let { onExecute, panelDisplay } = $props();
   const txBlockRunPanelWorkspace = createTxBlockRunPanelWorkspace();
   const {
     execStatusDisplayStateStore,
     loadingDisplayStateStore,
-    modeDisplayStateStore,
     previewDisplayStateStore,
     previewModeDisplayStateStore,
     setPanelDisplay,
@@ -24,45 +23,24 @@
   );
 </script>
 
-{#if $modeDisplayStateStore.isDirect}
-  <Card.Root>
-    <Card.Header class="sr-only">
-      <Card.Title>
-        {$previewModeDisplayStateStore.executeButtonLabel}
-      </Card.Title>
-    </Card.Header>
-    <Card.Content class="grid gap-2">
-      <LoadingButton
-        class="w-full"
-        variant="default"
-        size="sm"
-        loading={$loadingDisplayStateStore.directExecute}
-        onclick={onDirectExecute}
-      >
-        <span>{$previewModeDisplayStateStore.executeButtonLabel}</span>
-      </LoadingButton>
-    </Card.Content>
-  </Card.Root>
-{:else if $modeDisplayStateStore.isTemplate}
-  <Card.Root>
-    <Card.Header class="sr-only">
-      <Card.Title>
-        {$previewModeDisplayStateStore.executeButtonLabel}
-      </Card.Title>
-    </Card.Header>
-    <Card.Content class="grid gap-2">
-      <LoadingButton
-        class="w-full"
-        variant="default"
-        size="sm"
-        loading={$loadingDisplayStateStore.templateExecute}
-        onclick={onTemplateExecute}
-      >
-        <span>{$previewModeDisplayStateStore.executeButtonLabel}</span>
-      </LoadingButton>
-    </Card.Content>
-  </Card.Root>
-{/if}
+<Card.Root>
+  <Card.Header class="sr-only">
+    <Card.Title>
+      {$previewModeDisplayStateStore.executeButtonLabel}
+    </Card.Title>
+  </Card.Header>
+  <Card.Content class="grid gap-2">
+    <LoadingButton
+      class="w-full"
+      variant="default"
+      size="sm"
+      loading={$loadingDisplayStateStore.execute}
+      onclick={onExecute}
+    >
+      <span>{$previewModeDisplayStateStore.executeButtonLabel}</span>
+    </LoadingButton>
+  </Card.Content>
+</Card.Root>
 {#if resultPanel.hasTxResult}
   <TxBlockResultPanel {resultPanel} />
 {/if}

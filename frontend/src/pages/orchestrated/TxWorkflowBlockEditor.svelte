@@ -12,7 +12,12 @@
   const INLINE_BLOCK_RUN_COMMAND_METADATA_FIELD_DEFS =
     txWorkflowInlineCommandMetadataFieldDefs();
 
-  let { blockRow, editorDisplay, blockActionHandlers } = $props();
+  let {
+    blockRow,
+    editorDisplay,
+    blockActionHandlers,
+    showRemoveAction = true,
+  } = $props();
 
   const txWorkflowBlockEditorWorkspace = createTxWorkflowBlockEditorWorkspace();
   const { editorActionHandlersStateStore, setBlockEditorContext } =
@@ -24,21 +29,23 @@
   });
 </script>
 
-<Card.Root>
-  <Card.Header>
+<Card.Root size="sm" class="min-w-0 gap-0 overflow-hidden py-0">
+  <Card.Header class="border-b bg-muted/15 p-4 sm:p-5">
     <Card.Title>{blockRow.titleText}</Card.Title>
-    <Card.Action>
-      <Button
-        variant="ghost"
-        size="sm"
-        type="button"
-        onclick={blockActionHandlers.remove}
-      >
-        {t("deleteBtn")}
-      </Button>
-    </Card.Action>
+    {#if showRemoveAction}
+      <Card.Action>
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          onclick={blockActionHandlers.remove}
+        >
+          {t("deleteBtn")}
+        </Button>
+      </Card.Action>
+    {/if}
   </Card.Header>
-  <Card.Content>
+  <Card.Content class="p-4 sm:p-5">
     <div class="grid gap-4">
       <PresenceFieldGrid
         fieldRows={blockRow.fieldRows}

@@ -5,16 +5,22 @@
 
   let {
     disabled = false,
+    hintText = "",
+    labelText = "",
+    manualLabelText = "",
     onValueChange,
     optionValues = [],
     showLabel = true,
     value = MANUAL_COMMAND_SOURCE,
   } = $props();
+  let sourceLabel = $derived(labelText || t("commandSourceLabel"));
+  let sourceHint = $derived(hintText || t("commandSourceHint"));
+  let manualSourceLabel = $derived(manualLabelText || t("commandSourceManual"));
   let optionRows = $derived.by(() => {
     $currentLanguageState;
     return [
       {
-        labelText: t("commandSourceManual"),
+        labelText: manualSourceLabel,
         valueText: MANUAL_COMMAND_SOURCE,
       },
       ...(Array.isArray(optionValues) ? optionValues : []).map((name) => ({
@@ -29,16 +35,16 @@
   {#if showLabel}
     <div>
       <div class="text-sm font-medium text-foreground">
-        {t("commandSourceLabel")}
+        {sourceLabel}
       </div>
       <p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-        {t("commandSourceHint")}
+        {sourceHint}
       </p>
     </div>
   {/if}
   <ValueTextSelectField
-    title={t("commandSourceLabel")}
-    aria-label={t("commandSourceLabel")}
+    title={sourceLabel}
+    aria-label={sourceLabel}
     {value}
     {disabled}
     {optionRows}

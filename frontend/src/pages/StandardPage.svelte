@@ -30,8 +30,8 @@
   });
 </script>
 
-<DashboardTabPanel {active} titleKey="opSectionStandard">
-  <div class="mt-3 grid gap-3">
+<DashboardTabPanel {active}>
+  <div class="grid gap-3">
     <CollapsibleGroup persistenceKey="ops-main-body">
       {#snippet header()}
         <span>{pageDisplay.title}</span>

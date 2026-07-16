@@ -136,10 +136,7 @@ export function setTxExecutionModes(modes = {}) {
 
 export function createTxBlockStageWorkspace(inputState = {}) {
   const dependencyState = {
-    onDirectExecute: normalizeOptionalHandler(inputState.onDirectExecute),
-    onDirectPlan: normalizeOptionalHandler(inputState.onDirectPlan),
-    onTemplateExecute: normalizeOptionalHandler(inputState.onTemplateExecute),
-    onTemplatePlan: normalizeOptionalHandler(inputState.onTemplatePlan),
+    onExecute: normalizeOptionalHandler(inputState.onExecute),
   };
   const activeStateStore = writable(false);
   const loadingKeysStore = writable([]);
@@ -233,29 +230,11 @@ export function createTxBlockStageWorkspace(inputState = {}) {
   );
 
   return {
-    runDirectExecute: () =>
-      loadingRunner.run("direct-exec", dependencyState.onDirectExecute),
-    runDirectPlan: () =>
-      loadingRunner.run("direct-plan", dependencyState.onDirectPlan),
-    setTxBlockStageContext({
-      active = false,
-      onDirectExecute = null,
-      onDirectPlan = null,
-      onTemplateExecute = null,
-      onTemplatePlan = null,
-    } = {}) {
+    execute: () => loadingRunner.run("execute", dependencyState.onExecute),
+    setTxBlockStageContext({ active = false, onExecute = null } = {}) {
       activeStateStore.set(!!active);
-      dependencyState.onDirectExecute =
-        normalizeOptionalHandler(onDirectExecute);
-      dependencyState.onDirectPlan = normalizeOptionalHandler(onDirectPlan);
-      dependencyState.onTemplateExecute =
-        normalizeOptionalHandler(onTemplateExecute);
-      dependencyState.onTemplatePlan = normalizeOptionalHandler(onTemplatePlan);
+      dependencyState.onExecute = normalizeOptionalHandler(onExecute);
     },
-    runTemplateExecute: () =>
-      loadingRunner.run("template-exec", dependencyState.onTemplateExecute),
-    runTemplatePlan: () =>
-      loadingRunner.run("template-plan", dependencyState.onTemplatePlan),
     txBlockRunDisplayStateStore,
     txBlockRunPanelDisplayStateStore,
   };

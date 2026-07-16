@@ -7,29 +7,19 @@
     active,
     newButtonLabelKey,
     onCreateJsonTemplateDraft,
-    onDeleteJsonTemplate,
-    onDirectMode,
-    onDirectExecute,
+    onExecute,
     onEditorInput,
     onLoadJsonTemplate,
-    onSaveJsonTemplate,
-    onTemplateMode,
-    onTemplateExecute,
   } = $props();
   const txBlockStageWorkspace = createTxBlockStageWorkspace();
-  const {
-    runDirectExecute,
-    runTemplateExecute,
-    setTxBlockStageContext,
-    txBlockRunPanelDisplayStateStore,
-  } = txBlockStageWorkspace;
+  const { execute, setTxBlockStageContext, txBlockRunPanelDisplayStateStore } =
+    txBlockStageWorkspace;
   let txBlockRunPanelDisplay = $derived($txBlockRunPanelDisplayStateStore);
 
   $effect(() => {
     setTxBlockStageContext({
       active,
-      onDirectExecute,
-      onTemplateExecute,
+      onExecute,
     });
   });
 </script>
@@ -38,17 +28,9 @@
   <TxBlockInputPanel
     {active}
     {onCreateJsonTemplateDraft}
-    {onDeleteJsonTemplate}
-    {onDirectMode}
     {onEditorInput}
     {onLoadJsonTemplate}
     {newButtonLabelKey}
-    {onSaveJsonTemplate}
-    {onTemplateMode}
   />
-  <TxBlockRunPanel
-    onDirectExecute={runDirectExecute}
-    onTemplateExecute={runTemplateExecute}
-    panelDisplay={txBlockRunPanelDisplay}
-  />
+  <TxBlockRunPanel onExecute={execute} panelDisplay={txBlockRunPanelDisplay} />
 </div>

@@ -30,12 +30,12 @@
   });
 </script>
 
-<DashboardTabPanel {active} titleKey="promptProfilesTitle">
+<DashboardTabPanel {active}>
   <TabList
     tabItems={promptModeTabs}
     activeValue={currentPromptMode}
     aria-label={pageDisplay.tabAriaLabel}
-    class="mt-3 w-fit"
+    class="w-fit"
     onSelect={promptPageWorkspace.setPromptMode}
   />
 

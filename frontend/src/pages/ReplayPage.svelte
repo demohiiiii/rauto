@@ -26,8 +26,8 @@
   });
 </script>
 
-<DashboardTabPanel {active} titleKey="replayPageTitle">
-  <Card.Root class="mt-3">
+<DashboardTabPanel {active}>
+  <Card.Root>
     <Card.Header>
       <Card.Title>
         {replayDisplay.controlsDisplay.panelTitle}

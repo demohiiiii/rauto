@@ -20,13 +20,16 @@
     formContent,
     formError = "",
     formErrorDetail = null,
+    fillEditorHeight = false,
     hostClass = "tx-json-editor",
+    immediateEditorInput = false,
     jsonHintText = "",
     onEditorInput,
     onInlineEditorChange,
     onEditorViewSelect,
     placeholder = "",
     readonlyContent = null,
+    navigationMode = "tabs",
     syncStatus = "synced",
     syncStatusText = "",
     syncStatusTone = "primary",
@@ -38,6 +41,7 @@
   let editorPlaceholder = $derived(placeholder);
   let editorAriaLabel = $derived(placeholder || editorTitle);
   let showInlineEditor = $derived(editorKind === "inline");
+  let hideNavigation = $derived(navigationMode === "hidden");
   let syncBadgeVariant = $derived(
     syncStatusTone === "warning"
       ? "destructive"
@@ -68,23 +72,38 @@
   }
 </script>
 
-<div class="grid gap-2">
-  <div class="flex min-w-0 flex-wrap items-center gap-2">
-    <TabList
-      {tabItems}
-      activeValue={editorDisplayMode}
-      aria-label={editorTitle || placeholder}
-      onSelect={selectEditorView}
-    />
-    {#if syncStatusText}
+<div
+  class={fillEditorHeight
+    ? "flex h-full min-h-0 flex-col gap-2"
+    : "grid min-h-0 gap-2"}
+>
+  {#if !hideNavigation}
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
+      <TabList
+        {tabItems}
+        activeValue={editorDisplayMode}
+        aria-label={editorTitle || placeholder}
+        onSelect={selectEditorView}
+      />
+      {#if syncStatusText}
+        <Badge
+          role="status"
+          aria-live="polite"
+          variant={syncBadgeVariant}
+          data-sync-status={syncStatus}>{syncStatusText}</Badge
+        >
+      {/if}
+    </div>
+  {:else if editorDisplayMode === "json" && syncStatusText}
+    <div class="flex min-w-0 justify-end">
       <Badge
         role="status"
         aria-live="polite"
         variant={syncBadgeVariant}
         data-sync-status={syncStatus}>{syncStatusText}</Badge
       >
-    {/if}
-  </div>
+    </div>
+  {/if}
   {#if formError}
     <StatusCard message={formError} tone="warning" variant="alert">
       <div class="grid gap-1">
@@ -100,7 +119,12 @@
   {:else if editorDisplayMode === "readonly" && readonlyContent}
     {@render readonlyContent()}
   {:else}
-    <div bind:this={editorHost} class="grid gap-2">
+    <div
+      bind:this={editorHost}
+      class={fillEditorHeight
+        ? "grid min-h-0 flex-1 gap-2"
+        : "grid min-h-0 gap-2"}
+    >
       {#if jsonHintText}
         <div class="text-xs text-slate-500">{jsonHintText}</div>
       {/if}
@@ -109,6 +133,8 @@
           {active}
           class={hostClass}
           aria-label={editorAriaLabel}
+          fill={fillEditorHeight}
+          immediate={immediateEditorInput}
           {placeholder}
           theme={editorTheme}
           value={editorValue}

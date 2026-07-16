@@ -8,6 +8,7 @@ function read(path) {
 
 const sharedComponentPaths = [
   "frontend/src/components/command-flow/CommandEditor.svelte",
+  "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
   "frontend/src/components/command-flow/CommandMultilineModeField.svelte",
   "frontend/src/components/command-flow/CommandTextAreaField.svelte",
   "frontend/src/components/command-flow/CommandTemplateSourceField.svelte",
@@ -64,6 +65,7 @@ test("shared command flow barrel exports every surface", () => {
 
   for (const componentName of [
     "CommandEditor",
+    "CommandFlowAuthoringViews",
     "CommandFlowRuntimeFields",
     "CommandMultilineModeField",
     "CommandTextAreaField",
@@ -162,6 +164,8 @@ test("standard command flow execution composes shared surfaces", () => {
   assert.match(panel, /CommandFlowSurface/);
   assert.match(panel, /CommandFlowTemplateSource/);
   assert.match(panel, /CommandFlowRuntimeFields/);
+  assert.match(panel, /CommandFlowAuthoringViews/);
+  assert.doesNotMatch(panel, /CommandFlowTemplateEditor/);
   assert.doesNotMatch(panel, /FlowVarsInputPanel/);
 });
 
@@ -172,9 +176,13 @@ test("inline transaction flows compose the same editor as standard flows", () =>
   const standard = read(
     "frontend/src/pages/standard/FlowExecutionPanel.svelte",
   );
+  const authoringViews = read(
+    "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
+  );
 
   assert.match(editor, /CommandFlowTemplateEditor/);
-  assert.match(standard, /CommandFlowTemplateEditor/);
+  assert.match(standard, /CommandFlowAuthoringViews/);
+  assert.match(authoringViews, /CommandFlowTemplateEditor/);
   assert.match(editor, /renderSettings/);
   assert.match(editor, /renderStepContent/);
   assert.match(editor, /showDefaultSettings=\{false\}/);

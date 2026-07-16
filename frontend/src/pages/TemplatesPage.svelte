@@ -1,129 +1,168 @@
 <script>
-  import TabList from "../components/fragments/TabList.svelte";
+  import * as Card from "$lib/components/ui/card";
+  import * as Tabs from "$lib/components/ui/tabs";
+  import {
+    BlocksIcon,
+    BracesIcon,
+    FileCode2Icon,
+    GitBranchIcon,
+    Layers3Icon,
+    Link2Icon,
+    NetworkIcon,
+    SlidersHorizontalIcon,
+    SparklesIcon,
+  } from "@lucide/svelte";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
-  import { templatePageSections } from "../config/dashboardModes.js";
-  import { createTemplatesPageWorkspace } from "../modules/templates.js";
-  import BuiltinFlowTemplatesPanel from "./templates/BuiltinFlowTemplatesPanel.svelte";
-  import CustomFlowTemplatesPanel from "./templates/CustomFlowTemplatesPanel.svelte";
-  import CustomShowObjectsPanel from "./templates/CustomShowObjectsPanel.svelte";
-  import TemplateLibraryPanel from "./templates/TemplateLibraryPanel.svelte";
-  import TextfsmMappingsPanel from "./templates/TextfsmMappingsPanel.svelte";
-  import TextfsmTemplateEditorPanel from "./templates/TextfsmTemplateEditorPanel.svelte";
+  import { currentLanguageState, t } from "../lib/i18n.js";
+  import {
+    TEMPLATE_MANAGER_KIND,
+    contentTemplateKinds,
+    createContentTemplateWorkspace,
+    createShowObjectWorkspace,
+    createTextfsmMappingWorkspace,
+    templateManagerSections,
+  } from "../modules/templateManagerState.js";
+  import ShowObjectWorkspace from "./templates/ShowObjectWorkspace.svelte";
+  import TemplateCatalogPanel from "./templates/TemplateCatalogPanel.svelte";
+  import TextfsmMappingWorkspace from "./templates/TextfsmMappingWorkspace.svelte";
 
   let { active } = $props();
-  const templatesWorkspace = createTemplatesPageWorkspace();
-  const {
-    copyBuiltinFlowTemplateToCustom,
-    createFlowTemplateDraft,
-    createTemplateDraft,
-    createTextfsmTemplateDraft,
-    deleteCustomShowObject,
-    deleteFlowTemplate,
-    deleteTemplate,
-    deleteTextfsmMapping,
-    deleteTextfsmTemplate,
-    handleCustomShowObjectCommandInput: updateCustomShowObjectCommand,
-    handleCustomShowObjectMappingChange: updateCustomShowObjectMapping,
-    handleCustomShowObjectProfileChange: updateCustomShowObjectProfile,
-    handleCustomShowObjectUseMappingChange: updateCustomShowObjectUseMapping,
-    handleFlowTemplatePickerChange: updateFlowTemplatePicker,
-    handleTemplatePickerChange: updateTemplatePicker,
-    handleTextfsmMappingProfileChange: updateTextfsmMappingProfile,
-    loadBuiltinFlowTemplateDetail,
-    loadTextfsmMappings,
-    refreshCustomShowObjects,
-    refreshSelectedBuiltinFlowTemplate,
-    refreshSelectedTextfsmTemplate,
-    saveCustomShowObject,
-    saveFlowTemplate,
-    saveTemplate,
-    saveTextfsmMapping,
-    saveTextfsmTemplate,
-    selectBuiltinFlowTemplateName,
-    selectCustomShowObject,
-    selectFlowTemplateName,
-    selectTemplateName,
-    selectTextfsmMapping,
-    selectTextfsmTemplateName,
-    destroy,
-    currentTemplateSectionState,
-    openTemplateSection,
-    pageDisplayStateStore,
-    setPageContext,
-  } = templatesWorkspace;
-  let currentTemplateSection = $derived($currentTemplateSectionState);
-  let pageDisplay = $derived($pageDisplayStateStore);
+  const contentWorkspace = createContentTemplateWorkspace();
+  const mappingWorkspace = createTextfsmMappingWorkspace();
+  const showObjectWorkspace = createShowObjectWorkspace();
+  let currentLanguage = $derived($currentLanguageState);
+  let activeSectionKey = $state(TEMPLATE_MANAGER_KIND.command);
+  let mappingLoaded = $state(false);
+  let showObjectsLoaded = $state(false);
+  let initialized = $state(false);
 
-  $effect(() => {
-    setPageContext({ active });
+  let activeDefinition = $derived(
+    templateManagerSections.find(
+      (section) => section.key === activeSectionKey,
+    ) || templateManagerSections[0],
+  );
+  let pageLabels = $derived.by(() => {
+    currentLanguage;
+    return {
+      title: t("templateManagerWorkspaceTitle"),
+      description: t("templateManagerWorkspaceDescription"),
+    };
+  });
+  let localizedSections = $derived.by(() => {
+    currentLanguage;
+    return templateManagerSections.map((section) => ({
+      ...section,
+      label: t(section.labelKey),
+    }));
   });
 
+  async function selectSection(sectionKey) {
+    if (sectionKey === activeSectionKey) return;
+    if (contentTemplateKinds.has(sectionKey)) {
+      const activated = await contentWorkspace.activate(sectionKey);
+      if (!activated) return;
+    }
+    activeSectionKey = sectionKey;
+    if (
+      sectionKey === TEMPLATE_MANAGER_KIND.textfsmMappings &&
+      !mappingLoaded
+    ) {
+      mappingLoaded = true;
+      await mappingWorkspace.load();
+    }
+    if (
+      sectionKey === TEMPLATE_MANAGER_KIND.showObjects &&
+      !showObjectsLoaded
+    ) {
+      showObjectsLoaded = true;
+      await showObjectWorkspace.load();
+    }
+  }
+
   $effect(() => {
-    return () => {
-      destroy();
-    };
+    if (!active || initialized) return;
+    initialized = true;
+    void contentWorkspace.activate(TEMPLATE_MANAGER_KIND.command);
   });
 </script>
 
-<DashboardTabPanel {active} titleKey="templatesTitle">
-  <TabList
-    tabItems={templatePageSections}
-    activeValue={currentTemplateSection}
-    aria-label={pageDisplay.sectionAriaLabel}
-    class="mt-3 flex-wrap"
-    onSelect={openTemplateSection}
-  />
-  <div class="mt-4 grid gap-3">
-    {#if pageDisplay.showJsonTemplates}
-      <TemplateLibraryPanel
-        onCreateDraft={createTemplateDraft}
-        onDelete={deleteTemplate}
-        onPickerChange={updateTemplatePicker}
-        onSave={saveTemplate}
-        onSelect={selectTemplateName}
-      />
-    {:else if pageDisplay.showFlowTemplates}
-      <BuiltinFlowTemplatesPanel
-        onCopy={copyBuiltinFlowTemplateToCustom}
-        onLoadBuiltinFlowTemplateDetail={loadBuiltinFlowTemplateDetail}
-        onPickerChange={refreshSelectedBuiltinFlowTemplate}
-        onSelect={selectBuiltinFlowTemplateName}
-      />
-      <CustomFlowTemplatesPanel
-        onCreateDraft={createFlowTemplateDraft}
-        onDelete={deleteFlowTemplate}
-        onPickerChange={updateFlowTemplatePicker}
-        onSave={saveFlowTemplate}
-        onSelect={selectFlowTemplateName}
-      />
-    {:else if pageDisplay.showTextfsm}
-      <div class="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
-        <TextfsmTemplateEditorPanel
-          onCreateDraft={createTextfsmTemplateDraft}
-          onDelete={deleteTextfsmTemplate}
-          onPickerChange={refreshSelectedTextfsmTemplate}
-          onSave={saveTextfsmTemplate}
-          onSelect={selectTextfsmTemplateName}
-        />
-        <TextfsmMappingsPanel
-          onDelete={deleteTextfsmMapping}
-          onLoad={loadTextfsmMappings}
-          onProfileChange={updateTextfsmMappingProfile}
-          onSave={saveTextfsmMapping}
-          onSelect={selectTextfsmMapping}
-        />
+<DashboardTabPanel {active}>
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+    <Card.Header class="border-b bg-card/80 p-4 sm:p-5">
+      <div class="flex items-start gap-3">
+        <div
+          class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+        >
+          <SparklesIcon aria-hidden="true" />
+        </div>
+        <div class="min-w-0">
+          <Card.Title class="text-lg">{pageLabels.title}</Card.Title>
+          <Card.Description class="mt-1 max-w-3xl leading-6">
+            {pageLabels.description}
+          </Card.Description>
+        </div>
       </div>
-    {:else if pageDisplay.showShowObjects}
-      <CustomShowObjectsPanel
-        onCommandInput={updateCustomShowObjectCommand}
-        onDelete={deleteCustomShowObject}
-        onMappingChange={updateCustomShowObjectMapping}
-        onProfileChange={updateCustomShowObjectProfile}
-        onRefresh={refreshCustomShowObjects}
-        onSave={saveCustomShowObject}
-        onSelect={selectCustomShowObject}
-        onUseMappingChange={updateCustomShowObjectUseMapping}
-      />
-    {/if}
-  </div>
+    </Card.Header>
+
+    <Card.Content class="min-w-0 p-0">
+      <Tabs.Root
+        value={activeSectionKey}
+        onValueChange={selectSection}
+        class="min-w-0 gap-0"
+      >
+        <div class="border-b bg-muted/15 px-3 py-2 sm:px-5">
+          <Tabs.List
+            variant="line"
+            aria-label={t("templatesTitle")}
+            class="!grid !h-auto w-full grid-cols-2 gap-1 md:grid-cols-4"
+          >
+            {#each localizedSections as section (section.key)}
+              <Tabs.Trigger
+                value={section.key}
+                class="h-10 min-w-0 justify-start rounded-lg border-border/70 bg-card/70 px-2 text-xs hover:border-primary/30 hover:bg-primary/5 hover:text-primary data-active:!border-primary/60 data-active:!bg-primary/10 data-active:!text-primary after:inset-x-3 after:bottom-0 after:rounded-full after:bg-primary sm:justify-center"
+              >
+                {#if section.key === TEMPLATE_MANAGER_KIND.command}
+                  <FileCode2Icon aria-hidden="true" />
+                {:else if section.key === TEMPLATE_MANAGER_KIND.flow}
+                  <GitBranchIcon aria-hidden="true" />
+                {:else if section.key === TEMPLATE_MANAGER_KIND.txBlock}
+                  <BlocksIcon aria-hidden="true" />
+                {:else if section.key === TEMPLATE_MANAGER_KIND.txWorkflow}
+                  <Layers3Icon aria-hidden="true" />
+                {:else if section.key === TEMPLATE_MANAGER_KIND.orchestration}
+                  <NetworkIcon aria-hidden="true" />
+                {:else if section.key === TEMPLATE_MANAGER_KIND.textfsm}
+                  <BracesIcon aria-hidden="true" />
+                {:else if section.key === TEMPLATE_MANAGER_KIND.textfsmMappings}
+                  <Link2Icon aria-hidden="true" />
+                {:else}
+                  <SlidersHorizontalIcon aria-hidden="true" />
+                {/if}
+                <span>{section.label}</span>
+              </Tabs.Trigger>
+            {/each}
+          </Tabs.List>
+        </div>
+
+        <section class="min-w-0 p-4 sm:p-5 lg:p-6">
+          {#if contentTemplateKinds.has(activeSectionKey)}
+            <TemplateCatalogPanel
+              definition={activeDefinition}
+              workspace={contentWorkspace}
+            />
+          {:else if activeSectionKey === TEMPLATE_MANAGER_KIND.textfsmMappings}
+            <TextfsmMappingWorkspace
+              definition={activeDefinition}
+              workspace={mappingWorkspace}
+            />
+          {:else}
+            <ShowObjectWorkspace
+              definition={activeDefinition}
+              workspace={showObjectWorkspace}
+            />
+          {/if}
+        </section>
+      </Tabs.Root>
+    </Card.Content>
+  </Card.Root>
 </DashboardTabPanel>

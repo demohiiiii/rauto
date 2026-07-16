@@ -4,10 +4,6 @@ import {
   writable,
 } from "svelte/store";
 
-import {
-  TX_EXECUTION_MODE,
-  normalizeTxExecutionMode,
-} from "../config/dashboardModes.js";
 import { callbackMappedFormValueHandler } from "../lib/events.js";
 import { currentLanguageState, t } from "../lib/i18n.js";
 import { createLoadingRunner } from "../lib/svelte.js";
@@ -35,7 +31,6 @@ import {
   setJsonTemplateSelectValue,
   setTxJsonEditorRawText,
   setTxVarsRawText,
-  txExecutionModes,
   txJsonEditorRawText,
   txVarsTextStateFor,
   TX_EDITOR,
@@ -44,15 +39,6 @@ import {
 
 export const jsonTemplateNameValue = (templateName) =>
   safeTemplateString(templateName).trim();
-
-const txExecutionModePresentation = (mode = "") => {
-  const normalized = normalizeTxExecutionMode(mode);
-  return {
-    isDirect: normalized === TX_EXECUTION_MODE.direct,
-    isTemplate: normalized === TX_EXECUTION_MODE.template,
-    mode: normalized,
-  };
-};
 
 const txDisplayText = (displaySource) => displayText(displaySource);
 
@@ -160,16 +146,14 @@ export function txTemplateRunPanelDisplay({
   };
 }
 
-export const txBlockInputPanelDisplay = (
-  modes = {},
-  { jsonPlaceholder = "", newButtonLabelKey = "newBtn" } = {},
-) => ({
-  activeMode: txDisplayText(modes.txBlock || ""),
+export const txBlockInputPanelDisplay = ({
+  jsonPlaceholder = "",
+  newButtonLabelKey = "newBtn",
+} = {}) => ({
   directHint: t("txBlockDirectHint"),
   editorTitle: t("txBlockEditorTitle"),
   jsonHint: t("txBlockJsonHint"),
   jsonPlaceholderText: t("txBlockJsonPlaceholder", jsonPlaceholder),
-  mode: txExecutionModePresentation(modes.txBlock),
   newButtonLabel: t(newButtonLabelKey),
   tabAriaLabel: t("txStageBlock"),
 });
@@ -184,14 +168,10 @@ export function txBlockInputEditorSurfaceDisplay(inputDisplay = {}) {
   };
 }
 
-export const txWorkflowInputPanelDisplay = (
-  activeMode = "",
-  { jsonPlaceholder = "" } = {},
-) => ({
+export const txWorkflowInputPanelDisplay = ({ jsonPlaceholder = "" } = {}) => ({
   directHint: t("txWorkflowDirectHint"),
   importButtonLabel: t("txWorkflowImportFileBtn"),
   jsonPlaceholderText: t("txWorkflowJsonPlaceholder", jsonPlaceholder),
-  mode: txExecutionModePresentation(activeMode),
   newButtonLabel: t("newBtn"),
   tabAriaLabel: t("txStageWorkflow"),
 });

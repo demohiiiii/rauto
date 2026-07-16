@@ -7,7 +7,7 @@
 
 <div class="grid gap-2">
   <div class="flex flex-wrap items-center gap-3">
-    <span class="text-sm font-semibold text-slate-700">
+    <span class="text-sm font-semibold text-foreground">
       {varsDisplay.labelText}
     </span>
     <PresenceToggle

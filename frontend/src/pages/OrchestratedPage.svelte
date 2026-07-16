@@ -23,8 +23,6 @@
     createTxBlockJsonTemplateDraft,
     createTxWorkflowJsonTemplateDraft,
     deleteOrchestrationJsonTemplate,
-    deleteTxBlockJsonTemplate,
-    deleteTxWorkflowJsonTemplate,
     destroy: destroyOrchestratedWorkspace,
     executeOrchestration,
     executeTxWorkflow,
@@ -35,17 +33,10 @@
     loadTxWorkflowJsonTemplate,
     previewOrchestration,
     previewTxWorkflow,
-    runTxBlockDirectExecute,
-    runTxBlockTemplateExecute,
+    runTxBlockExecute,
     saveOrchestrationJsonTemplate,
-    saveTxBlockJsonTemplate,
-    saveTxWorkflowJsonTemplate,
     setOrchestrationDirectMode,
     setOrchestrationTemplateMode,
-    setTxBlockDirectMode,
-    setTxBlockTemplateMode,
-    setTxWorkflowDirectMode,
-    setTxWorkflowTemplateMode,
     setPageContext,
     stageDisplayStateStore,
     updateOrchestrationEditorInput,
@@ -59,29 +50,20 @@
     active: true,
     newButtonLabelKey: stageDisplay.newButtonLabelKey,
     onCreateJsonTemplateDraft: createTxBlockJsonTemplateDraft,
-    onDeleteJsonTemplate: deleteTxBlockJsonTemplate,
-    onDirectMode: setTxBlockDirectMode,
-    onDirectExecute: runTxBlockDirectExecute,
+    onExecute: runTxBlockExecute,
     onEditorInput: updateTxBlockEditorInput,
     onLoadJsonTemplate: loadTxBlockJsonTemplate,
-    onSaveJsonTemplate: saveTxBlockJsonTemplate,
-    onTemplateMode: setTxBlockTemplateMode,
-    onTemplateExecute: runTxBlockTemplateExecute,
   });
   let txWorkflowStageProps = $derived({
     active: true,
     jsonNewLoading: false,
     onCreateDirectDraft: null,
     onCreateJsonTemplateDraft: createTxWorkflowJsonTemplateDraft,
-    onDeleteJsonTemplate: deleteTxWorkflowJsonTemplate,
     onEditorInput: updateTxWorkflowEditorInput,
     onExecute: executeTxWorkflow,
     onImportFile: importTxWorkflowFile,
     onLoadJsonTemplate: loadTxWorkflowJsonTemplate,
     onPreview: previewTxWorkflow,
-    onSaveJsonTemplate: saveTxWorkflowJsonTemplate,
-    onDirectMode: setTxWorkflowDirectMode,
-    onTemplateMode: setTxWorkflowTemplateMode,
   });
   let orchestrationStageProps = $derived({
     active: true,
@@ -130,8 +112,8 @@
   <StageComponent {...stageBindings} />
 {/snippet}
 
-<DashboardTabPanel {active} title={stageDisplay.titleText}>
-  <div class="mt-3 grid gap-3">
+<DashboardTabPanel {active}>
+  <div class="grid gap-3">
     {#if blockStageActive}
       {#if activeStageComponent}
         {@render renderActiveStage(activeStageComponent, txBlockStageProps)}

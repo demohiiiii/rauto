@@ -204,15 +204,45 @@ function txWorkflowChangeRoot(model, key, value) {
 
 function txWorkflowAddBlock(model) {
   const next = workflowCloneModel(model);
+  if (!Array.isArray(next.blocks)) next.blocks = [];
   next.blocks.push(
     txWorkflowBlockFormModelFromJson(defaultTxBlockTemplatePayload()),
   );
   return next;
 }
 
-function txWorkflowRemoveBlock(model, blockIndex) {
+export function txWorkflowRemoveBlock(model, blockIndex) {
   const next = workflowCloneModel(model);
+  if (!Array.isArray(next.blocks)) next.blocks = [];
   next.blocks.splice(blockIndex, 1);
+  return next;
+}
+
+export function txWorkflowDuplicateBlock(model, blockIndex) {
+  const next = workflowCloneModel(model);
+  if (!Array.isArray(next.blocks) || !next.blocks[blockIndex]) return next;
+  next.blocks.splice(
+    blockIndex + 1,
+    0,
+    workflowCloneModel(next.blocks[blockIndex]),
+  );
+  return next;
+}
+
+export function txWorkflowMoveBlock(model, blockIndex, targetIndex) {
+  const next = workflowCloneModel(model);
+  if (
+    !Array.isArray(next.blocks) ||
+    blockIndex < 0 ||
+    targetIndex < 0 ||
+    blockIndex >= next.blocks.length ||
+    targetIndex >= next.blocks.length ||
+    blockIndex === targetIndex
+  ) {
+    return next;
+  }
+  const [block] = next.blocks.splice(blockIndex, 1);
+  next.blocks.splice(targetIndex, 0, block);
   return next;
 }
 
@@ -753,6 +783,18 @@ export function txWorkflowEditorBindings(model, onChange) {
     addBlock() {
       workflowApplyChange(onChange, txWorkflowAddBlock(model));
     },
+    duplicateBlock(blockIndex) {
+      workflowApplyChange(
+        onChange,
+        txWorkflowDuplicateBlock(model, blockIndex),
+      );
+    },
+    moveBlock(blockIndex, targetIndex) {
+      workflowApplyChange(
+        onChange,
+        txWorkflowMoveBlock(model, blockIndex, targetIndex),
+      );
+    },
     patchTemplateRefBlock(blockIndex, patch = {}) {
       workflowApplyChange(
         onChange,
@@ -861,6 +903,15 @@ export function txWorkflowVisualEditorBindings(model, onChange) {
   return {
     appendBlock() {
       bindings.addBlock();
+    },
+    duplicateBlock(blockIndex) {
+      bindings.duplicateBlock(blockIndex);
+    },
+    moveBlock(blockIndex, targetIndex) {
+      bindings.moveBlock(blockIndex, targetIndex);
+    },
+    removeBlock(blockIndex) {
+      bindings.removeBlock(blockIndex);
     },
     blockBindings(blockIndex) {
       return txWorkflowBlockBindings(model, onChange, blockIndex);

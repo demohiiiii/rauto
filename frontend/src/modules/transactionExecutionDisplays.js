@@ -69,10 +69,7 @@ function txBlockPreviewOutputPresentation(mode = "", txBlock = null) {
 }
 
 const emptyTxBlockLoadingDisplay = {
-  directExecute: false,
-  directPlan: false,
-  templateExecute: false,
-  templatePlan: false,
+  execute: false,
 };
 
 export const txBlockRunDisplayPresentation = (
@@ -82,10 +79,7 @@ export const txBlockRunDisplayPresentation = (
 ) => ({
   execStatus: display.execStatus,
   loading: {
-    directExecute: keys.includes("direct-exec"),
-    directPlan: keys.includes("direct-plan"),
-    templateExecute: keys.includes("template-exec"),
-    templatePlan: keys.includes("template-plan"),
+    execute: keys.includes("execute"),
   },
   mode: display.mode,
   planStatus: display.planStatus,
@@ -1056,7 +1050,7 @@ function txWorkflowPreviewBlockRow(block, index) {
   };
 }
 
-function txWorkflowPreviewPresentation(workflow = null) {
+export function txWorkflowPreviewPresentation(workflow = null) {
   const hasWorkflow = Boolean(workflow && typeof workflow === "object");
   const blocks =
     hasWorkflow && Array.isArray(workflow?.blocks) ? workflow.blocks : [];

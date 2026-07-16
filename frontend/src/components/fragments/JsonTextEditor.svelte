@@ -13,7 +13,9 @@
     class: cssClass = "",
     "aria-label": ariaLabel,
     compact = false,
+    fill = false,
     hidden = false,
+    immediate = false,
     onChange,
     placeholder,
     theme = "",
@@ -95,6 +97,7 @@
   class={hostClass}
   class:tx-json-editor={true}
   class:tx-json-editor-compact={compactEditor}
+  class:tx-json-editor-fill={fill}
   class:tx-code-editor-light={editorTheme === "light"}
   class:tx-code-editor-dark={editorTheme !== "light"}
   aria-label={ariaLabel}
@@ -107,6 +110,7 @@
         value={editorText}
         lang={jsonLanguage}
         lineWrapping={true}
+        nodebounce={immediate}
         {placeholder}
         styles={editorStyles}
         tabSize={2}
@@ -138,6 +142,12 @@
     height: clamp(14rem, 36vh, 24rem);
   }
 
+  .tx-json-editor-fill {
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+  }
+
   .tx-code-editor-light {
     border-color: color-mix(in oklab, var(--border) 86%, transparent);
     background: color-mix(in oklab, var(--card) 98%, white 2%);
@@ -151,5 +161,11 @@
     font-family:
       ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
     line-height: 1.45;
+  }
+
+  .tx-json-editor :global(.codemirror-wrapper) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 </style>

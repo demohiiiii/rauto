@@ -902,11 +902,9 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
 
 test("template panels compose shadcn Card instead of group-card shells", () => {
   const panelPaths = [
-    "frontend/src/pages/templates/BuiltinFlowTemplatesPanel.svelte",
-    "frontend/src/pages/templates/CustomFlowTemplatesPanel.svelte",
-    "frontend/src/pages/templates/CustomShowObjectsPanel.svelte",
-    "frontend/src/pages/templates/TextfsmMappingsPanel.svelte",
-    "frontend/src/pages/templates/TextfsmTemplateEditorPanel.svelte",
+    "frontend/src/pages/templates/TemplateCatalogPanel.svelte",
+    "frontend/src/pages/templates/TextfsmMappingWorkspace.svelte",
+    "frontend/src/pages/templates/ShowObjectWorkspace.svelte",
   ];
 
   for (const path of panelPaths) {

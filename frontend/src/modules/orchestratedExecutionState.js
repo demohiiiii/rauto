@@ -208,56 +208,74 @@ export function jsonTemplateConfigFor(kind) {
   return configs[kind] || null;
 }
 
-function txBlockExecutionPayload({ dependencies, dryRun, mode }) {
-  if (mode === "template") {
-    const content = txBlockEditorRaw();
-    if (!content) {
-      throw new Error(tr("txBlockJsonRequired"));
-    }
-    return {
-      connection: connectionPayload(dependencies),
-      dry_run: dryRun,
-      record_level: recordLevelPayload(dependencies),
-      tx_block: null,
-      tx_block_template_content: content,
-      tx_block_template_name: null,
-      tx_block_template_vars: txVarsJsonObject(TX_VARS.txBlockTemplate),
-    };
-  }
+export function txBlockInlineExecutionPayload({
+  connection,
+  dryRun,
+  recordLevel,
+  txBlock = {},
+  txBlockVars = {},
+} = {}) {
   return {
-    connection: connectionPayload(dependencies),
+    connection,
     dry_run: dryRun,
-    record_level: recordLevelPayload(dependencies),
-    tx_block: parseTxBlockEditorJson(),
+    record_level: recordLevel,
+    tx_block: txBlock,
     tx_block_template_content: null,
     tx_block_template_name: null,
-    tx_block_template_vars: txVarsJsonObject(TX_VARS.txBlockDirect),
+    tx_block_template_vars:
+      txBlockVars &&
+      typeof txBlockVars === "object" &&
+      !Array.isArray(txBlockVars)
+        ? txBlockVars
+        : {},
+  };
+}
+
+function txBlockExecutionPayload({ dependencies, dryRun }) {
+  return txBlockInlineExecutionPayload({
+    connection: connectionPayload(dependencies),
+    dryRun,
+    recordLevel: recordLevelPayload(dependencies),
+    txBlock: parseTxBlockEditorJson(),
+    txBlockVars: txVarsJsonObject(TX_VARS.txBlockDirect),
+  });
+}
+
+export function txWorkflowInlineExecutionPayload({
+  connection,
+  dryRun,
+  recordLevel,
+  workflowText = "",
+  workflowVars = {},
+} = {}) {
+  const raw = transactionText(workflowText).trim();
+  if (!raw) {
+    throw new Error(tr("txWorkflowJsonRequired"));
+  }
+  return {
+    connection,
+    dry_run: dryRun,
+    record_level: recordLevel,
+    workflow: JSON.parse(raw),
+    workflow_template_content: null,
+    workflow_template_name: null,
+    workflow_vars:
+      workflowVars &&
+      typeof workflowVars === "object" &&
+      !Array.isArray(workflowVars)
+        ? workflowVars
+        : {},
   };
 }
 
 function txWorkflowExecutionPayload({ dependencies, dryRun }) {
-  const templateMode = getTxExecutionModes().txWorkflow === "template";
-  const workflowTemplateName = templateMode
-    ? jsonTemplateSelectValue(TX_TEMPLATE_KIND.txWorkflow)
-    : "";
-  const raw = templateMode ? "" : txWorkflowEditorRaw();
-  if (templateMode && !workflowTemplateName) {
-    throw new Error(tr("txWorkflowTemplateNameRequired"));
-  }
-  if (!templateMode && !raw) {
-    throw new Error(tr("txWorkflowJsonRequired"));
-  }
-  return {
+  return txWorkflowInlineExecutionPayload({
     connection: connectionPayload(dependencies),
-    dry_run: dryRun,
-    record_level: recordLevelPayload(dependencies),
-    workflow: raw ? JSON.parse(raw) : {},
-    workflow_template_content: null,
-    workflow_template_name: workflowTemplateName || null,
-    workflow_vars: txVarsJsonObject(
-      templateMode ? TX_VARS.txWorkflowTemplate : TX_VARS.txWorkflowDirect,
-    ),
-  };
+    dryRun,
+    recordLevel: recordLevelPayload(dependencies),
+    workflowText: txWorkflowEditorRaw(),
+    workflowVars: txVarsJsonObject(TX_VARS.txWorkflowDirect),
+  });
 }
 
 function orchestrationExecutionPayload({ dependencies, dryRun }) {
@@ -432,26 +450,14 @@ async function executeOrchestrationRunWithDependencies(dependencies = {}) {
   }
 }
 
-async function runTxBlockWithDependencies(
-  dependencies = {},
-  mode,
-  dryRun,
-  output,
-) {
+async function runTxBlockWithDependencies(dependencies = {}, dryRun, output) {
   if (!ensureTarget(dependencies)) return;
-  setTxExecutionModes({ txBlock: mode });
-  const payload = txBlockExecutionPayload({ dependencies, dryRun, mode });
+  setTxExecutionModes({ txBlock: "direct" });
+  const payload = txBlockExecutionPayload({ dependencies, dryRun });
   if (
-    mode === "template" &&
-    !transactionText(payload.tx_block_template_content).trim()
-  ) {
-    throw new Error(tr("txBlockJsonRequired"));
-  }
-  if (
-    mode === "direct" &&
-    (!payload.tx_block ||
-      typeof payload.tx_block !== "object" ||
-      Array.isArray(payload.tx_block))
+    !payload.tx_block ||
+    typeof payload.tx_block !== "object" ||
+    Array.isArray(payload.tx_block)
   ) {
     throw new Error(tr("txBlockJsonInvalidShape"));
   }
@@ -541,8 +547,8 @@ export function orchestratedExecutionOperations({
     previewOrchestration: () =>
       previewOrchestrationWithDependencies(dependencies),
     previewTxWorkflow: () => previewTxWorkflowWithDependencies(dependencies),
-    runTxBlock: (mode, dryRun, output) =>
-      runTxBlockWithDependencies(dependencies, mode, dryRun, output),
+    runTxBlock: (dryRun, output) =>
+      runTxBlockWithDependencies(dependencies, dryRun, output),
   };
 }
 

@@ -16,8 +16,8 @@
   );
 </script>
 
-<DashboardTabPanel {active} titleKey="transferTitle">
-  <div class="mt-4 grid gap-3">
+<DashboardTabPanel {active}>
+  <div class="grid gap-3">
     <Card.Root>
       <Card.Header>
         <Card.Title>

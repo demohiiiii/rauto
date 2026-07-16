@@ -25,3 +25,23 @@ test("desktop dashboard keeps sidebar fixed and scrolls main content", () => {
   );
   assert.doesNotMatch(cssSource, /\.main-scroll\b/);
 });
+
+test("dashboard pages keep one shared breadcrumb without duplicate page titles", () => {
+  const bodySource = readFileSync(
+    "frontend/src/components/layout/DashboardBody.svelte",
+    "utf8",
+  );
+  const panelSource = readFileSync(
+    "frontend/src/components/layout/DashboardTabPanel.svelte",
+    "utf8",
+  );
+  const showPageSource = readFileSync(
+    "frontend/src/pages/ShowPage.svelte",
+    "utf8",
+  );
+  assert.match(bodySource, /<nav[\s\S]*breadcrumbAria/);
+  assert.match(bodySource, /breadcrumbRootText/);
+  assert.match(bodySource, /pageLabelText/);
+  assert.doesNotMatch(panelSource, /<h2/);
+  assert.doesNotMatch(showPageSource, /控制台<\/span>|<h2/);
+});

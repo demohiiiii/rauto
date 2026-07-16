@@ -94,8 +94,8 @@
   </Card.Root>
 {/snippet}
 
-<DashboardTabPanel {active} titleKey="tasksTitle">
-  <div class="mt-4 grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+<DashboardTabPanel {active}>
+  <div class="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
     <div class="grid gap-3">
       <TaskFiltersPanel
         taskFilters={taskDisplay.taskFilters}

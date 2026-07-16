@@ -39,7 +39,6 @@ import {
   jsonTemplateSelectStateFor,
   setJsonTemplateSelectValue,
   setTxVarsRawText,
-  txExecutionModes,
   txVarsTextStateFor,
 } from "./transactionPanelState.js";
 
@@ -240,11 +239,9 @@ export function createTxBlockInputPanelWorkspace(inputState = {}) {
     onCreateJsonTemplateDraft: normalizeOptionalHandler(
       inputState.onCreateJsonTemplateDraft,
     ),
-    onDirectMode: normalizeOptionalHandler(inputState.onDirectMode),
     onEditorInput: normalizeOptionalHandler(inputState.onEditorInput),
     onImportFile: normalizeOptionalHandler(inputState.onImportFile),
     onLoadJsonTemplate: normalizeOptionalHandler(inputState.onLoadJsonTemplate),
-    onTemplateMode: normalizeOptionalHandler(inputState.onTemplateMode),
   };
   const txInputWorkspace = createTxInputPanelWorkspace({
     buildDefaultFormModel: () =>
@@ -263,9 +260,9 @@ export function createTxBlockInputPanelWorkspace(inputState = {}) {
     ),
   });
   const panelDisplayStateStore = deriveStore(
-    [txExecutionModes, panelConfigStateStore, currentLanguageState],
-    ([$txExecutionModes, $panelConfigStateStore, _currentLanguageState]) =>
-      txBlockInputPanelDisplay($txExecutionModes, {
+    [panelConfigStateStore, currentLanguageState],
+    ([$panelConfigStateStore, _currentLanguageState]) =>
+      txBlockInputPanelDisplay({
         jsonPlaceholder: txBlockJsonPlaceholder,
         newButtonLabelKey: $panelConfigStateStore.newButtonLabelKey || "newBtn",
       }),
@@ -297,11 +294,6 @@ export function createTxBlockInputPanelWorkspace(inputState = {}) {
         nextInputState.onCreateJsonTemplateDraft,
       );
     }
-    if ("onDirectMode" in nextInputState) {
-      dependencyState.onDirectMode = normalizeOptionalHandler(
-        nextInputState.onDirectMode,
-      );
-    }
     if ("onEditorInput" in nextInputState) {
       dependencyState.onEditorInput = normalizeOptionalHandler(
         nextInputState.onEditorInput,
@@ -315,11 +307,6 @@ export function createTxBlockInputPanelWorkspace(inputState = {}) {
     if ("onLoadJsonTemplate" in nextInputState) {
       dependencyState.onLoadJsonTemplate = normalizeOptionalHandler(
         nextInputState.onLoadJsonTemplate,
-      );
-    }
-    if ("onTemplateMode" in nextInputState) {
-      dependencyState.onTemplateMode = normalizeOptionalHandler(
-        nextInputState.onTemplateMode,
       );
     }
   }
@@ -341,11 +328,9 @@ export function createTxWorkflowInputPanelWorkspace(inputState = {}) {
     onCreateJsonTemplateDraft: normalizeOptionalHandler(
       inputState.onCreateJsonTemplateDraft,
     ),
-    onDirectMode: normalizeOptionalHandler(inputState.onDirectMode),
     onEditorInput: normalizeOptionalHandler(inputState.onEditorInput),
     onImportFile: normalizeOptionalHandler(inputState.onImportFile),
     onLoadJsonTemplate: normalizeOptionalHandler(inputState.onLoadJsonTemplate),
-    onTemplateMode: normalizeOptionalHandler(inputState.onTemplateMode),
   };
   const txInputWorkspace = createTxInputPanelWorkspace({
     buildDefaultFormModel: () =>
@@ -355,15 +340,10 @@ export function createTxWorkflowInputPanelWorkspace(inputState = {}) {
     inputFormStateFromJsonText: txWorkflowEditorFormStateFromJsonText,
     saveEditorFormModel: saveTxWorkflowEditorFormModel,
   });
-  const panelConfigStateStore = writable({
-    activeMode: "",
-  });
-  const panelDisplayStateStore = deriveStore(
-    [panelConfigStateStore, currentLanguageState],
-    ([$panelConfigStateStore, _currentLanguageState]) =>
-      txWorkflowInputPanelDisplay($panelConfigStateStore.activeMode, {
-        jsonPlaceholder: txWorkflowJsonPlaceholder,
-      }),
+  const panelDisplayStateStore = deriveStore(currentLanguageState, () =>
+    txWorkflowInputPanelDisplay({
+      jsonPlaceholder: txWorkflowJsonPlaceholder,
+    }),
   );
   const editorDisplayStateStore = deriveStore(
     panelDisplayStateStore,
@@ -376,14 +356,6 @@ export function createTxWorkflowInputPanelWorkspace(inputState = {}) {
   );
 
   function setWorkflowInputPanelContext(nextInputState = {}) {
-    if ("activeMode" in nextInputState) {
-      panelConfigStateStore.set({
-        activeMode:
-          nextInputState.activeMode == null
-            ? ""
-            : String(nextInputState.activeMode),
-      });
-    }
     if ("onCreateDirectDraft" in nextInputState) {
       dependencyState.onCreateDirectDraft = normalizeOptionalHandler(
         nextInputState.onCreateDirectDraft,
@@ -392,11 +364,6 @@ export function createTxWorkflowInputPanelWorkspace(inputState = {}) {
     if ("onCreateJsonTemplateDraft" in nextInputState) {
       dependencyState.onCreateJsonTemplateDraft = normalizeOptionalHandler(
         nextInputState.onCreateJsonTemplateDraft,
-      );
-    }
-    if ("onDirectMode" in nextInputState) {
-      dependencyState.onDirectMode = normalizeOptionalHandler(
-        nextInputState.onDirectMode,
       );
     }
     if ("onEditorInput" in nextInputState) {
@@ -412,11 +379,6 @@ export function createTxWorkflowInputPanelWorkspace(inputState = {}) {
     if ("onLoadJsonTemplate" in nextInputState) {
       dependencyState.onLoadJsonTemplate = normalizeOptionalHandler(
         nextInputState.onLoadJsonTemplate,
-      );
-    }
-    if ("onTemplateMode" in nextInputState) {
-      dependencyState.onTemplateMode = normalizeOptionalHandler(
-        nextInputState.onTemplateMode,
       );
     }
   }

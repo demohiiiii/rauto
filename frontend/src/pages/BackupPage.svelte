@@ -164,8 +164,8 @@
   </Card.Root>
 {/snippet}
 
-<DashboardTabPanel {active} titleKey="backupTitle">
-  <div class="mt-4 grid gap-3">
+<DashboardTabPanel {active}>
+  <div class="grid gap-3">
     {@render backupCreateCard()}
     {@render backupArchiveCard()}
   </div>

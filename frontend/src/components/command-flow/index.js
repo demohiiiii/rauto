@@ -4,6 +4,7 @@ export { default as CommandTemplateSourceField } from "./CommandTemplateSourceFi
 export { default as CommandMultilineModeField } from "./CommandMultilineModeField.svelte";
 export { default as CommandTextAreaField } from "./CommandTextAreaField.svelte";
 export { default as CommandFlowReadonlyView } from "./CommandFlowReadonlyView.svelte";
+export { default as CommandFlowAuthoringViews } from "./CommandFlowAuthoringViews.svelte";
 export { default as CommandFlowSettings } from "./CommandFlowSettings.svelte";
 export { default as CommandFlowStepsEditor } from "./CommandFlowStepsEditor.svelte";
 export { default as CommandFlowSurface } from "./CommandFlowSurface.svelte";

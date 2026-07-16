@@ -271,32 +271,6 @@
     font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   }
 
-  .dashboard-page-heading {
-    margin-bottom: 1.5rem;
-  }
-
-  .dashboard-page-breadcrumb {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    margin-bottom: 0.28rem;
-    color: var(--muted-foreground);
-    font-size: 0.78rem;
-    font-weight: 650;
-  }
-
-  .dashboard-page-breadcrumb span:last-child {
-    color: var(--primary);
-  }
-
-  .dashboard-page-heading h2 {
-    color: var(--foreground);
-    font-size: clamp(1.35rem, 2vw, 1.65rem);
-    font-weight: 800;
-    letter-spacing: -0.035em;
-    line-height: 1.15;
-  }
-
   .dashboard-card-title-row {
     display: flex;
     align-items: center;

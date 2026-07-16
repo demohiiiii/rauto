@@ -68,12 +68,12 @@
   });
 </script>
 
-<DashboardTabPanel {active} titleKey="inventoryTitle">
+<DashboardTabPanel {active}>
   <TabList
     tabItems={inventorySectionTabs}
     activeValue={currentInventorySection}
     aria-label={pageDisplay.sectionAriaLabel}
-    class="mt-3 w-fit"
+    class="w-fit"
     onSelect={openInventorySection}
   />
 

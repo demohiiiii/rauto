@@ -173,6 +173,17 @@
         <div class="mx-auto w-full max-w-6xl space-y-4">
           <DashboardAgentAuthPanel />
 
+          {#if bodyDisplay.pageLabelText}
+            <nav
+              aria-label={bodyDisplay.breadcrumbAria}
+              class="flex items-center gap-2 px-0.5 text-xs font-medium text-muted-foreground"
+            >
+              <span>{bodyDisplay.breadcrumbRootText}</span>
+              <span class="text-border" aria-hidden="true">/</span>
+              <span class="text-foreground">{bodyDisplay.pageLabelText}</span>
+            </nav>
+          {/if}
+
           <section class={panelClass}>
             {#each pageOutletRows as pageRow (pageRow.id)}
               {@const PageComponent = pageRow.PageComponent}

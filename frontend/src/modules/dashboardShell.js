@@ -130,44 +130,13 @@ function dashboardSidebarNavigationPresentation(dashboard = {}) {
   }));
 }
 
-function dashboardTabPanelDisplay({
-  title = "",
-  titleFallback = "",
-  titleKey = "",
-} = {}) {
-  return {
-    panelTitle: titleKey ? tr(titleKey, titleFallback || titleKey) : title,
-  };
-}
-
-export function createDashboardTabPanelWorkspace() {
-  const panelInputStateStore = writable({
-    title: "",
-    titleFallback: "",
-    titleKey: "",
-  });
-  const panelDisplayStateStore = derived(
-    [panelInputStateStore, currentLanguageState],
-    ([$panelInputStateStore, _currentLanguageState]) =>
-      dashboardTabPanelDisplay($panelInputStateStore),
+function activeDashboardNavigationItem(dashboard = {}) {
+  return dashboardNavigationItems.find(
+    (navigationItem) =>
+      navigationItem.activeWhen === dashboard.currentTab &&
+      (!navigationItem.txStage ||
+        navigationItem.txStage === dashboard.currentTxStage),
   );
-
-  function setPanelContext({
-    title = "",
-    titleFallback = "",
-    titleKey = "",
-  } = {}) {
-    panelInputStateStore.set({
-      title,
-      titleFallback,
-      titleKey,
-    });
-  }
-
-  return {
-    panelDisplayStateStore,
-    setPanelContext,
-  };
 }
 
 function dashboardSidebarDisplay() {
@@ -177,10 +146,16 @@ function dashboardSidebarDisplay() {
 }
 
 function dashboardBodyDisplay(shellState = {}) {
+  const activeNavigationItem = activeDashboardNavigationItem(shellState);
   return {
+    breadcrumbAria: tr("dashboardBreadcrumbAria", "Breadcrumb"),
+    breadcrumbRootText: tr("dashboardBreadcrumbRoot", "Console"),
     currentTheme: shellState.currentTheme === "light" ? "light" : "dark",
     loadingStatus: { message: tr("loading", "Loading..."), variant: "alert" },
     pageErrorStatus: { tone: "error", variant: "alert" },
+    pageLabelText: activeNavigationItem
+      ? tr(activeNavigationItem.labelKey, activeNavigationItem.label)
+      : "",
     pageTitle: tr("title", "rauto Web Console"),
     requestFailedMessage: tr("requestFailed", "Request failed"),
     sidebarOpenAria: tr("sidebarOpenAria", "Open sidebar"),

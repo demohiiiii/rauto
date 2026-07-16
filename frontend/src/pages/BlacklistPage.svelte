@@ -132,8 +132,8 @@
   </div>
 {/snippet}
 
-<DashboardTabPanel {active} titleKey="blacklistTitle">
-  <div class="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
+<DashboardTabPanel {active}>
+  <div class="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
     {@render blacklistRulesCard()}
     <Card.Root>
       <Card.Header>

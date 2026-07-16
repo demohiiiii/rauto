@@ -364,13 +364,13 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
     applyTxStageExecutionModeLayout(shellState.currentTxStage, modes);
   }
 
-  async function runTxBlock(mode, dryRun, output) {
+  async function runTxBlock(dryRun, output) {
     const executionActions = orchestratedExecutionOperations({
       dependencies: txExecutionDependencies,
       txJsonEditorsHost,
     });
     try {
-      await executionActions.runTxBlock(mode, dryRun, output);
+      await executionActions.runTxBlock(dryRun, output);
     } catch (error) {
       setErrorStatus(output, error);
       setVisualOutputStatus("txBlockPreview", error.message, "error");
@@ -487,14 +487,7 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
     previewTxWorkflow: runTxWorkflowPreview,
     refreshOrchestratedLanguageFields,
     refreshTxWorkflowBuilder,
-    runTxBlockDirectExecute: () =>
-      runTxBlock("direct", false, TX_OUTPUT.txBlockExec),
-    runTxBlockDirectPlan: () =>
-      runTxBlock("direct", true, TX_OUTPUT.txBlockPlan),
-    runTxBlockTemplateExecute: () =>
-      runTxBlock("template", false, TX_OUTPUT.txBlockExec),
-    runTxBlockTemplatePlan: () =>
-      runTxBlock("template", true, TX_OUTPUT.txBlockPlan),
+    runTxBlockExecute: () => runTxBlock(false, TX_OUTPUT.txBlockExec),
     saveJsonTemplateFromExecution:
       jsonTemplateLibrary.saveTemplateFromExecution,
     saveOrchestrationJsonTemplate:
@@ -506,10 +499,6 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
     setOrchestrationDirectMode: () => setTxMode({ orchestration: "direct" }),
     setOrchestrationTemplateMode: () =>
       setTxMode({ orchestration: "template" }),
-    setTxBlockDirectMode: () => setTxMode({ txBlock: "direct" }),
-    setTxBlockTemplateMode: () => setTxMode({ txBlock: "template" }),
-    setTxWorkflowDirectMode: () => setTxMode({ txWorkflow: "direct" }),
-    setTxWorkflowTemplateMode: () => setTxMode({ txWorkflow: "template" }),
     updateOrchestrationEditorInput: updateOrchestrationPreviewFromCurrentEditor,
     updateTxBlockEditorInput: (text) => {
       if (text != null) {

@@ -49,9 +49,9 @@
   });
 </script>
 
-<div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+<div class="rounded-xl border border-border bg-muted/20 p-3">
   <div class="grid gap-3">
-    <div class="text-xs text-slate-500">{sourceDisplay.hintText}</div>
+    <div class="text-xs text-muted-foreground">{sourceDisplay.hintText}</div>
     <div class="max-w-xs">
       <PresenceFieldGrid
         fieldRows={[sourceDisplay.sourceModeField]}

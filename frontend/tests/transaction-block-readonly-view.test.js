@@ -38,6 +38,7 @@ test("transaction block run panel only exposes execution and results", () => {
   assert.doesNotMatch(runPanelSource, /planStatusDisplayStateStore/);
   assert.doesNotMatch(runPanelSource, /TxBlockPreviewPanel/);
   assert.match(runPanelSource, /TxBlockResultPanel/);
-  assert.equal((runPanelSource.match(/<LoadingButton/g) || []).length, 2);
+  assert.equal((runPanelSource.match(/<LoadingButton/g) || []).length, 1);
+  assert.doesNotMatch(runPanelSource, /TemplateExecute|onTemplateExecute/);
   assert.doesNotMatch(stageSource, /onDirectPlan|onTemplatePlan/);
 });

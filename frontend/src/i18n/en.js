@@ -1,5 +1,7 @@
 export const i18nEn = {
   title: "rauto Web Console",
+  dashboardBreadcrumbAria: "Page path",
+  dashboardBreadcrumbRoot: "Console",
   subtitle:
     "Operate existing CLI capabilities from browser UI powered by axum APIs.",
   langMenuLabel: "Language",
@@ -201,7 +203,11 @@ export const i18nEn = {
   txBlockModeDirect: "Direct Execute",
   txBlockModeTemplate: "Template Execute",
   txBlockDirectHint:
-    "Edit and run a raw tx block JSON document, aligned with CLI input.",
+    "Import a saved template or build an editable transaction block, then execute the current form snapshot.",
+  txBlockSourceLabel: "Transaction block source",
+  txBlockSourceManual: "Manual transaction block",
+  txBlockSourceHint:
+    "Selecting a template imports an editable snapshot into the form without changing the saved template.",
   txBlockDirectVarsPlaceholder:
     'tx block vars JSON (optional), e.g. {"peer_host":"edge94.host"}',
   txBlockDirectVarsHint:
@@ -441,6 +447,47 @@ export const i18nEn = {
   txWorkflowFormBlockTemplateName: "Tx block template name",
   txWorkflowFormBlockTemplateContent: "Tx block template content",
   txWorkflowFormBlockTemplateVars: "Tx block template vars",
+  txWorkflowSummaryComposition: "Inline / Template",
+  txWorkflowSummaryEditSettings: "Edit workflow settings",
+  txWorkflowOutlineTitle: "Workflow canvas",
+  txWorkflowOutlineHint:
+    "Zoom or pan the canvas, then select a node to edit its contents.",
+  txWorkflowOutlineRoot: "Workflow settings",
+  txWorkflowOutlineRootHint: "Name and failure policy",
+  txWorkflowCanvasControls: "Workflow canvas zoom controls",
+  txWorkflowCanvasBlockCount: "{count} transaction blocks",
+  txWorkflowSelectedBlockActions: "Selected transaction block actions",
+  txWorkflowInspectorCollapse: "Collapse editor panel",
+  txWorkflowInspectorExpand: "Expand editor panel",
+  txWorkflowInspectorResize: "Drag to resize the editor panel",
+  txWorkflowInspectorNoSelection: "Transaction block editor",
+  txWorkflowInspectorNoSelectionHint:
+    "Add or select a transaction block to begin editing.",
+  txWorkflowCanvasSettingsHint:
+    "Configure the workflow name and failure policy.",
+  txWorkflowSettingsCollapse: "Collapse workflow settings",
+  txWorkflowSettingsExpand: "Expand workflow settings",
+  txWorkflowCanvasViewToolbar: "Workflow view toolbar",
+  txWorkflowJsonDialogTitle: "Workflow JSON",
+  txWorkflowJsonDialogHint:
+    "View and edit the current workflow JSON. Valid changes sync back to the canvas form immediately.",
+  txWorkflowReadonlyDialogTitle: "Workflow read-only view",
+  txWorkflowReadonlyDialogHint:
+    "Review the current workflow structure as it updates from the canvas and JSON.",
+  txWorkflowReturnCanvas: "Return to workflow canvas",
+  txWorkflowNodeNoCommands: "No execution steps",
+  txWorkflowNodeTemplateCommands: "Template commands load at runtime",
+  txWorkflowNodeMoreCommands: "{count} more steps",
+  txWorkflowSettingsTitle: "Workflow settings",
+  txWorkflowSettingsHint:
+    "Configure the workflow name and cross-block failure behavior.",
+  txWorkflowMoveBlockLeft: "Move block left",
+  txWorkflowMoveBlockRight: "Move block right",
+  txWorkflowDuplicateBlock: "Duplicate block",
+  txWorkflowDeleteBlock: "Delete block",
+  txWorkflowRunTitle: "Run workflow",
+  txWorkflowRunHint:
+    "Execute the current workflow and runtime variables on the target connection.",
   txWorkflowBlockRollbackNone: "none",
   txWorkflowBlockRollbackPerStep: "per_step",
   txWorkflowBlockRollbackWhole: "whole_resource",
@@ -518,7 +565,11 @@ export const i18nEn = {
   txWorkflowImportFileDone: "workflow json imported into builder",
   txWorkflowLoadInvalidJsonShape: "workflow json must be an object",
   txWorkflowDirectHint:
-    "Use the workflow editor form below for direct workflow execution.",
+    "Import a saved template or build an editable workflow, then execute the current form snapshot.",
+  txWorkflowSourceLabel: "Workflow source",
+  txWorkflowSourceManual: "Manual workflow",
+  txWorkflowSourceHint:
+    "Selecting a template imports an editable snapshot into the form without changing the saved template.",
   txWorkflowTemplateRunHint:
     "Select a saved workflow template and execute it directly with runtime vars.",
   orchestrationTemplateRunHint:
@@ -682,6 +733,98 @@ export const i18nEn = {
   builtinFieldNotes: "notes",
   customTitle: "Custom Profiles",
   templatesTitle: "Templates",
+  templateManagerWorkspaceTitle: "Template resource center",
+  templateManagerWorkspaceDescription:
+    "Manage command, flow, transaction, and parsing resources in one workspace. Resource types follow the backend model and built-ins stay read-only.",
+  templateManagerExecutionGroup: "Command execution",
+  templateManagerTransactionGroup: "Transactions",
+  templateManagerParsingGroup: "Query and parsing",
+  templateManagerCommandTitle: "Command templates",
+  templateManagerCommandDescription:
+    "Save reusable command text and Jinja variables. The backend infers runtime inputs from placeholders.",
+  templateManagerFlowTitle: "Command flow templates",
+  templateManagerFlowDescription:
+    "Manage TOML command flows. Built-ins can be inspected or saved as editable custom copies.",
+  templateManagerFlowParseTitle: "Invalid command flow TOML",
+  templateManagerTxBlockTitle: "Transaction block templates",
+  templateManagerTxBlockDescription:
+    "Maintain transaction block JSON with commands, flows, rollback policy, and failure behavior.",
+  templateManagerTxWorkflowTitle: "Transaction workflow templates",
+  templateManagerTxWorkflowDescription:
+    "Arrange transaction blocks and execution order as reusable workflow JSON.",
+  templateManagerOrchestrationTitle: "Orchestration templates",
+  templateManagerOrchestrationDescription:
+    "Manage multi-device inventory, stages, jobs, and rollback policy as orchestration JSON.",
+  templateManagerTextfsmTitle: "TextFSM templates",
+  templateManagerTextfsmDescription:
+    "Maintain custom TextFSM parsing rules for profile mappings and show objects.",
+  templateManagerMappingTitle: "Profile command mappings",
+  templateManagerMappingDescription:
+    "Map a standard command for a device profile to a custom TextFSM template.",
+  templateManagerShowObjectTitle: "Custom show objects",
+  templateManagerShowObjectDescription:
+    "Define stable show objects, execution modes, command sources, and parsing templates per profile.",
+  templateManagerSearchPlaceholder: "Search templates in this category",
+  templateManagerNewResource: "New template",
+  templateManagerFormatJson: "Format JSON",
+  templateManagerEmptyTitle: "No matching templates",
+  templateManagerEmptyHint: "Create a resource or clear the current search.",
+  templateManagerEditorEmptyTitle: "Select a template to edit",
+  templateManagerEditorEmptyHint:
+    "Open an existing resource from the list or create a template for this category.",
+  templateManagerContentLabel: "Template content",
+  templateManagerCustomLabel: "Custom",
+  templateManagerDraftLabel: "Draft",
+  templateManagerSavedLabel: "Saved",
+  templateManagerUnsavedLabel: "Unsaved",
+  templateManagerVariablesLabel: "Inferred runtime variables",
+  templateManagerNoVariables: "This content has no explicit runtime variables.",
+  templateManagerNewDialogTitle: "New template",
+  templateManagerSaveAsDialogTitle: "Save template as",
+  templateManagerNameDialogDescription:
+    "The name uniquely identifies this resource and cannot be edited after creation. Use Save as to rename it.",
+  templateManagerNamePlaceholder: "For example campus-precheck",
+  templateManagerDeleteConfirm: "Delete template",
+  templateManagerLinesLabel: "lines",
+  templateManagerNameImmutableHint:
+    "Template names are fixed; use Save as for a new name.",
+  templateManagerBuiltinReadonly:
+    "Built-in templates are read-only. Save an editable custom copy instead.",
+  templateManagerDeleteUnavailable: "This resource cannot be deleted.",
+  templateManagerJsonObjectRequired:
+    "The JSON template root must be an object.",
+  templateManagerDiscardConfirm: "Discard the unsaved template changes?",
+  templateManagerMappingSearch: "Search profile, command, or template",
+  templateManagerNewMapping: "New mapping",
+  templateManagerProfileLabel: "Device profile",
+  templateManagerTextfsmTemplateLabel: "TextFSM template",
+  templateManagerMappingEmptyTitle: "No profile command mappings",
+  templateManagerMappingEmptyHint:
+    "Create a mapping so query parsing can resolve the appropriate template automatically.",
+  templateManagerMappingEditorTitle: "Mapping configuration",
+  templateManagerMappingEditorHint:
+    "Profile and command form the identity. Changing either field migrates the existing mapping.",
+  templateManagerMappingDeleteConfirm: "Delete the current TextFSM mapping?",
+  templateManagerShowObjectSearch: "Search object, profile, or command",
+  templateManagerNewShowObject: "New show object",
+  templateManagerObjectLabel: "Show object name",
+  templateManagerModeLabel: "Execution mode",
+  templateManagerModeDefault: "Use profile default mode",
+  templateManagerMappingLabel: "Profile command mapping",
+  templateManagerNoTemplate: "Resolve parsing template automatically",
+  templateManagerShowObjectEmptyTitle: "No custom show objects",
+  templateManagerShowObjectEmptyHint:
+    "Create show objects to expose consistent query entry points across profiles.",
+  templateManagerShowObjectEditorTitle: "Show object configuration",
+  templateManagerShowObjectEditorHint:
+    "Profile and object name form the identity. Every field maps directly to the backend show-object model.",
+  templateManagerShowObjectDeleteConfirm:
+    "Delete the current custom show object?",
+  templateManagerEnabledHint:
+    "Disabled objects retain their configuration but are hidden from executable query objects.",
+  cancelBtn: "Cancel",
+  confirmBtn: "Confirm",
+  fieldName: "Name",
   transferTitle: "SFTP Upload",
   uploadTitle: "SFTP Upload",
   flowTemplatesTitle: "Command Flow Templates",
