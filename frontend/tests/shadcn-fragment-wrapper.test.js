@@ -875,6 +875,11 @@ test("dashboard preference menus compose shadcn DropdownMenu", () => {
   assert.match(source, /<DropdownMenu\.Root/);
   assert.match(source, /<DropdownMenu\.Trigger/);
   assert.match(source, /<DropdownMenu\.Content/);
+  assert.match(source, /themeModeRows/);
+  assert.doesNotMatch(
+    source,
+    /themePresetRows|themeRadiusRows|chooseThemePreset|chooseThemeRadius/,
+  );
   assert.doesNotMatch(source, /dashboard-menu(?:\b|-)/);
 });
 
@@ -960,9 +965,7 @@ test("prompt panels compose shadcn Card instead of group-card shells", () => {
 test("orchestrated panels compose shadcn Card instead of group-card shells", () => {
   const panelPaths = [
     "frontend/src/pages/orchestrated/OrchestrationPreviewPanel.svelte",
-    "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
     "frontend/src/pages/orchestrated/TxBlockRunPanel.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowInputPanel.svelte",
     "frontend/src/pages/orchestrated/TxWorkflowPreviewPanel.svelte",
   ];
 
@@ -975,6 +978,53 @@ test("orchestrated panels compose shadcn Card instead of group-card shells", () 
     assert.match(source, /<Card\.Title/);
     assert.match(source, /<Card\.Content/);
     assert.doesNotMatch(source, /group-card/);
+  }
+});
+
+test("workspace entry panels share the theme-aware action header", () => {
+  const header = read(
+    "frontend/src/components/fragments/WorkspaceActionHeader.svelte",
+  );
+  const panelPaths = [
+    "frontend/src/pages/StandardPage.svelte",
+    "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
+    "frontend/src/pages/orchestrated/TxWorkflowInputPanel.svelte",
+    "frontend/src/pages/orchestrated/OrchestrationEditorSurface.svelte",
+  ];
+
+  assert.match(header, /<Card\.Header/);
+  assert.match(header, /<Card\.Title/);
+  assert.match(header, /<Card\.Description/);
+  assert.match(header, /border-primary\/15/);
+
+  for (const path of panelPaths) {
+    const source = read(path);
+    assert.match(source, /WorkspaceActionHeader/);
+    assert.match(source, /<Card\.Root/);
+    assert.match(source, /<Card\.Content/);
+    assert.doesNotMatch(source, /group-card/);
+  }
+
+  const button = read("frontend/src/lib/components/ui/button/button.svelte");
+  assert.match(button, /"primary-outline"/);
+});
+
+test("json template workspaces share the four template actions", () => {
+  const actions = read(
+    "frontend/src/components/fragments/WorkspaceTemplateActions.svelte",
+  );
+  assert.match(actions, /orchestrationTemplateNew/);
+  assert.match(actions, /orchestrationTemplateSave/);
+  assert.match(actions, /orchestrationTemplateSaveAs/);
+  assert.match(actions, /orchestrationImportFileBtn/);
+  assert.match(actions, /primary-outline/);
+
+  for (const path of [
+    "frontend/src/pages/orchestrated/OrchestrationEditorSurface.svelte",
+    "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
+    "frontend/src/pages/orchestrated/TxWorkflowInputPanel.svelte",
+  ]) {
+    assert.match(read(path), /WorkspaceTemplateActions/);
   }
 });
 

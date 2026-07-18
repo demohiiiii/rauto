@@ -366,6 +366,36 @@ async function importTxWorkflowFromFileWithDependencies(
   );
 }
 
+async function importTxBlockFromFileWithDependencies(
+  txJsonEditorsHost = null,
+  file,
+  actionContext = null,
+) {
+  if (!file) throw new Error(tr("txBlockImportFileInvalid"));
+  const text = await file.text();
+  if (!externalActionIsCurrent(actionContext)) return null;
+  try {
+    const txBlock = JSON.parse(text);
+    if (!txBlock || typeof txBlock !== "object" || Array.isArray(txBlock)) {
+      throw new Error(tr("txBlockJsonInvalidShape"));
+    }
+    if (!externalActionIsCurrent(actionContext)) return null;
+    runOwnedEditorMutation(actionContext, () =>
+      callObjectFunction(txJsonEditorsHost, "setTxBlockEditorJson", txBlock),
+    );
+  } catch (error) {
+    if (!externalActionIsCurrent(actionContext)) return null;
+    runOwnedEditorMutation(actionContext, () =>
+      callObjectFunction(txJsonEditorsHost, "setTxBlockEditorText", text, {
+        notify: true,
+      }),
+    );
+    throw error;
+  }
+  if (!externalActionIsCurrent(actionContext)) return null;
+  setStatus(TX_OUTPUT.txBlockPlan, tr("txBlockImportFileDone"), "success");
+}
+
 async function importOrchestrationFromFileWithDependencies(
   txJsonEditorsHost = null,
   file,
@@ -526,6 +556,12 @@ export function orchestratedExecutionOperations({
   return {
     executeOrchestration: () =>
       executeOrchestrationRunWithDependencies(dependencies),
+    importTxBlockFile: (file, actionContext = null) =>
+      importTxBlockFromFileWithDependencies(
+        txJsonEditorsHost,
+        file,
+        actionContext,
+      ),
     executeTxWorkflow: () => executeWorkflowWithDependencies(dependencies),
     importOrchestrationFile: (file, actionContext = null) =>
       importOrchestrationFromFileWithDependencies(

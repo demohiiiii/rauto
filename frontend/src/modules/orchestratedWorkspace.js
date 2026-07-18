@@ -391,6 +391,20 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
     }
   }
 
+  async function importTxBlockFile(file, actionContext = null) {
+    const executionActions = orchestratedExecutionOperations({
+      dependencies: txExecutionDependencies,
+      txJsonEditorsHost,
+    });
+    try {
+      await executionActions.importTxBlockFile(file, actionContext);
+    } catch (error) {
+      if (externalActionIsCurrent(actionContext)) {
+        setErrorStatus(TX_OUTPUT.txBlockPlan, error);
+      }
+    }
+  }
+
   async function importOrchestrationFile(file, actionContext = null) {
     const executionActions = orchestratedExecutionOperations({
       dependencies: txExecutionDependencies,
@@ -472,6 +486,7 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
     executeOrchestration: runOrchestrationExecute,
     executeTxWorkflow: runTxWorkflowExecute,
     importOrchestrationFile,
+    importTxBlockFile,
     importTxWorkflowFile,
     init,
     loadJsonTemplateIntoEditor: jsonTemplateLibrary.loadTemplateIntoEditor,

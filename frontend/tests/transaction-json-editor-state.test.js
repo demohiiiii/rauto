@@ -326,6 +326,25 @@ test("latest transaction workflow file import wins out of order completion", asy
   orchestratedWorkspace.destroy();
 });
 
+test("transaction block file import updates the canonical editor", async () => {
+  const orchestratedWorkspace = createOrchestratedWorkspace();
+  await orchestratedWorkspace.ensureEditors();
+  await orchestratedWorkspace.importTxBlockFile({
+    text: async () => '{"name":"imported-block","steps":[]}',
+  });
+
+  assert.equal(
+    JSON.parse(requireTxJsonEditor("txBlockEditorRaw")()).name,
+    "imported-block",
+  );
+  assert.equal(
+    get(transactionOutputState(TX_OUTPUT.txBlockPlan)).tone,
+    "success",
+  );
+
+  orchestratedWorkspace.destroy();
+});
+
 test("latest orchestration file import wins out of order completion", async () => {
   const orchestratedWorkspace = createOrchestratedWorkspace();
   await orchestratedWorkspace.ensureEditors();

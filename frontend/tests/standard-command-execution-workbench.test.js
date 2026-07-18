@@ -267,6 +267,9 @@ test("standard execution exposes command and command-flow tabs only", () => {
   assert.doesNotMatch(modes, /STANDARD_EXEC_MODE\.template/);
   assert.doesNotMatch(page, /TemplateExecutionPanel/);
   assert.match(page, /CommandExecutionPanel/);
+  assert.match(page, /WorkspaceActionHeader/);
+  assert.match(page, /themeAware=\{true\}/);
+  assert.doesNotMatch(page, /CollapsibleGroup/);
 });
 
 test("command panel composes the shared command controls", () => {

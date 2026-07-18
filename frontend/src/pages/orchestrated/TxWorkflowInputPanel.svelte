@@ -1,11 +1,12 @@
 <script>
   import BracesIcon from "@lucide/svelte/icons/braces";
   import EyeIcon from "@lucide/svelte/icons/eye";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Card from "$lib/components/ui/card";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { CommandTemplateSourceField } from "../../components/command-flow/index.js";
-  import FilePickerButton from "../../components/fragments/FilePickerButton.svelte";
-  import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
+  import WorkspaceTemplateActions from "../../components/fragments/WorkspaceTemplateActions.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { MANUAL_COMMAND_SOURCE } from "../../modules/commandTemplateCatalog.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
@@ -35,6 +36,7 @@
     onEditorInput,
     onImportFile,
     onLoadJsonTemplate,
+    onSaveJsonTemplate,
   } = $props();
 
   const directVarsKey = TX_VARS.txWorkflowDirect;
@@ -55,6 +57,7 @@
     jsonTextStateStore,
     loadJsonTemplate,
     panelDisplayStateStore,
+    resetDraft,
     setWorkflowInputPanelContext,
     syncStatusStateStore,
   } = txWorkflowInputWorkspace;
@@ -69,6 +72,7 @@
   let workflowTemplateSelectState = $derived($workflowTemplateSelectStateStore);
   let workflowSourceSelection = $state(MANUAL_COMMAND_SOURCE);
   let workflowSourceLoading = $state(false);
+  let templateAction = $state("");
   let workflowSourceOptions = $derived(
     Array.isArray(workflowTemplateSelectState?.names)
       ? workflowTemplateSelectState.names
@@ -117,7 +121,7 @@
   }
 
   async function createManualWorkflowDraft() {
-    const result = await createDirectDraft();
+    const result = resetDraft();
     resetWorkflowSourceSelection();
     return result;
   }
@@ -126,6 +130,22 @@
     const result = await importFile(file);
     resetWorkflowSourceSelection();
     return result;
+  }
+
+  async function runTemplateAction(action, operation) {
+    if (templateAction) return false;
+    templateAction = action;
+    try {
+      const result = await operation?.();
+      await Promise.resolve();
+      const selectedName = String(
+        $workflowTemplateSelectStateStore?.selected || "",
+      ).trim();
+      if (selectedName) workflowSourceSelection = selectedName;
+      return result;
+    } finally {
+      templateAction = "";
+    }
   }
 
   async function selectWorkflowSource(sourceValue) {
@@ -161,30 +181,33 @@
 
 <div class="grid gap-4">
   <Card.Root class="gap-0 overflow-hidden py-0">
-    <Card.Header class="border-b bg-muted/15 p-4 sm:p-5">
-      <Card.Title>{txWorkflowEditorDisplay.editorTitle}</Card.Title>
-      <Card.Description>{txWorkflowInputDisplay.directHint}</Card.Description>
-      <Card.Action>
-        <div class="inline-flex flex-wrap items-center justify-end gap-2">
-          <LoadingButton
-            variant="outline"
-            size="sm"
-            loading={jsonNewLoading}
-            onclick={createManualWorkflowDraft}
-          >
-            <span>{txWorkflowInputDisplay.newButtonLabel}</span>
-          </LoadingButton>
-          <FilePickerButton
-            variant="outline"
-            size="sm"
-            accept=".json,application/json"
-            onFile={importManualWorkflow}
-          >
-            {txWorkflowInputDisplay.importButtonLabel}
-          </FilePickerButton>
-        </div>
-      </Card.Action>
-    </Card.Header>
+    <WorkspaceActionHeader
+      title={txWorkflowEditorDisplay.editorTitle}
+      description={txWorkflowInputDisplay.directHint}
+    >
+      {#snippet status()}
+        <Badge variant="secondary">
+          {workflowSourceSelection === MANUAL_COMMAND_SOURCE
+            ? t("txWorkflowSourceManual")
+            : t("orchestrationTemplateSavedTemplate")}
+        </Badge>
+        {#if workflowSourceSelection !== MANUAL_COMMAND_SOURCE}
+          <Badge variant="outline">{workflowSourceSelection}</Badge>
+        {/if}
+      {/snippet}
+      {#snippet actions()}
+        <WorkspaceTemplateActions
+          busy={!!templateAction || workflowSourceLoading}
+          canSave={workflowSourceSelection !== MANUAL_COMMAND_SOURCE}
+          loadingAction={templateAction || (jsonNewLoading ? "new" : "")}
+          onNew={() => runTemplateAction("new", createManualWorkflowDraft)}
+          onSave={() => runTemplateAction("save", onSaveJsonTemplate)}
+          onSaveAs={() =>
+            runTemplateAction("save_as", onCreateJsonTemplateDraft)}
+          onImport={importManualWorkflow}
+        />
+      {/snippet}
+    </WorkspaceActionHeader>
     <Card.Content class="grid gap-5 p-4 sm:p-5">
       <CommandTemplateSourceField
         value={workflowSourceSelection}

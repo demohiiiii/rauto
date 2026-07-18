@@ -1,6 +1,7 @@
 <script>
-  import CollapsibleGroup from "../components/fragments/CollapsibleGroup.svelte";
+  import * as Card from "$lib/components/ui/card/index.js";
   import TabList from "../components/fragments/TabList.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import { standardExecModeTabs } from "../config/dashboardModes.js";
   import {
@@ -32,25 +33,29 @@
 
 <DashboardTabPanel {active}>
   <div class="grid gap-3">
-    <CollapsibleGroup persistenceKey="ops-main-body">
-      {#snippet header()}
-        <span>{pageDisplay.title}</span>
-      {/snippet}
+    <Card.Root class="gap-0 overflow-hidden py-0">
+      <WorkspaceActionHeader
+        title={pageDisplay.title}
+        description={pageDisplay.hint}
+      >
+        {#snippet actions()}
+          <TabList
+            tabItems={standardExecModeTabs}
+            activeValue={currentExecMode}
+            aria-label={pageDisplay.execModeAriaLabel}
+            themeAware={true}
+            onSelect={standardPageWorkspace.selectExecMode}
+          />
+        {/snippet}
+      </WorkspaceActionHeader>
 
-      <TabList
-        tabItems={standardExecModeTabs}
-        activeValue={currentExecMode}
-        aria-label={pageDisplay.execModeAriaLabel}
-        onSelect={standardPageWorkspace.selectExecMode}
-      />
-
-      <div class="grid gap-3">
+      <Card.Content class="grid min-w-0 p-0">
         {#if directActive}
           <CommandExecutionPanel active={true} />
         {:else if flowActive}
           <FlowExecutionPanel active={true} />
         {/if}
-      </div>
-    </CollapsibleGroup>
+      </Card.Content>
+    </Card.Root>
   </div>
 </DashboardTabPanel>

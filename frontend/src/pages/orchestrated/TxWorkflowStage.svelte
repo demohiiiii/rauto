@@ -11,6 +11,7 @@
     onImportFile,
     onEditorInput,
     onLoadJsonTemplate,
+    onSaveJsonTemplate,
   } = $props();
   const txWorkflowStageWorkspace = createTxWorkflowStageWorkspace();
   const {
@@ -47,6 +48,7 @@
       {onEditorInput}
       onImportFile={importFile}
       {onLoadJsonTemplate}
+      {onSaveJsonTemplate}
     />
     <TxWorkflowRunPanel
       panelDisplay={workflowOutputPanelDisplay}

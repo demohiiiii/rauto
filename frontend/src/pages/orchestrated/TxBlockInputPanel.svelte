@@ -1,7 +1,9 @@
 <script>
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Card from "$lib/components/ui/card";
   import { CommandTemplateSourceField } from "../../components/command-flow/index.js";
-  import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
+  import WorkspaceTemplateActions from "../../components/fragments/WorkspaceTemplateActions.svelte";
   import { txBlockReadonlyEditorViewTabs } from "../../config/dashboardModes.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { MANUAL_COMMAND_SOURCE } from "../../modules/commandTemplateCatalog.js";
@@ -28,7 +30,9 @@
     active,
     onCreateJsonTemplateDraft,
     onEditorInput,
+    onImportFile,
     onLoadJsonTemplate,
+    onSaveJsonTemplate,
     newButtonLabelKey,
   } = $props();
 
@@ -51,6 +55,7 @@
     loadJsonTemplate,
     loadingKeysStore,
     panelDisplayStateStore,
+    resetDraft,
     setBlockInputPanelContext,
     selectEditorView,
     syncStatusStateStore,
@@ -67,6 +72,7 @@
   let txBlockTemplateSelectState = $derived($txBlockTemplateSelectStateStore);
   let txBlockSourceSelection = $state(MANUAL_COMMAND_SOURCE);
   let txBlockSourceLoading = $state(false);
+  let templateAction = $state("");
   let txBlockSourceOptions = $derived(
     Array.isArray(txBlockTemplateSelectState?.names)
       ? txBlockTemplateSelectState.names
@@ -91,9 +97,31 @@
   }
 
   async function createManualTxBlockDraft() {
-    const result = await createJsonDraft();
+    const result = resetDraft();
     resetTxBlockSourceSelection();
     return result;
+  }
+
+  async function importManualTxBlock(file) {
+    const result = await onImportFile?.(file);
+    resetTxBlockSourceSelection();
+    return result;
+  }
+
+  async function runTemplateAction(action, operation) {
+    if (templateAction) return false;
+    templateAction = action;
+    try {
+      const result = await operation?.();
+      await Promise.resolve();
+      const selectedName = String(
+        $txBlockTemplateSelectStateStore?.selected || "",
+      ).trim();
+      if (selectedName) txBlockSourceSelection = selectedName;
+      return result;
+    } finally {
+      templateAction = "";
+    }
   }
 
   async function selectTxBlockSource(sourceValue) {
@@ -127,23 +155,35 @@
 </script>
 
 <div class="grid gap-2">
-  <Card.Root>
-    <Card.Header>
-      <Card.Title>{txBlockInputDisplay.editorTitle}</Card.Title>
-      <Card.Description>{txBlockInputDisplay.directHint}</Card.Description>
-      <Card.Action>
-        <div class="inline-flex flex-wrap items-center gap-2">
-          <LoadingButton
-            size="sm"
-            loading={jsonNewLoading}
-            onclick={createManualTxBlockDraft}
-          >
-            <span>{txBlockInputDisplay.newButtonLabel}</span>
-          </LoadingButton>
-        </div>
-      </Card.Action>
-    </Card.Header>
-    <Card.Content class="grid gap-4">
+  <Card.Root class="gap-0 overflow-hidden py-0">
+    <WorkspaceActionHeader
+      title={txBlockInputDisplay.editorTitle}
+      description={txBlockInputDisplay.directHint}
+    >
+      {#snippet status()}
+        <Badge variant="secondary">
+          {txBlockSourceSelection === MANUAL_COMMAND_SOURCE
+            ? t("txBlockSourceManual")
+            : t("orchestrationTemplateSavedTemplate")}
+        </Badge>
+        {#if txBlockSourceSelection !== MANUAL_COMMAND_SOURCE}
+          <Badge variant="outline">{txBlockSourceSelection}</Badge>
+        {/if}
+      {/snippet}
+      {#snippet actions()}
+        <WorkspaceTemplateActions
+          busy={!!templateAction || txBlockSourceLoading}
+          canSave={txBlockSourceSelection !== MANUAL_COMMAND_SOURCE}
+          loadingAction={templateAction || (jsonNewLoading ? "new" : "")}
+          onNew={() => runTemplateAction("new", createManualTxBlockDraft)}
+          onSave={() => runTemplateAction("save", onSaveJsonTemplate)}
+          onSaveAs={() =>
+            runTemplateAction("save_as", onCreateJsonTemplateDraft)}
+          onImport={importManualTxBlock}
+        />
+      {/snippet}
+    </WorkspaceActionHeader>
+    <Card.Content class="grid gap-4 p-4 sm:p-5">
       <CommandTemplateSourceField
         value={txBlockSourceSelection}
         optionValues={txBlockSourceOptions}

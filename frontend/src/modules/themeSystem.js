@@ -5,19 +5,11 @@ import {
 } from "../lib/browser.js";
 
 export const themeModeOptions = ["system", "light", "dark"];
-export const themePresetOptions = [
-  "emerald",
-  "neutral",
-  "blue",
-  "rose",
-  "violet",
-];
-export const themeRadiusOptions = ["none", "sm", "md", "lg", "xl", "full"];
 
 export const defaultThemeSettings = {
   mode: "system",
   preset: "emerald",
-  radius: "lg",
+  radius: "md",
 };
 
 const storageKeys = {
@@ -31,23 +23,20 @@ function optionOrDefault(value, options, fallback) {
   return options.includes(normalized) ? normalized : fallback;
 }
 
+function fixedPresetForMode(mode) {
+  return mode === "dark" ? "violet" : "emerald";
+}
+
 export function normalizeThemeSettings(settings = {}) {
+  const mode = optionOrDefault(
+    settings.mode,
+    themeModeOptions,
+    defaultThemeSettings.mode,
+  );
   return {
-    mode: optionOrDefault(
-      settings.mode,
-      themeModeOptions,
-      defaultThemeSettings.mode,
-    ),
-    preset: optionOrDefault(
-      settings.preset,
-      themePresetOptions,
-      defaultThemeSettings.preset,
-    ),
-    radius: optionOrDefault(
-      settings.radius,
-      themeRadiusOptions,
-      defaultThemeSettings.radius,
-    ),
+    mode,
+    preset: fixedPresetForMode(mode),
+    radius: "md",
   };
 }
 
@@ -57,8 +46,6 @@ function readStoredThemeSettings(storage = null) {
     : (key) => storageGet(key);
   return normalizeThemeSettings({
     mode: read(storageKeys.mode),
-    preset: read(storageKeys.preset),
-    radius: read(storageKeys.radius),
   });
 }
 
@@ -100,11 +87,16 @@ export function applyThemeSettings(
 ) {
   const normalized = normalizeThemeSettings(settings);
   const resolvedMode = resolveThemeMode(normalized.mode);
-  if (!adapter) return normalized;
+  const resolvedSettings = {
+    ...normalized,
+    preset: fixedPresetForMode(resolvedMode),
+    radius: "md",
+  };
+  if (!adapter) return resolvedSettings;
   adapter.setDarkMode(resolvedMode === "dark");
-  adapter.setAttribute("data-rauto-theme-preset", normalized.preset);
-  adapter.setAttribute("data-rauto-radius", normalized.radius);
-  return normalized;
+  adapter.setAttribute("data-rauto-theme-preset", resolvedSettings.preset);
+  adapter.setAttribute("data-rauto-radius", resolvedSettings.radius);
+  return resolvedSettings;
 }
 
 export function updateThemeSettings(

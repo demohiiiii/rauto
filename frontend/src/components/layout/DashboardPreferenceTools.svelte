@@ -10,8 +10,6 @@
   const {
     chooseLanguageAction,
     chooseThemeMode,
-    chooseThemePreset,
-    chooseThemeRadius,
     langMenuOpenStateStore,
     preferenceDisplayStateStore,
   } = dashboardPreferenceToolsWorkspace;
@@ -70,38 +68,6 @@
             <DropdownMenu.RadioItem
               value={row.value}
               onclick={chooseThemeOption(chooseThemeMode, row.value)}
-            >
-              {row.label}
-            </DropdownMenu.RadioItem>
-          {/each}
-        </DropdownMenu.RadioGroup>
-      </DropdownMenu.Group>
-      <DropdownMenu.Separator />
-      <DropdownMenu.Group>
-        <DropdownMenu.Label>
-          {preferenceDisplay.themePresetLabel}
-        </DropdownMenu.Label>
-        <DropdownMenu.RadioGroup value={preferenceDisplay.themeSettings.preset}>
-          {#each preferenceDisplay.themePresetRows as row (row.value)}
-            <DropdownMenu.RadioItem
-              value={row.value}
-              onclick={chooseThemeOption(chooseThemePreset, row.value)}
-            >
-              {row.label}
-            </DropdownMenu.RadioItem>
-          {/each}
-        </DropdownMenu.RadioGroup>
-      </DropdownMenu.Group>
-      <DropdownMenu.Separator />
-      <DropdownMenu.Group>
-        <DropdownMenu.Label>
-          {preferenceDisplay.themeRadiusLabel}
-        </DropdownMenu.Label>
-        <DropdownMenu.RadioGroup value={preferenceDisplay.themeSettings.radius}>
-          {#each preferenceDisplay.themeRadiusRows as row (row.value)}
-            <DropdownMenu.RadioItem
-              value={row.value}
-              onclick={chooseThemeOption(chooseThemeRadius, row.value)}
             >
               {row.label}
             </DropdownMenu.RadioItem>

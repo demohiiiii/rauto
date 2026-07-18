@@ -1,21 +1,17 @@
 <script>
   import BracesIcon from "@lucide/svelte/icons/braces";
-  import CopyPlusIcon from "@lucide/svelte/icons/copy-plus";
   import EyeIcon from "@lucide/svelte/icons/eye";
-  import FilePlusIcon from "@lucide/svelte/icons/file-plus";
   import PlayIcon from "@lucide/svelte/icons/play";
-  import SaveIcon from "@lucide/svelte/icons/save";
-  import Trash2Icon from "@lucide/svelte/icons/trash-2";
-  import UploadIcon from "@lucide/svelte/icons/upload";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import FilePickerButton from "../../components/fragments/FilePickerButton.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
+  import WorkspaceTemplateActions from "../../components/fragments/WorkspaceTemplateActions.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { orchestrationPlanFormModelToJsonText } from "../../modules/orchestrationFormState.js";
   import { TX_EDITOR } from "../../modules/transactionPanelState.js";
@@ -41,7 +37,6 @@
     openNewDialog,
     saveTemplate,
     openSaveAsDialog,
-    deleteTemplate,
     changeNameDialogValue,
     closeNameDialog,
     submitNameDialog,
@@ -157,87 +152,31 @@
 </script>
 
 <Card.Root class="overflow-hidden border-border shadow-sm">
-  <Card.Header class="gap-4 border-b border-border bg-muted/10">
-    <div class="flex min-w-0 flex-wrap items-start justify-between gap-4">
-      <div class="min-w-0 space-y-2">
-        <div>
-          <Card.Title>{t("orchestrationWorkspaceTitle")}</Card.Title>
-          <Card.Description>{t("orchestrationWorkspaceHint")}</Card.Description>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{selectionLabel}</Badge>
-          {#if templateDisplay?.selectedName}
-            <Badge variant="outline">{templateDisplay.selectedName}</Badge>
-          {/if}
-          {#if templateDisplay?.dirty}
-            <Badge variant="destructive"
-              >{t("orchestrationTemplateDirty")}</Badge
-            >
-          {/if}
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <LoadingButton
-          variant="outline"
-          size="sm"
-          loading={templateDisplay?.loadingAction === "new"}
-          disabled={templateBusy}
-          title={t("orchestrationTemplateNew")}
-          onclick={openNewDialog}
-        >
-          <FilePlusIcon data-icon="inline-start" />
-          <span>{t("orchestrationTemplateNew")}</span>
-        </LoadingButton>
-        <LoadingButton
-          variant="outline"
-          size="sm"
-          loading={templateDisplay?.loadingAction === "save"}
-          disabled={templateBusy || !templateDisplay?.selectedName}
-          title={t("orchestrationTemplateSave")}
-          onclick={saveTemplate}
-        >
-          <SaveIcon data-icon="inline-start" />
-          <span>{t("orchestrationTemplateSave")}</span>
-        </LoadingButton>
-        <LoadingButton
-          variant="outline"
-          size="sm"
-          loading={templateDisplay?.loadingAction === "save_as"}
-          disabled={templateBusy}
-          title={t("orchestrationTemplateSaveAs")}
-          onclick={openSaveAsDialog}
-        >
-          <CopyPlusIcon data-icon="inline-start" />
-          <span>{t("orchestrationTemplateSaveAs")}</span>
-        </LoadingButton>
-        <LoadingButton
-          variant="outline"
-          size="sm"
-          loading={templateDisplay?.loadingAction === "delete"}
-          disabled={templateBusy ||
-            templateDisplay?.selectionKind !== "existing"}
-          title={t("orchestrationTemplateDelete")}
-          onclick={deleteTemplate}
-        >
-          <Trash2Icon data-icon="inline-start" />
-          <span>{t("orchestrationTemplateDelete")}</span>
-        </LoadingButton>
-        <FilePickerButton
-          variant="outline"
-          size="sm"
-          accept=".json,application/json"
-          disabled={templateBusy}
-          title={t("orchestrationImportFileBtn")}
-          aria-label={t("orchestrationImportFileBtn")}
-          onFile={onImportFile}
-        >
-          <UploadIcon data-icon="inline-start" />
-          <span>{t("orchestrationImportFileBtn")}</span>
-        </FilePickerButton>
-      </div>
-    </div>
-  </Card.Header>
+  <WorkspaceActionHeader
+    title={t("orchestrationWorkspaceTitle")}
+    description={t("orchestrationWorkspaceHint")}
+  >
+    {#snippet status()}
+      <Badge variant="secondary">{selectionLabel}</Badge>
+      {#if templateDisplay?.selectedName}
+        <Badge variant="outline">{templateDisplay.selectedName}</Badge>
+      {/if}
+      {#if templateDisplay?.dirty}
+        <Badge variant="destructive">{t("orchestrationTemplateDirty")}</Badge>
+      {/if}
+    {/snippet}
+    {#snippet actions()}
+      <WorkspaceTemplateActions
+        busy={templateBusy}
+        canSave={!!templateDisplay?.selectedName}
+        loadingAction={templateDisplay?.loadingAction}
+        onNew={openNewDialog}
+        onSave={saveTemplate}
+        onSaveAs={openSaveAsDialog}
+        onImport={onImportFile}
+      />
+    {/snippet}
+  </WorkspaceActionHeader>
 
   <Card.Content class="grid gap-4 p-4 sm:p-5">
     <div class="grid gap-2 sm:grid-cols-[minmax(0,22rem)_1fr] sm:items-end">

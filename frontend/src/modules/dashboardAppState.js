@@ -12,8 +12,6 @@ import {
   loadThemeSettings,
   resolveThemeMode,
   themeModeOptions,
-  themePresetOptions,
-  themeRadiusOptions,
   updateThemeSettings,
 } from "./themeSystem.js";
 import { statusPresentation } from "../lib/ui.js";
@@ -64,12 +62,12 @@ function dashboardLanguageShortLabel(language) {
 export function initializeDashboardStatePreferences() {
   const currentThemeSettings = loadThemeSettings();
   const currentTheme = resolveThemeMode(currentThemeSettings.mode);
-  applyThemeSettings(currentThemeSettings);
+  const appliedThemeSettings = applyThemeSettings(currentThemeSettings);
   dashboardState.update((currentDashboard) => ({
     ...currentDashboard,
     currentTheme,
     currentThemePreference: currentThemeSettings.mode,
-    currentThemeSettings,
+    currentThemeSettings: appliedThemeSettings,
   }));
 }
 
@@ -123,12 +121,12 @@ function onDashboardThemeSettingsChange(patch = {}) {
     dashboardStateDefaults.currentThemeSettings;
   const nextSettings = updateThemeSettings(currentThemeSettings, patch);
   const currentTheme = resolveThemeMode(nextSettings.mode);
-  applyThemeSettings(nextSettings);
+  const appliedThemeSettings = applyThemeSettings(nextSettings);
   dashboardState.update((currentDashboard) => ({
     ...currentDashboard,
     currentTheme,
     currentThemePreference: nextSettings.mode,
-    currentThemeSettings: nextSettings,
+    currentThemeSettings: appliedThemeSettings,
   }));
 }
 
@@ -175,19 +173,7 @@ function dashboardPreferenceToolsPresentation({
       themeModeOptions,
       themeSettings.mode,
     ),
-    themePresetLabel: tr("themePresetLabel", "Color"),
-    themePresetRows: themeOptionRows(
-      "Preset",
-      themePresetOptions,
-      themeSettings.preset,
-    ),
     themePreferenceLabel: tr(dashboardThemePreferenceLabelKey(shellState)),
-    themeRadiusLabel: tr("themeRadiusLabel", "Radius"),
-    themeRadiusRows: themeOptionRows(
-      "Radius",
-      themeRadiusOptions,
-      themeSettings.radius,
-    ),
     themeSettings,
     themeToggleTitle: tr("themeToggleTitle"),
   };
@@ -230,14 +216,6 @@ export function createDashboardPreferenceToolsWorkspace() {
     return () => onDashboardThemeSettingsChange({ mode });
   }
 
-  function chooseThemePreset(preset) {
-    return () => onDashboardThemeSettingsChange({ preset });
-  }
-
-  function chooseThemeRadius(radius) {
-    return () => onDashboardThemeSettingsChange({ radius });
-  }
-
   function closeLangMenu() {
     langMenuOpenStateStore.set(false);
   }
@@ -252,15 +230,11 @@ export function createDashboardPreferenceToolsWorkspace() {
       onCloseMenu: closeLangMenu,
     }).chooseLanguageAction,
     chooseThemeMode,
-    chooseThemePreset,
-    chooseThemeRadius,
     closeLangMenu,
     documentKeydownHandler: submitOnKeyHandler("Escape", closeLangMenu),
     langMenuOpenStateStore,
     preferenceDisplayStateStore,
     themeModeOptions,
-    themePresetOptions,
-    themeRadiusOptions,
     toggleLangMenu,
     toggleTheme,
   };

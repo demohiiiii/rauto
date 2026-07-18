@@ -9,7 +9,9 @@
     onCreateJsonTemplateDraft,
     onExecute,
     onEditorInput,
+    onImportFile,
     onLoadJsonTemplate,
+    onSaveJsonTemplate,
   } = $props();
   const txBlockStageWorkspace = createTxBlockStageWorkspace();
   const { execute, setTxBlockStageContext, txBlockRunPanelDisplayStateStore } =
@@ -29,7 +31,9 @@
     {active}
     {onCreateJsonTemplateDraft}
     {onEditorInput}
+    {onImportFile}
     {onLoadJsonTemplate}
+    {onSaveJsonTemplate}
     {newButtonLabelKey}
   />
   <TxBlockRunPanel onExecute={execute} panelDisplay={txBlockRunPanelDisplay} />

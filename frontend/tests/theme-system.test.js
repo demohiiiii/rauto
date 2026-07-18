@@ -40,8 +40,8 @@ test("loads valid persisted theme settings", () => {
   });
   assert.deepEqual(updateThemeSettings({}, {}, { storage }), {
     mode: "dark",
-    preset: "blue",
-    radius: "sm",
+    preset: "violet",
+    radius: "md",
   });
 });
 
@@ -49,13 +49,13 @@ test("updates and persists theme settings", () => {
   const storage = memoryStorage();
   const next = updateThemeSettings(
     { mode: "system", preset: "emerald", radius: "lg" },
-    { mode: "light", preset: "rose", radius: "full" },
+    { mode: "dark", preset: "rose", radius: "full" },
     { storage },
   );
-  assert.deepEqual(next, { mode: "light", preset: "rose", radius: "full" });
-  assert.equal(storage.values.rauto_theme_mode, "light");
-  assert.equal(storage.values.rauto_theme_preset, "rose");
-  assert.equal(storage.values.rauto_theme_radius, "full");
+  assert.deepEqual(next, { mode: "dark", preset: "violet", radius: "md" });
+  assert.equal(storage.values.rauto_theme_mode, "dark");
+  assert.equal(storage.values.rauto_theme_preset, "violet");
+  assert.equal(storage.values.rauto_theme_radius, "md");
 });
 
 test("applies theme settings to a DOM adapter", () => {
@@ -69,12 +69,12 @@ test("applies theme settings to a DOM adapter", () => {
     },
   };
   applyThemeSettings(
-    { mode: "dark", preset: "violet", radius: "none" },
+    { mode: "dark", preset: "emerald", radius: "none" },
     { adapter },
   );
   assert.deepEqual(calls, [
     ["dark", true],
     ["attr", "data-rauto-theme-preset", "violet"],
-    ["attr", "data-rauto-radius", "none"],
+    ["attr", "data-rauto-radius", "md"],
   ]);
 });

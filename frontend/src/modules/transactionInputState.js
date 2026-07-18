@@ -411,6 +411,17 @@ export function createTxInputPanelWorkspace({
     loadingKeysStore.set([]);
   }
 
+  function resetDraft() {
+    const defaultFormModel = buildDefaultFormModel();
+    changeFormModel(defaultFormModel, {
+      editorDisplayMode: "form",
+      notify: true,
+    });
+    session.selectEditorView("form");
+    loadingKeysStore.set([]);
+    return defaultFormModel;
+  }
+
   return {
     ...session,
     changeFormModel,
@@ -419,6 +430,7 @@ export function createTxInputPanelWorkspace({
     loadingKeysStore,
     refreshFromFormModel,
     reset,
+    resetDraft,
     runLoading: (loadingKey, operation) =>
       loadingRunner.run(loadingKey, operation),
   };

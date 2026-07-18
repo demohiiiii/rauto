@@ -13,6 +13,7 @@
     activeValue,
     "aria-label": ariaLabel,
     class: rootClass = "w-fit",
+    themeAware = false,
     onSelect,
   } = $props();
   let selectedValue = $state(untrack(() => activeValue));
@@ -42,7 +43,12 @@
 >
   <Tabs.List aria-label={tabDisplay.ariaLabelText}>
     {#each tabDisplay.tabRows as tabRow (tabRow.valueText)}
-      <Tabs.Trigger value={tabRow.valueText}>
+      <Tabs.Trigger
+        value={tabRow.valueText}
+        class={themeAware
+          ? "data-active:border-primary/40 data-active:bg-primary/10 data-active:text-primary dark:data-active:border-primary/50 dark:data-active:bg-primary/15 dark:data-active:text-primary"
+          : undefined}
+      >
         {tabRow.labelText}
       </Tabs.Trigger>
     {/each}

@@ -1085,3 +1085,20 @@ test("workspace initializes once and reset restores the default session", () => 
   workspace.ensureInitialized();
   assert.equal(syncCalls, 2);
 });
+
+test("transaction input resetDraft creates a local default without template callbacks", () => {
+  const workspace = createTxBlockInputPanelWorkspace();
+  workspace.ensureInitialized();
+  workspace.changeFormModel(
+    txBlockFormModelFromJson({
+      ...defaultTxBlockTemplatePayload(),
+      name: "edited",
+    }),
+  );
+
+  const draft = workspace.resetDraft();
+
+  assert.equal(draft.name, defaultTxBlockTemplatePayload().name);
+  assert.equal(workspace.currentFormModel().name, draft.name);
+  assert.equal(get(workspace.editorDisplayModeStateStore), "form");
+});

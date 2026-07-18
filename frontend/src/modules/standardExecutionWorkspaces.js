@@ -86,6 +86,7 @@ function standardPageDisplay(mode = "") {
   return {
     ...standardExecModePresentation(mode),
     execModeAriaLabel: t("opSectionStandard"),
+    hint: t("standardWorkspaceHint"),
     title: t("opCardTitle"),
   };
 }

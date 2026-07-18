@@ -175,7 +175,7 @@
 
 <div
   data-command-flow-workbench
-  class="-mx-6 -mb-6 grid min-w-0 overflow-hidden border-t border-border"
+  class="grid min-w-0 overflow-hidden"
   hidden={!active}
 >
   <CommandFlowTemplateSource

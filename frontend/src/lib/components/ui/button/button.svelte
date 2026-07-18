@@ -9,6 +9,8 @@
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 aria-expanded:bg-muted aria-expanded:text-foreground shadow-xs",
+        "primary-outline":
+          "border-primary/35 bg-primary/5 text-primary hover:border-primary/50 hover:bg-primary/10 hover:text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary shadow-xs",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:

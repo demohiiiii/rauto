@@ -100,7 +100,6 @@
     adoptManualSnapshot,
     changeNameDialogValue,
     closeNameDialog,
-    deleteTemplate,
     displayStateStore: templateDisplayStateStore,
     initialize: initializeTemplates,
     openNewDialog,
@@ -165,7 +164,6 @@
   {openNewDialog}
   {saveTemplate}
   {openSaveAsDialog}
-  {deleteTemplate}
   {changeNameDialogValue}
   {closeNameDialog}
   {submitNameDialog}

@@ -25,11 +25,14 @@
     executeOrchestration,
     executeTxWorkflow,
     importOrchestrationFile,
+    importTxBlockFile,
     importTxWorkflowFile,
     loadTxBlockJsonTemplate,
     loadTxWorkflowJsonTemplate,
     previewTxWorkflow,
     runTxBlockExecute,
+    saveTxBlockJsonTemplate,
+    saveTxWorkflowJsonTemplate,
     setPageContext,
     stageDisplayStateStore,
     updateOrchestrationEditorInput,
@@ -45,7 +48,9 @@
     onCreateJsonTemplateDraft: createTxBlockJsonTemplateDraft,
     onExecute: runTxBlockExecute,
     onEditorInput: updateTxBlockEditorInput,
+    onImportFile: importTxBlockFile,
     onLoadJsonTemplate: loadTxBlockJsonTemplate,
+    onSaveJsonTemplate: saveTxBlockJsonTemplate,
   });
   let txWorkflowStageProps = $derived({
     active: true,
@@ -57,6 +62,7 @@
     onImportFile: importTxWorkflowFile,
     onLoadJsonTemplate: loadTxWorkflowJsonTemplate,
     onPreview: previewTxWorkflow,
+    onSaveJsonTemplate: saveTxWorkflowJsonTemplate,
   });
   let orchestrationStageProps = $derived({
     active: true,

@@ -34,10 +34,10 @@
     --color-accent-content: oklch(16% 0.03 250);
     min-height: 100vh;
     background:
-      radial-gradient(circle at top, rgb(34 197 94 / 0.12), transparent 24%),
+      radial-gradient(circle at top, rgb(139 92 246 / 0.16), transparent 24%),
       radial-gradient(
         circle at right top,
-        rgb(6 182 212 / 0.15),
+        rgb(124 58 237 / 0.16),
         transparent 28%
       ),
       linear-gradient(180deg, #020617 0%, #06101f 32%, #0f172a 100%);
@@ -96,6 +96,9 @@
   }
 
   .dashboard-body[data-dashboard-theme="dark"] {
+    --primary: var(--rauto-primary);
+    --primary-foreground: var(--rauto-primary-foreground);
+    --ring: var(--rauto-ring);
     color-scheme: dark;
   }
 
@@ -242,6 +245,9 @@
   }
 
   .dashboard-body[data-dashboard-theme="dark"] {
+    --primary: var(--rauto-primary);
+    --primary-foreground: var(--rauto-primary-foreground);
+    --ring: var(--rauto-ring);
     --color-primary: var(--rauto-primary);
     --color-primary-content: var(--rauto-primary-foreground);
   }
@@ -259,7 +265,7 @@
       ),
       radial-gradient(
         circle at 8% 12%,
-        rgb(14 165 233 / 0.12),
+        rgb(139 92 246 / 0.12),
         transparent 20rem
       ),
       linear-gradient(180deg, #020617 0%, #08111f 46%, #0f172a 100%);
@@ -314,7 +320,7 @@
   --rauto-primary: oklch(0.63 0.18 157);
   --rauto-primary-foreground: oklch(0.99 0.01 157);
   --rauto-ring: oklch(0.66 0.16 157);
-  --rauto-radius: 0.8rem;
+  --rauto-radius: 0.65rem;
   --background: oklch(0.982 0.006 247);
   --foreground: oklch(0.24 0.04 248);
   --card: oklch(1 0 0);
@@ -362,52 +368,10 @@
   --rauto-ring: oklch(0.66 0.16 157);
 }
 
-:root[data-rauto-theme-preset="neutral"] {
-  --rauto-primary: oklch(0.205 0 0);
-  --rauto-primary-foreground: oklch(0.985 0 0);
-  --rauto-ring: oklch(0.708 0 0);
-}
-
-:root[data-rauto-theme-preset="blue"] {
-  --rauto-primary: oklch(0.55 0.2 255);
-  --rauto-primary-foreground: oklch(0.985 0.01 255);
-  --rauto-ring: oklch(0.62 0.16 255);
-}
-
-:root[data-rauto-theme-preset="rose"] {
-  --rauto-primary: oklch(0.58 0.22 20);
-  --rauto-primary-foreground: oklch(0.985 0.01 20);
-  --rauto-ring: oklch(0.64 0.16 20);
-}
-
 :root[data-rauto-theme-preset="violet"] {
   --rauto-primary: oklch(0.58 0.22 300);
   --rauto-primary-foreground: oklch(0.985 0.01 300);
   --rauto-ring: oklch(0.66 0.16 300);
-}
-
-:root[data-rauto-radius="none"] {
-  --rauto-radius: 0rem;
-}
-
-:root[data-rauto-radius="sm"] {
-  --rauto-radius: 0.45rem;
-}
-
-:root[data-rauto-radius="md"] {
-  --rauto-radius: 0.65rem;
-}
-
-:root[data-rauto-radius="lg"] {
-  --rauto-radius: 0.8rem;
-}
-
-:root[data-rauto-radius="xl"] {
-  --rauto-radius: 1.1rem;
-}
-
-:root[data-rauto-radius="full"] {
-  --rauto-radius: 999px;
 }
 
 .dark {
