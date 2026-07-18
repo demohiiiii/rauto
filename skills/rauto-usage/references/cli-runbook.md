@@ -7,7 +7,7 @@ Use this file when executing `rauto` commands directly for users.
 ```bash
 rauto web
 rauto web --bind 127.0.0.1 --port 3000 --connection core-01
-rauto agent --bind 0.0.0.0 --port 3000 --manager-url http://manager:3000 --agent-name edge-sh-01 --report-mode grpc
+rauto agent --bind 0.0.0.0 --port 8123 --manager-url http://manager:50051 --agent-name edge-sh-01 --report-mode grpc
 ```
 
 ### Local Web Workbench
@@ -37,19 +37,20 @@ Connection options are optional startup defaults. Use either `--connection <NAME
 ## Connection and Profile Operations
 
 ```bash
-rauto connection list
-rauto connection show core-01
-rauto connection test --connection core-01
-rauto connection add core-01 --host 192.168.1.10 --username admin --password '***' --device-profile linux
 rauto device list
-rauto device show linux
-rauto device diagnose linux --json
+rauto device show core-01
+rauto device test --connection core-01
+rauto device add core-01 --host 192.168.1.10 --username admin --password '***' --device-profile linux
+rauto profile list
+rauto profile show linux
+rauto profile diagnose linux --json
 rauto profile autodetect --host 192.168.1.10 --username admin --password '***'
 rauto profile autodetect -v --host 192.168.1.10 --username admin --password '***'
 ```
 
 Notes:
 
+- `connection` remains an alias for `device`, but use `device` in new commands and documentation.
 - Omit `--device-profile` to use `autodetect`; successful detections are cached by `host:port`.
 - Add `--force-autodetect` to bypass the cache after device replacement or IP reuse.
 - Omit `--ssh-security` to use the default `legacy-compatible` SSH algorithms.
@@ -58,7 +59,7 @@ Notes:
 
 ```bash
 rauto exec "uname -a" --connection edge92
-rauto template show_ver.j2 --connection core-01 --vars-json '{"vlan":100}'
+rauto template show_ver --connection core-01 --vars ./command-vars.json
 ```
 
 Use raw `exec` for one-off harmless commands or when no show object exists.
@@ -112,11 +113,12 @@ rauto show-object set \
 
 ```bash
 rauto flow-template list
-rauto flow-template show cisco_like_copy
+rauto flow-template show my_copy_flow
 rauto flow --template builtin:cisco_like_copy --connection core-01 --vars-json '{"command":"copy scp: flash:/new.bin"}'
 ```
 
 `rauto` owns command-flow parsing and rendering. rneter executes the resulting concrete flow but no longer owns a command-flow-template model.
+`builtin:cisco_like_copy` is an executable built-in, not a saved record returned by `flow-template list/show`. Use `flow-template create/update/delete` only for custom saved templates.
 
 ## Transaction Family (JSON)
 
@@ -126,7 +128,7 @@ rauto tx-workflow ./tx-workflow.json --connection edge92 --dry-run
 rauto orchestrate ./orchestration.json --dry-run
 ```
 
-`tx` is parameter-driven from CLI. Use tx-block JSON as an authoring unit inside workflow/orchestration templates and validate it with the bundled validator.
+`tx` is parameter-driven from CLI. Use tx-block JSON inside transaction workflows, including workflows later selected by orchestration, and validate it with the bundled validator. Do not use a tx block as a direct orchestration action.
 Use transaction-family commands for config-changing work instead of direct `exec`/`template` whenever a rollback or staged plan is practical.
 For multi-device changes, use `orchestrate`; for reusable single-target change plans, use `tx-workflow`; for one target/one transactional unit, use `tx`.
 
@@ -151,11 +153,22 @@ Use nested `template` subcommands under `tx-workflow` and `orchestrate`; do not 
 ```bash
 rauto inventory group list --json
 rauto inventory group show access --json
+rauto inventory group upsert access --file ./access-group.json
 rauto history list edge92 --limit 20 --json
-rauto replay --list --record-file ./record.jsonl
+rauto replay ./record.jsonl --list
 rauto upload --connection edge92 --local-path ./pkg.tar --remote-path /tmp/pkg.tar
 rauto backup create
 rauto backup list
+```
+
+Device groups only store saved-device membership and an optional description. They do not provide group variables or inline connection definitions:
+
+```json
+{
+  "name": "access",
+  "description": "Campus access switches",
+  "hosts": ["edge-sw-01", "edge-sw-02"]
+}
 ```
 
 ## Recording Defaults

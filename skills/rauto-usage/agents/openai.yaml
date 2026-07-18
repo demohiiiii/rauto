@@ -1,4 +1,4 @@
 interface:
   display_name: "Rauto CLI Operations"
-  short_description: "Operate rauto CLI workflows and start local services"
-  default_prompt: "Use $rauto-usage to execute, author, validate, or troubleshoot a safe rauto CLI workflow, including local Web or Agent startup."
+  short_description: "Operate rauto CLI and author safe automation plans"
+  default_prompt: "Use $rauto-usage to execute or troubleshoot a safe rauto CLI workflow, validate transaction plans, or start a local rauto service."

@@ -9,8 +9,8 @@ Use this checklist when `rauto` execution does not behave as expected.
 - Re-test with:
 
 ```bash
-rauto connection test --connection <name>
-rauto connection test --connection <name> --force-autodetect
+rauto device test --connection <name>
+rauto device test --connection <name> --force-autodetect
 ```
 
 - If autodetect previously succeeded but the device changed, retry with `--force-autodetect`.
@@ -46,6 +46,13 @@ rauto connection test --connection <name> --force-autodetect
 - Add precheck/read commands with `show` when useful.
 - Use dry-run/view validation where available before real tx/workflow/orchestrate execution.
 - Confirm rollback commands or rollback policy before irreversible changes.
+
+For orchestration selector failures:
+
+- list direct targets with `rauto device list`
+- list membership-only groups with `rauto inventory group list --json`
+- remember that `targets` accepts saved-device names only
+- remember that every action is `kind: "tx_workflow"` with either inline `workflow` or saved `workflow_template_name`
 
 ## 6) Upload and Transfer Errors
 

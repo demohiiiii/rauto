@@ -40,6 +40,24 @@ python3 skills/rauto-usage/scripts/validate_json_plans.py --file ./plan.json --r
 - Current in-code validation checks in `rauto` pass (the same checks used before real execution).
 - Future model/schema changes in `rauto` are automatically inherited by this validator.
 
+## Persisted-State Boundary
+
+Orchestration dry-run resolves `target_groups` and `target_tags` against the
+active rauto SQLite store. Validation can therefore fail when a plan is valid
+but the current machine does not contain the referenced device group or saved
+devices.
+
+When the only failure is unknown/missing persisted state:
+
+1. Do not replace saved-device names with inline host or credential objects;
+   orchestration rejects inline targets.
+2. Inspect the intended environment with `rauto device list` and
+   `rauto inventory group list --json`.
+3. Re-run validation with the intended `RAUTO_HOME` or after creating the
+   required saved devices/groups.
+4. Treat SSH reachability and credentials as execution-time checks; dry-run
+   does not connect to every target.
+
 ## Common Failure Classes
 
 - Invalid JSON syntax before `rauto` runs.

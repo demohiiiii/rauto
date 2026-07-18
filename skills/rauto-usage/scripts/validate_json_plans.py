@@ -132,6 +132,22 @@ def run_cmd(command: List[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
+def orchestration_state_note(proc: subprocess.CompletedProcess[str]) -> Optional[str]:
+    output = f"{proc.stdout}\n{proc.stderr}".lower()
+    missing_saved_connection = "saved connection '" in output and "not found" in output
+    missing_selector_state = any(
+        marker in output
+        for marker in ("references unknown device group", "resolved no targets")
+    )
+    if proc.returncode != 0 and (missing_saved_connection or missing_selector_state):
+        return (
+            "orchestration validation depends on saved devices/groups in the active "
+            "RAUTO_HOME; verify persisted state instead of replacing selectors with "
+            "unsupported inline target objects"
+        )
+    return None
+
+
 def validate_via_dry_run(
     kind: str,
     input_path: Path,
@@ -186,6 +202,9 @@ def validate_via_dry_run(
         if kind == "orchestration":
             command = [*rauto_prefix, "orchestrate", str(actual_path), "--dry-run", "--json"]
             proc = run_cmd(command)
+            state_note = orchestration_state_note(proc)
+            if state_note:
+                notes.append(state_note)
             return ValidateResult(
                 ok=proc.returncode == 0,
                 kind=kind,
@@ -267,4 +286,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

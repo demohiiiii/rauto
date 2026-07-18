@@ -18,6 +18,22 @@ Use this file when creating or debugging command-flow templates (`rauto flow-tem
 - Do not use `flow` as the first choice for simple state retrieval; prefer `show`.
 - Do not use `flow` as the first choice for config changes that need rollback; wrap flow steps in `tx`/`tx-workflow` when rollback-aware execution is needed.
 
+## Built-In Cisco-Like Copy Flow
+
+Run the rauto-owned built-in directly:
+
+```bash
+rauto flow \
+  --template builtin:cisco_like_copy \
+  --connection core-01 \
+  --vars-json '{"command":"copy scp: flash:/new.bin"}'
+```
+
+The `builtin:` prefix selects immutable built-in content. Built-ins are not
+saved template records, so do not expect `rauto flow-template list` or
+`rauto flow-template show` to return them. Save a custom copy only when the
+user needs editable content.
+
 ## Practical Pattern: Current + Peer Connection
 
 ```toml

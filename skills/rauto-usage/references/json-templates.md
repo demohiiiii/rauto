@@ -230,6 +230,9 @@ Orchestration file is a single plan object:
 - `stages: []`; each stage contains `jobs: []`
 - Each job selects saved connections through `targets`, `target_groups`, or `target_tags`
 - Every `targets` entry must be a saved connection name; inline target objects are rejected
+- Do not add `inventory` or `inventory_file`; groups are persisted rauto resources
+- Device groups contain saved-device membership only; group variables and target overrides are not supported
+- Multiple direct/group/tag selectors use union semantics and deduplicate by saved-device name
 
 ### 3.1 Tx workflow action rollout
 

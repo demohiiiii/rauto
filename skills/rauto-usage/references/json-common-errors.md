@@ -199,7 +199,7 @@ Add at least one stage with `name`, `strategy`, target scope, and action.
 
 ### Error
 
-`stage 'publish' job 0 must contain at least one target, target_groups, or target_tags entry`
+`stage 'publish' job 1 must contain at least one target, target_groups, or target_tags entry`
 
 ### Cause
 
@@ -224,7 +224,7 @@ Every `targets` value must be a saved connection name. Objects containing
 
 ### Error
 
-`stage 'publish' tx_workflow requires exactly one source: workflow/workflow_template_name`
+`stage 'publish' job 1 tx_workflow requires exactly one source: workflow/workflow_template_name`
 
 ### Cause
 
@@ -239,6 +239,35 @@ Keep exactly one of:
 
 All orchestration actions must use `kind: "tx_workflow"`; direct `tx_block`
 actions are rejected.
+
+### Error
+
+`workflow_vars is only valid with workflow_template_name`
+
+### Cause
+
+An inline `workflow` was combined with `workflow_vars`.
+
+### Fix
+
+For an inline workflow, render the desired values into the workflow itself and
+omit `workflow_vars`. Keep `workflow_vars` only when the action uses
+`workflow_template_name`.
+
+### Error
+
+`references unknown device group '...'`
+
+### Cause
+
+Orchestration dry-run resolves groups from the active rauto SQLite store, and
+the referenced membership-only group does not exist in that environment.
+
+### Fix
+
+- verify with `rauto inventory group list --json`
+- create/update the group with saved-device names, or validate with the intended `RAUTO_HOME`
+- do not replace the group with legacy `inventory`, `inventory_file`, group vars, or inline connection objects
 
 ### Error
 

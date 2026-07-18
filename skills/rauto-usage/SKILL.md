@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Operate, author, validate, and troubleshoot rauto through its CLI. Prefer show objects for device reads; use rollback-aware tx, tx-workflow, or orchestrate for configuration changes; handle command templates, command flows, multiline structured commands, connections, profiles, inventory, TextFSM, history, replay, backup, upload, local Web workbench startup, and managed-agent startup. Use when Codex needs to run rauto commands, start its services, build valid plans/templates, or diagnose CLI/runtime behavior."
+description: "Operate, author, validate, and troubleshoot rauto through its CLI. Prefer show objects for device reads; use rollback-aware tx, tx-workflow, or orchestrate for configuration changes; handle command templates, command flows, multiline structured commands, saved devices, profiles, membership-only device groups, TextFSM, history, replay, backup, upload, local Web workbench startup, and managed-agent startup. Use when Codex needs to run rauto commands, start its services, build valid plans/templates, or diagnose CLI/runtime behavior."
 ---
 
 # Rauto Usage
@@ -22,7 +22,7 @@ Apply action-first behavior:
 
 ## Execution Rules
 
-1. Execute read/query commands immediately (for example `device list`, `connection list`, `history list`, `templates list`, `replay --list`).
+1. Execute read/query commands immediately (for example `device list`, `history list`, `templates list`, or `replay <record-file> --list`).
 2. Prefer the show catalog for operational reads:
    - use `rauto show --list` to discover objects
    - use `rauto show <object>` for supported reads such as `version`, `interfaces`, `route`, `arp`, `vlan`, `mac`, `lldp`, `access-list`, and platform-specific objects
@@ -32,10 +32,11 @@ Apply action-first behavior:
 4. Use transaction-family execution with the correct entrypoint (high priority):
    - `tx`: CLI parameter-driven transaction construction
    - `tx-workflow`: workflow JSON
-   - `orchestrate`: multi-device plan JSON
+   - `orchestrate`: multi-device plan JSON whose jobs select saved devices, persisted device groups, or saved-device labels and execute only `tx_workflow` actions
 5. Treat command-flow as the reusable interactive path:
    - run with `rauto flow`
    - manage with `rauto flow-template`
+   - run the rauto-owned Cisco-like copy flow as `--template builtin:cisco_like_copy`; built-ins are executable but are not saved-template records
 6. Resolve connection using:
    - explicit host flags > `--connection <name>` > ask only for missing must-have inputs.
 7. Keep SSH/profile defaults current:
@@ -53,10 +54,7 @@ Apply action-first behavior:
    - `exec/template/flow` parse only when requested, when a template is supplied, or when Excel export needs parsed rows
    - default parsing filters TextFSM fallback Error rules such as `^. -> Error`; use strict mode only when user asks to preserve template errors.
 10. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
-11. Keep multiline behavior explicit where the model supports it:
-   - `split_lines`: execute non-empty trimmed lines separately and stop after the first failed command
-   - `whole`: preserve and submit the full text once
-   - legacy missing values normalize to `split_lines`.
+11. Keep multiline behavior explicit where the model supports it: use `split_lines` to execute non-empty trimmed lines separately and stop after the first failed command; use `whole` to preserve and submit the full text once; normalize legacy missing values to `split_lines`.
 
 ## Preferred Execution Matrix
 
@@ -77,7 +75,8 @@ When user asks to create JSON plans, always follow:
 2. Generate full runnable JSON (not partial snippets) unless user asks otherwise.
 3. Validate with `scripts/validate_json_plans.py` before presenting final output.
    - This validator is CLI-backed and calls `rauto ... --dry-run` internally.
-4. If validation has errors, fix JSON and rerun validation.
+   - Orchestration validation resolves device groups from the active rauto SQLite store. Treat an unknown group or missing saved-device error as an environment prerequisite, not permission to rewrite a valid selector into an inline target.
+4. If validation reports a schema/model error, fix JSON and rerun validation. If it reports missing persisted state, list devices/groups and validate in the intended runtime environment.
 5. For risky changes, suggest native dry-run before real execution when the chosen entrypoint supports it.
 6. Use only transaction operation kinds `command` and `flow`; do not generate retired `kind: "template"` or `kind: "command_flow"` operations.
 
@@ -110,12 +109,14 @@ If user explicitly asks to execute destructive action, proceed.
 
 Ask only for missing mandatory fields:
 
-- `exec/template/flow/tx/tx-workflow/orchestrate/upload/connection test`:
+- `exec/template/flow/tx/tx-workflow/upload/device test`:
   require either complete host credentials or a valid `--connection`.
+- `orchestrate`:
+  require every job to resolve at least one saved device through `targets`, `target_groups`, or `target_tags`; never generate inline connection objects.
 - `show`:
   require an object unless the user asks to list/discover objects; require a saved target, group, label, or complete connection for execution.
 - `agent`:
-  require `manager_url` and `agent_name`.
+  require effective `manager_url` and `agent_name` values from flags, environment, or agent config.
 - `web`:
   has no mandatory connection input; `rauto web` starts on `127.0.0.1:3000`, and connection flags only preconfigure the workbench.
 - `replay`:

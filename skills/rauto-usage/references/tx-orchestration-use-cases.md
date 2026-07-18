@@ -31,13 +31,15 @@ Use these patterns as few-shot references when AI needs to generate new JSON pla
   - action.kind = `tx_workflow`
   - source via inline `workflow` or saved `workflow_template_name`
 
-## Case 4: Network switch config change (orchestration + tx_block template source)
+## Case 4: Network switch config change (orchestration + workflow template)
 
 - Goal: push same config block to many switches.
-- Recommended: orchestration stage using `tx_block_template_name`.
+- Recommended: save a transaction workflow template and reference it from each orchestration job.
 - Key points:
-  - no mixing `tx_block_template_*` with inline `commands/template`
-  - pass per-target vars through `tx_block_template_vars`
+  - orchestration action is always `kind: "tx_workflow"`
+  - select exactly one source: inline `workflow` or `workflow_template_name`
+  - pass template variables through `workflow_vars`
+  - tx block templates may still be expanded inside the selected workflow, but are never direct orchestration actions
 
 ## Case 5: Interactive copy flow as one tx step
 
