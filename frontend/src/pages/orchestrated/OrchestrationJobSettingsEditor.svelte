@@ -1,5 +1,4 @@
 <script>
-  import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { createOrchestrationJobSettingsEditorWorkspace } from "../../modules/orchestrationStageEditorsState.js";
 
@@ -31,22 +30,8 @@
     <PresenceFieldGrid
       fieldRows={settingsPanelDisplay.fieldRows}
       hostClass="contents"
+      presenceControlsMode="hidden"
       onValueChangeForKey={jobSettingsCallbacks.fieldValueHandler}
-      onNullableModeChangeForKey={jobSettingsCallbacks.fieldNullableModeHandler}
-      onPresenceChangeForKey={jobSettingsCallbacks.fieldPresenceHandler}
-    />
-    <PresenceFieldGrid
-      fieldRows={settingsPanelDisplay.metadataFieldRows}
-      hostClass="contents"
-      onValueChangeForKey={jobSettingsCallbacks.metadataValueHandler}
-      onPresenceChangeForKey={jobSettingsCallbacks.metadataPresenceHandler}
     />
   </div>
-
-  <JsonObjectFieldsEditor
-    title={settingsPanelDisplay.extraField.titleText}
-    source={settingsPanelDisplay.extraField.source}
-    typeRows={settingsPanelDisplay.extraField.typeRows}
-    onChange={jobSettingsCallbacks.setExtra}
-  />
 </div>

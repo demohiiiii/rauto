@@ -926,7 +926,7 @@ rauto orchestrate ./orchestration.json --json
           "targets": ["core-01", "core-02"],
           "action": {
             "kind": "tx_workflow",
-            "workflow_file": "./workflows/core-vlan.json"
+            "workflow_template_name": "core-vlan"
           }
         }
       ]
@@ -940,33 +940,10 @@ rauto orchestrate ./orchestration.json --json
           "name": "access-rollout",
           "strategy": "parallel",
           "max_parallel": 10,
-          "targets": [
-            {
-              "connection": "sw-01",
-              "vars": {
-                "hostname": "sw-01"
-              }
-            },
-            {
-              "connection": "sw-02",
-              "vars": {
-                "hostname": "sw-02"
-              }
-            }
-          ],
+          "targets": ["sw-01", "sw-02"],
           "action": {
-            "kind": "tx_block",
-            "name": "access-vlan",
-            "template": "configure_vlan.j2",
-            "mode": "Config",
-            "vars": {
-              "vlans": [
-                {
-                  "id": 120,
-                  "name": "STAFF"
-                }
-              ]
-            }
+            "kind": "tx_workflow",
+            "workflow_template_name": "access-vlan"
           }
         }
       ]
@@ -975,17 +952,20 @@ rauto orchestrate ./orchestration.json --json
 }
 ```
 
+Every `targets` entry must be the name of a saved connection. Inline target
+objects and per-job connection overrides are rejected; use saved connection
+properties and vars instead.
+
 Set `rollback_on_stage_failure=true` when a failed target in one stage should trigger
 compensation rollback for other successful targets in that same stage. Set
 `rollback_completed_stages_on_failure=true` when a later-stage failure should also
 compensate successful targets from earlier completed stages in reverse stage order.
 
-**Inventory + group example**
+**Saved device group example**
 
 ```json
 {
   "name": "campus-vlan-rollout",
-  "inventory_file": "./inventory.json",
   "stages": [
     {
       "name": "core",
@@ -997,7 +977,7 @@ compensate successful targets from earlier completed stages in reverse stage ord
           "target_groups": ["core"],
           "action": {
             "kind": "tx_workflow",
-            "workflow_file": "./workflows/core-vlan.json"
+            "workflow_template_name": "core-vlan"
           }
         }
       ]
@@ -1012,17 +992,8 @@ compensate successful targets from earlier completed stages in reverse stage ord
           "max_parallel": 20,
           "target_groups": ["access"],
           "action": {
-            "kind": "tx_block",
-            "template": "configure_vlan.j2",
-            "mode": "Config",
-            "vars": {
-              "vlans": [
-                {
-                  "id": 120,
-                  "name": "STAFF"
-                }
-              ]
-            }
+            "kind": "tx_workflow",
+            "workflow_template_name": "access-vlan"
           }
         }
       ]
@@ -1031,45 +1002,16 @@ compensate successful targets from earlier completed stages in reverse stage ord
 }
 ```
 
-```json
-{
-  "defaults": {
-    "username": "ops",
-    "port": 22,
-    "vars": {
-      "tenant": "campus"
-    }
-  },
-  "groups": {
-    "core": ["core-01", "core-02"],
-    "access": {
-      "defaults": {
-        "username": "admin",
-        "port": 22,
-        "device_profile": "huawei",
-        "vars": {
-          "site": "campus-a",
-          "region": "east"
-        }
-      },
-      "targets": [
-        { "connection": "sw-01", "vars": { "hostname": "sw-01" } },
-        { "connection": "sw-02", "vars": { "hostname": "sw-02" } }
-      ]
-    }
-  }
-}
-```
+The `core` and `access` groups must already exist in rauto. Manage their saved
+connection membership in the Web workbench or with `rauto inventory group`.
 
 Ready-to-edit sample files:
 
 - [templates/examples/campus-vlan-orchestration.json](templates/examples/campus-vlan-orchestration.json)
-- [templates/examples/campus-inventory.json](templates/examples/campus-inventory.json)
 
 Advanced sample files:
 
 - [templates/examples/fabric-advanced-orchestration.json](templates/examples/fabric-advanced-orchestration.json)
-- [templates/examples/fabric-advanced-inventory.json](templates/examples/fabric-advanced-inventory.json)
 - [templates/examples/linux-image-rollout-orchestration.json](templates/examples/linux-image-rollout-orchestration.json)
 - [templates/examples/linux-image-export-and-transfer-workflow.json](templates/examples/linux-image-export-and-transfer-workflow.json)
 - [templates/examples/linux-image-export-and-transfer-with-password-scp-workflow.json](templates/examples/linux-image-export-and-transfer-with-password-scp-workflow.json)
@@ -1079,17 +1021,12 @@ Notes:
 
 - `stage.jobs` defines executable units in a stage; each job has its own `targets`/`target_groups` and `action`.
 - `stage.strategy` / `stage.max_parallel` controls job-level concurrency; `job.strategy` / `job.max_parallel` controls target-level concurrency.
-- `targets` can reference saved connections by name or provide inline connection fields.
-- `target_groups` can load target lists from `inventory_file` or inline `inventory.groups`.
-- `inventory.defaults` applies to all groups and job-level inline `targets`; group `defaults` override inventory defaults.
-- `tx_block` jobs support two source modes:
-  - command mode (`template` / `commands` + `vars`)
-  - tx block template mode (`tx_block_template_name` / `tx_block_template_content` + `tx_block_template_vars`)
-- `tx_workflow` jobs support four source modes (exactly one):
-  - `workflow_file`
+- `targets` must reference saved connections by name.
+- `target_groups` selects persisted rauto device groups; `target_tags` selects saved connection labels. Multiple groups and labels use union semantics.
+- Group and label matches are deduplicated by saved connection name.
+- `tx_workflow` jobs support exactly one source:
   - inline `workflow`
-  - `workflow_template_name`
-  - `workflow_template_content` (with `workflow_vars`)
+  - saved `workflow_template_name` with optional `workflow_vars`
 - Multi-device orchestration is available in both Web UI and CLI.
 
 ### Reusable Execution Templates
@@ -1166,7 +1103,7 @@ Web UI (`Operations -> Orchestrated Delivery`) now includes dedicated runtime va
 There is no separate inventory target-record layer anymore.
 
 Saved connections are the inventory target source of truth (including `enabled`, `labels`,
-`groups`, and `vars`). Inventory CLI focuses on group management and merged vars preview.
+and connection `vars`). Inventory CLI focuses on membership-only device-group management.
 
 Manage groups:
 
@@ -1177,26 +1114,13 @@ rauto inventory group upsert access --file ./group-access.json
 rauto inventory group delete access
 ```
 
-Preview merged vars (`group vars -> saved connection vars -> runtime vars`):
-
-```bash
-rauto inventory resolve-vars \
-  --host edge-sw-01 \
-  --group access \
-  --vars-json '{"ticket":"CHG-42"}' \
-  --json
-```
-
 Group JSON shape:
 
 ```json
 {
   "name": "access",
   "description": "Campus access switches",
-  "hosts": ["edge-sw-01", "edge-sw-02"],
-  "vars": {
-    "role": "access"
-  }
+  "hosts": ["edge-sw-01", "edge-sw-02"]
 }
 ```
 

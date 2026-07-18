@@ -67,10 +67,9 @@ pub async fn execute_orchestration(
                 .filter(|s| !s.trim().is_empty())
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."));
-            let (plan, inventory) = orchestrator::load_plan_from_value(rendered_plan, &plan_root)
+            let plan = orchestrator::load_plan_from_value(rendered_plan, &plan_root)
                 .map_err(ApiError::from)?;
             let plan_value = serde_json::to_value(&plan).map_err(ApiError::from)?;
-            let inventory_value = serde_json::to_value(&inventory).map_err(ApiError::from)?;
             emit_task_event(
                 &state,
                 &task_ctx,
@@ -86,7 +85,6 @@ pub async fn execute_orchestration(
             if req.run.dry_run.unwrap_or(false) {
                 return Ok(ExecuteOrchestrationResponse {
                     plan: plan_value,
-                    inventory: inventory_value,
                     orchestration_result: None,
                     result_summary: task_result_with_details(
                         task_result_with_counts(
@@ -124,7 +122,6 @@ pub async fn execute_orchestration(
 
             let orchestration_result = orchestrator::execute_loaded_plan_with_events(
                 &plan,
-                &inventory,
                 &plan_root,
                 &state.defaults,
                 to_cli_record_level(req.target.record_level),
@@ -135,7 +132,6 @@ pub async fn execute_orchestration(
 
             Ok(ExecuteOrchestrationResponse {
                 plan: plan_value,
-                inventory: inventory_value,
                 orchestration_result: Some(
                     serde_json::to_value(&orchestration_result).map_err(ApiError::from)?,
                 ),

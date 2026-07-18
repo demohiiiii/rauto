@@ -146,6 +146,18 @@ pub struct UpdateTemplateRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct TxWorkflowTemplatePreviewRequest {
+    #[serde(default)]
+    pub workflow_vars: Value,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TxWorkflowTemplatePreviewResponse {
+    pub workflow: Value,
+    pub unresolved_paths: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateCommandFlowTemplateRequest {
     pub name: String,
     pub content: String,

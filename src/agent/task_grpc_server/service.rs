@@ -279,7 +279,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 group: InventoryGroup {
                     name: req.name,
                     description: optional_string(req.description),
-                    vars: parse_json_value(&req.vars_json, "vars_json", serde_json::json!({}))?,
                     hosts: req.hosts,
                 },
             }),

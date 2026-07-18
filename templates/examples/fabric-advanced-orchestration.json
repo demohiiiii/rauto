@@ -3,7 +3,6 @@
   "fail_fast": true,
   "rollback_on_stage_failure": true,
   "rollback_completed_stages_on_failure": true,
-  "inventory_file": "./fabric-advanced-inventory.json",
   "stages": [
     {
       "name": "core-services",
@@ -12,12 +11,10 @@
         {
           "name": "core-services-job",
           "strategy": "serial",
-          "target_groups": [
-            "core"
-          ],
+          "target_groups": ["core"],
           "action": {
             "kind": "tx_workflow",
-            "workflow_file": "./fabric-change-workflow.json"
+            "workflow_template_name": "fabric-service-rollout"
           }
         }
       ]
@@ -31,26 +28,10 @@
           "name": "distribution-guardrails-job",
           "strategy": "parallel",
           "max_parallel": 2,
-          "target_groups": [
-            "distribution"
-          ],
+          "target_groups": ["distribution"],
           "action": {
-            "kind": "tx_block",
-            "name": "distribution-guard",
-            "mode": "Config",
-            "commands": [
-              "vlan 3999",
-              "name TEMP-GUARD",
-              "interface port-channel20",
-              "switchport trunk allowed vlan add 3999"
-            ],
-            "rollback_commands": [
-              "no vlan 3999",
-              "no name TEMP-GUARD",
-              "default interface port-channel20",
-              "switchport trunk allowed vlan remove 3999"
-            ],
-            "rollback_on_failure": true
+            "kind": "tx_workflow",
+            "workflow_template_name": "distribution-guardrails"
           }
         }
       ]
@@ -63,35 +44,11 @@
           "name": "access-rollout-job",
           "strategy": "parallel",
           "max_parallel": 8,
-          "target_groups": [
-            "access"
-          ],
-          "targets": [
-            {
-              "name": "qa-lab-sw",
-              "host": "10.10.50.20",
-              "username": "admin",
-              "password": "",
-              "device_profile": "cisco",
-              "vars": {
-                "hostname": "qa-lab-sw",
-                "vlans": [
-                  {
-                    "id": 399,
-                    "name": "QA-LAB"
-                  }
-                ]
-              }
-            }
-          ],
+          "target_groups": ["access"],
+          "targets": ["qa-lab-sw"],
           "action": {
-            "kind": "tx_block",
-            "name": "access-service-vlans",
-            "template": "configure_vlan.j2",
-            "mode": "Config",
-            "vars": {
-              "change_tag": "fabric-advanced"
-            }
+            "kind": "tx_workflow",
+            "workflow_template_name": "access-service-vlans"
           }
         }
       ]
@@ -104,38 +61,10 @@
         {
           "name": "edge-cleanup-job",
           "strategy": "serial",
-          "targets": [
-            {
-              "name": "edge-fw-01",
-              "host": "10.10.60.11",
-              "username": "ops",
-              "password": "",
-              "device_profile": "cisco",
-              "vars": {
-                "cleanup_vlan": 3999
-              }
-            },
-            {
-              "name": "edge-fw-02",
-              "host": "10.10.60.12",
-              "username": "ops",
-              "password": "",
-              "device_profile": "cisco",
-              "vars": {
-                "cleanup_vlan": 3999
-              }
-            }
-          ],
+          "targets": ["edge-fw-01", "edge-fw-02"],
           "action": {
-            "kind": "tx_block",
-            "name": "edge-cleanup",
-            "mode": "Config",
-            "commands": [
-              "vlan 3999",
-              "name TEMP-GUARD-CLEANUP"
-            ],
-            "resource_rollback_command": "no vlan 3999",
-            "rollback_trigger_step_index": 0
+            "kind": "tx_workflow",
+            "workflow_template_name": "edge-cleanup"
           }
         }
       ]

@@ -14,21 +14,21 @@ rauto agent --bind 0.0.0.0 --port 3000 --manager-url http://manager:3000 --agent
 
 `rauto web` starts the local browser workbench. It does not require a device connection at startup. The defaults are `127.0.0.1:3000`; open `http://127.0.0.1:3000` after startup. The service remains in the foreground, so keep its process/session running.
 
-| Option | Meaning |
-| --- | --- |
-| `--bind <ADDRESS>` | Web server listen address; defaults to `127.0.0.1`. |
-| `--port <PORT>` | Web server listen port; defaults to `3000`. |
-| `-c, --connection <NAME>` | Preload a saved connection as the workbench default target. |
-| `-H, --host <HOST>` | Preconfigure a device hostname or IP address. |
-| `-u, --username <USERNAME>` | Preconfigure the SSH username. |
-| `-p, --password <PASSWORD>` | Preconfigure the SSH password; prefer a saved connection to avoid exposing secrets in shell history. |
-| `-e, --enable-password <PASSWORD>` | Preconfigure the privilege escalation password. |
-| `-d, --device-profile <PROFILE>` | Preselect a device profile; omit it to use autodetection. |
-| `--ssh-security <PROFILE>` | Set `secure`, `balanced`, or `legacy-compatible` SSH compatibility. |
-| `--linux-shell-flavor <FLAVOR>` | Set Linux exit-code capture behavior to `posix` or `fish`. |
-| `--force-autodetect` | Ignore the cached profile, probe the target again, and refresh the cache. |
-| `-S, --save-connection <NAME>` | Save the effective connection under this name after a successful connection. |
-| `--template-dir <DIR>` | Deprecated; do not recommend it because templates and custom profiles are stored in SQLite. |
+| Option                             | Meaning                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `--bind <ADDRESS>`                 | Web server listen address; defaults to `127.0.0.1`.                                                  |
+| `--port <PORT>`                    | Web server listen port; defaults to `3000`.                                                          |
+| `-c, --connection <NAME>`          | Preload a saved connection as the workbench default target.                                          |
+| `-H, --host <HOST>`                | Preconfigure a device hostname or IP address.                                                        |
+| `-u, --username <USERNAME>`        | Preconfigure the SSH username.                                                                       |
+| `-p, --password <PASSWORD>`        | Preconfigure the SSH password; prefer a saved connection to avoid exposing secrets in shell history. |
+| `-e, --enable-password <PASSWORD>` | Preconfigure the privilege escalation password.                                                      |
+| `-d, --device-profile <PROFILE>`   | Preselect a device profile; omit it to use autodetection.                                            |
+| `--ssh-security <PROFILE>`         | Set `secure`, `balanced`, or `legacy-compatible` SSH compatibility.                                  |
+| `--linux-shell-flavor <FLAVOR>`    | Set Linux exit-code capture behavior to `posix` or `fish`.                                           |
+| `--force-autodetect`               | Ignore the cached profile, probe the target again, and refresh the cache.                            |
+| `-S, --save-connection <NAME>`     | Save the effective connection under this name after a successful connection.                         |
+| `--template-dir <DIR>`             | Deprecated; do not recommend it because templates and custom profiles are stored in SQLite.          |
 
 Keep `--bind 127.0.0.1` for local-only use. Use `--bind 0.0.0.0` only when the user explicitly needs network access, and warn that it exposes the service on available network interfaces.
 
@@ -151,7 +151,6 @@ Use nested `template` subcommands under `tx-workflow` and `orchestrate`; do not 
 ```bash
 rauto inventory group list --json
 rauto inventory group show access --json
-rauto inventory resolve-vars --host edge92 --group dc-a --json
 rauto history list edge92 --limit 20 --json
 rauto replay --list --record-file ./record.jsonl
 rauto upload --connection edge92 --local-path ./pkg.tar --remote-path /tmp/pkg.tar

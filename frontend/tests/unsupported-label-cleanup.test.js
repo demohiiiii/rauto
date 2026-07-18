@@ -120,9 +120,9 @@ test("workflow and orchestration models remove unsupported labels", () => {
                 strategy: "serial",
                 targets: [],
                 action: {
-                  kind: "tx_block",
+                  kind: "tx_workflow",
                   tx_block_direct_label: "action-label",
-                  commands: [],
+                  workflow: { name: "workflow", blocks: [] },
                 },
               },
             ],

@@ -1,140 +1,23 @@
-use super::{
-    InventoryGroup, InventoryGroupSpec, OrchestrationInventory, OrchestrationJob,
-    OrchestrationPlan, OrchestrationTarget, OrchestrationTargetDefaults, OrchestrationTargetInput,
-};
+use super::{OrchestrationJob, OrchestrationTarget};
 use crate::EffectiveConnection;
 use crate::cli::GlobalOpts;
 use crate::config::command_flow_vars::{ConnectionParamContext, resolve_runtime_var_aliases};
-use crate::config::connection_store::{list_connections_by_labels_any, load_connection};
+use crate::config::connection_store::{
+    list_connections_by_groups_any, list_connections_by_labels_any, load_connection,
+};
+use crate::config::inventory_store;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use anyhow::{Context, Result, anyhow};
 use serde_json::Value;
-use std::fs;
-use std::path::{Path, PathBuf};
-
-pub(crate) fn load_inventory(
-    plan: &OrchestrationPlan,
-    plan_root: &Path,
-) -> Result<OrchestrationInventory> {
-    let file_inventory = match &plan.inventory_file {
-        Some(path) => {
-            let resolved = if path.is_absolute() {
-                path.clone()
-            } else {
-                plan_root.join(path)
-            };
-            let text = fs::read_to_string(&resolved).with_context(|| {
-                format!(
-                    "failed to read inventory file '{}'",
-                    resolved.to_string_lossy()
-                )
-            })?;
-            Some(
-                serde_json::from_str::<OrchestrationInventory>(&text).with_context(|| {
-                    format!(
-                        "failed to parse inventory file '{}'",
-                        resolved.to_string_lossy()
-                    )
-                })?,
-            )
-        }
-        None => None,
-    };
-
-    let mut merged = file_inventory.unwrap_or_default();
-    if let Some(inline) = &plan.inventory {
-        merged.defaults = merge_target_defaults(&merged.defaults, &inline.defaults);
-        for (group, value) in &inline.groups {
-            merged.groups.insert(group.clone(), value.clone());
-        }
-    }
-    Ok(merged)
-}
-
-fn merge_target_defaults(
-    base: &OrchestrationTargetDefaults,
-    overlay: &OrchestrationTargetDefaults,
-) -> OrchestrationTargetDefaults {
-    OrchestrationTargetDefaults {
-        username: overlay.username.clone().or_else(|| base.username.clone()),
-        password: overlay.password.clone().or_else(|| base.password.clone()),
-        port: overlay.port.or(base.port),
-        enable_password: overlay
-            .enable_password
-            .clone()
-            .or_else(|| base.enable_password.clone()),
-        ssh_security: overlay.ssh_security.or(base.ssh_security),
-        linux_shell_flavor: overlay.linux_shell_flavor.or(base.linux_shell_flavor),
-        device_profile: overlay
-            .device_profile
-            .clone()
-            .or_else(|| base.device_profile.clone()),
-        template_dir: overlay
-            .template_dir
-            .clone()
-            .or_else(|| base.template_dir.clone()),
-        vars: merge_values(&base.vars, &overlay.vars),
-    }
-}
-
-fn inventory_group_spec(group: &InventoryGroup) -> InventoryGroupSpec {
-    match group {
-        InventoryGroup::Targets(targets) => InventoryGroupSpec {
-            defaults: OrchestrationTargetDefaults::default(),
-            targets: targets.clone(),
-        },
-        InventoryGroup::Detailed(spec) => spec.clone(),
-    }
-}
-
-fn apply_target_defaults(
-    defaults: &OrchestrationTargetDefaults,
-    mut target: OrchestrationTarget,
-) -> OrchestrationTarget {
-    if target.username.is_none() {
-        target.username = defaults.username.clone();
-    }
-    if target.password.is_none() {
-        target.password = defaults.password.clone();
-    }
-    if target.port.is_none() {
-        target.port = defaults.port;
-    }
-    if target.enable_password.is_none() {
-        target.enable_password = defaults.enable_password.clone();
-    }
-    if target.ssh_security.is_none() {
-        target.ssh_security = defaults.ssh_security;
-    }
-    if target.linux_shell_flavor.is_none() {
-        target.linux_shell_flavor = defaults.linux_shell_flavor;
-    }
-    if target.device_profile.is_none() {
-        target.device_profile = defaults.device_profile.clone();
-    }
-    if target.template_dir.is_none() {
-        target.template_dir = defaults.template_dir.clone();
-    }
-    target.vars = merge_values(&defaults.vars, &target.vars);
-    target
-}
-
-fn expand_targets_with_defaults(
-    inputs: &[OrchestrationTargetInput],
-    defaults: &OrchestrationTargetDefaults,
-) -> Vec<OrchestrationTarget> {
-    expand_targets(inputs)
-        .into_iter()
-        .map(|target| apply_target_defaults(defaults, target))
-        .collect()
-}
+use std::collections::HashSet;
+use std::path::PathBuf;
 
 pub(crate) fn resolve_job_targets(
     stage_name: &str,
     job: &OrchestrationJob,
-    inventory: &OrchestrationInventory,
 ) -> Result<Vec<OrchestrationTarget>> {
     let mut targets = Vec::new();
+    let mut seen_connections = HashSet::new();
     let job_label = job
         .name
         .as_deref()
@@ -150,20 +33,17 @@ pub(crate) fn resolve_job_targets(
                 job_label
             ));
         }
-        let group = inventory.groups.get(normalized).ok_or_else(|| {
-            anyhow!(
-                "stage '{}' job '{}' references unknown inventory group '{}'",
+        if inventory_store::get_group(normalized)?.is_none() {
+            return Err(anyhow!(
+                "stage '{}' job '{}' references unknown device group '{}'",
                 stage_name,
                 job_label,
                 normalized
-            )
-        })?;
-        let group_spec = inventory_group_spec(group);
-        let merged_defaults = merge_target_defaults(&inventory.defaults, &group_spec.defaults);
-        targets.extend(expand_targets_with_defaults(
-            &group_spec.targets,
-            &merged_defaults,
-        ));
+            ));
+        }
+    }
+    for connection_name in list_connections_by_groups_any(&job.target_groups)? {
+        push_connection_target(&mut targets, &mut seen_connections, connection_name);
     }
     let tag_filters = job
         .target_tags
@@ -187,33 +67,34 @@ pub(crate) fn resolve_job_targets(
             )
         })?;
         for connection_name in by_tags {
-            targets.push(apply_target_defaults(
-                &inventory.defaults,
-                OrchestrationTarget {
-                    connection: Some(connection_name),
-                    ..OrchestrationTarget::default()
-                },
-            ));
+            push_connection_target(&mut targets, &mut seen_connections, connection_name);
         }
     }
-    targets.extend(expand_targets_with_defaults(
-        &job.targets,
-        &inventory.defaults,
-    ));
+    for connection_name in &job.targets {
+        let normalized = connection_name.trim();
+        if normalized.is_empty() {
+            return Err(anyhow!(
+                "stage '{}' job '{}' has empty targets entry",
+                stage_name,
+                job_label
+            ));
+        }
+        push_connection_target(&mut targets, &mut seen_connections, normalized.to_string());
+    }
     Ok(targets)
 }
 
-fn expand_targets(inputs: &[OrchestrationTargetInput]) -> Vec<OrchestrationTarget> {
-    inputs
-        .iter()
-        .map(|item| match item {
-            OrchestrationTargetInput::ConnectionName(name) => OrchestrationTarget {
-                connection: Some(name.clone()),
-                ..OrchestrationTarget::default()
-            },
-            OrchestrationTargetInput::Detailed(target) => target.as_ref().clone(),
-        })
-        .collect()
+fn push_connection_target(
+    targets: &mut Vec<OrchestrationTarget>,
+    seen_connections: &mut HashSet<String>,
+    connection_name: String,
+) {
+    if seen_connections.insert(connection_name.clone()) {
+        targets.push(OrchestrationTarget {
+            connection: Some(connection_name),
+            ..OrchestrationTarget::default()
+        });
+    }
 }
 
 pub(crate) fn resolve_target_connection(
@@ -334,23 +215,4 @@ pub(crate) fn resolve_runtime_vars_for_connection(
     conn: &EffectiveConnection,
 ) -> Result<Value> {
     resolve_runtime_var_aliases(vars, Some(current_connection_param_context(conn)))
-}
-
-pub(crate) fn merge_values(base: &Value, overlay: &Value) -> Value {
-    match (base, overlay) {
-        (_, Value::Null) => base.clone(),
-        (Value::Null, _) => overlay.clone(),
-        (Value::Object(base_obj), Value::Object(overlay_obj)) => {
-            let mut merged = base_obj.clone();
-            for (key, value) in overlay_obj {
-                let next = match merged.get(key) {
-                    Some(existing) => merge_values(existing, value),
-                    None => value.clone(),
-                };
-                merged.insert(key.clone(), next);
-            }
-            Value::Object(merged)
-        }
-        (_, _) => overlay.clone(),
-    }
 }

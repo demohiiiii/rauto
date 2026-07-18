@@ -7,6 +7,9 @@ export const CONNECTION_PICKER = Object.freeze({
   batchShowLabels: "connectionPicker.batchShow.labels",
   batchShowObject: "connectionPicker.batchShow.object",
   batchShowTargets: "connectionPicker.batchShow.targets",
+  orchestrationTargetGroups: "connectionPicker.orchestration.targetGroups",
+  orchestrationTargetTags: "connectionPicker.orchestration.targetTags",
+  orchestrationTargets: "connectionPicker.orchestration.targets",
   savedEditGroups: "connectionPicker.savedEdit.groups",
   savedEditLabels: "connectionPicker.savedEdit.labels",
   savedGroups: "connectionPicker.saved.groups",
@@ -54,6 +57,17 @@ const CONNECTION_PICKER_CONFIGS = {
   },
   [CONNECTION_PICKER.batchShowLabels]: {
     kind: "labels",
+  },
+  [CONNECTION_PICKER.orchestrationTargetGroups]: {
+    kind: "groups",
+  },
+  [CONNECTION_PICKER.orchestrationTargetTags]: {
+    kind: "labels",
+    allowCustom: false,
+  },
+  [CONNECTION_PICKER.orchestrationTargets]: {
+    kind: "devices",
+    allowCustom: false,
   },
   [CONNECTION_PICKER.showObject]: {
     kind: "show-objects",
@@ -535,6 +549,7 @@ export function connectionPickerChoices(key, pickerState = {}) {
   );
   const canAddCustom =
     kind === "labels" &&
+    pickerConfig?.allowCustom !== false &&
     !!query &&
     !selectedValues.includes(query) &&
     !optionValues.includes(query);
@@ -648,7 +663,7 @@ function commitConnectionPickerInput(key, rawInput = "") {
   const pickerKey = normalizeConnectionPickerKey(key);
   const pickerConfig = connectionPickerConfig(pickerKey);
   if (!pickerConfig) return false;
-  if (pickerConfig.kind === "labels") {
+  if (pickerConfig.kind === "labels" && pickerConfig.allowCustom !== false) {
     return addConnectionPickerValue(pickerKey, normalizedInput);
   }
   const matchingOption = connectionPickerOptionValues(
@@ -701,6 +716,8 @@ export function setConnectionInventorySnapshots({ groups, labels } = {}) {
   refreshSavedConnectionLabelOptions();
   refreshConnectionPicker(CONNECTION_PICKER.batchShowGroups);
   refreshConnectionPicker(CONNECTION_PICKER.batchShowLabels);
+  refreshConnectionPicker(CONNECTION_PICKER.orchestrationTargetGroups);
+  refreshConnectionPicker(CONNECTION_PICKER.orchestrationTargetTags);
 }
 
 export function setConnectionPickerSavedConnections(savedConnections = []) {
@@ -708,6 +725,7 @@ export function setConnectionPickerSavedConnections(savedConnections = []) {
     ? savedConnections
     : [];
   refreshConnectionPicker(CONNECTION_PICKER.batchShowTargets);
+  refreshConnectionPicker(CONNECTION_PICKER.orchestrationTargets);
 }
 
 export function setConnectionPickerSelectedValues(key, selectedValues = []) {

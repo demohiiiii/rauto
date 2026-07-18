@@ -84,6 +84,13 @@ test("tx workflow editor uses a focused flow canvas and live read-only view", as
   assert.doesNotMatch(visualSource, /TxBlockRootSettingsEditor/);
   assert.match(visualSource, /PresenceFieldGrid/);
   assert.match(visualSource, /tx-workflow-inspector/);
+  assert.match(visualSource, /embedded = false/);
+  assert.match(visualSource, /data-testid="tx-workflow-embedded-editor"/);
+  assert.match(visualSource, /<TxWorkflowBlockEditor[\s\S]*embedded=\{true\}/);
+  assert.ok(
+    visualSource.indexOf('data-testid="tx-workflow-embedded-editor"') <
+      visualSource.indexOf("<SvelteFlow"),
+  );
   assert.match(visualSource, /startInspectorResize/);
   assert.match(visualSource, /collapseInspector/);
   assert.match(visualSource, /settingsCollapsed/);

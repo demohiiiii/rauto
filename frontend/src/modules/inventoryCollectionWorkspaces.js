@@ -105,7 +105,6 @@ function inventoryCollectionListPresentation({
 function inventoryCollectionEditorPresentation({
   collectionNameText = "—",
   formDescription = "",
-  formVars = "",
   hostAvailableSet = EMPTY_INVENTORY_HOST_SET,
   hostFilterValue = "",
   hostNames = [],
@@ -130,7 +129,6 @@ function inventoryCollectionEditorPresentation({
     descriptionPlaceholder: tr("inventoryFieldDescriptionPlaceholder"),
     descriptionValue: safeString(formDescription),
     emptyText: tr(emptyText[0], emptyText[1]),
-    formVarsValue: safeString(formVars),
     hasFilteredHosts: filteredHostNames.length > 0,
     hostFilterPlaceholder: tr("inventoryFieldHostsFilterPlaceholder"),
     hostFilterValue: safeString(hostFilterValue),
@@ -148,8 +146,6 @@ function inventoryCollectionEditorPresentation({
     showStatus: Boolean(safeString(statusMessage)),
     statusMessage: safeString(statusMessage),
     statusTone: safeString(statusTone) || "info",
-    varsLabel: tr("inventoryFieldVars"),
-    varsPlaceholder: tr("inventoryFieldVarsPlaceholder"),
   };
 }
 
@@ -165,7 +161,6 @@ function inventoryCollectionPanelDisplay(
     collectionNameText: safeString(collection.collectionNameText || "—"),
     errorMessage: safeString(collection.errorMessage || ""),
     formDescription: collection.formDescription || "",
-    formVars: collection.formVars || "",
     hostAvailableSet: collection.hostAvailableSet || EMPTY_INVENTORY_HOST_SET,
     hostFilterValue: collection.hostFilterValue || "",
     hostNames: Array.isArray(collection.hostNames) ? collection.hostNames : [],

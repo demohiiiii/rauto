@@ -515,30 +515,6 @@ pub(crate) fn run_blacklist_command(cmd: BlacklistCommands) -> Result<()> {
 pub(crate) fn run_inventory_command(cmd: InventoryCommands) -> Result<()> {
     match cmd {
         InventoryCommands::Group(cmd) => run_inventory_group_command(cmd),
-        InventoryCommands::ResolveVars {
-            host,
-            groups,
-            vars_file,
-            vars_json,
-            json,
-        } => {
-            let runtime_vars = crate::cli_tx_block::load_vars_json_input(
-                vars_file.as_ref(),
-                vars_json.as_deref(),
-            )?;
-            let resolution = inventory_store::resolve_vars(host.as_deref(), &groups, runtime_vars)?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&resolution)?);
-            } else {
-                println!("host: {}", resolution.host_name.as_deref().unwrap_or("-"));
-                print_list("groups", &resolution.group_names);
-                println!(
-                    "merged_vars:\n{}",
-                    serde_json::to_string_pretty(&resolution.merged_vars)?
-                );
-            }
-            Ok(())
-        }
     }
 }
 
@@ -574,7 +550,6 @@ fn run_inventory_group_command(cmd: InventoryGroupCommands) -> Result<()> {
                     group.description.as_deref().unwrap_or("-")
                 );
                 print_list("hosts", &group.hosts);
-                println!("vars:\n{}", serde_json::to_string_pretty(&group.vars)?);
             }
             Ok(())
         }

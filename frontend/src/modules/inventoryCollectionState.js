@@ -665,7 +665,6 @@ export function createInventoryWorkspace(dependencies) {
       stateContext.selectedInventoryName("labels"),
     updateInventoryGroupDescription:
       stateContext.updateInventoryGroupDescription,
-    updateInventoryGroupVars: stateContext.updateInventoryGroupVars,
   };
 }
 

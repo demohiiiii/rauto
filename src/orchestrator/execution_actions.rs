@@ -1,7 +1,7 @@
 use super::{
     ActionExecutionOutcome, CompensationExecutionResult, OrchestrationAction,
     OrchestrationEventHook, OrchestrationPlan, OrchestrationRuntimeEvent, OrchestrationTarget,
-    RecordLevelOpt, TxBlockAction, TxWorkflowAction, template_resolver,
+    RecordLevelOpt, TxWorkflowAction, template_resolver,
 };
 use crate::config::command_blacklist;
 use crate::config::template_loader;
@@ -37,35 +37,14 @@ pub(super) async fn execute_action(
     stage_name: &str,
     job_name: &str,
     action: &OrchestrationAction,
-    target: &OrchestrationTarget,
+    _target: &OrchestrationTarget,
     conn: &EffectiveConnection,
-    plan_root: &Path,
+    _plan_root: &Path,
     record_level: RecordLevelOpt,
 ) -> Result<ActionExecutionOutcome> {
     match action {
-        OrchestrationAction::TxBlock(action) => {
-            execute_tx_block_action(
-                plan,
-                stage_name,
-                job_name,
-                action,
-                target,
-                conn,
-                record_level,
-            )
-            .await
-        }
         OrchestrationAction::TxWorkflow(action) => {
-            execute_tx_workflow_action(
-                plan,
-                stage_name,
-                job_name,
-                action,
-                conn,
-                plan_root,
-                record_level,
-            )
-            .await
+            execute_tx_workflow_action(plan, stage_name, job_name, action, conn, record_level).await
         }
     }
 }
@@ -73,18 +52,18 @@ pub(super) async fn execute_action(
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn execute_compensation_action(
     scope: &str,
-    plan: &OrchestrationPlan,
+    _plan: &OrchestrationPlan,
     stage_name: &str,
     job_name: &str,
     action: &OrchestrationAction,
-    target: &OrchestrationTarget,
+    _target: &OrchestrationTarget,
     conn: &EffectiveConnection,
-    plan_root: &Path,
+    _plan_root: &Path,
     record_level: RecordLevelOpt,
 ) -> Result<CompensationExecutionResult> {
     let started = Instant::now();
     let (rollback_block, source_operation) =
-        build_compensation_block(plan, stage_name, job_name, action, target, conn, plan_root)?;
+        build_compensation_block(stage_name, job_name, action, conn)?;
     if rollback_block.steps.is_empty() {
         return Ok(CompensationExecutionResult {
             scope: scope.to_string(),
@@ -182,25 +161,14 @@ pub(super) async fn execute_compensation_action(
 }
 
 fn build_compensation_block(
-    plan: &OrchestrationPlan,
     stage_name: &str,
     job_name: &str,
     action: &OrchestrationAction,
-    target: &OrchestrationTarget,
     conn: &EffectiveConnection,
-    plan_root: &Path,
 ) -> Result<(TxBlock, String)> {
     let (operations, source_operation) = match action {
-        OrchestrationAction::TxBlock(action) => {
-            let (tx_block, _mode, tx_block_name) =
-                template_resolver::resolve_orchestration_tx_block(
-                    plan, stage_name, job_name, action, target, conn,
-                )?;
-            let operations = rollback_operations_for_block(&tx_block)?;
-            (operations, format!("tx_block: {}", tx_block_name))
-        }
         OrchestrationAction::TxWorkflow(action) => {
-            let workflow = template_resolver::load_workflow(action, plan_root, conn)?;
+            let workflow = template_resolver::load_workflow(action, conn)?;
             let workflow_name = workflow.name.clone();
             let mut operations = Vec::new();
             for block in workflow.blocks.iter().rev() {
@@ -232,108 +200,15 @@ fn rollback_operations_for_block(block: &TxBlock) -> Result<Vec<SessionOperation
         .collect())
 }
 
-async fn execute_tx_block_action(
-    plan: &OrchestrationPlan,
-    stage_name: &str,
-    job_name: &str,
-    action: &TxBlockAction,
-    target: &OrchestrationTarget,
-    conn: &EffectiveConnection,
-    record_level: RecordLevelOpt,
-) -> Result<ActionExecutionOutcome> {
-    let (tx_block, mode, tx_block_name) = template_resolver::resolve_orchestration_tx_block(
-        plan, stage_name, job_name, action, target, conn,
-    )?;
-
-    command_blacklist::ensure_tx_block_allowed(
-        &tx_block,
-        &format!("orchestration tx block '{}'", tx_block_name),
-    )?;
-
-    let handler = template_loader::load_device_profile_for_connection(
-        &conn.device_profile,
-        conn.linux_shell_flavor,
-    )?;
-    let request = manager_connection_request(
-        conn.username.clone(),
-        conn.host.clone(),
-        conn.port,
-        conn.password.clone(),
-        conn.enable_password.clone(),
-        handler,
-    );
-    let (_sender, recorder) = MANAGER
-        .get_with_recording_level_and_context(
-            request,
-            manager_execution_context_with_security(
-                None,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            ),
-            to_record_level(record_level),
-        )
-        .await?;
-    let handler_for_tx = template_loader::load_device_profile_for_connection(
-        &conn.device_profile,
-        conn.linux_shell_flavor,
-    )?;
-    let request = manager_connection_request(
-        conn.username.clone(),
-        conn.host.clone(),
-        conn.port,
-        conn.password.clone(),
-        conn.enable_password.clone(),
-        handler_for_tx,
-    );
-    let tx_result = MANAGER
-        .execute_tx_block_with_context(
-            request,
-            tx_block,
-            manager_execution_context_with_security(
-                None,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            ),
-        )
-        .await?;
-    let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);
-    persist_auto_recording_history_jsonl(
-        &jsonl,
-        conn,
-        "orchestrate_tx_block",
-        &tx_block_name,
-        Some(&mode),
-        record_level,
-    )?;
-    let recording_jsonl = Some(jsonl);
-
-    Ok(ActionExecutionOutcome {
-        operation: format!("tx_block: {}", tx_block_name),
-        success: tx_result.committed,
-        error: if tx_result.committed {
-            None
-        } else {
-            Some(format!(
-                "tx block '{}' finished with failure",
-                tx_block_name
-            ))
-        },
-        tx_result: Some(serde_json::to_value(&tx_result)?),
-        workflow_result: None,
-        recording_jsonl,
-    })
-}
-
 async fn execute_tx_workflow_action(
     plan: &OrchestrationPlan,
     stage_name: &str,
     job_name: &str,
     action: &TxWorkflowAction,
     conn: &EffectiveConnection,
-    plan_root: &Path,
     record_level: RecordLevelOpt,
 ) -> Result<ActionExecutionOutcome> {
-    let workflow = template_resolver::load_workflow(action, plan_root, conn)?;
+    let workflow = template_resolver::load_workflow(action, conn)?;
     let workflow_name = workflow.name.clone();
     let operation_name = format!(
         "{}::{}::{}::{}",
@@ -430,8 +305,6 @@ mod tests {
             fail_fast: true,
             rollback_on_stage_failure: true,
             rollback_completed_stages_on_failure: false,
-            inventory_file: None,
-            inventory: None,
             stages: Vec::new(),
         }
     }
@@ -464,39 +337,25 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn compensation_noop_for_none_rollback_policy() {
-        let action = OrchestrationAction::TxBlock(TxBlockAction {
-            name: Some("noop".to_string()),
-            template: None,
-            tx_block_template_name: None,
-            tx_block_template_content: Some(
-                json!({
+        let action = OrchestrationAction::TxWorkflow(TxWorkflowAction {
+            workflow: Some(json!({
+                "name": "noop-workflow",
+                "blocks": [{
                     "name": "noop",
                     "rollback_policy": "none",
-                    "steps": [
-                        {
-                            "run": {
-                                "kind": "command",
-                                "mode": "User",
-                                "command": "echo hello"
-                            }
+                    "steps": [{
+                        "run": {
+                            "kind": "command",
+                            "mode": "User",
+                            "command": "echo hello"
                         }
-                    ],
+                    }],
                     "fail_fast": true
-                })
-                .to_string(),
-            ),
-            tx_block_template_vars: serde_json::Value::Null,
-            flow_template_name: None,
-            flow_template_content: None,
-            flow_vars: serde_json::Value::Null,
-            vars: serde_json::Value::Null,
-            commands: Vec::new(),
-            rollback_commands: Vec::new(),
-            rollback_on_failure: false,
-            rollback_trigger_step_index: None,
-            mode: None,
-            timeout_secs: None,
-            resource_rollback_command: None,
+                }],
+                "fail_fast": true
+            })),
+            workflow_template_name: None,
+            workflow_vars: serde_json::Value::Null,
         });
 
         let result = execute_compensation_action(
@@ -523,12 +382,10 @@ mod tests {
 
     #[test]
     fn compensation_block_wraps_whole_resource_rollback_as_single_step() {
-        let action = OrchestrationAction::TxBlock(TxBlockAction {
-            name: Some("whole-resource".to_string()),
-            template: None,
-            tx_block_template_name: None,
-            tx_block_template_content: Some(
-                json!({
+        let action = OrchestrationAction::TxWorkflow(TxWorkflowAction {
+            workflow: Some(json!({
+                "name": "whole-resource-workflow",
+                "blocks": [{
                     "name": "whole-resource",
                     "rollback_policy": {
                         "whole_resource": {
@@ -540,45 +397,26 @@ mod tests {
                             "trigger_step_index": 0
                         }
                     },
-                    "steps": [
-                        {
-                            "run": {
-                                "kind": "command",
-                                "mode": "Config",
-                                "command": "set service web"
-                            }
+                    "steps": [{
+                        "run": {
+                            "kind": "command",
+                            "mode": "Config",
+                            "command": "set service web"
                         }
-                    ],
+                    }],
                     "fail_fast": true
-                })
-                .to_string(),
-            ),
-            tx_block_template_vars: serde_json::Value::Null,
-            flow_template_name: None,
-            flow_template_content: None,
-            flow_vars: serde_json::Value::Null,
-            vars: serde_json::Value::Null,
-            commands: Vec::new(),
-            rollback_commands: Vec::new(),
-            rollback_on_failure: false,
-            rollback_trigger_step_index: None,
-            mode: None,
-            timeout_secs: None,
-            resource_rollback_command: None,
+                }],
+                "fail_fast": true
+            })),
+            workflow_template_name: None,
+            workflow_vars: serde_json::Value::Null,
         });
 
-        let (compensation, source_operation) = build_compensation_block(
-            &sample_plan(),
-            "stage-a",
-            "job-a",
-            &action,
-            &sample_target(),
-            &sample_conn(),
-            Path::new("."),
-        )
-        .expect("compensation block");
+        let (compensation, source_operation) =
+            build_compensation_block("stage-a", "job-a", &action, &sample_conn())
+                .expect("compensation block");
 
-        assert_eq!(source_operation, "tx_block: whole-resource");
+        assert_eq!(source_operation, "tx_workflow: whole-resource-workflow");
         assert!(matches!(compensation.rollback_policy, RollbackPolicy::None));
         assert_eq!(compensation.steps.len(), 1);
         let summary = compensation.steps[0]
@@ -661,23 +499,14 @@ mod tests {
             "fail_fast": true
         });
         let action = OrchestrationAction::TxWorkflow(TxWorkflowAction {
-            workflow_file: None,
             workflow: Some(workflow),
             workflow_template_name: None,
-            workflow_template_content: None,
             workflow_vars: serde_json::Value::Null,
         });
 
-        let (compensation, source_operation) = build_compensation_block(
-            &sample_plan(),
-            "stage-a",
-            "job-a",
-            &action,
-            &sample_target(),
-            &sample_conn(),
-            Path::new("."),
-        )
-        .expect("workflow compensation block");
+        let (compensation, source_operation) =
+            build_compensation_block("stage-a", "job-a", &action, &sample_conn())
+                .expect("workflow compensation block");
 
         assert_eq!(source_operation, "tx_workflow: wf-demo");
         assert_eq!(compensation.steps.len(), 2);

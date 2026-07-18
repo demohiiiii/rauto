@@ -3,12 +3,11 @@ use super::execution_actions::{
 };
 use super::targets as orchestrator_targets;
 use super::{
-    JobExecutionResult, OrchestrationEventHook, OrchestrationExecutionResult,
-    OrchestrationInventory, OrchestrationJob, OrchestrationPlan, OrchestrationRuntimeEvent,
-    OrchestrationStage, OrchestrationTarget, RecordLevelOpt, StageExecutionResult, StageStatus,
-    StageStrategy, TargetExecutionResult, TargetStatus, action_kind_name, build_job_result,
-    build_skipped_job, build_skipped_stage, build_skipped_target, build_stage_result, job_name,
-    target_label,
+    JobExecutionResult, OrchestrationEventHook, OrchestrationExecutionResult, OrchestrationJob,
+    OrchestrationPlan, OrchestrationRuntimeEvent, OrchestrationStage, OrchestrationTarget,
+    RecordLevelOpt, StageExecutionResult, StageStatus, StageStrategy, TargetExecutionResult,
+    TargetStatus, action_kind_name, build_job_result, build_skipped_job, build_skipped_stage,
+    build_skipped_target, build_stage_result, job_name, target_label,
 };
 use crate::cli::GlobalOpts;
 use anyhow::{Result, anyhow};
@@ -20,7 +19,6 @@ use tokio::task::JoinSet;
 
 pub(super) async fn execute_plan(
     plan: &OrchestrationPlan,
-    inventory: &OrchestrationInventory,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
@@ -37,7 +35,7 @@ pub(super) async fn execute_plan(
             } else {
                 "fail_fast"
             };
-            let skipped_jobs = build_skipped_stage_jobs(stage, inventory)?;
+            let skipped_jobs = build_skipped_stage_jobs(stage)?;
             emit_orchestration_event(
                 &event_hook,
                 OrchestrationRuntimeEvent {
@@ -57,7 +55,7 @@ pub(super) async fn execute_plan(
             continue;
         }
 
-        let stage_target_count = count_stage_targets(stage, inventory)?;
+        let stage_target_count = count_stage_targets(stage)?;
         emit_orchestration_event(
             &event_hook,
             OrchestrationRuntimeEvent {
@@ -81,7 +79,6 @@ pub(super) async fn execute_plan(
             plan,
             stage,
             stage_idx,
-            inventory,
             plan_root,
             opts,
             record_level,
@@ -98,7 +95,6 @@ pub(super) async fn execute_plan(
                 stage,
                 stage_idx,
                 &mut stage_result,
-                inventory,
                 plan_root,
                 opts,
                 record_level,
@@ -110,7 +106,6 @@ pub(super) async fn execute_plan(
             compensate_completed_stages(
                 plan,
                 &mut stages,
-                inventory,
                 plan_root,
                 opts,
                 record_level,
@@ -205,7 +200,6 @@ pub(super) async fn execute_plan(
 async fn compensate_completed_stages(
     plan: &OrchestrationPlan,
     stages: &mut [StageExecutionResult],
-    inventory: &OrchestrationInventory,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
@@ -221,7 +215,6 @@ async fn compensate_completed_stages(
             stage,
             stage_idx,
             stage_result,
-            inventory,
             plan_root,
             opts,
             record_level,
@@ -239,7 +232,6 @@ async fn compensate_stage(
     stage: &OrchestrationStage,
     stage_idx: usize,
     stage_result: &mut StageExecutionResult,
-    inventory: &OrchestrationInventory,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
@@ -266,8 +258,7 @@ async fn compensate_stage(
         let Some(job) = stage.jobs.get(job_idx) else {
             continue;
         };
-        let targets =
-            orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?;
+        let targets = orchestrator_targets::resolve_job_targets(stage.name.as_str(), job)?;
         for (target_idx, target_result) in job_result.results.iter_mut().enumerate() {
             if !matches!(target_result.status, TargetStatus::Success)
                 || target_result.compensation.is_some()
@@ -394,26 +385,18 @@ async fn compensate_stage(
     Ok(())
 }
 
-fn count_stage_targets(
-    stage: &OrchestrationStage,
-    inventory: &OrchestrationInventory,
-) -> Result<usize> {
+fn count_stage_targets(stage: &OrchestrationStage) -> Result<usize> {
     let mut total = 0usize;
     for job in &stage.jobs {
-        total +=
-            orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?.len();
+        total += orchestrator_targets::resolve_job_targets(stage.name.as_str(), job)?.len();
     }
     Ok(total)
 }
 
-fn build_skipped_stage_jobs(
-    stage: &OrchestrationStage,
-    inventory: &OrchestrationInventory,
-) -> Result<Vec<JobExecutionResult>> {
+fn build_skipped_stage_jobs(stage: &OrchestrationStage) -> Result<Vec<JobExecutionResult>> {
     let mut jobs = Vec::with_capacity(stage.jobs.len());
     for (job_idx, job) in stage.jobs.iter().enumerate() {
-        let targets =
-            orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?;
+        let targets = orchestrator_targets::resolve_job_targets(stage.name.as_str(), job)?;
         jobs.push(build_skipped_job(
             job,
             job_idx,
@@ -429,7 +412,6 @@ async fn execute_stage(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
     stage_idx: usize,
-    inventory: &OrchestrationInventory,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
@@ -442,7 +424,6 @@ async fn execute_stage(
                 plan,
                 stage,
                 stage_idx,
-                inventory,
                 plan_root,
                 opts,
                 record_level,
@@ -456,7 +437,6 @@ async fn execute_stage(
                 plan,
                 stage,
                 stage_idx,
-                inventory,
                 plan_root,
                 opts,
                 record_level,
@@ -475,7 +455,6 @@ async fn execute_serial_stage_jobs(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
     stage_idx: usize,
-    inventory: &OrchestrationInventory,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
@@ -490,7 +469,6 @@ async fn execute_serial_stage_jobs(
             stage_idx,
             job,
             job_idx,
-            inventory,
             plan_root,
             opts,
             record_level,
@@ -501,11 +479,8 @@ async fn execute_serial_stage_jobs(
         jobs.push(job_result);
         if is_failed && stage_fail_fast {
             for (remaining_idx, remaining_job) in stage.jobs.iter().enumerate().skip(job_idx + 1) {
-                let targets = orchestrator_targets::resolve_job_targets(
-                    stage.name.as_str(),
-                    remaining_job,
-                    inventory,
-                )?;
+                let targets =
+                    orchestrator_targets::resolve_job_targets(stage.name.as_str(), remaining_job)?;
                 jobs.push(build_skipped_job(
                     remaining_job,
                     remaining_idx,
@@ -524,7 +499,6 @@ async fn execute_parallel_stage_jobs(
     plan: &OrchestrationPlan,
     stage: &OrchestrationStage,
     stage_idx: usize,
-    inventory: &OrchestrationInventory,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
@@ -544,7 +518,6 @@ async fn execute_parallel_stage_jobs(
         .collect();
     let plan_owned = plan.clone();
     let stage_owned = stage.clone();
-    let inventory_owned = inventory.clone();
     let opts_owned = opts.clone();
     let plan_root_owned = plan_root.to_path_buf();
     let mut stop_spawning = false;
@@ -554,7 +527,6 @@ async fn execute_parallel_stage_jobs(
             let (job_idx, job) = pending.pop_front().expect("pending job");
             let plan_cloned = plan_owned.clone();
             let stage_cloned = stage_owned.clone();
-            let inventory_cloned = inventory_owned.clone();
             let opts_cloned = opts_owned.clone();
             let plan_root_cloned = plan_root_owned.clone();
             let event_hook_cloned = event_hook.clone();
@@ -565,7 +537,6 @@ async fn execute_parallel_stage_jobs(
                     stage_idx,
                     &job,
                     job_idx,
-                    &inventory_cloned,
                     &plan_root_cloned,
                     &opts_cloned,
                     record_level,
@@ -588,8 +559,7 @@ async fn execute_parallel_stage_jobs(
     }
 
     for (job_idx, job) in pending {
-        let targets =
-            orchestrator_targets::resolve_job_targets(stage.name.as_str(), &job, inventory)?;
+        let targets = orchestrator_targets::resolve_job_targets(stage.name.as_str(), &job)?;
         results[job_idx] = Some(build_skipped_job(
             &job,
             job_idx,
@@ -617,14 +587,13 @@ async fn execute_job(
     stage_idx: usize,
     job: &OrchestrationJob,
     job_idx: usize,
-    inventory: &OrchestrationInventory,
     plan_root: &Path,
     opts: &GlobalOpts,
     record_level: RecordLevelOpt,
     event_hook: Option<OrchestrationEventHook>,
 ) -> Result<JobExecutionResult> {
     let job_fail_fast = job.fail_fast.unwrap_or(true);
-    let targets = orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?;
+    let targets = orchestrator_targets::resolve_job_targets(stage.name.as_str(), job)?;
     let job_display_name = job_name(job, job_idx);
 
     emit_orchestration_event(
@@ -1025,7 +994,6 @@ async fn execute_target(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::ssh_security::SshSecurityProfile;
     use serde_json::json;
 
     fn sample_opts() -> GlobalOpts {
@@ -1047,60 +1015,31 @@ mod tests {
     }
 
     fn none_rollback_action(name: &str) -> super::super::OrchestrationAction {
-        super::super::OrchestrationAction::TxBlock(super::super::TxBlockAction {
-            name: Some(name.to_string()),
-            template: None,
-            tx_block_template_name: None,
-            tx_block_template_content: Some(
-                json!({
-                    "name": name,
-                    "rollback_policy": "none",
-                    "steps": [
-                        {
+        super::super::OrchestrationAction::TxWorkflow(super::super::TxWorkflowAction {
+            workflow: Some(json!({
+                "name": format!("{name}-workflow"),
+                "blocks": [
+                    {
+                        "name": name,
+                        "rollback_policy": "none",
+                        "steps": [{
                             "run": {
                                 "kind": "command",
                                 "mode": "User",
                                 "command": "echo hello"
                             }
-                        }
-                    ],
-                    "fail_fast": true
-                })
-                .to_string(),
-            ),
-            tx_block_template_vars: serde_json::Value::Null,
-            flow_template_name: None,
-            flow_template_content: None,
-            flow_vars: serde_json::Value::Null,
-            vars: serde_json::Value::Null,
-            commands: Vec::new(),
-            rollback_commands: Vec::new(),
-            rollback_on_failure: false,
-            rollback_trigger_step_index: None,
-            mode: None,
-            timeout_secs: None,
-            resource_rollback_command: None,
+                        }],
+                        "fail_fast": true
+                    }
+                ],
+                "fail_fast": true
+            })),
+            workflow_template_name: None,
+            workflow_vars: serde_json::Value::Null,
         })
     }
 
-    fn sample_target(name: &str, host: &str) -> OrchestrationTarget {
-        OrchestrationTarget {
-            name: Some(name.to_string()),
-            connection: None,
-            host: Some(host.to_string()),
-            username: Some("admin".to_string()),
-            password: Some("secret".to_string()),
-            port: Some(22),
-            enable_password: None,
-            ssh_security: Some(SshSecurityProfile::Balanced),
-            linux_shell_flavor: None,
-            device_profile: Some("linux".to_string()),
-            template_dir: None,
-            vars: json!({}),
-        }
-    }
-
-    fn sample_job(name: &str, targets: Vec<OrchestrationTarget>) -> OrchestrationJob {
+    fn sample_job(name: &str, targets: &[&str]) -> OrchestrationJob {
         OrchestrationJob {
             name: Some(name.to_string()),
             strategy: StageStrategy::Serial,
@@ -1108,10 +1047,7 @@ mod tests {
             fail_fast: Some(true),
             target_groups: Vec::new(),
             target_tags: Vec::new(),
-            targets: targets
-                .into_iter()
-                .map(|target| super::super::OrchestrationTargetInput::Detailed(Box::new(target)))
-                .collect(),
+            targets: targets.iter().map(|target| (*target).to_string()).collect(),
             action: none_rollback_action(name),
         }
     }
@@ -1132,8 +1068,6 @@ mod tests {
             fail_fast: true,
             rollback_on_stage_failure: true,
             rollback_completed_stages_on_failure: true,
-            inventory_file: None,
-            inventory: None,
             stages,
         }
     }
@@ -1172,17 +1106,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn compensate_stage_only_marks_successful_targets() {
-        let inventory = OrchestrationInventory::default();
-        let stage = sample_stage(
-            "stage-a",
-            sample_job(
-                "job-a",
-                vec![
-                    sample_target("edge-a", "192.0.2.10"),
-                    sample_target("edge-b", "192.0.2.11"),
-                ],
-            ),
-        );
+        let stage = sample_stage("stage-a", sample_job("job-a", &["edge-a", "edge-b"]));
         let plan = sample_plan(vec![stage.clone()]);
         let mut stage_result = StageExecutionResult {
             name: stage.name.clone(),
@@ -1217,7 +1141,6 @@ mod tests {
             &stage,
             0,
             &mut stage_result,
-            &inventory,
             Path::new("."),
             &sample_opts(),
             RecordLevelOpt::KeyEventsOnly,
@@ -1234,21 +1157,15 @@ mod tests {
                 .compensation
                 .as_ref()
                 .and_then(|item| item.reason.as_deref()),
-            Some("no rollback operations planned")
+            Some("target connection resolution failed")
         );
         assert!(second.compensation.is_none());
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn compensate_completed_stages_marks_previous_success_targets_once() {
-        let stage_a = sample_stage(
-            "stage-a",
-            sample_job("job-a", vec![sample_target("edge-a", "192.0.2.10")]),
-        );
-        let stage_b = sample_stage(
-            "stage-b",
-            sample_job("job-b", vec![sample_target("edge-b", "192.0.2.11")]),
-        );
+        let stage_a = sample_stage("stage-a", sample_job("job-a", &["edge-a"]));
+        let stage_b = sample_stage("stage-b", sample_job("job-b", &["edge-b"]));
         let plan = sample_plan(vec![stage_a.clone(), stage_b.clone()]);
         let mut stages = vec![
             StageExecutionResult {
@@ -1315,7 +1232,6 @@ mod tests {
         compensate_completed_stages(
             &plan,
             &mut stages,
-            &OrchestrationInventory::default(),
             Path::new("."),
             &sample_opts(),
             RecordLevelOpt::KeyEventsOnly,

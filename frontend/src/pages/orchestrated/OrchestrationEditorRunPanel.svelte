@@ -1,22 +1,28 @@
 <script>
-  import * as Card from "$lib/components/ui/card";
-  import FilePickerButton from "../../components/fragments/FilePickerButton.svelte";
-  import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import { tick } from "svelte";
+  import {
+    listInventoryGroups,
+    listInventoryLabels,
+  } from "../../api/client.js";
+  import { browserConfirm } from "../../lib/browser.js";
+  import { t } from "../../lib/i18n.js";
   import {
     createOrchestrationEditorPanelWorkspace,
     orchestrationJsonPlaceholder,
   } from "../../modules/orchestrationPanelState.js";
+  import { orchestrationPlanFormModelFromJsonText } from "../../modules/orchestrationFormState.js";
+  import { setConnectionInventorySnapshots } from "../../modules/connectionFields.js";
+  import { createOrchestrationTemplateWorkspace } from "../../modules/orchestrationTemplateWorkspace.js";
   import OrchestrationEditorSurface from "./OrchestrationEditorSurface.svelte";
 
   let {
     active,
-    onCreateDraft,
     onEditorInput,
     onExecute,
     onImportFile,
-    onPreview,
     orchestrationEditorRunButtonDisplay,
     editorSyncVersion = 0,
+    executionPanelDisplay,
   } = $props();
 
   const orchestrationEditorWorkspace =
@@ -25,92 +31,144 @@
     changeFormModel,
     createJsonDraft,
     editorDisplayStateStore,
-    editorDisplayModeStateStore,
     ensureInitialized,
     formErrorStateStore,
     formModelStateStore,
     handleEditorJsonInput,
     importFile,
     jsonTextStateStore,
-    selectEditorView,
     setEditorPanelContext,
     setFormError,
     visualDisplayStateStore,
   } = orchestrationEditorWorkspace;
   let editorDisplay = $derived($editorDisplayStateStore);
-  let editorDisplayMode = $derived($editorDisplayModeStateStore);
   let orchestrationFormModel = $derived($formModelStateStore);
   let orchestrationFormError = $derived($formErrorStateStore);
   let orchestrationJsonText = $derived($jsonTextStateStore);
   let visualDisplay = $derived($visualDisplayStateStore);
+  let templateInitialized = false;
+  let targetOptionsInitialized = false;
+
+  async function initializeTargetOptions() {
+    const [groups, labels] = await Promise.all([
+      listInventoryGroups().catch(() => []),
+      listInventoryLabels().catch(() => []),
+    ]);
+    setConnectionInventorySnapshots({
+      groups: Array.isArray(groups) ? groups : [],
+      labels: Array.isArray(labels) ? labels : [],
+    });
+  }
+
+  function confirmTemplateReplacement({ reason } = {}) {
+    return browserConfirm(
+      t(
+        reason === "delete"
+          ? "orchestrationTemplateDeleteConfirm"
+          : "orchestrationDiscardChangesConfirm",
+      ),
+    );
+  }
+
+  function changeCurrentFormModel(nextModel, options) {
+    const result = changeFormModel(nextModel, options);
+    orchestrationTemplateWorkspace.markEdited();
+    return result;
+  }
+
+  function handleCurrentEditorInput(jsonText) {
+    const result = handleEditorJsonInput(jsonText);
+    orchestrationTemplateWorkspace.markEdited();
+    return result;
+  }
+
+  function replaceTemplateJson(jsonText) {
+    const parsed = orchestrationPlanFormModelFromJsonText(jsonText);
+    if (parsed.error || !parsed.model) {
+      throw new Error(parsed.error || t("orchestrationJsonRequired"));
+    }
+    return handleCurrentEditorInput(jsonText);
+  }
+
+  const orchestrationTemplateWorkspace = createOrchestrationTemplateWorkspace({
+    confirmReplace: confirmTemplateReplacement,
+    createDraft: createJsonDraft,
+    getCurrentJson: () => orchestrationJsonText,
+    replaceJson: replaceTemplateJson,
+  });
+  const {
+    adoptManualSnapshot,
+    changeNameDialogValue,
+    closeNameDialog,
+    deleteTemplate,
+    displayStateStore: templateDisplayStateStore,
+    initialize: initializeTemplates,
+    openNewDialog,
+    openSaveAsDialog,
+    saveTemplate,
+    selectTemplate,
+    submitNameDialog,
+  } = orchestrationTemplateWorkspace;
+  let templateDisplay = $derived($templateDisplayStateStore);
+
+  async function importManualFile(file) {
+    if (
+      templateDisplay.dirty &&
+      !browserConfirm(t("orchestrationDiscardChangesConfirm"))
+    ) {
+      return false;
+    }
+    const result = await importFile(file);
+    await tick();
+    adoptManualSnapshot({ statusKind: "imported" });
+    return result;
+  }
 
   $effect(() => {
     setEditorPanelContext({
       editorSyncVersion,
       jsonPlaceholder: orchestrationJsonPlaceholder,
-      onCreateDraft,
+      onCreateDraft: null,
       onEditorInput,
       onImportFile,
     });
     ensureInitialized();
   });
+
+  $effect(() => {
+    if (!active || templateInitialized) return;
+    templateInitialized = true;
+    void initializeTemplates();
+  });
+
+  $effect(() => {
+    if (!active || targetOptionsInitialized) return;
+    targetOptionsInitialized = true;
+    void initializeTargetOptions();
+  });
 </script>
 
-<Card.Root>
-  <Card.Header>
-    <Card.Title>{editorDisplay.editorTitle}</Card.Title>
-    <Card.Action>
-      <div class="inline-flex flex-wrap items-center gap-2">
-        <LoadingButton
-          variant="outline"
-          size="sm"
-          loading={orchestrationEditorRunButtonDisplay.createLoading}
-          onclick={createJsonDraft}
-        >
-          <span>{editorDisplay.newButtonLabel}</span>
-        </LoadingButton>
-        <FilePickerButton
-          variant="outline"
-          size="sm"
-          accept=".json,application/json"
-          onFile={importFile}
-        >
-          {editorDisplay.importButtonLabel}
-        </FilePickerButton>
-      </div>
-    </Card.Action>
-  </Card.Header>
-  <Card.Content>
-    <OrchestrationEditorSurface
-      {active}
-      {editorDisplayMode}
-      {editorDisplay}
-      editorValue={orchestrationJsonText}
-      {orchestrationFormError}
-      {orchestrationFormModel}
-      {visualDisplay}
-      onEditorViewSelect={selectEditorView}
-      onFormChange={changeFormModel}
-      onEditorErrorChange={setFormError}
-      onEditorInput={handleEditorJsonInput}
-    />
-  </Card.Content>
-</Card.Root>
-<div class="grid grid-cols-2 gap-2">
-  <LoadingButton
-    variant="outline"
-    size="sm"
-    loading={orchestrationEditorRunButtonDisplay.previewLoading}
-    onclick={onPreview}
-  >
-    <span>{editorDisplay.planButtonLabel}</span>
-  </LoadingButton>
-  <LoadingButton
-    variant="default"
-    size="sm"
-    loading={orchestrationEditorRunButtonDisplay.executeLoading}
-    onclick={onExecute}
-  >
-    <span>{editorDisplay.executeButtonLabel}</span>
-  </LoadingButton>
-</div>
+<OrchestrationEditorSurface
+  {active}
+  {editorDisplay}
+  editorValue={orchestrationJsonText}
+  {orchestrationFormError}
+  {orchestrationFormModel}
+  {visualDisplay}
+  onFormChange={changeCurrentFormModel}
+  onEditorErrorChange={setFormError}
+  onEditorInput={handleCurrentEditorInput}
+  {onExecute}
+  onImportFile={importManualFile}
+  {templateDisplay}
+  onTemplateChange={selectTemplate}
+  {openNewDialog}
+  {saveTemplate}
+  {openSaveAsDialog}
+  {deleteTemplate}
+  {changeNameDialogValue}
+  {closeNameDialog}
+  {submitNameDialog}
+  runButtonDisplay={orchestrationEditorRunButtonDisplay}
+  {executionPanelDisplay}
+/>

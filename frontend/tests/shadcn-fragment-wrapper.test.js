@@ -124,21 +124,29 @@ test("connection picker dropdown renders above following form controls", () => {
   const source = read(
     "frontend/src/components/connections/ConnectionPickerField.svelte",
   );
+  const jobEditor = read(
+    "frontend/src/pages/orchestrated/OrchestrationJobEditor.svelte",
+  );
+  const targetsEditor = read(
+    "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
+  );
 
-  assert.match(source, /absolute left-0 top-full z-50/);
+  assert.match(source, /absolute left-0 top-full z-\[80\]/);
+  assert.match(source, /hover:bg-accent/);
   assert.match(source, /class:connection-show-object-menu/);
+  assert.match(jobEditor, /relative z-20 overflow-visible/);
+  assert.match(jobEditor, /relative z-10 overflow-hidden/);
+  assert.match(targetsEditor, /@container/);
+  assert.match(targetsEditor, /@2xl:grid-cols-3/);
 });
 
 test("editor panels use component-local toolbar layout instead of field-tools", () => {
   const panelPaths = [
     "frontend/src/components/fragments/ObjectFieldsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationInventoryGroupTargetsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationInventoryPanel.svelte",
     "frontend/src/pages/orchestrated/OrchestrationJobEditor.svelte",
     "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
     "frontend/src/pages/orchestrated/OrchestrationStageEditor.svelte",
     "frontend/src/pages/orchestrated/OrchestrationStagesPanel.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationTargetInputEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
@@ -164,16 +172,8 @@ test("form sections use semantic local layout instead of Daisy field classes", (
     "frontend/src/components/fragments/StringListEditor.svelte",
     "frontend/src/components/fragments/TextAreaField.svelte",
     "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationInventoryDefaultsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationInventoryGroupSettingsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationInventoryGroupTargetsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationInventoryPanel.svelte",
     "frontend/src/pages/orchestrated/OrchestrationJobActionEditor.svelte",
     "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationTargetInputEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationTxBlockDirectSourceEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationTxBlockFlowSourceEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationTxBlockTemplateSourceEditor.svelte",
     "frontend/src/pages/orchestrated/OrchestrationTxWorkflowSourceEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
     "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
@@ -959,8 +959,6 @@ test("prompt panels compose shadcn Card instead of group-card shells", () => {
 
 test("orchestrated panels compose shadcn Card instead of group-card shells", () => {
   const panelPaths = [
-    "frontend/src/pages/orchestrated/OrchestrationEditorRunPanel.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationInputPanel.svelte",
     "frontend/src/pages/orchestrated/OrchestrationPreviewPanel.svelte",
     "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
     "frontend/src/pages/orchestrated/TxBlockRunPanel.svelte",
@@ -982,7 +980,6 @@ test("orchestrated panels compose shadcn Card instead of group-card shells", () 
 
 test("framed orchestrated editors compose shadcn Card", () => {
   const panelPaths = [
-    "frontend/src/pages/orchestrated/OrchestrationInventoryGroupEditor.svelte",
     "frontend/src/pages/orchestrated/OrchestrationStageEditor.svelte",
     "frontend/src/pages/orchestrated/TxWorkflowBlockEditor.svelte",
   ];

@@ -17,6 +17,7 @@
     editorDisplay,
     blockActionHandlers,
     showRemoveAction = true,
+    embedded = false,
   } = $props();
 
   const txWorkflowBlockEditorWorkspace = createTxWorkflowBlockEditorWorkspace();
@@ -68,6 +69,7 @@
       {:else if blockRow.showInlineBlock}
         <TxBlockVisualEditor
           model={blockRow.block.inlineBlock}
+          stacked={embedded}
           stepRunCommandMetadataFieldDefs={INLINE_BLOCK_RUN_COMMAND_METADATA_FIELD_DEFS}
           onChange={blockActionHandlers.updateInlineBlock}
         />

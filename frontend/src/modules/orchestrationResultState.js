@@ -33,17 +33,14 @@ export function createOrchestrationJsonSectionWorkspace({
 }
 
 export function createOrchestrationPreviewPanelWorkspace({
-  inventory = null,
   plan = null,
   previewMode = "",
 } = {}) {
-  const inventoryStateStore = writable(inventory);
   const planStateStore = writable(plan);
   const previewModeStateStore = writable(previewMode);
   const previewPresentationStateStore = deriveStore(
-    [planStateStore, inventoryStateStore, currentLanguageState],
-    ([$planStateStore, $inventoryStateStore]) =>
-      orchestrationPreviewPresentation($planStateStore, $inventoryStateStore),
+    [planStateStore, currentLanguageState],
+    ([$planStateStore]) => orchestrationPreviewPresentation($planStateStore),
   );
   const previewModeDisplayStateStore = deriveStore(
     previewModeStateStore,
@@ -54,11 +51,9 @@ export function createOrchestrationPreviewPanelWorkspace({
     previewModeDisplayStateStore,
     previewPresentationStateStore,
     setPreviewInputs({
-      inventory: nextInventory = null,
       plan: nextPlan = null,
       previewMode: nextPreviewMode = "",
     } = {}) {
-      inventoryStateStore.set(nextInventory);
       planStateStore.set(nextPlan);
       previewModeStateStore.set(nextPreviewMode);
     },

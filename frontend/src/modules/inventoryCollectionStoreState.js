@@ -13,7 +13,6 @@ function createInventorySectionStore() {
     collectionNameText: "—",
     errorMessage: "",
     formDescription: "",
-    formVars: "{\n  \n}",
     hostAvailableSet: new Set(),
     hostFilterValue: "",
     hostNames: [],
@@ -53,10 +52,6 @@ export function createInventoryStateContext() {
 
   function updateInventoryGroupDescription(descriptionText = "") {
     updateInventoryState("groups", { formDescription: descriptionText });
-  }
-
-  function updateInventoryGroupVars(varsText = "") {
-    updateInventoryState("groups", { formVars: varsText });
   }
 
   function inventoryHostFilterValue(kind) {
@@ -99,7 +94,6 @@ export function createInventoryStateContext() {
     setInventoryPickerOptions,
     setInventorySelectedName,
     updateInventoryGroupDescription,
-    updateInventoryGroupVars,
     updateInventoryState,
   };
 }
@@ -191,7 +185,6 @@ function resetInventoryGroupFormState({ inventoryName = "", stateContext }) {
   stateContext.updateInventoryState("groups", {
     collectionNameText: inventoryName || "—",
     formDescription: "",
-    formVars: "{\n  \n}",
   });
   return new Set();
 }
@@ -201,7 +194,6 @@ function applyInventoryGroupFormState({ group = {}, stateContext }) {
   stateContext.updateInventoryState("groups", {
     collectionNameText: group.name || "—",
     formDescription: group.description || "",
-    formVars: JSON.stringify(group.vars || {}, null, 2),
   });
   return normalizeInventoryHostSelection(group.hosts);
 }
@@ -222,23 +214,6 @@ function applyInventoryLabelFormState({ label = {}, stateContext }) {
   return normalizeInventoryHostSelection(label.hosts);
 }
 
-function parseInventoryJsonObjectValue(rawValue) {
-  const raw = safeString(rawValue).trim();
-  if (!raw) return {};
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    throw new Error(error.message || String(error));
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(
-      tr("inventoryVarsMustBeObject", "vars must be a JSON object"),
-    );
-  }
-  return parsed;
-}
-
 export function buildInventoryGroupFormPayload({
   hostSelection,
   inventoryName,
@@ -251,7 +226,6 @@ export function buildInventoryGroupFormPayload({
       leftHostName.localeCompare(rightHostName),
     ),
     name: inventoryName,
-    vars: parseInventoryJsonObjectValue(groupForm.formVars || ""),
   };
 }
 

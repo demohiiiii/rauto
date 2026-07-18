@@ -126,9 +126,7 @@ Use workflow root shape:
 Either:
 
 - switch to an existing saved workflow template name
-- use `workflow_template_content`
 - use inline `workflow`
-- use `workflow_file`
 
 ### Error
 
@@ -201,7 +199,7 @@ Add at least one stage with `name`, `strategy`, target scope, and action.
 
 ### Error
 
-`stage 'publish' must contain at least one target or target_groups entry`
+`stage 'publish' job 0 must contain at least one target, target_groups, or target_tags entry`
 
 ### Cause
 
@@ -221,9 +219,12 @@ or
 "target_groups": ["edge_nodes"]
 ```
 
+Every `targets` value must be a saved connection name. Objects containing
+`host`, credentials, or connection overrides are not accepted.
+
 ### Error
 
-`stage 'publish' tx_workflow requires exactly one source: workflow_file/workflow/workflow_template_name/workflow_template_content`
+`stage 'publish' tx_workflow requires exactly one source: workflow/workflow_template_name`
 
 ### Cause
 
@@ -233,27 +234,11 @@ No source or multiple workflow sources were set.
 
 Keep exactly one of:
 
-- `workflow_file`
 - `workflow`
 - `workflow_template_name`
-- `workflow_template_content`
 
-### Error
-
-`stage 'edge' tx_block template source cannot be combined with template/commands`
-
-### Cause
-
-`tx_block_template_name` or `tx_block_template_content` was mixed with `template` / `commands`.
-
-### Fix
-
-Choose exactly one tx-block source style:
-
-- template source:
-  - `tx_block_template_name` or `tx_block_template_content`
-- command source:
-  - `template` and/or `commands`
+All orchestration actions must use `kind: "tx_workflow"`; direct `tx_block`
+actions are rejected.
 
 ### Error
 
@@ -261,16 +246,15 @@ Choose exactly one tx-block source style:
 
 ### Cause
 
-`target_groups` points to an empty or missing inventory group, or all targets collapse after merge.
+`target_groups` points to an empty or unknown persisted rauto device group, or all selectors resolve to no saved connections.
 
 ### Fix
 
 Check:
 
-- `inventory_file` path
-- inline `inventory.groups`
 - spelling of `target_groups`
-- whether the selected group actually contains targets
+- whether the selected persisted device group contains enabled saved connections
+- spelling and membership of `target_tags`
 
 ## 4) Command / Flow Operation Mixups
 

@@ -1,38 +1,26 @@
 import { derived as deriveStore, writable } from "svelte/store";
 import { currentLanguageState } from "../lib/i18n.js";
 import { cloneJsonValue } from "../lib/jsonValue.js";
+import { listTemplateResource } from "../api/client.js";
 import {
-  orchestrationCreateTxBlockActionModel,
   orchestrationCreateTxWorkflowActionModel,
   orchestrationJsonPatchResult,
-  orchestrationNullableFieldModePatch,
-  orchestrationExtraStringPresenceChangeHandler,
-  orchestrationExtraStringValueChangeHandler,
   orchestrationPatchJobDraft,
-  orchestrationToggleNullableFieldPresence,
-  orchestrationToggleObjectFieldPresence,
 } from "./orchestrationFormState.js";
 import { orchestrationTxWorkflowActionSettingsPanelDisplay } from "./orchestrationActionDisplayState.js";
 
 const cloneOrchestrationJsonValue = cloneJsonValue;
+const TEMPLATE_API_PATH = "/api/tx-workflow-templates";
 
 export function orchestrationTxWorkflowFieldPatch(
   fieldKey = "",
   fieldValue = null,
 ) {
-  if (fieldKey === "workflowFile") {
-    return { workflowFile: fieldValue, hasWorkflowFile: true };
-  }
   if (fieldKey === "workflowTemplateName") {
     return {
-      workflowTemplateName: fieldValue,
+      workflowTemplateName:
+        fieldValue == null ? null : String(fieldValue).trim(),
       hasWorkflowTemplateName: true,
-    };
-  }
-  if (fieldKey === "workflowTemplateContent") {
-    return {
-      workflowTemplateContent: fieldValue,
-      hasWorkflowTemplateContent: true,
     };
   }
   if (fieldKey === "workflow") {
@@ -50,101 +38,39 @@ export function orchestrationTxWorkflowFieldPatch(
   return {};
 }
 
-export function createOrchestrationTxWorkflowActionEditorWorkspace({
-  jobIndex = 0,
-  model = {},
-  onChange = null,
-  onErrorChange = null,
-  stageIndex = 0,
-} = {}) {
-  const jobIndexStateStore = writable(
-    Number.isInteger(jobIndex) ? jobIndex : 0,
-  );
-  const modelStateStore = writable(
-    model && typeof model === "object" ? model : {},
-  );
-  const onChangeStateStore = writable(onChange);
-  const onErrorChangeStateStore = writable(onErrorChange);
-  const stageIndexStateStore = writable(
-    Number.isInteger(stageIndex) ? stageIndex : 0,
-  );
-  const actionCallbacksStateStore = deriveStore(
-    [
-      modelStateStore,
-      stageIndexStateStore,
-      jobIndexStateStore,
-      onChangeStateStore,
-      onErrorChangeStateStore,
-    ],
-    ([
-      $modelStateStore,
-      $stageIndexStateStore,
-      $jobIndexStateStore,
-      $onChangeStateStore,
-      $onErrorChangeStateStore,
-    ]) =>
-      orchestrationTxWorkflowActionEditorCallbacks(
-        $modelStateStore,
-        $stageIndexStateStore,
-        $jobIndexStateStore,
-        $onChangeStateStore,
-        $onErrorChangeStateStore,
-      ),
-  );
-
-  function setTxWorkflowActionContext({
-    jobIndex: nextJobIndex = 0,
-    model: nextModel = {},
-    onChange: nextOnChange = null,
-    onErrorChange: nextOnErrorChange = null,
-    stageIndex: nextStageIndex = 0,
-  } = {}) {
-    jobIndexStateStore.set(Number.isInteger(nextJobIndex) ? nextJobIndex : 0);
-    modelStateStore.set(
-      nextModel && typeof nextModel === "object" ? nextModel : {},
-    );
-    onChangeStateStore.set(nextOnChange);
-    onErrorChangeStateStore.set(nextOnErrorChange);
-    stageIndexStateStore.set(
-      Number.isInteger(nextStageIndex) ? nextStageIndex : 0,
-    );
-  }
-
-  return {
-    actionCallbacksStateStore,
-    setTxWorkflowActionContext,
-  };
-}
-
 function orchestrationPatchTxWorkflowAction(
   model,
   stageIndex,
   jobIndex,
   patch = {},
 ) {
-  const workflowSourceTextValue = (value) =>
-    value == null ? null : String(value);
   return orchestrationPatchJobDraft(model, stageIndex, jobIndex, (job) => ({
     ...job,
     action: {
       kind: "tx_workflow",
-      txBlock: job.action?.txBlock || orchestrationCreateTxBlockActionModel(),
       txWorkflow: {
         ...(job.action?.txWorkflow ||
           orchestrationCreateTxWorkflowActionModel()),
         ...patch,
-        workflowFile: Object.hasOwn(patch, "workflowFile")
-          ? workflowSourceTextValue(patch.workflowFile)
-          : job.action?.txWorkflow?.workflowFile,
-        workflowTemplateName: Object.hasOwn(patch, "workflowTemplateName")
-          ? workflowSourceTextValue(patch.workflowTemplateName)
-          : job.action?.txWorkflow?.workflowTemplateName,
-        workflowTemplateContent: Object.hasOwn(patch, "workflowTemplateContent")
-          ? workflowSourceTextValue(patch.workflowTemplateContent)
-          : job.action?.txWorkflow?.workflowTemplateContent,
       },
     },
   }));
+}
+
+export function orchestrationUpdateInlineWorkflow(
+  model,
+  stageIndex,
+  jobIndex,
+  workflow = {},
+) {
+  return orchestrationPatchTxWorkflowAction(model, stageIndex, jobIndex, {
+    workflow: cloneOrchestrationJsonValue(workflow, {}),
+    hasWorkflow: true,
+    workflowTemplateName: null,
+    hasWorkflowTemplateName: false,
+    workflowVars: {},
+    hasWorkflowVars: false,
+  });
 }
 
 export function orchestrationTxWorkflowActionJsonFieldUpdateResult(
@@ -164,44 +90,6 @@ export function orchestrationTxWorkflowActionJsonFieldUpdateResult(
   );
 }
 
-export function orchestrationSetTxWorkflowActionFieldPresence(
-  model,
-  stageIndex,
-  jobIndex,
-  field,
-  enabled,
-) {
-  return orchestrationPatchTxWorkflowAction(
-    model,
-    stageIndex,
-    jobIndex,
-    orchestrationToggleNullableFieldPresence(
-      model?.stages?.[stageIndex]?.jobs?.[jobIndex]?.action?.txWorkflow,
-      field,
-      enabled,
-    ),
-  );
-}
-
-export function orchestrationSetTxWorkflowActionObjectPresence(
-  model,
-  stageIndex,
-  jobIndex,
-  field,
-  enabled,
-) {
-  return orchestrationPatchTxWorkflowAction(
-    model,
-    stageIndex,
-    jobIndex,
-    orchestrationToggleObjectFieldPresence(
-      model?.stages?.[stageIndex]?.jobs?.[jobIndex]?.action?.txWorkflow,
-      field,
-      enabled,
-    ),
-  );
-}
-
 function orchestrationSelectTxWorkflowActionSource(
   model,
   stageIndex,
@@ -209,37 +97,25 @@ function orchestrationSelectTxWorkflowActionSource(
   sourceValue,
 ) {
   const source =
-    sourceValue === "workflow_file" ||
-    sourceValue === "workflow_template_name" ||
-    sourceValue === "workflow_template_content"
-      ? sourceValue
+    sourceValue === "workflow_template_name"
+      ? "workflow_template_name"
       : "workflow_json";
   const patch = {
-    workflowFile: null,
-    hasWorkflowFile: false,
     workflow: null,
     hasWorkflow: false,
     workflowTemplateName: null,
     hasWorkflowTemplateName: false,
-    workflowTemplateContent: null,
-    hasWorkflowTemplateContent: false,
+    workflowVars: {},
+    hasWorkflowVars: false,
   };
-  if (source === "workflow_json") {
-    return orchestrationPatchTxWorkflowAction(model, stageIndex, jobIndex, {
-      ...patch,
-      hasWorkflow: true,
-    });
-  }
-  const hasKey =
-    source === "workflow_file"
-      ? "hasWorkflowFile"
-      : source === "workflow_template_name"
-        ? "hasWorkflowTemplateName"
-        : "hasWorkflowTemplateContent";
-  return orchestrationPatchTxWorkflowAction(model, stageIndex, jobIndex, {
-    ...patch,
-    [hasKey]: true,
-  });
+  return orchestrationPatchTxWorkflowAction(
+    model,
+    stageIndex,
+    jobIndex,
+    source === "workflow_json"
+      ? { ...patch, hasWorkflow: true }
+      : { ...patch, hasWorkflowTemplateName: true },
+  );
 }
 
 function orchestrationTxWorkflowActionBindings(
@@ -261,46 +137,18 @@ function orchestrationTxWorkflowActionBindings(
         ),
       );
     },
-    setExtra(extra) {
-      applyChange(
-        orchestrationPatchTxWorkflowAction(model, stageIndex, jobIndex, {
-          extra,
-        }),
+    setJsonText(workflowJsonText) {
+      const result = orchestrationTxWorkflowActionJsonFieldUpdateResult(
+        model,
+        stageIndex,
+        jobIndex,
+        "workflow",
+        workflowJsonText,
       );
+      if (typeof onChange === "function") onChange(result.model);
+      return result.error;
     },
-    setFieldPresence(field, enabled) {
-      applyChange(
-        orchestrationSetTxWorkflowActionFieldPresence(
-          model,
-          stageIndex,
-          jobIndex,
-          field,
-          enabled,
-        ),
-      );
-    },
-    setObjectPresence(field, enabled) {
-      applyChange(
-        orchestrationSetTxWorkflowActionObjectPresence(
-          model,
-          stageIndex,
-          jobIndex,
-          field,
-          enabled,
-        ),
-      );
-    },
-    setWorkflowFile(workflowFile) {
-      applyChange(
-        orchestrationPatchTxWorkflowAction(
-          model,
-          stageIndex,
-          jobIndex,
-          orchestrationTxWorkflowFieldPatch("workflowFile", workflowFile),
-        ),
-      );
-    },
-    setWorkflowTemplateName(workflowTemplateName) {
+    setTemplateName(workflowTemplateName) {
       applyChange(
         orchestrationPatchTxWorkflowAction(
           model,
@@ -313,20 +161,7 @@ function orchestrationTxWorkflowActionBindings(
         ),
       );
     },
-    setWorkflowTemplateContent(workflowTemplateContent) {
-      applyChange(
-        orchestrationPatchTxWorkflowAction(
-          model,
-          stageIndex,
-          jobIndex,
-          orchestrationTxWorkflowFieldPatch(
-            "workflowTemplateContent",
-            workflowTemplateContent,
-          ),
-        ),
-      );
-    },
-    setWorkflowVars(workflowVars) {
+    setWorkflowVars(workflowVars = {}) {
       applyChange(
         orchestrationPatchTxWorkflowAction(
           model,
@@ -355,70 +190,12 @@ export function orchestrationTxWorkflowSourceBindings(
     onChange,
   );
   return {
-    setExtra(extra) {
-      actionBindings.setExtra(extra);
-    },
-    setFieldPresence(field, enabled) {
-      actionBindings.setFieldPresence(field, enabled);
-    },
-    setSource(sourceValue) {
-      actionBindings.setSource(sourceValue);
-    },
+    setSource: actionBindings.setSource,
     setJsonText(workflowJsonText) {
-      const result = orchestrationTxWorkflowActionJsonFieldUpdateResult(
-        model,
-        stageIndex,
-        jobIndex,
-        "workflow",
-        workflowJsonText,
-      );
-      if (typeof onChange === "function") onChange(result.model);
-      setFormError(result.error);
+      const error = actionBindings.setJsonText(workflowJsonText);
+      setFormError(error);
     },
-    setObjectPresence(field, enabled) {
-      actionBindings.setObjectPresence(field, enabled);
-    },
-    setTemplateContent(workflowTemplateContent) {
-      actionBindings.setWorkflowTemplateContent(workflowTemplateContent);
-    },
-    setTemplateName(workflowTemplateName) {
-      actionBindings.setWorkflowTemplateName(workflowTemplateName);
-    },
-    setTemplateNameMode(mode) {
-      if (typeof onChange === "function") {
-        onChange(
-          orchestrationPatchTxWorkflowAction(
-            model,
-            stageIndex,
-            jobIndex,
-            orchestrationNullableFieldModePatch(
-              model?.stages?.[stageIndex]?.jobs?.[jobIndex]?.action?.txWorkflow,
-              "workflowTemplateName",
-              mode,
-            ),
-          ),
-        );
-      }
-    },
-    setWorkflowFile(workflowFile) {
-      actionBindings.setWorkflowFile(workflowFile);
-    },
-    setWorkflowFileMode(mode) {
-      if (typeof onChange === "function") {
-        onChange(
-          orchestrationPatchTxWorkflowAction(
-            model,
-            stageIndex,
-            jobIndex,
-            orchestrationNullableFieldModePatch(
-              model?.stages?.[stageIndex]?.jobs?.[jobIndex]?.action?.txWorkflow,
-              "workflowFile",
-              mode,
-            ),
-          ),
-        );
-      }
-    },
+    setTemplateName: actionBindings.setTemplateName,
     setWorkflowVars(workflowVars = {}) {
       actionBindings.setWorkflowVars(workflowVars);
       setFormError("");
@@ -441,9 +218,6 @@ export function orchestrationTxWorkflowActionEditorCallbacks(
     onErrorChange,
   );
   return {
-    extraChange(extra) {
-      sourceBindings.setExtra(extra);
-    },
     sourceBindings,
     sourceChange(sourceValue) {
       sourceBindings.setSource(sourceValue);
@@ -451,25 +225,96 @@ export function orchestrationTxWorkflowActionEditorCallbacks(
   };
 }
 
-export function orchestrationTxWorkflowActionSettingsCallbacks({
-  onExtraChange = null,
-  metadataSource = {},
+function normalizeTemplateOptions(payload) {
+  return [
+    { label: "", value: "" },
+    ...(Array.isArray(payload) ? payload : [])
+      .map((item) => (typeof item === "string" ? item : item?.name))
+      .filter((name) => typeof name === "string" && name.trim())
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => ({ label: name, value: name })),
+  ];
+}
+
+export function createOrchestrationTxWorkflowActionEditorWorkspace({
+  apiListTemplates = listTemplateResource,
+  jobIndex = 0,
+  model = {},
+  onChange = null,
+  onErrorChange = null,
+  stageIndex = 0,
 } = {}) {
+  const jobIndexStateStore = writable(
+    Number.isInteger(jobIndex) ? jobIndex : 0,
+  );
+  const modelStateStore = writable(
+    model && typeof model === "object" ? model : {},
+  );
+  const onChangeStateStore = writable(onChange);
+  const onErrorChangeStateStore = writable(onErrorChange);
+  const stageIndexStateStore = writable(
+    Number.isInteger(stageIndex) ? stageIndex : 0,
+  );
+  const templateOptionsStateStore = writable([{ label: "", value: "" }]);
+  const templateErrorStateStore = writable("");
+  const actionCallbacksStateStore = deriveStore(
+    [
+      modelStateStore,
+      stageIndexStateStore,
+      jobIndexStateStore,
+      onChangeStateStore,
+      onErrorChangeStateStore,
+    ],
+    ([
+      $modelStateStore,
+      $stageIndexStateStore,
+      $jobIndexStateStore,
+      $onChangeStateStore,
+      $onErrorChangeStateStore,
+    ]) =>
+      orchestrationTxWorkflowActionEditorCallbacks(
+        $modelStateStore,
+        $stageIndexStateStore,
+        $jobIndexStateStore,
+        $onChangeStateStore,
+        $onErrorChangeStateStore,
+      ),
+  );
+
+  async function refreshTemplateOptions() {
+    try {
+      const payload = await apiListTemplates(TEMPLATE_API_PATH);
+      templateOptionsStateStore.set(normalizeTemplateOptions(payload));
+      templateErrorStateStore.set("");
+    } catch (error) {
+      templateErrorStateStore.set(error?.message || String(error));
+    }
+  }
+
+  function setTxWorkflowActionContext({
+    jobIndex: nextJobIndex = 0,
+    model: nextModel = {},
+    onChange: nextOnChange = null,
+    onErrorChange: nextOnErrorChange = null,
+    stageIndex: nextStageIndex = 0,
+  } = {}) {
+    jobIndexStateStore.set(Number.isInteger(nextJobIndex) ? nextJobIndex : 0);
+    modelStateStore.set(
+      nextModel && typeof nextModel === "object" ? nextModel : {},
+    );
+    onChangeStateStore.set(nextOnChange);
+    onErrorChangeStateStore.set(nextOnErrorChange);
+    stageIndexStateStore.set(
+      Number.isInteger(nextStageIndex) ? nextStageIndex : 0,
+    );
+  }
+
   return {
-    metadataPresenceHandler(fieldKey) {
-      return orchestrationExtraStringPresenceChangeHandler(
-        onExtraChange,
-        metadataSource,
-        fieldKey,
-      );
-    },
-    metadataValueHandler(fieldKey) {
-      return orchestrationExtraStringValueChangeHandler(
-        onExtraChange,
-        metadataSource,
-        fieldKey,
-      );
-    },
+    actionCallbacksStateStore,
+    refreshTemplateOptions,
+    setTxWorkflowActionContext,
+    templateErrorStateStore,
+    templateOptionsStateStore,
   };
 }
 
@@ -478,11 +323,9 @@ function txWorkflowActionObjectOrEmpty(value) {
 }
 
 export function createOrchestrationTxWorkflowActionSettingsEditorWorkspace({
-  onExtraChange = null,
   txWorkflow = {},
   visualDisplay = {},
 } = {}) {
-  const onExtraChangeStateStore = writable(onExtraChange);
   const txWorkflowStateStore = writable(
     txWorkflowActionObjectOrEmpty(txWorkflow),
   );
@@ -497,21 +340,11 @@ export function createOrchestrationTxWorkflowActionSettingsEditorWorkspace({
         $visualDisplayStateStore,
       ),
   );
-  const settingsCallbacksStateStore = deriveStore(
-    [onExtraChangeStateStore, settingsPanelDisplayStateStore],
-    ([$onExtraChangeStateStore, $settingsPanelDisplayStateStore]) =>
-      orchestrationTxWorkflowActionSettingsCallbacks({
-        onExtraChange: $onExtraChangeStateStore,
-        metadataSource: $settingsPanelDisplayStateStore.extraField.source,
-      }),
-  );
 
   function setTxWorkflowActionSettingsContext({
-    onExtraChange: nextOnExtraChange = null,
     txWorkflow: nextTxWorkflow = {},
     visualDisplay: nextVisualDisplay = {},
   } = {}) {
-    onExtraChangeStateStore.set(nextOnExtraChange);
     txWorkflowStateStore.set(txWorkflowActionObjectOrEmpty(nextTxWorkflow));
     visualDisplayStateStore.set(
       txWorkflowActionObjectOrEmpty(nextVisualDisplay),
@@ -519,7 +352,6 @@ export function createOrchestrationTxWorkflowActionSettingsEditorWorkspace({
   }
 
   return {
-    settingsCallbacksStateStore,
     settingsPanelDisplayStateStore,
     setTxWorkflowActionSettingsContext,
   };

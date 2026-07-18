@@ -29,7 +29,7 @@ Use these patterns as few-shot references when AI needs to generate new JSON pla
 - Key points:
   - target scope via `target_groups`
   - action.kind = `tx_workflow`
-  - source via `workflow_template_name` or `workflow_file`
+  - source via inline `workflow` or saved `workflow_template_name`
 
 ## Case 4: Network switch config change (orchestration + tx_block template source)
 
@@ -57,4 +57,3 @@ Use these patterns as few-shot references when AI needs to generate new JSON pla
 - Key points:
   - plain `{{param}}` first resolves runtime vars, then current connection fields
   - secrets should be masked in previews
-

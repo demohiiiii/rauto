@@ -19,24 +19,17 @@
 
   const {
     activeStageComponentStateStore,
-    createOrchestrationJsonTemplateDraft,
     createTxBlockJsonTemplateDraft,
     createTxWorkflowJsonTemplateDraft,
-    deleteOrchestrationJsonTemplate,
     destroy: destroyOrchestratedWorkspace,
     executeOrchestration,
     executeTxWorkflow,
     importOrchestrationFile,
     importTxWorkflowFile,
-    loadOrchestrationJsonTemplate,
     loadTxBlockJsonTemplate,
     loadTxWorkflowJsonTemplate,
-    previewOrchestration,
     previewTxWorkflow,
     runTxBlockExecute,
-    saveOrchestrationJsonTemplate,
-    setOrchestrationDirectMode,
-    setOrchestrationTemplateMode,
     setPageContext,
     stageDisplayStateStore,
     updateOrchestrationEditorInput,
@@ -67,16 +60,9 @@
   });
   let orchestrationStageProps = $derived({
     active: true,
-    onCreateJsonTemplateDraft: createOrchestrationJsonTemplateDraft,
-    onDeleteJsonTemplate: deleteOrchestrationJsonTemplate,
-    onDirectMode: setOrchestrationDirectMode,
     onEditorInput: updateOrchestrationEditorInput,
     onExecute: executeOrchestration,
     onImportFile: importOrchestrationFile,
-    onLoadJsonTemplate: loadOrchestrationJsonTemplate,
-    onPreview: previewOrchestration,
-    onSaveJsonTemplate: saveOrchestrationJsonTemplate,
-    onTemplateMode: setOrchestrationTemplateMode,
   });
   let stageDisplay = $derived($stageDisplayStateStore);
   let activeStageComponent = $derived($activeStageComponentStateStore);

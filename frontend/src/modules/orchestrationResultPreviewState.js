@@ -86,29 +86,6 @@ export function orchestrationJsonDisplay(jsonValue) {
   };
 }
 
-function parseOrchestrationJsonObjectSafely(text) {
-  if (typeof text !== "string" || !text.trim()) return null;
-  try {
-    const jsonValue = JSON.parse(text);
-    return jsonValue && typeof jsonValue === "object" ? jsonValue : null;
-  } catch {
-    return null;
-  }
-}
-
-function parseInlineFlowTemplateCommands(content) {
-  if (typeof content !== "string" || !content.trim()) return [];
-  const commands = [];
-  const lines = content.split(/\r?\n/);
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line.startsWith("command")) continue;
-    const match = line.match(/^command\s*=\s*"(.*)"\s*$/);
-    if (match && match[1]) commands.push(match[1]);
-  }
-  return commands;
-}
-
 function orchestrationOperationDescription(operation) {
   if (!operation || typeof operation !== "object") return "";
   if (operation.kind === "command" || operation.command != null) {
@@ -177,68 +154,9 @@ function collectTxWorkflowCommandPreview(workflow) {
   return commandPreviewLines;
 }
 
-function txBlockActionPreviewItems(action) {
-  if (Array.isArray(action.commands) && action.commands.length) {
-    return action.commands
-      .map((cmd, idx) => `step[${idx}] ${orchestrationText(cmd).trim()}`)
-      .filter((line) => !line.endsWith(" "));
-  }
-  if (typeof action.template === "string" && action.template.trim()) {
-    return [
-      `${t("orchestrationCommandPreviewTemplateRef")}: template=${action.template.trim()}`,
-    ];
-  }
-  if (
-    typeof action.tx_block_template_content === "string" &&
-    action.tx_block_template_content.trim()
-  ) {
-    const inlineBlock = parseOrchestrationJsonObjectSafely(
-      action.tx_block_template_content,
-    );
-    if (inlineBlock) return collectTxBlockCommandPreview(inlineBlock);
-  }
-  if (
-    typeof action.flow_template_content === "string" &&
-    action.flow_template_content.trim()
-  ) {
-    const flowCommands = parseInlineFlowTemplateCommands(
-      action.flow_template_content,
-    );
-    if (flowCommands.length) {
-      return flowCommands.map((cmd, idx) => `step[${idx}] ${cmd}`);
-    }
-  }
-  if (
-    typeof action.flow_template_name === "string" &&
-    action.flow_template_name.trim()
-  ) {
-    return [
-      `${t("orchestrationCommandPreviewTemplateRef")}: flow_template=${action.flow_template_name.trim()}`,
-    ];
-  }
-  if (
-    typeof action.tx_block_template_name === "string" &&
-    action.tx_block_template_name.trim()
-  ) {
-    return [
-      `${t("orchestrationCommandPreviewTemplateRef")}: tx_block_template=${action.tx_block_template_name.trim()}`,
-    ];
-  }
-  return [];
-}
-
 function txWorkflowActionPreviewItems(action) {
   if (action.workflow && typeof action.workflow === "object") {
     return collectTxWorkflowCommandPreview(action.workflow);
-  }
-  if (
-    typeof action.workflow_template_content === "string" &&
-    action.workflow_template_content.trim()
-  ) {
-    const inlineWorkflow = parseOrchestrationJsonObjectSafely(
-      action.workflow_template_content,
-    );
-    if (inlineWorkflow) return collectTxWorkflowCommandPreview(inlineWorkflow);
   }
   if (
     typeof action.workflow_template_name === "string" &&
@@ -248,17 +166,11 @@ function txWorkflowActionPreviewItems(action) {
       `${t("orchestrationCommandPreviewTemplateRef")}: workflow_template=${action.workflow_template_name.trim()}`,
     ];
   }
-  if (typeof action.workflow_file === "string" && action.workflow_file.trim()) {
-    return [
-      `${t("orchestrationCommandPreviewTemplateRef")}: workflow_file=${action.workflow_file.trim()}`,
-    ];
-  }
   return [];
 }
 
 function orchestrationActionCommandPreviewItems(action) {
   if (!action || typeof action !== "object") return [];
-  if (action.kind === "tx_block") return txBlockActionPreviewItems(action);
   if (action.kind === "tx_workflow") {
     return txWorkflowActionPreviewItems(action);
   }
@@ -277,70 +189,10 @@ function orchestrationActionSummaryFields(action) {
   if (!action || typeof action !== "object") {
     return [orchestrationActionField(t("orchestrationStageAction"), "-")];
   }
-  if (action.kind === "tx_block") {
-    const fields = [
-      orchestrationActionField("kind", "tx_block", { mono: true }),
-    ];
-    const flowTemplateName = orchestrationText(action.flow_template_name || "");
-    const flowTemplateContent = orchestrationText(
-      action.flow_template_content || "",
-    );
-    if (flowTemplateName) {
-      fields.push(
-        orchestrationActionField("flow_template", flowTemplateName, {
-          mono: true,
-        }),
-      );
-    } else if (flowTemplateContent) {
-      fields.push(orchestrationActionField("flow_template_content", "inline"));
-    }
-    if (
-      action.flow_vars &&
-      typeof action.flow_vars === "object" &&
-      !Array.isArray(action.flow_vars)
-    ) {
-      fields.push(
-        orchestrationActionField(
-          "flow_vars",
-          String(Object.keys(action.flow_vars).length),
-        ),
-      );
-    }
-    if (action.template) {
-      fields.push(
-        orchestrationActionField("template", action.template, { mono: true }),
-      );
-    }
-    if (Array.isArray(action.commands) && action.commands.length) {
-      fields.push(orchestrationActionField("commands", action.commands.length));
-    }
-    if (action.tx_block_template_name) {
-      fields.push(
-        orchestrationActionField(
-          "tx_block_template",
-          action.tx_block_template_name,
-          { mono: true },
-        ),
-      );
-    } else if (action.tx_block_template_content) {
-      fields.push(
-        orchestrationActionField("tx_block_template_content", "inline"),
-      );
-    }
-    if (action.mode) {
-      fields.push(
-        orchestrationActionField("mode", action.mode, { mono: true }),
-      );
-    }
-    return fields;
-  }
   if (action.kind === "tx_workflow") {
     const fields = [
       orchestrationActionField("kind", "tx_workflow", { mono: true }),
     ];
-    if (action.workflow) {
-      fields.push(orchestrationActionField("workflow", "inline"));
-    }
     if (action.workflow_template_name) {
       fields.push(
         orchestrationActionField(
@@ -348,16 +200,6 @@ function orchestrationActionSummaryFields(action) {
           action.workflow_template_name,
           { mono: true },
         ),
-      );
-    } else if (action.workflow_template_content) {
-      fields.push(
-        orchestrationActionField("workflow_template_content", "inline"),
-      );
-    } else if (action.workflow_file) {
-      fields.push(
-        orchestrationActionField("workflow_file", action.workflow_file, {
-          mono: true,
-        }),
       );
     } else if (action.workflow && typeof action.workflow === "object") {
       fields.push(orchestrationActionField("workflow", "inline"));
@@ -372,14 +214,6 @@ function orchestrationActionSummaryFields(action) {
   ];
 }
 
-function inventoryGroupTargets(group) {
-  if (Array.isArray(group)) return group;
-  if (group && typeof group === "object" && Array.isArray(group.targets)) {
-    return group.targets;
-  }
-  return [];
-}
-
 function orchestrationTargetPreviewLabel(target) {
   if (typeof target === "string") return target;
   if (target && typeof target === "object") {
@@ -388,22 +222,22 @@ function orchestrationTargetPreviewLabel(target) {
   return "";
 }
 
-function resolveOrchestrationJobTargetsPreview(job, inventory) {
+function resolveOrchestrationJobTargetsPreview(job) {
   const labels = [];
-  const groups =
-    inventory && inventory.groups && typeof inventory.groups === "object"
-      ? inventory.groups
-      : {};
   const groupNames = Array.isArray(job && job.target_groups)
     ? job.target_groups
     : [];
-  for (const groupName of groupNames) {
-    const group = groups[groupName];
-    for (const inventoryTarget of inventoryGroupTargets(group)) {
-      const targetLabel = orchestrationTargetPreviewLabel(inventoryTarget);
-      if (targetLabel) labels.push(targetLabel);
-    }
-  }
+  labels.push(
+    ...groupNames.map(
+      (groupName) => `${t("inventoryFieldGroups")}: ${groupName}`,
+    ),
+  );
+  const targetTags = Array.isArray(job && job.target_tags)
+    ? job.target_tags
+    : [];
+  labels.push(
+    ...targetTags.map((tagName) => `${t("inventoryFieldLabels")}: ${tagName}`),
+  );
   const directTargets = Array.isArray(job && job.targets) ? job.targets : [];
   for (const directTarget of directTargets) {
     const targetLabel = orchestrationTargetPreviewLabel(directTarget);
@@ -412,11 +246,9 @@ function resolveOrchestrationJobTargetsPreview(job, inventory) {
   return labels;
 }
 
-function resolveOrchestrationStageTargetsPreview(stage, inventory) {
+function resolveOrchestrationStageTargetsPreview(stage) {
   const jobs = Array.isArray(stage && stage.jobs) ? stage.jobs : [];
-  return jobs.flatMap((job) =>
-    resolveOrchestrationJobTargetsPreview(job, inventory),
-  );
+  return jobs.flatMap((job) => resolveOrchestrationJobTargetsPreview(job));
 }
 
 function orchestrationStageStrategyLabel(strategy) {
@@ -448,17 +280,12 @@ function orchestrationCommandPreviewDisplay(action) {
   };
 }
 
-function orchestrationPreviewGroupCount(inventory) {
-  if (!inventory?.groups || typeof inventory.groups !== "object") return 0;
-  return Object.keys(inventory.groups).length;
-}
-
-function orchestrationPreviewJobRow(job, inventory, index = 0) {
+function orchestrationPreviewJobRow(job, index = 0) {
   const targetGroups = Array.isArray(job?.target_groups)
     ? job.target_groups
     : [];
   const targetTags = Array.isArray(job?.target_tags) ? job.target_tags : [];
-  const targetLabels = resolveOrchestrationJobTargetsPreview(job, inventory);
+  const targetLabels = resolveOrchestrationJobTargetsPreview(job);
   const name = orchestrationText(job?.name || "");
   const strategyLabel = orchestrationText(
     orchestrationStageStrategyLabel(job?.strategy),
@@ -488,14 +315,11 @@ function orchestrationPreviewJobRow(job, inventory, index = 0) {
   };
 }
 
-function orchestrationPreviewStageRow(stage, index, inventory) {
+function orchestrationPreviewStageRow(stage, index) {
   const jobs = Array.isArray(stage?.jobs) ? stage.jobs : [];
   const name = orchestrationText(stage?.name);
   const label = name ? `stage[${index}] ${name}` : `stage[${index}]`;
-  const targetLabels = resolveOrchestrationStageTargetsPreview(
-    stage,
-    inventory,
-  );
+  const targetLabels = resolveOrchestrationStageTargetsPreview(stage);
   const strategyLabel = orchestrationText(
     orchestrationStageStrategyLabel(stage?.strategy),
   );
@@ -504,7 +328,7 @@ function orchestrationPreviewStageRow(stage, index, inventory) {
     hasTargetLabels: targetLabels.length > 0,
     jobCount: jobs.length,
     jobs: jobs.map((job, jobIndex) =>
-      orchestrationPreviewJobRow(job, inventory, jobIndex),
+      orchestrationPreviewJobRow(job, jobIndex),
     ),
     label,
     noJobsText: "-",
@@ -526,17 +350,13 @@ function orchestrationPreviewStageRow(stage, index, inventory) {
   };
 }
 
-export function orchestrationPreviewPresentation(
-  plan = null,
-  inventory = null,
-) {
+export function orchestrationPreviewPresentation(plan = null) {
   const hasPlan = Boolean(plan && typeof plan === "object");
   const stages = hasPlan ? orchestrationPreviewStages(plan) : [];
   const stageRows = stages.map((stage, index) =>
-    orchestrationPreviewStageRow(stage, index, inventory),
+    orchestrationPreviewStageRow(stage, index),
   );
   const failFast = String(plan?.fail_fast !== false);
-  const groupCount = orchestrationPreviewGroupCount(inventory);
   const jobCount = stageRows.reduce((total, row) => total + row.jobCount, 0);
   const name = plan?.name || "-";
   const stageCount = stageRows.length;
@@ -554,7 +374,6 @@ export function orchestrationPreviewPresentation(
       orchestrationSummaryCard("orchestrationVisualName", name),
       orchestrationSummaryCard("orchestrationVisualStages", stageCount),
       orchestrationSummaryCard("orchestrationVisualFailFast", failFast),
-      orchestrationSummaryCard("orchestrationVisualGroups", groupCount),
       orchestrationSummaryCard("orchestrationStageJobs", jobCount),
     ],
     titleText: t("orchestrationVisualTitle"),

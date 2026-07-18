@@ -16,7 +16,7 @@
           ],
           "action": {
             "kind": "tx_workflow",
-            "workflow_file": "./linux-image-export-and-transfer-workflow.json"
+            "workflow_template_name": "linux-image-export-and-transfer"
           }
         }
       ]
@@ -33,7 +33,7 @@
           ],
           "action": {
             "kind": "tx_workflow",
-            "workflow_file": "./linux-image-load-and-restart-workflow.json"
+            "workflow_template_name": "linux-image-load-and-restart"
           }
         }
       ]

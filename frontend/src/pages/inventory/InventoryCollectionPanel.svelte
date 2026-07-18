@@ -5,7 +5,6 @@
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import StringSelectField from "../../components/fragments/StringSelectField.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
-  import TextAreaField from "../../components/fragments/TextAreaField.svelte";
   import { inventoryCollectionActionHandlers } from "../../modules/inventoryPageWorkspace.js";
   let {
     collectionDisplay,
@@ -18,7 +17,6 @@
     onSave,
     onSelectAllHosts,
     onSelectCollection,
-    onVarsInput,
   } = $props();
 
   let active = $derived(collectionDisplay.active);
@@ -30,7 +28,6 @@
       onHostFilter,
       onHostSelection,
       onSelectCollection,
-      onVarsInput,
     }),
   );
 </script>
@@ -194,18 +191,6 @@
       </div>
 
       {@render hostSelectionSection()}
-
-      {#if editorDisplay.showGroupFields}
-        <TextAreaField
-          editorKind="json"
-          class="min-h-48"
-          labelText={editorDisplay.varsLabel}
-          placeholderText={editorDisplay.varsPlaceholder}
-          aria-label={editorDisplay.varsPlaceholder}
-          value={editorDisplay.formVarsValue}
-          onChange={actionHandlers.varsInputChangeHandler}
-        />
-      {/if}
       <div class="grid gap-2">
         {#if editorDisplay.showStatus}
           <StatusCard

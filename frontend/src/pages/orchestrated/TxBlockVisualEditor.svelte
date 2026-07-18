@@ -11,6 +11,7 @@
     onChange,
     stepRunCommandMetadataFieldDefs = null,
     stepRollbackCommandMetadataFieldDefs = null,
+    stacked = false,
   } = $props();
 
   const txBlockVisualEditorWorkspace = createTxBlockVisualEditorWorkspace();
@@ -80,9 +81,11 @@
 
   <div
     data-testid="tx-block-editor-layout"
-    class="grid min-w-0 gap-4 lg:grid-cols-[minmax(18rem,34%)_minmax(0,66%)] lg:gap-0"
+    class={stacked
+      ? "grid min-w-0 gap-4"
+      : "grid min-w-0 gap-4 lg:grid-cols-[minmax(18rem,34%)_minmax(0,66%)] lg:gap-0"}
   >
-    <div class="min-w-0 lg:pr-4">
+    <div class={stacked ? "min-w-0" : "min-w-0 lg:pr-4"}>
       <TxBlockTimeline
         display={timelineDisplay}
         {selectRoot}

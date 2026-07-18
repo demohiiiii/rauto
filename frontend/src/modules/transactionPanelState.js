@@ -490,13 +490,11 @@ let lastTxBlockPreviewState = {
 };
 let lastOrchestrationPreviewState = {
   plan: null,
-  inventory: null,
   result: null,
 };
 const visualOutputStores = new Map();
 
 export const orchestrationPreviewState = writable({
-  inventory: lastOrchestrationPreviewState.inventory,
   plan: lastOrchestrationPreviewState.plan,
 });
 export const orchestrationResultState = writable(
@@ -583,14 +581,9 @@ export function updateTxWorkflowPreviewFromEditor(editors = null) {
   }
 }
 
-export function setOrchestrationPreview(
-  plan,
-  inventory,
-  orchestrationRun = null,
-) {
+export function setOrchestrationPreview(plan, orchestrationRun = null) {
   lastOrchestrationPreviewState = {
     plan: plan || null,
-    inventory: inventory || null,
     result: orchestrationRun || null,
   };
   refreshOrchestrationPreview();
@@ -600,7 +593,6 @@ export function setOrchestrationPreview(
 export function refreshOrchestrationPreview() {
   clearVisualOutput(TX_VISUAL.orchestrationPreview);
   orchestrationPreviewState.set({
-    inventory: lastOrchestrationPreviewState.inventory,
     plan: lastOrchestrationPreviewState.plan,
   });
 }
@@ -619,7 +611,7 @@ export function updateOrchestrationPreviewFromEditor(editors = null) {
   }
   try {
     const plan = JSON.parse(raw);
-    setOrchestrationPreview(plan, plan.inventory || null, null);
+    setOrchestrationPreview(plan, null);
   } catch (error) {
     setVisualOutputStatus(
       TX_VISUAL.orchestrationPreview,

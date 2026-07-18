@@ -47,7 +47,7 @@ python3 skills/rauto-usage/scripts/validate_json_plans.py --file ./plan.json --r
 - Invalid `SessionOperation.kind` values.
 - Invalid `whole_resource.trigger_step_index`.
 - Invalid workflow or orchestration source combinations.
-- Invalid stage strategy or unresolved orchestration inventory usage.
+- Invalid stage strategy or unresolved persisted device-group/label selectors.
 
 ## Recommended Workflow
 

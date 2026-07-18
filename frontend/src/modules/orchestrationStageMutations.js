@@ -9,14 +9,7 @@ import {
   orchestrationCloneFormModel,
   orchestrationCreateJobModel,
   orchestrationCreateStageModel,
-  orchestrationCreateTargetInputModel,
-  orchestrationCreateTxBlockActionModel,
-  orchestrationCreateTxWorkflowActionModel,
-  orchestrationDefaultTargetModel,
-  orchestrationJsonObjectPatchResult,
-  orchestrationNormalizeConnectionPatch,
   orchestrationPatchJobDraft,
-  orchestrationToggleTargetFieldPresence,
 } from "./orchestrationFormState.js";
 
 const cloneOrchestrationJsonValue = cloneJsonValue;
@@ -26,138 +19,6 @@ const orchestrationNullableNumberValue = nullableNumberValue;
 
 function orchestrationBoolStringValue(value) {
   return value === "true" || value === true;
-}
-
-export function orchestrationAddTarget(model, stageIndex, jobIndex) {
-  return orchestrationPatchJobDraft(model, stageIndex, jobIndex, (job) => ({
-    ...job,
-    targets: [
-      ...(Array.isArray(job.targets) ? job.targets : []),
-      orchestrationCreateTargetInputModel("connection"),
-    ],
-    hasTargets: true,
-  }));
-}
-
-export function orchestrationRemoveTarget(
-  model,
-  stageIndex,
-  jobIndex,
-  targetIndex,
-) {
-  return orchestrationPatchJobDraft(model, stageIndex, jobIndex, (job) => {
-    const targets = [...(Array.isArray(job.targets) ? job.targets : [])];
-    targets.splice(targetIndex, 1);
-    return { ...job, targets, hasTargets: true };
-  });
-}
-
-export function orchestrationPatchTargetInput(
-  model,
-  stageIndex,
-  jobIndex,
-  targetIndex,
-  patch = {},
-) {
-  return orchestrationPatchJobDraft(model, stageIndex, jobIndex, (job) => {
-    const targets = [...(Array.isArray(job.targets) ? job.targets : [])];
-    const current =
-      targets[targetIndex] || orchestrationCreateTargetInputModel("connection");
-    const kind =
-      patch.kind === "connection" || patch.kind === "detailed"
-        ? patch.kind
-        : current.kind;
-    const normalizedTargetPatch = orchestrationNormalizeConnectionPatch(
-      patch.target || {},
-    );
-    const nextTarget =
-      kind === "detailed"
-        ? {
-            kind: "detailed",
-            connection: null,
-            hasConnection: false,
-            target: {
-              ...(current.target || orchestrationDefaultTargetModel()),
-              ...(Object.hasOwn(patch, "connection")
-                ? {
-                    connection: orchestrationConnectionTextValue(
-                      patch.connection,
-                    ),
-                    hasConnection: true,
-                  }
-                : {}),
-              ...normalizedTargetPatch,
-            },
-          }
-        : {
-            kind: "connection",
-            connection: Object.hasOwn(patch, "connection")
-              ? orchestrationStringValue(patch.connection)
-              : orchestrationStringValue(current.connection),
-            hasConnection: true,
-            target: null,
-          };
-    targets[targetIndex] = nextTarget;
-    return { ...job, targets, hasTargets: true };
-  });
-}
-
-export function orchestrationJobTargetVarsUpdateResult(
-  model,
-  stageIndex,
-  jobIndex,
-  targetIndex,
-  varsText,
-) {
-  return orchestrationJsonObjectPatchResult(model, varsText, (parsedVars) =>
-    orchestrationPatchTargetInput(model, stageIndex, jobIndex, targetIndex, {
-      kind: "detailed",
-      target: { vars: parsedVars },
-    }),
-  );
-}
-
-export function orchestrationSetJobTargetFieldPresence(
-  model,
-  stageIndex,
-  jobIndex,
-  targetIndex,
-  field,
-  enabled,
-) {
-  return orchestrationPatchJobDraft(model, stageIndex, jobIndex, (job) => {
-    const targets = [...(Array.isArray(job.targets) ? job.targets : [])];
-    const current =
-      targets[targetIndex] || orchestrationCreateTargetInputModel("detailed");
-    targets[targetIndex] = {
-      kind: "detailed",
-      connection: null,
-      hasConnection: false,
-      target: orchestrationToggleTargetFieldPresence(
-        current.target || orchestrationDefaultTargetModel(),
-        field,
-        enabled,
-      ),
-    };
-    return { ...job, targets, hasTargets: true };
-  });
-}
-
-export function orchestrationSetJobTargetVarsPresence(
-  model,
-  stageIndex,
-  jobIndex,
-  targetIndex,
-  enabled,
-) {
-  return orchestrationSetJobTargetFieldPresence(
-    model,
-    stageIndex,
-    jobIndex,
-    targetIndex,
-    "vars",
-    enabled,
-  );
 }
 
 function orchestrationPresenceFlag(field) {
@@ -188,13 +49,6 @@ function orchestrationToggleRootFieldPresence(model = {}, field, enabled) {
       rollbackCompletedStagesOnFailure: enabled
         ? (model?.rollbackCompletedStagesOnFailure ?? false)
         : false,
-      [hasKey]: enabled,
-    };
-  }
-  if (field === "inventoryFile") {
-    return {
-      ...model,
-      inventoryFile: enabled ? (model?.inventoryFile ?? null) : null,
       [hasKey]: enabled,
     };
   }
@@ -280,10 +134,6 @@ export function orchestrationChangeRoot(model, key, fieldValue) {
       orchestrationBoolStringValue(fieldValue);
     next.hasRollbackCompletedStagesOnFailure = true;
   }
-  if (key === "inventoryFile") {
-    next.inventoryFile = orchestrationConnectionTextValue(fieldValue);
-    next.hasInventoryFile = true;
-  }
   return next;
 }
 
@@ -293,9 +143,18 @@ export function orchestrationSetRootFieldPresence(model, field, enabled) {
 }
 
 export function orchestrationAddStage(model) {
+  const stageCount = Array.isArray(model?.stages) ? model.stages.length : 0;
+  return orchestrationInsertStage(model, stageCount);
+}
+
+export function orchestrationInsertStage(model, stageIndex) {
   const next = orchestrationCloneFormModel(model);
   next.stages = Array.isArray(next.stages) ? next.stages : [];
-  next.stages.push(orchestrationCreateStageModel());
+  const insertIndex = Math.min(
+    Math.max(Number.isInteger(stageIndex) ? stageIndex : next.stages.length, 0),
+    next.stages.length,
+  );
+  next.stages.splice(insertIndex, 0, orchestrationCreateStageModel());
   next.hasStages = true;
   return next;
 }
@@ -304,6 +163,36 @@ export function orchestrationRemoveStage(model, stageIndex) {
   const next = orchestrationCloneFormModel(model);
   next.stages = Array.isArray(next.stages) ? next.stages : [];
   next.stages.splice(stageIndex, 1);
+  next.hasStages = true;
+  return next;
+}
+
+export function orchestrationDuplicateStage(model, stageIndex) {
+  const next = orchestrationCloneFormModel(model);
+  if (!Array.isArray(next.stages) || !next.stages[stageIndex]) return next;
+  next.stages.splice(
+    stageIndex + 1,
+    0,
+    orchestrationCloneFormModel(next.stages[stageIndex]),
+  );
+  next.hasStages = true;
+  return next;
+}
+
+export function orchestrationMoveStage(model, stageIndex, targetIndex) {
+  const next = orchestrationCloneFormModel(model);
+  if (
+    !Array.isArray(next.stages) ||
+    stageIndex < 0 ||
+    targetIndex < 0 ||
+    stageIndex >= next.stages.length ||
+    targetIndex >= next.stages.length ||
+    stageIndex === targetIndex
+  ) {
+    return next;
+  }
+  const [stage] = next.stages.splice(stageIndex, 1);
+  next.stages.splice(targetIndex, 0, stage);
   next.hasStages = true;
   return next;
 }
@@ -369,6 +258,42 @@ export function orchestrationRemoveJob(model, stageIndex, jobIndex) {
   return next;
 }
 
+export function orchestrationDuplicateJob(model, stageIndex, jobIndex) {
+  const next = orchestrationCloneFormModel(model);
+  const stage = next.stages?.[stageIndex];
+  if (!stage || !Array.isArray(stage.jobs) || !stage.jobs[jobIndex])
+    return next;
+  stage.jobs.splice(
+    jobIndex + 1,
+    0,
+    orchestrationCloneFormModel(stage.jobs[jobIndex]),
+  );
+  stage.hasJobs = true;
+  next.hasStages = true;
+  return next;
+}
+
+export function orchestrationMoveJob(model, stageIndex, jobIndex, targetIndex) {
+  const next = orchestrationCloneFormModel(model);
+  const stage = next.stages?.[stageIndex];
+  if (
+    !stage ||
+    !Array.isArray(stage.jobs) ||
+    jobIndex < 0 ||
+    targetIndex < 0 ||
+    jobIndex >= stage.jobs.length ||
+    targetIndex >= stage.jobs.length ||
+    jobIndex === targetIndex
+  ) {
+    return next;
+  }
+  const [job] = stage.jobs.splice(jobIndex, 1);
+  stage.jobs.splice(targetIndex, 0, job);
+  stage.hasJobs = true;
+  next.hasStages = true;
+  return next;
+}
+
 export function orchestrationPatchJob(model, stageIndex, jobIndex, patch = {}) {
   const next = orchestrationCloneFormModel(model);
   const stage = next.stages[stageIndex] || orchestrationCreateStageModel();
@@ -422,29 +347,16 @@ export function orchestrationSetJobListPresence(
   );
 }
 
-export function orchestrationPatchActionKind(
-  model,
-  stageIndex,
-  jobIndex,
-  kind,
-) {
-  return orchestrationPatchJobDraft(model, stageIndex, jobIndex, (job) => ({
-    ...job,
-    action: {
-      kind: kind === "tx_workflow" ? "tx_workflow" : "tx_block",
-      txBlock: job.action?.txBlock || orchestrationCreateTxBlockActionModel(),
-      txWorkflow:
-        job.action?.txWorkflow || orchestrationCreateTxWorkflowActionModel(),
-    },
-  }));
-}
-
 function orchestrationStringListKey(listName) {
-  return listName === "targetTags" ? "targetTags" : "targetGroups";
+  if (listName === "targetTags") return "targetTags";
+  if (listName === "targets") return "targets";
+  return "targetGroups";
 }
 
 function orchestrationStringListHasKey(listKey) {
-  return listKey === "targetTags" ? "hasTargetTags" : "hasTargetGroups";
+  if (listKey === "targetTags") return "hasTargetTags";
+  if (listKey === "targets") return "hasTargets";
+  return "hasTargetGroups";
 }
 
 function orchestrationPatchJobStringListText(
@@ -474,6 +386,29 @@ export function orchestrationAddJobStringListItem(
   return orchestrationPatchJobDraft(model, stageIndex, jobIndex, (job) => ({
     ...job,
     [listKey]: [...(Array.isArray(job[listKey]) ? job[listKey] : []), ""],
+    [hasKey]: true,
+  }));
+}
+
+export function orchestrationReplaceJobStringList(
+  model,
+  stageIndex,
+  jobIndex,
+  listName,
+  values,
+) {
+  const listKey = orchestrationStringListKey(listName);
+  const hasKey = orchestrationStringListHasKey(listKey);
+  const normalizedValues = Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => orchestrationStringValue(value).trim())
+        .filter(Boolean),
+    ),
+  );
+  return orchestrationPatchJobDraft(model, stageIndex, jobIndex, (job) => ({
+    ...job,
+    [listKey]: normalizedValues,
     [hasKey]: true,
   }));
 }

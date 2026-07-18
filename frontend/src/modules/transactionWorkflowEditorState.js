@@ -202,7 +202,7 @@ function txWorkflowChangeRoot(model, key, value) {
   return next;
 }
 
-function txWorkflowAddBlock(model) {
+export function txWorkflowAddBlock(model) {
   const next = workflowCloneModel(model);
   if (!Array.isArray(next.blocks)) next.blocks = [];
   next.blocks.push(

@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from "svelte";
   import { createOrchestrationTxWorkflowActionEditorWorkspace } from "../../modules/orchestrationTxWorkflowActions.js";
   import OrchestrationTxWorkflowActionSettingsEditor from "./OrchestrationTxWorkflowActionSettingsEditor.svelte";
   import OrchestrationTxWorkflowSourceEditor from "./OrchestrationTxWorkflowSourceEditor.svelte";
@@ -11,14 +12,25 @@
     visualDisplay,
     onChange,
     onErrorChange,
+    settingsOnly = false,
   } = $props();
-  const orchestrationTxWorkflowActionEditorWorkspace =
-    createOrchestrationTxWorkflowActionEditorWorkspace();
-  const { actionCallbacksStateStore, setTxWorkflowActionContext } =
-    orchestrationTxWorkflowActionEditorWorkspace;
+
+  const workspace = createOrchestrationTxWorkflowActionEditorWorkspace();
+  const {
+    actionCallbacksStateStore,
+    setTxWorkflowActionContext,
+    templateErrorStateStore,
+    templateOptionsStateStore,
+  } = workspace;
   let actionEditorCallbacks = $derived($actionCallbacksStateStore);
+  let templateOptions = $derived($templateOptionsStateStore);
+  let templateError = $derived($templateErrorStateStore);
   let txWorkflow = $derived(jobRow?.job?.action?.txWorkflow || {});
   let txWorkflowRows = $derived(jobRow?.txWorkflowRows || {});
+
+  onMount(() => {
+    workspace.refreshTemplateOptions();
+  });
 
   $effect(() => {
     setTxWorkflowActionContext({
@@ -37,12 +49,14 @@
     {txWorkflowRows}
     {visualDisplay}
     onSourceChange={actionEditorCallbacks.sourceChange}
-    onExtraChange={actionEditorCallbacks.extraChange}
   />
   <OrchestrationTxWorkflowSourceEditor
     sourceValue={txWorkflowRows.sourceValue}
     {txWorkflow}
     {visualDisplay}
     sourceBindings={actionEditorCallbacks.sourceBindings}
+    {templateOptions}
+    {templateError}
+    {settingsOnly}
   />
 </div>

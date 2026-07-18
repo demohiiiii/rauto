@@ -1,5 +1,4 @@
 <script>
-  import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { createOrchestrationPlanSettingsEditorWorkspace } from "../../modules/orchestrationStageEditorsState.js";
 
@@ -24,23 +23,8 @@
     <PresenceFieldGrid
       fieldRows={settingsPanelDisplay.rootFieldRows}
       hostClass="contents"
-      itemClassByFieldKey={{ inventoryFile: "md:col-span-2" }}
+      presenceControlsMode="hidden"
       onValueChangeForKey={planSettingsCallbacks.fieldValueHandler}
-      onNullableModeChangeForKey={planSettingsCallbacks.fieldNullableModeHandler}
-      onPresenceChangeForKey={planSettingsCallbacks.fieldPresenceHandler}
-    />
-    <PresenceFieldGrid
-      fieldRows={settingsPanelDisplay.metadataFieldRows}
-      hostClass="contents"
-      onValueChangeForKey={planSettingsCallbacks.metadataValueHandler}
-      onPresenceChangeForKey={planSettingsCallbacks.metadataPresenceHandler}
     />
   </div>
-
-  <JsonObjectFieldsEditor
-    title={settingsPanelDisplay.extraField.titleText}
-    source={settingsPanelDisplay.extraField.source}
-    typeRows={settingsPanelDisplay.extraField.typeRows}
-    onChange={planSettingsCallbacks.setExtra}
-  />
 </div>

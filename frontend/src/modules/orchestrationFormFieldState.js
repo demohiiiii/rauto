@@ -7,10 +7,6 @@ import {
   stringValue,
 } from "../lib/jsonValue.js";
 import { txStructureMappingEntry } from "./transactionStructure.js";
-import {
-  ORCHESTRATION_DEFAULTS_FIELD_DEFS,
-  ORCHESTRATION_TARGET_DETAIL_FIELD_DEFS,
-} from "./orchestrationInventoryDisplayState.js";
 
 const orchestrationPlainObject = plainObject;
 const orchestrationStringValue = stringValue;
@@ -19,7 +15,7 @@ const orchestrationCloneJsonValue = cloneJsonValue;
 
 let ORCHESTRATION_JSON_STRUCTURE_MAPPING = null;
 
-const ORCHESTRATION_ROOT_FIELD_DEFS = Object.freeze([
+export const ORCHESTRATION_ROOT_FIELD_DEFS = Object.freeze([
   {
     controlType: "input",
     fieldKey: "name",
@@ -44,15 +40,9 @@ const ORCHESTRATION_ROOT_FIELD_DEFS = Object.freeze([
     labelKey: "orchestrationFormRollbackCompletedStages",
     optionKind: "boolean",
   },
-  {
-    controlType: "input",
-    fieldKey: "inventoryFile",
-    inputType: "text",
-    labelKey: "orchestrationFormInventoryFile",
-  },
 ]);
 
-const ORCHESTRATION_STAGE_FIELD_DEFS = Object.freeze([
+export const ORCHESTRATION_STAGE_FIELD_DEFS = Object.freeze([
   {
     controlType: "input",
     fieldKey: "name",
@@ -79,7 +69,7 @@ const ORCHESTRATION_STAGE_FIELD_DEFS = Object.freeze([
   },
 ]);
 
-const ORCHESTRATION_JOB_FIELD_DEFS = Object.freeze([
+export const ORCHESTRATION_JOB_FIELD_DEFS = Object.freeze([
   {
     controlType: "input",
     fieldKey: "name",
@@ -92,23 +82,6 @@ const ORCHESTRATION_JOB_FIELD_DEFS = Object.freeze([
 export const ORCHESTRATION_PLAN_METADATA_FIELD_DEFS = Object.freeze([]);
 export const ORCHESTRATION_STAGE_METADATA_FIELD_DEFS = Object.freeze([]);
 export const ORCHESTRATION_JOB_METADATA_FIELD_DEFS = Object.freeze([]);
-export const ORCHESTRATION_INVENTORY_DEFAULTS_METADATA_FIELD_DEFS =
-  Object.freeze([]);
-export const ORCHESTRATION_INVENTORY_GROUP_DEFAULTS_METADATA_FIELD_DEFS =
-  Object.freeze([]);
-export const ORCHESTRATION_INVENTORY_GROUP_METADATA_FIELD_DEFS = Object.freeze(
-  [],
-);
-export const ORCHESTRATION_TARGET_METADATA_FIELD_DEFS = Object.freeze([]);
-export const ORCHESTRATION_TX_BLOCK_DIRECT_METADATA_FIELD_DEFS = Object.freeze(
-  [],
-);
-export const ORCHESTRATION_TX_BLOCK_TEMPLATE_METADATA_FIELD_DEFS =
-  Object.freeze([]);
-export const ORCHESTRATION_TX_BLOCK_FLOW_METADATA_FIELD_DEFS = Object.freeze(
-  [],
-);
-export const ORCHESTRATION_TX_WORKFLOW_METADATA_FIELD_DEFS = Object.freeze([]);
 
 export const ORCHESTRATION_CONNECTION_NULLABLE_FIELD_KEYS = new Set([
   "name",
@@ -121,39 +94,6 @@ export const ORCHESTRATION_CONNECTION_NULLABLE_FIELD_KEYS = new Set([
   "linuxShellFlavor",
   "deviceProfile",
   "templateDir",
-]);
-
-export const ORCHESTRATION_TX_BLOCK_EXECUTION_FIELD_DEFS = Object.freeze([
-  {
-    controlType: "input",
-    fieldKey: "mode",
-    inputType: "text",
-    labelKey: "txBlockFormMode",
-  },
-  {
-    controlType: "input",
-    fieldKey: "timeoutSecs",
-    inputType: "number",
-    labelKey: "txBlockFormTimeout",
-  },
-  {
-    controlType: "input",
-    fieldKey: "resourceRollbackCommand",
-    inputType: "text",
-    labelKey: "orchestrationFormResourceRollbackCommand",
-  },
-  {
-    controlType: "select",
-    fieldKey: "rollbackOnFailure",
-    labelKey: "txBlockFormRollbackOnFailure",
-    optionKind: "boolean",
-  },
-  {
-    controlType: "input",
-    fieldKey: "rollbackTriggerStepIndex",
-    inputType: "number",
-    labelKey: "txBlockFormTriggerStepIndex",
-  },
 ]);
 
 function orchestrationPresenceFieldKey(fieldKey = "") {
@@ -223,7 +163,11 @@ export function orchestrationNullableModeRows() {
 function orchestrationStrategyOptionRows(strategyRows = [], selected = "") {
   return selectOptionsWithCurrent(strategyRows, selected).map(
     (optionValue) => ({
-      optionLabel: optionValue,
+      optionLabel: t(
+        optionValue === "parallel"
+          ? "orchestrationStrategyParallel"
+          : "orchestrationStrategySerial",
+      ),
       optionValue,
     }),
   );
@@ -234,6 +178,7 @@ function orchestrationStageLikeFieldsDisplay(
   sourceValue = {},
   strategyRows = [],
   booleanRows = [],
+  labelKeys = {},
 ) {
   const value = orchestrationPlainObject(sourceValue) ? sourceValue : {};
   const showsJobNamePresenceToggle = fieldDefs.some(
@@ -242,12 +187,13 @@ function orchestrationStageLikeFieldsDisplay(
       stageLikeField.labelKey === "orchestrationFormJob",
   );
   return fieldDefs.map((fieldDef) => {
+    const labelKey = labelKeys[fieldDef.fieldKey] || fieldDef.labelKey;
     const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
     if (fieldDef.optionKind === "strategy") {
       return {
         ...fieldDef,
         enabled: true,
-        labelText: t(fieldDef.labelKey),
+        labelText: t(labelKey),
         optionRows: orchestrationStrategyOptionRows(
           strategyRows,
           orchestrationStringValue(value.strategy, "serial"),
@@ -258,20 +204,31 @@ function orchestrationStageLikeFieldsDisplay(
       };
     }
     if (fieldDef.optionKind === "boolean") {
+      const optionalBooleanValue =
+        value.failFast === null || value.failFast === undefined
+          ? ""
+          : value.failFast
+            ? "true"
+            : "false";
       return {
         ...fieldDef,
-        enabled: !!value[presenceKey] || value.failFast !== null,
-        labelText: t(fieldDef.labelKey),
-        optionRows: selectOptionsWithCurrent(
-          booleanRows,
-          value.failFast ? "true" : "false",
-        ).map((optionValue) => ({
-          optionLabel: optionValue,
-          optionValue,
-        })),
+        enabled: true,
+        labelText: t(labelKey),
+        optionRows: [
+          {
+            optionLabel: t("orchestrationOptionalInherit"),
+            optionValue: "",
+          },
+          ...selectOptionsWithCurrent(booleanRows, optionalBooleanValue)
+            .filter(Boolean)
+            .map((optionValue) => ({
+              optionLabel: optionValue,
+              optionValue,
+            })),
+        ],
         placeholderText: "",
-        showPresenceToggle: true,
-        valueText: value.failFast ? "true" : "false",
+        showPresenceToggle: false,
+        valueText: optionalBooleanValue,
       };
     }
     const valueText =
@@ -280,13 +237,8 @@ function orchestrationStageLikeFieldsDisplay(
         : orchestrationStringValue(value[fieldDef.fieldKey] ?? "");
     return {
       ...fieldDef,
-      enabled:
-        fieldDef.fieldKey === "name"
-          ? !showsJobNamePresenceToggle ||
-            !!value[presenceKey] ||
-            value.name !== null
-          : !!value[presenceKey] || value[fieldDef.fieldKey] !== null,
-      labelText: t(fieldDef.labelKey),
+      enabled: true,
+      labelText: t(labelKey),
       nullableModeRows:
         fieldDef.fieldKey === "name" && showsJobNamePresenceToggle
           ? orchestrationNullableModeRows()
@@ -294,12 +246,8 @@ function orchestrationStageLikeFieldsDisplay(
       nullableModeValue:
         fieldDef.fieldKey === "name" && value.name === null ? "null" : "value",
       placeholderText: "",
-      showNullableModeSelect:
-        fieldDef.fieldKey === "name" &&
-        showsJobNamePresenceToggle &&
-        (!!value[presenceKey] || value.name !== null),
-      showPresenceToggle:
-        fieldDef.fieldKey === "name" ? showsJobNamePresenceToggle : true,
+      showNullableModeSelect: false,
+      showPresenceToggle: false,
       valueText,
     };
   });
@@ -313,9 +261,13 @@ function orchestrationStageLikeFieldPatch(fieldKey = "", fieldValue = "") {
     return { strategy: fieldValue };
   }
   if (fieldKey === "maxParallel") {
-    return { maxParallel: fieldValue, hasMaxParallel: true };
+    return fieldValue === ""
+      ? { maxParallel: null, hasMaxParallel: false }
+      : { maxParallel: fieldValue, hasMaxParallel: true };
   }
-  return { failFast: fieldValue === "true", hasFailFast: true };
+  return fieldValue === ""
+    ? { failFast: null, hasFailFast: false }
+    : { failFast: fieldValue === "true", hasFailFast: true };
 }
 
 export function orchestrationRootFieldsDisplay(model = {}, booleanRows = []) {
@@ -330,7 +282,7 @@ export function orchestrationRootFieldsDisplay(model = {}, booleanRows = []) {
           : !!rootValue[presenceKey] || booleanValue;
       return {
         ...fieldDef,
-        enabled,
+        enabled: true,
         labelText: t(fieldDef.labelKey),
         optionRows: selectOptionsWithCurrent(
           booleanRows,
@@ -340,31 +292,19 @@ export function orchestrationRootFieldsDisplay(model = {}, booleanRows = []) {
           optionValue,
         })),
         placeholderText: "",
-        showPresenceToggle: true,
+        showPresenceToggle: false,
         valueText: booleanValue ? "true" : "false",
       };
     }
     return {
       ...fieldDef,
-      enabled:
-        fieldDef.fieldKey === "name"
-          ? true
-          : !!rootValue[presenceKey] || rootValue[fieldDef.fieldKey] !== null,
+      enabled: true,
       labelText: t(fieldDef.labelKey),
-      nullableModeRows:
-        fieldDef.fieldKey === "inventoryFile"
-          ? orchestrationNullableModeRows()
-          : [],
-      nullableModeValue:
-        fieldDef.fieldKey === "inventoryFile" &&
-        rootValue.inventoryFile === null
-          ? "null"
-          : "value",
+      nullableModeRows: [],
+      nullableModeValue: "value",
       placeholderText: "",
-      showNullableModeSelect:
-        fieldDef.fieldKey === "inventoryFile" &&
-        (!!rootValue[presenceKey] || rootValue[fieldDef.fieldKey] !== null),
-      showPresenceToggle: fieldDef.fieldKey !== "name",
+      showNullableModeSelect: false,
+      showPresenceToggle: false,
       valueText: orchestrationStringValue(rootValue[fieldDef.fieldKey] ?? ""),
     };
   });
@@ -380,6 +320,12 @@ export function orchestrationStageFieldsDisplay(
     stage,
     strategyRows,
     booleanRows,
+    {
+      name: "orchestrationStageNameLabel",
+      strategy: "orchestrationStageStrategyLabel",
+      maxParallel: "orchestrationStageMaxParallelLabel",
+      failFast: "orchestrationStageFailFastLabel",
+    },
   );
 }
 
@@ -393,6 +339,12 @@ export function orchestrationJobFieldsDisplay(
     job,
     strategyRows,
     booleanRows,
+    {
+      name: "orchestrationJobNameLabel",
+      strategy: "orchestrationJobStrategyLabel",
+      maxParallel: "orchestrationJobMaxParallelLabel",
+      failFast: "orchestrationJobFailFastLabel",
+    },
   );
 }
 
@@ -458,19 +410,12 @@ function buildOrchestrationJsonStructureMapping() {
       ORCHESTRATION_ROOT_FIELD_DEFS,
       {
         editorKindByKey: {
-          inventoryFile: "presence-field",
           rollbackCompletedStagesOnFailure: "presence-field",
           rollbackOnStageFailure: "presence-field",
         },
         requiredKeys: new Set(["name"]),
       },
     ),
-    txStructureMappingEntry({
-      scope: "root",
-      jsonPath: "inventory",
-      formPath: "inventory",
-      editorKind: "inventory-editor",
-    }),
     txStructureMappingEntry({
       scope: "root",
       jsonPath: "stages",
@@ -485,141 +430,6 @@ function buildOrchestrationJsonStructureMapping() {
     ),
     txStructureMappingEntry({
       scope: "root",
-      jsonPath: "extra.*",
-      formPath: "extra.*",
-      editorKind: "json-object-extra",
-    }),
-    txStructureMappingEntry({
-      scope: "inventory",
-      jsonPath: "defaults",
-      formPath: "defaults",
-      editorKind: "inventory-defaults",
-    }),
-    txStructureMappingEntry({
-      scope: "inventory",
-      jsonPath: "groups",
-      formPath: "groups",
-      editorKind: "inventory-group-list",
-    }),
-    ...orchestrationStructureMetadataEntries(
-      "inventory",
-      "extra",
-      ORCHESTRATION_INVENTORY_DEFAULTS_METADATA_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "inventory",
-      jsonPath: "extra.*",
-      formPath: "extra.*",
-      editorKind: "json-object-extra",
-    }),
-    ...orchestrationStructureFieldEntries(
-      "inventory.defaults",
-      "",
-      ORCHESTRATION_DEFAULTS_FIELD_DEFS,
-      {
-        editorKindByKey: {
-          deviceProfile: "presence-field",
-          enablePassword: "presence-field",
-          linuxShellFlavor: "presence-field",
-          port: "presence-field",
-          sshSecurity: "presence-field",
-          templateDir: "presence-field",
-          username: "presence-field",
-          password: "presence-field",
-        },
-      },
-    ),
-    ...orchestrationStructureMetadataEntries(
-      "inventory.defaults",
-      "extra",
-      ORCHESTRATION_INVENTORY_DEFAULTS_METADATA_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "inventory.defaults",
-      jsonPath: "vars",
-      formPath: "vars",
-      editorKind: "typed-object",
-      labelKey: "orchestrationFormVars",
-    }),
-    txStructureMappingEntry({
-      scope: "inventory.defaults",
-      jsonPath: "extra.*",
-      formPath: "extra.*",
-      editorKind: "json-object-extra",
-    }),
-    ...orchestrationStructureFieldEntries("inventory.group", "", [
-      {
-        controlType: "input",
-        fieldKey: "name",
-        inputType: "text",
-        labelKey: "orchestrationFormGroupName",
-      },
-    ]),
-    txStructureMappingEntry({
-      scope: "inventory.group",
-      jsonPath: "defaults",
-      formPath: "defaults",
-      editorKind: "inventory-group-defaults",
-    }),
-    txStructureMappingEntry({
-      scope: "inventory.group",
-      jsonPath: "targets",
-      formPath: "targets",
-      editorKind: "target-list",
-    }),
-    ...orchestrationStructureMetadataEntries(
-      "inventory.group",
-      "extra",
-      ORCHESTRATION_INVENTORY_GROUP_METADATA_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "inventory.group",
-      jsonPath: "extra.*",
-      formPath: "extra.*",
-      editorKind: "json-object-extra",
-    }),
-    ...orchestrationStructureFieldEntries(
-      "inventory.group.defaults",
-      "",
-      ORCHESTRATION_DEFAULTS_FIELD_DEFS,
-    ),
-    ...orchestrationStructureMetadataEntries(
-      "inventory.group.defaults",
-      "extra",
-      ORCHESTRATION_INVENTORY_GROUP_DEFAULTS_METADATA_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "inventory.group.defaults",
-      jsonPath: "vars",
-      formPath: "vars",
-      editorKind: "typed-object",
-      labelKey: "orchestrationFormVars",
-    }),
-    txStructureMappingEntry({
-      scope: "inventory.group.defaults",
-      jsonPath: "extra.*",
-      formPath: "extra.*",
-      editorKind: "json-object-extra",
-    }),
-    ...orchestrationStructureFieldEntries(
-      "inventory.group.target",
-      "",
-      ORCHESTRATION_TARGET_DETAIL_FIELD_DEFS,
-    ),
-    ...orchestrationStructureMetadataEntries(
-      "inventory.group.target",
-      "extra",
-      ORCHESTRATION_TARGET_METADATA_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "inventory.group.target",
-      jsonPath: "vars",
-      formPath: "vars",
-      editorKind: "typed-object",
-      labelKey: "orchestrationFormVars",
-    }),
-    txStructureMappingEntry({
-      scope: "inventory.group.target",
       jsonPath: "extra.*",
       formPath: "extra.*",
       editorKind: "json-object-extra",
@@ -681,7 +491,7 @@ function buildOrchestrationJsonStructureMapping() {
       scope: "job",
       jsonPath: "targets",
       formPath: "targets",
-      editorKind: "target-list",
+      editorKind: "saved-connection-list",
       labelKey: "fieldConnection",
     }),
     txStructureMappingEntry({
@@ -697,131 +507,12 @@ function buildOrchestrationJsonStructureMapping() {
       formPath: "extra.*",
       editorKind: "json-object-extra",
     }),
-    ...orchestrationStructureFieldEntries(
-      "job.target",
-      "",
-      ORCHESTRATION_TARGET_DETAIL_FIELD_DEFS,
-    ),
-    ...orchestrationStructureMetadataEntries(
-      "job.target",
-      "extra",
-      ORCHESTRATION_TARGET_METADATA_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "job.target",
-      jsonPath: "vars",
-      formPath: "vars",
-      editorKind: "typed-object",
-      labelKey: "orchestrationFormVars",
-    }),
-    txStructureMappingEntry({
-      scope: "job.target",
-      jsonPath: "extra.*",
-      formPath: "extra.*",
-      editorKind: "json-object-extra",
-    }),
     txStructureMappingEntry({
       scope: "job.action",
       jsonPath: "kind",
       formPath: "kind",
-      editorKind: "select-field",
+      editorKind: "fixed-field",
       labelKey: "orchestrationFormActionKind",
-    }),
-    ...orchestrationStructureFieldEntries(
-      "job.action.tx_block",
-      "",
-      ORCHESTRATION_TX_BLOCK_EXECUTION_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "vars",
-      formPath: "vars",
-      editorKind: "typed-object",
-      labelKey: "orchestrationFormVars",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "commands",
-      formPath: "commands",
-      editorKind: "string-list",
-      labelKey: "fieldCommand",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "rollback_commands",
-      formPath: "rollbackCommands",
-      editorKind: "string-list",
-      labelKey: "orchestrationFormRollbackCommands",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "tx_block_template_name",
-      formPath: "txBlockTemplateName",
-      editorKind: "presence-field",
-      labelKey: "orchestrationFormTxBlockTemplateName",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "tx_block_template_content",
-      formPath: "txBlockTemplateContent",
-      editorKind: "presence-field",
-      labelKey: "orchestrationFormTxBlockTemplateContent",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "tx_block_template_vars",
-      formPath: "txBlockTemplateVars",
-      editorKind: "typed-object",
-      labelKey: "orchestrationFormTxBlockTemplateVars",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "flow_template_name",
-      formPath: "flowTemplateName",
-      editorKind: "presence-field",
-      labelKey: "orchestrationFormFlowTemplateName",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "flow_template_content",
-      formPath: "flowTemplateContent",
-      editorKind: "presence-field",
-      labelKey: "orchestrationFormFlowTemplateContent",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "flow_vars",
-      formPath: "flowVars",
-      editorKind: "typed-object",
-      labelKey: "orchestrationFormFlowVars",
-    }),
-    ...orchestrationStructureMetadataEntries(
-      "job.action.tx_block",
-      "extra",
-      ORCHESTRATION_TX_BLOCK_DIRECT_METADATA_FIELD_DEFS,
-    ),
-    ...orchestrationStructureMetadataEntries(
-      "job.action.tx_block",
-      "extra",
-      ORCHESTRATION_TX_BLOCK_TEMPLATE_METADATA_FIELD_DEFS,
-    ),
-    ...orchestrationStructureMetadataEntries(
-      "job.action.tx_block",
-      "extra",
-      ORCHESTRATION_TX_BLOCK_FLOW_METADATA_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "job.action.tx_block",
-      jsonPath: "extra.*",
-      formPath: "extra.*",
-      editorKind: "json-object-extra",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_workflow",
-      jsonPath: "workflow_file",
-      formPath: "workflowFile",
-      editorKind: "presence-field",
-      labelKey: "orchestrationFormWorkflowFile",
     }),
     txStructureMappingEntry({
       scope: "job.action.tx_workflow",
@@ -839,28 +530,10 @@ function buildOrchestrationJsonStructureMapping() {
     }),
     txStructureMappingEntry({
       scope: "job.action.tx_workflow",
-      jsonPath: "workflow_template_content",
-      formPath: "workflowTemplateContent",
-      editorKind: "presence-field",
-      labelKey: "orchestrationFormWorkflowTemplateContent",
-    }),
-    txStructureMappingEntry({
-      scope: "job.action.tx_workflow",
       jsonPath: "workflow_vars",
       formPath: "workflowVars",
       editorKind: "typed-object",
       labelKey: "orchestrationFormWorkflowVars",
-    }),
-    ...orchestrationStructureMetadataEntries(
-      "job.action.tx_workflow",
-      "extra",
-      ORCHESTRATION_TX_WORKFLOW_METADATA_FIELD_DEFS,
-    ),
-    txStructureMappingEntry({
-      scope: "job.action.tx_workflow",
-      jsonPath: "extra.*",
-      formPath: "extra.*",
-      editorKind: "json-object-extra",
     }),
   ]);
 }

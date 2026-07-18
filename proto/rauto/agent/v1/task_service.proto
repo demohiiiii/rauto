@@ -205,9 +205,9 @@ message GetInventoryGroupRequest {
 }
 
 message UpsertInventoryGroupRequest {
+  reserved 3;
   string name       = 1;
   repeated string hosts = 2;
-  string vars_json  = 3;
   string description = 4;
 }
 
@@ -620,8 +620,8 @@ message ExecuteTxWorkflowResponse {
 }
 
 message ExecuteOrchestrationResponse {
+  reserved 2;
   string          plan_json                 = 1;
-  string          inventory_json            = 2;
   optional string orchestration_result_json = 3;
   optional string result_summary_json       = 4;
 }

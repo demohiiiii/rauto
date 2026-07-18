@@ -490,6 +490,14 @@ export function getTemplateResource(basePath, name) {
   return apiRequest("GET", `${basePath}/${encodeURIComponent(name)}`);
 }
 
+export function previewTxWorkflowTemplate(name, workflowVars = {}) {
+  return apiRequest(
+    "POST",
+    `/api/tx-workflow-templates/${encodeURIComponent(name)}/preview`,
+    { workflow_vars: workflowVars },
+  );
+}
+
 export function createTemplateResource(basePath, name, content) {
   return apiRequest("POST", basePath, { name, content });
 }

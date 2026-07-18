@@ -334,7 +334,6 @@ pub struct ExecuteOrchestrationRequest {
 #[derive(Debug, Serialize)]
 pub struct ExecuteOrchestrationResponse {
     pub plan: Value,
-    pub inventory: Value,
     pub orchestration_result: Option<Value>,
     pub result_summary: TaskResultSummary,
 }

@@ -409,24 +409,6 @@ pub enum InventoryCommands {
     /// Manage inventory groups
     #[command(subcommand)]
     Group(InventoryGroupCommands),
-    /// Preview merged vars from saved connection/group/runtime inputs
-    ResolveVars {
-        /// Saved connection name
-        #[arg(long)]
-        host: Option<String>,
-        /// Inventory group name (repeatable)
-        #[arg(long = "group")]
-        groups: Vec<String>,
-        /// Runtime vars JSON file
-        #[arg(long)]
-        vars_file: Option<PathBuf>,
-        /// Runtime vars JSON string
-        #[arg(long)]
-        vars_json: Option<String>,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
 }
 
 #[derive(Subcommand, Debug)]

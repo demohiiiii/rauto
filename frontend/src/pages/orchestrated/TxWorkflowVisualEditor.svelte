@@ -33,7 +33,13 @@
   import TxWorkflowFlowNode from "./TxWorkflowFlowNode.svelte";
   import TxWorkflowFlowViewportController from "./TxWorkflowFlowViewportController.svelte";
 
-  let { model, onChange, onOpenView } = $props();
+  let {
+    model,
+    onChange,
+    onOpenView,
+    embedded = false,
+    settingsOnly = false,
+  } = $props();
 
   const txWorkflowVisualEditorWorkspace =
     createTxWorkflowVisualEditorWorkspace();
@@ -55,10 +61,11 @@
   let settingsCollapsed = $state(false);
   let inspectorCollapsed = $state(false);
   let inspectorWidth = $state(560);
-  let compactCanvas = $state(
+  let compactViewport = $state(
     typeof window !== "undefined" &&
       window.matchMedia("(max-width: 1023px)").matches,
   );
+  let compactCanvas = $derived(compactViewport);
   let canvasHost = $state(null);
   let inspectorResizeCleanup = null;
   let selectedBlockRow = $derived(
@@ -321,7 +328,7 @@
   onMount(() => {
     const compactQuery = window.matchMedia("(max-width: 1023px)");
     const applyCompactCanvas = () => {
-      compactCanvas = compactQuery.matches;
+      compactViewport = compactQuery.matches;
     };
     applyCompactCanvas();
     compactQuery.addEventListener("change", applyCompactCanvas);
@@ -329,300 +336,476 @@
   });
 </script>
 
-<div
-  bind:this={canvasHost}
-  data-testid="tx-workflow-editor-layout"
-  class="relative min-w-0"
->
-  <div
-    class="flex h-[42rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-muted/15 lg:h-[calc(100dvh-14rem)] lg:min-h-[44rem] lg:max-h-[58rem]"
-  >
-    <div class="tx-workflow-flow min-h-0 flex-1">
-      <SvelteFlow
-        id="tx-workflow-editor"
-        nodes={graphNodes}
-        edges={graphEdges}
-        {nodeTypes}
-        fitView
-        fitViewOptions={{
-          padding: 0.12,
-          maxZoom: 0.9,
-          nodes: graphNodes.slice(0, 2).map((node) => ({ id: node.id })),
-        }}
-        minZoom={0.35}
-        maxZoom={1.5}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable
-        deleteKey={null}
-        selectionKey={null}
-        multiSelectionKey={null}
-        zoomOnScroll={false}
-        zoomOnDoubleClick={false}
-        onnodeclick={selectGraphNode}
-        onpaneclick={collapseCanvasWindows}
-        proOptions={{ hideAttribution: true }}
+{#if embedded}
+  <div data-testid="tx-workflow-embedded-editor" class="grid min-w-0 gap-4">
+    <section
+      class="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
+    >
+      <header
+        class="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-border bg-muted/20 p-3"
       >
-        <Background
-          id="tx-workflow-grid"
-          variant={BackgroundVariant.Dots}
-          patternColor="var(--border)"
-          gap={20}
-          size={1.25}
-        />
-
-        <TxWorkflowFlowViewportController
-          compact={compactCanvas}
-          focusNodeId={selectedNodeId}
-          inspectorOpen={!inspectorCollapsed}
-          {inspectorWidth}
-        />
-
-        <Panel
-          position="top-left"
-          class={settingsCollapsed ? "m-3" : "m-3 w-[calc(100%-1.5rem)]"}
-        >
-          {#if settingsCollapsed}
+        <div class="min-w-0">
+          <h4 class="text-sm font-semibold text-foreground">
+            {t("txWorkflowSettingsTitle")}
+          </h4>
+          <p class="mt-0.5 text-xs leading-5 text-muted-foreground">
+            {t("txWorkflowCanvasSettingsHint")}
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{canvasBlockCountText}</Badge>
+          {#if settingsOnly}
             <Button
-              class="pointer-events-auto shadow-lg"
-              variant="secondary"
+              variant="outline"
               size="sm"
               type="button"
-              aria-label={t("txWorkflowSettingsExpand")}
-              title={t("txWorkflowSettingsExpand")}
-              onclick={expandSettings}
+              onclick={addBlock}
             >
-              <PanelTopOpenIcon data-icon="inline-start" />
-              {t("txWorkflowSettingsTitle")}
+              <PlusIcon data-icon="inline-start" />
+              {t("txWorkflowFormAddBlock")}
             </Button>
-          {:else}
-            <div
-              class="pointer-events-auto grid min-w-0 gap-3 rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur"
-            >
+          {/if}
+        </div>
+      </header>
+      <div class="p-3">
+        <PresenceFieldGrid
+          fieldRows={workflowRootFieldRows}
+          valueHandlerMode="event"
+          hostClass="grid min-w-0 gap-3"
+          presenceControlsMode="hidden"
+          onValueChangeForKey={workflowActionHandlers.valueHandler}
+          onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
+        />
+      </div>
+    </section>
+
+    {#if !settingsOnly}
+      <section
+        class="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
+      >
+        <header
+          class="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/20 p-3"
+        >
+          <div class="min-w-0">
+            <h4 class="text-sm font-semibold text-foreground">
+              {t("txWorkflowFormBlocks")}
+            </h4>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              {canvasBlockCountText}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" type="button" onclick={addBlock}>
+            <PlusIcon data-icon="inline-start" />
+            {t("txWorkflowFormAddBlock")}
+          </Button>
+        </header>
+
+        {#if blockRows.length}
+          <div class="max-h-72 divide-y divide-border overflow-y-auto">
+            {#each blockRows as blockRow}
               <div
-                class="flex min-w-0 flex-wrap items-center justify-between gap-2"
+                class={classNames(
+                  "flex min-w-0 items-center gap-2 p-2 transition-colors",
+                  selectedTarget.kind === "block" &&
+                    selectedTarget.blockIndex === blockRow.blockIndex
+                    ? "bg-primary/5"
+                    : "hover:bg-muted/30",
+                )}
               >
-                <div class="min-w-0">
-                  <div class="truncate text-sm font-semibold text-foreground">
-                    {t("txWorkflowSettingsTitle")}
-                  </div>
-                  <div class="text-xs text-muted-foreground">
-                    {t("txWorkflowCanvasSettingsHint")}
-                  </div>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">{canvasBlockCountText}</Badge>
+                <button
+                  type="button"
+                  class="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-pressed={selectedTarget.kind === "block" &&
+                    selectedTarget.blockIndex === blockRow.blockIndex}
+                  onclick={() => selectBlock(blockRow.blockIndex)}
+                >
+                  <Badge variant="secondary">
+                    {blockRow.blockIndex + 1}
+                  </Badge>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-sm font-medium">
+                      {blockName(blockRow)}
+                    </span>
+                    <span
+                      class="mt-0.5 block truncate text-xs text-muted-foreground"
+                    >
+                      {blockMeta(blockRow)}
+                    </span>
+                  </span>
+                </button>
+                <div class="flex shrink-0 items-center gap-0.5">
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="ghost"
+                    size="icon-sm"
                     type="button"
-                    onclick={addBlock}
+                    title={t("txWorkflowMoveBlockLeft")}
+                    aria-label={t("txWorkflowMoveBlockLeft")}
+                    disabled={blockRow.blockIndex === 0}
+                    onclick={() =>
+                      moveBlock(blockRow.blockIndex, blockRow.blockIndex - 1)}
                   >
-                    <PlusIcon data-icon="inline-start" />
-                    {t("txWorkflowFormAddBlock")}
+                    <ArrowLeftIcon />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     type="button"
-                    title={t("txWorkflowSettingsCollapse")}
-                    aria-label={t("txWorkflowSettingsCollapse")}
-                    onclick={collapseSettings}
+                    title={t("txWorkflowMoveBlockRight")}
+                    aria-label={t("txWorkflowMoveBlockRight")}
+                    disabled={blockRow.blockIndex === blockRows.length - 1}
+                    onclick={() =>
+                      moveBlock(blockRow.blockIndex, blockRow.blockIndex + 1)}
                   >
-                    <PanelTopCloseIcon />
+                    <ArrowRightIcon />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    type="button"
+                    title={t("txWorkflowDuplicateBlock")}
+                    aria-label={t("txWorkflowDuplicateBlock")}
+                    onclick={() => duplicateBlock(blockRow.blockIndex)}
+                  >
+                    <CopyIcon />
+                  </Button>
+                  <Button
+                    class="text-destructive hover:text-destructive"
+                    variant="ghost"
+                    size="icon-sm"
+                    type="button"
+                    title={t("txWorkflowDeleteBlock")}
+                    aria-label={t("txWorkflowDeleteBlock")}
+                    onclick={() => removeBlock(blockRow.blockIndex)}
+                  >
+                    <Trash2Icon />
                   </Button>
                 </div>
               </div>
-              <PresenceFieldGrid
-                fieldRows={workflowRootFieldRows}
-                valueHandlerMode="event"
-                hostClass="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_minmax(10rem,12rem)]"
-                presenceControlsMode="hidden"
-                onValueChangeForKey={workflowActionHandlers.valueHandler}
-                onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
-              />
-            </div>
-          {/if}
-        </Panel>
-
-        <Controls
-          position="bottom-left"
-          orientation="horizontal"
-          showLock={false}
-          aria-label={t("txWorkflowCanvasControls")}
-          buttonBgColor="var(--card)"
-          buttonBgColorHover="var(--accent)"
-          buttonColor="var(--foreground)"
-          buttonColorHover="var(--accent-foreground)"
-          buttonBorderColor="var(--border)"
-        />
-      </SvelteFlow>
-    </div>
-    <div
-      role="group"
-      aria-label={t("txWorkflowCanvasViewToolbar")}
-      class="flex shrink-0 items-center justify-center gap-2 border-t border-border bg-background/95 p-2 backdrop-blur"
-    >
-      <Button
-        variant="outline"
-        size="sm"
-        type="button"
-        onclick={() => openCanvasView("json")}
-      >
-        <BracesIcon data-icon="inline-start" />
-        {t("txBlockEditorJsonTab")}
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        type="button"
-        onclick={() => openCanvasView("readonly")}
-      >
-        <EyeIcon data-icon="inline-start" />
-        {t("txBlockEditorReadonlyTab")}
-      </Button>
-    </div>
-  </div>
-
-  {#if inspectorCollapsed}
-    <Button
-      class={classNames(
-        "absolute right-4 z-20 shadow-lg",
-        settingsCollapsed ? "top-4" : "top-[10.5rem]",
-      )}
-      variant="secondary"
-      size="sm"
-      type="button"
-      aria-label={t("txWorkflowInspectorExpand")}
-      title={t("txWorkflowInspectorExpand")}
-      onclick={openInspector}
-    >
-      <PanelRightOpenIcon data-icon="inline-start" />
-      {t("txWorkflowInspectorExpand")}
-    </Button>
-  {:else}
-    <aside
-      class={classNames(
-        "tx-workflow-inspector mt-3 min-w-0 overflow-hidden rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur lg:absolute lg:bottom-[4.75rem] lg:right-4 lg:z-20 lg:mt-0 lg:flex lg:flex-col",
-        settingsCollapsed ? "lg:top-4" : "lg:top-[10.5rem]",
-      )}
-      style={`--inspector-width: ${inspectorWidth}px`}
-      aria-label={inspectorTitle}
-    >
-      <button
-        type="button"
-        class="absolute -left-3 bottom-0 top-0 hidden w-6 touch-none cursor-col-resize items-center justify-center text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
-        aria-label={t("txWorkflowInspectorResize")}
-        title={t("txWorkflowInspectorResize")}
-        onpointerdown={startInspectorResize}
-        onkeydown={resizeInspectorWithKeyboard}
-      >
-        <GripVerticalIcon />
-      </button>
-
-      <header class="border-b border-border bg-muted/20 p-3 sm:p-4">
-        <div class="flex min-w-0 items-start justify-between gap-3">
-          <div class="min-w-0">
-            <div class="truncate text-sm font-semibold text-foreground">
-              {inspectorTitle}
-            </div>
-            <div class="mt-0.5 truncate text-xs text-muted-foreground">
-              {inspectorHint}
-            </div>
+            {/each}
           </div>
-          <div class="flex shrink-0 items-center gap-1">
-            {#if selectedBlockRow}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                type="button"
-                title={t("txWorkflowMoveBlockLeft")}
-                aria-label={t("txWorkflowMoveBlockLeft")}
-                disabled={selectedBlockRow.blockIndex === 0}
-                onclick={() =>
-                  moveBlock(
-                    selectedBlockRow.blockIndex,
-                    selectedBlockRow.blockIndex - 1,
-                  )}
-              >
-                <ArrowLeftIcon />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                type="button"
-                title={t("txWorkflowMoveBlockRight")}
-                aria-label={t("txWorkflowMoveBlockRight")}
-                disabled={selectedBlockRow.blockIndex === blockRows.length - 1}
-                onclick={() =>
-                  moveBlock(
-                    selectedBlockRow.blockIndex,
-                    selectedBlockRow.blockIndex + 1,
-                  )}
-              >
-                <ArrowRightIcon />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                type="button"
-                title={t("txWorkflowDuplicateBlock")}
-                aria-label={t("txWorkflowDuplicateBlock")}
-                onclick={() => duplicateBlock(selectedBlockRow.blockIndex)}
-              >
-                <CopyIcon />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                type="button"
-                class="text-destructive hover:text-destructive"
-                title={t("txWorkflowDeleteBlock")}
-                aria-label={t("txWorkflowDeleteBlock")}
-                onclick={() => removeBlock(selectedBlockRow.blockIndex)}
-              >
-                <Trash2Icon />
-              </Button>
-            {/if}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              type="button"
-              title={t("txWorkflowInspectorCollapse")}
-              aria-label={t("txWorkflowInspectorCollapse")}
-              onclick={collapseInspector}
-            >
-              <PanelRightCloseIcon />
+        {:else}
+          <div class="grid gap-3 p-3">
+            <StatusCard message={t("txWorkflowInspectorNoSelectionHint")} />
+            <Button variant="outline" type="button" onclick={addBlock}>
+              <PlusIcon data-icon="inline-start" />
+              {t("txWorkflowFormAddBlock")}
             </Button>
           </div>
-        </div>
-      </header>
+        {/if}
+      </section>
 
-      <div class="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-        {#key currentLanguage}
-          {#if selectedBlockRow}
-            <TxWorkflowBlockEditor
-              blockRow={selectedBlockRow}
-              {editorDisplay}
-              blockActionHandlers={workflowActionHandlers.blockBindings(
-                selectedBlockRow.blockIndex,
-              )}
-              showRemoveAction={false}
-            />
-          {:else}
-            <div class="grid gap-3">
-              <StatusCard message={t("txWorkflowInspectorNoSelectionHint")} />
-              <Button variant="outline" type="button" onclick={addBlock}>
-                <PlusIcon data-icon="inline-start" />
-                {t("txWorkflowFormAddBlock")}
+      {#key currentLanguage}
+        {#if selectedBlockRow}
+          <TxWorkflowBlockEditor
+            blockRow={selectedBlockRow}
+            {editorDisplay}
+            embedded={true}
+            blockActionHandlers={workflowActionHandlers.blockBindings(
+              selectedBlockRow.blockIndex,
+            )}
+            showRemoveAction={false}
+          />
+        {/if}
+      {/key}
+    {/if}
+  </div>
+{:else}
+  <div
+    bind:this={canvasHost}
+    data-testid="tx-workflow-editor-layout"
+    class="relative min-w-0"
+  >
+    <div
+      class="flex h-[42rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-muted/15 lg:h-[calc(100dvh-14rem)] lg:min-h-[44rem] lg:max-h-[58rem]"
+    >
+      <div class="tx-workflow-flow min-h-0 flex-1">
+        <SvelteFlow
+          id="tx-workflow-editor"
+          nodes={graphNodes}
+          edges={graphEdges}
+          {nodeTypes}
+          fitView
+          fitViewOptions={{
+            padding: 0.12,
+            maxZoom: 0.9,
+            nodes: graphNodes.slice(0, 2).map((node) => ({ id: node.id })),
+          }}
+          minZoom={0.35}
+          maxZoom={1.5}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable
+          deleteKey={null}
+          selectionKey={null}
+          multiSelectionKey={null}
+          zoomOnScroll={false}
+          zoomOnDoubleClick={false}
+          onnodeclick={selectGraphNode}
+          onpaneclick={collapseCanvasWindows}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background
+            id="tx-workflow-grid"
+            variant={BackgroundVariant.Dots}
+            patternColor="var(--border)"
+            gap={20}
+            size={1.25}
+          />
+
+          <TxWorkflowFlowViewportController
+            compact={compactCanvas}
+            focusNodeId={selectedNodeId}
+            inspectorOpen={!inspectorCollapsed}
+            {inspectorWidth}
+          />
+
+          <Panel
+            position="top-left"
+            class={settingsCollapsed ? "m-3" : "m-3 w-[calc(100%-1.5rem)]"}
+          >
+            {#if settingsCollapsed}
+              <Button
+                class="pointer-events-auto shadow-lg"
+                variant="secondary"
+                size="sm"
+                type="button"
+                aria-label={t("txWorkflowSettingsExpand")}
+                title={t("txWorkflowSettingsExpand")}
+                onclick={expandSettings}
+              >
+                <PanelTopOpenIcon data-icon="inline-start" />
+                {t("txWorkflowSettingsTitle")}
+              </Button>
+            {:else}
+              <div
+                class="pointer-events-auto grid min-w-0 gap-3 rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur"
+              >
+                <div
+                  class="flex min-w-0 flex-wrap items-center justify-between gap-2"
+                >
+                  <div class="min-w-0">
+                    <div class="truncate text-sm font-semibold text-foreground">
+                      {t("txWorkflowSettingsTitle")}
+                    </div>
+                    <div class="text-xs text-muted-foreground">
+                      {t("txWorkflowCanvasSettingsHint")}
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">{canvasBlockCountText}</Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onclick={addBlock}
+                    >
+                      <PlusIcon data-icon="inline-start" />
+                      {t("txWorkflowFormAddBlock")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      type="button"
+                      title={t("txWorkflowSettingsCollapse")}
+                      aria-label={t("txWorkflowSettingsCollapse")}
+                      onclick={collapseSettings}
+                    >
+                      <PanelTopCloseIcon />
+                    </Button>
+                  </div>
+                </div>
+                <PresenceFieldGrid
+                  fieldRows={workflowRootFieldRows}
+                  valueHandlerMode="event"
+                  hostClass="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_minmax(10rem,12rem)]"
+                  presenceControlsMode="hidden"
+                  onValueChangeForKey={workflowActionHandlers.valueHandler}
+                  onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
+                />
+              </div>
+            {/if}
+          </Panel>
+
+          <Controls
+            position="bottom-left"
+            orientation="horizontal"
+            showLock={false}
+            aria-label={t("txWorkflowCanvasControls")}
+            buttonBgColor="var(--card)"
+            buttonBgColorHover="var(--accent)"
+            buttonColor="var(--foreground)"
+            buttonColorHover="var(--accent-foreground)"
+            buttonBorderColor="var(--border)"
+          />
+        </SvelteFlow>
+      </div>
+      <div
+        role="group"
+        aria-label={t("txWorkflowCanvasViewToolbar")}
+        class="flex shrink-0 items-center justify-center gap-2 border-t border-border bg-background/95 p-2 backdrop-blur"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onclick={() => openCanvasView("json")}
+        >
+          <BracesIcon data-icon="inline-start" />
+          {t("txBlockEditorJsonTab")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onclick={() => openCanvasView("readonly")}
+        >
+          <EyeIcon data-icon="inline-start" />
+          {t("txBlockEditorReadonlyTab")}
+        </Button>
+      </div>
+    </div>
+
+    {#if inspectorCollapsed}
+      <Button
+        class={classNames(
+          "absolute right-4 z-20 shadow-lg",
+          settingsCollapsed ? "top-4" : "top-[10.5rem]",
+        )}
+        variant="secondary"
+        size="sm"
+        type="button"
+        aria-label={t("txWorkflowInspectorExpand")}
+        title={t("txWorkflowInspectorExpand")}
+        onclick={openInspector}
+      >
+        <PanelRightOpenIcon data-icon="inline-start" />
+        {t("txWorkflowInspectorExpand")}
+      </Button>
+    {:else}
+      <aside
+        class={classNames(
+          "tx-workflow-inspector mt-3 min-w-0 overflow-hidden rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur lg:absolute lg:bottom-[4.75rem] lg:right-4 lg:z-20 lg:mt-0 lg:flex lg:flex-col",
+          settingsCollapsed ? "lg:top-4" : "lg:top-[10.5rem]",
+        )}
+        style={`--inspector-width: ${inspectorWidth}px`}
+        aria-label={inspectorTitle}
+      >
+        <button
+          type="button"
+          class="absolute -left-3 bottom-0 top-0 hidden w-6 touch-none cursor-col-resize items-center justify-center text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
+          aria-label={t("txWorkflowInspectorResize")}
+          title={t("txWorkflowInspectorResize")}
+          onpointerdown={startInspectorResize}
+          onkeydown={resizeInspectorWithKeyboard}
+        >
+          <GripVerticalIcon />
+        </button>
+
+        <header class="border-b border-border bg-muted/20 p-3 sm:p-4">
+          <div class="flex min-w-0 items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="truncate text-sm font-semibold text-foreground">
+                {inspectorTitle}
+              </div>
+              <div class="mt-0.5 truncate text-xs text-muted-foreground">
+                {inspectorHint}
+              </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-1">
+              {#if selectedBlockRow}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  title={t("txWorkflowMoveBlockLeft")}
+                  aria-label={t("txWorkflowMoveBlockLeft")}
+                  disabled={selectedBlockRow.blockIndex === 0}
+                  onclick={() =>
+                    moveBlock(
+                      selectedBlockRow.blockIndex,
+                      selectedBlockRow.blockIndex - 1,
+                    )}
+                >
+                  <ArrowLeftIcon />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  title={t("txWorkflowMoveBlockRight")}
+                  aria-label={t("txWorkflowMoveBlockRight")}
+                  disabled={selectedBlockRow.blockIndex ===
+                    blockRows.length - 1}
+                  onclick={() =>
+                    moveBlock(
+                      selectedBlockRow.blockIndex,
+                      selectedBlockRow.blockIndex + 1,
+                    )}
+                >
+                  <ArrowRightIcon />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  title={t("txWorkflowDuplicateBlock")}
+                  aria-label={t("txWorkflowDuplicateBlock")}
+                  onclick={() => duplicateBlock(selectedBlockRow.blockIndex)}
+                >
+                  <CopyIcon />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  class="text-destructive hover:text-destructive"
+                  title={t("txWorkflowDeleteBlock")}
+                  aria-label={t("txWorkflowDeleteBlock")}
+                  onclick={() => removeBlock(selectedBlockRow.blockIndex)}
+                >
+                  <Trash2Icon />
+                </Button>
+              {/if}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                type="button"
+                title={t("txWorkflowInspectorCollapse")}
+                aria-label={t("txWorkflowInspectorCollapse")}
+                onclick={collapseInspector}
+              >
+                <PanelRightCloseIcon />
               </Button>
             </div>
-          {/if}
-        {/key}
-      </div>
-    </aside>
-  {/if}
-</div>
+          </div>
+        </header>
+
+        <div class="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+          {#key currentLanguage}
+            {#if selectedBlockRow}
+              <TxWorkflowBlockEditor
+                blockRow={selectedBlockRow}
+                {editorDisplay}
+                blockActionHandlers={workflowActionHandlers.blockBindings(
+                  selectedBlockRow.blockIndex,
+                )}
+                showRemoveAction={false}
+              />
+            {:else}
+              <div class="grid gap-3">
+                <StatusCard message={t("txWorkflowInspectorNoSelectionHint")} />
+                <Button variant="outline" type="button" onclick={addBlock}>
+                  <PlusIcon data-icon="inline-start" />
+                  {t("txWorkflowFormAddBlock")}
+                </Button>
+              </div>
+            {/if}
+          {/key}
+        </div>
+      </aside>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .tx-workflow-inspector {

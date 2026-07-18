@@ -300,7 +300,6 @@ pub(super) fn map_execute_orchestration_response(
 ) -> Result<ExecuteOrchestrationResponse, Status> {
     Ok(ExecuteOrchestrationResponse {
         plan_json: serialize_json(&response.plan, "plan")?,
-        inventory_json: serialize_json(&response.inventory, "inventory")?,
         orchestration_result_json: serialize_json_option(
             response.orchestration_result,
             "orchestration_result",

@@ -86,15 +86,12 @@ test("shared command flow barrel exports every surface", () => {
   }
 });
 
-test("runtime fields default to inferred controls and expose explicit orchestration json", () => {
+test("runtime fields default to inferred controls", () => {
   const component = read(
     "frontend/src/components/command-flow/CommandFlowRuntimeFields.svelte",
   );
   const standard = read(
     "frontend/src/pages/standard/FlowExecutionPanel.svelte",
-  );
-  const orchestration = read(
-    "frontend/src/pages/orchestrated/OrchestrationTxBlockFlowSourceEditor.svelte",
   );
 
   assert.match(component, /fieldRows/);
@@ -105,7 +102,6 @@ test("runtime fields default to inferred controls and expose explicit orchestrat
   assert.match(component, /showJsonOverrides = false/);
   assert.match(component, /type=\{fieldRow\.inputType\}/);
   assert.doesNotMatch(standard, /onJsonOverridesChange/);
-  assert.match(orchestration, /showJsonOverrides=\{true\}/);
 });
 
 test("flow steps use parent-owned rows and actions", () => {
@@ -193,15 +189,6 @@ test("inline transaction flows compose the same editor as standard flows", () =>
   );
   assert.doesNotMatch(editor, /JsonObjectFieldsEditor/);
   assert.doesNotMatch(editor, /txBlockFlowMetadataFieldDefs/);
-});
-
-test("orchestration transaction flows compose shared source and runtime fields", () => {
-  const editor = read(
-    "frontend/src/pages/orchestrated/OrchestrationTxBlockFlowSourceEditor.svelte",
-  );
-
-  assert.match(editor, /CommandFlowTemplateSource/);
-  assert.match(editor, /CommandFlowRuntimeFields/);
 });
 
 test("shared command flow template editor exposes only executable fields", () => {

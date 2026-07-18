@@ -24,8 +24,6 @@ import {
   TX_VISUAL,
   TX_VARS,
   clearTransactionOutput,
-  getTxExecutionModes,
-  jsonTemplateSelectValue,
   requireTxJsonEditor,
   setErrorStatus,
   setStatus,
@@ -119,14 +117,6 @@ export function defaultOrchestrationTemplatePayload() {
     fail_fast: true,
     rollback_on_stage_failure: true,
     rollback_completed_stages_on_failure: false,
-    inventory: {
-      groups: {
-        edge_nodes: {
-          defaults: { vars: { site: "dc-a" } },
-          targets: [{ name: "edge-01", connection: "edge-01" }],
-        },
-      },
-    },
     stages: [
       {
         name: "deploy-phase",
@@ -278,32 +268,40 @@ function txWorkflowExecutionPayload({ dependencies, dryRun }) {
   });
 }
 
-function orchestrationExecutionPayload({ dependencies, dryRun }) {
-  const templateMode = getTxExecutionModes().orchestration === "template";
-  const planTemplateName = templateMode
-    ? jsonTemplateSelectValue(TX_TEMPLATE_KIND.orchestration)
-    : "";
-  const raw = templateMode ? "" : orchestrationEditorRaw();
-  if (templateMode && !planTemplateName) {
-    throw new Error(tr("orchestrationTemplateNameRequired"));
-  }
-  if (!templateMode && !raw) {
+export function orchestrationInlineExecutionPayload({
+  connection,
+  dryRun,
+  planText = "",
+  planVars = {},
+  recordLevel,
+} = {}) {
+  const raw = transactionText(planText).trim();
+  if (!raw) {
     throw new Error(tr("orchestrationJsonRequired"));
   }
   return {
     base_dir: null,
-    connection: connectionPayload(dependencies),
+    connection,
     dry_run: dryRun,
-    plan: raw ? JSON.parse(raw) : {},
+    plan: JSON.parse(raw),
     plan_template_content: null,
-    plan_template_name: planTemplateName || null,
-    plan_vars: txVarsJsonObject(
-      templateMode
-        ? TX_VARS.orchestrationTemplate
-        : TX_VARS.orchestrationDirect,
-    ),
-    record_level: recordLevelPayload(dependencies),
+    plan_template_name: null,
+    plan_vars:
+      planVars && typeof planVars === "object" && !Array.isArray(planVars)
+        ? planVars
+        : {},
+    record_level: recordLevel,
   };
+}
+
+function orchestrationExecutionPayload({ dependencies, dryRun }) {
+  return orchestrationInlineExecutionPayload({
+    connection: connectionPayload(dependencies),
+    dryRun,
+    planText: orchestrationEditorRaw(),
+    planVars: txVarsJsonObject(TX_VARS.orchestrationDirect),
+    recordLevel: recordLevelPayload(dependencies),
+  });
 }
 
 function normalizeTxWorkflowJsonFromEditor(
@@ -413,7 +411,6 @@ async function previewOrchestrationWithDependencies(dependencies = {}) {
       dependencies,
       "setOrchestrationPreview",
       orchestrationPreviewPayload?.plan || {},
-      orchestrationPreviewPayload?.inventory || {},
       null,
     );
     setStatus(
@@ -442,7 +439,6 @@ async function executeOrchestrationRunWithDependencies(dependencies = {}) {
       dependencies,
       "setOrchestrationPreview",
       orchestrationRunPayload?.plan || {},
-      orchestrationRunPayload?.inventory || {},
       orchestrationRunPayload?.orchestration_result || {},
     );
   } catch (error) {

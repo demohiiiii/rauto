@@ -24,6 +24,39 @@ const orchestrationStringValue = stringValue;
 export const orchestrationJsonPlaceholder =
   '{"name":"campus-rollout","stages":[{"name":"phase-1","strategy":"parallel","jobs":[]}]}';
 
+export function createOrchestrationSourceChangeGuard() {
+  let editRevision = 0;
+  let requestVersion = 0;
+  let ownedMutationDepth = 0;
+
+  return {
+    begin() {
+      const currentRequestVersion = requestVersion + 1;
+      requestVersion = currentRequestVersion;
+      const startingEditRevision = editRevision;
+      return {
+        isCurrent: () =>
+          currentRequestVersion === requestVersion &&
+          startingEditRevision === editRevision,
+        runOwnedEditorMutation(operation) {
+          ownedMutationDepth += 1;
+          try {
+            return typeof operation === "function" ? operation() : undefined;
+          } finally {
+            ownedMutationDepth -= 1;
+          }
+        },
+      };
+    },
+    invalidate() {
+      requestVersion += 1;
+    },
+    markEdited() {
+      if (ownedMutationDepth === 0) editRevision += 1;
+    },
+  };
+}
+
 function orchestrationEditorRunPanelDisplay(jsonPlaceholder = "") {
   const placeholderText = t("orchestrationJsonPlaceholder", jsonPlaceholder);
   return {

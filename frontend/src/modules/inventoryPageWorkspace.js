@@ -22,13 +22,11 @@ export function inventoryCollectionActionHandlers({
   onHostFilter = null,
   onHostSelection = null,
   onSelectCollection = null,
-  onVarsInput = null,
 } = {}) {
   const selectCollectionHandler = normalizeOptionalHandler(onSelectCollection);
   const descriptionInputHandler = normalizeOptionalHandler(onDescriptionInput);
   const hostFilterHandler = normalizeOptionalHandler(onHostFilter);
   const hostSelectionHandler = normalizeOptionalHandler(onHostSelection);
-  const varsInputHandler = normalizeOptionalHandler(onVarsInput);
 
   return {
     collectionChangeHandler: selectCollectionHandler,
@@ -45,7 +43,6 @@ export function inventoryCollectionActionHandlers({
         ? callbackHandler(hostSelectionHandler, hostName)
         : null;
     },
-    varsInputChangeHandler: varsInputHandler,
   };
 }
 
@@ -172,7 +169,6 @@ export function createInventoryPageWorkspace() {
     updateGroupHostSelection: inventoryWorkspace.updateGroupHostSelection,
     updateInventoryGroupDescription:
       inventoryWorkspace.updateInventoryGroupDescription,
-    updateInventoryGroupVars: inventoryWorkspace.updateInventoryGroupVars,
     updateLabelHostFilter: inventoryWorkspace.updateLabelHostFilter,
     updateLabelHostSelection: inventoryWorkspace.updateLabelHostSelection,
   };

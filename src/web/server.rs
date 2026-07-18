@@ -29,11 +29,12 @@ use crate::web::handlers::{
     list_custom_show_objects, list_inventory_groups, list_inventory_labels,
     list_orchestration_templates, list_profiles, list_show_objects, list_task_runs, list_templates,
     list_textfsm_mappings, list_textfsm_templates, list_tx_block_templates,
-    list_tx_workflow_templates, profiles_overview, render_template, replay_session, restore_backup,
-    test_connection, update_command_flow_template, update_orchestration_template, update_template,
-    update_textfsm_template, update_tx_block_template, update_tx_workflow_template,
-    upsert_connection, upsert_custom_profile_form, upsert_custom_show_object,
-    upsert_inventory_group, upsert_inventory_label, upsert_textfsm_mapping,
+    list_tx_workflow_templates, preview_tx_workflow_template, profiles_overview, render_template,
+    replay_session, restore_backup, test_connection, update_command_flow_template,
+    update_orchestration_template, update_template, update_textfsm_template,
+    update_tx_block_template, update_tx_workflow_template, upsert_connection,
+    upsert_custom_profile_form, upsert_custom_show_object, upsert_inventory_group,
+    upsert_inventory_label, upsert_textfsm_mapping,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -352,6 +353,10 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             get(get_tx_workflow_template)
                 .put(update_tx_workflow_template)
                 .delete(delete_tx_workflow_template),
+        )
+        .route(
+            "/api/tx-workflow-templates/{name}/preview",
+            post(preview_tx_workflow_template),
         )
         .route(
             "/api/orchestration-templates",

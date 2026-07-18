@@ -28,7 +28,6 @@
     updateGroupHostFilter,
     updateGroupHostSelection,
     updateInventoryGroupDescription,
-    updateInventoryGroupVars,
     updateLabelHostFilter,
     updateLabelHostSelection,
   } = inventoryPageWorkspace;
@@ -44,7 +43,6 @@
     onSave: saveInventoryGroupSelection,
     onSelectAllHosts: selectAllGroupHosts,
     onSelectCollection: selectInventoryGroupName,
-    onVarsInput: updateInventoryGroupVars,
   });
   let labelsPanelProps = $derived({
     onClearHosts: clearLabelHosts,

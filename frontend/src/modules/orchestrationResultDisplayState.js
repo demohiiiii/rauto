@@ -30,7 +30,6 @@ export function orchestrationStagePreviewDisplay({
   let previewMessage = "";
   let previewTone = "info";
   let previewPlan = preview?.plan ?? null;
-  let previewInventory = preview?.inventory ?? null;
 
   if (fallbackDisplay) {
     previewMode = fallbackDisplay.mode;
@@ -40,7 +39,6 @@ export function orchestrationStagePreviewDisplay({
   }
 
   return {
-    inventory: previewInventory,
     message: previewMessage,
     plan: previewPlan,
     previewMode,

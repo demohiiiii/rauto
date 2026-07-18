@@ -6,7 +6,7 @@
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import { createOrchestrationPreviewPanelWorkspace } from "../../modules/orchestrationResultState.js";
 
-  let { inventory, message, previewMode, plan, text, tone } = $props();
+  let { message, previewMode, plan, text, tone } = $props();
   const orchestrationPreviewPanelWorkspace =
     createOrchestrationPreviewPanelWorkspace();
   const {
@@ -18,7 +18,7 @@
   let previewPresentation = $derived($previewPresentationStateStore);
 
   $effect(() => {
-    setPreviewInputs({ inventory, plan, previewMode });
+    setPreviewInputs({ plan, previewMode });
   });
 </script>
 
@@ -36,7 +36,7 @@
         <StatusCard message={previewPresentation.emptyMessage} />
       {:else}
         <div class="grid gap-3">
-          <div class="grid gap-2 md:grid-cols-5">
+          <div class="grid gap-2 md:grid-cols-4">
             {#each previewPresentation.summaryCards as previewSummaryCard}
               <SummaryMetricCard
                 label={previewSummaryCard.label}

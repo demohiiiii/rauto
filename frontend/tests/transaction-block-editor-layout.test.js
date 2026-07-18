@@ -21,11 +21,13 @@ test("transaction block editor composes the approved responsive workspace", () =
   assert.match(visualEditor, /lg:gap-0/);
   assert.match(
     visualEditor,
-    /<div class="min-w-0 lg:pr-4">\s*<TxBlockTimeline/,
+    /<div class=\{stacked \? "min-w-0" : "min-w-0 lg:pr-4"\}>\s*<TxBlockTimeline/,
   );
   assert.match(visualEditor, /editorSummary\.cellRows/);
   assert.match(visualEditor, /<TxBlockTimeline/);
   assert.match(visualEditor, /<TxBlockRootInspector/);
+  assert.match(visualEditor, /stacked = false/);
+  assert.match(visualEditor, /stacked\s*\? "grid min-w-0 gap-4"/);
 });
 
 test("timeline owns semantic step actions and local delete confirmation", () => {

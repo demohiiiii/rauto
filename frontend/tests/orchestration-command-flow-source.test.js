@@ -1,75 +1,44 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { orchestrationCommandFlowVarsPresentation } from "../src/modules/orchestrationActionDisplayState.js";
 import {
-  orchestrationCommandFlowVarPatch,
-  orchestrationCommandFlowVarsFromJson,
-} from "../src/modules/orchestrationEditorSourceState.js";
+  orchestrationTxWorkflowActionSourceValue,
+  orchestrationTxWorkflowSourceDisplay,
+} from "../src/modules/orchestrationActionDisplayState.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
 }
 
-test("orchestration flow source uses shared template and runtime surfaces", () => {
+test("orchestration workflow source offers inline and saved-template editing", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/OrchestrationTxBlockFlowSourceEditor.svelte",
+    "frontend/src/pages/orchestrated/OrchestrationTxWorkflowSourceEditor.svelte",
   );
 
-  assert.match(source, /CommandFlowTemplateSource/);
-  assert.match(source, /CommandFlowRuntimeFields/);
-  assert.doesNotMatch(source, /JsonObjectFieldsEditor/);
+  assert.match(source, /TxJsonFormSurface/);
+  assert.match(source, /TxWorkflowVisualEditor/);
+  assert.match(source, /embedded=\{true\}/);
+  assert.match(source, /PlainSelectField/);
+  assert.match(source, /JsonObjectFieldsEditor/);
+  assert.doesNotMatch(source, /workflowFile|templateContent/);
 });
 
-test("orchestration runtime presentation preserves object order and value kinds", () => {
-  const display = orchestrationCommandFlowVarsPresentation({
-    username: "ops",
-    retries: 3,
-    strict: true,
-    peer: { host: "192.0.2.10" },
-  });
-
-  assert.deepEqual(
-    display.fieldRows.map((row) => [row.fieldName, row.controlKind]),
-    [
-      ["username", "input"],
-      ["retries", "input"],
-      ["strict", "boolean-select"],
-      ["peer", "json-editor"],
-    ],
+test("orchestration workflow source derives the active backend source", () => {
+  assert.equal(
+    orchestrationTxWorkflowActionSourceValue({ workflow: { blocks: [] } }),
+    "workflow_json",
   );
-  assert.match(display.jsonOverridesText, /"username": "ops"/);
-});
-
-test("orchestration runtime field edits keep unrelated json values", () => {
-  const source = { username: "ops", peer: { host: "192.0.2.10" } };
-  const patched = orchestrationCommandFlowVarPatch(source, "username", "admin");
-
-  assert.deepEqual(patched, {
-    username: "admin",
-    peer: { host: "192.0.2.10" },
-  });
-  assert.deepEqual(source, {
-    username: "ops",
-    peer: { host: "192.0.2.10" },
-  });
-});
-
-test("orchestration runtime json rejects invalid or non-object values", () => {
-  assert.throws(() => orchestrationCommandFlowVarsFromJson("{"));
-  assert.throws(() => orchestrationCommandFlowVarsFromJson("[]"));
-  assert.deepEqual(orchestrationCommandFlowVarsFromJson('{"site":"dc-a"}'), {
-    site: "dc-a",
-  });
-});
-
-test("orchestration runtime presentation keeps an invalid json draft visible", () => {
-  const display = orchestrationCommandFlowVarsPresentation(
-    { site: "dc-a" },
-    "invalid JSON",
-    '{"site":',
+  assert.equal(
+    orchestrationTxWorkflowActionSourceValue({
+      workflowTemplateName: "edge-upgrade",
+    }),
+    "workflow_template_name",
   );
 
-  assert.equal(display.jsonOverridesText, '{"site":');
-  assert.equal(display.errorMessage, "invalid JSON");
+  const templateDisplay = orchestrationTxWorkflowSourceDisplay({
+    workflowTemplateName: "edge-upgrade",
+    workflowVars: { version: "17.9" },
+  });
+  assert.equal(templateDisplay.primaryField.controlType, "select");
+  assert.equal(templateDisplay.varsField.source.version, "17.9");
 });

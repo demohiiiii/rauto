@@ -1,15 +1,25 @@
 <script>
-  import OrchestrationPlanSettingsEditor from "./OrchestrationPlanSettingsEditor.svelte";
-  import OrchestrationInventoryPanel from "./OrchestrationInventoryPanel.svelte";
-  import OrchestrationStagesPanel from "./OrchestrationStagesPanel.svelte";
+  import OrchestrationFlowCanvas from "./OrchestrationFlowCanvas.svelte";
 
-  let { model, visualDisplay, onChange, onErrorChange } = $props();
+  let {
+    active,
+    model,
+    visualDisplay,
+    onChange,
+    onErrorChange,
+    onOpenView,
+    onExecute,
+    runButtonDisplay,
+  } = $props();
 </script>
 
-<div class="grid gap-4">
-  <OrchestrationPlanSettingsEditor {model} {visualDisplay} {onChange} />
-
-  <OrchestrationInventoryPanel {model} {onChange} {onErrorChange} />
-
-  <OrchestrationStagesPanel {model} {onChange} {onErrorChange} />
-</div>
+<OrchestrationFlowCanvas
+  {active}
+  {model}
+  {visualDisplay}
+  {onChange}
+  {onErrorChange}
+  {onOpenView}
+  {onExecute}
+  {runButtonDisplay}
+/>

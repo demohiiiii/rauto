@@ -227,8 +227,9 @@ Orchestration file is a single plan object:
 
 - `name`
 - `fail_fast` (optional)
-- `inventory_file` or inline `inventory`
-- `stages: []`
+- `stages: []`; each stage contains `jobs: []`
+- Each job selects saved connections through `targets`, `target_groups`, or `target_tags`
+- Every `targets` entry must be a saved connection name; inline target objects are rejected
 
 ### 3.1 Tx workflow action rollout
 
@@ -236,30 +237,31 @@ Orchestration file is a single plan object:
 {
   "name": "dc-linux-rollout",
   "fail_fast": true,
-  "inventory": {
-    "groups": {
-      "edge_nodes": ["edge92", "edge94"]
-    }
-  },
   "stages": [
     {
       "name": "publish",
       "strategy": "parallel",
       "max_parallel": 2,
-      "target_groups": ["edge_nodes"],
-      "action": {
-        "kind": "tx_workflow",
-        "workflow_template_name": "linux-image-publish",
-        "workflow_vars": {
-          "image_file": "app.tar"
+      "jobs": [
+        {
+          "name": "publish-image",
+          "strategy": "parallel",
+          "target_groups": ["edge_nodes"],
+          "action": {
+            "kind": "tx_workflow",
+            "workflow_template_name": "linux-image-publish",
+            "workflow_vars": {
+              "image_file": "app.tar"
+            }
+          }
         }
-      }
+      ]
     }
   ]
 }
 ```
 
-### 3.2 Tx block action with command source
+### 3.2 Inline transaction workflow action
 
 ```json
 {
@@ -269,26 +271,46 @@ Orchestration file is a single plan object:
     {
       "name": "core",
       "strategy": "serial",
-      "targets": ["core-01", "core-02"],
-      "action": {
-        "kind": "tx_block",
-        "name": "core-vlan-120",
-        "mode": "Config",
-        "commands": [
-          "vlan 120",
-          "name STAFF"
-        ],
-        "rollback_commands": [
-          "undo vlan 120"
-        ],
-        "rollback_on_failure": false
-      }
+      "jobs": [
+        {
+          "name": "core-vlan-120",
+          "strategy": "serial",
+          "targets": ["core-01", "core-02"],
+          "action": {
+            "kind": "tx_workflow",
+            "workflow": {
+              "name": "switch-vlan-change",
+              "fail_fast": true,
+              "blocks": [
+                {
+                  "name": "configure-vlan",
+                  "rollback_policy": "per_step",
+                  "steps": [
+                    {
+                      "run": {
+                        "kind": "command",
+                        "mode": "Config",
+                        "command": "vlan 120\nname STAFF"
+                      },
+                      "rollback": {
+                        "kind": "command",
+                        "mode": "Config",
+                        "command": "no vlan 120"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }
 ```
 
-### 3.3 Tx block action with template source
+### 3.3 Saved workflow template action
 
 ```json
 {
@@ -297,19 +319,29 @@ Orchestration file is a single plan object:
     {
       "name": "edge",
       "strategy": "parallel",
-      "targets": ["sw-01", "sw-02"],
-      "action": {
-        "kind": "tx_block",
-        "tx_block_template_name": "switch-vlan-template",
-        "tx_block_template_vars": {
-          "vlan_id": 120,
-          "vlan_name": "STAFF"
+      "jobs": [
+        {
+          "name": "edge-vlan",
+          "strategy": "parallel",
+          "targets": ["sw-01", "sw-02"],
+          "action": {
+            "kind": "tx_workflow",
+            "workflow_template_name": "switch-vlan-workflow",
+            "workflow_vars": {
+              "vlan_id": 120,
+              "vlan_name": "STAFF"
+            }
+          }
         }
-      }
+      ]
     }
   ]
 }
 ```
+
+Every orchestration action is `kind: "tx_workflow"`. Use exactly one of
+`workflow` or `workflow_template_name`; `workflow_vars` is only valid with a
+saved workflow template.
 
 ## 4) Variable and Connection Reference Rules
 

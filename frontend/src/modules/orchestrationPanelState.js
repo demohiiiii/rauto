@@ -7,11 +7,7 @@ import { currentLanguageState, t } from "../lib/i18n.js";
 import { dashboardState } from "./dashboardApp.js";
 import { createOrchestratedWorkspace } from "./orchestratedWorkspace.js";
 import { executionModeOptionsVersion } from "./profiles.js";
-import {
-  orchestrationInputPanelDisplay,
-  orchestrationEditorRunButtonDisplayPresentation,
-  orchestrationStageDisplay,
-} from "./orchestrationFormDisplayState.js";
+import { orchestrationEditorRunButtonDisplayPresentation } from "./orchestrationFormDisplayState.js";
 import {
   orchestrationExecutionPanelDisplay,
   orchestrationStageExecutionDisplayPresentation,
@@ -19,10 +15,8 @@ import {
   orchestrationStageJobsPanelDisplay,
 } from "./orchestrationResultState.js";
 import {
-  jsonTemplateSelectValue,
   orchestrationPreviewState,
   orchestrationResultState,
-  runTxExecutionModeHandler,
   transactionOutputState,
   TX_OUTPUT,
   TX_VISUAL,
@@ -32,6 +26,7 @@ import {
 
 export {
   createOrchestrationEditorPanelWorkspace,
+  createOrchestrationSourceChangeGuard,
   orchestrationEditorDisplays,
   orchestrationJsonPlaceholder,
 } from "./orchestrationEditorState.js";
@@ -65,12 +60,6 @@ const orchestratedRouteState = derived(dashboardState, (state) => ({
 
 const orchestratedExecutionModeOptionsVersion = executionModeOptionsVersion;
 
-export const orchestrationVarsPlaceholder =
-  'plan vars JSON (optional), e.g. {"peer_host":"edge94.host"}';
-
-export const orchestrationTemplateVarsPlaceholder =
-  'plan template vars JSON (optional), e.g. {"peer_host":"edge94.host"}';
-
 function normalizeOptionalHandler(handler) {
   return typeof handler === "function" ? handler : null;
 }
@@ -80,20 +69,13 @@ export function createOrchestrationInputPanelWorkspace(inputState = {}) {
     onCreateJsonTemplateDraft: normalizeOptionalHandler(
       inputState.onCreateJsonTemplateDraft,
     ),
-    onDirectMode: normalizeOptionalHandler(inputState.onDirectMode),
     onExecute: normalizeOptionalHandler(inputState.onExecute),
     onImportFile: normalizeOptionalHandler(inputState.onImportFile),
     onLoadJsonTemplate: normalizeOptionalHandler(inputState.onLoadJsonTemplate),
     onPreview: normalizeOptionalHandler(inputState.onPreview),
-    onTemplateMode: normalizeOptionalHandler(inputState.onTemplateMode),
   };
   const loadingKeysStore = writable([]);
   const editorSyncVersionStateStore = writable(0);
-  const inputDisplayStateStore = derived(
-    [txExecutionModes, currentLanguageState],
-    ([$txExecutionModes, _currentLanguageState]) =>
-      orchestrationInputPanelDisplay($txExecutionModes),
-  );
   const orchestrationEditorRunButtonDisplayStateStore = derived(
     loadingKeysStore,
     (loadingKeys) =>
@@ -120,15 +102,6 @@ export function createOrchestrationInputPanelWorkspace(inputState = {}) {
     );
   }
 
-  async function createTemplateDraft() {
-    const result =
-      typeof dependencyState.onCreateJsonTemplateDraft === "function"
-        ? await dependencyState.onCreateJsonTemplateDraft()
-        : undefined;
-    bumpEditorSyncVersion();
-    return result;
-  }
-
   function executeOrchestration() {
     return loadingRunner.run("execute", dependencyState.onExecute);
   }
@@ -139,20 +112,17 @@ export function createOrchestrationInputPanelWorkspace(inputState = {}) {
       : undefined;
   }
 
-  function selectMode(txExecutionMode = "") {
-    return runTxExecutionModeHandler(
-      txExecutionMode,
-      dependencyState.onDirectMode,
-      dependencyState.onTemplateMode,
-    );
-  }
-
-  async function loadJsonTemplate(templateName) {
+  async function loadJsonTemplate(templateName, actionContext = null) {
     const result =
       typeof dependencyState.onLoadJsonTemplate === "function"
-        ? await dependencyState.onLoadJsonTemplate(templateName)
+        ? await dependencyState.onLoadJsonTemplate(templateName, actionContext)
         : undefined;
-    bumpEditorSyncVersion();
+    if (
+      typeof actionContext?.isCurrent !== "function" ||
+      actionContext.isCurrent()
+    ) {
+      bumpEditorSyncVersion();
+    }
     return result;
   }
 
@@ -162,25 +132,17 @@ export function createOrchestrationInputPanelWorkspace(inputState = {}) {
 
   return {
     createJsonDraft,
-    createTemplateDraft,
     editorSyncVersionStateStore,
     executeOrchestration,
     importFile,
-    inputDisplayStateStore,
     loadJsonTemplate,
     loadingKeysStore,
     orchestrationEditorRunButtonDisplayStateStore,
     previewOrchestration,
-    selectMode,
     setInputPanelContext(nextInputState = {}) {
       if ("onCreateJsonTemplateDraft" in nextInputState) {
         dependencyState.onCreateJsonTemplateDraft = normalizeOptionalHandler(
           nextInputState.onCreateJsonTemplateDraft,
-        );
-      }
-      if ("onDirectMode" in nextInputState) {
-        dependencyState.onDirectMode = normalizeOptionalHandler(
-          nextInputState.onDirectMode,
         );
       }
       if ("onExecute" in nextInputState) {
@@ -203,11 +165,6 @@ export function createOrchestrationInputPanelWorkspace(inputState = {}) {
           nextInputState.onPreview,
         );
       }
-      if ("onTemplateMode" in nextInputState) {
-        dependencyState.onTemplateMode = normalizeOptionalHandler(
-          nextInputState.onTemplateMode,
-        );
-      }
     },
   };
 }
@@ -225,21 +182,14 @@ export function createOrchestrationStageDetailPanelWorkspace() {
 
 export function createOrchestrationStageWorkspace() {
   const activeStateStore = writable(false);
-  const orchestrationPlanStatusStateStore = transactionOutputState(
-    TX_OUTPUT.orchestrationPlan,
-  );
   const orchestrationPreviewFallbackStateStore = visualOutputState(
     TX_VISUAL.orchestrationPreview,
   );
   const orchestrationExecutionFallbackStateStore = transactionOutputState(
     TX_OUTPUT.orchestrationExec,
   );
-  const stageDisplayStateStore = derived(
-    [currentLanguageState, orchestrationPlanStatusStateStore],
-    ([_language, $planStatus]) => orchestrationStageDisplay($planStatus),
-  );
   let lastPreviewDisplay = orchestrationStagePreviewDisplay({
-    preview: { inventory: null, plan: null },
+    preview: { plan: null },
   });
   const previewDisplayStateStore = derived(
     [
@@ -300,7 +250,6 @@ export function createOrchestrationStageWorkspace() {
     setStageContext({ active = false } = {}) {
       activeStateStore.set(!!active);
     },
-    stageDisplayStateStore,
   };
 }
 

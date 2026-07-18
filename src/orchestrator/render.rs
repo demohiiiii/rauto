@@ -1,7 +1,7 @@
 use super::targets as orchestrator_targets;
 use super::{
-    OrchestrationExecutionResult, OrchestrationInventory, OrchestrationPlan, StageStatus,
-    StageStrategy, action_kind_name, action_summary, job_name, target_label,
+    OrchestrationExecutionResult, OrchestrationPlan, StageStatus, StageStrategy, action_kind_name,
+    action_summary, job_name, target_label,
 };
 use anyhow::Result;
 use std::fmt::Write as _;
@@ -22,11 +22,7 @@ fn stage_status_name(status: StageStatus) -> &'static str {
     }
 }
 
-pub(super) fn render_plan(
-    plan: &OrchestrationPlan,
-    inventory: &OrchestrationInventory,
-    source: Option<&PathBuf>,
-) -> Result<String> {
+pub(super) fn render_plan(plan: &OrchestrationPlan, source: Option<&PathBuf>) -> Result<String> {
     let mut out = String::new();
     let _ = writeln!(&mut out, "# orchestration_plan: {}", plan.name);
     if let Some(path) = source {
@@ -34,12 +30,11 @@ pub(super) fn render_plan(
     }
     let _ = writeln!(
         &mut out,
-        "overview: fail_fast={} rollback_on_stage_failure={} rollback_completed_stages_on_failure={} stages={} inventory_groups={}",
+        "overview: fail_fast={} rollback_on_stage_failure={} rollback_completed_stages_on_failure={} stages={}",
         plan.fail_fast,
         plan.rollback_on_stage_failure,
         plan.rollback_completed_stages_on_failure,
-        plan.stages.len(),
-        inventory.groups.len()
+        plan.stages.len()
     );
     let _ = writeln!(&mut out);
 
@@ -62,8 +57,7 @@ pub(super) fn render_plan(
             let _ = writeln!(&mut out, "max_parallel={}", max_parallel);
         }
         for (job_idx, job) in stage.jobs.iter().enumerate() {
-            let targets =
-                orchestrator_targets::resolve_job_targets(stage.name.as_str(), job, inventory)?;
+            let targets = orchestrator_targets::resolve_job_targets(stage.name.as_str(), job)?;
             let _ = writeln!(
                 &mut out,
                 "  [Job {}/{}] {}",

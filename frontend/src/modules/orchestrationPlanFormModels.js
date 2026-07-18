@@ -4,18 +4,28 @@ import {
   plainObject,
   stringValue,
 } from "../lib/jsonValue.js";
-import {
-  orchestrationInventoryJsonFromModel,
-  orchestrationInventoryModelFromJson,
-  orchestrationObjectExtra,
-  orchestrationTargetInputJsonFromModel,
-  orchestrationTargetInputModelFromJson,
-} from "./orchestrationTargetFormModels.js";
+import { orchestrationObjectExtra } from "./orchestrationTargetFormModels.js";
 
 const cloneOrchestrationJsonValue = cloneJsonValue;
 const orchestrationPlainObject = plainObject;
 const orchestrationStringValue = stringValue;
 const orchestrationNullableNumberValue = nullableNumberValue;
+
+const ORCHESTRATION_ACTION_FIELDS = new Set([
+  "kind",
+  "workflow",
+  "workflow_template_name",
+  "workflow_vars",
+]);
+
+function orchestrationSavedConnectionName(value, targetIndex = 0) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new TypeError(
+      `targets[${targetIndex}] must be a non-empty saved connection name`,
+    );
+  }
+  return value.trim();
+}
 
 function orchestrationWithoutUnsupportedLabels(value) {
   if (Array.isArray(value)) {
@@ -32,213 +42,77 @@ function orchestrationWithoutUnsupportedLabels(value) {
   );
 }
 
-function orchestrationTxBlockActionModelFromJson(source = {}) {
-  const value = orchestrationPlainObject(source) ? source : {};
+function orchestrationDefaultWorkflow() {
   return {
-    name: value.name ?? null,
-    hasName: Object.hasOwn(value, "name"),
-    template: value.template ?? null,
-    hasTemplate: Object.hasOwn(value, "template"),
-    txBlockTemplateName: value.tx_block_template_name ?? null,
-    hasTxBlockTemplateName: Object.hasOwn(value, "tx_block_template_name"),
-    txBlockTemplateContent: value.tx_block_template_content ?? null,
-    hasTxBlockTemplateContent: Object.hasOwn(
-      value,
-      "tx_block_template_content",
-    ),
-    txBlockTemplateVars: cloneOrchestrationJsonValue(
-      value.tx_block_template_vars,
-      {},
-    ),
-    hasTxBlockTemplateVars: Object.hasOwn(value, "tx_block_template_vars"),
-    flowTemplateName: value.flow_template_name ?? null,
-    hasFlowTemplateName: Object.hasOwn(value, "flow_template_name"),
-    flowTemplateContent: value.flow_template_content ?? null,
-    hasFlowTemplateContent: Object.hasOwn(value, "flow_template_content"),
-    flowVars: cloneOrchestrationJsonValue(value.flow_vars, {}),
-    hasFlowVars: Object.hasOwn(value, "flow_vars"),
-    vars: cloneOrchestrationJsonValue(value.vars, {}),
-    hasVars: Object.hasOwn(value, "vars"),
-    commands: Array.isArray(value.commands)
-      ? value.commands.map((command) => orchestrationStringValue(command))
-      : [],
-    hasCommands: Object.hasOwn(value, "commands"),
-    rollbackCommands: Array.isArray(value.rollback_commands)
-      ? value.rollback_commands.map((command) =>
-          orchestrationStringValue(command),
-        )
-      : [],
-    hasRollbackCommands: Object.hasOwn(value, "rollback_commands"),
-    rollbackOnFailure: !!value.rollback_on_failure,
-    hasRollbackOnFailure: Object.hasOwn(value, "rollback_on_failure"),
-    rollbackTriggerStepIndex: orchestrationNullableNumberValue(
-      value.rollback_trigger_step_index,
-    ),
-    hasRollbackTriggerStepIndex: Object.hasOwn(
-      value,
-      "rollback_trigger_step_index",
-    ),
-    mode: value.mode ?? null,
-    hasMode: Object.hasOwn(value, "mode"),
-    timeoutSecs: orchestrationNullableNumberValue(value.timeout_secs),
-    hasTimeoutSecs: Object.hasOwn(value, "timeout_secs"),
-    resourceRollbackCommand: value.resource_rollback_command ?? null,
-    hasResourceRollbackCommand: Object.hasOwn(
-      value,
-      "resource_rollback_command",
-    ),
-    extra: orchestrationObjectExtra(
-      value,
-      new Set([
-        "name",
-        "template",
-        "tx_block_template_name",
-        "tx_block_template_content",
-        "tx_block_template_vars",
-        "flow_template_name",
-        "flow_template_content",
-        "flow_vars",
-        "vars",
-        "commands",
-        "rollback_commands",
-        "rollback_on_failure",
-        "rollback_trigger_step_index",
-        "mode",
-        "timeout_secs",
-        "resource_rollback_command",
-      ]),
-    ),
+    name: "workflow",
+    blocks: [],
+    fail_fast: true,
   };
-}
-
-function orchestrationTxBlockActionJsonFromModel(model = {}) {
-  const result = {
-    ...(orchestrationPlainObject(model.extra)
-      ? cloneOrchestrationJsonValue(model.extra, {})
-      : {}),
-  };
-  if (model.hasName || model.name !== null) result.name = model.name ?? null;
-  if (model.hasTemplate || model.template !== null) {
-    result.template = model.template ?? null;
-  }
-  if (model.hasTxBlockTemplateName || model.txBlockTemplateName !== null) {
-    result.tx_block_template_name = model.txBlockTemplateName ?? null;
-  }
-  if (
-    model.hasTxBlockTemplateContent ||
-    model.txBlockTemplateContent !== null
-  ) {
-    result.tx_block_template_content = model.txBlockTemplateContent ?? null;
-  }
-  if (
-    model.hasTxBlockTemplateVars ||
-    (orchestrationPlainObject(model.txBlockTemplateVars) &&
-      Object.keys(model.txBlockTemplateVars).length > 0)
-  ) {
-    result.tx_block_template_vars = cloneOrchestrationJsonValue(
-      model.txBlockTemplateVars,
-      {},
-    );
-  }
-  if (model.hasFlowTemplateName || model.flowTemplateName !== null) {
-    result.flow_template_name = model.flowTemplateName ?? null;
-  }
-  if (model.hasFlowTemplateContent || model.flowTemplateContent !== null) {
-    result.flow_template_content = model.flowTemplateContent ?? null;
-  }
-  if (
-    model.hasFlowVars ||
-    (orchestrationPlainObject(model.flowVars) &&
-      Object.keys(model.flowVars).length > 0)
-  ) {
-    result.flow_vars = cloneOrchestrationJsonValue(model.flowVars, {});
-  }
-  if (
-    model.hasVars ||
-    (orchestrationPlainObject(model.vars) && Object.keys(model.vars).length > 0)
-  ) {
-    result.vars = cloneOrchestrationJsonValue(model.vars, {});
-  }
-  if (
-    model.hasCommands ||
-    (Array.isArray(model.commands) && model.commands.length > 0)
-  ) {
-    result.commands = Array.isArray(model.commands)
-      ? model.commands.map((command) => orchestrationStringValue(command))
-      : [];
-  }
-  if (
-    model.hasRollbackCommands ||
-    (Array.isArray(model.rollbackCommands) && model.rollbackCommands.length > 0)
-  ) {
-    result.rollback_commands = Array.isArray(model.rollbackCommands)
-      ? model.rollbackCommands.map((command) =>
-          orchestrationStringValue(command),
-        )
-      : [];
-  }
-  if (model.hasRollbackOnFailure || model.rollbackOnFailure) {
-    result.rollback_on_failure = !!model.rollbackOnFailure;
-  }
-  if (
-    model.hasRollbackTriggerStepIndex ||
-    model.rollbackTriggerStepIndex !== null
-  ) {
-    result.rollback_trigger_step_index = orchestrationNullableNumberValue(
-      model.rollbackTriggerStepIndex,
-    );
-  }
-  if (model.hasMode || model.mode !== null) result.mode = model.mode ?? null;
-  if (model.hasTimeoutSecs || model.timeoutSecs !== null) {
-    result.timeout_secs = orchestrationNullableNumberValue(model.timeoutSecs);
-  }
-  if (
-    model.hasResourceRollbackCommand ||
-    model.resourceRollbackCommand !== null
-  ) {
-    result.resource_rollback_command = model.resourceRollbackCommand ?? null;
-  }
-  return result;
 }
 
 function orchestrationTxWorkflowActionModelFromJson(source = {}) {
   const value = orchestrationPlainObject(source) ? source : {};
+  const workflow = cloneOrchestrationJsonValue(value.workflow, null);
+  const workflowTemplateName =
+    typeof value.workflow_template_name === "string"
+      ? value.workflow_template_name
+      : null;
   return {
-    workflowFile: value.workflow_file ?? null,
-    hasWorkflowFile: Object.hasOwn(value, "workflow_file"),
-    workflow: cloneOrchestrationJsonValue(value.workflow, null),
+    workflow,
     hasWorkflow: Object.hasOwn(value, "workflow"),
-    workflowTemplateName: value.workflow_template_name ?? null,
+    workflowTemplateName,
     hasWorkflowTemplateName: Object.hasOwn(value, "workflow_template_name"),
-    workflowTemplateContent: value.workflow_template_content ?? null,
-    hasWorkflowTemplateContent: Object.hasOwn(
-      value,
-      "workflow_template_content",
-    ),
     workflowVars: cloneOrchestrationJsonValue(value.workflow_vars, {}),
     hasWorkflowVars: Object.hasOwn(value, "workflow_vars"),
-    extra: orchestrationObjectExtra(
-      value,
-      new Set([
-        "workflow_file",
-        "workflow",
-        "workflow_template_name",
-        "workflow_template_content",
-        "workflow_vars",
-      ]),
-    ),
   };
 }
 
-function orchestrationTxWorkflowActionJsonFromModel(model = {}) {
-  const result = {
-    ...(orchestrationPlainObject(model.extra)
-      ? cloneOrchestrationJsonValue(model.extra, {})
-      : {}),
-  };
-  if (model.hasWorkflowFile || model.workflowFile !== null) {
-    result.workflow_file = model.workflowFile ?? null;
+function orchestrationValidateActionJson(source) {
+  if (!orchestrationPlainObject(source) || source.kind !== "tx_workflow") {
+    throw new TypeError(
+      `unsupported orchestration action kind: ${orchestrationStringValue(
+        source?.kind,
+        "missing",
+      )}`,
+    );
   }
+  for (const key of Object.keys(source)) {
+    if (!ORCHESTRATION_ACTION_FIELDS.has(key)) {
+      throw new TypeError(`unsupported orchestration action field: ${key}`);
+    }
+  }
+  const hasWorkflow = Object.hasOwn(source, "workflow");
+  const hasTemplate =
+    Object.hasOwn(source, "workflow_template_name") &&
+    typeof source.workflow_template_name === "string" &&
+    !!source.workflow_template_name.trim();
+  if (Number(hasWorkflow) + Number(hasTemplate) !== 1) {
+    throw new TypeError(
+      "unsupported orchestration action sources: use workflow or workflow_template_name",
+    );
+  }
+  if (
+    hasWorkflow &&
+    Object.hasOwn(source, "workflow_vars") &&
+    source.workflow_vars != null
+  ) {
+    throw new TypeError(
+      "unsupported orchestration action field: workflow_vars requires workflow_template_name",
+    );
+  }
+  if (
+    hasTemplate &&
+    Object.hasOwn(source, "workflow_vars") &&
+    !orchestrationPlainObject(source.workflow_vars)
+  ) {
+    throw new TypeError(
+      "unsupported orchestration action field: workflow_vars must be an object",
+    );
+  }
+}
+
+function orchestrationTxWorkflowActionJsonFromModel(model = {}) {
+  const result = {};
   if (model.hasWorkflow || model.workflow !== null) {
     result.workflow = cloneOrchestrationJsonValue(model.workflow, null);
   }
@@ -246,41 +120,28 @@ function orchestrationTxWorkflowActionJsonFromModel(model = {}) {
     result.workflow_template_name = model.workflowTemplateName ?? null;
   }
   if (
-    model.hasWorkflowTemplateContent ||
-    model.workflowTemplateContent !== null
-  ) {
-    result.workflow_template_content = model.workflowTemplateContent ?? null;
-  }
-  if (
-    model.hasWorkflowVars ||
-    (orchestrationPlainObject(model.workflowVars) &&
-      Object.keys(model.workflowVars).length > 0)
+    result.workflow_template_name &&
+    (model.hasWorkflowVars ||
+      (orchestrationPlainObject(model.workflowVars) &&
+        Object.keys(model.workflowVars).length > 0))
   ) {
     result.workflow_vars = cloneOrchestrationJsonValue(model.workflowVars, {});
   }
   return result;
 }
 
-function orchestrationActionModelFromJson(source = {}) {
-  const value = orchestrationPlainObject(source) ? source : {};
-  const kind = value.kind === "tx_workflow" ? "tx_workflow" : "tx_block";
+function orchestrationActionModelFromJson(source) {
+  orchestrationValidateActionJson(source);
   return {
-    kind,
-    txBlock: orchestrationTxBlockActionModelFromJson(value),
-    txWorkflow: orchestrationTxWorkflowActionModelFromJson(value),
+    kind: "tx_workflow",
+    txWorkflow: orchestrationTxWorkflowActionModelFromJson(source),
   };
 }
 
 function orchestrationActionJsonFromModel(model = {}) {
-  if (model.kind === "tx_workflow") {
-    return {
-      kind: "tx_workflow",
-      ...orchestrationTxWorkflowActionJsonFromModel(model.txWorkflow || {}),
-    };
-  }
   return {
-    kind: "tx_block",
-    ...orchestrationTxBlockActionJsonFromModel(model.txBlock || {}),
+    kind: "tx_workflow",
+    ...orchestrationTxWorkflowActionJsonFromModel(model.txWorkflow || {}),
   };
 }
 
@@ -307,8 +168,8 @@ function orchestrationJobModelFromJson(source = {}) {
       : [],
     hasTargetTags: Object.hasOwn(value, "target_tags"),
     targets: Array.isArray(value.targets)
-      ? value.targets.map((targetInput) =>
-          orchestrationTargetInputModelFromJson(targetInput),
+      ? value.targets.map((target, targetIndex) =>
+          orchestrationSavedConnectionName(target, targetIndex),
         )
       : [],
     hasTargets: Object.hasOwn(value, "targets"),
@@ -331,9 +192,6 @@ function orchestrationJobModelFromJson(source = {}) {
 
 function orchestrationJobJsonFromModel(model = {}) {
   const result = {
-    ...(orchestrationPlainObject(model.extra)
-      ? cloneOrchestrationJsonValue(model.extra, {})
-      : {}),
     strategy: model.strategy === "parallel" ? "parallel" : "serial",
     action: orchestrationActionJsonFromModel(model.action || {}),
   };
@@ -367,8 +225,8 @@ function orchestrationJobJsonFromModel(model = {}) {
     (Array.isArray(model.targets) && model.targets.length > 0)
   ) {
     result.targets = Array.isArray(model.targets)
-      ? model.targets.map((targetInput) =>
-          orchestrationTargetInputJsonFromModel(targetInput),
+      ? model.targets.map((target, targetIndex) =>
+          orchestrationSavedConnectionName(target, targetIndex),
         )
       : [];
   }
@@ -404,6 +262,12 @@ export function orchestrationCreateStageModel() {
   });
 }
 
+export function orchestrationCreateTxWorkflowActionModel() {
+  return orchestrationTxWorkflowActionModelFromJson({
+    workflow: orchestrationDefaultWorkflow(),
+  });
+}
+
 export function orchestrationCreateJobModel() {
   return orchestrationJobModelFromJson({
     name: "",
@@ -411,23 +275,15 @@ export function orchestrationCreateJobModel() {
     target_groups: [],
     target_tags: [],
     targets: [],
-    action: { kind: "tx_block", commands: [] },
+    action: {
+      kind: "tx_workflow",
+      workflow: orchestrationDefaultWorkflow(),
+    },
   });
-}
-
-export function orchestrationCreateTxBlockActionModel() {
-  return orchestrationTxBlockActionModelFromJson({ commands: [] });
-}
-
-export function orchestrationCreateTxWorkflowActionModel() {
-  return orchestrationTxWorkflowActionModelFromJson({});
 }
 
 function orchestrationStageJsonFromModel(model = {}) {
   const result = {
-    ...(orchestrationPlainObject(model.extra)
-      ? cloneOrchestrationJsonValue(model.extra, {})
-      : {}),
     name: orchestrationStringValue(model.name),
     strategy: model.strategy === "parallel" ? "parallel" : "serial",
     jobs: Array.isArray(model.jobs)
@@ -462,7 +318,7 @@ function defaultOrchestrationPlanPayload() {
 
 export function orchestrationPlanFormModelFromJson(planValue = {}) {
   const source = orchestrationPlainObject(planValue)
-    ? planValue
+    ? orchestrationWithoutUnsupportedLabels(planValue)
     : defaultOrchestrationPlanPayload();
   return {
     name: orchestrationStringValue(source.name, "campus-rollout"),
@@ -484,12 +340,6 @@ export function orchestrationPlanFormModelFromJson(planValue = {}) {
       source,
       "rollback_completed_stages_on_failure",
     ),
-    inventoryFile: source.inventory_file ?? null,
-    hasInventoryFile: Object.hasOwn(source, "inventory_file"),
-    inventory: orchestrationPlainObject(source.inventory)
-      ? orchestrationInventoryModelFromJson(source.inventory)
-      : null,
-    hasInventory: Object.hasOwn(source, "inventory"),
     stages: Array.isArray(source.stages)
       ? source.stages.map((stage) => orchestrationStageModelFromJson(stage))
       : [],
@@ -532,9 +382,6 @@ export function orchestrationPatchJobDraft(
 
 function orchestrationPlanJsonFromFormModel(model = {}) {
   const result = {
-    ...(orchestrationPlainObject(model.extra)
-      ? cloneOrchestrationJsonValue(model.extra, {})
-      : {}),
     name: orchestrationStringValue(model.name, "campus-rollout"),
     stages: Array.isArray(model.stages)
       ? model.stages.map((stage) => orchestrationStageJsonFromModel(stage))
@@ -552,14 +399,6 @@ function orchestrationPlanJsonFromFormModel(model = {}) {
   ) {
     result.rollback_completed_stages_on_failure =
       !!model.rollbackCompletedStagesOnFailure;
-  }
-  if (model.hasInventoryFile || model.inventoryFile !== null) {
-    result.inventory_file = model.inventoryFile ?? null;
-  }
-  if (model.hasInventory || model.inventory) {
-    result.inventory = model.inventory
-      ? orchestrationInventoryJsonFromModel(model.inventory)
-      : null;
   }
   return result;
 }
@@ -592,4 +431,8 @@ export function orchestrationPlanFormModelToJsonText(model = {}) {
     null,
     2,
   );
+}
+
+export function orchestrationDefaultPlanJson() {
+  return JSON.stringify(defaultOrchestrationPlanPayload(), null, 2);
 }

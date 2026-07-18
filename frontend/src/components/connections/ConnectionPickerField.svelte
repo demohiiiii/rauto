@@ -42,23 +42,23 @@
 </script>
 
 <div class="grid min-w-0 gap-1.5">
-  <span
-    class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-    >{labelText}</span
+  <span class="text-sm font-medium text-foreground">{labelText}</span>
+  <div
+    class="relative z-0 w-full focus-within:z-[70]"
+    onfocusout={handleFocusOut}
   >
-  <div class="relative w-full" onfocusout={handleFocusOut}>
     <div
-      class="flex min-h-10 flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-1.5 transition focus-within:border-primary/40 focus-within:ring-[3px] focus-within:ring-ring/20"
+      class="flex min-h-9 min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 shadow-xs transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
     >
       <div class="flex flex-wrap items-center gap-2">
         {#each pickerDisplay.selectedRows as selectedConnectionRow}
           <span
             class={[
-              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
+              "inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium",
               selectedItemClass,
             ]}
           >
-            <span>{selectedConnectionRow.selectedValue}</span>
+            <span class="truncate">{selectedConnectionRow.selectedValue}</span>
             <button
               type="button"
               class={[
@@ -77,7 +77,7 @@
         {/each}
       </div>
       <PlainInputField
-        class="h-8 min-w-32 flex-1 border-0 bg-transparent px-0 py-1 text-sm text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
+        class="h-7 min-w-0 flex-[1_1_8rem] border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0"
         aria-label={pickerDisplay.pickerField.ariaLabelText}
         placeholderText={pickerDisplay.pickerField.placeholder}
         value={pickerDisplay.query}
@@ -90,20 +90,20 @@
       aria-label={labelText}
       hidden={!pickerDisplay.open}
       class:connection-show-object-menu={pickerDisplay.showObjectMenu}
-      class="bg-popover text-popover-foreground absolute left-0 top-full z-50 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-border p-2 shadow-lg"
+      class="absolute left-0 top-full z-[80] mt-1 max-h-56 w-full min-w-48 overflow-auto rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-xl"
     >
       {#if pickerDisplay.showNoMatch}
-        <li>
-          <span class="px-3 py-2 text-xs text-muted-foreground">
+        <li class="list-none">
+          <span class="block px-2.5 py-2 text-xs text-muted-foreground">
             {pickerDisplay.noMatchText}
           </span>
         </li>
       {:else}
         {#if pickerDisplay.canAddCustom}
-          <li>
+          <li class="list-none">
             <button
               type="button"
-              class="justify-between"
+              class="flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
               onclick={addPickerValueAction(pickerDisplay.normalizedQuery)}
             >
               <span>{pickerDisplay.addCustomLabel}</span>
@@ -112,9 +112,10 @@
           </li>
         {/if}
         {#each pickerDisplay.optionRows as optionRow}
-          <li>
+          <li class="list-none">
             <button
               type="button"
+              class="flex w-full min-w-0 items-center rounded-md px-2.5 py-2 text-left text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
               class:connection-show-object-option={optionRow.isShowObject}
               onclick={addPickerValueAction(optionRow.value)}
             >

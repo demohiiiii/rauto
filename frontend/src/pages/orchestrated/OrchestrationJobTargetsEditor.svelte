@@ -1,28 +1,12 @@
 <script>
-  import { Button } from "$lib/components/ui/button/index.js";
-  import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
-  import StringListEditor from "../../components/fragments/StringListEditor.svelte";
+  import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
+  import {
+    CONNECTION_PICKER,
+    setConnectionPickerSelectedValues,
+  } from "../../modules/connectionFields.js";
   import { createOrchestrationJobTargetsEditorWorkspace } from "../../modules/orchestrationStageTargetsState.js";
-  import OrchestrationTargetInputEditor from "./OrchestrationTargetInputEditor.svelte";
 
-  let {
-    jobRow,
-    visualDisplay,
-    onAddStringListItem,
-    onAddTarget,
-    onRemoveStringListItem,
-    onRemoveTarget,
-    onSetListPresence,
-    onTargetConnectionChange,
-    onTargetExtraChange,
-    onTargetFieldChange,
-    onTargetFieldNullableModeChange,
-    onTargetFieldPresenceChange,
-    onTargetKindChange,
-    onTargetVarsChange,
-    onTargetVarsPresenceChange,
-    onUpdateStringListItem,
-  } = $props();
+  let { jobRow, onReplaceStringList } = $props();
   const jobTargetsWorkspace = createOrchestrationJobTargetsEditorWorkspace();
   let jobTargetsDisplayStateStore = $derived(
     jobTargetsWorkspace.jobTargetsDisplayStateStore,
@@ -35,149 +19,52 @@
   let targetActionHandlers = $derived($targetActionHandlersStateStore);
 
   $effect(() => {
-    setJobTargetsContext({
-      jobRow,
-      onAddStringListItem,
-      onAddTarget,
-      onRemoveStringListItem,
-      onRemoveTarget,
-      onSetListPresence,
-      onTargetConnectionChange,
-      onTargetExtraChange,
-      onTargetFieldChange,
-      onTargetFieldNullableModeChange,
-      onTargetFieldPresenceChange,
-      onTargetKindChange,
-      onTargetVarsChange,
-      onTargetVarsPresenceChange,
-      onUpdateStringListItem,
-    });
+    setJobTargetsContext({ jobRow, onReplaceStringList });
+  });
+
+  $effect(() => {
+    setConnectionPickerSelectedValues(
+      CONNECTION_PICKER.orchestrationTargetGroups,
+      jobRow?.job?.targetGroups || [],
+    );
+    setConnectionPickerSelectedValues(
+      CONNECTION_PICKER.orchestrationTargetTags,
+      jobRow?.job?.targetTags || [],
+    );
+    setConnectionPickerSelectedValues(
+      CONNECTION_PICKER.orchestrationTargets,
+      jobRow?.job?.targets || [],
+    );
   });
 </script>
 
-<div class="grid gap-3 md:grid-cols-2">
-  <div>
-    <div class="mb-2 flex items-center justify-between gap-3">
-      <span class="text-sm font-medium text-foreground"
-        >{jobTargetsDisplay.targetGroupsField.labelText}</span
-      >
-      <PresenceToggle
-        checked={jobTargetsDisplay.targetGroupsField.enabled}
-        onCheckedChange={targetActionHandlers.listPresenceHandler(
-          "targetGroups",
-        )}
-      />
-    </div>
-    {#if jobTargetsDisplay.targetGroupsField.enabled}
-      <StringListEditor
-        labelText={jobTargetsDisplay.targetGroupsField.labelText}
-        itemRows={jobTargetsDisplay.targetGroupsField.itemRows}
-        addButtonLabel={jobTargetsDisplay.targetGroupsField.addButtonLabelText}
-        removeButtonLabel={jobTargetsDisplay.targetGroupsField
-          .removeButtonLabelText}
-        placeholderText={jobTargetsDisplay.targetGroupsField.placeholderText}
-        onAdd={targetActionHandlers.addStringListItemHandler("targetGroups")}
-        onValueChange={targetActionHandlers.updateStringListItemHandler(
-          "targetGroups",
-        )}
-        onRemove={targetActionHandlers.removeStringListItemHandler(
-          "targetGroups",
-        )}
-      />
-    {/if}
-  </div>
+<div class="@container min-w-0">
+  <div class="grid min-w-0 gap-3 @2xl:grid-cols-3">
+    <ConnectionPickerField
+      keyName={CONNECTION_PICKER.orchestrationTargetGroups}
+      labelText={jobTargetsDisplay.targetGroupsField.labelText}
+      pickerPlaceholder={jobTargetsDisplay.targetGroupsField.placeholderText}
+      onSelectionChange={targetActionHandlers.replaceStringListHandler(
+        "targetGroups",
+      )}
+    />
 
-  <div>
-    <div class="mb-2 flex items-center justify-between gap-3">
-      <span class="text-sm font-medium text-foreground"
-        >{jobTargetsDisplay.targetTagsField.labelText}</span
-      >
-      <PresenceToggle
-        checked={jobTargetsDisplay.targetTagsField.enabled}
-        onCheckedChange={targetActionHandlers.listPresenceHandler("targetTags")}
-      />
-    </div>
-    {#if jobTargetsDisplay.targetTagsField.enabled}
-      <StringListEditor
-        labelText={jobTargetsDisplay.targetTagsField.labelText}
-        itemRows={jobTargetsDisplay.targetTagsField.itemRows}
-        addButtonLabel={jobTargetsDisplay.targetTagsField.addButtonLabelText}
-        removeButtonLabel={jobTargetsDisplay.targetTagsField
-          .removeButtonLabelText}
-        placeholderText={jobTargetsDisplay.targetTagsField.placeholderText}
-        onAdd={targetActionHandlers.addStringListItemHandler("targetTags")}
-        onValueChange={targetActionHandlers.updateStringListItemHandler(
-          "targetTags",
-        )}
-        onRemove={targetActionHandlers.removeStringListItemHandler(
-          "targetTags",
-        )}
-      />
-    {/if}
-  </div>
-</div>
+    <ConnectionPickerField
+      keyName={CONNECTION_PICKER.orchestrationTargetTags}
+      labelText={jobTargetsDisplay.targetTagsField.labelText}
+      pickerPlaceholder={jobTargetsDisplay.targetTagsField.placeholderText}
+      onSelectionChange={targetActionHandlers.replaceStringListHandler(
+        "targetTags",
+      )}
+    />
 
-<div class="grid gap-2">
-  <div class="mb-2 flex items-center justify-between gap-3">
-    <span class="text-sm font-medium text-foreground">
-      {jobTargetsDisplay.targetsField.labelText}
-    </span>
-    <PresenceToggle
-      checked={jobTargetsDisplay.targetsField.enabled}
-      onCheckedChange={targetActionHandlers.listPresenceHandler("targets")}
+    <ConnectionPickerField
+      keyName={CONNECTION_PICKER.orchestrationTargets}
+      labelText={jobTargetsDisplay.targetsField.labelText}
+      pickerPlaceholder={jobTargetsDisplay.targetsField.placeholderText}
+      onSelectionChange={targetActionHandlers.replaceStringListHandler(
+        "targets",
+      )}
     />
   </div>
-  {#if jobTargetsDisplay.targetsField.enabled}
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <span>{jobTargetsDisplay.targetsField.labelText}</span>
-      <Button
-        size="sm"
-        type="button"
-        onclick={targetActionHandlers.addTargetHandler}
-      >
-        {jobTargetsDisplay.targetsField.addButtonLabelText}
-      </Button>
-    </div>
-    {#each jobTargetsDisplay.targetsField.targetRows as targetRow (targetRow.targetIndex)}
-      <OrchestrationTargetInputEditor
-        titleText={jobTargetsDisplay.targetsField.targetTitleText(
-          targetRow.targetIndex,
-        )}
-        target={targetRow.target}
-        connectionOptionRows={targetRow.targetConnectionOptionRows}
-        targetDetail={targetRow.targetDetail}
-        targetFieldRows={targetRow.targetFieldRows}
-        varsText={targetRow.varsText}
-        targetInputKindRows={visualDisplay.targetInputKindRows}
-        jsonValueTypeRows={visualDisplay.jsonValueTypeRows}
-        onKindChange={targetActionHandlers.targetKindHandler(
-          targetRow.targetIndex,
-        )}
-        onConnectionChange={targetActionHandlers.targetConnectionHandler(
-          targetRow.targetIndex,
-        )}
-        onFieldChange={targetActionHandlers.targetFieldHandler(
-          targetRow.targetIndex,
-        )}
-        onFieldNullableModeChange={targetActionHandlers.targetFieldNullableModeHandler(
-          targetRow.targetIndex,
-        )}
-        onFieldPresenceChange={targetActionHandlers.targetFieldPresenceHandler(
-          targetRow.targetIndex,
-        )}
-        onVarsChange={targetActionHandlers.targetVarsHandler(
-          targetRow.targetIndex,
-        )}
-        onVarsPresenceChange={targetActionHandlers.targetVarsPresenceHandler(
-          targetRow.targetIndex,
-        )}
-        onExtraChange={targetActionHandlers.targetExtraHandler(
-          targetRow.targetIndex,
-        )}
-        onRemove={targetActionHandlers.removeTargetHandler(
-          targetRow.targetIndex,
-        )}
-      />
-    {/each}
-  {/if}
 </div>

@@ -463,8 +463,6 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
       txWorkflowJsonTemplateStageProps.onCreateJsonTemplateDraft,
     deleteJsonTemplateFromExecution:
       jsonTemplateLibrary.deleteTemplateFromExecution,
-    deleteOrchestrationJsonTemplate:
-      orchestrationJsonTemplateStageProps.onDeleteJsonTemplate,
     deleteTxBlockJsonTemplate:
       txBlockJsonTemplateStageProps.onDeleteJsonTemplate,
     deleteTxWorkflowJsonTemplate:
@@ -490,15 +488,10 @@ export function createOrchestratedWorkspace(workspaceCfg = {}) {
     runTxBlockExecute: () => runTxBlock(false, TX_OUTPUT.txBlockExec),
     saveJsonTemplateFromExecution:
       jsonTemplateLibrary.saveTemplateFromExecution,
-    saveOrchestrationJsonTemplate:
-      orchestrationJsonTemplateStageProps.onSaveJsonTemplate,
     saveTxBlockJsonTemplate: txBlockJsonTemplateStageProps.onSaveJsonTemplate,
     saveTxWorkflowJsonTemplate:
       txWorkflowJsonTemplateStageProps.onSaveJsonTemplate,
     setMode: setTxMode,
-    setOrchestrationDirectMode: () => setTxMode({ orchestration: "direct" }),
-    setOrchestrationTemplateMode: () =>
-      setTxMode({ orchestration: "template" }),
     updateOrchestrationEditorInput: updateOrchestrationPreviewFromCurrentEditor,
     updateTxBlockEditorInput: (text) => {
       if (text != null) {

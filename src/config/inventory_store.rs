@@ -2,7 +2,6 @@ use crate::config::connection_store;
 use crate::db;
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
 use sqlx::Row;
 use std::collections::BTreeSet;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -12,18 +11,7 @@ pub struct InventoryGroup {
     pub name: String,
     pub description: Option<String>,
     #[serde(default)]
-    pub vars: Value,
-    #[serde(default)]
     pub hosts: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InventoryVarsResolution {
-    pub host_name: Option<String>,
-    #[serde(default)]
-    pub group_names: Vec<String>,
-    #[serde(default)]
-    pub merged_vars: Value,
 }
 
 pub fn list_groups() -> Result<Vec<InventoryGroup>> {
@@ -71,7 +59,6 @@ pub fn get_group(name: &str) -> Result<Option<InventoryGroup>> {
 pub fn upsert_group(name: &str, group: &InventoryGroup) -> Result<()> {
     let safe_name = normalize_inventory_name(name)?;
     let description = empty_to_none(group.description.clone());
-    let vars_json = normalize_vars_json(group.vars.clone())?;
     let hosts = normalize_string_list(&group.hosts)?;
     let now = now_ms() as i64;
 
@@ -101,21 +88,6 @@ pub fn upsert_group(name: &str, group: &InventoryGroup) -> Result<()> {
         .bind(&safe_name)
         .bind(&description)
         .bind(created_at_ms)
-        .bind(now)
-        .execute(db::pool())
-        .await?;
-
-        sqlx::query(
-            r#"
-            INSERT INTO inventory_group_vars (group_name, vars_json, updated_at_ms)
-            VALUES (?, ?, ?)
-            ON CONFLICT(group_name) DO UPDATE SET
-                vars_json = excluded.vars_json,
-                updated_at_ms = excluded.updated_at_ms
-            "#,
-        )
-        .bind(&safe_name)
-        .bind(vars_json)
         .bind(now)
         .execute(db::pool())
         .await?;
@@ -152,97 +124,12 @@ pub fn delete_group(name: &str) -> Result<bool> {
     })
 }
 
-pub fn resolve_vars(
-    host_name: Option<&str>,
-    group_names: &[String],
-    runtime_vars: Value,
-) -> Result<InventoryVarsResolution> {
-    let resolved_host_name = host_name.map(normalize_inventory_name).transpose()?;
-    let explicit_groups = normalize_string_list(group_names)?;
-    ensure_json_object(&runtime_vars)?;
-
-    db::run_sync(async move {
-        let mut merged = Value::Object(Map::new());
-        let mut group_set = BTreeSet::new();
-        let mut host_vars: Option<Value> = None;
-
-        if let Some(host_name) = resolved_host_name.as_ref() {
-            host_vars = Some(
-                load_connection_vars(host_name)
-                    .await?
-                    .ok_or_else(|| anyhow!("saved connection '{}' not found", host_name))?,
-            );
-            for group in connection_group_names(host_name).await? {
-                group_set.insert(group);
-            }
-        }
-        for group in explicit_groups {
-            group_set.insert(group);
-        }
-
-        for group_name in &group_set {
-            if !group_exists(group_name).await? {
-                return Err(anyhow!("inventory group '{}' not found", group_name));
-            }
-            if let Some(vars) = load_group_vars(group_name).await? {
-                merge_json_object(&mut merged, &vars)?;
-            }
-        }
-
-        if let Some(vars) = host_vars.as_ref() {
-            merge_json_object(&mut merged, vars)?;
-        }
-
-        merge_json_object(&mut merged, &runtime_vars)?;
-
-        Ok(InventoryVarsResolution {
-            host_name: resolved_host_name,
-            group_names: group_set.into_iter().collect(),
-            merged_vars: merged,
-        })
-    })
-}
-
 async fn build_group(name: &str, row: sqlx::sqlite::SqliteRow) -> Result<InventoryGroup> {
     Ok(InventoryGroup {
         name: name.to_string(),
         description: row.try_get("description")?,
-        vars: load_group_vars(name)
-            .await?
-            .unwrap_or_else(|| Value::Object(Map::new())),
         hosts: group_host_names(name).await?,
     })
-}
-
-async fn group_exists(group_name: &str) -> Result<bool> {
-    let found =
-        sqlx::query_scalar::<_, i64>("SELECT 1 FROM inventory_groups WHERE name = ? LIMIT 1")
-            .bind(group_name)
-            .fetch_optional(db::pool())
-            .await?;
-    Ok(found.is_some())
-}
-
-async fn connection_group_names(connection_name: &str) -> Result<Vec<String>> {
-    let rows = sqlx::query(
-        "SELECT group_name FROM inventory_group_members WHERE connection_name = ? ORDER BY group_name ASC",
-    )
-    .bind(connection_name)
-    .fetch_all(db::pool())
-    .await?;
-    Ok(rows
-        .into_iter()
-        .map(|row| row.get::<String, _>("group_name"))
-        .collect())
-}
-
-async fn load_connection_vars(connection_name: &str) -> Result<Option<Value>> {
-    let row = sqlx::query("SELECT vars_json FROM connections WHERE name = ?")
-        .bind(connection_name)
-        .fetch_optional(db::pool())
-        .await?;
-    row.map(|row| parse_vars_json(row.get::<String, _>("vars_json")))
-        .transpose()
 }
 
 async fn group_host_names(group_name: &str) -> Result<Vec<String>> {
@@ -256,47 +143,6 @@ async fn group_host_names(group_name: &str) -> Result<Vec<String>> {
         .into_iter()
         .map(|row| row.get::<String, _>("connection_name"))
         .collect())
-}
-
-async fn load_group_vars(group_name: &str) -> Result<Option<Value>> {
-    let row = sqlx::query("SELECT vars_json FROM inventory_group_vars WHERE group_name = ?")
-        .bind(group_name)
-        .fetch_optional(db::pool())
-        .await?;
-    row.map(|row| parse_vars_json(row.get::<String, _>("vars_json")))
-        .transpose()
-}
-
-fn parse_vars_json(raw: String) -> Result<Value> {
-    let parsed: Value = serde_json::from_str(&raw)
-        .map_err(|err| anyhow!("failed to parse stored vars json: {}", err))?;
-    ensure_json_object(&parsed)?;
-    Ok(parsed)
-}
-
-fn normalize_vars_json(value: Value) -> Result<String> {
-    ensure_json_object(&value)?;
-    serde_json::to_string(&value).map_err(|err| anyhow!(err))
-}
-
-fn ensure_json_object(value: &Value) -> Result<()> {
-    if !value.is_object() {
-        return Err(anyhow!("vars must be a JSON object"));
-    }
-    Ok(())
-}
-
-fn merge_json_object(target: &mut Value, source: &Value) -> Result<()> {
-    let target_map = target
-        .as_object_mut()
-        .ok_or_else(|| anyhow!("merged vars target must be a JSON object"))?;
-    let source_map = source
-        .as_object()
-        .ok_or_else(|| anyhow!("vars source must be a JSON object"))?;
-    for (key, value) in source_map {
-        target_map.insert(key.clone(), value.clone());
-    }
-    Ok(())
 }
 
 fn normalize_inventory_name(raw: &str) -> Result<String> {
@@ -345,7 +191,7 @@ fn now_ms() -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use super::{InventoryGroup, get_group, list_groups, resolve_vars};
+    use super::{InventoryGroup, get_group, list_groups};
     use crate::config::connection_store::{SavedConnection, save_connection};
     use crate::db;
     use anyhow::Result;
@@ -427,37 +273,16 @@ mod tests {
     }
 
     #[test]
-    fn resolves_group_connection_and_runtime_vars_in_order() -> Result<()> {
-        let _env_guard = TestEnvGuard::new()?;
-        db::init_sync()?;
-        save_connection(
-            "edge-01",
-            &sample_connection(
-                "10.0.0.1",
-                vec!["core"],
-                json!({"mode":"root","site":"shanghai"}),
-            ),
-        )?;
-        super::upsert_group(
-            "core",
-            &InventoryGroup {
-                name: "core".into(),
-                description: None,
-                vars: json!({"region":"cn","mode":"config"}),
-                hosts: vec!["edge-01".into()],
-            },
-        )?;
+    fn inventory_group_json_ignores_legacy_vars() -> Result<()> {
+        let group: InventoryGroup = serde_json::from_value(json!({
+            "name": "access",
+            "description": "access layer",
+            "vars": {"role": "access"},
+            "hosts": ["edge-01"]
+        }))?;
+        let value = serde_json::to_value(group)?;
 
-        let resolved = resolve_vars(
-            Some("edge-01"),
-            &[],
-            json!({"ticket":"CHG-1","mode":"override"}),
-        )?;
-        assert_eq!(resolved.group_names, vec!["core"]);
-        assert_eq!(
-            resolved.merged_vars,
-            json!({"region":"cn","mode":"override","site":"shanghai","ticket":"CHG-1"})
-        );
+        assert!(value.get("vars").is_none());
         Ok(())
     }
 
@@ -479,7 +304,6 @@ mod tests {
             &InventoryGroup {
                 name: "access".into(),
                 description: Some("access layer".into()),
-                vars: json!({"role":"access"}),
                 hosts: vec!["edge-02".into(), "edge-01".into()],
             },
         )?;
@@ -491,7 +315,6 @@ mod tests {
 
         let one = get_group("access")?.expect("group should exist");
         assert_eq!(one.description.as_deref(), Some("access layer"));
-        assert_eq!(one.vars, json!({"role":"access"}));
         assert_eq!(one.hosts, vec!["edge-01", "edge-02"]);
 
         assert!(super::delete_group("access")?);
@@ -509,7 +332,6 @@ mod tests {
             &InventoryGroup {
                 name: "core".into(),
                 description: None,
-                vars: json!({}),
                 hosts: vec!["missing-conn".into()],
             },
         )
@@ -519,24 +341,6 @@ mod tests {
                 .contains("saved connection 'missing-conn' not found")
         );
 
-        Ok(())
-    }
-
-    #[test]
-    fn resolve_vars_rejects_unknown_group() -> Result<()> {
-        let _env_guard = TestEnvGuard::new()?;
-        db::init_sync()?;
-        save_connection(
-            "edge-01",
-            &sample_connection("10.0.0.1", vec![], json!({"site":"a"})),
-        )?;
-
-        let err = resolve_vars(Some("edge-01"), &["missing".into()], json!({}))
-            .expect_err("unknown group should fail");
-        assert!(
-            err.to_string()
-                .contains("inventory group 'missing' not found")
-        );
         Ok(())
     }
 }

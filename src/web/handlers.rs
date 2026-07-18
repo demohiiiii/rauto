@@ -112,7 +112,8 @@ pub use json_templates::{
     delete_orchestration_template, delete_tx_block_template, delete_tx_workflow_template,
     get_orchestration_template, get_tx_block_template, get_tx_workflow_template,
     list_orchestration_templates, list_tx_block_templates, list_tx_workflow_templates,
-    update_orchestration_template, update_tx_block_template, update_tx_workflow_template,
+    preview_tx_workflow_template, update_orchestration_template, update_tx_block_template,
+    update_tx_workflow_template,
 };
 pub use maintenance::{
     add_blacklist_pattern, check_blacklist_command, create_backup, delete_blacklist_pattern,
