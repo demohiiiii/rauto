@@ -1,6 +1,6 @@
 <script>
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
-  import { createOrchestrationTxWorkflowActionSettingsEditorWorkspace } from "../../modules/orchestrationTxWorkflowActions.js";
+  import { createOrchestrationTxWorkflowActionSettingsEditorWorkspace } from "../../modules/orchestration/orchestrationTxWorkflowActions.js";
 
   let { txWorkflow, visualDisplay, onSourceChange } = $props();
   const orchestrationTxWorkflowActionSettingsEditorWorkspace =

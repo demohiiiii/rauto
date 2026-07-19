@@ -1,6 +1,6 @@
 <script>
   import * as Card from "$lib/components/ui/card";
-  import { createBackupPageWorkspace } from "../modules/backup.js";
+  import { createBackupPageWorkspace } from "../modules/operations/backup.js";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import LoadingButton from "../components/fragments/LoadingButton.svelte";
   import PlainInputField from "../components/fragments/PlainInputField.svelte";

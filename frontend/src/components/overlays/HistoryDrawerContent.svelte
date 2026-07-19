@@ -12,7 +12,7 @@
   import { cn } from "$lib/utils.js";
   import PlainSelectField from "../fragments/PlainSelectField.svelte";
   import { plainInputFieldBindings } from "../../lib/events.js";
-  import { createHistoryDrawerContentWorkspace } from "../../modules/connections.js";
+  import { createHistoryDrawerContentWorkspace } from "../../modules/connections/connections.js";
 
   let {
     historyDisplay,

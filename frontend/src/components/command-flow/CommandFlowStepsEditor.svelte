@@ -6,7 +6,7 @@
   import PlusIcon from "@lucide/svelte/icons/plus";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { commandFlowAccentColor } from "../../modules/commandFlowAccentState.js";
+  import { commandFlowAccentColor } from "../../modules/command/commandFlowAccentState.js";
   import CommandFlowSurface from "./CommandFlowSurface.svelte";
 
   let {

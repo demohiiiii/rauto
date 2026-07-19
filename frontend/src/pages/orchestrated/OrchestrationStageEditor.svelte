@@ -2,7 +2,7 @@
   import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "../../lib/i18n.js";
-  import { createOrchestrationStageEditorWorkspace } from "../../modules/orchestrationStageEditorsState.js";
+  import { createOrchestrationStageEditorWorkspace } from "../../modules/orchestration/orchestrationStageEditorsState.js";
   import OrchestrationJobEditor from "./OrchestrationJobEditor.svelte";
   import OrchestrationStageSettingsEditor from "./OrchestrationStageSettingsEditor.svelte";
 

@@ -1,5 +1,5 @@
 <script>
-  import { createOrchestrationJobTargetsSectionWorkspace } from "../../modules/orchestrationStageTargetsState.js";
+  import { createOrchestrationJobTargetsSectionWorkspace } from "../../modules/orchestration/orchestrationStageTargetsState.js";
   import OrchestrationJobTargetsEditor from "./OrchestrationJobTargetsEditor.svelte";
 
   let { model, stageIndex, jobRow, onChange } = $props();

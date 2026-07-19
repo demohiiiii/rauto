@@ -15,9 +15,9 @@
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import { t } from "../../lib/i18n.js";
   import { selectOptionsWithCurrent } from "../../lib/ui.js";
-  import { createStandardCommandExecutionWorkspace } from "../../modules/standardCommandExecutionWorkspace.js";
-  import { exportStandardParsedOutputItemExcel } from "../../modules/standard.js";
-  import { parsedOutputBlockDisplayFromItem } from "../../modules/results.js";
+  import { createStandardCommandExecutionWorkspace } from "../../modules/standard/standardCommandExecutionWorkspace.js";
+  import { exportStandardParsedOutputItemExcel } from "../../modules/standard/standard.js";
+  import { parsedOutputBlockDisplayFromItem } from "../../modules/operations/results.js";
 
   let { active } = $props();
   let panelElement;

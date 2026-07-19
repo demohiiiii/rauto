@@ -9,12 +9,14 @@ test("device groups are membership-only resources", () => {
     "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
   );
   const storeState = read(
-    "frontend/src/modules/inventoryCollectionStoreState.js",
+    "frontend/src/modules/inventory/inventoryCollectionStoreState.js",
   );
   const collectionState = read(
-    "frontend/src/modules/inventoryCollectionState.js",
+    "frontend/src/modules/inventory/inventoryCollectionState.js",
   );
-  const pageWorkspace = read("frontend/src/modules/inventoryPageWorkspace.js");
+  const pageWorkspace = read(
+    "frontend/src/modules/inventory/inventoryPageWorkspace.js",
+  );
 
   assert.doesNotMatch(panel, /TextAreaField|formVarsValue|onVarsInput/);
   assert.doesNotMatch(storeState, /formVars|updateInventoryGroupVars/);

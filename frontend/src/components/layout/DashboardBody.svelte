@@ -16,7 +16,7 @@
   import {
     createDashboardBodyWorkspace,
     dashboardState,
-  } from "../../modules/dashboardShell.js";
+  } from "../../modules/dashboard/dashboardShell.js";
   import { dashboardThemeContextKey } from "../../lib/svelte.js";
   import { currentLanguageState } from "../../lib/i18n.js";
 

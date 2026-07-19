@@ -4,7 +4,7 @@
   import StringSelectField from "../../components/fragments/StringSelectField.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
-  import { createProfileDiagnosePanelWorkspace } from "../../modules/profiles.js";
+  import { createProfileDiagnosePanelWorkspace } from "../../modules/profiles/profiles.js";
 
   const profileDiagnosePanelWorkspace = createProfileDiagnosePanelWorkspace();
   const {

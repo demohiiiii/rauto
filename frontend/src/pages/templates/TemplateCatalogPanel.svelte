@@ -25,18 +25,18 @@
   import { browserConfirm } from "../../lib/browser.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { cn } from "$lib/utils.js";
-  import { showToast } from "../../modules/overlays.js";
-  import { createCommandFlowDraftWorkspace } from "../../modules/commandFlowDraftState.js";
-  import { commandFlowTemplateModelToToml } from "../../modules/commandFlowTemplateModel.js";
+  import { showToast } from "../../modules/overlays/overlays.js";
+  import { createCommandFlowDraftWorkspace } from "../../modules/command/commandFlowDraftState.js";
+  import { commandFlowTemplateModelToToml } from "../../modules/command/commandFlowTemplateModel.js";
   import {
     MODE_SELECT,
     modeSelection,
     refreshExecutionModeOptionsForCurrentConnection,
-  } from "../../modules/profiles.js";
+  } from "../../modules/profiles/profiles.js";
   import {
     TEMPLATE_MANAGER_KIND,
     templateResourceDefinitions,
-  } from "../../modules/templateManagerState.js";
+  } from "../../modules/templates/templateManagerState.js";
 
   let { definition, workspace } = $props();
   const { filteredItemsStore, stateStore } = untrack(() => workspace);

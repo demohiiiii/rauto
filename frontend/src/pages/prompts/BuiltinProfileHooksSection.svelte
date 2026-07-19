@@ -3,7 +3,7 @@
   import ReadonlyCheckboxField from "../../components/fragments/ReadonlyCheckboxField.svelte";
   import ReadonlyInputField from "../../components/fragments/ReadonlyInputField.svelte";
   import ReadonlyTextAreaField from "../../components/fragments/ReadonlyTextAreaField.svelte";
-  import { createBuiltinProfileHooksSectionWorkspace } from "../../modules/profiles.js";
+  import { createBuiltinProfileHooksSectionWorkspace } from "../../modules/profiles/profiles.js";
 
   let { profileDetail } = $props();
   const hooksWorkspace = createBuiltinProfileHooksSectionWorkspace();

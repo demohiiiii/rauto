@@ -1,5 +1,5 @@
 <script>
-  import { createOrchestrationJsonSectionWorkspace } from "../../modules/orchestrationResultState.js";
+  import { createOrchestrationJsonSectionWorkspace } from "../../modules/orchestration/orchestrationResultState.js";
 
   let { jsonValue, title } = $props();
   const orchestrationJsonSectionWorkspace =

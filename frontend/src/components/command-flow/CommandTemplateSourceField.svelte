@@ -1,7 +1,7 @@
 <script>
   import ValueTextSelectField from "../fragments/ValueTextSelectField.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { MANUAL_COMMAND_SOURCE } from "../../modules/commandTemplateCatalog.js";
+  import { MANUAL_COMMAND_SOURCE } from "../../modules/command/commandTemplateCatalog.js";
 
   let {
     disabled = false,

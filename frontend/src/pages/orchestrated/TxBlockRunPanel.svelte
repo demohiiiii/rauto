@@ -2,7 +2,7 @@
   import * as Card from "$lib/components/ui/card";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
-  import { createTxBlockRunPanelWorkspace } from "../../modules/transactionExecutionDisplays.js";
+  import { createTxBlockRunPanelWorkspace } from "../../modules/transactions/transactionExecutionDisplays.js";
   import TxBlockResultPanel from "./TxBlockResultPanel.svelte";
 
   let { onExecute, panelDisplay } = $props();

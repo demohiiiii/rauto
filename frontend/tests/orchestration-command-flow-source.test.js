@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   orchestrationTxWorkflowActionSourceValue,
   orchestrationTxWorkflowSourceDisplay,
-} from "../src/modules/orchestrationActionDisplayState.js";
+} from "../src/modules/orchestration/orchestrationActionDisplayState.js";
 
 function read(path) {
   return readFileSync(path, "utf8");

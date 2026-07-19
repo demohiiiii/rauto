@@ -2,7 +2,7 @@
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import TabList from "../components/fragments/TabList.svelte";
   import { inventorySectionTabs } from "../config/dashboardModes.js";
-  import { createInventoryPageWorkspace } from "../modules/inventoryPageWorkspace.js";
+  import { createInventoryPageWorkspace } from "../modules/inventory/inventoryPageWorkspace.js";
   import InventoryCollectionPanel from "./inventory/InventoryCollectionPanel.svelte";
 
   let { active } = $props();

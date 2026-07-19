@@ -11,7 +11,7 @@ import {
   txBlockCommandEditorBindings,
   txBlockCommandInteractionEditorBindings,
   txBlockVisualEditorBindings,
-} from "../src/modules/transactionBlockBindingState.js";
+} from "../src/modules/transactions/transactionBlockBindingState.js";
 
 function valueEvent(value) {
   return {

@@ -1,6 +1,6 @@
 <script>
   import OrchestrationInputPanel from "./OrchestrationInputPanel.svelte";
-  import { createOrchestrationStageWorkspace } from "../../modules/orchestrationPanelState.js";
+  import { createOrchestrationStageWorkspace } from "../../modules/orchestration/orchestrationPanelState.js";
 
   let { active, onExecute, onImportFile, onEditorInput } = $props();
   const orchestrationStageWorkspace = createOrchestrationStageWorkspace();

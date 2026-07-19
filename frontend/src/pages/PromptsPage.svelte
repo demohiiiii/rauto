@@ -9,7 +9,7 @@
   import {
     changeBuiltinProfileSelection,
     createPromptProfilesPageWorkspace,
-  } from "../modules/profiles.js";
+  } from "../modules/profiles/profiles.js";
   import BuiltinProfileDetailsPanel from "./prompts/BuiltinProfileDetailsPanel.svelte";
   import CustomProfilesEditorPanel from "./prompts/CustomProfilesEditorPanel.svelte";
   import ProfileDiagnosePanel from "./prompts/ProfileDiagnosePanel.svelte";

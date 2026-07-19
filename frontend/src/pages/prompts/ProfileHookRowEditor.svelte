@@ -5,7 +5,7 @@
   import PlainTextAreaField from "../../components/fragments/PlainTextAreaField.svelte";
   import ValueLabelSelectField from "../../components/fragments/ValueLabelSelectField.svelte";
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
-  import { createProfileHookRowEditorWorkspace } from "../../modules/profiles.js";
+  import { createProfileHookRowEditorWorkspace } from "../../modules/profiles/profiles.js";
   let {
     modeOptions,
     onAddFlowStep,

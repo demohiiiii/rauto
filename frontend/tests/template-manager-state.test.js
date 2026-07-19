@@ -8,7 +8,7 @@ import {
   createTextfsmMappingWorkspace,
   defaultTemplateResourceContent,
   templateResourceDefinitions,
-} from "../src/modules/templateManagerState.js";
+} from "../src/modules/templates/templateManagerState.js";
 
 test("template manager maps every backend content-template endpoint", () => {
   assert.deepEqual(
@@ -184,4 +184,47 @@ test("changing a custom show object identity removes the previous object", async
   assert.equal((await workspace.save()).ok, true);
   assert.equal(saves[0].object, "system-version");
   assert.deepEqual(deletes, [{ device_profile: "ios", object: "version" }]);
+});
+
+test("resource workspaces clear loading state and expose request failures", async () => {
+  const mappings = createTextfsmMappingWorkspace({
+    api: {
+      getDeviceProfilesOverview: async () => ({ builtins: [], custom: [] }),
+      listTemplateResource: async () => [],
+      listTextfsmMappings: async () => {
+        throw new Error("mapping load failed");
+      },
+    },
+  });
+
+  assert.equal(await mappings.load(), false);
+  assert.equal(get(mappings.stateStore).loadingAction, "");
+  assert.equal(get(mappings.stateStore).errorMessage, "mapping load failed");
+
+  const objects = createShowObjectWorkspace({
+    onChanged: async () => {},
+    api: {
+      getDeviceProfilesOverview: async () => ({
+        builtins: [{ name: "ios" }],
+        custom: [],
+      }),
+      getProfileModes: async () => ({ modes: [], default_mode: "" }),
+      listTextfsmMappings: async () => [],
+      saveCustomShowObject: async () => {
+        throw new Error("object save failed");
+      },
+    },
+  });
+  await objects.patchForm({
+    deviceProfile: "ios",
+    object: "version",
+    command: "show version",
+  });
+
+  assert.deepEqual(await objects.save(), {
+    ok: false,
+    message: "object save failed",
+  });
+  assert.equal(get(objects.stateStore).loadingAction, "");
+  assert.equal(get(objects.stateStore).errorMessage, "object save failed");
 });

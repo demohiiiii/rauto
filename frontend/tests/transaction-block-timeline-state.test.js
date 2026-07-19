@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
 import { loadI18nLanguage, setCurrentLanguage } from "../src/lib/i18n.js";
-import { txBlockEditorBindings } from "../src/modules/transactionBlockBindingState.js";
-import { txBlockTimelineDisplay } from "../src/modules/transactionBlockDisplayState.js";
-import { createTxBlockVisualEditorWorkspace } from "../src/modules/transactionBlockDisplays.js";
+import { txBlockEditorBindings } from "../src/modules/transactions/transactionBlockBindingState.js";
+import { txBlockTimelineDisplay } from "../src/modules/transactions/transactionBlockDisplayState.js";
+import { createTxBlockVisualEditorWorkspace } from "../src/modules/transactions/transactionBlockDisplays.js";
 import {
   txBlockDuplicateStep,
   txBlockMoveStep,
   txBlockSetStepRollbackEnabled,
-} from "../src/modules/transactionBlockMutations.js";
+} from "../src/modules/transactions/transactionBlockMutations.js";
 
 function operation(kind, value = "") {
   if (kind === "flow") {

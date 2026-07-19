@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { get } from "svelte/store";
-import { createOrchestrationTemplateWorkspace } from "../src/modules/orchestrationTemplateWorkspace.js";
+import { createOrchestrationTemplateWorkspace } from "../src/modules/orchestration/orchestrationTemplateWorkspace.js";
 
 function deferred() {
   let resolve;

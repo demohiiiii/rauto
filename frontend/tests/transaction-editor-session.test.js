@@ -6,29 +6,29 @@ import {
   createTxInputPanelActionWorkspace,
   createTxInputPanelWorkspace,
   transactionEditorSyncPresentation,
-} from "../src/modules/transactionInputState.js";
+} from "../src/modules/transactions/transactionInputState.js";
 import {
   defaultTxBlockTemplatePayload,
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
-} from "../src/modules/transactionBlockFormModels.js";
-import { createTransactionEditorSession } from "../src/modules/transactionEditorSession.js";
+} from "../src/modules/transactions/transactionBlockFormModels.js";
+import { createTransactionEditorSession } from "../src/modules/transactions/transactionEditorSession.js";
 import {
   clearTxJsonEditorsHost,
   createTxJsonEditorWorkspace,
   createTxJsonEditorsHost,
   TX_EDITOR,
   TX_TEMPLATE_KIND,
-} from "../src/modules/transactionJsonEditorState.js";
-import { createJsonTemplateLibrary } from "../src/modules/transactionJsonTemplateState.js";
+} from "../src/modules/transactions/transactionJsonEditorState.js";
+import { createJsonTemplateLibrary } from "../src/modules/transactions/transactionJsonTemplateState.js";
 import {
   defaultTxWorkflowTemplatePayload,
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
-} from "../src/modules/transactionWorkflowFormModels.js";
-import { createTxBlockInputPanelWorkspace } from "../src/modules/transactionInputWorkspaces.js";
+} from "../src/modules/transactions/transactionWorkflowFormModels.js";
+import { createTxBlockInputPanelWorkspace } from "../src/modules/transactions/transactionInputWorkspaces.js";
 import { loadI18nLanguage, t } from "../src/lib/i18n.js";
 
 const buildDefaultFormModel = () => ({ name: "default", enabled: true });
@@ -795,7 +795,7 @@ test("latest successful external action wins out of order completion", async () 
 
 test("template loader checks latest action before mutating editor state", () => {
   const loaderSource = readFileSync(
-    "frontend/src/modules/transactionJsonTemplateState.js",
+    "frontend/src/modules/transactions/transactionJsonTemplateState.js",
     "utf8",
   );
   const loadBody = loaderSource.match(
@@ -820,7 +820,7 @@ test("template loader checks latest action before mutating editor state", () => 
   );
 
   const workspaceSource = readFileSync(
-    "frontend/src/modules/orchestratedWorkspace.js",
+    "frontend/src/modules/orchestration/orchestratedWorkspace.js",
     "utf8",
   );
   assert.match(

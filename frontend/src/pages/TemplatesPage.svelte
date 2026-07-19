@@ -21,7 +21,7 @@
     createShowObjectWorkspace,
     createTextfsmMappingWorkspace,
     templateManagerSections,
-  } from "../modules/templateManagerState.js";
+  } from "../modules/templates/templateManagerState.js";
   import ShowObjectWorkspace from "./templates/ShowObjectWorkspace.svelte";
   import TemplateCatalogPanel from "./templates/TemplateCatalogPanel.svelte";
   import TextfsmMappingWorkspace from "./templates/TextfsmMappingWorkspace.svelte";

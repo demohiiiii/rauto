@@ -6,7 +6,7 @@ import {
   getCurrentFlowTemplateFieldDraft,
   setFlowVarDraftValue,
   updateFlowTemplateVarFields,
-} from "../src/modules/templates.js";
+} from "../src/modules/templates/templates.js";
 
 const runtimeSchema = [
   {

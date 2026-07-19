@@ -1,7 +1,7 @@
 <script>
   import { untrack } from "svelte";
   import JsonTextEditor from "../../components/fragments/JsonTextEditor.svelte";
-  import { createTxJsonEditorWorkspace } from "../../modules/transactionPanelState.js";
+  import { createTxJsonEditorWorkspace } from "../../modules/transactions/transactionPanelState.js";
 
   let {
     "aria-label": ariaLabel,

@@ -5,11 +5,11 @@
   import {
     createSavedConnectionEditorWorkspace,
     savedConnectionEditorFormStateStore,
-  } from "../../modules/connections.js";
+  } from "../../modules/connections/connections.js";
   import {
     CONNECTION_PICKER,
     CONNECTION_VARS,
-  } from "../../modules/connectionFields.js";
+  } from "../../modules/connections/connectionFields.js";
   import LoadingButton from "../fragments/LoadingButton.svelte";
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../fragments/PlainInputField.svelte";

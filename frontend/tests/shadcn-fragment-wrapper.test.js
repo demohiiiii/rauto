@@ -282,7 +282,9 @@ test("detail modal composes shadcn Dialog instead of native dialog", () => {
   const modalSource = read(
     "frontend/src/components/overlays/DetailModal.svelte",
   );
-  const workspaceSource = read("frontend/src/modules/overlaysDetail.js");
+  const workspaceSource = read(
+    "frontend/src/modules/overlays/overlaysDetail.js",
+  );
 
   assert.match(modalSource, /ui\/dialog/);
   assert.match(modalSource, /<Dialog\.Root/);
@@ -504,7 +506,9 @@ test("history drawer and detail modal follow the demo card-based design", () => 
   const modalSource = read(
     "frontend/src/components/overlays/DetailModal.svelte",
   );
-  const detailStateSource = read("frontend/src/modules/overlaysDetail.js");
+  const detailStateSource = read(
+    "frontend/src/modules/overlays/overlaysDetail.js",
+  );
 
   assert.match(drawerShellSource, /data-\[side=right\]:sm:max-w-3xl/);
   assert.match(drawerShellSource, /data-\[side=right\]:xl:max-w-4xl/);
@@ -549,7 +553,7 @@ test("dashboard toast host expands stacked sonner notifications", () => {
 });
 
 test("saved connection editor success updates inline status without duplicate toast", () => {
-  const source = read("frontend/src/modules/connectionsEditor.js");
+  const source = read("frontend/src/modules/connections/connectionsEditor.js");
   const saveEditorBody = source.match(
     /export async function saveSavedConnectionEditor[\s\S]*?^}/m,
   )?.[0];
@@ -566,7 +570,9 @@ test("saved connection editor success updates inline status without duplicate to
 });
 
 test("connection test result shows sonner toast feedback", () => {
-  const source = read("frontend/src/modules/connectionTargetRuntimeState.js");
+  const source = read(
+    "frontend/src/modules/connections/connectionTargetRuntimeState.js",
+  );
   const runConnectionTestBody = source.match(
     /export async function runConnectionTest[\s\S]*?^}/m,
   )?.[0];
@@ -577,7 +583,7 @@ test("connection test result shows sonner toast feedback", () => {
 });
 
 test("saved connection profile detection reports its detected profile with toast", () => {
-  const source = read("frontend/src/modules/connectionsEditor.js");
+  const source = read("frontend/src/modules/connections/connectionsEditor.js");
   const detectProfileBody = source.match(
     /export async function detectSavedConnectionProfile[\s\S]*?^}/m,
   )?.[0];
@@ -596,9 +602,11 @@ test("saved connection profile detection reports its detected profile with toast
 });
 
 test("saved connection editor displays detected profile left of its actions", () => {
-  const editorStateSource = read("frontend/src/modules/connectionsEditor.js");
+  const editorStateSource = read(
+    "frontend/src/modules/connections/connectionsEditor.js",
+  );
   const displaySource = read(
-    "frontend/src/modules/connectionTargetDisplayState.js",
+    "frontend/src/modules/connections/connectionTargetDisplayState.js",
   );
   const formSource = read(
     "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
@@ -629,7 +637,7 @@ test("connection workbench tests the saved row selection instead of the applied 
     "frontend/src/components/connections/ConnectionModal.svelte",
   );
   const runtimeSource = read(
-    "frontend/src/modules/connectionTargetRuntimeState.js",
+    "frontend/src/modules/connections/connectionTargetRuntimeState.js",
   );
 
   assert.match(
@@ -644,7 +652,7 @@ test("connection workbench tests the saved row selection instead of the applied 
 });
 
 test("saved connection editor saves renamed connections through original route name", () => {
-  const source = read("frontend/src/modules/connectionsEditor.js");
+  const source = read("frontend/src/modules/connections/connectionsEditor.js");
   const saveEditorBody = source.match(
     /export async function saveSavedConnectionEditor[\s\S]*?^}/m,
   )?.[0];
@@ -659,7 +667,7 @@ test("saved connection editor saves renamed connections through original route n
 });
 
 test("saved connection editor preserves active target before rename refresh", () => {
-  const source = read("frontend/src/modules/connectionsEditor.js");
+  const source = read("frontend/src/modules/connections/connectionsEditor.js");
   const saveEditorBody = source.match(
     /export async function saveSavedConnectionEditor[\s\S]*?^}/m,
   )?.[0];
@@ -681,7 +689,7 @@ test("saved connection editor preserves active target before rename refresh", ()
 });
 
 test("batch show result errors do not render placeholder dashes", () => {
-  const source = read("frontend/src/modules/showQueryWorkspaces.js");
+  const source = read("frontend/src/modules/operations/showQueryWorkspaces.js");
   const batchShowResultRowsBody = source.match(
     /function batchShowResultRows[\s\S]*?^}/m,
   )?.[0];
@@ -702,9 +710,11 @@ test("saved connection editor name field is editable and wired to the draft", ()
     "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
   );
   const workspaceSource = read(
-    "frontend/src/modules/connectionPanelFormState.js",
+    "frontend/src/modules/connections/connectionPanelFormState.js",
   );
-  const fieldStateSource = read("frontend/src/modules/connectionFieldState.js");
+  const fieldStateSource = read(
+    "frontend/src/modules/connections/connectionFieldState.js",
+  );
 
   assert.doesNotMatch(formSource, /ReadonlyInputField/);
   assert.match(formSource, /PlainInputField/);
@@ -758,10 +768,10 @@ test("json text editor owns tx json editor shell styles", () => {
 test("workflow chips use semantic token classes without global chip css", () => {
   const appCss = read("frontend/src/app.css");
   const displaySources = [
-    "frontend/src/modules/standardExecutionWorkspaces.js",
-    "frontend/src/modules/transactionExecutionDisplays.js",
-    "frontend/src/modules/orchestrationResultDetailState.js",
-    "frontend/src/modules/orchestrationResultPreviewState.js",
+    "frontend/src/modules/standard/standardExecutionWorkspaces.js",
+    "frontend/src/modules/transactions/transactionExecutionDisplays.js",
+    "frontend/src/modules/orchestration/orchestrationResultDetailState.js",
+    "frontend/src/modules/orchestration/orchestrationResultPreviewState.js",
   ];
 
   assert.doesNotMatch(appCss, /tx-workflow-chip/);
@@ -818,7 +828,7 @@ test("output surfaces use OutputBlock instead of global output css", () => {
 
 test("show output terminal titles prefer device names from display state", () => {
   const showWorkspaceSource = read(
-    "frontend/src/modules/showQueryWorkspaces.js",
+    "frontend/src/modules/operations/showQueryWorkspaces.js",
   );
   const singleShowPanelSource = read(
     "frontend/src/pages/show/SingleShowPanel.svelte",
@@ -838,7 +848,9 @@ test("show output terminal titles prefer device names from display state", () =>
 
 test("batch show results use device, object, and output view tabs", () => {
   const source = read("frontend/src/pages/show/BatchShowResultsPanel.svelte");
-  const workspaceSource = read("frontend/src/modules/showQueryWorkspaces.js");
+  const workspaceSource = read(
+    "frontend/src/modules/operations/showQueryWorkspaces.js",
+  );
 
   assert.match(source, /let activeDeviceKey = \$state\(""\)/);
   assert.match(source, /let activeObjectKey = \$state\(""\)/);

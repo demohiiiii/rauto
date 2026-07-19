@@ -7,7 +7,7 @@
   import { t } from "../../lib/i18n.js";
   import TxBlockOperationEditor from "./TxBlockOperationEditor.svelte";
   import TxFormSection from "./TxFormSection.svelte";
-  import { createTxBlockStepEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
+  import { createTxBlockStepEditorWorkspace } from "../../modules/transactions/transactionBlockDisplays.js";
 
   let {
     step,

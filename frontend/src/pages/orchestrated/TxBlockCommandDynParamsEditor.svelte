@@ -2,7 +2,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { createTxBlockCommandDynParamsEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
+  import { createTxBlockCommandDynParamsEditorWorkspace } from "../../modules/transactions/transactionBlockDisplays.js";
 
   let { command, commandDisplay, onChange } = $props();
   const txBlockCommandDynParamsEditorWorkspace =

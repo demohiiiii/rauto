@@ -25,12 +25,12 @@
   import {
     orchestrationFlowGraph,
     orchestrationNormalizeFlowSelection,
-  } from "../../modules/orchestrationFlowCanvasState.js";
+  } from "../../modules/orchestration/orchestrationFlowCanvasState.js";
   import {
     orchestrationInlineWorkflowPreview,
     createOrchestrationWorkflowPreviewWorkspace,
-  } from "../../modules/orchestrationWorkflowPreviewState.js";
-  import { orchestrationUpdateInlineWorkflow } from "../../modules/orchestrationTxWorkflowActions.js";
+  } from "../../modules/orchestration/orchestrationWorkflowPreviewState.js";
+  import { orchestrationUpdateInlineWorkflow } from "../../modules/orchestration/orchestrationTxWorkflowActions.js";
   import {
     orchestrationAddJob,
     orchestrationDuplicateJob,
@@ -40,18 +40,18 @@
     orchestrationMoveStage,
     orchestrationRemoveJob,
     orchestrationRemoveStage,
-  } from "../../modules/orchestrationStageMutations.js";
-  import { TX_VARS } from "../../modules/transactionPanelState.js";
+  } from "../../modules/orchestration/orchestrationStageMutations.js";
+  import { TX_VARS } from "../../modules/transactions/transactionPanelState.js";
   import {
     txWorkflowAddBlock,
     txWorkflowDuplicateBlock,
     txWorkflowMoveBlock,
     txWorkflowRemoveBlock,
-  } from "../../modules/transactionWorkflowEditorState.js";
+  } from "../../modules/transactions/transactionWorkflowEditorState.js";
   import {
     txWorkflowFormModelFromJson,
     txWorkflowFormModelToJsonText,
-  } from "../../modules/transactionWorkflowFormModels.js";
+  } from "../../modules/transactions/transactionWorkflowFormModels.js";
   import OrchestrationFlowInspector from "./OrchestrationFlowInspector.svelte";
   import OrchestrationFlowJobNode from "./OrchestrationFlowJobNode.svelte";
   import OrchestrationFlowStageInsertNode from "./OrchestrationFlowStageInsertNode.svelte";

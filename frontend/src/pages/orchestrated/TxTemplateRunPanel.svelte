@@ -3,7 +3,7 @@
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import OrchestrationVarsFormCard from "./OrchestrationVarsFormCard.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
-  import { createTxTemplateRunPanelWorkspace } from "../../modules/transactionInputWorkspaces.js";
+  import { createTxTemplateRunPanelWorkspace } from "../../modules/transactions/transactionInputWorkspaces.js";
 
   let {
     active,

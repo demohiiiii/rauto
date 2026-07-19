@@ -7,7 +7,7 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import { t } from "../../lib/i18n.js";
-  import { createTxWorkflowRunPanelWorkspace } from "../../modules/transactionExecutionDisplays.js";
+  import { createTxWorkflowRunPanelWorkspace } from "../../modules/transactions/transactionExecutionDisplays.js";
   import TxWorkflowBlockResultPanel from "./TxWorkflowBlockResultPanel.svelte";
 
   let { panelDisplay, onExecute } = $props();

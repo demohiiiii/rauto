@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { txBlockCommandEditorDisplay } from "../src/modules/transactionBlockDisplayState.js";
+import { get } from "svelte/store";
+import { txBlockCommandEditorDisplay } from "../src/modules/transactions/transactionBlockDisplayState.js";
 import { collapsibleGroupBindings } from "../src/lib/events.js";
+import {
+  createTxBlockCommandDynParamsEditorWorkspace,
+  createTxBlockCommandInteractionEditorWorkspace,
+} from "../src/modules/transactions/transactionBlockDisplays.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -76,11 +81,15 @@ test("transaction dynamic params use only the generic parameter editor", () => {
   const editor = read(
     "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
   );
-  const bindings = read("frontend/src/modules/transactionBlockBindingState.js");
-  const displayState = read(
-    "frontend/src/modules/transactionBlockDisplayState.js",
+  const bindings = read(
+    "frontend/src/modules/transactions/transactionBlockBindingState.js",
   );
-  const mutations = read("frontend/src/modules/transactionBlockMutations.js");
+  const displayState = read(
+    "frontend/src/modules/transactions/transactionBlockDisplayState.js",
+  );
+  const mutations = read(
+    "frontend/src/modules/transactions/transactionBlockMutations.js",
+  );
 
   assert.doesNotMatch(editor, /fieldEnablePassword|fieldSudoPassword/);
   assert.doesNotMatch(editor, /specialFieldValueHandler/);
@@ -110,12 +119,49 @@ test("legacy password dynamic params remain editable as generic rows", () => {
   );
 });
 
+test("command child workspaces preserve their public display and binding contracts", () => {
+  const interaction = createTxBlockCommandInteractionEditorWorkspace();
+  interaction.setInteractionEditorContext({
+    command: {
+      interaction: {
+        prompts: [{ patterns: ["Password:"], response: "secret" }],
+      },
+    },
+    onChange: () => {},
+  });
+  assert.equal(
+    get(interaction.interactionDisplayStateStore).promptRows.length,
+    1,
+  );
+  assert.equal(
+    typeof get(
+      interaction.interactionActionHandlersStateStore,
+    ).promptActionHandlers(0).deletePromptAction,
+    "function",
+  );
+
+  const dynParams = createTxBlockCommandDynParamsEditorWorkspace();
+  dynParams.setDynParamsContext({
+    command: { hasDynParams: true },
+    commandDisplay: { dynParamExtraRows: [{ keyText: "Token" }] },
+    onChange: () => {},
+  });
+  assert.equal(
+    get(dynParams.dynParamsDisplayStateStore).dynParamsPresent,
+    true,
+  );
+  assert.deepEqual(
+    get(dynParams.dynParamsDisplayStateStore).dynParamExtraRows,
+    [{ keyText: "Token" }],
+  );
+});
+
 test("validation errors derive from the model and render inline alerts", () => {
   const displaysSource = read(
-    "frontend/src/modules/transactionBlockDisplays.js",
+    "frontend/src/modules/transactions/transactionBlockDisplays.js",
   );
   const displayStateSource = read(
-    "frontend/src/modules/transactionBlockDisplayState.js",
+    "frontend/src/modules/transactions/transactionBlockDisplayState.js",
   );
   const fieldGridSource = read(
     "frontend/src/components/fragments/PresenceFieldGrid.svelte",
@@ -148,7 +194,7 @@ test("validation errors derive from the model and render inline alerts", () => {
 
 test("field row validation matches only the exact form-model path", async () => {
   const { txBlockFieldRowsWithValidation } =
-    await import("../src/modules/transactionBlockDisplayState.js");
+    await import("../src/modules/transactions/transactionBlockDisplayState.js");
   const fieldRows = [
     { fieldKey: "command", labelText: "Command" },
     { fieldKey: "mode", labelText: "Mode" },

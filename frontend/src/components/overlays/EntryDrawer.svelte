@@ -3,7 +3,7 @@
   import {
     closeEntryDrawer,
     createEntryDrawerWorkspace,
-  } from "../../modules/overlays.js";
+  } from "../../modules/overlays/overlays.js";
   import DetailFieldCard from "../fragments/DetailFieldCard.svelte";
   import EventFlowCell from "../fragments/EventFlowCell.svelte";
 

@@ -3,7 +3,7 @@
   import PaletteIcon from "@lucide/svelte/icons/palette";
   import { Button } from "$lib/components/ui/button";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-  import { createDashboardPreferenceToolsWorkspace } from "../../modules/dashboardShell.js";
+  import { createDashboardPreferenceToolsWorkspace } from "../../modules/dashboard/dashboardShell.js";
 
   const dashboardPreferenceToolsWorkspace =
     createDashboardPreferenceToolsWorkspace();

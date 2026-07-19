@@ -6,7 +6,7 @@
     createRecordDrawerWorkspace,
     recordDrawerRecordingState,
     recordLevelState,
-  } from "../../modules/overlays.js";
+  } from "../../modules/overlays/overlays.js";
   const recordDrawerWorkspace = createRecordDrawerWorkspace();
   let drawerShellDisplayStateStore = $derived(
     recordDrawerWorkspace.drawerShellDisplayStateStore,

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
 import { commandFlowEditorViewTabs } from "../src/config/dashboardModes.js";
-import { createCommandFlowDraftWorkspace } from "../src/modules/commandFlowDraftState.js";
+import { createCommandFlowDraftWorkspace } from "../src/modules/command/commandFlowDraftState.js";
 
 test("command flow editor exposes visual, TOML, and read-only views", () => {
   assert.deepEqual(

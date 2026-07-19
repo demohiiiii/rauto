@@ -9,14 +9,14 @@ import {
   orchestrationMoveJob,
   orchestrationMoveStage,
   orchestrationReplaceJobStringList,
-} from "../src/modules/orchestrationStageMutations.js";
+} from "../src/modules/orchestration/orchestrationStageMutations.js";
 import {
   orchestrationFlowGraph,
   orchestrationNormalizeFlowSelection,
-} from "../src/modules/orchestrationFlowCanvasState.js";
-import { orchestrationInlineExecutionPayload } from "../src/modules/orchestratedExecutionState.js";
-import { createOrchestrationSourceChangeGuard } from "../src/modules/orchestrationEditorState.js";
-import { orchestrationUpdateInlineWorkflow } from "../src/modules/orchestrationTxWorkflowActions.js";
+} from "../src/modules/orchestration/orchestrationFlowCanvasState.js";
+import { orchestrationInlineExecutionPayload } from "../src/modules/orchestration/orchestratedExecutionState.js";
+import { createOrchestrationSourceChangeGuard } from "../src/modules/orchestration/orchestrationEditorState.js";
+import { orchestrationUpdateInlineWorkflow } from "../src/modules/orchestration/orchestrationTxWorkflowActions.js";
 
 function orchestrationModel() {
   return {

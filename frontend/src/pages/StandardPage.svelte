@@ -7,7 +7,7 @@
   import {
     createStandardPageWorkspace,
     standardExecutionConnectionProfileState,
-  } from "../modules/standard.js";
+  } from "../modules/standard/standard.js";
   import CommandExecutionPanel from "./standard/CommandExecutionPanel.svelte";
   import FlowExecutionPanel from "./standard/FlowExecutionPanel.svelte";
 

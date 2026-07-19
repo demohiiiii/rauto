@@ -6,7 +6,7 @@
   import PlainInputField from "../components/fragments/PlainInputField.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
   import { callbackHandler, submitOnKeyHandler } from "../lib/events.js";
-  import { createBlacklistPageWorkspace } from "../modules/blacklist.js";
+  import { createBlacklistPageWorkspace } from "../modules/operations/blacklist.js";
 
   let { active } = $props();
   const blacklistPageWorkspace = createBlacklistPageWorkspace();

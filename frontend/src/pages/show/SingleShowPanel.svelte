@@ -13,7 +13,7 @@
   import {
     createSingleShowPanelWorkspace,
     exportShowParsedOutputItemExcel,
-  } from "../../modules/show.js";
+  } from "../../modules/operations/show.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
 
   let {

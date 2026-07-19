@@ -1,6 +1,6 @@
 <script>
   import OrchestrationEditorRunPanel from "./OrchestrationEditorRunPanel.svelte";
-  import { createOrchestrationInputPanelWorkspace } from "../../modules/orchestrationPanelState.js";
+  import { createOrchestrationInputPanelWorkspace } from "../../modules/orchestration/orchestrationPanelState.js";
 
   let {
     active,

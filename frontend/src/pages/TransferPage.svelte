@@ -5,7 +5,7 @@
   import PlainInputField from "../components/fragments/PlainInputField.svelte";
   import LoadingButton from "../components/fragments/LoadingButton.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
-  import { createTransferPageWorkspace } from "../modules/transfer.js";
+  import { createTransferPageWorkspace } from "../modules/operations/transfer.js";
 
   let { active } = $props();
   const transferPageWorkspace = createTransferPageWorkspace();

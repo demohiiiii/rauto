@@ -4,8 +4,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   txWorkflowDuplicateBlock,
+  txWorkflowEditorBindings,
   txWorkflowMoveBlock,
-} from "../src/modules/transactionWorkflowEditorState.js";
+} from "../src/modules/transactions/transactionWorkflowEditorState.js";
 
 const visualEditorPath = path.resolve(
   "frontend/src/pages/orchestrated/TxWorkflowVisualEditor.svelte",
@@ -52,6 +53,36 @@ test("tx workflow blocks duplicate and move without mutating the source", () => 
     model.blocks.map((block) => block.inlineBlock.name),
     ["one", "two"],
   );
+});
+
+test("workflow metadata bindings update the active block source", () => {
+  const model = {
+    blocks: [
+      {
+        sourceKind: "inline",
+        inlineBlock: { extra: {} },
+        templateRef: { extra: {} },
+      },
+      {
+        sourceKind: "template_ref",
+        inlineBlock: { extra: {} },
+        templateRef: { extra: {} },
+      },
+    ],
+  };
+  const updates = [];
+  const bindings = txWorkflowEditorBindings(model, (next) =>
+    updates.push(next),
+  );
+
+  bindings.setBlockMetadataValue(0, "owner", "network");
+  bindings.setBlockMetadataPresence(1, "ticket", true);
+
+  assert.equal(updates[0].blocks[0].inlineBlock.extra.owner, "network");
+  assert.equal(updates[0].blocks[0].templateRef.extra.owner, undefined);
+  assert.equal(updates[1].blocks[1].templateRef.extra.ticket, "");
+  assert.equal(updates[1].blocks[1].inlineBlock.extra.ticket, undefined);
+  assert.deepEqual(model.blocks[0].inlineBlock.extra, {});
 });
 
 test("tx workflow editor uses a focused flow canvas and live read-only view", async () => {

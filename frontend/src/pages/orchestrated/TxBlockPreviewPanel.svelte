@@ -1,7 +1,7 @@
 <script>
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
-  import { normalizeTxBlockPreviewPresentation } from "../../modules/transactionExecutionDisplays.js";
+  import { normalizeTxBlockPreviewPresentation } from "../../modules/transactions/transactionExecutionDisplays.js";
   import TxBlockResultPanel from "./TxBlockResultPanel.svelte";
 
   let { previewPresentation, showResult, showSummary } = $props();

@@ -11,7 +11,7 @@
   import TxBlockCommandDynParamsEditor from "./TxBlockCommandDynParamsEditor.svelte";
   import TxBlockCommandInteractionEditor from "./TxBlockCommandInteractionEditor.svelte";
   import TxFormSection from "./TxFormSection.svelte";
-  import { createTxBlockCommandEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
+  import { createTxBlockCommandEditorWorkspace } from "../../modules/transactions/transactionBlockDisplays.js";
 
   let {
     command,

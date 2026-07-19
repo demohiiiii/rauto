@@ -8,7 +8,7 @@
   import {
     closeDetailModal,
     createDetailModalWorkspace,
-  } from "../../modules/overlays.js";
+  } from "../../modules/overlays/overlays.js";
   const detailModalWorkspace = createDetailModalWorkspace();
   let detailDisplayStateStore = $derived(
     detailModalWorkspace.detailDisplayStateStore,

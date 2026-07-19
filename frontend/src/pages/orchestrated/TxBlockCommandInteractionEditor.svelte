@@ -5,8 +5,8 @@
   import StringListEditor from "../../components/fragments/StringListEditor.svelte";
   import TextAreaField from "../../components/fragments/TextAreaField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { txBlockValidationErrorText } from "../../modules/transactionBlockDisplayState.js";
-  import { createTxBlockCommandInteractionEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
+  import { txBlockValidationErrorText } from "../../modules/transactions/transactionBlockDisplayState.js";
+  import { createTxBlockCommandInteractionEditorWorkspace } from "../../modules/transactions/transactionBlockDisplays.js";
 
   let {
     command,

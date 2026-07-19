@@ -3,7 +3,7 @@
   import {
     createConnectionPickerFieldWorkspace,
     connectionPickerState,
-  } from "../../modules/connectionFields.js";
+  } from "../../modules/connections/connectionFields.js";
 
   let {
     active = true,

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { createOrchestrationTxWorkflowActionEditorWorkspace } from "../../modules/orchestrationTxWorkflowActions.js";
+  import { createOrchestrationTxWorkflowActionEditorWorkspace } from "../../modules/orchestration/orchestrationTxWorkflowActions.js";
   import OrchestrationTxWorkflowActionSettingsEditor from "./OrchestrationTxWorkflowActionSettingsEditor.svelte";
   import OrchestrationTxWorkflowSourceEditor from "./OrchestrationTxWorkflowSourceEditor.svelte";
 

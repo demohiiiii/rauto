@@ -16,11 +16,11 @@
     createTemporaryConnectionPanelWorkspace,
     refreshActiveTemporaryConnectionTarget,
     temporaryConnectionFormStateStore,
-  } from "../../modules/connections.js";
+  } from "../../modules/connections/connections.js";
   import {
     CONNECTION_PICKER,
     CONNECTION_VARS,
-  } from "../../modules/connectionFields.js";
+  } from "../../modules/connections/connectionFields.js";
   let { active, connectionTestStatus, onCancel } = $props();
   const temporaryConnectionPanelWorkspace =
     createTemporaryConnectionPanelWorkspace();

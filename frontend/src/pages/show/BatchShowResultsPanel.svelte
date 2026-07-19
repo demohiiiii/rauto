@@ -9,7 +9,7 @@
   import {
     createBatchShowResultsPanelWorkspace,
     exportShowParsedOutputItemExcel,
-  } from "../../modules/show.js";
+  } from "../../modules/operations/show.js";
 
   let { batchResultDisplay, batchResultsPresentation } = $props();
   const batchShowResultsPanelWorkspace = createBatchShowResultsPanelWorkspace();

@@ -5,7 +5,7 @@
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import StringSelectField from "../../components/fragments/StringSelectField.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
-  import { inventoryCollectionActionHandlers } from "../../modules/inventoryPageWorkspace.js";
+  import { inventoryCollectionActionHandlers } from "../../modules/inventory/inventoryPageWorkspace.js";
   let {
     collectionDisplay,
     onClearHosts,

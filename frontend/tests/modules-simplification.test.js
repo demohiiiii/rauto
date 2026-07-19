@@ -15,6 +15,37 @@ function sourceFiles(path) {
   });
 }
 
+test("modules are grouped into stable domain directories", () => {
+  const moduleRoot = "frontend/src/modules";
+  const expectedDomains = [
+    "command",
+    "connections",
+    "dashboard",
+    "inventory",
+    "operations",
+    "orchestration",
+    "overlays",
+    "profiles",
+    "standard",
+    "tasks",
+    "templates",
+    "transactions",
+  ];
+  const entries = readdirSync(moduleRoot, { withFileTypes: true });
+
+  assert.deepEqual(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort(),
+    expectedDomains,
+  );
+  assert.deepEqual(
+    entries.filter((entry) => entry.isFile()).map((entry) => entry.name),
+    [],
+  );
+});
+
 test("thin module re-export files stay collapsed into concrete modules", () => {
   const collapsedModules = [
     "frontend/src/modules/connectionPanelWorkspaces.js",

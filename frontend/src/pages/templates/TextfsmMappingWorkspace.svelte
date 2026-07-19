@@ -21,7 +21,7 @@
   import { browserConfirm } from "../../lib/browser.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { cn } from "$lib/utils.js";
-  import { showToast } from "../../modules/overlays.js";
+  import { showToast } from "../../modules/overlays/overlays.js";
 
   let { definition, workspace } = $props();
   const { filteredMappingsStore, stateStore } = untrack(() => workspace);

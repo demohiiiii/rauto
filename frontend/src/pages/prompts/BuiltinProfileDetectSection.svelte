@@ -1,7 +1,7 @@
 <script>
   import CollapsibleGroup from "../../components/fragments/CollapsibleGroup.svelte";
   import ReadonlyInputField from "../../components/fragments/ReadonlyInputField.svelte";
-  import { createBuiltinProfileDetectSectionWorkspace } from "../../modules/profiles.js";
+  import { createBuiltinProfileDetectSectionWorkspace } from "../../modules/profiles/profiles.js";
 
   let { profileDetail } = $props();
   const detectWorkspace = createBuiltinProfileDetectSectionWorkspace();

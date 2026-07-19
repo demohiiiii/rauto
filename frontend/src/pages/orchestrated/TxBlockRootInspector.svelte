@@ -2,7 +2,7 @@
   import * as Card from "$lib/components/ui/card";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { t } from "../../lib/i18n.js";
-  import { txBlockValidationErrorText } from "../../modules/transactionBlockDisplayState.js";
+  import { txBlockValidationErrorText } from "../../modules/transactions/transactionBlockDisplayState.js";
   import TxBlockRollbackPolicyEditor from "./TxBlockRollbackPolicyEditor.svelte";
   import TxBlockRootSettingsEditor from "./TxBlockRootSettingsEditor.svelte";
 

@@ -2,7 +2,7 @@
   import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { createOrchestrationTxWorkflowSourceWorkspace } from "../../modules/orchestrationEditorState.js";
+  import { createOrchestrationTxWorkflowSourceWorkspace } from "../../modules/orchestration/orchestrationEditorState.js";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxWorkflowVisualEditor from "./TxWorkflowVisualEditor.svelte";
 

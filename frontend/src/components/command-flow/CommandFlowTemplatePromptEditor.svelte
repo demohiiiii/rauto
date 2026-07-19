@@ -5,7 +5,7 @@
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import StringListEditor from "../fragments/StringListEditor.svelte";
   import { t } from "../../lib/i18n.js";
-  import { commandFlowAccentColor } from "../../modules/commandFlowAccentState.js";
+  import { commandFlowAccentColor } from "../../modules/command/commandFlowAccentState.js";
 
   let { accentIndex = 0, onChange, onRemove, prompt = {} } = $props();
   let accentColor = $derived(commandFlowAccentColor(accentIndex));

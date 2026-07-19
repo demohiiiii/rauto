@@ -12,7 +12,7 @@
     closeConnectionModal,
     createConnectionModalWorkspace,
     setConnectionModalMode,
-  } from "../../modules/connections.js";
+  } from "../../modules/connections/connections.js";
 
   const connectionModalWorkspace = createConnectionModalWorkspace({
     onClose: closeConnectionModal,

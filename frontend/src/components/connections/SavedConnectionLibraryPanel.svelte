@@ -5,7 +5,7 @@
   import FilePickerButton from "../fragments/FilePickerButton.svelte";
   import LoadingButton from "../fragments/LoadingButton.svelte";
   import StatusCard from "../fragments/StatusCard.svelte";
-  import { createSavedConnectionLibraryWorkspace } from "../../modules/connections.js";
+  import { createSavedConnectionLibraryWorkspace } from "../../modules/connections/connections.js";
   import CheckIcon from "@lucide/svelte/icons/check";
   import DownloadIcon from "@lucide/svelte/icons/download";
   import PencilIcon from "@lucide/svelte/icons/pencil";

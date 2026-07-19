@@ -8,7 +8,7 @@
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "../../lib/i18n.js";
-  import { orchestrationUpdateInlineWorkflow } from "../../modules/orchestrationTxWorkflowActions.js";
+  import { orchestrationUpdateInlineWorkflow } from "../../modules/orchestration/orchestrationTxWorkflowActions.js";
   import OrchestrationFlowWorkflowBlockInspector from "./OrchestrationFlowWorkflowBlockInspector.svelte";
   import OrchestrationJobEditor from "./OrchestrationJobEditor.svelte";
   import OrchestrationStageSettingsEditor from "./OrchestrationStageSettingsEditor.svelte";

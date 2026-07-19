@@ -1,10 +1,92 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { get } from "svelte/store";
+import {
+  createTxBlockRunPanelWorkspace,
+  createTxWorkflowBlockResultPanelWorkspace,
+  createTxWorkflowRunPanelWorkspace,
+  txWorkflowExecutionPresentation,
+} from "../src/modules/transactions/transactionExecutionDisplays.js";
 
 function source(path) {
   return readFileSync(path, "utf8");
 }
+
+test("execution panel workspaces expose stable mapped display stores", () => {
+  const blockRun = createTxBlockRunPanelWorkspace();
+  blockRun.setPanelDisplay({
+    execStatusDisplay: { message: "executed" },
+    loadingDisplay: { execute: true },
+    previewDisplay: { previewPresentation: { hasTxResult: true } },
+  });
+  assert.equal(get(blockRun.execStatusDisplayStateStore).message, "executed");
+  assert.equal(get(blockRun.loadingDisplayStateStore).execute, true);
+  assert.equal(
+    get(blockRun.previewDisplayStateStore).previewPresentation.hasTxResult,
+    true,
+  );
+
+  const workflowRun = createTxWorkflowRunPanelWorkspace();
+  workflowRun.setPanelDisplay({
+    executionPanelDisplay: {
+      executionModeDisplay: { showStatus: true },
+      statusDisplay: { message: "failed" },
+      workflowExecutionDisplay: { hasResult: false },
+    },
+  });
+  assert.equal(
+    get(workflowRun.executionModeDisplayStateStore).showStatus,
+    true,
+  );
+  assert.equal(
+    get(workflowRun.executionStatusDisplayStateStore).message,
+    "failed",
+  );
+  assert.equal(
+    get(workflowRun.workflowExecutionResultDisplayStateStore).hasResult,
+    false,
+  );
+
+  const blockResult = createTxWorkflowBlockResultPanelWorkspace();
+  blockResult.setWorkflowBlockRow({ title: "precheck" });
+  assert.equal(
+    get(blockResult.panelDisplayStateStore).headerDisplay.title,
+    "precheck",
+  );
+});
+
+test("workflow block results reuse the transaction result presentation", () => {
+  const display = txWorkflowExecutionPresentation({
+    block_results: [
+      {
+        block_name: "precheck",
+        block_rollback_operation_summary: "undo precheck",
+        block_rollback_steps: [
+          { all: "restored", operation_summary: "undo", success: true },
+        ],
+        committed: false,
+        executed_steps: 1,
+        failure_reason: "failed output='denied'",
+        rollback_attempted: true,
+        rollback_errors: ["undo warning"],
+        rollback_succeeded: false,
+        step_results: [],
+      },
+    ],
+    failed_block: 0,
+  });
+  const [blockRow] = display.blockRows;
+
+  assert.equal(blockRow.failureOutput, "denied");
+  assert.equal(blockRow.hasRollbackErrors, true);
+  assert.equal(blockRow.hasRollbackStepRows, true);
+  assert.equal(blockRow.showFailureOutput, true);
+  assert.deepEqual(
+    blockRow.blockSummaryRows.map((row) => row.valueText),
+    ["1", "true", "false"],
+  );
+});
 
 test("transaction block editor composes the approved responsive workspace", () => {
   const visualEditor = source(
@@ -142,12 +224,14 @@ test("transaction block editors do not expose JSON presence toggles", () => {
 });
 
 test("transaction block structure omits unsupported transaction metadata", () => {
-  const structure = source("frontend/src/modules/transactionStructure.js");
+  const structure = source(
+    "frontend/src/modules/transactions/transactionStructure.js",
+  );
   const visualEditor = source(
     "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
   );
   const displayState = source(
-    "frontend/src/modules/transactionBlockDisplayState.js",
+    "frontend/src/modules/transactions/transactionBlockDisplayState.js",
   );
 
   assert.doesNotMatch(structure, /txBlockRootMetadataFieldDefs/);
@@ -201,7 +285,7 @@ test("transaction root editor exposes only backend-supported root fields", () =>
     "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
   );
   const bindings = source(
-    "frontend/src/modules/transactionBlockBindingState.js",
+    "frontend/src/modules/transactions/transactionBlockBindingState.js",
   );
 
   assert.doesNotMatch(rootEditor, /JsonObjectFieldsEditor/);

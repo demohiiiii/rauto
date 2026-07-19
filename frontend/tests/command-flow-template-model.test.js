@@ -6,7 +6,7 @@ import {
   commandFlowTemplateModelFromToml,
   commandFlowTemplateModelToToml,
   defaultCommandFlowTemplateModel,
-} from "../src/modules/commandFlowTemplateModel.js";
+} from "../src/modules/command/commandFlowTemplateModel.js";
 
 const completeToml = `name = "temporary-copy"
 stop_on_error = false

@@ -8,7 +8,7 @@
   import StatusCard from "../fragments/StatusCard.svelte";
   import TabList from "../fragments/TabList.svelte";
   import ValueLabelSelectField from "../fragments/ValueLabelSelectField.svelte";
-  import { createRecordDrawerContentWorkspace } from "../../modules/overlays.js";
+  import { createRecordDrawerContentWorkspace } from "../../modules/overlays/overlays.js";
 
   let {
     drawerContentDisplay,

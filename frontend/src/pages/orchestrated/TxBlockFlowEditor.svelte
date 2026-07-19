@@ -1,9 +1,9 @@
 <script>
   import { CommandFlowTemplateEditor } from "../../components/command-flow/index.js";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
-  import { txBlockCommandDraft } from "../../modules/transactionBlockMutations.js";
-  import { txBlockValidationErrorText } from "../../modules/transactionBlockDisplayState.js";
-  import { createTxBlockFlowEditorWorkspace } from "../../modules/transactionBlockDisplays.js";
+  import { txBlockCommandDraft } from "../../modules/transactions/transactionBlockMutations.js";
+  import { txBlockValidationErrorText } from "../../modules/transactions/transactionBlockDisplayState.js";
+  import { createTxBlockFlowEditorWorkspace } from "../../modules/transactions/transactionBlockDisplays.js";
 
   import TxBlockCommandEditor from "./TxBlockCommandEditor.svelte";
 

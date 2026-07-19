@@ -5,7 +5,7 @@
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import StringSelectField from "../fragments/StringSelectField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { defaultCommandFlowTemplatePromptModel } from "../../modules/commandFlowTemplateModel.js";
+  import { defaultCommandFlowTemplatePromptModel } from "../../modules/command/commandFlowTemplateModel.js";
   import CommandEditor from "./CommandEditor.svelte";
   import CommandFlowTemplatePromptEditor from "./CommandFlowTemplatePromptEditor.svelte";
 

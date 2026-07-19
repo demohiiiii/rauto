@@ -4,7 +4,7 @@
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
-  import { taskFiltersActionHandlers } from "../../modules/tasksState.js";
+  import { taskFiltersActionHandlers } from "../../modules/tasks/tasksState.js";
 
   let {
     taskFilters,

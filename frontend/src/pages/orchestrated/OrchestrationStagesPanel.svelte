@@ -1,6 +1,6 @@
 <script>
   import { Button } from "$lib/components/ui/button/index.js";
-  import { createOrchestrationStagesPanelWorkspace } from "../../modules/orchestrationStageEditorsState.js";
+  import { createOrchestrationStagesPanelWorkspace } from "../../modules/orchestration/orchestrationStageEditorsState.js";
   import OrchestrationStageEditor from "./OrchestrationStageEditor.svelte";
 
   let { model, onChange, onErrorChange } = $props();

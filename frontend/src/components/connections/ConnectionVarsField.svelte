@@ -6,7 +6,7 @@
   import {
     connectionVarsState,
     createConnectionVarsFieldWorkspace,
-  } from "../../modules/connectionFields.js";
+  } from "../../modules/connections/connectionFields.js";
 
   let { active, keyName, labelTextKey, onVarsChange } = $props();
   const connectionVarsFieldWorkspace = createConnectionVarsFieldWorkspace();

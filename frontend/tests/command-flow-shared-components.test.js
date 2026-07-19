@@ -121,7 +121,7 @@ test("flow steps use parent-owned rows and actions", () => {
 
 test("command flow item accents provide six distinct cycling colors", async () => {
   const { commandFlowAccentColor } =
-    await import("../src/modules/commandFlowAccentState.js");
+    await import("../src/modules/command/commandFlowAccentState.js");
   const colors = Array.from({ length: 6 }, (_, itemIndex) =>
     commandFlowAccentColor(itemIndex),
   );

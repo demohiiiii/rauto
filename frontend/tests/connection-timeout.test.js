@@ -8,7 +8,7 @@ import {
   connectionTimeoutSecsValue,
   savedConnectionEditorDraftDefaults,
   temporaryConnectionDraftDefaults,
-} from "../src/modules/connectionFieldState.js";
+} from "../src/modules/connections/connectionFieldState.js";
 
 test("connection timeout defaults remain blank and display the 60 second fallback", async () => {
   await loadI18nLanguage("en");

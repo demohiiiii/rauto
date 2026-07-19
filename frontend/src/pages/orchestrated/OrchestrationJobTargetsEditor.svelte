@@ -3,8 +3,8 @@
   import {
     CONNECTION_PICKER,
     setConnectionPickerSelectedValues,
-  } from "../../modules/connectionFields.js";
-  import { createOrchestrationJobTargetsEditorWorkspace } from "../../modules/orchestrationStageTargetsState.js";
+  } from "../../modules/connections/connectionFields.js";
+  import { createOrchestrationJobTargetsEditorWorkspace } from "../../modules/orchestration/orchestrationStageTargetsState.js";
 
   let { jobRow, onReplaceStringList } = $props();
   const jobTargetsWorkspace = createOrchestrationJobTargetsEditorWorkspace();

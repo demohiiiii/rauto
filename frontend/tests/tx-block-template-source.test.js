@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { txBlockInlineExecutionPayload } from "../src/modules/orchestratedExecutionState.js";
+import { txBlockInlineExecutionPayload } from "../src/modules/orchestration/orchestratedExecutionState.js";
 
 function read(path) {
   return readFileSync(path, "utf8");

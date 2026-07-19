@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   commandFlowExecutionPayload,
   normalizeCommandFlowExecutionSource,
-} from "../src/modules/standardExecutionState.js";
+} from "../src/modules/standard/standardExecutionState.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -97,7 +97,9 @@ test("client exposes explicit command flow template API helpers", () => {
 });
 
 test("standard flow workspace composes one unified authoring state", () => {
-  const workspace = read("frontend/src/modules/standardExecutionWorkspaces.js");
+  const workspace = read(
+    "frontend/src/modules/standard/standardExecutionWorkspaces.js",
+  );
 
   assert.match(workspace, /createStandardCommandFlowAuthoringState/);
   assert.match(workspace, /authoring\.selectTemplate/);

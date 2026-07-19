@@ -1,7 +1,7 @@
 <script>
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { currentLanguageState } from "../../lib/i18n.js";
-  import { commandFlowReadonlyPresentation } from "../../modules/commandFlowReadonlyState.js";
+  import { commandFlowReadonlyPresentation } from "../../modules/command/commandFlowReadonlyState.js";
 
   let { model = {} } = $props();
   let currentLanguage = $derived($currentLanguageState);

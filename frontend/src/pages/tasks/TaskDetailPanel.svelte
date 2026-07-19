@@ -4,7 +4,7 @@
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import ValueLabelSelectField from "../../components/fragments/ValueLabelSelectField.svelte";
-  import { taskEventFilterActionHandlers } from "../../modules/tasksState.js";
+  import { taskEventFilterActionHandlers } from "../../modules/tasks/tasksState.js";
   import TaskDetailOverviewPanel from "./TaskDetailOverviewPanel.svelte";
 
   let {

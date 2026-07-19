@@ -4,7 +4,7 @@ import {
   defaultTxWorkflowTemplatePayload,
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
-} from "../src/modules/transactionWorkflowFormModels.js";
+} from "../src/modules/transactions/transactionWorkflowFormModels.js";
 
 test("workflow parser preserves the model and reports invalid JSON location", () => {
   const currentModel = txWorkflowFormModelFromJson(

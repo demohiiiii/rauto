@@ -6,7 +6,7 @@
     createShowPageWorkspace,
     showConnectionTargetState,
     showExecutionConnectionProfileState,
-  } from "../modules/show.js";
+  } from "../modules/operations/show.js";
   import BatchShowInputPanel from "./show/BatchShowInputPanel.svelte";
   import BatchShowResultsPanel from "./show/BatchShowResultsPanel.svelte";
   import SingleShowPanel from "./show/SingleShowPanel.svelte";

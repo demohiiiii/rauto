@@ -4,7 +4,7 @@
   import OrchestrationPreviewStageSection from "./OrchestrationPreviewStageSection.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
-  import { createOrchestrationPreviewPanelWorkspace } from "../../modules/orchestrationResultState.js";
+  import { createOrchestrationPreviewPanelWorkspace } from "../../modules/orchestration/orchestrationResultState.js";
 
   let { message, previewMode, plan, text, tone } = $props();
   const orchestrationPreviewPanelWorkspace =

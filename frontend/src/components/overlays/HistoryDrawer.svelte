@@ -4,8 +4,8 @@
   import * as Sheet from "$lib/components/ui/sheet/index.js";
   import HistoryIcon from "@lucide/svelte/icons/history";
   import XIcon from "@lucide/svelte/icons/x";
-  import { createHistoryDrawerWorkspace } from "../../modules/connections.js";
-  import { closeHistoryDrawer } from "../../modules/overlays.js";
+  import { createHistoryDrawerWorkspace } from "../../modules/connections/connections.js";
+  import { closeHistoryDrawer } from "../../modules/overlays/overlays.js";
 
   const historyDrawerWorkspace = createHistoryDrawerWorkspace();
   const {

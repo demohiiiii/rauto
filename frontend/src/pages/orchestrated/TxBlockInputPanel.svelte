@@ -6,7 +6,7 @@
   import WorkspaceTemplateActions from "../../components/fragments/WorkspaceTemplateActions.svelte";
   import { txBlockReadonlyEditorViewTabs } from "../../config/dashboardModes.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { MANUAL_COMMAND_SOURCE } from "../../modules/commandTemplateCatalog.js";
+  import { MANUAL_COMMAND_SOURCE } from "../../modules/command/commandTemplateCatalog.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
@@ -15,16 +15,16 @@
     createTxBlockInputPanelWorkspace,
     transactionEditorSyncPresentation,
     txBlockVarsPlaceholder,
-  } from "../../modules/transactionInputWorkspaces.js";
-  import { txBlockFormModelToJsonText } from "../../modules/transactionBlockFormModels.js";
-  import { txBlockPreviewPresentation } from "../../modules/transactionExecutionDisplays.js";
+  } from "../../modules/transactions/transactionInputWorkspaces.js";
+  import { txBlockFormModelToJsonText } from "../../modules/transactions/transactionBlockFormModels.js";
+  import { txBlockPreviewPresentation } from "../../modules/transactions/transactionExecutionDisplays.js";
 
   import {
     TX_TEMPLATE_KIND,
     TX_VARS,
     jsonTemplateSelectStateFor,
     setJsonTemplateSelectValue,
-  } from "../../modules/transactionPanelState.js";
+  } from "../../modules/transactions/transactionPanelState.js";
 
   let {
     active,

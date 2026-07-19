@@ -2,7 +2,7 @@
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
-  import { createOrchestrationExecutionPanelWorkspace } from "../../modules/orchestrationResultState.js";
+  import { createOrchestrationExecutionPanelWorkspace } from "../../modules/orchestration/orchestrationResultState.js";
   import OrchestrationExecutionStagePanel from "./OrchestrationExecutionStagePanel.svelte";
 
   let { panelDisplay } = $props();

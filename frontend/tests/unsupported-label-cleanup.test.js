@@ -4,15 +4,15 @@ import test from "node:test";
 import {
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
-} from "../src/modules/transactionBlockFormModels.js";
+} from "../src/modules/transactions/transactionBlockFormModels.js";
 import {
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
-} from "../src/modules/transactionWorkflowFormModels.js";
+} from "../src/modules/transactions/transactionWorkflowFormModels.js";
 import {
   orchestrationPlanFormModelFromJson,
   orchestrationPlanFormModelToJsonText,
-} from "../src/modules/orchestrationPlanFormModels.js";
+} from "../src/modules/orchestration/orchestrationPlanFormModels.js";
 
 function source(path) {
   return readFileSync(path, "utf8");
@@ -136,8 +136,8 @@ test("workflow and orchestration models remove unsupported labels", () => {
 
 test("transaction and orchestration form definitions expose no underscore labels", () => {
   for (const path of [
-    "frontend/src/modules/transactionStructure.js",
-    "frontend/src/modules/orchestrationFormFieldState.js",
+    "frontend/src/modules/transactions/transactionStructure.js",
+    "frontend/src/modules/orchestration/orchestrationFormFieldState.js",
   ]) {
     const contents = source(path);
     assert.doesNotMatch(contents, /fieldKey: "[^"]*_label"/, path);

@@ -23,7 +23,7 @@
   import {
     createFlowExecutionPanelWorkspace,
     exportStandardParsedOutputItemExcel,
-  } from "../../modules/standard.js";
+  } from "../../modules/standard/standard.js";
 
   let { active } = $props();
   const flowExecutionWorkspace = createFlowExecutionPanelWorkspace();

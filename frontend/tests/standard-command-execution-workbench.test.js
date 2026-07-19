@@ -7,7 +7,7 @@ import {
   commandExecutionPayload,
   createStandardCommandExecutionWorkspace,
   reconcileCommandVars,
-} from "../src/modules/standardCommandExecutionWorkspace.js";
+} from "../src/modules/standard/standardCommandExecutionWorkspace.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -285,9 +285,9 @@ test("command panel composes the shared command controls", () => {
 
 test("standard command workbench has no legacy panel factories", () => {
   const source = [
-    read("frontend/src/modules/standardExecutionState.js"),
-    read("frontend/src/modules/standardExecutionWorkspaces.js"),
-    read("frontend/src/modules/standard.js"),
+    read("frontend/src/modules/standard/standardExecutionState.js"),
+    read("frontend/src/modules/standard/standardExecutionWorkspaces.js"),
+    read("frontend/src/modules/standard/standard.js"),
   ].join("\n");
 
   assert.doesNotMatch(source, /createDirectExecutionPanelWorkspace/);

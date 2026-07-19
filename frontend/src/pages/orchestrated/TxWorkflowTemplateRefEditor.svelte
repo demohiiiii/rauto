@@ -2,7 +2,7 @@
   import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { t } from "../../lib/i18n.js";
-  import { createTxWorkflowTemplateRefEditorWorkspace } from "../../modules/transactionWorkflowEditors.js";
+  import { createTxWorkflowTemplateRefEditorWorkspace } from "../../modules/transactions/transactionWorkflowEditors.js";
   import TxWorkflowTemplateRefSourceEditor from "./TxWorkflowTemplateRefSourceEditor.svelte";
   import TxWorkflowTemplateRefVarsEditor from "./TxWorkflowTemplateRefVarsEditor.svelte";
 

@@ -2,7 +2,7 @@
   import Layers3Icon from "@lucide/svelte/icons/layers-3";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { t } from "../../lib/i18n.js";
-  import { createOrchestrationStageEditorWorkspace } from "../../modules/orchestrationStageEditorsState.js";
+  import { createOrchestrationStageEditorWorkspace } from "../../modules/orchestration/orchestrationStageEditorsState.js";
 
   let { model, stageRow, visualDisplay, onChange } = $props();
   const workspace = createOrchestrationStageEditorWorkspace();

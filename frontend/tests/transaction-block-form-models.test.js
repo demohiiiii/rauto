@@ -6,7 +6,7 @@ import {
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
   validateTxBlockFormModel,
-} from "../src/modules/transactionBlockFormModels.js";
+} from "../src/modules/transactions/transactionBlockFormModels.js";
 
 test("minimal transaction form serializes every supported backend field", () => {
   const model = txBlockFormModelFromJson({

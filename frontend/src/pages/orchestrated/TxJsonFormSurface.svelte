@@ -6,7 +6,7 @@
   import { txBlockEditorViewTabs } from "../../config/dashboardModes.js";
   import { callIfFunction } from "../../lib/events.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { TX_EDITOR } from "../../modules/transactionPanelState.js";
+  import { TX_EDITOR } from "../../modules/transactions/transactionPanelState.js";
   import TxJsonEditor from "./TxJsonEditor.svelte";
 
   let {

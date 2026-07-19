@@ -4,7 +4,7 @@
   import DetailFieldCard from "../components/fragments/DetailFieldCard.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { createTasksPageWorkspace } from "../modules/tasksState.js";
+  import { createTasksPageWorkspace } from "../modules/tasks/tasksState.js";
   import TaskDetailPanel from "./tasks/TaskDetailPanel.svelte";
   import TaskFiltersPanel from "./tasks/TaskFiltersPanel.svelte";
 

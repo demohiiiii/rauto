@@ -2,7 +2,7 @@
   import CrosshairIcon from "@lucide/svelte/icons/crosshair";
   import GaugeIcon from "@lucide/svelte/icons/gauge";
   import PlayCircleIcon from "@lucide/svelte/icons/play-circle";
-  import { createOrchestrationJobEditorWorkspace } from "../../modules/orchestrationStageEditorsState.js";
+  import { createOrchestrationJobEditorWorkspace } from "../../modules/orchestration/orchestrationStageEditorsState.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "../../lib/i18n.js";
   import OrchestrationJobActionEditor from "./OrchestrationJobActionEditor.svelte";

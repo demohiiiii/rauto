@@ -3,7 +3,7 @@
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import StringSelectField from "../fragments/StringSelectField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { defaultCommandFlowTemplateStepModel } from "../../modules/commandFlowTemplateModel.js";
+  import { defaultCommandFlowTemplateStepModel } from "../../modules/command/commandFlowTemplateModel.js";
   import CommandFlowSettings from "./CommandFlowSettings.svelte";
   import CommandFlowStepsEditor from "./CommandFlowStepsEditor.svelte";
   import CommandFlowTemplateStepEditor from "./CommandFlowTemplateStepEditor.svelte";

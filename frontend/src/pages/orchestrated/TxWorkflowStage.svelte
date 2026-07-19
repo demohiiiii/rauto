@@ -1,7 +1,7 @@
 <script>
   import TxWorkflowInputPanel from "./TxWorkflowInputPanel.svelte";
   import TxWorkflowRunPanel from "./TxWorkflowRunPanel.svelte";
-  import { createTxWorkflowStageWorkspace } from "../../modules/transactionPanelState.js";
+  import { createTxWorkflowStageWorkspace } from "../../modules/transactions/transactionPanelState.js";
 
   let {
     active,

@@ -5,7 +5,7 @@ import {
   defaultThemeSettings,
   normalizeThemeSettings,
   updateThemeSettings,
-} from "../src/modules/themeSystem.js";
+} from "../src/modules/dashboard/themeSystem.js";
 
 function memoryStorage(initial = {}) {
   const values = { ...initial };

@@ -1,7 +1,7 @@
 <script>
   import MiniActionButton from "../../components/fragments/MiniActionButton.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
-  import { createProfileDetectProbeCardWorkspace } from "../../modules/profiles.js";
+  import { createProfileDetectProbeCardWorkspace } from "../../modules/profiles/profiles.js";
 
   let { detectDisplay, detectProbeRow, probeIndex } = $props();
   const profileDetectProbeCardWorkspace =

@@ -16,7 +16,7 @@
   import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
   import { Button } from "$lib/components/ui/button/index.js";
   import { cn } from "$lib/utils.js";
-  import { createDashboardSidebarWorkspace } from "../../modules/dashboardShell.js";
+  import { createDashboardSidebarWorkspace } from "../../modules/dashboard/dashboardShell.js";
 
   const rautoIconUrl = `${import.meta.env.BASE_URL}rauto-icon.svg`;
   let { onClose } = $props();

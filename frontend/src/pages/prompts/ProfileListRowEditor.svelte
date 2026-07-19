@@ -2,7 +2,7 @@
   import MiniActionButton from "../../components/fragments/MiniActionButton.svelte";
   import PlainCheckboxField from "../../components/fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
-  import { createProfileListRowEditorWorkspace } from "../../modules/profiles.js";
+  import { createProfileListRowEditorWorkspace } from "../../modules/profiles/profiles.js";
   let {
     kind,
     onAddPattern,

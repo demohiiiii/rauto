@@ -1,7 +1,7 @@
 <script>
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import PlainSelectField from "../fragments/PlainSelectField.svelte";
-  import { createConnectionBasicFieldsWorkspace } from "../../modules/connections.js";
+  import { createConnectionBasicFieldsWorkspace } from "../../modules/connections/connections.js";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
 
