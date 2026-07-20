@@ -42,8 +42,6 @@ import {
   txVarsTextStateFor,
 } from "./transactionPanelState.js";
 
-export * from "./transactionInputState.js";
-
 export function createTxTemplateRunPanelWorkspace(inputState = {}) {
   const dependencyState = {
     getTemplateKind:

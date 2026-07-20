@@ -181,6 +181,52 @@ export function createLatestAsyncValueLoader({ initialValue, loadValue } = {}) {
   return { refresh, state };
 }
 
+export function createKeyedListState(
+  keys = [],
+  { normalizeKey = (key) => key, onChange = null } = {},
+) {
+  const keyOrder = [...keys];
+  const states = new Map();
+
+  function stateFor(rawKey) {
+    const key = normalizeKey(rawKey);
+    if (!states.has(key)) states.set(key, writable([]));
+    return states.get(key);
+  }
+
+  function publishChange(key) {
+    callOptionalFunction(onChange, key);
+  }
+
+  function set(rawKey, rows = []) {
+    const key = normalizeKey(rawKey);
+    stateFor(key).set(Array.isArray(rows) ? rows : []);
+    publishChange(key);
+  }
+
+  function update(rawKey, updater) {
+    const key = normalizeKey(rawKey);
+    stateFor(key).update((rows) => {
+      const nextRows = callOptionalFunction(
+        updater,
+        Array.isArray(rows) ? rows : [],
+      );
+      return Array.isArray(nextRows) ? nextRows : [];
+    });
+    publishChange(key);
+  }
+
+  return {
+    has: (rawKey) => states.has(normalizeKey(rawKey)),
+    rowsState: derived(keyOrder.map(stateFor), (rowsByKey) =>
+      Object.fromEntries(keyOrder.map((key, index) => [key, rowsByKey[index]])),
+    ),
+    set,
+    stateFor,
+    update,
+  };
+}
+
 export function createSwitchingStore(
   sourceStore,
   resolveTargetStore,

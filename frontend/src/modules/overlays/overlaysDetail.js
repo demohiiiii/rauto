@@ -571,7 +571,7 @@ function loadOrchestrationDetailDisplay() {
 
 async function loadOrchestrationDetailDisplayRenderer() {
   const { orchestrationDetailDisplay } =
-    await import("../orchestration/orchestrationResultState.js");
+    await import("../orchestration/orchestrationResultDetailState.js");
   return orchestrationDetailDisplay;
 }
 

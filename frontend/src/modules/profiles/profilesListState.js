@@ -1,6 +1,7 @@
 import { t, tr } from "../../lib/i18n.js";
+import { createKeyedListState } from "../../lib/svelte.js";
 import { safeString } from "../../lib/ui.js";
-import { derived, get as getStore, writable } from "svelte/store";
+import { get as getStore, writable } from "svelte/store";
 
 export const PROFILE_LIST = Object.freeze({
   errorPatterns: "errorPatterns",
@@ -124,9 +125,6 @@ export const customProfileHookSectionDisplays = (hookRowsByList = {}) =>
     };
   });
 
-const profileListStates = new Map();
-const hookListStates = new Map();
-
 export const hookModeOptionsVersion = writable(0);
 
 function updateHookModeOptions() {
@@ -137,87 +135,109 @@ function normalizeProfileListKey(profileListKey) {
   return normalizeSemanticKey(profileListKey, PROFILE_LIST_KEYS);
 }
 
-function profileListStateFor(profileListKey) {
-  const key = normalizeProfileListKey(profileListKey);
-  if (!profileListStates.has(key)) {
-    profileListStates.set(key, writable([]));
-  }
-  return profileListStates.get(key);
-}
+const profileLists = createKeyedListState(PROFILE_LIST_ORDER, {
+  normalizeKey: normalizeProfileListKey,
+  onChange: (key) => {
+    if (key === PROFILE_LIST.prompts) updateHookModeOptions();
+  },
+});
 
-export const profileListRowsState = derived(
-  PROFILE_LIST_ORDER.map(profileListStateFor),
-  (rowsByList) =>
-    Object.fromEntries(
-      PROFILE_LIST_ORDER.map((listKey, index) => [listKey, rowsByList[index]]),
-    ),
-);
+const profileListStateFor = profileLists.stateFor;
+const setProfileListRows = profileLists.set;
+const updateProfileListRows = profileLists.update;
+export const profileListRowsState = profileLists.rowsState;
 
-function setProfileListRows(profileListKey, rows = []) {
-  const key = normalizeProfileListKey(profileListKey);
-  profileListStateFor(key).set(Array.isArray(rows) ? rows : []);
-  if (key === PROFILE_LIST.prompts) {
-    updateHookModeOptions();
-  }
-}
+const textValue = (value) => safeString(value ?? "");
+const trimmedText = (value) => textValue(value).trim();
+const normalizePatterns = (patterns) => {
+  const values = Array.isArray(patterns) ? patterns : [];
+  return values.length ? values.map(textValue) : [""];
+};
+const collectPatterns = (patterns) =>
+  (Array.isArray(patterns) ? patterns : []).map(trimmedText).filter(Boolean);
 
-function updateProfileListRows(profileListKey, updater) {
-  const key = normalizeProfileListKey(profileListKey);
-  profileListStateFor(key).update((rows) => {
-    const next = updater(Array.isArray(rows) ? rows : []);
-    return Array.isArray(next) ? next : [];
-  });
-  if (key === PROFILE_LIST.prompts) {
-    updateHookModeOptions();
-  }
-}
+const profileListRowDefinitions = Object.freeze({
+  interactions: {
+    collect: (row) => ({
+      input: trimmedText(row.input),
+      is_dynamic: !!row.is_dynamic,
+      patterns: collectPatterns(row.patterns),
+      record_input: !!row.record_input,
+      state: trimmedText(row.state),
+    }),
+    hasValue: (row) => row.state || row.input || row.patterns.length > 0,
+    normalize: (row) => ({
+      input: textValue(row.input),
+      is_dynamic: !!row.is_dynamic,
+      patterns: normalizePatterns(row.patterns),
+      record_input: row.record_input === undefined ? true : !!row.record_input,
+      state: textValue(row.state),
+    }),
+  },
+  prompts: {
+    collect: (row) => ({
+      patterns: collectPatterns(row.patterns),
+      state: trimmedText(row.state),
+    }),
+    hasValue: (row) => row.state || row.patterns.length > 0,
+    normalize: (row) => ({
+      patterns: normalizePatterns(row.patterns),
+      state: textValue(row.state),
+    }),
+  },
+  sys_prompts: {
+    collect: (row) => ({
+      pattern: trimmedText(row.pattern),
+      state: trimmedText(row.state),
+      sys_name_group: trimmedText(row.sys_name_group),
+    }),
+    hasValue: (row) => row.state || row.sys_name_group || row.pattern,
+    normalize: (row) => ({
+      pattern: textValue(row.pattern),
+      state: textValue(row.state),
+      sys_name_group: textValue(row.sys_name_group),
+    }),
+  },
+  transitions: {
+    collect: (row) => ({
+      command: trimmedText(row.command),
+      format_sys: !!row.format_sys,
+      from: trimmedText(row.from),
+      is_exit: !!row.is_exit,
+      to: trimmedText(row.to),
+    }),
+    hasValue: (row) => row.from || row.command || row.to,
+    normalize: (row) => ({
+      command: textValue(row.command),
+      format_sys: !!row.format_sys,
+      from: textValue(row.from),
+      is_exit: !!row.is_exit,
+      to: textValue(row.to),
+    }),
+  },
+});
 
 function normalizeProfileListRow(kind, profileListRowInput = {}) {
-  if (kind === "prompts") {
-    const patterns = Array.isArray(profileListRowInput.patterns)
-      ? profileListRowInput.patterns
-      : [];
-    return {
-      patterns: patterns.length
-        ? patterns.map((patternValue) => safeString(patternValue ?? ""))
-        : [""],
-      state: safeString(profileListRowInput.state ?? ""),
-    };
-  }
-  if (kind === "sys_prompts") {
-    return {
-      pattern: safeString(profileListRowInput.pattern ?? ""),
-      state: safeString(profileListRowInput.state ?? ""),
-      sys_name_group: safeString(profileListRowInput.sys_name_group ?? ""),
-    };
-  }
-  if (kind === "interactions") {
-    const patterns = Array.isArray(profileListRowInput.patterns)
-      ? profileListRowInput.patterns
-      : [];
-    return {
-      input: safeString(profileListRowInput.input ?? ""),
-      is_dynamic: !!profileListRowInput.is_dynamic,
-      patterns: patterns.length
-        ? patterns.map((patternValue) => safeString(patternValue ?? ""))
-        : [""],
-      record_input:
-        profileListRowInput.record_input === undefined
-          ? true
-          : !!profileListRowInput.record_input,
-      state: safeString(profileListRowInput.state ?? ""),
-    };
-  }
-  if (kind === "transitions") {
-    return {
-      command: safeString(profileListRowInput.command ?? ""),
-      format_sys: !!profileListRowInput.format_sys,
-      from: safeString(profileListRowInput.from ?? ""),
-      is_exit: !!profileListRowInput.is_exit,
-      to: safeString(profileListRowInput.to ?? ""),
-    };
-  }
-  return {};
+  return profileListRowDefinitions[kind]?.normalize(profileListRowInput) || {};
+}
+
+function collectProfileListRows(profileListKey, kind) {
+  const definition = profileListRowDefinitions[kind];
+  return getStore(profileListStateFor(profileListKey))
+    .map(definition.collect)
+    .filter(definition.hasValue);
+}
+
+function updateListRow(rows, rowIndex, updateRow) {
+  return rows.map((row, currentIndex) =>
+    currentIndex === rowIndex ? updateRow(row) : row,
+  );
+}
+
+function updateProfileListRow(profileListKey, rowIndex, updateRow) {
+  updateProfileListRows(profileListKey, (rows) =>
+    updateListRow(rows, rowIndex, updateRow),
+  );
 }
 
 export function addProfileListItem(profileListKey, kind, profileListItem = {}) {
@@ -239,22 +259,26 @@ export function setProfileListSimpleValue(
   rowIndex,
   simpleValue,
 ) {
-  updateProfileListRows(profileListKey, (rows) =>
-    rows.map((existingSimpleValue, currentIndex) =>
-      currentIndex === rowIndex
-        ? safeString(simpleValue ?? "")
-        : existingSimpleValue,
-    ),
-  );
+  updateProfileListRow(profileListKey, rowIndex, () => textValue(simpleValue));
 }
 
 export function patchProfileListRow(profileListKey, rowIndex, patch) {
-  updateProfileListRows(profileListKey, (rows) =>
-    rows.map((profileListRow, currentIndex) =>
-      currentIndex === rowIndex
-        ? { ...profileListRow, ...patch }
-        : profileListRow,
-    ),
+  updateProfileListRow(profileListKey, rowIndex, (row) => ({
+    ...row,
+    ...patch,
+  }));
+}
+
+function updateProfileListPatterns(profileListKey, rowIndex, updatePatterns) {
+  updateProfileListRow(profileListKey, rowIndex, (row) => ({
+    ...row,
+    patterns: updatePatterns(Array.isArray(row.patterns) ? row.patterns : []),
+  }));
+}
+
+function setListItem(items, itemIndex, value) {
+  return items.map((item, currentIndex) =>
+    currentIndex === itemIndex ? value : item,
   );
 }
 
@@ -281,34 +305,20 @@ export function setProfileListPattern(
   patternIndex,
   value,
 ) {
-  updateProfileListRows(profileListKey, (rows) =>
-    rows.map((profileListRow, currentIndex) => {
-      if (currentIndex !== rowIndex) return profileListRow;
-      const patterns = Array.isArray(profileListRow.patterns)
-        ? profileListRow.patterns
-        : [];
-      return {
-        ...profileListRow,
-        patterns: patterns.map((pattern, currentPatternIndex) =>
-          currentPatternIndex === patternIndex
-            ? safeString(value ?? "")
-            : pattern,
-        ),
-      };
-    }),
+  updateProfileListPatterns(profileListKey, rowIndex, (patterns) =>
+    setListItem(patterns, patternIndex, textValue(value)),
   );
 }
 
 export function addProfileListPattern(profileListKey, rowIndex) {
-  updateProfileListRows(profileListKey, (rows) =>
-    rows.map((profileListRow, currentIndex) => {
-      if (currentIndex !== rowIndex) return profileListRow;
-      const patterns = Array.isArray(profileListRow.patterns)
-        ? profileListRow.patterns
-        : [];
-      return { ...profileListRow, patterns: [...patterns, ""] };
-    }),
-  );
+  updateProfileListPatterns(profileListKey, rowIndex, (patterns) => [
+    ...patterns,
+    "",
+  ]);
+}
+
+function removeListItem(items, itemIndex) {
+  return items.filter((_, currentIndex) => currentIndex !== itemIndex);
 }
 
 export function removeProfileListPattern(
@@ -316,19 +326,8 @@ export function removeProfileListPattern(
   rowIndex,
   patternIndex,
 ) {
-  updateProfileListRows(profileListKey, (rows) =>
-    rows.map((profileListRow, currentIndex) => {
-      if (currentIndex !== rowIndex) return profileListRow;
-      const patterns = Array.isArray(profileListRow.patterns)
-        ? profileListRow.patterns
-        : [];
-      return {
-        ...profileListRow,
-        patterns: patterns.filter(
-          (_, currentPatternIndex) => currentPatternIndex !== patternIndex,
-        ),
-      };
-    }),
+  updateProfileListPatterns(profileListKey, rowIndex, (patterns) =>
+    removeListItem(patterns, patternIndex),
   );
 }
 
@@ -336,25 +335,14 @@ function normalizeHookListKey(hookListKey) {
   return normalizeSemanticKey(hookListKey, HOOK_LIST_KEYS);
 }
 
-function hookListStateFor(hookListKey) {
-  const key = normalizeHookListKey(hookListKey);
-  if (!hookListStates.has(key)) {
-    hookListStates.set(key, writable([]));
-  }
-  return hookListStates.get(key);
-}
+const hookLists = createKeyedListState(HOOK_LIST_ORDER, {
+  normalizeKey: normalizeHookListKey,
+});
 
-export const hookListRowsState = derived(
-  HOOK_LIST_ORDER.map(hookListStateFor),
-  (hookRowsByList) =>
-    Object.fromEntries(
-      HOOK_LIST_ORDER.map((listKey, index) => [listKey, hookRowsByList[index]]),
-    ),
-);
-
-function setHookListRows(hookListKey, rows = []) {
-  hookListStateFor(hookListKey).set(Array.isArray(rows) ? rows : []);
-}
+const hookListStateFor = hookLists.stateFor;
+const setHookListRows = hookLists.set;
+const updateHookListRows = hookLists.update;
+export const hookListRowsState = hookLists.rowsState;
 
 export function addSimpleListRow(profileListKey, listText = "") {
   updateProfileListRows(profileListKey, (rows) => [
@@ -370,15 +358,11 @@ export function collectSimpleList(profileListKey) {
 }
 
 export function clearProfileEditorList(listKey) {
-  const profileKey = normalizeProfileListKey(listKey);
-  if (profileListStates.has(profileKey)) {
-    setProfileListRows(profileKey, []);
+  if (profileLists.has(listKey)) {
+    setProfileListRows(listKey, []);
     return;
   }
-  const hookKey = normalizeHookListKey(listKey);
-  if (hookListStates.has(hookKey)) {
-    setHookListRows(hookKey, []);
-  }
+  if (hookLists.has(listKey)) setHookListRows(listKey, []);
 }
 
 export function addInteractionRow(
@@ -390,71 +374,29 @@ export function addInteractionRow(
     patterns: [],
   },
 ) {
-  updateProfileListRows(PROFILE_LIST.interactions, (rows) => [
-    ...rows,
-    normalizeProfileListRow("interactions", interactionRow),
-  ]);
+  addProfileListItem(PROFILE_LIST.interactions, "interactions", interactionRow);
 }
 
 export function collectInteractionRows() {
-  return getStore(profileListStateFor(PROFILE_LIST.interactions))
-    .map((interactionRow) => ({
-      input: safeString(interactionRow.input).trim(),
-      is_dynamic: !!interactionRow.is_dynamic,
-      patterns: (interactionRow.patterns || [])
-        .map((patternValue) => safeString(patternValue).trim())
-        .filter(Boolean),
-      record_input: !!interactionRow.record_input,
-      state: safeString(interactionRow.state).trim(),
-    }))
-    .filter(
-      (interactionRow) =>
-        interactionRow.state ||
-        interactionRow.input ||
-        interactionRow.patterns.length > 0,
-    );
+  return collectProfileListRows(PROFILE_LIST.interactions, "interactions");
 }
 
 export function addPromptRow(promptRow = { state: "", patterns: [] }) {
-  updateProfileListRows(PROFILE_LIST.prompts, (rows) => [
-    ...rows,
-    normalizeProfileListRow("prompts", promptRow),
-  ]);
+  addProfileListItem(PROFILE_LIST.prompts, "prompts", promptRow);
 }
 
 export function collectPromptRows() {
-  return getStore(profileListStateFor(PROFILE_LIST.prompts))
-    .map((promptRow) => ({
-      patterns: (promptRow.patterns || [])
-        .map((patternValue) => safeString(patternValue).trim())
-        .filter(Boolean),
-      state: safeString(promptRow.state).trim(),
-    }))
-    .filter((promptRow) => promptRow.state || promptRow.patterns.length > 0);
+  return collectProfileListRows(PROFILE_LIST.prompts, "prompts");
 }
 
 export function addSysPromptRow(
   sysPromptRow = { state: "", sys_name_group: "", pattern: "" },
 ) {
-  updateProfileListRows(PROFILE_LIST.sysPrompts, (rows) => [
-    ...rows,
-    normalizeProfileListRow("sys_prompts", sysPromptRow),
-  ]);
+  addProfileListItem(PROFILE_LIST.sysPrompts, "sys_prompts", sysPromptRow);
 }
 
 export function collectSysPromptRows() {
-  return getStore(profileListStateFor(PROFILE_LIST.sysPrompts))
-    .map((sysPromptRow) => ({
-      pattern: safeString(sysPromptRow.pattern).trim(),
-      state: safeString(sysPromptRow.state).trim(),
-      sys_name_group: safeString(sysPromptRow.sys_name_group).trim(),
-    }))
-    .filter(
-      (sysPromptRow) =>
-        sysPromptRow.state ||
-        sysPromptRow.sys_name_group ||
-        sysPromptRow.pattern,
-    );
+  return collectProfileListRows(PROFILE_LIST.sysPrompts, "sys_prompts");
 }
 
 export function addTransitionRow(
@@ -466,25 +408,11 @@ export function addTransitionRow(
     format_sys: false,
   },
 ) {
-  updateProfileListRows(PROFILE_LIST.transitions, (rows) => [
-    ...rows,
-    normalizeProfileListRow("transitions", transitionRow),
-  ]);
+  addProfileListItem(PROFILE_LIST.transitions, "transitions", transitionRow);
 }
 
 export function collectTransitionRows() {
-  return getStore(profileListStateFor(PROFILE_LIST.transitions))
-    .map((transitionRow) => ({
-      command: safeString(transitionRow.command).trim(),
-      format_sys: !!transitionRow.format_sys,
-      from: safeString(transitionRow.from).trim(),
-      is_exit: !!transitionRow.is_exit,
-      to: safeString(transitionRow.to).trim(),
-    }))
-    .filter(
-      (transitionRow) =>
-        transitionRow.from || transitionRow.command || transitionRow.to,
-    );
+  return collectProfileListRows(PROFILE_LIST.transitions, "transitions");
 }
 
 export function normalizeHooks(hooks) {
@@ -609,55 +537,41 @@ function normalizeHookListRow(hookRowInput = {}, state = "") {
   };
 }
 
-function updateHookListRows(hookListKey, updater) {
-  hookListStateFor(hookListKey).update((currentRows) => {
-    const nextRows = updater(Array.isArray(currentRows) ? currentRows : []);
-    return Array.isArray(nextRows) ? nextRows : [];
-  });
+function updateHookListRow(hookListKey, rowIndex, updateRow) {
+  updateHookListRows(hookListKey, (rows) =>
+    updateListRow(rows, rowIndex, updateRow),
+  );
 }
 
 export function patchHookListRow(hookListKey, rowIndex, patch) {
-  updateHookListRows(hookListKey, (currentRows) =>
-    currentRows.map((hookRow, currentIndex) =>
-      currentIndex === rowIndex ? { ...hookRow, ...patch } : hookRow,
-    ),
-  );
+  updateHookListRow(hookListKey, rowIndex, (row) => ({ ...row, ...patch }));
+}
+
+function patchHookListRowField(hookListKey, rowIndex, field, patch) {
+  updateHookListRow(hookListKey, rowIndex, (row) => ({
+    ...row,
+    [field]: { ...row[field], ...patch },
+  }));
 }
 
 export function patchHookListCommand(hookListKey, rowIndex, patch) {
-  updateHookListRows(hookListKey, (currentRows) =>
-    currentRows.map((hookRow, currentIndex) =>
-      currentIndex === rowIndex
-        ? { ...hookRow, command: { ...hookRow.command, ...patch } }
-        : hookRow,
-    ),
-  );
+  patchHookListRowField(hookListKey, rowIndex, "command", patch);
 }
 
 export function patchHookListFlow(hookListKey, rowIndex, patch) {
-  updateHookListRows(hookListKey, (currentRows) =>
-    currentRows.map((hookRow, currentIndex) =>
-      currentIndex === rowIndex
-        ? { ...hookRow, flow: { ...hookRow.flow, ...patch } }
-        : hookRow,
-    ),
-  );
+  patchHookListRowField(hookListKey, rowIndex, "flow", patch);
+}
+
+function updateHookListFlowSteps(hookListKey, rowIndex, updateSteps) {
+  updateHookListRow(hookListKey, rowIndex, (row) => ({
+    ...row,
+    flow: { ...row.flow, steps: updateSteps(row.flow.steps) },
+  }));
 }
 
 export function patchHookListFlowStep(hookListKey, rowIndex, stepIndex, patch) {
-  updateHookListRows(hookListKey, (currentRows) =>
-    currentRows.map((hookRow, currentIndex) => {
-      if (currentIndex !== rowIndex) return hookRow;
-      return {
-        ...hookRow,
-        flow: {
-          ...hookRow.flow,
-          steps: hookRow.flow.steps.map((step, currentStepIndex) =>
-            currentStepIndex === stepIndex ? { ...step, ...patch } : step,
-          ),
-        },
-      };
-    }),
+  updateHookListFlowSteps(hookListKey, rowIndex, (steps) =>
+    updateListRow(steps, stepIndex, (step) => ({ ...step, ...patch })),
   );
 }
 
@@ -666,35 +580,15 @@ export function addHookListFlowStep(
   rowIndex,
   command = defaultHookOperation(),
 ) {
-  updateHookListRows(hookListKey, (currentRows) =>
-    currentRows.map((hookRow, currentIndex) =>
-      currentIndex === rowIndex
-        ? {
-            ...hookRow,
-            flow: {
-              ...hookRow.flow,
-              steps: [...hookRow.flow.steps, normalizeHookCommandRow(command)],
-            },
-          }
-        : hookRow,
-    ),
-  );
+  updateHookListFlowSteps(hookListKey, rowIndex, (steps) => [
+    ...steps,
+    normalizeHookCommandRow(command),
+  ]);
 }
 
 export function removeHookListFlowStep(hookListKey, rowIndex, stepIndex) {
-  updateHookListRows(hookListKey, (currentRows) =>
-    currentRows.map((hookRow, currentIndex) => {
-      if (currentIndex !== rowIndex) return hookRow;
-      return {
-        ...hookRow,
-        flow: {
-          ...hookRow.flow,
-          steps: hookRow.flow.steps.filter(
-            (_, currentStepIndex) => currentStepIndex !== stepIndex,
-          ),
-        },
-      };
-    }),
+  updateHookListFlowSteps(hookListKey, rowIndex, (steps) =>
+    removeListItem(steps, stepIndex),
   );
 }
 
@@ -705,19 +599,16 @@ export function removeHookListRow(hookListKey, rowIndex) {
 }
 
 export function changeHookListKind(hookListKey, rowIndex, kind) {
-  updateHookListRows(hookListKey, (currentRows) =>
-    currentRows.map((hookRow, currentIndex) => {
-      if (currentIndex !== rowIndex) return hookRow;
-      const nextRow = { ...hookRow, kind };
-      if (kind === "flow" && nextRow.flow.steps.length === 0) {
-        nextRow.flow = {
-          ...nextRow.flow,
-          steps: [normalizeHookCommandRow(defaultHookOperation())],
-        };
-      }
-      return nextRow;
-    }),
-  );
+  updateHookListRow(hookListKey, rowIndex, (row) => {
+    const nextRow = { ...row, kind };
+    if (kind === "flow" && nextRow.flow.steps.length === 0) {
+      nextRow.flow = {
+        ...nextRow.flow,
+        steps: [normalizeHookCommandRow(defaultHookOperation())],
+      };
+    }
+    return nextRow;
+  });
 }
 
 export function addHookListRow(hookListKey, hookEntry = {}, state = "") {

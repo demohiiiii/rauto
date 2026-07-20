@@ -138,9 +138,21 @@ test("PresenceFieldGrid event mode passes one DOM event to transaction handlers"
   assert.deepEqual(presenceValues, [false]);
 });
 
-test("transaction interaction metadata preserves raw string input", () => {
+test("transaction prompt metadata preserves raw string input", () => {
   const command = {
-    interaction: { extra: {}, hasPrompts: true, prompts: [] },
+    interaction: {
+      extra: {},
+      hasPrompts: true,
+      prompts: [
+        {
+          extra: {},
+          hasRecordInput: false,
+          patterns: [],
+          recordInput: false,
+          response: "",
+        },
+      ],
+    },
     hasInteraction: true,
   };
   let nextCommand = command;
@@ -150,9 +162,10 @@ test("transaction interaction metadata preserves raw string input", () => {
       nextCommand = value;
     },
   );
+  const promptActions = interactionBindings.promptActionHandlers(0);
   const metadataControl = presenceFieldRowBindings({
     fieldRow: { fieldKey: "session_label", enabled: true },
-    onValueChangeForKey: interactionBindings.interactionMetadataValueHandler,
+    onValueChangeForKey: promptActions.metadataValueHandler,
   });
 
   gridInput(
@@ -161,7 +174,10 @@ test("transaction interaction metadata preserves raw string input", () => {
     valueEvent("console-session"),
   );
 
-  assert.equal(nextCommand.interaction.extra.session_label, "console-session");
+  assert.equal(
+    nextCommand.interaction.prompts[0].extra.session_label,
+    "console-session",
+  );
 });
 
 test("transaction interaction record input select preserves true", () => {
@@ -188,7 +204,7 @@ test("transaction interaction record input select preserves true", () => {
       nextCommand = value;
     },
   );
-  const promptBindings = interactionBindings.promptEditorBindings(0);
+  const promptBindings = interactionBindings.promptActionHandlers(0);
   const recordControl = presenceFieldRowBindings({
     fieldRow: { fieldKey: "recordInput", enabled: true },
     onValueChange: promptBindings.recordValueHandler(),
@@ -201,6 +217,42 @@ test("transaction interaction record input select preserves true", () => {
   );
 
   assert.equal(nextCommand.interaction.prompts[0].recordInput, true);
+});
+
+test("transaction prompt list callbacks use direct StringListEditor signatures", () => {
+  const command = {
+    interaction: {
+      extra: {},
+      hasPrompts: true,
+      prompts: [
+        {
+          extra: {},
+          hasRecordInput: false,
+          patterns: ["Password:", "Username:"],
+          recordInput: false,
+          response: "",
+        },
+      ],
+    },
+    hasInteraction: true,
+  };
+  const emittedCommands = [];
+  const interactionBindings = txBlockCommandInteractionEditorBindings(
+    command,
+    (value) => emittedCommands.push(value),
+  );
+  const promptActions = interactionBindings.promptActionHandlers(0);
+
+  promptActions.patternValueHandler(0, "Login:");
+  promptActions.removePatternAction(1);
+
+  assert.deepEqual(emittedCommands[0].interaction.prompts[0].patterns, [
+    "Login:",
+    "Username:",
+  ]);
+  assert.deepEqual(emittedCommands[1].interaction.prompts[0].patterns, [
+    "Password:",
+  ]);
 });
 
 test("transaction block grids declare their event or raw value contract", () => {

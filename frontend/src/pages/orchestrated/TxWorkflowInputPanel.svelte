@@ -9,15 +9,15 @@
   import WorkspaceTemplateActions from "../../components/fragments/WorkspaceTemplateActions.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { MANUAL_COMMAND_SOURCE } from "../../modules/command/commandTemplateCatalog.js";
+  import {
+    transactionEditorSyncPresentation,
+    txWorkflowVarsPlaceholder,
+  } from "../../modules/transactions/transactionInputState.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxWorkflowPreviewPanel from "./TxWorkflowPreviewPanel.svelte";
   import TxWorkflowVisualEditor from "./TxWorkflowVisualEditor.svelte";
-  import {
-    createTxWorkflowInputPanelWorkspace,
-    transactionEditorSyncPresentation,
-    txWorkflowVarsPlaceholder,
-  } from "../../modules/transactions/transactionInputWorkspaces.js";
+  import { createTxWorkflowInputPanelWorkspace } from "../../modules/transactions/transactionInputWorkspaces.js";
   import { txWorkflowFormModelToJsonText } from "../../modules/transactions/transactionWorkflowFormModels.js";
   import { txWorkflowPreviewPresentation } from "../../modules/transactions/transactionExecutionDisplays.js";
 

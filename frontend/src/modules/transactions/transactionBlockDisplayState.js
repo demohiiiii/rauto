@@ -6,10 +6,7 @@ import {
 } from "../../lib/jsonValue.js";
 import { selectOptionsWithCurrent } from "../../lib/ui.js";
 import { txCommandPromptExtraSource } from "./transactionBlockMutations.js";
-import {
-  txBlockFlowMetadataFieldDefs,
-  txBlockPromptMetadataFieldDefs,
-} from "./transactionStructure.js";
+import { txBlockPromptMetadataFieldDefs } from "./transactionStructure.js";
 import { txExtraStringFieldRows } from "./transactionMetadataFields.js";
 
 const txPlainObject = plainObject;
@@ -604,11 +601,4 @@ export function txBlockCommandDynParamsDisplay(
     dynParamsPresent:
       !!commandValue.hasDynParams || dynParamExtraRows.length > 0,
   };
-}
-
-export function txBlockFlowMetadataFieldRows(operation = {}) {
-  return txExtraStringFieldRows(
-    operation?.flow?.extra,
-    txBlockFlowMetadataFieldDefs(),
-  );
 }

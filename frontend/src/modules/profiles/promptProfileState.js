@@ -6,7 +6,7 @@ import {
 import {
   getCachedDeviceProfiles,
   setCachedDeviceProfiles,
-} from "../templates/templates.js";
+} from "../templates/templatesShowObjects.js";
 import { safeString, statusPresentation } from "../../lib/ui.js";
 import { currentLanguageState, t, tr } from "../../lib/i18n.js";
 import { showToast } from "../overlays/overlays.js";

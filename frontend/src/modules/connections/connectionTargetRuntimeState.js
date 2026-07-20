@@ -17,10 +17,12 @@ import {
 } from "../../lib/ui.js";
 import { writable } from "svelte/store";
 import {
-  CONNECTION_PICKER,
-  CONNECTION_VARS,
   connectionBasicFieldWiring,
   connectionTimeoutSecsValue,
+} from "./connectionFieldState.js";
+import {
+  CONNECTION_PICKER,
+  CONNECTION_VARS,
   getConnectionGroupValues,
   getConnectionLabelValues,
   getConnectionVarsValue,
@@ -29,7 +31,7 @@ import {
   setConnectionDeviceProfiles as setConnectionFieldDeviceProfiles,
   setConnectionPickerSelectedValues,
   setConnectionVarsValue,
-} from "./connectionFields.js";
+} from "./connectionFieldStoreState.js";
 import { CONNECTION_MODAL_FOCUS_TARGET } from "./connectionTargetDisplayState.js";
 import {
   activeConnectionTarget,

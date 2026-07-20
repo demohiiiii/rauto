@@ -1,7 +1,7 @@
 import { derived as deriveStore, writable } from "svelte/store";
 import { callbackHandler } from "../../lib/events.js";
 import { currentLanguageState, t } from "../../lib/i18n.js";
-import { orchestrationJobTargetsDisplay } from "./orchestrationFormDisplayState.js";
+import { orchestrationJobTargetsDisplay } from "./orchestrationFormStructureState.js";
 import { orchestrationReplaceJobStringList } from "./orchestrationStageMutations.js";
 
 function stateObjectOrEmpty(value) {

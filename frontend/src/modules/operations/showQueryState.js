@@ -24,14 +24,14 @@ import {
   refreshConnectionPickerSelected,
   setShowObjectPickerOptions,
   showObjectOptionMeta,
-} from "../connections/connectionFields.js";
+} from "../connections/connectionFieldStoreState.js";
 import {
   connectionPayload,
   connectionTargetState,
   currentExecutionConnectionProfile,
   ensureConnectionTargetSelected,
 } from "../connections/connections.js";
-import { setCustomShowObjectsChangedCallback } from "../templates/templates.js";
+import { setCustomShowObjectsChangedCallback } from "../templates/templatesShowObjects.js";
 
 export const showExecutionConnectionProfileState =
   executionConnectionProfileState;

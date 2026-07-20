@@ -7,13 +7,13 @@ import { currentLanguageState, t } from "../../lib/i18n.js";
 import { dashboardState } from "../dashboard/dashboardApp.js";
 import { createOrchestratedWorkspace } from "./orchestratedWorkspace.js";
 import { executionModeOptionsVersion } from "../profiles/profiles.js";
-import { orchestrationEditorRunButtonDisplayPresentation } from "./orchestrationFormDisplayState.js";
+import { orchestrationEditorRunButtonDisplayPresentation } from "./orchestrationFormStructureState.js";
 import {
   orchestrationExecutionPanelDisplay,
   orchestrationStageExecutionDisplayPresentation,
   orchestrationStagePreviewDisplay,
-  orchestrationStageJobsPanelDisplay,
-} from "./orchestrationResultState.js";
+} from "./orchestrationResultDisplayState.js";
+import { orchestrationStageJobsPanelDisplay } from "./orchestrationResultDetailState.js";
 import {
   orchestrationPreviewState,
   orchestrationResultState,
@@ -23,13 +23,6 @@ import {
   txExecutionModes,
   visualOutputState,
 } from "../transactions/transactionPanelState.js";
-
-export {
-  createOrchestrationEditorPanelWorkspace,
-  createOrchestrationSourceChangeGuard,
-  orchestrationEditorDisplays,
-  orchestrationJsonPlaceholder,
-} from "./orchestrationEditorState.js";
 
 function orchestrationStagePresentation(stage = "") {
   const normalized =

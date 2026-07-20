@@ -223,3 +223,38 @@ test("an older template load cannot replace a newer selection", async () => {
   assert.equal(currentJson, '{"name":"beta"}');
   assert.equal(get(workspace.displayStateStore).selectedName, "beta");
 });
+
+test("template action failures clear loading and expose the error", async () => {
+  const harness = createHarness({
+    getTemplateResource: async () => {
+      throw new Error("template load failed");
+    },
+  });
+  await harness.workspace.initialize();
+
+  assert.equal(await harness.workspace.selectTemplate("alpha"), false);
+  assert.equal(harness.display().loadingAction, "");
+  assert.equal(harness.display().errorMessage, "template load failed");
+});
+
+test("an obsolete template failure cannot replace the latest success", async () => {
+  const alpha = deferred();
+  const beta = deferred();
+  const harness = createHarness({
+    getTemplateResource(_basePath, name) {
+      return name === "alpha" ? alpha.promise : beta.promise;
+    },
+  });
+  await harness.workspace.initialize();
+
+  const alphaLoad = harness.workspace.selectTemplate("alpha");
+  const betaLoad = harness.workspace.selectTemplate("beta");
+  beta.resolve({ name: "beta", content: '{"name":"beta"}' });
+  assert.equal(await betaLoad, true);
+  alpha.reject(new Error("obsolete failure"));
+
+  assert.equal(await alphaLoad, false);
+  assert.equal(harness.display().selectedName, "beta");
+  assert.equal(harness.display().errorMessage, "");
+  assert.equal(harness.display().loadingAction, "");
+});

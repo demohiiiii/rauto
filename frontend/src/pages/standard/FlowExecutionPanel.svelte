@@ -20,10 +20,8 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import StringSelectField from "../../components/fragments/StringSelectField.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
-  import {
-    createFlowExecutionPanelWorkspace,
-    exportStandardParsedOutputItemExcel,
-  } from "../../modules/standard/standard.js";
+  import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
+  import { createFlowExecutionPanelWorkspace } from "../../modules/standard/standardExecutionWorkspaces.js";
 
   let { active } = $props();
   const flowExecutionWorkspace = createFlowExecutionPanelWorkspace();
@@ -160,7 +158,7 @@
                   {#if flowResultRow.parsedOutputBlock}
                     <ParsedOutputBlock
                       parsedOutputBlock={flowResultRow.parsedOutputBlock}
-                      onExportExcel={exportStandardParsedOutputItemExcel}
+                      onExportExcel={exportParsedOutputItemExcel}
                     />
                   {/if}
                 </div>

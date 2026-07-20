@@ -32,8 +32,6 @@ import {
   normalizeCommandTemplateNames,
 } from "../command/commandTemplateCatalog.js";
 
-export { MANUAL_COMMAND_SOURCE } from "../command/commandTemplateCatalog.js";
-
 export function reconcileCommandVars(schema = [], current = {}) {
   return Object.fromEntries(
     (Array.isArray(schema) ? schema : [])

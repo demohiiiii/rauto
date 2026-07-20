@@ -3,17 +3,19 @@ import { currentLanguage, t } from "../../lib/i18n.js";
 import { safeString, statusPresentation } from "../../lib/ui.js";
 import { showToast } from "../overlays/overlays.js";
 import {
-  CONNECTION_PICKER,
-  CONNECTION_VARS,
   connectionBasicFieldWiring,
   connectionTimeoutSecsValue,
+} from "./connectionFieldState.js";
+import {
+  CONNECTION_PICKER,
+  CONNECTION_VARS,
   getConnectionGroupValues,
   getConnectionLabelValues,
   getConnectionVarsValue,
   refreshConnectionGroupPickerOptions,
   setConnectionPickerSelectedValues,
   setConnectionVarsValue,
-} from "./connectionFields.js";
+} from "./connectionFieldStoreState.js";
 import { writable } from "svelte/store";
 
 let savedConnectionEditorFormState = {

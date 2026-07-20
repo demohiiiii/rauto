@@ -67,15 +67,17 @@ import {
   updateSavedConnectionEditorDraftEnabled,
 } from "./connectionsEditor.js";
 import {
-  CONNECTION_PROFILE_SELECT,
   applySavedConnectionEditorDraftFromFormState,
   applyTemporaryConnectionDraftFromFormState,
   connectionBasicFieldsPresentation,
-  connectionProfileSelectState,
   savedConnectionEditorDraftDefaults,
   temporaryConnectionDraftDefaults,
   visibleConnectionProfileOptions,
-} from "./connectionFields.js";
+} from "./connectionFieldState.js";
+import {
+  CONNECTION_PROFILE_SELECT,
+  connectionProfileSelectState,
+} from "./connectionFieldStoreState.js";
 import {
   clearHistoryFilters,
   deleteConnectionHistoryItem,

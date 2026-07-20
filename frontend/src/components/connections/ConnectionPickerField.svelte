@@ -1,9 +1,7 @@
 <script>
   import PlainInputField from "../fragments/PlainInputField.svelte";
-  import {
-    createConnectionPickerFieldWorkspace,
-    connectionPickerState,
-  } from "../../modules/connections/connectionFields.js";
+  import { createConnectionPickerFieldWorkspace } from "../../modules/connections/connectionFieldState.js";
+  import { connectionPickerState } from "../../modules/connections/connectionFieldStoreState.js";
 
   let {
     active = true,

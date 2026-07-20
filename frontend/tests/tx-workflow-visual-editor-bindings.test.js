@@ -4,8 +4,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   txWorkflowDuplicateBlock,
-  txWorkflowEditorBindings,
   txWorkflowMoveBlock,
+  txWorkflowTemplateRefEditorBindings,
+  txWorkflowVisualEditorBindings,
+  txWorkflowVisualEditorDisplay,
 } from "../src/modules/transactions/transactionWorkflowEditorState.js";
 
 const visualEditorPath = path.resolve(
@@ -17,6 +19,9 @@ const flowNodePath = path.resolve(
 const flowViewportControllerPath = path.resolve(
   "frontend/src/pages/orchestrated/TxWorkflowFlowViewportController.svelte",
 );
+
+const valueEvent = (value) => ({ currentTarget: { value } });
+const checkedEvent = (checked) => ({ currentTarget: { checked } });
 
 test("tx workflow visual editor uses the exported block bindings helper name", async () => {
   const source = await readFile(visualEditorPath, "utf8");
@@ -55,7 +60,7 @@ test("tx workflow blocks duplicate and move without mutating the source", () => 
   );
 });
 
-test("workflow metadata bindings update the active block source", () => {
+test("workflow editor omits empty structured metadata controls", async () => {
   const model = {
     blocks: [
       {
@@ -63,26 +68,82 @@ test("workflow metadata bindings update the active block source", () => {
         inlineBlock: { extra: {} },
         templateRef: { extra: {} },
       },
-      {
-        sourceKind: "template_ref",
-        inlineBlock: { extra: {} },
-        templateRef: { extra: {} },
-      },
     ],
   };
-  const updates = [];
-  const bindings = txWorkflowEditorBindings(model, (next) =>
-    updates.push(next),
+  const display = txWorkflowVisualEditorDisplay(model);
+  const bindings = txWorkflowVisualEditorBindings(model, () => {});
+  const blockBindings = bindings.blockBindings(0);
+  const blockEditor = await readFile(
+    path.resolve(
+      "frontend/src/pages/orchestrated/TxWorkflowBlockEditor.svelte",
+    ),
+    "utf8",
   );
 
-  bindings.setBlockMetadataValue(0, "owner", "network");
-  bindings.setBlockMetadataPresence(1, "ticket", true);
+  assert.equal(Object.hasOwn(display, "rootMetadataFieldRows"), false);
+  assert.equal(Object.hasOwn(display, "rootMetadataSource"), false);
+  assert.equal(Object.hasOwn(display.blockRows[0], "metadataFieldRows"), false);
+  assert.equal(
+    Object.hasOwn(display.blockRows[0], "metadataExtraSource"),
+    false,
+  );
+  assert.equal(Object.hasOwn(bindings, "extraPresenceHandler"), false);
+  assert.equal(Object.hasOwn(bindings, "extraValueHandler"), false);
+  assert.equal(Object.hasOwn(bindings, "setRootExtra"), false);
+  assert.equal(Object.hasOwn(blockBindings, "setMetadataPresence"), false);
+  assert.equal(Object.hasOwn(blockBindings, "setMetadataValue"), false);
+  assert.doesNotMatch(blockEditor, /metadataFieldRows|blockMetadata/);
+});
 
-  assert.equal(updates[0].blocks[0].inlineBlock.extra.owner, "network");
-  assert.equal(updates[0].blocks[0].templateRef.extra.owner, undefined);
-  assert.equal(updates[1].blocks[1].templateRef.extra.ticket, "");
-  assert.equal(updates[1].blocks[1].inlineBlock.extra.ticket, undefined);
-  assert.deepEqual(model.blocks[0].inlineBlock.extra, {});
+test("template ref editor bindings preserve source and presence patches", () => {
+  const patches = [];
+  const fieldPresenceChanges = [];
+  const varsPresenceChanges = [];
+  const bindings = txWorkflowTemplateRefEditorBindings(
+    {
+      hasTxBlockTemplateContent: false,
+      hasTxBlockTemplateName: true,
+      txBlockTemplateContent: null,
+      txBlockTemplateName: "base",
+    },
+    {
+      patchTemplateRef: (patch) => patches.push(patch),
+      setTemplateRefFieldPresence: (field, enabled) =>
+        fieldPresenceChanges.push([field, enabled]),
+      setTemplateRefVarsPresence: (enabled) =>
+        varsPresenceChanges.push(enabled),
+    },
+  );
+
+  bindings.valueHandler("name")(valueEvent("custom"));
+  bindings.sourceModeHandler()(valueEvent("content"));
+  bindings.templateContentHandler()(valueEvent('{"name":"inline"}'));
+  bindings.templateNameHandler()(valueEvent("saved"));
+  bindings.setTemplateVars({ site: "edge" });
+  bindings.setExtra({ owner: "network" });
+  bindings.presenceToggle("name")(checkedEvent(false));
+  bindings.varsToggle()(checkedEvent(true));
+
+  assert.deepEqual(patches, [
+    { hasName: true, name: "custom" },
+    { hasTxBlockTemplateName: false, txBlockTemplateName: null },
+    {
+      hasTxBlockTemplateContent: true,
+      hasTxBlockTemplateName: false,
+      txBlockTemplateContent: '{"name":"inline"}',
+      txBlockTemplateName: null,
+    },
+    {
+      hasTxBlockTemplateContent: false,
+      hasTxBlockTemplateName: true,
+      txBlockTemplateContent: null,
+      txBlockTemplateName: "saved",
+    },
+    { hasTxBlockTemplateVars: true, txBlockTemplateVars: { site: "edge" } },
+    { extra: { owner: "network" } },
+  ]);
+  assert.deepEqual(fieldPresenceChanges, [["name", false]]);
+  assert.deepEqual(varsPresenceChanges, [true]);
 });
 
 test("tx workflow editor uses a focused flow canvas and live read-only view", async () => {

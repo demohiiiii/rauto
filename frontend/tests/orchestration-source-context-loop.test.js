@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createOrchestrationTxWorkflowSourceWorkspace } from "../src/modules/orchestration/orchestrationEditorState.js";
+import { createOrchestrationTxWorkflowSourceWorkspace } from "../src/modules/orchestration/orchestrationEditorSourceState.js";
 
 test("tx workflow source context ignores repeated identical context", () => {
   const workspace = createOrchestrationTxWorkflowSourceWorkspace();

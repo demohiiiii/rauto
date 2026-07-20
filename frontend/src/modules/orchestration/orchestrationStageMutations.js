@@ -1,28 +1,14 @@
 import { nullableNumberValue, stringValue } from "../../lib/jsonValue.js";
 import {
-  orchestrationConnectionTextValue,
   orchestrationCloneFormModel,
   orchestrationCreateJobModel,
   orchestrationCreateStageModel,
-} from "./orchestrationFormState.js";
+} from "./orchestrationPlanFormModels.js";
+import { orchestrationConnectionTextValue } from "./orchestrationTargetFormModels.js";
 
 const orchestrationStringValue = stringValue;
 const orchestrationNullableNumberValue = nullableNumberValue;
 
-const ROOT_PRESENCE_DEFAULTS = {
-  failFast: [true, true],
-  rollbackCompletedStagesOnFailure: [false, false],
-  rollbackOnStageFailure: [false, false],
-};
-const STAGE_PRESENCE_DEFAULTS = {
-  failFast: [false, null],
-  maxParallel: [null, null],
-};
-const JOB_PRESENCE_DEFAULTS = {
-  failFast: [false, null],
-  maxParallel: [null, null],
-  name: [null, null],
-};
 const JOB_STRING_LIST_FIELDS = {
   targetGroups: ["targetGroups", "hasTargetGroups"],
   targetTags: ["targetTags", "hasTargetTags"],
@@ -35,41 +21,6 @@ function orchestrationBoolStringValue(value) {
 
 function orchestrationPresenceFlag(field) {
   return `has${field[0].toUpperCase()}${field.slice(1)}`;
-}
-
-function orchestrationToggleFieldPresence(
-  model = {},
-  field,
-  enabled,
-  defaults,
-) {
-  const fieldDefaults = defaults[field];
-  if (!fieldDefaults) return model;
-  return {
-    ...model,
-    [field]: enabled ? (model?.[field] ?? fieldDefaults[0]) : fieldDefaults[1],
-    [orchestrationPresenceFlag(field)]: enabled,
-  };
-}
-
-function orchestrationToggleJobListPresence(model = {}, field, enabled) {
-  const hasKey = orchestrationPresenceFlag(field);
-  return {
-    ...model,
-    [field]: enabled
-      ? Array.isArray(model?.[field])
-        ? [...model[field]]
-        : []
-      : [],
-    [hasKey]: enabled,
-  };
-}
-
-function orchestrationTextListFromValue(listText = "") {
-  return orchestrationStringValue(listText)
-    .split(",")
-    .map((listEntry) => listEntry.trim())
-    .filter(Boolean);
 }
 
 function orchestrationUpdateStage(model, stageIndex, updater) {
@@ -160,16 +111,6 @@ export function orchestrationChangeRoot(model, key, fieldValue) {
   return next;
 }
 
-export function orchestrationSetRootFieldPresence(model, field, enabled) {
-  const next = orchestrationCloneFormModel(model);
-  return orchestrationToggleFieldPresence(
-    next,
-    field,
-    enabled,
-    ROOT_PRESENCE_DEFAULTS,
-  );
-}
-
 export function orchestrationAddStage(model) {
   const stageCount = Array.isArray(model?.stages) ? model.stages.length : 0;
   return orchestrationInsertStage(model, stageCount);
@@ -217,22 +158,6 @@ export function orchestrationPatchStage(model, stageIndex, patch = {}) {
       failFast: orchestrationBoolStringValue,
       maxParallel: orchestrationNullableNumberValue,
     }),
-  );
-}
-
-export function orchestrationSetStageFieldPresence(
-  model,
-  stageIndex,
-  field,
-  enabled,
-) {
-  return orchestrationUpdateStage(model, stageIndex, (stage) =>
-    orchestrationToggleFieldPresence(
-      stage,
-      field,
-      enabled,
-      STAGE_PRESENCE_DEFAULTS,
-    ),
   );
 }
 
@@ -287,66 +212,6 @@ export function orchestrationPatchJob(model, stageIndex, jobIndex, patch = {}) {
   );
 }
 
-export function orchestrationSetJobFieldPresence(
-  model,
-  stageIndex,
-  jobIndex,
-  field,
-  enabled,
-) {
-  return orchestrationUpdateJob(model, stageIndex, jobIndex, (job) =>
-    orchestrationToggleFieldPresence(
-      job,
-      field,
-      enabled,
-      JOB_PRESENCE_DEFAULTS,
-    ),
-  );
-}
-
-export function orchestrationSetJobListPresence(
-  model,
-  stageIndex,
-  jobIndex,
-  field,
-  enabled,
-) {
-  return orchestrationUpdateJob(model, stageIndex, jobIndex, (job) =>
-    orchestrationToggleJobListPresence(job, field, enabled),
-  );
-}
-
-function orchestrationPatchJobStringListText(
-  model,
-  stageIndex,
-  jobIndex,
-  listName,
-  text,
-) {
-  return orchestrationPatchJobStringList(
-    model,
-    stageIndex,
-    jobIndex,
-    listName,
-    () => orchestrationTextListFromValue(text),
-  );
-}
-
-export function orchestrationAddJobStringListItem(
-  model,
-  stageIndex,
-  jobIndex,
-  listName,
-) {
-  return orchestrationPatchJobStringList(
-    model,
-    stageIndex,
-    jobIndex,
-    listName,
-    (items) => [...items, ""],
-  );
-}
-
 export function orchestrationReplaceJobStringList(
   model,
   stageIndex,
@@ -367,44 +232,5 @@ export function orchestrationReplaceJobStringList(
     jobIndex,
     listName,
     () => normalizedValues,
-  );
-}
-
-export function orchestrationUpdateJobStringListItem(
-  model,
-  stageIndex,
-  jobIndex,
-  listName,
-  itemIndex,
-  text,
-) {
-  return orchestrationPatchJobStringList(
-    model,
-    stageIndex,
-    jobIndex,
-    listName,
-    (items) => {
-      items[itemIndex] = orchestrationStringValue(text);
-      return items;
-    },
-  );
-}
-
-export function orchestrationRemoveJobStringListItem(
-  model,
-  stageIndex,
-  jobIndex,
-  listName,
-  itemIndex,
-) {
-  return orchestrationPatchJobStringList(
-    model,
-    stageIndex,
-    jobIndex,
-    listName,
-    (items) => {
-      items.splice(itemIndex, 1);
-      return items;
-    },
   );
 }

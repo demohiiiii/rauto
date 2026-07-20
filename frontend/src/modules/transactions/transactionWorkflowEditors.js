@@ -17,8 +17,6 @@ import {
   txWorkflowVisualEditorDisplay,
 } from "./transactionWorkflowEditorState.js";
 
-export * from "./transactionWorkflowEditorState.js";
-
 const txWorkflowEditorPlainObject = plainObject;
 
 function txWorkflowTemplateRefSourceEditorState(
@@ -130,21 +128,12 @@ export function createTxWorkflowVisualEditorWorkspace({
       txWorkflowVisualEditorBindings($modelStateStore, $onChangeStateStore),
   );
   const workflowRootFieldRowsStateStore = deriveStore(
-    [editorDisplayStateStore, currentLanguageState],
-    ([$editorDisplayStateStore]) => $editorDisplayStateStore.rootFieldRows,
-  );
-  const rootMetadataFieldRowsStateStore = deriveStore(
-    [editorDisplayStateStore, currentLanguageState],
-    ([$editorDisplayStateStore]) =>
-      $editorDisplayStateStore.rootMetadataFieldRows,
-  );
-  const rootMetadataSourceStateStore = deriveStore(
-    [editorDisplayStateStore],
-    ([$editorDisplayStateStore]) => $editorDisplayStateStore.rootMetadataSource,
+    editorDisplayStateStore,
+    ($editorDisplayStateStore) => $editorDisplayStateStore.rootFieldRows,
   );
   const blockRowsStateStore = deriveStore(
-    [editorDisplayStateStore],
-    ([$editorDisplayStateStore]) => $editorDisplayStateStore.blockRows,
+    editorDisplayStateStore,
+    ($editorDisplayStateStore) => $editorDisplayStateStore.blockRows,
   );
 
   function setVisualEditorContext({
@@ -160,8 +149,6 @@ export function createTxWorkflowVisualEditorWorkspace({
   return {
     blockRowsStateStore,
     editorDisplayStateStore,
-    rootMetadataFieldRowsStateStore,
-    rootMetadataSourceStateStore,
     setVisualEditorContext,
     workflowActionHandlersStateStore,
     workflowRootFieldRowsStateStore,

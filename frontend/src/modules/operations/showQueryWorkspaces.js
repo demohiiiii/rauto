@@ -9,7 +9,6 @@ import {
 } from "../../lib/ui.js";
 import {
   executionResultDisplay,
-  exportParsedOutputItemExcel,
   exportParsedOutputSheetsExcel,
   parsedOutputBlockDisplay,
   parsedOutputSheetsFromBatchShow,
@@ -43,12 +42,6 @@ import {
   updateBatchShowCommandPreview,
   updateShowCommandPreview,
 } from "./showQueryState.js";
-
-export {
-  showConnectionTargetState,
-  showExecutionConnectionProfileState,
-} from "./showQueryState.js";
-export const exportShowParsedOutputItemExcel = exportParsedOutputItemExcel;
 
 function showModeOptionRows(selected = "", modeOptions = []) {
   const modeOptionRows = selectOptionsWithCurrent(modeOptions, selected).map(
@@ -447,6 +440,10 @@ function createShowObjectSelectionWorkspace({ onModeChange = null } = {}) {
   };
 }
 
+function patchStoreField(stateStore, field, value) {
+  stateStore.update((state) => ({ ...state, [field]: value }));
+}
+
 function runAfterShowPageDomUpdate(afterDomUpdate, onReady) {
   if (typeof afterDomUpdate !== "function") {
     onReady();
@@ -549,7 +546,7 @@ export function createSingleShowPanelWorkspace() {
     },
   );
   const selectionPanelWorkspace = createShowObjectSelectionWorkspace({
-    onModeChange: updateSingleShowMode,
+    onModeChange: (mode) => singleModePicker.setValue(mode),
   });
   const panelDisplayStateStore = derived(
     [
@@ -601,38 +598,9 @@ export function createSingleShowPanelWorkspace() {
     }),
   );
 
-  function updateSingleShowMode(showMode) {
-    singleModePicker.setValue(showMode);
-  }
-
-  function updateSingleShowObjectSelection() {
-    updateShowCommandPreview();
-  }
-
-  function updateSingleShowTextfsmEnabled(textfsmEnabled) {
-    singleShowTextStateStore.update((state) => ({
-      ...state,
-      textfsmEnabled: !!textfsmEnabled,
-    }));
-  }
-
   async function updateSingleShowTextfsmPlatform(textfsmPlatform) {
     singleTextfsmPlatformPicker.setValue(textfsmPlatform);
     return loadShowObjects(textfsmPlatform);
-  }
-
-  function updateSingleShowTextfsmStrictErrors(textfsmStrictErrors) {
-    singleShowTextStateStore.update((state) => ({
-      ...state,
-      strictErrors: !!textfsmStrictErrors,
-    }));
-  }
-
-  function updateSingleShowTextfsmTemplate(textfsmTemplate) {
-    singleShowTextStateStore.update((state) => ({
-      ...state,
-      textfsmTemplate: safeString(textfsmTemplate),
-    }));
   }
 
   function setPanelContext({ active = false, panelDisplay = null } = {}) {
@@ -652,8 +620,22 @@ export function createSingleShowPanelWorkspace() {
     );
   }
 
+  const textfsmActionHandlers = {
+    enabledChange: (enabled) =>
+      patchStoreField(singleShowTextStateStore, "textfsmEnabled", !!enabled),
+    platformChange: updateSingleShowTextfsmPlatform,
+    strictErrorsChange: (strictErrors) =>
+      patchStoreField(singleShowTextStateStore, "strictErrors", !!strictErrors),
+    templateChange: (template) =>
+      patchStoreField(
+        singleShowTextStateStore,
+        "textfsmTemplate",
+        safeString(template),
+      ),
+  };
+
   return {
-    changeShowObject: updateSingleShowObjectSelection,
+    changeShowObject: updateShowCommandPreview,
     changeShowObjectMode: selectionPanelWorkspace.changeMode,
     executeSingleShow,
     exportActionHandlersStateStore,
@@ -662,12 +644,7 @@ export function createSingleShowPanelWorkspace() {
     selectionDisplayStateStore:
       selectionPanelWorkspace.selectionDisplayStateStore,
     setPanelContext,
-    textfsmActionHandlers: {
-      enabledChange: updateSingleShowTextfsmEnabled,
-      platformChange: updateSingleShowTextfsmPlatform,
-      strictErrorsChange: updateSingleShowTextfsmStrictErrors,
-      templateChange: updateSingleShowTextfsmTemplate,
-    },
+    textfsmActionHandlers,
   };
 }
 
@@ -697,7 +674,7 @@ export function createBatchShowInputPanelWorkspace() {
     },
   );
   const selectionPanelWorkspace = createShowObjectSelectionWorkspace({
-    onModeChange: updateBatchShowMode,
+    onModeChange: (mode) => batchModePicker.setValue(mode),
   });
   const panelDisplayStateStore = derived(
     [
@@ -730,38 +707,9 @@ export function createBatchShowInputPanelWorkspace() {
       }),
   );
 
-  function updateBatchShowMode(showMode) {
-    batchModePicker.setValue(showMode);
-  }
-
-  function updateBatchShowObjectSelection() {
-    updateBatchShowCommandPreview();
-  }
-
-  function updateBatchShowTextfsmEnabled(textfsmEnabled) {
-    batchShowTextStateStore.update((state) => ({
-      ...state,
-      textfsmEnabled: !!textfsmEnabled,
-    }));
-  }
-
-  function updateBatchShowTextfsmExcelName(excelName) {
-    batchShowTextStateStore.update((state) => ({
-      ...state,
-      excelName: safeString(excelName),
-    }));
-  }
-
   async function updateBatchShowTextfsmPlatform(textfsmPlatform) {
     batchTextfsmPlatformPicker.setValue(textfsmPlatform);
     return loadBatchShowObjects();
-  }
-
-  function updateBatchShowTextfsmStrictErrors(textfsmStrictErrors) {
-    batchShowTextStateStore.update((state) => ({
-      ...state,
-      strictErrors: !!textfsmStrictErrors,
-    }));
   }
 
   function setPanelContext({ active = false, panelDisplay = null } = {}) {
@@ -777,21 +725,30 @@ export function createBatchShowInputPanelWorkspace() {
     return batchShowLoadingRunner.run("execute", executeBatchShowObject);
   }
 
+  const textfsmActionHandlers = {
+    enabledChange: (enabled) =>
+      patchStoreField(batchShowTextStateStore, "textfsmEnabled", !!enabled),
+    excelNameChange: (excelName) =>
+      patchStoreField(
+        batchShowTextStateStore,
+        "excelName",
+        safeString(excelName),
+      ),
+    platformChange: updateBatchShowTextfsmPlatform,
+    strictErrorsChange: (strictErrors) =>
+      patchStoreField(batchShowTextStateStore, "strictErrors", !!strictErrors),
+  };
+
   return {
     batchShowLoadingStateStore,
-    changeShowObject: updateBatchShowObjectSelection,
+    changeShowObject: updateBatchShowCommandPreview,
     changeShowObjectMode: selectionPanelWorkspace.changeMode,
     executeBatchShowPanel,
     panelDisplayStateStore,
     selectionDisplayStateStore:
       selectionPanelWorkspace.selectionDisplayStateStore,
     setPanelContext,
-    textfsmActionHandlers: {
-      enabledChange: updateBatchShowTextfsmEnabled,
-      excelNameChange: updateBatchShowTextfsmExcelName,
-      platformChange: updateBatchShowTextfsmPlatform,
-      strictErrorsChange: updateBatchShowTextfsmStrictErrors,
-    },
+    textfsmActionHandlers,
   };
 }
 

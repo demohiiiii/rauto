@@ -18,11 +18,6 @@ function txCommandInteractionSource(command = {}) {
   return txPlainObject(command?.interaction) ? command.interaction : {};
 }
 
-export function txInteractionExtraSource(command = {}) {
-  const interaction = txCommandInteractionSource(command);
-  return txPlainObject(interaction.extra) ? interaction.extra : {};
-}
-
 function txPromptExtraSource(prompt = {}) {
   return prompt && typeof prompt === "object" && txPlainObject(prompt.extra)
     ? prompt.extra
@@ -97,10 +92,6 @@ function txBlockCommandPromptPatternList(prompt = {}) {
 
 export function txBlockNumberFormValue(value) {
   return value === "" ? null : Number(value);
-}
-
-export function txBlockNullableTextValue(value) {
-  return value == null ? null : String(value);
 }
 
 function txBlockPresenceFlag(field) {
@@ -487,17 +478,6 @@ export function txBlockPatchCommandInteractionExtra(command = {}, extra) {
   });
 }
 
-export function txBlockSetCommandInteractionPromptsPresence(
-  command = {},
-  enabled,
-) {
-  const prompts = txCommandInteractionSource(command).prompts;
-  return txBlockPatchCommandInteraction(command, {
-    prompts: enabled && Array.isArray(prompts) ? [...prompts] : [],
-    hasPrompts: enabled,
-  });
-}
-
 export function txBlockSetRootFieldPresence(model = {}, field, enabled) {
   const next = txBlockCloneModel(model);
   if (field === "failFast") {
@@ -550,13 +530,6 @@ export function txBlockSetCommandTimeoutPresence(command = {}, enabled) {
 
 export function txBlockSetCommandDynParamsPresence(command = {}, enabled) {
   return txBlockToggleObjectFieldPresence(command, "dynParams", enabled);
-}
-
-export function txBlockSetCommandInteractionPresence(command = {}, enabled) {
-  if (!enabled) {
-    return txBlockToggleObjectFieldPresence(command, "interaction", false);
-  }
-  return txBlockPatchCommandInteraction(command);
 }
 
 export function txBlockSetFlowMaxStepsPresence(flow = {}, enabled) {

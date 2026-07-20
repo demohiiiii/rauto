@@ -348,29 +348,6 @@ const TX_WORKFLOW_JSON_STRUCTURE_MAPPING = Object.freeze([
   }),
 ]);
 
-export function txBlockJsonStructureMapping() {
-  return TX_BLOCK_JSON_STRUCTURE_MAPPING;
-}
-
-export function txWorkflowJsonStructureMapping() {
-  return TX_WORKFLOW_JSON_STRUCTURE_MAPPING;
-}
-export const TX_WORKFLOW_ROOT_METADATA_FIELD_DEFS = Object.freeze([]);
-export const TX_WORKFLOW_INLINE_BLOCK_METADATA_FIELD_DEFS = Object.freeze([]);
-export const TX_WORKFLOW_TEMPLATE_REF_METADATA_FIELD_DEFS = Object.freeze([]);
-
-export function txWorkflowInlineCommandMetadataFieldDefs() {
-  return EMPTY_METADATA_FIELD_DEFS;
-}
-
-export function txBlockFlowMetadataFieldDefs() {
-  return EMPTY_METADATA_FIELD_DEFS;
-}
-
-export function txBlockFlowStepMetadataFieldDefs() {
-  return EMPTY_METADATA_FIELD_DEFS;
-}
-
 export function txBlockPromptMetadataFieldDefs() {
   return EMPTY_METADATA_FIELD_DEFS;
 }

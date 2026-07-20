@@ -5,12 +5,8 @@
   import { t } from "../../lib/i18n.js";
   import { createTxWorkflowBlockEditorWorkspace } from "../../modules/transactions/transactionWorkflowEditors.js";
 
-  import { txWorkflowInlineCommandMetadataFieldDefs } from "../../modules/transactions/transactionStructure.js";
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
   import TxWorkflowTemplateRefEditor from "./TxWorkflowTemplateRefEditor.svelte";
-
-  const INLINE_BLOCK_RUN_COMMAND_METADATA_FIELD_DEFS =
-    txWorkflowInlineCommandMetadataFieldDefs();
 
   let {
     blockRow,
@@ -53,12 +49,6 @@
         itemClass="max-w-xs"
         onValueChange={blockActionHandlers.setSource}
       />
-      <PresenceFieldGrid
-        fieldRows={blockRow.metadataFieldRows || []}
-        itemClass="max-w-xs"
-        onValueChangeForKey={editorActionHandlers.blockMetadataValueHandler}
-        onPresenceChangeForKey={editorActionHandlers.blockMetadataPresenceHandler}
-      />
       {#if blockRow.showTemplateRef}
         <TxWorkflowTemplateRefEditor
           templateRef={blockRow.block.templateRef}
@@ -70,7 +60,6 @@
         <TxBlockVisualEditor
           model={blockRow.block.inlineBlock}
           stacked={embedded}
-          stepRunCommandMetadataFieldDefs={INLINE_BLOCK_RUN_COMMAND_METADATA_FIELD_DEFS}
           onChange={blockActionHandlers.updateInlineBlock}
         />
       {/if}

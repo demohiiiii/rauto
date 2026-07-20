@@ -20,7 +20,7 @@
   import {
     CONNECTION_PICKER,
     CONNECTION_VARS,
-  } from "../../modules/connections/connectionFields.js";
+  } from "../../modules/connections/connectionFieldStoreState.js";
   let { active, connectionTestStatus, onCancel } = $props();
   const temporaryConnectionPanelWorkspace =
     createTemporaryConnectionPanelWorkspace();

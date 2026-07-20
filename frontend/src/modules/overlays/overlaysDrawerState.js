@@ -18,19 +18,38 @@ import {
   openEntryDrawer,
 } from "./overlaysDetail.js";
 
-const recordDrawerPreferenceStorage = {
-  displayMode: "rauto_record_view_mode",
-  failedOnly: "rauto_record_failed_only",
-  eventKind: "rauto_record_event_kind",
-  searchQuery: "rauto_record_search_query",
-};
+const recordDrawerPreferenceDefinitions = Object.freeze({
+  displayMode: {
+    defaultValue: "list",
+    normalize: normalizeRecordDrawerMode,
+    storageKey: "rauto_record_view_mode",
+  },
+  eventKind: {
+    defaultValue: "all",
+    normalize: normalizeRecordDrawerEventKind,
+    storageKey: "rauto_record_event_kind",
+  },
+  failedOnly: {
+    defaultValue: false,
+    normalize: Boolean,
+    parse: (value) => value === "true",
+    serialize: String,
+    storageKey: "rauto_record_failed_only",
+  },
+  searchQuery: {
+    defaultValue: "",
+    normalize: (value) => String(value || ""),
+    storageKey: "rauto_record_search_query",
+  },
+});
 
-const recordDrawerDefaultPreferences = {
-  displayMode: "list",
-  eventKind: "all",
-  failedOnly: false,
-  searchQuery: "",
-};
+const recordDrawerDefaultPreferences = Object.freeze(
+  Object.fromEntries(
+    Object.entries(recordDrawerPreferenceDefinitions).map(
+      ([key, definition]) => [key, definition.defaultValue],
+    ),
+  ),
+);
 
 export const overlayDrawerState = writable({
   historyDrawerOpen: false,
@@ -423,9 +442,7 @@ function normalizeRecordDrawerEventKind(eventKind) {
     : "all";
 }
 
-const recordDrawerEventKindValue = normalizeRecordDrawerEventKind;
-const recordDrawerSearchQueryValue = (searchQuery) => String(searchQuery || "");
-const recordDrawerRawTextValue = recordDrawerSearchQueryValue;
+const recordDrawerRawTextValue = (rawText) => String(rawText || "");
 
 function defaultRecordDrawerFilters() {
   const { eventKind, failedOnly, searchQuery } = recordDrawerDefaultPreferences;
@@ -441,47 +458,27 @@ function defaultRecordDrawerPreferences() {
 }
 
 function loadRecordDrawerPreferences() {
-  return {
-    displayMode: normalizeRecordDrawerMode(
-      storageGet(
-        recordDrawerPreferenceStorage.displayMode,
-        recordDrawerDefaultPreferences.displayMode,
-      ),
+  return Object.fromEntries(
+    Object.entries(recordDrawerPreferenceDefinitions).map(
+      ([key, definition]) => {
+        const parse = definition.parse || definition.normalize;
+        return [
+          key,
+          parse(storageGet(definition.storageKey, definition.defaultValue)),
+        ];
+      },
     ),
-    eventKind: normalizeRecordDrawerEventKind(
-      storageGet(
-        recordDrawerPreferenceStorage.eventKind,
-        recordDrawerDefaultPreferences.eventKind,
-      ),
-    ),
-    failedOnly: storageGet(recordDrawerPreferenceStorage.failedOnly) === "true",
-    searchQuery: storageGet(
-      recordDrawerPreferenceStorage.searchQuery,
-      recordDrawerDefaultPreferences.searchQuery,
-    ),
-  };
+  );
 }
 
 function saveRecordDrawerPreferences(preferences = {}) {
-  const nextPreferences = {
-    ...recordDrawerDefaultPreferences,
-    ...preferences,
-  };
-  storageSet(
-    recordDrawerPreferenceStorage.displayMode,
-    normalizeRecordDrawerMode(nextPreferences.displayMode),
-  );
-  storageSet(
-    recordDrawerPreferenceStorage.failedOnly,
-    String(Boolean(nextPreferences.failedOnly)),
-  );
-  storageSet(
-    recordDrawerPreferenceStorage.eventKind,
-    normalizeRecordDrawerEventKind(nextPreferences.eventKind),
-  );
-  storageSet(
-    recordDrawerPreferenceStorage.searchQuery,
-    nextPreferences.searchQuery || "",
+  Object.entries(recordDrawerPreferenceDefinitions).forEach(
+    ([key, definition]) => {
+      const normalize = definition.normalize;
+      const serialize = definition.serialize || String;
+      const value = preferences[key] ?? definition.defaultValue;
+      storageSet(definition.storageKey, serialize(normalize(value)));
+    },
   );
 }
 
@@ -584,11 +581,27 @@ export function createRecordDrawerWorkspace({
   onSetReplayJsonlFromRecording = setReplayJsonlFromRecording,
 } = {}) {
   const defaultPreferences = defaultRecordDrawerPreferences();
-  const displayModeStore = writable(defaultPreferences.displayMode);
-  const eventKindStore = writable(defaultPreferences.eventKind);
-  const failedOnlyStore = writable(defaultPreferences.failedOnly);
+  const preferenceStores = Object.fromEntries(
+    Object.entries(defaultPreferences).map(([key, value]) => [
+      key,
+      writable(value),
+    ]),
+  );
+  const {
+    displayMode: displayModeStore,
+    eventKind: eventKindStore,
+    failedOnly: failedOnlyStore,
+    searchQuery: searchQueryStore,
+  } = preferenceStores;
+  const preferenceKeys = Object.keys(preferenceStores);
+  const preferencesStateStore = derived(
+    preferenceKeys.map((key) => preferenceStores[key]),
+    (values) =>
+      Object.fromEntries(
+        preferenceKeys.map((key, index) => [key, values[index]]),
+      ),
+  );
   const recordingJsonlStore = writable("");
-  const searchQueryStore = writable(defaultPreferences.searchQuery);
   const recordingSync = createRecordDrawerRecordingSync();
   let appliedEntryCount = 0;
   const drawerShellDisplayStateStore = derived(
@@ -597,25 +610,12 @@ export function createRecordDrawerWorkspace({
       recordDrawerShellDisplay($overlayDrawerState),
   );
   const contentDisplayStateStore = derived(
-    [
-      recordingJsonlStore,
-      eventKindStore,
-      failedOnlyStore,
-      searchQueryStore,
-      currentLanguageState,
-    ],
-    ([
-      $recordingJsonlStore,
-      $eventKindStore,
-      $failedOnlyStore,
-      $searchQueryStore,
-      _currentLanguageState,
-    ]) =>
-      recordDrawerContentPresentation($recordingJsonlStore, {
-        eventKind: $eventKindStore,
-        failedOnly: $failedOnlyStore,
-        searchQuery: $searchQueryStore,
-      }),
+    [recordingJsonlStore, preferencesStateStore, currentLanguageState],
+    ([$recordingJsonlStore, $preferencesStateStore]) =>
+      recordDrawerContentPresentation(
+        $recordingJsonlStore,
+        $preferencesStateStore,
+      ),
   );
   const displayModePresentationStateStore = derived(
     displayModeStore,
@@ -630,39 +630,33 @@ export function createRecordDrawerWorkspace({
   const drawerContentDisplayStateStore = derived(
     [
       contentDisplayStateStore,
-      displayModeStore,
-      displayModePresentationStateStore,
-      eventKindStore,
-      failedOnlyStore,
+      preferencesStateStore,
       recordingJsonlStore,
       recordDisplayStateStore,
       recordLevelState,
-      searchQueryStore,
       currentLanguageState,
     ],
     ([
       $contentDisplayStateStore,
-      $displayModeStore,
-      $displayModePresentationStateStore,
-      $eventKindStore,
-      $failedOnlyStore,
+      $preferencesStateStore,
       $recordingJsonlStore,
       $recordDisplayStateStore,
       $recordLevelState,
-      $searchQueryStore,
       _currentLanguageState,
     ]) =>
       recordDrawerContentPropsPresentation({
         contentDisplay: $contentDisplayStateStore,
-        displayMode: $displayModeStore,
-        displayModeDisplay: $displayModePresentationStateStore,
-        eventKind: $eventKindStore,
-        failedOnly: $failedOnlyStore,
+        displayMode: $preferencesStateStore.displayMode,
+        displayModeDisplay: recordDrawerDisplayModePresentation(
+          $preferencesStateStore.displayMode,
+        ),
+        eventKind: $preferencesStateStore.eventKind,
+        failedOnly: $preferencesStateStore.failedOnly,
         modeTabs: displayModeTabs,
         rawText: $recordingJsonlStore,
         recordDisplay: $recordDisplayStateStore,
         recordLevel: $recordLevelState,
-        searchQuery: $searchQueryStore,
+        searchQuery: $preferencesStateStore.searchQuery,
       }),
   );
   const openEntryIndexHandlerStateStore = derived(
@@ -675,44 +669,40 @@ export function createRecordDrawerWorkspace({
   );
   let recordDrawerPreferencesApplied = false;
 
+  function currentRecordPreferences() {
+    return Object.fromEntries(
+      Object.entries(preferenceStores).map(([key, store]) => [key, get(store)]),
+    );
+  }
+
   function saveRecordPrefs() {
-    return onSaveRecordDrawerPreferences({
-      displayMode: get(displayModeStore),
-      eventKind: get(eventKindStore),
-      failedOnly: get(failedOnlyStore),
-      searchQuery: get(searchQueryStore),
-    });
+    return onSaveRecordDrawerPreferences(currentRecordPreferences());
   }
 
-  function setDisplayMode(nextDisplayMode = "list") {
-    displayModeStore.set(normalizeRecordDrawerMode(nextDisplayMode));
+  function setRecordPreference(key, value) {
+    const definition = recordDrawerPreferenceDefinitions[key];
+    preferenceStores[key].set(definition.normalize(value));
     saveRecordPrefs();
   }
 
-  function setEventKind(nextEventKind = "all") {
-    eventKindStore.set(recordDrawerEventKindValue(nextEventKind));
-    saveRecordPrefs();
-  }
-
-  function setFailedOnly(nextFailedOnly = false) {
-    failedOnlyStore.set(!!nextFailedOnly);
-    saveRecordPrefs();
-  }
+  const setDisplayMode = (value = "list") =>
+    setRecordPreference("displayMode", value);
+  const setEventKind = (value = "all") =>
+    setRecordPreference("eventKind", value);
+  const setFailedOnly = (value = false) =>
+    setRecordPreference("failedOnly", value);
+  const setSearchQuery = (value = "") =>
+    setRecordPreference("searchQuery", value);
 
   function setRawRecordingText(nextRecordingJsonl = "") {
     recordingJsonlStore.set(recordDrawerRawTextValue(nextRecordingJsonl));
   }
 
-  function setSearchQuery(nextSearchQuery = "") {
-    searchQueryStore.set(recordDrawerSearchQueryValue(nextSearchQuery));
-    saveRecordPrefs();
-  }
-
   function resetFilters() {
     const defaultFilters = defaultRecordDrawerFilters();
-    failedOnlyStore.set(defaultFilters.failedOnly);
-    eventKindStore.set(defaultFilters.eventKind);
-    searchQueryStore.set(defaultFilters.searchQuery);
+    Object.entries(defaultFilters).forEach(([key, value]) =>
+      preferenceStores[key].set(value),
+    );
     saveRecordPrefs();
   }
 
@@ -729,10 +719,9 @@ export function createRecordDrawerWorkspace({
       if (recordDrawerPreferencesApplied) return;
       recordDrawerPreferencesApplied = true;
       const preferences = onLoadRecordDrawerPreferences();
-      displayModeStore.set(preferences.displayMode);
-      eventKindStore.set(preferences.eventKind);
-      failedOnlyStore.set(preferences.failedOnly);
-      searchQueryStore.set(preferences.searchQuery);
+      Object.entries(preferenceStores).forEach(([key, store]) =>
+        store.set(preferences[key]),
+      );
     },
     eventKindStore,
     failedOnlyStore,
@@ -772,7 +761,7 @@ export function createRecordDrawerWorkspace({
   };
 }
 
-function recordDrawerContentInputHandlers({
+export function createRecordDrawerContentWorkspace({
   onEventKindChange = null,
   onFailedOnlyChange = null,
   onRawInput = null,
@@ -780,102 +769,20 @@ function recordDrawerContentInputHandlers({
   onSearchInput = null,
 } = {}) {
   return {
-    eventKindChangeHandler() {
+    recordEventKindChangeHandler() {
       return callbackFormValueHandler(onEventKindChange);
     },
-    failedOnlyChangeHandler() {
+    recordFailedOnlyChangeHandler() {
       return callbackFormCheckedHandler(onFailedOnlyChange);
-    },
-    rawInputChangeHandler() {
-      return callbackFormValueHandler(onRawInput);
     },
     recordLevelChangeHandler() {
       return callbackFormValueHandler(onRecordLevelChange);
     },
-    searchInputChangeHandler() {
+    recordRawInputChangeHandler() {
+      return callbackFormValueHandler(onRawInput);
+    },
+    recordSearchInputChangeHandler() {
       return callbackFormValueHandler(onSearchInput);
-    },
-  };
-}
-
-function recordDrawerContentActionHandlers({
-  onEventKindChange = null,
-  onFailedOnlyChange = null,
-  onRawInput = null,
-  onRecordLevelChange = null,
-  onSearchInput = null,
-} = {}) {
-  const inputHandlers = recordDrawerContentInputHandlers({
-    onEventKindChange,
-    onFailedOnlyChange,
-    onRawInput,
-    onRecordLevelChange,
-    onSearchInput,
-  });
-  return {
-    recordEventKindChangeHandler() {
-      return inputHandlers.eventKindChangeHandler();
-    },
-    recordFailedOnlyChangeHandler() {
-      return inputHandlers.failedOnlyChangeHandler();
-    },
-    recordLevelChangeHandler() {
-      return inputHandlers.recordLevelChangeHandler();
-    },
-    recordRawInputChangeHandler() {
-      return inputHandlers.rawInputChangeHandler();
-    },
-    recordSearchInputChangeHandler() {
-      return inputHandlers.searchInputChangeHandler();
-    },
-  };
-}
-
-function recordDrawerContentWorkspaceInputState(inputState = {}) {
-  return {
-    onEventKindChange:
-      typeof inputState.onEventKindChange === "function"
-        ? inputState.onEventKindChange
-        : null,
-    onFailedOnlyChange:
-      typeof inputState.onFailedOnlyChange === "function"
-        ? inputState.onFailedOnlyChange
-        : null,
-    onRawInput:
-      typeof inputState.onRawInput === "function"
-        ? inputState.onRawInput
-        : null,
-    onRecordLevelChange:
-      typeof inputState.onRecordLevelChange === "function"
-        ? inputState.onRecordLevelChange
-        : null,
-    onSearchInput:
-      typeof inputState.onSearchInput === "function"
-        ? inputState.onSearchInput
-        : null,
-  };
-}
-
-export function createRecordDrawerContentWorkspace(initialInputState = {}) {
-  const actionHandlers = recordDrawerContentActionHandlers(
-    recordDrawerContentWorkspaceInputState(initialInputState),
-  );
-
-  return {
-    recordEventKindChangeHandler() {
-      return actionHandlers.recordEventKindChangeHandler();
-    },
-    recordFailedOnlyChangeHandler() {
-      return actionHandlers.recordFailedOnlyChangeHandler();
-    },
-    recordLevelChangeHandler() {
-      return actionHandlers.recordLevelChangeHandler();
-    },
-    recordRawInputChangeHandler() {
-      return actionHandlers.recordRawInputChangeHandler();
-    },
-    recordSearchInputChangeHandler() {
-      return actionHandlers.recordSearchInputChangeHandler();
     },
   };
 }

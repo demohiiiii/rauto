@@ -5,7 +5,7 @@ import {
 } from "../../config/dashboardModes.js";
 import { tr } from "../../lib/i18n.js";
 import { safeString } from "../../lib/ui.js";
-import { setConnectionInventorySnapshots } from "../connections/connectionFields.js";
+import { setConnectionInventorySnapshots } from "../connections/connectionFieldStoreState.js";
 
 function createInventorySectionStore() {
   return writable({

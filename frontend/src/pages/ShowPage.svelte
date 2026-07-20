@@ -2,11 +2,11 @@
   import * as Card from "$lib/components/ui/card";
   import { showQueryTabs } from "../config/dashboardModes.js";
   import { afterDomUpdate } from "../lib/svelte.js";
+  import { createShowPageWorkspace } from "../modules/operations/showQueryWorkspaces.js";
   import {
-    createShowPageWorkspace,
     showConnectionTargetState,
     showExecutionConnectionProfileState,
-  } from "../modules/operations/show.js";
+  } from "../modules/operations/showQueryState.js";
   import BatchShowInputPanel from "./show/BatchShowInputPanel.svelte";
   import BatchShowResultsPanel from "./show/BatchShowResultsPanel.svelte";
   import SingleShowPanel from "./show/SingleShowPanel.svelte";

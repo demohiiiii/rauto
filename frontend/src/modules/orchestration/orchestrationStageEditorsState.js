@@ -4,18 +4,20 @@ import { currentLanguageState, t } from "../../lib/i18n.js";
 import {
   TX_BLOCK_BOOLEAN_ROWS,
   TX_BLOCK_JSON_VALUE_TYPE_ROWS,
-} from "../transactions/transactionBlockDisplays.js";
+} from "../transactions/transactionBlockDisplayState.js";
 import { orchestrationPatchValueChangeHandler } from "./orchestrationFormState.js";
 import {
   orchestrationJsonFieldText,
-  orchestrationJobEditorDisplay,
   orchestrationJobFieldPatch,
+  orchestrationStageFieldPatch,
+} from "./orchestrationFormFieldState.js";
+import {
+  orchestrationJobEditorDisplay,
   orchestrationJobSettingsPanelDisplay,
   orchestrationPlanSettingsPanelDisplay,
-  orchestrationStageFieldPatch,
   orchestrationStageSettingsPanelDisplay,
   orchestrationStagesPanelDisplay,
-} from "./orchestrationFormDisplayState.js";
+} from "./orchestrationFormStructureState.js";
 import { orchestrationTxWorkflowActionSourceValue } from "./orchestrationActionDisplayState.js";
 import {
   orchestrationAddJob,

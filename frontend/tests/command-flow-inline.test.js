@@ -3,7 +3,6 @@ import test from "node:test";
 import { txBlockFlowEditorBindings } from "../src/modules/transactions/transactionBlockBindingState.js";
 import {
   txBlockAddCommandPrompt,
-  txBlockSetCommandInteractionPresence,
   txBlockUpdateCommandPrompt,
   txBlockDuplicateFlowStep,
   txBlockMoveFlowStep,
@@ -98,12 +97,8 @@ test("transaction interaction mutations preserve prompts and extra snapshots", (
   const updated = txBlockUpdateCommandPrompt(added, 0, {
     response: "updated",
   });
-  const disabled = txBlockSetCommandInteractionPresence(updated, false);
-
   assert.equal(added.interaction.prompts.length, 2);
   assert.equal(updated.interaction.prompts[0].response, "updated");
   assert.equal(source.interaction.prompts[0].response, "ready");
   assert.notEqual(added.interaction.extra, source.interaction.extra);
-  assert.deepEqual(disabled.interaction, {});
-  assert.equal(disabled.hasInteraction, false);
 });

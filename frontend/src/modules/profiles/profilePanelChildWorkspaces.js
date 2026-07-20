@@ -12,6 +12,9 @@ import {
   setProfileDetectProbeErrorPattern,
 } from "./profilesDiagnostics.js";
 import {
+  builtinProfileDetectDetailsPresentation,
+  builtinProfileHooksDetailsPresentation,
+  builtinProfileStateListsPresentation,
   hookOperationEditorDisplay,
   profileHookCommandModePatch,
   profileHookCommandTextPatch,
@@ -52,13 +55,43 @@ import {
   updateCustomShellExitMarker,
 } from "./profilesCustomEditorState.js";
 
-function profileListRowPatchHandler(
-  onProfileListRowChange,
-  rowIndex,
-  patchBuilder,
-  value,
-) {
-  return callbackHandler(onProfileListRowChange, rowIndex)(patchBuilder(value));
+function createLanguageDisplayWorkspace(storeName, presentation) {
+  return {
+    [storeName]: derived(currentLanguageState, () => presentation()),
+  };
+}
+
+export const createBuiltinProfileHooksSectionWorkspace = () =>
+  createLanguageDisplayWorkspace(
+    "hooksDisplayStateStore",
+    builtinProfileHooksDetailsPresentation,
+  );
+
+export const createBuiltinProfileStateListsSectionWorkspace = () =>
+  createLanguageDisplayWorkspace(
+    "stateListsDisplayStateStore",
+    builtinProfileStateListsPresentation,
+  );
+
+export const createBuiltinProfileDetectSectionWorkspace = () =>
+  createLanguageDisplayWorkspace(
+    "detectDisplayStateStore",
+    builtinProfileDetectDetailsPresentation,
+  );
+
+function createLiveActionHandlers(stateStore, createHandlers, handlerNames) {
+  return Object.fromEntries(
+    handlerNames.map((handlerName) => [
+      handlerName,
+      (...args) => createHandlers(getStore(stateStore))[handlerName](...args),
+    ]),
+  );
+}
+
+function profilePatchHandler(onChange, ...patchArgs) {
+  const value = patchArgs.pop();
+  const patchBuilder = patchArgs.pop();
+  return callbackHandler(onChange, ...patchArgs)(patchBuilder(value));
 }
 
 function profileListRowInputHandlers({
@@ -78,7 +111,7 @@ function profileListRowInputHandlers({
     },
     interactionDynamicChangeHandler() {
       return (isDynamic) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.interactionIsDynamic,
@@ -87,7 +120,7 @@ function profileListRowInputHandlers({
     },
     interactionInputChangeHandler() {
       return (input) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.interactionInput,
@@ -96,7 +129,7 @@ function profileListRowInputHandlers({
     },
     interactionRecordInputChangeHandler() {
       return (recordInput) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.interactionRecordInput,
@@ -123,7 +156,7 @@ function profileListRowInputHandlers({
     },
     sysPromptNameGroupChangeHandler() {
       return (sysNameGroup) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.sysPromptNameGroup,
@@ -132,7 +165,7 @@ function profileListRowInputHandlers({
     },
     sysPromptPatternChangeHandler() {
       return (pattern) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.sysPromptPattern,
@@ -141,7 +174,7 @@ function profileListRowInputHandlers({
     },
     sysPromptStateChangeHandler() {
       return (state) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.sysPromptState,
@@ -150,7 +183,7 @@ function profileListRowInputHandlers({
     },
     transitionCommandChangeHandler() {
       return (command) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.transitionCommand,
@@ -159,7 +192,7 @@ function profileListRowInputHandlers({
     },
     transitionExitChangeHandler() {
       return (isExit) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.transitionIsExit,
@@ -168,7 +201,7 @@ function profileListRowInputHandlers({
     },
     transitionFormatSysChangeHandler() {
       return (formatSys) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.transitionFormatSys,
@@ -177,7 +210,7 @@ function profileListRowInputHandlers({
     },
     transitionFromChangeHandler() {
       return (from) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.transitionFrom,
@@ -186,7 +219,7 @@ function profileListRowInputHandlers({
     },
     transitionToChangeHandler() {
       return (to) =>
-        profileListRowPatchHandler(
+        profilePatchHandler(
           onProfileListRowChange,
           rowIndex,
           profileListRowFieldPatches.transitionTo,
@@ -196,34 +229,26 @@ function profileListRowInputHandlers({
   };
 }
 
-function profileListRowActionHandlers(options = {}) {
-  const inputHandlers = profileListRowInputHandlers(options);
-  return {
-    addPatternHandler: inputHandlers.addPatternHandler,
-    interactionDynamicChangeHandler:
-      inputHandlers.interactionDynamicChangeHandler,
-    interactionInputChangeHandler: inputHandlers.interactionInputChangeHandler,
-    interactionRecordInputChangeHandler:
-      inputHandlers.interactionRecordInputChangeHandler,
-    patternChangeHandler: inputHandlers.patternChangeHandler,
-    patternStateChangeHandler: inputHandlers.patternStateChangeHandler,
-    removePatternHandler: inputHandlers.removePatternHandler,
-    removeRowHandler: inputHandlers.removeRowHandler,
-    removeSimpleValueHandler: inputHandlers.removeSimpleValueHandler,
-    simpleValueChangeHandler: inputHandlers.simpleValueChangeHandler,
-    sysPromptNameGroupChangeHandler:
-      inputHandlers.sysPromptNameGroupChangeHandler,
-    sysPromptPatternChangeHandler: inputHandlers.sysPromptPatternChangeHandler,
-    sysPromptStateChangeHandler: inputHandlers.sysPromptStateChangeHandler,
-    transitionCommandChangeHandler:
-      inputHandlers.transitionCommandChangeHandler,
-    transitionExitChangeHandler: inputHandlers.transitionExitChangeHandler,
-    transitionFormatSysChangeHandler:
-      inputHandlers.transitionFormatSysChangeHandler,
-    transitionFromChangeHandler: inputHandlers.transitionFromChangeHandler,
-    transitionToChangeHandler: inputHandlers.transitionToChangeHandler,
-  };
-}
+const profileListRowHandlerNames = Object.freeze([
+  "addPatternHandler",
+  "interactionDynamicChangeHandler",
+  "interactionInputChangeHandler",
+  "interactionRecordInputChangeHandler",
+  "patternChangeHandler",
+  "patternStateChangeHandler",
+  "removePatternHandler",
+  "removeRowHandler",
+  "removeSimpleValueHandler",
+  "simpleValueChangeHandler",
+  "sysPromptNameGroupChangeHandler",
+  "sysPromptPatternChangeHandler",
+  "sysPromptStateChangeHandler",
+  "transitionCommandChangeHandler",
+  "transitionExitChangeHandler",
+  "transitionFormatSysChangeHandler",
+  "transitionFromChangeHandler",
+  "transitionToChangeHandler",
+]);
 
 export function createProfileListRowEditorWorkspace({
   onAddPattern = null,
@@ -257,39 +282,13 @@ export function createProfileListRowEditorWorkspace({
       profileListRowEditorPresentation($displayInputsStateStore),
   );
 
-  function currentActionHandlers() {
-    return profileListRowActionHandlers(getStore(callbackInputsStateStore));
-  }
-
   return {
-    addPatternHandler() {
-      return currentActionHandlers().addPatternHandler();
-    },
+    ...createLiveActionHandlers(
+      callbackInputsStateStore,
+      profileListRowInputHandlers,
+      profileListRowHandlerNames,
+    ),
     editorDisplayStateStore,
-    interactionDynamicChangeHandler() {
-      return currentActionHandlers().interactionDynamicChangeHandler();
-    },
-    interactionInputChangeHandler() {
-      return currentActionHandlers().interactionInputChangeHandler();
-    },
-    interactionRecordInputChangeHandler() {
-      return currentActionHandlers().interactionRecordInputChangeHandler();
-    },
-    patternChangeHandler(patternIndex) {
-      return currentActionHandlers().patternChangeHandler(patternIndex);
-    },
-    patternStateChangeHandler() {
-      return currentActionHandlers().patternStateChangeHandler();
-    },
-    removePatternHandler(patternIndex) {
-      return currentActionHandlers().removePatternHandler(patternIndex);
-    },
-    removeRowHandler() {
-      return currentActionHandlers().removeRowHandler();
-    },
-    removeSimpleValueHandler() {
-      return currentActionHandlers().removeSimpleValueHandler();
-    },
     setRowContext({
       kind: nextKind = "",
       profileListRow: nextProfileListRow = null,
@@ -304,75 +303,7 @@ export function createProfileListRowEditorWorkspace({
         rowIndex: nextRowIndex,
       }));
     },
-    simpleValueChangeHandler() {
-      return currentActionHandlers().simpleValueChangeHandler();
-    },
-    sysPromptNameGroupChangeHandler() {
-      return currentActionHandlers().sysPromptNameGroupChangeHandler();
-    },
-    sysPromptPatternChangeHandler() {
-      return currentActionHandlers().sysPromptPatternChangeHandler();
-    },
-    sysPromptStateChangeHandler() {
-      return currentActionHandlers().sysPromptStateChangeHandler();
-    },
-    transitionCommandChangeHandler() {
-      return currentActionHandlers().transitionCommandChangeHandler();
-    },
-    transitionExitChangeHandler() {
-      return currentActionHandlers().transitionExitChangeHandler();
-    },
-    transitionFormatSysChangeHandler() {
-      return currentActionHandlers().transitionFormatSysChangeHandler();
-    },
-    transitionFromChangeHandler() {
-      return currentActionHandlers().transitionFromChangeHandler();
-    },
-    transitionToChangeHandler() {
-      return currentActionHandlers().transitionToChangeHandler();
-    },
   };
-}
-
-function profileHookRowPatchHandler(
-  onHookRowChange,
-  rowIndex,
-  patchBuilder,
-  value,
-) {
-  return callbackHandler(onHookRowChange, rowIndex)(patchBuilder(value));
-}
-
-function profileHookCommandPatchHandler(
-  onCommandChange,
-  rowIndex,
-  patchBuilder,
-  value,
-) {
-  return callbackHandler(onCommandChange, rowIndex)(patchBuilder(value));
-}
-
-function profileHookFlowPatchHandler(
-  onFlowChange,
-  rowIndex,
-  patchBuilder,
-  value,
-) {
-  return callbackHandler(onFlowChange, rowIndex)(patchBuilder(value));
-}
-
-function profileHookFlowStepPatchHandler(
-  onFlowStepChange,
-  rowIndex,
-  stepIndex,
-  patchBuilder,
-  value,
-) {
-  return callbackHandler(
-    onFlowStepChange,
-    rowIndex,
-    stepIndex,
-  )(patchBuilder(value));
 }
 
 function profileHookRowInputHandlers({
@@ -392,7 +323,7 @@ function profileHookRowInputHandlers({
     },
     commandModeChangeHandler() {
       return (mode) =>
-        profileHookCommandPatchHandler(
+        profilePatchHandler(
           onCommandChange,
           rowIndex,
           profileHookCommandModePatch,
@@ -401,7 +332,7 @@ function profileHookRowInputHandlers({
     },
     commandTextChangeHandler() {
       return (command) =>
-        profileHookCommandPatchHandler(
+        profilePatchHandler(
           onCommandChange,
           rowIndex,
           profileHookCommandTextPatch,
@@ -410,7 +341,7 @@ function profileHookRowInputHandlers({
     },
     commandTimeoutChangeHandler() {
       return (timeout) =>
-        profileHookCommandPatchHandler(
+        profilePatchHandler(
           onCommandChange,
           rowIndex,
           profileHookCommandTimeoutPatch,
@@ -419,7 +350,7 @@ function profileHookRowInputHandlers({
     },
     flowMaxStepsChangeHandler() {
       return (maxSteps) =>
-        profileHookFlowPatchHandler(
+        profilePatchHandler(
           onFlowChange,
           rowIndex,
           profileHookFlowMaxStepsPatch,
@@ -428,7 +359,7 @@ function profileHookRowInputHandlers({
     },
     flowStepCommandChangeHandler(stepIndex) {
       return (command) =>
-        profileHookFlowStepPatchHandler(
+        profilePatchHandler(
           onFlowStepChange,
           rowIndex,
           stepIndex,
@@ -438,7 +369,7 @@ function profileHookRowInputHandlers({
     },
     flowStepModeChangeHandler(stepIndex) {
       return (mode) =>
-        profileHookFlowStepPatchHandler(
+        profilePatchHandler(
           onFlowStepChange,
           rowIndex,
           stepIndex,
@@ -448,7 +379,7 @@ function profileHookRowInputHandlers({
     },
     flowStepTimeoutChangeHandler(stepIndex) {
       return (timeout) =>
-        profileHookFlowStepPatchHandler(
+        profilePatchHandler(
           onFlowStepChange,
           rowIndex,
           stepIndex,
@@ -458,7 +389,7 @@ function profileHookRowInputHandlers({
     },
     flowStopOnErrorChangeHandler() {
       return (stopOnError) =>
-        profileHookFlowPatchHandler(
+        profilePatchHandler(
           onFlowChange,
           rowIndex,
           profileHookFlowStopOnErrorPatch,
@@ -467,7 +398,7 @@ function profileHookRowInputHandlers({
     },
     hookFailurePolicyChangeHandler() {
       return (failurePolicy) =>
-        profileHookRowPatchHandler(
+        profilePatchHandler(
           onHookRowChange,
           rowIndex,
           profileHookRowFailurePolicyPatch,
@@ -476,7 +407,7 @@ function profileHookRowInputHandlers({
     },
     hookNameChangeHandler() {
       return (name) =>
-        profileHookRowPatchHandler(
+        profilePatchHandler(
           onHookRowChange,
           rowIndex,
           profileHookRowNamePatch,
@@ -485,7 +416,7 @@ function profileHookRowInputHandlers({
     },
     hookRecordOutputChangeHandler() {
       return (recordOutput) =>
-        profileHookRowPatchHandler(
+        profilePatchHandler(
           onHookRowChange,
           rowIndex,
           profileHookRowRecordOutputPatch,
@@ -494,7 +425,7 @@ function profileHookRowInputHandlers({
     },
     hookStateChangeHandler() {
       return (state) =>
-        profileHookRowPatchHandler(
+        profilePatchHandler(
           onHookRowChange,
           rowIndex,
           profileHookRowStatePatch,
@@ -513,28 +444,24 @@ function profileHookRowInputHandlers({
   };
 }
 
-function profileHookRowActionHandlers(options = {}) {
-  const inputHandlers = profileHookRowInputHandlers(options);
-  return {
-    addFlowStepHandler: inputHandlers.addFlowStepHandler,
-    commandModeChangeHandler: inputHandlers.commandModeChangeHandler,
-    commandTextChangeHandler: inputHandlers.commandTextChangeHandler,
-    commandTimeoutChangeHandler: inputHandlers.commandTimeoutChangeHandler,
-    flowMaxStepsChangeHandler: inputHandlers.flowMaxStepsChangeHandler,
-    flowStepCommandChangeHandler: inputHandlers.flowStepCommandChangeHandler,
-    flowStepModeChangeHandler: inputHandlers.flowStepModeChangeHandler,
-    flowStepTimeoutChangeHandler: inputHandlers.flowStepTimeoutChangeHandler,
-    flowStopOnErrorChangeHandler: inputHandlers.flowStopOnErrorChangeHandler,
-    hookFailurePolicyChangeHandler:
-      inputHandlers.hookFailurePolicyChangeHandler,
-    hookNameChangeHandler: inputHandlers.hookNameChangeHandler,
-    hookRecordOutputChangeHandler: inputHandlers.hookRecordOutputChangeHandler,
-    hookStateChangeHandler: inputHandlers.hookStateChangeHandler,
-    kindChangeHandler: inputHandlers.kindChangeHandler,
-    removeFlowStepHandler: inputHandlers.removeFlowStepHandler,
-    removeRowHandler: inputHandlers.removeRowHandler,
-  };
-}
+const profileHookRowHandlerNames = Object.freeze([
+  "addFlowStepHandler",
+  "commandModeChangeHandler",
+  "commandTextChangeHandler",
+  "commandTimeoutChangeHandler",
+  "flowMaxStepsChangeHandler",
+  "flowStepCommandChangeHandler",
+  "flowStepModeChangeHandler",
+  "flowStepTimeoutChangeHandler",
+  "flowStopOnErrorChangeHandler",
+  "hookFailurePolicyChangeHandler",
+  "hookNameChangeHandler",
+  "hookRecordOutputChangeHandler",
+  "hookStateChangeHandler",
+  "kindChangeHandler",
+  "removeFlowStepHandler",
+  "removeRowHandler",
+]);
 
 export function createProfileHookRowEditorWorkspace({
   onAddFlowStep = null,
@@ -588,63 +515,16 @@ export function createProfileHookRowEditorWorkspace({
       }),
   );
 
-  function currentActionHandlers() {
-    return profileHookRowActionHandlers(getStore(callbackInputsStateStore));
-  }
-
   return {
-    addFlowStepHandler() {
-      return currentActionHandlers().addFlowStepHandler();
-    },
-    commandModeChangeHandler() {
-      return currentActionHandlers().commandModeChangeHandler();
-    },
-    commandTextChangeHandler() {
-      return currentActionHandlers().commandTextChangeHandler();
-    },
-    commandTimeoutChangeHandler() {
-      return currentActionHandlers().commandTimeoutChangeHandler();
-    },
+    ...createLiveActionHandlers(
+      callbackInputsStateStore,
+      profileHookRowInputHandlers,
+      profileHookRowHandlerNames,
+    ),
     editorDisplayStateStore,
-    flowMaxStepsChangeHandler() {
-      return currentActionHandlers().flowMaxStepsChangeHandler();
-    },
     flowDisplayStateStore,
-    flowStepCommandChangeHandler(stepIndex) {
-      return currentActionHandlers().flowStepCommandChangeHandler(stepIndex);
-    },
-    flowStepModeChangeHandler(stepIndex) {
-      return currentActionHandlers().flowStepModeChangeHandler(stepIndex);
-    },
-    flowStepTimeoutChangeHandler(stepIndex) {
-      return currentActionHandlers().flowStepTimeoutChangeHandler(stepIndex);
-    },
-    flowStopOnErrorChangeHandler() {
-      return currentActionHandlers().flowStopOnErrorChangeHandler();
-    },
-    hookFailurePolicyChangeHandler() {
-      return currentActionHandlers().hookFailurePolicyChangeHandler();
-    },
-    hookNameChangeHandler() {
-      return currentActionHandlers().hookNameChangeHandler();
-    },
-    hookRecordOutputChangeHandler() {
-      return currentActionHandlers().hookRecordOutputChangeHandler();
-    },
-    hookStateChangeHandler() {
-      return currentActionHandlers().hookStateChangeHandler();
-    },
     flowStepsDisplayStateStore,
-    kindChangeHandler() {
-      return currentActionHandlers().kindChangeHandler();
-    },
     operationDisplayStateStore,
-    removeFlowStepHandler(stepIndex) {
-      return currentActionHandlers().removeFlowStepHandler(stepIndex);
-    },
-    removeRowHandler() {
-      return currentActionHandlers().removeRowHandler();
-    },
     setRowContext({
       hookRow: nextHookRow = {},
       modeOptions: nextModeOptions = [],
@@ -723,57 +603,28 @@ function profileDetectProbeInputHandlers({ probeIndex = -1 } = {}) {
   };
 }
 
-function profileDetectProbeActionHandlers(options = {}) {
-  const inputHandlers = profileDetectProbeInputHandlers(options);
-  return {
-    addErrorPatternHandler: inputHandlers.addErrorPatternHandler,
-    addRuleHandler: inputHandlers.addRuleHandler,
-    commandChangeHandler: inputHandlers.commandChangeHandler,
-    errorPatternChangeHandler: inputHandlers.errorPatternChangeHandler,
-    removeErrorPatternHandler: inputHandlers.removeErrorPatternHandler,
-    removeProbeHandler: inputHandlers.removeProbeHandler,
-    removeRuleHandler: inputHandlers.removeRuleHandler,
-    ruleFieldChangeHandler: inputHandlers.ruleFieldChangeHandler,
-  };
-}
+const profileDetectProbeHandlerNames = Object.freeze([
+  "addErrorPatternHandler",
+  "addRuleHandler",
+  "commandChangeHandler",
+  "errorPatternChangeHandler",
+  "removeErrorPatternHandler",
+  "removeProbeHandler",
+  "removeRuleHandler",
+  "ruleFieldChangeHandler",
+]);
 
 export function createProfileDetectProbeCardWorkspace({
   probeIndex = -1,
 } = {}) {
   const callbackInputsStateStore = writable({ probeIndex });
 
-  function currentActionHandlers() {
-    return profileDetectProbeActionHandlers(getStore(callbackInputsStateStore));
-  }
-
   return {
-    addErrorPatternHandler() {
-      return currentActionHandlers().addErrorPatternHandler();
-    },
-    addRuleHandler() {
-      return currentActionHandlers().addRuleHandler();
-    },
-    commandChangeHandler() {
-      return currentActionHandlers().commandChangeHandler();
-    },
-    errorPatternChangeHandler(patternIndex) {
-      return currentActionHandlers().errorPatternChangeHandler(patternIndex);
-    },
-    removeErrorPatternHandler(patternIndex) {
-      return currentActionHandlers().removeErrorPatternHandler(patternIndex);
-    },
-    removeProbeHandler() {
-      return currentActionHandlers().removeProbeHandler();
-    },
-    removeRuleHandler(ruleIndex) {
-      return currentActionHandlers().removeRuleHandler(ruleIndex);
-    },
-    ruleFieldChangeHandler(ruleIndex, fieldName) {
-      return currentActionHandlers().ruleFieldChangeHandler(
-        ruleIndex,
-        fieldName,
-      );
-    },
+    ...createLiveActionHandlers(
+      callbackInputsStateStore,
+      profileDetectProbeInputHandlers,
+      profileDetectProbeHandlerNames,
+    ),
     setProbeIndex(nextProbeIndex = -1) {
       callbackInputsStateStore.set({
         probeIndex: nextProbeIndex,
@@ -847,23 +698,9 @@ function customProfilesEditorInputHandlers({
   };
 }
 
-function customProfilesEditorActionHandlers(options = {}) {
-  const inputHandlers = customProfilesEditorInputHandlers(options);
-  return {
-    commandExecutionModeChangeHandler:
-      inputHandlers.commandExecutionModeChangeHandler,
-    hookAddHandler: inputHandlers.hookAddHandler,
-    hookRowCallbacks: inputHandlers.hookRowCallbacks,
-    profileListAddHandler: inputHandlers.profileListAddHandler,
-    profileListRowCallbacks: inputHandlers.profileListRowCallbacks,
-    selectedProfileChangeHandler: inputHandlers.selectedProfileChangeHandler,
-    shellExitMarkerChangeHandler: inputHandlers.shellExitMarkerChangeHandler,
-  };
-}
-
 export function createCustomProfilesEditorWorkspace() {
   const workspace = createCustomProfilesEditorWorkspaceCore();
-  const actionHandlers = customProfilesEditorActionHandlers({
+  const actionHandlers = customProfilesEditorInputHandlers({
     addFlowStep: workspace.addFlowStep,
     addHookRow: workspace.addHookRow,
     addListItem: workspace.addListItem,

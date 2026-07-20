@@ -5,7 +5,7 @@
   import TabList from "../../components/fragments/TabList.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
-  import { createBatchShowInputPanelWorkspace } from "../../modules/operations/show.js";
+  import { createBatchShowInputPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
 
   let {

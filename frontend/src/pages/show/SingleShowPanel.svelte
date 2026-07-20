@@ -10,10 +10,8 @@
   import SearchIcon from "@lucide/svelte/icons/search";
   import Table2Icon from "@lucide/svelte/icons/table-2";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
-  import {
-    createSingleShowPanelWorkspace,
-    exportShowParsedOutputItemExcel,
-  } from "../../modules/operations/show.js";
+  import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
+  import { createSingleShowPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
 
   let {
@@ -287,7 +285,7 @@
           {:else}
             <ParsedOutputBlock
               parsedOutputBlock={showResultRow.parsedOutputBlock}
-              onExportExcel={exportShowParsedOutputItemExcel}
+              onExportExcel={exportParsedOutputItemExcel}
             />
           {/if}
         {/if}

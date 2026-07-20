@@ -4,13 +4,10 @@ import {
   orchestrationJobFieldsDisplay,
   orchestrationRootFieldsDisplay,
   orchestrationStageFieldsDisplay,
-  orchestrationTextListRows,
 } from "./orchestrationFormFieldState.js";
 
 const orchestrationPlainObject = plainObject;
 const orchestrationStringValue = stringValue;
-
-export * from "./orchestrationFormFieldState.js";
 
 export function orchestrationPlanSettingsPanelDisplay(
   model = {},
@@ -89,5 +86,18 @@ export function orchestrationJobTargetsDisplay(
       labelText: targetLabelText,
       placeholderText: targetLabelText,
     },
+  };
+}
+
+export const orchestrationEditorRunButtonDisplayPresentation = (display = {}) =>
+  display;
+
+export function orchestrationStagesPanelDisplay(visualDisplay = {}) {
+  return {
+    addStageButtonLabel: t("orchestrationFormAddStage"),
+    stageRows: Array.isArray(visualDisplay.stageRows)
+      ? visualDisplay.stageRows
+      : [],
+    titleText: t("orchestrationFormStage"),
   };
 }

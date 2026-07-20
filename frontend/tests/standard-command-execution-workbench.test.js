@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
+import { MANUAL_COMMAND_SOURCE } from "../src/modules/command/commandTemplateCatalog.js";
 import {
-  MANUAL_COMMAND_SOURCE,
   commandExecutionPayload,
   createStandardCommandExecutionWorkspace,
   reconcileCommandVars,
@@ -287,7 +287,6 @@ test("standard command workbench has no legacy panel factories", () => {
   const source = [
     read("frontend/src/modules/standard/standardExecutionState.js"),
     read("frontend/src/modules/standard/standardExecutionWorkspaces.js"),
-    read("frontend/src/modules/standard/standard.js"),
   ].join("\n");
 
   assert.doesNotMatch(source, /createDirectExecutionPanelWorkspace/);

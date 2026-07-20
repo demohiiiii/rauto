@@ -4,9 +4,9 @@ import { cloneJsonValue } from "../../lib/jsonValue.js";
 import { listTemplateResource } from "../../api/client.js";
 import {
   orchestrationCreateTxWorkflowActionModel,
-  orchestrationJsonPatchResult,
   orchestrationPatchJobDraft,
-} from "./orchestrationFormState.js";
+} from "./orchestrationPlanFormModels.js";
+import { orchestrationJsonPatchResult } from "./orchestrationTargetFormModels.js";
 import { orchestrationTxWorkflowActionSettingsPanelDisplay } from "./orchestrationActionDisplayState.js";
 
 const cloneOrchestrationJsonValue = cloneJsonValue;

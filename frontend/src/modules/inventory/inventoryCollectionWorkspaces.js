@@ -9,11 +9,6 @@ import {
 } from "../../lib/ui.js";
 import { tr } from "../../lib/i18n.js";
 
-export {
-  createInventoryDependencies,
-  createInventoryWorkspace,
-} from "./inventoryCollectionState.js";
-
 function inventorySectionPresentation(inventorySection = "") {
   return {
     groupsActive: isInventoryGroupsSection(inventorySection),

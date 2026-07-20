@@ -17,7 +17,7 @@ import {
   getConnectionGroupValues,
   refreshSavedConnectionGroupOptions,
   refreshSavedConnectionLabelOptions,
-} from "../connections/connectionFields.js";
+} from "../connections/connectionFieldStoreState.js";
 import { loadSavedConnections } from "../connections/connections.js";
 import {
   applySelectedInventoryItem,

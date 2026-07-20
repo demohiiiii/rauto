@@ -7,18 +7,12 @@ import {
 } from "../../lib/ui.js";
 import { currentLanguageState, tr } from "../../lib/i18n.js";
 import { derived, get as getStore, writable } from "svelte/store";
-export {
-  openEntryDrawer as openReplayEntryDrawer,
-  replayJsonlTransferState,
-  replayStatusTextState,
-} from "../overlays/overlays.js";
 import {
   eventEntriesPresentation as replayEntriesPresentation,
   openEntryDrawer,
   replayJsonlTransferState,
   replayStatusTextState,
 } from "../overlays/overlays.js";
-export { replayEntriesPresentation };
 
 const REPLAY_STORAGE = Object.freeze({
   displayMode: "rauto_replay_view_mode",

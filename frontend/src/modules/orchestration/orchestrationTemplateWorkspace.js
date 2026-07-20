@@ -105,6 +105,18 @@ export function createOrchestrationTemplateWorkspace({
     }
   }
 
+  async function runAction(loadingAction, operation) {
+    const action = beginAction(loadingAction);
+    try {
+      return await operation(action);
+    } catch (error) {
+      if (action.isCurrent()) setDisplay({ errorMessage: errorMessage(error) });
+      return false;
+    } finally {
+      finishAction(action);
+    }
+  }
+
   async function runOwnedMutation(operation) {
     ownedMutationDepth += 1;
     try {
@@ -172,8 +184,7 @@ export function createOrchestrationTemplateWorkspace({
       return true;
     }
     if (!(await confirmReplacement("select"))) return false;
-    const action = beginAction("select");
-    try {
+    return runAction("select", async (action) => {
       if (!name) {
         const result = await runOwnedMutation(() => createDraft());
         if (result === false || !action.isCurrent()) return false;
@@ -192,12 +203,7 @@ export function createOrchestrationTemplateWorkspace({
         statusName: String(detail?.name || name),
       });
       return true;
-    } catch (error) {
-      if (action.isCurrent()) setDisplay({ errorMessage: errorMessage(error) });
-      return false;
-    } finally {
-      finishAction(action);
-    }
+    });
   }
 
   function openNameDialog(mode) {
@@ -237,8 +243,7 @@ export function createOrchestrationTemplateWorkspace({
 
   async function createNamedDraft(name) {
     if (!(await confirmReplacement("new"))) return false;
-    const action = beginAction("new");
-    try {
+    return runAction("new", async (action) => {
       const result = await runOwnedMutation(() => createDraft());
       if (result === false || !action.isCurrent()) return false;
       captureBaseline({
@@ -249,17 +254,11 @@ export function createOrchestrationTemplateWorkspace({
       });
       closeNameDialog();
       return true;
-    } catch (error) {
-      if (action.isCurrent()) setDisplay({ errorMessage: errorMessage(error) });
-      return false;
-    } finally {
-      finishAction(action);
-    }
+    });
   }
 
   async function saveAs(name) {
-    const action = beginAction("save_as");
-    try {
+    return runAction("save_as", async (action) => {
       const content = String(getCurrentJson() || "");
       const detail = await createTemplateResource(apiBase, name, content);
       if (!action.isCurrent()) return false;
@@ -274,12 +273,7 @@ export function createOrchestrationTemplateWorkspace({
       });
       closeNameDialog();
       return true;
-    } catch (error) {
-      if (action.isCurrent()) setDisplay({ errorMessage: errorMessage(error) });
-      return false;
-    } finally {
-      finishAction(action);
-    }
+    });
   }
 
   async function submitNameDialog() {
@@ -304,8 +298,7 @@ export function createOrchestrationTemplateWorkspace({
       openSaveAsDialog();
       return false;
     }
-    const action = beginAction("save");
-    try {
+    return runAction("save", async (action) => {
       const content = String(getCurrentJson() || "");
       const detail =
         displayState.selectionKind === "new"
@@ -322,12 +315,7 @@ export function createOrchestrationTemplateWorkspace({
         statusName: savedName,
       });
       return true;
-    } catch (error) {
-      if (action.isCurrent()) setDisplay({ errorMessage: errorMessage(error) });
-      return false;
-    } finally {
-      finishAction(action);
-    }
+    });
   }
 
   async function deleteTemplate() {
@@ -337,8 +325,7 @@ export function createOrchestrationTemplateWorkspace({
       return false;
     }
     const snapshot = String(getCurrentJson() || "");
-    const action = beginAction("delete");
-    try {
+    return runAction("delete", async (action) => {
       await deleteTemplateResource(apiBase, name);
       if (!action.isCurrent()) return false;
       await refreshTemplateList(action);
@@ -352,12 +339,7 @@ export function createOrchestrationTemplateWorkspace({
         statusName: name,
       });
       return true;
-    } catch (error) {
-      if (action.isCurrent()) setDisplay({ errorMessage: errorMessage(error) });
-      return false;
-    } finally {
-      finishAction(action);
-    }
+    });
   }
 
   function markEdited() {

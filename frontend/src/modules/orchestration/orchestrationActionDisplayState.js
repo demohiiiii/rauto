@@ -1,6 +1,6 @@
 import { t } from "../../lib/i18n.js";
 import { plainObject, stringValue } from "../../lib/jsonValue.js";
-import { orchestrationJsonFieldText } from "./orchestrationFormDisplayState.js";
+import { orchestrationJsonFieldText } from "./orchestrationFormFieldState.js";
 
 const orchestrationPlainObject = plainObject;
 const orchestrationStringValue = stringValue;

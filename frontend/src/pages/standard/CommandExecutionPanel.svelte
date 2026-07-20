@@ -16,8 +16,10 @@
   import { t } from "../../lib/i18n.js";
   import { selectOptionsWithCurrent } from "../../lib/ui.js";
   import { createStandardCommandExecutionWorkspace } from "../../modules/standard/standardCommandExecutionWorkspace.js";
-  import { exportStandardParsedOutputItemExcel } from "../../modules/standard/standard.js";
-  import { parsedOutputBlockDisplayFromItem } from "../../modules/operations/results.js";
+  import {
+    exportParsedOutputItemExcel,
+    parsedOutputBlockDisplayFromItem,
+  } from "../../modules/operations/results.js";
 
   let { active } = $props();
   let panelElement;
@@ -220,7 +222,7 @@
               {#if parsedOutputBlock}
                 <ParsedOutputBlock
                   {parsedOutputBlock}
-                  onExportExcel={exportStandardParsedOutputItemExcel}
+                  onExportExcel={exportParsedOutputItemExcel}
                 />
               {/if}
             </article>

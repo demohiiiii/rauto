@@ -6,10 +6,8 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import Table2Icon from "@lucide/svelte/icons/table-2";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
-  import {
-    createBatchShowResultsPanelWorkspace,
-    exportShowParsedOutputItemExcel,
-  } from "../../modules/operations/show.js";
+  import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
+  import { createBatchShowResultsPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
 
   let { batchResultDisplay, batchResultsPresentation } = $props();
   const batchShowResultsPanelWorkspace = createBatchShowResultsPanelWorkspace();
@@ -279,7 +277,7 @@
           {:else}
             <ParsedOutputBlock
               parsedOutputBlock={activeObjectResultRow.parsedOutputBlock}
-              onExportExcel={exportShowParsedOutputItemExcel}
+              onExportExcel={exportParsedOutputItemExcel}
             />
           {/if}
         {/if}

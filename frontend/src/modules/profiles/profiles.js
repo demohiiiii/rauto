@@ -1,3 +1,15 @@
+import { callbackHandler } from "../../lib/events.js";
+import {
+  addProfileDetectInitialRule as addInitialRule,
+  addProfileDetectProbe as addProbe,
+  createCustomProfileDetectPanelWorkspace as createCustomProfileDetectPanelWorkspaceCore,
+  createProfileDiagnosePanelWorkspace as createProfileDiagnosePanelWorkspaceCore,
+  patchProfileDetectInitialRule,
+  removeProfileDetectInitialRule,
+  setProfileDetectEnabled,
+  setProfileDiagnoseSelected,
+} from "./promptProfileState.js";
+
 export {
   promptProfilesPageDisplay,
   promptModePresentation,
@@ -123,12 +135,53 @@ export {
   createBuiltinProfileDetectSectionWorkspace,
   createBuiltinProfileHooksSectionWorkspace,
   createBuiltinProfileStateListsSectionWorkspace,
-} from "./profilePanelEditorState.js";
+} from "./profilePanelChildWorkspaces.js";
+
+function createProfileDiagnosePanelWorkspace() {
+  return {
+    ...createProfileDiagnosePanelWorkspaceCore(),
+    profileChangeHandler() {
+      return callbackHandler(setProfileDiagnoseSelected);
+    },
+  };
+}
+
+function setProfileDetectInitialRuleField(ruleIndex, fieldName, fieldValue) {
+  return patchProfileDetectInitialRule(ruleIndex, {
+    [fieldName]: fieldValue,
+  });
+}
+
+function createCustomProfileDetectPanelWorkspace() {
+  const workspace = createCustomProfileDetectPanelWorkspaceCore();
+  return {
+    ...workspace,
+    addInitialRule: callbackHandler(addInitialRule),
+    addProbe: callbackHandler(addProbe),
+    changeInitialRulePattern(ruleIndex) {
+      return callbackHandler(
+        setProfileDetectInitialRuleField,
+        ruleIndex,
+        "pattern",
+      );
+    },
+    changeInitialRuleWeight(ruleIndex) {
+      return callbackHandler(
+        setProfileDetectInitialRuleField,
+        ruleIndex,
+        "weight",
+      );
+    },
+    removeInitialRuleHandler: (ruleIndex) =>
+      callbackHandler(removeProfileDetectInitialRule, ruleIndex),
+    setDetectEnabled: callbackHandler(setProfileDetectEnabled),
+  };
+}
 
 export {
   createCustomProfileDetectPanelWorkspace,
   createProfileDiagnosePanelWorkspace,
-} from "./profilePanelState.js";
+};
 
 export {
   createCustomProfilesEditorWorkspace,

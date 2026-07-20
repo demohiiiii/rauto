@@ -6,10 +6,8 @@ import {
   statusPresentation,
 } from "../../lib/ui.js";
 import { showToast } from "../overlays/overlays.js";
-import {
-  setConnectionPickerSavedConnections,
-  visibleConnectionProfileOptions,
-} from "./connectionFields.js";
+import { visibleConnectionProfileOptions } from "./connectionFieldState.js";
+import { setConnectionPickerSavedConnections } from "./connectionFieldStoreState.js";
 
 const CONNECTION_TARGET_STORAGE_KEY = "rauto_connection_target";
 

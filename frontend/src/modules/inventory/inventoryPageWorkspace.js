@@ -10,8 +10,8 @@ import { protectedDashboardResourcesRefreshState } from "../dashboard/dashboardA
 import {
   createInventoryDependencies,
   createInventoryWorkspace,
-  inventoryPageDisplay,
-} from "./inventoryCollectionWorkspaces.js";
+} from "./inventoryCollectionState.js";
+import { inventoryPageDisplay } from "./inventoryCollectionWorkspaces.js";
 
 function normalizeOptionalHandler(handler) {
   return typeof handler === "function" ? handler : null;

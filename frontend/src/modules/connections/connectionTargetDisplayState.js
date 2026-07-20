@@ -5,7 +5,7 @@ import {
   selectOptionsWithCurrent,
   statusPresentation,
 } from "../../lib/ui.js";
-import { CONNECTION_PICKER } from "./connectionFields.js";
+import { CONNECTION_PICKER } from "./connectionFieldStoreState.js";
 
 function connectionStatusPresentation(status = null) {
   return statusPresentation(status?.message || "", status?.tone || "info", {

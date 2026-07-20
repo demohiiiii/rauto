@@ -9,7 +9,7 @@
   import {
     CONNECTION_PICKER,
     CONNECTION_VARS,
-  } from "../../modules/connections/connectionFields.js";
+  } from "../../modules/connections/connectionFieldStoreState.js";
   import LoadingButton from "../fragments/LoadingButton.svelte";
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../fragments/PlainInputField.svelte";

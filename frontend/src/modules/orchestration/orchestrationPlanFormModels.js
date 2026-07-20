@@ -432,7 +432,3 @@ export function orchestrationPlanFormModelToJsonText(model = {}) {
     2,
   );
 }
-
-export function orchestrationDefaultPlanJson() {
-  return JSON.stringify(defaultOrchestrationPlanPayload(), null, 2);
-}

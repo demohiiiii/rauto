@@ -167,6 +167,19 @@ export function profileNamesFromOverview(payload = {}) {
   ]);
 }
 
+async function loadProfileTemplateReferences(api) {
+  const [profilesPayload, templatesPayload] = await Promise.all([
+    api.getDeviceProfilesOverview(),
+    api.listTemplateResource("/api/textfsm/templates"),
+  ]);
+  const profiles = profileNamesFromOverview(profilesPayload);
+  const templates = uniqueNames(
+    listValue(templatesPayload).map((item) => item?.name),
+  );
+  setCachedDeviceProfiles(profiles);
+  return { profiles, templates };
+}
+
 function resourceKey(name, builtin = false) {
   return `${builtin ? "builtin" : "custom"}:${trimmedText(name)}`;
 }
@@ -305,6 +318,10 @@ function publishContentSession(stateStore, session) {
 
 function workspaceErrorMessage(error) {
   return error?.message || String(error);
+}
+
+function workspaceFailure(messageKey, fallback) {
+  return { ok: false, message: tr(messageKey, fallback) };
 }
 
 function setWorkspaceSearch(stateStore, search) {
@@ -563,20 +580,17 @@ export function createContentTemplateWorkspace(options = {}) {
     const session = sessionFor();
     const normalizedName = trimmedText(name);
     if (!normalizedName) {
-      return {
-        ok: false,
-        message: tr("templateNameRequired", "Template name is required"),
-      };
+      return workspaceFailure(
+        "templateNameRequired",
+        "Template name is required",
+      );
     }
     const existing = session.items.find(
       (item) => !item.builtin && item.name === normalizedName,
     );
     if (existing) {
       await selectResource(existing.key);
-      return {
-        ok: false,
-        message: tr("templateExistsHint", "Template already exists"),
-      };
+      return workspaceFailure("templateExistsHint", "Template already exists");
     }
     if (
       session.content !== session.originalContent &&
@@ -610,20 +624,17 @@ export function createContentTemplateWorkspace(options = {}) {
     const session = sessionFor();
     const normalizedName = trimmedText(name);
     if (!normalizedName) {
-      return {
-        ok: false,
-        message: tr("templateNameRequired", "Template name is required"),
-      };
+      return workspaceFailure(
+        "templateNameRequired",
+        "Template name is required",
+      );
     }
     if (
       session.items.some(
         (item) => !item.builtin && item.name === normalizedName,
       )
     ) {
-      return {
-        ok: false,
-        message: tr("templateExistsHint", "Template already exists"),
-      };
+      return workspaceFailure("templateExistsHint", "Template already exists");
     }
     return persist({ name: normalizedName, create: true });
   }
@@ -633,19 +644,16 @@ export function createContentTemplateWorkspace(options = {}) {
     const selected = session.selected;
     const targetName = trimmedText(name || selected?.name);
     if (!selected || !targetName) {
-      return {
-        ok: false,
-        message: tr("templateNameRequired", "Template name is required"),
-      };
+      return workspaceFailure(
+        "templateNameRequired",
+        "Template name is required",
+      );
     }
     if (selected.builtin && !create) {
-      return {
-        ok: false,
-        message: tr(
-          "templateManagerBuiltinReadonly",
-          "Built-in templates are read-only",
-        ),
-      };
+      return workspaceFailure(
+        "templateManagerBuiltinReadonly",
+        "Built-in templates are read-only",
+      );
     }
     session.loadingAction = create || selected.isDraft ? "create" : "save";
     session.errorMessage = "";
@@ -698,13 +706,10 @@ export function createContentTemplateWorkspace(options = {}) {
     const session = sessionFor();
     const selected = session.selected;
     if (!selected || selected.builtin || selected.isDraft) {
-      return {
-        ok: false,
-        message: tr(
-          "templateManagerDeleteUnavailable",
-          "This resource cannot be deleted",
-        ),
-      };
+      return workspaceFailure(
+        "templateManagerDeleteUnavailable",
+        "This resource cannot be deleted",
+      );
     }
     session.loadingAction = "delete";
     session.errorMessage = "";
@@ -806,15 +811,7 @@ export function createTextfsmMappingWorkspace(options = {}) {
   });
 
   async function loadReferences() {
-    const [profilesPayload, templatesPayload] = await Promise.all([
-      api.getDeviceProfilesOverview(),
-      api.listTemplateResource("/api/textfsm/templates"),
-    ]);
-    const profiles = profileNamesFromOverview(profilesPayload);
-    const templates = uniqueNames(
-      listValue(templatesPayload).map((item) => item?.name),
-    );
-    setCachedDeviceProfiles(profiles);
+    const { profiles, templates } = await loadProfileTemplateReferences(api);
     stateStore.update((state) => ({
       ...state,
       profiles,
@@ -877,13 +874,10 @@ export function createTextfsmMappingWorkspace(options = {}) {
     const state = get(stateStore);
     const form = normalizeMapping(state.form);
     if (!form.deviceProfile || !form.command || !form.templateName) {
-      return {
-        ok: false,
-        message: tr(
-          "textfsmMappingRequired",
-          "Profile, command, and template are required",
-        ),
-      };
+      return workspaceFailure(
+        "textfsmMappingRequired",
+        "Profile, command, and template are required",
+      );
     }
     return runWorkspaceAction(stateStore, "save", async () => {
       await api.saveTextfsmMapping({
@@ -912,13 +906,10 @@ export function createTextfsmMappingWorkspace(options = {}) {
     const identity = state.originalIdentity || mappingIdentity(state.form);
     const [deviceProfile, command] = identity.split("\u0000");
     if (!deviceProfile || !command) {
-      return {
-        ok: false,
-        message: tr(
-          "textfsmMappingDeleteRequired",
-          "Profile and command are required",
-        ),
-      };
+      return workspaceFailure(
+        "textfsmMappingDeleteRequired",
+        "Profile and command are required",
+      );
     }
     return runWorkspaceAction(stateStore, "delete", async () => {
       await api.deleteTextfsmMapping({
@@ -1029,18 +1020,11 @@ export function createShowObjectWorkspace(options = {}) {
   async function load() {
     return (
       await runWorkspaceAction(stateStore, "load", async () => {
-        const [profilesPayload, templatesPayload, objectsPayload] =
-          await Promise.all([
-            api.getDeviceProfilesOverview(),
-            api.listTemplateResource("/api/textfsm/templates"),
-            api.listCustomShowObjects(),
-          ]);
-        const profiles = profileNamesFromOverview(profilesPayload);
-        const templates = uniqueNames(
-          listValue(templatesPayload).map((item) => item?.name),
-        );
+        const [{ profiles, templates }, objectsPayload] = await Promise.all([
+          loadProfileTemplateReferences(api),
+          api.listCustomShowObjects(),
+        ]);
         const objects = listValue(objectsPayload).map(normalizeShowObject);
-        setCachedDeviceProfiles(profiles);
         stateStore.update((state) => ({
           ...state,
           profiles,
@@ -1115,22 +1099,16 @@ export function createShowObjectWorkspace(options = {}) {
     const state = get(stateStore);
     const form = normalizeShowObject(state.form);
     if (!form.deviceProfile || !form.object || !form.command) {
-      return {
-        ok: false,
-        message: tr(
-          "showObjectCustomRequired",
-          "Profile, object, and command are required",
-        ),
-      };
+      return workspaceFailure(
+        "showObjectCustomRequired",
+        "Profile, object, and command are required",
+      );
     }
     if (form.useMapping && !form.textfsmMappingCommand) {
-      return {
-        ok: false,
-        message: tr(
-          "showObjectMappingRequired",
-          "Select a profile command mapping",
-        ),
-      };
+      return workspaceFailure(
+        "showObjectMappingRequired",
+        "Select a profile command mapping",
+      );
     }
     return runWorkspaceAction(stateStore, "save", async () => {
       await api.saveCustomShowObject({
@@ -1166,13 +1144,10 @@ export function createShowObjectWorkspace(options = {}) {
     const identity = state.originalIdentity || showObjectIdentity(state.form);
     const [deviceProfile, object] = identity.split("\u0000");
     if (!deviceProfile || !object) {
-      return {
-        ok: false,
-        message: tr(
-          "showObjectCustomDeleteRequired",
-          "Profile and object are required",
-        ),
-      };
+      return workspaceFailure(
+        "showObjectCustomDeleteRequired",
+        "Profile and object are required",
+      );
     }
     return runWorkspaceAction(stateStore, "delete", async () => {
       await api.deleteCustomShowObject({

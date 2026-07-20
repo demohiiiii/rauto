@@ -47,42 +47,8 @@ import {
   txBlockTimelineDisplay,
 } from "./transactionBlockDisplayState.js";
 
-export * from "./transactionBlockDisplayState.js";
-
 const txPlainObject = plainObject;
 const txStringValue = stringValue;
-
-const TX_BLOCK_VISUAL_EDITOR_COVERAGE = Object.freeze({
-  root: Object.freeze({
-    component: "TxBlockRootSettingsEditor",
-    scopes: Object.freeze(["root"]),
-  }),
-  rollbackPolicy: Object.freeze({
-    component: "TxBlockRollbackPolicyEditor",
-    scopes: Object.freeze([
-      "rollback_policy",
-      "rollback_policy.whole_resource",
-      "rollback_policy.whole_resource.rollback",
-      "rollback_policy.whole_resource.rollback.command",
-      "rollback_policy.whole_resource.rollback.command.interaction",
-      "rollback_policy.whole_resource.rollback.command.prompt",
-      "rollback_policy.whole_resource.rollback.flow",
-      "rollback_policy.whole_resource.rollback.flow.step",
-    ]),
-  }),
-  steps: Object.freeze({
-    component: "TxBlockStepEditor",
-    scopes: Object.freeze([
-      "step",
-      "step.rollback",
-      "step.operation.command",
-      "step.operation.command.interaction",
-      "step.operation.command.prompt",
-      "step.operation.flow",
-      "step.operation.flow.step",
-    ]),
-  }),
-});
 
 export function txBlockVisualEditorDisplay() {
   return {
@@ -91,10 +57,6 @@ export function txBlockVisualEditorDisplay() {
     operationKindRows: TX_BLOCK_OPERATION_KIND_ROWS,
     rollbackKindRows: TX_BLOCK_ROLLBACK_KIND_ROWS,
   };
-}
-
-export function txBlockVisualEditorCoverage() {
-  return TX_BLOCK_VISUAL_EDITOR_COVERAGE;
 }
 
 export function createTxBlockVisualEditorWorkspace({
@@ -717,16 +679,7 @@ function createTxBlockCommandChildWorkspace({
 export function createTxBlockCommandInteractionEditorWorkspace(options = {}) {
   const workspace = createTxBlockCommandChildWorkspace({
     ...options,
-    bindings(command, onChange) {
-      const interactionBindings = txBlockCommandInteractionEditorBindings(
-        command,
-        onChange,
-      );
-      return {
-        ...interactionBindings,
-        promptActionHandlers: interactionBindings.promptEditorBindings,
-      };
-    },
+    bindings: txBlockCommandInteractionEditorBindings,
     display: (command, commandDisplay) =>
       commandDisplay.interactionDisplay ||
       txBlockCommandInteractionDisplay(command, TX_BLOCK_BOOLEAN_ROWS),

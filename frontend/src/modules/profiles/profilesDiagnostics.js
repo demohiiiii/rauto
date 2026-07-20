@@ -7,7 +7,7 @@ import {
   statusPresentation,
 } from "../../lib/ui.js";
 import { derived, get as getStore, writable } from "svelte/store";
-import { getCachedDeviceProfiles } from "../templates/templates.js";
+import { getCachedDeviceProfiles } from "../templates/templatesShowObjects.js";
 
 function profileValues(listRows) {
   return Array.isArray(listRows) ? listRows : [];

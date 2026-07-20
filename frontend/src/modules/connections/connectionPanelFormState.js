@@ -2,16 +2,18 @@ import { derived, get as getStore, writable } from "svelte/store";
 import { currentLanguageState } from "../../lib/i18n.js";
 import { createLoadingStateRunner } from "../../lib/svelte.js";
 import {
-  CONNECTION_PROFILE_SELECT,
   applySavedConnectionEditorDraftFromFormState,
   applyTemporaryConnectionDraftFromFormState,
   connectionBasicFieldsPresentation,
   connectionMetadataFieldsPresentation,
-  connectionProfileSelectState,
   savedConnectionEditorDraftDefaults,
   temporaryConnectionDraftDefaults,
   visibleConnectionProfileOptions,
-} from "./connectionFields.js";
+} from "./connectionFieldState.js";
+import {
+  CONNECTION_PROFILE_SELECT,
+  connectionProfileSelectState,
+} from "./connectionFieldStoreState.js";
 import {
   CONNECTION_MODAL_FOCUS_TARGET,
   savedConnectionEditorPresentation,

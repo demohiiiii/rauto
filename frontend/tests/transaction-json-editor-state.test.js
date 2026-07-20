@@ -11,7 +11,7 @@ import {
   TX_EDITOR,
 } from "../src/modules/transactions/transactionJsonEditorState.js";
 import { createOrchestratedWorkspace } from "../src/modules/orchestration/orchestratedWorkspace.js";
-import { createOrchestrationEditorPanelWorkspace } from "../src/modules/orchestration/orchestrationPanelState.js";
+import { createOrchestrationEditorPanelWorkspace } from "../src/modules/orchestration/orchestrationEditorState.js";
 import { createJsonTemplateLibrary } from "../src/modules/transactions/transactionJsonTemplateState.js";
 import { createTxWorkflowInputPanelWorkspace } from "../src/modules/transactions/transactionInputWorkspaces.js";
 import {

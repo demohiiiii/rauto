@@ -9,13 +9,8 @@ import { executeCommandFlow as executeCommandFlowRequest } from "../../api/clien
 import {
   buildFlowVarsPayload,
   ensureFlowRunTemplateDetail,
-  getCurrentFlowTemplateFieldDraft,
-  getLastFlowRunTemplateDetail,
-  loadFlowTemplates,
   parseBuiltinFlowTemplateValue,
-  setRunFlowTemplateSelectValue,
-  updateFlowTemplateVarFields,
-} from "../templates/templates.js";
+} from "../templates/templatesFlowRuntimeState.js";
 import {
   applyRecordDrawerRecording,
   recordLevelPayload,
@@ -228,43 +223,6 @@ export async function executeCommandFlow(executionSource = null) {
   } catch (error) {
     setCommandFlowExecutionResult({ kind: "error", message: error.message });
   }
-}
-
-async function loadFlowTemplateDetail() {
-  const flowForm = standardFormFields("flow");
-  const name = safeString(flowForm.templateSelection ?? "").trim();
-  if (!name) {
-    updateFlowTemplateVarFields(null, {});
-    return;
-  }
-  try {
-    await ensureFlowRunTemplateDetail(name);
-  } catch {
-    // The field renderer already displays the error.
-  }
-}
-
-export async function prepareCommandFlowOnActive() {
-  await loadFlowTemplates();
-  await loadFlowTemplateDetail();
-}
-
-export function refreshCommandFlowLanguageFields() {
-  updateFlowTemplateVarFields(
-    getLastFlowRunTemplateDetail(),
-    getCurrentFlowTemplateFieldDraft(),
-  );
-}
-
-export function setCommandFlowFields(templateSelection = "") {
-  setStandardFormFields("flow", { templateSelection });
-}
-
-export function selectCommandFlowTemplate(templateName = "") {
-  const nextName = safeString(templateName).trim();
-  setRunFlowTemplateSelectValue(nextName);
-  setCommandFlowFields(nextName);
-  void loadFlowTemplateDetail();
 }
 
 export async function exportCommandFlowExcel(exportParsedOutputSheetsExcel) {

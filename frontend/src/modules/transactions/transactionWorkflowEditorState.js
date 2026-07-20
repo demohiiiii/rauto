@@ -16,18 +16,6 @@ import {
   TX_BLOCK_BOOLEAN_ROWS,
   TX_BLOCK_JSON_VALUE_TYPE_ROWS,
 } from "./transactionBlockDisplayState.js";
-import {
-  TX_WORKFLOW_INLINE_BLOCK_METADATA_FIELD_DEFS,
-  TX_WORKFLOW_ROOT_METADATA_FIELD_DEFS,
-  TX_WORKFLOW_TEMPLATE_REF_METADATA_FIELD_DEFS,
-} from "./transactionStructure.js";
-import {
-  txExtraStringFieldRows,
-  txExtraStringPresenceChangeHandler,
-  txExtraStringValueChangeHandler,
-  txSetExtraStringFieldPresence,
-  txSetExtraStringFieldValue,
-} from "./transactionMetadataFields.js";
 
 const txPlainObject = plainObject;
 const txStringValue = stringValue;
@@ -77,31 +65,6 @@ const TX_WORKFLOW_NULLABLE_MODE_ROWS = Object.freeze([
   { value: "value", labelKey: "txBlockNullableModeValue" },
   { value: "null", labelKey: "txBlockNullableModeNull" },
 ]);
-
-const TX_WORKFLOW_VISUAL_EDITOR_COVERAGE = Object.freeze({
-  root: Object.freeze({
-    component: "TxBlockRootSettingsEditor",
-    scopes: Object.freeze(["root"]),
-  }),
-  rootExtra: Object.freeze({
-    component: "JsonObjectFieldsEditor",
-    scopes: Object.freeze(["root"]),
-  }),
-  blocks: Object.freeze({
-    component: "TxWorkflowBlockEditor",
-    scopes: Object.freeze([
-      "block",
-      "block.template_ref",
-      "block.inline.root",
-      "block.inline.step",
-      "block.inline.operation.command",
-      "block.inline.operation.command.interaction",
-      "block.inline.operation.command.prompt",
-      "block.inline.operation.flow",
-      "block.inline.operation.flow.step",
-    ]),
-  }),
-});
 
 function workflowBoolStringValue(value) {
   return value === "true" || value === true;
@@ -283,55 +246,6 @@ function txWorkflowPatchTemplateRefBlock(model, blockIndex, patch = {}) {
       ...patch,
     },
   }));
-}
-
-function txWorkflowUpdateBlockMetadata(
-  model,
-  blockIndex,
-  fieldKey,
-  updateExtra,
-) {
-  const currentBlock = txPlainObject(model?.blocks?.[blockIndex])
-    ? model.blocks[blockIndex]
-    : {};
-  if (currentBlock.sourceKind === "template_ref") {
-    const templateRef = txPlainObject(currentBlock.templateRef)
-      ? currentBlock.templateRef
-      : {};
-    return txWorkflowPatchTemplateRefBlock(model, blockIndex, {
-      extra: updateExtra(templateRef.extra, fieldKey),
-    });
-  }
-  const inlineBlock = txPlainObject(currentBlock.inlineBlock)
-    ? currentBlock.inlineBlock
-    : {};
-  return txWorkflowUpdateInlineBlock(model, blockIndex, {
-    ...inlineBlock,
-    extra: updateExtra(inlineBlock.extra, fieldKey),
-  });
-}
-
-function txWorkflowPatchBlockMetadata(model, blockIndex, fieldKey, value) {
-  return txWorkflowUpdateBlockMetadata(
-    model,
-    blockIndex,
-    fieldKey,
-    (extra, key) => txSetExtraStringFieldValue(extra, key, value),
-  );
-}
-
-function txWorkflowSetBlockMetadataPresence(
-  model,
-  blockIndex,
-  fieldKey,
-  enabled,
-) {
-  return txWorkflowUpdateBlockMetadata(
-    model,
-    blockIndex,
-    fieldKey,
-    (extra, key) => txSetExtraStringFieldPresence(extra, key, enabled),
-  );
 }
 
 export function txWorkflowSetRootFieldPresence(model = {}, field, enabled) {
@@ -579,92 +493,30 @@ export function txWorkflowTemplateRefEditorDisplay(
   };
 }
 
-export function txWorkflowTemplateRefBindings(
+export function txWorkflowTemplateRefEditorBindings(
   templateRef = {},
-  { onPatch, onSetFieldPresence, onSetVarsPresence } = {},
+  blockBindings = {},
 ) {
   const applyPatch = (patch = {}) =>
-    typeof onPatch === "function" ? onPatch(patch) : undefined;
+    typeof blockBindings.patchTemplateRef === "function"
+      ? blockBindings.patchTemplateRef(patch)
+      : undefined;
+  const setTemplateSource = (field, pairedField, value) => {
+    const nextValue = workflowNullableTextValue(value);
+    applyPatch({
+      [field]: nextValue,
+      [`has${field[0].toUpperCase()}${field.slice(1)}`]: true,
+      ...(nextValue
+        ? {
+            [pairedField]: null,
+            [`has${pairedField[0].toUpperCase()}${pairedField.slice(1)}`]: false,
+          }
+        : {}),
+    });
+  };
   return {
     setExtra(extra) {
       applyPatch({ extra });
-    },
-    setFailFast(value) {
-      applyPatch({
-        failFast: value === "true",
-        hasFailFast: true,
-      });
-    },
-    setFieldPresence(field, enabled) {
-      return typeof onSetFieldPresence === "function"
-        ? onSetFieldPresence(field, enabled)
-        : undefined;
-    },
-    setNullableField(key, hasKey, value) {
-      applyPatch({
-        [key]: workflowNullableTextValue(value),
-        [hasKey]: true,
-      });
-    },
-    setNullableFieldMode(key, mode) {
-      applyPatch(workflowNullableFieldModePatch(templateRef, key, mode));
-    },
-    setSourceMode(sourceMode) {
-      applyPatch(
-        sourceMode === "content"
-          ? {
-              txBlockTemplateName: null,
-              hasTxBlockTemplateName: false,
-            }
-          : {
-              txBlockTemplateContent: null,
-              hasTxBlockTemplateContent: false,
-            },
-      );
-    },
-    setTemplateContent(value) {
-      const nextValue = workflowNullableTextValue(value);
-      applyPatch({
-        txBlockTemplateContent: nextValue,
-        hasTxBlockTemplateContent: true,
-        ...(nextValue
-          ? {
-              txBlockTemplateName: null,
-              hasTxBlockTemplateName: false,
-            }
-          : {}),
-      });
-    },
-    setTemplateContentMode(mode) {
-      applyPatch(
-        workflowNullableFieldModePatch(
-          templateRef,
-          "txBlockTemplateContent",
-          mode,
-        ),
-      );
-    },
-    setTemplateName(value) {
-      const nextValue = workflowNullableTextValue(value);
-      applyPatch({
-        txBlockTemplateName: nextValue,
-        hasTxBlockTemplateName: true,
-        ...(nextValue
-          ? {
-              txBlockTemplateContent: null,
-              hasTxBlockTemplateContent: false,
-            }
-          : {}),
-      });
-    },
-    setTemplateNameMode(mode) {
-      applyPatch(
-        workflowNullableFieldModePatch(
-          templateRef,
-          "txBlockTemplateName",
-          mode,
-        ),
-      );
     },
     setTemplateVars(txBlockTemplateVars) {
       applyPatch({
@@ -672,98 +524,122 @@ export function txWorkflowTemplateRefBindings(
         hasTxBlockTemplateVars: true,
       });
     },
-    setVarsPresence(enabled) {
-      return typeof onSetVarsPresence === "function"
-        ? onSetVarsPresence(enabled)
-        : undefined;
-    },
-  };
-}
-
-export function txWorkflowTemplateRefEditorBindings(
-  templateRef = {},
-  blockBindings = {},
-) {
-  const bindings = txWorkflowTemplateRefBindings(templateRef, {
-    onPatch: (patch = {}) =>
-      typeof blockBindings.patchTemplateRef === "function"
-        ? blockBindings.patchTemplateRef(patch)
-        : undefined,
-    onSetFieldPresence: (field, enabled) =>
-      typeof blockBindings.setTemplateRefFieldPresence === "function"
-        ? blockBindings.setTemplateRefFieldPresence(field, enabled)
-        : undefined,
-    onSetVarsPresence: (enabled) =>
-      typeof blockBindings.setTemplateRefVarsPresence === "function"
-        ? blockBindings.setTemplateRefVarsPresence(enabled)
-        : undefined,
-  });
-  return {
-    ...bindings,
     presenceToggle(field) {
       return callbackMappedFormCheckedHandler(
-        (enabled) => bindings.setFieldPresence(field, enabled),
+        (enabled) =>
+          typeof blockBindings.setTemplateRefFieldPresence === "function"
+            ? blockBindings.setTemplateRefFieldPresence(field, enabled)
+            : undefined,
         (enabled) => enabled,
       );
     },
     nullableModeHandler(fieldKey) {
       return callbackMappedFormValueHandler(
-        (value) => bindings.setNullableFieldMode(fieldKey, value),
+        (value) =>
+          applyPatch(
+            workflowNullableFieldModePatch(templateRef, fieldKey, value),
+          ),
         (value) => value,
       );
     },
     valueHandler(fieldKey) {
       if (fieldKey === "failFast") {
         return callbackMappedFormValueHandler(
-          bindings.setFailFast,
+          (value) =>
+            applyPatch({
+              failFast: value === "true",
+              hasFailFast: true,
+            }),
           (value) => value,
         );
       }
       return callbackMappedFormValueHandler(
-        (value) => bindings.setNullableField("name", "hasName", value),
+        (value) =>
+          applyPatch({
+            name: workflowNullableTextValue(value),
+            hasName: true,
+          }),
         (value) => value,
       );
     },
     sourceModeHandler() {
       return callbackMappedFormValueHandler(
-        bindings.setSourceMode,
+        (sourceMode) =>
+          applyPatch(
+            sourceMode === "content"
+              ? {
+                  txBlockTemplateName: null,
+                  hasTxBlockTemplateName: false,
+                }
+              : {
+                  txBlockTemplateContent: null,
+                  hasTxBlockTemplateContent: false,
+                },
+          ),
         (value) => value,
       );
     },
     templateContentHandler() {
       return callbackMappedFormValueHandler(
-        bindings.setTemplateContent,
+        (value) =>
+          setTemplateSource(
+            "txBlockTemplateContent",
+            "txBlockTemplateName",
+            value,
+          ),
         (value) => value,
       );
     },
     templateContentModeHandler() {
       return callbackMappedFormValueHandler(
-        bindings.setTemplateContentMode,
+        (mode) =>
+          applyPatch(
+            workflowNullableFieldModePatch(
+              templateRef,
+              "txBlockTemplateContent",
+              mode,
+            ),
+          ),
         (value) => value,
       );
     },
     templateNameHandler() {
       return callbackMappedFormValueHandler(
-        bindings.setTemplateName,
+        (value) =>
+          setTemplateSource(
+            "txBlockTemplateName",
+            "txBlockTemplateContent",
+            value,
+          ),
         (value) => value,
       );
     },
     templateNameModeHandler() {
       return callbackMappedFormValueHandler(
-        bindings.setTemplateNameMode,
+        (mode) =>
+          applyPatch(
+            workflowNullableFieldModePatch(
+              templateRef,
+              "txBlockTemplateName",
+              mode,
+            ),
+          ),
         (value) => value,
       );
     },
     varsToggle() {
       return callbackMappedFormCheckedHandler(
-        bindings.setVarsPresence,
+        (enabled) =>
+          typeof blockBindings.setTemplateRefVarsPresence === "function"
+            ? blockBindings.setTemplateRefVarsPresence(enabled)
+            : undefined,
         (enabled) => enabled,
       );
     },
   };
 }
 
-export function txWorkflowEditorBindings(model, onChange) {
+function txWorkflowEditorBindings(model, onChange) {
   const applyChange = (nextModel) => workflowApplyChange(onChange, nextModel);
   return {
     addBlock() {
@@ -781,29 +657,11 @@ export function txWorkflowEditorBindings(model, onChange) {
     removeBlock(blockIndex) {
       applyChange(txWorkflowRemoveBlock(model, blockIndex));
     },
-    setBlockMetadataPresence(blockIndex, fieldKey, enabled) {
-      applyChange(
-        txWorkflowSetBlockMetadataPresence(
-          model,
-          blockIndex,
-          fieldKey,
-          enabled,
-        ),
-      );
-    },
-    setBlockMetadataValue(blockIndex, fieldKey, value) {
-      applyChange(
-        txWorkflowPatchBlockMetadata(model, blockIndex, fieldKey, value),
-      );
-    },
     setBlockSource(blockIndex, sourceKind) {
       applyChange(txWorkflowChangeBlockSource(model, blockIndex, sourceKind));
     },
     setInlineBlock(blockIndex, inlineBlock) {
       applyChange(txWorkflowUpdateInlineBlock(model, blockIndex, inlineBlock));
-    },
-    setRootExtra(extra) {
-      applyChange(txWorkflowChangeRoot(model, "extra", extra));
     },
     setRootFieldPresence(field, enabled) {
       applyChange(txWorkflowSetRootFieldPresence(model, field, enabled));
@@ -829,7 +687,7 @@ export function txWorkflowEditorBindings(model, onChange) {
   };
 }
 
-export function txWorkflowBlockBindings(model, onChange, blockIndex) {
+function txWorkflowBlockBindings(model, onChange, blockIndex) {
   const bindings = txWorkflowEditorBindings(model, onChange);
   return {
     patchTemplateRef(patch = {}) {
@@ -837,12 +695,6 @@ export function txWorkflowBlockBindings(model, onChange, blockIndex) {
     },
     remove() {
       bindings.removeBlock(blockIndex);
-    },
-    setMetadataPresence(fieldKey, enabled) {
-      bindings.setBlockMetadataPresence(blockIndex, fieldKey, enabled);
-    },
-    setMetadataValue(fieldKey, value) {
-      bindings.setBlockMetadataValue(blockIndex, fieldKey, value);
     },
     setSource(sourceKind) {
       bindings.setBlockSource(blockIndex, sourceKind);
@@ -889,28 +741,7 @@ export function txWorkflowVisualEditorBindings(model, onChange) {
         (value) => value,
       );
     },
-    extraPresenceHandler(fieldKey) {
-      return txExtraStringPresenceChangeHandler(
-        bindings.setRootExtra,
-        () => model?.extra,
-        fieldKey,
-      );
-    },
-    extraValueHandler(fieldKey) {
-      return txExtraStringValueChangeHandler(
-        bindings.setRootExtra,
-        () => model?.extra,
-        fieldKey,
-      );
-    },
-    setRootExtra(extra) {
-      bindings.setRootExtra(extra);
-    },
   };
-}
-
-export function txWorkflowVisualEditorCoverage() {
-  return TX_WORKFLOW_VISUAL_EDITOR_COVERAGE;
 }
 
 export function txWorkflowBlockEditorBindings(
@@ -918,18 +749,6 @@ export function txWorkflowBlockEditorBindings(
   blockBindings = {},
 ) {
   return {
-    blockMetadataPresenceHandler(fieldKey) {
-      return (enabled) =>
-        typeof blockBindings.setMetadataPresence === "function"
-          ? blockBindings.setMetadataPresence(fieldKey, enabled)
-          : undefined;
-    },
-    blockMetadataValueHandler(fieldKey) {
-      return (value) =>
-        typeof blockBindings.setMetadataValue === "function"
-          ? blockBindings.setMetadataValue(fieldKey, value)
-          : undefined;
-    },
     templateRefBindings: txWorkflowTemplateRefEditorBindings(
       blockRow?.block?.templateRef,
       blockBindings,
@@ -946,28 +765,10 @@ export function txWorkflowVisualEditorDisplay(model = {}) {
     ).map((block, blockIndex) => {
       const blockValue = txPlainObject(block) ? block : {};
       const isTemplateRef = blockValue.sourceKind === "template_ref";
-      const metadataExtraSource = isTemplateRef
-        ? txPlainObject(blockValue.templateRef)
-          ? txPlainObject(blockValue.templateRef.extra)
-            ? blockValue.templateRef.extra
-            : {}
-          : {}
-        : txPlainObject(blockValue.inlineBlock)
-          ? txPlainObject(blockValue.inlineBlock.extra)
-            ? blockValue.inlineBlock.extra
-            : {}
-          : {};
       return {
         block: blockValue,
         blockIndex,
         fieldRows: txWorkflowBlockFieldsDisplay(blockValue),
-        metadataExtraSource,
-        metadataFieldRows: txExtraStringFieldRows(
-          metadataExtraSource,
-          isTemplateRef
-            ? TX_WORKFLOW_TEMPLATE_REF_METADATA_FIELD_DEFS
-            : TX_WORKFLOW_INLINE_BLOCK_METADATA_FIELD_DEFS,
-        ),
         showInlineBlock: !isTemplateRef,
         showTemplateRef: isTemplateRef,
         titleText: `${t("txWorkflowFormBlock")} ${blockIndex + 1}`,
@@ -980,12 +781,5 @@ export function txWorkflowVisualEditorDisplay(model = {}) {
       workflowValue,
       TX_BLOCK_BOOLEAN_ROWS,
     ),
-    rootMetadataFieldRows: txExtraStringFieldRows(
-      workflowValue.extra,
-      TX_WORKFLOW_ROOT_METADATA_FIELD_DEFS,
-    ),
-    rootMetadataSource: txPlainObject(workflowValue.extra)
-      ? workflowValue.extra
-      : {},
   };
 }

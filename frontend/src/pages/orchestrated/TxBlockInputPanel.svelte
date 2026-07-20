@@ -7,15 +7,15 @@
   import { txBlockReadonlyEditorViewTabs } from "../../config/dashboardModes.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { MANUAL_COMMAND_SOURCE } from "../../modules/command/commandTemplateCatalog.js";
+  import {
+    transactionEditorSyncPresentation,
+    txBlockVarsPlaceholder,
+  } from "../../modules/transactions/transactionInputState.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
   import TxBlockPreviewPanel from "./TxBlockPreviewPanel.svelte";
-  import {
-    createTxBlockInputPanelWorkspace,
-    transactionEditorSyncPresentation,
-    txBlockVarsPlaceholder,
-  } from "../../modules/transactions/transactionInputWorkspaces.js";
+  import { createTxBlockInputPanelWorkspace } from "../../modules/transactions/transactionInputWorkspaces.js";
   import { txBlockFormModelToJsonText } from "../../modules/transactions/transactionBlockFormModels.js";
   import { txBlockPreviewPresentation } from "../../modules/transactions/transactionExecutionDisplays.js";
 

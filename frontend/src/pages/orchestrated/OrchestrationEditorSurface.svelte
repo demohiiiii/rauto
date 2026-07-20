@@ -13,7 +13,7 @@
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import WorkspaceTemplateActions from "../../components/fragments/WorkspaceTemplateActions.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { orchestrationPlanFormModelToJsonText } from "../../modules/orchestration/orchestrationFormState.js";
+  import { orchestrationPlanFormModelToJsonText } from "../../modules/orchestration/orchestrationPlanFormModels.js";
   import { TX_EDITOR } from "../../modules/transactions/transactionPanelState.js";
   import OrchestrationExecutionPanel from "./OrchestrationExecutionPanel.svelte";
   import OrchestrationPlanFormEditor from "./OrchestrationPlanFormEditor.svelte";

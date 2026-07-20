@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildFlowVarsPayload,
-  flowVarsPresentation,
   getCurrentFlowTemplateFieldDraft,
   setFlowVarDraftValue,
   updateFlowTemplateVarFields,
-} from "../src/modules/templates/templates.js";
+} from "../src/modules/templates/templatesFlowRuntimeState.js";
+import { flowVarsPresentation } from "../src/modules/templates/templatesFlowDisplayState.js";
 
 const runtimeSchema = [
   {

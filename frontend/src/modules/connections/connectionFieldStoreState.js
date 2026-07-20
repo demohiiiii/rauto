@@ -36,45 +36,31 @@ const CONNECTION_VARS_ROW_KEY_PREFIX = Object.freeze({
   [CONNECTION_VARS.saved]: "connectionVarsSaved",
   [CONNECTION_VARS.savedEdit]: "connectionVarsSavedEdit",
 });
+const pickerConfigs = (kind, keys, options = {}) =>
+  Object.fromEntries(keys.map((key) => [key, { kind, ...options }]));
 const CONNECTION_PICKER_CONFIGS = {
-  [CONNECTION_PICKER.savedLabels]: {
-    kind: "labels",
-  },
-  [CONNECTION_PICKER.savedEditLabels]: {
-    kind: "labels",
-  },
-  [CONNECTION_PICKER.savedGroups]: {
-    kind: "groups",
-  },
-  [CONNECTION_PICKER.savedEditGroups]: {
-    kind: "groups",
-  },
-  [CONNECTION_PICKER.batchShowTargets]: {
-    kind: "devices",
-  },
-  [CONNECTION_PICKER.batchShowGroups]: {
-    kind: "groups",
-  },
-  [CONNECTION_PICKER.batchShowLabels]: {
-    kind: "labels",
-  },
-  [CONNECTION_PICKER.orchestrationTargetGroups]: {
-    kind: "groups",
-  },
-  [CONNECTION_PICKER.orchestrationTargetTags]: {
-    kind: "labels",
+  ...pickerConfigs("labels", [
+    CONNECTION_PICKER.savedLabels,
+    CONNECTION_PICKER.savedEditLabels,
+    CONNECTION_PICKER.batchShowLabels,
+  ]),
+  ...pickerConfigs("groups", [
+    CONNECTION_PICKER.savedGroups,
+    CONNECTION_PICKER.savedEditGroups,
+    CONNECTION_PICKER.batchShowGroups,
+    CONNECTION_PICKER.orchestrationTargetGroups,
+  ]),
+  ...pickerConfigs("devices", [CONNECTION_PICKER.batchShowTargets]),
+  ...pickerConfigs("labels", [CONNECTION_PICKER.orchestrationTargetTags], {
     allowCustom: false,
-  },
-  [CONNECTION_PICKER.orchestrationTargets]: {
-    kind: "devices",
+  }),
+  ...pickerConfigs("devices", [CONNECTION_PICKER.orchestrationTargets], {
     allowCustom: false,
-  },
-  [CONNECTION_PICKER.showObject]: {
-    kind: "show-objects",
-  },
-  [CONNECTION_PICKER.batchShowObject]: {
-    kind: "show-objects",
-  },
+  }),
+  ...pickerConfigs("show-objects", [
+    CONNECTION_PICKER.showObject,
+    CONNECTION_PICKER.batchShowObject,
+  ]),
 };
 
 const connectionPickerValueState = new Map();
@@ -460,6 +446,17 @@ function connectionVarsStoreFor(key) {
   return connectionVarsStates.get(varsKey);
 }
 
+function publishConnectionVarsState(key, connectionVarRows, connectionVars) {
+  const varsKey = normalizeConnectionVarsKey(key);
+  connectionVarsStoreFor(varsKey).update((state) => ({
+    ...state,
+    connectionVarRows,
+    connectionVars,
+    hasConnectionVarRows: connectionVarRows.length > 0,
+    version: (state?.version || 0) + 1,
+  }));
+}
+
 function setConnectionVarRows(key, connectionVarRows = []) {
   const varsKey = normalizeConnectionVarsKey(key);
   const normalizedRows = Array.isArray(connectionVarRows)
@@ -469,13 +466,7 @@ function setConnectionVarRows(key, connectionVarRows = []) {
     strict: false,
   });
   setConnectionVarsState(varsKey, connectionVars);
-  connectionVarsStoreFor(varsKey).update((state) => ({
-    ...state,
-    connectionVarRows: normalizedRows,
-    connectionVars,
-    hasConnectionVarRows: normalizedRows.length > 0,
-    version: (state?.version || 0) + 1,
-  }));
+  publishConnectionVarsState(varsKey, normalizedRows, connectionVars);
   return true;
 }
 
@@ -687,26 +678,22 @@ export function commitConnectionPickerSelection(key, rawInput = "") {
   return commitConnectionPickerInput(key, rawInput);
 }
 
-export function refreshSavedConnectionGroupOptions(selectedValues = null) {
-  refreshConnectionGroupsForPicker(
-    CONNECTION_PICKER.savedGroups,
-    selectedValues,
-  );
-  refreshConnectionGroupsForPicker(
-    CONNECTION_PICKER.savedEditGroups,
-    selectedValues,
+function refreshSavedPickerOptions(kind, selectedValues = null) {
+  const pickerKeys =
+    kind === "groups"
+      ? [CONNECTION_PICKER.savedGroups, CONNECTION_PICKER.savedEditGroups]
+      : [CONNECTION_PICKER.savedLabels, CONNECTION_PICKER.savedEditLabels];
+  pickerKeys.forEach((pickerKey) =>
+    refreshConnectionGroupsForPicker(pickerKey, selectedValues),
   );
 }
 
+export function refreshSavedConnectionGroupOptions(selectedValues = null) {
+  refreshSavedPickerOptions("groups", selectedValues);
+}
+
 export function refreshSavedConnectionLabelOptions(selectedValues = null) {
-  refreshConnectionGroupsForPicker(
-    CONNECTION_PICKER.savedLabels,
-    selectedValues,
-  );
-  refreshConnectionGroupsForPicker(
-    CONNECTION_PICKER.savedEditLabels,
-    selectedValues,
-  );
+  refreshSavedPickerOptions("labels", selectedValues);
 }
 
 export function setConnectionInventorySnapshots({ groups, labels } = {}) {
@@ -758,13 +745,11 @@ export function setConnectionVarsValue(key, vars = {}) {
     varsKey,
     normalizedConnectionVars,
   );
-  connectionVarsStoreFor(varsKey).update((state) => ({
-    ...state,
+  publishConnectionVarsState(
+    varsKey,
     connectionVarRows,
-    connectionVars: normalizedConnectionVars,
-    hasConnectionVarRows: connectionVarRows.length > 0,
-    version: (state?.version || 0) + 1,
-  }));
+    normalizedConnectionVars,
+  );
   return normalizedConnectionVars;
 }
 

@@ -39,83 +39,8 @@ export function orchestrationJsonPatchResult(
   }
 }
 
-export function orchestrationJsonObjectPatchResult(
-  currentModel,
-  jsonText,
-  applyParsedValue,
-) {
-  return orchestrationJsonPatchResult(
-    currentModel,
-    jsonText,
-    {},
-    applyParsedValue,
-  );
-}
-
 export function orchestrationConnectionTextValue(value) {
   return value == null ? null : String(value);
-}
-
-export function orchestrationNullableTextValue(value) {
-  return value || null;
-}
-
-function orchestrationNullableModeValue(value = "") {
-  return value === "null" ? "null" : "value";
-}
-
-function orchestrationPresenceFlag(field) {
-  return `has${field[0].toUpperCase()}${field.slice(1)}`;
-}
-
-export function orchestrationNullableFieldModePatch(
-  model = {},
-  field,
-  mode,
-  fallback = "",
-) {
-  const hasKey = orchestrationPresenceFlag(field);
-  if (orchestrationNullableModeValue(mode) === "null") {
-    return {
-      [field]: null,
-      [hasKey]: true,
-    };
-  }
-  return {
-    [field]:
-      model?.[field] == null ? String(fallback ?? "") : String(model[field]),
-    [hasKey]: true,
-  };
-}
-
-export function orchestrationToggleNullableFieldPresence(
-  model = {},
-  field,
-  enabled,
-) {
-  const hasKey = orchestrationPresenceFlag(field);
-  return {
-    ...model,
-    [field]: enabled ? (model?.[field] ?? null) : null,
-    [hasKey]: enabled,
-  };
-}
-
-export function orchestrationToggleObjectFieldPresence(
-  model = {},
-  field,
-  enabled,
-) {
-  const hasKey = orchestrationPresenceFlag(field);
-  return {
-    ...model,
-    [field]: enabled
-      ? orchestrationPlainObject(model?.[field])
-        ? cloneOrchestrationJsonValue(model[field], {})
-        : {}
-      : {},
-    [hasKey]: enabled,
-  };
 }
 
 export function orchestrationObjectExtra(source, knownKeys) {

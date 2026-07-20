@@ -1,5 +1,5 @@
 import { getProfileModes } from "../../api/client.js";
-import { getCachedDeviceProfiles } from "../templates/templates.js";
+import { getCachedDeviceProfiles } from "../templates/templatesShowObjects.js";
 import { safeString } from "../../lib/ui.js";
 import { t } from "../../lib/i18n.js";
 import {

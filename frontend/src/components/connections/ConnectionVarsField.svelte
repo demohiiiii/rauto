@@ -3,10 +3,8 @@
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import StringSelectField from "../fragments/StringSelectField.svelte";
   import TypeValueSelectField from "../fragments/TypeValueSelectField.svelte";
-  import {
-    connectionVarsState,
-    createConnectionVarsFieldWorkspace,
-  } from "../../modules/connections/connectionFields.js";
+  import { createConnectionVarsFieldWorkspace } from "../../modules/connections/connectionFieldState.js";
+  import { connectionVarsState } from "../../modules/connections/connectionFieldStoreState.js";
 
   let { active, keyName, labelTextKey, onVarsChange } = $props();
   const connectionVarsFieldWorkspace = createConnectionVarsFieldWorkspace();

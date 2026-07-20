@@ -9,9 +9,9 @@
   import {
     createOrchestrationEditorPanelWorkspace,
     orchestrationJsonPlaceholder,
-  } from "../../modules/orchestration/orchestrationPanelState.js";
-  import { orchestrationPlanFormModelFromJsonText } from "../../modules/orchestration/orchestrationFormState.js";
-  import { setConnectionInventorySnapshots } from "../../modules/connections/connectionFields.js";
+  } from "../../modules/orchestration/orchestrationEditorState.js";
+  import { orchestrationPlanFormModelFromJsonText } from "../../modules/orchestration/orchestrationPlanFormModels.js";
+  import { setConnectionInventorySnapshots } from "../../modules/connections/connectionFieldStoreState.js";
   import { createOrchestrationTemplateWorkspace } from "../../modules/orchestration/orchestrationTemplateWorkspace.js";
   import OrchestrationEditorSurface from "./OrchestrationEditorSurface.svelte";
 

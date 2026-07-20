@@ -22,14 +22,14 @@ import {
 } from "../../config/dashboardModes.js";
 import {
   flowVarsFieldState,
-  flowVarsPresentation,
   getCurrentFlowTemplateFieldDraft,
   loadFlowTemplates,
   parseBuiltinFlowTemplateValue,
   runFlowTemplateSelectState,
   setFlowVarDraftValue,
   updateFlowTemplateVarFields,
-} from "../templates/templates.js";
+} from "../templates/templatesFlowRuntimeState.js";
+import { flowVarsPresentation } from "../templates/templatesFlowDisplayState.js";
 import { createStandardCommandFlowAuthoringState } from "./standardCommandFlowAuthoringState.js";
 import {
   MODE_SELECT,
@@ -39,7 +39,6 @@ import {
 } from "../profiles/profiles.js";
 import {
   executionResultDisplay,
-  exportParsedOutputItemExcel,
   exportParsedOutputSheetsExcel,
   parsedOutputBlockDisplayFromItem,
   parsedOutputSheetsFromParsedOutputItems,
@@ -58,24 +57,7 @@ import {
   setStandardTextfsmTemplate,
 } from "./standardExecutionState.js";
 
-export {
-  flowVarsFieldState as standardFlowVarsFieldState,
-  flowVarsPresentation as standardFlowVarsPresentation,
-  runFlowTemplateSelectState as standardRunFlowTemplateSelectState,
-  setFlowVarDraftValue as setStandardFlowVarDraftValue,
-} from "../templates/templates.js";
-
-export {
-  executionConnectionProfileState as standardExecutionConnectionProfileState,
-  MODE_SELECT as STANDARD_MODE_SELECT,
-  modeSelection as standardModeSelection,
-  TEXTFSM_PLATFORM_SELECT as STANDARD_TEXTFSM_PLATFORM_SELECT,
-  textfsmPlatformSelection as standardTextfsmPlatformSelection,
-} from "../profiles/profiles.js";
-export { refreshStandardExecutionModeOptions } from "./standardExecutionState.js";
-
 const standardExecutionResultDisplay = executionResultDisplay;
-export const exportStandardParsedOutputItemExcel = exportParsedOutputItemExcel;
 
 const standardExecModePresentation = (mode = "") => ({
   directActive: normalizeStandardExecMode(mode) === STANDARD_EXEC_MODE.direct,
