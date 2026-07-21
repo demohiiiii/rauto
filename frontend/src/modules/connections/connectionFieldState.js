@@ -63,6 +63,8 @@ const CONNECTION_DRAFT_FIELDS = [
 ];
 const SAVED_CONNECTION_EDITOR_DRAFT_FIELDS = [
   ["name", "name"],
+  ["device_model", "deviceModel"],
+  ["software_version", "softwareVersion"],
   ...CONNECTION_DRAFT_FIELDS,
 ];
 
@@ -135,6 +137,7 @@ export function connectionBasicFieldsPresentation({
     connectTimeoutSecsInput: connectionInputDisplay(
       "connectTimeoutSecsPlaceholder",
     ),
+    deviceModelInput: connectionInputDisplay("deviceModelPlaceholder"),
     deviceProfileSelect: {
       ariaLabelText: deviceProfileTitle,
       deviceProfileOptionRows: [
@@ -167,9 +170,11 @@ export function connectionBasicFieldsPresentation({
       ),
       title: sshSecurityTitle,
     },
+    softwareVersionInput: connectionInputDisplay("softwareVersionPlaceholder"),
     usernameInput: connectionInputDisplay("usernamePlaceholder"),
     values: {
       connectTimeoutSecs: displayString(fieldValues.connectTimeoutSecs),
+      deviceModel: displayString(fieldValues.deviceModel),
       deviceProfile: displayString(fieldValues.deviceProfile),
       enablePassword: displayString(fieldValues.enablePassword),
       host: displayString(fieldValues.host),
@@ -177,13 +182,18 @@ export function connectionBasicFieldsPresentation({
       password: displayString(fieldValues.password),
       port: displayString(fieldValues.port),
       sshSecurity: displayString(fieldValues.sshSecurity),
+      softwareVersion: displayString(fieldValues.softwareVersion),
       username: displayString(fieldValues.username),
     },
   };
 }
 
 export function savedConnectionEditorDraftDefaults() {
-  return connectionDraftDefaults({ name: "" });
+  return connectionDraftDefaults({
+    deviceModel: "",
+    name: "",
+    softwareVersion: "",
+  });
 }
 
 export function temporaryConnectionDraftDefaults() {

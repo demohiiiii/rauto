@@ -30,7 +30,6 @@ import {
 import {
   detectSavedConnectionProfile,
   hideSavedConnectionEditorModal,
-  replaceSavedConnectionProfileWithDetected,
   savedConnectionAutodetectState,
   savedConnectionEditorBasicFieldWiring,
   savedConnectionEditorFormStateStore,
@@ -46,7 +45,6 @@ export function createSavedConnectionEditorWorkspace() {
     CONNECTION_PROFILE_SELECT.editor,
   );
   const loadingStateStore = writable({
-    applyDetectedProfileLoading: false,
     detectProfileLoading: false,
     saveLoading: false,
   });
@@ -56,7 +54,6 @@ export function createSavedConnectionEditorWorkspace() {
     {
       setKeys(keys) {
         loadingStateStore.set({
-          applyDetectedProfileLoading: keys.includes("apply-detected-profile"),
           detectProfileLoading: keys.includes("detect-profile"),
           saveLoading: keys.includes("save"),
         });
@@ -83,6 +80,11 @@ export function createSavedConnectionEditorWorkspace() {
 
   function onSavedEditorDeviceProfileChange(fieldValue) {
     savedEditorFieldWiring.onDeviceProfileChange(fieldValue);
+    publishEditorDraft();
+  }
+
+  function onSavedEditorDeviceModelInput(fieldValue) {
+    savedEditorFieldWiring.onDeviceModelInput(fieldValue);
     publishEditorDraft();
   }
 
@@ -118,6 +120,11 @@ export function createSavedConnectionEditorWorkspace() {
 
   function onSavedEditorSshSecurityChange(fieldValue) {
     savedEditorFieldWiring.onSshSecurityChange(fieldValue);
+    publishEditorDraft();
+  }
+
+  function onSavedEditorSoftwareVersionInput(fieldValue) {
+    savedEditorFieldWiring.onSoftwareVersionInput(fieldValue);
     publishEditorDraft();
   }
 
@@ -174,15 +181,8 @@ export function createSavedConnectionEditorWorkspace() {
   async function detectProfile() {
     return savedConnectionEditorLoadingRunner.run(
       "detect-profile",
-      detectSavedConnectionProfile,
-    );
-  }
-
-  async function applyDetectedProfile() {
-    return savedConnectionEditorLoadingRunner.run(
-      "apply-detected-profile",
       async () => {
-        await replaceSavedConnectionProfileWithDetected();
+        await detectSavedConnectionProfile();
         applyEditorDraftFromFormState(
           getStore(savedConnectionEditorFormStateStore),
         );
@@ -205,7 +205,6 @@ export function createSavedConnectionEditorWorkspace() {
   }
 
   return {
-    applyDetectedProfile,
     basicFieldsDisplayStateStore,
     closeEditor: hideSavedConnectionEditorModal,
     detectProfile,
@@ -214,6 +213,7 @@ export function createSavedConnectionEditorWorkspace() {
     metadataFieldsDisplayStateStore,
     onSavedEditorConnectTimeoutSecsInput,
     onSavedEditorDeviceProfileChange,
+    onSavedEditorDeviceModelInput,
     onSavedEditorEnablePasswordInput,
     onSavedEditorHostInput,
     onSavedEditorLinuxShellFlavorChange,
@@ -221,6 +221,7 @@ export function createSavedConnectionEditorWorkspace() {
     onSavedEditorPasswordInput,
     onSavedEditorPortInput,
     onSavedEditorSshSecurityChange,
+    onSavedEditorSoftwareVersionInput,
     onSavedEditorUsernameInput,
     savedConnectionEditorLoadingStateStore: loadingStateStore,
     saveConnection,

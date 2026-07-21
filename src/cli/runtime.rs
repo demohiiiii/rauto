@@ -240,6 +240,8 @@ pub(crate) fn save_named_connection(name: &str, conn: &EffectiveConnection) -> R
         password_ref: None,
         port: Some(conn.port),
         connect_timeout_secs: conn.connect_timeout_secs,
+        device_model: None,
+        software_version: None,
         enable_password: conn.enable_password.clone(),
         enable_password_ref: None,
         enable_password_empty_enter: conn.enable_password == Some(String::new()),

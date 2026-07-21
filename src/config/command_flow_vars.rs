@@ -418,6 +418,8 @@ mod tests {
             password_ref: None,
             port: Some(22),
             connect_timeout_secs: None,
+            device_model: None,
+            software_version: None,
             enable_password: None,
             enable_password_ref: None,
             enable_password_empty_enter: false,

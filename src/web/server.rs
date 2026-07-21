@@ -13,7 +13,7 @@ use crate::web::handlers::{
     delete_connection_history, delete_custom_profile, delete_custom_show_object,
     delete_inventory_group, delete_inventory_label, delete_orchestration_template, delete_template,
     delete_textfsm_mapping, delete_textfsm_template, delete_tx_block_template,
-    delete_tx_workflow_template, diagnose_profile, download_backup,
+    delete_tx_workflow_template, detect_connection_facts, diagnose_profile, download_backup,
     download_connection_import_template, exec_command, exec_command_async, execute_command_flow,
     execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
     execute_template, execute_template_async, execute_tx_block, execute_tx_block_async,
@@ -254,6 +254,10 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             get(get_connection_history_detail).delete(delete_connection_history),
         )
         .route("/api/connection/test", post(test_connection))
+        .route(
+            "/api/connection/detect-facts",
+            post(detect_connection_facts),
+        )
         .route("/api/exec", post(exec_command))
         .route("/api/show/objects", get(list_show_objects))
         .route(

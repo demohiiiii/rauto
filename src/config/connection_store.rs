@@ -26,6 +26,10 @@ pub struct SavedConnection {
     pub port: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub connect_timeout_secs: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub software_version: Option<String>,
     pub enable_password: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enable_password_ref: Option<String>,
@@ -138,7 +142,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     db::run_sync(async move {
         let row = sqlx::query(
             r#"
-            SELECT host, username, password_ref, port, connect_timeout_secs, enable_password_ref, ssh_security, linux_shell_flavor, device_profile, template_dir
+            SELECT host, username, password_ref, port, connect_timeout_secs, device_model, software_version, enable_password_ref, ssh_security, linux_shell_flavor, device_profile, template_dir
                  , enabled, labels_json, vars_json, enable_password_empty_enter
             FROM connections
             WHERE name = ?
@@ -167,6 +171,8 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
                         .ok_or_else(|| anyhow!("connect_timeout_secs must be positive"))
                 })
                 .transpose()?,
+            device_model: row.try_get("device_model")?,
+            software_version: row.try_get("software_version")?,
             enable_password: None,
             enable_password_ref: row.try_get("enable_password_ref")?,
             enable_password_empty_enter: row
@@ -322,17 +328,19 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         sqlx::query(
             r#"
             INSERT INTO connections (
-                name, host, username, password_ref, port, connect_timeout_secs, enable_password_ref, ssh_security, linux_shell_flavor,
+                name, host, username, password_ref, port, connect_timeout_secs, device_model, software_version, enable_password_ref, ssh_security, linux_shell_flavor,
                 device_profile, template_dir, enabled, labels_json, vars_json, enable_password_empty_enter,
                 created_at_ms, updated_at_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
                 username = excluded.username,
                 password_ref = excluded.password_ref,
                 port = excluded.port,
                 connect_timeout_secs = excluded.connect_timeout_secs,
+                device_model = excluded.device_model,
+                software_version = excluded.software_version,
                 enable_password_ref = excluded.enable_password_ref,
                 ssh_security = excluded.ssh_security,
                 linux_shell_flavor = excluded.linux_shell_flavor,
@@ -351,6 +359,8 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(&stored.password_ref)
         .bind(stored.port.map(i64::from))
         .bind(stored.connect_timeout_secs.map(|value| value as i64))
+        .bind(&stored.device_model)
+        .bind(&stored.software_version)
         .bind(&stored.enable_password_ref)
         .bind(stored.ssh_security.map(|value| value.to_string()))
         .bind(stored.linux_shell_flavor.map(|value| value.to_string()))
@@ -512,6 +522,8 @@ mod tests {
                 password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: Some(19),
+                device_model: Some("C9300-48P".to_string()),
+                software_version: Some("17.9.5".to_string()),
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -529,6 +541,8 @@ mod tests {
         let loaded = load_connection(name)?;
         assert_eq!(loaded.password.as_deref(), Some("secret-123"));
         assert_eq!(loaded.connect_timeout_secs, Some(19));
+        assert_eq!(loaded.device_model.as_deref(), Some("C9300-48P"));
+        assert_eq!(loaded.software_version.as_deref(), Some("17.9.5"));
         assert!(has_saved_password(&loaded));
         Ok(())
     }
@@ -549,6 +563,8 @@ mod tests {
                 password_ref: None,
                 port: Some(2222),
                 connect_timeout_secs: None,
+                device_model: None,
+                software_version: None,
                 enable_password: Some("enable-me".to_string()),
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -608,6 +624,8 @@ mod tests {
                 password_ref: Some("connection/conn_store_invalid_secret/password".to_string()),
                 port: Some(22),
                 connect_timeout_secs: None,
+                device_model: None,
+                software_version: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -648,6 +666,8 @@ mod tests {
                 password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: None,
+                device_model: None,
+                software_version: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -670,6 +690,8 @@ mod tests {
                 password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: None,
+                device_model: None,
+                software_version: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -707,6 +729,8 @@ mod tests {
                 password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: None,
+                device_model: None,
+                software_version: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -729,6 +753,8 @@ mod tests {
                 password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: None,
+                device_model: None,
+                software_version: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,

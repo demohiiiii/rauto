@@ -51,6 +51,8 @@ enum ColumnKey {
     Password,
     Port,
     ConnectTimeoutSecs,
+    DeviceModel,
+    SoftwareVersion,
     EnablePassword,
     SshSecurity,
     LinuxShellFlavor,
@@ -157,6 +159,12 @@ fn merge_with_existing(
         connect_timeout_secs: incoming
             .connect_timeout_secs
             .or_else(|| existing.and_then(|item| item.connect_timeout_secs)),
+        device_model: incoming
+            .device_model
+            .or_else(|| existing.and_then(|item| item.device_model.clone())),
+        software_version: incoming
+            .software_version
+            .or_else(|| existing.and_then(|item| item.software_version.clone())),
         enable_password: incoming.enable_password,
         enable_password_ref: if incoming_enable_password.is_some() {
             None
@@ -242,6 +250,39 @@ mod tests {
     }
 
     #[test]
+    fn device_fact_headers_and_values_are_parsed() {
+        let mapping = build_header_mapping(&[
+            "host".to_string(),
+            "device_model".to_string(),
+            "software_version".to_string(),
+        ])
+        .expect("headers should be recognized");
+        assert_eq!(mapping.get(&1), Some(&ColumnKey::DeviceModel));
+        assert_eq!(mapping.get(&2), Some(&ColumnKey::SoftwareVersion));
+
+        let row = parse_row(
+            2,
+            &mapping,
+            &[
+                "10.0.0.2".to_string(),
+                "WS-C2960X-48FPS-L".to_string(),
+                "15.2(7)E10".to_string(),
+            ],
+            &mut HashSet::new(),
+        )
+        .expect("row parses")
+        .expect("row exists");
+        assert_eq!(
+            row.connection.device_model.as_deref(),
+            Some("WS-C2960X-48FPS-L")
+        );
+        assert_eq!(
+            row.connection.software_version.as_deref(),
+            Some("15.2(7)E10")
+        );
+    }
+
+    #[test]
     fn zero_connection_timeout_is_rejected() {
         let mapping =
             build_header_mapping(&["host".to_string(), "connect_timeout_secs".to_string()])
@@ -273,6 +314,8 @@ mod tests {
             password_ref: Some("enc:v1:AAAA".to_string()),
             port: Some(22),
             connect_timeout_secs: Some(30),
+            device_model: Some("C9300-48P".to_string()),
+            software_version: Some("17.9.5".to_string()),
             enable_password: None,
             enable_password_ref: Some("enc:v1:BBBB".to_string()),
             enable_password_empty_enter: false,
@@ -294,6 +337,8 @@ mod tests {
                 password_ref: None,
                 port: None,
                 connect_timeout_secs: None,
+                device_model: None,
+                software_version: None,
                 enable_password: None,
                 enable_password_ref: None,
                 enable_password_empty_enter: false,
@@ -311,6 +356,8 @@ mod tests {
         assert_eq!(merged.password_ref.as_deref(), Some("enc:v1:AAAA"));
         assert_eq!(merged.enable_password_ref.as_deref(), Some("enc:v1:BBBB"));
         assert_eq!(merged.host.as_deref(), Some("192.0.2.1"));
+        assert_eq!(merged.device_model.as_deref(), Some("C9300-48P"));
+        assert_eq!(merged.software_version.as_deref(), Some("17.9.5"));
     }
 
     #[test]

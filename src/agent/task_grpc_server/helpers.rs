@@ -109,6 +109,8 @@ fn map_connection_ref(
         password: optional_string(connection.password),
         port: connection.port.map(|value| value as u16),
         connect_timeout_secs: None,
+        device_model: optional_string(connection.device_model),
+        software_version: optional_string(connection.software_version),
         enable_password: optional_string(connection.enable_password),
         enable_password_empty_enter: connection.enable_password_empty_enter,
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
@@ -392,6 +394,8 @@ pub(super) fn connection_ref_to_request(
         password: optional_string(connection.password),
         port: connection.port.map(|value| value as u16),
         connect_timeout_secs: None,
+        device_model: optional_string(connection.device_model),
+        software_version: optional_string(connection.software_version),
         enable_password: optional_string(connection.enable_password),
         enable_password_empty_enter: connection.enable_password_empty_enter,
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
@@ -432,6 +436,8 @@ pub(super) fn sanitize_connection_ref(
         device_profile: connection
             .device_profile
             .unwrap_or_else(|| template_loader::DEFAULT_DEVICE_PROFILE.to_string()),
+        device_model: connection.device_model.unwrap_or_default(),
+        software_version: connection.software_version.unwrap_or_default(),
         template_dir: connection.template_dir.unwrap_or_default(),
         enabled: Some(connection.enabled),
         labels: connection.labels,

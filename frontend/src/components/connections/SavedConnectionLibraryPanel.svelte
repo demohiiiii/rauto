@@ -219,6 +219,16 @@
                   <Badge variant="secondary" class="rounded-lg">
                     {selectedConnectionRow.tag}
                   </Badge>
+                  {#if selectedConnectionRow.deviceModel}
+                    <Badge variant="outline" class="rounded-lg font-mono">
+                      {selectedConnectionRow.deviceModel}
+                    </Badge>
+                  {/if}
+                  {#if selectedConnectionRow.softwareVersion}
+                    <Badge variant="outline" class="rounded-lg font-mono">
+                      {selectedConnectionRow.softwareVersion}
+                    </Badge>
+                  {/if}
                 </div>
               {/if}
             </div>
@@ -253,7 +263,7 @@
         </div>
 
         <div
-          class="connection-stat-grid grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+          class="connection-stat-grid grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
         >
           <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
             <p
@@ -263,6 +273,26 @@
             </p>
             <p class="mt-2 truncate font-mono text-lg font-bold">
               {selectedConnectionRow?.profile || "-"}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              型号
+            </p>
+            <p class="mt-2 truncate font-mono text-lg font-bold">
+              {selectedConnectionRow?.deviceModel || "-"}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              软件版本
+            </p>
+            <p class="mt-2 truncate font-mono text-lg font-bold">
+              {selectedConnectionRow?.softwareVersion || "-"}
             </p>
           </div>
           <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">

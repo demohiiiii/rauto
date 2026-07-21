@@ -17,6 +17,7 @@
   import ConnectionBasicFields from "./ConnectionBasicFields.svelte";
   import ConnectionMetadataFields from "./ConnectionMetadataFields.svelte";
   import PlusIcon from "@lucide/svelte/icons/plus";
+  import CpuIcon from "@lucide/svelte/icons/cpu";
   import RadarIcon from "@lucide/svelte/icons/radar";
   import SaveIcon from "@lucide/svelte/icons/save";
   import TagIcon from "@lucide/svelte/icons/tag";
@@ -24,7 +25,6 @@
   let { active } = $props();
   const savedConnectionEditorWorkspace = createSavedConnectionEditorWorkspace();
   const {
-    applyDetectedProfile,
     basicFieldsDisplayStateStore,
     closeEditor,
     detectProfile,
@@ -34,6 +34,7 @@
     metadataFieldsDisplayStateStore,
     onSavedEditorConnectTimeoutSecsInput,
     onSavedEditorDeviceProfileChange,
+    onSavedEditorDeviceModelInput,
     onSavedEditorEnablePasswordInput,
     onSavedEditorHostInput,
     onSavedEditorLinuxShellFlavorChange,
@@ -41,6 +42,7 @@
     onSavedEditorPasswordInput,
     onSavedEditorPortInput,
     onSavedEditorSshSecurityChange,
+    onSavedEditorSoftwareVersionInput,
     onSavedEditorUsernameInput,
     saveConnection,
     setEnabled: setEditorEnabled,
@@ -78,9 +80,7 @@
 <Card.Root class="flex min-h-0 flex-1 flex-col rounded-none border-0">
   <Card.Header>
     <Card.Title>{editorDraft.name || editorDisplay.fields.name}</Card.Title>
-    <Card.Description>
-      修改后可执行 profile 探测，决定是否替换已保存的 profile。
-    </Card.Description>
+    <Card.Description>{editorDisplay.description}</Card.Description>
   </Card.Header>
   <Card.Content class="min-h-0 flex-1 overflow-y-auto px-7 py-6">
     <div class="flex flex-col gap-6">
@@ -123,6 +123,44 @@
       />
 
       <section class="flex flex-col gap-3">
+        {@render ConnectionSectionTitle(
+          CpuIcon,
+          editorDisplay.fields.deviceInfo,
+          editorDisplay.fields.deviceInfoHint,
+        )}
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div class="grid gap-1.5">
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              {editorDisplay.fields.deviceModel}
+            </span>
+            <PlainInputField
+              value={editorDraft.deviceModel}
+              aria-label={editorDisplay.fields.deviceModel}
+              placeholderText={editorBasicFieldsDisplay.deviceModelInput
+                .placeholder}
+              onValueInput={onSavedEditorDeviceModelInput}
+            />
+          </div>
+          <div class="grid gap-1.5">
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              {editorDisplay.fields.softwareVersion}
+            </span>
+            <PlainInputField
+              value={editorDraft.softwareVersion}
+              aria-label={editorDisplay.fields.softwareVersion}
+              placeholderText={editorBasicFieldsDisplay.softwareVersionInput
+                .placeholder}
+              onValueInput={onSavedEditorSoftwareVersionInput}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
         {@render ConnectionSectionTitle(TagIcon, "组织与状态")}
         <ConnectionMetadataFields
           {active}
@@ -157,16 +195,39 @@
     class="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-7 py-4"
   >
     <div class="min-w-0 flex-1">
-      {#if editorDisplay.detectedProfile}
-        <div class="flex min-h-8 min-w-0 items-center gap-2 text-sm">
+      {#if editorDisplay.detectedProfile || editorDisplay.detectedModel || editorDisplay.detectedVersion}
+        <div class="flex min-h-8 min-w-0 flex-wrap items-center gap-2 text-sm">
           <RadarIcon class="size-4 shrink-0 text-primary" aria-hidden="true" />
-          <span class="shrink-0 text-muted-foreground">
-            {editorDisplay.detectedProfileLabel}
-          </span>
-          <Badge variant="secondary" class="max-w-full font-mono">
-            <span class="truncate">{editorDisplay.detectedProfile}</span>
-          </Badge>
+          {#if editorDisplay.detectedProfile}
+            <span class="shrink-0 text-muted-foreground">
+              {editorDisplay.detectedProfileLabel}
+            </span>
+            <Badge variant="secondary" class="max-w-full font-mono">
+              <span class="truncate">{editorDisplay.detectedProfile}</span>
+            </Badge>
+          {/if}
+          {#if editorDisplay.detectedModel}
+            <span class="shrink-0 text-muted-foreground">
+              {editorDisplay.detectedModelLabel}
+            </span>
+            <Badge variant="outline" class="max-w-full font-mono">
+              <span class="truncate">{editorDisplay.detectedModel}</span>
+            </Badge>
+          {/if}
+          {#if editorDisplay.detectedVersion}
+            <span class="shrink-0 text-muted-foreground">
+              {editorDisplay.detectedVersionLabel}
+            </span>
+            <Badge variant="outline" class="max-w-full font-mono">
+              <span class="truncate">{editorDisplay.detectedVersion}</span>
+            </Badge>
+          {/if}
         </div>
+      {/if}
+      {#if editorDisplay.warning}
+        <p class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+          {editorDisplay.warning}
+        </p>
       {/if}
     </div>
     <div class="flex flex-wrap items-center justify-end gap-2">
@@ -179,16 +240,6 @@
         <RadarIcon data-icon="inline-start" aria-hidden="true" />
         <span>{editorDisplay.buttons.detectProfile.label}</span>
       </LoadingButton>
-      {#if editorDisplay.canApplyDetectedProfile}
-        <LoadingButton
-          variant="default"
-          size="sm"
-          loading={savedConnectionEditorLoadingState.applyDetectedProfileLoading}
-          onclick={applyDetectedProfile}
-        >
-          <span>{editorDisplay.buttons.applyDetectedProfile.label}</span>
-        </LoadingButton>
-      {/if}
       <Button variant="ghost" size="sm" type="button" onclick={closeEditor}>
         {editorDisplay.buttons.cancel.label}
       </Button>

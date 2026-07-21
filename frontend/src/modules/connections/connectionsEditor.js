@@ -1,4 +1,4 @@
-import { saveConnection, testConnection } from "../../api/client.js";
+import { detectConnectionFacts, saveConnection } from "../../api/client.js";
 import { currentLanguage, t } from "../../lib/i18n.js";
 import { safeString, statusPresentation } from "../../lib/ui.js";
 import { showToast } from "../overlays/overlays.js";
@@ -20,6 +20,7 @@ import { writable } from "svelte/store";
 
 let savedConnectionEditorFormState = {
   connect_timeout_secs: "",
+  device_model: "",
   device_profile: "",
   enabled: true,
   enable_password: "",
@@ -29,6 +30,7 @@ let savedConnectionEditorFormState = {
   password: "",
   port: "",
   ssh_security: "",
+  software_version: "",
   username: "",
 };
 
@@ -60,8 +62,10 @@ export const savedConnectionEditorStatusState = writable({
 });
 
 export const savedConnectionAutodetectState = writable({
-  canApply: false,
+  detectedModel: "",
   detectedProfile: "",
+  detectedVersion: "",
+  warning: "",
 });
 
 export function configureConnectionsEditor(nextHooks = {}) {
@@ -109,6 +113,7 @@ function setSavedConnectionEditorStatus(
 function savedConnectionEditorFormStateFromDraft(draft = {}) {
   return {
     connect_timeout_secs: draft.connectTimeoutSecs,
+    device_model: draft.deviceModel,
     device_profile: draft.deviceProfile,
     enabled: draft.enabled,
     enable_password: draft.enablePassword,
@@ -118,6 +123,7 @@ function savedConnectionEditorFormStateFromDraft(draft = {}) {
     password: draft.password,
     port: draft.port,
     ssh_security: draft.sshSecurity,
+    software_version: draft.softwareVersion,
     username: draft.username,
   };
 }
@@ -151,6 +157,7 @@ function applySavedConnectionEditorDraftChange(
     Object.keys(patch).some((field) =>
       [
         "connectTimeoutSecs",
+        "deviceModel",
         "enablePassword",
         "host",
         "linuxShellFlavor",
@@ -158,6 +165,7 @@ function applySavedConnectionEditorDraftChange(
         "password",
         "port",
         "sshSecurity",
+        "softwareVersion",
         "username",
       ].includes(field),
     )
@@ -173,20 +181,40 @@ export function updateSavedConnectionEditorDraftEnabled(
   return applySavedConnectionEditorDraftChange(draft, { enabled: !!enabled });
 }
 
+export function detectedConnectionFactsPatch(result = {}) {
+  const patch = {};
+  const deviceProfile = safeString(result.device_profile || "").trim();
+  const deviceModel = safeString(result.device_model || "").trim();
+  const softwareVersion = safeString(result.software_version || "").trim();
+  if (deviceProfile) patch.deviceProfile = deviceProfile;
+  if (deviceModel) patch.deviceModel = deviceModel;
+  if (softwareVersion) patch.softwareVersion = softwareVersion;
+  return patch;
+}
+
 export function savedConnectionEditorBasicFieldWiring(draft = {}) {
-  return connectionBasicFieldWiring(
+  const basicWiring = connectionBasicFieldWiring(
     draft,
     applySavedConnectionEditorDraftChange,
     { deviceProfileEffect: "refresh" },
   );
+  return {
+    ...basicWiring,
+    onDeviceModelInput(fieldValue) {
+      applySavedConnectionEditorDraftChange(draft, {
+        deviceModel: safeString(fieldValue || ""),
+      });
+    },
+    onSoftwareVersionInput(fieldValue) {
+      applySavedConnectionEditorDraftChange(draft, {
+        softwareVersion: safeString(fieldValue || ""),
+      });
+    },
+  };
 }
 
 function savedConnectionEditorName() {
   return safeString(savedConnectionEditorFormState.name || "").trim();
-}
-
-function currentSavedConnectionAutodetectResult() {
-  return savedConnectionAutodetectResult;
 }
 
 function setSavedConnectionAutodetectState(autodetectResult = null) {
@@ -194,32 +222,20 @@ function setSavedConnectionAutodetectState(autodetectResult = null) {
   updateSavedConnectionAutodetectUi();
 }
 
-function savedConnectionAutodetectCanApply() {
-  const currentName = savedConnectionEditorName();
-  const currentProfile =
-    safeString(savedConnectionEditorFormState.device_profile || "").trim() ||
-    "autodetect";
-  const detectedProfile =
-    safeString(savedConnectionAutodetectResult?.device_profile || "").trim() ||
-    "";
-  const detectedName =
-    safeString(savedConnectionAutodetectResult?.connection_name || "").trim() ||
-    "";
-  return (
-    !!detectedProfile &&
-    !!currentName &&
-    detectedName === currentName &&
-    detectedProfile !== currentProfile
-  );
-}
-
 function updateSavedConnectionAutodetectUi() {
-  const canApply = savedConnectionAutodetectCanApply();
   const detectedProfile = safeString(
     savedConnectionAutodetectResult?.device_profile || "",
   ).trim();
-  savedConnectionAutodetectState.set({ canApply, detectedProfile });
-  return canApply;
+  savedConnectionAutodetectState.set({
+    detectedModel: safeString(
+      savedConnectionAutodetectResult?.device_model || "",
+    ).trim(),
+    detectedProfile,
+    detectedVersion: safeString(
+      savedConnectionAutodetectResult?.software_version || "",
+    ).trim(),
+    warning: safeString(savedConnectionAutodetectResult?.warning || "").trim(),
+  });
 }
 
 function resetSavedConnectionAutodetectState() {
@@ -237,6 +253,9 @@ function savedConnectionEditorPayload() {
     connect_timeout_secs: connectionTimeoutSecsValue(
       savedConnectionEditorFormState.connect_timeout_secs,
     ),
+    device_model:
+      safeString(savedConnectionEditorFormState.device_model || "").trim() ||
+      null,
     username:
       safeString(savedConnectionEditorFormState.username || "").trim() || "",
     password: savedConnectionEditorFormState.password || null,
@@ -244,6 +263,10 @@ function savedConnectionEditorPayload() {
     ssh_security:
       safeString(savedConnectionEditorFormState.ssh_security || "").trim() ||
       null,
+    software_version:
+      safeString(
+        savedConnectionEditorFormState.software_version || "",
+      ).trim() || null,
     linux_shell_flavor:
       safeString(
         savedConnectionEditorFormState.linux_shell_flavor || "",
@@ -264,6 +287,7 @@ function applySavedConnectionEditorForm(savedConnectionName, connection = {}) {
   ).trim();
   setSavedConnectionEditorFormState({
     connect_timeout_secs: safeString(connection.connect_timeout_secs || ""),
+    device_model: safeString(connection.device_model || ""),
     device_profile: safeString(connection.device_profile || ""),
     enabled: connection.enabled !== false,
     enable_password: "",
@@ -273,6 +297,7 @@ function applySavedConnectionEditorForm(savedConnectionName, connection = {}) {
     password: "",
     port: safeString(connection.port || 22),
     ssh_security: safeString(connection.ssh_security || ""),
+    software_version: safeString(connection.software_version || ""),
     username: safeString(connection.username || ""),
   });
   setConnectionPickerSelectedValues(
@@ -298,20 +323,32 @@ export async function detectSavedConnectionProfile() {
   try {
     const payload = savedConnectionEditorPayload();
     payload.device_profile = "autodetect";
-    const detectResult = await testConnection(payload);
+    const currentProfile =
+      safeString(savedConnectionEditorFormState.device_profile || "").trim() ||
+      "autodetect";
+    const detectResult = await detectConnectionFacts(payload);
     const detectedProfile = safeString(
       detectResult?.device_profile || "",
     ).trim();
     if (!detectedProfile) {
       throw new Error(t("savedConnAutodetectNoResult"));
     }
+    const detectedPatch = detectedConnectionFactsPatch(detectResult);
+    setSavedConnectionEditorFormState({
+      ...(detectedPatch.deviceProfile
+        ? { device_profile: detectedPatch.deviceProfile }
+        : {}),
+      ...(detectedPatch.deviceModel
+        ? { device_model: detectedPatch.deviceModel }
+        : {}),
+      ...(detectedPatch.softwareVersion
+        ? { software_version: detectedPatch.softwareVersion }
+        : {}),
+    });
     setSavedConnectionAutodetectState({
       connection_name: name,
       ...detectResult,
     });
-    const currentProfile =
-      safeString(savedConnectionEditorFormState.device_profile || "").trim() ||
-      "autodetect";
     const message =
       detectedProfile === currentProfile
         ? `${t("savedConnAutodetectMatched")}: ${detectedProfile}`
@@ -326,12 +363,7 @@ export async function detectSavedConnectionProfile() {
   }
 }
 
-export async function saveSavedConnectionEditor(saveCfg = {}) {
-  const {
-    overrideDeviceProfile = null,
-    keepModalOpen = false,
-    successMessage = "",
-  } = saveCfg;
+export async function saveSavedConnectionEditor() {
   const name = savedConnectionEditorName();
   if (!name) {
     setSavedConnectionEditorStatus(t("connectionNameRequired"), "error");
@@ -340,8 +372,7 @@ export async function saveSavedConnectionEditor(saveCfg = {}) {
   setSavedConnectionEditorStatus(t("running"), "running");
   try {
     const payload = savedConnectionEditorPayload();
-    payload.device_profile =
-      overrideDeviceProfile || payload.device_profile || "autodetect";
+    payload.device_profile = payload.device_profile || "autodetect";
     const originalName = savedConnectionEditorOriginalName || name;
     const targetBeforeSave = requiredHook("getActiveConnectionTarget")();
     const savedConnectionPayload = await saveConnection(originalName, payload);
@@ -367,47 +398,13 @@ export async function saveSavedConnectionEditor(saveCfg = {}) {
       );
       requiredHook("refreshSidebarConnectionSelector")();
     }
-    const savedMessage = successMessage || `${t("saved")}: ${savedName}`;
+    const savedMessage = `${t("saved")}: ${savedName}`;
     requiredHook("setSavedConnectionStatus")(savedMessage, "success");
     setSavedConnectionEditorStatus(savedMessage, "success", { toast: false });
-    if (!keepModalOpen) {
-      requiredHook("closeEditorModal")();
-      return;
-    }
-    updateSavedConnectionAutodetectUi();
+    requiredHook("closeEditorModal")();
   } catch (error) {
     setSavedConnectionEditorStatus(error.message, "error");
   }
-}
-
-export async function replaceSavedConnectionProfileWithDetected() {
-  const name = savedConnectionEditorName();
-  const detectedResult = currentSavedConnectionAutodetectResult();
-  const detectedProfile =
-    safeString(detectedResult?.device_profile || "").trim() || "";
-  if (!name || !detectedProfile) {
-    setSavedConnectionEditorStatus(t("savedConnAutodetectMissing"), "error");
-    return;
-  }
-  const currentProfile =
-    safeString(savedConnectionEditorFormState.device_profile || "").trim() ||
-    "autodetect";
-  if (currentProfile === detectedProfile) {
-    setSavedConnectionEditorStatus(
-      `${t("savedConnAutodetectMatched")}: ${detectedProfile}`,
-      "success",
-    );
-    updateSavedConnectionAutodetectUi();
-    return;
-  }
-  setSavedConnectionEditorFormState({
-    device_profile: detectedProfile,
-  });
-  await saveSavedConnectionEditor({
-    overrideDeviceProfile: detectedProfile,
-    keepModalOpen: true,
-    successMessage: `${t("savedConnAutodetectReplaced")}: ${name} (${detectedProfile})`,
-  });
 }
 
 export function hideSavedConnectionEditorModal() {

@@ -1,16 +1,20 @@
 use super::{
     HistoryQuery, merged_saved_secret, saved_connection_detail_response, should_persist_secret,
 };
+use super::{WebTextfsmParseOptions, parse_textfsm_output_optional, resolve_effective_mode};
 use crate::config::connection_import;
 use crate::config::connection_store::{self, SavedConnection};
-use crate::config::{history_store, inventory_store, template_loader};
+use crate::config::textfsm::extract_device_facts;
+use crate::config::{
+    custom_textfsm_store, history_store, inventory_store, show_catalog, template_loader,
+};
 use crate::device::DeviceClient;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    ConnectionHistoryDetailResponse, ConnectionHistoryEntry, ConnectionTestRequest,
-    ConnectionTestResponse, InventoryGroup, InventoryLabel, SavedConnectionDetail,
-    SavedConnectionMeta, UpsertConnectionRequest, UpsertInventoryGroupRequest,
-    UpsertInventoryLabelRequest,
+    ConnectionFactsDetectResponse, ConnectionHistoryDetailResponse, ConnectionHistoryEntry,
+    ConnectionTestRequest, ConnectionTestResponse, InventoryGroup, InventoryLabel,
+    SavedConnectionDetail, SavedConnectionMeta, UpsertConnectionRequest,
+    UpsertInventoryGroupRequest, UpsertInventoryLabelRequest,
 };
 use crate::web::state::{AppState, merge_connection_options, resolve_autodetect_connection};
 use axum::Json;
@@ -91,6 +95,127 @@ pub async fn test_connection(
     }))
 }
 
+pub(super) fn connection_facts_response(
+    device_profile: &str,
+    parsed_output: Option<&Value>,
+    warning: Option<String>,
+) -> ConnectionFactsDetectResponse {
+    let facts = parsed_output.map(extract_device_facts).unwrap_or_default();
+    let missing_facts = [
+        facts.device_model.is_none().then_some("device model"),
+        facts
+            .software_version
+            .is_none()
+            .then_some("software version"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
+    let warning = match (warning, missing_facts.is_empty()) {
+        (warning, true) => warning,
+        (Some(warning), false) => Some(format!(
+            "{}; missing detected {}",
+            warning,
+            missing_facts.join(" and ")
+        )),
+        (None, false) => Some(format!(
+            "version output did not contain a recognized {}",
+            missing_facts.join(" or ")
+        )),
+    };
+    ConnectionFactsDetectResponse {
+        ok: true,
+        device_profile: device_profile.to_string(),
+        device_model: facts.device_model,
+        software_version: facts.software_version,
+        warning,
+    }
+}
+
+pub async fn detect_connection_facts(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ConnectionTestRequest>,
+) -> Result<Json<ConnectionFactsDetectResponse>, ApiError> {
+    let conn =
+        resolve_autodetect_connection(merge_connection_options(&state.defaults, req.connection)?)
+            .await?;
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
+    let client = DeviceClient::connect(
+        conn.host.clone(),
+        conn.port,
+        conn.username.clone(),
+        conn.password.clone(),
+        conn.enable_password.clone(),
+        handler,
+        template_loader::default_profile_mode(&conn.device_profile)?,
+        conn.ssh_security,
+        conn.connect_timeout_secs,
+    )
+    .await?;
+
+    let platform = show_catalog::platform_for_show(&conn.device_profile, None);
+    let show = match show_catalog::resolve_show_command(
+        "version",
+        platform.as_deref(),
+        &conn.device_profile,
+    ) {
+        Ok(show) => show,
+        Err(error) => {
+            return Ok(Json(connection_facts_response(
+                &conn.device_profile,
+                None,
+                Some(error.to_string()),
+            )));
+        }
+    };
+    let effective_mode = resolve_effective_mode(show.mode.as_deref(), &conn.device_profile)?;
+    let output = client
+        .execute_output(&show.command, Some(effective_mode.as_str()))
+        .await?;
+    if output.exit_code.is_some_and(|code| code != 0) {
+        return Ok(Json(connection_facts_response(
+            &conn.device_profile,
+            None,
+            Some(format!(
+                "version command exited with code {:?}",
+                output.exit_code
+            )),
+        )));
+    }
+
+    let textfsm_template_content = show
+        .textfsm_template_name
+        .as_deref()
+        .map(|name| {
+            custom_textfsm_store::load_template(name)
+                .map_err(ApiError::from)?
+                .map(|template| template.content)
+                .ok_or_else(|| {
+                    ApiError::bad_request(format!("TextFSM template '{}' not found", name))
+                })
+        })
+        .transpose()?;
+    let (parsed_output, parse_error) = parse_textfsm_output_optional(
+        &output.content,
+        &show.command,
+        WebTextfsmParseOptions {
+            template_content: textfsm_template_content.as_deref(),
+            enabled: true,
+            platform: platform.as_deref(),
+            device_profile: Some(conn.device_profile.as_str()),
+            ..Default::default()
+        },
+    );
+    Ok(Json(connection_facts_response(
+        &conn.device_profile,
+        parsed_output.as_ref(),
+        parse_error,
+    )))
+}
+
 pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiError> {
     let names = connection_store::list_connections().map_err(ApiError::from)?;
     let mut items = Vec::new();
@@ -108,6 +233,8 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
                 username: data.username.clone(),
                 port: data.port,
                 connect_timeout_secs: data.connect_timeout_secs,
+                device_model: data.device_model.clone(),
+                software_version: data.software_version.clone(),
                 ssh_security: data.ssh_security,
                 linux_shell_flavor: data.linux_shell_flavor,
                 device_profile: data.device_profile.clone(),
@@ -276,6 +403,12 @@ pub(super) fn validate_persisted_connect_timeout(
     Ok(())
 }
 
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+}
+
 pub async fn upsert_connection(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
@@ -323,6 +456,8 @@ pub async fn upsert_connection(
         password_ref: None,
         port: c.port,
         connect_timeout_secs: c.connect_timeout_secs,
+        device_model: normalize_optional_text(c.device_model),
+        software_version: normalize_optional_text(c.software_version),
         enable_password,
         enable_password_ref: None,
         enable_password_empty_enter,

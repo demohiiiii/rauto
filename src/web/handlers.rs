@@ -87,10 +87,10 @@ pub use command_templates::{
 };
 pub use connections::{
     delete_connection, delete_connection_history, delete_inventory_group, delete_inventory_label,
-    get_connection, get_connection_history, get_connection_history_detail, get_inventory_group,
-    get_inventory_label, import_connections, list_connections, list_inventory_groups,
-    list_inventory_labels, test_connection, upsert_connection, upsert_inventory_group,
-    upsert_inventory_label,
+    detect_connection_facts, get_connection, get_connection_history, get_connection_history_detail,
+    get_inventory_group, get_inventory_label, import_connections, list_connections,
+    list_inventory_groups, list_inventory_labels, test_connection, upsert_connection,
+    upsert_inventory_group, upsert_inventory_label,
 };
 pub use execute::{
     ShowObjectsQuery, exec_command, exec_command_async, execute_command_flow,
@@ -162,6 +162,8 @@ fn saved_connection_detail_response(
             password: None,
             port: data.port,
             connect_timeout_secs: data.connect_timeout_secs,
+            device_model: data.device_model.clone(),
+            software_version: data.software_version.clone(),
             enable_password: None,
             enable_password_empty_enter: Some(data.enable_password_empty_enter),
             ssh_security: data.ssh_security,

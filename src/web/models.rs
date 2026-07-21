@@ -45,6 +45,10 @@ pub struct ConnectionRequest {
     pub port: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub connect_timeout_secs: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub software_version: Option<String>,
     pub enable_password: Option<String>,
     #[serde(default)]
     pub enable_password_empty_enter: Option<bool>,
@@ -80,6 +84,15 @@ pub struct ConnectionTestResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ConnectionFactsDetectResponse {
+    pub ok: bool,
+    pub device_profile: String,
+    pub device_model: Option<String>,
+    pub software_version: Option<String>,
+    pub warning: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct SavedConnectionMeta {
     pub name: String,
     pub path: String,
@@ -90,6 +103,8 @@ pub struct SavedConnectionMeta {
     pub username: Option<String>,
     pub port: Option<u16>,
     pub connect_timeout_secs: Option<u64>,
+    pub device_model: Option<String>,
+    pub software_version: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,

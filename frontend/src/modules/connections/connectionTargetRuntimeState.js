@@ -240,6 +240,8 @@ function savedConnectionDetails(savedConnection = {}) {
     port: Number(savedConnection.port || 22) || 22,
     username: safeString(savedConnection.username || "-"),
     profile: profile || "autodetect",
+    device_model: safeString(savedConnection.device_model || "").trim(),
+    software_version: safeString(savedConnection.software_version || "").trim(),
     ssh_security: safeString(savedConnection.ssh_security || "").trim(),
     linux_shell_flavor: safeString(linuxShellFlavor).trim(),
     kind: "saved",

@@ -601,7 +601,7 @@ test("saved connection profile detection reports its detected profile with toast
   assert.match(detectProfileBody, /showToast\(message,\s*"error"\)/);
 });
 
-test("saved connection editor displays detected profile left of its actions", () => {
+test("saved connection editor displays detected device facts left of its actions", () => {
   const editorStateSource = read(
     "frontend/src/modules/connections/connectionsEditor.js",
   );
@@ -614,7 +614,7 @@ test("saved connection editor displays detected profile left of its actions", ()
 
   assert.match(
     editorStateSource,
-    /savedConnectionAutodetectState\.set\(\{\s*canApply,\s*detectedProfile,?\s*\}\)/,
+    /savedConnectionAutodetectState\.set\(\{[\s\S]*detectedModel:[\s\S]*detectedProfile,[\s\S]*detectedVersion:[\s\S]*warning:/,
   );
   assert.match(
     displaySource,
@@ -624,12 +624,16 @@ test("saved connection editor displays detected profile left of its actions", ()
     displaySource,
     /const detectedProfile =[\s\S]*autodetectState\?\.detectedProfile/,
   );
-  assert.match(displaySource, /canApplyDetectedProfile,\s*detectedProfile,/);
+  assert.match(
+    displaySource,
+    /detectedModel,\s*detectedProfile,\s*detectedVersion,/,
+  );
   assert.match(formSource, /from "\$lib\/components\/ui\/badge/);
   assert.match(
     formSource,
-    /editorDisplay\.detectedProfile[\s\S]*<Badge[\s\S]*editorDisplay\.detectedProfile[\s\S]*<LoadingButton[\s\S]*detectProfile/,
+    /editorDisplay\.detectedProfile[\s\S]*editorDisplay\.detectedModel[\s\S]*editorDisplay\.detectedVersion[\s\S]*<LoadingButton[\s\S]*detectProfile/,
   );
+  assert.doesNotMatch(formSource, /applyDetectedProfile/);
 });
 
 test("connection workbench tests the saved row selection instead of the applied target", () => {

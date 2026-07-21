@@ -91,18 +91,23 @@ export const i18nEn = {
   savedConnEditTitle: "Edit Saved Connection",
   builtinHooksAria: "Built-in profile hooks",
   savedConnEditHint:
-    "Edit the selected connection, run profile autodetect, and choose whether to replace the saved profile.",
-  savedConnAutodetectBtn: "Detect Profile",
-  savedConnAutodetectReplaceBtn: "Replace With Detected Profile",
+    "Edit device information manually or detect it into the draft; changes persist only after saving.",
+  savedConnAutodetectFactsBtn: "Auto-detect Device Facts",
   savedConnAutodetectDetected: "Detected profile",
+  savedConnAutodetectModel: "Model",
+  savedConnAutodetectVersion: "Software version",
   savedConnAutodetectCurrent: "Current profile",
   savedConnAutodetectMatched:
     "Detected profile already matches the current saved profile",
   savedConnAutodetectNoResult:
     "Profile detection completed without returning a profile",
-  savedConnAutodetectReplaced: "Saved connection profile replaced",
-  savedConnAutodetectMissing:
-    "Run profile autodetect first, then choose whether to replace the saved profile.",
+  savedConnDeviceInfoTitle: "Device Information",
+  savedConnDeviceInfoHint:
+    "Enter manually or populate with automatic detection",
+  deviceModelLabel: "Device model (optional)",
+  deviceModelPlaceholder: "For example, C9300-48P",
+  softwareVersionLabel: "Software version (optional)",
+  softwareVersionPlaceholder: "For example, 17.9.5",
   close: "Close",
   cancel: "Cancel",
   delete: "Delete",

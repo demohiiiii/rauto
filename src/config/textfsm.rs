@@ -31,6 +31,71 @@ pub struct ParseOptions {
     pub filter_error_rules: bool,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DeviceFacts {
+    pub device_model: Option<String>,
+    pub software_version: Option<String>,
+}
+
+const DEVICE_MODEL_FACT_KEYS: &[&str] = &[
+    "HARDWARE",
+    "MODEL",
+    "MODEL_NAME",
+    "CHASSIS",
+    "PRODUCT",
+    "PLATFORM",
+];
+const SOFTWARE_VERSION_FACT_KEYS: &[&str] = &[
+    "VERSION",
+    "SOFTWARE_VERSION",
+    "OS_VERSION",
+    "JUNOS_VERSION",
+    "VRP_VERSION",
+    "PRODUCT_VERSION",
+    "IMAGE",
+    "RELEASE",
+];
+
+pub fn extract_device_facts(parsed_output: &Value) -> DeviceFacts {
+    DeviceFacts {
+        device_model: extract_fact_value(parsed_output, DEVICE_MODEL_FACT_KEYS),
+        software_version: extract_fact_value(parsed_output, SOFTWARE_VERSION_FACT_KEYS),
+    }
+}
+
+fn extract_fact_value(parsed_output: &Value, candidate_keys: &[&str]) -> Option<String> {
+    match parsed_output {
+        Value::Array(rows) => rows
+            .iter()
+            .find_map(|row| fact_value_from_record(row, candidate_keys)),
+        Value::Object(_) => fact_value_from_record(parsed_output, candidate_keys),
+        _ => None,
+    }
+}
+
+fn fact_value_from_record(record: &Value, candidate_keys: &[&str]) -> Option<String> {
+    let fields = record.as_object()?;
+    candidate_keys.iter().find_map(|candidate| {
+        fields
+            .iter()
+            .find(|(field, _)| field.eq_ignore_ascii_case(candidate))
+            .and_then(|(_, value)| fact_scalar_text(value))
+    })
+}
+
+fn fact_scalar_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => {
+            let normalized = text.trim();
+            (!normalized.is_empty()).then(|| normalized.to_string())
+        }
+        Value::Number(number) => Some(number.to_string()),
+        Value::Bool(boolean) => Some(boolean.to_string()),
+        Value::Array(values) => values.iter().find_map(fact_scalar_text),
+        Value::Null | Value::Object(_) => None,
+    }
+}
+
 impl Default for ParseOptions {
     fn default() -> Self {
         Self {
@@ -653,5 +718,38 @@ mod tests {
             parse_output_with_template_content_inner(template, output, true).expect("parse output");
 
         assert_eq!(parsed.as_array().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn extracts_first_device_model_and_version_from_ntc_rows() {
+        let facts = extract_device_facts(&serde_json::json!([
+            {
+                "hardware": ["WS-C3850-48P", "WS-C3850-24T"],
+                "version": "16.12.10"
+            }
+        ]));
+
+        assert_eq!(facts.device_model.as_deref(), Some("WS-C3850-48P"));
+        assert_eq!(facts.software_version.as_deref(), Some("16.12.10"));
+    }
+
+    #[test]
+    fn extracts_vendor_specific_version_fields_and_skips_empty_values() {
+        let facts = extract_device_facts(&serde_json::json!([
+            {"MODEL": "", "JUNOS_VERSION": []},
+            {"MODEL": "MX204", "JUNOS_VERSION": "23.4R1-S2.1"}
+        ]));
+
+        assert_eq!(facts.device_model.as_deref(), Some("MX204"));
+        assert_eq!(facts.software_version.as_deref(), Some("23.4R1-S2.1"));
+    }
+
+    #[test]
+    fn returns_empty_facts_for_unstructured_or_empty_ntc_output() {
+        assert_eq!(extract_device_facts(&Value::Null), DeviceFacts::default());
+        assert_eq!(
+            extract_device_facts(&serde_json::json!([{"HOSTNAME": "edge-01"}])),
+            DeviceFacts::default()
+        );
     }
 }

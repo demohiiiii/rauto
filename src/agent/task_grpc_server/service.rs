@@ -115,6 +115,8 @@ impl AgentTaskService for AgentTaskGrpcService {
                     .linux_shell_flavor
                     .map(|value| value.to_string())
                     .unwrap_or_default(),
+                device_model: loaded.device_model.unwrap_or_default(),
+                software_version: loaded.software_version.unwrap_or_default(),
             });
         }
 
@@ -177,6 +179,29 @@ impl AgentTaskService for AgentTaskGrpcService {
                 .map(|value| value.to_string())
                 .unwrap_or_default(),
             device_profile: response.device_profile,
+        }))
+    }
+
+    async fn detect_connection_facts(
+        &self,
+        request: Request<TestConnectionRequest>,
+    ) -> Result<Response<ConnectionFactsDetectResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let connection = req.connection.map(connection_ref_to_request).transpose()?;
+        let Json(response) = detect_connection_facts_handler(
+            State(self.state.clone()),
+            Json(ConnectionTestRequest { connection }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(ConnectionFactsDetectResponse {
+            ok: response.ok,
+            device_profile: response.device_profile,
+            device_model: response.device_model.unwrap_or_default(),
+            software_version: response.software_version.unwrap_or_default(),
+            warning: response.warning.unwrap_or_default(),
         }))
     }
 

@@ -270,6 +270,8 @@ pub(crate) fn resolve_render_connection_context_fallback(
         password: None,
         port: None,
         connect_timeout_secs: None,
+        device_model: None,
+        software_version: None,
         enable_password: None,
         enable_password_empty_enter: None,
         ssh_security: None,

@@ -26,6 +26,8 @@ function savedConnectionRowPresentation(connection = {}) {
   const profile =
     safeString(connection.device_profile || "autodetect").trim() ||
     "autodetect";
+  const deviceModel = safeString(connection.device_model || "").trim();
+  const softwareVersion = safeString(connection.software_version || "").trim();
   const tag =
     firstValue(connection.labels) ||
     firstValue(connection.groups) ||
@@ -34,15 +36,27 @@ function savedConnectionRowPresentation(connection = {}) {
   const statusLabel = enabled ? "在线" : "停用";
   return {
     enabled,
+    deviceModel,
     host,
     name,
     port,
     profile,
-    searchText: [name, username, host, String(port), profile, tag, statusLabel]
+    searchText: [
+      name,
+      username,
+      host,
+      String(port),
+      profile,
+      deviceModel,
+      softwareVersion,
+      tag,
+      statusLabel,
+    ]
       .join(" ")
       .toLowerCase(),
     statusLabel,
     statusTone: enabled ? "primary" : "muted",
+    softwareVersion,
     summary: `${username}@${host}:${port}`,
     tag: tag || "未分组",
     username,
@@ -140,32 +154,41 @@ export function savedConnectionEditorPresentation(
   autodetectState = {},
 ) {
   const status = connectionStatusPresentation(statusState);
-  const canApplyDetectedProfile = !!autodetectState?.canApply;
   const detectedProfile = safeString(
     autodetectState?.detectedProfile || "",
   ).trim();
+  const detectedModel = safeString(autodetectState?.detectedModel || "").trim();
+  const detectedVersion = safeString(
+    autodetectState?.detectedVersion || "",
+  ).trim();
+  const warning = safeString(autodetectState?.warning || "").trim();
   return {
     buttons: {
-      applyDetectedProfile: {
-        label: tr("savedConnAutodetectReplaceBtn"),
-        loadingKey: "apply-detected-profile",
-      },
       cancel: { label: tr("cancel") },
       detectProfile: {
-        label: tr("savedConnAutodetectBtn"),
+        label: tr("savedConnAutodetectFactsBtn"),
         loadingKey: "detect-profile",
       },
       save: { label: tr("savedConnSaveBtn"), loadingKey: "save" },
     },
-    canApplyDetectedProfile,
+    detectedModel,
     detectedProfile,
+    detectedVersion,
     detectedProfileLabel: tr("savedConnAutodetectDetected"),
+    detectedModelLabel: tr("savedConnAutodetectModel"),
+    detectedVersionLabel: tr("savedConnAutodetectVersion"),
+    description: tr("savedConnEditHint"),
     fields: {
+      deviceInfo: tr("savedConnDeviceInfoTitle"),
+      deviceInfoHint: tr("savedConnDeviceInfoHint"),
+      deviceModel: tr("deviceModelLabel"),
       enabled: tr("inventoryFieldEnabled"),
       name: tr("inventoryFieldName"),
+      softwareVersion: tr("softwareVersionLabel"),
     },
     showStatus: !!status.text,
     status,
+    warning,
   };
 }
 

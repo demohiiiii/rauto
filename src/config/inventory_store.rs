@@ -255,6 +255,8 @@ mod tests {
             host: Some(host.to_string()),
             port: Some(22),
             connect_timeout_secs: None,
+            device_model: None,
+            software_version: None,
             username: Some("ops".into()),
             device_profile: Some("linux".into()),
             enabled: true,

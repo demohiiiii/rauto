@@ -184,6 +184,12 @@ export function testConnection(connection) {
   });
 }
 
+export function detectConnectionFacts(connection) {
+  return apiRequest("POST", "/api/connection/detect-facts", {
+    connection,
+  });
+}
+
 export function listConnectionHistory(name, limit = 30) {
   const params = new URLSearchParams();
   if (limit) params.set("limit", String(limit));

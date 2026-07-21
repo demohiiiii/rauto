@@ -261,9 +261,9 @@ pub async fn download_connection_import_template(
         "rauto-connection-import-template-en.csv"
     };
     let content = if is_zh {
-        "\u{feff}连接名,主机地址,用户名,密码,端口,连接超时秒,特权密码,SSH安全级别,Linux Shell,设备模板,模板目录\n"
+        "\u{feff}连接名,主机地址,用户名,密码,端口,连接超时秒,设备型号,软件版本,特权密码,SSH安全级别,Linux Shell,设备模板,模板目录\n"
     } else {
-        "name,host,username,password,port,connect_timeout_secs,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir\n"
+        "name,host,username,password,port,connect_timeout_secs,device_model,software_version,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir\n"
     };
     let mut headers = HeaderMap::new();
     headers.insert(

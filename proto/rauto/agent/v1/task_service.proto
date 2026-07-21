@@ -11,6 +11,7 @@ service AgentTaskService {
   rpc UpsertConnection(UpsertConnectionRequest) returns (UpsertConnectionResponse);
   rpc DeleteConnection(DeleteConnectionRequest) returns (JsonResponse);
   rpc TestConnection(TestConnectionRequest) returns (TestConnectionResponse);
+  rpc DetectConnectionFacts(TestConnectionRequest) returns (ConnectionFactsDetectResponse);
   rpc GetConnectionHistory(GetConnectionHistoryRequest) returns (JsonResponse);
   rpc GetConnectionHistoryDetail(GetConnectionHistoryDetailRequest) returns (JsonResponse);
   rpc DeleteConnectionHistory(DeleteConnectionHistoryRequest) returns (JsonResponse);
@@ -114,6 +115,8 @@ message ConnectionMeta {
   string device_profile     = 4;
   bool   has_password       = 5;
   string linux_shell_flavor = 6;
+  string device_model       = 7;
+  string software_version   = 8;
 }
 
 message ListConnectionsResponse {
@@ -146,6 +149,8 @@ message ConnectionRef {
   string          vars_json          = 13;
   optional bool   enable_password_empty_enter = 14;
   string          template_dir       = 15;
+  string          device_model       = 16;
+  string          software_version   = 17;
 }
 
 message GetConnectionRequest {
@@ -181,6 +186,14 @@ message TestConnectionResponse {
   string ssh_security       = 5;
   string device_profile     = 6;
   string linux_shell_flavor = 7;
+}
+
+message ConnectionFactsDetectResponse {
+  bool   ok               = 1;
+  string device_profile   = 2;
+  string device_model     = 3;
+  string software_version = 4;
+  string warning          = 5;
 }
 
 message GetConnectionHistoryRequest {

@@ -1,4 +1,6 @@
-use super::connections::{upsert_connection_target_name, validate_persisted_connect_timeout};
+use super::connections::{
+    connection_facts_response, upsert_connection_target_name, validate_persisted_connect_timeout,
+};
 use super::{
     TaskReportContext, build_json_template_context, builtin_command_flow_template_by_name,
     merged_saved_secret, parse_builtin_command_flow_template_token, require_managed_async_task,
@@ -24,6 +26,8 @@ fn saved_connection_detail_response_redacts_secrets() {
             password_ref: None,
             port: Some(22),
             connect_timeout_secs: Some(17),
+            device_model: Some("WS-C2960X-48FPS-L".to_string()),
+            software_version: Some("15.2(7)E10".to_string()),
             enable_password: Some("enable-secret".to_string()),
             enable_password_ref: None,
             enable_password_empty_enter: false,
@@ -44,6 +48,14 @@ fn saved_connection_detail_response_redacts_secrets() {
     assert_eq!(detail.connection.username.as_deref(), Some("admin"));
     assert_eq!(detail.connection.port, Some(22));
     assert_eq!(detail.connection.connect_timeout_secs, Some(17));
+    assert_eq!(
+        detail.connection.device_model.as_deref(),
+        Some("WS-C2960X-48FPS-L")
+    );
+    assert_eq!(
+        detail.connection.software_version.as_deref(),
+        Some("15.2(7)E10")
+    );
     assert_eq!(
         detail.connection.ssh_security,
         Some(SshSecurityProfile::Balanced)
@@ -88,6 +100,42 @@ fn persisted_connection_timeout_accepts_blank_and_database_range() {
 fn persisted_connection_timeout_rejects_zero_and_values_above_database_range() {
     assert!(validate_persisted_connect_timeout(Some(0)).is_err());
     assert!(validate_persisted_connect_timeout(Some(i64::MAX as u64 + 1)).is_err());
+}
+
+#[test]
+fn connection_facts_response_keeps_profile_and_partial_warning() {
+    let response = connection_facts_response(
+        "juniper_junos",
+        Some(&serde_json::json!([{
+            "MODEL": "MX204",
+            "JUNOS_VERSION": "23.4R1-S2.1"
+        }])),
+        Some("version output was only partially parsed".to_string()),
+    );
+
+    assert_eq!(response.device_profile, "juniper_junos");
+    assert_eq!(response.device_model.as_deref(), Some("MX204"));
+    assert_eq!(response.software_version.as_deref(), Some("23.4R1-S2.1"));
+    assert_eq!(
+        response.warning.as_deref(),
+        Some("version output was only partially parsed")
+    );
+}
+
+#[test]
+fn connection_facts_response_warns_when_one_fact_is_missing() {
+    let response = connection_facts_response(
+        "cisco_ios",
+        Some(&serde_json::json!([{"HARDWARE": ["C9300-48P"]}])),
+        None,
+    );
+
+    assert_eq!(response.device_model.as_deref(), Some("C9300-48P"));
+    assert_eq!(response.software_version, None);
+    assert_eq!(
+        response.warning.as_deref(),
+        Some("version output did not contain a recognized software version")
+    );
 }
 
 #[test]

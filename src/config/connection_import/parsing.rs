@@ -130,6 +130,8 @@ pub(super) fn parse_row(
     let mut password = None;
     let mut port = None;
     let mut connect_timeout_secs = None;
+    let mut device_model = None;
+    let mut software_version = None;
     let mut enable_password = None;
     let mut ssh_security = None;
     let mut linux_shell_flavor = None;
@@ -158,6 +160,8 @@ pub(super) fn parse_row(
                     )
                 })?
             }
+            ColumnKey::DeviceModel => device_model = normalize_text(raw),
+            ColumnKey::SoftwareVersion => software_version = normalize_text(raw),
             ColumnKey::EnablePassword => enable_password = normalize_secret(raw),
             ColumnKey::SshSecurity => {
                 ssh_security = parse_ssh_security(raw).with_context(|| {
@@ -207,6 +211,8 @@ pub(super) fn parse_row(
             password_ref: None,
             port,
             connect_timeout_secs,
+            device_model,
+            software_version,
             enable_password,
             enable_password_ref: None,
             enable_password_empty_enter: false,
@@ -258,6 +264,12 @@ fn map_header(header: &str) -> Option<ColumnKey> {
         | "connectiontimeout"
         | "连接超时"
         | "连接超时秒" => Some(ColumnKey::ConnectTimeoutSecs),
+        "devicemodel" | "model" | "hardware" | "设备型号" | "型号" => {
+            Some(ColumnKey::DeviceModel)
+        }
+        "softwareversion" | "osversion" | "version" | "软件版本" | "系统版本" | "版本" => {
+            Some(ColumnKey::SoftwareVersion)
+        }
         "enablepassword" | "enablepass" | "enablepasswd" | "privilegepassword"
         | "privilegedpassword" | "特权密码" | "enable密码" => Some(ColumnKey::EnablePassword),
         "sshsecurity" | "security" | "securityprofile" | "ssh安全" | "ssh安全级别" | "安全级别" => {
