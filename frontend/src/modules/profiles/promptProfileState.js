@@ -89,7 +89,8 @@ export {
 export const promptModePresentation = (mode = "") => ({
   builtinActive: normalizePromptMode(mode) === PROMPT_MODE.builtin,
   diagnoseActive: normalizePromptMode(mode) === PROMPT_MODE.diagnose,
-  editActive: normalizePromptMode(mode) === PROMPT_MODE.edit,
+  editActive: false,
+  profilesActive: normalizePromptMode(mode) === PROMPT_MODE.builtin,
 });
 
 function profileStatusDisplay(statusState = {}) {
@@ -100,7 +101,7 @@ function profileStatusDisplay(statusState = {}) {
   );
   return {
     message: status.text,
-    show: !!status.text,
+    show: !!status.text && status.text !== "-",
     tone: status.tone,
   };
 }
@@ -160,6 +161,16 @@ export function builtinProfilesPanelDisplay({
     },
     overview: {
       overviewText: safeString(overviewState.overviewText || "-"),
+      profileRows: (Array.isArray(overviewState.builtins)
+        ? overviewState.builtins
+        : []
+      ).map((profile) => ({
+        aliases: Array.isArray(profile?.aliases)
+          ? profile.aliases.filter(Boolean)
+          : [],
+        name: safeString(profile?.name || ""),
+        summary: safeString(profile?.summary || ""),
+      })),
       profileNames: Array.isArray(overviewState.options)
         ? overviewState.options
         : [],
@@ -186,13 +197,21 @@ function builtinProfileDetailsPresentation({ simpleSections = [] } = {}) {
     commandExecutionMarkerPlaceholder: tr("commandExecutionMarkerPlaceholder"),
     commandExecutionModeOptionRows: commandExecutionModeOptionRows(),
     commandExecutionTitle: tr("commandExecutionTitle"),
+    configurationDescription: tr("profileConfigurationDescription"),
+    configurationTitle: tr("profileConfigurationTitle"),
+    detectDescription: tr("profileBuiltinDetectDescription"),
     fieldPlaceholders: {
       aliases: tr("builtinFieldAliases"),
       name: tr("builtinFieldName"),
       source: tr("builtinFieldSource"),
       summary: tr("builtinFieldSummary"),
     },
+    hooksDescription: tr("profileHooksDescription"),
     notesPlaceholder: tr("builtinFieldNotes"),
+    overviewDescription: tr("profileOverviewDescription"),
+    overviewTitle: tr("profileOverviewTitle"),
+    readonlyHint: tr("profileReadonlyHint"),
+    rulesEmpty: tr("profileRulesEmpty"),
     simpleSections: (Array.isArray(simpleSections) ? simpleSections : []).map(
       (section) => ({
         ...section,
@@ -270,9 +289,9 @@ export function createPromptProfilesPageWorkspace() {
   }
 
   async function copyBuiltinProfileToCustomAndEdit() {
-    await copySelectedBuiltinProfileToCustom((nextPromptMode) => {
-      setPromptMode(nextPromptMode);
-    });
+    const copiedName = await copySelectedBuiltinProfileToCustom();
+    setPromptMode(PROMPT_MODE.builtin);
+    return copiedName;
   }
 
   function setPageContext({ active = false } = {}) {
@@ -448,8 +467,11 @@ export async function copySelectedBuiltinProfileToCustom(onModeChange) {
   const copied = JSON.parse(JSON.stringify(lastBuiltinProfile));
   copied.name = `${copied.name}_custom`;
   setProfileFormFromEditor(copied);
-  onModeChange("edit");
+  if (typeof onModeChange === "function") {
+    onModeChange("edit");
+  }
   setBuiltinDetailStatus(tr("copiedToCustom"), "success");
+  return copied.name;
 }
 
 function clearBuiltinProfileDetail({ resetStatus = true } = {}) {

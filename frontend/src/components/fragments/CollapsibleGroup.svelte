@@ -1,6 +1,7 @@
 <script>
   import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button/index.js";
+  import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import { collapsibleGroupBindings } from "../../lib/events.js";
   import { t } from "../../lib/i18n.js";
   import {
@@ -19,6 +20,7 @@
     hidden,
     label = "",
     persistenceKey,
+    "toggle-mode": toggleMode = "text",
     variant = "card",
   } = $props();
 
@@ -86,15 +88,28 @@
         {@render header()}
       {/if}
       <Button
+        class={toggleMode === "icon" ? "size-10 sm:size-8" : undefined}
         type="button"
         variant="ghost"
-        size="xs"
+        size={toggleMode === "icon" ? "icon-sm" : "xs"}
+        title={toggleMode === "icon"
+          ? collapsibleDisplay.buttonLabelText
+          : undefined}
         aria-expanded={collapsibleDisplay.buttonAriaExpandedText}
         aria-controls={bodyId}
         aria-label={buttonAriaLabel}
         onclick={bindings.toggleHandler(collapsed, persistenceKey)}
       >
-        {collapsibleDisplay.buttonLabelText}
+        {#if toggleMode === "icon"}
+          <ChevronDownIcon
+            class={collapsed
+              ? "size-4 -rotate-90 transition-transform duration-200"
+              : "size-4 transition-transform duration-200"}
+            aria-hidden="true"
+          />
+        {:else}
+          {collapsibleDisplay.buttonLabelText}
+        {/if}
       </Button>
     </header>
     <div
@@ -112,15 +127,28 @@
         {@render header()}
       {/if}
       <Button
+        class={toggleMode === "icon" ? "size-10 sm:size-8" : undefined}
         type="button"
-        variant="outline"
-        size="xs"
+        variant={toggleMode === "icon" ? "ghost" : "outline"}
+        size={toggleMode === "icon" ? "icon-sm" : "xs"}
+        title={toggleMode === "icon"
+          ? collapsibleDisplay.buttonLabelText
+          : undefined}
         aria-expanded={collapsibleDisplay.buttonAriaExpandedText}
         aria-controls={bodyId}
         aria-label={buttonAriaLabel}
         onclick={bindings.toggleHandler(collapsed, persistenceKey)}
       >
-        {collapsibleDisplay.buttonLabelText}
+        {#if toggleMode === "icon"}
+          <ChevronDownIcon
+            class={collapsed
+              ? "size-4 -rotate-90 transition-transform duration-200"
+              : "size-4 transition-transform duration-200"}
+            aria-hidden="true"
+          />
+        {:else}
+          {collapsibleDisplay.buttonLabelText}
+        {/if}
       </Button>
     </Card.Header>
     <Card.Content

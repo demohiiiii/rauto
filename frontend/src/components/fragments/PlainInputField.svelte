@@ -5,6 +5,7 @@
 
   let {
     value = "",
+    id = undefined,
     placeholderText = "",
     "aria-label": ariaLabel = "",
     title = "",
@@ -46,6 +47,7 @@
 
 <Input
   bind:ref={inputElement}
+  {id}
   class={inputClass}
   aria-label={ariaLabel || title || placeholderText}
   placeholder={placeholderText}

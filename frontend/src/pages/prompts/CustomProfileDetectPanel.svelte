@@ -1,5 +1,5 @@
 <script>
-  import * as Card from "$lib/components/ui/card";
+  import RadarIcon from "@lucide/svelte/icons/radar";
   import MiniActionButton from "../../components/fragments/MiniActionButton.svelte";
   import PlainCheckboxField from "../../components/fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
@@ -28,26 +28,38 @@
   });
 </script>
 
-<Card.Root>
-  <Card.Header>
-    <Card.Title>
+<section class="overflow-hidden rounded-lg border border-border bg-card/50">
+  <header class="flex items-start gap-3 border-b border-border px-4 py-4">
+    <div
+      class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+    >
+      <RadarIcon class="size-4" aria-hidden="true" />
+    </div>
+    <div class="min-w-0 flex-1">
       <PlainCheckboxField
         checked={detectDisplay.enabled}
         labelText={detectDisplay.label}
         title={detectDisplay.label}
-        class="font-medium"
+        class="font-semibold"
         onCheckedChange={setDetectEnabled}
       />
-    </Card.Title>
-  </Card.Header>
-  <Card.Content class="grid gap-3">
-    <div class="text-xs text-slate-500">
-      {detectDisplay.hint}
+      <div class="mt-1 text-xs leading-5 text-muted-foreground">
+        {detectDisplay.hint}
+      </div>
     </div>
+  </header>
+  <div class="grid gap-4 p-4">
+    {#if !detectDisplay.enabled}
+      <div
+        class="rounded-lg border border-dashed border-border px-4 py-5 text-xs text-muted-foreground"
+      >
+        {detectDisplay.hint}
+      </div>
+    {/if}
     {#if detectDisplay.enabled}
       <div class="grid gap-2">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-600">
+          <span class="text-xs font-semibold text-foreground">
             {initialRuleEditorDisplay.title}
           </span>
           <MiniActionButton
@@ -96,7 +108,7 @@
       </div>
       <div class="grid gap-2">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-600">
+          <span class="text-xs font-semibold text-foreground">
             {detectDisplay.probesLabel}
           </span>
           <MiniActionButton
@@ -116,5 +128,5 @@
         </div>
       </div>
     {/if}
-  </Card.Content>
-</Card.Root>
+  </div>
+</section>

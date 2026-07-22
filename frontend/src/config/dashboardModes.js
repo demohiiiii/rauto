@@ -35,13 +35,14 @@ export const PROMPT_MODE = Object.freeze({
 });
 
 export const promptModeTabs = Object.freeze([
-  { value: PROMPT_MODE.builtin, labelKey: "promptModeBuiltin" },
-  { value: PROMPT_MODE.edit, labelKey: "promptModeEdit" },
-  { value: PROMPT_MODE.diagnose, labelKey: "promptModeDiagnose" },
+  { value: PROMPT_MODE.builtin, labelKey: "promptModeProfiles" },
 ]);
 
 export const defaultPromptMode = PROMPT_MODE.builtin;
 export function normalizePromptMode(promptMode = "") {
+  if (promptMode === PROMPT_MODE.edit || promptMode === PROMPT_MODE.diagnose) {
+    return PROMPT_MODE.builtin;
+  }
   const knownPromptMode = promptModeTabs.some(
     (promptModeTab) => promptModeTab.value === promptMode,
   );

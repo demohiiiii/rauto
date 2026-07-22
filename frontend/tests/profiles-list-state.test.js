@@ -16,6 +16,7 @@ import {
   collectPromptRows,
   collectSysPromptRows,
   collectTransitionRows,
+  patchHookListCommand,
   patchHookListFlowStep,
 } from "../src/modules/profiles/profilesListState.js";
 
@@ -73,7 +74,22 @@ test("hook flow editing collects the complete command flow", () => {
       kind: "flow",
       stop_on_error: true,
       max_steps: 4,
-      steps: [{ mode: "User", command: "first", timeout: 10 }],
+      steps: [
+        {
+          mode: "User",
+          command: "first",
+          timeout: 10,
+          interaction: {
+            prompts: [
+              {
+                patterns: [" Password: ", ""],
+                response: "secret\n",
+                record_input: true,
+              },
+            ],
+          },
+        },
+      ],
     },
   });
   addHookListFlowStep(HOOK_LIST.afterConnect, 0, {
@@ -95,9 +111,117 @@ test("hook flow editing collects the complete command flow", () => {
         stop_on_error: true,
         max_steps: 4,
         steps: [
-          { mode: "User", command: "first", timeout: 10 },
+          {
+            mode: "User",
+            command: "first",
+            timeout: 10,
+            interaction: {
+              prompts: [
+                {
+                  patterns: ["Password:"],
+                  response: "secret\n",
+                  record_input: true,
+                },
+              ],
+            },
+          },
           { mode: "Enable", command: "second updated", timeout: 20 },
         ],
+      },
+    },
+  ]);
+});
+
+test("single hook commands preserve runtime prompt responses", () => {
+  clearLists();
+  addHookListRow(HOOK_LIST.beforeDisconnect, {
+    name: "confirm-disconnect",
+    operation: {
+      kind: "command",
+      mode: "Enable",
+      command: "reload",
+    },
+  });
+  patchHookListCommand(HOOK_LIST.beforeDisconnect, 0, {
+    interaction: {
+      prompts: [
+        {
+          patterns: ["\\[confirm\\]"],
+          response: "\n",
+          record_input: false,
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(
+    collectHookRows(HOOK_LIST.beforeDisconnect, "before_disconnect"),
+    [
+      {
+        name: "confirm-disconnect",
+        failure_policy: "best_effort",
+        record_output: false,
+        operation: {
+          kind: "command",
+          mode: "Enable",
+          command: "reload",
+          timeout: 60,
+          interaction: {
+            prompts: [
+              {
+                patterns: ["\\[confirm\\]"],
+                response: "\n",
+                record_input: false,
+              },
+            ],
+          },
+        },
+      },
+    ],
+  );
+});
+
+test("hook prompt responses require at least one non-empty match", () => {
+  clearLists();
+  addHookListRow(HOOK_LIST.afterConnect, {
+    name: "invalid-interaction",
+    operation: {
+      kind: "command",
+      command: "copy running-config startup-config",
+      interaction: {
+        prompts: [{ patterns: ["  "], response: "yes\n" }],
+      },
+    },
+  });
+
+  assert.throws(
+    () => collectHookRows(HOOK_LIST.afterConnect, "after_connect"),
+    /prompt\[1\]/,
+  );
+});
+
+test("legacy hook operation kinds normalize to an editable command", () => {
+  clearLists();
+  addHookListRow(HOOK_LIST.afterConnect, {
+    name: "legacy-hook",
+    operation: {
+      kind: "legacy",
+      mode: "Enable",
+      command: "show version",
+      timeout: 15,
+    },
+  });
+
+  assert.deepEqual(collectHookRows(HOOK_LIST.afterConnect, "after_connect"), [
+    {
+      name: "legacy-hook",
+      failure_policy: "best_effort",
+      record_output: false,
+      operation: {
+        kind: "command",
+        mode: "Enable",
+        command: "show version",
+        timeout: 15,
       },
     },
   ]);

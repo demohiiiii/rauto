@@ -4,6 +4,7 @@
 
   let {
     value = "",
+    id = undefined,
     placeholderText = "",
     "aria-label": ariaLabel = "",
     class: fieldClass = undefined,
@@ -19,6 +20,7 @@
 </script>
 
 <Textarea
+  {id}
   class={fieldClass}
   aria-label={ariaLabel || title || placeholderText}
   placeholder={placeholderText}

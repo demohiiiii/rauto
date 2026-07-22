@@ -792,7 +792,6 @@ test("output surfaces use OutputBlock instead of global output css", () => {
   const outputSurfacePaths = [
     "frontend/src/components/fragments/ParsedOutputBlock.svelte",
     "frontend/src/components/overlays/DetailModalContent.svelte",
-    "frontend/src/pages/PromptsPage.svelte",
     "frontend/src/pages/orchestrated/OrchestrationExecutionPanel.svelte",
     "frontend/src/pages/orchestrated/TxBlockResultPanel.svelte",
     "frontend/src/pages/orchestrated/TxOperationStepCard.svelte",
@@ -958,7 +957,7 @@ test("inventory panels compose shadcn Card instead of group-card shells", () => 
   }
 });
 
-test("prompt panels compose shadcn Card instead of group-card shells", () => {
+test("profile workspace uses one shadcn Card with semantic child sections", () => {
   const panelPaths = [
     "frontend/src/pages/prompts/BuiltinProfileOverviewSection.svelte",
     "frontend/src/pages/prompts/CustomProfileDetectPanel.svelte",
@@ -969,13 +968,16 @@ test("prompt panels compose shadcn Card instead of group-card shells", () => {
   for (const path of panelPaths) {
     const source = read(path);
 
-    assert.match(source, /ui\/card/);
-    assert.match(source, /<Card\.Root/);
-    assert.match(source, /<Card\.Header/);
-    assert.match(source, /<Card\.Title/);
-    assert.match(source, /<Card\.Content/);
+    assert.match(source, /<section/);
+    assert.match(source, /border border-border/);
     assert.doesNotMatch(source, /group-card/);
   }
+
+  const pageSource = read("frontend/src/pages/PromptsPage.svelte");
+  assert.match(pageSource, /ui\/card/);
+  assert.match(pageSource, /<Card\.Root/);
+  assert.match(pageSource, /<Card\.Header/);
+  assert.match(pageSource, /<Card\.Content/);
 });
 
 test("orchestrated panels compose shadcn Card instead of group-card shells", () => {

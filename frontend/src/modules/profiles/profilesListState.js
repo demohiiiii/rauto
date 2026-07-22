@@ -451,7 +451,27 @@ function normalizeHookCommand(operation) {
     kind: "command",
     mode: operation.mode || "Enable",
     command: operation.command || "",
+    interaction: normalizeHookInteraction(operation.interaction),
     timeout: operation.timeout == null ? 60 : operation.timeout,
+  };
+}
+
+function normalizeHookPromptRule(prompt = {}) {
+  return {
+    patterns: (Array.isArray(prompt?.patterns) ? prompt.patterns : []).map(
+      (pattern) => safeString(pattern ?? ""),
+    ),
+    record_input: !!prompt?.record_input,
+    response: safeString(prompt?.response ?? ""),
+  };
+}
+
+function normalizeHookInteraction(interaction = {}) {
+  return {
+    prompts: (Array.isArray(interaction?.prompts)
+      ? interaction.prompts
+      : []
+    ).map(normalizeHookPromptRule),
   };
 }
 
@@ -459,6 +479,7 @@ function normalizeHookCommandRow(operation = {}) {
   const command = normalizeHookCommand(operation);
   return {
     command: safeString(command.command ?? ""),
+    interaction: normalizeHookInteraction(command.interaction),
     mode: safeString(command.mode || "Enable"),
     timeout: command.timeout == null ? "" : safeString(command.timeout),
   };
@@ -484,30 +505,9 @@ function normalizeHookFlowRow(operation = {}) {
   };
 }
 
-function hookOperationLabel(operation) {
-  if (!operation || typeof operation !== "object") return "";
-  if (operation.kind === "command" || operation.command != null) {
-    return safeString(operation.command).trim();
-  }
-  if (operation.kind === "flow") {
-    const steps = Array.isArray(operation.steps) ? operation.steps : [];
-    const first = safeString(steps[0]?.command).trim();
-    if (!steps.length) return "flow";
-    if (steps.length === 1) return first || "flow";
-    return first
-      ? `${first} ... (${steps.length} steps)`
-      : `${steps.length} steps`;
-  }
-  return operation.kind || "";
-}
-
 function hookOperationKindLabel(operation) {
-  if (!operation || typeof operation !== "object") return "command";
   if (operation.kind === "flow") return "flow";
-  if (operation.kind === "command" || operation.command != null) {
-    return "command";
-  }
-  return operation.kind || "unsupported";
+  return "command";
 }
 
 function normalizeHookListRow(hookRowInput = {}, state = "") {
@@ -530,10 +530,6 @@ function normalizeHookListRow(hookRowInput = {}, state = "") {
     name: safeString(hookRowInput.name ?? ""),
     record_output: !!hookRowInput.record_output,
     state: safeString(state ?? ""),
-    unsupportedLabel:
-      kind === "unsupported" ? hookOperationLabel(operation) : "",
-    unsupportedOperation:
-      kind === "unsupported" ? JSON.stringify(operation, null, 2) : "",
   };
 }
 
@@ -600,8 +596,9 @@ export function removeHookListRow(hookListKey, rowIndex) {
 
 export function changeHookListKind(hookListKey, rowIndex, kind) {
   updateHookListRow(hookListKey, rowIndex, (row) => {
-    const nextRow = { ...row, kind };
-    if (kind === "flow" && nextRow.flow.steps.length === 0) {
+    const normalizedKind = kind === "flow" ? "flow" : "command";
+    const nextRow = { ...row, kind: normalizedKind };
+    if (normalizedKind === "flow" && nextRow.flow.steps.length === 0) {
       nextRow.flow = {
         ...nextRow.flow,
         steps: [normalizeHookCommandRow(defaultHookOperation())],
@@ -636,13 +633,34 @@ function collectHookCommand(command, triggerName, hookName) {
     }
     operation.timeout = timeout;
   }
+  const promptRows = Array.isArray(command.interaction?.prompts)
+    ? command.interaction.prompts
+    : [];
+  if (promptRows.length > 0) {
+    operation.interaction = {
+      prompts: promptRows.map((prompt, promptIndex) => {
+        const patterns = (
+          Array.isArray(prompt?.patterns) ? prompt.patterns : []
+        )
+          .map((pattern) => safeString(pattern).trim())
+          .filter(Boolean);
+        if (patterns.length === 0) {
+          throw new Error(
+            `${t("hookInteractionPatternRequired")}: ${triggerName}/${hookName}/prompt[${promptIndex + 1}]`,
+          );
+        }
+        return {
+          patterns,
+          record_input: !!prompt?.record_input,
+          response: safeString(prompt?.response ?? ""),
+        };
+      }),
+    };
+  }
   return operation;
 }
 
 function hasHookOperationInput(hookRow) {
-  if (hookRow.kind === "unsupported") {
-    return !!safeString(hookRow.unsupportedOperation).trim();
-  }
   if (hookRow.kind === "flow") {
     return (hookRow.flow?.steps || []).some((step) =>
       safeString(step.command).trim(),
@@ -653,12 +671,6 @@ function hasHookOperationInput(hookRow) {
 
 function collectHookOperation(hookRow, triggerName, hookName) {
   const hookPath = `${triggerName}/${hookName}`;
-  if (
-    hookRow.kind === "unsupported" &&
-    safeString(hookRow.unsupportedOperation).trim()
-  ) {
-    return JSON.parse(hookRow.unsupportedOperation);
-  }
   if (hookRow.kind === "flow") {
     const steps = (hookRow.flow?.steps || []).map((step, index) =>
       collectHookCommand(step, triggerName, `${hookName}[${index + 1}]`),

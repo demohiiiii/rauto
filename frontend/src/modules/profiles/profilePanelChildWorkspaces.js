@@ -17,11 +17,13 @@ import {
   builtinProfileStateListsPresentation,
   hookOperationEditorDisplay,
   profileHookCommandModePatch,
+  profileHookCommandInteractionPatch,
   profileHookCommandTextPatch,
   profileHookCommandTimeoutPatch,
   profileHookFlowEditorDisplay,
   profileHookFlowMaxStepsPatch,
   profileHookFlowStepCommandPatch,
+  profileHookFlowStepInteractionPatch,
   profileHookFlowStepModePatch,
   profileHookFlowStepTimeoutPatch,
   profileHookFlowStepsEditorDisplay,
@@ -80,18 +82,39 @@ export const createBuiltinProfileDetectSectionWorkspace = () =>
   );
 
 function createLiveActionHandlers(stateStore, createHandlers, handlerNames) {
+  function resolveHandler(handlerName, handlerArgs) {
+    return createHandlers(getStore(stateStore))[handlerName](...handlerArgs);
+  }
+
   return Object.fromEntries(
     handlerNames.map((handlerName) => [
       handlerName,
-      (...args) => createHandlers(getStore(stateStore))[handlerName](...args),
+      (...handlerArgs) => {
+        const initialHandler = resolveHandler(handlerName, handlerArgs);
+        if (typeof initialHandler !== "function") return initialHandler;
+
+        return (...callbackArgs) => {
+          const liveHandler = resolveHandler(handlerName, handlerArgs);
+          return typeof liveHandler === "function"
+            ? liveHandler(...callbackArgs)
+            : liveHandler;
+        };
+      },
     ]),
   );
 }
 
 function profilePatchHandler(onChange, ...patchArgs) {
-  const value = patchArgs.pop();
+  const value = profileInputValue(patchArgs.pop());
   const patchBuilder = patchArgs.pop();
   return callbackHandler(onChange, ...patchArgs)(patchBuilder(value));
+}
+
+function profileInputValue(value) {
+  const currentTarget = value?.currentTarget;
+  return currentTarget && "value" in currentTarget
+    ? currentTarget.value
+    : value;
 }
 
 function profileListRowInputHandlers({
@@ -136,11 +159,29 @@ function profileListRowInputHandlers({
           recordInput,
         );
     },
+    interactionStateChangeHandler() {
+      return (state) =>
+        profilePatchHandler(
+          onProfileListRowChange,
+          rowIndex,
+          profileListRowFieldPatches.interactionState,
+          state,
+        );
+    },
     patternChangeHandler(patternIndex) {
-      return callbackHandler(onPatternChange, rowIndex, patternIndex);
+      return (value) =>
+        callbackHandler(
+          onPatternChange,
+          rowIndex,
+          patternIndex,
+        )(profileInputValue(value));
     },
     patternStateChangeHandler() {
-      return callbackHandler(onPatternStateChange, rowIndex);
+      return (value) =>
+        callbackHandler(
+          onPatternStateChange,
+          rowIndex,
+        )(profileInputValue(value));
     },
     removePatternHandler(patternIndex) {
       return callbackHandler(onRemovePattern, rowIndex, patternIndex);
@@ -152,7 +193,11 @@ function profileListRowInputHandlers({
       return callbackHandler(onRemoveSimpleValue, rowIndex);
     },
     simpleValueChangeHandler() {
-      return callbackHandler(onSimpleValueChange, rowIndex);
+      return (value) =>
+        callbackHandler(
+          onSimpleValueChange,
+          rowIndex,
+        )(profileInputValue(value));
     },
     sysPromptNameGroupChangeHandler() {
       return (sysNameGroup) =>
@@ -234,6 +279,7 @@ const profileListRowHandlerNames = Object.freeze([
   "interactionDynamicChangeHandler",
   "interactionInputChangeHandler",
   "interactionRecordInputChangeHandler",
+  "interactionStateChangeHandler",
   "patternChangeHandler",
   "patternStateChangeHandler",
   "removePatternHandler",
@@ -330,6 +376,15 @@ function profileHookRowInputHandlers({
           mode,
         );
     },
+    commandInteractionChangeHandler() {
+      return (interaction) =>
+        profilePatchHandler(
+          onCommandChange,
+          rowIndex,
+          profileHookCommandInteractionPatch,
+          interaction,
+        );
+    },
     commandTextChangeHandler() {
       return (command) =>
         profilePatchHandler(
@@ -375,6 +430,16 @@ function profileHookRowInputHandlers({
           stepIndex,
           profileHookFlowStepModePatch,
           mode,
+        );
+    },
+    flowStepInteractionChangeHandler(stepIndex) {
+      return (interaction) =>
+        profilePatchHandler(
+          onFlowStepChange,
+          rowIndex,
+          stepIndex,
+          profileHookFlowStepInteractionPatch,
+          interaction,
         );
     },
     flowStepTimeoutChangeHandler(stepIndex) {
@@ -446,11 +511,13 @@ function profileHookRowInputHandlers({
 
 const profileHookRowHandlerNames = Object.freeze([
   "addFlowStepHandler",
+  "commandInteractionChangeHandler",
   "commandModeChangeHandler",
   "commandTextChangeHandler",
   "commandTimeoutChangeHandler",
   "flowMaxStepsChangeHandler",
   "flowStepCommandChangeHandler",
+  "flowStepInteractionChangeHandler",
   "flowStepModeChangeHandler",
   "flowStepTimeoutChangeHandler",
   "flowStopOnErrorChangeHandler",

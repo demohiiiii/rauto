@@ -130,6 +130,7 @@ function applySavedCustomProfile(savedProfilePayload, profile, profileName) {
     name: savedName,
   });
   setCustomProfileStatus(`${t("saved")}: ${savedName}`, "success");
+  return savedName;
 }
 
 async function loadCustomProfile() {
@@ -191,11 +192,16 @@ export async function createCustomProfileDraft() {
     const profile = collectCustomProfileForm(readCustomProfileBaseForm());
     profile.name = name;
     const savedProfilePayload = await saveCustomProfileForm(name, profile);
-    applySavedCustomProfile(savedProfilePayload, profile, name);
+    const savedName = applySavedCustomProfile(
+      savedProfilePayload,
+      profile,
+      name,
+    );
     await reloadCustomProfilesIfNeeded();
     if (readCustomProfileBaseForm().name) {
       await loadCustomProfile();
     }
+    return savedName;
   } catch (error) {
     setCustomProfileStatus(error.message, "error");
   }

@@ -21,8 +21,28 @@ export function builtinProfileDetectDetailsPresentation() {
 export function builtinProfileHooksDetailsPresentation() {
   return {
     ariaLabelText: tr("builtinHooksAria"),
+    commandKindLabel: tr("hookOperationKindCommand", "command"),
+    commandLabel: tr("fieldHookCommand", "command"),
+    description: tr(
+      "hookEditorDescription",
+      "Configure this hook and the operation it runs.",
+    ),
+    failurePolicyLabel: tr("fieldHookFailurePolicy", "failure_policy"),
+    flowKindLabel: tr("hookOperationKindFlow", "flow"),
+    flowSettingsTitle: tr("hookFlowSettings", "Flow settings"),
+    flowStepsTitle: tr("hookFlowSteps", "Command steps"),
+    kindLabel: tr("fieldHookOperationKind", "operation kind"),
+    maxStepsLabel: tr("fieldHookMaxSteps", "max steps"),
+    modeLabel: tr("fieldHookMode", "mode"),
+    nameLabel: tr("fieldHookName", "hook name"),
+    interaction: profileHookInteractionEditorDisplay(),
     recordOutputLabel: tr("fieldHookRecordOutput", "record_output"),
+    stateLabel: tr("fieldHookState", "state"),
+    stepLabel: tr("hookFlowStep", "Step"),
+    stopOnErrorLabel: tr("fieldHookStopOnError", "stop on error"),
+    timeoutLabel: tr("fieldHookTimeout", "timeout"),
     title: tr("labelHooks", "hooks"),
+    triggerLabel: tr("fieldHookTrigger", "trigger"),
   };
 }
 
@@ -74,6 +94,7 @@ function profileInteractionEditorRow(interactionRow = {}) {
     isDynamic: !!interactionRow?.is_dynamic,
     patternRows: profilePatternEditorRows(interactionRow?.patterns),
     recordInput: !!interactionRow?.record_input,
+    state: safeString(interactionRow?.state ?? ""),
   };
 }
 
@@ -186,6 +207,10 @@ export function profileHookRowEditorDisplay({
     state: safeString(hookRow?.state ?? ""),
   };
   return {
+    description: tr(
+      "hookEditorDescription",
+      "Configure this hook and the operation it runs.",
+    ),
     deleteButtonLabel: tr("deleteInlineBtn", "Delete"),
     failurePolicyLabel: tr("fieldHookFailurePolicy", "failure_policy"),
     failurePolicyRows: [
@@ -205,10 +230,21 @@ export function profileHookRowEditorDisplay({
 
 export function profileHookFlowEditorDisplay(flow = {}) {
   return {
-    addButtonLabel: tr("addInlineBtn", "Add"),
+    addButtonLabel: tr("hookFlowAddStep", "Add step"),
+    emptyText: tr("hookFlowEmpty", "Add the first command step to this flow."),
     maxSteps: safeString(flow?.max_steps ?? ""),
+    maxStepsDescription: tr(
+      "hookFlowMaxStepsDescription",
+      "Optional execution limit for this flow.",
+    ),
     maxStepsPlaceholder: tr("fieldHookMaxSteps", "max steps"),
+    settingsTitle: tr("hookFlowSettings", "Flow settings"),
     steps: Array.isArray(flow?.steps) ? flow.steps : [],
+    stepsTitle: tr("hookFlowSteps", "Command steps"),
+    stopOnErrorDescription: tr(
+      "hookFlowStopOnErrorDescription",
+      "Stop after the first failed command.",
+    ),
     stopOnErrorLabel: tr("fieldHookStopOnError", "stop on error"),
     stopOnError: !!flow?.stop_on_error,
   };
@@ -231,7 +267,70 @@ function normalizeHookCommand(operation) {
     kind: "command",
     mode: operation.mode || "Enable",
     command: operation.command || "",
+    interaction: normalizeHookInteraction(operation.interaction),
     timeout: operation.timeout == null ? 60 : operation.timeout,
+  };
+}
+
+function normalizeHookPromptRule(prompt = {}) {
+  return {
+    patterns: (Array.isArray(prompt?.patterns) ? prompt.patterns : []).map(
+      (pattern) => safeString(pattern ?? ""),
+    ),
+    record_input: !!prompt?.record_input,
+    response: safeString(prompt?.response ?? ""),
+  };
+}
+
+function normalizeHookInteraction(interaction = {}) {
+  return {
+    prompts: (Array.isArray(interaction?.prompts)
+      ? interaction.prompts
+      : []
+    ).map(normalizeHookPromptRule),
+  };
+}
+
+export function profileHookInteractionEditorDisplay(interaction = {}) {
+  const normalizedInteraction = normalizeHookInteraction(interaction);
+  return {
+    addPatternLabel: tr("hookInteractionAddPattern", "Add match"),
+    addPromptLabel: tr("hookInteractionAddPrompt", "Add prompt"),
+    deletePatternLabel: tr("hookInteractionDeletePattern", "Delete match"),
+    deletePromptLabel: tr("hookInteractionDeletePrompt", "Delete prompt"),
+    description: tr(
+      "hookInteractionDescription",
+      "Respond automatically when command output matches a prompt.",
+    ),
+    emptyText: tr(
+      "hookInteractionEmpty",
+      "No interactive prompt responses configured.",
+    ),
+    patternLabel: tr("hookInteractionPattern", "Prompt match"),
+    patternPlaceholder: tr(
+      "hookInteractionPatternPlaceholder",
+      "Regex, for example Password:",
+    ),
+    promptLabel: tr("hookInteractionPrompt", "Prompt"),
+    promptRows: normalizedInteraction.prompts.map((prompt, promptIndex) => ({
+      ...prompt,
+      patternRows: prompt.patterns.map((pattern, patternIndex) => ({
+        pattern,
+        patternIndex,
+      })),
+      promptIndex,
+    })),
+    recordInputDescription: tr(
+      "hookInteractionRecordInputDescription",
+      "Keep the matched prompt in captured output.",
+    ),
+    recordInputLabel: tr("hookInteractionRecordInput", "Record matched input"),
+    responseLabel: tr("hookInteractionResponse", "Response"),
+    responsePlaceholder: tr(
+      "hookInteractionResponsePlaceholder",
+      "Raw response; include a trailing newline when required",
+    ),
+    title: tr("hookInteractionTitle", "Interactive prompts"),
   };
 }
 
@@ -239,6 +338,7 @@ function normalizeHookCommandRow(operation = {}) {
   const command = normalizeHookCommand(operation);
   return {
     command: safeString(command.command ?? ""),
+    interaction: normalizeHookInteraction(command.interaction),
     mode: safeString(command.mode || "Enable"),
     timeout: command.timeout == null ? "" : safeString(command.timeout),
   };
@@ -256,12 +356,16 @@ export function profileHookFlowStepsEditorDisplay({
         const commandRow = normalizeHookCommandRow(hookFlowStepRow);
         return {
           ...commandRow,
+          interactionDisplay: profileHookInteractionEditorDisplay(
+            commandRow.interaction,
+          ),
           modeOptionRows: profileModeOptionRows(modeOptions, commandRow.mode),
           stepIndex: hookFlowStepIndex,
         };
       },
     ),
     modeLabel: tr("fieldHookMode", "mode"),
+    stepLabel: tr("hookFlowStep", "Step"),
     timeoutPlaceholder: tr("fieldHookTimeout", "timeout"),
   };
 }
@@ -276,49 +380,48 @@ export function hookOperationEditorDisplay(
   row = {},
   { modeOptions = [] } = {},
 ) {
-  const kind = row?.kind || "command";
+  const kind = row?.kind === "flow" ? "flow" : "command";
   const commandRow = normalizeHookCommandRow(row?.command);
-  const unsupportedLabel = safeString(row?.unsupportedLabel || "");
-  const unsupportedOperation = safeString(row?.unsupportedOperation || "");
   return {
     commandDisplay: {
       commandText: commandRow.command,
+      interaction: commandRow.interaction,
+      interactionDisplay: profileHookInteractionEditorDisplay(
+        commandRow.interaction,
+      ),
       mode: commandRow.mode,
       timeoutValue: commandRow.timeout,
     },
     commandPlaceholder: tr("fieldHookCommand", "command"),
     commandModeLabel: tr("fieldHookMode", "mode"),
     commandModeOptionRows: profileModeOptionRows(modeOptions, commandRow.mode),
+    commandDescription: tr(
+      "hookCommandDescription",
+      "Run one command when this hook is triggered.",
+    ),
     flow: row?.flow || {},
+    flowDescription: tr(
+      "hookFlowDescription",
+      "Run an ordered sequence of commands with individual modes and timeouts.",
+    ),
     kindLabel: tr("fieldHookOperationKind", "operation kind"),
     kindOptionRows: [
       { label: tr("hookOperationKindCommand", "command"), value: "command" },
       { label: tr("hookOperationKindFlow", "flow"), value: "flow" },
-      {
-        label: tr("hookOperationKindUnsupported", "unsupported"),
-        value: "unsupported",
-      },
     ],
     selectedKind: kind,
     showCommandEditor: kind === "command",
     showFlowEditor: kind === "flow",
-    showUnsupportedEditor: kind !== "command" && kind !== "flow",
     timeoutPlaceholder: tr("fieldHookTimeout", "timeout"),
-    unsupportedDisplay: {
-      hasLabel: !!unsupportedLabel,
-      labelText: unsupportedLabel,
-      operationText: unsupportedOperation,
-    },
-    unsupportedOperationHint: tr(
-      "hookUnsupportedOperationHint",
-      "unsupported operation",
-    ),
   };
 }
 
 export const profileListRowFieldPatches = {
   interactionInput(input = "") {
     return { input };
+  },
+  interactionState(state = "") {
+    return { state };
   },
   interactionIsDynamic(is_dynamic = false) {
     return { is_dynamic };
@@ -383,6 +486,10 @@ export function profileHookCommandTimeoutPatch(timeout = "") {
   return { timeout };
 }
 
+export function profileHookCommandInteractionPatch(interaction = {}) {
+  return { interaction: normalizeHookInteraction(interaction) };
+}
+
 export function profileHookFlowStopOnErrorPatch(stop_on_error = false) {
   return { stop_on_error };
 }
@@ -401,6 +508,10 @@ export function profileHookFlowStepCommandPatch(command = "") {
 
 export function profileHookFlowStepTimeoutPatch(timeout = "") {
   return { timeout };
+}
+
+export function profileHookFlowStepInteractionPatch(interaction = {}) {
+  return { interaction: normalizeHookInteraction(interaction) };
 }
 
 function normalizeHooks(hooks) {
@@ -585,20 +696,33 @@ function readonlyHookRows(hooks) {
   const pushHookRow = (trigger, state, hookEntry = {}) => {
     const operation = hookEntry.operation || defaultHookOperation();
     const command = normalizeHookCommand(operation);
+    const flow = normalizeHookFlow(operation);
     const kind = hookOperationKindLabel(operation);
     rows.push({
       command: {
         command: safeString(command.command || hookOperationLabel(operation)),
+        interaction: normalizeHookInteraction(command.interaction),
+        interactionDisplay: profileHookInteractionEditorDisplay(
+          command.interaction,
+        ),
         mode: safeString(command.mode),
         timeout: command.timeout == null ? "" : safeString(command.timeout),
       },
       failurePolicy: safeString(hookEntry.failure_policy || "best_effort"),
-      flowSteps: normalizeHookFlow(operation).steps.map(
-        (hookStep, hookStepIndex) => ({
-          ...normalizeHookCommand(hookStep),
-          stepNumberText: `#${hookStepIndex + 1}`,
-        }),
-      ),
+      flowMaxSteps:
+        flow.max_steps == null || flow.max_steps === ""
+          ? "-"
+          : safeString(flow.max_steps),
+      flowSteps: flow.steps.map((hookStep, hookStepIndex) => ({
+        ...normalizeHookCommand(hookStep),
+        interaction: normalizeHookInteraction(hookStep?.interaction),
+        interactionDisplay: profileHookInteractionEditorDisplay(
+          hookStep?.interaction,
+        ),
+        stepIndex: hookStepIndex,
+        stepNumberText: `#${hookStepIndex + 1}`,
+      })),
+      flowStopOnError: !!flow.stop_on_error,
       kind,
       name: safeString(hookEntry.name ?? ""),
       recordOutput: !!hookEntry.record_output,
