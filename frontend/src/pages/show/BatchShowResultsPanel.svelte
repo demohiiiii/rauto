@@ -1,9 +1,11 @@
 <script>
+  import * as Card from "$lib/components/ui/card";
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import Table2Icon from "@lucide/svelte/icons/table-2";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
@@ -92,50 +94,35 @@
   {/if}
 
   {#if batchResultDisplay.showResultPanel}
-    <section
-      class="min-w-0 overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
-    >
-      <div
-        class="flex items-center justify-between gap-3 border-b border-border px-6 py-4"
+    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+      <WorkspaceActionHeader
+        title="查询结果"
+        description="每个目标设备的原始输出与解析结果"
+        icon={TerminalIcon}
       >
-        <div class="flex items-center gap-3">
-          <span
-            class="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15"
-            aria-hidden="true"
-          >
-            <TerminalIcon class="size-4" />
-          </span>
-          <span>
-            <h3 class="text-[15px] font-semibold text-card-foreground">
-              查询结果
-            </h3>
-            <p class="text-xs text-muted-foreground">
-              每个目标设备的原始输出与解析结果
-            </p>
-          </span>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <span
-            class="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground"
-          >
-            结果数
-            <span class="font-semibold text-foreground">
-              {batchResultsPresentation.resultCount}
-            </span>
-          </span>
-          {#if batchResultsPresentation.exportAvailable}
-            <LoadingButton
-              variant="outline"
-              size="sm"
-              loading={exportLoading}
-              onclick={exportActionHandlers.export}
+        {#snippet actions()}
+          <div class="flex items-center gap-2">
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground"
             >
-              <span>{batchResultsPresentation.exportButtonLabel}</span>
-            </LoadingButton>
-          {/if}
-        </div>
-      </div>
+              结果数
+              <span class="font-semibold text-foreground">
+                {batchResultsPresentation.resultCount}
+              </span>
+            </span>
+            {#if batchResultsPresentation.exportAvailable}
+              <LoadingButton
+                variant="outline"
+                size="sm"
+                loading={exportLoading}
+                onclick={exportActionHandlers.export}
+              >
+                <span>{batchResultsPresentation.exportButtonLabel}</span>
+              </LoadingButton>
+            {/if}
+          </div>
+        {/snippet}
+      </WorkspaceActionHeader>
 
       {#if deviceRows.length > 1}
         <div
@@ -170,7 +157,7 @@
         </div>
       {/if}
 
-      <div class="flex flex-col gap-4 p-6">
+      <div class="flex flex-col gap-4 p-4 sm:p-5">
         {#if batchResultDisplay.statusMessage}
           <StatusCard
             message={batchResultDisplay.statusMessage}
@@ -282,6 +269,6 @@
           {/if}
         {/if}
       </div>
-    </section>
+    </Card.Root>
   {/if}
 </div>

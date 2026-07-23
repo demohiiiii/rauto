@@ -20,6 +20,7 @@
   import { createTxWorkflowInputPanelWorkspace } from "../../modules/transactions/transactionInputWorkspaces.js";
   import { txWorkflowFormModelToJsonText } from "../../modules/transactions/transactionWorkflowFormModels.js";
   import { txWorkflowPreviewPresentation } from "../../modules/transactions/transactionExecutionDisplays.js";
+  import Layers3Icon from "@lucide/svelte/icons/layers-3";
 
   import {
     TX_TEMPLATE_KIND,
@@ -180,10 +181,11 @@
 </script>
 
 <div class="grid gap-4">
-  <Card.Root class="gap-0 overflow-hidden py-0">
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
     <WorkspaceActionHeader
       title={txWorkflowEditorDisplay.editorTitle}
       description={txWorkflowInputDisplay.directHint}
+      icon={Layers3Icon}
     >
       {#snippet status()}
         <Badge variant="secondary">

@@ -6,6 +6,8 @@
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
+  import CirclePlayIcon from "@lucide/svelte/icons/circle-play";
   import { t } from "../../lib/i18n.js";
   import { createTxWorkflowRunPanelWorkspace } from "../../modules/transactions/transactionExecutionDisplays.js";
   import TxWorkflowBlockResultPanel from "./TxWorkflowBlockResultPanel.svelte";
@@ -29,11 +31,15 @@
   });
 </script>
 
-<Card.Root class="min-w-0 gap-0 overflow-hidden py-0">
-  <Card.Header class="border-b bg-muted/15 p-4 sm:p-5">
-    <Card.Title>{t("txWorkflowRunTitle")}</Card.Title>
-    <Card.Description>{t("txWorkflowRunHint")}</Card.Description>
-    <Card.Action>
+<Card.Root
+  class="min-w-0 gap-0 overflow-hidden border-border/80 py-0 shadow-sm"
+>
+  <WorkspaceActionHeader
+    title={t("txWorkflowRunTitle")}
+    description={t("txWorkflowRunHint")}
+    icon={CirclePlayIcon}
+  >
+    {#snippet actions()}
       <LoadingButton
         variant="default"
         size="sm"
@@ -43,8 +49,8 @@
         <PlayIcon data-icon="inline-start" />
         <span>{panelDisplay.executeButtonLabel}</span>
       </LoadingButton>
-    </Card.Action>
-  </Card.Header>
+    {/snippet}
+  </WorkspaceActionHeader>
 
   {#if hasExecutionOutput}
     <Card.Content class="grid min-w-0 gap-4 p-4 sm:p-5">

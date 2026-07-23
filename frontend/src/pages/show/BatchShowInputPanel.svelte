@@ -4,6 +4,7 @@
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
   import { createBatchShowInputPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
@@ -39,24 +40,13 @@
 </script>
 
 <div hidden={!active}>
-  <Card.Root class="overflow-hidden rounded-3xl border-border shadow-sm">
-    <Card.Header
-      class="flex flex-row items-center justify-between gap-3 border-b border-border px-6 py-4 [.border-b]:pb-4"
-    >
-      <div class="flex items-center gap-3">
-        <span
-          class="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15"
-          aria-hidden="true"
-        >
-          <SearchIcon class="size-4" />
-        </span>
-        <span>
-          <Card.Title class="text-[15px]">查询配置</Card.Title>
-          <Card.Description>选择查询对象并配置解析选项</Card.Description>
-        </span>
-      </div>
-    </Card.Header>
-    <Card.Content class="flex flex-col gap-6 p-6">
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+    <WorkspaceActionHeader
+      title="查询配置"
+      description="选择查询对象并配置解析选项"
+      icon={SearchIcon}
+    />
+    <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
       <TabList
         {tabItems}
         activeValue={currentTab}

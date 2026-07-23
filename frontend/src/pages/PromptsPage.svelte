@@ -19,6 +19,7 @@
   } from "@lucide/svelte";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import { currentLanguageState, t } from "../lib/i18n.js";
   import { cn } from "$lib/utils.js";
   import {
@@ -157,21 +158,12 @@
 
 <DashboardTabPanel {active}>
   <Card.Root class="gap-0 overflow-visible border-border/80 py-0 shadow-sm">
-    <Card.Header class="rounded-t-xl border-b bg-card/80 p-4 sm:p-5">
-      <div class="flex min-w-0 items-start gap-3">
-        <div
-          class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-        >
-          <UserCogIcon aria-hidden="true" />
-        </div>
-        <div class="min-w-0">
-          <Card.Title class="text-lg">{t("promptProfilesTitle")}</Card.Title>
-          <Card.Description class="mt-1 max-w-3xl leading-6">
-            {t("promptProfilesDescription")}
-          </Card.Description>
-        </div>
-      </div>
-    </Card.Header>
+    <WorkspaceActionHeader
+      class="rounded-t-xl"
+      title={t("promptProfilesTitle")}
+      description={t("promptProfilesDescription")}
+      icon={UserCogIcon}
+    />
 
     <Card.Content class="min-w-0 p-0">
       <div

@@ -4,6 +4,8 @@
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import ValueLabelSelectField from "../../components/fragments/ValueLabelSelectField.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
+  import FileClockIcon from "@lucide/svelte/icons/file-clock";
   import { taskEventFilterActionHandlers } from "../../modules/tasks/tasksState.js";
   import TaskDetailOverviewPanel from "./TaskDetailOverviewPanel.svelte";
 
@@ -83,13 +85,9 @@
   </section>
 {/snippet}
 
-<Card.Root>
-  <Card.Header>
-    <Card.Title>
-      {taskDetail.title}
-    </Card.Title>
-  </Card.Header>
-  <Card.Content class="grid gap-2">
+<Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+  <WorkspaceActionHeader title={taskDetail.title} icon={FileClockIcon} />
+  <Card.Content class="grid gap-2 p-4 sm:p-5">
     {#if detailStatus}
       <StatusCard message={detailStatus.message} tone={detailStatus.tone} />
     {/if}

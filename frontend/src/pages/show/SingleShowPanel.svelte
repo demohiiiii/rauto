@@ -7,6 +7,7 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
   import Table2Icon from "@lucide/svelte/icons/table-2";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
@@ -76,25 +77,14 @@
   }
 </script>
 
-<div class="flex flex-col gap-6" hidden={!active}>
-  <Card.Root class="overflow-hidden rounded-3xl border-border shadow-sm">
-    <Card.Header
-      class="flex flex-row items-center justify-between gap-3 border-b border-border px-6 py-4 [.border-b]:pb-4"
-    >
-      <div class="flex items-center gap-3">
-        <span
-          class="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15"
-          aria-hidden="true"
-        >
-          <SearchIcon class="size-4" />
-        </span>
-        <span>
-          <Card.Title class="text-[15px]">查询配置</Card.Title>
-          <Card.Description>选择查询对象并配置解析选项</Card.Description>
-        </span>
-      </div>
-    </Card.Header>
-    <Card.Content class="flex flex-col gap-6 p-6">
+<div class="flex flex-col gap-3" hidden={!active}>
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+    <WorkspaceActionHeader
+      title="查询配置"
+      description="选择查询对象并配置解析选项"
+      icon={SearchIcon}
+    />
+    <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
       <TabList
         {tabItems}
         activeValue={currentTab}
@@ -142,50 +132,35 @@
   </Card.Root>
 
   {#if singleShowResults.resultCount || singleShowResults.statusMessage}
-    <section
-      class="min-w-0 overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
-    >
-      <div
-        class="flex items-center justify-between gap-3 border-b border-border px-6 py-4"
+    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+      <WorkspaceActionHeader
+        title={singleShowResults.title}
+        description="每个查询对象的原始输出与解析结果"
+        icon={TerminalIcon}
       >
-        <div class="flex items-center gap-3">
-          <span
-            class="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15"
-            aria-hidden="true"
-          >
-            <TerminalIcon class="size-4" />
-          </span>
-          <span>
-            <h3 class="text-[15px] font-semibold text-card-foreground">
-              {singleShowResults.title}
-            </h3>
-            <p class="text-xs text-muted-foreground">
-              每个查询对象的原始输出与解析结果
-            </p>
-          </span>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <span
-            class="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground"
-          >
-            结果数
-            <span class="font-semibold text-foreground">
-              {singleShowResults.resultCount}
-            </span>
-          </span>
-          {#if singleShowResults.exportAvailable}
-            <LoadingButton
-              variant="outline"
-              size="sm"
-              loading={exportLoadingState.exportLoading}
-              onclick={exportActionHandlers.export}
+        {#snippet actions()}
+          <div class="flex items-center gap-2">
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground"
             >
-              <span>{singleShowResults.exportButtonLabel}</span>
-            </LoadingButton>
-          {/if}
-        </div>
-      </div>
+              结果数
+              <span class="font-semibold text-foreground">
+                {singleShowResults.resultCount}
+              </span>
+            </span>
+            {#if singleShowResults.exportAvailable}
+              <LoadingButton
+                variant="outline"
+                size="sm"
+                loading={exportLoadingState.exportLoading}
+                onclick={exportActionHandlers.export}
+              >
+                <span>{singleShowResults.exportButtonLabel}</span>
+              </LoadingButton>
+            {/if}
+          </div>
+        {/snippet}
+      </WorkspaceActionHeader>
 
       {#if singleShowResults.resultCount && resultRows.length > 1}
         <div
@@ -220,7 +195,7 @@
         </div>
       {/if}
 
-      <div class="flex flex-col gap-4 p-6">
+      <div class="flex flex-col gap-4 p-4 sm:p-5">
         {#if singleShowResults.statusMessage}
           <StatusCard
             message={singleShowResults.statusMessage}
@@ -290,6 +265,6 @@
           {/if}
         {/if}
       </div>
-    </section>
+    </Card.Root>
   {/if}
 </div>

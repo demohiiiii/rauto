@@ -18,6 +18,7 @@
   import PlainCheckboxField from "../../components/fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import { browserConfirm } from "../../lib/browser.js";
   import { inventoryCollectionActionHandlers } from "../../modules/inventory/inventoryPageWorkspace.js";
 
@@ -105,25 +106,12 @@
 
 <div class="min-w-0" hidden={!active}>
   <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-    <Card.Header class="border-b bg-card/80 p-4 sm:p-5">
-      <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
-        <div class="flex min-w-0 items-start gap-3">
-          <div
-            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-          >
-            {#if collectionList.showGroupFields}
-              <ListTreeIcon aria-hidden="true" />
-            {:else}
-              <TagIcon aria-hidden="true" />
-            {/if}
-          </div>
-          <div class="min-w-0">
-            <Card.Title>{collectionList.collectionTitle}</Card.Title>
-            <Card.Description class="mt-1 max-w-2xl leading-6">
-              {collectionList.collectionDescription}
-            </Card.Description>
-          </div>
-        </div>
+    <WorkspaceActionHeader
+      title={collectionList.collectionTitle}
+      description={collectionList.collectionDescription}
+      icon={collectionList.showGroupFields ? ListTreeIcon : TagIcon}
+    >
+      {#snippet actions()}
         <Button
           class="min-h-10"
           variant="outline"
@@ -133,8 +121,8 @@
           <PlusIcon data-icon="inline-start" aria-hidden="true" />
           {collectionList.newButtonLabel}
         </Button>
-      </div>
-    </Card.Header>
+      {/snippet}
+    </WorkspaceActionHeader>
 
     <Card.Content class="min-w-0 p-0">
       <div

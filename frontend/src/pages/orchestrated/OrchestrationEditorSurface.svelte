@@ -12,6 +12,7 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import WorkspaceTemplateActions from "../../components/fragments/WorkspaceTemplateActions.svelte";
+  import NetworkIcon from "@lucide/svelte/icons/network";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { orchestrationPlanFormModelToJsonText } from "../../modules/orchestration/orchestrationPlanFormModels.js";
   import { TX_EDITOR } from "../../modules/transactions/transactionPanelState.js";
@@ -151,10 +152,11 @@
   }
 </script>
 
-<Card.Root class="overflow-hidden border-border shadow-sm">
+<Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
   <WorkspaceActionHeader
     title={t("orchestrationWorkspaceTitle")}
     description={t("orchestrationWorkspaceHint")}
+    icon={NetworkIcon}
   >
     {#snippet status()}
       <Badge variant="secondary">{selectionLabel}</Badge>

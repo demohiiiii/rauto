@@ -13,6 +13,7 @@
     SparklesIcon,
   } from "@lucide/svelte";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import { currentLanguageState, t } from "../lib/i18n.js";
   import {
     TEMPLATE_MANAGER_KIND,
@@ -88,21 +89,11 @@
 
 <DashboardTabPanel {active}>
   <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-    <Card.Header class="border-b bg-card/80 p-4 sm:p-5">
-      <div class="flex items-start gap-3">
-        <div
-          class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-        >
-          <SparklesIcon aria-hidden="true" />
-        </div>
-        <div class="min-w-0">
-          <Card.Title class="text-lg">{pageLabels.title}</Card.Title>
-          <Card.Description class="mt-1 max-w-3xl leading-6">
-            {pageLabels.description}
-          </Card.Description>
-        </div>
-      </div>
-    </Card.Header>
+    <WorkspaceActionHeader
+      title={pageLabels.title}
+      description={pageLabels.description}
+      icon={SparklesIcon}
+    />
 
     <Card.Content class="min-w-0 p-0">
       <Tabs.Root

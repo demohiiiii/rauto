@@ -4,6 +4,8 @@
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
+  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
+  import ListFilterIcon from "@lucide/svelte/icons/list-filter";
   import { taskFiltersActionHandlers } from "../../modules/tasks/tasksState.js";
 
   let {
@@ -33,14 +35,10 @@
   );
 </script>
 
-<Card.Root>
-  <Card.Header>
-    <Card.Title>
-      {taskFilters.title}
-    </Card.Title>
-  </Card.Header>
+<Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+  <WorkspaceActionHeader title={taskFilters.title} icon={ListFilterIcon} />
   <Card.Content
-    class="grid gap-2 md:grid-cols-[120px_1fr_1fr_1fr_1fr_1fr_1fr_auto_auto]"
+    class="grid gap-2 p-4 sm:p-5 md:grid-cols-[120px_1fr_1fr_1fr_1fr_1fr_1fr_auto_auto]"
   >
     <PlainSelectField
       title={taskFilters.fields.limit.label}

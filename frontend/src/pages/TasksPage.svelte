@@ -3,6 +3,8 @@
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import DetailFieldCard from "../components/fragments/DetailFieldCard.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
+  import ClipboardListIcon from "@lucide/svelte/icons/clipboard-list";
   import { Button } from "$lib/components/ui/button/index.js";
   import { createTasksPageWorkspace } from "../modules/tasks/tasksState.js";
   import TaskDetailPanel from "./tasks/TaskDetailPanel.svelte";
@@ -27,16 +29,15 @@
 </script>
 
 {#snippet taskRunList()}
-  <Card.Root>
-    <Card.Header class="flex flex-row items-center justify-between gap-2">
-      <Card.Title>
-        {taskList.title}
-      </Card.Title>
-      <span class="text-xs text-muted-foreground">
-        {taskList.countText}
-      </span>
-    </Card.Header>
-    <Card.Content class="grid gap-2">
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+    <WorkspaceActionHeader title={taskList.title} icon={ClipboardListIcon}>
+      {#snippet actions()}
+        <span class="text-xs text-muted-foreground">
+          {taskList.countText}
+        </span>
+      {/snippet}
+    </WorkspaceActionHeader>
+    <Card.Content class="grid gap-2 p-4 sm:p-5">
       <div class="grid gap-2">
         {#if taskListStatus}
           <StatusCard

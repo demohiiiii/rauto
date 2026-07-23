@@ -18,6 +18,7 @@
   import { createTxBlockInputPanelWorkspace } from "../../modules/transactions/transactionInputWorkspaces.js";
   import { txBlockFormModelToJsonText } from "../../modules/transactions/transactionBlockFormModels.js";
   import { txBlockPreviewPresentation } from "../../modules/transactions/transactionExecutionDisplays.js";
+  import BlocksIcon from "@lucide/svelte/icons/blocks";
 
   import {
     TX_TEMPLATE_KIND,
@@ -155,10 +156,11 @@
 </script>
 
 <div class="grid gap-2">
-  <Card.Root class="gap-0 overflow-hidden py-0">
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
     <WorkspaceActionHeader
       title={txBlockInputDisplay.editorTitle}
       description={txBlockInputDisplay.directHint}
+      icon={BlocksIcon}
     >
       {#snippet status()}
         <Badge variant="secondary">

@@ -5,6 +5,8 @@
   import PlainInputField from "../components/fragments/PlainInputField.svelte";
   import LoadingButton from "../components/fragments/LoadingButton.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
+  import UploadIcon from "@lucide/svelte/icons/upload";
   import { createTransferPageWorkspace } from "../modules/operations/transfer.js";
 
   let { active } = $props();
@@ -18,13 +20,13 @@
 
 <DashboardTabPanel {active}>
   <div class="grid gap-3">
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>
-          {transferUploadDisplay.transferUploadCardDisplay.title}
-        </Card.Title>
-      </Card.Header>
-      <Card.Content class="grid gap-2">
+    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+      <WorkspaceActionHeader
+        title={transferUploadDisplay.transferUploadCardDisplay.title}
+        description={transferUploadDisplay.transferUploadCardDisplay.hint}
+        icon={UploadIcon}
+      />
+      <Card.Content class="grid gap-2 p-4 sm:p-5">
         <div class="grid gap-2 md:grid-cols-2">
           <PlainInputField
             value={transferUploadFields.localPath.value}
@@ -63,9 +65,6 @@
         />
 
         <div class="grid gap-2 md:grid-cols-[1fr_auto]">
-          <div class="text-xs text-slate-500">
-            {transferUploadDisplay.transferUploadCardDisplay.hint}
-          </div>
           <LoadingButton
             variant="default"
             size="sm"

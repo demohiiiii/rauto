@@ -5,6 +5,9 @@
   import LoadingButton from "../components/fragments/LoadingButton.svelte";
   import PlainInputField from "../components/fragments/PlainInputField.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
+  import ArchiveIcon from "@lucide/svelte/icons/archive";
+  import ArchiveRestoreIcon from "@lucide/svelte/icons/archive-restore";
 
   let { active } = $props();
   const backupPageWorkspace = createBackupPageWorkspace();
@@ -73,13 +76,12 @@
 {/snippet}
 
 {#snippet backupArchiveCard()}
-  <Card.Root>
-    <Card.Header>
-      <Card.Title>
-        {backupDisplay.archiveDisplay.listTitle}
-      </Card.Title>
-    </Card.Header>
-    <Card.Content class="grid gap-2 md:w-225">
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+    <WorkspaceActionHeader
+      title={backupDisplay.archiveDisplay.listTitle}
+      icon={ArchiveIcon}
+    />
+    <Card.Content class="grid gap-2 p-4 sm:p-5 md:w-225">
       <PlainInputField
         value={backupDisplay.archiveDisplay.archiveInput}
         list="backup-archive-options"
@@ -129,13 +131,12 @@
 {/snippet}
 
 {#snippet backupCreateCard()}
-  <Card.Root>
-    <Card.Header>
-      <Card.Title>
-        {backupDisplay.createDisplay.title}
-      </Card.Title>
-    </Card.Header>
-    <Card.Content class="grid gap-2 md:w-225">
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+    <WorkspaceActionHeader
+      title={backupDisplay.createDisplay.title}
+      icon={ArchiveRestoreIcon}
+    />
+    <Card.Content class="grid gap-2 p-4 sm:p-5 md:w-225">
       <PlainInputField
         value={backupDisplay.createDisplay.outputPath}
         aria-label={backupDisplay.createDisplay.outputPathLabelText}

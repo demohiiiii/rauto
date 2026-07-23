@@ -903,7 +903,6 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
     "frontend/src/pages/BackupPage.svelte",
     "frontend/src/pages/BlacklistPage.svelte",
     "frontend/src/pages/ReplayPage.svelte",
-    "frontend/src/pages/ShowPage.svelte",
     "frontend/src/pages/TasksPage.svelte",
     "frontend/src/pages/TransferPage.svelte",
   ];
@@ -913,8 +912,7 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
 
     assert.match(source, /ui\/card/);
     assert.match(source, /<Card\.Root/);
-    assert.match(source, /<Card\.Header/);
-    assert.match(source, /<Card\.Title/);
+    assert.match(source, /WorkspaceActionHeader/);
     assert.match(source, /<Card\.Content/);
     assert.doesNotMatch(source, /group-card/);
   }
@@ -949,8 +947,7 @@ test("inventory panels compose shadcn Card instead of group-card shells", () => 
 
     assert.match(source, /ui\/card/);
     assert.match(source, /<Card\.Root/);
-    assert.match(source, /<Card\.Header/);
-    assert.match(source, /<Card\.Title/);
+    assert.match(source, /WorkspaceActionHeader/);
     assert.match(source, /<Card\.Content/);
     assert.doesNotMatch(source, /group-card/);
     assert.doesNotMatch(source, /group-body/);
@@ -976,7 +973,7 @@ test("profile workspace uses one shadcn Card with semantic child sections", () =
   const pageSource = read("frontend/src/pages/PromptsPage.svelte");
   assert.match(pageSource, /ui\/card/);
   assert.match(pageSource, /<Card\.Root/);
-  assert.match(pageSource, /<Card\.Header/);
+  assert.match(pageSource, /WorkspaceActionHeader/);
   assert.match(pageSource, /<Card\.Content/);
 });
 
@@ -1014,6 +1011,8 @@ test("workspace entry panels share the theme-aware action header", () => {
   assert.match(header, /<Card\.Title/);
   assert.match(header, /<Card\.Description/);
   assert.match(header, /border-primary\/15/);
+  assert.match(header, /HeaderIcon/);
+  assert.match(header, /bg-primary\/10/);
 
   for (const path of panelPaths) {
     const source = read(path);
@@ -1025,6 +1024,55 @@ test("workspace entry panels share the theme-aware action header", () => {
 
   const button = read("frontend/src/lib/components/ui/button/button.svelte");
   assert.match(button, /"primary-outline"/);
+});
+
+test("top-level workspace cards keep icon-bearing headers", () => {
+  const pagePaths = [
+    "frontend/src/pages/BackupPage.svelte",
+    "frontend/src/pages/BlacklistPage.svelte",
+    "frontend/src/pages/InventoryPage.svelte",
+    "frontend/src/pages/PromptsPage.svelte",
+    "frontend/src/pages/ReplayPage.svelte",
+    "frontend/src/pages/StandardPage.svelte",
+    "frontend/src/pages/TasksPage.svelte",
+    "frontend/src/pages/TemplatesPage.svelte",
+    "frontend/src/pages/TransferPage.svelte",
+    "frontend/src/pages/show/BatchShowInputPanel.svelte",
+    "frontend/src/pages/show/BatchShowResultsPanel.svelte",
+    "frontend/src/pages/show/SingleShowPanel.svelte",
+  ];
+
+  for (const path of pagePaths) {
+    const source = read(path);
+    assert.match(source, /WorkspaceActionHeader/);
+    assert.match(source, /icon=\{\w+Icon\}/);
+  }
+});
+
+test("query cards share the workspace card treatment", () => {
+  const queryPanelPaths = [
+    "frontend/src/pages/show/SingleShowPanel.svelte",
+    "frontend/src/pages/show/BatchShowInputPanel.svelte",
+    "frontend/src/pages/show/BatchShowResultsPanel.svelte",
+  ];
+
+  for (const path of queryPanelPaths) {
+    const source = read(path);
+    assert.match(source, /WorkspaceActionHeader/);
+    assert.match(source, /gap-0 overflow-hidden border-border\/80 py-0/);
+    assert.doesNotMatch(source, /rounded-3xl/);
+  }
+
+  const showPage = read("frontend/src/pages/ShowPage.svelte");
+  assert.doesNotMatch(showPage, /max-w-4xl/);
+
+  const orchestrationSurface = read(
+    "frontend/src/pages/orchestrated/OrchestrationEditorSurface.svelte",
+  );
+  assert.match(
+    orchestrationSurface,
+    /Card\.Root class="gap-0 overflow-hidden border-border\/80 py-0/,
+  );
 });
 
 test("json template workspaces share the four template actions", () => {
@@ -1124,8 +1172,7 @@ test("task page subpanels compose shadcn Card instead of group-card shells", () 
 
     assert.match(source, /ui\/card/);
     assert.match(source, /<Card\.Root/);
-    assert.match(source, /<Card\.Header/);
-    assert.match(source, /<Card\.Title/);
+    assert.match(source, /WorkspaceActionHeader/);
     assert.match(source, /<Card\.Content/);
     assert.doesNotMatch(source, /group-card/);
   }

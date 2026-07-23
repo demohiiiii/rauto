@@ -1,9 +1,11 @@
 <script>
+  import * as Card from "$lib/components/ui/card";
   import * as Tabs from "$lib/components/ui/tabs";
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import TagIcon from "@lucide/svelte/icons/tag";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import { INVENTORY_KIND } from "../config/dashboardModes.js";
   import { currentLanguageState, t } from "../lib/i18n.js";
   import { createInventoryPageWorkspace } from "../modules/inventory/inventoryPageWorkspace.js";
@@ -87,27 +89,16 @@
 </script>
 
 <DashboardTabPanel {active}>
-  <section
-    class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm"
+  <Card.Root
+    class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm"
     aria-labelledby="inventory-page-title"
   >
-    <header class="border-b bg-card/80 p-4 sm:p-5">
-      <div class="flex min-w-0 items-start gap-3">
-        <div
-          class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-        >
-          <NetworkIcon aria-hidden="true" />
-        </div>
-        <div class="min-w-0">
-          <h1 id="inventory-page-title" class="text-lg font-semibold">
-            {pageLabels.title}
-          </h1>
-          <p class="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-            {pageLabels.description}
-          </p>
-        </div>
-      </div>
-    </header>
+    <WorkspaceActionHeader
+      title={pageLabels.title}
+      titleId="inventory-page-title"
+      description={pageLabels.description}
+      icon={NetworkIcon}
+    />
 
     <div
       class="grid border-b bg-muted/10 sm:grid-cols-3 sm:divide-x sm:divide-border"
@@ -189,5 +180,5 @@
         />
       </div>
     </Tabs.Root>
-  </section>
+  </Card.Root>
 </DashboardTabPanel>

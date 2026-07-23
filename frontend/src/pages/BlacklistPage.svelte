@@ -5,6 +5,10 @@
   import MiniActionButton from "../components/fragments/MiniActionButton.svelte";
   import PlainInputField from "../components/fragments/PlainInputField.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
+  import PlusIcon from "@lucide/svelte/icons/plus";
+  import SearchIcon from "@lucide/svelte/icons/search";
+  import ShieldIcon from "@lucide/svelte/icons/shield";
   import { callbackHandler, submitOnKeyHandler } from "../lib/events.js";
   import { createBlacklistPageWorkspace } from "../modules/operations/blacklist.js";
 
@@ -30,12 +34,12 @@
 
 {#snippet blacklistRulesCard()}
   <div class="grid gap-3">
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>
-          {blacklistPatternDisplay.title}
-        </Card.Title>
-        <Card.Action>
+    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+      <WorkspaceActionHeader
+        title={blacklistPatternDisplay.title}
+        icon={ShieldIcon}
+      >
+        {#snippet actions()}
           <Button
             variant="outline"
             size="sm"
@@ -44,9 +48,9 @@
           >
             {blacklistPatternDisplay.refreshButtonLabel}
           </Button>
-        </Card.Action>
-      </Card.Header>
-      <Card.Content class="grid gap-2">
+        {/snippet}
+      </WorkspaceActionHeader>
+      <Card.Content class="grid gap-2 p-4 sm:p-5">
         <div class="text-xs text-slate-500">
           {blacklistPatternDisplay.fileHint}
         </div>
@@ -87,13 +91,12 @@
       </Card.Content>
     </Card.Root>
 
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>
-          {blacklistPatternDisplay.addTitle}
-        </Card.Title>
-      </Card.Header>
-      <Card.Content class="grid gap-2">
+    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+      <WorkspaceActionHeader
+        title={blacklistPatternDisplay.addTitle}
+        icon={PlusIcon}
+      />
+      <Card.Content class="grid gap-2 p-4 sm:p-5">
         <PlainInputField
           value={blacklistPatternDisplay.patternField.value}
           aria-label={blacklistPatternDisplay.patternField.ariaLabelText}
@@ -135,13 +138,9 @@
 <DashboardTabPanel {active}>
   <div class="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
     {@render blacklistRulesCard()}
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>
-          {blacklistCheck.title}
-        </Card.Title>
-      </Card.Header>
-      <Card.Content class="grid gap-2">
+    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+      <WorkspaceActionHeader title={blacklistCheck.title} icon={SearchIcon} />
+      <Card.Content class="grid gap-2 p-4 sm:p-5">
         <PlainInputField
           value={blacklistCheck.commandField.value}
           title={blacklistCheck.commandField.placeholder}

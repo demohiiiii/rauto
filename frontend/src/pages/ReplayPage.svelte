@@ -1,6 +1,8 @@
 <script>
   import * as Card from "$lib/components/ui/card";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
+  import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
+  import HistoryIcon from "@lucide/svelte/icons/history";
   import { displayModeTabs } from "../config/dashboardModes.js";
   import { createReplayPageWorkspace } from "../modules/operations/replay.js";
   import ReplayControlsPanel from "./replay/ReplayControlsPanel.svelte";
@@ -27,13 +29,12 @@
 </script>
 
 <DashboardTabPanel {active}>
-  <Card.Root>
-    <Card.Header>
-      <Card.Title>
-        {replayDisplay.controlsDisplay.panelTitle}
-      </Card.Title>
-    </Card.Header>
-    <Card.Content class="grid gap-2">
+  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+    <WorkspaceActionHeader
+      title={replayDisplay.controlsDisplay.panelTitle}
+      icon={HistoryIcon}
+    />
+    <Card.Content class="grid gap-2 p-4 sm:p-5">
       <ReplayControlsPanel
         controlsDisplay={replayDisplay.controlsDisplay}
         onList={replayPageWorkspace.replayList}
