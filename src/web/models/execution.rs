@@ -194,6 +194,7 @@ pub struct CommandResult {
     pub success: bool,
     pub exit_code: Option<i32>,
     pub output: Option<String>,
+    pub all: Option<String>,
     pub error: Option<String>,
     pub parsed_output: Option<Value>,
     pub parse_error: Option<String>,

@@ -197,7 +197,15 @@ function standardParsedExecutionRows(executionItems = []) {
         ),
         flowRowTitleText: `${executionRowIndex + 1}. ${commandText}`,
         outputText: safeString(
-          executionItem?.output || executionItem?.error || "",
+          success
+            ? executionItem?.output ||
+                executionItem?.all ||
+                executionItem?.error ||
+                ""
+            : executionItem?.all ||
+                executionItem?.output ||
+                executionItem?.error ||
+                "",
         ),
         parsedOutputBlock: parsedOutputBlockDisplayFromItem(
           executionItem,

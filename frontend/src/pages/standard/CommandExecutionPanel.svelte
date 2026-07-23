@@ -14,7 +14,11 @@
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { selectOptionsWithCurrent } from "../../lib/ui.js";
+  import {
+    classNames,
+    selectOptionsWithCurrent,
+    workflowChipClass,
+  } from "../../lib/ui.js";
   import { createStandardCommandExecutionWorkspace } from "../../modules/standard/standardCommandExecutionWorkspace.js";
   import {
     exportParsedOutputItemExcel,
@@ -196,28 +200,49 @@
               item,
             )}
             <article
-              class="grid min-w-0 gap-2 rounded-xl border border-border bg-card p-4"
+              class={classNames(
+                "grid min-w-0 gap-2 rounded-lg border px-3 py-3",
+                item.success
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-rose-200 bg-rose-50",
+              )}
             >
               <div
                 class="flex min-w-0 flex-wrap items-center justify-between gap-2"
               >
                 <span
-                  class="min-w-0 break-all font-mono text-sm font-semibold text-foreground"
+                  class={classNames(
+                    "min-w-0 break-all font-mono text-sm font-semibold",
+                    item.success ? "text-emerald-700" : "text-rose-700",
+                  )}
                 >
                   {index + 1}. {item.command}
                 </span>
                 <span
-                  class={item.success
-                    ? "text-xs font-semibold text-emerald-700"
-                    : "text-xs font-semibold text-rose-700"}
+                  class={workflowChipClass(
+                    item.success
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-rose-100 text-rose-700",
+                  )}
                 >
                   {item.success
                     ? t("orchestrationStatusSuccess", "Success")
                     : t("orchestrationStatusFailed", "Failed")}
                 </span>
               </div>
-              {#if item.output || item.error}
-                <OutputBlock>{item.output || item.error}</OutputBlock>
+              {#if item.output || item.all || item.error}
+                <div
+                  class="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                >
+                  <div class="text-[11px] font-semibold text-slate-500">
+                    {t("txBlockResultOutput")}
+                  </div>
+                  <OutputBlock class="mt-1"
+                    >{item.success
+                      ? item.output || item.all || item.error
+                      : item.all || item.output || item.error}</OutputBlock
+                  >
+                </div>
               {/if}
               {#if parsedOutputBlock}
                 <ParsedOutputBlock

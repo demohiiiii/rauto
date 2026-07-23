@@ -129,6 +129,7 @@ pub async fn execute_command_flow(
                 success: output.success,
                 exit_code: output.exit_code,
                 output: Some(output.content),
+                all: Some(output.all),
                 error: None,
                 parsed_output,
                 parse_error,
