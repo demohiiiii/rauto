@@ -10,7 +10,6 @@ import {
   saveInventoryLabel,
 } from "../../api/client.js";
 import { INVENTORY_KIND } from "../../config/dashboardModes.js";
-import { promptForResourceName } from "../../lib/ui.js";
 import { tr } from "../../lib/i18n.js";
 import {
   CONNECTION_PICKER,
@@ -97,26 +96,30 @@ async function loadInventoryCollection({
 async function createInventoryDraft({
   existsHint,
   inventoryItems,
+  inventoryName = "",
   kind,
   loadDetail,
-  promptForInventoryName,
-  promptMessage,
+  nameRequiredMessage,
   saveByName,
   setStatus,
   stateContext,
   statusKind = kind,
 }) {
-  const trimmedName = promptForInventoryName(promptMessage);
-  if (!trimmedName) return;
+  const trimmedName = String(inventoryName || "").trim();
+  if (!trimmedName) {
+    setStatus(statusKind, nameRequiredMessage, "error");
+    return false;
+  }
   if (
     inventoryItems.some((inventoryItem) => inventoryItem.name === trimmedName)
   ) {
     stateContext.setInventorySelectedName(kind, trimmedName);
     await loadDetail();
     setStatus(statusKind, existsHint, "info");
-    return;
+    return true;
   }
   await saveByName(trimmedName, tr("created", "created"));
+  return true;
 }
 
 async function saveInventoryEntity({
@@ -436,14 +439,17 @@ function createInventoryEntityMutations({
     });
   }
 
-  async function createDraft() {
+  async function createDraft(inventoryName = "") {
     await createInventoryDraft({
       existsHint: tr(config.existsHintKey, config.existsHintFallback),
       inventoryItems: config.inventoryItems(),
+      inventoryName,
       kind: config.kind,
       loadDetail: config.loadDetail,
-      promptForInventoryName: dependencies.promptForResourceName,
-      promptMessage: tr(config.promptKey, config.promptFallback),
+      nameRequiredMessage: tr(
+        config.nameRequiredKey,
+        config.nameRequiredFallback,
+      ),
       saveByName,
       setStatus: coordinator.setStatus,
       stateContext,
@@ -509,8 +515,6 @@ function createInventoryMutations({
       loadDetail: loaders.loadInventoryGroupDetail,
       nameRequiredFallback: "group name is required",
       nameRequiredKey: "inventoryGroupNameRequired",
-      promptFallback: "New inventory group name",
-      promptKey: "inventoryGroupNewPrompt",
       reload: reloads.reloadGroupsAndConnections,
       resetForm: coordinator.resetInventoryGroupForm,
       saveEntity: saveInventoryGroup,
@@ -534,8 +538,6 @@ function createInventoryMutations({
       loadDetail: loaders.loadInventoryLabelDetail,
       nameRequiredFallback: "label name is required",
       nameRequiredKey: "inventoryLabelNameRequired",
-      promptFallback: "New inventory label name",
-      promptKey: "inventoryLabelNewPrompt",
       reload: reloads.reloadLabelsAndSavedConnections,
       resetForm: coordinator.resetInventoryLabelForm,
       saveEntity: saveInventoryLabel,
@@ -673,7 +675,6 @@ export function createInventoryDependencies() {
     getSavedConnectionGroupValues: () =>
       getConnectionGroupValues(CONNECTION_PICKER.savedGroups),
     loadSavedConnections,
-    promptForResourceName,
     refreshSavedConnectionGroupOptions,
     refreshSavedConnectionLabelOptions,
   };

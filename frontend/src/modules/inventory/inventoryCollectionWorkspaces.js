@@ -24,10 +24,10 @@ function inventoryPagePresentation() {
 
 function inventoryCollectionRowClass(selected) {
   return classNames(
-    "w-full rounded-xl border px-3 py-2 text-left transition",
+    "group w-full rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
     selected
-      ? "border-teal-300 bg-teal-50/70"
-      : "border-slate-200 bg-white hover:border-slate-300",
+      ? "border-primary/40 bg-primary/10 text-foreground"
+      : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground",
   );
 }
 
@@ -66,11 +66,11 @@ function inventoryCollectionListPresentation({
       descriptionText:
         collectionItem?.description ||
         tr("inventoryNoDescription", "no description"),
-      hostBadgeClass:
-        "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600",
       hostBadgeText: `${hostCount} ${tr("inventoryHostsCountSuffix", "hosts")}`,
+      hostCount,
       name: collectionName,
       nameText: collectionName || "-",
+      selected,
       showDescription: groupKind,
     };
   });
@@ -79,17 +79,54 @@ function inventoryCollectionListPresentation({
     : ["inventoryLabelsEmpty", "no labels"];
   const message = safeString(errorMessage || "");
   return {
+    cancelButtonLabel: tr("cancelBtn"),
     collectionTitle: tr(
       groupKind ? "inventoryGroupsTitle" : "inventoryLabelsTitle",
     ),
+    collectionDescription: tr(
+      groupKind ? "inventoryGroupsDescription" : "inventoryLabelsDescription",
+    ),
+    collectionCount: collectionRows.length,
+    collectionCountLabel: tr("inventoryCollectionCountLabel"),
+    catalogSearchPlaceholder: tr("inventoryCatalogSearchPlaceholder"),
+    confirmButtonLabel: tr("confirmBtn"),
     deleteButtonLabel: tr("savedConnDeleteBtn"),
+    deleteConfirmText: tr(
+      groupKind ? "inventoryGroupDeleteConfirm" : "inventoryLabelDeleteConfirm",
+    ),
     editorTitle: tr(
       groupKind ? "inventoryGroupEditorTitle" : "inventoryLabelEditorTitle",
     ),
+    editorDescription: tr(
+      groupKind
+        ? "inventoryGroupEditorDescription"
+        : "inventoryLabelEditorDescription",
+    ),
     emptyStatus: inventoryEmptyStatus(message, emptyText),
+    emptyTitle: tr(
+      groupKind ? "inventoryGroupsEmptyTitle" : "inventoryLabelsEmptyTitle",
+    ),
+    noMatchText: tr("inventoryCatalogNoMatch"),
     collectionRows,
     hasItems: collectionRows.length > 0,
     newButtonLabel: tr("newBtn"),
+    newDialogDescription: tr(
+      groupKind
+        ? "inventoryGroupCreateDescription"
+        : "inventoryLabelCreateDescription",
+    ),
+    newDialogTitle: tr(
+      groupKind ? "inventoryGroupCreateTitle" : "inventoryLabelCreateTitle",
+    ),
+    newNameLabel: tr("inventoryFieldName"),
+    newNamePlaceholder: tr(
+      groupKind
+        ? "inventoryGroupNamePlaceholder"
+        : "inventoryLabelNamePlaceholder",
+    ),
+    newNameRequiredMessage: tr(
+      groupKind ? "inventoryGroupNameRequired" : "inventoryLabelNameRequired",
+    ),
     optionNames: selectOptionsWithCurrent(optionNames, selectedValue),
     saveButtonLabel: tr("savedConnSaveBtn"),
     selectPlaceholder: tr(
@@ -98,6 +135,11 @@ function inventoryCollectionListPresentation({
         : "inventoryLabelSelectPlaceholder",
     ),
     selectedValue,
+    selectionHint: tr(
+      groupKind ? "inventoryGroupSelectionHint" : "inventoryLabelSelectionHint",
+    ),
+    showGroupFields: groupKind,
+    kind: groupKind ? "groups" : "labels",
   };
 }
 
@@ -138,6 +180,11 @@ function inventoryCollectionEditorPresentation({
       name: hostName,
       selected: Boolean(hostSelection?.has(hostName)),
     })),
+    hostCount: normalizedHostNames.length,
+    selectedHostCount: hostSelection?.size || 0,
+    canEdit: Boolean(
+      safeString(collectionNameText).trim() && collectionNameText !== "—",
+    ),
     identityGridClass: groupKind ? "grid gap-2 md:grid-cols-2" : "grid gap-1",
     nameLabel: tr("inventoryFieldName"),
     selectAllHostsButtonLabel: tr("inventoryHostsSelectAllBtn"),
