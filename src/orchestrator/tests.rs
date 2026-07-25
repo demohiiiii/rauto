@@ -54,17 +54,12 @@ impl Drop for TestEnvGuard {
 
 fn saved_connection(host: &str, groups: Vec<&str>, labels: Vec<&str>) -> SavedConnection {
     SavedConnection {
+        credential_id: None,
         host: Some(host.to_string()),
-        username: Some("ops".to_string()),
-        password: None,
-        password_ref: None,
         port: Some(22),
         connect_timeout_secs: None,
         device_model: None,
         software_version: None,
-        enable_password: None,
-        enable_password_ref: None,
-        enable_password_empty_enter: false,
         ssh_security: None,
         linux_shell_flavor: None,
         device_profile: Some("linux".to_string()),

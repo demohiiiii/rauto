@@ -20,6 +20,7 @@ test("modules are grouped into stable domain directories", () => {
   const expectedDomains = [
     "command",
     "connections",
+    "credentials",
     "dashboard",
     "inventory",
     "operations",

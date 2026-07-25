@@ -12,6 +12,7 @@
   import ShieldBanIcon from "@lucide/svelte/icons/shield-ban";
   import DatabaseBackupIcon from "@lucide/svelte/icons/database-backup";
   import HelpCircleIcon from "@lucide/svelte/icons/help-circle";
+  import KeyRoundIcon from "@lucide/svelte/icons/key-round";
   import BookmarkIcon from "@lucide/svelte/icons/bookmark";
   import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -43,6 +44,7 @@
     prompts: UserCogIcon,
     templates: FileCode2Icon,
     inventory: ListTreeIcon,
+    credentials: KeyRoundIcon,
     transfer: UploadIcon,
     blacklist: ShieldBanIcon,
     backup: DatabaseBackupIcon,

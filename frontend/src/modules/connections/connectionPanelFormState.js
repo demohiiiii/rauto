@@ -78,6 +78,11 @@ export function createSavedConnectionEditorWorkspace() {
     publishEditorDraft();
   }
 
+  function onSavedEditorCredentialChange(fieldValue) {
+    savedEditorFieldWiring.onCredentialChange(fieldValue);
+    publishEditorDraft();
+  }
+
   function onSavedEditorDeviceProfileChange(fieldValue) {
     savedEditorFieldWiring.onDeviceProfileChange(fieldValue);
     publishEditorDraft();
@@ -85,11 +90,6 @@ export function createSavedConnectionEditorWorkspace() {
 
   function onSavedEditorDeviceModelInput(fieldValue) {
     savedEditorFieldWiring.onDeviceModelInput(fieldValue);
-    publishEditorDraft();
-  }
-
-  function onSavedEditorEnablePasswordInput(fieldValue) {
-    savedEditorFieldWiring.onEnablePasswordInput(fieldValue);
     publishEditorDraft();
   }
 
@@ -108,11 +108,6 @@ export function createSavedConnectionEditorWorkspace() {
     publishEditorDraft();
   }
 
-  function onSavedEditorPasswordInput(fieldValue) {
-    savedEditorFieldWiring.onPasswordInput(fieldValue);
-    publishEditorDraft();
-  }
-
   function onSavedEditorPortInput(fieldValue) {
     savedEditorFieldWiring.onPortInput(fieldValue);
     publishEditorDraft();
@@ -125,11 +120,6 @@ export function createSavedConnectionEditorWorkspace() {
 
   function onSavedEditorSoftwareVersionInput(fieldValue) {
     savedEditorFieldWiring.onSoftwareVersionInput(fieldValue);
-    publishEditorDraft();
-  }
-
-  function onSavedEditorUsernameInput(fieldValue) {
-    savedEditorFieldWiring.onUsernameInput(fieldValue);
     publishEditorDraft();
   }
 
@@ -212,17 +202,15 @@ export function createSavedConnectionEditorWorkspace() {
     editorDraftStateStore,
     metadataFieldsDisplayStateStore,
     onSavedEditorConnectTimeoutSecsInput,
+    onSavedEditorCredentialChange,
     onSavedEditorDeviceProfileChange,
     onSavedEditorDeviceModelInput,
-    onSavedEditorEnablePasswordInput,
     onSavedEditorHostInput,
     onSavedEditorLinuxShellFlavorChange,
     onSavedEditorNameInput,
-    onSavedEditorPasswordInput,
     onSavedEditorPortInput,
     onSavedEditorSshSecurityChange,
     onSavedEditorSoftwareVersionInput,
-    onSavedEditorUsernameInput,
     savedConnectionEditorLoadingStateStore: loadingStateStore,
     saveConnection,
     setEnabled,
@@ -270,13 +258,13 @@ export function createTemporaryConnectionPanelWorkspace() {
     publishTemporaryDraft();
   }
 
-  function onTemporaryDeviceProfileChange(fieldValue) {
-    temporaryFieldWiring.onDeviceProfileChange(fieldValue);
+  function onTemporaryCredentialChange(fieldValue) {
+    temporaryFieldWiring.onCredentialChange(fieldValue);
     publishTemporaryDraft();
   }
 
-  function onTemporaryEnablePasswordInput(fieldValue) {
-    temporaryFieldWiring.onEnablePasswordInput(fieldValue);
+  function onTemporaryDeviceProfileChange(fieldValue) {
+    temporaryFieldWiring.onDeviceProfileChange(fieldValue);
     publishTemporaryDraft();
   }
 
@@ -290,11 +278,6 @@ export function createTemporaryConnectionPanelWorkspace() {
     publishTemporaryDraft();
   }
 
-  function onTemporaryPasswordInput(fieldValue) {
-    temporaryFieldWiring.onPasswordInput(fieldValue);
-    publishTemporaryDraft();
-  }
-
   function onTemporaryPortInput(fieldValue) {
     temporaryFieldWiring.onPortInput(fieldValue);
     publishTemporaryDraft();
@@ -302,11 +285,6 @@ export function createTemporaryConnectionPanelWorkspace() {
 
   function onTemporarySshSecurityChange(fieldValue) {
     temporaryFieldWiring.onSshSecurityChange(fieldValue);
-    publishTemporaryDraft();
-  }
-
-  function onTemporaryUsernameInput(fieldValue) {
-    temporaryFieldWiring.onUsernameInput(fieldValue);
     publishTemporaryDraft();
   }
 
@@ -377,14 +355,12 @@ export function createTemporaryConnectionPanelWorkspace() {
     createTemporaryDraft,
     metadataFieldsDisplayStateStore,
     onTemporaryConnectTimeoutSecsInput,
+    onTemporaryCredentialChange,
     onTemporaryDeviceProfileChange,
-    onTemporaryEnablePasswordInput,
     onTemporaryHostInput,
     onTemporaryLinuxShellFlavorChange,
-    onTemporaryPasswordInput,
     onTemporaryPortInput,
     onTemporarySshSecurityChange,
-    onTemporaryUsernameInput,
     setEnabled,
     setPanelContext,
     temporaryBasicFieldsDisplayStateStore,

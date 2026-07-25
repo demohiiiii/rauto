@@ -15,6 +15,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::Mutex;
 
 #[cfg(test)]
+mod device_credentials_migration;
+
+#[cfg(test)]
 thread_local! {
     static TEST_DB_PATH_OVERRIDE: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
 }
@@ -24,6 +27,8 @@ static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 #[cfg(not(test))]
 static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
+const _: &str = include_str!("../../migrations/202607240001_device_credentials.sql");
+const _: &str = include_str!("../../migrations/202607260001_enable_stage.sql");
 #[cfg(not(test))]
 static DB_MIGRATED: AtomicBool = AtomicBool::new(false);
 #[cfg(test)]

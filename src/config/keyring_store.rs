@@ -33,12 +33,6 @@ pub fn load_secret(secret_ref: Option<&str>) -> Result<Option<String>> {
     Ok(Some(decrypt_secret(secret_ref)?))
 }
 
-pub fn delete_secret(_secret_ref: Option<&str>) -> Result<()> {
-    // Secret refs are encrypted payloads embedded in DB rows, so there is no
-    // per-connection keyring entry to delete.
-    Ok(())
-}
-
 fn encrypt_secret(value: &str) -> Result<String> {
     let key = load_or_create_master_key_cached()?;
     let cipher =

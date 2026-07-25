@@ -1,6 +1,7 @@
 <script>
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import PlainSelectField from "../fragments/PlainSelectField.svelte";
+  import ConnectionCredentialField from "./ConnectionCredentialField.svelte";
   import { createConnectionBasicFieldsWorkspace } from "../../modules/connections/connections.js";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
@@ -8,15 +9,14 @@
   let {
     active = true,
     basicFieldsDisplay,
+    credentialId = "",
+    onCredentialChange,
     onConnectTimeoutSecsInput,
     onDeviceProfileChange,
-    onEnablePasswordInput,
     onHostInput,
     onLinuxShellFlavorChange,
-    onPasswordInput,
     onPortInput,
     onSshSecurityChange,
-    onUsernameInput,
     splitSections = false,
   } = $props();
 
@@ -34,11 +34,10 @@
     return undefined;
   }
 
-  function handleEnablePasswordInput(value) {
-    if (typeof onEnablePasswordInput === "function") {
-      return onEnablePasswordInput(value);
-    }
-    return undefined;
+  function handleCredentialChange(value) {
+    return typeof onCredentialChange === "function"
+      ? onCredentialChange(value)
+      : undefined;
   }
 
   function handleHostInput(value) {
@@ -51,13 +50,6 @@
   function handleLinuxShellFlavorChange(value) {
     if (typeof onLinuxShellFlavorChange === "function") {
       return onLinuxShellFlavorChange(value);
-    }
-    return undefined;
-  }
-
-  function handlePasswordInput(value) {
-    if (typeof onPasswordInput === "function") {
-      return onPasswordInput(value);
     }
     return undefined;
   }
@@ -76,35 +68,24 @@
     return undefined;
   }
 
-  function handleUsernameInput(value) {
-    if (typeof onUsernameInput === "function") {
-      return onUsernameInput(value);
-    }
-    return undefined;
-  }
-
   let connectionValues = $derived(basicFieldsDisplay.values);
   const connectionBasicFieldsWorkspace = createConnectionBasicFieldsWorkspace({
     onConnectTimeoutSecsInput: handleConnectTimeoutSecsInput,
     onDeviceProfileChange: handleDeviceProfileChange,
-    onEnablePasswordInput: handleEnablePasswordInput,
+    onCredentialChange: handleCredentialChange,
     onHostInput: handleHostInput,
     onLinuxShellFlavorChange: handleLinuxShellFlavorChange,
-    onPasswordInput: handlePasswordInput,
     onPortInput: handlePortInput,
     onSshSecurityChange: handleSshSecurityChange,
-    onUsernameInput: handleUsernameInput,
   });
   const {
+    credentialChangeHandler,
     connectTimeoutSecsInputHandler,
     deviceProfileChangeHandler,
-    enablePasswordInputHandler,
     hostInputHandler,
     linuxShellFlavorChangeHandler,
-    passwordInputHandler,
     portInputHandler,
     sshSecurityChangeHandler,
-    usernameInputHandler,
   } = connectionBasicFieldsWorkspace;
 </script>
 
@@ -182,38 +163,10 @@
             onValueInput={connectTimeoutSecsInputHandler()}
           />
         </div>
-        <div class="grid gap-1.5">
-          {@render fieldLabel(basicFieldsDisplay.usernameInput.placeholder)}
-          <PlainInputField
-            value={connectionValues.username}
-            aria-label={basicFieldsDisplay.usernameInput.ariaLabelText}
-            placeholderText={basicFieldsDisplay.usernameInput.placeholder}
-            type="text"
-            onValueInput={usernameInputHandler()}
-          />
-        </div>
-        <div class="grid gap-1.5 lg:col-span-2">
-          {@render fieldLabel(basicFieldsDisplay.passwordInput.placeholder)}
-          <PlainInputField
-            value={connectionValues.password}
-            aria-label={basicFieldsDisplay.passwordInput.ariaLabelText}
-            placeholderText={basicFieldsDisplay.passwordInput.placeholder}
-            type="password"
-            onValueInput={passwordInputHandler()}
-          />
-        </div>
-        <div class="grid gap-1.5 lg:col-span-2">
-          {@render fieldLabel(
-            basicFieldsDisplay.enablePasswordInput.placeholder,
-          )}
-          <PlainInputField
-            value={connectionValues.enablePassword}
-            aria-label={basicFieldsDisplay.enablePasswordInput.ariaLabelText}
-            placeholderText={basicFieldsDisplay.enablePasswordInput.placeholder}
-            type="password"
-            onValueInput={enablePasswordInputHandler()}
-          />
-        </div>
+        <ConnectionCredentialField
+          value={credentialId}
+          onValueChange={credentialChangeHandler()}
+        />
       </div>
     </section>
 
@@ -288,13 +241,6 @@
       onValueInput={portInputHandler()}
     />
     <PlainInputField
-      value={connectionValues.username}
-      aria-label={basicFieldsDisplay.usernameInput.ariaLabelText}
-      placeholderText={basicFieldsDisplay.usernameInput.placeholder}
-      type="text"
-      onValueInput={usernameInputHandler()}
-    />
-    <PlainInputField
       value={connectionValues.connectTimeoutSecs}
       aria-label={basicFieldsDisplay.connectTimeoutSecsInput.ariaLabelText}
       placeholderText={basicFieldsDisplay.connectTimeoutSecsInput.placeholder}
@@ -303,19 +249,9 @@
       step="1"
       onValueInput={connectTimeoutSecsInputHandler()}
     />
-    <PlainInputField
-      value={connectionValues.password}
-      aria-label={basicFieldsDisplay.passwordInput.ariaLabelText}
-      placeholderText={basicFieldsDisplay.passwordInput.placeholder}
-      type="password"
-      onValueInput={passwordInputHandler()}
-    />
-    <PlainInputField
-      value={connectionValues.enablePassword}
-      aria-label={basicFieldsDisplay.enablePasswordInput.ariaLabelText}
-      placeholderText={basicFieldsDisplay.enablePasswordInput.placeholder}
-      type="password"
-      onValueInput={enablePasswordInputHandler()}
+    <ConnectionCredentialField
+      value={credentialId}
+      onValueChange={credentialChangeHandler()}
     />
     <PlainSelectField
       title={basicFieldsDisplay.sshSecuritySelect.title}

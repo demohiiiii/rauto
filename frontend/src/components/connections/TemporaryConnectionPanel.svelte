@@ -28,14 +28,12 @@
     createTemporaryDraft,
     metadataFieldsDisplayStateStore,
     onTemporaryConnectTimeoutSecsInput,
+    onTemporaryCredentialChange,
     onTemporaryDeviceProfileChange,
-    onTemporaryEnablePasswordInput,
     onTemporaryHostInput,
     onTemporaryLinuxShellFlavorChange,
-    onTemporaryPasswordInput,
     onTemporaryPortInput,
     onTemporarySshSecurityChange,
-    onTemporaryUsernameInput,
     setPanelContext,
     setEnabled: setTemporaryConnectionEnabled,
     temporaryBasicFieldsDisplayStateStore,
@@ -111,17 +109,16 @@
 
       <ConnectionBasicFields
         {active}
+        credentialId={temporaryDraft.credentialId}
         basicFieldsDisplay={temporaryBasicFieldsDisplay}
         splitSections={true}
         onConnectTimeoutSecsInput={onTemporaryConnectTimeoutSecsInput}
+        onCredentialChange={onTemporaryCredentialChange}
         onDeviceProfileChange={onTemporaryDeviceProfileChange}
-        onEnablePasswordInput={onTemporaryEnablePasswordInput}
         onHostInput={onTemporaryHostInput}
         onLinuxShellFlavorChange={onTemporaryLinuxShellFlavorChange}
-        onPasswordInput={onTemporaryPasswordInput}
         onPortInput={onTemporaryPortInput}
         onSshSecurityChange={onTemporarySshSecurityChange}
-        onUsernameInput={onTemporaryUsernameInput}
       />
 
       <section class="flex flex-col gap-3">

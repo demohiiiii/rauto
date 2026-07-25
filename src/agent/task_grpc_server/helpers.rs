@@ -105,14 +105,11 @@ fn map_connection_ref(
     Ok(Some(ConnectionRequest {
         connection_name: optional_string(connection.connection_name),
         host: optional_string(connection.host),
-        username: optional_string(connection.username),
-        password: optional_string(connection.password),
+        credential_id: optional_string(connection.credential_id),
         port: connection.port.map(|value| value as u16),
         connect_timeout_secs: None,
         device_model: optional_string(connection.device_model),
         software_version: optional_string(connection.software_version),
-        enable_password: optional_string(connection.enable_password),
-        enable_password_empty_enter: connection.enable_password_empty_enter,
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
         linux_shell_flavor: parse_linux_shell_flavor(&connection.linux_shell_flavor)?,
         device_profile: optional_string(connection.device_profile),
@@ -390,14 +387,11 @@ pub(super) fn connection_ref_to_request(
     Ok(ConnectionRequest {
         connection_name: optional_string(connection.connection_name),
         host: optional_string(connection.host),
-        username: optional_string(connection.username),
-        password: optional_string(connection.password),
+        credential_id: optional_string(connection.credential_id),
         port: connection.port.map(|value| value as u16),
         connect_timeout_secs: None,
         device_model: optional_string(connection.device_model),
         software_version: optional_string(connection.software_version),
-        enable_password: optional_string(connection.enable_password),
-        enable_password_empty_enter: connection.enable_password_empty_enter,
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
         linux_shell_flavor: parse_linux_shell_flavor(&connection.linux_shell_flavor)?,
         device_profile: optional_string(connection.device_profile),
@@ -420,11 +414,7 @@ pub(super) fn sanitize_connection_ref(
     ConnectionRef {
         connection_name: name,
         host: connection.host.unwrap_or_default(),
-        username: connection.username.unwrap_or_default(),
-        password: String::new(),
         port: connection.port.map(u32::from),
-        enable_password: String::new(),
-        enable_password_empty_enter: connection.enable_password_empty_enter,
         ssh_security: connection
             .ssh_security
             .map(|value| value.to_string())
@@ -438,10 +428,54 @@ pub(super) fn sanitize_connection_ref(
             .unwrap_or_else(|| template_loader::DEFAULT_DEVICE_PROFILE.to_string()),
         device_model: connection.device_model.unwrap_or_default(),
         software_version: connection.software_version.unwrap_or_default(),
+        credential_id: connection.credential_id.unwrap_or_default(),
         template_dir: connection.template_dir.unwrap_or_default(),
         enabled: Some(connection.enabled),
         labels: connection.labels,
         groups: connection.groups,
         vars_json: serde_json::to_string(&connection.vars).unwrap_or_else(|_| "{}".to_string()),
+    }
+}
+
+pub(super) fn map_device_credential(
+    response: crate::web::models::DeviceCredentialResponse,
+) -> DeviceCredential {
+    DeviceCredential {
+        id: response.id,
+        name: response.name,
+        username: response.username,
+        has_password: response.has_password,
+        has_enable_password: response.has_enable_password,
+        enable_enabled: response.enable_enabled,
+        connection_count: response.connection_count,
+        referencing_connections: response.referencing_connections,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn credential_response_mapping_exposes_metadata_without_secrets() {
+        let response = crate::web::models::DeviceCredentialResponse {
+            id: "credential-1".to_string(),
+            name: "network-admin".to_string(),
+            username: "operator".to_string(),
+            has_password: true,
+            has_enable_password: false,
+            enable_enabled: true,
+            connection_count: 2,
+            referencing_connections: vec!["core-1".to_string(), "core-2".to_string()],
+        };
+
+        let mapped = map_device_credential(response);
+        assert_eq!(mapped.id, "credential-1");
+        assert_eq!(mapped.username, "operator");
+        assert!(mapped.has_password);
+        assert!(!mapped.has_enable_password);
+        assert!(mapped.enable_enabled);
+        assert_eq!(mapped.connection_count, 2);
+        assert_eq!(mapped.referencing_connections, ["core-1", "core-2"]);
     }
 }

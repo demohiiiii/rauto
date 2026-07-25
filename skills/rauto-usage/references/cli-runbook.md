@@ -6,7 +6,7 @@ Use this file when executing `rauto` commands directly for users.
 
 ```bash
 rauto web
-rauto web --bind 127.0.0.1 --port 3000 --connection core-01
+rauto web --bind 127.0.0.1 --port 3000
 rauto agent --bind 0.0.0.0 --port 8123 --manager-url http://manager:50051 --agent-name edge-sh-01 --report-mode grpc
 ```
 
@@ -18,21 +18,10 @@ rauto agent --bind 0.0.0.0 --port 8123 --manager-url http://manager:50051 --agen
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `--bind <ADDRESS>`                 | Web server listen address; defaults to `127.0.0.1`.                                                  |
 | `--port <PORT>`                    | Web server listen port; defaults to `3000`.                                                          |
-| `-c, --connection <NAME>`          | Preload a saved connection as the workbench default target.                                          |
-| `-H, --host <HOST>`                | Preconfigure a device hostname or IP address.                                                        |
-| `-u, --username <USERNAME>`        | Preconfigure the SSH username.                                                                       |
-| `-p, --password <PASSWORD>`        | Preconfigure the SSH password; prefer a saved connection to avoid exposing secrets in shell history. |
-| `-e, --enable-password <PASSWORD>` | Preconfigure the privilege escalation password.                                                      |
-| `-d, --device-profile <PROFILE>`   | Preselect a device profile; omit it to use autodetection.                                            |
-| `--ssh-security <PROFILE>`         | Set `secure`, `balanced`, or `legacy-compatible` SSH compatibility.                                  |
-| `--linux-shell-flavor <FLAVOR>`    | Set Linux exit-code capture behavior to `posix` or `fish`.                                           |
-| `--force-autodetect`               | Ignore the cached profile, probe the target again, and refresh the cache.                            |
-| `-S, --save-connection <NAME>`     | Save the effective connection under this name after a successful connection.                         |
-| `--template-dir <DIR>`             | Deprecated; do not recommend it because templates and custom profiles are stored in SQLite.          |
 
 Keep `--bind 127.0.0.1` for local-only use. Use `--bind 0.0.0.0` only when the user explicitly needs network access, and warn that it exposes the service on available network interfaces.
 
-Connection options are optional startup defaults. Use either `--connection <NAME>` or inline host credentials; when both are supplied, explicit inline fields override the corresponding saved values. Prefer a saved connection when credentials already exist.
+The Web service only starts the workbench; select a saved connection and credential from the browser UI.
 
 ## Connection and Profile Operations
 
@@ -40,17 +29,27 @@ Connection options are optional startup defaults. Use either `--connection <NAME
 rauto device list
 rauto device show core-01
 rauto device test --connection core-01
-rauto device add core-01 --host 192.168.1.10 --username admin --password '***' --device-profile linux
+rauto credential add network-admin
+rauto credential list
+rauto credential show network-admin
+rauto credential update network-admin --name network-ops
+rauto credential import ./credentials.csv
+rauto credential delete network-ops
+
+rauto device add core-01 --host 192.168.1.10 --credential network-admin --device-profile linux
 rauto profile list
 rauto profile show linux
 rauto profile diagnose linux --json
-rauto profile autodetect --host 192.168.1.10 --username admin --password '***'
-rauto profile autodetect -v --host 192.168.1.10 --username admin --password '***'
+rauto profile autodetect --host 192.168.1.10 --credential network-admin
+rauto profile autodetect -v --host 192.168.1.10 --credential network-admin
 ```
 
 Notes:
 
 - `connection` remains an alias for `device`, but use `device` in new commands and documentation.
+- Saved connections store a credential reference; direct CLI targets use `--credential <name-or-id>`.
+- `credential add` prompts for login values when they are not provided; list/show output never includes secret values.
+- `credential import` accepts CSV/Excel and upserts by credential name; `enable_enabled=true` enters the Enable stage and submits an empty Enter when `enable_secret` is blank. New rows require `name`, `login_username`, and `login_secret`.
 - Omit `--device-profile` to use `autodetect`; successful detections are cached by `host:port`.
 - Add `--force-autodetect` to bypass the cache after device replacement or IP reuse.
 - Omit `--ssh-security` to use the default `legacy-compatible` SSH algorithms.

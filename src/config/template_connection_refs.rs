@@ -1,4 +1,5 @@
-use crate::config::connection_store::{self, SavedConnection};
+use crate::config::connection_resolver::ResolvedConnection;
+use crate::config::connection_store;
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
@@ -52,7 +53,7 @@ fn enrich_context_with_connection_roots(
     Ok(())
 }
 
-fn saved_connection_to_value(name: &str, saved: &SavedConnection) -> Value {
+fn saved_connection_to_value(name: &str, saved: &ResolvedConnection) -> Value {
     json!({
         "name": name,
         "connection_name": name,

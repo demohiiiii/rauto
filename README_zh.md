@@ -21,13 +21,21 @@
 ```bash
 cargo install rauto
 
+# 新增可复用凭证；命令会安全地交互式询问登录信息
+rauto credential add network-admin
+
+# 需要浏览器工作台时，在另一个终端启动 Web UI
+rauto web --bind 127.0.0.1 --port 3000
+```
+
+CLI 通过凭证名称或 ID 引用设备凭证：
+
+```bash
 # 默认使用 autodetect 自动识别设备 profile
-rauto exec "uname -a" --host 192.168.1.10 --username root --password '******'
+rauto exec "uname -a" --host 192.168.1.10 --credential network-admin
 
 # 如果要连接 Cisco 这类网络设备，显式指定 cisco profile
-rauto exec "show version" --host 192.168.1.1 --username admin --password '******' --device-profile cisco
-
-rauto web --bind 127.0.0.1 --port 3000
+rauto exec "show version" --host 192.168.1.1 --credential network-admin --device-profile cisco_ios
 ```
 
 ## 目录导航
@@ -48,6 +56,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [Web-控制台](#web-控制台)
     - [Agent-模式](#agent-模式)
   - [Template-存储管理命令](#template-存储管理命令)
+  - [设备凭证](#设备凭证)
   - [已保存连接配置](#已保存连接配置)
   - [数据备份与恢复](#数据备份与恢复)
   - [命令黑名单](#命令黑名单)
@@ -72,10 +81,11 @@ rauto web --bind 127.0.0.1 --port 3000
 - **可扩展性**：支持自定义 TOML 设备配置。
 - **内置 Web 控制台**：通过 `rauto web` 启动浏览器页面。
 - **内嵌静态资源**：发布二进制时前端资源已打包到可执行文件中。
+- **可复用设备凭证**：支持通过 CLI、Web 和 API 增删改查共享认证记录，再由已保存连接或临时连接引用，避免重复保存敏感信息。
 - **连接配置档复用**：支持按名称保存/加载连接参数。
 - **批量导入连接**：支持从 CSV / Excel 批量导入并按名称 upsert 已保存连接。
 - **SSH 安全档位**：可按目标选择 `secure`、`balanced`、`legacy-compatible`；默认使用 `legacy-compatible`。
-- **Inventory 分组与标签**：支持用分组和标签组织已保存连接。
+- **设备管理分组与标签**：支持用分组和标签组织已保存连接。
 - **会话录制与回放**：支持将 SSH 会话录制为 JSONL 并离线回放。
 - **可复用命令流程模板**：支持把向导式 CLI 交互保存为可复用模板，用来执行设备侧文件传输、安装向导、功能确认等多步交互流程。
 - **可复用执行模板**：支持把 tx block / workflow / orchestration JSON 保存为可复用模板，并在执行前渲染变量。
@@ -153,8 +163,7 @@ cp -R skills/rauto-usage "$CODEX_HOME/skills/"
 ```bash
 rauto template show_version.j2 \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -165,8 +174,7 @@ rauto template show_version.j2 \
 rauto template configure_vlan.j2 \
     --vars templates/example_vars.json \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -185,8 +193,7 @@ rauto template configure_vlan.j2 \
 ```bash
 rauto exec "show ip int br" \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -207,8 +214,7 @@ Web UI 中也可以在 **普通下发 -> 查询** 使用同样的能力。
 ```bash
 rauto show interfaces \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -274,8 +280,7 @@ Web UI 中可以在 **Template Manager -> TextFSM Templates** 管理同一套自
 ```bash
 rauto exec "show bgp neighbor" \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22 \
     --mode Enable
 ```
@@ -437,8 +442,7 @@ rauto upload \
     --local-path ./configs/daemon.conf \
     --remote-path /tmp/daemon.conf \
     --host 192.168.1.20 \
-    --username admin \
-    --password secret
+    --credential linux-admin
 ```
 
 可选参数：
@@ -480,16 +484,15 @@ rauto profile list
 ```bash
 rauto profile autodetect \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
 使用 `-v` 打印按分数排序的候选摘要，使用 `-vv` 追加完整 debug 报告：
 
 ```bash
-rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
-rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secret
+rauto profile autodetect -v --host 192.168.1.1 --credential network-admin
+rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 ```
 
 当普通执行路径使用 autodetect 时，探测出的 profile 会决定后续的 mode 校验和默认 mode 回退逻辑。autodetect 不会根据命令文本自动推断执行模式；如果某条命令必须在 `Enable`、`Config`、`Shell` 等特定状态下运行，请显式使用 `exec --mode <mode>`。
@@ -502,8 +505,7 @@ rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secr
 ```bash
 rauto template show_ver.j2 \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22 \
     --device-profile huawei
 ```
@@ -513,8 +515,7 @@ rauto template show_ver.j2 \
 ```bash
 rauto exec "systemctl status sshd" \
     --host 192.168.1.10 \
-    --username admin \
-    --password secret \
+    --credential linux-admin \
     --ssh-port 22 \
     --device-profile linux
 ```
@@ -527,8 +528,7 @@ rauto exec "systemctl status sshd" \
 ```bash
 rauto exec "show ver" \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22 \
     --device-profile custom_cisco
 ```
@@ -537,16 +537,15 @@ rauto exec "show ver" \
 
 ```bash
 rauto profile list
-rauto profile autodetect --host 192.168.1.1 --username admin --password secret
-rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
+rauto profile autodetect --host 192.168.1.1 --credential network-admin
+rauto profile autodetect -v --host 192.168.1.1 --credential network-admin
 rauto profile show cisco_ios
 rauto profile show linux
 rauto profile copy-builtin cisco_ios my_cisco
 rauto profile delete-custom my_cisco
 rauto connection test \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret
+    --credential network-admin
 ```
 
 说明：
@@ -561,10 +560,7 @@ rauto connection test \
 ```bash
 rauto web \
     --bind 127.0.0.1 \
-    --port 3000 \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret
+    --port 3000
 ```
 
 然后访问 `http://127.0.0.1:3000`。
@@ -582,19 +578,21 @@ npm run web:build       # 校验并构建嵌入式 Web 控制台资源
 
 Web 控制台主要能力：
 
+- 在独立的“凭证管理”页面管理可复用设备凭证；保存后不会把明文密码返回给浏览器。
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
+- 在已保存连接和临时连接中选择设备凭证，不再在每条连接里重复填写账号和密码。
 - 支持在页面中下载连接导入模板，并从 CSV / Excel 批量导入已保存连接。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。
 - 在 `Operations` 里统一执行命令、命令流程、事务块、事务工作流和多设备编排。
 - 命令工作台支持手动输入，也可以把已保存的普通命令模板导入为可编辑的本地快照。
 - 手动命令和模板快照共用 `{{var}}` 变量、渲染预览、TextFSM 解析和多行提交模式；执行页面不会覆盖已保存模板。
 - 在 `Template 管理` 中统一管理 profile、命令模板和命令流程模板。
-- 在 `资源清单` 中通过分组（Groups）与标签（Labels）组织已保存连接（仅 Web 提供完整管理界面）。
+- 在 `设备管理` 中通过分组（Groups）与标签（Labels）组织已保存连接（仅 Web 提供完整管理界面）。
 - 在 `任务中心` 中查看异步任务运行情况（状态、事件、附件、录制）。
 - 使用独立的 `SFTP 上传` 页面执行直接文件上传。
 - 在页面中管理命令黑名单：新增、删除、校验带 `*` 通配符的规则。
 - 在页面中管理数据备份：创建/列出/下载/恢复 `~/.rauto` 备份归档。
-- 在 `Prompt 管理` -> 诊断页里可视化查看 profile 状态机诊断结果。
+- 在 profile 详情中的“诊断”按钮打开弹窗，可视化查看状态机诊断结果。
 - 支持中英文界面切换。
 - 支持执行录制与浏览器内回放（可列出事件，或按命令/模式回放）。
 
@@ -643,6 +641,66 @@ rauto templates show show_version.j2
 rauto templates delete show_version.j2
 ```
 
+### 设备凭证
+
+设备凭证是可被多个已保存连接和临时连接复用的认证记录。可以在 Web UI 独立的“凭证管理”页面中维护，也可以通过 `GET/POST /api/credentials`、`POST /api/credentials/import` 和 `GET/PUT/DELETE /api/credentials/{id}` 接口管理。
+
+下面的示例假设已经创建了名为 `network-admin` 和 `linux-admin` 的凭证。
+
+每条凭证包含：
+
+- 唯一名称，只允许字母、数字、`_`、`.` 和 `-`。
+- 必填的 SSH 用户名和登录密码。
+- 可选的 Enable/Secret 密码，或在 Enable 提示出现时直接提交空 Enter。
+
+密码会加密后保存到 `~/.rauto/rauto.db`，加密主密钥保存在操作系统 keyring 中。Web、Agent 和 CLI 查询输出只返回凭证元数据及密码是否存在的状态，不会返回明文密码或加密引用。被一个或多个连接引用的凭证，在解除所有引用前不能删除。
+
+CLI 凭证管理示例：
+
+```bash
+# 新增：会交互式询问登录用户名和密码
+rauto credential add network-admin
+
+# 查询
+rauto credential list
+rauto credential show network-admin
+
+# 修改名称或 Enable 行为
+rauto credential update network-admin --name network-ops
+rauto credential update network-ops --enable
+# 交互式更新：启用 Enable 后密码留空会在提示处直接回车
+rauto credential update network-ops
+
+# 从 CSV 或 Excel 批量导入；增加 --json 可输出机器可读报告
+rauto credential import ./credentials.csv
+
+# 删除（仍被连接引用时会拒绝）
+rauto credential delete network-ops
+```
+
+`credential add` 和 `credential update` 也支持 `--login-username`、`--login-secret`、`--enable-secret`、`--json` 等凭证专用参数；省略登录密钥时会通过安全提示输入。完整参数请执行 `rauto credential --help`。
+
+凭证导入支持 `.csv`、`.xlsx`、`.xls`、`.xlsm` 和 `.xlsb` 文件，并按凭证名称执行 upsert。更新已有凭证时，登录字段留空会保留原值，`enable_secret` 留空会清除已保存的 Enable 密钥；`enable_enabled` 为 true 时会进入 Enable 阶段，有密钥就提交密钥，没有密钥就在密码提示处直接回车。新增凭证必须提供 `name`、`login_username` 和 `login_secret`。布尔列支持 `true/false`、`1/0`、`yes/no` 或 `是/否`。
+
+```csv
+name,login_username,login_secret,enable_secret,enable_enabled
+network-admin,admin,请替换为登录密钥,请替换为Enable密钥,true
+```
+
+可以从 Web UI 的凭证导入弹窗下载起始模板，也可以直接使用 [templates/examples/credential-import-template-en.csv](templates/examples/credential-import-template-en.csv) 和 [templates/examples/credential-import-template-zh.csv](templates/examples/credential-import-template-zh.csv)。源文件包含明文密钥，导入完成后请妥善保管或删除。导入报告只包含行号、名称、数量和校验错误，不会返回密钥内容。
+
+CLI 直接连接时，通过凭证名称或稳定 ID 引用：
+
+```bash
+rauto connection test \
+    --host 192.168.1.1 \
+    --credential network-admin
+
+rauto exec "show version" \
+    --host 192.168.1.1 \
+    --credential network-admin
+```
+
 ### 已保存连接配置
 
 你可以按名称保存并复用连接参数：
@@ -651,10 +709,10 @@ rauto templates delete show_version.j2
 # 直接通过命令参数新增/更新连接配置
 rauto connection add lab1 \
     --host 192.168.1.1 \
-    --username admin \
+    --credential network-admin \
     --ssh-port 22 \
     --ssh-security balanced \
-    --device-profile cisco
+    --device-profile cisco_ios
 
 # 复用已保存配置执行命令
 rauto exec "show version" --connection lab1
@@ -671,11 +729,12 @@ rauto connection delete lab1
 rauto history list lab1 --limit 20
 ```
 
-密码保存规则：
+凭证引用规则：
 
-- 在 `exec/template/connection test` 中使用 `--save-connection` 时，会保存当前有效连接配置；如果连接中包含密码字段，也会一并保存。
-- 使用 `connection add` 时，如果显式传入 `--password` / `--enable-password`，会保存对应密码字段。
-- 已保存密码会先加密后写入 `~/.rauto/rauto.db`；解密主密钥仅在系统 keyring 中保存一份（一次授权后进程内缓存）。
+- 已保存连接只保存 `credential_id` 引用，不再复制用户名、登录密码或 Enable 密码。
+- 在 `exec`、`template` 或 `connection test` 中使用 `--save-connection` 时，会保存当前生效的凭证引用和连接配置。
+- 直接执行目标传入 `--credential <名称或 ID>` 时使用指定凭证；通过 `--connection` 加载的连接会自动解析其已保存的凭证。
+- 连接必须引用有效凭证后，才能进行测试、自动探测或执行。
 - `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。未指定时默认使用兼容性最广的 `legacy-compatible`。
 - `--linux-shell-flavor <posix|fish>` 用于控制 Linux shell 的退出码解析策略（`posix` 同时接受 `bash` 别名）。
 
@@ -700,17 +759,18 @@ rauto connection import ./devices.xlsx
 推荐表头：
 
 ```csv
-name,host,username,password,port,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir
-core-sw-01,192.168.1.1,admin,secret,22,,balanced,,cisco,
-linux-jump-01,192.168.1.10,root,secret,22,,secure,posix,linux,
+name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile,template_dir
+core-sw-01,192.168.1.1,network-admin,22,30,C9300,17.9.4,balanced,,cisco_ios,
+linux-jump-01,192.168.1.10,linux-admin,22,30,,,secure,posix,linux,
 ```
 
 说明：
 
 - 如果未提供 `name`，`rauto` 会基于 `host` 自动生成连接名。
 - 导入按连接名做 upsert。
-- 某一行未提供密码字段时，如果该连接已存在，则会保留原有的加密密码数据。
-- 在 Web UI 中，可通过 `Saved Connections -> Download Template` 下载起始 CSV 模板。
+- `credential` 列填写已经存在的凭证名称。导入不会自动创建凭证，未知名称会产生带行号的错误。
+- 已存在的连接如果省略 `credential`，会保留原有凭证引用；新连接必须提供凭证。
+- 在 Web UI 中，可通过 `设备管理 -> 下载模板` 下载起始 CSV 模板。
 - 仓库里也提供了中英文两份示例文件：
 - [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
 - [templates/examples/connection-import-template-zh.csv](templates/examples/connection-import-template-zh.csv)
@@ -719,7 +779,7 @@ linux-jump-01,192.168.1.10,root,secret,22,,secure,posix,linux,
 
 备份当前 `rauto` 的运行时数据存储和备份配置：
 
-注意：备份归档会包含 `rauto.db`、模板和其他运行时文件，但不会导出系统 keyring 中保存的主密钥。恢复到另一台机器或全新系统账号后，如需继续使用已保存连接中的加密密码，请重新保存密码（或导入同一主密钥）。
+注意：备份归档会包含 `rauto.db`、凭证密文、模板和其他运行时文件，但不会导出系统 keyring 中保存的主密钥。恢复到另一台机器或全新系统账号后，请重新编辑并保存受影响的凭证（或导入同一主密钥）后再使用。
 
 ```bash
 # 备份到默认路径：~/.rauto/backups/rauto-backup-<timestamp>.tar.gz
@@ -781,8 +841,7 @@ rauto tx \
     --rollback-on-failure \
     --mode Config \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret
+    --credential network-admin
 
 rauto tx \
     --run-kind command-flow \
@@ -790,8 +849,7 @@ rauto tx \
     --flow-vars ./flow-vars.json \
     --rollback-flow-file ./rollback-flow.toml \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret
+    --credential network-admin
 ```
 
 说明：
@@ -812,8 +870,7 @@ rauto tx-workflow ./workflow.json --view
 # 执行 JSON 工作流
 rauto tx-workflow ./workflow.json \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret
+    --credential network-admin
 
 # 仅预览：默认打印可视化流程并退出
 rauto tx-workflow ./workflow.json --dry-run
@@ -1072,11 +1129,13 @@ rauto orchestrate --template campus-rollout --vars-json '{"site":"dc-a"}' --view
 变量渲染上下文说明：
 
 - `vars`：请求里传入的 `*_vars`
-- `connection`：单设备执行时的已解析连接参数（host/username/password/port/device_profile 等；如果是 saved connection，会额外提供 `connection.saved` 元数据）
+- `connection`：单设备执行时的运行时连接参数（host/username/password/port/device_profile 等）；凭证只在内存中解析，如果是 saved connection，会额外提供 `connection.saved` 元数据
 - `defaults`：编排执行时的全局默认连接参数（来自全局配置）
 - `now`：当前时间（`rfc3339` / `timestamp_ms`）
 - 支持顶层简写：`{{ peer_host }}` 会先查请求 vars，再回退当前目标连接参数。
 - 支持直接连接对象引用：`{{ edge94.host }}`、`{{ edge94.password }}`、`{{ edge94.vars.site }}`。
+
+模板运行时仍可按需访问 `username`、`password` 和 `enable_password`，但这些值来自当前选择的设备凭证，只存在于执行内存中，不会写回连接记录。
 
 字符串字段支持模板语法（minijinja），例如：
 
@@ -1123,7 +1182,7 @@ Group JSON 结构：
 
 默认运行时数据：
 
-- `~/.rauto/rauto.db`（已保存连接、历史录制、黑名单、自定义设备 profile、托管模板）
+- `~/.rauto/rauto.db`（已保存连接、设备凭证元数据/密文、历史录制、黑名单、自定义设备 profile、托管模板）
 - `~/.rauto/backups`（备份归档）
 
 启动时会自动创建 `~/.rauto` 和 `~/.rauto/backups`。
@@ -1136,23 +1195,21 @@ Group JSON 结构：
 
 ## 配置选项
 
-| 参数                   | 环境变量         | 描述                                                                                     |
-| ---------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
-| `--host`               | -                | 设备主机名或 IP（`-H`）                                                                  |
-| `--username`           | -                | SSH 用户名                                                                               |
-| `--password`           | `RAUTO_PASSWORD` | SSH 密码                                                                                 |
-| `--enable-password`    | -                | Enable/Secret 密码                                                                       |
-| `--ssh-port`           | -                | SSH 端口 (默认: 22)                                                                      |
-| `--ssh-security`       | -                | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible`     |
-| `--linux-shell-flavor` | -                | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                              |
-| `--device-profile`     | -                | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
-| `--force-autodetect`   | -                | 忽略已缓存的 autodetect 结果并重新探测目标设备                                           |
-| `--connection`         | -                | 按名称加载已保存连接配置（`-c`）                                                         |
-| `--save-connection`    | -                | 成功连接后保存当前有效连接配置（`-S`）                                                   |
+| 参数                   | 环境变量 | 描述                                                                                     |
+| ---------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `--host`               | -        | 设备主机名或 IP（`-H`）                                                                  |
+| `--credential`         | -        | 可复用设备凭证的名称或 ID                                                                |
+| `--ssh-port`           | -        | SSH 端口 (默认: 22)                                                                      |
+| `--ssh-security`       | -        | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible`     |
+| `--linux-shell-flavor` | -        | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                              |
+| `--device-profile`     | -        | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
+| `--force-autodetect`   | -        | 忽略已缓存的 autodetect 结果并重新探测目标设备                                           |
+| `--connection`         | -        | 按名称加载已保存连接配置（`-c`）                                                         |
+| `--save-connection`    | -        | 成功连接后保存当前有效连接配置和凭证引用（`-S`）                                         |
 
 常用短选项速查：
 
-- 全局：`-H/--host`、`-u/--username`、`-p/--password`、`-P/--ssh-port`、`-e/--enable-password`、`-d/--device-profile`、`-c/--connection`、`-S/--save-connection`
+- 全局：`-H/--host`、`--credential`、`-P/--ssh-port`、`-d/--device-profile`、`-c/--connection`、`-S/--save-connection`
 - Flow：`-t/--template`、`-f/--file`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
 - Exec：`-m/--mode`、`-r/--record-file`、`-l/--record-level`
 - Show：`-m/--mode`、`-r/--record-file`、`-l/--record-level`

@@ -2,7 +2,8 @@ use crate::agent::config::AgentConfig;
 use crate::agent::registration::AgentRegistrar;
 use crate::cli::GlobalOpts;
 use crate::config::autodetect_cache;
-use crate::config::connection_store::{self, SavedConnection};
+use crate::config::connection_resolver::ResolvedConnection as SavedResolvedConnection;
+use crate::config::connection_store;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader::{self, DEFAULT_DEVICE_PROFILE};
@@ -146,14 +147,11 @@ pub fn merge_connection_options(
     let incoming = incoming.unwrap_or(ConnectionRequest {
         connection_name: None,
         host: None,
-        username: None,
-        password: None,
+        credential_id: None,
         port: None,
         connect_timeout_secs: None,
         device_model: None,
         software_version: None,
-        enable_password: None,
-        enable_password_empty_enter: None,
         ssh_security: None,
         linux_shell_flavor: None,
         device_profile: None,
@@ -259,7 +257,7 @@ pub async fn resolve_autodetect_connection(
 fn merge_connection_sources(
     defaults: &GlobalOpts,
     incoming: ConnectionRequest,
-    saved: Option<SavedConnection>,
+    saved: Option<SavedResolvedConnection>,
     connection_name: Option<String>,
 ) -> Result<ResolvedConnection, ApiError> {
     if incoming.connect_timeout_secs == Some(0) {
@@ -269,6 +267,24 @@ fn merge_connection_sources(
     }
     let saved = saved.as_ref();
     let incoming_vars = incoming.vars;
+    let requested_credential_id = incoming.credential_id.clone().or_else(|| {
+        defaults.credential.as_deref().and_then(|selector| {
+            crate::config::device_credential_store::find_credential_by_name(selector)
+                .or_else(|_| crate::config::device_credential_store::get_credential(selector))
+                .ok()
+                .map(|item| item.id)
+        })
+    });
+    let credential = requested_credential_id
+        .as_deref()
+        .map(crate::config::device_credential_store::resolve_credential)
+        .transpose()
+        .map_err(|error| ApiError::bad_request(error.to_string()))?;
+    let credential_id = requested_credential_id
+        .or_else(|| saved.and_then(|connection| connection.credential_id.clone()));
+    if credential_id.is_none() {
+        return Err(ApiError::bad_request("device credential is required"));
+    }
 
     let host = incoming
         .host
@@ -276,16 +292,16 @@ fn merge_connection_sources(
         .or_else(|| defaults.host.clone())
         .ok_or_else(|| ApiError::bad_request("host is required"))?;
 
-    let username = incoming
-        .username
+    let username = credential
+        .as_ref()
+        .map(|value| value.username.clone())
         .or_else(|| saved.and_then(|s| s.username.clone()))
-        .or_else(|| defaults.username.clone())
-        .unwrap_or_else(|| "admin".to_string());
+        .ok_or_else(|| ApiError::bad_request("device credential is required"))?;
 
-    let password = incoming
-        .password
+    let password = credential
+        .as_ref()
+        .map(|value| value.password.clone())
         .or_else(|| saved.and_then(|s| s.password.clone()))
-        .or_else(|| defaults.password.clone())
         .unwrap_or_default();
 
     let port = incoming
@@ -304,11 +320,10 @@ fn merge_connection_sources(
             .filter(has_non_empty_json_object)
             .unwrap_or_else(|| serde_json::json!({}))
     };
-    let enable_password = incoming
-        .enable_password
-        .or_else(|| saved.and_then(|s| s.enable_password.clone()))
-        .or_else(|| defaults.enable_password.clone())
-        .or_else(|| Some(String::new()));
+    let enable_password = credential
+        .as_ref()
+        .and_then(|value| value.runtime_enable_password())
+        .or_else(|| saved.and_then(|s| s.enable_password.clone()));
     let ssh_security = incoming
         .ssh_security
         .or_else(|| saved.and_then(|s| s.ssh_security))
@@ -349,45 +364,65 @@ fn has_non_empty_json_object(value: &serde_json::Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::AppState;
+    use super::SavedResolvedConnection;
     use super::merge_connection_sources;
     use crate::cli::GlobalOpts;
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
-    use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
     use crate::web::error::ApiError;
     use crate::web::models::ConnectionRequest;
     use axum::http::StatusCode;
-    use std::path::PathBuf;
     use tokio::time::{Duration, sleep};
 
-    #[test]
-    fn merge_connection_sources_prefers_explicit_then_saved_then_defaults() {
-        let defaults = GlobalOpts {
+    fn defaults() -> GlobalOpts {
+        GlobalOpts {
+            credential: None,
             host: Some("default-host".to_string()),
-            username: Some("default-user".to_string()),
-            password: Some("default-pass".to_string()),
             port: Some(22),
-            enable_password: Some("default-enable".to_string()),
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
             device_profile: Some("default-profile".to_string()),
-            template_dir: Some(PathBuf::from("/tmp/default-templates")),
+            template_dir: None,
             force_autodetect: false,
             connection: Some("lab1".to_string()),
             save_connection: None,
-            save_password: false,
-        };
+        }
+    }
+
+    fn saved_connection(enable_password: Option<&str>) -> SavedResolvedConnection {
+        SavedResolvedConnection {
+            saved: SavedConnection {
+                credential_id: Some("credential-1".to_string()),
+                host: Some("saved-host".to_string()),
+                port: Some(2022),
+                connect_timeout_secs: Some(45),
+                device_model: None,
+                software_version: None,
+                ssh_security: Some(SshSecurityProfile::Secure),
+                linux_shell_flavor: None,
+                device_profile: Some("saved-profile".to_string()),
+                template_dir: Some("/tmp/saved-templates".to_string()),
+                enabled: true,
+                labels: vec!["core".to_string()],
+                groups: vec!["access".to_string()],
+                vars: serde_json::json!({"site":"lab-a"}),
+            },
+            username: Some("saved-user".to_string()),
+            password: Some("saved-pass".to_string()),
+            enable_password: enable_password.map(ToOwned::to_owned),
+        }
+    }
+
+    #[test]
+    fn merge_connection_sources_uses_saved_runtime_credential_and_explicit_connection_fields() {
         let incoming = ConnectionRequest {
             connection_name: Some("lab1".to_string()),
             host: Some("explicit-host".to_string()),
-            username: None,
-            password: None,
+            credential_id: None,
             port: None,
             connect_timeout_secs: None,
             device_model: None,
             software_version: None,
-            enable_password: Some("explicit-enable".to_string()),
-            enable_password_empty_enter: None,
             ssh_security: Some(SshSecurityProfile::LegacyCompatible),
             linux_shell_flavor: None,
             device_profile: None,
@@ -397,31 +432,13 @@ mod tests {
             groups: vec![],
             vars: serde_json::json!({}),
         };
-        let saved = SavedConnection {
-            host: Some("saved-host".to_string()),
-            username: Some("saved-user".to_string()),
-            password: Some("saved-pass".to_string()),
-            password_ref: None,
-            port: Some(2022),
-            connect_timeout_secs: Some(45),
-            device_model: None,
-            software_version: None,
-            enable_password: Some("saved-enable".to_string()),
-            enable_password_ref: None,
-            enable_password_empty_enter: false,
-            ssh_security: Some(SshSecurityProfile::Secure),
-            linux_shell_flavor: None,
-            device_profile: Some("saved-profile".to_string()),
-            template_dir: Some("/tmp/saved-templates".to_string()),
-            enabled: true,
-            labels: vec!["core".to_string()],
-            groups: vec!["access".to_string()],
-            vars: serde_json::json!({"site":"lab-a"}),
-        };
-
-        let resolved =
-            merge_connection_sources(&defaults, incoming, Some(saved), Some("lab1".to_string()))
-                .expect("resolved connection");
+        let resolved = merge_connection_sources(
+            &defaults(),
+            incoming,
+            Some(saved_connection(Some("saved-enable"))),
+            Some("lab1".to_string()),
+        )
+        .expect("resolved connection");
 
         assert_eq!(resolved.connection_name.as_deref(), Some("lab1"));
         assert_eq!(resolved.host, "explicit-host");
@@ -429,100 +446,24 @@ mod tests {
         assert_eq!(resolved.password, "saved-pass");
         assert_eq!(resolved.port, 2022);
         assert_eq!(resolved.connect_timeout_secs, Some(45));
-        assert_eq!(resolved.enable_password.as_deref(), Some("explicit-enable"));
+        assert_eq!(resolved.enable_password.as_deref(), Some("saved-enable"));
         assert_eq!(resolved.ssh_security, SshSecurityProfile::LegacyCompatible);
         assert_eq!(resolved.device_profile, "saved-profile");
         assert_eq!(resolved.vars, serde_json::json!({"site":"lab-a"}));
     }
 
     #[test]
-    fn merge_connection_sources_falls_back_to_defaults_without_saved_connection() {
-        let defaults = GlobalOpts {
-            host: Some("default-host".to_string()),
-            username: Some("default-user".to_string()),
-            password: Some("default-pass".to_string()),
-            port: Some(22),
-            enable_password: None,
-            ssh_security: Some(SshSecurityProfile::Balanced),
-            linux_shell_flavor: None,
-            device_profile: Some("default-profile".to_string()),
-            template_dir: Some(PathBuf::from("/tmp/default-templates")),
-            force_autodetect: false,
-            connection: None,
-            save_connection: None,
-            save_password: false,
-        };
-
-        let resolved =
-            merge_connection_sources(&defaults, ConnectionRequest::default(), None, None)
-                .expect("resolved connection");
-
-        assert_eq!(resolved.host, "default-host");
-        assert_eq!(resolved.username, "default-user");
-        assert_eq!(resolved.password, "default-pass");
-        assert_eq!(resolved.port, 22);
-        assert_eq!(resolved.ssh_security, SshSecurityProfile::Balanced);
-        assert_eq!(resolved.device_profile, "default-profile");
-        assert_eq!(resolved.vars, serde_json::json!({}));
-    }
-
-    #[test]
-    fn merge_connection_sources_uses_linux_when_profile_is_not_set_anywhere() {
-        let defaults = GlobalOpts {
-            host: Some("default-host".to_string()),
-            username: None,
-            password: None,
-            port: None,
-            enable_password: None,
-            ssh_security: None,
-            linux_shell_flavor: None,
-            device_profile: None,
-            template_dir: None,
-            force_autodetect: false,
-            connection: None,
-            save_connection: None,
-            save_password: false,
-        };
-
-        let resolved =
-            merge_connection_sources(&defaults, ConnectionRequest::default(), None, None)
-                .expect("resolved connection");
-
-        assert_eq!(resolved.device_profile, DEFAULT_DEVICE_PROFILE);
-        assert_eq!(resolved.ssh_security, SshSecurityProfile::LegacyCompatible);
-        assert_eq!(resolved.vars, serde_json::json!({}));
-    }
-
-    #[test]
-    fn merge_connection_sources_supports_empty_enable_password_enter_flag() {
-        let defaults = GlobalOpts {
-            host: Some("default-host".to_string()),
-            username: Some("default-user".to_string()),
-            password: Some("default-pass".to_string()),
-            port: Some(22),
-            enable_password: None,
-            ssh_security: Some(SshSecurityProfile::Secure),
-            linux_shell_flavor: None,
-            device_profile: Some("linux".to_string()),
-            template_dir: None,
-            force_autodetect: false,
-            connection: None,
-            save_connection: None,
-            save_password: false,
-        };
-        let incoming = ConnectionRequest {
-            host: Some("demo-host".to_string()),
-            username: Some("ops".to_string()),
-            password: Some("ops-pass".to_string()),
-            enable_password_empty_enter: Some(true),
-            vars: serde_json::json!({
-                "site": "demo"
-            }),
-            ..ConnectionRequest::default()
-        };
-
-        let resolved =
-            merge_connection_sources(&defaults, incoming, None, None).expect("resolved connection");
+    fn merge_connection_sources_preserves_enabled_stage_without_password() {
+        let resolved = merge_connection_sources(
+            &defaults(),
+            ConnectionRequest {
+                host: Some("demo-host".to_string()),
+                ..ConnectionRequest::default()
+            },
+            Some(saved_connection(Some(""))),
+            Some("lab1".to_string()),
+        )
+        .expect("resolved connection");
         assert_eq!(resolved.enable_password, Some(String::new()));
     }
 
@@ -530,11 +471,9 @@ mod tests {
     async fn shutdown_cancels_pending_request_future() {
         let state = AppState::new(
             GlobalOpts {
+                credential: None,
                 host: None,
-                username: None,
-                password: None,
                 port: None,
-                enable_password: None,
                 ssh_security: None,
                 linux_shell_flavor: None,
                 device_profile: None,
@@ -542,7 +481,6 @@ mod tests {
                 force_autodetect: false,
                 connection: None,
                 save_connection: None,
-                save_password: false,
             },
             None,
             None,

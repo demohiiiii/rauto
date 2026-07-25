@@ -183,25 +183,21 @@ function normalizeOptionalHandler(handler) {
 
 function basicFieldsWorkspaceInputState(inputState = {}) {
   return {
+    onCredentialChange: normalizeOptionalHandler(inputState.onCredentialChange),
     onConnectTimeoutSecsInput: normalizeOptionalHandler(
       inputState.onConnectTimeoutSecsInput,
     ),
     onDeviceProfileChange: normalizeOptionalHandler(
       inputState.onDeviceProfileChange,
     ),
-    onEnablePasswordInput: normalizeOptionalHandler(
-      inputState.onEnablePasswordInput,
-    ),
     onHostInput: normalizeOptionalHandler(inputState.onHostInput),
     onLinuxShellFlavorChange: normalizeOptionalHandler(
       inputState.onLinuxShellFlavorChange,
     ),
-    onPasswordInput: normalizeOptionalHandler(inputState.onPasswordInput),
     onPortInput: normalizeOptionalHandler(inputState.onPortInput),
     onSshSecurityChange: normalizeOptionalHandler(
       inputState.onSshSecurityChange,
     ),
-    onUsernameInput: normalizeOptionalHandler(inputState.onUsernameInput),
   };
 }
 
@@ -211,14 +207,14 @@ export function createConnectionBasicFieldsWorkspace(initialInputState = {}) {
   );
 
   return {
+    credentialChangeHandler() {
+      return actionHandlers.credentialChangeHandler();
+    },
     connectTimeoutSecsInputHandler() {
       return actionHandlers.connectTimeoutSecsInputHandler();
     },
     deviceProfileChangeHandler() {
       return actionHandlers.deviceProfileChangeHandler();
-    },
-    enablePasswordInputHandler() {
-      return actionHandlers.enablePasswordInputHandler();
     },
     hostInputHandler() {
       return actionHandlers.hostInputHandler();
@@ -226,17 +222,11 @@ export function createConnectionBasicFieldsWorkspace(initialInputState = {}) {
     linuxShellFlavorChangeHandler() {
       return actionHandlers.linuxShellFlavorChangeHandler();
     },
-    passwordInputHandler() {
-      return actionHandlers.passwordInputHandler();
-    },
     portInputHandler() {
       return actionHandlers.portInputHandler();
     },
     sshSecurityChangeHandler() {
       return actionHandlers.sshSecurityChangeHandler();
-    },
-    usernameInputHandler() {
-      return actionHandlers.usernameInputHandler();
     },
   };
 }
@@ -367,25 +357,23 @@ export function createHistoryDrawerContentWorkspace(initialInputState = {}) {
 }
 
 function connectionBasicFieldInputHandlers({
+  onCredentialChange = null,
   onConnectTimeoutSecsInput = null,
   onDeviceProfileChange = null,
-  onEnablePasswordInput = null,
   onHostInput = null,
   onLinuxShellFlavorChange = null,
-  onPasswordInput = null,
   onPortInput = null,
   onSshSecurityChange = null,
-  onUsernameInput = null,
 } = {}) {
   return {
+    credentialChangeHandler() {
+      return callbackHandler(onCredentialChange);
+    },
     connectTimeoutSecsInputHandler() {
       return callbackHandler(onConnectTimeoutSecsInput);
     },
     deviceProfileChangeHandler() {
       return callbackHandler(onDeviceProfileChange);
-    },
-    enablePasswordInputHandler() {
-      return callbackHandler(onEnablePasswordInput);
     },
     hostInputHandler() {
       return callbackHandler(onHostInput);
@@ -393,17 +381,11 @@ function connectionBasicFieldInputHandlers({
     linuxShellFlavorChangeHandler() {
       return callbackHandler(onLinuxShellFlavorChange);
     },
-    passwordInputHandler() {
-      return callbackHandler(onPasswordInput);
-    },
     portInputHandler() {
       return callbackHandler(onPortInput);
     },
     sshSecurityChangeHandler() {
       return callbackHandler(onSshSecurityChange);
-    },
-    usernameInputHandler() {
-      return callbackHandler(onUsernameInput);
     },
   };
 }
@@ -411,16 +393,14 @@ function connectionBasicFieldInputHandlers({
 function connectionBasicFieldActionHandlers(options = {}) {
   const inputHandlers = connectionBasicFieldInputHandlers(options);
   return {
+    credentialChangeHandler: inputHandlers.credentialChangeHandler,
     connectTimeoutSecsInputHandler:
       inputHandlers.connectTimeoutSecsInputHandler,
     deviceProfileChangeHandler: inputHandlers.deviceProfileChangeHandler,
-    enablePasswordInputHandler: inputHandlers.enablePasswordInputHandler,
     hostInputHandler: inputHandlers.hostInputHandler,
     linuxShellFlavorChangeHandler: inputHandlers.linuxShellFlavorChangeHandler,
-    passwordInputHandler: inputHandlers.passwordInputHandler,
     portInputHandler: inputHandlers.portInputHandler,
     sshSecurityChangeHandler: inputHandlers.sshSecurityChangeHandler,
-    usernameInputHandler: inputHandlers.usernameInputHandler,
   };
 }
 

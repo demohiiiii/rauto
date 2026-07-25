@@ -47,13 +47,11 @@ struct ParsedRows {
 enum ColumnKey {
     Name,
     Host,
-    Username,
-    Password,
+    Credential,
     Port,
     ConnectTimeoutSecs,
     DeviceModel,
     SoftwareVersion,
-    EnablePassword,
     SshSecurity,
     LinuxShellFlavor,
     DeviceProfile,
@@ -105,6 +103,14 @@ fn apply_import_rows(file_name: &str, parsed: ParsedRows) -> Result<ConnectionIm
             });
             continue;
         }
+        if merged.credential_id.is_none() {
+            failures.push(ConnectionImportFailure {
+                row: row.row,
+                name: Some(row.name),
+                message: "credential is required for imported connections".to_string(),
+            });
+            continue;
+        }
 
         match connection_store::save_connection(&row.name, &merged) {
             Ok(_) => {
@@ -138,21 +144,13 @@ fn merge_with_existing(
     existing: Option<&SavedConnection>,
     incoming: SavedConnection,
 ) -> SavedConnection {
-    let incoming_password = incoming.password.clone();
-    let incoming_enable_password = incoming.enable_password.clone();
     SavedConnection {
+        credential_id: incoming
+            .credential_id
+            .or_else(|| existing.and_then(|item| item.credential_id.clone())),
         host: incoming
             .host
             .or_else(|| existing.and_then(|item| item.host.clone())),
-        username: incoming
-            .username
-            .or_else(|| existing.and_then(|item| item.username.clone())),
-        password: incoming.password,
-        password_ref: if incoming_password.is_some() {
-            None
-        } else {
-            existing.and_then(|item| item.password_ref.clone())
-        },
         port: incoming
             .port
             .or_else(|| existing.and_then(|item| item.port)),
@@ -165,14 +163,6 @@ fn merge_with_existing(
         software_version: incoming
             .software_version
             .or_else(|| existing.and_then(|item| item.software_version.clone())),
-        enable_password: incoming.enable_password,
-        enable_password_ref: if incoming_enable_password.is_some() {
-            None
-        } else {
-            existing.and_then(|item| item.enable_password_ref.clone())
-        },
-        enable_password_empty_enter: incoming.enable_password_empty_enter
-            || existing.is_some_and(|item| item.enable_password_empty_enter),
         ssh_security: incoming
             .ssh_security
             .or_else(|| existing.and_then(|item| item.ssh_security)),
@@ -210,7 +200,9 @@ fn merge_with_existing(
 
 #[cfg(test)]
 mod tests {
-    use super::parsing::{build_header_mapping, derive_connection_name, parse_row};
+    use super::parsing::{
+        build_header_mapping, derive_connection_name, parse_row, resolve_credential_id,
+    };
     use super::{ColumnKey, merge_with_existing};
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
@@ -221,14 +213,34 @@ mod tests {
         let mapping = build_header_mapping(&[
             "设备名".to_string(),
             "IP地址".to_string(),
-            "用户名".to_string(),
-            "密码".to_string(),
+            "设备凭证".to_string(),
         ])
         .expect("headers should be recognized");
         assert_eq!(mapping.get(&0), Some(&ColumnKey::Name));
         assert_eq!(mapping.get(&1), Some(&ColumnKey::Host));
-        assert_eq!(mapping.get(&2), Some(&ColumnKey::Username));
-        assert_eq!(mapping.get(&3), Some(&ColumnKey::Password));
+        assert_eq!(mapping.get(&2), Some(&ColumnKey::Credential));
+    }
+
+    #[test]
+    fn credential_name_resolves_to_existing_credential_id() {
+        let id = resolve_credential_id(" network-admin ", 2, |name| {
+            assert_eq!(name, "network-admin");
+            Ok("credential-1".to_string())
+        })
+        .expect("known credential should resolve");
+
+        assert_eq!(id.as_deref(), Some("credential-1"));
+    }
+
+    #[test]
+    fn unknown_credential_name_is_rejected_with_row_context() {
+        let error = resolve_credential_id("missing", 7, |_| {
+            Err(anyhow::anyhow!("credential not found"))
+        })
+        .expect_err("unknown credentials must fail import parsing");
+
+        assert!(error.to_string().contains("row 7"));
+        assert!(error.to_string().contains("unknown credential"));
     }
 
     #[test]
@@ -306,19 +318,14 @@ mod tests {
     }
 
     #[test]
-    fn merge_preserves_existing_secret_refs_when_missing_in_import() {
+    fn merge_preserves_existing_credential_when_missing_in_import() {
         let existing = SavedConnection {
+            credential_id: Some("cred-existing".to_string()),
             host: Some("192.0.2.1".to_string()),
-            username: Some("admin".to_string()),
-            password: None,
-            password_ref: Some("enc:v1:AAAA".to_string()),
             port: Some(22),
             connect_timeout_secs: Some(30),
             device_model: Some("C9300-48P".to_string()),
             software_version: Some("17.9.5".to_string()),
-            enable_password: None,
-            enable_password_ref: Some("enc:v1:BBBB".to_string()),
-            enable_password_empty_enter: false,
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
             device_profile: Some("cisco".to_string()),
@@ -331,17 +338,12 @@ mod tests {
         let merged = merge_with_existing(
             Some(&existing),
             SavedConnection {
+                credential_id: None,
                 host: None,
-                username: Some("ops".to_string()),
-                password: None,
-                password_ref: None,
                 port: None,
                 connect_timeout_secs: None,
                 device_model: None,
                 software_version: None,
-                enable_password: None,
-                enable_password_ref: None,
-                enable_password_empty_enter: false,
                 ssh_security: None,
                 linux_shell_flavor: None,
                 device_profile: None,
@@ -352,9 +354,7 @@ mod tests {
                 groups: vec![],
             },
         );
-        assert_eq!(merged.username.as_deref(), Some("ops"));
-        assert_eq!(merged.password_ref.as_deref(), Some("enc:v1:AAAA"));
-        assert_eq!(merged.enable_password_ref.as_deref(), Some("enc:v1:BBBB"));
+        assert_eq!(merged.credential_id.as_deref(), Some("cred-existing"));
         assert_eq!(merged.host.as_deref(), Some("192.0.2.1"));
         assert_eq!(merged.device_model.as_deref(), Some("C9300-48P"));
         assert_eq!(merged.software_version.as_deref(), Some("17.9.5"));
@@ -364,16 +364,9 @@ mod tests {
     fn parse_row_can_derive_name_from_host() {
         let mut mapping = HashMap::new();
         mapping.insert(0, ColumnKey::Host);
-        mapping.insert(1, ColumnKey::Username);
-        let row = parse_row(
-            2,
-            &mapping,
-            &["10.0.0.1".to_string(), "admin".to_string()],
-            &mut HashSet::new(),
-        )
-        .expect("row parses")
-        .expect("row exists");
+        let row = parse_row(2, &mapping, &["10.0.0.1".to_string()], &mut HashSet::new())
+            .expect("row parses")
+            .expect("row exists");
         assert_eq!(row.name, "10-0-0-1");
-        assert_eq!(row.connection.username.as_deref(), Some("admin"));
     }
 }

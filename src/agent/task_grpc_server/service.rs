@@ -103,6 +103,10 @@ impl AgentTaskService for AgentTaskGrpcService {
                 }
             };
             let has_password = connection_store::has_saved_password(&loaded);
+            let credential = loaded
+                .credential_id
+                .as_deref()
+                .and_then(|id| crate::config::device_credential_store::get_credential(id).ok());
             connections.push(ConnectionMeta {
                 name,
                 host: loaded.host.unwrap_or_default(),
@@ -117,10 +121,91 @@ impl AgentTaskService for AgentTaskGrpcService {
                     .unwrap_or_default(),
                 device_model: loaded.device_model.unwrap_or_default(),
                 software_version: loaded.software_version.unwrap_or_default(),
+                credential_id: loaded.credential_id.unwrap_or_default(),
+                credential_name: credential
+                    .as_ref()
+                    .map(|item| item.name.clone())
+                    .unwrap_or_default(),
+                credential_required: credential.is_none(),
+                has_enable_password: credential
+                    .as_ref()
+                    .is_some_and(|item| item.has_enable_password),
+                enable_enabled: credential.as_ref().is_some_and(|item| item.enable_enabled),
             });
         }
 
         Ok(Response::new(ListConnectionsResponse { connections }))
+    }
+
+    async fn list_credentials(
+        &self,
+        request: Request<ListCredentialsRequest>,
+    ) -> Result<Response<ListCredentialsResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let _ = request.into_inner();
+        let Json(credentials) = list_credentials_handler()
+            .await
+            .map_err(api_error_to_status)?;
+        Ok(Response::new(ListCredentialsResponse {
+            credentials: credentials.into_iter().map(map_device_credential).collect(),
+        }))
+    }
+
+    async fn get_credential(
+        &self,
+        request: Request<GetCredentialRequest>,
+    ) -> Result<Response<DeviceCredential>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(credential) = get_credential_handler(Path(req.id))
+            .await
+            .map_err(api_error_to_status)?;
+        Ok(Response::new(map_device_credential(credential)))
+    }
+
+    async fn upsert_credential(
+        &self,
+        request: Request<UpsertCredentialRequest>,
+    ) -> Result<Response<DeviceCredential>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let id = optional_string(req.id);
+        let payload = WebUpsertDeviceCredentialRequest {
+            name: req.name,
+            username: req.username,
+            password: req.password,
+            enable_password: req.enable_password,
+            enable_enabled: req.enable_enabled,
+        };
+        let credential = if let Some(id) = id {
+            let Json(credential) = update_credential_handler(Path(id), Json(payload))
+                .await
+                .map_err(api_error_to_status)?;
+            credential
+        } else {
+            let Json(credential) = create_credential_handler(Json(payload))
+                .await
+                .map_err(api_error_to_status)?;
+            credential
+        };
+        Ok(Response::new(map_device_credential(credential)))
+    }
+
+    async fn delete_credential(
+        &self,
+        request: Request<DeleteCredentialRequest>,
+    ) -> Result<Response<DeleteCredentialResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = delete_credential_handler(Path(req.id))
+            .await
+            .map_err(api_error_to_status)?;
+        Ok(Response::new(DeleteCredentialResponse {
+            deleted: response
+                .get("deleted")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        }))
     }
 
     async fn upsert_connection(

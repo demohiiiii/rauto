@@ -3,9 +3,9 @@ use super::connections::{
 };
 use super::{
     TaskReportContext, build_json_template_context, builtin_command_flow_template_by_name,
-    merged_saved_secret, parse_builtin_command_flow_template_token, require_managed_async_task,
+    parse_builtin_command_flow_template_token, require_managed_async_task,
     resolve_tx_block_value_from_input, sanitize_rendered_output_for_response,
-    saved_connection_detail_response, should_persist_secret,
+    saved_connection_detail_response,
 };
 use crate::config::connection_store::SavedConnection;
 use crate::config::linux_shell::LinuxShellFlavor;
@@ -15,22 +15,39 @@ use crate::web::state::ResolvedConnection;
 use std::path::PathBuf;
 
 #[test]
+fn credential_response_exposes_metadata_without_secret_material() {
+    let response = super::credentials::credential_response(
+        crate::config::device_credential_store::DeviceCredentialMeta {
+            id: "cred-1".to_string(),
+            name: "ops".to_string(),
+            username: "admin".to_string(),
+            has_password: true,
+            has_enable_password: false,
+            enable_enabled: true,
+            connection_count: 2,
+        },
+        vec!["edge-1".to_string(), "edge-2".to_string()],
+    );
+    let value = serde_json::to_value(response).expect("credential response serializes");
+    assert_eq!(value["name"], "ops");
+    assert_eq!(value["connection_count"], 2);
+    assert_eq!(value["referencing_connections"][0], "edge-1");
+    assert!(value.get("password").is_none());
+    assert!(value.get("password_ref").is_none());
+}
+
+#[test]
 fn saved_connection_detail_response_redacts_secrets() {
     let detail = saved_connection_detail_response(
         "lab1",
         &PathBuf::from("/tmp/lab1.toml"),
         &SavedConnection {
+            credential_id: None,
             host: Some("192.0.2.10".to_string()),
-            username: Some("admin".to_string()),
-            password: Some("secret".to_string()),
-            password_ref: None,
             port: Some(22),
             connect_timeout_secs: Some(17),
             device_model: Some("WS-C2960X-48FPS-L".to_string()),
             software_version: Some("15.2(7)E10".to_string()),
-            enable_password: Some("enable-secret".to_string()),
-            enable_password_ref: None,
-            enable_password_empty_enter: false,
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
             device_profile: Some("cisco_ios".to_string()),
@@ -42,10 +59,11 @@ fn saved_connection_detail_response_redacts_secrets() {
         },
     );
 
-    assert!(detail.has_password);
+    assert!(!detail.has_password);
+    assert!(detail.credential_required);
     assert_eq!(detail.connection.connection_name.as_deref(), Some("lab1"));
     assert_eq!(detail.connection.host.as_deref(), Some("192.0.2.10"));
-    assert_eq!(detail.connection.username.as_deref(), Some("admin"));
+    assert_eq!(detail.connection.credential_id, None);
     assert_eq!(detail.connection.port, Some(22));
     assert_eq!(detail.connection.connect_timeout_secs, Some(17));
     assert_eq!(
@@ -68,9 +86,6 @@ fn saved_connection_detail_response_redacts_secrets() {
         detail.connection.template_dir.as_deref(),
         Some("/tmp/templates")
     );
-    assert_eq!(detail.connection.password, None);
-    assert_eq!(detail.connection.enable_password, None);
-    assert_eq!(detail.connection.enable_password_empty_enter, Some(false));
 }
 
 #[test]
@@ -136,29 +151,6 @@ fn connection_facts_response_warns_when_one_fact_is_missing() {
         response.warning.as_deref(),
         Some("version output did not contain a recognized software version")
     );
-}
-
-#[test]
-fn merged_saved_secret_preserves_existing_secret_when_request_is_blank() {
-    let existing = "stored-secret".to_string();
-    assert_eq!(
-        merged_saved_secret(true, None, Some(&existing)),
-        Some("stored-secret".to_string())
-    );
-    assert_eq!(
-        merged_saved_secret(true, Some("new-secret".to_string()), Some(&existing)),
-        Some("new-secret".to_string())
-    );
-    assert_eq!(merged_saved_secret(false, None, Some(&existing)), None);
-}
-
-#[test]
-fn explicit_secret_input_implies_secret_should_be_persisted() {
-    assert!(should_persist_secret(false, Some("secret")));
-    assert!(should_persist_secret(false, Some("")));
-    assert!(should_persist_secret(false, Some("   ")));
-    assert!(should_persist_secret(true, None));
-    assert!(!should_persist_secret(false, None));
 }
 
 #[test]

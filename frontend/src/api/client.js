@@ -164,6 +164,47 @@ export function listConnections() {
   return apiRequest("GET", "/api/connections");
 }
 
+export function listCredentials() {
+  return apiRequest("GET", "/api/credentials");
+}
+
+export function getCredential(id) {
+  return apiRequest("GET", `/api/credentials/${encodeURIComponent(id)}`);
+}
+
+export function createCredential(credential) {
+  return apiRequest("POST", "/api/credentials", credential);
+}
+
+export function updateCredential(id, credential) {
+  return apiRequest(
+    "PUT",
+    `/api/credentials/${encodeURIComponent(id)}`,
+    credential,
+  );
+}
+
+export function deleteCredential(id) {
+  return apiRequest("DELETE", `/api/credentials/${encodeURIComponent(id)}`);
+}
+
+export function importCredentials(file) {
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+  return apiRequestForm("POST", "/api/credentials/import", formData);
+}
+
+export function downloadCredentialImportTemplateBlob(lang = "en") {
+  return apiRequestBlob(
+    "GET",
+    `/api/credentials/import-template?lang=${encodeURIComponent(lang)}`,
+    undefined,
+    lang === "zh"
+      ? "rauto-credential-import-template-zh.csv"
+      : "rauto-credential-import-template-en.csv",
+  );
+}
+
 export function getConnection(name) {
   return apiRequest("GET", `/api/connections/${encodeURIComponent(name)}`);
 }

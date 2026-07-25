@@ -1,5 +1,6 @@
 use crate::config::command_flow_template::CommandFlowTemplate;
-use crate::config::connection_store::{SavedConnection, load_connection};
+use crate::config::connection_resolver::ResolvedConnection;
+use crate::config::connection_store::load_connection;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use anyhow::{Result, anyhow};
@@ -88,7 +89,7 @@ impl ConnectionParamContext {
         Self { values }
     }
 
-    fn from_saved_connection(name: &str, conn: &SavedConnection) -> Self {
+    fn from_saved_connection(name: &str, conn: &ResolvedConnection) -> Self {
         Self::new(
             Some(name),
             conn.host.as_deref(),
@@ -336,6 +337,7 @@ mod tests {
     use super::*;
     use crate::config::command_flow_template::parse_command_flow_template_str;
     use crate::config::connection_store::{SavedConnection, save_connection};
+    use crate::config::device_credential_store::{DeviceCredentialInput, create_credential};
     use crate::db;
     use serde_json::json;
     use std::path::PathBuf;
@@ -410,19 +412,18 @@ mod tests {
         }
     }
 
-    fn sample_connection(host: &str, vars: serde_json::Value) -> SavedConnection {
+    fn sample_connection(
+        host: &str,
+        vars: serde_json::Value,
+        credential_id: String,
+    ) -> SavedConnection {
         SavedConnection {
+            credential_id: Some(credential_id),
             host: Some(host.to_string()),
-            username: Some("ops".to_string()),
-            password: Some("secret-xyz".to_string()),
-            password_ref: None,
             port: Some(22),
             connect_timeout_secs: None,
             device_model: None,
             software_version: None,
-            enable_password: None,
-            enable_password_ref: None,
-            enable_password_empty_enter: false,
             ssh_security: None,
             linux_shell_flavor: None,
             device_profile: Some("linux".to_string()),
@@ -432,6 +433,17 @@ mod tests {
             vars,
             groups: vec![],
         }
+    }
+
+    fn sample_credential() -> anyhow::Result<String> {
+        let credential = create_credential(&DeviceCredentialInput {
+            name: format!("flow-test-{}", rand::random::<u64>()),
+            username: "ops".to_string(),
+            password: Some("secret-xyz".to_string()),
+            enable_password: None,
+            enable_enabled: false,
+        })?;
+        Ok(credential.id)
     }
 
     #[test]
@@ -526,9 +538,10 @@ command = "show clock"
     fn resolves_connection_alias_then_named_connection_param_lookup() {
         let _env_guard = TestEnvGuard::new().expect("env");
         db::init_sync().expect("db init");
+        let credential_id = sample_credential().expect("credential");
         save_connection(
             "edge94",
-            &sample_connection("192.168.30.94", json!({"site":"dc-a"})),
+            &sample_connection("192.168.30.94", json!({"site":"dc-a"}), credential_id),
         )
         .expect("save connection");
 
@@ -563,9 +576,10 @@ command = "show clock"
     fn resolves_inline_reference_from_connection_alias_only_peer_input() {
         let _env_guard = TestEnvGuard::new().expect("env");
         db::init_sync().expect("db init");
+        let credential_id = sample_credential().expect("credential");
         save_connection(
             "edge94",
-            &sample_connection("192.168.30.94", json!({"site":"dc-a"})),
+            &sample_connection("192.168.30.94", json!({"site":"dc-a"}), credential_id),
         )
         .expect("save connection");
 

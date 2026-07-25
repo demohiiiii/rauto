@@ -69,15 +69,13 @@ export function createConnectionTestState() {
 
 let temporaryConnectionFormState = {
   connect_timeout_secs: "",
+  credential_id: "",
   device_profile: "autodetect",
   enabled: true,
-  enable_password: "",
   host: "",
   linux_shell_flavor: "",
-  password: "",
   port: "",
   ssh_security: "",
-  username: "",
 };
 
 export const temporaryConnectionFormStateStore = writable({
@@ -87,15 +85,13 @@ export const temporaryConnectionFormStateStore = writable({
 function temporaryConnectionFormStateFromDraft(draft = {}) {
   return {
     connect_timeout_secs: draft.connectTimeoutSecs,
+    credential_id: draft.credentialId,
     device_profile: draft.deviceProfile || "autodetect",
     enabled: draft.enabled,
-    enable_password: draft.enablePassword,
     host: draft.host,
     linux_shell_flavor: draft.linuxShellFlavor,
-    password: draft.password,
     port: draft.port,
     ssh_security: draft.sshSecurity,
-    username: draft.username,
   };
 }
 
@@ -142,13 +138,11 @@ function mergeConnectionFormState(current = {}, formVals = {}, mergeCfg = {}) {
   [
     "connect_timeout_secs",
     "device_profile",
-    "enable_password",
+    "credential_id",
     "host",
     "linux_shell_flavor",
-    "password",
     "port",
     "ssh_security",
-    "username",
   ].forEach((key) => {
     if (hasOwn(formVals, key)) {
       next[key] = displayString(formVals[key] || "");
@@ -211,12 +205,8 @@ function currentTemporaryConnectionLabel() {
   const label = storedTemporaryConnectionLabel();
   if (label) return label;
   const host = safeString(temporaryConnectionFormState.host || "").trim();
-  const username = safeString(
-    temporaryConnectionFormState.username || "",
-  ).trim();
-  if (!host && !username) return t("sidebarConnectionTemporaryLabel");
-  if (!username) return `${t("sidebarConnectionTemporaryLabel")} · ${host}`;
-  return `${t("sidebarConnectionTemporaryLabel")} · ${username}@${host}`;
+  if (!host) return t("sidebarConnectionTemporaryLabel");
+  return `${t("sidebarConnectionTemporaryLabel")} · ${host}`;
 }
 
 export function currentTemporaryConnectionDetails() {
@@ -238,7 +228,10 @@ function savedConnectionDetails(savedConnection = {}) {
     name: safeString(savedConnection.name || "-"),
     host: safeString(savedConnection.host || "-"),
     port: Number(savedConnection.port || 22) || 22,
-    username: safeString(savedConnection.username || "-"),
+    credentialName:
+      safeString(savedConnection.credential_name || "").trim() ||
+      t("credentialRequired"),
+    credentialRequired: savedConnection.credential_required === true,
     profile: profile || "autodetect",
     device_model: safeString(savedConnection.device_model || "").trim(),
     software_version: safeString(savedConnection.software_version || "").trim(),
@@ -257,8 +250,15 @@ function buildCurrentTemporaryConnectionDetails() {
     name: currentTemporaryConnectionLabel(),
     host: safeString(temporaryConnectionFormState.host || "").trim() || "-",
     port: Number(temporaryConnectionFormState.port || 22) || 22,
-    username:
-      safeString(temporaryConnectionFormState.username || "").trim() || "-",
+    credentialId: safeString(
+      temporaryConnectionFormState.credential_id || "",
+    ).trim(),
+    credentialName:
+      safeString(temporaryConnectionFormState.credential_id || "").trim() ||
+      t("credentialRequired"),
+    credentialRequired: !safeString(
+      temporaryConnectionFormState.credential_id || "",
+    ).trim(),
     profile:
       safeString(
         temporaryConnectionFormState.device_profile || "autodetect",
@@ -270,12 +270,14 @@ function buildCurrentTemporaryConnectionDetails() {
 
 function buildTemporaryConnectionDetailsFromPersisted(parsed = {}) {
   const host = safeString(parsed.host || "").trim();
-  const username = safeString(parsed.username || "").trim();
+  const credentialId = safeString(parsed.credential_id || "").trim();
   return {
     name: currentTemporaryConnectionLabel(),
     host: host || "-",
     port: Number(parsed.port || 22) || 22,
-    username: username || "-",
+    credentialId,
+    credentialName: credentialId || t("credentialRequired"),
+    credentialRequired: !credentialId,
     profile:
       safeString(parsed.device_profile || "autodetect").trim() || "autodetect",
     kind: "temporary",
@@ -288,7 +290,7 @@ function persistedTemporaryConnectionTarget(details = {}) {
     kind: "temporary",
     host: safeString(details.host || "").trim(),
     port: Number(details.port || 22) || 22,
-    username: safeString(details.username || "").trim(),
+    credential_id: safeString(details.credentialId || "").trim(),
     device_profile:
       safeString(details.profile || "autodetect").trim() || "autodetect",
     ssh_security: safeString(
@@ -321,18 +323,15 @@ configureConnectionHistory({
 function restoreTemporaryConnectionFormFromPersisted(parsed = {}) {
   setSavedConnectionSelectValue("");
   const host = safeString(parsed.host || "").trim();
-  const username = safeString(parsed.username || "").trim();
   setTemporaryConnectionFormValues({
+    credential_id: safeString(parsed.credential_id || "").trim(),
     device_profile:
       safeString(parsed.device_profile || "autodetect").trim() || "autodetect",
     enabled: parsed.enabled !== false,
-    enable_password: "",
     host,
     linux_shell_flavor: safeString(parsed.linux_shell_flavor || "").trim(),
-    password: "",
     port: safeString(parsed.port || 22),
     ssh_security: safeString(parsed.ssh_security || "").trim(),
-    username,
   });
   setConnectionPickerSelectedValues(
     CONNECTION_PICKER.savedLabels,
@@ -399,15 +398,13 @@ function connectionImportSummaryEntries(report = {}) {
 function applyConnectionForm(connection = {}) {
   const port = Number(connection.port);
   setTemporaryConnectionFormValues({
+    credential_id: displayString(connection.credential_id || ""),
     device_profile: displayString(connection.device_profile || ""),
     enabled: connection.enabled !== false,
-    enable_password: "",
     host: displayString(connection.host || ""),
     linux_shell_flavor: displayString(connection.linux_shell_flavor || ""),
-    password: "",
     port: Number.isFinite(port) && port > 0 ? String(port) : "",
     ssh_security: displayString(connection.ssh_security || ""),
-    username: displayString(connection.username || ""),
   });
   setConnectionPickerSelectedValues(
     CONNECTION_PICKER.savedLabels,
@@ -581,6 +578,12 @@ export function connectionPayload() {
   const rawPort = temporaryConnectionFormState.port;
   const parsedPort = rawPort ? Number(rawPort) : 22;
 
+  const credentialId = safeString(
+    temporaryConnectionFormState.credential_id || "",
+  ).trim();
+  if (!selectedSavedConnectionName() && !credentialId) {
+    throw new Error(t("credentialRequired"));
+  }
   return {
     connection_name: selectedSavedConnectionName() || null,
     host: safeString(temporaryConnectionFormState.host || "").trim() || null,
@@ -588,10 +591,7 @@ export function connectionPayload() {
     connect_timeout_secs: connectionTimeoutSecsValue(
       temporaryConnectionFormState.connect_timeout_secs,
     ),
-    username:
-      safeString(temporaryConnectionFormState.username || "").trim() || null,
-    password: temporaryConnectionFormState.password || null,
-    enable_password: temporaryConnectionFormState.enable_password || null,
+    credential_id: credentialId || null,
     ssh_security:
       safeString(temporaryConnectionFormState.ssh_security || "").trim() ||
       null,

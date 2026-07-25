@@ -1,6 +1,4 @@
-use super::{
-    HistoryQuery, merged_saved_secret, saved_connection_detail_response, should_persist_secret,
-};
+use super::{HistoryQuery, saved_connection_detail_response};
 use super::{WebTextfsmParseOptions, parse_textfsm_output_optional, resolve_effective_mode};
 use crate::config::connection_import;
 use crate::config::connection_store::{self, SavedConnection};
@@ -24,41 +22,6 @@ use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use tracing::warn;
-
-fn resolve_enable_password_update(
-    save_password: bool,
-    incoming_enable_password: Option<String>,
-    incoming_empty_enter: Option<bool>,
-    existing_enable_password: Option<&String>,
-    existing_empty_enter: bool,
-) -> (Option<String>, bool) {
-    let explicit_empty_enable_password = incoming_enable_password
-        .as_ref()
-        .is_some_and(|value| value.trim().is_empty());
-    let has_existing_enable_password =
-        existing_enable_password.is_some_and(|value| !value.is_empty());
-    let final_empty_enter = incoming_empty_enter.unwrap_or_else(|| {
-        explicit_empty_enable_password
-            || (incoming_enable_password.is_none()
-                && (!has_existing_enable_password || existing_empty_enter))
-    });
-    let normalized_incoming_enable_password =
-        if final_empty_enter && incoming_enable_password.is_none() {
-            Some(String::new())
-        } else {
-            incoming_enable_password
-        };
-    let persist_enable_password = should_persist_secret(
-        save_password,
-        normalized_incoming_enable_password.as_deref(),
-    );
-    let merged_enable_password = merged_saved_secret(
-        persist_enable_password,
-        normalized_incoming_enable_password,
-        existing_enable_password,
-    );
-    (merged_enable_password, final_empty_enter)
-}
 
 pub async fn test_connection(
     State(state): State<Arc<AppState>>,
@@ -221,6 +184,10 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
     let mut items = Vec::new();
     for name in names {
         if let Ok(data) = connection_store::load_connection_raw(&name) {
+            let credential = data
+                .credential_id
+                .as_deref()
+                .and_then(|id| crate::config::device_credential_store::get_credential(id).ok());
             items.push(SavedConnectionMeta {
                 name,
                 path: connection_store::storage_path()
@@ -228,9 +195,11 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
                     .to_string(),
                 has_password: connection_store::has_saved_password(&data),
                 has_enable_password: connection_store::has_saved_enable_password(&data),
-                enable_password_empty_enter: data.enable_password_empty_enter,
+                enable_enabled: credential.as_ref().is_some_and(|item| item.enable_enabled),
+                credential_id: data.credential_id.clone(),
+                credential_name: credential.as_ref().map(|item| item.name.clone()),
+                credential_required: credential.is_none(),
                 host: data.host.clone(),
-                username: data.username.clone(),
                 port: data.port,
                 connect_timeout_secs: data.connect_timeout_secs,
                 device_model: data.device_model.clone(),
@@ -426,41 +395,18 @@ pub async fn upsert_connection(
             target_safe
         )));
     }
-    let persist_password = should_persist_secret(true, c.password.as_deref());
     let existing = connection_store::load_connection_raw(&safe).ok();
-    let existing_password = connection_store::load_saved_secret(
-        existing
-            .as_ref()
-            .and_then(|item| item.password_ref.as_deref()),
-    )
-    .map_err(ApiError::from)?;
-    let existing_enable_password = connection_store::load_saved_secret(
-        existing
-            .as_ref()
-            .and_then(|item| item.enable_password_ref.as_deref()),
-    )
-    .map_err(ApiError::from)?;
-    let (enable_password, enable_password_empty_enter) = resolve_enable_password_update(
-        true,
-        c.enable_password,
-        c.enable_password_empty_enter,
-        existing_enable_password.as_ref(),
-        existing
-            .as_ref()
-            .is_some_and(|item| item.enable_password_empty_enter),
-    );
+    let credential_id = normalize_optional_text(c.credential_id)
+        .ok_or_else(|| ApiError::bad_request("device credential is required"))?;
+    crate::config::device_credential_store::get_credential(&credential_id)
+        .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let data = SavedConnection {
+        credential_id: Some(credential_id),
         host: c.host,
-        username: c.username,
-        password: merged_saved_secret(persist_password, c.password, existing_password.as_ref()),
-        password_ref: None,
         port: c.port,
         connect_timeout_secs: c.connect_timeout_secs,
         device_model: normalize_optional_text(c.device_model),
         software_version: normalize_optional_text(c.software_version),
-        enable_password,
-        enable_password_ref: None,
-        enable_password_empty_enter,
         ssh_security: c
             .ssh_security
             .or_else(|| existing.as_ref().and_then(|item| item.ssh_security)),
@@ -669,26 +615,4 @@ pub async fn delete_inventory_label(
         }
     }
     Ok(Json(json!({ "ok": true, "deleted": existed })))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::resolve_enable_password_update;
-
-    #[test]
-    fn empty_enable_password_mode_clears_existing_secret() {
-        let existing = "stored-enable".to_string();
-        let (enable_password, empty_enter) =
-            resolve_enable_password_update(true, None, Some(true), Some(&existing), false);
-        assert_eq!(enable_password, Some(String::new()));
-        assert!(empty_enter);
-    }
-
-    #[test]
-    fn explicit_empty_enable_password_enables_empty_enter_when_unspecified() {
-        let (enable_password, empty_enter) =
-            resolve_enable_password_update(false, Some("".to_string()), None, None, false);
-        assert_eq!(enable_password, Some(String::new()));
-        assert!(empty_enter);
-    }
 }

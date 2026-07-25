@@ -104,7 +104,7 @@ pub(super) fn build_header_mapping(headers: &[String]) -> Result<HashMap<usize, 
     }
     if mapping.is_empty() {
         return Err(anyhow!(
-            "import file must include recognizable headers such as name/host/username/password/device_profile"
+            "import file must include recognizable headers such as name/host/credential/device_profile"
         ));
     }
     if !mapping
@@ -126,13 +126,11 @@ pub(super) fn parse_row(
 ) -> Result<Option<ImportedConnectionRow>> {
     let mut name = None;
     let mut host = None;
-    let mut username = None;
-    let mut password = None;
+    let mut credential_id = None;
     let mut port = None;
     let mut connect_timeout_secs = None;
     let mut device_model = None;
     let mut software_version = None;
-    let mut enable_password = None;
     let mut ssh_security = None;
     let mut linux_shell_flavor = None;
     let mut device_profile = None;
@@ -146,8 +144,12 @@ pub(super) fn parse_row(
         match key {
             ColumnKey::Name => name = normalize_text(raw),
             ColumnKey::Host => host = normalize_text(raw),
-            ColumnKey::Username => username = normalize_text(raw),
-            ColumnKey::Password => password = normalize_secret(raw),
+            ColumnKey::Credential => {
+                credential_id = resolve_credential_id(raw, row_number, |name| {
+                    crate::config::device_credential_store::find_credential_by_name(name)
+                        .map(|credential| credential.id)
+                })?;
+            }
             ColumnKey::Port => {
                 port = parse_port(raw)
                     .with_context(|| format!("row {} has invalid port '{}'", row_number, raw))?
@@ -162,7 +164,6 @@ pub(super) fn parse_row(
             }
             ColumnKey::DeviceModel => device_model = normalize_text(raw),
             ColumnKey::SoftwareVersion => software_version = normalize_text(raw),
-            ColumnKey::EnablePassword => enable_password = normalize_secret(raw),
             ColumnKey::SshSecurity => {
                 ssh_security = parse_ssh_security(raw).with_context(|| {
                     format!("row {} has invalid ssh_security '{}'", row_number, raw)
@@ -181,7 +182,7 @@ pub(super) fn parse_row(
         }
     }
 
-    if name.is_none() && host.is_none() && username.is_none() && password.is_none() {
+    if name.is_none() && host.is_none() && credential_id.is_none() {
         return Ok(None);
     }
 
@@ -205,17 +206,12 @@ pub(super) fn parse_row(
         row: row_number,
         name: resolved_name,
         connection: SavedConnection {
+            credential_id,
             host,
-            username,
-            password,
-            password_ref: None,
             port,
             connect_timeout_secs,
             device_model,
             software_version,
-            enable_password,
-            enable_password_ref: None,
-            enable_password_empty_enter: false,
             ssh_security,
             linux_shell_flavor,
             device_profile,
@@ -226,6 +222,20 @@ pub(super) fn parse_row(
             groups: vec![],
         },
     }))
+}
+
+pub(super) fn resolve_credential_id<F>(
+    raw: &str,
+    row_number: usize,
+    resolver: F,
+) -> Result<Option<String>>
+where
+    F: FnOnce(&str) -> Result<String>,
+{
+    normalize_text(raw)
+        .map(|name| resolver(&name))
+        .transpose()
+        .with_context(|| format!("row {} references an unknown credential", row_number))
 }
 
 pub(super) fn detect_format(file_name: &str) -> Result<ImportFormat> {
@@ -253,10 +263,9 @@ fn map_header(header: &str) -> Option<ColumnKey> {
         | "设备名" | "设备名称" => Some(ColumnKey::Name),
         "host" | "hostname" | "ip" | "ipaddress" | "address" | "hostip" | "主机" | "主机地址"
         | "地址" | "ip地址" | "管理ip" | "管理地址" => Some(ColumnKey::Host),
-        "username" | "user" | "login" | "用户名" | "用户" | "登录用户" => {
-            Some(ColumnKey::Username)
+        "credential" | "credentialname" | "devicecredential" | "凭证" | "设备凭证" => {
+            Some(ColumnKey::Credential)
         }
-        "password" | "pass" | "passwd" | "密码" | "登录密码" => Some(ColumnKey::Password),
         "port" | "端口" => Some(ColumnKey::Port),
         "connecttimeoutsecs"
         | "connectiontimeoutsecs"
@@ -270,8 +279,6 @@ fn map_header(header: &str) -> Option<ColumnKey> {
         "softwareversion" | "osversion" | "version" | "软件版本" | "系统版本" | "版本" => {
             Some(ColumnKey::SoftwareVersion)
         }
-        "enablepassword" | "enablepass" | "enablepasswd" | "privilegepassword"
-        | "privilegedpassword" | "特权密码" | "enable密码" => Some(ColumnKey::EnablePassword),
         "sshsecurity" | "security" | "securityprofile" | "ssh安全" | "ssh安全级别" | "安全级别" => {
             Some(ColumnKey::SshSecurity)
         }
@@ -308,14 +315,6 @@ fn normalize_text(value: &str) -> Option<String> {
         None
     } else {
         Some(trimmed.to_string())
-    }
-}
-
-fn normalize_secret(value: &str) -> Option<String> {
-    if value.trim().is_empty() {
-        None
-    } else {
-        Some(value.to_string())
     }
 }
 

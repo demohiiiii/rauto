@@ -1,4 +1,4 @@
-name,host,username,password,port,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir
-core-sw-01,192.168.1.1,admin,secret,22,,balanced,,cisco,
-dist-sw-01,192.168.1.2,admin,secret,22,,balanced,,h3c,
-linux-jump-01,192.168.1.10,root,secret,22,,secure,posix,linux,
+name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile,template_dir
+core-sw-01,192.168.1.1,network-admin,22,30,C9300,17.9.4,balanced,,cisco_ios,
+dist-sw-01,192.168.1.2,network-admin,22,30,comware-switch,7.1,balanced,,h3c_comware,
+linux-jump-01,192.168.1.10,linux-admin,22,30,,,secure,posix,linux,

@@ -22,7 +22,10 @@ function savedConnectionRowPresentation(connection = {}) {
   const name = safeString(connection.name || "").trim();
   const host = safeString(connection.host || "-").trim() || "-";
   const port = Number(connection.port || 22) || 22;
-  const username = safeString(connection.username || "-").trim() || "-";
+  const credentialRequired = connection.credential_required === true;
+  const credentialName = credentialRequired
+    ? "未选择凭证"
+    : safeString(connection.credential_name || "").trim() || "未选择凭证";
   const profile =
     safeString(connection.device_profile || "autodetect").trim() ||
     "autodetect";
@@ -43,7 +46,7 @@ function savedConnectionRowPresentation(connection = {}) {
     profile,
     searchText: [
       name,
-      username,
+      credentialName,
       host,
       String(port),
       profile,
@@ -57,9 +60,10 @@ function savedConnectionRowPresentation(connection = {}) {
     statusLabel,
     statusTone: enabled ? "primary" : "muted",
     softwareVersion,
-    summary: `${username}@${host}:${port}`,
+    summary: `${credentialName} · ${host}:${port}`,
     tag: tag || "未分组",
-    username,
+    credentialName,
+    credentialRequired,
   };
 }
 
@@ -221,8 +225,8 @@ export function temporaryConnectionFocusDisplay({
 
 function sidebarConnectionSummary(card = null) {
   if (!card) return "";
-  if (card.username && card.username !== "-") {
-    return `${card.username}@${card.host}:${card.port}`;
+  if (card.credentialName) {
+    return `${card.credentialName} · ${card.host}:${card.port}`;
   }
   return `${card.host}:${card.port}`;
 }

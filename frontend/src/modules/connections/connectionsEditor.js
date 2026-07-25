@@ -20,18 +20,16 @@ import { writable } from "svelte/store";
 
 let savedConnectionEditorFormState = {
   connect_timeout_secs: "",
+  credential_id: "",
   device_model: "",
   device_profile: "",
   enabled: true,
-  enable_password: "",
   host: "",
   linux_shell_flavor: "",
   name: "",
-  password: "",
   port: "",
   ssh_security: "",
   software_version: "",
-  username: "",
 };
 
 let savedConnectionAutodetectResult = null;
@@ -113,18 +111,16 @@ function setSavedConnectionEditorStatus(
 function savedConnectionEditorFormStateFromDraft(draft = {}) {
   return {
     connect_timeout_secs: draft.connectTimeoutSecs,
+    credential_id: draft.credentialId,
     device_model: draft.deviceModel,
     device_profile: draft.deviceProfile,
     enabled: draft.enabled,
-    enable_password: draft.enablePassword,
     host: draft.host,
     linux_shell_flavor: draft.linuxShellFlavor,
     name: draft.name,
-    password: draft.password,
     port: draft.port,
     ssh_security: draft.sshSecurity,
     software_version: draft.softwareVersion,
-    username: draft.username,
   };
 }
 
@@ -158,15 +154,13 @@ function applySavedConnectionEditorDraftChange(
       [
         "connectTimeoutSecs",
         "deviceModel",
-        "enablePassword",
+        "credentialId",
         "host",
         "linuxShellFlavor",
         "name",
-        "password",
         "port",
         "sshSecurity",
         "softwareVersion",
-        "username",
       ].includes(field),
     )
   ) {
@@ -245,6 +239,10 @@ function resetSavedConnectionAutodetectState() {
 
 function savedConnectionEditorPayload() {
   const rawPort = savedConnectionEditorFormState.port;
+  const credentialId = safeString(
+    savedConnectionEditorFormState.credential_id || "",
+  ).trim();
+  if (!credentialId) throw new Error(t("credentialRequired"));
   return {
     connection_name:
       safeString(savedConnectionEditorFormState.name || "").trim() || null,
@@ -253,13 +251,10 @@ function savedConnectionEditorPayload() {
     connect_timeout_secs: connectionTimeoutSecsValue(
       savedConnectionEditorFormState.connect_timeout_secs,
     ),
+    credential_id: credentialId,
     device_model:
       safeString(savedConnectionEditorFormState.device_model || "").trim() ||
       null,
-    username:
-      safeString(savedConnectionEditorFormState.username || "").trim() || "",
-    password: savedConnectionEditorFormState.password || null,
-    enable_password: savedConnectionEditorFormState.enable_password || null,
     ssh_security:
       safeString(savedConnectionEditorFormState.ssh_security || "").trim() ||
       null,
@@ -287,18 +282,16 @@ function applySavedConnectionEditorForm(savedConnectionName, connection = {}) {
   ).trim();
   setSavedConnectionEditorFormState({
     connect_timeout_secs: safeString(connection.connect_timeout_secs || ""),
+    credential_id: safeString(connection.credential_id || ""),
     device_model: safeString(connection.device_model || ""),
     device_profile: safeString(connection.device_profile || ""),
     enabled: connection.enabled !== false,
-    enable_password: "",
     host: safeString(connection.host || ""),
     linux_shell_flavor: safeString(connection.linux_shell_flavor || ""),
     name: savedConnectionName || "",
-    password: "",
     port: safeString(connection.port || 22),
     ssh_security: safeString(connection.ssh_security || ""),
     software_version: safeString(connection.software_version || ""),
-    username: safeString(connection.username || ""),
   });
   setConnectionPickerSelectedValues(
     CONNECTION_PICKER.savedEditLabels,

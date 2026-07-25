@@ -1,4 +1,3 @@
-use crate::config::keyring_store;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::db;
@@ -11,18 +10,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 mod helpers;
 use self::helpers::{
-    has_non_empty_value, normalize_labels_json, normalize_name_list, normalize_vars_json,
-    parse_labels_json, parse_linux_shell_flavor, parse_ssh_security_profile, parse_vars_json,
-    resolve_secret_field, sync_connection_secret,
+    normalize_labels_json, normalize_name_list, normalize_vars_json, parse_labels_json,
+    parse_linux_shell_flavor, parse_ssh_security_profile, parse_vars_json,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedConnection {
     pub host: Option<String>,
-    pub username: Option<String>,
-    pub password: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub password_ref: Option<String>,
+    pub credential_id: Option<String>,
     pub port: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub connect_timeout_secs: Option<u64>,
@@ -30,11 +26,6 @@ pub struct SavedConnection {
     pub device_model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub software_version: Option<String>,
-    pub enable_password: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub enable_password_ref: Option<String>,
-    #[serde(default)]
-    pub enable_password_empty_enter: bool,
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
@@ -142,8 +133,9 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     db::run_sync(async move {
         let row = sqlx::query(
             r#"
-            SELECT host, username, password_ref, port, connect_timeout_secs, device_model, software_version, enable_password_ref, ssh_security, linux_shell_flavor, device_profile, template_dir
-                 , enabled, labels_json, vars_json, enable_password_empty_enter
+            SELECT host, credential_id, port, connect_timeout_secs, device_model, software_version,
+                   ssh_security, linux_shell_flavor, device_profile, template_dir,
+                   enabled, labels_json, vars_json
             FROM connections
             WHERE name = ?
             "#,
@@ -156,9 +148,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
 
         Ok(SavedConnection {
             host: row.try_get("host")?,
-            username: row.try_get("username")?,
-            password: None,
-            password_ref: row.try_get("password_ref")?,
+            credential_id: row.try_get("credential_id")?,
             port: row
                 .try_get::<Option<i64>, _>("port")?
                 .map(|value| value as u16),
@@ -173,12 +163,6 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
                 .transpose()?,
             device_model: row.try_get("device_model")?,
             software_version: row.try_get("software_version")?,
-            enable_password: None,
-            enable_password_ref: row.try_get("enable_password_ref")?,
-            enable_password_empty_enter: row
-                .try_get::<Option<i64>, _>("enable_password_empty_enter")?
-                .unwrap_or(0)
-                != 0,
             ssh_security: row
                 .try_get::<Option<String>, _>("ssh_security")?
                 .map(|value| parse_ssh_security_profile(&value))
@@ -203,22 +187,10 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
     })
 }
 
-pub fn load_connection(name: &str) -> Result<SavedConnection> {
-    let safe = safe_connection_name(name)?;
-    let mut data = load_connection_raw(&safe)?;
-    resolve_secret_field(
-        &safe,
-        "password",
-        &mut data.password,
-        data.password_ref.as_deref(),
-    )?;
-    resolve_secret_field(
-        &safe,
-        "enable_password",
-        &mut data.enable_password,
-        data.enable_password_ref.as_deref(),
-    )?;
-    Ok(data)
+pub fn load_connection(
+    name: &str,
+) -> Result<crate::config::connection_resolver::ResolvedConnection> {
+    crate::config::connection_resolver::resolve_saved_connection(name)
 }
 
 pub fn save_connection(name: &str, data: &SavedConnection) -> Result<PathBuf> {
@@ -229,25 +201,9 @@ pub fn save_connection(name: &str, data: &SavedConnection) -> Result<PathBuf> {
 
 pub fn delete_connection(name: &str) -> Result<bool> {
     let safe = safe_connection_name(name)?;
-    let existing = match load_connection_raw(&safe) {
-        Ok(item) => item,
-        Err(_) => return Ok(false),
-    };
-    if let Err(err) = keyring_store::delete_secret(existing.password_ref.as_deref()) {
-        return Err(anyhow!(
-            "failed to delete saved password for connection '{}': {}",
-            safe,
-            err
-        ));
+    if load_connection_raw(&safe).is_err() {
+        return Ok(false);
     }
-    if let Err(err) = keyring_store::delete_secret(existing.enable_password_ref.as_deref()) {
-        return Err(anyhow!(
-            "failed to delete saved enable password for connection '{}': {}",
-            safe,
-            err
-        ));
-    }
-
     db::run_sync(async move {
         sqlx::query("DELETE FROM inventory_group_members WHERE connection_name = ?")
             .bind(&safe)
@@ -264,17 +220,17 @@ pub fn delete_connection(name: &str) -> Result<bool> {
 }
 
 pub fn has_saved_password(data: &SavedConnection) -> bool {
-    has_non_empty_value(data.password.as_deref())
-        || has_non_empty_value(data.password_ref.as_deref())
+    data.credential_id
+        .as_deref()
+        .and_then(|id| crate::config::device_credential_store::get_credential(id).ok())
+        .is_some_and(|credential| credential.has_password)
 }
 
 pub fn has_saved_enable_password(data: &SavedConnection) -> bool {
-    has_non_empty_value(data.enable_password.as_deref())
-        || has_non_empty_value(data.enable_password_ref.as_deref())
-}
-
-pub fn load_saved_secret(secret_ref: Option<&str>) -> Result<Option<String>> {
-    Ok(keyring_store::load_secret(secret_ref)?.filter(|value| !value.is_empty()))
+    data.credential_id
+        .as_deref()
+        .and_then(|id| crate::config::device_credential_store::get_credential(id).ok())
+        .is_some_and(|credential| credential.has_enable_password)
 }
 
 pub fn safe_connection_name(raw: &str) -> Result<String> {
@@ -302,15 +258,7 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
             i64::MAX
         ));
     }
-    let mut stored = data.clone();
-    stored.password_ref =
-        sync_connection_secret(data.password.as_deref(), data.password_ref.as_deref())?;
-    stored.enable_password_ref = sync_connection_secret(
-        data.enable_password.as_deref(),
-        data.enable_password_ref.as_deref(),
-    )?;
-    stored.password = None;
-    stored.enable_password = None;
+    let stored = data.clone();
     let labels_json = normalize_labels_json(&stored.labels)?;
     let vars_json = normalize_vars_json(stored.vars.clone())?;
     let groups = normalize_name_list(&stored.groups)?;
@@ -328,20 +276,18 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         sqlx::query(
             r#"
             INSERT INTO connections (
-                name, host, username, password_ref, port, connect_timeout_secs, device_model, software_version, enable_password_ref, ssh_security, linux_shell_flavor,
-                device_profile, template_dir, enabled, labels_json, vars_json, enable_password_empty_enter,
-                created_at_ms, updated_at_ms
+                name, host, credential_id, port, connect_timeout_secs, device_model, software_version,
+                ssh_security, linux_shell_flavor, device_profile, template_dir, enabled, labels_json,
+                vars_json, created_at_ms, updated_at_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
-                username = excluded.username,
-                password_ref = excluded.password_ref,
+                credential_id = excluded.credential_id,
                 port = excluded.port,
                 connect_timeout_secs = excluded.connect_timeout_secs,
                 device_model = excluded.device_model,
                 software_version = excluded.software_version,
-                enable_password_ref = excluded.enable_password_ref,
                 ssh_security = excluded.ssh_security,
                 linux_shell_flavor = excluded.linux_shell_flavor,
                 device_profile = excluded.device_profile,
@@ -349,19 +295,16 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
                 enabled = excluded.enabled,
                 labels_json = excluded.labels_json,
                 vars_json = excluded.vars_json,
-                enable_password_empty_enter = excluded.enable_password_empty_enter,
                 updated_at_ms = excluded.updated_at_ms
             "#,
         )
         .bind(&name)
         .bind(&stored.host)
-        .bind(&stored.username)
-        .bind(&stored.password_ref)
+        .bind(&stored.credential_id)
         .bind(stored.port.map(i64::from))
         .bind(stored.connect_timeout_secs.map(|value| value as i64))
         .bind(&stored.device_model)
         .bind(&stored.software_version)
-        .bind(&stored.enable_password_ref)
         .bind(stored.ssh_security.map(|value| value.to_string()))
         .bind(stored.linux_shell_flavor.map(|value| value.to_string()))
         .bind(&stored.device_profile)
@@ -369,11 +312,6 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(if stored.enabled { 1_i64 } else { 0_i64 })
         .bind(labels_json)
         .bind(vars_json)
-        .bind(if stored.enable_password_empty_enter {
-            1_i64
-        } else {
-            0_i64
-        })
         .bind(created_at_ms)
         .bind(now_ms as i64)
         .execute(db::pool())
@@ -451,9 +389,8 @@ async fn load_connection_groups_async(name: &str) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        SavedConnection, delete_connection, has_saved_password, list_connections_by_groups_any,
-        list_connections_by_labels_any, load_connection, load_connection_raw, load_saved_secret,
-        save_connection,
+        SavedConnection, delete_connection, list_connections_by_groups_any,
+        list_connections_by_labels_any, save_connection,
     };
     use crate::config::ssh_security::SshSecurityProfile;
     use crate::db;
@@ -507,148 +444,6 @@ mod tests {
     }
 
     #[test]
-    fn save_and_load_connection_round_trips_password_via_encrypted_secret() -> Result<()> {
-        let _env_guard = TestEnvGuard::new()?;
-        db::init_sync()?;
-        let name = "conn_store_roundtrip";
-        let _ = delete_connection(name);
-
-        save_connection(
-            name,
-            &SavedConnection {
-                host: Some("192.0.2.10".to_string()),
-                username: Some("admin".to_string()),
-                password: Some("secret-123".to_string()),
-                password_ref: None,
-                port: Some(22),
-                connect_timeout_secs: Some(19),
-                device_model: Some("C9300-48P".to_string()),
-                software_version: Some("17.9.5".to_string()),
-                enable_password: None,
-                enable_password_ref: None,
-                enable_password_empty_enter: false,
-                ssh_security: Some(SshSecurityProfile::Secure),
-                linux_shell_flavor: None,
-                device_profile: Some("cisco".to_string()),
-                template_dir: None,
-                enabled: true,
-                labels: vec!["core".to_string()],
-                vars: serde_json::json!({"site":"lab-a"}),
-                groups: vec!["access".to_string()],
-            },
-        )?;
-
-        let loaded = load_connection(name)?;
-        assert_eq!(loaded.password.as_deref(), Some("secret-123"));
-        assert_eq!(loaded.connect_timeout_secs, Some(19));
-        assert_eq!(loaded.device_model.as_deref(), Some("C9300-48P"));
-        assert_eq!(loaded.software_version.as_deref(), Some("17.9.5"));
-        assert!(has_saved_password(&loaded));
-        Ok(())
-    }
-
-    #[test]
-    fn save_connection_persists_encrypted_secret_and_delete_works() -> Result<()> {
-        let _env_guard = TestEnvGuard::new()?;
-        db::init_sync()?;
-        let name = "conn_store_encrypted_refs";
-        let _ = delete_connection(name);
-
-        save_connection(
-            name,
-            &SavedConnection {
-                host: Some("192.0.2.30".to_string()),
-                username: Some("ops".to_string()),
-                password: Some("top-secret".to_string()),
-                password_ref: None,
-                port: Some(2222),
-                connect_timeout_secs: None,
-                device_model: None,
-                software_version: None,
-                enable_password: Some("enable-me".to_string()),
-                enable_password_ref: None,
-                enable_password_empty_enter: false,
-                ssh_security: Some(SshSecurityProfile::Balanced),
-                linux_shell_flavor: None,
-                device_profile: Some("linux".to_string()),
-                template_dir: None,
-                enabled: true,
-                labels: vec!["edge".to_string()],
-                vars: serde_json::json!({"site":"lab-b"}),
-                groups: vec!["core".to_string()],
-            },
-        )?;
-
-        let raw = load_connection_raw(name)?;
-        let password_ref = raw.password_ref.clone();
-        let enable_ref = raw.enable_password_ref.clone();
-        assert!(
-            password_ref
-                .as_deref()
-                .unwrap_or_default()
-                .starts_with("enc:v1:")
-        );
-        assert!(
-            enable_ref
-                .as_deref()
-                .unwrap_or_default()
-                .starts_with("enc:v1:")
-        );
-        assert_eq!(
-            load_saved_secret(password_ref.as_deref())?.as_deref(),
-            Some("top-secret")
-        );
-        assert_eq!(
-            load_saved_secret(enable_ref.as_deref())?.as_deref(),
-            Some("enable-me")
-        );
-
-        assert!(delete_connection(name)?);
-        assert!(load_connection_raw(name).is_err());
-        Ok(())
-    }
-
-    #[test]
-    fn save_connection_rejects_legacy_secret_reference_format() -> Result<()> {
-        let _env_guard = TestEnvGuard::new()?;
-        db::init_sync()?;
-        let name = "conn_store_invalid_secret";
-        let _ = delete_connection(name);
-
-        let err = save_connection(
-            name,
-            &SavedConnection {
-                host: Some("192.0.2.20".to_string()),
-                username: Some("admin".to_string()),
-                password: None,
-                password_ref: Some("connection/conn_store_invalid_secret/password".to_string()),
-                port: Some(22),
-                connect_timeout_secs: None,
-                device_model: None,
-                software_version: None,
-                enable_password: None,
-                enable_password_ref: None,
-                enable_password_empty_enter: false,
-                ssh_security: Some(SshSecurityProfile::Secure),
-                linux_shell_flavor: None,
-                device_profile: Some("h3c".to_string()),
-                template_dir: None,
-                enabled: true,
-                labels: vec!["edge".to_string()],
-                vars: serde_json::json!({}),
-                groups: vec![],
-            },
-        )
-        .expect_err("legacy secret refs should be rejected");
-        assert!(
-            err.to_string().contains(
-                "invalid stored secret reference format 'connection/conn_store_invalid_secret/password': expected enc:v1"
-            )
-        );
-        Ok(())
-    }
-
-    #[test]
     fn list_connections_by_labels_any_matches_saved_labels() -> Result<()> {
         let _env_guard = TestEnvGuard::new()?;
         db::init_sync()?;
@@ -660,17 +455,12 @@ mod tests {
         save_connection(
             left,
             &SavedConnection {
+                credential_id: None,
                 host: Some("192.0.2.41".to_string()),
-                username: Some("ops".to_string()),
-                password: Some("secret-left".to_string()),
-                password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: None,
                 device_model: None,
                 software_version: None,
-                enable_password: None,
-                enable_password_ref: None,
-                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
                 device_profile: Some("linux".to_string()),
@@ -684,17 +474,12 @@ mod tests {
         save_connection(
             right,
             &SavedConnection {
+                credential_id: None,
                 host: Some("192.0.2.42".to_string()),
-                username: Some("ops".to_string()),
-                password: Some("secret-right".to_string()),
-                password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: None,
                 device_model: None,
                 software_version: None,
-                enable_password: None,
-                enable_password_ref: None,
-                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
                 device_profile: Some("linux".to_string()),
@@ -723,17 +508,12 @@ mod tests {
         save_connection(
             left,
             &SavedConnection {
+                credential_id: None,
                 host: Some("192.0.2.51".to_string()),
-                username: Some("ops".to_string()),
-                password: Some("secret-left".to_string()),
-                password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: None,
                 device_model: None,
                 software_version: None,
-                enable_password: None,
-                enable_password_ref: None,
-                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
                 device_profile: Some("linux".to_string()),
@@ -747,17 +527,12 @@ mod tests {
         save_connection(
             right,
             &SavedConnection {
+                credential_id: None,
                 host: Some("192.0.2.52".to_string()),
-                username: Some("ops".to_string()),
-                password: Some("secret-right".to_string()),
-                password_ref: None,
                 port: Some(22),
                 connect_timeout_secs: None,
                 device_model: None,
                 software_version: None,
-                enable_password: None,
-                enable_password_ref: None,
-                enable_password_empty_enter: false,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
                 device_profile: Some("linux".to_string()),

@@ -167,6 +167,9 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Device(cmd) => {
             cli_ops::run_device_command(cmd, &cli.global_opts).await?;
         }
+        Commands::Credential(cmd) => {
+            cli_ops::run_credential_command(cmd)?;
+        }
         Commands::Profile(cmd) => {
             cli_ops::run_profile_command(cmd, &cli.global_opts).await?;
         }

@@ -1,11 +1,12 @@
 use crate::cli::{
-    BlacklistCommands, DeviceCommands, GlobalOpts, HistoryCommands, InventoryCommands,
-    InventoryGroupCommands, ProfileCommands,
+    BlacklistCommands, CredentialCommands, DeviceCommands, GlobalOpts, HistoryCommands,
+    InventoryCommands, InventoryGroupCommands, ProfileCommands,
 };
 use crate::config::connection_import::{self, ConnectionImportReport};
 use crate::config::connection_store::{
     self, delete_connection, list_connections, load_connection_raw,
 };
+use crate::config::device_credential_import::{self, DeviceCredentialImportReport};
 use crate::config::history_store;
 use crate::config::{command_blacklist, content_store, inventory_store, template_loader};
 use crate::device::DeviceClient;
@@ -17,6 +18,7 @@ use rneter::templates::{
     TemplateDetectReport, autodetect_with_builtin_and_templates_and_context,
 };
 use serde::Serialize;
+use std::io::{self, Write};
 
 fn truncate_autodetect_sample(sample: &str) -> String {
     const MAX_LEN: usize = 160;
@@ -340,9 +342,14 @@ pub(crate) async fn run_device_command(
         DeviceCommands::Show { name } => {
             let safe = connection_store::safe_connection_name(&name)?;
             let data = load_connection_raw(&safe)?;
+            let credential_name = data
+                .credential_id
+                .as_deref()
+                .and_then(|id| crate::config::device_credential_store::get_credential(id).ok())
+                .map(|item| item.name);
             let output = ConnectionShowOutput {
                 host: data.host.clone(),
-                username: data.username.clone(),
+                credential: credential_name,
                 port: data.port,
                 ssh_security: data.ssh_security,
                 linux_shell_flavor: data.linux_shell_flavor,
@@ -388,6 +395,235 @@ pub(crate) async fn run_device_command(
     }
 
     Ok(())
+}
+
+pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
+    use crate::config::device_credential_store as credentials;
+
+    match cmd {
+        CredentialCommands::List { json } => {
+            let items = credentials::list_credentials()?;
+            let output = items
+                .into_iter()
+                .map(|item| CredentialCliOutput::from_meta(item, Vec::new()))
+                .collect::<Vec<_>>();
+            if json {
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else if output.is_empty() {
+                println!("-");
+            } else {
+                for item in output {
+                    println!(
+                        "- {} (id={}, username={}, login={}, enable={}, connections={})",
+                        item.name,
+                        item.id,
+                        item.username,
+                        secret_presence(item.has_password),
+                        enable_presence(&item),
+                        item.connection_count
+                    );
+                }
+            }
+        }
+        CredentialCommands::Show { selector, json } => {
+            let item = resolve_credential_selector(&selector)?;
+            let references = credentials::referencing_connections(&item.id)?;
+            let output = CredentialCliOutput::from_meta(item, references);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("# device credential: {}", output.name);
+                println!("{}", toml::to_string_pretty(&output)?);
+            }
+        }
+        CredentialCommands::Add {
+            name,
+            login_username,
+            login_secret,
+            enable_secret,
+            enable,
+            json,
+        } => {
+            let username =
+                value_or_prompt(login_username.map(|value| value.trim().to_string()), || {
+                    prompt_required("Login username", None)
+                })?;
+            let password = value_or_prompt(login_secret, || prompt_secret("Login password", true))?;
+            let item = credentials::create_credential(&credentials::DeviceCredentialInput {
+                name,
+                username,
+                password: Some(password),
+                enable_enabled: enable || enable_secret.is_some(),
+                enable_password: enable_secret,
+            })?;
+            let output = CredentialCliOutput::from_meta(item, Vec::new());
+            if json {
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("Added device credential '{}'", output.name);
+            }
+        }
+        CredentialCommands::Update {
+            selector,
+            name,
+            login_username,
+            login_secret,
+            enable_secret,
+            enable,
+            disable_enable,
+            json,
+        } => {
+            let current = resolve_credential_selector(&selector)?;
+
+            let has_explicit_update = name.is_some()
+                || login_username.is_some()
+                || login_secret.is_some()
+                || enable_secret.is_some()
+                || enable
+                || disable_enable;
+
+            let input = if has_explicit_update {
+                let enable_enabled = if disable_enable {
+                    false
+                } else if enable || enable_secret.is_some() {
+                    true
+                } else {
+                    current.enable_enabled
+                };
+                credentials::DeviceCredentialInput {
+                    name: name.unwrap_or(current.name),
+                    username: login_username.unwrap_or(current.username),
+                    password: login_secret,
+                    enable_password: enable_secret,
+                    enable_enabled,
+                }
+            } else {
+                let next_name = prompt_required("Credential name", Some(&current.name))?;
+                let next_username = prompt_required("Login username", Some(&current.username))?;
+                let next_password = prompt_secret(
+                    "Login password (leave blank to keep the current value)",
+                    false,
+                )?;
+                let next_enable_password = prompt_secret(
+                    "Enable password (leave blank to clear the current value)",
+                    false,
+                )?;
+                let next_enable_password = non_empty_option(next_enable_password);
+                credentials::DeviceCredentialInput {
+                    name: next_name,
+                    username: next_username,
+                    password: non_empty_option(next_password),
+                    enable_enabled: current.enable_enabled || next_enable_password.is_some(),
+                    enable_password: next_enable_password,
+                }
+            };
+
+            let item = credentials::update_credential(&current.id, &input)?;
+            let output = CredentialCliOutput::from_meta(item, Vec::new());
+            if json {
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("Updated device credential '{}'", output.name);
+            }
+        }
+        CredentialCommands::Import { file, json } => {
+            let report = device_credential_import::import_credentials_from_path(&file)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                print_credential_import_report(&report);
+            }
+            if report.failed > 0 {
+                return Err(anyhow!(
+                    "credential import completed with {} failed row(s)",
+                    report.failed
+                ));
+            }
+        }
+        CredentialCommands::Delete { selector } => {
+            let item = resolve_credential_selector(&selector)?;
+            let references = credentials::referencing_connections(&item.id)?;
+            if !references.is_empty() {
+                return Err(anyhow!(
+                    "device credential '{}' is referenced by connections: {}",
+                    item.name,
+                    references.join(", ")
+                ));
+            }
+            credentials::delete_credential(&item.id)?;
+            println!("Deleted device credential '{}'", item.name);
+        }
+    }
+
+    Ok(())
+}
+
+fn resolve_credential_selector(
+    selector: &str,
+) -> Result<crate::config::device_credential_store::DeviceCredentialMeta> {
+    crate::config::device_credential_store::find_credential_by_name(selector).or_else(|_| {
+        crate::config::device_credential_store::get_credential(selector)
+            .map_err(|_| anyhow!("device credential '{}' not found", selector))
+    })
+}
+
+fn prompt_required(label: &str, default: Option<&str>) -> Result<String> {
+    loop {
+        let suffix = default
+            .map(|value| format!(" [{}]", value))
+            .unwrap_or_default();
+        print!("{}{}: ", label, suffix);
+        io::stdout().flush()?;
+        let mut value = String::new();
+        io::stdin().read_line(&mut value)?;
+        let value = value.trim();
+        if value.is_empty() {
+            if let Some(default) = default {
+                return Ok(default.to_string());
+            }
+            eprintln!("{} is required", label);
+            continue;
+        }
+        return Ok(value.to_string());
+    }
+}
+
+fn value_or_prompt<F>(value: Option<String>, prompt: F) -> Result<String>
+where
+    F: FnOnce() -> Result<String>,
+{
+    match value {
+        Some(value) => Ok(value),
+        None => prompt(),
+    }
+}
+
+fn prompt_secret(label: &str, required: bool) -> Result<String> {
+    loop {
+        let value = rpassword::prompt_password(format!("{}: ", label))?;
+        if !required || !value.trim().is_empty() {
+            return Ok(value);
+        }
+        eprintln!("{} is required", label);
+    }
+}
+
+fn non_empty_option(value: String) -> Option<String> {
+    (!value.trim().is_empty()).then_some(value)
+}
+
+fn secret_presence(present: bool) -> &'static str {
+    if present { "configured" } else { "missing" }
+}
+
+fn enable_presence(item: &CredentialCliOutput) -> &'static str {
+    if item.has_enable_password {
+        "configured"
+    } else if item.enable_enabled {
+        "enabled-without-password"
+    } else {
+        "none"
+    }
 }
 
 pub(crate) fn run_history_command(cmd: HistoryCommands) -> Result<()> {
@@ -577,9 +813,39 @@ fn run_inventory_group_command(cmd: InventoryGroupCommands) -> Result<()> {
 }
 
 #[derive(Debug, Serialize)]
+struct CredentialCliOutput {
+    id: String,
+    name: String,
+    username: String,
+    has_password: bool,
+    has_enable_password: bool,
+    enable_enabled: bool,
+    connection_count: u64,
+    referencing_connections: Vec<String>,
+}
+
+impl CredentialCliOutput {
+    fn from_meta(
+        item: crate::config::device_credential_store::DeviceCredentialMeta,
+        referencing_connections: Vec<String>,
+    ) -> Self {
+        Self {
+            id: item.id,
+            name: item.name,
+            username: item.username,
+            has_password: item.has_password,
+            has_enable_password: item.has_enable_password,
+            enable_enabled: item.enable_enabled,
+            connection_count: item.connection_count,
+            referencing_connections,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 struct ConnectionShowOutput {
     host: Option<String>,
-    username: Option<String>,
+    credential: Option<String>,
     port: Option<u16>,
     ssh_security: Option<crate::config::ssh_security::SshSecurityProfile>,
     linux_shell_flavor: Option<crate::config::linux_shell::LinuxShellFlavor>,
@@ -621,5 +887,43 @@ fn print_connection_import_report(report: &ConnectionImportReport) {
         } else {
             println!("- row {}: {}", failure.row, failure.message);
         }
+    }
+}
+
+fn print_credential_import_report(report: &DeviceCredentialImportReport) {
+    println!(
+        "Imported credentials from '{}' (total={}, imported={}, created={}, updated={}, failed={})",
+        report.file_name,
+        report.total_rows,
+        report.imported,
+        report.created,
+        report.updated,
+        report.failed
+    );
+    if report.failures.is_empty() {
+        return;
+    }
+    println!("# failed rows");
+    for failure in &report.failures {
+        if let Some(name) = failure.name.as_deref() {
+            println!("- row {} [{}]: {}", failure.row, name, failure.message);
+        } else {
+            println!("- row {}: {}", failure.row, failure.message);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::value_or_prompt;
+    use anyhow::Result;
+
+    #[test]
+    fn explicit_credential_login_values_do_not_prompt() -> Result<()> {
+        let value = value_or_prompt(Some("admin".to_string()), || -> Result<String> {
+            panic!("prompt must not run when an explicit value is present")
+        })?;
+        assert_eq!(value, "admin");
+        Ok(())
     }
 }

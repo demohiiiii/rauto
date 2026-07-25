@@ -74,6 +74,11 @@ use crate::web::handlers::{
     upsert_custom_show_object, upsert_inventory_group, upsert_inventory_label,
     upsert_textfsm_mapping,
 };
+use crate::web::handlers::{
+    create_credential as create_credential_handler, delete_credential as delete_credential_handler,
+    get_credential as get_credential_handler, list_credentials as list_credentials_handler,
+    update_credential as update_credential_handler,
+};
 use crate::web::models::{
     BackupCreateRequest as WebBackupCreateRequest, BackupRestoreRequest,
     BlacklistCheckRequest as WebBlacklistCheckRequest,
@@ -94,6 +99,7 @@ use crate::web::models::{
     UpdateCommandFlowTemplateRequest, UpdateTemplateRequest as WebUpdateTemplateRequest,
     UpsertConnectionRequest as WebUpsertConnectionRequest,
     UpsertCustomProfileRequest as WebUpsertCustomProfileRequest,
+    UpsertDeviceCredentialRequest as WebUpsertDeviceCredentialRequest,
     UpsertInventoryGroupRequest as WebUpsertInventoryGroupRequest,
     UpsertInventoryLabelRequest as WebUpsertInventoryLabelRequest,
 };

@@ -998,11 +998,9 @@ mod tests {
 
     fn sample_opts() -> GlobalOpts {
         GlobalOpts {
+            credential: None,
             host: None,
-            username: None,
-            password: None,
             port: None,
-            enable_password: None,
             ssh_security: None,
             linux_shell_flavor: None,
             device_profile: None,
@@ -1010,7 +1008,6 @@ mod tests {
             force_autodetect: false,
             connection: None,
             save_connection: None,
-            save_password: false,
         }
     }
 

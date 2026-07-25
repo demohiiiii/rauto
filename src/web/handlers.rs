@@ -66,6 +66,7 @@ use tracing::warn;
 mod async_tasks;
 mod command_templates;
 mod connections;
+mod credentials;
 mod execute;
 mod flow_templates;
 mod json_templates;
@@ -92,6 +93,10 @@ pub use connections::{
     list_inventory_groups, list_inventory_labels, test_connection, upsert_connection,
     upsert_inventory_group, upsert_inventory_label,
 };
+pub use credentials::{
+    create_credential, delete_credential, get_credential, import_credentials, list_credentials,
+    update_credential,
+};
 pub use execute::{
     ShowObjectsQuery, exec_command, exec_command_async, execute_command_flow,
     execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
@@ -117,8 +122,9 @@ pub use json_templates::{
 };
 pub use maintenance::{
     add_blacklist_pattern, check_blacklist_command, create_backup, delete_blacklist_pattern,
-    download_backup, download_connection_import_template, get_task_run_detail, health,
-    list_backups, list_blacklist_patterns, list_task_runs, restore_backup,
+    download_backup, download_connection_import_template, download_credential_import_template,
+    get_task_run_detail, health, list_backups, list_blacklist_patterns, list_task_runs,
+    restore_backup,
 };
 pub use profiles::{
     create_or_update_custom_profile, delete_custom_profile, diagnose_profile,
@@ -155,17 +161,25 @@ fn saved_connection_detail_response(
         name: name.to_string(),
         path: path.to_string_lossy().to_string(),
         has_password: connection_store::has_saved_password(data),
+        has_enable_password: connection_store::has_saved_enable_password(data),
+        credential_name: data
+            .credential_id
+            .as_deref()
+            .and_then(|id| crate::config::device_credential_store::get_credential(id).ok())
+            .map(|credential| credential.name),
+        credential_required: data
+            .credential_id
+            .as_deref()
+            .and_then(|id| crate::config::device_credential_store::get_credential(id).ok())
+            .is_none(),
         connection: ConnectionRequest {
             connection_name: Some(name.to_string()),
             host: data.host.clone(),
-            username: data.username.clone(),
-            password: None,
+            credential_id: data.credential_id.clone(),
             port: data.port,
             connect_timeout_secs: data.connect_timeout_secs,
             device_model: data.device_model.clone(),
             software_version: data.software_version.clone(),
-            enable_password: None,
-            enable_password_empty_enter: Some(data.enable_password_empty_enter),
             ssh_security: data.ssh_security,
             linux_shell_flavor: data.linux_shell_flavor,
             device_profile: data.device_profile.clone(),
@@ -176,21 +190,6 @@ fn saved_connection_detail_response(
             vars: data.vars.clone(),
         },
     }
-}
-
-fn merged_saved_secret(
-    save_password: bool,
-    incoming: Option<String>,
-    existing: Option<&String>,
-) -> Option<String> {
-    if !save_password {
-        return None;
-    }
-    incoming.or_else(|| existing.cloned())
-}
-
-fn should_persist_secret(save_password: bool, incoming_secret: Option<&str>) -> bool {
-    save_password || incoming_secret.is_some()
 }
 
 #[cfg(test)]

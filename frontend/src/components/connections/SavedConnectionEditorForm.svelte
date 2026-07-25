@@ -33,17 +33,15 @@
     savedConnectionEditorLoadingStateStore,
     metadataFieldsDisplayStateStore,
     onSavedEditorConnectTimeoutSecsInput,
+    onSavedEditorCredentialChange,
     onSavedEditorDeviceProfileChange,
     onSavedEditorDeviceModelInput,
-    onSavedEditorEnablePasswordInput,
     onSavedEditorHostInput,
     onSavedEditorLinuxShellFlavorChange,
     onSavedEditorNameInput,
-    onSavedEditorPasswordInput,
     onSavedEditorPortInput,
     onSavedEditorSshSecurityChange,
     onSavedEditorSoftwareVersionInput,
-    onSavedEditorUsernameInput,
     saveConnection,
     setEnabled: setEditorEnabled,
     setEditorContext,
@@ -109,17 +107,16 @@
 
       <ConnectionBasicFields
         {active}
+        credentialId={editorDraft.credentialId}
         basicFieldsDisplay={editorBasicFieldsDisplay}
         splitSections={true}
         onConnectTimeoutSecsInput={onSavedEditorConnectTimeoutSecsInput}
+        onCredentialChange={onSavedEditorCredentialChange}
         onDeviceProfileChange={onSavedEditorDeviceProfileChange}
-        onEnablePasswordInput={onSavedEditorEnablePasswordInput}
         onHostInput={onSavedEditorHostInput}
         onLinuxShellFlavorChange={onSavedEditorLinuxShellFlavorChange}
-        onPasswordInput={onSavedEditorPasswordInput}
         onPortInput={onSavedEditorPortInput}
         onSshSecurityChange={onSavedEditorSshSecurityChange}
-        onUsernameInput={onSavedEditorUsernameInput}
       />
 
       <section class="flex flex-col gap-3">

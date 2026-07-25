@@ -40,8 +40,7 @@ pub struct RenderResponse {
 pub struct ConnectionRequest {
     pub connection_name: Option<String>,
     pub host: Option<String>,
-    pub username: Option<String>,
-    pub password: Option<String>,
+    pub credential_id: Option<String>,
     pub port: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub connect_timeout_secs: Option<u64>,
@@ -49,9 +48,6 @@ pub struct ConnectionRequest {
     pub device_model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub software_version: Option<String>,
-    pub enable_password: Option<String>,
-    #[serde(default)]
-    pub enable_password_empty_enter: Option<bool>,
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
@@ -92,15 +88,41 @@ pub struct ConnectionFactsDetectResponse {
     pub warning: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct DeviceCredentialResponse {
+    pub id: String,
+    pub name: String,
+    pub username: String,
+    pub has_password: bool,
+    pub has_enable_password: bool,
+    pub enable_enabled: bool,
+    pub connection_count: u64,
+    pub referencing_connections: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpsertDeviceCredentialRequest {
+    pub name: String,
+    pub username: String,
+    #[serde(default)]
+    pub password: Option<String>,
+    #[serde(default)]
+    pub enable_password: Option<String>,
+    #[serde(default)]
+    pub enable_enabled: bool,
+}
+
 #[derive(Debug, Serialize)]
 pub struct SavedConnectionMeta {
     pub name: String,
     pub path: String,
     pub has_password: bool,
     pub has_enable_password: bool,
-    pub enable_password_empty_enter: bool,
+    pub enable_enabled: bool,
+    pub credential_id: Option<String>,
+    pub credential_name: Option<String>,
+    pub credential_required: bool,
     pub host: Option<String>,
-    pub username: Option<String>,
     pub port: Option<u16>,
     pub connect_timeout_secs: Option<u64>,
     pub device_model: Option<String>,
@@ -119,6 +141,9 @@ pub struct SavedConnectionDetail {
     pub name: String,
     pub path: String,
     pub has_password: bool,
+    pub has_enable_password: bool,
+    pub credential_name: Option<String>,
+    pub credential_required: bool,
     pub connection: ConnectionRequest,
 }
 

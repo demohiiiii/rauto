@@ -159,6 +159,11 @@
                   <Badge variant="secondary" class="rounded-md">
                     {connectionRow.tag}
                   </Badge>
+                  {#if connectionRow.credentialRequired}
+                    <Badge variant="destructive" class="rounded-md">
+                      未选择凭证
+                    </Badge>
+                  {/if}
                 </div>
               </button>
             </li>
@@ -219,6 +224,11 @@
                   <Badge variant="secondary" class="rounded-lg">
                     {selectedConnectionRow.tag}
                   </Badge>
+                  {#if selectedConnectionRow.credentialRequired}
+                    <Badge variant="destructive" class="rounded-lg">
+                      未选择凭证，请编辑连接
+                    </Badge>
+                  {/if}
                   {#if selectedConnectionRow.deviceModel}
                     <Badge variant="outline" class="rounded-lg font-mono">
                       {selectedConnectionRow.deviceModel}
@@ -349,6 +359,7 @@
         <LoadingButton
           class="rounded-xl px-4"
           loading={loadingState.useLoading}
+          disabled={selectedConnectionRow?.credentialRequired === true}
           onclick={useSavedConnectionAction}
         >
           <CheckIcon data-icon="inline-start" aria-hidden="true" />

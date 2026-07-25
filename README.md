@@ -21,13 +21,21 @@
 ```bash
 cargo install rauto
 
+# Create a reusable credential; the command securely prompts for login values.
+rauto credential add network-admin
+
+# Start the Web UI in another terminal when you want the browser workbench.
+rauto web --bind 127.0.0.1 --port 3000
+```
+
+Direct CLI connections reference the credential by name or ID:
+
+```bash
 # The default device profile is autodetect
-rauto exec "uname -a" --host 192.168.1.10 --username root --password '******'
+rauto exec "uname -a" --host 192.168.1.10 --credential network-admin
 
 # Use an explicit network-device profile such as Cisco IOS
-rauto exec "show version" --host 192.168.1.1 --username admin --password '******' --device-profile cisco
-
-rauto web --bind 127.0.0.1 --port 3000
+rauto exec "show version" --host 192.168.1.1 --credential network-admin --device-profile cisco_ios
 ```
 
 ## Table of Contents
@@ -48,6 +56,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [Web Console](#web-console)
     - [Agent Mode](#agent-mode)
   - [Template Storage Commands](#template-storage-commands)
+  - [Device Credentials](#device-credentials)
   - [Saved Connection Profiles](#saved-connection-profiles)
   - [Backup & Restore](#backup--restore)
   - [Command Blacklist](#command-blacklist)
@@ -72,10 +81,11 @@ rauto web --bind 127.0.0.1 --port 3000
 - **Extensible**: Custom TOML device profiles.
 - **Built-in Web Console**: Start browser UI with `rauto web`.
 - **Embedded Web Assets**: Frontend files are embedded into the binary for release usage.
+- **Reusable Device Credentials**: Create, list, update, and delete shared authentication records, then reference them from saved or temporary connections without duplicating secrets.
 - **Saved Connection Profiles**: Reuse named connection settings across commands.
 - **Bulk Connection Import**: Import saved connections from CSV / Excel with upsert behavior.
 - **SSH Security Profiles**: Choose `secure`, `balanced`, or `legacy-compatible` per target; the default is `legacy-compatible`.
-- **Inventory Groups & Labels**: Organize saved connections with reusable grouping metadata.
+- **Device Management Groups & Labels**: Organize saved connections with reusable grouping metadata.
 - **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
 - **Reusable Command Flow Templates**: Execute wizard-style interactive CLI workflows from saved TOML templates, including device-side file transfer, guided installers, or confirmation-heavy operational sequences.
 - **Reusable Execution Templates**: Save tx block / workflow / orchestration JSON as reusable templates with variable rendering.
@@ -153,8 +163,7 @@ Templates are stored in SQLite and managed with `rauto templates` or the Web UI.
 ```bash
 rauto template show_version.j2 \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -165,8 +174,7 @@ Given a stored template `configure_vlan.j2` and variables file `templates/exampl
 rauto template configure_vlan.j2 \
     --vars templates/example_vars.json \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -185,8 +193,7 @@ Execute raw commands directly without templates.
 ```bash
 rauto exec "show ip int br" \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -207,8 +214,7 @@ The web UI exposes the same capability under **Standard Delivery -> Show**.
 ```bash
 rauto show interfaces \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -274,8 +280,7 @@ Execute a command in a specific mode (e.g., `Enable`, `Config`).
 ```bash
 rauto exec "show bgp neighbor" \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22 \
     --mode Enable
 ```
@@ -437,8 +442,7 @@ rauto upload \
     --local-path ./configs/daemon.conf \
     --remote-path /tmp/daemon.conf \
     --host 192.168.1.20 \
-    --username admin \
-    --password secret
+    --credential linux-admin
 ```
 
 Optional flags:
@@ -480,16 +484,15 @@ The default profile is `autodetect`, so normal execution resolves the actual bui
 ```bash
 rauto profile autodetect \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
 Use `-v` to print ranked candidate summaries, or `-vv` to include the full debug report:
 
 ```bash
-rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
-rauto profile autodetect -vv --host 192.168.1.1 --username admin --password secret
+rauto profile autodetect -v --host 192.168.1.1 --credential network-admin
+rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 ```
 
 When normal execution uses autodetect, the detected profile controls mode validation and default-mode fallback. Autodetect does not infer command mode from the command text; use `exec --mode <mode>` when a command must run in a specific state such as `Enable`, `Config`, or `Shell`.
@@ -502,8 +505,7 @@ Use `--device-profile` when you want to bypass autodetect. For example, to selec
 ```bash
 rauto template show_ver.j2 \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22 \
     --device-profile huawei
 ```
@@ -513,8 +515,7 @@ rauto template show_ver.j2 \
 ```bash
 rauto exec "systemctl status sshd" \
     --host 192.168.1.10 \
-    --username admin \
-    --password secret \
+    --credential linux-admin \
     --ssh-port 22 \
     --device-profile linux
 ```
@@ -527,8 +528,7 @@ Use it after creating or copying a custom profile:
 ```bash
 rauto exec "show ver" \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22 \
     --device-profile custom_cisco
 ```
@@ -537,16 +537,15 @@ rauto exec "show ver" \
 
 ```bash
 rauto profile list
-rauto profile autodetect --host 192.168.1.1 --username admin --password secret
-rauto profile autodetect -v --host 192.168.1.1 --username admin --password secret
+rauto profile autodetect --host 192.168.1.1 --credential network-admin
+rauto profile autodetect -v --host 192.168.1.1 --credential network-admin
 rauto profile show cisco_ios
 rauto profile show linux
 rauto profile copy-builtin cisco_ios my_cisco
 rauto profile delete-custom my_cisco
 rauto connection test \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret \
+    --credential network-admin \
     --ssh-port 22
 ```
 
@@ -562,11 +561,7 @@ Start the built-in web service and open the visual console in your browser:
 ```bash
 rauto web \
     --bind 127.0.0.1 \
-    --port 3000 \
-    --host 192.168.1.1 \
-    --username admin \
-    --password secret \
-    --ssh-port 22
+    --port 3000
 ```
 
 Then visit `http://127.0.0.1:3000`.
@@ -584,19 +579,21 @@ npm run web:build       # validate and build embedded web dashboard assets
 
 Web console key capabilities:
 
+- Manage reusable device credentials in the standalone `Credential Management` page. Password values are never returned to the browser after saving.
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
+- Select a credential for saved and temporary connections instead of entering authentication fields on each connection.
 - Download a CSV import template and import saved connections from CSV / Excel in UI.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
 - Run commands, command flows, tx blocks, tx workflows, and orchestration from `Operations`.
 - The command workbench accepts manual content or imports a saved command template as an editable local snapshot.
 - Manual and imported commands share `{{var}}` inputs, rendered preview, TextFSM parsing, and multiline submission controls; the execution page never overwrites the saved template.
 - Manage profiles, command templates, and command flow templates in `Template Manager`.
-- Organize saved connections in `Inventory` with groups and labels (web-only management UI).
+- Organize saved connections in `Device Management` with groups and labels (web-only management UI).
 - Track and inspect async task runs in `Task Center` (status, events, artifacts, recordings).
 - Use `SFTP Upload` as a dedicated page for direct file uploads to SSH hosts with an `sftp` subsystem.
 - Manage command blacklist patterns in UI: add/delete/check `*` wildcard rules before execution.
 - Manage data backups in UI: create/list/download/restore `~/.rauto` backup archives.
-- Diagnose profile state machines in `Prompt Profiles` -> Diagnostics with visualized result fields.
+- Diagnose a profile state machine from the **Diagnose** button in the profile detail view; results open in a dialog with visualized fields.
 - Switch Chinese/English in UI.
 - Record execution sessions and replay recorded outputs in browser (list events or replay by command/mode).
 
@@ -645,6 +642,66 @@ rauto templates show show_version.j2
 rauto templates delete show_version.j2
 ```
 
+### Device Credentials
+
+Device credentials are reusable authentication records shared by saved and temporary connections. Manage them from the standalone **Credential Management** page in the Web UI or through `GET/POST /api/credentials`, `POST /api/credentials/import`, and `GET/PUT/DELETE /api/credentials/{id}`.
+
+The examples below assume that credentials named `network-admin` and `linux-admin` have already been created.
+
+Each credential contains:
+
+- A unique name using only letters, numbers, `_`, `.`, and `-`.
+- A required SSH username and login password.
+- An optional Enable stage with a password; when enabled without a password, rauto submits Enter at the prompt.
+
+Passwords are encrypted before being stored in `~/.rauto/rauto.db`; the encryption master key is kept in the operating system keyring. Web, Agent, and CLI query output expose only credential metadata and password-presence flags, never plaintext passwords or encryption references. A credential referenced by one or more connections cannot be deleted until those references are removed.
+
+Manage credentials from the CLI:
+
+```bash
+# Add: prompts for the login username and password
+rauto credential add network-admin
+
+# Query
+rauto credential list
+rauto credential show network-admin
+
+# Update metadata or Enable handling
+rauto credential update network-admin --name network-ops
+rauto credential update network-ops --enable
+# Interactive update: an enabled stage with a blank password submits Enter
+rauto credential update network-ops
+
+# Bulk import from CSV or Excel; add --json for a machine-readable report
+rauto credential import ./credentials.csv
+
+# Delete (referenced credentials are rejected)
+rauto credential delete network-ops
+```
+
+`credential add` and `credential update` accept credential-specific options such as `--login-username`, `--login-secret`, `--enable-secret`, and `--json`; omit login secrets to enter them through the secure prompt. Use `rauto credential --help` for the complete option list.
+
+Credential import accepts `.csv`, `.xlsx`, `.xls`, `.xlsm`, and `.xlsb` files. It uses name-based upsert: blank login fields preserve existing values, while a blank `enable_secret` clears the saved Enable secret. When `enable_enabled` is true, rauto enters the Enable stage and submits the secret, or presses Enter when the secret is blank. New credentials require `name`, `login_username`, and `login_secret`. Boolean columns accept `true/false`, `1/0`, `yes/no`, or `是/否`.
+
+```csv
+name,login_username,login_secret,enable_secret,enable_enabled
+network-admin,admin,replace-with-login-secret,replace-with-enable-secret,true
+```
+
+Download the starter file from the Web UI import dialog, or use [templates/examples/credential-import-template-en.csv](templates/examples/credential-import-template-en.csv) and [templates/examples/credential-import-template-zh.csv](templates/examples/credential-import-template-zh.csv). The source file contains plaintext secrets; protect or remove it after import. Import reports contain only row numbers, names, counts, and validation errors, never secret values.
+
+For direct CLI targets, pass the credential name or stable ID:
+
+```bash
+rauto connection test \
+    --host 192.168.1.1 \
+    --credential network-admin
+
+rauto exec "show version" \
+    --host 192.168.1.1 \
+    --credential network-admin
+```
+
 ### Saved Connection Profiles
 
 You can save and reuse connection settings by name:
@@ -653,10 +710,10 @@ You can save and reuse connection settings by name:
 # Add/update a profile directly from CLI args
 rauto connection add lab1 \
     --host 192.168.1.1 \
-    --username admin \
+    --credential network-admin \
     --ssh-port 22 \
     --ssh-security balanced \
-    --device-profile cisco
+    --device-profile cisco_ios
 
 # Reuse the saved profile
 rauto exec "show version" --connection lab1
@@ -673,11 +730,12 @@ rauto connection delete lab1
 rauto history list lab1 --limit 20
 ```
 
-Password behavior:
+Credential behavior:
 
-- `--save-connection` (used in `exec/template/connection test`) saves the effective connection, including password fields when they are available.
-- `connection add` saves password fields when `--password` / `--enable-password` is provided.
-- Saved passwords are encrypted in `~/.rauto/rauto.db` with a local master key. The master key is stored once in the system keyring (single authorization, then cached in process).
+- Saved connections store only a `credential_id` reference; they do not duplicate usernames, login passwords, or Enable passwords.
+- `--save-connection` (used in `exec`, `template`, and `connection test`) saves the effective credential reference together with the connection settings.
+- Passing `--credential <name-or-id>` on a direct target selects that reusable credential. A saved connection automatically resolves its stored credential.
+- A connection must reference a valid credential before test, autodetect, or execution.
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections. When omitted, rauto uses `legacy-compatible` for the broadest device compatibility.
 - `--linux-shell-flavor <posix|fish>` controls Linux shell exit-code parsing strategy (`posix` also accepts `bash` alias).
 
@@ -702,17 +760,18 @@ Supported file types:
 Recommended headers:
 
 ```csv
-name,host,username,password,port,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir
-core-sw-01,192.168.1.1,admin,secret,22,,balanced,,cisco,
-linux-jump-01,192.168.1.10,root,secret,22,,secure,posix,linux,
+name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile,template_dir
+core-sw-01,192.168.1.1,network-admin,22,30,C9300,17.9.4,balanced,,cisco_ios,
+linux-jump-01,192.168.1.10,linux-admin,22,30,,,secure,posix,linux,
 ```
 
 Notes:
 
 - If `name` is omitted, `rauto` derives a saved-connection name from `host`.
 - Import uses upsert semantics by connection name.
-- If a row omits password fields, existing saved encrypted passwords are preserved for that connection.
-- In the Web UI, use `Saved Connections -> Download Template` to get a starter CSV file.
+- The `credential` column contains an existing unique credential name. Import does not create credentials, and an unknown name produces a row-level error.
+- If an existing connection row omits `credential`, its current credential reference is preserved. A new connection must provide a credential.
+- In the Web UI, use `Device Management -> Download Template` to get a starter CSV file.
 - Sample files are also included in the repository:
 - [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
 - [templates/examples/connection-import-template-zh.csv](templates/examples/connection-import-template-zh.csv)
@@ -721,7 +780,7 @@ Notes:
 
 Backup the current `rauto` runtime data store and backup configuration:
 
-Note: backup archives include `rauto.db`, templates, and other runtime files, but do not export the local keyring master key. After restoring on another machine or clean OS account, re-save saved-connection passwords (or import the same master key) before using encrypted passwords.
+Note: backup archives include `rauto.db`, credential ciphertext, templates, and other runtime files, but do not export the local keyring master key. After restoring on another machine or clean OS account, edit and save the affected credentials again (or import the same master key) before using them.
 
 ```bash
 # Create backup to default path: ~/.rauto/backups/rauto-backup-<timestamp>.tar.gz
@@ -784,8 +843,7 @@ rauto tx \
     --rollback-on-failure \
     --mode Config \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret
+    --credential network-admin
 
 # Command-flow mode with reusable flow templates
 rauto tx \
@@ -794,8 +852,7 @@ rauto tx \
     --flow-vars ./flow-vars.json \
     --rollback-flow-file ./rollback-flow.toml \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret
+    --credential network-admin
 ```
 
 Notes:
@@ -816,8 +873,7 @@ rauto tx-workflow ./workflow.json --view
 # Execute a workflow from JSON
 rauto tx-workflow ./workflow.json \
     --host 192.168.1.1 \
-    --username admin \
-    --password secret
+    --credential network-admin
 
 # Dry-run: print workflow plan and exit
 rauto tx-workflow ./workflow.json --dry-run
@@ -1079,11 +1135,13 @@ rauto orchestrate --template campus-rollout --vars-json '{"site":"dc-a"}' --view
 Template rendering context:
 
 - `vars`: request-level `*_vars`
-- `connection`: resolved single-target connection data (host/username/password/port/device_profile, etc.); for saved connections, `connection.saved` is also included
+- `connection`: resolved single-target runtime connection data (host/username/password/port/device_profile, etc.); credentials are resolved only in memory, and for saved connections `connection.saved` contains metadata
 - `defaults`: global default connection settings (for orchestration rendering)
 - `now`: current time (`rfc3339` / `timestamp_ms`)
 - Top-level shorthand is available: `{{ peer_host }}` resolves from request vars first, then falls back to current target connection params.
 - Direct connection object refs are supported in template strings: `{{ edge94.host }}`, `{{ edge94.password }}`, `{{ edge94.vars.site }}`.
+
+The runtime template context can still expose `username`, `password`, and `enable_password` when a flow or execution template explicitly needs them, but those values are resolved from the selected device credential and are never persisted in the connection record.
 
 Any string field can use minijinja syntax, for example:
 
@@ -1130,7 +1188,7 @@ By default, `rauto` stores runtime data under `~/.rauto/`.
 
 Default runtime data:
 
-- `~/.rauto/rauto.db` (saved connections, history recordings, blacklist patterns, custom device profiles, managed command templates)
+- `~/.rauto/rauto.db` (saved connections, device credential metadata/ciphertext, history recordings, blacklist patterns, custom device profiles, managed command templates)
 - `~/.rauto/backups` (backup archives)
 
 `~/.rauto` and `~/.rauto/backups` are auto-created on startup.
@@ -1143,23 +1201,21 @@ Default runtime data:
 
 ## Configuration
 
-| Argument               | Env Var          | Description                                                                                       |
-| ---------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
-| `--host`               | -                | Device hostname or IP (`-H`)                                                                      |
-| `--username`           | -                | SSH username                                                                                      |
-| `--password`           | `RAUTO_PASSWORD` | SSH password                                                                                      |
-| `--enable-password`    | -                | Enable/Secret password                                                                            |
-| `--ssh-port`           | -                | SSH port (default: 22)                                                                            |
-| `--ssh-security`       | -                | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible`    |
-| `--linux-shell-flavor` | -                | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`                        |
-| `--device-profile`     | -                | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
-| `--force-autodetect`   | -                | Ignore cached autodetect result and probe the target again                                        |
-| `--connection`         | -                | Load saved connection profile by name (`-c`)                                                      |
-| `--save-connection`    | -                | Save effective connection profile after successful connect (`-S`)                                 |
+| Argument               | Env Var | Description                                                                                       |
+| ---------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `--host`               | -       | Device hostname or IP (`-H`)                                                                      |
+| `--credential`         | -       | Reusable device credential name or ID                                                             |
+| `--ssh-port`           | -       | SSH port (default: 22)                                                                            |
+| `--ssh-security`       | -       | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible`    |
+| `--linux-shell-flavor` | -       | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`                        |
+| `--device-profile`     | -       | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
+| `--force-autodetect`   | -       | Ignore cached autodetect result and probe the target again                                        |
+| `--connection`         | -       | Load saved connection profile by name (`-c`)                                                      |
+| `--save-connection`    | -       | Save effective connection profile and credential reference after successful connect (`-S`)       |
 
 Common shorthand aliases:
 
-- Global: `-H/--host`, `-u/--username`, `-p/--password`, `-P/--ssh-port`, `-e/--enable-password`, `-d/--device-profile`, `-c/--connection`, `-S/--save-connection`
+- Global: `-H/--host`, `--credential`, `-P/--ssh-port`, `-d/--device-profile`, `-c/--connection`, `-S/--save-connection`
 - Flow: `-t/--template`, `-f/--file`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
 - Exec: `-m/--mode`, `-r/--record-file`, `-l/--record-level`
 - Show: `-m/--mode`, `-r/--record-file`, `-l/--record-level`

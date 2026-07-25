@@ -51,6 +51,7 @@ pub(crate) fn manager_execution_context_with_security(
 #[derive(Debug, Clone)]
 pub(crate) struct EffectiveConnection {
     pub(crate) connection_name: Option<String>,
+    pub(crate) credential_id: Option<String>,
     pub(crate) host: String,
     pub(crate) username: String,
     pub(crate) password: String,
@@ -72,21 +73,39 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         None
     };
 
+    let direct_credential = opts
+        .credential
+        .as_deref()
+        .map(|selector| {
+            crate::config::device_credential_store::find_credential_by_name(selector)
+                .or_else(|_| crate::config::device_credential_store::get_credential(selector))
+        })
+        .transpose()?;
+    let resolved_credential = if let Some(meta) = direct_credential.as_ref() {
+        Some(crate::config::device_credential_store::resolve_credential(
+            &meta.id,
+        )?)
+    } else {
+        None
+    };
+    let credential_id = resolved_credential
+        .as_ref()
+        .map(|credential| credential.id.clone())
+        .or_else(|| saved.as_ref().and_then(|s| s.credential_id.clone()));
     let host = opts
         .host
         .clone()
         .or_else(|| saved.as_ref().and_then(|s| s.host.clone()))
         .ok_or_else(|| anyhow::anyhow!("host is required"))?;
-    let username = opts
-        .username
-        .clone()
+    let username = resolved_credential
+        .as_ref()
+        .map(|c| c.username.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.username.clone()))
-        .unwrap_or_else(|| "admin".to_string());
-    let password = opts
-        .password
-        .clone()
+        .ok_or_else(|| anyhow::anyhow!("device credential is required"))?;
+    let password = resolved_credential
+        .as_ref()
+        .map(|c| c.password.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.password.clone()))
-        .or_else(|| std::env::var("RAUTO_PASSWORD").ok())
         .unwrap_or_default();
     let port = opts
         .port
@@ -116,17 +135,17 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         .as_ref()
         .map(|s| s.vars.clone())
         .unwrap_or_else(|| serde_json::json!({}));
-    let enable_password = opts
-        .enable_password
-        .clone()
-        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()))
-        .or_else(|| Some(String::new()));
+    let enable_password = resolved_credential
+        .as_ref()
+        .and_then(|c| c.runtime_enable_password())
+        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()));
 
     Ok(EffectiveConnection {
         connection_name: opts
             .connection
             .clone()
             .or_else(|| opts.save_connection.clone()),
+        credential_id,
         host,
         username,
         password,
@@ -234,17 +253,12 @@ pub(crate) fn maybe_save_connection_profile(
 
 pub(crate) fn save_named_connection(name: &str, conn: &EffectiveConnection) -> Result<PathBuf> {
     let data = SavedConnection {
+        credential_id: conn.credential_id.clone(),
         host: Some(conn.host.clone()),
-        username: Some(conn.username.clone()),
-        password: Some(conn.password.clone()),
-        password_ref: None,
         port: Some(conn.port),
         connect_timeout_secs: conn.connect_timeout_secs,
         device_model: None,
         software_version: None,
-        enable_password: conn.enable_password.clone(),
-        enable_password_ref: None,
-        enable_password_empty_enter: conn.enable_password == Some(String::new()),
         ssh_security: Some(conn.ssh_security),
         linux_shell_flavor: conn.linux_shell_flavor,
         device_profile: Some(conn.device_profile.clone()),
@@ -462,62 +476,9 @@ pub(crate) fn write_recording_text_if_requested(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        EffectiveConnection, manager_execution_context_with_security, save_named_connection,
-    };
-    use crate::config::connection_store;
-    use crate::config::linux_shell::LinuxShellFlavor;
+    use super::manager_execution_context_with_security;
     use crate::config::ssh_security::SshSecurityProfile;
-    use crate::db;
-    use anyhow::Result;
-    use std::path::PathBuf;
-    use std::sync::{Mutex, OnceLock};
     use std::time::Duration;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    static TEST_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-    struct TestEnvGuard {
-        original_home: Option<std::ffi::OsString>,
-        _root: PathBuf,
-        _guard: std::sync::MutexGuard<'static, ()>,
-    }
-
-    impl TestEnvGuard {
-        fn new() -> Result<Self> {
-            let guard = TEST_ENV_LOCK
-                .get_or_init(|| Mutex::new(()))
-                .lock()
-                .expect("test env lock poisoned");
-            let root = std::env::temp_dir().join(format!(
-                "rauto-cli-runtime-test-{}",
-                SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
-            ));
-            let original_home = std::env::var_os("RAUTO_HOME");
-            unsafe {
-                std::env::set_var("RAUTO_HOME", &root);
-            }
-            Ok(Self {
-                original_home,
-                _root: root,
-                _guard: guard,
-            })
-        }
-    }
-
-    impl Drop for TestEnvGuard {
-        fn drop(&mut self) {
-            if let Some(value) = &self.original_home {
-                unsafe {
-                    std::env::set_var("RAUTO_HOME", value);
-                }
-            } else {
-                unsafe {
-                    std::env::remove_var("RAUTO_HOME");
-                }
-            }
-        }
-    }
 
     #[test]
     fn manager_execution_context_applies_optional_connect_timeout() {
@@ -528,38 +489,5 @@ mod tests {
         let custom_context =
             manager_execution_context_with_security(None, SshSecurityProfile::default(), Some(23));
         assert_eq!(custom_context.connect_timeout, Duration::from_secs(23));
-    }
-
-    #[test]
-    fn save_named_connection_persists_passwords_by_default() -> Result<()> {
-        let _env_guard = TestEnvGuard::new()?;
-        db::init_sync()?;
-
-        save_named_connection(
-            "cli_saved_secret",
-            &EffectiveConnection {
-                connection_name: None,
-                host: "192.0.2.10".to_string(),
-                username: "admin".to_string(),
-                password: "login-secret".to_string(),
-                port: 22,
-                connect_timeout_secs: Some(25),
-                enable_password: Some("enable-secret".to_string()),
-                ssh_security: SshSecurityProfile::LegacyCompatible,
-                linux_shell_flavor: Some(LinuxShellFlavor::Posix),
-                device_profile: "cisco_ios".to_string(),
-                vars: serde_json::json!({"site":"lab"}),
-                template_dir: None,
-                force_autodetect: false,
-            },
-        )?;
-
-        let saved = connection_store::load_connection("cli_saved_secret")?;
-        assert_eq!(saved.password.as_deref(), Some("login-secret"));
-        assert_eq!(saved.enable_password.as_deref(), Some("enable-secret"));
-        assert_eq!(saved.connect_timeout_secs, Some(25));
-        assert!(connection_store::has_saved_password(&saved));
-        assert!(connection_store::has_saved_enable_password(&saved));
-        Ok(())
     }
 }

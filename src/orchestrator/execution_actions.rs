@@ -312,6 +312,7 @@ mod tests {
     fn sample_conn() -> EffectiveConnection {
         EffectiveConnection {
             connection_name: Some("edge-01".to_string()),
+            credential_id: None,
             host: "192.0.2.10".to_string(),
             username: "admin".to_string(),
             password: "secret".to_string(),

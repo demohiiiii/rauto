@@ -46,10 +46,8 @@ pub async fn execute_orchestration(
                     "defaults".to_string(),
                     json!({
                         "host": state.defaults.host.clone(),
-                        "username": state.defaults.username.clone(),
-                        "password": state.defaults.password.clone(),
+                        "credential": state.defaults.credential.clone(),
                         "port": state.defaults.port,
-                        "enable_password": state.defaults.enable_password.clone(),
                         "ssh_security": state.defaults.ssh_security,
                         "linux_shell_flavor": state.defaults.linux_shell_flavor,
                         "device_profile": state.defaults.device_profile.clone(),

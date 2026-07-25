@@ -54,9 +54,7 @@ const CONNECTION_DRAFT_FIELDS = [
   ["host", "host"],
   ["port", "port"],
   ["connect_timeout_secs", "connectTimeoutSecs"],
-  ["username", "username"],
-  ["password", "password"],
-  ["enable_password", "enablePassword"],
+  ["credential_id", "credentialId"],
   ["ssh_security", "sshSecurity"],
   ["linux_shell_flavor", "linuxShellFlavor"],
   ["device_profile", "deviceProfile"],
@@ -92,13 +90,11 @@ function connectionDraftDefaults(overrides = {}) {
     connectTimeoutSecs: "",
     deviceProfile: "",
     enabled: true,
-    enablePassword: "",
+    credentialId: "",
     host: "",
     linuxShellFlavor: "",
-    password: "",
     port: "",
     sshSecurity: "",
-    username: "",
     ...overrides,
   };
 }
@@ -149,7 +145,7 @@ export function connectionBasicFieldsPresentation({
       ],
       title: deviceProfileTitle,
     },
-    enablePasswordInput: connectionInputDisplay("enablePasswordPlaceholder"),
+    credentialInput: connectionInputDisplay("credentialName"),
     focusHostRequestVersion,
     hostInput: connectionInputDisplay("hostPlaceholder"),
     linuxShellFlavorSelect: {
@@ -160,7 +156,6 @@ export function connectionBasicFieldsPresentation({
       ),
       title: linuxShellTitle,
     },
-    passwordInput: connectionInputDisplay("passwordPlaceholder"),
     portInput: connectionInputDisplay("portPlaceholder"),
     sshSecuritySelect: {
       ariaLabelText: sshSecurityTitle,
@@ -171,19 +166,16 @@ export function connectionBasicFieldsPresentation({
       title: sshSecurityTitle,
     },
     softwareVersionInput: connectionInputDisplay("softwareVersionPlaceholder"),
-    usernameInput: connectionInputDisplay("usernamePlaceholder"),
     values: {
       connectTimeoutSecs: displayString(fieldValues.connectTimeoutSecs),
       deviceModel: displayString(fieldValues.deviceModel),
       deviceProfile: displayString(fieldValues.deviceProfile),
-      enablePassword: displayString(fieldValues.enablePassword),
+      credentialId: displayString(fieldValues.credentialId),
       host: displayString(fieldValues.host),
       linuxShellFlavor: displayString(fieldValues.linuxShellFlavor),
-      password: displayString(fieldValues.password),
       port: displayString(fieldValues.port),
       sshSecurity: displayString(fieldValues.sshSecurity),
       softwareVersion: displayString(fieldValues.softwareVersion),
-      username: displayString(fieldValues.username),
     },
   };
 }
@@ -258,14 +250,12 @@ export function connectionBasicFieldWiring(
         fieldCfg.deviceProfileEffect || "",
       ),
     onConnectTimeoutSecsInput: updateText("connectTimeoutSecs"),
-    onEnablePasswordInput: updateText("enablePassword"),
+    onCredentialChange: updateText("credentialId"),
     onHostInput: updateText("host"),
     onLinuxShellFlavorChange: updateText("linuxShellFlavor"),
     onNameInput: (fieldValue) => update({ name: text(fieldValue) }),
-    onPasswordInput: updateText("password"),
     onPortInput: updateText("port"),
     onSshSecurityChange: updateText("sshSecurity"),
-    onUsernameInput: updateText("username"),
   };
 }
 

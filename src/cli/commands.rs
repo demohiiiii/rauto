@@ -55,6 +55,11 @@ pub enum Commands {
     #[command(subcommand)]
     Device(DeviceCommands),
 
+    /// Manage reusable device credentials
+    #[command(visible_alias = "credentials")]
+    #[command(subcommand)]
+    Credential(CredentialCommands),
+
     /// Manage device profiles
     #[command(subcommand)]
     Profile(ProfileCommands),
@@ -405,6 +410,86 @@ pub enum DeviceCommands {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum CredentialCommands {
+    /// List device credentials without exposing secret values
+    List {
+        /// Output credentials as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one device credential by name or id
+    #[command(visible_alias = "get")]
+    Show {
+        /// Credential name or stable id
+        selector: String,
+        /// Output credential metadata as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Add a device credential
+    #[command(visible_alias = "create")]
+    Add {
+        /// Unique credential name
+        name: String,
+        /// SSH login username; prompted when omitted
+        #[arg(long)]
+        login_username: Option<String>,
+        /// SSH login secret; securely prompted when omitted
+        #[arg(long)]
+        login_secret: Option<String>,
+        /// Optional Enable/Secret value
+        #[arg(long)]
+        enable_secret: Option<String>,
+        /// Enable the device Enable stage; a missing secret submits an empty Enter
+        #[arg(long)]
+        enable: bool,
+        /// Output the created credential metadata as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Update a device credential by name or id
+    Update {
+        /// Credential name or stable id
+        selector: String,
+        /// New unique credential name
+        #[arg(long)]
+        name: Option<String>,
+        /// New SSH login username
+        #[arg(long)]
+        login_username: Option<String>,
+        /// New SSH login secret; omitted values preserve the current secret
+        #[arg(long)]
+        login_secret: Option<String>,
+        /// Set the optional Enable/Secret value; omitting it clears the current value
+        #[arg(long)]
+        enable_secret: Option<String>,
+        /// Enable the device Enable stage; a missing secret submits an empty Enter
+        #[arg(long, conflicts_with = "disable_enable")]
+        enable: bool,
+        /// Disable the device Enable stage and remove its stored secret
+        #[arg(long = "disable-enable", conflicts_with = "enable")]
+        disable_enable: bool,
+        /// Output the updated credential metadata as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Import device credentials from CSV or Excel using name-based upsert
+    Import {
+        /// Path to .csv, .xlsx, .xls, .xlsm, or .xlsb file
+        file: PathBuf,
+        /// Output import summary as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Delete a device credential by name or id
+    #[command(visible_alias = "remove")]
+    Delete {
+        /// Credential name or stable id
+        selector: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum InventoryCommands {
     /// Manage inventory groups
     #[command(subcommand)]
@@ -554,4 +639,117 @@ pub enum BackupCommands {
     },
     /// List existing backup archives
     List,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, Commands, CredentialCommands};
+    use clap::Parser;
+
+    #[test]
+    fn credential_flag_is_accepted() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "exec",
+            "show version",
+            "--host",
+            "192.0.2.10",
+            "--credential",
+            "network-admin",
+        ])
+        .expect("--credential should be accepted");
+
+        assert_eq!(cli.global_opts.credential.as_deref(), Some("network-admin"));
+    }
+
+    #[test]
+    fn legacy_connection_authentication_flags_are_rejected() {
+        for flag in [
+            "--username",
+            "--password",
+            "--enable-password",
+            "--save-password",
+        ] {
+            let mut args = vec!["rauto", "exec", "show version", flag];
+            if flag != "--save-password" {
+                args.push("legacy-value");
+            }
+            let error = Cli::try_parse_from(args)
+                .expect_err("legacy authentication flags must not be accepted");
+            assert_eq!(error.kind(), clap::error::ErrorKind::UnknownArgument);
+        }
+    }
+
+    #[test]
+    fn credential_crud_commands_are_accepted() {
+        let add = Cli::try_parse_from([
+            "rauto",
+            "credential",
+            "add",
+            "network-admin",
+            "--login-username",
+            "admin",
+            "--login-secret",
+            "login-secret",
+            "--enable-secret",
+            "enable-secret",
+            "--json",
+        ])
+        .expect("credential add should parse");
+        let Commands::Credential(CredentialCommands::Add {
+            name,
+            login_username,
+            login_secret,
+            enable_secret,
+            json,
+            ..
+        }) = add.command
+        else {
+            panic!("expected credential add command");
+        };
+        assert_eq!(name, "network-admin");
+        assert_eq!(login_username.as_deref(), Some("admin"));
+        assert_eq!(login_secret.as_deref(), Some("login-secret"));
+        assert_eq!(enable_secret.as_deref(), Some("enable-secret"));
+        assert!(json);
+
+        let update = Cli::try_parse_from([
+            "rauto",
+            "credential",
+            "update",
+            "network-admin",
+            "--name",
+            "network-ops",
+            "--enable",
+        ])
+        .expect("credential update should parse");
+        assert!(matches!(
+            update.command,
+            Commands::Credential(CredentialCommands::Update {
+                selector,
+                name,
+                enable: true,
+                ..
+            }) if selector == "network-admin" && name.as_deref() == Some("network-ops")
+        ));
+
+        let removed_flag = Cli::try_parse_from([
+            "rauto",
+            "credential",
+            "update",
+            "network-ops",
+            "--enable-empty-enter",
+        ])
+        .expect_err("the old empty-Enter flag must be rejected");
+        assert_eq!(removed_flag.kind(), clap::error::ErrorKind::UnknownArgument);
+
+        for args in [
+            vec!["rauto", "credential", "list", "--json"],
+            vec!["rauto", "credential", "show", "network-ops", "--json"],
+            vec!["rauto", "credential", "import", "credentials.csv", "--json"],
+            vec!["rauto", "credential", "delete", "network-ops"],
+        ] {
+            Cli::try_parse_from(args).expect("credential read/delete command should parse");
+        }
+    }
 }

@@ -66,11 +66,10 @@ pub enum StageStrategy {
 pub struct OrchestrationTarget {
     pub name: Option<String>,
     pub connection: Option<String>,
+    #[serde(default)]
+    pub credential_id: Option<String>,
     pub host: Option<String>,
-    pub username: Option<String>,
-    pub password: Option<String>,
     pub port: Option<u16>,
-    pub enable_password: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,

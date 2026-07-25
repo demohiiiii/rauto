@@ -115,18 +115,31 @@ pub(crate) fn resolve_target_connection(
         .or_else(|| saved.as_ref().and_then(|s| s.host.clone()))
         .or_else(|| opts.host.clone())
         .ok_or_else(|| anyhow!("host is required (target.connection or target.host)"))?;
-    let username = target
-        .username
+    let selected_credential_id = target
+        .credential_id
         .clone()
-        .or_else(|| saved.as_ref().and_then(|s| s.username.clone()))
-        .or_else(|| opts.username.clone())
-        .unwrap_or_else(|| "admin".to_string());
-    let password = target
-        .password
-        .clone()
-        .or_else(|| saved.as_ref().and_then(|s| s.password.clone()))
-        .or_else(|| opts.password.clone())
-        .or_else(|| std::env::var("RAUTO_PASSWORD").ok())
+        .or_else(|| saved.as_ref().and_then(|s| s.credential_id.clone()))
+        .or_else(|| {
+            opts.credential.as_deref().and_then(|selector| {
+                crate::config::device_credential_store::find_credential_by_name(selector)
+                    .or_else(|_| crate::config::device_credential_store::get_credential(selector))
+                    .ok()
+                    .map(|item| item.id)
+            })
+        });
+    let selected_credential = selected_credential_id
+        .as_deref()
+        .map(crate::config::device_credential_store::resolve_credential)
+        .transpose()?;
+    let username = selected_credential
+        .as_ref()
+        .map(|c| c.username.clone())
+        .ok_or_else(|| {
+            anyhow!("device credential is required (target.credential_id or --credential)")
+        })?;
+    let password = selected_credential
+        .as_ref()
+        .map(|c| c.password.clone())
         .unwrap_or_default();
     let port = target
         .port
@@ -166,18 +179,16 @@ pub(crate) fn resolve_target_connection(
         .as_ref()
         .map(|s| s.vars.clone())
         .unwrap_or_else(|| serde_json::json!({}));
-    let enable_password = target
-        .enable_password
-        .clone()
-        .or_else(|| saved.as_ref().and_then(|s| s.enable_password.clone()))
-        .or_else(|| opts.enable_password.clone())
-        .or_else(|| Some(String::new()));
+    let enable_password = selected_credential
+        .as_ref()
+        .and_then(|credential| credential.runtime_enable_password());
 
     Ok(EffectiveConnection {
         connection_name: target
             .connection
             .clone()
             .or_else(|| opts.connection.clone()),
+        credential_id: selected_credential_id,
         host,
         username,
         password,

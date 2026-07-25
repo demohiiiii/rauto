@@ -112,7 +112,9 @@ function defaultPersistedConnectionTarget(details = null) {
         ).trim() || "autodetect",
       host: safeString(details.host || "").trim(),
       port: Number(details.port || 22) || 22,
-      username: safeString(details.username || "").trim(),
+      credential_id: safeString(
+        details.credentialId || details.credential_id || "",
+      ).trim(),
     };
   }
   return null;

@@ -7,31 +7,32 @@ use crate::web::assets::{static_response, svelte_index_response};
 use crate::web::auth::auth_middleware;
 use crate::web::handlers::{
     add_blacklist_pattern, check_blacklist_command, create_backup, create_command_flow_template,
-    create_or_update_custom_profile, create_orchestration_template, create_template,
-    create_textfsm_template, create_tx_block_template, create_tx_workflow_template,
-    delete_blacklist_pattern, delete_command_flow_template, delete_connection,
-    delete_connection_history, delete_custom_profile, delete_custom_show_object,
-    delete_inventory_group, delete_inventory_label, delete_orchestration_template, delete_template,
-    delete_textfsm_mapping, delete_textfsm_template, delete_tx_block_template,
-    delete_tx_workflow_template, detect_connection_facts, diagnose_profile, download_backup,
-    download_connection_import_template, exec_command, exec_command_async, execute_command_flow,
-    execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
-    execute_template, execute_template_async, execute_tx_block, execute_tx_block_async,
-    execute_tx_workflow, execute_tx_workflow_async, execute_upload, export_textfsm_excel,
-    get_builtin_command_flow_template, get_builtin_profile_detail, get_builtin_profile_form,
-    get_command_flow_template, get_connection, get_connection_history,
-    get_connection_history_detail, get_custom_profile, get_custom_profile_form,
+    create_credential, create_or_update_custom_profile, create_orchestration_template,
+    create_template, create_textfsm_template, create_tx_block_template,
+    create_tx_workflow_template, delete_blacklist_pattern, delete_command_flow_template,
+    delete_connection, delete_connection_history, delete_credential, delete_custom_profile,
+    delete_custom_show_object, delete_inventory_group, delete_inventory_label,
+    delete_orchestration_template, delete_template, delete_textfsm_mapping,
+    delete_textfsm_template, delete_tx_block_template, delete_tx_workflow_template,
+    detect_connection_facts, diagnose_profile, download_backup,
+    download_connection_import_template, download_credential_import_template, exec_command,
+    exec_command_async, execute_command_flow, execute_orchestration, execute_orchestration_async,
+    execute_show, execute_show_batch, execute_template, execute_template_async, execute_tx_block,
+    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
+    export_textfsm_excel, get_builtin_command_flow_template, get_builtin_profile_detail,
+    get_builtin_profile_form, get_command_flow_template, get_connection, get_connection_history,
+    get_connection_history_detail, get_credential, get_custom_profile, get_custom_profile_form,
     get_inventory_group, get_inventory_label, get_orchestration_template, get_profile_modes,
     get_task_run_detail, get_template, get_textfsm_template, get_tx_block_template,
-    get_tx_workflow_template, health, import_connections, inspect_command_flow_template,
-    inspect_command_template, list_backups, list_blacklist_patterns,
+    get_tx_workflow_template, health, import_connections, import_credentials,
+    inspect_command_flow_template, inspect_command_template, list_backups, list_blacklist_patterns,
     list_builtin_command_flow_templates, list_command_flow_templates, list_connections,
-    list_custom_show_objects, list_inventory_groups, list_inventory_labels,
+    list_credentials, list_custom_show_objects, list_inventory_groups, list_inventory_labels,
     list_orchestration_templates, list_profiles, list_show_objects, list_task_runs, list_templates,
     list_textfsm_mappings, list_textfsm_templates, list_tx_block_templates,
     list_tx_workflow_templates, preview_tx_workflow_template, profiles_overview, render_template,
     replay_session, restore_backup, test_connection, update_command_flow_template,
-    update_orchestration_template, update_template, update_textfsm_template,
+    update_credential, update_orchestration_template, update_template, update_textfsm_template,
     update_tx_block_template, update_tx_workflow_template, upsert_connection,
     upsert_custom_profile_form, upsert_custom_show_object, upsert_inventory_group,
     upsert_inventory_label, upsert_textfsm_mapping,
@@ -218,6 +219,21 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/command-flow/execute", post(execute_command_flow))
         .route("/api/flow/execute", post(execute_command_flow))
         .route("/api/connections", get(list_connections))
+        .route(
+            "/api/credentials",
+            get(list_credentials).post(create_credential),
+        )
+        .route(
+            "/api/credentials/{id}",
+            get(get_credential)
+                .put(update_credential)
+                .delete(delete_credential),
+        )
+        .route("/api/credentials/import", post(import_credentials))
+        .route(
+            "/api/credentials/import-template",
+            get(download_credential_import_template),
+        )
         .route("/api/inventory/groups", get(list_inventory_groups))
         .route("/api/inventory/labels", get(list_inventory_labels))
         .route("/api/connections/import", post(import_connections))

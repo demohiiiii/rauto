@@ -483,21 +483,9 @@ pub struct GlobalOpts {
     #[arg(long, short = 'H', global = true)]
     pub host: Option<String>,
 
-    /// SSH username
-    #[arg(long, short = 'u', global = true)]
-    pub username: Option<String>,
-
-    /// SSH password (if not provided, will prompt or use agent)
-    #[arg(long, short = 'p', global = true)]
-    pub password: Option<String>,
-
     /// SSH port
     #[arg(long = "ssh-port", short = 'P', global = true)]
     pub port: Option<u16>,
-
-    /// Enable password (for Cisco Enable mode etc.)
-    #[arg(long, short = 'e', global = true)]
-    pub enable_password: Option<String>,
 
     /// SSH security profile for key exchange / cipher compatibility
     #[arg(long, global = true, value_enum)]
@@ -523,11 +511,11 @@ pub struct GlobalOpts {
     #[arg(long, short = 'c', global = true)]
     pub connection: Option<String>,
 
+    /// Reusable device credential name or id
+    #[arg(long, global = true)]
+    pub credential: Option<String>,
+
     /// Save effective connection profile with this name after successful connect
     #[arg(long, short = 'S', global = true)]
     pub save_connection: Option<String>,
-
-    /// Deprecated no-op: passwords are saved with --save-connection.
-    #[arg(long, global = true, default_value_t = false, hide = true)]
-    pub save_password: bool,
 }
