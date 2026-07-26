@@ -11,7 +11,7 @@ mod tx;
 mod tx_workflow;
 
 pub use config_fetch::fetch_config_batch;
-pub use flow_upload::{execute_command_flow, execute_upload};
+pub use flow_upload::{execute_command_flow, execute_flow_batch, execute_upload};
 pub use orchestration::{execute_orchestration, execute_orchestration_async};
 pub use standard::{
     ShowObjectsQuery, exec_command, exec_command_async, execute_exec_batch, execute_show,

@@ -16,6 +16,14 @@ const navigationDefinitions = [
     group: "operations",
   },
   {
+    id: "batch",
+    path: "/app/batch",
+    tab: "batch",
+    labelKey: "opSectionBatch",
+    label: "Batch Delivery",
+    group: "operations",
+  },
+  {
     id: "tx-block",
     path: "/app/tx-block",
     tab: "orchestrated",
@@ -139,6 +147,7 @@ export const dashboardNavigationItems = navigationDefinitions.map(
 export const dashboardPageDefinitions = [
   { id: "show", load: () => import("../pages/ShowPage.svelte") },
   { id: "standard", load: () => import("../pages/StandardPage.svelte") },
+  { id: "batch", load: () => import("../pages/BatchPage.svelte") },
   {
     id: "orchestrated",
     load: () => import("../pages/OrchestratedPage.svelte"),

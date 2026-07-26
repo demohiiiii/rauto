@@ -301,6 +301,27 @@ export const batchExecTargetPickerFields = Object.freeze([
   },
 ]);
 
+export const batchFlowTargetPickerFields = Object.freeze([
+  {
+    key: "targets",
+    keyName: CONNECTION_PICKER.batchFlowTargets,
+    labelKey: "batchShowTargetsLabel",
+    placeholderKey: "batchShowTargetsPlaceholder",
+  },
+  {
+    key: "groups",
+    keyName: CONNECTION_PICKER.batchFlowGroups,
+    labelKey: "batchShowGroupsLabel",
+    placeholderKey: "batchShowGroupsPlaceholder",
+  },
+  {
+    key: "labels",
+    keyName: CONNECTION_PICKER.batchFlowLabels,
+    labelKey: "batchShowLabelsLabel",
+    placeholderKey: "batchShowLabelsPlaceholder",
+  },
+]);
+
 export const CONNECTION_MODAL_FOCUS_TARGET = Object.freeze({
   savedConnectionSelect: "savedConnectionSelect",
   temporaryHostInput: "temporaryHostInput",

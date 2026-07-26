@@ -340,6 +340,56 @@ pub struct ExecuteCommandFlowResponse {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct FlowBatchExecuteRequest {
+    #[serde(default)]
+    pub template_name: Option<String>,
+    #[serde(default)]
+    pub builtin_template_name: Option<String>,
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub vars: Value,
+    pub textfsm_template: Option<String>,
+    #[serde(default)]
+    pub parse_textfsm: bool,
+    #[serde(default)]
+    pub textfsm_platform: Option<String>,
+    #[serde(default)]
+    pub textfsm_vendor: Option<String>,
+    #[serde(default)]
+    pub textfsm_strict_errors: bool,
+    #[serde(default)]
+    pub targets: Vec<String>,
+    #[serde(default)]
+    pub groups: Vec<String>,
+    #[serde(default, alias = "tags")]
+    pub labels: Vec<String>,
+    #[serde(default)]
+    pub max_parallel: Option<usize>,
+    pub record_level: Option<RecordLevel>,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FlowBatchTargetResponse {
+    pub target: String,
+    pub host: String,
+    pub profile: String,
+    pub success: Option<bool>,
+    pub outputs: Vec<CommandResult>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FlowBatchExecuteResponse {
+    pub template_name: String,
+    pub targets: Vec<String>,
+    pub results: Vec<FlowBatchTargetResponse>,
+    pub result_summary: TaskResultSummary,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ExecuteUploadRequest {
     pub local_path: String,
     pub remote_path: String,

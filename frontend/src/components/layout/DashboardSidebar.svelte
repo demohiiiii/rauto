@@ -2,6 +2,7 @@
   import SearchIcon from "@lucide/svelte/icons/search";
   import SendIcon from "@lucide/svelte/icons/send";
   import BoxesIcon from "@lucide/svelte/icons/boxes";
+  import LayersIcon from "@lucide/svelte/icons/layers";
   import WorkflowIcon from "@lucide/svelte/icons/workflow";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import HistoryIcon from "@lucide/svelte/icons/history";
@@ -37,6 +38,7 @@
   const navIconComponents = {
     show: SearchIcon,
     standard: SendIcon,
+    batch: LayersIcon,
     "tx-block": BoxesIcon,
     "tx-workflow": WorkflowIcon,
     orchestrate: NetworkIcon,

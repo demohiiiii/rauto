@@ -307,6 +307,20 @@ pub(super) fn map_fetch_config_batch_response(
     })
 }
 
+pub(super) fn map_execute_flow_batch_response(
+    response: crate::web::models::FlowBatchExecuteResponse,
+) -> Result<ExecuteFlowBatchResponse, Status> {
+    Ok(ExecuteFlowBatchResponse {
+        template_name: response.template_name,
+        targets: response.targets,
+        results_json: serde_json::to_string(&response.results)
+            .map_err(|err| Status::internal(format!("failed to serialize flow results: {err}")))?,
+        result_summary_json: Some(serde_json::to_string(&response.result_summary).map_err(
+            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
+        )?),
+    })
+}
+
 pub(super) fn map_execute_tx_workflow_response(
     response: crate::web::models::ExecuteTxWorkflowResponse,
 ) -> Result<ExecuteTxWorkflowResponse, Status> {

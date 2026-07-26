@@ -34,7 +34,8 @@ use crate::web::models::{
     ExecuteCommandFlowRequest, ExecuteCommandFlowResponse, ExecuteOrchestrationRequest,
     ExecuteOrchestrationResponse, ExecuteTemplateRequest, ExecuteTemplateResponse,
     ExecuteTxBlockRequest, ExecuteTxBlockResponse, ExecuteTxWorkflowRequest,
-    ExecuteTxWorkflowResponse, ExecuteUploadRequest, ExecuteUploadResponse, RecordLevel,
+    ExecuteTxWorkflowResponse, ExecuteUploadRequest, ExecuteUploadResponse,
+    FlowBatchExecuteRequest, FlowBatchExecuteResponse, FlowBatchTargetResponse, RecordLevel,
     RenderRequest, RenderResponse, SavedConnectionDetail, ShowBatchExecuteRequest,
     ShowBatchExecuteResponse, ShowBatchTargetResponse, ShowExecuteRequest, ShowExecuteResponse,
     ShowObjectEntry, ShowObjectsResponse, TaskEvent,
@@ -108,10 +109,10 @@ pub use credentials::{
 };
 pub use execute::{
     ShowObjectsQuery, exec_command, exec_command_async, execute_command_flow, execute_exec_batch,
-    execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
-    execute_template, execute_template_async, execute_tx_block, execute_tx_block_async,
-    execute_tx_workflow, execute_tx_workflow_async, execute_upload, fetch_config_batch,
-    list_show_objects, render_template,
+    execute_flow_batch, execute_orchestration, execute_orchestration_async, execute_show,
+    execute_show_batch, execute_template, execute_template_async, execute_tx_block,
+    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
+    fetch_config_batch, list_show_objects, render_template,
 };
 use flow_templates::{
     builtin_command_flow_template_by_name, parse_builtin_command_flow_template_token,

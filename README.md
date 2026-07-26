@@ -218,7 +218,7 @@ rauto exec "show clock" \
     --max-parallel 8
 ```
 
-TextFSM options work in multi-target mode too; `--textfsm-excel` merges parsed rows from all targets and adds `device` / `profile` / `command` metadata columns. The web UI exposes the same capability under **Standard Delivery -> Batch**.
+TextFSM options work in multi-target mode too; `--textfsm-excel` merges parsed rows from all targets and adds `device` / `profile` / `command` metadata columns. The web UI exposes the same capability on the dedicated **Batch Delivery** page.
 
 ### Show Mode
 
@@ -390,6 +390,8 @@ rauto flow \
     --label campus \
     --max-parallel 4
 ```
+
+The web UI runs batch flows on the **Batch Delivery** page (flow tab), and integrations can call `POST /api/flow/batch-execute` (or the agent gRPC `ExecuteFlowBatch` method) with the same per-target rendering and precheck semantics.
 
 Notes:
 
@@ -650,7 +652,7 @@ Web console key capabilities:
 
 - Manage reusable device credentials in the standalone `Credential Management` page. Password values are never returned to the browser after saving.
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
-- Run one command across many saved connections, groups, or labels in the `Standard Delivery -> Batch` tab, with per-device result cards and a concurrency control.
+- Run one command or one command flow across many saved connections, groups, or labels on the dedicated `Batch Delivery` page, with per-device result cards and a concurrency control.
 - Select a credential for saved and temporary connections instead of entering authentication fields on each connection.
 - Download a CSV import template and import saved connections from CSV / Excel in UI.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.

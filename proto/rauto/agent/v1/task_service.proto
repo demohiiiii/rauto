@@ -70,6 +70,7 @@ service AgentTaskService {
   rpc ExecuteShow(ExecuteShowRequest) returns (ExecuteShowResponse);
   rpc ExecuteShowBatch(ExecuteShowBatchRequest) returns (ExecuteShowBatchResponse);
   rpc ExecuteExecBatch(ExecuteExecBatchRequest) returns (ExecuteExecBatchResponse);
+  rpc ExecuteFlowBatch(ExecuteFlowBatchRequest) returns (ExecuteFlowBatchResponse);
   rpc FetchConfigBatch(FetchConfigBatchRequest) returns (FetchConfigBatchResponse);
   rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
   rpc ExecuteCommandAsync(ExecuteCommandRequest) returns (AcceptedTaskResponse);
@@ -568,6 +569,31 @@ message FetchConfigBatchRequest {
 
 message FetchConfigBatchResponse {
   string          kind                = 1;
+  repeated string targets             = 2;
+  string          results_json        = 3;
+  optional string result_summary_json = 4;
+}
+
+message ExecuteFlowBatchRequest {
+  string          task_id               = 1;
+  string          template_name         = 2;
+  string          builtin_template_name = 3;
+  string          content               = 4;
+  string          vars_json             = 5;
+  string          textfsm_template      = 6;
+  bool            parse_textfsm         = 7;
+  string          textfsm_platform      = 8;
+  string          textfsm_vendor        = 9;
+  bool            textfsm_strict_errors = 10;
+  repeated string targets               = 11;
+  repeated string groups                = 12;
+  repeated string labels                = 13;
+  uint32          max_parallel          = 14;
+  string          record_level          = 15;
+}
+
+message ExecuteFlowBatchResponse {
+  string          template_name       = 1;
   repeated string targets             = 2;
   string          results_json        = 3;
   optional string result_summary_json = 4;

@@ -218,7 +218,7 @@ rauto exec "show clock" \
     --max-parallel 8
 ```
 
-TextFSM 相关参数在多目标模式下同样可用；`--textfsm-excel` 会合并所有目标的解析行，并附加 `device` / `profile` / `command` 元数据列。Web UI 中对应能力位于 **普通下发 -> 批量执行**。
+TextFSM 相关参数在多目标模式下同样可用；`--textfsm-excel` 会合并所有目标的解析行，并附加 `device` / `profile` / `command` 元数据列。Web UI 中对应能力位于独立的 **批量下发** 页面。
 
 ### Show 模式
 
@@ -390,6 +390,8 @@ rauto flow \
     --label campus \
     --max-parallel 4
 ```
+
+Web UI 可在 **批量下发** 页面的命令流标签页执行批量命令流；集成方可调用 `POST /api/flow/batch-execute`（或 agent gRPC 的 `ExecuteFlowBatch` 方法），预检与按设备渲染语义与 CLI 完全一致。
 
 说明：
 
@@ -649,7 +651,7 @@ Web 控制台主要能力：
 
 - 在独立的“凭证管理”页面管理可复用设备凭证；保存后不会把明文密码返回给浏览器。
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
-- 在 `普通下发 -> 批量执行` 标签页对多个已保存连接、分组或标签批量执行同一条命令，逐台展示结果卡片并支持并发数控制。
+- 在独立的 `批量下发` 页面对多个已保存连接、分组或标签批量执行同一条命令或同一个命令流，逐台展示结果卡片并支持并发数控制。
 - 在已保存连接和临时连接中选择设备凭证，不再在每条连接里重复填写账号和密码。
 - 支持在页面中下载连接导入模板，并从 CSV / Excel 批量导入已保存连接。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。

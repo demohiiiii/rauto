@@ -1255,6 +1255,42 @@ impl AgentTaskService for AgentTaskGrpcService {
         Ok(Response::new(map_execute_exec_batch_response(response)?))
     }
 
+    async fn execute_flow_batch(
+        &self,
+        request: Request<ExecuteFlowBatchRequest>,
+    ) -> Result<Response<ExecuteFlowBatchResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = execute_flow_batch(
+            State(self.state.clone()),
+            Json(WebFlowBatchExecuteRequest {
+                template_name: optional_string(req.template_name),
+                builtin_template_name: optional_string(req.builtin_template_name),
+                content: optional_string(req.content),
+                vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
+                textfsm_template: optional_string(req.textfsm_template),
+                parse_textfsm: req.parse_textfsm,
+                textfsm_platform: optional_string(req.textfsm_platform),
+                textfsm_vendor: optional_string(req.textfsm_vendor),
+                textfsm_strict_errors: req.textfsm_strict_errors,
+                targets: req.targets,
+                groups: req.groups,
+                labels: req.labels,
+                max_parallel: if req.max_parallel == 0 {
+                    None
+                } else {
+                    Some(req.max_parallel as usize)
+                },
+                record_level: parse_record_level(&req.record_level)?,
+                task: map_managed_task_options(req.task_id),
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_execute_flow_batch_response(response)?))
+    }
+
     async fn fetch_config_batch(
         &self,
         request: Request<FetchConfigBatchRequest>,
