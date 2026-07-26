@@ -726,7 +726,7 @@ rauto connection test \
 rauto connection list
 rauto connection show lab1
 rauto connection delete lab1
-rauto history list lab1 --limit 20
+rauto session list lab1 --limit 20
 ```
 
 凭证引用规则：
@@ -1244,8 +1244,12 @@ Group JSON 结构：
 
 - `exec/template/flow/tx --record-file <path>` / `-r <path>`：执行后保存录制 JSONL。
 - `exec/template/flow/tx --record-level <key-events-only|full>` / `-l <level>`：录制粒度。
-- `replay <record_file> --list`：列出录制中的命令输出事件。
-- `replay <record_file> --command <cmd> [--mode <mode>]`：回放单条命令输出。
+- `session`：展示最近一条已保存的会话记录。
+- `session list [connection] [--limit N] [--json]`：按时间倒序列出会话记录。
+- `session show [record_id] [--connection <name>] [--json|--raw]`：展示记录详情；不传 ID 时展示符合条件的最近一条。
+- `session delete <record_id> [--connection <name>]`：删除已保存的会话记录。
+- `session replay [record_file] [--id <record_id>] [--connection <name>] [--list]`：检查数据库记录或 JSONL 文件。
+- `session replay [record_file] [--id <record_id>] [--connection <name>] --command <cmd> [--mode <mode>]`：回放单条命令输出。
 - 回放得到的 `SessionEvent::CommandOutput` 可能额外包含 `exit_code`，尤其适用于 Linux shell 类流程。
 
 ## 模板语法

@@ -1,18 +1,16 @@
 use crate::cli::{
-    BlacklistCommands, CredentialCommands, DeviceCommands, GlobalOpts, HistoryCommands,
-    InventoryCommands, InventoryGroupCommands, ProfileCommands,
+    BlacklistCommands, CredentialCommands, DeviceCommands, GlobalOpts, InventoryCommands,
+    InventoryGroupCommands, ProfileCommands,
 };
 use crate::config::connection_import::{self, ConnectionImportReport};
 use crate::config::connection_store::{
     self, delete_connection, list_connections, load_connection_raw,
 };
 use crate::config::device_credential_import::{self, DeviceCredentialImportReport};
-use crate::config::history_store;
 use crate::config::{command_blacklist, content_store, inventory_store, template_loader};
 use crate::device::DeviceClient;
 use anyhow::{Result, anyhow};
 use rneter::session::DetectRequest;
-use rneter::session::SessionRecorder;
 use rneter::templates::{
     DetectConnectPolicy, DetectFactKind, TemplateDetectCandidate, TemplateDetectFact,
     TemplateDetectReport, autodetect_with_builtin_and_templates_and_context,
@@ -624,77 +622,6 @@ fn enable_presence(item: &CredentialCliOutput) -> &'static str {
     } else {
         "none"
     }
-}
-
-pub(crate) fn run_history_command(cmd: HistoryCommands) -> Result<()> {
-    match cmd {
-        HistoryCommands::List { name, limit, json } => {
-            let safe = connection_store::safe_connection_name(&name)?;
-            let items = history_store::list_history_by_connection_name(&safe, limit)?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&items)?);
-                return Ok(());
-            }
-            println!("# connection: {}", safe);
-            if items.is_empty() {
-                println!("-");
-                return Ok(());
-            }
-            for item in items {
-                println!(
-                    "- [{}] {} mode={} level={} file={}",
-                    item.ts_ms,
-                    item.command_label,
-                    item.mode.unwrap_or_else(|| "-".to_string()),
-                    item.record_level,
-                    item.record_path
-                );
-            }
-        }
-        HistoryCommands::Show { name, id, json } => {
-            let safe = connection_store::safe_connection_name(&name)?;
-            let items = history_store::list_history_by_connection_name(&safe, 0)?;
-            let item = items
-                .into_iter()
-                .find(|entry| entry.id == id)
-                .ok_or_else(|| anyhow!("history record not found"))?;
-            let jsonl = history_store::load_recording_jsonl_by_key(&item.connection_key, &item.id)?
-                .ok_or_else(|| anyhow!("history record body not found"))?;
-            let recorder = SessionRecorder::from_jsonl(&jsonl)?;
-            let entries = recorder.entries()?;
-            if json {
-                let value = serde_json::json!({ "meta": item, "entries": entries });
-                println!("{}", serde_json::to_string_pretty(&value)?);
-                return Ok(());
-            }
-            println!("id: {}", item.id);
-            println!("ts_ms: {}", item.ts_ms);
-            println!(
-                "connection: {}",
-                item.connection_name.clone().unwrap_or("-".to_string())
-            );
-            println!("host: {}", item.host);
-            println!("port: {}", item.port);
-            println!("username: {}", item.username);
-            println!("device_profile: {}", item.device_profile);
-            println!("operation: {}", item.operation);
-            println!("command_label: {}", item.command_label);
-            println!("mode: {}", item.mode.clone().unwrap_or("-".to_string()));
-            println!("record_level: {}", item.record_level);
-            println!("record_path: {}", item.record_path);
-            println!("entries: {}", entries.len());
-        }
-        HistoryCommands::Delete { name, id } => {
-            let safe = connection_store::safe_connection_name(&name)?;
-            let deleted = history_store::delete_history_by_connection_name(&safe, &id)?;
-            if deleted {
-                println!("Deleted history record '{}'", id);
-            } else {
-                println!("History record '{}' not found", id);
-            }
-        }
-    }
-    Ok(())
 }
 
 pub(crate) fn run_blacklist_command(cmd: BlacklistCommands) -> Result<()> {

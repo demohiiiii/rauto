@@ -7,7 +7,7 @@ import {
 import { storageGet, storageSet } from "../../lib/browser.js";
 import { t, tr } from "../../lib/i18n.js";
 import { confirmUserChoice, formatTimestamp } from "../../lib/ui.js";
-import { openDetailModal, openHistoryDrawer } from "../overlays/overlays.js";
+import { openDetailModal } from "../overlays/overlays.js";
 
 const HISTORY_STORAGE = {
   limit: "rauto_history_filter_limit",
@@ -133,11 +133,6 @@ export async function refreshConnectionHistory() {
     historyRefreshLoading = false;
     updateHistoryDrawerState({ refreshLoading: false });
   }
-}
-
-export async function openConnectionHistoryDrawer() {
-  openHistoryDrawer();
-  await loadConnectionHistory();
 }
 
 export async function loadConnectionHistoryDetail(historyId) {

@@ -8,7 +8,6 @@ import {
   applyOverlayBodyLock,
   closeDetailModal,
   closeEntryDrawer,
-  closeHistoryDrawer,
   closeRecordDrawer,
   dashboardRecordToolsPresentation,
   detailModal,
@@ -32,7 +31,6 @@ const dashboardOverlayEntryState = entryDrawer;
 const applyDashboardOverlayBodyLock = (locked) => applyOverlayBodyLock(locked);
 
 export const closeDashboardEntryDrawer = () => closeEntryDrawer();
-export const closeDashboardHistoryDrawer = () => closeHistoryDrawer();
 export const closeDashboardRecordDrawer = () => closeRecordDrawer();
 export const closeDashboardOverlayOnEscape = (event) =>
   closeTopDashboardOverlayOnEscape(event);
@@ -71,11 +69,6 @@ function closeTopDashboardOverlayOnEscape(event) {
     return true;
   }
 
-  if (drawerState.historyDrawerOpen) {
-    closeHistoryDrawer();
-    return true;
-  }
-
   return false;
 }
 
@@ -88,20 +81,14 @@ function dashboardOverlayHostPresentation({
   const connectionModalOpen = !!connectionState.modalOpen;
   const detailModalOpen = !!detailState.open;
   const entryDrawerOpen = !!entryState.open;
-  const historyDrawerOpen = !!overlayState.historyDrawerOpen;
   const recordDrawerOpen = !!overlayState.recordDrawerOpen;
   const savedConnectionEditorOpen = !!connectionState.savedEditorOpen;
 
   return {
-    bodyLocked:
-      recordDrawerOpen ||
-      historyDrawerOpen ||
-      detailModalOpen ||
-      entryDrawerOpen,
+    bodyLocked: recordDrawerOpen || detailModalOpen || entryDrawerOpen,
     connectionModalOpen,
     detailModalOpen,
     entryDrawerOpen,
-    historyDrawerOpen,
     recordDrawerOpen,
     savedConnectionEditorOpen,
   };
@@ -138,7 +125,6 @@ export function createDashboardOverlayHostWorkspace() {
       connectionModal: $loadedOverlayComponents.connectionModal || null,
       detailModal: $loadedOverlayComponents.detailModal || null,
       entryDrawer: $loadedOverlayComponents.entryDrawer || null,
-      historyDrawer: $loadedOverlayComponents.historyDrawer || null,
       recordDrawer: $loadedOverlayComponents.recordDrawer || null,
       savedConnectionEditModal:
         $loadedOverlayComponents.savedConnectionEditModal || null,
@@ -154,9 +140,6 @@ export function createDashboardOverlayHostWorkspace() {
     }
     if (hostDisplay.entryDrawerOpen) {
       overlayRegistry.ensure("entryDrawer");
-    }
-    if (hostDisplay.historyDrawerOpen) {
-      overlayRegistry.ensure("historyDrawer");
     }
     if (hostDisplay.recordDrawerOpen) {
       overlayRegistry.ensure("recordDrawer");

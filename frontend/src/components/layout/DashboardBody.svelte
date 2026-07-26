@@ -1,7 +1,6 @@
 <script>
   import CircleIcon from "@lucide/svelte/icons/circle";
   import VideoIcon from "@lucide/svelte/icons/video";
-  import ClockIcon from "@lucide/svelte/icons/clock";
   import MenuIcon from "@lucide/svelte/icons/menu";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Sheet from "$lib/components/ui/sheet/index.js";
@@ -29,7 +28,6 @@
     bodyDisplayStateStore,
     closeSidebarAction,
     documentKeydownHandler,
-    openHistoryDrawerAction,
     openRecordDrawerAction,
     openSidebarAction,
     pageOutletRowsStateStore,
@@ -148,19 +146,6 @@
                   {recordToolsDisplay.recordFabBadgeText}
                 </span>
               {/if}
-            </Button>
-            <Button
-              class={topbarToolButtonClass}
-              variant="ghost"
-              size="sm"
-              type="button"
-              title={recordToolsDisplay.historyButtonLabel}
-              onclick={openHistoryDrawerAction}
-            >
-              <ClockIcon data-icon="inline-start" aria-hidden="true" />
-              <span class="leading-none">
-                {recordToolsDisplay.historyButtonLabel}
-              </span>
             </Button>
           </div>
         </div>

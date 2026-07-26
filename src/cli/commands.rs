@@ -1,6 +1,6 @@
 use super::args::{
-    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, ReplayArgs, ShowArgs,
-    TemplateArgs, TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
+    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, ShowArgs, TemplateArgs,
+    TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -68,9 +68,8 @@ pub enum Commands {
     #[command(subcommand)]
     Inventory(InventoryCommands),
 
-    /// Inspect saved connection execution history
-    #[command(subcommand)]
-    History(HistoryCommands),
+    /// Inspect, manage, and replay session records; defaults to the most recent record
+    Session(SessionArgs),
 
     /// Manage blocked command patterns
     #[command(subcommand)]
@@ -83,9 +82,6 @@ pub enum Commands {
     /// Manage custom TextFSM templates and profile command mappings
     #[command(subcommand)]
     Textfsm(TextfsmCommands),
-
-    /// Replay or inspect recorded session JSONL data
-    Replay(ReplayArgs),
 
     /// Execute commands as a transaction-like block with rollback support
     Tx(TxArgs),
@@ -530,36 +526,69 @@ pub enum InventoryGroupCommands {
     },
 }
 
+#[derive(Args, Debug)]
+pub struct SessionArgs {
+    #[command(subcommand)]
+    pub command: Option<SessionCommands>,
+}
+
 #[derive(Subcommand, Debug)]
-pub enum HistoryCommands {
-    /// Show execution history for a saved connection profile
+pub enum SessionCommands {
+    /// List session records, newest first
     List {
-        /// Saved connection profile name
-        name: String,
-        /// Max number of history items
+        /// Optional saved connection name to filter by
+        connection: Option<String>,
+        /// Maximum number of records
         #[arg(long, default_value_t = 20)]
         limit: usize,
-        /// Output history as JSON
+        /// Output records as JSON
         #[arg(long)]
         json: bool,
     },
-    /// Show detailed history entry for a saved connection profile
+    /// Show a session record; defaults to the most recent record
     Show {
-        /// Saved connection profile name
-        name: String,
-        /// History entry ID
-        id: String,
-        /// Output detail as JSON
+        /// Session record ID
+        id: Option<String>,
+        /// Output metadata and events as JSON
         #[arg(long)]
         json: bool,
+        /// Output the original JSONL recording
+        #[arg(long, conflicts_with = "json")]
+        raw: bool,
     },
-    /// Delete a history entry for a saved connection profile
+    /// Delete a session record
     Delete {
-        /// Saved connection profile name
-        name: String,
-        /// History entry ID
+        /// Session record ID
         id: String,
     },
+    /// Replay or inspect a database record or JSONL recording file
+    Replay(SessionReplayArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct SessionReplayArgs {
+    /// Optional JSONL recording file; defaults to a database record
+    #[arg(
+        value_name = "RECORD_FILE",
+        conflicts_with_all = ["id", "connection"]
+    )]
+    pub record_file: Option<PathBuf>,
+
+    /// Database session record ID; defaults to the most recent record
+    #[arg(long)]
+    pub id: Option<String>,
+
+    /// Command to replay once (matched against recorded command output events)
+    #[arg(long)]
+    pub command: Option<String>,
+
+    /// Optional mode constraint for replay command (e.g. Enable, Config)
+    #[arg(long, requires = "command")]
+    pub mode: Option<String>,
+
+    /// List recorded command output entries
+    #[arg(long)]
+    pub list: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -643,7 +672,7 @@ pub enum BackupCommands {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Commands, CredentialCommands};
+    use super::{Cli, Commands, CredentialCommands, SessionCommands};
     use clap::Parser;
 
     #[test]
@@ -750,6 +779,68 @@ mod tests {
             vec!["rauto", "credential", "delete", "network-ops"],
         ] {
             Cli::try_parse_from(args).expect("credential read/delete command should parse");
+        }
+    }
+
+    #[test]
+    fn session_commands_unify_recent_history_and_replay() {
+        let recent = Cli::try_parse_from(["rauto", "session"])
+            .expect("session should default to the most recent record");
+        assert!(matches!(
+            recent.command,
+            Commands::Session(super::SessionArgs { command: None })
+        ));
+
+        let list = Cli::try_parse_from([
+            "rauto", "session", "list", "edge92", "--limit", "10", "--json",
+        ])
+        .expect("session list should parse");
+        assert!(matches!(
+            list.command,
+            Commands::Session(super::SessionArgs {
+                command: Some(SessionCommands::List {
+                    connection: Some(connection),
+                    limit: 10,
+                    json: true,
+                }),
+            }) if connection == "edge92"
+        ));
+
+        for args in [
+            vec!["rauto", "session", "show"],
+            vec!["rauto", "session", "show", "record-id", "--raw"],
+            vec!["rauto", "session", "delete", "record-id"],
+            vec!["rauto", "session", "replay", "record.jsonl", "--list"],
+            vec!["rauto", "session", "replay", "--id", "record-id", "--list"],
+            vec!["rauto", "session", "replay", "--connection", "edge92"],
+        ] {
+            Cli::try_parse_from(args).expect("unified session command should parse");
+        }
+
+        for args in [
+            vec![
+                "rauto",
+                "session",
+                "replay",
+                "record.jsonl",
+                "--connection",
+                "edge92",
+            ],
+            vec!["rauto", "session", "replay", "--mode", "Enable"],
+        ] {
+            Cli::try_parse_from(args).expect_err("ambiguous replay source must be rejected");
+        }
+    }
+
+    #[test]
+    fn removed_history_and_replay_commands_are_rejected() {
+        for args in [
+            vec!["rauto", "history", "list", "edge92"],
+            vec!["rauto", "replay", "record.jsonl", "--list"],
+        ] {
+            let error =
+                Cli::try_parse_from(args).expect_err("old session commands must be removed");
+            assert_eq!(error.kind(), clap::error::ErrorKind::InvalidSubcommand);
         }
     }
 }

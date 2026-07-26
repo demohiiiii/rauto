@@ -473,15 +473,28 @@ test("entry drawer reuses shadcn-backed dashboard drawer shell", () => {
   assert.doesNotMatch(source, /role="dialog"/);
 });
 
-test("history drawer composes shadcn Sheet instead of custom fixed drawer", () => {
-  const source = read("frontend/src/components/overlays/HistoryDrawer.svelte");
+test("session records share one shadcn drawer with recent and history tabs", () => {
+  const source = read("frontend/src/components/overlays/RecordDrawer.svelte");
+  const dashboardBody = read(
+    "frontend/src/components/layout/DashboardBody.svelte",
+  );
+  const overlayHost = read(
+    "frontend/src/components/layout/DashboardOverlayHost.svelte",
+  );
+  const overlayDefinitions = read("frontend/src/config/dashboardNavigation.js");
 
-  assert.match(source, /ui\/sheet/);
-  assert.match(source, /<Sheet\.Root/);
-  assert.match(source, /<Sheet\.Content/);
-  assert.match(source, /<Sheet\.Title/);
-  assert.doesNotMatch(source, /role="dialog"/);
-  assert.doesNotMatch(source, /translate-x-full/);
+  assert.match(source, /DashboardDrawerShell/);
+  assert.match(source, /<Tabs\.Root/);
+  assert.match(source, /<Tabs\.List/);
+  assert.match(source, /<Tabs\.Trigger/);
+  assert.match(source, /<Tabs\.Content/);
+  assert.match(source, /HistoryDrawerContent/);
+  assert.match(source, /SESSION_RECORDS_VIEW\.recent/);
+  assert.match(source, /selectedView === SESSION_RECORDS_VIEW\.history/);
+  assert.match(source, /refreshHistory\(\)/);
+  assert.doesNotMatch(dashboardBody, /openHistoryDrawerAction|ClockIcon/);
+  assert.doesNotMatch(overlayHost, /HistoryDrawerComponent/);
+  assert.doesNotMatch(overlayDefinitions, /historyDrawer:/);
 });
 
 test("history drawer filters reuse the shadcn select wrapper", () => {
@@ -498,7 +511,7 @@ test("history drawer and detail modal follow the demo card-based design", () => 
     "frontend/src/components/overlays/HistoryDrawerContent.svelte",
   );
   const drawerShellSource = read(
-    "frontend/src/components/overlays/HistoryDrawer.svelte",
+    "frontend/src/components/overlays/RecordDrawer.svelte",
   );
   const detailSource = read(
     "frontend/src/components/overlays/DetailModalContent.svelte",

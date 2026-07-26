@@ -1,17 +1,28 @@
 <script>
   import { Button } from "$lib/components/ui/button/index.js";
+  import { cn } from "$lib/utils.js";
   import { listCredentials } from "../../api/client.js";
   import { credentialErrorMessage } from "../../modules/credentials/credentialState.js";
   import { t } from "../../lib/i18n.js";
-  import KeyRoundIcon from "@lucide/svelte/icons/key-round";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import { onMount } from "svelte";
   import CredentialCreateDialog from "../credentials/CredentialCreateDialog.svelte";
+  import PlainSelectField from "../fragments/PlainSelectField.svelte";
 
   let { value = "", onValueChange } = $props();
   let credentials = $state([]);
   let loading = $state(false);
   let error = $state("");
+  let credentialOptionRows = $derived([
+    {
+      optionLabel: t("credentialRequired"),
+      optionValue: "",
+    },
+    ...credentials.map((credential) => ({
+      optionLabel: `${credential.name} · ${credential.username}`,
+      optionValue: credential.id,
+    })),
+  ]);
 
   async function loadOptions() {
     loading = true;
@@ -26,8 +37,8 @@
     }
   }
 
-  function handleChange(event) {
-    onValueChange?.(event.currentTarget.value);
+  function handleValueChange(nextValue) {
+    onValueChange?.(nextValue);
   }
 
   function handleCreated(row) {
@@ -55,30 +66,20 @@
         disabled={loading}
         onclick={loadOptions}
       >
-        <RefreshCwIcon class={loading ? "size-4 animate-spin" : "size-4"} />
+        <RefreshCwIcon class={cn(loading && "animate-spin")} />
       </Button>
       <CredentialCreateDialog onCreated={handleCreated} />
     </div>
   </div>
-  <div class="relative">
-    <KeyRoundIcon
-      class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-      aria-hidden="true"
-    />
-    <select
-      class="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label={t("credentialName")}
-      {value}
-      onchange={handleChange}
-    >
-      <option value="">{t("credentialRequired")}</option>
-      {#each credentials as credential (credential.id)}
-        <option value={credential.id}>
-          {credential.name} · {credential.username}
-        </option>
-      {/each}
-    </select>
-  </div>
+  <PlainSelectField
+    class="min-w-0 justify-between truncate"
+    title={t("credentialRequired")}
+    aria-label={t("credentialName")}
+    {value}
+    optionRows={credentialOptionRows}
+    disabled={loading}
+    onValueChange={handleValueChange}
+  />
   {#if error}
     <p class="text-xs text-destructive">{error}</p>
   {:else if value === ""}

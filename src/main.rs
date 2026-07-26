@@ -11,6 +11,8 @@ mod cli_json_templates;
 mod cli_ops;
 #[path = "cli/runtime.rs"]
 mod cli_runtime;
+#[path = "cli/session.rs"]
+mod cli_session;
 #[path = "cli/tx_block.rs"]
 mod cli_tx_block;
 #[path = "cli/tx_workflow.rs"]
@@ -176,8 +178,8 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Inventory(cmd) => {
             cli_ops::run_inventory_command(cmd)?;
         }
-        Commands::History(cmd) => {
-            cli_ops::run_history_command(cmd)?;
+        Commands::Session(args) => {
+            cli_session::run_session_command(args, &cli.global_opts)?;
         }
         Commands::Blacklist(cmd) => {
             cli_ops::run_blacklist_command(cmd)?;
@@ -187,9 +189,6 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Textfsm(cmd) => {
             cli_exec::run_textfsm_command(cmd)?;
-        }
-        Commands::Replay(args) => {
-            cli_exec::run_replay(args)?;
         }
     }
 

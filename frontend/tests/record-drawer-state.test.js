@@ -3,13 +3,30 @@ import test from "node:test";
 
 import { get } from "svelte/store";
 import {
+  SESSION_RECORDS_VIEW,
+  closeRecordDrawer,
   createRecordDrawerContentWorkspace,
   createRecordDrawerWorkspace,
+  openRecordDrawer,
+  overlayDrawerState,
+  sessionRecordsViewState,
+  setSessionRecordsView,
 } from "../src/modules/overlays/overlaysDrawerState.js";
 
 function inputEvent(value, checked = false) {
   return { currentTarget: { checked, value } };
 }
+
+test("opening session records always defaults to the recent recording", () => {
+  setSessionRecordsView(SESSION_RECORDS_VIEW.history);
+  assert.equal(get(sessionRecordsViewState), SESSION_RECORDS_VIEW.history);
+
+  openRecordDrawer();
+
+  assert.equal(get(sessionRecordsViewState), SESSION_RECORDS_VIEW.recent);
+  assert.equal(get(overlayDrawerState).recordDrawerOpen, true);
+  closeRecordDrawer();
+});
 
 test("record drawer content handlers preserve value and checked event contracts", () => {
   const calls = [];

@@ -147,14 +147,16 @@ rauto orchestrate --template campus-rollout --vars-json '{"site":"dc-a"}' --view
 
 Use nested `template` subcommands under `tx-workflow` and `orchestrate`; do not invent flat commands like `tx-workflow-template`.
 
-## Inventory, History, Replay, Upload, Backup
+## Inventory, Session Records, Upload, Backup
 
 ```bash
 rauto inventory group list --json
 rauto inventory group show access --json
 rauto inventory group upsert access --file ./access-group.json
-rauto history list edge92 --limit 20 --json
-rauto replay ./record.jsonl --list
+rauto session
+rauto session list edge92 --limit 20 --json
+rauto session replay ./record.jsonl --list
+rauto session replay --connection edge92 --list
 rauto upload --connection edge92 --local-path ./pkg.tar --remote-path /tmp/pkg.tar
 rauto backup create
 rauto backup list

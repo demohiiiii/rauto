@@ -21,6 +21,10 @@ test("connection forms use a credential selector instead of secret inputs", () =
   assert.match(credentialField, /listCredentials/);
   assert.match(credentialField, /credentialRequired/);
   assert.match(credentialField, /CredentialCreateDialog/);
+  assert.match(credentialField, /PlainSelectField/);
+  assert.match(credentialField, /optionRows=\{credentialOptionRows\}/);
+  assert.match(credentialField, /disabled=\{loading\}/);
+  assert.doesNotMatch(credentialField, /<select\b/);
   assert.match(createDialog, /createCredential/);
   assert.match(createDialog, /onCreated\?\.\(row\)/);
   assert.match(createDialog, /Dialog\.Title/);

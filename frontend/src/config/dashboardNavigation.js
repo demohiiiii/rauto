@@ -159,7 +159,6 @@ export const dashboardOverlayDefinitions = {
     import("../components/connections/ConnectionModal.svelte"),
   detailModal: () => import("../components/overlays/DetailModal.svelte"),
   entryDrawer: () => import("../components/overlays/EntryDrawer.svelte"),
-  historyDrawer: () => import("../components/overlays/HistoryDrawer.svelte"),
   recordDrawer: () => import("../components/overlays/RecordDrawer.svelte"),
   savedConnectionEditModal: () =>
     import("../components/connections/SavedConnectionEditModal.svelte"),

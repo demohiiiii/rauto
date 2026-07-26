@@ -52,10 +52,16 @@ const recordDrawerDefaultPreferences = Object.freeze(
 );
 
 export const overlayDrawerState = writable({
-  historyDrawerOpen: false,
   recordDrawerOpen: false,
   recordFabCount: 0,
 });
+
+export const SESSION_RECORDS_VIEW = Object.freeze({
+  history: "history",
+  recent: "recent",
+});
+
+export const sessionRecordsViewState = writable(SESSION_RECORDS_VIEW.recent);
 
 export const recordDrawerRecordingState = writable({
   jsonl: "",
@@ -115,23 +121,41 @@ function updateOverlayDrawerState(patch = {}) {
   overlayDrawerState.update((state) => ({ ...state, ...patch }));
 }
 
-export const openRecordDrawer = () =>
+export const openRecordDrawer = () => {
+  sessionRecordsViewState.set(SESSION_RECORDS_VIEW.recent);
   updateOverlayDrawerState({ recordDrawerOpen: true });
+};
 export const closeRecordDrawer = () =>
   updateOverlayDrawerState({ recordDrawerOpen: false });
-export const openHistoryDrawer = () =>
-  updateOverlayDrawerState({ historyDrawerOpen: true });
-export const closeHistoryDrawer = () =>
-  updateOverlayDrawerState({ historyDrawerOpen: false });
+
+export function setSessionRecordsView(view = "") {
+  const normalizedView =
+    view === SESSION_RECORDS_VIEW.history
+      ? SESSION_RECORDS_VIEW.history
+      : SESSION_RECORDS_VIEW.recent;
+  sessionRecordsViewState.set(normalizedView);
+  return normalizedView;
+}
 
 function recordDrawerShellDisplay(overlayState = {}) {
-  const title = tr("recordingTitle");
+  const title = tr("recordFabTitle");
   return {
     ariaLabelText: title,
     closeLabel: tr("recordDrawerClose"),
     open: !!overlayState.recordDrawerOpen,
     subtitle: tr("recordDrawerSubtitle"),
     title,
+    viewLabel: tr("sessionRecordsViewsLabel"),
+    viewTabs: [
+      {
+        label: tr("sessionRecordsRecentTab"),
+        value: SESSION_RECORDS_VIEW.recent,
+      },
+      {
+        label: tr("sessionRecordsHistoryTab"),
+        value: SESSION_RECORDS_VIEW.history,
+      },
+    ],
   };
 }
 
@@ -280,9 +304,7 @@ function historyDrawerListPresentation(
 export function historyDrawerPresentation({
   drawerState = {},
   filterState = {},
-  overlayState = {},
 } = {}) {
-  const shellTitle = tr("historyDrawerTitle");
   const historyItems = Array.isArray(drawerState.historyItems)
     ? drawerState.historyItems
     : [];
@@ -320,13 +342,6 @@ export function historyDrawerPresentation({
     refreshButtonLabel: tr("historyDrawerRefresh"),
     refreshLoading: !!drawerState.refreshLoading,
     rowCountText: `${filteredRows.length} ${tr("historyListCountSuffix", "records")}`,
-    shellDisplay: {
-      ariaLabelText: shellTitle,
-      closeLabel: tr("close"),
-      open: !!overlayState.historyDrawerOpen,
-      subtitle: tr("historyDrawerSubtitle"),
-      title: shellTitle,
-    },
     tableHeaderCells:
       "historyColIndex|#,historyColTime|Time,historyColOperation|Operation,historyColCommand|Command,historyColMode|Mode,historyColProfile|Profile,historyColLevel|Level,tableAction|Action"
         .split(",")
@@ -364,7 +379,6 @@ export function dashboardRecordToolsPresentation({
   const levelDisplay = recordToolPresentation(recordLevel);
   const recordFabCount = Math.max(0, Number(overlayState.recordFabCount) || 0);
   return {
-    historyButtonLabel: tr("savedConnHistoryBtn"),
     levelHintText: tr(levelDisplay.hintKey),
     levelLabelText: tr(levelDisplay.labelKey),
     recordFabBadgeText: recordFabCount > 99 ? "99+" : String(recordFabCount),

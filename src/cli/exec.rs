@@ -1,6 +1,6 @@
 use crate::cli::{
-    ExecArgs, ReplayArgs, ShowArgs, ShowObjectCommands, TemplateArgs, TemplateCommands,
-    TextfsmCommands, TextfsmMappingCommands, TextfsmTemplateCommands,
+    ExecArgs, ShowArgs, ShowObjectCommands, TemplateArgs, TemplateCommands, TextfsmCommands,
+    TextfsmMappingCommands, TextfsmTemplateCommands,
 };
 use crate::config::{
     command_blacklist, connection_store, content_store, custom_show_object_store,
@@ -9,7 +9,6 @@ use crate::config::{
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use anyhow::Result;
-use rneter::session::{SessionEvent, SessionRecorder, SessionReplayer};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -925,61 +924,6 @@ fn run_textfsm_mapping_command(cmd: TextfsmMappingCommands) -> Result<()> {
             );
         }
     }
-    Ok(())
-}
-
-pub(crate) fn run_replay(args: ReplayArgs) -> Result<()> {
-    let jsonl = fs::read_to_string(&args.record_file)?;
-    let mut replayer = SessionReplayer::from_jsonl(&jsonl)?;
-
-    if let Some(ctx) = replayer.initial_context() {
-        println!(
-            "# context: device={} prompt={} fsm_prompt={}",
-            ctx.device_addr, ctx.prompt, ctx.fsm_prompt
-        );
-    }
-
-    if args.list {
-        let recorder = SessionRecorder::from_jsonl(&jsonl)?;
-        let entries = recorder.entries()?;
-        let mut index = 0usize;
-        for entry in entries {
-            if let SessionEvent::CommandOutput {
-                command,
-                mode,
-                success,
-                exit_code,
-                ..
-            } = entry.event
-            {
-                index += 1;
-                if let Some(exit_code) = exit_code {
-                    println!(
-                        "{}. mode={} success={} exit_code={} command={}",
-                        index, mode, success, exit_code, command
-                    );
-                } else {
-                    println!(
-                        "{}. mode={} success={} command={}",
-                        index, mode, success, command
-                    );
-                }
-            }
-        }
-        if index == 0 {
-            println!("-");
-        }
-    }
-
-    if let Some(command) = args.command {
-        let output = if let Some(mode) = args.mode.as_deref() {
-            replayer.replay_next_in_mode(&command, mode)?
-        } else {
-            replayer.replay_next(&command)?
-        };
-        println!("{}", output.content);
-    }
-
     Ok(())
 }
 

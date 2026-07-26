@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Operate, author, validate, and troubleshoot rauto through its CLI. Prefer show objects for device reads; use rollback-aware tx, tx-workflow, or orchestrate for configuration changes; handle command templates, command flows, multiline structured commands, saved devices, profiles, membership-only device groups, TextFSM, history, replay, backup, upload, local Web workbench startup, and managed-agent startup. Use when Codex needs to run rauto commands, start its services, build valid plans/templates, or diagnose CLI/runtime behavior."
+description: "Operate, author, validate, and troubleshoot rauto through its CLI. Prefer show objects for device reads; use rollback-aware tx, tx-workflow, or orchestrate for configuration changes; handle command templates, command flows, multiline structured commands, saved devices, profiles, membership-only device groups, TextFSM, session records and replay, backup, upload, local Web workbench startup, and managed-agent startup. Use when Codex needs to run rauto commands, start its services, build valid plans/templates, or diagnose CLI/runtime behavior."
 ---
 
 # Rauto Usage
@@ -22,7 +22,7 @@ Apply action-first behavior:
 
 ## Execution Rules
 
-1. Execute read/query commands immediately (for example `device list`, `history list`, `templates list`, or `replay <record-file> --list`).
+1. Execute read/query commands immediately (for example `device list`, `session list`, `templates list`, or `session replay <record-file> --list`).
 2. Prefer the show catalog for operational reads:
    - use `rauto show --list` to discover objects
    - use `rauto show <object>` for supported reads such as `version`, `interfaces`, `route`, `arp`, `vlan`, `mac`, `lldp`, `access-list`, and platform-specific objects
@@ -119,10 +119,8 @@ Ask only for missing mandatory fields:
   require effective `manager_url` and `agent_name` values from flags, environment, or agent config.
 - `web`:
   has no mandatory connection input; `rauto web` starts on `127.0.0.1:3000`, and connection flags only preconfigure the workbench.
-- `replay`:
-  require record file path (or inline JSONL when API path supports it).
-- `history`:
-  require saved connection name.
+- `session`:
+  has no mandatory input and defaults to the most recent saved record; use a record file, record ID, or connection filter only when the user requests a specific source.
 
 ## Response Format
 

@@ -87,9 +87,89 @@ pub fn list_history_by_connection_name(name: &str, limit: usize) -> Result<Vec<H
     list_history_by_key(&key, limit)
 }
 
+pub fn list_history(limit: usize) -> Result<Vec<HistoryEntry>> {
+    db::run_sync(async move {
+        let rows = if limit > 0 {
+            sqlx::query(
+                "SELECT * FROM history_entries WHERE record_jsonl <> '' ORDER BY ts_ms DESC LIMIT ?",
+            )
+            .bind(limit as i64)
+            .fetch_all(db::pool())
+            .await?
+        } else {
+            sqlx::query(
+                "SELECT * FROM history_entries WHERE record_jsonl <> '' ORDER BY ts_ms DESC",
+            )
+            .fetch_all(db::pool())
+            .await?
+        };
+        Ok(rows.into_iter().map(row_to_history_entry).collect())
+    })
+}
+
+pub fn find_history(
+    connection_name: Option<&str>,
+    id: Option<&str>,
+) -> Result<Option<HistoryEntry>> {
+    let connection_key = connection_name
+        .map(connection_store::safe_connection_name)
+        .transpose()?;
+    let safe_id = id.map(slug).filter(|value| !value.is_empty());
+    if id.is_some() && safe_id.is_none() {
+        return Ok(None);
+    }
+
+    db::run_sync(async move {
+        let row = match (connection_key, safe_id) {
+            (Some(key), Some(id)) => sqlx::query(
+                "SELECT * FROM history_entries WHERE connection_key = ? AND id = ? AND record_jsonl <> ''",
+            )
+            .bind(key)
+            .bind(id)
+            .fetch_optional(db::pool())
+            .await?,
+            (Some(key), None) => sqlx::query(
+                "SELECT * FROM history_entries WHERE connection_key = ? AND record_jsonl <> '' ORDER BY ts_ms DESC LIMIT 1",
+            )
+            .bind(key)
+            .fetch_optional(db::pool())
+            .await?,
+            (None, Some(id)) => sqlx::query(
+                "SELECT * FROM history_entries WHERE id = ? AND record_jsonl <> ''",
+            )
+            .bind(id)
+            .fetch_optional(db::pool())
+            .await?,
+            (None, None) => sqlx::query(
+                "SELECT * FROM history_entries WHERE record_jsonl <> '' ORDER BY ts_ms DESC LIMIT 1",
+            )
+            .fetch_optional(db::pool())
+            .await?,
+        };
+        Ok(row.map(row_to_history_entry))
+    })
+}
+
 pub fn delete_history_by_connection_name(name: &str, id: &str) -> Result<bool> {
     let key = connection_store::safe_connection_name(name)?;
     delete_history_by_key(&key, id)
+}
+
+pub fn delete_history(id: &str) -> Result<bool> {
+    let safe_id = slug(id);
+    if safe_id.is_empty() {
+        return Ok(false);
+    }
+
+    db::run_sync(async move {
+        let deleted = sqlx::query("DELETE FROM history_entries WHERE id = ?")
+            .bind(&safe_id)
+            .execute(db::pool())
+            .await?
+            .rows_affected()
+            > 0;
+        Ok(deleted)
+    })
 }
 
 pub fn delete_history_by_key(key: &str, id: &str) -> Result<bool> {
@@ -145,6 +225,24 @@ pub fn load_recording_jsonl_by_key(key: &str, id: &str) -> Result<Option<String>
         .bind(&safe_id)
         .fetch_optional(db::pool())
         .await?;
+        Ok(row.and_then(|row| {
+            let jsonl = row.get::<String, _>("record_jsonl");
+            if jsonl.is_empty() { None } else { Some(jsonl) }
+        }))
+    })
+}
+
+pub fn load_recording_jsonl(id: &str) -> Result<Option<String>> {
+    let safe_id = slug(id);
+    if safe_id.is_empty() {
+        return Ok(None);
+    }
+
+    db::run_sync(async move {
+        let row = sqlx::query("SELECT record_jsonl FROM history_entries WHERE id = ?")
+            .bind(&safe_id)
+            .fetch_optional(db::pool())
+            .await?;
         Ok(row.and_then(|row| {
             let jsonl = row.get::<String, _>("record_jsonl");
             if jsonl.is_empty() { None } else { Some(jsonl) }

@@ -13,10 +13,7 @@ import {
   setHistoryFilterOperation,
   setHistoryFilterQuery,
 } from "./connectionsHistory.js";
-import {
-  historyDrawerPresentation,
-  overlayDrawerState,
-} from "../overlays/overlays.js";
+import { historyDrawerPresentation } from "../overlays/overlays.js";
 import {
   CONNECTION_MODAL_FOCUS_TARGET,
   connectionModalDisplay,
@@ -43,22 +40,11 @@ import { openSavedConnectionEditor } from "./connectionsEditor.js";
 
 export function createHistoryDrawerWorkspace() {
   const historyDisplayStateStore = derived(
-    [
-      historyDrawerState,
-      historyFilterStateStore,
-      overlayDrawerState,
-      currentLanguageState,
-    ],
-    ([
-      $historyDrawerState,
-      $historyFilterStateStore,
-      $overlayDrawerState,
-      _currentLanguageState,
-    ]) =>
+    [historyDrawerState, historyFilterStateStore, currentLanguageState],
+    ([$historyDrawerState, $historyFilterStateStore, _currentLanguageState]) =>
       historyDrawerPresentation({
         drawerState: $historyDrawerState,
         filterState: $historyFilterStateStore,
-        overlayState: $overlayDrawerState,
       }),
   );
 

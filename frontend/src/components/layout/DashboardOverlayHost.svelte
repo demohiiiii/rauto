@@ -14,7 +14,6 @@
   let ConnectionModalComponent = $derived(overlayComponents.connectionModal);
   let DetailModalComponent = $derived(overlayComponents.detailModal);
   let EntryDrawerComponent = $derived(overlayComponents.entryDrawer);
-  let HistoryDrawerComponent = $derived(overlayComponents.historyDrawer);
   let RecordDrawerComponent = $derived(overlayComponents.recordDrawer);
   let SavedConnectionEditModalComponent = $derived(
     overlayComponents.savedConnectionEditModal,
@@ -42,8 +41,5 @@
 {/if}
 {#if EntryDrawerComponent}
   <EntryDrawerComponent />
-{/if}
-{#if HistoryDrawerComponent}
-  <HistoryDrawerComponent />
 {/if}
 <Toaster position="top-right" richColors closeButton expand visibleToasts={5} />

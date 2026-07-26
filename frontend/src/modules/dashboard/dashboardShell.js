@@ -1,6 +1,5 @@
 import { derived, writable } from "svelte/store";
 import {
-  openConnectionHistoryDrawer,
   openConnectionModal,
   sidebarConnectionPresentation,
   sidebarConnectionState,
@@ -10,7 +9,6 @@ import {
   dashboardRecordLevelState,
   dashboardRecordToolsPresentation,
   closeDashboardEntryDrawer,
-  closeDashboardHistoryDrawer,
   closeDashboardOverlayOnEscape,
   closeDashboardRecordDrawer,
   createDashboardOverlayHostWorkspace,
@@ -51,7 +49,6 @@ import {
 
 export {
   closeDashboardEntryDrawer,
-  closeDashboardHistoryDrawer,
   closeDashboardOverlayOnEscape,
   closeDashboardRecordDrawer,
   createDashboardAgentAuthPanelWorkspace,
@@ -68,8 +65,6 @@ const dashboardSidebarConnectionState = sidebarConnectionState;
 
 const dashboardSidebarConnectionPresentation = (connectionState = {}) =>
   sidebarConnectionPresentation(connectionState);
-const openDashboardConnectionHistoryDrawer = () =>
-  openConnectionHistoryDrawer();
 const openDashboardConnectionEditor = () => openConnectionModal();
 
 export { dashboardRecordToolsPresentation };
@@ -268,7 +263,6 @@ export function createDashboardBodyWorkspace(pageDefinitions = []) {
     bodyDisplayStateStore,
     closeSidebarAction,
     documentKeydownHandler: submitOnKeyHandler("Escape", closeSidebarAction),
-    openHistoryDrawerAction: openDashboardConnectionHistoryDrawer,
     openRecordDrawerAction: openDashboardRecordDrawer,
     openSidebar,
     openSidebarAction: openSidebar,

@@ -1,13 +1,32 @@
 <script>
+  import * as Tabs from "$lib/components/ui/tabs/index.js";
+  import HistoryIcon from "@lucide/svelte/icons/history";
+  import VideoIcon from "@lucide/svelte/icons/video";
   import DashboardDrawerShell from "./DashboardDrawerShell.svelte";
+  import HistoryDrawerContent from "./HistoryDrawerContent.svelte";
   import RecordDrawerContent from "./RecordDrawerContent.svelte";
+  import { createHistoryDrawerWorkspace } from "../../modules/connections/connections.js";
   import {
+    SESSION_RECORDS_VIEW,
     closeRecordDrawer,
     createRecordDrawerWorkspace,
     recordDrawerRecordingState,
-    recordLevelState,
+    sessionRecordsViewState,
+    setSessionRecordsView,
   } from "../../modules/overlays/overlays.js";
+
   const recordDrawerWorkspace = createRecordDrawerWorkspace();
+  const historyDrawerWorkspace = createHistoryDrawerWorkspace();
+  const {
+    changeLimit,
+    changeOperation,
+    changeQuery,
+    clearFilters,
+    deleteHistoryItem,
+    historyDisplayStateStore,
+    openHistoryItem,
+    refreshHistory,
+  } = historyDrawerWorkspace;
   let drawerShellDisplayStateStore = $derived(
     recordDrawerWorkspace.drawerShellDisplayStateStore,
   );
@@ -20,15 +39,19 @@
   let openEntryIndexHandlerStateStore = $derived(
     recordDrawerWorkspace.openEntryIndexHandlerStateStore,
   );
-  let displayModeStore = $derived(recordDrawerWorkspace.displayModeStore);
-  let eventKindStore = $derived(recordDrawerWorkspace.eventKindStore);
-  let failedOnlyStore = $derived(recordDrawerWorkspace.failedOnlyStore);
-  let recordingJsonlStore = $derived(recordDrawerWorkspace.recordingJsonlStore);
-  let searchQueryStore = $derived(recordDrawerWorkspace.searchQueryStore);
   let drawerShellDisplay = $derived($drawerShellDisplayStateStore);
   let contentDisplay = $derived($contentDisplayStateStore);
   let drawerContentDisplay = $derived($drawerContentDisplayStateStore);
   let openEntryIndexHandler = $derived($openEntryIndexHandlerStateStore);
+  let historyDisplay = $derived($historyDisplayStateStore);
+  let sessionRecordsView = $derived($sessionRecordsViewState);
+
+  function handleSessionRecordsViewChange(nextView) {
+    const selectedView = setSessionRecordsView(nextView);
+    if (selectedView === SESSION_RECORDS_VIEW.history) {
+      void refreshHistory();
+    }
+  }
 
   $effect(() => {
     recordDrawerWorkspace.setDrawerContext({
@@ -42,18 +65,65 @@
   });
 </script>
 
-<DashboardDrawerShell {drawerShellDisplay} onClose={closeRecordDrawer}>
-  <RecordDrawerContent
-    {drawerContentDisplay}
-    onCopyRecording={recordDrawerWorkspace.copyRecording}
-    onEventKindChange={recordDrawerWorkspace.setEventKind}
-    onFailedOnlyChange={recordDrawerWorkspace.setFailedOnly}
-    onModeSelect={recordDrawerWorkspace.selectDisplayMode}
-    onOpenEntryIndex={openEntryIndexHandler}
-    onRawInput={recordDrawerWorkspace.setRawRecordingText}
-    onRecordLevelChange={recordDrawerWorkspace.setRecordLevel}
-    onResetFilters={recordDrawerWorkspace.resetFilters}
-    onSearchInput={recordDrawerWorkspace.setSearchQuery}
-    onUseInReplay={recordDrawerWorkspace.useInReplay}
-  />
+<DashboardDrawerShell
+  {drawerShellDisplay}
+  onClose={closeRecordDrawer}
+  class="data-[side=right]:w-[min(100vw,64rem)] data-[side=right]:sm:max-w-3xl data-[side=right]:xl:max-w-4xl"
+>
+  <Tabs.Root
+    value={sessionRecordsView}
+    onValueChange={handleSessionRecordsViewChange}
+    class="min-h-0 flex-1 gap-0"
+  >
+    <div class="border-b border-border px-4 py-3">
+      <Tabs.List
+        class="grid h-auto w-full grid-cols-2"
+        aria-label={drawerShellDisplay.viewLabel}
+      >
+        <Tabs.Trigger value={SESSION_RECORDS_VIEW.recent} class="min-h-10">
+          <VideoIcon data-icon="inline-start" aria-hidden="true" />
+          {drawerShellDisplay.viewTabs[0].label}
+        </Tabs.Trigger>
+        <Tabs.Trigger value={SESSION_RECORDS_VIEW.history} class="min-h-10">
+          <HistoryIcon data-icon="inline-start" aria-hidden="true" />
+          {drawerShellDisplay.viewTabs[1].label}
+        </Tabs.Trigger>
+      </Tabs.List>
+    </div>
+
+    <Tabs.Content
+      value={SESSION_RECORDS_VIEW.recent}
+      class="mt-0 min-h-0 overflow-hidden data-active:flex"
+    >
+      <RecordDrawerContent
+        {drawerContentDisplay}
+        onCopyRecording={recordDrawerWorkspace.copyRecording}
+        onEventKindChange={recordDrawerWorkspace.setEventKind}
+        onFailedOnlyChange={recordDrawerWorkspace.setFailedOnly}
+        onModeSelect={recordDrawerWorkspace.selectDisplayMode}
+        onOpenEntryIndex={openEntryIndexHandler}
+        onRawInput={recordDrawerWorkspace.setRawRecordingText}
+        onRecordLevelChange={recordDrawerWorkspace.setRecordLevel}
+        onResetFilters={recordDrawerWorkspace.resetFilters}
+        onSearchInput={recordDrawerWorkspace.setSearchQuery}
+        onUseInReplay={recordDrawerWorkspace.useInReplay}
+      />
+    </Tabs.Content>
+
+    <Tabs.Content
+      value={SESSION_RECORDS_VIEW.history}
+      class="mt-0 min-h-0 overflow-hidden data-active:flex"
+    >
+      <HistoryDrawerContent
+        {historyDisplay}
+        onDeleteItem={deleteHistoryItem}
+        onLimitChange={changeLimit}
+        onOpenItem={openHistoryItem}
+        onOperationChange={changeOperation}
+        onQueryInput={changeQuery}
+        onClearFilters={clearFilters}
+        onRefresh={refreshHistory}
+      />
+    </Tabs.Content>
+  </Tabs.Root>
 </DashboardDrawerShell>

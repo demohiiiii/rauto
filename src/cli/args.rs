@@ -231,24 +231,6 @@ pub struct ShowArgs {
 }
 
 #[derive(Args, Debug)]
-pub struct ReplayArgs {
-    /// Path to session recording JSONL file
-    pub record_file: PathBuf,
-
-    /// Command to replay once (matched against recorded command output events)
-    #[arg(long)]
-    pub command: Option<String>,
-
-    /// Optional mode constraint for replay command (e.g. Enable, Config)
-    #[arg(long)]
-    pub mode: Option<String>,
-
-    /// List recorded command output entries
-    #[arg(long)]
-    pub list: bool,
-}
-
-#[derive(Args, Debug)]
 pub struct TxArgs {
     /// Transaction block name used in logs/recording
     #[arg(long, default_value = "tx-block")]

@@ -727,7 +727,7 @@ rauto connection test \
 rauto connection list
 rauto connection show lab1
 rauto connection delete lab1
-rauto history list lab1 --limit 20
+rauto session list lab1 --limit 20
 ```
 
 Credential behavior:
@@ -1250,8 +1250,12 @@ Recording-related options (command-specific):
 
 - `exec/template/flow/tx --record-file <path>` / `-r <path>`: Save recording JSONL after execution.
 - `exec/template/flow/tx --record-level <key-events-only|full>` / `-l <level>`: Recording granularity.
-- `replay <record_file> --list`: List recorded command output events.
-- `replay <record_file> --command <cmd> [--mode <mode>]`: Replay one command output.
+- `session`: Show the most recent saved session record.
+- `session list [connection] [--limit N] [--json]`: List saved records, newest first.
+- `session show [record_id] [--connection <name>] [--json|--raw]`: Show a record; when the ID is omitted, show the most recent matching record.
+- `session delete <record_id> [--connection <name>]`: Delete a saved record.
+- `session replay [record_file] [--id <record_id>] [--connection <name>] [--list]`: Inspect a saved database record or JSONL file.
+- `session replay [record_file] [--id <record_id>] [--connection <name>] --command <cmd> [--mode <mode>]`: Replay one command output.
 - Replayed `SessionEvent::CommandOutput` entries may include `exit_code` for Linux shell flows.
 
 ## Template Syntax
