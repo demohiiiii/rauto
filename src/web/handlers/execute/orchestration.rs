@@ -4,15 +4,10 @@ pub async fn execute_orchestration(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteOrchestrationRequest>,
 ) -> Result<Json<ExecuteOrchestrationResponse>, ApiError> {
-    let task_ctx = TaskReportContext::from_request(
+    let (task_ctx, task_guard) = begin_reported_task(
+        &state,
         TaskOperation::Orchestrate,
         req.task.task_id.clone(),
-        state.is_managed(),
-    );
-    let task_guard = state.acquire_task_guard(task_ctx.is_some());
-    emit_task_event(
-        &state,
-        &task_ctx,
         TaskEventInput::new("started", "Starting orchestration execution")
             .with_stage("orchestrate")
             .with_progress(Some(0)),
@@ -182,9 +177,16 @@ pub async fn execute_orchestration(
             })
         })
         .await;
-    drop(task_guard);
-    match &result {
-        Ok(response) => {
+    finish_reported_task(
+        state,
+        task_ctx,
+        task_guard,
+        result,
+        TaskFailureEvent {
+            stage: "orchestrate",
+            message_prefix: "Orchestration failed",
+        },
+        |state, task_ctx, response| {
             let succeeded = response
                 .orchestration_result
                 .as_ref()
@@ -204,36 +206,18 @@ pub async fn execute_orchestration(
                     .with_progress(Some(100))
                     .with_details(serde_json::to_value(response).ok())
             };
-            emit_task_event(&state, &task_ctx, event);
-        }
-        Err(err) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("failed", format!("Orchestration failed: {}", err.message))
-                .with_stage("orchestrate")
-                .with_level("error"),
-        ),
-    }
-    if let (Some(task_ctx_ref), Ok(response)) = (task_ctx.as_ref(), &result) {
-        let succeeded = response
-            .orchestration_result
-            .as_ref()
-            .and_then(|value| value.get("success"))
-            .and_then(Value::as_bool)
-            .unwrap_or(true);
-        if !succeeded {
-            let callback = build_failed_task_callback(
-                &state,
-                task_ctx_ref,
-                "Orchestration finished with failure",
-                Some(response),
-            );
-            spawn_prepared_task_callback(state, task_ctx, callback);
-            return result.map(Json);
-        }
-    }
-    spawn_task_callback(state, task_ctx, &result);
-    result.map(Json)
+            emit_task_event(state, task_ctx, event);
+        },
+        |response| {
+            let succeeded = response
+                .orchestration_result
+                .as_ref()
+                .and_then(|value| value.get("success"))
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
+            (!succeeded).then_some("Orchestration finished with failure")
+        },
+    )
 }
 
 pub async fn execute_orchestration_async(

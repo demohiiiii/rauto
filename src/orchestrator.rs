@@ -246,7 +246,7 @@ pub fn run_orchestration_template_command(cmd: JsonTemplateCommands) -> Result<(
             }
         }
         JsonTemplateCommands::Show { name } => {
-            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let safe_name = crate::cli::json_templates::safe_json_template_name(&name)?;
             let stored =
                 content_store::load_orchestration_template(&safe_name)?.ok_or_else(|| {
                     anyhow::anyhow!("orchestration template '{}' not found", safe_name)
@@ -258,9 +258,9 @@ pub fn run_orchestration_template_command(cmd: JsonTemplateCommands) -> Result<(
             file,
             content,
         } => {
-            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
-            let body = crate::cli_json_templates::read_json_template_body(
-                crate::cli_json_templates::JsonTemplateKind::Orchestration,
+            let safe_name = crate::cli::json_templates::safe_json_template_name(&name)?;
+            let body = crate::cli::json_templates::read_json_template_body(
+                crate::cli::json_templates::JsonTemplateKind::Orchestration,
                 file,
                 content,
             )?;
@@ -278,9 +278,9 @@ pub fn run_orchestration_template_command(cmd: JsonTemplateCommands) -> Result<(
             file,
             content,
         } => {
-            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
-            let body = crate::cli_json_templates::read_json_template_body(
-                crate::cli_json_templates::JsonTemplateKind::Orchestration,
+            let safe_name = crate::cli::json_templates::safe_json_template_name(&name)?;
+            let body = crate::cli::json_templates::read_json_template_body(
+                crate::cli::json_templates::JsonTemplateKind::Orchestration,
                 file,
                 content,
             )?;
@@ -294,7 +294,7 @@ pub fn run_orchestration_template_command(cmd: JsonTemplateCommands) -> Result<(
             println!("Updated orchestration template '{}'", safe_name);
         }
         JsonTemplateCommands::Delete { name } => {
-            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let safe_name = crate::cli::json_templates::safe_json_template_name(&name)?;
             let deleted = content_store::delete_orchestration_template(&safe_name)?;
             if !deleted {
                 return Err(anyhow::anyhow!(
@@ -335,19 +335,19 @@ fn load_plan_from_args(
             Ok((plan, plan_root, Some(path.clone())))
         }
         (None, Some(name)) => {
-            let content = crate::cli_json_templates::load_json_template_content(
-                crate::cli_json_templates::JsonTemplateKind::Orchestration,
+            let content = crate::cli::json_templates::load_json_template_content(
+                crate::cli::json_templates::JsonTemplateKind::Orchestration,
                 name,
             )?;
             let source: Value = serde_json::from_str(&content)?;
-            let vars = crate::cli_json_templates::read_json_vars(
+            let vars = crate::cli::json_templates::read_json_vars(
                 args.vars.as_deref(),
                 args.vars_json.as_deref(),
             )?;
             let conn = crate::resolve_effective_connection(opts).ok();
-            let mut context = crate::cli_json_templates::template_context(vars, conn.as_ref());
+            let mut context = crate::cli::json_templates::template_context(vars, conn.as_ref());
             let rendered =
-                crate::cli_json_templates::render_json_template_value(&source, &mut context)?;
+                crate::cli::json_templates::render_json_template_value(&source, &mut context)?;
             let plan: OrchestrationPlan = serde_json::from_value(rendered)?;
             Ok((plan, PathBuf::from("."), None))
         }

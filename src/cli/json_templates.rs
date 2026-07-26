@@ -39,7 +39,7 @@ pub(crate) fn read_json_template_body(
     file: Option<PathBuf>,
     content: Option<String>,
 ) -> Result<String> {
-    let body = crate::cli_exec::read_text_body(kind.label(), file, content)?;
+    let body = crate::cli::exec::read_text_body(kind.label(), file, content)?;
     let value: Value = serde_json::from_str(&body)?;
     serde_json::to_string_pretty(&value).map_err(Into::into)
 }

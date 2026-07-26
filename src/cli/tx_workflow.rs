@@ -105,11 +105,14 @@ pub(crate) async fn run_tx_workflow(
 }
 
 pub(crate) fn run_tx_workflow_template_command(cmd: JsonTemplateCommands) -> Result<()> {
-    run_json_template_command(crate::cli_json_templates::JsonTemplateKind::TxWorkflow, cmd)
+    run_json_template_command(
+        crate::cli::json_templates::JsonTemplateKind::TxWorkflow,
+        cmd,
+    )
 }
 
 fn run_json_template_command(
-    kind: crate::cli_json_templates::JsonTemplateKind,
+    kind: crate::cli::json_templates::JsonTemplateKind,
     cmd: JsonTemplateCommands,
 ) -> Result<()> {
     match cmd {
@@ -124,7 +127,7 @@ fn run_json_template_command(
             }
         }
         JsonTemplateCommands::Show { name } => {
-            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let safe_name = crate::cli::json_templates::safe_json_template_name(&name)?;
             let stored = content_store::load_tx_workflow_template(&safe_name)?
                 .ok_or_else(|| anyhow::anyhow!("tx workflow template '{}' not found", safe_name))?;
             println!("{}", stored.content);
@@ -134,8 +137,8 @@ fn run_json_template_command(
             file,
             content,
         } => {
-            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
-            let body = crate::cli_json_templates::read_json_template_body(kind, file, content)?;
+            let safe_name = crate::cli::json_templates::safe_json_template_name(&name)?;
+            let body = crate::cli::json_templates::read_json_template_body(kind, file, content)?;
             let created = content_store::create_tx_workflow_template(&safe_name, &body)?;
             if !created {
                 return Err(anyhow::anyhow!(
@@ -150,8 +153,8 @@ fn run_json_template_command(
             file,
             content,
         } => {
-            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
-            let body = crate::cli_json_templates::read_json_template_body(kind, file, content)?;
+            let safe_name = crate::cli::json_templates::safe_json_template_name(&name)?;
+            let body = crate::cli::json_templates::read_json_template_body(kind, file, content)?;
             let updated = content_store::update_tx_workflow_template(&safe_name, &body)?;
             if !updated {
                 return Err(anyhow::anyhow!(
@@ -162,7 +165,7 @@ fn run_json_template_command(
             println!("Updated tx workflow template '{}'", safe_name);
         }
         JsonTemplateCommands::Delete { name } => {
-            let safe_name = crate::cli_json_templates::safe_json_template_name(&name)?;
+            let safe_name = crate::cli::json_templates::safe_json_template_name(&name)?;
             let deleted = content_store::delete_tx_workflow_template(&safe_name)?;
             if !deleted {
                 return Err(anyhow::anyhow!(
@@ -193,19 +196,19 @@ async fn load_tx_workflow_from_args(
             Ok((workflow, Some(path.clone())))
         }
         (None, Some(name)) => {
-            let content = crate::cli_json_templates::load_json_template_content(
-                crate::cli_json_templates::JsonTemplateKind::TxWorkflow,
+            let content = crate::cli::json_templates::load_json_template_content(
+                crate::cli::json_templates::JsonTemplateKind::TxWorkflow,
                 name,
             )?;
             let source: serde_json::Value = serde_json::from_str(&content)?;
-            let vars = crate::cli_json_templates::read_json_vars(
+            let vars = crate::cli::json_templates::read_json_vars(
                 args.vars.as_deref(),
                 args.vars_json.as_deref(),
             )?;
             let conn = crate::resolve_effective_connection(opts).ok();
-            let mut context = crate::cli_json_templates::template_context(vars, conn.as_ref());
+            let mut context = crate::cli::json_templates::template_context(vars, conn.as_ref());
             let rendered =
-                crate::cli_json_templates::render_json_template_value(&source, &mut context)?;
+                crate::cli::json_templates::render_json_template_value(&source, &mut context)?;
             let workflow = serde_json::from_value(rendered)?;
             Ok((workflow, None))
         }

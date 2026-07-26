@@ -9,3 +9,5 @@ if ! git diff --quiet; then
 fi
 
 npm run clippy
+
+npm run test

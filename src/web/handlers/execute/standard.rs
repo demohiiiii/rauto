@@ -82,15 +82,10 @@ pub async fn exec_command(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecRequest>,
 ) -> Result<Json<ExecResponse>, ApiError> {
-    let task_ctx = TaskReportContext::from_request(
+    let (task_ctx, task_guard) = begin_reported_task(
+        &state,
         TaskOperation::Exec,
         req.task.task_id.clone(),
-        state.is_managed(),
-    );
-    let task_guard = state.acquire_task_guard(task_ctx.is_some());
-    emit_task_event(
-        &state,
-        &task_ctx,
         TaskEventInput::new("started", "Starting direct command execution")
             .with_stage("connect")
             .with_progress(Some(0))
@@ -275,32 +270,30 @@ pub async fn exec_command(
             })
         })
         .await;
-    drop(task_guard);
-    match &result {
-        Ok(response) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("completed", "Direct command execution completed")
-                .with_stage("command")
-                .with_level("success")
-                .with_progress(Some(100))
-                .with_details(Some(json!({
-                    "exit_code": response.exit_code
-                }))),
-        ),
-        Err(err) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new(
-                "failed",
-                format!("Direct command execution failed: {}", err.message),
+    finish_reported_task(
+        state,
+        task_ctx,
+        task_guard,
+        result,
+        TaskFailureEvent {
+            stage: "command",
+            message_prefix: "Direct command execution failed",
+        },
+        |state, task_ctx, response| {
+            emit_task_event(
+                state,
+                task_ctx,
+                TaskEventInput::new("completed", "Direct command execution completed")
+                    .with_stage("command")
+                    .with_level("success")
+                    .with_progress(Some(100))
+                    .with_details(Some(json!({
+                        "exit_code": response.exit_code
+                    }))),
             )
-            .with_stage("command")
-            .with_level("error"),
-        ),
-    }
-    spawn_task_callback(state, task_ctx, &result);
-    result.map(Json)
+        },
+        |_| None,
+    )
 }
 
 pub async fn exec_command_async(
@@ -381,15 +374,10 @@ pub async fn execute_show(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ShowExecuteRequest>,
 ) -> Result<Json<ShowExecuteResponse>, ApiError> {
-    let task_ctx = TaskReportContext::from_request(
+    let (task_ctx, task_guard) = begin_reported_task(
+        &state,
         TaskOperation::Exec,
         req.task.task_id.clone(),
-        state.is_managed(),
-    );
-    let task_guard = state.acquire_task_guard(task_ctx.is_some());
-    emit_task_event(
-        &state,
-        &task_ctx,
         TaskEventInput::new("started", "Starting show object execution")
             .with_stage("connect")
             .with_progress(Some(0))
@@ -563,34 +551,32 @@ pub async fn execute_show(
             })
         })
         .await;
-    drop(task_guard);
-    match &result {
-        Ok(response) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("completed", "Show object execution completed")
-                .with_stage("command")
-                .with_level("success")
-                .with_progress(Some(100))
-                .with_details(Some(json!({
-                    "exit_code": response.exit_code,
-                    "object": response.object,
-                    "command": response.command
-                }))),
-        ),
-        Err(err) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new(
-                "failed",
-                format!("Show object execution failed: {}", err.message),
+    finish_reported_task(
+        state,
+        task_ctx,
+        task_guard,
+        result,
+        TaskFailureEvent {
+            stage: "command",
+            message_prefix: "Show object execution failed",
+        },
+        |state, task_ctx, response| {
+            emit_task_event(
+                state,
+                task_ctx,
+                TaskEventInput::new("completed", "Show object execution completed")
+                    .with_stage("command")
+                    .with_level("success")
+                    .with_progress(Some(100))
+                    .with_details(Some(json!({
+                        "exit_code": response.exit_code,
+                        "object": response.object,
+                        "command": response.command
+                    }))),
             )
-            .with_stage("command")
-            .with_level("error"),
-        ),
-    }
-    spawn_task_callback(state, task_ctx, &result);
-    result.map(Json)
+        },
+        |_| None,
+    )
 }
 
 struct ResolvedBatchShowTarget {
@@ -605,15 +591,10 @@ pub async fn execute_show_batch(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ShowBatchExecuteRequest>,
 ) -> Result<Json<ShowBatchExecuteResponse>, ApiError> {
-    let task_ctx = TaskReportContext::from_request(
+    let (task_ctx, task_guard) = begin_reported_task(
+        &state,
         TaskOperation::Exec,
         req.task.task_id.clone(),
-        state.is_managed(),
-    );
-    let task_guard = state.acquire_task_guard(task_ctx.is_some());
-    emit_task_event(
-        &state,
-        &task_ctx,
         TaskEventInput::new("started", "Starting batch show object execution")
             .with_stage("precheck")
             .with_progress(Some(0))
@@ -723,38 +704,36 @@ pub async fn execute_show_batch(
         })
         .await;
 
-    drop(task_guard);
-    match &result {
-        Ok(response) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("completed", "Batch show object execution completed")
-                .with_stage("command")
-                .with_level(if response.result_summary.success {
-                    "success"
-                } else {
-                    "warning"
-                })
-                .with_progress(Some(100))
-                .with_details(Some(json!({
-                    "object": response.object,
-                    "target_count": response.targets.len(),
-                    "counts": response.result_summary.counts.as_ref()
-                }))),
-        ),
-        Err(err) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new(
-                "failed",
-                format!("Batch show object execution failed: {}", err.message),
+    finish_reported_task(
+        state,
+        task_ctx,
+        task_guard,
+        result,
+        TaskFailureEvent {
+            stage: "precheck",
+            message_prefix: "Batch show object execution failed",
+        },
+        |state, task_ctx, response| {
+            emit_task_event(
+                state,
+                task_ctx,
+                TaskEventInput::new("completed", "Batch show object execution completed")
+                    .with_stage("command")
+                    .with_level(if response.result_summary.success {
+                        "success"
+                    } else {
+                        "warning"
+                    })
+                    .with_progress(Some(100))
+                    .with_details(Some(json!({
+                        "object": response.object,
+                        "target_count": response.targets.len(),
+                        "counts": response.result_summary.counts.as_ref()
+                    }))),
             )
-            .with_stage("precheck")
-            .with_level("error"),
-        ),
-    }
-    spawn_task_callback(state, task_ctx, &result);
-    result.map(Json)
+        },
+        |_| None,
+    )
 }
 
 fn resolve_batch_show_target_names(req: &ShowBatchExecuteRequest) -> Result<Vec<String>, ApiError> {
@@ -974,15 +953,10 @@ pub async fn execute_template(
         .filter(|value| !value.is_empty())
         .unwrap_or("inline")
         .to_string();
-    let task_ctx = TaskReportContext::from_request(
+    let (task_ctx, task_guard) = begin_reported_task(
+        &state,
         TaskOperation::TemplateExecute,
         req.task.task_id.clone(),
-        state.is_managed(),
-    );
-    let task_guard = state.acquire_task_guard(task_ctx.is_some());
-    emit_task_event(
-        &state,
-        &task_ctx,
         TaskEventInput::new("started", "Starting template execution")
             .with_stage("render")
             .with_progress(Some(0))
@@ -1237,9 +1211,16 @@ pub async fn execute_template(
             })
         })
         .await;
-    drop(task_guard);
-    match &result {
-        Ok(response) => {
+    finish_reported_task(
+        state,
+        task_ctx,
+        task_guard,
+        result,
+        TaskFailureEvent {
+            stage: "render",
+            message_prefix: "Template execution failed",
+        },
+        |state, task_ctx, response| {
             let failed_commands = response.executed.iter().filter(|cmd| !cmd.success).count();
             let event = if failed_commands == 0 {
                 TaskEventInput::new("completed", "Template execution completed")
@@ -1258,21 +1239,10 @@ pub async fn execute_template(
                 .with_level("warning")
                 .with_progress(Some(100))
             };
-            emit_task_event(&state, &task_ctx, event);
-        }
-        Err(err) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new(
-                "failed",
-                format!("Template execution failed: {}", err.message),
-            )
-            .with_stage("render")
-            .with_level("error"),
-        ),
-    }
-    spawn_task_callback(state, task_ctx, &result);
-    result.map(Json)
+            emit_task_event(state, task_ctx, event);
+        },
+        |_| None,
+    )
 }
 
 pub async fn execute_template_async(

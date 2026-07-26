@@ -144,7 +144,7 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                 .transpose()?;
             let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
-            let flow_template = crate::cli_flow::resolve_command_flow_template_from_sources(
+            let flow_template = crate::cli::flow::resolve_command_flow_template_from_sources(
                 args.flow_template.as_deref(),
                 args.flow_file.as_ref(),
                 "command flow tx execution",
@@ -196,7 +196,7 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                 (None, None) => None,
                 _ => {
                     let rollback_template =
-                        crate::cli_flow::resolve_command_flow_template_from_sources(
+                        crate::cli::flow::resolve_command_flow_template_from_sources(
                             args.rollback_flow_template.as_deref(),
                             args.rollback_flow_file.as_ref(),
                             "rollback command flow tx execution",

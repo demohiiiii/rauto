@@ -1,5 +1,5 @@
+use crate::cli::exec::textfsm_template_for_index;
 use crate::cli::{CommandFlowArgs, CommandFlowTemplateCommands, UploadArgs};
-use crate::cli_exec::textfsm_template_for_index;
 use crate::config::command_flow_template::{
     CommandFlowTemplate, build_command_flow_runtime, cisco_like_copy_command_flow_template,
     normalize_command_flow_template_body, parse_command_flow_template,
@@ -85,7 +85,7 @@ pub(crate) async fn run_command_flow(
 ) -> Result<()> {
     let template = resolve_command_flow_template(&args)?;
     let vars =
-        crate::cli_tx_block::load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
+        crate::cli::tx_block::load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
@@ -418,7 +418,7 @@ fn normalize_command_flow_template_body_from_input(
     file: Option<PathBuf>,
     content: Option<String>,
 ) -> Result<String> {
-    let body = crate::cli_exec::read_text_body("command flow template", file, content)?;
+    let body = crate::cli::exec::read_text_body("command flow template", file, content)?;
     normalize_command_flow_template_body(name, &body)
 }
 

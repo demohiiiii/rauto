@@ -50,7 +50,7 @@ jobs:
         run: cargo test --locked --all-targets
 
   frontend:
-    name: Frontend Build
+    name: Frontend Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -64,6 +64,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run frontend tests
+        run: npm run frontend:test
 
       - name: Build frontend
         run: npm run web:build

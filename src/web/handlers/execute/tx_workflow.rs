@@ -4,15 +4,10 @@ pub async fn execute_tx_workflow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxWorkflowRequest>,
 ) -> Result<Json<ExecuteTxWorkflowResponse>, ApiError> {
-    let task_ctx = TaskReportContext::from_request(
+    let (task_ctx, task_guard) = begin_reported_task(
+        &state,
         TaskOperation::TxWorkflow,
         req.task.task_id.clone(),
-        state.is_managed(),
-    );
-    let task_guard = state.acquire_task_guard(task_ctx.is_some());
-    emit_task_event(
-        &state,
-        &task_ctx,
         TaskEventInput::new("started", "Starting tx workflow execution")
             .with_stage("workflow")
             .with_progress(Some(0)),
@@ -21,12 +16,6 @@ pub async fn execute_tx_workflow(
         .run_until_shutdown(async {
             let record_level = req.target.record_level;
             let dry_run = req.run.dry_run.unwrap_or(false);
-            let requested_record_level = to_record_level(record_level);
-            let live_record_level = if task_ctx.is_some() {
-                requested_record_level.or(Some(SessionRecordLevel::KeyEventsOnly))
-            } else {
-                requested_record_level
-            };
             let connection_for_context = if dry_run {
                 merge_connection_options(&state.defaults, req.target.connection.clone()).ok()
             } else {
@@ -126,110 +115,25 @@ pub async fn execute_tx_workflow(
                         "connection_name": conn.connection_name
                     }))),
             );
-            let handler = template_loader::load_device_profile_for_connection(
-                &conn.device_profile,
-                conn.linux_shell_flavor,
-            )?;
-            let (workflow_result, recording_jsonl) = if let Some(level) = live_record_level {
-                let request = manager_connection_request(
-                    conn.username.clone(),
-                    conn.host.clone(),
-                    conn.port,
-                    conn.password.clone(),
-                    conn.enable_password.clone(),
-                    handler,
-                );
-                let (_sender, recorder) = MANAGER
-                    .get_with_recording_level_and_context(
-                        request,
-                        manager_execution_context_with_security(
-                            None,
-                            conn.ssh_security,
-                            conn.connect_timeout_secs,
-                        ),
-                        level,
-                    )
-                    .await?;
-                let forwarder = spawn_recording_event_forwarder(
-                    &state,
-                    &task_ctx,
-                    &recorder,
-                    build_tx_workflow_recording_plan(&workflow),
-                );
-                let handler_for_tx = template_loader::load_device_profile_for_connection(
-                    &conn.device_profile,
-                    conn.linux_shell_flavor,
-                )?;
-                let request = manager_connection_request(
-                    conn.username.clone(),
-                    conn.host.clone(),
-                    conn.port,
-                    conn.password.clone(),
-                    conn.enable_password.clone(),
-                    handler_for_tx,
-                );
-                let execution_result = MANAGER
-                    .execute_tx_workflow_with_context(
-                        request,
-                        workflow.clone(),
-                        manager_execution_context_with_security(
-                            None,
-                            conn.ssh_security,
-                            conn.connect_timeout_secs,
-                        ),
-                    )
-                    .await;
-                let expected_entries = recorder.entries().map_err(ApiError::from)?.len();
-                if let Some(forwarder) = forwarder {
-                    forwarder.finish(expected_entries).await;
-                }
-                let result = execution_result?;
-                let jsonl = if requested_record_level.is_some() {
-                    let jsonl_raw = recorder.to_jsonl().map_err(ApiError::from)?;
-                    let jsonl = normalize_recording_jsonl_for_web_level(record_level, &jsonl_raw);
-                    if let Err(e) = history_store::save_recording(
-                        HistoryBinding {
-                            connection_name: conn.connection_name.as_deref(),
-                            host: &conn.host,
-                            port: conn.port,
-                            username: &conn.username,
-                            device_profile: &conn.device_profile,
-                        },
-                        "tx_workflow",
-                        &workflow.name,
-                        None,
-                        record_level_name(record_level),
-                        &jsonl,
-                    ) {
-                        warn!("failed to persist execution history: {}", e);
-                    }
-                    Some(jsonl)
-                } else {
-                    None
-                };
-                (result, jsonl)
-            } else {
-                let request = manager_connection_request(
-                    conn.username.clone(),
-                    conn.host.clone(),
-                    conn.port,
-                    conn.password.clone(),
-                    conn.enable_password.clone(),
-                    handler,
-                );
-                let result = MANAGER
-                    .execute_tx_workflow_with_context(
-                        request,
-                        workflow.clone(),
-                        manager_execution_context_with_security(
-                            None,
-                            conn.ssh_security,
-                            conn.connect_timeout_secs,
-                        ),
-                    )
-                    .await?;
-                (result, None)
-            };
+            let (workflow_result, recording_jsonl) = run_recorded_manager_execution(
+                &state,
+                &task_ctx,
+                &conn,
+                record_level,
+                build_tx_workflow_recording_plan(&workflow),
+                RecordedHistory {
+                    kind: "tx_workflow",
+                    name: &workflow.name,
+                    mode: None,
+                },
+                async |request, context| {
+                    MANAGER
+                        .execute_tx_workflow_with_context(request, workflow.clone(), context)
+                        .await
+                        .map_err(ApiError::from)
+                },
+            )
+            .await?;
 
             let succeeded_blocks = workflow_result
                 .block_results
@@ -284,10 +188,19 @@ pub async fn execute_tx_workflow(
             })
         })
         .await;
-    drop(task_guard);
-    match &result {
-        Ok(response) if task_ctx.is_some() => {
-            if let Some(workflow_result) = &response.tx_workflow_result {
+    finish_reported_task(
+        state,
+        task_ctx,
+        task_guard,
+        result,
+        TaskFailureEvent {
+            stage: "workflow",
+            message_prefix: "Tx workflow failed",
+        },
+        |state, task_ctx, response| {
+            if task_ctx.is_some()
+                && let Some(workflow_result) = &response.tx_workflow_result
+            {
                 if let Some(blocks) = workflow_result
                     .get("block_results")
                     .and_then(Value::as_array)
@@ -303,8 +216,8 @@ pub async fn execute_tx_workflow(
                             .and_then(Value::as_bool)
                             .unwrap_or(true);
                         emit_task_event(
-                            &state,
-                            &task_ctx,
+                            state,
+                            task_ctx,
                             TaskEventInput::new(
                                 "step_completed",
                                 format!("Workflow block {} completed", block_name),
@@ -321,8 +234,8 @@ pub async fn execute_tx_workflow(
                     .and_then(Value::as_bool)
                     .unwrap_or(true);
                 emit_task_event(
-                    &state,
-                    &task_ctx,
+                    state,
+                    task_ctx,
                     TaskEventInput::new(
                         if committed { "completed" } else { "failed" },
                         if committed {
@@ -337,36 +250,17 @@ pub async fn execute_tx_workflow(
                     .with_details(serde_json::to_value(response).ok()),
                 );
             }
-        }
-        Ok(_) => {}
-        Err(err) => emit_task_event(
-            &state,
-            &task_ctx,
-            TaskEventInput::new("failed", format!("Tx workflow failed: {}", err.message))
-                .with_stage("workflow")
-                .with_level("error"),
-        ),
-    }
-    if let (Some(task_ctx_ref), Ok(response)) = (task_ctx.as_ref(), &result) {
-        let committed = response
-            .tx_workflow_result
-            .as_ref()
-            .and_then(|value| value.get("committed"))
-            .and_then(Value::as_bool)
-            .unwrap_or(true);
-        if !committed {
-            let callback = build_failed_task_callback(
-                &state,
-                task_ctx_ref,
-                "Tx workflow finished with failure",
-                Some(response),
-            );
-            spawn_prepared_task_callback(state, task_ctx, callback);
-            return result.map(Json);
-        }
-    }
-    spawn_task_callback(state, task_ctx, &result);
-    result.map(Json)
+        },
+        |response| {
+            let committed = response
+                .tx_workflow_result
+                .as_ref()
+                .and_then(|value| value.get("committed"))
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
+            (!committed).then_some("Tx workflow finished with failure")
+        },
+    )
 }
 
 pub async fn execute_tx_workflow_async(

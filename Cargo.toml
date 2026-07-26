@@ -70,7 +70,6 @@ aes-gcm = "0.10.3"
 base64 = "0.22.1"
 rand = "0.8.5"
 rpassword = "7.3"
-regex = "1.12.2"
 textfsm-rust = { version = "0.3", features = ["serde"] }
 rust_xlsxwriter = "0.95.0"
 

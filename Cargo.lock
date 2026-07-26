@@ -2896,7 +2896,6 @@ dependencies = [
  "prost",
  "protoc-bin-vendored",
  "rand 0.8.5",
- "regex",
  "reqwest",
  "rneter",
  "rpassword",

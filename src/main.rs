@@ -1,22 +1,6 @@
 mod agent;
 mod agent_task_grpc;
 mod cli;
-#[path = "cli/exec.rs"]
-mod cli_exec;
-#[path = "cli/flow.rs"]
-mod cli_flow;
-#[path = "cli/json_templates.rs"]
-mod cli_json_templates;
-#[path = "cli/ops.rs"]
-mod cli_ops;
-#[path = "cli/runtime.rs"]
-mod cli_runtime;
-#[path = "cli/session.rs"]
-mod cli_session;
-#[path = "cli/tx_block.rs"]
-mod cli_tx_block;
-#[path = "cli/tx_workflow.rs"]
-mod cli_tx_workflow;
 mod config;
 mod db;
 mod device;
@@ -38,7 +22,7 @@ use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt, fmt::format::Writer, fmt::time::FormatTime};
 use web::{run_agent_server, run_web_server};
 
-pub(crate) use cli_runtime::{
+pub(crate) use cli::runtime::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
     maybe_save_connection_profile, normalize_recording_jsonl_for_cli_level,
     persist_auto_recording_history, persist_auto_recording_history_jsonl, read_required_text_input,
@@ -94,35 +78,35 @@ impl FormatTime for LocalTimer {
 async fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Template(args) => {
-            cli_exec::run_template(args, &cli.global_opts).await?;
+            cli::exec::run_template(args, &cli.global_opts).await?;
         }
         Commands::Exec(args) => {
-            cli_exec::run_exec(args, &cli.global_opts).await?;
+            cli::exec::run_exec(args, &cli.global_opts).await?;
         }
         Commands::Show(args) => {
-            cli_exec::run_show(args, &cli.global_opts).await?;
+            cli::exec::run_show(args, &cli.global_opts).await?;
         }
         Commands::ShowObject(cmd) => {
-            cli_exec::run_show_object_command(cmd)?;
+            cli::exec::run_show_object_command(cmd)?;
         }
         Commands::Flow(args) => {
-            cli_flow::run_command_flow(args, &cli.global_opts).await?;
+            cli::flow::run_command_flow(args, &cli.global_opts).await?;
         }
         Commands::FlowTemplate(cmd) => {
-            cli_flow::run_command_flow_template_command(cmd)?;
+            cli::flow::run_command_flow_template_command(cmd)?;
         }
         Commands::Upload(args) => {
-            cli_flow::run_upload(args, &cli.global_opts).await?;
+            cli::flow::run_upload(args, &cli.global_opts).await?;
         }
         Commands::Tx(args) => {
-            cli_tx_block::run_tx_block(args, &cli.global_opts).await?;
+            cli::tx_block::run_tx_block(args, &cli.global_opts).await?;
         }
         Commands::TxWorkflow(cmd) => match cmd.command {
             Some(TxWorkflowSubcommand::Template { command }) => {
-                cli_tx_workflow::run_tx_workflow_template_command(command)?;
+                cli::tx_workflow::run_tx_workflow_template_command(command)?;
             }
             None => {
-                cli_tx_workflow::run_tx_workflow(cmd.run, &cli.global_opts).await?;
+                cli::tx_workflow::run_tx_workflow(cmd.run, &cli.global_opts).await?;
             }
         },
         Commands::Orchestrate(cmd) => match cmd.command {
@@ -167,28 +151,28 @@ async fn run(cli: Cli) -> Result<()> {
             run_agent_server(args, cli.global_opts).await?;
         }
         Commands::Device(cmd) => {
-            cli_ops::run_device_command(cmd, &cli.global_opts).await?;
+            cli::ops::run_device_command(cmd, &cli.global_opts).await?;
         }
         Commands::Credential(cmd) => {
-            cli_ops::run_credential_command(cmd)?;
+            cli::ops::run_credential_command(cmd)?;
         }
         Commands::Profile(cmd) => {
-            cli_ops::run_profile_command(cmd, &cli.global_opts).await?;
+            cli::ops::run_profile_command(cmd, &cli.global_opts).await?;
         }
         Commands::Inventory(cmd) => {
-            cli_ops::run_inventory_command(cmd)?;
+            cli::ops::run_inventory_command(cmd)?;
         }
         Commands::Session(args) => {
-            cli_session::run_session_command(args, &cli.global_opts)?;
+            cli::session::run_session_command(args, &cli.global_opts)?;
         }
         Commands::Blacklist(cmd) => {
-            cli_ops::run_blacklist_command(cmd)?;
+            cli::ops::run_blacklist_command(cmd)?;
         }
         Commands::Templates(cmd) => {
-            cli_exec::run_templates_command(cmd)?;
+            cli::exec::run_templates_command(cmd)?;
         }
         Commands::Textfsm(cmd) => {
-            cli_exec::run_textfsm_command(cmd)?;
+            cli::exec::run_textfsm_command(cmd)?;
         }
     }
 
