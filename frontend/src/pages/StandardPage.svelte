@@ -4,9 +4,13 @@
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
-  import { standardExecModeTabs } from "../config/dashboardModes.js";
+  import {
+    STANDARD_EXEC_MODE,
+    standardExecModeTabs,
+  } from "../config/dashboardModes.js";
   import { createStandardPageWorkspace } from "../modules/standard/standardExecutionWorkspaces.js";
   import { executionConnectionProfileState as standardExecutionConnectionProfileState } from "../modules/profiles/promptProfileExecutionState.js";
+  import BatchExecPanel from "./standard/BatchExecPanel.svelte";
   import CommandExecutionPanel from "./standard/CommandExecutionPanel.svelte";
   import FlowExecutionPanel from "./standard/FlowExecutionPanel.svelte";
 
@@ -17,6 +21,9 @@
   let pageDisplay = $derived($pageDisplayStateStore);
   let directActive = $derived(active && pageDisplay.directActive);
   let flowActive = $derived(active && pageDisplay.flowActive);
+  let batchActive = $derived(
+    active && currentExecMode === STANDARD_EXEC_MODE.batch,
+  );
 
   $effect(() => {
     standardPageWorkspace.setRouteContext({
@@ -54,6 +61,8 @@
           <CommandExecutionPanel active={true} />
         {:else if flowActive}
           <FlowExecutionPanel active={true} />
+        {:else if batchActive}
+          <BatchExecPanel active={true} />
         {/if}
       </Card.Content>
     </Card.Root>

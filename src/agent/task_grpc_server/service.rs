@@ -1209,6 +1209,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 targets: req.targets,
                 groups: req.groups,
                 labels: req.labels,
+                max_parallel: None,
                 record_level: parse_record_level(&req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1217,6 +1218,74 @@ impl AgentTaskService for AgentTaskGrpcService {
         .map_err(api_error_to_status)?;
 
         Ok(Response::new(map_execute_show_batch_response(response)?))
+    }
+
+    async fn execute_exec_batch(
+        &self,
+        request: Request<ExecuteExecBatchRequest>,
+    ) -> Result<Response<ExecuteExecBatchResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = execute_exec_batch(
+            State(self.state.clone()),
+            Json(WebExecBatchExecuteRequest {
+                command: req.command,
+                multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
+                mode: optional_string(req.mode),
+                textfsm_template: optional_string(req.textfsm_template),
+                parse_textfsm: req.parse_textfsm,
+                textfsm_platform: optional_string(req.textfsm_platform),
+                textfsm_vendor: optional_string(req.textfsm_vendor),
+                textfsm_strict_errors: req.textfsm_strict_errors,
+                targets: req.targets,
+                groups: req.groups,
+                labels: req.labels,
+                max_parallel: if req.max_parallel == 0 {
+                    None
+                } else {
+                    Some(req.max_parallel as usize)
+                },
+                record_level: parse_record_level(&req.record_level)?,
+                task: map_managed_task_options(req.task_id),
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_execute_exec_batch_response(response)?))
+    }
+
+    async fn fetch_config_batch(
+        &self,
+        request: Request<FetchConfigBatchRequest>,
+    ) -> Result<Response<FetchConfigBatchResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = fetch_config_batch(
+            State(self.state.clone()),
+            Json(WebConfigBatchFetchRequest {
+                kind: if req.kind.trim().is_empty() {
+                    "running".to_string()
+                } else {
+                    req.kind
+                },
+                include_normalized: req.include_normalized,
+                targets: req.targets,
+                groups: req.groups,
+                labels: req.labels,
+                max_parallel: if req.max_parallel == 0 {
+                    None
+                } else {
+                    Some(req.max_parallel as usize)
+                },
+                record_level: parse_record_level(&req.record_level)?,
+                task: map_managed_task_options(req.task_id),
+            }),
+        )
+        .await
+        .map_err(api_error_to_status)?;
+
+        Ok(Response::new(map_fetch_config_batch_response(response)?))
     }
 
     async fn execute_command(
@@ -1739,6 +1808,96 @@ impl AgentTaskService for AgentTaskGrpcService {
         let req = request.into_inner();
         let Json(response) = list_custom_show_objects(Query(WebCustomShowObjectQuery {
             profile: optional_string(req.profile),
+        }))
+        .await
+        .map_err(api_error_to_status)?;
+        Ok(Response::new(json_response(response)?))
+    }
+
+    async fn list_config_commands(
+        &self,
+        request: Request<ListConfigCommandsRequest>,
+    ) -> Result<Response<JsonResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = list_config_commands_handler(Query(WebConfigCatalogQuery {
+            profile: optional_string(req.profile),
+        }))
+        .await
+        .map_err(api_error_to_status)?;
+        Ok(Response::new(json_response(response)?))
+    }
+
+    async fn upsert_config_command(
+        &self,
+        request: Request<UpsertConfigCommandRequest>,
+    ) -> Result<Response<JsonResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = upsert_config_command_handler(Json(WebUpsertConfigCommandRequest {
+            device_profile: req.device_profile,
+            kind: req.kind,
+            command: req.command,
+            mode: optional_string(req.mode),
+        }))
+        .await
+        .map_err(api_error_to_status)?;
+        Ok(Response::new(json_response(response)?))
+    }
+
+    async fn delete_config_command(
+        &self,
+        request: Request<DeleteConfigCommandRequest>,
+    ) -> Result<Response<JsonResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = delete_config_command_handler(Json(WebDeleteConfigCommandRequest {
+            device_profile: req.device_profile,
+            kind: req.kind,
+        }))
+        .await
+        .map_err(api_error_to_status)?;
+        Ok(Response::new(json_response(response)?))
+    }
+
+    async fn list_config_volatile_patterns(
+        &self,
+        request: Request<ListConfigVolatilePatternsRequest>,
+    ) -> Result<Response<JsonResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = list_config_volatile_patterns_handler(Query(WebConfigCatalogQuery {
+            profile: optional_string(req.profile),
+        }))
+        .await
+        .map_err(api_error_to_status)?;
+        Ok(Response::new(json_response(response)?))
+    }
+
+    async fn add_config_volatile_pattern(
+        &self,
+        request: Request<ConfigVolatilePatternRequest>,
+    ) -> Result<Response<JsonResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = add_config_volatile_pattern(Json(WebVolatilePatternRequest {
+            device_profile: req.device_profile,
+            pattern: req.pattern,
+        }))
+        .await
+        .map_err(api_error_to_status)?;
+        Ok(Response::new(json_response(response)?))
+    }
+
+    async fn remove_config_volatile_pattern(
+        &self,
+        request: Request<ConfigVolatilePatternRequest>,
+    ) -> Result<Response<JsonResponse>, Status> {
+        self.validate_auth(request.metadata())?;
+        let req = request.into_inner();
+        let Json(response) = remove_config_volatile_pattern(Json(WebVolatilePatternRequest {
+            device_profile: req.device_profile,
+            pattern: req.pattern,
         }))
         .await
         .map_err(api_error_to_status)?;

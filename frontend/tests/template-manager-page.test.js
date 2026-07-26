@@ -8,6 +8,7 @@ const templatesRoot = path.resolve("frontend/src/pages/templates");
 test("template manager keeps only domain-level page components", async () => {
   const files = (await readdir(templatesRoot)).sort();
   assert.deepEqual(files, [
+    "ConfigCatalogWorkspace.svelte",
     "ShowObjectWorkspace.svelte",
     "TemplateCatalogPanel.svelte",
     "TextfsmMappingWorkspace.svelte",

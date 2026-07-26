@@ -119,9 +119,15 @@ export function setShowTextfsmFields(textfsmFields = {}) {
 
 export function setBatchShowFields(showFields = {}, textfsmFields = {}) {
   setShowFormFields("batchShow", {
+    maxParallel: safeString(showFields.maxParallel ?? ""),
     mode: safeString(showFields.mode),
     ...showTextfsmPayloadFromFields(textfsmFields),
   });
+}
+
+export function normalizeBatchMaxParallel(value) {
+  const parsed = Number.parseInt(safeString(value).trim(), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function showFormFields(key, stateContext = currentShowStateContext()) {
@@ -231,11 +237,13 @@ function showExecutionPayload({ connection, recordLevel }) {
 
 function batchShowExecutionPayload({ recordLevel }) {
   const batchForm = showFormFields("batchShow");
+  const maxParallel = normalizeBatchMaxParallel(batchForm.maxParallel);
   return {
     ...showBasePayload(SHOW_QUERY.batch, batchForm),
     targets: connectionPickerValues(CONNECTION_PICKER.batchShowTargets),
     groups: connectionPickerValues(CONNECTION_PICKER.batchShowGroups),
     labels: connectionPickerValues(CONNECTION_PICKER.batchShowLabels),
+    ...(maxParallel ? { max_parallel: maxParallel } : {}),
     record_level: recordLevel,
   };
 }

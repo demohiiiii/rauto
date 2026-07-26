@@ -52,6 +52,7 @@ rauto exec "show version" --host 192.168.1.1 --credential network-admin --device
   - [Direct Execution](#direct-execution)
   - [Command Flow Templates](#command-flow-templates)
   - [SFTP Upload](#sftp-upload)
+  - [Configuration Fetch](#configuration-fetch)
   - [Device Profiles](#device-profiles)
   - [Web Console](#web-console)
     - [Agent Mode](#agent-mode)
@@ -95,6 +96,8 @@ rauto exec "show version" --host 192.168.1.1 --credential network-admin --device
 - **Agent Mode**: Run `rauto agent` for manager registration, heartbeat, protected APIs, and task callbacks.
 - **Multi-device Orchestration (Web + CLI)**: Run staged serial/parallel plans across multiple devices, reusing saved connections and current `tx` / `tx-workflow` capabilities.
 - **Command Blacklist**: Block dangerous commands globally before they are sent, with `*` wildcard support.
+- **Parallel Multi-target Execution**: Fan out `show`, `exec`, and `flow` across saved connections, inventory groups, and labels with bounded concurrency (`--max-parallel`, default 4) and precheck-before-execute safety.
+- **Configuration Fetch**: Pull `running`/`startup` configs with per-profile commands, raw + normalized SHA-256 hashes for drift detection, timestamped file archiving, and batch APIs for manager integration.
 
 ## Installation
 
@@ -205,6 +208,18 @@ Mode selection for `exec` works like this:
 - If you pass `--mode`, that mode is used after validation against the selected profile.
 - If you omit `--mode`, `rauto` uses the selected profile's `default_mode`.
 
+Run the same command across multiple saved connections by naming targets, inventory groups, or labels. Every target is prechecked first (connection resolution, per-profile mode validation, command blacklist); execution starts only when all targets pass, then runs concurrently with one atomic output block per device:
+
+```bash
+rauto exec "show clock" \
+    --target core-sw1 \
+    --target core-sw2 \
+    --group access \
+    --max-parallel 8
+```
+
+TextFSM options work in multi-target mode too; `--textfsm-excel` merges parsed rows from all targets and adds `device` / `profile` / `command` metadata columns. The web UI exposes the same capability under **Standard Delivery -> Batch**.
+
 ### Show Mode
 
 Run configured operational show objects without writing the device-specific command.
@@ -240,6 +255,8 @@ rauto show interfaces \
 
 rauto show route --group core --tag prod --textfsm-excel ./routes.xlsx
 ```
+
+Multi-target runs execute concurrently (4 devices at a time by default); tune with `--max-parallel`. Per-device output is buffered and printed as one atomic block when each target completes.
 
 You can save profile-specific custom show objects in SQLite. A custom show object overrides the bundled command table for the same `(device_profile, object)`, can bind an execution mode, and can optionally bind a custom TextFSM template that is used before command mappings and bundled NTC templates.
 
@@ -364,6 +381,16 @@ rauto flow \
     --connection core-01
 ```
 
+Command flows support the same multi-target fan-out as `show` and `exec`. The flow template is rendered per target with that device's own connection context (so `{{host}}` and cross-connection references resolve per device), prechecked against the command blacklist per rendered step, then executed concurrently:
+
+```bash
+rauto flow \
+    --template push-snmp \
+    --vars-json '{"community":"ro"}' \
+    --label campus \
+    --max-parallel 4
+```
+
 Notes:
 
 - `rauto flow` is the preferred way to run interactive command flows from the CLI.
@@ -452,6 +479,48 @@ Optional flags:
 - `--show-progress`
 - `--record-level <key-events-only|full>`
 - `--record-file <path>`
+
+### Configuration Fetch
+
+`rauto config fetch` pulls device configuration text using per-profile commands from the bundled `assets/config_catalog/config-commands.toml` catalog (for example `show running-config` on `cisco_ios`, `display current-configuration` on `huawei_vrp`). Supported kinds per platform typically include `running` and, where meaningful, `startup`.
+
+Every fetch returns two SHA-256 hashes:
+
+- `sha256`: hash of the raw configuration text.
+- `normalized_sha256`: hash computed after removing volatile lines (change timestamps, `ntp clock-period`, and similar per-profile noise). Comparing this hash across fetches detects real configuration drift without false positives from cosmetic changes.
+
+```bash
+# Print one device's running config with hashes
+rauto config fetch -c core-01
+
+# Archive startup configs for a whole group into timestamped files
+rauto config fetch --kind startup --group core --output-dir ./backups --max-parallel 8
+
+# Print the normalized text used for drift comparison
+rauto config fetch -c core-01 --normalized
+```
+
+`--output-dir` writes each device to `<name>_<kind>_<timestamp>.cfg`, which pairs naturally with cron + git for lightweight configuration archiving. Multi-target selectors (`--target`, `--group`, `--label`) and `--max-parallel` behave the same as in `show` and `exec`.
+
+Manage per-profile fetch commands. Custom overrides are stored in SQLite, win over the builtin catalog, and are validated against the command blacklist:
+
+```bash
+rauto config command list --profile cisco_ios
+rauto config command set my_profile running "show configuration all" --mode Enable
+rauto config command unset my_profile running
+```
+
+The volatile-line rules used for normalized hashing are also customizable. User-defined patterns are validated as regexes on insert and merge additively with the builtin rules, so you can silence device-specific noise (a firmware-specific timestamp comment, for example) without waiting for a release:
+
+```bash
+rauto config volatile list --profile cisco_ios
+rauto config volatile add cisco_ios '^! Last modified by .*'
+rauto config volatile remove cisco_ios '^! Last modified by .*'
+```
+
+Both fetch commands and volatile rules can also be managed in the web console under **Templates -> Config Fetch Commands**, and through the `/api/config/commands` and `/api/config/volatile-patterns` endpoints (plus matching agent gRPC methods) for manager integration.
+
+The same capability is exposed to integrations as `POST /api/config/batch-fetch` (and the agent gRPC `FetchConfigBatch` method), returning per-target content, both hashes, and a `fetched_at` timestamp; pass `include_normalized: true` to also receive the normalized text.
 
 ### Device Profiles
 
@@ -581,6 +650,7 @@ Web console key capabilities:
 
 - Manage reusable device credentials in the standalone `Credential Management` page. Password values are never returned to the browser after saving.
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
+- Run one command across many saved connections, groups, or labels in the `Standard Delivery -> Batch` tab, with per-device result cards and a concurrency control.
 - Select a credential for saved and temporary connections instead of entering authentication fields on each connection.
 - Download a CSV import template and import saved connections from CSV / Excel in UI.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.

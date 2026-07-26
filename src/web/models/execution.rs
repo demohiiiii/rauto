@@ -127,6 +127,8 @@ pub struct ShowBatchExecuteRequest {
     pub groups: Vec<String>,
     #[serde(default, alias = "tags")]
     pub labels: Vec<String>,
+    #[serde(default)]
+    pub max_parallel: Option<usize>,
     pub record_level: Option<RecordLevel>,
     #[serde(flatten)]
     pub task: ManagedTaskOptions,
@@ -156,6 +158,103 @@ pub struct ShowBatchExecuteResponse {
     pub object: String,
     pub targets: Vec<String>,
     pub results: Vec<ShowBatchTargetResponse>,
+    pub result_summary: TaskResultSummary,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExecBatchExecuteRequest {
+    pub command: String,
+    #[serde(default)]
+    pub multiline_mode: MultilineMode,
+    pub mode: Option<String>,
+    pub textfsm_template: Option<String>,
+    #[serde(default)]
+    pub parse_textfsm: bool,
+    #[serde(default)]
+    pub textfsm_platform: Option<String>,
+    #[serde(default)]
+    pub textfsm_vendor: Option<String>,
+    #[serde(default)]
+    pub textfsm_strict_errors: bool,
+    #[serde(default)]
+    pub targets: Vec<String>,
+    #[serde(default)]
+    pub groups: Vec<String>,
+    #[serde(default, alias = "tags")]
+    pub labels: Vec<String>,
+    #[serde(default)]
+    pub max_parallel: Option<usize>,
+    pub record_level: Option<RecordLevel>,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecBatchTargetResponse {
+    pub target: String,
+    pub host: String,
+    pub profile: String,
+    pub command: String,
+    pub mode: String,
+    pub output: Option<String>,
+    pub exit_code: Option<i32>,
+    pub parsed_output: Option<Value>,
+    pub parse_error: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecBatchExecuteResponse {
+    pub command: String,
+    pub targets: Vec<String>,
+    pub results: Vec<ExecBatchTargetResponse>,
+    pub result_summary: TaskResultSummary,
+}
+
+fn default_config_kind() -> String {
+    "running".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfigBatchFetchRequest {
+    #[serde(default = "default_config_kind")]
+    pub kind: String,
+    #[serde(default)]
+    pub include_normalized: bool,
+    #[serde(default)]
+    pub targets: Vec<String>,
+    #[serde(default)]
+    pub groups: Vec<String>,
+    #[serde(default, alias = "tags")]
+    pub labels: Vec<String>,
+    #[serde(default)]
+    pub max_parallel: Option<usize>,
+    pub record_level: Option<RecordLevel>,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConfigFetchTargetResponse {
+    pub target: String,
+    pub host: String,
+    pub profile: String,
+    pub kind: String,
+    pub command: String,
+    pub fetched_at: String,
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub normalized_content: Option<String>,
+    pub sha256: Option<String>,
+    pub normalized_sha256: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConfigBatchFetchResponse {
+    pub kind: String,
+    pub targets: Vec<String>,
+    pub results: Vec<ConfigFetchTargetResponse>,
     pub result_summary: TaskResultSummary,
 }
 

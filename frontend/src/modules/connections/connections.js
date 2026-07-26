@@ -7,6 +7,7 @@ import {
 import { derived, get, writable } from "svelte/store";
 import {
   CONNECTION_MODAL_FOCUS_TARGET,
+  batchExecTargetPickerFields,
   batchShowTargetPickerFields,
   connectionModalDisplay,
   savedConnectionEditModalDisplay,
@@ -103,6 +104,7 @@ import {
 
 export {
   CONNECTION_PROFILE_SELECT,
+  batchExecTargetPickerFields,
   batchShowTargetPickerFields,
   CONNECTION_MODAL_FOCUS_TARGET,
   connectionModalDisplay,

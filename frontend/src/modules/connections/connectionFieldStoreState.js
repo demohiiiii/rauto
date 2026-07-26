@@ -3,6 +3,9 @@ import { t } from "../../lib/i18n.js";
 import { displayString, safeString } from "../../lib/ui.js";
 
 export const CONNECTION_PICKER = Object.freeze({
+  batchExecGroups: "connectionPicker.batchExec.groups",
+  batchExecLabels: "connectionPicker.batchExec.labels",
+  batchExecTargets: "connectionPicker.batchExec.targets",
   batchShowGroups: "connectionPicker.batchShow.groups",
   batchShowLabels: "connectionPicker.batchShow.labels",
   batchShowObject: "connectionPicker.batchShow.object",
@@ -43,14 +46,19 @@ const CONNECTION_PICKER_CONFIGS = {
     CONNECTION_PICKER.savedLabels,
     CONNECTION_PICKER.savedEditLabels,
     CONNECTION_PICKER.batchShowLabels,
+    CONNECTION_PICKER.batchExecLabels,
   ]),
   ...pickerConfigs("groups", [
     CONNECTION_PICKER.savedGroups,
     CONNECTION_PICKER.savedEditGroups,
     CONNECTION_PICKER.batchShowGroups,
+    CONNECTION_PICKER.batchExecGroups,
     CONNECTION_PICKER.orchestrationTargetGroups,
   ]),
-  ...pickerConfigs("devices", [CONNECTION_PICKER.batchShowTargets]),
+  ...pickerConfigs("devices", [
+    CONNECTION_PICKER.batchShowTargets,
+    CONNECTION_PICKER.batchExecTargets,
+  ]),
   ...pickerConfigs("labels", [CONNECTION_PICKER.orchestrationTargetTags], {
     allowCustom: false,
   }),

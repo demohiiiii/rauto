@@ -281,6 +281,7 @@ function batchShowInputPresentation(fields = []) {
 function batchShowPanelPresentation({
   executeLoading = false,
   fields = [],
+  maxParallel = "",
   modeState = {},
   previewRows = {},
   textfsmState = {},
@@ -288,11 +289,14 @@ function batchShowPanelPresentation({
   const inputDisplay = batchShowInputPresentation(fields);
   return {
     inputDisplay,
-    selectionFields: showSelectionFieldsForQuery({
-      modeState,
-      previewRows,
-      query: SHOW_QUERY.batch,
-    }),
+    selectionFields: {
+      ...showSelectionFieldsForQuery({
+        modeState,
+        previewRows,
+        query: SHOW_QUERY.batch,
+      }),
+      maxParallel: safeString(maxParallel),
+    },
     textfsmFields: showTextfsmFieldsForState(textfsmState),
     runButtonDisplay: showRunButtonDisplayPresentation({
       executeButtonLabel: inputDisplay.executeButtonLabel,
@@ -660,6 +664,7 @@ export function createBatchShowInputPanelWorkspace() {
   );
   const batchShowTextStateStore = writable({
     excelName: "",
+    maxParallel: "",
     strictErrors: false,
     textfsmEnabled: true,
   });
@@ -696,6 +701,7 @@ export function createBatchShowInputPanelWorkspace() {
       batchShowPanelPresentation({
         executeLoading: $batchShowLoadingState.executeLoading,
         fields: batchShowTargetPickerFields,
+        maxParallel: $batchShowTextState.maxParallel,
         modeState: $batchModeState,
         previewRows: $showCommandPreviewRows,
         textfsmState: {
@@ -739,8 +745,17 @@ export function createBatchShowInputPanelWorkspace() {
       patchStoreField(batchShowTextStateStore, "strictErrors", !!strictErrors),
   };
 
+  function changeBatchMaxParallel(maxParallel) {
+    patchStoreField(
+      batchShowTextStateStore,
+      "maxParallel",
+      safeString(maxParallel).trim(),
+    );
+  }
+
   return {
     batchShowLoadingStateStore,
+    changeBatchMaxParallel,
     changeShowObject: updateBatchShowCommandPreview,
     changeShowObjectMode: selectionPanelWorkspace.changeMode,
     executeBatchShowPanel,

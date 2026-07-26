@@ -3,6 +3,8 @@ pub mod backup;
 pub mod command_blacklist;
 pub mod command_flow_template;
 pub mod command_flow_vars;
+pub mod config_catalog;
+pub mod config_command_store;
 pub mod connection_import;
 pub mod connection_resolver;
 pub mod connection_store;

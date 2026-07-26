@@ -36,6 +36,7 @@ export const TEMPLATE_MANAGER_KIND = Object.freeze({
   textfsm: "textfsm",
   textfsmMappings: "textfsm-mappings",
   showObjects: "show-objects",
+  configCatalog: "config-catalog",
 });
 
 export const templateManagerSections = Object.freeze([
@@ -74,6 +75,12 @@ export const templateManagerSections = Object.freeze([
     group: "parsing",
     labelKey: "templateManagerTextfsmTitle",
     descriptionKey: "templateManagerTextfsmDescription",
+  },
+  {
+    key: TEMPLATE_MANAGER_KIND.configCatalog,
+    group: "parsing",
+    labelKey: "templateManagerConfigCatalogTitle",
+    descriptionKey: "templateManagerConfigCatalogDescription",
   },
   {
     key: TEMPLATE_MANAGER_KIND.textfsmMappings,

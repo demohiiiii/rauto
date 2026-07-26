@@ -1,5 +1,20 @@
 use super::*;
 
+use std::collections::VecDeque;
+use tokio::task::JoinSet;
+
+/// Default number of devices a batch show request executes concurrently when
+/// the request does not specify `max_parallel`. Matches the orchestrator's
+/// default stage concurrency.
+const DEFAULT_BATCH_SHOW_PARALLEL: usize = 4;
+
+pub(super) fn batch_show_concurrency(max_parallel: Option<usize>, total_targets: usize) -> usize {
+    max_parallel
+        .unwrap_or(DEFAULT_BATCH_SHOW_PARALLEL)
+        .max(1)
+        .min(total_targets.max(1))
+}
+
 struct CommandResultsAggregate {
     output: String,
     exit_code: Option<i32>,
@@ -650,18 +665,38 @@ pub async fn execute_show_batch(
             );
 
             let record_level = req.record_level;
-            let mut results = Vec::with_capacity(resolved_targets.len());
-            for target in resolved_targets {
-                results.push(
-                    execute_batch_show_target(
-                        &target,
-                        req.no_parse,
-                        record_level,
-                        !req.textfsm_strict_errors,
-                    )
-                    .await,
-                );
+            let no_parse = req.no_parse;
+            let filter_error_rules = !req.textfsm_strict_errors;
+            let total_targets = resolved_targets.len();
+            let concurrency = batch_show_concurrency(req.max_parallel, total_targets);
+            let mut pending: VecDeque<(usize, ResolvedBatchShowTarget)> =
+                resolved_targets.into_iter().enumerate().collect();
+            let mut join_set = JoinSet::new();
+            let mut slots: Vec<Option<ShowBatchTargetResponse>> = std::iter::repeat_with(|| None)
+                .take(total_targets)
+                .collect();
+            while !pending.is_empty() || !join_set.is_empty() {
+                while join_set.len() < concurrency && !pending.is_empty() {
+                    let (idx, target) = pending.pop_front().expect("pending batch show target");
+                    join_set.spawn(async move {
+                        let response = execute_batch_show_target(
+                            &target,
+                            no_parse,
+                            record_level,
+                            filter_error_rules,
+                        )
+                        .await;
+                        (idx, response)
+                    });
+                }
+                let Some(joined) = join_set.join_next().await else {
+                    break;
+                };
+                let (idx, response) = joined
+                    .map_err(|e| ApiError::internal(format!("batch show task failed: {}", e)))?;
+                slots[idx] = Some(response);
             }
+            let results: Vec<ShowBatchTargetResponse> = slots.into_iter().flatten().collect();
 
             let total = results.len() as u64;
             let failed = results
@@ -737,8 +772,16 @@ pub async fn execute_show_batch(
 }
 
 fn resolve_batch_show_target_names(req: &ShowBatchExecuteRequest) -> Result<Vec<String>, ApiError> {
+    resolve_batch_target_names(&req.targets, &req.groups, &req.labels)
+}
+
+pub(super) fn resolve_batch_target_names(
+    targets: &[String],
+    groups: &[String],
+    labels: &[String],
+) -> Result<Vec<String>, ApiError> {
     let mut names = BTreeSet::new();
-    for target in &req.targets {
+    for target in targets {
         let trimmed = target.trim();
         if !trimmed.is_empty() {
             names.insert(
@@ -748,12 +791,12 @@ fn resolve_batch_show_target_names(req: &ShowBatchExecuteRequest) -> Result<Vec<
         }
     }
     for connection in
-        connection_store::list_connections_by_groups_any(&req.groups).map_err(ApiError::from)?
+        connection_store::list_connections_by_groups_any(groups).map_err(ApiError::from)?
     {
         names.insert(connection);
     }
     for connection in
-        connection_store::list_connections_by_labels_any(&req.labels).map_err(ApiError::from)?
+        connection_store::list_connections_by_labels_any(labels).map_err(ApiError::from)?
     {
         names.insert(connection);
     }
@@ -929,6 +972,352 @@ async fn execute_batch_show_target_inner(
         textfsm_template_name: target.show.textfsm_template_name.clone(),
         output: Some(output.content),
         exit_code,
+        parsed_output,
+        parse_error,
+        error: None,
+    })
+}
+
+struct ResolvedBatchExecTarget {
+    name: String,
+    conn: ResolvedConnection,
+    effective_mode: String,
+}
+
+/// Cloneable subset of [`ExecBatchExecuteRequest`] needed by each
+/// concurrently executing batch exec target.
+#[derive(Clone)]
+struct BatchExecOptions {
+    command: String,
+    multiline_mode: MultilineMode,
+    textfsm_template: Option<String>,
+    parse_textfsm: bool,
+    textfsm_platform: Option<String>,
+    textfsm_vendor: Option<String>,
+    textfsm_strict_errors: bool,
+    record_level: Option<RecordLevel>,
+}
+
+pub async fn execute_exec_batch(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExecBatchExecuteRequest>,
+) -> Result<Json<ExecBatchExecuteResponse>, ApiError> {
+    let (task_ctx, task_guard) = begin_reported_task(
+        &state,
+        TaskOperation::Exec,
+        req.task.task_id.clone(),
+        TaskEventInput::new("started", "Starting batch command execution")
+            .with_stage("precheck")
+            .with_progress(Some(0))
+            .with_details(Some(json!({
+                "command": &req.command,
+                "targets": &req.targets,
+                "groups": &req.groups,
+                "labels": &req.labels
+            }))),
+    );
+
+    let result: Result<ExecBatchExecuteResponse, ApiError> = state
+        .run_until_shutdown(async {
+            if req.command.trim().is_empty() {
+                return Err(ApiError::bad_request("command is required"));
+            }
+            let target_names = resolve_batch_target_names(&req.targets, &req.groups, &req.labels)?;
+            if target_names.is_empty() {
+                return Err(ApiError::bad_request(
+                    "batch exec resolved no saved connections",
+                ));
+            }
+
+            let mut resolved_targets = Vec::with_capacity(target_names.len());
+            let mut precheck_errors = Vec::new();
+            for name in &target_names {
+                match resolve_batch_exec_target(&state, name, &req).await {
+                    Ok(target) => resolved_targets.push(target),
+                    Err(err) => precheck_errors.push(format!("{name}: {}", err.message)),
+                }
+            }
+            if !precheck_errors.is_empty() {
+                return Err(ApiError::bad_request(format!(
+                    "exec precheck failed for {} target(s):\n{}",
+                    precheck_errors.len(),
+                    precheck_errors.join("\n")
+                )));
+            }
+
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("progress", "Executing batch command")
+                    .with_stage("command")
+                    .with_progress(Some(40))
+                    .with_details(Some(json!({
+                        "command": &req.command,
+                        "target_count": resolved_targets.len()
+                    }))),
+            );
+
+            let options = BatchExecOptions {
+                command: req.command.clone(),
+                multiline_mode: req.multiline_mode,
+                textfsm_template: req.textfsm_template.clone(),
+                parse_textfsm: req.parse_textfsm,
+                textfsm_platform: req.textfsm_platform.clone(),
+                textfsm_vendor: req.textfsm_vendor.clone(),
+                textfsm_strict_errors: req.textfsm_strict_errors,
+                record_level: req.record_level,
+            };
+            let total_targets = resolved_targets.len();
+            let concurrency = batch_show_concurrency(req.max_parallel, total_targets);
+            let mut pending: VecDeque<(usize, ResolvedBatchExecTarget)> =
+                resolved_targets.into_iter().enumerate().collect();
+            let mut join_set = JoinSet::new();
+            let mut slots: Vec<Option<ExecBatchTargetResponse>> = std::iter::repeat_with(|| None)
+                .take(total_targets)
+                .collect();
+            while !pending.is_empty() || !join_set.is_empty() {
+                while join_set.len() < concurrency && !pending.is_empty() {
+                    let (idx, target) = pending.pop_front().expect("pending batch exec target");
+                    let options = options.clone();
+                    join_set.spawn(async move {
+                        let response = execute_batch_exec_target(&target, &options).await;
+                        (idx, response)
+                    });
+                }
+                let Some(joined) = join_set.join_next().await else {
+                    break;
+                };
+                let (idx, response) = joined
+                    .map_err(|e| ApiError::internal(format!("batch exec task failed: {}", e)))?;
+                slots[idx] = Some(response);
+            }
+            let results: Vec<ExecBatchTargetResponse> = slots.into_iter().flatten().collect();
+
+            let total = results.len() as u64;
+            let failed = results
+                .iter()
+                .filter(|item| item.error.is_some() || item.exit_code.unwrap_or(0) != 0)
+                .count() as u64;
+            let succeeded = total.saturating_sub(failed);
+            let outcome = if failed == 0 {
+                TaskResultOutcome::Success
+            } else if succeeded > 0 {
+                TaskResultOutcome::PartialSuccess
+            } else {
+                TaskResultOutcome::Failed
+            };
+
+            Ok(ExecBatchExecuteResponse {
+                command: req.command.clone(),
+                targets: target_names,
+                result_summary: task_result_with_details(
+                    task_result_with_counts(
+                        build_result_summary(
+                            TaskOperation::Exec,
+                            outcome,
+                            format!(
+                                "Batch exec completed: {} succeeded, {} failed",
+                                succeeded, failed
+                            ),
+                        ),
+                        result_counts(total, succeeded, failed),
+                    ),
+                    json!({
+                        "command": &req.command,
+                        "total": total,
+                        "succeeded": succeeded,
+                        "failed": failed
+                    }),
+                ),
+                results,
+            })
+        })
+        .await;
+
+    finish_reported_task(
+        state,
+        task_ctx,
+        task_guard,
+        result,
+        TaskFailureEvent {
+            stage: "precheck",
+            message_prefix: "Batch command execution failed",
+        },
+        |state, task_ctx, response| {
+            emit_task_event(
+                state,
+                task_ctx,
+                TaskEventInput::new("completed", "Batch command execution completed")
+                    .with_stage("command")
+                    .with_level(if response.result_summary.success {
+                        "success"
+                    } else {
+                        "warning"
+                    })
+                    .with_progress(Some(100))
+                    .with_details(Some(json!({
+                        "command": response.command,
+                        "target_count": response.targets.len(),
+                        "counts": response.result_summary.counts.as_ref()
+                    }))),
+            )
+        },
+        |_| None,
+    )
+}
+
+async fn resolve_batch_exec_target(
+    state: &Arc<AppState>,
+    name: &str,
+    req: &ExecBatchExecuteRequest,
+) -> Result<ResolvedBatchExecTarget, ApiError> {
+    let connection = ConnectionRequest {
+        connection_name: Some(name.to_string()),
+        ..Default::default()
+    };
+    let conn =
+        resolve_autodetect_connection(merge_connection_options(&state.defaults, Some(connection))?)
+            .await?;
+    let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+    let command = Command {
+        mode: effective_mode.clone(),
+        command: req.command.clone(),
+        multiline_mode: req.multiline_mode,
+        timeout: Some(60),
+        dyn_params: CommandDynamicParams::default(),
+        interaction: CommandInteraction::default(),
+    };
+    let concrete_flow = command
+        .into_flow()
+        .map_err(|error| ApiError::bad_request(error.to_string()))?;
+    command_blacklist::ensure_commands_allowed(
+        concrete_flow.steps.iter().map(|step| step.command.as_str()),
+        "batch exec execution",
+    )
+    .map_err(|error| ApiError::bad_request(error.to_string()))?;
+    Ok(ResolvedBatchExecTarget {
+        name: name.to_string(),
+        conn,
+        effective_mode,
+    })
+}
+
+async fn execute_batch_exec_target(
+    target: &ResolvedBatchExecTarget,
+    options: &BatchExecOptions,
+) -> ExecBatchTargetResponse {
+    match execute_batch_exec_target_inner(target, options).await {
+        Ok(response) => response,
+        Err(err) => ExecBatchTargetResponse {
+            target: target.name.clone(),
+            host: target.conn.host.clone(),
+            profile: target.conn.device_profile.clone(),
+            command: options.command.clone(),
+            mode: target.effective_mode.clone(),
+            output: None,
+            exit_code: None,
+            parsed_output: None,
+            parse_error: None,
+            error: Some(err.message),
+        },
+    }
+}
+
+async fn execute_batch_exec_target_inner(
+    target: &ResolvedBatchExecTarget,
+    options: &BatchExecOptions,
+) -> Result<ExecBatchTargetResponse, ApiError> {
+    let handler = template_loader::load_device_profile_for_connection(
+        &target.conn.device_profile,
+        target.conn.linux_shell_flavor,
+    )?;
+    let command = Command {
+        mode: target.effective_mode.clone(),
+        command: options.command.clone(),
+        multiline_mode: options.multiline_mode,
+        timeout: Some(60),
+        dyn_params: CommandDynamicParams::default(),
+        interaction: CommandInteraction::default(),
+    };
+    let concrete_flow = command
+        .clone()
+        .into_flow()
+        .map_err(|error| ApiError::bad_request(error.to_string()))?;
+    let client = if let Some(level) = to_record_level(options.record_level) {
+        DeviceClient::connect_with_recording(
+            target.conn.host.clone(),
+            target.conn.port,
+            target.conn.username.clone(),
+            target.conn.password.clone(),
+            target.conn.enable_password.clone(),
+            handler,
+            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            level,
+            target.conn.ssh_security,
+            target.conn.connect_timeout_secs,
+        )
+        .await?
+    } else {
+        DeviceClient::connect(
+            target.conn.host.clone(),
+            target.conn.port,
+            target.conn.username.clone(),
+            target.conn.password.clone(),
+            target.conn.enable_password.clone(),
+            handler,
+            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            target.conn.ssh_security,
+            target.conn.connect_timeout_secs,
+        )
+        .await?
+    };
+
+    let concrete_commands = concrete_flow.steps.clone();
+    let flow_output = client.execute_multiline_command_structured(command).await?;
+    let outputs: Vec<CommandResult> = concrete_commands
+        .into_iter()
+        .zip(flow_output.outputs)
+        .map(|(command, output)| CommandResult {
+            command: command.command,
+            success: output.success,
+            exit_code: output.exit_code,
+            output: Some(output.content),
+            all: Some(output.all),
+            error: None,
+            parsed_output: None,
+            parse_error: None,
+        })
+        .collect();
+    let aggregate = aggregate_command_results(&outputs);
+    let (parsed_output, parse_error) = parse_textfsm_output_optional(
+        &aggregate.output,
+        &options.command,
+        WebTextfsmParseOptions {
+            template_file: options.textfsm_template.as_deref(),
+            enabled: options.parse_textfsm,
+            platform: options.textfsm_platform.as_deref(),
+            device_profile: Some(target.conn.device_profile.as_str()),
+            vendor: options.textfsm_vendor.as_deref(),
+            filter_error_rules: !options.textfsm_strict_errors,
+            ..Default::default()
+        },
+    );
+    persist_history_if_recorded(
+        &target.conn,
+        &client,
+        "exec",
+        &options.command,
+        Some(target.effective_mode.as_str()),
+        options.record_level,
+    );
+    Ok(ExecBatchTargetResponse {
+        target: target.name.clone(),
+        host: target.conn.host.clone(),
+        profile: target.conn.device_profile.clone(),
+        command: options.command.clone(),
+        mode: target.effective_mode.clone(),
+        output: Some(aggregate.output),
+        exit_code: aggregate.exit_code,
         parsed_output,
         parse_error,
         error: None,
@@ -1360,5 +1749,33 @@ mod tests {
                 .message
                 .contains("either template or template_content")
         );
+    }
+
+    #[test]
+    fn batch_show_concurrency_clamps_to_valid_range() {
+        assert_eq!(batch_show_concurrency(None, 10), 4);
+        assert_eq!(batch_show_concurrency(None, 2), 2);
+        assert_eq!(batch_show_concurrency(Some(0), 10), 1);
+        assert_eq!(batch_show_concurrency(Some(8), 3), 3);
+        assert_eq!(batch_show_concurrency(Some(2), 10), 2);
+        assert_eq!(batch_show_concurrency(Some(5), 0), 1);
+    }
+
+    #[test]
+    fn batch_show_request_accepts_and_defaults_max_parallel() {
+        let legacy: ShowBatchExecuteRequest = serde_json::from_value(serde_json::json!({
+            "object": "interfaces",
+            "targets": ["edge-1"]
+        }))
+        .expect("request without max_parallel should deserialize");
+        assert_eq!(legacy.max_parallel, None);
+
+        let tuned: ShowBatchExecuteRequest = serde_json::from_value(serde_json::json!({
+            "object": "interfaces",
+            "targets": ["edge-1"],
+            "max_parallel": 8
+        }))
+        .expect("request with max_parallel should deserialize");
+        assert_eq!(tuned.max_parallel, Some(8));
     }
 }

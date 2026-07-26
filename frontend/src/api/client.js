@@ -457,6 +457,43 @@ export function executeShowBatch(payload) {
   return apiRequest("POST", "/api/show/batch-execute", payload);
 }
 
+export function executeExecBatch(payload) {
+  return apiRequest("POST", "/api/exec/batch-execute", payload);
+}
+
+export function listConfigCommands(profile = "") {
+  const params = new URLSearchParams();
+  if (profile) params.set("profile", profile);
+  const query = params.toString();
+  return apiRequest("GET", `/api/config/commands${query ? `?${query}` : ""}`);
+}
+
+export function upsertConfigCommand(payload) {
+  return apiRequest("POST", "/api/config/commands", payload);
+}
+
+export function deleteConfigCommand(payload) {
+  return apiRequest("DELETE", "/api/config/commands", payload);
+}
+
+export function listConfigVolatilePatterns(profile = "") {
+  const params = new URLSearchParams();
+  if (profile) params.set("profile", profile);
+  const query = params.toString();
+  return apiRequest(
+    "GET",
+    `/api/config/volatile-patterns${query ? `?${query}` : ""}`,
+  );
+}
+
+export function addConfigVolatilePattern(payload) {
+  return apiRequest("POST", "/api/config/volatile-patterns", payload);
+}
+
+export function removeConfigVolatilePattern(payload) {
+  return apiRequest("DELETE", "/api/config/volatile-patterns", payload);
+}
+
 export function listCustomShowObjects(profile = "") {
   const params = new URLSearchParams();
   if (profile) params.set("profile", profile);

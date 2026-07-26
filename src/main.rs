@@ -98,6 +98,9 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Upload(args) => {
             cli::flow::run_upload(args, &cli.global_opts).await?;
         }
+        Commands::Config(cmd) => {
+            cli::config_fetch::run_config_command(cmd, &cli.global_opts).await?;
+        }
         Commands::Tx(args) => {
             cli::tx_block::run_tx_block(args, &cli.global_opts).await?;
         }

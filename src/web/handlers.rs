@@ -28,7 +28,9 @@ use crate::task::{
 use crate::template::renderer::Renderer;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    AsyncTaskAcceptedResponse, CommandResult, ConnectionRequest, ExecRequest, ExecResponse,
+    AsyncTaskAcceptedResponse, CommandResult, ConfigBatchFetchRequest, ConfigBatchFetchResponse,
+    ConfigFetchTargetResponse, ConnectionRequest, ExecBatchExecuteRequest,
+    ExecBatchExecuteResponse, ExecBatchTargetResponse, ExecRequest, ExecResponse,
     ExecuteCommandFlowRequest, ExecuteCommandFlowResponse, ExecuteOrchestrationRequest,
     ExecuteOrchestrationResponse, ExecuteTemplateRequest, ExecuteTemplateResponse,
     ExecuteTxBlockRequest, ExecuteTxBlockResponse, ExecuteTxWorkflowRequest,
@@ -65,6 +67,7 @@ use tracing::warn;
 
 mod async_tasks;
 mod command_templates;
+mod config_catalog;
 mod connections;
 mod credentials;
 mod execute;
@@ -86,6 +89,12 @@ pub use command_templates::{
     create_template, delete_template, get_template, inspect_command_template, list_templates,
     update_template,
 };
+pub use config_catalog::{
+    ConfigCatalogQuery, DeleteConfigCommandRequest, UpsertConfigCommandRequest,
+    VolatilePatternRequest, add_config_volatile_pattern, delete_config_command,
+    list_config_commands, list_config_volatile_patterns, remove_config_volatile_pattern,
+    upsert_config_command,
+};
 pub use connections::{
     delete_connection, delete_connection_history, delete_inventory_group, delete_inventory_label,
     detect_connection_facts, get_connection, get_connection_history, get_connection_history_detail,
@@ -98,11 +107,11 @@ pub use credentials::{
     update_credential,
 };
 pub use execute::{
-    ShowObjectsQuery, exec_command, exec_command_async, execute_command_flow,
+    ShowObjectsQuery, exec_command, exec_command_async, execute_command_flow, execute_exec_batch,
     execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
     execute_template, execute_template_async, execute_tx_block, execute_tx_block_async,
-    execute_tx_workflow, execute_tx_workflow_async, execute_upload, list_show_objects,
-    render_template,
+    execute_tx_workflow, execute_tx_workflow_async, execute_upload, fetch_config_batch,
+    list_show_objects, render_template,
 };
 use flow_templates::{
     builtin_command_flow_template_by_name, parse_builtin_command_flow_template_token,

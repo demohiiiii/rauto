@@ -1,5 +1,12 @@
-use crate::cli::exec::textfsm_template_for_index;
-use crate::cli::{CommandFlowArgs, CommandFlowTemplateCommands, UploadArgs};
+use crate::cli::exec::{
+    MultiShowParsedOutput, add_multi_target_metadata, merge_multi_show_parsed_outputs,
+    textfsm_template_for_index, write_textfsm_excel,
+};
+use crate::cli::multi_target::{
+    MultiTargetRun, has_multi_target_selectors, multi_target_concurrency,
+    resolve_multi_target_names, run_buffered_multi_target,
+};
+use crate::cli::{CommandFlowArgs, CommandFlowTemplateCommands, RecordLevelOpt, UploadArgs};
 use crate::config::command_flow_template::{
     CommandFlowTemplate, build_command_flow_runtime, cisco_like_copy_command_flow_template,
     normalize_command_flow_template_body, parse_command_flow_template,
@@ -8,7 +15,8 @@ use crate::config::command_flow_template::{
 use crate::config::{command_blacklist, content_store, template_loader, textfsm, textfsm_export};
 use crate::device::DeviceClient;
 use anyhow::Result;
-use rneter::session::MANAGER;
+use rneter::session::{CommandFlow, MANAGER};
+use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 
@@ -86,6 +94,9 @@ pub(crate) async fn run_command_flow(
     let template = resolve_command_flow_template(&args)?;
     let vars =
         crate::cli::tx_block::load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
+    if has_multi_target_selectors(&args.targets, &args.groups, &args.labels) {
+        return run_multi_command_flow(&args, opts, &template, vars).await;
+    }
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
@@ -155,8 +166,22 @@ pub(crate) async fn run_command_flow(
         device_profile: Some(conn.device_profile.clone()),
         filter_error_rules: !args.textfsm_strict_errors,
     };
-    let parsed_sheets = print_command_flow_output(&result, &flow_commands, &parse_options)?;
+    let mut flow_output_text = String::new();
+    let parsed_steps = write_command_flow_output(
+        &mut flow_output_text,
+        &result,
+        &flow_commands,
+        &parse_options,
+    )?;
+    print!("{}", flow_output_text);
     if let Some(path) = args.textfsm_excel.as_deref() {
+        let parsed_sheets: Vec<textfsm_export::ParsedOutputSheet> = parsed_steps
+            .into_iter()
+            .map(|step| textfsm_export::ParsedOutputSheet {
+                name: step.sheet_name,
+                parsed_output: step.parsed_output,
+            })
+            .collect();
         textfsm_export::write_parsed_outputs_xlsx(path, &parsed_sheets)?;
         println!("TextFSM Excel: {}", path.display());
     }
@@ -174,6 +199,259 @@ pub(crate) async fn run_command_flow(
         return Err(anyhow::anyhow!("command flow completed with errors"));
     }
     Ok(())
+}
+
+/// Cloneable subset of [`CommandFlowArgs`] needed by each concurrently
+/// executing flow target task.
+#[derive(Clone)]
+struct MultiFlowOptions {
+    template_name: String,
+    template_files: Vec<PathBuf>,
+    parse_enabled: bool,
+    textfsm_platform: Option<String>,
+    textfsm_strict_errors: bool,
+    record_level: RecordLevelOpt,
+}
+
+struct ResolvedFlowTarget {
+    name: String,
+    conn: crate::EffectiveConnection,
+    flow: CommandFlow,
+    effective_flow_mode: String,
+    profile_default_mode: String,
+}
+
+async fn run_multi_command_flow(
+    args: &CommandFlowArgs,
+    opts: &crate::cli::GlobalOpts,
+    template: &CommandFlowTemplate,
+    vars: serde_json::Value,
+) -> Result<()> {
+    if args.record_file.is_some() {
+        return Err(anyhow::anyhow!(
+            "--record-file is not supported with multi-target flow; session history is still saved automatically"
+        ));
+    }
+    if opts.host.is_some() {
+        return Err(anyhow::anyhow!(
+            "--host cannot be used with multi-target flow; use saved --target connections, --group, or --label"
+        ));
+    }
+
+    let target_names = resolve_multi_target_names(
+        opts.connection.as_deref(),
+        &args.targets,
+        &args.groups,
+        &args.labels,
+    )?;
+    if target_names.is_empty() {
+        return Err(anyhow::anyhow!(
+            "multi-target flow resolved no saved connections"
+        ));
+    }
+
+    let mut resolved_targets = Vec::with_capacity(target_names.len());
+    let mut errors = Vec::new();
+    for name in target_names {
+        match resolve_flow_target(&name, template, &vars, opts).await {
+            Ok(target) => resolved_targets.push(target),
+            Err(err) => errors.push(format!("{}: {err:#}", name)),
+        }
+    }
+    if !errors.is_empty() {
+        return Err(anyhow::anyhow!(
+            "flow precheck failed for {} target(s):\n{}",
+            errors.len(),
+            errors.join("\n")
+        ));
+    }
+
+    println!(
+        "# precheck: command flow '{}' is executable on {} target(s)",
+        template.name,
+        resolved_targets.len()
+    );
+    let total_targets = resolved_targets.len();
+    let concurrency = multi_target_concurrency(args.max_parallel, total_targets);
+    if concurrency > 1 {
+        println!(
+            "# executing on {} target(s) with up to {} in parallel",
+            total_targets, concurrency
+        );
+    }
+    let options = MultiFlowOptions {
+        template_name: template.name.clone(),
+        template_files: args.textfsm_template.clone(),
+        parse_enabled: args.parse_textfsm
+            || !args.textfsm_template.is_empty()
+            || args.textfsm_excel.is_some(),
+        textfsm_platform: args.textfsm_platform.clone(),
+        textfsm_strict_errors: args.textfsm_strict_errors,
+        record_level: args.record_level,
+    };
+    let outcome = run_buffered_multi_target(resolved_targets, concurrency, move |target| {
+        let options = options.clone();
+        async move {
+            let name = target.name.clone();
+            let (output, result) = execute_resolved_flow_target(&target, &options).await;
+            MultiTargetRun {
+                name,
+                output,
+                result,
+            }
+        }
+    })
+    .await?;
+    if let Some(path) = args.textfsm_excel.as_deref() {
+        let parsed: Vec<MultiShowParsedOutput> = outcome.parsed.into_iter().flatten().collect();
+        if !parsed.is_empty() {
+            let parsed_sheets = merge_multi_show_parsed_outputs(parsed);
+            write_textfsm_excel(path, parsed_sheets)?;
+        }
+    }
+    if !outcome.errors.is_empty() {
+        return Err(anyhow::anyhow!(
+            "multi-target flow failed on {} target(s):\n{}",
+            outcome.errors.len(),
+            outcome.errors.join("\n")
+        ));
+    }
+    Ok(())
+}
+
+async fn resolve_flow_target(
+    name: &str,
+    template: &CommandFlowTemplate,
+    vars: &serde_json::Value,
+    opts: &crate::cli::GlobalOpts,
+) -> Result<ResolvedFlowTarget> {
+    let mut target_opts = opts.clone();
+    target_opts.connection = Some(name.to_string());
+    target_opts.save_connection = None;
+    target_opts.host = None;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(&target_opts)?)
+            .await?;
+    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let runtime_vars = crate::resolve_flow_runtime_vars(template, vars.clone(), &conn)?;
+    let runtime_default_mode = resolve_command_flow_runtime_default_mode(
+        None,
+        template.default_mode.as_deref(),
+        &profile_default_mode,
+    );
+    let effective_flow_mode = runtime_default_mode
+        .clone()
+        .or_else(|| {
+            template
+                .default_mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|mode| !mode.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| profile_default_mode.clone());
+    let flow = template.to_command_flow(&build_command_flow_runtime(
+        runtime_default_mode,
+        runtime_vars,
+    ))?;
+    command_blacklist::ensure_commands_allowed(
+        flow.steps.iter().map(|command| command.command.as_str()),
+        "command flow",
+    )?;
+    if flow.steps.is_empty() {
+        return Err(anyhow::anyhow!("command flow has no steps"));
+    }
+    Ok(ResolvedFlowTarget {
+        name: name.to_string(),
+        conn,
+        flow,
+        effective_flow_mode,
+        profile_default_mode,
+    })
+}
+
+async fn execute_resolved_flow_target(
+    target: &ResolvedFlowTarget,
+    options: &MultiFlowOptions,
+) -> (String, Result<Option<Vec<MultiShowParsedOutput>>>) {
+    let mut out = String::new();
+    let result = execute_resolved_flow_target_buffered(target, options, &mut out).await;
+    (out, result)
+}
+
+async fn execute_resolved_flow_target_buffered(
+    target: &ResolvedFlowTarget,
+    options: &MultiFlowOptions,
+    out: &mut String,
+) -> Result<Option<Vec<MultiShowParsedOutput>>> {
+    let _ = writeln!(
+        out,
+        "=== target: {} ({}) ===",
+        target.name, target.conn.host
+    );
+    let handler = template_loader::load_device_profile_for_connection(
+        &target.conn.device_profile,
+        target.conn.linux_shell_flavor,
+    )?;
+    let client = DeviceClient::connect_with_recording(
+        target.conn.host.clone(),
+        target.conn.port,
+        target.conn.username.clone(),
+        target.conn.password.clone(),
+        target.conn.enable_password.clone(),
+        handler,
+        target.profile_default_mode.clone(),
+        crate::to_record_level(options.record_level),
+        target.conn.ssh_security,
+        target.conn.connect_timeout_secs,
+    )
+    .await?;
+
+    let flow_commands = target
+        .flow
+        .steps
+        .iter()
+        .map(|step| step.command.clone())
+        .collect::<Vec<_>>();
+    let result = client.execute_command_flow(target.flow.clone()).await?;
+    let parse_options = CommandFlowParseOptions {
+        template_files: options.template_files.clone(),
+        enabled: options.parse_enabled,
+        platform: options.textfsm_platform.clone(),
+        device_profile: Some(target.conn.device_profile.clone()),
+        filter_error_rules: !options.textfsm_strict_errors,
+    };
+    let parsed_steps = write_command_flow_output(out, &result, &flow_commands, &parse_options)?;
+    crate::persist_auto_recording_history(
+        &client,
+        &target.conn,
+        "command_flow",
+        &format!("template: {}", options.template_name),
+        Some(target.effective_flow_mode.as_str()),
+        options.record_level,
+    )?;
+    if !result.success {
+        return Err(anyhow::anyhow!("command flow completed with errors"));
+    }
+    let parsed = parsed_steps
+        .into_iter()
+        .map(|step| {
+            Ok(MultiShowParsedOutput {
+                object: step.sheet_name.clone(),
+                rows: add_multi_target_metadata(
+                    &target.name,
+                    &target.conn.device_profile,
+                    &step.command,
+                    step.parsed_output,
+                )?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(if parsed.is_empty() {
+        None
+    } else {
+        Some(parsed)
+    })
 }
 
 pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
@@ -254,15 +532,25 @@ struct CommandFlowParseOptions {
     filter_error_rules: bool,
 }
 
-fn print_command_flow_output(
+struct FlowStepParsedOutput {
+    command: String,
+    sheet_name: String,
+    parsed_output: serde_json::Value,
+}
+
+/// Writes the per-step flow output into `out` (buffered so concurrent targets
+/// never interleave on stdout) and returns the successfully parsed steps.
+fn write_command_flow_output(
+    out: &mut String,
     result: &rneter::session::CommandFlowOutput,
     commands: &[String],
     parse_options: &CommandFlowParseOptions,
-) -> Result<Vec<textfsm_export::ParsedOutputSheet>> {
-    println!("flow_success: {}", result.success);
-    let mut parsed_sheets = Vec::new();
+) -> Result<Vec<FlowStepParsedOutput>> {
+    let _ = writeln!(out, "flow_success: {}", result.success);
+    let mut parsed_steps = Vec::new();
     for (index, output) in result.outputs.iter().enumerate() {
-        println!(
+        let _ = writeln!(
+            out,
             "step {} success={} exit_code={}",
             index + 1,
             output.success,
@@ -271,7 +559,7 @@ fn print_command_flow_output(
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "-".to_string())
         );
-        println!("{}", output.content);
+        let _ = writeln!(out, "{}", output.content);
         let command = commands.get(index).map(String::as_str).unwrap_or("");
         let step_parse_options = textfsm::ParseOptions {
             template_file: textfsm_template_for_index(&parse_options.template_files, index),
@@ -284,23 +572,25 @@ fn print_command_flow_output(
         let (parsed_output, parse_error) =
             textfsm::parse_command_output_optional(&output.content, command, &step_parse_options);
         if let Some(parsed_output) = parsed_output {
-            println!(
+            let _ = writeln!(
+                out,
                 "Parsed Output:\n{}",
                 textfsm::format_parsed_output_table(&parsed_output)
             );
-            parsed_sheets.push(textfsm_export::ParsedOutputSheet {
-                name: format!("{} {}", index + 1, command),
+            parsed_steps.push(FlowStepParsedOutput {
+                command: command.to_string(),
+                sheet_name: format!("{} {}", index + 1, command),
                 parsed_output,
             });
         }
         if let Some(err) = parse_error {
-            println!("Parse Error: {}", err);
+            let _ = writeln!(out, "Parse Error: {}", err);
         }
         if index + 1 < result.outputs.len() {
-            println!("---");
+            let _ = writeln!(out, "---");
         }
     }
-    Ok(parsed_sheets)
+    Ok(parsed_steps)
 }
 
 fn build_upload_request(args: &UploadArgs) -> Result<rneter::session::FileUploadRequest> {

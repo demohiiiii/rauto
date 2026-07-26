@@ -29,6 +29,8 @@ static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 const _: &str = include_str!("../../migrations/202607240001_device_credentials.sql");
 const _: &str = include_str!("../../migrations/202607260001_enable_stage.sql");
+const _: &str = include_str!("../../migrations/202607260002_config_command_overrides.sql");
+const _: &str = include_str!("../../migrations/202607260003_config_volatile_patterns.sql");
 #[cfg(not(test))]
 static DB_MIGRATED: AtomicBool = AtomicBool::new(false);
 #[cfg(test)]

@@ -65,6 +65,22 @@ pub struct CommandFlowArgs {
     #[arg(long, short = 't')]
     pub template: Option<String>,
 
+    /// Saved connection name to execute against. Repeat to target multiple devices.
+    #[arg(long = "target", value_name = "CONNECTION")]
+    pub targets: Vec<String>,
+
+    /// Inventory group name. Repeat to include devices from multiple groups.
+    #[arg(long = "group", value_name = "GROUP")]
+    pub groups: Vec<String>,
+
+    /// Saved connection label/tag. Repeat to include devices matching any label.
+    #[arg(long = "label", visible_alias = "tag", value_name = "LABEL")]
+    pub labels: Vec<String>,
+
+    /// Maximum concurrent device connections for multi-target flow (default 4)
+    #[arg(long, value_name = "N")]
+    pub max_parallel: Option<usize>,
+
     /// Path to a TOML file containing an ad-hoc command flow template
     #[arg(long, short = 'f')]
     pub file: Option<PathBuf>,
@@ -143,6 +159,22 @@ pub struct ExecArgs {
     /// The command string to execute
     pub command: String,
 
+    /// Saved connection name to execute against. Repeat to target multiple devices.
+    #[arg(long = "target", value_name = "CONNECTION")]
+    pub targets: Vec<String>,
+
+    /// Inventory group name. Repeat to include devices from multiple groups.
+    #[arg(long = "group", value_name = "GROUP")]
+    pub groups: Vec<String>,
+
+    /// Saved connection label/tag. Repeat to include devices matching any label.
+    #[arg(long = "label", visible_alias = "tag", value_name = "LABEL")]
+    pub labels: Vec<String>,
+
+    /// Maximum concurrent device connections for multi-target exec (default 4)
+    #[arg(long, value_name = "N")]
+    pub max_parallel: Option<usize>,
+
     /// Optional TextFSM template file to parse the command output
     #[arg(long)]
     pub textfsm_template: Option<PathBuf>,
@@ -192,6 +224,10 @@ pub struct ShowArgs {
     /// Saved connection label/tag. Repeat to include devices matching any label.
     #[arg(long = "label", visible_alias = "tag", value_name = "LABEL")]
     pub labels: Vec<String>,
+
+    /// Maximum concurrent device connections for multi-target show (default 4)
+    #[arg(long, value_name = "N")]
+    pub max_parallel: Option<usize>,
 
     /// List available show objects for the resolved or selected platform
     #[arg(long)]

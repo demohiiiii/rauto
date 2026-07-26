@@ -1,0 +1,81 @@
+# Per-profile device configuration fetch commands.
+# Platform-level mode applies to every kind under that platform unless a kind
+# uses { command = "...", mode = "..." } to override it.
+[platform_modes]
+arista_eos = "Enable"
+aruba_aoscx = "Enable"
+checkpoint_gaia = "Enable"
+cisco_asa = "Enable"
+cisco_ios = "Enable"
+cisco_nxos = "Enable"
+fortinet = "Enable"
+huawei_vrp = "Enable"
+hp_comware = "Enable"
+juniper_junos = "Enable"
+paloalto_panos = "Enable"
+zte_zxros = "Enable"
+
+[platforms.arista_eos]
+running = "show running-config"
+startup = "show startup-config"
+
+[platforms.aruba_aoscx]
+running = "show running-config"
+startup = "show startup-config"
+
+[platforms.checkpoint_gaia]
+running = "show configuration"
+
+[platforms.cisco_asa]
+running = "show running-config"
+startup = "show startup-config"
+
+[platforms.cisco_ios]
+running = "show running-config"
+startup = "show startup-config"
+
+[platforms.cisco_nxos]
+running = "show running-config"
+startup = "show startup-config"
+
+[platforms.fortinet]
+running = "show full-configuration"
+
+[platforms.huawei_vrp]
+running = "display current-configuration"
+startup = "display saved-configuration"
+
+[platforms.hp_comware]
+running = "display current-configuration"
+startup = "display saved-configuration"
+
+[platforms.juniper_junos]
+running = "show configuration | display set"
+
+[platforms.paloalto_panos]
+running = "show config running"
+
+[platforms.zte_zxros]
+running = "show running-config"
+
+# Lines matched by these patterns change on every fetch without a real
+# configuration change; they are removed before computing normalized_sha256.
+[volatile_patterns]
+arista_eos = [
+  '^! Command: show running-config.*',
+  '^! device: .*',
+]
+cisco_asa = ['^: Written by .*']
+cisco_ios = [
+  '^Building configuration.*',
+  '^Current configuration .*',
+  '^! Last configuration change.*',
+  '^! NVRAM config last updated.*',
+  '^ntp clock-period .*',
+]
+cisco_nxos = [
+  '^!Time: .*',
+  '^!Running configuration last done at: .*',
+  '^!Startup config saved at: .*',
+]
+juniper_junos = ['^## Last commit: .*']

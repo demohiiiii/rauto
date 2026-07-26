@@ -1,6 +1,6 @@
 use super::args::{
-    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, ShowArgs, TemplateArgs,
-    TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
+    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, RecordLevelOpt, ShowArgs,
+    TemplateArgs, TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -43,6 +43,9 @@ pub enum Commands {
 
     /// Upload a local file to the remote host over SFTP
     Upload(UploadArgs),
+
+    /// Fetch device configurations and manage config fetch commands
+    Config(ConfigCmd),
 
     /// Start web service with visual UI
     Web(WebArgs),
@@ -670,6 +673,114 @@ pub enum BackupCommands {
     List,
 }
 
+#[derive(Args, Debug)]
+pub struct ConfigCmd {
+    #[command(subcommand)]
+    pub command: ConfigCommands,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigCommands {
+    /// Fetch device configuration text with hashes for drift detection
+    Fetch(ConfigFetchArgs),
+
+    /// Manage per-profile config fetch command mappings
+    #[command(subcommand)]
+    Command(ConfigCommandCommands),
+
+    /// Manage volatile-line patterns used for normalized drift hashing
+    #[command(subcommand)]
+    Volatile(ConfigVolatileCommands),
+}
+
+#[derive(Args, Debug)]
+pub struct ConfigFetchArgs {
+    /// Config kind to fetch (for example running, startup)
+    #[arg(long, default_value = "running")]
+    pub kind: String,
+
+    /// Saved connection name to fetch from. Repeat to target multiple devices.
+    #[arg(long = "target", value_name = "CONNECTION")]
+    pub targets: Vec<String>,
+
+    /// Inventory group name. Repeat to include devices from multiple groups.
+    #[arg(long = "group", value_name = "GROUP")]
+    pub groups: Vec<String>,
+
+    /// Saved connection label/tag. Repeat to include devices matching any label.
+    #[arg(long = "label", visible_alias = "tag", value_name = "LABEL")]
+    pub labels: Vec<String>,
+
+    /// Maximum concurrent device connections for multi-target fetch (default 4)
+    #[arg(long, value_name = "N")]
+    pub max_parallel: Option<usize>,
+
+    /// Write each fetched config to this directory instead of stdout
+    #[arg(long, value_name = "DIR")]
+    pub output_dir: Option<PathBuf>,
+
+    /// Print/store the normalized content (volatile lines removed) instead of the raw text
+    #[arg(long)]
+    pub normalized: bool,
+
+    /// Session recording level
+    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
+    pub record_level: RecordLevelOpt,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigVolatileCommands {
+    /// List volatile-line patterns (builtin merged with custom additions)
+    List {
+        /// Only show patterns for this device profile
+        #[arg(long)]
+        profile: Option<String>,
+    },
+    /// Add a custom volatile-line pattern for a profile (validated as regex)
+    Add {
+        /// Device profile name (for example cisco_ios)
+        profile: String,
+        /// Line regex, for example '^! Last modified .*'
+        pattern: String,
+    },
+    /// Remove a custom volatile-line pattern
+    Remove {
+        /// Device profile name
+        profile: String,
+        /// Exact pattern text previously added
+        pattern: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigCommandCommands {
+    /// List config fetch commands (builtin merged with custom overrides)
+    List {
+        /// Only show commands for this device profile
+        #[arg(long)]
+        profile: Option<String>,
+    },
+    /// Create or update a custom config fetch command for a profile
+    Set {
+        /// Device profile name (for example cisco_ios)
+        profile: String,
+        /// Config kind (for example running, startup)
+        kind: String,
+        /// Device command used to fetch this config kind
+        command: String,
+        /// Execution mode override (for example Enable)
+        #[arg(long)]
+        mode: Option<String>,
+    },
+    /// Remove a custom config fetch command override
+    Unset {
+        /// Device profile name
+        profile: String,
+        /// Config kind
+        kind: String,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Cli, Commands, CredentialCommands, SessionCommands};
@@ -842,5 +953,154 @@ mod tests {
                 Cli::try_parse_from(args).expect_err("old session commands must be removed");
             assert_eq!(error.kind(), clap::error::ErrorKind::InvalidSubcommand);
         }
+    }
+
+    #[test]
+    fn config_fetch_and_command_mapping_parse() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "config",
+            "fetch",
+            "--kind",
+            "startup",
+            "--target",
+            "edge-1",
+            "--group",
+            "access",
+            "--output-dir",
+            "./backups",
+            "--normalized",
+            "--max-parallel",
+            "6",
+        ])
+        .expect("config fetch with selectors should parse");
+        let Commands::Config(cmd) = cli.command else {
+            panic!("expected config command");
+        };
+        let super::ConfigCommands::Fetch(args) = cmd.command else {
+            panic!("expected config fetch");
+        };
+        assert_eq!(args.kind, "startup");
+        assert_eq!(args.targets, vec!["edge-1".to_string()]);
+        assert_eq!(args.groups, vec!["access".to_string()]);
+        assert!(args.normalized);
+        assert_eq!(args.max_parallel, Some(6));
+        assert!(args.output_dir.is_some());
+
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "config",
+            "command",
+            "set",
+            "cisco_ios",
+            "running",
+            "show running-config full",
+            "--mode",
+            "Enable",
+        ])
+        .expect("config command set should parse");
+        let Commands::Config(cmd) = cli.command else {
+            panic!("expected config command");
+        };
+        assert!(matches!(
+            cmd.command,
+            super::ConfigCommands::Command(super::ConfigCommandCommands::Set { .. })
+        ));
+    }
+
+    #[test]
+    fn config_volatile_commands_parse() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "config",
+            "volatile",
+            "add",
+            "cisco_ios",
+            "^! Last modified .*",
+        ])
+        .expect("config volatile add should parse");
+        let Commands::Config(cmd) = cli.command else {
+            panic!("expected config command");
+        };
+        assert!(matches!(
+            cmd.command,
+            super::ConfigCommands::Volatile(super::ConfigVolatileCommands::Add { .. })
+        ));
+
+        let cli = Cli::try_parse_from(["rauto", "config", "volatile", "list"])
+            .expect("config volatile list should parse");
+        let Commands::Config(cmd) = cli.command else {
+            panic!("expected config command");
+        };
+        assert!(matches!(
+            cmd.command,
+            super::ConfigCommands::Volatile(super::ConfigVolatileCommands::List { profile: None })
+        ));
+    }
+
+    #[test]
+    fn multi_target_exec_and_flow_accept_selectors() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "exec",
+            "show clock",
+            "--target",
+            "edge-1",
+            "--group",
+            "access",
+            "--max-parallel",
+            "6",
+        ])
+        .expect("exec with multi-target selectors should parse");
+        let Commands::Exec(args) = cli.command else {
+            panic!("expected exec command");
+        };
+        assert_eq!(args.targets, vec!["edge-1".to_string()]);
+        assert_eq!(args.groups, vec!["access".to_string()]);
+        assert_eq!(args.max_parallel, Some(6));
+
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "flow",
+            "-t",
+            "push-snmp",
+            "--label",
+            "campus",
+            "--max-parallel",
+            "2",
+        ])
+        .expect("flow with multi-target selectors should parse");
+        let Commands::Flow(args) = cli.command else {
+            panic!("expected flow command");
+        };
+        assert_eq!(args.labels, vec!["campus".to_string()]);
+        assert_eq!(args.max_parallel, Some(2));
+    }
+
+    #[test]
+    fn multi_target_show_accepts_and_defaults_max_parallel() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "show",
+            "version",
+            "--target",
+            "edge-1",
+            "--target",
+            "edge-2",
+            "--max-parallel",
+            "8",
+        ])
+        .expect("show with --max-parallel should parse");
+        let Commands::Show(args) = cli.command else {
+            panic!("expected show command");
+        };
+        assert_eq!(args.max_parallel, Some(8));
+
+        let cli = Cli::try_parse_from(["rauto", "show", "version", "--target", "edge-1"])
+            .expect("show without --max-parallel should parse");
+        let Commands::Show(args) = cli.command else {
+            panic!("expected show command");
+        };
+        assert_eq!(args.max_parallel, None);
     }
 }

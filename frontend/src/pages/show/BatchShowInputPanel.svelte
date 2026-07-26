@@ -1,5 +1,6 @@
 <script>
   import * as Card from "$lib/components/ui/card";
+  import { Input } from "$lib/components/ui/input";
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
@@ -18,6 +19,7 @@
   } = $props();
   const batchShowInputPanelWorkspace = createBatchShowInputPanelWorkspace();
   const {
+    changeBatchMaxParallel,
     changeShowObject,
     changeShowObjectMode,
     executeBatchShowPanel,
@@ -98,15 +100,34 @@
         class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
       >
         <p class="text-xs text-muted-foreground">
-          批量查询会按目标、分组或标签展开后依次执行。
+          批量查询会按目标、分组或标签展开后并行执行。
         </p>
-        <LoadingButton
-          size="lg"
-          loading={showRunButtonDisplay.executeLoading}
-          onclick={executeBatchShowPanel}
-        >
-          <span>{showRunButtonDisplay.executeButtonLabel}</span>
-        </LoadingButton>
+        <div class="flex items-center gap-3">
+          <label
+            class="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
+            for="batch-show-max-parallel"
+          >
+            并发数
+            <Input
+              id="batch-show-max-parallel"
+              type="number"
+              min="1"
+              step="1"
+              placeholder="4"
+              class="h-8 w-20"
+              value={showSelectionFields.maxParallel}
+              oninput={(event) =>
+                changeBatchMaxParallel(event.currentTarget.value)}
+            />
+          </label>
+          <LoadingButton
+            size="lg"
+            loading={showRunButtonDisplay.executeLoading}
+            onclick={executeBatchShowPanel}
+          >
+            <span>{showRunButtonDisplay.executeButtonLabel}</span>
+          </LoadingButton>
+        </div>
       </div>
     </Card.Content>
   </Card.Root>

@@ -69,6 +69,8 @@ service AgentTaskService {
   rpc ListShowObjects(ListShowObjectsRequest) returns (ListShowObjectsResponse);
   rpc ExecuteShow(ExecuteShowRequest) returns (ExecuteShowResponse);
   rpc ExecuteShowBatch(ExecuteShowBatchRequest) returns (ExecuteShowBatchResponse);
+  rpc ExecuteExecBatch(ExecuteExecBatchRequest) returns (ExecuteExecBatchResponse);
+  rpc FetchConfigBatch(FetchConfigBatchRequest) returns (FetchConfigBatchResponse);
   rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
   rpc ExecuteCommandAsync(ExecuteCommandRequest) returns (AcceptedTaskResponse);
   rpc ExecuteTemplate(ExecuteTemplateRequest) returns (ExecuteTemplateResponse);
@@ -92,6 +94,12 @@ service AgentTaskService {
   rpc DeleteTextfsmMapping(DeleteTextfsmMappingRequest) returns (JsonResponse);
   rpc ExportTextfsmExcel(TextfsmExcelExportRequest) returns (BytesResponse);
   rpc ListCustomShowObjects(ListCustomShowObjectsRequest) returns (JsonResponse);
+  rpc ListConfigCommands(ListConfigCommandsRequest) returns (JsonResponse);
+  rpc UpsertConfigCommand(UpsertConfigCommandRequest) returns (JsonResponse);
+  rpc DeleteConfigCommand(DeleteConfigCommandRequest) returns (JsonResponse);
+  rpc ListConfigVolatilePatterns(ListConfigVolatilePatternsRequest) returns (JsonResponse);
+  rpc AddConfigVolatilePattern(ConfigVolatilePatternRequest) returns (JsonResponse);
+  rpc RemoveConfigVolatilePattern(ConfigVolatilePatternRequest) returns (JsonResponse);
   rpc UpsertCustomShowObject(UpsertCustomShowObjectRequest) returns (JsonResponse);
   rpc DeleteCustomShowObject(DeleteCustomShowObjectRequest) returns (JsonResponse);
   rpc ListTaskRuns(ListTaskRunsRequest) returns (JsonResponse);
@@ -523,6 +531,48 @@ message ExecuteShowBatchResponse {
   optional string result_summary_json = 4;
 }
 
+message ExecuteExecBatchRequest {
+  string          task_id               = 1;
+  string          command               = 2;
+  string          mode                  = 3;
+  string          multiline_mode        = 4;
+  string          textfsm_template      = 5;
+  bool            parse_textfsm         = 6;
+  string          textfsm_platform      = 7;
+  string          textfsm_vendor        = 8;
+  bool            textfsm_strict_errors = 9;
+  repeated string targets               = 10;
+  repeated string groups                = 11;
+  repeated string labels                = 12;
+  uint32          max_parallel          = 13;
+  string          record_level          = 14;
+}
+
+message ExecuteExecBatchResponse {
+  string          command             = 1;
+  repeated string targets             = 2;
+  string          results_json        = 3;
+  optional string result_summary_json = 4;
+}
+
+message FetchConfigBatchRequest {
+  string          task_id            = 1;
+  string          kind               = 2;
+  bool            include_normalized = 3;
+  repeated string targets            = 4;
+  repeated string groups             = 5;
+  repeated string labels             = 6;
+  uint32          max_parallel       = 7;
+  string          record_level       = 8;
+}
+
+message FetchConfigBatchResponse {
+  string          kind                = 1;
+  repeated string targets             = 2;
+  string          results_json        = 3;
+  optional string result_summary_json = 4;
+}
+
 message ExecuteCommandRequest {
   string        task_id      = 1;
   string        command      = 2;
@@ -777,6 +827,31 @@ message TextfsmExcelExportRequest {
   repeated TextfsmExcelExportSheet sheets = 2;
   string sheet_name = 3;
   string parsed_output_json = 4;
+}
+
+message ListConfigCommandsRequest {
+  string profile = 1;
+}
+
+message UpsertConfigCommandRequest {
+  string device_profile = 1;
+  string kind           = 2;
+  string command        = 3;
+  string mode           = 4;
+}
+
+message DeleteConfigCommandRequest {
+  string device_profile = 1;
+  string kind           = 2;
+}
+
+message ListConfigVolatilePatternsRequest {
+  string profile = 1;
+}
+
+message ConfigVolatilePatternRequest {
+  string device_profile = 1;
+  string pattern        = 2;
 }
 
 message ListCustomShowObjectsRequest {

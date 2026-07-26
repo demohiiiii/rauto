@@ -61,6 +61,7 @@ export function normalizeShowQuery(showQuery = "") {
 }
 
 export const STANDARD_EXEC_MODE = Object.freeze({
+  batch: "batch",
   direct: "direct",
   flow: "flow",
 });
@@ -68,6 +69,7 @@ export const STANDARD_EXEC_MODE = Object.freeze({
 export const standardExecModeTabs = Object.freeze([
   { value: STANDARD_EXEC_MODE.direct, labelKey: "opExecCommand" },
   { value: STANDARD_EXEC_MODE.flow, labelKey: "opExecFlow" },
+  { value: STANDARD_EXEC_MODE.batch, labelKey: "opExecBatch" },
 ]);
 
 export const commandFlowEditorViewTabs = Object.freeze([

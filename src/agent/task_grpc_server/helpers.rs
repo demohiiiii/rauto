@@ -278,6 +278,35 @@ pub(super) fn map_execute_show_batch_response(
     })
 }
 
+pub(super) fn map_execute_exec_batch_response(
+    response: crate::web::models::ExecBatchExecuteResponse,
+) -> Result<ExecuteExecBatchResponse, Status> {
+    Ok(ExecuteExecBatchResponse {
+        command: response.command,
+        targets: response.targets,
+        results_json: serde_json::to_string(&response.results)
+            .map_err(|err| Status::internal(format!("failed to serialize exec results: {err}")))?,
+        result_summary_json: Some(serde_json::to_string(&response.result_summary).map_err(
+            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
+        )?),
+    })
+}
+
+pub(super) fn map_fetch_config_batch_response(
+    response: crate::web::models::ConfigBatchFetchResponse,
+) -> Result<FetchConfigBatchResponse, Status> {
+    Ok(FetchConfigBatchResponse {
+        kind: response.kind,
+        targets: response.targets,
+        results_json: serde_json::to_string(&response.results).map_err(|err| {
+            Status::internal(format!("failed to serialize config fetch results: {err}"))
+        })?,
+        result_summary_json: Some(serde_json::to_string(&response.result_summary).map_err(
+            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
+        )?),
+    })
+}
+
 pub(super) fn map_execute_tx_workflow_response(
     response: crate::web::models::ExecuteTxWorkflowResponse,
 ) -> Result<ExecuteTxWorkflowResponse, Status> {

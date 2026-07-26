@@ -23,6 +23,7 @@
     createTextfsmMappingWorkspace,
     templateManagerSections,
   } from "../modules/templates/templateManagerState.js";
+  import ConfigCatalogWorkspace from "./templates/ConfigCatalogWorkspace.svelte";
   import ShowObjectWorkspace from "./templates/ShowObjectWorkspace.svelte";
   import TemplateCatalogPanel from "./templates/TemplateCatalogPanel.svelte";
   import TextfsmMappingWorkspace from "./templates/TextfsmMappingWorkspace.svelte";
@@ -126,6 +127,8 @@
                   <BracesIcon aria-hidden="true" />
                 {:else if section.key === TEMPLATE_MANAGER_KIND.textfsmMappings}
                   <Link2Icon aria-hidden="true" />
+                {:else if section.key === TEMPLATE_MANAGER_KIND.configCatalog}
+                  <FileCode2Icon aria-hidden="true" />
                 {:else}
                   <SlidersHorizontalIcon aria-hidden="true" />
                 {/if}
@@ -146,6 +149,8 @@
               definition={activeDefinition}
               workspace={mappingWorkspace}
             />
+          {:else if activeSectionKey === TEMPLATE_MANAGER_KIND.configCatalog}
+            <ConfigCatalogWorkspace definition={activeDefinition} />
           {:else}
             <ShowObjectWorkspace
               definition={activeDefinition}

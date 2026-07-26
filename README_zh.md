@@ -52,6 +52,7 @@ rauto exec "show version" --host 192.168.1.1 --credential network-admin --device
   - [直接执行](#直接执行)
   - [命令流程模板](#命令流程模板)
   - [SFTP-上传](#sftp-上传)
+  - [配置抓取](#配置抓取)
   - [设备配置模板](#设备配置模板)
   - [Web-控制台](#web-控制台)
     - [Agent-模式](#agent-模式)
@@ -95,6 +96,8 @@ rauto exec "show version" --host 192.168.1.1 --credential network-admin --device
 - **Agent 模式**：支持通过 `rauto agent` 接入 manager，完成注册、心跳、受保护 API 与任务回调。
 - **多设备编排执行（Web + CLI）**：支持基于计划文件对多台设备分阶段串行/并发执行，并复用现有 `tx` / `tx-workflow` 能力。
 - **命令黑名单**：支持在命令真正下发前做全局拦截，并支持 `*` 通配符。
+- **多目标并行执行**：`show`、`exec`、`flow` 均支持按已保存连接、inventory 分组和标签扇出执行，受控并发（`--max-parallel`，默认 4），并在执行前完成全量预检。
+- **配置抓取**：按设备 profile 抓取 `running`/`startup` 配置，返回原文与规范化双 SHA-256 哈希用于漂移检测，支持按时间戳落盘归档，并提供供 manager 集成的批量 API。
 
 ## 安装
 
@@ -205,6 +208,18 @@ rauto exec "show ip int br" \
 - 传了 `--mode` 时，会先根据当前选中的 profile 校验该 mode，再按这个 mode 执行。
 - 未传 `--mode` 时，会使用当前 profile 的 `default_mode`。
 
+也可以对多个已保存连接批量执行同一条命令，目标支持连接名、inventory 分组和标签。所有目标会先完成预检（连接解析、按 profile 校验 mode、命令黑名单），全部通过后才开始并发执行，每台设备的输出作为完整块原子打印：
+
+```bash
+rauto exec "show clock" \
+    --target core-sw1 \
+    --target core-sw2 \
+    --group access \
+    --max-parallel 8
+```
+
+TextFSM 相关参数在多目标模式下同样可用；`--textfsm-excel` 会合并所有目标的解析行，并附加 `device` / `profile` / `command` 元数据列。Web UI 中对应能力位于 **普通下发 -> 批量执行**。
+
 ### Show 模式
 
 执行内置命令表支持的 show 对象时，不需要手写具体设备命令。
@@ -240,6 +255,8 @@ rauto show interfaces \
 
 rauto show route --group core --tag prod --textfsm-excel ./routes.xlsx
 ```
+
+多目标执行默认按 4 台设备并发，可用 `--max-parallel` 调整；每台设备的输出会先缓冲，目标完成时作为完整块原子打印。
 
 你也可以把某个 profile 的自定义 show object 保存到 SQLite。同一个 `(device_profile, object)` 下，自定义 show object 会覆盖内置命令表，可以绑定执行 mode，也可以绑定自定义 TextFSM 模板；绑定模板的优先级高于命令映射和内置 NTC 模板。
 
@@ -364,6 +381,16 @@ rauto flow \
     --connection core-01
 ```
 
+命令流程同样支持与 `show` / `exec` 一致的多目标扇出。流程模板会按每台设备各自的连接上下文渲染（`{{host}}` 与跨连接引用逐台解析），渲染后的实际命令逐台通过黑名单校验，然后并发执行：
+
+```bash
+rauto flow \
+    --template push-snmp \
+    --vars-json '{"community":"ro"}' \
+    --label campus \
+    --max-parallel 4
+```
+
 说明：
 
 - `rauto flow` 是 CLI 里执行交互式命令流程的推荐入口。
@@ -452,6 +479,48 @@ rauto upload \
 - `--show-progress`
 - `--record-level <key-events-only|full>`
 - `--record-file <path>`
+
+### 配置抓取
+
+`rauto config fetch` 使用内置目录 `assets/config_catalog/config-commands.toml` 中按 profile 定义的命令抓取设备配置文本（例如 `cisco_ios` 用 `show running-config`，`huawei_vrp` 用 `display current-configuration`）。各平台通常支持 `running`，有意义的平台还支持 `startup`。
+
+每次抓取都会返回两个 SHA-256 哈希：
+
+- `sha256`：配置原文的哈希。
+- `normalized_sha256`：过滤易变行（变更时间戳、`ntp clock-period` 等按 profile 定义的噪声）后计算的哈希。跨抓取比较该哈希即可检测真实配置漂移，不会被时间戳类改动误报。
+
+```bash
+# 打印单台设备的 running 配置与双哈希
+rauto config fetch -c core-01
+
+# 把整个分组的 startup 配置归档为带时间戳的文件
+rauto config fetch --kind startup --group core --output-dir ./backups --max-parallel 8
+
+# 打印用于漂移比对的规范化文本
+rauto config fetch -c core-01 --normalized
+```
+
+`--output-dir` 会把每台设备写入 `<名称>_<kind>_<时间戳>.cfg`，配合 cron + git 即可实现轻量级配置归档。多目标选择器（`--target`、`--group`、`--label`）与 `--max-parallel` 的行为与 `show` / `exec` 完全一致。
+
+按 profile 管理抓取命令。自定义覆盖保存在 SQLite 中，优先于内置目录，写入时会经过命令黑名单校验：
+
+```bash
+rauto config command list --profile cisco_ios
+rauto config command set my_profile running "show configuration all" --mode Enable
+rauto config command unset my_profile running
+```
+
+用于规范化哈希的易变行规则同样可以自定义。自定义规则在写入时会校验正则合法性，并与内置规则追加式合并——遇到特定固件独有的时间戳注释等噪声时，无需等待版本发布即可自行消除误报：
+
+```bash
+rauto config volatile list --profile cisco_ios
+rauto config volatile add cisco_ios '^! Last modified by .*'
+rauto config volatile remove cisco_ios '^! Last modified by .*'
+```
+
+抓取命令与易变行规则也可以在 Web 控制台的 **模板管理 -> 配置抓取命令** 中管理，同时提供 `/api/config/commands` 与 `/api/config/volatile-patterns` 端点（以及对应的 agent gRPC 方法）供 manager 集成。
+
+同样的能力也通过 `POST /api/config/batch-fetch` 与 agent gRPC 的 `FetchConfigBatch` 方法暴露给集成方，逐台返回配置内容、双哈希与 `fetched_at` 时间戳；传 `include_normalized: true` 可额外返回规范化全文。
 
 ### 设备配置模板
 
@@ -580,6 +649,7 @@ Web 控制台主要能力：
 
 - 在独立的“凭证管理”页面管理可复用设备凭证；保存后不会把明文密码返回给浏览器。
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
+- 在 `普通下发 -> 批量执行` 标签页对多个已保存连接、分组或标签批量执行同一条命令，逐台展示结果卡片并支持并发数控制。
 - 在已保存连接和临时连接中选择设备凭证，不再在每条连接里重复填写账号和密码。
 - 支持在页面中下载连接导入模板，并从 CSV / Excel 批量导入已保存连接。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。

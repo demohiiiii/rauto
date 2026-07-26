@@ -1,19 +1,258 @@
+use crate::cli::multi_target::{
+    MultiTargetRun, has_multi_target_selectors, multi_target_concurrency,
+    resolve_multi_target_names, run_buffered_multi_target,
+};
 use crate::cli::{
-    ExecArgs, ShowArgs, ShowObjectCommands, TemplateArgs, TemplateCommands, TextfsmCommands,
-    TextfsmMappingCommands, TextfsmTemplateCommands,
+    ExecArgs, RecordLevelOpt, ShowArgs, ShowObjectCommands, TemplateArgs, TemplateCommands,
+    TextfsmCommands, TextfsmMappingCommands, TextfsmTemplateCommands,
 };
 use crate::config::{
-    command_blacklist, connection_store, content_store, custom_show_object_store,
-    custom_textfsm_store, show_catalog, template_loader, textfsm, textfsm_export,
+    command_blacklist, content_store, custom_show_object_store, custom_textfsm_store, show_catalog,
+    template_loader, textfsm, textfsm_export,
 };
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
 use anyhow::Result;
 use serde_json::{Map, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::info;
+
+/// Copyable subset of [`ShowArgs`] needed by each concurrently executing
+/// show target task.
+#[derive(Clone, Copy)]
+struct MultiShowExecutionOptions {
+    print_command: bool,
+    no_parse: bool,
+    textfsm_strict_errors: bool,
+    record_level: RecordLevelOpt,
+}
+
+/// Cloneable subset of [`ExecArgs`] needed by each concurrently executing
+/// exec target task.
+#[derive(Clone)]
+struct MultiExecOptions {
+    command: String,
+    textfsm_template: Option<PathBuf>,
+    parse_enabled: bool,
+    textfsm_platform: Option<String>,
+    textfsm_strict_errors: bool,
+    record_level: RecordLevelOpt,
+}
+
+struct ResolvedExecTarget {
+    name: String,
+    conn: crate::EffectiveConnection,
+    effective_mode: String,
+}
+
+async fn run_multi_exec(args: &ExecArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
+    if args.record_file.is_some() {
+        return Err(anyhow::anyhow!(
+            "--record-file is not supported with multi-target exec; session history is still saved automatically"
+        ));
+    }
+    if opts.host.is_some() {
+        return Err(anyhow::anyhow!(
+            "--host cannot be used with multi-target exec; use saved --target connections, --group, or --label"
+        ));
+    }
+
+    let target_names = resolve_multi_target_names(
+        opts.connection.as_deref(),
+        &args.targets,
+        &args.groups,
+        &args.labels,
+    )?;
+    if target_names.is_empty() {
+        return Err(anyhow::anyhow!(
+            "multi-target exec resolved no saved connections"
+        ));
+    }
+
+    let mut resolved_targets = Vec::with_capacity(target_names.len());
+    let mut errors = Vec::new();
+    for name in target_names {
+        match resolve_exec_target(&name, args, opts).await {
+            Ok(target) => resolved_targets.push(target),
+            Err(err) => errors.push(format!("{}: {err:#}", name)),
+        }
+    }
+    if !errors.is_empty() {
+        return Err(anyhow::anyhow!(
+            "exec precheck failed for {} target(s):\n{}",
+            errors.len(),
+            errors.join("\n")
+        ));
+    }
+
+    println!(
+        "# precheck: command is executable on {} target(s)",
+        resolved_targets.len()
+    );
+    let total_targets = resolved_targets.len();
+    let concurrency = multi_target_concurrency(args.max_parallel, total_targets);
+    if concurrency > 1 {
+        println!(
+            "# executing on {} target(s) with up to {} in parallel",
+            total_targets, concurrency
+        );
+    }
+    let options = MultiExecOptions {
+        command: args.command.clone(),
+        textfsm_template: args.textfsm_template.clone(),
+        parse_enabled: args.parse_textfsm
+            || args.textfsm_template.is_some()
+            || args.textfsm_excel.is_some(),
+        textfsm_platform: args.textfsm_platform.clone(),
+        textfsm_strict_errors: args.textfsm_strict_errors,
+        record_level: args.record_level,
+    };
+    let outcome = run_buffered_multi_target(resolved_targets, concurrency, move |target| {
+        let options = options.clone();
+        async move {
+            let name = target.name.clone();
+            let (output, result) = execute_resolved_exec_target(&target, &options).await;
+            MultiTargetRun {
+                name,
+                output,
+                result,
+            }
+        }
+    })
+    .await?;
+    if let Some(path) = args.textfsm_excel.as_deref()
+        && !outcome.parsed.is_empty()
+    {
+        let parsed_sheets = merge_multi_show_parsed_outputs(outcome.parsed);
+        write_textfsm_excel(path, parsed_sheets)?;
+    }
+    if !outcome.errors.is_empty() {
+        return Err(anyhow::anyhow!(
+            "multi-target exec failed on {} target(s):\n{}",
+            outcome.errors.len(),
+            outcome.errors.join("\n")
+        ));
+    }
+    Ok(())
+}
+
+async fn resolve_exec_target(
+    name: &str,
+    args: &ExecArgs,
+    opts: &crate::cli::GlobalOpts,
+) -> Result<ResolvedExecTarget> {
+    let mut target_opts = opts.clone();
+    target_opts.connection = Some(name.to_string());
+    target_opts.save_connection = None;
+    target_opts.host = None;
+    let conn =
+        crate::resolve_autodetect_connection(crate::resolve_effective_connection(&target_opts)?)
+            .await?;
+    let effective_mode =
+        template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
+    Ok(ResolvedExecTarget {
+        name: name.to_string(),
+        conn,
+        effective_mode,
+    })
+}
+
+async fn execute_resolved_exec_target(
+    target: &ResolvedExecTarget,
+    options: &MultiExecOptions,
+) -> (String, Result<Option<MultiShowParsedOutput>>) {
+    let mut out = String::new();
+    let result = execute_resolved_exec_target_buffered(target, options, &mut out).await;
+    (out, result)
+}
+
+async fn execute_resolved_exec_target_buffered(
+    target: &ResolvedExecTarget,
+    options: &MultiExecOptions,
+    out: &mut String,
+) -> Result<Option<MultiShowParsedOutput>> {
+    let _ = writeln!(
+        out,
+        "=== target: {} ({}) ===",
+        target.name, target.conn.host
+    );
+    let handler = template_loader::load_device_profile_for_connection(
+        &target.conn.device_profile,
+        target.conn.linux_shell_flavor,
+    )?;
+    let default_mode = template_loader::default_profile_mode(&target.conn.device_profile)?;
+    let client = DeviceClient::connect_with_recording(
+        target.conn.host.clone(),
+        target.conn.port,
+        target.conn.username.clone(),
+        target.conn.password.clone(),
+        target.conn.enable_password.clone(),
+        handler,
+        default_mode,
+        crate::to_record_level(options.record_level),
+        target.conn.ssh_security,
+        target.conn.connect_timeout_secs,
+    )
+    .await?;
+
+    info!(
+        "Executing command '{}' on '{}'",
+        options.command, target.name
+    );
+    let output = client
+        .execute(&options.command, Some(&target.effective_mode))
+        .await?;
+    crate::persist_auto_recording_history(
+        &client,
+        &target.conn,
+        "exec",
+        &options.command,
+        Some(target.effective_mode.as_str()),
+        options.record_level,
+    )?;
+    let _ = writeln!(out, "{}", output);
+    if !options.parse_enabled {
+        return Ok(None);
+    }
+
+    let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
+        &output,
+        &options.command,
+        &textfsm::ParseOptions {
+            template_file: options.textfsm_template.clone(),
+            enabled: true,
+            platform: options.textfsm_platform.clone(),
+            device_profile: Some(target.conn.device_profile.clone()),
+            filter_error_rules: !options.textfsm_strict_errors,
+            ..Default::default()
+        },
+    );
+    if let Some(err) = parse_error {
+        let _ = writeln!(out, "--- Parse Error ---");
+        let _ = writeln!(out, "{}", err);
+    }
+    let Some(parsed_output) = parsed_output else {
+        return Ok(None);
+    };
+    let _ = writeln!(out, "--- Parsed Output ---");
+    let _ = writeln!(
+        out,
+        "{}",
+        textfsm::format_parsed_output_table(&parsed_output)
+    );
+    Ok(Some(MultiShowParsedOutput {
+        object: options.command.clone(),
+        rows: add_multi_target_metadata(
+            &target.name,
+            &target.conn.device_profile,
+            &options.command,
+            parsed_output,
+        )?,
+    }))
+}
 
 pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
     info!("Running template mode");
@@ -128,6 +367,9 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
 
 pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
     command_blacklist::ensure_command_allowed(&args.command, "direct execution")?;
+    if has_multi_target_selectors(&args.targets, &args.groups, &args.labels) {
+        return run_multi_exec(&args, opts).await;
+    }
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
@@ -210,9 +452,9 @@ struct ResolvedShowTarget {
     effective_mode: String,
 }
 
-struct MultiShowParsedOutput {
-    object: String,
-    rows: Vec<Value>,
+pub(crate) struct MultiShowParsedOutput {
+    pub(crate) object: String,
+    pub(crate) rows: Vec<Value>,
 }
 
 pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
@@ -238,7 +480,7 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         .filter(|value| !value.is_empty())
         .ok_or_else(|| anyhow::anyhow!("show object required, or use --list"))?;
 
-    if has_multi_show_target_selectors(&args) {
+    if has_multi_target_selectors(&args.targets, &args.groups, &args.labels) {
         run_multi_show(&args, opts, object).await?;
         return Ok(());
     }
@@ -350,10 +592,6 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
     Ok(())
 }
 
-fn has_multi_show_target_selectors(args: &ShowArgs) -> bool {
-    !args.targets.is_empty() || !args.groups.is_empty() || !args.labels.is_empty()
-}
-
 async fn run_multi_show(
     args: &ShowArgs,
     opts: &crate::cli::GlobalOpts,
@@ -370,7 +608,12 @@ async fn run_multi_show(
         ));
     }
 
-    let target_names = resolve_show_target_names(args, opts)?;
+    let target_names = resolve_multi_target_names(
+        opts.connection.as_deref(),
+        &args.targets,
+        &args.groups,
+        &args.labels,
+    )?;
     if target_names.is_empty() {
         return Err(anyhow::anyhow!(
             "multi-target show resolved no saved connections"
@@ -398,18 +641,33 @@ async fn run_multi_show(
         object,
         resolved_targets.len()
     );
-    let mut parsed_outputs = Vec::new();
-    let mut execution_errors = Vec::new();
-    for target in resolved_targets {
-        match execute_resolved_show_target(&target, args).await {
-            Ok(Some(parsed_output)) => parsed_outputs.push(parsed_output),
-            Ok(None) => {}
-            Err(err) => {
-                eprintln!("target '{}' failed: {err:#}", target.name);
-                execution_errors.push(format!("{}: {err:#}", target.name));
-            }
-        }
+    let total_targets = resolved_targets.len();
+    let concurrency = multi_target_concurrency(args.max_parallel, total_targets);
+    if concurrency > 1 {
+        println!(
+            "# executing on {} target(s) with up to {} in parallel",
+            total_targets, concurrency
+        );
     }
+    let options = MultiShowExecutionOptions {
+        print_command: args.print_command,
+        no_parse: args.no_parse,
+        textfsm_strict_errors: args.textfsm_strict_errors,
+        record_level: args.record_level,
+    };
+    let outcome =
+        run_buffered_multi_target(resolved_targets, concurrency, move |target| async move {
+            let name = target.name.clone();
+            let (output, result) = execute_resolved_show_target(&target, options).await;
+            MultiTargetRun {
+                name,
+                output,
+                result,
+            }
+        })
+        .await?;
+    let parsed_outputs = outcome.parsed;
+    let execution_errors = outcome.errors;
     if let Some(path) = args.textfsm_excel.as_deref()
         && !parsed_outputs.is_empty()
     {
@@ -424,26 +682,6 @@ async fn run_multi_show(
         ));
     }
     Ok(())
-}
-
-fn resolve_show_target_names(
-    args: &ShowArgs,
-    opts: &crate::cli::GlobalOpts,
-) -> Result<Vec<String>> {
-    let mut names = BTreeSet::new();
-    if let Some(connection) = opts.connection.as_deref() {
-        names.insert(connection_store::safe_connection_name(connection)?);
-    }
-    for target in &args.targets {
-        names.insert(connection_store::safe_connection_name(target)?);
-    }
-    for connection in connection_store::list_connections_by_groups_any(&args.groups)? {
-        names.insert(connection);
-    }
-    for connection in connection_store::list_connections_by_labels_any(&args.labels)? {
-        names.insert(connection);
-    }
-    Ok(names.into_iter().collect())
 }
 
 async fn resolve_show_target(
@@ -476,20 +714,37 @@ async fn resolve_show_target(
     })
 }
 
+/// Executes one resolved show target and returns its buffered console output
+/// alongside the parse result. Output is buffered instead of printed so
+/// concurrently executing targets never interleave on stdout.
 async fn execute_resolved_show_target(
     target: &ResolvedShowTarget,
-    args: &ShowArgs,
+    options: MultiShowExecutionOptions,
+) -> (String, Result<Option<MultiShowParsedOutput>>) {
+    let mut out = String::new();
+    let result = execute_resolved_show_target_buffered(target, options, &mut out).await;
+    (out, result)
+}
+
+async fn execute_resolved_show_target_buffered(
+    target: &ResolvedShowTarget,
+    options: MultiShowExecutionOptions,
+    out: &mut String,
 ) -> Result<Option<MultiShowParsedOutput>> {
-    println!("=== target: {} ({}) ===", target.name, target.conn.host);
-    if args.print_command {
-        println!("# command: {}", target.show.command);
+    let _ = writeln!(
+        out,
+        "=== target: {} ({}) ===",
+        target.name, target.conn.host
+    );
+    if options.print_command {
+        let _ = writeln!(out, "# command: {}", target.show.command);
         if let Some(mode) = target.show.mode.as_deref() {
-            println!("# mapping_mode: {}", mode);
+            let _ = writeln!(out, "# mapping_mode: {}", mode);
         }
         if let Some(template_name) = target.show.textfsm_template_name.as_deref() {
-            println!("# textfsm_template: {}", template_name);
+            let _ = writeln!(out, "# textfsm_template: {}", template_name);
         }
-        println!("# effective_mode: {}", target.effective_mode);
+        let _ = writeln!(out, "# effective_mode: {}", target.effective_mode);
     }
 
     let handler = template_loader::load_device_profile_for_connection(
@@ -505,7 +760,7 @@ async fn execute_resolved_show_target(
         target.conn.enable_password.clone(),
         handler,
         default_mode,
-        crate::to_record_level(args.record_level),
+        crate::to_record_level(options.record_level),
         target.conn.ssh_security,
         target.conn.connect_timeout_secs,
     )
@@ -525,11 +780,11 @@ async fn execute_resolved_show_target(
         "show",
         &target.show.command,
         Some(target.effective_mode.as_str()),
-        args.record_level,
+        options.record_level,
     )?;
 
-    println!("{}", output.content);
-    if args.no_parse || exit_code.unwrap_or(0) != 0 {
+    let _ = writeln!(out, "{}", output.content);
+    if options.no_parse || exit_code.unwrap_or(0) != 0 {
         return Ok(None);
     }
 
@@ -551,27 +806,38 @@ async fn execute_resolved_show_target(
             enabled: true,
             platform: target.platform.clone(),
             device_profile: Some(target.conn.device_profile.clone()),
-            filter_error_rules: !args.textfsm_strict_errors,
+            filter_error_rules: !options.textfsm_strict_errors,
             ..Default::default()
         },
     );
     if let Some(err) = parse_error {
-        println!("--- Parse Error ---");
-        println!("{}", err);
+        let _ = writeln!(out, "--- Parse Error ---");
+        let _ = writeln!(out, "{}", err);
     }
     let Some(parsed_output) = parsed_output else {
         return Ok(None);
     };
-    println!("--- Parsed Output ---");
-    println!("{}", textfsm::format_parsed_output_table(&parsed_output));
+    let _ = writeln!(out, "--- Parsed Output ---");
+    let _ = writeln!(
+        out,
+        "{}",
+        textfsm::format_parsed_output_table(&parsed_output)
+    );
     Ok(Some(MultiShowParsedOutput {
         object: target.show.object.clone(),
-        rows: add_multi_show_metadata(target, parsed_output)?,
+        rows: add_multi_target_metadata(
+            &target.name,
+            &target.conn.device_profile,
+            &target.show.command,
+            parsed_output,
+        )?,
     }))
 }
 
-fn add_multi_show_metadata(
-    target: &ResolvedShowTarget,
+pub(crate) fn add_multi_target_metadata(
+    device: &str,
+    profile: &str,
+    command: &str,
     parsed_output: Value,
 ) -> Result<Vec<Value>> {
     let rows = parsed_output
@@ -583,17 +849,9 @@ fn add_multi_show_metadata(
             .as_object()
             .ok_or_else(|| anyhow::anyhow!("TextFSM parsed output rows must be JSON objects"))?;
         let mut enriched = source.clone();
-        insert_multi_show_metadata(&mut enriched, "device", Value::String(target.name.clone()));
-        insert_multi_show_metadata(
-            &mut enriched,
-            "profile",
-            Value::String(target.conn.device_profile.clone()),
-        );
-        insert_multi_show_metadata(
-            &mut enriched,
-            "command",
-            Value::String(target.show.command.clone()),
-        );
+        insert_multi_show_metadata(&mut enriched, "device", Value::String(device.to_string()));
+        insert_multi_show_metadata(&mut enriched, "profile", Value::String(profile.to_string()));
+        insert_multi_show_metadata(&mut enriched, "command", Value::String(command.to_string()));
         enriched_rows.push(Value::Object(enriched));
     }
     Ok(enriched_rows)
@@ -606,7 +864,7 @@ fn insert_multi_show_metadata(object: &mut Map<String, Value>, key: &str, value:
     object.insert(key.to_string(), value);
 }
 
-fn merge_multi_show_parsed_outputs(
+pub(crate) fn merge_multi_show_parsed_outputs(
     outputs: Vec<MultiShowParsedOutput>,
 ) -> Vec<textfsm_export::ParsedOutputSheet> {
     let mut object_order = Vec::new();
@@ -681,7 +939,10 @@ fn print_show_objects(device_profile: Option<&str>, platform: Option<&str>) -> R
     Ok(())
 }
 
-fn write_textfsm_excel(path: &Path, sheets: Vec<textfsm_export::ParsedOutputSheet>) -> Result<()> {
+pub(crate) fn write_textfsm_excel(
+    path: &Path,
+    sheets: Vec<textfsm_export::ParsedOutputSheet>,
+) -> Result<()> {
     textfsm_export::write_parsed_outputs_xlsx(path, &sheets)?;
     println!("TextFSM Excel: {}", path.display());
     Ok(())
