@@ -420,14 +420,14 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
     /rounded-3xl border border-border bg-card p-5/,
   );
   assert.doesNotMatch(savedPanelSource, /使用该连接/);
-  assert.match(savedPanelSource, /应用选中连接/);
+  assert.match(savedPanelSource, /i18nLabels\.applySelected/);
   assert.equal(
     savedPanelSource.match(/onclick=\{useSavedConnectionAction\}/g).length,
     1,
   );
-  assert.match(savedPanelSource, /使用后将写入到左侧连接目标/);
+  assert.match(savedPanelSource, /i18nLabels\.applyHint/);
 
-  assert.match(temporaryPanelSource, /仅当前会话使用/);
+  assert.match(temporaryPanelSource, /i18nLabels\.sessionOnly/);
   assert.match(temporaryPanelSource, /ConnectionSectionTitle/);
   assert.match(temporaryPanelSource, /splitSections=\{true\}/);
   assert.match(temporaryPanelSource, /border-dashed border-primary\/30/);
@@ -437,9 +437,9 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
   assert.match(editorModalSource, /sm:max-w-3xl/);
   assert.match(editorModalSource, /variant="editor"/);
   assert.match(editorFormSource, /splitSections=\{true\}/);
-  assert.match(editorFormSource, /自定义变量/);
+  assert.match(editorFormSource, /i18nLabels\.sectionCustomVars/);
   assert.match(basicFieldsSource, /splitSections = false/);
-  assert.match(basicFieldsSource, /平台与兼容/);
+  assert.match(basicFieldsSource, /i18nLabels\.sectionPlatform/);
   assert.match(basicFieldsSource, /class="size-4"/);
   assert.match(basicFieldsSource, /platformFieldLabel/);
   assert.match(basicFieldsSource, /min-h-10 items-end/);
@@ -873,10 +873,10 @@ test("batch show results use device, object, and output view tabs", () => {
   assert.match(source, /let resultView = \$state\("output"\)/);
   assert.match(source, /activeDeviceRow/);
   assert.match(source, /activeObjectResultRow/);
-  assert.match(source, /aria-label="批量查询结果设备"/);
-  assert.match(source, /aria-label="设备查询对象"/);
-  assert.match(source, /命令行输出/);
-  assert.match(source, /TextFSM 解析/);
+  assert.match(source, /aria-label=\{i18nLabels\.devicesAria\}/);
+  assert.match(source, /aria-label=\{i18nLabels\.objectsAria\}/);
+  assert.match(source, /i18nLabels\.rawOutputTab/);
+  assert.match(source, /i18nLabels\.parsedOutputTab/);
   assert.match(source, /resultView === "output"/);
   assert.match(source, /Table2Icon/);
   assert.doesNotMatch(

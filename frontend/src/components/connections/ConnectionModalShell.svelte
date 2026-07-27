@@ -1,4 +1,5 @@
 <script>
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
@@ -17,6 +18,11 @@
     onClose,
     variant = "workbench",
   } = $props();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nReadyLabel = $derived.by(() => {
+    i18nCurrentLanguage;
+    return t("connModalReady");
+  });
 
   let dialogOpen = $state(false);
   let lastDisplayOpen = $state(false);
@@ -98,7 +104,7 @@
                   class="size-1.5 fill-current text-primary"
                   aria-hidden="true"
                 />
-                就绪
+                {i18nReadyLabel}
               </Badge>
             {/if}
           </div>

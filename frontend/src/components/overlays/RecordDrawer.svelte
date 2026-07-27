@@ -77,16 +77,23 @@
   >
     <div class="border-b border-border px-4 py-3">
       <Tabs.List
-        class="grid h-auto w-full grid-cols-2"
+        variant="line"
+        class="!grid !h-auto w-full grid-cols-2 gap-1"
         aria-label={drawerShellDisplay.viewLabel}
       >
-        <Tabs.Trigger value={SESSION_RECORDS_VIEW.recent} class="min-h-10">
-          <VideoIcon data-icon="inline-start" aria-hidden="true" />
-          {drawerShellDisplay.viewTabs[0].label}
+        <Tabs.Trigger
+          value={SESSION_RECORDS_VIEW.recent}
+          class="h-10 min-w-0 justify-center rounded-lg border-border/70 bg-card/70 px-2 text-xs hover:border-primary/30 hover:bg-primary/5 hover:text-primary data-active:!border-primary/60 data-active:!bg-primary/10 data-active:!text-primary after:inset-x-3 after:bottom-0 after:rounded-full after:bg-primary"
+        >
+          <VideoIcon aria-hidden="true" />
+          <span>{drawerShellDisplay.viewTabs[0].label}</span>
         </Tabs.Trigger>
-        <Tabs.Trigger value={SESSION_RECORDS_VIEW.history} class="min-h-10">
-          <HistoryIcon data-icon="inline-start" aria-hidden="true" />
-          {drawerShellDisplay.viewTabs[1].label}
+        <Tabs.Trigger
+          value={SESSION_RECORDS_VIEW.history}
+          class="h-10 min-w-0 justify-center rounded-lg border-border/70 bg-card/70 px-2 text-xs hover:border-primary/30 hover:bg-primary/5 hover:text-primary data-active:!border-primary/60 data-active:!bg-primary/10 data-active:!text-primary after:inset-x-3 after:bottom-0 after:rounded-full after:bg-primary"
+        >
+          <HistoryIcon aria-hidden="true" />
+          <span>{drawerShellDisplay.viewTabs[1].label}</span>
         </Tabs.Trigger>
       </Tabs.List>
     </div>

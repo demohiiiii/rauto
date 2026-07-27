@@ -7,11 +7,25 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import Table2Icon from "@lucide/svelte/icons/table-2";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
   import { createBatchShowResultsPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
 
   let { batchResultDisplay, batchResultsPresentation } = $props();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      resultsTitle: t("showResultsTitle"),
+      resultsHint: t("batchShowResultsHint"),
+      resultCount: t("showResultCount"),
+      devicesAria: t("batchShowResultDevicesAria"),
+      objectsAria: t("batchShowResultObjectsAria"),
+      rawOutputTab: t("showRawOutputTab"),
+      parsedOutputTab: t("showParsedOutputTab"),
+    };
+  });
   const batchShowResultsPanelWorkspace = createBatchShowResultsPanelWorkspace();
   const {
     exportActionHandlersStateStore,
@@ -96,8 +110,8 @@
   {#if batchResultDisplay.showResultPanel}
     <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
       <WorkspaceActionHeader
-        title="查询结果"
-        description="每个目标设备的原始输出与解析结果"
+        title={i18nLabels.resultsTitle}
+        description={i18nLabels.resultsHint}
         icon={TerminalIcon}
       >
         {#snippet actions()}
@@ -105,7 +119,7 @@
             <span
               class="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground"
             >
-              结果数
+              {i18nLabels.resultCount}
               <span class="font-semibold text-foreground">
                 {batchResultsPresentation.resultCount}
               </span>
@@ -127,7 +141,7 @@
       {#if deviceRows.length > 1}
         <div
           class="flex items-center gap-1 overflow-x-auto border-b border-border px-6 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          aria-label="批量查询结果设备"
+          aria-label={i18nLabels.devicesAria}
         >
           {#each deviceRows as deviceRow}
             <button
@@ -168,7 +182,7 @@
         {#if objectRows.length > 1}
           <div
             class="flex items-center gap-1 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            aria-label="设备查询对象"
+            aria-label={i18nLabels.objectsAria}
           >
             {#each objectRows as objectRow}
               <button
@@ -239,7 +253,7 @@
                 onclick={() => (resultView = "output")}
               >
                 <TerminalIcon class="size-3.5" />
-                命令行输出
+                {i18nLabels.rawOutputTab}
               </button>
               <button
                 type="button"
@@ -252,7 +266,7 @@
                 onclick={() => (resultView = "parsed")}
               >
                 <Table2Icon class="size-3.5" />
-                TextFSM 解析
+                {i18nLabels.parsedOutputTab}
               </button>
             </div>
           </div>

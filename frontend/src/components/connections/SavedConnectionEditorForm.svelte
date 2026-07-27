@@ -1,4 +1,5 @@
 <script>
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -23,6 +24,14 @@
   import TagIcon from "@lucide/svelte/icons/tag";
 
   let { active } = $props();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      sectionOrganization: t("connSectionOrganization"),
+      sectionCustomVars: t("connSectionCustomVars"),
+    };
+  });
   const savedConnectionEditorWorkspace = createSavedConnectionEditorWorkspace();
   const {
     basicFieldsDisplayStateStore,
@@ -158,7 +167,10 @@
       </section>
 
       <section class="flex flex-col gap-3">
-        {@render ConnectionSectionTitle(TagIcon, "组织与状态")}
+        {@render ConnectionSectionTitle(
+          TagIcon,
+          i18nLabels.sectionOrganization,
+        )}
         <ConnectionMetadataFields
           {active}
           groupsPickerKey={CONNECTION_PICKER.savedEditGroups}
@@ -170,7 +182,7 @@
       </section>
 
       <section class="flex flex-col gap-3">
-        {@render ConnectionSectionTitle(PlusIcon, "自定义变量")}
+        {@render ConnectionSectionTitle(PlusIcon, i18nLabels.sectionCustomVars)}
         <ConnectionMetadataFields
           {active}
           groupsPickerKey={CONNECTION_PICKER.savedEditGroups}

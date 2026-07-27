@@ -11,7 +11,7 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
-  import { t } from "../../lib/i18n.js";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import { batchFlowTargetPickerFields } from "../../modules/connections/connections.js";
   import { parsedOutputBlockDisplayFromItem } from "../../modules/operations/results.js";
   import {
@@ -25,6 +25,28 @@
 
   let { active } = $props();
   let initialized = false;
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      title: t("batchFlowTitle"),
+      hint: t("batchFlowHint"),
+      template: t("batchFlowTemplateLabel"),
+      templatePlaceholder: t("batchFlowTemplatePlaceholder"),
+      vars: t("batchFlowVarsLabel"),
+      varsPlaceholder: t("batchFlowVarsPlaceholder"),
+      footerHint: t("batchFlowFooterHint"),
+      maxParallel: t("batchExecMaxParallelLabel"),
+      runBtn: t("batchFlowRunBtn"),
+      resultSuccess: t("flowResultSuccess"),
+      resultFailed: t("flowResultFailed"),
+      pickerFields: batchFlowTargetPickerFields.map((field) => ({
+        ...field,
+        labelText: t(field.labelKey),
+        pickerPlaceholder: t(field.placeholderKey),
+      })),
+    };
+  });
   let form = $derived($batchFlowFormState);
   let result = $derived($batchFlowResultState);
   let templateOptions = $derived($batchFlowTemplateOptionsState);
@@ -53,28 +75,28 @@
 <div hidden={!active} class="grid gap-3 p-4 sm:p-5">
   <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
     <WorkspaceActionHeader
-      title={t("batchFlowTitle")}
-      description={t("batchFlowHint")}
+      title={i18nLabels.title}
+      description={i18nLabels.hint}
       icon={GitBranchIcon}
     />
     <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
       <div class="grid gap-4 md:grid-cols-2">
         <label class="grid gap-1 text-sm font-medium text-foreground">
-          {t("batchFlowTemplateLabel")}
+          {i18nLabels.template}
           <ValueTextSelectField
             value={form.template}
             optionRows={templateOptions}
-            placeholderText={t("batchFlowTemplatePlaceholder")}
-            aria-label={t("batchFlowTemplateLabel")}
+            placeholderText={i18nLabels.templatePlaceholder}
+            aria-label={i18nLabels.template}
             onValueChange={(value) => setBatchFlowField("template", value)}
           />
         </label>
         <label class="grid gap-1 text-sm font-medium text-foreground">
-          {t("batchFlowVarsLabel")}
+          {i18nLabels.vars}
           <Textarea
             rows={3}
             class="font-mono text-xs"
-            placeholder={t("batchFlowVarsPlaceholder")}
+            placeholder={i18nLabels.varsPlaceholder}
             value={form.varsJson}
             oninput={(event) =>
               setBatchFlowField("varsJson", event.currentTarget.value)}
@@ -86,13 +108,13 @@
         <div
           class="grid gap-4 md:grid-cols-2"
           role="group"
-          aria-label={t("batchFlowTitle")}
+          aria-label={i18nLabels.title}
         >
-          {#each batchFlowTargetPickerFields as targetField (targetField.key)}
+          {#each i18nLabels.pickerFields as targetField (targetField.key)}
             <ConnectionPickerField
               keyName={targetField.keyName}
-              labelText={t(targetField.labelKey)}
-              pickerPlaceholder={t(targetField.placeholderKey)}
+              labelText={targetField.labelText}
+              pickerPlaceholder={targetField.pickerPlaceholder}
             />
           {/each}
         </div>
@@ -102,14 +124,14 @@
         class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
       >
         <p class="text-xs text-muted-foreground">
-          {t("batchFlowFooterHint")}
+          {i18nLabels.footerHint}
         </p>
         <div class="flex items-center gap-3">
           <label
             class="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
             for="batch-flow-max-parallel"
           >
-            {t("batchExecMaxParallelLabel")}
+            {i18nLabels.maxParallel}
             <Input
               id="batch-flow-max-parallel"
               type="number"
@@ -123,7 +145,7 @@
             />
           </label>
           <LoadingButton size="lg" loading={running} onclick={executeBatchFlow}>
-            <span>{t("batchFlowRunBtn")}</span>
+            <span>{i18nLabels.runBtn}</span>
           </LoadingButton>
         </div>
       </div>
@@ -141,7 +163,7 @@
           <span class="text-muted-foreground">{row.profile}</span>
           {#if row.success !== null && row.success !== undefined}
             <Badge variant={row.success ? "secondary" : "destructive"}>
-              {row.success ? t("flowResultSuccess") : t("flowResultFailed")}
+              {row.success ? i18nLabels.resultSuccess : i18nLabels.resultFailed}
             </Badge>
           {/if}
         </div>

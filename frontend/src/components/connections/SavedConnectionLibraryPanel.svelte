@@ -1,4 +1,5 @@
 <script>
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { cn } from "$lib/utils.js";
@@ -14,6 +15,26 @@
   import UploadIcon from "@lucide/svelte/icons/upload";
 
   let { active, onUse } = $props();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      searchPlaceholder: t("connSearchPlaceholder"),
+      credentialNone: t("connCredentialNone"),
+      credentialNoneEditHint: t("connCredentialNoneEditHint"),
+      noMatches: t("connNoMatches"),
+      reuseHint: t("connLibraryReuseHint"),
+      fieldPlatform: t("showResultPlatform"),
+      fieldModel: t("savedConnAutodetectModel"),
+      fieldSoftwareVersion: t("savedConnAutodetectVersion"),
+      fieldPort: t("fieldPort"),
+      fieldLabels: t("batchShowLabelsLabel"),
+      fieldStatus: t("fieldStatus"),
+      applyHint: t("connApplyHint"),
+      availableCount: t("connAvailableCount"),
+      applySelected: t("connApplySelected"),
+    };
+  });
   const savedConnectionLibraryWorkspace = createSavedConnectionLibraryWorkspace(
     {},
   );
@@ -77,8 +98,8 @@
         <Input
           class="h-12 rounded-xl pl-10"
           value={searchQuery}
-          aria-label="搜索名称 / 主机 / profile"
-          placeholder="搜索名称 / 主机 / profile"
+          aria-label={i18nLabels.searchPlaceholder}
+          placeholder={i18nLabels.searchPlaceholder}
           oninput={handleSearchInput}
         />
       </div>
@@ -161,7 +182,7 @@
                   </Badge>
                   {#if connectionRow.credentialRequired}
                     <Badge variant="destructive" class="rounded-md">
-                      未选择凭证
+                      {i18nLabels.credentialNone}
                     </Badge>
                   {/if}
                 </div>
@@ -173,7 +194,7 @@
         <div
           class="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border bg-background/50 p-6 text-center text-sm text-muted-foreground"
         >
-          未匹配到连接
+          {i18nLabels.noMatches}
         </div>
       {/if}
     </div>
@@ -211,7 +232,7 @@
                 {#if selectedConnectionRow}
                   {selectedConnectionRow.summary}
                 {:else}
-                  已保存连接会复用凭据、profile、标签和分组信息。
+                  {i18nLabels.reuseHint}
                 {/if}
               </p>
               {#if selectedConnectionRow}
@@ -226,7 +247,7 @@
                   </Badge>
                   {#if selectedConnectionRow.credentialRequired}
                     <Badge variant="destructive" class="rounded-lg">
-                      未选择凭证，请编辑连接
+                      {i18nLabels.credentialNoneEditHint}
                     </Badge>
                   {/if}
                   {#if selectedConnectionRow.deviceModel}
@@ -279,7 +300,7 @@
             <p
               class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              平台
+              {i18nLabels.fieldPlatform}
             </p>
             <p class="mt-2 truncate font-mono text-lg font-bold">
               {selectedConnectionRow?.profile || "-"}
@@ -289,7 +310,7 @@
             <p
               class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              型号
+              {i18nLabels.fieldModel}
             </p>
             <p class="mt-2 truncate font-mono text-lg font-bold">
               {selectedConnectionRow?.deviceModel || "-"}
@@ -299,7 +320,7 @@
             <p
               class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              软件版本
+              {i18nLabels.fieldSoftwareVersion}
             </p>
             <p class="mt-2 truncate font-mono text-lg font-bold">
               {selectedConnectionRow?.softwareVersion || "-"}
@@ -309,7 +330,7 @@
             <p
               class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              端口
+              {i18nLabels.fieldPort}
             </p>
             <p class="mt-2 font-mono text-lg font-bold">
               {selectedConnectionRow?.port || "-"}
@@ -319,7 +340,7 @@
             <p
               class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              标签
+              {i18nLabels.fieldLabels}
             </p>
             <p class="mt-2 truncate text-lg font-bold">
               {selectedConnectionRow?.tag || "-"}
@@ -329,7 +350,7 @@
             <p
               class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              状态
+              {i18nLabels.fieldStatus}
             </p>
             <p class="mt-2 text-lg font-bold">
               {selectedConnectionRow?.statusLabel || "-"}
@@ -350,11 +371,11 @@
       class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-7 py-4"
     >
       <p class="text-xs text-muted-foreground">
-        使用后将写入到左侧连接目标，可随时切换。
+        {i18nLabels.applyHint}
       </p>
       <div class="flex flex-wrap items-center gap-4">
         <span class="text-xs text-muted-foreground">
-          共 {savedConnectionCount} 个可用连接
+          {i18nLabels.availableCount}: {savedConnectionCount}
         </span>
         <LoadingButton
           class="rounded-xl px-4"
@@ -363,7 +384,7 @@
           onclick={useSavedConnectionAction}
         >
           <CheckIcon data-icon="inline-start" aria-hidden="true" />
-          应用选中连接
+          {i18nLabels.applySelected}
         </LoadingButton>
       </div>
     </div>

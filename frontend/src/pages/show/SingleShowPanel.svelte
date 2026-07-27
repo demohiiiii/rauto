@@ -9,6 +9,7 @@
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import Table2Icon from "@lucide/svelte/icons/table-2";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
@@ -23,6 +24,20 @@
     tabItems = [],
   } = $props();
   const singleShowPanelWorkspace = createSingleShowPanelWorkspace();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      configTitle: t("showPanelConfigTitle"),
+      configHint: t("showPanelConfigHint"),
+      footerHint: t("showFooterHint"),
+      resultsHint: t("showResultsHint"),
+      resultCount: t("showResultCount"),
+      resultObjectsAria: t("showResultObjectsAria"),
+      rawOutputTab: t("showRawOutputTab"),
+      parsedOutputTab: t("showParsedOutputTab"),
+    };
+  });
   const {
     changeShowObject,
     changeShowObjectMode,
@@ -80,8 +95,8 @@
 <div class="flex flex-col gap-3" hidden={!active}>
   <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
     <WorkspaceActionHeader
-      title="查询配置"
-      description="选择查询对象并配置解析选项"
+      title={i18nLabels.configTitle}
+      description={i18nLabels.configHint}
       icon={SearchIcon}
     />
     <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
@@ -117,7 +132,7 @@
         class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
       >
         <p class="text-xs text-muted-foreground">
-          配置完成后，将在当前目标设备上执行只读查询。
+          {i18nLabels.footerHint}
         </p>
         <LoadingButton
           variant="default"
@@ -135,7 +150,7 @@
     <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
       <WorkspaceActionHeader
         title={singleShowResults.title}
-        description="每个查询对象的原始输出与解析结果"
+        description={i18nLabels.resultsHint}
         icon={TerminalIcon}
       >
         {#snippet actions()}
@@ -143,7 +158,7 @@
             <span
               class="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground"
             >
-              结果数
+              {i18nLabels.resultCount}
               <span class="font-semibold text-foreground">
                 {singleShowResults.resultCount}
               </span>
@@ -165,7 +180,7 @@
       {#if singleShowResults.resultCount && resultRows.length > 1}
         <div
           class="flex items-center gap-1 overflow-x-auto border-b border-border px-6 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          aria-label="查询结果对象"
+          aria-label={i18nLabels.resultObjectsAria}
         >
           {#each resultRows as resultRow}
             <button
@@ -235,7 +250,7 @@
                 onclick={() => (resultView = "output")}
               >
                 <TerminalIcon class="size-3.5" />
-                命令行输出
+                {i18nLabels.rawOutputTab}
               </button>
               <button
                 type="button"
@@ -248,7 +263,7 @@
                 onclick={() => (resultView = "parsed")}
               >
                 <Table2Icon class="size-3.5" />
-                TextFSM 解析
+                {i18nLabels.parsedOutputTab}
               </button>
             </div>
           </div>

@@ -5,8 +5,15 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 
+  import { currentLanguageState, t } from "../../lib/i18n.js";
+
   let { onModeChange, onObjectChange, selectionDisplay, showSelectionFields } =
     $props();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nModeLabel = $derived.by(() => {
+    i18nCurrentLanguage;
+    return t("showModeFieldLabel");
+  });
 </script>
 
 {#snippet previewField(label, detailValue, mono = false)}
@@ -37,7 +44,7 @@
       <span
         class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
       >
-        Mode 模式
+        {i18nModeLabel}
       </span>
       <ValueTextSelectField
         class="w-full"

@@ -9,13 +9,12 @@ import {
   createRecordDrawerWorkspace,
   openRecordDrawer,
   overlayDrawerState,
+  replayJsonlTransferState,
+  replayStatusTextState,
   sessionRecordsViewState,
   setSessionRecordsView,
 } from "../src/modules/overlays/overlaysDrawerState.js";
-
-function inputEvent(value, checked = false) {
-  return { currentTarget: { checked, value } };
-}
+import { createReplayPageWorkspace } from "../src/modules/operations/replay.js";
 
 test("opening session records always defaults to the recent recording", () => {
   setSessionRecordsView(SESSION_RECORDS_VIEW.history);
@@ -28,7 +27,7 @@ test("opening session records always defaults to the recent recording", () => {
   closeRecordDrawer();
 });
 
-test("record drawer content handlers preserve value and checked event contracts", () => {
+test("record drawer content handlers accept bare values from Plain* field bindings", () => {
   const calls = [];
   const workspace = createRecordDrawerContentWorkspace({
     onEventKindChange: (value) => calls.push(["kind", value]),
@@ -38,11 +37,13 @@ test("record drawer content handlers preserve value and checked event contracts"
     onSearchInput: (value) => calls.push(["search", value]),
   });
 
-  workspace.recordEventKindChangeHandler()(inputEvent("command_output"));
-  workspace.recordFailedOnlyChangeHandler()(inputEvent("", true));
-  workspace.recordRawInputChangeHandler()(inputEvent("jsonl"));
-  workspace.recordLevelChangeHandler()(inputEvent("full"));
-  workspace.recordSearchInputChangeHandler()(inputEvent("router"));
+  // PlainSelectField / PlainInputField / PlainCheckboxField extract form values
+  // before calling onValueChange / onValueInput / onCheckedChange.
+  workspace.recordEventKindChangeHandler()("command_output");
+  workspace.recordFailedOnlyChangeHandler()(true);
+  workspace.recordRawInputChangeHandler()("jsonl");
+  workspace.recordLevelChangeHandler()("full");
+  workspace.recordSearchInputChangeHandler()("router");
 
   assert.deepEqual(calls, [
     ["kind", "command_output"],
@@ -111,4 +112,72 @@ test("record drawer preferences load once and setters save normalized snapshots"
     get(workspace.drawerContentDisplayStateStore).controls.displayMode,
     "list",
   );
+});
+
+test("copyRecording warns when recording JSONL is empty", async () => {
+  const statuses = [];
+  const toasts = [];
+  const workspace = createRecordDrawerWorkspace({
+    onCopyRecordDrawerRecording: async (jsonl) => {
+      if (!String(jsonl || "").trim()) {
+        statuses.push("empty");
+        toasts.push("warning");
+        return false;
+      }
+      statuses.push("copied");
+      toasts.push("success");
+      return true;
+    },
+  });
+
+  const result = await workspace.copyRecording();
+  assert.equal(result, false);
+  assert.deepEqual(statuses, ["empty"]);
+  assert.deepEqual(toasts, ["warning"]);
+});
+
+test("useInReplay requires recording JSONL before navigating", () => {
+  const transfers = [];
+  const workspace = createRecordDrawerWorkspace({
+    onSetReplayJsonlFromRecording: (jsonl) => {
+      if (!String(jsonl || "").trim()) {
+        transfers.push("blocked");
+        return false;
+      }
+      transfers.push(jsonl);
+      return true;
+    },
+  });
+
+  assert.equal(workspace.useInReplay(), false);
+  assert.deepEqual(transfers, ["blocked"]);
+
+  workspace.setRawRecordingText('{"kind":"command_output"}\n');
+  assert.equal(workspace.useInReplay(), true);
+  assert.equal(transfers.length, 2);
+  assert.match(transfers[1], /command_output/);
+});
+
+test("an active replay workspace consumes recording transfers immediately", () => {
+  const originalTransfer = get(replayJsonlTransferState);
+  const originalStatus = get(replayStatusTextState);
+  const replayWorkspace = createReplayPageWorkspace();
+  const recordWorkspace = createRecordDrawerWorkspace();
+
+  try {
+    replayWorkspace.setPageContext({ active: true });
+    replayWorkspace.setJsonl("previous recording");
+    recordWorkspace.setRawRecordingText('{"kind":"command_output"}\n');
+
+    assert.equal(recordWorkspace.useInReplay(), true);
+    assert.equal(
+      get(replayWorkspace.replayStateStore).jsonl,
+      '{"kind":"command_output"}',
+    );
+  } finally {
+    replayWorkspace.destroy();
+    replayJsonlTransferState.set(originalTransfer);
+    replayStatusTextState.set(originalStatus);
+    closeRecordDrawer();
+  }
 });

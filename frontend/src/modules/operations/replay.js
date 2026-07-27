@@ -162,10 +162,10 @@ function replayStatCardsPresentation(stats = {}) {
 function replayRunControlsPresentation(replay = {}, { modeTabs = [] } = {}) {
   const displayMode = replay.displayMode === "raw" ? "raw" : "list";
   return {
-    commandField: replayInputField(
-      replay.commandInput,
-      "replayCommandPlaceholder",
-    ),
+    commandField: {
+      ...replayInputField(replay.commandInput, "replayCommandPlaceholder"),
+      labelText: tr("replayCommandLabel"),
+    },
     clearFiltersLabel: tr("clearFilters"),
     displayMode,
     displayModeLabel: tr("replayDisplayModeLabel"),
@@ -174,10 +174,16 @@ function replayRunControlsPresentation(replay = {}, { modeTabs = [] } = {}) {
     eventKindOptionRows: replayEventKindOptions(),
     failedOnly: Boolean(replay.failedOnly),
     failedOnlyLabel: tr("failedOnly"),
-    jsonlField: replayInputField(replay.jsonl, "replayJsonlPlaceholder"),
+    jsonlField: {
+      ...replayInputField(replay.jsonl, "replayJsonlPlaceholder"),
+      labelText: tr("replayJsonlLabel"),
+    },
     listButtonLabel: tr("replayListBtn"),
     listLoading: Boolean(replay.listLoading),
-    modeField: replayInputField(replay.mode, "replayModePlaceholder"),
+    modeField: {
+      ...replayInputField(replay.mode, "replayModePlaceholder"),
+      labelText: tr("replayModeLabel"),
+    },
     panelTitle: tr("replayTitle"),
     replayModeTabs: Array.isArray(modeTabs) ? modeTabs : [],
     runButtonLabel: tr("replayRunBtn"),
@@ -209,8 +215,8 @@ function replayRunResultsPresentation({
     outputContent: replayResult.outputContent,
     outputPromptText: `${tr("detailLabelPrompt")}=${replayResult.outputPrompt}`,
     outputStatusClass: outputSuccess
-      ? pillClass("bg-emerald-100 text-emerald-700")
-      : pillClass("bg-rose-100 text-rose-700"),
+      ? pillClass("bg-primary/10 text-primary")
+      : pillClass("bg-destructive/10 text-destructive"),
     outputStatusLabel: outputSuccess ? tr("tableSuccess") : tr("tableFailure"),
     rawResultText: statusText || displayText(rawReplayText),
     replayContextRows: [
@@ -448,12 +454,12 @@ export function createReplayPageWorkspace({ modeTabs = [] } = {}) {
     }),
   );
   let appliedJsonlTransferVersion = 0;
+  let pageActive = false;
   let replayPreferencesApplied = false;
   let loadingKeys = [];
 
-  function setPageContext({ active = false } = {}) {
-    if (!active) return;
-    const { status, transfer } = getStore(replaySyncStateStore);
+  function applyReplaySyncState({ status, transfer } = {}) {
+    if (!pageActive) return;
     const replayState = getStore(replayStateStore);
     const nextAppliedJsonlTransferVersion = applyReplayJsonlTransferState(
       replayState,
@@ -462,11 +468,18 @@ export function createReplayPageWorkspace({ modeTabs = [] } = {}) {
     );
     if (nextAppliedJsonlTransferVersion !== appliedJsonlTransferVersion) {
       appliedJsonlTransferVersion = nextAppliedJsonlTransferVersion;
-      replayStateStore.set(replayState);
     }
-    updateReplayState(replayStateStore, (nextReplayState) => {
-      applyReplayStatusTextState(nextReplayState, status);
-    });
+    applyReplayStatusTextState(replayState, status);
+    replayStateStore.set(replayState);
+  }
+
+  const unsubscribeReplaySyncState =
+    replaySyncStateStore.subscribe(applyReplaySyncState);
+
+  function setPageContext({ active = false } = {}) {
+    pageActive = !!active;
+    if (!pageActive) return;
+    applyReplaySyncState(getStore(replaySyncStateStore));
     if (replayPreferencesApplied) return;
     replayPreferencesApplied = true;
     updateReplayState(replayStateStore, applyReplayPreferences);
@@ -552,6 +565,7 @@ export function createReplayPageWorkspace({ modeTabs = [] } = {}) {
   }
 
   return {
+    destroy: unsubscribeReplaySyncState,
     replayDisplayStateStore,
     replayCommand,
     replayEntryOpenIndexHandlerStateStore,

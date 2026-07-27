@@ -10,6 +10,7 @@ import {
   credentialRow,
   credentialSavePayload,
 } from "../src/modules/credentials/credentialState.js";
+import { loadI18nLanguage, setCurrentLanguage } from "../src/lib/i18n.js";
 
 const translate = (key) =>
   ({
@@ -109,11 +110,22 @@ test("credential save payload sends a blank Enable secret as null", () => {
   );
 });
 
-test("credential delete message lists referencing connections", () => {
-  assert.equal(
-    credentialDeleteBlockedMessage(["edge-2", "edge-1"]),
-    "该凭证仍被以下连接引用：edge-1、edge-2",
-  );
+test("credential delete message uses a comma separator in every language", async () => {
+  try {
+    await loadI18nLanguage("zh");
+    assert.equal(
+      credentialDeleteBlockedMessage(["edge-3", "edge-1", "edge-2"]),
+      "该凭证仍被以下连接引用：edge-1, edge-2, edge-3",
+    );
+
+    await loadI18nLanguage("en");
+    assert.equal(
+      credentialDeleteBlockedMessage(["edge-3", "edge-1", "edge-2"]),
+      "This credential is still referenced by: edge-1, edge-2, edge-3",
+    );
+  } finally {
+    setCurrentLanguage("zh");
+  }
 });
 
 test("credential form validates names and required create fields locally", () => {

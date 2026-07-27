@@ -24,8 +24,9 @@ function savedConnectionRowPresentation(connection = {}) {
   const port = Number(connection.port || 22) || 22;
   const credentialRequired = connection.credential_required === true;
   const credentialName = credentialRequired
-    ? "未选择凭证"
-    : safeString(connection.credential_name || "").trim() || "未选择凭证";
+    ? tr("connCredentialNone", "未选择凭证")
+    : safeString(connection.credential_name || "").trim() ||
+      tr("connCredentialNone", "未选择凭证");
   const profile =
     safeString(connection.device_profile || "autodetect").trim() ||
     "autodetect";
@@ -36,7 +37,9 @@ function savedConnectionRowPresentation(connection = {}) {
     firstValue(connection.groups) ||
     safeString(connection.group || connection.label || "").trim();
   const enabled = connection.enabled !== false;
-  const statusLabel = enabled ? "在线" : "停用";
+  const statusLabel = enabled
+    ? tr("connStatusEnabled", "在线")
+    : tr("connStatusDisabled", "停用");
   return {
     enabled,
     deviceModel,
@@ -61,7 +64,7 @@ function savedConnectionRowPresentation(connection = {}) {
     statusTone: enabled ? "primary" : "muted",
     softwareVersion,
     summary: `${credentialName} · ${host}:${port}`,
-    tag: tag || "未分组",
+    tag: tag || tr("connUngrouped", "未分组"),
     credentialName,
     credentialRequired,
   };

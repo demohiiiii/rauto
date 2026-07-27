@@ -7,6 +7,7 @@
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import { createBatchShowInputPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
 
@@ -18,6 +19,16 @@
     tabItems = [],
   } = $props();
   const batchShowInputPanelWorkspace = createBatchShowInputPanelWorkspace();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      configTitle: t("showPanelConfigTitle"),
+      configHint: t("showPanelConfigHint"),
+      footerHint: t("batchShowFooterHint"),
+      maxParallel: t("batchExecMaxParallelLabel"),
+    };
+  });
   const {
     changeBatchMaxParallel,
     changeShowObject,
@@ -44,8 +55,8 @@
 <div hidden={!active}>
   <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
     <WorkspaceActionHeader
-      title="查询配置"
-      description="选择查询对象并配置解析选项"
+      title={i18nLabels.configTitle}
+      description={i18nLabels.configHint}
       icon={SearchIcon}
     />
     <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
@@ -100,14 +111,14 @@
         class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
       >
         <p class="text-xs text-muted-foreground">
-          批量查询会按目标、分组或标签展开后并行执行。
+          {i18nLabels.footerHint}
         </p>
         <div class="flex items-center gap-3">
           <label
             class="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
             for="batch-show-max-parallel"
           >
-            并发数
+            {i18nLabels.maxParallel}
             <Input
               id="batch-show-max-parallel"
               type="number"

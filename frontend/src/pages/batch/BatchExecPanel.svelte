@@ -8,7 +8,7 @@
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
-  import { t } from "../../lib/i18n.js";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import { batchExecTargetPickerFields } from "../../modules/connections/connections.js";
   import { parsedOutputBlockDisplayFromItem } from "../../modules/operations/results.js";
   import {
@@ -19,6 +19,27 @@
   } from "../../modules/standard/batchExecState.js";
 
   let { active } = $props();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      title: t("batchExecTitle"),
+      hint: t("batchExecHint"),
+      command: t("fieldCommand"),
+      commandPlaceholder: t("batchExecCommandPlaceholder"),
+      mode: t("historyColMode"),
+      modePlaceholder: t("modePlaceholder"),
+      footerHint: t("batchExecFooterHint"),
+      maxParallel: t("batchExecMaxParallelLabel"),
+      runBtn: t("batchExecRunBtn"),
+      exitCode: t("txBlockResultExitCode"),
+      pickerFields: batchExecTargetPickerFields.map((field) => ({
+        ...field,
+        labelText: t(field.labelKey),
+        pickerPlaceholder: t(field.placeholderKey),
+      })),
+    };
+  });
   let form = $derived($batchExecFormState);
   let result = $derived($batchExecResultState);
   let running = $derived(result.kind === "running");
@@ -40,25 +61,25 @@
 <div hidden={!active} class="grid gap-3 p-4 sm:p-5">
   <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
     <WorkspaceActionHeader
-      title={t("batchExecTitle")}
-      description={t("batchExecHint")}
+      title={i18nLabels.title}
+      description={i18nLabels.hint}
       icon={TerminalIcon}
     />
     <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
       <div class="grid gap-4 md:grid-cols-[1fr_180px]">
         <label class="grid gap-1 text-sm font-medium text-foreground">
-          {t("fieldCommand")}
+          {i18nLabels.command}
           <Input
-            placeholder={t("batchExecCommandPlaceholder")}
+            placeholder={i18nLabels.commandPlaceholder}
             value={form.command}
             oninput={(event) =>
               setBatchExecField("command", event.currentTarget.value)}
           />
         </label>
         <label class="grid gap-1 text-sm font-medium text-foreground">
-          {t("historyColMode")}
+          {i18nLabels.mode}
           <Input
-            placeholder={t("modePlaceholder")}
+            placeholder={i18nLabels.modePlaceholder}
             value={form.mode}
             oninput={(event) =>
               setBatchExecField("mode", event.currentTarget.value)}
@@ -70,13 +91,13 @@
         <div
           class="grid gap-4 md:grid-cols-2"
           role="group"
-          aria-label={t("batchExecTitle")}
+          aria-label={i18nLabels.title}
         >
-          {#each batchExecTargetPickerFields as targetField (targetField.key)}
+          {#each i18nLabels.pickerFields as targetField (targetField.key)}
             <ConnectionPickerField
               keyName={targetField.keyName}
-              labelText={t(targetField.labelKey)}
-              pickerPlaceholder={t(targetField.placeholderKey)}
+              labelText={targetField.labelText}
+              pickerPlaceholder={targetField.pickerPlaceholder}
             />
           {/each}
         </div>
@@ -86,14 +107,14 @@
         class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
       >
         <p class="text-xs text-muted-foreground">
-          {t("batchExecFooterHint")}
+          {i18nLabels.footerHint}
         </p>
         <div class="flex items-center gap-3">
           <label
             class="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
             for="batch-exec-max-parallel"
           >
-            {t("batchExecMaxParallelLabel")}
+            {i18nLabels.maxParallel}
             <Input
               id="batch-exec-max-parallel"
               type="number"
@@ -111,7 +132,7 @@
             loading={running}
             onclick={executeBatchExecCommand}
           >
-            <span>{t("batchExecRunBtn")}</span>
+            <span>{i18nLabels.runBtn}</span>
           </LoadingButton>
         </div>
       </div>
@@ -129,7 +150,7 @@
           <span class="text-muted-foreground">{row.profile}</span>
           <span class="text-muted-foreground">{row.mode}</span>
           <span class="text-muted-foreground">
-            {t("txBlockResultExitCode")}: {row.exit_code ?? "-"}
+            {i18nLabels.exitCode}: {row.exit_code ?? "-"}
           </span>
         </div>
         {#if row.error}

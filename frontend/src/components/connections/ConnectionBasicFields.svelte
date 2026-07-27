@@ -1,4 +1,5 @@
 <script>
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import PlainSelectField from "../fragments/PlainSelectField.svelte";
   import ConnectionCredentialField from "./ConnectionCredentialField.svelte";
@@ -19,6 +20,15 @@
     onSshSecurityChange,
     splitSections = false,
   } = $props();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      sectionCredentials: t("connSectionCredentials"),
+      sectionCredentialsHint: t("connSectionCredentialsHint"),
+      sectionPlatform: t("connSectionPlatform"),
+    };
+  });
 
   function handleDeviceProfileChange(value) {
     if (typeof onDeviceProfileChange === "function") {
@@ -122,7 +132,11 @@
 {#if splitSections}
   <div class="flex flex-col gap-6">
     <section class="flex flex-col gap-3">
-      {@render sectionTitle(TerminalIcon, "连接凭据", "主机 · 认证")}
+      {@render sectionTitle(
+        TerminalIcon,
+        i18nLabels.sectionCredentials,
+        i18nLabels.sectionCredentialsHint,
+      )}
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div class="grid gap-1.5 lg:col-span-2">
           {@render fieldLabel(basicFieldsDisplay.hostInput.placeholder)}
@@ -171,7 +185,7 @@
     </section>
 
     <section class="flex flex-col gap-3">
-      {@render sectionTitle(SparklesIcon, "平台与兼容")}
+      {@render sectionTitle(SparklesIcon, i18nLabels.sectionPlatform)}
       <div
         class="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))]"
       >

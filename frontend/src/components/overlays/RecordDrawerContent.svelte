@@ -77,8 +77,10 @@
   } = recordDrawerContentWorkspace;
 </script>
 
-<div class="grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain p-4">
-  <div class="rounded-xl border border-border bg-card p-4 shadow-xs">
+<div
+  class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-6 py-6"
+>
+  <div class="rounded-2xl border border-border bg-background p-4">
     <div
       class="flex flex-wrap items-center justify-between gap-3 max-lg:items-stretch"
     >
@@ -105,7 +107,7 @@
       </div>
     </div>
   </div>
-  <div class="grid gap-3 rounded-xl border border-border bg-card p-4 shadow-xs">
+  <div class="grid gap-3 rounded-2xl border border-border bg-background p-4">
     <div
       class="flex flex-wrap items-center justify-between gap-3 max-lg:items-stretch"
     >
@@ -144,7 +146,7 @@
       </Button>
     </div>
   </div>
-  <div class="rounded-xl border border-border bg-card p-4 shadow-xs">
+  <div class="rounded-2xl border border-border bg-background p-4">
     <div class="inline-flex flex-wrap items-center gap-2">
       <Button
         variant="outline"
@@ -159,7 +161,7 @@
       </Button>
     </div>
   </div>
-  <div class="rounded-xl border border-border bg-card p-4 shadow-xs">
+  <div class="rounded-2xl border border-border bg-background p-4">
     <div class="grid gap-3" hidden={!contentDisplay.showListPanel}>
       {#if contentDisplay.parseError}
         <StatusCard

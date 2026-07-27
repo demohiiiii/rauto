@@ -1,5 +1,6 @@
 <script>
   import SearchIcon from "@lucide/svelte/icons/search";
+  import { currentLanguageState, tr } from "../../lib/i18n.js";
   import SendIcon from "@lucide/svelte/icons/send";
   import BoxesIcon from "@lucide/svelte/icons/boxes";
   import LayersIcon from "@lucide/svelte/icons/layers";
@@ -32,9 +33,10 @@
   let sidebarConnection = $derived($sidebarConnectionDisplayStateStore);
   let navigationItems = $derived($navigationItemsStateStore);
   const navGroups = [
-    { key: "operations", label: "操作" },
-    { key: "management", label: "管理" },
+    { key: "operations", labelKey: "navGroupOperations", label: "操作" },
+    { key: "management", labelKey: "navGroupManagement", label: "管理" },
   ];
+  let i18nCurrentLanguage = $derived($currentLanguageState);
   const navIconComponents = {
     show: SearchIcon,
     standard: SendIcon,
@@ -52,18 +54,24 @@
     backup: DatabaseBackupIcon,
     tasks: HistoryIcon,
   };
-  let groupedNavigationItems = $derived(
-    navGroups
+  let groupedNavigationItems = $derived.by(() => {
+    i18nCurrentLanguage;
+    return navGroups
       .map((group) => ({
         ...group,
+        label: tr(group.labelKey, group.label),
         items: navigationItems.filter(
           (navigationItem) =>
             navigationItem.visible &&
             (navigationItem.group || "operations") === group.key,
         ),
       }))
-      .filter((group) => group.items.length),
-  );
+      .filter((group) => group.items.length);
+  });
+  let i18nConsoleSubtitle = $derived.by(() => {
+    i18nCurrentLanguage;
+    return tr("sidebarConsoleSubtitle", "网络自动化控制台");
+  });
 
   function handleClose() {
     if (typeof onClose === "function") {
@@ -104,7 +112,7 @@
         RAUTO
       </div>
       <div class="text-[11px] font-medium text-muted-foreground">
-        网络自动化控制台
+        {i18nConsoleSubtitle}
       </div>
     </div>
   </section>

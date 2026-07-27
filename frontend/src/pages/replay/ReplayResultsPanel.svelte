@@ -1,23 +1,93 @@
 <script>
+  import { Button } from "$lib/components/ui/button/index.js";
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
   import EventEntriesTable from "../../components/fragments/EventEntriesTable.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
+  import PlainCheckboxField from "../../components/fragments/PlainCheckboxField.svelte";
+  import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
+  import TabList from "../../components/fragments/TabList.svelte";
+  import ValueLabelSelectField from "../../components/fragments/ValueLabelSelectField.svelte";
 
-  let { onOpenEntryIndex, resultsDisplay } = $props();
+  let {
+    controlsDisplay,
+    onEventKindChange,
+    onFailedOnlyChange,
+    onModeSelect,
+    onOpenEntryIndex,
+    onResetFilters,
+    onSearchInput,
+    resultsDisplay,
+  } = $props();
 </script>
 
-<div class="grid gap-2">
-  <div class="grid gap-3" hidden={!resultsDisplay.showListMode}>
+<div class="grid gap-4">
+  <div
+    class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
+  >
+    <div class="inline-flex items-center gap-2 whitespace-nowrap">
+      <span class="text-sm font-medium text-muted-foreground">
+        {controlsDisplay.displayModeLabel}
+      </span>
+      <TabList
+        tabItems={controlsDisplay.replayModeTabs}
+        activeValue={controlsDisplay.displayMode}
+        aria-label={controlsDisplay.displayModeLabel}
+        onSelect={onModeSelect}
+      />
+    </div>
+    <div class="inline-flex whitespace-nowrap">
+      <PlainCheckboxField
+        checked={controlsDisplay.failedOnly}
+        labelText={controlsDisplay.failedOnlyLabel}
+        title={controlsDisplay.failedOnlyLabel}
+        onCheckedChange={onFailedOnlyChange}
+      />
+    </div>
+    <div class="ml-auto inline-flex flex-wrap items-center gap-2">
+      <ValueLabelSelectField
+        value={controlsDisplay.eventKind}
+        class="w-48"
+        title={controlsDisplay.eventKindLabel}
+        aria-label={controlsDisplay.eventKindLabel}
+        optionRows={controlsDisplay.eventKindOptionRows}
+        onValueChange={onEventKindChange}
+      />
+      <PlainInputField
+        value={controlsDisplay.searchField.value}
+        class="w-52"
+        aria-label={controlsDisplay.searchField.ariaLabelText}
+        placeholderText={controlsDisplay.searchField.placeholder}
+        onValueInput={onSearchInput}
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        type="button"
+        class="text-muted-foreground"
+        onclick={onResetFilters}
+      >
+        {controlsDisplay.clearFiltersLabel}
+      </Button>
+    </div>
+  </div>
+
+  <div class="grid gap-4" hidden={!resultsDisplay.showListMode}>
     {#if resultsDisplay.statusText}
       <StatusCard message={resultsDisplay.statusText} />
     {:else if !resultsDisplay.hasReplayResult}
-      <StatusCard message={resultsDisplay.emptyResultText} />
+      <div
+        class="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-background py-14 text-center"
+      >
+        <p class="text-sm text-muted-foreground">
+          {resultsDisplay.emptyResultText}
+        </p>
+      </div>
     {:else}
       {#if resultsDisplay.hasReplayContext}
-        <section class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <div class="mb-1 text-xs font-semibold text-slate-500">
+        <section class="rounded-2xl border border-border bg-muted/30 p-4">
+          <div class="mb-2 text-xs font-semibold text-muted-foreground">
             {resultsDisplay.contextTitle}
           </div>
           <div class="grid gap-2 md:grid-cols-3">
@@ -48,23 +118,19 @@
         />
       {/if}
       {#if resultsDisplay.hasReplayOutput}
-        <div
-          class="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm"
-        >
-          <div class="mb-2 text-xs font-semibold text-slate-500">
-            {resultsDisplay.outputTitle}
-          </div>
+        <section class="grid gap-2">
           <div class="inline-flex items-center gap-2 text-xs">
             <span class={resultsDisplay.outputStatusClass}>
               {resultsDisplay.outputStatusLabel}
             </span>
-            <span class="font-mono text-slate-600">
+            <span class="font-mono text-muted-foreground">
               {resultsDisplay.outputPromptText}
             </span>
           </div>
-          <pre
-            class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-slate-900 p-2 text-xs text-slate-100">{resultsDisplay.outputContent}</pre>
-        </div>
+          <OutputBlock title={resultsDisplay.outputTitle}>
+            {resultsDisplay.outputContent}
+          </OutputBlock>
+        </section>
       {/if}
       {#if !resultsDisplay.hasReplayEntries && !resultsDisplay.hasReplayOutput}
         <StatusCard message={resultsDisplay.emptyReplayText} />

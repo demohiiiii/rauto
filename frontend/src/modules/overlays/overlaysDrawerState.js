@@ -1,13 +1,14 @@
 import { derived, get, writable } from "svelte/store";
 import {
+  currentPathname,
+  pushBrowserState,
   storageGet,
   storageSet,
   writeClipboardText,
 } from "../../lib/browser.js";
-import {
-  callbackFormCheckedHandler,
-  callbackFormValueHandler,
-} from "../../lib/events.js";
+import { routeById } from "../../config/dashboardNavigation.js";
+import { showToast } from "./overlaysToastState.js";
+import { callbackHandler } from "../../lib/events.js";
 import { classNames, displayMode, displayText } from "../../lib/ui.js";
 import { displayModeTabs } from "../../config/dashboardModes.js";
 import { currentLanguageState, tr } from "../../lib/i18n.js";
@@ -426,12 +427,46 @@ function showReplayStatus(text) {
   }));
 }
 
+function notifyRecordingAction(message, tone = "info") {
+  const text = String(message || "").trim();
+  if (!text) return;
+  showReplayStatus(text);
+  showToast(text, tone);
+}
+
+function navigateToReplayPage() {
+  const route = routeById("replay");
+  if (!route) return false;
+  if (currentPathname() !== route.path) {
+    pushBrowserState({ routeId: route.id }, route.path);
+  }
+  if (
+    typeof window !== "undefined" &&
+    typeof window.dispatchEvent === "function"
+  ) {
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
+  return true;
+}
+
 function setReplayJsonlFromRecording(jsonl) {
+  const text = String(jsonl || "").trim();
+  if (!text) {
+    notifyRecordingAction(
+      tr("recordingNoJsonlForReplay", "No recording data to send to replay"),
+      "warning",
+    );
+    return false;
+  }
   replayJsonlTransferState.update((state) => ({
-    jsonl: jsonl || "",
+    jsonl: text,
     version: (state?.version || 0) + 1,
   }));
-  showReplayStatus(tr("recordingSetToReplay", "recording copied to replay"));
+  notifyRecordingAction(
+    tr("recordingSetToReplay", "recording copied to replay"),
+    "success",
+  );
+  return true;
 }
 
 function normalizeRecordDrawerMode(displayMode) {
@@ -770,7 +805,12 @@ export function createRecordDrawerWorkspace({
     setRecordLevel: onSetRecordLevel,
     setSearchQuery,
     useInReplay() {
-      return onSetReplayJsonlFromRecording(get(recordingJsonlStore));
+      const moved = onSetReplayJsonlFromRecording(get(recordingJsonlStore));
+      if (moved) {
+        closeRecordDrawer();
+        navigateToReplayPage();
+      }
+      return moved;
     },
   };
 }
@@ -782,35 +822,43 @@ export function createRecordDrawerContentWorkspace({
   onRecordLevelChange = null,
   onSearchInput = null,
 } = {}) {
+  // Plain* field bindings already extract value/checked before invoking
+  // onValueChange / onValueInput / onCheckedChange, so these handlers must
+  // accept the bare value rather than a DOM event.
   return {
     recordEventKindChangeHandler() {
-      return callbackFormValueHandler(onEventKindChange);
+      return callbackHandler(onEventKindChange);
     },
     recordFailedOnlyChangeHandler() {
-      return callbackFormCheckedHandler(onFailedOnlyChange);
+      return callbackHandler(onFailedOnlyChange);
     },
     recordLevelChangeHandler() {
-      return callbackFormValueHandler(onRecordLevelChange);
+      return callbackHandler(onRecordLevelChange);
     },
     recordRawInputChangeHandler() {
-      return callbackFormValueHandler(onRawInput);
+      return callbackHandler(onRawInput);
     },
     recordSearchInputChangeHandler() {
-      return callbackFormValueHandler(onSearchInput);
+      return callbackHandler(onSearchInput);
     },
   };
 }
 
 async function copyRecordDrawerRecording(jsonl, t = tr) {
   if (!String(jsonl || "").trim()) {
-    showReplayStatus(t("replayNoJsonl", "recording JSONL is required"));
-    return;
+    notifyRecordingAction(
+      t("recordingNoJsonl", "No recording data to copy"),
+      "warning",
+    );
+    return false;
   }
   try {
     await writeClipboardText(jsonl);
-    showReplayStatus(t("recordingCopied", "recording copied"));
+    notifyRecordingAction(t("recordingCopied", "recording copied"), "success");
+    return true;
   } catch (_) {
-    showReplayStatus(t("requestFailed", "request failed"));
+    notifyRecordingAction(t("requestFailed", "request failed"), "error");
+    return false;
   }
 }
 

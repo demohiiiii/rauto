@@ -1,4 +1,5 @@
 <script>
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button/index.js";
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
@@ -22,6 +23,19 @@
     CONNECTION_VARS,
   } from "../../modules/connections/connectionFieldStoreState.js";
   let { active, connectionTestStatus, onCancel } = $props();
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      sessionOnly: t("tempConnSessionOnly"),
+      sessionHint: t("tempConnHint"),
+      sectionOrganization: t("connSectionOrganization"),
+      disabledHint: t("tempConnDisabledHint"),
+      sectionCustomVars: t("connSectionCustomVars"),
+      cancel: t("cancel"),
+      saveAsConnection: t("tempConnSaveAsConnection"),
+    };
+  });
   const temporaryConnectionPanelWorkspace =
     createTemporaryConnectionPanelWorkspace();
   const {
@@ -98,10 +112,9 @@
             <SparklesIcon class="size-4" aria-hidden="true" />
           </div>
           <div>
-            <p class="text-sm font-semibold">仅当前会话使用</p>
+            <p class="text-sm font-semibold">{i18nLabels.sessionOnly}</p>
             <p class="mt-1 text-xs leading-5 text-muted-foreground">
-              临时目标不会写入已保存连接列表；留空字段将回退到服务启动时的 CLI
-              默认参数。
+              {i18nLabels.sessionHint}
             </p>
           </div>
         </div>
@@ -122,14 +135,17 @@
       />
 
       <section class="flex flex-col gap-3">
-        {@render ConnectionSectionTitle(TagIcon, "组织与状态")}
+        {@render ConnectionSectionTitle(
+          TagIcon,
+          i18nLabels.sectionOrganization,
+        )}
         <div
           class="flex min-h-12 flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3"
         >
           <div>
             <p class="text-sm font-medium">{temporaryDisplay.enabledLabel}</p>
             <p class="text-xs text-muted-foreground">
-              关闭后该临时目标不会应用到当前连接上下文。
+              {i18nLabels.disabledHint}
             </p>
           </div>
           <PlainCheckboxField
@@ -152,7 +168,7 @@
       </section>
 
       <section class="flex flex-col gap-3">
-        {@render ConnectionSectionTitle(PlusIcon, "自定义变量")}
+        {@render ConnectionSectionTitle(PlusIcon, i18nLabels.sectionCustomVars)}
         <ConnectionMetadataFields
           {active}
           groupsPickerKey={CONNECTION_PICKER.savedGroups}
@@ -179,7 +195,7 @@
     class="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-7 py-4"
   >
     <Button variant="ghost" size="sm" type="button" onclick={onCancel}>
-      取消
+      {i18nLabels.cancel}
     </Button>
     <div class="inline-flex items-center gap-2">
       <LoadingButton
@@ -189,7 +205,7 @@
         onclick={createTemporaryDraft}
       >
         <SaveIcon data-icon="inline-start" aria-hidden="true" />
-        另存为连接
+        {i18nLabels.saveAsConnection}
       </LoadingButton>
       <Button
         variant="default"

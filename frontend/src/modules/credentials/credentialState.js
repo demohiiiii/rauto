@@ -1,3 +1,5 @@
+import { tr } from "../../lib/i18n.js";
+
 const listValue = (value) => (Array.isArray(value) ? value : []);
 const text = (value) => (value == null ? "" : String(value));
 const identityTranslate = (key) => key;
@@ -82,7 +84,7 @@ export function credentialDeleteBlockedMessage(connections = []) {
     .map((item) => text(item).trim())
     .filter(Boolean)
     .sort();
-  return `该凭证仍被以下连接引用：${names.join("、")}`;
+  return `${tr("credentialReferencedBy", "该凭证仍被以下连接引用：")}${names.join(", ")}`;
 }
 
 export function credentialImportReport(value = {}) {
