@@ -20,8 +20,24 @@ export function credentialFormValidationMessage(
   if (!text(form.username).trim()) {
     return translate("credentialUsernameRequired");
   }
-  if (!editing && !text(form.password).trim()) {
+  const authType = text(form.authType || "password");
+  const hasStoredAuth = editing && form.hasAuthSecret !== false;
+  if (
+    authType === "password" &&
+    !hasStoredAuth &&
+    !text(form.password).trim()
+  ) {
     return translate("credentialPasswordRequired");
+  }
+  if (
+    authType === "private_key" &&
+    !hasStoredAuth &&
+    !text(form.privateKey).trim()
+  ) {
+    return translate("credentialPrivateKeyRequired");
+  }
+  if (authType === "private_key_file" && !text(form.privateKeyPath).trim()) {
+    return translate("credentialPrivateKeyPathRequired");
   }
   return "";
 }
@@ -40,6 +56,12 @@ export function credentialErrorMessage(error, translate = identityTranslate) {
   if (message === "login password is required") {
     return translate("credentialPasswordRequired");
   }
+  if (message === "inline private key is required") {
+    return translate("credentialPrivateKeyRequired");
+  }
+  if (message === "private key file path is required") {
+    return translate("credentialPrivateKeyPathRequired");
+  }
   return message || translate("requestFailed");
 }
 
@@ -52,7 +74,11 @@ export function credentialRow(value = {}) {
     id: text(value.id).trim(),
     name: text(value.name).trim(),
     username: text(value.username).trim(),
+    authType: text(value.auth_type || "password").trim(),
+    hasAuthSecret: Boolean(value.has_auth_secret),
     hasPassword: Boolean(value.has_password),
+    privateKeyPath: text(value.private_key_path).trim(),
+    hasPassphrase: Boolean(value.has_passphrase),
     hasEnablePassword: Boolean(value.has_enable_password),
     enableEnabled: Boolean(value.enable_enabled),
     connectionCount: Number(value.connection_count) || 0,
@@ -60,7 +86,12 @@ export function credentialRow(value = {}) {
   };
   return {
     ...row,
-    searchText: [row.name, row.username, ...referencingConnections]
+    searchText: [
+      row.name,
+      row.username,
+      row.authType,
+      ...referencingConnections,
+    ]
       .filter(Boolean)
       .join(" ")
       .toLowerCase(),
@@ -69,11 +100,18 @@ export function credentialRow(value = {}) {
 
 export function credentialSavePayload(form = {}) {
   const password = text(form.password);
+  const privateKey = text(form.privateKey);
+  const privateKeyPath = text(form.privateKeyPath);
+  const passphrase = text(form.passphrase);
   const enablePassword = text(form.enablePassword);
   return {
     name: text(form.name).trim(),
     username: text(form.username).trim(),
+    auth_type: text(form.authType || "password"),
     password: password.trim() ? password : null,
+    private_key: privateKey.trim() ? privateKey : null,
+    private_key_path: privateKeyPath.trim() ? privateKeyPath.trim() : null,
+    passphrase: passphrase ? passphrase : null,
     enable_password: enablePassword.trim() ? enablePassword : null,
     enable_enabled: Boolean(form.enableEnabled),
   };

@@ -156,6 +156,11 @@ message DeviceCredential {
   bool enable_enabled                  = 6;
   uint64 connection_count              = 7;
   repeated string referencing_connections = 8;
+  string auth_type                         = 9;
+  bool has_auth_secret                     = 10;
+  string private_key_path                  = 11;
+  bool has_passphrase                      = 12;
+  reserved 13;
 }
 
 message ListCredentialsResponse {
@@ -173,7 +178,11 @@ message UpsertCredentialRequest {
   optional string password          = 4;
   optional string enable_password   = 5;
   bool enable_enabled               = 6;
-  reserved 7;
+  reserved 7, 12;
+  string auth_type                              = 8;
+  optional string private_key                   = 9;
+  optional string private_key_path              = 10;
+  optional string passphrase                    = 11;
 }
 
 message DeleteCredentialRequest {

@@ -31,6 +31,7 @@ const _: &str = include_str!("../../migrations/202607240001_device_credentials.s
 const _: &str = include_str!("../../migrations/202607260001_enable_stage.sql");
 const _: &str = include_str!("../../migrations/202607260002_config_command_overrides.sql");
 const _: &str = include_str!("../../migrations/202607260003_config_volatile_patterns.sql");
+const _: &str = include_str!("../../migrations/202607270001_ssh_auth_methods.sql");
 #[cfg(not(test))]
 static DB_MIGRATED: AtomicBool = AtomicBool::new(false);
 #[cfg(test)]

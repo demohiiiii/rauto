@@ -297,7 +297,7 @@ async fn fetch_config_over_connection(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
         default_mode,

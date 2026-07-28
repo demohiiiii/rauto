@@ -722,16 +722,21 @@ rauto templates delete show_version.j2
 每条凭证包含：
 
 - 唯一名称，只允许字母、数字、`_`、`.` 和 `-`。
-- 必填的 SSH 用户名和登录密码。
+- 必填的 SSH 用户名，以及一种认证方式：密码、加密保存的内联私钥、私钥文件路径或 SSH agent。
 - 可选的 Enable/Secret 密码，或在 Enable 提示出现时直接提交空 Enter。
 
-密码会加密后保存到 `~/.rauto/rauto.db`，加密主密钥保存在操作系统 keyring 中。Web、Agent 和 CLI 查询输出只返回凭证元数据及密码是否存在的状态，不会返回明文密码或加密引用。被一个或多个连接引用的凭证，在解除所有引用前不能删除。
+密码、内联私钥和私钥口令会加密后保存到 `~/.rauto/rauto.db`，加密主密钥保存在操作系统 keyring 中。私钥文件认证只保存路径并在连接时读取文件，SSH agent 认证使用 rauto 进程可访问的 agent。Web、Agent 和 CLI 查询输出只返回凭证元数据及密钥是否存在的状态，不会返回明文认证数据或加密引用。完整会话录制会在事件存储和广播前脱敏认证密钥及 Enable 密钥。被一个或多个连接引用的凭证，在解除所有引用前不能删除。
 
 CLI 凭证管理示例：
 
 ```bash
 # 新增：会交互式询问登录用户名和密码
 rauto credential add network-admin
+
+# rneter 支持的其他认证方式
+rauto credential add linux-key --login-username root --auth-type private-key --private-key ~/.ssh/id_ed25519
+rauto credential add linux-key-file --login-username root --auth-type private-key-file --private-key-file /run/secrets/id_ed25519
+rauto credential add automation-agent --login-username automation --auth-type agent
 
 # 查询
 rauto credential list
@@ -750,13 +755,14 @@ rauto credential import ./credentials.csv
 rauto credential delete network-ops
 ```
 
-`credential add` 和 `credential update` 也支持 `--login-username`、`--login-secret`、`--enable-secret`、`--json` 等凭证专用参数；省略登录密钥时会通过安全提示输入。完整参数请执行 `rauto credential --help`。
+`credential add` 和 `credential update` 支持 `--auth-type password|private-key|private-key-file|agent`，并提供 `--login-secret`、`--private-key`、`--private-key-file`、`--passphrase`、`--enable-secret` 和 `--json`。`--private-key` 会在保存时读取并加密文件内容，`--private-key-file` 则保存由 rneter 在连接时读取的路径。密码认证省略登录密钥时会通过安全提示输入。完整参数请执行 `rauto credential --help`。
 
-凭证导入支持 `.csv`、`.xlsx`、`.xls`、`.xlsm` 和 `.xlsb` 文件，并按凭证名称执行 upsert。更新已有凭证时，登录字段留空会保留原值，`enable_secret` 留空会清除已保存的 Enable 密钥；`enable_enabled` 为 true 时会进入 Enable 阶段，有密钥就提交密钥，没有密钥就在密码提示处直接回车。新增凭证必须提供 `name`、`login_username` 和 `login_secret`。布尔列支持 `true/false`、`1/0`、`yes/no` 或 `是/否`。
+凭证导入支持 `.csv`、`.xlsx`、`.xls`、`.xlsm` 和 `.xlsb` 文件，并按凭证名称执行 upsert。认证类型不变时，更新已有凭证的认证字段留空会保留原值，`enable_secret` 留空会清除已保存的 Enable 密钥。支持 `auth_type`、`login_secret`、`private_key`、`private_key_path` 和 `passphrase` 列。新增凭证必须提供 `name`、`login_username` 以及所选认证类型要求的字段。`enable_enabled` 为 true 时会进入 Enable 阶段，有密钥就提交密钥，没有密钥就在密码提示处直接回车。布尔列支持 `true/false`、`1/0`、`yes/no` 或 `是/否`。
 
 ```csv
-name,login_username,login_secret,enable_secret,enable_enabled
-network-admin,admin,请替换为登录密钥,请替换为Enable密钥,true
+凭证名称,登录用户名,认证类型,登录密钥,私钥内容,私钥路径,私钥口令,Enable密钥,启用Enable
+network-admin,admin,password,请替换为登录密钥,,,,请替换为Enable密钥,是
+linux-key-file,root,private_key_file,,,/run/secrets/id_ed25519,,,否
 ```
 
 可以从 Web UI 的凭证导入弹窗下载起始模板，也可以直接使用 [templates/examples/credential-import-template-en.csv](templates/examples/credential-import-template-en.csv) 和 [templates/examples/credential-import-template-zh.csv](templates/examples/credential-import-template-zh.csv)。源文件包含明文密钥，导入完成后请妥善保管或删除。导入报告只包含行号、名称、数量和校验错误，不会返回密钥内容。

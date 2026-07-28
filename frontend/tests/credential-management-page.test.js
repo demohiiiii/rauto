@@ -60,3 +60,20 @@ test("credential management is a standalone dashboard page", () => {
   assert.match(zh, /credentialImportAction: "导入凭证"/);
   assert.match(en, /credentialImportAction: "Import credentials"/);
 });
+
+test("Enable password fields render only while the Enable stage is active", () => {
+  const page = read("frontend/src/pages/CredentialsPage.svelte");
+  const createDialog = read(
+    "frontend/src/components/credentials/CredentialCreateDialog.svelte",
+  );
+
+  for (const source of [page, createDialog]) {
+    assert.match(
+      source,
+      /\{#if form\.enableEnabled\}[\s\S]*credentialEnablePassword[\s\S]*\{\/if\}/,
+    );
+    assert.doesNotMatch(source, /disabled=\{!form\.enableEnabled\}/);
+  }
+  assert.match(createDialog, /onCheckedChange=\{setEnableEnabled\}/);
+  assert.match(createDialog, /form\.enablePassword = ""/);
+});

@@ -4,6 +4,7 @@
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Spinner } from "$lib/components/ui/spinner/index.js";
+  import CredentialAuthFields from "./CredentialAuthFields.svelte";
   import { createCredential } from "../../api/client.js";
   import { t } from "../../lib/i18n.js";
   import {
@@ -24,7 +25,13 @@
     return {
       name: "",
       username: "",
+      authType: "password",
       password: "",
+      privateKey: "",
+      privateKeyPath: "",
+      passphrase: "",
+      hasAuthSecret: false,
+      hasPassphrase: false,
       enablePassword: "",
       enableEnabled: false,
     };
@@ -35,6 +42,13 @@
     if (!nextOpen) {
       form = emptyForm();
       error = "";
+    }
+  }
+
+  function setEnableEnabled(checked) {
+    form.enableEnabled = checked;
+    if (!checked) {
+      form.enablePassword = "";
     }
   }
 
@@ -90,31 +104,31 @@
         <span class="text-sm font-medium">{t("credentialUsername")}</span>
         <Input bind:value={form.username} autocomplete="username" required />
       </label>
-      <label class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium">{t("credentialPassword")}</span>
-        <Input
-          type="password"
-          bind:value={form.password}
-          autocomplete="new-password"
-          required
-        />
-      </label>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <CredentialAuthFields {form} />
+      </div>
       <label
         class="flex min-h-11 items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm"
       >
-        <Checkbox bind:checked={form.enableEnabled} />
+        <Checkbox
+          checked={form.enableEnabled}
+          onCheckedChange={setEnableEnabled}
+        />
         <span>{t("credentialEnableEnabled")}</span>
       </label>
-      <label class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium">{t("credentialEnablePassword")}</span>
-        <Input
-          type="password"
-          bind:value={form.enablePassword}
-          autocomplete="new-password"
-          placeholder={form.enableEnabled ? t("credentialEnableOptional") : ""}
-          disabled={!form.enableEnabled}
-        />
-      </label>
+      {#if form.enableEnabled}
+        <label class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium">
+            {t("credentialEnablePassword")}
+          </span>
+          <Input
+            type="password"
+            bind:value={form.enablePassword}
+            autocomplete="new-password"
+            placeholder={t("credentialEnableOptional")}
+          />
+        </label>
+      {/if}
 
       {#if error}
         <p class="text-sm text-destructive" role="alert">{error}</p>

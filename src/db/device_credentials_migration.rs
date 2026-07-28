@@ -75,6 +75,8 @@ fn final_schema_stores_authentication_only_in_device_credentials() -> Result<()>
             "created_at_ms",
             "updated_at_ms",
             "enable_enabled",
+            "auth_type",
+            "auth_metadata_json",
         ]
     );
     assert!(connection_columns.contains(&"credential_id".to_string()));

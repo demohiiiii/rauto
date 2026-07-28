@@ -723,16 +723,21 @@ The examples below assume that credentials named `network-admin` and `linux-admi
 Each credential contains:
 
 - A unique name using only letters, numbers, `_`, `.`, and `-`.
-- A required SSH username and login password.
+- A required SSH username and one authentication method: password, encrypted inline private key, private-key file path, or SSH agent.
 - An optional Enable stage with a password; when enabled without a password, rauto submits Enter at the prompt.
 
-Passwords are encrypted before being stored in `~/.rauto/rauto.db`; the encryption master key is kept in the operating system keyring. Web, Agent, and CLI query output expose only credential metadata and password-presence flags, never plaintext passwords or encryption references. A credential referenced by one or more connections cannot be deleted until those references are removed.
+Passwords, inline private keys, and private-key passphrases are encrypted before being stored in `~/.rauto/rauto.db`; the encryption master key is kept in the operating system keyring. Private-key file credentials store the path and load the key when connecting, while SSH-agent credentials use the agent available to the rauto process. Web, Agent, and CLI query output expose only credential metadata and secret-presence flags, never plaintext authentication data or encryption references. Full session recordings redact configured authentication and Enable secrets before storing or broadcasting events. A credential referenced by one or more connections cannot be deleted until those references are removed.
 
 Manage credentials from the CLI:
 
 ```bash
 # Add: prompts for the login username and password
 rauto credential add network-admin
+
+# Other rneter authentication methods
+rauto credential add linux-key --login-username root --auth-type private-key --private-key ~/.ssh/id_ed25519
+rauto credential add linux-key-file --login-username root --auth-type private-key-file --private-key-file /run/secrets/id_ed25519
+rauto credential add automation-agent --login-username automation --auth-type agent
 
 # Query
 rauto credential list
@@ -751,13 +756,14 @@ rauto credential import ./credentials.csv
 rauto credential delete network-ops
 ```
 
-`credential add` and `credential update` accept credential-specific options such as `--login-username`, `--login-secret`, `--enable-secret`, and `--json`; omit login secrets to enter them through the secure prompt. Use `rauto credential --help` for the complete option list.
+`credential add` and `credential update` accept `--auth-type password|private-key|private-key-file|agent`, along with `--login-secret`, `--private-key`, `--private-key-file`, `--passphrase`, `--enable-secret`, and `--json`. `--private-key` reads and encrypts the file contents during the save; `--private-key-file` stores a path that rneter reads at connection time. Omit a password login secret to enter it through the secure prompt. Use `rauto credential --help` for the complete option list.
 
-Credential import accepts `.csv`, `.xlsx`, `.xls`, `.xlsm`, and `.xlsb` files. It uses name-based upsert: blank login fields preserve existing values, while a blank `enable_secret` clears the saved Enable secret. When `enable_enabled` is true, rauto enters the Enable stage and submits the secret, or presses Enter when the secret is blank. New credentials require `name`, `login_username`, and `login_secret`. Boolean columns accept `true/false`, `1/0`, `yes/no`, or `是/否`.
+Credential import accepts `.csv`, `.xlsx`, `.xls`, `.xlsm`, and `.xlsb` files. It uses name-based upsert: blank authentication fields preserve existing values when the authentication type is unchanged, while a blank `enable_secret` clears the saved Enable secret. Columns include `auth_type`, `login_secret`, `private_key`, `private_key_path`, and `passphrase`. New credentials require `name`, `login_username`, and the fields required by their authentication type. When `enable_enabled` is true, rauto enters the Enable stage and submits the secret, or presses Enter when the secret is blank. Boolean columns accept `true/false`, `1/0`, `yes/no`, or `是/否`.
 
 ```csv
-name,login_username,login_secret,enable_secret,enable_enabled
-network-admin,admin,replace-with-login-secret,replace-with-enable-secret,true
+name,login_username,auth_type,login_secret,private_key,private_key_path,passphrase,enable_secret,enable_enabled
+network-admin,admin,password,replace-with-login-secret,,,,replace-with-enable-secret,true
+linux-key-file,root,private_key_file,,,/run/secrets/id_ed25519,,,false
 ```
 
 Download the starter file from the Web UI import dialog, or use [templates/examples/credential-import-template-en.csv](templates/examples/credential-import-template-en.csv) and [templates/examples/credential-import-template-zh.csv](templates/examples/credential-import-template-zh.csv). The source file contains plaintext secrets; protect or remove it after import. Import reports contain only row numbers, names, counts, and validation errors, never secret values.

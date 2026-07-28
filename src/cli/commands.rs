@@ -2,6 +2,7 @@ use super::args::{
     AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, RecordLevelOpt, ShowArgs,
     TemplateArgs, TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
+use crate::config::device_credential_store::DeviceAuthType;
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -433,9 +434,21 @@ pub enum CredentialCommands {
         /// SSH login username; prompted when omitted
         #[arg(long)]
         login_username: Option<String>,
-        /// SSH login secret; securely prompted when omitted
+        /// SSH authentication method
+        #[arg(long, default_value = "password")]
+        auth_type: DeviceAuthType,
+        /// SSH login password; securely prompted when password auth is selected and omitted
         #[arg(long)]
         login_secret: Option<String>,
+        /// Read an inline private key from this local file and store its contents encrypted
+        #[arg(long, value_name = "PATH")]
+        private_key: Option<PathBuf>,
+        /// Private key path to load at connection time
+        #[arg(long, value_name = "PATH")]
+        private_key_file: Option<PathBuf>,
+        /// Optional private-key passphrase
+        #[arg(long)]
+        passphrase: Option<String>,
         /// Optional Enable/Secret value
         #[arg(long)]
         enable_secret: Option<String>,
@@ -456,9 +469,21 @@ pub enum CredentialCommands {
         /// New SSH login username
         #[arg(long)]
         login_username: Option<String>,
+        /// Change the SSH authentication method
+        #[arg(long)]
+        auth_type: Option<DeviceAuthType>,
         /// New SSH login secret; omitted values preserve the current secret
         #[arg(long)]
         login_secret: Option<String>,
+        /// Replace the stored inline private key with contents read from this local file
+        #[arg(long, value_name = "PATH")]
+        private_key: Option<PathBuf>,
+        /// Set the private key path loaded at connection time
+        #[arg(long, value_name = "PATH")]
+        private_key_file: Option<PathBuf>,
+        /// Set or replace the private-key passphrase
+        #[arg(long)]
+        passphrase: Option<String>,
         /// Set the optional Enable/Secret value; omitting it clears the current value
         #[arg(long)]
         enable_secret: Option<String>,
@@ -783,7 +808,7 @@ pub enum ConfigCommandCommands {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Commands, CredentialCommands, SessionCommands};
+    use super::{Cli, Commands, CredentialCommands, DeviceAuthType, SessionCommands};
     use clap::Parser;
 
     #[test]
@@ -852,6 +877,31 @@ mod tests {
         assert_eq!(login_secret.as_deref(), Some("login-secret"));
         assert_eq!(enable_secret.as_deref(), Some("enable-secret"));
         assert!(json);
+
+        let private_key = Cli::try_parse_from([
+            "rauto",
+            "credential",
+            "add",
+            "linux-key",
+            "--login-username",
+            "root",
+            "--auth-type",
+            "private-key",
+            "--private-key",
+            "/run/secrets/id_ed25519",
+            "--passphrase",
+            "key-passphrase",
+        ])
+        .expect("private-key credential add should parse");
+        assert!(matches!(
+            private_key.command,
+            Commands::Credential(CredentialCommands::Add {
+                auth_type: DeviceAuthType::PrivateKey,
+                private_key: Some(_),
+                passphrase: Some(_),
+                ..
+            })
+        ));
 
         let update = Cli::try_parse_from([
             "rauto",

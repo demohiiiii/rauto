@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### New Features
+- Updated rneter to `0.4.7` and added password, encrypted inline-private-key, private-key-file, and SSH-agent authentication across CLI, Web, import, orchestration, and agent gRPC execution paths.
+- Added rneter virtual-device integration coverage for rauto's SSH wrapper and redacted configured authentication and Enable secrets before full session events are stored or broadcast.
+
+### Optimizations
+- Adopted rneter's latest connection-pool behavior, including single-flight connection creation, explicit expiration cleanup, and safer session state transitions.
+
+### API Changes
+- Added SSH authentication type and non-sensitive authentication metadata to credential HTTP and gRPC models, credential import columns, and the Web credential editor.
+- Added SQLite migration `202607270001_ssh_auth_methods.sql`; existing password credentials migrate automatically with `auth_type = password`.
+
+### Risks
+- Private-key-file and SSH-agent authentication depend on files, permissions, and agent sockets available to the running rauto process; SSH-agent authentication is not supported on Windows by rneter.
+
 ## [0.4.2] - 2026-06-04
 
 ### New Features

@@ -91,19 +91,25 @@ pub(super) async fn execute_compensation_action(
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
     );
+    let level = to_record_level(record_level);
+    let recorder = crate::config::session_recording::redacting_recorder(
+        level,
+        &conn.auth,
+        conn.enable_password.as_deref(),
+    );
     let (_sender, recorder) = MANAGER
-        .get_with_recording_level_and_context(
+        .get_with_recorder_and_context(
             request,
             manager_execution_context_with_security(
                 None,
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             ),
-            to_record_level(record_level),
+            recorder,
         )
         .await?;
     let handler_for_tx = template_loader::load_device_profile_for_connection(
@@ -114,7 +120,7 @@ pub(super) async fn execute_compensation_action(
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler_for_tx,
     );
@@ -226,19 +232,25 @@ async fn execute_tx_workflow_action(
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
     );
+    let level = to_record_level(record_level);
+    let recorder = crate::config::session_recording::redacting_recorder(
+        level,
+        &conn.auth,
+        conn.enable_password.as_deref(),
+    );
     let (_sender, recorder) = MANAGER
-        .get_with_recording_level_and_context(
+        .get_with_recorder_and_context(
             request,
             manager_execution_context_with_security(
                 None,
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             ),
-            to_record_level(record_level),
+            recorder,
         )
         .await?;
     let handler_for_tx = template_loader::load_device_profile_for_connection(
@@ -249,7 +261,7 @@ async fn execute_tx_workflow_action(
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler_for_tx,
     );
@@ -315,6 +327,7 @@ mod tests {
             credential_id: None,
             host: "192.0.2.10".to_string(),
             username: "admin".to_string(),
+            auth: rneter::session::SshAuthMethod::password("secret"),
             password: "secret".to_string(),
             port: 22,
             connect_timeout_secs: None,

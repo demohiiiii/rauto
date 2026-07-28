@@ -139,7 +139,7 @@ pub(crate) async fn run_command_flow(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
         profile_default_mode.clone(),
@@ -397,7 +397,7 @@ async fn execute_resolved_flow_target_buffered(
         target.conn.host.clone(),
         target.conn.port,
         target.conn.username.clone(),
-        target.conn.password.clone(),
+        target.conn.auth.clone(),
         target.conn.enable_password.clone(),
         handler,
         target.profile_default_mode.clone(),
@@ -467,7 +467,7 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
     );
@@ -477,12 +477,14 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
         conn.connect_timeout_secs,
     );
 
+    let record_level = crate::to_record_level(args.record_level);
+    let recorder = crate::config::session_recording::redacting_recorder(
+        record_level,
+        &conn.auth,
+        conn.enable_password.as_deref(),
+    );
     let (_sender, recorder) = MANAGER
-        .get_with_recording_level_and_context(
-            request,
-            context.clone(),
-            crate::to_record_level(args.record_level),
-        )
+        .get_with_recorder_and_context(request, context.clone(), recorder)
         .await?;
     let handler_for_upload = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
@@ -492,7 +494,7 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler_for_upload,
     );

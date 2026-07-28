@@ -72,7 +72,7 @@ pub async fn execute_command_flow(
             conn.host.clone(),
             conn.port,
             conn.username.clone(),
-            conn.password.clone(),
+            conn.auth.clone(),
             conn.enable_password.clone(),
             handler,
             profile_default_mode.clone(),
@@ -86,7 +86,7 @@ pub async fn execute_command_flow(
             conn.host.clone(),
             conn.port,
             conn.username.clone(),
-            conn.password.clone(),
+            conn.auth.clone(),
             conn.enable_password.clone(),
             handler,
             profile_default_mode.clone(),
@@ -465,7 +465,7 @@ async fn execute_batch_flow_target_inner(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
-            target.conn.password.clone(),
+            target.conn.auth.clone(),
             target.conn.enable_password.clone(),
             handler,
             target.profile_default_mode.clone(),
@@ -479,7 +479,7 @@ async fn execute_batch_flow_target_inner(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
-            target.conn.password.clone(),
+            target.conn.auth.clone(),
             target.conn.enable_password.clone(),
             handler,
             target.profile_default_mode.clone(),
@@ -586,7 +586,7 @@ pub async fn execute_upload(
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
     );
@@ -594,8 +594,13 @@ pub async fn execute_upload(
         manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);
 
     let recording_jsonl = if let Some(level) = to_record_level(record_level) {
+        let recorder = crate::config::session_recording::redacting_recorder(
+            level,
+            &conn.auth,
+            conn.enable_password.as_deref(),
+        );
         let (_sender, recorder) = MANAGER
-            .get_with_recording_level_and_context(request, context.clone(), level)
+            .get_with_recorder_and_context(request, context.clone(), recorder)
             .await?;
         let handler_for_upload = template_loader::load_device_profile_for_connection(
             &conn.device_profile,
@@ -605,7 +610,7 @@ pub async fn execute_upload(
             conn.username.clone(),
             conn.host.clone(),
             conn.port,
-            conn.password.clone(),
+            conn.auth.clone(),
             conn.enable_password.clone(),
             handler_for_upload,
         );

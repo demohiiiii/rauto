@@ -1,3 +1,4 @@
+use crate::config::device_credential_store::DeviceAuthType;
 use crate::config::device_credential_store::{self, DeviceCredentialInput, DeviceCredentialMeta};
 use anyhow::{Context, Result, anyhow};
 use calamine::{Data, Reader, open_workbook_auto_from_rs};
@@ -25,11 +26,16 @@ pub struct DeviceCredentialImportReport {
     pub failures: Vec<DeviceCredentialImportFailure>,
 }
 
+#[derive(Default)]
 struct ImportedCredentialRow {
     row: usize,
     name: String,
     login_username: Option<String>,
+    auth_type: Option<DeviceAuthType>,
     login_secret: Option<String>,
+    private_key: Option<String>,
+    private_key_path: Option<String>,
+    passphrase: Option<String>,
     enable_secret: Option<String>,
     enable_enabled: Option<bool>,
 }
@@ -44,7 +50,11 @@ struct ParsedRows {
 enum ColumnKey {
     Name,
     LoginUsername,
+    AuthType,
     LoginSecret,
+    PrivateKey,
+    PrivateKeyPath,
+    Passphrase,
     EnableSecret,
     EnableEnabled,
 }
@@ -138,7 +148,11 @@ fn build_input(
         .clone()
         .or_else(|| existing.map(|item| item.username.clone()))
         .ok_or_else(|| anyhow!("login_username is required for new credentials"))?;
-    if existing.is_none() && row.login_secret.is_none() {
+    let auth_type = row
+        .auth_type
+        .or_else(|| existing.map(|item| item.auth_type))
+        .unwrap_or_default();
+    if existing.is_none() && auth_type == DeviceAuthType::Password && row.login_secret.is_none() {
         return Err(anyhow!("login_secret is required for new credentials"));
     }
 
@@ -147,7 +161,11 @@ fn build_input(
     Ok(DeviceCredentialInput {
         name: row.name.clone(),
         username,
+        auth_type,
         password: row.login_secret.clone(),
+        private_key: row.private_key.clone(),
+        private_key_path: row.private_key_path.clone(),
+        passphrase: row.passphrase.clone(),
         enable_password: row.enable_secret.clone(),
         enable_enabled,
     })
@@ -262,7 +280,11 @@ fn parse_row(
 ) -> Result<ImportedCredentialRow> {
     let mut name = None;
     let mut login_username = None;
+    let mut auth_type = None;
     let mut login_secret = None;
+    let mut private_key = None;
+    let mut private_key_path = None;
+    let mut passphrase = None;
     let mut enable_secret = None;
     let mut enable_enabled = None;
 
@@ -271,7 +293,16 @@ fn parse_row(
         match key {
             ColumnKey::Name => name = normalize_text(raw),
             ColumnKey::LoginUsername => login_username = normalize_text(raw),
+            ColumnKey::AuthType => {
+                auth_type = normalize_text(raw)
+                    .map(|value| value.parse())
+                    .transpose()
+                    .with_context(|| format!("row {} has invalid auth_type", row_number))?
+            }
             ColumnKey::LoginSecret => login_secret = normalize_text(raw),
+            ColumnKey::PrivateKey => private_key = normalize_text(raw),
+            ColumnKey::PrivateKeyPath => private_key_path = normalize_text(raw),
+            ColumnKey::Passphrase => passphrase = normalize_text(raw),
             ColumnKey::EnableSecret => enable_secret = normalize_text(raw),
             ColumnKey::EnableEnabled => {
                 enable_enabled = parse_optional_bool(raw).with_context(|| {
@@ -300,7 +331,11 @@ fn parse_row(
         row: row_number,
         name,
         login_username,
+        auth_type,
         login_secret,
+        private_key,
+        private_key_path,
+        passphrase,
         enable_secret,
         enable_enabled,
     })
@@ -332,9 +367,15 @@ fn map_header(header: &str) -> Option<ColumnKey> {
         "loginusername" | "loginuser" | "sshusername" | "登录用户名" | "ssh用户名" | "用户名" => {
             Some(ColumnKey::LoginUsername)
         }
+        "authtype" | "authenticationtype" | "认证类型" | "认证方式" => {
+            Some(ColumnKey::AuthType)
+        }
         "loginsecret" | "loginpassword" | "登录密钥" | "登录密码" => {
             Some(ColumnKey::LoginSecret)
         }
+        "privatekey" | "privatekeydata" | "私钥" | "私钥内容" => Some(ColumnKey::PrivateKey),
+        "privatekeypath" | "keypath" | "私钥路径" => Some(ColumnKey::PrivateKeyPath),
+        "passphrase" | "keypassphrase" | "私钥口令" => Some(ColumnKey::Passphrase),
         "enablesecret" | "enablepassword" | "enable密钥" | "enable密码" => {
             Some(ColumnKey::EnableSecret)
         }
@@ -470,12 +511,37 @@ mod tests {
     }
 
     #[test]
+    fn parses_private_key_authentication_columns() {
+        let parsed = parse_csv(
+            "credentials.csv",
+            b"name,login_username,auth_type,private_key_path,passphrase\nkey-file,root,private_key_file,/run/secrets/id_ed25519,key-pass\n",
+        )
+        .expect("private key authentication columns should parse");
+
+        assert!(parsed.failures.is_empty());
+        assert_eq!(parsed.rows.len(), 1);
+        assert_eq!(
+            parsed.rows[0].auth_type,
+            Some(DeviceAuthType::PrivateKeyFile)
+        );
+        assert_eq!(
+            parsed.rows[0].private_key_path.as_deref(),
+            Some("/run/secrets/id_ed25519")
+        );
+        assert_eq!(parsed.rows[0].passphrase.as_deref(), Some("key-pass"));
+    }
+
+    #[test]
     fn update_input_preserves_login_values_and_disables_blank_enable_stage() {
         let existing = DeviceCredentialMeta {
             id: "cred-1".to_string(),
             name: "ops".to_string(),
             username: "admin".to_string(),
+            auth_type: crate::config::device_credential_store::DeviceAuthType::Password,
+            has_auth_secret: true,
             has_password: true,
+            private_key_path: None,
+            has_passphrase: false,
             has_enable_password: true,
             enable_enabled: true,
             connection_count: 0,
@@ -489,6 +555,7 @@ mod tests {
                 login_secret: None,
                 enable_secret: None,
                 enable_enabled: None,
+                ..Default::default()
             },
         )
         .expect("existing fields should be preserved");

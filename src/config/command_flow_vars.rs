@@ -442,6 +442,7 @@ mod tests {
             password: Some("secret-xyz".to_string()),
             enable_password: None,
             enable_enabled: false,
+            ..Default::default()
         })?;
         Ok(credential.id)
     }

@@ -5,7 +5,7 @@ use rneter::{
     device::DeviceHandler,
     session::{
         CmdJob, Command, CommandFlow, CommandFlowOutput, MANAGER, MultilineMode, Output,
-        SessionRecordLevel, SessionRecorder,
+        SessionRecordLevel, SessionRecorder, SshAuthMethod,
     },
 };
 use tokio::sync::mpsc::Sender;
@@ -26,7 +26,7 @@ impl DeviceClient {
         host: String,
         port: u16,
         username: String,
-        password: String,
+        auth: SshAuthMethod,
         enable_password: Option<String>,
         handler: DeviceHandler,
         default_mode: String,
@@ -36,7 +36,7 @@ impl DeviceClient {
         info!("Connecting to {}:{} as {}", host, port, username);
 
         let request =
-            manager_connection_request(username, host, port, password, enable_password, handler);
+            manager_connection_request(username, host, port, auth, enable_password, handler);
         let sender = MANAGER
             .get_with_context(
                 request,
@@ -59,7 +59,7 @@ impl DeviceClient {
         host: String,
         port: u16,
         username: String,
-        password: String,
+        auth: SshAuthMethod,
         enable_password: Option<String>,
         handler: DeviceHandler,
         default_mode: String,
@@ -72,13 +72,24 @@ impl DeviceClient {
             host, port, username
         );
 
-        let request =
-            manager_connection_request(username, host, port, password, enable_password, handler);
+        let request = manager_connection_request(
+            username,
+            host,
+            port,
+            auth.clone(),
+            enable_password.clone(),
+            handler,
+        );
+        let recorder = crate::config::session_recording::redacting_recorder(
+            level,
+            &auth,
+            enable_password.as_deref(),
+        );
         let (sender, recorder) = MANAGER
-            .get_with_recording_level_and_context(
+            .get_with_recorder_and_context(
                 request,
                 manager_execution_context_with_security(None, ssh_security, connect_timeout_secs),
-                level,
+                recorder,
             )
             .await
             .map_err(|e| anyhow!("Failed to connect: {}", e))?;
@@ -227,5 +238,45 @@ impl DeviceClient {
             }
             None => Ok(None),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rneter::session::SshAuthMethod;
+    use rneter::testkit::{DevicePersona, FakeSshDevice};
+
+    #[tokio::test]
+    async fn device_client_executes_against_rneter_virtual_device() -> Result<()> {
+        let persona = DevicePersona::builtin("linux")?;
+        let handler = persona.config.clone().build()?;
+        let username = persona.username.clone();
+        let password = persona.password.clone();
+        let device = FakeSshDevice::spawn(persona).await?;
+
+        let client = DeviceClient::connect(
+            device.addr().ip().to_string(),
+            device.port(),
+            username,
+            SshAuthMethod::password(password),
+            device.persona().enable_password.clone(),
+            handler,
+            "User".to_string(),
+            SshSecurityProfile::LegacyCompatible,
+            Some(10),
+        )
+        .await?;
+        let output = client.execute_output("uname -a", Some("User")).await?;
+
+        assert!(output.success);
+        assert!(output.content.contains("Linux debian"));
+        assert!(
+            device
+                .received_commands()
+                .iter()
+                .any(|command| command == "uname -a")
+        );
+        Ok(())
     }
 }

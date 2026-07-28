@@ -267,19 +267,25 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
     );
+    let record_level = crate::to_record_level(args.record_level);
+    let recorder = crate::config::session_recording::redacting_recorder(
+        record_level,
+        &conn.auth,
+        conn.enable_password.as_deref(),
+    );
     let (_sender, recorder) = MANAGER
-        .get_with_recording_level_and_context(
+        .get_with_recorder_and_context(
             request,
             crate::manager_execution_context_with_security(
                 None,
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             ),
-            crate::to_record_level(args.record_level),
+            recorder,
         )
         .await?;
     let handler_for_tx = template_loader::load_device_profile_for_connection(
@@ -290,7 +296,7 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
         conn.enable_password.clone(),
         handler_for_tx,
     );

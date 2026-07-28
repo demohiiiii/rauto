@@ -170,10 +170,21 @@ impl AgentTaskService for AgentTaskGrpcService {
         self.validate_auth(request.metadata())?;
         let req = request.into_inner();
         let id = optional_string(req.id);
+        let auth_type = if req.auth_type.trim().is_empty() {
+            Default::default()
+        } else {
+            req.auth_type
+                .parse()
+                .map_err(|error: anyhow::Error| Status::invalid_argument(error.to_string()))?
+        };
         let payload = WebUpsertDeviceCredentialRequest {
             name: req.name,
             username: req.username,
+            auth_type,
             password: req.password,
+            private_key: req.private_key,
+            private_key_path: req.private_key_path,
+            passphrase: req.passphrase,
             enable_password: req.enable_password,
             enable_enabled: req.enable_enabled,
         };

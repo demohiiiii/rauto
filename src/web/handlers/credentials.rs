@@ -14,7 +14,11 @@ pub(super) fn credential_response(
         id: credential.id,
         name: credential.name,
         username: credential.username,
+        auth_type: credential.auth_type,
+        has_auth_secret: credential.has_auth_secret,
         has_password: credential.has_password,
+        private_key_path: credential.private_key_path,
+        has_passphrase: credential.has_passphrase,
         has_enable_password: credential.has_enable_password,
         enable_enabled: credential.enable_enabled,
         connection_count: credential.connection_count,
@@ -110,7 +114,11 @@ fn credential_input(request: UpsertDeviceCredentialRequest) -> DeviceCredentialI
     DeviceCredentialInput {
         name: request.name,
         username: request.username,
+        auth_type: request.auth_type,
         password: request.password,
+        private_key: request.private_key,
+        private_key_path: request.private_key_path,
+        passphrase: request.passphrase,
         enable_password: request.enable_password,
         enable_enabled: request.enable_enabled,
     }

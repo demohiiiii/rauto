@@ -6,6 +6,7 @@
   import { Input } from "$lib/components/ui/input/index.js";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import CredentialImportDialog from "../components/credentials/CredentialImportDialog.svelte";
+  import CredentialAuthFields from "../components/credentials/CredentialAuthFields.svelte";
   import {
     listCredentials,
     createCredential,
@@ -40,7 +41,13 @@
   let form = $state({
     name: "",
     username: "",
+    authType: "password",
     password: "",
+    privateKey: "",
+    privateKeyPath: "",
+    passphrase: "",
+    hasAuthSecret: false,
+    hasPassphrase: false,
     enablePassword: "",
     enableEnabled: false,
     hasPassword: false,
@@ -87,7 +94,13 @@
     form = {
       name: row.name,
       username: row.username,
+      authType: row.authType,
       password: "",
+      privateKey: "",
+      privateKeyPath: row.privateKeyPath,
+      passphrase: "",
+      hasAuthSecret: row.hasAuthSecret,
+      hasPassphrase: row.hasPassphrase,
       enablePassword: "",
       enableEnabled: row.enableEnabled,
       hasPassword: row.hasPassword,
@@ -103,7 +116,13 @@
     form = {
       name: "",
       username: "",
+      authType: "password",
       password: "",
+      privateKey: "",
+      privateKeyPath: "",
+      passphrase: "",
+      hasAuthSecret: false,
+      hasPassphrase: false,
       enablePassword: "",
       enableEnabled: false,
       hasPassword: false,
@@ -168,6 +187,16 @@
     if (!checked) {
       form.enablePassword = "";
     }
+  }
+
+  function authTypeLabel(authType) {
+    const key = {
+      password: "credentialAuthPassword",
+      private_key: "credentialAuthPrivateKey",
+      private_key_file: "credentialAuthPrivateKeyFile",
+      agent: "credentialAuthAgent",
+    }[authType];
+    return t(key || "credentialAuthPassword");
   }
 </script>
 
@@ -240,10 +269,9 @@
                   <div
                     class="mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground"
                   >
-                    {#if item.hasPassword}<span
-                        class="rounded-md bg-secondary px-2 py-0.5"
-                        >{t("credentialLoginReady")}</span
-                      >{/if}
+                    <span class="rounded-md bg-secondary px-2 py-0.5">
+                      {authTypeLabel(item.authType)}
+                    </span>
                     {#if item.enableEnabled}<span
                         class="rounded-md bg-secondary px-2 py-0.5">Enable</span
                       >{/if}
@@ -297,20 +325,12 @@
                 >{t("credentialName")}</span
               ><Input bind:value={form.name} /></label
             >
-            <label class="grid gap-1.5"
+            <label class="grid gap-1.5 sm:col-span-2"
               ><span class="text-xs font-semibold text-muted-foreground"
                 >{t("credentialUsername")}</span
               ><Input bind:value={form.username} /></label
             >
-            <label class="grid gap-1.5"
-              ><span class="text-xs font-semibold text-muted-foreground"
-                >{t("credentialPassword")}</span
-              ><Input
-                type="password"
-                bind:value={form.password}
-                placeholder={form.hasPassword ? t("credentialRetained") : ""}
-              /></label
-            >
+            <CredentialAuthFields {form} editing={Boolean(selectedId)} />
             <label
               class="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-3 text-sm sm:col-span-2"
             >
@@ -320,20 +340,19 @@
               />
               <span>{t("credentialEnableEnabled")}</span>
             </label>
-            <label class="grid gap-1.5 sm:col-span-2"
-              ><span class="text-xs font-semibold text-muted-foreground"
-                >{t("credentialEnablePassword")}</span
-              ><Input
-                type="password"
-                bind:value={form.enablePassword}
-                placeholder={form.enableEnabled
-                  ? form.hasEnablePassword
+            {#if form.enableEnabled}
+              <label class="grid gap-1.5 sm:col-span-2"
+                ><span class="text-xs font-semibold text-muted-foreground"
+                  >{t("credentialEnablePassword")}</span
+                ><Input
+                  type="password"
+                  bind:value={form.enablePassword}
+                  placeholder={form.hasEnablePassword
                     ? t("credentialEnableBlankEnter")
-                    : t("credentialEnableOptional")
-                  : ""}
-                disabled={!form.enableEnabled}
-              /></label
-            >
+                    : t("credentialEnableOptional")}
+                /></label
+              >
+            {/if}
           </div>
 
           {#if form.connectionCount}

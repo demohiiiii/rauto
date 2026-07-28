@@ -1,3 +1,4 @@
+use crate::config::device_credential_store::DeviceAuthType;
 pub use crate::config::inventory_store::InventoryGroup;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
@@ -93,7 +94,11 @@ pub struct DeviceCredentialResponse {
     pub id: String,
     pub name: String,
     pub username: String,
+    pub auth_type: DeviceAuthType,
+    pub has_auth_secret: bool,
     pub has_password: bool,
+    pub private_key_path: Option<String>,
+    pub has_passphrase: bool,
     pub has_enable_password: bool,
     pub enable_enabled: bool,
     pub connection_count: u64,
@@ -105,7 +110,15 @@ pub struct UpsertDeviceCredentialRequest {
     pub name: String,
     pub username: String,
     #[serde(default)]
+    pub auth_type: DeviceAuthType,
+    #[serde(default)]
     pub password: Option<String>,
+    #[serde(default)]
+    pub private_key: Option<String>,
+    #[serde(default)]
+    pub private_key_path: Option<String>,
+    #[serde(default)]
+    pub passphrase: Option<String>,
     #[serde(default)]
     pub enable_password: Option<String>,
     #[serde(default)]

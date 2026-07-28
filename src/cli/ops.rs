@@ -9,13 +9,14 @@ use crate::config::connection_store::{
 use crate::config::device_credential_import::{self, DeviceCredentialImportReport};
 use crate::config::{command_blacklist, content_store, inventory_store, template_loader};
 use crate::device::DeviceClient;
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use rneter::session::DetectRequest;
 use rneter::templates::{
     DetectConnectPolicy, DetectFactKind, TemplateDetectCandidate, TemplateDetectFact,
     TemplateDetectReport, autodetect_with_builtin_and_templates_and_context,
 };
 use serde::Serialize;
+use std::fs;
 use std::io::{self, Write};
 
 fn truncate_autodetect_sample(sample: &str) -> String {
@@ -135,11 +136,11 @@ pub(crate) async fn run_profile_command(
         }
         ProfileCommands::Autodetect { verbose } => {
             let conn = crate::resolve_effective_connection(global_opts)?;
-            let request = DetectRequest::new(
+            let request = DetectRequest::new_with_auth(
                 conn.username.clone(),
                 conn.host.clone(),
                 conn.port,
-                conn.password.clone(),
+                conn.auth.clone(),
             );
             let context = crate::manager_execution_context_with_security(
                 None,
@@ -306,7 +307,7 @@ pub(crate) async fn run_device_command(
                 conn.host.clone(),
                 conn.port,
                 conn.username.clone(),
-                conn.password.clone(),
+                conn.auth.clone(),
                 conn.enable_password.clone(),
                 handler,
                 default_mode,
@@ -412,11 +413,11 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
             } else {
                 for item in output {
                     println!(
-                        "- {} (id={}, username={}, login={}, enable={}, connections={})",
+                        "- {} (id={}, username={}, auth={}, enable={}, connections={})",
                         item.name,
                         item.id,
                         item.username,
-                        secret_presence(item.has_password),
+                        item.auth_type.as_str(),
                         enable_presence(&item),
                         item.connection_count
                     );
@@ -437,7 +438,11 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
         CredentialCommands::Add {
             name,
             login_username,
+            auth_type,
             login_secret,
+            private_key,
+            private_key_file,
+            passphrase,
             enable_secret,
             enable,
             json,
@@ -446,11 +451,22 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
                 value_or_prompt(login_username.map(|value| value.trim().to_string()), || {
                     prompt_required("Login username", None)
                 })?;
-            let password = value_or_prompt(login_secret, || prompt_secret("Login password", true))?;
+            let password =
+                if auth_type == crate::config::device_credential_store::DeviceAuthType::Password {
+                    Some(value_or_prompt(login_secret, || {
+                        prompt_secret("Login password", true)
+                    })?)
+                } else {
+                    login_secret
+                };
             let item = credentials::create_credential(&credentials::DeviceCredentialInput {
                 name,
                 username,
-                password: Some(password),
+                auth_type,
+                password,
+                private_key: read_optional_private_key(private_key)?,
+                private_key_path: private_key_file.map(|path| path.to_string_lossy().to_string()),
+                passphrase,
                 enable_enabled: enable || enable_secret.is_some(),
                 enable_password: enable_secret,
             })?;
@@ -465,7 +481,11 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
             selector,
             name,
             login_username,
+            auth_type,
             login_secret,
+            private_key,
+            private_key_file,
+            passphrase,
             enable_secret,
             enable,
             disable_enable,
@@ -475,7 +495,11 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
 
             let has_explicit_update = name.is_some()
                 || login_username.is_some()
+                || auth_type.is_some()
                 || login_secret.is_some()
+                || private_key.is_some()
+                || private_key_file.is_some()
+                || passphrase.is_some()
                 || enable_secret.is_some()
                 || enable
                 || disable_enable;
@@ -491,17 +515,28 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
                 credentials::DeviceCredentialInput {
                     name: name.unwrap_or(current.name),
                     username: login_username.unwrap_or(current.username),
+                    auth_type: auth_type.unwrap_or(current.auth_type),
                     password: login_secret,
+                    private_key: read_optional_private_key(private_key)?,
+                    private_key_path: private_key_file
+                        .map(|path| path.to_string_lossy().to_string()),
+                    passphrase,
                     enable_password: enable_secret,
                     enable_enabled,
                 }
             } else {
                 let next_name = prompt_required("Credential name", Some(&current.name))?;
                 let next_username = prompt_required("Login username", Some(&current.username))?;
-                let next_password = prompt_secret(
-                    "Login password (leave blank to keep the current value)",
-                    false,
-                )?;
+                let next_password = if current.auth_type
+                    == crate::config::device_credential_store::DeviceAuthType::Password
+                {
+                    non_empty_option(prompt_secret(
+                        "Login password (leave blank to keep the current value)",
+                        false,
+                    )?)
+                } else {
+                    None
+                };
                 let next_enable_password = prompt_secret(
                     "Enable password (leave blank to clear the current value)",
                     false,
@@ -510,9 +545,11 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
                 credentials::DeviceCredentialInput {
                     name: next_name,
                     username: next_username,
-                    password: non_empty_option(next_password),
+                    auth_type: current.auth_type,
+                    password: next_password,
                     enable_enabled: current.enable_enabled || next_enable_password.is_some(),
                     enable_password: next_enable_password,
+                    ..Default::default()
                 }
             };
 
@@ -610,8 +647,12 @@ fn non_empty_option(value: String) -> Option<String> {
     (!value.trim().is_empty()).then_some(value)
 }
 
-fn secret_presence(present: bool) -> &'static str {
-    if present { "configured" } else { "missing" }
+fn read_optional_private_key(path: Option<std::path::PathBuf>) -> Result<Option<String>> {
+    path.map(|path| {
+        fs::read_to_string(&path)
+            .with_context(|| format!("failed to read private key file '{}'", path.display()))
+    })
+    .transpose()
 }
 
 fn enable_presence(item: &CredentialCliOutput) -> &'static str {
@@ -744,7 +785,11 @@ struct CredentialCliOutput {
     id: String,
     name: String,
     username: String,
+    auth_type: crate::config::device_credential_store::DeviceAuthType,
+    has_auth_secret: bool,
     has_password: bool,
+    private_key_path: Option<String>,
+    has_passphrase: bool,
     has_enable_password: bool,
     enable_enabled: bool,
     connection_count: u64,
@@ -760,7 +805,11 @@ impl CredentialCliOutput {
             id: item.id,
             name: item.name,
             username: item.username,
+            auth_type: item.auth_type,
+            has_auth_secret: item.has_auth_secret,
             has_password: item.has_password,
+            private_key_path: item.private_key_path,
+            has_passphrase: item.has_passphrase,
             has_enable_password: item.has_enable_password,
             enable_enabled: item.enable_enabled,
             connection_count: item.connection_count,

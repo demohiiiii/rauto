@@ -26,7 +26,7 @@ include = [
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }
 minijinja = { version = "2.15", features = ["loader", "json"] }
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "059ba9abea17a0c351db29003dd8e8af396ff351" }
+rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "2dd455c0502f25f528bc2026e5216924b8dc9645" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 futures-util = "0.3"
@@ -81,4 +81,5 @@ tonic-prost-build = "0.14.5"
 protoc-bin-vendored = "3.1.0"
 
 [dev-dependencies]
+rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "2dd455c0502f25f528bc2026e5216924b8dc9645", features = ["testkit"] }
 tower = { version = "0.5.2", features = ["util"] }

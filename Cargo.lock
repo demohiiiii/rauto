@@ -3063,14 +3063,15 @@ dependencies = [
 
 [[package]]
 name = "rneter"
-version = "0.4.6"
-source = "git+https://github.com/demohiiiii/rneter.git?rev=059ba9abea17a0c351db29003dd8e8af396ff351#059ba9abea17a0c351db29003dd8e8af396ff351"
+version = "0.4.7"
+source = "git+https://github.com/demohiiiii/rneter.git?rev=2dd455c0502f25f528bc2026e5216924b8dc9645#2dd455c0502f25f528bc2026e5216924b8dc9645"
 dependencies = [
  "anyhow",
  "async-ssh2-tokio",
  "log",
  "moka",
  "once_cell",
+ "rand_core 0.6.4",
  "regex",
  "russh",
  "schemars",

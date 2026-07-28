@@ -1,11 +1,13 @@
 use crate::config::connection_store::{self, SavedConnection};
 use anyhow::{Result, anyhow};
+use rneter::session::SshAuthMethod;
 use std::ops::Deref;
 
 #[derive(Debug, Clone)]
 pub struct ResolvedConnection {
     pub saved: SavedConnection,
     pub username: Option<String>,
+    pub auth: Option<SshAuthMethod>,
     pub password: Option<String>,
     pub enable_password: Option<String>,
 }
@@ -32,6 +34,7 @@ pub fn resolve_connection(saved: SavedConnection) -> Result<ResolvedConnection> 
     Ok(ResolvedConnection {
         saved,
         username: Some(credential.username),
+        auth: Some(credential.auth),
         password: Some(credential.password),
         enable_password,
     })
@@ -54,6 +57,7 @@ mod tests {
             password: Some("login-secret".to_string()),
             enable_password: Some("enable-secret".to_string()),
             enable_enabled: true,
+            ..Default::default()
         })?;
         let saved = SavedConnection {
             host: Some("192.0.2.10".to_string()),

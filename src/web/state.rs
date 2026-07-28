@@ -9,7 +9,7 @@ use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader::{self, DEFAULT_DEVICE_PROFILE};
 use crate::web::error::ApiError;
 use crate::web::models::ConnectionRequest;
-use rneter::session::DetectRequest;
+use rneter::session::{DetectRequest, SshAuthMethod};
 use rneter::templates::{DetectConnectPolicy, autodetect_with_builtin_and_templates_and_context};
 use std::future::Future;
 use std::sync::Arc;
@@ -129,6 +129,7 @@ pub struct ResolvedConnection {
     pub connection_name: Option<String>,
     pub host: String,
     pub username: String,
+    pub auth: SshAuthMethod,
     pub password: String,
     pub port: u16,
     pub connect_timeout_secs: Option<u64>,
@@ -209,11 +210,11 @@ pub async fn resolve_autodetect_connection(
         }
     }
 
-    let request = DetectRequest::new(
+    let request = DetectRequest::new_with_auth(
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
     );
     let context = crate::manager_execution_context_with_security(
         None,
@@ -303,6 +304,11 @@ fn merge_connection_sources(
         .map(|value| value.password.clone())
         .or_else(|| saved.and_then(|s| s.password.clone()))
         .unwrap_or_default();
+    let auth = credential
+        .as_ref()
+        .map(|value| value.auth.clone())
+        .or_else(|| saved.and_then(|connection| connection.auth.clone()))
+        .ok_or_else(|| ApiError::bad_request("device credential is required"))?;
 
     let port = incoming
         .port
@@ -342,6 +348,7 @@ fn merge_connection_sources(
         connection_name,
         host,
         username,
+        auth,
         password,
         port,
         connect_timeout_secs,
@@ -408,6 +415,7 @@ mod tests {
                 vars: serde_json::json!({"site":"lab-a"}),
             },
             username: Some("saved-user".to_string()),
+            auth: Some(rneter::session::SshAuthMethod::password("saved-pass")),
             password: Some("saved-pass".to_string()),
             enable_password: enable_password.map(ToOwned::to_owned),
         }

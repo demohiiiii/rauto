@@ -15,7 +15,7 @@ use anyhow::Result;
 use rneter::device::DeviceHandler;
 use rneter::session::{
     ConnectionRequest as ManagerConnectionRequest, DetectRequest, ExecutionContext,
-    SessionRecordLevel,
+    SessionRecordLevel, SshAuthMethod,
 };
 use rneter::templates::{DetectConnectPolicy, autodetect_with_builtin_and_templates_and_context};
 use serde_json::Value;
@@ -27,11 +27,11 @@ pub(crate) fn manager_connection_request(
     username: String,
     host: String,
     port: u16,
-    password: String,
+    auth: SshAuthMethod,
     enable_password: Option<String>,
     handler: DeviceHandler,
 ) -> ManagerConnectionRequest {
-    ManagerConnectionRequest::new(username, host, port, password, enable_password, handler)
+    ManagerConnectionRequest::new_with_auth(username, host, port, auth, enable_password, handler)
 }
 
 pub(crate) fn manager_execution_context_with_security(
@@ -54,6 +54,7 @@ pub(crate) struct EffectiveConnection {
     pub(crate) credential_id: Option<String>,
     pub(crate) host: String,
     pub(crate) username: String,
+    pub(crate) auth: SshAuthMethod,
     pub(crate) password: String,
     pub(crate) port: u16,
     pub(crate) connect_timeout_secs: Option<u64>,
@@ -107,6 +108,15 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         .map(|c| c.password.clone())
         .or_else(|| saved.as_ref().and_then(|s| s.password.clone()))
         .unwrap_or_default();
+    let auth = resolved_credential
+        .as_ref()
+        .map(|credential| credential.auth.clone())
+        .or_else(|| {
+            saved
+                .as_ref()
+                .and_then(|connection| connection.auth.clone())
+        })
+        .ok_or_else(|| anyhow::anyhow!("device credential is required"))?;
     let port = opts
         .port
         .or_else(|| saved.as_ref().and_then(|s| s.port))
@@ -148,6 +158,7 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         credential_id,
         host,
         username,
+        auth,
         password,
         port,
         connect_timeout_secs,
@@ -193,11 +204,11 @@ pub(crate) async fn resolve_autodetect_connection(
         }
     }
 
-    let request = DetectRequest::new(
+    let request = DetectRequest::new_with_auth(
         conn.username.clone(),
         conn.host.clone(),
         conn.port,
-        conn.password.clone(),
+        conn.auth.clone(),
     );
     let context =
         manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);

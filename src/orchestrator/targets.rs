@@ -141,6 +141,12 @@ pub(crate) fn resolve_target_connection(
         .as_ref()
         .map(|c| c.password.clone())
         .unwrap_or_default();
+    let auth = selected_credential
+        .as_ref()
+        .map(|credential| credential.auth.clone())
+        .ok_or_else(|| {
+            anyhow!("device credential is required (target.credential_id or --credential)")
+        })?;
     let port = target
         .port
         .or_else(|| saved.as_ref().and_then(|s| s.port))
@@ -191,6 +197,7 @@ pub(crate) fn resolve_target_connection(
         credential_id: selected_credential_id,
         host,
         username,
+        auth,
         password,
         port,
         connect_timeout_secs,

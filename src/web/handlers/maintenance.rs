@@ -280,9 +280,9 @@ pub async fn download_credential_import_template(
         "rauto-credential-import-template-en.csv"
     };
     let content = if is_zh {
-        "\u{feff}凭证名称,登录用户名,登录密钥,Enable密钥,启用Enable\n"
+        "\u{feff}凭证名称,登录用户名,认证类型,登录密钥,私钥内容,私钥路径,私钥口令,Enable密钥,启用Enable\n"
     } else {
-        "name,login_username,login_secret,enable_secret,enable_enabled\n"
+        "name,login_username,auth_type,login_secret,private_key,private_key_path,passphrase,enable_secret,enable_enabled\n"
     };
     csv_download_response(filename, content)
 }
