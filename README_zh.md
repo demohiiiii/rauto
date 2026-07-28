@@ -495,6 +495,9 @@ rauto upload \
 # 打印单台设备的 running 配置与双哈希
 rauto config fetch -c core-01
 
+# 把单台设备的 running 配置保存到指定文件
+rauto config fetch -c core-01 --output ./core-01-running.cfg
+
 # 把整个分组的 startup 配置归档为带时间戳的文件
 rauto config fetch --kind startup --group core --output-dir ./backups --max-parallel 8
 
@@ -502,7 +505,7 @@ rauto config fetch --kind startup --group core --output-dir ./backups --max-para
 rauto config fetch -c core-01 --normalized
 ```
 
-`--output-dir` 会把每台设备写入 `<名称>_<kind>_<时间戳>.cfg`，配合 cron + git 即可实现轻量级配置归档。多目标选择器（`--target`、`--group`、`--label`）与 `--max-parallel` 的行为与 `show` / `exec` 完全一致。
+`--output <文件>` 会把单设备抓取结果写入指定路径，并自动创建缺失的父目录。`--output-dir <目录>` 会把每台设备写入 `<名称>_<kind>_<时间戳>.cfg`，配合 cron + git 即可实现轻量级配置归档。两个参数互斥，且 `--output` 不能与多目标选择器一起使用。多目标选择器（`--target`、`--group`、`--label`）与 `--max-parallel` 的行为与 `show` / `exec` 完全一致。
 
 按 profile 管理抓取命令。自定义覆盖保存在 SQLite 中，优先于内置目录，写入时会经过命令黑名单校验：
 

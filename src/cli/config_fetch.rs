@@ -129,6 +129,7 @@ struct FetchedConfig {
 #[derive(Clone)]
 struct ConfigFetchOptions {
     normalized: bool,
+    output: Option<PathBuf>,
     output_dir: Option<PathBuf>,
     record_level: RecordLevelOpt,
 }
@@ -152,6 +153,7 @@ async fn run_config_fetch(args: ConfigFetchArgs, opts: &crate::cli::GlobalOpts) 
     let name = opts.connection.clone().unwrap_or_else(|| conn.host.clone());
     let options = ConfigFetchOptions {
         normalized: args.normalized,
+        output: args.output.clone(),
         output_dir: args.output_dir.clone(),
         record_level: args.record_level,
     };
@@ -217,6 +219,7 @@ async fn run_multi_config_fetch(
     }
     let options = ConfigFetchOptions {
         normalized: args.normalized,
+        output: None,
         output_dir: args.output_dir.clone(),
         record_level: args.record_level,
     };
@@ -356,8 +359,18 @@ fn render_fetched_config(
     } else {
         &fetched.content
     };
-    if let Some(dir) = options.output_dir.as_deref() {
-        let path = config_output_path(dir, name, &fetched.kind);
+    let output_path = options.output.clone().or_else(|| {
+        options
+            .output_dir
+            .as_deref()
+            .map(|dir| config_output_path(dir, name, &fetched.kind))
+    });
+    if let Some(path) = output_path {
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent)?;
+        }
         fs::write(&path, content)?;
         let _ = writeln!(out, "# saved: {}", path.display());
     } else {
@@ -383,4 +396,48 @@ fn config_output_path(dir: &Path, name: &str, kind: &str) -> PathBuf {
         kind,
         Utc::now().format("%Y%m%dT%H%M%SZ")
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn exact_output_path_creates_parents_and_writes_selected_content() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should follow the Unix epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "rauto-config-fetch-test-{}-{unique}",
+            std::process::id()
+        ));
+        let output = root.join("nested/running.cfg");
+        let fetched = FetchedConfig {
+            kind: "running".to_string(),
+            command: "show running-config".to_string(),
+            content: "raw config\n".to_string(),
+            normalized: "normalized config\n".to_string(),
+            sha256: "raw-hash".to_string(),
+            normalized_sha256: "normalized-hash".to_string(),
+        };
+        let options = ConfigFetchOptions {
+            normalized: true,
+            output: Some(output.clone()),
+            output_dir: None,
+            record_level: RecordLevelOpt::KeyEventsOnly,
+        };
+        let mut rendered = String::new();
+
+        render_fetched_config(&mut rendered, "edge-01", "192.0.2.10", &fetched, &options)
+            .expect("config should be written to the exact output path");
+
+        assert_eq!(
+            fs::read_to_string(&output).expect("written config should be readable"),
+            "normalized config\n"
+        );
+        assert!(rendered.contains(&format!("# saved: {}", output.display())));
+        fs::remove_dir_all(&root).expect("temporary config output should be removable");
+    }
 }

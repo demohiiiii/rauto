@@ -20,6 +20,84 @@ struct ConfigFetchTaskOptions {
     record_level: Option<RecordLevel>,
 }
 
+pub async fn fetch_config(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ConfigFetchRequest>,
+) -> Result<Json<ConfigFetchTargetResponse>, ApiError> {
+    let (task_ctx, task_guard) = begin_reported_task(
+        &state,
+        TaskOperation::Exec,
+        req.task.task_id.clone(),
+        TaskEventInput::new("started", "Starting config fetch")
+            .with_stage("precheck")
+            .with_progress(Some(0))
+            .with_details(Some(json!({ "kind": &req.kind }))),
+    );
+
+    let result: Result<ConfigFetchTargetResponse, ApiError> = state
+        .run_until_shutdown(async {
+            let target =
+                resolve_config_fetch_connection_target(&state, req.target.connection, &req.kind)
+                    .await?;
+            emit_task_event(
+                &state,
+                &task_ctx,
+                TaskEventInput::new("progress", "Fetching device configuration")
+                    .with_stage("command")
+                    .with_progress(Some(40))
+                    .with_details(Some(json!({
+                        "kind": &req.kind,
+                        "target": &target.name
+                    }))),
+            );
+            Ok(fetch_config_target(
+                &target,
+                &ConfigFetchTaskOptions {
+                    include_normalized: req.include_normalized,
+                    record_level: req.target.record_level,
+                },
+            )
+            .await)
+        })
+        .await;
+
+    finish_reported_task(
+        state,
+        task_ctx,
+        task_guard,
+        result,
+        TaskFailureEvent {
+            stage: "precheck",
+            message_prefix: "Config fetch failed",
+        },
+        |state, task_ctx, response| {
+            emit_task_event(
+                state,
+                task_ctx,
+                TaskEventInput::new("completed", "Config fetch completed")
+                    .with_stage("command")
+                    .with_level(if response.error.is_none() {
+                        "success"
+                    } else {
+                        "error"
+                    })
+                    .with_progress(Some(100))
+                    .with_details(Some(json!({
+                        "kind": response.kind,
+                        "target": response.target,
+                        "success": response.error.is_none()
+                    }))),
+            )
+        },
+        |response| {
+            response
+                .error
+                .as_ref()
+                .map(|_| "Config fetch command failed")
+        },
+    )
+}
+
 pub async fn fetch_config_batch(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ConfigBatchFetchRequest>,
@@ -186,8 +264,16 @@ async fn resolve_config_fetch_target(
         connection_name: Some(name.to_string()),
         ..Default::default()
     };
+    resolve_config_fetch_connection_target(state, Some(connection), kind).await
+}
+
+async fn resolve_config_fetch_connection_target(
+    state: &Arc<AppState>,
+    connection: Option<ConnectionRequest>,
+    kind: &str,
+) -> Result<ResolvedConfigFetchTarget, ApiError> {
     let conn =
-        resolve_autodetect_connection(merge_connection_options(&state.defaults, Some(connection))?)
+        resolve_autodetect_connection(merge_connection_options(&state.defaults, connection)?)
             .await?;
     let fetch_command = config_catalog::resolve_config_command(&conn.device_profile, kind)
         .map_err(|err| ApiError::bad_request(err.to_string()))?;
@@ -195,8 +281,12 @@ async fn resolve_config_fetch_target(
         .map_err(|err| ApiError::bad_request(err.to_string()))?;
     let effective_mode =
         resolve_effective_mode(fetch_command.mode.as_deref(), &conn.device_profile)?;
+    let name = conn
+        .connection_name
+        .clone()
+        .unwrap_or_else(|| conn.host.clone());
     Ok(ResolvedConfigFetchTarget {
-        name: name.to_string(),
+        name,
         conn,
         fetch_command,
         effective_mode,

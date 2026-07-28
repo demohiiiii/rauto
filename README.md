@@ -495,6 +495,9 @@ Every fetch returns two SHA-256 hashes:
 # Print one device's running config with hashes
 rauto config fetch -c core-01
 
+# Save one device's running config to an exact file path
+rauto config fetch -c core-01 --output ./core-01-running.cfg
+
 # Archive startup configs for a whole group into timestamped files
 rauto config fetch --kind startup --group core --output-dir ./backups --max-parallel 8
 
@@ -502,7 +505,7 @@ rauto config fetch --kind startup --group core --output-dir ./backups --max-para
 rauto config fetch -c core-01 --normalized
 ```
 
-`--output-dir` writes each device to `<name>_<kind>_<timestamp>.cfg`, which pairs naturally with cron + git for lightweight configuration archiving. Multi-target selectors (`--target`, `--group`, `--label`) and `--max-parallel` behave the same as in `show` and `exec`.
+`--output <FILE>` writes a single fetch to an exact path and creates missing parent directories. `--output-dir <DIR>` writes each device to `<name>_<kind>_<timestamp>.cfg`, which pairs naturally with cron + git for lightweight configuration archiving. The two options are mutually exclusive, and `--output` cannot be combined with multi-target selectors. Multi-target selectors (`--target`, `--group`, `--label`) and `--max-parallel` behave the same as in `show` and `exec`.
 
 Manage per-profile fetch commands. Custom overrides are stored in SQLite, win over the builtin catalog, and are validated against the command blacklist:
 

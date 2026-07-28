@@ -465,6 +465,14 @@ export function executeFlowBatch(payload) {
   return apiRequest("POST", "/api/flow/batch-execute", payload);
 }
 
+export function fetchConfigBatch(payload) {
+  return apiRequest("POST", "/api/config/batch-fetch", payload);
+}
+
+export function fetchConfig(payload) {
+  return apiRequest("POST", "/api/config/fetch", payload);
+}
+
 export function listConfigCommands(profile = "") {
   const params = new URLSearchParams();
   if (profile) params.set("profile", profile);

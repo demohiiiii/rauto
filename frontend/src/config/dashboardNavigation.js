@@ -8,6 +8,14 @@ const navigationDefinitions = [
     group: "operations",
   },
   {
+    id: "config-fetch",
+    path: "/app/config-fetch",
+    tab: "config-fetch",
+    labelKey: "opConfigFetch",
+    label: "Config Fetch",
+    group: "operations",
+  },
+  {
     id: "standard",
     path: "/app/standard",
     tab: "standard",
@@ -146,6 +154,10 @@ export const dashboardNavigationItems = navigationDefinitions.map(
 
 export const dashboardPageDefinitions = [
   { id: "show", load: () => import("../pages/ShowPage.svelte") },
+  {
+    id: "config-fetch",
+    load: () => import("../pages/ConfigFetchPage.svelte"),
+  },
   { id: "standard", load: () => import("../pages/StandardPage.svelte") },
   { id: "batch", load: () => import("../pages/BatchPage.svelte") },
   {

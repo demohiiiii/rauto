@@ -13,6 +13,9 @@ export const CONNECTION_PICKER = Object.freeze({
   batchShowLabels: "connectionPicker.batchShow.labels",
   batchShowObject: "connectionPicker.batchShow.object",
   batchShowTargets: "connectionPicker.batchShow.targets",
+  configFetchGroups: "connectionPicker.configFetch.groups",
+  configFetchLabels: "connectionPicker.configFetch.labels",
+  configFetchTargets: "connectionPicker.configFetch.targets",
   orchestrationTargetGroups: "connectionPicker.orchestration.targetGroups",
   orchestrationTargetTags: "connectionPicker.orchestration.targetTags",
   orchestrationTargets: "connectionPicker.orchestration.targets",
@@ -51,6 +54,7 @@ const CONNECTION_PICKER_CONFIGS = {
     CONNECTION_PICKER.batchShowLabels,
     CONNECTION_PICKER.batchExecLabels,
     CONNECTION_PICKER.batchFlowLabels,
+    CONNECTION_PICKER.configFetchLabels,
   ]),
   ...pickerConfigs("groups", [
     CONNECTION_PICKER.savedGroups,
@@ -58,12 +62,14 @@ const CONNECTION_PICKER_CONFIGS = {
     CONNECTION_PICKER.batchShowGroups,
     CONNECTION_PICKER.batchExecGroups,
     CONNECTION_PICKER.batchFlowGroups,
+    CONNECTION_PICKER.configFetchGroups,
     CONNECTION_PICKER.orchestrationTargetGroups,
   ]),
   ...pickerConfigs("devices", [
     CONNECTION_PICKER.batchShowTargets,
     CONNECTION_PICKER.batchExecTargets,
     CONNECTION_PICKER.batchFlowTargets,
+    CONNECTION_PICKER.configFetchTargets,
   ]),
   ...pickerConfigs("labels", [CONNECTION_PICKER.orchestrationTargetTags], {
     allowCustom: false,
@@ -717,6 +723,8 @@ export function setConnectionInventorySnapshots({ groups, labels } = {}) {
   refreshSavedConnectionLabelOptions();
   refreshConnectionPicker(CONNECTION_PICKER.batchShowGroups);
   refreshConnectionPicker(CONNECTION_PICKER.batchShowLabels);
+  refreshConnectionPicker(CONNECTION_PICKER.configFetchGroups);
+  refreshConnectionPicker(CONNECTION_PICKER.configFetchLabels);
   refreshConnectionPicker(CONNECTION_PICKER.orchestrationTargetGroups);
   refreshConnectionPicker(CONNECTION_PICKER.orchestrationTargetTags);
 }
@@ -726,6 +734,7 @@ export function setConnectionPickerSavedConnections(savedConnections = []) {
     ? savedConnections
     : [];
   refreshConnectionPicker(CONNECTION_PICKER.batchShowTargets);
+  refreshConnectionPicker(CONNECTION_PICKER.configFetchTargets);
   refreshConnectionPicker(CONNECTION_PICKER.orchestrationTargets);
 }
 

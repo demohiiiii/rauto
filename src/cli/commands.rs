@@ -744,6 +744,14 @@ pub struct ConfigFetchArgs {
     #[arg(long, value_name = "DIR")]
     pub output_dir: Option<PathBuf>,
 
+    /// Write a single fetched config to this exact file instead of stdout
+    #[arg(
+        long,
+        value_name = "FILE",
+        conflicts_with_all = ["output_dir", "targets", "groups", "labels"]
+    )]
+    pub output: Option<PathBuf>,
+
     /// Print/store the normalized content (volatile lines removed) instead of the raw text
     #[arg(long)]
     pub normalized: bool,
@@ -810,6 +818,7 @@ pub enum ConfigCommandCommands {
 mod tests {
     use super::{Cli, Commands, CredentialCommands, DeviceAuthType, SessionCommands};
     use clap::Parser;
+    use std::path::PathBuf;
 
     #[test]
     fn credential_flag_is_accepted() {
@@ -1036,6 +1045,29 @@ mod tests {
         assert!(args.normalized);
         assert_eq!(args.max_parallel, Some(6));
         assert!(args.output_dir.is_some());
+        assert!(args.output.is_none());
+
+        let cli = Cli::try_parse_from(["rauto", "config", "fetch", "--output", "./running.cfg"])
+            .expect("single-target config fetch output file should parse");
+        let Commands::Config(cmd) = cli.command else {
+            panic!("expected config command");
+        };
+        let super::ConfigCommands::Fetch(args) = cmd.command else {
+            panic!("expected config fetch");
+        };
+        assert_eq!(args.output, Some(PathBuf::from("./running.cfg")));
+
+        let error = Cli::try_parse_from([
+            "rauto",
+            "config",
+            "fetch",
+            "--output",
+            "./running.cfg",
+            "--output-dir",
+            "./configs",
+        ])
+        .expect_err("exact output file and output directory must conflict");
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
 
         let cli = Cli::try_parse_from([
             "rauto",

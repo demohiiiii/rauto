@@ -1,5 +1,6 @@
 <script>
   import SearchIcon from "@lucide/svelte/icons/search";
+  import FileDownIcon from "@lucide/svelte/icons/file-down";
   import { currentLanguageState, tr } from "../../lib/i18n.js";
   import SendIcon from "@lucide/svelte/icons/send";
   import BoxesIcon from "@lucide/svelte/icons/boxes";
@@ -39,6 +40,7 @@
   let i18nCurrentLanguage = $derived($currentLanguageState);
   const navIconComponents = {
     show: SearchIcon,
+    "config-fetch": FileDownIcon,
     standard: SendIcon,
     batch: LayersIcon,
     "tx-block": BoxesIcon,

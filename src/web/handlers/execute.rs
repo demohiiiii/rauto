@@ -10,7 +10,7 @@ mod standard;
 mod tx;
 mod tx_workflow;
 
-pub use config_fetch::fetch_config_batch;
+pub use config_fetch::{fetch_config, fetch_config_batch};
 pub use flow_upload::{execute_command_flow, execute_flow_batch, execute_upload};
 pub use orchestration::{execute_orchestration, execute_orchestration_async};
 pub use standard::{

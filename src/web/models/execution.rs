@@ -216,6 +216,18 @@ fn default_config_kind() -> String {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ConfigFetchRequest {
+    #[serde(default = "default_config_kind")]
+    pub kind: String,
+    #[serde(default)]
+    pub include_normalized: bool,
+    #[serde(flatten)]
+    pub target: ExecutionTargetOptions,
+    #[serde(flatten)]
+    pub task: ManagedTaskOptions,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ConfigBatchFetchRequest {
     #[serde(default = "default_config_kind")]
     pub kind: String,
@@ -493,4 +505,41 @@ pub struct ExecuteOrchestrationResponse {
 pub enum RecordLevel {
     KeyEventsOnly,
     Full,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn config_fetch_request_accepts_current_connection() {
+        let request: ConfigFetchRequest = serde_json::from_value(json!({
+            "kind": "startup",
+            "include_normalized": true,
+            "connection": {
+                "host": "192.0.2.10",
+                "port": 2222,
+                "credential_id": "lab-credential",
+                "device_profile": "cisco_ios"
+            },
+            "record_level": "full"
+        }))
+        .expect("config fetch request should deserialize");
+
+        assert_eq!(request.kind, "startup");
+        assert!(request.include_normalized);
+        let connection = request
+            .target
+            .connection
+            .expect("current connection should be present");
+        assert_eq!(connection.host.as_deref(), Some("192.0.2.10"));
+        assert_eq!(connection.port, Some(2222));
+        assert_eq!(connection.credential_id.as_deref(), Some("lab-credential"));
+        assert_eq!(connection.device_profile.as_deref(), Some("cisco_ios"));
+        assert!(matches!(
+            request.target.record_level,
+            Some(RecordLevel::Full)
+        ));
+    }
 }
