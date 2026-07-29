@@ -1006,6 +1006,10 @@ mod tests {
             device_profile: None,
             template_dir: None,
             force_autodetect: false,
+            session_retries: 0,
+            retry_initial_backoff_ms: 200,
+            retry_max_backoff_ms: 2000,
+            retry_authentication_errors: false,
             connection: None,
             save_connection: None,
         }

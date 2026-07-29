@@ -1,12 +1,11 @@
 <script>
-  import * as Card from "$lib/components/ui/card";
-  import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
+  import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
+  import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
-  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
-  import Table2Icon from "@lucide/svelte/icons/table-2";
+  import TabList from "../../components/fragments/TabList.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
@@ -24,6 +23,8 @@
       objectsAria: t("batchShowResultObjectsAria"),
       rawOutputTab: t("showRawOutputTab"),
       parsedOutputTab: t("showParsedOutputTab"),
+      succeeded: t("orchestrationStatusSuccess", "Success"),
+      failed: t("orchestrationStatusFailed", "Failed"),
     };
   });
   const batchShowResultsPanelWorkspace = createBatchShowResultsPanelWorkspace();
@@ -35,20 +36,31 @@
   let exportActionHandlers = $derived($exportActionHandlersStateStore);
   let exportLoadingState = $derived($exportLoadingStateStore);
   let exportLoading = $derived(exportLoadingState.exportLoading);
-  let activeDeviceKey = $state("");
-  let activeObjectKey = $state("");
+  let activeResultKey = $state("");
   let resultView = $state("output");
   let deviceRows = $derived(batchResultsPresentation.deviceRows || []);
-  let activeDeviceRow = $derived(
-    deviceRows.find((deviceRow) => deviceRow.deviceKey === activeDeviceKey) ||
-      deviceRows[0] ||
+  let resultItems = $derived(
+    deviceRows.flatMap((deviceRow) =>
+      (deviceRow.objectRows || []).map((objectRow) => ({
+        key: objectRow.resultKey,
+        row: objectRow,
+        title: deviceRow.targetText,
+        subtitle: [objectRow.objectText, objectRow.modeText]
+          .filter(Boolean)
+          .join(" · "),
+        statusLabel: objectRow.error ? i18nLabels.failed : i18nLabels.succeeded,
+        statusTone: objectRow.error ? "error" : "success",
+      })),
+    ),
+  );
+  let activeResultItem = $derived(
+    resultItems.find((item) => item.key === activeResultKey) ||
+      resultItems[0] ||
       null,
   );
-  let objectRows = $derived(activeDeviceRow?.objectRows || []);
-  let activeObjectResultRow = $derived(
-    objectRows.find((objectRow) => objectRow.resultKey === activeObjectKey) ||
-      objectRows[0] ||
-      null,
+  let activeResultRow = $derived(activeResultItem?.row || null);
+  let failedCount = $derived(
+    resultItems.filter((item) => item.row.error).length,
   );
 
   $effect(() => {
@@ -56,233 +68,89 @@
   });
 
   $effect(() => {
-    if (!deviceRows.length) {
-      activeDeviceKey = "";
-      activeObjectKey = "";
+    if (!resultItems.length) {
+      activeResultKey = "";
       resultView = "output";
       return;
     }
-    if (
-      deviceRows.some((deviceRow) => deviceRow.deviceKey === activeDeviceKey)
-    ) {
-      return;
-    }
-    activeDeviceKey = deviceRows[0].deviceKey;
-    activeObjectKey = "";
-    resultView = "output";
-  });
-
-  $effect(() => {
-    if (!objectRows.length) {
-      activeObjectKey = "";
+    if (!resultItems.some((item) => item.key === activeResultKey)) {
+      activeResultKey = resultItems[0].key;
       resultView = "output";
-      return;
     }
-    if (
-      objectRows.some((objectRow) => objectRow.resultKey === activeObjectKey)
-    ) {
-      return;
-    }
-    activeObjectKey = objectRows[0].resultKey;
-    resultView = "output";
   });
 
-  function selectDevice(deviceKey) {
-    activeDeviceKey = deviceKey;
-    activeObjectKey = "";
-    resultView = "output";
-  }
-
-  function selectObject(resultKey) {
-    activeObjectKey = resultKey;
+  function selectResult(resultKey) {
+    activeResultKey = resultKey;
     resultView = "output";
   }
 </script>
 
 <div class="grid min-w-0 max-w-full gap-4">
-  {#if batchResultDisplay.statusMessage && !batchResultDisplay.showResultPanel}
-    <StatusCard
-      message={batchResultDisplay.statusMessage}
-      tone={batchResultDisplay.statusTone}
-    />
-  {/if}
-
-  {#if batchResultDisplay.showResultPanel}
-    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-      <WorkspaceActionHeader
-        title={i18nLabels.resultsTitle}
-        description={i18nLabels.resultsHint}
-        icon={TerminalIcon}
-      >
+  {#if batchResultDisplay.showResultPanel || batchResultDisplay.statusMessage}
+    <ExecutionResultsPanel
+      title={i18nLabels.resultsTitle}
+      description={i18nLabels.resultsHint}
+      icon={TerminalIcon}
+      items={resultItems}
+      activeKey={activeResultKey}
+      navigationAriaLabel={i18nLabels.devicesAria}
+      onSelect={selectResult}
+      statusMessage={batchResultDisplay.statusMessage}
+      statusTone={batchResultDisplay.statusTone}
+      totalCount={batchResultDisplay.showResultPanel
+        ? batchResultsPresentation.resultCount
+        : null}
+      succeededCount={batchResultDisplay.showResultPanel
+        ? batchResultsPresentation.resultCount - failedCount
+        : null}
+      failedCount={batchResultDisplay.showResultPanel ? failedCount : null}
+      totalLabel={i18nLabels.resultCount}
+      succeededLabel={i18nLabels.succeeded}
+      failedLabel={i18nLabels.failed}
+    >
+      {#if batchResultsPresentation.exportAvailable}
         {#snippet actions()}
-          <div class="flex items-center gap-2">
-            <span
-              class="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground"
-            >
-              {i18nLabels.resultCount}
-              <span class="font-semibold text-foreground">
-                {batchResultsPresentation.resultCount}
-              </span>
-            </span>
-            {#if batchResultsPresentation.exportAvailable}
-              <LoadingButton
-                variant="outline"
-                size="sm"
-                loading={exportLoading}
-                onclick={exportActionHandlers.export}
-              >
-                <span>{batchResultsPresentation.exportButtonLabel}</span>
-              </LoadingButton>
-            {/if}
-          </div>
+          <LoadingButton
+            variant="outline"
+            size="sm"
+            loading={exportLoading}
+            onclick={exportActionHandlers.export}
+          >
+            <span>{batchResultsPresentation.exportButtonLabel}</span>
+          </LoadingButton>
         {/snippet}
-      </WorkspaceActionHeader>
-
-      {#if deviceRows.length > 1}
-        <div
-          class="flex items-center gap-1 overflow-x-auto border-b border-border px-6 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          aria-label={i18nLabels.devicesAria}
-        >
-          {#each deviceRows as deviceRow}
-            <button
-              type="button"
-              class={[
-                "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 font-mono text-sm font-medium transition-colors",
-                deviceRow.deviceKey === activeDeviceKey
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              ]}
-              aria-pressed={deviceRow.deviceKey === activeDeviceKey}
-              onclick={() => selectDevice(deviceRow.deviceKey)}
-            >
-              {deviceRow.targetText}
-              <span
-                class={[
-                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                  deviceRow.deviceKey === activeDeviceKey
-                    ? "bg-accent text-accent-foreground"
-                    : "bg-secondary text-muted-foreground",
-                ]}
-              >
-                {deviceRow.profileText}
-              </span>
-            </button>
-          {/each}
-        </div>
       {/if}
-
-      <div class="flex flex-col gap-4 p-4 sm:p-5">
-        {#if batchResultDisplay.statusMessage}
-          <StatusCard
-            message={batchResultDisplay.statusMessage}
-            tone={batchResultDisplay.statusTone}
-          />
-        {/if}
-
-        {#if objectRows.length > 1}
-          <div
-            class="flex items-center gap-1 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            aria-label={i18nLabels.objectsAria}
-          >
-            {#each objectRows as objectRow}
-              <button
-                type="button"
-                class={[
-                  "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 font-mono text-sm font-medium transition-colors",
-                  objectRow.resultKey === activeObjectKey
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                ]}
-                aria-pressed={objectRow.resultKey === activeObjectKey}
-                onclick={() => selectObject(objectRow.resultKey)}
-              >
-                {objectRow.objectText}
-                <span
-                  class={[
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                    objectRow.resultKey === activeObjectKey
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-secondary text-muted-foreground",
-                  ]}
-                >
-                  {objectRow.modeText}
-                </span>
-              </button>
-            {/each}
-          </div>
-        {/if}
-
-        {#if activeObjectResultRow}
-          <div
-            class="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-border bg-muted/30 px-4 py-3"
-          >
-            {#each activeObjectResultRow.metaFields as metaField}
-              <DetailFieldCard
-                detailValue={metaField.value}
-                label={metaField.label}
-                mono={metaField.mono}
-                variant="inline"
-                class="text-muted-foreground"
-                labelClass="text-muted-foreground/70"
-                valueClass={metaField.mono
-                  ? "break-all font-mono font-medium text-foreground"
-                  : "break-all font-medium text-foreground"}
-              />
-            {/each}
-          </div>
-
-          {#if activeObjectResultRow.error}
+      {#snippet detail()}
+        {#if activeResultRow}
+          <ExecutionResultMeta fields={activeResultRow.metaFields} />
+          {#if activeResultRow.error}
             <StatusCard
-              message={activeObjectResultRow.error}
+              message={activeResultRow.error}
               tone="error"
               variant="alert"
-              class="py-2 text-xs"
             />
           {/if}
-
-          <div class="flex items-center justify-between gap-3">
-            <div class="inline-flex items-center rounded-lg bg-secondary p-0.5">
-              <button
-                type="button"
-                class={[
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all",
-                  resultView === "output"
-                    ? "bg-card text-card-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                ]}
-                onclick={() => (resultView = "output")}
-              >
-                <TerminalIcon class="size-3.5" />
-                {i18nLabels.rawOutputTab}
-              </button>
-              <button
-                type="button"
-                class={[
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all",
-                  resultView === "parsed"
-                    ? "bg-card text-card-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                ]}
-                onclick={() => (resultView = "parsed")}
-              >
-                <Table2Icon class="size-3.5" />
-                {i18nLabels.parsedOutputTab}
-              </button>
-            </div>
-          </div>
-
+          <TabList
+            tabItems={[
+              { value: "output", label: i18nLabels.rawOutputTab },
+              { value: "parsed", label: i18nLabels.parsedOutputTab },
+            ]}
+            activeValue={resultView}
+            aria-label={i18nLabels.objectsAria}
+            onSelect={(view) => (resultView = view)}
+          />
           {#if resultView === "output"}
-            <OutputBlock title={activeObjectResultRow.outputTitle}>
-              {activeObjectResultRow.outputText}
+            <OutputBlock title={activeResultRow.outputTitle}>
+              {activeResultRow.outputText}
             </OutputBlock>
           {:else}
             <ParsedOutputBlock
-              parsedOutputBlock={activeObjectResultRow.parsedOutputBlock}
+              parsedOutputBlock={activeResultRow.parsedOutputBlock}
               onExportExcel={exportParsedOutputItemExcel}
             />
           {/if}
         {/if}
-      </div>
-    </Card.Root>
+      {/snippet}
+    </ExecutionResultsPanel>
   {/if}
 </div>

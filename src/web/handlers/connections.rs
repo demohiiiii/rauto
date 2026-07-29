@@ -34,7 +34,7 @@ pub async fn test_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let _client = DeviceClient::connect(
+    let _client = DeviceClient::connect_with_retry(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
@@ -44,6 +44,7 @@ pub async fn test_connection(
         template_loader::default_profile_mode(&conn.device_profile)?,
         conn.ssh_security,
         conn.connect_timeout_secs,
+        conn.retry_policy,
     )
     .await?;
 
@@ -106,7 +107,7 @@ pub async fn detect_connection_facts(
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let client = DeviceClient::connect(
+    let client = DeviceClient::connect_with_retry(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
@@ -116,6 +117,7 @@ pub async fn detect_connection_facts(
         template_loader::default_profile_mode(&conn.device_profile)?,
         conn.ssh_security,
         conn.connect_timeout_secs,
+        conn.retry_policy,
     )
     .await?;
 

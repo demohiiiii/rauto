@@ -1091,6 +1091,28 @@ mod tests {
     }
 
     #[test]
+    fn global_session_retry_options_parse() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "exec",
+            "show version",
+            "--session-retries",
+            "2",
+            "--retry-initial-backoff-ms",
+            "50",
+            "--retry-max-backoff-ms",
+            "500",
+            "--retry-authentication-errors",
+        ])
+        .expect("session retry options should parse globally");
+
+        assert_eq!(cli.global_opts.session_retries, 2);
+        assert_eq!(cli.global_opts.retry_initial_backoff_ms, 50);
+        assert_eq!(cli.global_opts.retry_max_backoff_ms, 500);
+        assert!(cli.global_opts.retry_authentication_errors);
+    }
+
+    #[test]
     fn config_volatile_commands_parse() {
         let cli = Cli::try_parse_from([
             "rauto",

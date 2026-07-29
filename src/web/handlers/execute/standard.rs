@@ -112,9 +112,9 @@ pub async fn exec_command(
     let result: Result<ExecResponse, ApiError> = state
         .run_until_shutdown(async {
             let record_level = req.target.record_level;
-            let conn = resolve_autodetect_connection(merge_connection_options(
-                &state.defaults,
-                req.target.connection,
+            let conn = resolve_autodetect_connection(apply_session_retry_options(
+                merge_connection_options(&state.defaults, req.target.connection)?,
+                req.retry.as_ref(),
             )?)
             .await?;
             emit_task_event(
@@ -151,7 +151,7 @@ pub async fn exec_command(
             )
             .map_err(|error| ApiError::bad_request(error.to_string()))?;
             let client = if let Some(level) = to_record_level(record_level) {
-                DeviceClient::connect_with_recording(
+                DeviceClient::connect_with_recording_and_retry(
                     conn.host.clone(),
                     conn.port,
                     conn.username.clone(),
@@ -162,10 +162,11 @@ pub async fn exec_command(
                     level,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
+                    conn.retry_policy,
                 )
                 .await?
             } else {
-                DeviceClient::connect(
+                DeviceClient::connect_with_retry(
                     conn.host.clone(),
                     conn.port,
                     conn.username.clone(),
@@ -175,6 +176,7 @@ pub async fn exec_command(
                     template_loader::default_profile_mode(&conn.device_profile)?,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
+                    conn.retry_policy,
                 )
                 .await?
             };
@@ -405,9 +407,9 @@ pub async fn execute_show(
     let result: Result<ShowExecuteResponse, ApiError> = state
         .run_until_shutdown(async {
             let record_level = req.target.record_level;
-            let conn = resolve_autodetect_connection(merge_connection_options(
-                &state.defaults,
-                req.target.connection,
+            let conn = resolve_autodetect_connection(apply_session_retry_options(
+                merge_connection_options(&state.defaults, req.target.connection)?,
+                req.retry.as_ref(),
             )?)
             .await?;
             let platform = show_catalog::platform_for_show(
@@ -443,7 +445,7 @@ pub async fn execute_show(
             let requested_mode = req.mode.as_deref().or(show.mode.as_deref());
             let effective_mode = resolve_effective_mode(requested_mode, &conn.device_profile)?;
             let client = if let Some(level) = to_record_level(record_level) {
-                DeviceClient::connect_with_recording(
+                DeviceClient::connect_with_recording_and_retry(
                     conn.host.clone(),
                     conn.port,
                     conn.username.clone(),
@@ -454,10 +456,11 @@ pub async fn execute_show(
                     level,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
+                    conn.retry_policy,
                 )
                 .await?
             } else {
-                DeviceClient::connect(
+                DeviceClient::connect_with_retry(
                     conn.host.clone(),
                     conn.port,
                     conn.username.clone(),
@@ -467,6 +470,7 @@ pub async fn execute_show(
                     template_loader::default_profile_mode(&conn.device_profile)?,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
+                    conn.retry_policy,
                 )
                 .await?
             };
@@ -831,9 +835,11 @@ async fn resolve_batch_show_target(
         connection_name: Some(name.to_string()),
         ..Default::default()
     };
-    let conn =
-        resolve_autodetect_connection(merge_connection_options(&state.defaults, Some(connection))?)
-            .await?;
+    let conn = resolve_autodetect_connection(apply_session_retry_options(
+        merge_connection_options(&state.defaults, Some(connection))?,
+        req.retry.as_ref(),
+    )?)
+    .await?;
     let platform =
         show_catalog::platform_for_show(&conn.device_profile, req.textfsm_platform.as_deref());
     let show =
@@ -892,7 +898,7 @@ async fn execute_batch_show_target_inner(
         target.conn.linux_shell_flavor,
     )?;
     let client = if let Some(level) = to_record_level(record_level) {
-        DeviceClient::connect_with_recording(
+        DeviceClient::connect_with_recording_and_retry(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
@@ -903,10 +909,11 @@ async fn execute_batch_show_target_inner(
             level,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
+            target.conn.retry_policy,
         )
         .await?
     } else {
-        DeviceClient::connect(
+        DeviceClient::connect_with_retry(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
@@ -916,6 +923,7 @@ async fn execute_batch_show_target_inner(
             template_loader::default_profile_mode(&target.conn.device_profile)?,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
+            target.conn.retry_policy,
         )
         .await?
     };
@@ -1175,9 +1183,11 @@ async fn resolve_batch_exec_target(
         connection_name: Some(name.to_string()),
         ..Default::default()
     };
-    let conn =
-        resolve_autodetect_connection(merge_connection_options(&state.defaults, Some(connection))?)
-            .await?;
+    let conn = resolve_autodetect_connection(apply_session_retry_options(
+        merge_connection_options(&state.defaults, Some(connection))?,
+        req.retry.as_ref(),
+    )?)
+    .await?;
     let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
     let command = Command {
         mode: effective_mode.clone(),
@@ -1244,7 +1254,7 @@ async fn execute_batch_exec_target_inner(
         .into_flow()
         .map_err(|error| ApiError::bad_request(error.to_string()))?;
     let client = if let Some(level) = to_record_level(options.record_level) {
-        DeviceClient::connect_with_recording(
+        DeviceClient::connect_with_recording_and_retry(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
@@ -1255,10 +1265,11 @@ async fn execute_batch_exec_target_inner(
             level,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
+            target.conn.retry_policy,
         )
         .await?
     } else {
-        DeviceClient::connect(
+        DeviceClient::connect_with_retry(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
@@ -1268,6 +1279,7 @@ async fn execute_batch_exec_target_inner(
             template_loader::default_profile_mode(&target.conn.device_profile)?,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
+            target.conn.retry_policy,
         )
         .await?
     };
@@ -1363,9 +1375,9 @@ pub async fn execute_template(
                 merge_connection_options(&state.defaults, incoming_connection.clone()).ok()
             } else {
                 Some(
-                    resolve_autodetect_connection(merge_connection_options(
-                        &state.defaults,
-                        incoming_connection.clone(),
+                    resolve_autodetect_connection(apply_session_retry_options(
+                        merge_connection_options(&state.defaults, incoming_connection.clone())?,
+                        req.retry.as_ref(),
                     )?)
                     .await?,
                 )
@@ -1431,7 +1443,10 @@ pub async fn execute_template(
 
             let conn = match render_conn {
                 Some(conn) => conn,
-                None => merge_connection_options(&state.defaults, incoming_connection)?,
+                None => apply_session_retry_options(
+                    merge_connection_options(&state.defaults, incoming_connection)?,
+                    req.retry.as_ref(),
+                )?,
             };
             let handler = template_loader::load_device_profile_for_connection(
                 &conn.device_profile,
@@ -1439,7 +1454,7 @@ pub async fn execute_template(
             )?;
             let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
             let client = if let Some(level) = to_record_level(record_level) {
-                DeviceClient::connect_with_recording(
+                DeviceClient::connect_with_recording_and_retry(
                     conn.host.clone(),
                     conn.port,
                     conn.username.clone(),
@@ -1450,10 +1465,11 @@ pub async fn execute_template(
                     level,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
+                    conn.retry_policy,
                 )
                 .await?
             } else {
-                DeviceClient::connect(
+                DeviceClient::connect_with_retry(
                     conn.host.clone(),
                     conn.port,
                     conn.username.clone(),
@@ -1463,6 +1479,7 @@ pub async fn execute_template(
                     template_loader::default_profile_mode(&conn.device_profile)?,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
+                    conn.retry_policy,
                 )
                 .await?
             };

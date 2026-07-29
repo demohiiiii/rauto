@@ -36,9 +36,13 @@ pub async fn fetch_config(
 
     let result: Result<ConfigFetchTargetResponse, ApiError> = state
         .run_until_shutdown(async {
-            let target =
-                resolve_config_fetch_connection_target(&state, req.target.connection, &req.kind)
-                    .await?;
+            let target = resolve_config_fetch_connection_target(
+                &state,
+                req.target.connection,
+                &req.kind,
+                req.retry.as_ref(),
+            )
+            .await?;
             emit_task_event(
                 &state,
                 &task_ctx,
@@ -129,7 +133,8 @@ pub async fn fetch_config_batch(
             let mut resolved_targets = Vec::with_capacity(target_names.len());
             let mut precheck_errors = Vec::new();
             for name in &target_names {
-                match resolve_config_fetch_target(&state, name, &req.kind).await {
+                match resolve_config_fetch_target(&state, name, &req.kind, req.retry.as_ref()).await
+                {
                     Ok(target) => resolved_targets.push(target),
                     Err(err) => precheck_errors.push(format!("{name}: {}", err.message)),
                 }
@@ -259,22 +264,26 @@ async fn resolve_config_fetch_target(
     state: &Arc<AppState>,
     name: &str,
     kind: &str,
+    retry: Option<&SessionRetryOptions>,
 ) -> Result<ResolvedConfigFetchTarget, ApiError> {
     let connection = ConnectionRequest {
         connection_name: Some(name.to_string()),
         ..Default::default()
     };
-    resolve_config_fetch_connection_target(state, Some(connection), kind).await
+    resolve_config_fetch_connection_target(state, Some(connection), kind, retry).await
 }
 
 async fn resolve_config_fetch_connection_target(
     state: &Arc<AppState>,
     connection: Option<ConnectionRequest>,
     kind: &str,
+    retry: Option<&SessionRetryOptions>,
 ) -> Result<ResolvedConfigFetchTarget, ApiError> {
-    let conn =
-        resolve_autodetect_connection(merge_connection_options(&state.defaults, connection)?)
-            .await?;
+    let conn = resolve_autodetect_connection(apply_session_retry_options(
+        merge_connection_options(&state.defaults, connection)?,
+        retry,
+    )?)
+    .await?;
     let fetch_command = config_catalog::resolve_config_command(&conn.device_profile, kind)
         .map_err(|err| ApiError::bad_request(err.to_string()))?;
     command_blacklist::ensure_command_allowed(&fetch_command.command, "config fetch")
@@ -324,7 +333,7 @@ async fn fetch_config_target_inner(
         target.conn.linux_shell_flavor,
     )?;
     let client = if let Some(level) = to_record_level(options.record_level) {
-        DeviceClient::connect_with_recording(
+        DeviceClient::connect_with_recording_and_retry(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
@@ -335,10 +344,11 @@ async fn fetch_config_target_inner(
             level,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
+            target.conn.retry_policy,
         )
         .await?
     } else {
-        DeviceClient::connect(
+        DeviceClient::connect_with_retry(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
@@ -348,6 +358,7 @@ async fn fetch_config_target_inner(
             template_loader::default_profile_mode(&target.conn.device_profile)?,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
+            target.conn.retry_policy,
         )
         .await?
     };

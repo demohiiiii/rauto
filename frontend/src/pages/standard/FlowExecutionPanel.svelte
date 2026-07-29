@@ -14,16 +14,21 @@
     CommandFlowTemplateSource,
   } from "../../components/command-flow/index.js";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
+  import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
+  import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import StringSelectField from "../../components/fragments/StringSelectField.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
   import { createFlowExecutionPanelWorkspace } from "../../modules/standard/standardExecutionWorkspaces.js";
+  import { t } from "../../lib/i18n.js";
 
   let { active } = $props();
+  let activeResultKey = $state("");
   const flowExecutionWorkspace = createFlowExecutionPanelWorkspace();
   const {
     changeFlowEditorTab,
@@ -34,6 +39,7 @@
     changeFlowTextfsmPlatform,
     changeFlowTextfsmStrictErrors,
     changeFlowTextfsmTemplate,
+    changeFlowRetry,
     changeFlowToml,
     changeFlowVarValue,
     closeFlowNameDialog,
@@ -58,6 +64,7 @@
   let flowTemplateFields = $derived(flowPanelDisplay.flowTemplateFields);
   let flowTextfsmFields = $derived(flowPanelDisplay.flowTextfsmFields);
   let flowVarsDisplay = $derived(flowPanelDisplay.flowVarsDisplay);
+  let flowRetryState = $derived(flowPanelDisplay.flowRetryState);
   let nameDialog = $derived(authoringDisplay.nameDialog);
   let exportResultExcel = $derived(runActionHandlers.export);
   let authoringBusy = $derived(!!authoringDisplay.loadingAction);
@@ -86,6 +93,46 @@
       ? flowVarsDisplay.fieldRows.length
       : 0,
   );
+  let flowResultItems = $derived(
+    flowResultPresentation.resultRows.map((row, index) => ({
+      key: `${row.commandText || "step"}:${index}`,
+      row,
+      title: row.commandText || "-",
+      subtitle: row.exitCodeMetaText,
+      statusLabel: row.statusLabel,
+      statusTone: row.success ? "success" : "error",
+    })),
+  );
+  let activeResultItem = $derived(
+    flowResultItems.find((item) => item.key === activeResultKey) ||
+      flowResultItems[0] ||
+      null,
+  );
+  let activeFlowResult = $derived(activeResultItem?.row || null);
+  let failedResultCount = $derived(
+    flowResultPresentation.resultRows.filter((row) => !row.success).length,
+  );
+  let flowResultStatusMessage = $derived(
+    commandFlowExecutionDisplay.statusMessage ||
+      (flowResultPresentation.hasResult && !flowResultItems.length
+        ? flowResultPresentation.resultSummaryMessage
+        : ""),
+  );
+  let activeResultMetaFields = $derived(
+    activeFlowResult
+      ? [
+          {
+            label: t("fieldCommand"),
+            value: activeFlowResult.commandText,
+            mono: true,
+          },
+          {
+            label: t("txBlockResultExitCode"),
+            value: activeFlowResult.exitCodeText,
+          },
+        ]
+      : [],
+  );
 
   function handleNameDialogOpenChange(open) {
     if (!open) closeFlowNameDialog();
@@ -100,73 +147,78 @@
   $effect(() => {
     setPanelContext({ active, flowPanelDisplay });
   });
+
+  $effect(() => {
+    if (!flowResultItems.length) {
+      activeResultKey = "";
+      return;
+    }
+    if (!flowResultItems.some((item) => item.key === activeResultKey)) {
+      activeResultKey = flowResultItems[0].key;
+    }
+  });
 </script>
 
 {#snippet flowExecutionResults()}
   {#if commandFlowExecutionDisplay.statusMessage || flowResultPresentation.hasResult}
-    <div class="border-t-4 border-muted">
-      <CommandFlowSurface
-        variant="workbench-header"
+    <div class="border-t-4 border-muted p-4 sm:p-5">
+      <ExecutionResultsPanel
         icon={TerminalIcon}
         title={flowInputDisplay.resultsTitleText}
         description={flowInputDisplay.resultsDescriptionText}
+        items={flowResultItems}
+        activeKey={activeResultItem?.key || ""}
+        navigationAriaLabel={flowInputDisplay.resultsTitleText}
+        onSelect={(key) => (activeResultKey = key)}
+        statusMessage={flowResultStatusMessage}
+        statusTone={commandFlowExecutionDisplay.statusTone}
+        totalCount={flowResultPresentation.hasResult
+          ? flowResultPresentation.resultRows.length
+          : null}
+        succeededCount={flowResultPresentation.hasResult
+          ? flowResultPresentation.resultRows.length - failedResultCount
+          : null}
+        failedCount={flowResultPresentation.hasResult
+          ? failedResultCount
+          : null}
+        totalLabel={t("showResultCount")}
+        succeededLabel={t("orchestrationStatusSuccess", "Success")}
+        failedLabel={t("orchestrationStatusFailed", "Failed")}
       >
-        {#if commandFlowExecutionDisplay.statusMessage}
-          <StatusCard
-            message={commandFlowExecutionDisplay.statusMessage}
-            tone={commandFlowExecutionDisplay.statusTone}
-          />
+        {#if flowResultPresentation.exportAvailable}
+          {#snippet actions()}
+            <LoadingButton
+              variant="outline"
+              size="sm"
+              loading={exportLoading}
+              onclick={exportResultExcel}
+            >
+              <span>{flowResultPresentation.exportButtonLabel}</span>
+            </LoadingButton>
+          {/snippet}
         {/if}
-
-        {#if flowResultPresentation.hasResult}
-          <StatusCard
-            message={flowResultPresentation.resultSummaryMessage}
-            tone={flowResultPresentation.resultSummaryTone}
-          />
-          {#if flowResultPresentation.exportAvailable}
-            <div class="flex justify-end">
-              <LoadingButton
-                variant="outline"
-                size="xs"
-                loading={exportLoading}
-                onclick={exportResultExcel}
-              >
-                <span>{flowResultPresentation.exportButtonLabel}</span>
-              </LoadingButton>
-            </div>
+        {#snippet detail()}
+          {#if activeFlowResult}
+            <ExecutionResultMeta fields={activeResultMetaFields} />
+            {#if activeFlowResult.error}
+              <StatusCard
+                message={activeFlowResult.error}
+                tone="error"
+                variant="alert"
+              />
+            {/if}
+            <OutputBlock title={activeFlowResult.commandText}>
+              {activeFlowResult.outputText}
+            </OutputBlock>
+            {#if activeFlowResult.parsedOutputBlock}
+              <ParsedOutputBlock
+                parsedOutputBlock={activeFlowResult.parsedOutputBlock}
+                onExportExcel={exportParsedOutputItemExcel}
+              />
+            {/if}
           {/if}
-          {#if flowResultPresentation.hasResultRows}
-            <div class="grid min-w-0 gap-2">
-              {#each flowResultPresentation.resultRows as flowResultRow}
-                <div
-                  class="grid min-w-0 gap-2 rounded-lg border border-border bg-card px-3 py-3"
-                >
-                  <div
-                    class="flex min-w-0 flex-wrap items-center justify-between gap-2"
-                  >
-                    <span class="text-sm font-semibold text-card-foreground">
-                      {flowResultRow.flowRowTitleText}
-                    </span>
-                    <span class={flowResultRow.flowBadgeClass}>
-                      {flowResultRow.statusLabel}
-                    </span>
-                  </div>
-                  <div class="text-xs text-muted-foreground">
-                    {flowResultRow.exitCodeMetaText}
-                  </div>
-                  <OutputBlock>{flowResultRow.outputText}</OutputBlock>
-                  {#if flowResultRow.parsedOutputBlock}
-                    <ParsedOutputBlock
-                      parsedOutputBlock={flowResultRow.parsedOutputBlock}
-                      onExportExcel={exportParsedOutputItemExcel}
-                    />
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          {/if}
-        {/if}
-      </CommandFlowSurface>
+        {/snippet}
+      </ExecutionResultsPanel>
     </div>
   {/if}
 {/snippet}
@@ -284,6 +336,21 @@
     </CommandFlowSurface>
   {/if}
 
+  {#if active}
+    <CommandFlowSurface
+      variant="workbench-section"
+      indexText="05"
+      title={t("sessionRetrySectionTitle")}
+      description={t("sessionRetrySectionHint")}
+    >
+      <SessionRetryFields
+        idPrefix="flow-session-retry"
+        value={flowRetryState}
+        onChange={changeFlowRetry}
+      />
+    </CommandFlowSurface>
+  {/if}
+
   <footer
     class="flex min-w-0 flex-col gap-3 border-t border-border bg-muted/30 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between"
   >
@@ -320,7 +387,9 @@
         variant="default"
         size="sm"
         loading={flowRunButtonDisplay.executeLoading}
-        disabled={!authoringDisplay.canRun || authoringBusy}
+        disabled={!authoringDisplay.canRun ||
+          authoringBusy ||
+          !flowPanelDisplay.flowRetryValid}
         onclick={executeFlowExecution}
       >
         <PlayIcon data-icon="inline-start" />

@@ -14,13 +14,14 @@ use crate::device::DeviceClient;
 use anyhow::Result;
 use rneter::device::DeviceHandler;
 use rneter::session::{
-    ConnectionRequest as ManagerConnectionRequest, DetectRequest, ExecutionContext,
-    SessionRecordLevel, SshAuthMethod,
+    ConnectionRequest as ManagerConnectionRequest, DetectRequest, ExecutionContext, MANAGER,
+    RetryPolicy, SessionRecordLevel, SshAuthMethod,
 };
-use rneter::templates::{DetectConnectPolicy, autodetect_with_builtin_and_templates_and_context};
+use rneter::templates::DetectConnectPolicy;
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
+use std::time::Duration;
 use tracing::{error, info, warn};
 
 pub(crate) fn manager_connection_request(
@@ -48,6 +49,15 @@ pub(crate) fn manager_execution_context_with_security(
     }
 }
 
+pub(crate) fn manager_retry_policy(opts: &GlobalOpts) -> RetryPolicy {
+    RetryPolicy::new(opts.session_retries)
+        .with_backoff(
+            Duration::from_millis(opts.retry_initial_backoff_ms),
+            Duration::from_millis(opts.retry_max_backoff_ms),
+        )
+        .with_authentication_retries(opts.retry_authentication_errors)
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct EffectiveConnection {
     pub(crate) connection_name: Option<String>,
@@ -65,6 +75,7 @@ pub(crate) struct EffectiveConnection {
     pub(crate) vars: serde_json::Value,
     pub(crate) template_dir: Option<PathBuf>,
     pub(crate) force_autodetect: bool,
+    pub(crate) retry_policy: RetryPolicy,
 }
 
 pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<EffectiveConnection> {
@@ -169,6 +180,7 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         vars,
         template_dir,
         force_autodetect: opts.force_autodetect,
+        retry_policy: manager_retry_policy(opts),
     })
 }
 
@@ -212,27 +224,21 @@ pub(crate) async fn resolve_autodetect_connection(
     );
     let context =
         manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);
-    let report = autodetect_with_builtin_and_templates_and_context(
-        request,
-        context,
-        template_loader::custom_detect_template_definitions()?,
-    )
-    .await?;
     let policy = DetectConnectPolicy::default();
-    let best = report
+    let connected = MANAGER
+        .autodetect_and_connect_with_builtin_and_templates_and_context(
+            request,
+            conn.enable_password.clone(),
+            context,
+            policy,
+            template_loader::custom_detect_template_definitions()?,
+        )
+        .await?;
+    let best = connected
+        .report
         .best_match
         .as_ref()
-        .filter(|candidate| {
-            candidate
-                .confidence
-                .satisfies_minimum(policy.minimum_confidence)
-        })
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "device profile autodetect failed: no candidate met minimum confidence {:?}",
-                policy.minimum_confidence
-            )
-        })?;
+        .expect("rneter connected autodetect result must contain a best match");
     info!(
         "Device profile autodetected as '{}' (confidence={:?}, score={})",
         best.template_name, best.confidence, best.score
@@ -487,7 +493,8 @@ pub(crate) fn write_recording_text_if_requested(
 
 #[cfg(test)]
 mod tests {
-    use super::manager_execution_context_with_security;
+    use super::{manager_execution_context_with_security, manager_retry_policy};
+    use crate::cli::GlobalOpts;
     use crate::config::ssh_security::SshSecurityProfile;
     use std::time::Duration;
 
@@ -500,5 +507,31 @@ mod tests {
         let custom_context =
             manager_execution_context_with_security(None, SshSecurityProfile::default(), Some(23));
         assert_eq!(custom_context.connect_timeout, Duration::from_secs(23));
+    }
+
+    #[test]
+    fn manager_retry_policy_maps_global_execution_options() {
+        let opts = GlobalOpts {
+            host: None,
+            port: None,
+            ssh_security: None,
+            linux_shell_flavor: None,
+            device_profile: None,
+            template_dir: None,
+            force_autodetect: false,
+            session_retries: 3,
+            retry_initial_backoff_ms: 25,
+            retry_max_backoff_ms: 400,
+            retry_authentication_errors: true,
+            connection: None,
+            credential: None,
+            save_connection: None,
+        };
+
+        let policy = manager_retry_policy(&opts);
+        assert_eq!(policy.max_retries, 3);
+        assert_eq!(policy.initial_backoff, Duration::from_millis(25));
+        assert_eq!(policy.max_backoff, Duration::from_millis(400));
+        assert!(policy.retry_authentication_errors);
     }
 }

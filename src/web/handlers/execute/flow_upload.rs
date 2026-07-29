@@ -9,9 +9,9 @@ pub async fn execute_command_flow(
     Json(req): Json<ExecuteCommandFlowRequest>,
 ) -> Result<Json<ExecuteCommandFlowResponse>, ApiError> {
     let record_level = req.target.record_level;
-    let conn = resolve_autodetect_connection(merge_connection_options(
-        &state.defaults,
-        req.target.connection,
+    let conn = resolve_autodetect_connection(apply_session_retry_options(
+        merge_connection_options(&state.defaults, req.target.connection)?,
+        req.retry.as_ref(),
     )?)
     .await?;
     let handler = template_loader::load_device_profile_for_connection(
@@ -68,7 +68,7 @@ pub async fn execute_command_flow(
         .collect::<Vec<_>>();
 
     let client = if let Some(level) = to_record_level(record_level) {
-        DeviceClient::connect_with_recording(
+        DeviceClient::connect_with_recording_and_retry(
             conn.host.clone(),
             conn.port,
             conn.username.clone(),
@@ -79,10 +79,11 @@ pub async fn execute_command_flow(
             level,
             conn.ssh_security,
             conn.connect_timeout_secs,
+            conn.retry_policy,
         )
         .await?
     } else {
-        DeviceClient::connect(
+        DeviceClient::connect_with_retry(
             conn.host.clone(),
             conn.port,
             conn.username.clone(),
@@ -92,6 +93,7 @@ pub async fn execute_command_flow(
             profile_default_mode.clone(),
             conn.ssh_security,
             conn.connect_timeout_secs,
+            conn.retry_policy,
         )
         .await?
     };
@@ -242,7 +244,15 @@ pub async fn execute_flow_batch(
             let mut resolved_targets = Vec::with_capacity(target_names.len());
             let mut precheck_errors = Vec::new();
             for name in &target_names {
-                match resolve_batch_flow_target(&state, name, &template, &req.vars).await {
+                match resolve_batch_flow_target(
+                    &state,
+                    name,
+                    &template,
+                    &req.vars,
+                    req.retry.as_ref(),
+                )
+                .await
+                {
                     Ok(target) => resolved_targets.push(target),
                     Err(err) => precheck_errors.push(format!("{name}: {}", err.message)),
                 }
@@ -380,14 +390,17 @@ async fn resolve_batch_flow_target(
     name: &str,
     template: &CommandFlowTemplate,
     vars: &Value,
+    retry: Option<&SessionRetryOptions>,
 ) -> Result<ResolvedBatchFlowTarget, ApiError> {
     let connection = ConnectionRequest {
         connection_name: Some(name.to_string()),
         ..Default::default()
     };
-    let conn =
-        resolve_autodetect_connection(merge_connection_options(&state.defaults, Some(connection))?)
-            .await?;
+    let conn = resolve_autodetect_connection(apply_session_retry_options(
+        merge_connection_options(&state.defaults, Some(connection))?,
+        retry,
+    )?)
+    .await?;
     let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
     let runtime_vars = resolve_flow_runtime_vars(template, vars.clone(), &conn)?;
     let runtime_default_mode = resolve_command_flow_runtime_default_mode(
@@ -461,7 +474,7 @@ async fn execute_batch_flow_target_inner(
         target.conn.linux_shell_flavor,
     )?;
     let client = if let Some(level) = to_record_level(options.record_level) {
-        DeviceClient::connect_with_recording(
+        DeviceClient::connect_with_recording_and_retry(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
@@ -472,10 +485,11 @@ async fn execute_batch_flow_target_inner(
             level,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
+            target.conn.retry_policy,
         )
         .await?
     } else {
-        DeviceClient::connect(
+        DeviceClient::connect_with_retry(
             target.conn.host.clone(),
             target.conn.port,
             target.conn.username.clone(),
@@ -485,6 +499,7 @@ async fn execute_batch_flow_target_inner(
             target.profile_default_mode.clone(),
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
+            target.conn.retry_policy,
         )
         .await?
     };

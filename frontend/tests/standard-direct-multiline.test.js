@@ -45,7 +45,8 @@ test("standard command workspace retains rendered child outputs", () => {
 
   assert.match(workspace, /resultPayload: response/);
   assert.match(panel, /resultPayload\?\.executed/);
-  assert.match(panel, /\{#each executedItems as item/);
+  assert.match(panel, /executedItems\.map/);
+  assert.match(panel, /ExecutionResultsPanel/);
 });
 
 test("standard command editor uses shared multiline command controls", () => {

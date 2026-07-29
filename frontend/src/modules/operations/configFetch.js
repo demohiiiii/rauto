@@ -16,6 +16,10 @@ import {
   connectionPickerValues,
 } from "../connections/connectionFieldStoreState.js";
 import { recordLevelPayload } from "../overlays/overlays.js";
+import {
+  createSessionRetryState,
+  sessionRetryRequestFields,
+} from "./sessionRetry.js";
 
 export const CONFIG_FETCH_CONTENT_VIEW = Object.freeze({
   normalized: "normalized",
@@ -33,6 +37,7 @@ export const configFetchFormState = writable({
   includeNormalized: false,
   kind: "running",
   maxParallel: "",
+  retry: createSessionRetryState(),
   targetMode: CONFIG_FETCH_TARGET_MODE.current,
 });
 
@@ -49,6 +54,13 @@ export function setConfigFetchField(field, value) {
   configFetchFormState.update((form) => ({
     ...form,
     [field]: field === "includeNormalized" ? Boolean(value) : safeString(value),
+  }));
+}
+
+export function setConfigFetchRetry(retry = {}) {
+  configFetchFormState.update((form) => ({
+    ...form,
+    retry: { ...createSessionRetryState(), ...retry },
   }));
 }
 
@@ -98,6 +110,7 @@ export function configFetchPayload(
     groups: Array.isArray(selections.groups) ? selections.groups : [],
     labels: Array.isArray(selections.labels) ? selections.labels : [],
     ...(maxParallel ? { max_parallel: maxParallel } : {}),
+    ...sessionRetryRequestFields(form.retry),
     record_level: recordLevel || null,
   };
 }
@@ -110,6 +123,7 @@ export function configFetchCurrentPayload(
   return {
     kind: safeString(form.kind).trim(),
     include_normalized: Boolean(form.includeNormalized),
+    ...sessionRetryRequestFields(form.retry),
     connection,
     record_level: recordLevel || null,
   };

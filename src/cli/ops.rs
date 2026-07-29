@@ -303,7 +303,7 @@ pub(crate) async fn run_device_command(
                 conn.linux_shell_flavor,
             )?;
             let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
-            let _client = DeviceClient::connect(
+            let _client = DeviceClient::connect_with_retry(
                 conn.host.clone(),
                 conn.port,
                 conn.username.clone(),
@@ -313,6 +313,7 @@ pub(crate) async fn run_device_command(
                 default_mode,
                 conn.ssh_security,
                 conn.connect_timeout_secs,
+                conn.retry_policy,
             )
             .await?;
             crate::maybe_save_connection_profile(global_opts, &conn)?;

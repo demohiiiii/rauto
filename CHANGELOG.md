@@ -5,18 +5,24 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### New Features
-- Updated rneter to `0.4.7` and added password, encrypted inline-private-key, private-key-file, and SSH-agent authentication across CLI, Web, import, orchestration, and agent gRPC execution paths.
+- Updated rneter to `0.4.7` commit `fd2583d` and added password, encrypted inline-private-key, private-key-file, and SSH-agent authentication across CLI, Web, import, orchestration, and agent gRPC execution paths.
 - Added rneter virtual-device integration coverage for rauto's SSH wrapper and redacted configured authentication and Enable secrets before full session events are stored or broadcast.
+- Added opt-in bounded retries for ordinary commands and command flows, including capped exponential backoff, conservative transient-error classification, flow resumption from the first unfinished step, and optional authentication retries.
+- Added virtual-device coverage for transient disconnect recovery and paged output collection using rneter's latest fault-injection and paging testkit capabilities.
 
 ### Optimizations
-- Adopted rneter's latest connection-pool behavior, including single-flight connection creation, explicit expiration cleanup, and safer session state transitions.
+- Adopted rneter's latest connection-pool lifecycle behavior, including single-flight connection creation, maintenance that survives slow setup without retaining abandoned pools, race-safe failed-client invalidation, and safer session state transitions.
+- Reused the selected connection after device-profile autodetection instead of immediately opening a second SSH connection for execution.
+- Kept rauto's bounded multi-target drivers for target resolution, blacklist prechecks, task reporting, and recording while inheriting rneter's per-connection lifecycle and failure-isolation improvements.
 
 ### API Changes
 - Added SSH authentication type and non-sensitive authentication metadata to credential HTTP and gRPC models, credential import columns, and the Web credential editor.
+- Added global `--session-retries`, `--retry-initial-backoff-ms`, `--retry-max-backoff-ms`, and `--retry-authentication-errors` CLI/server options with matching `RAUTO_*` environment variables.
 - Added SQLite migration `202607270001_ssh_auth_methods.sql`; existing password credentials migrate automatically with `auth_type = password`.
 
 ### Risks
 - Private-key-file and SSH-agent authentication depend on files, permissions, and agent sockets available to the running rauto process; SSH-agent authentication is not supported on Windows by rneter.
+- Session retries have at-least-once semantics: a remote command can take effect before its connection drops, so retries must remain disabled for operations that are unsafe to repeat. Transaction, workflow, and upload APIs are not automatically retried.
 
 ## [0.4.2] - 2026-06-04
 

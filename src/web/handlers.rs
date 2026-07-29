@@ -36,12 +36,13 @@ use crate::web::models::{
     ExecuteTxBlockRequest, ExecuteTxBlockResponse, ExecuteTxWorkflowRequest,
     ExecuteTxWorkflowResponse, ExecuteUploadRequest, ExecuteUploadResponse,
     FlowBatchExecuteRequest, FlowBatchExecuteResponse, FlowBatchTargetResponse, RecordLevel,
-    RenderRequest, RenderResponse, SavedConnectionDetail, ShowBatchExecuteRequest,
-    ShowBatchExecuteResponse, ShowBatchTargetResponse, ShowExecuteRequest, ShowExecuteResponse,
-    ShowObjectEntry, ShowObjectsResponse, TaskEvent,
+    RenderRequest, RenderResponse, SavedConnectionDetail, SessionRetryOptions,
+    ShowBatchExecuteRequest, ShowBatchExecuteResponse, ShowBatchTargetResponse, ShowExecuteRequest,
+    ShowExecuteResponse, ShowObjectEntry, ShowObjectsResponse, TaskEvent,
 };
 use crate::web::state::{
-    AppState, ResolvedConnection, merge_connection_options, resolve_autodetect_connection,
+    AppState, ResolvedConnection, apply_session_retry_options, merge_connection_options,
+    resolve_autodetect_connection,
 };
 use crate::web::storage;
 use crate::{manager_connection_request, manager_execution_context_with_security};

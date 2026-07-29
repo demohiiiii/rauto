@@ -32,6 +32,10 @@ import {
   ensureConnectionTargetSelected,
 } from "../connections/connections.js";
 import { setCustomShowObjectsChangedCallback } from "../templates/templatesShowObjects.js";
+import {
+  createSessionRetryState,
+  sessionRetryRequestFields,
+} from "./sessionRetry.js";
 
 export const showExecutionConnectionProfileState =
   executionConnectionProfileState;
@@ -123,6 +127,14 @@ export function setBatchShowFields(showFields = {}, textfsmFields = {}) {
     mode: safeString(showFields.mode),
     ...showTextfsmPayloadFromFields(textfsmFields),
   });
+}
+
+export function setSingleShowRetryFields(retry = createSessionRetryState()) {
+  setShowFormFields("singleRetry", retry);
+}
+
+export function setBatchShowRetryFields(retry = createSessionRetryState()) {
+  setShowFormFields("batchRetry", retry);
 }
 
 export function normalizeBatchMaxParallel(value) {
@@ -230,6 +242,7 @@ function showExecutionPayload({ connection, recordLevel }) {
       showFormFields("show"),
       textfsmPayload(),
     ),
+    ...sessionRetryRequestFields(showFormFields("singleRetry")),
     connection,
     record_level: recordLevel,
   };
@@ -244,6 +257,7 @@ function batchShowExecutionPayload({ recordLevel }) {
     groups: connectionPickerValues(CONNECTION_PICKER.batchShowGroups),
     labels: connectionPickerValues(CONNECTION_PICKER.batchShowLabels),
     ...(maxParallel ? { max_parallel: maxParallel } : {}),
+    ...sessionRetryRequestFields(showFormFields("batchRetry")),
     record_level: recordLevel,
   };
 }

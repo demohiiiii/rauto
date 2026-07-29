@@ -1760,6 +1760,24 @@ export const i18nEn = {
   flowTemplateNewPrompt: "Enter a new command flow template name",
   profileNewPrompt: "Enter a new custom profile name",
   requestFailed: "Request failed",
+  sessionRetrySectionTitle: "Session retry",
+  sessionRetrySectionHint:
+    "Optionally override the server retry policy for this execution.",
+  sessionRetryOverrideLabel: "Override server retry policy",
+  sessionRetryServerDefaultHint: "Uses the server-wide retry policy.",
+  sessionRetryMaxRetriesLabel: "Retry count",
+  sessionRetryInitialBackoffLabel: "Initial backoff (ms)",
+  sessionRetryMaxBackoffLabel: "Maximum backoff (ms)",
+  sessionRetryAuthenticationLabel: "Retry authentication failures",
+  sessionRetryAuthenticationHint:
+    "Also retry rejected SSH authentication attempts.",
+  sessionRetryRiskHint:
+    "Retries have at-least-once semantics. A command may already have run on the device before the connection failed.",
+  sessionRetryMaxRetriesError: "Retry count must be an integer from 0 to 20.",
+  sessionRetryBackoffRangeError:
+    "Backoff values must be integers from 0 to 300000 milliseconds.",
+  sessionRetryBackoffOrderError:
+    "Initial backoff cannot exceed maximum backoff when retries are enabled.",
   commandRequired: "command is required",
   txBlockJsonRequired: "tx block JSON is required",
   txBlockJsonInvalidShape: "tx block JSON must be an object",

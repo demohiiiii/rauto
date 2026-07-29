@@ -44,6 +44,10 @@ import {
   parsedOutputSheetsFromParsedOutputItems,
 } from "../operations/results.js";
 import {
+  createSessionRetryState,
+  sessionRetryValidation,
+} from "../operations/sessionRetry.js";
+import {
   commandFlowExecutionResultState,
   createStandardLoadingKeysStore,
   createStandardTextfsmStateStore,
@@ -316,6 +320,7 @@ export function createFlowExecutionPanelWorkspace() {
     TEXTFSM_PLATFORM_SELECT.standard,
   );
   const flowTextfsmStateStore = createStandardTextfsmStateStore();
+  const flowRetryStateStore = writable(createSessionRetryState());
   const { loadingKeysStore, loadingRunner } =
     createStandardLoadingKeysStore(createLoadingRunner);
   const flowVarsInputPanelWorkspace = createFlowVarsInputPanelWorkspace({
@@ -340,6 +345,7 @@ export function createFlowExecutionPanelWorkspace() {
       authoringModePicker.state,
       textfsmPlatformPicker.state,
       flowTextfsmStateStore,
+      flowRetryStateStore,
       commandFlowExecutionResultStateStore,
       loadingKeysStore,
       authoring.selectionStateStore,
@@ -358,6 +364,7 @@ export function createFlowExecutionPanelWorkspace() {
       $authoringModeState,
       $textfsmPlatformState,
       $flowTextfsmState,
+      $flowRetryState,
       $commandFlowExecutionResult,
       $loadingKeysStore,
       $authoringSelection,
@@ -413,6 +420,8 @@ export function createFlowExecutionPanelWorkspace() {
         flowRunButtonDisplay: standardFlowRunButtonDisplay({
           executeLoading: $loadingKeysStore.includes("execute"),
         }),
+        flowRetryState: $flowRetryState,
+        flowRetryValid: sessionRetryValidation($flowRetryState).valid,
         flowTemplateFields,
         flowTextfsmFields,
         flowVarsDisplay: flowVarsPresentation($flowVarsFieldState),
@@ -461,9 +470,13 @@ export function createFlowExecutionPanelWorkspace() {
     setStandardTextfsmTemplate(flowTextfsmStateStore, textfsmTemplate);
   }
 
+  function changeFlowRetry(retry = {}) {
+    flowRetryStateStore.set({ ...createSessionRetryState(), ...retry });
+  }
+
   function executeFlowExecution() {
     return loadingRunner.run("execute", () =>
-      executeCommandFlow(authoring.executeSource()),
+      executeCommandFlow(authoring.executeSource(), get(flowRetryStateStore)),
     );
   }
 
@@ -552,6 +565,7 @@ export function createFlowExecutionPanelWorkspace() {
     changeFlowTextfsmPlatform,
     changeFlowTextfsmStrictErrors,
     changeFlowTextfsmTemplate,
+    changeFlowRetry,
     changeFlowToml,
     changeFlowVarValue: flowVarsInputPanelWorkspace.changeFlowVarValue,
     closeFlowNameDialog,

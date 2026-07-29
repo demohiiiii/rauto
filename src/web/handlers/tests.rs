@@ -203,6 +203,7 @@ fn json_template_context_supports_flat_lookup_with_runtime_precedence() {
             "peer_host": "192.168.30.94"
         }),
         force_autodetect: false,
+        retry_policy: Default::default(),
     };
     let context = build_json_template_context(
         serde_json::json!({
@@ -237,6 +238,7 @@ fn tx_block_direct_input_supports_template_rendering_with_connection_context() {
         device_profile: "linux".to_string(),
         vars: serde_json::json!({}),
         force_autodetect: false,
+        retry_policy: Default::default(),
     };
     let raw_block = serde_json::json!({
         "name": "deploy",

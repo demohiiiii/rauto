@@ -33,8 +33,10 @@ import {
   refreshShowExecutionModeOptions,
   refreshShowObjects,
   setBatchShowFields,
+  setBatchShowRetryFields,
   setShowTextfsmFields,
   setSingleShowFields,
+  setSingleShowRetryFields,
   showCommandPreviewRowsState,
   showConnectionTargetIdentity,
   showExecutionResultState,
@@ -42,6 +44,10 @@ import {
   updateBatchShowCommandPreview,
   updateShowCommandPreview,
 } from "./showQueryState.js";
+import {
+  createSessionRetryState,
+  sessionRetryValidation,
+} from "./sessionRetry.js";
 
 function showModeOptionRows(selected = "", modeOptions = []) {
   const modeOptionRows = selectOptionsWithCurrent(modeOptions, selected).map(
@@ -245,6 +251,7 @@ function singleShowPanelPresentation({
   textfsmState = {},
   executionResult = EMPTY_RESULT,
   executeLoading = false,
+  retryState = createSessionRetryState(),
 } = {}) {
   const resultDisplay = showResultsExecutionDisplay(executionResult);
   const resultsDisplay = singleShowResultsPresentation(resultDisplay);
@@ -258,6 +265,8 @@ function singleShowPanelPresentation({
     textfsmFields: showTextfsmFieldsForState(textfsmState),
     resultDisplay,
     resultsDisplay,
+    retryState,
+    retryValid: sessionRetryValidation(retryState).valid,
     runButtonDisplay: showRunButtonDisplayPresentation({
       executeButtonLabel: runDisplay.executeButtonLabel,
       executeLoading,
@@ -285,6 +294,7 @@ function batchShowPanelPresentation({
   modeState = {},
   previewRows = {},
   textfsmState = {},
+  retryState = createSessionRetryState(),
 } = {}) {
   const inputDisplay = batchShowInputPresentation(fields);
   return {
@@ -298,6 +308,8 @@ function batchShowPanelPresentation({
       maxParallel: safeString(maxParallel),
     },
     textfsmFields: showTextfsmFieldsForState(textfsmState),
+    retryState,
+    retryValid: sessionRetryValidation(retryState).valid,
     runButtonDisplay: showRunButtonDisplayPresentation({
       executeButtonLabel: inputDisplay.executeButtonLabel,
       executeLoading,
@@ -538,6 +550,7 @@ export function createSingleShowPanelWorkspace() {
     textfsmEnabled: true,
     textfsmTemplate: "",
   });
+  const singleShowRetryStateStore = writable(createSessionRetryState());
   const singleShowLoadingRunner = createLoadingStateRunner(
     singleShowLoadingState,
     {
@@ -558,6 +571,7 @@ export function createSingleShowPanelWorkspace() {
       showCommandPreviewRowsStateStore,
       singleTextfsmPlatformPicker.state,
       singleShowTextStateStore,
+      singleShowRetryStateStore,
       showExecutionResultStateStore,
       singleShowLoadingStateStore,
       currentLanguageState,
@@ -567,6 +581,7 @@ export function createSingleShowPanelWorkspace() {
       $showCommandPreviewRows,
       $singleTextfsmPlatformState,
       $singleShowTextState,
+      $singleShowRetryState,
       $showExecutionResult,
       $singleShowLoadingState,
       _currentLanguageState,
@@ -582,6 +597,7 @@ export function createSingleShowPanelWorkspace() {
         },
         executionResult: $showExecutionResult,
         executeLoading: $singleShowLoadingState.executeLoading,
+        retryState: $singleShowRetryState,
       }),
   );
   const singleShowResultsDisplayStateStore = derived(
@@ -612,6 +628,13 @@ export function createSingleShowPanelWorkspace() {
     selectionPanelWorkspace.setSelectionFields(panelDisplay.selectionFields);
     setSingleShowFields(panelDisplay.selectionFields);
     setShowTextfsmFields(panelDisplay.textfsmFields);
+    setSingleShowRetryFields(panelDisplay.retryState);
+  }
+
+  function changeSessionRetry(retry = {}) {
+    const nextRetry = { ...createSessionRetryState(), ...retry };
+    singleShowRetryStateStore.set(nextRetry);
+    setSingleShowRetryFields(nextRetry);
   }
 
   async function executeSingleShow() {
@@ -641,6 +664,7 @@ export function createSingleShowPanelWorkspace() {
   return {
     changeShowObject: updateShowCommandPreview,
     changeShowObjectMode: selectionPanelWorkspace.changeMode,
+    changeSessionRetry,
     executeSingleShow,
     exportActionHandlersStateStore,
     exportLoadingStateStore,
@@ -668,6 +692,7 @@ export function createBatchShowInputPanelWorkspace() {
     strictErrors: false,
     textfsmEnabled: true,
   });
+  const batchShowRetryStateStore = writable(createSessionRetryState());
   const batchShowLoadingRunner = createLoadingStateRunner(
     batchShowLoadingState,
     {
@@ -687,6 +712,7 @@ export function createBatchShowInputPanelWorkspace() {
       showCommandPreviewRowsStateStore,
       batchTextfsmPlatformPicker.state,
       batchShowTextStateStore,
+      batchShowRetryStateStore,
       batchShowLoadingStateStore,
       currentLanguageState,
     ],
@@ -695,6 +721,7 @@ export function createBatchShowInputPanelWorkspace() {
       $showCommandPreviewRows,
       $batchTextfsmPlatformState,
       $batchShowTextState,
+      $batchShowRetryState,
       $batchShowLoadingState,
       _currentLanguageState,
     ]) =>
@@ -704,6 +731,7 @@ export function createBatchShowInputPanelWorkspace() {
         maxParallel: $batchShowTextState.maxParallel,
         modeState: $batchModeState,
         previewRows: $showCommandPreviewRows,
+        retryState: $batchShowRetryState,
         textfsmState: {
           enabled: $batchShowTextState.textfsmEnabled,
           excelName: $batchShowTextState.excelName,
@@ -725,6 +753,13 @@ export function createBatchShowInputPanelWorkspace() {
       panelDisplay.selectionFields,
       panelDisplay.textfsmFields,
     );
+    setBatchShowRetryFields(panelDisplay.retryState);
+  }
+
+  function changeSessionRetry(retry = {}) {
+    const nextRetry = { ...createSessionRetryState(), ...retry };
+    batchShowRetryStateStore.set(nextRetry);
+    setBatchShowRetryFields(nextRetry);
   }
 
   async function executeBatchShowPanel() {
@@ -758,6 +793,7 @@ export function createBatchShowInputPanelWorkspace() {
     changeBatchMaxParallel,
     changeShowObject: updateBatchShowCommandPreview,
     changeShowObjectMode: selectionPanelWorkspace.changeMode,
+    changeSessionRetry,
     executeBatchShowPanel,
     panelDisplayStateStore,
     selectionDisplayStateStore:

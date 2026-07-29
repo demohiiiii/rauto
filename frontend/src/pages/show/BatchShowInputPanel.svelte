@@ -3,6 +3,7 @@
   import { Input } from "$lib/components/ui/input";
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
@@ -33,6 +34,7 @@
     changeBatchMaxParallel,
     changeShowObject,
     changeShowObjectMode,
+    changeSessionRetry,
     executeBatchShowPanel,
     panelDisplayStateStore,
     selectionDisplayStateStore,
@@ -46,6 +48,7 @@
   let showSelectionFields = $derived(batchShowPanelDisplay.selectionFields);
   let showTextfsmFields = $derived(batchShowPanelDisplay.textfsmFields);
   let showRunButtonDisplay = $derived(batchShowPanelDisplay.runButtonDisplay);
+  let retryState = $derived(batchShowPanelDisplay.retryState);
 
   $effect(() => {
     setPanelContext({ active, panelDisplay: batchShowPanelDisplay });
@@ -87,6 +90,12 @@
           textfsmFields={showTextfsmFields}
         />
       {/if}
+
+      <SessionRetryFields
+        idPrefix="batch-show-session-retry"
+        value={retryState}
+        onChange={changeSessionRetry}
+      />
 
       <div class="rounded-2xl border border-border bg-muted/30 p-4">
         <div class="mb-3 text-sm font-medium text-foreground">
@@ -134,6 +143,7 @@
           <LoadingButton
             size="lg"
             loading={showRunButtonDisplay.executeLoading}
+            disabled={!batchShowPanelDisplay.retryValid}
             onclick={executeBatchShowPanel}
           >
             <span>{showRunButtonDisplay.executeButtonLabel}</span>

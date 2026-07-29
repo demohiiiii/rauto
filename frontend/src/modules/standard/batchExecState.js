@@ -7,6 +7,10 @@ import {
   connectionPickerValues,
 } from "../connections/connectionFieldStoreState.js";
 import { recordLevelPayload } from "../overlays/overlays.js";
+import {
+  createSessionRetryState,
+  sessionRetryRequestFields,
+} from "../operations/sessionRetry.js";
 
 export const EMPTY_BATCH_EXEC_RESULT = Object.freeze({ kind: "empty" });
 
@@ -14,6 +18,7 @@ export const batchExecFormState = writable({
   command: "",
   maxParallel: "",
   mode: "",
+  retry: createSessionRetryState(),
 });
 
 export const batchExecResultState = writable(EMPTY_BATCH_EXEC_RESULT);
@@ -22,6 +27,13 @@ export function setBatchExecField(field, value) {
   batchExecFormState.update((form) => ({
     ...form,
     [field]: safeString(value),
+  }));
+}
+
+export function setBatchExecRetry(retry = {}) {
+  batchExecFormState.update((form) => ({
+    ...form,
+    retry: { ...createSessionRetryState(), ...retry },
   }));
 }
 
@@ -39,6 +51,7 @@ export function batchExecPayload(form = get(batchExecFormState)) {
     groups: connectionPickerValues(CONNECTION_PICKER.batchExecGroups),
     labels: connectionPickerValues(CONNECTION_PICKER.batchExecLabels),
     ...(maxParallel ? { max_parallel: maxParallel } : {}),
+    ...sessionRetryRequestFields(form.retry),
   };
 }
 

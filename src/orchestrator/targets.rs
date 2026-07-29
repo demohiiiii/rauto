@@ -208,6 +208,7 @@ pub(crate) fn resolve_target_connection(
         vars,
         template_dir,
         force_autodetect: opts.force_autodetect,
+        retry_policy: crate::manager_retry_policy(opts),
     })
 }
 

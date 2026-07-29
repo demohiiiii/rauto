@@ -4,16 +4,55 @@ use anyhow::{Result, anyhow};
 use rneter::{
     device::DeviceHandler,
     session::{
-        CmdJob, Command, CommandFlow, CommandFlowOutput, MANAGER, MultilineMode, Output,
-        SessionRecordLevel, SessionRecorder, SshAuthMethod,
+        Command, CommandFlow, CommandFlowOutput, ConnectionRequest, ExecutionContext, MANAGER,
+        MultilineMode, Output, RetryPolicy, SessionRecordLevel, SessionRecorder, SshAuthMethod,
     },
 };
-use tokio::sync::mpsc::Sender;
-use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
 
+fn connection_retry_delay(policy: RetryPolicy, retry_index: usize) -> std::time::Duration {
+    let mut delay = policy.initial_backoff.min(policy.max_backoff);
+    for _ in 1..retry_index.min(128) {
+        delay = delay.saturating_mul(2).min(policy.max_backoff);
+        if delay == policy.max_backoff {
+            break;
+        }
+    }
+    delay
+}
+
+fn connection_error_is_retryable(policy: RetryPolicy, error: &rneter::error::ConnectError) -> bool {
+    error.is_transient()
+        || (policy.retry_authentication_errors && error.is_authentication_failure())
+}
+
+fn validate_retry_policy(policy: RetryPolicy) -> Result<()> {
+    if policy.max_retries > 0 && policy.initial_backoff > policy.max_backoff {
+        return Err(anyhow!(
+            "Invalid retry policy: initial backoff must not exceed maximum backoff"
+        ));
+    }
+    Ok(())
+}
+
+async fn wait_before_connection_retry(
+    policy: RetryPolicy,
+    retry_index: usize,
+    error: &rneter::error::ConnectError,
+) {
+    let delay = connection_retry_delay(policy, retry_index);
+    warn!(
+        "Retrying SSH connection after attempt {} failed: {}; backoff={:?}",
+        retry_index, error, delay
+    );
+    if !delay.is_zero() {
+        tokio::time::sleep(delay).await;
+    }
+}
+
 pub struct DeviceClient {
-    sender: Sender<CmdJob>,
+    request: ConnectionRequest,
+    context: ExecutionContext,
     default_timeout: u64,
     default_mode: String,
     recording_level: Option<SessionRecordLevel>,
@@ -22,7 +61,7 @@ pub struct DeviceClient {
 
 impl DeviceClient {
     #[allow(clippy::too_many_arguments)]
-    pub async fn connect(
+    pub async fn connect_with_retry(
         host: String,
         port: u16,
         username: String,
@@ -32,21 +71,37 @@ impl DeviceClient {
         default_mode: String,
         ssh_security: SshSecurityProfile,
         connect_timeout_secs: Option<u64>,
+        retry_policy: RetryPolicy,
     ) -> Result<Self> {
+        validate_retry_policy(retry_policy)?;
         info!("Connecting to {}:{} as {}", host, port, username);
 
         let request =
             manager_connection_request(username, host, port, auth, enable_password, handler);
-        let sender = MANAGER
-            .get_with_context(
-                request,
-                manager_execution_context_with_security(None, ssh_security, connect_timeout_secs),
-            )
-            .await
-            .map_err(|e| anyhow!("Failed to connect: {}", e))?;
+        let context =
+            manager_execution_context_with_security(None, ssh_security, connect_timeout_secs)
+                .with_retry_policy(retry_policy);
+        let mut retries_used = 0;
+        loop {
+            match MANAGER
+                .get_with_context(request.clone(), context.clone())
+                .await
+            {
+                Ok(_) => break,
+                Err(error)
+                    if retries_used < retry_policy.max_retries
+                        && connection_error_is_retryable(retry_policy, &error) =>
+                {
+                    retries_used += 1;
+                    wait_before_connection_retry(retry_policy, retries_used, &error).await;
+                }
+                Err(error) => return Err(anyhow!("Failed to connect: {}", error)),
+            }
+        }
 
         Ok(Self {
-            sender,
+            request,
+            context,
             default_timeout: 60,
             default_mode,
             recording_level: None,
@@ -55,7 +110,7 @@ impl DeviceClient {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub async fn connect_with_recording(
+    pub async fn connect_with_recording_and_retry(
         host: String,
         port: u16,
         username: String,
@@ -66,7 +121,9 @@ impl DeviceClient {
         level: SessionRecordLevel,
         ssh_security: SshSecurityProfile,
         connect_timeout_secs: Option<u64>,
+        retry_policy: RetryPolicy,
     ) -> Result<Self> {
+        validate_retry_policy(retry_policy)?;
         info!(
             "Connecting with recording to {}:{} as {}",
             host, port, username
@@ -85,17 +142,30 @@ impl DeviceClient {
             &auth,
             enable_password.as_deref(),
         );
-        let (sender, recorder) = MANAGER
-            .get_with_recorder_and_context(
-                request,
-                manager_execution_context_with_security(None, ssh_security, connect_timeout_secs),
-                recorder,
-            )
-            .await
-            .map_err(|e| anyhow!("Failed to connect: {}", e))?;
+        let context =
+            manager_execution_context_with_security(None, ssh_security, connect_timeout_secs)
+                .with_retry_policy(retry_policy);
+        let mut retries_used = 0;
+        loop {
+            match MANAGER
+                .get_with_recorder_and_context(request.clone(), context.clone(), recorder.clone())
+                .await
+            {
+                Ok(_) => break,
+                Err(error)
+                    if retries_used < retry_policy.max_retries
+                        && connection_error_is_retryable(retry_policy, &error) =>
+                {
+                    retries_used += 1;
+                    wait_before_connection_retry(retry_policy, retries_used, &error).await;
+                }
+                Err(error) => return Err(anyhow!("Failed to connect: {}", error)),
+            }
+        }
 
         Ok(Self {
-            sender,
+            request,
+            context,
             default_timeout: 60,
             default_mode,
             recording_level: Some(level),
@@ -121,24 +191,17 @@ impl DeviceClient {
     }
 
     pub async fn execute_command_structured(&self, command: Command) -> Result<Output> {
-        let (tx, rx) = oneshot::channel();
-
-        let cmd = CmdJob {
-            data: command.clone(),
-            sys: None, // Optional system name check
-            responder: tx,
-        };
-
         debug!("Sending command: {}", command.command);
-        self.sender
-            .send(cmd)
-            .await
-            .map_err(|_| anyhow!("Failed to send command job (channel closed)"))?;
-
-        let output = rx
-            .await
-            .map_err(|_| anyhow!("Failed to receive response (responder dropped)"))?
-            .map_err(|e| anyhow!("Command execution failed: {}", e))?;
+        let result = MANAGER
+            .execute_command_with_context(self.request.clone(), command, self.context.clone())
+            .await;
+        if let Err(error) = self.reattach_recorder().await {
+            if result.is_ok() {
+                return Err(error);
+            }
+            warn!("Failed to restore recording after command failure: {error:#}");
+        }
+        let output = result.map_err(|e| anyhow!("Command execution failed: {}", e))?;
 
         if !output.success {
             // Even if success is false, we might want the content to see why
@@ -157,44 +220,35 @@ impl DeviceClient {
     }
 
     pub async fn execute_command_flow(&self, flow: CommandFlow) -> Result<CommandFlowOutput> {
-        let flow = flow.expand_multiline()?;
-        let CommandFlow {
-            steps,
-            stop_on_error,
-            max_steps,
-        } = flow;
-        if steps.is_empty() {
-            return Ok(CommandFlowOutput {
-                success: true,
-                outputs: Vec::new(),
-            });
-        }
-
-        let mut outputs = Vec::with_capacity(steps.len());
-        let limit = max_steps.unwrap_or_else(|| steps.len().saturating_mul(16).max(steps.len()));
-
-        for (executed_steps, command) in steps.into_iter().enumerate() {
-            if executed_steps >= limit {
-                return Err(anyhow!(
-                    "command flow exceeded max executed steps (limit: {})",
-                    limit
-                ));
+        let result = MANAGER
+            .execute_command_flow_with_context(self.request.clone(), flow, self.context.clone())
+            .await;
+        if let Err(error) = self.reattach_recorder().await {
+            if result.is_ok() {
+                return Err(error);
             }
-
-            let output = self.execute_command_structured(command).await?;
-            let step_success = output.success;
-            outputs.push(output);
-
-            if stop_on_error && !step_success {
-                return Ok(CommandFlowOutput {
-                    success: false,
-                    outputs,
-                });
-            }
+            warn!("Failed to restore recording after flow failure: {error:#}");
         }
+        result.map_err(|error| anyhow!("Command flow execution failed: {}", error))
+    }
 
-        let success = outputs.iter().all(|output| output.success);
-        Ok(CommandFlowOutput { success, outputs })
+    async fn reattach_recorder(&self) -> Result<()> {
+        let Some(recorder) = self
+            .recorder
+            .as_ref()
+            .filter(|_| self.context.retry_policy.max_retries > 0)
+        else {
+            return Ok(());
+        };
+        MANAGER
+            .get_with_recorder_and_context(
+                self.request.clone(),
+                self.context.clone(),
+                recorder.clone(),
+            )
+            .await
+            .map(|_| ())
+            .map_err(|error| anyhow!("Failed to restore session recording: {}", error))
     }
 
     pub async fn execute(&self, command_str: &str, target_mode: Option<&str>) -> Result<String> {
@@ -245,7 +299,8 @@ impl DeviceClient {
 mod tests {
     use super::*;
     use rneter::session::SshAuthMethod;
-    use rneter::testkit::{DevicePersona, FakeSshDevice};
+    use rneter::testkit::{DevicePersona, FakeSshDevice, FaultInjection};
+    use std::time::Duration;
 
     #[tokio::test]
     async fn device_client_executes_against_rneter_virtual_device() -> Result<()> {
@@ -255,7 +310,7 @@ mod tests {
         let password = persona.password.clone();
         let device = FakeSshDevice::spawn(persona).await?;
 
-        let client = DeviceClient::connect(
+        let client = DeviceClient::connect_with_retry(
             device.addr().ip().to_string(),
             device.port(),
             username,
@@ -265,6 +320,7 @@ mod tests {
             "User".to_string(),
             SshSecurityProfile::LegacyCompatible,
             Some(10),
+            RetryPolicy::default(),
         )
         .await?;
         let output = client.execute_output("uname -a", Some("User")).await?;
@@ -278,5 +334,113 @@ mod tests {
                 .any(|command| command == "uname -a")
         );
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn device_client_retries_a_transient_disconnect() -> Result<()> {
+        let persona = DevicePersona::builtin("linux")?
+            .with_faults(FaultInjection::new().with_disconnect_command("uname -a", 1));
+        let handler = persona.config.clone().build()?;
+        let username = persona.username.clone();
+        let password = persona.password.clone();
+        let device = FakeSshDevice::spawn(persona).await?;
+        let retry_policy = RetryPolicy::new(1).with_backoff(Duration::ZERO, Duration::ZERO);
+
+        let client = DeviceClient::connect_with_retry(
+            device.addr().ip().to_string(),
+            device.port(),
+            username,
+            SshAuthMethod::password(password),
+            device.persona().enable_password.clone(),
+            handler,
+            "User".to_string(),
+            SshSecurityProfile::LegacyCompatible,
+            Some(10),
+            retry_policy,
+        )
+        .await?;
+        let output = client.execute_output("uname -a", Some("User")).await?;
+
+        assert!(output.success);
+        assert_eq!(device.received_commands(), ["uname -a", "uname -a"]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn recorded_client_restores_recorder_after_retry_reconnect() -> Result<()> {
+        let persona = DevicePersona::builtin("linux")?
+            .with_faults(FaultInjection::new().with_disconnect_command("uname -a", 1));
+        let handler = persona.config.clone().build()?;
+        let username = persona.username.clone();
+        let password = persona.password.clone();
+        let device = FakeSshDevice::spawn(persona).await?;
+        let retry_policy = RetryPolicy::new(1).with_backoff(Duration::ZERO, Duration::ZERO);
+
+        let client = DeviceClient::connect_with_recording_and_retry(
+            device.addr().ip().to_string(),
+            device.port(),
+            username,
+            SshAuthMethod::password(password),
+            device.persona().enable_password.clone(),
+            handler,
+            "User".to_string(),
+            SessionRecordLevel::Full,
+            SshSecurityProfile::LegacyCompatible,
+            Some(10),
+            retry_policy,
+        )
+        .await?;
+        client.execute_output("uname -a", Some("User")).await?;
+        client.execute_output("hostname", Some("User")).await?;
+
+        let recording = client
+            .recording_jsonl()?
+            .expect("recording should be available");
+        assert!(recording.contains("hostname"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn device_client_collects_paged_output_from_virtual_device() -> Result<()> {
+        let persona = DevicePersona::builtin("cisco_ios")?.with_paged_reply(
+            "show inventory",
+            "<--- More --->",
+            ["NAME: first", "NAME: second", "NAME: third"],
+        );
+        let handler = persona.config.clone().build()?;
+        let username = persona.username.clone();
+        let password = persona.password.clone();
+        let device = FakeSshDevice::spawn(persona).await?;
+
+        let client = DeviceClient::connect_with_retry(
+            device.addr().ip().to_string(),
+            device.port(),
+            username,
+            SshAuthMethod::password(password),
+            device.persona().enable_password.clone(),
+            handler,
+            "User".to_string(),
+            SshSecurityProfile::LegacyCompatible,
+            Some(10),
+            RetryPolicy::default(),
+        )
+        .await?;
+        let output = client
+            .execute_output("show inventory", Some("Enable"))
+            .await?;
+
+        assert!(output.content.contains("NAME: first"));
+        assert!(output.content.contains("NAME: second"));
+        assert!(output.content.contains("NAME: third"));
+        assert!(!output.content.contains("<--- More --->"));
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_retry_backoff_is_rejected_before_connecting() {
+        let policy =
+            RetryPolicy::new(1).with_backoff(Duration::from_millis(20), Duration::from_millis(10));
+        let error = validate_retry_policy(policy).expect_err("invalid backoff must fail");
+        assert!(error.to_string().contains("initial backoff"));
     }
 }

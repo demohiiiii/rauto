@@ -858,27 +858,25 @@ test("show output terminal titles prefer device names from display state", () =>
   assert.match(singleShowPanelSource, /title=\{showResultRow\.outputTitle\}/);
   assert.match(
     batchShowResultsSource,
-    /title=\{activeObjectResultRow\.outputTitle\}/,
+    /title=\{activeResultRow\.outputTitle\}/,
   );
 });
 
-test("batch show results use device, object, and output view tabs", () => {
+test("batch show results flatten device objects into the shared result navigator", () => {
   const source = read("frontend/src/pages/show/BatchShowResultsPanel.svelte");
   const workspaceSource = read(
     "frontend/src/modules/operations/showQueryWorkspaces.js",
   );
 
-  assert.match(source, /let activeDeviceKey = \$state\(""\)/);
-  assert.match(source, /let activeObjectKey = \$state\(""\)/);
+  assert.match(source, /let activeResultKey = \$state\(""\)/);
   assert.match(source, /let resultView = \$state\("output"\)/);
-  assert.match(source, /activeDeviceRow/);
-  assert.match(source, /activeObjectResultRow/);
-  assert.match(source, /aria-label=\{i18nLabels\.devicesAria\}/);
+  assert.match(source, /ExecutionResultsPanel/);
+  assert.match(source, /deviceRows\.flatMap/);
+  assert.match(source, /navigationAriaLabel=\{i18nLabels\.devicesAria\}/);
   assert.match(source, /aria-label=\{i18nLabels\.objectsAria\}/);
   assert.match(source, /i18nLabels\.rawOutputTab/);
   assert.match(source, /i18nLabels\.parsedOutputTab/);
   assert.match(source, /resultView === "output"/);
-  assert.match(source, /Table2Icon/);
   assert.doesNotMatch(
     source,
     /#each batchResultsPresentation\.resultRows as batchShowResultRow/,
@@ -925,7 +923,7 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
 
     assert.match(source, /ui\/card/);
     assert.match(source, /<Card\.Root/);
-    assert.match(source, /WorkspaceActionHeader/);
+    assert.match(source, /WorkspaceActionHeader|ExecutionResultsPanel/);
     assert.match(source, /<Card\.Content/);
     assert.doesNotMatch(source, /group-card/);
   }
@@ -1057,7 +1055,7 @@ test("top-level workspace cards keep icon-bearing headers", () => {
 
   for (const path of pagePaths) {
     const source = read(path);
-    assert.match(source, /WorkspaceActionHeader/);
+    assert.match(source, /WorkspaceActionHeader|ExecutionResultsPanel/);
     assert.match(source, /icon=\{\w+Icon\}/);
   }
 });
@@ -1071,8 +1069,11 @@ test("query cards share the workspace card treatment", () => {
 
   for (const path of queryPanelPaths) {
     const source = read(path);
-    assert.match(source, /WorkspaceActionHeader/);
-    assert.match(source, /gap-0 overflow-hidden border-border\/80 py-0/);
+    assert.match(source, /WorkspaceActionHeader|ExecutionResultsPanel/);
+    assert.match(
+      source,
+      /gap-0 overflow-hidden border-border\/80 py-0|ExecutionResultsPanel/,
+    );
     assert.doesNotMatch(source, /rounded-3xl/);
   }
 

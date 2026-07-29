@@ -296,7 +296,7 @@ async fn fetch_config_over_connection(
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
     let effective_mode =
         template_loader::resolve_profile_mode(&conn.device_profile, fetch_command.mode.as_deref())?;
-    let client = DeviceClient::connect_with_recording(
+    let client = DeviceClient::connect_with_recording_and_retry(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
@@ -307,6 +307,7 @@ async fn fetch_config_over_connection(
         crate::to_record_level(record_level),
         conn.ssh_security,
         conn.connect_timeout_secs,
+        conn.retry_policy,
     )
     .await?;
     let output = client

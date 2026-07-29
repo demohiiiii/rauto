@@ -8,14 +8,14 @@ use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader::{self, DEFAULT_DEVICE_PROFILE};
 use crate::web::error::ApiError;
-use crate::web::models::ConnectionRequest;
-use rneter::session::{DetectRequest, SshAuthMethod};
-use rneter::templates::{DetectConnectPolicy, autodetect_with_builtin_and_templates_and_context};
+use crate::web::models::{ConnectionRequest, SessionRetryOptions};
+use rneter::session::{DetectRequest, MANAGER, SshAuthMethod};
+use rneter::templates::DetectConnectPolicy;
 use std::future::Future;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::watch;
 use tracing::{info, warn};
 
@@ -139,6 +139,75 @@ pub struct ResolvedConnection {
     pub device_profile: String,
     pub vars: serde_json::Value,
     pub force_autodetect: bool,
+    pub retry_policy: rneter::session::RetryPolicy,
+}
+
+const MAX_SESSION_RETRIES: usize = 20;
+const MAX_SESSION_RETRY_BACKOFF_MS: u64 = 300_000;
+
+pub fn apply_session_retry_options(
+    mut conn: ResolvedConnection,
+    options: Option<&SessionRetryOptions>,
+) -> Result<ResolvedConnection, ApiError> {
+    conn.retry_policy = resolve_session_retry_policy(conn.retry_policy, options)?;
+    Ok(conn)
+}
+
+fn resolve_session_retry_policy(
+    current: rneter::session::RetryPolicy,
+    options: Option<&SessionRetryOptions>,
+) -> Result<rneter::session::RetryPolicy, ApiError> {
+    let Some(options) = options else {
+        return Ok(current);
+    };
+
+    if options
+        .max_retries
+        .is_some_and(|value| value > MAX_SESSION_RETRIES)
+    {
+        return Err(ApiError::bad_request(format!(
+            "retry.max_retries must not exceed {MAX_SESSION_RETRIES}"
+        )));
+    }
+    if options
+        .initial_backoff_ms
+        .is_some_and(|value| value > MAX_SESSION_RETRY_BACKOFF_MS)
+    {
+        return Err(ApiError::bad_request(format!(
+            "retry.initial_backoff_ms must not exceed {MAX_SESSION_RETRY_BACKOFF_MS}"
+        )));
+    }
+    if options
+        .max_backoff_ms
+        .is_some_and(|value| value > MAX_SESSION_RETRY_BACKOFF_MS)
+    {
+        return Err(ApiError::bad_request(format!(
+            "retry.max_backoff_ms must not exceed {MAX_SESSION_RETRY_BACKOFF_MS}"
+        )));
+    }
+
+    let max_retries = options.max_retries.unwrap_or(current.max_retries);
+    let initial_backoff = options
+        .initial_backoff_ms
+        .map(Duration::from_millis)
+        .unwrap_or(current.initial_backoff);
+    let max_backoff = options
+        .max_backoff_ms
+        .map(Duration::from_millis)
+        .unwrap_or(current.max_backoff);
+    if max_retries > 0 && initial_backoff > max_backoff {
+        return Err(ApiError::bad_request(
+            "retry.initial_backoff_ms must not exceed retry.max_backoff_ms when retries are enabled",
+        ));
+    }
+
+    Ok(rneter::session::RetryPolicy::new(max_retries)
+        .with_backoff(initial_backoff, max_backoff)
+        .with_authentication_retries(
+            options
+                .retry_authentication_errors
+                .unwrap_or(current.retry_authentication_errors),
+        ))
 }
 
 pub fn merge_connection_options(
@@ -221,28 +290,22 @@ pub async fn resolve_autodetect_connection(
         conn.ssh_security,
         conn.connect_timeout_secs,
     );
-    let report = autodetect_with_builtin_and_templates_and_context(
-        request,
-        context,
-        template_loader::custom_detect_template_definitions().map_err(ApiError::from)?,
-    )
-    .await
-    .map_err(ApiError::from)?;
     let policy = DetectConnectPolicy::default();
-    let best = report
+    let connected = MANAGER
+        .autodetect_and_connect_with_builtin_and_templates_and_context(
+            request,
+            conn.enable_password.clone(),
+            context,
+            policy,
+            template_loader::custom_detect_template_definitions().map_err(ApiError::from)?,
+        )
+        .await
+        .map_err(ApiError::from)?;
+    let best = connected
+        .report
         .best_match
         .as_ref()
-        .filter(|candidate| {
-            candidate
-                .confidence
-                .satisfies_minimum(policy.minimum_confidence)
-        })
-        .ok_or_else(|| {
-            ApiError::bad_request(format!(
-                "device profile autodetect failed: no candidate met minimum confidence {:?}",
-                policy.minimum_confidence
-            ))
-        })?;
+        .expect("rneter connected autodetect result must contain a best match");
     if let Err(err) =
         autodetect_cache::save_cached_profile(&conn.host, conn.port, &best.template_name)
     {
@@ -358,6 +421,7 @@ fn merge_connection_sources(
         device_profile,
         vars,
         force_autodetect: defaults.force_autodetect,
+        retry_policy: crate::manager_retry_policy(defaults),
     })
 }
 
@@ -378,8 +442,53 @@ mod tests {
     use crate::config::ssh_security::SshSecurityProfile;
     use crate::web::error::ApiError;
     use crate::web::models::ConnectionRequest;
+    use crate::web::models::SessionRetryOptions;
     use axum::http::StatusCode;
+    use rneter::session::RetryPolicy;
     use tokio::time::{Duration, sleep};
+
+    #[test]
+    fn session_retry_options_preserve_server_policy_when_absent() {
+        let current = RetryPolicy::new(3)
+            .with_backoff(Duration::from_millis(150), Duration::from_millis(2500))
+            .with_authentication_retries(true);
+
+        assert_eq!(
+            super::resolve_session_retry_policy(current, None).unwrap(),
+            current
+        );
+    }
+
+    #[test]
+    fn session_retry_options_override_server_policy() {
+        let options = SessionRetryOptions {
+            max_retries: Some(4),
+            initial_backoff_ms: Some(300),
+            max_backoff_ms: Some(5000),
+            retry_authentication_errors: Some(true),
+        };
+
+        let policy =
+            super::resolve_session_retry_policy(RetryPolicy::default(), Some(&options)).unwrap();
+        assert_eq!(policy.max_retries, 4);
+        assert_eq!(policy.initial_backoff, Duration::from_millis(300));
+        assert_eq!(policy.max_backoff, Duration::from_millis(5000));
+        assert!(policy.retry_authentication_errors);
+    }
+
+    #[test]
+    fn session_retry_options_reject_invalid_backoff_order() {
+        let options = SessionRetryOptions {
+            max_retries: Some(1),
+            initial_backoff_ms: Some(2001),
+            max_backoff_ms: Some(2000),
+            retry_authentication_errors: None,
+        };
+
+        let error = super::resolve_session_retry_policy(RetryPolicy::default(), Some(&options))
+            .expect_err("invalid retry backoff must fail");
+        assert_eq!(error.status, StatusCode::BAD_REQUEST);
+    }
 
     fn defaults() -> GlobalOpts {
         GlobalOpts {
@@ -391,6 +500,10 @@ mod tests {
             device_profile: Some("default-profile".to_string()),
             template_dir: None,
             force_autodetect: false,
+            session_retries: 0,
+            retry_initial_backoff_ms: 200,
+            retry_max_backoff_ms: 2000,
+            retry_authentication_errors: false,
             connection: Some("lab1".to_string()),
             save_connection: None,
         }
@@ -487,6 +600,10 @@ mod tests {
                 device_profile: None,
                 template_dir: None,
                 force_autodetect: false,
+                session_retries: 0,
+                retry_initial_backoff_ms: 200,
+                retry_max_backoff_ms: 2000,
+                retry_authentication_errors: false,
                 connection: None,
                 save_connection: None,
             },

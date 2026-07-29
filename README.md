@@ -1291,6 +1291,10 @@ Default runtime data:
 | `--linux-shell-flavor` | -       | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`                        |
 | `--device-profile`     | -       | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
 | `--force-autodetect`   | -       | Ignore cached autodetect result and probe the target again                                        |
+| `--session-retries`    | `RAUTO_SESSION_RETRIES` | Retry transient failures for ordinary commands/flows (default: `0`)                 |
+| `--retry-initial-backoff-ms` | `RAUTO_RETRY_INITIAL_BACKOFF_MS` | Initial retry delay in milliseconds (default: `200`)       |
+| `--retry-max-backoff-ms` | `RAUTO_RETRY_MAX_BACKOFF_MS` | Maximum exponential retry delay in milliseconds (default: `2000`) |
+| `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | Also retry authentication rejections (default: off) |
 | `--connection`         | -       | Load saved connection profile by name (`-c`)                                                      |
 | `--save-connection`    | -       | Save effective connection profile and credential reference after successful connect (`-S`)       |
 
@@ -1312,6 +1316,8 @@ Common command-specific options:
 - `show --print-command`: Print the resolved device command before execution.
 - `show-object set/list/delete`: Manage profile-specific custom show objects saved in SQLite. Custom objects override bundled show mappings for the same profile and object.
 - `--force-autodetect`: Bypass the local `host:port` autodetect cache, probe again, and refresh the cached profile. Useful when the device behind an existing IP/port has changed.
+- `--session-retries <N>`: Retry transient connection, initialization, transport, and channel-disconnect failures for ordinary commands and command flows. Backoff starts at `--retry-initial-backoff-ms` and doubles up to `--retry-max-backoff-ms`; completed flow steps are retained and execution resumes at the first unfinished step.
+- Retries are disabled by default and have at-least-once semantics: a device may apply a command before the connection drops. Enable them only for commands that are safe to repeat. Transactions, workflows, and uploads are not automatically retried. Authentication rejections are excluded unless `--retry-authentication-errors` is explicitly set.
 - `exec/template/flow --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
 - `exec/template/flow --textfsm-platform <platform>`: Override the inferred NTC platform after parsing is enabled.
 - `exec/template/flow --textfsm-template <path>`: Parse command output with a specific TextFSM template file. For `template` and `flow`, repeat this option to match templates by command order; the last template is reused for remaining commands.

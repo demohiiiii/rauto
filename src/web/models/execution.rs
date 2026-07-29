@@ -28,6 +28,18 @@ pub struct DryRunOptions {
     pub dry_run: Option<bool>,
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SessionRetryOptions {
+    #[serde(default)]
+    pub max_retries: Option<usize>,
+    #[serde(default)]
+    pub initial_backoff_ms: Option<u64>,
+    #[serde(default)]
+    pub max_backoff_ms: Option<u64>,
+    #[serde(default)]
+    pub retry_authentication_errors: Option<bool>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ExecRequest {
     pub command: String,
@@ -43,6 +55,8 @@ pub struct ExecRequest {
     pub textfsm_vendor: Option<String>,
     #[serde(default)]
     pub textfsm_strict_errors: bool,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
     #[serde(flatten)]
@@ -86,6 +100,8 @@ pub struct ShowExecuteRequest {
     pub no_parse: bool,
     #[serde(default)]
     pub textfsm_strict_errors: bool,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
     #[serde(flatten)]
@@ -129,6 +145,8 @@ pub struct ShowBatchExecuteRequest {
     pub labels: Vec<String>,
     #[serde(default)]
     pub max_parallel: Option<usize>,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     pub record_level: Option<RecordLevel>,
     #[serde(flatten)]
     pub task: ManagedTaskOptions,
@@ -184,6 +202,8 @@ pub struct ExecBatchExecuteRequest {
     pub labels: Vec<String>,
     #[serde(default)]
     pub max_parallel: Option<usize>,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     pub record_level: Option<RecordLevel>,
     #[serde(flatten)]
     pub task: ManagedTaskOptions,
@@ -221,6 +241,8 @@ pub struct ConfigFetchRequest {
     pub kind: String,
     #[serde(default)]
     pub include_normalized: bool,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
     #[serde(flatten)]
@@ -241,6 +263,8 @@ pub struct ConfigBatchFetchRequest {
     pub labels: Vec<String>,
     #[serde(default)]
     pub max_parallel: Option<usize>,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     pub record_level: Option<RecordLevel>,
     #[serde(flatten)]
     pub task: ManagedTaskOptions,
@@ -290,6 +314,8 @@ pub struct ExecuteTemplateRequest {
     pub textfsm_vendor: Option<String>,
     #[serde(default)]
     pub textfsm_strict_errors: bool,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     #[serde(flatten)]
     pub run: DryRunOptions,
     pub template_dir: Option<String>,
@@ -338,6 +364,8 @@ pub struct ExecuteCommandFlowRequest {
     pub textfsm_vendor: Option<String>,
     #[serde(default)]
     pub textfsm_strict_errors: bool,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
 }
@@ -378,6 +406,8 @@ pub struct FlowBatchExecuteRequest {
     pub labels: Vec<String>,
     #[serde(default)]
     pub max_parallel: Option<usize>,
+    #[serde(default)]
+    pub retry: Option<SessionRetryOptions>,
     pub record_level: Option<RecordLevel>,
     #[serde(flatten)]
     pub task: ManagedTaskOptions,

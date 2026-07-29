@@ -283,15 +283,18 @@ test("command panel composes the shared command controls", () => {
   assert.match(panel, /ParsedOutputBlock/);
 });
 
-test("standard execution result rows use transaction failure surfaces", () => {
+test("standard execution result rows use the shared execution result surface", () => {
   const panel = read(
     "frontend/src/pages/standard/CommandExecutionPanel.svelte",
   );
 
-  assert.match(panel, /border-rose-200 bg-rose-50/);
-  assert.match(panel, /workflowChipClass/);
-  assert.match(panel, /txBlockResultOutput/);
-  assert.match(panel, /item\.all \|\| item\.output \|\| item\.error/);
+  assert.match(panel, /ExecutionResultsPanel/);
+  assert.match(panel, /ExecutionResultMeta/);
+  assert.match(panel, /statusTone/);
+  assert.match(
+    panel,
+    /activeResult\.all\s*\|\|\s*activeResult\.output\s*\|\|\s*activeResult\.error/,
+  );
 });
 
 test("standard command workbench has no legacy panel factories", () => {

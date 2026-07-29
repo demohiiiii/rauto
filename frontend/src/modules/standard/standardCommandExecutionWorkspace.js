@@ -31,6 +31,10 @@ import {
   MANUAL_COMMAND_SOURCE,
   normalizeCommandTemplateNames,
 } from "../command/commandTemplateCatalog.js";
+import {
+  createSessionRetryState,
+  sessionRetryRequestFields,
+} from "../operations/sessionRetry.js";
 
 export function reconcileCommandVars(schema = [], current = {}) {
   return Object.fromEntries(
@@ -50,6 +54,7 @@ export function commandExecutionPayload({
   mode = "",
   multilineMode = "split_lines",
   textfsm = {},
+  retry = createSessionRetryState(),
   connection,
   recordLevel,
 } = {}) {
@@ -59,6 +64,7 @@ export function commandExecutionPayload({
     mode: safeString(mode).trim() || null,
     multiline_mode: multilineMode === "whole" ? "whole" : "split_lines",
     ...textfsm,
+    ...sessionRetryRequestFields(retry),
     connection,
     record_level: recordLevel,
   };
@@ -83,6 +89,7 @@ function initialCommandWorkspaceState() {
       strictErrors: false,
       template: "",
     },
+    retry: createSessionRetryState(),
     preview: { kind: "empty", text: "", message: "" },
     executionResult: { kind: "empty" },
     loadingActions: [],
@@ -323,6 +330,13 @@ export function createStandardCommandExecutionWorkspace({
     }));
   }
 
+  function changeRetry(retry = {}) {
+    stateStore.update((state) => ({
+      ...state,
+      retry: { ...state.retry, ...retry },
+    }));
+  }
+
   function currentExecutionPayload() {
     const state = get(stateStore);
     return commandExecutionPayload({
@@ -331,6 +345,7 @@ export function createStandardCommandExecutionWorkspace({
       mode: state.mode,
       multilineMode: state.multilineMode,
       textfsm: textfsmPayload(state.textfsm),
+      retry: state.retry,
       connection: runtime.connection(),
       recordLevel: runtime.recordLevel(),
     });
@@ -433,6 +448,7 @@ export function createStandardCommandExecutionWorkspace({
     changeMode,
     changeMultilineMode,
     changeTextfsm,
+    changeRetry,
     preview,
     execute,
     destroy,

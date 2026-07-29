@@ -7,27 +7,28 @@
     CommandTemplateSourceField,
   } from "../../components/command-flow/index.js";
   import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
+  import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
+  import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
+  import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import { t } from "../../lib/i18n.js";
-  import {
-    classNames,
-    selectOptionsWithCurrent,
-    workflowChipClass,
-  } from "../../lib/ui.js";
+  import { selectOptionsWithCurrent } from "../../lib/ui.js";
   import { createStandardCommandExecutionWorkspace } from "../../modules/standard/standardCommandExecutionWorkspace.js";
   import {
     exportParsedOutputItemExcel,
     parsedOutputBlockDisplayFromItem,
   } from "../../modules/operations/results.js";
+  import { sessionRetryValidation } from "../../modules/operations/sessionRetry.js";
 
   let { active } = $props();
   let panelElement;
   let initialized = false;
+  let activeResultKey = $state("");
   const workspace = createStandardCommandExecutionWorkspace();
   const { stateStore } = workspace;
   let commandState = $derived($stateStore);
@@ -42,11 +43,71 @@
       ? commandState.executionResult.resultPayload.executed
       : [],
   );
+  let retryValid = $derived(sessionRetryValidation(commandState.retry).valid);
+  let resultItems = $derived(
+    executedItems.map((item, index) => ({
+      key: `${item.command || "command"}:${index}`,
+      row: item,
+      title: item.command || "-",
+      subtitle: `${t("txBlockResultExitCode")}: ${item.exit_code ?? "-"}`,
+      statusLabel: item.success
+        ? t("orchestrationStatusSuccess", "Success")
+        : t("orchestrationStatusFailed", "Failed"),
+      statusTone: item.success ? "success" : "error",
+    })),
+  );
+  let activeResultItem = $derived(
+    resultItems.find((item) => item.key === activeResultKey) ||
+      resultItems[0] ||
+      null,
+  );
+  let activeResult = $derived(activeResultItem?.row || null);
+  let failedCount = $derived(
+    executedItems.filter((item) => !item.success).length,
+  );
+  let resultStatusMessage = $derived(
+    commandState.executionResult.kind === "running"
+      ? t("running")
+      : commandState.executionResult.kind === "error"
+        ? commandState.executionResult.message
+        : commandState.executionResult.kind === "result" &&
+            executedItems.length === 0
+          ? t("templateExecNoItems")
+          : "",
+  );
+  let resultStatusTone = $derived(
+    commandState.executionResult.kind === "error" ? "error" : "running",
+  );
+  let activeMetaFields = $derived(
+    activeResult
+      ? [
+          {
+            label: t("fieldCommand"),
+            value: activeResult.command,
+            mono: true,
+          },
+          {
+            label: t("txBlockResultExitCode"),
+            value: activeResult.exit_code ?? "-",
+          },
+        ]
+      : [],
+  );
 
   $effect(() => {
     if (!active || initialized) return;
     initialized = true;
     void workspace.initialize();
+  });
+
+  $effect(() => {
+    if (!resultItems.length) {
+      activeResultKey = "";
+      return;
+    }
+    if (!resultItems.some((item) => item.key === activeResultKey)) {
+      activeResultKey = resultItems[0].key;
+    }
   });
 
   async function handleSourceChange(value) {
@@ -135,6 +196,12 @@
         textfsmFields={commandState.textfsm}
       />
 
+      <SessionRetryFields
+        idPrefix="command-session-retry"
+        value={commandState.retry}
+        onChange={workspace.changeRetry}
+      />
+
       {#if commandState.status.message}
         <StatusCard
           message={commandState.status.message}
@@ -155,6 +222,7 @@
           variant="default"
           size="sm"
           loading={commandState.loadingActions.includes("execute")}
+          disabled={!retryValid}
           onclick={workspace.execute}
         >
           {t("execBtn")}
@@ -178,82 +246,64 @@
   {/if}
 
   {#if commandState.executionResult.kind !== "empty"}
-    <CommandFlowSurface
-      variant="workbench-section"
-      indexText={commandState.preview.kind === "empty" ? "02" : "03"}
-      title={t("flowResultsTitle")}
-    >
-      {#if commandState.executionResult.kind === "running"}
-        <StatusCard message={t("running")} tone="running" />
-      {:else if commandState.executionResult.kind === "error"}
-        <StatusCard
-          message={commandState.executionResult.message}
-          tone="error"
-        />
-      {:else if executedItems.length === 0}
-        <StatusCard message={t("templateExecNoItems")} tone="info" />
-      {:else}
-        <div class="grid min-w-0 gap-3">
-          {#each executedItems as item, index}
+    <div class="border-t-4 border-muted p-4 sm:p-5">
+      <ExecutionResultsPanel
+        title={t("flowResultsTitle")}
+        description={t("flowResultsHint")}
+        icon={TerminalIcon}
+        items={resultItems}
+        activeKey={activeResultItem?.key || ""}
+        navigationAriaLabel={t("flowResultsTitle")}
+        onSelect={(key) => (activeResultKey = key)}
+        statusMessage={resultStatusMessage}
+        statusTone={resultStatusTone}
+        totalCount={commandState.executionResult.kind === "result"
+          ? executedItems.length
+          : null}
+        succeededCount={commandState.executionResult.kind === "result"
+          ? executedItems.length - failedCount
+          : null}
+        failedCount={commandState.executionResult.kind === "result"
+          ? failedCount
+          : null}
+        totalLabel={t("showResultCount")}
+        succeededLabel={t("orchestrationStatusSuccess", "Success")}
+        failedLabel={t("orchestrationStatusFailed", "Failed")}
+      >
+        {#snippet detail()}
+          {#if activeResult}
             {@const parsedOutputBlock = parsedOutputBlockDisplayFromItem(
-              item,
-              item,
+              activeResult,
+              activeResult,
             )}
-            <article
-              class={classNames(
-                "grid min-w-0 gap-2 rounded-lg border px-3 py-3",
-                item.success
-                  ? "border-emerald-200 bg-emerald-50"
-                  : "border-rose-200 bg-rose-50",
-              )}
-            >
-              <div
-                class="flex min-w-0 flex-wrap items-center justify-between gap-2"
-              >
-                <span
-                  class={classNames(
-                    "min-w-0 break-all font-mono text-sm font-semibold",
-                    item.success ? "text-emerald-700" : "text-rose-700",
-                  )}
-                >
-                  {index + 1}. {item.command}
-                </span>
-                <span
-                  class={workflowChipClass(
-                    item.success
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-rose-100 text-rose-700",
-                  )}
-                >
-                  {item.success
-                    ? t("orchestrationStatusSuccess", "Success")
-                    : t("orchestrationStatusFailed", "Failed")}
-                </span>
-              </div>
-              {#if item.output || item.all || item.error}
-                <div
-                  class="rounded-lg border border-slate-200 bg-white px-3 py-2"
-                >
-                  <div class="text-[11px] font-semibold text-slate-500">
-                    {t("txBlockResultOutput")}
-                  </div>
-                  <OutputBlock class="mt-1"
-                    >{item.success
-                      ? item.output || item.all || item.error
-                      : item.all || item.output || item.error}</OutputBlock
-                  >
-                </div>
-              {/if}
-              {#if parsedOutputBlock}
-                <ParsedOutputBlock
-                  {parsedOutputBlock}
-                  onExportExcel={exportParsedOutputItemExcel}
-                />
-              {/if}
-            </article>
-          {/each}
-        </div>
-      {/if}
-    </CommandFlowSurface>
+            <ExecutionResultMeta fields={activeMetaFields} />
+            {#if !activeResult.success && activeResult.error}
+              <StatusCard
+                message={activeResult.error}
+                tone="error"
+                variant="alert"
+              />
+            {/if}
+            {#if activeResult.output || activeResult.all || activeResult.error}
+              <OutputBlock title={activeResult.command}>
+                {activeResult.success
+                  ? activeResult.output ||
+                    activeResult.all ||
+                    activeResult.error
+                  : activeResult.all ||
+                    activeResult.output ||
+                    activeResult.error}
+              </OutputBlock>
+            {/if}
+            {#if parsedOutputBlock}
+              <ParsedOutputBlock
+                {parsedOutputBlock}
+                onExportExcel={exportParsedOutputItemExcel}
+              />
+            {/if}
+          {/if}
+        {/snippet}
+      </ExecutionResultsPanel>
+    </div>
   {/if}
 </div>

@@ -21,6 +21,10 @@ import {
   ensureConnectionTargetSelected,
 } from "../connections/connections.js";
 import { parsedOutputSheetsFromParsedOutputItems } from "../operations/results.js";
+import {
+  createSessionRetryState,
+  sessionRetryRequestFields,
+} from "../operations/sessionRetry.js";
 
 export const EMPTY_RESULT = { kind: "empty" };
 export const DEFAULT_STANDARD_PAGE_MODE = normalizeStandardExecMode(
@@ -154,6 +158,7 @@ export function normalizeCommandFlowExecutionSource(source = {}) {
 export function commandFlowExecutionPayload({
   connection,
   recordLevel,
+  retry = createSessionRetryState(),
   source,
   textfsm = {},
   vars,
@@ -172,6 +177,7 @@ export function commandFlowExecutionPayload({
     ...sourcePayload,
     vars,
     ...textfsm,
+    ...sessionRetryRequestFields(retry),
     connection,
     record_level: recordLevel,
   };
@@ -190,7 +196,10 @@ export function setStandardTextfsmFields(textfsmFields = {}) {
   });
 }
 
-export async function executeCommandFlow(executionSource = null) {
+export async function executeCommandFlow(
+  executionSource = null,
+  retry = createSessionRetryState(),
+) {
   if (!ensureConnectionTargetSelected()) return;
   setCommandFlowExecutionResult({ kind: "running" });
   try {
@@ -210,6 +219,7 @@ export async function executeCommandFlow(executionSource = null) {
       commandFlowExecutionPayload({
         connection: connectionPayload(),
         recordLevel: recordLevelPayload(),
+        retry,
         source,
         textfsm: textfsmPayload(),
         vars: buildFlowVarsPayload(),

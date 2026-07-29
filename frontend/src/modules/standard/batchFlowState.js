@@ -8,6 +8,10 @@ import {
 } from "../connections/connectionFieldStoreState.js";
 import { recordLevelPayload } from "../overlays/overlays.js";
 import { normalizeBatchExecMaxParallel } from "./batchExecState.js";
+import {
+  createSessionRetryState,
+  sessionRetryRequestFields,
+} from "../operations/sessionRetry.js";
 
 export const EMPTY_BATCH_FLOW_RESULT = Object.freeze({ kind: "empty" });
 
@@ -15,6 +19,7 @@ const BUILTIN_TEMPLATE_PREFIX = "builtin:";
 
 export const batchFlowFormState = writable({
   maxParallel: "",
+  retry: createSessionRetryState(),
   template: "",
   varsJson: "",
 });
@@ -26,6 +31,13 @@ export function setBatchFlowField(field, value) {
   batchFlowFormState.update((form) => ({
     ...form,
     [field]: safeString(value),
+  }));
+}
+
+export function setBatchFlowRetry(retry = {}) {
+  batchFlowFormState.update((form) => ({
+    ...form,
+    retry: { ...createSessionRetryState(), ...retry },
   }));
 }
 
@@ -106,6 +118,7 @@ export async function executeBatchFlow() {
       groups,
       labels,
       ...(maxParallel ? { max_parallel: maxParallel } : {}),
+      ...sessionRetryRequestFields(form.retry),
       record_level: recordLevelPayload(),
     });
     batchFlowResultState.set({ kind: "result", resultPayload });

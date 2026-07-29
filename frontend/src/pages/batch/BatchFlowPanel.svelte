@@ -1,13 +1,15 @@
 <script>
   import * as Card from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";
-  import { Badge } from "$lib/components/ui/badge";
   import { Textarea } from "$lib/components/ui/textarea";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
+  import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
+  import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
+  import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
@@ -21,9 +23,12 @@
     executeBatchFlow,
     loadBatchFlowTemplateOptions,
     setBatchFlowField,
+    setBatchFlowRetry,
   } from "../../modules/standard/batchFlowState.js";
+  import { sessionRetryValidation } from "../../modules/operations/sessionRetry.js";
 
   let { active } = $props();
+  let activeResultKey = $state("");
   let initialized = false;
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
@@ -40,6 +45,12 @@
       runBtn: t("batchFlowRunBtn"),
       resultSuccess: t("flowResultSuccess"),
       resultFailed: t("flowResultFailed"),
+      resultsTitle: t("flowResultsTitle"),
+      resultsHint: t("flowResultsHint"),
+      total: t("showResultCount"),
+      devicesAria: t("batchShowResultDevicesAria"),
+      host: t("fieldHost"),
+      profile: t("showResultProfile"),
       pickerFields: batchFlowTargetPickerFields.map((field) => ({
         ...field,
         labelText: t(field.labelKey),
@@ -51,11 +62,37 @@
   let result = $derived($batchFlowResultState);
   let templateOptions = $derived($batchFlowTemplateOptionsState);
   let running = $derived(result.kind === "running");
+  let retryValid = $derived(sessionRetryValidation(form.retry).valid);
   let resultRows = $derived(
     result.kind === "result" && Array.isArray(result.resultPayload?.results)
       ? result.resultPayload.results
       : [],
   );
+  let resultItems = $derived(
+    resultRows.map((row, index) => {
+      const failed = Boolean(row.error) || row.success === false;
+      return {
+        key: `${row.target || "result"}:${index}`,
+        row,
+        title: row.target || "-",
+        subtitle: [row.host, row.profile].filter(Boolean).join(" · "),
+        statusLabel: failed
+          ? i18nLabels.resultFailed
+          : i18nLabels.resultSuccess,
+        statusTone: failed ? "error" : "success",
+      };
+    }),
+  );
+  let activeResultItem = $derived(
+    resultItems.find((item) => item.key === activeResultKey) ||
+      resultItems[0] ||
+      null,
+  );
+  let activeResult = $derived(activeResultItem?.row || null);
+  let failedCount = $derived(
+    resultRows.filter((row) => row.error || row.success === false).length,
+  );
+  let succeededCount = $derived(resultRows.length - failedCount);
   let statusMessage = $derived(
     result.kind === "error"
       ? result.message
@@ -64,11 +101,30 @@
         : "",
   );
   let statusTone = $derived(result.kind === "error" ? "error" : "running");
+  let activeMetaFields = $derived(
+    activeResult
+      ? [
+          { label: i18nLabels.host, value: activeResult.host },
+          { label: i18nLabels.profile, value: activeResult.profile },
+          { label: i18nLabels.template, value: form.template, mono: true },
+        ]
+      : [],
+  );
 
   $effect(() => {
     if (!active || initialized) return;
     initialized = true;
     void loadBatchFlowTemplateOptions();
+  });
+
+  $effect(() => {
+    if (!resultItems.length) {
+      activeResultKey = "";
+      return;
+    }
+    if (!resultItems.some((item) => item.key === activeResultKey)) {
+      activeResultKey = resultItems[0].key;
+    }
   });
 </script>
 
@@ -120,6 +176,12 @@
         </div>
       </div>
 
+      <SessionRetryFields
+        idPrefix="batch-flow-session-retry"
+        value={form.retry}
+        onChange={setBatchFlowRetry}
+      />
+
       <div
         class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
       >
@@ -144,7 +206,12 @@
                 setBatchFlowField("maxParallel", event.currentTarget.value)}
             />
           </label>
-          <LoadingButton size="lg" loading={running} onclick={executeBatchFlow}>
+          <LoadingButton
+            size="lg"
+            loading={running}
+            disabled={!retryValid}
+            onclick={executeBatchFlow}
+          >
             <span>{i18nLabels.runBtn}</span>
           </LoadingButton>
         </div>
@@ -152,36 +219,47 @@
     </Card.Content>
   </Card.Root>
 
-  <StatusCard message={statusMessage} tone={statusTone} />
-
-  {#each resultRows as row, index (row.target || index)}
-    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-      <Card.Content class="grid gap-3 p-4">
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span class="font-medium text-foreground">{row.target}</span>
-          <span class="text-muted-foreground">{row.host}</span>
-          <span class="text-muted-foreground">{row.profile}</span>
-          {#if row.success !== null && row.success !== undefined}
-            <Badge variant={row.success ? "secondary" : "destructive"}>
-              {row.success ? i18nLabels.resultSuccess : i18nLabels.resultFailed}
-            </Badge>
+  {#if result.kind !== "empty"}
+    <ExecutionResultsPanel
+      title={i18nLabels.resultsTitle}
+      description={i18nLabels.resultsHint}
+      icon={GitBranchIcon}
+      items={resultItems}
+      activeKey={activeResultItem?.key || ""}
+      navigationAriaLabel={i18nLabels.devicesAria}
+      onSelect={(key) => (activeResultKey = key)}
+      {statusMessage}
+      {statusTone}
+      totalCount={result.kind === "result" ? resultRows.length : null}
+      succeededCount={result.kind === "result" ? succeededCount : null}
+      failedCount={result.kind === "result" ? failedCount : null}
+      totalLabel={i18nLabels.total}
+      succeededLabel={i18nLabels.resultSuccess}
+      failedLabel={i18nLabels.resultFailed}
+    >
+      {#snippet detail()}
+        {#if activeResult}
+          <ExecutionResultMeta fields={activeMetaFields} />
+          {#if activeResult.error}
+            <StatusCard
+              message={activeResult.error}
+              tone="error"
+              variant="alert"
+            />
+          {:else}
+            {#each activeResult.outputs ?? [] as output, stepIndex (stepIndex)}
+              <OutputBlock title={`${stepIndex + 1}. ${output.command}`}>
+                {output.output ?? ""}
+              </OutputBlock>
+              {#if output.parsed_output || output.parse_error}
+                <ParsedOutputBlock
+                  parsedOutputBlock={parsedOutputBlockDisplayFromItem(output)}
+                />
+              {/if}
+            {/each}
           {/if}
-        </div>
-        {#if row.error}
-          <StatusCard message={row.error} tone="error" />
-        {:else}
-          {#each row.outputs ?? [] as output, stepIndex (stepIndex)}
-            <OutputBlock title={`${stepIndex + 1}. ${output.command}`}>
-              {output.output ?? ""}
-            </OutputBlock>
-            {#if output.parsed_output || output.parse_error}
-              <ParsedOutputBlock
-                parsedOutputBlock={parsedOutputBlockDisplayFromItem(output)}
-              />
-            {/if}
-          {/each}
         {/if}
-      </Card.Content>
-    </Card.Root>
-  {/each}
+      {/snippet}
+    </ExecutionResultsPanel>
+  {/if}
 </div>

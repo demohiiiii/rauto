@@ -1285,6 +1285,10 @@ Group JSON 结构：
 | `--linux-shell-flavor` | -        | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                              |
 | `--device-profile`     | -        | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
 | `--force-autodetect`   | -        | 忽略已缓存的 autodetect 结果并重新探测目标设备                                           |
+| `--session-retries`    | `RAUTO_SESSION_RETRIES` | 普通命令/命令流发生瞬时故障时的重试次数（默认：`0`）                         |
+| `--retry-initial-backoff-ms` | `RAUTO_RETRY_INITIAL_BACKOFF_MS` | 首次重试等待毫秒数（默认：`200`）                     |
+| `--retry-max-backoff-ms` | `RAUTO_RETRY_MAX_BACKOFF_MS` | 指数退避最大毫秒数（默认：`2000`）                         |
+| `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | 同时重试认证拒绝（默认关闭）                  |
 | `--connection`         | -        | 按名称加载已保存连接配置（`-c`）                                                         |
 | `--save-connection`    | -        | 成功连接后保存当前有效连接配置和凭证引用（`-S`）                                         |
 
@@ -1306,6 +1310,8 @@ Group JSON 结构：
 - `show --print-command`：执行前打印内部解析出的设备命令。
 - `show-object set/list/delete`：管理保存到 SQLite 的 profile 级自定义 show object。同一 profile 和 object 下，自定义对象会覆盖内置 show 映射。
 - `--force-autodetect`：跳过本地 `host:port` autodetect 缓存，重新探测并刷新缓存。适合设备更换、同 IP/端口后的设备类型变化等特殊情况。
+- `--session-retries <N>`：普通命令和命令流遇到连接、初始化、传输或通道断开等瞬时故障时执行有界重试。退避从 `--retry-initial-backoff-ms` 开始，指数增长到 `--retry-max-backoff-ms`；命令流已完成步骤会保留，重连后从首个未完成步骤继续。
+- 重试默认关闭，并具有“至少执行一次”语义：设备可能已经应用命令，但连接在返回提示符前断开。只应为可安全重复的命令开启。事务、工作流和上传不会自动重试；认证拒绝只有显式设置 `--retry-authentication-errors` 后才会重试。
 - `exec/template/flow --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
 - `exec/template/flow --textfsm-platform <platform>`：在启用解析后覆盖内置 TextFSM 自动选择时推断的平台。
 - `exec/template/flow --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。对 `template` 和 `flow` 可以重复传多个，按命令顺序匹配；数量不足时复用最后一个模板。

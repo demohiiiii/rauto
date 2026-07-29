@@ -338,6 +338,7 @@ mod tests {
             vars: json!({}),
             template_dir: None,
             force_autodetect: false,
+            retry_policy: Default::default(),
         }
     }
 

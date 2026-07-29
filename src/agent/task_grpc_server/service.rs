@@ -1192,6 +1192,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 textfsm_platform: optional_string(req.textfsm_platform),
                 no_parse: req.no_parse,
                 textfsm_strict_errors: req.textfsm_strict_errors,
+                retry: None,
                 target: map_execution_target_options(req.connection, &req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1221,6 +1222,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 groups: req.groups,
                 labels: req.labels,
                 max_parallel: None,
+                retry: None,
                 record_level: parse_record_level(&req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1256,6 +1258,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 } else {
                     Some(req.max_parallel as usize)
                 },
+                retry: None,
                 record_level: parse_record_level(&req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1292,6 +1295,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 } else {
                     Some(req.max_parallel as usize)
                 },
+                retry: None,
                 record_level: parse_record_level(&req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1325,6 +1329,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 } else {
                     Some(req.max_parallel as usize)
                 },
+                retry: None,
                 record_level: parse_record_level(&req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1352,6 +1357,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
+                retry: None,
                 target: map_execution_target_options(req.connection, &req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1394,6 +1400,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
+                retry: None,
                 target: map_execution_target_options(req.connection, &req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1423,6 +1430,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
+                retry: None,
                 run: DryRunOptions {
                     dry_run: Some(req.dry_run),
                 },
@@ -1468,6 +1476,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
+                retry: None,
                 run: DryRunOptions {
                     dry_run: Some(req.dry_run),
                 },
@@ -1504,6 +1513,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
+                retry: None,
                 target: map_execution_target_options(req.connection, &req.record_level)?,
             }),
         )

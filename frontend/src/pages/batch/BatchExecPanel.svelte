@@ -3,9 +3,12 @@
   import { Input } from "$lib/components/ui/input";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
+  import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
+  import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
+  import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
@@ -16,9 +19,12 @@
     batchExecResultState,
     executeBatchExecCommand,
     setBatchExecField,
+    setBatchExecRetry,
   } from "../../modules/standard/batchExecState.js";
+  import { sessionRetryValidation } from "../../modules/operations/sessionRetry.js";
 
   let { active } = $props();
+  let activeResultKey = $state("");
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
     i18nCurrentLanguage;
@@ -33,6 +39,14 @@
       maxParallel: t("batchExecMaxParallelLabel"),
       runBtn: t("batchExecRunBtn"),
       exitCode: t("txBlockResultExitCode"),
+      resultsTitle: t("flowResultsTitle"),
+      resultsHint: t("flowResultsHint"),
+      total: t("showResultCount"),
+      succeeded: t("orchestrationStatusSuccess", "Success"),
+      failed: t("orchestrationStatusFailed", "Failed"),
+      devicesAria: t("batchShowResultDevicesAria"),
+      host: t("fieldHost"),
+      profile: t("showResultProfile"),
       pickerFields: batchExecTargetPickerFields.map((field) => ({
         ...field,
         labelText: t(field.labelKey),
@@ -43,11 +57,30 @@
   let form = $derived($batchExecFormState);
   let result = $derived($batchExecResultState);
   let running = $derived(result.kind === "running");
+  let retryValid = $derived(sessionRetryValidation(form.retry).valid);
   let resultRows = $derived(
     result.kind === "result" && Array.isArray(result.resultPayload?.results)
       ? result.resultPayload.results
       : [],
   );
+  let resultItems = $derived(
+    resultRows.map((row, index) => ({
+      key: `${row.target || "result"}:${index}`,
+      row,
+      title: row.target || "-",
+      subtitle: [row.host, row.profile].filter(Boolean).join(" · "),
+      statusLabel: row.error ? i18nLabels.failed : i18nLabels.succeeded,
+      statusTone: row.error ? "error" : "success",
+    })),
+  );
+  let activeResultItem = $derived(
+    resultItems.find((item) => item.key === activeResultKey) ||
+      resultItems[0] ||
+      null,
+  );
+  let activeResult = $derived(activeResultItem?.row || null);
+  let failedCount = $derived(resultRows.filter((row) => row.error).length);
+  let succeededCount = $derived(resultRows.length - failedCount);
   let statusMessage = $derived(
     result.kind === "error"
       ? result.message
@@ -56,6 +89,29 @@
         : "",
   );
   let statusTone = $derived(result.kind === "error" ? "error" : "running");
+  let activeMetaFields = $derived(
+    activeResult
+      ? [
+          { label: i18nLabels.host, value: activeResult.host },
+          { label: i18nLabels.profile, value: activeResult.profile },
+          { label: i18nLabels.mode, value: activeResult.mode },
+          {
+            label: i18nLabels.exitCode,
+            value: activeResult.exit_code ?? "-",
+          },
+        ]
+      : [],
+  );
+
+  $effect(() => {
+    if (!resultItems.length) {
+      activeResultKey = "";
+      return;
+    }
+    if (!resultItems.some((item) => item.key === activeResultKey)) {
+      activeResultKey = resultItems[0].key;
+    }
+  });
 </script>
 
 <div hidden={!active} class="grid gap-3 p-4 sm:p-5">
@@ -103,6 +159,12 @@
         </div>
       </div>
 
+      <SessionRetryFields
+        idPrefix="batch-exec-session-retry"
+        value={form.retry}
+        onChange={setBatchExecRetry}
+      />
+
       <div
         class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
       >
@@ -130,6 +192,7 @@
           <LoadingButton
             size="lg"
             loading={running}
+            disabled={!retryValid}
             onclick={executeBatchExecCommand}
           >
             <span>{i18nLabels.runBtn}</span>
@@ -139,31 +202,47 @@
     </Card.Content>
   </Card.Root>
 
-  <StatusCard message={statusMessage} tone={statusTone} />
-
-  {#each resultRows as row, index (row.target || index)}
-    <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-      <Card.Content class="grid gap-3 p-4">
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span class="font-medium text-foreground">{row.target}</span>
-          <span class="text-muted-foreground">{row.host}</span>
-          <span class="text-muted-foreground">{row.profile}</span>
-          <span class="text-muted-foreground">{row.mode}</span>
-          <span class="text-muted-foreground">
-            {i18nLabels.exitCode}: {row.exit_code ?? "-"}
-          </span>
-        </div>
-        {#if row.error}
-          <StatusCard message={row.error} tone="error" />
-        {:else}
-          <OutputBlock title={row.target}>{row.output ?? ""}</OutputBlock>
-          {#if row.parsed_output || row.parse_error}
-            <ParsedOutputBlock
-              parsedOutputBlock={parsedOutputBlockDisplayFromItem(row)}
+  {#if result.kind !== "empty"}
+    <ExecutionResultsPanel
+      title={i18nLabels.resultsTitle}
+      description={i18nLabels.resultsHint}
+      icon={TerminalIcon}
+      items={resultItems}
+      activeKey={activeResultItem?.key || ""}
+      navigationAriaLabel={i18nLabels.devicesAria}
+      onSelect={(key) => (activeResultKey = key)}
+      {statusMessage}
+      {statusTone}
+      totalCount={result.kind === "result" ? resultRows.length : null}
+      succeededCount={result.kind === "result" ? succeededCount : null}
+      failedCount={result.kind === "result" ? failedCount : null}
+      totalLabel={i18nLabels.total}
+      succeededLabel={i18nLabels.succeeded}
+      failedLabel={i18nLabels.failed}
+    >
+      {#snippet detail()}
+        {#if activeResult}
+          <ExecutionResultMeta fields={activeMetaFields} />
+          {#if activeResult.error}
+            <StatusCard
+              message={activeResult.error}
+              tone="error"
+              variant="alert"
             />
+          {:else}
+            <OutputBlock title={activeResult.target}>
+              {activeResult.output ?? ""}
+            </OutputBlock>
+            {#if activeResult.parsed_output || activeResult.parse_error}
+              <ParsedOutputBlock
+                parsedOutputBlock={parsedOutputBlockDisplayFromItem(
+                  activeResult,
+                )}
+              />
+            {/if}
           {/if}
         {/if}
-      </Card.Content>
-    </Card.Root>
-  {/each}
+      {/snippet}
+    </ExecutionResultsPanel>
+  {/if}
 </div>

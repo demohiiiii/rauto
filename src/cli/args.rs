@@ -525,6 +525,43 @@ pub struct GlobalOpts {
     #[arg(long, global = true, default_value_t = false)]
     pub force_autodetect: bool,
 
+    /// Retry transient connection failures for ordinary commands and command flows.
+    /// Retries have at-least-once semantics; keep disabled for commands that are unsafe to repeat.
+    #[arg(
+        long,
+        global = true,
+        env = "RAUTO_SESSION_RETRIES",
+        default_value_t = 0
+    )]
+    pub session_retries: usize,
+
+    /// Initial delay before retrying a transient session failure
+    #[arg(
+        long,
+        global = true,
+        env = "RAUTO_RETRY_INITIAL_BACKOFF_MS",
+        default_value_t = 200
+    )]
+    pub retry_initial_backoff_ms: u64,
+
+    /// Maximum exponential backoff delay for session retries
+    #[arg(
+        long,
+        global = true,
+        env = "RAUTO_RETRY_MAX_BACKOFF_MS",
+        default_value_t = 2000
+    )]
+    pub retry_max_backoff_ms: u64,
+
+    /// Also retry SSH authentication rejections (disabled by default)
+    #[arg(
+        long,
+        global = true,
+        env = "RAUTO_RETRY_AUTHENTICATION_ERRORS",
+        default_value_t = false
+    )]
+    pub retry_authentication_errors: bool,
+
     /// Use saved connection profile by name
     #[arg(long, short = 'c', global = true)]
     pub connection: Option<String>,

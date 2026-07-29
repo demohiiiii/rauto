@@ -135,7 +135,7 @@ pub(crate) async fn run_command_flow(
         return Err(anyhow::anyhow!("command flow has no steps"));
     }
 
-    let client = DeviceClient::connect_with_recording(
+    let client = DeviceClient::connect_with_recording_and_retry(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
@@ -146,6 +146,7 @@ pub(crate) async fn run_command_flow(
         crate::to_record_level(args.record_level),
         conn.ssh_security,
         conn.connect_timeout_secs,
+        conn.retry_policy,
     )
     .await?;
 
@@ -393,7 +394,7 @@ async fn execute_resolved_flow_target_buffered(
         &target.conn.device_profile,
         target.conn.linux_shell_flavor,
     )?;
-    let client = DeviceClient::connect_with_recording(
+    let client = DeviceClient::connect_with_recording_and_retry(
         target.conn.host.clone(),
         target.conn.port,
         target.conn.username.clone(),
@@ -404,6 +405,7 @@ async fn execute_resolved_flow_target_buffered(
         crate::to_record_level(options.record_level),
         target.conn.ssh_security,
         target.conn.connect_timeout_secs,
+        target.conn.retry_policy,
     )
     .await?;
 

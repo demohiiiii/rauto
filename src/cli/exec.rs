@@ -184,7 +184,7 @@ async fn execute_resolved_exec_target_buffered(
         target.conn.linux_shell_flavor,
     )?;
     let default_mode = template_loader::default_profile_mode(&target.conn.device_profile)?;
-    let client = DeviceClient::connect_with_recording(
+    let client = DeviceClient::connect_with_recording_and_retry(
         target.conn.host.clone(),
         target.conn.port,
         target.conn.username.clone(),
@@ -195,6 +195,7 @@ async fn execute_resolved_exec_target_buffered(
         crate::to_record_level(options.record_level),
         target.conn.ssh_security,
         target.conn.connect_timeout_secs,
+        target.conn.retry_policy,
     )
     .await?;
 
@@ -293,7 +294,7 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
     let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
     info!("Connecting to device...");
-    let client = DeviceClient::connect_with_recording(
+    let client = DeviceClient::connect_with_recording_and_retry(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
@@ -304,6 +305,7 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
         crate::to_record_level(args.record_level),
         conn.ssh_security,
         conn.connect_timeout_secs,
+        conn.retry_policy,
     )
     .await?;
 
@@ -380,7 +382,7 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
     let effective_mode =
         template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
 
-    let client = DeviceClient::connect_with_recording(
+    let client = DeviceClient::connect_with_recording_and_retry(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
@@ -391,6 +393,7 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
         crate::to_record_level(args.record_level),
         conn.ssh_security,
         conn.connect_timeout_secs,
+        conn.retry_policy,
     )
     .await?;
 
@@ -502,7 +505,7 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
     let effective_mode =
         template_loader::resolve_profile_mode(&conn.device_profile, requested_mode)?;
 
-    let client = DeviceClient::connect_with_recording(
+    let client = DeviceClient::connect_with_recording_and_retry(
         conn.host.clone(),
         conn.port,
         conn.username.clone(),
@@ -513,6 +516,7 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         crate::to_record_level(args.record_level),
         conn.ssh_security,
         conn.connect_timeout_secs,
+        conn.retry_policy,
     )
     .await?;
 
@@ -752,7 +756,7 @@ async fn execute_resolved_show_target_buffered(
         target.conn.linux_shell_flavor,
     )?;
     let default_mode = template_loader::default_profile_mode(&target.conn.device_profile)?;
-    let client = DeviceClient::connect_with_recording(
+    let client = DeviceClient::connect_with_recording_and_retry(
         target.conn.host.clone(),
         target.conn.port,
         target.conn.username.clone(),
@@ -763,6 +767,7 @@ async fn execute_resolved_show_target_buffered(
         crate::to_record_level(options.record_level),
         target.conn.ssh_security,
         target.conn.connect_timeout_secs,
+        target.conn.retry_policy,
     )
     .await?;
 

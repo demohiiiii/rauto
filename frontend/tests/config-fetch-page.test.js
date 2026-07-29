@@ -233,14 +233,16 @@ test("configuration fetch page renders target controls and device results", () =
   assert.match(page, /downloadConfigFetchResult/);
   assert.match(page, /<ToggleGroup\.Root/);
   assert.match(page, /bind:value=\{targetModeValue\}/);
-  assert.match(page, /disabled=\{!kindAvailable\}/);
+  assert.match(page, /disabled=\{!kindAvailable \|\| !retryValid\}/);
+  assert.match(page, /<SessionRetryFields/);
   assert.match(page, /<Separator/);
   assert.match(page, /xl:grid-cols-\[minmax\(0,5fr\)_minmax\(20rem,3fr\)\]/);
   assert.match(page, /<Switch/);
   assert.match(page, /<LoadingButton/);
   assert.match(page, /<OutputBlock/);
   assert.match(page, /<TabList/);
-  assert.match(page, /aria-live="polite"/);
+  assert.match(page, /ExecutionResultsPanel/);
+  assert.match(page, /ExecutionResultMeta/);
   assert.match(page, /CONFIG_FETCH_TARGET_MODE\.current/);
   assert.match(page, /connectionTargetState/);
   assert.match(connectionState, /connectionPicker\.configFetch\.targets/);

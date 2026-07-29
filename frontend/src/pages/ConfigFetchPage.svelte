@@ -9,9 +9,11 @@
   import DownloadIcon from "@lucide/svelte/icons/download";
   import FileDownIcon from "@lucide/svelte/icons/file-down";
   import ConnectionPickerField from "../components/connections/ConnectionPickerField.svelte";
-  import DetailFieldCard from "../components/fragments/DetailFieldCard.svelte";
+  import ExecutionResultMeta from "../components/fragments/ExecutionResultMeta.svelte";
+  import ExecutionResultsPanel from "../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../components/fragments/LoadingButton.svelte";
   import OutputBlock from "../components/fragments/OutputBlock.svelte";
+  import SessionRetryFields from "../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
   import TabList from "../components/fragments/TabList.svelte";
   import ValueLabelSelectField from "../components/fragments/ValueLabelSelectField.svelte";
@@ -38,7 +40,9 @@
     normalizeConfigFetchTargetMode,
     refreshConfigFetchKindOptions,
     setConfigFetchField,
+    setConfigFetchRetry,
   } from "../modules/operations/configFetch.js";
+  import { sessionRetryValidation } from "../modules/operations/sessionRetry.js";
 
   let { active } = $props();
   let currentLanguage = $derived($currentLanguageState);
@@ -66,6 +70,7 @@
   let kindAvailable = $derived(
     configFetchKindAvailable(kindCatalog, form.kind),
   );
+  let retryValid = $derived(sessionRetryValidation(form.retry).valid);
   let currentTargetDetails = $derived(connectionTarget?.details || null);
   let currentTargetName = $derived(
     currentTargetDetails?.name ||
@@ -122,6 +127,15 @@
       })),
     };
   });
+  let resultItems = $derived(
+    resultRows.map((row, index) => ({
+      key: row.target || String(index),
+      title: row.target || "-",
+      subtitle: [row.host, row.profile].filter(Boolean).join(" · "),
+      statusLabel: row.error ? pageLabels.failed : pageLabels.succeeded,
+      statusTone: row.error ? "error" : "success",
+    })),
+  );
   let contentTabs = $derived(
     activeResult && typeof activeResult.normalized_content === "string"
       ? [
@@ -145,8 +159,7 @@
     currentLanguage;
     if (result.kind === "error") return result.message;
     if (result.kind === "running") return t("configFetchRunning");
-    if (result.kind !== "result") return "";
-    return `${pageLabels.total} ${resultCounts.total}, ${pageLabels.succeeded} ${resultCounts.succeeded}, ${pageLabels.failed} ${resultCounts.failed}`;
+    return "";
   });
   let statusTone = $derived(
     result.kind === "error"
@@ -411,6 +424,12 @@
                   setConfigFetchField("includeNormalized", checked)}
               />
             </div>
+
+            <SessionRetryFields
+              idPrefix="config-fetch-session-retry"
+              value={form.retry}
+              onChange={setConfigFetchRetry}
+            />
           </section>
         </div>
 
@@ -423,7 +442,7 @@
           <LoadingButton
             size="lg"
             loading={running}
-            disabled={!kindAvailable}
+            disabled={!kindAvailable || !retryValid}
             onclick={executeConfigFetch}
           >
             <FileDownIcon data-icon="inline-start" />
@@ -433,148 +452,69 @@
       </Card.Content>
     </Card.Root>
 
-    {#if statusMessage}
-      <div aria-live="polite">
-        <StatusCard message={statusMessage} tone={statusTone} variant="alert" />
-      </div>
-    {/if}
+    {#if result.kind !== "empty"}
+      <ExecutionResultsPanel
+        title={pageLabels.resultsTitle}
+        description={pageLabels.resultsHint}
+        icon={FileDownIcon}
+        items={resultItems}
+        activeKey={activeResult?.target || ""}
+        navigationAriaLabel={pageLabels.devicesAria}
+        onSelect={selectTarget}
+        {statusMessage}
+        {statusTone}
+        totalCount={result.kind === "result" ? resultCounts.total : null}
+        succeededCount={result.kind === "result"
+          ? resultCounts.succeeded
+          : null}
+        failedCount={result.kind === "result" ? resultCounts.failed : null}
+        totalLabel={pageLabels.total}
+        succeededLabel={pageLabels.succeeded}
+        failedLabel={pageLabels.failed}
+        emptyMessage={pageLabels.resultEmpty}
+      >
+        {#snippet detail()}
+          {#if activeResult}
+            <ExecutionResultMeta fields={activeMetaFields} />
 
-    {#if result.kind === "result"}
-      <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-        <WorkspaceActionHeader
-          title={pageLabels.resultsTitle}
-          description={pageLabels.resultsHint}
-          icon={FileDownIcon}
-        >
-          {#snippet actions()}
-            <div class="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">
-                {pageLabels.total}
-                {resultCounts.total}
-              </Badge>
-              <Badge variant="secondary">
-                {pageLabels.succeeded}
-                {resultCounts.succeeded}
-              </Badge>
-              {#if resultCounts.failed > 0}
-                <Badge variant="destructive">
-                  {pageLabels.failed}
-                  {resultCounts.failed}
-                </Badge>
-              {/if}
-            </div>
-          {/snippet}
-        </WorkspaceActionHeader>
-
-        <Card.Content class="p-0">
-          {#if resultRows.length}
-            <div
-              class="grid min-w-0 lg:grid-cols-[minmax(13rem,18rem)_minmax(0,1fr)]"
-            >
-              <nav
-                class="flex gap-2 overflow-x-auto border-b border-border p-3 lg:flex-col lg:overflow-x-visible lg:border-r lg:border-b-0"
-                aria-label={pageLabels.devicesAria}
-              >
-                {#each resultRows as row, index (row.target || index)}
+            {#if activeResult.error}
+              <StatusCard
+                message={activeResult.error}
+                tone="error"
+                variant="alert"
+              />
+            {:else}
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h3 class="text-sm font-semibold text-foreground">
+                  {activeResult.target}
+                </h3>
+                <div class="flex flex-wrap items-center gap-2">
+                  <TabList
+                    tabItems={contentTabs}
+                    activeValue={contentView}
+                    aria-label={pageLabels.resultsTitle}
+                    onSelect={(view) => (contentView = view)}
+                  />
                   <Button
-                    variant={row.target === activeResult?.target
-                      ? "secondary"
-                      : "ghost"}
-                    class="h-auto min-w-48 justify-start px-3 py-3 lg:min-w-0"
-                    aria-pressed={row.target === activeResult?.target}
-                    onclick={() => selectTarget(row.target)}
+                    variant="outline"
+                    size="sm"
+                    class="min-h-10"
+                    onclick={() =>
+                      downloadConfigFetchResult(activeResult, contentView)}
                   >
-                    <span class="grid min-w-0 flex-1 gap-1 text-left">
-                      <span class="truncate font-mono font-semibold">
-                        {row.target}
-                      </span>
-                      <span class="truncate text-xs text-muted-foreground">
-                        {row.host} · {row.profile}
-                      </span>
-                    </span>
-                    <Badge variant={row.error ? "destructive" : "outline"}>
-                      {row.error ? pageLabels.failed : pageLabels.succeeded}
-                    </Badge>
+                    <DownloadIcon data-icon="inline-start" aria-hidden="true" />
+                    {pageLabels.download}
                   </Button>
-                {/each}
-              </nav>
-
-              {#if activeResult}
-                <section class="flex min-w-0 flex-col gap-4 p-4 sm:p-5">
-                  <div
-                    class="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-muted/30 px-4 py-3"
-                  >
-                    {#each activeMetaFields as metaField}
-                      <DetailFieldCard
-                        detailValue={metaField.value}
-                        label={metaField.label}
-                        mono={metaField.mono}
-                        variant="inline"
-                        class="text-muted-foreground"
-                        labelClass="text-muted-foreground/70"
-                        valueClass={metaField.mono
-                          ? "break-all font-mono font-medium text-foreground"
-                          : "break-all font-medium text-foreground"}
-                      />
-                    {/each}
-                  </div>
-
-                  {#if activeResult.error}
-                    <StatusCard
-                      message={activeResult.error}
-                      tone="error"
-                      variant="alert"
-                    />
-                  {:else}
-                    <div
-                      class="flex flex-wrap items-center justify-between gap-3"
-                    >
-                      <h3 class="text-sm font-semibold text-foreground">
-                        {activeResult.target}
-                      </h3>
-                      <div class="flex flex-wrap items-center gap-2">
-                        <TabList
-                          tabItems={contentTabs}
-                          activeValue={contentView}
-                          aria-label={pageLabels.resultsTitle}
-                          onSelect={(view) => (contentView = view)}
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          class="min-h-10"
-                          onclick={() =>
-                            downloadConfigFetchResult(
-                              activeResult,
-                              contentView,
-                            )}
-                        >
-                          <DownloadIcon
-                            data-icon="inline-start"
-                            aria-hidden="true"
-                          />
-                          {pageLabels.download}
-                        </Button>
-                      </div>
-                    </div>
-                    <OutputBlock
-                      title={`${activeResult.target} · ${contentView === CONFIG_FETCH_CONTENT_VIEW.normalized ? pageLabels.normalizedTab : pageLabels.rawTab}`}
-                      >{configFetchContent(
-                        activeResult,
-                        contentView,
-                      )}</OutputBlock
-                    >
-                  {/if}
-                </section>
-              {/if}
-            </div>
-          {:else}
-            <div class="p-4 sm:p-5">
-              <StatusCard message={pageLabels.resultEmpty} />
-            </div>
+                </div>
+              </div>
+              <OutputBlock
+                title={`${activeResult.target} · ${contentView === CONFIG_FETCH_CONTENT_VIEW.normalized ? pageLabels.normalizedTab : pageLabels.rawTab}`}
+                >{configFetchContent(activeResult, contentView)}</OutputBlock
+              >
+            {/if}
           {/if}
-        </Card.Content>
-      </Card.Root>
+        {/snippet}
+      </ExecutionResultsPanel>
     {/if}
   </div>
 </DashboardTabPanel>
