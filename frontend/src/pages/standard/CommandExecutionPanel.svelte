@@ -285,7 +285,11 @@
               />
             {/if}
             {#if activeResult.output || activeResult.all || activeResult.error}
-              <OutputBlock title={activeResult.command}>
+              <OutputBlock
+                title={activeResult.command}
+                tone={activeResultItem?.statusTone}
+                errorLabel={t("orchestrationStatusFailed", "Failed")}
+              >
                 {activeResult.success
                   ? activeResult.output ||
                     activeResult.all ||

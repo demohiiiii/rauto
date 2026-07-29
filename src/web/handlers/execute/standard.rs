@@ -491,7 +491,8 @@ pub async fn execute_show(
                 .execute_output(&show.command, Some(effective_mode.as_str()))
                 .await?;
             let exit_code = output.exit_code;
-            let should_parse = !req.no_parse && exit_code.unwrap_or(0) == 0;
+            let success = output.success && exit_code.unwrap_or(0) == 0;
+            let should_parse = !req.no_parse && success;
             let textfsm_template_content = show
                 .textfsm_template_name
                 .as_deref()
@@ -539,6 +540,7 @@ pub async fn execute_show(
                 textfsm_mapping_command,
                 textfsm_template_name,
                 output: output.content,
+                success,
                 exit_code,
                 parsed_output,
                 parse_error,
@@ -546,15 +548,15 @@ pub async fn execute_show(
                     task_result_with_recording(
                         build_result_summary(
                             TaskOperation::Exec,
-                            if exit_code.unwrap_or(0) == 0 {
+                            if success {
                                 TaskResultOutcome::Success
                             } else {
                                 TaskResultOutcome::Failed
                             },
-                            if exit_code.unwrap_or(0) == 0 {
+                            if success {
                                 "Show command executed successfully"
                             } else {
-                                "Show command finished with a non-zero exit code"
+                                "Show command reported failure"
                             },
                         ),
                         &recording_jsonl,
@@ -585,7 +587,7 @@ pub async fn execute_show(
                 task_ctx,
                 TaskEventInput::new("completed", "Show object execution completed")
                     .with_stage("command")
-                    .with_level("success")
+                    .with_level(if response.success { "success" } else { "error" })
                     .with_progress(Some(100))
                     .with_details(Some(json!({
                         "exit_code": response.exit_code,
@@ -594,7 +596,7 @@ pub async fn execute_show(
                     }))),
             )
         },
-        |_| None,
+        |response| (!response.success).then_some("Show command finished with failure"),
     )
 }
 
@@ -705,7 +707,9 @@ pub async fn execute_show_batch(
             let total = results.len() as u64;
             let failed = results
                 .iter()
-                .filter(|item| item.error.is_some() || item.exit_code.unwrap_or(0) != 0)
+                .filter(|item| {
+                    item.error.is_some() || !item.success || item.exit_code.unwrap_or(0) != 0
+                })
                 .count() as u64;
             let succeeded = total.saturating_sub(failed);
             let outcome = if failed == 0 {
@@ -879,6 +883,7 @@ async fn execute_batch_show_target(
             textfsm_mapping_command: target.show.textfsm_mapping_command.clone(),
             textfsm_template_name: target.show.textfsm_template_name.clone(),
             output: None,
+            success: false,
             exit_code: None,
             parsed_output: None,
             parse_error: None,
@@ -932,7 +937,8 @@ async fn execute_batch_show_target_inner(
         .execute_output(&target.show.command, Some(target.effective_mode.as_str()))
         .await?;
     let exit_code = output.exit_code;
-    let should_parse = !no_parse && exit_code.unwrap_or(0) == 0;
+    let success = output.success && exit_code.unwrap_or(0) == 0;
+    let should_parse = !no_parse && success;
     let textfsm_template_content = target
         .show
         .textfsm_template_name
@@ -979,6 +985,7 @@ async fn execute_batch_show_target_inner(
         textfsm_mapping_command: target.show.textfsm_mapping_command.clone(),
         textfsm_template_name: target.show.textfsm_template_name.clone(),
         output: Some(output.content),
+        success,
         exit_code,
         parsed_output,
         parse_error,

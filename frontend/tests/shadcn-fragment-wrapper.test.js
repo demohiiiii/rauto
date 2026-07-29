@@ -15,6 +15,23 @@ test("LoadingButton composes shadcn Button and exposes busy state", () => {
   assert.doesNotMatch(source, /loading-spinner/);
 });
 
+test("execution results expose status in navigation and the output frame", () => {
+  const panelSource = read(
+    "frontend/src/components/fragments/ExecutionResultsPanel.svelte",
+  );
+  const outputSource = read(
+    "frontend/src/components/fragments/OutputBlock.svelte",
+  );
+
+  assert.match(panelSource, /circle-check/);
+  assert.match(panelSource, /circle-x/);
+  assert.doesNotMatch(panelSource, /role="status"/);
+  assert.match(outputSource, /circle-x/);
+  assert.match(outputSource, /tone === "error"/);
+  assert.match(outputSource, /border-destructive/);
+  assert.match(outputSource, /text-destructive/);
+});
+
 test("plain text field wrappers compose shadcn form controls", () => {
   const controls = [
     ["frontend/src/components/fragments/PlainInputField.svelte", "ui/input"],

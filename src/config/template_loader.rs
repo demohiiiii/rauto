@@ -28,6 +28,7 @@ pub fn canonical_builtin_profile_name(name: &str) -> Option<&'static str> {
         "hp_comware" => Some("hp_comware"),
         "hillstone" | "hillstone_stoneos" => Some("hillstone_stoneos"),
         "juniper" | "junos" | "juniper_junos" => Some("juniper_junos"),
+        "leadsec" | "leadsec_power" | "leadsec_powerv" => Some("leadsec_powerv"),
         "array" => Some("array"),
         "linux" => Some("linux"),
         "arista" | "eos" | "arista_eos" => Some("arista_eos"),

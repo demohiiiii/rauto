@@ -207,7 +207,11 @@
                 variant="alert"
               />
             {/if}
-            <OutputBlock title={activeFlowResult.commandText}>
+            <OutputBlock
+              title={activeFlowResult.commandText}
+              tone={activeResultItem?.statusTone}
+              errorLabel={t("orchestrationStatusFailed", "Failed")}
+            >
               {activeFlowResult.outputText}
             </OutputBlock>
             {#if activeFlowResult.parsedOutputBlock}

@@ -17,6 +17,7 @@ fn builtin_aliases(name: &str) -> Vec<String> {
         "hp_comware" => vec!["hp".to_string(), "comware".to_string()],
         "hillstone_stoneos" => vec!["hillstone".to_string()],
         "juniper_junos" => vec!["juniper".to_string(), "junos".to_string()],
+        "leadsec_powerv" => vec!["leadsec".to_string(), "leadsec_power".to_string()],
         "arista_eos" => vec!["arista".to_string(), "eos".to_string()],
         "fortinet" => vec!["fortigate".to_string(), "fortios".to_string()],
         "paloalto_panos" => vec![
@@ -236,4 +237,28 @@ fn is_safe_template_name(name: &str) -> bool {
     }
     name.chars()
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' || ch == '.')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn latest_rneter_leadsec_profile_is_fully_exposed() {
+        let catalog_entry = builtin_profiles()
+            .into_iter()
+            .find(|profile| profile.name == "leadsec_powerv")
+            .expect("LeadSec PowerV should be listed from the rneter catalog");
+        assert_eq!(catalog_entry.aliases, vec!["leadsec", "leadsec_power"]);
+
+        let detail = builtin_profile_detail("leadsec")
+            .expect("LeadSec alias should resolve to builtin profile details");
+        assert_eq!(detail.name, "leadsec_powerv");
+        assert_eq!(detail.summary, "LeadSec PowerV profile");
+
+        let form = builtin_profile_form("leadsec_power")
+            .expect("LeadSec alias should resolve to an editable builtin profile form");
+        assert_eq!(form.name, "leadsec_powerv");
+        assert_eq!(form.default_mode(), "Login");
+    }
 }

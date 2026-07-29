@@ -9,6 +9,7 @@ import {
 } from "../../lib/ui.js";
 import {
   executionResultDisplay,
+  executionResultFailed,
   exportParsedOutputSheetsExcel,
   parsedOutputBlockDisplay,
   parsedOutputSheetsFromBatchShow,
@@ -208,6 +209,7 @@ function singleShowResultsPresentation(resultDisplay = {}) {
       return {
         ...showResult,
         commandText,
+        failed: executionResultFailed(showResult),
         metaFields: [
           { label: t("showObjectPlaceholder"), value: showResult?.object },
           { label: t("showResultPlatform"), value: showResult?.platform },
@@ -340,6 +342,7 @@ function batchShowResultRows(showRows = []) {
         command,
         error: errorText,
         exitCodeText,
+        failed: executionResultFailed(batchShowResult),
         deviceKey,
         metaFields: [
           { label: t("showResultTarget"), value: target },

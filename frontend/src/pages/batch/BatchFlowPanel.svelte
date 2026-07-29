@@ -248,7 +248,11 @@
             />
           {:else}
             {#each activeResult.outputs ?? [] as output, stepIndex (stepIndex)}
-              <OutputBlock title={`${stepIndex + 1}. ${output.command}`}>
+              <OutputBlock
+                title={`${stepIndex + 1}. ${output.command}`}
+                tone={output.success === false ? "error" : "default"}
+                errorLabel={i18nLabels.resultFailed}
+              >
                 {output.output ?? ""}
               </OutputBlock>
               {#if output.parsed_output || output.parse_error}

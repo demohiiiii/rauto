@@ -485,6 +485,54 @@ fn http_execution_routes_reach_rneter_virtual_device() {
 }
 
 #[test]
+fn http_show_routes_preserve_rneter_command_failure() {
+    run_route_test(|context| async move {
+        let device = context.spawn_cisco("edge-a", FaultInjection::new()).await;
+        context
+            .post_json(
+                "/api/show/custom-objects",
+                json!({
+                    "device_profile": "cisco_ios",
+                    "object": "forced-error",
+                    "command": "make-error",
+                    "mode": "Enable"
+                }),
+            )
+            .await
+            .assert_ok();
+
+        let single = context
+            .post_json(
+                "/api/show/execute",
+                json!({
+                    "object": "forced-error",
+                    "no_parse": true,
+                    "connection": { "connection_name": device.connection_name }
+                }),
+            )
+            .await;
+        let single_body = single.assert_ok();
+        assert_eq!(single_body["success"], json!(false));
+        assert_eq!(single_body["result_summary"]["success"], json!(false));
+
+        let batch = context
+            .post_json(
+                "/api/show/batch-execute",
+                json!({
+                    "object": "forced-error",
+                    "no_parse": true,
+                    "targets": [device.connection_name]
+                }),
+            )
+            .await;
+        let batch_body = batch.assert_ok();
+        assert_eq!(batch_body["results"][0]["success"], json!(false));
+        assert_eq!(batch_body["result_summary"]["success"], json!(false));
+        assert_eq!(batch_body["result_summary"]["counts"]["failed"], json!(1));
+    });
+}
+
+#[test]
 fn http_batch_routes_execute_every_saved_target() {
     run_route_test(|context| async move {
         let edge_a = context.spawn_cisco("edge-a", FaultInjection::new()).await;

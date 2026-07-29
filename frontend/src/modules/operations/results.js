@@ -6,6 +6,19 @@ import {
   currentTemporaryConnectionDetails,
 } from "../connections/connections.js";
 
+export function executionResultFailed(result = {}) {
+  if (
+    result?.error ||
+    result?.success === false ||
+    result?.result_summary?.success === false
+  ) {
+    return true;
+  }
+  if (result?.exit_code == null || result.exit_code === "") return false;
+  const exitCode = Number(result.exit_code);
+  return Number.isFinite(exitCode) && exitCode !== 0;
+}
+
 export function parsedOutputSheetsFromParsedOutputItems(
   parsedOutputItems,
   sheetConfig = {},

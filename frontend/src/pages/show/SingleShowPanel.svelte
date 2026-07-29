@@ -76,11 +76,11 @@
       key: row.resultKey,
       title: row.objectText,
       subtitle: row.modeText,
-      statusLabel: row.error ? i18nLabels.failed : i18nLabels.succeeded,
-      statusTone: row.error ? "error" : "success",
+      statusLabel: row.failed ? i18nLabels.failed : i18nLabels.succeeded,
+      statusTone: row.failed ? "error" : "success",
     })),
   );
-  let failedCount = $derived(resultRows.filter((row) => row.error).length);
+  let failedCount = $derived(resultRows.filter((row) => row.failed).length);
 
   $effect(() => {
     setPanelContext({ active, panelDisplay: singleShowPanelDisplay });
@@ -218,7 +218,11 @@
             onSelect={(view) => (resultView = view)}
           />
           {#if resultView === "output"}
-            <OutputBlock title={showResultRow.outputTitle}>
+            <OutputBlock
+              title={showResultRow.outputTitle}
+              tone={showResultRow.failed ? "error" : "default"}
+              errorLabel={i18nLabels.failed}
+            >
               {showResultRow.outputText}
             </OutputBlock>
           {:else}

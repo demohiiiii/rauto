@@ -2,6 +2,8 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import * as Card from "$lib/components/ui/card";
+  import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
+  import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import StatusCard from "./StatusCard.svelte";
   import WorkspaceActionHeader from "./WorkspaceActionHeader.svelte";
 
@@ -29,11 +31,24 @@
   let showSummary = $derived(
     totalCount !== null || succeededCount !== null || failedCount !== null,
   );
-
   function itemBadgeVariant(item) {
     if (item.statusTone === "error") return "destructive";
     if (item.statusTone === "success") return "outline";
     return "secondary";
+  }
+
+  function itemButtonVariant(item) {
+    if (item.key === activeKey && item.statusTone === "error") {
+      return "destructive";
+    }
+    return item.key === activeKey ? "secondary" : "ghost";
+  }
+
+  function itemButtonClass(item) {
+    const base = "h-auto min-w-48 justify-start px-3 py-3 lg:min-w-0";
+    return item.statusTone === "error"
+      ? `${base} text-destructive hover:bg-destructive/10 hover:text-destructive`
+      : base;
   }
 </script>
 
@@ -82,8 +97,8 @@
           >
             {#each items as item (item.key)}
               <Button
-                variant={item.key === activeKey ? "secondary" : "ghost"}
-                class="h-auto min-w-48 justify-start px-3 py-3 lg:min-w-0"
+                variant={itemButtonVariant(item)}
+                class={itemButtonClass(item)}
                 aria-pressed={item.key === activeKey}
                 onclick={() => onSelect?.(item.key)}
               >
@@ -99,6 +114,11 @@
                 </span>
                 {#if item.statusLabel}
                   <Badge variant={itemBadgeVariant(item)}>
+                    {#if item.statusTone === "error"}
+                      <CircleXIcon aria-hidden="true" />
+                    {:else if item.statusTone === "success"}
+                      <CircleCheckIcon aria-hidden="true" />
+                    {/if}
                     {item.statusLabel}
                   </Badge>
                 {/if}

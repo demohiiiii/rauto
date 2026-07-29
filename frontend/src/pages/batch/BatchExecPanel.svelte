@@ -13,7 +13,10 @@
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { batchExecTargetPickerFields } from "../../modules/connections/connections.js";
-  import { parsedOutputBlockDisplayFromItem } from "../../modules/operations/results.js";
+  import {
+    executionResultFailed,
+    parsedOutputBlockDisplayFromItem,
+  } from "../../modules/operations/results.js";
   import {
     batchExecFormState,
     batchExecResultState,
@@ -64,14 +67,17 @@
       : [],
   );
   let resultItems = $derived(
-    resultRows.map((row, index) => ({
-      key: `${row.target || "result"}:${index}`,
-      row,
-      title: row.target || "-",
-      subtitle: [row.host, row.profile].filter(Boolean).join(" · "),
-      statusLabel: row.error ? i18nLabels.failed : i18nLabels.succeeded,
-      statusTone: row.error ? "error" : "success",
-    })),
+    resultRows.map((row, index) => {
+      const failed = executionResultFailed(row);
+      return {
+        key: `${row.target || "result"}:${index}`,
+        row,
+        title: row.target || "-",
+        subtitle: [row.host, row.profile].filter(Boolean).join(" · "),
+        statusLabel: failed ? i18nLabels.failed : i18nLabels.succeeded,
+        statusTone: failed ? "error" : "success",
+      };
+    }),
   );
   let activeResultItem = $derived(
     resultItems.find((item) => item.key === activeResultKey) ||
@@ -79,7 +85,7 @@
       null,
   );
   let activeResult = $derived(activeResultItem?.row || null);
-  let failedCount = $derived(resultRows.filter((row) => row.error).length);
+  let failedCount = $derived(resultRows.filter(executionResultFailed).length);
   let succeededCount = $derived(resultRows.length - failedCount);
   let statusMessage = $derived(
     result.kind === "error"
@@ -230,7 +236,11 @@
               variant="alert"
             />
           {:else}
-            <OutputBlock title={activeResult.target}>
+            <OutputBlock
+              title={activeResult.target}
+              tone={activeResultItem?.statusTone}
+              errorLabel={i18nLabels.failed}
+            >
               {activeResult.output ?? ""}
             </OutputBlock>
             {#if activeResult.parsed_output || activeResult.parse_error}

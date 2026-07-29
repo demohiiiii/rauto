@@ -48,8 +48,10 @@
         subtitle: [objectRow.objectText, objectRow.modeText]
           .filter(Boolean)
           .join(" · "),
-        statusLabel: objectRow.error ? i18nLabels.failed : i18nLabels.succeeded,
-        statusTone: objectRow.error ? "error" : "success",
+        statusLabel: objectRow.failed
+          ? i18nLabels.failed
+          : i18nLabels.succeeded,
+        statusTone: objectRow.failed ? "error" : "success",
       })),
     ),
   );
@@ -60,7 +62,7 @@
   );
   let activeResultRow = $derived(activeResultItem?.row || null);
   let failedCount = $derived(
-    resultItems.filter((item) => item.row.error).length,
+    resultItems.filter((item) => item.row.failed).length,
   );
 
   $effect(() => {
@@ -140,7 +142,11 @@
             onSelect={(view) => (resultView = view)}
           />
           {#if resultView === "output"}
-            <OutputBlock title={activeResultRow.outputTitle}>
+            <OutputBlock
+              title={activeResultRow.outputTitle}
+              tone={activeResultRow.failed ? "error" : "default"}
+              errorLabel={i18nLabels.failed}
+            >
               {activeResultRow.outputText}
             </OutputBlock>
           {:else}
