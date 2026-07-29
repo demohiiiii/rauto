@@ -22,6 +22,33 @@ thread_local! {
     static TEST_DB_PATH_OVERRIDE: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
 }
 
+#[cfg(test)]
+pub(crate) struct TestDbPathGuard {
+    previous: Option<PathBuf>,
+    _not_send: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+
+#[cfg(test)]
+pub(crate) fn set_test_db_path_for_current_thread(path: PathBuf) {
+    TEST_DB_PATH_OVERRIDE.with(|value| *value.borrow_mut() = Some(path));
+}
+
+#[cfg(test)]
+pub(crate) fn override_test_db_path(path: PathBuf) -> TestDbPathGuard {
+    let previous = TEST_DB_PATH_OVERRIDE.with(|value| value.replace(Some(path)));
+    TestDbPathGuard {
+        previous,
+        _not_send: std::marker::PhantomData,
+    }
+}
+
+#[cfg(test)]
+impl Drop for TestDbPathGuard {
+    fn drop(&mut self) {
+        TEST_DB_PATH_OVERRIDE.with(|value| *value.borrow_mut() = self.previous.take());
+    }
+}
+
 #[cfg(not(test))]
 static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 #[cfg(not(test))]
@@ -58,6 +85,25 @@ pub fn pool() -> &'static SqlitePool {
             .max_connections(5)
             .connect_lazy_with(connect_options(&path))
     })
+}
+
+#[cfg(test)]
+pub(crate) async fn close_test_db(path: &std::path::Path) {
+    let pool = TEST_DB_POOLS.get().and_then(|pools| {
+        pools
+            .lock()
+            .expect("test db pool lock poisoned")
+            .remove(path)
+    });
+    if let Some(pool) = pool {
+        pool.close().await;
+    }
+    if let Some(migrated) = TEST_DB_MIGRATED.get() {
+        migrated
+            .lock()
+            .expect("test db migrated lock poisoned")
+            .remove(path);
+    }
 }
 
 #[cfg(test)]
@@ -154,5 +200,21 @@ pub fn run_sync<T>(future: impl Future<Output = Result<T>>) -> Result<T> {
             .build()
             .context("failed to build temporary runtime for sqlite access")?
             .block_on(future)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_db_path_override_is_scoped() {
+        let original = db_path();
+        let isolated = std::env::temp_dir().join("rauto-scoped-db-test.db");
+        {
+            let _guard = override_test_db_path(isolated.clone());
+            assert_eq!(db_path(), isolated);
+        }
+        assert_eq!(db_path(), original);
     }
 }

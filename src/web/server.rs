@@ -489,6 +489,9 @@ async fn disable_cache(req: Request, next: Next) -> Response {
 }
 
 #[cfg(test)]
+mod rneter_integration_tests;
+
+#[cfg(test)]
 mod tests {
     use super::bind_is_loopback_only;
     use super::disable_cache;
