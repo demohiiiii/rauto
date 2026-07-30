@@ -42,6 +42,32 @@ test("template page reuses one catalog workspace for every content resource", as
   );
 });
 
+test("config fetch command editor uses catalog-backed selectors", async () => {
+  const source = await readFile(
+    path.resolve("frontend/src/pages/templates/ConfigCatalogWorkspace.svelte"),
+    "utf8",
+  );
+
+  assert.match(source, /getDeviceProfilesOverview/);
+  assert.match(source, /getProfileModes/);
+  assert.match(source, /profileNamesFromOverview/);
+  assert.match(source, /configCatalogKindNames/);
+  assert.match(source, /profileModeNames/);
+  assert.equal((source.match(/<PlainSelectField/g) || []).length, 3);
+  assert.doesNotMatch(
+    source,
+    /commandForm\.profile = event\.currentTarget\.value/,
+  );
+  assert.doesNotMatch(
+    source,
+    /commandForm\.kind = event\.currentTarget\.value/,
+  );
+  assert.doesNotMatch(
+    source,
+    /commandForm\.mode = event\.currentTarget\.value/,
+  );
+});
+
 test("command flow templates reuse the shared three-view authoring surface", async () => {
   const source = await readFile(
     path.resolve("frontend/src/pages/templates/TemplateCatalogPanel.svelte"),

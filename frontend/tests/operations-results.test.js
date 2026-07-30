@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { executionResultFailed } from "../src/modules/operations/results.js";
+import {
+  executionResultFailed,
+  executionResultOutputText,
+} from "../src/modules/operations/results.js";
 
 test("execution result failures include errors, false success, and non-zero exits", () => {
   assert.equal(
@@ -29,6 +32,29 @@ test("execution result failures include errors, false success, and non-zero exit
   assert.equal(executionResultFailed({ exit_code: "2" }), true);
   assert.equal(executionResultFailed({ success: true, exit_code: 0 }), false);
   assert.equal(executionResultFailed({ error: null, exit_code: null }), false);
+});
+
+test("execution result output prefers the full transcript and falls back safely", () => {
+  assert.equal(
+    executionResultOutputText({
+      all: "command\nfull output\nprompt",
+      output: "full output",
+      error: "failed",
+    }),
+    "command\nfull output\nprompt",
+  );
+  assert.equal(
+    executionResultOutputText({ output: "command output", error: "failed" }),
+    "command output",
+  );
+  assert.equal(
+    executionResultOutputText({ error: "connection failed" }),
+    "connection failed",
+  );
+  assert.equal(
+    executionResultOutputText({ content: "config output" }, "content"),
+    "config output",
+  );
 });
 
 test("batch command and show result views use the shared failure decision", () => {

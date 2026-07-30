@@ -22,6 +22,10 @@ export function executionResultFailed(result = {}) {
   return Number.isFinite(exitCode) && exitCode !== 0;
 }
 
+export function executionResultOutputText(result = {}, outputField = "output") {
+  return safeString(result?.all || result?.[outputField] || result?.error);
+}
+
 export function parsedOutputSheetsFromParsedOutputItems(
   parsedOutputItems,
   sheetConfig = {},

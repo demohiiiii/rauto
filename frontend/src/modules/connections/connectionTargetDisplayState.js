@@ -161,6 +161,26 @@ export function savedConnectionEditorPresentation(
   autodetectState = {},
 ) {
   const status = connectionStatusPresentation(statusState);
+  const autodetect = connectionAutodetectPresentation(autodetectState);
+  return {
+    ...autodetect,
+    buttons: {
+      cancel: { label: tr("cancel") },
+      ...autodetect.buttons,
+      save: { label: tr("savedConnSaveBtn"), loadingKey: "save" },
+    },
+    description: tr("savedConnEditHint"),
+    fields: {
+      ...autodetect.fields,
+      enabled: tr("inventoryFieldEnabled"),
+      name: tr("inventoryFieldName"),
+    },
+    showStatus: !!status.text,
+    status,
+  };
+}
+
+function connectionAutodetectPresentation(autodetectState = {}) {
   const detectedProfile = safeString(
     autodetectState?.detectedProfile || "",
   ).trim();
@@ -171,12 +191,10 @@ export function savedConnectionEditorPresentation(
   const warning = safeString(autodetectState?.warning || "").trim();
   return {
     buttons: {
-      cancel: { label: tr("cancel") },
       detectProfile: {
         label: tr("savedConnAutodetectFactsBtn"),
         loadingKey: "detect-profile",
       },
-      save: { label: tr("savedConnSaveBtn"), loadingKey: "save" },
     },
     detectedModel,
     detectedProfile,
@@ -184,27 +202,28 @@ export function savedConnectionEditorPresentation(
     detectedProfileLabel: tr("savedConnAutodetectDetected"),
     detectedModelLabel: tr("savedConnAutodetectModel"),
     detectedVersionLabel: tr("savedConnAutodetectVersion"),
-    description: tr("savedConnEditHint"),
     fields: {
       deviceInfo: tr("savedConnDeviceInfoTitle"),
       deviceInfoHint: tr("savedConnDeviceInfoHint"),
       deviceModel: tr("deviceModelLabel"),
-      enabled: tr("inventoryFieldEnabled"),
-      name: tr("inventoryFieldName"),
       softwareVersion: tr("softwareVersionLabel"),
     },
-    showStatus: !!status.text,
-    status,
     warning,
   };
 }
 
-export function temporaryConnectionPanelPresentation(statusState = null) {
+export function temporaryConnectionPanelPresentation(
+  statusState = null,
+  autodetectState = {},
+) {
   const status = connectionStatusPresentation(statusState);
+  const autodetect = connectionAutodetectPresentation(autodetectState);
   return {
+    ...autodetect,
     buttons: {
       apply: { label: tr("connectionTempApplyBtn") },
       createDraft: { label: tr("newBtn") },
+      ...autodetect.buttons,
     },
     enabledLabel: tr("inventoryFieldEnabled"),
     help: tr("connectionHelp"),

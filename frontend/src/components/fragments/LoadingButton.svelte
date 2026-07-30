@@ -9,6 +9,7 @@
     disabled,
     title,
     "aria-label": ariaLabel,
+    "aria-describedby": ariaDescribedby,
     onclick,
     children,
     variant = "default",
@@ -27,6 +28,7 @@
   aria-busy={loading ? "true" : undefined}
   {title}
   aria-label={ariaLabel}
+  aria-describedby={ariaDescribedby}
   {onclick}
 >
   {#if loading}

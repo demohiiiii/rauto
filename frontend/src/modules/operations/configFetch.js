@@ -20,6 +20,7 @@ import {
   createSessionRetryState,
   sessionRetryRequestFields,
 } from "./sessionRetry.js";
+import { executionResultOutputText } from "./results.js";
 
 export const CONFIG_FETCH_CONTENT_VIEW = Object.freeze({
   normalized: "normalized",
@@ -215,6 +216,9 @@ export function configFetchContent(
   row = {},
   view = CONFIG_FETCH_CONTENT_VIEW.raw,
 ) {
+  if (row?.error) {
+    return executionResultOutputText(row, "content");
+  }
   if (
     view === CONFIG_FETCH_CONTENT_VIEW.normalized &&
     typeof row.normalized_content === "string"

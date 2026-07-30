@@ -1437,6 +1437,9 @@ export const i18nZh = {
   configFetchKindRequired: "请选择要拉取的配置类型",
   configFetchKindLoading: "正在加载可用配置类型...",
   configFetchKindEmpty: "当前范围没有可用的配置类型",
+  configFetchCommandMissingTitle: "当前 Profile 未配置抓取命令",
+  configFetchCommandMissingHint:
+    "请前往“模板管理 > 配置抓取命令”，为 {profile} 添加至少一条配置抓取命令后再试。",
   configFetchKindLoadFailed: "配置类型加载失败",
   configFetchNormalizedLabel: "包含归一化配置",
   configFetchNormalizedHint: "移除易变行，便于配置漂移对比",

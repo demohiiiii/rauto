@@ -4,7 +4,6 @@
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
-  import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
@@ -125,13 +124,6 @@
       {#snippet detail()}
         {#if activeResultRow}
           <ExecutionResultMeta fields={activeResultRow.metaFields} />
-          {#if activeResultRow.error}
-            <StatusCard
-              message={activeResultRow.error}
-              tone="error"
-              variant="alert"
-            />
-          {/if}
           <TabList
             tabItems={[
               { value: "output", label: i18nLabels.rawOutputTab },

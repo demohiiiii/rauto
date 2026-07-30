@@ -3,12 +3,16 @@
   import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button/index.js";
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
+  import PlainInputField from "../fragments/PlainInputField.svelte";
   import LoadingButton from "../fragments/LoadingButton.svelte";
   import StatusCard from "../fragments/StatusCard.svelte";
   import ConnectionBasicFields from "./ConnectionBasicFields.svelte";
+  import ConnectionDetectedFacts from "./ConnectionDetectedFacts.svelte";
   import ConnectionMetadataFields from "./ConnectionMetadataFields.svelte";
   import CheckIcon from "@lucide/svelte/icons/check";
+  import CpuIcon from "@lucide/svelte/icons/cpu";
   import PlusIcon from "@lucide/svelte/icons/plus";
+  import RadarIcon from "@lucide/svelte/icons/radar";
   import SaveIcon from "@lucide/svelte/icons/save";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
   import TagIcon from "@lucide/svelte/icons/tag";
@@ -40,14 +44,17 @@
     createTemporaryConnectionPanelWorkspace();
   const {
     createTemporaryDraft,
+    detectProfile,
     metadataFieldsDisplayStateStore,
     onTemporaryConnectTimeoutSecsInput,
     onTemporaryCredentialChange,
     onTemporaryDeviceProfileChange,
+    onTemporaryDeviceModelInput,
     onTemporaryHostInput,
     onTemporaryLinuxShellFlavorChange,
     onTemporaryPortInput,
     onTemporarySshSecurityChange,
+    onTemporarySoftwareVersionInput,
     setPanelContext,
     setEnabled: setTemporaryConnectionEnabled,
     temporaryBasicFieldsDisplayStateStore,
@@ -136,6 +143,44 @@
 
       <section class="flex flex-col gap-3">
         {@render ConnectionSectionTitle(
+          CpuIcon,
+          temporaryDisplay.fields.deviceInfo,
+          temporaryDisplay.fields.deviceInfoHint,
+        )}
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div class="grid gap-1.5">
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              {temporaryDisplay.fields.deviceModel}
+            </span>
+            <PlainInputField
+              value={temporaryDraft.deviceModel}
+              aria-label={temporaryDisplay.fields.deviceModel}
+              placeholderText={temporaryBasicFieldsDisplay.deviceModelInput
+                .placeholder}
+              onValueInput={onTemporaryDeviceModelInput}
+            />
+          </div>
+          <div class="grid gap-1.5">
+            <span
+              class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              {temporaryDisplay.fields.softwareVersion}
+            </span>
+            <PlainInputField
+              value={temporaryDraft.softwareVersion}
+              aria-label={temporaryDisplay.fields.softwareVersion}
+              placeholderText={temporaryBasicFieldsDisplay.softwareVersionInput
+                .placeholder}
+              onValueInput={onTemporarySoftwareVersionInput}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        {@render ConnectionSectionTitle(
           TagIcon,
           i18nLabels.sectionOrganization,
         )}
@@ -192,12 +237,32 @@
     </div>
   </Card.Content>
   <Card.Footer
-    class="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-7 py-4"
+    class="flex flex-col items-stretch gap-3 border-t border-border bg-muted/30 px-7 py-4 sm:flex-row sm:items-center"
   >
-    <Button variant="ghost" size="sm" type="button" onclick={onCancel}>
-      {i18nLabels.cancel}
-    </Button>
-    <div class="inline-flex items-center gap-2">
+    <div class="min-w-0 flex-1">
+      <ConnectionDetectedFacts
+        detectedModel={temporaryDisplay.detectedModel}
+        detectedModelLabel={temporaryDisplay.detectedModelLabel}
+        detectedProfile={temporaryDisplay.detectedProfile}
+        detectedProfileLabel={temporaryDisplay.detectedProfileLabel}
+        detectedVersion={temporaryDisplay.detectedVersion}
+        detectedVersionLabel={temporaryDisplay.detectedVersionLabel}
+        warning={temporaryDisplay.warning}
+      />
+    </div>
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <LoadingButton
+        variant="outline"
+        size="sm"
+        loading={temporaryConnectionLoadingState.detectProfileLoading}
+        onclick={detectProfile}
+      >
+        <RadarIcon data-icon="inline-start" aria-hidden="true" />
+        <span>{temporaryDisplay.buttons.detectProfile.label}</span>
+      </LoadingButton>
+      <Button variant="ghost" size="sm" type="button" onclick={onCancel}>
+        {i18nLabels.cancel}
+      </Button>
       <LoadingButton
         variant="outline"
         size="sm"

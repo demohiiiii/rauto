@@ -102,6 +102,19 @@ test("plain select trigger fits responsive form grids", () => {
   );
 });
 
+test("shared select menus stay inside the viewport and scroll long lists", () => {
+  const source = read(
+    "frontend/src/lib/components/ui/select/select-content.svelte",
+  );
+
+  assert.match(
+    source,
+    /max-h-\[min\(20rem,var\(--bits-select-content-available-height\)\)\]/,
+  );
+  assert.match(source, /relative isolate z-50 overflow-hidden/);
+  assert.match(source, /h-\(--bits-select-anchor-height\) min-h-0/);
+});
+
 test("action wrappers compose shadcn buttons without Daisy defaults", () => {
   const controls = [
     "frontend/src/components/fragments/FilePickerButton.svelte",
@@ -641,6 +654,9 @@ test("saved connection editor displays detected device facts left of its actions
   const formSource = read(
     "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
   );
+  const factsSource = read(
+    "frontend/src/components/connections/ConnectionDetectedFacts.svelte",
+  );
 
   assert.match(
     editorStateSource,
@@ -658,10 +674,10 @@ test("saved connection editor displays detected device facts left of its actions
     displaySource,
     /detectedModel,\s*detectedProfile,\s*detectedVersion,/,
   );
-  assert.match(formSource, /from "\$lib\/components\/ui\/badge/);
+  assert.match(factsSource, /from "\$lib\/components\/ui\/badge/);
   assert.match(
     formSource,
-    /editorDisplay\.detectedProfile[\s\S]*editorDisplay\.detectedModel[\s\S]*editorDisplay\.detectedVersion[\s\S]*<LoadingButton[\s\S]*detectProfile/,
+    /<ConnectionDetectedFacts[\s\S]*editorDisplay\.detectedModel[\s\S]*editorDisplay\.detectedProfile[\s\S]*editorDisplay\.detectedVersion[\s\S]*<LoadingButton[\s\S]*detectProfile/,
   );
   assert.doesNotMatch(formSource, /applyDetectedProfile/);
 });
@@ -877,6 +893,8 @@ test("show output terminal titles prefer device names from display state", () =>
     batchShowResultsSource,
     /title=\{activeResultRow\.outputTitle\}/,
   );
+  assert.doesNotMatch(singleShowPanelSource, /<StatusCard/);
+  assert.doesNotMatch(batchShowResultsSource, /<StatusCard/);
 });
 
 test("batch show results flatten device objects into the shared result navigator", () => {

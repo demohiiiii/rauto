@@ -1,6 +1,8 @@
 import { derived, get as getStore, writable } from "svelte/store";
-import { currentLanguageState } from "../../lib/i18n.js";
+import { currentLanguageState, t } from "../../lib/i18n.js";
+import { safeString } from "../../lib/ui.js";
 import { createLoadingStateRunner } from "../../lib/svelte.js";
+import { showToast } from "../overlays/overlays.js";
 import {
   applySavedConnectionEditorDraftFromFormState,
   applyTemporaryConnectionDraftFromFormState,
@@ -23,6 +25,7 @@ import {
 import { connectionModalFocusRequest } from "./connectionTargetStoreState.js";
 import {
   createSavedConnectionDraft,
+  detectTemporaryConnectionFacts,
   temporaryConnectionBasicFieldWiring,
   temporaryConnectionFormStateStore,
   updateTemporaryConnectionDraftEnabled,
@@ -222,12 +225,19 @@ export function createTemporaryConnectionPanelWorkspace() {
   let temporaryDraft = temporaryConnectionDraftDefaults();
   const activeStateStore = writable(false);
   const connectionTestStatusStateStore = writable(null);
+  const temporaryAutodetectStateStore = writable({
+    detectedModel: "",
+    detectedProfile: "",
+    detectedVersion: "",
+    warning: "",
+  });
   const temporaryDraftStateStore = writable({ ...temporaryDraft });
   const temporaryProfileSelectStateStore = connectionProfileSelectState(
     CONNECTION_PROFILE_SELECT.temporary,
   );
   const temporaryConnectionLoadingStateStore = writable({
     createDraftLoading: false,
+    detectProfileLoading: false,
   });
   const temporaryConnectionLoadingState = { keys: [] };
   const temporaryConnectionLoadingRunner = createLoadingStateRunner(
@@ -236,6 +246,7 @@ export function createTemporaryConnectionPanelWorkspace() {
       setKeys(keys) {
         temporaryConnectionLoadingStateStore.set({
           createDraftLoading: keys.includes("createDraft"),
+          detectProfileLoading: keys.includes("detect-profile"),
         });
       },
     },
@@ -253,13 +264,24 @@ export function createTemporaryConnectionPanelWorkspace() {
   const temporaryFieldWiring =
     temporaryConnectionBasicFieldWiring(temporaryDraft);
 
+  function clearTemporaryAutodetectResult() {
+    temporaryAutodetectStateStore.set({
+      detectedModel: "",
+      detectedProfile: "",
+      detectedVersion: "",
+      warning: "",
+    });
+  }
+
   function onTemporaryConnectTimeoutSecsInput(fieldValue) {
     temporaryFieldWiring.onConnectTimeoutSecsInput(fieldValue);
+    clearTemporaryAutodetectResult();
     publishTemporaryDraft();
   }
 
   function onTemporaryCredentialChange(fieldValue) {
     temporaryFieldWiring.onCredentialChange(fieldValue);
+    clearTemporaryAutodetectResult();
     publishTemporaryDraft();
   }
 
@@ -268,30 +290,57 @@ export function createTemporaryConnectionPanelWorkspace() {
     publishTemporaryDraft();
   }
 
+  function onTemporaryDeviceModelInput(fieldValue) {
+    temporaryFieldWiring.onDeviceModelInput(fieldValue);
+    clearTemporaryAutodetectResult();
+    publishTemporaryDraft();
+  }
+
   function onTemporaryHostInput(fieldValue) {
     temporaryFieldWiring.onHostInput(fieldValue);
+    clearTemporaryAutodetectResult();
     publishTemporaryDraft();
   }
 
   function onTemporaryLinuxShellFlavorChange(fieldValue) {
     temporaryFieldWiring.onLinuxShellFlavorChange(fieldValue);
+    clearTemporaryAutodetectResult();
     publishTemporaryDraft();
   }
 
   function onTemporaryPortInput(fieldValue) {
     temporaryFieldWiring.onPortInput(fieldValue);
+    clearTemporaryAutodetectResult();
     publishTemporaryDraft();
   }
 
   function onTemporarySshSecurityChange(fieldValue) {
     temporaryFieldWiring.onSshSecurityChange(fieldValue);
+    clearTemporaryAutodetectResult();
+    publishTemporaryDraft();
+  }
+
+  function onTemporarySoftwareVersionInput(fieldValue) {
+    temporaryFieldWiring.onSoftwareVersionInput(fieldValue);
+    clearTemporaryAutodetectResult();
     publishTemporaryDraft();
   }
 
   const temporaryDisplayStateStore = derived(
-    [connectionTestStatusStateStore, currentLanguageState],
-    ([$connectionTestStatusStateStore, _currentLanguageState]) =>
-      temporaryConnectionPanelPresentation($connectionTestStatusStateStore),
+    [
+      connectionTestStatusStateStore,
+      temporaryAutodetectStateStore,
+      currentLanguageState,
+    ],
+    ([
+      $connectionTestStatusStateStore,
+      $temporaryAutodetectStateStore,
+      _currentLanguageState,
+    ]) =>
+      temporaryConnectionPanelPresentation(
+        $connectionTestStatusStateStore,
+        $temporaryAutodetectStateStore,
+      ),
   );
   const temporaryBasicFieldsDisplayStateStore = derived(
     [
@@ -351,16 +400,55 @@ export function createTemporaryConnectionPanelWorkspace() {
     });
   }
 
+  async function detectProfile() {
+    return temporaryConnectionLoadingRunner.run("detect-profile", async () => {
+      const currentProfile =
+        safeString(temporaryDraft.deviceProfile || "").trim() || "autodetect";
+      clearTemporaryAutodetectResult();
+      try {
+        const detectResult = await detectTemporaryConnectionFacts();
+        applyTemporaryDraftFromFormState(
+          getStore(temporaryConnectionFormStateStore),
+        );
+        const detectedProfile = safeString(
+          detectResult?.device_profile || "",
+        ).trim();
+        temporaryAutodetectStateStore.set({
+          detectedModel: safeString(detectResult?.device_model || "").trim(),
+          detectedProfile,
+          detectedVersion: safeString(
+            detectResult?.software_version || "",
+          ).trim(),
+          warning: safeString(detectResult?.warning || "").trim(),
+        });
+        const message =
+          detectedProfile === currentProfile
+            ? `${t("savedConnAutodetectMatched")}: ${detectedProfile}`
+            : `${t("savedConnAutodetectDetected")}: ${detectedProfile} (${t("savedConnAutodetectCurrent")}: ${currentProfile})`;
+        showToast(message, "success");
+        return detectResult;
+      } catch (error) {
+        clearTemporaryAutodetectResult();
+        const message = error?.message || t("savedConnAutodetectNoResult");
+        showToast(message, "error");
+        return null;
+      }
+    });
+  }
+
   return {
     createTemporaryDraft,
+    detectProfile,
     metadataFieldsDisplayStateStore,
     onTemporaryConnectTimeoutSecsInput,
     onTemporaryCredentialChange,
     onTemporaryDeviceProfileChange,
+    onTemporaryDeviceModelInput,
     onTemporaryHostInput,
     onTemporaryLinuxShellFlavorChange,
     onTemporaryPortInput,
     onTemporarySshSecurityChange,
+    onTemporarySoftwareVersionInput,
     setEnabled,
     setPanelContext,
     temporaryBasicFieldsDisplayStateStore,

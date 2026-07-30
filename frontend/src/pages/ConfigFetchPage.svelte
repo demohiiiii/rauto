@@ -1,4 +1,5 @@
 <script>
+  import * as Alert from "$lib/components/ui/alert";
   import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
@@ -8,13 +9,13 @@
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import DownloadIcon from "@lucide/svelte/icons/download";
   import FileDownIcon from "@lucide/svelte/icons/file-down";
+  import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import ConnectionPickerField from "../components/connections/ConnectionPickerField.svelte";
   import ExecutionResultMeta from "../components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../components/fragments/LoadingButton.svelte";
   import OutputBlock from "../components/fragments/OutputBlock.svelte";
   import SessionRetryFields from "../components/fragments/SessionRetryFields.svelte";
-  import StatusCard from "../components/fragments/StatusCard.svelte";
   import TabList from "../components/fragments/TabList.svelte";
   import ValueLabelSelectField from "../components/fragments/ValueLabelSelectField.svelte";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
@@ -98,6 +99,8 @@
       kindPlaceholder: t("configFetchKindPlaceholder"),
       kindLoading: t("configFetchKindLoading"),
       kindEmpty: t("configFetchKindEmpty"),
+      commandMissingTitle: t("configFetchCommandMissingTitle"),
+      commandMissingHint: t("configFetchCommandMissingHint"),
       kindLoadFailed: t("configFetchKindLoadFailed"),
       normalized: t("configFetchNormalizedLabel"),
       normalizedHint: t("configFetchNormalizedHint"),
@@ -135,6 +138,15 @@
       statusLabel: row.error ? pageLabels.failed : pageLabels.succeeded,
       statusTone: row.error ? "error" : "success",
     })),
+  );
+  let configCommandMissing = $derived(
+    kindCatalog.kind === "ready" && kindCatalog.options.length === 0,
+  );
+  let configCommandMissingHint = $derived(
+    pageLabels.commandMissingHint.replace(
+      "{profile}",
+      kindCatalog.profile || currentTargetProfile,
+    ),
   );
   let contentTabs = $derived(
     activeResult && typeof activeResult.normalized_content === "string"
@@ -376,10 +388,14 @@
                 <p class="text-xs text-destructive">
                   {pageLabels.kindLoadFailed}: {kindCatalog.message}
                 </p>
-              {:else if kindCatalog.kind === "ready" && !kindCatalog.options.length}
-                <p class="text-xs text-muted-foreground">
-                  {pageLabels.kindEmpty}
-                </p>
+              {:else if configCommandMissing}
+                <Alert.Root id="config-fetch-command-missing">
+                  <CircleAlertIcon aria-hidden="true" />
+                  <Alert.Title>{pageLabels.commandMissingTitle}</Alert.Title>
+                  <Alert.Description>
+                    {configCommandMissingHint}
+                  </Alert.Description>
+                </Alert.Root>
               {/if}
             </div>
 
@@ -443,6 +459,10 @@
             size="lg"
             loading={running}
             disabled={!kindAvailable || !retryValid}
+            title={configCommandMissing ? configCommandMissingHint : undefined}
+            aria-describedby={configCommandMissing
+              ? "config-fetch-command-missing"
+              : undefined}
             onclick={executeConfigFetch}
           >
             <FileDownIcon data-icon="inline-start" />
@@ -477,17 +497,11 @@
           {#if activeResult}
             <ExecutionResultMeta fields={activeMetaFields} />
 
-            {#if activeResult.error}
-              <StatusCard
-                message={activeResult.error}
-                tone="error"
-                variant="alert"
-              />
-            {:else}
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <h3 class="text-sm font-semibold text-foreground">
-                  {activeResult.target}
-                </h3>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h3 class="text-sm font-semibold text-foreground">
+                {activeResult.target}
+              </h3>
+              {#if !activeResult.error}
                 <div class="flex flex-wrap items-center gap-2">
                   <TabList
                     tabItems={contentTabs}
@@ -506,12 +520,14 @@
                     {pageLabels.download}
                   </Button>
                 </div>
-              </div>
-              <OutputBlock
-                title={`${activeResult.target} · ${contentView === CONFIG_FETCH_CONTENT_VIEW.normalized ? pageLabels.normalizedTab : pageLabels.rawTab}`}
-                >{configFetchContent(activeResult, contentView)}</OutputBlock
-              >
-            {/if}
+              {/if}
+            </div>
+            <OutputBlock
+              title={`${activeResult.target} · ${contentView === CONFIG_FETCH_CONTENT_VIEW.normalized ? pageLabels.normalizedTab : pageLabels.rawTab}`}
+              tone={activeResult.error ? "error" : "default"}
+              errorLabel={pageLabels.failed}
+              >{configFetchContent(activeResult, contentView)}</OutputBlock
+            >
           {/if}
         {/snippet}
       </ExecutionResultsPanel>

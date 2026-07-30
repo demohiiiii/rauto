@@ -173,6 +173,21 @@ test("configuration fetch results support summary fallback and both content view
     ),
     "normalized config\n",
   );
+  assert.equal(
+    configFetchContent(
+      {
+        all: "show running-config\nERROR: forced failure\nRouter#",
+        content: "ERROR: forced failure",
+        error: "config fetch failed",
+      },
+      CONFIG_FETCH_CONTENT_VIEW.raw,
+    ),
+    "show running-config\nERROR: forced failure\nRouter#",
+  );
+  assert.equal(
+    configFetchContent({ error: "connection failed" }),
+    "connection failed",
+  );
   assert.notEqual(configFetchTimestamp("2026-07-28T12:00:00Z"), "-");
   assert.equal(configFetchTimestamp("not-a-time"), "-");
 
@@ -250,12 +265,18 @@ test("configuration fetch page renders target controls and device results", () =
   assert.match(page, /<ToggleGroup\.Root/);
   assert.match(page, /bind:value=\{targetModeValue\}/);
   assert.match(page, /disabled=\{!kindAvailable \|\| !retryValid\}/);
+  assert.match(page, /configFetchCommandMissingTitle/);
+  assert.match(page, /id="config-fetch-command-missing"/);
+  assert.match(page, /aria-describedby=\{configCommandMissing/);
+  assert.match(page, /<Alert\.Root/);
   assert.match(page, /<SessionRetryFields/);
   assert.match(page, /<Separator/);
   assert.match(page, /xl:grid-cols-\[minmax\(0,5fr\)_minmax\(20rem,3fr\)\]/);
   assert.match(page, /<Switch/);
   assert.match(page, /<LoadingButton/);
   assert.match(page, /<OutputBlock/);
+  assert.match(page, /tone=\{activeResult\.error \? "error" : "default"\}/);
+  assert.doesNotMatch(page, /<StatusCard/);
   assert.match(page, /<TabList/);
   assert.match(page, /ExecutionResultsPanel/);
   assert.match(page, /ExecutionResultMeta/);

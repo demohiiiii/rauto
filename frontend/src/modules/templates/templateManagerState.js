@@ -174,6 +174,19 @@ export function profileNamesFromOverview(payload = {}) {
   ]);
 }
 
+const DEFAULT_CONFIG_CATALOG_KINDS = Object.freeze(["running", "startup"]);
+
+export function configCatalogKindNames(commandRows = []) {
+  return uniqueNames([
+    ...DEFAULT_CONFIG_CATALOG_KINDS,
+    ...listValue(commandRows).map((command) => command?.kind),
+  ]);
+}
+
+export function profileModeNames(payload = {}) {
+  return uniqueNames(payload?.modes);
+}
+
 async function loadProfileTemplateReferences(api) {
   const [profilesPayload, templatesPayload] = await Promise.all([
     api.getDeviceProfilesOverview(),

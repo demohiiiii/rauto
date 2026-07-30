@@ -1,7 +1,6 @@
 <script>
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import * as Card from "$lib/components/ui/card";
-  import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import {
     createSavedConnectionEditorWorkspace,
@@ -16,6 +15,7 @@
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import StatusCard from "../fragments/StatusCard.svelte";
   import ConnectionBasicFields from "./ConnectionBasicFields.svelte";
+  import ConnectionDetectedFacts from "./ConnectionDetectedFacts.svelte";
   import ConnectionMetadataFields from "./ConnectionMetadataFields.svelte";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import CpuIcon from "@lucide/svelte/icons/cpu";
@@ -204,40 +204,15 @@
     class="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 px-7 py-4"
   >
     <div class="min-w-0 flex-1">
-      {#if editorDisplay.detectedProfile || editorDisplay.detectedModel || editorDisplay.detectedVersion}
-        <div class="flex min-h-8 min-w-0 flex-wrap items-center gap-2 text-sm">
-          <RadarIcon class="size-4 shrink-0 text-primary" aria-hidden="true" />
-          {#if editorDisplay.detectedProfile}
-            <span class="shrink-0 text-muted-foreground">
-              {editorDisplay.detectedProfileLabel}
-            </span>
-            <Badge variant="secondary" class="max-w-full font-mono">
-              <span class="truncate">{editorDisplay.detectedProfile}</span>
-            </Badge>
-          {/if}
-          {#if editorDisplay.detectedModel}
-            <span class="shrink-0 text-muted-foreground">
-              {editorDisplay.detectedModelLabel}
-            </span>
-            <Badge variant="outline" class="max-w-full font-mono">
-              <span class="truncate">{editorDisplay.detectedModel}</span>
-            </Badge>
-          {/if}
-          {#if editorDisplay.detectedVersion}
-            <span class="shrink-0 text-muted-foreground">
-              {editorDisplay.detectedVersionLabel}
-            </span>
-            <Badge variant="outline" class="max-w-full font-mono">
-              <span class="truncate">{editorDisplay.detectedVersion}</span>
-            </Badge>
-          {/if}
-        </div>
-      {/if}
-      {#if editorDisplay.warning}
-        <p class="mt-1 text-xs text-amber-600 dark:text-amber-400">
-          {editorDisplay.warning}
-        </p>
-      {/if}
+      <ConnectionDetectedFacts
+        detectedModel={editorDisplay.detectedModel}
+        detectedModelLabel={editorDisplay.detectedModelLabel}
+        detectedProfile={editorDisplay.detectedProfile}
+        detectedProfileLabel={editorDisplay.detectedProfileLabel}
+        detectedVersion={editorDisplay.detectedVersion}
+        detectedVersionLabel={editorDisplay.detectedVersionLabel}
+        warning={editorDisplay.warning}
+      />
     </div>
     <div class="flex flex-wrap items-center justify-end gap-2">
       <LoadingButton

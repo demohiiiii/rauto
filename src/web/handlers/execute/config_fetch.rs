@@ -337,6 +337,7 @@ async fn fetch_config_target(
             command: target.fetch_command.command.clone(),
             fetched_at: Utc::now().to_rfc3339(),
             content: None,
+            all: None,
             normalized_content: None,
             sha256: None,
             normalized_sha256: None,
@@ -387,13 +388,8 @@ async fn fetch_config_target_inner(
     let output = client
         .execute_output(&target.fetch_command.command, Some(&target.effective_mode))
         .await?;
-    if output.exit_code.unwrap_or(0) != 0 {
-        return Err(ApiError::bad_request(format!(
-            "config fetch command '{}' exited with code {}",
-            target.fetch_command.command,
-            output.exit_code.unwrap_or(-1)
-        )));
-    }
+    let exit_code = output.exit_code;
+    let success = output.success && exit_code.unwrap_or(0) == 0;
     persist_history_if_recorded(
         &target.conn,
         &client,
@@ -402,7 +398,34 @@ async fn fetch_config_target_inner(
         Some(target.effective_mode.as_str()),
         options.record_level,
     );
+    if !success {
+        let error = match exit_code {
+            Some(code) if code != 0 => format!(
+                "config fetch command '{}' exited with code {}",
+                target.fetch_command.command, code
+            ),
+            _ => format!(
+                "config fetch command '{}' reported a device error",
+                target.fetch_command.command
+            ),
+        };
+        return Ok(ConfigFetchTargetResponse {
+            target: target.name.clone(),
+            host: target.conn.host.clone(),
+            profile: target.conn.device_profile.clone(),
+            kind: target.fetch_command.kind.clone(),
+            command: target.fetch_command.command.clone(),
+            fetched_at: Utc::now().to_rfc3339(),
+            content: Some(output.content),
+            all: Some(output.all),
+            normalized_content: None,
+            sha256: None,
+            normalized_sha256: None,
+            error: Some(error),
+        });
+    }
     let content = output.content;
+    let all = output.all;
     let patterns = config_catalog::volatile_patterns(&target.conn.device_profile)
         .map_err(|err| ApiError::internal(err.to_string()))?;
     let normalized = config_catalog::normalize_config(&content, &patterns);
@@ -417,6 +440,7 @@ async fn fetch_config_target_inner(
         normalized_sha256: Some(config_catalog::sha256_hex(&normalized)),
         normalized_content: options.include_normalized.then_some(normalized),
         content: Some(content),
+        all: Some(all),
         error: None,
     })
 }

@@ -118,6 +118,7 @@ pub struct ShowExecuteResponse {
     pub textfsm_mapping_command: Option<String>,
     pub textfsm_template_name: Option<String>,
     pub output: String,
+    pub all: String,
     pub success: bool,
     pub exit_code: Option<i32>,
     pub parsed_output: Option<Value>,
@@ -166,6 +167,7 @@ pub struct ShowBatchTargetResponse {
     pub textfsm_mapping_command: Option<String>,
     pub textfsm_template_name: Option<String>,
     pub output: Option<String>,
+    pub all: Option<String>,
     pub success: bool,
     pub exit_code: Option<i32>,
     pub parsed_output: Option<Value>,
@@ -281,6 +283,7 @@ pub struct ConfigFetchTargetResponse {
     pub command: String,
     pub fetched_at: String,
     pub content: Option<String>,
+    pub all: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub normalized_content: Option<String>,
     pub sha256: Option<String>,

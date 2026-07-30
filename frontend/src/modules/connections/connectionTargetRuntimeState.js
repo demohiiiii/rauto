@@ -1,5 +1,6 @@
 import {
   deleteConnection,
+  detectConnectionFacts,
   downloadConnectionImportTemplateBlob,
   getConnection,
   importConnections,
@@ -54,7 +55,10 @@ import {
   storedTemporaryConnectionDetails,
   storedTemporaryConnectionLabel,
 } from "./connectionTargetStoreState.js";
-import { configureConnectionsEditor } from "./connectionsEditor.js";
+import {
+  configureConnectionsEditor,
+  detectedConnectionFactsPatch,
+} from "./connectionsEditor.js";
 import { configureConnectionHistory } from "./connectionsHistory.js";
 import { openDetailModal, showToast } from "../overlays/overlays.js";
 
@@ -70,12 +74,14 @@ export function createConnectionTestState() {
 let temporaryConnectionFormState = {
   connect_timeout_secs: "",
   credential_id: "",
+  device_model: "",
   device_profile: "autodetect",
   enabled: true,
   host: "",
   linux_shell_flavor: "",
   port: "",
   ssh_security: "",
+  software_version: "",
 };
 
 export const temporaryConnectionFormStateStore = writable({
@@ -86,12 +92,14 @@ function temporaryConnectionFormStateFromDraft(draft = {}) {
   return {
     connect_timeout_secs: draft.connectTimeoutSecs,
     credential_id: draft.credentialId,
+    device_model: draft.deviceModel,
     device_profile: draft.deviceProfile || "autodetect",
     enabled: draft.enabled,
     host: draft.host,
     linux_shell_flavor: draft.linuxShellFlavor,
     port: draft.port,
     ssh_security: draft.sshSecurity,
+    software_version: draft.softwareVersion,
   };
 }
 
@@ -119,11 +127,24 @@ function applyTemporaryConnectionDraftChange(draft = {}, patch = {}) {
 }
 
 export function temporaryConnectionBasicFieldWiring(draft = {}) {
-  return connectionBasicFieldWiring(
+  const basicWiring = connectionBasicFieldWiring(
     draft,
     applyTemporaryConnectionDraftChange,
     { defaultDeviceProfile: true },
   );
+  return {
+    ...basicWiring,
+    onDeviceModelInput(fieldValue) {
+      applyTemporaryConnectionDraftChange(draft, {
+        deviceModel: safeString(fieldValue || ""),
+      });
+    },
+    onSoftwareVersionInput(fieldValue) {
+      applyTemporaryConnectionDraftChange(draft, {
+        softwareVersion: safeString(fieldValue || ""),
+      });
+    },
+  };
 }
 
 export function updateTemporaryConnectionDraftEnabled(
@@ -137,12 +158,14 @@ function mergeConnectionFormState(current = {}, formVals = {}, mergeCfg = {}) {
   const next = { ...current };
   [
     "connect_timeout_secs",
+    "device_model",
     "device_profile",
     "credential_id",
     "host",
     "linux_shell_flavor",
     "port",
     "ssh_security",
+    "software_version",
   ].forEach((key) => {
     if (hasOwn(formVals, key)) {
       next[key] = displayString(formVals[key] || "");
@@ -263,6 +286,12 @@ function buildCurrentTemporaryConnectionDetails() {
       safeString(
         temporaryConnectionFormState.device_profile || "autodetect",
       ).trim() || "autodetect",
+    device_model: safeString(
+      temporaryConnectionFormState.device_model || "",
+    ).trim(),
+    software_version: safeString(
+      temporaryConnectionFormState.software_version || "",
+    ).trim(),
     kind: "temporary",
     note: t("sidebarConnectionTemporaryHint"),
   };
@@ -280,6 +309,8 @@ function buildTemporaryConnectionDetailsFromPersisted(parsed = {}) {
     credentialRequired: !credentialId,
     profile:
       safeString(parsed.device_profile || "autodetect").trim() || "autodetect",
+    device_model: safeString(parsed.device_model || "").trim(),
+    software_version: safeString(parsed.software_version || "").trim(),
     kind: "temporary",
     note: t("sidebarConnectionTemporaryHint"),
   };
@@ -293,6 +324,8 @@ function persistedTemporaryConnectionTarget(details = {}) {
     credential_id: safeString(details.credentialId || "").trim(),
     device_profile:
       safeString(details.profile || "autodetect").trim() || "autodetect",
+    device_model: safeString(details.device_model || "").trim(),
+    software_version: safeString(details.software_version || "").trim(),
     ssh_security: safeString(
       temporaryConnectionFormState.ssh_security || "",
     ).trim(),
@@ -325,6 +358,7 @@ function restoreTemporaryConnectionFormFromPersisted(parsed = {}) {
   const host = safeString(parsed.host || "").trim();
   setTemporaryConnectionFormValues({
     credential_id: safeString(parsed.credential_id || "").trim(),
+    device_model: safeString(parsed.device_model || "").trim(),
     device_profile:
       safeString(parsed.device_profile || "autodetect").trim() || "autodetect",
     enabled: parsed.enabled !== false,
@@ -332,6 +366,7 @@ function restoreTemporaryConnectionFormFromPersisted(parsed = {}) {
     linux_shell_flavor: safeString(parsed.linux_shell_flavor || "").trim(),
     port: safeString(parsed.port || 22),
     ssh_security: safeString(parsed.ssh_security || "").trim(),
+    software_version: safeString(parsed.software_version || "").trim(),
   });
   setConnectionPickerSelectedValues(
     CONNECTION_PICKER.savedLabels,
@@ -399,12 +434,14 @@ function applyConnectionForm(connection = {}) {
   const port = Number(connection.port);
   setTemporaryConnectionFormValues({
     credential_id: displayString(connection.credential_id || ""),
+    device_model: displayString(connection.device_model || ""),
     device_profile: displayString(connection.device_profile || ""),
     enabled: connection.enabled !== false,
     host: displayString(connection.host || ""),
     linux_shell_flavor: displayString(connection.linux_shell_flavor || ""),
     port: Number.isFinite(port) && port > 0 ? String(port) : "",
     ssh_security: displayString(connection.ssh_security || ""),
+    software_version: displayString(connection.software_version || ""),
   });
   setConnectionPickerSelectedValues(
     CONNECTION_PICKER.savedLabels,
@@ -602,11 +639,43 @@ export function connectionPayload() {
     device_profile:
       safeString(temporaryConnectionFormState.device_profile || "").trim() ||
       null,
+    device_model:
+      safeString(temporaryConnectionFormState.device_model || "").trim() ||
+      null,
+    software_version:
+      safeString(temporaryConnectionFormState.software_version || "").trim() ||
+      null,
     enabled: temporaryConnectionFormState.enabled !== false,
     labels: getConnectionLabelValues(CONNECTION_PICKER.savedLabels),
     groups: getConnectionGroupValues(CONNECTION_PICKER.savedGroups),
     vars: getConnectionVarsValue(CONNECTION_VARS.saved),
   };
+}
+
+export async function detectTemporaryConnectionFacts() {
+  const payload = connectionPayload();
+  if (!payload.credential_id) {
+    throw new Error(t("credentialRequired"));
+  }
+  payload.connection_name = null;
+  payload.device_profile = "autodetect";
+  const detectResult = await detectConnectionFacts(payload);
+  const detectedProfile = safeString(detectResult?.device_profile || "").trim();
+
+  if (!detectedProfile) {
+    throw new Error(t("savedConnAutodetectNoResult"));
+  }
+
+  const patch = detectedConnectionFactsPatch(detectResult);
+  setTemporaryConnectionFormValues({
+    ...(patch.deviceProfile ? { device_profile: patch.deviceProfile } : {}),
+    ...(patch.deviceModel ? { device_model: patch.deviceModel } : {}),
+    ...(patch.softwareVersion
+      ? { software_version: patch.softwareVersion }
+      : {}),
+  });
+  refreshActiveTemporaryConnectionTarget();
+  return detectResult;
 }
 
 function connectionTestPayload(mode = "temporary") {

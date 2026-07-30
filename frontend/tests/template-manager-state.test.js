@@ -3,12 +3,38 @@ import test from "node:test";
 import { get } from "svelte/store";
 import {
   TEMPLATE_MANAGER_KIND,
+  configCatalogKindNames,
   createContentTemplateWorkspace,
   createShowObjectWorkspace,
   createTextfsmMappingWorkspace,
   defaultTemplateResourceContent,
+  profileModeNames,
+  profileNamesFromOverview,
   templateResourceDefinitions,
 } from "../src/modules/templates/templateManagerState.js";
+
+test("config catalog selectors normalize backend profile, kind, and mode options", () => {
+  assert.deepEqual(
+    profileNamesFromOverview({
+      builtins: [{ name: "cisco_ios" }, { name: " huawei_vrp " }],
+      custom: [{ name: "lab_switch" }, { name: "cisco_ios" }],
+    }),
+    ["cisco_ios", "huawei_vrp", "lab_switch"],
+  );
+  assert.deepEqual(
+    configCatalogKindNames([
+      { kind: "startup" },
+      { kind: " candidate " },
+      { kind: "running" },
+      { kind: "" },
+    ]),
+    ["running", "startup", "candidate"],
+  );
+  assert.deepEqual(
+    profileModeNames({ modes: ["Login", " Enable ", "Login", ""] }),
+    ["Login", "Enable"],
+  );
+});
 
 test("template manager maps every backend content-template endpoint", () => {
   assert.deepEqual(

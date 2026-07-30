@@ -10,6 +10,7 @@ import {
 import {
   executionResultDisplay,
   executionResultFailed,
+  executionResultOutputText,
   exportParsedOutputSheetsExcel,
   parsedOutputBlockDisplay,
   parsedOutputSheetsFromBatchShow,
@@ -228,7 +229,7 @@ function singleShowResultsPresentation(resultDisplay = {}) {
         modeText,
         objectText,
         outputTitle: deviceName || safeString(showResult?.object) || "Output",
-        outputText: safeString(showResult?.output),
+        outputText: executionResultOutputText(showResult),
         parsedOutputBlock: parsedOutputBlockDisplay({
           exportItem,
           parseError: showResult?.parse_error,
@@ -359,7 +360,7 @@ function batchShowResultRows(showRows = []) {
         objectText:
           object || command || `${t("showObjectPlaceholder")} ${index + 1}`,
         outputTitle: target || command || "Output",
-        outputText: safeString(batchShowResult?.output),
+        outputText: executionResultOutputText(batchShowResult),
         parsedOutputBlock: parsedOutputBlockDisplay({
           exportItem,
           parseError: batchShowResult?.parse_error,

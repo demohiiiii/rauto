@@ -58,11 +58,11 @@ const CONNECTION_DRAFT_FIELDS = [
   ["ssh_security", "sshSecurity"],
   ["linux_shell_flavor", "linuxShellFlavor"],
   ["device_profile", "deviceProfile"],
+  ["device_model", "deviceModel"],
+  ["software_version", "softwareVersion"],
 ];
 const SAVED_CONNECTION_EDITOR_DRAFT_FIELDS = [
   ["name", "name"],
-  ["device_model", "deviceModel"],
-  ["software_version", "softwareVersion"],
   ...CONNECTION_DRAFT_FIELDS,
 ];
 
@@ -88,6 +88,7 @@ function connectionSelectOption(optionValue, labelKey) {
 function connectionDraftDefaults(overrides = {}) {
   return {
     connectTimeoutSecs: "",
+    deviceModel: "",
     deviceProfile: "",
     enabled: true,
     credentialId: "",
@@ -95,6 +96,7 @@ function connectionDraftDefaults(overrides = {}) {
     linuxShellFlavor: "",
     port: "",
     sshSecurity: "",
+    softwareVersion: "",
     ...overrides,
   };
 }
@@ -182,9 +184,7 @@ export function connectionBasicFieldsPresentation({
 
 export function savedConnectionEditorDraftDefaults() {
   return connectionDraftDefaults({
-    deviceModel: "",
     name: "",
-    softwareVersion: "",
   });
 }
 

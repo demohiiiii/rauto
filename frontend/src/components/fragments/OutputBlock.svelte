@@ -38,7 +38,13 @@
   );
 </script>
 
-<Card.Root class={rootClass} {hidden} aria-label={title} aria-invalid={failed}>
+<Card.Root
+  class={rootClass}
+  {hidden}
+  aria-label={title}
+  aria-invalid={failed}
+  role={failed ? "alert" : undefined}
+>
   <Card.Header class={headerClass}>
     <span class="flex items-center gap-1.5" aria-hidden="true">
       <span class="size-2.5 rounded-full bg-red-500/90"></span>

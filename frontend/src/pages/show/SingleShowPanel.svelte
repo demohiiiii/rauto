@@ -6,7 +6,6 @@
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
-  import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
@@ -201,13 +200,6 @@
       {#snippet detail()}
         {#if showResultRow}
           <ExecutionResultMeta fields={showResultRow.metaFields} />
-          {#if showResultRow.error}
-            <StatusCard
-              message={showResultRow.error}
-              tone="error"
-              variant="alert"
-            />
-          {/if}
           <TabList
             tabItems={[
               { value: "output", label: i18nLabels.rawOutputTab },

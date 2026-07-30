@@ -3,11 +3,15 @@
   import { Button } from "$lib/components/ui/button";
   import * as Card from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
   import { RefreshCwIcon, Trash2Icon } from "@lucide/svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
   import {
     addConfigVolatilePattern,
     deleteConfigCommand,
+    getDeviceProfilesOverview,
+    getProfileModes,
     listConfigCommands,
     listConfigVolatilePatterns,
     removeConfigVolatilePattern,
@@ -16,6 +20,13 @@
   import { browserConfirm } from "../../lib/browser.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { showToast } from "../../modules/overlays/overlays.js";
+  import {
+    configCatalogKindNames,
+    profileModeNames,
+    profileNamesFromOverview,
+  } from "../../modules/templates/templateManagerState.js";
+
+  const PROFILE_DEFAULT_MODE = "__profile_default__";
 
   let { definition } = $props();
   let currentLanguage = $derived($currentLanguageState);
@@ -27,6 +38,7 @@
       profile: t("templateManagerProfileLabel"),
       kind: t("configCatalogKindLabel"),
       mode: t("templateManagerModeLabel"),
+      modeDefault: t("templateManagerModeDefault"),
       command: t("fieldCommand"),
       source: t("configCatalogSourceLabel"),
       pattern: t("configCatalogPatternLabel"),
@@ -45,7 +57,10 @@
   let profileFilter = $state("");
   let commands = $state([]);
   let patterns = $state([]);
+  let profiles = $state([]);
+  let profileModes = $state([]);
   let loading = $state(false);
+  let loadingModes = $state(false);
   let savingCommand = $state(false);
   let savingPattern = $state(false);
   let commandForm = $state({
@@ -56,16 +71,76 @@
   });
   let patternForm = $state({ profile: "", pattern: "" });
   let loaded = false;
+  let modeRequestSequence = 0;
+  let profileOptions = $derived(
+    profiles.map((profile) => ({
+      optionValue: profile,
+      optionLabel: profile,
+    })),
+  );
+  let kindOptions = $derived(
+    configCatalogKindNames(commands).map((kind) => ({
+      optionValue: kind,
+      optionLabel: kind,
+    })),
+  );
+  let modeOptions = $derived([
+    {
+      optionValue: PROFILE_DEFAULT_MODE,
+      optionLabel: labels.modeDefault,
+    },
+    ...profileModes.map((mode) => ({
+      optionValue: mode,
+      optionLabel: mode,
+    })),
+  ]);
+
+  async function loadCommandProfileModes(profile) {
+    const normalizedProfile = profile.trim();
+    const requestSequence = ++modeRequestSequence;
+    profileModes = [];
+    if (!normalizedProfile) {
+      loadingModes = false;
+      return;
+    }
+    loadingModes = true;
+    try {
+      const payload = await getProfileModes(normalizedProfile);
+      if (requestSequence !== modeRequestSequence) return;
+      profileModes = profileModeNames(payload);
+      if (commandForm.mode && !profileModes.includes(commandForm.mode)) {
+        commandForm.mode = "";
+      }
+    } catch (error) {
+      if (requestSequence !== modeRequestSequence) return;
+      showToast(`${labels.requestFailed}: ${error.message}`, "error");
+    } finally {
+      if (requestSequence === modeRequestSequence) loadingModes = false;
+    }
+  }
+
+  function selectCommandProfile(profile) {
+    commandForm.profile = profile;
+    commandForm.mode = "";
+    void loadCommandProfileModes(profile);
+  }
 
   export async function load() {
     loading = true;
     try {
-      const [commandRows, patternRows] = await Promise.all([
+      const [commandRows, patternRows, profilePayload] = await Promise.all([
         listConfigCommands(profileFilter.trim()),
         listConfigVolatilePatterns(profileFilter.trim()),
+        getDeviceProfilesOverview(),
       ]);
       commands = Array.isArray(commandRows) ? commandRows : [];
       patterns = Array.isArray(patternRows) ? patternRows : [];
+      profiles = profileNamesFromOverview(profilePayload);
+      if (!profiles.includes(commandForm.profile)) {
+        commandForm.profile = profiles[0] || "";
+        commandForm.mode = "";
+      }
+      await loadCommandProfileModes(commandForm.profile);
     } catch (error) {
       showToast(`${labels.requestFailed}: ${error.message}`, "error");
     } finally {
@@ -88,7 +163,7 @@
         command: commandForm.command.trim(),
         mode: commandForm.mode.trim() || null,
       });
-      commandForm = { profile: "", kind: "running", command: "", mode: "" };
+      commandForm.command = "";
       await load();
     } catch (error) {
       showToast(`${labels.requestFailed}: ${error.message}`, "error");
@@ -208,36 +283,63 @@
           </tbody>
         </table>
       </div>
-      <div class="grid gap-2 md:grid-cols-[1fr_120px_1fr_120px_auto]">
-        <Input
-          placeholder={labels.profile}
-          value={commandForm.profile}
-          oninput={(event) => (commandForm.profile = event.currentTarget.value)}
-        />
-        <Input
-          placeholder={labels.kind}
-          value={commandForm.kind}
-          oninput={(event) => (commandForm.kind = event.currentTarget.value)}
-        />
-        <Input
-          placeholder={labels.command}
-          value={commandForm.command}
-          oninput={(event) => (commandForm.command = event.currentTarget.value)}
-        />
-        <Input
-          placeholder={labels.mode}
-          value={commandForm.mode}
-          oninput={(event) => (commandForm.mode = event.currentTarget.value)}
-        />
-        <LoadingButton
-          loading={savingCommand}
-          disabled={!commandForm.profile.trim() ||
-            !commandForm.kind.trim() ||
-            !commandForm.command.trim()}
-          onclick={saveCommandOverride}
-        >
-          <span>{labels.saveOverride}</span>
-        </LoadingButton>
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="flex min-w-0 flex-col gap-2">
+          <Label>{labels.profile}</Label>
+          <PlainSelectField
+            value={commandForm.profile}
+            optionRows={profileOptions}
+            title={labels.profile}
+            aria-label={labels.profile}
+            disabled={loading || !profileOptions.length}
+            onValueChange={selectCommandProfile}
+          />
+        </div>
+        <div class="flex min-w-0 flex-col gap-2">
+          <Label>{labels.kind}</Label>
+          <PlainSelectField
+            value={commandForm.kind}
+            optionRows={kindOptions}
+            title={labels.kind}
+            aria-label={labels.kind}
+            disabled={loading || !kindOptions.length}
+            onValueChange={(kind) => (commandForm.kind = kind)}
+          />
+        </div>
+        <div class="flex min-w-0 flex-col gap-2">
+          <Label>{labels.mode}</Label>
+          <PlainSelectField
+            value={commandForm.mode || PROFILE_DEFAULT_MODE}
+            optionRows={modeOptions}
+            title={labels.mode}
+            aria-label={labels.mode}
+            disabled={loadingModes || !commandForm.profile}
+            onValueChange={(mode) =>
+              (commandForm.mode = mode === PROFILE_DEFAULT_MODE ? "" : mode)}
+          />
+        </div>
+        <div class="flex min-w-0 flex-col gap-2 md:col-span-2 xl:col-span-1">
+          <Label for="config-catalog-command">{labels.command}</Label>
+          <Input
+            id="config-catalog-command"
+            class="font-mono"
+            placeholder={labels.command}
+            value={commandForm.command}
+            oninput={(event) =>
+              (commandForm.command = event.currentTarget.value)}
+          />
+        </div>
+        <div class="flex justify-end md:col-span-2 xl:col-span-4">
+          <LoadingButton
+            loading={savingCommand}
+            disabled={!commandForm.profile.trim() ||
+              !commandForm.kind.trim() ||
+              !commandForm.command.trim()}
+            onclick={saveCommandOverride}
+          >
+            <span>{labels.saveOverride}</span>
+          </LoadingButton>
+        </div>
       </div>
     </Card.Content>
   </Card.Root>

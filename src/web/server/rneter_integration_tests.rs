@@ -579,6 +579,11 @@ fn http_show_routes_preserve_rneter_command_failure() {
         let single_body = single.assert_ok();
         assert_eq!(single_body["success"], json!(false));
         assert_eq!(single_body["result_summary"]["success"], json!(false));
+        assert!(
+            single_body["all"].as_str().is_some_and(
+                |all| all.contains("make-error") && all.contains("ERROR: forced failure")
+            )
+        );
 
         let batch = context
             .post_json(
@@ -594,6 +599,75 @@ fn http_show_routes_preserve_rneter_command_failure() {
         assert_eq!(batch_body["results"][0]["success"], json!(false));
         assert_eq!(batch_body["result_summary"]["success"], json!(false));
         assert_eq!(batch_body["result_summary"]["counts"]["failed"], json!(1));
+        assert!(
+            batch_body["results"][0]["all"].as_str().is_some_and(
+                |all| all.contains("make-error") && all.contains("ERROR: forced failure")
+            )
+        );
+    });
+}
+
+#[test]
+fn http_config_fetch_preserves_rneter_command_failure_transcript() {
+    run_route_test(|context| async move {
+        let device = context.spawn_cisco("edge-a", FaultInjection::new()).await;
+        context
+            .post_json(
+                "/api/config/commands",
+                json!({
+                    "device_profile": "cisco_ios",
+                    "kind": "forced-error",
+                    "command": "make-error",
+                    "mode": "Enable"
+                }),
+            )
+            .await
+            .assert_ok();
+
+        let single = context
+            .post_json(
+                "/api/config/fetch",
+                json!({
+                    "kind": "forced-error",
+                    "connection": { "connection_name": device.connection_name }
+                }),
+            )
+            .await;
+        let single_body = single.assert_ok();
+        assert_eq!(single_body["result_summary"]["success"], json!(false));
+        assert_nonempty_error(single_body);
+        assert!(
+            single_body["content"]
+                .as_str()
+                .is_some_and(|content| content.contains("ERROR: forced failure"))
+        );
+        assert!(
+            single_body["all"].as_str().is_some_and(
+                |all| all.contains("make-error") && all.contains("ERROR: forced failure")
+            )
+        );
+        assert!(single_body["sha256"].is_null());
+        assert!(single_body["normalized_sha256"].is_null());
+
+        let batch = context
+            .post_json(
+                "/api/config/batch-fetch",
+                json!({
+                    "kind": "forced-error",
+                    "targets": [device.connection_name]
+                }),
+            )
+            .await;
+        let batch_body = batch.assert_ok();
+        assert_eq!(batch_body["result_summary"]["success"], json!(false));
+        assert_eq!(batch_body["result_summary"]["counts"]["failed"], json!(1));
+        let result = &batch_body["results"][0];
+        assert_nonempty_error(result);
+        assert!(
+            result["all"].as_str().is_some_and(
+                |all| all.contains("make-error") && all.contains("ERROR: forced failure")
+            )
+        );
     });
 }
 

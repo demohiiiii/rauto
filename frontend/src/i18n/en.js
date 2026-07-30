@@ -1522,6 +1522,10 @@ export const i18nEn = {
   configFetchKindRequired: "Select a configuration kind to fetch",
   configFetchKindLoading: "Loading available configuration kinds...",
   configFetchKindEmpty: "No configuration kinds are available for this scope",
+  configFetchCommandMissingTitle:
+    "No fetch command is configured for this profile",
+  configFetchCommandMissingHint:
+    "Go to Templates > Config Fetch Commands and add at least one fetch command for {profile} before trying again.",
   configFetchKindLoadFailed: "Failed to load configuration kinds",
   configFetchNormalizedLabel: "Include normalized content",
   configFetchNormalizedHint: "Remove volatile lines for drift comparison",
