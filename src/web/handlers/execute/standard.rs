@@ -96,7 +96,7 @@ pub async fn render_template(
 pub async fn exec_command(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecRequest>,
-) -> Result<Json<ExecResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ExecResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -316,9 +316,9 @@ pub async fn exec_command(
 pub async fn exec_command_async(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecRequest>,
-) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
     let response = queue_exec_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(response)))
+    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -390,7 +390,7 @@ pub async fn list_show_objects(
 pub async fn execute_show(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ShowExecuteRequest>,
-) -> Result<Json<ShowExecuteResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ShowExecuteResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -611,7 +611,7 @@ struct ResolvedBatchShowTarget {
 pub async fn execute_show_batch(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ShowBatchExecuteRequest>,
-) -> Result<Json<ShowBatchExecuteResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ShowBatchExecuteResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -1016,7 +1016,7 @@ struct BatchExecOptions {
 pub async fn execute_exec_batch(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecBatchExecuteRequest>,
-) -> Result<Json<ExecBatchExecuteResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ExecBatchExecuteResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -1353,7 +1353,7 @@ fn show_command_source_label(source: show_catalog::ShowCommandSource) -> &'stati
 pub async fn execute_template(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTemplateRequest>,
-) -> Result<Json<ExecuteTemplateResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ExecuteTemplateResponse>>, ApiError> {
     let template_source = req
         .template
         .as_deref()
@@ -1661,9 +1661,9 @@ pub async fn execute_template(
 pub async fn execute_template_async(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTemplateRequest>,
-) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
     let response = queue_template_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(response)))
+    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
 }
 
 #[cfg(test)]

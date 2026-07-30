@@ -289,6 +289,13 @@ pub struct ConfigFetchTargetResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ConfigFetchResponse {
+    #[serde(flatten)]
+    pub target: ConfigFetchTargetResponse,
+    pub result_summary: TaskResultSummary,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ConfigBatchFetchResponse {
     pub kind: String,
     pub targets: Vec<String>,

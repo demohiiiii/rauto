@@ -38,9 +38,11 @@ export function setAgentApiToken(token) {
 }
 
 function responseErrorMessage(payload, response) {
-  return typeof payload === "string"
-    ? payload || response.statusText
-    : payload.error || payload.message || response.statusText;
+  if (typeof payload === "string") return payload || response.statusText;
+  if (payload?.error && typeof payload.error === "object") {
+    return payload.error.message || response.statusText;
+  }
+  return payload?.error || payload?.message || response.statusText;
 }
 
 async function responsePayload(response) {
@@ -71,6 +73,46 @@ async function apiRequest(method, path, body) {
     });
   }
   return payload;
+}
+
+export function unwrapExecutionResponse(payload) {
+  const hasField = (field) =>
+    Object.prototype.hasOwnProperty.call(payload || {}, field);
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    Array.isArray(payload) ||
+    typeof payload.success !== "boolean" ||
+    !hasField("error") ||
+    !hasField("result_summary") ||
+    !hasField("data") ||
+    !payload.data ||
+    typeof payload.data !== "object" ||
+    Array.isArray(payload.data)
+  ) {
+    throw new ApiError("Invalid execution response", { payload });
+  }
+  Object.defineProperty(payload.data, "execution_response", {
+    configurable: false,
+    enumerable: false,
+    value: {
+      success: payload.success,
+      error: payload.error,
+      result_summary: payload.result_summary,
+    },
+    writable: false,
+  });
+  Object.defineProperty(payload.data, "result_summary", {
+    configurable: false,
+    enumerable: false,
+    value: payload.result_summary,
+    writable: false,
+  });
+  return payload.data;
+}
+
+async function apiExecutionRequest(method, path, body) {
+  return unwrapExecutionResponse(await apiRequest(method, path, body));
 }
 
 async function apiRequestBlob(
@@ -269,11 +311,11 @@ export function downloadConnectionImportTemplateBlob(lang = "en") {
 }
 
 export function executeCommand(payload) {
-  return apiRequest("POST", "/api/exec", payload);
+  return apiExecutionRequest("POST", "/api/exec", payload);
 }
 
 export function executeTemplate(payload) {
-  return apiRequest("POST", "/api/template/execute", payload);
+  return apiExecutionRequest("POST", "/api/template/execute", payload);
 }
 
 export function renderTemplate(payload) {
@@ -281,7 +323,7 @@ export function renderTemplate(payload) {
 }
 
 export function executeCommandFlow(payload) {
-  return apiRequest("POST", "/api/command-flow/execute", payload);
+  return apiExecutionRequest("POST", "/api/command-flow/execute", payload);
 }
 
 export function inspectCommandFlowTemplate(content) {
@@ -308,19 +350,19 @@ export function updateCommandFlowTemplate(name, content) {
 }
 
 export function executeUpload(payload) {
-  return apiRequest("POST", "/api/upload", payload);
+  return apiExecutionRequest("POST", "/api/upload", payload);
 }
 
 export function executeTxBlock(payload) {
-  return apiRequest("POST", "/api/tx/block", payload);
+  return apiExecutionRequest("POST", "/api/tx/block", payload);
 }
 
 export function executeTxWorkflow(payload) {
-  return apiRequest("POST", "/api/tx/workflow", payload);
+  return apiExecutionRequest("POST", "/api/tx/workflow", payload);
 }
 
 export function executeOrchestration(payload) {
-  return apiRequest("POST", "/api/orchestrate", payload);
+  return apiExecutionRequest("POST", "/api/orchestrate", payload);
 }
 
 export function replaySession(payload) {
@@ -450,27 +492,27 @@ export function listShowObjects({
 }
 
 export function executeShow(payload) {
-  return apiRequest("POST", "/api/show/execute", payload);
+  return apiExecutionRequest("POST", "/api/show/execute", payload);
 }
 
 export function executeShowBatch(payload) {
-  return apiRequest("POST", "/api/show/batch-execute", payload);
+  return apiExecutionRequest("POST", "/api/show/batch-execute", payload);
 }
 
 export function executeExecBatch(payload) {
-  return apiRequest("POST", "/api/exec/batch-execute", payload);
+  return apiExecutionRequest("POST", "/api/exec/batch-execute", payload);
 }
 
 export function executeFlowBatch(payload) {
-  return apiRequest("POST", "/api/flow/batch-execute", payload);
+  return apiExecutionRequest("POST", "/api/flow/batch-execute", payload);
 }
 
 export function fetchConfigBatch(payload) {
-  return apiRequest("POST", "/api/config/batch-fetch", payload);
+  return apiExecutionRequest("POST", "/api/config/batch-fetch", payload);
 }
 
 export function fetchConfig(payload) {
-  return apiRequest("POST", "/api/config/fetch", payload);
+  return apiExecutionRequest("POST", "/api/config/fetch", payload);
 }
 
 export function listConfigCommands(profile = "") {

@@ -23,7 +23,7 @@ struct ConfigFetchTaskOptions {
 pub async fn fetch_config(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ConfigFetchRequest>,
-) -> Result<Json<ConfigFetchTargetResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ConfigFetchResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -34,7 +34,7 @@ pub async fn fetch_config(
             .with_details(Some(json!({ "kind": &req.kind }))),
     );
 
-    let result: Result<ConfigFetchTargetResponse, ApiError> = state
+    let result: Result<ConfigFetchResponse, ApiError> = state
         .run_until_shutdown(async {
             let target = resolve_config_fetch_connection_target(
                 &state,
@@ -54,14 +54,34 @@ pub async fn fetch_config(
                         "target": &target.name
                     }))),
             );
-            Ok(fetch_config_target(
+            let target = fetch_config_target(
                 &target,
                 &ConfigFetchTaskOptions {
                     include_normalized: req.include_normalized,
                     record_level: req.target.record_level,
                 },
             )
-            .await)
+            .await;
+            let succeeded = target.error.is_none();
+            Ok(ConfigFetchResponse {
+                result_summary: task_result_with_counts(
+                    build_result_summary(
+                        TaskOperation::Exec,
+                        if succeeded {
+                            TaskResultOutcome::Success
+                        } else {
+                            TaskResultOutcome::Failed
+                        },
+                        if succeeded {
+                            "Configuration fetched successfully"
+                        } else {
+                            "Configuration fetch command failed"
+                        },
+                    ),
+                    result_counts(1, u64::from(succeeded), u64::from(!succeeded)),
+                ),
+                target,
+            })
         })
         .await;
 
@@ -80,21 +100,22 @@ pub async fn fetch_config(
                 task_ctx,
                 TaskEventInput::new("completed", "Config fetch completed")
                     .with_stage("command")
-                    .with_level(if response.error.is_none() {
+                    .with_level(if response.target.error.is_none() {
                         "success"
                     } else {
                         "error"
                     })
                     .with_progress(Some(100))
                     .with_details(Some(json!({
-                        "kind": response.kind,
-                        "target": response.target,
-                        "success": response.error.is_none()
+                        "kind": response.target.kind,
+                        "target": response.target.target,
+                        "success": response.target.error.is_none()
                     }))),
             )
         },
         |response| {
             response
+                .target
                 .error
                 .as_ref()
                 .map(|_| "Config fetch command failed")
@@ -105,7 +126,7 @@ pub async fn fetch_config(
 pub async fn fetch_config_batch(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ConfigBatchFetchRequest>,
-) -> Result<Json<ConfigBatchFetchResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ConfigBatchFetchResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,

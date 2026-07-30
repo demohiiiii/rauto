@@ -315,23 +315,30 @@ fn build_task_callback<T: Serialize>(
     match result {
         Ok(value) => {
             let result_json = serde_json::to_value(value).ok();
+            let result_summary = extract_result_summary(value).unwrap_or_else(|| {
+                build_error_result_summary(
+                    task_ctx.operation,
+                    "missing result_summary in successful task response",
+                )
+            });
+            let succeeded = result_summary.success;
+            let error = (!succeeded).then(|| result_summary.summary.clone());
             callback_from_result_envelope(
                 state,
                 TaskResultEnvelope {
                     task_id: task_ctx.task_id.clone(),
                     operation: task_ctx.operation,
-                    status: TaskStatus::Success,
+                    status: if succeeded {
+                        TaskStatus::Success
+                    } else {
+                        TaskStatus::Failed
+                    },
                     started_at: task_ctx.started_at.to_rfc3339(),
                     completed_at: Utc::now().to_rfc3339(),
                     execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
-                    result_summary: extract_result_summary(value).unwrap_or_else(|| {
-                        build_error_result_summary(
-                            task_ctx.operation,
-                            "missing result_summary in successful task response",
-                        )
-                    }),
+                    result_summary,
                     result: result_json,
-                    error: None,
+                    error,
                 },
             )
         }
@@ -450,4 +457,63 @@ pub(super) fn spawn_task_callback<T: Serialize>(
     };
     let callback = build_task_callback(&state, task_ctx_ref, result);
     spawn_prepared_task_callback(state, task_ctx, callback);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::GlobalOpts;
+
+    fn test_state() -> Arc<AppState> {
+        AppState::new(
+            GlobalOpts {
+                credential: None,
+                host: None,
+                port: None,
+                ssh_security: None,
+                linux_shell_flavor: None,
+                device_profile: None,
+                template_dir: None,
+                force_autodetect: false,
+                session_retries: 0,
+                retry_initial_backoff_ms: 200,
+                retry_max_backoff_ms: 2000,
+                retry_authentication_errors: false,
+                connection: None,
+                save_connection: None,
+            },
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn task_callback_persists_failed_business_envelope_as_failed() {
+        let state = test_state();
+        let task_ctx = TaskReportContext::from_request(
+            TaskOperation::Exec,
+            Some("task-failed".to_string()),
+            true,
+        )
+        .expect("managed task context");
+        let summary = build_result_summary(
+            TaskOperation::Exec,
+            TaskResultOutcome::Failed,
+            "Device command failed",
+        );
+        let response = ApiResponse::completed(json!({ "output": "partial" }), summary);
+
+        let callback = build_task_callback(&state, &task_ctx, &Ok::<_, ApiError>(response));
+
+        assert_eq!(callback.status, TaskStatus::Failed);
+        assert_eq!(callback.error.as_deref(), Some("Device command failed"));
+        assert_eq!(
+            callback.result_summary.as_ref().map(|value| value.success),
+            Some(false)
+        );
+        let result = callback.result.expect("stored response envelope");
+        assert_eq!(result["success"], json!(false));
+        assert_eq!(result["data"]["output"], json!("partial"));
+        assert!(result["data"].get("result_summary").is_none());
+    }
 }

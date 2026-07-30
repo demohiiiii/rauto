@@ -285,14 +285,21 @@ export function configFetchTimestamp(value) {
 
 export function singleConfigFetchResultPayload(row = {}) {
   const failed = row?.error ? 1 : 0;
-  return {
+  const resultPayload = {
     kind: row?.kind || "",
     targets: row?.target ? [row.target] : [],
     results: [row],
-    result_summary: {
+    result_summary: row?.result_summary || {
       counts: { total: 1, succeeded: 1 - failed, failed },
     },
   };
+  if (row?.execution_response) {
+    Object.defineProperty(resultPayload, "execution_response", {
+      enumerable: false,
+      value: row.execution_response,
+    });
+  }
+  return resultPayload;
 }
 
 export async function executeConfigFetch() {

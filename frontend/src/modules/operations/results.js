@@ -7,6 +7,9 @@ import {
 } from "../connections/connections.js";
 
 export function executionResultFailed(result = {}) {
+  if (typeof result?.execution_response?.success === "boolean") {
+    return !result.execution_response.success;
+  }
   if (
     result?.error ||
     result?.success === false ||

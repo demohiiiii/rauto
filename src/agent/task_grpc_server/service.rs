@@ -1,5 +1,11 @@
 use super::*;
 
+fn execution_response_data<T>(response: crate::web::models::ApiResponse<T>) -> Result<T, Status> {
+    response
+        .data
+        .ok_or_else(|| Status::internal("completed HTTP execution response is missing data"))
+}
+
 #[tonic::async_trait]
 impl AgentTaskService for AgentTaskGrpcService {
     async fn get_agent_info(
@@ -1199,6 +1205,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_execute_show_response(response)?))
     }
@@ -1229,6 +1236,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_execute_show_batch_response(response)?))
     }
@@ -1265,6 +1273,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_execute_exec_batch_response(response)?))
     }
@@ -1302,6 +1311,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_execute_flow_batch_response(response)?))
     }
@@ -1336,6 +1346,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_fetch_config_batch_response(response)?))
     }
@@ -1364,6 +1375,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
         let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
             |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
         )?);
@@ -1407,6 +1419,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_async_response(response)))
     }
@@ -1441,6 +1454,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
         let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
             |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
         )?);
@@ -1487,6 +1501,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_async_response(response)))
     }
@@ -1519,6 +1534,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
         let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
             |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
         )?);
@@ -1555,6 +1571,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
         let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
             |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
         )?);
@@ -1579,6 +1596,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
         let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
             |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
         )?);
@@ -1623,6 +1641,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_execute_tx_workflow_response(response)?))
     }
@@ -1651,6 +1670,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         )
         .await
         .map_err(api_error_to_status)?;
+        let response = execution_response_data(response)?;
 
         Ok(Response::new(map_execute_orchestration_response(response)?))
     }

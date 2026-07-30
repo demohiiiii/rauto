@@ -63,7 +63,7 @@ fn finish_reported_task<T: Serialize>(
     failure: TaskFailureEvent,
     on_ok: impl FnOnce(&Arc<AppState>, &Option<TaskReportContext>, &T),
     response_failure: impl FnOnce(&T) -> Option<&'static str>,
-) -> Result<Json<T>, ApiError> {
+) -> Result<Json<ApiResponse<T>>, ApiError> {
     drop(task_guard);
     match &result {
         Ok(response) => on_ok(&state, &task_ctx, response),
@@ -78,15 +78,23 @@ fn finish_reported_task<T: Serialize>(
             .with_level("error"),
         ),
     }
-    if let (Some(task_ctx_ref), Ok(response)) = (task_ctx.as_ref(), &result)
-        && let Some(message) = response_failure(response)
-    {
+    let response_failure_message = result.as_ref().ok().and_then(response_failure);
+    let envelope_result = result.and_then(|response| {
+        let summary = extract_result_summary(&response)
+            .ok_or_else(|| ApiError::internal("execution response is missing result_summary"))?;
+        Ok(ApiResponse::completed(response, summary))
+    });
+    if let (Some(task_ctx_ref), Ok(response), Some(message)) = (
+        task_ctx.as_ref(),
+        &envelope_result,
+        response_failure_message,
+    ) {
         let callback = build_failed_task_callback(&state, task_ctx_ref, message, Some(response));
         spawn_prepared_task_callback(state, task_ctx, callback);
-        return result.map(Json);
+        return envelope_result.map(Json);
     }
-    spawn_task_callback(state, task_ctx, &result);
-    result.map(Json)
+    spawn_task_callback(state, task_ctx, &envelope_result);
+    envelope_result.map(Json)
 }
 
 /// Runs a MANAGER-backed execution, optionally with live session recording,
@@ -257,11 +265,19 @@ mod tests {
     async fn finish_reported_task_maps_success_and_invokes_on_ok() {
         let state = unmanaged_state();
         let mut on_ok_called = false;
+        let summary = build_result_summary(
+            TaskOperation::Exec,
+            TaskResultOutcome::Success,
+            "Command completed",
+        );
         let response = finish_reported_task(
             state,
             None,
             None,
-            Ok::<_, ApiError>(json!({"ok": true})),
+            Ok::<_, ApiError>(json!({
+                "ok": true,
+                "result_summary": summary
+            })),
             TaskFailureEvent {
                 stage: "test",
                 message_prefix: "Test failed",
@@ -271,7 +287,41 @@ mod tests {
         )
         .expect("success result should map to Json");
         assert!(on_ok_called);
-        assert_eq!(response.0["ok"], json!(true));
+        let response = serde_json::to_value(response.0).expect("serialize response");
+        assert_eq!(response["success"], json!(true));
+        assert!(response["error"].is_null());
+        assert_eq!(response["data"]["ok"], json!(true));
+        assert!(response.get("ok").is_none());
+    }
+
+    #[tokio::test]
+    async fn finish_reported_task_preserves_failed_business_data() {
+        let state = unmanaged_state();
+        let summary = build_result_summary(
+            TaskOperation::Exec,
+            TaskResultOutcome::Failed,
+            "Command failed",
+        );
+        let response = finish_reported_task(
+            state,
+            None,
+            None,
+            Ok::<_, ApiError>(json!({
+                "output": "partial output",
+                "result_summary": summary
+            })),
+            TaskFailureEvent {
+                stage: "test",
+                message_prefix: "Test failed",
+            },
+            |_, _, _| {},
+            |_| Some("Command failed"),
+        )
+        .expect("business failure should remain an HTTP response");
+        let response = serde_json::to_value(response.0).expect("serialize response");
+        assert_eq!(response["success"], json!(false));
+        assert_eq!(response["error"]["code"], json!("execution_failed"));
+        assert_eq!(response["data"]["output"], json!("partial output"));
     }
 
     #[tokio::test]

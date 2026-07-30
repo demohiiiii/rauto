@@ -186,6 +186,22 @@ test("configuration fetch results support summary fallback and both content view
     ),
     { total: 1, succeeded: 0, failed: 1 },
   );
+
+  const singleFailure = singleConfigFetchResultPayload({
+    target: "edge-01",
+    kind: "running",
+    error: "connection failed",
+    result_summary: {
+      success: false,
+      counts: { total: 1, succeeded: 0, failed: 1 },
+    },
+    execution_response: {
+      success: false,
+      error: { code: "execution_failed", message: "fetch failed" },
+    },
+  });
+  assert.equal(singleFailure.execution_response.success, false);
+  assert.equal(singleFailure.result_summary.success, false);
 });
 
 test("configuration fetch downloads the selected raw or normalized content", () => {

@@ -5,6 +5,20 @@ import test from "node:test";
 import { executionResultFailed } from "../src/modules/operations/results.js";
 
 test("execution result failures include errors, false success, and non-zero exits", () => {
+  assert.equal(
+    executionResultFailed({
+      success: true,
+      execution_response: { success: false },
+    }),
+    true,
+  );
+  assert.equal(
+    executionResultFailed({
+      error: "legacy error",
+      execution_response: { success: true },
+    }),
+    false,
+  );
   assert.equal(executionResultFailed({ error: "connection closed" }), true);
   assert.equal(executionResultFailed({ success: false }), true);
   assert.equal(

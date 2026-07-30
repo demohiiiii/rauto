@@ -3,7 +3,7 @@ use super::*;
 pub async fn execute_tx_workflow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxWorkflowRequest>,
-) -> Result<Json<ExecuteTxWorkflowResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ExecuteTxWorkflowResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::TxWorkflow,
@@ -266,7 +266,7 @@ pub async fn execute_tx_workflow(
 pub async fn execute_tx_workflow_async(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxWorkflowRequest>,
-) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
     let response = queue_tx_workflow_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(response)))
+    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
 }

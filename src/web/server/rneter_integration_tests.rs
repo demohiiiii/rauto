@@ -21,6 +21,30 @@ use tower::ServiceExt;
 
 static TEST_ROOT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
+fn is_execution_endpoint(path: &str) -> bool {
+    matches!(
+        path,
+        "/api/exec"
+            | "/api/exec/async"
+            | "/api/exec/batch-execute"
+            | "/api/template/execute"
+            | "/api/template/execute/async"
+            | "/api/command-flow/execute"
+            | "/api/flow/batch-execute"
+            | "/api/show/execute"
+            | "/api/show/batch-execute"
+            | "/api/config/fetch"
+            | "/api/config/batch-fetch"
+            | "/api/upload"
+            | "/api/tx/block"
+            | "/api/tx/block/async"
+            | "/api/tx/workflow"
+            | "/api/tx/workflow/async"
+            | "/api/orchestrate"
+            | "/api/orchestrate/async"
+    )
+}
+
 struct TestRoot {
     path: PathBuf,
 }
@@ -141,16 +165,30 @@ impl RouteTestContext {
         let bytes = to_bytes(response.into_body(), 1024 * 1024)
             .await
             .expect("read HTTP integration response body");
-        let body = serde_json::from_slice(&bytes).unwrap_or_else(|error| {
+        let envelope: Value = serde_json::from_slice(&bytes).unwrap_or_else(|error| {
             panic!(
                 "parse JSON response from {path}: {error}; body={}",
                 String::from_utf8_lossy(&bytes)
             )
         });
+        let execution_endpoint = is_execution_endpoint(path);
+        let body = if execution_endpoint && status.is_success() {
+            let mut data = envelope.get("data").cloned().unwrap_or(Value::Null);
+            if let (Value::Object(data), Some(summary)) =
+                (&mut data, envelope.get("result_summary"))
+            {
+                data.insert("result_summary".to_string(), summary.clone());
+            }
+            data
+        } else {
+            envelope.clone()
+        };
         TestResponse {
             endpoint: path.to_string(),
             status,
             body,
+            envelope,
+            execution_endpoint,
         }
     }
 }
@@ -159,6 +197,8 @@ struct TestResponse {
     endpoint: String,
     status: StatusCode,
     body: Value,
+    envelope: Value,
+    execution_endpoint: bool,
 }
 
 impl TestResponse {
@@ -170,6 +210,31 @@ impl TestResponse {
             self.status,
             self.body
         );
+        if self.execution_endpoint {
+            assert_eq!(
+                self.envelope.as_object().map(|object| object.len()),
+                Some(4),
+                "{} should return exactly the unified execution envelope: {}",
+                self.endpoint,
+                self.envelope
+            );
+            assert!(self.envelope["success"].is_boolean());
+            assert!(self.envelope.get("error").is_some());
+            assert!(self.envelope["result_summary"].is_object());
+            assert!(self.envelope["data"].is_object());
+            assert!(self.envelope["data"].get("result_summary").is_none());
+            assert_eq!(
+                self.envelope["success"], self.envelope["result_summary"]["success"],
+                "{} envelope and summary outcomes should agree",
+                self.endpoint
+            );
+            if self.envelope["success"] == json!(true) {
+                assert!(self.envelope["error"].is_null());
+            } else {
+                assert!(self.envelope["error"]["code"].is_string());
+                assert!(self.envelope["error"]["message"].is_string());
+            }
+        }
         &self.body
     }
 }
@@ -1286,7 +1351,7 @@ fn http_flow_retry_exhaustion_stops_before_later_steps() {
             response.body
         );
         assert!(
-            response.body["error"]
+            response.body["error"]["message"]
                 .as_str()
                 .is_some_and(|error| !error.trim().is_empty()),
             "retry-exhausted flow should return a useful error: {}",

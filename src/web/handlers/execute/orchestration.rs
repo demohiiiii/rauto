@@ -3,7 +3,7 @@ use super::*;
 pub async fn execute_orchestration(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteOrchestrationRequest>,
-) -> Result<Json<ExecuteOrchestrationResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ExecuteOrchestrationResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Orchestrate,
@@ -223,7 +223,7 @@ pub async fn execute_orchestration(
 pub async fn execute_orchestration_async(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteOrchestrationRequest>,
-) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
     let response = queue_orchestration_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(response)))
+    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
 }

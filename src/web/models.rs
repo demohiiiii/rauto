@@ -9,11 +9,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 mod agent;
+mod api_response;
 mod execution;
 mod profiles_templates;
 mod replay_interactive;
 mod task_runs;
 pub use self::agent::*;
+pub use self::api_response::*;
 pub use self::execution::*;
 pub use self::profiles_templates::*;
 pub use self::replay_interactive::*;

@@ -3,7 +3,7 @@ use super::*;
 pub async fn execute_tx_block(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxBlockRequest>,
-) -> Result<Json<ExecuteTxBlockResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ExecuteTxBlockResponse>>, ApiError> {
     let req = resolve_tx_block_request_from_template(req, &state.defaults)?;
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
@@ -210,7 +210,7 @@ pub async fn execute_tx_block(
 pub async fn execute_tx_block_async(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxBlockRequest>,
-) -> Result<(StatusCode, Json<AsyncTaskAcceptedResponse>), ApiError> {
+) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
     let response = queue_tx_block_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(response)))
+    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
 }

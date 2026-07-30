@@ -7,7 +7,7 @@ use tokio::task::JoinSet;
 pub async fn execute_command_flow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteCommandFlowRequest>,
-) -> Result<Json<ExecuteCommandFlowResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ExecuteCommandFlowResponse>>, ApiError> {
     let record_level = req.target.record_level;
     let conn = resolve_autodetect_connection(apply_session_retry_options(
         merge_connection_options(&state.defaults, req.target.connection)?,
@@ -147,7 +147,7 @@ pub async fn execute_command_flow(
     let failed = outputs.len() as u64 - succeeded;
     let recording_jsonl = client.recording_jsonl()?;
 
-    Ok(Json(ExecuteCommandFlowResponse {
+    let response = ExecuteCommandFlowResponse {
         success: result.success,
         template_name: template.name.clone(),
         result_summary: task_result_with_details(
@@ -181,7 +181,9 @@ pub async fn execute_command_flow(
         ),
         outputs,
         recording_jsonl,
-    }))
+    };
+    let summary = response.result_summary.clone();
+    Ok(Json(ApiResponse::completed(response, summary)))
 }
 
 struct ResolvedBatchFlowTarget {
@@ -209,7 +211,7 @@ struct BatchFlowOptions {
 pub async fn execute_flow_batch(
     State(state): State<Arc<AppState>>,
     Json(req): Json<FlowBatchExecuteRequest>,
-) -> Result<Json<FlowBatchExecuteResponse>, ApiError> {
+) -> Result<Json<ApiResponse<FlowBatchExecuteResponse>>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::CommandFlow,
@@ -563,7 +565,7 @@ async fn execute_batch_flow_target_inner(
 pub async fn execute_upload(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteUploadRequest>,
-) -> Result<Json<ExecuteUploadResponse>, ApiError> {
+) -> Result<Json<ApiResponse<ExecuteUploadResponse>>, ApiError> {
     let record_level = req.target.record_level;
     let conn = resolve_autodetect_connection(merge_connection_options(
         &state.defaults,
@@ -656,7 +658,7 @@ pub async fn execute_upload(
 
     let local_path_str = local_path.to_string_lossy().to_string();
     let remote_path = req.remote_path.trim().to_string();
-    Ok(Json(ExecuteUploadResponse {
+    let response = ExecuteUploadResponse {
         ok: true,
         local_path: local_path_str.clone(),
         remote_path: remote_path.clone(),
@@ -675,5 +677,7 @@ pub async fn execute_upload(
             }),
         ),
         recording_jsonl,
-    }))
+    };
+    let summary = response.result_summary.clone();
+    Ok(Json(ApiResponse::completed(response, summary)))
 }
