@@ -34,7 +34,7 @@ test("execution result failures include errors, false success, and non-zero exit
   assert.equal(executionResultFailed({ error: null, exit_code: null }), false);
 });
 
-test("execution result output prefers the full transcript and falls back safely", () => {
+test("execution result output selects diagnostic or prompt-free content explicitly", () => {
   assert.equal(
     executionResultOutputText({
       all: "command\nfull output\nprompt",
@@ -42,6 +42,26 @@ test("execution result output prefers the full transcript and falls back safely"
       error: "failed",
     }),
     "command\nfull output\nprompt",
+  );
+  assert.equal(
+    executionResultOutputText(
+      { all: "command\nprompt", output: "" },
+      "output",
+      { preferTranscript: false },
+    ),
+    "",
+  );
+  assert.equal(
+    executionResultOutputText(
+      {
+        all: "command\nfull output\nprompt",
+        output: "full output",
+        error: "failed",
+      },
+      "output",
+      { preferTranscript: false },
+    ),
+    "full output",
   );
   assert.equal(
     executionResultOutputText({ output: "command output", error: "failed" }),

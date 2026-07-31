@@ -207,10 +207,11 @@ function singleShowResultsPresentation(resultDisplay = {}) {
       const objectText = safeString(showResult?.object);
       const commandText = safeString(showResult?.command);
       const modeText = safeString(showResult?.mode || "-");
+      const failed = executionResultFailed(showResult);
       return {
         ...showResult,
         commandText,
-        failed: executionResultFailed(showResult),
+        failed,
         metaFields: [
           { label: t("showObjectPlaceholder"), value: showResult?.object },
           { label: t("showResultPlatform"), value: showResult?.platform },
@@ -229,7 +230,9 @@ function singleShowResultsPresentation(resultDisplay = {}) {
         modeText,
         objectText,
         outputTitle: deviceName || safeString(showResult?.object) || "Output",
-        outputText: executionResultOutputText(showResult),
+        outputText: executionResultOutputText(showResult, "output", {
+          preferTranscript: failed,
+        }),
         parsedOutputBlock: parsedOutputBlockDisplay({
           exportItem,
           parseError: showResult?.parse_error,
@@ -333,6 +336,7 @@ function batchShowResultRows(showRows = []) {
       const profile = safeString(batchShowResult?.profile);
       const target = safeString(batchShowResult?.target);
       const deviceKey = target || host || `device-${index}`;
+      const failed = executionResultFailed(batchShowResult);
       const exportItem = {
         command: batchShowResult?.command,
         device: batchShowResult?.target,
@@ -343,7 +347,7 @@ function batchShowResultRows(showRows = []) {
         command,
         error: errorText,
         exitCodeText,
-        failed: executionResultFailed(batchShowResult),
+        failed,
         deviceKey,
         metaFields: [
           { label: t("showResultTarget"), value: target },
@@ -360,7 +364,9 @@ function batchShowResultRows(showRows = []) {
         objectText:
           object || command || `${t("showObjectPlaceholder")} ${index + 1}`,
         outputTitle: target || command || "Output",
-        outputText: executionResultOutputText(batchShowResult),
+        outputText: executionResultOutputText(batchShowResult, "output", {
+          preferTranscript: failed,
+        }),
         parsedOutputBlock: parsedOutputBlockDisplay({
           exportItem,
           parseError: batchShowResult?.parse_error,

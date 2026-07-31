@@ -1,0 +1,10 @@
+Value Filldown VERSION (\S+)
+Value MODEL (\S+)
+Value UPTIME (.+)
+
+
+Start
+  ^(?:(?:H3C|HPE|HP)\s+)?Comware\s+Software,\s+Version\s+${VERSION},.*
+  ^(?:H3C|HPE|HP)\s+${MODEL}(?:\s+.*?)?\s+uptime\s+is\s+${UPTIME} -> Record
+  ^\s*$$
+  ^. -> Error

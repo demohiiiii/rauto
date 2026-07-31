@@ -745,6 +745,166 @@ mod tests {
     }
 
     #[test]
+    fn parses_h3c_comware_display_version_facts() {
+        let output = r#"H3C Comware Software, Version 7.1.064, ESS 5113
+Copyright (c) 2004-2016 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
+
+H3C WX5860H uptime is 0 weeks, 0 days, 1 hour, 50 minutes
+Last reboot reason : Power on
+
+Boot image: flash:/wx5860h-boot.bin
+Boot image version: 7.1.064, ESS 5113
+Compiled Jan  1 2016 16:00:00
+
+System image: flash:/wx5860h-system.bin
+System image version: 7.1.064, ESS 5113
+Compiled Jan  1 2016 16:00:00
+
+Slot 1
+  with 1 RMI XLP 432 1400MHz Processor
+  32736M bytes DDR3
+  16M bytes NorFlash Memory
+  4002M bytes CFCard Memory
+Hardware Version is Ver.A
+CPLD 1 Version is 001
+"#;
+        let parsed = parse_command_output(
+            output,
+            "display version",
+            &ParseOptions {
+                enabled: true,
+                platform: Some("hp_comware".to_string()),
+                ..ParseOptions::default()
+            },
+        )
+        .expect("H3C Comware display version should parse");
+        let facts = extract_device_facts(&parsed);
+
+        assert_eq!(facts.device_model.as_deref(), Some("WX5860H"));
+        assert_eq!(facts.software_version.as_deref(), Some("7.1.064"));
+    }
+
+    #[test]
+    fn parses_hp_comware_display_version_facts() {
+        let output = r#"HP Comware Platform Software
+Comware Software, Version 5.20.105, Release 1808P27
+Copyright (c) 2010-2014 Hewlett-Packard Development Company, L.P.
+
+HP A5800-48G Switch with 1 Interface Slot uptime is 19 weeks, 4 days, 4 hours, 6 minutes
+
+ Last reboot reason : Power on
+ Boot image: flash:/A5800_5800_CMW520-R1808P27.bin
+ System image: flash:/A5800_5800_CMW520-R1808P27.bin
+  CPLD Version: 001
+  BootRom Version: 113
+Hardware Version is Ver.A
+"#;
+        let parsed = parse_command_output(
+            output,
+            "display version",
+            &ParseOptions {
+                enabled: true,
+                platform: Some("hp_comware".to_string()),
+                ..ParseOptions::default()
+            },
+        )
+        .expect("HP Comware display version should parse");
+        let facts = extract_device_facts(&parsed);
+
+        assert_eq!(facts.device_model.as_deref(), Some("A5800-48G"));
+        assert_eq!(facts.software_version.as_deref(), Some("5.20.105"));
+    }
+
+    #[test]
+    fn parses_hpe_comware_display_version_facts() {
+        let output = r#"HPE Comware Software, Version 7.1.070, Release 2612P01
+Copyright (c) 2010-2024 Hewlett Packard Enterprise Development LP
+
+HPE 5130-24G-4SFP+ EI Switch uptime is 12 weeks, 1 day
+"#;
+        let parsed = parse_command_output(
+            output,
+            "display version",
+            &ParseOptions {
+                enabled: true,
+                platform: Some("hp_comware".to_string()),
+                ..ParseOptions::default()
+            },
+        )
+        .expect("HPE Comware display version should parse");
+        let facts = extract_device_facts(&parsed);
+
+        assert_eq!(facts.device_model.as_deref(), Some("5130-24G-4SFP+"));
+        assert_eq!(facts.software_version.as_deref(), Some("7.1.070"));
+    }
+
+    #[test]
+    fn parses_linux_os_release_facts() {
+        let cases = [
+            (
+                "Ubuntu",
+                r#"PRETTY_NAME="Ubuntu 22.04.4 LTS"
+NAME="Ubuntu"
+VERSION_ID="22.04"
+VERSION="22.04.4 LTS (Jammy Jellyfish)"
+ID=ubuntu
+ID_LIKE=debian
+"#,
+                "Ubuntu",
+                "22.04",
+            ),
+            (
+                "CentOS",
+                r#"NAME="CentOS Linux"
+VERSION="7 (Core)"
+ID="centos"
+ID_LIKE="rhel fedora"
+VERSION_ID="7"
+PRETTY_NAME="CentOS Linux 7 (Core)"
+"#,
+                "CentOS Linux",
+                "7",
+            ),
+            (
+                "Debian",
+                r#"PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"
+NAME="Debian GNU/Linux"
+VERSION_ID="12"
+VERSION="12 (bookworm)"
+ID=debian
+"#,
+                "Debian GNU/Linux",
+                "12",
+            ),
+        ];
+
+        for (distribution, output, expected_model, expected_version) in cases {
+            let parsed = parse_command_output(
+                output,
+                "cat /etc/os-release",
+                &ParseOptions {
+                    enabled: true,
+                    platform: Some("linux".to_string()),
+                    ..ParseOptions::default()
+                },
+            )
+            .unwrap_or_else(|error| panic!("{distribution} os-release should parse: {error}"));
+            let facts = extract_device_facts(&parsed);
+
+            assert_eq!(
+                facts.device_model.as_deref(),
+                Some(expected_model),
+                "unexpected {distribution} model"
+            );
+            assert_eq!(
+                facts.software_version.as_deref(),
+                Some(expected_version),
+                "unexpected {distribution} version"
+            );
+        }
+    }
+
+    #[test]
     fn returns_empty_facts_for_unstructured_or_empty_ntc_output() {
         assert_eq!(extract_device_facts(&Value::Null), DeviceFacts::default());
         assert_eq!(

@@ -22,7 +22,17 @@ export function executionResultFailed(result = {}) {
   return Number.isFinite(exitCode) && exitCode !== 0;
 }
 
-export function executionResultOutputText(result = {}, outputField = "output") {
+export function executionResultOutputText(
+  result = {},
+  outputField = "output",
+  { preferTranscript = true } = {},
+) {
+  if (!preferTranscript) {
+    if (result?.[outputField] != null) {
+      return safeString(result[outputField]);
+    }
+    return safeString(result?.error || result?.all);
+  }
   return safeString(result?.all || result?.[outputField] || result?.error);
 }
 

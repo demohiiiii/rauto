@@ -262,3 +262,30 @@ fn normalize_object_text(raw: &str) -> String {
     }
     output.trim_matches('-').to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{platform_for_show, resolve_show_command};
+
+    #[test]
+    fn h3c_comware_version_resolves_display_version() {
+        let platform = platform_for_show("h3c_comware", None);
+        let command = resolve_show_command("version", platform.as_deref(), "h3c_comware")
+            .expect("H3C Comware version object should resolve");
+
+        assert_eq!(platform.as_deref(), Some("hp_comware"));
+        assert_eq!(command.command, "display version");
+        assert_eq!(command.mode.as_deref(), Some("Enable"));
+    }
+
+    #[test]
+    fn linux_version_resolves_os_release() {
+        let platform = platform_for_show("linux", None);
+        let command = resolve_show_command("version", platform.as_deref(), "linux")
+            .expect("Linux version object should resolve");
+
+        assert_eq!(platform.as_deref(), Some("linux"));
+        assert_eq!(command.command, "cat /etc/os-release");
+        assert_eq!(command.mode, None);
+    }
+}

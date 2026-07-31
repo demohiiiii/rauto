@@ -1,0 +1,11 @@
+Value Required MODEL ([^"]+)
+Value Required VERSION ([^"]+)
+
+
+Start
+  ^NAME="${MODEL}"\s*$$
+  ^NAME=${MODEL}\s*$$
+  ^VERSION_ID="${VERSION}"\s*$$
+  ^VERSION_ID=${VERSION}\s*$$
+  ^\s*$$
+  ^. -> Error

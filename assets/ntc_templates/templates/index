@@ -673,6 +673,7 @@ fsas_sir_show_vlan.textfsm, .*, fsas_sir, sh[[ow]] vl[[an]]
 
 hp_comware_display_lldp_neighbor-information_verbose.textfsm, .*, hp_comware, di[[splay]] ll[[dp]] n[[eighbor-information]] v[[erbose]]
 hp_comware_display_lldp_neighbor-information_list.textfsm, .*, hp_comware, di[[splay]] ll[[dp]] n[[eighbor-information]] l[[ist]]
+hp_comware_display_version.textfsm, .*, hp_comware, di[[splay]] ve[[rsion]]
 hp_comware_display_ip_vpn-instance_instance-name.textfsm, .*, hp_comware, di[[splay]] ip vpn[[-instance]] in[[instance-name]]
 hp_comware_display_link-aggregation_member-port.textfsm, .*, hp_comware, di[[splay]] link[[-aggregation]] mem[[member-port]]
 hp_comware_display_counters_bound_interface.textfsm, .*, hp_comware, di[[splay]] cou[[nters]] (\S+) i[[nterface]]
@@ -834,6 +835,7 @@ juniper_junos_show_vlans.textfsm, .*, juniper_junos, sh[[ow]] vl[[ans]]
 
 juniper_screenos_get_route.textfsm, .*, juniper_screenos, get route
 
+linux_cat_etc_os-release.textfsm, .*, linux, cat /etc/os-release
 linux_dmidecode_-t_processor.textfsm, .*, linux, dmidecode -t processor
 linux_iwlist_wlan0_scanning.textfsm, .*, linux, iwlist \S+ sc[[anning]]
 linux_nmcli_connection_show.textfsm, .*, linux, nmcli c[[onnection]] s[[how]]
