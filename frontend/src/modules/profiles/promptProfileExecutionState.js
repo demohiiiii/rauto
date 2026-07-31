@@ -2,6 +2,7 @@ import { getProfileModes } from "../../api/client.js";
 import { getCachedDeviceProfiles } from "../templates/templatesShowObjects.js";
 import { safeString } from "../../lib/ui.js";
 import { t } from "../../lib/i18n.js";
+import { profileModeExpressionMatchesOptions } from "./profileModeExpressions.js";
 import {
   currentExecutionConnectionProfile,
   connectionTargetState,
@@ -25,6 +26,7 @@ export const executionModeOptionsVersion = writable(0);
 
 export const MODE_SELECT = Object.freeze({
   showBatch: "showBatch",
+  batchExec: "batchExec",
   showSingle: "showSingle",
   standardDirect: "standardDirect",
   standardFlow: "standardFlow",
@@ -60,6 +62,13 @@ async function fetchProfileModes(profileName) {
   }
   try {
     const modePayload = await getProfileModes(normalized);
+    if (
+      !modePayload ||
+      typeof modePayload !== "object" ||
+      Array.isArray(modePayload)
+    ) {
+      throw new Error("Invalid profile modes response");
+    }
     const modes = profileValues(modePayload.modes).filter(Boolean);
     const defaultMode = modePayload.default_mode || modes[0] || "Root";
     const resolved = {
@@ -73,7 +82,7 @@ async function fetchProfileModes(profileName) {
     return {
       name: normalized,
       default_mode: "Root",
-      modes: ["Root"],
+      modes: ["Root", "User"],
     };
   }
 }
@@ -184,7 +193,7 @@ function resolveModeSelectState(
     normalizedModes.length > 0 ? normalizedModes : [defaultMode || "Enable"];
   const preferred = (preferredMode || "").trim();
   const selected =
-    preferred && finalModes.includes(preferred)
+    preferred && profileModeExpressionMatchesOptions(preferred, finalModes)
       ? preferred
       : allowEmpty
         ? ""
@@ -192,7 +201,7 @@ function resolveModeSelectState(
   const resolvedSelected =
     allowEmpty && !selected
       ? ""
-      : finalModes.includes(selected)
+      : profileModeExpressionMatchesOptions(selected, finalModes)
         ? selected
         : finalModes[0] || "";
 
@@ -285,6 +294,7 @@ async function refreshExecutionModeOptions(overrides = {}) {
     [MODE_SELECT.standardDirect, "execMode"],
     [MODE_SELECT.standardFlow, "flowMode"],
     [MODE_SELECT.standardTemplate, "templateMode"],
+    [MODE_SELECT.batchExec, "batchExecMode", autoModeSelect],
     [MODE_SELECT.showSingle, "showMode", autoModeSelect],
     [MODE_SELECT.showBatch, "batchShowMode", autoModeSelect],
   ];

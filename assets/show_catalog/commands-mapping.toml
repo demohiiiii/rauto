@@ -1,5 +1,6 @@
 # Platform-level mode applies to every object under that platform unless an
-# object uses { command = "...", mode = "..." } to override it.
+# object uses { command = "...", mode = "..." } to override it. Mode values can
+# be a single profile mode or comma/pipe-separated candidates such as "Root|User".
 [platform_modes]
 arista_eos = "Enable"
 aruba_aoscx = "Enable"
@@ -11,6 +12,7 @@ fortinet = "Enable"
 huawei_vrp = "Enable"
 hp_comware = "Enable"
 juniper_junos = "Enable"
+linux = "Root|User"
 paloalto_panos = "Enable"
 zte_zxros = "Enable"
 

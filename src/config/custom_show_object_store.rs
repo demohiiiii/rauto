@@ -1,4 +1,4 @@
-use crate::config::show_catalog;
+use crate::config::{show_catalog, template_loader};
 use crate::db;
 use anyhow::{Result, anyhow};
 use sqlx::Row;
@@ -138,7 +138,9 @@ pub fn upsert(
     } else {
         normalize_command(command)?
     };
-    let mode = normalize_optional_text(mode);
+    let mode = normalize_optional_text(mode)
+        .map(|mode| template_loader::resolve_profile_mode(&profile, Some(&mode)))
+        .transpose()?;
     let textfsm_template_name = if textfsm_mapping_command.is_some() {
         None
     } else {

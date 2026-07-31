@@ -112,6 +112,13 @@ fn canonicalize_profile_mode<'a>(
         .map(String::as_str)
 }
 
+fn split_profile_mode_candidates(requested_mode: &str) -> impl Iterator<Item = &str> {
+    requested_mode
+        .split([',', '|'])
+        .map(str::trim)
+        .filter(|mode| !mode.is_empty())
+}
+
 pub fn resolve_profile_mode(name: &str, requested_mode: Option<&str>) -> Result<String> {
     if is_autodetect_profile_name(name) {
         return resolve_profile_mode(AUTODETECT_MODE_FALLBACK_PROFILE, requested_mode);
@@ -128,8 +135,17 @@ pub fn resolve_profile_mode(name: &str, requested_mode: Option<&str>) -> Result<
         return Ok(default_mode);
     };
 
-    if let Some(canonical_mode) = canonicalize_profile_mode(&available_modes, requested_mode) {
-        return Ok(canonical_mode.to_string());
+    let mut canonical_modes = Vec::new();
+    let mut invalid_modes = Vec::new();
+    for mode in split_profile_mode_candidates(requested_mode) {
+        match canonicalize_profile_mode(&available_modes, mode) {
+            Some(canonical_mode) => canonical_modes.push(canonical_mode.to_string()),
+            None => invalid_modes.push(mode.to_string()),
+        }
+    }
+
+    if !canonical_modes.is_empty() && invalid_modes.is_empty() {
+        return Ok(canonical_modes.join(","));
     }
 
     Err(anyhow!(
@@ -172,7 +188,7 @@ pub fn custom_detect_template_definitions() -> Result<Vec<DetectTemplateDefiniti
 
 #[cfg(test)]
 mod tests {
-    use super::canonicalize_profile_mode;
+    use super::{canonicalize_profile_mode, resolve_profile_mode, split_profile_mode_candidates};
 
     #[test]
     fn canonicalizes_mode_case_insensitively() {
@@ -192,5 +208,34 @@ mod tests {
         let modes = vec!["Enable".to_string(), "Config".to_string()];
 
         assert_eq!(canonicalize_profile_mode(&modes, "user"), None);
+    }
+
+    #[test]
+    fn splits_multi_mode_candidates_on_comma_or_pipe() {
+        assert_eq!(
+            split_profile_mode_candidates(" Root, User | Config ").collect::<Vec<_>>(),
+            vec!["Root", "User", "Config"]
+        );
+        assert_eq!(
+            split_profile_mode_candidates(",,Enable||").collect::<Vec<_>>(),
+            vec!["Enable"]
+        );
+    }
+
+    #[test]
+    fn resolves_multi_mode_candidates_case_insensitively() {
+        let resolved =
+            resolve_profile_mode("linux", Some(" root | user ")).expect("resolve multi mode");
+
+        assert_eq!(resolved, "Root,User");
+    }
+
+    #[test]
+    fn rejects_unknown_multi_mode_candidates() {
+        let err = resolve_profile_mode("linux", Some("root,missing"))
+            .expect_err("unknown mode should fail");
+
+        assert!(err.to_string().contains("root,missing"));
+        assert!(err.to_string().contains("available_modes="));
     }
 }

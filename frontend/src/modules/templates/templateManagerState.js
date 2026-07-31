@@ -22,6 +22,7 @@ import {
   commandFlowTemplateModelFromToml,
   commandFlowTemplateModelToToml,
 } from "../command/commandFlowTemplateModel.js";
+import { profileModeExpressionMatchesOptions } from "../profiles/profileModeExpressions.js";
 import {
   notifyCustomShowObjectsChanged,
   setCachedDeviceProfiles,
@@ -1024,7 +1025,7 @@ export function createShowObjectWorkspace(options = {}) {
     ]);
     const mappings = listValue(mappingsPayload).map(normalizeMapping);
     const modes = uniqueNames(modesPayload?.modes);
-    const mode = modes.includes(selectedMode)
+    const mode = profileModeExpressionMatchesOptions(selectedMode, modes)
       ? selectedMode
       : modes.includes(modesPayload?.default_mode)
         ? modesPayload.default_mode

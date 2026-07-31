@@ -6,6 +6,7 @@
   import { Label } from "$lib/components/ui/label";
   import { RefreshCwIcon, Trash2Icon } from "@lucide/svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import ModeExpressionField from "../../components/fragments/ModeExpressionField.svelte";
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
   import {
     addConfigVolatilePattern,
@@ -20,13 +21,12 @@
   import { browserConfirm } from "../../lib/browser.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { showToast } from "../../modules/overlays/overlays.js";
+  import { profileModeExpressionMatchesOptions } from "../../modules/profiles/profileModeExpressions.js";
   import {
     configCatalogKindNames,
     profileModeNames,
     profileNamesFromOverview,
   } from "../../modules/templates/templateManagerState.js";
-
-  const PROFILE_DEFAULT_MODE = "__profile_default__";
 
   let { definition } = $props();
   let currentLanguage = $derived($currentLanguageState);
@@ -84,16 +84,9 @@
       optionLabel: kind,
     })),
   );
-  let modeOptions = $derived([
-    {
-      optionValue: PROFILE_DEFAULT_MODE,
-      optionLabel: labels.modeDefault,
-    },
-    ...profileModes.map((mode) => ({
-      optionValue: mode,
-      optionLabel: mode,
-    })),
-  ]);
+  function modeValueMatchesProfileModes(modeValue) {
+    return profileModeExpressionMatchesOptions(modeValue, profileModes);
+  }
 
   async function loadCommandProfileModes(profile) {
     const normalizedProfile = profile.trim();
@@ -108,7 +101,7 @@
       const payload = await getProfileModes(normalizedProfile);
       if (requestSequence !== modeRequestSequence) return;
       profileModes = profileModeNames(payload);
-      if (commandForm.mode && !profileModes.includes(commandForm.mode)) {
+      if (commandForm.mode && !modeValueMatchesProfileModes(commandForm.mode)) {
         commandForm.mode = "";
       }
     } catch (error) {
@@ -308,14 +301,14 @@
         </div>
         <div class="flex min-w-0 flex-col gap-2">
           <Label>{labels.mode}</Label>
-          <PlainSelectField
-            value={commandForm.mode || PROFILE_DEFAULT_MODE}
-            optionRows={modeOptions}
+          <ModeExpressionField
+            value={commandForm.mode}
+            optionValues={profileModes}
             title={labels.mode}
             aria-label={labels.mode}
+            placeholderText={labels.modeDefault}
             disabled={loadingModes || !commandForm.profile}
-            onValueChange={(mode) =>
-              (commandForm.mode = mode === PROFILE_DEFAULT_MODE ? "" : mode)}
+            onValueChange={(mode) => (commandForm.mode = mode)}
           />
         </div>
         <div class="flex min-w-0 flex-col gap-2 md:col-span-2 xl:col-span-1">

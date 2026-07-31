@@ -195,7 +195,7 @@ pub struct ExecArgs {
     #[arg(long)]
     pub textfsm_strict_errors: bool,
 
-    /// Execution mode (e.g. "Enable", "Config", "Shell")
+    /// Execution mode or candidate modes separated by comma/pipe (e.g. "Enable", "Root,User")
     #[arg(long, short = 'm')]
     pub mode: Option<String>,
 
@@ -237,7 +237,7 @@ pub struct ShowArgs {
     #[arg(long)]
     pub textfsm_platform: Option<String>,
 
-    /// Execution mode (e.g. "Enable", "Config", "Shell")
+    /// Execution mode or candidate modes separated by comma/pipe (e.g. "Enable", "Root,User")
     #[arg(long, short = 'm')]
     pub mode: Option<String>,
 

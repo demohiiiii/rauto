@@ -1,7 +1,7 @@
 <script>
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../fragments/PlainInputField.svelte";
-  import StringSelectField from "../fragments/StringSelectField.svelte";
+  import ModeExpressionField from "../fragments/ModeExpressionField.svelte";
   import { t } from "../../lib/i18n.js";
   import { defaultCommandFlowTemplateStepModel } from "../../modules/command/commandFlowTemplateModel.js";
   import CommandFlowSettings from "./CommandFlowSettings.svelte";
@@ -104,10 +104,9 @@
                 defaultMode: hasDefaultMode ? (model.defaultMode ?? "") : null,
               })}
           />
-          <StringSelectField
+          <ModeExpressionField
             value={model.defaultMode || ""}
             optionValues={modeOptions}
-            includeEmptyOption={true}
             placeholderText={t("txBlockFormDefaultMode")}
             disabled={!model.hasDefaultMode}
             onValueChange={(defaultMode) =>

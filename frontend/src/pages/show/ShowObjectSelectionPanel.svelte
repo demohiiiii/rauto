@@ -1,7 +1,7 @@
 <script>
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
-  import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
+  import ModeExpressionField from "../../components/fragments/ModeExpressionField.svelte";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 
@@ -46,12 +46,13 @@
       >
         {i18nModeLabel}
       </span>
-      <ValueTextSelectField
+      <ModeExpressionField
         class="w-full"
         title={selectionDisplay.modePlaceholder}
         aria-label={selectionDisplay.modePlaceholder}
         value={showSelectionFields.mode}
-        optionRows={selectionDisplay.modeOptionRows}
+        optionValues={showSelectionFields.modeOptions}
+        placeholderText={selectionDisplay.modePlaceholder}
         onValueChange={onModeChange}
       />
     </div>

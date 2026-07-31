@@ -286,6 +286,6 @@ mod tests {
 
         assert_eq!(platform.as_deref(), Some("linux"));
         assert_eq!(command.command, "cat /etc/os-release");
-        assert_eq!(command.mode, None);
+        assert_eq!(command.mode.as_deref(), Some("Root|User"));
     }
 }

@@ -11,6 +11,7 @@
     Trash2Icon,
     WorkflowIcon,
   } from "@lucide/svelte";
+  import ModeExpressionField from "../../components/fragments/ModeExpressionField.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import PlainTextAreaField from "../../components/fragments/PlainTextAreaField.svelte";
   import ValueLabelSelectField from "../../components/fragments/ValueLabelSelectField.svelte";
@@ -163,11 +164,11 @@
     >
       <div class="grid min-w-0 gap-1.5">
         {@render fieldLabel(flowStepsDisplay.modeLabel)}
-        <ValueTextSelectField
+        <ModeExpressionField
           title={flowStepsDisplay.modeLabel}
           aria-label={`${flowStepsDisplay.stepLabel} ${hookFlowStepRow.stepIndex + 1} ${flowStepsDisplay.modeLabel}`}
           value={hookFlowStepRow.mode}
-          optionRows={hookFlowStepRow.modeOptionRows}
+          optionValues={modeOptions}
           onValueChange={flowStepModeChangeHandler(hookFlowStepRow.stepIndex)}
         />
       </div>
@@ -363,11 +364,11 @@
           >
             <div class="grid min-w-0 gap-1.5">
               {@render fieldLabel(operationDisplay.commandModeLabel)}
-              <ValueTextSelectField
+              <ModeExpressionField
                 title={operationDisplay.commandModeLabel}
                 aria-label={operationDisplay.commandModeLabel}
                 value={operationDisplay.commandDisplay.mode}
-                optionRows={operationDisplay.commandModeOptionRows}
+                optionValues={modeOptions}
                 onValueChange={commandModeChangeHandler()}
               />
             </div>

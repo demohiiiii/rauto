@@ -1,4 +1,4 @@
-use crate::config::command_blacklist;
+use crate::config::{command_blacklist, template_loader};
 use crate::db;
 use anyhow::{Result, anyhow};
 use regex::Regex;
@@ -105,7 +105,8 @@ pub fn upsert(profile: &str, kind: &str, command: &str, mode: Option<&str>) -> R
     let mode = mode
         .map(str::trim)
         .filter(|mode| !mode.is_empty())
-        .map(ToOwned::to_owned);
+        .map(|mode| template_loader::resolve_profile_mode(&profile, Some(mode)))
+        .transpose()?;
     db::run_sync(async move {
         let now = now_ms();
         sqlx::query(

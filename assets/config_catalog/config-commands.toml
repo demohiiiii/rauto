@@ -1,6 +1,7 @@
 # Per-profile device configuration fetch commands.
 # Platform-level mode applies to every kind under that platform unless a kind
-# uses { command = "...", mode = "..." } to override it.
+# uses { command = "...", mode = "..." } to override it. Mode values can be a
+# single profile mode or comma/pipe-separated candidates such as "Root|User".
 [platform_modes]
 arista_eos = "Enable"
 aruba_aoscx = "Enable"

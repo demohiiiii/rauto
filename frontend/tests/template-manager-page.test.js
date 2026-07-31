@@ -53,7 +53,8 @@ test("config fetch command editor uses catalog-backed selectors", async () => {
   assert.match(source, /profileNamesFromOverview/);
   assert.match(source, /configCatalogKindNames/);
   assert.match(source, /profileModeNames/);
-  assert.equal((source.match(/<PlainSelectField/g) || []).length, 3);
+  assert.match(source, /<ModeExpressionField/);
+  assert.equal((source.match(/<PlainSelectField/g) || []).length, 2);
   assert.doesNotMatch(
     source,
     /commandForm\.profile = event\.currentTarget\.value/,

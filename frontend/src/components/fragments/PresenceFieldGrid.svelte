@@ -1,6 +1,7 @@
 <script>
   import { presenceFieldRowBindings } from "../../lib/events.js";
   import { classNames, presenceFieldControlDisplay } from "../../lib/ui.js";
+  import ModeExpressionField from "./ModeExpressionField.svelte";
   import PlainInputField from "./PlainInputField.svelte";
   import PlainSelectField from "./PlainSelectField.svelte";
   import PresenceToggle from "./PresenceToggle.svelte";
@@ -131,7 +132,22 @@
           </div>
         {/if}
         <div class="contents" use:invalidFieldControl={!!fieldRow.errorText}>
-          {#if (fieldRow.controlType || controlTypeFallback) === "select"}
+          {#if (fieldRow.controlType || controlTypeFallback) === "mode-expression"}
+            <ModeExpressionField
+              class={controlDisplay.inputClassText}
+              aria-label={fieldRow.labelText}
+              optionValues={fieldRow.optionValues || []}
+              value={fieldRow.valueText}
+              placeholderText={fieldRow.placeholderText}
+              disabled={controlDisabled}
+              onChange={valueHandlerMode === "event"
+                ? controlBindings.valueChangeHandler
+                : null}
+              onValueChange={valueHandlerMode === "event"
+                ? null
+                : controlBindings.valueChangeHandler}
+            />
+          {:else if (fieldRow.controlType || controlTypeFallback) === "select"}
             <PlainSelectField
               class={controlDisplay.selectClassText}
               aria-label={fieldRow.labelText}

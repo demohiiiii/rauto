@@ -277,7 +277,7 @@ pub enum ShowObjectCommands {
         /// Exact command to execute for this object
         #[arg(long)]
         command: String,
-        /// Optional execution mode override, for example enable or config
+        /// Optional execution mode or candidate modes, for example Enable or Root,User
         #[arg(long, short = 'm')]
         mode: Option<String>,
         /// Optional custom TextFSM template name used to parse this show object
@@ -801,7 +801,7 @@ pub enum ConfigCommandCommands {
         kind: String,
         /// Device command used to fetch this config kind
         command: String,
-        /// Execution mode override (for example Enable)
+        /// Execution mode override or candidate modes, for example Enable or Root,User
         #[arg(long)]
         mode: Option<String>,
     },

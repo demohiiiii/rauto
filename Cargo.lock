@@ -3188,7 +3188,7 @@ dependencies = [
 [[package]]
 name = "rneter"
 version = "0.4.7"
-source = "git+https://github.com/demohiiiii/rneter.git?rev=7cc47fd6e23085be99231d4d218cf465058bb873#7cc47fd6e23085be99231d4d218cf465058bb873"
+source = "git+https://github.com/demohiiiii/rneter.git?rev=45d752c924ec8f411399e571678fa51c35d495ef#45d752c924ec8f411399e571678fa51c35d495ef"
 dependencies = [
  "anyhow",
  "async-ssh2-tokio",

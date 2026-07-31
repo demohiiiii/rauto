@@ -87,12 +87,12 @@ test("PresenceFieldGrid preserves raw values by default", () => {
   assert.match(source, /valueHandlerMode = "value"/);
   assert.equal(
     (source.match(/onChange=\{valueHandlerMode === "event"/g) || []).length,
-    2,
+    3,
   );
   assert.equal(
     (source.match(/onValueChange=\{valueHandlerMode === "event"/g) || [])
       .length,
-    2,
+    3,
   );
   assert.equal(
     (source.match(/onInput=\{valueHandlerMode === "event"/g) || []).length,

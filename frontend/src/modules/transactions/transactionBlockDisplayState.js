@@ -51,7 +51,7 @@ export const TX_BLOCK_JSON_VALUE_TYPE_ROWS = Object.freeze([
 
 const TX_BLOCK_COMMAND_FIELD_DEFS = Object.freeze([
   {
-    controlType: "select",
+    controlType: "mode-expression",
     fieldKey: "mode",
     labelKey: "txBlockFormMode",
     placeholderKey: "txBlockFormModePlaceholder",
@@ -224,6 +224,9 @@ export function txBlockCommandFieldsDisplay(
   pathPrefix = "",
 ) {
   const commandValue = txPlainObject(command) ? command : {};
+  const modeOptions = Array.isArray(commandModeState?.modes)
+    ? commandModeState.modes
+    : [];
   const fieldRows = TX_BLOCK_COMMAND_FIELD_DEFS.map((fieldDef) => {
     const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
     const enabled =
@@ -240,8 +243,11 @@ export function txBlockCommandFieldsDisplay(
         ...fieldDef,
         enabled,
         labelText: t(fieldDef.labelKey),
+        optionValues: modeOptions,
         optionRows: txBlockCommandModeOptionRows(valueText, commandModeState),
-        placeholderText: "",
+        placeholderText: fieldDef.placeholderKey
+          ? t(fieldDef.placeholderKey)
+          : "",
         showPresenceToggle: false,
         valueText,
       };

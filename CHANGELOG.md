@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### New Features
+- Updated rneter to commit `45d752c` and enabled multi-mode command targeting across CLI, Web/API execution payloads, templates, transactions, show objects, and config catalog mappings. Mode fields now accept comma- or pipe-separated candidates such as `Enable,Config` or `Root|User`; rauto validates each candidate against the selected profile before rneter chooses the reachable execution mode.
 - Updated rneter to `0.4.7` commit `fd2583d` and added password, encrypted inline-private-key, private-key-file, and SSH-agent authentication across CLI, Web, import, orchestration, and agent gRPC execution paths.
 - Added rneter virtual-device integration coverage for rauto's SSH wrapper and redacted configured authentication and Enable secrets before full session events are stored or broadcast.
 - Added opt-in bounded retries for ordinary commands and command flows, including capped exponential backoff, conservative transient-error classification, flow resumption from the first unfinished step, and optional authentication retries.

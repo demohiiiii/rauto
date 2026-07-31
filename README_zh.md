@@ -206,6 +206,7 @@ rauto exec "show ip int br" \
 `exec` 的模式选择规则如下：
 
 - 传了 `--mode` 时，会先根据当前选中的 profile 校验该 mode，再按这个 mode 执行。
+- `--mode` 可以传单个 mode，也可以传逗号或竖线分隔的候选列表，例如 `Enable,Config` 或 `Root|User`。rauto 会先校验每个候选，随后由 rneter 在当前候选 mode 可用时直接执行，或切换到可达候选 mode。
 - 未传 `--mode` 时，会使用当前 profile 的 `default_mode`。
 
 也可以对多个已保存连接批量执行同一条命令，目标支持连接名、inventory 分组和标签。所有目标会先完成预检（连接解析、按 profile 校验 mode、命令黑名单），全部通过后才开始并发执行，每台设备的输出作为完整块原子打印：
@@ -292,7 +293,7 @@ rauto show-object delete --profile my_custom_profile --object access-list
 Web UI 中可以在 **Template Manager -> TextFSM Templates** 管理同一套自定义 TextFSM 模板、profile 命令映射和自定义 show object。
 
 **指定执行模式：**
-在特定模式下执行命令（例如 `Enable`, `Config`）。
+在特定模式下执行命令（例如 `Enable`, `Config`），或传入候选列表（例如 `Root,User`）。
 
 ```bash
 rauto exec "show bgp neighbor" \
@@ -569,7 +570,7 @@ rauto profile autodetect -v --host 192.168.1.1 --credential network-admin
 rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 ```
 
-当普通执行路径使用 autodetect 时，探测出的 profile 会决定后续的 mode 校验和默认 mode 回退逻辑。autodetect 不会根据命令文本自动推断执行模式；如果某条命令必须在 `Enable`、`Config`、`Shell` 等特定状态下运行，请显式使用 `exec --mode <mode>`。
+当普通执行路径使用 autodetect 时，探测出的 profile 会决定后续的 mode 校验和默认 mode 回退逻辑。autodetect 不会根据命令文本自动推断执行模式；如果某条命令必须在 `Enable`、`Config`、`Shell` 等特定状态下运行，请显式使用 `exec --mode <mode>`。如果某条命令可在多个状态下运行，也可以传逗号或竖线分隔的候选，例如 `--mode Root,User`。
 成功的 autodetect 结果会按 `host:port` 缓存在本地运行数据库里，因此后续连接同一目标时可以直接复用已识别出的 profile，而不必重复探测；如果你显式指定了 profile，则仍然以显式指定为准。
 当启用 `--parse-textfsm` 且没有传 `--textfsm-platform` 时，`rauto` 会根据当前连接的 device profile 自动推断对应的 NTC platform，用于 TextFSM 解析。
 
@@ -1302,7 +1303,7 @@ Group JSON 结构：
 
 常用命令级参数：
 
-- `exec --mode <mode>` / `exec -m <mode>`：在指定模式下执行原始命令，例如 `Enable`、`Config`、`Shell`。
+- `exec --mode <mode>` / `exec -m <mode>`：在指定模式下执行原始命令，例如 `Enable`、`Config`、`Shell`；也支持 `Enable,Config` 这类逗号/竖线分隔的候选列表。
 - `exec` 不带 `--mode`：使用当前 profile 的 `default_mode`；不会根据 `show ...`、`interface ...` 这类命令文本自动判断模式。
 - `show <object>`：执行内置 show 对象，例如 `version`、`interfaces`、`route`、`arp`。
 - `show --list`：列出可用 show 对象。可配合 `--device-profile` 或 `--textfsm-platform` 缩小范围。

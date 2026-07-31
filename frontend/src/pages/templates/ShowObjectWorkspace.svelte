@@ -17,13 +17,13 @@
   } from "@lucide/svelte";
   import { untrack } from "svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import ModeExpressionField from "../../components/fragments/ModeExpressionField.svelte";
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
   import { browserConfirm } from "../../lib/browser.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { cn } from "$lib/utils.js";
   import { showToast } from "../../modules/overlays/overlays.js";
 
-  const INHERIT_MODE = "__profile_default__";
   const NO_TEMPLATE = "__no_template__";
   const NO_MAPPING = "__no_mapping__";
 
@@ -75,10 +75,6 @@
       optionLabel: profile,
     })),
   );
-  let modeOptions = $derived([
-    { optionValue: INHERIT_MODE, optionLabel: labels.modeDefault },
-    ...state.modes.map((mode) => ({ optionValue: mode, optionLabel: mode })),
-  ]);
   let mappingOptions = $derived([
     {
       optionValue: NO_MAPPING,
@@ -267,15 +263,13 @@
           </div>
           <div class="flex min-w-0 flex-col gap-2">
             <Label>{labels.mode}</Label>
-            <PlainSelectField
-              value={state.form.mode || INHERIT_MODE}
-              optionRows={modeOptions}
+            <ModeExpressionField
+              value={state.form.mode}
+              optionValues={state.modes}
               title={labels.mode}
               aria-label={labels.mode}
-              onValueChange={(value) =>
-                workspace.patchForm({
-                  mode: value === INHERIT_MODE ? "" : value,
-                })}
+              placeholderText={labels.modeDefault}
+              onValueChange={(value) => workspace.patchForm({ mode: value })}
             />
           </div>
           <div class="flex min-w-0 flex-col gap-2">

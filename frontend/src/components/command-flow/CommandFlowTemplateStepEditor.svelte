@@ -1,9 +1,9 @@
 <script>
   import PlusIcon from "@lucide/svelte/icons/plus";
   import { Button } from "$lib/components/ui/button/index.js";
+  import ModeExpressionField from "../fragments/ModeExpressionField.svelte";
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../fragments/PlainInputField.svelte";
-  import StringSelectField from "../fragments/StringSelectField.svelte";
   import { t } from "../../lib/i18n.js";
   import { defaultCommandFlowTemplatePromptModel } from "../../modules/command/commandFlowTemplateModel.js";
   import CommandEditor from "./CommandEditor.svelte";
@@ -54,10 +54,9 @@
           onCheckedChange={(hasMode) =>
             patchStep({ hasMode, mode: hasMode ? (step.mode ?? "") : null })}
         />
-        <StringSelectField
+        <ModeExpressionField
           value={step.mode || ""}
           optionValues={modeOptions}
-          includeEmptyOption={true}
           placeholderText={t("txBlockFormMode")}
           disabled={!step.hasMode}
           onValueChange={(mode) => patchStep({ mode, hasMode: true })}

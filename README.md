@@ -206,6 +206,7 @@ This autodetect step selects the device profile only. It does not inspect the co
 Mode selection for `exec` works like this:
 
 - If you pass `--mode`, that mode is used after validation against the selected profile.
+- `--mode` can name one mode or a comma/pipe-separated candidate list such as `Enable,Config` or `Root|User`. rauto validates every candidate, then rneter executes in the current candidate mode when possible or transitions to a reachable candidate.
 - If you omit `--mode`, `rauto` uses the selected profile's `default_mode`.
 
 Run the same command across multiple saved connections by naming targets, inventory groups, or labels. Every target is prechecked first (connection resolution, per-profile mode validation, command blacklist); execution starts only when all targets pass, then runs concurrently with one atomic output block per device:
@@ -292,7 +293,7 @@ Custom TextFSM templates and mappings can be saved in SQLite. When parsing is en
 In the web UI, open **Template Manager -> TextFSM Templates** to manage the same custom TextFSM templates, profile command mappings, and custom show objects.
 
 **Specifying Execution Mode:**
-Execute a command in a specific mode (e.g., `Enable`, `Config`).
+Execute a command in a specific mode (e.g., `Enable`, `Config`) or a candidate list (e.g., `Root,User`).
 
 ```bash
 rauto exec "show bgp neighbor" \
@@ -569,7 +570,7 @@ rauto profile autodetect -v --host 192.168.1.1 --credential network-admin
 rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 ```
 
-When normal execution uses autodetect, the detected profile controls mode validation and default-mode fallback. Autodetect does not infer command mode from the command text; use `exec --mode <mode>` when a command must run in a specific state such as `Enable`, `Config`, or `Shell`.
+When normal execution uses autodetect, the detected profile controls mode validation and default-mode fallback. Autodetect does not infer command mode from the command text; use `exec --mode <mode>` when a command must run in a specific state such as `Enable`, `Config`, or `Shell`. You can also pass comma- or pipe-separated candidates, for example `--mode Root,User`, when a command is valid in more than one state.
 Successful autodetect results are cached locally by `host:port` in the runtime database, so later connections to the same target can reuse the detected profile instead of probing again unless you explicitly override the profile.
 For TextFSM parsing, `rauto` will infer a matching NTC platform from the resolved device profile when `--parse-textfsm` is enabled and `--textfsm-platform` is omitted.
 
@@ -1308,7 +1309,7 @@ Common shorthand aliases:
 
 Common command-specific options:
 
-- `exec --mode <mode>` / `exec -m <mode>`: Execute a raw command in a specific mode such as `Enable`, `Config`, or `Shell`.
+- `exec --mode <mode>` / `exec -m <mode>`: Execute a raw command in a specific mode such as `Enable`, `Config`, or `Shell`; comma/pipe-separated candidates such as `Enable,Config` are also accepted.
 - `exec` without `--mode`: Use the selected profile's `default_mode`; this is not inferred from command text such as `show ...` or `interface ...`.
 - `show <object>`: Execute a built-in show object such as `version`, `interfaces`, `route`, or `arp`.
 - `show --list`: List available show objects. Pass `--device-profile` or `--textfsm-platform` to narrow the list.

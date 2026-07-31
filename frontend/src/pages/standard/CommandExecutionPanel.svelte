@@ -10,14 +10,13 @@
   import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import ModeExpressionField from "../../components/fragments/ModeExpressionField.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
-  import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { selectOptionsWithCurrent } from "../../lib/ui.js";
   import { createStandardCommandExecutionWorkspace } from "../../modules/standard/standardCommandExecutionWorkspace.js";
   import {
     exportParsedOutputItemExcel,
@@ -32,11 +31,6 @@
   const workspace = createStandardCommandExecutionWorkspace();
   const { stateStore } = workspace;
   let commandState = $derived($stateStore);
-  let modeOptionRows = $derived(
-    selectOptionsWithCurrent(commandState.modeOptions, commandState.mode).map(
-      (mode) => ({ labelText: mode, valueText: mode }),
-    ),
-  );
   let executedItems = $derived(
     commandState.executionResult?.kind === "result" &&
       Array.isArray(commandState.executionResult.resultPayload?.executed)
@@ -176,11 +170,12 @@
         </div>
       {/if}
 
-      <ValueTextSelectField
+      <ModeExpressionField
         title={t("modePlaceholder")}
         aria-label={t("modePlaceholder")}
         value={commandState.mode}
-        optionRows={modeOptionRows}
+        optionValues={commandState.modeOptions}
+        placeholderText={t("modePlaceholder")}
         onValueChange={workspace.changeMode}
       />
 

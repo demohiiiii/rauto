@@ -6,6 +6,7 @@
   import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
+  import ModeExpressionField from "../../components/fragments/ModeExpressionField.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
@@ -13,6 +14,10 @@
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { batchExecTargetPickerFields } from "../../modules/connections/connections.js";
+  import {
+    MODE_SELECT,
+    modeSelection,
+  } from "../../modules/profiles/profiles.js";
   import {
     executionResultFailed,
     parsedOutputBlockDisplayFromItem,
@@ -28,6 +33,7 @@
 
   let { active } = $props();
   let activeResultKey = $state("");
+  const batchExecModeStateStore = modeSelection(MODE_SELECT.batchExec).state;
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
     i18nCurrentLanguage;
@@ -58,6 +64,7 @@
     };
   });
   let form = $derived($batchExecFormState);
+  let modeState = $derived($batchExecModeStateStore);
   let result = $derived($batchExecResultState);
   let running = $derived(result.kind === "running");
   let retryValid = $derived(sessionRetryValidation(form.retry).valid);
@@ -140,11 +147,12 @@
         </label>
         <label class="grid gap-1 text-sm font-medium text-foreground">
           {i18nLabels.mode}
-          <Input
-            placeholder={i18nLabels.modePlaceholder}
+          <ModeExpressionField
+            placeholderText={i18nLabels.modePlaceholder}
+            optionValues={modeState.modes}
+            aria-label={i18nLabels.mode}
             value={form.mode}
-            oninput={(event) =>
-              setBatchExecField("mode", event.currentTarget.value)}
+            onValueChange={(mode) => setBatchExecField("mode", mode)}
           />
         </label>
       </div>

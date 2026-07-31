@@ -12,9 +12,39 @@ struct ConfigCatalogFile {
     #[serde(default)]
     platform_modes: BTreeMap<String, String>,
     #[serde(default)]
-    platforms: BTreeMap<String, BTreeMap<String, String>>,
+    platforms: BTreeMap<String, BTreeMap<String, ConfigCommandConfig>>,
     #[serde(default)]
     volatile_patterns: BTreeMap<String, Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ConfigCommandConfig {
+    Command(String),
+    Detailed {
+        command: String,
+        #[serde(default)]
+        mode: Option<String>,
+    },
+}
+
+impl ConfigCommandConfig {
+    fn command(&self) -> &str {
+        match self {
+            Self::Command(command) => command,
+            Self::Detailed { command, .. } => command,
+        }
+    }
+
+    fn mode(&self) -> Option<&str> {
+        match self {
+            Self::Command(_) => None,
+            Self::Detailed { mode, .. } => mode
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,8 +127,11 @@ pub fn resolve_config_command(profile: &str, kind: &str) -> Result<ConfigFetchCo
         ));
     };
     Ok(ConfigFetchCommand {
-        mode: catalog.platform_modes.get(&profile).cloned(),
-        command: command.clone(),
+        mode: command
+            .mode()
+            .or_else(|| catalog.platform_modes.get(&profile).map(String::as_str))
+            .map(ToOwned::to_owned),
+        command: command.command().to_string(),
         profile,
         kind,
         source: ConfigCommandSource::Builtin,
@@ -123,8 +156,11 @@ pub fn list_config_commands(profile: Option<&str>) -> Result<Vec<ConfigFetchComm
                 ConfigFetchCommand {
                     profile: platform.clone(),
                     kind: kind.clone(),
-                    command: command.clone(),
-                    mode: catalog.platform_modes.get(platform).cloned(),
+                    command: command.command().to_string(),
+                    mode: command
+                        .mode()
+                        .or_else(|| catalog.platform_modes.get(platform).map(String::as_str))
+                        .map(ToOwned::to_owned),
                     source: ConfigCommandSource::Builtin,
                 },
             );
@@ -310,10 +346,11 @@ mod tests {
             "cisco_ios",
             "running",
             "show running-config full",
-            Some("Enable"),
+            Some("enable|config"),
         )?;
         let command = resolve_config_command("cisco_ios", "running")?;
         assert_eq!(command.command, "show running-config full");
+        assert_eq!(command.mode.as_deref(), Some("Enable,Config"));
         assert_eq!(command.source, ConfigCommandSource::Custom);
 
         assert!(crate::config::config_command_store::delete(
@@ -322,6 +359,39 @@ mod tests {
         )?);
         let command = resolve_config_command("cisco_ios", "running")?;
         assert_eq!(command.source, ConfigCommandSource::Builtin);
+        Ok(())
+    }
+
+    #[test]
+    fn catalog_file_accepts_detailed_command_modes() -> Result<()> {
+        let catalog: ConfigCatalogFile = toml::from_str(
+            r#"
+[platform_modes]
+linux = "User"
+
+[platforms.linux]
+running = { command = "cat /etc/os-release", mode = "Root|User" }
+startup = "cat /etc/profile"
+"#,
+        )?;
+        let commands = catalog.platforms.get("linux").expect("linux commands");
+
+        assert_eq!(
+            commands.get("running").and_then(ConfigCommandConfig::mode),
+            Some("Root|User")
+        );
+        assert_eq!(
+            commands.get("running").map(ConfigCommandConfig::command),
+            Some("cat /etc/os-release")
+        );
+        assert_eq!(
+            commands.get("startup").and_then(ConfigCommandConfig::mode),
+            None
+        );
+        assert_eq!(
+            catalog.platform_modes.get("linux").map(String::as_str),
+            Some("User")
+        );
         Ok(())
     }
 
