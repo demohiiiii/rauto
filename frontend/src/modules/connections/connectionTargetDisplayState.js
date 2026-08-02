@@ -87,7 +87,6 @@ function connectionModalPresentation(mode = "") {
         ? "connectionWorkspaceSubtitleTemporary"
         : "connectionWorkspaceSubtitleManage",
     ),
-    testButtonLabel: tr("connectionTestBtn"),
     title,
   };
 }
@@ -168,6 +167,10 @@ export function savedConnectionEditorPresentation(
       cancel: { label: tr("cancel") },
       ...autodetect.buttons,
       save: { label: tr("savedConnSaveBtn"), loadingKey: "save" },
+      testConnection: {
+        label: tr("connectionTestBtn"),
+        loadingKey: "test-connection",
+      },
     },
     description: tr("savedConnEditHint"),
     fields: {
@@ -224,6 +227,10 @@ export function temporaryConnectionPanelPresentation(
       apply: { label: tr("connectionTempApplyBtn") },
       createDraft: { label: tr("newBtn") },
       ...autodetect.buttons,
+      testConnection: {
+        label: tr("connectionTestBtn"),
+        loadingKey: "test-connection",
+      },
     },
     enabledLabel: tr("inventoryFieldEnabled"),
     help: tr("connectionHelp"),

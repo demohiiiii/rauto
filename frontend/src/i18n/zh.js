@@ -30,6 +30,7 @@ export const i18nZh = {
   connectionModalModeTemporary: "临时/新建",
   connectionQuickTitle: "当前执行目标",
   connectionTestBtn: "测试连接",
+  connectionTestFailed: "连接测试失败",
   savedConnTitle: "已保存连接",
   savedConnSubtitle: "选择一个可复用连接，或直接在这里保存与更新。",
   sidebarConnectionTitle: "连接目标",
@@ -51,6 +52,9 @@ export const i18nZh = {
   savedConnImportBtn: "导入 CSV/Excel",
   savedConnSaveBtn: "保存",
   savedConnDeleteBtn: "删除",
+  savedConnDeleteConfirmTitle: "删除连接",
+  savedConnDeleteConfirmDescription: "确定删除连接“{name}”吗？此操作无法撤销。",
+  savedConnDeleteConfirmAction: "确认删除",
   savedConnHistoryBtn: "历史",
   connectionTempApplyBtn: "应用为临时目标",
   connectionTempHint:

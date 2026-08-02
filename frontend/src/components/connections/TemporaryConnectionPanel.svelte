@@ -12,6 +12,7 @@
   import CheckIcon from "@lucide/svelte/icons/check";
   import CpuIcon from "@lucide/svelte/icons/cpu";
   import PlusIcon from "@lucide/svelte/icons/plus";
+  import PlugIcon from "@lucide/svelte/icons/plug";
   import RadarIcon from "@lucide/svelte/icons/radar";
   import SaveIcon from "@lucide/svelte/icons/save";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
@@ -26,7 +27,7 @@
     CONNECTION_PICKER,
     CONNECTION_VARS,
   } from "../../modules/connections/connectionFieldStoreState.js";
-  let { active, connectionTestStatus, onCancel } = $props();
+  let { active, onCancel } = $props();
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
     i18nCurrentLanguage;
@@ -45,6 +46,7 @@
   const {
     createTemporaryDraft,
     detectProfile,
+    testConnection,
     metadataFieldsDisplayStateStore,
     onTemporaryConnectTimeoutSecsInput,
     onTemporaryCredentialChange,
@@ -79,7 +81,6 @@
   $effect(() => {
     setPanelContext({
       active,
-      connectionTestStatus,
       formState: temporaryConnectionFormState,
     });
   });
@@ -251,6 +252,15 @@
       />
     </div>
     <div class="flex flex-wrap items-center justify-end gap-2">
+      <LoadingButton
+        variant="outline"
+        size="sm"
+        loading={temporaryConnectionLoadingState.testConnectionLoading}
+        onclick={testConnection}
+      >
+        <PlugIcon data-icon="inline-start" aria-hidden="true" />
+        <span>{temporaryDisplay.buttons.testConnection.label}</span>
+      </LoadingButton>
       <LoadingButton
         variant="outline"
         size="sm"

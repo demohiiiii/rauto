@@ -24,8 +24,10 @@ import {
 } from "./connectionTargetDisplayState.js";
 import { connectionModalFocusRequest } from "./connectionTargetStoreState.js";
 import {
+  createConnectionTestState,
   createSavedConnectionDraft,
   detectTemporaryConnectionFacts,
+  runConnectionTest,
   temporaryConnectionBasicFieldWiring,
   temporaryConnectionFormStateStore,
   updateTemporaryConnectionDraftEnabled,
@@ -38,6 +40,7 @@ import {
   savedConnectionEditorFormStateStore,
   savedConnectionEditorStatusState,
   saveSavedConnectionEditor,
+  testSavedConnectionDraft,
   updateSavedConnectionEditorDraftEnabled,
 } from "./connectionsEditor.js";
 
@@ -50,6 +53,7 @@ export function createSavedConnectionEditorWorkspace() {
   const loadingStateStore = writable({
     detectProfileLoading: false,
     saveLoading: false,
+    testConnectionLoading: false,
   });
   const savedConnectionEditorLoadingState = { keys: [] };
   const savedConnectionEditorLoadingRunner = createLoadingStateRunner(
@@ -59,6 +63,7 @@ export function createSavedConnectionEditorWorkspace() {
         loadingStateStore.set({
           detectProfileLoading: keys.includes("detect-profile"),
           saveLoading: keys.includes("save"),
+          testConnectionLoading: keys.includes("test-connection"),
         });
       },
     },
@@ -175,7 +180,7 @@ export function createSavedConnectionEditorWorkspace() {
     return savedConnectionEditorLoadingRunner.run(
       "detect-profile",
       async () => {
-        await detectSavedConnectionProfile();
+        await detectSavedConnectionProfile({ ...editorDraft });
         applyEditorDraftFromFormState(
           getStore(savedConnectionEditorFormStateStore),
         );
@@ -190,6 +195,12 @@ export function createSavedConnectionEditorWorkspace() {
         getStore(savedConnectionEditorFormStateStore),
       );
     });
+  }
+
+  async function testConnection() {
+    return savedConnectionEditorLoadingRunner.run("test-connection", async () =>
+      testSavedConnectionDraft({ ...editorDraft }),
+    );
   }
 
   function setEditorContext({ active = false, formState = {} } = {}) {
@@ -218,12 +229,14 @@ export function createSavedConnectionEditorWorkspace() {
     saveConnection,
     setEnabled,
     setEditorContext,
+    testConnection,
   };
 }
 
 export function createTemporaryConnectionPanelWorkspace() {
   let temporaryDraft = temporaryConnectionDraftDefaults();
   const activeStateStore = writable(false);
+  const connectionTestState = createConnectionTestState();
   const connectionTestStatusStateStore = writable(null);
   const temporaryAutodetectStateStore = writable({
     detectedModel: "",
@@ -238,6 +251,7 @@ export function createTemporaryConnectionPanelWorkspace() {
   const temporaryConnectionLoadingStateStore = writable({
     createDraftLoading: false,
     detectProfileLoading: false,
+    testConnectionLoading: false,
   });
   const temporaryConnectionLoadingState = { keys: [] };
   const temporaryConnectionLoadingRunner = createLoadingStateRunner(
@@ -247,6 +261,7 @@ export function createTemporaryConnectionPanelWorkspace() {
         temporaryConnectionLoadingStateStore.set({
           createDraftLoading: keys.includes("createDraft"),
           detectProfileLoading: keys.includes("detect-profile"),
+          testConnectionLoading: keys.includes("test-connection"),
         });
       },
     },
@@ -380,13 +395,8 @@ export function createTemporaryConnectionPanelWorkspace() {
     publishTemporaryDraft();
   }
 
-  function setPanelContext({
-    active = false,
-    connectionTestStatus = null,
-    formState = {},
-  } = {}) {
+  function setPanelContext({ active = false, formState = {} } = {}) {
     activeStateStore.set(!!active);
-    connectionTestStatusStateStore.set(connectionTestStatus || null);
     if (!active) return;
     applyTemporaryDraftFromFormState(formState);
   }
@@ -436,6 +446,18 @@ export function createTemporaryConnectionPanelWorkspace() {
     });
   }
 
+  async function testConnection() {
+    return temporaryConnectionLoadingRunner.run("test-connection", async () => {
+      const connectionTestRun = runConnectionTest(
+        connectionTestState,
+        "temporary",
+      );
+      connectionTestStatusStateStore.set(connectionTestState.status);
+      await connectionTestRun;
+      connectionTestStatusStateStore.set(connectionTestState.status);
+    });
+  }
+
   return {
     createTemporaryDraft,
     detectProfile,
@@ -451,6 +473,7 @@ export function createTemporaryConnectionPanelWorkspace() {
     onTemporarySoftwareVersionInput,
     setEnabled,
     setPanelContext,
+    testConnection,
     temporaryBasicFieldsDisplayStateStore,
     temporaryConnectionLoadingStateStore,
     temporaryDisplayStateStore,

@@ -8,7 +8,11 @@ import {
   savedConnectionEditorDraftDefaults,
   temporaryConnectionDraftDefaults,
 } from "../src/modules/connections/connectionFieldState.js";
-import { detectedConnectionFactsPatch } from "../src/modules/connections/connectionsEditor.js";
+import {
+  detectedConnectionFactsPatch,
+  savedConnectionEditorDetectionPayload,
+  savedConnectionEditorTestPayload,
+} from "../src/modules/connections/connectionsEditor.js";
 
 test("saved connection draft carries optional device facts", () => {
   const draft = savedConnectionEditorDraftDefaults();
@@ -65,6 +69,49 @@ test("saved connection payload includes model and software version", () => {
   assert.match(source, /device_model:/);
   assert.match(source, /software_version:/);
   assert.match(source, /detectConnectionFacts/);
+});
+
+test("saved connection detection uses the current draft without saved fallback", () => {
+  const payload = savedConnectionEditorDetectionPayload({
+    connectTimeoutSecs: "30",
+    credentialId: "credential-new",
+    deviceModel: "",
+    deviceProfile: "cisco_ios",
+    enabled: true,
+    host: "192.0.2.10",
+    linuxShellFlavor: "",
+    name: "edge-1",
+    port: "22",
+    softwareVersion: "",
+    sshSecurity: "",
+  });
+
+  assert.equal(payload.connection_name, null);
+  assert.equal(payload.credential_id, "credential-new");
+  assert.equal(payload.device_profile, "autodetect");
+  assert.equal(payload.host, "192.0.2.10");
+});
+
+test("saved connection test uses the current draft without saved fallback", () => {
+  const payload = savedConnectionEditorTestPayload({
+    connectTimeoutSecs: "15",
+    credentialId: "credential-current",
+    deviceModel: "C9300-48P",
+    deviceProfile: "cisco_ios",
+    enabled: true,
+    host: "198.51.100.25",
+    linuxShellFlavor: "",
+    name: "edge-1",
+    port: "2222",
+    softwareVersion: "17.9.5",
+    sshSecurity: "balanced",
+  });
+
+  assert.equal(payload.connection_name, null);
+  assert.equal(payload.credential_id, "credential-current");
+  assert.equal(payload.host, "198.51.100.25");
+  assert.equal(payload.port, 2222);
+  assert.equal(payload.device_profile, "cisco_ios");
 });
 
 test("temporary connection detection uses current form and persists detected facts", () => {

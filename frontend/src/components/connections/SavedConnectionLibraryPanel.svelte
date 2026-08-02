@@ -1,6 +1,8 @@
 <script>
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { cn } from "$lib/utils.js";
   import FilePickerButton from "../fragments/FilePickerButton.svelte";
@@ -33,6 +35,10 @@
       applyHint: t("connApplyHint"),
       availableCount: t("connAvailableCount"),
       applySelected: t("connApplySelected"),
+      deleteCancel: t("cancel"),
+      deleteConfirmAction: t("savedConnDeleteConfirmAction"),
+      deleteConfirmDescription: t("savedConnDeleteConfirmDescription"),
+      deleteConfirmTitle: t("savedConnDeleteConfirmTitle"),
     };
   });
   const savedConnectionLibraryWorkspace = createSavedConnectionLibraryWorkspace(
@@ -51,6 +57,8 @@
   } = savedConnectionLibraryWorkspace;
 
   let searchQuery = $state("");
+  let deleteDialogOpen = $state(false);
+  let deleteConfirmationName = $state("");
   let libraryDisplay = $derived($libraryDisplayStateStore);
   let loadingState = $derived($loadingStateStore);
   let savedConnectionCount = $derived(libraryDisplay.connectionRows.length);
@@ -79,6 +87,20 @@
 
   function handleSearchInput(event) {
     searchQuery = event.currentTarget.value;
+  }
+
+  function openDeleteConfirmation() {
+    const connectionName = selectedConnectionRow?.name || "";
+    if (!connectionName) return;
+    deleteConfirmationName = connectionName;
+    deleteDialogOpen = true;
+  }
+
+  async function confirmDeleteSavedConnection() {
+    if (!deleteConfirmationName) return;
+    deleteDialogOpen = false;
+    await deleteSavedConnection();
+    deleteConfirmationName = "";
   }
 </script>
 
@@ -283,7 +305,7 @@
                   size="sm"
                   class="text-destructive hover:text-destructive"
                   loading={loadingState.deleteLoading}
-                  onclick={deleteSavedConnection}
+                  onclick={openDeleteConfirmation}
                 >
                   <Trash2Icon data-icon="inline-start" aria-hidden="true" />
                   <span>{libraryDisplay.buttons.delete.label}</span>
@@ -390,3 +412,34 @@
     </div>
   </section>
 </div>
+
+<Dialog.Root bind:open={deleteDialogOpen}>
+  <Dialog.Content class="sm:max-w-md">
+    <Dialog.Header>
+      <Dialog.Title>{i18nLabels.deleteConfirmTitle}</Dialog.Title>
+      <Dialog.Description>
+        {i18nLabels.deleteConfirmDescription.replace(
+          "{name}",
+          deleteConfirmationName,
+        )}
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer>
+      <Button
+        type="button"
+        variant="outline"
+        onclick={() => (deleteDialogOpen = false)}
+      >
+        {i18nLabels.deleteCancel}
+      </Button>
+      <Button
+        type="button"
+        variant="destructive"
+        onclick={confirmDeleteSavedConnection}
+      >
+        <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+        {i18nLabels.deleteConfirmAction}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

@@ -19,6 +19,7 @@
   import ConnectionMetadataFields from "./ConnectionMetadataFields.svelte";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import CpuIcon from "@lucide/svelte/icons/cpu";
+  import PlugIcon from "@lucide/svelte/icons/plug";
   import RadarIcon from "@lucide/svelte/icons/radar";
   import SaveIcon from "@lucide/svelte/icons/save";
   import TagIcon from "@lucide/svelte/icons/tag";
@@ -37,6 +38,7 @@
     basicFieldsDisplayStateStore,
     closeEditor,
     detectProfile,
+    testConnection,
     editorDisplayStateStore,
     editorDraftStateStore,
     savedConnectionEditorLoadingStateStore,
@@ -215,6 +217,15 @@
       />
     </div>
     <div class="flex flex-wrap items-center justify-end gap-2">
+      <LoadingButton
+        variant="outline"
+        size="sm"
+        loading={savedConnectionEditorLoadingState.testConnectionLoading}
+        onclick={testConnection}
+      >
+        <PlugIcon data-icon="inline-start" aria-hidden="true" />
+        <span>{editorDisplay.buttons.testConnection.label}</span>
+      </LoadingButton>
       <LoadingButton
         variant="outline"
         size="sm"

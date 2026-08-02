@@ -1,4 +1,8 @@
-import { detectConnectionFacts, saveConnection } from "../../api/client.js";
+import {
+  detectConnectionFacts,
+  saveConnection,
+  testConnection as testConnectionRequest,
+} from "../../api/client.js";
 import { currentLanguage, t } from "../../lib/i18n.js";
 import { safeString, statusPresentation } from "../../lib/ui.js";
 import { showToast } from "../overlays/overlays.js";
@@ -237,43 +241,81 @@ function resetSavedConnectionAutodetectState() {
   updateSavedConnectionAutodetectUi();
 }
 
-function savedConnectionEditorPayload() {
-  const rawPort = savedConnectionEditorFormState.port;
-  const credentialId = safeString(
-    savedConnectionEditorFormState.credential_id || "",
-  ).trim();
+function savedConnectionEditorPayload(
+  formState = savedConnectionEditorFormState,
+) {
+  const rawPort = formState.port;
+  const credentialId = safeString(formState.credential_id || "").trim();
   if (!credentialId) throw new Error(t("credentialRequired"));
   return {
-    connection_name:
-      safeString(savedConnectionEditorFormState.name || "").trim() || null,
-    host: safeString(savedConnectionEditorFormState.host || "").trim() || "",
+    connection_name: safeString(formState.name || "").trim() || null,
+    host: safeString(formState.host || "").trim() || "",
     port: Number(rawPort || 22),
     connect_timeout_secs: connectionTimeoutSecsValue(
-      savedConnectionEditorFormState.connect_timeout_secs,
+      formState.connect_timeout_secs,
     ),
     credential_id: credentialId,
-    device_model:
-      safeString(savedConnectionEditorFormState.device_model || "").trim() ||
-      null,
-    ssh_security:
-      safeString(savedConnectionEditorFormState.ssh_security || "").trim() ||
-      null,
+    device_model: safeString(formState.device_model || "").trim() || null,
+    ssh_security: safeString(formState.ssh_security || "").trim() || null,
     software_version:
-      safeString(
-        savedConnectionEditorFormState.software_version || "",
-      ).trim() || null,
+      safeString(formState.software_version || "").trim() || null,
     linux_shell_flavor:
-      safeString(
-        savedConnectionEditorFormState.linux_shell_flavor || "",
-      ).trim() || null,
-    device_profile:
-      safeString(savedConnectionEditorFormState.device_profile || "").trim() ||
-      null,
-    enabled: savedConnectionEditorFormState.enabled !== false,
+      safeString(formState.linux_shell_flavor || "").trim() || null,
+    device_profile: safeString(formState.device_profile || "").trim() || null,
+    enabled: formState.enabled !== false,
     labels: getConnectionLabelValues(CONNECTION_PICKER.savedEditLabels),
     groups: getConnectionGroupValues(CONNECTION_PICKER.savedEditGroups),
     vars: getConnectionVarsValue(CONNECTION_VARS.savedEdit),
   };
+}
+
+export function savedConnectionEditorDetectionPayload(draft = {}) {
+  return {
+    ...savedConnectionEditorPayload(
+      savedConnectionEditorFormStateFromDraft(draft),
+    ),
+    connection_name: null,
+    device_profile: "autodetect",
+  };
+}
+
+export function savedConnectionEditorTestPayload(draft = {}) {
+  return {
+    ...savedConnectionEditorPayload(
+      savedConnectionEditorFormStateFromDraft(draft),
+    ),
+    connection_name: null,
+  };
+}
+
+function connectionTestSuccessMessage(testResult = {}) {
+  const username = safeString(testResult.username || "").trim() || "-";
+  const host = safeString(testResult.host || "").trim() || "-";
+  const port = Number(testResult.port || 22) || 22;
+  const deviceProfile =
+    safeString(testResult.device_profile || "").trim() || "autodetect";
+  const sshSecurity = safeString(testResult.ssh_security || "").trim() || "-";
+  const linuxShellFlavor =
+    safeString(testResult.linux_shell_flavor || "").trim() || "-";
+  return `${t("connectionOk")}: ${username}@${host}:${port} (${deviceProfile}, ${sshSecurity}, ${linuxShellFlavor})`;
+}
+
+export async function testSavedConnectionDraft(draft = {}) {
+  setSavedConnectionEditorStatus(t("running"), "running");
+  try {
+    const testResult = await testConnectionRequest(
+      savedConnectionEditorTestPayload(draft),
+    );
+    const message = connectionTestSuccessMessage(testResult);
+    setSavedConnectionEditorStatus(message, "success", { toast: false });
+    showToast(message, "success");
+    return testResult;
+  } catch (error) {
+    const message = error?.message || t("connectionTestFailed");
+    setSavedConnectionEditorStatus(message, "error", { toast: false });
+    showToast(message, "error");
+    return null;
+  }
 }
 
 function applySavedConnectionEditorForm(savedConnectionName, connection = {}) {
@@ -306,19 +348,17 @@ function applySavedConnectionEditorForm(savedConnectionName, connection = {}) {
   setSavedConnectionEditorStatus("-", "info");
 }
 
-export async function detectSavedConnectionProfile() {
-  const name = savedConnectionEditorName();
+export async function detectSavedConnectionProfile(draft = {}) {
+  const name = safeString(draft.name || "").trim();
   if (!name) {
     setSavedConnectionEditorStatus(t("connectionNameRequired"), "error");
     return;
   }
   setSavedConnectionEditorStatus(t("running"), "running");
   try {
-    const payload = savedConnectionEditorPayload();
-    payload.device_profile = "autodetect";
+    const payload = savedConnectionEditorDetectionPayload(draft);
     const currentProfile =
-      safeString(savedConnectionEditorFormState.device_profile || "").trim() ||
-      "autodetect";
+      safeString(draft.deviceProfile || "").trim() || "autodetect";
     const detectResult = await detectConnectionFacts(payload);
     const detectedProfile = safeString(
       detectResult?.device_profile || "",

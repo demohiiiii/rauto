@@ -686,7 +686,12 @@ function connectionTestPayload(mode = "temporary") {
     }
     return { connection_name: savedConnectionName };
   }
-  return connectionPayload();
+  const payload = connectionPayload();
+  payload.connection_name = null;
+  if (!payload.credential_id) {
+    throw new Error(t("credentialRequired"));
+  }
+  return payload;
 }
 
 async function testCurrentConnectionTarget(connection = connectionPayload()) {

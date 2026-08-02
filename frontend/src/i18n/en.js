@@ -31,6 +31,7 @@ export const i18nEn = {
   connectionModalModeTemporary: "Temporary / New",
   connectionQuickTitle: "Execution Target",
   connectionTestBtn: "Test Connection",
+  connectionTestFailed: "Connection test failed",
   savedConnTitle: "Saved Connections",
   savedConnSubtitle:
     "Pick a reusable connection profile or update it in place.",
@@ -55,6 +56,10 @@ export const i18nEn = {
   savedConnImportBtn: "Import CSV/Excel",
   savedConnSaveBtn: "Save",
   savedConnDeleteBtn: "Delete",
+  savedConnDeleteConfirmTitle: "Delete connection",
+  savedConnDeleteConfirmDescription:
+    'Delete connection "{name}"? This action cannot be undone.',
+  savedConnDeleteConfirmAction: "Delete connection",
   savedConnHistoryBtn: "History",
   connectionTempApplyBtn: "Apply Temporary Target",
   connectionTempHint:

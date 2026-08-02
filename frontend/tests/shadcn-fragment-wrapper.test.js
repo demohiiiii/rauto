@@ -421,10 +421,8 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
   );
 
   assert.match(modalSource, /modeControls=\{connectionModeControls\}/);
-  assert.match(modalSource, /PlugIcon/);
-  assert.match(modalSource, /variant="outline"/);
-  assert.match(modalSource, /class="h-10 rounded-xl px-3 shadow-xs"/);
-  assert.match(modalSource, /rounded-xl/);
+  assert.doesNotMatch(modalSource, /PlugIcon/);
+  assert.doesNotMatch(modalSource, /headerControls/);
   assert.match(modalSource, /setConnectionModalMode\(tabRow\.valueText\)/);
   assert.match(modalSource, /bg-primary text-primary-foreground shadow/);
   assert.doesNotMatch(modalSource, /TabList/);
@@ -682,22 +680,39 @@ test("saved connection editor displays detected device facts left of its actions
   assert.doesNotMatch(formSource, /applyDetectedProfile/);
 });
 
-test("connection workbench tests the saved row selection instead of the applied target", () => {
-  const modalSource = read(
-    "frontend/src/components/connections/ConnectionModal.svelte",
+test("connection forms test their current drafts beside autodetect", () => {
+  const editorSource = read(
+    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
+  );
+  const temporarySource = read(
+    "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
+  );
+  const editorStateSource = read(
+    "frontend/src/modules/connections/connectionsEditor.js",
+  );
+  const panelStateSource = read(
+    "frontend/src/modules/connections/connectionPanelFormState.js",
   );
   const runtimeSource = read(
     "frontend/src/modules/connections/connectionTargetRuntimeState.js",
   );
 
   assert.match(
-    modalSource,
-    /onclick=\{\(\) => testConnection\(modalDisplay\.activeMode\)\}/,
+    editorSource,
+    /onclick=\{testConnection\}[\s\S]*onclick=\{detectProfile\}/,
+  );
+  assert.match(temporarySource, /onclick=\{testConnection\}/);
+  assert.match(temporarySource, /onclick=\{detectProfile\}/);
+  assert.match(editorStateSource, /savedConnectionEditorTestPayload/);
+  assert.match(editorStateSource, /testSavedConnectionDraft/);
+  assert.match(
+    panelStateSource,
+    /testSavedConnectionDraft\(\{ \.\.\.editorDraft \}\)/,
   );
   assert.match(runtimeSource, /function connectionTestPayload\(mode/);
   assert.match(
     runtimeSource,
-    /mode === "saved"[\s\S]*const savedConnectionName = selectedSavedConnectionName\(\)[\s\S]*connection_name: savedConnectionName/,
+    /const payload = connectionPayload\(\);[\s\S]*payload\.connection_name = null[\s\S]*credentialRequired/,
   );
 });
 
@@ -775,6 +790,23 @@ test("saved connection editor name field is editable and wired to the draft", ()
     fieldStateSource,
     /onNameInput: \(fieldValue\) => update\(\{ name: text\(fieldValue\) \}\)/,
   );
+});
+
+test("saved connection deletion requires an accessible confirmation dialog", () => {
+  const source = read(
+    "frontend/src/components/connections/SavedConnectionLibraryPanel.svelte",
+  );
+
+  assert.match(
+    source,
+    /import \* as Dialog from "\$lib\/components\/ui\/dialog/,
+  );
+  assert.match(source, /onclick=\{openDeleteConfirmation\}/);
+  assert.match(source, /<Dialog\.Root bind:open=\{deleteDialogOpen\}>/);
+  assert.match(source, /<Dialog\.Title>/);
+  assert.match(source, /<Dialog\.Description>/);
+  assert.match(source, /deleteConfirmationName/);
+  assert.match(source, /onclick=\{confirmDeleteSavedConnection\}/);
 });
 
 test("record drawer sections use local shadcn-token surfaces", () => {

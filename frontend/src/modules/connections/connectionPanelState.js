@@ -27,14 +27,11 @@ import {
   savedConnectionStatusState,
 } from "./connectionTargetStoreState.js";
 import {
-  createConnectionTestState,
   deleteConnectionByName,
   downloadConnectionImportTemplate,
   importConnectionsFromFile,
   loadSavedConnectionByName,
   refreshSavedConnectionOptions,
-  runConnectionTest,
-  setConnectionTestLoadingKeys,
 } from "./connectionTargetRuntimeState.js";
 import { openSavedConnectionEditor } from "./connectionsEditor.js";
 
@@ -74,37 +71,13 @@ export function createHistoryDrawerWorkspace() {
 }
 
 export function createConnectionModalWorkspace() {
-  const connectionTestState = createConnectionTestState();
-  const connectionTestLoadingState = { keys: [] };
-  const connectionTestStateStore = writable({ ...connectionTestState });
   const modalDisplayStateStore = derived(
     [connectionOverlayState, currentLanguageState],
     ([$connectionOverlayState, _currentLanguageState]) =>
       connectionModalDisplay($connectionOverlayState),
   );
-  const connectionTestLoadingRunner = createLoadingStateRunner(
-    connectionTestLoadingState,
-    {
-      setKeys(keys) {
-        setConnectionTestLoadingKeys(connectionTestState, keys);
-        connectionTestStateStore.set({ ...connectionTestState });
-      },
-    },
-  );
-
-  async function testConnection(mode = "temporary") {
-    return connectionTestLoadingRunner.run("test", async () => {
-      const connectionTestRun = runConnectionTest(connectionTestState, mode);
-      connectionTestStateStore.set({ ...connectionTestState });
-      await connectionTestRun;
-      connectionTestStateStore.set({ ...connectionTestState });
-    });
-  }
-
   return {
-    connectionTestStateStore,
     modalDisplayStateStore,
-    testConnection,
   };
 }
 

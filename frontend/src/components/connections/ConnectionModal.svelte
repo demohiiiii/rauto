@@ -1,12 +1,10 @@
 <script>
-  import LoadingButton from "../fragments/LoadingButton.svelte";
   import ConnectionModalShell from "./ConnectionModalShell.svelte";
   import SavedConnectionLibraryPanel from "./SavedConnectionLibraryPanel.svelte";
   import TemporaryConnectionPanel from "./TemporaryConnectionPanel.svelte";
   import { currentLanguageState } from "../../lib/i18n.js";
   import { tabListPresentation } from "../../lib/ui.js";
   import { cn } from "$lib/utils.js";
-  import PlugIcon from "@lucide/svelte/icons/plug";
   import { connectionModalModeTabs } from "../../config/dashboardModes.js";
   import {
     closeConnectionModal,
@@ -17,9 +15,7 @@
   const connectionModalWorkspace = createConnectionModalWorkspace({
     onClose: closeConnectionModal,
   });
-  const { connectionTestStateStore, modalDisplayStateStore, testConnection } =
-    connectionModalWorkspace;
-  let connectionTestState = $derived($connectionTestStateStore);
+  const { modalDisplayStateStore } = connectionModalWorkspace;
   let modalDisplay = $derived($modalDisplayStateStore);
   let currentLanguage = $derived($currentLanguageState);
   let connectionModeDisplay = $derived.by(() => {
@@ -31,19 +27,6 @@
     });
   });
 </script>
-
-{#snippet connectionModalControls()}
-  <LoadingButton
-    class="h-10 rounded-xl px-3 shadow-xs"
-    variant="outline"
-    size="sm"
-    loading={connectionTestState.loading}
-    onclick={() => testConnection(modalDisplay.activeMode)}
-  >
-    <PlugIcon data-icon="inline-start" aria-hidden="true" />
-    <span>{modalDisplay.testButtonLabel}</span>
-  </LoadingButton>
-{/snippet}
 
 {#snippet connectionModeControls()}
   <div class="border-b border-border bg-muted/30 px-7 py-3">
@@ -73,7 +56,6 @@
 {/snippet}
 
 <ConnectionModalShell
-  headerControls={connectionModalControls}
   modeControls={connectionModeControls}
   {modalDisplay}
   onClose={closeConnectionModal}
@@ -81,10 +63,6 @@
   {#if modalDisplay.showSaved}
     <SavedConnectionLibraryPanel active={true} onUse={closeConnectionModal} />
   {:else if modalDisplay.showTemporary}
-    <TemporaryConnectionPanel
-      active={true}
-      connectionTestStatus={connectionTestState.status}
-      onCancel={closeConnectionModal}
-    />
+    <TemporaryConnectionPanel active={true} onCancel={closeConnectionModal} />
   {/if}
 </ConnectionModalShell>
