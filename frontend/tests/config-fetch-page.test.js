@@ -271,6 +271,10 @@ test("configuration fetch page renders target controls and device results", () =
   assert.match(page, /<Alert\.Root/);
   assert.match(page, /<SessionRetryFields/);
   assert.match(page, /<Separator/);
+  assert.match(
+    page,
+    /grid min-w-0 items-start gap-4 xl:grid-cols-\[minmax\(0,5fr\)_minmax\(20rem,3fr\)\]/,
+  );
   assert.match(page, /xl:grid-cols-\[minmax\(0,5fr\)_minmax\(20rem,3fr\)\]/);
   assert.match(page, /<Switch/);
   assert.match(page, /<LoadingButton/);

@@ -281,7 +281,7 @@
 
       <Card.Content class="flex flex-col gap-4 p-4 sm:p-5">
         <div
-          class="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(20rem,3fr)]"
+          class="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(20rem,3fr)]"
         >
           <section
             class="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-muted/20 p-4"
@@ -330,24 +330,28 @@
               </div>
             {:else}
               <div
-                class="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background px-4 py-3"
+                class="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2.5"
               >
-                <div class="grid min-w-0 gap-1">
+                <div class="grid min-w-0 flex-1 gap-1">
                   <span class="text-xs font-medium text-muted-foreground">
                     {pageLabels.currentTargetLabel}
                   </span>
-                  <span
-                    class="truncate text-base font-semibold text-foreground"
+                  <div
+                    class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1"
                   >
-                    {currentTargetName || pageLabels.currentTargetEmpty}
-                  </span>
-                  {#if currentTargetDetails?.host && currentTargetDetails.host !== currentTargetName}
                     <span
-                      class="truncate font-mono text-xs text-muted-foreground"
+                      class="truncate text-sm font-semibold text-foreground"
                     >
-                      {currentTargetDetails.host}
+                      {currentTargetName || pageLabels.currentTargetEmpty}
                     </span>
-                  {/if}
+                    {#if currentTargetDetails?.host && currentTargetDetails.host !== currentTargetName}
+                      <span
+                        class="truncate font-mono text-xs text-muted-foreground"
+                      >
+                        {currentTargetDetails.host}
+                      </span>
+                    {/if}
+                  </div>
                 </div>
                 {#if currentTargetName}
                   <Badge variant="outline">{currentTargetProfile}</Badge>
