@@ -229,11 +229,11 @@
 
 <div
   data-command-flow-workbench
-  class="grid min-w-0 overflow-hidden"
+  class="grid min-w-0 gap-5 p-4 sm:p-5"
   hidden={!active}
 >
   <CommandFlowTemplateSource
-    surfaceVariant="workbench-header"
+    surfaceVariant="section"
     title={flowInputDisplay.workbenchTitleText}
     description={flowInputDisplay.workbenchDescriptionText}
   >
@@ -314,16 +314,14 @@
   />
 
   <CommandFlowRuntimeFields
-    surfaceVariant="workbench-section"
-    indexText="03"
+    surfaceVariant="section"
     display={flowVarsDisplay}
     onFieldValueChange={changeFlowVarValue}
   />
 
   {#if active}
     <CommandFlowSurface
-      variant="workbench-section"
-      indexText="04"
+      variant="section"
       title={flowInputDisplay.textfsmTitleText}
       description={flowInputDisplay.textfsmDescriptionText}
     >
@@ -342,8 +340,7 @@
 
   {#if active}
     <CommandFlowSurface
-      variant="workbench-section"
-      indexText="05"
+      variant="section"
       title={t("sessionRetrySectionTitle")}
       description={t("sessionRetrySectionHint")}
     >

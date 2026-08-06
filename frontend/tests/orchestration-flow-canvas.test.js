@@ -618,6 +618,12 @@ test("orchestration page removes execution mode tabs and outside result panels",
   assert.match(runPanel, /browserConfirm/);
   assert.match(surface, /Card\.Root/);
   assert.match(surface, /WorkspaceActionHeader/);
+  assert.match(surface, /\{#snippet actions\(\)\}/);
+  assert.match(surface, /\{#if selectionLabel\}/);
+  assert.doesNotMatch(
+    surface,
+    /return t\("orchestrationTemplateManualDraft"\)/,
+  );
   assert.match(surface, /Card\.Content/);
   assert.match(surface, /openNewDialog/);
   assert.match(surface, /saveTemplate/);

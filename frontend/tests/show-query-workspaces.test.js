@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { get } from "svelte/store";
@@ -12,6 +13,31 @@ import {
   normalizeBatchMaxParallel,
   showExecutionResultState,
 } from "../src/modules/operations/showQueryState.js";
+
+function read(path) {
+  return readFileSync(path, "utf8");
+}
+
+test("show query mode tabs render in the card header", () => {
+  for (const path of [
+    "frontend/src/pages/show/SingleShowPanel.svelte",
+    "frontend/src/pages/show/BatchShowInputPanel.svelte",
+  ]) {
+    const source = read(path);
+    const headerIndex = source.indexOf("<WorkspaceActionHeader");
+    const tabIndex = source.indexOf("<TabList");
+    const contentIndex = source.indexOf("<Card.Content");
+
+    assert.ok(headerIndex >= 0, path);
+    assert.ok(tabIndex > headerIndex, path);
+    assert.ok(contentIndex > tabIndex, path);
+    assert.match(
+      source.slice(headerIndex, contentIndex),
+      /themeAware=\{true\}/,
+      path,
+    );
+  }
+});
 
 test("single show TextFSM handlers update the panel display", () => {
   const workspace = createSingleShowPanelWorkspace();

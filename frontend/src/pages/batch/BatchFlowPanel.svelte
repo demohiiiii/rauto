@@ -1,5 +1,4 @@
 <script>
-  import * as Card from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";
   import { Textarea } from "$lib/components/ui/textarea";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
@@ -12,7 +11,6 @@
   import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
-  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { batchFlowTargetPickerFields } from "../../modules/connections/connections.js";
   import { parsedOutputBlockDisplayFromItem } from "../../modules/operations/results.js";
@@ -35,7 +33,6 @@
     i18nCurrentLanguage;
     return {
       title: t("batchFlowTitle"),
-      hint: t("batchFlowHint"),
       template: t("batchFlowTemplateLabel"),
       templatePlaceholder: t("batchFlowTemplatePlaceholder"),
       vars: t("batchFlowVarsLabel"),
@@ -128,97 +125,87 @@
   });
 </script>
 
-<div hidden={!active} class="grid gap-3 p-4 sm:p-5">
-  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-    <WorkspaceActionHeader
-      title={i18nLabels.title}
-      description={i18nLabels.hint}
-      icon={GitBranchIcon}
-    />
-    <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
-      <div class="grid gap-4 md:grid-cols-2">
-        <label class="grid gap-1 text-sm font-medium text-foreground">
-          {i18nLabels.template}
-          <ValueTextSelectField
-            value={form.template}
-            optionRows={templateOptions}
-            placeholderText={i18nLabels.templatePlaceholder}
-            aria-label={i18nLabels.template}
-            onValueChange={(value) => setBatchFlowField("template", value)}
-          />
-        </label>
-        <label class="grid gap-1 text-sm font-medium text-foreground">
-          {i18nLabels.vars}
-          <Textarea
-            rows={3}
-            class="font-mono text-xs"
-            placeholder={i18nLabels.varsPlaceholder}
-            value={form.varsJson}
-            oninput={(event) =>
-              setBatchFlowField("varsJson", event.currentTarget.value)}
-          />
-        </label>
-      </div>
-
-      <div class="rounded-2xl border border-border bg-muted/30 p-4">
-        <div
-          class="grid gap-4 md:grid-cols-2"
-          role="group"
-          aria-label={i18nLabels.title}
-        >
-          {#each i18nLabels.pickerFields as targetField (targetField.key)}
-            <ConnectionPickerField
-              keyName={targetField.keyName}
-              labelText={targetField.labelText}
-              pickerPlaceholder={targetField.pickerPlaceholder}
-            />
-          {/each}
-        </div>
-      </div>
-
-      <SessionRetryFields
-        idPrefix="batch-flow-session-retry"
-        value={form.retry}
-        onChange={setBatchFlowRetry}
+<div hidden={!active} class="grid gap-5 p-4 sm:p-5">
+  <div class="grid gap-4 md:grid-cols-2">
+    <label class="grid gap-1 text-sm font-medium text-foreground">
+      {i18nLabels.template}
+      <ValueTextSelectField
+        value={form.template}
+        optionRows={templateOptions}
+        placeholderText={i18nLabels.templatePlaceholder}
+        aria-label={i18nLabels.template}
+        onValueChange={(value) => setBatchFlowField("template", value)}
       />
+    </label>
+    <label class="grid gap-1 text-sm font-medium text-foreground">
+      {i18nLabels.vars}
+      <Textarea
+        rows={3}
+        class="font-mono text-xs"
+        placeholder={i18nLabels.varsPlaceholder}
+        value={form.varsJson}
+        oninput={(event) =>
+          setBatchFlowField("varsJson", event.currentTarget.value)}
+      />
+    </label>
+  </div>
 
-      <div
-        class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
+  <div class="rounded-2xl border border-border bg-muted/30 p-4">
+    <div
+      class="grid gap-4 md:grid-cols-2"
+      role="group"
+      aria-label={i18nLabels.title}
+    >
+      {#each i18nLabels.pickerFields as targetField (targetField.key)}
+        <ConnectionPickerField
+          keyName={targetField.keyName}
+          labelText={targetField.labelText}
+          pickerPlaceholder={targetField.pickerPlaceholder}
+        />
+      {/each}
+    </div>
+  </div>
+
+  <SessionRetryFields
+    idPrefix="batch-flow-session-retry"
+    value={form.retry}
+    onChange={setBatchFlowRetry}
+  />
+
+  <div
+    class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
+  >
+    <p class="text-xs text-muted-foreground">
+      {i18nLabels.footerHint}
+    </p>
+    <div class="flex items-center gap-3">
+      <label
+        class="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
+        for="batch-flow-max-parallel"
       >
-        <p class="text-xs text-muted-foreground">
-          {i18nLabels.footerHint}
-        </p>
-        <div class="flex items-center gap-3">
-          <label
-            class="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
-            for="batch-flow-max-parallel"
-          >
-            {i18nLabels.maxParallel}
-            <Input
-              id="batch-flow-max-parallel"
-              type="number"
-              min="1"
-              step="1"
-              placeholder="4"
-              class="h-8 w-20"
-              value={form.maxParallel}
-              oninput={(event) =>
-                setBatchFlowField("maxParallel", event.currentTarget.value)}
-            />
-          </label>
-          <LoadingButton
-            size="lg"
-            loading={running}
-            disabled={!retryValid}
-            onclick={executeBatchFlow}
-          >
-            <span>{i18nLabels.runBtn}</span>
-          </LoadingButton>
-        </div>
-      </div>
-    </Card.Content>
-  </Card.Root>
-
+        {i18nLabels.maxParallel}
+        <Input
+          id="batch-flow-max-parallel"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="4"
+          class="h-8 w-20"
+          value={form.maxParallel}
+          oninput={(event) =>
+            setBatchFlowField("maxParallel", event.currentTarget.value)}
+        />
+      </label>
+      <LoadingButton
+        size="lg"
+        loading={running}
+        disabled={!retryValid}
+        onclick={executeBatchFlow}
+      >
+        <span>{i18nLabels.runBtn}</span>
+      </LoadingButton>
+    </div>
+  </div>
   {#if result.kind !== "empty"}
     <ExecutionResultsPanel
       title={i18nLabels.resultsTitle}

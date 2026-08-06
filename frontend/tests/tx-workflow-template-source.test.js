@@ -39,6 +39,15 @@ test("transaction workflow page merges direct and template execution into one ed
   assert.match(inputPanel, /loadJsonTemplate/);
   assert.match(inputPanel, /TxWorkflowVisualEditor/);
   assert.match(inputPanel, /TxDirectVarsPanel/);
+  assert.match(inputPanel, /\{#snippet actions\(\)\}/);
+  assert.match(
+    inputPanel,
+    /\{#if workflowSourceSelection !== MANUAL_COMMAND_SOURCE\}/,
+  );
+  assert.doesNotMatch(
+    inputPanel,
+    /workflowSourceSelection === MANUAL_COMMAND_SOURCE\s*\?\s*t\("txWorkflowSourceManual"\)/,
+  );
   assert.doesNotMatch(inputPanel, /TabList/);
   assert.doesNotMatch(inputPanel, /TxTemplateRunPanel/);
   assert.doesNotMatch(inputPanel, /activeMode|modeTabs|templatePanelActive/);

@@ -112,16 +112,18 @@
       title={i18nLabels.configTitle}
       description={i18nLabels.configHint}
       icon={SearchIcon}
-    />
+    >
+      {#snippet actions()}
+        <TabList
+          {tabItems}
+          activeValue={currentTab}
+          aria-label={queryAriaLabel}
+          themeAware={true}
+          onSelect={onSelectQuery}
+        />
+      {/snippet}
+    </WorkspaceActionHeader>
     <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
-      <TabList
-        {tabItems}
-        activeValue={currentTab}
-        aria-label={queryAriaLabel}
-        rootClass="w-fit"
-        onSelect={onSelectQuery}
-      />
-
       <ShowObjectSelectionPanel
         onModeChange={changeShowObjectMode}
         onObjectChange={changeShowObject}

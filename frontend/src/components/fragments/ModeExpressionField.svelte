@@ -85,7 +85,7 @@
             type="button"
             variant="outline"
             data-mode-expression-trigger
-            class="min-h-9 w-full justify-between px-2 py-1.5"
+            class="min-h-9 min-w-0 w-full justify-between px-2 py-1.5"
             {disabled}
             aria-label={triggerTitle}
             title={triggerTitle}

@@ -37,9 +37,7 @@
       {model}
       {modeOptions}
       showNameField={false}
-      surfaceVariant="workbench-section"
-      settingsIndexText="01"
-      stepsIndexText="02"
+      surfaceVariant="section"
       addStepPlacement="footer"
       onChange={onModelChange}
     />

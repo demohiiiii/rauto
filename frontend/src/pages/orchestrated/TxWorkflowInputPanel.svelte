@@ -188,12 +188,10 @@
       icon={Layers3Icon}
     >
       {#snippet status()}
-        <Badge variant="secondary">
-          {workflowSourceSelection === MANUAL_COMMAND_SOURCE
-            ? t("txWorkflowSourceManual")
-            : t("orchestrationTemplateSavedTemplate")}
-        </Badge>
         {#if workflowSourceSelection !== MANUAL_COMMAND_SOURCE}
+          <Badge variant="secondary">
+            {t("orchestrationTemplateSavedTemplate")}
+          </Badge>
           <Badge variant="outline">{workflowSourceSelection}</Badge>
         {/if}
       {/snippet}

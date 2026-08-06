@@ -163,12 +163,10 @@
       icon={BlocksIcon}
     >
       {#snippet status()}
-        <Badge variant="secondary">
-          {txBlockSourceSelection === MANUAL_COMMAND_SOURCE
-            ? t("txBlockSourceManual")
-            : t("orchestrationTemplateSavedTemplate")}
-        </Badge>
         {#if txBlockSourceSelection !== MANUAL_COMMAND_SOURCE}
+          <Badge variant="secondary">
+            {t("orchestrationTemplateSavedTemplate")}
+          </Badge>
           <Badge variant="outline">{txBlockSourceSelection}</Badge>
         {/if}
       {/snippet}

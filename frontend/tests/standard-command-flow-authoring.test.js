@@ -161,12 +161,10 @@ test("standard command flow page renders one unified authoring workspace", () =>
   );
   assert.match(panel, /<Dialog\.Title/);
   assert.match(panel, /data-command-flow-workbench/);
-  assert.match(panel, /surfaceVariant="workbench-header"/);
-  assert.match(panel, /surfaceVariant="workbench-section"/);
-  assert.match(authoringViews, /settingsIndexText="01"/);
-  assert.match(authoringViews, /stepsIndexText="02"/);
-  assert.match(panel, /indexText="03"/);
-  assert.match(panel, /indexText="04"/);
+  assert.match(panel, /surfaceVariant="section"/);
+  assert.doesNotMatch(panel, /workbench-(header|section)/);
+  assert.doesNotMatch(authoringViews, /settingsIndexText|stepsIndexText/);
+  assert.doesNotMatch(panel, /indexText="0[1-5]"/);
   assert.match(panel, /bg-muted\/30/);
   assert.match(panel, /flowStepCountLabel/);
   assert.match(panel, /flowVariableCountLabel/);

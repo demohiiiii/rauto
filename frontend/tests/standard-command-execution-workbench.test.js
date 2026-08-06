@@ -297,6 +297,17 @@ test("standard execution result rows use the shared execution result surface", (
   );
 });
 
+test("standard command authoring uses the regular content layout without step numbering", () => {
+  const panel = read(
+    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+  );
+
+  assert.match(panel, /class="grid min-w-0 gap-5 p-4 sm:p-5"/);
+  assert.match(panel, /<CommandTemplateSourceField/);
+  assert.doesNotMatch(panel, /variant="workbench-(header|section)"/);
+  assert.doesNotMatch(panel, /indexText="0[1-2]"/);
+});
+
 test("standard command workbench has no legacy panel factories", () => {
   const source = [
     read("frontend/src/modules/standard/standardExecutionState.js"),

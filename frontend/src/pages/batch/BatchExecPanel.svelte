@@ -1,5 +1,4 @@
 <script>
-  import * as Card from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
@@ -11,7 +10,6 @@
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
-  import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { batchExecTargetPickerFields } from "../../modules/connections/connections.js";
   import {
@@ -39,7 +37,6 @@
     i18nCurrentLanguage;
     return {
       title: t("batchExecTitle"),
-      hint: t("batchExecHint"),
       command: t("fieldCommand"),
       commandPlaceholder: t("batchExecCommandPlaceholder"),
       mode: t("historyColMode"),
@@ -127,95 +124,85 @@
   });
 </script>
 
-<div hidden={!active} class="grid gap-3 p-4 sm:p-5">
-  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-    <WorkspaceActionHeader
-      title={i18nLabels.title}
-      description={i18nLabels.hint}
-      icon={TerminalIcon}
-    />
-    <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
-      <div class="grid gap-4 md:grid-cols-[1fr_180px]">
-        <label class="grid gap-1 text-sm font-medium text-foreground">
-          {i18nLabels.command}
-          <Input
-            placeholder={i18nLabels.commandPlaceholder}
-            value={form.command}
-            oninput={(event) =>
-              setBatchExecField("command", event.currentTarget.value)}
-          />
-        </label>
-        <label class="grid gap-1 text-sm font-medium text-foreground">
-          {i18nLabels.mode}
-          <ModeExpressionField
-            placeholderText={i18nLabels.modePlaceholder}
-            optionValues={modeState.modes}
-            aria-label={i18nLabels.mode}
-            value={form.mode}
-            onValueChange={(mode) => setBatchExecField("mode", mode)}
-          />
-        </label>
-      </div>
-
-      <div class="rounded-2xl border border-border bg-muted/30 p-4">
-        <div
-          class="grid gap-4 md:grid-cols-2"
-          role="group"
-          aria-label={i18nLabels.title}
-        >
-          {#each i18nLabels.pickerFields as targetField (targetField.key)}
-            <ConnectionPickerField
-              keyName={targetField.keyName}
-              labelText={targetField.labelText}
-              pickerPlaceholder={targetField.pickerPlaceholder}
-            />
-          {/each}
-        </div>
-      </div>
-
-      <SessionRetryFields
-        idPrefix="batch-exec-session-retry"
-        value={form.retry}
-        onChange={setBatchExecRetry}
+<div hidden={!active} class="grid gap-5 p-4 sm:p-5">
+  <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+    <label class="grid min-w-0 gap-1 text-sm font-medium text-foreground">
+      {i18nLabels.command}
+      <Input
+        placeholder={i18nLabels.commandPlaceholder}
+        value={form.command}
+        oninput={(event) =>
+          setBatchExecField("command", event.currentTarget.value)}
       />
+    </label>
+    <label class="grid min-w-0 gap-1 text-sm font-medium text-foreground">
+      {i18nLabels.mode}
+      <ModeExpressionField
+        placeholderText={i18nLabels.modePlaceholder}
+        optionValues={modeState.modes}
+        aria-label={i18nLabels.mode}
+        value={form.mode}
+        onValueChange={(mode) => setBatchExecField("mode", mode)}
+      />
+    </label>
+  </div>
 
-      <div
-        class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
+  <div class="rounded-2xl border border-border bg-muted/30 p-4">
+    <div
+      class="grid gap-4 md:grid-cols-2"
+      role="group"
+      aria-label={i18nLabels.title}
+    >
+      {#each i18nLabels.pickerFields as targetField (targetField.key)}
+        <ConnectionPickerField
+          keyName={targetField.keyName}
+          labelText={targetField.labelText}
+          pickerPlaceholder={targetField.pickerPlaceholder}
+        />
+      {/each}
+    </div>
+  </div>
+
+  <SessionRetryFields
+    idPrefix="batch-exec-session-retry"
+    value={form.retry}
+    onChange={setBatchExecRetry}
+  />
+
+  <div
+    class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
+  >
+    <p class="text-xs text-muted-foreground">
+      {i18nLabels.footerHint}
+    </p>
+    <div class="flex items-center gap-3">
+      <label
+        class="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
+        for="batch-exec-max-parallel"
       >
-        <p class="text-xs text-muted-foreground">
-          {i18nLabels.footerHint}
-        </p>
-        <div class="flex items-center gap-3">
-          <label
-            class="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
-            for="batch-exec-max-parallel"
-          >
-            {i18nLabels.maxParallel}
-            <Input
-              id="batch-exec-max-parallel"
-              type="number"
-              min="1"
-              step="1"
-              placeholder="4"
-              class="h-8 w-20"
-              value={form.maxParallel}
-              oninput={(event) =>
-                setBatchExecField("maxParallel", event.currentTarget.value)}
-            />
-          </label>
-          <LoadingButton
-            size="lg"
-            loading={running}
-            disabled={!retryValid}
-            onclick={executeBatchExecCommand}
-          >
-            <span>{i18nLabels.runBtn}</span>
-          </LoadingButton>
-        </div>
-      </div>
-    </Card.Content>
-  </Card.Root>
-
+        {i18nLabels.maxParallel}
+        <Input
+          id="batch-exec-max-parallel"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="4"
+          class="h-8 w-20"
+          value={form.maxParallel}
+          oninput={(event) =>
+            setBatchExecField("maxParallel", event.currentTarget.value)}
+        />
+      </label>
+      <LoadingButton
+        size="lg"
+        loading={running}
+        disabled={!retryValid}
+        onclick={executeBatchExecCommand}
+      >
+        <span>{i18nLabels.runBtn}</span>
+      </LoadingButton>
+    </div>
+  </div>
   {#if result.kind !== "empty"}
     <ExecutionResultsPanel
       title={i18nLabels.resultsTitle}

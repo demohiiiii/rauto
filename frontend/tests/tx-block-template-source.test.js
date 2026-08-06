@@ -42,6 +42,15 @@ test("transaction block page merges direct and template execution into one edito
   assert.match(inputPanel, /loadJsonTemplate/);
   assert.match(inputPanel, /TxBlockVisualEditor/);
   assert.match(inputPanel, /TxDirectVarsPanel/);
+  assert.match(inputPanel, /\{#snippet actions\(\)\}/);
+  assert.match(
+    inputPanel,
+    /\{#if txBlockSourceSelection !== MANUAL_COMMAND_SOURCE\}/,
+  );
+  assert.doesNotMatch(
+    inputPanel,
+    /txBlockSourceSelection === MANUAL_COMMAND_SOURCE\s*\?\s*t\("txBlockSourceManual"\)/,
+  );
   assert.doesNotMatch(inputPanel, /TabList|txTemplateModeTabs/);
   assert.doesNotMatch(inputPanel, /TxTemplateRunPanel/);
   assert.doesNotMatch(

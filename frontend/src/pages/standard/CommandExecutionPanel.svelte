@@ -118,32 +118,25 @@
 <div
   bind:this={panelElement}
   data-command-execution-workbench
-  class="grid min-w-0 overflow-hidden"
+  class="grid min-w-0 gap-5 p-4 sm:p-5"
   hidden={!active}
 >
-  <CommandFlowSurface
-    variant="workbench-header"
-    icon={TerminalIcon}
-    title={t("commandSourceLabel")}
-    description={t("commandSourceHint")}
-  >
+  <div class="grid min-w-0 gap-2">
     <CommandTemplateSourceField
       value={commandState.sourceSelection}
       optionValues={commandState.sourceOptions}
-      showLabel={false}
       onValueChange={handleSourceChange}
     />
-  </CommandFlowSurface>
+  </div>
 
-  <CommandFlowSurface
-    variant="workbench-section"
-    indexText="01"
-    title={t("commandExecuteTitle")}
-    description={commandState.dirty ? t("commandDraftDirty") : ""}
-  >
+  {#if commandState.dirty}
+    <p class="text-xs text-muted-foreground">{t("commandDraftDirty")}</p>
+  {/if}
+
+  <div class="grid min-w-0 gap-3">
     <CommandEditor
       command={commandState.content}
-      commandLabel={t("commandExecuteTitle")}
+      commandLabel={t("fieldCommand")}
       multilineMode={commandState.multilineMode}
       placeholderText={t("commandPlaceholder")}
       onCommandChange={workspace.changeContent}
@@ -224,14 +217,10 @@
         </LoadingButton>
       </div>
     </CommandEditor>
-  </CommandFlowSurface>
+  </div>
 
   {#if commandState.preview.kind !== "empty"}
-    <CommandFlowSurface
-      variant="workbench-section"
-      indexText="02"
-      title={t("commandPreviewTitle")}
-    >
+    <CommandFlowSurface variant="section" title={t("commandPreviewTitle")}>
       {#if commandState.preview.kind === "error"}
         <StatusCard message={commandState.preview.message} tone="error" />
       {:else if commandState.preview.text}

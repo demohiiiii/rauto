@@ -1156,6 +1156,32 @@ test("query cards share the workspace card treatment", () => {
   );
 });
 
+test("batch delivery owns one outer workspace card", () => {
+  const page = read("frontend/src/pages/BatchPage.svelte");
+  const commandPanel = read("frontend/src/pages/batch/BatchExecPanel.svelte");
+  const modeField = read(
+    "frontend/src/components/fragments/ModeExpressionField.svelte",
+  );
+
+  assert.match(page, /<Card\.Root/);
+  assert.match(page, /WorkspaceActionHeader/);
+  assert.match(page, /<Card\.Content/);
+  assert.match(
+    commandPanel,
+    /md:grid-cols-\[minmax\(0,2fr\)_minmax\(16rem,1fr\)\]/,
+  );
+  assert.match(modeField, /class="min-h-9 min-w-0 w-full/);
+
+  for (const path of [
+    "frontend/src/pages/batch/BatchExecPanel.svelte",
+    "frontend/src/pages/batch/BatchFlowPanel.svelte",
+  ]) {
+    const source = read(path);
+    assert.doesNotMatch(source, /ui\/card|<Card\.|WorkspaceActionHeader/);
+    assert.match(source, /class="grid gap-5 p-4 sm:p-5"/);
+  }
+});
+
 test("json template workspaces share the four template actions", () => {
   const actions = read(
     "frontend/src/components/fragments/WorkspaceTemplateActions.svelte",

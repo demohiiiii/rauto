@@ -82,7 +82,7 @@
     if (templateDisplay?.selectionKind === "existing") {
       return t("orchestrationTemplateSavedTemplate");
     }
-    return t("orchestrationTemplateManualDraft");
+    return "";
   });
   let templateStatusMessage = $derived.by(() => {
     currentLanguage;
@@ -159,7 +159,9 @@
     icon={NetworkIcon}
   >
     {#snippet status()}
-      <Badge variant="secondary">{selectionLabel}</Badge>
+      {#if selectionLabel}
+        <Badge variant="secondary">{selectionLabel}</Badge>
+      {/if}
       {#if templateDisplay?.selectedName}
         <Badge variant="outline">{templateDisplay.selectedName}</Badge>
       {/if}
