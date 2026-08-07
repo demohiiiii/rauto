@@ -19,6 +19,8 @@ rauto device test --connection <name> --force-autodetect
 ## 2) Mode / Prompt Mismatch
 
 - If mode invalid, return profile default and available mode list.
+- Split candidate expressions on comma or pipe, trim blanks, and validate every candidate case-insensitively. One unknown candidate invalidates the full expression.
+- Preserve candidate order when diagnosing transitions; `Root,User` and `User,Root` express different preferences.
 - For `show`, remember explicit `--mode` / UI mode overrides mapping mode; otherwise object mapping mode wins before profile default.
 - For Linux shells, validate shell flavor and prompt matching assumptions.
 - If execution times out but output shows success markers, suspect prompt-detection mismatch in profile/template settings.
@@ -71,3 +73,12 @@ For orchestration selector failures:
 - Saved connections are stored in SQLite metadata.
 - Secrets rely on keyring-based storage and app-level encrypted data flow.
 - If keyring init/read fails, validate keyring availability and permissions on host OS.
+- SQLite connections use a busy timeout and WAL-oriented settings for concurrent task writes. If `database is locked` persists, verify all running processes use the current binary and are not holding an external long-lived transaction.
+
+## 9) Device Discovery
+
+- `device discover list` and `device discover save` read the latest snapshot and must not be given or require probe credentials.
+- A TCP connect is not enough for SSH reachability; rauto must receive a valid SSH identification line before credential/profile probing.
+- If a run is reported active after interruption, retry with the current binary so stale persisted leases can be recovered; do not delete saved connections or the database.
+- When progress reaches the TCP total, inspect the phase: SSH probing has its own `probed_targets / reachable_count` progress.
+- Existing connections and newly identified devices are exclusive result states. Existing/imported rows cannot be selected for saving.

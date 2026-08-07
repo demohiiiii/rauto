@@ -49,6 +49,7 @@ Notes:
 - `connection` remains an alias for `device`, but use `device` in new commands and documentation.
 - Saved connections store a credential reference; direct CLI targets use `--credential <name-or-id>`.
 - `credential add` prompts for login values when they are not provided; list/show output never includes secret values.
+- Credential authentication supports password, keyboard-interactive, an encrypted inline private key loaded with `--private-key`, or a runtime key path set with `--private-key-file`; use `--passphrase` for encrypted keys.
 - `credential import` accepts CSV/Excel and upserts by credential name; `enable_enabled=true` enters the Enable stage and submits an empty Enter when `enable_secret` is blank. New rows require `name`, `login_username`, and `login_secret`.
 - Omit `--device-profile` to use `autodetect`; successful detections are cached by `host:port`.
 - Add `--force-autodetect` to bypass the cache after device replacement or IP reuse.
@@ -58,13 +59,20 @@ Notes:
 
 ```bash
 rauto exec "uname -a" --connection edge92
+rauto exec "id" --connection linux-01 --mode 'Root,User'
+rauto exec "show clock" --group access --label campus --max-parallel 8
 rauto template show_ver --connection core-01 --vars ./command-vars.json
+rauto flow --template health-check --target core-01 --target core-02 --max-parallel 4
 ```
 
 Use raw `exec` for one-off harmless commands or when no show object exists.
 Keep `exec` and stored `template` distinct: use `exec` for literal command text and `template` for a saved command template plus vars.
 For device state/config retrieval, prefer `rauto show`.
 For config changes, prefer `tx`, `tx-workflow`, or `orchestrate`.
+
+`exec`, `flow`, `show`, and `config fetch` share multi-target selection. Repeat `--target`, `--group`, and `--label`/`--tag`; selectors use deduplicated union semantics. rauto resolves and validates every target before starting concurrent execution.
+
+Mode-bearing CLI options and structured models accept either one mode or ordered candidates separated by comma or pipe. For example, `--mode 'Root,User'` first validates both modes against the selected profile, then allows rneter to execute from or transition to an available candidate. Do not rewrite the value as one invented mode.
 
 Command-flow TOML and transaction JSON support `multiline_mode`:
 
@@ -107,6 +115,33 @@ rauto show-object set \
   --mode Enable \
   --textfsm-mapping-command "show access-lists"
 ```
+
+Successful show output omits prompt-only transcript noise. On failure, retain the complete diagnostic transcript rather than presenting only partial command content. Built-in `version` mappings include H3C/HP/HPE Comware and Linux `os-release` parsing.
+
+## Configuration Fetch
+
+```bash
+rauto config fetch --connection core-01 --kind running
+rauto config fetch --connection core-01 --output ./core-01-running.cfg
+rauto config fetch --group access --kind startup --output-dir ./configs
+rauto config fetch --group access --normalized --max-parallel 8
+
+rauto config command list --profile linux
+rauto config command set linux running "cat /etc/device.conf" --mode 'Root,User'
+rauto config volatile add linux '^# Generated at .*$'
+```
+
+Each successful fetch includes raw and normalized SHA-256 hashes. `--normalized` emits content after volatile-line removal. Use `--output` only for one resolved device and `--output-dir` for timestamped per-device files. Custom command mappings override the bundled catalog; custom volatile regexes merge with bundled rules.
+
+## Device Discovery
+
+```bash
+rauto device discover 192.168.60.0/24 --credential network-admin
+rauto device discover list --status identified
+rauto device discover save --profile cisco_ios
+```
+
+Load `device-discovery.md` before scanning, filtering, using the TUI, or saving discovered devices.
 
 ## Command Flow
 
@@ -177,3 +212,12 @@ Device groups only store saved-device membership and an optional description. Th
 - Every execution is recorded by default.
 - Use `--record-level key-events-only` for command + output audit.
 - Use `--record-level full` for richer prompt/state details.
+
+## Session Retries
+
+- Retries default to disabled (`--session-retries 0`).
+- Enable retries only for repeat-safe ordinary commands, flows, show queries, and config fetches because a command may have completed before transport loss was detected.
+- Tune exponential backoff with `--retry-initial-backoff-ms` and `--retry-max-backoff-ms`.
+- Flow retries retain completed steps and resume at the first unfinished step.
+- Authentication rejection is not transient unless `--retry-authentication-errors` is explicitly supplied.
+- Transactions, transaction workflows, orchestration actions, and uploads are not automatically retried.

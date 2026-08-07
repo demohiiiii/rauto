@@ -6,7 +6,7 @@ Use this file when creating or debugging command-flow templates (`rauto flow-tem
 
 - Template format: TOML.
 - Runtime rendering: inline `{{var}}`.
-- Step execution: each step can define command, explicit multiline mode, optional mode, timeout, and prompt-response rules.
+- Step execution: each step can define command, explicit multiline mode, optional single/candidate mode expression, timeout, and prompt-response rules.
 - Template inputs are inferred from inline references instead of declared in a vars schema.
 - Current target fields are flat values such as `{{host}}` and `{{username}}`.
 - Saved connections can be referenced through runtime aliases such as `{{peer.host}}`.
@@ -38,7 +38,7 @@ user needs editable content.
 
 ```toml
 name = "linux_scp_with_current_and_peer"
-default_mode = "User"
+default_mode = "Root,User"
 
 [[steps]]
 command = "scp {{local_path}} {{peer.username}}@{{peer.host}}:{{remote_path}}"
@@ -58,6 +58,8 @@ rauto flow \
 
 - If step `mode` is omitted, `rauto` uses template/runtime default first.
 - If still omitted, `rauto` falls back to the first mode of the active device profile.
+- `default_mode` and step `mode` accept ordered comma/pipe-separated candidates such as `Root,User` or `Enable|Config`.
+- rauto canonicalizes candidates against the profile case-insensitively and rejects the whole expression when any candidate is unknown.
 
 ## Multiline Submission
 
@@ -73,7 +75,7 @@ command = "interface Gi0/1\nno shutdown"
 multiline_mode = "split_lines"
 
 [[steps]]
-mode = "Shell"
+mode = "Root,User"
 command = "cat <<'EOF'\nline one\nline two\nEOF"
 multiline_mode = "whole"
 ```

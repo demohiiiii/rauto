@@ -77,7 +77,7 @@ Add at least one step:
 
 ### Fix
 
-Set a real mode such as `User`, `Enable`, `Config`, or the first mode of the selected profile.
+Set one real mode such as `User`, `Enable`, or `Config`, or an ordered candidate expression such as `Root,User`. Every candidate must exist in the selected profile.
 
 ### Error
 

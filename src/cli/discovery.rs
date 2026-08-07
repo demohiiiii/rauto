@@ -223,7 +223,7 @@ async fn save_latest_discovery(
     let response = save_discovery_results(
         state,
         &detail,
-        importable.into_iter(),
+        importable,
         args.connection_name.as_deref(),
         args.overwrite,
     )

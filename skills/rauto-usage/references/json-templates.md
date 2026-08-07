@@ -29,6 +29,7 @@ Notes:
 - The bundled validator checks tx-block JSON by wrapping it into a temporary one-block workflow and delegating validation to `rauto tx-workflow --dry-run`.
 - Use only operation kinds `command` and `flow`; do not create a `kind: "template"` operation.
 - Write `multiline_mode` explicitly for commands, rollback commands, and flow steps. Use `split_lines` unless the complete text must be submitted once.
+- Write `mode` as one profile mode or an ordered comma/pipe-separated candidate expression such as `Root,User`. Every candidate must exist in the selected profile; rauto canonicalizes the persisted value to comma-separated profile names.
 
 ### 1.1 Basic command operation (recommended baseline)
 
@@ -41,7 +42,7 @@ Notes:
     {
       "run": {
         "kind": "command",
-        "mode": "User",
+        "mode": "Root,User",
         "command": "docker load -i /tmp/app.tar",
         "multiline_mode": "split_lines",
         "timeout": 900
@@ -52,14 +53,14 @@ Notes:
     {
       "run": {
         "kind": "command",
-        "mode": "User",
+        "mode": "Root,User",
         "command": "cd /srv/app && docker compose down && docker compose up -d",
         "multiline_mode": "split_lines",
         "timeout": 900
       },
       "rollback": {
         "kind": "command",
-        "mode": "User",
+        "mode": "Root,User",
         "command": "cd /srv/app && docker compose up -d",
         "multiline_mode": "split_lines",
         "timeout": 900
@@ -163,7 +164,7 @@ Workflow file is a single `TxWorkflow` object:
         {
           "run": {
             "kind": "command",
-            "mode": "User",
+            "mode": "Root,User",
             "command": "uname -a",
             "timeout": 30
           },
@@ -180,7 +181,7 @@ Workflow file is a single `TxWorkflow` object:
         {
           "run": {
             "kind": "command",
-            "mode": "User",
+            "mode": "Root,User",
             "command": "docker load -i /tmp/app.tar",
             "timeout": 900
           },
