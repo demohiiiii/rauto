@@ -9,6 +9,9 @@ pub enum SshSecurityProfile {
     Balanced,
     #[default]
     LegacyCompatible,
+    #[cfg(test)]
+    #[value(skip)]
+    TestNoCheck,
 }
 
 impl SshSecurityProfile {
@@ -17,6 +20,8 @@ impl SshSecurityProfile {
             Self::Secure => "secure",
             Self::Balanced => "balanced",
             Self::LegacyCompatible => "legacy-compatible",
+            #[cfg(test)]
+            Self::TestNoCheck => "test-no-check",
         }
     }
 
@@ -25,6 +30,11 @@ impl SshSecurityProfile {
             Self::Secure => ConnectionSecurityOptions::secure_default(),
             Self::Balanced => ConnectionSecurityOptions::balanced(),
             Self::LegacyCompatible => ConnectionSecurityOptions::legacy_compatible(),
+            #[cfg(test)]
+            Self::TestNoCheck => ConnectionSecurityOptions {
+                level: rneter::session::SecurityLevel::Secure,
+                server_check: async_ssh2_tokio::ServerCheckMethod::NoCheck,
+            },
         }
     }
 }

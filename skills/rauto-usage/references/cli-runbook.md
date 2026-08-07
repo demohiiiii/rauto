@@ -12,14 +12,14 @@ rauto agent --bind 0.0.0.0 --port 8123 --manager-url http://manager:50051 --agen
 
 ### Local Web Workbench
 
-`rauto web` starts the local browser workbench. It does not require a device connection at startup. The defaults are `127.0.0.1:3000`; open `http://127.0.0.1:3000` after startup. The service remains in the foreground, so keep its process/session running.
+`rauto web` starts the local browser workbench. It does not require a device connection at startup. The defaults are `127.0.0.1:3000`; open `http://127.0.0.1:3000` after startup and enter the Web password. The first startup generates and prints a random password, then stores it as `web.password` in `~/.rauto/config.toml`; later startups reuse it. The service remains in the foreground, so keep its process/session running.
 
 | Option                             | Meaning                                                                                              |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `--bind <ADDRESS>`                 | Web server listen address; defaults to `127.0.0.1`.                                                  |
 | `--port <PORT>`                    | Web server listen port; defaults to `3000`.                                                          |
 
-Keep `--bind 127.0.0.1` for local-only use. Use `--bind 0.0.0.0` only when the user explicitly needs network access, and warn that it exposes the service on available network interfaces.
+Keep `--bind 127.0.0.1` for local-only use. Use `--bind 0.0.0.0` only when the user explicitly needs network access, and warn that password authentication does not encrypt plaintext HTTP traffic.
 
 The Web service only starts the workbench; select a saved connection and credential from the browser UI.
 

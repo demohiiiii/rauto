@@ -285,7 +285,7 @@ async function loadBackups(backup = {}) {
 async function createBackupArchive(backup = {}) {
   setBackupStatus(backup, tr("running", "running"), "running");
   try {
-    const backupPayload = await createBackup(backup.outputPath);
+    const backupPayload = await createBackup();
     const path = backupPayload?.path || "-";
     setBackupStatus(
       backup,

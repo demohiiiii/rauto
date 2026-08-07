@@ -79,6 +79,30 @@ pub fn import_connections_from_bytes(
     apply_import_rows(file_name, parsed)
 }
 
+pub fn import_connections_from_web_bytes(
+    file_name: &str,
+    bytes: &[u8],
+) -> Result<ConnectionImportReport> {
+    let mut parsed = match detect_format(file_name)? {
+        ImportFormat::Csv => parse_csv(file_name, bytes)?,
+        ImportFormat::Excel => parse_excel(file_name, bytes)?,
+    };
+    let mut accepted = Vec::with_capacity(parsed.rows.len());
+    for row in parsed.rows {
+        if row.connection.template_dir.is_some() {
+            parsed.failures.push(ConnectionImportFailure {
+                row: row.row,
+                name: Some(row.name),
+                message: "template_dir is not supported by Web imports".to_string(),
+            });
+        } else {
+            accepted.push(row);
+        }
+    }
+    parsed.rows = accepted;
+    apply_import_rows(file_name, parsed)
+}
+
 fn apply_import_rows(file_name: &str, parsed: ParsedRows) -> Result<ConnectionImportReport> {
     let total_rows = parsed.rows.len() + parsed.failures.len();
     let mut created = 0usize;
@@ -203,7 +227,7 @@ mod tests {
     use super::parsing::{
         build_header_mapping, derive_connection_name, parse_row, resolve_credential_id,
     };
-    use super::{ColumnKey, merge_with_existing};
+    use super::{ColumnKey, import_connections_from_web_bytes, merge_with_existing};
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
     use std::collections::{HashMap, HashSet};
@@ -368,5 +392,18 @@ mod tests {
             .expect("row parses")
             .expect("row exists");
         assert_eq!(row.name, "10-0-0-1");
+    }
+
+    #[test]
+    fn web_import_rejects_server_template_directories() {
+        let report = import_connections_from_web_bytes(
+            "connections.csv",
+            b"name,host,template_dir\nedge,192.0.2.10,/etc\n",
+        )
+        .expect("Web import should return a row failure");
+
+        assert_eq!(report.imported, 0);
+        assert_eq!(report.failed, 1);
+        assert!(report.failures[0].message.contains("template_dir"));
     }
 }

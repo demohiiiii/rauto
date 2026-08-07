@@ -315,17 +315,6 @@ pub fn parse_command_output_optional(
             .filter(|value| !value.is_empty())
             .is_none()
         && !options.enabled
-        && options
-            .platform
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .is_none()
-        && options
-            .device_profile
-            .as_deref()
-            .and_then(ntc_platform_for_device_profile)
-            .is_none()
     {
         return (None, None);
     }
@@ -678,6 +667,31 @@ mod tests {
     #[test]
     fn returns_none_for_unmapped_profiles() {
         assert_eq!(ntc_platform_for_device_profile("array"), None);
+    }
+
+    #[test]
+    fn optional_parse_stays_disabled_when_device_profile_is_available() {
+        let result = parse_command_output_optional(
+            "uid=0(root) gid=0(root)",
+            "id",
+            &ParseOptions {
+                device_profile: Some("linux".to_string()),
+                ..ParseOptions::default()
+            },
+        );
+
+        assert_eq!(result, (None, None));
+    }
+
+    #[test]
+    fn device_profile_selects_platform_when_parsing_is_enabled() {
+        let platform = effective_platform(&ParseOptions {
+            enabled: true,
+            device_profile: Some("linux".to_string()),
+            ..ParseOptions::default()
+        });
+
+        assert_eq!(platform.as_deref(), Some("linux"));
     }
 
     #[test]

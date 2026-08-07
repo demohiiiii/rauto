@@ -1,6 +1,7 @@
 import { storageGet, storageRemove, storageSet } from "../lib/browser.js";
 
 const AGENT_API_TOKEN_KEY = "rauto_agent_api_token";
+let unauthorizedHandler = null;
 
 class ApiError extends Error {
   constructor(message, { status, payload } = {}) {
@@ -22,6 +23,17 @@ function authHeaders(body) {
     headers["X-API-Key"] = token;
   }
   return headers;
+}
+
+export function setApiUnauthorizedHandler(handler) {
+  unauthorizedHandler = typeof handler === "function" ? handler : null;
+  return () => {
+    if (unauthorizedHandler === handler) unauthorizedHandler = null;
+  };
+}
+
+function notifyUnauthorized(response) {
+  if (response.status === 401 && unauthorizedHandler) unauthorizedHandler();
 }
 
 export function getAgentApiToken() {
@@ -67,6 +79,7 @@ async function apiRequest(method, path, body) {
   });
   const payload = await responsePayload(response);
   if (!response.ok) {
+    notifyUnauthorized(response);
     throw new ApiError(responseErrorMessage(payload, response), {
       status: response.status,
       payload,
@@ -128,6 +141,7 @@ async function apiRequestBlob(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) {
+    notifyUnauthorized(response);
     const payload = await responsePayload(response);
     throw new ApiError(responseErrorMessage(payload, response), {
       status: response.status,
@@ -149,6 +163,7 @@ async function apiRequestForm(method, path, formData) {
   });
   const payload = await responsePayload(response);
   if (!response.ok) {
+    notifyUnauthorized(response);
     throw new ApiError(responseErrorMessage(payload, response), {
       status: response.status,
       payload,
@@ -159,6 +174,18 @@ async function apiRequestForm(method, path, formData) {
 
 export function getAgentInfo() {
   return apiRequest("GET", "/api/agent/info");
+}
+
+export function getWebAuthStatus() {
+  return apiRequest("GET", "/api/auth/status");
+}
+
+export function loginWeb(password) {
+  return apiRequest("POST", "/api/auth/login", { password });
+}
+
+export function logoutWeb() {
+  return apiRequest("POST", "/api/auth/logout", {});
 }
 
 export function listBlacklistPatterns() {
@@ -181,10 +208,8 @@ export function listBackups() {
   return apiRequest("GET", "/api/backups");
 }
 
-export function createBackup(output) {
-  return apiRequest("POST", "/api/backups", {
-    output: output?.trim() ? output.trim() : null,
-  });
+export function createBackup() {
+  return apiRequest("POST", "/api/backups", {});
 }
 
 export function restoreBackup(archive, replace = false) {

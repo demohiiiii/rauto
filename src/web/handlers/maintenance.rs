@@ -13,7 +13,6 @@ use axum::http::{HeaderMap, HeaderValue, header};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value, json};
 use std::fs;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 use tracing::warn;
@@ -138,13 +137,14 @@ pub async fn list_backups() -> Result<Json<Vec<BackupMeta>>, ApiError> {
                 .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
                 .map(|d| d.as_millis())
                 .unwrap_or(0);
+            let name = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                .to_string();
             BackupMeta {
-                name: path
-                    .file_name()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or_default()
-                    .to_string(),
-                path: path.to_string_lossy().to_string(),
+                path: name.clone(),
+                name,
                 size_bytes,
                 modified_ms,
             }
@@ -156,10 +156,22 @@ pub async fn list_backups() -> Result<Json<Vec<BackupMeta>>, ApiError> {
 pub async fn create_backup(
     Json(req): Json<BackupCreateRequest>,
 ) -> Result<Json<BackupCreateResponse>, ApiError> {
-    let output = req.output.as_deref().map(PathBuf::from);
-    let saved = backup::create_backup(output.as_deref())?;
+    if req
+        .output
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        return Err(ApiError::bad_request(
+            "custom backup output paths are not supported by the Web API",
+        ));
+    }
+    let saved = backup::create_backup(None)?;
+    let name = saved
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| ApiError::bad_request("generated backup name is invalid"))?;
     Ok(Json(BackupCreateResponse {
-        path: saved.to_string_lossy().to_string(),
+        path: name.to_string(),
     }))
 }
 
@@ -208,10 +220,9 @@ pub async fn restore_backup(
     State(state): State<Arc<AppState>>,
     Json(req): Json<BackupRestoreRequest>,
 ) -> Result<Json<BackupRestoreResponse>, ApiError> {
-    if req.archive.trim().is_empty() {
-        return Err(ApiError::bad_request("archive path is required"));
-    }
-    let archive = PathBuf::from(req.archive.trim());
+    let archive_name = req.archive.trim();
+    let archive = backup::backup_path_by_name(archive_name)
+        .map_err(|error| ApiError::bad_request(error.to_string()))?;
     backup::restore_backup(&archive, req.replace)?;
     crate::config::paths::ensure_default_layout().map_err(ApiError::from)?;
     if let Some(registrar) = state.registrar()
@@ -224,13 +235,14 @@ pub async fn restore_backup(
     }
     Ok(Json(BackupRestoreResponse {
         restored: true,
-        archive: archive.to_string_lossy().to_string(),
+        archive: archive_name.to_string(),
         replace: req.replace,
     }))
 }
 
 pub async fn download_backup(Path(name): Path<String>) -> Result<Response, ApiError> {
-    let path = backup::backup_path_by_name(&name)?;
+    let path = backup::backup_path_by_name(&name)
+        .map_err(|error| ApiError::bad_request(error.to_string()))?;
     let bytes = fs::read(&path).map_err(ApiError::from)?;
     let filename = path
         .file_name()
@@ -261,9 +273,9 @@ pub async fn download_connection_import_template(
         "rauto-connection-import-template-en.csv"
     };
     let content = if is_zh {
-        "\u{feff}连接名,主机地址,设备凭证,端口,连接超时秒,设备型号,软件版本,SSH安全级别,Linux Shell,设备模板,模板目录\n"
+        "\u{feff}连接名,主机地址,设备凭证,端口,连接超时秒,设备型号,软件版本,SSH安全级别,Linux Shell,设备模板\n"
     } else {
-        "name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile,template_dir\n"
+        "name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile\n"
     };
     csv_download_response(filename, content)
 }
@@ -280,9 +292,9 @@ pub async fn download_credential_import_template(
         "rauto-credential-import-template-en.csv"
     };
     let content = if is_zh {
-        "\u{feff}凭证名称,登录用户名,认证类型,登录密钥,私钥内容,私钥路径,私钥口令,Enable密钥,启用Enable\n"
+        "\u{feff}凭证名称,登录用户名,认证类型,登录密钥,私钥内容,私钥口令,Enable密钥,启用Enable\n"
     } else {
-        "name,login_username,auth_type,login_secret,private_key,private_key_path,passphrase,enable_secret,enable_enabled\n"
+        "name,login_username,auth_type,login_secret,private_key,passphrase,enable_secret,enable_enabled\n"
     };
     csv_download_response(filename, content)
 }
@@ -299,4 +311,23 @@ fn csv_download_response(filename: &str, content: &str) -> Result<Response, ApiE
         HeaderValue::from_str(&disposition).map_err(ApiError::from)?,
     );
     Ok((headers, content.as_bytes().to_vec()).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::create_backup;
+    use crate::web::models::BackupCreateRequest;
+    use axum::Json;
+    use axum::http::StatusCode;
+
+    #[tokio::test]
+    async fn web_backup_creation_rejects_custom_output_paths() {
+        let error = create_backup(Json(BackupCreateRequest {
+            output: Some("/tmp/rauto-owned.tar.gz".to_string()),
+        }))
+        .await
+        .expect_err("custom host output path should be rejected");
+
+        assert_eq!(error.status, StatusCode::BAD_REQUEST);
+    }
 }

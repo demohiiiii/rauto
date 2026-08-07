@@ -339,9 +339,40 @@ pub(crate) fn parse_textfsm_output_optional(
     if !options.enabled {
         return (None, None);
     }
+    let managed_template_content = match options
+        .template_file
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(name) => {
+            let safe_name = match crate::web::storage::safe_template_name(name) {
+                Ok(value) => value,
+                Err(_) => {
+                    return (
+                        None,
+                        Some("invalid managed TextFSM template name".to_string()),
+                    );
+                }
+            };
+            match custom_textfsm_store::load_template(&safe_name) {
+                Ok(Some(template)) => Some(template.content),
+                Ok(None) => {
+                    return (
+                        None,
+                        Some(format!("TextFSM template '{safe_name}' not found")),
+                    );
+                }
+                Err(error) => return (None, Some(error.to_string())),
+            }
+        }
+        None => None,
+    };
     let parse_options = crate::config::textfsm::ParseOptions {
-        template_file: options.template_file.map(std::path::PathBuf::from),
-        template_content: options.template_content.map(str::to_string),
+        template_file: None,
+        template_content: options
+            .template_content
+            .map(str::to_string)
+            .or(managed_template_content),
         enabled: options.enabled,
         platform: options.platform.map(str::to_string),
         device_profile: options.device_profile.map(str::to_string),
@@ -349,4 +380,28 @@ pub(crate) fn parse_textfsm_output_optional(
         filter_error_rules: options.filter_error_rules,
     };
     crate::config::textfsm::parse_command_output_optional(output, command, &parse_options)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{WebTextfsmParseOptions, parse_textfsm_output_optional};
+
+    #[test]
+    fn web_textfsm_templates_do_not_accept_host_file_paths() {
+        let (parsed, error) = parse_textfsm_output_optional(
+            "root:x:0:0",
+            "show users",
+            WebTextfsmParseOptions {
+                template_file: Some("/etc/passwd"),
+                enabled: true,
+                ..Default::default()
+            },
+        );
+
+        assert!(parsed.is_none());
+        assert_eq!(
+            error.as_deref(),
+            Some("invalid managed TextFSM template name")
+        );
+    }
 }

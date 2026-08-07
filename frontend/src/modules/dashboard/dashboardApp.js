@@ -86,6 +86,7 @@ async function loadDashboardBodyComponentModule() {
 }
 
 export function createDashboardAppWorkspace() {
+  initializeDashboardStatePreferences();
   const dashboardBodyComponentStateStore = writable(null);
   const dashboardBodyLoadErrorStateStore = writable("");
   const bootstrapDisplayStateStore = derived(

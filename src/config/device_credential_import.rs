@@ -86,6 +86,32 @@ pub fn import_credentials_from_bytes(
     apply_import_rows(file_name, parsed)
 }
 
+pub fn import_credentials_from_web_bytes(
+    file_name: &str,
+    bytes: &[u8],
+) -> Result<DeviceCredentialImportReport> {
+    let mut parsed = match detect_format(file_name)? {
+        ImportFormat::Csv => parse_csv(file_name, bytes)?,
+        ImportFormat::Excel => parse_excel(file_name, bytes)?,
+    };
+    let mut accepted = Vec::with_capacity(parsed.rows.len());
+    for row in parsed.rows {
+        if row.private_key_path.is_some() {
+            parsed.failures.push(DeviceCredentialImportFailure {
+                row: row.row,
+                name: Some(row.name),
+                message:
+                    "private_key_path is not supported by Web imports; use private_key content"
+                        .to_string(),
+            });
+        } else {
+            accepted.push(row);
+        }
+    }
+    parsed.rows = accepted;
+    apply_import_rows(file_name, parsed)
+}
+
 fn apply_import_rows(file_name: &str, parsed: ParsedRows) -> Result<DeviceCredentialImportReport> {
     let total_rows = parsed.rows.len() + parsed.failures.len();
     let mut imported = 0usize;
@@ -529,6 +555,19 @@ mod tests {
             Some("/run/secrets/id_ed25519")
         );
         assert_eq!(parsed.rows[0].passphrase.as_deref(), Some("key-pass"));
+    }
+
+    #[test]
+    fn web_import_rejects_private_key_file_paths() {
+        let report = import_credentials_from_web_bytes(
+            "credentials.csv",
+            b"name,login_username,auth_type,private_key_path\nkey-file,root,private_key_file,/etc/passwd\n",
+        )
+        .expect("Web import should return a row failure");
+
+        assert_eq!(report.imported, 0);
+        assert_eq!(report.failed, 1);
+        assert!(report.failures[0].message.contains("private_key_path"));
     }
 
     #[test]

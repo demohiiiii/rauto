@@ -126,11 +126,29 @@ pub async fn execute_tx_workflow(
                     name: &workflow.name,
                     mode: None,
                 },
-                async |request, context| {
-                    MANAGER
-                        .execute_tx_workflow_with_context(request, workflow.clone(), context)
-                        .await
-                        .map_err(ApiError::from)
+                async |request, context, recorder| {
+                    match recorder {
+                        Some(recorder) => {
+                            MANAGER
+                                .execute_tx_workflow_with_recorder_and_context(
+                                    request,
+                                    workflow.clone(),
+                                    context,
+                                    recorder,
+                                )
+                                .await
+                        }
+                        None => {
+                            MANAGER
+                                .execute_tx_workflow_with_context(
+                                    request,
+                                    workflow.clone(),
+                                    context,
+                                )
+                                .await
+                        }
+                    }
+                    .map_err(ApiError::from)
                 },
             )
             .await?;

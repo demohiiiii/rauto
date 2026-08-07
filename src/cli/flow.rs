@@ -485,23 +485,8 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
         &conn.auth,
         conn.enable_password.as_deref(),
     );
-    let (_sender, recorder) = MANAGER
-        .get_with_recorder_and_context(request, context.clone(), recorder)
-        .await?;
-    let handler_for_upload = template_loader::load_device_profile_for_connection(
-        &conn.device_profile,
-        conn.linux_shell_flavor,
-    )?;
-    let request = crate::manager_connection_request(
-        conn.username.clone(),
-        conn.host.clone(),
-        conn.port,
-        conn.auth.clone(),
-        conn.enable_password.clone(),
-        handler_for_upload,
-    );
     MANAGER
-        .upload_file_with_context(request, upload, context)
+        .upload_file_with_recorder_and_context(request, upload, context, recorder.clone())
         .await?;
 
     let jsonl = recorder.to_jsonl()?;

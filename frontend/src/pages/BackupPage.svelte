@@ -3,7 +3,6 @@
   import { createBackupPageWorkspace } from "../modules/operations/backup.js";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import LoadingButton from "../components/fragments/LoadingButton.svelte";
-  import PlainInputField from "../components/fragments/PlainInputField.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import ArchiveIcon from "@lucide/svelte/icons/archive";
@@ -82,41 +81,6 @@
       icon={ArchiveIcon}
     />
     <Card.Content class="grid gap-2 p-4 sm:p-5 md:w-225">
-      <PlainInputField
-        value={backupDisplay.archiveDisplay.archiveInput}
-        list="backup-archive-options"
-        aria-label={backupDisplay.archiveDisplay.archiveInputLabelText}
-        placeholderText={backupDisplay.archiveDisplay.archivePlaceholder}
-        onValueInput={backupPageWorkspace.updateArchiveInput}
-      />
-      <datalist id="backup-archive-options">
-        {#each backupDisplay.archiveDisplay.archiveOptionValues as archiveOptionValue}
-          <option value={archiveOptionValue}></option>
-        {/each}
-      </datalist>
-      <div class="text-xs text-slate-500">
-        {backupDisplay.archiveDisplay.selectedMetaText}
-      </div>
-      <div class="inline-flex flex-wrap items-center gap-2">
-        {@render backupActionButton(
-          backupDisplay.archiveDisplay.downloadButtonLabel,
-          backupDisplay.archiveDisplay.downloadLoading,
-          backupPageWorkspace.downloadSelectedBackup,
-          "outline",
-        )}
-        {@render backupActionButton(
-          backupDisplay.archiveDisplay.restoreMergeButtonLabel,
-          backupDisplay.archiveDisplay.restoreMergeLoading,
-          backupPageWorkspace.restoreBackupMerge,
-          "outline",
-        )}
-        {@render backupActionButton(
-          backupDisplay.archiveDisplay.restoreReplaceButtonLabel,
-          backupDisplay.archiveDisplay.restoreReplaceLoading,
-          backupPageWorkspace.restoreBackupReplace,
-          "destructive",
-        )}
-      </div>
       <div class="mt-2 grid gap-2">
         {#if backupDisplay.archiveDisplay.hasBackupRows}
           {#each backupDisplay.archiveDisplay.backupRows as backupRow, backupRowIndex}
@@ -137,12 +101,6 @@
       icon={ArchiveRestoreIcon}
     />
     <Card.Content class="grid gap-2 p-4 sm:p-5 md:w-225">
-      <PlainInputField
-        value={backupDisplay.createDisplay.outputPath}
-        aria-label={backupDisplay.createDisplay.outputPathLabelText}
-        placeholderText={backupDisplay.createDisplay.outputPlaceholder}
-        onValueInput={backupPageWorkspace.updateOutputPath}
-      />
       <div class="inline-flex flex-wrap items-center gap-2">
         {@render backupActionButton(
           backupDisplay.createDisplay.createButtonLabel,

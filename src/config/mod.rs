@@ -1,3 +1,4 @@
+pub mod app_config;
 pub mod autodetect_cache;
 pub mod backup;
 pub mod command_blacklist;

@@ -7,6 +7,7 @@ use crate::config::connection_store;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader::{self, DEFAULT_DEVICE_PROFILE};
+use crate::web::auth::WebAuth;
 use crate::web::error::ApiError;
 use crate::web::models::{ConnectionRequest, SessionRetryOptions};
 use rneter::session::{DetectRequest, MANAGER, SshAuthMethod};
@@ -25,6 +26,7 @@ pub struct AppState {
     pub defaults: GlobalOpts,
     pub agent_config: Option<AgentConfig>,
     pub api_token: Option<String>,
+    web_auth: Option<Arc<WebAuth>>,
     pub started_at: Instant,
     registrar: Arc<OnceLock<Arc<AgentRegistrar>>>,
     running_tasks: Arc<AtomicU32>,
@@ -38,17 +40,35 @@ impl AppState {
         agent_config: Option<AgentConfig>,
         api_token: Option<String>,
     ) -> Arc<Self> {
+        Self::build(defaults, agent_config, api_token, None)
+    }
+
+    pub fn new_web(defaults: GlobalOpts, password: &str) -> Arc<Self> {
+        Self::build(defaults, None, None, Some(Arc::new(WebAuth::new(password))))
+    }
+
+    fn build(
+        defaults: GlobalOpts,
+        agent_config: Option<AgentConfig>,
+        api_token: Option<String>,
+        web_auth: Option<Arc<WebAuth>>,
+    ) -> Arc<Self> {
         let (shutdown_tx, _shutdown_rx) = watch::channel(false);
         Arc::new(Self {
             defaults,
             agent_config,
             api_token,
+            web_auth,
             started_at: Instant::now(),
             registrar: Arc::new(OnceLock::new()),
             running_tasks: Arc::new(AtomicU32::new(0)),
             discovery_cancellations: Arc::new(Mutex::new(HashMap::new())),
             shutdown_tx,
         })
+    }
+
+    pub fn web_auth(&self) -> Option<&Arc<WebAuth>> {
+        self.web_auth.as_ref()
     }
 
     pub fn agent_name(&self) -> Option<String> {
@@ -238,6 +258,15 @@ pub fn merge_connection_options(
     defaults: &GlobalOpts,
     incoming: Option<ConnectionRequest>,
 ) -> Result<ResolvedConnection, ApiError> {
+    if incoming
+        .as_ref()
+        .and_then(|connection| connection.template_dir.as_deref())
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        return Err(ApiError::bad_request(
+            "custom server template directories are not supported by the Web API",
+        ));
+    }
     let incoming = incoming.unwrap_or(ConnectionRequest {
         connection_name: None,
         host: None,

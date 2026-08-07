@@ -52,31 +52,8 @@ pub(crate) async fn run_tx_workflow(
         &conn.auth,
         conn.enable_password.as_deref(),
     );
-    let (_sender, recorder) = MANAGER
-        .get_with_recorder_and_context(
-            request,
-            crate::manager_execution_context_with_security(
-                None,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            ),
-            recorder,
-        )
-        .await?;
-    let handler_for_tx = template_loader::load_device_profile_for_connection(
-        &conn.device_profile,
-        conn.linux_shell_flavor,
-    )?;
-    let request = crate::manager_connection_request(
-        conn.username.clone(),
-        conn.host.clone(),
-        conn.port,
-        conn.auth.clone(),
-        conn.enable_password.clone(),
-        handler_for_tx,
-    );
     let workflow_result = MANAGER
-        .execute_tx_workflow_with_context(
+        .execute_tx_workflow_with_recorder_and_context(
             request,
             workflow.clone(),
             crate::manager_execution_context_with_security(
@@ -84,6 +61,7 @@ pub(crate) async fn run_tx_workflow(
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             ),
+            recorder.clone(),
         )
         .await?;
     let recording_jsonl = recorder.to_jsonl()?;

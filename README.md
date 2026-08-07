@@ -642,7 +642,18 @@ rauto web \
     --port 3000
 ```
 
-Then visit `http://127.0.0.1:3000`.
+Then visit `http://127.0.0.1:3000` and enter the Web password. On the first
+`rauto web` startup, rauto generates a random password, prints it once in the
+terminal, and stores it in `~/.rauto/config.toml`:
+
+```toml
+[web]
+password = "generated-password"
+```
+
+The config file is created with owner-only permissions on Unix. Keep the
+password private; edit `web.password` while the service is stopped to replace
+it. Existing browser sessions are in memory and are cleared when rauto restarts.
 
 Web assets are embedded into the binary at build time.  
 For released binaries, users only need to run the executable (no extra `static/` files required at runtime).
@@ -669,9 +680,9 @@ Web console key capabilities:
 - Manage profiles, command templates, and command flow templates in `Template Manager`.
 - Organize saved connections in `Device Management` with groups and labels (web-only management UI).
 - Track and inspect async task runs in `Task Center` (status, events, artifacts, recordings).
-- Use `SFTP Upload` as a dedicated page for direct file uploads to SSH hosts with an `sftp` subsystem.
+- Use `SFTP Upload` as a dedicated page for direct file uploads to SSH hosts with an `sftp` subsystem. The Web API only reads upload sources from `RAUTO_HOME/uploads` (default `~/.rauto/uploads`).
 - Manage command blacklist patterns in UI: add/delete/check `*` wildcard rules before execution.
-- Manage data backups in UI: create/list/download/restore `~/.rauto` backup archives.
+- Manage data backups in UI under `RAUTO_HOME/backups`; the Web API does not accept arbitrary host output or restore paths.
 - Diagnose a profile state machine from the **Diagnose** button in the profile detail view; results open in a dialog with visualized fields.
 - Switch Chinese/English in UI.
 - Record execution sessions and replay recorded outputs in browser (list events or replay by command/mode).
@@ -1339,13 +1350,17 @@ Default runtime data:
 
 - `~/.rauto/rauto.db` (saved connections, device credential metadata/ciphertext, history recordings, blacklist patterns, custom device profiles, managed command templates)
 - `~/.rauto/backups` (backup archives)
+- `~/.rauto/uploads` (files staged for Web/API SFTP upload)
+- `~/.rauto/keys` (private key files explicitly allowed for Web/API credentials)
 
-`~/.rauto` and `~/.rauto/backups` are auto-created on startup.
+These runtime directories are auto-created on startup.
 
 ```
 ~/.rauto
 ├── rauto.db                # SQLite runtime store
-└── backups/                # Backup archives (*.tar.gz)
+├── backups/                # Backup archives (*.tar.gz)
+├── uploads/                # Web/API upload staging
+└── keys/                   # Web/API private key files
 ```
 
 ## Configuration

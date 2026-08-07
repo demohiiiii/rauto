@@ -192,15 +192,27 @@ impl DeviceClient {
 
     pub async fn execute_command_structured(&self, command: Command) -> Result<Output> {
         debug!("Sending command: {}", command.command);
-        let result = MANAGER
-            .execute_command_with_context(self.request.clone(), command, self.context.clone())
-            .await;
-        if let Err(error) = self.reattach_recorder().await {
-            if result.is_ok() {
-                return Err(error);
+        let result = match &self.recorder {
+            Some(recorder) => {
+                MANAGER
+                    .execute_command_with_recorder_and_context(
+                        self.request.clone(),
+                        command,
+                        self.context.clone(),
+                        recorder.clone(),
+                    )
+                    .await
             }
-            warn!("Failed to restore recording after command failure: {error:#}");
-        }
+            None => {
+                MANAGER
+                    .execute_command_with_context(
+                        self.request.clone(),
+                        command,
+                        self.context.clone(),
+                    )
+                    .await
+            }
+        };
         let output = result.map_err(|e| anyhow!("Command execution failed: {}", e))?;
 
         if !output.success {
@@ -220,35 +232,28 @@ impl DeviceClient {
     }
 
     pub async fn execute_command_flow(&self, flow: CommandFlow) -> Result<CommandFlowOutput> {
-        let result = MANAGER
-            .execute_command_flow_with_context(self.request.clone(), flow, self.context.clone())
-            .await;
-        if let Err(error) = self.reattach_recorder().await {
-            if result.is_ok() {
-                return Err(error);
+        let result = match &self.recorder {
+            Some(recorder) => {
+                MANAGER
+                    .execute_command_flow_with_recorder_and_context(
+                        self.request.clone(),
+                        flow,
+                        self.context.clone(),
+                        recorder.clone(),
+                    )
+                    .await
             }
-            warn!("Failed to restore recording after flow failure: {error:#}");
-        }
-        result.map_err(|error| anyhow!("Command flow execution failed: {}", error))
-    }
-
-    async fn reattach_recorder(&self) -> Result<()> {
-        let Some(recorder) = self
-            .recorder
-            .as_ref()
-            .filter(|_| self.context.retry_policy.max_retries > 0)
-        else {
-            return Ok(());
+            None => {
+                MANAGER
+                    .execute_command_flow_with_context(
+                        self.request.clone(),
+                        flow,
+                        self.context.clone(),
+                    )
+                    .await
+            }
         };
-        MANAGER
-            .get_with_recorder_and_context(
-                self.request.clone(),
-                self.context.clone(),
-                recorder.clone(),
-            )
-            .await
-            .map(|_| ())
-            .map_err(|error| anyhow!("Failed to restore session recording: {}", error))
+        result.map_err(|error| anyhow!("Command flow execution failed: {}", error))
     }
 
     pub async fn execute(&self, command_str: &str, target_mode: Option<&str>) -> Result<String> {
@@ -318,7 +323,7 @@ mod tests {
             device.persona().enable_password.clone(),
             handler,
             "User".to_string(),
-            SshSecurityProfile::LegacyCompatible,
+            SshSecurityProfile::TestNoCheck,
             Some(10),
             RetryPolicy::default(),
         )
@@ -354,7 +359,7 @@ mod tests {
             device.persona().enable_password.clone(),
             handler,
             "User".to_string(),
-            SshSecurityProfile::LegacyCompatible,
+            SshSecurityProfile::TestNoCheck,
             Some(10),
             retry_policy,
         )
@@ -385,7 +390,7 @@ mod tests {
             handler,
             "User".to_string(),
             SessionRecordLevel::Full,
-            SshSecurityProfile::LegacyCompatible,
+            SshSecurityProfile::TestNoCheck,
             Some(10),
             retry_policy,
         )
@@ -420,7 +425,7 @@ mod tests {
             device.persona().enable_password.clone(),
             handler,
             "User".to_string(),
-            SshSecurityProfile::LegacyCompatible,
+            SshSecurityProfile::TestNoCheck,
             Some(10),
             RetryPolicy::default(),
         )

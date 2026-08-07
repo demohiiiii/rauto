@@ -265,13 +265,19 @@ fn normalize_object_text(raw: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{platform_for_show, resolve_show_command};
+    use super::{platform_for_show, show_commands_for_platform};
+
+    fn builtin_command(platform: &str, object: &str) -> super::ShowCommand {
+        show_commands_for_platform(platform)
+            .into_iter()
+            .find(|command| command.object == object)
+            .unwrap_or_else(|| panic!("{object} should resolve for {platform}"))
+    }
 
     #[test]
     fn h3c_comware_version_resolves_display_version() {
         let platform = platform_for_show("h3c_comware", None);
-        let command = resolve_show_command("version", platform.as_deref(), "h3c_comware")
-            .expect("H3C Comware version object should resolve");
+        let command = builtin_command(platform.as_deref().expect("H3C platform"), "version");
 
         assert_eq!(platform.as_deref(), Some("hp_comware"));
         assert_eq!(command.command, "display version");
@@ -281,8 +287,7 @@ mod tests {
     #[test]
     fn linux_version_resolves_os_release() {
         let platform = platform_for_show("linux", None);
-        let command = resolve_show_command("version", platform.as_deref(), "linux")
-            .expect("Linux version object should resolve");
+        let command = builtin_command(platform.as_deref().expect("Linux platform"), "version");
 
         assert_eq!(platform.as_deref(), Some("linux"));
         assert_eq!(command.command, "cat /etc/os-release");

@@ -4,6 +4,7 @@ pub(crate) mod auth;
 pub(crate) mod error;
 pub(crate) mod handlers;
 pub(crate) mod models;
+pub(crate) mod path_policy;
 mod server;
 pub(crate) mod state;
 pub(crate) mod storage;

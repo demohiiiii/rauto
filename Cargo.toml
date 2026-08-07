@@ -26,7 +26,7 @@ include = [
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }
 minijinja = { version = "2.15", features = ["loader", "json"] }
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "45d752c924ec8f411399e571678fa51c35d495ef" }
+rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "45a0669d4199aca8c1c10d8c70402f135f5e5d75" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 futures-util = "0.3"
@@ -73,6 +73,7 @@ rand = "0.8.5"
 rpassword = "7.3"
 regex = "1"
 sha2 = "0.10"
+subtle = "2.6"
 textfsm-rust = { version = "0.3", features = ["serde"] }
 rust_xlsxwriter = "0.95.0"
 indicatif = "0.17"
@@ -85,5 +86,6 @@ tonic-prost-build = "0.14.5"
 protoc-bin-vendored = "3.1.0"
 
 [dev-dependencies]
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "45d752c924ec8f411399e571678fa51c35d495ef", features = ["testkit"] }
+async-ssh2-tokio = "0.13"
+rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "45a0669d4199aca8c1c10d8c70402f135f5e5d75", features = ["testkit"] }
 tower = { version = "0.5.2", features = ["util"] }

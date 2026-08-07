@@ -8,7 +8,7 @@ Use this file when starting or operating the current Svelte 5 Web workbench.
 rauto web --bind 127.0.0.1 --port 3000
 ```
 
-Open `http://127.0.0.1:3000`. Keep loopback binding unless network access is explicitly required. Released binaries embed the frontend assets.
+Open `http://127.0.0.1:3000` and enter the Web password. On first startup, rauto generates the password, prints it once, and stores it as `web.password` in `~/.rauto/config.toml` with owner-only Unix permissions. Later startups reuse that password. Keep loopback binding unless network access is explicitly required. Released binaries embed the frontend assets.
 
 ## Current Workspaces
 
@@ -22,6 +22,8 @@ Open `http://127.0.0.1:3000`. Keep loopback binding unless network access is exp
 - **Inventory**: manage saved device connections, groups, and labels.
 - **Auto Discovery**: scan, filter, select, and import SSH devices.
 - **Credentials / SFTP Upload / Blacklist / Backup / Tasks**: dedicated management pages.
+
+Web host-file access is confined to managed runtime directories: upload sources under `RAUTO_HOME/uploads`, private key files under `RAUTO_HOME/keys`, and backup create/list/download/restore under `RAUTO_HOME/backups`. Use saved TextFSM template names in Web execution requests; host template paths and custom template directories are rejected.
 
 ## Query And Modes
 

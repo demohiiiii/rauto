@@ -130,7 +130,7 @@ impl RouteTestContext {
                 connect_timeout_secs: Some(10),
                 device_model: None,
                 software_version: None,
-                ssh_security: Some(SshSecurityProfile::LegacyCompatible),
+                ssh_security: Some(SshSecurityProfile::TestNoCheck),
                 linux_shell_flavor: None,
                 device_profile: Some("cisco_ios".to_string()),
                 template_dir: None,

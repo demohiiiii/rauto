@@ -39,7 +39,7 @@ pub async fn list_credentials() -> Result<Json<Vec<DeviceCredentialResponse>>, A
 pub async fn create_credential(
     Json(request): Json<UpsertDeviceCredentialRequest>,
 ) -> Result<Json<DeviceCredentialResponse>, ApiError> {
-    let credential = device_credential_store::create_credential(&credential_input(request))
+    let credential = device_credential_store::create_credential(&credential_input(request)?)
         .map_err(|error| ApiError::bad_request(error.to_string()))?;
     Ok(Json(credential_response(credential, Vec::new())))
 }
@@ -58,7 +58,7 @@ pub async fn update_credential(
     Path(id): Path<String>,
     Json(request): Json<UpsertDeviceCredentialRequest>,
 ) -> Result<Json<DeviceCredentialResponse>, ApiError> {
-    let credential = device_credential_store::update_credential(&id, &credential_input(request))
+    let credential = device_credential_store::update_credential(&id, &credential_input(request)?)
         .map_err(|error| ApiError::bad_request(error.to_string()))?;
     let connections =
         device_credential_store::referencing_connections(&id).map_err(ApiError::from)?;
@@ -105,21 +105,30 @@ pub async fn import_credentials(
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| ApiError::bad_request("upload file name is required"))?;
     let file_bytes = file_bytes.ok_or_else(|| ApiError::bad_request("upload file is required"))?;
-    let report = device_credential_import::import_credentials_from_bytes(&file_name, &file_bytes)
-        .map_err(|error| ApiError::bad_request(error.to_string()))?;
+    let report =
+        device_credential_import::import_credentials_from_web_bytes(&file_name, &file_bytes)
+            .map_err(|error| ApiError::bad_request(error.to_string()))?;
     Ok(Json(report))
 }
 
-fn credential_input(request: UpsertDeviceCredentialRequest) -> DeviceCredentialInput {
-    DeviceCredentialInput {
+fn credential_input(
+    request: UpsertDeviceCredentialRequest,
+) -> Result<DeviceCredentialInput, ApiError> {
+    let private_key_path = request
+        .private_key_path
+        .as_deref()
+        .map(crate::web::path_policy::resolve_private_key_file)
+        .transpose()?
+        .map(|path| path.to_string_lossy().to_string());
+    Ok(DeviceCredentialInput {
         name: request.name,
         username: request.username,
         auth_type: request.auth_type,
         password: request.password,
         private_key: request.private_key,
-        private_key_path: request.private_key_path,
+        private_key_path,
         passphrase: request.passphrase,
         enable_password: request.enable_password,
         enable_enabled: request.enable_enabled,
-    }
+    })
 }

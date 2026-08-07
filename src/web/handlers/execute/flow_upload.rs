@@ -567,6 +567,8 @@ pub async fn execute_upload(
     Json(req): Json<ExecuteUploadRequest>,
 ) -> Result<Json<ApiResponse<ExecuteUploadResponse>>, ApiError> {
     let record_level = req.target.record_level;
+    let local_path = crate::web::path_policy::resolve_upload_file(&req.local_path)?;
+    let local_path_display = crate::web::path_policy::upload_file_label(&local_path);
     let conn = resolve_autodetect_connection(merge_connection_options(
         &state.defaults,
         req.target.connection,
@@ -576,14 +578,6 @@ pub async fn execute_upload(
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let local_path = PathBuf::from(req.local_path.trim());
-    if !local_path.is_file() {
-        return Err(ApiError::bad_request(format!(
-            "local upload file '{}' does not exist or is not a file",
-            local_path.to_string_lossy()
-        )));
-    }
-
     let mut upload = rneter::session::FileUploadRequest::new(
         local_path.to_string_lossy().to_string(),
         req.remote_path.trim().to_string(),
@@ -616,34 +610,15 @@ pub async fn execute_upload(
             &conn.auth,
             conn.enable_password.as_deref(),
         );
-        let (_sender, recorder) = MANAGER
-            .get_with_recorder_and_context(request, context.clone(), recorder)
-            .await?;
-        let handler_for_upload = template_loader::load_device_profile_for_connection(
-            &conn.device_profile,
-            conn.linux_shell_flavor,
-        )?;
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.auth.clone(),
-            conn.enable_password.clone(),
-            handler_for_upload,
-        );
         MANAGER
-            .upload_file_with_context(request, upload, context)
+            .upload_file_with_recorder_and_context(request, upload, context, recorder.clone())
             .await?;
         let jsonl_raw = recorder.to_jsonl().map_err(ApiError::from)?;
         let jsonl = normalize_recording_jsonl_for_web_level(record_level, &jsonl_raw);
         persist_history_jsonl(
             &conn,
             "sftp_upload",
-            &format!(
-                "{} -> {}",
-                local_path.to_string_lossy(),
-                req.remote_path.trim()
-            ),
+            &format!("{} -> {}", local_path_display, req.remote_path.trim()),
             None,
             record_level,
             &jsonl,
@@ -656,7 +631,7 @@ pub async fn execute_upload(
         None
     };
 
-    let local_path_str = local_path.to_string_lossy().to_string();
+    let local_path_str = local_path_display;
     let remote_path = req.remote_path.trim().to_string();
     let response = ExecuteUploadResponse {
         ok: true,

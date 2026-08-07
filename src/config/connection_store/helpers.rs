@@ -5,6 +5,8 @@ pub(super) fn parse_ssh_security_profile(value: &str) -> Result<SshSecurityProfi
         "secure" => Ok(SshSecurityProfile::Secure),
         "balanced" => Ok(SshSecurityProfile::Balanced),
         "legacy-compatible" => Ok(SshSecurityProfile::LegacyCompatible),
+        #[cfg(test)]
+        "test-no-check" => Ok(SshSecurityProfile::TestNoCheck),
         other => Err(anyhow!("invalid ssh security profile '{}'", other)),
     }
 }

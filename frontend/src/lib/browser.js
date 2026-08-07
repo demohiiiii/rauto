@@ -132,6 +132,10 @@ export function addWindowListener(type, listener) {
   return () => window.removeEventListener(type, listener);
 }
 
+export function reloadBrowser() {
+  if (hasWindow()) window.location.reload();
+}
+
 export function getDocumentLanguage() {
   return hasDocument() ? document.documentElement.lang : "";
 }

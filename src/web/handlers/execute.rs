@@ -110,7 +110,11 @@ async fn run_recorded_manager_execution<R, F>(
     execute: F,
 ) -> Result<(R, Option<String>), ApiError>
 where
-    F: AsyncFnOnce(ManagerConnectionRequest, ExecutionContext) -> Result<R, ApiError>,
+    F: AsyncFnOnce(
+        ManagerConnectionRequest,
+        ExecutionContext,
+        Option<SessionRecorder>,
+    ) -> Result<R, ApiError>,
 {
     let requested_record_level = to_record_level(record_level);
     let live_record_level = if task_ctx.is_some() {
@@ -136,30 +140,7 @@ where
             &conn.auth,
             conn.enable_password.as_deref(),
         );
-        let (_sender, recorder) = MANAGER
-            .get_with_recorder_and_context(
-                request,
-                manager_execution_context_with_security(
-                    None,
-                    conn.ssh_security,
-                    conn.connect_timeout_secs,
-                ),
-                recorder,
-            )
-            .await?;
         let forwarder = spawn_recording_event_forwarder(state, task_ctx, &recorder, recording_plan);
-        let handler_for_execution = template_loader::load_device_profile_for_connection(
-            &conn.device_profile,
-            conn.linux_shell_flavor,
-        )?;
-        let request = manager_connection_request(
-            conn.username.clone(),
-            conn.host.clone(),
-            conn.port,
-            conn.auth.clone(),
-            conn.enable_password.clone(),
-            handler_for_execution,
-        );
         let execution_result = execute(
             request,
             manager_execution_context_with_security(
@@ -167,6 +148,7 @@ where
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             ),
+            Some(recorder.clone()),
         )
         .await;
         let expected_entries = recorder.entries().map_err(ApiError::from)?.len();
@@ -214,6 +196,7 @@ where
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             ),
+            None,
         )
         .await?;
         Ok((result, None))

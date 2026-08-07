@@ -101,32 +101,9 @@ pub(super) async fn execute_compensation_action(
         &conn.auth,
         conn.enable_password.as_deref(),
     );
-    let (_sender, recorder) = MANAGER
-        .get_with_recorder_and_context(
-            request,
-            manager_execution_context_with_security(
-                None,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            ),
-            recorder,
-        )
-        .await?;
-    let handler_for_tx = template_loader::load_device_profile_for_connection(
-        &conn.device_profile,
-        conn.linux_shell_flavor,
-    )?;
-    let request = manager_connection_request(
-        conn.username.clone(),
-        conn.host.clone(),
-        conn.port,
-        conn.auth.clone(),
-        conn.enable_password.clone(),
-        handler_for_tx,
-    );
     let rollback_name = rollback_block.name.clone();
     let tx_result = MANAGER
-        .execute_tx_block_with_context(
+        .execute_tx_block_with_recorder_and_context(
             request,
             rollback_block,
             manager_execution_context_with_security(
@@ -134,6 +111,7 @@ pub(super) async fn execute_compensation_action(
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             ),
+            recorder.clone(),
         )
         .await?;
     let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);
@@ -242,31 +220,8 @@ async fn execute_tx_workflow_action(
         &conn.auth,
         conn.enable_password.as_deref(),
     );
-    let (_sender, recorder) = MANAGER
-        .get_with_recorder_and_context(
-            request,
-            manager_execution_context_with_security(
-                None,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            ),
-            recorder,
-        )
-        .await?;
-    let handler_for_tx = template_loader::load_device_profile_for_connection(
-        &conn.device_profile,
-        conn.linux_shell_flavor,
-    )?;
-    let request = manager_connection_request(
-        conn.username.clone(),
-        conn.host.clone(),
-        conn.port,
-        conn.auth.clone(),
-        conn.enable_password.clone(),
-        handler_for_tx,
-    );
     let workflow_result = MANAGER
-        .execute_tx_workflow_with_context(
+        .execute_tx_workflow_with_recorder_and_context(
             request,
             workflow,
             manager_execution_context_with_security(
@@ -274,6 +229,7 @@ async fn execute_tx_workflow_action(
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             ),
+            recorder.clone(),
         )
         .await?;
     let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);

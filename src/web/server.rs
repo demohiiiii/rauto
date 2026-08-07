@@ -2,9 +2,12 @@ use crate::agent::config::{AgentCliOverrides, resolve_agent_settings};
 use crate::agent::registration::AgentRegistrar;
 use crate::agent::task_grpc_server::build_agent_task_grpc_router;
 use crate::cli::{AgentArgs, GlobalOpts, WebArgs};
+use crate::config::app_config;
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::assets::{static_response, svelte_index_response};
-use crate::web::auth::auth_middleware;
+use crate::web::auth::{
+    auth_middleware, web_auth_middleware, web_auth_status, web_login, web_logout,
+};
 use crate::web::handlers::{
     add_blacklist_pattern, add_config_volatile_pattern, cancel_device_discovery_run,
     check_blacklist_command, create_backup, create_command_flow_template, create_credential,
@@ -59,7 +62,15 @@ use tokio::signal;
 use tracing::info;
 
 pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<()> {
-    let state = AppState::new(defaults, None, None);
+    let web_password = app_config::load_or_create_web_password()?;
+    if web_password.generated {
+        println!("Generated Web login password: {}", web_password.password);
+        println!(
+            "Saved Web configuration to: {}",
+            web_password.path.display()
+        );
+    }
+    let state = AppState::new_web(defaults, &web_password.password);
     let app = build_local_app(state.clone());
     serve_app(web_args.bind, web_args.port, app, state).await
 }
@@ -129,9 +140,13 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
 }
 
 fn build_local_app(state: Arc<AppState>) -> Router {
+    let protected_routes = local_api_routes().layer(middleware::from_fn_with_state(
+        state.clone(),
+        web_auth_middleware,
+    ));
     Router::new()
         .merge(public_web_routes())
-        .merge(local_api_routes())
+        .merge(protected_routes)
         .fallback(any(not_found))
         .layer(middleware::from_fn(disable_cache))
         .with_state(state)
@@ -165,6 +180,9 @@ fn build_managed_app(state: Arc<AppState>) -> Router {
 fn public_web_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/health", get(health))
+        .route("/api/auth/status", get(web_auth_status))
+        .route("/api/auth/login", post(web_login))
+        .route("/api/auth/logout", post(web_logout))
         .route("/", get(svelte_index))
         .route("/app", get(svelte_index))
         .route("/app/{*path}", get(svelte_index))
@@ -175,6 +193,7 @@ fn public_web_routes() -> Router<Arc<AppState>> {
 fn public_agent_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/health", get(health))
+        .route("/api/auth/status", get(web_auth_status))
         .route("/api/agent/info", get(agent_info))
         .route("/", get(svelte_index))
         .route("/app", get(svelte_index))
@@ -511,8 +530,10 @@ mod rneter_integration_tests;
 
 #[cfg(test)]
 mod tests {
-    use super::bind_is_loopback_only;
     use super::disable_cache;
+    use super::{bind_is_loopback_only, build_local_app};
+    use crate::cli::GlobalOpts;
+    use crate::web::state::AppState;
     use axum::{
         Router,
         body::Body,
@@ -521,6 +542,25 @@ mod tests {
         routing::get,
     };
     use tower::util::ServiceExt;
+
+    fn web_test_defaults() -> GlobalOpts {
+        GlobalOpts {
+            host: None,
+            port: None,
+            ssh_security: None,
+            linux_shell_flavor: None,
+            device_profile: None,
+            template_dir: None,
+            force_autodetect: false,
+            session_retries: 0,
+            retry_initial_backoff_ms: 200,
+            retry_max_backoff_ms: 2000,
+            retry_authentication_errors: false,
+            connection: None,
+            credential: None,
+            save_connection: None,
+        }
+    }
 
     #[test]
     fn bind_is_loopback_only_accepts_localhost_and_loopback_ips() {
@@ -535,6 +575,84 @@ mod tests {
         assert!(!bind_is_loopback_only("::"));
         assert!(!bind_is_loopback_only("192.168.1.10"));
         assert!(!bind_is_loopback_only("agent.local"));
+    }
+
+    #[tokio::test]
+    async fn local_api_requires_a_valid_web_session() {
+        let app = build_local_app(AppState::new_web(web_test_defaults(), "test-password"));
+
+        let unauthorized_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/backups")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("protected route response");
+        assert_eq!(unauthorized_response.status(), StatusCode::UNAUTHORIZED);
+
+        let login_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/auth/login")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"password":"test-password"}"#))
+                    .unwrap(),
+            )
+            .await
+            .expect("login response");
+        assert_eq!(login_response.status(), StatusCode::OK);
+        let session_cookie = login_response
+            .headers()
+            .get(header::SET_COOKIE)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split(';').next())
+            .expect("session cookie")
+            .to_string();
+
+        let authorized_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/backups")
+                    .header(header::COOKIE, &session_cookie)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("authorized route response");
+        assert_eq!(authorized_response.status(), StatusCode::OK);
+
+        let logout_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/auth/logout")
+                    .header(header::COOKIE, &session_cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .expect("logout response");
+        assert_eq!(logout_response.status(), StatusCode::OK);
+
+        let revoked_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/backups")
+                    .header(header::COOKIE, session_cookie)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .expect("revoked session response");
+        assert_eq!(revoked_response.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]

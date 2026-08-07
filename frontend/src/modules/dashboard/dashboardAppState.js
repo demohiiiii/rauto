@@ -1,11 +1,19 @@
 import { derived, get, writable } from "svelte/store";
-import { getAgentApiToken, setAgentApiToken } from "../../api/client.js";
+import {
+  getAgentApiToken,
+  logoutWeb,
+  setAgentApiToken,
+} from "../../api/client.js";
 import {
   refreshConnectionProfileOptions,
   refreshSidebarConnectionSelector,
 } from "../connections/connections.js";
 import { showToast } from "../overlays/overlays.js";
-import { storageSet, subscribeColorSchemeChange } from "../../lib/browser.js";
+import {
+  reloadBrowser,
+  storageSet,
+  subscribeColorSchemeChange,
+} from "../../lib/browser.js";
 import {
   applyThemeSettings,
   defaultThemeSettings,
@@ -172,6 +180,8 @@ function dashboardPreferenceToolsPresentation({
     languageOptionChineseLabel: tr("langOptionChinese"),
     languageOptionEnglishLabel: tr("langOptionEnglish"),
     languageShortLabel: dashboardLanguageShortLabel(language),
+    logoutLabel: tr("webLogout", "Log out"),
+    showWebLogout: !shellState.managedAgentMode,
     themeModeLabel: tr("themeModeLabel", "Mode"),
     themeModeRows: themeOptionRows(
       "Mode",
@@ -229,6 +239,14 @@ export function createDashboardPreferenceToolsWorkspace() {
     langMenuOpenStateStore.update((open) => !open);
   }
 
+  async function logoutWebSession() {
+    try {
+      await logoutWeb();
+    } finally {
+      reloadBrowser();
+    }
+  }
+
   return {
     chooseLanguageAction: dashboardPreferenceLanguageActionHandlers({
       chooseLanguage,
@@ -238,6 +256,7 @@ export function createDashboardPreferenceToolsWorkspace() {
     closeLangMenu,
     documentKeydownHandler: submitOnKeyHandler("Escape", closeLangMenu),
     langMenuOpenStateStore,
+    logoutWebSession,
     preferenceDisplayStateStore,
     themeModeOptions,
     toggleLangMenu,

@@ -247,7 +247,7 @@ pub async fn import_connections(
         .ok_or_else(|| ApiError::bad_request("upload file name is required"))?;
     let file_bytes = file_bytes.ok_or_else(|| ApiError::bad_request("upload file is required"))?;
 
-    let report = connection_import::import_connections_from_bytes(&file_name, &file_bytes)
+    let report = connection_import::import_connections_from_web_bytes(&file_name, &file_bytes)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
     if report.imported > 0
@@ -388,6 +388,14 @@ pub async fn upsert_connection(
     let safe = connection_store::safe_connection_name(&name)
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
     let c = req.connection;
+    if c.template_dir
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        return Err(ApiError::bad_request(
+            "custom server template directories are not supported by the Web API",
+        ));
+    }
     validate_persisted_connect_timeout(c.connect_timeout_secs)?;
     let target_safe = upsert_connection_target_name(&safe, c.connection_name.as_deref())
         .map_err(|e| ApiError::bad_request(e.to_string()))?;

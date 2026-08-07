@@ -18,6 +18,7 @@ function sourceFiles(path) {
 test("modules are grouped into stable domain directories", () => {
   const moduleRoot = "frontend/src/modules";
   const expectedDomains = [
+    "auth",
     "command",
     "connections",
     "credentials",

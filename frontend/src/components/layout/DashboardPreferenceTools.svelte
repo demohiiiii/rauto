@@ -1,5 +1,6 @@
 <script>
   import LanguagesIcon from "@lucide/svelte/icons/languages";
+  import LogOutIcon from "@lucide/svelte/icons/log-out";
   import PaletteIcon from "@lucide/svelte/icons/palette";
   import { Button } from "$lib/components/ui/button";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
@@ -11,6 +12,7 @@
     chooseLanguageAction,
     chooseThemeMode,
     langMenuOpenStateStore,
+    logoutWebSession,
     preferenceDisplayStateStore,
   } = dashboardPreferenceToolsWorkspace;
   let themeMenuOpen = $state(false);
@@ -21,6 +23,8 @@
     "inline-flex min-h-10 items-center gap-0.5 rounded-2xl border border-border bg-card p-1";
   const preferenceToolButtonClass =
     "min-h-8 justify-start gap-1.5 rounded-xl px-3 text-[0.82rem] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground";
+  const preferenceToolIconButtonClass =
+    "size-8 shrink-0 rounded-xl p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive";
   const preferenceToolMetaClass =
     "text-[0.7rem] font-bold text-muted-foreground max-lg:hidden";
 
@@ -109,4 +113,18 @@
       </DropdownMenu.Group>
     </DropdownMenu.Content>
   </DropdownMenu.Root>
+
+  {#if preferenceDisplay.showWebLogout}
+    <Button
+      class={preferenceToolIconButtonClass}
+      variant="ghost"
+      size="icon-sm"
+      type="button"
+      aria-label={preferenceDisplay.logoutLabel}
+      title={preferenceDisplay.logoutLabel}
+      onclick={logoutWebSession}
+    >
+      <LogOutIcon aria-hidden="true" />
+    </Button>
+  {/if}
 </div>

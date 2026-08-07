@@ -89,11 +89,25 @@ pub async fn execute_tx_block(
                     name: &block_name,
                     mode: Some(&effective_mode),
                 },
-                async |request, context| {
-                    MANAGER
-                        .execute_tx_block_with_context(request, tx_block.clone(), context)
-                        .await
-                        .map_err(ApiError::from)
+                async |request, context, recorder| {
+                    match recorder {
+                        Some(recorder) => {
+                            MANAGER
+                                .execute_tx_block_with_recorder_and_context(
+                                    request,
+                                    tx_block.clone(),
+                                    context,
+                                    recorder,
+                                )
+                                .await
+                        }
+                        None => {
+                            MANAGER
+                                .execute_tx_block_with_context(request, tx_block.clone(), context)
+                                .await
+                        }
+                    }
+                    .map_err(ApiError::from)
                 },
             )
             .await?;

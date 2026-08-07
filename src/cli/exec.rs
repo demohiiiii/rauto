@@ -7,8 +7,8 @@ use crate::cli::{
     TextfsmCommands, TextfsmMappingCommands, TextfsmTemplateCommands,
 };
 use crate::config::{
-    command_blacklist, content_store, custom_show_object_store, custom_textfsm_store, show_catalog,
-    template_loader, textfsm, textfsm_export,
+    command_blacklist, connection_store, content_store, custom_show_object_store,
+    custom_textfsm_store, show_catalog, template_loader, textfsm, textfsm_export,
 };
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
@@ -46,6 +46,22 @@ struct ResolvedExecTarget {
     name: String,
     conn: crate::EffectiveConnection,
     effective_mode: String,
+}
+
+fn command_output_succeeded(output: &rneter::session::Output) -> bool {
+    output.success && output.exit_code.unwrap_or(0) == 0
+}
+
+fn command_output_failure(command: &str, output: &rneter::session::Output) -> anyhow::Error {
+    anyhow::anyhow!(
+        "command '{}' failed on device (success={}, exit_code={})",
+        command,
+        output.success,
+        output
+            .exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "unknown".to_string())
+    )
 }
 
 async fn run_multi_exec(args: &ExecArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
@@ -204,7 +220,7 @@ async fn execute_resolved_exec_target_buffered(
         options.command, target.name
     );
     let output = client
-        .execute(&options.command, Some(&target.effective_mode))
+        .execute_output(&options.command, Some(&target.effective_mode))
         .await?;
     crate::persist_auto_recording_history(
         &client,
@@ -214,13 +230,16 @@ async fn execute_resolved_exec_target_buffered(
         Some(target.effective_mode.as_str()),
         options.record_level,
     )?;
-    let _ = writeln!(out, "{}", output);
+    let _ = writeln!(out, "{}", output.content);
+    if !command_output_succeeded(&output) {
+        return Err(command_output_failure(&options.command, &output));
+    }
     if !options.parse_enabled {
         return Ok(None);
     }
 
     let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
-        &output,
+        &output.content,
         &options.command,
         &textfsm::ParseOptions {
             template_file: options.textfsm_template.clone(),
@@ -313,13 +332,20 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
 
     info!("Executing {} commands...", lines.len());
     let mut parsed_sheets = Vec::new();
+    let mut failures = Vec::new();
     for (command_index, command) in lines.into_iter().enumerate() {
         print!("Executing '{}' ... ", command);
-        match client.execute(&command, None).await {
+        match client.execute_output(&command, None).await {
             Ok(output) => {
-                println!("Success\nOutput:\n{}", output);
+                if command_output_succeeded(&output) {
+                    println!("Success\nOutput:\n{}", output.content);
+                } else {
+                    println!("Failed\nOutput:\n{}", output.content);
+                    failures.push(command_output_failure(&command, &output).to_string());
+                    continue;
+                }
                 let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
-                    &output,
+                    &output.content,
                     &command,
                     &textfsm::ParseOptions {
                         template_file: textfsm_template_for_index(
@@ -349,7 +375,10 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
                     println!("Parse Error: {}", err);
                 }
             }
-            Err(error) => println!("Failed: {}", error),
+            Err(error) => {
+                println!("Failed: {}", error);
+                failures.push(format!("command '{}': {error:#}", command));
+            }
         }
     }
     if let Some(path) = args.textfsm_excel.as_deref() {
@@ -364,6 +393,13 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
         Some(default_mode.as_str()),
         args.record_level,
     )?;
+    if !failures.is_empty() {
+        return Err(anyhow::anyhow!(
+            "template execution failed for {} command(s):\n{}",
+            failures.len(),
+            failures.join("\n")
+        ));
+    }
     Ok(())
 }
 
@@ -400,9 +436,24 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
     crate::maybe_save_connection_profile(opts, &conn)?;
 
     info!("Executing command: {}", args.command);
-    let output = client.execute(&args.command, Some(&effective_mode)).await?;
+    let output = client
+        .execute_output(&args.command, Some(&effective_mode))
+        .await?;
+    crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
+    crate::persist_auto_recording_history(
+        &client,
+        &conn,
+        "exec",
+        &args.command,
+        Some(effective_mode.as_str()),
+        args.record_level,
+    )?;
+    println!("{}", output.content);
+    if !command_output_succeeded(&output) {
+        return Err(command_output_failure(&args.command, &output));
+    }
     let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
-        &output,
+        &output.content,
         &args.command,
         &textfsm::ParseOptions {
             template_file: args.textfsm_template.clone(),
@@ -415,16 +466,6 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
             ..Default::default()
         },
     );
-    crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
-    crate::persist_auto_recording_history(
-        &client,
-        &conn,
-        "exec",
-        &args.command,
-        Some(effective_mode.as_str()),
-        args.record_level,
-    )?;
-    println!("{}", output);
     if let Some(parsed_output) = parsed_output {
         println!("--- Parsed Output ---");
         println!("{}", textfsm::format_parsed_output_table(&parsed_output));
@@ -468,11 +509,26 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
     }
 
     if args.list {
+        let explicit_profile = opts
+            .device_profile
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        let device_profile = match explicit_profile {
+            Some(profile) => Some(profile),
+            None => opts
+                .connection
+                .as_deref()
+                .map(connection_store::load_connection_raw)
+                .transpose()?
+                .and_then(|connection| connection.device_profile),
+        };
         let platform = show_catalog::platform_for_show(
-            opts.device_profile.as_deref().unwrap_or_default(),
+            device_profile.as_deref().unwrap_or_default(),
             args.textfsm_platform.as_deref(),
         );
-        print_show_objects(opts.device_profile.as_deref(), platform.as_deref())?;
+        print_show_objects(device_profile.as_deref(), platform.as_deref())?;
         return Ok(());
     }
 
@@ -539,7 +595,6 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
     let output = client
         .execute_output(&show.command, Some(&effective_mode))
         .await?;
-    let exit_code = output.exit_code;
     crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
         &client,
@@ -551,7 +606,10 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
     )?;
 
     println!("{}", output.content);
-    if !args.no_parse && exit_code.unwrap_or(0) == 0 {
+    if !command_output_succeeded(&output) {
+        return Err(command_output_failure(&show.command, &output));
+    }
+    if !args.no_parse {
         let template_content = show
             .textfsm_template_name
             .as_deref()
@@ -778,7 +836,6 @@ async fn execute_resolved_show_target_buffered(
     let output = client
         .execute_output(&target.show.command, Some(&target.effective_mode))
         .await?;
-    let exit_code = output.exit_code;
     crate::persist_auto_recording_history(
         &client,
         &target.conn,
@@ -789,7 +846,10 @@ async fn execute_resolved_show_target_buffered(
     )?;
 
     let _ = writeln!(out, "{}", output.content);
-    if options.no_parse || exit_code.unwrap_or(0) != 0 {
+    if !command_output_succeeded(&output) {
+        return Err(command_output_failure(&target.show.command, &output));
+    }
+    if options.no_parse {
         return Ok(None);
     }
 
@@ -1238,7 +1298,26 @@ fn read_template_body(file: Option<PathBuf>, content: Option<String>) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rneter::session::Output;
     use serde_json::json;
+
+    fn command_output(success: bool, exit_code: Option<i32>) -> Output {
+        Output {
+            success,
+            exit_code,
+            content: String::new(),
+            all: String::new(),
+            prompt: None,
+        }
+    }
+
+    #[test]
+    fn command_output_requires_success_and_zero_exit_code() {
+        assert!(command_output_succeeded(&command_output(true, None)));
+        assert!(command_output_succeeded(&command_output(true, Some(0))));
+        assert!(!command_output_succeeded(&command_output(false, None)));
+        assert!(!command_output_succeeded(&command_output(true, Some(1))));
+    }
 
     #[test]
     fn multi_show_excel_sheets_are_grouped_by_object() {
