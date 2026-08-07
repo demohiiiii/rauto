@@ -109,6 +109,7 @@ function taskFilterOptions() {
       taskOption("tx_block", "tx_block"),
       taskOption("tx_workflow", "tx_workflow"),
       taskOption("orchestration", "orchestration"),
+      taskOption("device_discovery", "device_discovery"),
     ],
     outcome: [
       taskOption("all", taskLabelText("tasksOutcomeAll", "All outcomes")),

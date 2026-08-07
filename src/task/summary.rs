@@ -144,6 +144,7 @@ pub fn task_name_to_operation(name: &str) -> TaskOperation {
         "tx_block" => TaskOperation::TxBlock,
         "tx_workflow" => TaskOperation::TxWorkflow,
         "orchestrate" => TaskOperation::Orchestrate,
+        "device_discovery" => TaskOperation::DeviceDiscovery,
         _ => TaskOperation::Exec,
     }
 }

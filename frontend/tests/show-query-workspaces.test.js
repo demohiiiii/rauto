@@ -4,13 +4,16 @@ import test from "node:test";
 
 import { get } from "svelte/store";
 import {
+  batchShowObjectAvailabilityPresentation,
   createBatchShowInputPanelWorkspace,
   createShowPageWorkspace,
   createSingleShowPanelWorkspace,
 } from "../src/modules/operations/showQueryWorkspaces.js";
 import {
   batchShowExecutionResultState,
+  intersectBatchShowObjectPayloads,
   normalizeBatchMaxParallel,
+  resolveBatchShowTargetConnections,
   showExecutionResultState,
 } from "../src/modules/operations/showQueryState.js";
 
@@ -37,6 +40,95 @@ test("show query mode tabs render in the card header", () => {
       path,
     );
   }
+});
+
+test("batch show selects targets before common query objects", () => {
+  const source = read("frontend/src/pages/show/BatchShowInputPanel.svelte");
+  const contentIndex = source.indexOf("<Card.Content");
+  const targetPickerIndex = source.indexOf(
+    "<ConnectionPickerField",
+    contentIndex,
+  );
+  const objectPickerIndex = source.indexOf(
+    "<ShowObjectSelectionPanel",
+    contentIndex,
+  );
+
+  assert.ok(targetPickerIndex > contentIndex);
+  assert.ok(objectPickerIndex > targetPickerIndex);
+  assert.match(source, /onSelectionChange=\{changeBatchTargets\}/);
+  assert.match(source, /batchShowPanelDisplay\.objectAvailability\.canSelect/);
+});
+
+test("batch show expands selected devices, groups, and labels", () => {
+  const connections = [
+    {
+      name: "edge-a",
+      device_profile: "cisco_xe",
+      groups: ["edge"],
+      labels: ["prod"],
+    },
+    {
+      name: "edge-b",
+      device_profile: "h3c_comware",
+      groups: ["edge"],
+      labels: [],
+    },
+    {
+      name: "core-a",
+      device_profile: "juniper_junos",
+      groups: ["core"],
+      labels: ["prod"],
+    },
+  ];
+
+  assert.deepEqual(
+    resolveBatchShowTargetConnections({
+      connections,
+      groups: ["edge"],
+      labels: ["prod"],
+      targets: ["core-a"],
+    }).map((connection) => connection.name),
+    ["edge-a", "edge-b", "core-a"],
+  );
+});
+
+test("batch show object options are the profile catalog intersection", () => {
+  const commonObjects = intersectBatchShowObjectPayloads([
+    {
+      objects: [
+        { object: "arp", command: "show arp" },
+        { object: "interfaces", command: "show interfaces" },
+        { object: "version", command: "show version" },
+      ],
+    },
+    {
+      objects: [
+        { object: "arp", command: "display arp" },
+        { object: "version", command: "display version" },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(
+    commonObjects.map((object) => object.object),
+    ["arp", "version"],
+  );
+  assert.equal(commonObjects[0].command, "show arp");
+});
+
+test("batch show object availability blocks selection until ready", () => {
+  assert.equal(
+    batchShowObjectAvailabilityPresentation({ status: "waiting" }).canSelect,
+    false,
+  );
+  assert.equal(
+    batchShowObjectAvailabilityPresentation({
+      objectCount: 4,
+      status: "ready",
+    }).canSelect,
+    true,
+  );
 });
 
 test("single show TextFSM handlers update the panel display", () => {

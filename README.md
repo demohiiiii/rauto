@@ -59,6 +59,7 @@ rauto exec "show version" --host 192.168.1.1 --credential network-admin --device
   - [Template Storage Commands](#template-storage-commands)
   - [Device Credentials](#device-credentials)
   - [Saved Connection Profiles](#saved-connection-profiles)
+  - [Device Discovery](#device-discovery)
   - [Backup & Restore](#backup--restore)
   - [Command Blacklist](#command-blacklist)
   - [Transaction Block](#transaction-block)
@@ -84,6 +85,7 @@ rauto exec "show version" --host 192.168.1.1 --credential network-admin --device
 - **Embedded Web Assets**: Frontend files are embedded into the binary for release usage.
 - **Reusable Device Credentials**: Create, list, update, and delete shared authentication records, then reference them from saved or temporary connections without duplicating secrets.
 - **Saved Connection Profiles**: Reuse named connection settings across commands.
+- **SSH Device Discovery**: Scan IPs, CIDRs, or address ranges, verify SSH services, identify device profiles with reusable credentials, and distinguish new devices from existing connections.
 - **Bulk Connection Import**: Import saved connections from CSV / Excel with upsert behavior.
 - **SSH Security Profiles**: Choose `secure`, `balanced`, or `legacy-compatible` per target; the default is `legacy-compatible`.
 - **Device Management Groups & Labels**: Organize saved connections with reusable grouping metadata.
@@ -152,6 +154,7 @@ If you use Claude Code, the equivalent location is usually `~/.claude/skills/`.
 | Render a reusable command template with vars | `rauto template`    | Best when command text should come from stored Jinja templates.                    |
 | Drive interactive prompt/response flows      | `rauto flow`        | Best for wizard-like CLI exchanges, copy dialogs, and confirmation-heavy steps.    |
 | Upload a local file over remote SFTP         | `rauto upload`      | Requires the SSH server to expose an `sftp` subsystem.                             |
+| Discover SSH devices on a network            | `rauto device discover` | Verifies SSH identification, probes device profiles, and persists the latest result. |
 | Execute one rollback-aware transaction block | `rauto tx`          | Best for one target with step rollback or resource rollback semantics.             |
 | Execute a multi-step workflow from JSON      | `rauto tx-workflow` | Best when a transaction is modeled as named blocks/stages in a workflow file.      |
 | Execute a multi-device staged plan           | `rauto orchestrate` | Best for serial/parallel rollout plans across many saved connections.              |
@@ -857,6 +860,70 @@ Notes:
 - Sample files are also included in the repository:
 - [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
 - [templates/examples/connection-import-template-zh.csv](templates/examples/connection-import-template-zh.csv)
+
+### Device Discovery
+
+Discover SSH devices without starting the Web service. The CLI uses the same scanner and latest persisted result as the Web console:
+
+```bash
+# Use the global credential as the default probe credential
+rauto device discover 192.168.60.0/24 --credential network-admin
+
+# Try multiple credentials and SSH ports, and display every result
+rauto device discover 192.168.60.0/24 \
+    --probe-credential network-admin \
+    --probe-credential fallback-admin \
+    --port 22,2222 \
+    --status all
+
+# Emit only devices that already have a saved connection as JSON
+rauto device discover 192.168.60.0/24 \
+    --credential network-admin \
+    --status existing \
+    --json
+
+# Save every newly identified device immediately after the scan
+rauto device discover 192.168.60.0/24 \
+    --credential network-admin \
+    --auto-save
+
+# Query the latest discovery snapshot without starting another scan
+rauto device discover list \
+    --status identified \
+    --profile fortinet,linux \
+    --port 22,2222 \
+    --search branch
+
+# Save all matching identified devices, or select explicit endpoints
+rauto device discover save --profile fortinet
+rauto device discover save 192.168.60.98:22 \
+    --connection-name branch-fw
+```
+
+Targets may be individual IP addresses, CIDRs, or last-octet ranges such as `192.168.2.10-30`. Multiple target arguments can be supplied in one run. A run accepts at most 4,096 unique addresses, 16 ports, and 3 probe credentials. Use `--concurrency`, `--tcp-timeout-ms`, and `--probe-timeout-secs` to tune larger or slower networks.
+
+Use `--credential` for one probe credential. Supplying one or more `--probe-credential` values overrides `--credential`; repeated probe credentials are tried in the order provided.
+
+The default `--status identified` output contains only newly identified devices and excludes endpoints already represented by saved connections. Other filters are `all`, `existing`, `imported`, `reachable`, `failed`, `not-ssh`, `probe-failed`, `unreachable`, and `cancelled`. A successful TCP connection alone is not classified as SSH reachable: rauto must receive a valid SSH identification line before trying credentials and device-profile detection.
+
+On an interactive terminal, the CLI displays a live progress bar and opens a TUI after scanning. Newly identified devices are selected by default; existing connections, imported devices, and failed results cannot be selected. Use the following keys to review and save results:
+
+| Key | Action |
+| --- | ------ |
+| `Up` / `Down` or `j` / `k` | Move through results |
+| `Space` | Select or clear the current device |
+| `a` | Select or clear all importable devices in the current filter |
+| `f` / `Shift+f` or `Right` / `Left` | Cycle status filters |
+| `/` | Search hosts, ports, profiles, models, versions, and errors |
+| `e` | Edit the selected device's connection name |
+| `s` | Save selected devices as connections |
+| `q` or `Ctrl+C` | Exit the TUI |
+
+Use `--no-tui` to keep the progress bar but print the filtered tabular result instead. `--json` disables both the progress bar and TUI so stdout remains machine-readable; it can be redirected or piped safely. A non-interactive stdin/stdout also falls back to plain output automatically.
+
+Use `rauto device discover list` to read the latest persisted snapshot without scanning again. It supports `--status`, repeatable or comma-separated `--profile` and `--port` filters, `--search`, and `--json`. Use `rauto device discover save` to save every matching newly identified device; optional host or `host:port` arguments restrict the operation to explicit endpoints. Default connection names combine the detected platform and IP address, for example `cisco_ios-192-168-60-98`; nonstandard SSH ports are appended to avoid endpoint collisions. `--connection-name` is available when exactly one device matches, while `--overwrite` allows replacing an existing connection with that name. The previous `rauto device discovery list|save` spelling remains available for compatibility.
+
+The latest run and its results are stored in SQLite and appear in the Web console. Starting another scan replaces the previous discovery run, its results, and its Task Center entry; saved device connections are not removed. A second scan cannot start while the current one is active. Saving from the TUI, `device discover save`, and `device discover --auto-save` all use the same duplicate-endpoint, credential, and connection-name validation as the Web console. Press `Ctrl+C` during scanning to request cancellation of the active run.
 
 ### Backup & Restore
 

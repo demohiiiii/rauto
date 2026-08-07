@@ -273,6 +273,36 @@ export function detectConnectionFacts(connection) {
   });
 }
 
+export function createDeviceDiscoveryRun(options) {
+  return apiRequest("POST", "/api/device-discovery/runs", options);
+}
+
+export function listDeviceDiscoveryRuns() {
+  return apiRequest("GET", "/api/device-discovery/runs");
+}
+
+export function getDeviceDiscoveryRun(runId) {
+  return apiRequest(
+    "GET",
+    `/api/device-discovery/runs/${encodeURIComponent(runId)}`,
+  );
+}
+
+export function cancelDeviceDiscoveryRun(runId) {
+  return apiRequest(
+    "POST",
+    `/api/device-discovery/runs/${encodeURIComponent(runId)}/cancel`,
+  );
+}
+
+export function importDeviceDiscoveryResults(runId, items) {
+  return apiRequest(
+    "POST",
+    `/api/device-discovery/runs/${encodeURIComponent(runId)}/import`,
+    { items },
+  );
+}
+
 export function listConnectionHistory(name, limit = 30) {
   const params = new URLSearchParams();
   if (limit) params.set("limit", String(limit));

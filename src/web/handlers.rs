@@ -73,6 +73,7 @@ mod command_templates;
 mod config_catalog;
 mod connections;
 mod credentials;
+mod device_discovery;
 mod execute;
 mod flow_templates;
 mod json_templates;
@@ -108,6 +109,13 @@ pub use connections::{
 pub use credentials::{
     create_credential, delete_credential, get_credential, import_credentials, list_credentials,
     update_credential,
+};
+pub use device_discovery::{
+    cancel_device_discovery_run, create_device_discovery_run, get_device_discovery_run,
+    import_device_discovery_results, list_device_discovery_runs,
+};
+pub(crate) use device_discovery::{
+    import_device_discovery_run_results, start_device_discovery_run,
 };
 pub use execute::{
     ShowObjectsQuery, exec_command, exec_command_async, execute_command_flow, execute_exec_batch,

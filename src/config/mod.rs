@@ -13,6 +13,7 @@ pub mod custom_show_object_store;
 pub mod custom_textfsm_store;
 pub mod device_credential_import;
 pub mod device_credential_store;
+pub mod device_discovery_store;
 pub mod device_profile;
 pub mod history_store;
 pub mod inventory_store;

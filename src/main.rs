@@ -153,9 +153,22 @@ async fn run(cli: Cli) -> Result<()> {
             info!("Starting agent service on {}:{}", args.bind, args.port);
             run_agent_server(args, cli.global_opts).await?;
         }
-        Commands::Device(cmd) => {
-            cli::ops::run_device_command(cmd, &cli.global_opts).await?;
-        }
+        Commands::Device(cmd) => match cmd {
+            cli::DeviceCommands::Discover(args) => match args.command {
+                Some(command) => {
+                    cli::discovery::run_device_discovery_command(command, &cli.global_opts).await?;
+                }
+                None => {
+                    cli::discovery::run_device_discovery(args.scan, &cli.global_opts).await?;
+                }
+            },
+            cli::DeviceCommands::Discovery(command) => {
+                cli::discovery::run_device_discovery_command(command, &cli.global_opts).await?;
+            }
+            command => {
+                cli::ops::run_device_command(command, &cli.global_opts).await?;
+            }
+        },
         Commands::Credential(cmd) => {
             cli::ops::run_credential_command(cmd)?;
         }

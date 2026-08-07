@@ -23,6 +23,7 @@ pub enum TaskOperation {
     TxBlock,
     TxWorkflow,
     Orchestrate,
+    DeviceDiscovery,
 }
 
 impl TaskOperation {
@@ -35,6 +36,7 @@ impl TaskOperation {
             Self::TxBlock => "tx_block",
             Self::TxWorkflow => "tx_workflow",
             Self::Orchestrate => "orchestrate",
+            Self::DeviceDiscovery => "device_discovery",
         }
     }
 }

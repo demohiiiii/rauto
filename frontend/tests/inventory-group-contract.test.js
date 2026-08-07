@@ -34,9 +34,13 @@ test("device management uses a searchable responsive catalog workspace", () => {
   assert.match(zh, /tabInventory: "设备管理"/);
   assert.match(zh, /inventoryTitle: "设备管理"/);
   assert.match(page, /<Tabs\.Root/);
+  assert.match(page, /value=\{INVENTORY_KIND\.devices\}/);
   assert.match(page, /value=\{INVENTORY_KIND\.groups\}/);
   assert.match(page, /value=\{INVENTORY_KIND\.labels\}/);
+  assert.doesNotMatch(page, /INVENTORY_KIND\.discovery/);
+  assert.match(page, /savedConnectionCount/);
   assert.match(page, /collectionCount/);
+  assert.match(page, /<SavedConnectionLibraryPanel[\s\S]*variant="management"/);
   assert.match(panel, /collectionSearch = \$state\(""\)/);
   assert.match(panel, /filteredCollectionRows/);
   assert.match(panel, /browserConfirm\(collectionList\.deleteConfirmText\)/);

@@ -8,15 +8,20 @@
   import FilePickerButton from "../fragments/FilePickerButton.svelte";
   import LoadingButton from "../fragments/LoadingButton.svelte";
   import StatusCard from "../fragments/StatusCard.svelte";
-  import { createSavedConnectionLibraryWorkspace } from "../../modules/connections/connections.js";
+  import {
+    createSavedConnectionLibraryWorkspace,
+    openConnectionModal,
+  } from "../../modules/connections/connections.js";
   import CheckIcon from "@lucide/svelte/icons/check";
   import DownloadIcon from "@lucide/svelte/icons/download";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import SearchIcon from "@lucide/svelte/icons/search";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import UploadIcon from "@lucide/svelte/icons/upload";
+  import PlusIcon from "@lucide/svelte/icons/plus";
 
-  let { active, onUse } = $props();
+  let { active, onUse, variant = "picker" } = $props();
+  let managementMode = $derived(variant === "management");
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
     i18nCurrentLanguage;
@@ -39,6 +44,7 @@
       deleteConfirmAction: t("savedConnDeleteConfirmAction"),
       deleteConfirmDescription: t("savedConnDeleteConfirmDescription"),
       deleteConfirmTitle: t("savedConnDeleteConfirmTitle"),
+      newConnection: t("inventoryDeviceNewConnection"),
     };
   });
   const savedConnectionLibraryWorkspace = createSavedConnectionLibraryWorkspace(
@@ -89,6 +95,10 @@
     searchQuery = event.currentTarget.value;
   }
 
+  function openNewConnection() {
+    openConnectionModal("temporary", "temporaryHostInput");
+  }
+
   function openDeleteConfirmation() {
     const connectionName = selectedConnectionRow?.name || "";
     if (!connectionName) return;
@@ -105,11 +115,19 @@
 </script>
 
 <div
-  class="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[22rem_minmax(0,1fr)]"
+  class={cn(
+    "grid gap-0 lg:grid-cols-[22rem_minmax(0,1fr)]",
+    managementMode
+      ? "overflow-hidden rounded-lg border border-border lg:h-[calc(100dvh-24rem)] lg:min-h-[32rem] lg:max-h-[42rem]"
+      : "min-h-0 flex-1 overflow-hidden",
+  )}
   hidden={!active}
 >
   <aside
-    class="flex min-h-0 flex-col border-b border-border bg-muted/20 lg:border-r lg:border-b-0"
+    class={cn(
+      "flex min-h-0 flex-col border-b border-border bg-muted/20 lg:border-r lg:border-b-0",
+      managementMode ? "max-h-[24rem] lg:max-h-none" : "",
+    )}
   >
     <div class="shrink-0 border-b border-border p-4">
       <div class="relative">
@@ -125,7 +143,23 @@
           oninput={handleSearchInput}
         />
       </div>
-      <div class="mt-3 grid grid-cols-2 gap-2">
+      <div
+        class={cn(
+          "mt-3 grid gap-2",
+          managementMode ? "grid-cols-3" : "grid-cols-2",
+        )}
+      >
+        {#if managementMode}
+          <Button
+            class="w-full rounded-xl"
+            size="sm"
+            type="button"
+            onclick={openNewConnection}
+          >
+            <PlusIcon data-icon="inline-start" aria-hidden="true" />
+            <span>{i18nLabels.newConnection}</span>
+          </Button>
+        {/if}
         <LoadingButton
           class="w-full rounded-xl"
           variant="outline"
@@ -389,27 +423,29 @@
       </div>
     </div>
 
-    <div
-      class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-7 py-4"
-    >
-      <p class="text-xs text-muted-foreground">
-        {i18nLabels.applyHint}
-      </p>
-      <div class="flex flex-wrap items-center gap-4">
-        <span class="text-xs text-muted-foreground">
-          {i18nLabels.availableCount}: {savedConnectionCount}
-        </span>
-        <LoadingButton
-          class="rounded-xl px-4"
-          loading={loadingState.useLoading}
-          disabled={selectedConnectionRow?.credentialRequired === true}
-          onclick={useSavedConnectionAction}
-        >
-          <CheckIcon data-icon="inline-start" aria-hidden="true" />
-          {i18nLabels.applySelected}
-        </LoadingButton>
+    {#if !managementMode}
+      <div
+        class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-7 py-4"
+      >
+        <p class="text-xs text-muted-foreground">
+          {i18nLabels.applyHint}
+        </p>
+        <div class="flex flex-wrap items-center gap-4">
+          <span class="text-xs text-muted-foreground">
+            {i18nLabels.availableCount}: {savedConnectionCount}
+          </span>
+          <LoadingButton
+            class="rounded-xl px-4"
+            loading={loadingState.useLoading}
+            disabled={selectedConnectionRow?.credentialRequired === true}
+            onclick={useSavedConnectionAction}
+          >
+            <CheckIcon data-icon="inline-start" aria-hidden="true" />
+            {i18nLabels.applySelected}
+          </LoadingButton>
+        </div>
       </div>
-    </div>
+    {/if}
   </section>
 </div>
 

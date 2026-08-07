@@ -5,7 +5,7 @@ import {
   listShowObjects,
 } from "../../api/client.js";
 import { normalizeShowQuery, SHOW_QUERY } from "../../config/dashboardModes.js";
-import { writable } from "svelte/store";
+import { get as getStore, writable } from "svelte/store";
 import { t } from "../../lib/i18n.js";
 import { downloadBlob, safeString } from "../../lib/ui.js";
 import {
@@ -30,6 +30,7 @@ import {
   connectionTargetState,
   currentExecutionConnectionProfile,
   ensureConnectionTargetSelected,
+  savedConnectionSelectState,
 } from "../connections/connections.js";
 import { setCustomShowObjectsChangedCallback } from "../templates/templatesShowObjects.js";
 import {
@@ -44,6 +45,13 @@ export const refreshShowExecutionModeOptions =
   refreshExecutionModeOptionsForCurrentConnection;
 
 export const EMPTY_RESULT = { kind: "empty" };
+export const EMPTY_BATCH_SHOW_OBJECT_AVAILABILITY = Object.freeze({
+  connectionCount: 0,
+  missingProfileNames: [],
+  objectCount: 0,
+  profiles: [],
+  status: "waiting",
+});
 export const DEFAULT_SHOW_PAGE_QUERY = normalizeShowQuery(SHOW_QUERY.single);
 
 const SHOW_QUERY_CONFIG = Object.freeze({
@@ -60,6 +68,7 @@ const SHOW_QUERY_CONFIG = Object.freeze({
 function createShowStateContext() {
   return {
     batchShowExecutionResult: writable(EMPTY_RESULT),
+    batchShowObjectAvailability: writable(EMPTY_BATCH_SHOW_OBJECT_AVAILABILITY),
     batchShowObjectsRequestSeq: 0,
     showCommandPreviewRows: writable({}),
     showExecutionResult: writable(EMPTY_RESULT),
@@ -84,6 +93,10 @@ export function showExecutionResultState() {
 
 export function batchShowExecutionResultState() {
   return currentShowStateContext().batchShowExecutionResult;
+}
+
+export function batchShowObjectAvailabilityState() {
+  return currentShowStateContext().batchShowObjectAvailability;
 }
 
 export function showCommandPreviewRowsState() {
@@ -140,6 +153,70 @@ export function setBatchShowRetryFields(retry = createSessionRetryState()) {
 export function normalizeBatchMaxParallel(value) {
   const parsed = Number.parseInt(safeString(value).trim(), 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizedSelectionSet(values = []) {
+  return new Set(
+    (Array.isArray(values) ? values : [])
+      .map((value) => safeString(value).trim())
+      .filter(Boolean),
+  );
+}
+
+export function resolveBatchShowTargetConnections({
+  connections = [],
+  groups = [],
+  labels = [],
+  targets = [],
+} = {}) {
+  const targetNames = normalizedSelectionSet(targets);
+  const groupNames = normalizedSelectionSet(groups);
+  const labelNames = normalizedSelectionSet(labels);
+  return (Array.isArray(connections) ? connections : []).filter(
+    (connection) => {
+      const name = safeString(connection?.name).trim();
+      const connectionGroups = Array.isArray(connection?.groups)
+        ? connection.groups
+        : [];
+      const connectionLabels = Array.isArray(connection?.labels)
+        ? connection.labels
+        : [];
+      return (
+        targetNames.has(name) ||
+        connectionGroups.some((group) =>
+          groupNames.has(safeString(group).trim()),
+        ) ||
+        connectionLabels.some((label) =>
+          labelNames.has(safeString(label).trim()),
+        )
+      );
+    },
+  );
+}
+
+export function intersectBatchShowObjectPayloads(payloads = []) {
+  const normalizedPayloads = Array.isArray(payloads) ? payloads : [];
+  if (!normalizedPayloads.length) return [];
+  const firstObjects = Array.isArray(normalizedPayloads[0]?.objects)
+    ? normalizedPayloads[0].objects
+    : [];
+  const remainingObjectSets = normalizedPayloads
+    .slice(1)
+    .map(
+      (payload) =>
+        new Set(
+          (Array.isArray(payload?.objects) ? payload.objects : [])
+            .map((object) => safeString(object?.object).trim())
+            .filter(Boolean),
+        ),
+    );
+  const seenObjects = new Set();
+  return firstObjects.filter((object) => {
+    const objectName = safeString(object?.object).trim();
+    if (!objectName || seenObjects.has(objectName)) return false;
+    seenObjects.add(objectName);
+    return remainingObjectSets.every((objectSet) => objectSet.has(objectName));
+  });
 }
 
 function showFormFields(key, stateContext = currentShowStateContext()) {
@@ -381,27 +458,121 @@ export async function loadShowObjects(platformOverride = "") {
   }
 }
 
+function currentBatchShowTargetSelection() {
+  const targets = connectionPickerValues(CONNECTION_PICKER.batchShowTargets);
+  const groups = connectionPickerValues(CONNECTION_PICKER.batchShowGroups);
+  const labels = connectionPickerValues(CONNECTION_PICKER.batchShowLabels);
+  const savedConnectionState = getStore(savedConnectionSelectState);
+  const connections = resolveBatchShowTargetConnections({
+    connections: savedConnectionState?.connections,
+    groups,
+    labels,
+    targets,
+  });
+  const missingProfileNames = connections
+    .filter((connection) => {
+      const profile = safeString(connection?.device_profile).trim();
+      return !profile || profile === "autodetect";
+    })
+    .map((connection) => safeString(connection?.name).trim())
+    .filter(Boolean);
+  const profiles = Array.from(
+    new Set(
+      connections
+        .map((connection) => safeString(connection?.device_profile).trim())
+        .filter((profile) => profile && profile !== "autodetect"),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+  return {
+    connections,
+    hasSelectors: Boolean(targets.length || groups.length || labels.length),
+    missingProfileNames,
+    profiles,
+  };
+}
+
+function setBatchShowObjectAvailability(availability = {}) {
+  currentShowStateContext().batchShowObjectAvailability.set({
+    ...EMPTY_BATCH_SHOW_OBJECT_AVAILABILITY,
+    ...availability,
+  });
+}
+
+function clearBatchShowObjectOptions(onRefreshed = null) {
+  currentShowStateContext().showObjectPlatformState.set(SHOW_QUERY.batch, "");
+  refreshObjectOptions(SHOW_QUERY.batch, { objects: [] }, [], onRefreshed);
+}
+
 export async function loadBatchShowObjects() {
   const stateContext = currentShowStateContext();
   const selected = selectedShowObjects(SHOW_QUERY.batch);
   const requestSeq = ++stateContext.batchShowObjectsRequestSeq;
+  const targetSelection = currentBatchShowTargetSelection();
+  const connectionCount = targetSelection.connections.length;
+  if (!targetSelection.hasSelectors) {
+    setBatchShowObjectAvailability({ status: "waiting" });
+    clearBatchShowObjectOptions(() => updateBatchShowCommandPreview());
+    return;
+  }
+  if (!connectionCount) {
+    setBatchShowObjectAvailability({ status: "no-targets" });
+    clearBatchShowObjectOptions(() => updateBatchShowCommandPreview());
+    return;
+  }
+  if (targetSelection.missingProfileNames.length) {
+    setBatchShowObjectAvailability({
+      connectionCount,
+      missingProfileNames: targetSelection.missingProfileNames,
+      profiles: targetSelection.profiles,
+      status: "missing-profile",
+    });
+    clearBatchShowObjectOptions(() => updateBatchShowCommandPreview());
+    return;
+  }
+  setBatchShowObjectAvailability({
+    connectionCount,
+    profiles: targetSelection.profiles,
+    status: "loading",
+  });
   try {
-    const batchShowObjectsPayload = await listShowObjects({});
+    const profilePayloads = await Promise.all(
+      targetSelection.profiles.map((deviceProfile) =>
+        listShowObjects({ deviceProfile }),
+      ),
+    );
     if (requestSeq !== stateContext.batchShowObjectsRequestSeq) return;
+    const commonObjects = intersectBatchShowObjectPayloads(profilePayloads);
+    const commonObjectNames = new Set(
+      commonObjects.map((object) => safeString(object?.object).trim()),
+    );
+    const retainedSelection = selected.filter((object) =>
+      commonObjectNames.has(object),
+    );
     stateContext.showObjectPlatformState.set(
       SHOW_QUERY.batch,
-      batchShowObjectsPayload?.platform || "",
+      targetSelection.profiles.join(", "),
     );
     refreshObjectOptions(
       SHOW_QUERY.batch,
-      batchShowObjectsPayload,
-      selected,
-      () =>
-        updateBatchShowCommandPreview(batchShowObjectsPayload?.platform || ""),
+      { objects: commonObjects },
+      retainedSelection,
+      () => updateBatchShowCommandPreview(targetSelection.profiles.join(", ")),
     );
+    setBatchShowObjectAvailability({
+      connectionCount,
+      objectCount: commonObjects.length,
+      profiles: targetSelection.profiles,
+      status: commonObjects.length ? "ready" : "empty",
+    });
   } catch (error) {
     if (requestSeq !== stateContext.batchShowObjectsRequestSeq) return;
-    setBatchShowExecutionResult({ kind: "error", message: error.message });
+    clearBatchShowObjectOptions(() => updateBatchShowCommandPreview());
+    setBatchShowObjectAvailability({
+      connectionCount,
+      errorMessage: error.message,
+      profiles: targetSelection.profiles,
+      status: "error",
+    });
   }
 }
 

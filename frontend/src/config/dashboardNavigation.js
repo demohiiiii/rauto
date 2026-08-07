@@ -91,6 +91,14 @@ const navigationDefinitions = [
     group: "management",
   },
   {
+    id: "device-discovery",
+    path: "/app/device-discovery",
+    tab: "device-discovery",
+    labelKey: "deviceDiscoveryTitle",
+    label: "Auto Discovery",
+    group: "management",
+  },
+  {
     id: "credentials",
     path: "/app/credentials",
     tab: "credentials",
@@ -168,6 +176,10 @@ export const dashboardPageDefinitions = [
   { id: "prompts", load: () => import("../pages/PromptsPage.svelte") },
   { id: "templates", load: () => import("../pages/TemplatesPage.svelte") },
   { id: "inventory", load: () => import("../pages/InventoryPage.svelte") },
+  {
+    id: "device-discovery",
+    load: () => import("../pages/DeviceDiscoveryPage.svelte"),
+  },
   { id: "credentials", load: () => import("../pages/CredentialsPage.svelte") },
   { id: "transfer", load: () => import("../pages/TransferPage.svelte") },
   { id: "blacklist", load: () => import("../pages/BlacklistPage.svelte") },

@@ -8,19 +8,24 @@ export const connectionModalModeTabs = Object.freeze([
   { value: "temporary", labelKey: "connectionModalModeTemporary" },
 ]);
 
-export const INVENTORY_KIND = { groups: "groups", labels: "labels" };
+export const INVENTORY_KIND = Object.freeze({
+  devices: "devices",
+  groups: "groups",
+  labels: "labels",
+});
 
 export const inventorySectionTabs = Object.freeze([
+  { value: INVENTORY_KIND.devices, labelKey: "inventoryDevicesTitle" },
   { value: INVENTORY_KIND.groups, labelKey: "inventoryGroupsTitle" },
   { value: INVENTORY_KIND.labels, labelKey: "inventoryLabelsTitle" },
 ]);
 
-export const defaultInventorySection = INVENTORY_KIND.groups;
+export const defaultInventorySection = INVENTORY_KIND.devices;
 export const EMPTY_INVENTORY_HOST_SET = new Set();
 
 export function normalizeInventorySection(inventorySection = "") {
-  return inventorySection === INVENTORY_KIND.labels
-    ? INVENTORY_KIND.labels
+  return inventorySectionTabs.some((tab) => tab.value === inventorySection)
+    ? inventorySection
     : defaultInventorySection;
 }
 

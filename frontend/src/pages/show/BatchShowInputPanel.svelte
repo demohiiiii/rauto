@@ -4,6 +4,7 @@
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
+  import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TabList from "../../components/fragments/TabList.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
@@ -25,13 +26,14 @@
     i18nCurrentLanguage;
     return {
       configTitle: t("showPanelConfigTitle"),
-      configHint: t("showPanelConfigHint"),
+      configHint: t("batchShowPanelConfigHint"),
       footerHint: t("batchShowFooterHint"),
       maxParallel: t("batchExecMaxParallelLabel"),
     };
   });
   const {
     changeBatchMaxParallel,
+    changeBatchTargets,
     changeShowObject,
     changeShowObjectMode,
     changeSessionRetry,
@@ -73,12 +75,39 @@
       {/snippet}
     </WorkspaceActionHeader>
     <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
-      <ShowObjectSelectionPanel
-        onModeChange={changeShowObjectMode}
-        onObjectChange={changeShowObject}
-        {selectionDisplay}
-        {showSelectionFields}
-      />
+      <div class="rounded-2xl border border-border bg-muted/30 p-4">
+        <div class="mb-3 text-sm font-medium text-foreground">
+          {batchShowInputDisplay.targetsLabel}
+        </div>
+        <div
+          class="grid gap-4 md:grid-cols-2"
+          role="group"
+          aria-label={batchShowInputDisplay.targetsLabel}
+        >
+          {#each batchShowInputDisplay.fields as targetField (targetField.key)}
+            <ConnectionPickerField
+              keyName={targetField.keyName}
+              labelText={targetField.labelText}
+              onSelectionChange={changeBatchTargets}
+              pickerPlaceholder={targetField.pickerPlaceholder}
+            />
+          {/each}
+        </div>
+      </div>
+
+      {#if batchShowPanelDisplay.objectAvailability.canSelect}
+        <ShowObjectSelectionPanel
+          onModeChange={changeShowObjectMode}
+          onObjectChange={changeShowObject}
+          {selectionDisplay}
+          {showSelectionFields}
+        />
+      {:else}
+        <StatusCard
+          message={batchShowPanelDisplay.objectAvailability.message}
+          tone={batchShowPanelDisplay.objectAvailability.tone}
+        />
+      {/if}
 
       {#if active}
         <TextfsmControls
@@ -98,25 +127,6 @@
         value={retryState}
         onChange={changeSessionRetry}
       />
-
-      <div class="rounded-2xl border border-border bg-muted/30 p-4">
-        <div class="mb-3 text-sm font-medium text-foreground">
-          {batchShowInputDisplay.targetsLabel}
-        </div>
-        <div
-          class="grid gap-4 md:grid-cols-2"
-          role="group"
-          aria-label={batchShowInputDisplay.targetsLabel}
-        >
-          {#each batchShowInputDisplay.fields as targetField (targetField.key)}
-            <ConnectionPickerField
-              keyName={targetField.keyName}
-              labelText={targetField.labelText}
-              pickerPlaceholder={targetField.pickerPlaceholder}
-            />
-          {/each}
-        </div>
-      </div>
 
       <div
         class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
@@ -145,7 +155,8 @@
           <LoadingButton
             size="lg"
             loading={showRunButtonDisplay.executeLoading}
-            disabled={!batchShowPanelDisplay.retryValid}
+            disabled={!batchShowPanelDisplay.retryValid ||
+              !batchShowPanelDisplay.objectAvailability.canSelect}
             onclick={executeBatchShowPanel}
           >
             <span>{showRunButtonDisplay.executeButtonLabel}</span>

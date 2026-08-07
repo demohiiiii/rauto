@@ -56,6 +56,28 @@ pub fn list_connections() -> Result<Vec<String>> {
     })
 }
 
+pub fn list_connections_by_endpoint(host: &str, port: u16) -> Result<Vec<String>> {
+    let host = host.trim().to_string();
+    db::run_sync(async move {
+        let rows = sqlx::query(
+            r#"
+            SELECT name
+            FROM connections
+            WHERE TRIM(host) = ? COLLATE NOCASE AND COALESCE(port, 22) = ?
+            ORDER BY name ASC
+            "#,
+        )
+        .bind(host)
+        .bind(i64::from(port))
+        .fetch_all(db::pool())
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get::<String, _>("name"))
+            .collect())
+    })
+}
+
 pub fn list_connections_by_labels_any(labels: &[String]) -> Result<Vec<String>> {
     let mut required = labels
         .iter()

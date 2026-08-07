@@ -6,15 +6,16 @@ use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::assets::{static_response, svelte_index_response};
 use crate::web::auth::auth_middleware;
 use crate::web::handlers::{
-    add_blacklist_pattern, add_config_volatile_pattern, check_blacklist_command, create_backup,
-    create_command_flow_template, create_credential, create_or_update_custom_profile,
-    create_orchestration_template, create_template, create_textfsm_template,
-    create_tx_block_template, create_tx_workflow_template, delete_blacklist_pattern,
-    delete_command_flow_template, delete_config_command, delete_connection,
-    delete_connection_history, delete_credential, delete_custom_profile, delete_custom_show_object,
-    delete_inventory_group, delete_inventory_label, delete_orchestration_template, delete_template,
-    delete_textfsm_mapping, delete_textfsm_template, delete_tx_block_template,
-    delete_tx_workflow_template, detect_connection_facts, diagnose_profile, download_backup,
+    add_blacklist_pattern, add_config_volatile_pattern, cancel_device_discovery_run,
+    check_blacklist_command, create_backup, create_command_flow_template, create_credential,
+    create_device_discovery_run, create_or_update_custom_profile, create_orchestration_template,
+    create_template, create_textfsm_template, create_tx_block_template,
+    create_tx_workflow_template, delete_blacklist_pattern, delete_command_flow_template,
+    delete_config_command, delete_connection, delete_connection_history, delete_credential,
+    delete_custom_profile, delete_custom_show_object, delete_inventory_group,
+    delete_inventory_label, delete_orchestration_template, delete_template, delete_textfsm_mapping,
+    delete_textfsm_template, delete_tx_block_template, delete_tx_workflow_template,
+    detect_connection_facts, diagnose_profile, download_backup,
     download_connection_import_template, download_credential_import_template, exec_command,
     exec_command_async, execute_command_flow, execute_exec_batch, execute_flow_batch,
     execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
@@ -23,19 +24,20 @@ use crate::web::handlers::{
     fetch_config, fetch_config_batch, get_builtin_command_flow_template,
     get_builtin_profile_detail, get_builtin_profile_form, get_command_flow_template,
     get_connection, get_connection_history, get_connection_history_detail, get_credential,
-    get_custom_profile, get_custom_profile_form, get_inventory_group, get_inventory_label,
-    get_orchestration_template, get_profile_modes, get_task_run_detail, get_template,
-    get_textfsm_template, get_tx_block_template, get_tx_workflow_template, health,
-    import_connections, import_credentials, inspect_command_flow_template,
-    inspect_command_template, list_backups, list_blacklist_patterns,
+    get_custom_profile, get_custom_profile_form, get_device_discovery_run, get_inventory_group,
+    get_inventory_label, get_orchestration_template, get_profile_modes, get_task_run_detail,
+    get_template, get_textfsm_template, get_tx_block_template, get_tx_workflow_template, health,
+    import_connections, import_credentials, import_device_discovery_results,
+    inspect_command_flow_template, inspect_command_template, list_backups, list_blacklist_patterns,
     list_builtin_command_flow_templates, list_command_flow_templates, list_config_commands,
     list_config_volatile_patterns, list_connections, list_credentials, list_custom_show_objects,
-    list_inventory_groups, list_inventory_labels, list_orchestration_templates, list_profiles,
-    list_show_objects, list_task_runs, list_templates, list_textfsm_mappings,
-    list_textfsm_templates, list_tx_block_templates, list_tx_workflow_templates,
-    preview_tx_workflow_template, profiles_overview, remove_config_volatile_pattern,
-    render_template, replay_session, restore_backup, test_connection, update_command_flow_template,
-    update_credential, update_orchestration_template, update_template, update_textfsm_template,
+    list_device_discovery_runs, list_inventory_groups, list_inventory_labels,
+    list_orchestration_templates, list_profiles, list_show_objects, list_task_runs, list_templates,
+    list_textfsm_mappings, list_textfsm_templates, list_tx_block_templates,
+    list_tx_workflow_templates, preview_tx_workflow_template, profiles_overview,
+    remove_config_volatile_pattern, render_template, replay_session, restore_backup,
+    test_connection, update_command_flow_template, update_credential,
+    update_orchestration_template, update_template, update_textfsm_template,
     update_tx_block_template, update_tx_workflow_template, upsert_config_command,
     upsert_connection, upsert_custom_profile_form, upsert_custom_show_object,
     upsert_inventory_group, upsert_inventory_label, upsert_textfsm_mapping,
@@ -239,6 +241,22 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         )
         .route("/api/inventory/groups", get(list_inventory_groups))
         .route("/api/inventory/labels", get(list_inventory_labels))
+        .route(
+            "/api/device-discovery/runs",
+            get(list_device_discovery_runs).post(create_device_discovery_run),
+        )
+        .route(
+            "/api/device-discovery/runs/{run_id}",
+            get(get_device_discovery_run),
+        )
+        .route(
+            "/api/device-discovery/runs/{run_id}/cancel",
+            post(cancel_device_discovery_run),
+        )
+        .route(
+            "/api/device-discovery/runs/{run_id}/import",
+            post(import_device_discovery_results),
+        )
         .route("/api/connections/import", post(import_connections))
         .route("/api/tasks", get(list_task_runs))
         .route("/api/tasks/{task_id}", get(get_task_run_detail))

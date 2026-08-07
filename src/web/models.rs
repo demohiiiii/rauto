@@ -10,12 +10,14 @@ use serde_json::Value;
 
 mod agent;
 mod api_response;
+mod device_discovery;
 mod execution;
 mod profiles_templates;
 mod replay_interactive;
 mod task_runs;
 pub use self::agent::*;
 pub use self::api_response::*;
+pub use self::device_discovery::*;
 pub use self::execution::*;
 pub use self::profiles_templates::*;
 pub use self::replay_interactive::*;

@@ -3,12 +3,15 @@
   import * as Tabs from "$lib/components/ui/tabs";
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import NetworkIcon from "@lucide/svelte/icons/network";
+  import ServerIcon from "@lucide/svelte/icons/server";
   import TagIcon from "@lucide/svelte/icons/tag";
+  import SavedConnectionLibraryPanel from "../components/connections/SavedConnectionLibraryPanel.svelte";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import { INVENTORY_KIND } from "../config/dashboardModes.js";
   import { currentLanguageState, t } from "../lib/i18n.js";
   import { createInventoryPageWorkspace } from "../modules/inventory/inventoryPageWorkspace.js";
+  import { savedConnectionSelectState } from "../modules/connections/connections.js";
   import InventoryCollectionPanel from "./inventory/InventoryCollectionPanel.svelte";
 
   let { active } = $props();
@@ -40,21 +43,31 @@
   let currentLanguage = $derived($currentLanguageState);
   let currentInventorySection = $derived($currentInventorySectionState);
   let pageDisplay = $derived($pageDisplayStateStore);
+  let savedConnectionCount = $derived(
+    Array.isArray($savedConnectionSelectState.connections)
+      ? $savedConnectionSelectState.connections.length
+      : 0,
+  );
   let pageLabels = $derived.by(() => {
     currentLanguage;
     return {
       title: t("inventoryTitle"),
       description: t("inventoryWorkspaceDescription"),
+      devices: t("inventoryDevicesTitle"),
       groups: t("inventoryGroupsTitle"),
       labels: t("inventoryLabelsTitle"),
       catalogStatus: t("inventoryWorkspaceStatus"),
     };
   });
-  let activeSectionLabel = $derived(
-    currentInventorySection === INVENTORY_KIND.labels
-      ? pageLabels.labels
-      : pageLabels.groups,
-  );
+  let activeSectionLabel = $derived.by(() => {
+    if (currentInventorySection === INVENTORY_KIND.devices) {
+      return pageLabels.devices;
+    }
+    if (currentInventorySection === INVENTORY_KIND.labels) {
+      return pageLabels.labels;
+    }
+    return pageLabels.groups;
+  });
   let groupsPanelProps = $derived({
     onClearHosts: clearGroupHosts,
     onCreateDraft: createInventoryGroupDraft,
@@ -101,8 +114,19 @@
     />
 
     <div
-      class="grid border-b bg-muted/10 sm:grid-cols-3 sm:divide-x sm:divide-border"
+      class="grid grid-cols-2 border-b bg-muted/10 sm:grid-cols-4 sm:divide-x sm:divide-border"
     >
+      <div
+        class="flex items-center gap-3 border-b px-4 py-3 sm:border-b-0 sm:px-5"
+      >
+        <ServerIcon class="size-4 shrink-0 text-primary" aria-hidden="true" />
+        <div class="min-w-0">
+          <div class="text-xs text-muted-foreground">{pageLabels.devices}</div>
+          <div class="font-mono text-base font-semibold tabular-nums">
+            {savedConnectionCount}
+          </div>
+        </div>
+      </div>
       <div class="flex items-center gap-3 px-4 py-3 sm:px-5">
         <ListTreeIcon
           class="size-4 shrink-0 text-muted-foreground"
@@ -115,7 +139,9 @@
           </div>
         </div>
       </div>
-      <div class="flex items-center gap-3 px-4 py-3 sm:px-5">
+      <div
+        class="flex items-center gap-3 border-t px-4 py-3 sm:border-t-0 sm:px-5"
+      >
         <TagIcon
           class="size-4 shrink-0 text-muted-foreground"
           aria-hidden="true"
@@ -149,8 +175,15 @@
         <Tabs.List
           variant="line"
           aria-label={pageDisplay.sectionAriaLabel}
-          class="!grid !h-auto w-full grid-cols-2 gap-1 sm:w-fit sm:min-w-72"
+          class="!grid !h-auto w-full grid-cols-3 gap-1 md:w-fit md:min-w-[30rem]"
         >
+          <Tabs.Trigger
+            value={INVENTORY_KIND.devices}
+            class="h-10 min-w-0 rounded-lg px-3 data-active:!text-primary"
+          >
+            <ServerIcon data-icon="inline-start" aria-hidden="true" />
+            <span>{pageLabels.devices}</span>
+          </Tabs.Trigger>
           <Tabs.Trigger
             value={INVENTORY_KIND.groups}
             class="h-10 min-w-0 rounded-lg px-3 data-active:!text-primary"
@@ -169,6 +202,11 @@
       </div>
 
       <div class="min-w-0 p-4 sm:p-5 lg:p-6">
+        <SavedConnectionLibraryPanel
+          active={pageDisplay.devicesActive}
+          variant="management"
+        />
+
         <InventoryCollectionPanel
           collectionDisplay={pageDisplay.groups}
           {...groupsPanelProps}

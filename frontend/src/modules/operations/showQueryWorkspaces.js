@@ -25,6 +25,7 @@ import {
 import { batchShowTargetPickerFields } from "../connections/connections.js";
 import {
   batchShowExecutionResultState,
+  batchShowObjectAvailabilityState,
   DEFAULT_SHOW_PAGE_QUERY,
   EMPTY_RESULT,
   executeBatchShowObject,
@@ -293,11 +294,44 @@ function batchShowInputPresentation(fields = []) {
   };
 }
 
+export function batchShowObjectAvailabilityPresentation(availability = {}) {
+  const status = safeString(availability?.status || "waiting");
+  const missingProfileNames = Array.isArray(availability?.missingProfileNames)
+    ? availability.missingProfileNames
+    : [];
+  const messages = {
+    empty: t("batchShowObjectsEmptyIntersection"),
+    error:
+      safeString(availability?.errorMessage) || t("batchShowObjectsLoadFailed"),
+    loading: t("batchShowObjectsLoading"),
+    "missing-profile": t("batchShowObjectsMissingProfile").replace(
+      "{names}",
+      missingProfileNames.join(", ") || "-",
+    ),
+    "no-targets": t("batchShowObjectsNoTargets"),
+    waiting: t("batchShowSelectTargetsFirst"),
+  };
+  return {
+    canSelect: status === "ready",
+    message: messages[status] || "",
+    status,
+    tone:
+      status === "loading"
+        ? "running"
+        : ["error", "missing-profile"].includes(status)
+          ? "error"
+          : status === "empty" || status === "no-targets"
+            ? "warning"
+            : "info",
+  };
+}
+
 function batchShowPanelPresentation({
   executeLoading = false,
   fields = [],
   maxParallel = "",
   modeState = {},
+  objectAvailability = {},
   previewRows = {},
   textfsmState = {},
   retryState = createSessionRetryState(),
@@ -305,6 +339,8 @@ function batchShowPanelPresentation({
   const inputDisplay = batchShowInputPresentation(fields);
   return {
     inputDisplay,
+    objectAvailability:
+      batchShowObjectAvailabilityPresentation(objectAvailability),
     selectionFields: {
       ...showSelectionFieldsForQuery({
         modeState,
@@ -688,6 +724,8 @@ export function createSingleShowPanelWorkspace() {
 
 export function createBatchShowInputPanelWorkspace() {
   const showCommandPreviewRowsStateStore = showCommandPreviewRowsState();
+  const batchShowObjectAvailabilityStateStore =
+    batchShowObjectAvailabilityState();
   const batchShowLoadingStateStore = writable({
     executeLoading: false,
   });
@@ -724,6 +762,7 @@ export function createBatchShowInputPanelWorkspace() {
       batchShowTextStateStore,
       batchShowRetryStateStore,
       batchShowLoadingStateStore,
+      batchShowObjectAvailabilityStateStore,
       currentLanguageState,
     ],
     ([
@@ -733,6 +772,7 @@ export function createBatchShowInputPanelWorkspace() {
       $batchShowTextState,
       $batchShowRetryState,
       $batchShowLoadingState,
+      $batchShowObjectAvailability,
       _currentLanguageState,
     ]) =>
       batchShowPanelPresentation({
@@ -740,6 +780,7 @@ export function createBatchShowInputPanelWorkspace() {
         fields: batchShowTargetPickerFields,
         maxParallel: $batchShowTextState.maxParallel,
         modeState: $batchModeState,
+        objectAvailability: $batchShowObjectAvailability,
         previewRows: $showCommandPreviewRows,
         retryState: $batchShowRetryState,
         textfsmState: {
@@ -801,6 +842,7 @@ export function createBatchShowInputPanelWorkspace() {
   return {
     batchShowLoadingStateStore,
     changeBatchMaxParallel,
+    changeBatchTargets: loadBatchShowObjects,
     changeShowObject: updateBatchShowCommandPreview,
     changeShowObjectMode: selectionPanelWorkspace.changeMode,
     changeSessionRetry,

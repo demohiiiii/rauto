@@ -50,6 +50,7 @@ reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
 ] }
 hostname = "0.4"
+ipnet = "2.12"
 sqlx = { version = "0.8.6", features = [
     "runtime-tokio-rustls",
     "sqlite",
@@ -74,6 +75,9 @@ regex = "1"
 sha2 = "0.10"
 textfsm-rust = { version = "0.3", features = ["serde"] }
 rust_xlsxwriter = "0.95.0"
+indicatif = "0.17"
+ratatui = "0.29"
+crossterm = "0.28"
 
 [build-dependencies]
 tonic-build = "0.14.5"

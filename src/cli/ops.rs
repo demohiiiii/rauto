@@ -392,6 +392,9 @@ pub(crate) async fn run_device_command(
                 ));
             }
         }
+        DeviceCommands::Discover(_) | DeviceCommands::Discovery(_) => {
+            unreachable!("device discovery is handled by cli::discovery")
+        }
     }
 
     Ok(())

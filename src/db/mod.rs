@@ -2,7 +2,7 @@ use crate::config::paths::default_db_path;
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
 use sqlx::migrate::Migrator;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 #[cfg(test)]
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
@@ -12,6 +12,7 @@ use std::sync::Mutex as StdMutex;
 use std::sync::OnceLock;
 #[cfg(not(test))]
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 #[cfg(test)]
@@ -59,6 +60,7 @@ const _: &str = include_str!("../../migrations/202607260001_enable_stage.sql");
 const _: &str = include_str!("../../migrations/202607260002_config_command_overrides.sql");
 const _: &str = include_str!("../../migrations/202607260003_config_volatile_patterns.sql");
 const _: &str = include_str!("../../migrations/202607270001_ssh_auth_methods.sql");
+const _: &str = include_str!("../../migrations/202608060001_device_discovery.sql");
 #[cfg(not(test))]
 static DB_MIGRATED: AtomicBool = AtomicBool::new(false);
 #[cfg(test)]
@@ -75,6 +77,9 @@ fn connect_options(path: &PathBuf) -> SqliteConnectOptions {
         .filename(path)
         .create_if_missing(true)
         .foreign_keys(true)
+        .busy_timeout(Duration::from_secs(30))
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Normal)
 }
 
 #[cfg(not(test))]
@@ -216,5 +221,48 @@ mod tests {
             assert_eq!(db_path(), isolated);
         }
         assert_eq!(db_path(), original);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn sqlite_waits_for_a_transient_write_lock() {
+        let path = std::env::temp_dir().join(format!(
+            "rauto-sqlite-busy-timeout-{:016x}.db",
+            rand::random::<u64>()
+        ));
+        let guard = override_test_db_path(path.clone());
+        init().await.expect("initialize test database");
+        sqlx::query("CREATE TABLE busy_timeout_test (value INTEGER NOT NULL)")
+            .execute(pool())
+            .await
+            .expect("create lock test table");
+
+        let mut holder = pool().acquire().await.expect("acquire lock connection");
+        sqlx::query("BEGIN IMMEDIATE")
+            .execute(&mut *holder)
+            .await
+            .expect("hold sqlite write lock");
+
+        let waiter_pool = pool().clone();
+        let waiter = tokio::spawn(async move {
+            sqlx::query("INSERT INTO busy_timeout_test (value) VALUES (1)")
+                .execute(&waiter_pool)
+                .await
+        });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(!waiter.is_finished());
+        sqlx::query("COMMIT")
+            .execute(&mut *holder)
+            .await
+            .expect("release sqlite write lock");
+        waiter
+            .await
+            .expect("join waiting sqlite writer")
+            .expect("write after transient lock");
+
+        close_test_db(&path).await;
+        drop(guard);
+        for suffix in ["", "-shm", "-wal"] {
+            let _ = std::fs::remove_file(format!("{}{}", path.display(), suffix));
+        }
     }
 }

@@ -2,6 +2,8 @@ mod args;
 mod commands;
 
 pub(crate) mod config_fetch;
+pub(crate) mod discovery;
+pub(crate) mod discovery_tui;
 pub(crate) mod exec;
 pub(crate) mod flow;
 pub(crate) mod json_templates;

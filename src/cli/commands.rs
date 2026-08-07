@@ -3,7 +3,7 @@ use super::args::{
     TemplateArgs, TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
 use crate::config::device_credential_store::DeviceAuthType;
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -407,6 +407,146 @@ pub enum DeviceCommands {
         #[arg(long)]
         json: bool,
     },
+    /// Discover SSH devices or inspect the latest discovery run
+    Discover(DeviceDiscoverArgs),
+    /// Inspect or save devices from the latest discovery run
+    #[command(subcommand)]
+    Discovery(DeviceDiscoveryCommands),
+}
+
+#[derive(Args, Debug)]
+#[command(subcommand_negates_reqs = true, args_conflicts_with_subcommands = true)]
+pub struct DeviceDiscoverArgs {
+    #[command(subcommand)]
+    pub command: Option<DeviceDiscoveryCommands>,
+
+    #[command(flatten)]
+    pub scan: DeviceDiscoveryArgs,
+}
+
+#[derive(Args, Debug)]
+pub struct DeviceDiscoveryArgs {
+    /// IP, CIDR, or range targets, for example 192.168.1.0/24 or 192.168.2.10-30
+    #[arg(required = true)]
+    pub targets: Vec<String>,
+
+    /// SSH ports to scan
+    #[arg(long = "port", value_delimiter = ',', default_value = "22")]
+    pub ports: Vec<u16>,
+
+    /// Credential name or id to try; repeat up to three times (overrides --credential)
+    #[arg(long = "probe-credential")]
+    pub probe_credentials: Vec<String>,
+
+    /// Maximum concurrent TCP probes
+    #[arg(long, default_value_t = 32)]
+    pub concurrency: usize,
+
+    /// TCP and SSH identification timeout in milliseconds
+    #[arg(long, default_value_t = 1_000)]
+    pub tcp_timeout_ms: u64,
+
+    /// Per-credential device identification timeout in seconds
+    #[arg(long, default_value_t = 15)]
+    pub probe_timeout_secs: u64,
+
+    /// Results to print
+    #[arg(long, value_enum, default_value_t = DiscoveryStatusFilter::Identified)]
+    pub status: DiscoveryStatusFilter,
+
+    /// Output the persisted run and filtered results as JSON
+    #[arg(long)]
+    pub json: bool,
+
+    /// Print results without opening the interactive terminal interface
+    #[arg(long)]
+    pub no_tui: bool,
+
+    /// Save every newly identified device as a connection after scanning
+    #[arg(long)]
+    pub auto_save: bool,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DeviceDiscoveryCommands {
+    /// List devices from the latest discovery run
+    List(DeviceDiscoveryListArgs),
+    /// Save identified devices from the latest discovery run as connections
+    Save(DeviceDiscoverySaveArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct DeviceDiscoveryListArgs {
+    #[command(flatten)]
+    pub filters: DeviceDiscoveryFilterArgs,
+
+    /// Output the latest run and filtered results as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct DeviceDiscoverySaveArgs {
+    /// Endpoint selectors (host or host:port); omit to save every matching device
+    pub endpoints: Vec<String>,
+
+    /// Filter detected device profiles; accepts comma-separated values
+    #[arg(long = "profile", value_delimiter = ',')]
+    pub profiles: Vec<String>,
+
+    /// Filter SSH ports; accepts comma-separated values
+    #[arg(long = "port", value_delimiter = ',')]
+    pub ports: Vec<u16>,
+
+    /// Search host, port, profile, model, version, connection name, or error
+    #[arg(long)]
+    pub search: Option<String>,
+
+    /// Connection name override; requires exactly one matched device
+    #[arg(long = "connection-name")]
+    pub connection_name: Option<String>,
+
+    /// Replace an existing connection with the selected connection name
+    #[arg(long)]
+    pub overwrite: bool,
+
+    /// Output the save report as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct DeviceDiscoveryFilterArgs {
+    /// Result status to include
+    #[arg(long, value_enum, default_value_t = DiscoveryStatusFilter::Identified)]
+    pub status: DiscoveryStatusFilter,
+
+    /// Filter detected device profiles; accepts comma-separated values
+    #[arg(long = "profile", value_delimiter = ',')]
+    pub profiles: Vec<String>,
+
+    /// Filter SSH ports; accepts comma-separated values
+    #[arg(long = "port", value_delimiter = ',')]
+    pub ports: Vec<u16>,
+
+    /// Search host, port, profile, model, version, connection name, or error
+    #[arg(long)]
+    pub search: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub enum DiscoveryStatusFilter {
+    All,
+    #[default]
+    Identified,
+    Existing,
+    Imported,
+    Reachable,
+    Failed,
+    NotSsh,
+    ProbeFailed,
+    Unreachable,
+    Cancelled,
 }
 
 #[derive(Subcommand, Debug)]
@@ -816,7 +956,10 @@ pub enum ConfigCommandCommands {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Commands, CredentialCommands, DeviceAuthType, SessionCommands};
+    use super::{
+        Cli, Commands, CredentialCommands, DeviceAuthType, DeviceCommands, DiscoveryStatusFilter,
+        SessionCommands,
+    };
     use clap::Parser;
     use std::path::PathBuf;
 
@@ -834,6 +977,143 @@ mod tests {
         .expect("--credential should be accepted");
 
         assert_eq!(cli.global_opts.credential.as_deref(), Some("network-admin"));
+    }
+
+    #[test]
+    fn device_discovery_defaults_parse() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "device",
+            "discover",
+            "192.168.60.0/24",
+            "--credential",
+            "network-admin",
+        ])
+        .expect("device discovery should parse");
+
+        let Commands::Device(DeviceCommands::Discover(args)) = cli.command else {
+            panic!("expected device discovery command");
+        };
+        assert_eq!(cli.global_opts.credential.as_deref(), Some("network-admin"));
+        assert!(args.command.is_none());
+        assert_eq!(args.scan.targets, vec!["192.168.60.0/24".to_string()]);
+        assert_eq!(args.scan.ports, vec![22]);
+        assert!(args.scan.probe_credentials.is_empty());
+        assert_eq!(args.scan.concurrency, 32);
+        assert_eq!(args.scan.tcp_timeout_ms, 1_000);
+        assert_eq!(args.scan.probe_timeout_secs, 15);
+        assert_eq!(args.scan.status, DiscoveryStatusFilter::Identified);
+        assert!(!args.scan.json);
+        assert!(!args.scan.no_tui);
+        assert!(!args.scan.auto_save);
+    }
+
+    #[test]
+    fn device_discovery_accepts_multiple_probe_options() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "device",
+            "discover",
+            "192.168.60.10-30",
+            "192.168.61.5",
+            "--probe-credential",
+            "primary",
+            "--probe-credential",
+            "fallback",
+            "--port",
+            "22,2222",
+            "--status",
+            "existing",
+            "--json",
+            "--no-tui",
+            "--auto-save",
+        ])
+        .expect("device discovery probe options should parse");
+
+        let Commands::Device(DeviceCommands::Discover(args)) = cli.command else {
+            panic!("expected device discovery command");
+        };
+        assert!(args.command.is_none());
+        assert_eq!(
+            args.scan.targets,
+            vec!["192.168.60.10-30".to_string(), "192.168.61.5".to_string()]
+        );
+        assert_eq!(args.scan.ports, vec![22, 2222]);
+        assert_eq!(
+            args.scan.probe_credentials,
+            vec!["primary".to_string(), "fallback".to_string()]
+        );
+        assert_eq!(args.scan.status, DiscoveryStatusFilter::Existing);
+        assert!(args.scan.json);
+        assert!(args.scan.no_tui);
+        assert!(args.scan.auto_save);
+    }
+
+    #[test]
+    fn latest_discovery_list_and_save_options_parse() {
+        let default_list = Cli::try_parse_from(["rauto", "device", "discover", "list"])
+            .expect("latest discovery list defaults should parse");
+        let Commands::Device(DeviceCommands::Discover(args)) = default_list.command else {
+            panic!("expected latest discovery list command");
+        };
+        let Some(super::DeviceDiscoveryCommands::List(args)) = args.command else {
+            panic!("expected latest discovery list subcommand");
+        };
+        assert_eq!(args.filters.status, DiscoveryStatusFilter::Identified);
+
+        let list = Cli::try_parse_from([
+            "rauto",
+            "device",
+            "discover",
+            "list",
+            "--status",
+            "existing",
+            "--profile",
+            "fortinet,linux",
+            "--port",
+            "22,2222",
+            "--search",
+            "branch",
+            "--json",
+        ])
+        .expect("latest discovery list should parse");
+        let Commands::Device(DeviceCommands::Discover(args)) = list.command else {
+            panic!("expected latest discovery list command");
+        };
+        let Some(super::DeviceDiscoveryCommands::List(args)) = args.command else {
+            panic!("expected latest discovery list subcommand");
+        };
+        assert_eq!(args.filters.status, DiscoveryStatusFilter::Existing);
+        assert_eq!(args.filters.profiles, vec!["fortinet", "linux"]);
+        assert_eq!(args.filters.ports, vec![22, 2222]);
+        assert_eq!(args.filters.search.as_deref(), Some("branch"));
+        assert!(args.json);
+
+        let save = Cli::try_parse_from([
+            "rauto",
+            "device",
+            "discover",
+            "save",
+            "192.168.60.98:22",
+            "--profile",
+            "fortinet",
+            "--connection-name",
+            "branch-fw",
+            "--overwrite",
+            "--json",
+        ])
+        .expect("latest discovery save should parse");
+        let Commands::Device(DeviceCommands::Discover(args)) = save.command else {
+            panic!("expected latest discovery save command");
+        };
+        let Some(super::DeviceDiscoveryCommands::Save(args)) = args.command else {
+            panic!("expected latest discovery save subcommand");
+        };
+        assert_eq!(args.endpoints, vec!["192.168.60.98:22"]);
+        assert_eq!(args.profiles, vec!["fortinet"]);
+        assert_eq!(args.connection_name.as_deref(), Some("branch-fw"));
+        assert!(args.overwrite);
+        assert!(args.json);
     }
 
     #[test]

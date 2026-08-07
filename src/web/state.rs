@@ -11,12 +11,13 @@ use crate::web::error::ApiError;
 use crate::web::models::{ConnectionRequest, SessionRetryOptions};
 use rneter::session::{DetectRequest, MANAGER, SshAuthMethod};
 use rneter::templates::DetectConnectPolicy;
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
-use tokio::sync::watch;
+use tokio::sync::{Mutex, watch};
 use tracing::{info, warn};
 
 #[derive(Clone)]
@@ -27,6 +28,7 @@ pub struct AppState {
     pub started_at: Instant,
     registrar: Arc<OnceLock<Arc<AgentRegistrar>>>,
     running_tasks: Arc<AtomicU32>,
+    discovery_cancellations: Arc<Mutex<HashMap<String, watch::Sender<bool>>>>,
     shutdown_tx: watch::Sender<bool>,
 }
 
@@ -44,6 +46,7 @@ impl AppState {
             started_at: Instant::now(),
             registrar: Arc::new(OnceLock::new()),
             running_tasks: Arc::new(AtomicU32::new(0)),
+            discovery_cancellations: Arc::new(Mutex::new(HashMap::new())),
             shutdown_tx,
         })
     }
@@ -110,6 +113,27 @@ impl AppState {
         Some(RunningTaskGuard {
             state: Some(self.clone()),
         })
+    }
+
+    pub async fn register_discovery_run(&self, run_id: &str) -> watch::Receiver<bool> {
+        let (cancel_tx, cancel_rx) = watch::channel(false);
+        self.discovery_cancellations
+            .lock()
+            .await
+            .insert(run_id.to_string(), cancel_tx);
+        cancel_rx
+    }
+
+    pub async fn cancel_discovery_run(&self, run_id: &str) -> bool {
+        self.discovery_cancellations
+            .lock()
+            .await
+            .get(run_id)
+            .is_some_and(|cancel_tx| cancel_tx.send(true).is_ok())
+    }
+
+    pub async fn unregister_discovery_run(&self, run_id: &str) {
+        self.discovery_cancellations.lock().await.remove(run_id);
     }
 }
 

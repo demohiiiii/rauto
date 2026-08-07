@@ -1,6 +1,8 @@
 import {
   EMPTY_INVENTORY_HOST_SET,
+  INVENTORY_KIND,
   isInventoryGroupsSection,
+  normalizeInventorySection,
 } from "../../config/dashboardModes.js";
 import {
   classNames,
@@ -10,9 +12,11 @@ import {
 import { tr } from "../../lib/i18n.js";
 
 function inventorySectionPresentation(inventorySection = "") {
+  const normalizedSection = normalizeInventorySection(inventorySection);
   return {
-    groupsActive: isInventoryGroupsSection(inventorySection),
-    labelsActive: !isInventoryGroupsSection(inventorySection),
+    devicesActive: normalizedSection === INVENTORY_KIND.devices,
+    groupsActive: normalizedSection === INVENTORY_KIND.groups,
+    labelsActive: normalizedSection === INVENTORY_KIND.labels,
   };
 }
 

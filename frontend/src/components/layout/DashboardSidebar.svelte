@@ -11,6 +11,7 @@
   import UserCogIcon from "@lucide/svelte/icons/user-cog";
   import FileCode2Icon from "@lucide/svelte/icons/file-code-2";
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
+  import ScanSearchIcon from "@lucide/svelte/icons/scan-search";
   import UploadIcon from "@lucide/svelte/icons/upload";
   import ShieldBanIcon from "@lucide/svelte/icons/shield-ban";
   import DatabaseBackupIcon from "@lucide/svelte/icons/database-backup";
@@ -50,6 +51,7 @@
     prompts: UserCogIcon,
     templates: FileCode2Icon,
     inventory: ListTreeIcon,
+    "device-discovery": ScanSearchIcon,
     credentials: KeyRoundIcon,
     transfer: UploadIcon,
     blacklist: ShieldBanIcon,

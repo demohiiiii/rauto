@@ -59,6 +59,7 @@ rauto exec "show version" --host 192.168.1.1 --credential network-admin --device
   - [Template-存储管理命令](#template-存储管理命令)
   - [设备凭证](#设备凭证)
   - [已保存连接配置](#已保存连接配置)
+  - [设备自动发现](#设备自动发现)
   - [数据备份与恢复](#数据备份与恢复)
   - [命令黑名单](#命令黑名单)
   - [事务块](#事务块)
@@ -84,6 +85,7 @@ rauto exec "show version" --host 192.168.1.1 --credential network-admin --device
 - **内嵌静态资源**：发布二进制时前端资源已打包到可执行文件中。
 - **可复用设备凭证**：支持通过 CLI、Web 和 API 增删改查共享认证记录，再由已保存连接或临时连接引用，避免重复保存敏感信息。
 - **连接配置档复用**：支持按名称保存/加载连接参数。
+- **SSH 设备自动发现**：支持扫描 IP、CIDR 或地址范围，验证 SSH 服务，通过可复用凭证识别设备 profile，并区分新设备和已有连接。
 - **批量导入连接**：支持从 CSV / Excel 批量导入并按名称 upsert 已保存连接。
 - **SSH 安全档位**：可按目标选择 `secure`、`balanced`、`legacy-compatible`；默认使用 `legacy-compatible`。
 - **设备管理分组与标签**：支持用分组和标签组织已保存连接。
@@ -152,6 +154,7 @@ cp -R skills/rauto-usage "$CODEX_HOME/skills/"
 | 用变量渲染一个可复用命令模板         | `rauto template`    | 适合命令文本来自已保存 Jinja 模板的场景。                 |
 | 驱动交互式问答/确认流程              | `rauto flow`        | 适合复制向导、安装向导和多轮 prompt/response 场景。       |
 | 通过远端 SFTP 直接上传本地文件       | `rauto upload`      | 要求目标 SSH 服务暴露 `sftp` 子系统。                     |
+| 自动发现网段内的 SSH 设备            | `rauto device discover` | 验证 SSH identification、探测设备 profile，并保存最新扫描结果。 |
 | 执行一个带回滚能力的事务块           | `rauto tx`          | 适合单目标、单事务单元、需要步骤级或资源级回滚的场景。    |
 | 从 JSON 执行多步骤事务工作流         | `rauto tx-workflow` | 适合把事务拆成命名 block/stage 并保存在 workflow 文件中。 |
 | 执行多设备分阶段计划                 | `rauto orchestrate` | 适合面向多台已保存连接做串行/并发编排发布。               |
@@ -856,6 +859,70 @@ linux-jump-01,192.168.1.10,linux-admin,22,30,,,secure,posix,linux,
 - 仓库里也提供了中英文两份示例文件：
 - [templates/examples/connection-import-template-en.csv](templates/examples/connection-import-template-en.csv)
 - [templates/examples/connection-import-template-zh.csv](templates/examples/connection-import-template-zh.csv)
+
+### 设备自动发现
+
+无需启动 Web 服务即可从 CLI 发现 SSH 设备。CLI 与 Web 控制台复用同一套扫描逻辑和最新持久化结果：
+
+```bash
+# 使用全局凭证作为默认探测凭证
+rauto device discover 192.168.60.0/24 --credential network-admin
+
+# 依次尝试多套凭证和多个 SSH 端口，并展示全部结果
+rauto device discover 192.168.60.0/24 \
+    --probe-credential network-admin \
+    --probe-credential fallback-admin \
+    --port 22,2222 \
+    --status all
+
+# 仅以 JSON 输出已经存在于已保存连接中的设备
+rauto device discover 192.168.60.0/24 \
+    --credential network-admin \
+    --status existing \
+    --json
+
+# 扫描完成后自动保存所有新识别到的设备
+rauto device discover 192.168.60.0/24 \
+    --credential network-admin \
+    --auto-save
+
+# 不重新扫描，查询当前最新的发现结果
+rauto device discover list \
+    --status identified \
+    --profile fortinet,linux \
+    --port 22,2222 \
+    --search branch
+
+# 保存全部匹配的已识别设备，或指定一个或多个端点
+rauto device discover save --profile fortinet
+rauto device discover save 192.168.60.98:22 \
+    --connection-name branch-fw
+```
+
+目标支持单个 IP、CIDR，以及 `192.168.2.10-30` 形式的末段地址范围；一次运行可以传入多个目标参数。单次运行最多接受 4,096 个去重地址、16 个端口和 3 套探测凭证。可通过 `--concurrency`、`--tcp-timeout-ms` 和 `--probe-timeout-secs` 调整较大或较慢网络的扫描参数。
+
+只使用一套探测凭证时可传 `--credential`。一旦传入一个或多个 `--probe-credential`，它们会覆盖 `--credential`，并按提供顺序依次尝试。
+
+默认的 `--status identified` 只输出新识别到的设备，不包含已经存在于已保存连接中的端点。其他筛选值包括 `all`、`existing`、`imported`、`reachable`、`failed`、`not-ssh`、`probe-failed`、`unreachable` 和 `cancelled`。仅 TCP 连接成功不会被判断为 SSH 可达：rauto 必须先收到有效的 SSH identification，之后才会尝试凭证和设备 profile 探测。
+
+在交互式终端中，CLI 会在扫描期间显示实时进度条，并在完成后进入 TUI。新识别到的设备默认被勾选；已有连接、已导入设备和失败结果不可勾选。可通过以下按键审核和保存结果：
+
+| 按键 | 操作 |
+| ---- | ---- |
+| `Up` / `Down` 或 `j` / `k` | 在结果间移动 |
+| `Space` | 勾选或取消当前设备 |
+| `a` | 勾选或取消当前筛选结果中的全部可导入设备 |
+| `f` / `Shift+f` 或 `Right` / `Left` | 切换状态筛选 |
+| `/` | 搜索主机、端口、profile、型号、版本和错误信息 |
+| `e` | 编辑当前设备的连接名称 |
+| `s` | 将已勾选设备保存为连接 |
+| `q` 或 `Ctrl+C` | 退出 TUI |
+
+使用 `--no-tui` 可保留进度条，但在完成后直接打印经过筛选的表格结果。`--json` 会同时关闭进度条和 TUI，确保标准输出保持机器可读，可安全用于重定向或管道；stdin/stdout 不是交互终端时也会自动回退到普通文本输出。
+
+使用 `rauto device discover list` 可以直接读取最新持久化结果，不会发起新扫描。该命令支持 `--status`、可重复或逗号分隔的 `--profile` 和 `--port`、`--search` 以及 `--json`。使用 `rauto device discover save` 可保存全部匹配的新识别设备，也可传入一个或多个主机或 `host:port` 来限定端点。默认连接名由识别到的平台名和 IP 组成，例如 `cisco_ios-192-168-60-98`；非标准 SSH 端口会追加到名称后避免端点冲突。仅匹配一个设备时可通过 `--connection-name` 指定连接名，`--overwrite` 允许替换同名连接。原有的 `rauto device discovery list|save` 写法仍保留用于兼容。
+
+SQLite 和 Web 控制台只保留最新一次扫描及其结果。开始新扫描时会替换上一次发现 run、发现结果及其任务中心记录，但不会删除已经保存的设备连接；当前扫描仍在运行时不能启动第二次扫描。TUI 保存、`device discover save` 和 `device discover --auto-save` 都使用与 Web 控制台相同的重复端点、凭证和连接名校验。扫描过程中按 `Ctrl+C` 可请求取消当前任务。
 
 ### 数据备份与恢复
 
