@@ -25,7 +25,7 @@ rauto device discover 192.168.60.0/24 \
 
 - Interactive terminal: show phase-aware progress, then open the result TUI.
 - `--no-tui`: keep progress, then print the filtered table.
-- `--json`: suppress progress and TUI so stdout remains machine-readable.
+- `--json`: suppress progress and TUI so stdout remains machine-readable; result `status` uses the same derived `identified`, `existing`, or `imported` state as filtering and the TUI.
 - Non-interactive stdin/stdout: automatically use plain output.
 
 Progress has two phases: TCP scan uses `scanned_targets / total_targets`; SSH identification/profile probing uses `probed_targets / reachable_count`. Do not report completion merely because the TCP phase reached 100%.

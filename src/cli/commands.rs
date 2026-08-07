@@ -383,11 +383,18 @@ pub enum DeviceCommands {
     /// Test SSH connection without executing commands
     Test,
     /// List saved devices
-    List,
+    List {
+        /// Output saved devices as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Show a saved device connection
     Show {
         /// Saved device name
         name: String,
+        /// Output saved device metadata as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Delete a saved device connection
     Delete {
@@ -977,6 +984,23 @@ mod tests {
         .expect("--credential should be accepted");
 
         assert_eq!(cli.global_opts.credential.as_deref(), Some("network-admin"));
+    }
+
+    #[test]
+    fn device_read_commands_accept_json_output() {
+        let list = Cli::try_parse_from(["rauto", "device", "list", "--json"])
+            .expect("device list --json should parse");
+        assert!(matches!(
+            list.command,
+            Commands::Device(DeviceCommands::List { json: true })
+        ));
+
+        let show = Cli::try_parse_from(["rauto", "device", "show", "edge-01", "--json"])
+            .expect("device show --json should parse");
+        assert!(matches!(
+            show.command,
+            Commands::Device(DeviceCommands::Show { name, json: true }) if name == "edge-01"
+        ));
     }
 
     #[test]

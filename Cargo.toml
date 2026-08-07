@@ -26,7 +26,7 @@ include = [
 [dependencies]
 clap = { version = "4.5.23", features = ["derive", "env"] }
 minijinja = { version = "2.15", features = ["loader", "json"] }
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "45a0669d4199aca8c1c10d8c70402f135f5e5d75" }
+rneter = "0.5.0"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 futures-util = "0.3"
@@ -87,5 +87,5 @@ protoc-bin-vendored = "3.1.0"
 
 [dev-dependencies]
 async-ssh2-tokio = "0.13"
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "45a0669d4199aca8c1c10d8c70402f135f5e5d75", features = ["testkit"] }
+rneter = { version = "0.5.0", features = ["testkit"] }
 tower = { version = "0.5.2", features = ["util"] }

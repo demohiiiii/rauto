@@ -27,7 +27,9 @@ The Web service only starts the workbench; select a saved connection and credent
 
 ```bash
 rauto device list
+rauto device list --json
 rauto device show core-01
+rauto device show core-01 --json
 rauto device test --connection core-01
 rauto credential add network-admin
 rauto credential list
@@ -196,6 +198,8 @@ rauto upload --connection edge92 --local-path ./pkg.tar --remote-path /tmp/pkg.t
 rauto backup create
 rauto backup list
 ```
+
+The inventory group name comes from the positional `upsert` argument. The JSON body only needs optional `description` and `hosts`; do not duplicate `name` in it.
 
 Device groups only store saved-device membership and an optional description. They do not provide group variables or inline connection definitions:
 

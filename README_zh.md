@@ -24,18 +24,14 @@ cargo install rauto
 # 新增可复用凭证；命令会安全地交互式询问登录信息
 rauto credential add network-admin
 
-# 需要浏览器工作台时，在另一个终端启动 Web UI
-rauto web --bind 127.0.0.1 --port 3000
-```
-
-CLI 通过凭证名称或 ID 引用设备凭证：
-
-```bash
 # 默认使用 autodetect 自动识别设备 profile
 rauto exec "uname -a" --host 192.168.1.10 --credential network-admin
 
 # 如果要连接 Cisco 这类网络设备，显式指定 cisco profile
 rauto exec "show version" --host 192.168.1.1 --credential network-admin --device-profile cisco_ios
+
+# 需要浏览器工作台时，启动 Web UI
+rauto web --bind 127.0.0.1 --port 3000
 ```
 
 ## 目录导航
@@ -820,7 +816,9 @@ rauto connection test \
 
 # 管理已保存配置
 rauto connection list
+rauto connection list --json
 rauto connection show lab1
+rauto connection show lab1 --json
 rauto connection delete lab1
 rauto session list lab1 --limit 20
 ```
@@ -929,7 +927,7 @@ rauto device discover save 192.168.60.98:22 \
 | `s` | 将已勾选设备保存为连接 |
 | `q` 或 `Ctrl+C` | 退出 TUI |
 
-使用 `--no-tui` 可保留进度条，但在完成后直接打印经过筛选的表格结果。`--json` 会同时关闭进度条和 TUI，确保标准输出保持机器可读，可安全用于重定向或管道；stdin/stdout 不是交互终端时也会自动回退到普通文本输出。
+使用 `--no-tui` 可保留进度条，但在完成后直接打印经过筛选的表格结果。`--json` 会同时关闭进度条和 TUI，确保标准输出保持机器可读，可安全用于重定向或管道。JSON 结果的 `status` 与筛选和 TUI 使用相同的派生状态，因此已导入和已有连接会分别显示为 `imported` 和 `existing`；stdin/stdout 不是交互终端时也会自动回退到普通文本输出。
 
 使用 `rauto device discover list` 可以直接读取最新持久化结果，不会发起新扫描。该命令支持 `--status`、可重复或逗号分隔的 `--profile` 和 `--port`、`--search` 以及 `--json`。使用 `rauto device discover save` 可保存全部匹配的新识别设备，也可传入一个或多个主机或 `host:port` 来限定端点。默认连接名由识别到的平台名和 IP 组成，例如 `cisco_ios-192-168-60-98`；非标准 SSH 端口会追加到名称后避免端点冲突。仅匹配一个设备时可通过 `--connection-name` 指定连接名，`--overwrite` 允许替换同名连接。原有的 `rauto device discovery list|save` 写法仍保留用于兼容。
 
@@ -1330,11 +1328,12 @@ Group JSON 结构：
 
 ```json
 {
-  "name": "access",
   "description": "Campus access switches",
   "hosts": ["edge-sw-01", "edge-sw-02"]
 }
 ```
+
+位置参数中的 group 名称为准，`upsert` 不再要求 JSON 中重复提供 `name` 字段。
 
 ## 目录结构
 

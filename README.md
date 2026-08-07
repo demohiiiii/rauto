@@ -24,18 +24,14 @@ cargo install rauto
 # Create a reusable credential; the command securely prompts for login values.
 rauto credential add network-admin
 
-# Start the Web UI in another terminal when you want the browser workbench.
-rauto web --bind 127.0.0.1 --port 3000
-```
-
-Direct CLI connections reference the credential by name or ID:
-
-```bash
 # The default device profile is autodetect
 rauto exec "uname -a" --host 192.168.1.10 --credential network-admin
 
 # Use an explicit network-device profile such as Cisco IOS
 rauto exec "show version" --host 192.168.1.1 --credential network-admin --device-profile cisco_ios
+
+# Start the Web UI when you want the browser workbench.
+rauto web --bind 127.0.0.1 --port 3000
 ```
 
 ## Table of Contents
@@ -821,7 +817,9 @@ rauto connection test \
 
 # Manage saved profiles
 rauto connection list
+rauto connection list --json
 rauto connection show lab1
+rauto connection show lab1 --json
 rauto connection delete lab1
 rauto session list lab1 --limit 20
 ```
@@ -930,7 +928,7 @@ On an interactive terminal, the CLI displays a live progress bar and opens a TUI
 | `s` | Save selected devices as connections |
 | `q` or `Ctrl+C` | Exit the TUI |
 
-Use `--no-tui` to keep the progress bar but print the filtered tabular result instead. `--json` disables both the progress bar and TUI so stdout remains machine-readable; it can be redirected or piped safely. A non-interactive stdin/stdout also falls back to plain output automatically.
+Use `--no-tui` to keep the progress bar but print the filtered tabular result instead. `--json` disables both the progress bar and TUI so stdout remains machine-readable; it can be redirected or piped safely. JSON result `status` values use the same derived states as filtering and the TUI, so imported and existing connections are reported as `imported` and `existing`. A non-interactive stdin/stdout also falls back to plain output automatically.
 
 Use `rauto device discover list` to read the latest persisted snapshot without scanning again. It supports `--status`, repeatable or comma-separated `--profile` and `--port` filters, `--search`, and `--json`. Use `rauto device discover save` to save every matching newly identified device; optional host or `host:port` arguments restrict the operation to explicit endpoints. Default connection names combine the detected platform and IP address, for example `cisco_ios-192-168-60-98`; nonstandard SSH ports are appended to avoid endpoint collisions. `--connection-name` is available when exactly one device matches, while `--overwrite` allows replacing an existing connection with that name. The previous `rauto device discovery list|save` spelling remains available for compatibility.
 
@@ -1336,11 +1334,12 @@ Group JSON shape:
 
 ```json
 {
-  "name": "access",
   "description": "Campus access switches",
   "hosts": ["edge-sw-01", "edge-sw-02"]
 }
 ```
+
+The positional group name is authoritative; `upsert` does not require a duplicate `name` field in the JSON body.
 
 ## Directory Structure
 

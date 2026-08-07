@@ -329,9 +329,15 @@ pub(crate) async fn run_device_command(
                     .unwrap_or_else(|| "-".to_string())
             );
         }
-        DeviceCommands::List => {
+        DeviceCommands::List { json } => {
             let names = list_connections()?;
-            if names.is_empty() {
+            if json {
+                let output = names
+                    .iter()
+                    .map(|name| connection_show_output(name))
+                    .collect::<Result<Vec<_>>>()?;
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else if names.is_empty() {
                 println!("-");
             } else {
                 for name in names {
@@ -339,31 +345,15 @@ pub(crate) async fn run_device_command(
                 }
             }
         }
-        DeviceCommands::Show { name } => {
+        DeviceCommands::Show { name, json } => {
             let safe = connection_store::safe_connection_name(&name)?;
-            let data = load_connection_raw(&safe)?;
-            let credential_name = data
-                .credential_id
-                .as_deref()
-                .and_then(|id| crate::config::device_credential_store::get_credential(id).ok())
-                .map(|item| item.name);
-            let output = ConnectionShowOutput {
-                host: data.host.clone(),
-                credential: credential_name,
-                port: data.port,
-                ssh_security: data.ssh_security,
-                linux_shell_flavor: data.linux_shell_flavor,
-                device_profile: data.device_profile.clone(),
-                template_dir: data.template_dir.clone(),
-                enabled: data.enabled,
-                labels: data.labels.clone(),
-                groups: data.groups.clone(),
-                vars: data.vars.clone(),
-                has_password: connection_store::has_saved_password(&data),
-                has_enable_password: connection_store::has_saved_enable_password(&data),
-            };
-            println!("# saved device: {}", safe);
-            println!("{}", toml::to_string_pretty(&output)?);
+            let output = connection_show_output(&safe)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("# saved device: {}", safe);
+                println!("{}", toml::to_string_pretty(&output)?);
+            }
         }
         DeviceCommands::Delete { name } => {
             let deleted = delete_connection(&name)?;
@@ -767,8 +757,7 @@ fn run_inventory_group_command(cmd: InventoryGroupCommands) -> Result<()> {
             content,
         } => {
             let body = crate::read_required_text_input(file.as_ref(), content.as_deref())?;
-            let mut group: inventory_store::InventoryGroup = serde_json::from_str(&body)?;
-            group.name = name.clone();
+            let group = parse_inventory_group_input(&name, &body)?;
             inventory_store::upsert_group(&name, &group)?;
             println!("Upserted inventory group '{}'", name);
             Ok(())
@@ -824,6 +813,7 @@ impl CredentialCliOutput {
 
 #[derive(Debug, Serialize)]
 struct ConnectionShowOutput {
+    name: String,
     host: Option<String>,
     credential: Option<String>,
     port: Option<u16>,
@@ -837,6 +827,44 @@ struct ConnectionShowOutput {
     vars: serde_json::Value,
     has_password: bool,
     has_enable_password: bool,
+}
+
+fn connection_show_output(name: &str) -> Result<ConnectionShowOutput> {
+    let safe = connection_store::safe_connection_name(name)?;
+    let data = load_connection_raw(&safe)?;
+    let credential_name = data
+        .credential_id
+        .as_deref()
+        .and_then(|id| crate::config::device_credential_store::get_credential(id).ok())
+        .map(|item| item.name);
+    Ok(ConnectionShowOutput {
+        name: safe,
+        host: data.host.clone(),
+        credential: credential_name,
+        port: data.port,
+        ssh_security: data.ssh_security,
+        linux_shell_flavor: data.linux_shell_flavor,
+        device_profile: data.device_profile.clone(),
+        template_dir: data.template_dir.clone(),
+        enabled: data.enabled,
+        labels: data.labels.clone(),
+        groups: data.groups.clone(),
+        vars: data.vars.clone(),
+        has_password: connection_store::has_saved_password(&data),
+        has_enable_password: connection_store::has_saved_enable_password(&data),
+    })
+}
+
+fn parse_inventory_group_input(name: &str, body: &str) -> Result<inventory_store::InventoryGroup> {
+    let mut value: serde_json::Value = serde_json::from_str(body)?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("inventory group content must be a JSON object"))?;
+    object.insert(
+        "name".to_string(),
+        serde_json::Value::String(name.to_string()),
+    );
+    Ok(serde_json::from_value(value)?)
 }
 
 fn print_list(label: &str, values: &[String]) {
@@ -895,7 +923,7 @@ fn print_credential_import_report(report: &DeviceCredentialImportReport) {
 
 #[cfg(test)]
 mod tests {
-    use super::value_or_prompt;
+    use super::{parse_inventory_group_input, value_or_prompt};
     use anyhow::Result;
 
     #[test]
@@ -904,6 +932,26 @@ mod tests {
             panic!("prompt must not run when an explicit value is present")
         })?;
         assert_eq!(value, "admin");
+        Ok(())
+    }
+
+    #[test]
+    fn inventory_group_input_uses_positional_name() -> Result<()> {
+        let group = parse_inventory_group_input(
+            "access",
+            r#"{"name":"ignored","description":"access layer","hosts":[]}"#,
+        )?;
+
+        assert_eq!(group.name, "access");
+        assert_eq!(group.description.as_deref(), Some("access layer"));
+        Ok(())
+    }
+
+    #[test]
+    fn inventory_group_input_does_not_require_json_name() -> Result<()> {
+        let group = parse_inventory_group_input("access", r#"{"hosts":[]}"#)?;
+
+        assert_eq!(group.name, "access");
         Ok(())
     }
 }

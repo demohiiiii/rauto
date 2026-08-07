@@ -134,6 +134,7 @@ pub(crate) async fn run_device_discovery(
             .results
             .retain(|result| result_matches_filter(result, display_filter));
         if args.json {
+            normalize_discovery_statuses_for_json(&mut detail.results);
             println!("{}", serde_json::to_string_pretty(&detail)?);
         } else {
             print_discovery_results(&detail, display_filter);
@@ -162,6 +163,7 @@ async fn list_latest_discovery(args: DeviceDiscoveryListArgs) -> Result<()> {
         .results
         .retain(|result| result_matches_cli_filters(result, &args.filters));
     if args.json {
+        normalize_discovery_statuses_for_json(&mut detail.results);
         println!("{}", serde_json::to_string_pretty(&detail)?);
     } else {
         print_discovery_results(&detail, args.filters.status);
@@ -427,6 +429,12 @@ pub(crate) fn displayed_result_status(result: &DiscoveryResultRecord) -> &str {
     }
 }
 
+fn normalize_discovery_statuses_for_json(results: &mut [DiscoveryResultRecord]) {
+    for result in results {
+        result.status = displayed_result_status(result).to_string();
+    }
+}
+
 pub(crate) fn result_matches_filter(
     result: &DiscoveryResultRecord,
     filter: DiscoveryStatusFilter,
@@ -635,8 +643,8 @@ fn clean_cell(value: Option<&str>) -> String {
 mod tests {
     use super::{
         default_discovery_connection_name, discovery_progress_view, discovery_result_can_import,
-        displayed_result_status, parse_endpoint_selector, result_matches_cli_filters,
-        result_matches_filter, validate_connection_name_match_count,
+        displayed_result_status, normalize_discovery_statuses_for_json, parse_endpoint_selector,
+        result_matches_cli_filters, result_matches_filter, validate_connection_name_match_count,
     };
     use crate::cli::{DeviceDiscoveryFilterArgs, DiscoveryStatusFilter};
     use crate::config::device_discovery_store::DiscoveryResultRecord;
@@ -685,6 +693,20 @@ mod tests {
             DiscoveryStatusFilter::Reachable
         ));
         assert!(!discovery_result_can_import(&existing));
+    }
+
+    #[test]
+    fn discovery_json_status_matches_displayed_status() {
+        let mut existing = result("identified");
+        existing.existing_connection_name = Some("edge-10".to_string());
+        let mut imported = result("identified");
+        imported.imported_connection_name = Some("edge-11".to_string());
+        let mut results = vec![existing, imported];
+
+        normalize_discovery_statuses_for_json(&mut results);
+
+        assert_eq!(results[0].status, "existing");
+        assert_eq!(results[1].status, "imported");
     }
 
     #[test]
