@@ -4,26 +4,48 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-10
+
 ### New Features
-- Updated rneter to commit `45d752c` and enabled multi-mode command targeting across CLI, Web/API execution payloads, templates, transactions, show objects, and config catalog mappings. Mode fields now accept comma- or pipe-separated candidates such as `Enable,Config` or `Root|User`; rauto validates each candidate against the selected profile before rneter chooses the reachable execution mode.
-- Updated rneter to `0.4.7` commit `fd2583d` and added password, encrypted inline-private-key, private-key-file, and SSH-agent authentication across CLI, Web, import, orchestration, and agent gRPC execution paths.
-- Added rneter virtual-device integration coverage for rauto's SSH wrapper and redacted configured authentication and Enable secrets before full session events are stored or broadcast.
-- Added opt-in bounded retries for ordinary commands and command flows, including capped exponential backoff, conservative transient-error classification, flow resumption from the first unfinished step, and optional authentication retries.
-- Added virtual-device coverage for transient disconnect recovery and paged output collection using rneter's latest fault-injection and paging testkit capabilities.
+- Added automatic device discovery across CLI and Web, including CIDR/range scanning, SSH identification, profile probing, phase-aware progress, latest-result persistence, status/profile/port/search filters, TUI selection, automatic import, and protection against re-importing existing connections.
+- Added encrypted reusable device credentials with password, inline private key, private-key file, and SSH-agent authentication; credential references now work across saved connections, imports, CLI, Web, orchestration, and agent gRPC tasks.
+- Added bounded multi-target command, flow, show, and configuration-fetch execution across saved connections, inventory groups, and labels, with dedicated batch/config-fetch workspaces, per-target failure isolation, configurable concurrency, and file/download output.
+- Added configuration-fetch catalogs with per-profile commands, SQLite overrides, volatile-line filtering, normalized and raw SHA-256 hashes, timestamped archives, and CLI/HTTP/gRPC/Web management surfaces.
+- Added opt-in session retries with capped exponential backoff, transient/authentication error controls, command-flow resumption from the first unfinished step, and shared retry settings across CLI, Web, gRPC, show, and configuration-fetch paths.
+- Added comma- or pipe-separated mode candidates across CLI, Web/API payloads, templates, transactions, show objects, and config catalogs; rauto validates candidates against the selected profile before rneter chooses the reachable mode.
+- Expanded show queries with multi-object and multi-device execution, profile-specific version facts for Comware and Linux, lenient TextFSM handling, complete diagnostic transcripts on failure, and merged Excel exports.
+- Rebuilt the Web workbench around shared Svelte/shadcn components, including visual transaction and multi-device orchestration editors, unified command-flow authoring, dedicated device/profile/template/session workspaces, responsive layouts, localization, and refreshed logo/favicon assets.
+- Added password-gated Web mode with first-run password generation, revocable browser sessions, localized login/logout, and managed path policies for backups, restores, uploads, imports, templates, and private keys.
 
 ### Optimizations
-- Adopted rneter's latest connection-pool lifecycle behavior, including single-flight connection creation, maintenance that survives slow setup without retaining abandoned pools, race-safe failed-client invalidation, and safer session state transitions.
-- Reused the selected connection after device-profile autodetection instead of immediately opening a second SSH connection for execution.
-- Kept rauto's bounded multi-target drivers for target resolution, blacklist prechecks, task reporting, and recording while inheriting rneter's per-connection lifecycle and failure-isolation improvements.
+- Updated to the crates.io `rneter 0.5.0` release and adopted its authentication-aware pooling, single-flight connection establishment, dead-session eviction, idle maintenance, credential-change detection, retry recovery, fleet isolation, and expanded vendor/profile handling.
+- Reused the selected SSH connection after profile autodetection instead of opening a second connection, while retaining bounded rauto drivers for target resolution, blacklist prechecks, task reporting, and session recording.
+- Unified synchronous, asynchronous, successful, partial, and failed execution responses and result views so complete rneter transcripts, structured failures, summaries, parsed output, and downloads remain available consistently.
+- Consolidated managed-task lifecycle and callback handling across standard, transaction, workflow, batch, and orchestration routes, reducing duplicated reporting and recording behavior.
+- Improved SQLite concurrency with transient lock waits, serialized write paths where needed, and recoverable discovery-run leases so concurrent CLI activity does not leave the database permanently locked or discovery stuck active.
+- Split the Web frontend into domain modules and lazy-loaded page/workspace chunks, replacing large behavior modules with reusable form, result, overlay, connection, transaction, and orchestration components.
+- Updated connection testing and profile detection to use current unsaved form values and credential selections, avoiding fallback to stale persisted connection data.
 
 ### API Changes
-- Added SSH authentication type and non-sensitive authentication metadata to credential HTTP and gRPC models, credential import columns, and the Web credential editor.
-- Added global `--session-retries`, `--retry-initial-backoff-ms`, `--retry-max-backoff-ms`, and `--retry-authentication-errors` CLI/server options with matching `RAUTO_*` environment variables.
-- Added SQLite migration `202607270001_ssh_auth_methods.sql`; existing password credentials migrate automatically with `auth_type = password`.
+- Saved connections now reference reusable credentials instead of accepting legacy inline authentication flags. CLI scripts and HTTP/gRPC clients must create or select a credential and pass its name/ID; credential responses expose metadata but never secret material.
+- Added CLI surfaces for device discovery, credential management/import, multi-target execution, configuration fetch/catalog management, unified sessions, and machine-readable `device list/show --json`; the positional inventory-group name is now authoritative over any JSON `name` field.
+- Replaced separate history/replay CLI workflows with the unified `rauto session` command group and added target selectors, concurrency, output-file, retry, authentication, and multi-mode options to existing execution commands.
+- HTTP execution routes now return a unified envelope containing authoritative `success`, `error`, `result_summary`, and `data` fields, including partial business failures; strict clients must unwrap this envelope instead of treating every HTTP 2xx response as successful execution.
+- Agent task gRPC contracts now cover credentials, batch commands/flows, configuration fetch and catalog operations, retries, expanded connection facts, and the unified execution result model; manager implementations must regenerate bindings from the updated protobuf definitions.
+- Web mode now requires a password-backed browser session. On first start without a configured password, rauto generates one in its configuration file; API calls without a valid Web session return `401`.
+- Mode values may now contain ordered candidates such as `Enable,Config` or `Root|User`. Consumers that previously modeled mode as a closed single-choice enum must accept the delimited string form.
+- Added migrations for connection timeouts, detected device facts, reusable credentials, Enable-stage metadata, config-command overrides, volatile patterns, SSH authentication methods, and device discovery. Deployments must run all migrations before using 0.5.0 and should back up `~/.rauto/` first.
+- The dependency source is now the published `rneter 0.5.0` crate, whose declared minimum supported Rust version is 1.88.
 
 ### Risks
-- Private-key-file and SSH-agent authentication depend on files, permissions, and agent sockets available to the running rauto process; SSH-agent authentication is not supported on Windows by rneter.
-- Session retries have at-least-once semantics: a remote command can take effect before its connection drops, so retries must remain disabled for operations that are unsafe to repeat. Transaction, workflow, and upload APIs are not automatically retried.
+- The default `legacy-compatible` SSH profile improves access to older devices but intentionally skips `known_hosts` verification and permits weaker algorithms; use `balanced` or `secure` where server identity and stronger negotiation are required.
+- Session retries have at-least-once semantics: a command may take effect before the connection drops, so retries should remain disabled for non-idempotent operations unless duplicate side effects are acceptable.
+- Device discovery actively opens TCP/SSH connections across the requested scope; only scan authorized networks, keep CIDR/range and concurrency settings bounded, and review identified devices before importing or enabling automatic saves.
+- Private-key-file and SSH-agent authentication depend on files, permissions, and agent sockets available to the running process; SSH-agent authentication is not supported on Windows by rneter.
+- The credential/discovery migrations and consolidated SQLite records materially change local state. Interrupted or partially applied migrations, missing credential references, or restoring a database without matching secret material can prevent saved connections from authenticating.
+- Existing automation may break on removed inline authentication flags, unified session commands, delimited mode values, new gRPC fields, or the HTTP execution envelope; update scripts and manager clients before rollout.
+- The generated first-run Web password protects browser access only if the rauto configuration file remains private. Rotate exposed passwords and avoid binding Web mode to untrusted networks without additional transport protection.
+- The Web workbench was extensively reorganized and has broad component/regression coverage plus targeted Playwright checks, but uncommon browser/device combinations and complex long-running orchestration interactions still carry UI regression risk.
 
 ## [0.4.2] - 2026-06-04
 
