@@ -21,14 +21,25 @@
 ```bash
 cargo install rauto
 
-# 新增可复用凭证；命令会安全地交互式询问登录信息
+# 新增可复用凭证；命令会安全地询问登录信息和可选的 Enable 信息
 rauto credential add network-admin
 
-# 默认使用 autodetect 自动识别设备 profile
+# 在 Linux 上查询通用对象；show 会映射命令和 mode，并解析输出
+rauto show version --host 192.168.1.10 --credential network-admin
+
+# 显式指定 profile，在网络设备上查询同一个对象
+rauto show version --host 192.168.1.1 --credential network-admin --device-profile cisco_ios
+
+# 使用 autodetect 时，这条命令按 Linux profile 的默认 User mode 执行
 rauto exec "uname -a" --host 192.168.1.10 --credential network-admin
 
-# 如果要连接 Cisco 这类网络设备，显式指定 cisco profile
-rauto exec "show version" --host 192.168.1.1 --credential network-admin --device-profile cisco_ios
+# 如果 SSH 登录后直接处于 root shell，需要显式指定 Root
+# 否则切换到默认 User mode 时可能发送 exit 并断开连接
+rauto exec "uname -a" --host 192.168.1.10 --credential network-admin --mode Root
+
+# 网络设备通常有 Login、Enable 等 mode；exec 不会根据命令内容自动判断 mode
+# 特权命令需指定 Enable；设备要求 Enable 密码时，还要在凭证中配置 Enable 密钥
+rauto exec "show version" --host 192.168.1.1 --credential network-admin --device-profile cisco_ios --mode Enable
 
 # 需要浏览器工作台时，启动 Web UI
 rauto web --bind 127.0.0.1 --port 3000
@@ -41,7 +52,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [二进制文件安装推荐](#二进制文件安装推荐)
   - [通过-cratesio-安装](#通过-cratesio-安装)
   - [源码安装](#源码安装)
-- [Codex Skill可选](#codex-skill可选)
+- [Skill](#skill)
 - [使用方法](#使用方法)
   - [命令选型指南](#命令选型指南)
   - [模板模式](#模板模式)
@@ -123,21 +134,17 @@ cargo build --release
 
 编译后的二进制文件位于 `target/release/rauto`。
 
-## Codex Skill（可选）
+## Skill
 
 本仓库包含一个 `skills/rauto-usage/`，适合在 Codex 或 Claude Code 中配合 `rauto` 使用。
 
-适用于已经启用了 skill 加载能力的 Codex 兼容客户端。
-将该目录复制到对应客户端配置的 skills 目录即可。
-
-安装方式：
+使用 Skills CLI 安装，它会检测支持的 agent 并管理对应的 skills 目录：
 
 ```bash
-cp -R skills/rauto-usage "$CODEX_HOME/skills/"
+npx skills add demohiiiii/rauto --skill rauto-usage
 ```
 
-如果你的 Codex 环境没有暴露 `$CODEX_HOME`，请把 `skills/rauto-usage/` 复制到客户端实际配置的 skills 目录中。
-如果你使用 Claude Code，通常可复制到 `~/.claude/skills/`。
+需要安装到用户级目录时添加 `--global`；需要指定 agent 时使用 `--agent <agent>`。
 
 ## 使用方法
 
@@ -769,7 +776,7 @@ rauto credential import ./credentials.csv
 rauto credential delete network-ops
 ```
 
-`credential add` 和 `credential update` 支持 `--auth-type password|private-key|private-key-file|agent`，并提供 `--login-secret`、`--private-key`、`--private-key-file`、`--passphrase`、`--enable-secret` 和 `--json`。`--private-key` 会在保存时读取并加密文件内容，`--private-key-file` 则保存由 rneter 在连接时读取的路径。密码认证省略登录密钥时会通过安全提示输入。完整参数请执行 `rauto credential --help`。
+`credential add` 和 `credential update` 支持 `--auth-type password|private-key|private-key-file|agent`，并提供 `--login-secret`、`--private-key`、`--private-key-file`、`--passphrase`、`--enable-secret` 和 `--json`。`--private-key` 会在保存时读取并加密文件内容，`--private-key-file` 则保存由 rneter 在连接时读取的路径。密码认证省略登录密钥时会通过安全提示输入；交互式执行 `credential add` 时还会询问是否配置 Enable mode，并安全地读取可选的 Enable 密码。完整参数请执行 `rauto credential --help`。
 
 凭证导入支持 `.csv`、`.xlsx`、`.xls`、`.xlsm` 和 `.xlsb` 文件，并按凭证名称执行 upsert。认证类型不变时，更新已有凭证的认证字段留空会保留原值，`enable_secret` 留空会清除已保存的 Enable 密钥。支持 `auth_type`、`login_secret`、`private_key`、`private_key_path` 和 `passphrase` 列。新增凭证必须提供 `name`、`login_username` 以及所选认证类型要求的字段。`enable_enabled` 为 true 时会进入 Enable 阶段，有密钥就提交密钥，没有密钥就在密码提示处直接回车。布尔列支持 `true/false`、`1/0`、`yes/no` 或 `是/否`。
 

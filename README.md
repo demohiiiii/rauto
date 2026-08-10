@@ -21,14 +21,25 @@
 ```bash
 cargo install rauto
 
-# Create a reusable credential; the command securely prompts for login values.
+# Create a reusable credential; securely prompts for login and optional Enable values
 rauto credential add network-admin
 
-# The default device profile is autodetect
+# Query a common object on Linux; show maps the command and mode, then parses the output
+rauto show version --host 192.168.1.10 --credential network-admin
+
+# Query the same object on a network device with an explicit profile
+rauto show version --host 192.168.1.1 --credential network-admin --device-profile cisco_ios
+
+# With autodetect, this uses the Linux profile's default User mode
 rauto exec "uname -a" --host 192.168.1.10 --credential network-admin
 
-# Use an explicit network-device profile such as Cisco IOS
-rauto exec "show version" --host 192.168.1.1 --credential network-admin --device-profile cisco_ios
+# If SSH logs directly into a root shell, specify Root explicitly
+# Otherwise, switching to the default User mode may send "exit" and disconnect
+rauto exec "uname -a" --host 192.168.1.10 --credential network-admin --mode Root
+
+# Network devices use modes such as Login and Enable; exec does not infer one from the command
+# Use Enable for privileged commands, and configure the credential's Enable secret when required
+rauto exec "show version" --host 192.168.1.1 --credential network-admin --device-profile cisco_ios --mode Enable
 
 # Start the Web UI when you want the browser workbench.
 rauto web --bind 127.0.0.1 --port 3000
@@ -41,7 +52,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [From Binary (Recommended)](#from-binary-recommended)
   - [From Crates.io](#from-cratesio)
   - [From Source](#from-source)
-- [Codex Skill (Optional)](#codex-skill-optional)
+- [Skill](#skill)
 - [Usage](#usage)
   - [Command Selection Guide](#command-selection-guide)
   - [Template Mode](#template-mode)
@@ -123,21 +134,17 @@ cargo build --release
 
 The binary will be available at `target/release/rauto`.
 
-## Codex Skill (Optional)
+## Skill
 
 This repo includes a Codex skill under `skills/rauto-usage/` for agent-driven workflows.
 
-Use it when you already have a Codex-compatible client with skill loading enabled.
-Copy the folder into that client's configured skills directory.
-
-Install it with:
+Install it with the Skills CLI, which detects supported agents and manages the target skills directory:
 
 ```bash
-cp -R skills/rauto-usage "$CODEX_HOME/skills/"
+npx skills add demohiiiii/rauto --skill rauto-usage
 ```
 
-If your Codex setup does not expose `$CODEX_HOME`, copy `skills/rauto-usage/` into the skills directory configured by your client.
-If you use Claude Code, the equivalent location is usually `~/.claude/skills/`.
+Add `--global` for a user-level installation or `--agent <agent>` to select a specific supported agent.
 
 ## Usage
 
@@ -770,7 +777,7 @@ rauto credential import ./credentials.csv
 rauto credential delete network-ops
 ```
 
-`credential add` and `credential update` accept `--auth-type password|private-key|private-key-file|agent`, along with `--login-secret`, `--private-key`, `--private-key-file`, `--passphrase`, `--enable-secret`, and `--json`. `--private-key` reads and encrypts the file contents during the save; `--private-key-file` stores a path that rneter reads at connection time. Omit a password login secret to enter it through the secure prompt. Use `rauto credential --help` for the complete option list.
+`credential add` and `credential update` accept `--auth-type password|private-key|private-key-file|agent`, along with `--login-secret`, `--private-key`, `--private-key-file`, `--passphrase`, `--enable-secret`, and `--json`. `--private-key` reads and encrypts the file contents during the save; `--private-key-file` stores a path that rneter reads at connection time. Omit a password login secret to enter it through the secure prompt. Interactive `credential add` also asks whether to configure Enable mode and securely prompts for its optional password. Use `rauto credential --help` for the complete option list.
 
 Credential import accepts `.csv`, `.xlsx`, `.xls`, `.xlsm`, and `.xlsb` files. It uses name-based upsert: blank authentication fields preserve existing values when the authentication type is unchanged, while a blank `enable_secret` clears the saved Enable secret. Columns include `auth_type`, `login_secret`, `private_key`, `private_key_path`, and `passphrase`. New credentials require `name`, `login_username`, and the fields required by their authentication type. When `enable_enabled` is true, rauto enters the Enable stage and submits the secret, or presses Enter when the secret is blank. Boolean columns accept `true/false`, `1/0`, `yes/no`, or `是/否`.
 

@@ -441,6 +441,9 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
             enable,
             json,
         } => {
+            let interactive = login_username.is_none()
+                || (auth_type == crate::config::device_credential_store::DeviceAuthType::Password
+                    && login_secret.is_none());
             let username =
                 value_or_prompt(login_username.map(|value| value.trim().to_string()), || {
                     prompt_required("Login username", None)
@@ -453,6 +456,19 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
                 } else {
                     login_secret
                 };
+            let (enable_enabled, enable_password) = if enable || enable_secret.is_some() {
+                (true, enable_secret)
+            } else if interactive && prompt_confirm("Configure Enable mode", false)? {
+                (
+                    true,
+                    non_empty_option(prompt_secret(
+                        "Enable password (leave blank to submit Enter)",
+                        false,
+                    )?),
+                )
+            } else {
+                (false, None)
+            };
             let item = credentials::create_credential(&credentials::DeviceCredentialInput {
                 name,
                 username,
@@ -461,8 +477,8 @@ pub(crate) fn run_credential_command(cmd: CredentialCommands) -> Result<()> {
                 private_key: read_optional_private_key(private_key)?,
                 private_key_path: private_key_file.map(|path| path.to_string_lossy().to_string()),
                 passphrase,
-                enable_enabled: enable || enable_secret.is_some(),
-                enable_password: enable_secret,
+                enable_enabled,
+                enable_password,
             })?;
             let output = CredentialCliOutput::from_meta(item, Vec::new());
             if json {
@@ -634,6 +650,22 @@ fn prompt_secret(label: &str, required: bool) -> Result<String> {
             return Ok(value);
         }
         eprintln!("{} is required", label);
+    }
+}
+
+fn prompt_confirm(label: &str, default: bool) -> Result<bool> {
+    let hint = if default { "Y/n" } else { "y/N" };
+    loop {
+        print!("{} [{}]: ", label, hint);
+        io::stdout().flush()?;
+        let mut value = String::new();
+        io::stdin().read_line(&mut value)?;
+        match value.trim().to_ascii_lowercase().as_str() {
+            "" => return Ok(default),
+            "y" | "yes" => return Ok(true),
+            "n" | "no" => return Ok(false),
+            _ => eprintln!("Please answer yes or no"),
+        }
     }
 }
 
