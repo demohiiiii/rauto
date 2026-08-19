@@ -25,6 +25,10 @@ pub enum ShowCommandSource {
 struct FriendlyShowCatalogConfig {
     #[serde(default)]
     platform_modes: BTreeMap<String, String>,
+    #[serde(default)]
+    profile_modes: BTreeMap<String, String>,
+    #[serde(default)]
+    profiles: BTreeMap<String, BTreeMap<String, ShowCommandConfig>>,
     platforms: BTreeMap<String, BTreeMap<String, ShowCommandConfig>>,
 }
 
@@ -70,6 +74,8 @@ pub fn normalize_show_object(raw: &str) -> Option<String> {
             Some("interface-brief".to_string())
         }
         "route" | "routes" | "routing" => Some("route".to_string()),
+        "policy" | "security-policy" => Some("policy".to_string()),
+        "nat" | "nat-policy" => Some("nat-policy".to_string()),
         "arp" | "lldp" | "mac" | "vlan" => Some(normalized),
         "vlans" => Some("vlan".to_string()),
         _ if !normalized.is_empty() => Some(normalized),
@@ -106,9 +112,16 @@ pub fn resolve_show_command(
         });
     }
 
+    if let Some(command) = show_commands_for_profile(device_profile, platform)
+        .into_iter()
+        .find(|entry| entry.object == normalized_object)
+    {
+        return Ok(command);
+    }
+
     let Some(platform) = platform.map(str::trim).filter(|value| !value.is_empty()) else {
         return Err(anyhow!(
-            "show object '{}' is not available for profile '{}'; cannot infer NTC platform and no custom show object matches",
+            "show object '{}' is not available for profile '{}'; cannot infer NTC platform and no profile-specific or custom show object matches",
             normalized_object,
             device_profile
         ));
@@ -161,6 +174,9 @@ pub fn list_show_commands_for_profile(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
+        for command in show_commands_for_profile(device_profile, platform) {
+            commands.insert(command.object.clone(), command);
+        }
         for item in custom_show_object_store::list_enabled_for_profile(device_profile)? {
             commands.insert(
                 item.object.clone(),
@@ -185,7 +201,47 @@ pub fn list_all_show_objects() -> Vec<String> {
     for entry in friendly_show_commands() {
         objects.insert(entry.object.clone());
     }
+    for profile in show_catalog_config().profiles.keys() {
+        for entry in show_commands_for_profile(profile, None) {
+            objects.insert(entry.object);
+        }
+    }
     objects.into_iter().collect()
+}
+
+fn show_commands_for_profile(device_profile: &str, platform: Option<&str>) -> Vec<ShowCommand> {
+    let config = show_catalog_config();
+    let canonical_profile =
+        crate::config::template_loader::canonical_builtin_profile_name(device_profile.trim())
+            .unwrap_or_else(|| device_profile.trim());
+    let Some(object_commands) = config.profiles.get(canonical_profile) else {
+        return Vec::new();
+    };
+    let profile_mode = config
+        .profile_modes
+        .get(canonical_profile)
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let platform = platform.unwrap_or_default().to_string();
+
+    let mut commands = object_commands
+        .iter()
+        .map(|(object, command_config)| ShowCommand {
+            object: object.clone(),
+            platform: platform.clone(),
+            command: command_config.command().to_string(),
+            mode: command_config
+                .mode()
+                .or(profile_mode)
+                .map(ToOwned::to_owned),
+            textfsm_mapping_command: None,
+            textfsm_template_name: None,
+            source: ShowCommandSource::Builtin,
+        })
+        .collect::<Vec<_>>();
+    commands.sort_by(|left, right| left.object.cmp(&right.object));
+    commands
 }
 
 fn show_commands_for_platform(platform: &str) -> Vec<ShowCommand> {
@@ -265,13 +321,29 @@ fn normalize_object_text(raw: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{platform_for_show, show_commands_for_platform};
+    use super::{
+        normalize_show_object, platform_for_show, show_commands_for_platform,
+        show_commands_for_profile,
+    };
 
     fn builtin_command(platform: &str, object: &str) -> super::ShowCommand {
         show_commands_for_platform(platform)
             .into_iter()
             .find(|command| command.object == object)
             .unwrap_or_else(|| panic!("{object} should resolve for {platform}"))
+    }
+
+    fn builtin_command_for_profile(profile: &str, object: &str) -> super::ShowCommand {
+        let platform = platform_for_show(profile, None);
+        show_commands_for_profile(profile, platform.as_deref())
+            .into_iter()
+            .find(|entry| entry.object == object)
+            .or_else(|| {
+                platform
+                    .as_deref()
+                    .map(|platform| builtin_command(platform, object))
+            })
+            .unwrap_or_else(|| panic!("{object} should resolve for {profile}"))
     }
 
     #[test]
@@ -292,5 +364,117 @@ mod tests {
         assert_eq!(platform.as_deref(), Some("linux"));
         assert_eq!(command.command, "cat /etc/os-release");
         assert_eq!(command.mode.as_deref(), Some("Root|User"));
+    }
+
+    #[test]
+    fn policy_and_nat_aliases_use_canonical_objects() {
+        assert_eq!(normalize_show_object("policy").as_deref(), Some("policy"));
+        assert_eq!(
+            normalize_show_object("security policy").as_deref(),
+            Some("policy")
+        );
+        assert_eq!(normalize_show_object("nat").as_deref(), Some("nat-policy"));
+        assert_eq!(
+            normalize_show_object("nat policy").as_deref(),
+            Some("nat-policy")
+        );
+    }
+
+    #[test]
+    fn security_vendor_profiles_expose_policy_and_nat_commands() {
+        let expected = [
+            ("cisco_asa", "show access-list", "show nat"),
+            (
+                "dptech",
+                "display security-policy all",
+                "display firewall nat-policy",
+            ),
+            (
+                "fortinet",
+                "get firewall policy",
+                "get firewall central-snat-map",
+            ),
+            (
+                "h3c_comware",
+                "display security-policy ip",
+                "display nat all",
+            ),
+            (
+                "huawei",
+                "display security-policy rule all",
+                "display nat-policy rule all",
+            ),
+            ("hillstone_stoneos", "show policy", "show nat"),
+            ("leadsec_powerv", "get policy", "get nat"),
+            (
+                "paloalto_panos",
+                "show running security-policy",
+                "show running nat-policy",
+            ),
+            ("qianxin", "show security policy", "show nat"),
+            ("topsec", "firewall policy show", "firewall nat show"),
+        ];
+
+        for (profile, expected_policy, expected_nat) in expected {
+            assert_eq!(
+                builtin_command_for_profile(profile, "policy").command,
+                expected_policy,
+                "policy profile: {profile}"
+            );
+            assert_eq!(
+                builtin_command_for_profile(profile, "nat-policy").command,
+                expected_nat,
+                "NAT profile: {profile}"
+            );
+        }
+    }
+
+    #[test]
+    fn venustech_exposes_confirmed_policy_without_guessing_nat() {
+        assert_eq!(
+            builtin_command_for_profile("venustech", "policy").command,
+            "display security-policy all"
+        );
+        assert!(
+            show_commands_for_profile("venustech", None)
+                .iter()
+                .all(|command| command.object != "nat-policy")
+        );
+    }
+
+    #[test]
+    fn fortinet_exposes_each_nat_configuration_object() {
+        for (object, expected_command) in [
+            ("nat-vip", "get firewall vip"),
+            ("nat-ippool", "get firewall ippool"),
+            ("nat-central-snat", "get firewall central-snat-map"),
+        ] {
+            assert_eq!(
+                builtin_command_for_profile("fortinet", object).command,
+                expected_command,
+                "FortiGate NAT object: {object}"
+            );
+        }
+    }
+
+    #[test]
+    fn h3c_security_commands_do_not_leak_into_hp_comware() {
+        let hp_objects = show_commands_for_platform("hp_comware")
+            .into_iter()
+            .map(|command| command.object)
+            .collect::<Vec<_>>();
+        assert!(!hp_objects.iter().any(|object| object == "policy"));
+        assert!(!hp_objects.iter().any(|object| object == "nat-policy"));
+    }
+
+    #[test]
+    fn cisco_asa_nat_uses_the_canonical_nat_policy_object() {
+        let command = builtin_command("cisco_asa", "nat-policy");
+        assert_eq!(command.command, "show nat");
+        assert!(
+            show_commands_for_platform("cisco_asa")
+                .iter()
+                .all(|command| command.object != "nat")
+        );
     }
 }

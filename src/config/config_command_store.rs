@@ -14,11 +14,13 @@ pub struct ConfigCommandOverride {
 }
 
 fn normalize_profile(profile: &str) -> Result<String> {
-    let profile = profile.trim().to_string();
+    let profile = profile.trim();
     if profile.is_empty() {
         return Err(anyhow!("device profile is required"));
     }
-    Ok(profile)
+    Ok(template_loader::canonical_builtin_profile_name(profile)
+        .unwrap_or(profile)
+        .to_string())
 }
 
 fn normalize_kind(kind: &str) -> Result<String> {

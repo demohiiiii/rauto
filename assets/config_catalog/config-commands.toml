@@ -1,20 +1,40 @@
-# Per-profile device configuration fetch commands.
+# Per-platform device configuration fetch commands. Compatible device profiles
+# inherit these entries through src/config/config_catalog.rs.
 # Platform-level mode applies to every kind under that platform unless a kind
 # uses { command = "...", mode = "..." } to override it. Mode values can be a
 # single profile mode or comma/pipe-separated candidates such as "Root|User".
 [platform_modes]
+array = "Enable"
 arista_eos = "Enable"
 aruba_aoscx = "Enable"
 checkpoint_gaia = "Enable"
 cisco_asa = "Enable"
 cisco_ios = "Enable"
 cisco_nxos = "Enable"
+dell_os10 = "Enable"
+dptech = "Enable"
 fortinet = "Enable"
+hillstone_stoneos = "Enable"
 huawei_vrp = "Enable"
 hp_comware = "Enable"
 juniper_junos = "Enable"
+leadsec_powerv = "Login"
+maipu = "Enable"
 paloalto_panos = "Enable"
+qianxin = "Enable"
+ruijie_os = "Enable"
+topsec = "Enable"
+venustech = "Enable"
 zte_zxros = "Enable"
+
+[platform_profiles]
+cisco_ios = ["cisco_ios", "cisco_xe"]
+hp_comware = ["h3c_comware", "hp_comware"]
+huawei_vrp = ["huawei"]
+
+[platforms.array]
+running = "show running-config"
+startup = "show startup-config"
 
 [platforms.arista_eos]
 running = "show running-config"
@@ -39,8 +59,20 @@ startup = "show startup-config"
 running = "show running-config"
 startup = "show startup-config"
 
+[platforms.dell_os10]
+running = "show running-configuration"
+startup = "show startup-configuration"
+
+[platforms.dptech]
+running = "display current-configuration"
+startup = "display saved-configuration"
+
 [platforms.fortinet]
 running = "show full-configuration"
+
+[platforms.hillstone_stoneos]
+running = "show configuration running"
+startup = "show configuration saved"
 
 [platforms.huawei_vrp]
 running = "display current-configuration"
@@ -53,8 +85,32 @@ startup = "display saved-configuration"
 [platforms.juniper_junos]
 running = "show configuration | display set"
 
+[platforms.leadsec_powerv]
+running = "display current-configuration"
+startup = "display saved-configuration"
+
+[platforms.maipu]
+running = "display current-configuration"
+startup = "display saved-configuration"
+
 [platforms.paloalto_panos]
 running = "show config running"
+
+[platforms.qianxin]
+running = "display current-configuration"
+startup = "display saved-configuration"
+
+[platforms.ruijie_os]
+running = "show running-config"
+startup = "show startup-config"
+
+[platforms.topsec]
+running = "show running-config"
+startup = "display saved-configuration"
+
+[platforms.venustech]
+running = "display current-configuration"
+startup = "display saved-configuration"
 
 [platforms.zte_zxros]
 running = "show running-config"

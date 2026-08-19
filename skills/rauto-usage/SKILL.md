@@ -26,7 +26,7 @@ Apply action-first behavior:
 1. Execute read/query commands immediately (for example `device list`, `device discover list`, `session list`, `templates list`, or `session replay <record-file> --list`).
 2. Prefer the show catalog for operational reads:
    - use `rauto show --list` to discover objects
-   - use `rauto show <object>` for supported reads such as `version`, `interfaces`, `route`, `arp`, `vlan`, `mac`, `lldp`, `access-list`, and platform-specific objects
+   - use `rauto show <object>` for supported reads such as `version`, `interfaces`, `route`, `arp`, `vlan`, `mac`, `lldp`, `access-list`, `policy` (`security-policy`), `nat-policy` (`nat`), and platform-specific objects
    - use multi-target show for saved connections, groups, and labels
    - fall back to `exec` only when no show object or custom show object fits.
 3. Keep discovery commands distinct:

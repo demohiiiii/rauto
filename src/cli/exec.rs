@@ -987,7 +987,11 @@ fn print_show_objects(device_profile: Option<&str>, platform: Option<&str>) -> R
         }
         println!("# profile: {}", device_profile);
         for command in commands {
-            let mut suffixes = vec!["source: custom".to_string()];
+            let source = match command.source {
+                show_catalog::ShowCommandSource::Builtin => "builtin",
+                show_catalog::ShowCommandSource::Custom => "custom",
+            };
+            let mut suffixes = vec![format!("source: {source}")];
             if let Some(mode) = command.mode.as_deref() {
                 suffixes.push(format!("mode: {mode}"));
             }

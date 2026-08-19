@@ -240,8 +240,10 @@ rauto show interfaces \
     --ssh-port 22
 ```
 
-对象包括 `version`、`interfaces`、`interface-brief`、`route`、`arp`、`lldp`、`mac`、`vlan`、`access-list`、`object-group`、`security-policy`、`nat-policy` 等；可用 `--list` 查看当前平台支持的全部对象。
-这些对象定义在内置的 `assets/show_catalog/commands-mapping.toml` 命令表中；命令表可以绑定平台级或单个对象的执行 mode。显式传入的 `--mode` 优先级最高，其次是命令表绑定的 mode，最后才是 profile 默认 mode。
+对象包括 `version`、`interfaces`、`interface-brief`、`route`、`arp`、`lldp`、`mac`、`vlan`、`access-list`、`object-group`、`policy`、`nat-policy` 等；可用 `--list` 查看当前平台支持的全部对象。
+`security-policy` 是 `policy` 的别名，`nat` 是 `nat-policy` 的别名；在 Cisco ASA 上，`policy` 与 `access-list` 使用同一条 `show access-list` 命令。
+FortiGate 还提供 `nat-vip` 查询 DNAT/VIP 对象、`nat-ippool` 查询 SNAT 地址池，以及 `nat-central-snat` 查询 Central SNAT 规则。
+这些对象定义在内置的 `assets/show_catalog/commands-mapping.toml` 命令表中；命令表可以绑定平台级或 Profile 级命令和执行 mode，也可以为单个对象覆盖 mode。显式传入的 `--mode` 优先级最高，其次是命令表绑定的 mode，最后才是 Profile 默认 mode。
 当前 show 功能主要基于 [ntc-templates](https://github.com/networktocode/ntc-templates) 提供的命令索引和 TextFSM 解析模板：`rauto` 把不同平台中语义相同的查询整合成统一 object，例如 `interfaces`、`route`、`arp`、`vlan`。命令执行后的 TextFSM 解析默认使用内置的 [ntc-templates](https://github.com/networktocode/ntc-templates) 模板；如果自定义 show object 绑定了自定义 TextFSM 模板，则优先使用绑定模板。
 
 ```bash

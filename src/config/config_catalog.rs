@@ -12,6 +12,8 @@ struct ConfigCatalogFile {
     #[serde(default)]
     platform_modes: BTreeMap<String, String>,
     #[serde(default)]
+    platform_profiles: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
     platforms: BTreeMap<String, BTreeMap<String, ConfigCommandConfig>>,
     #[serde(default)]
     volatile_patterns: BTreeMap<String, Vec<String>>,
@@ -87,6 +89,26 @@ fn canonical_profile(profile: &str) -> String {
         .unwrap_or_else(|| profile.trim().to_string())
 }
 
+fn catalog_platform_for_profile<'a>(catalog: &'a ConfigCatalogFile, profile: &'a str) -> &'a str {
+    catalog
+        .platform_profiles
+        .iter()
+        .find(|(_, profiles)| profiles.iter().any(|candidate| candidate == profile))
+        .map(|(platform, _)| platform.as_str())
+        .unwrap_or(profile)
+}
+
+fn profiles_for_catalog_platform<'a>(
+    catalog: &'a ConfigCatalogFile,
+    platform: &'a str,
+) -> Vec<&'a str> {
+    catalog
+        .platform_profiles
+        .get(platform)
+        .map(|profiles| profiles.iter().map(String::as_str).collect())
+        .unwrap_or_else(|| vec![platform])
+}
+
 fn normalize_kind(kind: &str) -> Result<String> {
     let kind = kind.trim().to_lowercase();
     if kind.is_empty() {
@@ -111,7 +133,8 @@ pub fn resolve_config_command(profile: &str, kind: &str) -> Result<ConfigFetchCo
         });
     }
     let catalog = catalog();
-    let Some(commands) = catalog.platforms.get(&profile) else {
+    let catalog_platform = catalog_platform_for_profile(catalog, &profile);
+    let Some(commands) = catalog.platforms.get(catalog_platform) else {
         return Err(anyhow!(
             "profile '{}' has no builtin config fetch commands; add one with 'rauto config command set'",
             profile
@@ -129,7 +152,12 @@ pub fn resolve_config_command(profile: &str, kind: &str) -> Result<ConfigFetchCo
     Ok(ConfigFetchCommand {
         mode: command
             .mode()
-            .or_else(|| catalog.platform_modes.get(&profile).map(String::as_str))
+            .or_else(|| {
+                catalog
+                    .platform_modes
+                    .get(catalog_platform)
+                    .map(String::as_str)
+            })
             .map(ToOwned::to_owned),
         command: command.command().to_string(),
         profile,
@@ -145,25 +173,27 @@ pub fn list_config_commands(profile: Option<&str>) -> Result<Vec<ConfigFetchComm
     let catalog = catalog();
     let mut merged: BTreeMap<(String, String), ConfigFetchCommand> = BTreeMap::new();
     for (platform, commands) in &catalog.platforms {
-        if let Some(filter) = profile_filter.as_deref()
-            && filter != platform
-        {
-            continue;
-        }
-        for (kind, command) in commands {
-            merged.insert(
-                (platform.clone(), kind.clone()),
-                ConfigFetchCommand {
-                    profile: platform.clone(),
-                    kind: kind.clone(),
-                    command: command.command().to_string(),
-                    mode: command
-                        .mode()
-                        .or_else(|| catalog.platform_modes.get(platform).map(String::as_str))
-                        .map(ToOwned::to_owned),
-                    source: ConfigCommandSource::Builtin,
-                },
-            );
+        for profile in profiles_for_catalog_platform(catalog, platform) {
+            if let Some(filter) = profile_filter.as_deref()
+                && filter != profile
+            {
+                continue;
+            }
+            for (kind, command) in commands {
+                merged.insert(
+                    (profile.to_string(), kind.clone()),
+                    ConfigFetchCommand {
+                        profile: profile.to_string(),
+                        kind: kind.clone(),
+                        command: command.command().to_string(),
+                        mode: command
+                            .mode()
+                            .or_else(|| catalog.platform_modes.get(platform).map(String::as_str))
+                            .map(ToOwned::to_owned),
+                        source: ConfigCommandSource::Builtin,
+                    },
+                );
+            }
         }
     }
     for custom in config_command_store::list(profile_filter.as_deref())? {
@@ -183,9 +213,11 @@ pub fn list_config_commands(profile: Option<&str>) -> Result<Vec<ConfigFetchComm
 
 /// Builtin volatile-line patterns for a profile from the bundled catalog.
 pub(crate) fn builtin_volatile_patterns(profile: &str) -> Vec<String> {
-    catalog()
+    let profile = canonical_profile(profile);
+    let catalog = catalog();
+    catalog
         .volatile_patterns
-        .get(&canonical_profile(profile))
+        .get(catalog_platform_for_profile(catalog, &profile))
         .cloned()
         .unwrap_or_default()
 }
@@ -216,18 +248,21 @@ pub struct VolatilePatternEntry {
 pub fn list_volatile_patterns(profile: Option<&str>) -> Result<Vec<VolatilePatternEntry>> {
     let profile_filter = profile.map(canonical_profile);
     let mut entries = Vec::new();
-    for (platform, patterns) in &catalog().volatile_patterns {
-        if let Some(filter) = profile_filter.as_deref()
-            && filter != platform
-        {
-            continue;
-        }
-        for pattern in patterns {
-            entries.push(VolatilePatternEntry {
-                profile: platform.clone(),
-                pattern: pattern.clone(),
-                source: ConfigCommandSource::Builtin,
-            });
+    let catalog = catalog();
+    for (platform, patterns) in &catalog.volatile_patterns {
+        for profile in profiles_for_catalog_platform(catalog, platform) {
+            if let Some(filter) = profile_filter.as_deref()
+                && filter != profile
+            {
+                continue;
+            }
+            for pattern in patterns {
+                entries.push(VolatilePatternEntry {
+                    profile: profile.to_string(),
+                    pattern: pattern.clone(),
+                    source: ConfigCommandSource::Builtin,
+                });
+            }
         }
     }
     for custom in config_command_store::list_volatile_patterns(profile_filter.as_deref())? {
@@ -332,6 +367,105 @@ mod tests {
         assert_eq!(command.mode.as_deref(), Some("Enable"));
         assert_eq!(command.source, ConfigCommandSource::Builtin);
 
+        for (profile, running, startup, mode) in [
+            (
+                "array",
+                "show running-config",
+                "show startup-config",
+                "Enable",
+            ),
+            (
+                "dell_os10",
+                "show running-configuration",
+                "show startup-configuration",
+                "Enable",
+            ),
+            (
+                "dptech",
+                "display current-configuration",
+                "display saved-configuration",
+                "Enable",
+            ),
+            (
+                "h3c_comware",
+                "display current-configuration",
+                "display saved-configuration",
+                "Enable",
+            ),
+            (
+                "hillstone_stoneos",
+                "show configuration running",
+                "show configuration saved",
+                "Enable",
+            ),
+            (
+                "huawei",
+                "display current-configuration",
+                "display saved-configuration",
+                "Enable",
+            ),
+            (
+                "leadsec_powerv",
+                "display current-configuration",
+                "display saved-configuration",
+                "Login",
+            ),
+            (
+                "maipu",
+                "display current-configuration",
+                "display saved-configuration",
+                "Enable",
+            ),
+            (
+                "qianxin",
+                "display current-configuration",
+                "display saved-configuration",
+                "Enable",
+            ),
+            (
+                "ruijie_os",
+                "show running-config",
+                "show startup-config",
+                "Enable",
+            ),
+            (
+                "topsec",
+                "show running-config",
+                "display saved-configuration",
+                "Enable",
+            ),
+            (
+                "venustech",
+                "display current-configuration",
+                "display saved-configuration",
+                "Enable",
+            ),
+        ] {
+            let command = resolve_config_command(profile, "running")?;
+            assert_eq!(command.profile, profile);
+            assert_eq!(command.command, running);
+            assert_eq!(command.mode.as_deref(), Some(mode));
+            assert_eq!(command.source, ConfigCommandSource::Builtin);
+
+            let command = resolve_config_command(profile, "startup")?;
+            assert_eq!(command.command, startup);
+            assert_eq!(command.mode.as_deref(), Some(mode));
+        }
+
+        let commands = list_config_commands(None)?;
+        assert!(commands.iter().any(|command| command.profile == "huawei"));
+        assert!(
+            commands
+                .iter()
+                .any(|command| command.profile == "h3c_comware")
+        );
+        assert!(commands.iter().any(|command| command.profile == "cisco_xe"));
+        assert!(
+            commands
+                .iter()
+                .all(|command| command.profile != "huawei_vrp")
+        );
+
         let error = resolve_config_command("cisco_ios", "candidate")
             .expect_err("cisco_ios has no candidate config");
         let message = error.to_string();
@@ -359,6 +493,17 @@ mod tests {
         )?);
         let command = resolve_config_command("cisco_ios", "running")?;
         assert_eq!(command.source, ConfigCommandSource::Builtin);
+
+        crate::config::config_command_store::upsert(
+            "iosxe",
+            "running",
+            "show running-config all",
+            Some("enable"),
+        )?;
+        let command = resolve_config_command("cisco_xe", "running")?;
+        assert_eq!(command.profile, "cisco_xe");
+        assert_eq!(command.command, "show running-config all");
+        assert_eq!(command.source, ConfigCommandSource::Custom);
         Ok(())
     }
 
@@ -399,6 +544,7 @@ startup = "cat /etc/profile"
     fn normalize_filters_volatile_lines_and_hashes_stay_stable() {
         let patterns = builtin_volatile_patterns("cisco_ios");
         assert!(!patterns.is_empty());
+        assert_eq!(builtin_volatile_patterns("cisco_xe"), patterns);
         let monday = "Building configuration...\n\
             ! Last configuration change at 09:00:00 Mon Jul 20 2026\n\
             hostname edge-1\n\

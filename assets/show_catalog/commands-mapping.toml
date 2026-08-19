@@ -16,6 +16,44 @@ linux = "Root|User"
 paloalto_panos = "Enable"
 zte_zxros = "Enable"
 
+[profile_modes]
+dptech = "Enable"
+h3c_comware = "Enable"
+hillstone_stoneos = "Enable"
+leadsec_powerv = "Login"
+qianxin = "Enable"
+topsec = "Enable"
+venustech = "Enable"
+
+# Profile mappings extend the inferred NTC platform without exposing commands
+# to every profile that shares that platform.
+[profiles.dptech]
+policy = "display security-policy all"
+"nat-policy" = "display firewall nat-policy"
+
+[profiles.h3c_comware]
+policy = "display security-policy ip"
+"nat-policy" = "display nat all"
+
+[profiles.hillstone_stoneos]
+policy = "show policy"
+"nat-policy" = "show nat"
+
+[profiles.leadsec_powerv]
+policy = "get policy"
+"nat-policy" = "get nat"
+
+[profiles.qianxin]
+policy = "show security policy"
+"nat-policy" = "show nat"
+
+[profiles.topsec]
+policy = "firewall policy show"
+"nat-policy" = "firewall nat show"
+
+[profiles.venustech]
+policy = "display security-policy all"
+
 [platforms.arista_eos]
 version = "show version"
 interfaces = "show interfaces"
@@ -89,6 +127,7 @@ interfaces = "show interface"
 route = "show route"
 arp = "show arp"
 "access-list" = "show access-list"
+policy = "show access-list"
 "access-list-brief" = "show access-list brief"
 "access-group" = "show running-config access-group"
 "object-group-network" = "show object-group network"
@@ -96,7 +135,7 @@ arp = "show arp"
 "object-network" = "show running-config object network"
 "object-service" = "show running-config object service"
 "tunnel-group" = "show running-config tunnel-group"
-nat = "show nat"
+"nat-policy" = "show nat"
 "bgp-summary" = "show bgp summary"
 "ospf-neighbor" = "show ospf neighbor"
 module = "show module"
@@ -249,6 +288,11 @@ traceroute = "execute traceroute"
 date = "execute date"
 time = "execute time"
 "fnsysctl-ifconfig" = "fnsysctl ifconfig"
+policy = "get firewall policy"
+"nat-policy" = "get firewall central-snat-map"
+"nat-vip" = "get firewall vip"
+"nat-ippool" = "get firewall ippool"
+"nat-central-snat" = "get firewall central-snat-map"
 
 [platforms.huawei_vrp]
 version = "display version"
@@ -276,6 +320,8 @@ vrf = "display ip vpn-instance"
 "eth-trunk" = "display eth-trunk"
 startup = "display startup"
 "service-set-all" = "display service-set all"
+policy = "display security-policy rule all"
+"nat-policy" = "display nat-policy rule all"
 "sn-licence" = "display sn licence"
 "vlan-brief" = "display vlan brief"
 "port-vlan" = "display port vlan"
@@ -321,7 +367,7 @@ route = "show routing route"
 arp = "show arp all"
 mac = "show mac all"
 "bgp-summary" = "show routing protocol bgp summary"
-"security-policy" = "show running security-policy"
+policy = "show running security-policy"
 "nat-policy" = "show running nat-policy"
 "high-availability-all" = "show high-availability all"
 "high-availability-path-monitoring" = "show high-availability path-monitoring"

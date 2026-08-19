@@ -240,8 +240,10 @@ rauto show interfaces \
     --ssh-port 22
 ```
 
-Useful objects include `version`, `interfaces`, `interface-brief`, `route`, `arp`, `lldp`, `mac`, `vlan`, `access-list`, `object-group`, `security-policy`, and `nat-policy`; use `--list` to view every object available for the selected platform.
-Objects are defined in the bundled `assets/show_catalog/commands-mapping.toml` command table. The table can bind a platform-level or per-object execution mode; explicit `--mode` still takes precedence, then the mapping mode, then the profile default mode.
+Useful objects include `version`, `interfaces`, `interface-brief`, `route`, `arp`, `lldp`, `mac`, `vlan`, `access-list`, `object-group`, `policy`, and `nat-policy`; use `--list` to view every object available for the selected platform.
+`security-policy` is an alias for `policy`, while `nat` is an alias for `nat-policy`. On Cisco ASA, `policy` uses the same `show access-list` command as `access-list`.
+FortiGate also provides `nat-vip` for DNAT/VIP objects, `nat-ippool` for SNAT address pools, and `nat-central-snat` for Central SNAT rules.
+Objects are defined in the bundled `assets/show_catalog/commands-mapping.toml` command table. The table can bind platform- or profile-level commands and execution modes, with optional per-object mode overrides; explicit `--mode` still takes precedence, then the mapping mode, then the profile default mode.
 The show feature is mainly powered by command indexes and TextFSM parsers from [ntc-templates](https://github.com/networktocode/ntc-templates): `rauto` consolidates semantically equivalent queries across platforms into stable objects such as `interfaces`, `route`, `arp`, and `vlan`. TextFSM parsing uses the bundled [ntc-templates](https://github.com/networktocode/ntc-templates) templates after execution unless a custom show object binds a custom TextFSM template.
 
 ```bash
