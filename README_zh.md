@@ -1346,6 +1346,10 @@ Group JSON 结构：
 
 ## 目录结构
 
+Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则，
+`src/infrastructure/` 与 `src/interfaces/` 分别负责持久化和传输适配。
+模块归属和依赖规则见 [后端架构](docs/architecture.md)。
+
 默认情况下，`rauto` 将运行时数据存储在 `~/.rauto/` 下。
 
 默认运行时数据：

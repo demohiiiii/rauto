@@ -8,7 +8,7 @@ use crate::config::connection_store::{SavedConnection, load_connection, save_con
 use crate::config::history_store::{self, HistoryBinding};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::session_recording;
-use crate::config::ssh_security::SshSecurityProfile;
+use crate::config::ssh_security::{SshSecurityProfile, connection_security_options};
 use crate::config::template_loader::{self, AUTODETECT_DEVICE_PROFILE};
 use crate::device::DeviceClient;
 use anyhow::Result;
@@ -41,7 +41,7 @@ pub(crate) fn manager_execution_context_with_security(
     connect_timeout_secs: Option<u64>,
 ) -> ExecutionContext {
     let context = ExecutionContext::new()
-        .with_security_options(ssh_security.to_connection_security_options())
+        .with_security_options(connection_security_options(ssh_security))
         .with_sys(sys);
     match connect_timeout_secs {
         Some(timeout_secs) => context.with_connect_timeout_secs(timeout_secs),

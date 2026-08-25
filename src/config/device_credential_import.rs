@@ -2,29 +2,12 @@ use crate::config::device_credential_store::DeviceAuthType;
 use crate::config::device_credential_store::{self, DeviceCredentialInput, DeviceCredentialMeta};
 use anyhow::{Context, Result, anyhow};
 use calamine::{Data, Reader, open_workbook_auto_from_rs};
-use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct DeviceCredentialImportFailure {
-    pub row: usize,
-    pub name: Option<String>,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct DeviceCredentialImportReport {
-    pub file_name: String,
-    pub total_rows: usize,
-    pub imported: usize,
-    pub created: usize,
-    pub updated: usize,
-    pub failed: usize,
-    pub failures: Vec<DeviceCredentialImportFailure>,
-}
+pub use crate::domain::credential::{DeviceCredentialImportFailure, DeviceCredentialImportReport};
 
 #[derive(Default)]
 struct ImportedCredentialRow {

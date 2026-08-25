@@ -4,22 +4,7 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::OnceLock;
 
-#[derive(Debug, Clone)]
-pub struct ShowCommand {
-    pub object: String,
-    pub platform: String,
-    pub command: String,
-    pub mode: Option<String>,
-    pub textfsm_mapping_command: Option<String>,
-    pub textfsm_template_name: Option<String>,
-    pub source: ShowCommandSource,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShowCommandSource {
-    Builtin,
-    Custom,
-}
+pub use crate::domain::device::{ShowCommand, ShowCommandSource, normalize_show_object};
 
 #[derive(Debug, Deserialize)]
 struct FriendlyShowCatalogConfig {
@@ -64,24 +49,6 @@ impl ShowCommandConfig {
 
 static FRIENDLY_SHOW_COMMANDS: OnceLock<Vec<ShowCommand>> = OnceLock::new();
 static SHOW_CATALOG_CONFIG: OnceLock<FriendlyShowCatalogConfig> = OnceLock::new();
-
-pub fn normalize_show_object(raw: &str) -> Option<String> {
-    let normalized = normalize_object_text(raw);
-    match normalized.as_str() {
-        "ver" | "version" => Some("version".to_string()),
-        "int" | "ints" | "interface" | "interfaces" => Some("interfaces".to_string()),
-        "brief" | "interface-brief" | "interfaces-brief" | "ip-interface-brief" => {
-            Some("interface-brief".to_string())
-        }
-        "route" | "routes" | "routing" => Some("route".to_string()),
-        "policy" | "security-policy" => Some("policy".to_string()),
-        "nat" | "nat-policy" => Some("nat-policy".to_string()),
-        "arp" | "lldp" | "mac" | "vlan" => Some(normalized),
-        "vlans" => Some("vlan".to_string()),
-        _ if !normalized.is_empty() => Some(normalized),
-        _ => None,
-    }
-}
 
 pub fn platform_for_show(device_profile: &str, override_platform: Option<&str>) -> Option<String> {
     override_platform
@@ -302,21 +269,6 @@ fn load_friendly_show_commands() -> Vec<ShowCommand> {
         }
     }
     commands
-}
-
-fn normalize_object_text(raw: &str) -> String {
-    let mut output = String::new();
-    let mut last_dash = false;
-    for ch in raw.trim().to_ascii_lowercase().chars() {
-        if ch.is_ascii_alphanumeric() {
-            output.push(ch);
-            last_dash = false;
-        } else if !last_dash {
-            output.push('-');
-            last_dash = true;
-        }
-    }
-    output.trim_matches('-').to_string()
 }
 
 #[cfg(test)]

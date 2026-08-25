@@ -1,0 +1,272 @@
+pub use crate::domain::connection::{InventoryGroup, InventoryLabel, SshSecurityProfile};
+use crate::domain::credential::DeviceAuthType;
+use crate::domain::device::LinuxShellFlavor;
+pub use crate::domain::task::{AsyncTaskAcceptedResponse, TaskCallback, TaskEvent};
+use rneter::session::SessionRecordEntry;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+mod agent;
+mod api_response;
+mod device_discovery;
+mod execution;
+mod profiles_templates;
+mod replay_interactive;
+mod task_runs;
+pub use self::agent::*;
+pub use self::api_response::*;
+pub use self::device_discovery::*;
+pub use self::execution::*;
+pub use self::profiles_templates::*;
+pub use self::replay_interactive::*;
+pub use self::task_runs::*;
+
+#[derive(Debug, Deserialize)]
+pub struct RenderRequest {
+    #[serde(default)]
+    pub template: Option<String>,
+    #[serde(default)]
+    pub template_content: Option<String>,
+    #[serde(default)]
+    pub vars: Value,
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+    pub template_dir: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RenderResponse {
+    pub rendered_commands: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ConnectionRequest {
+    pub connection_name: Option<String>,
+    pub host: Option<String>,
+    pub credential_id: Option<String>,
+    pub port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connect_timeout_secs: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub software_version: Option<String>,
+    pub ssh_security: Option<SshSecurityProfile>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
+    pub device_profile: Option<String>,
+    pub template_dir: Option<String>,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub labels: Vec<String>,
+    #[serde(default)]
+    pub groups: Vec<String>,
+    #[serde(default = "default_vars")]
+    pub vars: Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConnectionTestRequest {
+    #[serde(default)]
+    pub connection: Option<ConnectionRequest>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConnectionTestResponse {
+    pub ok: bool,
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub ssh_security: SshSecurityProfile,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
+    pub device_profile: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConnectionFactsDetectResponse {
+    pub ok: bool,
+    pub device_profile: String,
+    pub device_model: Option<String>,
+    pub software_version: Option<String>,
+    pub warning: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DeviceCredentialResponse {
+    pub id: String,
+    pub name: String,
+    pub username: String,
+    pub auth_type: DeviceAuthType,
+    pub has_auth_secret: bool,
+    pub has_password: bool,
+    pub private_key_path: Option<String>,
+    pub has_passphrase: bool,
+    pub has_enable_password: bool,
+    pub enable_enabled: bool,
+    pub connection_count: u64,
+    pub referencing_connections: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpsertDeviceCredentialRequest {
+    pub name: String,
+    pub username: String,
+    #[serde(default)]
+    pub auth_type: DeviceAuthType,
+    #[serde(default)]
+    pub password: Option<String>,
+    #[serde(default)]
+    pub private_key: Option<String>,
+    #[serde(default)]
+    pub private_key_path: Option<String>,
+    #[serde(default)]
+    pub passphrase: Option<String>,
+    #[serde(default)]
+    pub enable_password: Option<String>,
+    #[serde(default)]
+    pub enable_enabled: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SavedConnectionMeta {
+    pub name: String,
+    pub path: String,
+    pub has_password: bool,
+    pub has_enable_password: bool,
+    pub enable_enabled: bool,
+    pub credential_id: Option<String>,
+    pub credential_name: Option<String>,
+    pub credential_required: bool,
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub connect_timeout_secs: Option<u64>,
+    pub device_model: Option<String>,
+    pub software_version: Option<String>,
+    pub ssh_security: Option<SshSecurityProfile>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
+    pub device_profile: Option<String>,
+    pub enabled: bool,
+    pub labels: Vec<String>,
+    pub groups: Vec<String>,
+    pub vars: Value,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SavedConnectionDetail {
+    pub name: String,
+    pub path: String,
+    pub has_password: bool,
+    pub has_enable_password: bool,
+    pub credential_name: Option<String>,
+    pub credential_required: bool,
+    pub connection: ConnectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertInventoryGroupRequest {
+    pub group: InventoryGroup,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertInventoryLabelRequest {
+    #[serde(default)]
+    pub hosts: Vec<String>,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+fn default_vars() -> Value {
+    Value::Object(Default::default())
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackupMeta {
+    pub name: String,
+    pub path: String,
+    pub size_bytes: u64,
+    pub modified_ms: u128,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackupCreateResponse {
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BackupCreateRequest {
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BackupRestoreRequest {
+    pub archive: String,
+    #[serde(default)]
+    pub replace: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackupRestoreResponse {
+    pub restored: bool,
+    pub archive: String,
+    pub replace: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BlacklistPatternEntry {
+    pub pattern: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlacklistUpsertRequest {
+    pub pattern: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BlacklistUpsertResponse {
+    pub pattern: String,
+    pub added: bool,
+    pub path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BlacklistDeleteResponse {
+    pub pattern: String,
+    pub deleted: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlacklistCheckRequest {
+    pub command: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BlacklistCheckResponse {
+    pub command: String,
+    pub blocked: bool,
+    pub pattern: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConnectionHistoryEntry {
+    pub id: String,
+    pub ts_ms: u128,
+    pub connection_key: String,
+    pub connection_name: Option<String>,
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub device_profile: String,
+    pub operation: String,
+    pub command_label: String,
+    pub mode: Option<String>,
+    pub record_level: String,
+    pub record_path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConnectionHistoryDetailResponse {
+    pub meta: ConnectionHistoryEntry,
+    pub entries: Vec<SessionRecordEntry>,
+}

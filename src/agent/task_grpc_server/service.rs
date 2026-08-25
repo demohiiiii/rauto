@@ -180,8 +180,8 @@ impl AgentTaskService for AgentTaskGrpcService {
             Default::default()
         } else {
             req.auth_type
-                .parse()
-                .map_err(|error: anyhow::Error| Status::invalid_argument(error.to_string()))?
+                .parse::<crate::config::device_credential_store::DeviceAuthType>()
+                .map_err(|error| Status::invalid_argument(error.to_string()))?
         };
         let payload = WebUpsertDeviceCredentialRequest {
             name: req.name,

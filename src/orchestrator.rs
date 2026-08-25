@@ -2,6 +2,9 @@ use crate::cli::{GlobalOpts, JsonTemplateCommands, OrchestrateArgs, RecordLevelO
 use crate::config::content_store;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::domain::orchestration::{
+    action_kind_name, action_summary, build_job_result, build_stage_result, job_name,
+};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,51 +19,13 @@ mod targets;
 mod template_resolver;
 mod validation;
 use self::validation::validate_plan;
+pub use crate::domain::orchestration::{
+    CompensationExecutionResult, JobExecutionResult, OrchestrationAction,
+    OrchestrationExecutionResult, OrchestrationJob, OrchestrationPlan, OrchestrationRuntimeEvent,
+    OrchestrationStage, StageExecutionResult, StageStatus, StageStrategy, TargetExecutionResult,
+    TargetStatus, TxWorkflowAction,
+};
 use render::{render_execution_result, render_plan};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrchestrationPlan {
-    pub name: String,
-    #[serde(default = "default_fail_fast")]
-    pub fail_fast: bool,
-    #[serde(default)]
-    pub rollback_on_stage_failure: bool,
-    #[serde(default)]
-    pub rollback_completed_stages_on_failure: bool,
-    #[serde(default)]
-    pub stages: Vec<OrchestrationStage>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrchestrationStage {
-    pub name: String,
-    pub strategy: StageStrategy,
-    pub max_parallel: Option<usize>,
-    pub fail_fast: Option<bool>,
-    pub jobs: Vec<OrchestrationJob>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrchestrationJob {
-    pub name: Option<String>,
-    pub strategy: StageStrategy,
-    pub max_parallel: Option<usize>,
-    pub fail_fast: Option<bool>,
-    #[serde(default)]
-    pub target_groups: Vec<String>,
-    #[serde(default)]
-    pub target_tags: Vec<String>,
-    #[serde(default)]
-    pub targets: Vec<String>,
-    pub action: OrchestrationAction,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StageStrategy {
-    Serial,
-    Parallel,
-}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OrchestrationTarget {
@@ -78,106 +43,6 @@ pub struct OrchestrationTarget {
     pub vars: Value,
 }
 
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum OrchestrationAction {
-    TxWorkflow(TxWorkflowAction),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TxWorkflowAction {
-    #[serde(default)]
-    pub workflow: Option<Value>,
-    #[serde(default)]
-    pub workflow_template_name: Option<String>,
-    #[serde(default)]
-    pub workflow_vars: Value,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct OrchestrationExecutionResult {
-    pub plan_name: String,
-    pub success: bool,
-    pub fail_fast: bool,
-    pub total_stages: usize,
-    pub executed_stages: usize,
-    pub stages: Vec<StageExecutionResult>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct StageExecutionResult {
-    pub name: String,
-    pub strategy: StageStrategy,
-    pub status: StageStatus,
-    pub fail_fast: bool,
-    pub jobs_total: usize,
-    pub jobs_succeeded: usize,
-    pub jobs_failed: usize,
-    pub jobs_skipped: usize,
-    pub jobs: Vec<JobExecutionResult>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct JobExecutionResult {
-    pub name: String,
-    pub strategy: StageStrategy,
-    pub status: StageStatus,
-    pub fail_fast: bool,
-    pub action_kind: String,
-    pub action_summary: String,
-    pub targets_total: usize,
-    pub targets_succeeded: usize,
-    pub targets_failed: usize,
-    pub targets_skipped: usize,
-    pub results: Vec<TargetExecutionResult>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StageStatus {
-    Success,
-    Failed,
-    Skipped,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct TargetExecutionResult {
-    pub label: String,
-    pub connection_name: Option<String>,
-    pub host: Option<String>,
-    pub status: TargetStatus,
-    pub operation: String,
-    pub duration_ms: u128,
-    pub error: Option<String>,
-    pub tx_result: Option<Value>,
-    pub workflow_result: Option<Value>,
-    pub recording_jsonl: Option<String>,
-    pub compensation: Option<CompensationExecutionResult>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct CompensationExecutionResult {
-    pub scope: String,
-    pub attempted: bool,
-    pub success: bool,
-    pub reason: Option<String>,
-    pub operation: Option<String>,
-    pub duration_ms: u128,
-    pub error: Option<String>,
-    pub tx_result: Option<Value>,
-    pub recording_jsonl: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TargetStatus {
-    Success,
-    Failed,
-    Skipped,
-}
-
 #[derive(Debug, Clone)]
 struct ActionExecutionOutcome {
     operation: String,
@@ -188,21 +53,7 @@ struct ActionExecutionOutcome {
     recording_jsonl: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct OrchestrationRuntimeEvent {
-    pub event_type: String,
-    pub message: String,
-    pub level: String,
-    pub stage: Option<String>,
-    pub progress: Option<u8>,
-    pub details: Option<Value>,
-}
-
 pub type OrchestrationEventHook = Arc<dyn Fn(OrchestrationRuntimeEvent) + Send + Sync>;
-
-fn default_fail_fast() -> bool {
-    true
-}
 
 pub async fn run(args: OrchestrateArgs, opts: &GlobalOpts) -> Result<()> {
     let (plan, plan_root, source) = load_plan_from_args(&args, opts)?;
@@ -380,87 +231,6 @@ pub async fn execute_loaded_plan_with_events(
     execution::execute_plan(plan, plan_root, opts, record_level, event_hook).await
 }
 
-fn build_stage_result(
-    stage: &OrchestrationStage,
-    fail_fast: bool,
-    jobs: Vec<JobExecutionResult>,
-) -> StageExecutionResult {
-    let jobs_total = jobs.len();
-    let jobs_succeeded = jobs
-        .iter()
-        .filter(|item| matches!(item.status, StageStatus::Success))
-        .count();
-    let jobs_failed = jobs
-        .iter()
-        .filter(|item| matches!(item.status, StageStatus::Failed))
-        .count();
-    let jobs_skipped = jobs
-        .iter()
-        .filter(|item| matches!(item.status, StageStatus::Skipped))
-        .count();
-    let status = if jobs_failed > 0 {
-        StageStatus::Failed
-    } else if jobs_total > 0 && jobs_skipped == jobs_total {
-        StageStatus::Skipped
-    } else {
-        StageStatus::Success
-    };
-
-    StageExecutionResult {
-        name: stage.name.clone(),
-        strategy: stage.strategy,
-        status,
-        fail_fast,
-        jobs_total,
-        jobs_succeeded,
-        jobs_failed,
-        jobs_skipped,
-        jobs,
-    }
-}
-
-fn build_job_result(
-    job: &OrchestrationJob,
-    idx: usize,
-    fail_fast: bool,
-    results: Vec<TargetExecutionResult>,
-) -> JobExecutionResult {
-    let targets_total = results.len();
-    let targets_succeeded = results
-        .iter()
-        .filter(|item| matches!(item.status, TargetStatus::Success))
-        .count();
-    let targets_failed = results
-        .iter()
-        .filter(|item| matches!(item.status, TargetStatus::Failed))
-        .count();
-    let targets_skipped = results
-        .iter()
-        .filter(|item| matches!(item.status, TargetStatus::Skipped))
-        .count();
-    let status = if targets_failed > 0 {
-        StageStatus::Failed
-    } else if targets_total > 0 && targets_skipped == targets_total {
-        StageStatus::Skipped
-    } else {
-        StageStatus::Success
-    };
-
-    JobExecutionResult {
-        name: job_name(job, idx),
-        strategy: job.strategy,
-        status,
-        fail_fast,
-        action_kind: action_kind_name(&job.action).to_string(),
-        action_summary: action_summary(&job.action),
-        targets_total,
-        targets_succeeded,
-        targets_failed,
-        targets_skipped,
-        results,
-    }
-}
-
 fn build_skipped_stage(
     stage: &OrchestrationStage,
     fail_fast: bool,
@@ -512,45 +282,6 @@ fn target_label(target: &OrchestrationTarget, idx: usize) -> String {
         .or_else(|| target.connection.clone())
         .or_else(|| target.host.clone())
         .unwrap_or_else(|| format!("target-{}", idx + 1))
-}
-
-fn job_name(job: &OrchestrationJob, idx: usize) -> String {
-    job.name
-        .as_deref()
-        .map(str::trim)
-        .filter(|name| !name.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| format!("job-{}", idx + 1))
-}
-
-fn action_kind_name(action: &OrchestrationAction) -> &'static str {
-    match action {
-        OrchestrationAction::TxWorkflow(_) => "tx_workflow",
-    }
-}
-
-fn action_summary(action: &OrchestrationAction) -> String {
-    match action {
-        OrchestrationAction::TxWorkflow(spec) => {
-            if let Some(name) = spec
-                .workflow_template_name
-                .as_deref()
-                .filter(|name| !name.trim().is_empty())
-            {
-                format!("workflow_template={}", name)
-            } else if let Some(name) = spec
-                .workflow
-                .as_ref()
-                .and_then(|workflow| workflow.get("name"))
-                .and_then(Value::as_str)
-                .filter(|name| !name.trim().is_empty())
-            {
-                format!("workflow={}", name)
-            } else {
-                "inline workflow".to_string()
-            }
-        }
-    }
 }
 
 #[cfg(test)]

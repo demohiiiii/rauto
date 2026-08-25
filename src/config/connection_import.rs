@@ -3,7 +3,6 @@ use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use anyhow::{Context, Result, anyhow};
 use calamine::{Data, Reader, open_workbook_auto_from_rs};
-use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
@@ -12,23 +11,7 @@ use std::path::Path;
 mod parsing;
 use self::parsing::{ImportFormat, detect_format, parse_csv, parse_excel};
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ConnectionImportFailure {
-    pub row: usize,
-    pub name: Option<String>,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ConnectionImportReport {
-    pub file_name: String,
-    pub total_rows: usize,
-    pub imported: usize,
-    pub created: usize,
-    pub updated: usize,
-    pub failed: usize,
-    pub failures: Vec<ConnectionImportFailure>,
-}
+pub use crate::domain::connection::{ConnectionImportFailure, ConnectionImportReport};
 
 #[derive(Debug, Clone)]
 struct ImportedConnectionRow {

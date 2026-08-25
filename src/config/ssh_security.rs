@@ -1,46 +1,16 @@
-use clap::ValueEnum;
 use rneter::session::ConnectionSecurityOptions;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
-#[serde(rename_all = "kebab-case")]
-pub enum SshSecurityProfile {
-    Secure,
-    Balanced,
-    #[default]
-    LegacyCompatible,
-    #[cfg(test)]
-    #[value(skip)]
-    TestNoCheck,
-}
+pub use crate::domain::connection::SshSecurityProfile;
 
-impl SshSecurityProfile {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Secure => "secure",
-            Self::Balanced => "balanced",
-            Self::LegacyCompatible => "legacy-compatible",
-            #[cfg(test)]
-            Self::TestNoCheck => "test-no-check",
-        }
-    }
-
-    pub fn to_connection_security_options(self) -> ConnectionSecurityOptions {
-        match self {
-            Self::Secure => ConnectionSecurityOptions::secure_default(),
-            Self::Balanced => ConnectionSecurityOptions::balanced(),
-            Self::LegacyCompatible => ConnectionSecurityOptions::legacy_compatible(),
-            #[cfg(test)]
-            Self::TestNoCheck => ConnectionSecurityOptions {
-                level: rneter::session::SecurityLevel::Secure,
-                server_check: async_ssh2_tokio::ServerCheckMethod::NoCheck,
-            },
-        }
-    }
-}
-
-impl std::fmt::Display for SshSecurityProfile {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
+pub fn connection_security_options(profile: SshSecurityProfile) -> ConnectionSecurityOptions {
+    match profile {
+        SshSecurityProfile::Secure => ConnectionSecurityOptions::secure_default(),
+        SshSecurityProfile::Balanced => ConnectionSecurityOptions::balanced(),
+        SshSecurityProfile::LegacyCompatible => ConnectionSecurityOptions::legacy_compatible(),
+        #[cfg(test)]
+        SshSecurityProfile::TestNoCheck => ConnectionSecurityOptions {
+            level: rneter::session::SecurityLevel::Secure,
+            server_check: async_ssh2_tokio::ServerCheckMethod::NoCheck,
+        },
     }
 }

@@ -1,11 +1,13 @@
 use crate::config::config_command_store;
 use crate::config::template_loader;
 use anyhow::{Result, anyhow};
-use regex::Regex;
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
+
+pub use crate::domain::device::{
+    ConfigCommandSource, ConfigFetchCommand, VolatilePatternEntry, normalize_config, sha256_hex,
+};
 
 #[derive(Debug, Deserialize)]
 struct ConfigCatalogFile {
@@ -47,30 +49,6 @@ impl ConfigCommandConfig {
                 .filter(|value| !value.is_empty()),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConfigCommandSource {
-    Builtin,
-    Custom,
-}
-
-impl ConfigCommandSource {
-    pub fn label(self) -> &'static str {
-        match self {
-            ConfigCommandSource::Builtin => "builtin",
-            ConfigCommandSource::Custom => "custom",
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ConfigFetchCommand {
-    pub profile: String,
-    pub kind: String,
-    pub command: String,
-    pub mode: Option<String>,
-    pub source: ConfigCommandSource,
 }
 
 fn catalog() -> &'static ConfigCatalogFile {
@@ -236,13 +214,6 @@ pub fn volatile_patterns(profile: &str) -> Result<Vec<String>> {
     Ok(patterns)
 }
 
-#[derive(Debug, Clone)]
-pub struct VolatilePatternEntry {
-    pub profile: String,
-    pub pattern: String,
-    pub source: ConfigCommandSource,
-}
-
 /// Lists volatile-line patterns (builtin merged with custom additions),
 /// optionally filtered by profile, for management views.
 pub fn list_volatile_patterns(profile: Option<&str>) -> Result<Vec<VolatilePatternEntry>> {
@@ -279,39 +250,6 @@ pub fn list_volatile_patterns(profile: Option<&str>) -> Result<Vec<VolatilePatte
     }
     entries.sort_by(|a, b| (&a.profile, &a.pattern).cmp(&(&b.profile, &b.pattern)));
     Ok(entries)
-}
-
-/// Removes lines matching any volatile pattern, producing the text used for
-/// drift comparison. Invalid patterns are ignored rather than failing the
-/// fetch.
-pub fn normalize_config(content: &str, patterns: &[String]) -> String {
-    let compiled: Vec<Regex> = patterns
-        .iter()
-        .filter_map(|pattern| Regex::new(pattern).ok())
-        .collect();
-    if compiled.is_empty() {
-        return content.to_string();
-    }
-    let mut normalized = String::with_capacity(content.len());
-    for line in content.lines() {
-        if compiled.iter().any(|regex| regex.is_match(line)) {
-            continue;
-        }
-        normalized.push_str(line);
-        normalized.push('\n');
-    }
-    normalized
-}
-
-pub fn sha256_hex(text: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(text.as_bytes());
-    let digest = hasher.finalize();
-    let mut hex = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        let _ = std::fmt::Write::write_fmt(&mut hex, format_args!("{:02x}", byte));
-    }
-    hex
 }
 
 #[cfg(test)]

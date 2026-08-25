@@ -11,10 +11,6 @@ pub fn rauto_home_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(".rauto"))
 }
 
-pub fn default_db_path() -> PathBuf {
-    rauto_home_dir().join("rauto.db")
-}
-
 pub fn ensure_default_layout() -> Result<()> {
     let root = rauto_home_dir();
     fs::create_dir_all(&root)?;

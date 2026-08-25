@@ -20,4 +20,5 @@ test("vite uses root base in dev and /static/ base in build", () => {
 
   assert.equal(serveConfig.base, "/");
   assert.equal(buildConfig.base, "/static/");
+  assert.equal(buildConfig.build.outDir, "../static");
 });

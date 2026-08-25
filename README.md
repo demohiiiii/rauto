@@ -1352,6 +1352,11 @@ The positional group name is authoritative; `upsert` does not require a duplicat
 
 ## Directory Structure
 
+The Rust backend is a single Cargo package. Code under `src/domain/` owns domain
+models and rules, while `src/infrastructure/` and `src/interfaces/` contain
+persistence and transport adapters. See [Backend architecture](docs/architecture.md)
+for ownership and dependency rules.
+
 By default, `rauto` stores runtime data under `~/.rauto/`.
 
 Default runtime data:

@@ -2,13 +2,13 @@ mod agent;
 mod agent_task_grpc;
 mod cli;
 mod config;
-mod db;
 mod device;
+pub mod domain;
+pub mod infrastructure;
+pub mod interfaces;
 mod manager_grpc;
 mod orchestrator;
-mod task;
 mod template;
-mod tx_operation;
 mod web;
 
 use anyhow::Result;
@@ -21,6 +21,16 @@ use std::process;
 use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, fmt, fmt::format::Writer, fmt::time::FormatTime};
 use web::{run_agent_server, run_web_server};
+
+use infrastructure::db;
+
+pub mod task {
+    pub use crate::domain::task::*;
+}
+
+pub(crate) mod tx_operation {
+    pub use crate::domain::execution::tx_operation::*;
+}
 
 pub(crate) use cli::runtime::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,

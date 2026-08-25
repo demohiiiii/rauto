@@ -7,6 +7,10 @@ use crate::config::{
     custom_textfsm_store, history_store, inventory_store, show_catalog, template_loader,
 };
 use crate::device::DeviceClient;
+use crate::domain::connection::{
+    ConnectionRuleError, normalize_optional_text as normalize_connection_text,
+    normalize_simple_name, validate_persisted_connect_timeout as validate_connection_timeout,
+};
 use crate::web::error::ApiError;
 use crate::web::models::{
     ConnectionFactsDetectResponse, ConnectionHistoryDetailResponse, ConnectionHistoryEntry,
@@ -365,19 +369,12 @@ pub(super) fn upsert_connection_target_name(
 pub(super) fn validate_persisted_connect_timeout(
     connect_timeout_secs: Option<u64>,
 ) -> Result<(), ApiError> {
-    if connect_timeout_secs.is_some_and(|value| value == 0 || value > i64::MAX as u64) {
-        return Err(ApiError::bad_request(format!(
-            "connect_timeout_secs must be between 1 and {}",
-            i64::MAX
-        )));
-    }
-    Ok(())
+    validate_connection_timeout(connect_timeout_secs)
+        .map_err(|err| ApiError::bad_request(err.to_string()))
 }
 
 fn normalize_optional_text(value: Option<String>) -> Option<String> {
-    value
-        .map(|item| item.trim().to_string())
-        .filter(|item| !item.is_empty())
+    normalize_connection_text(value)
 }
 
 pub async fn upsert_connection(
@@ -500,20 +497,14 @@ pub async fn delete_inventory_group(Path(name): Path<String>) -> Result<Json<Val
 }
 
 fn normalize_inventory_label_name(raw: &str) -> Result<String, ApiError> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Err(ApiError::bad_request("label name is required"));
-    }
-    if !trimmed
-        .chars()
-        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
-    {
-        return Err(ApiError::bad_request(format!(
+    normalize_simple_name(raw).map_err(|err| match err {
+        ConnectionRuleError::EmptySimpleName => ApiError::bad_request("label name is required"),
+        ConnectionRuleError::InvalidSimpleName(_) => ApiError::bad_request(format!(
             "invalid label name '{}', use only letters/numbers/_/./-",
             raw
-        )));
-    }
-    Ok(trimmed.to_string())
+        )),
+        other => ApiError::bad_request(other.to_string()),
+    })
 }
 
 fn list_labels_snapshot() -> Result<Vec<InventoryLabel>, ApiError> {

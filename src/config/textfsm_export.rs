@@ -3,11 +3,7 @@ use rust_xlsxwriter::{Format, Workbook};
 use serde_json::Value;
 use std::path::Path;
 
-#[derive(Debug, Clone)]
-pub struct ParsedOutputSheet {
-    pub name: String,
-    pub parsed_output: Value,
-}
+pub use crate::domain::template::ParsedOutputSheet;
 
 pub fn write_parsed_output_xlsx(path: &Path, sheet: ParsedOutputSheet) -> Result<()> {
     write_parsed_outputs_xlsx(path, &[sheet])
