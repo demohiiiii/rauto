@@ -19,8 +19,8 @@ pub use catalog::{
     VolatilePatternOverride, normalize_show_object,
 };
 pub use configuration::{
-    DeviceConfigSnapshot, DeviceConfigSnapshotSortOrder, DeviceConfigSnapshotSummary,
-    NewDeviceConfigSnapshot, normalize_config, sha256_hex,
+    DeviceConfigHistoryDevice, DeviceConfigSnapshot, DeviceConfigSnapshotSortOrder,
+    DeviceConfigSnapshotSummary, NewDeviceConfigSnapshot, normalize_config, sha256_hex,
 };
 pub use discovery::{DiscoveryResultRecord, DiscoveryRunRecord};
 pub use encoding::DeviceEncoding;

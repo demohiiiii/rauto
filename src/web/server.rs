@@ -36,17 +36,17 @@ use crate::web::handlers::{
     inspect_command_template, list_backups, list_blacklist_patterns,
     list_builtin_command_flow_templates, list_command_flow_templates, list_config_commands,
     list_config_volatile_patterns, list_connections, list_credentials, list_custom_show_objects,
-    list_device_config_history, list_device_discovery_runs, list_inventory_groups,
-    list_inventory_labels, list_orchestration_templates, list_profiles, list_schedule_runs,
-    list_schedules, list_show_objects, list_task_runs, list_templates, list_textfsm_mappings,
-    list_textfsm_templates, list_tx_block_templates, list_tx_workflow_templates, preview_schedule,
-    preview_tx_workflow_template, profiles_overview, remove_config_volatile_pattern,
-    render_template, replay_session, restore_backup, run_schedule_now, test_connection,
-    update_command_flow_template, update_credential, update_orchestration_template,
-    update_schedule, update_template, update_textfsm_template, update_tx_block_template,
-    update_tx_workflow_template, upsert_config_command, upsert_connection,
-    upsert_custom_profile_form, upsert_custom_show_object, upsert_inventory_group,
-    upsert_inventory_label, upsert_textfsm_mapping,
+    list_device_config_history, list_device_config_history_devices, list_device_discovery_runs,
+    list_inventory_groups, list_inventory_labels, list_orchestration_templates, list_profiles,
+    list_schedule_runs, list_schedules, list_show_objects, list_task_runs, list_templates,
+    list_textfsm_mappings, list_textfsm_templates, list_tx_block_templates,
+    list_tx_workflow_templates, preview_schedule, preview_tx_workflow_template, profiles_overview,
+    remove_config_volatile_pattern, render_template, replay_session, restore_backup,
+    run_schedule_now, test_connection, update_command_flow_template, update_credential,
+    update_orchestration_template, update_schedule, update_template, update_textfsm_template,
+    update_tx_block_template, update_tx_workflow_template, upsert_config_command,
+    upsert_connection, upsert_custom_profile_form, upsert_custom_show_object,
+    upsert_inventory_group, upsert_inventory_label, upsert_textfsm_mapping,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -61,6 +61,7 @@ use axum::{
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::net::TcpListener;
 use tokio::signal;
 use tracing::info;
 
@@ -73,10 +74,11 @@ pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<(
             web_password.path.display()
         );
     }
+    let (addr, listener) = bind_listener(&web_args.bind, web_args.port).await?;
     let state = AppState::new_web(defaults, &web_password.password);
     let app = build_local_app(state.clone());
     let scheduler = spawn_scheduler(state.clone());
-    let result = serve_app(web_args.bind, web_args.port, app, state.clone()).await;
+    let result = serve_app(listener, addr, app, state.clone()).await;
     state.begin_shutdown();
     if let Err(error) = scheduler.await {
         tracing::warn!("cron scheduler failed to join: {error}");
@@ -113,6 +115,7 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
             agent_args.bind
         ));
     }
+    let (addr, listener) = bind_listener(&agent_args.bind, agent_args.port).await?;
     let state = AppState::new(defaults, Some(agent_config.clone()), api_token);
     let app = build_managed_app(state.clone());
 
@@ -145,7 +148,7 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
         agent_config.agent.name
     );
 
-    serve_app(agent_args.bind, agent_args.port, app, state).await
+    serve_app(listener, addr, app, state).await
 }
 
 fn build_local_app(state: Arc<AppState>) -> Router {
@@ -361,6 +364,10 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             get(list_device_config_history),
         )
         .route(
+            "/api/device-config-history/devices",
+            get(list_device_config_history_devices),
+        )
+        .route(
             "/api/device-config-history/{id}",
             get(get_device_config_snapshot).delete(delete_device_config_snapshot),
         )
@@ -493,19 +500,19 @@ fn bind_is_loopback_only(bind: &str) -> bool {
     }
 }
 
+async fn bind_listener(bind: &str, port: u16) -> Result<(SocketAddr, TcpListener)> {
+    let listener = TcpListener::bind((bind, port)).await?;
+    let addr = listener.local_addr()?;
+    Ok((addr, listener))
+}
+
 async fn serve_app(
-    bind: String,
-    port: u16,
+    listener: TcpListener,
+    addr: SocketAddr,
     app: Router,
     shutdown_state: Arc<AppState>,
 ) -> Result<()> {
-    let addr: SocketAddr = format!("{}:{}", bind, port)
-        .parse()
-        .map_err(|e| anyhow!("Invalid bind address: {}", e))?;
-
     info!("Web UI started at http://{}", addr);
-
-    let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
             signal::ctrl_c().await.ok();
@@ -567,7 +574,7 @@ mod rneter_integration_tests;
 #[cfg(test)]
 mod tests {
     use super::disable_cache;
-    use super::{bind_is_loopback_only, build_local_app};
+    use super::{bind_is_loopback_only, bind_listener, build_local_app};
     use crate::cli::GlobalOpts;
     use crate::web::state::AppState;
     use axum::{
@@ -611,6 +618,16 @@ mod tests {
         assert!(!bind_is_loopback_only("::"));
         assert!(!bind_is_loopback_only("192.168.1.10"));
         assert!(!bind_is_loopback_only("agent.local"));
+    }
+
+    #[tokio::test]
+    async fn bind_listener_rejects_an_occupied_port() {
+        let occupied = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .expect("reserve test port");
+        let port = occupied.local_addr().expect("read test address").port();
+
+        assert!(bind_listener("127.0.0.1", port).await.is_err());
     }
 
     #[tokio::test]

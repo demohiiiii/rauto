@@ -1,7 +1,7 @@
 use crate::infrastructure::db::device_config_store;
 use crate::interfaces::api::models::{
-    DeviceConfigHistoryQuery, DeviceConfigHistoryResponse, DeviceConfigSnapshot,
-    DeviceConfigSnapshotMutationResponse,
+    DeviceConfigHistoryDevice, DeviceConfigHistoryQuery, DeviceConfigHistoryResponse,
+    DeviceConfigSnapshot, DeviceConfigSnapshotMutationResponse,
 };
 use crate::web::error::ApiError;
 use axum::Json;
@@ -40,6 +40,14 @@ pub async fn list_device_config_history(
         connection_names,
         kinds,
     }))
+}
+
+pub async fn list_device_config_history_devices()
+-> Result<Json<Vec<DeviceConfigHistoryDevice>>, ApiError> {
+    device_config_store::list_history_devices()
+        .await
+        .map(Json)
+        .map_err(ApiError::from)
 }
 
 fn parse_timestamp(value: Option<&str>, field: &str) -> Result<Option<i64>, ApiError> {

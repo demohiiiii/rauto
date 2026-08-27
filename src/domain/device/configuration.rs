@@ -24,6 +24,13 @@ pub struct NewDeviceConfigSnapshot<'a> {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct DeviceConfigHistoryDevice {
+    pub name: String,
+    pub host: String,
+    pub device_profile: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct DeviceConfigSnapshotSummary {
     pub id: String,
     pub connection_name: String,

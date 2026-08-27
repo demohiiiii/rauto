@@ -3,6 +3,7 @@ import {
   getDeviceConfigSnapshot,
   listConnections,
   listDeviceConfigHistory,
+  listDeviceConfigHistoryDevices,
 } from "../../api/client.js";
 import { currentLanguageState, tr } from "../../lib/i18n.js";
 import { downloadBlob } from "../../lib/ui.js";
@@ -17,6 +18,7 @@ const defaultApi = {
   getDeviceConfigSnapshot,
   listConnections,
   listDeviceConfigHistory,
+  listDeviceConfigHistoryDevices,
 };
 
 function initialState(preferredConnectionName = "") {
@@ -114,6 +116,19 @@ export function prioritizeConfigHistoryDevices(
       if (leftPreferred !== rightPreferred) return leftPreferred ? -1 : 1;
       return left.name.localeCompare(right.name);
     });
+}
+
+export function mergeConfigHistoryDevices(
+  connections = [],
+  historyDevices = [],
+) {
+  const devicesByName = new Map();
+  for (const device of [historyDevices, connections].flat()) {
+    const name = String(device?.name || "").trim();
+    if (!name) continue;
+    devicesByName.set(name, { ...devicesByName.get(name), ...device, name });
+  }
+  return [...devicesByName.values()];
 }
 
 function presentation(state) {
@@ -281,9 +296,15 @@ export function createConfigHistoryWorkspace(options = {}) {
       deviceStatus: { message: tr("loading", "Loading..."), tone: "info" },
     }));
     try {
-      const response = await api.listConnections();
+      const [connectionsResponse, historyDevicesResponse] = await Promise.all([
+        api.listConnections(),
+        api.listDeviceConfigHistoryDevices(),
+      ]);
       if (version !== deviceRequestVersion) return;
-      const devices = Array.isArray(response) ? response : [];
+      const devices = mergeConfigHistoryDevices(
+        Array.isArray(connectionsResponse) ? connectionsResponse : [],
+        Array.isArray(historyDevicesResponse) ? historyDevicesResponse : [],
+      );
       const current = get(stateStore);
       const connectionName = devices.some(
         (device) => device.name === current.connectionName,

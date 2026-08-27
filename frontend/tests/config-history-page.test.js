@@ -6,6 +6,7 @@ import {
   activeSavedDeviceName,
   createConfigHistoryWorkspace,
   localDateTimeToIso,
+  mergeConfigHistoryDevices,
   prioritizeConfigHistoryDevices,
 } from "../src/modules/operations/configHistory.js";
 
@@ -43,6 +44,7 @@ test("configuration history is a dedicated local management page", () => {
   assert.doesNotMatch(page, /normalized/);
   assert.match(page, /workspace\.downloadSelected/);
   assert.match(state, /listDeviceConfigHistory/);
+  assert.match(state, /listDeviceConfigHistoryDevices/);
   assert.match(state, /listConnections/);
   assert.match(state, /activeConnectionTarget/);
   assert.match(state, /getDeviceConfigSnapshot/);
@@ -70,6 +72,19 @@ test("configuration history prioritizes the active saved device", () => {
     ).map((device) => device.name),
     ["edge-2", "edge-1"],
   );
+  assert.deepEqual(
+    mergeConfigHistoryDevices(
+      [{ name: "edge-live", host: "192.0.2.10" }],
+      [
+        { name: "edge-live", host: "192.0.2.1" },
+        { name: "edge-deleted", host: "192.0.2.2" },
+      ],
+    ),
+    [
+      { name: "edge-live", host: "192.0.2.10" },
+      { name: "edge-deleted", host: "192.0.2.2" },
+    ],
+  );
 });
 
 test("configuration history loads each level only after its parent selection", async () => {
@@ -90,6 +105,7 @@ test("configuration history loads each level only after its parent selection", a
       { name: "edge-1", host: "192.0.2.1" },
       { name: "edge-2", host: "192.0.2.2" },
     ],
+    listDeviceConfigHistoryDevices: async () => [],
     listDeviceConfigHistory: async ({ connectionName }) => {
       calls.histories.push(connectionName);
       return { kinds: ["running"], snapshots: [snapshot] };
@@ -150,6 +166,7 @@ test("configuration history follows a saved device restored after page activatio
       deleteDeviceConfigSnapshot: async () => {},
       getDeviceConfigSnapshot: async () => null,
       listConnections: async () => [{ name: "edge-1" }, { name: "edge-2" }],
+      listDeviceConfigHistoryDevices: async () => [],
       listDeviceConfigHistory: async ({ connectionName }) => {
         historyCalls.push(connectionName);
         return { kinds: [], snapshots: [] };
@@ -181,6 +198,7 @@ test("configuration history applies time range and stable time ordering", async 
       deleteDeviceConfigSnapshot: async () => {},
       getDeviceConfigSnapshot: async () => null,
       listConnections: async () => [{ name: "edge-1" }],
+      listDeviceConfigHistoryDevices: async () => [],
       listDeviceConfigHistory: async (filters) => {
         historyCalls.push(filters);
         return { kinds: [], snapshots: [] };
@@ -219,10 +237,51 @@ test("configuration history applies time range and stable time ordering", async 
   workspace.destroy();
 });
 
+test("configuration history keeps deleted devices without eagerly loading history", async () => {
+  const historyCalls = [];
+  const workspace = createConfigHistoryWorkspace({
+    api: {
+      deleteDeviceConfigSnapshot: async () => {},
+      getDeviceConfigSnapshot: async () => null,
+      listConnections: async () => [{ name: "edge-live", host: "192.0.2.10" }],
+      listDeviceConfigHistoryDevices: async () => [
+        { name: "edge-live", host: "192.0.2.1" },
+        { name: "edge-deleted", host: "192.0.2.2" },
+      ],
+      listDeviceConfigHistory: async ({ connectionName }) => {
+        historyCalls.push(connectionName);
+        return { kinds: [], snapshots: [] };
+      },
+    },
+    getActiveConnectionTarget: () => ({ kind: "none", details: null }),
+  });
+
+  await workspace.setPageContext({ active: true });
+  let display;
+  const unsubscribe = workspace.displayStateStore.subscribe((value) => {
+    display = value;
+  });
+  assert.deepEqual(
+    display.deviceRows.map((device) => device.name),
+    ["edge-deleted", "edge-live"],
+  );
+  assert.equal(
+    display.deviceRows.find((device) => device.name === "edge-live").host,
+    "192.0.2.10",
+  );
+  assert.deepEqual(historyCalls, []);
+
+  await workspace.selectDevice("edge-deleted");
+  assert.deepEqual(historyCalls, ["edge-deleted"]);
+  unsubscribe();
+  workspace.destroy();
+});
+
 test("configuration history client helpers match backend routes", () => {
   const client = read("frontend/src/api/client.js");
 
   assert.match(client, /export function listDeviceConfigHistory/);
+  assert.match(client, /export function listDeviceConfigHistoryDevices/);
   assert.match(client, /params\.set\("fetched_from", fetchedFrom\)/);
   assert.match(client, /params\.set\("fetched_to", fetchedTo\)/);
   assert.match(client, /params\.set\("sort_order", sortOrder\)/);

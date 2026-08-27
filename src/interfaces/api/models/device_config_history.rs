@@ -1,5 +1,6 @@
 pub use crate::domain::device::{
-    DeviceConfigSnapshot, DeviceConfigSnapshotSortOrder, DeviceConfigSnapshotSummary,
+    DeviceConfigHistoryDevice, DeviceConfigSnapshot, DeviceConfigSnapshotSortOrder,
+    DeviceConfigSnapshotSummary,
 };
 use serde::{Deserialize, Serialize};
 

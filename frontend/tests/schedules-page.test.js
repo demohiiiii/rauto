@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { configTargetsFromAction } from "../src/modules/schedules/schedulesState.js";
+import {
+  configTargetsFromAction,
+  createSchedulesPageWorkspace,
+} from "../src/modules/schedules/schedulesState.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -93,4 +96,54 @@ test("legacy config fetch targets remain selected when editing", () => {
     }),
     ["edge-1", "edge-2"],
   );
+});
+
+test("schedule run responses cannot overwrite a newer selection", async () => {
+  const pendingRuns = new Map();
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  };
+  const schedules = ["schedule-a", "schedule-b"].map((id) => ({
+    id,
+    name: id,
+    action: { type: "orchestrate", template_name: "backup" },
+  }));
+  const workspace = createSchedulesPageWorkspace({
+    api: {
+      listConfigCommands: async () => [],
+      listConnections: async () => [],
+      listInventoryGroups: async () => [],
+      listInventoryLabels: async () => [],
+      listSchedules: async () => schedules,
+      listTemplateResource: async () => [],
+      listScheduleRuns: (id) => {
+        const request = deferred();
+        pendingRuns.set(id, request);
+        return request.promise;
+      },
+    },
+  });
+  await workspace.setPageContext({ active: true });
+
+  const selectA = workspace.selectSchedule("schedule-a")();
+  const selectB = workspace.selectSchedule("schedule-b")();
+  pendingRuns.get("schedule-b").resolve([{ id: "run-b" }]);
+  await selectB;
+  pendingRuns.get("schedule-a").resolve([{ id: "run-a" }]);
+  await selectA;
+
+  let display;
+  const unsubscribe = workspace.displayStateStore.subscribe((value) => {
+    display = value;
+  });
+  assert.equal(display.selectedId, "schedule-b");
+  assert.deepEqual(
+    display.runs.map((run) => run.id),
+    ["run-b"],
+  );
+  unsubscribe();
 });

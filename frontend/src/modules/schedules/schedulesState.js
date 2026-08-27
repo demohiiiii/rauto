@@ -16,6 +16,22 @@ import {
 import { currentLanguageState, tr } from "../../lib/i18n.js";
 import { derived, get, writable } from "svelte/store";
 
+const defaultApi = {
+  createSchedule,
+  deleteSchedule,
+  listConfigCommands,
+  listConnections,
+  listInventoryGroups,
+  listInventoryLabels,
+  listScheduleRuns,
+  listSchedules,
+  listTemplateResource,
+  previewSchedule,
+  runScheduleNow,
+  setScheduleEnabled,
+  updateSchedule,
+};
+
 const DEFAULT_FORM = Object.freeze({
   actionType: "orchestrate",
   configGroups: [],
@@ -293,7 +309,8 @@ function presentation(state) {
   };
 }
 
-export function createSchedulesPageWorkspace() {
+export function createSchedulesPageWorkspace(options = {}) {
+  const api = { ...defaultApi, ...(options.api || {}) };
   const stateStore = writable(newState());
   const displayStateStore = derived(
     [stateStore, currentLanguageState],
@@ -302,6 +319,7 @@ export function createSchedulesPageWorkspace() {
   let loaded = false;
   let previewRequestVersion = 0;
   let previewTimer = null;
+  let runsRequestVersion = 0;
 
   async function refreshCronPreview() {
     const state = get(stateStore);
@@ -318,7 +336,7 @@ export function createSchedulesPageWorkspace() {
       },
     }));
     try {
-      const response = await previewSchedule({
+      const response = await api.previewSchedule({
         cron_expression: cronExpression,
         timezone,
       });
@@ -364,6 +382,7 @@ export function createSchedulesPageWorkspace() {
   }
 
   async function refresh(selectedId = get(stateStore).selectedId) {
+    const runsVersion = ++runsRequestVersion;
     await mutate("refresh", async (state) => {
       const [
         schedules,
@@ -374,13 +393,13 @@ export function createSchedulesPageWorkspace() {
         inventoryLabels,
         configCommands,
       ] = await Promise.all([
-        listSchedules(),
-        listTemplateResource("/api/orchestration-templates"),
-        listTemplateResource("/api/tx-workflow-templates"),
-        listConnections(),
-        listInventoryGroups(),
-        listInventoryLabels(),
-        listConfigCommands(),
+        api.listSchedules(),
+        api.listTemplateResource("/api/orchestration-templates"),
+        api.listTemplateResource("/api/tx-workflow-templates"),
+        api.listConnections(),
+        api.listInventoryGroups(),
+        api.listInventoryLabels(),
+        api.listConfigCommands(),
       ]);
       state.schedules = Array.isArray(schedules) ? schedules : [];
       state.orchestrationTemplates = Array.isArray(orchestrationTemplates)
@@ -409,14 +428,19 @@ export function createSchedulesPageWorkspace() {
           ].filter(Boolean),
         ),
       ].sort();
+      if (runsVersion !== runsRequestVersion) return;
       const selected = state.schedules.find((item) => item.id === selectedId);
       if (selected) {
         state.selectedId = selected.id;
         state.form = scheduleToForm(selected);
-        state.runs = await listScheduleRuns(selected.id);
+        const runs = await api.listScheduleRuns(selected.id);
+        if (runsVersion !== runsRequestVersion) return;
+        state.runs = runs;
+        state.runsStatus = null;
       } else {
         state.selectedId = "";
         state.runs = [];
+        state.runsStatus = null;
       }
     });
   }
@@ -481,6 +505,7 @@ export function createSchedulesPageWorkspace() {
 
   function selectSchedule(id) {
     return async () => {
+      const version = ++runsRequestVersion;
       const state = get(stateStore);
       const schedule = state.schedules.find((item) => item.id === id);
       if (!schedule) return;
@@ -489,13 +514,31 @@ export function createSchedulesPageWorkspace() {
       state.runsStatus = { message: tr("loading", "Loading..."), tone: "info" };
       stateStore.set(state);
       try {
-        state.runs = await listScheduleRuns(id);
-        state.runsStatus = null;
+        const runs = await api.listScheduleRuns(id);
+        if (
+          version !== runsRequestVersion ||
+          get(stateStore).selectedId !== id
+        ) {
+          return;
+        }
+        stateStore.update((current) => ({
+          ...current,
+          runs,
+          runsStatus: null,
+        }));
       } catch (error) {
-        state.runs = [];
-        state.runsStatus = { message: error.message, tone: "error" };
+        if (
+          version !== runsRequestVersion ||
+          get(stateStore).selectedId !== id
+        ) {
+          return;
+        }
+        stateStore.update((current) => ({
+          ...current,
+          runs: [],
+          runsStatus: { message: error.message, tone: "error" },
+        }));
       }
-      stateStore.set(state);
     };
   }
 
@@ -503,8 +546,8 @@ export function createSchedulesPageWorkspace() {
     await mutate("save", async (state) => {
       const definition = definitionFromForm(state.form);
       const saved = state.editingId
-        ? await updateSchedule(state.editingId, definition)
-        : await createSchedule(definition);
+        ? await api.updateSchedule(state.editingId, definition)
+        : await api.createSchedule(definition);
       state.selectedId = saved.id;
       state.editingId = saved.id;
       await refresh(saved.id);
@@ -520,7 +563,7 @@ export function createSchedulesPageWorkspace() {
     id = String(id || "").trim();
     if (!id) return;
     await mutate(`delete:${id}`, async (state) => {
-      await deleteSchedule(id);
+      await api.deleteSchedule(id);
       const selectedId = state.selectedId === id ? "" : state.selectedId;
       if (state.editingId === id) {
         state.editingId = "";
@@ -534,7 +577,7 @@ export function createSchedulesPageWorkspace() {
   function toggleEnabled(schedule) {
     return async () => {
       await mutate(`toggle:${schedule.id}`, async () => {
-        await setScheduleEnabled(schedule.id, !schedule.enabled);
+        await api.setScheduleEnabled(schedule.id, !schedule.enabled);
         await refresh(schedule.id);
       });
     };
@@ -543,7 +586,7 @@ export function createSchedulesPageWorkspace() {
   function runNow(schedule) {
     return async () => {
       await mutate(`run:${schedule.id}`, async (state) => {
-        await runScheduleNow(schedule.id);
+        await api.runScheduleNow(schedule.id);
         await refresh(schedule.id);
         state.listStatus = {
           message: tr("scheduleRunQueued", "Schedule run queued"),

@@ -588,6 +588,10 @@ export function listDeviceConfigHistory({
   return apiRequest("GET", `/api/device-config-history?${params.toString()}`);
 }
 
+export function listDeviceConfigHistoryDevices() {
+  return apiRequest("GET", "/api/device-config-history/devices");
+}
+
 export function getDeviceConfigSnapshot(snapshotId) {
   return apiRequest(
     "GET",

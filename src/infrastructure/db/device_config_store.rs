@@ -1,6 +1,6 @@
 use crate::domain::device::{
-    DeviceConfigSnapshot, DeviceConfigSnapshotSortOrder, DeviceConfigSnapshotSummary,
-    NewDeviceConfigSnapshot,
+    DeviceConfigHistoryDevice, DeviceConfigSnapshot, DeviceConfigSnapshotSortOrder,
+    DeviceConfigSnapshotSummary, NewDeviceConfigSnapshot,
 };
 use crate::infrastructure::db;
 use anyhow::{Result, anyhow};
@@ -247,6 +247,34 @@ pub async fn list_connection_names() -> Result<Vec<String>> {
     Ok(rows)
 }
 
+pub async fn list_history_devices() -> Result<Vec<DeviceConfigHistoryDevice>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT connection_name, host, device_profile
+        FROM (
+            SELECT connection_name, host, device_profile,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY connection_name
+                       ORDER BY fetched_at_ms DESC, rowid DESC
+                   ) AS history_rank
+            FROM device_config_snapshots
+        )
+        WHERE history_rank = 1
+        ORDER BY connection_name COLLATE NOCASE ASC
+        "#,
+    )
+    .fetch_all(db::pool())
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| DeviceConfigHistoryDevice {
+            name: row.get("connection_name"),
+            host: row.get("host"),
+            device_profile: row.get("device_profile"),
+        })
+        .collect())
+}
+
 pub async fn list_kinds() -> Result<Vec<String>> {
     let rows = sqlx::query_scalar::<_, String>(
         "SELECT DISTINCT kind FROM device_config_snapshots ORDER BY kind COLLATE NOCASE ASC",
@@ -422,6 +450,40 @@ mod tests {
                 .await
                 .expect("count retained configuration contents");
         assert_eq!(content_count, 1);
+
+        cleanup_test_db(guard, &path).await;
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn history_devices_use_the_latest_snapshot_metadata() {
+        let (guard, path) = setup_test_db("history-devices").await;
+        for (fetched_at_ms, host, profile) in [
+            (1_700_000_000_000, "192.0.2.10", "cisco_ios"),
+            (1_700_000_001_000, "192.0.2.20", "arista_eos"),
+        ] {
+            let content = format!("hostname edge\n! {host}\n");
+            let sha256 = crate::domain::device::sha256_hex(&content);
+            save_snapshot(NewDeviceConfigSnapshot {
+                connection_name: "deleted-edge",
+                host,
+                profile,
+                kind: "running",
+                command: "show running-config",
+                source: "cron",
+                task_id: None,
+                fetched_at_ms,
+                content: &content,
+                sha256: &sha256,
+            })
+            .await
+            .expect("save device config snapshot");
+        }
+
+        let devices = list_history_devices().await.expect("list history devices");
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].name, "deleted-edge");
+        assert_eq!(devices[0].host, "192.0.2.20");
+        assert_eq!(devices[0].device_profile, "arista_eos");
 
         cleanup_test_db(guard, &path).await;
     }

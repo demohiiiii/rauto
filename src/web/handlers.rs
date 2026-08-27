@@ -114,6 +114,7 @@ pub use credentials::{
 };
 pub use device_config_history::{
     delete_device_config_snapshot, get_device_config_snapshot, list_device_config_history,
+    list_device_config_history_devices,
 };
 pub use device_discovery::{
     cancel_device_discovery_run, create_device_discovery_run, get_device_discovery_run,
