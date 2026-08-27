@@ -288,6 +288,8 @@ pub struct ConfigFetchTargetResponse {
     pub normalized_content: Option<String>,
     pub sha256: Option<String>,
     pub normalized_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot_id: Option<String>,
     pub error: Option<String>,
 }
 

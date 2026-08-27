@@ -62,6 +62,7 @@ fn saved_connection(host: &str, groups: Vec<&str>, labels: Vec<&str>) -> SavedCo
         software_version: None,
         ssh_security: None,
         linux_shell_flavor: None,
+        output_encoding: Default::default(),
         device_profile: Some("linux".to_string()),
         template_dir: None,
         enabled: true,

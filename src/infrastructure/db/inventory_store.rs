@@ -234,6 +234,7 @@ mod tests {
             groups: groups.into_iter().map(|item| item.to_string()).collect(),
             ssh_security: None,
             linux_shell_flavor: None,
+            output_encoding: Default::default(),
             template_dir: None,
         }
     }

@@ -30,6 +30,7 @@ let savedConnectionEditorFormState = {
   enabled: true,
   host: "",
   linux_shell_flavor: "",
+  output_encoding: "utf8",
   name: "",
   port: "",
   ssh_security: "",
@@ -121,6 +122,7 @@ function savedConnectionEditorFormStateFromDraft(draft = {}) {
     enabled: draft.enabled,
     host: draft.host,
     linux_shell_flavor: draft.linuxShellFlavor,
+    output_encoding: draft.outputEncoding || "utf8",
     name: draft.name,
     port: draft.port,
     ssh_security: draft.sshSecurity,
@@ -161,6 +163,7 @@ function applySavedConnectionEditorDraftChange(
         "credentialId",
         "host",
         "linuxShellFlavor",
+        "outputEncoding",
         "name",
         "port",
         "sshSecurity",
@@ -261,6 +264,8 @@ function savedConnectionEditorPayload(
       safeString(formState.software_version || "").trim() || null,
     linux_shell_flavor:
       safeString(formState.linux_shell_flavor || "").trim() || null,
+    output_encoding:
+      safeString(formState.output_encoding || "utf8").trim() || "utf8",
     device_profile: safeString(formState.device_profile || "").trim() || null,
     enabled: formState.enabled !== false,
     labels: getConnectionLabelValues(CONNECTION_PICKER.savedEditLabels),
@@ -297,7 +302,9 @@ function connectionTestSuccessMessage(testResult = {}) {
   const sshSecurity = safeString(testResult.ssh_security || "").trim() || "-";
   const linuxShellFlavor =
     safeString(testResult.linux_shell_flavor || "").trim() || "-";
-  return `${t("connectionOk")}: ${username}@${host}:${port} (${deviceProfile}, ${sshSecurity}, ${linuxShellFlavor})`;
+  const outputEncoding =
+    safeString(testResult.output_encoding || "utf8").trim() || "utf8";
+  return `${t("connectionOk")}: ${username}@${host}:${port} (${deviceProfile}, ${sshSecurity}, ${linuxShellFlavor}, ${outputEncoding})`;
 }
 
 export async function testSavedConnectionDraft(draft = {}) {
@@ -330,6 +337,7 @@ function applySavedConnectionEditorForm(savedConnectionName, connection = {}) {
     enabled: connection.enabled !== false,
     host: safeString(connection.host || ""),
     linux_shell_flavor: safeString(connection.linux_shell_flavor || ""),
+    output_encoding: safeString(connection.output_encoding || "utf8"),
     name: savedConnectionName || "",
     port: safeString(connection.port || 22),
     ssh_security: safeString(connection.ssh_security || ""),

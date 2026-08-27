@@ -94,6 +94,7 @@ pub(super) async fn execute_compensation_action(
         conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
+        conn.output_encoding,
     );
     let level = to_record_level(record_level);
     let recorder = crate::config::session_recording::redacting_recorder(
@@ -213,6 +214,7 @@ async fn execute_tx_workflow_action(
         conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
+        conn.output_encoding,
     );
     let level = to_record_level(record_level);
     let recorder = crate::config::session_recording::redacting_recorder(
@@ -290,6 +292,7 @@ mod tests {
             enable_password: None,
             ssh_security: SshSecurityProfile::Balanced,
             linux_shell_flavor: None,
+            output_encoding: Default::default(),
             device_profile: "linux".to_string(),
             vars: json!({}),
             template_dir: None,

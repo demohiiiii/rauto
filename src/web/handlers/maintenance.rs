@@ -275,7 +275,7 @@ pub async fn download_connection_import_template(
     let content = if is_zh {
         "\u{feff}连接名,主机地址,设备凭证,端口,连接超时秒,设备型号,软件版本,SSH安全级别,Linux Shell,设备模板\n"
     } else {
-        "name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile\n"
+        "name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,output_encoding,device_profile\n"
     };
     csv_download_response(filename, content)
 }

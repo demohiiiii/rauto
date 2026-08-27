@@ -52,6 +52,26 @@ test("connection timeout input updates the shared draft", () => {
   assert.equal(draft.connectTimeoutSecs, "41");
 });
 
+test("device encoding defaults to UTF-8 and updates through shared wiring", async () => {
+  await loadI18nLanguage("en");
+  const draft = savedConnectionEditorDraftDefaults();
+  const wiring = connectionBasicFieldWiring(draft, (target, patch) =>
+    Object.assign(target, patch),
+  );
+
+  assert.equal(draft.outputEncoding, "utf8");
+  wiring.onOutputEncodingChange("gbk");
+  assert.equal(draft.outputEncoding, "gbk");
+
+  const display = connectionBasicFieldsPresentation({ fieldValues: draft });
+  assert.deepEqual(
+    display.outputEncodingSelect.outputEncodingOptionRows.map(
+      (option) => option.optionValue,
+    ),
+    ["utf8", "gb2312", "gbk", "gb18030"],
+  );
+});
+
 test("connection picker configs preserve resource kinds and custom rules", () => {
   setConnectionInventorySnapshots({
     groups: [{ name: "production" }],

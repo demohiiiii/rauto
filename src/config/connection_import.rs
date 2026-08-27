@@ -1,6 +1,7 @@
 use crate::config::connection_store::{self, SavedConnection};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::domain::device::DeviceEncoding;
 use anyhow::{Context, Result, anyhow};
 use calamine::{Data, Reader, open_workbook_auto_from_rs};
 use std::collections::{HashMap, HashSet};
@@ -18,6 +19,7 @@ struct ImportedConnectionRow {
     row: usize,
     name: String,
     connection: SavedConnection,
+    output_encoding: Option<DeviceEncoding>,
 }
 
 #[derive(Debug, Default)]
@@ -37,6 +39,7 @@ enum ColumnKey {
     SoftwareVersion,
     SshSecurity,
     LinuxShellFlavor,
+    OutputEncoding,
     DeviceProfile,
     TemplateDir,
 }
@@ -95,7 +98,7 @@ fn apply_import_rows(file_name: &str, parsed: ParsedRows) -> Result<ConnectionIm
 
     for row in parsed.rows {
         let existing = connection_store::load_connection_raw(&row.name).ok();
-        let merged = merge_with_existing(existing.as_ref(), row.connection);
+        let merged = merge_with_existing(existing.as_ref(), row.connection, row.output_encoding);
         if merged
             .host
             .as_deref()
@@ -150,6 +153,7 @@ fn apply_import_rows(file_name: &str, parsed: ParsedRows) -> Result<ConnectionIm
 fn merge_with_existing(
     existing: Option<&SavedConnection>,
     incoming: SavedConnection,
+    output_encoding: Option<DeviceEncoding>,
 ) -> SavedConnection {
     SavedConnection {
         credential_id: incoming
@@ -176,6 +180,9 @@ fn merge_with_existing(
         linux_shell_flavor: incoming
             .linux_shell_flavor
             .or_else(|| existing.and_then(|item| item.linux_shell_flavor)),
+        output_encoding: output_encoding
+            .or_else(|| existing.map(|item| item.output_encoding))
+            .unwrap_or_default(),
         device_profile: incoming
             .device_profile
             .or_else(|| existing.and_then(|item| item.device_profile.clone())),
@@ -213,6 +220,7 @@ mod tests {
     use super::{ColumnKey, import_connections_from_web_bytes, merge_with_existing};
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
+    use crate::domain::device::DeviceEncoding;
     use std::collections::{HashMap, HashSet};
 
     #[test]
@@ -266,6 +274,24 @@ mod tests {
         .expect("row parses")
         .expect("row exists");
         assert_eq!(row.connection.connect_timeout_secs, Some(45));
+    }
+
+    #[test]
+    fn output_encoding_header_and_value_are_parsed() {
+        let mapping = build_header_mapping(&["host".to_string(), "output_encoding".to_string()])
+            .expect("headers should be recognized");
+        assert_eq!(mapping.get(&1), Some(&ColumnKey::OutputEncoding));
+
+        let row = parse_row(
+            2,
+            &mapping,
+            &["10.0.0.2".to_string(), "gbk".to_string()],
+            &mut HashSet::new(),
+        )
+        .expect("row parses")
+        .expect("row exists");
+
+        assert_eq!(row.output_encoding, Some(DeviceEncoding::Gbk));
     }
 
     #[test]
@@ -335,6 +361,7 @@ mod tests {
             software_version: Some("17.9.5".to_string()),
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
+            output_encoding: Default::default(),
             device_profile: Some("cisco".to_string()),
             template_dir: None,
             enabled: true,
@@ -353,6 +380,7 @@ mod tests {
                 software_version: None,
                 ssh_security: None,
                 linux_shell_flavor: None,
+                output_encoding: Default::default(),
                 device_profile: None,
                 template_dir: None,
                 enabled: true,
@@ -360,6 +388,7 @@ mod tests {
                 vars: serde_json::json!({}),
                 groups: vec![],
             },
+            None,
         );
         assert_eq!(merged.credential_id.as_deref(), Some("cred-existing"));
         assert_eq!(merged.host.as_deref(), Some("192.0.2.1"));

@@ -4,13 +4,29 @@ pub async fn execute_orchestration(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteOrchestrationRequest>,
 ) -> Result<Json<ApiResponse<ExecuteOrchestrationResponse>>, ApiError> {
-    let (task_ctx, task_guard) = begin_reported_task(
+    Box::pin(execute_orchestration_request(state, req, false)).await
+}
+
+pub(crate) async fn execute_scheduled_orchestration(
+    state: Arc<AppState>,
+    req: ExecuteOrchestrationRequest,
+) -> Result<Json<ApiResponse<ExecuteOrchestrationResponse>>, ApiError> {
+    Box::pin(execute_orchestration_request(state, req, true)).await
+}
+
+async fn execute_orchestration_request(
+    state: Arc<AppState>,
+    req: ExecuteOrchestrationRequest,
+    force_tracking: bool,
+) -> Result<Json<ApiResponse<ExecuteOrchestrationResponse>>, ApiError> {
+    let (task_ctx, task_guard) = begin_reported_task_with_tracking(
         &state,
         TaskOperation::Orchestrate,
         req.task.task_id.clone(),
         TaskEventInput::new("started", "Starting orchestration execution")
             .with_stage("orchestrate")
             .with_progress(Some(0)),
+        force_tracking || state.is_managed(),
     );
     let result: Result<ExecuteOrchestrationResponse, ApiError> = state
         .run_until_shutdown(async {

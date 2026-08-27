@@ -142,6 +142,7 @@ pub(crate) async fn run_command_flow(
         conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
+        conn.output_encoding,
         profile_default_mode.clone(),
         crate::to_record_level(args.record_level),
         conn.ssh_security,
@@ -401,6 +402,7 @@ async fn execute_resolved_flow_target_buffered(
         target.conn.auth.clone(),
         target.conn.enable_password.clone(),
         handler,
+        target.conn.output_encoding,
         target.profile_default_mode.clone(),
         crate::to_record_level(options.record_level),
         target.conn.ssh_security,
@@ -472,6 +474,7 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
         conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
+        conn.output_encoding,
     );
     let context = crate::manager_execution_context_with_security(
         None,

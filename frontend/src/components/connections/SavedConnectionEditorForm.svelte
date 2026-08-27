@@ -49,6 +49,7 @@
     onSavedEditorDeviceModelInput,
     onSavedEditorHostInput,
     onSavedEditorLinuxShellFlavorChange,
+    onSavedEditorOutputEncodingChange,
     onSavedEditorNameInput,
     onSavedEditorPortInput,
     onSavedEditorSshSecurityChange,
@@ -126,6 +127,7 @@
         onDeviceProfileChange={onSavedEditorDeviceProfileChange}
         onHostInput={onSavedEditorHostInput}
         onLinuxShellFlavorChange={onSavedEditorLinuxShellFlavorChange}
+        onOutputEncodingChange={onSavedEditorOutputEncodingChange}
         onPortInput={onSavedEditorPortInput}
         onSshSecurityChange={onSavedEditorSshSecurityChange}
       />

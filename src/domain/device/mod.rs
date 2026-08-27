@@ -8,6 +8,7 @@
 pub mod catalog;
 pub mod configuration;
 pub mod discovery;
+pub mod encoding;
 pub mod facts;
 pub mod profile;
 pub mod shell;
@@ -17,8 +18,12 @@ pub use catalog::{
     CustomShowObject, ShowCommand, ShowCommandSource, VolatilePatternEntry,
     VolatilePatternOverride, normalize_show_object,
 };
-pub use configuration::{normalize_config, sha256_hex};
+pub use configuration::{
+    DeviceConfigSnapshot, DeviceConfigSnapshotSortOrder, DeviceConfigSnapshotSummary,
+    NewDeviceConfigSnapshot, normalize_config, sha256_hex,
+};
 pub use discovery::{DiscoveryResultRecord, DiscoveryRunRecord};
+pub use encoding::DeviceEncoding;
 pub use facts::{DeviceFacts, extract_device_facts};
 pub use profile::{
     DeviceProfile, InteractionConfig, PromptConfig, SysPromptConfig, TransitionConfig,

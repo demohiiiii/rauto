@@ -3,6 +3,7 @@ use crate::agent::registration::AgentRegistrar;
 use crate::agent::task_grpc_server::build_agent_task_grpc_router;
 use crate::cli::{AgentArgs, GlobalOpts, WebArgs};
 use crate::config::app_config;
+use crate::scheduler::spawn_scheduler;
 use crate::web::agent_handlers::{agent_info, agent_status, probe_devices};
 use crate::web::assets::{static_response, svelte_index_response};
 use crate::web::auth::{
@@ -12,38 +13,40 @@ use crate::web::handlers::{
     add_blacklist_pattern, add_config_volatile_pattern, cancel_device_discovery_run,
     check_blacklist_command, create_backup, create_command_flow_template, create_credential,
     create_device_discovery_run, create_or_update_custom_profile, create_orchestration_template,
-    create_template, create_textfsm_template, create_tx_block_template,
+    create_schedule, create_template, create_textfsm_template, create_tx_block_template,
     create_tx_workflow_template, delete_blacklist_pattern, delete_command_flow_template,
     delete_config_command, delete_connection, delete_connection_history, delete_credential,
-    delete_custom_profile, delete_custom_show_object, delete_inventory_group,
-    delete_inventory_label, delete_orchestration_template, delete_template, delete_textfsm_mapping,
-    delete_textfsm_template, delete_tx_block_template, delete_tx_workflow_template,
-    detect_connection_facts, diagnose_profile, download_backup,
-    download_connection_import_template, download_credential_import_template, exec_command,
-    exec_command_async, execute_command_flow, execute_exec_batch, execute_flow_batch,
-    execute_orchestration, execute_orchestration_async, execute_show, execute_show_batch,
-    execute_template, execute_template_async, execute_tx_block, execute_tx_block_async,
-    execute_tx_workflow, execute_tx_workflow_async, execute_upload, export_textfsm_excel,
-    fetch_config, fetch_config_batch, get_builtin_command_flow_template,
+    delete_custom_profile, delete_custom_show_object, delete_device_config_snapshot,
+    delete_inventory_group, delete_inventory_label, delete_orchestration_template, delete_schedule,
+    delete_template, delete_textfsm_mapping, delete_textfsm_template, delete_tx_block_template,
+    delete_tx_workflow_template, detect_connection_facts, diagnose_profile, disable_schedule,
+    download_backup, download_connection_import_template, download_credential_import_template,
+    enable_schedule, exec_command, exec_command_async, execute_command_flow, execute_exec_batch,
+    execute_flow_batch, execute_orchestration, execute_orchestration_async, execute_show,
+    execute_show_batch, execute_template, execute_template_async, execute_tx_block,
+    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
+    export_textfsm_excel, fetch_config, fetch_config_batch, get_builtin_command_flow_template,
     get_builtin_profile_detail, get_builtin_profile_form, get_command_flow_template,
     get_connection, get_connection_history, get_connection_history_detail, get_credential,
-    get_custom_profile, get_custom_profile_form, get_device_discovery_run, get_inventory_group,
-    get_inventory_label, get_orchestration_template, get_profile_modes, get_task_run_detail,
-    get_template, get_textfsm_template, get_tx_block_template, get_tx_workflow_template, health,
-    import_connections, import_credentials, import_device_discovery_results,
-    inspect_command_flow_template, inspect_command_template, list_backups, list_blacklist_patterns,
+    get_custom_profile, get_custom_profile_form, get_device_config_snapshot,
+    get_device_discovery_run, get_inventory_group, get_inventory_label, get_orchestration_template,
+    get_profile_modes, get_schedule, get_task_run_detail, get_template, get_textfsm_template,
+    get_tx_block_template, get_tx_workflow_template, health, import_connections,
+    import_credentials, import_device_discovery_results, inspect_command_flow_template,
+    inspect_command_template, list_backups, list_blacklist_patterns,
     list_builtin_command_flow_templates, list_command_flow_templates, list_config_commands,
     list_config_volatile_patterns, list_connections, list_credentials, list_custom_show_objects,
-    list_device_discovery_runs, list_inventory_groups, list_inventory_labels,
-    list_orchestration_templates, list_profiles, list_show_objects, list_task_runs, list_templates,
-    list_textfsm_mappings, list_textfsm_templates, list_tx_block_templates,
-    list_tx_workflow_templates, preview_tx_workflow_template, profiles_overview,
-    remove_config_volatile_pattern, render_template, replay_session, restore_backup,
-    test_connection, update_command_flow_template, update_credential,
-    update_orchestration_template, update_template, update_textfsm_template,
-    update_tx_block_template, update_tx_workflow_template, upsert_config_command,
-    upsert_connection, upsert_custom_profile_form, upsert_custom_show_object,
-    upsert_inventory_group, upsert_inventory_label, upsert_textfsm_mapping,
+    list_device_config_history, list_device_discovery_runs, list_inventory_groups,
+    list_inventory_labels, list_orchestration_templates, list_profiles, list_schedule_runs,
+    list_schedules, list_show_objects, list_task_runs, list_templates, list_textfsm_mappings,
+    list_textfsm_templates, list_tx_block_templates, list_tx_workflow_templates, preview_schedule,
+    preview_tx_workflow_template, profiles_overview, remove_config_volatile_pattern,
+    render_template, replay_session, restore_backup, run_schedule_now, test_connection,
+    update_command_flow_template, update_credential, update_orchestration_template,
+    update_schedule, update_template, update_textfsm_template, update_tx_block_template,
+    update_tx_workflow_template, upsert_config_command, upsert_connection,
+    upsert_custom_profile_form, upsert_custom_show_object, upsert_inventory_group,
+    upsert_inventory_label, upsert_textfsm_mapping,
 };
 use crate::web::state::AppState;
 use anyhow::{Result, anyhow};
@@ -72,7 +75,13 @@ pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<(
     }
     let state = AppState::new_web(defaults, &web_password.password);
     let app = build_local_app(state.clone());
-    serve_app(web_args.bind, web_args.port, app, state).await
+    let scheduler = spawn_scheduler(state.clone());
+    let result = serve_app(web_args.bind, web_args.port, app, state.clone()).await;
+    state.begin_shutdown();
+    if let Err(error) = scheduler.await {
+        tracing::warn!("cron scheduler failed to join: {error}");
+    }
+    result
 }
 
 pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Result<()> {
@@ -140,16 +149,35 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
 }
 
 fn build_local_app(state: Arc<AppState>) -> Router {
-    let protected_routes = local_api_routes().layer(middleware::from_fn_with_state(
-        state.clone(),
-        web_auth_middleware,
-    ));
+    let protected_routes =
+        local_api_routes()
+            .merge(schedule_api_routes())
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                web_auth_middleware,
+            ));
     Router::new()
         .merge(public_web_routes())
         .merge(protected_routes)
         .fallback(any(not_found))
         .layer(middleware::from_fn(disable_cache))
         .with_state(state)
+}
+
+fn schedule_api_routes() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/api/schedules", get(list_schedules).post(create_schedule))
+        .route("/api/schedules/preview", post(preview_schedule))
+        .route(
+            "/api/schedules/{id}",
+            get(get_schedule)
+                .put(update_schedule)
+                .delete(delete_schedule),
+        )
+        .route("/api/schedules/{id}/enable", post(enable_schedule))
+        .route("/api/schedules/{id}/disable", post(disable_schedule))
+        .route("/api/schedules/{id}/run", post(run_schedule_now))
+        .route("/api/schedules/{id}/runs", get(list_schedule_runs))
 }
 
 fn build_managed_app(state: Arc<AppState>) -> Router {
@@ -328,6 +356,14 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/flow/batch-execute", post(execute_flow_batch))
         .route("/api/config/fetch", post(fetch_config))
         .route("/api/config/batch-fetch", post(fetch_config_batch))
+        .route(
+            "/api/device-config-history",
+            get(list_device_config_history),
+        )
+        .route(
+            "/api/device-config-history/{id}",
+            get(get_device_config_snapshot).delete(delete_device_config_snapshot),
+        )
         .route(
             "/api/config/commands",
             get(list_config_commands)

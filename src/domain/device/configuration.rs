@@ -1,5 +1,51 @@
 use regex::Regex;
+use serde::Serialize;
 use sha2::{Digest, Sha256};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum DeviceConfigSnapshotSortOrder {
+    Ascending,
+    #[default]
+    Descending,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewDeviceConfigSnapshot<'a> {
+    pub connection_name: &'a str,
+    pub host: &'a str,
+    pub profile: &'a str,
+    pub kind: &'a str,
+    pub command: &'a str,
+    pub source: &'a str,
+    pub task_id: Option<&'a str>,
+    pub fetched_at_ms: i64,
+    pub content: &'a str,
+    pub sha256: &'a str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DeviceConfigSnapshotSummary {
+    pub id: String,
+    pub connection_name: String,
+    pub host: String,
+    pub profile: String,
+    pub kind: String,
+    pub command: String,
+    pub source: String,
+    pub task_id: Option<String>,
+    pub fetched_at: String,
+    pub sha256: String,
+    pub content_size_bytes: u64,
+    pub previous_snapshot_id: Option<String>,
+    pub changed_from_previous: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DeviceConfigSnapshot {
+    #[serde(flatten)]
+    pub summary: DeviceConfigSnapshotSummary,
+    pub content: String,
+}
 
 pub fn normalize_config(content: &str, patterns: &[String]) -> String {
     let compiled: Vec<Regex> = patterns

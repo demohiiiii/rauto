@@ -12,9 +12,9 @@ impl TaskReportContext {
     pub(crate) fn from_request(
         operation: TaskOperation,
         task_id: Option<String>,
-        managed: bool,
+        enabled: bool,
     ) -> Option<Self> {
-        if !managed {
+        if !enabled {
             return None;
         }
         let task_id = task_id

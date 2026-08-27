@@ -570,6 +570,38 @@ export function fetchConfig(payload) {
   return apiExecutionRequest("POST", "/api/config/fetch", payload);
 }
 
+export function listDeviceConfigHistory({
+  connectionName = "",
+  fetchedFrom = "",
+  fetchedTo = "",
+  kind = "",
+  limit = 100,
+  sortOrder = "desc",
+} = {}) {
+  const params = new URLSearchParams();
+  if (connectionName) params.set("connection_name", connectionName);
+  if (fetchedFrom) params.set("fetched_from", fetchedFrom);
+  if (fetchedTo) params.set("fetched_to", fetchedTo);
+  if (kind) params.set("kind", kind);
+  params.set("sort_order", sortOrder);
+  params.set("limit", String(limit));
+  return apiRequest("GET", `/api/device-config-history?${params.toString()}`);
+}
+
+export function getDeviceConfigSnapshot(snapshotId) {
+  return apiRequest(
+    "GET",
+    `/api/device-config-history/${encodeURIComponent(snapshotId)}`,
+  );
+}
+
+export function deleteDeviceConfigSnapshot(snapshotId) {
+  return apiRequest(
+    "DELETE",
+    `/api/device-config-history/${encodeURIComponent(snapshotId)}`,
+  );
+}
+
 export function listConfigCommands(profile = "") {
   const params = new URLSearchParams();
   if (profile) params.set("profile", profile);
@@ -651,6 +683,55 @@ export function listTasks({ limit = 50, operation = "", status = "" } = {}) {
 
 export function getTask(taskId) {
   return apiRequest("GET", `/api/tasks/${encodeURIComponent(taskId)}`);
+}
+
+export function listSchedules() {
+  return apiRequest("GET", "/api/schedules");
+}
+
+export function previewSchedule(payload) {
+  return apiRequest("POST", "/api/schedules/preview", payload);
+}
+
+export function createSchedule(payload) {
+  return apiRequest("POST", "/api/schedules", payload);
+}
+
+export function updateSchedule(scheduleId, payload) {
+  return apiRequest(
+    "PUT",
+    `/api/schedules/${encodeURIComponent(scheduleId)}`,
+    payload,
+  );
+}
+
+export function deleteSchedule(scheduleId) {
+  return apiRequest(
+    "DELETE",
+    `/api/schedules/${encodeURIComponent(scheduleId)}`,
+  );
+}
+
+export function setScheduleEnabled(scheduleId, enabled) {
+  const action = enabled ? "enable" : "disable";
+  return apiRequest(
+    "POST",
+    `/api/schedules/${encodeURIComponent(scheduleId)}/${action}`,
+  );
+}
+
+export function runScheduleNow(scheduleId) {
+  return apiRequest(
+    "POST",
+    `/api/schedules/${encodeURIComponent(scheduleId)}/run`,
+  );
+}
+
+export function listScheduleRuns(scheduleId, limit = 50) {
+  return apiRequest(
+    "GET",
+    `/api/schedules/${encodeURIComponent(scheduleId)}/runs?limit=${limit}`,
+  );
 }
 
 export function listTemplates() {

@@ -133,6 +133,7 @@ pub(super) fn parse_row(
     let mut software_version = None;
     let mut ssh_security = None;
     let mut linux_shell_flavor = None;
+    let mut output_encoding = None;
     let mut device_profile = None;
     let mut template_dir = None;
 
@@ -177,6 +178,11 @@ pub(super) fn parse_row(
                     )
                 })?
             }
+            ColumnKey::OutputEncoding => {
+                output_encoding = parse_output_encoding(raw).with_context(|| {
+                    format!("row {} has invalid output_encoding '{}'", row_number, raw)
+                })?
+            }
             ColumnKey::DeviceProfile => device_profile = normalize_text(raw),
             ColumnKey::TemplateDir => template_dir = normalize_text(raw),
         }
@@ -214,6 +220,7 @@ pub(super) fn parse_row(
             software_version,
             ssh_security,
             linux_shell_flavor,
+            output_encoding: Default::default(),
             device_profile,
             template_dir,
             enabled: true,
@@ -221,6 +228,7 @@ pub(super) fn parse_row(
             vars: serde_json::json!({}),
             groups: vec![],
         },
+        output_encoding,
     }))
 }
 
@@ -284,6 +292,9 @@ fn map_header(header: &str) -> Option<ColumnKey> {
         }
         "linuxshellflavor" | "shellflavor" | "linuxshell" | "shell" | "linuxshell类型"
         | "linuxshell风格" | "shell类型" | "shell风格" => Some(ColumnKey::LinuxShellFlavor),
+        "outputencoding" | "terminalencoding" | "encoding" | "设备编码" | "终端编码" | "编码" => {
+            Some(ColumnKey::OutputEncoding)
+        }
         "deviceprofile" | "profile" | "templateprofile" | "设备模板" | "设备类型" => {
             Some(ColumnKey::DeviceProfile)
         }
@@ -366,6 +377,14 @@ fn parse_linux_shell_flavor(raw: &str) -> Result<Option<LinuxShellFlavor>> {
         return Ok(None);
     }
     Ok(Some(trimmed.parse::<LinuxShellFlavor>()?))
+}
+
+fn parse_output_encoding(raw: &str) -> Result<Option<DeviceEncoding>> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(trimmed.parse::<DeviceEncoding>()?))
 }
 
 pub(super) fn derive_connection_name(host: &str) -> Result<String> {

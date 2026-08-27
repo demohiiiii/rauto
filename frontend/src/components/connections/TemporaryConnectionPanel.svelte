@@ -54,6 +54,7 @@
     onTemporaryDeviceModelInput,
     onTemporaryHostInput,
     onTemporaryLinuxShellFlavorChange,
+    onTemporaryOutputEncodingChange,
     onTemporaryPortInput,
     onTemporarySshSecurityChange,
     onTemporarySoftwareVersionInput,
@@ -138,6 +139,7 @@
         onDeviceProfileChange={onTemporaryDeviceProfileChange}
         onHostInput={onTemporaryHostInput}
         onLinuxShellFlavorChange={onTemporaryLinuxShellFlavorChange}
+        onOutputEncodingChange={onTemporaryOutputEncodingChange}
         onPortInput={onTemporaryPortInput}
         onSshSecurityChange={onTemporarySshSecurityChange}
       />

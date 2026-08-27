@@ -300,16 +300,20 @@ export function setCurrentConnectionTarget(
     removePersistedConnectionTarget();
     return;
   }
+  const connection =
+    persistedTarget === undefined
+      ? defaultPersistedConnectionTarget(details)
+      : persistedTarget;
   currentConnectionTargetState = {
     kind: details.kind || "saved",
     details: { ...details },
+    connection:
+      connection && typeof connection === "object"
+        ? { ...connection }
+        : connection,
   };
   connectionTargetState.set(currentConnectionTargetState);
-  persistConnectionTargetValue(
-    persistedTarget === undefined
-      ? defaultPersistedConnectionTarget(currentConnectionTargetState.details)
-      : persistedTarget,
-  );
+  persistConnectionTargetValue(connection);
 }
 
 export function setSavedConnectionSelectValue(savedConnectionName = "") {

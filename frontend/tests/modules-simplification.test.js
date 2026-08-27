@@ -28,6 +28,7 @@ test("modules are grouped into stable domain directories", () => {
     "orchestration",
     "overlays",
     "profiles",
+    "schedules",
     "standard",
     "tasks",
     "templates",

@@ -50,6 +50,12 @@ const LINUX_SHELL_OPTION_DEFS = Object.freeze([
   ["posix", "linuxShellOptionPosix"],
   ["fish", "linuxShellOptionFish"],
 ]);
+const OUTPUT_ENCODING_OPTION_DEFS = Object.freeze([
+  ["utf8", "outputEncodingOptionUtf8"],
+  ["gb2312", "outputEncodingOptionGb2312"],
+  ["gbk", "outputEncodingOptionGbk"],
+  ["gb18030", "outputEncodingOptionGb18030"],
+]);
 const CONNECTION_DRAFT_FIELDS = [
   ["host", "host"],
   ["port", "port"],
@@ -57,6 +63,7 @@ const CONNECTION_DRAFT_FIELDS = [
   ["credential_id", "credentialId"],
   ["ssh_security", "sshSecurity"],
   ["linux_shell_flavor", "linuxShellFlavor"],
+  ["output_encoding", "outputEncoding"],
   ["device_profile", "deviceProfile"],
   ["device_model", "deviceModel"],
   ["software_version", "softwareVersion"],
@@ -94,6 +101,7 @@ function connectionDraftDefaults(overrides = {}) {
     credentialId: "",
     host: "",
     linuxShellFlavor: "",
+    outputEncoding: "utf8",
     port: "",
     sshSecurity: "",
     softwareVersion: "",
@@ -130,6 +138,7 @@ export function connectionBasicFieldsPresentation({
     : [];
   const sshSecurityTitle = tr("sshSecurityOptionDefault");
   const linuxShellTitle = tr("linuxShellOptionDefault");
+  const outputEncodingTitle = tr("outputEncodingLabel");
   const deviceProfileTitle = tr("deviceProfilePlaceholder");
   return {
     connectTimeoutSecsInput: connectionInputDisplay(
@@ -158,6 +167,14 @@ export function connectionBasicFieldsPresentation({
       ),
       title: linuxShellTitle,
     },
+    outputEncodingSelect: {
+      ariaLabelText: outputEncodingTitle,
+      outputEncodingOptionRows: OUTPUT_ENCODING_OPTION_DEFS.map(
+        ([optionValue, labelKey]) =>
+          connectionSelectOption(optionValue, labelKey),
+      ),
+      title: outputEncodingTitle,
+    },
     portInput: connectionInputDisplay("portPlaceholder"),
     sshSecuritySelect: {
       ariaLabelText: sshSecurityTitle,
@@ -175,6 +192,7 @@ export function connectionBasicFieldsPresentation({
       credentialId: displayString(fieldValues.credentialId),
       host: displayString(fieldValues.host),
       linuxShellFlavor: displayString(fieldValues.linuxShellFlavor),
+      outputEncoding: displayString(fieldValues.outputEncoding || "utf8"),
       port: displayString(fieldValues.port),
       sshSecurity: displayString(fieldValues.sshSecurity),
       softwareVersion: displayString(fieldValues.softwareVersion),
@@ -253,6 +271,7 @@ export function connectionBasicFieldWiring(
     onCredentialChange: updateText("credentialId"),
     onHostInput: updateText("host"),
     onLinuxShellFlavorChange: updateText("linuxShellFlavor"),
+    onOutputEncodingChange: updateText("outputEncoding"),
     onNameInput: (fieldValue) => update({ name: text(fieldValue) }),
     onPortInput: updateText("port"),
     onSshSecurityChange: updateText("sshSecurity"),

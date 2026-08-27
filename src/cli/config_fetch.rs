@@ -303,6 +303,7 @@ async fn fetch_config_over_connection(
         conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
+        conn.output_encoding,
         default_mode,
         crate::to_record_level(record_level),
         conn.ssh_security,

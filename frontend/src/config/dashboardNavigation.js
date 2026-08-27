@@ -138,6 +138,22 @@ const navigationDefinitions = [
     label: "Tasks",
     group: "management",
   },
+  {
+    id: "schedules",
+    path: "/app/schedules",
+    tab: "schedules",
+    labelKey: "tabSchedules",
+    label: "Schedules",
+    group: "management",
+  },
+  {
+    id: "config-history",
+    path: "/app/config-history",
+    tab: "config-history",
+    labelKey: "tabConfigHistory",
+    label: "Configuration History",
+    group: "management",
+  },
 ];
 
 export const dashboardRoutes = navigationDefinitions.map(
@@ -185,6 +201,11 @@ export const dashboardPageDefinitions = [
   { id: "blacklist", load: () => import("../pages/BlacklistPage.svelte") },
   { id: "backup", load: () => import("../pages/BackupPage.svelte") },
   { id: "tasks", load: () => import("../pages/TasksPage.svelte") },
+  { id: "schedules", load: () => import("../pages/SchedulesPage.svelte") },
+  {
+    id: "config-history",
+    load: () => import("../pages/ConfigHistoryPage.svelte"),
+  },
 ];
 
 export const dashboardOverlayDefinitions = {

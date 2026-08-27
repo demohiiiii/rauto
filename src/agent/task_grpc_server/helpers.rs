@@ -96,6 +96,19 @@ fn parse_linux_shell_flavor(raw: &str) -> Result<Option<LinuxShellFlavor>, Statu
     })
 }
 
+fn parse_output_encoding(
+    raw: &str,
+) -> Result<Option<crate::domain::device::DeviceEncoding>, Status> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    trimmed
+        .parse()
+        .map(Some)
+        .map_err(|_| Status::invalid_argument(format!("unsupported output_encoding '{}'", trimmed)))
+}
+
 fn map_connection_ref(
     connection: Option<ConnectionRef>,
 ) -> Result<Option<ConnectionRequest>, Status> {
@@ -112,6 +125,7 @@ fn map_connection_ref(
         software_version: optional_string(connection.software_version),
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
         linux_shell_flavor: parse_linux_shell_flavor(&connection.linux_shell_flavor)?,
+        output_encoding: parse_output_encoding(&connection.output_encoding)?,
         device_profile: optional_string(connection.device_profile),
         template_dir: optional_string(connection.template_dir),
         enabled: connection.enabled.unwrap_or(true),
@@ -437,6 +451,7 @@ pub(super) fn connection_ref_to_request(
         software_version: optional_string(connection.software_version),
         ssh_security: parse_ssh_security(&connection.ssh_security)?,
         linux_shell_flavor: parse_linux_shell_flavor(&connection.linux_shell_flavor)?,
+        output_encoding: parse_output_encoding(&connection.output_encoding)?,
         device_profile: optional_string(connection.device_profile),
         template_dir: optional_string(connection.template_dir),
         enabled: connection.enabled.unwrap_or(true),
@@ -464,6 +479,10 @@ pub(super) fn sanitize_connection_ref(
             .unwrap_or_default(),
         linux_shell_flavor: connection
             .linux_shell_flavor
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+        output_encoding: connection
+            .output_encoding
             .map(|value| value.to_string())
             .unwrap_or_default(),
         device_profile: connection

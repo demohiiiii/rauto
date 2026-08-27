@@ -100,26 +100,32 @@ pub(crate) fn emit_task_event(
     let Some(task_ctx) = task_ctx.clone() else {
         return;
     };
-    let Some(registrar) = state.registrar() else {
-        return;
+    let event = TaskEvent {
+        task_id: task_ctx.task_id.clone(),
+        agent_name: current_agent_name(state),
+        event_type: parse_task_event_type(&event.event_type),
+        message: event.message,
+        level: parse_task_event_level(&event.level),
+        stage: event.stage,
+        progress: event.progress,
+        details: event.details,
+        occurred_at: Utc::now().to_rfc3339(),
     };
-    let state = state.clone();
-    tokio::spawn(async move {
-        let event = TaskEvent {
-            task_id: task_ctx.task_id,
-            agent_name: current_agent_name(&state),
-            event_type: parse_task_event_type(&event.event_type),
-            message: event.message,
-            level: parse_task_event_level(&event.level),
-            stage: event.stage,
-            progress: event.progress,
-            details: event.details,
-            occurred_at: Utc::now().to_rfc3339(),
-        };
+    if state.registrar().is_none() {
         if let Err(err) = task_store::append_task_event(&event.task_id, task_ctx.operation, &event)
         {
             warn!("failed to persist task event {}: {}", event.task_id, err);
         }
-        registrar.report_task_event_best_effort(event).await;
+        return;
+    }
+    let state = state.clone();
+    tokio::spawn(async move {
+        if let Err(err) = task_store::append_task_event(&event.task_id, task_ctx.operation, &event)
+        {
+            warn!("failed to persist task event {}: {}", event.task_id, err);
+        }
+        if let Some(registrar) = state.registrar() {
+            registrar.report_task_event_best_effort(event).await;
+        }
     });
 }

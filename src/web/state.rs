@@ -7,6 +7,7 @@ use crate::config::connection_store;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::config::template_loader::{self, DEFAULT_DEVICE_PROFILE};
+use crate::domain::device::DeviceEncoding;
 use crate::web::auth::WebAuth;
 use crate::web::error::ApiError;
 use crate::web::models::{ConnectionRequest, SessionRetryOptions};
@@ -18,7 +19,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
-use tokio::sync::{Mutex, watch};
+use tokio::sync::{Mutex, Notify, watch};
 use tracing::{info, warn};
 
 #[derive(Clone)]
@@ -31,6 +32,7 @@ pub struct AppState {
     registrar: Arc<OnceLock<Arc<AgentRegistrar>>>,
     running_tasks: Arc<AtomicU32>,
     discovery_cancellations: Arc<Mutex<HashMap<String, watch::Sender<bool>>>>,
+    schedule_changed: Arc<Notify>,
     shutdown_tx: watch::Sender<bool>,
 }
 
@@ -63,6 +65,7 @@ impl AppState {
             registrar: Arc::new(OnceLock::new()),
             running_tasks: Arc::new(AtomicU32::new(0)),
             discovery_cancellations: Arc::new(Mutex::new(HashMap::new())),
+            schedule_changed: Arc::new(Notify::new()),
             shutdown_tx,
         })
     }
@@ -97,6 +100,18 @@ impl AppState {
 
     pub fn begin_shutdown(&self) {
         let _ = self.shutdown_tx.send(true);
+    }
+
+    pub fn subscribe_shutdown(&self) -> watch::Receiver<bool> {
+        self.shutdown_tx.subscribe()
+    }
+
+    pub fn notify_schedule_changed(&self) {
+        self.schedule_changed.notify_one();
+    }
+
+    pub async fn wait_for_schedule_change(&self) {
+        self.schedule_changed.notified().await;
     }
 
     pub async fn run_until_shutdown<T, F>(&self, future: F) -> Result<T, ApiError>
@@ -180,6 +195,7 @@ pub struct ResolvedConnection {
     pub enable_password: Option<String>,
     pub ssh_security: SshSecurityProfile,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
+    pub output_encoding: DeviceEncoding,
     pub device_profile: String,
     pub vars: serde_json::Value,
     pub force_autodetect: bool,
@@ -277,6 +293,7 @@ pub fn merge_connection_options(
         software_version: None,
         ssh_security: None,
         linux_shell_flavor: None,
+        output_encoding: None,
         device_profile: None,
         template_dir: None,
         enabled: true,
@@ -337,7 +354,8 @@ pub async fn resolve_autodetect_connection(
         conn.host.clone(),
         conn.port,
         conn.auth.clone(),
-    );
+    )
+    .with_output_encoding(conn.output_encoding.to_text_encoding());
     let context = crate::manager_execution_context_with_security(
         None,
         conn.ssh_security,
@@ -455,6 +473,10 @@ fn merge_connection_sources(
         .linux_shell_flavor
         .or_else(|| saved.and_then(|s| s.linux_shell_flavor))
         .or(defaults.linux_shell_flavor);
+    let output_encoding = incoming
+        .output_encoding
+        .or_else(|| saved.map(|connection| connection.output_encoding))
+        .unwrap_or_default();
     let device_profile = incoming
         .device_profile
         .or_else(|| saved.and_then(|s| s.device_profile.clone()))
@@ -471,6 +493,7 @@ fn merge_connection_sources(
         enable_password,
         ssh_security,
         linux_shell_flavor,
+        output_encoding,
         device_profile,
         vars,
         force_autodetect: defaults.force_autodetect,
@@ -493,6 +516,7 @@ mod tests {
     use crate::cli::GlobalOpts;
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
+    use crate::domain::device::DeviceEncoding;
     use crate::web::error::ApiError;
     use crate::web::models::ConnectionRequest;
     use crate::web::models::SessionRetryOptions;
@@ -573,6 +597,7 @@ mod tests {
                 software_version: None,
                 ssh_security: Some(SshSecurityProfile::Secure),
                 linux_shell_flavor: None,
+                output_encoding: DeviceEncoding::Gbk,
                 device_profile: Some("saved-profile".to_string()),
                 template_dir: Some("/tmp/saved-templates".to_string()),
                 enabled: true,
@@ -599,6 +624,7 @@ mod tests {
             software_version: None,
             ssh_security: Some(SshSecurityProfile::LegacyCompatible),
             linux_shell_flavor: None,
+            output_encoding: None,
             device_profile: None,
             template_dir: None,
             enabled: true,
@@ -622,6 +648,7 @@ mod tests {
         assert_eq!(resolved.connect_timeout_secs, Some(45));
         assert_eq!(resolved.enable_password.as_deref(), Some("saved-enable"));
         assert_eq!(resolved.ssh_security, SshSecurityProfile::LegacyCompatible);
+        assert_eq!(resolved.output_encoding, DeviceEncoding::Gbk);
         assert_eq!(resolved.device_profile, "saved-profile");
         assert_eq!(resolved.vars, serde_json::json!({"site":"lab-a"}));
     }

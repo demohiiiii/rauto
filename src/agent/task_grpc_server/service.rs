@@ -125,6 +125,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                     .linux_shell_flavor
                     .map(|value| value.to_string())
                     .unwrap_or_default(),
+                output_encoding: loaded.output_encoding.to_string(),
                 device_model: loaded.device_model.unwrap_or_default(),
                 software_version: loaded.software_version.unwrap_or_default(),
                 credential_id: loaded.credential_id.unwrap_or_default(),
@@ -280,6 +281,7 @@ impl AgentTaskService for AgentTaskGrpcService {
                 .linux_shell_flavor
                 .map(|value| value.to_string())
                 .unwrap_or_default(),
+            output_encoding: response.output_encoding.to_string(),
             device_profile: response.device_profile,
         }))
     }

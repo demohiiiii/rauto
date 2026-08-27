@@ -5,15 +5,18 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod helpers;
-use self::helpers::{parse_linux_shell_flavor, parse_ssh_security_profile};
+use self::helpers::{parse_device_encoding, parse_linux_shell_flavor, parse_ssh_security_profile};
 use crate::domain::connection::{
     SshSecurityProfile, normalize_labels_json, normalize_name_list, normalize_vars_json,
     parse_labels_json, parse_vars_json, validate_persisted_connect_timeout,
 };
-use crate::domain::device::LinuxShellFlavor;
+use crate::domain::device::{DeviceEncoding, LinuxShellFlavor};
 
-pub type SavedConnection =
-    crate::domain::connection::SavedConnection<SshSecurityProfile, LinuxShellFlavor>;
+pub type SavedConnection = crate::domain::connection::SavedConnection<
+    SshSecurityProfile,
+    LinuxShellFlavor,
+    DeviceEncoding,
+>;
 
 pub fn storage_path() -> PathBuf {
     db::db_path()
@@ -131,7 +134,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
         let row = sqlx::query(
             r#"
             SELECT host, credential_id, port, connect_timeout_secs, device_model, software_version,
-                   ssh_security, linux_shell_flavor, device_profile, template_dir,
+                   ssh_security, linux_shell_flavor, output_encoding, device_profile, template_dir,
                    enabled, labels_json, vars_json
             FROM connections
             WHERE name = ?
@@ -168,6 +171,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
                 .try_get::<Option<String>, _>("linux_shell_flavor")?
                 .map(|value| parse_linux_shell_flavor(&value))
                 .transpose()?,
+            output_encoding: parse_device_encoding(&row.try_get::<String, _>("output_encoding")?)?,
             device_profile: row.try_get("device_profile")?,
             template_dir: row.try_get("template_dir")?,
             enabled: row.try_get::<i64, _>("enabled").unwrap_or(1) != 0,
@@ -249,10 +253,10 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
             r#"
             INSERT INTO connections (
                 name, host, credential_id, port, connect_timeout_secs, device_model, software_version,
-                ssh_security, linux_shell_flavor, device_profile, template_dir, enabled, labels_json,
+                ssh_security, linux_shell_flavor, output_encoding, device_profile, template_dir, enabled, labels_json,
                 vars_json, created_at_ms, updated_at_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
                 credential_id = excluded.credential_id,
@@ -262,6 +266,7 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
                 software_version = excluded.software_version,
                 ssh_security = excluded.ssh_security,
                 linux_shell_flavor = excluded.linux_shell_flavor,
+                output_encoding = excluded.output_encoding,
                 device_profile = excluded.device_profile,
                 template_dir = excluded.template_dir,
                 enabled = excluded.enabled,
@@ -279,6 +284,7 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(&stored.software_version)
         .bind(stored.ssh_security.map(|value| value.to_string()))
         .bind(stored.linux_shell_flavor.map(|value| value.to_string()))
+        .bind(stored.output_encoding.to_string())
         .bind(&stored.device_profile)
         .bind(&stored.template_dir)
         .bind(if stored.enabled { 1_i64 } else { 0_i64 })
@@ -354,9 +360,10 @@ async fn load_connection_groups_async(name: &str) -> Result<Vec<String>> {
 mod tests {
     use super::{
         SavedConnection, delete_connection, list_connections_by_groups_any,
-        list_connections_by_labels_any, save_connection,
+        list_connections_by_labels_any, load_connection_raw, save_connection,
     };
     use crate::domain::connection::SshSecurityProfile;
+    use crate::domain::device::DeviceEncoding;
     use crate::infrastructure::db;
     use anyhow::Result;
     use std::path::PathBuf;
@@ -427,6 +434,7 @@ mod tests {
                 software_version: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
+                output_encoding: DeviceEncoding::Gbk,
                 device_profile: Some("linux".to_string()),
                 template_dir: None,
                 enabled: true,
@@ -446,6 +454,7 @@ mod tests {
                 software_version: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
+                output_encoding: Default::default(),
                 device_profile: Some("linux".to_string()),
                 template_dir: None,
                 enabled: true,
@@ -457,6 +466,10 @@ mod tests {
 
         let items = list_connections_by_labels_any(&["edge".to_string(), "qa".to_string()])?;
         assert_eq!(items, vec![left.to_string()]);
+        assert_eq!(
+            load_connection_raw(left)?.output_encoding,
+            DeviceEncoding::Gbk
+        );
         Ok(())
     }
 
@@ -480,6 +493,7 @@ mod tests {
                 software_version: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
+                output_encoding: Default::default(),
                 device_profile: Some("linux".to_string()),
                 template_dir: None,
                 enabled: true,
@@ -499,6 +513,7 @@ mod tests {
                 software_version: None,
                 ssh_security: Some(SshSecurityProfile::Balanced),
                 linux_shell_flavor: None,
+                output_encoding: Default::default(),
                 device_profile: Some("linux".to_string()),
                 template_dir: None,
                 enabled: true,

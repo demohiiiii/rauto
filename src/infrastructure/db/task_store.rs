@@ -51,6 +51,19 @@ pub fn save_task_accepted(task_id: &str, operation: TaskOperation) -> Result<()>
     })
 }
 
+pub fn set_task_source(task_id: &str, source: &str) -> Result<()> {
+    let task_id = task_id.trim().to_string();
+    let source = source.trim().to_string();
+    db::run_sync(async move {
+        sqlx::query("UPDATE task_runs SET source = ? WHERE task_id = ?")
+            .bind(source)
+            .bind(task_id)
+            .execute(db::pool())
+            .await?;
+        Ok(())
+    })
+}
+
 pub fn append_task_event(task_id: &str, operation: TaskOperation, event: &TaskEvent) -> Result<()> {
     let task_id = task_id.to_string();
     let operation = operation.to_string();

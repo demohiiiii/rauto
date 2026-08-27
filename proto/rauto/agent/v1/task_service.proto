@@ -135,6 +135,7 @@ message ConnectionMeta {
   bool credential_required  = 11;
   bool has_enable_password  = 12;
   bool enable_enabled       = 13;
+  string output_encoding    = 14;
 }
 
 message ListConnectionsResponse {
@@ -214,6 +215,7 @@ message ConnectionRef {
   string          device_model       = 12;
   string          software_version   = 13;
   string          credential_id      = 14;
+  string          output_encoding    = 15;
 }
 
 message GetConnectionRequest {
@@ -248,6 +250,7 @@ message TestConnectionResponse {
   string ssh_security       = 5;
   string device_profile     = 6;
   string linux_shell_flavor = 7;
+  string output_encoding    = 8;
 }
 
 message ConnectionFactsDetectResponse {

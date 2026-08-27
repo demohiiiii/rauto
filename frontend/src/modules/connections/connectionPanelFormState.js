@@ -111,6 +111,11 @@ export function createSavedConnectionEditorWorkspace() {
     publishEditorDraft();
   }
 
+  function onSavedEditorOutputEncodingChange(fieldValue) {
+    savedEditorFieldWiring.onOutputEncodingChange(fieldValue);
+    publishEditorDraft();
+  }
+
   function onSavedEditorNameInput(fieldValue) {
     savedEditorFieldWiring.onNameInput(fieldValue);
     publishEditorDraft();
@@ -221,6 +226,7 @@ export function createSavedConnectionEditorWorkspace() {
     onSavedEditorDeviceModelInput,
     onSavedEditorHostInput,
     onSavedEditorLinuxShellFlavorChange,
+    onSavedEditorOutputEncodingChange,
     onSavedEditorNameInput,
     onSavedEditorPortInput,
     onSavedEditorSshSecurityChange,
@@ -319,6 +325,12 @@ export function createTemporaryConnectionPanelWorkspace() {
 
   function onTemporaryLinuxShellFlavorChange(fieldValue) {
     temporaryFieldWiring.onLinuxShellFlavorChange(fieldValue);
+    clearTemporaryAutodetectResult();
+    publishTemporaryDraft();
+  }
+
+  function onTemporaryOutputEncodingChange(fieldValue) {
+    temporaryFieldWiring.onOutputEncodingChange(fieldValue);
     clearTemporaryAutodetectResult();
     publishTemporaryDraft();
   }
@@ -468,6 +480,7 @@ export function createTemporaryConnectionPanelWorkspace() {
     onTemporaryDeviceModelInput,
     onTemporaryHostInput,
     onTemporaryLinuxShellFlavorChange,
+    onTemporaryOutputEncodingChange,
     onTemporaryPortInput,
     onTemporarySshSecurityChange,
     onTemporarySoftwareVersionInput,

@@ -80,6 +80,7 @@ test("saved connection detection uses the current draft without saved fallback",
     enabled: true,
     host: "192.0.2.10",
     linuxShellFlavor: "",
+    outputEncoding: "gbk",
     name: "edge-1",
     port: "22",
     softwareVersion: "",
@@ -90,6 +91,7 @@ test("saved connection detection uses the current draft without saved fallback",
   assert.equal(payload.credential_id, "credential-new");
   assert.equal(payload.device_profile, "autodetect");
   assert.equal(payload.host, "192.0.2.10");
+  assert.equal(payload.output_encoding, "gbk");
 });
 
 test("saved connection test uses the current draft without saved fallback", () => {
@@ -101,6 +103,7 @@ test("saved connection test uses the current draft without saved fallback", () =
     enabled: true,
     host: "198.51.100.25",
     linuxShellFlavor: "",
+    outputEncoding: "gb18030",
     name: "edge-1",
     port: "2222",
     softwareVersion: "17.9.5",
@@ -112,6 +115,7 @@ test("saved connection test uses the current draft without saved fallback", () =
   assert.equal(payload.host, "198.51.100.25");
   assert.equal(payload.port, 2222);
   assert.equal(payload.device_profile, "cisco_ios");
+  assert.equal(payload.output_encoding, "gb18030");
 });
 
 test("temporary connection detection uses current form and persists detected facts", () => {

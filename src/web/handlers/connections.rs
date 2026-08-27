@@ -45,6 +45,7 @@ pub async fn test_connection(
         conn.auth,
         conn.enable_password,
         handler,
+        conn.output_encoding,
         template_loader::default_profile_mode(&conn.device_profile)?,
         conn.ssh_security,
         conn.connect_timeout_secs,
@@ -59,6 +60,7 @@ pub async fn test_connection(
         username: conn.username,
         ssh_security: conn.ssh_security,
         linux_shell_flavor: conn.linux_shell_flavor,
+        output_encoding: conn.output_encoding,
         device_profile: conn.device_profile,
     }))
 }
@@ -118,6 +120,7 @@ pub async fn detect_connection_facts(
         conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
+        conn.output_encoding,
         template_loader::default_profile_mode(&conn.device_profile)?,
         conn.ssh_security,
         conn.connect_timeout_secs,
@@ -212,6 +215,7 @@ pub async fn list_connections() -> Result<Json<Vec<SavedConnectionMeta>>, ApiErr
                 software_version: data.software_version.clone(),
                 ssh_security: data.ssh_security,
                 linux_shell_flavor: data.linux_shell_flavor,
+                output_encoding: data.output_encoding,
                 device_profile: data.device_profile.clone(),
                 enabled: data.enabled,
                 labels: data.labels.clone(),
@@ -420,6 +424,10 @@ pub async fn upsert_connection(
         linux_shell_flavor: c
             .linux_shell_flavor
             .or_else(|| existing.as_ref().and_then(|item| item.linux_shell_flavor)),
+        output_encoding: c
+            .output_encoding
+            .or_else(|| existing.as_ref().map(|item| item.output_encoding))
+            .unwrap_or_default(),
         device_profile: c.device_profile,
         template_dir: c.template_dir,
         enabled: c.enabled,

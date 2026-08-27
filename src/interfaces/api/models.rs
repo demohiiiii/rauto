@@ -1,6 +1,6 @@
 pub use crate::domain::connection::{InventoryGroup, InventoryLabel, SshSecurityProfile};
 use crate::domain::credential::DeviceAuthType;
-use crate::domain::device::LinuxShellFlavor;
+use crate::domain::device::{DeviceEncoding, LinuxShellFlavor};
 pub use crate::domain::task::{AsyncTaskAcceptedResponse, TaskCallback, TaskEvent};
 use rneter::session::SessionRecordEntry;
 use serde::{Deserialize, Serialize};
@@ -8,17 +8,21 @@ use serde_json::Value;
 
 mod agent;
 mod api_response;
+mod device_config_history;
 mod device_discovery;
 mod execution;
 mod profiles_templates;
 mod replay_interactive;
+mod schedules;
 mod task_runs;
 pub use self::agent::*;
 pub use self::api_response::*;
+pub use self::device_config_history::*;
 pub use self::device_discovery::*;
 pub use self::execution::*;
 pub use self::profiles_templates::*;
 pub use self::replay_interactive::*;
+pub use self::schedules::*;
 pub use self::task_runs::*;
 
 #[derive(Debug, Deserialize)]
@@ -53,6 +57,8 @@ pub struct ConnectionRequest {
     pub software_version: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_encoding: Option<DeviceEncoding>,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
     #[serde(default = "default_enabled")]
@@ -79,6 +85,7 @@ pub struct ConnectionTestResponse {
     pub username: String,
     pub ssh_security: SshSecurityProfile,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
+    pub output_encoding: DeviceEncoding,
     pub device_profile: String,
 }
 
@@ -144,6 +151,7 @@ pub struct SavedConnectionMeta {
     pub software_version: Option<String>,
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
+    pub output_encoding: DeviceEncoding,
     pub device_profile: Option<String>,
     pub enabled: bool,
     pub labels: Vec<String>,

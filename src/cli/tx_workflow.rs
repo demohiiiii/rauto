@@ -45,6 +45,7 @@ pub(crate) async fn run_tx_workflow(
         conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
+        conn.output_encoding,
     );
     let record_level = crate::to_record_level(args.record_level);
     let recorder = crate::config::session_recording::redacting_recorder(

@@ -54,6 +54,7 @@ fn saved_connection_detail_response_redacts_secrets() {
             software_version: Some("15.2(7)E10".to_string()),
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
+            output_encoding: Default::default(),
             device_profile: Some("cisco_ios".to_string()),
             template_dir: Some("/tmp/templates".to_string()),
             enabled: true,
@@ -197,6 +198,7 @@ fn json_template_context_supports_flat_lookup_with_runtime_precedence() {
         enable_password: None,
         ssh_security: SshSecurityProfile::Balanced,
         linux_shell_flavor: Some(LinuxShellFlavor::Fish),
+        output_encoding: Default::default(),
         device_profile: "linux".to_string(),
         vars: serde_json::json!({
             "site": "lab-a",
@@ -235,6 +237,7 @@ fn tx_block_direct_input_supports_template_rendering_with_connection_context() {
         enable_password: None,
         ssh_security: SshSecurityProfile::Balanced,
         linux_shell_flavor: Some(LinuxShellFlavor::Posix),
+        output_encoding: Default::default(),
         device_profile: "linux".to_string(),
         vars: serde_json::json!({}),
         force_autodetect: false,

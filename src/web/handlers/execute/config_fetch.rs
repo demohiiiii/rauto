@@ -2,6 +2,8 @@ use super::*;
 
 use super::standard::{batch_show_concurrency, resolve_batch_target_names};
 use crate::config::config_catalog;
+use crate::domain::device::NewDeviceConfigSnapshot;
+use crate::infrastructure::db::device_config_store;
 use std::collections::VecDeque;
 use tokio::task::JoinSet;
 
@@ -18,13 +20,23 @@ struct ResolvedConfigFetchTarget {
 struct ConfigFetchTaskOptions {
     include_normalized: bool,
     record_level: Option<RecordLevel>,
+    source: &'static str,
+    task_id: Option<String>,
 }
 
 pub async fn fetch_config(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ConfigFetchRequest>,
 ) -> Result<Json<ApiResponse<ConfigFetchResponse>>, ApiError> {
-    let (task_ctx, task_guard) = begin_reported_task(
+    Box::pin(execute_config_fetch_request(state, req, false)).await
+}
+
+async fn execute_config_fetch_request(
+    state: Arc<AppState>,
+    req: ConfigFetchRequest,
+    force_tracking: bool,
+) -> Result<Json<ApiResponse<ConfigFetchResponse>>, ApiError> {
+    let (task_ctx, task_guard) = begin_reported_task_with_tracking(
         &state,
         TaskOperation::Exec,
         req.task.task_id.clone(),
@@ -32,8 +44,21 @@ pub async fn fetch_config(
             .with_stage("precheck")
             .with_progress(Some(0))
             .with_details(Some(json!({ "kind": &req.kind }))),
+        force_tracking || state.is_managed(),
     );
 
+    let options = ConfigFetchTaskOptions {
+        include_normalized: req.include_normalized,
+        record_level: req.target.record_level,
+        source: if force_tracking {
+            "cron"
+        } else if state.is_managed() {
+            "agent_task"
+        } else {
+            "manual"
+        },
+        task_id: req.task.task_id.clone(),
+    };
     let result: Result<ConfigFetchResponse, ApiError> = state
         .run_until_shutdown(async {
             let target = resolve_config_fetch_connection_target(
@@ -54,14 +79,7 @@ pub async fn fetch_config(
                         "target": &target.name
                     }))),
             );
-            let target = fetch_config_target(
-                &target,
-                &ConfigFetchTaskOptions {
-                    include_normalized: req.include_normalized,
-                    record_level: req.target.record_level,
-                },
-            )
-            .await;
+            let target = fetch_config_target(&target, &options).await;
             let succeeded = target.error.is_none();
             Ok(ConfigFetchResponse {
                 result_summary: task_result_with_counts(
@@ -127,7 +145,22 @@ pub async fn fetch_config_batch(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ConfigBatchFetchRequest>,
 ) -> Result<Json<ApiResponse<ConfigBatchFetchResponse>>, ApiError> {
-    let (task_ctx, task_guard) = begin_reported_task(
+    Box::pin(execute_config_batch_request(state, req, false)).await
+}
+
+pub(crate) async fn execute_scheduled_config_batch(
+    state: Arc<AppState>,
+    req: ConfigBatchFetchRequest,
+) -> Result<Json<ApiResponse<ConfigBatchFetchResponse>>, ApiError> {
+    Box::pin(execute_config_batch_request(state, req, true)).await
+}
+
+async fn execute_config_batch_request(
+    state: Arc<AppState>,
+    req: ConfigBatchFetchRequest,
+    force_tracking: bool,
+) -> Result<Json<ApiResponse<ConfigBatchFetchResponse>>, ApiError> {
+    let (task_ctx, task_guard) = begin_reported_task_with_tracking(
         &state,
         TaskOperation::Exec,
         req.task.task_id.clone(),
@@ -140,6 +173,7 @@ pub async fn fetch_config_batch(
                 "groups": &req.groups,
                 "labels": &req.labels
             }))),
+        force_tracking || state.is_managed(),
     );
 
     let result: Result<ConfigBatchFetchResponse, ApiError> = state
@@ -183,6 +217,14 @@ pub async fn fetch_config_batch(
             let options = ConfigFetchTaskOptions {
                 include_normalized: req.include_normalized,
                 record_level: req.record_level,
+                source: if force_tracking {
+                    "cron"
+                } else if state.is_managed() {
+                    "agent_task"
+                } else {
+                    "manual"
+                },
+                task_id: req.task.task_id.clone(),
             };
             let total_targets = resolved_targets.len();
             let concurrency = batch_show_concurrency(req.max_parallel, total_targets);
@@ -341,6 +383,7 @@ async fn fetch_config_target(
             normalized_content: None,
             sha256: None,
             normalized_sha256: None,
+            snapshot_id: None,
             error: Some(err.message),
         },
     }
@@ -362,6 +405,7 @@ async fn fetch_config_target_inner(
             target.conn.auth.clone(),
             target.conn.enable_password.clone(),
             handler,
+            target.conn.output_encoding,
             template_loader::default_profile_mode(&target.conn.device_profile)?,
             level,
             target.conn.ssh_security,
@@ -377,6 +421,7 @@ async fn fetch_config_target_inner(
             target.conn.auth.clone(),
             target.conn.enable_password.clone(),
             handler,
+            target.conn.output_encoding,
             template_loader::default_profile_mode(&target.conn.device_profile)?,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
@@ -421,6 +466,7 @@ async fn fetch_config_target_inner(
             normalized_content: None,
             sha256: None,
             normalized_sha256: None,
+            snapshot_id: None,
             error: Some(error),
         });
     }
@@ -429,18 +475,44 @@ async fn fetch_config_target_inner(
     let patterns = config_catalog::volatile_patterns(&target.conn.device_profile)
         .map_err(|err| ApiError::internal(err.to_string()))?;
     let normalized = config_catalog::normalize_config(&content, &patterns);
+    let fetched_at = Utc::now();
+    let sha256 = config_catalog::sha256_hex(&content);
+    let normalized_sha256 = config_catalog::sha256_hex(&normalized);
+    let snapshot = device_config_store::save_snapshot(NewDeviceConfigSnapshot {
+        connection_name: &target.name,
+        host: &target.conn.host,
+        profile: &target.conn.device_profile,
+        kind: &target.fetch_command.kind,
+        command: &target.fetch_command.command,
+        source: options.source,
+        task_id: options.task_id.as_deref(),
+        fetched_at_ms: fetched_at.timestamp_millis(),
+        content: &content,
+        sha256: &sha256,
+    })
+    .await;
+    let (snapshot_id, error) = match snapshot {
+        Ok(snapshot) => (Some(snapshot.id), None),
+        Err(error) => (
+            None,
+            Some(format!(
+                "configuration fetched but history snapshot could not be saved: {error}"
+            )),
+        ),
+    };
     Ok(ConfigFetchTargetResponse {
         target: target.name.clone(),
         host: target.conn.host.clone(),
         profile: target.conn.device_profile.clone(),
         kind: target.fetch_command.kind.clone(),
         command: target.fetch_command.command.clone(),
-        fetched_at: Utc::now().to_rfc3339(),
-        sha256: Some(config_catalog::sha256_hex(&content)),
-        normalized_sha256: Some(config_catalog::sha256_hex(&normalized)),
+        fetched_at: fetched_at.to_rfc3339(),
+        sha256: Some(sha256),
+        normalized_sha256: Some(normalized_sha256),
         normalized_content: options.include_normalized.then_some(normalized),
         content: Some(content),
         all: Some(all),
-        error: None,
+        snapshot_id,
+        error,
     })
 }

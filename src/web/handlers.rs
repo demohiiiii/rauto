@@ -73,6 +73,7 @@ mod command_templates;
 mod config_catalog;
 mod connections;
 mod credentials;
+mod device_config_history;
 mod device_discovery;
 mod execute;
 mod flow_templates;
@@ -81,6 +82,7 @@ mod maintenance;
 mod profiles;
 mod replay;
 mod runtime;
+mod schedules;
 mod show_objects_custom;
 mod task_events;
 mod textfsm_custom;
@@ -110,6 +112,9 @@ pub use credentials::{
     create_credential, delete_credential, get_credential, import_credentials, list_credentials,
     update_credential,
 };
+pub use device_config_history::{
+    delete_device_config_snapshot, get_device_config_snapshot, list_device_config_history,
+};
 pub use device_discovery::{
     cancel_device_discovery_run, create_device_discovery_run, get_device_discovery_run,
     import_device_discovery_results, list_device_discovery_runs,
@@ -123,6 +128,9 @@ pub use execute::{
     execute_show_batch, execute_template, execute_template_async, execute_tx_block,
     execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
     fetch_config, fetch_config_batch, list_show_objects, render_template,
+};
+pub(crate) use execute::{
+    execute_scheduled_config_batch, execute_scheduled_orchestration, execute_scheduled_tx_workflow,
 };
 use flow_templates::{
     builtin_command_flow_template_by_name, parse_builtin_command_flow_template_token,
@@ -154,6 +162,10 @@ pub use profiles::{
 };
 pub use replay::replay_session;
 use runtime::*;
+pub use schedules::{
+    create_schedule, delete_schedule, disable_schedule, enable_schedule, get_schedule,
+    list_schedule_runs, list_schedules, preview_schedule, run_schedule_now, update_schedule,
+};
 pub use show_objects_custom::{
     CustomShowObjectQuery, DeleteCustomShowObjectRequest, UpsertCustomShowObjectRequest,
     delete_custom_show_object, list_custom_show_objects, upsert_custom_show_object,
@@ -202,6 +214,7 @@ fn saved_connection_detail_response(
             software_version: data.software_version.clone(),
             ssh_security: data.ssh_security,
             linux_shell_flavor: data.linux_shell_flavor,
+            output_encoding: Some(data.output_encoding),
             device_profile: data.device_profile.clone(),
             template_dir: data.template_dir.clone(),
             enabled: data.enabled,

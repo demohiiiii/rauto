@@ -16,6 +16,7 @@
     onDeviceProfileChange,
     onHostInput,
     onLinuxShellFlavorChange,
+    onOutputEncodingChange,
     onPortInput,
     onSshSecurityChange,
     splitSections = false,
@@ -64,6 +65,13 @@
     return undefined;
   }
 
+  function handleOutputEncodingChange(value) {
+    if (typeof onOutputEncodingChange === "function") {
+      return onOutputEncodingChange(value);
+    }
+    return undefined;
+  }
+
   function handlePortInput(value) {
     if (typeof onPortInput === "function") {
       return onPortInput(value);
@@ -85,6 +93,7 @@
     onCredentialChange: handleCredentialChange,
     onHostInput: handleHostInput,
     onLinuxShellFlavorChange: handleLinuxShellFlavorChange,
+    onOutputEncodingChange: handleOutputEncodingChange,
     onPortInput: handlePortInput,
     onSshSecurityChange: handleSshSecurityChange,
   });
@@ -94,6 +103,7 @@
     deviceProfileChangeHandler,
     hostInputHandler,
     linuxShellFlavorChangeHandler,
+    outputEncodingChangeHandler,
     portInputHandler,
     sshSecurityChangeHandler,
   } = connectionBasicFieldsWorkspace;
@@ -186,9 +196,7 @@
 
     <section class="flex flex-col gap-3">
       {@render sectionTitle(SparklesIcon, i18nLabels.sectionPlatform)}
-      <div
-        class="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))]"
-      >
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div class="grid min-w-0 gap-1.5">
           {@render platformFieldLabel(
             basicFieldsDisplay.sshSecuritySelect.title,
@@ -215,6 +223,20 @@
             optionRows={basicFieldsDisplay.linuxShellFlavorSelect
               .linuxShellOptionRows}
             onValueChange={linuxShellFlavorChangeHandler()}
+          />
+        </div>
+        <div class="grid min-w-0 gap-1.5">
+          {@render platformFieldLabel(
+            basicFieldsDisplay.outputEncodingSelect.title,
+          )}
+          <PlainSelectField
+            class="min-w-0 justify-between truncate"
+            title={basicFieldsDisplay.outputEncodingSelect.title}
+            aria-label={basicFieldsDisplay.outputEncodingSelect.ariaLabelText}
+            value={connectionValues.outputEncoding}
+            optionRows={basicFieldsDisplay.outputEncodingSelect
+              .outputEncodingOptionRows}
+            onValueChange={outputEncodingChangeHandler()}
           />
         </div>
         <div class="grid min-w-0 gap-1.5">
@@ -281,6 +303,14 @@
       optionRows={basicFieldsDisplay.linuxShellFlavorSelect
         .linuxShellOptionRows}
       onValueChange={linuxShellFlavorChangeHandler()}
+    />
+    <PlainSelectField
+      title={basicFieldsDisplay.outputEncodingSelect.title}
+      aria-label={basicFieldsDisplay.outputEncodingSelect.ariaLabelText}
+      value={connectionValues.outputEncoding}
+      optionRows={basicFieldsDisplay.outputEncodingSelect
+        .outputEncodingOptionRows}
+      onValueChange={outputEncodingChangeHandler()}
     />
     <PlainSelectField
       title={basicFieldsDisplay.deviceProfileSelect.title}

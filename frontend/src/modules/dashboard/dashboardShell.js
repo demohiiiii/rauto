@@ -78,7 +78,10 @@ async function loadTransactionsWorkspaceModule() {
 
 function isDashboardTabActive(dashboard = {}, tab = "") {
   return (
-    dashboard.currentTab === tab && (tab !== "tasks" || dashboard.tasksVisible)
+    dashboard.currentTab === tab &&
+    (tab !== "tasks" || dashboard.tasksVisible) &&
+    (tab !== "schedules" || !dashboard.managedAgentMode) &&
+    (tab !== "config-history" || !dashboard.managedAgentMode)
   );
 }
 
@@ -113,7 +116,12 @@ function dashboardNavItemPresentation(navigationItem, dashboard = {}) {
       (!navigationItem.txStage ||
         navigationItem.txStage === dashboard.currentTxStage),
     labelText: tr(navigationItem.labelKey, navigationItem.label),
-    visible: navigationItem.activeWhen !== "tasks" || dashboard.tasksVisible,
+    visible:
+      (navigationItem.activeWhen !== "tasks" || dashboard.tasksVisible) &&
+      (navigationItem.activeWhen !== "schedules" ||
+        !dashboard.managedAgentMode) &&
+      (navigationItem.activeWhen !== "config-history" ||
+        !dashboard.managedAgentMode),
   };
 }
 

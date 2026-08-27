@@ -10,15 +10,19 @@ mod standard;
 mod tx;
 mod tx_workflow;
 
+pub(crate) use config_fetch::execute_scheduled_config_batch;
 pub use config_fetch::{fetch_config, fetch_config_batch};
 pub use flow_upload::{execute_command_flow, execute_flow_batch, execute_upload};
+pub(crate) use orchestration::execute_scheduled_orchestration;
 pub use orchestration::{execute_orchestration, execute_orchestration_async};
+pub(crate) use standard::resolve_batch_target_names;
 pub use standard::{
     ShowObjectsQuery, exec_command, exec_command_async, execute_exec_batch, execute_show,
     execute_show_batch, execute_template, execute_template_async, list_show_objects,
     render_template,
 };
 pub use tx::{execute_tx_block, execute_tx_block_async};
+pub(crate) use tx_workflow::execute_scheduled_tx_workflow;
 pub use tx_workflow::{execute_tx_workflow, execute_tx_workflow_async};
 
 /// Stage and message prefix used for the terminal "failed" task event.
@@ -42,7 +46,17 @@ fn begin_reported_task(
     task_id: Option<String>,
     started: TaskEventInput,
 ) -> (Option<TaskReportContext>, Option<RunningTaskGuard>) {
-    let task_ctx = TaskReportContext::from_request(operation, task_id, state.is_managed());
+    begin_reported_task_with_tracking(state, operation, task_id, started, state.is_managed())
+}
+
+fn begin_reported_task_with_tracking(
+    state: &Arc<AppState>,
+    operation: TaskOperation,
+    task_id: Option<String>,
+    started: TaskEventInput,
+    tracking_enabled: bool,
+) -> (Option<TaskReportContext>, Option<RunningTaskGuard>) {
+    let task_ctx = TaskReportContext::from_request(operation, task_id, tracking_enabled);
     let task_guard = state.acquire_task_guard(task_ctx.is_some());
     emit_task_event(state, &task_ctx, started);
     (task_ctx, task_guard)
@@ -134,6 +148,7 @@ where
             conn.auth.clone(),
             conn.enable_password.clone(),
             handler,
+            conn.output_encoding,
         );
         let recorder = crate::config::session_recording::redacting_recorder(
             level,
@@ -188,6 +203,7 @@ where
             conn.auth.clone(),
             conn.enable_password.clone(),
             handler,
+            conn.output_encoding,
         );
         let result = execute(
             request,

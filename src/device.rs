@@ -1,4 +1,5 @@
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::domain::device::DeviceEncoding;
 use crate::{manager_connection_request, manager_execution_context_with_security};
 use anyhow::{Result, anyhow};
 use rneter::{
@@ -68,6 +69,7 @@ impl DeviceClient {
         auth: SshAuthMethod,
         enable_password: Option<String>,
         handler: DeviceHandler,
+        output_encoding: DeviceEncoding,
         default_mode: String,
         ssh_security: SshSecurityProfile,
         connect_timeout_secs: Option<u64>,
@@ -76,8 +78,15 @@ impl DeviceClient {
         validate_retry_policy(retry_policy)?;
         info!("Connecting to {}:{} as {}", host, port, username);
 
-        let request =
-            manager_connection_request(username, host, port, auth, enable_password, handler);
+        let request = manager_connection_request(
+            username,
+            host,
+            port,
+            auth,
+            enable_password,
+            handler,
+            output_encoding,
+        );
         let context =
             manager_execution_context_with_security(None, ssh_security, connect_timeout_secs)
                 .with_retry_policy(retry_policy);
@@ -117,6 +126,7 @@ impl DeviceClient {
         auth: SshAuthMethod,
         enable_password: Option<String>,
         handler: DeviceHandler,
+        output_encoding: DeviceEncoding,
         default_mode: String,
         level: SessionRecordLevel,
         ssh_security: SshSecurityProfile,
@@ -136,6 +146,7 @@ impl DeviceClient {
             auth.clone(),
             enable_password.clone(),
             handler,
+            output_encoding,
         );
         let recorder = crate::config::session_recording::redacting_recorder(
             level,
@@ -322,6 +333,7 @@ mod tests {
             SshAuthMethod::password(password),
             device.persona().enable_password.clone(),
             handler,
+            DeviceEncoding::default(),
             "User".to_string(),
             SshSecurityProfile::TestNoCheck,
             Some(10),
@@ -358,6 +370,7 @@ mod tests {
             SshAuthMethod::password(password),
             device.persona().enable_password.clone(),
             handler,
+            DeviceEncoding::default(),
             "User".to_string(),
             SshSecurityProfile::TestNoCheck,
             Some(10),
@@ -388,6 +401,7 @@ mod tests {
             SshAuthMethod::password(password),
             device.persona().enable_password.clone(),
             handler,
+            DeviceEncoding::default(),
             "User".to_string(),
             SessionRecordLevel::Full,
             SshSecurityProfile::TestNoCheck,
@@ -424,6 +438,7 @@ mod tests {
             SshAuthMethod::password(password),
             device.persona().enable_password.clone(),
             handler,
+            DeviceEncoding::default(),
             "User".to_string(),
             SshSecurityProfile::TestNoCheck,
             Some(10),

@@ -79,6 +79,7 @@ let temporaryConnectionFormState = {
   enabled: true,
   host: "",
   linux_shell_flavor: "",
+  output_encoding: "utf8",
   port: "",
   ssh_security: "",
   software_version: "",
@@ -97,6 +98,7 @@ function temporaryConnectionFormStateFromDraft(draft = {}) {
     enabled: draft.enabled,
     host: draft.host,
     linux_shell_flavor: draft.linuxShellFlavor,
+    output_encoding: draft.outputEncoding || "utf8",
     port: draft.port,
     ssh_security: draft.sshSecurity,
     software_version: draft.softwareVersion,
@@ -163,6 +165,7 @@ function mergeConnectionFormState(current = {}, formVals = {}, mergeCfg = {}) {
     "credential_id",
     "host",
     "linux_shell_flavor",
+    "output_encoding",
     "port",
     "ssh_security",
     "software_version",
@@ -207,13 +210,7 @@ function setTemporaryConnectionFormState(formValues = {}) {
 
 function hasSelectedConnectionTarget() {
   const currentConnectionTarget = activeConnectionTarget();
-  if (currentConnectionTarget && currentConnectionTarget.kind !== "none") {
-    return true;
-  }
-  const savedConnectionName = selectedSavedConnectionName();
-  if (savedConnectionName) return true;
-  const host = safeString(temporaryConnectionFormState.host || "").trim();
-  return !!host;
+  return !!currentConnectionTarget && currentConnectionTarget.kind !== "none";
 }
 
 export function ensureConnectionTargetSelected() {
@@ -260,6 +257,9 @@ function savedConnectionDetails(savedConnection = {}) {
     software_version: safeString(savedConnection.software_version || "").trim(),
     ssh_security: safeString(savedConnection.ssh_security || "").trim(),
     linux_shell_flavor: safeString(linuxShellFlavor).trim(),
+    output_encoding: safeString(
+      savedConnection.output_encoding || "utf8",
+    ).trim(),
     kind: "saved",
     note: t("savedConnSubtitle"),
   };
@@ -332,6 +332,11 @@ function persistedTemporaryConnectionTarget(details = {}) {
     linux_shell_flavor: safeString(
       temporaryConnectionFormState.linux_shell_flavor || "",
     ).trim(),
+    output_encoding:
+      safeString(
+        temporaryConnectionFormState.output_encoding || "utf8",
+      ).trim() || "utf8",
+    connect_timeout_secs: temporaryConnectionFormState.connect_timeout_secs,
     enabled: temporaryConnectionFormState.enabled !== false,
     labels: getConnectionLabelValues(CONNECTION_PICKER.savedLabels),
     groups: getConnectionGroupValues(CONNECTION_PICKER.savedGroups),
@@ -364,6 +369,7 @@ function restoreTemporaryConnectionFormFromPersisted(parsed = {}) {
     enabled: parsed.enabled !== false,
     host,
     linux_shell_flavor: safeString(parsed.linux_shell_flavor || "").trim(),
+    output_encoding: safeString(parsed.output_encoding || "utf8").trim(),
     port: safeString(parsed.port || 22),
     ssh_security: safeString(parsed.ssh_security || "").trim(),
     software_version: safeString(parsed.software_version || "").trim(),
@@ -439,6 +445,7 @@ function applyConnectionForm(connection = {}) {
     enabled: connection.enabled !== false,
     host: displayString(connection.host || ""),
     linux_shell_flavor: displayString(connection.linux_shell_flavor || ""),
+    output_encoding: displayString(connection.output_encoding || "utf8"),
     port: Number.isFinite(port) && port > 0 ? String(port) : "",
     ssh_security: displayString(connection.ssh_security || ""),
     software_version: displayString(connection.software_version || ""),
@@ -499,12 +506,6 @@ export function refreshActiveTemporaryConnectionTarget() {
   if (!isTemporaryConnectionActive()) {
     return;
   }
-  const details = buildCurrentTemporaryConnectionDetails();
-  setTemporaryConnectionState(true, "", details);
-  setCurrentConnectionTarget(
-    details,
-    persistedTemporaryConnectionTarget(details),
-  );
   refreshSidebarConnectionSelector();
 }
 
@@ -611,49 +612,83 @@ configureConnectionsEditor({
   setSelectedSavedConnectionName: setSavedConnectionSelectValue,
 });
 
-export function connectionPayload() {
-  const rawPort = temporaryConnectionFormState.port;
+function connectionPayloadFromValues(
+  values = {},
+  { connectionName = null, groups = [], labels = [], vars = {} } = {},
+) {
+  const rawPort = values.port;
   const parsedPort = rawPort ? Number(rawPort) : 22;
-
-  const credentialId = safeString(
-    temporaryConnectionFormState.credential_id || "",
-  ).trim();
-  if (!selectedSavedConnectionName() && !credentialId) {
-    throw new Error(t("credentialRequired"));
-  }
+  const credentialId = safeString(values.credential_id || "").trim();
   return {
-    connection_name: selectedSavedConnectionName() || null,
-    host: safeString(temporaryConnectionFormState.host || "").trim() || null,
+    connection_name: connectionName || null,
+    host: safeString(values.host || "").trim() || null,
     port: Number.isFinite(parsedPort) ? parsedPort : 22,
     connect_timeout_secs: connectionTimeoutSecsValue(
-      temporaryConnectionFormState.connect_timeout_secs,
+      values.connect_timeout_secs,
     ),
     credential_id: credentialId || null,
-    ssh_security:
-      safeString(temporaryConnectionFormState.ssh_security || "").trim() ||
-      null,
+    ssh_security: safeString(values.ssh_security || "").trim() || null,
     linux_shell_flavor:
-      safeString(
-        temporaryConnectionFormState.linux_shell_flavor || "",
-      ).trim() || null,
-    device_profile:
-      safeString(temporaryConnectionFormState.device_profile || "").trim() ||
-      null,
-    device_model:
-      safeString(temporaryConnectionFormState.device_model || "").trim() ||
-      null,
-    software_version:
-      safeString(temporaryConnectionFormState.software_version || "").trim() ||
-      null,
-    enabled: temporaryConnectionFormState.enabled !== false,
-    labels: getConnectionLabelValues(CONNECTION_PICKER.savedLabels),
-    groups: getConnectionGroupValues(CONNECTION_PICKER.savedGroups),
-    vars: getConnectionVarsValue(CONNECTION_VARS.saved),
+      safeString(values.linux_shell_flavor || "").trim() || null,
+    output_encoding:
+      safeString(values.output_encoding || "utf8").trim() || "utf8",
+    device_profile: safeString(values.device_profile || "").trim() || null,
+    device_model: safeString(values.device_model || "").trim() || null,
+    software_version: safeString(values.software_version || "").trim() || null,
+    enabled: values.enabled !== false,
+    labels: Array.isArray(labels) ? [...labels] : [],
+    groups: Array.isArray(groups) ? [...groups] : [],
+    vars: vars && typeof vars === "object" && !Array.isArray(vars) ? vars : {},
   };
 }
 
+function temporaryConnectionDraftPayload(connectionName = null) {
+  return connectionPayloadFromValues(temporaryConnectionFormState, {
+    connectionName,
+    groups: getConnectionGroupValues(CONNECTION_PICKER.savedGroups),
+    labels: getConnectionLabelValues(CONNECTION_PICKER.savedLabels),
+    vars: getConnectionVarsValue(CONNECTION_VARS.saved),
+  });
+}
+
+function persistedTemporaryVars(connection = {}) {
+  if (connection.vars && typeof connection.vars === "object") {
+    return connection.vars;
+  }
+  try {
+    return connection.vars_text ? JSON.parse(connection.vars_text) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+export function connectionPayload() {
+  const target = activeConnectionTarget();
+  if (target.kind === "saved") {
+    const savedConnectionName = safeString(
+      target.connection?.name || target.details?.name || "",
+    ).trim();
+    if (!savedConnectionName) {
+      throw new Error(t("connectionTargetRequired"));
+    }
+    return { connection_name: savedConnectionName };
+  }
+  if (target.kind !== "temporary" || !target.connection) {
+    throw new Error(t("connectionTargetRequired"));
+  }
+  const payload = connectionPayloadFromValues(target.connection, {
+    groups: target.connection.groups,
+    labels: target.connection.labels,
+    vars: persistedTemporaryVars(target.connection),
+  });
+  if (!payload.credential_id) {
+    throw new Error(t("credentialRequired"));
+  }
+  return payload;
+}
+
 export async function detectTemporaryConnectionFacts() {
-  const payload = connectionPayload();
+  const payload = temporaryConnectionDraftPayload();
   if (!payload.credential_id) {
     throw new Error(t("credentialRequired"));
   }
@@ -686,7 +721,7 @@ function connectionTestPayload(mode = "temporary") {
     }
     return { connection_name: savedConnectionName };
   }
-  const payload = connectionPayload();
+  const payload = temporaryConnectionDraftPayload();
   payload.connection_name = null;
   if (!payload.credential_id) {
     throw new Error(t("credentialRequired"));
@@ -696,7 +731,7 @@ function connectionTestPayload(mode = "temporary") {
 
 async function testCurrentConnectionTarget(connection = connectionPayload()) {
   const testResult = await testConnection(connection);
-  return `${t("connectionOk")}: ${testResult.username}@${testResult.host}:${testResult.port} (${testResult.device_profile}, ${displayString(testResult.ssh_security)}, ${displayString(testResult.linux_shell_flavor || "-")})`;
+  return `${t("connectionOk")}: ${testResult.username}@${testResult.host}:${testResult.port} (${testResult.device_profile}, ${displayString(testResult.ssh_security)}, ${displayString(testResult.linux_shell_flavor || "-")}, ${displayString(testResult.output_encoding || "utf8")})`;
 }
 
 export function setConnectionTestLoadingKeys(connectionTest = {}, keys = []) {
@@ -801,7 +836,7 @@ export async function createSavedConnectionDraft() {
   setSavedConnectionSelectValue(savedConnectionName);
   setSavedConnectionStatus(t("running"), "running");
   try {
-    const payload = connectionPayload();
+    const payload = temporaryConnectionDraftPayload(savedConnectionName);
     payload.device_profile = payload.device_profile || "autodetect";
     const createdConnectionPayload = await saveConnection(
       savedConnectionName,

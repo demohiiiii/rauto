@@ -200,6 +200,9 @@ function basicFieldsWorkspaceInputState(inputState = {}) {
     onLinuxShellFlavorChange: normalizeOptionalHandler(
       inputState.onLinuxShellFlavorChange,
     ),
+    onOutputEncodingChange: normalizeOptionalHandler(
+      inputState.onOutputEncodingChange,
+    ),
     onPortInput: normalizeOptionalHandler(inputState.onPortInput),
     onSshSecurityChange: normalizeOptionalHandler(
       inputState.onSshSecurityChange,
@@ -227,6 +230,9 @@ export function createConnectionBasicFieldsWorkspace(initialInputState = {}) {
     },
     linuxShellFlavorChangeHandler() {
       return actionHandlers.linuxShellFlavorChangeHandler();
+    },
+    outputEncodingChangeHandler() {
+      return actionHandlers.outputEncodingChangeHandler();
     },
     portInputHandler() {
       return actionHandlers.portInputHandler();
@@ -368,6 +374,7 @@ function connectionBasicFieldInputHandlers({
   onDeviceProfileChange = null,
   onHostInput = null,
   onLinuxShellFlavorChange = null,
+  onOutputEncodingChange = null,
   onPortInput = null,
   onSshSecurityChange = null,
 } = {}) {
@@ -387,6 +394,9 @@ function connectionBasicFieldInputHandlers({
     linuxShellFlavorChangeHandler() {
       return callbackHandler(onLinuxShellFlavorChange);
     },
+    outputEncodingChangeHandler() {
+      return callbackHandler(onOutputEncodingChange);
+    },
     portInputHandler() {
       return callbackHandler(onPortInput);
     },
@@ -405,6 +415,7 @@ function connectionBasicFieldActionHandlers(options = {}) {
     deviceProfileChangeHandler: inputHandlers.deviceProfileChangeHandler,
     hostInputHandler: inputHandlers.hostInputHandler,
     linuxShellFlavorChangeHandler: inputHandlers.linuxShellFlavorChangeHandler,
+    outputEncodingChangeHandler: inputHandlers.outputEncodingChangeHandler,
     portInputHandler: inputHandlers.portInputHandler,
     sshSecurityChangeHandler: inputHandlers.sshSecurityChangeHandler,
   };

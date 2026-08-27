@@ -170,6 +170,10 @@ pub(crate) fn resolve_target_connection(
         .linux_shell_flavor
         .or_else(|| saved.as_ref().and_then(|s| s.linux_shell_flavor))
         .or(opts.linux_shell_flavor);
+    let output_encoding = saved
+        .as_ref()
+        .map(|connection| connection.output_encoding)
+        .unwrap_or_default();
     let template_dir = target
         .template_dir
         .as_ref()
@@ -204,6 +208,7 @@ pub(crate) fn resolve_target_connection(
         enable_password,
         ssh_security,
         linux_shell_flavor,
+        output_encoding,
         device_profile,
         vars,
         template_dir,

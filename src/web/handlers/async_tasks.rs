@@ -411,6 +411,15 @@ pub(super) fn spawn_prepared_task_callback(
     };
 
     let registrar = state.registrar();
+    if registrar.is_none() {
+        if let Err(err) = task_store::save_task_callback(&callback, task_ctx.operation) {
+            warn!(
+                "failed to persist task callback {}: {}",
+                task_ctx.task_id, err
+            );
+        }
+        return;
+    }
     tokio::spawn(async move {
         if let Err(err) = task_store::save_task_callback(&callback, task_ctx.operation) {
             warn!(

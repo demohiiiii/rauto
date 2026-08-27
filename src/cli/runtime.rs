@@ -11,6 +11,7 @@ use crate::config::session_recording;
 use crate::config::ssh_security::{SshSecurityProfile, connection_security_options};
 use crate::config::template_loader::{self, AUTODETECT_DEVICE_PROFILE};
 use crate::device::DeviceClient;
+use crate::domain::device::DeviceEncoding;
 use anyhow::Result;
 use rneter::device::DeviceHandler;
 use rneter::session::{
@@ -31,8 +32,10 @@ pub(crate) fn manager_connection_request(
     auth: SshAuthMethod,
     enable_password: Option<String>,
     handler: DeviceHandler,
+    output_encoding: DeviceEncoding,
 ) -> ManagerConnectionRequest {
     ManagerConnectionRequest::new_with_auth(username, host, port, auth, enable_password, handler)
+        .with_output_encoding(output_encoding.to_text_encoding())
 }
 
 pub(crate) fn manager_execution_context_with_security(
@@ -71,6 +74,7 @@ pub(crate) struct EffectiveConnection {
     pub(crate) enable_password: Option<String>,
     pub(crate) ssh_security: SshSecurityProfile,
     pub(crate) linux_shell_flavor: Option<LinuxShellFlavor>,
+    pub(crate) output_encoding: DeviceEncoding,
     pub(crate) device_profile: String,
     pub(crate) vars: serde_json::Value,
     pub(crate) template_dir: Option<PathBuf>,
@@ -142,6 +146,10 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
     let linux_shell_flavor = opts
         .linux_shell_flavor
         .or_else(|| saved.as_ref().and_then(|s| s.linux_shell_flavor));
+    let output_encoding = saved
+        .as_ref()
+        .map(|connection| connection.output_encoding)
+        .unwrap_or_default();
     let device_profile = opts
         .device_profile
         .clone()
@@ -176,6 +184,7 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         enable_password,
         ssh_security,
         linux_shell_flavor,
+        output_encoding,
         device_profile,
         vars,
         template_dir,
@@ -221,7 +230,8 @@ pub(crate) async fn resolve_autodetect_connection(
         conn.host.clone(),
         conn.port,
         conn.auth.clone(),
-    );
+    )
+    .with_output_encoding(conn.output_encoding.to_text_encoding());
     let context =
         manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);
     let policy = DetectConnectPolicy::default();
@@ -278,6 +288,7 @@ pub(crate) fn save_named_connection(name: &str, conn: &EffectiveConnection) -> R
         software_version: None,
         ssh_security: Some(conn.ssh_security),
         linux_shell_flavor: conn.linux_shell_flavor,
+        output_encoding: conn.output_encoding,
         device_profile: Some(conn.device_profile.clone()),
         template_dir: conn
             .template_dir

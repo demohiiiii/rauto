@@ -33,6 +33,9 @@
       value: selectedValue,
     })),
   );
+  let selectedSummary = $derived(
+    selectedRows.map((selectedRow) => selectedRow.label).join(", "),
+  );
 
   function updateSelection(nextValues = []) {
     const normalized = Array.from(new Set(nextValues.filter(Boolean)));
@@ -50,24 +53,30 @@
           {...props}
           type="button"
           variant="outline"
-          class="min-h-10 min-w-0 w-full justify-between px-2.5 py-1.5"
+          class="h-10 min-w-0 w-full justify-between px-2.5"
           {disabled}
           aria-label={labelText}
+          title={selectedSummary || placeholderText}
         >
-          <span class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <span
+            class="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden"
+          >
             {#if selectedRows.length}
-              {#each selectedRows as selectedRow (selectedRow.value)}
-                <Badge variant="secondary" class="max-w-full rounded-md">
-                  <span class="truncate">{selectedRow.label}</span>
+              <span class="min-w-0 flex-1 truncate text-left">
+                {selectedRows[0].label}
+              </span>
+              {#if selectedRows.length > 1}
+                <Badge variant="secondary" class="shrink-0 rounded-md">
+                  +{selectedRows.length - 1}
                 </Badge>
-              {/each}
+              {/if}
             {:else}
               <span class="truncate text-muted-foreground">
                 {placeholderText}
               </span>
             {/if}
           </span>
-          <ChevronDownIcon class="shrink-0" aria-hidden="true" />
+          <ChevronDownIcon aria-hidden="true" />
         </Button>
       {/snippet}
     </DropdownMenu.Trigger>

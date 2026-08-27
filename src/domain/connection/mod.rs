@@ -74,7 +74,7 @@ pub struct InventoryLabel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SavedConnection<SshSecurity, LinuxShell> {
+pub struct SavedConnection<SshSecurity, LinuxShell, Encoding> {
     pub host: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credential_id: Option<String>,
@@ -87,6 +87,8 @@ pub struct SavedConnection<SshSecurity, LinuxShell> {
     pub software_version: Option<String>,
     pub ssh_security: Option<SshSecurity>,
     pub linux_shell_flavor: Option<LinuxShell>,
+    #[serde(default)]
+    pub output_encoding: Encoding,
     pub device_profile: Option<String>,
     pub template_dir: Option<String>,
     #[serde(default = "default_enabled")]
@@ -262,7 +264,7 @@ mod tests {
 
     #[test]
     fn saved_connection_defaults_enabled_and_empty_vars() {
-        let saved: SavedConnection<String, String> =
+        let saved: SavedConnection<String, String, String> =
             serde_json::from_value(serde_json::json!({ "host": "192.0.2.1" }))
                 .expect("deserialize saved connection");
 
@@ -270,5 +272,6 @@ mod tests {
         assert_eq!(saved.vars, serde_json::json!({}));
         assert!(saved.labels.is_empty());
         assert!(saved.groups.is_empty());
+        assert_eq!(saved.output_encoding, "");
     }
 }

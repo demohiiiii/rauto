@@ -8,6 +8,8 @@
   import WorkflowIcon from "@lucide/svelte/icons/workflow";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import HistoryIcon from "@lucide/svelte/icons/history";
+  import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
+  import FileClockIcon from "@lucide/svelte/icons/file-clock";
   import UserCogIcon from "@lucide/svelte/icons/user-cog";
   import FileCode2Icon from "@lucide/svelte/icons/file-code-2";
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
@@ -57,6 +59,8 @@
     blacklist: ShieldBanIcon,
     backup: DatabaseBackupIcon,
     tasks: HistoryIcon,
+    schedules: CalendarClockIcon,
+    "config-history": FileClockIcon,
   };
   let groupedNavigationItems = $derived.by(() => {
     i18nCurrentLanguage;

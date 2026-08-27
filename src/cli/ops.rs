@@ -310,6 +310,7 @@ pub(crate) async fn run_device_command(
                 conn.auth.clone(),
                 conn.enable_password.clone(),
                 handler,
+                conn.output_encoding,
                 default_mode,
                 conn.ssh_security,
                 conn.connect_timeout_secs,

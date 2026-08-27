@@ -84,15 +84,21 @@ export function initializeDashboardStatePreferences() {
   }));
 }
 
-function normalizeTab(tab, tasksVisible) {
+function normalizeTab(tab, tasksVisible, managedAgentMode = false) {
   const normalized = String(tab || DEFAULT_TAB).trim() || DEFAULT_TAB;
   if (normalized === "tasks" && !tasksVisible) return DEFAULT_TAB;
+  if (normalized === "schedules" && managedAgentMode) return DEFAULT_TAB;
+  if (normalized === "config-history" && managedAgentMode) return DEFAULT_TAB;
   return normalized;
 }
 
 export function setDashboardTab(tab) {
   dashboardState.update((currentDashboard) => {
-    const currentTab = normalizeTab(tab, currentDashboard.tasksVisible);
+    const currentTab = normalizeTab(
+      tab,
+      currentDashboard.tasksVisible,
+      currentDashboard.managedAgentMode,
+    );
     return {
       ...currentDashboard,
       currentTab,
@@ -103,7 +109,11 @@ export function setDashboardTab(tab) {
 export function setDashboardManagedAgentMode(managed) {
   dashboardState.update((currentDashboard) => {
     const tasksVisible = managed === true;
-    const currentTab = normalizeTab(currentDashboard.currentTab, tasksVisible);
+    const currentTab = normalizeTab(
+      currentDashboard.currentTab,
+      tasksVisible,
+      managed === true,
+    );
     return {
       ...currentDashboard,
       currentTab,

@@ -75,6 +75,7 @@ pub async fn execute_command_flow(
             conn.auth.clone(),
             conn.enable_password.clone(),
             handler,
+            conn.output_encoding,
             profile_default_mode.clone(),
             level,
             conn.ssh_security,
@@ -90,6 +91,7 @@ pub async fn execute_command_flow(
             conn.auth.clone(),
             conn.enable_password.clone(),
             handler,
+            conn.output_encoding,
             profile_default_mode.clone(),
             conn.ssh_security,
             conn.connect_timeout_secs,
@@ -483,6 +485,7 @@ async fn execute_batch_flow_target_inner(
             target.conn.auth.clone(),
             target.conn.enable_password.clone(),
             handler,
+            target.conn.output_encoding,
             target.profile_default_mode.clone(),
             level,
             target.conn.ssh_security,
@@ -498,6 +501,7 @@ async fn execute_batch_flow_target_inner(
             target.conn.auth.clone(),
             target.conn.enable_password.clone(),
             handler,
+            target.conn.output_encoding,
             target.profile_default_mode.clone(),
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
@@ -600,6 +604,7 @@ pub async fn execute_upload(
         conn.auth.clone(),
         conn.enable_password.clone(),
         handler,
+        conn.output_encoding,
     );
     let context =
         manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);

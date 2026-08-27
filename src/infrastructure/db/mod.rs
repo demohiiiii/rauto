@@ -21,12 +21,14 @@ pub mod connection_store;
 pub mod content_store;
 pub mod custom_show_object_store;
 pub mod custom_textfsm_store;
+pub mod device_config_store;
 pub mod device_credential_store;
 pub mod device_discovery_store;
 pub mod history_store;
 pub mod inventory_store;
 pub mod keyring_store;
 mod profile;
+pub mod schedule_store;
 pub mod task_store;
 
 #[cfg(test)]
@@ -75,6 +77,9 @@ const _: &str = include_str!("../../../migrations/202607260002_config_command_ov
 const _: &str = include_str!("../../../migrations/202607260003_config_volatile_patterns.sql");
 const _: &str = include_str!("../../../migrations/202607270001_ssh_auth_methods.sql");
 const _: &str = include_str!("../../../migrations/202608060001_device_discovery.sql");
+const _: &str = include_str!("../../../migrations/202608250001_schedules.sql");
+const _: &str = include_str!("../../../migrations/202608250002_device_config_snapshots.sql");
+const _: &str = include_str!("../../../migrations/202608260001_connection_output_encoding.sql");
 #[cfg(not(test))]
 static DB_MIGRATED: AtomicBool = AtomicBool::new(false);
 #[cfg(test)]

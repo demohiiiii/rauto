@@ -8,6 +8,7 @@ pub mod infrastructure;
 pub mod interfaces;
 mod manager_grpc;
 mod orchestrator;
+mod scheduler;
 mod template;
 mod web;
 

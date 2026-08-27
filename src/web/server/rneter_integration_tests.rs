@@ -4,6 +4,7 @@ use crate::config::connection_store::{SavedConnection, save_connection};
 use crate::config::device_credential_store::{DeviceCredentialInput, create_credential};
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::db;
+use crate::infrastructure::db::device_config_store;
 use crate::web::state::AppState;
 use axum::Router;
 use axum::body::{Body, to_bytes};
@@ -132,6 +133,7 @@ impl RouteTestContext {
                 software_version: None,
                 ssh_security: Some(SshSecurityProfile::TestNoCheck),
                 linux_shell_flavor: None,
+                output_encoding: Default::default(),
                 device_profile: Some("cisco_ios".to_string()),
                 template_dir: None,
                 enabled: true,
@@ -1253,11 +1255,28 @@ interface Ethernet1\n";
                 "/api/config/fetch",
                 json!({
                     "include_normalized": true,
-                    "connection": { "connection_name": single.connection_name }
+                    "connection": { "connection_name": single.connection_name.clone() }
                 }),
             )
             .await;
-        assert_normalized_running_config(single_response.assert_ok(), RUNNING_CONFIG);
+        let single_body = single_response.assert_ok();
+        assert_normalized_running_config(single_body, RUNNING_CONFIG);
+        let single_snapshot_id = single_body["snapshot_id"]
+            .as_str()
+            .expect("single fetch should return a snapshot id");
+        let single_snapshot = device_config_store::get_snapshot(single_snapshot_id)
+            .await
+            .expect("load single config snapshot")
+            .expect("single config snapshot exists");
+        assert_eq!(
+            single_snapshot.summary.connection_name,
+            single.connection_name
+        );
+        assert!(
+            single_snapshot
+                .content
+                .contains("Last configuration change")
+        );
         assert_eq!(command_attempts(&single.handle, "show running-config"), 1);
 
         let batch = context
@@ -1275,7 +1294,7 @@ interface Ethernet1\n";
                 "/api/config/batch-fetch",
                 json!({
                     "include_normalized": true,
-                    "targets": [batch.connection_name]
+                    "targets": [batch.connection_name.clone()]
                 }),
             )
             .await;
@@ -1283,6 +1302,17 @@ interface Ethernet1\n";
         assert_eq!(batch_body["kind"], json!("running"));
         let result = assert_single_target_batch_success(batch_body, "edge-batch");
         assert_normalized_running_config(result, RUNNING_CONFIG);
+        let batch_snapshot_id = result["snapshot_id"]
+            .as_str()
+            .expect("batch fetch should return a snapshot id");
+        let batch_snapshot = device_config_store::get_snapshot(batch_snapshot_id)
+            .await
+            .expect("load batch config snapshot")
+            .expect("batch config snapshot exists");
+        assert_eq!(
+            batch_snapshot.summary.connection_name,
+            batch.connection_name
+        );
         assert_eq!(command_attempts(&batch.handle, "show running-config"), 1);
     });
 }

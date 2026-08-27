@@ -18,3 +18,7 @@ pub(super) fn parse_linux_shell_flavor(value: &str) -> Result<LinuxShellFlavor> 
     }
     trimmed.parse::<LinuxShellFlavor>()
 }
+
+pub(super) fn parse_device_encoding(value: &str) -> Result<DeviceEncoding> {
+    value.trim().parse::<DeviceEncoding>()
+}

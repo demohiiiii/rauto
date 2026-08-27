@@ -4,13 +4,29 @@ pub async fn execute_tx_workflow(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ExecuteTxWorkflowRequest>,
 ) -> Result<Json<ApiResponse<ExecuteTxWorkflowResponse>>, ApiError> {
-    let (task_ctx, task_guard) = begin_reported_task(
+    Box::pin(execute_tx_workflow_request(state, req, false)).await
+}
+
+pub(crate) async fn execute_scheduled_tx_workflow(
+    state: Arc<AppState>,
+    req: ExecuteTxWorkflowRequest,
+) -> Result<Json<ApiResponse<ExecuteTxWorkflowResponse>>, ApiError> {
+    Box::pin(execute_tx_workflow_request(state, req, true)).await
+}
+
+async fn execute_tx_workflow_request(
+    state: Arc<AppState>,
+    req: ExecuteTxWorkflowRequest,
+    force_tracking: bool,
+) -> Result<Json<ApiResponse<ExecuteTxWorkflowResponse>>, ApiError> {
+    let (task_ctx, task_guard) = begin_reported_task_with_tracking(
         &state,
         TaskOperation::TxWorkflow,
         req.task.task_id.clone(),
         TaskEventInput::new("started", "Starting tx workflow execution")
             .with_stage("workflow")
             .with_progress(Some(0)),
+        force_tracking || state.is_managed(),
     );
     let result: Result<ExecuteTxWorkflowResponse, ApiError> = state
         .run_until_shutdown(async {

@@ -471,10 +471,7 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
   assert.match(basicFieldsSource, /class="size-4"/);
   assert.match(basicFieldsSource, /platformFieldLabel/);
   assert.match(basicFieldsSource, /min-h-10 items-end/);
-  assert.match(
-    basicFieldsSource,
-    /sm:grid-cols-\[repeat\(3,minmax\(0,1fr\)\)\]/,
-  );
+  assert.match(basicFieldsSource, /sm:grid-cols-2 lg:grid-cols-4/);
   assert.match(basicFieldsSource, /class="min-w-0 justify-between truncate"/);
   assert.match(temporaryPanelSource, /class="size-4"/);
   assert.match(editorFormSource, /class="size-4"/);
@@ -712,7 +709,7 @@ test("connection forms test their current drafts beside autodetect", () => {
   assert.match(runtimeSource, /function connectionTestPayload\(mode/);
   assert.match(
     runtimeSource,
-    /const payload = connectionPayload\(\);[\s\S]*payload\.connection_name = null[\s\S]*credentialRequired/,
+    /const payload = temporaryConnectionDraftPayload\(\);[\s\S]*payload\.connection_name = null[\s\S]*credentialRequired/,
   );
 });
 
