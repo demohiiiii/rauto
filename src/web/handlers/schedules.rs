@@ -1,13 +1,10 @@
-use super::execute::resolve_batch_target_names;
-use crate::config::{config_catalog, connection_store, content_store};
-use crate::domain::scheduling::{
-    ScheduleDefinition, ScheduledAction, next_runs_after_ms, timestamp_ms_in_timezone,
-};
+use crate::domain::scheduling::{ScheduleDefinition, next_runs_after_ms, timestamp_ms_in_timezone};
 use crate::infrastructure::db::schedule_store;
 use crate::interfaces::api::models::{
     ScheduleMutationResponse, SchedulePreviewRequest, SchedulePreviewResponse, ScheduleRun,
     ScheduleRunsQuery, StoredSchedule,
 };
+use crate::scheduler::{ScheduleDefinitionValidationError, validate_schedule_definition};
 use crate::web::error::ApiError;
 use crate::web::state::AppState;
 use axum::Json;
@@ -149,77 +146,18 @@ async fn set_enabled(
 }
 
 fn validate_definition(definition: &ScheduleDefinition) -> Result<(), ApiError> {
-    definition
-        .validate()
-        .map_err(|error| ApiError::bad_request(error.to_string()))?;
-    match &definition.action {
-        ScheduledAction::Orchestrate { template_name, .. } => {
-            if content_store::load_orchestration_template(template_name)
-                .map_err(ApiError::from)?
-                .is_none()
-            {
-                return Err(ApiError::bad_request(format!(
-                    "orchestration template '{}' was not found",
-                    template_name.trim()
-                )));
-            }
-        }
-        ScheduledAction::ConfigFetch {
-            connection_name,
-            targets,
-            groups,
-            labels,
-            kind,
-        } => {
-            let mut targets = targets.clone();
-            if let Some(connection_name) = connection_name {
-                targets.push(connection_name.clone());
-            }
-            let connection_names = resolve_batch_target_names(&targets, groups, labels)?;
-            if connection_names.is_empty() {
-                return Err(ApiError::bad_request(
-                    "configuration fetch resolved no saved connections",
-                ));
-            }
-            for connection_name in connection_names {
-                let connection = load_connection(&connection_name)?;
-                if let Some(profile) = connection
-                    .device_profile
-                    .as_deref()
-                    .filter(|profile| *profile != "autodetect")
-                {
-                    config_catalog::resolve_config_command(profile, kind)
-                        .map_err(|error| ApiError::bad_request(error.to_string()))?;
-                }
-            }
-        }
-        ScheduledAction::TxWorkflow {
-            connection_name,
-            template_name,
-            ..
-        } => {
-            load_connection(connection_name)?;
-            if content_store::load_tx_workflow_template(template_name)
-                .map_err(ApiError::from)?
-                .is_none()
-            {
-                return Err(ApiError::bad_request(format!(
-                    "tx workflow template '{}' was not found",
-                    template_name.trim()
-                )));
-            }
-        }
-    }
-    Ok(())
+    validate_schedule_definition(definition).map_err(map_validation_error)
 }
 
-fn load_connection(connection_name: &str) -> Result<connection_store::SavedConnection, ApiError> {
-    connection_store::load_connection_raw(connection_name).map_err(|_| {
-        ApiError::bad_request(format!(
-            "saved connection '{}' was not found",
-            connection_name.trim()
-        ))
-    })
+fn map_validation_error(error: ScheduleDefinitionValidationError) -> ApiError {
+    match error {
+        ScheduleDefinitionValidationError::Invalid(error) => {
+            ApiError::bad_request(error.to_string())
+        }
+        ScheduleDefinitionValidationError::Infrastructure(error) => {
+            ApiError::internal(error.to_string())
+        }
+    }
 }
 
 fn map_store_error(error: anyhow::Error) -> ApiError {
@@ -260,5 +198,18 @@ mod tests {
                 .iter()
                 .all(|value| value.ends_with("CST"))
         );
+    }
+
+    #[test]
+    fn validation_error_mapping_preserves_server_failures() {
+        let invalid = map_validation_error(ScheduleDefinitionValidationError::Invalid(
+            anyhow::anyhow!("invalid schedule"),
+        ));
+        assert_eq!(invalid.status, StatusCode::BAD_REQUEST);
+
+        let infrastructure = map_validation_error(
+            ScheduleDefinitionValidationError::Infrastructure(anyhow::anyhow!("database closed")),
+        );
+        assert_eq!(infrastructure.status, StatusCode::INTERNAL_SERVER_ERROR);
     }
 }

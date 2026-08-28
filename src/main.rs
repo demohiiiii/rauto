@@ -131,6 +131,9 @@ async fn run(cli: Cli) -> Result<()> {
                 orchestrator::run(cmd.run, &cli.global_opts).await?;
             }
         },
+        Commands::Schedule(command) => {
+            cli::schedule::run_schedule_command(command).await?;
+        }
         Commands::Backup(cmd) => match cmd {
             BackupCommands::Create { output } => {
                 let path = backup::create_backup(output.as_deref())?;

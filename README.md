@@ -60,6 +60,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [Command Flow Templates](#command-flow-templates)
   - [SFTP Upload](#sftp-upload)
   - [Configuration Fetch](#configuration-fetch)
+  - [Scheduled Jobs](#scheduled-jobs)
   - [Device Profiles](#device-profiles)
   - [Web Console](#web-console)
     - [Agent Mode](#agent-mode)
@@ -495,6 +496,8 @@ Optional flags:
 
 `rauto config fetch` pulls device configuration text using per-profile commands from the bundled `assets/config_catalog/config-commands.toml` catalog (for example `show running-config` on `cisco_ios`, `display current-configuration` on `huawei_vrp`). Supported kinds per platform typically include `running` and, where meaningful, `startup`.
 
+Every successful CLI fetch also records the raw configuration in SQLite and prints its `snapshot_id`. Repeated collections with identical content create separate collection records but share one stored content body, so history remains complete without duplicating unchanged configuration text.
+
 Every fetch returns two SHA-256 hashes:
 
 - `sha256`: hash of the raw configuration text.
@@ -516,6 +519,18 @@ rauto config fetch -c core-01 --normalized
 
 `--output <FILE>` writes a single fetch to an exact path and creates missing parent directories. `--output-dir <DIR>` writes each device to `<name>_<kind>_<timestamp>.cfg`, which pairs naturally with cron + git for lightweight configuration archiving. The two options are mutually exclusive, and `--output` cannot be combined with multi-target selectors. Multi-target selectors (`--target`, `--group`, `--label`) and `--max-parallel` behave the same as in `show` and `exec`.
 
+Inspect and manage collected configuration history without starting the Web service:
+
+```bash
+rauto config history devices
+rauto config history list --connection core-01 --kind running --limit 20
+rauto config history list --from 2026-08-01T00:00:00Z --sort asc --json
+
+rauto config history show config-0123456789abcdef
+rauto config history show config-0123456789abcdef --output ./core-01.cfg
+rauto config history delete config-0123456789abcdef
+```
+
 Manage per-profile fetch commands. Custom overrides are stored in SQLite, win over the builtin catalog, and are validated against the command blacklist:
 
 ```bash
@@ -535,6 +550,48 @@ rauto config volatile remove cisco_ios '^! Last modified by .*'
 Both fetch commands and volatile rules can also be managed in the web console under **Templates -> Config Fetch Commands**, and through the `/api/config/commands` and `/api/config/volatile-patterns` endpoints (plus matching agent gRPC methods) for manager integration.
 
 The same capability is exposed to integrations as `POST /api/config/batch-fetch` (and the agent gRPC `FetchConfigBatch` method), returning per-target content, both hashes, and a `fetched_at` timestamp; pass `include_normalized: true` to also receive the normalized text.
+
+### Scheduled Jobs
+
+The `schedule` CLI manages the same persisted cron jobs as the Web console. Create and update commands accept the JSON `ScheduleDefinition` used by the Web API, including `orchestrate`, `config_fetch`, and `tx_workflow` actions.
+
+```json
+{
+  "name": "nightly core configs",
+  "cron_expression": "0 2 * * *",
+  "timezone": "Asia/Shanghai",
+  "enabled": true,
+  "overlap_policy": "skip",
+  "misfire_policy": "fire_once",
+  "max_runtime_seconds": 3600,
+  "action": {
+    "type": "config_fetch",
+    "targets": ["core-01"],
+    "groups": ["core"],
+    "labels": [],
+    "kind": "running"
+  }
+}
+```
+
+Save that definition as `nightly-configs.json`, then manage it by stable ID or exact name:
+
+```bash
+rauto schedule preview "0 2 * * *" --timezone Asia/Shanghai
+rauto schedule create --file nightly-configs.json
+rauto schedule list
+rauto schedule show "nightly core configs" --json
+rauto schedule update "nightly core configs" --file nightly-configs.json
+rauto schedule disable "nightly core configs"
+rauto schedule enable "nightly core configs"
+rauto schedule runs "nightly core configs" --limit 20
+rauto schedule run "nightly core configs"
+rauto schedule delete "nightly core configs"
+```
+
+For an orchestration action, use `{"type":"orchestrate","template_name":"...","vars":{}}`; for a single-device transaction workflow, use `{"type":"tx_workflow","connection_name":"...","template_name":"...","vars":{}}`. Referenced saved connections and templates are validated before create or update.
+
+`rauto schedule run` queues an immediate run in the local SQLite database. Actual cron and queued-run execution is owned by the scheduler inside a running `rauto web` process; CLI management alone does not start a background daemon.
 
 ### Device Profiles
 

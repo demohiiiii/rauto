@@ -60,6 +60,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [命令流程模板](#命令流程模板)
   - [SFTP-上传](#sftp-上传)
   - [配置抓取](#配置抓取)
+  - [计划任务](#计划任务)
   - [设备配置模板](#设备配置模板)
   - [Web-控制台](#web-控制台)
     - [Agent-模式](#agent-模式)
@@ -495,6 +496,8 @@ rauto upload \
 
 `rauto config fetch` 使用内置目录 `assets/config_catalog/config-commands.toml` 中按 profile 定义的命令抓取设备配置文本（例如 `cisco_ios` 用 `show running-config`，`huawei_vrp` 用 `display current-configuration`）。各平台通常支持 `running`，有意义的平台还支持 `startup`。
 
+每次 CLI 抓取成功后，也会把配置原文写入 SQLite，并在输出中显示 `snapshot_id`。内容不变的多次采集会保留独立采集记录，但共用同一份配置正文，因此历史完整且不会重复存储未变化的配置文本。
+
 每次抓取都会返回两个 SHA-256 哈希：
 
 - `sha256`：配置原文的哈希。
@@ -516,6 +519,18 @@ rauto config fetch -c core-01 --normalized
 
 `--output <文件>` 会把单设备抓取结果写入指定路径，并自动创建缺失的父目录。`--output-dir <目录>` 会把每台设备写入 `<名称>_<kind>_<时间戳>.cfg`，配合 cron + git 即可实现轻量级配置归档。两个参数互斥，且 `--output` 不能与多目标选择器一起使用。多目标选择器（`--target`、`--group`、`--label`）与 `--max-parallel` 的行为与 `show` / `exec` 完全一致。
 
+无需启动 Web 服务即可查询和管理采集历史：
+
+```bash
+rauto config history devices
+rauto config history list --connection core-01 --kind running --limit 20
+rauto config history list --from 2026-08-01T00:00:00Z --sort asc --json
+
+rauto config history show config-0123456789abcdef
+rauto config history show config-0123456789abcdef --output ./core-01.cfg
+rauto config history delete config-0123456789abcdef
+```
+
 按 profile 管理抓取命令。自定义覆盖保存在 SQLite 中，优先于内置目录，写入时会经过命令黑名单校验：
 
 ```bash
@@ -535,6 +550,48 @@ rauto config volatile remove cisco_ios '^! Last modified by .*'
 抓取命令与易变行规则也可以在 Web 控制台的 **模板管理 -> 配置抓取命令** 中管理，同时提供 `/api/config/commands` 与 `/api/config/volatile-patterns` 端点（以及对应的 agent gRPC 方法）供 manager 集成。
 
 同样的能力也通过 `POST /api/config/batch-fetch` 与 agent gRPC 的 `FetchConfigBatch` 方法暴露给集成方，逐台返回配置内容、双哈希与 `fetched_at` 时间戳；传 `include_normalized: true` 可额外返回规范化全文。
+
+### 计划任务
+
+`schedule` CLI 管理的就是 Web 控制台使用的同一批持久化 cron 计划。创建和更新命令读取 Web API 相同的 `ScheduleDefinition` JSON，支持 `orchestrate`、`config_fetch` 和 `tx_workflow` 三种任务。
+
+```json
+{
+  "name": "夜间核心配置采集",
+  "cron_expression": "0 2 * * *",
+  "timezone": "Asia/Shanghai",
+  "enabled": true,
+  "overlap_policy": "skip",
+  "misfire_policy": "fire_once",
+  "max_runtime_seconds": 3600,
+  "action": {
+    "type": "config_fetch",
+    "targets": ["core-01"],
+    "groups": ["core"],
+    "labels": [],
+    "kind": "running"
+  }
+}
+```
+
+将定义保存为 `nightly-configs.json` 后，可以使用稳定 ID 或完整名称管理：
+
+```bash
+rauto schedule preview "0 2 * * *" --timezone Asia/Shanghai
+rauto schedule create --file nightly-configs.json
+rauto schedule list
+rauto schedule show "夜间核心配置采集" --json
+rauto schedule update "夜间核心配置采集" --file nightly-configs.json
+rauto schedule disable "夜间核心配置采集"
+rauto schedule enable "夜间核心配置采集"
+rauto schedule runs "夜间核心配置采集" --limit 20
+rauto schedule run "夜间核心配置采集"
+rauto schedule delete "夜间核心配置采集"
+```
+
+编排任务的 action 可写为 `{"type":"orchestrate","template_name":"...","vars":{}}`；单设备事务工作流可写为 `{"type":"tx_workflow","connection_name":"...","template_name":"...","vars":{}}`。创建或更新前会校验引用的已保存连接与模板。
+
+`rauto schedule run` 只会在本地 SQLite 中排入一次立即执行记录。真正的 cron 触发与排队任务执行由运行中的 `rauto web` 内置调度器负责；仅运行 CLI 管理命令不会启动常驻后台进程。
 
 ### 设备配置模板
 

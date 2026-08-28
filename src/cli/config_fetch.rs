@@ -3,13 +3,15 @@ use crate::cli::multi_target::{
     resolve_multi_target_names, run_buffered_multi_target,
 };
 use crate::cli::{
-    ConfigCmd, ConfigCommandCommands, ConfigCommands, ConfigFetchArgs, ConfigVolatileCommands,
-    RecordLevelOpt,
+    ConfigCmd, ConfigCommandCommands, ConfigCommands, ConfigFetchArgs, ConfigHistoryCommands,
+    ConfigHistorySortOrder, ConfigVolatileCommands, RecordLevelOpt,
 };
 use crate::config::{command_blacklist, config_catalog, config_command_store, template_loader};
 use crate::device::DeviceClient;
-use anyhow::Result;
-use chrono::Utc;
+use crate::domain::device::{DeviceConfigSnapshotSortOrder, NewDeviceConfigSnapshot};
+use crate::infrastructure::db::device_config_store;
+use anyhow::{Result, anyhow};
+use chrono::{DateTime, Utc};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
@@ -23,7 +25,126 @@ pub(crate) async fn run_config_command(
         ConfigCommands::Fetch(args) => run_config_fetch(args, opts).await,
         ConfigCommands::Command(cmd) => run_config_command_mapping(cmd),
         ConfigCommands::Volatile(cmd) => run_config_volatile(cmd),
+        ConfigCommands::History(cmd) => run_config_history(cmd).await,
     }
+}
+
+async fn run_config_history(cmd: ConfigHistoryCommands) -> Result<()> {
+    match cmd {
+        ConfigHistoryCommands::Devices { json } => {
+            let devices = device_config_store::list_history_devices().await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&devices)?);
+            } else if devices.is_empty() {
+                println!("-");
+            } else {
+                for device in devices {
+                    println!(
+                        "{}\t{}\t{}",
+                        device.name, device.host, device.device_profile
+                    );
+                }
+            }
+        }
+        ConfigHistoryCommands::List {
+            connection,
+            kind,
+            from,
+            to,
+            sort,
+            limit,
+            json,
+        } => {
+            let from_ms = parse_history_timestamp(from.as_deref(), "from")?;
+            let to_ms = parse_history_timestamp(to.as_deref(), "to")?;
+            if from_ms.zip(to_ms).is_some_and(|(from, to)| from > to) {
+                return Err(anyhow!("--from must be earlier than or equal to --to"));
+            }
+            let sort_order = match sort {
+                ConfigHistorySortOrder::Asc => DeviceConfigSnapshotSortOrder::Ascending,
+                ConfigHistorySortOrder::Desc => DeviceConfigSnapshotSortOrder::Descending,
+            };
+            let snapshots = device_config_store::list_snapshots(
+                connection.as_deref(),
+                kind.as_deref(),
+                from_ms,
+                to_ms,
+                sort_order,
+                limit,
+            )
+            .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&snapshots)?);
+            } else if snapshots.is_empty() {
+                println!("-");
+            } else {
+                for snapshot in snapshots {
+                    let change = match snapshot.changed_from_previous {
+                        Some(true) => "changed",
+                        Some(false) => "unchanged",
+                        None => "baseline",
+                    };
+                    println!(
+                        "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                        snapshot.id,
+                        snapshot.fetched_at,
+                        snapshot.connection_name,
+                        snapshot.kind,
+                        change,
+                        snapshot.content_size_bytes,
+                        snapshot.sha256
+                    );
+                }
+            }
+        }
+        ConfigHistoryCommands::Show { id, output, json } => {
+            let snapshot = device_config_store::get_snapshot(&id)
+                .await?
+                .ok_or_else(|| anyhow!("configuration snapshot '{}' not found", id.trim()))?;
+            if let Some(path) = output {
+                if let Some(parent) = path.parent()
+                    && !parent.as_os_str().is_empty()
+                {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::write(&path, &snapshot.content)?;
+                println!("Configuration written to {}", path.display());
+            } else if json {
+                println!("{}", serde_json::to_string_pretty(&snapshot)?);
+            } else {
+                println!("# id: {}", snapshot.summary.id);
+                println!("# connection: {}", snapshot.summary.connection_name);
+                println!("# host: {}", snapshot.summary.host);
+                println!("# profile: {}", snapshot.summary.profile);
+                println!("# kind: {}", snapshot.summary.kind);
+                println!("# fetched_at: {}", snapshot.summary.fetched_at);
+                println!("# sha256: {}", snapshot.summary.sha256);
+                print!("{}", snapshot.content);
+                if !snapshot.content.ends_with('\n') {
+                    println!();
+                }
+            }
+        }
+        ConfigHistoryCommands::Delete { id } => {
+            if !device_config_store::delete_snapshot(&id).await? {
+                return Err(anyhow!("configuration snapshot '{}' not found", id.trim()));
+            }
+            println!("Deleted configuration snapshot '{}'", id.trim());
+        }
+    }
+    Ok(())
+}
+
+fn parse_history_timestamp(value: Option<&str>, option: &str) -> Result<Option<i64>> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            DateTime::parse_from_rfc3339(value)
+                .map(|timestamp| timestamp.timestamp_millis())
+                .map_err(|_| anyhow!("--{option} must be an RFC 3339 timestamp"))
+        })
+        .transpose()
 }
 
 fn run_config_volatile(cmd: ConfigVolatileCommands) -> Result<()> {
@@ -160,8 +281,16 @@ async fn run_config_fetch(args: ConfigFetchArgs, opts: &crate::cli::GlobalOpts) 
     let fetch_command = config_catalog::resolve_config_command(&conn.device_profile, &args.kind)?;
     command_blacklist::ensure_command_allowed(&fetch_command.command, "config fetch")?;
     let fetched = fetch_config_over_connection(&conn, &fetch_command, args.record_level).await?;
+    let snapshot_id = save_fetched_config_snapshot(&name, &conn, &fetched).await?;
     let mut out = String::new();
-    render_fetched_config(&mut out, &name, &conn.host, &fetched, &options)?;
+    render_fetched_config(
+        &mut out,
+        &name,
+        &conn.host,
+        &fetched,
+        &snapshot_id,
+        &options,
+    )?;
     print!("{}", out);
     Ok(())
 }
@@ -235,11 +364,14 @@ async fn run_multi_config_fetch(
                     options.record_level,
                 )
                 .await?;
+                let snapshot_id =
+                    save_fetched_config_snapshot(&target.name, &target.conn, &fetched).await?;
                 render_fetched_config(
                     &mut out,
                     &target.name,
                     &target.conn.host,
                     &fetched,
+                    &snapshot_id,
                     &options,
                 )?;
                 Ok(None::<()>)
@@ -261,6 +393,27 @@ async fn run_multi_config_fetch(
         ));
     }
     Ok(())
+}
+
+async fn save_fetched_config_snapshot(
+    name: &str,
+    conn: &crate::EffectiveConnection,
+    fetched: &FetchedConfig,
+) -> Result<String> {
+    let snapshot = device_config_store::save_snapshot(NewDeviceConfigSnapshot {
+        connection_name: name,
+        host: &conn.host,
+        profile: &conn.device_profile,
+        kind: &fetched.kind,
+        command: &fetched.command,
+        source: "manual",
+        task_id: None,
+        fetched_at_ms: Utc::now().timestamp_millis(),
+        content: &fetched.content,
+        sha256: &fetched.sha256,
+    })
+    .await?;
+    Ok(snapshot.id)
 }
 
 async fn resolve_config_target(
@@ -314,13 +467,7 @@ async fn fetch_config_over_connection(
     let output = client
         .execute_output(&fetch_command.command, Some(&effective_mode))
         .await?;
-    if output.exit_code.unwrap_or(0) != 0 {
-        return Err(anyhow::anyhow!(
-            "config fetch command '{}' exited with code {}",
-            fetch_command.command,
-            output.exit_code.unwrap_or(-1)
-        ));
-    }
+    ensure_config_fetch_succeeded(output.success, output.exit_code, &fetch_command.command)?;
     crate::persist_auto_recording_history(
         &client,
         conn,
@@ -342,6 +489,27 @@ async fn fetch_config_over_connection(
     })
 }
 
+fn ensure_config_fetch_succeeded(
+    success: bool,
+    exit_code: Option<i32>,
+    command: &str,
+) -> Result<()> {
+    if let Some(code) = exit_code.filter(|code| *code != 0) {
+        return Err(anyhow!(
+            "config fetch command '{}' exited with code {}",
+            command,
+            code
+        ));
+    }
+    if !success {
+        return Err(anyhow!(
+            "config fetch command '{}' reported a device error",
+            command
+        ));
+    }
+    Ok(())
+}
+
 /// Renders one fetched config into the buffered output: a metadata header
 /// followed by the config text, or a "saved" line when --output-dir is used.
 fn render_fetched_config(
@@ -349,6 +517,7 @@ fn render_fetched_config(
     name: &str,
     host: &str,
     fetched: &FetchedConfig,
+    snapshot_id: &str,
     options: &ConfigFetchOptions,
 ) -> Result<()> {
     let _ = writeln!(out, "=== target: {} ({}) ===", name, host);
@@ -356,6 +525,7 @@ fn render_fetched_config(
     let _ = writeln!(out, "# command: {}", fetched.command);
     let _ = writeln!(out, "# sha256: {}", fetched.sha256);
     let _ = writeln!(out, "# normalized_sha256: {}", fetched.normalized_sha256);
+    let _ = writeln!(out, "# snapshot_id: {}", snapshot_id);
     let content = if options.normalized {
         &fetched.normalized
     } else {
@@ -406,6 +576,34 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
+    fn history_timestamps_require_rfc3339() {
+        assert_eq!(
+            parse_history_timestamp(Some("2026-08-27T12:00:00+08:00"), "from")
+                .expect("valid timestamp"),
+            Some(1_787_803_200_000)
+        );
+        assert!(parse_history_timestamp(Some("2026-08-27 12:00"), "from").is_err());
+        assert_eq!(
+            parse_history_timestamp(Some("  "), "from").expect("blank timestamp"),
+            None
+        );
+    }
+
+    #[test]
+    fn config_fetch_requires_rneter_success_before_snapshotting() {
+        assert!(ensure_config_fetch_succeeded(true, None, "show running-config").is_ok());
+        assert!(ensure_config_fetch_succeeded(true, Some(0), "show running-config").is_ok());
+
+        let device_error = ensure_config_fetch_succeeded(false, None, "show running-config")
+            .expect_err("device errors without exit codes must fail");
+        assert!(device_error.to_string().contains("reported a device error"));
+
+        let exit_error = ensure_config_fetch_succeeded(false, Some(2), "show running-config")
+            .expect_err("non-zero exit codes must fail");
+        assert!(exit_error.to_string().contains("exited with code 2"));
+    }
+
+    #[test]
     fn exact_output_path_creates_parents_and_writes_selected_content() {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -432,14 +630,22 @@ mod tests {
         };
         let mut rendered = String::new();
 
-        render_fetched_config(&mut rendered, "edge-01", "192.0.2.10", &fetched, &options)
-            .expect("config should be written to the exact output path");
+        render_fetched_config(
+            &mut rendered,
+            "edge-01",
+            "192.0.2.10",
+            &fetched,
+            "config-test",
+            &options,
+        )
+        .expect("config should be written to the exact output path");
 
         assert_eq!(
             fs::read_to_string(&output).expect("written config should be readable"),
             "normalized config\n"
         );
         assert!(rendered.contains(&format!("# saved: {}", output.display())));
+        assert!(rendered.contains("# snapshot_id: config-test"));
         fs::remove_dir_all(&root).expect("temporary config output should be removable");
     }
 }

@@ -15,7 +15,6 @@ pub use config_fetch::{fetch_config, fetch_config_batch};
 pub use flow_upload::{execute_command_flow, execute_flow_batch, execute_upload};
 pub(crate) use orchestration::execute_scheduled_orchestration;
 pub use orchestration::{execute_orchestration, execute_orchestration_async};
-pub(crate) use standard::resolve_batch_target_names;
 pub use standard::{
     ShowObjectsQuery, exec_command, exec_command_async, execute_exec_batch, execute_show,
     execute_show_batch, execute_template, execute_template_async, list_show_objects,

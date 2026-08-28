@@ -98,6 +98,10 @@ pub enum Commands {
     #[command(name = "orchestrate")]
     Orchestrate(OrchestrateCommand),
 
+    /// Manage persisted cron schedules
+    #[command(subcommand)]
+    Schedule(ScheduleCommands),
+
     /// Backup and restore rauto runtime data
     #[command(subcommand)]
     Backup(BackupCommands),
@@ -863,6 +867,162 @@ pub enum ConfigCommands {
     /// Manage volatile-line patterns used for normalized drift hashing
     #[command(subcommand)]
     Volatile(ConfigVolatileCommands),
+
+    /// Inspect and manage collected device configuration history
+    #[command(subcommand)]
+    History(ConfigHistoryCommands),
+}
+
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+pub enum ConfigHistorySortOrder {
+    Asc,
+    #[default]
+    Desc,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigHistoryCommands {
+    /// List devices that have collected configuration history
+    Devices {
+        /// Print machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// List configuration collection records
+    List {
+        /// Filter by saved or historical connection name
+        #[arg(long, short = 'c')]
+        connection: Option<String>,
+        /// Filter by configuration kind
+        #[arg(long)]
+        kind: Option<String>,
+        /// Include records fetched at or after this RFC 3339 timestamp
+        #[arg(long)]
+        from: Option<String>,
+        /// Include records fetched at or before this RFC 3339 timestamp
+        #[arg(long)]
+        to: Option<String>,
+        /// Sort by collection time
+        #[arg(long, value_enum, default_value_t)]
+        sort: ConfigHistorySortOrder,
+        /// Maximum records to return
+        #[arg(long, default_value_t = 100)]
+        limit: usize,
+        /// Print machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one collected configuration
+    Show {
+        /// Configuration snapshot ID
+        id: String,
+        /// Write raw configuration content to a file
+        #[arg(long, value_name = "FILE", conflicts_with = "json")]
+        output: Option<PathBuf>,
+        /// Print machine-readable JSON including raw content
+        #[arg(long)]
+        json: bool,
+    },
+    /// Delete one configuration collection record
+    Delete {
+        /// Configuration snapshot ID
+        id: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ScheduleCommands {
+    /// List persisted schedules
+    List {
+        /// Print machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show one schedule by ID or exact name
+    Show {
+        selector: String,
+        /// Print machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Create a schedule from a JSON definition
+    Create(ScheduleDefinitionArgs),
+    /// Replace a schedule definition by ID or exact name
+    Update {
+        selector: String,
+        #[command(flatten)]
+        definition: ScheduleDefinitionArgs,
+    },
+    /// Delete a schedule by ID or exact name
+    Delete { selector: String },
+    /// Enable a schedule by ID or exact name
+    Enable {
+        selector: String,
+        /// Print the updated schedule as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Disable a schedule by ID or exact name
+    Disable {
+        selector: String,
+        /// Print the updated schedule as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Queue a schedule for immediate execution by a running Web scheduler
+    Run {
+        selector: String,
+        /// Print the queued run as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// List recent runs for a schedule
+    Runs {
+        selector: String,
+        /// Maximum runs to return
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+        /// Print machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Preview upcoming cron occurrences
+    Preview {
+        /// Five-field cron expression
+        cron_expression: String,
+        /// IANA timezone name
+        #[arg(long, default_value = "Asia/Shanghai")]
+        timezone: String,
+        /// Number of upcoming occurrences
+        #[arg(long, default_value_t = 5)]
+        count: usize,
+        /// Print machine-readable JSON
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Args, Debug)]
+pub struct ScheduleDefinitionArgs {
+    /// Read the schedule definition from a JSON file
+    #[arg(
+        long,
+        value_name = "FILE",
+        required_unless_present = "content",
+        conflicts_with = "content"
+    )]
+    pub file: Option<PathBuf>,
+    /// Read the schedule definition from inline JSON
+    #[arg(
+        long,
+        value_name = "JSON",
+        required_unless_present = "file",
+        conflicts_with = "file"
+    )]
+    pub content: Option<String>,
+    /// Print the created or updated schedule as JSON
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Args, Debug)]
@@ -1444,6 +1604,109 @@ mod tests {
             cmd.command,
             super::ConfigCommands::Volatile(super::ConfigVolatileCommands::List { profile: None })
         ));
+    }
+
+    #[test]
+    fn config_history_commands_parse() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "config",
+            "history",
+            "list",
+            "--connection",
+            "edge-1",
+            "--kind",
+            "running",
+            "--from",
+            "2026-08-01T00:00:00Z",
+            "--sort",
+            "asc",
+            "--limit",
+            "20",
+            "--json",
+        ])
+        .expect("configuration history list should parse");
+        let Commands::Config(cmd) = cli.command else {
+            panic!("expected config command");
+        };
+        let super::ConfigCommands::History(super::ConfigHistoryCommands::List {
+            connection,
+            kind,
+            limit,
+            json,
+            ..
+        }) = cmd.command
+        else {
+            panic!("expected config history list");
+        };
+        assert_eq!(connection.as_deref(), Some("edge-1"));
+        assert_eq!(kind.as_deref(), Some("running"));
+        assert_eq!(limit, 20);
+        assert!(json);
+
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "config",
+            "history",
+            "show",
+            "config-1",
+            "--output",
+            "running.cfg",
+        ])
+        .expect("configuration history show should parse");
+        assert!(matches!(
+            cli.command,
+            Commands::Config(super::ConfigCmd {
+                command: super::ConfigCommands::History(super::ConfigHistoryCommands::Show { .. })
+            })
+        ));
+    }
+
+    #[test]
+    fn schedule_management_commands_parse() {
+        let definition = r#"{"name":"nightly","cron_expression":"0 2 * * *","action":{"type":"orchestrate","template_name":"backup"}}"#;
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "schedule",
+            "create",
+            "--content",
+            definition,
+            "--json",
+        ])
+        .expect("schedule create should parse");
+        let Commands::Schedule(super::ScheduleCommands::Create(args)) = cli.command else {
+            panic!("expected schedule create");
+        };
+        assert_eq!(args.content.as_deref(), Some(definition));
+        assert!(args.json);
+
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "schedule",
+            "preview",
+            "0 2 * * *",
+            "--timezone",
+            "Asia/Shanghai",
+            "--count",
+            "8",
+        ])
+        .expect("schedule preview should parse");
+        assert!(matches!(
+            cli.command,
+            Commands::Schedule(super::ScheduleCommands::Preview { count: 8, .. })
+        ));
+
+        let error = Cli::try_parse_from([
+            "rauto",
+            "schedule",
+            "create",
+            "--file",
+            "schedule.json",
+            "--content",
+            definition,
+        ])
+        .expect_err("schedule definition sources must conflict");
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
     #[test]
