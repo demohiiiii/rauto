@@ -102,7 +102,7 @@
 <Dialog.Root bind:open onOpenChange={handleOpenChange}>
   <Dialog.Trigger>
     {#snippet child({ props })}
-      <Button {...props} variant="outline" class="w-full">
+      <Button {...props} variant="outline" size="sm" class="w-full rounded-lg">
         <UploadIcon data-icon="inline-start" aria-hidden="true" />
         {t("credentialImportAction")}
       </Button>

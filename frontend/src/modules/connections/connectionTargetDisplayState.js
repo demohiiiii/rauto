@@ -252,11 +252,8 @@ export function temporaryConnectionFocusDisplay({
   };
 }
 
-function sidebarConnectionSummary(card = null) {
+function sidebarConnectionEndpoint(card = null) {
   if (!card) return "";
-  if (card.credentialName) {
-    return `${card.credentialName} · ${card.host}:${card.port}`;
-  }
   return `${card.host}:${card.port}`;
 }
 
@@ -265,26 +262,25 @@ export function sidebarConnectionPresentation(sidebar = {}) {
   const errorMessage = sidebar.errorMessage || "";
   const isTemporary = card?.kind === "temporary";
   const hasCard = Boolean(card);
+  const contextLabel = isTemporary
+    ? tr("sidebarConnectionTemporaryLabel")
+    : card?.name || "";
+  const endpointLabel = sidebarConnectionEndpoint(card);
+  const helpLabel = tr("sidebarConnectionHint");
+  const profileLabel = card?.profile || "autodetect";
   return {
-    badgeLabel: isTemporary
-      ? tr("sidebarConnectionTemporaryBadge")
-      : tr("sidebarConnectionSavedBadge"),
-    contextLabel: isTemporary
-      ? tr("sidebarConnectionTemporaryLabel")
-      : card?.name || "",
+    connectionSummaryLabel: hasCard
+      ? [contextLabel, endpointLabel, profileLabel].filter(Boolean).join(" · ")
+      : helpLabel,
+    contextLabel,
     emptyContextText: tr("sidebarConnectionOptionNone"),
     emptyNameText: tr("sidebarConnectionNoneHint"),
+    endpointLabel,
     errorMessage,
     hasCard,
-    helpLabel: tr("sidebarConnectionHint"),
-    openButtonLabel: tr("sidebarConnectionOpenBtn"),
-    profile: card?.profile || "",
+    helpLabel,
+    profileLabel,
     showError: Boolean(errorMessage),
-    showSavedIcon: !isTemporary,
-    showTemporaryIcon: isTemporary,
-    statusLabel: tr("sidebarConnectionConnectedBadge"),
-    summary: sidebarConnectionSummary(card),
-    title: tr("sidebarConnectionTitle"),
   };
 }
 

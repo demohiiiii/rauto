@@ -28,7 +28,7 @@ function inventoryPagePresentation() {
 
 function inventoryCollectionRowClass(selected) {
   return classNames(
-    "group w-full rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+    "group w-full rounded-lg border px-2 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
     selected
       ? "border-primary/40 bg-primary/10 text-foreground"
       : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground",

@@ -29,7 +29,9 @@ test("credential management is a standalone dashboard page", () => {
   assert.match(page, /deleteCredential/);
   assert.match(page, /credentialEnableEnabled/);
   assert.match(page, /<Checkbox/);
-  assert.match(page, /lg:grid-cols-\[22rem_minmax\(0,1fr\)\]/);
+  assert.match(page, /lg:grid-cols-\[17rem_minmax\(0,1fr\)\]/);
+  assert.match(page, /h-9 rounded-lg pl-9 text-sm/);
+  assert.match(page, /w-full rounded-lg border p-2 text-left/);
   assert.match(page, /t\("credentialSaveAction"\)/);
   assert.match(page, /t\("credentialSavingAction"\)/);
   assert.match(page, /credentialFormValidationMessage/);

@@ -7,7 +7,6 @@ import {
 import { stopEventPropagation } from "../../lib/events.js";
 import { createLoadingRunner } from "../../lib/svelte.js";
 import {
-  classNames,
   confirmUserChoice,
   displayText,
   downloadBlob,
@@ -96,6 +95,8 @@ function isBackupLoading(backup = {}, key = "") {
 }
 
 function backupArchiveRow(backup, backupItem, index, selected) {
+  const name = backupItem.name || "-";
+  const path = backupItem.path || "-";
   const rowSelected =
     selected &&
     ((selected.name || "") === (backupItem.name || "") ||
@@ -107,15 +108,12 @@ function backupArchiveRow(backup, backupItem, index, selected) {
     downloadLoading: isBackupLoading(backup, downloadKey),
     index,
     mergeLoading: isBackupLoading(backup, mergeKey),
-    name: backupItem.name || "-",
-    path: backupItem.path || "-",
+    name,
+    path,
     replaceLoading: isBackupLoading(backup, replaceKey),
-    rowClass: classNames(
-      "w-full rounded-xl border px-3 py-2 text-left transition",
-      rowSelected
-        ? "border-teal-300 bg-teal-50/70"
-        : "border-slate-200 bg-white hover:border-slate-300",
-    ),
+    rowClass: rowSelected ? "bg-primary/5" : "bg-card hover:bg-muted/30",
+    selected: rowSelected,
+    showPath: path !== name,
     sizeText: formatBackupBytes(backupItem.size_bytes),
     timeText: formatTimestamp(backupItem.modified_ms),
   };
@@ -141,6 +139,7 @@ function backupArchivePresentation(backup = {}) {
     emptyMessage: "-",
     hasBackupRows: backupRows.length > 0,
     listTitle: tr("backupListTitle"),
+    metaSizeLabel: tr("backupMetaSize", "Size"),
     metaTimeLabel: tr("backupMetaTime", "Time"),
     restoreMergeButtonLabel: tr("backupRestoreMergeBtn"),
     restoreMergeLoading: isBackupLoading(backup, "backup-restore-merge"),

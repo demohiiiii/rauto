@@ -133,7 +133,37 @@ rauto config command set linux running "cat /etc/device.conf" --mode 'Root,User'
 rauto config volatile add linux '^# Generated at .*$'
 ```
 
-Each successful fetch includes raw and normalized SHA-256 hashes. `--normalized` emits content after volatile-line removal. Use `--output` only for one resolved device and `--output-dir` for timestamped per-device files. Custom command mappings override the bundled catalog; custom volatile regexes merge with bundled rules.
+Each successful fetch includes raw and normalized SHA-256 hashes, stores one raw configuration collection record in SQLite, and reports its `snapshot_id`. `--normalized` changes emitted/downloaded content after volatile-line removal; it does not replace the raw content stored in configuration history. Device errors and non-zero exits are failures and must not be stored as valid snapshots. Use `--output` only for one resolved device and `--output-dir` for timestamped per-device files. Custom command mappings override the bundled catalog; custom volatile regexes merge with bundled rules.
+
+### Configuration History
+
+```bash
+rauto config history devices
+rauto config history devices --json
+rauto config history list --connection core-01 --kind running --limit 20
+rauto config history list --from 2026-08-01T00:00:00Z --to 2026-09-01T00:00:00Z --sort asc --json
+rauto config history show config-0123456789abcdef
+rauto config history show config-0123456789abcdef --output ./core-01-running.cfg
+rauto config history delete config-0123456789abcdef
+```
+
+History commands read local SQLite directly and do not require Web or a live device connection. `--from` and `--to` require RFC 3339 timestamps; ordering is `asc` or `desc`. Every successful collection has its own record even when the raw configuration is unchanged, while identical content bodies are stored once and shared. `show` displays/exports raw content only.
+
+## Scheduled Automation
+
+```bash
+rauto schedule preview "0 2 * * *" --timezone Asia/Shanghai
+rauto schedule create --file ./nightly-configs.json
+rauto schedule list --json
+rauto schedule show nightly-configs
+rauto schedule disable nightly-configs
+rauto schedule enable nightly-configs
+rauto schedule run nightly-configs
+rauto schedule runs nightly-configs --limit 20
+rauto schedule delete nightly-configs
+```
+
+Schedule selectors accept a stable ID or exact name. `create` and `update` consume one complete JSON definition from mutually exclusive `--file` or `--content`; update replaces the definition rather than applying a partial patch. CLI management writes local SQLite directly. Cron and queued manual execution are owned by a running `rauto web` process; CLI-only use does not start a scheduler. Load `scheduled-automation.md` before authoring or troubleshooting definitions.
 
 ## Device Discovery
 

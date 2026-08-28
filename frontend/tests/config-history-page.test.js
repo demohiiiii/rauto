@@ -37,7 +37,17 @@ test("configuration history is a dedicated local management page", () => {
   assert.match(page, /workspace\.selectDevice\(device\.name\)/);
   assert.match(page, /workspace\.selectSnapshot\(snapshot\.id\)/);
   assert.match(page, /<Dialog\.Root/);
-  assert.match(page, /type="datetime-local"/);
+  assert.match(page, /<DateTimePickerField/);
+  assert.match(page, /defaultTime="00:00:00"/);
+  assert.match(page, /defaultTime="23:59:59"/);
+  assert.doesNotMatch(page, /type="datetime-local"/);
+  const dateTimePicker = read(
+    "frontend/src/pages/config-history/DateTimePickerField.svelte",
+  );
+  assert.match(dateTimePicker, /YYYY-MM-DD HH:mm:ss/);
+  assert.match(dateTimePicker, /<Calendar/);
+  assert.match(dateTimePicker, /type="time"/);
+  assert.match(dateTimePicker, /dateTimePickerDone/);
   assert.match(page, /<ToggleGroup\.Root/);
   assert.equal((page.match(/<Card\.Root/g) || []).length, 2);
   assert.match(page, /<OutputBlock/);

@@ -82,3 +82,12 @@ For orchestration selector failures:
 - If a run is reported active after interruption, retry with the current binary so stale persisted leases can be recovered; do not delete saved connections or the database.
 - When progress reaches the TCP total, inspect the phase: SSH probing has its own `probed_targets / reachable_count` progress.
 - Existing connections and newly identified devices are exclusive result states. Existing/imported rows cannot be selected for saving.
+
+## 10) Configuration History and Schedules
+
+- A successful `rauto config fetch` prints `snapshot_id`; query it with `rauto config history show <id>` or list records by connection and kind.
+- History stores raw content only. `--normalized` controls fetch output and drift display, not the persisted history body.
+- An unchanged collection is still a new audit record with `changed_from_previous=false`; identical raw content is deduplicated behind those records.
+- If `schedule run` remains queued, verify `rauto web` is running against the same `RAUTO_HOME` and inspect `rauto schedule runs <id-or-name> --json`. Allow for scheduler polling and available concurrency before declaring it stuck.
+- A skipped manual run is final and will not execute. Inspect `skip_reason`; with overlap policy `skip`, an existing queued/running record causes the new run to be skipped.
+- Before changing a schedule, run `rauto schedule preview '<cron>' --timezone <iana-zone>` and verify referenced connections, groups, labels, and saved templates exist.

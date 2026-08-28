@@ -14,6 +14,7 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
+  import DateTimePickerField from "./config-history/DateTimePickerField.svelte";
   import OutputBlock from "../components/fragments/OutputBlock.svelte";
   import PlainInputField from "../components/fragments/PlainInputField.svelte";
   import PlainSelectField from "../components/fragments/PlainSelectField.svelte";
@@ -154,30 +155,28 @@
             <div
               class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
             >
-              <label
+              <div
                 class="col-span-2 grid min-w-0 gap-1.5 text-xs font-medium sm:col-span-1"
               >
                 <span>{tr("configHistoryFromTime", "Start time")}</span>
-                <PlainInputField
-                  type="datetime-local"
-                  step="1"
+                <DateTimePickerField
                   value={display.fetchedFrom}
+                  defaultTime="00:00:00"
                   aria-label={tr("configHistoryFromTime", "Start time")}
-                  onValueInput={workspace.setFetchedFrom}
+                  onValueChange={workspace.setFetchedFrom}
                 />
-              </label>
-              <label
+              </div>
+              <div
                 class="col-span-2 grid min-w-0 gap-1.5 text-xs font-medium sm:col-span-1"
               >
                 <span>{tr("configHistoryToTime", "End time")}</span>
-                <PlainInputField
-                  type="datetime-local"
-                  step="1"
+                <DateTimePickerField
                   value={display.fetchedTo}
+                  defaultTime="23:59:59"
                   aria-label={tr("configHistoryToTime", "End time")}
-                  onValueInput={workspace.setFetchedTo}
+                  onValueChange={workspace.setFetchedTo}
                 />
-              </label>
+              </div>
               <div class="grid min-w-0 gap-1.5 text-xs font-medium">
                 <span>{tr("configHistorySort", "Time order")}</span>
                 <ToggleGroup.Root

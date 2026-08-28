@@ -217,13 +217,13 @@
             "grid min-w-0 gap-5 transition-[grid-template-columns] duration-200 motion-reduce:transition-none",
             catalogCollapsed
               ? "lg:grid-cols-[4rem_minmax(0,1fr)]"
-              : "lg:grid-cols-[19rem_minmax(0,1fr)]",
+              : "lg:grid-cols-[17rem_minmax(0,1fr)]",
           )}
         >
           <aside
             class={cn(
               "z-10 min-w-0 self-start rounded-lg border border-border bg-card/95 shadow-sm lg:sticky lg:top-[-1.5rem] lg:flex lg:max-h-[calc(100dvh-5rem)] lg:flex-col",
-              catalogCollapsed ? "p-2" : "p-4",
+              catalogCollapsed ? "p-2" : "p-3",
             )}
             aria-label={t("profileCatalogTitle")}
           >
@@ -292,13 +292,13 @@
                   </Button>
                 </div>
               </div>
-              <div class="relative mt-4">
+              <div class="relative mt-3">
                 <SearchIcon
                   class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
                 />
                 <Input
-                  class="h-10 pl-9"
+                  class="h-9 rounded-lg pl-9 text-sm"
                   value={profileSearch}
                   aria-label={t("profileCatalogSearchPlaceholder")}
                   placeholder={t("profileCatalogSearchPlaceholder")}
@@ -314,7 +314,7 @@
                   <button
                     type="button"
                     class={cn(
-                      "group flex min-h-16 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                      "group flex min-h-14 w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                       profileRow.kind === selectedProfileKind &&
                         profileRow.name === selectedProfileName
                         ? "border-primary/40 bg-primary/10 text-foreground"
@@ -344,12 +344,12 @@
                           {profileRow.typeLabel}
                         </span>
                       </div>
-                      <div class="mt-1 line-clamp-2 text-xs leading-4">
+                      <div class="mt-0.5 line-clamp-2 text-[11px] leading-4">
                         {profileRow.summary || "-"}
                       </div>
                     </div>
                     <ChevronRightIcon
-                      class="size-4 shrink-0 opacity-50 transition-transform group-hover:translate-x-0.5"
+                      class="size-3.5 shrink-0 opacity-50 transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
                     />
                   </button>

@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Operate, author, validate, and troubleshoot current rauto CLI and Web workflows. Prefer show objects for reads; use rollback-aware tx, tx-workflow, or orchestrate for changes; handle SSH device discovery, reusable credentials and saved connections, multi-target execution, configuration fetch and drift hashes, comma/pipe-separated mode candidates, session retries and replay, templates, TextFSM, inventory, backup, upload, local Web startup, and managed-agent startup. Use when Codex needs to run rauto, start its services, build valid plans/templates, manage discovered devices, or diagnose CLI/runtime behavior."
+description: "Operate, author, validate, and troubleshoot current rauto CLI and Web workflows. Prefer show objects for reads; use rollback-aware tx, tx-workflow, or orchestrate for changes; handle SSH device discovery, reusable credentials and saved connections, multi-target execution, configuration collection history, persisted cron schedules, session retries and replay, templates, TextFSM, inventory, backup, upload, local Web startup, and managed-agent startup. Use when Codex needs to run rauto, start its services, build valid plans/templates or schedules, manage devices and configuration history, or diagnose CLI/runtime behavior."
 ---
 
 # Rauto Usage
@@ -12,7 +12,7 @@ Avoid tutorial-only responses when execution can be done in-session.
 
 Apply action-first behavior:
 
-1. Classify request as read-only, network discovery, config-changing, local Web startup, or managed-agent startup.
+1. Classify request as read-only, network discovery, config-changing, scheduled automation, local Web startup, or managed-agent startup.
 2. For device state/config retrieval, prefer `rauto show <object>` before raw `exec`.
 3. Execute safe read-only operations immediately.
 4. Prefer rollback-aware flows (`tx`, `tx-workflow`, `orchestrate`) for config changes.
@@ -62,15 +62,19 @@ Apply action-first behavior:
    - `exec/template/flow` parse only when requested, when a template is supplied, or when Excel export needs parsed rows
    - default parsing filters TextFSM fallback Error rules such as `^. -> Error`; use strict mode only when user asks to preserve template errors.
 11. Use shared multi-target selectors for `exec`, `flow`, `show`, and `config fetch`: repeat `--target`, `--group`, or `--label`/`--tag`, then bound concurrency with `--max-parallel`. Treat selectors as a deduplicated union and preserve preflight-before-execute behavior.
-12. Use `rauto config fetch` for running/startup configuration retrieval, raw and normalized SHA-256 drift hashes, exact single-device output paths, or timestamped multi-device archives.
-13. Keep retries opt-in: `--session-retries` has at-least-once semantics and applies to ordinary commands/flows/show/config fetch, not transactions, workflows, or uploads. Enable it only for repeat-safe operations; authentication errors remain excluded unless explicitly requested.
-14. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
-15. Keep multiline behavior explicit where the model supports it: use `split_lines` to execute non-empty trimmed lines separately and stop after the first failed command; use `whole` to preserve and submit the full text once; normalize legacy missing values to `split_lines`.
+12. Use `rauto config fetch` for running/startup configuration retrieval, raw and normalized SHA-256 drift hashes, exact single-device output paths, or timestamped multi-device archives. Every successful CLI fetch creates a raw configuration collection record and reports its `snapshot_id`; device-error output must not become a snapshot.
+13. Use `rauto config history` to inspect collection records without starting Web. Treat unchanged collections as distinct audit records that share one deduplicated raw content body; do not describe them as missing history.
+14. Use `rauto schedule` for persisted cron automation. Create/update from a complete `ScheduleDefinition` JSON, preview five-field cron expressions before mutation, and remember that `schedule run` only queues work for a running `rauto web` scheduler.
+15. Keep retries opt-in: `--session-retries` has at-least-once semantics and applies to ordinary commands/flows/show/config fetch, not transactions, workflows, or uploads. Enable it only for repeat-safe operations; authentication errors remain excluded unless explicitly requested.
+16. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
+17. Keep multiline behavior explicit where the model supports it: use `split_lines` to execute non-empty trimmed lines separately and stop after the first failed command; use `whole` to preserve and submit the full text once; normalize legacy missing values to `split_lines`.
 
 ## Preferred Execution Matrix
 
 - Reading device state/config: `show` first, `exec` only as fallback.
 - Fetching complete running/startup configuration and hashes: `config fetch`.
+- Inspecting raw configuration collection records: `config history devices|list|show`.
+- Managing recurring orchestration, configuration collection, or single-device workflows: `schedule`.
 - Discovering SSH devices or importing the latest scan: `device discover` / `device discover list|save`.
 - Running one harmless raw command: `exec`.
 - Running one command or flow across saved targets/groups/labels: multi-target `exec` or `flow`.
@@ -106,6 +110,7 @@ Require explicit confirmation before destructive actions:
 
 - `rauto backup restore ... --replace`
 - profile/template/connection delete operations
+- schedule deletion and configuration-history record deletion
 - tx/workflow/orchestrate execution when user intent is ambiguous
 - raw `exec` or command-template config changes when a rollback-capable transaction path is available
 
@@ -133,6 +138,10 @@ Ask only for missing mandatory fields:
   require at least one IP/CIDR/range target and one effective probe credential for a new scan; do not require a credential for `device discover list` or `device discover save`.
 - `config fetch`:
   require a saved target/group/label or complete direct connection; default `--kind` to `running`.
+- `config history`:
+  has no device connection requirement; use a snapshot ID only for `show` or `delete`.
+- `schedule`:
+  create/update require one complete definition source (`--file` or `--content`); action references must resolve to saved templates/connections, while `preview` needs only cron/timezone input and `run` needs a running Web scheduler for execution.
 - `agent`:
   require effective `manager_url` and `agent_name` values from flags, environment, or agent config.
 - `web`:
@@ -152,6 +161,7 @@ Report executed operations with:
 ## Reference Map (Load On Demand)
 
 - CLI quick commands and operator runbook: `references/cli-runbook.md`
+- Persisted cron schedule definitions, actions, execution, and diagnostics: `references/scheduled-automation.md`
 - SSH device discovery, latest-result filtering, TUI, and saving: `references/device-discovery.md`
 - Current Web workbench pages and interaction rules: `references/web-runbook.md`
 - Transaction/workflow/orchestration JSON templates: `references/json-templates.md`

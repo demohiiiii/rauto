@@ -18,6 +18,7 @@
   } from "../../modules/dashboard/dashboardShell.js";
   import { dashboardThemeContextKey } from "../../lib/svelte.js";
   import { currentLanguageState } from "../../lib/i18n.js";
+  import { cn } from "$lib/utils.js";
 
   let { busy } = $props();
   const pageDefinitions = dashboardPageDefinitions;
@@ -42,8 +43,15 @@
   let recordToolsDisplay = $derived($recordToolsDisplayStateStore);
   let pageOutletRows = $derived($pageOutletRowsStateStore);
   let sidebarOpen = $derived($sidebarOpenStateStore);
-  const shellClass =
-    "min-h-screen lg:grid lg:h-dvh lg:min-h-0 lg:grid-cols-[18rem_minmax(0,1fr)] lg:overflow-hidden";
+  let desktopSidebarCollapsed = $state(false);
+  let shellClass = $derived(
+    cn(
+      "min-h-screen lg:grid lg:h-dvh lg:min-h-0 lg:overflow-hidden lg:transition-[grid-template-columns] lg:duration-200 motion-reduce:transition-none",
+      desktopSidebarCollapsed
+        ? "lg:grid-cols-[4.5rem_minmax(0,1fr)]"
+        : "lg:grid-cols-[11rem_minmax(0,1fr)]",
+    ),
+  );
   const headerClass =
     "sticky top-0 z-30 flex min-h-16 w-full items-center border-b border-border bg-background/80 px-6 backdrop-blur-lg max-lg:px-3.5";
   const mainScrollClass =
@@ -67,6 +75,10 @@
       shellState,
     });
   });
+
+  function setDesktopSidebarCollapsed(collapsed) {
+    desktopSidebarCollapsed = !!collapsed;
+  }
 </script>
 
 {#snippet pageLoadingSkeleton()}
@@ -90,7 +102,10 @@
 <div aria-busy={busy}>
   <div class={shellClass}>
     <div class="hidden lg:block lg:min-h-0">
-      <DashboardSidebar />
+      <DashboardSidebar
+        collapsed={desktopSidebarCollapsed}
+        onCollapsedChange={setDesktopSidebarCollapsed}
+      />
     </div>
 
     <div class="flex min-w-0 flex-col lg:h-dvh lg:min-h-0">
@@ -192,7 +207,7 @@
     <Sheet.Root open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <Sheet.Content
         side="left"
-        class="w-64 p-0 sm:max-w-xs lg:hidden"
+        class="w-44 p-0 sm:max-w-xs lg:hidden"
         showCloseButton={false}
       >
         <Sheet.Header class="sr-only">

@@ -404,6 +404,8 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
   const basicFieldsSource = read(
     "frontend/src/components/connections/ConnectionBasicFields.svelte",
   );
+  const enSource = read("frontend/src/i18n/en.js");
+  const zhSource = read("frontend/src/i18n/zh.js");
 
   assert.match(shellSource, /sm:max-w-6xl/);
   assert.match(shellSource, /max-h-\[92vh\]/);
@@ -433,7 +435,10 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
   );
   assert.doesNotMatch(modalSource, /class="-mb-0\.5/);
 
-  assert.match(savedPanelSource, /lg:grid-cols-\[22rem_minmax\(0,1fr\)\]/);
+  assert.match(savedPanelSource, /lg:grid-cols-\[17rem_minmax\(0,1fr\)\]/);
+  assert.match(savedPanelSource, /border-b border-border p-3/);
+  assert.match(savedPanelSource, /h-9 rounded-lg pl-9 text-sm/);
+  assert.match(savedPanelSource, /w-full rounded-lg border p-2 text-left/);
   assert.match(savedPanelSource, /ui\/input/);
   assert.match(savedPanelSource, /SearchIcon/);
   assert.match(savedPanelSource, /searchQuery/);
@@ -449,6 +454,12 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
   );
   assert.doesNotMatch(savedPanelSource, /使用该连接/);
   assert.match(savedPanelSource, /i18nLabels\.applySelected/);
+  assert.match(enSource, /savedConnTemplateBtn: "Template"/);
+  assert.match(enSource, /savedConnImportBtn: "Import"/);
+  assert.match(enSource, /connApplySelected: "Apply connection"/);
+  assert.match(zhSource, /savedConnTemplateBtn: "模板"/);
+  assert.match(zhSource, /savedConnImportBtn: "导入"/);
+  assert.match(zhSource, /connApplySelected: "应用连接"/);
   assert.equal(
     savedPanelSource.match(/onclick=\{useSavedConnectionAction\}/g).length,
     1,
@@ -991,6 +1002,23 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
     assert.match(source, /<Card\.Content/);
     assert.doesNotMatch(source, /group-card/);
   }
+});
+
+test("backup archives use a full-width aligned resource list", () => {
+  const pageSource = read("frontend/src/pages/BackupPage.svelte");
+  const stateSource = read("frontend/src/modules/operations/backup.js");
+
+  assert.match(pageSource, /FileArchiveIcon/);
+  assert.match(pageSource, /GitMergeIcon/);
+  assert.match(pageSource, /divide-y divide-border/);
+  assert.match(
+    pageSource,
+    /sm:grid-cols-\[minmax\(0,1fr\)_minmax\(13rem,0\.65fr\)\]/,
+  );
+  assert.match(pageSource, /backupRow\.showPath/);
+  assert.doesNotMatch(pageSource, /md:w-225/);
+  assert.doesNotMatch(stateSource, /border-teal|bg-teal|text-slate|bg-white/);
+  assert.match(stateSource, /showPath: path !== name/);
 });
 
 test("template panels compose shadcn Card instead of group-card shells", () => {

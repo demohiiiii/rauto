@@ -116,7 +116,7 @@
 
 <div
   class={cn(
-    "grid gap-0 lg:grid-cols-[22rem_minmax(0,1fr)]",
+    "grid gap-0 lg:grid-cols-[17rem_minmax(0,1fr)]",
     managementMode
       ? "overflow-hidden rounded-lg border border-border lg:h-[calc(100dvh-24rem)] lg:min-h-[32rem] lg:max-h-[42rem]"
       : "min-h-0 flex-1 overflow-hidden",
@@ -129,29 +129,24 @@
       managementMode ? "max-h-[24rem] lg:max-h-none" : "",
     )}
   >
-    <div class="shrink-0 border-b border-border p-4">
+    <div class="shrink-0 border-b border-border p-3">
       <div class="relative">
         <SearchIcon
           class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
         <Input
-          class="h-12 rounded-xl pl-10"
+          class="h-9 rounded-lg pl-9 text-sm"
           value={searchQuery}
           aria-label={i18nLabels.searchPlaceholder}
           placeholder={i18nLabels.searchPlaceholder}
           oninput={handleSearchInput}
         />
       </div>
-      <div
-        class={cn(
-          "mt-3 grid gap-2",
-          managementMode ? "grid-cols-3" : "grid-cols-2",
-        )}
-      >
+      <div class="mt-2 grid grid-cols-2 gap-1.5">
         {#if managementMode}
           <Button
-            class="w-full rounded-xl"
+            class="col-span-2 w-full rounded-lg"
             size="sm"
             type="button"
             onclick={openNewConnection}
@@ -161,7 +156,7 @@
           </Button>
         {/if}
         <LoadingButton
-          class="w-full rounded-xl"
+          class="w-full rounded-lg"
           variant="outline"
           size="sm"
           loading={loadingState.templateLoading}
@@ -171,7 +166,7 @@
           <span>{libraryDisplay.buttons.template.label}</span>
         </LoadingButton>
         <FilePickerButton
-          class="w-full rounded-xl"
+          class="w-full rounded-lg"
           variant="outline"
           size="sm"
           accept={libraryDisplay.importAccept}
@@ -183,9 +178,9 @@
       </div>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto p-2">
+    <div class="min-h-0 flex-1 overflow-y-auto p-1.5">
       {#if filteredConnectionRows.length}
-        <ul class="flex flex-col gap-2">
+        <ul class="flex flex-col gap-1">
           {#each filteredConnectionRows as connectionRow (connectionRow.name)}
             {@const selected =
               selectedConnectionRow?.name === connectionRow.name}
@@ -193,7 +188,7 @@
               <button
                 type="button"
                 class={cn(
-                  "w-full rounded-2xl border p-3 text-left transition-all",
+                  "w-full rounded-lg border p-2 text-left transition-all",
                   selected
                     ? "border-primary/40 bg-primary/5 shadow-sm"
                     : "border-transparent hover:border-border hover:bg-background",
@@ -201,25 +196,25 @@
                 onclick={() =>
                   selectedSavedConnectionHandler(connectionRow.name)}
               >
-                <div class="flex items-start justify-between gap-3">
+                <div class="flex items-start justify-between gap-2">
                   <div class="min-w-0">
                     <p
                       class={cn(
-                        "truncate text-sm font-bold",
+                        "truncate text-[13px] font-bold",
                         selected ? "text-primary" : "text-card-foreground",
                       )}
                     >
                       {connectionRow.name}
                     </p>
                     <p
-                      class="mt-1 truncate font-mono text-xs text-muted-foreground"
+                      class="mt-0.5 truncate font-mono text-[11px] text-muted-foreground"
                     >
                       {connectionRow.summary}
                     </p>
                   </div>
                   <span
                     class={cn(
-                      "mt-1 size-2.5 shrink-0 rounded-full",
+                      "mt-1 size-2 shrink-0 rounded-full",
                       connectionRow.enabled
                         ? "bg-primary"
                         : "bg-muted-foreground/50",
@@ -227,17 +222,23 @@
                     aria-label={connectionRow.statusLabel}
                   ></span>
                 </div>
-                <div class="mt-3 flex flex-wrap items-center gap-1.5">
+                <div class="mt-1.5 flex flex-wrap items-center gap-1">
                   <span
-                    class="rounded-md bg-secondary px-2 py-0.5 font-mono text-[11px] font-medium text-secondary-foreground"
+                    class="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium text-secondary-foreground"
                   >
                     {connectionRow.profile}
                   </span>
-                  <Badge variant="secondary" class="rounded-md">
+                  <Badge
+                    variant="secondary"
+                    class="rounded-md px-1.5 py-0 text-[10px]"
+                  >
                     {connectionRow.tag}
                   </Badge>
                   {#if connectionRow.credentialRequired}
-                    <Badge variant="destructive" class="rounded-md">
+                    <Badge
+                      variant="destructive"
+                      class="rounded-md px-1.5 py-0 text-[10px]"
+                    >
                       {i18nLabels.credentialNone}
                     </Badge>
                   {/if}

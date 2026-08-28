@@ -208,19 +208,19 @@
       icon={KeyRoundIcon}
     />
     <div
-      class="grid min-h-[38rem] overflow-hidden lg:grid-cols-[22rem_minmax(0,1fr)]"
+      class="grid min-h-[38rem] overflow-hidden lg:grid-cols-[17rem_minmax(0,1fr)]"
     >
       <aside
         class="flex min-h-0 flex-col border-b border-border bg-muted/15 lg:border-r lg:border-b-0"
       >
-        <div class="flex shrink-0 flex-col gap-3 border-b border-border p-4">
+        <div class="flex shrink-0 flex-col gap-2 border-b border-border p-3">
           <div class="relative">
             <SearchIcon
               class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
-              class="h-11 rounded-xl pl-10"
+              class="h-9 rounded-lg pl-9 text-sm"
               value={searchQuery}
               placeholder={t("credentialSearchPlaceholder")}
               aria-label={t("credentialSearchPlaceholder")}
@@ -229,7 +229,8 @@
           </div>
           <Button
             variant="default"
-            class="w-full rounded-xl"
+            size="sm"
+            class="w-full rounded-lg"
             onclick={resetForm}
           >
             <PlusIcon data-icon="inline-start" aria-hidden="true" />
@@ -237,43 +238,48 @@
           </Button>
           <CredentialImportDialog onImported={handleCredentialsImported} />
         </div>
-        <div class="min-h-0 flex-1 overflow-y-auto p-2">
+        <div class="min-h-0 flex-1 overflow-y-auto p-1.5">
           {#if loading}
             <p class="p-4 text-sm text-muted-foreground">{t("loading")}</p>
           {:else if filteredCredentials.length}
-            <div class="flex flex-col gap-1.5">
+            <div class="flex flex-col gap-1">
               {#each filteredCredentials as item (item.id)}
                 <button
                   type="button"
                   class={cn(
-                    "w-full rounded-xl border p-3 text-left transition-colors",
+                    "w-full rounded-lg border p-2 text-left transition-colors",
                     selectedId === item.id
                       ? "border-primary bg-primary/5"
                       : "border-transparent hover:bg-background",
                   )}
                   onclick={() => selectCredential(item.id)}
                 >
-                  <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0">
-                      <p class="truncate text-sm font-semibold">{item.name}</p>
+                      <p class="truncate text-[13px] font-semibold">
+                        {item.name}
+                      </p>
                       <p
-                        class="mt-1 truncate font-mono text-xs text-muted-foreground"
+                        class="mt-0.5 truncate font-mono text-[11px] text-muted-foreground"
                       >
                         {item.username}
                       </p>
                     </div>
-                    <Badge variant="secondary" class="shrink-0 rounded-full"
+                    <Badge
+                      variant="secondary"
+                      class="shrink-0 rounded-full px-1.5 py-0 text-[10px]"
                       >{item.connectionCount}</Badge
                     >
                   </div>
                   <div
-                    class="mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground"
+                    class="mt-1.5 flex flex-wrap gap-1 text-[10px] text-muted-foreground"
                   >
-                    <span class="rounded-md bg-secondary px-2 py-0.5">
+                    <span class="rounded-md bg-secondary px-1.5 py-0.5">
                       {authTypeLabel(item.authType)}
                     </span>
                     {#if item.enableEnabled}<span
-                        class="rounded-md bg-secondary px-2 py-0.5">Enable</span
+                        class="rounded-md bg-secondary px-1.5 py-0.5"
+                        >Enable</span
                       >{/if}
                   </div>
                 </button>

@@ -46,7 +46,9 @@ test("device management uses a searchable responsive catalog workspace", () => {
   assert.match(panel, /browserConfirm\(collectionList\.deleteConfirmText\)/);
   assert.match(panel, /disabled=\{!editorDisplay\.canEdit\}/);
   assert.match(panel, /selectedHostCount/);
-  assert.match(panel, /lg:grid-cols-\[minmax\(15rem,20rem\)_minmax\(0,1fr\)\]/);
+  assert.match(panel, /lg:grid-cols-\[17rem_minmax\(0,1fr\)\]/);
+  assert.match(panel, /h-9 rounded-lg pl-9 text-sm/);
+  assert.match(panel, /bg-muted\/10 p-3/);
   assert.doesNotMatch(panel, /StringSelectField/);
 });
 

@@ -115,7 +115,10 @@ function dashboardNavItemPresentation(navigationItem, dashboard = {}) {
       navigationItem.activeWhen === dashboard.currentTab &&
       (!navigationItem.txStage ||
         navigationItem.txStage === dashboard.currentTxStage),
-    labelText: tr(navigationItem.labelKey, navigationItem.label),
+    labelText: tr(
+      navigationItem.navLabelKey || navigationItem.labelKey,
+      navigationItem.label,
+    ),
     visible:
       (navigationItem.activeWhen !== "tasks" || dashboard.tasksVisible) &&
       (navigationItem.activeWhen !== "schedules" ||

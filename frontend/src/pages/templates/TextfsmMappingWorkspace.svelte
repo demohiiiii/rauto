@@ -124,18 +124,16 @@
     </Alert.Root>
   {/if}
 
-  <div
-    class="grid min-w-0 gap-4 xl:grid-cols-[minmax(18rem,0.8fr)_minmax(28rem,1.2fr)]"
-  >
+  <div class="grid min-w-0 gap-4 xl:grid-cols-[17rem_minmax(28rem,1fr)]">
     <Card.Root class="min-w-0 self-start overflow-hidden shadow-xs">
-      <Card.Header class="border-b bg-muted/20 pb-4">
+      <Card.Header class="border-b bg-muted/20 p-3">
         <div class="relative">
           <SearchIcon
             class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
           <Input
-            class="pl-9"
+            class="h-9 rounded-lg pl-9 text-sm"
             value={state.search}
             placeholder={labels.search}
             aria-label={labels.search}
@@ -143,7 +141,7 @@
           />
         </div>
       </Card.Header>
-      <Card.Content class="flex flex-col gap-2 p-2">
+      <Card.Content class="flex flex-col gap-1 p-1.5">
         {#if !mappings.length}
           <div class="flex flex-col items-center gap-3 px-4 py-12 text-center">
             <div
@@ -166,14 +164,14 @@
             <button
               type="button"
               class={cn(
-                "flex min-h-20 w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex min-h-14 w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors hover:border-border hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 selectedIdentity === identity &&
                   "border-primary/30 bg-primary/8",
               )}
               onclick={() => workspace.select(mapping)}
             >
               <span
-                class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+                class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
               >
                 <Link2Icon aria-hidden="true" />
               </span>
@@ -189,7 +187,7 @@
                   <span class="truncate">{mapping.templateName}</span>
                 </span>
                 <span
-                  class="mt-1 block truncate font-mono text-xs text-muted-foreground"
+                  class="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground"
                 >
                   {mapping.command}
                 </span>

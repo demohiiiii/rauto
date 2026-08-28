@@ -259,16 +259,16 @@
     </Alert.Root>
   {/if}
 
-  <div class="grid min-w-0 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
+  <div class="grid min-w-0 gap-4 xl:grid-cols-[17rem_minmax(0,1fr)]">
     <Card.Root class="min-w-0 self-start overflow-hidden shadow-xs">
-      <Card.Header class="border-b bg-muted/20 pb-4">
+      <Card.Header class="border-b bg-muted/20 p-3">
         <div class="relative">
           <SearchIcon
             class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
           <Input
-            class="pl-9"
+            class="h-9 rounded-lg pl-9 text-sm"
             value={state.search}
             placeholder={labels.search}
             aria-label={labels.search}
@@ -276,7 +276,7 @@
           />
         </div>
       </Card.Header>
-      <Card.Content class="flex flex-col gap-2 p-2">
+      <Card.Content class="flex flex-col gap-1 p-1.5">
         {#if state.loadingAction === "list" && !state.loaded}
           {#each Array(4) as _}
             <Skeleton class="h-16 w-full rounded-lg" />
@@ -310,14 +310,14 @@
             <button
               type="button"
               class={cn(
-                "group flex min-h-16 w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "group flex min-h-14 w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors hover:border-border hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 selected?.key === item.key && "border-primary/30 bg-primary/8",
               )}
               onclick={() => workspace.selectResource(item.key)}
             >
               <span
                 class={cn(
-                  "flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground",
+                  "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground",
                   selected?.key === item.key && "bg-primary/12 text-primary",
                 )}
               >
@@ -330,7 +330,7 @@
                   {item.name}
                 </span>
                 <span
-                  class="mt-1 flex items-center gap-2 text-xs text-muted-foreground"
+                  class="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground"
                 >
                   <span>{item.builtin ? labels.builtin : labels.custom}</span>
                   {#if item.size_bytes}

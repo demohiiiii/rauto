@@ -7,6 +7,9 @@
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import ArchiveIcon from "@lucide/svelte/icons/archive";
   import ArchiveRestoreIcon from "@lucide/svelte/icons/archive-restore";
+  import DownloadIcon from "@lucide/svelte/icons/download";
+  import FileArchiveIcon from "@lucide/svelte/icons/file-archive";
+  import GitMergeIcon from "@lucide/svelte/icons/git-merge";
 
   let { active } = $props();
   const backupPageWorkspace = createBackupPageWorkspace();
@@ -30,48 +33,87 @@
 {/snippet}
 
 {#snippet backupArchiveEntry(backupRow, backupRowIndex)}
-  <div class={backupRow.rowClass}>
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <button
-        class="min-w-0 flex-1 text-left"
-        type="button"
-        onclick={backupPageWorkspace.selectBackupRow(backupRowIndex)}
-      >
-        <span class="flex items-center justify-between gap-2">
-          <span class="truncate text-sm font-semibold text-slate-800">
+  <article
+    class={`grid min-w-0 gap-3 px-3 py-3 transition-colors lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${backupRow.rowClass}`}
+  >
+    <button
+      class="grid min-w-0 gap-3 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:grid-cols-[minmax(0,1fr)_minmax(13rem,0.65fr)] sm:items-center"
+      type="button"
+      aria-pressed={backupRow.selected}
+      onclick={backupPageWorkspace.selectBackupRow(backupRowIndex)}
+    >
+      <span class="flex min-w-0 items-center gap-3">
+        <span
+          class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+        >
+          <FileArchiveIcon class="size-4" aria-hidden="true" />
+        </span>
+        <span class="min-w-0">
+          <span class="block truncate text-sm font-semibold text-foreground">
             {backupRow.name}
           </span>
-          <span class="shrink-0 text-xs text-slate-500">
+          {#if backupRow.showPath}
+            <span
+              class="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground"
+            >
+              {backupRow.path}
+            </span>
+          {/if}
+        </span>
+      </span>
+      <span class="grid grid-cols-2 gap-3">
+        <span class="min-w-0">
+          <span
+            class="block text-[10px] font-semibold uppercase text-muted-foreground"
+          >
+            {backupDisplay.archiveDisplay.metaSizeLabel}
+          </span>
+          <span class="mt-0.5 block truncate text-xs font-medium">
             {backupRow.sizeText}
           </span>
         </span>
-        <span class="mt-1 block break-all text-xs text-slate-500">
-          {backupRow.path}
+        <span class="min-w-0">
+          <span
+            class="block text-[10px] font-semibold uppercase text-muted-foreground"
+          >
+            {backupDisplay.archiveDisplay.metaTimeLabel}
+          </span>
+          <span class="mt-0.5 block truncate text-xs font-medium">
+            {backupRow.timeText}
+          </span>
         </span>
-        <span class="mt-1 block text-xs text-slate-400">
-          {backupDisplay.archiveDisplay.metaTimeLabel}: {backupRow.timeText}
-        </span>
-      </button>
-      <span class="inline-flex items-center gap-2">
-        {@render backupActionButton(
-          backupDisplay.archiveDisplay.downloadButtonLabel,
-          backupRow.downloadLoading,
-          backupPageWorkspace.downloadBackupRow(backupRowIndex),
-        )}
-        {@render backupActionButton(
-          backupDisplay.archiveDisplay.restoreMergeButtonLabel,
-          backupRow.mergeLoading,
-          backupPageWorkspace.restoreBackupRowMerge(backupRowIndex),
-        )}
-        {@render backupActionButton(
-          backupDisplay.archiveDisplay.restoreReplaceButtonLabel,
-          backupRow.replaceLoading,
-          backupPageWorkspace.restoreBackupRowReplace(backupRowIndex),
-          "destructive",
-        )}
       </span>
-    </div>
-  </div>
+    </button>
+    <span class="flex flex-wrap items-center gap-1.5 lg:justify-end">
+      <LoadingButton
+        variant="outline"
+        size="xs"
+        loading={backupRow.downloadLoading}
+        onclick={backupPageWorkspace.downloadBackupRow(backupRowIndex)}
+      >
+        <DownloadIcon data-icon="inline-start" aria-hidden="true" />
+        <span>{backupDisplay.archiveDisplay.downloadButtonLabel}</span>
+      </LoadingButton>
+      <LoadingButton
+        variant="outline"
+        size="xs"
+        loading={backupRow.mergeLoading}
+        onclick={backupPageWorkspace.restoreBackupRowMerge(backupRowIndex)}
+      >
+        <GitMergeIcon data-icon="inline-start" aria-hidden="true" />
+        <span>{backupDisplay.archiveDisplay.restoreMergeButtonLabel}</span>
+      </LoadingButton>
+      <LoadingButton
+        variant="destructive"
+        size="xs"
+        loading={backupRow.replaceLoading}
+        onclick={backupPageWorkspace.restoreBackupRowReplace(backupRowIndex)}
+      >
+        <ArchiveRestoreIcon data-icon="inline-start" aria-hidden="true" />
+        <span>{backupDisplay.archiveDisplay.restoreReplaceButtonLabel}</span>
+      </LoadingButton>
+    </span>
+  </article>
 {/snippet}
 
 {#snippet backupArchiveCard()}
@@ -80,14 +122,18 @@
       title={backupDisplay.archiveDisplay.listTitle}
       icon={ArchiveIcon}
     />
-    <Card.Content class="grid gap-2 p-4 sm:p-5 md:w-225">
-      <div class="mt-2 grid gap-2">
+    <Card.Content class="p-3 sm:p-4">
+      <div class="overflow-hidden rounded-lg border border-border">
         {#if backupDisplay.archiveDisplay.hasBackupRows}
-          {#each backupDisplay.archiveDisplay.backupRows as backupRow, backupRowIndex}
-            {@render backupArchiveEntry(backupRow, backupRowIndex)}
-          {/each}
+          <div class="divide-y divide-border">
+            {#each backupDisplay.archiveDisplay.backupRows as backupRow, backupRowIndex}
+              {@render backupArchiveEntry(backupRow, backupRowIndex)}
+            {/each}
+          </div>
         {:else}
-          <StatusCard message={backupDisplay.archiveDisplay.emptyMessage} />
+          <div class="p-3">
+            <StatusCard message={backupDisplay.archiveDisplay.emptyMessage} />
+          </div>
         {/if}
       </div>
     </Card.Content>
@@ -100,7 +146,7 @@
       title={backupDisplay.createDisplay.title}
       icon={ArchiveRestoreIcon}
     />
-    <Card.Content class="grid gap-2 p-4 sm:p-5 md:w-225">
+    <Card.Content class="grid gap-2 p-4 sm:p-5">
       <div class="inline-flex flex-wrap items-center gap-2">
         {@render backupActionButton(
           backupDisplay.createDisplay.createButtonLabel,

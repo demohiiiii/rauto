@@ -84,8 +84,34 @@ test("command flow templates reuse the shared three-view authoring surface", asy
   assert.match(source, /createCommandFlowDraftWorkspace\(\)/);
   assert.match(source, /<CommandFlowAuthoringViews/);
   assert.match(source, /disabled=\{selected\.builtin\}/);
+  assert.match(source, /xl:grid-cols-\[17rem_minmax\(0,1fr\)\]/);
+  assert.match(source, /<Card\.Header class="border-b bg-muted\/20 p-3">/);
+  assert.match(source, /<Card\.Content class="flex flex-col gap-1 p-1\.5">/);
   assert.match(sharedViews, /commandFlowEditorViewTabs/);
   assert.match(sharedViews, /CommandFlowTemplateEditor/);
   assert.match(sharedViews, /CommandFlowReadonlyView/);
   assert.match(sharedViews, /TextAreaField/);
+});
+
+test("mapping and show-object workspaces keep compact resource catalogs", async () => {
+  const [mappingSource, showObjectSource] = await Promise.all([
+    readFile(
+      path.resolve(
+        "frontend/src/pages/templates/TextfsmMappingWorkspace.svelte",
+      ),
+      "utf8",
+    ),
+    readFile(
+      path.resolve("frontend/src/pages/templates/ShowObjectWorkspace.svelte"),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(mappingSource, /xl:grid-cols-\[17rem_minmax\(28rem,1fr\)\]/);
+  assert.match(showObjectSource, /xl:grid-cols-\[17rem_minmax\(30rem,1fr\)\]/);
+  for (const source of [mappingSource, showObjectSource]) {
+    assert.match(source, /<Card\.Header class="border-b bg-muted\/20 p-3">/);
+    assert.match(source, /<Card\.Content class="flex flex-col gap-1 p-1\.5">/);
+    assert.match(source, /h-9 rounded-lg pl-9 text-sm/);
+  }
 });

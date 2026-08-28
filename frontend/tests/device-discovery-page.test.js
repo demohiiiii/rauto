@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { dashboardNavigationItems } from "../src/config/dashboardNavigation.js";
 
 const read = (path) => readFileSync(path, "utf8");
 
-test("auto discovery is a dedicated management page", () => {
+test("auto discovery is a dedicated operations page", () => {
   const modes = read("frontend/src/config/dashboardModes.js");
   const navigation = read("frontend/src/config/dashboardNavigation.js");
   const inventoryPage = read("frontend/src/pages/InventoryPage.svelte");
@@ -26,6 +27,11 @@ test("auto discovery is a dedicated management page", () => {
   assert.match(navigation, /id: "device-discovery"/);
   assert.match(navigation, /path: "\/app\/device-discovery"/);
   assert.match(navigation, /labelKey: "deviceDiscoveryTitle"/);
+  assert.equal(
+    dashboardNavigationItems.find((item) => item.routeId === "device-discovery")
+      ?.group,
+    "operations",
+  );
   assert.match(
     navigation,
     /import\("\.\.\/pages\/DeviceDiscoveryPage\.svelte"\)/,

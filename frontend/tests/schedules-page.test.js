@@ -5,12 +5,13 @@ import {
   configTargetsFromAction,
   createSchedulesPageWorkspace,
 } from "../src/modules/schedules/schedulesState.js";
+import { dashboardNavigationItems } from "../src/config/dashboardNavigation.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
 }
 
-test("schedules are a local-web management page", () => {
+test("schedules are a local-web operations page", () => {
   const navigation = read("frontend/src/config/dashboardNavigation.js");
   const shell = read("frontend/src/modules/dashboard/dashboardShell.js");
   const page = read("frontend/src/pages/SchedulesPage.svelte");
@@ -21,6 +22,11 @@ test("schedules are a local-web management page", () => {
 
   assert.match(navigation, /id: "schedules"/);
   assert.match(navigation, /path: "\/app\/schedules"/);
+  assert.equal(
+    dashboardNavigationItems.find((item) => item.routeId === "schedules")
+      ?.group,
+    "operations",
+  );
   assert.match(navigation, /import\("\.\.\/pages\/SchedulesPage\.svelte"\)/);
   assert.match(shell, /tab !== "schedules" \|\| !dashboard\.managedAgentMode/);
   assert.match(page, /workspace\.runNow\(schedule\)/);

@@ -125,11 +125,9 @@
     </WorkspaceActionHeader>
 
     <Card.Content class="min-w-0 p-0">
-      <div
-        class="grid min-w-0 lg:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)]"
-      >
+      <div class="grid min-w-0 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside
-          class="min-w-0 border-b bg-muted/10 p-4 lg:border-r lg:border-b-0 sm:p-5"
+          class="min-w-0 border-b bg-muted/10 p-3 lg:border-r lg:border-b-0"
           aria-label={collectionList.collectionTitle}
         >
           <div class="flex items-center justify-between gap-2">
@@ -142,13 +140,13 @@
             </Badge>
           </div>
 
-          <div class="relative mt-3">
+          <div class="relative mt-2">
             <SearchIcon
               class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
-              class="h-10 pl-9"
+              class="h-9 rounded-lg pl-9 text-sm"
               value={collectionSearch}
               aria-label={collectionList.catalogSearchPlaceholder}
               placeholder={collectionList.catalogSearchPlaceholder}
@@ -157,7 +155,7 @@
           </div>
 
           <div
-            class="mt-3 grid max-h-[28rem] min-h-24 gap-1 overflow-y-auto pr-1 lg:max-h-[calc(100dvh-22rem)]"
+            class="mt-2 grid max-h-[28rem] min-h-24 gap-1 overflow-y-auto pr-1 lg:max-h-[calc(100dvh-22rem)]"
           >
             {#if !collectionList.hasItems}
               <div
@@ -207,18 +205,19 @@
                           variant={collectionRow.selected
                             ? "default"
                             : "secondary"}
+                          class="px-1.5 py-0 text-[10px]"
                         >
                           {collectionRow.hostBadgeText}
                         </Badge>
                       </div>
                       {#if collectionRow.showDescription}
-                        <div class="mt-1 line-clamp-2 text-xs leading-5">
+                        <div class="mt-0.5 line-clamp-2 text-[11px] leading-4">
                           {collectionRow.descriptionText}
                         </div>
                       {/if}
                     </div>
                     <ChevronRightIcon
-                      class="mt-0.5 size-4 shrink-0 opacity-50 transition-transform group-hover:translate-x-0.5"
+                      class="mt-0.5 size-3.5 shrink-0 opacity-50 transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
                     />
                   </div>

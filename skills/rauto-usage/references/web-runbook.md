@@ -14,6 +14,8 @@ Open `http://127.0.0.1:3000` and enter the Web password. On first startup, rauto
 
 - **Show**: single and batch show-object queries with TextFSM output.
 - **Config Fetch**: fetch current-device or batch-target running/startup configurations and download results.
+- **Config History**: select a device, filter and order its collection records, then open raw configuration details on demand.
+- **Schedules**: create and manage recurring orchestration, multi-target configuration collection, and single-device transaction workflow jobs.
 - **Standard Delivery**: direct command/template and command-flow authoring for one target.
 - **Batch Delivery**: command/template or command-flow execution across saved devices, groups, and labels.
 - **Tx Block / Tx Workflow / Orchestrate**: direct and saved-template execution with form/JSON authoring and previews.
@@ -57,3 +59,4 @@ Load `device-discovery.md` for scan limits, statuses, persistence, progress phas
 - Successful command/show results emphasize prompt-free command content; failures preserve complete diagnostic transcripts.
 - Ordinary command/flow/show/config-fetch retries are opt-in and expose count/backoff controls. Keep them disabled for unsafe-to-repeat changes.
 - TextFSM is default for Show; command and flow parsing remains opt-in unless a template/export requires it.
+- The Web process owns the local scheduler. Keep it running for cron triggers and CLI-queued `schedule run` records to execute.

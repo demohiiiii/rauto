@@ -48,6 +48,9 @@ test("profile page renders built-in and custom resources in one catalog", () => 
   assert.match(pageSource, /lg:max-h-\[calc\(100dvh-5rem\)\]/);
   assert.match(pageSource, /lg:min-h-0 lg:flex-1/);
   assert.match(pageSource, /lg:grid-cols-\[4rem_minmax\(0,1fr\)\]/);
+  assert.match(pageSource, /lg:grid-cols-\[17rem_minmax\(0,1fr\)\]/);
+  assert.match(pageSource, /catalogCollapsed \? "p-2" : "p-3"/);
+  assert.match(pageSource, /h-9 rounded-lg pl-9 text-sm/);
   assert.match(pageSource, /onclick=\{toggleProfileCatalog\}/);
   assert.match(pageSource, /showProfilePicker=\{false\}/);
   assert.match(pageSource, /<Dialog\.Root/);
