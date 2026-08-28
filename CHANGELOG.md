@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-28
+
+### New Features
+- Added persisted five-field cron automation across CLI and Web, including timezone-aware previews, enable/disable and manual-run controls, overlap and misfire policies, run history, and actions for orchestration templates, multi-device configuration collection, and single-device transaction workflows.
+- Added raw device configuration history across CLI and Web with device/kind/time filters, ascending or descending collection order, detail, download, and deletion workflows. Every successful collection remains auditable while unchanged raw content is deduplicated in SQLite.
+- Added per-connection output encoding for UTF-8, GB2312, GBK, and GB18030 across saved and temporary targets, connection imports, agent gRPC contracts, configuration collection, and normal execution paths.
+- Expanded built-in show and configuration command mappings with canonical policy/NAT aliases, FortiGate NAT objects, additional security-vendor queries, and running/startup configuration support for more network profiles.
+
+### Optimizations
+- Reorganized the backend into explicit domain, infrastructure, interface, and application modules while retaining a single publishable Cargo package and compatibility re-exports for existing internal call sites.
+- Hardened scheduler and Web startup behavior by binding listeners before background work, preserving skipped-run diagnostics, recovering stale leases, and ignoring stale schedule-history responses after selection changes.
+- Ensured execution uses only the explicitly applied saved or temporary connection target, preventing uncommitted connection-form edits from changing subsequent commands.
+- Refined the Web console with a compact collapsible sidebar, shorter localized navigation labels, direct connection-target access, denser resource catalogs, aligned backup rows, and calendar-backed configuration-history filters.
+- Updated `rneter` to the crates.io `0.5.1` release and retained its testkit-backed SSH integration coverage.
+
+### API Changes
+- Added the `rauto schedule` command group for schedule CRUD, enable/disable, cron preview, manual queueing, and run-history inspection. A running `rauto web` process is still required to evaluate cron expressions and execute queued runs.
+- Added `rauto config history devices|list|show|delete` plus Web schedule and device-configuration-history endpoints. Successful CLI configuration fetches now persist a raw snapshot and report its `snapshot_id`.
+- Extended saved-connection, temporary-connection, import, HTTP, and agent gRPC connection contracts with `output_encoding`; protobuf consumers should regenerate bindings to expose the new fields.
+- Added SQLite migrations `202608250001_schedules.sql`, `202608250002_device_config_snapshots.sql`, and `202608260001_connection_output_encoding.sql`. Existing installations must let startup migrations complete before using schedules, configuration history, or non-UTF-8 device output.
+- No existing CLI command group or HTTP route was intentionally removed in this release.
+
+### Risks
+- Back up `~/.rauto/` before upgrading. The release creates schedule and configuration-history tables and alters the connections table; interrupted migrations or restoring only part of the runtime state can prevent startup or leave features unavailable.
+- Scheduled actions can make device changes without an interactive operator. Validate templates and selectors, preview cron times, choose overlap/misfire policies deliberately, and keep the Web scheduler running against the same `RAUTO_HOME` used to manage schedules.
+- Raw device configurations may contain sensitive operational data. SQLite deduplicates identical bodies, but each successful collection still creates an audit record, so protect and monitor the database as history grows.
+- Selecting the wrong output encoding can corrupt command parsing, configuration hashes, and displayed text. Existing connections default to UTF-8 and should only be changed for devices that require a supported legacy Chinese encoding.
+- `rneter 0.5.1` declares Rust 1.88 as its minimum supported version. Builders using older toolchains must upgrade before compiling this release.
+- The backend reorganization and Web layout changes have broad Rust and source-level frontend coverage, but CI does not run browser-driven end-to-end tests; uncommon viewport, browser, and long-running scheduler interactions retain regression risk.
+
 ## [0.5.0] - 2026-08-10
 
 ### New Features
