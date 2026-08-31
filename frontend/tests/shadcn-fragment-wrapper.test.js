@@ -860,7 +860,7 @@ test("json text editor owns tx json editor shell styles", () => {
 test("workflow chips use semantic token classes without global chip css", () => {
   const appCss = read("frontend/src/app.css");
   const displaySources = [
-    "frontend/src/modules/standard/standardExecutionWorkspaces.js",
+    "frontend/src/domains/standard/presentation/standardFlowPresentation.ts",
     "frontend/src/modules/transactions/transactionExecutionDisplays.js",
     "frontend/src/modules/orchestration/orchestrationResultDetailState.js",
     "frontend/src/modules/orchestration/orchestrationResultPreviewState.js",

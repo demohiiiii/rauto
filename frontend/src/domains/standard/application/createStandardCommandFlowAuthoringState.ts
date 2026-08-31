@@ -1,46 +1,67 @@
 import { derived, get, writable } from "svelte/store";
-import { t } from "../../lib/i18n.js";
-import { createCommandFlowDraftWorkspace } from "../command/commandFlowDraftState.js";
 import {
   commandFlowTemplateModelToToml,
+  createCommandFlowDraftWorkspace,
   defaultCommandFlowTemplateModel,
   normalizeLoadedCommandFlowTemplateToml,
-} from "../command/commandFlowTemplateModel.js";
+} from "$domains/command/index.js";
+import type { CommandFlowTemplateModel } from "$domains/command/index.js";
+import { t } from "../../../lib/i18n.js";
+import type {
+  StandardCommandFlowAuthoringState,
+  StandardCommandStatusTone,
+  StandardFlowAuthoringOptions,
+  StandardFlowNameDialogAction,
+  StandardFlowSelection,
+  StandardFlowTemplateDetail,
+} from "../model/types.js";
 
-function normalizedName(value = "") {
+function normalizedName(value: unknown = ""): string {
   return String(value || "").trim();
 }
 
-function defaultSelection() {
+function errorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message ?? "");
+  }
+  return String(error ?? "");
+}
+
+function templateContent(detail: StandardFlowTemplateDetail): string {
+  return typeof detail.content === "string" ? detail.content : "";
+}
+
+function defaultSelection(): StandardFlowSelection {
   return { kind: "new", name: "", value: "" };
 }
 
 export function createStandardCommandFlowAuthoringState({
   confirmDiscard = () => true,
-  createTemplate,
-  getTemplate,
-  inspectTemplate,
+  createTemplate = async () => undefined,
+  getTemplate = async () => ({}),
+  inspectTemplate = async () => ({}),
   onInspection = () => {},
   parseBuiltinSelection = () => null,
-  refreshTemplates = async () => {},
-  updateTemplate,
-} = {}) {
+  refreshTemplates = async () => undefined,
+  updateTemplate = async () => undefined,
+}: StandardFlowAuthoringOptions = {}): StandardCommandFlowAuthoringState {
   const draft = createCommandFlowDraftWorkspace();
   draft.markClean();
-  const selectionStateStore = writable(defaultSelection());
+  const selectionStateStore =
+    writable<StandardFlowSelection>(defaultSelection());
   const operationStateStore = writable({
     loadingAction: "",
     statusMessage: "",
-    statusTone: "info",
+    statusTone: "info" as StandardCommandStatusTone,
   });
   const nameDialogStateStore = writable({
-    action: "new",
+    action: "new" as StandardFlowNameDialogAction,
     errorMessage: "",
     open: false,
     value: "",
   });
   let loadVersion = 0;
-  let inspectionTimer = null;
+  let inspectionTimer: ReturnType<typeof setTimeout> | null = null;
 
   const actionStateStore = derived(
     [
@@ -49,7 +70,7 @@ export function createStandardCommandFlowAuthoringState({
       draft.modelStateStore,
       draft.errorStateStore,
       draft.inspectionStateStore,
-    ],
+    ] as const,
     ([selection, operation, _model, parseError, inspection]) => {
       const valid =
         !parseError && !inspection.errorMessage && !inspection.loading;
@@ -70,7 +91,10 @@ export function createStandardCommandFlowAuthoringState({
     },
   );
 
-  function setStatus(message = "", tone = "info") {
+  function setStatus(
+    message = "",
+    tone: StandardCommandStatusTone = "info",
+  ): void {
     operationStateStore.update((state) => ({
       ...state,
       statusMessage: message,
@@ -78,17 +102,20 @@ export function createStandardCommandFlowAuthoringState({
     }));
   }
 
-  function setLoadingAction(loadingAction = "") {
+  function setLoadingAction(loadingAction = ""): void {
     operationStateStore.update((state) => ({ ...state, loadingAction }));
   }
 
-  function clearInspectionTimer() {
+  function clearInspectionTimer(): void {
     if (!inspectionTimer) return;
     clearTimeout(inspectionTimer);
     inspectionTimer = null;
   }
 
-  async function performInspection(version, content) {
+  async function performInspection(
+    version: number,
+    content: string,
+  ): Promise<boolean> {
     try {
       const detail = await inspectTemplate(content);
       if (!draft.applyInspection(version, detail)) return false;
@@ -101,7 +128,7 @@ export function createStandardCommandFlowAuthoringState({
     }
   }
 
-  function scheduleInspection() {
+  function scheduleInspection(): void {
     clearInspectionTimer();
     const version = draft.beginInspection();
     const content = get(draft.tomlTextStateStore);
@@ -111,14 +138,14 @@ export function createStandardCommandFlowAuthoringState({
     }, 300);
   }
 
-  async function inspectCurrent() {
+  async function inspectCurrent(): Promise<boolean> {
     clearInspectionTimer();
     if (get(draft.errorStateStore)) return false;
     const version = draft.beginInspection();
     return performInspection(version, get(draft.tomlTextStateStore));
   }
 
-  function classifySelection(value = "") {
+  function classifySelection(value: unknown = ""): StandardFlowSelection {
     const normalized = normalizedName(value);
     if (!normalized) return defaultSelection();
     const builtinName = parseBuiltinSelection(normalized);
@@ -127,19 +154,24 @@ export function createStandardCommandFlowAuthoringState({
       : { kind: "custom", name: normalized, value: normalized };
   }
 
-  async function allowReplacement() {
+  async function allowReplacement(): Promise<boolean> {
     if (!draft.isDirty()) return true;
     return !!(await confirmDiscard(t("flowDraftDiscardConfirm")));
   }
 
-  function applyNamedModel(name) {
+  function applyNamedModel(name: string): void {
     const model = get(draft.modelStateStore);
     if (model.name === name) return;
     draft.setModel({ ...model, name });
   }
 
-  function applyLoadedDetail(selection, detail = {}) {
-    const content = normalizeLoadedCommandFlowTemplateToml(detail?.content);
+  function applyLoadedDetail(
+    selection: StandardFlowSelection,
+    detail: StandardFlowTemplateDetail = {},
+  ): void {
+    const content = normalizeLoadedCommandFlowTemplateToml(
+      templateContent(detail),
+    );
     if (!draft.replaceFromToml(content)) {
       throw new Error(get(draft.errorStateStore));
     }
@@ -151,7 +183,7 @@ export function createStandardCommandFlowAuthoringState({
     selectionStateStore.set(selection);
   }
 
-  async function selectTemplate(value = "") {
+  async function selectTemplate(value: unknown = ""): Promise<boolean> {
     if (!(await allowReplacement())) return false;
     const selection = classifySelection(value);
     const version = ++loadVersion;
@@ -176,7 +208,7 @@ export function createStandardCommandFlowAuthoringState({
       return true;
     } catch (error) {
       if (version === loadVersion) {
-        setStatus(error?.message || String(error), "error");
+        setStatus(errorMessage(error), "error");
       }
       return false;
     } finally {
@@ -184,7 +216,7 @@ export function createStandardCommandFlowAuthoringState({
     }
   }
 
-  function createNewDraft(name) {
+  function createNewDraft(name: unknown = ""): boolean {
     const templateName = normalizedName(name);
     if (!templateName) return false;
     loadVersion += 1;
@@ -200,13 +232,13 @@ export function createStandardCommandFlowAuthoringState({
     return true;
   }
 
-  function setModel(model = {}) {
+  function setModel(model: CommandFlowTemplateModel): void {
     draft.setModel(model);
     setStatus();
     scheduleInspection();
   }
 
-  function setTomlText(tomlText = "") {
+  function setTomlText(tomlText = ""): boolean {
     const valid = draft.setTomlText(tomlText);
     setStatus();
     clearInspectionTimer();
@@ -215,20 +247,20 @@ export function createStandardCommandFlowAuthoringState({
     return valid;
   }
 
-  function contentForName(name) {
+  function contentForName(name: string): string {
     return commandFlowTemplateModelToToml({
       ...get(draft.modelStateStore),
       name,
     });
   }
 
-  function applySavedTemplate(name, content) {
+  function applySavedTemplate(name: string, content: string): void {
     draft.setTomlText(content);
     draft.markClean();
     selectionStateStore.set({ kind: "custom", name, value: name });
   }
 
-  async function save() {
+  async function save(): Promise<boolean> {
     const selection = get(selectionStateStore);
     const actions = get(actionStateStore);
     if (selection.kind === "builtin") {
@@ -254,14 +286,14 @@ export function createStandardCommandFlowAuthoringState({
       setStatus(`${t("flowTemplateSaved")}: ${name}`, "success");
       return true;
     } catch (error) {
-      setStatus(error?.message || String(error), "error");
+      setStatus(errorMessage(error), "error");
       return false;
     } finally {
       setLoadingAction();
     }
   }
 
-  async function saveAs(name) {
+  async function saveAs(name: unknown = ""): Promise<boolean> {
     const actions = get(actionStateStore);
     const targetName = normalizedName(name);
     if (!actions.canSaveAs || !targetName) {
@@ -278,7 +310,7 @@ export function createStandardCommandFlowAuthoringState({
       setStatus(`${t("flowTemplateSaved")}: ${targetName}`, "success");
       return true;
     } catch (error) {
-      setStatus(error?.message || String(error), "error");
+      setStatus(errorMessage(error), "error");
       return false;
     } finally {
       setLoadingAction();
@@ -291,11 +323,11 @@ export function createStandardCommandFlowAuthoringState({
     }
     return {
       content: get(draft.tomlTextStateStore),
-      kind: "temporary",
+      kind: "temporary" as const,
     };
   }
 
-  function openNameDialog(action) {
+  function openNameDialog(action: StandardFlowNameDialogAction): void {
     const selection = get(selectionStateStore);
     nameDialogStateStore.set({
       action,
@@ -306,19 +338,19 @@ export function createStandardCommandFlowAuthoringState({
     });
   }
 
-  function openNewDialog() {
+  function openNewDialog(): void {
     openNameDialog("new");
   }
 
-  function openSaveAsDialog() {
+  function openSaveAsDialog(): void {
     openNameDialog("saveAs");
   }
 
-  function closeNameDialog() {
+  function closeNameDialog(): void {
     nameDialogStateStore.update((state) => ({ ...state, open: false }));
   }
 
-  function setNameDialogValue(value = "") {
+  function setNameDialogValue(value: unknown = ""): void {
     nameDialogStateStore.update((state) => ({
       ...state,
       errorMessage: "",
@@ -326,7 +358,7 @@ export function createStandardCommandFlowAuthoringState({
     }));
   }
 
-  async function submitNameDialog() {
+  async function submitNameDialog(): Promise<boolean> {
     const dialog = get(nameDialogStateStore);
     const name = normalizedName(dialog.value);
     if (!name) {
@@ -336,7 +368,7 @@ export function createStandardCommandFlowAuthoringState({
       }));
       return false;
     }
-    let success;
+    let success: boolean;
     if (dialog.action === "new") {
       if (!(await allowReplacement())) return false;
       success = createNewDraft(name);

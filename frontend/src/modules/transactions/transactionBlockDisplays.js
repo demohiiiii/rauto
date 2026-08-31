@@ -12,7 +12,7 @@ import { createTxProfileModeLoader } from "./transactionProfileModes.js";
 import {
   MANUAL_COMMAND_SOURCE,
   commandTemplateCatalog,
-} from "../command/commandTemplateCatalog.js";
+} from "$domains/command/index.js";
 import { validateTxBlockFormModel } from "./transactionBlockFormModels.js";
 import {
   txBlockCommandEditorBindings,

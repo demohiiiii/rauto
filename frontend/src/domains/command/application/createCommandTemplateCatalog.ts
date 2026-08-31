@@ -1,25 +1,42 @@
 import { get, writable } from "svelte/store";
-import { listTemplates } from "../../api/client.js";
-import { safeString } from "../../lib/ui.js";
+import { safeString } from "../../../lib/ui.js";
+import { commandApi } from "../infrastructure/commandApi.js";
+import type {
+  CommandTemplateCatalog,
+  CommandTemplateCatalogOptions,
+  CommandTemplateCatalogState,
+} from "../model/types.js";
 
 export const MANUAL_COMMAND_SOURCE = "__manual__";
 
-export function normalizeCommandTemplateNames(payload = []) {
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? "");
+}
+
+export function normalizeCommandTemplateNames(payload: unknown = []): string[] {
   return (Array.isArray(payload) ? payload : [])
-    .map((item) => safeString(item?.name).trim())
+    .map((item) => {
+      const name =
+        item && typeof item === "object"
+          ? (item as Record<string, unknown>).name
+          : undefined;
+      return safeString(name).trim();
+    })
     .filter(Boolean);
 }
 
-export function createCommandTemplateCatalog({ load = listTemplates } = {}) {
-  const state = writable({
+export function createCommandTemplateCatalog({
+  load = commandApi.listTemplates,
+}: CommandTemplateCatalogOptions = {}): CommandTemplateCatalog {
+  const state = writable<CommandTemplateCatalogState>({
     errorMessage: "",
     loaded: false,
     loading: false,
     names: [],
   });
-  let pendingRequest = null;
+  let pendingRequest: Promise<boolean> | null = null;
 
-  async function ensureLoaded() {
+  async function ensureLoaded(): Promise<boolean> {
     if (get(state).loaded) return true;
     if (pendingRequest) return pendingRequest;
     state.update((current) => ({
@@ -40,7 +57,7 @@ export function createCommandTemplateCatalog({ load = listTemplates } = {}) {
       } catch (error) {
         state.update((current) => ({
           ...current,
-          errorMessage: error?.message || String(error),
+          errorMessage: errorMessage(error),
           loading: false,
         }));
         return false;

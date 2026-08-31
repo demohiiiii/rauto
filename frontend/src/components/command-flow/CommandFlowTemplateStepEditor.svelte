@@ -5,7 +5,7 @@
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { defaultCommandFlowTemplatePromptModel } from "../../modules/command/commandFlowTemplateModel.js";
+  import { defaultCommandFlowTemplatePromptModel } from "$domains/command/index.js";
   import CommandEditor from "./CommandEditor.svelte";
   import CommandFlowTemplatePromptEditor from "./CommandFlowTemplatePromptEditor.svelte";
 

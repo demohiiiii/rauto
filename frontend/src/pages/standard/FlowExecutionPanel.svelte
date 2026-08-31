@@ -24,7 +24,7 @@
   import StringSelectField from "../../components/fragments/StringSelectField.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
-  import { createFlowExecutionPanelWorkspace } from "../../modules/standard/standardExecutionWorkspaces.js";
+  import { createFlowExecutionPanelWorkspace } from "$domains/standard/index.js";
   import { t } from "../../lib/i18n.js";
 
   let { active } = $props();

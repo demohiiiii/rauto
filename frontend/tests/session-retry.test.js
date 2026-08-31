@@ -6,8 +6,10 @@ import {
   sessionRetryRequestFields,
   sessionRetryValidation,
 } from "../src/modules/operations/sessionRetry.js";
-import { commandExecutionPayload } from "../src/modules/standard/standardCommandExecutionWorkspace.js";
-import { commandFlowExecutionPayload } from "../src/modules/standard/standardExecutionState.js";
+import {
+  commandExecutionPayload,
+  commandFlowExecutionPayload,
+} from "../src/domains/standard/index.ts";
 
 const enabledRetry = {
   ...createSessionRetryState(),

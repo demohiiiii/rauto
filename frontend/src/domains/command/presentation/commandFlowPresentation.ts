@@ -1,10 +1,40 @@
-import { t } from "../../lib/i18n.js";
+import { t } from "../../../lib/i18n.js";
+import type {
+  CommandFlowReadonlyDisplay,
+  CommandFlowReadonlyPromptDisplay,
+  CommandFlowReadonlyStepDisplay,
+  CommandTranslate,
+} from "../model/types.js";
 
-const textValue = (value) => (value == null ? "" : String(value));
-const translatedBoolean = (value, translate) =>
-  translate(value ? "enabled" : "disabled");
+const COMMAND_FLOW_ACCENT_COLORS = Object.freeze([
+  "oklch(0.63 0.18 157)",
+  "oklch(0.67 0.13 220)",
+  "oklch(0.72 0.14 85)",
+  "oklch(0.67 0.16 35)",
+  "oklch(0.62 0.14 285)",
+  "oklch(0.68 0.14 340)",
+]);
 
-function promptPresentation(prompt = {}, promptIndex = 0, translate = t) {
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+const textValue = (value: unknown): string =>
+  value == null ? "" : String(value);
+
+const translatedBoolean = (
+  value: boolean,
+  translate: CommandTranslate,
+): string => translate(value ? "enabled" : "disabled");
+
+function promptPresentation(
+  value: unknown = {},
+  promptIndex = 0,
+  translate: CommandTranslate = t,
+): CommandFlowReadonlyPromptDisplay {
+  const prompt = record(value);
   return {
     appendNewlineLabelText: translate("commandFlowAppendNewline"),
     appendNewlineText: translatedBoolean(!!prompt.appendNewline, translate),
@@ -20,7 +50,12 @@ function promptPresentation(prompt = {}, promptIndex = 0, translate = t) {
   };
 }
 
-function stepPresentation(step = {}, stepIndex = 0, translate = t) {
+function stepPresentation(
+  value: unknown = {},
+  stepIndex = 0,
+  translate: CommandTranslate = t,
+): CommandFlowReadonlyStepDisplay {
+  const step = record(value);
   const inheritedText = translate("commandFlowReadonlyInherited");
   return {
     commandLabelText: translate("txBlockFormCommand"),
@@ -46,7 +81,11 @@ function stepPresentation(step = {}, stepIndex = 0, translate = t) {
   };
 }
 
-export function commandFlowReadonlyPresentation(model = {}, translate = t) {
+export function commandFlowReadonlyPresentation(
+  value: unknown = {},
+  translate: CommandTranslate = t,
+): CommandFlowReadonlyDisplay {
+  const model = record(value);
   const steps = Array.isArray(model.steps) ? model.steps : [];
   return {
     emptyText: translate("txBlockFormFlowStepsEmpty"),
@@ -74,4 +113,15 @@ export function commandFlowReadonlyPresentation(model = {}, translate = t) {
       },
     ],
   };
+}
+
+export function commandFlowAccentColor(itemIndex = 0): string {
+  const normalizedIndex = Number.isFinite(itemIndex)
+    ? Math.trunc(itemIndex)
+    : 0;
+  const paletteIndex =
+    ((normalizedIndex % COMMAND_FLOW_ACCENT_COLORS.length) +
+      COMMAND_FLOW_ACCENT_COLORS.length) %
+    COMMAND_FLOW_ACCENT_COLORS.length;
+  return COMMAND_FLOW_ACCENT_COLORS[paletteIndex];
 }

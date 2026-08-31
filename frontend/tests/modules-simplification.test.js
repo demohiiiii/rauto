@@ -18,14 +18,12 @@ function sourceFiles(path) {
 test("modules are grouped into stable domain directories", () => {
   const moduleRoot = "frontend/src/modules";
   const expectedDomains = [
-    "command",
     "connections",
     "dashboard",
     "operations",
     "orchestration",
     "overlays",
     "profiles",
-    "standard",
     "templates",
     "transactions",
   ];
@@ -46,6 +44,17 @@ test("modules are grouped into stable domain directories", () => {
 
 test("thin module re-export files stay collapsed into concrete modules", () => {
   const collapsedModules = [
+    "frontend/src/modules/command/commandFlowAccentState.js",
+    "frontend/src/modules/command/commandFlowDraftState.js",
+    "frontend/src/modules/command/commandFlowReadonlyState.js",
+    "frontend/src/modules/command/commandFlowTemplateModel.js",
+    "frontend/src/modules/command/commandTemplateCatalog.js",
+    "frontend/src/modules/standard/standardCommandExecutionWorkspace.js",
+    "frontend/src/modules/standard/standardCommandFlowAuthoringState.js",
+    "frontend/src/modules/standard/standardExecutionState.js",
+    "frontend/src/modules/standard/standardExecutionWorkspaces.js",
+    "frontend/src/modules/standard/batchExecState.js",
+    "frontend/src/modules/standard/batchFlowState.js",
     "frontend/src/modules/connectionPanelWorkspaces.js",
     "frontend/src/modules/connections/connectionFields.js",
     "frontend/src/modules/connectionsWorkspace.js",
@@ -127,12 +136,13 @@ test("obsolete frontend module APIs stay removed", () => {
       "orchestrationSetStageFieldPresence",
       "orchestrationUpdateJobStringListItem",
     ],
-    "frontend/src/modules/standard/standardExecutionState.js": [
-      "prepareCommandFlowOnActive",
-      "refreshCommandFlowLanguageFields",
-      "selectCommandFlowTemplate",
-      "setCommandFlowFields",
-    ],
+    "frontend/src/domains/standard/application/standardCommandFlowExecutionState.ts":
+      [
+        "prepareCommandFlowOnActive",
+        "refreshCommandFlowLanguageFields",
+        "selectCommandFlowTemplate",
+        "setCommandFlowFields",
+      ],
     "frontend/src/modules/templates/templatesFlowDisplayState.js": [
       "builtinFlowTemplatePanelDisplay",
       "customFlowTemplatePanelDisplay",
@@ -230,8 +240,9 @@ test("transaction workspace modules do not re-export implementation state", () =
     "frontend/src/modules/orchestration/orchestrationResultState.js",
     "frontend/src/domains/replay/application/createReplayPageWorkspace.ts",
     "frontend/src/domains/show/application/createShowWorkspaces.ts",
-    "frontend/src/modules/standard/standardCommandExecutionWorkspace.js",
-    "frontend/src/modules/standard/standardExecutionWorkspaces.js",
+    "frontend/src/domains/standard/application/createStandardCommandExecutionWorkspace.ts",
+    "frontend/src/domains/standard/application/standardCommandFlowExecutionState.ts",
+    "frontend/src/domains/standard/application/createStandardExecutionWorkspaces.ts",
   ];
 
   for (const modulePath of workspaceModules) {

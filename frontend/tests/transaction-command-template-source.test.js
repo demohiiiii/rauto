@@ -4,7 +4,7 @@ import { get } from "svelte/store";
 import {
   MANUAL_COMMAND_SOURCE,
   createCommandTemplateCatalog,
-} from "../src/modules/command/commandTemplateCatalog.js";
+} from "../src/domains/command/index.ts";
 import { createTxBlockCommandEditorWorkspace } from "../src/modules/transactions/transactionBlockDisplays.js";
 
 test("transaction commands import an editable command template snapshot", async () => {

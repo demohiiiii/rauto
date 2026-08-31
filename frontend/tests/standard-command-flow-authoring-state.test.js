@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
-import { createStandardCommandFlowAuthoringState } from "../src/modules/standard/standardCommandFlowAuthoringState.js";
+import { createStandardCommandFlowAuthoringState } from "../src/domains/standard/index.ts";
 
 function templateContent(name, command = "show version") {
   return `name = "${name}"

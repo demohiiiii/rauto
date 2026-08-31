@@ -39,6 +39,25 @@ test("command flow components are controlled and feature agnostic", () => {
   }
 });
 
+test("command flow uses the command domain boundary", () => {
+  const domainIndex = read("frontend/src/domains/command/index.ts");
+  const model = read(
+    "frontend/src/domains/command/model/commandFlowTemplate.ts",
+  );
+  const application = read(
+    "frontend/src/domains/command/application/createCommandFlowDraftWorkspace.ts",
+  );
+  const combinedSource = sharedComponentPaths.map(read).join("\n");
+
+  assert.match(domainIndex, /application\/createCommandFlowDraftWorkspace\.js/);
+  assert.match(domainIndex, /model\/commandFlowTemplate\.js/);
+  assert.match(domainIndex, /presentation\/commandFlowPresentation\.js/);
+  assert.match(application, /model\/commandFlowTemplate\.js/);
+  assert.doesNotMatch(model, /api\/client|infrastructure/);
+  assert.doesNotMatch(combinedSource, /modules\/command/);
+  assert.match(combinedSource, /\$domains\/command\/index\.js/);
+});
+
 test("shared command flow surfaces keep defaults and expose opt-in workbench layouts", () => {
   const surface = read(
     "frontend/src/components/command-flow/CommandFlowSurface.svelte",
@@ -121,7 +140,7 @@ test("flow steps use parent-owned rows and actions", () => {
 
 test("command flow item accents provide six distinct cycling colors", async () => {
   const { commandFlowAccentColor } =
-    await import("../src/modules/command/commandFlowAccentState.js");
+    await import("../src/domains/command/index.ts");
   const colors = Array.from({ length: 6 }, (_, itemIndex) =>
     commandFlowAccentColor(itemIndex),
   );

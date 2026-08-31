@@ -3,41 +3,58 @@ import {
   commandFlowTemplateModelFromToml,
   commandFlowTemplateModelToToml,
   defaultCommandFlowTemplateModel,
-} from "./commandFlowTemplateModel.js";
+} from "../model/commandFlowTemplate.js";
+import type {
+  CommandFlowDraftOptions,
+  CommandFlowDraftWorkspace,
+  CommandFlowInspectionPayload,
+  CommandFlowInspectionState,
+  CommandFlowTemplateModel,
+} from "../model/types.js";
 
-export function createCommandFlowDraftWorkspace({ initialModel = null } = {}) {
-  const startingModel = initialModel || defaultCommandFlowTemplateModel();
-  const modelStateStore = writable(startingModel);
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? "");
+}
+
+function emptyInspectionState(): CommandFlowInspectionState {
+  return {
+    errorMessage: "",
+    loading: false,
+    varsSchema: [],
+  };
+}
+
+export function createCommandFlowDraftWorkspace({
+  initialModel = null,
+}: CommandFlowDraftOptions = {}): CommandFlowDraftWorkspace {
+  const startingModel = initialModel ?? defaultCommandFlowTemplateModel();
+  const modelStateStore = writable<CommandFlowTemplateModel>(startingModel);
   const tomlTextStateStore = writable(
     commandFlowTemplateModelToToml(startingModel),
   );
   const errorStateStore = writable("");
-  const activeTabStateStore = writable("visual");
-  const inspectionStateStore = writable({
-    errorMessage: "",
-    loading: false,
-    varsSchema: [],
-  });
+  const activeTabStateStore = writable<"visual" | "toml" | "readonly">(
+    "visual",
+  );
+  const inspectionStateStore = writable<CommandFlowInspectionState>(
+    emptyInspectionState(),
+  );
   let inspectionVersion = 0;
-  let cleanTomlBaseline = get(tomlTextStateStore);
+  let cleanTomlBaseline: string | null = get(tomlTextStateStore);
 
-  function invalidateInspection() {
+  function invalidateInspection(): void {
     inspectionVersion += 1;
-    inspectionStateStore.set({
-      errorMessage: "",
-      loading: false,
-      varsSchema: [],
-    });
+    inspectionStateStore.set(emptyInspectionState());
   }
 
-  function setModel(model) {
+  function setModel(model: CommandFlowTemplateModel): void {
     invalidateInspection();
     modelStateStore.set(model);
     tomlTextStateStore.set(commandFlowTemplateModelToToml(model));
     errorStateStore.set("");
   }
 
-  function setTomlText(tomlText = "") {
+  function setTomlText(tomlText = ""): boolean {
     invalidateInspection();
     tomlTextStateStore.set(tomlText);
     try {
@@ -45,33 +62,33 @@ export function createCommandFlowDraftWorkspace({ initialModel = null } = {}) {
       errorStateStore.set("");
       return true;
     } catch (error) {
-      errorStateStore.set(error?.message || String(error));
+      errorStateStore.set(errorMessage(error));
       return false;
     }
   }
 
-  function markClean() {
+  function markClean(): void {
     cleanTomlBaseline = get(tomlTextStateStore);
   }
 
-  function markUnsaved() {
+  function markUnsaved(): void {
     cleanTomlBaseline = null;
   }
 
-  function isDirty() {
+  function isDirty(): boolean {
     return (
       cleanTomlBaseline === null ||
       get(tomlTextStateStore) !== cleanTomlBaseline
     );
   }
 
-  function replaceFromToml(tomlText = "") {
+  function replaceFromToml(tomlText = ""): boolean {
     if (!setTomlText(tomlText)) return false;
     markClean();
     return true;
   }
 
-  function beginInspection() {
+  function beginInspection(): number {
     inspectionVersion += 1;
     inspectionStateStore.update((state) => ({
       ...state,
@@ -81,7 +98,10 @@ export function createCommandFlowDraftWorkspace({ initialModel = null } = {}) {
     return inspectionVersion;
   }
 
-  function applyInspection(version, detail = {}) {
+  function applyInspection(
+    version: number,
+    detail: CommandFlowInspectionPayload = {},
+  ): boolean {
     if (version !== inspectionVersion) return false;
     inspectionStateStore.set({
       errorMessage: "",
@@ -91,10 +111,10 @@ export function createCommandFlowDraftWorkspace({ initialModel = null } = {}) {
     return true;
   }
 
-  function failInspection(version, error) {
+  function failInspection(version: number, error: unknown): boolean {
     if (version !== inspectionVersion) return false;
     inspectionStateStore.set({
-      errorMessage: error?.message || String(error || ""),
+      errorMessage: errorMessage(error),
       loading: false,
       varsSchema: [],
     });

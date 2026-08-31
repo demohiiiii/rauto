@@ -26,7 +26,7 @@
     executeBatchExecCommand,
     setBatchExecField,
     setBatchExecRetry,
-  } from "../../modules/standard/batchExecState.js";
+  } from "$domains/standard/index.js";
   import { sessionRetryValidation } from "../../modules/operations/sessionRetry.js";
 
   let { active } = $props();

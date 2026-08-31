@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { commandExecutionPayload } from "../src/modules/standard/standardCommandExecutionWorkspace.js";
+import { commandExecutionPayload } from "../src/domains/standard/index.ts";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -40,7 +40,7 @@ test("standard command workspace retains rendered child outputs", () => {
     "frontend/src/pages/standard/CommandExecutionPanel.svelte",
   );
   const workspace = read(
-    "frontend/src/modules/standard/standardCommandExecutionWorkspace.js",
+    "frontend/src/domains/standard/application/createStandardCommandExecutionWorkspace.ts",
   );
 
   assert.match(workspace, /resultPayload: response/);
@@ -54,7 +54,7 @@ test("standard command editor uses shared multiline command controls", () => {
     "frontend/src/pages/standard/CommandExecutionPanel.svelte",
   );
   const workspace = read(
-    "frontend/src/modules/standard/standardCommandExecutionWorkspace.js",
+    "frontend/src/domains/standard/model/standardCommand.ts",
   );
 
   assert.match(panel, /CommandEditor/);

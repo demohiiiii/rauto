@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
-import { MANUAL_COMMAND_SOURCE } from "../src/modules/command/commandTemplateCatalog.js";
+import { MANUAL_COMMAND_SOURCE } from "../src/domains/command/index.ts";
 import {
   commandExecutionPayload,
   createStandardCommandExecutionWorkspace,
   reconcileCommandVars,
-} from "../src/modules/standard/standardCommandExecutionWorkspace.js";
+} from "../src/domains/standard/index.ts";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -37,6 +37,35 @@ test("client exposes command content inspection", () => {
 
   assert.match(source, /inspectCommandTemplate/);
   assert.match(source, /\/api\/templates\/inspect/);
+});
+
+test("direct command execution uses the standard domain boundary", () => {
+  const index = read("frontend/src/domains/standard/index.ts");
+  const application = read(
+    "frontend/src/domains/standard/application/createStandardCommandExecutionWorkspace.ts",
+  );
+  const model = read("frontend/src/domains/standard/model/standardCommand.ts");
+  const panel = read(
+    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+  );
+
+  assert.match(
+    index,
+    /application\/createStandardCommandExecutionWorkspace\.js/,
+  );
+  assert.match(
+    index,
+    /application\/createStandardCommandFlowAuthoringState\.js/,
+  );
+  assert.match(index, /model\/standardCommand\.js/);
+  assert.match(application, /infrastructure\/standardCommandApi\.js/);
+  assert.match(application, /infrastructure\/standardCommandRuntime\.js/);
+  assert.match(panel, /\$domains\/standard\/index\.js/);
+  assert.doesNotMatch(
+    model,
+    /api\/client|modules\/connections|modules\/profiles/,
+  );
+  assert.doesNotMatch(panel, /modules\/standard\/standardCommand/);
 });
 
 test("command vars retain schema order and shared values", () => {
@@ -310,8 +339,15 @@ test("standard command authoring uses the regular content layout without step nu
 
 test("standard command workbench has no legacy panel factories", () => {
   const source = [
-    read("frontend/src/modules/standard/standardExecutionState.js"),
-    read("frontend/src/modules/standard/standardExecutionWorkspaces.js"),
+    read(
+      "frontend/src/domains/standard/application/createStandardCommandExecutionWorkspace.ts",
+    ),
+    read(
+      "frontend/src/domains/standard/application/standardCommandFlowExecutionState.ts",
+    ),
+    read(
+      "frontend/src/domains/standard/application/createStandardExecutionWorkspaces.ts",
+    ),
   ].join("\n");
 
   assert.doesNotMatch(source, /createDirectExecutionPanelWorkspace/);

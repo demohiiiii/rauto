@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { commandFlowReadonlyPresentation } from "../src/modules/command/commandFlowReadonlyState.js";
+import { commandFlowReadonlyPresentation } from "../src/domains/command/index.ts";
 
 const keyTranslator = (key) => key;
 

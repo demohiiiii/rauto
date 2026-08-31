@@ -22,7 +22,7 @@
     loadBatchFlowTemplateOptions,
     setBatchFlowField,
     setBatchFlowRetry,
-  } from "../../modules/standard/batchFlowState.js";
+  } from "$domains/standard/index.js";
   import { sessionRetryValidation } from "../../modules/operations/sessionRetry.js";
 
   let { active } = $props();

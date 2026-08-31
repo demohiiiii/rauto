@@ -21,7 +21,7 @@ import { tr } from "../../lib/i18n.js";
 import {
   commandFlowTemplateModelFromToml,
   commandFlowTemplateModelToToml,
-} from "../command/commandFlowTemplateModel.js";
+} from "$domains/command/index.js";
 import { profileModeExpressionMatchesOptions } from "../profiles/profileModeExpressions.js";
 import {
   notifyCustomShowObjectsChanged,

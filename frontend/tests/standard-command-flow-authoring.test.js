@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   commandFlowExecutionPayload,
   normalizeCommandFlowExecutionSource,
-} from "../src/modules/standard/standardExecutionState.js";
+} from "../src/domains/standard/index.ts";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -98,7 +98,7 @@ test("client exposes explicit command flow template API helpers", () => {
 
 test("standard flow workspace composes one unified authoring state", () => {
   const workspace = read(
-    "frontend/src/modules/standard/standardExecutionWorkspaces.js",
+    "frontend/src/domains/standard/application/createStandardExecutionWorkspaces.ts",
   );
 
   assert.match(workspace, /createStandardCommandFlowAuthoringState/);
@@ -107,7 +107,14 @@ test("standard flow workspace composes one unified authoring state", () => {
   assert.match(workspace, /authoring\.save/);
   assert.match(workspace, /authoring\.saveAs/);
   assert.match(workspace, /MODE_SELECT\.standardFlow/);
-  assert.match(workspace, /saveButtonLabel: t\("flowTemplateSaveBtn"\)/);
+  assert.match(
+    read(
+      "frontend/src/domains/standard/presentation/standardFlowPresentation.ts",
+    ),
+    /saveButtonLabel: t\("flowTemplateSaveBtn"\)/,
+  );
+  assert.match(workspace, /runFlowTemplateSelectState\.update/);
+  assert.doesNotMatch(workspace, /setStandardRunTemplateSelectValue/);
   assert.doesNotMatch(workspace, /sourceModeStateStore/);
   assert.doesNotMatch(workspace, /changeFlowSourceMode/);
   assert.doesNotMatch(workspace, /saveTemporaryFlowTemplate/);

@@ -5,7 +5,7 @@
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import { standardExecModeTabs } from "../config/dashboardModes.js";
-  import { createStandardPageWorkspace } from "../modules/standard/standardExecutionWorkspaces.js";
+  import { createStandardPageWorkspace } from "$domains/standard/index.js";
   import { executionConnectionProfileState as standardExecutionConnectionProfileState } from "../modules/profiles/promptProfileExecutionState.js";
   import CommandExecutionPanel from "./standard/CommandExecutionPanel.svelte";
   import FlowExecutionPanel from "./standard/FlowExecutionPanel.svelte";

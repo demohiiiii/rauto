@@ -1,133 +1,70 @@
 import { get, writable } from "svelte/store";
 import {
-  executeTemplate,
-  getTemplate,
-  inspectCommandTemplate,
-  listTemplates,
-  renderTemplate,
-} from "../../api/client.js";
-import {
-  browserClearTimeout,
-  browserConfirm,
-  browserSetTimeout,
-} from "../../lib/browser.js";
-import { t } from "../../lib/i18n.js";
-import { safeString } from "../../lib/ui.js";
-import {
-  connectionPayload,
-  ensureConnectionTargetSelected,
-} from "../connections/connections.js";
-import {
-  applyRecordDrawerRecording,
-  recordLevelPayload,
-} from "../overlays/overlays.js";
-import {
-  MODE_SELECT,
-  TEXTFSM_PLATFORM_SELECT,
-  modeSelection,
-  textfsmPlatformSelection,
-} from "../profiles/profiles.js";
-import {
   MANUAL_COMMAND_SOURCE,
   normalizeCommandTemplateNames,
-} from "../command/commandTemplateCatalog.js";
+} from "$domains/command/index.js";
+import { t } from "../../../lib/i18n.js";
+import { safeString } from "../../../lib/ui.js";
+import { standardCommandApi } from "../infrastructure/standardCommandApi.js";
+import { standardCommandRuntime } from "../infrastructure/standardCommandRuntime.js";
 import {
-  createSessionRetryState,
-  sessionRetryRequestFields,
-} from "../operations/sessionRetry.js";
+  buildStandardCommandExecutionPayload,
+  newStandardCommandWorkspaceState,
+  reconcileCommandVars,
+  standardCommandTextfsmPayload,
+} from "../model/standardCommand.js";
+import type {
+  StandardCommandApi,
+  StandardCommandExecutionInput,
+  StandardCommandExecutionPayload,
+  StandardCommandExecutionWorkspace,
+  StandardCommandRuntime,
+  StandardCommandStatusTone,
+  StandardCommandTextfsmState,
+  StandardCommandWorkspaceOptions,
+  StandardSessionRetryState,
+} from "../model/types.js";
 
-export function reconcileCommandVars(schema = [], current = {}) {
-  return Object.fromEntries(
-    (Array.isArray(schema) ? schema : [])
-      .map((field) => safeString(field?.name).trim())
-      .filter(Boolean)
-      .map((name) => [
-        name,
-        Object.hasOwn(current || {}, name) ? current[name] : "",
-      ]),
+function errorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message ?? "");
+  }
+  return String(error ?? "");
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+export function commandExecutionPayload(
+  input: StandardCommandExecutionInput = {},
+): StandardCommandExecutionPayload {
+  const retry = input.retry ?? standardCommandRuntime.createRetryState();
+  return buildStandardCommandExecutionPayload(
+    input,
+    standardCommandRuntime.retryRequestFields(retry),
   );
-}
-
-export function commandExecutionPayload({
-  content = "",
-  vars = {},
-  mode = "",
-  multilineMode = "split_lines",
-  textfsm = {},
-  retry = createSessionRetryState(),
-  connection,
-  recordLevel,
-} = {}) {
-  return {
-    template_content: safeString(content),
-    vars: vars && typeof vars === "object" && !Array.isArray(vars) ? vars : {},
-    mode: safeString(mode).trim() || null,
-    multiline_mode: multilineMode === "whole" ? "whole" : "split_lines",
-    ...textfsm,
-    ...sessionRetryRequestFields(retry),
-    connection,
-    record_level: recordLevel,
-  };
-}
-
-function initialCommandWorkspaceState() {
-  return {
-    sourceSelection: MANUAL_COMMAND_SOURCE,
-    sourceOptions: [],
-    content: "",
-    baselineContent: "",
-    dirty: false,
-    vars: {},
-    varsSchema: [],
-    mode: "",
-    modeOptions: [],
-    multilineMode: "split_lines",
-    textfsm: {
-      enabled: false,
-      platform: "",
-      platformOptions: [],
-      strictErrors: false,
-      template: "",
-    },
-    retry: createSessionRetryState(),
-    preview: { kind: "empty", text: "", message: "" },
-    executionResult: { kind: "empty" },
-    loadingActions: [],
-    status: { message: "", tone: "info" },
-  };
-}
-
-function textfsmPayload(textfsm = {}) {
-  return {
-    textfsm_template: safeString(textfsm.template).trim() || null,
-    parse_textfsm: !!textfsm.enabled,
-    textfsm_platform: safeString(textfsm.platform).trim() || null,
-    textfsm_strict_errors: !!textfsm.strictErrors,
-  };
 }
 
 export function createStandardCommandExecutionWorkspace({
-  api = {
-    executeTemplate,
-    getTemplate,
-    inspectCommandTemplate,
-    listTemplates,
-    renderTemplate,
-  },
-  confirmReplace = browserConfirm,
+  api: apiOverrides = {},
+  confirmReplace,
   inspectionDelay = 180,
-  runtime = {
-    applyRecording: applyRecordDrawerRecording,
-    connection: connectionPayload,
-    ensureTarget: ensureConnectionTargetSelected,
-    recordLevel: recordLevelPayload,
-  },
-} = {}) {
-  const stateStore = writable(initialCommandWorkspaceState());
-  const commandModePicker = modeSelection(MODE_SELECT.standardDirect);
-  const platformPicker = textfsmPlatformSelection(
-    TEXTFSM_PLATFORM_SELECT.standard,
+  runtime: runtimeOverrides = {},
+}: StandardCommandWorkspaceOptions = {}): StandardCommandExecutionWorkspace {
+  const api: StandardCommandApi = { ...standardCommandApi, ...apiOverrides };
+  const runtime: StandardCommandRuntime = {
+    ...standardCommandRuntime,
+    ...runtimeOverrides,
+  };
+  const confirm = confirmReplace ?? runtime.confirm;
+  const stateStore = writable(
+    newStandardCommandWorkspaceState(runtime.createRetryState()),
   );
+  const commandModePicker = runtime.commandModePicker();
+  const platformPicker = runtime.platformPicker();
   let loadVersion = 0;
   let inspectionVersion = 0;
   let inspectionTimer = 0;
@@ -136,8 +73,8 @@ export function createStandardCommandExecutionWorkspace({
   const unsubscribeMode = commandModePicker.state.subscribe((modeState) => {
     stateStore.update((state) => ({
       ...state,
-      mode: safeString(modeState?.selected),
-      modeOptions: Array.isArray(modeState?.modes) ? modeState.modes : [],
+      mode: safeString(modeState.selected),
+      modeOptions: Array.isArray(modeState.modes) ? modeState.modes : [],
     }));
   });
   const unsubscribePlatform = platformPicker.state.subscribe(
@@ -146,8 +83,8 @@ export function createStandardCommandExecutionWorkspace({
         ...state,
         textfsm: {
           ...state.textfsm,
-          platform: safeString(platformState?.selected),
-          platformOptions: Array.isArray(platformState?.profiles)
+          platform: safeString(platformState.selected),
+          platformOptions: Array.isArray(platformState.profiles)
             ? platformState.profiles
             : [],
         },
@@ -155,14 +92,17 @@ export function createStandardCommandExecutionWorkspace({
     },
   );
 
-  function setStatus(message = "", tone = "info") {
+  function setStatus(
+    message: unknown = "",
+    tone: StandardCommandStatusTone = "info",
+  ): void {
     stateStore.update((state) => ({
       ...state,
       status: { message: safeString(message), tone },
     }));
   }
 
-  function setLoading(action, loading) {
+  function setLoading(action: string, loading: boolean): void {
     stateStore.update((state) => {
       const keys = new Set(state.loadingActions);
       if (loading) keys.add(action);
@@ -171,11 +111,14 @@ export function createStandardCommandExecutionWorkspace({
     });
   }
 
-  async function inspectContent(content, version = ++inspectionVersion) {
+  async function inspectContent(
+    content: string,
+    version = ++inspectionVersion,
+  ): Promise<boolean> {
     try {
       const detail = await api.inspectCommandTemplate(content);
       if (destroyed || version !== inspectionVersion) return false;
-      const varsSchema = Array.isArray(detail?.vars_schema)
+      const varsSchema = Array.isArray(detail.vars_schema)
         ? detail.vars_schema
         : [];
       stateStore.update((state) => ({
@@ -186,24 +129,24 @@ export function createStandardCommandExecutionWorkspace({
       return true;
     } catch (error) {
       if (!destroyed && version === inspectionVersion) {
-        setStatus(error?.message || String(error), "error");
+        setStatus(errorMessage(error), "error");
       }
       return false;
     }
   }
 
-  function scheduleInspection(content) {
-    browserClearTimeout(inspectionTimer);
+  function scheduleInspection(content: string): Promise<boolean> {
+    runtime.clearTimer(inspectionTimer);
     const version = ++inspectionVersion;
     return new Promise((resolve) => {
-      inspectionTimer = browserSetTimeout(() => {
+      inspectionTimer = runtime.setTimer(() => {
         inspectionTimer = 0;
         void inspectContent(content, version).then(resolve);
       }, inspectionDelay);
     });
   }
 
-  async function initialize() {
+  async function initialize(): Promise<boolean> {
     setLoading("templates", true);
     try {
       const templatePayload = await api.listTemplates();
@@ -216,8 +159,7 @@ export function createStandardCommandExecutionWorkspace({
     } catch (error) {
       if (!destroyed) {
         setStatus(
-          error?.message ||
-            t("commandTemplateListFailed", "Template list failed"),
+          errorMessage(error) || t("commandTemplateListFailed"),
           "error",
         );
       }
@@ -227,18 +169,20 @@ export function createStandardCommandExecutionWorkspace({
     }
   }
 
-  async function allowReplacement() {
+  async function allowReplacement(): Promise<boolean> {
     if (!get(stateStore).dirty) return true;
-    return !!(await confirmReplace(t("commandReplaceConfirm")));
+    return !!(await confirm(t("commandReplaceConfirm")));
   }
 
-  async function selectSource(sourceValue = MANUAL_COMMAND_SOURCE) {
+  async function selectSource(
+    sourceValue: unknown = MANUAL_COMMAND_SOURCE,
+  ): Promise<boolean> {
     const source = safeString(sourceValue).trim() || MANUAL_COMMAND_SOURCE;
     const current = get(stateStore);
     if (source === current.sourceSelection) return true;
     if (!(await allowReplacement())) return false;
     const version = ++loadVersion;
-    browserClearTimeout(inspectionTimer);
+    runtime.clearTimer(inspectionTimer);
     inspectionVersion += 1;
     if (source === MANUAL_COMMAND_SOURCE) {
       setLoading("template", false);
@@ -260,7 +204,7 @@ export function createStandardCommandExecutionWorkspace({
     try {
       const detail = await api.getTemplate(source);
       if (destroyed || version !== loadVersion) return false;
-      const content = safeString(detail?.content);
+      const content = safeString(detail.content);
       stateStore.update((state) => ({
         ...state,
         sourceSelection: source,
@@ -275,8 +219,7 @@ export function createStandardCommandExecutionWorkspace({
     } catch (error) {
       if (!destroyed && version === loadVersion) {
         setStatus(
-          error?.message ||
-            t("commandTemplateLoadFailed", "Template load failed"),
+          errorMessage(error) || t("commandTemplateLoadFailed"),
           "error",
         );
       }
@@ -286,7 +229,7 @@ export function createStandardCommandExecutionWorkspace({
     }
   }
 
-  function changeContent(content = "") {
+  function changeContent(content: unknown = ""): Promise<boolean> {
     loadVersion += 1;
     setLoading("template", false);
     const nextContent = safeString(content);
@@ -299,28 +242,27 @@ export function createStandardCommandExecutionWorkspace({
     return scheduleInspection(nextContent);
   }
 
-  function changeVars(vars = {}) {
+  function changeVars(vars: unknown = {}): void {
     stateStore.update((state) => ({
       ...state,
-      vars:
-        vars && typeof vars === "object" && !Array.isArray(vars)
-          ? { ...vars }
-          : {},
+      vars: { ...record(vars) },
     }));
   }
 
-  function changeMode(mode = "") {
+  function changeMode(mode: unknown = ""): void {
     commandModePicker.setValue(mode);
   }
 
-  function changeMultilineMode(multilineMode = "split_lines") {
+  function changeMultilineMode(multilineMode: unknown = "split_lines"): void {
     stateStore.update((state) => ({
       ...state,
       multilineMode: multilineMode === "whole" ? "whole" : "split_lines",
     }));
   }
 
-  function changeTextfsm(patch = {}) {
+  function changeTextfsm(
+    patch: Partial<StandardCommandTextfsmState> = {},
+  ): void {
     if (Object.hasOwn(patch, "platform")) {
       platformPicker.setValue(patch.platform);
     }
@@ -330,34 +272,36 @@ export function createStandardCommandExecutionWorkspace({
     }));
   }
 
-  function changeRetry(retry = {}) {
+  function changeRetry(retry: StandardSessionRetryState = {}): void {
     stateStore.update((state) => ({
       ...state,
       retry: { ...state.retry, ...retry },
     }));
   }
 
-  function currentExecutionPayload() {
+  function currentExecutionPayload(): StandardCommandExecutionPayload {
     const state = get(stateStore);
-    return commandExecutionPayload({
-      content: state.content,
-      vars: state.vars,
-      mode: state.mode,
-      multilineMode: state.multilineMode,
-      textfsm: textfsmPayload(state.textfsm),
-      retry: state.retry,
-      connection: runtime.connection(),
-      recordLevel: runtime.recordLevel(),
-    });
+    return buildStandardCommandExecutionPayload(
+      {
+        content: state.content,
+        vars: state.vars,
+        mode: state.mode,
+        multilineMode: state.multilineMode,
+        textfsm: standardCommandTextfsmPayload(state.textfsm),
+        connection: runtime.connection(),
+        recordLevel: runtime.recordLevel(),
+      },
+      runtime.retryRequestFields(state.retry),
+    );
   }
 
-  function commandReady() {
+  function commandReady(): boolean {
     if (get(stateStore).content.trim()) return true;
     setStatus(t("commandRequired"), "error");
     return false;
   }
 
-  async function preview() {
+  async function preview(): Promise<boolean> {
     if (!commandReady()) return false;
     setLoading("preview", true);
     stateStore.update((state) => ({
@@ -376,7 +320,7 @@ export function createStandardCommandExecutionWorkspace({
         ...state,
         preview: {
           kind: "result",
-          text: safeString(response?.rendered_commands),
+          text: safeString(response.rendered_commands),
           message: "",
         },
       }));
@@ -388,7 +332,7 @@ export function createStandardCommandExecutionWorkspace({
           preview: {
             kind: "error",
             text: "",
-            message: error?.message || String(error),
+            message: errorMessage(error),
           },
         }));
       }
@@ -398,7 +342,7 @@ export function createStandardCommandExecutionWorkspace({
     }
   }
 
-  async function execute() {
+  async function execute(): Promise<boolean> {
     if (!commandReady() || !runtime.ensureTarget()) return false;
     setLoading("execute", true);
     stateStore.update((state) => ({
@@ -420,7 +364,7 @@ export function createStandardCommandExecutionWorkspace({
           ...state,
           executionResult: {
             kind: "error",
-            message: error?.message || String(error),
+            message: errorMessage(error),
           },
         }));
       }
@@ -430,11 +374,11 @@ export function createStandardCommandExecutionWorkspace({
     }
   }
 
-  function destroy() {
+  function destroy(): void {
     destroyed = true;
     loadVersion += 1;
     inspectionVersion += 1;
-    browserClearTimeout(inspectionTimer);
+    runtime.clearTimer(inspectionTimer);
     unsubscribeMode();
     unsubscribePlatform();
   }

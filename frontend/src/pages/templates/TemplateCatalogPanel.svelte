@@ -26,8 +26,10 @@
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { cn } from "$lib/utils.js";
   import { showToast } from "../../modules/overlays/overlays.js";
-  import { createCommandFlowDraftWorkspace } from "../../modules/command/commandFlowDraftState.js";
-  import { commandFlowTemplateModelToToml } from "../../modules/command/commandFlowTemplateModel.js";
+  import {
+    commandFlowTemplateModelToToml,
+    createCommandFlowDraftWorkspace,
+  } from "$domains/command/index.js";
   import {
     MODE_SELECT,
     modeSelection,

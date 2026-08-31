@@ -17,7 +17,7 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
   import { t } from "../../lib/i18n.js";
-  import { createStandardCommandExecutionWorkspace } from "../../modules/standard/standardCommandExecutionWorkspace.js";
+  import { createStandardCommandExecutionWorkspace } from "$domains/standard/index.js";
   import {
     exportParsedOutputItemExcel,
     parsedOutputBlockDisplayFromItem,

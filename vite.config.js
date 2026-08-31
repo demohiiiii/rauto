@@ -75,9 +75,6 @@ const MODULE_CHUNKS = new Map([
   ["showExecutionState.js", "page-showpage"],
   ["showPresentation.js", "page-showpage"],
   ["showQueries.js", "page-showpage"],
-  ["standard.js", "feature-standard"],
-  ["standardExecutionState.js", "feature-standard"],
-  ["standardExecutionWorkspaces.js", "feature-standard"],
   ["createTasksPageWorkspace.js", "page-taskspage"],
   ["tasksApi.js", "page-taskspage"],
   ["tasksPresentation.js", "page-taskspage"],
@@ -198,7 +195,9 @@ function dashboardChunk(id) {
     return "page-schedulespage";
   }
   if (matchesSourcePath(id, "domains/auth/")) return "app-core";
+  if (matchesSourcePath(id, "domains/command/")) return "feature-command";
   if (matchesSourcePath(id, "domains/show/")) return "page-showpage";
+  if (matchesSourcePath(id, "domains/standard/")) return "feature-standard";
   if (matchesSourcePath(id, "modules/")) {
     const file = sourceFileName(id, "modules/");
     if (file === "connections.js") return "dashboard-connections";
@@ -216,6 +215,7 @@ function dashboardChunk(id) {
       return "feature-results";
     }
     if (folder === "connections") return "dashboard-connections-ui";
+    if (folder === "command-flow") return "feature-command";
     if (folder === "overlays") return "dashboard-overlays-ui";
     if (folder === "layout") return "dashboard-layout";
     if (folder === "fragments") return "dashboard-fragments";

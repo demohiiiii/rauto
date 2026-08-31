@@ -8,7 +8,7 @@
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import WorkspaceTemplateActions from "../../components/fragments/WorkspaceTemplateActions.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { MANUAL_COMMAND_SOURCE } from "../../modules/command/commandTemplateCatalog.js";
+  import { MANUAL_COMMAND_SOURCE } from "$domains/command/index.js";
   import {
     transactionEditorSyncPresentation,
     txWorkflowVarsPlaceholder,

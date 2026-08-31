@@ -1,5 +1,13 @@
 import { parse, stringify } from "smol-toml";
-import { plainObject, stringValue } from "../../lib/jsonValue.js";
+import type {
+  CommandFlowMultilineMode,
+  CommandFlowPromptDocument,
+  CommandFlowStepDocument,
+  CommandFlowTemplateDocument,
+  CommandFlowTemplateModel,
+  CommandFlowTemplatePromptModel,
+  CommandFlowTemplateStepModel,
+} from "./types.js";
 
 const ROOT_FIELDS = new Set(["name", "stop_on_error", "default_mode", "steps"]);
 const STEP_FIELDS = new Set([
@@ -16,14 +24,29 @@ const PROMPT_FIELDS = new Set([
   "record_input",
 ]);
 
-function assertPlainObject(value, label) {
+function plainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function assertPlainObject(
+  value: unknown,
+  label: string,
+): Record<string, unknown> {
   if (!plainObject(value)) {
     throw new Error(`${label} must be an object`);
   }
   return value;
 }
 
-function assertSupportedFields(source, supportedFields, scope = "") {
+function assertSupportedFields(
+  source: Record<string, unknown>,
+  supportedFields: ReadonlySet<string>,
+  scope = "",
+): void {
   for (const field of Object.keys(source)) {
     if (!supportedFields.has(field)) {
       const path = scope ? `${scope}.${field}` : field;
@@ -32,22 +55,29 @@ function assertSupportedFields(source, supportedFields, scope = "") {
   }
 }
 
-function optionalStringField(source, field) {
+function optionalStringField(
+  source: Record<string, unknown>,
+  field: string,
+): { present: boolean; value: string | null } {
   const present = Object.hasOwn(source, field);
   const value = present ? source[field] : null;
-  if (value != null && typeof value !== "string") {
+  if (value == null) return { present, value: null };
+  if (typeof value !== "string") {
     throw new Error(`${field} must be a string`);
   }
   return { present, value };
 }
 
-function multilineModeValue(value, path) {
+function multilineModeValue(
+  value: unknown,
+  path: string,
+): CommandFlowMultilineMode {
   if (value == null || value === "") return "split_lines";
   if (value === "split_lines" || value === "whole") return value;
   throw new Error(`${path} must be split_lines or whole`);
 }
 
-export function defaultCommandFlowTemplatePromptModel() {
+export function defaultCommandFlowTemplatePromptModel(): CommandFlowTemplatePromptModel {
   return {
     patterns: [""],
     response: "",
@@ -56,7 +86,7 @@ export function defaultCommandFlowTemplatePromptModel() {
   };
 }
 
-export function defaultCommandFlowTemplateStepModel() {
+export function defaultCommandFlowTemplateStepModel(): CommandFlowTemplateStepModel {
   return {
     command: "",
     multilineMode: "split_lines",
@@ -68,7 +98,7 @@ export function defaultCommandFlowTemplateStepModel() {
   };
 }
 
-export function defaultCommandFlowTemplateModel() {
+export function defaultCommandFlowTemplateModel(): CommandFlowTemplateModel {
   return {
     name: "temporary-flow",
     stopOnError: true,
@@ -78,7 +108,11 @@ export function defaultCommandFlowTemplateModel() {
   };
 }
 
-function commandFlowPromptModelFromDocument(prompt, promptIndex, stepIndex) {
+function commandFlowPromptModelFromDocument(
+  prompt: unknown,
+  promptIndex: number,
+  stepIndex: number,
+): CommandFlowTemplatePromptModel {
   const source = assertPlainObject(
     prompt,
     `steps[${stepIndex}].prompts[${promptIndex}]`,
@@ -101,7 +135,10 @@ function commandFlowPromptModelFromDocument(prompt, promptIndex, stepIndex) {
   };
 }
 
-function commandFlowStepModelFromDocument(step, stepIndex) {
+function commandFlowStepModelFromDocument(
+  step: unknown,
+  stepIndex: number,
+): CommandFlowTemplateStepModel {
   const source = assertPlainObject(step, `steps[${stepIndex}]`);
   assertSupportedFields(source, STEP_FIELDS, `steps[${stepIndex}]`);
   const mode = optionalStringField(source, "mode");
@@ -109,7 +146,7 @@ function commandFlowStepModelFromDocument(step, stepIndex) {
   const timeoutSecs = hasTimeoutSecs ? source.timeout_secs : null;
   if (
     timeoutSecs != null &&
-    (!Number.isSafeInteger(timeoutSecs) || timeoutSecs < 0)
+    (!Number.isSafeInteger(timeoutSecs) || Number(timeoutSecs) < 0)
   ) {
     throw new Error(
       `steps[${stepIndex}].timeout_secs must be a non-negative integer`,
@@ -124,7 +161,7 @@ function commandFlowStepModelFromDocument(step, stepIndex) {
     ),
     mode: mode.value,
     hasMode: mode.present,
-    timeoutSecs,
+    timeoutSecs: timeoutSecs == null ? null : Number(timeoutSecs),
     hasTimeoutSecs,
     prompts: prompts.map((prompt, promptIndex) =>
       commandFlowPromptModelFromDocument(prompt, promptIndex, stepIndex),
@@ -132,7 +169,9 @@ function commandFlowStepModelFromDocument(step, stepIndex) {
   };
 }
 
-export function commandFlowTemplateModelFromDocument(document = {}) {
+export function commandFlowTemplateModelFromDocument(
+  document: unknown = {},
+): CommandFlowTemplateModel {
   const source = assertPlainObject(document, "command flow template");
   assertSupportedFields(source, ROOT_FIELDS);
   const defaultMode = optionalStringField(source, "default_mode");
@@ -147,11 +186,13 @@ export function commandFlowTemplateModelFromDocument(document = {}) {
   };
 }
 
-export function commandFlowTemplateModelFromToml(tomlText = "") {
+export function commandFlowTemplateModelFromToml(
+  tomlText = "",
+): CommandFlowTemplateModel {
   return commandFlowTemplateModelFromDocument(parse(stringValue(tomlText)));
 }
 
-export function normalizeLoadedCommandFlowTemplateToml(tomlText = "") {
+export function normalizeLoadedCommandFlowTemplateToml(tomlText = ""): string {
   const document = assertPlainObject(
     parse(stringValue(tomlText)),
     "command flow template",
@@ -160,7 +201,18 @@ export function normalizeLoadedCommandFlowTemplateToml(tomlText = "") {
   return stringify(document);
 }
 
-function commandFlowPromptDocumentFromModel(prompt = {}) {
+function promptModel(value: unknown): Partial<CommandFlowTemplatePromptModel> {
+  return plainObject(value) ? value : {};
+}
+
+function stepModel(value: unknown): Partial<CommandFlowTemplateStepModel> {
+  return plainObject(value) ? value : {};
+}
+
+function commandFlowPromptDocumentFromModel(
+  value: unknown = {},
+): CommandFlowPromptDocument {
+  const prompt = promptModel(value);
   return {
     patterns: Array.isArray(prompt.patterns)
       ? prompt.patterns.map((pattern) => stringValue(pattern))
@@ -171,13 +223,17 @@ function commandFlowPromptDocumentFromModel(prompt = {}) {
   };
 }
 
-function commandFlowStepDocumentFromModel(step = {}) {
-  const document = {
+function commandFlowStepDocumentFromModel(
+  value: unknown = {},
+): CommandFlowStepDocument {
+  const step = stepModel(value);
+  const document: CommandFlowStepDocument = {
     command: stringValue(step.command),
     multiline_mode: multilineModeValue(
       step.multilineMode,
       "step.multiline_mode",
     ),
+    prompts: [],
   };
   if (step.hasMode || step.mode !== null) {
     document.mode = step.mode ?? "";
@@ -191,11 +247,17 @@ function commandFlowStepDocumentFromModel(step = {}) {
   return document;
 }
 
-export function commandFlowTemplateDocumentFromModel(model = {}) {
-  const document = {
+export function commandFlowTemplateDocumentFromModel(
+  value: unknown = {},
+): CommandFlowTemplateDocument {
+  const model = plainObject(value)
+    ? (value as Partial<CommandFlowTemplateModel>)
+    : {};
+  const document: CommandFlowTemplateDocument = {
     name: stringValue(model.name),
+    stop_on_error: model.stopOnError !== false,
+    steps: [],
   };
-  document.stop_on_error = model.stopOnError !== false;
   if (model.hasDefaultMode || model.defaultMode !== null) {
     document.default_mode = model.defaultMode ?? "";
   }
@@ -205,6 +267,6 @@ export function commandFlowTemplateDocumentFromModel(model = {}) {
   return document;
 }
 
-export function commandFlowTemplateModelToToml(model = {}) {
-  return stringify(commandFlowTemplateDocumentFromModel(model));
+export function commandFlowTemplateModelToToml(value: unknown = {}): string {
+  return stringify(commandFlowTemplateDocumentFromModel(value));
 }
