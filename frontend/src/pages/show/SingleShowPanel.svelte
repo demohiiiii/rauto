@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
@@ -12,9 +12,22 @@
   import SearchIcon from "@lucide/svelte/icons/search";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
+  import { createSingleShowPanelWorkspace } from "$domains/show/index.js";
   import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
-  import { createSingleShowPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
+  import type { Readable } from "svelte/store";
+
+  type StoreValue<T> = T extends Readable<infer Value> ? Value : never;
+  type PanelWorkspace = ReturnType<typeof createSingleShowPanelWorkspace>;
+  type PanelDisplay = StoreValue<PanelWorkspace["panelDisplayStateStore"]>;
+
+  interface Props {
+    active: boolean;
+    currentTab?: string;
+    onSelectQuery: (query: string) => unknown;
+    queryAriaLabel?: string;
+    tabItems?: Array<{ label?: string; labelKey?: string; value: string }>;
+  }
 
   let {
     active,
@@ -22,7 +35,7 @@
     onSelectQuery,
     queryAriaLabel = "",
     tabItems = [],
-  } = $props();
+  }: Props = $props();
   const singleShowPanelWorkspace = createSingleShowPanelWorkspace();
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
@@ -36,8 +49,8 @@
       resultObjectsAria: t("showResultObjectsAria"),
       rawOutputTab: t("showRawOutputTab"),
       parsedOutputTab: t("showParsedOutputTab"),
-      succeeded: t("orchestrationStatusSuccess", "Success"),
-      failed: t("orchestrationStatusFailed", "Failed"),
+      succeeded: t("orchestrationStatusSuccess"),
+      failed: t("orchestrationStatusFailed"),
     };
   });
   const {
@@ -53,7 +66,7 @@
     textfsmActionHandlers,
   } = singleShowPanelWorkspace;
 
-  let singleShowPanelDisplay = $derived($panelDisplayStateStore);
+  let singleShowPanelDisplay: PanelDisplay = $derived($panelDisplayStateStore);
   let selectionDisplay = $derived($selectionDisplayStateStore);
   let exportActionHandlers = $derived($exportActionHandlersStateStore);
   let exportLoadingState = $derived($exportLoadingStateStore);
@@ -76,7 +89,7 @@
       title: row.objectText,
       subtitle: row.modeText,
       statusLabel: row.failed ? i18nLabels.failed : i18nLabels.succeeded,
-      statusTone: row.failed ? "error" : "success",
+      statusTone: row.failed ? ("error" as const) : ("success" as const),
     })),
   );
   let failedCount = $derived(resultRows.filter((row) => row.failed).length);
@@ -100,11 +113,22 @@
     resultView = "output";
   });
 
-  function selectResult(resultKey) {
+  function selectResult(resultKey: string) {
     activeResultKey = resultKey;
     resultView = "output";
   }
 </script>
+
+{#snippet exportActions()}
+  <LoadingButton
+    variant="outline"
+    size="sm"
+    loading={exportLoadingState.exportLoading}
+    onclick={exportActionHandlers.export}
+  >
+    <span>{singleShowResults.exportButtonLabel}</span>
+  </LoadingButton>
+{/snippet}
 
 <div class="flex flex-col gap-3" hidden={!active}>
   <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
@@ -137,6 +161,7 @@
           hintKey="textfsmParseHint"
           includeTemplateInput={true}
           onEnabledChange={textfsmActionHandlers.enabledChange}
+          onExcelNameChange={() => {}}
           onPlatformChange={textfsmActionHandlers.platformChange}
           onStrictErrorsChange={textfsmActionHandlers.strictErrorsChange}
           onTemplateChange={textfsmActionHandlers.templateChange}
@@ -186,19 +211,8 @@
       totalLabel={i18nLabels.resultCount}
       succeededLabel={i18nLabels.succeeded}
       failedLabel={i18nLabels.failed}
+      actions={singleShowResults.exportAvailable ? exportActions : undefined}
     >
-      {#if singleShowResults.exportAvailable}
-        {#snippet actions()}
-          <LoadingButton
-            variant="outline"
-            size="sm"
-            loading={exportLoadingState.exportLoading}
-            onclick={exportActionHandlers.export}
-          >
-            <span>{singleShowResults.exportButtonLabel}</span>
-          </LoadingButton>
-        {/snippet}
-      {/if}
       {#snippet detail()}
         {#if showResultRow}
           <ExecutionResultMeta fields={showResultRow.metaFields} />

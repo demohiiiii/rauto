@@ -1,13 +1,26 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
+  import {
+    taskEventFilterActionHandlers,
+    type TaskDetailDisplay,
+    type TaskEventGroupRow,
+    type TaskEventsDisplay,
+  } from "$domains/tasks/index.js";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import ValueLabelSelectField from "../../components/fragments/ValueLabelSelectField.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import FileClockIcon from "@lucide/svelte/icons/file-clock";
-  import { taskEventFilterActionHandlers } from "../../modules/tasks/tasksState.js";
   import TaskDetailOverviewPanel from "./TaskDetailOverviewPanel.svelte";
+
+  interface TaskDetailPanelProps {
+    detailStatus: { message: string; tone: "error" | "running" } | null;
+    onGroupFilterChange: (value: string) => unknown;
+    onSearchInput: (value: string) => unknown;
+    taskDetail: TaskDetailDisplay;
+    taskEventsDisplay: TaskEventsDisplay;
+  }
 
   let {
     detailStatus,
@@ -15,7 +28,7 @@
     onSearchInput,
     taskDetail,
     taskEventsDisplay,
-  } = $props();
+  }: TaskDetailPanelProps = $props();
   let actionHandlers = $derived(
     taskEventFilterActionHandlers({
       onGroupFilterChange,
@@ -24,13 +37,16 @@
   );
 </script>
 
-{#snippet taskEventBadge(taskEventBadgeLabel, taskEventBadgeClass)}
+{#snippet taskEventBadge(
+  taskEventBadgeLabel: string,
+  taskEventBadgeClass: string,
+)}
   <span class={taskEventBadgeClass}>
     {taskEventBadgeLabel}
   </span>
 {/snippet}
 
-{#snippet taskEventGroup(eventGroupRow)}
+{#snippet taskEventGroup(eventGroupRow: TaskEventGroupRow)}
   <section class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
       <div class="text-sm font-semibold text-slate-900">

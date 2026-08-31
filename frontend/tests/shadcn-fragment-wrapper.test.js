@@ -762,7 +762,9 @@ test("saved connection editor preserves active target before rename refresh", ()
 });
 
 test("batch show result errors do not render placeholder dashes", () => {
-  const source = read("frontend/src/modules/operations/showQueryWorkspaces.js");
+  const source = read(
+    "frontend/src/domains/show/application/createShowWorkspaces.ts",
+  );
   const batchShowResultRowsBody = source.match(
     /function batchShowResultRows[\s\S]*?^}/m,
   )?.[0];
@@ -917,7 +919,7 @@ test("output surfaces use OutputBlock instead of global output css", () => {
 
 test("show output terminal titles prefer device names from display state", () => {
   const showWorkspaceSource = read(
-    "frontend/src/modules/operations/showQueryWorkspaces.js",
+    "frontend/src/domains/show/application/createShowWorkspaces.ts",
   );
   const singleShowPanelSource = read(
     "frontend/src/pages/show/SingleShowPanel.svelte",
@@ -940,7 +942,7 @@ test("show output terminal titles prefer device names from display state", () =>
 test("batch show results flatten device objects into the shared result navigator", () => {
   const source = read("frontend/src/pages/show/BatchShowResultsPanel.svelte");
   const workspaceSource = read(
-    "frontend/src/modules/operations/showQueryWorkspaces.js",
+    "frontend/src/domains/show/application/createShowWorkspaces.ts",
   );
 
   assert.match(source, /let activeResultKey = \$state\(""\)/);

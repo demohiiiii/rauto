@@ -62,6 +62,7 @@ test("configuration history is a dedicated local management page", () => {
   const dateTimePicker = read(
     "frontend/src/pages/config-history/DateTimePickerField.svelte",
   );
+  assert.match(dateTimePicker, /<script lang="ts">/);
   assert.match(dateTimePicker, /YYYY-MM-DD HH:mm:ss/);
   assert.match(dateTimePicker, /<Calendar/);
   assert.match(dateTimePicker, /type="time"/);

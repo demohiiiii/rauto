@@ -1,13 +1,60 @@
-import { tr as translate } from "../../lib/i18n.js";
-import { borderedPillClass, classNames, displayText } from "../../lib/ui.js";
+import { tr as translate } from "../../../lib/i18n.js";
+import { borderedPillClass, classNames, displayText } from "../../../lib/ui.js";
+import type {
+  TaskArtifact,
+  TaskEvent,
+  TaskResultSummary,
+  TaskRun,
+  TaskRunDetail,
+  TaskState,
+} from "../model/types.js";
 
-function taskOption(optionValue, optionLabel) {
-  return { label: optionLabel, value: optionValue };
+interface TaskOptionRow {
+  label: string;
+  optionLabel: string;
+  optionValue: string;
+  value: string;
 }
 
-const taskLabelText = (key, fallback = key) => translate(key, fallback);
+interface TaskBadgeRow {
+  badgeClass: string;
+  label: string;
+}
 
-function taskSearchField(value, placeholderKey, placeholderFallback) {
+type TaskBadgeTone = "cyan" | "emerald" | "rose" | "slate";
+type TaskStatusDisplay = { label: string; tone: TaskBadgeTone };
+
+interface TaskEventPresentationInput {
+  eventGroupFilter?: string;
+  eventSearchQuery?: string;
+  taskEvents?: TaskEvent[];
+}
+
+interface TaskListFilter {
+  error: string;
+  outcome: string;
+  recording: string;
+  search: string;
+  timeRange: string;
+}
+
+function taskOption(optionValue: string, optionLabel: string): TaskOptionRow {
+  return {
+    label: optionLabel,
+    optionLabel,
+    optionValue,
+    value: optionValue,
+  };
+}
+
+const taskLabelText = (key: string, fallback = key): string =>
+  translate(key, fallback);
+
+function taskSearchField(
+  value: unknown,
+  placeholderKey: string,
+  placeholderFallback: string,
+) {
   const placeholder = taskLabelText(placeholderKey, placeholderFallback);
   return {
     ariaLabelText: placeholder,
@@ -16,7 +63,7 @@ function taskSearchField(value, placeholderKey, placeholderFallback) {
   };
 }
 
-function badgeToneClass(tone = "slate") {
+function badgeToneClass(tone: TaskBadgeTone = "slate"): string {
   if (tone === "emerald") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
@@ -25,15 +72,19 @@ function badgeToneClass(tone = "slate") {
   return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
-function taskBadgeClass(tone = "slate") {
+function taskBadgeClass(tone: TaskBadgeTone = "slate"): string {
   return borderedPillClass(badgeToneClass(tone));
 }
 
-function taskStatusDisplayRow(labelKey, fallback, tone) {
+function taskStatusDisplayRow(
+  labelKey: string,
+  fallback: string,
+  tone: TaskBadgeTone,
+): TaskStatusDisplay {
   return { label: taskLabelText(labelKey, fallback), tone };
 }
 
-function taskStatusDisplay(status) {
+function taskStatusDisplay(status: unknown): TaskStatusDisplay {
   const normalized = String(status || "").toLowerCase();
   if (normalized === "queued") {
     return taskStatusDisplayRow("tasksStatusQueued", "queued", "slate");
@@ -50,7 +101,7 @@ function taskStatusDisplay(status) {
   return { label: displayText(status || "-"), tone: "slate" };
 }
 
-function taskOutcomeDisplay(outcome) {
+function taskOutcomeDisplay(outcome: unknown): TaskStatusDisplay {
   const normalized = String(outcome || "").toLowerCase();
   if (normalized === "success") {
     return taskStatusDisplayRow("tasksOutcomeSuccess", "success", "emerald");
@@ -68,7 +119,9 @@ function taskOutcomeDisplay(outcome) {
   return { label: displayText(outcome || "-"), tone: "rose" };
 }
 
-function taskRunBadgeRows(taskRun) {
+function taskRunBadgeRows(
+  taskRun: Pick<TaskRun, "outcome" | "status">,
+): TaskBadgeRow[] {
   const statusDisplay = taskStatusDisplay(taskRun.status);
   const badgeRows = [
     {
@@ -143,10 +196,17 @@ function taskFilterOptions() {
   };
 }
 
-const taskFilterCurrentValue = (filters = {}, field = "") =>
-  filters[field] ?? "";
+const taskFilterCurrentValue = (
+  filters: TaskState,
+  field: keyof TaskState,
+): string => String(filters[field] ?? "");
 
-function taskFilterField(label, optionRows, filters, field) {
+function taskFilterField(
+  label: string,
+  optionRows: TaskOptionRow[],
+  filters: TaskState,
+  field: keyof TaskState,
+) {
   return {
     currentValue: taskFilterCurrentValue(filters, field),
     label,
@@ -154,7 +214,7 @@ function taskFilterField(label, optionRows, filters, field) {
   };
 }
 
-function taskFiltersPresentation(filters = {}) {
+function taskFiltersPresentation(filters: TaskState) {
   const filterOptions = taskFilterOptions();
   return {
     clearButtonLabel: taskLabelText("tasksClearBtn", "Clear"),
@@ -228,7 +288,7 @@ function taskEventGroupOptions() {
   ];
 }
 
-function artifactGroupLabel(groupName) {
+function artifactGroupLabel(groupName: unknown): string {
   const normalized = String(groupName || "").toLowerCase();
   if (normalized === "recording_jsonl") {
     return taskLabelText("tasksArtifactGroupRecording", "Recording");
@@ -251,7 +311,7 @@ function artifactGroupLabel(groupName) {
   return displayText(groupName || "-");
 }
 
-function taskEventAuditGroup(taskEvent) {
+function taskEventAuditGroup(taskEvent: TaskEvent): string {
   const eventType = String(taskEvent?.event_type || "").toLowerCase();
   const stage = String(taskEvent?.stage || "").toLowerCase();
   const message = String(taskEvent?.message || "").toLowerCase();
@@ -271,13 +331,13 @@ function taskEventAuditGroup(taskEvent) {
   return "execution";
 }
 
-function formatTaskTimestamp(timestampValue) {
+export function formatTaskTimestamp(timestampValue: unknown): string {
   const text = displayText(timestampValue || "-");
   if (!timestampValue) return text;
   return text.replace("T", " ").replace("Z", " UTC");
 }
 
-function formatTaskDuration(ms) {
+export function formatTaskDuration(ms: unknown): string {
   if (ms == null || ms === "") return "-";
   const num = Number(ms);
   if (!Number.isFinite(num)) return displayText(ms);
@@ -286,7 +346,7 @@ function formatTaskDuration(ms) {
   return `${(num / 60000).toFixed(1)} min`;
 }
 
-function taskSummaryMetaFields(taskRun) {
+function taskSummaryMetaFields(taskRun: TaskRun) {
   const fields = [
     {
       detailValue: displayText(taskRun.operation || "-"),
@@ -324,9 +384,9 @@ function taskSummaryMetaFields(taskRun) {
   return fields;
 }
 
-function taskRunListRows(taskRuns = [], currentTaskId = "") {
+function taskRunListRows(taskRuns: TaskRun[] = [], currentTaskId = "") {
   const selectedTaskId = displayText(currentTaskId);
-  return (Array.isArray(taskRuns) ? taskRuns : []).map((taskRun) => ({
+  return taskRuns.map((taskRun) => ({
     badgeRows: taskRunBadgeRows(taskRun),
     metaFields: taskSummaryMetaFields(taskRun),
     rowClass: classNames(
@@ -340,7 +400,7 @@ function taskRunListRows(taskRuns = [], currentTaskId = "") {
   }));
 }
 
-function taskRunListPresentation(taskRuns = [], tasks = {}) {
+function taskRunListPresentation(taskRuns: TaskRun[], tasks: TaskState) {
   const taskRows = taskRunListRows(taskRuns, tasks.currentTaskId);
   const total = Array.isArray(tasks.runs) ? tasks.runs.length : 0;
   return {
@@ -356,20 +416,19 @@ function taskRunListPresentation(taskRuns = [], tasks = {}) {
   };
 }
 
-function jsonText(jsonValue) {
+function jsonText(jsonValue: unknown): string {
   return JSON.stringify(jsonValue ?? null, null, 2);
 }
 
-function groupTaskArtifacts(taskArtifacts) {
-  const grouped = new Map();
-  for (const taskArtifact of Array.isArray(taskArtifacts)
-    ? taskArtifacts
-    : []) {
+function groupTaskArtifacts(taskArtifacts: TaskArtifact[]) {
+  const grouped = new Map<string, TaskArtifact[]>();
+  for (const taskArtifact of taskArtifacts) {
     const artifactGroupName = displayText(
       taskArtifact.artifact_type || "other",
     );
-    if (!grouped.has(artifactGroupName)) grouped.set(artifactGroupName, []);
-    grouped.get(artifactGroupName).push(taskArtifact);
+    const group = grouped.get(artifactGroupName) || [];
+    group.push(taskArtifact);
+    grouped.set(artifactGroupName, group);
   }
   return Array.from(grouped.entries()).map(
     ([artifactGroupName, taskArtifactsForGroup]) => ({
@@ -379,7 +438,7 @@ function groupTaskArtifacts(taskArtifacts) {
   );
 }
 
-function taskArtifactSummaryText(taskArtifact) {
+function taskArtifactSummaryText(taskArtifact: TaskArtifact): string {
   return (
     [
       taskArtifact.size_bytes != null ? `${taskArtifact.size_bytes} bytes` : "",
@@ -393,7 +452,7 @@ function taskArtifactSummaryText(taskArtifact) {
   );
 }
 
-function taskArtifactRow(taskArtifact) {
+function taskArtifactRow(taskArtifact: TaskArtifact) {
   const contentType = displayText(taskArtifact.content_type || "");
   return {
     badgeRows: contentType
@@ -405,7 +464,7 @@ function taskArtifactRow(taskArtifact) {
   };
 }
 
-function taskArtifactGroupRows(taskArtifacts = []) {
+function taskArtifactGroupRows(taskArtifacts: TaskArtifact[] = []) {
   return groupTaskArtifacts(taskArtifacts).map((artifactGroup) => {
     const taskArtifactRows = (
       Array.isArray(artifactGroup.taskArtifacts)
@@ -428,7 +487,11 @@ function taskArtifactGroupRows(taskArtifacts = []) {
   });
 }
 
-function matchesTaskEventFilter(taskEvent, groupFilter, searchQuery) {
+function matchesTaskEventFilter(
+  taskEvent: TaskEvent,
+  groupFilter: string,
+  searchQuery: string,
+): boolean {
   if (groupFilter !== "all" && taskEventAuditGroup(taskEvent) !== groupFilter) {
     return false;
   }
@@ -447,12 +510,13 @@ function matchesTaskEventFilter(taskEvent, groupFilter, searchQuery) {
   return haystack.includes(query);
 }
 
-function groupTaskEvents(taskEvents) {
-  const grouped = new Map();
+function groupTaskEvents(taskEvents: TaskEvent[]) {
+  const grouped = new Map<string, TaskEvent[]>();
   for (const taskEvent of taskEvents) {
     const eventGroupName = taskEventAuditGroup(taskEvent);
-    if (!grouped.has(eventGroupName)) grouped.set(eventGroupName, []);
-    grouped.get(eventGroupName).push(taskEvent);
+    const group = grouped.get(eventGroupName) || [];
+    group.push(taskEvent);
+    grouped.set(eventGroupName, group);
   }
   return ["lifecycle", "execution", "audit"]
     .filter((eventGroupName) => grouped.has(eventGroupName))
@@ -462,7 +526,7 @@ function groupTaskEvents(taskEvents) {
     }));
 }
 
-function taskEventGroupLabel(groupName) {
+function taskEventGroupLabel(groupName: string): string {
   if (groupName === "lifecycle") {
     return taskLabelText("tasksEventGroupLifecycle", "Lifecycle");
   }
@@ -472,7 +536,7 @@ function taskEventGroupLabel(groupName) {
   return taskLabelText("tasksEventGroupExecution", "Execution");
 }
 
-function taskEventRow(taskEvent) {
+function taskEventRow(taskEvent: TaskEvent) {
   const level = displayText(taskEvent.level || "-");
   const stage = displayText(taskEvent.stage || "");
   const levelTone = level.toLowerCase() === "error" ? "rose" : "slate";
@@ -490,7 +554,7 @@ function taskEventRow(taskEvent) {
   };
 }
 
-function taskEventGroupRows(taskEvents = []) {
+function taskEventGroupRows(taskEvents: TaskEvent[] = []) {
   return groupTaskEvents(taskEvents).map((eventGroup) => {
     const taskEventRows = (
       Array.isArray(eventGroup.taskEvents) ? eventGroup.taskEvents : []
@@ -510,7 +574,7 @@ function taskEventsPresentation({
   eventGroupFilter = "all",
   eventSearchQuery = "",
   taskEvents = [],
-} = {}) {
+}: TaskEventPresentationInput = {}) {
   const totalCount = Array.isArray(taskEvents) ? taskEvents.length : 0;
   const filteredTaskEvents = (
     Array.isArray(taskEvents) ? taskEvents : []
@@ -536,15 +600,15 @@ function taskEventsPresentation({
   };
 }
 
-function taskDetailLine(label, detailValue) {
+function taskDetailLine(label: string, detailValue: string) {
   return { detailValue, label };
 }
 
-function taskSummaryCard(label, summaryValue) {
+function taskSummaryCard(label: string, summaryValue: string) {
   return { label, summaryValue };
 }
 
-function resultSummaryPreview(summary) {
+function resultSummaryPreview(summary: TaskResultSummary | null): string {
   return jsonText(
     summary
       ? {
@@ -576,7 +640,7 @@ function taskDetailOverviewLabels() {
   };
 }
 
-function taskDetailPresentation(detail) {
+function taskDetailPresentation(detail: TaskRunDetail | null) {
   const emptyMessage = taskLabelText(
     "tasksDetailEmpty",
     "Select a task to inspect details.",
@@ -700,18 +764,21 @@ function taskDetailPresentation(detail) {
   };
 }
 
-function parseTaskTimestamp(timestampValue) {
+function parseTaskTimestamp(timestampValue: unknown): number | null {
   const ts = Date.parse(String(timestampValue || ""));
   return Number.isFinite(ts) ? ts : null;
 }
 
-function matchesTaskTimeRange(taskRun, selectedRange) {
+export function matchesTaskTimeRange(
+  taskRun: TaskRun,
+  selectedRange: string,
+): boolean {
   if (selectedRange === "all") return true;
   const startedAt =
     parseTaskTimestamp(taskRun.started_at) ??
     parseTaskTimestamp(taskRun.completed_at);
   if (startedAt === null) return false;
-  const ranges = {
+  const ranges: Record<string, number> = {
     "1h": 60 * 60 * 1000,
     "6h": 6 * 60 * 60 * 1000,
     "24h": 24 * 60 * 60 * 1000,
@@ -721,7 +788,10 @@ function matchesTaskTimeRange(taskRun, selectedRange) {
   return windowMs ? startedAt >= Date.now() - windowMs : true;
 }
 
-function matchesTaskListFilter(taskRun, current) {
+export function matchesTaskListFilter(
+  taskRun: TaskRun,
+  current: TaskListFilter,
+): boolean {
   const query = current.search.trim().toLowerCase();
   if (query) {
     const haystack = [
@@ -754,8 +824,8 @@ function matchesTaskListFilter(taskRun, current) {
   return true;
 }
 
-function filteredTaskRuns(tasks = {}) {
-  return (Array.isArray(tasks.runs) ? tasks.runs : []).filter((taskRun) =>
+export function filteredTaskRuns(tasks: TaskState): TaskRun[] {
+  return tasks.runs.filter((taskRun) =>
     matchesTaskListFilter(taskRun, {
       error: tasks.errorFilter,
       outcome: tasks.outcome,
@@ -766,7 +836,7 @@ function filteredTaskRuns(tasks = {}) {
   );
 }
 
-export function taskPageDisplay(tasks = {}) {
+export function taskPagePresentation(tasks: TaskState) {
   const filteredTaskRunsForDisplay = filteredTaskRuns(tasks);
   const taskDetail = taskDetailPresentation(tasks.currentTaskDetail);
   const taskList = taskRunListPresentation(filteredTaskRunsForDisplay, tasks);
@@ -778,20 +848,20 @@ export function taskPageDisplay(tasks = {}) {
       eventSearchQuery: tasks.eventSearchQuery,
       taskEvents: taskDetail.taskEvents,
     }),
-    taskFilters: taskFiltersPresentation({
-      errorFilter: tasks.errorFilter,
-      limit: tasks.limit,
-      operation: tasks.operation,
-      outcome: tasks.outcome,
-      recording: tasks.recording,
-      refreshLoading: tasks.refreshLoading,
-      search: tasks.search,
-      status: tasks.status,
-      timeRange: tasks.timeRange,
-    }),
+    taskFilters: taskFiltersPresentation(tasks),
     taskRunListDisplay: {
       listStatus: tasks.listStatus,
       taskList,
     },
   };
 }
+
+export type TaskPageDisplay = ReturnType<typeof taskPagePresentation>;
+export type TaskFiltersDisplay = TaskPageDisplay["taskFilters"];
+export type TaskDetailDisplay = TaskPageDisplay["taskDetail"];
+export type TaskEventsDisplay = TaskPageDisplay["taskEventsDisplay"];
+export type TaskRunListRow =
+  TaskPageDisplay["taskRunListDisplay"]["taskList"]["taskRows"][number];
+export type TaskEventGroupRow =
+  TaskPageDisplay["taskEventsDisplay"]["eventGroupRows"][number];
+export type TaskEventDisplayRow = TaskEventGroupRow["taskEventRows"][number];

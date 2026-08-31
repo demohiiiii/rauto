@@ -1,6 +1,10 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import * as Dialog from "$lib/components/ui/dialog";
+  import {
+    inventoryCollectionActionHandlers,
+    type InventoryCollectionDisplay,
+  } from "$domains/inventory/index.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -20,7 +24,19 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import { browserConfirm } from "../../lib/browser.js";
-  import { inventoryCollectionActionHandlers } from "../../modules/inventory/inventoryPageWorkspace.js";
+
+  interface InventoryCollectionPanelProps {
+    collectionDisplay: InventoryCollectionDisplay;
+    onClearHosts: () => unknown;
+    onCreateDraft: (name: string) => Promise<unknown>;
+    onDelete: () => unknown;
+    onDescriptionInput?: (value: string) => unknown;
+    onHostFilter: (value: string) => unknown;
+    onHostSelection: (name: string, checked: boolean) => unknown;
+    onSave: () => unknown;
+    onSelectAllHosts: () => unknown;
+    onSelectCollection: (name: string) => unknown;
+  }
 
   let {
     collectionDisplay,
@@ -33,7 +49,7 @@
     onSave,
     onSelectAllHosts,
     onSelectCollection,
-  } = $props();
+  }: InventoryCollectionPanelProps = $props();
 
   let active = $derived(collectionDisplay.active);
   let collectionList = $derived(collectionDisplay.listDisplay);
@@ -62,7 +78,9 @@
     }),
   );
 
-  function updateCollectionSearch(event) {
+  function updateCollectionSearch(
+    event: Event & { currentTarget: HTMLInputElement },
+  ) {
     collectionSearch = event.currentTarget.value;
   }
 
@@ -77,17 +95,19 @@
     createDialogOpen = true;
   }
 
-  function setCreateDialogOpen(open) {
+  function setCreateDialogOpen(open: boolean) {
     if (createDialogSubmitting && !open) return;
     createDialogOpen = open;
   }
 
-  function updateCreateDialogName(event) {
+  function updateCreateDialogName(
+    event: Event & { currentTarget: HTMLInputElement },
+  ) {
     createDialogName = event.currentTarget.value;
     if (createDialogError) createDialogError = "";
   }
 
-  async function submitCreateDialog(event) {
+  async function submitCreateDialog(event: SubmitEvent) {
     event.preventDefault();
     const normalizedName = createDialogName.trim();
     if (!normalizedName) {

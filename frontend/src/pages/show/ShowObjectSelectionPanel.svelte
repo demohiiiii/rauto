@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
   import ModeExpressionField from "../../components/fragments/ModeExpressionField.svelte";
@@ -6,9 +6,33 @@
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 
   import { currentLanguageState, t } from "../../lib/i18n.js";
+  import { safeString } from "../../lib/ui.js";
+  import type {
+    ShowCommandPreviewRow,
+    ShowObjectSelectionDisplay,
+  } from "$domains/show/index.js";
 
-  let { onModeChange, onObjectChange, selectionDisplay, showSelectionFields } =
-    $props();
+  interface ShowSelectionFields {
+    mode: string;
+    modeOptions: string[];
+    objectPickerKey: string;
+    previewRows: ShowCommandPreviewRow[];
+    showResolvedCommandDetails: boolean;
+  }
+
+  interface Props {
+    onModeChange: (mode: string) => unknown;
+    onObjectChange: () => unknown;
+    selectionDisplay: ShowObjectSelectionDisplay;
+    showSelectionFields: ShowSelectionFields;
+  }
+
+  let {
+    onModeChange,
+    onObjectChange,
+    selectionDisplay,
+    showSelectionFields,
+  }: Props = $props();
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nModeLabel = $derived.by(() => {
     i18nCurrentLanguage;
@@ -16,9 +40,9 @@
   });
 </script>
 
-{#snippet previewField(label, detailValue, mono = false)}
+{#snippet previewField(label: string, detailValue: unknown, mono = false)}
   <DetailFieldCard
-    {detailValue}
+    detailValue={safeString(detailValue)}
     {label}
     {mono}
     variant="inline"
@@ -53,7 +77,10 @@
         value={showSelectionFields.mode}
         optionValues={showSelectionFields.modeOptions}
         placeholderText={selectionDisplay.modePlaceholder}
+        onChange={undefined}
+        onInput={undefined}
         onValueChange={onModeChange}
+        onValueInput={undefined}
       />
     </div>
   </div>

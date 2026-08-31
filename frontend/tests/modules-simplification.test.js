@@ -18,18 +18,14 @@ function sourceFiles(path) {
 test("modules are grouped into stable domain directories", () => {
   const moduleRoot = "frontend/src/modules";
   const expectedDomains = [
-    "auth",
     "command",
     "connections",
-    "credentials",
     "dashboard",
-    "inventory",
     "operations",
     "orchestration",
     "overlays",
     "profiles",
     "standard",
-    "tasks",
     "templates",
     "transactions",
   ];
@@ -232,9 +228,8 @@ test("transaction workspace modules do not re-export implementation state", () =
     "frontend/src/modules/orchestration/orchestrationPanelState.js",
     "frontend/src/modules/orchestration/orchestrationResultDisplayState.js",
     "frontend/src/modules/orchestration/orchestrationResultState.js",
-    "frontend/src/modules/inventory/inventoryCollectionWorkspaces.js",
     "frontend/src/domains/replay/application/createReplayPageWorkspace.ts",
-    "frontend/src/modules/operations/showQueryWorkspaces.js",
+    "frontend/src/domains/show/application/createShowWorkspaces.ts",
     "frontend/src/modules/standard/standardCommandExecutionWorkspace.js",
     "frontend/src/modules/standard/standardExecutionWorkspaces.js",
   ];

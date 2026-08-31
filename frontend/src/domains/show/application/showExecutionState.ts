@@ -1,86 +1,93 @@
 import {
-  executeShow as executeShowRequest,
-  executeShowBatch as executeShowBatchRequest,
-  exportTextfsmExcel,
-  listShowObjects,
-} from "../../api/client.js";
-import { normalizeShowQuery, SHOW_QUERY } from "../../config/dashboardModes.js";
+  normalizeShowQuery,
+  SHOW_QUERY,
+} from "../../../config/dashboardModes.js";
 import { get as getStore, writable } from "svelte/store";
-import { t } from "../../lib/i18n.js";
-import { downloadBlob, safeString } from "../../lib/ui.js";
+import { t } from "../../../lib/i18n.js";
+import { downloadBlob, safeString } from "../../../lib/ui.js";
+import { showApi } from "../infrastructure/showApi.js";
+import { showRuntime } from "../infrastructure/showRuntime.js";
 import {
-  applyRecordDrawerRecording,
-  recordLevelPayload,
-} from "../overlays/overlays.js";
-import { parsedOutputSheetsFromBatchShow } from "./results.js";
-import {
-  executionConnectionProfileState,
-  refreshExecutionModeOptionsForCurrentConnection,
-} from "../profiles/profiles.js";
-import {
-  CONNECTION_PICKER,
-  connectionPickerValues,
-  hideConnectionPickerMenu,
-  refreshConnectionPickerSelected,
-  setShowObjectPickerOptions,
-  showObjectOptionMeta,
-} from "../connections/connectionFieldStoreState.js";
-import {
-  connectionPayload,
-  connectionTargetState,
-  currentExecutionConnectionProfile,
-  ensureConnectionTargetSelected,
-  savedConnectionSelectState,
-} from "../connections/connections.js";
-import { setCustomShowObjectsChangedCallback } from "../templates/templatesShowObjects.js";
+  intersectBatchShowObjectPayloads,
+  normalizeBatchMaxParallel,
+  resolveBatchShowTargetConnections,
+} from "../model/show.js";
+import type {
+  BatchShowExecutionResult,
+  BatchShowObjectAvailability,
+  ShowCommandPreviewRow,
+  ShowExecutionResult,
+  ShowObjectDefinition,
+  ShowObjectsPayload,
+  ShowStateContext,
+} from "../model/types.js";
+import { parsedOutputSheetsFromBatchShow } from "../../../modules/operations/results.js";
+import { CONNECTION_PICKER } from "../../../modules/connections/connectionFieldStoreState.js";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,
-} from "./sessionRetry.js";
+} from "../../../modules/operations/sessionRetry.js";
+
+type ShowFormFields = Record<string, unknown>;
+type ShowQueryKey = string;
+
+interface ShowQueryConfig {
+  key: string;
+  objectPicker: string;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export const showExecutionConnectionProfileState =
-  executionConnectionProfileState;
-export const showConnectionTargetState = connectionTargetState;
+  showRuntime.executionConnectionProfileState;
+export const showConnectionTargetState = showRuntime.connectionTargetState;
 export const refreshShowExecutionModeOptions =
-  refreshExecutionModeOptionsForCurrentConnection;
+  showRuntime.refreshExecutionModeOptions;
 
-export const EMPTY_RESULT = { kind: "empty" };
+export const EMPTY_RESULT = { kind: "empty" } as const;
 export const EMPTY_BATCH_SHOW_OBJECT_AVAILABILITY = Object.freeze({
   connectionCount: 0,
-  missingProfileNames: [],
+  missingProfileNames: [] as string[],
   objectCount: 0,
-  profiles: [],
-  status: "waiting",
-});
+  profiles: [] as string[],
+  status: "waiting" as const,
+}) as BatchShowObjectAvailability;
 export const DEFAULT_SHOW_PAGE_QUERY = normalizeShowQuery(SHOW_QUERY.single);
 
-const SHOW_QUERY_CONFIG = Object.freeze({
-  [SHOW_QUERY.single]: {
-    key: SHOW_QUERY.single,
-    objectPicker: CONNECTION_PICKER.showObject,
-  },
-  [SHOW_QUERY.batch]: {
-    key: SHOW_QUERY.batch,
-    objectPicker: CONNECTION_PICKER.batchShowObject,
-  },
-});
+const SHOW_QUERY_CONFIG: Readonly<Record<string, ShowQueryConfig>> =
+  Object.freeze({
+    [SHOW_QUERY.single]: {
+      key: SHOW_QUERY.single,
+      objectPicker: CONNECTION_PICKER.showObject,
+    },
+    [SHOW_QUERY.batch]: {
+      key: SHOW_QUERY.batch,
+      objectPicker: CONNECTION_PICKER.batchShowObject,
+    },
+  });
 
-function createShowStateContext() {
+function createShowStateContext(): ShowStateContext {
   return {
-    batchShowExecutionResult: writable(EMPTY_RESULT),
-    batchShowObjectAvailability: writable(EMPTY_BATCH_SHOW_OBJECT_AVAILABILITY),
+    batchShowExecutionResult: writable<BatchShowExecutionResult>(EMPTY_RESULT),
+    batchShowObjectAvailability: writable<BatchShowObjectAvailability>(
+      EMPTY_BATCH_SHOW_OBJECT_AVAILABILITY,
+    ),
     batchShowObjectsRequestSeq: 0,
-    showCommandPreviewRows: writable({}),
-    showExecutionResult: writable(EMPTY_RESULT),
-    showFormFieldsState: new Map(),
-    showObjectPlatformState: new Map(),
+    showCommandPreviewRows: writable<Record<string, ShowCommandPreviewRow[]>>(
+      {},
+    ),
+    showExecutionResult: writable<ShowExecutionResult>(EMPTY_RESULT),
+    showFormFieldsState: new Map<string, ShowFormFields>(),
+    showObjectPlatformState: new Map<string, string>(),
     showObjectsRequestSeq: 0,
   };
 }
 
-let showStateContext = null;
+let showStateContext: ShowStateContext | null = null;
 
-function currentShowStateContext() {
+function currentShowStateContext(): ShowStateContext {
   if (!showStateContext) {
     showStateContext = createShowStateContext();
   }
@@ -104,10 +111,10 @@ export function showCommandPreviewRowsState() {
 }
 
 function setShowFormFields(
-  key,
-  fields = {},
-  stateContext = currentShowStateContext(),
-) {
+  key: string,
+  fields: ShowFormFields = {},
+  stateContext: ShowStateContext = currentShowStateContext(),
+): void {
   stateContext.showFormFieldsState.set(
     key,
     fields && typeof fields === "object" && !Array.isArray(fields)
@@ -116,7 +123,7 @@ function setShowFormFields(
   );
 }
 
-function showTextfsmPayloadFromFields(textfsmFields = {}) {
+function showTextfsmPayloadFromFields(textfsmFields: ShowFormFields = {}) {
   return {
     excelName: safeString(textfsmFields.excelName ?? "").trim(),
     parseTextfsm: !!textfsmFields.enabled,
@@ -126,15 +133,18 @@ function showTextfsmPayloadFromFields(textfsmFields = {}) {
   };
 }
 
-export function setSingleShowFields(showFields = {}) {
+export function setSingleShowFields(showFields: ShowFormFields = {}): void {
   setShowFormFields("show", { mode: safeString(showFields.mode) });
 }
 
-export function setShowTextfsmFields(textfsmFields = {}) {
+export function setShowTextfsmFields(textfsmFields: ShowFormFields = {}): void {
   setShowFormFields("textfsm", showTextfsmPayloadFromFields(textfsmFields));
 }
 
-export function setBatchShowFields(showFields = {}, textfsmFields = {}) {
+export function setBatchShowFields(
+  showFields: ShowFormFields = {},
+  textfsmFields: ShowFormFields = {},
+): void {
   setShowFormFields("batchShow", {
     maxParallel: safeString(showFields.maxParallel ?? ""),
     mode: safeString(showFields.mode),
@@ -142,95 +152,33 @@ export function setBatchShowFields(showFields = {}, textfsmFields = {}) {
   });
 }
 
-export function setSingleShowRetryFields(retry = createSessionRetryState()) {
+export function setSingleShowRetryFields(
+  retry: ShowFormFields = createSessionRetryState(),
+): void {
   setShowFormFields("singleRetry", retry);
 }
 
-export function setBatchShowRetryFields(retry = createSessionRetryState()) {
+export function setBatchShowRetryFields(
+  retry: ShowFormFields = createSessionRetryState(),
+): void {
   setShowFormFields("batchRetry", retry);
 }
 
-export function normalizeBatchMaxParallel(value) {
-  const parsed = Number.parseInt(safeString(value).trim(), 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function normalizedSelectionSet(values = []) {
-  return new Set(
-    (Array.isArray(values) ? values : [])
-      .map((value) => safeString(value).trim())
-      .filter(Boolean),
-  );
-}
-
-export function resolveBatchShowTargetConnections({
-  connections = [],
-  groups = [],
-  labels = [],
-  targets = [],
-} = {}) {
-  const targetNames = normalizedSelectionSet(targets);
-  const groupNames = normalizedSelectionSet(groups);
-  const labelNames = normalizedSelectionSet(labels);
-  return (Array.isArray(connections) ? connections : []).filter(
-    (connection) => {
-      const name = safeString(connection?.name).trim();
-      const connectionGroups = Array.isArray(connection?.groups)
-        ? connection.groups
-        : [];
-      const connectionLabels = Array.isArray(connection?.labels)
-        ? connection.labels
-        : [];
-      return (
-        targetNames.has(name) ||
-        connectionGroups.some((group) =>
-          groupNames.has(safeString(group).trim()),
-        ) ||
-        connectionLabels.some((label) =>
-          labelNames.has(safeString(label).trim()),
-        )
-      );
-    },
-  );
-}
-
-export function intersectBatchShowObjectPayloads(payloads = []) {
-  const normalizedPayloads = Array.isArray(payloads) ? payloads : [];
-  if (!normalizedPayloads.length) return [];
-  const firstObjects = Array.isArray(normalizedPayloads[0]?.objects)
-    ? normalizedPayloads[0].objects
-    : [];
-  const remainingObjectSets = normalizedPayloads
-    .slice(1)
-    .map(
-      (payload) =>
-        new Set(
-          (Array.isArray(payload?.objects) ? payload.objects : [])
-            .map((object) => safeString(object?.object).trim())
-            .filter(Boolean),
-        ),
-    );
-  const seenObjects = new Set();
-  return firstObjects.filter((object) => {
-    const objectName = safeString(object?.object).trim();
-    if (!objectName || seenObjects.has(objectName)) return false;
-    seenObjects.add(objectName);
-    return remainingObjectSets.every((objectSet) => objectSet.has(objectName));
-  });
-}
-
-function showFormFields(key, stateContext = currentShowStateContext()) {
+function showFormFields(
+  key: string,
+  stateContext: ShowStateContext = currentShowStateContext(),
+): ShowFormFields {
   const fields = stateContext.showFormFieldsState.get(key);
   return fields && typeof fields === "object" && !Array.isArray(fields)
     ? fields
     : {};
 }
 
-export function isBatchShowBusy(keys = []) {
+export function isBatchShowBusy(keys: string[] = []): boolean {
   return (keys || []).includes("execute");
 }
 
-function showQueryConfig(queryOrKey) {
+function showQueryConfig(queryOrKey: unknown): ShowQueryConfig {
   const key = safeString(queryOrKey || "").trim();
   return (
     SHOW_QUERY_CONFIG[key] ||
@@ -241,25 +189,28 @@ function showQueryConfig(queryOrKey) {
   );
 }
 
-export function showObjectPickerKey(queryOrKey) {
+export function showObjectPickerKey(queryOrKey: unknown): string {
   return showQueryConfig(queryOrKey).objectPicker;
 }
 
 function setShowExecutionResult(
-  executionResult = {},
-  stateContext = currentShowStateContext(),
-) {
-  stateContext.showExecutionResult.set(executionResult || EMPTY_RESULT);
+  executionResult: ShowExecutionResult = EMPTY_RESULT,
+  stateContext: ShowStateContext = currentShowStateContext(),
+): void {
+  stateContext.showExecutionResult.set(executionResult);
 }
 
 function setBatchShowExecutionResult(
-  executionResult = {},
-  stateContext = currentShowStateContext(),
-) {
-  stateContext.batchShowExecutionResult.set(executionResult || EMPTY_RESULT);
+  executionResult: BatchShowExecutionResult = EMPTY_RESULT,
+  stateContext: ShowStateContext = currentShowStateContext(),
+): void {
+  stateContext.batchShowExecutionResult.set(executionResult);
 }
 
-function textfsmPlatformValue(form = {}, override = "") {
+function textfsmPlatformValue(
+  form: ShowFormFields = {},
+  override = "",
+): string | null {
   return (
     safeString(override ?? "").trim() ||
     safeString(form.textfsmPlatform ?? form.textfsm_platform ?? "").trim() ||
@@ -267,16 +218,16 @@ function textfsmPlatformValue(form = {}, override = "") {
   );
 }
 
-function textfsmParseEnabled(form = {}) {
+function textfsmParseEnabled(form: ShowFormFields = {}): boolean {
   return !!(form.parseTextfsm ?? form.parse_textfsm);
 }
 
-function textfsmStrictErrors(form = {}) {
+function textfsmStrictErrors(form: ShowFormFields = {}): boolean {
   return !!(form.textfsmStrictErrors ?? form.textfsm_strict_errors);
 }
 
 function textfsmPayload(
-  form = showFormFields("textfsm"),
+  form: ShowFormFields = showFormFields("textfsm"),
   platformOverride = "",
 ) {
   return {
@@ -287,10 +238,10 @@ function textfsmPayload(
 }
 
 function setShowCommandPreviewRows(
-  queryOrKey,
-  rows = [],
-  stateContext = currentShowStateContext(),
-) {
+  queryOrKey: unknown,
+  rows: ShowCommandPreviewRow[] = [],
+  stateContext: ShowStateContext = currentShowStateContext(),
+): void {
   const config = showQueryConfig(queryOrKey);
   stateContext.showCommandPreviewRows.update((currentRows) => ({
     ...currentRows,
@@ -298,11 +249,15 @@ function setShowCommandPreviewRows(
   }));
 }
 
-function selectedShowObjects(queryOrKey) {
-  return connectionPickerValues(showObjectPickerKey(queryOrKey));
+function selectedShowObjects(queryOrKey: unknown): string[] {
+  return showRuntime.pickerValues(showObjectPickerKey(queryOrKey));
 }
 
-function showBasePayload(queryOrKey, form, textfsm = textfsmPayload(form)) {
+function showBasePayload(
+  queryOrKey: unknown,
+  form: ShowFormFields,
+  textfsm = textfsmPayload(form),
+): Record<string, unknown> {
   const objects = selectedShowObjects(queryOrKey);
   return {
     object: objects[0] || "",
@@ -312,7 +267,13 @@ function showBasePayload(queryOrKey, form, textfsm = textfsmPayload(form)) {
   };
 }
 
-function showExecutionPayload({ connection, recordLevel }) {
+function showExecutionPayload({
+  connection,
+  recordLevel,
+}: {
+  connection: Record<string, unknown>;
+  recordLevel: unknown;
+}): Record<string, unknown> {
   return {
     ...showBasePayload(
       SHOW_QUERY.single,
@@ -325,27 +286,29 @@ function showExecutionPayload({ connection, recordLevel }) {
   };
 }
 
-function batchShowExecutionPayload({ recordLevel }) {
+function batchShowExecutionPayload({ recordLevel }: { recordLevel: unknown }) {
   const batchForm = showFormFields("batchShow");
   const maxParallel = normalizeBatchMaxParallel(batchForm.maxParallel);
   return {
     ...showBasePayload(SHOW_QUERY.batch, batchForm),
-    targets: connectionPickerValues(CONNECTION_PICKER.batchShowTargets),
-    groups: connectionPickerValues(CONNECTION_PICKER.batchShowGroups),
-    labels: connectionPickerValues(CONNECTION_PICKER.batchShowLabels),
+    targets: showRuntime.pickerValues(CONNECTION_PICKER.batchShowTargets),
+    groups: showRuntime.pickerValues(CONNECTION_PICKER.batchShowGroups),
+    labels: showRuntime.pickerValues(CONNECTION_PICKER.batchShowLabels),
     ...(maxParallel ? { max_parallel: maxParallel } : {}),
     ...sessionRetryRequestFields(showFormFields("batchRetry")),
     record_level: recordLevel,
   };
 }
 
-async function exportBatchShowExcelIfRequested(batchShowResult) {
+async function exportBatchShowExcelIfRequested(
+  batchShowResult: Record<string, unknown>,
+): Promise<void> {
   const batchForm = showFormFields("batchShow");
   const filename = safeString(batchForm.excelName ?? "").trim() || "";
   if (!filename) return;
   const sheets = parsedOutputSheetsFromBatchShow(batchShowResult);
   if (!sheets.length) return;
-  const { blob, filename: responseFilename } = await exportTextfsmExcel({
+  const { blob, filename: responseFilename } = await showApi.exportExcel({
     filename,
     sheets,
   });
@@ -353,20 +316,21 @@ async function exportBatchShowExcelIfRequested(batchShowResult) {
 }
 
 function showObjectQueryPayload(platformOverride = "") {
-  const profile = safeString(currentExecutionConnectionProfile()).trim();
+  const profile = safeString(showRuntime.currentExecutionProfile()).trim();
   return {
     deviceProfile: profile && profile !== "autodetect" ? profile : "",
     textfsmPlatform:
-      textfsmPayload(undefined, platformOverride).textfsm_platform || "",
+      textfsmPayload(showFormFields("textfsm"), platformOverride)
+        .textfsm_platform || "",
   };
 }
 
 function refreshObjectOptions(
-  queryOrKey,
-  showObjectsPayload,
-  selected = "",
-  onRefreshed = null,
-) {
+  queryOrKey: unknown,
+  showObjectsPayload: ShowObjectsPayload,
+  selected: string | string[] = "",
+  onRefreshed: (() => void) | null = null,
+): void {
   const pickerKey = showObjectPickerKey(queryOrKey);
   const objects = Array.isArray(showObjectsPayload?.objects)
     ? showObjectsPayload.objects
@@ -378,13 +342,13 @@ function refreshObjectOptions(
       : [];
 
   function finishPickerRefresh() {
-    refreshConnectionPickerSelected(pickerKey);
-    hideConnectionPickerMenu(pickerKey);
-    if (typeof onRefreshed === "function") onRefreshed();
+    showRuntime.refreshPickerSelected(pickerKey);
+    showRuntime.hidePickerMenu(pickerKey);
+    onRefreshed?.();
   }
 
   if (
-    setShowObjectPickerOptions(
+    showRuntime.setObjectPickerOptions(
       pickerKey,
       objects,
       selectedValues,
@@ -397,8 +361,12 @@ function refreshObjectOptions(
   finishPickerRefresh();
 }
 
-function showCommandPreviewRow(object, objectPicker, platform) {
-  const meta = showObjectOptionMeta(objectPicker, object);
+function showCommandPreviewRow(
+  object: string,
+  objectPicker: string,
+  platform: string,
+): ShowCommandPreviewRow {
+  const meta = showRuntime.showObjectOptionMeta(objectPicker, object);
   return {
     commandText: safeString(meta.command || "-"),
     fields: {
@@ -413,7 +381,10 @@ function showCommandPreviewRow(object, objectPicker, platform) {
   };
 }
 
-function updateShowCommandPreviewFor(queryOrKey, platform = "") {
+function updateShowCommandPreviewFor(
+  queryOrKey: ShowQueryKey,
+  platform = "",
+): void {
   const config = showQueryConfig(queryOrKey);
   const selectedObjects = selectedShowObjects(config.key);
   const platformText =
@@ -426,20 +397,20 @@ function updateShowCommandPreviewFor(queryOrKey, platform = "") {
   setShowCommandPreviewRows(config.key, previewRows);
 }
 
-export function updateShowCommandPreview(platform = "") {
+export function updateShowCommandPreview(platform = ""): void {
   updateShowCommandPreviewFor(SHOW_QUERY.single, platform);
 }
 
-export function updateBatchShowCommandPreview(platform = "") {
+export function updateBatchShowCommandPreview(platform = ""): void {
   updateShowCommandPreviewFor(SHOW_QUERY.batch, platform);
 }
 
-export async function loadShowObjects(platformOverride = "") {
+export async function loadShowObjects(platformOverride = ""): Promise<void> {
   const stateContext = currentShowStateContext();
   const selected = selectedShowObjects(SHOW_QUERY.single);
   const requestSeq = ++stateContext.showObjectsRequestSeq;
   try {
-    const showObjectsPayload = await listShowObjects(
+    const showObjectsPayload = await showApi.listObjects(
       showObjectQueryPayload(platformOverride),
     );
     if (requestSeq !== stateContext.showObjectsRequestSeq) return;
@@ -454,15 +425,15 @@ export async function loadShowObjects(platformOverride = "") {
     );
   } catch (error) {
     if (requestSeq !== stateContext.showObjectsRequestSeq) return;
-    setShowExecutionResult({ kind: "error", message: error.message });
+    setShowExecutionResult({ kind: "error", message: errorMessage(error) });
   }
 }
 
 function currentBatchShowTargetSelection() {
-  const targets = connectionPickerValues(CONNECTION_PICKER.batchShowTargets);
-  const groups = connectionPickerValues(CONNECTION_PICKER.batchShowGroups);
-  const labels = connectionPickerValues(CONNECTION_PICKER.batchShowLabels);
-  const savedConnectionState = getStore(savedConnectionSelectState);
+  const targets = showRuntime.pickerValues(CONNECTION_PICKER.batchShowTargets);
+  const groups = showRuntime.pickerValues(CONNECTION_PICKER.batchShowGroups);
+  const labels = showRuntime.pickerValues(CONNECTION_PICKER.batchShowLabels);
+  const savedConnectionState = getStore(showRuntime.savedConnectionSelectState);
   const connections = resolveBatchShowTargetConnections({
     connections: savedConnectionState?.connections,
     groups,
@@ -491,19 +462,23 @@ function currentBatchShowTargetSelection() {
   };
 }
 
-function setBatchShowObjectAvailability(availability = {}) {
+function setBatchShowObjectAvailability(
+  availability: Partial<BatchShowObjectAvailability> = {},
+): void {
   currentShowStateContext().batchShowObjectAvailability.set({
     ...EMPTY_BATCH_SHOW_OBJECT_AVAILABILITY,
     ...availability,
   });
 }
 
-function clearBatchShowObjectOptions(onRefreshed = null) {
+function clearBatchShowObjectOptions(
+  onRefreshed: (() => void) | null = null,
+): void {
   currentShowStateContext().showObjectPlatformState.set(SHOW_QUERY.batch, "");
   refreshObjectOptions(SHOW_QUERY.batch, { objects: [] }, [], onRefreshed);
 }
 
-export async function loadBatchShowObjects() {
+export async function loadBatchShowObjects(): Promise<void> {
   const stateContext = currentShowStateContext();
   const selected = selectedShowObjects(SHOW_QUERY.batch);
   const requestSeq = ++stateContext.batchShowObjectsRequestSeq;
@@ -537,7 +512,7 @@ export async function loadBatchShowObjects() {
   try {
     const profilePayloads = await Promise.all(
       targetSelection.profiles.map((deviceProfile) =>
-        listShowObjects({ deviceProfile }),
+        showApi.listObjects({ deviceProfile }),
       ),
     );
     if (requestSeq !== stateContext.batchShowObjectsRequestSeq) return;
@@ -569,32 +544,19 @@ export async function loadBatchShowObjects() {
     clearBatchShowObjectOptions(() => updateBatchShowCommandPreview());
     setBatchShowObjectAvailability({
       connectionCount,
-      errorMessage: error.message,
+      errorMessage: errorMessage(error),
       profiles: targetSelection.profiles,
       status: "error",
     });
   }
 }
 
-export function showConnectionTargetIdentity(target = {}) {
-  const details =
-    target && typeof target === "object" && target.details
-      ? target.details
-      : {};
-  return [
-    target && typeof target === "object" && target.kind ? target.kind : "none",
-    details.name || "",
-    details.host || "",
-    details.profile || details.device_profile || "",
-  ].join("|");
-}
-
-export async function refreshShowObjects() {
+export async function refreshShowObjects(): Promise<void> {
   await Promise.allSettled([loadShowObjects(), loadBatchShowObjects()]);
 }
 
-export async function executeShowObject() {
-  if (!ensureConnectionTargetSelected()) {
+export async function executeShowObject(): Promise<void> {
+  if (!showRuntime.ensureConnectionTargetSelected()) {
     return;
   }
   const objects = selectedShowObjects(SHOW_QUERY.single);
@@ -608,25 +570,25 @@ export async function executeShowObject() {
   setShowExecutionResult({ kind: "running" });
   try {
     const basePayload = showExecutionPayload({
-      connection: connectionPayload(),
-      recordLevel: recordLevelPayload(),
+      connection: showRuntime.connectionPayload(),
+      recordLevel: showRuntime.recordLevelPayload(),
     });
     const showResults = [];
     for (const object of objects) {
-      showResults.push(await executeShowRequest({ ...basePayload, object }));
+      showResults.push(await showApi.execute({ ...basePayload, object }));
     }
     setShowExecutionResult({
       kind: "result",
       basePayload,
       results: showResults,
     });
-    applyRecordDrawerRecording(showResults[showResults.length - 1]);
+    showRuntime.applyRecording(showResults[showResults.length - 1]);
   } catch (error) {
-    setShowExecutionResult({ kind: "error", message: error.message });
+    setShowExecutionResult({ kind: "error", message: errorMessage(error) });
   }
 }
 
-export async function executeBatchShowObject() {
+export async function executeBatchShowObject(): Promise<void> {
   const objects = selectedShowObjects(SHOW_QUERY.batch);
   if (!objects.length) {
     setBatchShowExecutionResult({
@@ -636,7 +598,7 @@ export async function executeBatchShowObject() {
     return;
   }
   const payload = batchShowExecutionPayload({
-    recordLevel: recordLevelPayload(),
+    recordLevel: showRuntime.recordLevelPayload(),
   });
   if (
     !payload.targets.length &&
@@ -651,7 +613,7 @@ export async function executeBatchShowObject() {
   }
   setBatchShowExecutionResult({ kind: "running" });
   try {
-    const batchShowResult = await executeShowBatchRequest({
+    const batchShowResult = await showApi.executeBatch({
       ...payload,
       object: objects[0],
       objects,
@@ -662,8 +624,11 @@ export async function executeBatchShowObject() {
     });
     await exportBatchShowExcelIfRequested(batchShowResult);
   } catch (error) {
-    setBatchShowExecutionResult({ kind: "error", message: error.message });
+    setBatchShowExecutionResult({
+      kind: "error",
+      message: errorMessage(error),
+    });
   }
 }
 
-setCustomShowObjectsChangedCallback(() => refreshShowObjects());
+showRuntime.setCustomObjectsChangedCallback(() => refreshShowObjects());

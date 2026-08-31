@@ -83,7 +83,7 @@ test("batch command and show result views use the shared failure decision", () =
     "utf8",
   );
   const showWorkspace = readFileSync(
-    "frontend/src/modules/operations/showQueryWorkspaces.js",
+    "frontend/src/domains/show/application/createShowWorkspaces.ts",
     "utf8",
   );
   const singleShow = readFileSync(

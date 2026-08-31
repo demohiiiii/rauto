@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";
   import ConnectionPickerField from "../../components/connections/ConnectionPickerField.svelte";
@@ -10,8 +10,21 @@
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { createBatchShowInputPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
+  import { createBatchShowInputPanelWorkspace } from "$domains/show/index.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
+  import type { Readable } from "svelte/store";
+
+  type StoreValue<T> = T extends Readable<infer Value> ? Value : never;
+  type PanelWorkspace = ReturnType<typeof createBatchShowInputPanelWorkspace>;
+  type PanelDisplay = StoreValue<PanelWorkspace["panelDisplayStateStore"]>;
+
+  interface Props {
+    active: boolean;
+    currentTab?: string;
+    onSelectQuery: (query: string) => unknown;
+    queryAriaLabel?: string;
+    tabItems?: Array<{ label?: string; labelKey?: string; value: string }>;
+  }
 
   let {
     active,
@@ -19,7 +32,7 @@
     onSelectQuery,
     queryAriaLabel = "",
     tabItems = [],
-  } = $props();
+  }: Props = $props();
   const batchShowInputPanelWorkspace = createBatchShowInputPanelWorkspace();
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
@@ -44,7 +57,7 @@
     textfsmActionHandlers,
   } = batchShowInputPanelWorkspace;
 
-  let batchShowPanelDisplay = $derived($panelDisplayStateStore);
+  let batchShowPanelDisplay: PanelDisplay = $derived($panelDisplayStateStore);
   let selectionDisplay = $derived($selectionDisplayStateStore);
   let batchShowInputDisplay = $derived(batchShowPanelDisplay.inputDisplay);
   let showSelectionFields = $derived(batchShowPanelDisplay.selectionFields);
@@ -118,6 +131,7 @@
           onExcelNameChange={textfsmActionHandlers.excelNameChange}
           onPlatformChange={textfsmActionHandlers.platformChange}
           onStrictErrorsChange={textfsmActionHandlers.strictErrorsChange}
+          onTemplateChange={() => {}}
           textfsmFields={showTextfsmFields}
         />
       {/if}

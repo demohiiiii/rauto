@@ -1,12 +1,29 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
+  import {
+    taskFiltersActionHandlers,
+    type TaskFiltersDisplay,
+  } from "$domains/tasks/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import ListFilterIcon from "@lucide/svelte/icons/list-filter";
-  import { taskFiltersActionHandlers } from "../../modules/tasks/tasksState.js";
+
+  interface TaskFiltersPanelProps {
+    taskFilters: TaskFiltersDisplay;
+    onClearFilters: () => unknown;
+    onErrorFilterChange: (value: string) => unknown;
+    onLimitChange: (value: string) => unknown;
+    onOperationChange: (value: string) => unknown;
+    onOutcomeChange: (value: string) => unknown;
+    onRecordingChange: (value: string) => unknown;
+    onRefresh: () => unknown;
+    onSearchInput: (value: string) => unknown;
+    onStatusChange: (value: string) => unknown;
+    onTimeRangeChange: (value: string) => unknown;
+  }
 
   let {
     taskFilters,
@@ -20,7 +37,7 @@
     onSearchInput,
     onStatusChange,
     onTimeRangeChange,
-  } = $props();
+  }: TaskFiltersPanelProps = $props();
   let actionHandlers = $derived(
     taskFiltersActionHandlers({
       onErrorFilterChange,

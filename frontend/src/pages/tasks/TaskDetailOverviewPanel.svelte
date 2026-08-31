@@ -1,19 +1,20 @@
-<script>
+<script lang="ts">
+  import type { TaskDetailDisplay } from "$domains/tasks/index.js";
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
 
-  let { taskDetail } = $props();
+  let { taskDetail }: { taskDetail: TaskDetailDisplay } = $props();
 </script>
 
-{#snippet taskBadge(taskBadgeLabel, taskBadgeClass)}
+{#snippet taskBadge(taskBadgeLabel: string, taskBadgeClass: string)}
   <span class={taskBadgeClass}>
     {taskBadgeLabel}
   </span>
 {/snippet}
 
-{#snippet taskJsonOutputSection(sectionTitle, jsonPreviewText)}
+{#snippet taskJsonOutputSection(sectionTitle: string, jsonPreviewText: string)}
   <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">
     <div class="text-sm font-semibold text-slate-900">
       {sectionTitle}

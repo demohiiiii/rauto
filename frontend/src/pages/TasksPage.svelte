@@ -1,16 +1,16 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
+  import { createTasksPageWorkspace } from "$domains/tasks/index.js";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import DetailFieldCard from "../components/fragments/DetailFieldCard.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import ClipboardListIcon from "@lucide/svelte/icons/clipboard-list";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { createTasksPageWorkspace } from "../modules/tasks/tasksState.js";
   import TaskDetailPanel from "./tasks/TaskDetailPanel.svelte";
   import TaskFiltersPanel from "./tasks/TaskFiltersPanel.svelte";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   const tasksPageWorkspace = createTasksPageWorkspace();
   const { taskDisplayStateStore } = tasksPageWorkspace;
   let taskDisplay = $derived($taskDisplayStateStore);

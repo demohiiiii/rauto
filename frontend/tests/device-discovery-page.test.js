@@ -14,7 +14,7 @@ test("auto discovery is a dedicated operations page", () => {
     "frontend/src/components/layout/DashboardSidebar.svelte",
   );
   const presentation = read(
-    "frontend/src/modules/inventory/inventoryCollectionWorkspaces.js",
+    "frontend/src/domains/inventory/presentation/inventoryPresentation.ts",
   );
 
   assert.match(modes, /devices: "devices"/);
@@ -42,7 +42,7 @@ test("auto discovery is a dedicated operations page", () => {
   assert.doesNotMatch(presentation, /discoveryActive:/);
   assert.match(
     presentation,
-    /labelsActive: normalizedSection === INVENTORY_KIND\.labels/,
+    /labelsActive: state\.currentSection === "labels"/,
   );
 });
 

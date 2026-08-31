@@ -1,16 +1,17 @@
-<script>
+<script lang="ts">
   import { showQueryTabs } from "../config/dashboardModes.js";
-  import { afterDomUpdate } from "../lib/svelte.js";
-  import { createShowPageWorkspace } from "../modules/operations/showQueryWorkspaces.js";
   import {
+    createShowPageWorkspace,
     showConnectionTargetState,
     showExecutionConnectionProfileState,
-  } from "../modules/operations/showQueryState.js";
+  } from "$domains/show/index.js";
+  import { afterDomUpdate } from "../lib/svelte.js";
   import BatchShowInputPanel from "./show/BatchShowInputPanel.svelte";
   import BatchShowResultsPanel from "./show/BatchShowResultsPanel.svelte";
   import SingleShowPanel from "./show/SingleShowPanel.svelte";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
+  const showQueryTabItems = [...showQueryTabs];
   const showPageWorkspace = createShowPageWorkspace({ afterDomUpdate });
   const {
     batchResultDisplayStateStore,
@@ -43,7 +44,7 @@
     {#if singleActive}
       <SingleShowPanel
         active={true}
-        tabItems={showQueryTabs}
+        tabItems={showQueryTabItems}
         {currentTab}
         queryAriaLabel={pageDisplay.queryAriaLabel}
         onSelectQuery={showPageWorkspace.selectQuery}
@@ -52,7 +53,7 @@
       <div class="grid gap-3">
         <BatchShowInputPanel
           active={true}
-          tabItems={showQueryTabs}
+          tabItems={showQueryTabItems}
           {currentTab}
           queryAriaLabel={pageDisplay.queryAriaLabel}
           onSelectQuery={showPageWorkspace.selectQuery}

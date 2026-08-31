@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+  import type { Component } from "svelte";
   import LockKeyholeIcon from "@lucide/svelte/icons/lock-keyhole";
   import LogInIcon from "@lucide/svelte/icons/log-in";
   import NetworkIcon from "@lucide/svelte/icons/network";
@@ -12,8 +13,8 @@
   import { Label } from "$lib/components/ui/label/index.js";
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { Spinner } from "$lib/components/ui/spinner/index.js";
+  import { createWebAuthWorkspace } from "$domains/auth/index.js";
   import { createDashboardAppWorkspace } from "./modules/dashboard/dashboardApp.js";
-  import { createWebAuthWorkspace } from "./modules/auth/webAuth.js";
 
   const webAuthWorkspace = createWebAuthWorkspace();
   const dashboardAppWorkspace = createDashboardAppWorkspace();
@@ -32,16 +33,22 @@
     dashboardBodyLoadErrorStateStore,
     ensureDashboardBodyComponentLoaded,
   } = dashboardAppWorkspace;
-  let LoadedBodyComponent = $derived($dashboardBodyComponentStateStore);
+  type DashboardBodyComponent = Component<{ busy: boolean }>;
+
+  let LoadedBodyComponent = $derived(
+    $dashboardBodyComponentStateStore as DashboardBodyComponent | null,
+  );
   let bodyLoadError = $derived($dashboardBodyLoadErrorStateStore);
   let bootstrapDisplay = $derived($bootstrapDisplayStateStore);
   let webAuthDisplay = $derived($webAuthDisplayStateStore);
 
-  function webPasswordInput(event) {
+  function webPasswordInput(
+    event: Event & { currentTarget: HTMLInputElement },
+  ) {
     setWebPassword(event.currentTarget.value);
   }
 
-  function webLoginSubmit(event) {
+  function webLoginSubmit(event: SubmitEvent) {
     event.preventDefault();
     void submitWebLogin();
   }
@@ -207,11 +214,11 @@
 {:else if webAuthDisplay.showError}
   <main class="min-h-screen bg-background p-6 text-foreground">
     <Card.Root class="mx-auto max-w-2xl">
-      <Card.Header>
+      <Card.Header class="">
         <Card.Title>{bootstrapDisplay.loadFailedTitle}</Card.Title>
         <Card.Description>{webAuthDisplay.errorMessage}</Card.Description>
       </Card.Header>
-      <Card.Footer>
+      <Card.Footer class="">
         <Button size="sm" variant="outline" onclick={refreshWebAuth}>
           {webAuthDisplay.retryButtonLabel}
         </Button>
@@ -227,11 +234,11 @@
 {:else if bootstrapDisplay.showError}
   <main class="min-h-screen bg-background p-6 text-foreground">
     <Card.Root class="mx-auto max-w-2xl">
-      <Card.Header>
+      <Card.Header class="">
         <Card.Title>{bootstrapDisplay.loadFailedTitle}</Card.Title>
         <Card.Description>{bootstrapDisplay.errorMessage}</Card.Description>
       </Card.Header>
-      <Card.Footer>
+      <Card.Footer class="">
         <Button href="/app" size="sm" variant="outline">
           {bootstrapDisplay.reloadButtonLabel}
         </Button>
@@ -241,11 +248,11 @@
 {:else if bodyLoadError}
   <main class="min-h-screen bg-background p-6 text-foreground">
     <Card.Root class="mx-auto max-w-2xl">
-      <Card.Header>
+      <Card.Header class="">
         <Card.Title>{bootstrapDisplay.loadFailedTitle}</Card.Title>
         <Card.Description>{bodyLoadError}</Card.Description>
       </Card.Header>
-      <Card.Footer>
+      <Card.Footer class="">
         <Button href="/app" size="sm" variant="outline">
           {bootstrapDisplay.reloadButtonLabel}
         </Button>

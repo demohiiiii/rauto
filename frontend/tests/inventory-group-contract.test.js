@@ -8,14 +8,12 @@ test("device groups are membership-only resources", () => {
   const panel = read(
     "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
   );
-  const storeState = read(
-    "frontend/src/modules/inventory/inventoryCollectionStoreState.js",
-  );
+  const storeState = read("frontend/src/domains/inventory/model/inventory.ts");
   const collectionState = read(
-    "frontend/src/modules/inventory/inventoryCollectionState.js",
+    "frontend/src/domains/inventory/application/createInventoryPageWorkspace.ts",
   );
   const pageWorkspace = read(
-    "frontend/src/modules/inventory/inventoryPageWorkspace.js",
+    "frontend/src/domains/inventory/application/createInventoryPageWorkspace.ts",
   );
 
   assert.doesNotMatch(panel, /TextAreaField|formVarsValue|onVarsInput/);
@@ -57,7 +55,7 @@ test("inventory creation uses one in-page dialog instead of browser prompts", ()
     "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
   );
   const collectionState = read(
-    "frontend/src/modules/inventory/inventoryCollectionState.js",
+    "frontend/src/domains/inventory/application/createInventoryPageWorkspace.ts",
   );
 
   assert.match(panel, /<Dialog\.Root/);
@@ -70,6 +68,6 @@ test("inventory creation uses one in-page dialog instead of browser prompts", ()
   assert.doesNotMatch(collectionState, /promptForResourceName|browserPrompt/);
   assert.match(
     collectionState,
-    /async function createDraft\(inventoryName = ""\)/,
+    /async function createDraft\(kind: InventoryKind, rawName = ""\)/,
   );
 });

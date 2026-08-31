@@ -4,6 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 const MODULE_CHUNKS = new Map([
+  ["auth.js", "app-core"],
+  ["authApi.js", "app-core"],
+  ["authRuntime.js", "app-core"],
   ["backup.js", "page-backuppage"],
   ["connectionFieldControls.js", "feature-connections"],
   ["connectionFieldState.js", "feature-connections"],
@@ -17,12 +20,12 @@ const MODULE_CHUNKS = new Map([
   ["connectionTargetStoreState.js", "feature-connections"],
   ["connectionsEditor.js", "feature-connections"],
   ["connectionsHistory.js", "feature-connections"],
-  ["inventoryCollectionStoreState.js", "page-inventorypage"],
-  ["inventoryCollectionWorkspaces.js", "page-inventorypage"],
-  ["inventoryCollectionState.js", "page-inventorypage"],
+  ["createWebAuthWorkspace.js", "app-core"],
+  ["createInventoryPageWorkspace.js", "page-inventorypage"],
+  ["inventoryApi.js", "page-inventorypage"],
+  ["inventoryPresentation.js", "page-inventorypage"],
+  ["inventoryRuntime.js", "page-inventorypage"],
   ["inventory.js", "page-inventorypage"],
-  ["inventoryPageWorkspace.js", "page-inventorypage"],
-  ["inventoryCollections.js", "page-inventorypage"],
   ["orchestrationActionDisplays.js", "feature-orchestrated"],
   ["orchestrationActionDisplayState.js", "feature-orchestrated"],
   ["orchestrationEditors.js", "feature-orchestrated"],
@@ -67,15 +70,18 @@ const MODULE_CHUNKS = new Map([
   ["results.js", "feature-results"],
   ["dashboardAppState.js", "feature-dashboard-shell"],
   ["show.js", "page-showpage"],
-  ["showQueryState.js", "page-showpage"],
-  ["showQueryWorkspaces.js", "page-showpage"],
+  ["createShowWorkspaces.js", "page-showpage"],
+  ["showApi.js", "page-showpage"],
+  ["showExecutionState.js", "page-showpage"],
+  ["showPresentation.js", "page-showpage"],
   ["showQueries.js", "page-showpage"],
   ["standard.js", "feature-standard"],
   ["standardExecutionState.js", "feature-standard"],
   ["standardExecutionWorkspaces.js", "feature-standard"],
-  ["tasksDisplayState.js", "page-taskspage"],
+  ["createTasksPageWorkspace.js", "page-taskspage"],
+  ["tasksApi.js", "page-taskspage"],
+  ["tasksPresentation.js", "page-taskspage"],
   ["tasks.js", "page-taskspage"],
-  ["tasksState.js", "page-taskspage"],
   ["templates.js", "feature-templates"],
   ["templatesFlowDisplayState.js", "feature-templates"],
   ["templatesFlowRuntimeState.js", "feature-templates"],
@@ -105,6 +111,7 @@ const MODULE_CHUNKS = new Map([
   ["transactionWorkflowEditorState.js", "feature-orchestrated"],
   ["transactionWorkflowEditors.js", "feature-orchestrated"],
   ["transactionWorkflowFormModels.js", "feature-orchestrated"],
+  ["webAuthPresentation.js", "app-core"],
 ]);
 
 const PAGE_SUPPORT_FOLDER_CHUNKS = new Map([
@@ -190,6 +197,8 @@ function dashboardChunk(id) {
   if (matchesSourcePath(id, "domains/schedules/")) {
     return "page-schedulespage";
   }
+  if (matchesSourcePath(id, "domains/auth/")) return "app-core";
+  if (matchesSourcePath(id, "domains/show/")) return "page-showpage";
   if (matchesSourcePath(id, "modules/")) {
     const file = sourceFileName(id, "modules/");
     if (file === "connections.js") return "dashboard-connections";

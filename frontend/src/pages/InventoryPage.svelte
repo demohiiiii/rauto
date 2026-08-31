@@ -1,6 +1,7 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import * as Tabs from "$lib/components/ui/tabs";
+  import { createInventoryPageWorkspace } from "$domains/inventory/index.js";
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import ServerIcon from "@lucide/svelte/icons/server";
@@ -10,11 +11,20 @@
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import { INVENTORY_KIND } from "../config/dashboardModes.js";
   import { currentLanguageState, t } from "../lib/i18n.js";
-  import { createInventoryPageWorkspace } from "../modules/inventory/inventoryPageWorkspace.js";
   import { savedConnectionSelectState } from "../modules/connections/connections.js";
   import InventoryCollectionPanel from "./inventory/InventoryCollectionPanel.svelte";
 
-  let { active } = $props();
+  interface SavedConnectionSelectSnapshot {
+    connections?: unknown[];
+  }
+
+  function connectionCount(snapshot: unknown): number {
+    if (!snapshot || typeof snapshot !== "object") return 0;
+    const connections = (snapshot as SavedConnectionSelectSnapshot).connections;
+    return Array.isArray(connections) ? connections.length : 0;
+  }
+
+  let { active }: { active: boolean } = $props();
   const inventoryPageWorkspace = createInventoryPageWorkspace();
   const {
     clearGroupHosts,
@@ -44,9 +54,7 @@
   let currentInventorySection = $derived($currentInventorySectionState);
   let pageDisplay = $derived($pageDisplayStateStore);
   let savedConnectionCount = $derived(
-    Array.isArray($savedConnectionSelectState.connections)
-      ? $savedConnectionSelectState.connections.length
-      : 0,
+    connectionCount($savedConnectionSelectState),
   );
   let pageLabels = $derived.by(() => {
     currentLanguage;
@@ -204,6 +212,7 @@
       <div class="min-w-0 p-4 sm:p-5 lg:p-6">
         <SavedConnectionLibraryPanel
           active={pageDisplay.devicesActive}
+          onUse={() => {}}
           variant="management"
         />
 

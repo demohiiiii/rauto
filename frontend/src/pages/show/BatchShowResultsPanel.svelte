@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ExecutionResultMeta from "../../components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "../../components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
@@ -7,10 +7,29 @@
   import TabList from "../../components/fragments/TabList.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
+  import {
+    createBatchShowResultsPanelWorkspace,
+    createShowPageWorkspace,
+  } from "$domains/show/index.js";
   import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
-  import { createBatchShowResultsPanelWorkspace } from "../../modules/operations/showQueryWorkspaces.js";
+  import type { Readable } from "svelte/store";
 
-  let { batchResultDisplay, batchResultsPresentation } = $props();
+  type StoreValue<T> = T extends Readable<infer Value> ? Value : never;
+  type PageWorkspace = ReturnType<typeof createShowPageWorkspace>;
+  type BatchResultDisplay = StoreValue<
+    PageWorkspace["batchResultDisplayStateStore"]
+  >;
+  type BatchResultsPresentation = StoreValue<
+    PageWorkspace["batchResultsPresentationStateStore"]
+  >;
+
+  let {
+    batchResultDisplay,
+    batchResultsPresentation,
+  }: {
+    batchResultDisplay: BatchResultDisplay;
+    batchResultsPresentation: BatchResultsPresentation;
+  } = $props();
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
     i18nCurrentLanguage;
@@ -22,8 +41,8 @@
       objectsAria: t("batchShowResultObjectsAria"),
       rawOutputTab: t("showRawOutputTab"),
       parsedOutputTab: t("showParsedOutputTab"),
-      succeeded: t("orchestrationStatusSuccess", "Success"),
-      failed: t("orchestrationStatusFailed", "Failed"),
+      succeeded: t("orchestrationStatusSuccess"),
+      failed: t("orchestrationStatusFailed"),
     };
   });
   const batchShowResultsPanelWorkspace = createBatchShowResultsPanelWorkspace();
@@ -50,7 +69,9 @@
         statusLabel: objectRow.failed
           ? i18nLabels.failed
           : i18nLabels.succeeded,
-        statusTone: objectRow.failed ? "error" : "success",
+        statusTone: objectRow.failed
+          ? ("error" as const)
+          : ("success" as const),
       })),
     ),
   );
@@ -80,11 +101,22 @@
     }
   });
 
-  function selectResult(resultKey) {
+  function selectResult(resultKey: string) {
     activeResultKey = resultKey;
     resultView = "output";
   }
 </script>
+
+{#snippet exportActions()}
+  <LoadingButton
+    variant="outline"
+    size="sm"
+    loading={exportLoading}
+    onclick={exportActionHandlers.export}
+  >
+    <span>{batchResultsPresentation.exportButtonLabel}</span>
+  </LoadingButton>
+{/snippet}
 
 <div class="grid min-w-0 max-w-full gap-4">
   {#if batchResultDisplay.showResultPanel || batchResultDisplay.statusMessage}
@@ -108,19 +140,10 @@
       totalLabel={i18nLabels.resultCount}
       succeededLabel={i18nLabels.succeeded}
       failedLabel={i18nLabels.failed}
+      actions={batchResultsPresentation.exportAvailable
+        ? exportActions
+        : undefined}
     >
-      {#if batchResultsPresentation.exportAvailable}
-        {#snippet actions()}
-          <LoadingButton
-            variant="outline"
-            size="sm"
-            loading={exportLoading}
-            onclick={exportActionHandlers.export}
-          >
-            <span>{batchResultsPresentation.exportButtonLabel}</span>
-          </LoadingButton>
-        {/snippet}
-      {/if}
       {#snippet detail()}
         {#if activeResultRow}
           <ExecutionResultMeta fields={activeResultRow.metaFields} />

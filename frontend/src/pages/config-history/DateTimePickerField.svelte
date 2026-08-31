@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { CalendarDate } from "@internationalized/date";
   import CalendarIcon from "@lucide/svelte/icons/calendar";
   import { Button } from "$lib/components/ui/button";
@@ -8,16 +8,29 @@
   import { cn } from "$lib/utils.js";
   import { currentLanguageState, tr } from "../../lib/i18n.js";
 
+  interface DateTimeDraft {
+    date: CalendarDate;
+    time: string;
+  }
+
+  interface Props {
+    "aria-label"?: string;
+    defaultTime?: string;
+    onValueChange?: (value: string) => unknown;
+    placeholderText?: string;
+    value?: string;
+  }
+
   let {
     value = "",
     defaultTime = "00:00:00",
     placeholderText = "YYYY-MM-DD HH:mm:ss",
     "aria-label": ariaLabel = "",
     onValueChange,
-  } = $props();
+  }: Props = $props();
 
   let open = $state(false);
-  let selectedDate = $state(undefined);
+  let selectedDate = $state<CalendarDate | undefined>(undefined);
   let timeValue = $state("");
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let calendarLocale = $derived(
@@ -25,11 +38,11 @@
   );
   let displayValue = $derived(formatDateTimeDisplay(value));
 
-  function pad(value) {
+  function pad(value: number): string {
     return String(value).padStart(2, "0");
   }
 
-  function parseLocalDateTime(localDateTime) {
+  function parseLocalDateTime(localDateTime: unknown): DateTimeDraft | null {
     const match = String(localDateTime || "")
       .trim()
       .match(/^(\d{4})-(\d{2})-(\d{2})(?:T| )(\d{2}):(\d{2})(?::(\d{2}))?/);
@@ -45,40 +58,41 @@
     }
   }
 
-  function formatDateTimeDisplay(localDateTime) {
+  function formatDateTimeDisplay(localDateTime: unknown): string {
     const parsed = parseLocalDateTime(localDateTime);
     if (!parsed) return "";
     return `${parsed.date.year}-${pad(parsed.date.month)}-${pad(parsed.date.day)} ${parsed.time}`;
   }
 
-  function resetDraft() {
+  function resetDraft(): void {
     const parsed = parseLocalDateTime(value);
     selectedDate = parsed?.date;
     timeValue = parsed?.time || defaultTime;
   }
 
-  function handleOpenChange(nextOpen) {
+  function handleOpenChange(nextOpen: boolean): void {
     if (nextOpen) resetDraft();
   }
 
-  function handleTimeInput(event) {
-    timeValue = event.currentTarget.value || defaultTime;
+  function handleTimeInput(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement;
+    timeValue = input.value || defaultTime;
   }
 
-  function applyDateTime() {
+  function applyDateTime(): void {
     if (!selectedDate) return;
     const normalizedTime = /^\d{2}:\d{2}:\d{2}$/.test(timeValue)
       ? timeValue
       : defaultTime;
     const nextValue = `${selectedDate.year}-${pad(selectedDate.month)}-${pad(selectedDate.day)}T${normalizedTime}`;
-    if (typeof onValueChange === "function") onValueChange(nextValue);
+    onValueChange?.(nextValue);
     open = false;
   }
 </script>
 
 <Popover.Root bind:open onOpenChange={handleOpenChange}>
-  <Popover.Trigger>
-    {#snippet child({ props })}
+  <Popover.Trigger class={undefined}>
+    {#snippet child({ props }: { props: Record<string, unknown> })}
       <Button
         {...props}
         variant="outline"
@@ -94,13 +108,24 @@
       </Button>
     {/snippet}
   </Popover.Trigger>
-  <Popover.Content class="w-auto overflow-hidden p-0" align="start">
+  <Popover.Content
+    class="w-auto overflow-hidden p-0"
+    align="start"
+    portalProps={undefined}
+  >
     <Calendar
       type="single"
       value={selectedDate}
+      class={undefined}
       locale={calendarLocale}
       captionLayout="dropdown"
-      onValueChange={(nextDate) => (selectedDate = nextDate)}
+      months={undefined}
+      years={undefined}
+      monthFormat={undefined}
+      day={undefined}
+      onValueChange={(nextDate: CalendarDate | undefined) => {
+        selectedDate = nextDate;
+      }}
     />
     <div class="grid gap-3 border-t border-border p-3">
       <label class="grid gap-1.5 text-xs font-medium">
