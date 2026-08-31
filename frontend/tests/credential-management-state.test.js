@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { get } from "svelte/store";
 
 import {
+  createCredentialCreateWorkspace,
+  createCredentialImportWorkspace,
+  createCredentialsPageWorkspace,
   credentialErrorMessage,
   credentialFormValidationMessage,
   credentialDeleteBlockedMessage,
@@ -9,7 +13,7 @@ import {
   credentialImportReport,
   credentialRow,
   credentialSavePayload,
-} from "../src/modules/credentials/credentialState.js";
+} from "../src/domains/credentials/index.ts";
 import { loadI18nLanguage, setCurrentLanguage } from "../src/lib/i18n.js";
 
 const translate = (key) =>
@@ -233,4 +237,133 @@ test("credential API validation errors are localized instead of leaking backend 
     credentialErrorMessage(new Error("network down"), translate),
     "network down",
   );
+});
+
+test("credentials page workspace loads once and selects the first credential", async () => {
+  let listCalls = 0;
+  let detailCalls = 0;
+  const row = {
+    id: "credential-1",
+    name: "ops",
+    username: "admin",
+    auth_type: "password",
+  };
+  const workspace = createCredentialsPageWorkspace({
+    api: {
+      async getCredential(id) {
+        detailCalls += 1;
+        assert.equal(id, row.id);
+        return row;
+      },
+      async listCredentials() {
+        listCalls += 1;
+        return [row];
+      },
+    },
+  });
+
+  await workspace.setPageContext({ active: false });
+  await workspace.setPageContext({ active: true });
+  await workspace.setPageContext({ active: true });
+
+  assert.equal(listCalls, 1);
+  assert.equal(detailCalls, 1);
+  assert.equal(get(workspace.stateStore).selectedId, row.id);
+  assert.equal(get(workspace.stateStore).form.username, "admin");
+});
+
+test("credentials page workspace creates a validated credential", async () => {
+  const requests = [];
+  const created = {
+    id: "credential-created",
+    name: "ops",
+    username: "admin",
+    auth_type: "password",
+  };
+  const workspace = createCredentialsPageWorkspace({
+    api: {
+      async createCredential(payload) {
+        requests.push(payload);
+        return created;
+      },
+      async getCredential() {
+        return created;
+      },
+      async listCredentials() {
+        return [created];
+      },
+    },
+  });
+
+  workspace.patchForm({
+    name: " ops ",
+    password: "secret",
+    username: " admin ",
+  });
+  await workspace.save();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].name, "ops");
+  assert.equal(requests[0].username, "admin");
+  assert.equal(requests[0].password, "secret");
+  assert.equal(get(workspace.stateStore).selectedId, created.id);
+  assert.equal(get(workspace.stateStore).status.tone, "success");
+});
+
+test("credential create workspace validates and publishes the created row", async () => {
+  const createdRows = [];
+  let createCalls = 0;
+  const workspace = createCredentialCreateWorkspace({
+    api: {
+      async createCredential(payload) {
+        createCalls += 1;
+        return { id: "credential-1", ...payload };
+      },
+    },
+    onCreated: (row) => createdRows.push(row),
+  });
+
+  workspace.setOpen(true);
+  await workspace.submit();
+  assert.equal(createCalls, 0);
+  assert.ok(get(workspace.stateStore).error);
+
+  workspace.patchForm({ name: "ops", password: "secret", username: "admin" });
+  await workspace.submit();
+  assert.equal(createCalls, 1);
+  assert.equal(createdRows[0].id, "credential-1");
+  assert.equal(get(workspace.stateStore).open, false);
+});
+
+test("credential import workspace validates files and forwards reports", async () => {
+  const reports = [];
+  let importCalls = 0;
+  const workspace = createCredentialImportWorkspace({
+    api: {
+      async importCredentials(file) {
+        importCalls += 1;
+        assert.equal(file.name, "credentials.csv");
+        return {
+          created: 1,
+          failed: 0,
+          failures: [],
+          file_name: file.name,
+          imported: 1,
+          total_rows: 1,
+          updated: 0,
+        };
+      },
+    },
+    onImported: (report) => reports.push(report),
+  });
+
+  await workspace.submitImport();
+  assert.equal(importCalls, 0);
+  assert.ok(get(workspace.stateStore).error);
+
+  workspace.selectFile(new File(["name,username"], "credentials.csv"));
+  await workspace.submitImport();
+  assert.equal(importCalls, 1);
+  assert.equal(reports[0].imported, 1);
+  assert.equal(get(workspace.stateStore).report?.fileName, "credentials.csv");
 });

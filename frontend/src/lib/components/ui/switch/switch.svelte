@@ -1,6 +1,10 @@
-<script>
+<script lang="ts">
   import { Switch as SwitchPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
+
+  type SwitchProps = SwitchPrimitive.RootProps & {
+    size?: "default" | "sm";
+  };
 
   let {
     ref = $bindable(null),
@@ -8,7 +12,7 @@
     checked = $bindable(false),
     size = "default",
     ...restProps
-  } = $props();
+  }: SwitchProps = $props();
 </script>
 
 <SwitchPrimitive.Root

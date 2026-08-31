@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Checkbox as CheckboxPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
   import CheckIcon from "@lucide/svelte/icons/check";
@@ -10,7 +10,7 @@
     indeterminate = $bindable(false),
     class: className,
     ...restProps
-  } = $props();
+  }: CheckboxPrimitive.RootProps = $props();
 </script>
 
 <CheckboxPrimitive.Root

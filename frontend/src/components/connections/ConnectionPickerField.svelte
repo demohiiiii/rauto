@@ -1,7 +1,17 @@
-<script>
+<script lang="ts">
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import { createConnectionPickerFieldWorkspace } from "../../modules/connections/connectionFieldState.js";
   import { connectionPickerState } from "../../modules/connections/connectionFieldStoreState.js";
+
+  interface ConnectionPickerFieldProps {
+    active?: boolean;
+    keyName: string;
+    labelText: string;
+    onSelectionChange?: (values: string[]) => unknown;
+    pickerPlaceholder: string;
+    selectedItemClass?: string;
+    selectedRemoveButtonClass?: string;
+  }
 
   let {
     active = true,
@@ -11,7 +21,7 @@
     pickerPlaceholder,
     selectedItemClass = "border-border bg-muted text-muted-foreground",
     selectedRemoveButtonClass = "text-muted-foreground transition hover:bg-accent hover:text-accent-foreground",
-  } = $props();
+  }: ConnectionPickerFieldProps = $props();
   const connectionPickerFieldWorkspace = createConnectionPickerFieldWorkspace();
   const {
     addPickerValueAction,
@@ -23,12 +33,20 @@
     removePickerValueAction,
     setFieldContext,
   } = connectionPickerFieldWorkspace;
+  const updateFieldContext = setFieldContext as unknown as (context: {
+    active: boolean;
+    keyName: string;
+    labelText: string;
+    onSelectionChange?: (values: string[]) => unknown;
+    pickerPlaceholder: string;
+    pickerState: unknown;
+  }) => void;
   let pickerStateStore = $derived(connectionPickerState(keyName));
   let pickerState = $derived($pickerStateStore);
   let pickerDisplay = $derived($pickerDisplayStateStore);
 
   $effect(() => {
-    setFieldContext({
+    updateFieldContext({
       active,
       keyName,
       labelText,

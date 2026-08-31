@@ -14,7 +14,7 @@ import {
   sessionRecordsViewState,
   setSessionRecordsView,
 } from "../src/modules/overlays/overlaysDrawerState.js";
-import { createReplayPageWorkspace } from "../src/modules/operations/replay.js";
+import { createReplayPageWorkspace } from "../src/domains/replay/index.ts";
 
 test("opening session records always defaults to the recent recording", () => {
   setSessionRecordsView(SESSION_RECORDS_VIEW.history);

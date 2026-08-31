@@ -1,8 +1,12 @@
-<script>
+<script lang="ts">
   import { ToggleGroup as ToggleGroupPrimitive } from "bits-ui";
   import { getToggleGroupCtx } from "./toggle-group.svelte";
   import { cn } from "$lib/utils.js";
   import { toggleVariants } from "$lib/components/ui/toggle/index.js";
+  import type { VariantProps } from "tailwind-variants";
+
+  type ToggleGroupItemProps = ToggleGroupPrimitive.ItemProps &
+    VariantProps<typeof toggleVariants>;
 
   let {
     ref = $bindable(null),
@@ -11,7 +15,7 @@
     size,
     variant,
     ...restProps
-  } = $props();
+  }: ToggleGroupItemProps = $props();
 
   const ctx = getToggleGroupCtx();
 </script>

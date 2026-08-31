@@ -11,7 +11,7 @@ function sourceFiles(path) {
   return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = join(path, entry.name);
     if (entry.isDirectory()) return sourceFiles(entryPath);
-    return /\.(?:js|svelte)$/.test(entry.name) ? [entryPath] : [];
+    return /\.(?:js|svelte|ts)$/.test(entry.name) ? [entryPath] : [];
   });
 }
 
@@ -28,7 +28,6 @@ test("modules are grouped into stable domain directories", () => {
     "orchestration",
     "overlays",
     "profiles",
-    "schedules",
     "standard",
     "tasks",
     "templates",
@@ -234,7 +233,7 @@ test("transaction workspace modules do not re-export implementation state", () =
     "frontend/src/modules/orchestration/orchestrationResultDisplayState.js",
     "frontend/src/modules/orchestration/orchestrationResultState.js",
     "frontend/src/modules/inventory/inventoryCollectionWorkspaces.js",
-    "frontend/src/modules/operations/replay.js",
+    "frontend/src/domains/replay/application/createReplayPageWorkspace.ts",
     "frontend/src/modules/operations/showQueryWorkspaces.js",
     "frontend/src/modules/standard/standardCommandExecutionWorkspace.js",
     "frontend/src/modules/standard/standardExecutionWorkspaces.js",

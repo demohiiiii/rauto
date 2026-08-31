@@ -5,7 +5,6 @@ import { defineConfig } from "vite";
 
 const MODULE_CHUNKS = new Map([
   ["backup.js", "page-backuppage"],
-  ["blacklist.js", "page-blacklistpage"],
   ["connectionFieldControls.js", "feature-connections"],
   ["connectionFieldState.js", "feature-connections"],
   ["connectionFieldStoreState.js", "feature-connections"],
@@ -106,7 +105,6 @@ const MODULE_CHUNKS = new Map([
   ["transactionWorkflowEditorState.js", "feature-orchestrated"],
   ["transactionWorkflowEditors.js", "feature-orchestrated"],
   ["transactionWorkflowFormModels.js", "feature-orchestrated"],
-  ["transfer.js", "page-transferpage"],
 ]);
 
 const PAGE_SUPPORT_FOLDER_CHUNKS = new Map([
@@ -123,7 +121,7 @@ const PAGE_SUPPORT_FOLDER_CHUNKS = new Map([
 function chunkNameFromPath(id, marker, prefix) {
   const [, tail = "index"] = id.split(marker);
   const name = tail
-    .replace(/\.(js|svelte|css)$/, "")
+    .replace(/\.(js|ts|svelte|css)$/, "")
     .replace(/[^a-zA-Z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
@@ -189,6 +187,9 @@ function dashboardChunk(id) {
   if (matchesSourcePath(id, "i18n/")) return "i18n";
   if (matchesSourcePath(id, "api/")) return "app-api";
   if (matchesSourcePath(id, "config/")) return "app-core";
+  if (matchesSourcePath(id, "domains/schedules/")) {
+    return "page-schedulespage";
+  }
   if (matchesSourcePath(id, "modules/")) {
     const file = sourceFileName(id, "modules/");
     if (file === "connections.js") return "dashboard-connections";
@@ -238,9 +239,17 @@ function dashboardModulePreloadDependencies(_, deps, context) {
 export default defineConfig(({ command, isPreview }) => ({
   root: "frontend",
   base: command === "build" || isPreview ? "/static/" : "/",
-  plugins: [tailwindcss(), svelte()],
+  plugins: [
+    tailwindcss(),
+    svelte({
+      configFile: fileURLToPath(new URL("./svelte.config.js", import.meta.url)),
+    }),
+  ],
   resolve: {
     alias: {
+      $domains: fileURLToPath(
+        new URL("./frontend/src/domains", import.meta.url),
+      ),
       $lib: fileURLToPath(new URL("./frontend/src/lib", import.meta.url)),
     },
   },

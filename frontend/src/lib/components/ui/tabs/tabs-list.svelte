@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
   import { tv } from "tailwind-variants";
 
   export const tabsListVariants = tv({
@@ -15,16 +15,20 @@
   });
 </script>
 
-<script>
+<script lang="ts">
   import { Tabs as TabsPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
+  import type { VariantProps } from "tailwind-variants";
+
+  type TabsListProps = TabsPrimitive.ListProps &
+    VariantProps<typeof tabsListVariants>;
 
   let {
     ref = $bindable(null),
     variant = "default",
     class: className,
     ...restProps
-  } = $props();
+  }: TabsListProps = $props();
 </script>
 
 <TabsPrimitive.List

@@ -1,50 +1,37 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
   import { cn } from "$lib/utils.js";
-  import { listCredentials } from "../../api/client.js";
-  import { credentialErrorMessage } from "../../modules/credentials/credentialState.js";
+  import {
+    createCredentialOptionsWorkspace,
+    type CredentialRow,
+  } from "$domains/credentials/index.js";
   import { t } from "../../lib/i18n.js";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import { onMount } from "svelte";
   import CredentialCreateDialog from "../credentials/CredentialCreateDialog.svelte";
   import PlainSelectField from "../fragments/PlainSelectField.svelte";
 
-  let { value = "", onValueChange } = $props();
-  let credentials = $state([]);
-  let loading = $state(false);
-  let error = $state("");
-  let credentialOptionRows = $derived([
-    {
-      optionLabel: t("credentialRequired"),
-      optionValue: "",
-    },
-    ...credentials.map((credential) => ({
-      optionLabel: `${credential.name} · ${credential.username}`,
-      optionValue: credential.id,
-    })),
-  ]);
+  let {
+    value = "",
+    onValueChange = undefined,
+  }: { value?: string; onValueChange?: (value: string) => void } = $props();
+  const workspace = createCredentialOptionsWorkspace();
+  const { displayStateStore } = workspace;
+  let display = $derived($displayStateStore);
+  let credentialOptionRows = $derived(display.credentialOptionRows);
+  let error = $derived(display.error);
+  let loading = $derived(display.loading);
 
-  async function loadOptions() {
-    loading = true;
-    error = "";
-    try {
-      const payload = await listCredentials();
-      credentials = Array.isArray(payload) ? payload : [];
-    } catch (loadError) {
-      error = credentialErrorMessage(loadError, t) || t("credentialLoadFailed");
-    } finally {
-      loading = false;
-    }
+  function loadOptions(): Promise<void> {
+    return workspace.loadOptions();
   }
 
-  function handleValueChange(nextValue) {
+  function handleValueChange(nextValue: string): void {
     onValueChange?.(nextValue);
   }
 
-  function handleCreated(row) {
-    credentials = [...credentials, row].sort((left, right) =>
-      left.name.localeCompare(right.name),
-    );
+  function handleCreated(row: CredentialRow): void {
+    workspace.handleCreated(row);
     onValueChange?.(row.id);
   }
 

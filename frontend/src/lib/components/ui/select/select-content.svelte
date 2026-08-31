@@ -1,9 +1,12 @@
-<script>
+<script lang="ts">
   import { Select as SelectPrimitive } from "bits-ui";
   import SelectPortal from "./select-portal.svelte";
   import SelectScrollUpButton from "./select-scroll-up-button.svelte";
   import SelectScrollDownButton from "./select-scroll-down-button.svelte";
   import { cn } from "$lib/utils.js";
+  type SelectContentProps = SelectPrimitive.ContentProps & {
+    portalProps?: SelectPrimitive.PortalProps;
+  };
   let {
     ref = $bindable(null),
     class: className,
@@ -12,7 +15,7 @@
     children,
     preventScroll = true,
     ...restProps
-  } = $props();
+  }: SelectContentProps = $props();
 </script>
 
 <SelectPortal {...portalProps}>

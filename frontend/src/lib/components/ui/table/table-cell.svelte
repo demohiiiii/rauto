@@ -1,11 +1,18 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLTdAttributes } from "svelte/elements";
+
+  type TableCellProps = Omit<HTMLTdAttributes, "children"> & {
+    children?: Snippet;
+    ref?: HTMLTableCellElement | null;
+  };
   let {
     ref = $bindable(null),
     class: className,
     children,
     ...restProps
-  } = $props();
+  }: TableCellProps = $props();
 </script>
 
 <td

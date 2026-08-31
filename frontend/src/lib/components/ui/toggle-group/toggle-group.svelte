@@ -1,19 +1,30 @@
-<script module>
+<script module lang="ts">
   import { getContext, setContext } from "svelte";
   import { toggleVariants } from "$lib/components/ui/toggle/index.js";
+  import type { VariantProps } from "tailwind-variants";
 
-  export function setToggleGroupCtx(props) {
+  export type ToggleGroupContext = VariantProps<typeof toggleVariants> & {
+    orientation: "horizontal" | "vertical";
+    spacing: number;
+  };
+
+  export function setToggleGroupCtx(props: ToggleGroupContext): void {
     setContext("toggleGroup", props);
   }
 
-  export function getToggleGroupCtx() {
-    return getContext("toggleGroup");
+  export function getToggleGroupCtx(): ToggleGroupContext {
+    return getContext<ToggleGroupContext>("toggleGroup");
   }
 </script>
 
-<script>
+<script lang="ts">
   import { ToggleGroup as ToggleGroupPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
+
+  type ToggleGroupProps = ToggleGroupPrimitive.RootProps &
+    VariantProps<typeof toggleVariants> & {
+      spacing?: number;
+    };
 
   let {
     ref = $bindable(null),
@@ -24,7 +35,7 @@
     orientation = "horizontal",
     variant = "default",
     ...restProps
-  } = $props();
+  }: ToggleGroupProps = $props();
 
   setToggleGroupCtx({
     get variant() {
@@ -47,7 +58,7 @@ Discriminated Unions + Destructing (required for bindable) do not
 get along, so we shut typescript up by casting `value` to `never`.
 -->
 <ToggleGroupPrimitive.Root
-  bind:value
+  bind:value={value as never}
   bind:ref
   {orientation}
   data-slot="toggle-group"

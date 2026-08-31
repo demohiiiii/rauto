@@ -1,86 +1,53 @@
-<script>
+<script lang="ts">
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Spinner } from "$lib/components/ui/spinner/index.js";
-  import CredentialAuthFields from "./CredentialAuthFields.svelte";
-  import { createCredential } from "../../api/client.js";
-  import { t } from "../../lib/i18n.js";
   import {
-    credentialErrorMessage,
-    credentialFormValidationMessage,
-    credentialRow,
-    credentialSavePayload,
-  } from "../../modules/credentials/credentialState.js";
+    createCredentialCreateWorkspace,
+    type CredentialForm,
+    type CredentialRow,
+  } from "$domains/credentials/index.js";
+  import CredentialAuthFields from "./CredentialAuthFields.svelte";
+  import { t } from "../../lib/i18n.js";
   import PlusIcon from "@lucide/svelte/icons/plus";
+  import type { ComponentProps } from "svelte";
 
-  let { onCreated } = $props();
-  let open = $state(false);
-  let saving = $state(false);
-  let error = $state("");
-  let form = $state(emptyForm());
+  let {
+    onCreated = undefined,
+  }: { onCreated?: (row: CredentialRow) => unknown } = $props();
+  const workspace = createCredentialCreateWorkspace({
+    onCreated: (row) => onCreated?.(row),
+  });
+  const { stateStore } = workspace;
+  let dialogState = $derived($stateStore);
+  let error = $derived(dialogState.error);
+  let form = $derived(dialogState.form);
+  let open = $derived(dialogState.open);
+  let saving = $derived(dialogState.saving);
 
-  function emptyForm() {
-    return {
-      name: "",
-      username: "",
-      authType: "password",
-      password: "",
-      privateKey: "",
-      privateKeyPath: "",
-      passphrase: "",
-      hasAuthSecret: false,
-      hasPassphrase: false,
-      enablePassword: "",
-      enableEnabled: false,
-    };
+  function patchForm(patch: Partial<CredentialForm>): void {
+    workspace.patchForm(patch);
   }
 
-  function handleOpenChange(nextOpen) {
-    open = nextOpen;
-    if (!nextOpen) {
-      form = emptyForm();
-      error = "";
-    }
+  function handleOpenChange(nextOpen: boolean): void {
+    workspace.setOpen(nextOpen);
   }
 
-  function setEnableEnabled(checked) {
-    form.enableEnabled = checked;
-    if (!checked) {
-      form.enablePassword = "";
-    }
+  function setEnableEnabled(checked: boolean): void {
+    workspace.setEnableEnabled(checked);
   }
 
-  async function submit(event) {
+  function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    const validationMessage = credentialFormValidationMessage(form, {
-      translate: t,
-    });
-    if (validationMessage) {
-      error = validationMessage;
-      return;
-    }
-    saving = true;
-    error = "";
-    try {
-      const row = credentialRow(
-        await createCredential(credentialSavePayload(form)),
-      );
-      onCreated?.(row);
-      handleOpenChange(false);
-    } catch (submitError) {
-      error =
-        credentialErrorMessage(submitError, t) || t("credentialCreateFailed");
-    } finally {
-      saving = false;
-    }
+    return workspace.submit();
   }
 </script>
 
-<Dialog.Root bind:open onOpenChange={handleOpenChange}>
+<Dialog.Root {open} onOpenChange={handleOpenChange}>
   <Dialog.Trigger>
-    {#snippet child({ props })}
+    {#snippet child({ props }: { props: ComponentProps<typeof Button> })}
       <Button {...props} variant="ghost" size="sm">
         <PlusIcon data-icon="inline-start" aria-hidden="true" />
         {t("credentialNew")}
@@ -98,14 +65,25 @@
     <form class="flex flex-col gap-4" onsubmit={submit} novalidate>
       <label class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{t("credentialName")}</span>
-        <Input bind:value={form.name} autocomplete="off" required />
+        <Input
+          value={form.name}
+          autocomplete="off"
+          required
+          oninput={(event) => patchForm({ name: event.currentTarget.value })}
+        />
       </label>
       <label class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{t("credentialUsername")}</span>
-        <Input bind:value={form.username} autocomplete="username" required />
+        <Input
+          value={form.username}
+          autocomplete="username"
+          required
+          oninput={(event) =>
+            patchForm({ username: event.currentTarget.value })}
+        />
       </label>
       <div class="grid gap-4 sm:grid-cols-2">
-        <CredentialAuthFields {form} />
+        <CredentialAuthFields {form} onChange={patchForm} />
       </div>
       <label
         class="flex min-h-11 items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm"
@@ -123,7 +101,9 @@
           </span>
           <Input
             type="password"
-            bind:value={form.enablePassword}
+            value={form.enablePassword}
+            oninput={(event) =>
+              patchForm({ enablePassword: event.currentTarget.value })}
             autocomplete="new-password"
             placeholder={t("credentialEnableOptional")}
           />

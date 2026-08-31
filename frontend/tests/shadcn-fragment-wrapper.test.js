@@ -1006,7 +1006,9 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
 
 test("backup archives use a full-width aligned resource list", () => {
   const pageSource = read("frontend/src/pages/BackupPage.svelte");
-  const stateSource = read("frontend/src/modules/operations/backup.js");
+  const stateSource = read(
+    "frontend/src/domains/backup/presentation/backupPresentation.ts",
+  );
 
   assert.match(pageSource, /FileArchiveIcon/);
   assert.match(pageSource, /GitMergeIcon/);

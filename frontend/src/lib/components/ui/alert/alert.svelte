@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
   import { tv } from "tailwind-variants";
 
   export const alertVariants = tv({
@@ -16,8 +16,16 @@
   });
 </script>
 
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type AlertProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
+    children?: Snippet;
+    ref?: HTMLDivElement | null;
+    variant?: "default" | "destructive";
+  };
 
   let {
     ref = $bindable(null),
@@ -25,7 +33,7 @@
     variant = "default",
     children,
     ...restProps
-  } = $props();
+  }: AlertProps = $props();
 </script>
 
 <div

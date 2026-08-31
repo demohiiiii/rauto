@@ -1,8 +1,25 @@
-<script>
+<script lang="ts">
   import { Spinner } from "$lib/components/ui/spinner/index.js";
   import { statusCardDisplay } from "../../lib/ui.js";
+  import type { Snippet } from "svelte";
 
-  let { message, tone, class: rootClass, variant, children } = $props();
+  type StatusTone = "error" | "info" | "running" | "success" | "warning";
+
+  interface StatusCardProps {
+    children?: Snippet;
+    class?: string;
+    message?: string;
+    tone?: StatusTone;
+    variant?: "alert" | "card";
+  }
+
+  let {
+    message = "",
+    tone = "info",
+    class: rootClass = "",
+    variant = "card",
+    children,
+  }: StatusCardProps = $props();
   let statusDisplay = $derived(
     statusCardDisplay({ extraClass: rootClass, message, tone, variant }),
   );

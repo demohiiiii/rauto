@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
   import DownloadIcon from "@lucide/svelte/icons/download";
@@ -22,10 +22,10 @@
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import { tr } from "../lib/i18n.js";
   import { cn } from "$lib/utils.js";
-  import { createConfigHistoryWorkspace } from "../modules/operations/configHistory.js";
+  import { createConfigHistoryWorkspace } from "../domains/config-history/index.js";
   import { onDestroy } from "svelte";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   const workspace = createConfigHistoryWorkspace();
   const { displayStateStore } = workspace;
   let display = $derived($displayStateStore);
@@ -35,7 +35,7 @@
     workspace.setPageContext({ active });
   });
 
-  function confirmDelete() {
+  function confirmDelete(): void {
     if (
       window.confirm(
         tr("configHistoryDeleteConfirm", "Delete this configuration snapshot?"),
@@ -45,7 +45,7 @@
     }
   }
 
-  function handleDetailDialogOpenChange(open) {
+  function handleDetailDialogOpenChange(open: boolean): void {
     if (!open) workspace.closeDetail();
   }
 </script>

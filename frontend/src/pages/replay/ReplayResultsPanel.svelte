@@ -1,5 +1,9 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
+  import type {
+    ReplayControlsDisplay,
+    ReplayResultsDisplay,
+  } from "$domains/replay/index.js";
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
   import EventEntriesTable from "../../components/fragments/EventEntriesTable.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
@@ -19,6 +23,15 @@
     onResetFilters,
     onSearchInput,
     resultsDisplay,
+  }: {
+    controlsDisplay: ReplayControlsDisplay;
+    onEventKindChange?: (value: string) => unknown;
+    onFailedOnlyChange?: (checked: boolean) => unknown;
+    onModeSelect?: (value: string) => unknown;
+    onOpenEntryIndex?: (index: number) => unknown;
+    onResetFilters?: (event: MouseEvent) => unknown;
+    onSearchInput?: (value: string) => void;
+    resultsDisplay: ReplayResultsDisplay;
   } = $props();
 </script>
 

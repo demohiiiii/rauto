@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { get } from "svelte/store";
 import {
+  createDeviceDiscoveryWorkspace,
   defaultDiscoveryConnectionName,
   discoveryResultCanImport,
   discoveryResultKey,
@@ -9,7 +11,31 @@ import {
   filterDiscoveryResults,
   parseDiscoveryPorts,
   retainImportableDiscoveryResultKeys,
-} from "../src/modules/inventory/deviceDiscoveryState.js";
+} from "../src/domains/device-discovery/index.ts";
+
+function discoveryRun(overrides = {}) {
+  return {
+    id: "run-1",
+    status: "completed",
+    phase: "completed",
+    targets: ["192.0.2.0/24"],
+    ports: [22],
+    credential_ids: ["credential-1"],
+    default_groups: [],
+    default_labels: [],
+    concurrency: 32,
+    tcp_timeout_ms: 1000,
+    probe_timeout_secs: 15,
+    total_targets: 1,
+    scanned_targets: 1,
+    reachable_count: 1,
+    probed_targets: 1,
+    identified_count: 1,
+    failed_count: 0,
+    created_at_ms: 1,
+    ...overrides,
+  };
+}
 
 test("discovery ports accept lists and ranges with sorted deduplication", () => {
   assert.deepEqual(
@@ -168,4 +194,146 @@ test("discovery run activity and result filters follow persisted states", () => 
     ),
     ["192.0.2.1"],
   );
+});
+
+test("discovery workspace initializes catalogs and the latest run once", async () => {
+  let credentialCalls = 0;
+  const run = discoveryRun();
+  const workspace = createDeviceDiscoveryWorkspace({
+    api: {
+      async getRun() {
+        return { run, results: [] };
+      },
+      async listCredentials() {
+        credentialCalls += 1;
+        return [{ id: "credential-1", name: "lab", username: "automation" }];
+      },
+      async listGroups() {
+        return [{ name: "campus" }];
+      },
+      async listLabels() {
+        return [{ name: "core" }];
+      },
+      async listRuns() {
+        return [run];
+      },
+    },
+  });
+
+  await workspace.setPageContext({ active: true });
+  await workspace.setPageContext({ active: true });
+
+  const state = get(workspace.stateStore);
+  assert.equal(credentialCalls, 1);
+  assert.deepEqual(state.selectedCredentialIds, ["credential-1"]);
+  assert.equal(state.currentDetail.run.id, "run-1");
+  workspace.destroy();
+});
+
+test("discovery workspace creates runs from its typed form state", async () => {
+  let receivedPayload = null;
+  const run = discoveryRun({
+    id: "run-2",
+    status: "queued",
+    phase: "tcp_scan",
+  });
+  const workspace = createDeviceDiscoveryWorkspace({
+    api: {
+      async createRun(payload) {
+        receivedPayload = payload;
+        return { run, results: [] };
+      },
+    },
+    pollIntervalMs: 60_000,
+  });
+  workspace.setFormField("targetsText", "192.0.2.10\n192.0.2.11");
+  workspace.setFormField("portsText", "22, 2222");
+  workspace.setFormField("selectedCredentialIds", ["credential-1"]);
+  workspace.setFormField("selectedGroups", ["campus"]);
+  workspace.setFormField("selectedLabels", ["core"]);
+
+  await workspace.startDiscovery();
+
+  assert.deepEqual(receivedPayload, {
+    targets: ["192.0.2.10", "192.0.2.11"],
+    ports: [22, 2222],
+    credential_ids: ["credential-1"],
+    default_groups: ["campus"],
+    default_labels: ["core"],
+    concurrency: 32,
+    tcp_timeout_ms: 1000,
+    probe_timeout_secs: 15,
+  });
+  assert.equal(get(workspace.stateStore).currentDetail.run.id, "run-2");
+  workspace.destroy();
+});
+
+test("discovery workspace imports selected results and refreshes connections", async () => {
+  const run = discoveryRun();
+  const identified = {
+    host: "192.0.2.8",
+    port: 22,
+    status: "identified",
+    device_profile: "cisco_ios",
+    credential_id: "credential-1",
+  };
+  let importedItems = null;
+  let getRunCalls = 0;
+  let refreshCalls = 0;
+  const workspace = createDeviceDiscoveryWorkspace({
+    api: {
+      async getRun() {
+        getRunCalls += 1;
+        return {
+          run,
+          results:
+            getRunCalls === 1
+              ? [identified]
+              : [
+                  {
+                    ...identified,
+                    imported_connection_name: "cisco_ios-192-0-2-8",
+                  },
+                ],
+        };
+      },
+      async importResults(_runId, items) {
+        importedItems = items;
+        return { created: 1, updated: 0, failed: 0 };
+      },
+      async listCredentials() {
+        return [];
+      },
+      async listGroups() {
+        return [];
+      },
+      async listLabels() {
+        return [];
+      },
+      async listRuns() {
+        return [run];
+      },
+    },
+    runtime: {
+      notifyConnectionsRefreshed() {
+        refreshCalls += 1;
+      },
+    },
+  });
+
+  await workspace.setPageContext({ active: true });
+  await workspace.importSelected();
+
+  assert.deepEqual(importedItems, [
+    {
+      host: "192.0.2.8",
+      port: 22,
+      connection_name: "cisco_ios-192-0-2-8",
+      credential_id: "credential-1",
+      overwrite: false,
+    },
+  ]);
+  assert.equal(refreshCalls, 1);
+  assert.deepEqual(get(workspace.stateStore).selectedResultKeys, []);
+  workspace.destroy();
 });

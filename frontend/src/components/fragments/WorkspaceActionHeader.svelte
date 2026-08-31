@@ -1,6 +1,17 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card/index.js";
   import { cn } from "$lib/utils.js";
+  import type { Component, Snippet } from "svelte";
+
+  interface WorkspaceActionHeaderProps {
+    actions?: Snippet;
+    class?: string;
+    description?: string;
+    icon?: Component<any> | null;
+    status?: Snippet;
+    title?: string;
+    titleId?: string;
+  }
 
   let {
     actions,
@@ -10,7 +21,7 @@
     status,
     title = "",
     titleId = undefined,
-  } = $props();
+  }: WorkspaceActionHeaderProps = $props();
 </script>
 
 <Card.Header

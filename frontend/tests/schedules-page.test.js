@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   configTargetsFromAction,
   createSchedulesPageWorkspace,
-} from "../src/modules/schedules/schedulesState.js";
+} from "../src/domains/schedules/index.ts";
 import { dashboardNavigationItems } from "../src/config/dashboardNavigation.js";
 
 function read(path) {
@@ -18,7 +18,10 @@ test("schedules are a local-web operations page", () => {
   const editor = read(
     "frontend/src/components/schedules/ScheduleEditorDialog.svelte",
   );
-  const state = read("frontend/src/modules/schedules/schedulesState.js");
+  const application = read(
+    "frontend/src/domains/schedules/application/createSchedulesPageWorkspace.ts",
+  );
+  const model = read("frontend/src/domains/schedules/model/scheduleForm.ts");
 
   assert.match(navigation, /id: "schedules"/);
   assert.match(navigation, /path: "\/app\/schedules"/);
@@ -45,16 +48,16 @@ test("schedules are a local-web operations page", () => {
   assert.match(editor, /form\.configGroups/);
   assert.match(editor, /form\.configLabels/);
   assert.match(editor, /display\.cronPreview/);
-  assert.match(state, /listConnections\(\)/);
-  assert.match(state, /listInventoryGroups\(\)/);
-  assert.match(state, /listInventoryLabels\(\)/);
-  assert.match(state, /previewSchedule/);
-  assert.match(state, /\/api\/tx-workflow-templates/);
-  assert.match(state, /type: "orchestrate"/);
-  assert.match(state, /type: "config_fetch"/);
-  assert.match(state, /type: "tx_workflow"/);
+  assert.match(application, /api\.listConnections\(\)/);
+  assert.match(application, /api\.listInventoryGroups\(\)/);
+  assert.match(application, /api\.listInventoryLabels\(\)/);
+  assert.match(application, /previewSchedule/);
+  assert.match(application, /\/api\/tx-workflow-templates/);
+  assert.match(model, /type: "orchestrate"/);
+  assert.match(model, /type: "config_fetch"/);
+  assert.match(model, /type: "tx_workflow"/);
   assert.doesNotMatch(editor, /normalized/i);
-  assert.doesNotMatch(state, /normalized/i);
+  assert.doesNotMatch(model, /normalized/i);
 });
 
 test("multi-select summarizes multiple selected values without growing the trigger", () => {

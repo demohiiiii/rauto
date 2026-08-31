@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -8,20 +8,12 @@
   import CredentialImportDialog from "../components/credentials/CredentialImportDialog.svelte";
   import CredentialAuthFields from "../components/credentials/CredentialAuthFields.svelte";
   import {
-    listCredentials,
-    createCredential,
-    updateCredential,
-    deleteCredential,
-    getCredential,
-  } from "../api/client.js";
-  import {
-    credentialErrorMessage,
-    credentialFormValidationMessage,
+    credentialAuthTypeLabel,
     credentialDeleteBlockedMessage,
-    credentialRow,
-    credentialSavePayload,
-  } from "../modules/credentials/credentialState.js";
-  import { currentLanguageState, t } from "../lib/i18n.js";
+    createCredentialsPageWorkspace,
+    type CredentialImportReport,
+  } from "$domains/credentials/index.js";
+  import { t } from "../lib/i18n.js";
   import { cn } from "$lib/utils.js";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
   import Link2Icon from "@lucide/svelte/icons/link-2";
@@ -31,172 +23,54 @@
   import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
-  let { active } = $props();
-  let credentials = $state([]);
-  let selectedId = $state("");
-  let searchQuery = $state("");
-  let loading = $state(false);
-  let saving = $state(false);
-  let status = $state({ text: "", tone: "info" });
-  let form = $state({
-    name: "",
-    username: "",
-    authType: "password",
-    password: "",
-    privateKey: "",
-    privateKeyPath: "",
-    passphrase: "",
-    hasAuthSecret: false,
-    hasPassphrase: false,
-    enablePassword: "",
-    enableEnabled: false,
-    hasPassword: false,
-    hasEnablePassword: false,
-    connectionCount: 0,
-    referencingConnections: [],
-  });
-  let loaded = false;
-  let currentLanguage = $derived($currentLanguageState);
-  let filteredCredentials = $derived.by(() => {
-    currentLanguage;
-    const query = searchQuery.trim().toLowerCase();
-    return credentials.filter(
-      (item) => !query || item.searchText.includes(query),
-    );
-  });
+  let { active }: { active: boolean } = $props();
+  const workspace = createCredentialsPageWorkspace();
+  const { displayStateStore } = workspace;
+  let display = $derived($displayStateStore);
+  let filteredCredentials = $derived(display.filteredCredentials);
+  let form = $derived(display.form);
+  let loading = $derived(display.loading);
+  let saving = $derived(display.saving);
+  let searchQuery = $derived(display.searchQuery);
+  let selectedId = $derived(display.selectedId);
+  let status = $derived(display.status);
 
   $effect(() => {
-    if (active && !loaded) {
-      loaded = true;
-      void loadCredentials();
-    }
+    void workspace.setPageContext({ active });
   });
 
-  async function loadCredentials(selectId = "") {
-    loading = true;
-    try {
-      const payload = await listCredentials();
-      credentials = Array.isArray(payload) ? payload.map(credentialRow) : [];
-      const nextId = selectId || selectedId || credentials[0]?.id || "";
-      if (nextId) await selectCredential(nextId);
-      else resetForm();
-    } catch (error) {
-      status = { text: credentialErrorMessage(error, t), tone: "error" };
-    } finally {
-      loading = false;
-    }
+  function selectCredential(id: string): Promise<void> {
+    return workspace.selectCredential(id);
   }
 
-  async function selectCredential(id) {
-    selectedId = id;
-    const payload = await getCredential(id);
-    const row = credentialRow(payload);
-    form = {
-      name: row.name,
-      username: row.username,
-      authType: row.authType,
-      password: "",
-      privateKey: "",
-      privateKeyPath: row.privateKeyPath,
-      passphrase: "",
-      hasAuthSecret: row.hasAuthSecret,
-      hasPassphrase: row.hasPassphrase,
-      enablePassword: "",
-      enableEnabled: row.enableEnabled,
-      hasPassword: row.hasPassword,
-      hasEnablePassword: row.hasEnablePassword,
-      connectionCount: row.connectionCount,
-      referencingConnections: row.referencingConnections,
-    };
-    status = { text: "", tone: "info" };
+  function resetForm(): void {
+    workspace.resetForm();
   }
 
-  function resetForm() {
-    selectedId = "";
-    form = {
-      name: "",
-      username: "",
-      authType: "password",
-      password: "",
-      privateKey: "",
-      privateKeyPath: "",
-      passphrase: "",
-      hasAuthSecret: false,
-      hasPassphrase: false,
-      enablePassword: "",
-      enableEnabled: false,
-      hasPassword: false,
-      hasEnablePassword: false,
-      connectionCount: 0,
-      referencingConnections: [],
-    };
-    status = { text: "", tone: "info" };
+  function save(): Promise<void> {
+    return workspace.save();
   }
 
-  async function save() {
-    const validationMessage = credentialFormValidationMessage(form, {
-      editing: Boolean(selectedId),
-      translate: t,
-    });
-    if (validationMessage) {
-      status = { text: validationMessage, tone: "error" };
-      return;
-    }
-    saving = true;
-    try {
-      const payload = credentialSavePayload(form);
-      const response = selectedId
-        ? await updateCredential(selectedId, payload)
-        : await createCredential(payload);
-      const row = credentialRow(response);
-      selectedId = row.id;
-      await loadCredentials(row.id);
-      status = { text: t("credentialSaved"), tone: "success" };
-    } catch (error) {
-      status = { text: credentialErrorMessage(error, t), tone: "error" };
-    } finally {
-      saving = false;
-    }
+  function remove(): Promise<void> {
+    return workspace.remove();
   }
 
-  async function remove() {
-    if (!selectedId || form.referencingConnections.length) return;
-    try {
-      await deleteCredential(selectedId);
-      await loadCredentials();
-      status = { text: t("credentialDeleted"), tone: "success" };
-    } catch (error) {
-      status = { text: credentialErrorMessage(error, t), tone: "error" };
-    }
+  function handleCredentialsImported(
+    report: CredentialImportReport,
+  ): Promise<void> {
+    return workspace.handleImported(report);
   }
 
-  async function handleCredentialsImported(report) {
-    await loadCredentials(selectedId);
-    status = {
-      text: `${t("credentialImportComplete")}: ${report.imported}/${report.totalRows}`,
-      tone: report.failed ? "error" : "success",
-    };
+  function handleSearch(event: Event): void {
+    workspace.setSearchQuery((event.currentTarget as HTMLInputElement).value);
   }
 
-  function handleSearch(event) {
-    searchQuery = event.currentTarget.value;
+  function setEnableEnabled(checked: boolean): void {
+    workspace.setEnableEnabled(checked);
   }
 
-  function setEnableEnabled(checked) {
-    form.enableEnabled = checked;
-    if (!checked) {
-      form.enablePassword = "";
-    }
-  }
-
-  function authTypeLabel(authType) {
-    const key = {
-      password: "credentialAuthPassword",
-      private_key: "credentialAuthPrivateKey",
-      private_key_file: "credentialAuthPrivateKeyFile",
-      agent: "credentialAuthAgent",
-    }[authType];
-    return t(key || "credentialAuthPassword");
+  function authTypeLabel(authType: string): string {
+    return credentialAuthTypeLabel(authType, t);
   }
 </script>
 
@@ -329,14 +203,26 @@
             <label class="grid gap-1.5 sm:col-span-2"
               ><span class="text-xs font-semibold text-muted-foreground"
                 >{t("credentialName")}</span
-              ><Input bind:value={form.name} /></label
+              ><Input
+                value={form.name}
+                oninput={(event) =>
+                  workspace.patchForm({ name: event.currentTarget.value })}
+              /></label
             >
             <label class="grid gap-1.5 sm:col-span-2"
               ><span class="text-xs font-semibold text-muted-foreground"
                 >{t("credentialUsername")}</span
-              ><Input bind:value={form.username} /></label
+              ><Input
+                value={form.username}
+                oninput={(event) =>
+                  workspace.patchForm({ username: event.currentTarget.value })}
+              /></label
             >
-            <CredentialAuthFields {form} editing={Boolean(selectedId)} />
+            <CredentialAuthFields
+              {form}
+              editing={Boolean(selectedId)}
+              onChange={workspace.patchForm}
+            />
             <label
               class="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-3 text-sm sm:col-span-2"
             >
@@ -352,7 +238,11 @@
                   >{t("credentialEnablePassword")}</span
                 ><Input
                   type="password"
-                  bind:value={form.enablePassword}
+                  value={form.enablePassword}
+                  oninput={(event) =>
+                    workspace.patchForm({
+                      enablePassword: event.currentTarget.value,
+                    })}
                   placeholder={form.hasEnablePassword
                     ? t("credentialEnableBlankEnter")
                     : t("credentialEnableOptional")}

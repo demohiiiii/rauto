@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
   import PauseIcon from "@lucide/svelte/icons/pause";
   import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -13,9 +13,14 @@
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import { tr } from "../lib/i18n.js";
-  import { createSchedulesPageWorkspace } from "../modules/schedules/schedulesState.js";
+  import { createSchedulesPageWorkspace } from "../domains/schedules/index.js";
+  import type {
+    ScheduleAction,
+    ScheduleRunStatus,
+    StoredSchedule,
+  } from "../domains/schedules/index.js";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   const workspace = createSchedulesPageWorkspace();
   const { displayStateStore } = workspace;
   let display = $derived($displayStateStore);
@@ -24,7 +29,7 @@
     void workspace.setPageContext({ active });
   });
 
-  function statusClass(status) {
+  function statusClass(status: ScheduleRunStatus): string {
     if (status === "success") return "bg-emerald-100 text-emerald-700";
     if (status === "failed") return "bg-rose-100 text-rose-700";
     if (status === "running") return "bg-blue-100 text-blue-700";
@@ -32,7 +37,7 @@
     return "bg-muted text-muted-foreground";
   }
 
-  function actionLabel(action) {
+  function actionLabel(action?: ScheduleAction | null): string {
     if (action?.type === "config_fetch") {
       return tr("scheduleActionConfigFetch", "Configuration fetch");
     }
@@ -42,7 +47,7 @@
     return tr("scheduleActionOrchestrate", "Orchestration");
   }
 
-  function actionSummary(action) {
+  function actionSummary(action?: ScheduleAction | null): string {
     if (action?.type === "config_fetch") {
       const selectors = [
         ...(Array.isArray(action.targets) ? action.targets : []),
@@ -68,7 +73,7 @@
     return action?.template_name || "-";
   }
 
-  function confirmDelete(schedule) {
+  function confirmDelete(schedule: StoredSchedule): void {
     if (window.confirm(tr("scheduleDeleteConfirm", "Delete this schedule?"))) {
       void workspace.remove(schedule.id);
     }

@@ -1,6 +1,9 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
-  import { createBackupPageWorkspace } from "../modules/operations/backup.js";
+  import {
+    type BackupArchiveRow,
+    createBackupPageWorkspace,
+  } from "$domains/backup/index.js";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import LoadingButton from "../components/fragments/LoadingButton.svelte";
   import StatusCard from "../components/fragments/StatusCard.svelte";
@@ -11,7 +14,7 @@
   import FileArchiveIcon from "@lucide/svelte/icons/file-archive";
   import GitMergeIcon from "@lucide/svelte/icons/git-merge";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   const backupPageWorkspace = createBackupPageWorkspace();
   const { backupDisplayStateStore } = backupPageWorkspace;
   let backupDisplay = $derived($backupDisplayStateStore);
@@ -26,13 +29,21 @@
   });
 </script>
 
-{#snippet backupActionButton(label, loading, onClick, variant = "outline")}
+{#snippet backupActionButton(
+  label: string,
+  loading: boolean,
+  onClick: () => unknown,
+  variant: "default" | "outline" = "outline",
+)}
   <LoadingButton {variant} {loading} onclick={onClick}>
     <span>{label}</span>
   </LoadingButton>
 {/snippet}
 
-{#snippet backupArchiveEntry(backupRow, backupRowIndex)}
+{#snippet backupArchiveEntry(
+  backupRow: BackupArchiveRow,
+  backupRowIndex: number,
+)}
   <article
     class={`grid min-w-0 gap-3 px-3 py-3 transition-colors lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${backupRow.rowClass}`}
   >

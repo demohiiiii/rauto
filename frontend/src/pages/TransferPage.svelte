@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
+  import { createTransferPageWorkspace } from "$domains/transfer/index.js";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import PlainCheckboxField from "../components/fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../components/fragments/PlainInputField.svelte";
@@ -7,9 +8,8 @@
   import StatusCard from "../components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import UploadIcon from "@lucide/svelte/icons/upload";
-  import { createTransferPageWorkspace } from "../modules/operations/transfer.js";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   const transferPageWorkspace = createTransferPageWorkspace();
   const { transferUploadDisplayStateStore } = transferPageWorkspace;
   let transferUploadDisplay = $derived($transferUploadDisplayStateStore);

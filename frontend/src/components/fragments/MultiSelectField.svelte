@@ -1,8 +1,23 @@
-<script>
+<script lang="ts">
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
+
+  interface MultiSelectOption {
+    label: string;
+    value: string;
+  }
+
+  interface MultiSelectFieldProps {
+    disabled?: boolean;
+    labelText?: string;
+    maxSelected?: number;
+    onValueChange?: (value: string[]) => unknown;
+    optionRows?: MultiSelectOption[];
+    placeholderText?: string;
+    value?: string[];
+  }
 
   let {
     disabled = false,
@@ -12,7 +27,7 @@
     optionRows = [],
     placeholderText = "",
     value = [],
-  } = $props();
+  }: MultiSelectFieldProps = $props();
 
   let selectedValues = $derived(
     Array.isArray(value) ? value.filter(Boolean) : [],
@@ -37,7 +52,7 @@
     selectedRows.map((selectedRow) => selectedRow.label).join(", "),
   );
 
-  function updateSelection(nextValues = []) {
+  function updateSelection(nextValues: string[] = []) {
     const normalized = Array.from(new Set(nextValues.filter(Boolean)));
     if (maxSelected > 0 && normalized.length > maxSelected) return;
     onValueChange?.(normalized);

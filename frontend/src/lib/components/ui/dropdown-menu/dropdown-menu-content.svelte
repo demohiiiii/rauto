@@ -1,7 +1,10 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
   import DropdownMenuPortal from "./dropdown-menu-portal.svelte";
   import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
+  type DropdownMenuContentProps = DropdownMenuPrimitive.ContentProps & {
+    portalProps?: DropdownMenuPrimitive.PortalProps;
+  };
   let {
     ref = $bindable(null),
     sideOffset = 4,
@@ -9,7 +12,7 @@
     portalProps,
     class: className,
     ...restProps
-  } = $props();
+  }: DropdownMenuContentProps = $props();
 </script>
 
 <DropdownMenuPortal {...portalProps}>

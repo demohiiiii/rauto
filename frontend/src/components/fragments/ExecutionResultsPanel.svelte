@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import * as Card from "$lib/components/ui/card";
@@ -6,6 +6,39 @@
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import StatusCard from "./StatusCard.svelte";
   import WorkspaceActionHeader from "./WorkspaceActionHeader.svelte";
+  import type { Component, Snippet } from "svelte";
+
+  type ResultStatusTone = "error" | "info" | "success" | "warning";
+  type StatusTone = ResultStatusTone | "running";
+
+  interface ExecutionResultItem {
+    key: string;
+    statusLabel?: string;
+    statusTone?: ResultStatusTone;
+    subtitle?: string;
+    title: string;
+  }
+
+  interface ExecutionResultsPanelProps {
+    actions?: Snippet;
+    activeKey?: string;
+    description?: string;
+    detail?: Snippet;
+    emptyMessage?: string;
+    failedCount?: number | null;
+    failedLabel?: string;
+    icon?: Component<any> | null;
+    items?: ExecutionResultItem[];
+    navigationAriaLabel?: string;
+    onSelect?: (key: string) => unknown;
+    statusMessage?: string;
+    statusTone?: StatusTone;
+    succeededCount?: number | null;
+    succeededLabel?: string;
+    title?: string;
+    totalCount?: number | null;
+    totalLabel?: string;
+  }
 
   let {
     actions: customActions,
@@ -26,25 +59,25 @@
     title = "",
     totalCount = null,
     totalLabel = "",
-  } = $props();
+  }: ExecutionResultsPanelProps = $props();
 
   let showSummary = $derived(
     totalCount !== null || succeededCount !== null || failedCount !== null,
   );
-  function itemBadgeVariant(item) {
+  function itemBadgeVariant(item: ExecutionResultItem) {
     if (item.statusTone === "error") return "destructive";
     if (item.statusTone === "success") return "outline";
     return "secondary";
   }
 
-  function itemButtonVariant(item) {
+  function itemButtonVariant(item: ExecutionResultItem) {
     if (item.key === activeKey && item.statusTone === "error") {
       return "destructive";
     }
     return item.key === activeKey ? "secondary" : "ghost";
   }
 
-  function itemButtonClass(item) {
+  function itemButtonClass(item: ExecutionResultItem) {
     const base = "h-auto min-w-48 justify-start px-3 py-3 lg:min-w-0";
     return item.statusTone === "error"
       ? `${base} text-destructive hover:bg-destructive/10 hover:text-destructive`
@@ -52,30 +85,33 @@
   }
 </script>
 
-<Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-  <WorkspaceActionHeader {title} {description} {icon}>
-    {#if showSummary || customActions}
-      {#snippet actions()}
-        <div class="flex min-w-0 flex-wrap items-center gap-2">
-          {#if totalCount !== null}
-            <Badge variant="outline">{totalLabel} {totalCount}</Badge>
-          {/if}
-          {#if succeededCount !== null}
-            <Badge variant="secondary">
-              {succeededLabel}
-              {succeededCount}
-            </Badge>
-          {/if}
-          {#if failedCount !== null && failedCount > 0}
-            <Badge variant="destructive">{failedLabel} {failedCount}</Badge>
-          {/if}
-          {#if customActions}
-            {@render customActions()}
-          {/if}
-        </div>
-      {/snippet}
+{#snippet headerActions()}
+  <div class="flex min-w-0 flex-wrap items-center gap-2">
+    {#if totalCount !== null}
+      <Badge variant="outline">{totalLabel} {totalCount}</Badge>
     {/if}
-  </WorkspaceActionHeader>
+    {#if succeededCount !== null}
+      <Badge variant="secondary">
+        {succeededLabel}
+        {succeededCount}
+      </Badge>
+    {/if}
+    {#if failedCount !== null && failedCount > 0}
+      <Badge variant="destructive">{failedLabel} {failedCount}</Badge>
+    {/if}
+    {#if customActions}
+      {@render customActions()}
+    {/if}
+  </div>
+{/snippet}
+
+<Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+  <WorkspaceActionHeader
+    {title}
+    {description}
+    {icon}
+    actions={showSummary || customActions ? headerActions : undefined}
+  />
 
   <Card.Content class="p-0">
     {#if statusMessage}

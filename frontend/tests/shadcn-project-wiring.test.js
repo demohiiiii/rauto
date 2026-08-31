@@ -16,6 +16,7 @@ test("components.json uses project-local aliases", () => {
   assert.equal(config.aliases.lib, "$lib");
   assert.equal(config.aliases.ui, "$lib/components/ui");
   assert.equal(config.aliases.components, "$lib/components");
+  assert.equal(config.typescript, true);
 });
 
 test("vite exposes $lib alias for shadcn imports", () => {

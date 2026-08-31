@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
@@ -6,11 +6,11 @@
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { displayModeTabs } from "../config/dashboardModes.js";
   import { currentLanguageState, t } from "../lib/i18n.js";
-  import { createReplayPageWorkspace } from "../modules/operations/replay.js";
+  import { createReplayPageWorkspace } from "$domains/replay/index.js";
   import ReplayControlsPanel from "./replay/ReplayControlsPanel.svelte";
   import ReplayResultsPanel from "./replay/ReplayResultsPanel.svelte";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   const replayPageWorkspace = createReplayPageWorkspace({
     modeTabs: displayModeTabs,
   });

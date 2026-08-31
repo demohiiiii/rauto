@@ -50,40 +50,53 @@ test("auto discovery provides tag selection, cancellation, results, and import",
   const panel = read(
     "frontend/src/pages/inventory/DeviceDiscoveryPanel.svelte",
   );
+  const application = read(
+    "frontend/src/domains/device-discovery/application/createDeviceDiscoveryWorkspace.ts",
+  );
+  const api = read(
+    "frontend/src/domains/device-discovery/infrastructure/deviceDiscoveryApi.ts",
+  );
+  const model = read(
+    "frontend/src/domains/device-discovery/model/deviceDiscovery.ts",
+  );
+  const presentation = read(
+    "frontend/src/domains/device-discovery/presentation/deviceDiscoveryPresentation.ts",
+  );
   const multiSelect = read(
     "frontend/src/components/fragments/MultiSelectField.svelte",
   );
 
   assert.equal((panel.match(/<MultiSelectField/g) || []).length, 3);
   assert.match(panel, /maxSelected=\{3\}/);
-  assert.match(panel, /cancelDeviceDiscoveryRun/);
-  assert.match(panel, /importDeviceDiscoveryResults/);
+  assert.match(panel, /workspace\.cancelDiscovery/);
+  assert.match(panel, /workspace\.importSelected/);
+  assert.match(api, /cancelDeviceDiscoveryRun/);
+  assert.match(api, /importDeviceDiscoveryResults/);
   assert.match(panel, /<Table\.Root/);
   assert.match(panel, /overflow-x-auto/);
   assert.match(panel, /currentLanguageState/);
   assert.match(panel, /currentLanguage;\s+return translateText\(key\)/);
-  assert.match(panel, /resultFilter = \$state\("identified"\)/);
-  assert.match(panel, /identifiedResultCount/);
-  assert.match(panel, /currentRun\?\.phase === "ssh_probe"/);
-  assert.match(panel, /currentRun\.probed_targets/);
-  assert.match(panel, /Number\(currentRun\.reachable_count\)/);
+  assert.match(model, /resultFilter: "identified"/);
+  assert.match(presentation, /identifiedResultCount/);
+  assert.match(presentation, /currentRun\?\.phase === "ssh_probe"/);
+  assert.match(presentation, /currentRun\.probed_targets/);
+  assert.match(presentation, /Number\(currentRun\.reachable_count\)/);
   assert.match(panel, /filter: "reachable"/);
   assert.match(panel, /aria-pressed=\{resultFilter === metric\.filter\}/);
   assert.match(
     panel,
-    /onclick=\{\(\) => selectResultFilter\(metric\.filter\)\}/,
+    /onclick=\{\(\) =>\s*selectResultFilter\(metric\.filter(?: as DiscoveryResultFilter)?\)\}/,
   );
   assert.doesNotMatch(panel, /deviceDiscoveryFilterIdentified/);
   assert.match(panel, /onValueChange=\{selectStatusFilter\}/);
-  assert.match(
-    panel,
-    /function selectStatusFilter\(filter\) \{\s+statusFilter = filter;\s+resultFilter = "all";/,
-  );
-  assert.match(panel, /deviceDiscoveryStatus_existing/);
-  assert.match(panel, /discoveryResultStatus/);
-  assert.match(panel, /overwrite: false/);
+  assert.match(application, /state\.statusFilter = filter/);
+  assert.match(application, /state\.resultFilter = "all"/);
+  assert.match(panel, /\{resultStatusLabel\(result\)\}/);
+  assert.match(presentation, /deviceDiscoveryStatus_existing/);
+  assert.match(model, /discoveryResultStatus/);
+  assert.match(application, /overwrite: false/);
   assert.match(panel, /result\.existing_connection_name/);
-  assert.match(panel, /async function loadLatestRun\(\)/);
+  assert.match(application, /async function loadLatestRun\(\)/);
   assert.doesNotMatch(
     panel,
     /deviceDiscoveryHistory|runOptions|PlainSelectField/,

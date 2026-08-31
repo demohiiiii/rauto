@@ -15,25 +15,33 @@ test("connection forms use a credential selector instead of secret inputs", () =
   const createDialog = read(
     "frontend/src/components/credentials/CredentialCreateDialog.svelte",
   );
+  const optionsApplication = read(
+    "frontend/src/domains/credentials/application/createCredentialOptionsWorkspace.ts",
+  );
+  const createApplication = read(
+    "frontend/src/domains/credentials/application/createCredentialCreateWorkspace.ts",
+  );
 
   assert.match(basicFields, /ConnectionCredentialField/);
   assert.doesNotMatch(basicFields, /type="password"/);
-  assert.match(credentialField, /listCredentials/);
+  assert.match(credentialField, /createCredentialOptionsWorkspace/);
+  assert.match(optionsApplication, /api\.listCredentials/);
   assert.match(credentialField, /credentialRequired/);
   assert.match(credentialField, /CredentialCreateDialog/);
   assert.match(credentialField, /PlainSelectField/);
   assert.match(credentialField, /optionRows=\{credentialOptionRows\}/);
   assert.match(credentialField, /disabled=\{loading\}/);
   assert.doesNotMatch(credentialField, /<select\b/);
-  assert.match(createDialog, /createCredential/);
-  assert.match(createDialog, /onCreated\?\.\(row\)/);
+  assert.match(createDialog, /createCredentialCreateWorkspace/);
+  assert.match(createApplication, /api\.createCredential/);
+  assert.match(createApplication, /options\.onCreated\?\.\(row\)/);
   assert.match(createDialog, /Dialog\.Title/);
-  assert.match(createDialog, /credentialFormValidationMessage/);
-  assert.match(createDialog, /credentialErrorMessage/);
+  assert.match(createApplication, /credentialFormValidationMessage/);
+  assert.match(createApplication, /credentialErrorMessage/);
   assert.match(createDialog, /novalidate/);
-  assert.match(createDialog, /<Dialog\.Root bind:open/);
+  assert.match(createDialog, /<Dialog\.Root \{open\}/);
   assert.match(createDialog, /<Dialog\.Trigger>/);
-  assert.match(createDialog, /#snippet child\(\{ props \}\)/);
+  assert.match(createDialog, /#snippet child\(\{ props \}(?::[^)]*)?\)/);
   assert.doesNotMatch(createDialog, /onclick=\{\(\) => \(open = true\)\}/);
 });
 

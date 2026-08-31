@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import DeviceDiscoveryPanel from "./inventory/DeviceDiscoveryPanel.svelte";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
 </script>
 
 <DashboardTabPanel {active}>

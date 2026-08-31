@@ -13,6 +13,15 @@ test("credential management is a standalone dashboard page", () => {
   const importDialog = read(
     "frontend/src/components/credentials/CredentialImportDialog.svelte",
   );
+  const application = read(
+    "frontend/src/domains/credentials/application/createCredentialsPageWorkspace.ts",
+  );
+  const importApplication = read(
+    "frontend/src/domains/credentials/application/createCredentialImportWorkspace.ts",
+  );
+  const infrastructure = read(
+    "frontend/src/domains/credentials/infrastructure/credentialsApi.ts",
+  );
   const api = read("frontend/src/api/client.js");
   const zh = read("frontend/src/i18n/zh.js");
   const en = read("frontend/src/i18n/en.js");
@@ -23,10 +32,13 @@ test("credential management is a standalone dashboard page", () => {
   assert.match(sidebar, /credentials: KeyRoundIcon/);
   assert.match(page, /WorkspaceActionHeader/);
   assert.match(page, /icon=\{KeyRoundIcon\}/);
-  assert.match(page, /listCredentials/);
-  assert.match(page, /createCredential/);
-  assert.match(page, /updateCredential/);
-  assert.match(page, /deleteCredential/);
+  assert.match(page, /\$domains\/credentials\/index\.js/);
+  assert.match(page, /createCredentialsPageWorkspace/);
+  assert.doesNotMatch(page, /\.\.\/api\/client\.js/);
+  assert.match(application, /api\.listCredentials/);
+  assert.match(application, /api\.createCredential/);
+  assert.match(application, /api\.updateCredential/);
+  assert.match(application, /api\.deleteCredential/);
   assert.match(page, /credentialEnableEnabled/);
   assert.match(page, /<Checkbox/);
   assert.match(page, /lg:grid-cols-\[17rem_minmax\(0,1fr\)\]/);
@@ -34,13 +46,16 @@ test("credential management is a standalone dashboard page", () => {
   assert.match(page, /w-full rounded-lg border p-2 text-left/);
   assert.match(page, /t\("credentialSaveAction"\)/);
   assert.match(page, /t\("credentialSavingAction"\)/);
-  assert.match(page, /credentialFormValidationMessage/);
-  assert.match(page, /credentialErrorMessage/);
+  assert.match(application, /credentialFormValidationMessage/);
+  assert.match(application, /credentialErrorMessage/);
   assert.match(page, /CredentialImportDialog/);
   assert.match(page, /onImported=\{handleCredentialsImported\}/);
   assert.match(importDialog, /<Dialog\.Title>/);
-  assert.match(importDialog, /importCredentials/);
-  assert.match(importDialog, /downloadCredentialImportTemplateBlob/);
+  assert.match(importDialog, /createCredentialImportWorkspace/);
+  assert.doesNotMatch(importDialog, /\.\.\/\.\.\/api\/client\.js/);
+  assert.match(importApplication, /api\.importCredentials/);
+  assert.match(importApplication, /api\.downloadImportTemplate/);
+  assert.match(infrastructure, /downloadCredentialImportTemplateBlob/);
   assert.match(importDialog, /aria-live="polite"/);
   assert.match(importDialog, /<Spinner/);
   assert.match(api, /\/api\/credentials\/import/);
@@ -68,6 +83,9 @@ test("Enable password fields render only while the Enable stage is active", () =
   const createDialog = read(
     "frontend/src/components/credentials/CredentialCreateDialog.svelte",
   );
+  const createApplication = read(
+    "frontend/src/domains/credentials/application/createCredentialCreateWorkspace.ts",
+  );
 
   for (const source of [page, createDialog]) {
     assert.match(
@@ -77,5 +95,5 @@ test("Enable password fields render only while the Enable stage is active", () =
     assert.doesNotMatch(source, /disabled=\{!form\.enableEnabled\}/);
   }
   assert.match(createDialog, /onCheckedChange=\{setEnableEnabled\}/);
-  assert.match(createDialog, /form\.enablePassword = ""/);
+  assert.match(createApplication, /enablePassword: ""/);
 });

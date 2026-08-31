@@ -1,27 +1,29 @@
-<script>
+<script lang="ts">
   import * as Alert from "$lib/components/ui/alert";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Spinner } from "$lib/components/ui/spinner/index.js";
   import {
-    downloadCredentialImportTemplateBlob,
-    importCredentials,
-  } from "../../api/client.js";
-  import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { downloadBlob } from "../../lib/ui.js";
-  import {
-    credentialErrorMessage,
+    createCredentialImportWorkspace,
     credentialImportFailureMessage,
-    credentialImportReport,
-  } from "../../modules/credentials/credentialState.js";
+    type CredentialImportReport,
+  } from "$domains/credentials/index.js";
+  import { currentLanguageState, t } from "../../lib/i18n.js";
   import DownloadIcon from "@lucide/svelte/icons/download";
   import FileSpreadsheetIcon from "@lucide/svelte/icons/file-spreadsheet";
   import ShieldAlertIcon from "@lucide/svelte/icons/shield-alert";
   import UploadIcon from "@lucide/svelte/icons/upload";
+  import type { ComponentProps } from "svelte";
 
-  const acceptedFilePattern = /\.(csv|xlsx|xls|xlsm|xlsb)$/i;
-  const summaryFields = [
+  type ImportSummaryKey =
+    | "totalRows"
+    | "imported"
+    | "created"
+    | "updated"
+    | "failed";
+
+  const summaryFields: Array<[ImportSummaryKey, string]> = [
     ["totalRows", "credentialImportSummaryTotal"],
     ["imported", "credentialImportSummaryImported"],
     ["created", "credentialImportSummaryCreated"],
@@ -29,79 +31,48 @@
     ["failed", "credentialImportSummaryFailed"],
   ];
 
-  let { onImported } = $props();
-  let open = $state(false);
-  let file = $state(null);
-  let fileInput = $state(null);
-  let importing = $state(false);
-  let templateLoading = $state(false);
-  let error = $state("");
-  let templateStatus = $state("");
-  let report = $state(null);
+  let {
+    onImported = undefined,
+  }: {
+    onImported?: (report: CredentialImportReport) => unknown | Promise<unknown>;
+  } = $props();
+  const workspace = createCredentialImportWorkspace({
+    onImported: (report) => onImported?.(report),
+  });
+  const { stateStore } = workspace;
+  let dialogState = $derived($stateStore);
+  let error = $derived(dialogState.error);
+  let file = $derived(dialogState.file);
+  let importing = $derived(dialogState.importing);
+  let open = $derived(dialogState.open);
+  let report = $derived(dialogState.report);
+  let templateLoading = $derived(dialogState.templateLoading);
+  let templateStatus = $derived(dialogState.templateStatus);
+  let fileInput = $state<HTMLInputElement | null>(null);
   let currentLanguage = $derived($currentLanguageState);
 
-  function resetDialog() {
-    file = null;
-    error = "";
-    templateStatus = "";
-    report = null;
-    if (fileInput) fileInput.value = "";
+  function handleOpenChange(nextOpen: boolean): void {
+    workspace.setOpen(nextOpen);
+    if (!nextOpen && !importing && fileInput) fileInput.value = "";
   }
 
-  function handleOpenChange(nextOpen) {
-    if (!nextOpen && importing) {
-      open = true;
-      return;
-    }
-    open = nextOpen;
-    if (!nextOpen) resetDialog();
+  function selectFile(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement;
+    workspace.selectFile(input.files?.[0] || null);
   }
 
-  function selectFile(event) {
-    file = event.currentTarget.files?.[0] || null;
-    error = "";
-    report = null;
+  function downloadTemplate(): Promise<void> {
+    return workspace.downloadTemplate(currentLanguage);
   }
 
-  async function downloadTemplate() {
-    templateLoading = true;
-    error = "";
-    templateStatus = "";
-    try {
-      const { blob, filename } =
-        await downloadCredentialImportTemplateBlob(currentLanguage);
-      downloadBlob(blob, filename);
-      templateStatus = t("credentialImportTemplateDownloaded");
-    } catch (downloadError) {
-      error = credentialErrorMessage(downloadError, t);
-    } finally {
-      templateLoading = false;
-    }
-  }
-
-  async function submitImport() {
-    if (!file || !acceptedFilePattern.test(file.name)) {
-      error = t("credentialImportFileRequired");
-      return;
-    }
-    importing = true;
-    error = "";
-    templateStatus = "";
-    report = null;
-    try {
-      report = credentialImportReport(await importCredentials(file));
-      await onImported?.(report);
-    } catch (importError) {
-      error = credentialErrorMessage(importError, t);
-    } finally {
-      importing = false;
-    }
+  function submitImport(): Promise<void> {
+    return workspace.submitImport();
   }
 </script>
 
-<Dialog.Root bind:open onOpenChange={handleOpenChange}>
+<Dialog.Root {open} onOpenChange={handleOpenChange}>
   <Dialog.Trigger>
-    {#snippet child({ props })}
+    {#snippet child({ props }: { props: ComponentProps<typeof Button> })}
       <Button {...props} variant="outline" size="sm" class="w-full rounded-lg">
         <UploadIcon data-icon="inline-start" aria-hidden="true" />
         {t("credentialImportAction")}

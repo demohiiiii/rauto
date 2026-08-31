@@ -1,5 +1,16 @@
-<script>
+<script lang="ts">
   import { detailFieldCardDisplay } from "../../lib/ui.js";
+
+  interface DetailFieldCardProps {
+    badgeClass?: string;
+    class?: string;
+    detailValue?: string;
+    label?: string;
+    labelClass?: string;
+    mono?: boolean;
+    valueClass?: string;
+    variant?: string;
+  }
 
   let {
     badgeClass,
@@ -10,7 +21,7 @@
     mono,
     valueClass,
     variant,
-  } = $props();
+  }: DetailFieldCardProps = $props();
   let detailFieldDisplay = $derived(
     detailFieldCardDisplay({
       badgeClass,

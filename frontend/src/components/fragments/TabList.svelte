@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { untrack } from "svelte";
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import { currentLanguageState } from "../../lib/i18n.js";
@@ -8,6 +8,42 @@
   } from "../../lib/events.js";
   import { tabListPresentation } from "../../lib/ui.js";
 
+  interface TabItem {
+    label?: string;
+    labelKey?: string;
+    value: string;
+  }
+
+  interface TabListProps {
+    "aria-label"?: string;
+    activeValue: string;
+    class?: string;
+    onSelect?: (value: string) => unknown;
+    tabItems: TabItem[];
+    themeAware?: boolean;
+  }
+
+  interface TabListDisplay {
+    ariaLabelText: string;
+    tabRows: { labelText: string; valueText: string }[];
+  }
+
+  type TabListPresentation = (options: {
+    activeValue: string;
+    ariaLabel?: string;
+    tabItems: TabItem[];
+  }) => TabListDisplay;
+
+  type TabListBindingsFactory = (options: {
+    getActiveValue: () => string;
+    onSelect?: (value: string) => unknown;
+    onSelectedValueChange: (value: string) => void;
+  }) => { valueChangeHandler: (value: string) => void };
+
+  const presentTabList = tabListPresentation as unknown as TabListPresentation;
+  const createTabListSelectionBindings =
+    tabListSelectionBindings as unknown as TabListBindingsFactory;
+
   let {
     tabItems,
     activeValue,
@@ -15,18 +51,18 @@
     class: rootClass = "w-fit",
     themeAware = false,
     onSelect,
-  } = $props();
+  }: TabListProps = $props();
   let selectedValue = $state(untrack(() => activeValue));
   let currentLanguage = $derived($currentLanguageState);
   let tabDisplay = $derived.by(() => {
     currentLanguage;
-    return tabListPresentation({ activeValue, ariaLabel, tabItems });
+    return presentTabList({ activeValue, ariaLabel, tabItems });
   });
 
-  const selectionBindings = tabListSelectionBindings({
+  const selectionBindings = createTabListSelectionBindings({
     getActiveValue: () => activeValue,
-    onSelect: (nextValue) => callIfFunction(onSelect, nextValue),
-    onSelectedValueChange: (nextValue) => {
+    onSelect: (nextValue: string) => callIfFunction(onSelect, nextValue),
+    onSelectedValueChange: (nextValue: string) => {
       selectedValue = nextValue;
     },
   });

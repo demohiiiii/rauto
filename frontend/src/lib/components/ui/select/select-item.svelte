@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Select as SelectPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
   import CheckIcon from "@lucide/svelte/icons/check";
@@ -10,7 +10,7 @@
     label,
     children: childrenProp,
     ...restProps
-  } = $props();
+  }: SelectPrimitive.ItemProps = $props();
 </script>
 
 <SelectPrimitive.Item

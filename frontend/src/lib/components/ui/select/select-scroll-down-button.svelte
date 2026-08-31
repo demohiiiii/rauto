@@ -1,9 +1,13 @@
-<script>
+<script lang="ts">
   import { Select as SelectPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
 
-  let { ref = $bindable(null), class: className, ...restProps } = $props();
+  let {
+    ref = $bindable(null),
+    class: className,
+    ...restProps
+  }: SelectPrimitive.ScrollDownButtonProps = $props();
 </script>
 
 <SelectPrimitive.ScrollDownButton

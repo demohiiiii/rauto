@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Checkbox } from "$lib/components/ui/checkbox";
@@ -14,371 +14,108 @@
     SearchIcon,
     SquareIcon,
   } from "@lucide/svelte";
-  import {
-    cancelDeviceDiscoveryRun,
-    createDeviceDiscoveryRun,
-    getDeviceDiscoveryRun,
-    importDeviceDiscoveryResults,
-    listCredentials,
-    listDeviceDiscoveryRuns,
-    listInventoryGroups,
-    listInventoryLabels,
-  } from "../../api/client.js";
+  import { onDestroy } from "svelte";
   import MultiSelectField from "../../components/fragments/MultiSelectField.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import { currentLanguageState, t as translateText } from "../../lib/i18n.js";
-  import { notifySavedConnectionsRefreshed } from "../../modules/connections/connectionTargetStoreState.js";
   import {
-    defaultDiscoveryConnectionName,
+    createDeviceDiscoveryWorkspace,
+    type DiscoveryResult,
+    type DiscoveryResultFilter,
+    discoveryResultBadgeVariant as resultBadgeVariant,
     discoveryResultCanImport,
     discoveryResultKey,
     discoveryResultStatus,
-    discoveryRunIsActive,
-    filterDiscoveryResults,
-    parseDiscoveryPorts,
-    retainImportableDiscoveryResultKeys,
-  } from "../../modules/inventory/deviceDiscoveryState.js";
+  } from "$domains/device-discovery/index.js";
 
-  let { active = false } = $props();
+  let { active = false }: { active?: boolean } = $props();
 
   let currentLanguage = $derived($currentLanguageState);
 
-  function t(key) {
+  function t(key: string): string {
     currentLanguage;
     return translateText(key);
   }
 
-  let targetsText = $state("");
-  let portsText = $state("22");
-  let selectedCredentialIds = $state([]);
-  let selectedGroups = $state([]);
-  let selectedLabels = $state([]);
-  let concurrency = $state(32);
-  let tcpTimeoutMs = $state(1000);
-  let probeTimeoutSecs = $state(15);
-  let credentials = $state([]);
-  let groups = $state([]);
-  let labels = $state([]);
-  let currentDetail = $state(null);
-  let selectedResultKeys = $state([]);
-  let connectionNames = $state({});
-  let initializedResultKeys = new Set();
-  let resultFilter = $state("identified");
-  let statusFilter = $state("all");
-  let resultSearch = $state("");
-  let loading = $state(false);
-  let importing = $state(false);
-  let errorMessage = $state("");
-  let statusMessage = $state("");
-  let pollTimer = null;
-  let initialized = false;
+  const workspace = createDeviceDiscoveryWorkspace();
+  const { displayStateStore } = workspace;
+  let display = $derived($displayStateStore);
+  let targetsText = $derived(display.targetsText);
+  let portsText = $derived(display.portsText);
+  let selectedCredentialIds = $derived(display.selectedCredentialIds);
+  let selectedGroups = $derived(display.selectedGroups);
+  let selectedLabels = $derived(display.selectedLabels);
+  let concurrency = $derived(display.concurrency);
+  let tcpTimeoutMs = $derived(display.tcpTimeoutMs);
+  let probeTimeoutSecs = $derived(display.probeTimeoutSecs);
+  let currentRun = $derived(display.currentRun);
+  let selectedResultKeys = $derived(display.selectedResultKeys);
+  let connectionNames = $derived(display.connectionNames);
+  let resultFilter = $derived(display.resultFilter);
+  let statusFilter = $derived(display.statusFilter);
+  let resultSearch = $derived(display.resultSearch);
+  let loading = $derived(display.loading);
+  let importing = $derived(display.importing);
+  let errorMessage = $derived(display.errorMessage);
+  let statusMessage = $derived(display.statusMessage);
+  let runActive = $derived(display.runActive);
+  let filteredResults = $derived(display.filteredResults);
+  let importableResults = $derived(display.importableResults);
+  let selectedImportableResults = $derived(display.selectedImportableResults);
+  let identifiedResultCount = $derived(display.identifiedResultCount);
+  let progressPercent = $derived(display.progressPercent);
+  let credentialOptions = $derived(display.credentialOptions);
+  let groupOptions = $derived(display.groupOptions);
+  let labelOptions = $derived(display.labelOptions);
+  let statusFilterOptions = $derived(display.statusFilterOptions);
+  let activeStatusFilterLabel = $derived(display.activeStatusFilterLabel);
 
-  let currentRun = $derived(currentDetail?.run || null);
-  let results = $derived(currentDetail?.results || []);
-  let runActive = $derived(discoveryRunIsActive(currentRun || {}));
-  let filteredResults = $derived(
-    filterDiscoveryResults(results, resultFilter, resultSearch, statusFilter),
-  );
-  let importableResults = $derived(
-    results.filter((result) => discoveryResultCanImport(result)),
-  );
-  let selectedImportableResults = $derived(
-    importableResults.filter((result) =>
-      selectedResultKeys.includes(discoveryResultKey(result)),
-    ),
-  );
-  let identifiedResultCount = $derived(
-    results.filter((result) => discoveryResultStatus(result) === "identified")
-      .length,
-  );
-  let progressPercent = $derived(
-    currentRun?.status === "completed"
-      ? 100
-      : currentRun?.phase === "ssh_probe" && currentRun?.reachable_count
-        ? Math.min(
-            100,
-            Math.round(
-              (Number(currentRun.probed_targets || 0) /
-                Number(currentRun.reachable_count)) *
-                100,
-            ),
-          )
-        : currentRun?.total_targets
-          ? Math.min(
-              100,
-              Math.round(
-                (Number(currentRun.scanned_targets || 0) /
-                  Number(currentRun.total_targets)) *
-                  100,
-              ),
-            )
-          : 0,
-  );
-  let credentialOptions = $derived(
-    credentials.map((credential) => ({
-      label: `${credential.name} · ${credential.username}`,
-      value: credential.id,
-    })),
-  );
-  let groupOptions = $derived(
-    groups.map((group) => ({ label: group.name, value: group.name })),
-  );
-  let labelOptions = $derived(
-    labels.map((label) => ({ label: label.name, value: label.name })),
-  );
-  let statusFilterOptions = $derived([
-    { value: "all", label: t("deviceDiscoveryStatusAll") },
-    { value: "identified", label: t("deviceDiscoveryStatus_identified") },
-    { value: "existing", label: t("deviceDiscoveryStatus_existing") },
-    { value: "imported", label: t("deviceDiscoveryStatus_imported") },
-    { value: "reachable", label: t("deviceDiscoveryStatus_reachable") },
-    {
-      value: "probe_failed",
-      label: t("deviceDiscoveryStatus_probe_failed"),
-    },
-    { value: "not_ssh", label: t("deviceDiscoveryStatus_not_ssh") },
-    { value: "unreachable", label: t("deviceDiscoveryStatus_unreachable") },
-    { value: "cancelled", label: t("deviceDiscoveryStatus_cancelled") },
-  ]);
-  let activeStatusFilterLabel = $derived(
-    statusFilterOptions.find((option) => option.value === statusFilter)
-      ?.label || t("deviceDiscoveryStatusAll"),
-  );
   $effect(() => {
-    if (!active) {
-      stopPolling();
-      return;
-    }
-    if (!initialized) {
-      initialized = true;
-      void initialize();
-    } else if (runActive) {
-      schedulePoll();
-    }
-    return stopPolling;
+    void workspace.setPageContext({ active });
   });
 
-  async function initialize() {
-    loading = true;
-    errorMessage = "";
-    try {
-      const [credentialRows, groupRows, labelRows, runRows] = await Promise.all(
-        [
-          listCredentials(),
-          listInventoryGroups(),
-          listInventoryLabels(),
-          listDeviceDiscoveryRuns(),
-        ],
-      );
-      credentials = Array.isArray(credentialRows) ? credentialRows : [];
-      groups = Array.isArray(groupRows) ? groupRows : [];
-      labels = Array.isArray(labelRows) ? labelRows : [];
-      if (!selectedCredentialIds.length && credentials[0]?.id) {
-        selectedCredentialIds = [credentials[0].id];
-      }
-      const latestRun = Array.isArray(runRows) ? runRows[0] : null;
-      if (latestRun?.id) await loadRun(latestRun.id);
-    } catch (error) {
-      errorMessage = error?.message || t("deviceDiscoveryLoadFailed");
-    } finally {
-      loading = false;
-    }
+  onDestroy(workspace.destroy);
+
+  function startDiscovery(): Promise<void> {
+    return workspace.startDiscovery();
   }
 
-  async function loadLatestRun() {
-    const runRows = await listDeviceDiscoveryRuns();
-    const latestRun = Array.isArray(runRows) ? runRows[0] : null;
-    if (!latestRun?.id) {
-      currentDetail = null;
-      return;
-    }
-    if (latestRun.id !== currentRun?.id) {
-      initializedResultKeys = new Set();
-      selectedResultKeys = [];
-      connectionNames = {};
-    }
-    await loadRun(latestRun.id);
+  function cancelDiscovery(): Promise<void> {
+    return workspace.cancelDiscovery();
   }
 
-  async function loadRun(runId) {
-    if (!runId) return;
-    currentDetail = await getDeviceDiscoveryRun(runId);
-    initializeResultDrafts();
-    if (discoveryRunIsActive(currentDetail?.run || {})) schedulePoll();
+  function loadLatestRun(): Promise<void> {
+    return workspace.loadLatestRun();
   }
 
-  function initializeResultDrafts() {
-    const nextNames = { ...connectionNames };
-    const nextSelected = new Set(selectedResultKeys);
-    for (const result of currentDetail?.results || []) {
-      const key = discoveryResultKey(result);
-      if (!nextNames[key])
-        nextNames[key] = defaultDiscoveryConnectionName(result);
-      if (!initializedResultKeys.has(key)) {
-        initializedResultKeys.add(key);
-        if (
-          discoveryResultCanImport(result) &&
-          !result.existing_connection_name
-        ) {
-          nextSelected.add(key);
-        }
-      }
-    }
-    connectionNames = nextNames;
-    selectedResultKeys = Array.from(nextSelected);
+  function importSelected(): Promise<void> {
+    return workspace.importSelected();
   }
 
-  function schedulePoll() {
-    stopPolling();
-    pollTimer = setTimeout(async () => {
-      const runId = currentRun?.id;
-      if (!active || !runId) return;
-      try {
-        await loadRun(runId);
-      } catch (error) {
-        errorMessage = error?.message || t("deviceDiscoveryLoadFailed");
-      }
-    }, 1000);
+  function toggleResult(result: DiscoveryResult, checked: boolean): void {
+    workspace.toggleResult(result, checked);
   }
 
-  function stopPolling() {
-    if (pollTimer) clearTimeout(pollTimer);
-    pollTimer = null;
+  function toggleAllImportable(checked: boolean): void {
+    workspace.toggleAllImportable(checked);
   }
 
-  async function startDiscovery() {
-    errorMessage = "";
-    statusMessage = "";
-    let ports;
-    try {
-      ports = parseDiscoveryPorts(portsText);
-    } catch {
-      errorMessage = t("deviceDiscoveryPortsInvalid");
-      return;
-    }
-    if (!targetsText.trim()) {
-      errorMessage = t("deviceDiscoveryTargetsRequired");
-      return;
-    }
-    if (!selectedCredentialIds.length) {
-      errorMessage = t("deviceDiscoveryCredentialRequired");
-      return;
-    }
-    loading = true;
-    initializedResultKeys = new Set();
-    selectedResultKeys = [];
-    connectionNames = {};
-    try {
-      currentDetail = await createDeviceDiscoveryRun({
-        targets: targetsText.split(/\r?\n/),
-        ports,
-        credential_ids: selectedCredentialIds,
-        default_groups: selectedGroups,
-        default_labels: selectedLabels,
-        concurrency: Number(concurrency),
-        tcp_timeout_ms: Number(tcpTimeoutMs),
-        probe_timeout_secs: Number(probeTimeoutSecs),
-      });
-      statusMessage = t("deviceDiscoveryStarted");
-      schedulePoll();
-    } catch (error) {
-      errorMessage = error?.message || t("deviceDiscoveryStartFailed");
-    } finally {
-      loading = false;
-    }
+  function updateConnectionName(result: DiscoveryResult, event: Event): void {
+    workspace.updateConnectionName(
+      result,
+      (event.currentTarget as HTMLInputElement).value,
+    );
   }
 
-  async function cancelDiscovery() {
-    if (!currentRun?.id) return;
-    loading = true;
-    errorMessage = "";
-    try {
-      currentDetail = await cancelDeviceDiscoveryRun(currentRun.id);
-      statusMessage = t("deviceDiscoveryCancelling");
-      schedulePoll();
-    } catch (error) {
-      errorMessage = error?.message || t("deviceDiscoveryCancelFailed");
-    } finally {
-      loading = false;
-    }
+  function selectResultFilter(filter: DiscoveryResultFilter): void {
+    workspace.selectResultFilter(filter);
   }
 
-  async function importSelected() {
-    if (!currentRun?.id || !selectedImportableResults.length) return;
-    importing = true;
-    errorMessage = "";
-    try {
-      const importResult = await importDeviceDiscoveryResults(
-        currentRun.id,
-        selectedImportableResults.map((result) => {
-          const key = discoveryResultKey(result);
-          return {
-            host: result.host,
-            port: result.port,
-            connection_name: connectionNames[key],
-            credential_id: result.credential_id,
-            overwrite: false,
-          };
-        }),
-      );
-      statusMessage = t("deviceDiscoveryImportSummary")
-        .replace("{created}", importResult.created)
-        .replace("{updated}", importResult.updated)
-        .replace("{failed}", importResult.failed);
-      notifySavedConnectionsRefreshed();
-      await loadRun(currentRun.id);
-      selectedResultKeys = retainImportableDiscoveryResultKeys(
-        selectedResultKeys,
-        currentDetail?.results,
-      );
-    } catch (error) {
-      errorMessage = error?.message || t("deviceDiscoveryImportFailed");
-    } finally {
-      importing = false;
-    }
+  function selectStatusFilter(filter: string): void {
+    workspace.selectStatusFilter(filter);
   }
 
-  function toggleResult(result, checked) {
-    const key = discoveryResultKey(result);
-    const next = new Set(selectedResultKeys);
-    if (checked) next.add(key);
-    else next.delete(key);
-    selectedResultKeys = Array.from(next);
-  }
-
-  function toggleAllImportable(checked) {
-    selectedResultKeys = checked
-      ? importableResults.map(discoveryResultKey)
-      : [];
-  }
-
-  function updateConnectionName(result, event) {
-    const key = discoveryResultKey(result);
-    connectionNames = {
-      ...connectionNames,
-      [key]: event.currentTarget.value,
-    };
-  }
-
-  function selectResultFilter(filter) {
-    resultFilter = filter;
-    statusFilter = "all";
-  }
-
-  function selectStatusFilter(filter) {
-    statusFilter = filter;
-    resultFilter = "all";
-  }
-
-  function resultBadgeVariant(result) {
-    const status = discoveryResultStatus(result);
-    if (status === "imported") return "outline";
-    if (status === "existing" || status === "reachable") return "secondary";
-    if (status === "identified") return "default";
-    return "destructive";
-  }
-
-  function resultStatusLabel(result) {
+  function resultStatusLabel(result: DiscoveryResult): string {
     return t(`deviceDiscoveryStatus_${discoveryResultStatus(result)}`);
   }
 </script>
@@ -420,7 +157,9 @@
         <span class="text-sm font-medium">{t("deviceDiscoveryTargets")}</span>
         <Textarea
           class="min-h-32 resize-y font-mono"
-          bind:value={targetsText}
+          value={targetsText}
+          oninput={(event) =>
+            workspace.setFormField("targetsText", event.currentTarget.value)}
           placeholder={t("deviceDiscoveryTargetsPlaceholder")}
           disabled={runActive}
         />
@@ -431,7 +170,9 @@
           <span class="text-sm font-medium">{t("deviceDiscoveryPorts")}</span>
           <Input
             class="font-mono"
-            bind:value={portsText}
+            value={portsText}
+            oninput={(event) =>
+              workspace.setFormField("portsText", event.currentTarget.value)}
             disabled={runActive}
             placeholder="22, 2222"
           />
@@ -443,7 +184,8 @@
           disabled={runActive}
           labelText={t("deviceDiscoveryCredentials")}
           placeholderText={t("deviceDiscoveryCredentialsPlaceholder")}
-          onValueChange={(value) => (selectedCredentialIds = value)}
+          onValueChange={(value) =>
+            workspace.setFormField("selectedCredentialIds", value)}
         />
         <MultiSelectField
           value={selectedGroups}
@@ -451,7 +193,8 @@
           disabled={runActive}
           labelText={t("deviceDiscoveryDefaultGroups")}
           placeholderText={t("deviceDiscoveryOptional")}
-          onValueChange={(value) => (selectedGroups = value)}
+          onValueChange={(value) =>
+            workspace.setFormField("selectedGroups", value)}
         />
         <MultiSelectField
           value={selectedLabels}
@@ -459,7 +202,8 @@
           disabled={runActive}
           labelText={t("deviceDiscoveryDefaultLabels")}
           placeholderText={t("deviceDiscoveryOptional")}
-          onValueChange={(value) => (selectedLabels = value)}
+          onValueChange={(value) =>
+            workspace.setFormField("selectedLabels", value)}
         />
       </div>
     </div>
@@ -475,7 +219,12 @@
           type="number"
           min="1"
           max="256"
-          bind:value={concurrency}
+          value={concurrency}
+          oninput={(event) =>
+            workspace.setFormField(
+              "concurrency",
+              Number(event.currentTarget.value),
+            )}
           disabled={runActive}
         />
       </label>
@@ -487,7 +236,12 @@
           type="number"
           min="1"
           max="30000"
-          bind:value={tcpTimeoutMs}
+          value={tcpTimeoutMs}
+          oninput={(event) =>
+            workspace.setFormField(
+              "tcpTimeoutMs",
+              Number(event.currentTarget.value),
+            )}
           disabled={runActive}
         />
       </label>
@@ -499,7 +253,12 @@
           type="number"
           min="1"
           max="120"
-          bind:value={probeTimeoutSecs}
+          value={probeTimeoutSecs}
+          oninput={(event) =>
+            workspace.setFormField(
+              "probeTimeoutSecs",
+              Number(event.currentTarget.value),
+            )}
           disabled={runActive}
         />
       </label>
@@ -536,7 +295,8 @@
               type="button"
               class={`relative px-4 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${resultFilter === metric.filter ? "bg-primary/10 text-primary after:absolute after:inset-x-0 after:top-0 after:h-0.5 after:bg-primary" : ""}`}
               aria-pressed={resultFilter === metric.filter}
-              onclick={() => selectResultFilter(metric.filter)}
+              onclick={() =>
+                selectResultFilter(metric.filter as DiscoveryResultFilter)}
             >
               <div
                 class={`text-xs ${resultFilter === metric.filter ? "text-primary" : "text-muted-foreground"}`}
@@ -561,7 +321,9 @@
           />
           <Input
             class="pl-9"
-            bind:value={resultSearch}
+            value={resultSearch}
+            oninput={(event) =>
+              workspace.setResultSearch(event.currentTarget.value)}
             placeholder={t("deviceDiscoverySearch")}
           />
         </div>
@@ -700,7 +462,7 @@
             {:else}
               <Table.Row>
                 <Table.Cell
-                  colspan="9"
+                  colspan={9}
                   class="h-32 text-center text-muted-foreground"
                 >
                   {t("deviceDiscoveryResultsEmpty")}

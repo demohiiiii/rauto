@@ -15,7 +15,11 @@ test("npm exposes repository-wide format check scripts", () => {
   );
   assert.equal(
     packageJson.scripts["frontend:format:check"],
-    'prettier --check "frontend/**/*.{js,mjs,svelte,css,html}" package.json vite.config.js',
+    'prettier --check "frontend/**/*.{js,mjs,ts,svelte,css,html}" package.json svelte.config.js vite.config.js tsconfig.json',
+  );
+  assert.equal(
+    packageJson.scripts["frontend:typecheck"],
+    "svelte-check --tsconfig ./tsconfig.json",
   );
 });
 
@@ -27,5 +31,9 @@ test("ci runs npm format check before building", () => {
   assert.ok(
     ciWorkflow.indexOf("run: npm run format:check") <
       ciWorkflow.indexOf("run: npm run web:build"),
+  );
+  assert.ok(
+    ciWorkflow.indexOf("run: npm run frontend:typecheck") <
+      ciWorkflow.indexOf("run: npm run frontend:test"),
   );
 });

@@ -8,7 +8,7 @@ import {
   localDateTimeToIso,
   mergeConfigHistoryDevices,
   prioritizeConfigHistoryDevices,
-} from "../src/modules/operations/configHistory.js";
+} from "../src/domains/config-history/index.ts";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -21,7 +21,24 @@ test("configuration history is a dedicated local management page", () => {
     "frontend/src/components/layout/DashboardSidebar.svelte",
   );
   const page = read("frontend/src/pages/ConfigHistoryPage.svelte");
-  const state = read("frontend/src/modules/operations/configHistory.js");
+  const application = read(
+    "frontend/src/domains/config-history/application/createConfigHistoryWorkspace.ts",
+  );
+  const infrastructure = read(
+    "frontend/src/domains/config-history/infrastructure/configHistoryApi.ts",
+  );
+  const runtime = read(
+    "frontend/src/domains/config-history/infrastructure/configHistoryRuntime.ts",
+  );
+  const presentation = read(
+    "frontend/src/domains/config-history/presentation/configHistoryPresentation.ts",
+  );
+  const domainSource = [
+    application,
+    infrastructure,
+    runtime,
+    presentation,
+  ].join("\n");
 
   assert.match(navigation, /id: "config-history"/);
   assert.match(navigation, /path: "\/app\/config-history"/);
@@ -34,6 +51,7 @@ test("configuration history is a dedicated local management page", () => {
     /tab !== "config-history" \|\| !dashboard\.managedAgentMode/,
   );
   assert.match(sidebar, /"config-history": FileClockIcon/);
+  assert.match(page, /domains\/config-history\/index\.js/);
   assert.match(page, /workspace\.selectDevice\(device\.name\)/);
   assert.match(page, /workspace\.selectSnapshot\(snapshot\.id\)/);
   assert.match(page, /<Dialog\.Root/);
@@ -53,14 +71,18 @@ test("configuration history is a dedicated local management page", () => {
   assert.match(page, /<OutputBlock/);
   assert.doesNotMatch(page, /normalized/);
   assert.match(page, /workspace\.downloadSelected/);
-  assert.match(state, /listDeviceConfigHistory/);
-  assert.match(state, /listDeviceConfigHistoryDevices/);
-  assert.match(state, /listConnections/);
-  assert.match(state, /activeConnectionTarget/);
-  assert.match(state, /getDeviceConfigSnapshot/);
-  assert.match(state, /deleteDeviceConfigSnapshot/);
-  assert.doesNotMatch(state, /snapshots\[0\]/);
-  assert.doesNotMatch(state, /normalized/);
+  assert.match(infrastructure, /listDeviceConfigHistory/);
+  assert.match(infrastructure, /listDeviceConfigHistoryDevices/);
+  assert.match(infrastructure, /listConnections/);
+  assert.match(runtime, /activeConnectionTarget/);
+  assert.match(infrastructure, /getDeviceConfigSnapshot/);
+  assert.match(infrastructure, /deleteDeviceConfigSnapshot/);
+  assert.doesNotMatch(application, /snapshots\[0\]/);
+  assert.doesNotMatch(domainSource, /normalized/);
+  assert.equal(
+    existsSync("frontend/src/modules/operations/configHistory.js"),
+    false,
+  );
 });
 
 test("configuration history prioritizes the active saved device", () => {

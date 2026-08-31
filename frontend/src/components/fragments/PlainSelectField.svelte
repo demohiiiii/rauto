@@ -1,8 +1,42 @@
-<script>
+<script lang="ts">
   import * as Select from "$lib/components/ui/select/index.js";
   import { classNames } from "../../lib/ui.js";
   import { focusElementAfterDomUpdate } from "../../lib/svelte.js";
   import { plainSelectFieldBindings } from "../../lib/events.js";
+
+  interface SelectOptionRow {
+    optionLabel: string;
+    optionValue: string;
+  }
+
+  interface SelectChangeEvent {
+    currentTarget: { value: string };
+    target: { value: string };
+  }
+
+  interface PlainSelectFieldProps {
+    "aria-label"?: string;
+    class?: string;
+    disabled?: boolean;
+    "focus-request-version"?: number;
+    hidden?: boolean;
+    onChange?: (event: SelectChangeEvent) => unknown;
+    onchange?: ((event: SelectChangeEvent) => unknown) | null;
+    onValueChange?: (value: string) => unknown;
+    optionRows?: SelectOptionRow[];
+    title?: string;
+    value?: string;
+  }
+
+  type PlainSelectBindingsFactory = (options: {
+    onChange?: (event: SelectChangeEvent) => unknown;
+    onValueChange?: (value: string) => unknown;
+  }) => {
+    changeHandler: (event: SelectChangeEvent) => unknown;
+  };
+
+  const createPlainSelectFieldBindings =
+    plainSelectFieldBindings as unknown as PlainSelectBindingsFactory;
 
   const defaultRootClass = "w-full min-w-0";
   const defaultTriggerClass =
@@ -20,9 +54,9 @@
     onChange,
     onValueChange,
     onchange = null,
-  } = $props();
+  }: PlainSelectFieldProps = $props();
   let selectBindings = $derived(
-    plainSelectFieldBindings({
+    createPlainSelectFieldBindings({
       onChange: typeof onchange === "function" ? onchange : onChange,
       onValueChange,
     }),
@@ -31,7 +65,7 @@
   let lastPropValue = $state("");
   let lastEmittedValue = $state("");
   let mounted = $state(false);
-  let selectTriggerElement = $state(null);
+  let selectTriggerElement = $state<HTMLButtonElement | null>(null);
   let lastFocusRequestVersion = $state(0);
   let rootClassName = $derived(defaultRootClass);
   let triggerClassName = $derived(classNames(defaultTriggerClass, selectClass));
@@ -43,7 +77,7 @@
       "-",
   );
 
-  function selectChangeEvent(nextValue = "") {
+  function selectChangeEvent(nextValue = ""): SelectChangeEvent {
     return {
       currentTarget: { value: nextValue },
       target: { value: nextValue },

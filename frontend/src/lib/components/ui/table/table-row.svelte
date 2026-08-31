@@ -1,11 +1,18 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type TableRowProps = Omit<HTMLAttributes<HTMLTableRowElement>, "children"> & {
+    children?: Snippet;
+    ref?: HTMLTableRowElement | null;
+  };
   let {
     ref = $bindable(null),
     class: className,
     children,
     ...restProps
-  } = $props();
+  }: TableRowProps = $props();
 </script>
 
 <tr

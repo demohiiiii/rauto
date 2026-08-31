@@ -1,6 +1,7 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button/index.js";
+  import { createBlacklistPageWorkspace } from "$domains/blacklist/index.js";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import MiniActionButton from "../components/fragments/MiniActionButton.svelte";
   import PlainInputField from "../components/fragments/PlainInputField.svelte";
@@ -10,9 +11,8 @@
   import SearchIcon from "@lucide/svelte/icons/search";
   import ShieldIcon from "@lucide/svelte/icons/shield";
   import { callbackHandler, submitOnKeyHandler } from "../lib/events.js";
-  import { createBlacklistPageWorkspace } from "../modules/operations/blacklist.js";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   const blacklistPageWorkspace = createBlacklistPageWorkspace();
   const { blacklistDisplayStateStore } = blacklistPageWorkspace;
   let blacklistDisplay = $derived($blacklistDisplayStateStore);
@@ -102,7 +102,7 @@
           aria-label={blacklistPatternDisplay.patternField.ariaLabelText}
           placeholderText={blacklistPatternDisplay.patternField.placeholder}
           onValueInput={blacklistPageWorkspace.updatePatternInput}
-          onkeydown={handleSubmitPatternOnEnter}
+          onKeydown={handleSubmitPatternOnEnter}
         />
         <div class="text-xs text-slate-500">
           {blacklistPatternDisplay.patternHint}
@@ -117,7 +117,11 @@
   </div>
 {/snippet}
 
-{#snippet checkResultCard(cardClass, resultLabel, showMatchedPattern)}
+{#snippet checkResultCard(
+  cardClass: string,
+  resultLabel: string,
+  showMatchedPattern: boolean,
+)}
   <div class={cardClass}>
     <div class="font-semibold">
       {resultLabel}
@@ -147,7 +151,7 @@
           aria-label={blacklistCheck.commandField.ariaLabelText}
           placeholderText={blacklistCheck.commandField.placeholder}
           onValueInput={blacklistPageWorkspace.updateCommandInput}
-          onkeydown={handleSubmitCommandOnEnter}
+          onKeydown={handleSubmitCommandOnEnter}
         />
         <Button
           variant="outline"

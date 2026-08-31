@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
   import { cn } from "$lib/utils.js";
   import { tv } from "tailwind-variants";
 
@@ -40,7 +40,27 @@
   });
 </script>
 
-<script>
+<script lang="ts">
+  import type { Snippet } from "svelte";
+  import type {
+    HTMLAnchorAttributes,
+    HTMLButtonAttributes,
+  } from "svelte/elements";
+  import type { VariantProps } from "tailwind-variants";
+
+  type ButtonProps = Omit<
+    HTMLButtonAttributes,
+    "children" | "class" | "disabled" | "type"
+  > &
+    VariantProps<typeof buttonVariants> & {
+      children?: Snippet;
+      class?: string;
+      disabled?: boolean | null;
+      href?: string | null;
+      ref?: HTMLAnchorElement | HTMLButtonElement | null;
+      type?: HTMLButtonAttributes["type"];
+    };
+
   let {
     class: className,
     variant = "default",
@@ -48,10 +68,11 @@
     ref = $bindable(null),
     href = undefined,
     type = "button",
-    disabled,
+    disabled = false,
     children,
     ...restProps
-  } = $props();
+  }: ButtonProps = $props();
+  let anchorProps = $derived(restProps as unknown as HTMLAnchorAttributes);
 </script>
 
 {#if href}
@@ -63,7 +84,7 @@
     aria-disabled={disabled}
     role={disabled ? "link" : undefined}
     tabindex={disabled ? -1 : undefined}
-    {...restProps}
+    {...anchorProps}
   >
     {@render children?.()}
   </a>

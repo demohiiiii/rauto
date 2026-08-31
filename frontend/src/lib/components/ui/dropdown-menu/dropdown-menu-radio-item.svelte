@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
   import CheckIcon from "@lucide/svelte/icons/check";
   import { cn } from "$lib/utils.js";
@@ -8,7 +8,7 @@
     class: className,
     children: childrenProp,
     ...restProps
-  } = $props();
+  }: DropdownMenuPrimitive.RadioItemProps = $props();
 </script>
 
 <DropdownMenuPrimitive.RadioItem

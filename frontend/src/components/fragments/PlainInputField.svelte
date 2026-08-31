@@ -1,7 +1,41 @@
-<script>
+<script lang="ts">
   import { Input } from "$lib/components/ui/input/index.js";
   import { focusElementAfterDomUpdate } from "../../lib/svelte.js";
   import { plainInputFieldBindings } from "../../lib/events.js";
+  import type { HTMLInputAttributes } from "svelte/elements";
+
+  interface PlainInputFieldProps {
+    "aria-label"?: string;
+    autocomplete?: HTMLInputAttributes["autocomplete"];
+    class?: string;
+    disabled?: boolean;
+    "focus-request-version"?: number;
+    hidden?: boolean;
+    id?: string;
+    list?: string;
+    min?: number | string;
+    onFocus?: HTMLInputAttributes["onfocus"];
+    onInput?: HTMLInputAttributes["oninput"];
+    onKeydown?: HTMLInputAttributes["onkeydown"];
+    onValueInput?: (value: string) => void;
+    placeholderText?: string;
+    readonly?: boolean;
+    "select-on-focus-request"?: boolean;
+    step?: number | string;
+    title?: string;
+    type?: HTMLInputAttributes["type"];
+    value?: HTMLInputAttributes["value"];
+  }
+
+  type PlainInputBindingsFactory = (options: {
+    onInput?: HTMLInputAttributes["oninput"];
+    onValueInput?: (value: string) => void;
+  }) => {
+    inputHandler: NonNullable<HTMLInputAttributes["oninput"]>;
+  };
+
+  const createPlainInputFieldBindings =
+    plainInputFieldBindings as unknown as PlainInputBindingsFactory;
 
   let {
     value = "",
@@ -24,11 +58,11 @@
     onValueInput,
     onFocus,
     onKeydown,
-  } = $props();
+  }: PlainInputFieldProps = $props();
   let inputBindings = $derived(
-    plainInputFieldBindings({ onInput, onValueInput }),
+    createPlainInputFieldBindings({ onInput, onValueInput }),
   );
-  let inputElement = $state(null);
+  let inputElement = $state<HTMLInputElement | null>(null);
   let lastFocusRequestVersion = $state(0);
 
   $effect(() => {

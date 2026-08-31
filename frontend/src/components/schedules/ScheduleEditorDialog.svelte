@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
   import SaveIcon from "@lucide/svelte/icons/save";
   import * as Dialog from "$lib/components/ui/dialog";
@@ -12,8 +12,20 @@
   import PlainSelectField from "../fragments/PlainSelectField.svelte";
   import StatusCard from "../fragments/StatusCard.svelte";
   import { tr } from "../../lib/i18n.js";
+  import type {
+    ScheduleActionType,
+    ScheduleMisfirePolicy,
+    ScheduleOverlapPolicy,
+    SchedulesDisplayState,
+    SchedulesWorkspace,
+  } from "../../domains/schedules/index.js";
 
-  let { display, workspace } = $props();
+  interface ScheduleEditorDialogProps {
+    display: SchedulesDisplayState;
+    workspace: SchedulesWorkspace;
+  }
+
+  let { display, workspace }: ScheduleEditorDialogProps = $props();
   let dialogOpen = $state(false);
   let lastDisplayOpen = $state(false);
   let form = $derived(display.form);
@@ -113,7 +125,9 @@
               optionRows={actionOptions}
               aria-label={tr("scheduleActionType", "Task type")}
               onValueChange={(actionType) =>
-                workspace.patchForm({ actionType })}
+                workspace.patchForm({
+                  actionType: actionType as ScheduleActionType,
+                })}
             />
           </div>
         </div>
@@ -271,7 +285,9 @@
               optionRows={overlapOptions}
               aria-label={tr("scheduleOverlap", "Overlap")}
               onValueChange={(overlapPolicy) =>
-                workspace.patchForm({ overlapPolicy })}
+                workspace.patchForm({
+                  overlapPolicy: overlapPolicy as ScheduleOverlapPolicy,
+                })}
             />
           </div>
           <div class="grid gap-2">
@@ -281,7 +297,9 @@
               optionRows={misfireOptions}
               aria-label={tr("scheduleMisfire", "Missed runs")}
               onValueChange={(misfirePolicy) =>
-                workspace.patchForm({ misfirePolicy })}
+                workspace.patchForm({
+                  misfirePolicy: misfirePolicy as ScheduleMisfirePolicy,
+                })}
             />
           </div>
           <div class="grid gap-2">

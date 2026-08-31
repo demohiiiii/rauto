@@ -1,5 +1,15 @@
-<script>
+<script lang="ts">
   import { summaryMetricCardDisplay } from "../../lib/ui.js";
+
+  interface SummaryMetricCardProps {
+    class?: string;
+    label?: string;
+    labelClass?: string;
+    metricValue?: unknown;
+    metricValueClass?: string;
+    mono?: boolean;
+    size?: string;
+  }
 
   let {
     class: extraClass,
@@ -9,7 +19,7 @@
     metricValueClass,
     mono,
     size,
-  } = $props();
+  }: SummaryMetricCardProps = $props();
   let cardDisplay = $derived(
     summaryMetricCardDisplay({
       extraClass,

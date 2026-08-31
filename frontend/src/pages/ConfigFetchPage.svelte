@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Alert from "$lib/components/ui/alert";
   import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
@@ -22,13 +22,12 @@
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import { currentLanguageState, t } from "../lib/i18n.js";
   import {
-    configFetchTargetPickerFields,
-    connectionTargetState,
-  } from "../modules/connections/connections.js";
-  import {
     CONFIG_FETCH_CONTENT_VIEW,
     CONFIG_FETCH_TARGET_MODE,
+    type ConfigFetchContentView,
+    type ConfigFetchTargetMode,
     configFetchContent,
+    configFetchConnectionTargetState as connectionTargetState,
     configFetchFormState,
     configFetchKindAvailable,
     configFetchKindCatalogState,
@@ -36,24 +35,29 @@
     configFetchResultRows,
     configFetchResultState,
     configFetchTimestamp,
+    configFetchTargetPickerFields,
     downloadConfigFetchResult,
     executeConfigFetch,
     normalizeConfigFetchTargetMode,
     refreshConfigFetchKindOptions,
     setConfigFetchField,
     setConfigFetchRetry,
-  } from "../modules/operations/configFetch.js";
-  import { sessionRetryValidation } from "../modules/operations/sessionRetry.js";
+    validateConfigFetchRetry,
+  } from "$domains/config-fetch/index.js";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   let currentLanguage = $derived($currentLanguageState);
   let form = $derived($configFetchFormState);
   let kindCatalog = $derived($configFetchKindCatalogState);
   let connectionTarget = $derived($connectionTargetState);
   let result = $derived($configFetchResultState);
-  let activeTarget = $state("");
-  let contentView = $state(CONFIG_FETCH_CONTENT_VIEW.raw);
-  let targetModeValue = $state(CONFIG_FETCH_TARGET_MODE.current);
+  let activeTarget = $state<string>("");
+  let contentView = $state<ConfigFetchContentView>(
+    CONFIG_FETCH_CONTENT_VIEW.raw,
+  );
+  let targetModeValue = $state<ConfigFetchTargetMode>(
+    CONFIG_FETCH_TARGET_MODE.current,
+  );
   let resultRows = $derived(
     result.kind === "result" ? configFetchResultRows(result.resultPayload) : [],
   );
@@ -71,7 +75,7 @@
   let kindAvailable = $derived(
     configFetchKindAvailable(kindCatalog, form.kind),
   );
-  let retryValid = $derived(sessionRetryValidation(form.retry).valid);
+  let retryValid = $derived(validateConfigFetchRetry(form.retry));
   let currentTargetDetails = $derived(connectionTarget?.details || null);
   let currentTargetName = $derived(
     currentTargetDetails?.name ||
@@ -136,7 +140,7 @@
       title: row.target || "-",
       subtitle: [row.host, row.profile].filter(Boolean).join(" · "),
       statusLabel: row.error ? pageLabels.failed : pageLabels.succeeded,
-      statusTone: row.error ? "error" : "success",
+      statusTone: row.error ? ("error" as const) : ("success" as const),
     })),
   );
   let configCommandMissing = $derived(
@@ -173,7 +177,7 @@
     if (result.kind === "running") return t("configFetchRunning");
     return "";
   });
-  let statusTone = $derived(
+  let statusTone = $derived<"error" | "running" | "success" | "warning">(
     result.kind === "error"
       ? "error"
       : result.kind === "running"
@@ -240,7 +244,7 @@
       return;
     }
     if (!resultRows.some((row) => row.target === activeTarget)) {
-      activeTarget = resultRows[0].target;
+      activeTarget = resultRows[0]?.target || "";
       contentView = CONFIG_FETCH_CONTENT_VIEW.raw;
     }
   });
@@ -254,18 +258,18 @@
     }
   });
 
-  function selectTarget(target) {
+  function selectTarget(target: string) {
     activeTarget = target;
     contentView = CONFIG_FETCH_CONTENT_VIEW.raw;
   }
 
-  function selectTargetMode(targetMode) {
+  function selectTargetMode(targetMode: string) {
     const nextTargetMode = normalizeConfigFetchTargetMode(targetMode, "");
     if (!nextTargetMode) {
       targetModeValue = normalizeConfigFetchTargetMode(form.targetMode);
       return;
     }
-    targetModeValue = nextTargetMode;
+    targetModeValue = nextTargetMode as ConfigFetchTargetMode;
     setConfigFetchField("targetMode", nextTargetMode);
   }
 </script>
@@ -511,7 +515,8 @@
                     tabItems={contentTabs}
                     activeValue={contentView}
                     aria-label={pageLabels.resultsTitle}
-                    onSelect={(view) => (contentView = view)}
+                    onSelect={(view: string) =>
+                      (contentView = view as ConfigFetchContentView)}
                   />
                   <Button
                     variant="outline"

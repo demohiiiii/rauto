@@ -1,10 +1,19 @@
-<script>
+<script lang="ts">
   import * as Select from "$lib/components/ui/select/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Textarea } from "$lib/components/ui/textarea/index.js";
+  import type { CredentialForm } from "$domains/credentials/index.js";
   import { t } from "../../lib/i18n.js";
 
-  let { form, editing = false } = $props();
+  let {
+    form,
+    editing = false,
+    onChange = undefined,
+  }: {
+    form: CredentialForm;
+    editing?: boolean;
+    onChange?: (patch: Partial<CredentialForm>) => void;
+  } = $props();
 
   const authOptions = $derived([
     { value: "password", label: t("credentialAuthPassword") },
@@ -20,14 +29,20 @@
       authOptions[0].label,
   );
 
-  function setAuthType(value) {
-    form.authType = value || "password";
-    form.password = "";
-    form.privateKey = "";
-    form.privateKeyPath = "";
-    form.passphrase = "";
-    form.hasAuthSecret = false;
-    form.hasPassphrase = false;
+  function patchForm(patch: Partial<CredentialForm>): void {
+    onChange?.(patch);
+  }
+
+  function setAuthType(value: string): void {
+    patchForm({
+      authType: value || "password",
+      hasAuthSecret: false,
+      hasPassphrase: false,
+      passphrase: "",
+      password: "",
+      privateKey: "",
+      privateKeyPath: "",
+    });
   }
 </script>
 
@@ -56,7 +71,8 @@
     </span>
     <Input
       type="password"
-      bind:value={form.password}
+      value={form.password}
+      oninput={(event) => patchForm({ password: event.currentTarget.value })}
       autocomplete="new-password"
       placeholder={editing && form.hasAuthSecret ? t("credentialRetained") : ""}
     />
@@ -68,7 +84,8 @@
     </span>
     <Textarea
       class="min-h-36 font-mono text-xs"
-      bind:value={form.privateKey}
+      value={form.privateKey}
+      oninput={(event) => patchForm({ privateKey: event.currentTarget.value })}
       autocomplete="off"
       placeholder={editing && form.hasAuthSecret ? t("credentialRetained") : ""}
     />
@@ -79,7 +96,8 @@
     </span>
     <Input
       type="password"
-      bind:value={form.passphrase}
+      value={form.passphrase}
+      oninput={(event) => patchForm({ passphrase: event.currentTarget.value })}
       autocomplete="new-password"
       placeholder={editing && form.hasPassphrase
         ? t("credentialRetained")
@@ -91,7 +109,12 @@
     <span class="text-xs font-semibold text-muted-foreground">
       {t("credentialPrivateKeyPath")}
     </span>
-    <Input bind:value={form.privateKeyPath} autocomplete="off" />
+    <Input
+      value={form.privateKeyPath}
+      autocomplete="off"
+      oninput={(event) =>
+        patchForm({ privateKeyPath: event.currentTarget.value })}
+    />
   </label>
   <label class="grid gap-1.5 sm:col-span-2">
     <span class="text-xs font-semibold text-muted-foreground">
@@ -99,7 +122,8 @@
     </span>
     <Input
       type="password"
-      bind:value={form.passphrase}
+      value={form.passphrase}
+      oninput={(event) => patchForm({ passphrase: event.currentTarget.value })}
       autocomplete="new-password"
       placeholder={editing && form.hasPassphrase
         ? t("credentialRetained")

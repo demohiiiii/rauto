@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { get } from "svelte/store";
 import {
   CONFIG_FETCH_CONTENT_VIEW,
   CONFIG_FETCH_TARGET_MODE,
@@ -12,10 +13,11 @@ import {
   configFetchPayload,
   configFetchResultCounts,
   configFetchTimestamp,
+  createConfigFetchWorkspace,
   normalizeConfigFetchTargetMode,
   normalizeConfigFetchMaxParallel,
   singleConfigFetchResultPayload,
-} from "../src/modules/operations/configFetch.js";
+} from "../src/domains/config-fetch/index.ts";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -37,6 +39,87 @@ test("configuration fetch is a dedicated dashboard operation", () => {
   assert.match(api, /fetchConfig/);
   assert.match(api, /POST", "\/api\/config\/fetch"/);
   assert.match(api, /listConfigCommands/);
+});
+
+test("configuration fetch follows the domain module boundary", () => {
+  const domainIndex = read("frontend/src/domains/config-fetch/index.ts");
+  const application = read(
+    "frontend/src/domains/config-fetch/application/configFetchWorkspace.ts",
+  );
+  const infrastructure = read(
+    "frontend/src/domains/config-fetch/infrastructure/configFetchApi.ts",
+  );
+  const model = read("frontend/src/domains/config-fetch/model/configFetch.ts");
+  const presentation = read(
+    "frontend/src/domains/config-fetch/presentation/configFetchPresentation.ts",
+  );
+
+  assert.match(domainIndex, /\.\/application\/configFetchWorkspace\.js/);
+  assert.match(application, /createConfigFetchWorkspace/);
+  assert.match(infrastructure, /fetchConfigBatch/);
+  assert.match(model, /configFetchPayload/);
+  assert.match(presentation, /configFetchDownloadDescriptor/);
+});
+
+test("configuration fetch ignores an obsolete command catalog response", async () => {
+  const requests = [];
+  const workspace = createConfigFetchWorkspace({
+    api: {
+      listConfigCommands(profile) {
+        return new Promise((resolve) => requests.push({ profile, resolve }));
+      },
+    },
+  });
+
+  const first = workspace.loadKindOptions("cisco_ios");
+  const second = workspace.loadKindOptions("huawei_vrp");
+  requests[1].resolve([{ kind: "startup" }]);
+  await second;
+  requests[0].resolve([{ kind: "running" }]);
+  await first;
+
+  assert.deepEqual(get(workspace.kindCatalogState), {
+    kind: "ready",
+    options: [{ label: "startup", value: "startup" }],
+    profile: "huawei_vrp",
+  });
+  assert.equal(get(workspace.formState).kind, "startup");
+});
+
+test("configuration fetch executes the current target through domain ports", async () => {
+  let receivedPayload = null;
+  const workspace = createConfigFetchWorkspace({
+    api: {
+      async fetchConfig(payload) {
+        receivedPayload = payload;
+        return {
+          content: "hostname edge-01\n",
+          kind: payload.kind,
+          target: "edge-01",
+        };
+      },
+      async listConfigCommands() {
+        return [{ kind: "running" }];
+      },
+    },
+    runtime: {
+      connectionPayload: () => ({ connection_name: "edge-01" }),
+      ensureConnectionTargetSelected: () => true,
+      recordLevelPayload: () => "full",
+      retryRequestFields: () => ({}),
+    },
+  });
+
+  await workspace.loadKindOptions("cisco_ios");
+  await workspace.execute();
+
+  assert.deepEqual(receivedPayload, {
+    kind: "running",
+    include_normalized: false,
+    connection: { connection_name: "edge-01" },
+    record_level: "full",
+  });
+  assert.equal(get(workspace.resultState).kind, "result");
 });
 
 test("configuration fetch payload matches the batch API contract", () => {
@@ -285,7 +368,10 @@ test("configuration fetch page renders target controls and device results", () =
   assert.match(page, /ExecutionResultsPanel/);
   assert.match(page, /ExecutionResultMeta/);
   assert.match(page, /CONFIG_FETCH_TARGET_MODE\.current/);
-  assert.match(page, /connectionTargetState/);
+  assert.match(
+    page,
+    /configFetchConnectionTargetState as connectionTargetState/,
+  );
   assert.match(connectionState, /connectionPicker\.configFetch\.targets/);
   assert.match(connectionState, /connectionPicker\.configFetch\.groups/);
   assert.match(connectionState, /connectionPicker\.configFetch\.labels/);

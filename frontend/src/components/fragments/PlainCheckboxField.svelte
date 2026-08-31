@@ -20,8 +20,8 @@
     afterText = "",
     afterTextClass = "",
     controlKind = "checkbox",
-    onChange,
-    onCheckedChange,
+    onChange = null,
+    onCheckedChange = null,
     onchange = null,
   } = $props();
   let checkboxBindings = $derived(

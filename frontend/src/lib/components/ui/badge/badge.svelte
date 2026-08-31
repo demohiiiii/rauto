@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
   import { tv } from "tailwind-variants";
 
   export const badgeVariants = tv({
@@ -23,17 +23,31 @@
   });
 </script>
 
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAnchorAttributes, HTMLAttributes } from "svelte/elements";
+  import type { VariantProps } from "tailwind-variants";
+
+  type BadgeProps = Omit<
+    HTMLAttributes<HTMLElement> & HTMLAnchorAttributes,
+    "children" | "class" | "href"
+  > &
+    VariantProps<typeof badgeVariants> & {
+      children?: Snippet;
+      class?: string;
+      href?: string | null;
+      ref?: HTMLAnchorElement | HTMLSpanElement | null;
+    };
 
   let {
     ref = $bindable(null),
-    href,
+    href = undefined,
     class: className,
     variant = "default",
     children,
     ...restProps
-  } = $props();
+  }: BadgeProps = $props();
 </script>
 
 <svelte:element

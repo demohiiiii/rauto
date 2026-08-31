@@ -1,7 +1,15 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
   import { Dialog as DialogPrimitive } from "bits-ui";
   import { Button } from "$lib/components/ui/button/index.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type DialogFooterProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
+    children?: Snippet;
+    ref?: HTMLDivElement | null;
+    showCloseButton?: boolean;
+  };
 
   let {
     ref = $bindable(null),
@@ -9,7 +17,7 @@
     children,
     showCloseButton = false,
     ...restProps
-  } = $props();
+  }: DialogFooterProps = $props();
 </script>
 
 <div
