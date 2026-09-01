@@ -4,7 +4,7 @@ import {
   createLoadingRunner,
 } from "../../lib/svelte.js";
 import { currentLanguageState, t } from "../../lib/i18n.js";
-import { dashboardState } from "../dashboard/dashboardApp.js";
+import { dashboardState } from "$domains/dashboard/index.js";
 import { createOrchestratedWorkspace } from "./orchestratedWorkspace.js";
 import { executionModeOptionsVersion } from "$domains/profiles/index.js";
 import { orchestrationEditorRunButtonDisplayPresentation } from "./orchestrationFormStructureState.js";

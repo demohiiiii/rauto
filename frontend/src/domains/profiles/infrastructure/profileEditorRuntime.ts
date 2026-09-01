@@ -4,7 +4,7 @@ import {
   saveCustomProfileForm,
 } from "../../../api/client.js";
 import { promptForResourceName, statusPresentation } from "../../../lib/ui.js";
-import { showToast } from "../../../modules/overlays/overlays.js";
+import { showToast } from "$domains/overlays/index.js";
 import type { CustomProfileEditorRuntime } from "../model/types.js";
 
 export const profileEditorRuntime: CustomProfileEditorRuntime = {

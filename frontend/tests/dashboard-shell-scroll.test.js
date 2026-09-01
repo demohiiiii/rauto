@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { dashboardNavigationItems } from "../src/config/dashboardNavigation.js";
+import { dashboardNavigationItems } from "../src/domains/dashboard/index.js";
 import { sidebarConnectionPresentation } from "../src/modules/connections/connectionTargetDisplayState.js";
 
 test("SFTP upload is grouped with dashboard operations", () => {
@@ -13,11 +13,11 @@ test("SFTP upload is grouped with dashboard operations", () => {
 
 test("long page titles use compact sidebar labels", () => {
   const navigation = readFileSync(
-    "frontend/src/config/dashboardNavigation.js",
+    "frontend/src/domains/dashboard/model/navigation.ts",
     "utf8",
   );
   const shell = readFileSync(
-    "frontend/src/modules/dashboard/dashboardShell.js",
+    "frontend/src/domains/dashboard/application/createDashboardShellWorkspaces.ts",
     "utf8",
   );
   const en = readFileSync("frontend/src/i18n/en.js", "utf8");

@@ -313,7 +313,7 @@ test("detail modal composes shadcn Dialog instead of native dialog", () => {
     "frontend/src/components/overlays/DetailModal.svelte",
   );
   const workspaceSource = read(
-    "frontend/src/modules/overlays/overlaysDetail.js",
+    "frontend/src/domains/overlays/application/detailState.ts",
   );
 
   assert.match(modalSource, /ui\/dialog/);
@@ -517,7 +517,9 @@ test("session records share one shadcn drawer with recent and history tabs", () 
   const overlayHost = read(
     "frontend/src/components/layout/DashboardOverlayHost.svelte",
   );
-  const overlayDefinitions = read("frontend/src/config/dashboardNavigation.js");
+  const overlayDefinitions = read(
+    "frontend/src/domains/dashboard/model/navigation.ts",
+  );
 
   assert.match(source, /DashboardDrawerShell/);
   assert.match(source, /<Tabs\.Root/);
@@ -556,7 +558,7 @@ test("history drawer and detail modal follow the demo card-based design", () => 
     "frontend/src/components/overlays/DetailModal.svelte",
   );
   const detailStateSource = read(
-    "frontend/src/modules/overlays/overlaysDetail.js",
+    "frontend/src/domains/overlays/application/detailState.ts",
   );
 
   assert.match(drawerShellSource, /data-\[side=right\]:sm:max-w-3xl/);

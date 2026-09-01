@@ -7,7 +7,7 @@ import {
 import { storageGet, storageSet } from "../../lib/browser.js";
 import { t, tr } from "../../lib/i18n.js";
 import { confirmUserChoice, formatTimestamp } from "../../lib/ui.js";
-import { openDetailModal } from "../overlays/overlays.js";
+import { openDetailModal } from "$domains/overlays/index.js";
 
 const HISTORY_STORAGE = {
   limit: "rauto_history_filter_limit",

@@ -31,7 +31,7 @@ test("transfer page uses the transfer domain boundary", () => {
   assert.match(application, /transferApi/);
   assert.match(application, /transferRuntime/);
   assert.match(runtime, /connectionTargetRuntimeState\.js/);
-  assert.match(runtime, /overlaysDrawerState\.js/);
+  assert.match(runtime, /\$domains\/overlays\/index\.js/);
   assert.doesNotMatch(viteConfig, /\["transfer\.js"/);
 });
 

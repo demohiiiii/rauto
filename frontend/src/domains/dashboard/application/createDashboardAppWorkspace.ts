@@ -1,29 +1,14 @@
 import { tick } from "svelte";
 import { derived, get, writable } from "svelte/store";
-import {
-  getAgentApiToken,
-  getAgentInfo,
-  setAgentApiToken,
-} from "../../api/client.js";
-import {
-  loadSavedConnections,
-  refreshConnectionProfileOptions,
-  refreshSidebarConnectionSelector,
-  setSavedConnectionStatus,
-} from "../connections/connections.js";
-import {
-  addWindowListener,
-  currentPathname,
-  currentUrl,
-  pushBrowserState,
-  replaceBrowserState,
-} from "../../lib/browser.js";
-import { currentLanguageState, t, tr } from "../../lib/i18n.js";
+import { currentLanguageState, t, tr } from "../../../lib/i18n.js";
+import { dashboardApi } from "../infrastructure/dashboardApi.js";
+import { dashboardResources } from "../infrastructure/dashboardResources.js";
+import { dashboardRuntime } from "../infrastructure/dashboardRuntime.js";
 import {
   defaultDashboardRoute,
   routeById,
   routeByPath,
-} from "../../config/dashboardNavigation.js";
+} from "../model/navigation.js";
 import {
   applyDashboardI18n,
   bindSystemThemeListener,
@@ -39,28 +24,51 @@ import {
   setDashboardManagedAgentMode,
   setDashboardTab,
   setDashboardTxStage,
-} from "./dashboardAppState.js";
+} from "./dashboardState.js";
+import type {
+  DashboardBootstrapDisplay,
+  DashboardBootstrapState,
+  DashboardRoute,
+} from "../model/types.js";
 
 export {
   dashboardState,
   getDashboardState,
   protectedDashboardResourcesRefreshState,
-} from "./dashboardAppState.js";
+} from "./dashboardState.js";
 
-const dashboardBootstrapState = writable({
+const dashboardBootstrapState = writable<DashboardBootstrapState>({
   error: "",
   status: "loading",
 });
 
-const featureModules = {
-  profile: null,
-  transactionsWorkspace: null,
-};
-const featureModulePromises = new Map();
+interface ProfilesFeatureModule {
+  initializeProfiles(): void;
+  loadProfilesOverview(): Promise<unknown>;
+}
+
+interface TransactionsFeatureModule {
+  loadAllJsonTemplates(): Promise<unknown>;
+}
+
+interface DashboardFeatureModules {
+  profile: ProfilesFeatureModule;
+  transactionsWorkspace: TransactionsFeatureModule;
+}
+
+type DashboardFeatureModuleKey = keyof DashboardFeatureModules;
+
+const featureModules = new Map<DashboardFeatureModuleKey, unknown>();
+const featureModulePromises = new Map<
+  DashboardFeatureModuleKey,
+  Promise<unknown>
+>();
 
 let dashboardAppBootstrapped = false;
 
-function dashboardBootstrapDisplay(bootstrap = {}) {
+function dashboardBootstrapDisplay(
+  bootstrap: DashboardBootstrapState,
+): DashboardBootstrapDisplay {
   return {
     busy: bootstrap.status === "loading",
     errorMessage: bootstrap.error || "",
@@ -73,7 +81,7 @@ function dashboardBootstrapDisplay(bootstrap = {}) {
   };
 }
 
-function dashboardModuleLoadErrorMessage(error) {
+function dashboardModuleLoadErrorMessage(error: unknown): string {
   return error && typeof error === "object" && "message" in error
     ? String(error.message)
     : String(error || "");
@@ -81,13 +89,13 @@ function dashboardModuleLoadErrorMessage(error) {
 
 async function loadDashboardBodyComponentModule() {
   const componentModule =
-    await import("../../components/layout/DashboardBody.svelte");
+    await import("../../../components/layout/DashboardBody.svelte");
   return componentModule.default;
 }
 
 export function createDashboardAppWorkspace() {
   initializeDashboardStatePreferences();
-  const dashboardBodyComponentStateStore = writable(null);
+  const dashboardBodyComponentStateStore = writable<unknown>(null);
   const dashboardBodyLoadErrorStateStore = writable("");
   const bootstrapDisplayStateStore = derived(
     [dashboardBootstrapState, currentLanguageState],
@@ -149,9 +157,13 @@ export function createDashboardAgentAuthPanelWorkspace() {
   });
 }
 
-async function loadFeatureModule(key, loader) {
-  if (featureModules[key]) {
-    return featureModules[key];
+async function loadFeatureModule<K extends DashboardFeatureModuleKey>(
+  key: K,
+  loader: () => Promise<DashboardFeatureModules[K]>,
+): Promise<DashboardFeatureModules[K]> {
+  const cachedModule = featureModules.get(key);
+  if (cachedModule) {
+    return cachedModule as DashboardFeatureModules[K];
   }
   if (!featureModulePromises.has(key)) {
     featureModulePromises.set(
@@ -159,7 +171,7 @@ async function loadFeatureModule(key, loader) {
       (async () => {
         try {
           const featureModule = await loader();
-          featureModules[key] = featureModule;
+          featureModules.set(key, featureModule);
           return featureModule;
         } catch (error) {
           featureModulePromises.delete(key);
@@ -168,41 +180,41 @@ async function loadFeatureModule(key, loader) {
       })(),
     );
   }
-  return featureModulePromises.get(key);
+  return featureModulePromises.get(key) as Promise<DashboardFeatureModules[K]>;
 }
 
-function loadProfilesModule() {
+function loadProfilesModule(): Promise<ProfilesFeatureModule> {
   return loadFeatureModule(
     "profile",
     () => import("$domains/profiles/application/profileCatalogState.js"),
   );
 }
 
-function loadTransactionsWorkspaceModule() {
+function loadTransactionsWorkspaceModule(): Promise<TransactionsFeatureModule> {
   return loadFeatureModule(
     "transactionsWorkspace",
-    () => import("../transactions/transactionPanelState.js"),
+    () => import("../../../modules/transactions/transactionPanelState.js"),
   );
 }
 
-function maybePersistAgentTokenFromUrl() {
-  const url = currentUrl();
+function maybePersistAgentTokenFromUrl(): boolean {
+  const url = dashboardRuntime.currentUrl();
   const token = (
     url.searchParams.get("token") ||
     url.searchParams.get("api_token") ||
     ""
   ).trim();
   if (!token) return false;
-  setAgentApiToken(token);
+  dashboardApi.setAgentApiToken(token);
   url.searchParams.delete("token");
   url.searchParams.delete("api_token");
-  replaceBrowserState({}, url.toString());
+  dashboardRuntime.replaceBrowserState({}, url.toString());
   return true;
 }
 
-async function detectManagedAgentMode() {
+async function detectManagedAgentMode(): Promise<boolean> {
   try {
-    const agentInfoPayload = await getAgentInfo();
+    const agentInfoPayload = await dashboardApi.getAgentInfo();
     const managed = !!(agentInfoPayload && agentInfoPayload.managed);
     setDashboardManagedAgentMode(managed);
     return managed;
@@ -214,38 +226,41 @@ async function detectManagedAgentMode() {
   }
 }
 
-export async function refreshProtectedDashboardResources() {
+export async function refreshProtectedDashboardResources(): Promise<void> {
   const [profilesModule, transactionsWorkspaceModule] = await Promise.all([
     loadProfilesModule(),
     loadTransactionsWorkspaceModule(),
   ]);
 
   await Promise.allSettled([
-    loadSavedConnections(),
+    dashboardResources.loadSavedConnections(),
     profilesModule.loadProfilesOverview(),
     transactionsWorkspaceModule.loadAllJsonTemplates(),
   ]);
   markProtectedDashboardResourcesRefreshCompleted();
-  refreshConnectionProfileOptions();
-  refreshSidebarConnectionSelector();
+  dashboardResources.refreshConnectionProfileOptions();
+  dashboardResources.refreshSidebarConnectionSelector();
 }
 
-async function initializeProtectedDashboardResources() {
+async function initializeProtectedDashboardResources(): Promise<void> {
   maybePersistAgentTokenFromUrl();
   await detectManagedAgentMode();
-  if (getDashboardState().managedAgentMode && !getAgentApiToken()) {
-    setSavedConnectionStatus(t("agentAuthRequired"), "info");
+  if (
+    getDashboardState().managedAgentMode &&
+    !dashboardApi.getAgentApiToken()
+  ) {
+    dashboardResources.setSavedConnectionStatus(t("agentAuthRequired"), "info");
     return;
   }
   await refreshProtectedDashboardResources();
 }
 
-async function initializeProfilesModule() {
+async function initializeProfilesModule(): Promise<void> {
   const profilesModule = await loadProfilesModule();
   profilesModule.initializeProfiles();
 }
 
-function initializeDashboardAppState() {
+function initializeDashboardAppState(): void {
   bindSystemThemeListener();
   applyDashboardI18n();
   void initializeProtectedDashboardResources();
@@ -253,19 +268,19 @@ function initializeDashboardAppState() {
   refreshAgentAuthStatus();
 }
 
-function onDashboardTabChange(tab) {
+function onDashboardTabChange(tab: unknown): void {
   setDashboardTab(tab);
 }
 
-function onDashboardTxStageChange(stage) {
+function onDashboardTxStageChange(stage: unknown): void {
   setDashboardTxStage(stage);
 }
 
-function currentDashboardRoute() {
-  return routeByPath(currentPathname());
+function currentDashboardRoute(): DashboardRoute {
+  return routeByPath(dashboardRuntime.currentPathname());
 }
 
-function applyDashboardRoute(route) {
+function applyDashboardRoute(route: DashboardRoute): void {
   const tab = route.tab || defaultDashboardRoute.tab;
   if (route.txStage) {
     onDashboardTabChange(tab);
@@ -275,24 +290,27 @@ function applyDashboardRoute(route) {
   onDashboardTabChange(tab);
 }
 
-function navigateDashboardRoute(routeOrId) {
+function navigateDashboardRoute(routeOrId: DashboardRoute | string): void {
   const route =
     typeof routeOrId === "string" ? routeById(routeOrId) : routeOrId;
   if (!route) {
     return;
   }
-  if (currentPathname() !== route.path) {
-    pushBrowserState({ routeId: route.id }, route.path);
+  if (dashboardRuntime.currentPathname() !== route.path) {
+    dashboardRuntime.pushBrowserState({ routeId: route.id }, route.path);
   }
   applyDashboardRoute(route);
 }
 
-function initDashboardRouter() {
+function initDashboardRouter(): () => void {
   const handlePopState = () => applyDashboardRoute(currentDashboardRoute());
-  const removePopStateListener = addWindowListener("popstate", handlePopState);
+  const removePopStateListener = dashboardRuntime.addWindowListener(
+    "popstate",
+    handlePopState,
+  );
 
-  if (currentPathname() === "/") {
-    replaceBrowserState(
+  if (dashboardRuntime.currentPathname() === "/") {
+    dashboardRuntime.replaceBrowserState(
       { routeId: defaultDashboardRoute.id },
       defaultDashboardRoute.path,
     );
@@ -316,7 +334,7 @@ function clearDashboardAppBootstrapped() {
   dashboardAppBootstrapped = false;
 }
 
-async function bootstrapDashboardApp() {
+async function bootstrapDashboardApp(): Promise<(() => void) | null> {
   if (isDashboardAppBootstrapped()) {
     return null;
   }
@@ -334,9 +352,9 @@ async function bootstrapDashboardApp() {
   };
 }
 
-function startDashboardAppBootstrap() {
+function startDashboardAppBootstrap(): () => void {
   let mounted = true;
-  let destroyDashboardAppState = null;
+  let destroyDashboardAppState: (() => void) | null = null;
 
   dashboardBootstrapState.set({
     error: "",

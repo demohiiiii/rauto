@@ -15,8 +15,10 @@ function read(path) {
 }
 
 test("configuration history is a dedicated local management page", () => {
-  const navigation = read("frontend/src/config/dashboardNavigation.js");
-  const shell = read("frontend/src/modules/dashboard/dashboardShell.js");
+  const navigation = read("frontend/src/domains/dashboard/model/navigation.ts");
+  const shell = read(
+    "frontend/src/domains/dashboard/application/createDashboardShellWorkspaces.ts",
+  );
   const sidebar = read(
     "frontend/src/components/layout/DashboardSidebar.svelte",
   );
@@ -42,10 +44,7 @@ test("configuration history is a dedicated local management page", () => {
 
   assert.match(navigation, /id: "config-history"/);
   assert.match(navigation, /path: "\/app\/config-history"/);
-  assert.match(
-    navigation,
-    /import\("\.\.\/pages\/ConfigHistoryPage\.svelte"\)/,
-  );
+  assert.match(navigation, /import\(".*\/pages\/ConfigHistoryPage\.svelte"\)/);
   assert.match(
     shell,
     /tab !== "config-history" \|\| !dashboard\.managedAgentMode/,

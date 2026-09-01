@@ -60,7 +60,7 @@ import {
   detectedConnectionFactsPatch,
 } from "./connectionsEditor.js";
 import { configureConnectionHistory } from "./connectionsHistory.js";
-import { openDetailModal, showToast } from "../overlays/overlays.js";
+import { openDetailModal, showToast } from "$domains/overlays/index.js";
 
 const CONNECTION_TEST_STATE_DEFAULTS = Object.freeze({
   loading: false,

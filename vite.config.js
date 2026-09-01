@@ -58,7 +58,6 @@ const MODULE_CHUNKS = new Map([
   ["profilesCustomEditor.js", "feature-prompts"],
   ["profilesWorkspace.js", "feature-prompts"],
   ["replay.js", "page-replaypage"],
-  ["dashboardAppState.js", "feature-dashboard-shell"],
   ["show.js", "page-showpage"],
   ["createShowWorkspaces.js", "page-showpage"],
   ["showApi.js", "page-showpage"],
@@ -177,12 +176,16 @@ function dashboardChunk(id) {
   if (matchesSourcePath(id, "i18n/")) return "i18n";
   if (matchesSourcePath(id, "api/")) return "app-api";
   if (matchesSourcePath(id, "config/")) return "app-core";
+  if (matchesSourcePath(id, "domains/dashboard/")) {
+    return "dashboard-shell-core";
+  }
   if (matchesSourcePath(id, "domains/schedules/")) {
     return "page-schedulespage";
   }
   if (matchesSourcePath(id, "domains/auth/")) return "app-core";
   if (matchesSourcePath(id, "domains/command/")) return "feature-command";
   if (matchesSourcePath(id, "domains/execution/")) return "feature-results";
+  if (matchesSourcePath(id, "domains/overlays/")) return "dashboard-overlays";
   if (matchesSourcePath(id, "domains/profiles/")) return "feature-prompts";
   if (matchesSourcePath(id, "domains/show/")) return "page-showpage";
   if (matchesSourcePath(id, "domains/standard/")) return "feature-standard";
@@ -190,11 +193,6 @@ function dashboardChunk(id) {
   if (matchesSourcePath(id, "modules/")) {
     const file = sourceFileName(id, "modules/");
     if (file === "connections.js") return "dashboard-connections";
-    if (file === "overlays.js") return "dashboard-overlays";
-    if (file === "overlaysDetail.js") return "dashboard-overlays";
-    if (file === "dashboardApp.js") return "dashboard-shell-core";
-    if (file === "dashboardOverlays.js") return "dashboard-shell-core";
-    if (file === "dashboardShell.js") return "dashboard-shell-core";
     return MODULE_CHUNKS.get(file) || "dashboard-shell";
   }
   if (matchesSourcePath(id, "components/")) {

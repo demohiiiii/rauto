@@ -3,7 +3,7 @@
   import {
     closeDashboardOverlayOnEscape,
     createDashboardOverlayHostWorkspace,
-  } from "../../modules/dashboard/dashboardShell.js";
+  } from "$domains/dashboard/index.js";
   const dashboardOverlayHostWorkspace = createDashboardOverlayHostWorkspace();
   const {
     applyHostDisplay,

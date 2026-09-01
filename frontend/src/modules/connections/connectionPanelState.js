@@ -13,7 +13,7 @@ import {
   setHistoryFilterOperation,
   setHistoryFilterQuery,
 } from "./connectionsHistory.js";
-import { historyDrawerPresentation } from "../overlays/overlays.js";
+import { historyDrawerPresentation } from "$domains/overlays/index.js";
 import {
   CONNECTION_MODAL_FOCUS_TARGET,
   connectionModalDisplay,

@@ -1,5 +1,5 @@
 import { tr as translate } from "../../lib/i18n.js";
-import { getDashboardState } from "../dashboard/dashboardApp.js";
+import { getDashboardState } from "$domains/dashboard/index.js";
 import {
   clearTxJsonEditorsHost,
   createJsonTemplateLibrary,

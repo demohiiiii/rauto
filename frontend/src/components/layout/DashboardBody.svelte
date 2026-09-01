@@ -11,11 +11,11 @@
   import DashboardPreferenceTools from "./DashboardPreferenceTools.svelte";
   import DashboardSidebar from "./DashboardSidebar.svelte";
   import StatusCard from "../fragments/StatusCard.svelte";
-  import { dashboardPageDefinitions } from "../../config/dashboardNavigation.js";
+  import { dashboardPageDefinitions } from "$domains/dashboard/index.js";
   import {
     createDashboardBodyWorkspace,
     dashboardState,
-  } from "../../modules/dashboard/dashboardShell.js";
+  } from "$domains/dashboard/index.js";
   import { dashboardThemeContextKey } from "../../lib/svelte.js";
   import { currentLanguageState } from "../../lib/i18n.js";
   import { cn } from "$lib/utils.js";

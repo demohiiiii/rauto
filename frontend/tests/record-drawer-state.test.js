@@ -13,7 +13,7 @@ import {
   replayStatusTextState,
   sessionRecordsViewState,
   setSessionRecordsView,
-} from "../src/modules/overlays/overlaysDrawerState.js";
+} from "../src/domains/overlays/index.js";
 import { createReplayPageWorkspace } from "../src/domains/replay/index.ts";
 
 test("opening session records always defaults to the recent recording", () => {

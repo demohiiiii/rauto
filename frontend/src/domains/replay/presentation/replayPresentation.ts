@@ -4,7 +4,7 @@ import {
   displayText,
   pillClass,
 } from "../../../lib/ui.js";
-import { eventEntriesPresentation } from "../../../modules/overlays/overlays.js";
+import { eventEntriesPresentation } from "$domains/overlays/index.js";
 import { replayFilteredEntries } from "../model/replay.js";
 import type {
   ReplayControlsDisplay,

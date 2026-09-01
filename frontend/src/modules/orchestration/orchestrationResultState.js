@@ -69,7 +69,7 @@ function openOrchestrationExecutionDetail(executionDetail = null) {
 }
 
 async function openOrchestrationExecutionDetailModal(detailConfig) {
-  const { openDetailModal } = await import("../overlays/overlays.js");
+  const { openDetailModal } = await import("$domains/overlays/index.js");
   openDetailModal("", detailConfig);
 }
 

@@ -1,58 +1,40 @@
 import { derived, get, writable } from "svelte/store";
 import {
-  currentPathname,
-  pushBrowserState,
-  storageGet,
-  storageSet,
-  writeClipboardText,
-} from "../../lib/browser.js";
-import { routeById } from "../../config/dashboardNavigation.js";
-import { showToast } from "./overlaysToastState.js";
-import { callbackHandler } from "../../lib/events.js";
-import { classNames, displayMode, displayText } from "../../lib/ui.js";
-import { displayModeTabs } from "../../config/dashboardModes.js";
-import { currentLanguageState, tr } from "../../lib/i18n.js";
-import {
   eventEntriesPresentation,
   formatHistoryTime,
   historyEntryOpenHandler,
   openEntryDrawer,
-} from "./overlaysDetail.js";
+} from "./detailState.js";
+import { showToast } from "./toastState.js";
+import { callbackHandler } from "../../../lib/events.js";
+import { classNames, displayMode, displayText } from "../../../lib/ui.js";
+import { displayModeTabs } from "../../../config/dashboardModes.js";
+import { currentLanguageState, tr } from "../../../lib/i18n.js";
+import { overlayDrawerRuntime } from "../infrastructure/overlayDrawerRuntime.js";
+import type {
+  OverlayData,
+  OverlayDrawerState,
+  OverlayEventEntry,
+  OverlayHistoryItem,
+  OverlayToastTone,
+  OverlayTranslate,
+  RecordDrawerMode,
+  RecordDrawerPreferences,
+  RecordDrawerRecordingState,
+  RecordLevel,
+  ReplayStatusTextState,
+  SessionRecordsView,
+} from "../model/types.js";
 
-const recordDrawerPreferenceDefinitions = Object.freeze({
-  displayMode: {
-    defaultValue: "list",
-    normalize: normalizeRecordDrawerMode,
-    storageKey: "rauto_record_view_mode",
-  },
-  eventKind: {
-    defaultValue: "all",
-    normalize: normalizeRecordDrawerEventKind,
-    storageKey: "rauto_record_event_kind",
-  },
-  failedOnly: {
-    defaultValue: false,
-    normalize: Boolean,
-    parse: (value) => value === "true",
-    serialize: String,
-    storageKey: "rauto_record_failed_only",
-  },
-  searchQuery: {
-    defaultValue: "",
-    normalize: (value) => String(value || ""),
-    storageKey: "rauto_record_search_query",
-  },
-});
+const recordDrawerDefaultPreferences: Readonly<RecordDrawerPreferences> =
+  Object.freeze({
+    displayMode: "list",
+    eventKind: "all",
+    failedOnly: false,
+    searchQuery: "",
+  });
 
-const recordDrawerDefaultPreferences = Object.freeze(
-  Object.fromEntries(
-    Object.entries(recordDrawerPreferenceDefinitions).map(
-      ([key, definition]) => [key, definition.defaultValue],
-    ),
-  ),
-);
-
-export const overlayDrawerState = writable({
+export const overlayDrawerState = writable<OverlayDrawerState>({
   recordDrawerOpen: false,
   recordFabCount: 0,
 });
@@ -60,23 +42,25 @@ export const overlayDrawerState = writable({
 export const SESSION_RECORDS_VIEW = Object.freeze({
   history: "history",
   recent: "recent",
-});
+} as const);
 
-export const sessionRecordsViewState = writable(SESSION_RECORDS_VIEW.recent);
+export const sessionRecordsViewState = writable<SessionRecordsView>(
+  SESSION_RECORDS_VIEW.recent,
+);
 
-export const recordDrawerRecordingState = writable({
+export const recordDrawerRecordingState = writable<RecordDrawerRecordingState>({
   jsonl: "",
   version: 0,
 });
 
-export const recordLevelState = writable("key-events-only");
+export const recordLevelState = writable<RecordLevel>("key-events-only");
 
-export const replayJsonlTransferState = writable({
+export const replayJsonlTransferState = writable<RecordDrawerRecordingState>({
   jsonl: "",
   version: 0,
 });
 
-export const replayStatusTextState = writable({
+export const replayStatusTextState = writable<ReplayStatusTextState>({
   text: "",
   version: 0,
 });
@@ -89,9 +73,32 @@ const recordDrawerEventKindOptions = [
   ["prompt_changed", "prompt_changed"],
   ["state_changed", "state_changed"],
   ["raw_chunk", "raw_chunk"],
-];
+] as const;
 
-function recordDrawerEventKindOptionRows(t = tr) {
+interface HistoryDrawerFilters {
+  limit?: unknown;
+  operation?: unknown;
+  query?: unknown;
+}
+
+interface HistoryDrawerStatus {
+  message?: unknown;
+  tone?: unknown;
+}
+
+interface HistoryDrawerState {
+  connectionLabel?: unknown;
+  historyItems?: unknown;
+  refreshLoading?: unknown;
+  status?: HistoryDrawerStatus;
+}
+
+interface RecordToolDisplay {
+  hintKey: string;
+  labelKey: string;
+}
+
+function recordDrawerEventKindOptionRows(t: OverlayTranslate = tr) {
   return recordDrawerEventKindOptions.map(
     ([recordEventKindValue, recordEventKindLabelKey]) => ({
       label:
@@ -108,7 +115,7 @@ const historyDrawerOperationValues =
     "|",
   );
 
-function historyDrawerOperationOptions(t = tr) {
+function historyDrawerOperationOptions(t: OverlayTranslate = tr) {
   return historyDrawerOperationValues.map((historyOperation) => ({
     label:
       historyOperation === "all"
@@ -118,18 +125,20 @@ function historyDrawerOperationOptions(t = tr) {
   }));
 }
 
-function updateOverlayDrawerState(patch = {}) {
+function updateOverlayDrawerState(
+  patch: Partial<OverlayDrawerState> = {},
+): void {
   overlayDrawerState.update((state) => ({ ...state, ...patch }));
 }
 
-export const openRecordDrawer = () => {
+export const openRecordDrawer = (): void => {
   sessionRecordsViewState.set(SESSION_RECORDS_VIEW.recent);
   updateOverlayDrawerState({ recordDrawerOpen: true });
 };
-export const closeRecordDrawer = () =>
+export const closeRecordDrawer = (): void =>
   updateOverlayDrawerState({ recordDrawerOpen: false });
 
-export function setSessionRecordsView(view = "") {
+export function setSessionRecordsView(view: unknown = ""): SessionRecordsView {
   const normalizedView =
     view === SESSION_RECORDS_VIEW.history
       ? SESSION_RECORDS_VIEW.history
@@ -138,7 +147,9 @@ export function setSessionRecordsView(view = "") {
   return normalizedView;
 }
 
-function recordDrawerShellDisplay(overlayState = {}) {
+function recordDrawerShellDisplay(
+  overlayState: Partial<OverlayDrawerState> = {},
+) {
   const title = tr("recordFabTitle");
   return {
     ariaLabelText: title,
@@ -160,7 +171,10 @@ function recordDrawerShellDisplay(overlayState = {}) {
   };
 }
 
-function historyItemMatchesSearch(historyItem = {}, query = "") {
+function historyItemMatchesSearch(
+  historyItem: OverlayHistoryItem = {},
+  query: unknown = "",
+): boolean {
   const normalizedQuery = String(query || "")
     .trim()
     .toLowerCase();
@@ -181,7 +195,10 @@ function historyItemMatchesSearch(historyItem = {}, query = "") {
     .includes(normalizedQuery);
 }
 
-function historyDrawerFilteredItems(historyItems = [], filters = {}) {
+function historyDrawerFilteredItems(
+  historyItems: readonly OverlayHistoryItem[] = [],
+  filters: HistoryDrawerFilters = {},
+): OverlayHistoryItem[] {
   const operation = String(filters.operation || "all").toLowerCase();
   return (Array.isArray(historyItems) ? historyItems : [])
     .filter((historyItem) => {
@@ -195,7 +212,7 @@ function historyDrawerFilteredItems(historyItems = [], filters = {}) {
     .sort((a, b) => Number(a.ts_ms || 0) - Number(b.ts_ms || 0));
 }
 
-function historyOperationLabel(raw, t = tr) {
+function historyOperationLabel(raw: unknown, t: OverlayTranslate = tr): string {
   const historyOperation = displayText(raw).toLowerCase();
   if (historyOperation === "exec") return t("historyOperationExec", "Execute");
   if (historyOperation === "template_execute") {
@@ -204,14 +221,14 @@ function historyOperationLabel(raw, t = tr) {
   return historyOperation || "-";
 }
 
-function historyDrawerBadgeClass(toneClass) {
+function historyDrawerBadgeClass(toneClass: string): string {
   return classNames(
     "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold",
     toneClass,
   );
 }
 
-function historyOperationBadgeDisplay(raw) {
+function historyOperationBadgeDisplay(raw: unknown) {
   const historyOperation = displayText(raw).toLowerCase();
   const toneClass =
     historyOperation === "template_execute"
@@ -223,7 +240,7 @@ function historyOperationBadgeDisplay(raw) {
   };
 }
 
-function historyRecordLevelBadgeDisplay(raw) {
+function historyRecordLevelBadgeDisplay(raw: unknown) {
   const recordLevel = displayText(raw).toLowerCase();
   const toneClass =
     recordLevel === "full"
@@ -235,7 +252,7 @@ function historyRecordLevelBadgeDisplay(raw) {
   };
 }
 
-function historyDrawerRow(historyItem = {}, index = 0) {
+function historyDrawerRow(historyItem: OverlayHistoryItem = {}, index = 0) {
   const operationBadge = historyOperationBadgeDisplay(historyItem.operation);
   const recordLevelBadge = historyRecordLevelBadgeDisplay(
     historyItem.record_level,
@@ -246,7 +263,7 @@ function historyDrawerRow(historyItem = {}, index = 0) {
     deleteButtonLabel: tr("historyDeleteBtn", "Delete"),
     deviceProfile: displayText(historyItem.device_profile),
     detailButtonLabel: tr("actionViewDetail", "View"),
-    historyId: historyItem.id || "",
+    historyId: displayText(historyItem.id),
     hostPort: `${displayText(historyItem.host)}:${displayText(historyItem.port)}`,
     indexText: String(index + 1),
     modeBadgeClass: historyDrawerBadgeClass(
@@ -261,13 +278,18 @@ function historyDrawerRow(historyItem = {}, index = 0) {
   };
 }
 
-function historyDrawerFilteredRows(historyItems = [], filters = {}) {
+function historyDrawerFilteredRows(
+  historyItems: readonly OverlayHistoryItem[] = [],
+  filters: HistoryDrawerFilters = {},
+) {
   return historyDrawerFilteredItems(historyItems, filters).map(
     historyDrawerRow,
   );
 }
 
-function historyDrawerFiltersPresentation(operationOptionRows = []) {
+function historyDrawerFiltersPresentation(
+  operationOptionRows: readonly { label: string; value: string }[] = [],
+) {
   return {
     clearButtonLabel: tr("historyFilterClear"),
     limitLabel: tr("historyColLimit", "Limit"),
@@ -282,9 +304,9 @@ function historyDrawerFiltersPresentation(operationOptionRows = []) {
 }
 
 function historyDrawerListPresentation(
-  historyItems = [],
-  filteredRows = [],
-  status = {},
+  historyItems: readonly OverlayHistoryItem[] = [],
+  filteredRows: readonly ReturnType<typeof historyDrawerRow>[] = [],
+  status: HistoryDrawerStatus = {},
 ) {
   const hasItems = Array.isArray(historyItems) && historyItems.length > 0;
   const hasRows = Array.isArray(filteredRows) && filteredRows.length > 0;
@@ -305,9 +327,12 @@ function historyDrawerListPresentation(
 export function historyDrawerPresentation({
   drawerState = {},
   filterState = {},
+}: {
+  drawerState?: HistoryDrawerState;
+  filterState?: HistoryDrawerFilters;
 } = {}) {
   const historyItems = Array.isArray(drawerState.historyItems)
-    ? drawerState.historyItems
+    ? (drawerState.historyItems as OverlayHistoryItem[])
     : [];
   const query = filterState.query || "";
   const operation = filterState.operation || "all";
@@ -347,24 +372,24 @@ export function historyDrawerPresentation({
       "historyColIndex|#,historyColTime|Time,historyColOperation|Operation,historyColCommand|Command,historyColMode|Mode,historyColProfile|Profile,historyColLevel|Level,tableAction|Action"
         .split(",")
         .map((definition) => {
-          const [labelKey, fallback] = definition.split("|");
+          const [labelKey = "", fallback = ""] = definition.split("|");
           return { labelText: tr(labelKey, fallback) };
         }),
   };
 }
 
-const setRecordFabCount = (count) =>
+const setRecordFabCount = (count: unknown): void =>
   updateOverlayDrawerState({ recordFabCount: Math.max(0, Number(count) || 0) });
 
-function normalizeRecordLevel(level) {
+function normalizeRecordLevel(level: unknown): RecordLevel {
   return String(level || "").trim() === "full" ? "full" : "key-events-only";
 }
 
-function nextRecordLevel(level) {
+function nextRecordLevel(level: unknown): RecordLevel {
   return normalizeRecordLevel(level) === "full" ? "key-events-only" : "full";
 }
 
-function recordToolPresentation(level) {
+function recordToolPresentation(level: unknown): RecordToolDisplay {
   const normalized = normalizeRecordLevel(level);
   return {
     hintKey:
@@ -376,6 +401,9 @@ function recordToolPresentation(level) {
 export function dashboardRecordToolsPresentation({
   recordLevel,
   overlayState = {},
+}: {
+  overlayState?: Partial<OverlayDrawerState>;
+  recordLevel?: unknown;
 } = {}) {
   const levelDisplay = recordToolPresentation(recordLevel);
   const recordFabCount = Math.max(0, Number(overlayState.recordFabCount) || 0);
@@ -389,17 +417,19 @@ export function dashboardRecordToolsPresentation({
   };
 }
 
-const setRecordLevel = (level) =>
+const setRecordLevel = (level: unknown): void =>
   recordLevelState.set(normalizeRecordLevel(level));
-export const toggleRecordLevel = () =>
+export const toggleRecordLevel = (): void =>
   setRecordLevel(nextRecordLevel(get(recordLevelState)));
-export const recordLevelPayload = () =>
+export const recordLevelPayload = (): RecordLevel =>
   normalizeRecordLevel(get(recordLevelState));
 
-export function applyRecordDrawerRecording(recordingPayload) {
-  const jsonl = recordingPayload?.recording_jsonl
-    ? String(recordingPayload.recording_jsonl)
-    : "";
+export function applyRecordDrawerRecording(recordingPayload: unknown): void {
+  const payload =
+    recordingPayload && typeof recordingPayload === "object"
+      ? (recordingPayload as OverlayData)
+      : {};
+  const jsonl = payload.recording_jsonl ? String(payload.recording_jsonl) : "";
   if (!jsonl) return;
   recordDrawerRecordingState.update((state) => ({
     jsonl,
@@ -410,7 +440,10 @@ export function applyRecordDrawerRecording(recordingPayload) {
 function createRecordDrawerRecordingSync() {
   let appliedRecordingVersion = 0;
   return {
-    apply(recording = {}, setRecordingJsonl) {
+    apply(
+      recording: Partial<RecordDrawerRecordingState> = {},
+      setRecordingJsonl: (jsonl: string) => void,
+    ): void {
       if (!recording.version || recording.version === appliedRecordingVersion) {
         return;
       }
@@ -420,36 +453,24 @@ function createRecordDrawerRecordingSync() {
   };
 }
 
-function showReplayStatus(text) {
+function showReplayStatus(text: unknown): void {
   replayStatusTextState.update((state) => ({
-    text: text || "",
+    text: String(text || ""),
     version: (state?.version || 0) + 1,
   }));
 }
 
-function notifyRecordingAction(message, tone = "info") {
+function notifyRecordingAction(
+  message: unknown,
+  tone: OverlayToastTone = "info",
+): void {
   const text = String(message || "").trim();
   if (!text) return;
   showReplayStatus(text);
   showToast(text, tone);
 }
 
-function navigateToReplayPage() {
-  const route = routeById("replay");
-  if (!route) return false;
-  if (currentPathname() !== route.path) {
-    pushBrowserState({ routeId: route.id }, route.path);
-  }
-  if (
-    typeof window !== "undefined" &&
-    typeof window.dispatchEvent === "function"
-  ) {
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  }
-  return true;
-}
-
-function setReplayJsonlFromRecording(jsonl) {
+function setReplayJsonlFromRecording(jsonl: unknown): boolean {
   const text = String(jsonl || "").trim();
   if (!text) {
     notifyRecordingAction(
@@ -469,11 +490,11 @@ function setReplayJsonlFromRecording(jsonl) {
   return true;
 }
 
-function normalizeRecordDrawerMode(displayMode) {
+function normalizeRecordDrawerMode(displayMode: unknown): RecordDrawerMode {
   return displayMode === "raw" ? "raw" : "list";
 }
 
-function recordDrawerDisplayModePresentation(mode = "") {
+function recordDrawerDisplayModePresentation(mode: unknown = "") {
   const normalized = normalizeRecordDrawerMode(mode);
   return {
     mode: normalized,
@@ -482,7 +503,7 @@ function recordDrawerDisplayModePresentation(mode = "") {
   };
 }
 
-function normalizeRecordDrawerEventKind(eventKind) {
+function normalizeRecordDrawerEventKind(eventKind: unknown): string {
   const normalizedEventKind = String(eventKind || "").trim();
   return recordDrawerEventKindOptions.some(
     ([kind]) => kind === normalizedEventKind,
@@ -491,9 +512,13 @@ function normalizeRecordDrawerEventKind(eventKind) {
     : "all";
 }
 
-const recordDrawerRawTextValue = (rawText) => String(rawText || "");
+const recordDrawerRawTextValue = (rawText: unknown): string =>
+  String(rawText || "");
 
-function defaultRecordDrawerFilters() {
+function defaultRecordDrawerFilters(): Omit<
+  RecordDrawerPreferences,
+  "displayMode"
+> {
   const { eventKind, failedOnly, searchQuery } = recordDrawerDefaultPreferences;
   return {
     eventKind,
@@ -502,36 +527,39 @@ function defaultRecordDrawerFilters() {
   };
 }
 
-function defaultRecordDrawerPreferences() {
+function defaultRecordDrawerPreferences(): RecordDrawerPreferences {
   return { ...recordDrawerDefaultPreferences };
 }
 
-function loadRecordDrawerPreferences() {
-  return Object.fromEntries(
-    Object.entries(recordDrawerPreferenceDefinitions).map(
-      ([key, definition]) => {
-        const parse = definition.parse || definition.normalize;
-        return [
-          key,
-          parse(storageGet(definition.storageKey, definition.defaultValue)),
-        ];
-      },
-    ),
+function normalizeRecordDrawerPreferences(
+  preferences: Partial<RecordDrawerPreferences> = {},
+): RecordDrawerPreferences {
+  return {
+    displayMode: normalizeRecordDrawerMode(preferences.displayMode),
+    eventKind: normalizeRecordDrawerEventKind(preferences.eventKind),
+    failedOnly: Boolean(preferences.failedOnly),
+    searchQuery: String(preferences.searchQuery || ""),
+  };
+}
+
+function loadRecordDrawerPreferences(): RecordDrawerPreferences {
+  return normalizeRecordDrawerPreferences(
+    overlayDrawerRuntime.loadPreferences(),
   );
 }
 
-function saveRecordDrawerPreferences(preferences = {}) {
-  Object.entries(recordDrawerPreferenceDefinitions).forEach(
-    ([key, definition]) => {
-      const normalize = definition.normalize;
-      const serialize = definition.serialize || String;
-      const value = preferences[key] ?? definition.defaultValue;
-      storageSet(definition.storageKey, serialize(normalize(value)));
-    },
+function saveRecordDrawerPreferences(
+  preferences: RecordDrawerPreferences,
+): void {
+  overlayDrawerRuntime.savePreferences(
+    normalizeRecordDrawerPreferences(preferences),
   );
 }
 
-function recordDrawerEmptyText(filters = {}, t = tr) {
+function recordDrawerEmptyText(
+  filters: Partial<RecordDrawerPreferences> = {},
+  t: OverlayTranslate = tr,
+): string {
   if (filters.failedOnly) return t("noFailedEntries");
   if (normalizeRecordDrawerEventKind(filters.eventKind) !== "all") {
     return t("noMatchedEntries");
@@ -539,7 +567,11 @@ function recordDrawerEmptyText(filters = {}, t = tr) {
   return t("recordListEmpty");
 }
 
-function drawerInputField(value, placeholderKey, t = tr) {
+function drawerInputField(
+  value: unknown,
+  placeholderKey: string,
+  t: OverlayTranslate = tr,
+) {
   const placeholder = t(placeholderKey);
   return {
     ariaLabelText: placeholder,
@@ -548,7 +580,10 @@ function drawerInputField(value, placeholderKey, t = tr) {
   };
 }
 
-function recordDrawerContentPresentation(jsonl = "", filters = {}) {
+function recordDrawerContentPresentation(
+  jsonl = "",
+  filters: RecordDrawerPreferences = defaultRecordDrawerPreferences(),
+) {
   const parsedRecording = parseJsonl(jsonl, tr);
   const eventEntries = parsedRecording.ok
     ? filterEntries(
@@ -567,7 +602,29 @@ function recordDrawerContentPresentation(jsonl = "", filters = {}) {
     hasEntries: eventEntriesDisplay.hasEntries,
     parseError: parsedRecording.ok ? "" : parsedRecording.error,
     statCards: eventEntriesDisplay.statCards,
+    tableHeaderCells: eventEntriesDisplay.tableHeaderCells,
   };
+}
+
+type RecordDrawerContentDisplay = ReturnType<
+  typeof recordDrawerContentPresentation
+>;
+type RecordDrawerDisplayModeDisplay = ReturnType<
+  typeof recordDrawerDisplayModePresentation
+>;
+
+interface RecordDrawerContentPropsInput {
+  contentDisplay?: Partial<RecordDrawerContentDisplay>;
+  displayModeDisplay?: Partial<RecordDrawerDisplayModeDisplay>;
+  displayMode?: RecordDrawerMode;
+  eventKind?: string;
+  failedOnly?: boolean;
+  modeTabs?: readonly { label?: string; labelKey?: string; value: string }[];
+  rawText?: string;
+  recordDisplay?: Partial<RecordToolDisplay>;
+  recordLevel?: RecordLevel;
+  searchQuery?: string;
+  t?: OverlayTranslate;
 }
 
 function recordDrawerContentPropsPresentation({
@@ -582,7 +639,7 @@ function recordDrawerContentPropsPresentation({
   recordLevel = "key-events-only",
   searchQuery = "",
   t = tr,
-} = {}) {
+}: RecordDrawerContentPropsInput = {}) {
   return {
     content: {
       emptyText: contentDisplay.emptyText,
@@ -608,7 +665,7 @@ function recordDrawerContentPropsPresentation({
       failedOnlyLabel: t("failedOnly"),
       modeTabs,
       recordLevel,
-      recordLevelHint: t(recordDisplay.hintKey),
+      recordLevelHint: t(recordDisplay.hintKey || ""),
       recordLevelLabel: t("recordLevelLabel"),
       recordLevelOptionRows: [
         { label: t("recordLevelAudit"), value: "key-events-only" },
@@ -620,6 +677,18 @@ function recordDrawerContentPropsPresentation({
   };
 }
 
+interface RecordDrawerWorkspaceOptions {
+  onCopyRecordDrawerRecording?: (jsonl: string) => boolean | Promise<boolean>;
+  onLoadRecordDrawerPreferences?: () => RecordDrawerPreferences;
+  onOpenEntryDrawer?: (eventEntry: OverlayEventEntry) => unknown;
+  onSaveRecordDrawerPreferences?: (
+    preferences: RecordDrawerPreferences,
+  ) => unknown;
+  onSetRecordFabCount?: (count: unknown) => unknown;
+  onSetRecordLevel?: (level: unknown) => unknown;
+  onSetReplayJsonlFromRecording?: (jsonl: string) => boolean;
+}
+
 export function createRecordDrawerWorkspace({
   onCopyRecordDrawerRecording = copyRecordDrawerRecording,
   onLoadRecordDrawerPreferences = loadRecordDrawerPreferences,
@@ -628,38 +697,38 @@ export function createRecordDrawerWorkspace({
   onSetRecordFabCount = setRecordFabCount,
   onSetRecordLevel = setRecordLevel,
   onSetReplayJsonlFromRecording = setReplayJsonlFromRecording,
-} = {}) {
+}: RecordDrawerWorkspaceOptions = {}) {
   const defaultPreferences = defaultRecordDrawerPreferences();
-  const preferenceStores = Object.fromEntries(
-    Object.entries(defaultPreferences).map(([key, value]) => [
-      key,
-      writable(value),
-    ]),
+  const displayModeStore = writable<RecordDrawerMode>(
+    defaultPreferences.displayMode,
   );
-  const {
-    displayMode: displayModeStore,
-    eventKind: eventKindStore,
-    failedOnly: failedOnlyStore,
-    searchQuery: searchQueryStore,
-  } = preferenceStores;
-  const preferenceKeys = Object.keys(preferenceStores);
+  const eventKindStore = writable(defaultPreferences.eventKind);
+  const failedOnlyStore = writable(defaultPreferences.failedOnly);
+  const searchQueryStore = writable(defaultPreferences.searchQuery);
   const preferencesStateStore = derived(
-    preferenceKeys.map((key) => preferenceStores[key]),
-    (values) =>
-      Object.fromEntries(
-        preferenceKeys.map((key, index) => [key, values[index]]),
-      ),
+    [
+      displayModeStore,
+      eventKindStore,
+      failedOnlyStore,
+      searchQueryStore,
+    ] as const,
+    ([displayMode, eventKind, failedOnly, searchQuery]) => ({
+      displayMode,
+      eventKind,
+      failedOnly,
+      searchQuery,
+    }),
   );
   const recordingJsonlStore = writable("");
   const recordingSync = createRecordDrawerRecordingSync();
   let appliedEntryCount = 0;
   const drawerShellDisplayStateStore = derived(
-    [overlayDrawerState, currentLanguageState],
+    [overlayDrawerState, currentLanguageState] as const,
     ([$overlayDrawerState, _currentLanguageState]) =>
       recordDrawerShellDisplay($overlayDrawerState),
   );
   const contentDisplayStateStore = derived(
-    [recordingJsonlStore, preferencesStateStore, currentLanguageState],
+    [recordingJsonlStore, preferencesStateStore, currentLanguageState] as const,
     ([$recordingJsonlStore, $preferencesStateStore]) =>
       recordDrawerContentPresentation(
         $recordingJsonlStore,
@@ -672,7 +741,7 @@ export function createRecordDrawerWorkspace({
       recordDrawerDisplayModePresentation($displayModeStore),
   );
   const recordDisplayStateStore = derived(
-    [recordLevelState, currentLanguageState],
+    [recordLevelState, currentLanguageState] as const,
     ([$recordLevelState, _currentLanguageState]) =>
       recordToolPresentation($recordLevelState),
   );
@@ -684,7 +753,7 @@ export function createRecordDrawerWorkspace({
       recordDisplayStateStore,
       recordLevelState,
       currentLanguageState,
-    ],
+    ] as const,
     ([
       $contentDisplayStateStore,
       $preferencesStateStore,
@@ -718,40 +787,48 @@ export function createRecordDrawerWorkspace({
   );
   let recordDrawerPreferencesApplied = false;
 
-  function currentRecordPreferences() {
-    return Object.fromEntries(
-      Object.entries(preferenceStores).map(([key, store]) => [key, get(store)]),
-    );
+  function currentRecordPreferences(): RecordDrawerPreferences {
+    return {
+      displayMode: get(displayModeStore),
+      eventKind: get(eventKindStore),
+      failedOnly: get(failedOnlyStore),
+      searchQuery: get(searchQueryStore),
+    };
   }
 
   function saveRecordPrefs() {
     return onSaveRecordDrawerPreferences(currentRecordPreferences());
   }
 
-  function setRecordPreference(key, value) {
-    const definition = recordDrawerPreferenceDefinitions[key];
-    preferenceStores[key].set(definition.normalize(value));
+  function setDisplayMode(value: unknown = "list"): void {
+    displayModeStore.set(normalizeRecordDrawerMode(value));
     saveRecordPrefs();
   }
 
-  const setDisplayMode = (value = "list") =>
-    setRecordPreference("displayMode", value);
-  const setEventKind = (value = "all") =>
-    setRecordPreference("eventKind", value);
-  const setFailedOnly = (value = false) =>
-    setRecordPreference("failedOnly", value);
-  const setSearchQuery = (value = "") =>
-    setRecordPreference("searchQuery", value);
+  function setEventKind(value: unknown = "all"): void {
+    eventKindStore.set(normalizeRecordDrawerEventKind(value));
+    saveRecordPrefs();
+  }
 
-  function setRawRecordingText(nextRecordingJsonl = "") {
+  function setFailedOnly(value: unknown = false): void {
+    failedOnlyStore.set(Boolean(value));
+    saveRecordPrefs();
+  }
+
+  function setSearchQuery(value: unknown = ""): void {
+    searchQueryStore.set(String(value || ""));
+    saveRecordPrefs();
+  }
+
+  function setRawRecordingText(nextRecordingJsonl: unknown = ""): void {
     recordingJsonlStore.set(recordDrawerRawTextValue(nextRecordingJsonl));
   }
 
-  function resetFilters() {
+  function resetFilters(): void {
     const defaultFilters = defaultRecordDrawerFilters();
-    Object.entries(defaultFilters).forEach(([key, value]) =>
-      preferenceStores[key].set(value),
-    );
+    eventKindStore.set(defaultFilters.eventKind);
+    failedOnlyStore.set(defaultFilters.failedOnly);
+    searchQueryStore.set(defaultFilters.searchQuery);
     saveRecordPrefs();
   }
 
@@ -767,15 +844,18 @@ export function createRecordDrawerWorkspace({
     ensurePreferencesLoaded() {
       if (recordDrawerPreferencesApplied) return;
       recordDrawerPreferencesApplied = true;
-      const preferences = onLoadRecordDrawerPreferences();
-      Object.entries(preferenceStores).forEach(([key, store]) =>
-        store.set(preferences[key]),
+      const preferences = normalizeRecordDrawerPreferences(
+        onLoadRecordDrawerPreferences(),
       );
+      displayModeStore.set(preferences.displayMode);
+      eventKindStore.set(preferences.eventKind);
+      failedOnlyStore.set(preferences.failedOnly);
+      searchQueryStore.set(preferences.searchQuery);
     },
     eventKindStore,
     failedOnlyStore,
-    openEntryIndexHandler(eventEntries = []) {
-      return (entryIndex) => {
+    openEntryIndexHandler(eventEntries: readonly OverlayEventEntry[] = []) {
+      return (entryIndex: unknown): void => {
         const recordEventEntry = Array.isArray(eventEntries)
           ? eventEntries[Number(entryIndex)] || null
           : null;
@@ -790,7 +870,13 @@ export function createRecordDrawerWorkspace({
     resetFilters,
     searchQueryStore,
     selectDisplayMode: setDisplayMode,
-    setDrawerContext({ entryCount, recording } = {}) {
+    setDrawerContext({
+      entryCount,
+      recording,
+    }: {
+      entryCount?: number;
+      recording?: Partial<RecordDrawerRecordingState>;
+    } = {}) {
       if (recording) {
         recordingSync.apply(recording, setRawRecordingText);
       }
@@ -808,7 +894,7 @@ export function createRecordDrawerWorkspace({
       const moved = onSetReplayJsonlFromRecording(get(recordingJsonlStore));
       if (moved) {
         closeRecordDrawer();
-        navigateToReplayPage();
+        overlayDrawerRuntime.navigateToReplay();
       }
       return moved;
     },
@@ -821,6 +907,12 @@ export function createRecordDrawerContentWorkspace({
   onRawInput = null,
   onRecordLevelChange = null,
   onSearchInput = null,
+}: {
+  onEventKindChange?: ((value: unknown) => unknown) | null;
+  onFailedOnlyChange?: ((value: unknown) => unknown) | null;
+  onRawInput?: ((value: unknown) => unknown) | null;
+  onRecordLevelChange?: ((value: unknown) => unknown) | null;
+  onSearchInput?: ((value: unknown) => unknown) | null;
 } = {}) {
   // Plain* field bindings already extract value/checked before invoking
   // onValueChange / onValueInput / onCheckedChange, so these handlers must
@@ -844,7 +936,10 @@ export function createRecordDrawerContentWorkspace({
   };
 }
 
-async function copyRecordDrawerRecording(jsonl, t = tr) {
+async function copyRecordDrawerRecording(
+  jsonl: string,
+  t: OverlayTranslate = tr,
+): Promise<boolean> {
   if (!String(jsonl || "").trim()) {
     notifyRecordingAction(
       t("recordingNoJsonl", "No recording data to copy"),
@@ -853,7 +948,7 @@ async function copyRecordDrawerRecording(jsonl, t = tr) {
     return false;
   }
   try {
-    await writeClipboardText(jsonl);
+    await overlayDrawerRuntime.writeClipboardText(jsonl);
     notifyRecordingAction(t("recordingCopied", "recording copied"), "success");
     return true;
   } catch (_) {
@@ -862,13 +957,15 @@ async function copyRecordDrawerRecording(jsonl, t = tr) {
   }
 }
 
-function isFailedCommandEvent(eventEntry) {
+function isFailedCommandEvent(eventEntry: OverlayEventEntry): boolean {
   const eventRecord = (eventEntry && eventEntry.event) || {};
   return eventRecord.kind === "command_output" && eventRecord.success === false;
 }
 
-function matchesSearch(eventEntry, query) {
-  const normalizedQuery = (query || "").trim().toLowerCase();
+function matchesSearch(eventEntry: OverlayEventEntry, query: unknown): boolean {
+  const normalizedQuery = String(query || "")
+    .trim()
+    .toLowerCase();
   if (!normalizedQuery) return true;
   const eventRecord = (eventEntry && eventEntry.event) || {};
   const searchableEventFields = [
@@ -891,8 +988,13 @@ function matchesSearch(eventEntry, query) {
   return haystack.includes(normalizedQuery);
 }
 
-function filterEntries(eventEntries, kindFilter, failedOnly, query) {
-  return (eventEntries || []).filter((eventEntry) => {
+function filterEntries(
+  eventEntries: readonly OverlayEventEntry[],
+  kindFilter: unknown,
+  failedOnly: boolean,
+  query: unknown,
+): OverlayEventEntry[] {
+  return eventEntries.filter((eventEntry) => {
     const eventRecord = (eventEntry && eventEntry.event) || {};
     const kindOk =
       !kindFilter || kindFilter === "all"
@@ -904,9 +1006,16 @@ function filterEntries(eventEntries, kindFilter, failedOnly, query) {
   });
 }
 
-function parseJsonl(jsonl, t = tr) {
-  const recordRows = [];
-  const text = (jsonl || "").trim();
+type RecordDrawerParseResult =
+  | { ok: true; recordRows: OverlayEventEntry[] }
+  | { error: string; ok: false; recordRows: [] };
+
+function parseJsonl(
+  jsonl: unknown,
+  t: OverlayTranslate = tr,
+): RecordDrawerParseResult {
+  const recordRows: OverlayEventEntry[] = [];
+  const text = String(jsonl || "").trim();
   if (!text) {
     return { ok: true, recordRows };
   }
@@ -915,11 +1024,19 @@ function parseJsonl(jsonl, t = tr) {
     const lineText = lines[lineIndex].trim();
     if (!lineText) continue;
     try {
-      recordRows.push(JSON.parse(lineText));
+      const parsedRow: unknown = JSON.parse(lineText);
+      if (
+        parsedRow &&
+        typeof parsedRow === "object" &&
+        !Array.isArray(parsedRow)
+      ) {
+        recordRows.push(parsedRow as OverlayEventEntry);
+      }
     } catch (_) {
       return {
         ok: false,
         error: `${t("recordParseError")}: line ${lineIndex + 1}`,
+        recordRows: [],
       };
     }
   }

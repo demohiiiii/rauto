@@ -5,7 +5,7 @@ import {
   selectOptionsWithCurrent,
   statusPresentation,
 } from "../../lib/ui.js";
-import { showToast } from "../overlays/overlays.js";
+import { showToast } from "$domains/overlays/index.js";
 import { visibleConnectionProfileOptions } from "./connectionFieldState.js";
 import { setConnectionPickerSavedConnections } from "./connectionFieldStoreState.js";
 

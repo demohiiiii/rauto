@@ -13,8 +13,8 @@ import {
 import {
   applyRecordDrawerRecording,
   recordLevelPayload as recordLevelPayloadFromOverlays,
-  showToast,
-} from "../overlays/overlays.js";
+} from "$domains/overlays/index.js";
+import { showToast } from "$domains/overlays/index.js";
 import { defaultTxBlockTemplatePayload } from "../transactions/transactionBlockFormModels.js";
 import { defaultTxWorkflowTemplatePayload } from "../transactions/transactionWorkflowFormModels.js";
 import {

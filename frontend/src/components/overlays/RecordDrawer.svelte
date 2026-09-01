@@ -13,7 +13,7 @@
     recordDrawerRecordingState,
     sessionRecordsViewState,
     setSessionRecordsView,
-  } from "../../modules/overlays/overlays.js";
+  } from "$domains/overlays/index.js";
 
   const recordDrawerWorkspace = createRecordDrawerWorkspace();
   const historyDrawerWorkspace = createHistoryDrawerWorkspace();

@@ -1,9 +1,9 @@
 import { storageGet, storageSet } from "../../../lib/browser.js";
 import {
-  openEntryDrawer,
   replayJsonlTransferState,
   replayStatusTextState,
-} from "../../../modules/overlays/overlays.js";
+} from "$domains/overlays/index.js";
+import { openEntryDrawer } from "$domains/overlays/index.js";
 import type {
   ReplayPreferences,
   ReplayRuntime,

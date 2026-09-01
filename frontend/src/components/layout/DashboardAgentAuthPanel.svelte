@@ -3,7 +3,7 @@
   import { formValueHandler } from "../../lib/events.js";
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import StatusCard from "../fragments/StatusCard.svelte";
-  import { createDashboardAgentAuthPanelWorkspace } from "../../modules/dashboard/dashboardShell.js";
+  import { createDashboardAgentAuthPanelWorkspace } from "$domains/dashboard/index.js";
   const dashboardAgentAuthPanelWorkspace =
     createDashboardAgentAuthPanelWorkspace();
   const {

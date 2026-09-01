@@ -5,15 +5,17 @@ import {
   configTargetsFromAction,
   createSchedulesPageWorkspace,
 } from "../src/domains/schedules/index.ts";
-import { dashboardNavigationItems } from "../src/config/dashboardNavigation.js";
+import { dashboardNavigationItems } from "../src/domains/dashboard/index.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
 }
 
 test("schedules are a local-web operations page", () => {
-  const navigation = read("frontend/src/config/dashboardNavigation.js");
-  const shell = read("frontend/src/modules/dashboard/dashboardShell.js");
+  const navigation = read("frontend/src/domains/dashboard/model/navigation.ts");
+  const shell = read(
+    "frontend/src/domains/dashboard/application/createDashboardShellWorkspaces.ts",
+  );
   const page = read("frontend/src/pages/SchedulesPage.svelte");
   const editor = read(
     "frontend/src/components/schedules/ScheduleEditorDialog.svelte",
@@ -30,7 +32,7 @@ test("schedules are a local-web operations page", () => {
       ?.group,
     "operations",
   );
-  assert.match(navigation, /import\("\.\.\/pages\/SchedulesPage\.svelte"\)/);
+  assert.match(navigation, /import\(".*\/pages\/SchedulesPage\.svelte"\)/);
   assert.match(shell, /tab !== "schedules" \|\| !dashboard\.managedAgentMode/);
   assert.match(page, /workspace\.runNow\(schedule\)/);
   assert.match(page, /workspace\.toggleEnabled\(schedule\)/);

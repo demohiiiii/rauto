@@ -1,7 +1,7 @@
 import {
   applyRecordDrawerRecording,
   recordLevelPayload,
-} from "../../../modules/overlays/overlays.js";
+} from "$domains/overlays/index.js";
 import {
   executionConnectionProfileState,
   refreshExecutionModeOptionsForCurrentConnection,

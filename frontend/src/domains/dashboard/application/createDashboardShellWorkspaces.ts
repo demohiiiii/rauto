@@ -1,102 +1,52 @@
 import { derived, writable } from "svelte/store";
-import {
-  openConnectionModal,
-  sidebarConnectionPresentation,
-  sidebarConnectionState,
-} from "../connections/connections.js";
+import { currentLanguageState, tr } from "../../../lib/i18n.js";
+import { dashboardRuntime } from "../infrastructure/dashboardRuntime.js";
+import { dashboardShellResources } from "../infrastructure/dashboardShellResources.js";
+import { dashboardNavigationItems, routeById } from "../model/navigation.js";
+import type {
+  DashboardBodyDisplay,
+  DashboardNavigationItem,
+  DashboardNavigationItemDisplay,
+  DashboardPageDefinition,
+  DashboardPageOutletRow,
+  DashboardState,
+} from "../model/types.js";
 import {
   dashboardOverlayDrawerState,
   dashboardRecordLevelState,
   dashboardRecordToolsPresentation,
-  closeDashboardEntryDrawer,
-  closeDashboardOverlayOnEscape,
-  closeDashboardRecordDrawer,
-  createDashboardOverlayHostWorkspace,
   openDashboardRecordDrawer,
   toggleDashboardRecordLevel,
-} from "./dashboardOverlays.js";
-import {
-  addBodyClass,
-  bodyHasClass,
-  currentPathname,
-  getBodyAttribute,
-  getDocumentLanguage,
-  pushBrowserState,
-  removeBodyAttribute,
-  removeBodyClass,
-  setBodyAttribute,
-  setDocumentLanguage,
-} from "../../lib/browser.js";
-import { createLazyComponentRegistry } from "../../lib/svelte.js";
-import {
-  callbackMappedFormCheckedHandler,
-  submitOnKeyHandler,
-} from "../../lib/events.js";
-import { currentLanguageState, tr } from "../../lib/i18n.js";
-import {
-  dashboardNavigationItems,
-  routeById,
-} from "../../config/dashboardNavigation.js";
-import {
-  createDashboardAgentAuthPanelWorkspace,
-  createDashboardAppWorkspace,
-  createDashboardPreferenceToolsWorkspace,
-  dashboardState,
-  getDashboardState,
-  protectedDashboardResourcesRefreshState,
-  refreshProtectedDashboardResources,
-} from "./dashboardApp.js";
+} from "./createDashboardOverlayHostWorkspace.js";
+import { dashboardState, getDashboardState } from "./dashboardState.js";
 
-export {
-  closeDashboardEntryDrawer,
-  closeDashboardOverlayOnEscape,
-  closeDashboardRecordDrawer,
-  createDashboardAgentAuthPanelWorkspace,
-  createDashboardAppWorkspace,
-  createDashboardOverlayHostWorkspace,
-  createDashboardPreferenceToolsWorkspace,
-  dashboardState,
-  getDashboardState,
-  protectedDashboardResourcesRefreshState,
-  refreshProtectedDashboardResources,
-};
-
-const dashboardSidebarConnectionState = sidebarConnectionState;
-
-const dashboardSidebarConnectionPresentation = (connectionState = {}) =>
-  sidebarConnectionPresentation(connectionState);
-const openDashboardConnectionEditor = () => openConnectionModal();
-
-export { dashboardRecordToolsPresentation };
-
-// Keep the direct shell-side module path visible so dashboard infrastructure
-// checks can verify transaction template resources still resolve from the
-// focused transactions workspace module.
-async function loadTransactionsWorkspaceModule() {
-  return import("../transactions/transactionPanelState.js");
-}
-
-function isDashboardTabActive(dashboard = {}, tab = "") {
+function isDashboardTabActive(
+  dashboard: Partial<DashboardState> = {},
+  tab = "",
+): boolean {
   return (
     dashboard.currentTab === tab &&
-    (tab !== "tasks" || dashboard.tasksVisible) &&
+    (tab !== "tasks" || !!dashboard.tasksVisible) &&
     (tab !== "schedules" || !dashboard.managedAgentMode) &&
     (tab !== "config-history" || !dashboard.managedAgentMode)
   );
 }
 
-function activeDashboardPageDefinition(pageDefinitions, dashboard = {}) {
+function activeDashboardPageDefinition(
+  pageDefinitions: readonly DashboardPageDefinition[],
+  dashboard: Partial<DashboardState> = {},
+): DashboardPageDefinition | undefined {
   return pageDefinitions.find((pageDefinition) =>
     isDashboardTabActive(dashboard, pageDefinition.id),
   );
 }
 
 function dashboardPageOutletRows(
-  pageDefinitions,
-  dashboard = {},
-  loadedComponents = {},
-  loadErrors = {},
-) {
+  pageDefinitions: readonly DashboardPageDefinition[],
+  dashboard: Partial<DashboardState> = {},
+  loadedComponents: Record<string, unknown> = {},
+  loadErrors: Record<string, string> = {},
+): DashboardPageOutletRow[] {
   const activePage = activeDashboardPageDefinition(pageDefinitions, dashboard);
   if (!activePage) return [];
   return [
@@ -109,7 +59,10 @@ function dashboardPageOutletRows(
   ];
 }
 
-function dashboardNavItemPresentation(navigationItem, dashboard = {}) {
+function dashboardNavItemPresentation(
+  navigationItem: DashboardNavigationItem,
+  dashboard: Partial<DashboardState> = {},
+): Pick<DashboardNavigationItemDisplay, "active" | "labelText" | "visible"> {
   return {
     active:
       navigationItem.activeWhen === dashboard.currentTab &&
@@ -120,7 +73,7 @@ function dashboardNavItemPresentation(navigationItem, dashboard = {}) {
       navigationItem.label,
     ),
     visible:
-      (navigationItem.activeWhen !== "tasks" || dashboard.tasksVisible) &&
+      (navigationItem.activeWhen !== "tasks" || !!dashboard.tasksVisible) &&
       (navigationItem.activeWhen !== "schedules" ||
         !dashboard.managedAgentMode) &&
       (navigationItem.activeWhen !== "config-history" ||
@@ -128,15 +81,18 @@ function dashboardNavItemPresentation(navigationItem, dashboard = {}) {
   };
 }
 
-function dashboardSidebarNavigationPresentation(dashboard = {}) {
+function dashboardSidebarNavigationPresentation(
+  dashboard: Partial<DashboardState> = {},
+): DashboardNavigationItemDisplay[] {
   return dashboardNavigationItems.map((navigationItem) => ({
+    ...navigationItem,
     ...dashboardNavItemPresentation(navigationItem, dashboard),
-    group: navigationItem.group || "operations",
-    routeId: navigationItem.routeId,
   }));
 }
 
-function activeDashboardNavigationItem(dashboard = {}) {
+function activeDashboardNavigationItem(
+  dashboard: Partial<DashboardState> = {},
+): DashboardNavigationItem | undefined {
   return dashboardNavigationItems.find(
     (navigationItem) =>
       navigationItem.activeWhen === dashboard.currentTab &&
@@ -151,7 +107,9 @@ function dashboardSidebarDisplay() {
   };
 }
 
-function dashboardBodyDisplay(shellState = {}) {
+function dashboardBodyDisplay(
+  shellState: Partial<DashboardState> = {},
+): DashboardBodyDisplay {
   const activeNavigationItem = activeDashboardNavigationItem(shellState);
   return {
     breadcrumbAria: tr("dashboardBreadcrumbAria", "Breadcrumb"),
@@ -168,52 +126,61 @@ function dashboardBodyDisplay(shellState = {}) {
   };
 }
 
-function applyDashboardDocumentState(theme, language) {
+function applyDashboardDocumentState(
+  theme: unknown,
+  language: unknown,
+): () => void {
   const normalizedTheme = theme === "light" ? "light" : "dark";
-  const previousLang = getDocumentLanguage();
-  const previousDashboardTheme = getBodyAttribute("data-dashboard-theme");
-  const previousDaisyTheme = getBodyAttribute("data-theme");
-  const hadDashboardBodyClass = bodyHasClass("dashboard-body");
-  const hadDarkClass = bodyHasClass("dark");
+  const previousLang = dashboardRuntime.getDocumentLanguage();
+  const previousDashboardTheme = dashboardRuntime.getBodyAttribute(
+    "data-dashboard-theme",
+  );
+  const previousDaisyTheme = dashboardRuntime.getBodyAttribute("data-theme");
+  const hadDashboardBodyClass = dashboardRuntime.bodyHasClass("dashboard-body");
+  const hadDarkClass = dashboardRuntime.bodyHasClass("dark");
 
-  addBodyClass("dashboard-body");
+  dashboardRuntime.addBodyClass("dashboard-body");
   if (normalizedTheme === "dark") {
-    addBodyClass("dark");
+    dashboardRuntime.addBodyClass("dark");
   } else {
-    removeBodyClass("dark");
+    dashboardRuntime.removeBodyClass("dark");
   }
-  setBodyAttribute("data-dashboard-theme", normalizedTheme);
-  setBodyAttribute("data-theme", normalizedTheme);
-  setDocumentLanguage(language === "zh" ? "zh-CN" : "en");
+  dashboardRuntime.setBodyAttribute("data-dashboard-theme", normalizedTheme);
+  dashboardRuntime.setBodyAttribute("data-theme", normalizedTheme);
+  dashboardRuntime.setDocumentLanguage(language === "zh" ? "zh-CN" : "en");
 
   return () => {
     if (!hadDashboardBodyClass) {
-      removeBodyClass("dashboard-body");
+      dashboardRuntime.removeBodyClass("dashboard-body");
     }
     if (hadDarkClass) {
-      addBodyClass("dark");
+      dashboardRuntime.addBodyClass("dark");
     } else {
-      removeBodyClass("dark");
+      dashboardRuntime.removeBodyClass("dark");
     }
     if (previousDashboardTheme === null) {
-      removeBodyAttribute("data-dashboard-theme");
+      dashboardRuntime.removeBodyAttribute("data-dashboard-theme");
     } else {
-      setBodyAttribute("data-dashboard-theme", previousDashboardTheme);
+      dashboardRuntime.setBodyAttribute(
+        "data-dashboard-theme",
+        previousDashboardTheme,
+      );
     }
     if (previousDaisyTheme === null) {
-      removeBodyAttribute("data-theme");
+      dashboardRuntime.removeBodyAttribute("data-theme");
     } else {
-      setBodyAttribute("data-theme", previousDaisyTheme);
+      dashboardRuntime.setBodyAttribute("data-theme", previousDaisyTheme);
     }
-    setDocumentLanguage(previousLang);
+    dashboardRuntime.setDocumentLanguage(previousLang);
   };
 }
 
-export function createDashboardBodyWorkspace(pageDefinitions = []) {
-  const pageRegistry = createLazyComponentRegistry({
-    errorMessage: () =>
-      dashboardBodyDisplay(getDashboardState()).requestFailedMessage,
-  });
+export function createDashboardBodyWorkspace(
+  pageDefinitions: readonly DashboardPageDefinition[] = [],
+) {
+  const pageRegistry = dashboardShellResources.createPageRegistry(
+    () => dashboardBodyDisplay(getDashboardState()).requestFailedMessage,
+  );
   const sidebarOpenStateStore = writable(false);
   const bodyDisplayStateStore = derived(
     [dashboardState, currentLanguageState],
@@ -247,42 +214,51 @@ export function createDashboardBodyWorkspace(pageDefinitions = []) {
       ),
   );
 
-  function closeSidebarAction() {
+  function closeSidebarAction(): void {
     sidebarOpenStateStore.set(false);
   }
 
-  function openSidebar() {
+  function openSidebar(): void {
     sidebarOpenStateStore.set(true);
   }
 
-  function setSidebarOpen(open) {
+  function setSidebarOpen(open: unknown): void {
     sidebarOpenStateStore.set(!!open);
   }
 
   function applyShellState({
     language = "en",
     shellState = getDashboardState(),
-  } = {}) {
-    pageRegistry.ensure(
-      activeDashboardPageDefinition(pageDefinitions, shellState),
+  }: {
+    language?: unknown;
+    shellState?: DashboardState;
+  } = {}): () => void {
+    const activePage = activeDashboardPageDefinition(
+      pageDefinitions,
+      shellState,
     );
+    if (activePage) {
+      pageRegistry.ensure(activePage);
+    }
     return applyDashboardDocumentState(shellState.currentTheme, language);
+  }
+
+  function documentKeydownHandler(event: KeyboardEvent): void {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    closeSidebarAction();
   }
 
   return {
     applyShellState,
     bodyDisplayStateStore,
     closeSidebarAction,
-    documentKeydownHandler: submitOnKeyHandler("Escape", closeSidebarAction),
+    documentKeydownHandler,
     openRecordDrawerAction: openDashboardRecordDrawer,
     openSidebar,
     openSidebarAction: openSidebar,
     pageOutletRowsStateStore,
     recordToolsDisplayStateStore,
-    sidebarOpenChangeHandler: callbackMappedFormCheckedHandler(
-      setSidebarOpen,
-      (open) => open,
-    ),
     setSidebarOpen,
     sidebarOpenStateStore,
     toggleRecordLevelAction: toggleDashboardRecordLevel,
@@ -295,9 +271,11 @@ export function createDashboardSidebarWorkspace() {
     (_currentLanguageState) => dashboardSidebarDisplay(),
   );
   const sidebarConnectionDisplayStateStore = derived(
-    [dashboardSidebarConnectionState, currentLanguageState],
-    ([$dashboardSidebarConnectionState, _currentLanguageState]) =>
-      dashboardSidebarConnectionPresentation($dashboardSidebarConnectionState),
+    [dashboardShellResources.sidebarConnectionState, currentLanguageState],
+    ([$sidebarConnectionState, _currentLanguageState]) =>
+      dashboardShellResources.sidebarConnectionPresentation(
+        $sidebarConnectionState,
+      ),
   );
   const navigationItemsStateStore = derived(
     [dashboardState, currentLanguageState],
@@ -305,12 +283,12 @@ export function createDashboardSidebarWorkspace() {
       dashboardSidebarNavigationPresentation($dashboardState),
   );
 
-  function navigateRoute(routeId = "") {
-    return navigateDashboardRoute(routeId);
+  function navigateRoute(routeId = ""): void {
+    navigateDashboardRoute(routeId);
   }
 
-  function openConnectionEditor() {
-    openDashboardConnectionEditor();
+  function openConnectionEditor(): void {
+    dashboardShellResources.openConnectionEditor();
   }
 
   return {
@@ -322,14 +300,12 @@ export function createDashboardSidebarWorkspace() {
   };
 }
 
-function navigateDashboardRoute(routeId = "") {
+function navigateDashboardRoute(routeId = ""): void {
   const route = routeById(routeId);
-  if (!route) {
-    return;
-  }
+  if (!route) return;
 
-  if (currentPathname() !== route.path) {
-    pushBrowserState({ routeId: route.id }, route.path);
+  if (dashboardRuntime.currentPathname() !== route.path) {
+    dashboardRuntime.pushBrowserState({ routeId: route.id }, route.path);
   }
 
   dashboardState.update((currentDashboard) => ({

@@ -14,7 +14,7 @@
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { Spinner } from "$lib/components/ui/spinner/index.js";
   import { createWebAuthWorkspace } from "$domains/auth/index.js";
-  import { createDashboardAppWorkspace } from "./modules/dashboard/dashboardApp.js";
+  import { createDashboardAppWorkspace } from "$domains/dashboard/index.js";
 
   const webAuthWorkspace = createWebAuthWorkspace();
   const dashboardAppWorkspace = createDashboardAppWorkspace();

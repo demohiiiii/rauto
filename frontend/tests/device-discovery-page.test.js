@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { dashboardNavigationItems } from "../src/config/dashboardNavigation.js";
+import { dashboardNavigationItems } from "../src/domains/dashboard/index.js";
 
 const read = (path) => readFileSync(path, "utf8");
 
 test("auto discovery is a dedicated operations page", () => {
   const modes = read("frontend/src/config/dashboardModes.js");
-  const navigation = read("frontend/src/config/dashboardNavigation.js");
+  const navigation = read("frontend/src/domains/dashboard/model/navigation.ts");
   const inventoryPage = read("frontend/src/pages/InventoryPage.svelte");
   const discoveryPage = read("frontend/src/pages/DeviceDiscoveryPage.svelte");
   const sidebar = read(
@@ -34,7 +34,7 @@ test("auto discovery is a dedicated operations page", () => {
   );
   assert.match(
     navigation,
-    /import\("\.\.\/pages\/DeviceDiscoveryPage\.svelte"\)/,
+    /import\(".*\/pages\/DeviceDiscoveryPage\.svelte"\)/,
   );
   assert.match(discoveryPage, /<DeviceDiscoveryPanel \{active\}/);
   assert.match(sidebar, /"device-discovery": ScanSearchIcon/);

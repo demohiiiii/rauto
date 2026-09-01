@@ -17,14 +17,7 @@ function sourceFiles(path) {
 
 test("modules are grouped into stable domain directories", () => {
   const moduleRoot = "frontend/src/modules";
-  const expectedDomains = [
-    "connections",
-    "dashboard",
-    "orchestration",
-    "overlays",
-    "profiles",
-    "transactions",
-  ];
+  const expectedDomains = ["connections", "orchestration", "transactions"];
   const entries = readdirSync(moduleRoot, { withFileTypes: true });
 
   assert.deepEqual(
@@ -59,6 +52,16 @@ test("thin module re-export files stay collapsed into concrete modules", () => {
     "frontend/src/modules/templates/templatesFlowDisplayState.js",
     "frontend/src/modules/templates/templatesFlowRuntimeState.js",
     "frontend/src/modules/templates/templatesShowObjects.js",
+    "frontend/src/config/dashboardNavigation.js",
+    "frontend/src/modules/dashboard/themeSystem.js",
+    "frontend/src/modules/dashboard/dashboardOverlays.js",
+    "frontend/src/modules/dashboard/dashboardApp.js",
+    "frontend/src/modules/dashboard/dashboardAppState.js",
+    "frontend/src/modules/dashboard/dashboardShell.js",
+    "frontend/src/modules/overlays/overlays.js",
+    "frontend/src/modules/overlays/overlaysToastState.js",
+    "frontend/src/modules/overlays/overlaysDetail.js",
+    "frontend/src/modules/overlays/overlaysDrawerState.js",
     "frontend/src/modules/connectionPanelWorkspaces.js",
     "frontend/src/modules/connections/connectionFields.js",
     "frontend/src/modules/connectionsWorkspace.js",

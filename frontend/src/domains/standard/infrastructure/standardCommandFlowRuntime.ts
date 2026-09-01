@@ -5,7 +5,7 @@ import {
 import {
   applyRecordDrawerRecording,
   recordLevelPayload,
-} from "../../../modules/overlays/overlays.js";
+} from "$domains/overlays/index.js";
 import { parsedOutputSheetsFromParsedOutputItems } from "$domains/execution/index.js";
 import {
   createSessionRetryState,

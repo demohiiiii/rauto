@@ -1,48 +1,88 @@
 import { derived, get } from "svelte/store";
+import type { Readable } from "svelte/store";
 import {
   closeConnectionModal,
   connectionOverlayState,
   hideSavedConnectionEditorModal,
-} from "../connections/connections.js";
+} from "../../../modules/connections/connections.js";
 import {
   applyOverlayBodyLock,
   closeDetailModal,
   closeEntryDrawer,
   closeRecordDrawer,
-  dashboardRecordToolsPresentation,
+  dashboardRecordToolsPresentation as overlayRecordToolsPresentation,
   detailModal,
   entryDrawer,
   openRecordDrawer,
   overlayDrawerState,
   recordLevelState,
   toggleRecordLevel,
-} from "../overlays/overlays.js";
-import { createLazyComponentRegistry } from "../../lib/svelte.js";
-import { eventKeyIs } from "../../lib/events.js";
-import { dashboardOverlayDefinitions } from "../../config/dashboardNavigation.js";
+} from "$domains/overlays/index.js";
+import { eventKeyIs } from "../../../lib/events.js";
+import { createLazyComponentRegistry } from "../../../lib/svelte.js";
+import { dashboardOverlayDefinitions } from "../model/navigation.js";
+import type {
+  DashboardConnectionOverlayState,
+  DashboardDetailOverlayState,
+  DashboardDrawerOverlayState,
+  DashboardEntryOverlayState,
+  DashboardOverlayComponents,
+  DashboardOverlayHostDisplay,
+  DashboardOverlayHostWorkspace,
+  DashboardOverlayId,
+  DashboardRecordToolsDisplay,
+} from "../model/types.js";
 
-export const dashboardOverlayDrawerState = overlayDrawerState;
-export const dashboardRecordLevelState = recordLevelState;
+interface DashboardOverlayRegistry {
+  components: Readable<Record<string, unknown>>;
+  ensure(id: DashboardOverlayId): void;
+}
 
-const dashboardOverlayConnectionState = connectionOverlayState;
-const dashboardOverlayDetailState = detailModal;
-const dashboardOverlayEntryState = entryDrawer;
+interface DashboardOverlayPresentationInput {
+  connectionState?: Partial<DashboardConnectionOverlayState>;
+  detailState?: Partial<DashboardDetailOverlayState>;
+  entryState?: Partial<DashboardEntryOverlayState>;
+  overlayState?: Partial<DashboardDrawerOverlayState>;
+}
 
-const applyDashboardOverlayBodyLock = (locked) => applyOverlayBodyLock(locked);
+export const dashboardOverlayDrawerState: Readable<DashboardDrawerOverlayState> =
+  overlayDrawerState;
+export const dashboardRecordLevelState: Readable<string> = recordLevelState;
+
+const dashboardOverlayConnectionState =
+  connectionOverlayState as Readable<DashboardConnectionOverlayState>;
+const dashboardOverlayDetailState =
+  detailModal as Readable<DashboardDetailOverlayState>;
+const dashboardOverlayEntryState =
+  entryDrawer as Readable<DashboardEntryOverlayState>;
+
+const applyDashboardOverlayBodyLock = (locked: boolean): (() => void) =>
+  applyOverlayBodyLock(locked);
 
 export const closeDashboardEntryDrawer = () => closeEntryDrawer();
 export const closeDashboardRecordDrawer = () => closeRecordDrawer();
-export const closeDashboardOverlayOnEscape = (event) =>
+export const closeDashboardOverlayOnEscape = (event: unknown): boolean =>
   closeTopDashboardOverlayOnEscape(event);
 export const openDashboardRecordDrawer = () => openRecordDrawer();
 export const toggleDashboardRecordLevel = () => toggleRecordLevel();
 
-export { dashboardRecordToolsPresentation };
+export function dashboardRecordToolsPresentation({
+  overlayState = {},
+  recordLevel = "",
+}: {
+  overlayState?: Partial<DashboardDrawerOverlayState>;
+  recordLevel?: string;
+} = {}): DashboardRecordToolsDisplay {
+  return overlayRecordToolsPresentation({
+    overlayState,
+    recordLevel,
+  });
+}
 
-function closeTopDashboardOverlayOnEscape(event) {
+function closeTopDashboardOverlayOnEscape(event: unknown): boolean {
   if (!eventKeyIs(event, "Escape")) return false;
 
-  const connectionState = get(connectionOverlayState);
+  const connectionState = get(dashboardOverlayConnectionState);
   if (connectionState.savedEditorOpen) {
     hideSavedConnectionEditorModal();
     return true;
@@ -77,7 +117,7 @@ function dashboardOverlayHostPresentation({
   detailState = {},
   entryState = {},
   overlayState = {},
-} = {}) {
+}: DashboardOverlayPresentationInput = {}): DashboardOverlayHostDisplay {
   const connectionModalOpen = !!connectionState.modalOpen;
   const detailModalOpen = !!detailState.open;
   const entryDrawerOpen = !!entryState.open;
@@ -94,11 +134,11 @@ function dashboardOverlayHostPresentation({
   };
 }
 
-export function createDashboardOverlayHostWorkspace() {
+export function createDashboardOverlayHostWorkspace(): DashboardOverlayHostWorkspace {
   const overlayRegistry = createLazyComponentRegistry({
-    resolveId: (id) => id,
-    resolveLoad: (id) => dashboardOverlayDefinitions[id],
-  });
+    resolveId: (id: DashboardOverlayId) => id,
+    resolveLoad: (id: DashboardOverlayId) => dashboardOverlayDefinitions[id],
+  }) as unknown as DashboardOverlayRegistry;
   const hostDisplayStateStore = derived(
     [
       dashboardOverlayConnectionState,
@@ -121,7 +161,7 @@ export function createDashboardOverlayHostWorkspace() {
   );
   const overlayComponentsStateStore = derived(
     overlayRegistry.components,
-    ($loadedOverlayComponents) => ({
+    ($loadedOverlayComponents): DashboardOverlayComponents => ({
       connectionModal: $loadedOverlayComponents.connectionModal || null,
       detailModal: $loadedOverlayComponents.detailModal || null,
       entryDrawer: $loadedOverlayComponents.entryDrawer || null,
@@ -131,7 +171,9 @@ export function createDashboardOverlayHostWorkspace() {
     }),
   );
 
-  function ensureLoadedOverlays(hostDisplay = {}) {
+  function ensureLoadedOverlays(
+    hostDisplay: Partial<DashboardOverlayHostDisplay> = {},
+  ): void {
     if (hostDisplay.connectionModalOpen) {
       overlayRegistry.ensure("connectionModal");
     }
@@ -149,9 +191,11 @@ export function createDashboardOverlayHostWorkspace() {
     }
   }
 
-  function applyHostDisplay(hostDisplay = {}) {
+  function applyHostDisplay(
+    hostDisplay: Partial<DashboardOverlayHostDisplay> = {},
+  ): () => void {
     ensureLoadedOverlays(hostDisplay);
-    return applyDashboardOverlayBodyLock(hostDisplay.bodyLocked);
+    return applyDashboardOverlayBodyLock(!!hostDisplay.bodyLocked);
   }
 
   return {

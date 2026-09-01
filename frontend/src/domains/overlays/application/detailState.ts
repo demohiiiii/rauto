@@ -1,23 +1,33 @@
 import { derived, get, writable } from "svelte/store";
-import { browserClearTimeout, browserSetTimeout } from "../../lib/browser.js";
 import {
   callbackHandler,
   callIfFunction,
   eventIsSelfTarget,
   eventKeyIs,
-} from "../../lib/events.js";
+} from "../../../lib/events.js";
 import {
   classNames,
   displayMode,
   displayString,
   displayText,
   formatTimestamp,
-} from "../../lib/ui.js";
-import { createLazyComponentRegistry } from "../../lib/svelte.js";
-import { dashboardDetailRendererDefinitions } from "../../config/dashboardNavigation.js";
-import { currentLanguageState, tr } from "../../lib/i18n.js";
+} from "../../../lib/ui.js";
+import { currentLanguageState, tr } from "../../../lib/i18n.js";
+import {
+  overlayDetailRendererDefinitions,
+  overlayDetailRuntime,
+} from "../infrastructure/overlayDetailRuntime.js";
+import type {
+  OverlayData,
+  OverlayDetailConfig,
+  OverlayDetailModalState,
+  OverlayDetailRendererDefinitions,
+  OverlayEntryDrawerState,
+  OverlayEventEntry,
+  OverlayOrchestrationDetailDisplay,
+} from "../model/types.js";
 
-const detailModalDefaultState = {
+const detailModalDefaultState: OverlayDetailModalState = {
   content: "",
   detailPayload: null,
   kind: "text",
@@ -26,17 +36,29 @@ const detailModalDefaultState = {
 };
 
 let detailModalResetTimer = 0;
-let orchestrationDetailDisplayLoader = null;
+let orchestrationDetailDisplayLoader: Promise<OverlayOrchestrationDetailDisplay> | null =
+  null;
 
-export const detailModal = writable({ ...detailModalDefaultState });
-export const entryDrawer = writable({
+function overlayData(value: unknown): OverlayData {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as OverlayData)
+    : {};
+}
+
+export const detailModal = writable<OverlayDetailModalState>({
+  ...detailModalDefaultState,
+});
+export const entryDrawer = writable<OverlayEntryDrawerState>({
   eventEntry: null,
   open: false,
 });
 
-export function openDetailModal(content, detailConfig = {}) {
+export function openDetailModal(
+  content: unknown,
+  detailConfig: OverlayDetailConfig = {},
+): void {
   if (detailModalResetTimer) {
-    browserClearTimeout(detailModalResetTimer);
+    overlayDetailRuntime.clearTimeout(detailModalResetTimer);
     detailModalResetTimer = 0;
   }
   detailModal.set({
@@ -48,15 +70,15 @@ export function openDetailModal(content, detailConfig = {}) {
   });
 }
 
-export function closeDetailModal() {
+export function closeDetailModal(): void {
   detailModal.update((detailState) => ({
     ...detailState,
     open: false,
   }));
   if (detailModalResetTimer) {
-    browserClearTimeout(detailModalResetTimer);
+    overlayDetailRuntime.clearTimeout(detailModalResetTimer);
   }
-  detailModalResetTimer = browserSetTimeout(() => {
+  detailModalResetTimer = overlayDetailRuntime.setTimeout(() => {
     if (!get(detailModal).open) {
       detailModal.set({ ...detailModalDefaultState });
     }
@@ -64,22 +86,24 @@ export function closeDetailModal() {
   }, 240);
 }
 
-export function openEntryDrawer(eventEntry) {
+export function openEntryDrawer(eventEntry: OverlayEventEntry | null): void {
   entryDrawer.set({
     eventEntry: eventEntry || null,
     open: Boolean(eventEntry),
   });
 }
 
-export function closeEntryDrawer() {
+export function closeEntryDrawer(): void {
   entryDrawer.set({ eventEntry: null, open: false });
 }
 
 export function historyEntryOpenHandler(
-  eventEntries = [],
-  onOpenEntryDrawer = openEntryDrawer,
+  eventEntries: readonly OverlayEventEntry[] = [],
+  onOpenEntryDrawer: (
+    eventEntry: OverlayEventEntry,
+  ) => unknown = openEntryDrawer,
 ) {
-  return (entryIndex) => {
+  return (entryIndex: unknown): void => {
     const historyEventEntry = Array.isArray(eventEntries)
       ? eventEntries[Number(entryIndex)] || null
       : null;
@@ -89,7 +113,7 @@ export function historyEntryOpenHandler(
   };
 }
 
-function boolBadgeClass(boolValue) {
+function boolBadgeClass(boolValue: unknown): string {
   return boolValue === true
     ? "inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700"
     : boolValue === false
@@ -97,11 +121,13 @@ function boolBadgeClass(boolValue) {
       : "text-slate-500";
 }
 
-function boolBadgeText(boolValue) {
+function boolBadgeText(boolValue: unknown): string {
   return boolValue === true ? "true" : boolValue === false ? "false" : "-";
 }
 
-function eventFlowCellDisplay(flowCell = {}) {
+function eventFlowCellDisplay(
+  flowCell: { after?: unknown; before?: unknown; tone?: string } = {},
+) {
   const { after = "", before = "", tone = "prompt" } = flowCell;
   const styles =
     tone === "fsm"
@@ -138,7 +164,10 @@ function entryDrawerContentLabels() {
   );
 }
 
-function entryDrawerPresentation(eventEntry = null, open = false) {
+function entryDrawerPresentation(
+  eventEntry: OverlayEventEntry | null = null,
+  open = false,
+) {
   const eventRecord = eventEntry?.event || {};
   const isCommandOutput = eventRecord.kind === "command_output";
   const contentText = eventRecord.content || eventRecord.all || "";
@@ -185,13 +214,15 @@ function entryDrawerPresentation(eventEntry = null, open = false) {
   };
 }
 
-function entryDrawerDisplay(drawerState = {}) {
+function entryDrawerDisplay(
+  drawerState: Partial<OverlayEntryDrawerState> = {},
+) {
   return entryDrawerPresentation(drawerState.eventEntry, drawerState.open);
 }
 
 export function createEntryDrawerWorkspace({
   onClose = closeEntryDrawer,
-} = {}) {
+}: { onClose?: () => unknown } = {}) {
   const entryDisplayStateStore = derived(
     [entryDrawer, currentLanguageState],
     ([$entryDrawer, _currentLanguageState]) => entryDrawerDisplay($entryDrawer),
@@ -225,13 +256,15 @@ export function createEntryDrawerWorkspace({
   };
 }
 
-function entryDrawerActionHandlers({ onClose = closeEntryDrawer } = {}) {
+function entryDrawerActionHandlers({
+  onClose = closeEntryDrawer,
+}: { onClose?: () => unknown } = {}) {
   return {
     closeDrawerHandler() {
       return callbackHandler(onClose);
     },
     closeOnBackdropHandler() {
-      return (event) => {
+      return (event: unknown) => {
         if (eventIsSelfTarget(event)) {
           return callIfFunction(onClose);
         }
@@ -239,7 +272,7 @@ function entryDrawerActionHandlers({ onClose = closeEntryDrawer } = {}) {
       };
     },
     closeOnEscapeHandler() {
-      return (event) => {
+      return (event: unknown) => {
         if (eventKeyIs(event, "Escape")) {
           return callIfFunction(onClose);
         }
@@ -249,13 +282,15 @@ function entryDrawerActionHandlers({ onClose = closeEntryDrawer } = {}) {
   };
 }
 
-function isFailedCommandEvent(eventEntry) {
+function isFailedCommandEvent(eventEntry: OverlayEventEntry): boolean {
   const eventRecord = (eventEntry && eventEntry.event) || {};
   return eventRecord.kind === "command_output" && eventRecord.success === false;
 }
 
-function matchesSearch(eventEntry, query) {
-  const normalizedQuery = (query || "").trim().toLowerCase();
+function matchesSearch(eventEntry: OverlayEventEntry, query: unknown): boolean {
+  const normalizedQuery = String(query || "")
+    .trim()
+    .toLowerCase();
   if (!normalizedQuery) return true;
   const eventRecord = (eventEntry && eventEntry.event) || {};
   const searchableEventFields = [
@@ -278,8 +313,13 @@ function matchesSearch(eventEntry, query) {
   return haystack.includes(normalizedQuery);
 }
 
-function filterEntries(eventEntries, kindFilter, failedOnly, query) {
-  return (eventEntries || []).filter((eventEntry) => {
+function filterEntries(
+  eventEntries: readonly OverlayEventEntry[],
+  kindFilter: unknown,
+  failedOnly: boolean,
+  query: unknown,
+): OverlayEventEntry[] {
+  return eventEntries.filter((eventEntry) => {
     const eventRecord = (eventEntry && eventEntry.event) || {};
     const kindOk =
       !kindFilter || kindFilter === "all"
@@ -291,7 +331,7 @@ function filterEntries(eventEntries, kindFilter, failedOnly, query) {
   });
 }
 
-function eventEntryRows(eventEntries = []) {
+function eventEntryRows(eventEntries: readonly OverlayEventEntry[] = []) {
   return (Array.isArray(eventEntries) ? eventEntries : []).map(
     (eventEntry, index) => {
       const eventRecord = (eventEntry && eventEntry.event) || {};
@@ -340,8 +380,17 @@ function eventEntryTableHeaderCells() {
     .map((labelKey) => ({ labelText: tr(labelKey) }));
 }
 
-function buildEventStats(eventEntries) {
-  const eventKinds = new Set();
+interface EventStats {
+  commandEvents: number;
+  failedEvents: number;
+  kinds: number;
+  total: number;
+}
+
+function buildEventStats(
+  eventEntries: readonly OverlayEventEntry[],
+): EventStats {
+  const eventKinds = new Set<unknown>();
   let commandEvents = 0;
   let failedEvents = 0;
   for (const eventEntry of eventEntries) {
@@ -363,22 +412,30 @@ function buildEventStats(eventEntries) {
   };
 }
 
-function eventStatCards(stats = {}) {
-  return [
+function eventStatCards(stats: Partial<EventStats> = {}) {
+  const statRows: Array<[string, unknown]> = [
     ["statTotal", stats.total],
     ["statCommandEvents", stats.commandEvents],
     ["statFailedEvents", stats.failedEvents],
     ["statKinds", stats.kinds],
-  ].map(([labelKey, statValue]) => ({
+  ];
+  return statRows.map(([labelKey, statValue]) => ({
     labelText: tr(labelKey),
     statValue: displayText(statValue),
   }));
 }
 
-export function eventEntriesPresentation(eventEntries = []) {
-  const normalizedEventEntries = Array.isArray(eventEntries)
-    ? eventEntries
+function normalizeEventEntries(eventEntries: unknown): OverlayEventEntry[] {
+  return Array.isArray(eventEntries)
+    ? eventEntries.filter(
+        (entry): entry is OverlayEventEntry =>
+          !!entry && typeof entry === "object" && !Array.isArray(entry),
+      )
     : [];
+}
+
+export function eventEntriesPresentation(eventEntries: unknown = []) {
+  const normalizedEventEntries = normalizeEventEntries(eventEntries);
   const stats = buildEventStats(normalizedEventEntries);
   return {
     entryCount: normalizedEventEntries.length,
@@ -390,14 +447,15 @@ export function eventEntriesPresentation(eventEntries = []) {
   };
 }
 
-export function formatHistoryTime(tsMs) {
+export function formatHistoryTime(tsMs: unknown): string {
   return formatTimestamp(tsMs);
 }
 
-function historyDetailPresentation(meta = {}, eventEntries = []) {
-  const normalizedEventEntries = Array.isArray(eventEntries)
-    ? eventEntries
-    : [];
+function historyDetailPresentation(
+  meta: OverlayData = {},
+  eventEntries: unknown = [],
+) {
+  const normalizedEventEntries = normalizeEventEntries(eventEntries);
   const stats = buildEventStats(normalizedEventEntries);
   return {
     eventEntries: normalizedEventEntries,
@@ -440,7 +498,7 @@ function historyDetailPresentation(meta = {}, eventEntries = []) {
   };
 }
 
-function connectionImportSummaryRows(report = {}) {
+function connectionImportSummaryRows(report: OverlayData = {}) {
   return [
     {
       label: tr("savedConnImportSummaryTotal"),
@@ -465,25 +523,31 @@ function connectionImportSummaryRows(report = {}) {
   ];
 }
 
-function connectionImportDetailPresentation(report = {}) {
-  const failures = Array.isArray(report?.failures) ? report.failures : [];
+function connectionImportDetailPresentation(report: OverlayData = {}) {
+  const failures = Array.isArray(report.failures) ? report.failures : [];
   return {
-    failureRows: failures.map((importFailure = {}) => ({
-      hasName: !!importFailure?.name,
-      message: displayText(importFailure?.message),
-      name: displayText(importFailure?.name),
-      sourceRowText: displayText(importFailure?.row),
-    })),
+    failureRows: failures.map((failure) => {
+      const importFailure: OverlayData =
+        failure && typeof failure === "object" && !Array.isArray(failure)
+          ? (failure as OverlayData)
+          : {};
+      return {
+        hasName: !!importFailure.name,
+        message: displayText(importFailure.message),
+        name: displayText(importFailure.name),
+        sourceRowText: displayText(importFailure.row),
+      };
+    }),
     hasFailures: failures.length > 0,
     summaryRows: connectionImportSummaryRows(report),
   };
 }
 
 function detailModalContentDisplayPresentation(
-  contentDisplay = {},
+  contentDisplay: OverlayData = {},
   rendererId = "",
-  loadErrors = {},
-  renderers = {},
+  loadErrors: Record<string, string> = {},
+  renderers: Record<string, unknown> = {},
 ) {
   return {
     detailModalContentDisplay: {
@@ -494,7 +558,9 @@ function detailModalContentDisplayPresentation(
   };
 }
 
-export function detailModalPresentation(detail = {}) {
+export function detailModalPresentation(
+  detail: Partial<OverlayDetailModalState> = {},
+) {
   const kind = detail?.kind || "text";
   const detailPayload = detail?.detailPayload || {};
   const showHistoryDetail = kind === "historyDetail";
@@ -504,7 +570,7 @@ export function detailModalPresentation(detail = {}) {
     showHistoryDetail && Array.isArray(detailPayload?.entries)
       ? detailPayload.entries
       : [];
-  const historyMeta = showHistoryDetail ? detailPayload?.meta || {} : {};
+  const historyMeta = showHistoryDetail ? overlayData(detailPayload.meta) : {};
   const orchestrationDetail = showOrchestrationDetail ? detailPayload : {};
   const orchestrationDetailRendererId =
     orchestrationDetail?.kind === "stage"
@@ -564,34 +630,32 @@ function detailModalRendererErrorMessage() {
 
 function loadOrchestrationDetailDisplay() {
   if (!orchestrationDetailDisplayLoader) {
-    orchestrationDetailDisplayLoader = loadOrchestrationDetailDisplayRenderer();
+    orchestrationDetailDisplayLoader =
+      overlayDetailRuntime.loadOrchestrationDetailDisplay();
   }
   return orchestrationDetailDisplayLoader;
 }
 
-async function loadOrchestrationDetailDisplayRenderer() {
-  const { orchestrationDetailDisplay } =
-    await import("../orchestration/orchestrationResultDetailState.js");
-  return orchestrationDetailDisplay;
-}
-
-async function loadOrchestrationDetailRendererIntoStore(
-  orchestrationDetailRendererStore,
-) {
+async function loadOrchestrationDetailRendererIntoStore(orchestrationDetailRendererStore: {
+  set(value: OverlayOrchestrationDetailDisplay): void;
+}): Promise<void> {
   const orchestrationDetailRenderer = await loadOrchestrationDetailDisplay();
-  orchestrationDetailRendererStore.set(() => orchestrationDetailRenderer);
+  orchestrationDetailRendererStore.set(orchestrationDetailRenderer);
 }
 
 export function createDetailModalWorkspace({
-  detailRendererDefinitions = dashboardDetailRendererDefinitions,
+  detailRendererDefinitions = overlayDetailRendererDefinitions,
   errorMessage = detailModalRendererErrorMessage,
+}: {
+  detailRendererDefinitions?: OverlayDetailRendererDefinitions;
+  errorMessage?: () => string;
 } = {}) {
-  const detailRendererRegistry = createLazyComponentRegistry({
+  const detailRendererRegistry = overlayDetailRuntime.createRendererRegistry(
+    detailRendererDefinitions,
     errorMessage,
-    resolveId: (id) => id,
-    resolveLoad: (id) => detailRendererDefinitions[id],
-  });
-  const orchestrationDetailRendererStore = writable(() => ({}));
+  );
+  const orchestrationDetailRendererStore =
+    writable<OverlayOrchestrationDetailDisplay>(() => ({}));
   const detailDisplayStateStore = derived(
     [detailModal, currentLanguageState],
     ([$detailModal, _currentLanguageState]) =>
@@ -673,7 +737,12 @@ export function createDetailModalWorkspace({
     loadedDetailRenderersStore: detailRendererRegistry.components,
     openHistoryEntryIndexStateStore,
     orchestrationDetailDisplayStateStore,
-    setModalContext({ detailDisplay = {} } = {}) {
+    setModalContext({
+      detailDisplay,
+    }: {
+      detailDisplay?: ReturnType<typeof detailModalPresentation>;
+    } = {}) {
+      if (!detailDisplay) return;
       if (detailDisplay.shouldLoadOrchestrationDetail) {
         detailRendererRegistry.ensure(
           detailDisplay.orchestrationDetailRendererId,

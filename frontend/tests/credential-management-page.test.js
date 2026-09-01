@@ -5,7 +5,7 @@ import fs from "node:fs";
 const read = (path) => fs.readFileSync(path, "utf8");
 
 test("credential management is a standalone dashboard page", () => {
-  const navigation = read("frontend/src/config/dashboardNavigation.js");
+  const navigation = read("frontend/src/domains/dashboard/model/navigation.ts");
   const sidebar = read(
     "frontend/src/components/layout/DashboardSidebar.svelte",
   );

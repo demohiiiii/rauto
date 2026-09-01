@@ -5,7 +5,7 @@ import {
 import {
   applyRecordDrawerRecording,
   recordLevelPayload,
-} from "../../../modules/overlays/overlaysDrawerState.js";
+} from "$domains/overlays/index.js";
 import type { TransferRuntime } from "../model/types.js";
 
 export const transferRuntime = {

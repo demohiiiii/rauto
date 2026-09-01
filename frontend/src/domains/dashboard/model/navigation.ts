@@ -1,4 +1,24 @@
-const navigationDefinitions = [
+import type {
+  DashboardComponentDefinitions,
+  DashboardDetailRendererId,
+  DashboardNavigationItem,
+  DashboardOverlayId,
+  DashboardPageDefinition,
+  DashboardRoute,
+} from "./types.js";
+
+interface NavigationDefinition {
+  group: string;
+  id: string;
+  label: string;
+  labelKey: string;
+  navLabelKey?: string;
+  path: string;
+  tab: string;
+  txStage?: string;
+}
+
+const navigationDefinitions: NavigationDefinition[] = [
   {
     id: "show",
     path: "/app/show",
@@ -164,7 +184,7 @@ const navigationDefinitions = [
   },
 ];
 
-export const dashboardRoutes = navigationDefinitions.map(
+export const dashboardRoutes: DashboardRoute[] = navigationDefinitions.map(
   (navigationDefinition) => ({
     id: navigationDefinition.id,
     path: navigationDefinition.path,
@@ -173,8 +193,8 @@ export const dashboardRoutes = navigationDefinitions.map(
   }),
 );
 
-export const dashboardNavigationItems = navigationDefinitions.map(
-  (navigationDefinition) => ({
+export const dashboardNavigationItems: DashboardNavigationItem[] =
+  navigationDefinitions.map((navigationDefinition) => ({
     routeId: navigationDefinition.id,
     label: navigationDefinition.label,
     labelKey: navigationDefinition.labelKey,
@@ -182,67 +202,86 @@ export const dashboardNavigationItems = navigationDefinitions.map(
     activeWhen: navigationDefinition.tab,
     txStage: navigationDefinition.txStage,
     group: navigationDefinition.group,
-  }),
-);
+  }));
 
-export const dashboardPageDefinitions = [
-  { id: "show", load: () => import("../pages/ShowPage.svelte") },
+export const dashboardPageDefinitions: DashboardPageDefinition[] = [
+  { id: "show", load: () => import("../../../pages/ShowPage.svelte") },
   {
     id: "config-fetch",
-    load: () => import("../pages/ConfigFetchPage.svelte"),
+    load: () => import("../../../pages/ConfigFetchPage.svelte"),
   },
-  { id: "standard", load: () => import("../pages/StandardPage.svelte") },
-  { id: "batch", load: () => import("../pages/BatchPage.svelte") },
+  { id: "standard", load: () => import("../../../pages/StandardPage.svelte") },
+  { id: "batch", load: () => import("../../../pages/BatchPage.svelte") },
   {
     id: "orchestrated",
-    load: () => import("../pages/OrchestratedPage.svelte"),
+    load: () => import("../../../pages/OrchestratedPage.svelte"),
   },
-  { id: "replay", load: () => import("../pages/ReplayPage.svelte") },
-  { id: "prompts", load: () => import("../pages/PromptsPage.svelte") },
-  { id: "templates", load: () => import("../pages/TemplatesPage.svelte") },
-  { id: "inventory", load: () => import("../pages/InventoryPage.svelte") },
+  { id: "replay", load: () => import("../../../pages/ReplayPage.svelte") },
+  { id: "prompts", load: () => import("../../../pages/PromptsPage.svelte") },
+  {
+    id: "templates",
+    load: () => import("../../../pages/TemplatesPage.svelte"),
+  },
+  {
+    id: "inventory",
+    load: () => import("../../../pages/InventoryPage.svelte"),
+  },
   {
     id: "device-discovery",
-    load: () => import("../pages/DeviceDiscoveryPage.svelte"),
+    load: () => import("../../../pages/DeviceDiscoveryPage.svelte"),
   },
-  { id: "credentials", load: () => import("../pages/CredentialsPage.svelte") },
-  { id: "transfer", load: () => import("../pages/TransferPage.svelte") },
-  { id: "blacklist", load: () => import("../pages/BlacklistPage.svelte") },
-  { id: "backup", load: () => import("../pages/BackupPage.svelte") },
-  { id: "tasks", load: () => import("../pages/TasksPage.svelte") },
-  { id: "schedules", load: () => import("../pages/SchedulesPage.svelte") },
+  {
+    id: "credentials",
+    load: () => import("../../../pages/CredentialsPage.svelte"),
+  },
+  { id: "transfer", load: () => import("../../../pages/TransferPage.svelte") },
+  {
+    id: "blacklist",
+    load: () => import("../../../pages/BlacklistPage.svelte"),
+  },
+  { id: "backup", load: () => import("../../../pages/BackupPage.svelte") },
+  { id: "tasks", load: () => import("../../../pages/TasksPage.svelte") },
+  {
+    id: "schedules",
+    load: () => import("../../../pages/SchedulesPage.svelte"),
+  },
   {
     id: "config-history",
-    load: () => import("../pages/ConfigHistoryPage.svelte"),
+    load: () => import("../../../pages/ConfigHistoryPage.svelte"),
   },
 ];
 
-export const dashboardOverlayDefinitions = {
-  connectionModal: () =>
-    import("../components/connections/ConnectionModal.svelte"),
-  detailModal: () => import("../components/overlays/DetailModal.svelte"),
-  entryDrawer: () => import("../components/overlays/EntryDrawer.svelte"),
-  recordDrawer: () => import("../components/overlays/RecordDrawer.svelte"),
-  savedConnectionEditModal: () =>
-    import("../components/connections/SavedConnectionEditModal.svelte"),
-};
+export const dashboardOverlayDefinitions: DashboardComponentDefinitions<DashboardOverlayId> =
+  {
+    connectionModal: () =>
+      import("../../../components/connections/ConnectionModal.svelte"),
+    detailModal: () =>
+      import("../../../components/overlays/DetailModal.svelte"),
+    entryDrawer: () =>
+      import("../../../components/overlays/EntryDrawer.svelte"),
+    recordDrawer: () =>
+      import("../../../components/overlays/RecordDrawer.svelte"),
+    savedConnectionEditModal: () =>
+      import("../../../components/connections/SavedConnectionEditModal.svelte"),
+  };
 
-export const dashboardDetailRendererDefinitions = {
-  orchestrationStageDetail: () =>
-    import("../pages/orchestrated/OrchestrationStageDetailPanel.svelte"),
-  orchestrationTargetDetail: () =>
-    import("../pages/orchestrated/OrchestrationTargetDetailPanel.svelte"),
-};
+export const dashboardDetailRendererDefinitions: DashboardComponentDefinitions<DashboardDetailRendererId> =
+  {
+    orchestrationStageDetail: () =>
+      import("../../../pages/orchestrated/OrchestrationStageDetailPanel.svelte"),
+    orchestrationTargetDetail: () =>
+      import("../../../pages/orchestrated/OrchestrationTargetDetailPanel.svelte"),
+  };
 
 export const defaultDashboardRoute = dashboardRoutes[0];
 
-export function routeByPath(pathname) {
+export function routeByPath(pathname: unknown): DashboardRoute {
   return (
     dashboardRoutes.find((route) => route.path === pathname) ||
     defaultDashboardRoute
   );
 }
 
-export function routeById(id) {
+export function routeById(id: unknown): DashboardRoute | null {
   return dashboardRoutes.find((route) => route.id === id) || null;
 }

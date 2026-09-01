@@ -5,7 +5,7 @@ import {
 } from "../../api/client.js";
 import { currentLanguage, t } from "../../lib/i18n.js";
 import { safeString, statusPresentation } from "../../lib/ui.js";
-import { showToast } from "../overlays/overlays.js";
+import { showToast } from "$domains/overlays/index.js";
 import {
   connectionBasicFieldWiring,
   connectionTimeoutSecsValue,

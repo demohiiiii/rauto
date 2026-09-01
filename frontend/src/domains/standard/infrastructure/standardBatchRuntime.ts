@@ -2,7 +2,7 @@ import {
   CONNECTION_PICKER,
   connectionPickerValues,
 } from "../../../modules/connections/connectionFieldStoreState.js";
-import { recordLevelPayload } from "../../../modules/overlays/overlays.js";
+import { recordLevelPayload } from "$domains/overlays/index.js";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,

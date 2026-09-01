@@ -28,7 +28,7 @@ export const executionResultRuntime: ExecutionResultRuntime = {
   deviceName: currentDeviceName,
   download: downloadBlob,
   async notifyError(message) {
-    const { showToast } = await import("../../../modules/overlays/overlays.js");
+    const { showToast } = await import("$domains/overlays/index.js");
     return showToast(message, "error");
   },
 };

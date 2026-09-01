@@ -20,7 +20,7 @@
   } from "../../api/client.js";
   import { browserConfirm } from "../../lib/browser.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { showToast } from "../../modules/overlays/overlays.js";
+  import { showToast } from "$domains/overlays/index.js";
   import { profileModeExpressionMatchesOptions } from "$domains/profiles/model/modeExpression.js";
   import {
     configCatalogKindNames,

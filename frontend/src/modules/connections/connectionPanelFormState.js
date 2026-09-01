@@ -2,7 +2,7 @@ import { derived, get as getStore, writable } from "svelte/store";
 import { currentLanguageState, t } from "../../lib/i18n.js";
 import { safeString } from "../../lib/ui.js";
 import { createLoadingStateRunner } from "../../lib/svelte.js";
-import { showToast } from "../overlays/overlays.js";
+import { showToast } from "$domains/overlays/index.js";
 import {
   applySavedConnectionEditorDraftFromFormState,
   applyTemporaryConnectionDraftFromFormState,

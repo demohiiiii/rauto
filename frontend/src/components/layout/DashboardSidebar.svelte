@@ -25,7 +25,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { cn } from "$lib/utils.js";
-  import { createDashboardSidebarWorkspace } from "../../modules/dashboard/dashboardShell.js";
+  import { createDashboardSidebarWorkspace } from "$domains/dashboard/index.js";
 
   const rautoIconUrl = `${import.meta.env.BASE_URL}rauto-icon.svg`;
   let { collapsed = false, onCollapsedChange = undefined, onClose } = $props();
