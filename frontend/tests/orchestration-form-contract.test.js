@@ -10,12 +10,12 @@ import {
   orchestrationJobFieldsDisplay,
   orchestrationStageFieldPatch,
   orchestrationStageFieldsDisplay,
-} from "../src/modules/orchestration/orchestrationFormFieldState.js";
+} from "../src/domains/orchestration/index.js";
 import {
   orchestrationPlanFormModelFromJson,
   orchestrationPlanFormModelFromJsonText,
   orchestrationPlanFormModelToJsonText,
-} from "../src/modules/orchestration/orchestrationPlanFormModels.js";
+} from "../src/domains/orchestration/index.js";
 
 function read(path) {
   return readFileSync(path, "utf8");

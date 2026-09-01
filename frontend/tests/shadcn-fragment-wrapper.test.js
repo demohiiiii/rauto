@@ -875,8 +875,8 @@ test("workflow chips use semantic token classes without global chip css", () => 
   const displaySources = [
     "frontend/src/domains/standard/presentation/standardFlowPresentation.ts",
     "frontend/src/domains/transactions/presentation/transactionExecutionDisplays.ts",
-    "frontend/src/modules/orchestration/orchestrationResultDetailState.js",
-    "frontend/src/modules/orchestration/orchestrationResultPreviewState.js",
+    "frontend/src/domains/orchestration/presentation/orchestrationResultDetailState.ts",
+    "frontend/src/domains/orchestration/presentation/orchestrationResultPreviewState.ts",
   ];
 
   assert.doesNotMatch(appCss, /tx-workflow-chip/);

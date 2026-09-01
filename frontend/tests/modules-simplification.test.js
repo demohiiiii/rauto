@@ -15,22 +15,9 @@ function sourceFiles(path) {
   });
 }
 
-test("modules are grouped into stable domain directories", () => {
-  const moduleRoot = "frontend/src/modules";
-  const expectedDomains = ["orchestration"];
-  const entries = readdirSync(moduleRoot, { withFileTypes: true });
-
-  assert.deepEqual(
-    entries
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort(),
-    expectedDomains,
-  );
-  assert.deepEqual(
-    entries.filter((entry) => entry.isFile()).map((entry) => entry.name),
-    [],
-  );
+test("legacy modules root stays removed after domain migration", () => {
+  assert.equal(existsSync("frontend/src/modules"), false);
+  assert.equal(existsSync("frontend/src/domains/orchestration"), true);
 });
 
 test("connection fields and presentation use the typed domain boundary", () => {
@@ -96,6 +83,205 @@ test("connection fields and presentation use the typed domain boundary", () => {
   assert.match(viteConfig, /domains\/connections\/.*dashboard-connections/s);
 });
 
+test("orchestration models use the typed domain boundary", () => {
+  const planModels = read(
+    "frontend/src/domains/orchestration/model/orchestrationPlanFormModels.ts",
+  );
+  const stageMutations = read(
+    "frontend/src/domains/orchestration/model/orchestrationStageMutations.ts",
+  );
+  const targetModels = read(
+    "frontend/src/domains/orchestration/model/orchestrationTargetFormModels.ts",
+  );
+  const formState = read(
+    "frontend/src/domains/orchestration/application/orchestrationFormState.ts",
+  );
+  const editorSourceState = read(
+    "frontend/src/domains/orchestration/application/orchestrationEditorSourceState.ts",
+  );
+  const editorState = read(
+    "frontend/src/domains/orchestration/application/orchestrationEditorState.ts",
+  );
+  const editorDisplay = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationEditorDisplayState.ts",
+  );
+  const executionPayloads = read(
+    "frontend/src/domains/orchestration/model/orchestratedExecutionPayloads.ts",
+  );
+  const executionState = read(
+    "frontend/src/domains/orchestration/application/orchestratedExecutionState.ts",
+  );
+  const orchestratedWorkspace = read(
+    "frontend/src/domains/orchestration/application/orchestratedWorkspace.ts",
+  );
+  const orchestrationPanelState = read(
+    "frontend/src/domains/orchestration/application/orchestrationPanelState.ts",
+  );
+  const orchestrationPanelDisplay = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationPanelDisplayState.ts",
+  );
+  const executionApi = read(
+    "frontend/src/domains/orchestration/infrastructure/orchestrationExecutionApi.ts",
+  );
+  const templateWorkspace = read(
+    "frontend/src/domains/orchestration/application/createOrchestrationTemplateWorkspace.ts",
+  );
+  const stageEditorsState = read(
+    "frontend/src/domains/orchestration/application/orchestrationStageEditorsState.ts",
+  );
+  const stageTargetsState = read(
+    "frontend/src/domains/orchestration/application/orchestrationStageTargetsState.ts",
+  );
+  const txWorkflowActionState = read(
+    "frontend/src/domains/orchestration/application/orchestrationTxWorkflowActionState.ts",
+  );
+  const txWorkflowActions = read(
+    "frontend/src/domains/orchestration/model/orchestrationTxWorkflowActions.ts",
+  );
+  const templateApi = read(
+    "frontend/src/domains/orchestration/infrastructure/orchestrationTemplateApi.ts",
+  );
+  const workflowPreviewWorkspace = read(
+    "frontend/src/domains/orchestration/application/createOrchestrationWorkflowPreviewWorkspace.ts",
+  );
+  const actionDisplay = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationActionDisplayState.ts",
+  );
+  const formFields = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationFormFieldState.ts",
+  );
+  const formStructure = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationFormStructureState.ts",
+  );
+  const workflowPreview = read(
+    "frontend/src/domains/orchestration/model/orchestrationWorkflowPreview.ts",
+  );
+  const flowCanvas = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationFlowCanvasState.ts",
+  );
+  const resultPreview = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationResultPreviewState.ts",
+  );
+  const resultDetail = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationResultDetailState.ts",
+  );
+  const resultDisplay = read(
+    "frontend/src/domains/orchestration/presentation/orchestrationResultDisplayState.ts",
+  );
+  const resultState = read(
+    "frontend/src/domains/orchestration/application/orchestrationResultState.ts",
+  );
+  const detailRuntime = read(
+    "frontend/src/domains/orchestration/infrastructure/orchestrationDetailRuntime.ts",
+  );
+  const types = read("frontend/src/domains/orchestration/model/types.ts");
+  const domainEntry = read("frontend/src/domains/orchestration/index.ts");
+  const viteConfig = read("vite.config.js");
+
+  for (const source of [
+    planModels,
+    stageMutations,
+    targetModels,
+    formState,
+    workflowPreviewWorkspace,
+    actionDisplay,
+    editorDisplay,
+    executionPayloads,
+    orchestrationPanelDisplay,
+    formFields,
+    formStructure,
+    workflowPreview,
+    flowCanvas,
+    resultPreview,
+    resultDetail,
+    resultDisplay,
+    txWorkflowActions,
+    types,
+  ]) {
+    assert.doesNotMatch(source, /\bany\b|@ts-(?:ignore|nocheck)/);
+    assert.doesNotMatch(
+      source,
+      /api\/client\.js|svelte\/store|lib\/browser\.js/,
+    );
+  }
+  for (const source of [
+    editorSourceState,
+    editorState,
+    executionState,
+    orchestratedWorkspace,
+    orchestrationPanelState,
+    templateWorkspace,
+    resultState,
+    stageEditorsState,
+    stageTargetsState,
+    txWorkflowActionState,
+  ]) {
+    assert.doesNotMatch(source, /\bany\b|@ts-(?:ignore|nocheck)/);
+    assert.doesNotMatch(
+      source,
+      /api\/client\.js|lib\/browser\.js|modules\/orchestration/,
+    );
+  }
+  assert.match(templateApi, /api\/client\.js/);
+  assert.match(executionApi, /api\/client\.js/);
+  assert.doesNotMatch(executionApi, /\bany\b|@ts-(?:ignore|nocheck)/);
+  assert.doesNotMatch(templateApi, /\bany\b|@ts-(?:ignore|nocheck)/);
+  assert.doesNotMatch(detailRuntime, /\bany\b|@ts-(?:ignore|nocheck)/);
+  assert.doesNotMatch(detailRuntime, /api\/client\.js|lib\/browser\.js/);
+  assert.match(domainEntry, /model\/orchestrationPlanFormModels\.js/);
+  assert.match(domainEntry, /model\/orchestrationStageMutations\.js/);
+  assert.match(domainEntry, /model\/orchestrationTargetFormModels\.js/);
+  assert.match(domainEntry, /application\/orchestrationFormState\.js/);
+  assert.match(domainEntry, /application\/orchestrationEditorSourceState\.js/);
+  assert.match(domainEntry, /application\/orchestrationEditorState\.js/);
+  assert.match(domainEntry, /application\/orchestratedExecutionState\.js/);
+  assert.match(domainEntry, /application\/orchestratedWorkspace\.js/);
+  assert.match(domainEntry, /application\/orchestrationPanelState\.js/);
+  assert.match(domainEntry, /presentation\/orchestrationPanelDisplayState\.js/);
+  assert.match(domainEntry, /model\/orchestratedExecutionPayloads\.js/);
+  assert.match(
+    domainEntry,
+    /application\/createOrchestrationTemplateWorkspace\.js/,
+  );
+  assert.match(domainEntry, /application\/orchestrationStageEditorsState\.js/);
+  assert.match(domainEntry, /application\/orchestrationStageTargetsState\.js/);
+  assert.match(
+    domainEntry,
+    /application\/orchestrationTxWorkflowActionState\.js/,
+  );
+  assert.match(
+    domainEntry,
+    /application\/createOrchestrationWorkflowPreviewWorkspace\.js/,
+  );
+  assert.match(
+    domainEntry,
+    /presentation\/orchestrationActionDisplayState\.js/,
+  );
+  assert.match(domainEntry, /presentation\/orchestrationFormFieldState\.js/);
+  assert.match(
+    domainEntry,
+    /presentation\/orchestrationFormStructureState\.js/,
+  );
+  assert.match(domainEntry, /model\/orchestrationWorkflowPreview\.js/);
+  assert.match(domainEntry, /model\/orchestrationTxWorkflowActions\.js/);
+  assert.match(domainEntry, /presentation\/orchestrationFlowCanvasState\.js/);
+  assert.match(
+    domainEntry,
+    /presentation\/orchestrationEditorDisplayState\.js/,
+  );
+  assert.match(
+    domainEntry,
+    /presentation\/orchestrationResultPreviewState\.js/,
+  );
+  assert.match(domainEntry, /presentation\/orchestrationResultDetailState\.js/);
+  assert.match(
+    domainEntry,
+    /presentation\/orchestrationResultDisplayState\.js/,
+  );
+  assert.match(domainEntry, /application\/orchestrationResultState\.js/);
+  assert.match(viteConfig, /domains\/orchestration\/.*feature-orchestrated/s);
+});
+
 test("thin module re-export files stay collapsed into concrete modules", () => {
   const collapsedModules = [
     "frontend/src/modules/command/commandFlowAccentState.js",
@@ -145,6 +331,28 @@ test("thin module re-export files stay collapsed into concrete modules", () => {
     "frontend/src/modules/orchestrationDisplays.js",
     "frontend/src/modules/orchestrationForms.js",
     "frontend/src/modules/orchestration/orchestrationFormDisplayState.js",
+    "frontend/src/modules/orchestration/orchestrationActionDisplayState.js",
+    "frontend/src/modules/orchestration/orchestrationFormFieldState.js",
+    "frontend/src/modules/orchestration/orchestrationFormState.js",
+    "frontend/src/modules/orchestration/orchestrationFormStructureState.js",
+    "frontend/src/modules/orchestration/orchestrationEditorSourceState.js",
+    "frontend/src/modules/orchestration/orchestrationEditorState.js",
+    "frontend/src/modules/orchestration/orchestratedExecutionState.js",
+    "frontend/src/modules/orchestration/orchestratedWorkspace.js",
+    "frontend/src/modules/orchestration/orchestrationPanelState.js",
+    "frontend/src/modules/orchestration/orchestrationFlowCanvasState.js",
+    "frontend/src/modules/orchestration/orchestrationWorkflowPreviewState.js",
+    "frontend/src/modules/orchestration/orchestrationPlanFormModels.js",
+    "frontend/src/modules/orchestration/orchestrationStageMutations.js",
+    "frontend/src/modules/orchestration/orchestrationStageEditorsState.js",
+    "frontend/src/modules/orchestration/orchestrationStageTargetsState.js",
+    "frontend/src/modules/orchestration/orchestrationTargetFormModels.js",
+    "frontend/src/modules/orchestration/orchestrationTxWorkflowActions.js",
+    "frontend/src/modules/orchestration/orchestrationTemplateWorkspace.js",
+    "frontend/src/modules/orchestration/orchestrationResultPreviewState.js",
+    "frontend/src/modules/orchestration/orchestrationResultDetailState.js",
+    "frontend/src/modules/orchestration/orchestrationResultDisplayState.js",
+    "frontend/src/modules/orchestration/orchestrationResultState.js",
     "frontend/src/modules/orchestrationInventoryState.js",
     "frontend/src/modules/orchestrationFormModels.js",
     "frontend/src/modules/orchestrationResultPresentationState.js",
@@ -210,34 +418,37 @@ test("module imports point at concrete implementation files", () => {
 
 test("obsolete frontend module APIs stay removed", () => {
   const obsoleteExportsByModule = {
-    "frontend/src/modules/orchestration/orchestrationFormFieldState.js": [
-      "ORCHESTRATION_CONNECTION_NULLABLE_FIELD_KEYS",
-      "ORCHESTRATION_JOB_METADATA_FIELD_DEFS",
-      "ORCHESTRATION_PLAN_METADATA_FIELD_DEFS",
-      "ORCHESTRATION_STAGE_METADATA_FIELD_DEFS",
-      "orchestrationFieldEnabled",
-      "orchestrationFieldSupportsNullableMode",
-      "orchestrationJsonStructureMapping",
-      "orchestrationTextListRows",
-      "orchestrationObjectEnabled",
-      "orchestrationTextListValue",
-    ],
-    "frontend/src/modules/orchestration/orchestrationFormState.js": [
-      "orchestrationExtraStringPresenceChangeHandler",
-      "orchestrationExtraStringValueChangeHandler",
-      "orchestrationPatchPresenceChangeHandler",
-    ],
-    "frontend/src/modules/orchestration/orchestrationPlanFormModels.js": [
+    "frontend/src/domains/orchestration/presentation/orchestrationFormFieldState.ts":
+      [
+        "ORCHESTRATION_CONNECTION_NULLABLE_FIELD_KEYS",
+        "ORCHESTRATION_JOB_METADATA_FIELD_DEFS",
+        "ORCHESTRATION_PLAN_METADATA_FIELD_DEFS",
+        "ORCHESTRATION_STAGE_METADATA_FIELD_DEFS",
+        "orchestrationFieldEnabled",
+        "orchestrationFieldSupportsNullableMode",
+        "orchestrationJsonStructureMapping",
+        "orchestrationTextListRows",
+        "orchestrationObjectEnabled",
+        "orchestrationTextListValue",
+      ],
+    "frontend/src/domains/orchestration/application/orchestrationFormState.ts":
+      [
+        "orchestrationExtraStringPresenceChangeHandler",
+        "orchestrationExtraStringValueChangeHandler",
+        "orchestrationPatchPresenceChangeHandler",
+      ],
+    "frontend/src/domains/orchestration/model/orchestrationPlanFormModels.ts": [
       "orchestrationDefaultPlanJson",
     ],
-    "frontend/src/modules/orchestration/orchestrationTargetFormModels.js": [
-      "orchestrationJsonObjectPatchResult",
-      "orchestrationNullableFieldModePatch",
-      "orchestrationNullableTextValue",
-      "orchestrationToggleNullableFieldPresence",
-      "orchestrationToggleObjectFieldPresence",
-    ],
-    "frontend/src/modules/orchestration/orchestrationStageMutations.js": [
+    "frontend/src/domains/orchestration/model/orchestrationTargetFormModels.ts":
+      [
+        "orchestrationJsonObjectPatchResult",
+        "orchestrationNullableFieldModePatch",
+        "orchestrationNullableTextValue",
+        "orchestrationToggleNullableFieldPresence",
+        "orchestrationToggleObjectFieldPresence",
+      ],
+    "frontend/src/domains/orchestration/model/orchestrationStageMutations.ts": [
       "orchestrationAddJobStringListItem",
       "orchestrationRemoveJobStringListItem",
       "orchestrationSetJobFieldPresence",
@@ -447,12 +658,13 @@ test("transaction workspace modules do not re-export implementation state", () =
     "frontend/src/domains/transactions/application/transactionBlockDisplays.ts",
     "frontend/src/domains/transactions/application/transactionInputWorkspaces.ts",
     "frontend/src/domains/transactions/application/transactionWorkflowEditors.ts",
-    "frontend/src/modules/orchestration/orchestrationFormStructureState.js",
-    "frontend/src/modules/orchestration/orchestrationEditorState.js",
-    "frontend/src/modules/orchestration/orchestrationFormState.js",
-    "frontend/src/modules/orchestration/orchestrationPanelState.js",
-    "frontend/src/modules/orchestration/orchestrationResultDisplayState.js",
-    "frontend/src/modules/orchestration/orchestrationResultState.js",
+    "frontend/src/domains/orchestration/presentation/orchestrationFormStructureState.ts",
+    "frontend/src/domains/orchestration/application/orchestrationEditorState.ts",
+    "frontend/src/domains/orchestration/application/orchestratedWorkspace.ts",
+    "frontend/src/domains/orchestration/application/orchestrationFormState.ts",
+    "frontend/src/domains/orchestration/application/orchestrationPanelState.ts",
+    "frontend/src/domains/orchestration/presentation/orchestrationResultDisplayState.ts",
+    "frontend/src/domains/orchestration/application/orchestrationResultState.ts",
     "frontend/src/domains/replay/application/createReplayPageWorkspace.ts",
     "frontend/src/domains/show/application/createShowWorkspaces.ts",
     "frontend/src/domains/standard/application/createStandardCommandExecutionWorkspace.ts",
@@ -465,9 +677,11 @@ test("transaction workspace modules do not re-export implementation state", () =
   }
 
   assert.doesNotMatch(
-    read("frontend/src/modules/orchestration/orchestrationFormState.js"),
+    read(
+      "frontend/src/domains/orchestration/application/orchestrationFormState.ts",
+    ),
     /^export \{/m,
-    "orchestrationFormState.js",
+    "orchestrationFormState.ts",
   );
 });
 

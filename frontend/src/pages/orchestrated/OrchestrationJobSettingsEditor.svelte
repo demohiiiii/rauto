@@ -1,6 +1,6 @@
 <script>
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
-  import { createOrchestrationJobSettingsEditorWorkspace } from "../../modules/orchestration/orchestrationStageEditorsState.js";
+  import { createOrchestrationJobSettingsEditorWorkspace } from "$domains/orchestration/index.js";
 
   let { model, stageIndex, jobIndex, job, visualDisplay, onChange } = $props();
   const orchestrationJobSettingsEditorWorkspace =

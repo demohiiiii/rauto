@@ -820,16 +820,16 @@ test("template loader checks latest action before mutating editor state", () => 
   );
 
   const workspaceSource = readFileSync(
-    "frontend/src/modules/orchestration/orchestratedWorkspace.js",
+    "frontend/src/domains/orchestration/application/orchestratedWorkspace.ts",
     "utf8",
   );
   assert.match(
     workspaceSource,
-    /onLoadJsonTemplate: \(name, actionContext\)[\s\S]*loadTemplateIntoEditor\(kind, name, actionContext\)/,
+    /onLoadJsonTemplate:[\s\S]*loadTemplateIntoEditor\(\s*kind,\s*name,\s*actionContext as JsonTemplateActionContext/,
   );
   assert.match(
     workspaceSource,
-    /onCreateJsonTemplateDraft: \(actionContext\)[\s\S]*createTemplateDraft\(kind, actionContext\)/,
+    /onCreateJsonTemplateDraft:[\s\S]*createTemplateDraft\(\s*kind,\s*actionContext as JsonTemplateActionContext/,
   );
 
   const createDraftBody = loaderSource.match(

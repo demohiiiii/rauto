@@ -24,32 +24,13 @@ const MODULE_CHUNKS = new Map([
   ["inventoryRuntime.js", "page-inventorypage"],
   ["inventory.js", "page-inventorypage"],
   ["orchestrationActionDisplays.js", "feature-orchestrated"],
-  ["orchestrationActionDisplayState.js", "feature-orchestrated"],
   ["orchestrationEditors.js", "feature-orchestrated"],
-  ["orchestrationEditorState.js", "feature-orchestrated"],
-  ["orchestrationEditorSourceState.js", "feature-orchestrated"],
   ["orchestrationFormDisplays.js", "feature-orchestrated"],
   ["orchestrationFormDisplayState.js", "feature-orchestrated"],
-  ["orchestrationFormFieldState.js", "feature-orchestrated"],
-  ["orchestrationFormStructureState.js", "feature-orchestrated"],
-  ["orchestrationPlanFormModels.js", "feature-orchestrated"],
-  ["orchestrationFormState.js", "feature-orchestrated"],
   ["orchestrationTargetDisplayState.js", "feature-orchestrated"],
-  ["orchestrationTargetFormModels.js", "feature-orchestrated"],
-  ["orchestratedExecutionState.js", "feature-orchestrated"],
-  ["orchestratedWorkspace.js", "feature-orchestrated"],
   ["orchestrationPanelWorkspaces.js", "feature-orchestrated"],
-  ["orchestrationPanelState.js", "feature-orchestrated"],
   ["orchestrationResults.js", "feature-orchestrated"],
-  ["orchestrationResultDetailState.js", "feature-orchestrated"],
-  ["orchestrationResultDisplayState.js", "feature-orchestrated"],
-  ["orchestrationResultPreviewState.js", "feature-orchestrated"],
-  ["orchestrationResultState.js", "feature-orchestrated"],
-  ["orchestrationStageEditorsState.js", "feature-orchestrated"],
-  ["orchestrationStageMutations.js", "feature-orchestrated"],
-  ["orchestrationStageTargetsState.js", "feature-orchestrated"],
   ["orchestrationStages.js", "feature-orchestrated"],
-  ["orchestrationTxWorkflowActions.js", "feature-orchestrated"],
   ["profilePanelEditorState.js", "feature-prompts"],
   ["profilePanelState.js", "feature-prompts"],
   ["profilesCustomEditor.js", "feature-prompts"],
@@ -186,6 +167,9 @@ function dashboardChunk(id) {
   }
   if (matchesSourcePath(id, "domains/execution/")) return "feature-results";
   if (matchesSourcePath(id, "domains/overlays/")) return "dashboard-overlays";
+  if (matchesSourcePath(id, "domains/orchestration/")) {
+    return "feature-orchestrated";
+  }
   if (matchesSourcePath(id, "domains/profiles/")) return "feature-prompts";
   if (matchesSourcePath(id, "domains/show/")) return "page-showpage";
   if (matchesSourcePath(id, "domains/standard/")) return "feature-standard";

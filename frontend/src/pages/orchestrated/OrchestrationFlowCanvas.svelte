@@ -25,12 +25,12 @@
   import {
     orchestrationFlowGraph,
     orchestrationNormalizeFlowSelection,
-  } from "../../modules/orchestration/orchestrationFlowCanvasState.js";
+  } from "$domains/orchestration/index.js";
   import {
     orchestrationInlineWorkflowPreview,
     createOrchestrationWorkflowPreviewWorkspace,
-  } from "../../modules/orchestration/orchestrationWorkflowPreviewState.js";
-  import { orchestrationUpdateInlineWorkflow } from "../../modules/orchestration/orchestrationTxWorkflowActions.js";
+  } from "$domains/orchestration/index.js";
+  import { orchestrationUpdateInlineWorkflow } from "$domains/orchestration/index.js";
   import {
     orchestrationAddJob,
     orchestrationDuplicateJob,
@@ -40,7 +40,7 @@
     orchestrationMoveStage,
     orchestrationRemoveJob,
     orchestrationRemoveStage,
-  } from "../../modules/orchestration/orchestrationStageMutations.js";
+  } from "$domains/orchestration/index.js";
   import { TX_VARS } from "$domains/transactions/index.js";
   import {
     txWorkflowAddBlock,

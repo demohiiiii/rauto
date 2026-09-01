@@ -10,8 +10,8 @@ import {
   setTxJsonEditorRawText,
   TX_EDITOR,
 } from "../src/domains/transactions/index.js";
-import { createOrchestratedWorkspace } from "../src/modules/orchestration/orchestratedWorkspace.js";
-import { createOrchestrationEditorPanelWorkspace } from "../src/modules/orchestration/orchestrationEditorState.js";
+import { createOrchestratedWorkspace } from "../src/domains/orchestration/index.js";
+import { createOrchestrationEditorPanelWorkspace } from "../src/domains/orchestration/index.js";
 import { createJsonTemplateLibrary } from "../src/domains/transactions/index.js";
 import { createTxWorkflowInputPanelWorkspace } from "../src/domains/transactions/index.js";
 import {

@@ -12,7 +12,7 @@ import {
 import {
   orchestrationPlanFormModelFromJson,
   orchestrationPlanFormModelToJsonText,
-} from "../src/modules/orchestration/orchestrationPlanFormModels.js";
+} from "../src/domains/orchestration/index.js";
 
 function source(path) {
   return readFileSync(path, "utf8");
@@ -137,7 +137,7 @@ test("workflow and orchestration models remove unsupported labels", () => {
 test("transaction and orchestration form definitions expose no underscore labels", () => {
   for (const path of [
     "frontend/src/domains/transactions/model/transactionStructure.ts",
-    "frontend/src/modules/orchestration/orchestrationFormFieldState.js",
+    "frontend/src/domains/orchestration/presentation/orchestrationFormFieldState.ts",
   ]) {
     const contents = source(path);
     assert.doesNotMatch(contents, /fieldKey: "[^"]*_label"/, path);

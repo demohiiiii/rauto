@@ -40,7 +40,8 @@ test("overlay detail state uses typed infrastructure boundaries", () => {
   );
   assert.match(infrastructure, /lib\/browser\.js/);
   assert.match(infrastructure, /lib\/svelte\.js/);
-  assert.match(infrastructure, /modules\/orchestration/);
+  assert.match(infrastructure, /\$domains\/orchestration\/index\.js/);
+  assert.doesNotMatch(infrastructure, /modules\/orchestration/);
 });
 
 test("record drawer state uses typed browser infrastructure boundaries", () => {

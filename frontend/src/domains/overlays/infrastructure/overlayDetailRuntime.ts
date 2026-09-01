@@ -29,7 +29,7 @@ export const overlayDetailRuntime = {
   },
   async loadOrchestrationDetailDisplay(): Promise<OverlayOrchestrationDetailDisplay> {
     const { orchestrationDetailDisplay } =
-      await import("../../../modules/orchestration/orchestrationResultDetailState.js");
+      await import("$domains/orchestration/index.js");
     return orchestrationDetailDisplay as OverlayOrchestrationDetailDisplay;
   },
   setTimeout(handler: () => void, delay: number): number {

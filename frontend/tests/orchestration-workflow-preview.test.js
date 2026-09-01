@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   orchestrationInlineWorkflowPreview,
   createOrchestrationWorkflowPreviewWorkspace,
-} from "../src/modules/orchestration/orchestrationWorkflowPreviewState.js";
+} from "../src/domains/orchestration/index.js";
 
 test("inline workflow preview exposes compact ordered block rows", () => {
   const preview = orchestrationInlineWorkflowPreview({

@@ -4,7 +4,7 @@
     CONNECTION_PICKER,
     setConnectionPickerSelectedValues,
   } from "$domains/connections/index.js";
-  import { createOrchestrationJobTargetsEditorWorkspace } from "../../modules/orchestration/orchestrationStageTargetsState.js";
+  import { createOrchestrationJobTargetsEditorWorkspace } from "$domains/orchestration/index.js";
 
   let { jobRow, onReplaceStringList } = $props();
   const jobTargetsWorkspace = createOrchestrationJobTargetsEditorWorkspace();
