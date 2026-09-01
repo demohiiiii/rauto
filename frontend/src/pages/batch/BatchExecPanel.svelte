@@ -12,14 +12,11 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { batchExecTargetPickerFields } from "../../modules/connections/connections.js";
-  import {
-    MODE_SELECT,
-    modeSelection,
-  } from "../../modules/profiles/profiles.js";
+  import { MODE_SELECT, modeSelection } from "$domains/profiles/index.js";
   import {
     executionResultFailed,
     parsedOutputBlockDisplayFromItem,
-  } from "../../modules/operations/results.js";
+  } from "$domains/execution/index.js";
   import {
     batchExecFormState,
     batchExecResultState,
@@ -27,7 +24,7 @@
     setBatchExecField,
     setBatchExecRetry,
   } from "$domains/standard/index.js";
-  import { sessionRetryValidation } from "../../modules/operations/sessionRetry.js";
+  import { sessionRetryValidation } from "$domains/execution/index.js";
 
   let { active } = $props();
   let activeResultKey = $state("");

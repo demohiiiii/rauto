@@ -5,8 +5,8 @@ import {
   getCurrentFlowTemplateFieldDraft,
   setFlowVarDraftValue,
   updateFlowTemplateVarFields,
-} from "../src/modules/templates/templatesFlowRuntimeState.js";
-import { flowVarsPresentation } from "../src/modules/templates/templatesFlowDisplayState.js";
+} from "../src/domains/templates/index.ts";
+import { flowVarsPresentation } from "../src/domains/templates/index.ts";
 
 const runtimeSchema = [
   {

@@ -53,21 +53,11 @@ const MODULE_CHUNKS = new Map([
   ["orchestrationStageTargetsState.js", "feature-orchestrated"],
   ["orchestrationStages.js", "feature-orchestrated"],
   ["orchestrationTxWorkflowActions.js", "feature-orchestrated"],
-  ["profiles.js", "feature-prompts"],
-  ["profilePanelChildWorkspaces.js", "feature-prompts"],
   ["profilePanelEditorState.js", "feature-prompts"],
   ["profilePanelState.js", "feature-prompts"],
-  ["promptProfileExecutionState.js", "feature-prompts"],
-  ["promptProfileState.js", "feature-prompts"],
   ["profilesCustomEditor.js", "feature-prompts"],
-  ["profilesCustomFormState.js", "feature-prompts"],
-  ["profilesCustomEditorState.js", "feature-prompts"],
-  ["profilesListState.js", "feature-prompts"],
-  ["profilesEditorState.js", "feature-prompts"],
-  ["profilesDiagnostics.js", "feature-prompts"],
   ["profilesWorkspace.js", "feature-prompts"],
   ["replay.js", "page-replaypage"],
-  ["results.js", "feature-results"],
   ["dashboardAppState.js", "feature-dashboard-shell"],
   ["show.js", "page-showpage"],
   ["createShowWorkspaces.js", "page-showpage"],
@@ -80,10 +70,6 @@ const MODULE_CHUNKS = new Map([
   ["tasksPresentation.js", "page-taskspage"],
   ["tasks.js", "page-taskspage"],
   ["templates.js", "feature-templates"],
-  ["templatesFlowDisplayState.js", "feature-templates"],
-  ["templatesFlowRuntimeState.js", "feature-templates"],
-  ["templateManagerState.js", "feature-templates"],
-  ["templatesShowObjects.js", "feature-templates"],
   ["transactionBlockBindings.js", "feature-orchestrated"],
   ["transactionBlockMutations.js", "feature-orchestrated"],
   ["transactionBlockBindingState.js", "feature-orchestrated"],
@@ -196,8 +182,11 @@ function dashboardChunk(id) {
   }
   if (matchesSourcePath(id, "domains/auth/")) return "app-core";
   if (matchesSourcePath(id, "domains/command/")) return "feature-command";
+  if (matchesSourcePath(id, "domains/execution/")) return "feature-results";
+  if (matchesSourcePath(id, "domains/profiles/")) return "feature-prompts";
   if (matchesSourcePath(id, "domains/show/")) return "page-showpage";
   if (matchesSourcePath(id, "domains/standard/")) return "feature-standard";
+  if (matchesSourcePath(id, "domains/templates/")) return "feature-templates";
   if (matchesSourcePath(id, "modules/")) {
     const file = sourceFileName(id, "modules/");
     if (file === "connections.js") return "dashboard-connections";

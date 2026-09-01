@@ -6,7 +6,7 @@ import {
 import { currentLanguageState, t } from "../../lib/i18n.js";
 import { dashboardState } from "../dashboard/dashboardApp.js";
 import { createOrchestratedWorkspace } from "./orchestratedWorkspace.js";
-import { executionModeOptionsVersion } from "../profiles/profiles.js";
+import { executionModeOptionsVersion } from "$domains/profiles/index.js";
 import { orchestrationEditorRunButtonDisplayPresentation } from "./orchestrationFormStructureState.js";
 import {
   orchestrationExecutionPanelDisplay,

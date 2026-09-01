@@ -10,7 +10,7 @@
   import PlainCheckboxField from "../../components/fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { createProfileListRowEditorWorkspace } from "../../modules/profiles/profiles.js";
+  import { createProfileListRowEditorWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
 
   let {
     idPrefix = "profile-row",

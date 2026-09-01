@@ -34,11 +34,11 @@
     MODE_SELECT,
     modeSelection,
     refreshExecutionModeOptionsForCurrentConnection,
-  } from "../../modules/profiles/profiles.js";
+  } from "$domains/profiles/index.js";
   import {
     TEMPLATE_MANAGER_KIND,
     templateResourceDefinitions,
-  } from "../../modules/templates/templateManagerState.js";
+  } from "$domains/templates/index.js";
 
   let { definition, workspace } = $props();
   const { filteredItemsStore, stateStore } = untrack(() => workspace);

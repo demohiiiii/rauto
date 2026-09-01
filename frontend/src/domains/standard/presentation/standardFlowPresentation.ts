@@ -13,7 +13,7 @@ import {
 import {
   parsedOutputBlockDisplayFromItem,
   parsedOutputSheetsFromParsedOutputItems,
-} from "../../../modules/operations/results.js";
+} from "$domains/execution/index.js";
 
 type UnknownRecord = Record<string, unknown>;
 

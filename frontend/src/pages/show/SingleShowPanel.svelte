@@ -13,7 +13,7 @@
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { createSingleShowPanelWorkspace } from "$domains/show/index.js";
-  import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
+  import { exportParsedOutputItemExcel } from "$domains/execution/index.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
   import type { Readable } from "svelte/store";
 

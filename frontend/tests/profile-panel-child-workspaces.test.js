@@ -4,11 +4,11 @@ import test from "node:test";
 import {
   createProfileHookRowEditorWorkspace,
   createProfileListRowEditorWorkspace,
-} from "../src/modules/profiles/profilePanelChildWorkspaces.js";
+} from "../src/domains/profiles/application/profilePanelWorkspaces.ts";
 import {
   builtinProfileReadonlyDisplay,
   hookOperationEditorDisplay,
-} from "../src/modules/profiles/profilesEditorState.js";
+} from "../src/domains/profiles/presentation/profileEditorPresentation.ts";
 
 test("profile list row handlers use the latest row context", () => {
   const calls = [];

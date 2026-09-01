@@ -2,7 +2,7 @@
   import CollapsibleGroup from "../../components/fragments/CollapsibleGroup.svelte";
   import ReadonlyCheckboxField from "../../components/fragments/ReadonlyCheckboxField.svelte";
   import ReadonlyInputField from "../../components/fragments/ReadonlyInputField.svelte";
-  import { createBuiltinProfileStateListsSectionWorkspace } from "../../modules/profiles/profiles.js";
+  import { createBuiltinProfileStateListsSectionWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
 
   let { profileDetail } = $props();
   const stateListsWorkspace = createBuiltinProfileStateListsSectionWorkspace();

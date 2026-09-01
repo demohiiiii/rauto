@@ -5,7 +5,7 @@ import {
   createSessionRetryState,
   sessionRetryRequestFields,
   sessionRetryValidation,
-} from "../src/modules/operations/sessionRetry.js";
+} from "../src/domains/execution/index.ts";
 import {
   commandExecutionPayload,
   commandFlowExecutionPayload,

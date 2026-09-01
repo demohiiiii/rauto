@@ -3,7 +3,7 @@
   import MiniActionButton from "../../components/fragments/MiniActionButton.svelte";
   import PlainCheckboxField from "../../components/fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
-  import { createCustomProfileDetectPanelWorkspace } from "../../modules/profiles/profiles.js";
+  import { createCustomProfileDetectPanelWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
   import ProfileDetectProbeCard from "./ProfileDetectProbeCard.svelte";
 
   let { active } = $props();

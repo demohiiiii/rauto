@@ -5,7 +5,7 @@ import {
 import {
   executionConnectionProfileState,
   refreshExecutionModeOptionsForCurrentConnection,
-} from "../../../modules/profiles/profiles.js";
+} from "$domains/profiles/index.js";
 import {
   connectionPickerValues,
   hideConnectionPickerMenu,
@@ -20,7 +20,7 @@ import {
   ensureConnectionTargetSelected,
   savedConnectionSelectState,
 } from "../../../modules/connections/connections.js";
-import { setCustomShowObjectsChangedCallback } from "../../../modules/templates/templatesShowObjects.js";
+import { setCustomShowObjectsChangedCallback } from "$domains/templates/index.js";
 import type { ShowRuntime } from "../model/types.js";
 
 export const showRuntime = {

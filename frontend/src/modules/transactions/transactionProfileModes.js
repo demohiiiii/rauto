@@ -2,7 +2,7 @@ import { getProfileModes } from "../../api/client.js";
 import { stringValue } from "../../lib/jsonValue.js";
 import { createLatestAsyncValueLoader } from "../../lib/svelte.js";
 import { savedConnectionsRefreshState } from "../connections/connectionTargetStoreState.js";
-import { executionConnectionProfileState } from "../profiles/promptProfileExecutionState.js";
+import { executionConnectionProfileState } from "$domains/profiles/index.js";
 
 const txStringValue = stringValue;
 let txProfileModesCache = new Map();

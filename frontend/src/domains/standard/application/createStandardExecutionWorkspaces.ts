@@ -15,18 +15,18 @@ import { safeString } from "../../../lib/ui.js";
 import {
   executionResultDisplay,
   exportParsedOutputSheetsExcel,
-} from "../../../modules/operations/results.js";
+} from "$domains/execution/index.js";
 import {
   createSessionRetryState,
   sessionRetryValidation,
-} from "../../../modules/operations/sessionRetry.js";
+} from "$domains/execution/index.js";
 import {
   MODE_SELECT,
   TEXTFSM_PLATFORM_SELECT,
   modeSelection,
   textfsmPlatformSelection,
-} from "../../../modules/profiles/profiles.js";
-import { flowVarsPresentation } from "../../../modules/templates/templatesFlowDisplayState.js";
+} from "$domains/profiles/index.js";
+import { flowVarsPresentation } from "$domains/templates/index.js";
 import {
   flowVarsFieldState,
   getCurrentFlowTemplateFieldDraft,
@@ -35,7 +35,7 @@ import {
   runFlowTemplateSelectState,
   setFlowVarDraftValue,
   updateFlowTemplateVarFields,
-} from "../../../modules/templates/templatesFlowRuntimeState.js";
+} from "$domains/templates/index.js";
 import type { StandardSessionRetryState } from "../model/types.js";
 import {
   commandFlowResultPresentation,

@@ -6,7 +6,7 @@
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import { standardExecModeTabs } from "../config/dashboardModes.js";
   import { createStandardPageWorkspace } from "$domains/standard/index.js";
-  import { executionConnectionProfileState as standardExecutionConnectionProfileState } from "../modules/profiles/promptProfileExecutionState.js";
+  import { executionConnectionProfileState as standardExecutionConnectionProfileState } from "$domains/profiles/index.js";
   import CommandExecutionPanel from "./standard/CommandExecutionPanel.svelte";
   import FlowExecutionPanel from "./standard/FlowExecutionPanel.svelte";
 

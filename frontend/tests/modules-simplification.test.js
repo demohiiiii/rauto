@@ -20,11 +20,9 @@ test("modules are grouped into stable domain directories", () => {
   const expectedDomains = [
     "connections",
     "dashboard",
-    "operations",
     "orchestration",
     "overlays",
     "profiles",
-    "templates",
     "transactions",
   ];
   const entries = readdirSync(moduleRoot, { withFileTypes: true });
@@ -55,6 +53,12 @@ test("thin module re-export files stay collapsed into concrete modules", () => {
     "frontend/src/modules/standard/standardExecutionWorkspaces.js",
     "frontend/src/modules/standard/batchExecState.js",
     "frontend/src/modules/standard/batchFlowState.js",
+    "frontend/src/modules/operations/results.js",
+    "frontend/src/modules/operations/sessionRetry.js",
+    "frontend/src/modules/templates/templateManagerState.js",
+    "frontend/src/modules/templates/templatesFlowDisplayState.js",
+    "frontend/src/modules/templates/templatesFlowRuntimeState.js",
+    "frontend/src/modules/templates/templatesShowObjects.js",
     "frontend/src/modules/connectionPanelWorkspaces.js",
     "frontend/src/modules/connections/connectionFields.js",
     "frontend/src/modules/connectionsWorkspace.js",
@@ -72,7 +76,17 @@ test("thin module re-export files stay collapsed into concrete modules", () => {
     "frontend/src/modules/operations/show.js",
     "frontend/src/modules/profilePanelWorkspaces.js",
     "frontend/src/modules/profiles/profilePanelEditorState.js",
+    "frontend/src/modules/profiles/profilePanelChildWorkspaces.js",
     "frontend/src/modules/profiles/profilePanelState.js",
+    "frontend/src/modules/profiles/profiles.js",
+    "frontend/src/modules/profiles/profileModeExpressions.js",
+    "frontend/src/modules/profiles/profilesDiagnostics.js",
+    "frontend/src/modules/profiles/profilesEditorState.js",
+    "frontend/src/modules/profiles/profilesCustomEditorState.js",
+    "frontend/src/modules/profiles/profilesCustomFormState.js",
+    "frontend/src/modules/profiles/profilesListState.js",
+    "frontend/src/modules/profiles/promptProfileState.js",
+    "frontend/src/modules/profiles/promptProfileExecutionState.js",
     "frontend/src/modules/promptProfileWorkspace.js",
     "frontend/src/modules/profilesEditor.js",
     "frontend/src/modules/standard/standard.js",
@@ -143,11 +157,11 @@ test("obsolete frontend module APIs stay removed", () => {
         "selectCommandFlowTemplate",
         "setCommandFlowFields",
       ],
-    "frontend/src/modules/templates/templatesFlowDisplayState.js": [
+    "frontend/src/domains/templates/presentation/flowVarsPresentation.ts": [
       "builtinFlowTemplatePanelDisplay",
       "customFlowTemplatePanelDisplay",
     ],
-    "frontend/src/modules/templates/templatesFlowRuntimeState.js": [
+    "frontend/src/domains/templates/application/flowTemplateRuntime.ts": [
       "getLastFlowRunTemplateDetail",
       "setRunFlowTemplateSelectValue",
     ],
@@ -253,12 +267,6 @@ test("transaction workspace modules do not re-export implementation state", () =
     read("frontend/src/modules/orchestration/orchestrationFormState.js"),
     /^export \{/m,
     "orchestrationFormState.js",
-  );
-
-  assert.doesNotMatch(
-    read("frontend/src/modules/profiles/profiles.js"),
-    /from "\.\/profilePanelState\.js"/,
-    "profiles.js",
   );
 });
 

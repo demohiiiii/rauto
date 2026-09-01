@@ -172,7 +172,10 @@ async function loadFeatureModule(key, loader) {
 }
 
 function loadProfilesModule() {
-  return loadFeatureModule("profile", () => import("../profiles/profiles.js"));
+  return loadFeatureModule(
+    "profile",
+    () => import("$domains/profiles/application/profileCatalogState.js"),
+  );
 }
 
 function loadTransactionsWorkspaceModule() {

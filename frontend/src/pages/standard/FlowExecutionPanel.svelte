@@ -23,7 +23,7 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import StringSelectField from "../../components/fragments/StringSelectField.svelte";
   import TextfsmControls from "../../components/fragments/TextfsmControls.svelte";
-  import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
+  import { exportParsedOutputItemExcel } from "$domains/execution/index.js";
   import { createFlowExecutionPanelWorkspace } from "$domains/standard/index.js";
   import { t } from "../../lib/i18n.js";
 

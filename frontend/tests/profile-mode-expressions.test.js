@@ -7,7 +7,7 @@ import {
   profileModeExpressionSelectedOptions,
   profileModeExpressionSuggestions,
   profileModeExpressionUnmatchedCandidates,
-} from "../src/modules/profiles/profileModeExpressions.js";
+} from "../src/domains/profiles/model/modeExpression.ts";
 
 test("profile mode expressions split comma and pipe candidates", () => {
   assert.deepEqual(profileModeExpressionCandidates(" Root, User | Config "), [

@@ -5,7 +5,7 @@
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { createProfileDiagnosePanelWorkspace } from "../../modules/profiles/profiles.js";
+  import { createProfileDiagnosePanelWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
 
   let { embedded = false } = $props();
   const profileDiagnosePanelWorkspace = createProfileDiagnosePanelWorkspace();

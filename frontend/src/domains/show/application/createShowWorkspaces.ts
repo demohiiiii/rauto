@@ -15,13 +15,13 @@ import {
   parsedOutputBlockDisplay,
   parsedOutputSheetsFromBatchShow,
   parsedOutputSheetsFromParsedOutputItems,
-} from "../../../modules/operations/results.js";
+} from "$domains/execution/index.js";
 import {
   MODE_SELECT,
   modeSelection,
   TEXTFSM_PLATFORM_SELECT,
   textfsmPlatformSelection,
-} from "../../../modules/profiles/profiles.js";
+} from "$domains/profiles/index.js";
 import { batchShowTargetPickerFields } from "../../../modules/connections/connections.js";
 import {
   batchShowExecutionResultState,
@@ -54,7 +54,7 @@ import {
 import {
   createSessionRetryState,
   sessionRetryValidation,
-} from "../../../modules/operations/sessionRetry.js";
+} from "$domains/execution/index.js";
 import type {
   BatchShowExecutionResult,
   BatchShowObjectAvailability,

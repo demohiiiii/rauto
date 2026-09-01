@@ -10,7 +10,7 @@
     profileModeExpressionSelectedOptions,
     profileModeExpressionSuggestions,
     profileModeExpressionUnmatchedCandidates,
-  } from "../../modules/profiles/profileModeExpressions.js";
+  } from "$domains/profiles/model/modeExpression.js";
   import PlainInputField from "./PlainInputField.svelte";
 
   let {

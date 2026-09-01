@@ -11,7 +11,7 @@
     createBatchShowResultsPanelWorkspace,
     createShowPageWorkspace,
   } from "$domains/show/index.js";
-  import { exportParsedOutputItemExcel } from "../../modules/operations/results.js";
+  import { exportParsedOutputItemExcel } from "$domains/execution/index.js";
   import type { Readable } from "svelte/store";
 
   type StoreValue<T> = T extends Readable<infer Value> ? Value : never;

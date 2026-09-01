@@ -6,16 +6,16 @@ import {
   applyRecordDrawerRecording,
   recordLevelPayload,
 } from "../../../modules/overlays/overlays.js";
-import { parsedOutputSheetsFromParsedOutputItems } from "../../../modules/operations/results.js";
+import { parsedOutputSheetsFromParsedOutputItems } from "$domains/execution/index.js";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,
-} from "../../../modules/operations/sessionRetry.js";
-import { refreshExecutionModeOptionsForCurrentConnection } from "../../../modules/profiles/profiles.js";
+} from "$domains/execution/index.js";
+import { refreshExecutionModeOptionsForCurrentConnection } from "$domains/profiles/index.js";
 import {
   buildFlowVarsPayload,
   ensureFlowRunTemplateDetail,
-} from "../../../modules/templates/templatesFlowRuntimeState.js";
+} from "$domains/templates/index.js";
 import type { StandardCommandFlowRuntime } from "../model/types.js";
 
 export const standardCommandFlowRuntime = {

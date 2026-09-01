@@ -21,12 +21,12 @@ import type {
   ShowObjectsPayload,
   ShowStateContext,
 } from "../model/types.js";
-import { parsedOutputSheetsFromBatchShow } from "../../../modules/operations/results.js";
+import { parsedOutputSheetsFromBatchShow } from "$domains/execution/index.js";
 import { CONNECTION_PICKER } from "../../../modules/connections/connectionFieldStoreState.js";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,
-} from "../../../modules/operations/sessionRetry.js";
+} from "$domains/execution/index.js";
 
 type ShowFormFields = Record<string, unknown>;
 type ShowQueryKey = string;

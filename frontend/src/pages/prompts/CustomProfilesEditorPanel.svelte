@@ -13,7 +13,7 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { createCustomProfilesEditorWorkspace } from "../../modules/profiles/profiles.js";
+  import { createCustomProfilesEditorWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
   import CustomProfileDetectPanel from "./CustomProfileDetectPanel.svelte";
   import ProfileHookRowEditor from "./ProfileHookRowEditor.svelte";
   import ProfileListRowEditor from "./ProfileListRowEditor.svelte";

@@ -8,7 +8,7 @@
   import {
     normalizeSessionRetryState,
     sessionRetryValidation,
-  } from "../../modules/operations/sessionRetry.js";
+  } from "$domains/execution/index.js";
 
   let {
     value = {},

@@ -10,7 +10,7 @@
   } from "@lucide/svelte";
   import ReadonlyInputField from "../../components/fragments/ReadonlyInputField.svelte";
   import ReadonlyTextAreaField from "../../components/fragments/ReadonlyTextAreaField.svelte";
-  import { createBuiltinProfileHooksSectionWorkspace } from "../../modules/profiles/profiles.js";
+  import { createBuiltinProfileHooksSectionWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
 
   let { profileDetail } = $props();
   const hooksWorkspace = createBuiltinProfileHooksSectionWorkspace();

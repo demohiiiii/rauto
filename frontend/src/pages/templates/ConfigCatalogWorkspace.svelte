@@ -21,12 +21,12 @@
   import { browserConfirm } from "../../lib/browser.js";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { showToast } from "../../modules/overlays/overlays.js";
-  import { profileModeExpressionMatchesOptions } from "../../modules/profiles/profileModeExpressions.js";
+  import { profileModeExpressionMatchesOptions } from "$domains/profiles/model/modeExpression.js";
   import {
     configCatalogKindNames,
     profileModeNames,
     profileNamesFromOverview,
-  } from "../../modules/templates/templateManagerState.js";
+  } from "$domains/templates/index.js";
 
   let { definition } = $props();
   let currentLanguage = $derived($currentLanguageState);

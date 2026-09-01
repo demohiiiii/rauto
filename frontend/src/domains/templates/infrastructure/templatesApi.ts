@@ -1,0 +1,36 @@
+import {
+  createTemplateResource,
+  deleteCustomShowObject,
+  deleteTemplateResource,
+  deleteTextfsmMapping,
+  getDeviceProfilesOverview,
+  getProfileModes,
+  getTemplateResource,
+  inspectCommandFlowTemplate,
+  inspectCommandTemplate,
+  listCustomShowObjects,
+  listTemplateResource,
+  listTextfsmMappings,
+  saveCustomShowObject,
+  saveTextfsmMapping,
+  updateTemplateResource,
+} from "../../../api/client.js";
+import type { TemplateApi } from "../model/types.js";
+
+export const templatesApi = {
+  createTemplateResource,
+  deleteCustomShowObject,
+  deleteTemplateResource,
+  deleteTextfsmMapping,
+  getDeviceProfilesOverview,
+  getProfileModes,
+  getTemplateResource,
+  inspectCommandFlowTemplate,
+  inspectCommandTemplate,
+  listCustomShowObjects,
+  listTemplateResource,
+  listTextfsmMappings,
+  saveCustomShowObject,
+  saveTextfsmMapping,
+  updateTemplateResource,
+} as unknown as TemplateApi;

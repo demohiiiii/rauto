@@ -5,7 +5,7 @@ import {
 } from "../../config/dashboardModes.js";
 import { t } from "../../lib/i18n.js";
 import { classNames, displayText, workflowChipClass } from "../../lib/ui.js";
-import { parsedOutputBlockDisplayFromItem } from "../operations/results.js";
+import { parsedOutputBlockDisplayFromItem } from "$domains/execution/index.js";
 
 const summaryCard = (key, summaryValue) => ({ label: t(key), summaryValue });
 const summaryRow = (key, valueText) => ({ labelText: t(key), valueText });

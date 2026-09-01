@@ -13,7 +13,7 @@
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { batchFlowTargetPickerFields } from "../../modules/connections/connections.js";
-  import { parsedOutputBlockDisplayFromItem } from "../../modules/operations/results.js";
+  import { parsedOutputBlockDisplayFromItem } from "$domains/execution/index.js";
   import {
     batchFlowFormState,
     batchFlowResultState,
@@ -23,7 +23,7 @@
     setBatchFlowField,
     setBatchFlowRetry,
   } from "$domains/standard/index.js";
-  import { sessionRetryValidation } from "../../modules/operations/sessionRetry.js";
+  import { sessionRetryValidation } from "$domains/execution/index.js";
 
   let { active } = $props();
   let activeResultKey = $state("");

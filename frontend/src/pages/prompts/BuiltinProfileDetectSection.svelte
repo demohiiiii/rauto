@@ -1,7 +1,7 @@
 <script>
   import RadarIcon from "@lucide/svelte/icons/radar";
   import ReadonlyInputField from "../../components/fragments/ReadonlyInputField.svelte";
-  import { createBuiltinProfileDetectSectionWorkspace } from "../../modules/profiles/profiles.js";
+  import { createBuiltinProfileDetectSectionWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
 
   let { profileDetail } = $props();
   const detectWorkspace = createBuiltinProfileDetectSectionWorkspace();

@@ -12,12 +12,12 @@ import {
   connectionPickerValues,
 } from "../../../modules/connections/connectionFieldStoreState.js";
 import { recordLevelPayload } from "../../../modules/overlays/overlays.js";
-import { executionResultOutputText } from "../../../modules/operations/results.js";
+import { executionResultOutputText } from "$domains/execution/index.js";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,
   sessionRetryValidation,
-} from "../../../modules/operations/sessionRetry.js";
+} from "$domains/execution/index.js";
 import type {
   ConfigFetchConnectionTarget,
   ConfigFetchConnectionTargetStore,

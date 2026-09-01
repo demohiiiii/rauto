@@ -24,12 +24,14 @@
   import { cn } from "$lib/utils.js";
   import {
     changeBuiltinProfileSelection,
-    createCustomProfileDraft,
     createPromptProfilesPageWorkspace,
+  } from "$domains/profiles/application/profileCatalogState.js";
+  import {
+    createCustomProfileDraft,
     customProfileOptionsState,
     loadSelectedCustomProfile,
-    setProfileDiagnoseSelected,
-  } from "../modules/profiles/profiles.js";
+  } from "$domains/profiles/application/customProfileEditorState.js";
+  import { setProfileDiagnoseSelected } from "$domains/profiles/application/profileDiagnosticsState.js";
   import BuiltinProfileDetailsPanel from "./prompts/BuiltinProfileDetailsPanel.svelte";
   import CustomProfilesEditorPanel from "./prompts/CustomProfilesEditorPanel.svelte";
   import ProfileDiagnosePanel from "./prompts/ProfileDiagnosePanel.svelte";

@@ -11,7 +11,29 @@ import {
   profileModeNames,
   profileNamesFromOverview,
   templateResourceDefinitions,
-} from "../src/modules/templates/templateManagerState.js";
+} from "../src/domains/templates/index.ts";
+
+test("template management uses the templates domain boundary", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const domainIndex = await readFile(
+    "frontend/src/domains/templates/index.ts",
+    "utf8",
+  );
+  const model = await readFile(
+    "frontend/src/domains/templates/model/templateResources.ts",
+    "utf8",
+  );
+  const application = await readFile(
+    "frontend/src/domains/templates/application/createContentTemplateWorkspace.ts",
+    "utf8",
+  );
+
+  assert.match(domainIndex, /createContentTemplateWorkspace\.js/);
+  assert.match(domainIndex, /model\/templateResources\.js/);
+  assert.match(domainIndex, /presentation\/flowVarsPresentation\.js/);
+  assert.doesNotMatch(model, /api\/client|modules\/connections/);
+  assert.match(application, /infrastructure\/templatesApi\.js/);
+});
 
 test("config catalog selectors normalize backend profile, kind, and mode options", () => {
   assert.deepEqual(

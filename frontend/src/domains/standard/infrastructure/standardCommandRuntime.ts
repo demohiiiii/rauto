@@ -14,13 +14,13 @@ import {
 import {
   createSessionRetryState,
   sessionRetryRequestFields,
-} from "../../../modules/operations/sessionRetry.js";
+} from "$domains/execution/index.js";
 import {
   MODE_SELECT,
   TEXTFSM_PLATFORM_SELECT,
   modeSelection,
   textfsmPlatformSelection,
-} from "../../../modules/profiles/profiles.js";
+} from "$domains/profiles/index.js";
 import type { StandardCommandRuntime } from "../model/types.js";
 
 export const standardCommandRuntime = {

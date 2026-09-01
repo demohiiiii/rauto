@@ -18,7 +18,7 @@ import {
   collectTransitionRows,
   patchHookListCommand,
   patchHookListFlowStep,
-} from "../src/modules/profiles/profilesListState.js";
+} from "../src/domains/profiles/application/profileListState.ts";
 
 const PROFILE_KEYS = Object.values(PROFILE_LIST);
 const HOOK_KEYS = Object.values(HOOK_LIST);

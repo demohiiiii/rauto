@@ -10,7 +10,46 @@ import {
 import {
   builtinProfilesPanelDisplay,
   promptModePresentation,
-} from "../src/modules/profiles/promptProfileState.js";
+} from "../src/domains/profiles/presentation/profileCatalogPresentation.ts";
+import {
+  normalizeBuiltinProfileDetail,
+  normalizeBuiltinProfileOverview,
+  selectBuiltinProfile,
+} from "../src/domains/profiles/model/profileCatalog.ts";
+
+test("profile catalog model normalizes builtin summaries and selection", () => {
+  const overview = normalizeBuiltinProfileOverview(
+    [
+      { name: "ios", aliases: ["iosxe"], summary: "Cisco IOS" },
+      { name: "junos", aliases: [], summary: "Juniper Junos" },
+    ],
+    "ios",
+  );
+
+  assert.deepEqual(overview.options, ["ios", "junos"]);
+  assert.equal(overview.selected, "ios");
+  assert.equal(
+    overview.overviewText,
+    "- ios (aliases: iosxe): Cisco IOS\n- junos: Juniper Junos",
+  );
+  assert.equal(selectBuiltinProfile(overview, "missing").selected, "");
+  assert.deepEqual(
+    normalizeBuiltinProfileDetail({
+      aliases: ["iosxe", "cisco_ios"],
+      name: "ios",
+      notes: ["first", "second"],
+      source: "builtin",
+      summary: "Cisco IOS",
+    }),
+    {
+      aliases: "iosxe, cisco_ios",
+      name: "ios",
+      notes: "first\nsecond",
+      source: "builtin",
+      summary: "Cisco IOS",
+    },
+  );
+});
 
 test("profile management keeps one profile mode and normalizes legacy modes", () => {
   assert.deepEqual(

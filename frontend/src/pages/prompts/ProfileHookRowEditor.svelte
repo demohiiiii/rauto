@@ -16,7 +16,7 @@
   import PlainTextAreaField from "../../components/fragments/PlainTextAreaField.svelte";
   import ValueLabelSelectField from "../../components/fragments/ValueLabelSelectField.svelte";
   import ValueTextSelectField from "../../components/fragments/ValueTextSelectField.svelte";
-  import { createProfileHookRowEditorWorkspace } from "../../modules/profiles/profiles.js";
+  import { createProfileHookRowEditorWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
   import ProfileHookInteractionEditor from "./ProfileHookInteractionEditor.svelte";
 
   let {

@@ -21,8 +21,8 @@
   import {
     exportParsedOutputItemExcel,
     parsedOutputBlockDisplayFromItem,
-  } from "../../modules/operations/results.js";
-  import { sessionRetryValidation } from "../../modules/operations/sessionRetry.js";
+    sessionRetryValidation,
+  } from "$domains/execution/index.js";
 
   let { active } = $props();
   let panelElement;
