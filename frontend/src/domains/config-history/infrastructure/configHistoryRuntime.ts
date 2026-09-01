@@ -3,7 +3,7 @@ import { downloadBlob } from "../../../lib/ui.js";
 import {
   activeConnectionTarget,
   connectionTargetState,
-} from "../../../modules/connections/connectionTargetStoreState.js";
+} from "$domains/connections/index.js";
 import type { ConnectionTarget } from "../model/types.js";
 
 export const configHistoryConnectionTargetStore =

@@ -9,7 +9,7 @@ import {
   connectionTimeoutSecsValue,
   savedConnectionEditorDraftDefaults,
   temporaryConnectionDraftDefaults,
-} from "../src/modules/connections/connectionFieldState.js";
+} from "../src/domains/connections/application/connectionFieldState.js";
 import {
   CONNECTION_PICKER,
   CONNECTION_VARS,
@@ -20,7 +20,7 @@ import {
   setConnectionPickerSavedConnections,
   setConnectionVarRowValue,
   setConnectionVarsValue,
-} from "../src/modules/connections/connectionFieldStoreState.js";
+} from "../src/domains/connections/application/connectionFieldStoreState.js";
 
 test("connection timeout defaults remain blank and display the 60 second fallback", async () => {
   await loadI18nLanguage("en");

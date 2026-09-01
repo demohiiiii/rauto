@@ -10,7 +10,7 @@ import {
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
-} from "../transactions/transactionWorkflowFormModels.js";
+} from "$domains/transactions/index.js";
 
 const orchestrationStringValue = stringValue;
 

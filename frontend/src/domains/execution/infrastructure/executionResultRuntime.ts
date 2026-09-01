@@ -2,7 +2,7 @@ import { downloadBlob, safeString } from "../../../lib/ui.js";
 import {
   activeConnectionTarget,
   currentTemporaryConnectionDetails,
-} from "../../../modules/connections/connections.js";
+} from "$domains/connections/index.js";
 import type { ExecutionResultRuntime } from "../model/types.js";
 
 function record(value: unknown): Record<string, unknown> {

@@ -1,4 +1,4 @@
-import { transactionFallbackDisplay } from "../transactions/transactionExecutionDisplays.js";
+import { transactionFallbackDisplay } from "$domains/transactions/index.js";
 import { orchestrationExecutionPresentation } from "./orchestrationResultDetailState.js";
 
 function orchestrationOutputModePresentation(mode = "") {

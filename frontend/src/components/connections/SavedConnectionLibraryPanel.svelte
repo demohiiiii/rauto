@@ -11,7 +11,7 @@
   import {
     createSavedConnectionLibraryWorkspace,
     openConnectionModal,
-  } from "../../modules/connections/connections.js";
+  } from "$domains/connections/index.js";
   import CheckIcon from "@lucide/svelte/icons/check";
   import DownloadIcon from "@lucide/svelte/icons/download";
   import PencilIcon from "@lucide/svelte/icons/pencil";

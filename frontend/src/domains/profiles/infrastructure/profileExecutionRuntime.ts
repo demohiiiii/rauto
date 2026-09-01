@@ -3,7 +3,7 @@ import {
   connectionTargetState,
   currentExecutionConnectionProfile,
   temporaryConnectionFormStateStore,
-} from "../../../modules/connections/connections.js";
+} from "$domains/connections/index.js";
 import { getCachedDeviceProfiles } from "../../templates/index.js";
 import type { ProfileExecutionRuntime } from "../model/types.js";
 

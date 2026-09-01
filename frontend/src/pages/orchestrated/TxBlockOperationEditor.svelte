@@ -3,7 +3,7 @@
   import TxBlockCommandEditor from "./TxBlockCommandEditor.svelte";
   import TxBlockFlowEditor from "./TxBlockFlowEditor.svelte";
   import { t } from "../../lib/i18n.js";
-  import { createTxBlockOperationEditorWorkspace } from "../../modules/transactions/transactionBlockDisplays.js";
+  import { createTxBlockOperationEditorWorkspace } from "$domains/transactions/index.js";
 
   let {
     operation,

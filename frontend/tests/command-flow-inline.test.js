@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { txBlockFlowEditorBindings } from "../src/modules/transactions/transactionBlockBindingState.js";
+import { txBlockFlowEditorBindings } from "../src/domains/transactions/index.js";
 import {
   txBlockAddCommandPrompt,
   txBlockUpdateCommandPrompt,
   txBlockDuplicateFlowStep,
   txBlockMoveFlowStep,
   txBlockPatchFlow,
-} from "../src/modules/transactions/transactionBlockMutations.js";
+} from "../src/domains/transactions/index.js";
 
 function flowOperation() {
   return {

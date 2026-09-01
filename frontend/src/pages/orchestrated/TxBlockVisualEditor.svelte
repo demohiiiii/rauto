@@ -4,7 +4,7 @@
   import TxBlockRootInspector from "./TxBlockRootInspector.svelte";
   import TxBlockStepEditor from "./TxBlockStepEditor.svelte";
   import TxBlockTimeline from "./TxBlockTimeline.svelte";
-  import { createTxBlockVisualEditorWorkspace } from "../../modules/transactions/transactionBlockDisplays.js";
+  import { createTxBlockVisualEditorWorkspace } from "$domains/transactions/index.js";
 
   let {
     model,

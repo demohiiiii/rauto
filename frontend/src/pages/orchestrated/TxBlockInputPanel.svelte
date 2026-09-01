@@ -10,14 +10,14 @@
   import {
     transactionEditorSyncPresentation,
     txBlockVarsPlaceholder,
-  } from "../../modules/transactions/transactionInputState.js";
+  } from "$domains/transactions/index.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
   import TxBlockPreviewPanel from "./TxBlockPreviewPanel.svelte";
-  import { createTxBlockInputPanelWorkspace } from "../../modules/transactions/transactionInputWorkspaces.js";
-  import { txBlockFormModelToJsonText } from "../../modules/transactions/transactionBlockFormModels.js";
-  import { txBlockPreviewPresentation } from "../../modules/transactions/transactionExecutionDisplays.js";
+  import { createTxBlockInputPanelWorkspace } from "$domains/transactions/index.js";
+  import { txBlockFormModelToJsonText } from "$domains/transactions/index.js";
+  import { txBlockPreviewPresentation } from "$domains/transactions/index.js";
   import BlocksIcon from "@lucide/svelte/icons/blocks";
 
   import {
@@ -25,7 +25,7 @@
     TX_VARS,
     jsonTemplateSelectStateFor,
     setJsonTemplateSelectValue,
-  } from "../../modules/transactions/transactionPanelState.js";
+  } from "$domains/transactions/index.js";
 
   let {
     active,

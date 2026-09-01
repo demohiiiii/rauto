@@ -22,7 +22,7 @@ import {
   TX_VISUAL,
   txExecutionModes,
   visualOutputState,
-} from "../transactions/transactionPanelState.js";
+} from "$domains/transactions/index.js";
 
 function orchestrationStagePresentation(stage = "") {
   const normalized =

@@ -11,7 +11,7 @@
     orchestrationJsonPlaceholder,
   } from "../../modules/orchestration/orchestrationEditorState.js";
   import { orchestrationPlanFormModelFromJsonText } from "../../modules/orchestration/orchestrationPlanFormModels.js";
-  import { setConnectionInventorySnapshots } from "../../modules/connections/connectionFieldStoreState.js";
+  import { setConnectionInventorySnapshots } from "$domains/connections/index.js";
   import { createOrchestrationTemplateWorkspace } from "../../modules/orchestration/orchestrationTemplateWorkspace.js";
   import OrchestrationEditorSurface from "./OrchestrationEditorSurface.svelte";
 

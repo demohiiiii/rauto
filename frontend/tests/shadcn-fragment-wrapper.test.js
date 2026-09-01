@@ -604,7 +604,9 @@ test("dashboard toast host expands stacked sonner notifications", () => {
 });
 
 test("saved connection editor success updates inline status without duplicate toast", () => {
-  const source = read("frontend/src/modules/connections/connectionsEditor.js");
+  const source = read(
+    "frontend/src/domains/connections/application/connectionEditorState.ts",
+  );
   const saveEditorBody = source.match(
     /export async function saveSavedConnectionEditor[\s\S]*?^}/m,
   )?.[0];
@@ -622,7 +624,7 @@ test("saved connection editor success updates inline status without duplicate to
 
 test("connection test result shows sonner toast feedback", () => {
   const source = read(
-    "frontend/src/modules/connections/connectionTargetRuntimeState.js",
+    "frontend/src/domains/connections/application/connectionTargetRuntimeState.ts",
   );
   const runConnectionTestBody = source.match(
     /export async function runConnectionTest[\s\S]*?^}/m,
@@ -630,11 +632,13 @@ test("connection test result shows sonner toast feedback", () => {
 
   assert.ok(runConnectionTestBody);
   assert.match(runConnectionTestBody, /showToast\(message,\s*"success"\)/);
-  assert.match(runConnectionTestBody, /showToast\(error\.message,\s*"error"\)/);
+  assert.match(runConnectionTestBody, /showToast\(message,\s*"error"\)/);
 });
 
 test("saved connection profile detection reports its detected profile with toast", () => {
-  const source = read("frontend/src/modules/connections/connectionsEditor.js");
+  const source = read(
+    "frontend/src/domains/connections/application/connectionEditorState.ts",
+  );
   const detectProfileBody = source.match(
     /export async function detectSavedConnectionProfile[\s\S]*?^}/m,
   )?.[0];
@@ -654,10 +658,10 @@ test("saved connection profile detection reports its detected profile with toast
 
 test("saved connection editor displays detected device facts left of its actions", () => {
   const editorStateSource = read(
-    "frontend/src/modules/connections/connectionsEditor.js",
+    "frontend/src/domains/connections/application/connectionEditorState.ts",
   );
   const displaySource = read(
-    "frontend/src/modules/connections/connectionTargetDisplayState.js",
+    "frontend/src/domains/connections/presentation/connectionTargetDisplayState.ts",
   );
   const formSource = read(
     "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
@@ -698,13 +702,13 @@ test("connection forms test their current drafts beside autodetect", () => {
     "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
   );
   const editorStateSource = read(
-    "frontend/src/modules/connections/connectionsEditor.js",
+    "frontend/src/domains/connections/application/connectionEditorState.ts",
   );
   const panelStateSource = read(
-    "frontend/src/modules/connections/connectionPanelFormState.js",
+    "frontend/src/domains/connections/application/connectionPanelFormState.ts",
   );
   const runtimeSource = read(
-    "frontend/src/modules/connections/connectionTargetRuntimeState.js",
+    "frontend/src/domains/connections/application/connectionTargetRuntimeState.ts",
   );
 
   assert.match(
@@ -727,7 +731,9 @@ test("connection forms test their current drafts beside autodetect", () => {
 });
 
 test("saved connection editor saves renamed connections through original route name", () => {
-  const source = read("frontend/src/modules/connections/connectionsEditor.js");
+  const source = read(
+    "frontend/src/domains/connections/application/connectionEditorState.ts",
+  );
   const saveEditorBody = source.match(
     /export async function saveSavedConnectionEditor[\s\S]*?^}/m,
   )?.[0];
@@ -738,11 +744,16 @@ test("saved connection editor saves renamed connections through original route n
     saveEditorBody,
     /const originalName = savedConnectionEditorOriginalName \|\| name;/,
   );
-  assert.match(saveEditorBody, /saveConnection\(originalName,\s*payload\)/);
+  assert.match(
+    saveEditorBody,
+    /connectionApi\.saveConnection\(\s*originalName,\s*payload/,
+  );
 });
 
 test("saved connection editor preserves active target before rename refresh", () => {
-  const source = read("frontend/src/modules/connections/connectionsEditor.js");
+  const source = read(
+    "frontend/src/domains/connections/application/connectionEditorState.ts",
+  );
   const saveEditorBody = source.match(
     /export async function saveSavedConnectionEditor[\s\S]*?^}/m,
   )?.[0];
@@ -787,10 +798,10 @@ test("saved connection editor name field is editable and wired to the draft", ()
     "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
   );
   const workspaceSource = read(
-    "frontend/src/modules/connections/connectionPanelFormState.js",
+    "frontend/src/domains/connections/application/connectionPanelFormState.ts",
   );
   const fieldStateSource = read(
-    "frontend/src/modules/connections/connectionFieldState.js",
+    "frontend/src/domains/connections/application/connectionFieldState.ts",
   );
 
   assert.doesNotMatch(formSource, /ReadonlyInputField/);
@@ -800,7 +811,7 @@ test("saved connection editor name field is editable and wired to the draft", ()
   assert.match(workspaceSource, /onSavedEditorNameInput,/);
   assert.match(
     fieldStateSource,
-    /onNameInput: \(fieldValue\) => update\(\{ name: text\(fieldValue\) \}\)/,
+    /onNameInput: \(fieldValue: unknown\) =>\s*update\(\{ name: text\(fieldValue\) \}\)/,
   );
 });
 
@@ -863,7 +874,7 @@ test("workflow chips use semantic token classes without global chip css", () => 
   const appCss = read("frontend/src/app.css");
   const displaySources = [
     "frontend/src/domains/standard/presentation/standardFlowPresentation.ts",
-    "frontend/src/modules/transactions/transactionExecutionDisplays.js",
+    "frontend/src/domains/transactions/presentation/transactionExecutionDisplays.ts",
     "frontend/src/modules/orchestration/orchestrationResultDetailState.js",
     "frontend/src/modules/orchestration/orchestrationResultPreviewState.js",
   ];

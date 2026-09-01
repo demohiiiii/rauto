@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
-import { createTxBlockCommandEditorWorkspace } from "../src/modules/transactions/transactionBlockDisplays.js";
+import { createTxBlockCommandEditorWorkspace } from "../src/domains/transactions/index.js";
 import {
   notifySavedConnectionsRefreshed,
   setCurrentConnectionTarget,
-} from "../src/modules/connections/connectionTargetStoreState.js";
+} from "../src/domains/connections/application/connectionTargetStoreState.js";
 
 async function waitFor(predicate) {
   for (let attempt = 0; attempt < 30; attempt += 1) {

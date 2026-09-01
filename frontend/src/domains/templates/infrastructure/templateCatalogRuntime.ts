@@ -1,4 +1,4 @@
-import { setConnectionDeviceProfiles } from "../../../modules/connections/connections.js";
+import { setConnectionDeviceProfiles } from "$domains/connections/index.js";
 
 let cachedDeviceProfiles: string[] = [];
 let customShowObjectsChangedHandler: (() => unknown) | null = null;

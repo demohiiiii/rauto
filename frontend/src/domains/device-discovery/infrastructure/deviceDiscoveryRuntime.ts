@@ -1,4 +1,4 @@
-import { notifySavedConnectionsRefreshed } from "../../../modules/connections/connectionTargetStoreState.js";
+import { notifySavedConnectionsRefreshed } from "$domains/connections/index.js";
 import type { DeviceDiscoveryRuntime } from "../model/types.js";
 
 export const deviceDiscoveryRuntime: DeviceDiscoveryRuntime = {

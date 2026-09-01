@@ -27,8 +27,8 @@
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { classNames } from "../../lib/ui.js";
-  import { txBlockTimelineDisplay } from "../../modules/transactions/transactionBlockDisplayState.js";
-  import { createTxWorkflowVisualEditorWorkspace } from "../../modules/transactions/transactionWorkflowEditors.js";
+  import { txBlockTimelineDisplay } from "$domains/transactions/index.js";
+  import { createTxWorkflowVisualEditorWorkspace } from "$domains/transactions/index.js";
   import TxWorkflowBlockEditor from "./TxWorkflowBlockEditor.svelte";
   import TxWorkflowFlowNode from "./TxWorkflowFlowNode.svelte";
   import TxWorkflowFlowViewportController from "./TxWorkflowFlowViewportController.svelte";

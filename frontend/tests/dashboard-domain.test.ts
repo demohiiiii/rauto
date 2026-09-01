@@ -40,7 +40,7 @@ test("dashboard application depends on typed infrastructure adapters", () => {
   assert.doesNotMatch(application, /lib\/browser\.js/);
   assert.doesNotMatch(application, /modules\/(?:connections|overlays)/);
   assert.match(api, /api\/client\.js/);
-  assert.match(resources, /modules\/connections\/connections\.js/);
+  assert.match(resources, /\$domains\/connections\/index\.js/);
   assert.match(resources, /\$domains\/overlays\/index\.js/);
   assert.match(runtime, /lib\/browser\.js/);
   assert.doesNotMatch(application, /\bany\b|@ts-(?:ignore|nocheck)/);

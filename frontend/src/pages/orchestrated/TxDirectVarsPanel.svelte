@@ -1,5 +1,5 @@
 <script>
-  import { createTxDirectVarsPanelWorkspace } from "../../modules/transactions/transactionInputState.js";
+  import { createTxDirectVarsPanelWorkspace } from "$domains/transactions/index.js";
   import OrchestrationVarsFormCard from "./OrchestrationVarsFormCard.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
 

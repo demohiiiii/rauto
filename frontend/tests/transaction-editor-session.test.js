@@ -6,29 +6,29 @@ import {
   createTxInputPanelActionWorkspace,
   createTxInputPanelWorkspace,
   transactionEditorSyncPresentation,
-} from "../src/modules/transactions/transactionInputState.js";
+} from "../src/domains/transactions/index.js";
 import {
   defaultTxBlockTemplatePayload,
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
-} from "../src/modules/transactions/transactionBlockFormModels.js";
-import { createTransactionEditorSession } from "../src/modules/transactions/transactionEditorSession.js";
+} from "../src/domains/transactions/index.js";
+import { createTransactionEditorSession } from "../src/domains/transactions/index.js";
 import {
   clearTxJsonEditorsHost,
   createTxJsonEditorWorkspace,
   createTxJsonEditorsHost,
   TX_EDITOR,
   TX_TEMPLATE_KIND,
-} from "../src/modules/transactions/transactionJsonEditorState.js";
-import { createJsonTemplateLibrary } from "../src/modules/transactions/transactionJsonTemplateState.js";
+} from "../src/domains/transactions/index.js";
+import { createJsonTemplateLibrary } from "../src/domains/transactions/index.js";
 import {
   defaultTxWorkflowTemplatePayload,
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
-} from "../src/modules/transactions/transactionWorkflowFormModels.js";
-import { createTxBlockInputPanelWorkspace } from "../src/modules/transactions/transactionInputWorkspaces.js";
+} from "../src/domains/transactions/index.js";
+import { createTxBlockInputPanelWorkspace } from "../src/domains/transactions/index.js";
 import { loadI18nLanguage, t } from "../src/lib/i18n.js";
 
 const buildDefaultFormModel = () => ({ name: "default", enabled: true });
@@ -795,7 +795,7 @@ test("latest successful external action wins out of order completion", async () 
 
 test("template loader checks latest action before mutating editor state", () => {
   const loaderSource = readFileSync(
-    "frontend/src/modules/transactions/transactionJsonTemplateState.js",
+    "frontend/src/domains/transactions/application/transactionJsonTemplateState.ts",
     "utf8",
   );
   const loadBody = loaderSource.match(

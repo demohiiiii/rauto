@@ -9,14 +9,16 @@ import { tr as translate } from "../../lib/i18n.js";
 import {
   connectionPayload as connectionPayloadFromConnections,
   ensureConnectionTargetSelected,
-} from "../connections/connections.js";
+} from "$domains/connections/index.js";
 import {
   applyRecordDrawerRecording,
   recordLevelPayload as recordLevelPayloadFromOverlays,
 } from "$domains/overlays/index.js";
 import { showToast } from "$domains/overlays/index.js";
-import { defaultTxBlockTemplatePayload } from "../transactions/transactionBlockFormModels.js";
-import { defaultTxWorkflowTemplatePayload } from "../transactions/transactionWorkflowFormModels.js";
+import {
+  defaultTxBlockTemplatePayload,
+  defaultTxWorkflowTemplatePayload,
+} from "$domains/transactions/index.js";
 import {
   TX_EDITOR,
   TX_OUTPUT,
@@ -32,7 +34,7 @@ import {
   setTxWorkflowExecutionResult,
   setVisualOutputStatus,
   txVarsTextStateFor,
-} from "../transactions/transactionPanelState.js";
+} from "$domains/transactions/index.js";
 
 function tr(key, fallback = key) {
   return translate(key, fallback);

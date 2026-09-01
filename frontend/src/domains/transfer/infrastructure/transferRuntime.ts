@@ -1,7 +1,7 @@
 import {
   connectionPayload,
   ensureConnectionTargetSelected,
-} from "../../../modules/connections/connectionTargetRuntimeState.js";
+} from "$domains/connections/index.js";
 import {
   applyRecordDrawerRecording,
   recordLevelPayload,

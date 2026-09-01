@@ -3,7 +3,7 @@ import {
   refreshConnectionProfileOptions,
   refreshSidebarConnectionSelector,
   setSavedConnectionStatus,
-} from "../../../modules/connections/connections.js";
+} from "$domains/connections/index.js";
 import { showToast } from "$domains/overlays/index.js";
 
 export const dashboardResources = {

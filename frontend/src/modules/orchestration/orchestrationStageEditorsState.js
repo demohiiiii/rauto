@@ -4,7 +4,7 @@ import { currentLanguageState, t } from "../../lib/i18n.js";
 import {
   TX_BLOCK_BOOLEAN_ROWS,
   TX_BLOCK_JSON_VALUE_TYPE_ROWS,
-} from "../transactions/transactionBlockDisplayState.js";
+} from "$domains/transactions/index.js";
 import { orchestrationPatchValueChangeHandler } from "./orchestrationFormState.js";
 import {
   orchestrationJsonFieldText,

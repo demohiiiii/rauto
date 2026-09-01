@@ -338,7 +338,7 @@ test("configuration fetch downloads the selected raw or normalized content", () 
 test("configuration fetch page renders target controls and device results", () => {
   const page = read("frontend/src/pages/ConfigFetchPage.svelte");
   const connectionState = read(
-    "frontend/src/modules/connections/connectionFieldStoreState.js",
+    "frontend/src/domains/connections/application/connectionFieldStoreState.ts",
   );
 
   assert.match(page, /<ConnectionPickerField/);

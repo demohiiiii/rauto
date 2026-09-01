@@ -2,7 +2,7 @@
   import {
     createSavedConnectionEditModalWorkspace,
     hideSavedConnectionEditorModal,
-  } from "../../modules/connections/connections.js";
+  } from "$domains/connections/index.js";
   import ConnectionModalShell from "./ConnectionModalShell.svelte";
   import SavedConnectionEditorForm from "./SavedConnectionEditorForm.svelte";
 

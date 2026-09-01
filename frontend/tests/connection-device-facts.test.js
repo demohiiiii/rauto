@@ -7,12 +7,12 @@ import {
   applyTemporaryConnectionDraftFromFormState,
   savedConnectionEditorDraftDefaults,
   temporaryConnectionDraftDefaults,
-} from "../src/modules/connections/connectionFieldState.js";
+} from "../src/domains/connections/application/connectionFieldState.js";
 import {
   detectedConnectionFactsPatch,
   savedConnectionEditorDetectionPayload,
   savedConnectionEditorTestPayload,
-} from "../src/modules/connections/connectionsEditor.js";
+} from "../src/domains/connections/application/connectionEditorState.js";
 
 test("saved connection draft carries optional device facts", () => {
   const draft = savedConnectionEditorDraftDefaults();
@@ -62,13 +62,13 @@ test("detected facts only replace draft fields when values are non-empty", () =>
 
 test("saved connection payload includes model and software version", () => {
   const source = readFileSync(
-    "frontend/src/modules/connections/connectionsEditor.js",
+    "frontend/src/domains/connections/application/connectionEditorState.ts",
     "utf8",
   );
 
   assert.match(source, /device_model:/);
   assert.match(source, /software_version:/);
-  assert.match(source, /detectConnectionFacts/);
+  assert.match(source, /connectionApi\.detectFacts/);
 });
 
 test("saved connection detection uses the current draft without saved fallback", () => {
@@ -120,7 +120,7 @@ test("saved connection test uses the current draft without saved fallback", () =
 
 test("temporary connection detection uses current form and persists detected facts", () => {
   const source = readFileSync(
-    "frontend/src/modules/connections/connectionTargetRuntimeState.js",
+    "frontend/src/domains/connections/application/connectionTargetRuntimeState.ts",
     "utf8",
   );
 
@@ -160,7 +160,7 @@ test("temporary connection panel exposes autodetect and editable device facts", 
 
 test("temporary autodetect does not render a separate status prompt", () => {
   const source = readFileSync(
-    "frontend/src/modules/connections/connectionPanelFormState.js",
+    "frontend/src/domains/connections/application/connectionPanelFormState.ts",
     "utf8",
   );
 

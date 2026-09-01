@@ -9,17 +9,17 @@ import {
   requireTxJsonEditor,
   setTxJsonEditorRawText,
   TX_EDITOR,
-} from "../src/modules/transactions/transactionJsonEditorState.js";
+} from "../src/domains/transactions/index.js";
 import { createOrchestratedWorkspace } from "../src/modules/orchestration/orchestratedWorkspace.js";
 import { createOrchestrationEditorPanelWorkspace } from "../src/modules/orchestration/orchestrationEditorState.js";
-import { createJsonTemplateLibrary } from "../src/modules/transactions/transactionJsonTemplateState.js";
-import { createTxWorkflowInputPanelWorkspace } from "../src/modules/transactions/transactionInputWorkspaces.js";
+import { createJsonTemplateLibrary } from "../src/domains/transactions/index.js";
+import { createTxWorkflowInputPanelWorkspace } from "../src/domains/transactions/index.js";
 import {
   createTxWorkflowStageWorkspace,
   setStatus,
   transactionOutputState,
   TX_OUTPUT,
-} from "../src/modules/transactions/transactionPanelState.js";
+} from "../src/domains/transactions/index.js";
 
 function createDeferredTextFile() {
   let rejectText;

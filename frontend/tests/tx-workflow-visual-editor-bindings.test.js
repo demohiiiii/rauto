@@ -8,7 +8,7 @@ import {
   txWorkflowTemplateRefEditorBindings,
   txWorkflowVisualEditorBindings,
   txWorkflowVisualEditorDisplay,
-} from "../src/modules/transactions/transactionWorkflowEditorState.js";
+} from "../src/domains/transactions/index.js";
 
 const visualEditorPath = path.resolve(
   "frontend/src/pages/orchestrated/TxWorkflowVisualEditor.svelte",

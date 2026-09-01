@@ -12,14 +12,14 @@
   import {
     transactionEditorSyncPresentation,
     txWorkflowVarsPlaceholder,
-  } from "../../modules/transactions/transactionInputState.js";
+  } from "$domains/transactions/index.js";
   import TxDirectVarsPanel from "./TxDirectVarsPanel.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
   import TxWorkflowPreviewPanel from "./TxWorkflowPreviewPanel.svelte";
   import TxWorkflowVisualEditor from "./TxWorkflowVisualEditor.svelte";
-  import { createTxWorkflowInputPanelWorkspace } from "../../modules/transactions/transactionInputWorkspaces.js";
-  import { txWorkflowFormModelToJsonText } from "../../modules/transactions/transactionWorkflowFormModels.js";
-  import { txWorkflowPreviewPresentation } from "../../modules/transactions/transactionExecutionDisplays.js";
+  import { createTxWorkflowInputPanelWorkspace } from "$domains/transactions/index.js";
+  import { txWorkflowFormModelToJsonText } from "$domains/transactions/index.js";
+  import { txWorkflowPreviewPresentation } from "$domains/transactions/index.js";
   import Layers3Icon from "@lucide/svelte/icons/layers-3";
 
   import {
@@ -27,7 +27,7 @@
     TX_VARS,
     jsonTemplateSelectStateFor,
     setJsonTemplateSelectValue,
-  } from "../../modules/transactions/transactionPanelState.js";
+  } from "$domains/transactions/index.js";
 
   let {
     active,

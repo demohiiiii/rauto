@@ -3,7 +3,7 @@ import {
   openConnectionModal,
   sidebarConnectionPresentation,
   sidebarConnectionState,
-} from "../../../modules/connections/connections.js";
+} from "$domains/connections/index.js";
 import { createLazyComponentRegistry } from "../../../lib/svelte.js";
 import type {
   DashboardPageRegistry,

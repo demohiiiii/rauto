@@ -5,7 +5,7 @@ import {
   MANUAL_COMMAND_SOURCE,
   createCommandTemplateCatalog,
 } from "../src/domains/command/index.ts";
-import { createTxBlockCommandEditorWorkspace } from "../src/modules/transactions/transactionBlockDisplays.js";
+import { createTxBlockCommandEditorWorkspace } from "../src/domains/transactions/index.js";
 
 test("transaction commands import an editable command template snapshot", async () => {
   const changes = [];

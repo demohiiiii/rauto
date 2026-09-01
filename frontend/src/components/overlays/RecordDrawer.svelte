@@ -5,7 +5,7 @@
   import DashboardDrawerShell from "./DashboardDrawerShell.svelte";
   import HistoryDrawerContent from "./HistoryDrawerContent.svelte";
   import RecordDrawerContent from "./RecordDrawerContent.svelte";
-  import { createHistoryDrawerWorkspace } from "../../modules/connections/connections.js";
+  import { createHistoryDrawerWorkspace } from "$domains/connections/index.js";
   import {
     SESSION_RECORDS_VIEW,
     closeRecordDrawer,

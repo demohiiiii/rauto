@@ -4,11 +4,11 @@ import test from "node:test";
 import {
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
-} from "../src/modules/transactions/transactionBlockFormModels.js";
+} from "../src/domains/transactions/index.js";
 import {
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
-} from "../src/modules/transactions/transactionWorkflowFormModels.js";
+} from "../src/domains/transactions/index.js";
 import {
   orchestrationPlanFormModelFromJson,
   orchestrationPlanFormModelToJsonText,
@@ -136,7 +136,7 @@ test("workflow and orchestration models remove unsupported labels", () => {
 
 test("transaction and orchestration form definitions expose no underscore labels", () => {
   for (const path of [
-    "frontend/src/modules/transactions/transactionStructure.js",
+    "frontend/src/domains/transactions/model/transactionStructure.ts",
     "frontend/src/modules/orchestration/orchestrationFormFieldState.js",
   ]) {
     const contents = source(path);

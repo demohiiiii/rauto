@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { savedConnectionLibraryPresentation } from "../src/modules/connections/connectionTargetDisplayState.js";
+import { savedConnectionLibraryPresentation } from "../src/domains/connections/presentation/connectionTargetDisplayState.js";
 
 const read = (path) => readFileSync(path, "utf8");
 
@@ -47,10 +47,10 @@ test("connection forms use a credential selector instead of secret inputs", () =
 
 test("saved and temporary connection payloads send credential_id only", () => {
   const savedEditor = read(
-    "frontend/src/modules/connections/connectionsEditor.js",
+    "frontend/src/domains/connections/application/connectionEditorState.ts",
   );
   const targetRuntime = read(
-    "frontend/src/modules/connections/connectionTargetRuntimeState.js",
+    "frontend/src/domains/connections/application/connectionTargetRuntimeState.ts",
   );
 
   assert.match(savedEditor, /credential_id: credentialId/);
@@ -67,9 +67,11 @@ test("saved and temporary connection payloads send credential_id only", () => {
 
 test("connection presentation and field workspaces contain no legacy auth inputs", () => {
   const runtimeState = read(
-    "frontend/src/modules/connections/connectionTargetRuntimeState.js",
+    "frontend/src/domains/connections/application/connectionTargetRuntimeState.ts",
   );
-  const connections = read("frontend/src/modules/connections/connections.js");
+  const connections = read(
+    "frontend/src/domains/connections/application/connectionWorkspaces.ts",
+  );
 
   assert.doesNotMatch(runtimeState, /temporaryConnectionFormState\.username/);
   assert.doesNotMatch(connections, /usernameInputHandler/);

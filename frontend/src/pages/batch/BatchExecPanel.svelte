@@ -11,7 +11,7 @@
   import SessionRetryFields from "../../components/fragments/SessionRetryFields.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
-  import { batchExecTargetPickerFields } from "../../modules/connections/connections.js";
+  import { batchExecTargetPickerFields } from "$domains/connections/index.js";
   import { MODE_SELECT, modeSelection } from "$domains/profiles/index.js";
   import {
     executionResultFailed,

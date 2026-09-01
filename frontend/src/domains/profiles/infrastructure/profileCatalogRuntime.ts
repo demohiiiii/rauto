@@ -1,4 +1,4 @@
-import { refreshConnectionProfileOptions } from "../../../modules/connections/connections.js";
+import { refreshConnectionProfileOptions } from "$domains/connections/index.js";
 import {
   getCachedDeviceProfiles,
   setCachedDeviceProfiles,

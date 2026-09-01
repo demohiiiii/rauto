@@ -9,7 +9,7 @@
   import WorkspaceActionHeader from "../../components/fragments/WorkspaceActionHeader.svelte";
   import CirclePlayIcon from "@lucide/svelte/icons/circle-play";
   import { t } from "../../lib/i18n.js";
-  import { createTxWorkflowRunPanelWorkspace } from "../../modules/transactions/transactionExecutionDisplays.js";
+  import { createTxWorkflowRunPanelWorkspace } from "$domains/transactions/index.js";
   import TxWorkflowBlockResultPanel from "./TxWorkflowBlockResultPanel.svelte";
 
   let { panelDisplay, onExecute } = $props();

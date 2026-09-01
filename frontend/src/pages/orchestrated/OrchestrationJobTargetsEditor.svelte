@@ -3,7 +3,7 @@
   import {
     CONNECTION_PICKER,
     setConnectionPickerSelectedValues,
-  } from "../../modules/connections/connectionFieldStoreState.js";
+  } from "$domains/connections/index.js";
   import { createOrchestrationJobTargetsEditorWorkspace } from "../../modules/orchestration/orchestrationStageTargetsState.js";
 
   let { jobRow, onReplaceStringList } = $props();

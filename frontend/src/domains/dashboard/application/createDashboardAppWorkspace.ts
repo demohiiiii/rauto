@@ -193,7 +193,7 @@ function loadProfilesModule(): Promise<ProfilesFeatureModule> {
 function loadTransactionsWorkspaceModule(): Promise<TransactionsFeatureModule> {
   return loadFeatureModule(
     "transactionsWorkspace",
-    () => import("../../../modules/transactions/transactionPanelState.js"),
+    () => import("../../transactions/application/transactionPanelState.js"),
   );
 }
 

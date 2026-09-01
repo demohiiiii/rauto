@@ -7,7 +7,7 @@ import {
   createTxWorkflowBlockResultPanelWorkspace,
   createTxWorkflowRunPanelWorkspace,
   txWorkflowExecutionPresentation,
-} from "../src/modules/transactions/transactionExecutionDisplays.js";
+} from "../src/domains/transactions/index.js";
 
 function source(path) {
   return readFileSync(path, "utf8");
@@ -225,13 +225,13 @@ test("transaction block editors do not expose JSON presence toggles", () => {
 
 test("transaction block structure omits unsupported transaction metadata", () => {
   const structure = source(
-    "frontend/src/modules/transactions/transactionStructure.js",
+    "frontend/src/domains/transactions/model/transactionStructure.ts",
   );
   const visualEditor = source(
     "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
   );
   const displayState = source(
-    "frontend/src/modules/transactions/transactionBlockDisplayState.js",
+    "frontend/src/domains/transactions/presentation/transactionBlockDisplayState.ts",
   );
 
   assert.doesNotMatch(structure, /txBlockRootMetadataFieldDefs/);
@@ -285,7 +285,7 @@ test("transaction root editor exposes only backend-supported root fields", () =>
     "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
   );
   const bindings = source(
-    "frontend/src/modules/transactions/transactionBlockBindingState.js",
+    "frontend/src/domains/transactions/application/transactionBlockBindingState.ts",
   );
 
   assert.doesNotMatch(rootEditor, /JsonObjectFieldsEditor/);

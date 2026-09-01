@@ -22,11 +22,11 @@
     createTemporaryConnectionPanelWorkspace,
     refreshActiveTemporaryConnectionTarget,
     temporaryConnectionFormStateStore,
-  } from "../../modules/connections/connections.js";
+  } from "$domains/connections/index.js";
   import {
     CONNECTION_PICKER,
     CONNECTION_VARS,
-  } from "../../modules/connections/connectionFieldStoreState.js";
+  } from "$domains/connections/index.js";
   let { active, onCancel } = $props();
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {

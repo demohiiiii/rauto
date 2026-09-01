@@ -1,5 +1,5 @@
 <script>
-  import { createTxWorkflowBlockResultPanelWorkspace } from "../../modules/transactions/transactionExecutionDisplays.js";
+  import { createTxWorkflowBlockResultPanelWorkspace } from "$domains/transactions/index.js";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import TxOperationStepCard from "./TxOperationStepCard.svelte";
   import TxStepResultDetail from "./TxStepResultDetail.svelte";

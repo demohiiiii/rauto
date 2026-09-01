@@ -4,7 +4,7 @@ import {
   closeConnectionModal,
   connectionOverlayState,
   hideSavedConnectionEditorModal,
-} from "../../../modules/connections/connections.js";
+} from "$domains/connections/index.js";
 import {
   applyOverlayBodyLock,
   closeDetailModal,

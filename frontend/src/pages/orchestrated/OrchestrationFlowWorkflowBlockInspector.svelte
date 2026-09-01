@@ -5,11 +5,11 @@
   import {
     txWorkflowVisualEditorBindings,
     txWorkflowVisualEditorDisplay,
-  } from "../../modules/transactions/transactionWorkflowEditorState.js";
+  } from "$domains/transactions/index.js";
   import {
     txWorkflowFormModelFromJson,
     txWorkflowFormModelToJsonText,
-  } from "../../modules/transactions/transactionWorkflowFormModels.js";
+  } from "$domains/transactions/index.js";
   import TxWorkflowBlockEditor from "./TxWorkflowBlockEditor.svelte";
 
   let {

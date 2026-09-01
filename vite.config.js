@@ -13,12 +13,9 @@ const MODULE_CHUNKS = new Map([
   ["connectionFieldStoreState.js", "feature-connections"],
   ["connectionFieldWorkspaces.js", "feature-connections"],
   ["connectionFields.js", "feature-connections"],
-  ["connectionPanelFormState.js", "feature-connections"],
   ["connectionPanelState.js", "feature-connections"],
   ["connectionTargetDisplayState.js", "feature-connections"],
-  ["connectionTargetRuntimeState.js", "feature-connections"],
   ["connectionTargetStoreState.js", "feature-connections"],
-  ["connectionsEditor.js", "feature-connections"],
   ["connectionsHistory.js", "feature-connections"],
   ["createWebAuthWorkspace.js", "app-core"],
   ["createInventoryPageWorkspace.js", "page-inventorypage"],
@@ -184,6 +181,9 @@ function dashboardChunk(id) {
   }
   if (matchesSourcePath(id, "domains/auth/")) return "app-core";
   if (matchesSourcePath(id, "domains/command/")) return "feature-command";
+  if (matchesSourcePath(id, "domains/connections/")) {
+    return "dashboard-connections";
+  }
   if (matchesSourcePath(id, "domains/execution/")) return "feature-results";
   if (matchesSourcePath(id, "domains/overlays/")) return "dashboard-overlays";
   if (matchesSourcePath(id, "domains/profiles/")) return "feature-prompts";
@@ -192,7 +192,6 @@ function dashboardChunk(id) {
   if (matchesSourcePath(id, "domains/templates/")) return "feature-templates";
   if (matchesSourcePath(id, "modules/")) {
     const file = sourceFileName(id, "modules/");
-    if (file === "connections.js") return "dashboard-connections";
     return MODULE_CHUNKS.get(file) || "dashboard-shell";
   }
   if (matchesSourcePath(id, "components/")) {

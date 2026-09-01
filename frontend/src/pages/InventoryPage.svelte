@@ -11,7 +11,7 @@
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
   import { INVENTORY_KIND } from "../config/dashboardModes.js";
   import { currentLanguageState, t } from "../lib/i18n.js";
-  import { savedConnectionSelectState } from "../modules/connections/connections.js";
+  import { savedConnectionSelectState } from "$domains/connections/index.js";
   import InventoryCollectionPanel from "./inventory/InventoryCollectionPanel.svelte";
 
   interface SavedConnectionSelectSnapshot {

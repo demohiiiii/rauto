@@ -41,17 +41,17 @@
     orchestrationRemoveJob,
     orchestrationRemoveStage,
   } from "../../modules/orchestration/orchestrationStageMutations.js";
-  import { TX_VARS } from "../../modules/transactions/transactionPanelState.js";
+  import { TX_VARS } from "$domains/transactions/index.js";
   import {
     txWorkflowAddBlock,
     txWorkflowDuplicateBlock,
     txWorkflowMoveBlock,
     txWorkflowRemoveBlock,
-  } from "../../modules/transactions/transactionWorkflowEditorState.js";
+  } from "$domains/transactions/index.js";
   import {
     txWorkflowFormModelFromJson,
     txWorkflowFormModelToJsonText,
-  } from "../../modules/transactions/transactionWorkflowFormModels.js";
+  } from "$domains/transactions/index.js";
   import OrchestrationFlowInspector from "./OrchestrationFlowInspector.svelte";
   import OrchestrationFlowJobNode from "./OrchestrationFlowJobNode.svelte";
   import OrchestrationFlowStageInsertNode from "./OrchestrationFlowStageInsertNode.svelte";

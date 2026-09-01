@@ -2,7 +2,7 @@
   import PlainSelectField from "../../components/fragments/PlainSelectField.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
-  import { createTxWorkflowTemplateRefSourceWorkspace } from "../../modules/transactions/transactionWorkflowEditors.js";
+  import { createTxWorkflowTemplateRefSourceWorkspace } from "$domains/transactions/index.js";
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
 

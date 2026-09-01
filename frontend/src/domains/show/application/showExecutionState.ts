@@ -22,7 +22,7 @@ import type {
   ShowStateContext,
 } from "../model/types.js";
 import { parsedOutputSheetsFromBatchShow } from "$domains/execution/index.js";
-import { CONNECTION_PICKER } from "../../../modules/connections/connectionFieldStoreState.js";
+import { CONNECTION_PICKER } from "$domains/connections/index.js";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,

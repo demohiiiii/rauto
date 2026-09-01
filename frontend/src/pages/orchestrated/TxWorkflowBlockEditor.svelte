@@ -3,7 +3,7 @@
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "../../lib/i18n.js";
-  import { createTxWorkflowBlockEditorWorkspace } from "../../modules/transactions/transactionWorkflowEditors.js";
+  import { createTxWorkflowBlockEditorWorkspace } from "$domains/transactions/index.js";
 
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
   import TxWorkflowTemplateRefEditor from "./TxWorkflowTemplateRefEditor.svelte";

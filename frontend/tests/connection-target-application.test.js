@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { loadI18nLanguage } from "../src/lib/i18n.js";
-import { temporaryConnectionDraftDefaults } from "../src/modules/connections/connectionFieldState.js";
+import { temporaryConnectionDraftDefaults } from "../src/domains/connections/application/connectionFieldState.js";
 import {
   applyTemporaryConnection,
   connectionPayload,
   temporaryConnectionBasicFieldWiring,
-} from "../src/modules/connections/connectionTargetRuntimeState.js";
+} from "../src/domains/connections/application/connectionTargetRuntimeState.js";
 import {
   setCurrentConnectionTarget,
   setSavedConnectionSelectValue,
-} from "../src/modules/connections/connectionTargetStoreState.js";
+} from "../src/domains/connections/application/connectionTargetStoreState.js";
 
 test("saved execution ignores unapplied temporary draft changes", async () => {
   await loadI18nLanguage("en");

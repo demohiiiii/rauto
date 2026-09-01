@@ -12,14 +12,14 @@ import {
   refreshConnectionPickerSelected,
   setShowObjectPickerOptions,
   showObjectOptionMeta,
-} from "../../../modules/connections/connectionFieldStoreState.js";
+} from "$domains/connections/index.js";
 import {
   connectionPayload,
   connectionTargetState,
   currentExecutionConnectionProfile,
   ensureConnectionTargetSelected,
   savedConnectionSelectState,
-} from "../../../modules/connections/connections.js";
+} from "$domains/connections/index.js";
 import { setCustomShowObjectsChangedCallback } from "$domains/templates/index.js";
 import type { ShowRuntime } from "../model/types.js";
 

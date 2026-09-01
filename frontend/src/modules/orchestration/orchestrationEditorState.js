@@ -15,7 +15,7 @@ import {
   setTxJsonEditorRawText,
   TX_EDITOR,
   txJsonEditorRawText,
-} from "../transactions/transactionPanelState.js";
+} from "$domains/transactions/index.js";
 
 const orchestrationStringValue = stringValue;
 

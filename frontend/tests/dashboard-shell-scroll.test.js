@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { dashboardNavigationItems } from "../src/domains/dashboard/index.js";
-import { sidebarConnectionPresentation } from "../src/modules/connections/connectionTargetDisplayState.js";
+import { sidebarConnectionPresentation } from "../src/domains/connections/presentation/connectionTargetDisplayState.js";
 
 test("SFTP upload is grouped with dashboard operations", () => {
   assert.equal(
@@ -49,7 +49,7 @@ test("the connection target card opens the connection workspace directly", () =>
     "utf8",
   );
   const displaySource = readFileSync(
-    "frontend/src/modules/connections/connectionTargetDisplayState.js",
+    "frontend/src/domains/connections/presentation/connectionTargetDisplayState.ts",
     "utf8",
   );
 

@@ -15,7 +15,7 @@
   import NetworkIcon from "@lucide/svelte/icons/network";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { orchestrationPlanFormModelToJsonText } from "../../modules/orchestration/orchestrationPlanFormModels.js";
-  import { TX_EDITOR } from "../../modules/transactions/transactionPanelState.js";
+  import { TX_EDITOR } from "$domains/transactions/index.js";
   import OrchestrationExecutionPanel from "./OrchestrationExecutionPanel.svelte";
   import OrchestrationPlanFormEditor from "./OrchestrationPlanFormEditor.svelte";
   import OrchestrationPreviewPanel from "./OrchestrationPreviewPanel.svelte";

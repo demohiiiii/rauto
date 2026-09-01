@@ -10,8 +10,8 @@ import {
   TX_VARS,
   txVarsAssistantStateFor,
   txVarsTextStateFor,
-} from "../src/modules/transactions/transactionVarsAssistant.js";
-import { createTxDirectVarsPanelWorkspace } from "../src/modules/transactions/transactionInputState.js";
+} from "../src/domains/transactions/index.js";
+import { createTxDirectVarsPanelWorkspace } from "../src/domains/transactions/index.js";
 
 test("transaction vars form and JSON stay synchronized", () => {
   const panel = createTxDirectVarsPanelWorkspace({

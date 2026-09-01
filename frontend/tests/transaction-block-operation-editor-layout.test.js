@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
-import { txBlockCommandEditorDisplay } from "../src/modules/transactions/transactionBlockDisplayState.js";
+import { txBlockCommandEditorDisplay } from "../src/domains/transactions/index.js";
 import { collapsibleGroupBindings } from "../src/lib/events.js";
 import {
   createTxBlockCommandDynParamsEditorWorkspace,
   createTxBlockCommandInteractionEditorWorkspace,
-} from "../src/modules/transactions/transactionBlockDisplays.js";
+} from "../src/domains/transactions/index.js";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -82,13 +82,13 @@ test("transaction dynamic params use only the generic parameter editor", () => {
     "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
   );
   const bindings = read(
-    "frontend/src/modules/transactions/transactionBlockBindingState.js",
+    "frontend/src/domains/transactions/application/transactionBlockBindingState.ts",
   );
   const displayState = read(
-    "frontend/src/modules/transactions/transactionBlockDisplayState.js",
+    "frontend/src/domains/transactions/presentation/transactionBlockDisplayState.ts",
   );
   const mutations = read(
-    "frontend/src/modules/transactions/transactionBlockMutations.js",
+    "frontend/src/domains/transactions/model/transactionBlockMutations.ts",
   );
 
   assert.doesNotMatch(editor, /fieldEnablePassword|fieldSudoPassword/);
@@ -158,10 +158,10 @@ test("command child workspaces preserve their public display and binding contrac
 
 test("validation errors derive from the model and render inline alerts", () => {
   const displaysSource = read(
-    "frontend/src/modules/transactions/transactionBlockDisplays.js",
+    "frontend/src/domains/transactions/application/transactionBlockDisplays.ts",
   );
   const displayStateSource = read(
-    "frontend/src/modules/transactions/transactionBlockDisplayState.js",
+    "frontend/src/domains/transactions/presentation/transactionBlockDisplayState.ts",
   );
   const fieldGridSource = read(
     "frontend/src/components/fragments/PresenceFieldGrid.svelte",
@@ -194,7 +194,7 @@ test("validation errors derive from the model and render inline alerts", () => {
 
 test("field row validation matches only the exact form-model path", async () => {
   const { txBlockFieldRowsWithValidation } =
-    await import("../src/modules/transactions/transactionBlockDisplayState.js");
+    await import("../src/domains/transactions/index.js");
   const fieldRows = [
     { fieldKey: "command", labelText: "Command" },
     { fieldKey: "mode", labelText: "Mode" },

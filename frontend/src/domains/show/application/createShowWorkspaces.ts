@@ -22,7 +22,7 @@ import {
   TEXTFSM_PLATFORM_SELECT,
   textfsmPlatformSelection,
 } from "$domains/profiles/index.js";
-import { batchShowTargetPickerFields } from "../../../modules/connections/connections.js";
+import { batchShowTargetPickerFields } from "$domains/connections/index.js";
 import {
   batchShowExecutionResultState,
   batchShowObjectAvailabilityState,

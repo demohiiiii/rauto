@@ -6,7 +6,7 @@ import {
 import {
   connectionPayload,
   ensureConnectionTargetSelected,
-} from "../../../modules/connections/connections.js";
+} from "$domains/connections/index.js";
 import {
   applyRecordDrawerRecording,
   recordLevelPayload,

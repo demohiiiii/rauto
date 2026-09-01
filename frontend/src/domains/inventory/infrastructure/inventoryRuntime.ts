@@ -1,8 +1,8 @@
 import {
   loadSavedConnections,
   savedConnectionsRefreshState,
-} from "../../../modules/connections/connections.js";
-import { setConnectionInventorySnapshots } from "../../../modules/connections/connectionFieldStoreState.js";
+} from "$domains/connections/index.js";
+import { setConnectionInventorySnapshots } from "$domains/connections/index.js";
 import { protectedDashboardResourcesRefreshState } from "$domains/dashboard/index.js";
 import type { InventoryRuntime } from "../model/types.js";
 

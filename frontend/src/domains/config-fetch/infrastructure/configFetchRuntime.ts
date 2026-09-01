@@ -6,11 +6,11 @@ import {
   connectionTargetState,
   currentExecutionConnectionProfile,
   ensureConnectionTargetSelected,
-} from "../../../modules/connections/connections.js";
+} from "$domains/connections/index.js";
 import {
   CONNECTION_PICKER,
   connectionPickerValues,
-} from "../../../modules/connections/connectionFieldStoreState.js";
+} from "$domains/connections/index.js";
 import { recordLevelPayload } from "$domains/overlays/index.js";
 import { executionResultOutputText } from "$domains/execution/index.js";
 import {

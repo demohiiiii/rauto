@@ -3,7 +3,7 @@
   import PlainInputField from "../../components/fragments/PlainInputField.svelte";
   import TextAreaField from "../../components/fragments/TextAreaField.svelte";
   import TypeValueSelectField from "../../components/fragments/TypeValueSelectField.svelte";
-  import { createTxVarsAssistantCardWorkspace } from "../../modules/transactions/transactionPanelState.js";
+  import { createTxVarsAssistantCardWorkspace } from "$domains/transactions/index.js";
 
   let { active, prefix } = $props();
   const txVarsAssistantCardWorkspace = createTxVarsAssistantCardWorkspace({

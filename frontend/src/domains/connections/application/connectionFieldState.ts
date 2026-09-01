@@ -1,0 +1,747 @@
+import { derived, get as getStore, writable } from "svelte/store";
+import {
+  blurEventTarget,
+  callbackHandler,
+  callIfFunction,
+  eventContainsRelatedTarget,
+  eventKeyIn,
+  eventKeyIs,
+  preventEventDefault,
+} from "../../../lib/events.js";
+import { currentLanguageState, t, tr } from "../../../lib/i18n.js";
+import {
+  displayString,
+  safeString,
+  selectOptionsWithCurrent,
+} from "../../../lib/ui.js";
+import {
+  addConnectionPickerSelection,
+  addConnectionVarsRow,
+  commitConnectionPickerSelection,
+  connectionPickerChoices,
+  connectionPickerCommitKeys,
+  connectionPickerValues,
+  connectionVarRowsForState,
+  hideConnectionPickerMenu,
+  openConnectionPickerMenu,
+  removeConnectionPickerSelection,
+  removeConnectionVarsRow,
+  setConnectionPickerQueryValue,
+  setConnectionVarRowName,
+  setConnectionVarRowType,
+  setConnectionVarRowValue,
+} from "./connectionFieldStoreState.js";
+import type {
+  ConnectionDraft,
+  ConnectionDraftChange,
+  ConnectionDraftPatch,
+  ConnectionPickerChoices,
+  ConnectionPickerDisplay,
+  ConnectionPickerState,
+  ConnectionVarRow,
+  ConnectionVarsState,
+} from "../model/types.js";
+
+const CONNECTION_VAR_TYPE_OPTIONS: readonly (readonly [string, string])[] =
+  Object.freeze([
+    ["string", "connectionVarTypeString"],
+    ["number", "connectionVarTypeNumber"],
+    ["boolean", "connectionVarTypeBoolean"],
+    ["null", "connectionVarTypeNull"],
+  ]);
+const CONNECTION_VAR_BOOLEAN_OPTIONS = Object.freeze(["true", "false"]);
+const SSH_SECURITY_OPTION_DEFS: readonly (readonly [string, string])[] =
+  Object.freeze([
+    ["", "sshSecurityOptionDefault"],
+    ["secure", "sshSecurityOptionSecure"],
+    ["balanced", "sshSecurityOptionBalanced"],
+    ["legacy-compatible", "sshSecurityOptionLegacy"],
+  ]);
+const LINUX_SHELL_OPTION_DEFS: readonly (readonly [string, string])[] =
+  Object.freeze([
+    ["", "linuxShellOptionDefault"],
+    ["posix", "linuxShellOptionPosix"],
+    ["fish", "linuxShellOptionFish"],
+  ]);
+const OUTPUT_ENCODING_OPTION_DEFS: readonly (readonly [string, string])[] =
+  Object.freeze([
+    ["utf8", "outputEncodingOptionUtf8"],
+    ["gb2312", "outputEncodingOptionGb2312"],
+    ["gbk", "outputEncodingOptionGbk"],
+    ["gb18030", "outputEncodingOptionGb18030"],
+  ]);
+const CONNECTION_DRAFT_FIELDS: [string, keyof ConnectionDraft][] = [
+  ["host", "host"],
+  ["port", "port"],
+  ["connect_timeout_secs", "connectTimeoutSecs"],
+  ["credential_id", "credentialId"],
+  ["ssh_security", "sshSecurity"],
+  ["linux_shell_flavor", "linuxShellFlavor"],
+  ["output_encoding", "outputEncoding"],
+  ["device_profile", "deviceProfile"],
+  ["device_model", "deviceModel"],
+  ["software_version", "softwareVersion"],
+];
+const SAVED_CONNECTION_EDITOR_DRAFT_FIELDS: [string, keyof ConnectionDraft][] =
+  [["name", "name"], ...CONNECTION_DRAFT_FIELDS];
+
+function hasOwn(object: object, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function connectionInputDisplay(labelKey: string) {
+  const labelText = tr(labelKey, labelKey);
+  return {
+    ariaLabelText: labelText,
+    placeholder: labelText,
+  };
+}
+
+function connectionSelectOption(optionValue: string, labelKey: string) {
+  return {
+    optionLabel: tr(labelKey, optionValue || labelKey),
+    optionValue,
+  };
+}
+
+function connectionDraftDefaults(
+  overrides: ConnectionDraftPatch = {},
+): ConnectionDraft {
+  return {
+    connectTimeoutSecs: "",
+    deviceModel: "",
+    deviceProfile: "",
+    enabled: true,
+    credentialId: "",
+    host: "",
+    linuxShellFlavor: "",
+    outputEncoding: "utf8",
+    port: "",
+    sshSecurity: "",
+    softwareVersion: "",
+    ...overrides,
+  };
+}
+
+function connectionDraftPatchFromValues(
+  formValues: Record<string, unknown> = {},
+  fields: [string, keyof ConnectionDraft][] = [],
+): ConnectionDraftPatch {
+  const patch: ConnectionDraftPatch = {};
+  fields.forEach(([sourceKey, draftKey]) => {
+    if (hasOwn(formValues, sourceKey)) {
+      patch[draftKey] = displayString(formValues[sourceKey] || "");
+    }
+  });
+  if (hasOwn(formValues, "enabled")) {
+    patch.enabled = formValues.enabled !== false;
+  }
+  return patch;
+}
+
+function applyConnectionDraftPatch(
+  draft: ConnectionDraft,
+  patch: ConnectionDraftPatch = {},
+): void {
+  Object.entries(patch).forEach(([draftField, draftValue]) => {
+    draft[draftField] = draftValue;
+  });
+}
+
+export function connectionBasicFieldsPresentation({
+  deviceProfileOptions = [],
+  fieldValues = {},
+  focusHostRequestVersion = 0,
+}: {
+  deviceProfileOptions?: string[];
+  fieldValues?: Partial<ConnectionDraft>;
+  focusHostRequestVersion?: number;
+} = {}) {
+  const profileOptions = Array.isArray(deviceProfileOptions)
+    ? deviceProfileOptions
+    : [];
+  const sshSecurityTitle = tr("sshSecurityOptionDefault");
+  const linuxShellTitle = tr("linuxShellOptionDefault");
+  const outputEncodingTitle = tr("outputEncodingLabel");
+  const deviceProfileTitle = tr("deviceProfilePlaceholder");
+  return {
+    connectTimeoutSecsInput: connectionInputDisplay(
+      "connectTimeoutSecsPlaceholder",
+    ),
+    deviceModelInput: connectionInputDisplay("deviceModelPlaceholder"),
+    deviceProfileSelect: {
+      ariaLabelText: deviceProfileTitle,
+      deviceProfileOptionRows: [
+        { optionLabel: deviceProfileTitle, optionValue: "" },
+        ...profileOptions.map((deviceProfileOption) => ({
+          optionLabel: deviceProfileOption,
+          optionValue: deviceProfileOption,
+        })),
+      ],
+      title: deviceProfileTitle,
+    },
+    credentialInput: connectionInputDisplay("credentialName"),
+    focusHostRequestVersion,
+    hostInput: connectionInputDisplay("hostPlaceholder"),
+    linuxShellFlavorSelect: {
+      ariaLabelText: linuxShellTitle,
+      linuxShellOptionRows: LINUX_SHELL_OPTION_DEFS.map(
+        ([optionValue, labelKey]) =>
+          connectionSelectOption(optionValue, labelKey),
+      ),
+      title: linuxShellTitle,
+    },
+    outputEncodingSelect: {
+      ariaLabelText: outputEncodingTitle,
+      outputEncodingOptionRows: OUTPUT_ENCODING_OPTION_DEFS.map(
+        ([optionValue, labelKey]) =>
+          connectionSelectOption(optionValue, labelKey),
+      ),
+      title: outputEncodingTitle,
+    },
+    portInput: connectionInputDisplay("portPlaceholder"),
+    sshSecuritySelect: {
+      ariaLabelText: sshSecurityTitle,
+      sshSecurityOptionRows: SSH_SECURITY_OPTION_DEFS.map(
+        ([optionValue, labelKey]) =>
+          connectionSelectOption(optionValue, labelKey),
+      ),
+      title: sshSecurityTitle,
+    },
+    softwareVersionInput: connectionInputDisplay("softwareVersionPlaceholder"),
+    values: {
+      connectTimeoutSecs: displayString(fieldValues.connectTimeoutSecs),
+      deviceModel: displayString(fieldValues.deviceModel),
+      deviceProfile: displayString(fieldValues.deviceProfile),
+      credentialId: displayString(fieldValues.credentialId),
+      host: displayString(fieldValues.host),
+      linuxShellFlavor: displayString(fieldValues.linuxShellFlavor),
+      outputEncoding: displayString(fieldValues.outputEncoding || "utf8"),
+      port: displayString(fieldValues.port),
+      sshSecurity: displayString(fieldValues.sshSecurity),
+      softwareVersion: displayString(fieldValues.softwareVersion),
+    },
+  };
+}
+
+export function savedConnectionEditorDraftDefaults() {
+  return connectionDraftDefaults({
+    name: "",
+  });
+}
+
+export function temporaryConnectionDraftDefaults() {
+  return connectionDraftDefaults({ deviceProfile: "autodetect" });
+}
+
+export function applySavedConnectionEditorDraftFromFormState(
+  draft: ConnectionDraft,
+  formState: Record<string, unknown> = {},
+) {
+  applyConnectionDraftPatch(
+    draft,
+    connectionDraftPatchFromValues(
+      formState,
+      SAVED_CONNECTION_EDITOR_DRAFT_FIELDS,
+    ),
+  );
+}
+
+export function applyTemporaryConnectionDraftFromFormState(
+  draft: ConnectionDraft,
+  formState: Record<string, unknown> = {},
+) {
+  const patch = connectionDraftPatchFromValues(
+    formState,
+    CONNECTION_DRAFT_FIELDS,
+  );
+  if (hasOwn(patch, "deviceProfile") && !patch.deviceProfile) {
+    patch.deviceProfile = "autodetect";
+  }
+  applyConnectionDraftPatch(draft, patch);
+}
+
+export function visibleConnectionProfileOptions(
+  profiles: string[] = [],
+  selected = "",
+) {
+  const profileRows = (Array.isArray(profiles) ? profiles : []).filter(Boolean);
+  const current = displayString(selected || "").trim();
+  return selectOptionsWithCurrent(profileRows, current);
+}
+
+export function connectionBasicFieldWiring(
+  draft: ConnectionDraft,
+  applyDraftChange: ConnectionDraftChange | null = null,
+  fieldCfg: {
+    defaultDeviceProfile?: boolean;
+    deviceProfileEffect?: string;
+  } = {},
+) {
+  const text = (fieldValue: unknown) => displayString(fieldValue || "");
+  const update = (patch: ConnectionDraftPatch, effect = "") =>
+    typeof applyDraftChange === "function"
+      ? applyDraftChange(draft, patch, effect)
+      : undefined;
+  const updateText =
+    (field: keyof ConnectionDraft, effect = "") =>
+    (fieldValue: unknown) =>
+      update({ [field]: text(fieldValue) }, effect);
+  return {
+    onDeviceProfileChange: (fieldValue: unknown) =>
+      update(
+        {
+          deviceProfile: fieldCfg.defaultDeviceProfile
+            ? text(fieldValue) || "autodetect"
+            : text(fieldValue),
+        },
+        fieldCfg.deviceProfileEffect || "",
+      ),
+    onConnectTimeoutSecsInput: updateText("connectTimeoutSecs"),
+    onCredentialChange: updateText("credentialId"),
+    onHostInput: updateText("host"),
+    onLinuxShellFlavorChange: updateText("linuxShellFlavor"),
+    onOutputEncodingChange: updateText("outputEncoding"),
+    onNameInput: (fieldValue: unknown) => update({ name: text(fieldValue) }),
+    onPortInput: updateText("port"),
+    onSshSecurityChange: updateText("sshSecurity"),
+  };
+}
+
+export function connectionTimeoutSecsValue(fieldValue: unknown = "") {
+  const rawValue = displayString(fieldValue).trim();
+  if (!rawValue) return null;
+  const timeoutSecs = Number(rawValue);
+  if (!Number.isSafeInteger(timeoutSecs) || timeoutSecs <= 0) {
+    throw new Error(t("connectTimeoutSecsInvalid"));
+  }
+  return timeoutSecs;
+}
+
+export function connectionMetadataFieldsPresentation() {
+  return {
+    groupsPicker: {
+      labelText: tr("inventoryFieldGroups"),
+      pickerPlaceholder: tr("connectionGroupsPickerPlaceholder"),
+    },
+    labelsPicker: {
+      labelText: tr("inventoryFieldLabels"),
+      pickerPlaceholder: tr("connectionLabelsPickerPlaceholder"),
+    },
+  };
+}
+
+function connectionPickerFieldPresentation(
+  state: ConnectionPickerState = {},
+  choices: ConnectionPickerChoices = {},
+  { labelText = "", pickerPlaceholder = "" } = {},
+) {
+  const selectedValues = Array.isArray(state.values) ? state.values : [];
+  const normalizedQuery = displayString(choices.normalizedQuery || "");
+  const placeholder = displayString(pickerPlaceholder);
+  return {
+    addCustomLabel: tr("connectionLabelsAddCustom"),
+    canAddCustom: !!choices.canAddCustom,
+    canRemoveLastOnBackspace: !normalizedQuery && selectedValues.length > 0,
+    pickerField: {
+      ariaLabelText: displayString(pickerPlaceholder, labelText),
+      placeholder,
+    },
+    lastSelectedValue: selectedValues[selectedValues.length - 1] || "",
+    noMatchText: tr("connectionPickerNoMatch"),
+    normalizedQuery,
+    open: !!state.open,
+    optionRows: choices.optionRows || [],
+    query: displayString(state.query || ""),
+    removeItemLabel: tr("connectionPickerRemoveItem"),
+    selectedRows: selectedValues.map((selectedValue) => ({
+      selectedValue,
+    })),
+    showNoMatch: choices.showNoMatch,
+    showObjectMenu: !!choices.showObjectMenu,
+  };
+}
+
+export function createConnectionPickerFieldWorkspace() {
+  const pickerFieldInputStateStore = writable({
+    keyName: "",
+    labelText: "",
+    pickerPlaceholder: "",
+  });
+  const callbackInputsStateStore = writable<{
+    active: boolean;
+    onSelectionChange: ((values: string[]) => unknown) | null;
+  }>({
+    active: true,
+    onSelectionChange: null,
+  });
+  const pickerStateSnapshotStore = writable<ConnectionPickerState>({});
+  const pickerDisplayStateStore = derived(
+    [
+      pickerFieldInputStateStore,
+      pickerStateSnapshotStore,
+      currentLanguageState,
+    ],
+    ([
+      $pickerFieldInputStateStore,
+      $pickerStateSnapshotStore,
+      _currentLanguageState,
+    ]) =>
+      connectionPickerFieldPresentation(
+        $pickerStateSnapshotStore,
+        connectionPickerChoices(
+          $pickerFieldInputStateStore.keyName,
+          $pickerStateSnapshotStore,
+        ),
+        {
+          labelText: $pickerFieldInputStateStore.labelText,
+          pickerPlaceholder: $pickerFieldInputStateStore.pickerPlaceholder,
+        },
+      ),
+    connectionPickerFieldPresentation({}, {}, {}),
+  );
+  const commitKeysStateStore = derived(
+    pickerFieldInputStateStore,
+    ($pickerFieldInputStateStore) =>
+      connectionPickerCommitKeys($pickerFieldInputStateStore.keyName),
+  );
+  function currentPickerFieldActionHandlers() {
+    const callbackInputs = getStore(callbackInputsStateStore);
+    const pickerDisplay = getStore(pickerDisplayStateStore);
+    const pickerFieldInputState = getStore(pickerFieldInputStateStore);
+    return connectionPickerFieldInputHandlers({
+      active: callbackInputs.active,
+      commitKeys: getStore(commitKeysStateStore),
+      keyName: pickerFieldInputState.keyName,
+      onSelectionChange: callbackInputs.onSelectionChange,
+      pickerDisplay,
+    });
+  }
+
+  function addPickerValueAction(pickerValue = "") {
+    return currentPickerFieldActionHandlers().addPickerValueAction(pickerValue);
+  }
+
+  function handleFocusOut(event: FocusEvent) {
+    return currentPickerFieldActionHandlers().focusOutHandler()(event);
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    return currentPickerFieldActionHandlers().keydownHandler()(event);
+  }
+
+  function handleQueryInput(queryText = "") {
+    return currentPickerFieldActionHandlers().queryInputHandler()(queryText);
+  }
+
+  function openPicker() {
+    return currentPickerFieldActionHandlers().openPickerHandler()();
+  }
+
+  function removePickerValueAction(pickerValue = "") {
+    return currentPickerFieldActionHandlers().removePickerValueAction(
+      pickerValue,
+    );
+  }
+
+  function setFieldContext({
+    active = true,
+    keyName = "",
+    labelText = "",
+    onSelectionChange = null,
+    pickerPlaceholder = "",
+    pickerState = {},
+  }: {
+    active?: boolean;
+    keyName?: string;
+    labelText?: string;
+    onSelectionChange?: ((values: string[]) => unknown) | null;
+    pickerPlaceholder?: string;
+    pickerState?: ConnectionPickerState;
+  } = {}) {
+    pickerFieldInputStateStore.set({
+      keyName,
+      labelText,
+      pickerPlaceholder,
+    });
+    pickerStateSnapshotStore.set(pickerState || {});
+    callbackInputsStateStore.set({
+      active: !!active,
+      onSelectionChange,
+    });
+  }
+
+  return {
+    addPickerValueAction,
+    commitKeysStateStore,
+    handleFocusOut,
+    handleKeydown,
+    handleQueryInput,
+    openPicker,
+    pickerDisplayStateStore,
+    removePickerValueAction,
+    setFieldContext,
+  };
+}
+
+function connectionVarsFieldPresentation({
+  connectionVarRows = [],
+  hasConnectionVarRows = false,
+  labelTextKey = "inventoryFieldVars",
+}: {
+  connectionVarRows?: ConnectionVarRow[];
+  hasConnectionVarRows?: boolean;
+  labelTextKey?: string;
+} = {}) {
+  return {
+    addButtonText: tr("addInlineBtn", "Add"),
+    booleanValueOptions: CONNECTION_VAR_BOOLEAN_OPTIONS,
+    connectionVarRows: Array.isArray(connectionVarRows)
+      ? connectionVarRows
+      : [],
+    deleteLabel: tr("delete", "Delete"),
+    emptyText: tr("connectionVarsEmpty", "No vars configured."),
+    hasConnectionVarRows: !!hasConnectionVarRows,
+    labelText: tr(labelTextKey, "Vars"),
+    namePlaceholder: tr("connectionVarKeyPlaceholder", "key"),
+    typeLabel: tr("connectionVarTypeLabel", "Type"),
+    typeOptionRows: CONNECTION_VAR_TYPE_OPTIONS.map(
+      ([typeValue, labelKey]) => ({
+        labelText: tr(labelKey, typeValue),
+        typeValue,
+      }),
+    ),
+    valuePlaceholder: tr("connectionVarValuePlaceholder", "value"),
+  };
+}
+
+export function createConnectionVarsFieldWorkspace() {
+  const varsFieldInputStateStore = writable({
+    labelTextKey: "inventoryFieldVars",
+    keyName: "",
+  });
+  const varsStateSnapshotStore = writable<ConnectionVarsState>({});
+  let lastNotifiedVarsVersion = 0;
+  const varsDisplayStateStore = derived(
+    [varsFieldInputStateStore, varsStateSnapshotStore, currentLanguageState],
+    ([
+      $varsFieldInputStateStore,
+      $varsStateSnapshotStore,
+      _currentLanguageState,
+    ]) =>
+      connectionVarsFieldPresentation({
+        connectionVarRows: connectionVarRowsForState($varsStateSnapshotStore),
+        hasConnectionVarRows: $varsStateSnapshotStore.hasConnectionVarRows,
+        labelTextKey: $varsFieldInputStateStore.labelTextKey,
+      }),
+  );
+
+  function currentActionHandlers() {
+    return connectionVarsFieldInputHandlers({
+      keyName: getStore(varsFieldInputStateStore).keyName,
+    });
+  }
+
+  function setFieldContext({
+    active = true,
+    keyName = "",
+    labelTextKey = "inventoryFieldVars",
+    onVarsChange = null,
+    varsState = {},
+  }: {
+    active?: boolean;
+    keyName?: string;
+    labelTextKey?: string;
+    onVarsChange?:
+      | ((vars: Record<string, unknown> | undefined) => unknown)
+      | null;
+    varsState?: ConnectionVarsState;
+  } = {}) {
+    varsFieldInputStateStore.set({
+      keyName,
+      labelTextKey,
+    });
+    varsStateSnapshotStore.set(varsState || {});
+    if (!active || typeof onVarsChange !== "function") return;
+    const version = varsState.version || 0;
+    if (version !== lastNotifiedVarsVersion) {
+      lastNotifiedVarsVersion = version;
+      onVarsChange(varsState.connectionVars);
+    }
+  }
+
+  return {
+    addVarRowAction() {
+      return currentActionHandlers().addVarRowHandler()();
+    },
+    connectionVarNameHandler(connectionVarRow: ConnectionVarRow = {}) {
+      return currentActionHandlers().connectionVarNameHandler(connectionVarRow);
+    },
+    connectionVarTypeHandler(connectionVarRow: ConnectionVarRow = {}) {
+      return currentActionHandlers().connectionVarTypeHandler(connectionVarRow);
+    },
+    connectionVarValueHandler(connectionVarRow: ConnectionVarRow = {}) {
+      return currentActionHandlers().connectionVarValueHandler(
+        connectionVarRow,
+      );
+    },
+    removeVarRowHandler(connectionVarRow: ConnectionVarRow = {}) {
+      return currentActionHandlers().removeVarRowHandler(connectionVarRow);
+    },
+    setFieldContext,
+    varsDisplayStateStore,
+  };
+}
+
+function connectionVarsFieldInputHandlers({
+  keyName = "",
+}: { keyName?: string } = {}) {
+  return {
+    addVarRowHandler() {
+      return callbackHandler(addConnectionVarsRow, keyName);
+    },
+    connectionVarNameHandler(connectionVarRow: ConnectionVarRow = {}) {
+      return callbackHandler(
+        setConnectionVarRowName,
+        keyName,
+        connectionVarRow.id,
+      );
+    },
+    connectionVarTypeHandler(connectionVarRow: ConnectionVarRow = {}) {
+      return callbackHandler(
+        setConnectionVarRowType,
+        keyName,
+        connectionVarRow.id,
+      );
+    },
+    connectionVarValueHandler(connectionVarRow: ConnectionVarRow = {}) {
+      return callbackHandler(
+        setConnectionVarRowValue,
+        keyName,
+        connectionVarRow.id,
+      );
+    },
+    removeVarRowHandler(connectionVarRow: ConnectionVarRow = {}) {
+      return callbackHandler(
+        removeConnectionVarsRow,
+        keyName,
+        connectionVarRow.id,
+      );
+    },
+  };
+}
+
+function notifyConnectionPickerSelectionChange({
+  active = true,
+  keyName = "",
+  onSelectionChange = null,
+}: {
+  active?: boolean;
+  keyName?: string;
+  onSelectionChange?: ((values: string[]) => unknown) | null;
+} = {}) {
+  if (!active) return;
+  callIfFunction(onSelectionChange, connectionPickerValues(keyName));
+}
+
+function connectionPickerFieldInputHandlers({
+  active = true,
+  commitKeys = [],
+  keyName = "",
+  onSelectionChange = null,
+  pickerDisplay = {
+    canRemoveLastOnBackspace: false,
+    lastSelectedValue: "",
+    normalizedQuery: "",
+  },
+}: {
+  active?: boolean;
+  commitKeys?: string[];
+  keyName?: string;
+  onSelectionChange?: ((values: string[]) => unknown) | null;
+  pickerDisplay?: ConnectionPickerDisplay;
+} = {}) {
+  function notifySelectionChange() {
+    notifyConnectionPickerSelectionChange({
+      active,
+      keyName,
+      onSelectionChange,
+    });
+  }
+
+  return {
+    addPickerValueAction(pickerValue = "") {
+      return () => {
+        if (!active) return;
+        if (addConnectionPickerSelection(keyName, pickerValue)) {
+          openConnectionPickerMenu(keyName);
+          notifySelectionChange();
+        }
+      };
+    },
+    closePickerHandler() {
+      return callbackHandler(hideConnectionPickerMenu, keyName);
+    },
+    focusOutHandler() {
+      return (event: FocusEvent) => {
+        if (!eventContainsRelatedTarget(event)) {
+          hideConnectionPickerMenu(keyName);
+        }
+      };
+    },
+    keydownHandler() {
+      return (event: KeyboardEvent) => {
+        if (!active) return;
+        if (eventKeyIs(event, "Escape")) {
+          hideConnectionPickerMenu(keyName);
+          blurEventTarget(event);
+          return;
+        }
+        if (
+          eventKeyIs(event, "Backspace") &&
+          pickerDisplay.canRemoveLastOnBackspace
+        ) {
+          preventEventDefault(event);
+          removeConnectionPickerSelection(
+            keyName,
+            pickerDisplay.lastSelectedValue,
+          );
+          notifySelectionChange();
+          return;
+        }
+        if (eventKeyIn(event, commitKeys)) {
+          preventEventDefault(event);
+          if (
+            commitConnectionPickerSelection(
+              keyName,
+              pickerDisplay.normalizedQuery,
+            )
+          ) {
+            notifySelectionChange();
+          }
+          openConnectionPickerMenu(keyName);
+        }
+      };
+    },
+    openPickerHandler() {
+      return () => {
+        if (!active) return;
+        openConnectionPickerMenu(keyName);
+      };
+    },
+    queryInputHandler() {
+      return (queryText = "") => {
+        if (!active) return;
+        setConnectionPickerQueryValue(keyName, queryText);
+        openConnectionPickerMenu(keyName);
+      };
+    },
+    removePickerValueAction(pickerValue = "") {
+      return () => {
+        if (!active) return;
+        removeConnectionPickerSelection(keyName, pickerValue);
+        notifySelectionChange();
+      };
+    },
+  };
+}
