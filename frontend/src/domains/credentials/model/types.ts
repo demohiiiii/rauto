@@ -169,11 +169,11 @@ export interface CredentialsWorkspaceOptions {
 }
 
 export interface CredentialCreateWorkspaceOptions extends CredentialsWorkspaceOptions {
-  onCreated?: (row: CredentialRow) => unknown | Promise<unknown>;
+  onCreated?: (row: CredentialRow) => void | Promise<void>;
 }
 
 export interface CredentialImportWorkspaceOptions extends CredentialsWorkspaceOptions {
-  onImported?: (report: CredentialImportReport) => unknown | Promise<unknown>;
+  onImported?: (report: CredentialImportReport) => void | Promise<void>;
   runtime?: Partial<CredentialsRuntime>;
 }
 

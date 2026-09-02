@@ -9,9 +9,11 @@ test("credential management is a standalone dashboard page", () => {
   const sidebar = read(
     "frontend/src/components/layout/DashboardSidebar.svelte",
   );
-  const page = read("frontend/src/pages/CredentialsPage.svelte");
+  const page = read(
+    "frontend/src/domains/credentials/presentation/components/CredentialsWorkspace.svelte",
+  );
   const importDialog = read(
-    "frontend/src/components/credentials/CredentialImportDialog.svelte",
+    "frontend/src/domains/credentials/presentation/components/CredentialImportDialog.svelte",
   );
   const application = read(
     "frontend/src/domains/credentials/application/createCredentialsPageWorkspace.ts",
@@ -32,7 +34,7 @@ test("credential management is a standalone dashboard page", () => {
   assert.match(sidebar, /credentials: KeyRoundIcon/);
   assert.match(page, /WorkspaceActionHeader/);
   assert.match(page, /icon=\{KeyRoundIcon\}/);
-  assert.match(page, /\$domains\/credentials\/index\.js/);
+  assert.match(page, /from "\.\.\/\.\.\/index\.js"/);
   assert.match(page, /createCredentialsPageWorkspace/);
   assert.doesNotMatch(page, /\.\.\/api\/client\.js/);
   assert.match(application, /api\.listCredentials/);
@@ -79,9 +81,11 @@ test("credential management is a standalone dashboard page", () => {
 });
 
 test("Enable password fields render only while the Enable stage is active", () => {
-  const page = read("frontend/src/pages/CredentialsPage.svelte");
+  const page = read(
+    "frontend/src/domains/credentials/presentation/components/CredentialsWorkspace.svelte",
+  );
   const createDialog = read(
-    "frontend/src/components/credentials/CredentialCreateDialog.svelte",
+    "frontend/src/domains/credentials/presentation/components/CredentialCreateDialog.svelte",
   );
   const createApplication = read(
     "frontend/src/domains/credentials/application/createCredentialCreateWorkspace.ts",

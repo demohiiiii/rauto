@@ -7,8 +7,8 @@
   import { standardExecModeTabs } from "../config/dashboardModes.js";
   import { createStandardPageWorkspace } from "$domains/standard/index.js";
   import { executionConnectionProfileState as standardExecutionConnectionProfileState } from "$domains/profiles/index.js";
-  import CommandExecutionPanel from "./standard/CommandExecutionPanel.svelte";
-  import FlowExecutionPanel from "./standard/FlowExecutionPanel.svelte";
+  import CommandExecutionPanel from "$domains/standard/presentation/components/CommandExecutionPanel.svelte";
+  import FlowExecutionPanel from "$domains/standard/presentation/components/FlowExecutionPanel.svelte";
 
   let { active } = $props();
   const standardPageWorkspace = createStandardPageWorkspace();

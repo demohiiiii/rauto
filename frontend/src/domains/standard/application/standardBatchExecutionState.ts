@@ -15,9 +15,11 @@ import {
 import type {
   StandardBatchExecField,
   StandardBatchExecForm,
+  StandardBatchExecResponse,
   StandardBatchExecutionResult,
   StandardBatchFlowField,
   StandardBatchFlowForm,
+  StandardBatchFlowResponse,
   StandardBatchTemplateOption,
 } from "../model/types.js";
 
@@ -33,15 +35,15 @@ export const EMPTY_BATCH_FLOW_RESULT = Object.freeze({
 export const batchExecFormState = writable<StandardBatchExecForm>(
   newStandardBatchExecForm(standardBatchRuntime.createRetryState()),
 );
-export const batchExecResultState = writable<StandardBatchExecutionResult>(
-  EMPTY_BATCH_EXEC_RESULT,
-);
+export const batchExecResultState = writable<
+  StandardBatchExecutionResult<StandardBatchExecResponse>
+>(EMPTY_BATCH_EXEC_RESULT);
 export const batchFlowFormState = writable<StandardBatchFlowForm>(
   newStandardBatchFlowForm(standardBatchRuntime.createRetryState()),
 );
-export const batchFlowResultState = writable<StandardBatchExecutionResult>(
-  EMPTY_BATCH_FLOW_RESULT,
-);
+export const batchFlowResultState = writable<
+  StandardBatchExecutionResult<StandardBatchFlowResponse>
+>(EMPTY_BATCH_FLOW_RESULT);
 export const batchFlowTemplateOptionsState = writable<
   StandardBatchTemplateOption[]
 >([]);

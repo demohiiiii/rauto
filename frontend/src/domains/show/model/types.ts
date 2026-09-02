@@ -121,7 +121,7 @@ export interface ShowRuntime {
   refreshExecutionModeOptions(): unknown;
   refreshPickerSelected(key: string): void;
   savedConnectionSelectState: Readable<SavedConnectionSelectSnapshot>;
-  setCustomObjectsChangedCallback(callback: () => unknown): void;
+  setCustomObjectsChangedCallback(callback: () => void | Promise<void>): void;
   setObjectPickerOptions(
     key: string,
     objects: ShowObjectDefinition[],

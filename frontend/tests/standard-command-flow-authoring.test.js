@@ -126,7 +126,9 @@ test("standard flow workspace composes one unified authoring state", () => {
 });
 
 test("standard command flow page renders one unified authoring workspace", () => {
-  const panel = read("frontend/src/pages/standard/FlowExecutionPanel.svelte");
+  const panel = read(
+    "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
+  );
   const authoringViews = read(
     "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
   );

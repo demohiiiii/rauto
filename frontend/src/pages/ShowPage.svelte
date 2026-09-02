@@ -5,10 +5,10 @@
     showConnectionTargetState,
     showExecutionConnectionProfileState,
   } from "$domains/show/index.js";
+  import BatchShowInputPanel from "$domains/show/presentation/components/BatchShowInputPanel.svelte";
+  import BatchShowResultsPanel from "$domains/show/presentation/components/BatchShowResultsPanel.svelte";
+  import SingleShowPanel from "$domains/show/presentation/components/SingleShowPanel.svelte";
   import { afterDomUpdate } from "../lib/svelte.js";
-  import BatchShowInputPanel from "./show/BatchShowInputPanel.svelte";
-  import BatchShowResultsPanel from "./show/BatchShowResultsPanel.svelte";
-  import SingleShowPanel from "./show/SingleShowPanel.svelte";
 
   let { active }: { active: boolean } = $props();
   const showQueryTabItems = [...showQueryTabs];

@@ -2,6 +2,13 @@ import type { Readable, Writable } from "svelte/store";
 
 export type UnknownRecord = Record<string, unknown>;
 
+export type ProfileStatusTone =
+  | "error"
+  | "info"
+  | "running"
+  | "success"
+  | "warning";
+
 export interface CommandExecutionConfig {
   marker: string;
   mode: string;

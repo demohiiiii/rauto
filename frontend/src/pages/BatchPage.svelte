@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card/index.js";
   import TabList from "../components/fragments/TabList.svelte";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
@@ -9,13 +9,14 @@
     batchExecModeTabs,
     defaultBatchExecMode,
     normalizeBatchExecMode,
+    type BatchExecMode,
   } from "../config/dashboardModes.js";
   import { currentLanguageState, t } from "../lib/i18n.js";
-  import BatchExecPanel from "./batch/BatchExecPanel.svelte";
-  import BatchFlowPanel from "./batch/BatchFlowPanel.svelte";
+  import BatchExecPanel from "$domains/standard/presentation/components/batch/BatchExecPanel.svelte";
+  import BatchFlowPanel from "$domains/standard/presentation/components/batch/BatchFlowPanel.svelte";
 
-  let { active } = $props();
-  let currentMode = $state(defaultBatchExecMode);
+  let { active }: { active: boolean } = $props();
+  let currentMode = $state<BatchExecMode>(defaultBatchExecMode);
   let currentLanguage = $derived($currentLanguageState);
   let pageLabels = $derived.by(() => {
     currentLanguage;
@@ -30,7 +31,7 @@
   );
   let flowActive = $derived(active && currentMode === BATCH_EXEC_MODE.flow);
 
-  function selectMode(mode) {
+  function selectMode(mode: string) {
     currentMode = normalizeBatchExecMode(mode);
   }
 </script>

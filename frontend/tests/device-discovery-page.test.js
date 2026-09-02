@@ -8,7 +8,9 @@ const read = (path) => readFileSync(path, "utf8");
 test("auto discovery is a dedicated operations page", () => {
   const modes = read("frontend/src/config/dashboardModes.ts");
   const navigation = read("frontend/src/domains/dashboard/model/navigation.ts");
-  const inventoryPage = read("frontend/src/pages/InventoryPage.svelte");
+  const inventoryPage = read(
+    "frontend/src/domains/inventory/presentation/components/InventoryWorkspace.svelte",
+  );
   const discoveryPage = read("frontend/src/pages/DeviceDiscoveryPage.svelte");
   const sidebar = read(
     "frontend/src/components/layout/DashboardSidebar.svelte",
@@ -48,7 +50,7 @@ test("auto discovery is a dedicated operations page", () => {
 
 test("auto discovery provides tag selection, cancellation, results, and import", () => {
   const panel = read(
-    "frontend/src/pages/inventory/DeviceDiscoveryPanel.svelte",
+    "frontend/src/domains/device-discovery/presentation/components/DeviceDiscoveryPanel.svelte",
   );
   const application = read(
     "frontend/src/domains/device-discovery/application/createDeviceDiscoveryWorkspace.ts",

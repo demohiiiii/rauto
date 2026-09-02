@@ -68,11 +68,11 @@ test("profile management keeps one profile mode and normalizes legacy modes", ()
 
 test("profile page renders built-in and custom resources in one catalog", () => {
   const pageSource = readFileSync(
-    "frontend/src/pages/PromptsPage.svelte",
+    "frontend/src/domains/profiles/presentation/components/ProfilesWorkspace.svelte",
     "utf8",
   );
   const editorSource = readFileSync(
-    "frontend/src/pages/prompts/CustomProfilesEditorPanel.svelte",
+    "frontend/src/domains/profiles/presentation/components/CustomProfilesEditorPanel.svelte",
     "utf8",
   );
 
@@ -103,19 +103,19 @@ test("profile page renders built-in and custom resources in one catalog", () => 
 
 test("built-in details use the same sectioned form surface as custom profiles", () => {
   const builtInDetailsSource = readFileSync(
-    "frontend/src/pages/prompts/BuiltinProfileDetailsPanel.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileDetailsPanel.svelte",
     "utf8",
   );
   const builtInOverviewSource = readFileSync(
-    "frontend/src/pages/prompts/BuiltinProfileOverviewSection.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileOverviewSection.svelte",
     "utf8",
   );
   const builtInDetectSource = readFileSync(
-    "frontend/src/pages/prompts/BuiltinProfileDetectSection.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileDetectSection.svelte",
     "utf8",
   );
   const customEditorSource = readFileSync(
-    "frontend/src/pages/prompts/CustomProfilesEditorPanel.svelte",
+    "frontend/src/domains/profiles/presentation/components/CustomProfilesEditorPanel.svelte",
     "utf8",
   );
 
@@ -141,15 +141,15 @@ test("built-in details use the same sectioned form surface as custom profiles", 
 
 test("profile hook forms provide a two-mode command flow workspace", () => {
   const hookEditorSource = readFileSync(
-    "frontend/src/pages/prompts/ProfileHookRowEditor.svelte",
+    "frontend/src/domains/profiles/presentation/components/ProfileHookRowEditor.svelte",
     "utf8",
   );
   const builtInHooksSource = readFileSync(
-    "frontend/src/pages/prompts/BuiltinProfileHooksSection.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileHooksSection.svelte",
     "utf8",
   );
   const interactionEditorSource = readFileSync(
-    "frontend/src/pages/prompts/ProfileHookInteractionEditor.svelte",
+    "frontend/src/domains/profiles/presentation/components/ProfileHookInteractionEditor.svelte",
     "utf8",
   );
 

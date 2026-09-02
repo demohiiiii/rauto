@@ -17,7 +17,7 @@
     class: rootClass,
     header,
     "header-class": headerClass,
-    hidden,
+    hidden = false,
     label = "",
     persistenceKey,
     "toggle-mode": toggleMode = "text",

@@ -21,8 +21,8 @@ function read(path) {
 
 test("show query mode tabs render in the card header", () => {
   for (const path of [
-    "frontend/src/pages/show/SingleShowPanel.svelte",
-    "frontend/src/pages/show/BatchShowInputPanel.svelte",
+    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
   ]) {
     const source = read(path);
     const headerIndex = source.indexOf("<WorkspaceActionHeader");
@@ -41,7 +41,9 @@ test("show query mode tabs render in the card header", () => {
 });
 
 test("batch show selects targets before common query objects", () => {
-  const source = read("frontend/src/pages/show/BatchShowInputPanel.svelte");
+  const source = read(
+    "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
+  );
   const contentIndex = source.indexOf("<Card.Content");
   const targetPickerIndex = source.indexOf(
     "<ConnectionPickerField",

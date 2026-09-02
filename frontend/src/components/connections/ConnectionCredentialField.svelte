@@ -8,7 +8,7 @@
   import { t } from "../../lib/i18n.js";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import { onMount } from "svelte";
-  import CredentialCreateDialog from "../credentials/CredentialCreateDialog.svelte";
+  import CredentialCreateDialog from "$domains/credentials/presentation/components/CredentialCreateDialog.svelte";
   import PlainSelectField from "../fragments/PlainSelectField.svelte";
 
   let {

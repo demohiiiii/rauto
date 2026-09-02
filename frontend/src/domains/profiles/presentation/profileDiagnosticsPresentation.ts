@@ -11,6 +11,19 @@ import type {
   ProfileDiagnoseOptionsState,
 } from "../model/profileDiagnostics.js";
 import type { UnknownRecord } from "../model/types.js";
+import type { ProfileStatusTone } from "../model/types.js";
+
+function profileStatusTone(tone: string): ProfileStatusTone {
+  if (
+    tone === "error" ||
+    tone === "running" ||
+    tone === "success" ||
+    tone === "warning"
+  ) {
+    return tone;
+  }
+  return "info";
+}
 
 const PROFILE_DIAGNOSE_LISTS = Object.freeze(
   "diagUnreachableStates|unreachable_states,diagDeadEndStates|dead_end_states,diagMissingEdgeSources|missing_edge_sources,diagMissingEdgeTargets|missing_edge_targets,diagAmbiguousPromptStates|potentially_ambiguous_prompt_states"
@@ -111,7 +124,7 @@ export function profileDiagnoseDisplay(
     ],
     resultTitle: tr("profileDiagnoseResultTitle"),
     statusMessage: statusDisplay.text,
-    statusTone: statusDisplay.tone,
+    statusTone: profileStatusTone(statusDisplay.tone),
     summaryCards: [
       {
         cardClass: summaryCardClass,

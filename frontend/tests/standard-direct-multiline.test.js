@@ -37,7 +37,7 @@ test("standard command payload defaults invalid multiline modes to split lines",
 
 test("standard command workspace retains rendered child outputs", () => {
   const panel = read(
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
   );
   const workspace = read(
     "frontend/src/domains/standard/application/createStandardCommandExecutionWorkspace.ts",
@@ -51,7 +51,7 @@ test("standard command workspace retains rendered child outputs", () => {
 
 test("standard command editor uses shared multiline command controls", () => {
   const panel = read(
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
   );
   const workspace = read(
     "frontend/src/domains/standard/model/standardCommand.ts",

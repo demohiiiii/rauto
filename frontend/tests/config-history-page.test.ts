@@ -37,7 +37,10 @@ test("configuration history is a dedicated local management page", () => {
   const sidebar = read(
     "frontend/src/components/layout/DashboardSidebar.svelte",
   );
-  const page = read("frontend/src/pages/ConfigHistoryPage.svelte");
+  const routePage = read("frontend/src/pages/ConfigHistoryPage.svelte");
+  const page = read(
+    "frontend/src/domains/config-history/presentation/components/ConfigHistoryWorkspace.svelte",
+  );
   const application = read(
     "frontend/src/domains/config-history/application/createConfigHistoryWorkspace.ts",
   );
@@ -65,7 +68,8 @@ test("configuration history is a dedicated local management page", () => {
     /tab !== "config-history" \|\| !dashboard\.managedAgentMode/,
   );
   assert.match(sidebar, /"config-history": FileClockIcon/);
-  assert.match(page, /domains\/config-history\/index\.js/);
+  assert.match(routePage, /ConfigHistoryWorkspace/);
+  assert.match(page, /createConfigHistoryWorkspace/);
   assert.match(page, /workspace\.selectDevice\(device\.name\)/);
   assert.match(page, /workspace\.selectSnapshot\(snapshot\.id\)/);
   assert.match(page, /<Dialog\.Root/);
@@ -74,7 +78,7 @@ test("configuration history is a dedicated local management page", () => {
   assert.match(page, /defaultTime="23:59:59"/);
   assert.doesNotMatch(page, /type="datetime-local"/);
   const dateTimePicker = read(
-    "frontend/src/pages/config-history/DateTimePickerField.svelte",
+    "frontend/src/domains/config-history/presentation/components/DateTimePickerField.svelte",
   );
   assert.match(dateTimePicker, /<script lang="ts">/);
   assert.match(dateTimePicker, /YYYY-MM-DD HH:mm:ss/);

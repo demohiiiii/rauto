@@ -113,7 +113,7 @@ export interface BackupApi {
 export interface BackupRuntime {
   confirmRestore(message: string): boolean;
   download(blob: Blob, filename: string): void;
-  onRestored(): Promise<unknown>;
+  onRestored(): Promise<void>;
   stopEventPropagation(event: Event | null | undefined): void;
 }
 
@@ -125,15 +125,15 @@ export interface BackupWorkspaceOptions {
 export interface BackupPageWorkspace {
   backupDisplayStateStore: Readable<BackupPageDisplay>;
   backupStateStore: Writable<BackupState>;
-  createBackup(): Promise<unknown>;
+  createBackup(): Promise<void>;
   destroy(): void;
-  downloadBackupRow(index?: number): (event: Event) => Promise<unknown>;
-  downloadSelectedBackup(): Promise<unknown>;
-  refreshBackups(): Promise<unknown>;
-  restoreBackupMerge(): Promise<unknown>;
-  restoreBackupReplace(): Promise<unknown>;
-  restoreBackupRowMerge(index?: number): (event: Event) => Promise<unknown>;
-  restoreBackupRowReplace(index?: number): (event: Event) => Promise<unknown>;
+  downloadBackupRow(index?: number): (event: Event) => Promise<void>;
+  downloadSelectedBackup(): Promise<void>;
+  refreshBackups(): Promise<void>;
+  restoreBackupMerge(): Promise<void>;
+  restoreBackupReplace(): Promise<void>;
+  restoreBackupRowMerge(index?: number): (event: Event) => Promise<void>;
+  restoreBackupRowReplace(index?: number): (event: Event) => Promise<void>;
   selectBackupRow(index?: number): () => void;
   setPageContext(context?: { active?: boolean }): Promise<void>;
   updateArchiveInput(value?: string): void;

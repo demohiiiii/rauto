@@ -5,7 +5,9 @@ import path from "node:path";
 
 test("template page reuses one catalog workspace for every content resource", async () => {
   const source = await readFile(
-    path.resolve("frontend/src/pages/TemplatesPage.svelte"),
+    path.resolve(
+      "frontend/src/domains/templates/presentation/components/TemplateManagerWorkspace.svelte",
+    ),
     "utf8",
   );
   assert.equal(
@@ -32,7 +34,9 @@ test("template page reuses one catalog workspace for every content resource", as
 
 test("config fetch command editor uses catalog-backed selectors", async () => {
   const source = await readFile(
-    path.resolve("frontend/src/pages/templates/ConfigCatalogWorkspace.svelte"),
+    path.resolve(
+      "frontend/src/domains/templates/presentation/components/ConfigCatalogWorkspace.svelte",
+    ),
     "utf8",
   );
 
@@ -59,7 +63,9 @@ test("config fetch command editor uses catalog-backed selectors", async () => {
 
 test("command flow templates reuse the shared three-view authoring surface", async () => {
   const source = await readFile(
-    path.resolve("frontend/src/pages/templates/TemplateCatalogPanel.svelte"),
+    path.resolve(
+      "frontend/src/domains/templates/presentation/components/TemplateCatalogPanel.svelte",
+    ),
     "utf8",
   );
   const sharedViews = await readFile(
@@ -85,12 +91,14 @@ test("mapping and show-object workspaces keep compact resource catalogs", async 
   const [mappingSource, showObjectSource] = await Promise.all([
     readFile(
       path.resolve(
-        "frontend/src/pages/templates/TextfsmMappingWorkspace.svelte",
+        "frontend/src/domains/templates/presentation/components/TextfsmMappingWorkspace.svelte",
       ),
       "utf8",
     ),
     readFile(
-      path.resolve("frontend/src/pages/templates/ShowObjectWorkspace.svelte"),
+      path.resolve(
+        "frontend/src/domains/templates/presentation/components/ShowObjectWorkspace.svelte",
+      ),
       "utf8",
     ),
   ]);

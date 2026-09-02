@@ -6,7 +6,7 @@ const read = (path) => readFileSync(path, "utf8");
 
 test("device groups are membership-only resources", () => {
   const panel = read(
-    "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
+    "frontend/src/domains/inventory/presentation/components/InventoryCollectionPanel.svelte",
   );
   const storeState = read("frontend/src/domains/inventory/model/inventory.ts");
   const collectionState = read(
@@ -23,9 +23,11 @@ test("device groups are membership-only resources", () => {
 });
 
 test("device management uses a searchable responsive catalog workspace", () => {
-  const page = read("frontend/src/pages/InventoryPage.svelte");
+  const page = read(
+    "frontend/src/domains/inventory/presentation/components/InventoryWorkspace.svelte",
+  );
   const panel = read(
-    "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
+    "frontend/src/domains/inventory/presentation/components/InventoryCollectionPanel.svelte",
   );
   const zh = read("frontend/src/i18n/zh.ts");
 
@@ -52,7 +54,7 @@ test("device management uses a searchable responsive catalog workspace", () => {
 
 test("inventory creation uses one in-page dialog instead of browser prompts", () => {
   const panel = read(
-    "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
+    "frontend/src/domains/inventory/presentation/components/InventoryCollectionPanel.svelte",
   );
   const collectionState = read(
     "frontend/src/domains/inventory/application/createInventoryPageWorkspace.ts",

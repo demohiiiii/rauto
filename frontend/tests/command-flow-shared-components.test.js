@@ -64,7 +64,7 @@ test("runtime fields default to inferred controls", () => {
     "frontend/src/components/command-flow/CommandFlowRuntimeFields.svelte",
   );
   const standard = read(
-    "frontend/src/pages/standard/FlowExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
   );
 
   assert.match(component, /fieldRows/);
@@ -128,7 +128,9 @@ test("command flow steps and prompts bind deterministic indexed accents", () => 
 });
 
 test("standard command flow execution composes shared surfaces", () => {
-  const panel = read("frontend/src/pages/standard/FlowExecutionPanel.svelte");
+  const panel = read(
+    "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
+  );
 
   assert.match(panel, /CommandFlowSurface/);
   assert.match(panel, /CommandFlowTemplateSource/);
@@ -143,7 +145,7 @@ test("inline transaction flows compose the same editor as standard flows", () =>
     "frontend/src/domains/transactions/presentation/components/block/TxBlockFlowEditor.svelte",
   );
   const standard = read(
-    "frontend/src/pages/standard/FlowExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
   );
   const authoringViews = read(
     "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
@@ -214,7 +216,7 @@ test("all command surfaces compose one shared command editor", () => {
     "frontend/src/components/command-flow/CommandEditor.svelte",
   );
   const standard = read(
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
   );
   const transaction = read(
     "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
@@ -234,7 +236,7 @@ test("all command surfaces compose one shared command editor", () => {
 
 test("standard and transaction commands share the template source field", () => {
   const standard = read(
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
   );
   const transaction = read(
     "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",

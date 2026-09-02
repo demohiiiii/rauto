@@ -6,6 +6,24 @@ import {
 } from "../../../config/dashboardModes.js";
 import { profileValues } from "../model/profileEditor.js";
 import { recordValue } from "../model/customProfileForm.js";
+import type { ProfileStatusTone } from "../model/types.js";
+import { builtinProfileReadonlyDisplay } from "./profileEditorPresentation.js";
+
+type BuiltinProfileReadonlyDisplay = ReturnType<
+  typeof builtinProfileReadonlyDisplay
+>;
+
+function profileStatusTone(tone: string): ProfileStatusTone {
+  if (
+    tone === "error" ||
+    tone === "running" ||
+    tone === "success" ||
+    tone === "warning"
+  ) {
+    return tone;
+  }
+  return "info";
+}
 
 export const promptModePresentation = (mode = "") => ({
   builtinActive: normalizePromptMode(mode) === PROMPT_MODE.builtin,
@@ -24,7 +42,7 @@ function profileStatusDisplay(statusValue: unknown = {}) {
   return {
     message: status.text,
     show: !!status.text && status.text !== "-",
-    tone: status.tone,
+    tone: profileStatusTone(status.tone),
   };
 }
 
@@ -53,7 +71,9 @@ const COMMAND_EXECUTION_MODE_OPTIONS = Object.freeze([
   ["shell_exit_status", "commandExecutionModeShellExitStatus"],
 ]);
 
-function builtinProfileDetailsPresentation(simpleSectionsValue: unknown) {
+function builtinProfileDetailsPresentation(
+  simpleSections: BuiltinProfileReadonlyDisplay["simpleSections"],
+) {
   return {
     commandExecutionMarkerPlaceholder: tr("commandExecutionMarkerPlaceholder"),
     commandExecutionModeOptionRows: COMMAND_EXECUTION_MODE_OPTIONS.map(
@@ -75,31 +95,28 @@ function builtinProfileDetailsPresentation(simpleSectionsValue: unknown) {
     overviewTitle: tr("profileOverviewTitle"),
     readonlyHint: tr("profileReadonlyHint"),
     rulesEmpty: tr("profileRulesEmpty"),
-    simpleSections: profileValues(simpleSectionsValue).map((sectionValue) => {
-      const section = recordValue(sectionValue);
-      return {
-        ...section,
-        titleText: tr(safeString(section.i18nKey), safeString(section.title)),
-      };
-    }),
+    simpleSections: simpleSections.map((section) => ({
+      ...section,
+      titleText: tr(safeString(section.i18nKey), safeString(section.title)),
+    })),
   };
 }
 
 export function builtinProfilesPanelDisplay({
   detailState = {},
   overviewState = {},
-  readonlyDisplay = {},
+  readonlyDisplay = builtinProfileReadonlyDisplay(),
   statusState = {},
 }: {
   detailState?: unknown;
   overviewState?: unknown;
-  readonlyDisplay?: unknown;
+  readonlyDisplay?: BuiltinProfileReadonlyDisplay;
   statusState?: unknown;
 } = {}) {
   const detail = recordValue(detailState);
   const overview = recordValue(overviewState);
-  const readonly = recordValue(readonlyDisplay);
-  const simpleSections = profileValues(readonly.simpleSections);
+  const readonly = readonlyDisplay;
+  const simpleSections = readonly.simpleSections;
   return {
     copyButtonLabel: tr("builtinCopyBtn"),
     selectPlaceholder: tr("builtinProfileSelectPlaceholder"),
@@ -110,16 +127,16 @@ export function builtinProfilesPanelDisplay({
       detectProfile: readonly.detectProfile,
       detailDisplay: builtinProfileDetailsPresentation(simpleSections),
       hasHookRows: !!readonly.hasHookRows,
-      hookRows: profileValues(readonly.hookRows),
-      interactionRows: profileValues(readonly.interactionRows),
+      hookRows: readonly.hookRows,
+      interactionRows: readonly.interactionRows,
       name: safeString(detail.name || ""),
       notes: safeString(detail.notes || ""),
-      promptRows: profileValues(readonly.promptRows),
+      promptRows: readonly.promptRows,
       simpleSections,
       source: safeString(detail.source || ""),
       summary: safeString(detail.summary || ""),
-      sysPromptRows: profileValues(readonly.sysPromptRows),
-      transitionRows: profileValues(readonly.transitionRows),
+      sysPromptRows: readonly.sysPromptRows,
+      transitionRows: readonly.transitionRows,
     },
     overview: {
       overviewText: safeString(overview.overviewText || "-"),

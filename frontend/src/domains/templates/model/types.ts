@@ -157,26 +157,26 @@ export interface ContentTemplateWorkspaceOptions {
 
 export interface ResourceWorkspaceOptions {
   api?: Partial<TemplateApi>;
-  onChanged?: () => unknown | Promise<unknown>;
+  onChanged?: () => void | Promise<void>;
 }
 
 export interface ContentTemplateWorkspace {
-  activate(kind: unknown): Promise<boolean>;
+  activate(kind: TemplateManagerKind): Promise<boolean>;
   countsStore: Writable<Record<string, number>>;
-  createDraft(name: unknown): Promise<WorkspaceResult>;
+  createDraft(name: string): Promise<WorkspaceResult>;
   deleteSelected(): Promise<WorkspaceResult>;
   filteredItemsStore: Readable<TemplateResourceMeta[]>;
   formatContent(): WorkspaceResult;
   load(
-    kind?: unknown,
+    kind?: TemplateManagerKind,
     options?: { force?: boolean; selectedKey?: string },
   ): Promise<boolean>;
   refresh(): Promise<boolean>;
   save(): Promise<WorkspaceResult>;
-  saveAs(name: unknown): Promise<WorkspaceResult>;
-  selectResource(key: unknown): Promise<boolean>;
-  setContent(content: unknown): void;
-  setSearch(search: unknown): void;
+  saveAs(name: string): Promise<WorkspaceResult>;
+  selectResource(key: string): Promise<boolean>;
+  setContent(content: string): void;
+  setSearch(search: string): void;
   stateStore: Writable<TemplateContentSession>;
 }
 
@@ -187,8 +187,8 @@ export interface TextfsmMappingWorkspace {
   patchForm(patch: Partial<TextfsmMapping>): void;
   remove(): Promise<WorkspaceResult>;
   save(): Promise<WorkspaceResult>;
-  select(mapping: unknown): void;
-  setSearch(search: unknown): void;
+  select(mapping: TextfsmMapping): void;
+  setSearch(search: string): void;
   stateStore: Writable<TextfsmMappingState>;
 }
 
@@ -199,8 +199,8 @@ export interface ShowObjectWorkspace {
   patchForm(patch: Partial<ShowObjectForm>): Promise<void>;
   remove(): Promise<WorkspaceResult>;
   save(): Promise<WorkspaceResult>;
-  select(object: unknown): Promise<void>;
-  setSearch(search: unknown): void;
+  select(object: ShowObjectForm): Promise<void>;
+  setSearch(search: string): void;
   stateStore: Writable<ShowObjectState>;
 }
 

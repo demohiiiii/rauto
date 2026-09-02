@@ -7,7 +7,6 @@ const MODULE_CHUNKS = new Map([
   ["auth.js", "app-core"],
   ["authApi.js", "app-core"],
   ["authRuntime.js", "app-core"],
-  ["backup.js", "page-backuppage"],
   ["connectionFieldControls.js", "feature-connections"],
   ["connectionFieldState.js", "feature-connections"],
   ["connectionFieldStoreState.js", "feature-connections"],
@@ -74,16 +73,6 @@ const MODULE_CHUNKS = new Map([
   ["webAuthPresentation.js", "app-core"],
 ]);
 
-const PAGE_SUPPORT_FOLDER_CHUNKS = new Map([
-  ["inventory", "page-inventorypage"],
-  ["prompts", "page-promptspage"],
-  ["replay", "page-replaypage"],
-  ["show", "page-showpage"],
-  ["standard", "page-standardpage"],
-  ["tasks", "page-taskspage"],
-  ["templates", "page-templatespage"],
-]);
-
 function chunkNameFromPath(id, marker, prefix) {
   const [, tail = "index"] = id.split(marker);
   const name = tail
@@ -131,20 +120,6 @@ function domainComponentChunkName(id, domain, prefix) {
 }
 
 function pageChunkName(id) {
-  const pageFile = sourceFileName(id, "pages/");
-  const folder = sourceFolderName(id, "pages/");
-  if (
-    pageFile ===
-    `${folder.charAt(0).toUpperCase()}${folder.slice(1)}Page.svelte`
-  ) {
-    return PAGE_SUPPORT_FOLDER_CHUNKS.get(folder);
-  }
-  if (
-    PAGE_SUPPORT_FOLDER_CHUNKS.has(folder) &&
-    pageFile === `${folder}.svelte`
-  ) {
-    return PAGE_SUPPORT_FOLDER_CHUNKS.get(folder);
-  }
   return chunkNameFromSourcePath(id, "pages/", "page");
 }
 
@@ -166,12 +141,66 @@ function dashboardChunk(id) {
     return "page-schedulespage";
   }
   if (matchesSourcePath(id, "domains/auth/")) return "app-core";
+  if (matchesSourcePath(id, "domains/backup/")) return "page-backuppage";
+  if (matchesSourcePath(id, "domains/blacklist/")) {
+    return "page-blacklistpage";
+  }
   if (matchesSourcePath(id, "domains/command/")) return "feature-command";
   if (matchesSourcePath(id, "domains/connections/")) {
     return "dashboard-connections";
   }
+  if (matchesSourcePath(id, "domains/config-fetch/")) {
+    return "page-configfetchpage";
+  }
+  if (
+    matchesSourcePath(
+      id,
+      "domains/credentials/presentation/components/CredentialsWorkspace.svelte",
+    )
+  ) {
+    return "page-credentialspage";
+  }
+  if (
+    matchesSourcePath(id, "domains/config-history/presentation/components/")
+  ) {
+    const file = sourceFileName(
+      id,
+      "domains/config-history/presentation/components/",
+    );
+    if (file === "ConfigHistoryWorkspace.svelte") {
+      return "page-confighistorypage";
+    }
+    return chunkNameFromSourcePath(
+      id,
+      "domains/config-history/presentation/components/",
+      "page-config-history",
+    );
+  }
+  if (matchesSourcePath(id, "domains/config-history/")) {
+    return "page-confighistorypage";
+  }
   if (matchesSourcePath(id, "domains/execution/")) return "feature-results";
   if (matchesSourcePath(id, "domains/overlays/")) return "dashboard-overlays";
+  if (matchesSourcePath(id, "domains/inventory/presentation/components/")) {
+    const file = sourceFileName(
+      id,
+      "domains/inventory/presentation/components/",
+    );
+    if (file === "InventoryWorkspace.svelte") {
+      return "page-inventorypage";
+    }
+    return chunkNameFromSourcePath(
+      id,
+      "domains/inventory/presentation/components/",
+      "page-inventory",
+    );
+  }
+  if (matchesSourcePath(id, "domains/inventory/")) {
+    return "page-inventorypage";
+  }
+  if (matchesSourcePath(id, "domains/device-discovery/")) {
+    return "page-devicediscoverypage";
+  }
   if (matchesSourcePath(id, "domains/orchestration/presentation/components/")) {
     return domainComponentChunkName(
       id,
@@ -182,10 +211,64 @@ function dashboardChunk(id) {
   if (matchesSourcePath(id, "domains/orchestration/")) {
     return "feature-orchestrated";
   }
+  if (matchesSourcePath(id, "domains/profiles/presentation/components/")) {
+    const file = sourceFileName(
+      id,
+      "domains/profiles/presentation/components/",
+    );
+    if (file === "ProfilesWorkspace.svelte") {
+      return "page-promptspage";
+    }
+    return chunkNameFromSourcePath(
+      id,
+      "domains/profiles/presentation/components/",
+      "page-prompts",
+    );
+  }
   if (matchesSourcePath(id, "domains/profiles/")) return "feature-prompts";
+  if (matchesSourcePath(id, "domains/replay/")) return "page-replaypage";
   if (matchesSourcePath(id, "domains/show/")) return "page-showpage";
+  if (
+    matchesSourcePath(id, "domains/standard/presentation/components/batch/")
+  ) {
+    return chunkNameFromSourcePath(
+      id,
+      "domains/standard/presentation/components/batch/",
+      "page-batch",
+    );
+  }
+  if (matchesSourcePath(id, "domains/standard/presentation/components/")) {
+    return chunkNameFromSourcePath(
+      id,
+      "domains/standard/presentation/components/",
+      "page-standard",
+    );
+  }
   if (matchesSourcePath(id, "domains/standard/")) return "feature-standard";
+  if (matchesSourcePath(id, "domains/tasks/presentation/components/")) {
+    return chunkNameFromSourcePath(
+      id,
+      "domains/tasks/presentation/components/",
+      "page-tasks",
+    );
+  }
+  if (matchesSourcePath(id, "domains/tasks/")) return "page-taskspage";
+  if (matchesSourcePath(id, "domains/templates/presentation/components/")) {
+    const file = sourceFileName(
+      id,
+      "domains/templates/presentation/components/",
+    );
+    if (file === "TemplateManagerWorkspace.svelte") {
+      return "page-templatespage";
+    }
+    return chunkNameFromSourcePath(
+      id,
+      "domains/templates/presentation/components/",
+      "page-templates",
+    );
+  }
   if (matchesSourcePath(id, "domains/templates/")) return "feature-templates";
+  if (matchesSourcePath(id, "domains/transfer/")) return "page-transferpage";
   if (matchesSourcePath(id, "domains/transactions/presentation/components/")) {
     return domainComponentChunkName(id, "transactions", "feature-transactions");
   }

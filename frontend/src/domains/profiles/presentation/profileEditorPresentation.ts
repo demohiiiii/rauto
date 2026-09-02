@@ -12,6 +12,7 @@ import {
   normalizeHooks,
   profileValues,
 } from "../model/profileEditor.js";
+import type { NormalizedHookInteraction } from "../model/profileEditor.js";
 import type { UnknownRecord } from "../model/types.js";
 
 export function builtinProfileDetectDetailsPresentation() {
@@ -528,7 +529,38 @@ export function builtinProfileReadonlyDisplay(profile: unknown = {}) {
 
 function readonlyHookRows(hooks: unknown) {
   const normalized = normalizeHooks(hooks);
-  const rows: UnknownRecord[] = [];
+  const rows: Array<{
+    command: {
+      command: string;
+      interaction: NormalizedHookInteraction;
+      interactionDisplay: ReturnType<
+        typeof profileHookInteractionEditorDisplay
+      >;
+      mode: string;
+      timeout: string;
+    };
+    failurePolicy: string;
+    flowMaxSteps: string;
+    flowSteps: Array<{
+      command: string;
+      interaction: NormalizedHookInteraction;
+      interactionDisplay: ReturnType<
+        typeof profileHookInteractionEditorDisplay
+      >;
+      mode: string;
+      stepIndex: number;
+      stepNumberText: string;
+      timeout: string;
+    }>;
+    flowStopOnError: boolean;
+    kind: string;
+    name: string;
+    recordOutput: boolean;
+    showFlowSteps: boolean;
+    state: string;
+    stateText: string;
+    trigger: string;
+  }> = [];
   const pushHookRow = (
     trigger: string,
     state: string,
@@ -556,14 +588,17 @@ function readonlyHookRows(hooks: unknown) {
           : safeString(flow.max_steps),
       flowSteps: flow.steps.map((hookStep, hookStepIndex) => {
         const step = recordValue(hookStep);
+        const commandStep = normalizeHookCommand(step);
         return {
-          ...normalizeHookCommand(step),
+          command: safeString(commandStep.command ?? ""),
           interaction: normalizeHookInteraction(step.interaction),
           interactionDisplay: profileHookInteractionEditorDisplay(
             step.interaction,
           ),
+          mode: safeString(commandStep.mode ?? ""),
           stepIndex: hookStepIndex,
           stepNumberText: `#${hookStepIndex + 1}`,
+          timeout: safeString(commandStep.timeout ?? ""),
         };
       }),
       flowStopOnError: flow.stop_on_error,

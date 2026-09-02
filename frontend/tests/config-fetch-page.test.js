@@ -316,7 +316,9 @@ test("configuration fetch downloads the selected raw or normalized content", () 
 });
 
 test("configuration fetch page renders target controls and device results", () => {
-  const page = read("frontend/src/pages/ConfigFetchPage.svelte");
+  const page = read(
+    "frontend/src/domains/config-fetch/presentation/components/ConfigFetchWorkspace.svelte",
+  );
   const connectionState = read(
     "frontend/src/domains/connections/application/connectionFieldStoreState.ts",
   );

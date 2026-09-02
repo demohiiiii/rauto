@@ -13,7 +13,7 @@ test("connection forms use a credential selector instead of secret inputs", () =
     "frontend/src/components/connections/ConnectionCredentialField.svelte",
   );
   const createDialog = read(
-    "frontend/src/components/credentials/CredentialCreateDialog.svelte",
+    "frontend/src/domains/credentials/presentation/components/CredentialCreateDialog.svelte",
   );
   const optionsApplication = read(
     "frontend/src/domains/credentials/application/createCredentialOptionsWorkspace.ts",

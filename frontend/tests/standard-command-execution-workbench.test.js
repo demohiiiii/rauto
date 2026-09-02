@@ -274,7 +274,7 @@ test("standard execution exposes command and command-flow tabs only", () => {
 
 test("command panel composes the shared command controls", () => {
   const panel = read(
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
   );
 
   assert.match(panel, /CommandEditor/);
@@ -285,7 +285,7 @@ test("command panel composes the shared command controls", () => {
 
 test("standard execution result rows use the shared execution result surface", () => {
   const panel = read(
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
   );
 
   assert.match(panel, /ExecutionResultsPanel/);
@@ -299,7 +299,7 @@ test("standard execution result rows use the shared execution result surface", (
 
 test("standard command authoring uses the regular content layout without step numbering", () => {
   const panel = read(
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
   );
 
   assert.match(panel, /class="grid min-w-0 gap-5 p-4 sm:p-5"/);

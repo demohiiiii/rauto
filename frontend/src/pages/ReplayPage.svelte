@@ -7,8 +7,8 @@
   import { displayModeTabs } from "../config/dashboardModes.js";
   import { currentLanguageState, t } from "../lib/i18n.js";
   import { createReplayPageWorkspace } from "$domains/replay/index.js";
-  import ReplayControlsPanel from "./replay/ReplayControlsPanel.svelte";
-  import ReplayResultsPanel from "./replay/ReplayResultsPanel.svelte";
+  import ReplayControlsPanel from "$domains/replay/presentation/components/ReplayControlsPanel.svelte";
+  import ReplayResultsPanel from "$domains/replay/presentation/components/ReplayResultsPanel.svelte";
 
   let { active }: { active: boolean } = $props();
   const replayPageWorkspace = createReplayPageWorkspace({

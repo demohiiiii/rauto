@@ -132,7 +132,7 @@ test("parsed output presentation distinguishes tables, JSON, and parse errors", 
 
 test("batch command and show result views use the shared failure decision", () => {
   const batchExec = readFileSync(
-    "frontend/src/pages/batch/BatchExecPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/batch/BatchExecPanel.svelte",
     "utf8",
   );
   const showWorkspace = readFileSync(
@@ -140,11 +140,11 @@ test("batch command and show result views use the shared failure decision", () =
     "utf8",
   );
   const singleShow = readFileSync(
-    "frontend/src/pages/show/SingleShowPanel.svelte",
+    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
     "utf8",
   );
   const batchShow = readFileSync(
-    "frontend/src/pages/show/BatchShowResultsPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowResultsPanel.svelte",
     "utf8",
   );
 

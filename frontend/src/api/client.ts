@@ -78,8 +78,11 @@ import type {
 } from "$domains/show/model/types.js";
 import type {
   StandardBatchExecPayload,
+  StandardBatchExecResponse,
   StandardBatchFlowPayload,
+  StandardBatchFlowResponse,
   StandardCommandExecutionPayload,
+  StandardCommandExecutionResponse,
   StandardCommandFlowExecutionPayload,
   StandardFlowTemplateDetail,
 } from "$domains/standard/model/types.js";
@@ -570,7 +573,7 @@ export function executeCommand(payload: JsonRecord): Promise<JsonRecord> {
 
 export function executeTemplate(
   payload: StandardCommandExecutionPayload,
-): Promise<JsonRecord> {
+): Promise<StandardCommandExecutionResponse> {
   return apiExecutionRequest("POST", "/api/template/execute", payload);
 }
 
@@ -798,13 +801,13 @@ export function executeShowBatch(payload: JsonRecord): Promise<JsonRecord> {
 
 export function executeExecBatch(
   payload: StandardBatchExecPayload,
-): Promise<JsonRecord> {
+): Promise<StandardBatchExecResponse> {
   return apiExecutionRequest("POST", "/api/exec/batch-execute", payload);
 }
 
 export function executeFlowBatch(
   payload: StandardBatchFlowPayload,
-): Promise<JsonRecord> {
+): Promise<StandardBatchFlowResponse> {
   return apiExecutionRequest("POST", "/api/flow/batch-execute", payload);
 }
 

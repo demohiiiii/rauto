@@ -1,7 +1,7 @@
 import type { Readable, Writable } from "svelte/store";
 
 export type TaskStatusTone = "error" | "running";
-export type TaskValueHandler = (value: string) => unknown;
+export type TaskValueHandler = (value: string) => void;
 
 export interface TaskStatusMessage {
   message: string;

@@ -71,8 +71,8 @@ export interface InventoryWorkspaceOptions {
   runtime?: Partial<InventoryRuntime>;
 }
 
-export type InventoryValueHandler = (value: string) => unknown;
-export type InventoryHostHandler = (name: string, checked: boolean) => unknown;
+export type InventoryValueHandler = (value: string) => void;
+export type InventoryHostHandler = (name: string, checked: boolean) => void;
 
 export interface InventoryCollectionActionOptions {
   onDescriptionInput?: InventoryValueHandler | null;

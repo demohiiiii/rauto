@@ -1,7 +1,7 @@
 import { setConnectionDeviceProfiles } from "$domains/connections/index.js";
 
 let cachedDeviceProfiles: string[] = [];
-let customShowObjectsChangedHandler: (() => unknown) | null = null;
+let customShowObjectsChangedHandler: (() => void | Promise<void>) | null = null;
 
 function normalizeProfileNames(profiles: unknown): string[] {
   return (Array.isArray(profiles) ? profiles : [])
@@ -10,13 +10,12 @@ function normalizeProfileNames(profiles: unknown): string[] {
 }
 
 export function setCustomShowObjectsChangedCallback(
-  onChanged: unknown = null,
+  onChanged: (() => void | Promise<void>) | null = null,
 ): void {
-  customShowObjectsChangedHandler =
-    typeof onChanged === "function" ? (onChanged as () => unknown) : null;
+  customShowObjectsChangedHandler = onChanged;
 }
 
-export function notifyCustomShowObjectsChanged(): unknown {
+export function notifyCustomShowObjectsChanged(): void | Promise<void> {
   return customShowObjectsChangedHandler?.();
 }
 

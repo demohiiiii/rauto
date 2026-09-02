@@ -50,26 +50,25 @@ export function createBackupPageWorkspace(
   }
 
   async function runMutation(
-    mutation: (state: BackupState) => unknown | Promise<unknown>,
-  ): Promise<unknown> {
+    mutation: (state: BackupState) => void | Promise<void>,
+  ): Promise<void> {
     const state = get(backupStateStore);
     const result = mutation(state);
     backupStateStore.set(state);
-    const resolved = await result;
+    await result;
     backupStateStore.set(state);
-    return resolved;
   }
 
   async function runLoading(
     loadingKey: string,
-    action: (state: BackupState) => unknown | Promise<unknown>,
-  ): Promise<unknown> {
+    action: (state: BackupState) => void | Promise<void>,
+  ): Promise<void> {
     if (get(backupStateStore).loadingKeys.includes(loadingKey)) return;
     updateState((state) => {
       state.loadingKeys = [...state.loadingKeys, loadingKey];
     });
     try {
-      return await runMutation(action);
+      await runMutation(action);
     } finally {
       updateState((state) => {
         state.loadingKeys = state.loadingKeys.filter(
@@ -161,7 +160,7 @@ export function createBackupPageWorkspace(
     index: number,
     operation: "download" | BackupRestoreOperation,
     event: Event,
-  ): Promise<unknown> {
+  ): Promise<void> {
     runtime.stopEventPropagation(event);
     const request = backupArchiveRowOperationRequest(
       get(backupStateStore),

@@ -16,9 +16,11 @@ test("schedules are a local-web operations page", () => {
   const shell = read(
     "frontend/src/domains/dashboard/application/createDashboardShellWorkspaces.ts",
   );
-  const page = read("frontend/src/pages/SchedulesPage.svelte");
+  const page = read(
+    "frontend/src/domains/schedules/presentation/components/SchedulesWorkspace.svelte",
+  );
   const editor = read(
-    "frontend/src/components/schedules/ScheduleEditorDialog.svelte",
+    "frontend/src/domains/schedules/presentation/components/ScheduleEditorDialog.svelte",
   );
   const application = read(
     "frontend/src/domains/schedules/application/createSchedulesPageWorkspace.ts",

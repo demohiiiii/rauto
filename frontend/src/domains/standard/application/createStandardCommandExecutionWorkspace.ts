@@ -74,7 +74,9 @@ export function createStandardCommandExecutionWorkspace({
     stateStore.update((state) => ({
       ...state,
       mode: safeString(modeState.selected),
-      modeOptions: Array.isArray(modeState.modes) ? modeState.modes : [],
+      modeOptions: Array.isArray(modeState.modes)
+        ? modeState.modes.map(safeString).filter(Boolean)
+        : [],
     }));
   });
   const unsubscribePlatform = platformPicker.state.subscribe(
@@ -85,7 +87,7 @@ export function createStandardCommandExecutionWorkspace({
           ...state.textfsm,
           platform: safeString(platformState.selected),
           platformOptions: Array.isArray(platformState.profiles)
-            ? platformState.profiles
+            ? platformState.profiles.map(safeString).filter(Boolean)
             : [],
         },
       }));

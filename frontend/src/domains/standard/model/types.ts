@@ -6,6 +6,13 @@ import type {
 
 export type StandardCommandMultilineMode = "split_lines" | "whole";
 export type StandardCommandStatusTone = "error" | "info" | "success";
+export type StandardJsonValue =
+  | boolean
+  | number
+  | string
+  | null
+  | StandardJsonValue[]
+  | { [key: string]: StandardJsonValue };
 
 export interface StandardSessionRetryState {
   [key: string]: unknown;
@@ -19,7 +26,7 @@ export interface StandardCommandVariableField {
 export interface StandardCommandTextfsmState {
   enabled: boolean;
   platform: string;
-  platformOptions: unknown[];
+  platformOptions: string[];
   strictErrors: boolean;
   template: string;
 }
@@ -37,20 +44,53 @@ export type StandardCommandPreview =
   | { kind: "error"; message: string; text: string }
   | { kind: "result"; message: string; text: string };
 
-export type StandardCommandExecutionResult =
+export type StandardCommandExecutionResult<TPayload = Record<string, unknown>> =
   | { kind: "empty" }
   | { kind: "running" }
   | { kind: "error"; message: string }
-  | { kind: "result"; resultPayload: Record<string, unknown> };
+  | { kind: "result"; resultPayload: TPayload };
+
+export interface StandardCommandResult {
+  all: string | null;
+  command: string;
+  error: string | null;
+  exit_code: number | null;
+  output: string | null;
+  parse_error: string | null;
+  parsed_output: StandardJsonValue | null;
+  success: boolean;
+}
+
+export interface StandardCommandExecutionResponse {
+  executed: StandardCommandResult[];
+  recording_jsonl: string | null;
+  rendered_commands: string;
+  result_summary: StandardTaskResultSummary;
+}
+
+export interface StandardTaskResultSummary {
+  counts?: {
+    failed: number;
+    skipped?: number;
+    succeeded: number;
+    total: number;
+  };
+  details?: StandardJsonValue;
+  operation: string;
+  outcome: string;
+  recording_available?: boolean;
+  success: boolean;
+  summary: string;
+}
 
 export interface StandardCommandWorkspaceState {
   baselineContent: string;
   content: string;
   dirty: boolean;
-  executionResult: StandardCommandExecutionResult;
+  executionResult: StandardCommandExecutionResult<StandardCommandExecutionResponse>;
   loadingActions: string[];
   mode: string;
-  modeOptions: unknown[];
+  modeOptions: string[];
   multilineMode: StandardCommandMultilineMode;
   preview: StandardCommandPreview;
   retry: StandardSessionRetryState;
@@ -88,7 +128,7 @@ export interface StandardCommandExecutionPayload extends Record<
 export interface StandardCommandApi {
   executeTemplate(
     payload: StandardCommandExecutionPayload,
-  ): Promise<Record<string, unknown>>;
+  ): Promise<StandardCommandExecutionResponse>;
   getTemplate(name: string): Promise<Record<string, unknown>>;
   inspectCommandTemplate(content: string): Promise<Record<string, unknown>>;
   listTemplates(): Promise<unknown>;
@@ -327,11 +367,47 @@ export interface StandardBatchTemplateOption {
   valueText: string;
 }
 
-export type StandardBatchExecutionResult =
+export type StandardBatchExecutionResult<TPayload> =
   | { kind: "empty" }
   | { kind: "running" }
   | { kind: "error"; message: string }
-  | { kind: "result"; resultPayload: Record<string, unknown> };
+  | { kind: "result"; resultPayload: TPayload };
+
+export interface StandardBatchExecTargetResponse {
+  command: string;
+  error: string | null;
+  exit_code: number | null;
+  host: string;
+  mode: string;
+  output: string | null;
+  parse_error: string | null;
+  parsed_output: StandardJsonValue | null;
+  profile: string;
+  target: string;
+}
+
+export interface StandardBatchExecResponse {
+  command: string;
+  result_summary: StandardTaskResultSummary;
+  results: StandardBatchExecTargetResponse[];
+  targets: string[];
+}
+
+export interface StandardBatchFlowTargetResponse {
+  error: string | null;
+  host: string;
+  outputs: StandardCommandResult[];
+  profile: string;
+  success: boolean | null;
+  target: string;
+}
+
+export interface StandardBatchFlowResponse {
+  result_summary: StandardTaskResultSummary;
+  results: StandardBatchFlowTargetResponse[];
+  targets: string[];
+  template_name: string;
+}
 
 export interface StandardBatchExecPayload extends Record<string, unknown> {
   command: string;
@@ -350,10 +426,10 @@ export interface StandardBatchFlowPayload extends Record<string, unknown> {
 export interface StandardBatchApi {
   executeCommand(
     payload: StandardBatchExecPayload,
-  ): Promise<Record<string, unknown>>;
+  ): Promise<StandardBatchExecResponse>;
   executeFlow(
     payload: StandardBatchFlowPayload,
-  ): Promise<Record<string, unknown>>;
+  ): Promise<StandardBatchFlowResponse>;
   listTemplates(basePath: string): Promise<unknown>;
 }
 

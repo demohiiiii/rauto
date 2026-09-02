@@ -201,7 +201,7 @@ test("form sections use semantic local layout instead of Daisy field classes", (
     "frontend/src/components/fragments/PresenceToggle.svelte",
     "frontend/src/components/fragments/StringListEditor.svelte",
     "frontend/src/components/fragments/TextAreaField.svelte",
-    "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
+    "frontend/src/domains/inventory/presentation/components/InventoryCollectionPanel.svelte",
     "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobActionEditor.svelte",
     "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobTargetsEditor.svelte",
     "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationTxWorkflowSourceEditor.svelte",
@@ -222,14 +222,14 @@ test("form sections use semantic local layout instead of Daisy field classes", (
 
 test("prompt editors use local field surfaces instead of field-card globals", () => {
   const panelPaths = [
-    "frontend/src/pages/prompts/BuiltinProfileDetectSection.svelte",
-    "frontend/src/pages/prompts/BuiltinProfileHooksSection.svelte",
-    "frontend/src/pages/prompts/BuiltinProfileSimpleSections.svelte",
-    "frontend/src/pages/prompts/BuiltinProfileStateListsSection.svelte",
-    "frontend/src/pages/prompts/CustomProfileDetectPanel.svelte",
-    "frontend/src/pages/prompts/ProfileDetectProbeCard.svelte",
-    "frontend/src/pages/prompts/ProfileHookRowEditor.svelte",
-    "frontend/src/pages/prompts/ProfileListRowEditor.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileDetectSection.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileHooksSection.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileSimpleSections.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileStateListsSection.svelte",
+    "frontend/src/domains/profiles/presentation/components/CustomProfileDetectPanel.svelte",
+    "frontend/src/domains/profiles/presentation/components/ProfileDetectProbeCard.svelte",
+    "frontend/src/domains/profiles/presentation/components/ProfileHookRowEditor.svelte",
+    "frontend/src/domains/profiles/presentation/components/ProfileListRowEditor.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -269,7 +269,7 @@ test("connection form layout uses component-local shadcn token classes", () => {
     "frontend/src/components/connections/ConnectionVarsField.svelte",
     "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
     "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
-    "frontend/src/pages/show/BatchShowInputPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
   ];
 
   assert.doesNotMatch(
@@ -898,13 +898,13 @@ test("output surfaces use OutputBlock instead of global output css", () => {
     "frontend/src/domains/transactions/presentation/components/shared/TxOperationStepCard.svelte",
     "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowBlockResultPanel.svelte",
     "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowRunPanel.svelte",
-    "frontend/src/pages/replay/ReplayResultsPanel.svelte",
-    "frontend/src/pages/show/BatchShowResultsPanel.svelte",
-    "frontend/src/pages/show/SingleShowPanel.svelte",
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
-    "frontend/src/pages/standard/FlowExecutionPanel.svelte",
-    "frontend/src/pages/tasks/TaskDetailOverviewPanel.svelte",
-    "frontend/src/pages/tasks/TaskDetailPanel.svelte",
+    "frontend/src/domains/replay/presentation/components/ReplayResultsPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowResultsPanel.svelte",
+    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskDetailOverviewPanel.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskDetailPanel.svelte",
   ];
 
   assert.doesNotMatch(appCss, /\.output\b/);
@@ -935,10 +935,10 @@ test("show output terminal titles prefer device names from display state", () =>
     "frontend/src/domains/show/application/createShowWorkspaces.ts",
   );
   const singleShowPanelSource = read(
-    "frontend/src/pages/show/SingleShowPanel.svelte",
+    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
   );
   const batchShowResultsSource = read(
-    "frontend/src/pages/show/BatchShowResultsPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowResultsPanel.svelte",
   );
 
   assert.match(showWorkspaceSource, /outputTitle: deviceName \|\|/);
@@ -953,7 +953,9 @@ test("show output terminal titles prefer device names from display state", () =>
 });
 
 test("batch show results flatten device objects into the shared result navigator", () => {
-  const source = read("frontend/src/pages/show/BatchShowResultsPanel.svelte");
+  const source = read(
+    "frontend/src/domains/show/presentation/components/BatchShowResultsPanel.svelte",
+  );
   const workspaceSource = read(
     "frontend/src/domains/show/application/createShowWorkspaces.ts",
   );
@@ -1001,11 +1003,11 @@ test("dashboard preference menus compose shadcn DropdownMenu", () => {
 
 test("simple page panels compose shadcn Card instead of group-card shells", () => {
   const pagePaths = [
-    "frontend/src/pages/BackupPage.svelte",
-    "frontend/src/pages/BlacklistPage.svelte",
+    "frontend/src/domains/backup/presentation/components/BackupWorkspace.svelte",
+    "frontend/src/domains/blacklist/presentation/components/BlacklistWorkspace.svelte",
     "frontend/src/pages/ReplayPage.svelte",
-    "frontend/src/pages/TasksPage.svelte",
-    "frontend/src/pages/TransferPage.svelte",
+    "frontend/src/domains/transfer/presentation/components/TransferWorkspace.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskRunListPanel.svelte",
   ];
 
   for (const path of pagePaths) {
@@ -1020,7 +1022,9 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
 });
 
 test("backup archives use a full-width aligned resource list", () => {
-  const pageSource = read("frontend/src/pages/BackupPage.svelte");
+  const pageSource = read(
+    "frontend/src/domains/backup/presentation/components/BackupWorkspace.svelte",
+  );
   const stateSource = read(
     "frontend/src/domains/backup/presentation/backupPresentation.ts",
   );
@@ -1040,9 +1044,9 @@ test("backup archives use a full-width aligned resource list", () => {
 
 test("template panels compose shadcn Card instead of group-card shells", () => {
   const panelPaths = [
-    "frontend/src/pages/templates/TemplateCatalogPanel.svelte",
-    "frontend/src/pages/templates/TextfsmMappingWorkspace.svelte",
-    "frontend/src/pages/templates/ShowObjectWorkspace.svelte",
+    "frontend/src/domains/templates/presentation/components/TemplateCatalogPanel.svelte",
+    "frontend/src/domains/templates/presentation/components/TextfsmMappingWorkspace.svelte",
+    "frontend/src/domains/templates/presentation/components/ShowObjectWorkspace.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -1059,7 +1063,7 @@ test("template panels compose shadcn Card instead of group-card shells", () => {
 
 test("inventory panels compose shadcn Card instead of group-card shells", () => {
   const panelPaths = [
-    "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
+    "frontend/src/domains/inventory/presentation/components/InventoryCollectionPanel.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -1076,10 +1080,10 @@ test("inventory panels compose shadcn Card instead of group-card shells", () => 
 
 test("profile workspace uses one shadcn Card with semantic child sections", () => {
   const panelPaths = [
-    "frontend/src/pages/prompts/BuiltinProfileOverviewSection.svelte",
-    "frontend/src/pages/prompts/CustomProfileDetectPanel.svelte",
-    "frontend/src/pages/prompts/CustomProfilesEditorPanel.svelte",
-    "frontend/src/pages/prompts/ProfileDiagnosePanel.svelte",
+    "frontend/src/domains/profiles/presentation/components/BuiltinProfileOverviewSection.svelte",
+    "frontend/src/domains/profiles/presentation/components/CustomProfileDetectPanel.svelte",
+    "frontend/src/domains/profiles/presentation/components/CustomProfilesEditorPanel.svelte",
+    "frontend/src/domains/profiles/presentation/components/ProfileDiagnosePanel.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -1090,7 +1094,9 @@ test("profile workspace uses one shadcn Card with semantic child sections", () =
     assert.doesNotMatch(source, /group-card/);
   }
 
-  const pageSource = read("frontend/src/pages/PromptsPage.svelte");
+  const pageSource = read(
+    "frontend/src/domains/profiles/presentation/components/ProfilesWorkspace.svelte",
+  );
   assert.match(pageSource, /ui\/card/);
   assert.match(pageSource, /<Card\.Root/);
   assert.match(pageSource, /WorkspaceActionHeader/);
@@ -1148,18 +1154,20 @@ test("workspace entry panels share the theme-aware action header", () => {
 
 test("top-level workspace cards keep icon-bearing headers", () => {
   const pagePaths = [
-    "frontend/src/pages/BackupPage.svelte",
-    "frontend/src/pages/BlacklistPage.svelte",
-    "frontend/src/pages/InventoryPage.svelte",
-    "frontend/src/pages/PromptsPage.svelte",
+    "frontend/src/domains/backup/presentation/components/BackupWorkspace.svelte",
+    "frontend/src/domains/blacklist/presentation/components/BlacklistWorkspace.svelte",
+    "frontend/src/domains/inventory/presentation/components/InventoryWorkspace.svelte",
+    "frontend/src/domains/profiles/presentation/components/ProfilesWorkspace.svelte",
     "frontend/src/pages/ReplayPage.svelte",
     "frontend/src/pages/StandardPage.svelte",
-    "frontend/src/pages/TasksPage.svelte",
-    "frontend/src/pages/TemplatesPage.svelte",
-    "frontend/src/pages/TransferPage.svelte",
-    "frontend/src/pages/show/BatchShowInputPanel.svelte",
-    "frontend/src/pages/show/BatchShowResultsPanel.svelte",
-    "frontend/src/pages/show/SingleShowPanel.svelte",
+    "frontend/src/domains/templates/presentation/components/TemplateManagerWorkspace.svelte",
+    "frontend/src/domains/transfer/presentation/components/TransferWorkspace.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskDetailPanel.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskFiltersPanel.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskRunListPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowResultsPanel.svelte",
+    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
   ];
 
   for (const path of pagePaths) {
@@ -1171,9 +1179,9 @@ test("top-level workspace cards keep icon-bearing headers", () => {
 
 test("query cards share the workspace card treatment", () => {
   const queryPanelPaths = [
-    "frontend/src/pages/show/SingleShowPanel.svelte",
-    "frontend/src/pages/show/BatchShowInputPanel.svelte",
-    "frontend/src/pages/show/BatchShowResultsPanel.svelte",
+    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
+    "frontend/src/domains/show/presentation/components/BatchShowResultsPanel.svelte",
   ];
 
   for (const path of queryPanelPaths) {
@@ -1200,7 +1208,9 @@ test("query cards share the workspace card treatment", () => {
 
 test("batch delivery owns one outer workspace card", () => {
   const page = read("frontend/src/pages/BatchPage.svelte");
-  const commandPanel = read("frontend/src/pages/batch/BatchExecPanel.svelte");
+  const commandPanel = read(
+    "frontend/src/domains/standard/presentation/components/batch/BatchExecPanel.svelte",
+  );
   const modeField = read(
     "frontend/src/components/fragments/ModeExpressionField.svelte",
   );
@@ -1215,8 +1225,8 @@ test("batch delivery owns one outer workspace card", () => {
   assert.match(modeField, /class="min-h-9 min-w-0 w-full/);
 
   for (const path of [
-    "frontend/src/pages/batch/BatchExecPanel.svelte",
-    "frontend/src/pages/batch/BatchFlowPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/batch/BatchExecPanel.svelte",
+    "frontend/src/domains/standard/presentation/components/batch/BatchFlowPanel.svelte",
   ]) {
     const source = read(path);
     assert.doesNotMatch(source, /ui\/card|<Card\.|WorkspaceActionHeader/);
@@ -1312,8 +1322,9 @@ test("tx block visual editor owns the single inspector card shell", () => {
 
 test("task page subpanels compose shadcn Card instead of group-card shells", () => {
   const panelPaths = [
-    "frontend/src/pages/tasks/TaskDetailPanel.svelte",
-    "frontend/src/pages/tasks/TaskFiltersPanel.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskDetailPanel.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskFiltersPanel.svelte",
+    "frontend/src/domains/tasks/presentation/components/TaskRunListPanel.svelte",
   ];
 
   for (const path of panelPaths) {

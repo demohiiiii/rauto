@@ -860,6 +860,7 @@ export type TaskPageDisplay = ReturnType<typeof taskPagePresentation>;
 export type TaskFiltersDisplay = TaskPageDisplay["taskFilters"];
 export type TaskDetailDisplay = TaskPageDisplay["taskDetail"];
 export type TaskEventsDisplay = TaskPageDisplay["taskEventsDisplay"];
+export type TaskRunListDisplay = TaskPageDisplay["taskRunListDisplay"];
 export type TaskRunListRow =
   TaskPageDisplay["taskRunListDisplay"]["taskList"]["taskRows"][number];
 export type TaskEventGroupRow =
