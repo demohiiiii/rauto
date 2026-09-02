@@ -27,7 +27,7 @@ test("device management uses a searchable responsive catalog workspace", () => {
   const panel = read(
     "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
   );
-  const zh = read("frontend/src/i18n/zh.js");
+  const zh = read("frontend/src/i18n/zh.ts");
 
   assert.match(zh, /tabInventory: "设备管理"/);
   assert.match(zh, /inventoryTitle: "设备管理"/);

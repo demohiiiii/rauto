@@ -123,7 +123,9 @@ export function credentialErrorMessage(
   return message || translate("requestFailed");
 }
 
-export function credentialRow(value: CredentialApiRow = {}): CredentialRow {
+export function credentialRow(
+  value: Partial<CredentialApiRow> = {},
+): CredentialRow {
   const referencingConnections = listValue(value.referencing_connections)
     .map((item) => text(item).trim())
     .filter(Boolean)

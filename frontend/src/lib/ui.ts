@@ -8,7 +8,27 @@ import {
   supportsNativeDialogElement,
 } from "./browser.js";
 
-function stringifyValue(value, fallback = "") {
+export interface SelectOptionRow {
+  optionLabel: string;
+  optionValue: string;
+}
+
+interface ValueTextOption {
+  labelText?: unknown;
+  valueText?: unknown;
+}
+
+interface TypeValueOption {
+  labelText?: unknown;
+  typeValue?: unknown;
+}
+
+interface ValueLabelOption {
+  label?: unknown;
+  value?: unknown;
+}
+
+function stringifyValue(value: unknown, fallback = ""): string {
   if (value == null) {
     return fallback;
   }
@@ -17,34 +37,39 @@ function stringifyValue(value, fallback = "") {
   }
   try {
     return JSON.stringify(value) ?? String(value);
-  } catch (_) {
+  } catch {
     return String(value);
   }
 }
 
-export function safeString(value) {
+export function safeString(value: unknown): string {
   return stringifyValue(value, "-");
 }
 
-export function emptyString(value) {
+export function emptyString(value: unknown): string {
   return stringifyValue(value, "");
 }
 
-export function displayText(value) {
+export function displayText(value: unknown): string {
   return emptyString(value);
 }
 
-export function displayString(value, fallback = "") {
+export function displayString(value: unknown, fallback = ""): string {
   return stringifyValue(value, fallback);
 }
 
-export function selectOptionsWithCurrent(optionValues = [], currentValue = "") {
-  const rows = Array.isArray(optionValues) ? optionValues : [];
+export function selectOptionsWithCurrent(
+  optionValues: unknown = [],
+  currentValue: unknown = "",
+): string[] {
+  const rows = (Array.isArray(optionValues) ? optionValues : []) as string[];
   const current = String(currentValue || "").trim();
   return current && !rows.includes(current) ? [current, ...rows] : rows;
 }
 
-export function valueTextOptionRows(optionRows = []) {
+export function valueTextOptionRows(
+  optionRows: readonly ValueTextOption[] = [],
+): SelectOptionRow[] {
   const rows = Array.isArray(optionRows) ? optionRows : [];
   return rows.map((optionRow) => ({
     optionLabel: displayString(optionRow.labelText),
@@ -52,7 +77,10 @@ export function valueTextOptionRows(optionRows = []) {
   }));
 }
 
-export function typeValueOptionRows(optionRows = [], placeholderText = "") {
+export function typeValueOptionRows(
+  optionRows: readonly TypeValueOption[] = [],
+  placeholderText = "",
+): SelectOptionRow[] {
   const rows = Array.isArray(optionRows) ? optionRows : [];
   const placeholderRows = placeholderText
     ? [{ optionLabel: displayString(placeholderText), optionValue: "" }]
@@ -66,7 +94,9 @@ export function typeValueOptionRows(optionRows = [], placeholderText = "") {
   ];
 }
 
-export function valueLabelOptionRows(optionRows = []) {
+export function valueLabelOptionRows(
+  optionRows: readonly ValueLabelOption[] = [],
+): SelectOptionRow[] {
   const rows = Array.isArray(optionRows) ? optionRows : [];
   return rows.map((optionRow) => ({
     optionLabel: displayString(optionRow.label),
@@ -75,9 +105,12 @@ export function valueLabelOptionRows(optionRows = []) {
 }
 
 export function stringSelectOptionRows(
-  optionValues = [],
-  { includeEmptyOption = false, placeholderText = "" } = {},
-) {
+  optionValues: unknown = [],
+  {
+    includeEmptyOption = false,
+    placeholderText = "",
+  }: { includeEmptyOption?: boolean; placeholderText?: string } = {},
+): SelectOptionRow[] {
   const values = Array.isArray(optionValues) ? optionValues : [];
   const leadingRows =
     placeholderText || includeEmptyOption
@@ -92,32 +125,35 @@ export function stringSelectOptionRows(
   ];
 }
 
-export function classNames(...values) {
+export function classNames(...values: unknown[]): string {
   return values.flat().filter(Boolean).join(" ");
 }
 
-export function borderedPillClass(...toneClasses) {
+export function borderedPillClass(...toneClasses: unknown[]): string {
   return classNames(
     "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold",
     toneClasses,
   );
 }
 
-export function pillClass(...toneClasses) {
+export function pillClass(...toneClasses: unknown[]): string {
   return classNames(
     "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
     toneClasses,
   );
 }
 
-export function workflowChipClass(...toneClasses) {
+export function workflowChipClass(...toneClasses: unknown[]): string {
   return classNames(
     "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground",
     toneClasses,
   );
 }
 
-export function booleanPillPresentation(value) {
+export function booleanPillPresentation(value: unknown): {
+  pillClassName: string;
+  text: string;
+} {
   if (value === true) {
     return {
       pillClassName: pillClass("bg-emerald-100 text-emerald-700"),
@@ -133,7 +169,7 @@ export function booleanPillPresentation(value) {
   return { pillClassName: "text-slate-500", text: "-" };
 }
 
-function statusCardToneClass(tone = "info") {
+function statusCardToneClass(tone = "info"): string {
   if (tone === "error") return "border-rose-200 bg-rose-50 text-rose-700";
   if (tone === "success") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -143,12 +179,19 @@ function statusCardToneClass(tone = "info") {
   return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
+interface StatusCardDisplayOptions {
+  extraClass?: string;
+  message?: unknown;
+  tone?: string;
+  variant?: string;
+}
+
 export function statusCardDisplay({
   extraClass = "",
   message = "",
   tone = "info",
   variant = "card",
-} = {}) {
+}: StatusCardDisplayOptions = {}) {
   const showAlert = variant === "alert";
   const alertClass = classNames(
     "flex items-start gap-2 rounded-lg border px-4 py-3 text-left text-sm",
@@ -168,6 +211,17 @@ export function statusCardDisplay({
   };
 }
 
+interface DetailFieldCardDisplayOptions {
+  badgeClass?: unknown;
+  extraClass?: string;
+  fallback?: string;
+  labelClass?: unknown;
+  mono?: boolean;
+  value?: unknown;
+  valueClass?: unknown;
+  variant?: string;
+}
+
 export function detailFieldCardDisplay({
   badgeClass = "",
   extraClass = "",
@@ -177,7 +231,7 @@ export function detailFieldCardDisplay({
   value = "",
   valueClass = "",
   variant = "card",
-} = {}) {
+}: DetailFieldCardDisplayOptions = {}) {
   if (variant === "inline") {
     return {
       cardClass: classNames("text-xs text-slate-600", extraClass),
@@ -214,8 +268,25 @@ export function detailFieldCardDisplay({
   };
 }
 
-export function parsedOutputBlockFragmentDisplay(parsedOutputBlock = null) {
-  const blockDisplay =
+interface ParsedOutputBlockInput {
+  canExport?: unknown;
+  exportItem?: unknown;
+  hasParseError?: unknown;
+  hasParsedOutput?: unknown;
+  jsonOutput?: unknown;
+  parseErrorText?: unknown;
+  showEmptyColumns?: unknown;
+  showEmptyRows?: unknown;
+  showJson?: unknown;
+  showTable?: unknown;
+  tableColumns?: unknown;
+  tableRows?: unknown;
+}
+
+export function parsedOutputBlockFragmentDisplay(
+  parsedOutputBlock: ParsedOutputBlockInput | null = null,
+) {
+  const blockDisplay: ParsedOutputBlockInput =
     parsedOutputBlock && typeof parsedOutputBlock === "object"
       ? parsedOutputBlock
       : {};
@@ -261,13 +332,26 @@ export function parsedOutputBlockFragmentDisplay(parsedOutputBlock = null) {
   };
 }
 
+interface DashboardDrawerShellDisplayOptions {
+  ariaLabel?: unknown;
+  title?: unknown;
+}
+
 export function dashboardDrawerShellDisplay({
   ariaLabel = "",
   title = "",
-} = {}) {
+}: DashboardDrawerShellDisplayOptions = {}) {
   return {
-    ariaLabelText: displayString(ariaLabel, title),
+    ariaLabelText: displayString(ariaLabel, displayString(title)),
   };
+}
+
+interface CollapsibleGroupDisplayOptions {
+  bodyClass?: string;
+  collapsed?: boolean;
+  headerClass?: string;
+  mounted?: boolean;
+  rootClass?: string;
 }
 
 export function collapsibleGroupDisplay({
@@ -276,7 +360,7 @@ export function collapsibleGroupDisplay({
   headerClass = "flex flex-wrap items-center justify-between gap-3",
   mounted = false,
   rootClass = "",
-} = {}) {
+}: CollapsibleGroupDisplayOptions = {}) {
   const bodyHidden = Boolean(mounted && collapsed);
   return {
     bodyClass,
@@ -288,19 +372,35 @@ export function collapsibleGroupDisplay({
   };
 }
 
-export function presenceFieldControlDisplay({ controlClass = "" } = {}) {
+export function presenceFieldControlDisplay({
+  controlClass = "",
+}: { controlClass?: string } = {}) {
   return {
     inputClassText: classNames(controlClass),
     selectClassText: classNames(controlClass),
   };
 }
 
-export function summaryMetricValueClass({ mono = false, size = "sm" } = {}) {
+interface SummaryMetricClassOptions {
+  mono?: boolean;
+  size?: string;
+}
+
+export function summaryMetricValueClass({
+  mono = false,
+  size = "sm",
+}: SummaryMetricClassOptions = {}): string {
   return classNames(
     "mt-1 break-all font-semibold text-slate-900",
     mono ? "font-mono" : "",
     size === "lg" ? "text-lg" : "text-sm",
   );
+}
+
+interface SummaryMetricCardDisplayOptions extends SummaryMetricClassOptions {
+  extraClass?: string;
+  labelClass?: string;
+  metricValueClass?: string;
 }
 
 export function summaryMetricCardDisplay({
@@ -309,7 +409,7 @@ export function summaryMetricCardDisplay({
   metricValueClass = "",
   mono = false,
   size = "sm",
-} = {}) {
+}: SummaryMetricCardDisplayOptions = {}) {
   return {
     cardClass:
       extraClass || "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2",
@@ -318,15 +418,29 @@ export function summaryMetricCardDisplay({
   };
 }
 
-export function modalDialogDisplay(node) {
+export function modalDialogDisplay(node: unknown): {
+  useNativeDialog: boolean;
+} {
   return { useNativeDialog: supportsNativeDialogElement(node) };
+}
+
+export interface TabListItem {
+  label?: unknown;
+  labelKey?: unknown;
+  value?: unknown;
+}
+
+interface TabListPresentationOptions {
+  activeValue?: unknown;
+  ariaLabel?: string;
+  tabItems?: readonly TabListItem[];
 }
 
 export function tabListPresentation({
   activeValue = "",
   ariaLabel = "tabsAria",
   tabItems = [],
-} = {}) {
+}: TabListPresentationOptions = {}) {
   const activeText = displayText(activeValue);
   const tabRows = (Array.isArray(tabItems) ? tabItems : []).map((tabItem) => {
     const tabValue = tabItem && "value" in tabItem ? tabItem.value : "";
@@ -348,12 +462,19 @@ export function tabListPresentation({
   };
 }
 
+interface TextfsmControlsDisplayOptions {
+  excelNamePlaceholderKey?: string;
+  hintKey?: string;
+  platform?: unknown;
+  platformOptions?: unknown;
+}
+
 export function textfsmControlsDisplay({
   excelNamePlaceholderKey = "batchShowExcelNamePlaceholder",
   hintKey = "textfsmParseHint",
   platform = "",
   platformOptions = [],
-} = {}) {
+}: TextfsmControlsDisplayOptions = {}) {
   const excelNamePlaceholder = tr(excelNamePlaceholderKey);
   const templatePlaceholder = tr("textfsmTemplatePlaceholder");
   return {
@@ -381,35 +502,42 @@ export function textfsmControlsDisplay({
   };
 }
 
-export function formatTimestamp(value) {
+export function formatTimestamp(value: unknown): string {
   const timestamp = Number(value);
   if (!Number.isFinite(timestamp) || timestamp <= 0) return "-";
   return new Date(timestamp).toLocaleString();
 }
 
-export function promptForResourceName(message, initialValue = "") {
+export function promptForResourceName(
+  message: string,
+  initialValue = "",
+): string | null {
   const result = browserPrompt(message, initialValue);
   if (result == null) return null;
   const normalized = result.trim();
   return normalized || null;
 }
 
-export function confirmUserChoice(message) {
+export function confirmUserChoice(message: string): boolean {
   return browserConfirm(message);
 }
 
-export function splitCsvValues(rawValue) {
+export function splitCsvValues(rawValue: unknown): string[] {
   return String(rawValue ?? "")
     .split(/[,\n]/)
     .map((csvValue) => csvValue.trim())
     .filter(Boolean);
 }
 
-export function displayMode(mode) {
+export function displayMode(mode: unknown): string {
   return String(mode || "").trim();
 }
 
-export function displayModePresentation(mode = "") {
+export function displayModePresentation(mode: unknown = ""): {
+  mode: "list" | "raw";
+  showList: boolean;
+  showRaw: boolean;
+} {
   const normalized = mode === "raw" ? "raw" : "list";
   return {
     mode: normalized,
@@ -418,24 +546,30 @@ export function displayModePresentation(mode = "") {
   };
 }
 
-function collapsePreferenceStorageKey(persistenceKey = "") {
+function collapsePreferenceStorageKey(persistenceKey = ""): string {
   const key = String(persistenceKey || "").trim();
   return key ? `rauto_collapse_${key}` : "";
 }
 
-export function readCollapsedPreference(persistenceKey = "") {
+export function readCollapsedPreference(persistenceKey = ""): boolean {
   const key = collapsePreferenceStorageKey(persistenceKey);
   return key ? storageGet(key) === "1" : false;
 }
 
-export function writeCollapsedPreference(persistenceKey = "", collapsed) {
+export function writeCollapsedPreference(
+  persistenceKey = "",
+  collapsed = false,
+): void {
   const key = collapsePreferenceStorageKey(persistenceKey);
   if (key) {
     storageSet(key, collapsed ? "1" : "0");
   }
 }
 
-export function isPassiveLoadedStatus(message, tone) {
+export function isPassiveLoadedStatus(
+  message: unknown,
+  tone: unknown,
+): boolean {
   if (tone !== "info" && tone !== "success") return false;
   const text = safeString(message || "").trim();
   const loadedPrefix = safeString(tr("loaded", "loaded")).trim();
@@ -443,7 +577,17 @@ export function isPassiveLoadedStatus(message, tone) {
   return text === loadedPrefix || text.startsWith(`${loadedPrefix}:`);
 }
 
-export function statusPresentation(message = "-", tone = "info", rules = {}) {
+interface StatusPresentationRules {
+  inlineTone?: string;
+  suppressPassiveLoaded?: boolean;
+  toastTones?: readonly string[];
+}
+
+export function statusPresentation(
+  message: unknown = "-",
+  tone: string = "info",
+  rules: StatusPresentationRules = {},
+) {
   const normalizedTone = tone || "info";
   const text = safeString(message || "").trim();
   const {
@@ -463,6 +607,6 @@ export function statusPresentation(message = "-", tone = "info", rules = {}) {
   };
 }
 
-export function downloadBlob(blob, filename) {
+export function downloadBlob(blob: Blob, filename: string): void {
   downloadBrowserBlob(blob, filename);
 }

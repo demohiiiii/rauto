@@ -11,14 +11,9 @@ import {
   saveConnection as saveConnectionRequest,
   testConnection as testConnectionRequest,
 } from "../../../api/client.js";
-import type {
-  ConnectionHistoryItem,
-  ConnectionImportReport,
-  SavedConnection,
-  SavedConnectionDetail,
-} from "../model/types.js";
+import type { ConnectionRequestPayload } from "../model/types.js";
 
-export type ConnectionRequestPayload = Record<string, unknown>;
+export type { ConnectionRequestPayload } from "../model/types.js";
 
 export const connectionApi = {
   deleteConnection(name: string): Promise<unknown> {
@@ -27,9 +22,7 @@ export const connectionApi = {
   deleteHistory(name: string, historyId: string | number): Promise<unknown> {
     return deleteConnectionHistoryRequest(name, historyId);
   },
-  detectFacts(
-    payload: ConnectionRequestPayload,
-  ): Promise<Record<string, unknown>> {
+  detectFacts(payload: ConnectionRequestPayload) {
     return detectConnectionFactsRequest(payload);
   },
   downloadImportTemplate(
@@ -37,33 +30,25 @@ export const connectionApi = {
   ): Promise<{ blob: Blob; filename?: string }> {
     return downloadConnectionImportTemplateRequest(language);
   },
-  getConnection(name: string): Promise<SavedConnectionDetail> {
+  getConnection(name: string) {
     return getConnectionRequest(name);
   },
-  getHistoryDetail(
-    name: string,
-    historyId: string | number,
-  ): Promise<Record<string, unknown>> {
+  getHistoryDetail(name: string, historyId: string | number) {
     return getConnectionHistoryDetailRequest(name, historyId);
   },
-  importConnections(file: File): Promise<ConnectionImportReport> {
+  importConnections(file: File) {
     return importConnectionsRequest(file);
   },
-  listConnections(): Promise<SavedConnection[]> {
+  listConnections() {
     return listConnectionsRequest();
   },
-  listHistory(name: string, limit: number): Promise<ConnectionHistoryItem[]> {
+  listHistory(name: string, limit: number) {
     return listConnectionHistoryRequest(name, limit);
   },
-  saveConnection(
-    name: string,
-    payload: ConnectionRequestPayload,
-  ): Promise<SavedConnectionDetail> {
+  saveConnection(name: string, payload: ConnectionRequestPayload) {
     return saveConnectionRequest(name, payload);
   },
-  testConnection(
-    payload: ConnectionRequestPayload,
-  ): Promise<Record<string, unknown>> {
+  testConnection(payload: ConnectionRequestPayload) {
     return testConnectionRequest(payload);
   },
 };

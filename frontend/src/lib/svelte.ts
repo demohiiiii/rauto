@@ -1,32 +1,86 @@
 import { tick } from "svelte";
-import { derived, get, writable } from "svelte/store";
+import { derived, writable } from "svelte/store";
+import type { Readable, Writable } from "svelte/store";
 import { currentLanguageState, tr } from "./i18n.js";
 import {
   callIfFunction,
   callbackFormCheckedHandler,
   callbackFormValueHandler,
 } from "./events.js";
-import {
-  classNames,
-  parsedOutputBlockFragmentDisplay,
-  tabListPresentation,
-  textfsmControlsDisplay,
-} from "./ui.js";
+import { classNames, textfsmControlsDisplay } from "./ui.js";
 
 export const dashboardThemeContextKey = Symbol("dashboardTheme");
 
-export function createLazyComponentRegistry({
+type OptionalTask<TArgs extends unknown[], TResult = unknown> =
+  | ((...args: TArgs) => TResult)
+  | null
+  | undefined;
+
+interface DefaultLazyComponentEntry {
+  id: unknown;
+  load: () => Promise<unknown>;
+}
+
+interface LazyComponentRegistryOptions<TEntry> {
+  errorMessage?: () => string;
+  resolveId?: (lazyEntry: TEntry) => unknown;
+  resolveLoad?: (
+    lazyEntry: TEntry,
+  ) => (() => Promise<unknown>) | null | undefined;
+}
+
+export interface LazyComponentRegistry<TEntry> {
+  components: Readable<Record<string, unknown>>;
+  ensure(lazyEntry: TEntry): void;
+  errors: Readable<Record<string, string>>;
+}
+
+function defaultLazyEntryId(lazyEntry: unknown): unknown {
+  return lazyEntry !== null &&
+    typeof lazyEntry === "object" &&
+    "id" in lazyEntry
+    ? lazyEntry.id
+    : "";
+}
+
+function defaultLazyEntryLoad(
+  lazyEntry: unknown,
+): (() => Promise<unknown>) | null {
+  if (
+    lazyEntry === null ||
+    typeof lazyEntry !== "object" ||
+    !("load" in lazyEntry)
+  ) {
+    return null;
+  }
+  const load = lazyEntry.load;
+  return typeof load === "function"
+    ? () => Reflect.apply(load, lazyEntry, [])
+    : null;
+}
+
+function lazyComponent(moduleValue: unknown): unknown {
+  return moduleValue !== null &&
+    typeof moduleValue === "object" &&
+    "default" in moduleValue
+    ? moduleValue.default
+    : undefined;
+}
+
+export function createLazyComponentRegistry<
+  TEntry = DefaultLazyComponentEntry,
+>({
   errorMessage = () => tr("requestFailed", "request failed"),
-  resolveId = (lazyEntry) => lazyEntry.id,
-  resolveLoad = (lazyEntry) => lazyEntry.load,
-} = {}) {
-  let componentSnapshot = {};
-  let errorSnapshot = {};
-  const loadPromises = new Map();
+  resolveId = defaultLazyEntryId,
+  resolveLoad = defaultLazyEntryLoad,
+}: LazyComponentRegistryOptions<TEntry> = {}): LazyComponentRegistry<TEntry> {
+  let componentSnapshot: Record<string, unknown> = {};
+  let errorSnapshot: Record<string, string> = {};
+  const loadPromises = new Map<string, Promise<void>>();
   const components = writable(componentSnapshot);
   const errors = writable(errorSnapshot);
 
-  function setComponent(id, component) {
+  function setComponent(id: string, component: unknown): void {
     componentSnapshot = {
       ...componentSnapshot,
       [id]: component,
@@ -34,7 +88,7 @@ export function createLazyComponentRegistry({
     components.set(componentSnapshot);
   }
 
-  function setError(id, message = "") {
+  function setError(id: string, message = ""): void {
     errorSnapshot = {
       ...errorSnapshot,
       [id]: message,
@@ -42,7 +96,7 @@ export function createLazyComponentRegistry({
     errors.set(errorSnapshot);
   }
 
-  function ensure(lazyEntry) {
+  function ensure(lazyEntry: TEntry): void {
     const id = String(resolveId(lazyEntry) || "").trim();
     const load = resolveLoad(lazyEntry);
     if (!id || !load || componentSnapshot[id] || loadPromises.has(id)) {
@@ -53,10 +107,16 @@ export function createLazyComponentRegistry({
     loadPromises.set(id, promise);
   }
 
-  async function loadComponentEntry({ id, load }) {
+  async function loadComponentEntry({
+    id,
+    load,
+  }: {
+    id: string;
+    load: () => Promise<unknown>;
+  }): Promise<void> {
     try {
       const componentModule = await load();
-      setComponent(id, componentModule.default);
+      setComponent(id, lazyComponent(componentModule));
       setError(id, "");
     } catch (error) {
       setError(id, errorMessageFrom(error, errorMessage));
@@ -72,13 +132,21 @@ export function createLazyComponentRegistry({
   };
 }
 
-function errorMessageFrom(error, fallbackMessage) {
-  return error && typeof error.message === "string"
+function errorMessageFrom(
+  error: unknown,
+  fallbackMessage: () => string,
+): string {
+  return error !== null &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
     ? error.message
     : fallbackMessage();
 }
 
-export function afterDomUpdate(updateTask) {
+export type DomUpdateTask = () => unknown;
+
+export function afterDomUpdate(updateTask: DomUpdateTask): () => void {
   let cancelled = false;
   void runAfterDomUpdate(updateTask, () => cancelled);
   return () => {
@@ -86,7 +154,19 @@ export function afterDomUpdate(updateTask) {
   };
 }
 
-export function focusElement(element, { select = false } = {}) {
+interface FocusableElement {
+  focus(): void;
+  select?: () => void;
+}
+
+interface FocusElementOptions {
+  select?: boolean;
+}
+
+export function focusElement(
+  element: FocusableElement | null | undefined,
+  { select = false }: FocusElementOptions = {},
+): void {
   if (!element || typeof element.focus !== "function") {
     return;
   }
@@ -96,21 +176,33 @@ export function focusElement(element, { select = false } = {}) {
   }
 }
 
-export function focusElementAfterDomUpdate(element, focusOptions) {
+export function focusElementAfterDomUpdate(
+  element: FocusableElement | null | undefined,
+  focusOptions?: FocusElementOptions,
+): () => void {
   return afterDomUpdate(() => focusElement(element, focusOptions));
 }
 
-function callOptionalFunction(optionalTask, ...args) {
+function callOptionalFunction<TArgs extends unknown[], TResult>(
+  optionalTask: OptionalTask<TArgs, TResult>,
+  ...args: TArgs
+): TResult | undefined {
   return typeof optionalTask === "function" ? optionalTask(...args) : undefined;
 }
 
-async function runAfterDomUpdate(updateTask, isCancelled) {
+async function runAfterDomUpdate(
+  updateTask: DomUpdateTask,
+  isCancelled: () => boolean,
+): Promise<void> {
   await tick();
   if (!isCancelled()) callOptionalFunction(updateTask);
 }
 
-export function runWithCleanup(operation, cleanup) {
-  let result;
+export function runWithCleanup<TResult>(
+  operation: OptionalTask<[], TResult | PromiseLike<TResult>>,
+  cleanup: OptionalTask<[]>,
+): void {
+  let result: TResult | PromiseLike<TResult> | undefined;
   try {
     result = callOptionalFunction(operation);
   } catch (error) {
@@ -120,7 +212,10 @@ export function runWithCleanup(operation, cleanup) {
   void finishWithCleanup(result, cleanup);
 }
 
-async function finishWithCleanup(result, cleanup) {
+async function finishWithCleanup<TResult>(
+  result: TResult | PromiseLike<TResult> | undefined,
+  cleanup: OptionalTask<[]>,
+): Promise<void> {
   try {
     await result;
   } finally {
@@ -128,17 +223,31 @@ async function finishWithCleanup(result, cleanup) {
   }
 }
 
-export function createLoadingRunner(readKeys, writeKeys) {
-  function currentKeys() {
+export interface LoadingRunner<TKey> {
+  isLoading(key: TKey): boolean;
+  run<TResult>(
+    key: TKey,
+    operation: OptionalTask<[], TResult | PromiseLike<TResult>>,
+  ): Promise<TResult | undefined>;
+}
+
+export function createLoadingRunner<TKey>(
+  readKeys: () => readonly TKey[],
+  writeKeys: (keys: TKey[]) => unknown,
+): LoadingRunner<TKey> {
+  function currentKeys(): readonly TKey[] {
     const keys = callOptionalFunction(readKeys);
     return Array.isArray(keys) ? keys : [];
   }
 
-  function isLoading(key) {
+  function isLoading(key: TKey): boolean {
     return currentKeys().includes(key);
   }
 
-  async function run(key, operation) {
+  async function run<TResult>(
+    key: TKey,
+    operation: OptionalTask<[], TResult | PromiseLike<TResult>>,
+  ): Promise<TResult | undefined> {
     if (isLoading(key)) return undefined;
     writeKeys([...currentKeys(), key]);
     try {
@@ -151,7 +260,18 @@ export function createLoadingRunner(readKeys, writeKeys) {
   return { isLoading, run };
 }
 
-export function createLoadingStateRunner(loadingState, loadingConfig = {}) {
+interface LoadingState<TKey> {
+  keys: TKey[];
+}
+
+interface LoadingStateRunnerConfig<TKey> {
+  setKeys?: (keys: TKey[]) => unknown;
+}
+
+export function createLoadingStateRunner<TKey>(
+  loadingState: LoadingState<TKey>,
+  loadingConfig: LoadingStateRunnerConfig<TKey> = {},
+): LoadingRunner<TKey> {
   const setKeys = loadingConfig.setKeys;
   return createLoadingRunner(
     () => loadingState.keys,
@@ -164,11 +284,24 @@ export function createLoadingStateRunner(loadingState, loadingConfig = {}) {
   );
 }
 
-export function createLatestAsyncValueLoader({ initialValue, loadValue } = {}) {
-  let currentRequestVersion = 0;
-  const state = writable(initialValue);
+interface LatestAsyncValueLoaderOptions<TInput, TResult> {
+  initialValue?: Awaited<TResult>;
+  loadValue?: OptionalTask<[TInput], TResult | PromiseLike<TResult>>;
+}
 
-  async function refresh(loadInput) {
+export function createLatestAsyncValueLoader<
+  TInput = unknown,
+  TResult = unknown,
+>({
+  initialValue,
+  loadValue,
+}: LatestAsyncValueLoaderOptions<TInput, TResult> = {}) {
+  let currentRequestVersion = 0;
+  const state = writable<Awaited<TResult> | undefined>(initialValue);
+
+  async function refresh(
+    loadInput: TInput,
+  ): Promise<Awaited<TResult> | undefined> {
     currentRequestVersion += 1;
     const requestVersion = currentRequestVersion;
     const nextValue = await callOptionalFunction(loadValue, loadInput);
@@ -181,37 +314,56 @@ export function createLatestAsyncValueLoader({ initialValue, loadValue } = {}) {
   return { refresh, state };
 }
 
-export function createKeyedListState(
-  keys = [],
-  { normalizeKey = (key) => key, onChange = null } = {},
-) {
-  const keyOrder = [...keys];
-  const states = new Map();
+interface KeyedListStateOptions {
+  normalizeKey?: (key: unknown) => string;
+  onChange?: OptionalTask<[string]>;
+}
 
-  function stateFor(rawKey) {
+export interface KeyedListState<TRow> {
+  has(rawKey: unknown): boolean;
+  rowsState: Readable<Record<string, TRow[]>>;
+  set(rawKey: unknown, rows?: readonly TRow[]): void;
+  stateFor(rawKey: unknown): Writable<TRow[]>;
+  update(rawKey: unknown, updater: (rows: TRow[]) => readonly TRow[]): void;
+}
+
+export function createKeyedListState<TRow>(
+  keys: readonly string[] = [],
+  {
+    normalizeKey = (key: unknown) => String(key ?? ""),
+    onChange = null,
+  }: KeyedListStateOptions = {},
+): KeyedListState<TRow> {
+  const keyOrder = [...keys];
+  const states = new Map<string, Writable<TRow[]>>();
+
+  function stateFor(rawKey: unknown): Writable<TRow[]> {
     const key = normalizeKey(rawKey);
     if (!states.has(key)) states.set(key, writable([]));
-    return states.get(key);
+    return states.get(key)!;
   }
 
-  function publishChange(key) {
+  function publishChange(key: string): void {
     callOptionalFunction(onChange, key);
   }
 
-  function set(rawKey, rows = []) {
+  function set(rawKey: unknown, rows: readonly TRow[] = []): void {
     const key = normalizeKey(rawKey);
     stateFor(key).set(Array.isArray(rows) ? rows : []);
     publishChange(key);
   }
 
-  function update(rawKey, updater) {
+  function update(
+    rawKey: unknown,
+    updater: (rows: TRow[]) => readonly TRow[],
+  ): void {
     const key = normalizeKey(rawKey);
     stateFor(key).update((rows) => {
       const nextRows = callOptionalFunction(
         updater,
         Array.isArray(rows) ? rows : [],
       );
-      return Array.isArray(nextRows) ? nextRows : [];
+      return Array.isArray(nextRows) ? [...nextRows] : [];
     });
     publishChange(key);
   }
@@ -227,18 +379,15 @@ export function createKeyedListState(
   };
 }
 
-export function createSwitchingStore(
-  sourceStore,
-  resolveTargetStore,
-  initialValue,
-) {
+export function createSwitchingStore<TSource, TValue>(
+  sourceStore: Readable<TSource>,
+  resolveTargetStore: (source: TSource) => Readable<TValue> | null | undefined,
+  initialValue: TValue,
+): Readable<TValue> {
   return derived(
     sourceStore,
     ($sourceStore, set) => {
-      const targetStore =
-        typeof resolveTargetStore === "function"
-          ? resolveTargetStore($sourceStore)
-          : null;
+      const targetStore = resolveTargetStore($sourceStore);
       if (!targetStore || typeof targetStore.subscribe !== "function") {
         set(initialValue);
         return () => {};
@@ -251,13 +400,42 @@ export function createSwitchingStore(
   );
 }
 
+interface TextfsmControlsCallbacks {
+  onEnabledChange?: OptionalTask<[boolean]>;
+  onExcelNameChange?: OptionalTask<[string]>;
+  onPlatformChange?: OptionalTask<[string]>;
+  onStrictErrorsChange?: OptionalTask<[boolean]>;
+  onTemplateChange?: OptionalTask<[string]>;
+}
+
+interface TextfsmFields {
+  excelName?: unknown;
+  platform?: unknown;
+  platformOptions?: unknown;
+  [key: string]: unknown;
+}
+
+interface TextfsmDisplayInputs {
+  excelNamePlaceholderKey?: string;
+  hintKey?: string;
+  includeTemplateInput?: boolean;
+  textfsmFields?: TextfsmFields;
+}
+
+interface TextfsmInputsState {
+  excelNamePlaceholderKey: string;
+  hintKey: string;
+  includeTemplateInput: boolean;
+  textfsmFields: TextfsmFields;
+}
+
 function textfsmControlActionHandlers({
   onEnabledChange = null,
   onExcelNameChange = null,
   onPlatformChange = null,
   onStrictErrorsChange = null,
   onTemplateChange = null,
-} = {}) {
+}: TextfsmControlsCallbacks = {}) {
   return {
     enabledCheckedHandler: callbackFormCheckedHandler((textfsmEnabled) =>
       callIfFunction(onEnabledChange, textfsmEnabled),
@@ -284,8 +462,8 @@ export function createTextfsmControlsWorkspace({
   onPlatformChange = null,
   onStrictErrorsChange = null,
   onTemplateChange = null,
-} = {}) {
-  const textfsmInputsStateStore = writable({
+}: TextfsmControlsCallbacks = {}) {
+  const textfsmInputsStateStore = writable<TextfsmInputsState>({
     excelNamePlaceholderKey: "",
     hintKey: "",
     includeTemplateInput: false,
@@ -336,23 +514,23 @@ export function createTextfsmControlsWorkspace({
       });
     },
   );
-  function enabledCheckedHandler(event) {
+  function enabledCheckedHandler(event: unknown) {
     return actionHandlers.enabledCheckedHandler(event);
   }
 
-  function excelNameValueHandler(event) {
+  function excelNameValueHandler(event: unknown) {
     return actionHandlers.excelNameValueHandler(event);
   }
 
-  function platformValueHandler(event) {
+  function platformValueHandler(event: unknown) {
     return actionHandlers.platformValueHandler(event);
   }
 
-  function strictErrorsCheckedHandler(event) {
+  function strictErrorsCheckedHandler(event: unknown) {
     return actionHandlers.strictErrorsCheckedHandler(event);
   }
 
-  function templateValueHandler(event) {
+  function templateValueHandler(event: unknown) {
     return actionHandlers.templateValueHandler(event);
   }
   return {
@@ -366,7 +544,7 @@ export function createTextfsmControlsWorkspace({
       hintKey: nextHintKey = "",
       includeTemplateInput: nextIncludeTemplateInput = false,
       textfsmFields: nextTextfsmFields = {},
-    } = {}) {
+    }: TextfsmDisplayInputs = {}) {
       textfsmInputsStateStore.set({
         excelNamePlaceholderKey: nextExcelNamePlaceholderKey,
         hintKey: nextHintKey,

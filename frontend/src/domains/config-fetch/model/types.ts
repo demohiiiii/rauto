@@ -1,4 +1,5 @@
 import type { Readable, Writable } from "svelte/store";
+import type { ConnectionRequestPayload } from "$domains/connections/index.js";
 
 export type ConfigFetchContentView = "normalized" | "raw";
 export type ConfigFetchTargetMode = "batch" | "current";
@@ -32,8 +33,11 @@ export interface ConfigFetchKindCatalog {
 }
 
 export interface ConfigCommandRow {
-  kind?: unknown;
-  [key: string]: unknown;
+  command: string;
+  device_profile: string;
+  kind: string;
+  mode: string | null;
+  source: string;
 }
 
 export interface ConfigFetchTargetSelections {
@@ -42,9 +46,7 @@ export interface ConfigFetchTargetSelections {
   targets: string[];
 }
 
-export interface ConfigFetchConnectionPayload {
-  [key: string]: unknown;
-}
+export type ConfigFetchConnectionPayload = ConnectionRequestPayload;
 
 export interface ConfigFetchRetryPayload {
   retry?: {

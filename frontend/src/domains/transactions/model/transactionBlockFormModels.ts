@@ -33,34 +33,18 @@ const cloneTxJsonValue = cloneJsonValue as unknown as {
   (value: unknown): unknown;
   <T>(value: unknown, fallback: T): T;
 };
-const txPlainObject = plainObject as unknown as (
-  value: unknown,
-) => value is JsonObject;
-const txStringValue = stringValue as unknown as (
-  value: unknown,
-  fallback?: string,
-) => string;
-const txNullableNumberValue = nullableNumberValue as unknown as (
-  value: unknown,
-) => number | null;
-const txJsonValueText = jsonValueText as unknown as (value: unknown) => string;
-const txJsonParseErrorDetail = jsonParseErrorDetail as unknown as (
-  jsonText: string,
-  error: unknown,
-) => JsonErrorDetail;
-
 function txStringListValue(source: unknown = []): string[] {
   return Array.isArray(source)
-    ? source.map((entryValue) => txJsonValueText(entryValue))
+    ? source.map((entryValue) => jsonValueText(entryValue))
     : [];
 }
 
 function txStringMapValue(source: unknown = {}): Record<string, string> {
-  if (!txPlainObject(source)) return {};
+  if (!plainObject(source)) return {};
   return Object.fromEntries(
     Object.entries(source).map(([key, entryValue]) => [
       String(key),
-      txJsonValueText(entryValue),
+      jsonValueText(entryValue),
     ]),
   );
 }
@@ -69,7 +53,7 @@ function txObjectExtra(
   source: unknown,
   knownKeys: ReadonlySet<string>,
 ): JsonObject {
-  if (!txPlainObject(source)) return {};
+  if (!plainObject(source)) return {};
   return Object.fromEntries(
     Object.entries(source)
       .filter(([key]) => !knownKeys.has(key))
@@ -85,7 +69,7 @@ function txMultilineModeValue(value: unknown): TxMultilineMode {
 
 function txWithoutUnsupportedLabels(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(txWithoutUnsupportedLabels);
-  if (!txPlainObject(value)) return value;
+  if (!plainObject(value)) return value;
   return Object.fromEntries(
     Object.entries(value)
       .filter(([key]) => !key.endsWith("_label"))
@@ -99,12 +83,12 @@ function txWithoutUnsupportedLabels(value: unknown): unknown {
 function txRuntimePromptModelFromJson(
   source: unknown = {},
 ): TxRuntimePromptModel {
-  const value = txPlainObject(source) ? source : {};
+  const value = plainObject(source) ? source : {};
   return {
     patterns: Array.isArray(value.patterns)
       ? value.patterns.map((pattern) => String(pattern))
       : [],
-    response: txStringValue(value.response),
+    response: stringValue(value.response),
     recordInput: !!value.record_input,
     hasRecordInput: Object.hasOwn(value, "record_input"),
     extra: txObjectExtra(
@@ -118,25 +102,25 @@ function txRuntimePromptJsonFromModel(
   prompt: Partial<TxRuntimePromptModel> = {},
 ): JsonObject {
   return {
-    ...(txPlainObject(prompt.extra) ? cloneTxJsonValue(prompt.extra, {}) : {}),
+    ...(plainObject(prompt.extra) ? cloneTxJsonValue(prompt.extra, {}) : {}),
     patterns: Array.isArray(prompt.patterns)
       ? prompt.patterns.map((pattern) => String(pattern))
       : [],
-    response: txStringValue(prompt.response),
+    response: stringValue(prompt.response),
     record_input: !!prompt.recordInput,
   };
 }
 
 function txCommandModelFromJson(source: unknown = {}): TxCommandModel {
-  const value = txPlainObject(source) ? source : {};
-  const interactionValue = txPlainObject(value.interaction)
+  const value = plainObject(source) ? source : {};
+  const interactionValue = plainObject(value.interaction)
     ? value.interaction
     : {};
   return {
-    mode: txStringValue(value.mode),
-    command: txStringValue(value.command),
+    mode: stringValue(value.mode),
+    command: stringValue(value.command),
     multilineMode: txMultilineModeValue(value.multiline_mode),
-    timeout: txNullableNumberValue(value.timeout),
+    timeout: nullableNumberValue(value.timeout),
     hasTimeout: Object.hasOwn(value, "timeout"),
     dynParams: txStringMapValue(value.dyn_params),
     hasDynParams: Object.hasOwn(value, "dyn_params"),
@@ -163,10 +147,10 @@ function txCommandJsonFromModel(
 ): JsonObject {
   const result: JsonObject = {};
   if (includeKind) result.kind = "command";
-  result.mode = txStringValue(command.mode);
-  result.command = txStringValue(command.command);
+  result.mode = stringValue(command.mode);
+  result.command = stringValue(command.command);
   result.multiline_mode = txMultilineModeValue(command.multilineMode);
-  result.timeout = txNullableNumberValue(command.timeout);
+  result.timeout = nullableNumberValue(command.timeout);
   result.dyn_params = txStringMapValue(command.dynParams);
   result.interaction = {
     ...txObjectExtra(
@@ -183,7 +167,7 @@ function txCommandJsonFromModel(
 }
 
 function txFlowModelFromJson(source: unknown = {}): TxFlowModel {
-  const value = txPlainObject(source) ? source : {};
+  const value = plainObject(source) ? source : {};
   return {
     steps: Array.isArray(value.steps)
       ? value.steps.map((step) => txCommandModelFromJson(step))
@@ -191,7 +175,7 @@ function txFlowModelFromJson(source: unknown = {}): TxFlowModel {
     stopOnError:
       typeof value.stop_on_error === "boolean" ? value.stop_on_error : true,
     hasStopOnError: Object.hasOwn(value, "stop_on_error"),
-    maxSteps: txNullableNumberValue(value.max_steps),
+    maxSteps: nullableNumberValue(value.max_steps),
     hasMaxSteps: Object.hasOwn(value, "max_steps"),
     extra: txObjectExtra(
       value,
@@ -202,7 +186,7 @@ function txFlowModelFromJson(source: unknown = {}): TxFlowModel {
 
 function txFlowJsonFromModel(flow: Partial<TxFlowModel> = {}): JsonObject {
   const result: JsonObject = {
-    ...(txPlainObject(flow.extra) ? cloneTxJsonValue(flow.extra, {}) : {}),
+    ...(plainObject(flow.extra) ? cloneTxJsonValue(flow.extra, {}) : {}),
     kind: "flow",
     steps: Array.isArray(flow.steps)
       ? flow.steps.map((step) =>
@@ -211,13 +195,13 @@ function txFlowJsonFromModel(flow: Partial<TxFlowModel> = {}): JsonObject {
       : [],
   };
   result.stop_on_error = !!flow.stopOnError;
-  result.max_steps = txNullableNumberValue(flow.maxSteps);
+  result.max_steps = nullableNumberValue(flow.maxSteps);
   return result;
 }
 
 function txOperationModelFromJson(source: unknown = {}): TxOperationModel {
-  const value = txPlainObject(source) ? source : {};
-  const kind = txStringValue(value.kind, "command");
+  const value = plainObject(source) ? source : {};
+  const kind = stringValue(value.kind, "command");
   if (!TX_OPERATION_KINDS.has(kind)) {
     throw new Error(`unsupported transaction operation kind: ${kind}`);
   }
@@ -276,10 +260,10 @@ function txValidateCommand(
   path: string,
   command: Partial<TxCommandModel> = {},
 ): void {
-  if (!txStringValue(command.mode).trim()) {
+  if (!stringValue(command.mode).trim()) {
     txValidationError(errors, `${path}.mode`, "txBlockValidationCommandMode");
   }
-  if (!txStringValue(command.command).trim()) {
+  if (!stringValue(command.command).trim()) {
     txValidationError(
       errors,
       `${path}.command`,
@@ -323,12 +307,12 @@ function txValidateOperation(
 
 function txRollbackPolicyModelFromJson(policy: unknown): TxRollbackPolicyModel {
   if (policy === "per_step") return { kind: "per_step" };
-  if (txPlainObject(policy) && txPlainObject(policy.whole_resource)) {
+  if (plainObject(policy) && plainObject(policy.whole_resource)) {
     return {
       kind: "whole_resource",
       wholeResource: {
         rollback: txOperationModelFromJson(policy.whole_resource.rollback),
-        triggerStepIndex: txNullableNumberValue(
+        triggerStepIndex: nullableNumberValue(
           policy.whole_resource.trigger_step_index,
         ),
         hasTriggerStepIndex: Object.hasOwn(
@@ -348,7 +332,7 @@ function txRollbackPolicyModelFromJson(policy: unknown): TxRollbackPolicyModel {
 function txRollbackPolicyJsonFromModel(
   policy: Partial<TxRollbackPolicyModel> = {},
 ): unknown {
-  const policyKind = txStringValue(policy.kind);
+  const policyKind = stringValue(policy.kind);
   const kind = TX_BLOCK_ROLLBACK_KINDS.has(policyKind) ? policyKind : "none";
   if (kind === "per_step") return "per_step";
   if (kind === "whole_resource") {
@@ -359,7 +343,7 @@ function txRollbackPolicyJsonFromModel(
       rollback: txOperationJsonFromModel(wholeResource.rollback),
     };
     wholeResourceValue.trigger_step_index =
-      txNullableNumberValue(wholeResource.triggerStepIndex) ?? 0;
+      nullableNumberValue(wholeResource.triggerStepIndex) ?? 0;
     return {
       whole_resource: wholeResourceValue,
     };
@@ -368,7 +352,7 @@ function txRollbackPolicyJsonFromModel(
 }
 
 function txStepModelFromJson(source: unknown = {}): TxStepFormModel {
-  const value = txPlainObject(source) ? source : {};
+  const value = plainObject(source) ? source : {};
   return {
     run: txOperationModelFromJson(value.run),
     rollback: value.rollback ? txOperationModelFromJson(value.rollback) : null,
@@ -409,11 +393,11 @@ export function defaultTxBlockTemplatePayload(): JsonObject {
 export function txBlockFormModelFromJson(
   txBlockValue: unknown = {},
 ): TxBlockFormModel {
-  const source = txPlainObject(txBlockValue)
+  const source = plainObject(txBlockValue)
     ? txBlockValue
     : defaultTxBlockTemplatePayload();
   return {
-    name: txStringValue(source.name, "tx-block"),
+    name: stringValue(source.name, "tx-block"),
     rollbackPolicy: txRollbackPolicyModelFromJson(source.rollback_policy),
     steps: Array.isArray(source.steps)
       ? source.steps.map((step) => txStepModelFromJson(step))
@@ -471,7 +455,7 @@ function txBlockJsonFromFormModel(
   model: Partial<TxBlockFormModel> = {},
 ): JsonObject {
   const result: JsonObject = {
-    name: txStringValue(model.name, "tx-block"),
+    name: stringValue(model.name, "tx-block"),
     rollback_policy: txRollbackPolicyJsonFromModel(model.rollbackPolicy),
     steps: Array.isArray(model.steps)
       ? model.steps.map((step) => txStepJsonFromModel(step))
@@ -498,7 +482,7 @@ function txBlockFormModelFromJsonText(jsonText = ""): TxBlockParseResult {
   }
   try {
     const parsedValue = JSON.parse(jsonText);
-    if (!txPlainObject(parsedValue)) {
+    if (!plainObject(parsedValue)) {
       const message = t("txBlockJsonInvalidShape");
       return {
         error: message,
@@ -512,7 +496,7 @@ function txBlockFormModelFromJsonText(jsonText = ""): TxBlockParseResult {
       model: txBlockFormModelFromJson(parsedValue),
     };
   } catch (error) {
-    const errorDetail = txJsonParseErrorDetail(jsonText, error);
+    const errorDetail = jsonParseErrorDetail(jsonText, error);
     return {
       error: errorDetail.message,
       errorDetail,
@@ -553,7 +537,7 @@ export function defaultTxWorkflowTemplateRefBlockPayload(): JsonObject {
 export function txWorkflowTemplateRefBlockModelFromJson(
   source: unknown = {},
 ): TxWorkflowTemplateRefBlockModel {
-  const value = txPlainObject(source) ? source : {};
+  const value = plainObject(source) ? source : {};
   return {
     name: value.name ?? null,
     hasName: Object.hasOwn(value, "name"),
@@ -585,7 +569,7 @@ function txWorkflowTemplateRefBlockJsonFromModel(
   model: Partial<TxWorkflowTemplateRefBlockModel> = {},
 ): JsonObject {
   const result: JsonObject = {
-    ...(txPlainObject(model.extra) ? cloneTxJsonValue(model.extra, {}) : {}),
+    ...(plainObject(model.extra) ? cloneTxJsonValue(model.extra, {}) : {}),
   };
   if (model.hasName || model.name !== null) {
     result.name = model.name ?? null;
@@ -604,7 +588,7 @@ function txWorkflowTemplateRefBlockJsonFromModel(
   }
   if (
     model.hasTxBlockTemplateVars ||
-    (txPlainObject(model.txBlockTemplateVars) &&
+    (plainObject(model.txBlockTemplateVars) &&
       Object.keys(model.txBlockTemplateVars).length > 0)
   ) {
     result.tx_block_template_vars = cloneTxJsonValue(
@@ -618,7 +602,7 @@ function txWorkflowTemplateRefBlockJsonFromModel(
 export function txWorkflowBlockFormModelFromJson(
   source: unknown = {},
 ): TxWorkflowBlockFormModel {
-  const value = txPlainObject(source) ? source : {};
+  const value = plainObject(source) ? source : {};
   const hasTemplateName = value.tx_block_template_name != null;
   const hasTemplateContent = value.tx_block_template_content != null;
   const sourceKind =

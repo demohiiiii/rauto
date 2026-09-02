@@ -1,45 +1,59 @@
-const JSON_VALUE_TYPE_ROWS = Object.freeze([
+const JSON_VALUE_TYPE_ROWS = [
   "string",
   "number",
   "boolean",
   "null",
   "json",
-]);
+] as const;
 
-export function cloneJsonValue(value, fallback = null) {
+export type JsonValueType = (typeof JSON_VALUE_TYPE_ROWS)[number];
+export type PlainObject = Record<string, unknown>;
+
+export interface JsonParseErrorDetail {
+  column: number | null;
+  line: number | null;
+  message: string;
+}
+
+export function cloneJsonValue<TValue>(value: TValue): TValue | null;
+export function cloneJsonValue<TValue, TFallback>(
+  value: TValue,
+  fallback: TFallback,
+): TValue | TFallback;
+export function cloneJsonValue(value: unknown, fallback: unknown = null) {
   if (value === undefined) return fallback;
   try {
-    return JSON.parse(JSON.stringify(value));
-  } catch (_) {
+    return JSON.parse(JSON.stringify(value)) as unknown;
+  } catch {
     return fallback;
   }
 }
 
-export function plainObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value);
+export function plainObject(value: unknown): value is PlainObject {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-export function stringValue(value, fallback = "") {
+export function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
-export function nullableNumberValue(value) {
+export function nullableNumberValue(value: unknown): number | null {
   return value === null || value === undefined || value === ""
     ? null
     : Number(value);
 }
 
-function jsonLocationFromOffset(text, offset) {
+function jsonLocationFromOffset(text: string, offset: number) {
   const precedingText = text.slice(0, offset);
   const lines = precedingText.split(/\r\n|\r|\n/);
   return {
     line: lines.length,
-    column: lines.at(-1).length + 1,
+    column: (lines.at(-1)?.length ?? 0) + 1,
   };
 }
 
-function unescapeJsonErrorContext(value) {
-  return value.replace(/\\(n|r|t|"|'|\\)/g, (_, escaped) => {
+function unescapeJsonErrorContext(value: string): string {
+  return value.replace(/\\(n|r|t|"|'|\\)/g, (_, escaped: string) => {
     if (escaped === "n") return "\n";
     if (escaped === "r") return "\r";
     if (escaped === "t") return "\t";
@@ -47,14 +61,17 @@ function unescapeJsonErrorContext(value) {
   });
 }
 
-function jsonErrorContextVariants(message, contextStart) {
+function jsonErrorContextVariants(
+  message: string,
+  contextStart: number,
+): string[] {
   const contextMatch = message
     .slice(contextStart)
     .match(/^\s*([\s\S]*?)\s+is not valid JSON\s*$/i);
   if (!contextMatch) return [];
 
-  const variants = [];
-  const pending = [contextMatch[1].trim()];
+  const variants: string[] = [];
+  const pending = [contextMatch[1]?.trim() ?? ""];
   while (pending.length > 0) {
     const value = pending.shift();
     if (!value || variants.includes(value)) continue;
@@ -85,7 +102,10 @@ function jsonErrorContextVariants(message, contextStart) {
   return variants.sort((left, right) => right.length - left.length);
 }
 
-function jsonContextErrorOffset(jsonText, message) {
+function jsonContextErrorOffset(
+  jsonText: string,
+  message: string,
+): number | null {
   const tokenMatch = message.match(
     /Unexpected token\s+(?:'((?:\\.|[^'])*)'|"((?:\\.|[^"])*)"|(\S+?))(?:,|\s)/i,
   );
@@ -95,8 +115,8 @@ function jsonContextErrorOffset(jsonText, message) {
   );
   if (!token) return null;
 
-  const contextStart = tokenMatch.index + tokenMatch[0].length;
-  const candidateOffsets = new Set();
+  const contextStart = (tokenMatch.index ?? 0) + tokenMatch[0].length;
+  const candidateOffsets = new Set<number>();
   for (const context of jsonErrorContextVariants(message, contextStart)) {
     const contextOffset = jsonText.indexOf(context);
     if (contextOffset < 0 || contextOffset !== jsonText.lastIndexOf(context)) {
@@ -106,12 +126,14 @@ function jsonContextErrorOffset(jsonText, message) {
     if (tokenOffset < 0 || tokenOffset !== context.lastIndexOf(token)) continue;
     candidateOffsets.add(contextOffset + tokenOffset);
   }
-  return candidateOffsets.size === 1
-    ? candidateOffsets.values().next().value
-    : null;
+  if (candidateOffsets.size !== 1) return null;
+  return candidateOffsets.values().next().value ?? null;
 }
 
-export function jsonParseErrorDetail(jsonText = "", error = null) {
+export function jsonParseErrorDetail(
+  jsonText: unknown = "",
+  error: unknown = null,
+): JsonParseErrorDetail {
   const message =
     error && typeof error === "object" && "message" in error
       ? String(error.message)
@@ -147,7 +169,7 @@ export function jsonParseErrorDetail(jsonText = "", error = null) {
   return { message, line: null, column: null };
 }
 
-export function jsonValueType(value) {
+export function jsonValueType(value: unknown): JsonValueType {
   if (value === null) return "null";
   if (typeof value === "number") return "number";
   if (typeof value === "boolean") return "boolean";
@@ -155,15 +177,22 @@ export function jsonValueType(value) {
   return "json";
 }
 
-export function jsonValueText(value) {
+export function jsonValueText(value: unknown): string {
   const type = jsonValueType(value);
-  if (type === "json") return JSON.stringify(value ?? {}, null, 2);
+  if (type === "json") return JSON.stringify(value ?? {}, null, 2) as string;
   if (type === "null") return "";
   return String(value);
 }
 
-export function jsonValueFromText(typeValue = "string", textValue = "") {
-  const type = JSON_VALUE_TYPE_ROWS.includes(typeValue) ? typeValue : "string";
+export function jsonValueFromText(
+  typeValue: unknown = "string",
+  textValue: unknown = "",
+): unknown {
+  const type: JsonValueType = JSON_VALUE_TYPE_ROWS.includes(
+    typeValue as JsonValueType,
+  )
+    ? (typeValue as JsonValueType)
+    : "string";
   const text = stringValue(textValue);
   const trimmed = text.trim();
   if (type === "null") return null;
@@ -181,7 +210,7 @@ export function jsonValueFromText(typeValue = "string", textValue = "") {
     if (!trimmed) return {};
     try {
       return JSON.parse(trimmed);
-    } catch (_) {
+    } catch {
       return text;
     }
   }

@@ -2,31 +2,9 @@ import { t, tr } from "../../../lib/i18n.js";
 import { createKeyedListState } from "../../../lib/svelte.js";
 import { safeString } from "../../../lib/ui.js";
 import { get as getStore, writable } from "svelte/store";
-import type { Readable, Writable } from "svelte/store";
 
 type DynamicRow = Record<string, unknown>;
 type ProfileListRow = string | DynamicRow;
-
-interface KeyedListState<T> {
-  has(key: unknown): boolean;
-  rowsState: Readable<Record<string, T[]>>;
-  set(key: unknown, rows: T[]): void;
-  stateFor(key: unknown): Writable<T[]>;
-  update(key: unknown, updater: (rows: T[]) => T[]): void;
-}
-
-interface KeyedListOptions {
-  normalizeKey?: (key: unknown) => string;
-  onChange?: (key: string) => void;
-}
-
-type KeyedListFactory = <T>(
-  keys: readonly string[],
-  options?: KeyedListOptions,
-) => KeyedListState<T>;
-
-const createTypedKeyedListState =
-  createKeyedListState as unknown as KeyedListFactory;
 
 interface ProfileListRowDefinition {
   collect(row: DynamicRow): DynamicRow;
@@ -186,15 +164,12 @@ function normalizeProfileListKey(profileListKey: unknown): string {
   return normalizeSemanticKey(profileListKey, PROFILE_LIST_KEYS);
 }
 
-const profileLists = createTypedKeyedListState<ProfileListRow>(
-  PROFILE_LIST_ORDER,
-  {
-    normalizeKey: normalizeProfileListKey,
-    onChange: (key: string) => {
-      if (key === PROFILE_LIST.prompts) updateHookModeOptions();
-    },
+const profileLists = createKeyedListState<ProfileListRow>(PROFILE_LIST_ORDER, {
+  normalizeKey: normalizeProfileListKey,
+  onChange: (key: string) => {
+    if (key === PROFILE_LIST.prompts) updateHookModeOptions();
   },
-);
+});
 
 const profileListStateFor = profileLists.stateFor;
 const setProfileListRows = profileLists.set;
@@ -431,7 +406,7 @@ function normalizeHookListKey(hookListKey: unknown): string {
   return normalizeSemanticKey(hookListKey, HOOK_LIST_KEYS);
 }
 
-const hookLists = createTypedKeyedListState<DynamicRow>(HOOK_LIST_ORDER, {
+const hookLists = createKeyedListState<DynamicRow>(HOOK_LIST_ORDER, {
   normalizeKey: normalizeHookListKey,
 });
 

@@ -7,10 +7,10 @@ import {
 } from "../../../api/client.js";
 import type { StandardCommandApi } from "../model/types.js";
 
-export const standardCommandApi = {
+export const standardCommandApi: StandardCommandApi = {
   executeTemplate,
   getTemplate,
   inspectCommandTemplate,
   listTemplates,
   renderTemplate,
-} as StandardCommandApi;
+};

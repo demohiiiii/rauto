@@ -27,16 +27,6 @@
     value?: HTMLInputAttributes["value"];
   }
 
-  type PlainInputBindingsFactory = (options: {
-    onInput?: HTMLInputAttributes["oninput"];
-    onValueInput?: (value: string) => void;
-  }) => {
-    inputHandler: NonNullable<HTMLInputAttributes["oninput"]>;
-  };
-
-  const createPlainInputFieldBindings =
-    plainInputFieldBindings as unknown as PlainInputBindingsFactory;
-
   let {
     value = "",
     id = undefined,
@@ -60,7 +50,7 @@
     onKeydown,
   }: PlainInputFieldProps = $props();
   let inputBindings = $derived(
-    createPlainInputFieldBindings({ onInput, onValueInput }),
+    plainInputFieldBindings({ onInput, onValueInput }),
   );
   let inputElement = $state<HTMLInputElement | null>(null);
   let lastFocusRequestVersion = $state(0);

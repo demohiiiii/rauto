@@ -131,19 +131,6 @@ interface TxExternalActionContext {
 
 type TxInputDependencies = Record<string, unknown>;
 
-interface TxLoadingRunner {
-  run<T>(
-    loadingKey: string,
-    operation: () => T | Promise<T>,
-  ): Promise<T | undefined>;
-}
-
-const txTranslate = t as unknown as (key: string, fallback?: string) => string;
-const txSelectOptionsWithCurrent = selectOptionsWithCurrent as unknown as (
-  optionValues: readonly unknown[],
-  selected: unknown,
-) => string[];
-
 export const jsonTemplateNameValue = (templateName: unknown): string =>
   safeTemplateString(templateName).trim();
 
@@ -175,7 +162,7 @@ const txOptionRowsWithCurrent = (
   optionValues: unknown = [],
   selected: unknown = "",
 ) =>
-  txSelectOptionsWithCurrent(
+  selectOptionsWithCurrent(
     Array.isArray(optionValues) ? optionValues : [],
     selected,
   ).map((optionValue) => ({
@@ -224,7 +211,7 @@ export function txDirectVarsPanelDisplay({
   placeholderKey?: string;
   varsTextState?: TxVarsTextState;
 } = {}) {
-  const placeholderText = txTranslate(placeholderKey, placeholderFallback);
+  const placeholderText = t(placeholderKey, placeholderFallback);
   return {
     formError: txVarsFormError(varsTextState),
     hintText: hintKey ? t(hintKey) : "",
@@ -250,10 +237,7 @@ export function txTemplateRunPanelDisplay({
   varsPlaceholderKey?: string;
   varsTextState?: TxVarsTextState;
 } = {}) {
-  const varsPlaceholderText = txTranslate(
-    varsPlaceholderKey,
-    varsPlaceholderFallback,
-  );
+  const varsPlaceholderText = t(varsPlaceholderKey, varsPlaceholderFallback);
   const selectedTemplate = jsonTemplateNameValue(templateSelectState?.selected);
   return {
     deleteButtonLabel: t("templateDeleteBtn"),
@@ -285,7 +269,7 @@ export const txBlockInputPanelDisplay = ({
   directHint: t("txBlockDirectHint"),
   editorTitle: t("txBlockEditorTitle"),
   jsonHint: t("txBlockJsonHint"),
-  jsonPlaceholderText: txTranslate("txBlockJsonPlaceholder", jsonPlaceholder),
+  jsonPlaceholderText: t("txBlockJsonPlaceholder", jsonPlaceholder),
   newButtonLabel: t(newButtonLabelKey),
   tabAriaLabel: t("txStageBlock"),
 });
@@ -309,10 +293,7 @@ export const txWorkflowInputPanelDisplay = ({
 } = {}) => ({
   directHint: t("txWorkflowDirectHint"),
   importButtonLabel: t("txWorkflowImportFileBtn"),
-  jsonPlaceholderText: txTranslate(
-    "txWorkflowJsonPlaceholder",
-    jsonPlaceholder,
-  ),
+  jsonPlaceholderText: t("txWorkflowJsonPlaceholder", jsonPlaceholder),
   newButtonLabel: t("newBtn"),
   tabAriaLabel: t("txStageWorkflow"),
 });
@@ -434,7 +415,7 @@ export function createTxInputLoadingKeysStore() {
       loadingKeysStore.set(
         Array.isArray(nextKeys) ? nextKeys.map(txInputText) : [],
       ),
-  ) as TxLoadingRunner;
+  );
   return { loadingKeysStore, loadingRunner };
 }
 

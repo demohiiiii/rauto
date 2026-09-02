@@ -1,8 +1,8 @@
 import {
-  callbackMappedFormCheckedHandler as callbackMappedFormCheckedHandlerBase,
-  callbackMappedFormValueHandler as callbackMappedFormValueHandlerBase,
-  formCheckedHandler as formCheckedHandlerBase,
-  formValueHandler as formValueHandlerBase,
+  callbackMappedFormCheckedHandler,
+  callbackMappedFormValueHandler,
+  formCheckedHandler,
+  formValueHandler,
 } from "../../../lib/events.js";
 import {
   txExtraStringPresenceChangeHandler,
@@ -82,23 +82,6 @@ interface TxBlockStepChangeHandler {
 interface TxBlockStepEditorBindingOptions {
   onStepChange?: TxBlockStepChangeHandler | null;
 }
-
-const callbackMappedFormCheckedHandler =
-  callbackMappedFormCheckedHandlerBase as unknown as (
-    callback: (checked: boolean) => unknown,
-    mapChecked: (checked: boolean) => boolean,
-  ) => FormEventHandler;
-const callbackMappedFormValueHandler =
-  callbackMappedFormValueHandlerBase as unknown as (
-    callback: (value: unknown) => unknown,
-    mapValue: (value: unknown) => unknown,
-  ) => FormEventHandler;
-const formCheckedHandler = formCheckedHandlerBase as unknown as (
-  callback: (checked: boolean) => unknown,
-) => FormEventHandler;
-const formValueHandler = formValueHandlerBase as unknown as (
-  callback: (value: string) => unknown,
-) => FormEventHandler;
 
 function txModelChangeHandler<TModel, TArgs extends unknown[]>(
   model: TModel,

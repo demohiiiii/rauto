@@ -1,6 +1,6 @@
 import { listTemplates } from "../../../api/client.js";
 import type { CommandTemplateApi } from "../model/types.js";
 
-export const commandApi = {
+export const commandApi: CommandTemplateApi = {
   listTemplates,
-} as CommandTemplateApi;
+};

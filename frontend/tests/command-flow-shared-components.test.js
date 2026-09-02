@@ -80,7 +80,7 @@ test("shared command flow surfaces keep defaults and expose opt-in workbench lay
 });
 
 test("shared command flow barrel exports every surface", () => {
-  const index = read("frontend/src/components/command-flow/index.js");
+  const index = read("frontend/src/components/command-flow/index.ts");
 
   for (const componentName of [
     "CommandEditor",

@@ -39,12 +39,7 @@ function orchestrationJobTargetsActionHandlers({
 }: Pick<JobTargetsEditorContext, "onReplaceStringList"> = {}) {
   return {
     replaceStringListHandler(listName = ""): (values: unknown) => unknown {
-      return (
-        callbackHandler as (
-          callback: ReplaceStringListHandler | null | undefined,
-          name: string,
-        ) => (values: unknown) => unknown
-      )(onReplaceStringList, listName);
+      return callbackHandler(onReplaceStringList, listName);
     },
   };
 }

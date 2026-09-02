@@ -6,8 +6,30 @@ import {
   plainObject,
   stringValue,
 } from "./jsonValue.js";
+import type { JsonValueType, PlainObject } from "./jsonValue.js";
 
-function objectEntryRows(source = {}) {
+export interface ObjectFieldRow {
+  keyText: string;
+  typeValue: JsonValueType;
+  valueText: string;
+}
+
+export interface ValueEditorPresentation {
+  disabled: boolean;
+  editorKind: "input" | "textarea";
+  objectSource: PlainObject | null;
+  rows: number;
+  showObjectEditor: boolean;
+  typeValue: string;
+  valueText: string;
+}
+
+export interface ObjectFieldPatch {
+  typeValue?: unknown;
+  valueText?: unknown;
+}
+
+function objectEntryRows(source: unknown = {}): ObjectFieldRow[] {
   const value = plainObject(source) ? source : {};
   return Object.entries(value).map(([key, entryValue]) => ({
     keyText: String(key),
@@ -16,19 +38,22 @@ function objectEntryRows(source = {}) {
   }));
 }
 
-export function valueEditorPresentation(typeValue = "string", valueText = "") {
+export function valueEditorPresentation(
+  typeValue: unknown = "string",
+  valueText: unknown = "",
+): ValueEditorPresentation {
   const resolvedTypeValue = stringValue(typeValue, "string");
   const resolvedValueText = stringValue(valueText);
   const lineCount = resolvedValueText
     ? resolvedValueText.split("\n").length
     : 1;
   const showTextarea = resolvedTypeValue === "json";
-  let objectSource = null;
+  let objectSource: PlainObject | null = null;
   if (showTextarea && resolvedValueText.trim()) {
     try {
       const parsedValue = JSON.parse(resolvedValueText);
       objectSource = plainObject(parsedValue) ? parsedValue : null;
-    } catch (_) {
+    } catch {
       objectSource = null;
     }
   }
@@ -43,23 +68,28 @@ export function valueEditorPresentation(typeValue = "string", valueText = "") {
   };
 }
 
-function nextObjectFieldKey(source = {}, prefix = "field") {
+function nextObjectFieldKey(source: unknown = {}, prefix = "field"): string {
   const value = plainObject(source) ? source : {};
   let index = 1;
   while (Object.hasOwn(value, `${prefix}${index}`)) index += 1;
   return `${prefix}${index}`;
 }
 
-export function objectFieldRows(source = {}) {
+export function objectFieldRows(source: unknown = {}): ObjectFieldRow[] {
   return objectEntryRows(source);
 }
 
-export function objectFieldEditorPresentation(fieldRow = {}) {
+export function objectFieldEditorPresentation(
+  fieldRow: unknown = {},
+): ValueEditorPresentation {
   const row = plainObject(fieldRow) ? fieldRow : {};
   return valueEditorPresentation(row.typeValue, row.valueText);
 }
 
-export function addObjectField(source = {}, prefix = "field") {
+export function addObjectField(
+  source: unknown = {},
+  prefix = "field",
+): PlainObject {
   const value = plainObject(source) ? source : {};
   return {
     ...cloneJsonValue(value, {}),
@@ -67,8 +97,14 @@ export function addObjectField(source = {}, prefix = "field") {
   };
 }
 
-export function renameObjectField(source = {}, oldKey = "", newKey = "") {
-  const value = plainObject(source) ? cloneJsonValue(source, {}) : {};
+export function renameObjectField(
+  source: unknown = {},
+  oldKey = "",
+  newKey: unknown = "",
+): PlainObject {
+  const value: PlainObject = plainObject(source)
+    ? cloneJsonValue(source, {})
+    : {};
   const nextKey = stringValue(newKey).trim();
   const currentValue = value[oldKey];
   delete value[oldKey];
@@ -76,8 +112,14 @@ export function renameObjectField(source = {}, oldKey = "", newKey = "") {
   return value;
 }
 
-export function updateObjectField(source = {}, key = "", patch = {}) {
-  const value = plainObject(source) ? cloneJsonValue(source, {}) : {};
+export function updateObjectField(
+  source: unknown = {},
+  key = "",
+  patch: ObjectFieldPatch = {},
+): PlainObject {
+  const value: PlainObject = plainObject(source)
+    ? cloneJsonValue(source, {})
+    : {};
   const currentValue = value[key];
   value[key] = jsonValueFromText(
     patch.typeValue || jsonValueType(currentValue),
@@ -88,8 +130,10 @@ export function updateObjectField(source = {}, key = "", patch = {}) {
   return value;
 }
 
-export function removeObjectField(source = {}, key = "") {
-  const value = plainObject(source) ? cloneJsonValue(source, {}) : {};
+export function removeObjectField(source: unknown = {}, key = ""): PlainObject {
+  const value: PlainObject = plainObject(source)
+    ? cloneJsonValue(source, {})
+    : {};
   delete value[key];
   return value;
 }

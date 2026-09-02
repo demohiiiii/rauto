@@ -4,19 +4,18 @@ export type CredentialStatusTone = "error" | "info" | "success";
 export type CredentialTranslate = (key: string, fallback?: string) => string;
 
 export interface CredentialApiRow {
-  auth_type?: unknown;
-  connection_count?: unknown;
-  enable_enabled?: unknown;
-  has_auth_secret?: unknown;
-  has_enable_password?: unknown;
-  has_passphrase?: unknown;
-  has_password?: unknown;
-  id?: unknown;
-  name?: unknown;
-  private_key_path?: unknown;
-  referencing_connections?: unknown;
-  username?: unknown;
-  [key: string]: unknown;
+  auth_type: string;
+  connection_count: number;
+  enable_enabled: boolean;
+  has_auth_secret: boolean;
+  has_enable_password: boolean;
+  has_passphrase: boolean;
+  has_password: boolean;
+  id: string;
+  name: string;
+  private_key_path: string | null;
+  referencing_connections: string[];
+  username: string;
 }
 
 export interface CredentialRow {
@@ -78,6 +77,16 @@ export interface CredentialImportReport {
   fileName: string;
   imported: number;
   totalRows: number;
+  updated: number;
+}
+
+export interface CredentialImportApiReport {
+  created: number;
+  failed: number;
+  failures: Array<{ message: string; name: string | null; row: number }>;
+  file_name: string;
+  imported: number;
+  total_rows: number;
   updated: number;
 }
 
@@ -143,7 +152,7 @@ export interface CredentialsApi {
   deleteCredential(id: string): Promise<unknown>;
   downloadImportTemplate(language: string): Promise<CredentialBlobPayload>;
   getCredential(id: string): Promise<CredentialApiRow>;
-  importCredentials(file: File): Promise<unknown>;
+  importCredentials(file: File): Promise<CredentialImportApiReport>;
   listCredentials(): Promise<CredentialApiRow[]>;
   updateCredential(
     id: string,

@@ -1,3 +1,5 @@
+import type { I18nDictionary } from "./types.js";
+
 export const i18nEn = {
   title: "rauto Web Console",
   dashboardBreadcrumbAria: "Page path",
@@ -1987,4 +1989,4 @@ export const i18nEn = {
   txBlockTemplateNameRequired: "tx block template name is required",
   txWorkflowTemplateNameRequired: "tx workflow template name is required",
   orchestrationTemplateNameRequired: "orchestration template name is required",
-};
+} satisfies I18nDictionary;

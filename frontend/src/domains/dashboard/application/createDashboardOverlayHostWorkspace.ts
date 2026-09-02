@@ -33,11 +33,6 @@ import type {
   DashboardRecordToolsDisplay,
 } from "../model/types.js";
 
-interface DashboardOverlayRegistry {
-  components: Readable<Record<string, unknown>>;
-  ensure(id: DashboardOverlayId): void;
-}
-
 interface DashboardOverlayPresentationInput {
   connectionState?: Partial<DashboardConnectionOverlayState>;
   detailState?: Partial<DashboardDetailOverlayState>;
@@ -138,7 +133,7 @@ export function createDashboardOverlayHostWorkspace(): DashboardOverlayHostWorks
   const overlayRegistry = createLazyComponentRegistry({
     resolveId: (id: DashboardOverlayId) => id,
     resolveLoad: (id: DashboardOverlayId) => dashboardOverlayDefinitions[id],
-  }) as unknown as DashboardOverlayRegistry;
+  });
   const hostDisplayStateStore = derived(
     [
       dashboardOverlayConnectionState,

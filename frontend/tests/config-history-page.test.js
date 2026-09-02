@@ -310,7 +310,7 @@ test("configuration history keeps deleted devices without eagerly loading histor
 });
 
 test("configuration history client helpers match backend routes", () => {
-  const client = read("frontend/src/api/client.js");
+  const client = read("frontend/src/api/client.ts");
 
   assert.match(client, /export function listDeviceConfigHistory/);
   assert.match(client, /export function listDeviceConfigHistoryDevices/);

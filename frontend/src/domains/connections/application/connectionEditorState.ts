@@ -1,10 +1,7 @@
 import { t } from "../../../lib/i18n.js";
 import { safeString, statusPresentation } from "../../../lib/ui.js";
 import { showToast } from "$domains/overlays/index.js";
-import {
-  connectionApi,
-  type ConnectionRequestPayload,
-} from "../infrastructure/connectionApi.js";
+import { connectionApi } from "../infrastructure/connectionApi.js";
 import {
   connectionBasicFieldWiring,
   connectionTimeoutSecsValue,
@@ -24,9 +21,12 @@ import type {
   ConnectionAutodetectState,
   ConnectionDraft,
   ConnectionDraftPatch,
+  ConnectionFactsResponse,
+  ConnectionRequestPayload,
   ConnectionStatus,
   ConnectionTargetDetails,
   ConnectionTargetState,
+  ConnectionTestResponse,
   SavedConnectionDetail,
 } from "../model/types.js";
 
@@ -60,7 +60,7 @@ interface ConnectionsEditorHooks {
   refreshSidebarConnectionSelector: (() => unknown) | null;
   savedConnectionDetailsFromPayload:
     | ((
-        payload: Record<string, unknown>,
+        payload: ConnectionRequestPayload,
         name: string,
       ) => ConnectionTargetDetails)
     | null;
@@ -253,7 +253,7 @@ export function updateSavedConnectionEditorDraftEnabled(
 }
 
 export function detectedConnectionFactsPatch(
-  result: Record<string, unknown> = {},
+  result: Partial<ConnectionFactsResponse> = {},
 ): ConnectionDraftPatch {
   const patch: ConnectionDraftPatch = {};
   const deviceProfile = safeString(result.device_profile || "").trim();
@@ -368,7 +368,7 @@ export function savedConnectionEditorTestPayload(draft: ConnectionDraft) {
 }
 
 function connectionTestSuccessMessage(
-  testResult: Record<string, unknown> = {},
+  testResult: ConnectionTestResponse,
 ): string {
   const username = safeString(testResult.username || "").trim() || "-";
   const host = safeString(testResult.host || "").trim() || "-";
@@ -528,7 +528,7 @@ export async function saveSavedConnectionEditor() {
     ) {
       requiredHook("setCurrentConnectionTarget")(
         requiredHook("savedConnectionDetailsFromPayload")(
-          recordValue(savedConnectionPayload.connection || payload),
+          savedConnectionPayload.connection || payload,
           savedName,
         ),
       );

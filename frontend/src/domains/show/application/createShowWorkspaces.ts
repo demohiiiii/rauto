@@ -5,7 +5,7 @@ import {
 import { derived, writable } from "svelte/store";
 import type { Readable, Writable } from "svelte/store";
 import { currentLanguageState, t } from "../../../lib/i18n.js";
-import { createLoadingStateRunner } from "../../../lib/svelte.js";
+import { createLoadingStateRunner as createLoadingRunner } from "../../../lib/svelte.js";
 import { emptyString, safeString } from "../../../lib/ui.js";
 import {
   executionResultDisplay,
@@ -78,10 +78,6 @@ interface PickerController<T> {
   state: Readable<T>;
 }
 
-interface LoadingRunner {
-  run<T>(key: string, operation: () => Promise<T> | T): Promise<T | undefined>;
-}
-
 interface SessionRetryState extends UnknownRecord {
   enabled: boolean;
   initialBackoffMs: string;
@@ -136,10 +132,6 @@ const createRetryState = createSessionRetryState as () => SessionRetryState;
 const validateRetryState = sessionRetryValidation as (
   value: SessionRetryState,
 ) => { valid: boolean };
-const createLoadingRunner = createLoadingStateRunner as unknown as (
-  state: { keys: string[] },
-  config: { setKeys(keys: string[]): void },
-) => LoadingRunner;
 const createModeSelection = modeSelection as unknown as (
   key: string,
 ) => PickerController<ModePickerState>;

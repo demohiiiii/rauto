@@ -18,14 +18,6 @@
     value?: HTMLTextareaAttributes["value"];
   }
 
-  type TextAreaFieldBindingsFactory = (options: {
-    onInput?: HTMLTextareaAttributes["oninput"];
-    onValueInput?: (value: string) => void;
-  }) => { inputHandler: NonNullable<HTMLTextareaAttributes["oninput"]> };
-
-  const createTextAreaFieldBindings =
-    textAreaFieldBindings as unknown as TextAreaFieldBindingsFactory;
-
   let {
     value = "",
     id = undefined,
@@ -40,9 +32,7 @@
     onInput,
     onValueInput,
   }: PlainTextAreaFieldProps = $props();
-  let areaBindings = $derived(
-    createTextAreaFieldBindings({ onInput, onValueInput }),
-  );
+  let areaBindings = $derived(textAreaFieldBindings({ onInput, onValueInput }));
 </script>
 
 <Textarea

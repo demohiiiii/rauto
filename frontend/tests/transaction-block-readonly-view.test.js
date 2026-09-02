@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(path, "utf8");
 
 test("transaction block editor adds one live read-only view", () => {
-  const configSource = read("frontend/src/config/dashboardModes.js");
+  const configSource = read("frontend/src/config/dashboardModes.ts");
   const inputSource = read(
     "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
   );

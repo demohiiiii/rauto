@@ -4,7 +4,7 @@ import {
   plainObject,
   stringValue,
 } from "../../../lib/jsonValue.js";
-import { selectOptionsWithCurrent as selectOptionsWithCurrentBase } from "../../../lib/ui.js";
+import { selectOptionsWithCurrent } from "../../../lib/ui.js";
 import { txCommandPromptExtraSource } from "../model/transactionBlockMutations.js";
 import { txBlockPromptMetadataFieldDefs } from "../model/transactionStructure.js";
 import { txExtraStringFieldRows } from "../model/transactionMetadataFields.js";
@@ -30,6 +30,10 @@ interface TxBlockFieldDefinition {
   placeholderKey?: string;
 }
 
+interface LabeledTxBlockFieldDefinition extends TxBlockFieldDefinition {
+  labelKey: string;
+}
+
 interface TxBlockFieldRow extends JsonObject {
   fieldKey: string;
 }
@@ -40,23 +44,8 @@ interface TxCommandModeState extends JsonObject {
 
 type PartialJson<T extends JsonObject> = Partial<T> & JsonObject;
 
-const txPlainObject = plainObject as unknown as (
-  value: unknown,
-) => value is JsonObject;
-const txStringValue = stringValue as unknown as (
-  value: unknown,
-  fallback?: string,
-) => string;
-const txNullableNumberValue = nullableNumberValue as unknown as (
-  value: unknown,
-) => number | null;
-const selectOptionsWithCurrent = selectOptionsWithCurrentBase as unknown as (
-  options: readonly unknown[],
-  currentValue: unknown,
-) => string[];
-
 function txObject<T extends JsonObject>(value: unknown): PartialJson<T> {
-  return txPlainObject(value) ? (value as PartialJson<T>) : {};
+  return plainObject(value) ? (value as PartialJson<T>) : {};
 }
 
 export function txBlockValidationErrorText(
@@ -96,7 +85,7 @@ export const TX_BLOCK_JSON_VALUE_TYPE_ROWS = Object.freeze([
   "json",
 ]);
 
-const TX_BLOCK_COMMAND_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
+const TX_BLOCK_COMMAND_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "mode-expression",
@@ -121,7 +110,7 @@ const TX_BLOCK_COMMAND_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_FLOW_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
+const TX_BLOCK_FLOW_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "select",
@@ -138,7 +127,7 @@ const TX_BLOCK_FLOW_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
+const TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "textarea",
@@ -158,7 +147,7 @@ const TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_ROOT_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
+const TX_BLOCK_ROOT_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "input",
@@ -175,7 +164,7 @@ const TX_BLOCK_ROOT_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_STEP_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
+const TX_BLOCK_STEP_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "select",
@@ -193,7 +182,7 @@ const TX_BLOCK_OPERATION_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_WHOLE_RESOURCE_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
+const TX_BLOCK_WHOLE_RESOURCE_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "input",
@@ -208,7 +197,7 @@ function txBlockCommandModeOptionRows(
   commandModeState: unknown = {},
 ) {
   const modeState = txObject<TxCommandModeState>(commandModeState);
-  const selectedMode = txStringValue(currentValue).trim();
+  const selectedMode = stringValue(currentValue).trim();
   const modeOptions = Array.isArray(modeState.modes) ? modeState.modes : [];
   return selectOptionsWithCurrent(modeOptions, selectedMode).map(
     (modeOption) => ({
@@ -220,12 +209,12 @@ function txBlockCommandModeOptionRows(
 
 function txBlockCommandDynParamExtraRows(command: unknown = {}) {
   const commandValue = txObject<TxCommandModel>(command);
-  const dynParams = txPlainObject(commandValue.dynParams)
+  const dynParams = plainObject(commandValue.dynParams)
     ? commandValue.dynParams
     : {};
   return Object.entries(dynParams).map(([key, value]) => ({
     keyText: String(key),
-    valueText: txStringValue(value),
+    valueText: stringValue(value),
   }));
 }
 
@@ -252,7 +241,7 @@ function txBlockCommandPromptPatternRows(prompt: unknown = {}) {
   return (Array.isArray(promptValue.patterns) ? promptValue.patterns : []).map(
     (patternValue, itemIndex) => ({
       itemIndex,
-      text: txStringValue(patternValue),
+      text: stringValue(patternValue),
     }),
   );
 }
@@ -297,8 +286,8 @@ export function txBlockCommandFieldsDisplay(
         : true;
     const valueText =
       fieldDef.inputType === "number"
-        ? (txNullableNumberValue(commandValue[fieldDef.fieldKey]) ?? "")
-        : txStringValue(commandValue[fieldDef.fieldKey] ?? "");
+        ? (nullableNumberValue(commandValue[fieldDef.fieldKey]) ?? "")
+        : stringValue(commandValue[fieldDef.fieldKey] ?? "");
     if (fieldDef.optionKind === "profileMode") {
       return {
         ...fieldDef,
@@ -369,7 +358,7 @@ export function txBlockFlowFieldsDisplay(
         ? t(fieldDef.placeholderKey)
         : "",
       showPresenceToggle: true,
-      valueText: txNullableNumberValue(flowValue[fieldDef.fieldKey]) ?? "",
+      valueText: nullableNumberValue(flowValue[fieldDef.fieldKey]) ?? "",
     };
   });
   return txBlockFieldRowsWithValidation(
@@ -415,7 +404,7 @@ export function txBlockCommandPromptFieldsDisplay(
               ? promptValue.patterns
               : []
             ).join("\n")
-          : txStringValue(promptValue.response),
+          : stringValue(promptValue.response),
     };
   });
 }
@@ -442,7 +431,7 @@ export function txBlockCommandInteractionDisplay(
     interactionPresent:
       !!commandValue.hasInteraction ||
       promptRows.length > 0 ||
-      Object.keys(txPlainObject(interaction.extra) ? interaction.extra : {})
+      Object.keys(plainObject(interaction.extra) ? interaction.extra : {})
         .length > 0,
     promptsPresent: !!interaction.hasPrompts || promptRows.length > 0,
     promptRows,
@@ -480,7 +469,7 @@ export function txBlockRootFieldsDisplay(
         ? t(fieldDef.placeholderKey)
         : "",
       showPresenceToggle: false,
-      valueText: txStringValue(rootValue[fieldDef.fieldKey]),
+      valueText: stringValue(rootValue[fieldDef.fieldKey]),
     };
   });
 }
@@ -504,7 +493,7 @@ export function txBlockWholeResourceFieldsDisplay(
         : "",
       showPresenceToggle: true,
       valueText:
-        txNullableNumberValue(wholeResourceValue[fieldDef.fieldKey]) ?? "",
+        nullableNumberValue(wholeResourceValue[fieldDef.fieldKey]) ?? "",
     })),
     validationErrors,
     pathPrefix,
@@ -555,9 +544,9 @@ export function txBlockRollbackPolicyPanelDisplay(
       ? rootValue.rollbackPolicy?.wholeResource || null
       : null;
   return {
-    rollbackKindValue: txStringValue(rootValue.rollbackPolicy?.kind, "none"),
+    rollbackKindValue: stringValue(rootValue.rollbackPolicy?.kind, "none"),
     showWholeResource: rootValue.rollbackPolicy?.kind === "whole_resource",
-    wholeResourceExtra: txPlainObject(wholeResourcePolicy?.extra)
+    wholeResourceExtra: plainObject(wholeResourcePolicy?.extra)
       ? wholeResourcePolicy.extra
       : {},
     wholeResourceFieldRows: txBlockWholeResourceFieldsDisplay(
@@ -607,7 +596,7 @@ function txBlockOperationSummaryText(operation: unknown = {}): string {
     return `${t("txBlockFormFlowSteps")} · ${stepCount}`;
   }
   return (
-    txStringValue(
+    stringValue(
       txObject<TxCommandModel>(operationValue.command).command,
     ).trim() ||
     txBlockLocalizedFallback(
@@ -649,7 +638,7 @@ export function txBlockOperationFieldsDisplay(
     })),
     placeholderText: "",
     showPresenceToggle: false,
-    valueText: txStringValue(operationValue[fieldDef.fieldKey]),
+    valueText: stringValue(operationValue[fieldDef.fieldKey]),
   }));
 }
 

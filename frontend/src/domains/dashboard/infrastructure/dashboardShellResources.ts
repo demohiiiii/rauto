@@ -15,7 +15,7 @@ export const dashboardShellResources = {
   createPageRegistry(errorMessage: () => string): DashboardPageRegistry {
     return createLazyComponentRegistry({
       errorMessage,
-    }) as unknown as DashboardPageRegistry;
+    });
   },
   openConnectionEditor(): void {
     openConnectionModal();

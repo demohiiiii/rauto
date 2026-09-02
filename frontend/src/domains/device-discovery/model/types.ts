@@ -63,12 +63,10 @@ export interface DiscoveryCredential {
   id: string;
   name: string;
   username: string;
-  [key: string]: unknown;
 }
 
 export interface DiscoveryNamedResource {
   name: string;
-  [key: string]: unknown;
 }
 
 export interface DiscoveryFormState {

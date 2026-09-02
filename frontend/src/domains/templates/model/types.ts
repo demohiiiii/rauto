@@ -88,6 +88,22 @@ export interface ShowObjectForm extends UnknownRecord {
   useMapping: boolean;
 }
 
+export interface CustomShowObjectApiPayload {
+  command: string;
+  device_profile: string;
+  enabled?: boolean;
+  mode: string | null;
+  object: string;
+  textfsm_mapping_command: string | null;
+  textfsm_template_name: string | null;
+}
+
+export interface TextfsmMappingApiPayload {
+  command: string;
+  device_profile: string;
+  template_name: string;
+}
+
 export interface ShowObjectState {
   errorMessage: string;
   form: ShowObjectForm;
@@ -107,7 +123,9 @@ export interface TemplateApi {
     name: string,
     content: string,
   ): Promise<UnknownRecord>;
-  deleteCustomShowObject(payload: UnknownRecord): Promise<unknown>;
+  deleteCustomShowObject(
+    payload: Pick<CustomShowObjectApiPayload, "device_profile" | "object">,
+  ): Promise<unknown>;
   deleteTemplateResource(base: string, name: string): Promise<unknown>;
   deleteTextfsmMapping(payload: UnknownRecord): Promise<unknown>;
   getDeviceProfilesOverview(): Promise<unknown>;
@@ -118,8 +136,8 @@ export interface TemplateApi {
   listCustomShowObjects(): Promise<unknown>;
   listTemplateResource(base: string): Promise<unknown>;
   listTextfsmMappings(profile?: string): Promise<unknown>;
-  saveCustomShowObject(payload: UnknownRecord): Promise<unknown>;
-  saveTextfsmMapping(payload: UnknownRecord): Promise<unknown>;
+  saveCustomShowObject(payload: CustomShowObjectApiPayload): Promise<unknown>;
+  saveTextfsmMapping(payload: TextfsmMappingApiPayload): Promise<unknown>;
   updateTemplateResource(
     base: string,
     name: string,

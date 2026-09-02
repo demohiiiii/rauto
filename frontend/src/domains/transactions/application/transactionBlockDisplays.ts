@@ -126,16 +126,8 @@ interface TxBlockCommandChildWorkspaceOptions<
   display: (command: TxCommandModel, commandDisplay: JsonObject) => TDisplay;
 }
 
-const txPlainObject = plainObject as unknown as (
-  value: unknown,
-) => value is JsonObject;
-const txStringValue = stringValue as unknown as (
-  value: unknown,
-  fallback?: string,
-) => string;
-
 function txModel<T extends JsonObject>(value: unknown): T {
-  return (txPlainObject(value) ? value : {}) as T;
+  return (plainObject(value) ? value : {}) as T;
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -333,7 +325,7 @@ export function createTxBlockVisualEditorWorkspace({
   const editorSummaryStateStore = deriveStore(
     [modelStateStore, currentLanguageState],
     ([$model]) => {
-      const rollbackKind = txStringValue($model?.rollbackPolicy?.kind, "none");
+      const rollbackKind = stringValue($model?.rollbackPolicy?.kind, "none");
       const rollbackLabelKeys: Record<string, string> = {
         none: "txWorkflowBlockRollbackNone",
         per_step: "txWorkflowBlockRollbackPerStep",
@@ -347,7 +339,7 @@ export function createTxBlockVisualEditorWorkspace({
         cellRows: [
           {
             labelText: t("txBlockFormName"),
-            valueText: txStringValue($model?.name).trim() || unnamedBlockText,
+            valueText: stringValue($model?.name).trim() || unnamedBlockText,
           },
           {
             labelText: t("txBlockSummaryRollback"),
@@ -431,8 +423,8 @@ export function createTxBlockCommandEditorWorkspace({
   const unsubscribeCommandModeInitialization =
     commandModeLoader.state.subscribe((modeState) => {
       const commandValue = get(commandStateStore);
-      if (txStringValue(commandValue?.mode).trim()) return;
-      const defaultMode = txStringValue(modeState?.defaultMode).trim();
+      if (stringValue(commandValue?.mode).trim()) return;
+      const defaultMode = stringValue(modeState?.defaultMode).trim();
       const availableModes = Array.isArray(modeState?.modes)
         ? modeState.modes
         : [];
@@ -478,8 +470,7 @@ export function createTxBlockCommandEditorWorkspace({
     ],
     ([$command, $catalog, $source]) => ({
       dirty:
-        txStringValue($command?.command) !==
-        txStringValue($source.baselineContent),
+        stringValue($command?.command) !== stringValue($source.baselineContent),
       loading: !!$catalog.loading || !!$source.loading,
       optionValues: Array.isArray($catalog.names) ? $catalog.names : [],
       selection: $source.selection,
@@ -502,12 +493,12 @@ export function createTxBlockCommandEditorWorkspace({
   async function selectCommandTemplate(
     sourceValue: unknown = MANUAL_COMMAND_SOURCE,
   ): Promise<boolean> {
-    const source = txStringValue(sourceValue).trim() || MANUAL_COMMAND_SOURCE;
+    const source = stringValue(sourceValue).trim() || MANUAL_COMMAND_SOURCE;
     const sourceState = get(templateSourceStateStore);
     if (source === sourceState.selection) return true;
-    const commandText = txStringValue(get(commandStateStore)?.command);
+    const commandText = stringValue(get(commandStateStore)?.command);
     if (
-      commandText !== txStringValue(sourceState.baselineContent) &&
+      commandText !== stringValue(sourceState.baselineContent) &&
       !(await confirmReplace(t("commandReplaceConfirm")))
     ) {
       return false;
@@ -534,7 +525,7 @@ export function createTxBlockCommandEditorWorkspace({
     try {
       const detail = await templateApi.getTemplate(source);
       if (destroyed || version !== templateLoadVersion) return false;
-      const content = txStringValue(txModel<JsonObject>(detail).content);
+      const content = stringValue(txModel<JsonObject>(detail).content);
       templateSourceStateStore.set({
         baselineContent: content,
         loading: false,
@@ -594,7 +585,7 @@ export function createTxBlockCommandEditorWorkspace({
         Array.isArray(nextMetadataFieldDefs) ? nextMetadataFieldDefs : [],
       );
       onChangeStateStore.set(nextOnChange);
-      pathPrefixStateStore.set(txStringValue(nextPathPrefix));
+      pathPrefixStateStore.set(stringValue(nextPathPrefix));
       validationErrorsStateStore.set(
         Array.isArray(nextValidationErrors) ? nextValidationErrors : [],
       );
@@ -631,7 +622,7 @@ export function createTxBlockOperationEditorWorkspace({
     } = {}) {
       onChangeStateStore.set(nextOnChange);
       operationStateStore.set(txModel<TxOperationModel>(nextOperation));
-      titleStateStore.set(txStringValue(nextTitleText));
+      titleStateStore.set(stringValue(nextTitleText));
     },
   };
 }
@@ -722,7 +713,7 @@ export function createTxBlockFlowEditorWorkspace({
       booleanRowsStateStore.set(
         Array.isArray(nextBooleanRows) ? nextBooleanRows : [],
       );
-      pathPrefixStateStore.set(txStringValue(nextPathPrefix));
+      pathPrefixStateStore.set(stringValue(nextPathPrefix));
       validationErrorsStateStore.set(
         Array.isArray(nextValidationErrors) ? nextValidationErrors : [],
       );
@@ -775,7 +766,7 @@ export function createTxBlockCommandInteractionEditorWorkspace(
     bindings: txBlockCommandInteractionEditorBindings,
     display: (command, commandDisplay) => {
       const interactionDisplay = commandDisplay.interactionDisplay;
-      return txPlainObject(interactionDisplay)
+      return plainObject(interactionDisplay)
         ? interactionDisplay
         : txBlockCommandInteractionDisplay(command, TX_BLOCK_BOOLEAN_ROWS);
     },

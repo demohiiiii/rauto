@@ -4,11 +4,6 @@ import {
   executeTxWorkflow as executeTxWorkflowRequest,
 } from "../../../api/client.js";
 
-type ExecutionRequest = (payload: unknown) => Promise<unknown>;
-
-export const executeOrchestration =
-  executeOrchestrationRequest as unknown as ExecutionRequest;
-export const executeTxBlock =
-  executeTxBlockRequest as unknown as ExecutionRequest;
-export const executeTxWorkflow =
-  executeTxWorkflowRequest as unknown as ExecutionRequest;
+export const executeOrchestration = executeOrchestrationRequest;
+export const executeTxBlock = executeTxBlockRequest;
+export const executeTxWorkflow = executeTxWorkflowRequest;

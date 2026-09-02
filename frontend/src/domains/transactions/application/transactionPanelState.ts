@@ -9,6 +9,7 @@ import {
   TX_EXECUTION_MODE,
   normalizeTxExecutionMode,
 } from "../../../config/dashboardModes.js";
+import type { TxExecutionMode } from "../../../config/dashboardModes.js";
 import { currentLanguageState, t, tr as translate } from "../../../lib/i18n.js";
 import { createLoadingRunner } from "../../../lib/svelte.js";
 import {
@@ -62,8 +63,6 @@ import {
 
 type OptionalHandler = (...args: unknown[]) => unknown;
 type StatusTone = string;
-
-type TxExecutionMode = "direct" | "template";
 
 interface TxExecutionModes {
   orchestration: TxExecutionMode;
@@ -145,11 +144,6 @@ function errorMessage(error: unknown): string {
   return String(error || "");
 }
 
-const normalizeExecutionMode = normalizeTxExecutionMode as unknown as (
-  mode?: unknown,
-  fallback?: TxExecutionMode,
-) => TxExecutionMode;
-
 const presentTxWorkflowExecution =
   txWorkflowExecutionPresentation as unknown as (
     workflowRun?: unknown,
@@ -189,7 +183,7 @@ export function runTxExecutionModeHandler(
   onTemplate: unknown,
 ): unknown {
   const executor =
-    normalizeExecutionMode(mode) === TX_EXECUTION_MODE.template
+    normalizeTxExecutionMode(mode) === TX_EXECUTION_MODE.template
       ? onTemplate
       : onDirect;
   return typeof executor === "function" ? executor() : undefined;
@@ -203,12 +197,12 @@ export function setTxExecutionModes(
   modes: Partial<TxExecutionModes> = {},
 ): void {
   txExecutionModes.update((currentModes) => ({
-    orchestration: normalizeExecutionMode(
+    orchestration: normalizeTxExecutionMode(
       modes.orchestration,
       currentModes.orchestration,
     ),
-    txBlock: normalizeExecutionMode(modes.txBlock, currentModes.txBlock),
-    txWorkflow: normalizeExecutionMode(
+    txBlock: normalizeTxExecutionMode(modes.txBlock, currentModes.txBlock),
+    txWorkflow: normalizeTxExecutionMode(
       modes.txWorkflow,
       currentModes.txWorkflow,
     ),

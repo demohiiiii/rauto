@@ -22,9 +22,9 @@ test("credential management is a standalone dashboard page", () => {
   const infrastructure = read(
     "frontend/src/domains/credentials/infrastructure/credentialsApi.ts",
   );
-  const api = read("frontend/src/api/client.js");
-  const zh = read("frontend/src/i18n/zh.js");
-  const en = read("frontend/src/i18n/en.js");
+  const api = read("frontend/src/api/client.ts");
+  const zh = read("frontend/src/i18n/zh.ts");
+  const en = read("frontend/src/i18n/en.ts");
 
   assert.match(navigation, /id: "credentials"/);
   assert.match(navigation, /path: "\/app\/credentials"/);

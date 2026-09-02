@@ -1,10 +1,10 @@
 import {
-  callbackMappedFormCheckedHandler as callbackMappedFormCheckedHandlerBase,
-  callbackMappedFormValueHandler as callbackMappedFormValueHandlerBase,
+  callbackMappedFormCheckedHandler,
+  callbackMappedFormValueHandler,
 } from "../../../lib/events.js";
 import { plainObject, stringValue } from "../../../lib/jsonValue.js";
 import { t } from "../../../lib/i18n.js";
-import { selectOptionsWithCurrent as selectOptionsWithCurrentBase } from "../../../lib/ui.js";
+import { selectOptionsWithCurrent } from "../../../lib/ui.js";
 import {
   defaultTxBlockTemplatePayload,
   defaultTxWorkflowTemplateRefBlockPayload,
@@ -67,34 +67,12 @@ interface TxWorkflowBlockBindingPort {
 
 type TxWorkflowChangeHandler = (model: TxWorkflowEditorModel) => unknown;
 
-const callbackMappedFormCheckedHandler =
-  callbackMappedFormCheckedHandlerBase as unknown as (
-    callback: (checked: boolean) => unknown,
-    mapValue: (checked: boolean) => boolean,
-  ) => FormEventHandler;
-const callbackMappedFormValueHandler =
-  callbackMappedFormValueHandlerBase as unknown as (
-    callback: (value: unknown) => unknown,
-    mapValue: (value: unknown) => unknown,
-  ) => FormEventHandler;
-const txPlainObject = plainObject as unknown as (
-  value: unknown,
-) => value is JsonObject;
-const txStringValue = stringValue as unknown as (
-  value: unknown,
-  fallback?: string,
-) => string;
-const selectOptionsWithCurrent = selectOptionsWithCurrentBase as unknown as (
-  options: readonly unknown[],
-  currentValue: unknown,
-) => string[];
-
 function txWorkflowEditorModel(value: unknown): TxWorkflowEditorModel {
-  return txPlainObject(value) ? (value as TxWorkflowEditorModel) : {};
+  return plainObject(value) ? (value as TxWorkflowEditorModel) : {};
 }
 
 function txWorkflowBlockModel(value: unknown): TxWorkflowBlockFormModel {
-  return txPlainObject(value)
+  return plainObject(value)
     ? (value as TxWorkflowBlockFormModel)
     : txWorkflowBlockFormModelFromJson();
 }
@@ -188,7 +166,7 @@ function workflowNullableFieldModePatch(
   mode: unknown,
   fallback: unknown = "",
 ): JsonObject {
-  const value = txPlainObject(model) ? model : {};
+  const value = plainObject(model) ? model : {};
   const hasKey = `has${field[0].toUpperCase()}${field.slice(1)}`;
   if (workflowNullableModeValue(mode) === "null") {
     return {
@@ -208,7 +186,7 @@ function workflowToggleNullableFieldPresence(
   field: string,
   enabled: boolean,
 ): JsonObject {
-  const value = txPlainObject(model) ? model : {};
+  const value = plainObject(model) ? model : {};
   const hasKey = `has${field[0].toUpperCase()}${field.slice(1)}`;
   return {
     ...value,
@@ -222,12 +200,12 @@ function workflowToggleObjectFieldPresence(
   field: string,
   enabled: boolean,
 ): JsonObject {
-  const value = txPlainObject(model) ? model : {};
+  const value = plainObject(model) ? model : {};
   const hasKey = `has${field[0].toUpperCase()}${field.slice(1)}`;
   return {
     ...value,
     [field]:
-      enabled && txPlainObject(value[field])
+      enabled && plainObject(value[field])
         ? { ...value[field] }
         : enabled
           ? {}
@@ -431,7 +409,7 @@ export function txWorkflowRootFieldsDisplay(
   model: unknown = {},
   booleanRows: readonly unknown[] = [],
 ): TxWorkflowFieldRow[] {
-  const workflowValue = txPlainObject(model) ? model : {};
+  const workflowValue = plainObject(model) ? model : {};
   return TX_WORKFLOW_ROOT_FIELD_DEFS.map((fieldDef) => {
     if (fieldDef.optionKind === "boolean") {
       return {
@@ -456,7 +434,7 @@ export function txWorkflowRootFieldsDisplay(
       labelText: t(fieldDef.labelKey),
       placeholderText: "",
       showPresenceToggle: false,
-      valueText: txStringValue(workflowValue[fieldDef.fieldKey]),
+      valueText: stringValue(workflowValue[fieldDef.fieldKey]),
     };
   });
 }
@@ -464,7 +442,7 @@ export function txWorkflowRootFieldsDisplay(
 export function txWorkflowBlockFieldsDisplay(
   block: unknown = {},
 ): TxWorkflowFieldRow[] {
-  const blockValue = txPlainObject(block) ? block : {};
+  const blockValue = plainObject(block) ? block : {};
   return TX_WORKFLOW_BLOCK_FIELD_DEFS.map((fieldDef) => ({
     ...fieldDef,
     enabled: true,
@@ -478,7 +456,7 @@ export function txWorkflowBlockFieldsDisplay(
     })),
     placeholderText: "",
     showPresenceToggle: false,
-    valueText: txStringValue(blockValue[fieldDef.fieldKey]),
+    valueText: stringValue(blockValue[fieldDef.fieldKey]),
   }));
 }
 
@@ -486,7 +464,7 @@ export function txWorkflowTemplateRefFieldsDisplay(
   templateRef: unknown = {},
   booleanRows: readonly unknown[] = [],
 ): TxWorkflowFieldRow[] {
-  const templateRefValue = txPlainObject(templateRef) ? templateRef : {};
+  const templateRefValue = plainObject(templateRef) ? templateRef : {};
   return TX_WORKFLOW_TEMPLATE_REF_FIELD_DEFS.map((fieldDef) => {
     const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
     if (fieldDef.optionKind === "boolean") {
@@ -517,13 +495,13 @@ export function txWorkflowTemplateRefFieldsDisplay(
         ? t(fieldDef.placeholderKey)
         : "",
       showPresenceToggle: true,
-      valueText: txStringValue(templateRefValue[fieldDef.fieldKey] ?? ""),
+      valueText: stringValue(templateRefValue[fieldDef.fieldKey] ?? ""),
     });
   });
 }
 
 export function txWorkflowTemplateRefSourceDisplay(templateRef: unknown = {}) {
-  const templateRefValue = txPlainObject(templateRef) ? templateRef : {};
+  const templateRefValue = plainObject(templateRef) ? templateRef : {};
   const sourceMode =
     templateRefValue.hasTxBlockTemplateContent ||
     templateRefValue.txBlockTemplateContent != null
@@ -564,9 +542,7 @@ export function txWorkflowTemplateRefSourceDisplay(templateRef: unknown = {}) {
           nullableModeRows: workflowNullableModeRows(),
           nullableModeValue:
             templateRefValue.txBlockTemplateContent === null ? "null" : "value",
-          valueText: txStringValue(
-            templateRefValue.txBlockTemplateContent ?? "",
-          ),
+          valueText: stringValue(templateRefValue.txBlockTemplateContent ?? ""),
         }
       : {
           controlType: "input",
@@ -584,7 +560,7 @@ export function txWorkflowTemplateRefSourceDisplay(templateRef: unknown = {}) {
           nullableModeRows: workflowNullableModeRows(),
           nullableModeValue:
             templateRefValue.txBlockTemplateName === null ? "null" : "value",
-          valueText: txStringValue(templateRefValue.txBlockTemplateName ?? ""),
+          valueText: stringValue(templateRefValue.txBlockTemplateName ?? ""),
         };
   return {
     hintText: t("txWorkflowFormBlockTemplateSourceHint"),
@@ -595,17 +571,17 @@ export function txWorkflowTemplateRefSourceDisplay(templateRef: unknown = {}) {
 }
 
 export function txWorkflowTemplateRefVarsDisplay(templateRef: unknown = {}) {
-  const templateRefValue = txPlainObject(templateRef) ? templateRef : {};
+  const templateRefValue = plainObject(templateRef) ? templateRef : {};
   return {
     labelText: t("txWorkflowFormBlockTemplateVars"),
     present:
       !!templateRefValue.hasTxBlockTemplateVars ||
       Object.keys(
-        txPlainObject(templateRefValue.txBlockTemplateVars)
+        plainObject(templateRefValue.txBlockTemplateVars)
           ? templateRefValue.txBlockTemplateVars
           : {},
       ).length > 0,
-    source: txPlainObject(templateRefValue.txBlockTemplateVars)
+    source: plainObject(templateRefValue.txBlockTemplateVars)
       ? templateRefValue.txBlockTemplateVars
       : {},
   };
@@ -615,9 +591,9 @@ export function txWorkflowTemplateRefEditorDisplay(
   templateRef: unknown = {},
   booleanRows: readonly unknown[] = [],
 ) {
-  const templateRefValue = txPlainObject(templateRef) ? templateRef : {};
+  const templateRefValue = plainObject(templateRef) ? templateRef : {};
   return {
-    extraSource: txPlainObject(templateRefValue.extra)
+    extraSource: plainObject(templateRefValue.extra)
       ? templateRefValue.extra
       : {},
     fieldRows: txWorkflowTemplateRefFieldsDisplay(
@@ -633,7 +609,7 @@ export function txWorkflowTemplateRefEditorBindings(
   templateRef: unknown = {},
   blockBindings: unknown = {},
 ) {
-  const bindingPort = txPlainObject(blockBindings)
+  const bindingPort = plainObject(blockBindings)
     ? (blockBindings as TxWorkflowBlockBindingPort)
     : {};
   const applyPatch = (patch: JsonObject = {}): unknown =>
@@ -903,8 +879,8 @@ export function txWorkflowBlockEditorBindings(
   blockRow: unknown = {},
   blockBindings: unknown = {},
 ) {
-  const blockRowValue = txPlainObject(blockRow) ? blockRow : {};
-  const blockValue = txPlainObject(blockRowValue.block)
+  const blockRowValue = plainObject(blockRow) ? blockRow : {};
+  const blockValue = plainObject(blockRowValue.block)
     ? blockRowValue.block
     : {};
   return {
@@ -922,7 +898,7 @@ export function txWorkflowVisualEditorDisplay(model: unknown = {}) {
       ? workflowValue.blocks
       : []
     ).map((block, blockIndex) => {
-      const blockValue = txPlainObject(block)
+      const blockValue = plainObject(block)
         ? (block as TxWorkflowBlockFormModel)
         : ({} as TxWorkflowBlockFormModel);
       const isTemplateRef = blockValue.sourceKind === "template_ref";

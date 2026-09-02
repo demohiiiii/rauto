@@ -4,9 +4,9 @@ import test from "node:test";
 
 test("shadcn project wiring exists", () => {
   assert.equal(existsSync("components.json"), true);
-  assert.equal(existsSync("frontend/src/lib/utils.js"), true);
+  assert.equal(existsSync("frontend/src/lib/utils.ts"), true);
   assert.equal(
-    existsSync("frontend/src/lib/components/ui/button/index.js"),
+    existsSync("frontend/src/lib/components/ui/button/index.ts"),
     true,
   );
 });

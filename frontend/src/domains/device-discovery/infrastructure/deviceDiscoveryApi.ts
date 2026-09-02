@@ -10,7 +10,7 @@ import {
 } from "../../../api/client.js";
 import type { DeviceDiscoveryApi } from "../model/types.js";
 
-export const deviceDiscoveryApi = {
+export const deviceDiscoveryApi: DeviceDiscoveryApi = {
   cancelRun: cancelDeviceDiscoveryRun,
   createRun: createDeviceDiscoveryRun,
   getRun: getDeviceDiscoveryRun,
@@ -19,4 +19,4 @@ export const deviceDiscoveryApi = {
   listGroups: listInventoryGroups,
   listLabels: listInventoryLabels,
   listRuns: listDeviceDiscoveryRuns,
-} as DeviceDiscoveryApi;
+};

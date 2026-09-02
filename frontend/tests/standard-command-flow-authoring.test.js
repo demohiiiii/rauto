@@ -79,7 +79,7 @@ test("command flow execution source rejects incomplete saved and temporary draft
 });
 
 test("client exposes temporary inspection and save-as-template requests", () => {
-  const client = read("frontend/src/api/client.js");
+  const client = read("frontend/src/api/client.ts");
 
   assert.match(client, /export function inspectCommandFlowTemplate/);
   assert.match(client, /\/api\/flow-templates\/inspect/);
@@ -88,7 +88,7 @@ test("client exposes temporary inspection and save-as-template requests", () => 
 });
 
 test("client exposes explicit command flow template API helpers", () => {
-  const client = read("frontend/src/api/client.js");
+  const client = read("frontend/src/api/client.ts");
 
   assert.match(client, /export function getCommandFlowTemplate/);
   assert.match(client, /\/api\/flow-templates\/builtins/);
@@ -130,7 +130,7 @@ test("standard command flow page renders one unified authoring workspace", () =>
   const authoringViews = read(
     "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
   );
-  const modes = read("frontend/src/config/dashboardModes.js");
+  const modes = read("frontend/src/config/dashboardModes.ts");
 
   assert.match(panel, /CommandFlowAuthoringViews/);
   assert.match(authoringViews, /CommandFlowTemplateEditor/);

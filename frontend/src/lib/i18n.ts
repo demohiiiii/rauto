@@ -1,40 +1,45 @@
 import { get, writable } from "svelte/store";
+import type { I18nDictionary, I18nLanguage } from "../i18n/types.js";
 
-const i18nDictionaries = {
+const i18nDictionaries: Record<I18nLanguage, I18nDictionary | null> = {
   en: null,
   zh: null,
 };
-const i18nLoadPromises = new Map();
+const i18nLoadPromises = new Map<I18nLanguage, Promise<I18nDictionary>>();
 
-function normalizeI18nLanguage(lang) {
+function normalizeI18nLanguage(lang: unknown): I18nLanguage {
   return lang === "en" ? "en" : "zh";
 }
 
-export const currentLanguageState = writable("zh");
+export const currentLanguageState = writable<I18nLanguage>("zh");
 
-export function currentLanguage() {
+export function currentLanguage(): I18nLanguage {
   return normalizeI18nLanguage(get(currentLanguageState));
 }
 
-export function setCurrentLanguage(lang) {
+export function setCurrentLanguage(lang: unknown): void {
   currentLanguageState.set(normalizeI18nLanguage(lang));
 }
 
-export async function loadI18nLanguage(lang) {
+export async function loadI18nLanguage(lang: unknown): Promise<I18nDictionary> {
   const normalizedLang = normalizeI18nLanguage(lang);
   if (i18nDictionaries[normalizedLang]) {
     setCurrentLanguage(normalizedLang);
     return i18nDictionaries[normalizedLang];
   }
-  if (!i18nLoadPromises.has(normalizedLang)) {
-    i18nLoadPromises.set(normalizedLang, loadI18nDictionary(normalizedLang));
+  let loadPromise = i18nLoadPromises.get(normalizedLang);
+  if (!loadPromise) {
+    loadPromise = loadI18nDictionary(normalizedLang);
+    i18nLoadPromises.set(normalizedLang, loadPromise);
   }
-  const dictionary = await i18nLoadPromises.get(normalizedLang);
+  const dictionary = await loadPromise;
   setCurrentLanguage(normalizedLang);
   return dictionary;
 }
 
-async function importI18nDictionary(normalizedLang) {
+async function importI18nDictionary(
+  normalizedLang: I18nLanguage,
+): Promise<I18nDictionary> {
   if (normalizedLang === "en") {
     const module = await import("../i18n/en.js");
     return module.i18nEn;
@@ -43,7 +48,9 @@ async function importI18nDictionary(normalizedLang) {
   return module.i18nZh;
 }
 
-async function loadI18nDictionary(normalizedLang) {
+async function loadI18nDictionary(
+  normalizedLang: I18nLanguage,
+): Promise<I18nDictionary> {
   try {
     const dictionary = await importI18nDictionary(normalizedLang);
     i18nDictionaries[normalizedLang] = dictionary || {};
@@ -54,7 +61,7 @@ async function loadI18nDictionary(normalizedLang) {
   }
 }
 
-export function tr(key, fallback = key) {
+export function tr(key: string, fallback = key): string {
   const currentLang = currentLanguage();
   const dict = i18nDictionaries[currentLang] || {};
   const englishDict = i18nDictionaries.en || {};
@@ -62,6 +69,6 @@ export function tr(key, fallback = key) {
   return dict[key] || englishDict[key] || chineseDict[key] || fallback;
 }
 
-export function t(key) {
-  return tr(key, key);
+export function t(key: string, fallback = key): string {
+  return tr(key, fallback);
 }

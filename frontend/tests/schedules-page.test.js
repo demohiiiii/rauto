@@ -74,13 +74,19 @@ test("multi-select summarizes multiple selected values without growing the trigg
 });
 
 test("schedule client helpers match the backend routes", () => {
-  const client = read("frontend/src/api/client.js");
+  const client = read("frontend/src/api/client.ts");
 
   assert.match(client, /export function listSchedules\(\)/);
   assert.match(client, /"GET", "\/api\/schedules"/);
-  assert.match(client, /export function previewSchedule\(payload\)/);
+  assert.match(
+    client,
+    /export function previewSchedule\(\s*payload: SchedulePreviewRequest,\s*\): Promise<SchedulePreviewResponse>/,
+  );
   assert.match(client, /"POST", "\/api\/schedules\/preview"/);
-  assert.match(client, /export function createSchedule\(payload\)/);
+  assert.match(
+    client,
+    /export function createSchedule\(\s*payload: ScheduleDefinition,\s*\): Promise<StoredSchedule>/,
+  );
   assert.match(
     client,
     /`\/api\/schedules\/\$\{encodeURIComponent\(scheduleId\)\}`/,

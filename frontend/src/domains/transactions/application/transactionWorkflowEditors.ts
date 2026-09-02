@@ -22,10 +22,6 @@ import {
   txWorkflowVisualEditorDisplay,
 } from "./transactionWorkflowEditorState.js";
 
-const txWorkflowEditorPlainObject = plainObject as unknown as (
-  value: unknown,
-) => value is JsonObject;
-
 type TxWorkflowChangeHandler = (model: TxWorkflowFormModel) => unknown;
 type TxWorkflowSourceChangeHandler = (source: string) => unknown;
 
@@ -134,7 +130,7 @@ export function createTxWorkflowTemplateRefEditorWorkspace({
     Array.isArray(initialBooleanRows) ? initialBooleanRows : [],
   );
   const templateRefStateStore = writable<JsonObject>(
-    txWorkflowEditorPlainObject(initialTemplateRef) ? initialTemplateRef : {},
+    plainObject(initialTemplateRef) ? initialTemplateRef : {},
   );
   const editorDisplayStateStore = deriveStore(
     [templateRefStateStore, booleanRowsStateStore, currentLanguageState],
@@ -155,9 +151,7 @@ export function createTxWorkflowTemplateRefEditorWorkspace({
       templateRef?: unknown;
     } = {}): void {
       booleanRowsStateStore.set(Array.isArray(booleanRows) ? booleanRows : []);
-      templateRefStateStore.set(
-        txWorkflowEditorPlainObject(templateRef) ? templateRef : {},
-      );
+      templateRefStateStore.set(plainObject(templateRef) ? templateRef : {});
     },
   };
 }
@@ -166,9 +160,7 @@ export function createTxWorkflowVisualEditorWorkspace({
   model = {},
   onChange = null,
 }: TxWorkflowVisualEditorWorkspaceOptions = {}) {
-  const modelStateStore = writable<JsonObject>(
-    txWorkflowEditorPlainObject(model) ? model : {},
-  );
+  const modelStateStore = writable<JsonObject>(plainObject(model) ? model : {});
   const onChangeStateStore = writable<TxWorkflowChangeHandler | null>(onChange);
   const editorDisplayStateStore = deriveStore(
     [modelStateStore, currentLanguageState],
@@ -192,9 +184,7 @@ export function createTxWorkflowVisualEditorWorkspace({
     model: nextModel = {},
     onChange: nextOnChange = null,
   }: TxWorkflowVisualEditorWorkspaceOptions = {}): void {
-    modelStateStore.set(
-      txWorkflowEditorPlainObject(nextModel) ? nextModel : {},
-    );
+    modelStateStore.set(plainObject(nextModel) ? nextModel : {});
     onChangeStateStore.set(nextOnChange);
   }
 
@@ -212,10 +202,10 @@ export function createTxWorkflowBlockEditorWorkspace({
   blockRow = {},
 }: TxWorkflowBlockEditorWorkspaceOptions = {}) {
   const blockActionHandlersStateStore = writable<JsonObject>(
-    txWorkflowEditorPlainObject(blockActionHandlers) ? blockActionHandlers : {},
+    plainObject(blockActionHandlers) ? blockActionHandlers : {},
   );
   const blockRowStateStore = writable<JsonObject>(
-    txWorkflowEditorPlainObject(blockRow) ? blockRow : {},
+    plainObject(blockRow) ? blockRow : {},
   );
   const editorActionHandlersStateStore = deriveStore(
     [blockRowStateStore, blockActionHandlersStateStore],
@@ -231,13 +221,9 @@ export function createTxWorkflowBlockEditorWorkspace({
     blockRow: nextBlockRow = {},
   }: TxWorkflowBlockEditorWorkspaceOptions = {}): void {
     blockActionHandlersStateStore.set(
-      txWorkflowEditorPlainObject(nextBlockActionHandlers)
-        ? nextBlockActionHandlers
-        : {},
+      plainObject(nextBlockActionHandlers) ? nextBlockActionHandlers : {},
     );
-    blockRowStateStore.set(
-      txWorkflowEditorPlainObject(nextBlockRow) ? nextBlockRow : {},
-    );
+    blockRowStateStore.set(plainObject(nextBlockRow) ? nextBlockRow : {});
   }
 
   return {

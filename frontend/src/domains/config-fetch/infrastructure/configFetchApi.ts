@@ -5,8 +5,8 @@ import {
 } from "../../../api/client.js";
 import type { ConfigFetchApi } from "../model/types.js";
 
-export const configFetchApi = {
+export const configFetchApi: ConfigFetchApi = {
   fetchConfig,
   fetchConfigBatch,
   listConfigCommands,
-} as ConfigFetchApi;
+};

@@ -7,10 +7,7 @@ import {
   splitCsvValues,
 } from "../../../lib/ui.js";
 import { writable } from "svelte/store";
-import {
-  connectionApi,
-  type ConnectionRequestPayload,
-} from "../infrastructure/connectionApi.js";
+import { connectionApi } from "../infrastructure/connectionApi.js";
 import {
   connectionBasicFieldWiring,
   connectionTimeoutSecsValue,
@@ -58,7 +55,9 @@ import { openDetailModal, showToast } from "$domains/overlays/index.js";
 import type {
   ConnectionDraft,
   ConnectionDraftPatch,
+  ConnectionFactsResponse,
   ConnectionImportReport,
+  ConnectionRequestPayload,
   ConnectionTargetDetails,
   ConnectionTestState,
   PersistedConnectionTarget,
@@ -304,7 +303,7 @@ function savedConnectionDetails(
 }
 
 const savedConnectionDetailsFromPayload = (
-  connection: Record<string, unknown>,
+  connection: ConnectionRequestPayload,
   connectionName: string,
 ): ConnectionTargetDetails =>
   savedConnectionDetails({ ...connection, name: connectionName });
@@ -479,7 +478,7 @@ function formatConnectionImportSummary(report: ConnectionImportReport): string {
 }
 
 function connectionImportSummaryEntries(
-  report: ConnectionImportReport = {},
+  report: Partial<ConnectionImportReport> = {},
 ): [string, string][] {
   return [
     [t("savedConnImportSummaryTotal"), safeString(report?.total_rows)],
@@ -496,7 +495,9 @@ function recordValue(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function applyConnectionForm(connection: Record<string, unknown> = {}): void {
+function applyConnectionForm(
+  connection: ConnectionRequestPayload | SavedConnection = {},
+): void {
   const port = Number(connection.port);
   setTemporaryConnectionFormValues({
     credential_id: displayString(connection.credential_id || ""),
@@ -709,7 +710,7 @@ function connectionPayloadFromValues(
     enabled: values.enabled !== false,
     labels: Array.isArray(labels) ? [...labels] : [],
     groups: Array.isArray(groups) ? [...groups] : [],
-    vars: vars && typeof vars === "object" && !Array.isArray(vars) ? vars : {},
+    vars: recordValue(vars),
   };
 }
 
@@ -768,9 +769,7 @@ export function connectionPayload(): ConnectionRequestPayload {
   return payload;
 }
 
-export async function detectTemporaryConnectionFacts(): Promise<
-  Record<string, unknown>
-> {
+export async function detectTemporaryConnectionFacts(): Promise<ConnectionFactsResponse> {
   const payload = temporaryConnectionDraftPayload();
   if (!payload.credential_id) {
     throw new Error(t("credentialRequired"));

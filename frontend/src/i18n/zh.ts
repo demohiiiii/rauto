@@ -1,3 +1,5 @@
+import type { I18nDictionary } from "./types.js";
+
 export const i18nZh = {
   title: "rauto Web 控制台",
   dashboardBreadcrumbAria: "页面路径",
@@ -1867,4 +1869,4 @@ export const i18nZh = {
   txBlockTemplateNameRequired: "事务块模板名称不能为空",
   txWorkflowTemplateNameRequired: "事务工作流模板名称不能为空",
   orchestrationTemplateNameRequired: "编排模板名称不能为空",
-};
+} satisfies I18nDictionary;

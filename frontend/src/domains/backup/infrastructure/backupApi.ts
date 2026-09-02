@@ -6,9 +6,9 @@ import {
 } from "../../../api/client.js";
 import type { BackupApi } from "../model/types.js";
 
-export const backupApi = {
+export const backupApi: BackupApi = {
   createBackup,
   downloadBackupBlob,
   listBackups,
   restoreBackup,
-} as BackupApi;
+};

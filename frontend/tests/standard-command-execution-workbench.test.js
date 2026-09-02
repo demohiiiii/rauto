@@ -33,7 +33,7 @@ function runtime() {
 }
 
 test("client exposes command content inspection", () => {
-  const source = read("frontend/src/api/client.js");
+  const source = read("frontend/src/api/client.ts");
 
   assert.match(source, /inspectCommandTemplate/);
   assert.match(source, /\/api\/templates\/inspect/);
@@ -290,7 +290,7 @@ test("manual commands execute as inline content instead of template names", asyn
 });
 
 test("standard execution exposes command and command-flow tabs only", () => {
-  const modes = read("frontend/src/config/dashboardModes.js");
+  const modes = read("frontend/src/config/dashboardModes.ts");
   const page = read("frontend/src/pages/StandardPage.svelte");
 
   assert.doesNotMatch(modes, /STANDARD_EXEC_MODE\.template/);

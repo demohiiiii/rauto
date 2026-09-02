@@ -17,6 +17,11 @@ export interface ShowObjectsPayload {
   [key: string]: unknown;
 }
 
+export interface ShowObjectQuery {
+  deviceProfile?: string;
+  textfsmPlatform?: string;
+}
+
 export interface BatchShowTargetSelection {
   connections?: ShowConnectionSummary[];
   groups?: unknown[];
@@ -33,7 +38,7 @@ export interface ShowApi {
     blob: Blob;
     filename?: string;
   }>;
-  listObjects(payload: Record<string, unknown>): Promise<ShowObjectsPayload>;
+  listObjects(payload?: ShowObjectQuery): Promise<ShowObjectsPayload>;
 }
 
 export type ShowExecutionResult =

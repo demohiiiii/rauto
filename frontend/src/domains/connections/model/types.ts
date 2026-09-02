@@ -117,7 +117,19 @@ export interface ConnectionHistoryFilter {
 }
 
 export interface ConnectionHistoryItem extends Record<string, unknown> {
-  id?: string | number;
+  command_label: string;
+  connection_key: string;
+  connection_name: string | null;
+  device_profile: string;
+  host: string;
+  id: string;
+  mode: string | null;
+  operation: string;
+  port: number;
+  record_level: string;
+  record_path: string;
+  ts_ms: number;
+  username: string;
 }
 
 export interface ConnectionHistoryDrawerState {
@@ -152,16 +164,69 @@ export interface SavedConnection {
 }
 
 export interface SavedConnectionDetail extends Record<string, unknown> {
-  connection?: SavedConnection;
-  name?: string;
+  connection: ConnectionRequestPayload;
+  credential_name: string | null;
+  credential_required: boolean;
+  has_enable_password: boolean;
+  has_password: boolean;
+  name: string;
+  path: string;
 }
 
 export interface ConnectionImportReport extends Record<string, unknown> {
-  created?: number;
-  failed?: number;
-  imported?: number;
-  total_rows?: number;
-  updated?: number;
+  created: number;
+  failed: number;
+  failures: Array<{ message: string; name: string | null; row: number }>;
+  file_name: string;
+  imported: number;
+  total_rows: number;
+  updated: number;
+}
+
+export interface ConnectionRequestPayload {
+  connect_timeout_secs?: number | null;
+  connection_name?: string | null;
+  credential_id?: string | null;
+  device_model?: string | null;
+  device_profile?: string | null;
+  enabled?: boolean;
+  groups?: string[];
+  host?: string | null;
+  labels?: string[];
+  linux_shell_flavor?: string | null;
+  output_encoding?: string | null;
+  port?: number | null;
+  software_version?: string | null;
+  ssh_security?: string | null;
+  template_dir?: string | null;
+  vars?: Record<string, unknown>;
+}
+
+export interface ConnectionTestResponse {
+  device_profile: string;
+  host: string;
+  linux_shell_flavor: string | null;
+  ok: boolean;
+  output_encoding: string;
+  port: number;
+  ssh_security: string;
+  username: string;
+}
+
+export interface ConnectionFactsResponse {
+  device_model: string | null;
+  device_profile: string;
+  ok: boolean;
+  software_version: string | null;
+  warning: string | null;
+}
+
+export interface ConnectionHistoryDetailResponse extends Record<
+  string,
+  unknown
+> {
+  entries: Record<string, unknown>[];
+  meta: ConnectionHistoryItem;
 }
 
 export interface ConnectionTestState {

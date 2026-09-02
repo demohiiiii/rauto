@@ -134,7 +134,7 @@ test("collapsible group supports card and plain section variants", () => {
   const source = read(
     "frontend/src/components/fragments/CollapsibleGroup.svelte",
   );
-  const uiSource = read("frontend/src/lib/ui.js");
+  const uiSource = read("frontend/src/lib/ui.ts");
 
   assert.match(source, /ui\/card/);
   assert.match(source, /<Card\.Root/);
@@ -328,7 +328,7 @@ test("connection modal shell composes shadcn Dialog instead of dashboard modal g
   const source = read(
     "frontend/src/components/connections/ConnectionModalShell.svelte",
   );
-  const uiSource = read("frontend/src/lib/ui.js");
+  const uiSource = read("frontend/src/lib/ui.ts");
   const appCss = read("frontend/src/app.css");
 
   assert.match(source, /ui\/dialog/);
@@ -404,8 +404,8 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
   const basicFieldsSource = read(
     "frontend/src/components/connections/ConnectionBasicFields.svelte",
   );
-  const enSource = read("frontend/src/i18n/en.js");
-  const zhSource = read("frontend/src/i18n/zh.js");
+  const enSource = read("frontend/src/i18n/en.ts");
+  const zhSource = read("frontend/src/i18n/zh.ts");
 
   assert.match(shellSource, /sm:max-w-6xl/);
   assert.match(shellSource, /max-h-\[92vh\]/);

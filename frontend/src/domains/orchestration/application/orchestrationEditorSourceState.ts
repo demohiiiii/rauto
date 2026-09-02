@@ -37,11 +37,6 @@ interface SourceEditorInput {
   txWorkflow: unknown;
 }
 
-const orchestrationStringValue = stringValue as (
-  value: unknown,
-  fallback?: string,
-) => string;
-
 function objectRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -116,7 +111,7 @@ export function orchestrationTxWorkflowEmbeddedEditorBindings(
     ): EmbeddedFormState {
       return orchestrationTxWorkflowEmbeddedFormState(
         sourceValue,
-        orchestrationStringValue(sourceValue).trim() ? currentFormModel : null,
+        stringValue(sourceValue).trim() ? currentFormModel : null,
       );
     },
   };
@@ -206,7 +201,7 @@ function orchestrationTxWorkflowSourceEditorBindings(args: unknown = null) {
         typeof sourceValue === "string" && sourceValue.trim()
           ? sourceValue
           : nextDisplay.sourceMode === "workflow_json"
-            ? orchestrationStringValue(primaryField?.valueText)
+            ? stringValue(primaryField?.valueText)
             : "";
       if (
         Object.is(appliedSourceBindings, nextSourceBindings) &&

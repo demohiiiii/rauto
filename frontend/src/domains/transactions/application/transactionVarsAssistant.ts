@@ -72,12 +72,6 @@ type SetAssistantStatus = (
   tone: string,
 ) => unknown;
 
-const switchingStore = createSwitchingStore as unknown as <TSource, TValue>(
-  sourceStore: Readable<TSource>,
-  resolveTargetStore: (source: TSource) => Readable<TValue> | null,
-  initialValue: TValue,
-) => Readable<TValue>;
-
 export const TX_VARS = Object.freeze({
   orchestrationDirect: "orchestrationDirect",
   orchestrationTemplate: "orchestrationTemplate",
@@ -732,7 +726,7 @@ export function createTxVarsAssistantCardWorkspace({
   const assistantConfigStateStore = writable(
     requiredTxVarsAssistantConfigByPrefix(resolvePrefix()),
   );
-  const assistantStateStore = switchingStore(
+  const assistantStateStore = createSwitchingStore(
     assistantConfigStateStore,
     ($assistantConfigStateStore) =>
       $assistantConfigStateStore
@@ -743,7 +737,7 @@ export function createTxVarsAssistantCardWorkspace({
       version: 0,
     },
   );
-  const varsTextStateStore = switchingStore(
+  const varsTextStateStore = createSwitchingStore(
     assistantConfigStateStore,
     ($assistantConfigStateStore) =>
       $assistantConfigStateStore?.key

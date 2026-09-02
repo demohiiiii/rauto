@@ -22,10 +22,10 @@ interface OrchestrationTemplateApi {
   ): Promise<unknown>;
 }
 
-export const orchestrationTemplateApi = {
+export const orchestrationTemplateApi: OrchestrationTemplateApi = {
   createTemplateResource,
   deleteTemplateResource,
   getTemplateResource,
   listTemplateResource,
   updateTemplateResource,
-} as unknown as OrchestrationTemplateApi;
+};

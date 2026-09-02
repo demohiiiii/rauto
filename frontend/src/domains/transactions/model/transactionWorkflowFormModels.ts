@@ -20,23 +20,11 @@ const cloneTxJsonValue = cloneJsonValue as unknown as {
   (value: unknown): unknown;
   <T>(value: unknown, fallback: T): T;
 };
-const txPlainObject = plainObject as unknown as (
-  value: unknown,
-) => value is JsonObject;
-const txStringValue = stringValue as unknown as (
-  value: unknown,
-  fallback?: string,
-) => string;
-const txJsonParseErrorDetail = jsonParseErrorDetail as unknown as (
-  jsonText: string,
-  error: unknown,
-) => JsonErrorDetail;
-
 function txObjectExtra(
   source: unknown,
   knownKeys: ReadonlySet<string>,
 ): JsonObject {
-  if (!txPlainObject(source)) return {};
+  if (!plainObject(source)) return {};
   return Object.fromEntries(
     Object.entries(source)
       .filter(([key]) => !knownKeys.has(key))
@@ -46,7 +34,7 @@ function txObjectExtra(
 
 function txWithoutUnsupportedLabels(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(txWithoutUnsupportedLabels);
-  if (!txPlainObject(value)) return value;
+  if (!plainObject(value)) return value;
   return Object.fromEntries(
     Object.entries(value)
       .filter(([key]) => !key.endsWith("_label"))
@@ -160,11 +148,11 @@ export function defaultTxWorkflowTemplatePayload(): JsonObject {
 export function txWorkflowFormModelFromJson(
   txWorkflowValue: unknown = {},
 ): TxWorkflowFormModel {
-  const source = txPlainObject(txWorkflowValue)
+  const source = plainObject(txWorkflowValue)
     ? txWorkflowValue
     : defaultTxWorkflowTemplatePayload();
   return {
-    name: txStringValue(source.name, "tx-workflow"),
+    name: stringValue(source.name, "tx-workflow"),
     failFast: typeof source.fail_fast === "boolean" ? source.fail_fast : true,
     hasFailFast: Object.hasOwn(source, "fail_fast"),
     blocks: Array.isArray(source.blocks)
@@ -178,8 +166,8 @@ function txWorkflowJsonFromFormModel(
   model: Partial<TxWorkflowFormModel> = {},
 ): JsonObject {
   const result: JsonObject = {
-    ...(txPlainObject(model.extra) ? cloneTxJsonValue(model.extra, {}) : {}),
-    name: txStringValue(model.name, "tx-workflow"),
+    ...(plainObject(model.extra) ? cloneTxJsonValue(model.extra, {}) : {}),
+    name: stringValue(model.name, "tx-workflow"),
     blocks: Array.isArray(model.blocks)
       ? model.blocks.map((block) => txWorkflowBlockJsonFromFormModel(block))
       : [],
@@ -207,7 +195,7 @@ function txWorkflowFormModelFromJsonText(jsonText = ""): TxWorkflowParseResult {
   }
   try {
     const parsedValue = JSON.parse(jsonText);
-    if (!txPlainObject(parsedValue)) {
+    if (!plainObject(parsedValue)) {
       const message = t("txWorkflowLoadInvalidJsonShape");
       return {
         error: message,
@@ -221,7 +209,7 @@ function txWorkflowFormModelFromJsonText(jsonText = ""): TxWorkflowParseResult {
       model: txWorkflowFormModelFromJson(parsedValue),
     };
   } catch (error) {
-    const errorDetail = txJsonParseErrorDetail(jsonText, error);
+    const errorDetail = jsonParseErrorDetail(jsonText, error);
     return {
       error: errorDetail.message,
       errorDetail,

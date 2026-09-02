@@ -6,9 +6,9 @@ import {
 } from "../../../api/client.js";
 import type { ShowApi } from "../model/types.js";
 
-export const showApi = {
+export const showApi: ShowApi = {
   execute: executeShow,
   executeBatch: executeShowBatch,
   exportExcel: exportTextfsmExcel,
   listObjects: listShowObjects,
-} as ShowApi;
+};

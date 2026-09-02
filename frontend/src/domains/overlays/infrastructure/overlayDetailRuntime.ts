@@ -25,7 +25,7 @@ export const overlayDetailRuntime = {
       errorMessage,
       resolveId: (id: string) => id,
       resolveLoad: (id: string) => definitions[id],
-    }) as unknown as OverlayDetailRendererRegistry;
+    });
   },
   async loadOrchestrationDetailDisplay(): Promise<OverlayOrchestrationDetailDisplay> {
     const { orchestrationDetailDisplay } =

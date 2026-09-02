@@ -17,7 +17,7 @@ import {
 } from "../../../api/client.js";
 import type { TemplateApi } from "../model/types.js";
 
-export const templatesApi = {
+export const templatesApi: TemplateApi = {
   createTemplateResource,
   deleteCustomShowObject,
   deleteTemplateResource,
@@ -33,4 +33,4 @@ export const templatesApi = {
   saveCustomShowObject,
   saveTextfsmMapping,
   updateTemplateResource,
-} as unknown as TemplateApi;
+};

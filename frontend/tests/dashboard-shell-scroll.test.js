@@ -20,7 +20,7 @@ test("long page titles use compact sidebar labels", () => {
     "frontend/src/domains/dashboard/application/createDashboardShellWorkspaces.ts",
     "utf8",
   );
-  const en = readFileSync("frontend/src/i18n/en.js", "utf8");
+  const en = readFileSync("frontend/src/i18n/en.ts", "utf8");
 
   for (const labelKey of [
     "navStandard",
@@ -125,8 +125,8 @@ test("the connection target card and compact tooltip show current details", () =
 });
 
 test("the empty connection target uses compact menu copy", () => {
-  const zh = readFileSync("frontend/src/i18n/zh.js", "utf8");
-  const en = readFileSync("frontend/src/i18n/en.js", "utf8");
+  const zh = readFileSync("frontend/src/i18n/zh.ts", "utf8");
+  const en = readFileSync("frontend/src/i18n/en.ts", "utf8");
 
   assert.match(zh, /sidebarConnectionHint: "选择连接目标"/);
   assert.match(zh, /sidebarConnectionOptionNone: "未选择连接"/);
@@ -145,8 +145,8 @@ test("desktop sidebar collapses to icons and reveals expand over the logo", () =
     "frontend/src/components/layout/DashboardSidebar.svelte",
     "utf8",
   );
-  const zhSource = readFileSync("frontend/src/i18n/zh.js", "utf8");
-  const enSource = readFileSync("frontend/src/i18n/en.js", "utf8");
+  const zhSource = readFileSync("frontend/src/i18n/zh.ts", "utf8");
+  const enSource = readFileSync("frontend/src/i18n/en.ts", "utf8");
 
   assert.match(bodySource, /desktopSidebarCollapsed = \$state\(false\)/);
   assert.match(bodySource, /lg:grid-cols-\[4\.5rem_minmax\(0,1fr\)\]/);

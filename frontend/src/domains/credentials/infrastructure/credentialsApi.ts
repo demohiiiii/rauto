@@ -9,7 +9,7 @@ import {
 } from "../../../api/client.js";
 import type { CredentialsApi } from "../model/types.js";
 
-export const credentialsApi = {
+export const credentialsApi: CredentialsApi = {
   createCredential,
   deleteCredential,
   downloadImportTemplate: downloadCredentialImportTemplateBlob,
@@ -17,4 +17,4 @@ export const credentialsApi = {
   importCredentials,
   listCredentials,
   updateCredential,
-} as CredentialsApi;
+};

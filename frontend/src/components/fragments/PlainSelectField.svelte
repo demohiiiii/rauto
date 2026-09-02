@@ -28,16 +28,6 @@
     value?: string;
   }
 
-  type PlainSelectBindingsFactory = (options: {
-    onChange?: (event: SelectChangeEvent) => unknown;
-    onValueChange?: (value: string) => unknown;
-  }) => {
-    changeHandler: (event: SelectChangeEvent) => unknown;
-  };
-
-  const createPlainSelectFieldBindings =
-    plainSelectFieldBindings as unknown as PlainSelectBindingsFactory;
-
   const defaultRootClass = "w-full min-w-0";
   const defaultTriggerClass =
     "!w-full max-w-full min-w-0 justify-between overflow-hidden";
@@ -56,7 +46,7 @@
     onchange = null,
   }: PlainSelectFieldProps = $props();
   let selectBindings = $derived(
-    createPlainSelectFieldBindings({
+    plainSelectFieldBindings({
       onChange: typeof onchange === "function" ? onchange : onChange,
       onValueChange,
     }),

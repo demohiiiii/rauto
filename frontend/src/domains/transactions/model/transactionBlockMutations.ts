@@ -22,15 +22,6 @@ const cloneTxJsonValue = cloneJsonValue as unknown as {
   (value: unknown): unknown;
   <T>(value: unknown, fallback: T): T;
 };
-const txPlainObject = plainObject as unknown as (
-  value: unknown,
-) => value is JsonObject;
-const txStringValue = stringValue as unknown as (
-  value: unknown,
-  fallback?: string,
-) => string;
-const txJsonValueText = jsonValueText as unknown as (value: unknown) => string;
-
 function txBoolStringValue(value: unknown): boolean {
   return value === "true" || value === true;
 }
@@ -38,13 +29,13 @@ function txBoolStringValue(value: unknown): boolean {
 function txCommandInteractionSource(
   command: Partial<TxCommandModel> = {},
 ): Partial<TxCommandInteractionModel> {
-  return txPlainObject(command?.interaction) ? command.interaction : {};
+  return plainObject(command?.interaction) ? command.interaction : {};
 }
 
 function txPromptExtraSource(
   prompt: Partial<TxRuntimePromptModel> = {},
 ): JsonObject {
-  return prompt && typeof prompt === "object" && txPlainObject(prompt.extra)
+  return prompt && typeof prompt === "object" && plainObject(prompt.extra)
     ? prompt.extra
     : {};
 }
@@ -120,7 +111,7 @@ function txBlockCommandPromptPatternList(
   prompt: Partial<TxRuntimePromptModel> = {},
 ): string[] {
   return Array.isArray(prompt?.patterns)
-    ? prompt.patterns.map((patternValue) => txStringValue(patternValue))
+    ? prompt.patterns.map((patternValue) => stringValue(patternValue))
     : [];
 }
 
@@ -155,7 +146,7 @@ function txBlockToggleObjectFieldPresence<T extends JsonObject>(
   return {
     ...model,
     [field]: enabled
-      ? txPlainObject(model?.[field])
+      ? plainObject(model?.[field])
         ? cloneTxJsonValue(model[field], {})
         : {}
       : {},
@@ -450,7 +441,7 @@ export function txBlockRemoveFlowStep(
 }
 
 function txBlockNextCommandDynParamKey(command: TxCommandModel): string {
-  const dynParams = txPlainObject(command?.dynParams) ? command.dynParams : {};
+  const dynParams = plainObject(command?.dynParams) ? command.dynParams : {};
   let index = 1;
   while (Object.hasOwn(dynParams, `param${index}`)) index += 1;
   return `param${index}`;
@@ -463,17 +454,17 @@ export function txBlockUpdateCommandDynParam(
 ): TxCommandModel {
   const nextKey =
     String(key || "").trim() || txBlockNextCommandDynParamKey(command);
-  const nextValue = txPlainObject(value)
-    ? txStringValue(
+  const nextValue = plainObject(value)
+    ? stringValue(
         Object.hasOwn(value, "valueText")
           ? value.valueText
-          : txJsonValueText(command?.dynParams?.[nextKey]),
+          : jsonValueText(command?.dynParams?.[nextKey]),
       )
-    : txJsonValueText(value);
+    : jsonValueText(value);
   return {
     ...command,
     dynParams: {
-      ...(txPlainObject(command.dynParams) ? command.dynParams : {}),
+      ...(plainObject(command.dynParams) ? command.dynParams : {}),
       [nextKey]: nextValue,
     },
     hasDynParams: true,
@@ -486,7 +477,7 @@ export function txBlockRenameCommandDynParam(
   newKey: string,
 ): TxCommandModel {
   const next = {
-    ...(txPlainObject(command.dynParams) ? command.dynParams : {}),
+    ...(plainObject(command.dynParams) ? command.dynParams : {}),
   };
   const currentValue = next[oldKey];
   delete next[oldKey];
@@ -505,7 +496,7 @@ export function txBlockRemoveCommandDynParam(
   key: string,
 ): TxCommandModel {
   const next = {
-    ...(txPlainObject(command.dynParams) ? command.dynParams : {}),
+    ...(plainObject(command.dynParams) ? command.dynParams : {}),
   };
   delete next[key];
   return {
@@ -527,7 +518,7 @@ function txBlockPatchCommandInteraction(
         ? [...interaction.prompts]
         : [],
       hasPrompts: !!interaction.hasPrompts,
-      extra: txPlainObject(interaction.extra)
+      extra: plainObject(interaction.extra)
         ? cloneTxJsonValue(interaction.extra, {})
         : {},
       ...patch,
@@ -598,7 +589,7 @@ export function txBlockSetCommandPromptPatternValue(
 ): TxCommandModel {
   const prompt = command.interaction?.prompts?.[promptIndex] || {};
   const patterns = txBlockCommandPromptPatternList(prompt);
-  patterns[patternIndex] = txStringValue(patternValue);
+  patterns[patternIndex] = stringValue(patternValue);
   return txBlockUpdateCommandPrompt(command, promptIndex, { patterns });
 }
 
@@ -619,7 +610,7 @@ export function txBlockPatchCommandInteractionExtra(
   extra: unknown,
 ): TxCommandModel {
   return txBlockPatchCommandInteraction(command, {
-    extra: txPlainObject(extra) ? cloneTxJsonValue(extra, {}) : {},
+    extra: plainObject(extra) ? cloneTxJsonValue(extra, {}) : {},
   });
 }
 

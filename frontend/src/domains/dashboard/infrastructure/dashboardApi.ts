@@ -22,7 +22,7 @@ export const dashboardApi = {
   logoutWeb(): Promise<unknown> {
     return logoutWeb();
   },
-  setAgentApiToken(token: unknown): void {
+  setAgentApiToken(token: string): void {
     setAgentApiToken(token);
   },
 };

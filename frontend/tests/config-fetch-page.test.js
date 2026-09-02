@@ -28,7 +28,7 @@ test("configuration fetch is a dedicated dashboard operation", () => {
   const sidebar = read(
     "frontend/src/components/layout/DashboardSidebar.svelte",
   );
-  const api = read("frontend/src/api/client.js");
+  const api = read("frontend/src/api/client.ts");
 
   assert.match(navigation, /id: "config-fetch"/);
   assert.match(navigation, /path: "\/app\/config-fetch"/);

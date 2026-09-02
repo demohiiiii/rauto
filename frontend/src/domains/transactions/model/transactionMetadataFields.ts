@@ -14,27 +14,18 @@ import type {
   TxMetadataFieldRow,
 } from "./types.js";
 
-const cloneTxJsonValue = cloneJsonValue as unknown as (
-  value: unknown,
-  fallback: JsonObject,
-) => unknown;
-const txPlainObject = plainObject;
-const txStringValue = stringValue;
-
 function cloneJsonObject(value: unknown): JsonObject {
-  return txPlainObject(value)
-    ? (cloneTxJsonValue(value, {}) as JsonObject)
-    : {};
+  return plainObject(value) ? cloneJsonValue(value, {}) : {};
 }
 
 export function txExtraStringFieldRows(
   extra: unknown = {},
   fieldDefs: readonly TxMetadataFieldDefinition[] = [],
 ): TxMetadataFieldRow[] {
-  const extraValue = txPlainObject(extra) ? (extra as JsonObject) : {};
+  const extraValue = plainObject(extra) ? extra : {};
   return fieldDefs.map((fieldDef) => {
-    const fieldKey = txStringValue(fieldDef?.fieldKey).trim();
-    const valueText = txStringValue(extraValue[fieldKey] ?? "");
+    const fieldKey = stringValue(fieldDef?.fieldKey).trim();
+    const valueText = stringValue(extraValue[fieldKey] ?? "");
     return {
       ...fieldDef,
       enabled: Object.hasOwn(extraValue, fieldKey) || !!valueText,
@@ -54,11 +45,11 @@ export function txSetExtraStringFieldValue(
   fieldKey: unknown,
   value: unknown,
 ): JsonObject {
-  const key = txStringValue(fieldKey).trim();
+  const key = stringValue(fieldKey).trim();
   if (!key) return cloneJsonObject(extra);
   return {
     ...cloneJsonObject(extra),
-    [key]: txStringValue(value),
+    [key]: stringValue(value),
   };
 }
 
@@ -67,7 +58,7 @@ export function txSetExtraStringFieldPresence(
   fieldKey: unknown,
   enabled: unknown,
 ): JsonObject {
-  const key = txStringValue(fieldKey).trim();
+  const key = stringValue(fieldKey).trim();
   const next = cloneJsonObject(extra);
   if (!key) return next;
   if (enabled) {

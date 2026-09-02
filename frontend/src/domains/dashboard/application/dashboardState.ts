@@ -326,7 +326,7 @@ function getStoredAgentApiToken() {
   return dashboardApi.getAgentApiToken();
 }
 
-function setStoredAgentApiToken(token: unknown): void {
+function setStoredAgentApiToken(token: string): void {
   dashboardApi.setAgentApiToken(token);
 }
 

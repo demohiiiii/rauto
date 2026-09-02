@@ -30,11 +30,6 @@ function optionalFlexibleRecord(value: unknown): FlexibleRecord | null {
   return value && typeof value === "object" ? (value as FlexibleRecord) : null;
 }
 
-const normalizeExecutionMode = normalizeTxExecutionMode as unknown as (
-  mode?: unknown,
-) => "direct" | "template";
-const presentDisplayText = displayText as unknown as (value: unknown) => string;
-
 const summaryCard = (key: string, summaryValue: unknown) => ({
   label: t(key),
   summaryValue,
@@ -44,12 +39,12 @@ const summaryRow = (key: string, valueText: unknown) => ({
   valueText,
 });
 const transactionText = (displaySource: unknown): string =>
-  presentDisplayText(displaySource);
+  displayText(displaySource);
 const displayTextOrDash = (displaySource: unknown): string =>
   transactionText(displaySource) || "-";
 
 function txExecutionModePresentation(mode: unknown = "") {
-  const normalized = normalizeExecutionMode(mode);
+  const normalized = normalizeTxExecutionMode(mode);
   return {
     isDirect: normalized === TX_EXECUTION_MODE.direct,
     isTemplate: normalized === TX_EXECUTION_MODE.template,

@@ -23,27 +23,6 @@
     themeAware?: boolean;
   }
 
-  interface TabListDisplay {
-    ariaLabelText: string;
-    tabRows: { labelText: string; valueText: string }[];
-  }
-
-  type TabListPresentation = (options: {
-    activeValue: string;
-    ariaLabel?: string;
-    tabItems: TabItem[];
-  }) => TabListDisplay;
-
-  type TabListBindingsFactory = (options: {
-    getActiveValue: () => string;
-    onSelect?: (value: string) => unknown;
-    onSelectedValueChange: (value: string) => void;
-  }) => { valueChangeHandler: (value: string) => void };
-
-  const presentTabList = tabListPresentation as unknown as TabListPresentation;
-  const createTabListSelectionBindings =
-    tabListSelectionBindings as unknown as TabListBindingsFactory;
-
   let {
     tabItems,
     activeValue,
@@ -56,10 +35,10 @@
   let currentLanguage = $derived($currentLanguageState);
   let tabDisplay = $derived.by(() => {
     currentLanguage;
-    return presentTabList({ activeValue, ariaLabel, tabItems });
+    return tabListPresentation({ activeValue, ariaLabel, tabItems });
   });
 
-  const selectionBindings = createTabListSelectionBindings({
+  const selectionBindings = tabListSelectionBindings({
     getActiveValue: () => activeValue,
     onSelect: (nextValue: string) => callIfFunction(onSelect, nextValue),
     onSelectedValueChange: (nextValue: string) => {
