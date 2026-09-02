@@ -5,22 +5,28 @@ import {
   listTemplateResource,
   updateTemplateResource,
 } from "../../../api/client.js";
-import type { TemplateResourceMeta } from "$domains/templates/index.js";
+import type {
+  TemplateResourceDetail,
+  TemplateResourceMeta,
+} from "$domains/templates/index.js";
 
 interface OrchestrationTemplateApi {
   createTemplateResource(
     basePath: string,
     name: string,
     content: string,
-  ): Promise<unknown>;
-  deleteTemplateResource(basePath: string, name: string): Promise<unknown>;
-  getTemplateResource(basePath: string, name: string): Promise<unknown>;
+  ): Promise<TemplateResourceDetail>;
+  deleteTemplateResource(basePath: string, name: string): Promise<object>;
+  getTemplateResource(
+    basePath: string,
+    name: string,
+  ): Promise<TemplateResourceDetail>;
   listTemplateResource(basePath: string): Promise<TemplateResourceMeta[]>;
   updateTemplateResource(
     basePath: string,
     name: string,
     content: string,
-  ): Promise<unknown>;
+  ): Promise<TemplateResourceDetail>;
 }
 
 export const orchestrationTemplateApi: OrchestrationTemplateApi = {

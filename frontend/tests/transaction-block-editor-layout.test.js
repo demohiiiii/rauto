@@ -90,7 +90,7 @@ test("workflow block results reuse the transaction result presentation", () => {
 
 test("transaction block editor composes the approved responsive workspace", () => {
   const visualEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte",
   );
 
   assert.match(visualEditor, /import TxBlockTimeline from/);
@@ -114,7 +114,7 @@ test("transaction block editor composes the approved responsive workspace", () =
 
 test("timeline owns semantic step actions and local delete confirmation", () => {
   const timeline = source(
-    "frontend/src/pages/orchestrated/TxBlockTimeline.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockTimeline.svelte",
   );
 
   assert.match(timeline, /moveSelectedStep/);
@@ -149,16 +149,16 @@ test("timeline owns semantic step actions and local delete confirmation", () => 
 
 test("root and step inspectors have a single outer card owner", () => {
   const visualEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte",
   );
   const rootInspector = source(
-    "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRootInspector.svelte",
   );
   const rollbackEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
   );
   const stepEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",
   );
 
   const inspectorComposition = [
@@ -179,12 +179,12 @@ test("root and step inspectors have a single outer card owner", () => {
 
 test("transaction block inspectors do not expose advanced JSON presence controls", () => {
   const editorPaths = [
-    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte",
     "frontend/src/components/command-flow/CommandFlowSettings.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRootSettingsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRootSettingsEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",
   ];
 
   for (const path of editorPaths) {
@@ -205,7 +205,7 @@ test("transaction block inspectors do not expose advanced JSON presence controls
 
 test("selected transaction inspector remounts when language changes", () => {
   const visualEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte",
   );
 
   assert.match(visualEditor, /currentLanguageState/);
@@ -214,8 +214,8 @@ test("selected transaction inspector remounts when language changes", () => {
 
 test("transaction block editors do not expose JSON presence toggles", () => {
   const presenceOnlyEditors = [
-    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandDynParamsEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte",
   ];
 
   for (const path of presenceOnlyEditors) {
@@ -228,7 +228,7 @@ test("transaction block structure omits unsupported transaction metadata", () =>
     "frontend/src/domains/transactions/model/transactionStructure.ts",
   );
   const visualEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte",
   );
   const displayState = source(
     "frontend/src/domains/transactions/presentation/transactionBlockDisplayState.ts",
@@ -250,10 +250,10 @@ test("transaction block structure omits unsupported transaction metadata", () =>
 
 test("per-step rollback uses one policy-aware switch", () => {
   const visualEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte",
   );
   const stepEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",
   );
 
   assert.match(
@@ -271,7 +271,7 @@ test("per-step rollback uses one policy-aware switch", () => {
 
 test("transaction step editor exposes only backend-supported step fields", () => {
   const stepEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",
   );
 
   assert.doesNotMatch(stepEditor, /JsonObjectFieldsEditor/);
@@ -282,7 +282,7 @@ test("transaction step editor exposes only backend-supported step fields", () =>
 
 test("transaction root editor exposes only backend-supported root fields", () => {
   const rootEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRootInspector.svelte",
   );
   const bindings = source(
     "frontend/src/domains/transactions/application/transactionBlockBindingState.ts",

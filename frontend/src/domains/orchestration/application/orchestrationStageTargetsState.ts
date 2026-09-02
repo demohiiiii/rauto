@@ -1,44 +1,39 @@
 import { derived as deriveStore, writable } from "svelte/store";
 import { callbackHandler } from "../../../lib/events.js";
 import { currentLanguageState, t } from "../../../lib/i18n.js";
+import { orchestrationPlanFormModelFromJson } from "../model/orchestrationPlanFormModels.js";
 import { orchestrationReplaceJobStringList } from "../model/orchestrationStageMutations.js";
 import { orchestrationJobTargetsDisplay } from "../presentation/orchestrationFormStructureState.js";
-import type { JsonObject, OrchestrationPlanFormModel } from "../model/types.js";
+import type {
+  OrchestrationJobEditorRow,
+  OrchestrationPlanChangeHandler,
+  OrchestrationPlanFormModel,
+} from "../model/types.js";
 
-type PlanChangeHandler = (model: OrchestrationPlanFormModel) => unknown;
-type ReplaceStringListHandler = (listName: string, values: unknown) => unknown;
+type ReplaceStringListHandler = (
+  listName: string,
+  values: readonly string[],
+) => void;
 
 interface JobTargetsEditorContext {
-  jobRow?: unknown;
+  jobRow?: Partial<OrchestrationJobEditorRow>;
   onReplaceStringList?: ReplaceStringListHandler | null;
 }
 
 interface JobTargetsSectionContext {
-  jobIndex?: unknown;
-  model?: unknown;
-  onChange?: PlanChangeHandler | null;
-  stageIndex?: unknown;
-}
-
-function stateObjectOrEmpty(value: unknown): JsonObject {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonObject)
-    : {};
-}
-
-function planModelValue(value: unknown): OrchestrationPlanFormModel {
-  return stateObjectOrEmpty(value) as OrchestrationPlanFormModel;
-}
-
-function integerOr(value: unknown, fallback = 0): number {
-  return Number.isInteger(value) ? (value as number) : fallback;
+  jobIndex?: number;
+  model?: OrchestrationPlanFormModel;
+  onChange?: OrchestrationPlanChangeHandler | null;
+  stageIndex?: number;
 }
 
 function orchestrationJobTargetsActionHandlers({
   onReplaceStringList = null,
 }: Pick<JobTargetsEditorContext, "onReplaceStringList"> = {}) {
   return {
-    replaceStringListHandler(listName = ""): (values: unknown) => unknown {
+    replaceStringListHandler(
+      listName = "",
+    ): (values: readonly string[]) => void | undefined {
       return callbackHandler(onReplaceStringList, listName);
     },
   };
@@ -48,10 +43,10 @@ function orchestrationJobTargetsSectionCallbacks(
   model: OrchestrationPlanFormModel,
   stageIndex: number,
   jobIndex: number,
-  onChange: PlanChangeHandler | null,
+  onChange: OrchestrationPlanChangeHandler | null,
 ) {
   return {
-    replaceStringList(listName: string, values: unknown): void {
+    replaceStringList(listName: string, values: readonly string[]): void {
       if (typeof onChange !== "function") return;
       onChange(
         orchestrationReplaceJobStringList(
@@ -70,7 +65,7 @@ export function createOrchestrationJobTargetsEditorWorkspace({
   jobRow = {},
   onReplaceStringList = null,
 }: JobTargetsEditorContext = {}) {
-  const jobRowStateStore = writable(stateObjectOrEmpty(jobRow));
+  const jobRowStateStore = writable<Partial<OrchestrationJobEditorRow>>(jobRow);
   const callbackInputsStateStore = writable({ onReplaceStringList });
   const jobTargetsDisplayStateStore = deriveStore(
     [jobRowStateStore, currentLanguageState],
@@ -92,7 +87,7 @@ export function createOrchestrationJobTargetsEditorWorkspace({
       jobRow: nextJobRow = {},
       onReplaceStringList: nextOnReplaceStringList = null,
     }: JobTargetsEditorContext = {}) {
-      jobRowStateStore.set(stateObjectOrEmpty(nextJobRow));
+      jobRowStateStore.set(nextJobRow);
       callbackInputsStateStore.set({
         onReplaceStringList: nextOnReplaceStringList,
       });
@@ -105,11 +100,11 @@ export function createOrchestrationJobTargetsSectionWorkspace() {
   const callbackInputsStateStore = writable<{
     jobIndex: number;
     model: OrchestrationPlanFormModel;
-    onChange: PlanChangeHandler | null;
+    onChange: OrchestrationPlanChangeHandler | null;
     stageIndex: number;
   }>({
     jobIndex: 0,
-    model: planModelValue({}),
+    model: orchestrationPlanFormModelFromJson({}),
     onChange: null,
     stageIndex: 0,
   });
@@ -127,15 +122,15 @@ export function createOrchestrationJobTargetsSectionWorkspace() {
     sectionCallbacksStateStore,
     setJobTargetsSectionContext({
       jobIndex: nextJobIndex = 0,
-      model: nextModel = {},
+      model: nextModel,
       onChange: nextOnChange = null,
       stageIndex: nextStageIndex = 0,
     }: JobTargetsSectionContext = {}) {
       callbackInputsStateStore.set({
-        jobIndex: integerOr(nextJobIndex),
-        model: planModelValue(nextModel),
+        jobIndex: nextJobIndex,
+        model: nextModel ?? orchestrationPlanFormModelFromJson({}),
         onChange: nextOnChange,
-        stageIndex: integerOr(nextStageIndex),
+        stageIndex: nextStageIndex,
       });
     },
   };

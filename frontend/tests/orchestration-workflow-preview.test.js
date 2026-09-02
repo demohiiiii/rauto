@@ -122,3 +122,59 @@ test("template preview workspace caches by template name and vars", async () => 
   assert.equal(third.rows[0].operationText, "set version 18.1");
   assert.equal(requests.length, 2);
 });
+
+test("template preview rejects a non-object workflow response", async () => {
+  const workspace = createOrchestrationWorkflowPreviewWorkspace({
+    previewTemplate: async () => ({
+      workflow: [],
+      unresolved_paths: [],
+    }),
+  });
+
+  const preview = await workspace.previewTemplate("invalid-workflow");
+
+  assert.equal(preview.previewStatus, "error");
+  assert.match(
+    preview.errorMessage,
+    /template workflow preview must be a JSON object/,
+  );
+  assert.deepEqual(preview.workflow, {});
+});
+
+test("template preview cache ignores variable property order", async () => {
+  let requestCount = 0;
+  const workspace = createOrchestrationWorkflowPreviewWorkspace({
+    previewTemplate: async () => {
+      requestCount += 1;
+      return { workflow: { blocks: [] }, unresolved_paths: [] };
+    },
+  });
+
+  await workspace.previewTemplate("campus-upgrade", {
+    site: "north",
+    version: "17.9",
+  });
+  await workspace.previewTemplate("campus-upgrade", {
+    version: "17.9",
+    site: "north",
+  });
+
+  assert.equal(requestCount, 1);
+});
+
+test("template preview snapshots the response payload", async () => {
+  const response = {
+    workflow: { name: "rendered", blocks: [] },
+    unresolved_paths: ["$.blocks[0]"],
+  };
+  const workspace = createOrchestrationWorkflowPreviewWorkspace({
+    previewTemplate: async () => response,
+  });
+
+  const preview = await workspace.previewTemplate("campus-upgrade");
+  response.workflow.name = "changed";
+  response.unresolved_paths.push("$.blocks[1]");
+
+  assert.equal(preview.workflow.name, "rendered");
+  assert.deepEqual(preview.unresolvedPaths, ["$.blocks[0]"]);
+});

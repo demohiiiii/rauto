@@ -84,3 +84,26 @@ test("workflow action callbacks use the latest plan context", () => {
   assert.equal(secondChanges.length, 2);
   assert.notEqual(errors.at(-1), "");
 });
+
+test("workflow action rejects non-object JSON without clearing the model", () => {
+  const model = planModel();
+  const changes = [];
+  const errors = [];
+  const workspace = createOrchestrationTxWorkflowActionEditorWorkspace({
+    jobIndex: 0,
+    model,
+    onChange: (nextModel) => changes.push(nextModel),
+    onErrorChange: (error) => errors.push(error),
+    stageIndex: 0,
+  });
+
+  get(workspace.actionCallbacksStateStore).sourceBindings.setJsonText("[]");
+
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0], model);
+  assert.deepEqual(changes[0].stages[0].jobs[0].action.txWorkflow.workflow, {
+    name: "collect",
+    blocks: [],
+  });
+  assert.match(errors.at(-1), /workflow must be a JSON object/);
+});

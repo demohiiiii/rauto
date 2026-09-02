@@ -3,6 +3,7 @@ import { orchestrationTemplateApi } from "../infrastructure/orchestrationTemplat
 
 type NameDialogMode = "new" | "save_as";
 type SelectionKind = "existing" | "manual" | "new";
+type TemplateReplacementReason = "delete" | "new" | "replace" | "select";
 type MaybePromise<T> = Promise<T> | T;
 
 interface TemplateOption {
@@ -36,31 +37,43 @@ interface TemplateAction {
   version: number;
 }
 
+interface TemplateListItem {
+  name: string;
+}
+
+interface TemplateResourceDetail {
+  content: string;
+  name: string;
+}
+
 interface TemplateApiPorts {
   createTemplateResource(
     basePath: string,
     name: string,
     content: string,
-  ): Promise<unknown>;
-  deleteTemplateResource(basePath: string, name: string): Promise<unknown>;
-  getTemplateResource(basePath: string, name: string): Promise<unknown>;
-  listTemplateResource(basePath: string): Promise<unknown>;
+  ): Promise<TemplateResourceDetail>;
+  deleteTemplateResource(basePath: string, name: string): Promise<object>;
+  getTemplateResource(
+    basePath: string,
+    name: string,
+  ): Promise<TemplateResourceDetail>;
+  listTemplateResource(basePath: string): Promise<TemplateListItem[]>;
   updateTemplateResource(
     basePath: string,
     name: string,
     content: string,
-  ): Promise<unknown>;
+  ): Promise<TemplateResourceDetail>;
 }
 
 interface TemplateWorkspaceOptions extends Partial<TemplateApiPorts> {
   apiBase?: string;
   confirmReplace?: (input: {
     currentName: string;
-    reason: string;
-  }) => MaybePromise<unknown>;
-  createDraft?: () => MaybePromise<unknown>;
-  getCurrentJson?: () => unknown;
-  replaceJson?: (content: string) => MaybePromise<unknown>;
+    reason: TemplateReplacementReason;
+  }) => MaybePromise<boolean>;
+  createDraft?: () => MaybePromise<boolean | void>;
+  getCurrentJson?: () => string;
+  replaceJson?: (content: string) => MaybePromise<void>;
 }
 
 interface BaselineOptions {
@@ -70,24 +83,15 @@ interface BaselineOptions {
   statusName?: string;
 }
 
-function recordValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
 function errorMessage(error: unknown): string {
   return error && typeof error === "object" && "message" in error
     ? String(error.message)
     : String(error || "");
 }
 
-function templateNames(payload: unknown): string[] {
-  return (Array.isArray(payload) ? payload : [])
-    .map((item) =>
-      typeof item === "string" ? item : String(recordValue(item).name || ""),
-    )
-    .map((name) => name.trim())
+function templateNames(payload: readonly TemplateListItem[]): string[] {
+  return payload
+    .map((item) => item.name.trim())
     .filter(Boolean)
     .filter((name, index, names) => names.indexOf(name) === index)
     .sort((left, right) => left.localeCompare(right));
@@ -134,7 +138,7 @@ export function createOrchestrationTemplateWorkspace({
     initialDisplayState(),
   );
   let displayState = initialDisplayState();
-  let baselineJson = String(getCurrentJson() || "");
+  let baselineJson = getCurrentJson();
   let requestVersion = 0;
   let editRevision = 0;
   let ownedMutationDepth = 0;
@@ -144,7 +148,7 @@ export function createOrchestrationTemplateWorkspace({
     displayStateStore.set(displayState);
   }
 
-  function setNames(names: unknown = []): void {
+  function setNames(names: readonly TemplateListItem[] = []): void {
     const normalizedNames = templateNames(names);
     setDisplay({
       templateNames: normalizedNames,
@@ -212,7 +216,7 @@ export function createOrchestrationTemplateWorkspace({
     statusKind = "",
     statusName = "",
   }: BaselineOptions = {}): void {
-    baselineJson = String(getCurrentJson() || "");
+    baselineJson = getCurrentJson();
     setDisplay({
       dirty: false,
       selectedName,
@@ -231,7 +235,9 @@ export function createOrchestrationTemplateWorkspace({
     return true;
   }
 
-  async function confirmReplacement(reason = "replace"): Promise<boolean> {
+  async function confirmReplacement(
+    reason: TemplateReplacementReason = "replace",
+  ): Promise<boolean> {
     if (!displayState.dirty) return true;
     return !!(await confirmReplace({
       currentName: displayState.selectedName,
@@ -244,7 +250,7 @@ export function createOrchestrationTemplateWorkspace({
     try {
       await refreshTemplateList(action);
       if (!action.isCurrent()) return false;
-      baselineJson = String(getCurrentJson() || "");
+      baselineJson = getCurrentJson();
       setDisplay({ initialized: true });
       return true;
     } catch (error) {
@@ -257,8 +263,8 @@ export function createOrchestrationTemplateWorkspace({
     }
   }
 
-  async function selectTemplate(rawName: unknown): Promise<boolean> {
-    const name = String(rawName || "").trim();
+  async function selectTemplate(rawName: string): Promise<boolean> {
+    const name = rawName.trim();
     if (
       name === displayState.selectedName &&
       (name || displayState.selectionKind === "manual")
@@ -273,12 +279,11 @@ export function createOrchestrationTemplateWorkspace({
         captureBaseline({ selectedName: "", selectionKind: "manual" });
         return true;
       }
-      const detail = recordValue(await getTemplateResource(apiBase, name));
+      const detail = await getTemplateResource(apiBase, name);
       if (!action.isCurrent()) return false;
-      const content = String(detail.content ?? "");
-      await runOwnedMutation(() => replaceJson(content));
+      await runOwnedMutation(() => replaceJson(detail.content));
       if (!action.isCurrent()) return false;
-      const selectedName = String(detail.name || name);
+      const selectedName = detail.name || name;
       captureBaseline({
         selectedName,
         selectionKind: "existing",
@@ -314,12 +319,12 @@ export function createOrchestrationTemplateWorkspace({
     });
   }
 
-  function changeNameDialogValue(value: unknown): void {
+  function changeNameDialogValue(value: string): void {
     setDisplay({
       nameDialog: {
         ...displayState.nameDialog,
         error: "",
-        value: String(value ?? ""),
+        value,
       },
     });
   }
@@ -342,14 +347,12 @@ export function createOrchestrationTemplateWorkspace({
 
   async function saveAs(name: string): Promise<boolean> {
     return runAction("save_as", async (action) => {
-      const content = String(getCurrentJson() || "");
-      const detail = recordValue(
-        await createTemplateResource(apiBase, name, content),
-      );
+      const content = getCurrentJson();
+      const detail = await createTemplateResource(apiBase, name, content);
       if (!action.isCurrent()) return false;
       await refreshTemplateList(action);
       if (!action.isCurrent()) return false;
-      const savedName = String(detail.name || name);
+      const savedName = detail.name || name;
       captureBaseline({
         selectedName: savedName,
         selectionKind: "existing",
@@ -384,17 +387,15 @@ export function createOrchestrationTemplateWorkspace({
       return false;
     }
     return runAction("save", async (action) => {
-      const content = String(getCurrentJson() || "");
+      const content = getCurrentJson();
       const creating = displayState.selectionKind === "new";
-      const detail = recordValue(
-        creating
-          ? await createTemplateResource(apiBase, name, content)
-          : await updateTemplateResource(apiBase, name, content),
-      );
+      const detail = creating
+        ? await createTemplateResource(apiBase, name, content)
+        : await updateTemplateResource(apiBase, name, content);
       if (!action.isCurrent()) return false;
       await refreshTemplateList(action);
       if (!action.isCurrent()) return false;
-      const savedName = String(detail.name || name);
+      const savedName = detail.name || name;
       captureBaseline({
         selectedName: savedName,
         selectionKind: "existing",
@@ -411,7 +412,7 @@ export function createOrchestrationTemplateWorkspace({
     if (!(await confirmReplace({ currentName: name, reason: "delete" }))) {
       return false;
     }
-    const snapshot = String(getCurrentJson() || "");
+    const snapshot = getCurrentJson();
     return runAction("delete", async (action) => {
       await deleteTemplateResource(apiBase, name);
       if (!action.isCurrent()) return false;
@@ -432,7 +433,7 @@ export function createOrchestrationTemplateWorkspace({
   function markEdited(): void {
     if (ownedMutationDepth > 0) return;
     editRevision += 1;
-    setDisplay({ dirty: String(getCurrentJson() || "") !== baselineJson });
+    setDisplay({ dirty: getCurrentJson() !== baselineJson });
   }
 
   function adoptManualSnapshot({

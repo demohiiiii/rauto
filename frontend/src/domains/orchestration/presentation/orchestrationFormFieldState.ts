@@ -1,33 +1,28 @@
 import { t } from "../../../lib/i18n.js";
 import { selectOptionsWithCurrent } from "../../../lib/ui.js";
-import {
-  cloneJsonValue,
-  nullableNumberValue,
-  plainObject,
-  stringValue,
-} from "../../../lib/jsonValue.js";
+import { cloneJsonValue } from "../../../lib/jsonValue.js";
 import type {
   JsonObject,
   OrchestrationFieldDefinition,
   OrchestrationFieldDisplay,
+  OrchestrationJobModel,
   OrchestrationOptionRow,
+  OrchestrationPlanFormModel,
+  OrchestrationStageModel,
+  OrchestrationStrategy,
 } from "../model/types.js";
 
-const orchestrationPlainObject = (value: unknown): value is JsonObject =>
-  plainObject(value) === true;
-const orchestrationStringValue = (value: unknown, fallback = ""): string =>
-  stringValue(value, fallback);
-const orchestrationNullableNumberValue = (value: unknown): number | null =>
-  nullableNumberValue(value);
-const orchestrationCloneJsonValue = <T>(value: unknown, fallback: T): T =>
-  (cloneJsonValue as (source: unknown, fallbackValue: unknown) => unknown)(
-    value,
-    fallback,
-  ) as T;
 const orchestrationSelectOptionsWithCurrent = (
   rows: readonly string[],
   selected: string,
 ): string[] => selectOptionsWithCurrent(rows, selected);
+
+interface OrchestrationStageLikeModel {
+  failFast?: boolean | null;
+  maxParallel?: number | null;
+  name?: string | null;
+  strategy?: OrchestrationStrategy;
+}
 
 export const ORCHESTRATION_ROOT_FIELD_DEFS: readonly OrchestrationFieldDefinition[] =
   Object.freeze([
@@ -97,14 +92,10 @@ export const ORCHESTRATION_JOB_FIELD_DEFS: readonly OrchestrationFieldDefinition
   ]);
 
 export function orchestrationJsonFieldText(
-  jsonValue: unknown = {},
-  fallback: unknown = {},
+  jsonValue: JsonObject = {},
+  fallback: JsonObject = {},
 ): string {
-  return JSON.stringify(
-    orchestrationCloneJsonValue(jsonValue, fallback),
-    null,
-    2,
-  );
+  return JSON.stringify(cloneJsonValue(jsonValue, fallback), null, 2);
 }
 
 export function orchestrationNullableModeRows(): OrchestrationOptionRow[] {
@@ -138,12 +129,11 @@ function orchestrationStrategyOptionRows(
 
 function orchestrationStageLikeFieldsDisplay(
   fieldDefs: readonly OrchestrationFieldDefinition[] = [],
-  sourceValue: unknown = {},
+  sourceValue: OrchestrationStageLikeModel = {},
   strategyRows: readonly string[] = [],
   booleanRows: readonly string[] = [],
   labelKeys: Record<string, string> = {},
 ): OrchestrationFieldDisplay[] {
-  const value = orchestrationPlainObject(sourceValue) ? sourceValue : {};
   const showsJobNamePresenceToggle = fieldDefs.some(
     (stageLikeField) =>
       stageLikeField.fieldKey === "name" &&
@@ -151,26 +141,23 @@ function orchestrationStageLikeFieldsDisplay(
   );
   return fieldDefs.map((fieldDef) => {
     const labelKey = labelKeys[fieldDef.fieldKey] || fieldDef.labelKey;
-    const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
     if (fieldDef.optionKind === "strategy") {
+      const strategy = sourceValue.strategy ?? "serial";
       return {
         ...fieldDef,
         enabled: true,
         labelText: t(labelKey),
-        optionRows: orchestrationStrategyOptionRows(
-          strategyRows,
-          orchestrationStringValue(value.strategy, "serial"),
-        ),
+        optionRows: orchestrationStrategyOptionRows(strategyRows, strategy),
         placeholderText: "",
         showPresenceToggle: false,
-        valueText: orchestrationStringValue(value.strategy, "serial"),
+        valueText: strategy,
       };
     }
     if (fieldDef.optionKind === "boolean") {
       const optionalBooleanValue =
-        value.failFast === null || value.failFast === undefined
+        sourceValue.failFast == null
           ? ""
-          : value.failFast
+          : sourceValue.failFast
             ? "true"
             : "false";
       return {
@@ -188,7 +175,7 @@ function orchestrationStageLikeFieldsDisplay(
           )
             .filter(Boolean)
             .map((optionValue) => ({
-              optionLabel: orchestrationStringValue(optionValue),
+              optionLabel: optionValue,
               optionValue,
             })),
         ],
@@ -199,10 +186,8 @@ function orchestrationStageLikeFieldsDisplay(
     }
     const valueText =
       fieldDef.inputType === "number"
-        ? String(
-            orchestrationNullableNumberValue(value[fieldDef.fieldKey]) ?? "",
-          )
-        : orchestrationStringValue(value[fieldDef.fieldKey] ?? "");
+        ? String(sourceValue.maxParallel ?? "")
+        : (sourceValue.name ?? "");
     return {
       ...fieldDef,
       enabled: true,
@@ -212,7 +197,9 @@ function orchestrationStageLikeFieldsDisplay(
           ? orchestrationNullableModeRows()
           : [],
       nullableModeValue:
-        fieldDef.fieldKey === "name" && value.name === null ? "null" : "value",
+        fieldDef.fieldKey === "name" && sourceValue.name === null
+          ? "null"
+          : "value",
       placeholderText: "",
       showNullableModeSelect: false,
       showPresenceToggle: false,
@@ -223,7 +210,7 @@ function orchestrationStageLikeFieldsDisplay(
 
 function orchestrationStageLikeFieldPatch(
   fieldKey: string = "",
-  fieldValue: unknown = "",
+  fieldValue: string = "",
 ): JsonObject {
   if (fieldKey === "name") {
     return { name: fieldValue, hasName: true };
@@ -242,18 +229,17 @@ function orchestrationStageLikeFieldPatch(
 }
 
 export function orchestrationRootFieldsDisplay(
-  model: unknown = {},
+  model: Partial<OrchestrationPlanFormModel> = {},
   booleanRows: readonly string[] = [],
 ): OrchestrationFieldDisplay[] {
-  const rootValue = orchestrationPlainObject(model) ? model : {};
   return ORCHESTRATION_ROOT_FIELD_DEFS.map((fieldDef) => {
-    const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
     if (fieldDef.optionKind === "boolean") {
-      const booleanValue = !!rootValue[fieldDef.fieldKey];
-      const enabled =
+      const booleanValue =
         fieldDef.fieldKey === "failFast"
-          ? !!rootValue[presenceKey] || rootValue.failFast !== true
-          : !!rootValue[presenceKey] || booleanValue;
+          ? !!model.failFast
+          : fieldDef.fieldKey === "rollbackOnStageFailure"
+            ? !!model.rollbackOnStageFailure
+            : !!model.rollbackCompletedStagesOnFailure;
       return {
         ...fieldDef,
         enabled: true,
@@ -262,7 +248,7 @@ export function orchestrationRootFieldsDisplay(
           booleanRows,
           booleanValue ? "true" : "false",
         ).map((optionValue) => ({
-          optionLabel: orchestrationStringValue(optionValue),
+          optionLabel: optionValue,
           optionValue,
         })),
         placeholderText: "",
@@ -279,13 +265,13 @@ export function orchestrationRootFieldsDisplay(
       placeholderText: "",
       showNullableModeSelect: false,
       showPresenceToggle: false,
-      valueText: orchestrationStringValue(rootValue[fieldDef.fieldKey] ?? ""),
+      valueText: model.name ?? "",
     };
   });
 }
 
 export function orchestrationStageFieldsDisplay(
-  stage: unknown = {},
+  stage: Partial<OrchestrationStageModel> = {},
   strategyRows: readonly string[] = [],
   booleanRows: readonly string[] = [],
 ): OrchestrationFieldDisplay[] {
@@ -304,7 +290,7 @@ export function orchestrationStageFieldsDisplay(
 }
 
 export function orchestrationJobFieldsDisplay(
-  job: unknown = {},
+  job: Partial<OrchestrationJobModel> = {},
   strategyRows: readonly string[] = [],
   booleanRows: readonly string[] = [],
 ): OrchestrationFieldDisplay[] {
@@ -324,14 +310,14 @@ export function orchestrationJobFieldsDisplay(
 
 export function orchestrationStageFieldPatch(
   fieldKey: string = "",
-  fieldValue: unknown = "",
+  fieldValue: string = "",
 ): JsonObject {
   return orchestrationStageLikeFieldPatch(fieldKey, fieldValue);
 }
 
 export function orchestrationJobFieldPatch(
   fieldKey: string = "",
-  fieldValue: unknown = "",
+  fieldValue: string = "",
 ): JsonObject {
   return orchestrationStageLikeFieldPatch(fieldKey, fieldValue);
 }

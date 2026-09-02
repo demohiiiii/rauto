@@ -1,23 +1,37 @@
 import { transactionFallbackDisplay } from "$domains/transactions/index.js";
+import type {
+  OrchestrationExecutionResult,
+  OrchestrationPlan,
+} from "../model/types.js";
 import { orchestrationExecutionPresentation } from "./orchestrationResultDetailState.js";
 
 interface StagePreviewDisplayOptions {
   fallback?: unknown;
-  preview?: unknown;
+  preview?: { plan: OrchestrationPlan | null } | null;
 }
 
 interface StageExecutionDisplayOptions {
   executionFallback?: unknown;
-  executionPayload?: unknown;
+  executionPayload?: OrchestrationExecutionResult | null;
 }
 
-function objectValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+type OrchestrationExecutionPresentation = ReturnType<
+  typeof orchestrationExecutionPresentation
+>;
+
+interface OrchestrationExecutionStatusDisplay {
+  message: string;
+  mode: string;
+  text: string;
+  tone: string;
 }
 
-function orchestrationOutputModePresentation(mode: unknown = "") {
+interface OrchestrationStageExecutionDisplay {
+  result: OrchestrationExecutionPresentation;
+  status: OrchestrationExecutionStatusDisplay;
+}
+
+function orchestrationOutputModePresentation(mode = "") {
   return {
     showResult: mode === "result",
     showStatus: mode === "status",
@@ -26,24 +40,26 @@ function orchestrationOutputModePresentation(mode: unknown = "") {
 }
 
 const orchestrationStageExecutionDisplay = (
-  result: unknown = {},
-  message: unknown = "",
-  mode: unknown = "empty",
-  text: unknown = "",
-  tone: unknown = "info",
-) => ({ result, status: { message, mode, text, tone } });
+  result = orchestrationExecutionPresentation(),
+  message = "",
+  mode = "empty",
+  text = "",
+  tone = "info",
+): OrchestrationStageExecutionDisplay => ({
+  result,
+  status: { message, mode, text, tone },
+});
 
 export function orchestrationStagePreviewDisplay({
   fallback = null,
-  preview = {},
+  preview = null,
 }: StagePreviewDisplayOptions = {}) {
   const fallbackDisplay = transactionFallbackDisplay(fallback);
-  const previewValue = objectValue(preview);
   let previewMode = "preview";
   let previewText = "";
   let previewMessage = "";
   let previewTone = "info";
-  const previewPlan = previewValue.plan ?? null;
+  const previewPlan = preview?.plan ?? null;
 
   if (fallbackDisplay) {
     previewMode = fallbackDisplay.mode;
@@ -91,39 +107,20 @@ export function orchestrationStageExecutionDisplayPresentation({
 }
 
 export function orchestrationExecutionPanelDisplay(
-  executionDisplay: unknown = {},
+  executionDisplay: OrchestrationStageExecutionDisplay | null = null,
 ) {
-  const display = objectValue(executionDisplay);
-  const emptyResultDisplay = {
-    detailIndex: { stageDetails: [], targetDetails: [] },
-    emptyMessage: "",
-    hasResult: false,
-    hasStageRows: false,
-    requestFailedMessage: "",
-    resultTitle: "",
-    stageCountSummaryText: "0/0",
-    stageCountText: "0/0",
-    stageRows: [],
-    summaryCards: [],
-  };
-  const emptyStatusDisplay = {
+  const statusDisplay = executionDisplay?.status ?? {
     message: "",
     mode: "empty",
     text: "",
     tone: "info",
   };
-  const statusDisplay = objectValue(display.status);
-  const effectiveStatusDisplay = Object.keys(statusDisplay).length
-    ? statusDisplay
-    : emptyStatusDisplay;
-  const resultDisplay = objectValue(display.result);
   return {
     executionModeDisplay: orchestrationOutputModePresentation(
-      effectiveStatusDisplay.mode,
+      statusDisplay.mode,
     ),
-    resultDisplay: Object.keys(resultDisplay).length
-      ? resultDisplay
-      : emptyResultDisplay,
-    statusDisplay: effectiveStatusDisplay,
+    resultDisplay:
+      executionDisplay?.result ?? orchestrationExecutionPresentation(),
+    statusDisplay,
   };
 }

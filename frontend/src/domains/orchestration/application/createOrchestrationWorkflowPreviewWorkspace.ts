@@ -4,23 +4,14 @@ import {
 } from "../model/orchestrationWorkflowPreview.js";
 import type {
   JsonObject,
+  OrchestrationJsonValue,
   OrchestrationWorkflowPreview,
+  OrchestrationWorkflowPreviewPort,
   OrchestrationWorkflowPreviewWorkspace,
 } from "../model/types.js";
 
-type PreviewTemplatePort = (
-  templateName: string,
-  workflowVars: unknown,
-) => Promise<unknown>;
-
 interface WorkflowPreviewWorkspaceOptions {
-  previewTemplate?: PreviewTemplatePort | null;
-}
-
-function objectValue(value: unknown): JsonObject {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonObject)
-    : {};
+  previewTemplate?: OrchestrationWorkflowPreviewPort | null;
 }
 
 function stableValue(value: unknown): unknown {
@@ -34,8 +25,8 @@ function stableValue(value: unknown): unknown {
   );
 }
 
-function previewCacheKey(name: string, vars: unknown): string {
-  return JSON.stringify([name.trim(), stableValue(vars || {})]);
+function previewCacheKey(name: string, vars: JsonObject): string {
+  return JSON.stringify([name.trim(), stableValue(vars)]);
 }
 
 function errorMessage(error: unknown): string {
@@ -45,6 +36,13 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
+function workflowObject(value: OrchestrationJsonValue): JsonObject {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("template workflow preview must be a JSON object");
+  }
+  return value;
+}
+
 export function createOrchestrationWorkflowPreviewWorkspace({
   previewTemplate = null,
 }: WorkflowPreviewWorkspaceOptions = {}): OrchestrationWorkflowPreviewWorkspace {
@@ -52,10 +50,10 @@ export function createOrchestrationWorkflowPreviewWorkspace({
   const generations = new Map<string, number>();
 
   async function previewTemplateValue(
-    templateName: unknown,
-    workflowVars: unknown = {},
+    templateName: string,
+    workflowVars: JsonObject = {},
   ): Promise<OrchestrationWorkflowPreview> {
-    const name = String(templateName || "").trim();
+    const name = templateName.trim();
     const key = previewCacheKey(name, workflowVars);
     const cached = cache.get(key);
     if (cached) return cached;
@@ -72,7 +70,7 @@ export function createOrchestrationWorkflowPreviewWorkspace({
       return errorPreview;
     }
     try {
-      const response = objectValue(await previewTemplate(name, workflowVars));
+      const response = await previewTemplate(name, workflowVars);
       if (generations.get(name) !== generation) {
         return orchestrationWorkflowPreview({
           sourceKind: "template",
@@ -82,8 +80,8 @@ export function createOrchestrationWorkflowPreviewWorkspace({
       }
       const preview = orchestrationTemplateWorkflowPreview(
         name,
-        response.workflow || {},
-        response.unresolved_paths || [],
+        workflowObject(response.workflow),
+        response.unresolved_paths,
       );
       cache.set(key, preview);
       return preview;
@@ -99,8 +97,8 @@ export function createOrchestrationWorkflowPreviewWorkspace({
     }
   }
 
-  function clearTemplate(templateName: unknown = ""): void {
-    const name = String(templateName || "").trim();
+  function clearTemplate(templateName = ""): void {
+    const name = templateName.trim();
     for (const key of cache.keys()) {
       if (key.startsWith(`["${name}"`)) cache.delete(key);
     }

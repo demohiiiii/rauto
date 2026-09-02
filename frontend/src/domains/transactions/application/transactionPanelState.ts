@@ -17,6 +17,10 @@ import {
   statusPresentation,
 } from "../../../lib/ui.js";
 import { showToast } from "$domains/overlays/index.js";
+import type {
+  OrchestrationExecutionResult,
+  OrchestrationPlan,
+} from "$domains/orchestration/model/types.js";
 import {
   TX_EDITOR,
   TX_TEMPLATE_KIND,
@@ -83,8 +87,8 @@ interface TxBlockPreviewState {
 }
 
 interface OrchestrationPreviewState {
-  plan: unknown | null;
-  result: unknown | null;
+  plan: OrchestrationPlan | null;
+  result: OrchestrationExecutionResult | null;
 }
 
 interface TxBlockStageContext {
@@ -605,12 +609,15 @@ let lastOrchestrationPreviewState: OrchestrationPreviewState = {
 };
 const visualOutputStores = new Map<string, Writable<TransactionOutputState>>();
 
-export const orchestrationPreviewState = writable<{ plan: unknown | null }>({
+export const orchestrationPreviewState = writable<{
+  plan: OrchestrationPlan | null;
+}>({
   plan: lastOrchestrationPreviewState.plan,
 });
-export const orchestrationResultState = writable<unknown | null>(
-  lastOrchestrationPreviewState.result,
-);
+export const orchestrationResultState =
+  writable<OrchestrationExecutionResult | null>(
+    lastOrchestrationPreviewState.result,
+  );
 export const txBlockPreviewState = writable<TxBlockPreviewState>({
   ...lastTxBlockPreviewState,
 });
@@ -709,8 +716,8 @@ export function updateTxWorkflowPreviewFromEditor(
 }
 
 export function setOrchestrationPreview(
-  plan: unknown,
-  orchestrationRun: unknown = null,
+  plan: OrchestrationPlan,
+  orchestrationRun: OrchestrationExecutionResult | null = null,
 ): void {
   lastOrchestrationPreviewState = {
     plan: plan || null,

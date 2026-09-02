@@ -155,10 +155,10 @@ test("connection picker dropdown renders above following form controls", () => {
     "frontend/src/components/connections/ConnectionPickerField.svelte",
   );
   const jobEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobEditor.svelte",
   );
   const targetsEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobTargetsEditor.svelte",
   );
 
   assert.match(source, /absolute left-0 top-full z-\[80\]/);
@@ -173,17 +173,17 @@ test("connection picker dropdown renders above following form controls", () => {
 test("editor panels use component-local toolbar layout instead of field-tools", () => {
   const panelPaths = [
     "frontend/src/components/fragments/ObjectFieldsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationJobEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationStageEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationStagesPanel.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobTargetsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationStageEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationStagesPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandDynParamsEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockFlowEditor.svelte",
     "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
     "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowVisualEditor.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -202,12 +202,12 @@ test("form sections use semantic local layout instead of Daisy field classes", (
     "frontend/src/components/fragments/StringListEditor.svelte",
     "frontend/src/components/fragments/TextAreaField.svelte",
     "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationJobActionEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationTxWorkflowSourceEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowTemplateRefSourceEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobActionEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobTargetsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationTxWorkflowSourceEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandDynParamsEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowTemplateRefSourceEditor.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -893,11 +893,11 @@ test("output surfaces use OutputBlock instead of global output css", () => {
   const outputSurfacePaths = [
     "frontend/src/components/fragments/ParsedOutputBlock.svelte",
     "frontend/src/components/overlays/DetailModalContent.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationExecutionPanel.svelte",
-    "frontend/src/pages/orchestrated/TxBlockResultPanel.svelte",
-    "frontend/src/pages/orchestrated/TxOperationStepCard.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowBlockResultPanel.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowRunPanel.svelte",
+    "frontend/src/domains/orchestration/presentation/components/result/OrchestrationExecutionPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockResultPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/shared/TxOperationStepCard.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowBlockResultPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowRunPanel.svelte",
     "frontend/src/pages/replay/ReplayResultsPanel.svelte",
     "frontend/src/pages/show/BatchShowResultsPanel.svelte",
     "frontend/src/pages/show/SingleShowPanel.svelte",
@@ -1099,9 +1099,9 @@ test("profile workspace uses one shadcn Card with semantic child sections", () =
 
 test("orchestrated panels compose shadcn Card instead of group-card shells", () => {
   const panelPaths = [
-    "frontend/src/pages/orchestrated/OrchestrationPreviewPanel.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRunPanel.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowPreviewPanel.svelte",
+    "frontend/src/domains/orchestration/presentation/components/preview/OrchestrationPreviewPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRunPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowPreviewPanel.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -1122,9 +1122,9 @@ test("workspace entry panels share the theme-aware action header", () => {
   );
   const panelPaths = [
     "frontend/src/pages/StandardPage.svelte",
-    "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowInputPanel.svelte",
-    "frontend/src/pages/orchestrated/OrchestrationEditorSurface.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockInputPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowInputPanel.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationEditorSurface.svelte",
   ];
 
   assert.match(header, /<Card\.Header/);
@@ -1190,7 +1190,7 @@ test("query cards share the workspace card treatment", () => {
   assert.doesNotMatch(showPage, /max-w-4xl/);
 
   const orchestrationSurface = read(
-    "frontend/src/pages/orchestrated/OrchestrationEditorSurface.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationEditorSurface.svelte",
   );
   assert.match(
     orchestrationSurface,
@@ -1235,9 +1235,9 @@ test("json template workspaces share the four template actions", () => {
   assert.match(actions, /primary-outline/);
 
   for (const path of [
-    "frontend/src/pages/orchestrated/OrchestrationEditorSurface.svelte",
-    "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowInputPanel.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationEditorSurface.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockInputPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowInputPanel.svelte",
   ]) {
     assert.match(read(path), /WorkspaceTemplateActions/);
   }
@@ -1245,8 +1245,8 @@ test("json template workspaces share the four template actions", () => {
 
 test("framed orchestrated editors compose shadcn Card", () => {
   const panelPaths = [
-    "frontend/src/pages/orchestrated/OrchestrationStageEditor.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowBlockEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationStageEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowBlockEditor.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -1263,8 +1263,8 @@ test("framed orchestrated editors compose shadcn Card", () => {
 
 test("nested transaction block editors stay unframed", () => {
   const panelPaths = [
-    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandDynParamsEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -1278,16 +1278,16 @@ test("nested transaction block editors stay unframed", () => {
 
 test("tx block visual editor owns the single inspector card shell", () => {
   const visualEditorSource = read(
-    "frontend/src/pages/orchestrated/TxBlockVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte",
   );
   const stepEditorSource = read(
-    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",
   );
   const rootInspectorSource = read(
-    "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRootInspector.svelte",
   );
   const rollbackEditorSource = read(
-    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
   );
 
   const inspectorComposition = [

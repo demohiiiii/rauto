@@ -145,7 +145,7 @@ test("transaction and orchestration form definitions expose no underscore labels
   }
 
   const commandEditor = source(
-    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
   );
   assert.doesNotMatch(commandEditor, /txBlockFormCommandExtra/);
   assert.doesNotMatch(commandEditor, /JsonObjectFieldsEditor/);

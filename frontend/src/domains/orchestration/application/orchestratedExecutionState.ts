@@ -15,11 +15,13 @@ import {
   connectionPayload as connectionPayloadFromConnections,
   ensureConnectionTargetSelected,
 } from "$domains/connections/index.js";
+import type { ConnectionRequestPayload } from "$domains/connections/index.js";
 import {
   applyRecordDrawerRecording,
   recordLevelPayload as recordLevelPayloadFromOverlays,
 } from "$domains/overlays/index.js";
 import { showToast } from "$domains/overlays/index.js";
+import type { OverlayToastTone, RecordLevel } from "$domains/overlays/index.js";
 import {
   TX_EDITOR,
   TX_OUTPUT,
@@ -36,14 +38,17 @@ import {
   setVisualOutputStatus,
   txVarsTextStateFor,
 } from "$domains/transactions/index.js";
-import type { JsonObject } from "../model/types.js";
-
-type DependencyMap = Record<string, unknown>;
-type UnknownFunction = (...args: unknown[]) => unknown;
+import type { TxJsonEditorsHost } from "$domains/transactions/index.js";
+import type {
+  OrchestrationExecutionResult,
+  OrchestrationJsonObject,
+  OrchestrationJsonValue,
+  OrchestrationPlan,
+} from "../model/types.js";
 
 interface ExternalActionContext {
   isCurrent?: () => boolean;
-  runOwnedEditorMutation?: (operation: () => unknown) => unknown;
+  runOwnedEditorMutation?: (operation: () => void) => void;
 }
 
 interface TextFile {
@@ -51,23 +56,49 @@ interface TextFile {
 }
 
 interface ExecutionPayloadOptions {
-  dependencies: DependencyMap;
+  dependencies: OrchestratedExecutionDependencies;
   dryRun: boolean;
 }
 
 interface OrchestratedExecutionOperationsOptions {
-  dependencies?: DependencyMap;
-  txJsonEditorsHost?: unknown;
+  dependencies?: OrchestratedExecutionDependencies;
+  txJsonEditorsHost?: TxJsonEditorsHost | null;
 }
 
-interface OrchestratedExecutionDependencyInput {
-  setOrchestrationPreview?: unknown;
-  setTxBlockVisual?: unknown;
-  setTxWorkflowPreview?: unknown;
-  setVisualOutputStatus?: unknown;
-  updateOrchestrationPreviewFromEditor?: unknown;
-  updateTxWorkflowPreviewFromEditor?: unknown;
+export interface OrchestratedExecutionDependencies {
+  connectionPayload(): ConnectionRequestPayload;
+  ensureConnectionTargetSelected(): boolean;
+  recordLevelPayload(): RecordLevel;
+  setOrchestrationPreview?: (
+    plan: OrchestrationPlan,
+    result: OrchestrationExecutionResult | null,
+  ) => void;
+  setTxBlockVisual?: (
+    txBlock: OrchestrationJsonValue,
+    txResult: OrchestrationJsonValue | null,
+  ) => void;
+  setTxWorkflowPreview?: (workflow: OrchestrationJsonValue) => void;
+  setVisualOutputStatus?: (
+    output: string,
+    message: string,
+    tone: string,
+  ) => void;
+  showToast?: (message: string, tone: OverlayToastTone) => void;
+  updateOrchestrationPreviewFromEditor?: () => void;
+  updateTxWorkflowPreviewFromEditor?: () => void;
 }
+
+type OrchestratedExecutionDependencyInput = Partial<
+  Pick<
+    OrchestratedExecutionDependencies,
+    | "setOrchestrationPreview"
+    | "setTxBlockVisual"
+    | "setTxWorkflowPreview"
+    | "setVisualOutputStatus"
+    | "updateOrchestrationPreviewFromEditor"
+    | "updateTxWorkflowPreviewFromEditor"
+  >
+>;
 
 interface JsonTemplateConfig {
   apiBase: string;
@@ -78,11 +109,6 @@ interface JsonTemplateConfig {
   runOutput: string;
 }
 
-const objectValue = (value: unknown): JsonObject =>
-  value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonObject)
-    : {};
-
 const errorMessage = (error: unknown): string =>
   error && typeof error === "object" && "message" in error
     ? String(error.message)
@@ -92,103 +118,55 @@ function tr(key: string, fallback = key): string {
   return translate(key, fallback);
 }
 
-function callObjectFunction(
-  target: unknown,
-  name: string,
-  ...args: unknown[]
-): unknown {
-  const targetValue = objectValue(target);
-  const operation = targetValue[name];
-  return typeof operation === "function"
-    ? (operation as UnknownFunction)(...args)
-    : undefined;
-}
-
-function transactionText(value: unknown): string {
-  if (value == null) return "";
-  return typeof value === "string" ? value : String(value);
-}
-
-function requireTxDependency(
-  dependencies: DependencyMap,
-  dependencyName: string,
-): UnknownFunction {
-  const dependency = dependencies[dependencyName];
-  if (typeof dependency !== "function") {
-    throw new Error(`${dependencyName} is not ready`);
-  }
-  return dependency as UnknownFunction;
-}
-
-function ensureTarget(dependencies: DependencyMap): boolean {
-  const ensureTargetSelected = dependencies.ensureConnectionTargetSelected;
-  if (!ensureTargetSelected) return true;
-  return !!(ensureTargetSelected as UnknownFunction)();
-}
-
-function applyRecording(recordingPayload: unknown): void {
+function applyRecording(recordingPayload: {
+  recording_jsonl: string | null;
+}): void {
   applyRecordDrawerRecording(recordingPayload);
 }
 
 function setDependencyVisualError(
-  dependencies: DependencyMap,
-  output: unknown,
+  dependencies: OrchestratedExecutionDependencies,
+  output: string,
   message: string,
 ): void {
-  callObjectFunction(
-    dependencies,
-    "setVisualOutputStatus",
-    output,
-    message,
-    "error",
-  );
+  dependencies.setVisualOutputStatus?.(output, message, "error");
 }
 
-const connectionPayload = (dependencies: DependencyMap): unknown =>
-  requireTxDependency(dependencies, "connectionPayload")();
+const connectionPayload = (
+  dependencies: OrchestratedExecutionDependencies,
+): ConnectionRequestPayload => dependencies.connectionPayload();
 
-const recordLevelPayload = (dependencies: DependencyMap): unknown =>
-  requireTxDependency(dependencies, "recordLevelPayload")();
-
-function callOptionalTxDependency(
-  dependencies: DependencyMap,
-  dependencyName: string,
-  ...args: unknown[]
-): unknown {
-  const dependency = dependencies[dependencyName];
-  return typeof dependency === "function"
-    ? (dependency as UnknownFunction)(...args)
-    : undefined;
-}
+const recordLevelPayload = (
+  dependencies: OrchestratedExecutionDependencies,
+): RecordLevel => dependencies.recordLevelPayload();
 
 const txBlockEditorRaw = (): string =>
-  transactionText(requireTxJsonEditor("txBlockEditorRaw")()).trim();
+  requireTxJsonEditor("txBlockEditorRaw")().trim();
 
 const txWorkflowEditorRaw = (): string =>
-  transactionText(requireTxJsonEditor("txWorkflowEditorRaw")()).trim();
+  requireTxJsonEditor("txWorkflowEditorRaw")().trim();
 
 const orchestrationEditorRaw = (): string =>
-  transactionText(requireTxJsonEditor("orchestrationEditorRaw")()).trim();
+  requireTxJsonEditor("orchestrationEditorRaw")().trim();
 
-const parseTxBlockEditorJson = (): unknown =>
-  requireTxJsonEditor("parseTxBlockEditorJson")();
+const parseTxBlockEditorJson = (): OrchestrationJsonObject =>
+  requireTxJsonEditor("parseTxBlockEditorJson")() as OrchestrationJsonObject;
 
-function txVarsRawText(varsKey: unknown): string {
+function txVarsRawText(varsKey: string): string {
   const rawText = get(txVarsTextStateFor(varsKey))?.raw;
-  if (rawText == null) return "";
-  return typeof rawText === "string" ? rawText : String(rawText);
+  return rawText || "";
 }
 
-function txVarsJsonObject(varsKey: unknown): unknown {
+function txVarsJsonObject(varsKey: string): OrchestrationJsonObject {
   const raw = txVarsRawText(varsKey).trim();
   if (!raw) return {};
   const parsed: unknown = JSON.parse(raw);
-  return parsed;
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? (parsed as OrchestrationJsonObject)
+    : {};
 }
 
-export function jsonTemplateConfigFor(
-  kind: unknown,
-): JsonTemplateConfig | null {
+export function jsonTemplateConfigFor(kind: string): JsonTemplateConfig | null {
   const configs: Record<string, JsonTemplateConfig> = {
     [TX_TEMPLATE_KIND.txBlock]: {
       apiBase: "/api/tx-block-templates",
@@ -215,13 +193,13 @@ export function jsonTemplateConfigFor(
       runOutput: TX_OUTPUT.orchestrationPlan,
     },
   };
-  return configs[transactionText(kind)] || null;
+  return configs[kind] || null;
 }
 
 function txBlockExecutionPayload({
   dependencies,
   dryRun,
-}: ExecutionPayloadOptions): JsonObject {
+}: ExecutionPayloadOptions) {
   return txBlockInlineExecutionPayload({
     connection: connectionPayload(dependencies),
     dryRun,
@@ -234,7 +212,7 @@ function txBlockExecutionPayload({
 function txWorkflowExecutionPayload({
   dependencies,
   dryRun,
-}: ExecutionPayloadOptions): JsonObject {
+}: ExecutionPayloadOptions) {
   return txWorkflowInlineExecutionPayload({
     connection: connectionPayload(dependencies),
     dryRun,
@@ -247,7 +225,7 @@ function txWorkflowExecutionPayload({
 function orchestrationExecutionPayload({
   dependencies,
   dryRun,
-}: ExecutionPayloadOptions): JsonObject {
+}: ExecutionPayloadOptions) {
   return orchestrationInlineExecutionPayload({
     connection: connectionPayload(dependencies),
     dryRun,
@@ -258,8 +236,8 @@ function orchestrationExecutionPayload({
 }
 
 function normalizeTxWorkflowJsonFromEditor(
-  txJsonEditorsHost: unknown = null,
-  dependencies: DependencyMap = {},
+  txJsonEditorsHost: TxJsonEditorsHost | null = null,
+  dependencies: OrchestratedExecutionDependencies,
   actionContext: ExternalActionContext | null = null,
 ): boolean {
   const raw = txWorkflowEditorRaw();
@@ -269,10 +247,12 @@ function normalizeTxWorkflowJsonFromEditor(
     throw new Error(tr("txWorkflowLoadInvalidJsonShape"));
   }
   if (!externalActionIsCurrent(actionContext)) return false;
-  runOwnedEditorMutation(actionContext, () =>
-    callObjectFunction(txJsonEditorsHost, "setTxWorkflowEditorJson", workflow),
-  );
-  callOptionalTxDependency(dependencies, "updateTxWorkflowPreviewFromEditor");
+  runOwnedEditorMutation(actionContext, () => {
+    txJsonEditorsHost?.setTxWorkflowEditorJson(
+      workflow as OrchestrationJsonObject,
+    );
+  });
+  dependencies.updateTxWorkflowPreviewFromEditor?.();
   return true;
 }
 
@@ -286,24 +266,25 @@ function externalActionIsCurrent(
 
 function runOwnedEditorMutation(
   actionContext: ExternalActionContext | null,
-  operation: () => unknown,
-): unknown {
+  operation: () => void,
+): void {
   if (typeof actionContext?.runOwnedEditorMutation === "function") {
-    return actionContext.runOwnedEditorMutation(operation);
+    actionContext.runOwnedEditorMutation(operation);
+    return;
   }
-  return typeof operation === "function" ? operation() : undefined;
+  operation();
 }
 
 async function importTxWorkflowFromFileWithDependencies(
-  txJsonEditorsHost: unknown = null,
-  dependencies: DependencyMap = {},
+  txJsonEditorsHost: TxJsonEditorsHost | null,
+  dependencies: OrchestratedExecutionDependencies,
   file: TextFile | null,
   actionContext: ExternalActionContext | null = null,
 ): Promise<null | void> {
   if (!file) throw new Error(tr("txWorkflowImportFileInvalid"));
   const text = await file.text();
   if (!externalActionIsCurrent(actionContext)) return null;
-  callObjectFunction(txJsonEditorsHost, "setTxWorkflowEditorText", text, {
+  txJsonEditorsHost?.setTxWorkflowEditorText(text, {
     notify: false,
   });
   if (
@@ -315,7 +296,7 @@ async function importTxWorkflowFromFileWithDependencies(
   ) {
     return null;
   }
-  callOptionalTxDependency(dependencies, "updateTxWorkflowPreviewFromEditor");
+  dependencies.updateTxWorkflowPreviewFromEditor?.();
   if (!externalActionIsCurrent(actionContext)) return null;
   setStatus(
     TX_OUTPUT.txWorkflowPlan,
@@ -325,7 +306,7 @@ async function importTxWorkflowFromFileWithDependencies(
 }
 
 async function importTxBlockFromFileWithDependencies(
-  txJsonEditorsHost: unknown = null,
+  txJsonEditorsHost: TxJsonEditorsHost | null,
   file: TextFile | null,
   actionContext: ExternalActionContext | null = null,
 ): Promise<null | void> {
@@ -338,16 +319,18 @@ async function importTxBlockFromFileWithDependencies(
       throw new Error(tr("txBlockJsonInvalidShape"));
     }
     if (!externalActionIsCurrent(actionContext)) return null;
-    runOwnedEditorMutation(actionContext, () =>
-      callObjectFunction(txJsonEditorsHost, "setTxBlockEditorJson", txBlock),
-    );
+    runOwnedEditorMutation(actionContext, () => {
+      txJsonEditorsHost?.setTxBlockEditorJson(
+        txBlock as OrchestrationJsonObject,
+      );
+    });
   } catch (error) {
     if (!externalActionIsCurrent(actionContext)) return null;
-    runOwnedEditorMutation(actionContext, () =>
-      callObjectFunction(txJsonEditorsHost, "setTxBlockEditorText", text, {
+    runOwnedEditorMutation(actionContext, () => {
+      txJsonEditorsHost?.setTxBlockEditorText(text, {
         notify: true,
-      }),
-    );
+      });
+    });
     throw error;
   }
   if (!externalActionIsCurrent(actionContext)) return null;
@@ -355,7 +338,7 @@ async function importTxBlockFromFileWithDependencies(
 }
 
 async function importOrchestrationFromFileWithDependencies(
-  txJsonEditorsHost: unknown = null,
+  txJsonEditorsHost: TxJsonEditorsHost | null,
   file: TextFile | null,
   actionContext: ExternalActionContext | null = null,
 ): Promise<null | void> {
@@ -364,22 +347,21 @@ async function importOrchestrationFromFileWithDependencies(
   if (!externalActionIsCurrent(actionContext)) return null;
   try {
     const plan: unknown = JSON.parse(text);
+    if (!plan || typeof plan !== "object" || Array.isArray(plan)) {
+      throw new Error(tr("orchestrationJsonRequired"));
+    }
     if (!externalActionIsCurrent(actionContext)) return null;
-    runOwnedEditorMutation(actionContext, () =>
-      callObjectFunction(txJsonEditorsHost, "setOrchestrationEditorJson", plan),
-    );
-  } catch {
+    runOwnedEditorMutation(actionContext, () => {
+      txJsonEditorsHost?.setOrchestrationEditorJson(
+        plan as OrchestrationJsonObject,
+      );
+    });
+  } catch (error) {
     if (!externalActionIsCurrent(actionContext)) return null;
-    runOwnedEditorMutation(actionContext, () =>
-      callObjectFunction(
-        txJsonEditorsHost,
-        "setOrchestrationEditorText",
-        text,
-        {
-          notify: true,
-        },
-      ),
-    );
+    runOwnedEditorMutation(actionContext, () => {
+      txJsonEditorsHost?.setOrchestrationEditorText(text, { notify: true });
+    });
+    throw error;
   }
   if (!externalActionIsCurrent(actionContext)) return null;
   setStatus(
@@ -390,19 +372,15 @@ async function importOrchestrationFromFileWithDependencies(
 }
 
 async function previewOrchestrationWithDependencies(
-  dependencies: DependencyMap = {},
+  dependencies: OrchestratedExecutionDependencies,
 ): Promise<void> {
   setRunningStatus(TX_OUTPUT.orchestrationPlan);
   try {
-    const orchestrationPreviewPayload = objectValue(
-      await executeOrchestration(
-        orchestrationExecutionPayload({ dependencies, dryRun: true }),
-      ),
+    const orchestrationPreviewPayload = await executeOrchestration(
+      orchestrationExecutionPayload({ dependencies, dryRun: true }),
     );
-    callOptionalTxDependency(
-      dependencies,
-      "setOrchestrationPreview",
-      orchestrationPreviewPayload?.plan || {},
+    dependencies.setOrchestrationPreview?.(
+      orchestrationPreviewPayload.plan,
       null,
     );
     setStatus(
@@ -422,20 +400,16 @@ async function previewOrchestrationWithDependencies(
 }
 
 async function executeOrchestrationRunWithDependencies(
-  dependencies: DependencyMap = {},
+  dependencies: OrchestratedExecutionDependencies,
 ): Promise<void> {
   setRunningStatus(TX_OUTPUT.orchestrationExec);
   try {
-    const orchestrationRunPayload = objectValue(
-      await executeOrchestration(
-        orchestrationExecutionPayload({ dependencies, dryRun: false }),
-      ),
+    const orchestrationRunPayload = await executeOrchestration(
+      orchestrationExecutionPayload({ dependencies, dryRun: false }),
     );
-    callOptionalTxDependency(
-      dependencies,
-      "setOrchestrationPreview",
-      orchestrationRunPayload?.plan || {},
-      orchestrationRunPayload?.orchestration_result || {},
+    dependencies.setOrchestrationPreview?.(
+      orchestrationRunPayload.plan,
+      orchestrationRunPayload.orchestration_result,
     );
   } catch (error) {
     setErrorStatus(TX_OUTPUT.orchestrationExec, error);
@@ -443,11 +417,11 @@ async function executeOrchestrationRunWithDependencies(
 }
 
 async function runTxBlockWithDependencies(
-  dependencies: DependencyMap = {},
+  dependencies: OrchestratedExecutionDependencies,
   dryRun: boolean,
-  output: unknown,
+  output: string,
 ): Promise<void> {
-  if (!ensureTarget(dependencies)) return;
+  if (!dependencies.ensureConnectionTargetSelected()) return;
   setTxExecutionModes({ txBlock: "direct" });
   const payload = txBlockExecutionPayload({ dependencies, dryRun });
   if (
@@ -458,12 +432,10 @@ async function runTxBlockWithDependencies(
     throw new Error(tr("txBlockJsonInvalidShape"));
   }
   setRunningStatus(output);
-  const txBlockPayload = objectValue(await executeTxBlock(payload));
-  callOptionalTxDependency(
-    dependencies,
-    "setTxBlockVisual",
-    txBlockPayload?.tx_block || {},
-    dryRun ? null : txBlockPayload?.tx_result || {},
+  const txBlockPayload = await executeTxBlock(payload);
+  dependencies.setTxBlockVisual?.(
+    txBlockPayload.tx_block,
+    dryRun ? null : txBlockPayload.tx_result,
   );
   if (dryRun) {
     setStatus(output, tr("txBlockPreviewDone"), "success");
@@ -475,21 +447,15 @@ async function runTxBlockWithDependencies(
 }
 
 async function previewTxWorkflowWithDependencies(
-  dependencies: DependencyMap = {},
+  dependencies: OrchestratedExecutionDependencies,
 ): Promise<void> {
-  if (!ensureTarget(dependencies)) return;
+  if (!dependencies.ensureConnectionTargetSelected()) return;
   setRunningStatus(TX_OUTPUT.txWorkflowPlan);
   try {
-    const workflowPreviewPayload = objectValue(
-      await executeTxWorkflow(
-        txWorkflowExecutionPayload({ dependencies, dryRun: true }),
-      ),
+    const workflowPreviewPayload = await executeTxWorkflow(
+      txWorkflowExecutionPayload({ dependencies, dryRun: true }),
     );
-    callOptionalTxDependency(
-      dependencies,
-      "setTxWorkflowPreview",
-      workflowPreviewPayload?.workflow || {},
-    );
+    dependencies.setTxWorkflowPreview?.(workflowPreviewPayload.workflow);
     setStatus(TX_OUTPUT.txWorkflowPlan, tr("txWorkflowPreviewDone"), "success");
   } catch (error) {
     setErrorStatus(TX_OUTPUT.txWorkflowPlan, error);
@@ -502,25 +468,16 @@ async function previewTxWorkflowWithDependencies(
 }
 
 async function executeWorkflowWithDependencies(
-  dependencies: DependencyMap = {},
+  dependencies: OrchestratedExecutionDependencies,
 ): Promise<void> {
-  if (!ensureTarget(dependencies)) return;
+  if (!dependencies.ensureConnectionTargetSelected()) return;
   setRunningStatus(TX_OUTPUT.txWorkflowExec);
   try {
-    const workflowExecutionPayload = objectValue(
-      await executeTxWorkflow(
-        txWorkflowExecutionPayload({ dependencies, dryRun: false }),
-      ),
+    const workflowExecutionPayload = await executeTxWorkflow(
+      txWorkflowExecutionPayload({ dependencies, dryRun: false }),
     );
-    setTxWorkflowExecutionResult(
-      workflowExecutionPayload?.tx_workflow_result || {},
-    );
-    callOptionalTxDependency(
-      dependencies,
-      "showToast",
-      tr("txWorkflowExecuteDone"),
-      "success",
-    );
+    setTxWorkflowExecutionResult(workflowExecutionPayload.tx_workflow_result);
+    dependencies.showToast?.(tr("txWorkflowExecuteDone"), "success");
     applyRecording(workflowExecutionPayload);
   } catch (error) {
     setErrorStatus(TX_OUTPUT.txWorkflowExec, error);
@@ -529,7 +486,7 @@ async function executeWorkflowWithDependencies(
 
 export function orchestratedExecutionOperations({
   txJsonEditorsHost = null,
-  dependencies = {},
+  dependencies = createOrchestratedExecutionDependencies(),
 }: OrchestratedExecutionOperationsOptions = {}) {
   return {
     executeOrchestration: () =>
@@ -566,7 +523,7 @@ export function orchestratedExecutionOperations({
     previewOrchestration: () =>
       previewOrchestrationWithDependencies(dependencies),
     previewTxWorkflow: () => previewTxWorkflowWithDependencies(dependencies),
-    runTxBlock: (dryRun: boolean, output: unknown) =>
+    runTxBlock: (dryRun: boolean, output: string) =>
       runTxBlockWithDependencies(dependencies, dryRun, output),
   };
 }
@@ -578,7 +535,7 @@ export function createOrchestratedExecutionDependencies({
   setVisualOutputStatus,
   updateOrchestrationPreviewFromEditor,
   updateTxWorkflowPreviewFromEditor,
-}: OrchestratedExecutionDependencyInput = {}): DependencyMap {
+}: OrchestratedExecutionDependencyInput = {}): OrchestratedExecutionDependencies {
   return {
     connectionPayload: connectionPayloadFromConnections,
     ensureConnectionTargetSelected,

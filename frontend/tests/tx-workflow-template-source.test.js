@@ -29,11 +29,17 @@ test("transaction workflow execution always uses the editable inline snapshot", 
   );
 });
 
+test("transaction workflow execution rejects non-object JSON roots", () => {
+  assert.throws(() => txWorkflowInlineExecutionPayload({ workflowText: "[]" }));
+});
+
 test("transaction workflow page merges direct and template execution into one editor", () => {
   const inputPanel = read(
-    "frontend/src/pages/orchestrated/TxWorkflowInputPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowInputPanel.svelte",
   );
-  const stage = read("frontend/src/pages/orchestrated/TxWorkflowStage.svelte");
+  const stage = read(
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowStage.svelte",
+  );
 
   assert.match(inputPanel, /CommandTemplateSourceField/);
   assert.match(inputPanel, /loadJsonTemplate/);

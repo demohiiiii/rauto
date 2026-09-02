@@ -76,7 +76,6 @@ const MODULE_CHUNKS = new Map([
 
 const PAGE_SUPPORT_FOLDER_CHUNKS = new Map([
   ["inventory", "page-inventorypage"],
-  ["orchestrated", "page-orchestratedpage"],
   ["prompts", "page-promptspage"],
   ["replay", "page-replaypage"],
   ["show", "page-showpage"],
@@ -125,6 +124,12 @@ function sourceFileName(id, sourcePath) {
   return tail.split("/").filter(Boolean).pop() || "";
 }
 
+function domainComponentChunkName(id, domain, prefix) {
+  const sourcePath = `domains/${domain}/presentation/components/`;
+  const group = sourceFolderName(id, sourcePath);
+  return `${prefix}-${group || "shared"}`;
+}
+
 function pageChunkName(id) {
   const pageFile = sourceFileName(id, "pages/");
   const folder = sourceFolderName(id, "pages/");
@@ -167,6 +172,13 @@ function dashboardChunk(id) {
   }
   if (matchesSourcePath(id, "domains/execution/")) return "feature-results";
   if (matchesSourcePath(id, "domains/overlays/")) return "dashboard-overlays";
+  if (matchesSourcePath(id, "domains/orchestration/presentation/components/")) {
+    return domainComponentChunkName(
+      id,
+      "orchestration",
+      "feature-orchestration",
+    );
+  }
   if (matchesSourcePath(id, "domains/orchestration/")) {
     return "feature-orchestrated";
   }
@@ -174,6 +186,12 @@ function dashboardChunk(id) {
   if (matchesSourcePath(id, "domains/show/")) return "page-showpage";
   if (matchesSourcePath(id, "domains/standard/")) return "feature-standard";
   if (matchesSourcePath(id, "domains/templates/")) return "feature-templates";
+  if (matchesSourcePath(id, "domains/transactions/presentation/components/")) {
+    return domainComponentChunkName(id, "transactions", "feature-transactions");
+  }
+  if (matchesSourcePath(id, "domains/transactions/")) {
+    return "feature-orchestrated";
+  }
   if (matchesSourcePath(id, "modules/")) {
     const file = sourceFileName(id, "modules/");
     return MODULE_CHUNKS.get(file) || "dashboard-shell";
@@ -226,6 +244,11 @@ export default defineConfig(({ command, isPreview }) => ({
   ],
   resolve: {
     alias: {
+      $api: fileURLToPath(new URL("./frontend/src/api", import.meta.url)),
+      $components: fileURLToPath(
+        new URL("./frontend/src/components", import.meta.url),
+      ),
+      $config: fileURLToPath(new URL("./frontend/src/config", import.meta.url)),
       $domains: fileURLToPath(
         new URL("./frontend/src/domains", import.meta.url),
       ),

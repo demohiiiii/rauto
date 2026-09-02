@@ -6,12 +6,15 @@ import {
   orchestrationSelectTxWorkflowActionSource,
   orchestrationTxWorkflowActionJsonFieldUpdateResult,
   orchestrationTxWorkflowFieldPatch,
-  orchestrationWorkflowJsonObject,
 } from "../model/orchestrationTxWorkflowActions.js";
 import { orchestrationTxWorkflowActionSettingsPanelDisplay } from "../presentation/orchestrationActionDisplayState.js";
-import { orchestrationCreateTxWorkflowActionModel } from "../model/orchestrationPlanFormModels.js";
+import {
+  orchestrationCreateTxWorkflowActionModel,
+  orchestrationPlanFormModelFromJson,
+} from "../model/orchestrationPlanFormModels.js";
 import { orchestrationVisualEditorDisplay } from "./orchestrationStageEditorsState.js";
 import type {
+  JsonObject,
   OrchestrationErrorChangeHandler,
   OrchestrationPlanChangeHandler,
   OrchestrationPlanFormModel,
@@ -19,6 +22,7 @@ import type {
   OrchestrationTxWorkflowActionModel,
   OrchestrationTxWorkflowSourceBindings,
   OrchestrationVisualEditorDisplay,
+  OrchestrationWorkflowSourceMode,
 } from "../model/types.js";
 
 const TEMPLATE_API_PATH = "/api/tx-workflow-templates";
@@ -52,12 +56,14 @@ interface TxWorkflowActionSettingsContext {
   visualDisplay?: OrchestrationVisualEditorDisplay;
 }
 
-function planModelValue(value: unknown): OrchestrationPlanFormModel {
-  return orchestrationWorkflowJsonObject(value) as OrchestrationPlanFormModel;
+function planModelValue(
+  value: OrchestrationPlanFormModel | undefined,
+): OrchestrationPlanFormModel {
+  return value ?? orchestrationPlanFormModelFromJson({});
 }
 
-function integerOr(value: unknown, fallback = 0): number {
-  return Number.isInteger(value) ? (value as number) : fallback;
+function integerOr(value: number | undefined, fallback = 0): number {
+  return Number.isInteger(value) ? (value ?? fallback) : fallback;
 }
 
 function errorMessage(error: unknown): string {
@@ -76,7 +82,7 @@ function orchestrationTxWorkflowActionBindings(
     onChange?.(nextModel);
   };
   return {
-    setSource(sourceValue: unknown): void {
+    setSource(sourceValue: OrchestrationWorkflowSourceMode): void {
       applyChange(
         orchestrationSelectTxWorkflowActionSource(
           model,
@@ -86,7 +92,7 @@ function orchestrationTxWorkflowActionBindings(
         ),
       );
     },
-    setJsonText(workflowJsonText: unknown): string {
+    setJsonText(workflowJsonText: string): string {
       const result = orchestrationTxWorkflowActionJsonFieldUpdateResult(
         model,
         stageIndex,
@@ -97,7 +103,7 @@ function orchestrationTxWorkflowActionBindings(
       if (typeof onChange === "function") onChange(result.model);
       return result.error;
     },
-    setTemplateName(workflowTemplateName: unknown): void {
+    setTemplateName(workflowTemplateName: string): void {
       applyChange(
         orchestrationPatchTxWorkflowAction(
           model,
@@ -110,7 +116,7 @@ function orchestrationTxWorkflowActionBindings(
         ),
       );
     },
-    setWorkflowVars(workflowVars: unknown = {}): void {
+    setWorkflowVars(workflowVars: JsonObject = {}): void {
       applyChange(
         orchestrationPatchTxWorkflowAction(
           model,
@@ -141,12 +147,12 @@ export function orchestrationTxWorkflowSourceBindings(
   );
   return {
     setSource: actionBindings.setSource,
-    setJsonText(workflowJsonText: unknown): void {
+    setJsonText(workflowJsonText: string): void {
       const error = actionBindings.setJsonText(workflowJsonText);
       setFormError(error);
     },
     setTemplateName: actionBindings.setTemplateName,
-    setWorkflowVars(workflowVars: unknown = {}): void {
+    setWorkflowVars(workflowVars: JsonObject = {}): void {
       actionBindings.setWorkflowVars(workflowVars);
       setFormError("");
     },

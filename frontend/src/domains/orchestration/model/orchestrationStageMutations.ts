@@ -299,14 +299,10 @@ export function orchestrationReplaceJobStringList(
   stageIndex: number,
   jobIndex: number,
   listName: string,
-  values: unknown,
+  values: readonly string[],
 ): OrchestrationPlanFormModel {
   const normalizedValues = Array.from(
-    new Set(
-      (Array.isArray(values) ? values : [])
-        .map((value) => orchestrationStringValue(value).trim())
-        .filter(Boolean),
-    ),
+    new Set(values.map((value) => value.trim()).filter(Boolean)),
   );
   return orchestrationPatchJobStringList(
     model,

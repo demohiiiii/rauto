@@ -1,5 +1,9 @@
 import { t } from "../../../lib/i18n.js";
 
+interface OrchestratedShellState {
+  currentTxStage: string;
+}
+
 export interface OrchestrationStageDisplay {
   blockActive: boolean;
   newButtonLabelKey: string;
@@ -13,13 +17,8 @@ export interface OrchestratedStageDefinition {
   load(): Promise<unknown>;
 }
 
-const objectValue = (value: unknown): Record<string, unknown> =>
-  value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-
 export function orchestrationStagePresentation(
-  stage: unknown = "",
+  stage = "",
 ): OrchestrationStageDisplay {
   const normalized =
     stage === "workflow" || stage === "orchestrate" ? stage : "block";
@@ -40,9 +39,11 @@ export function orchestrationStagePresentation(
 }
 
 export function orchestratedPagePresentation(
-  shellState: unknown = {},
+  shellState: OrchestratedShellState = {
+    currentTxStage: "block",
+  },
 ): OrchestrationStageDisplay {
-  return orchestrationStagePresentation(objectValue(shellState).currentTxStage);
+  return orchestrationStagePresentation(shellState.currentTxStage);
 }
 
 export function orchestratedActiveStageDefinition(

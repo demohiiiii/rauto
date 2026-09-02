@@ -40,7 +40,7 @@ function gridSelect(handler, valueHandlerMode, event) {
 
 function interactionGridModes() {
   const source = readFileSync(
-    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte",
     "utf8",
   );
   return (source.match(/<PresenceFieldGrid[\s\S]*?\/>/g) || []).map((grid) =>
@@ -54,7 +54,7 @@ test("PresenceFieldGrid preserves raw values by default", () => {
     "utf8",
   );
   const workflowSource = readFileSync(
-    "frontend/src/pages/orchestrated/TxWorkflowBlockEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowBlockEditor.svelte",
     "utf8",
   );
   const observed = [];
@@ -257,11 +257,11 @@ test("transaction prompt list callbacks use direct StringListEditor signatures",
 
 test("transaction block grids declare their event or raw value contract", () => {
   const txBlockEditorPaths = [
-    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
     "frontend/src/components/command-flow/CommandFlowSettings.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRootSettingsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRootSettingsEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",
   ];
 
   for (const path of txBlockEditorPaths) {
@@ -274,7 +274,7 @@ test("transaction block grids declare their event or raw value contract", () => 
   }
 
   const interactionPath =
-    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte";
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte";
   const interactionSource = readFileSync(interactionPath, "utf8");
   const interactionGrids =
     interactionSource.match(/<PresenceFieldGrid[\s\S]*?\/>/g) || [];

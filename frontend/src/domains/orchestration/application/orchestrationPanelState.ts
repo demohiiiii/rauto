@@ -29,22 +29,37 @@ import {
   visualOutputState,
 } from "$domains/transactions/index.js";
 
-type OptionalHandler = (...args: unknown[]) => unknown;
-
 interface ExternalActionContext {
   isCurrent?: () => boolean;
 }
 
+interface TextFile {
+  text(): Promise<string>;
+}
+
+type ActionHandler = () => Promise<void> | void;
+type ContextActionHandler = (
+  actionContext: ExternalActionContext | null,
+) => Promise<void> | void;
+type FileActionHandler = (
+  file: TextFile,
+  actionContext: ExternalActionContext | null,
+) => Promise<void> | void;
+type TemplateActionHandler = (
+  templateName: string,
+  actionContext: ExternalActionContext | null,
+) => Promise<void> | void;
+
 interface OrchestrationInputPanelContext {
-  onCreateJsonTemplateDraft?: unknown;
-  onExecute?: unknown;
-  onImportFile?: unknown;
-  onLoadJsonTemplate?: unknown;
-  onPreview?: unknown;
+  onCreateJsonTemplateDraft?: ContextActionHandler | null;
+  onExecute?: ActionHandler | null;
+  onImportFile?: FileActionHandler | null;
+  onLoadJsonTemplate?: TemplateActionHandler | null;
+  onPreview?: ActionHandler | null;
 }
 
 interface OrchestratedPageWorkspaceInput {
-  afterDomUpdate?: unknown;
+  afterDomUpdate?: ((updateTask: () => void) => (() => void) | void) | null;
   stageDefinitions?: readonly OrchestratedStageDefinition[];
 }
 
@@ -55,21 +70,15 @@ const orchestratedRouteState = derived(dashboardState, (state) => ({
 
 const orchestratedExecutionModeOptionsVersion = executionModeOptionsVersion;
 
-function normalizeOptionalHandler(handler: unknown): OptionalHandler | null {
-  return typeof handler === "function" ? (handler as OptionalHandler) : null;
-}
-
 export function createOrchestrationInputPanelWorkspace(
   inputState: OrchestrationInputPanelContext = {},
 ) {
   const dependencyState = {
-    onCreateJsonTemplateDraft: normalizeOptionalHandler(
-      inputState.onCreateJsonTemplateDraft,
-    ),
-    onExecute: normalizeOptionalHandler(inputState.onExecute),
-    onImportFile: normalizeOptionalHandler(inputState.onImportFile),
-    onLoadJsonTemplate: normalizeOptionalHandler(inputState.onLoadJsonTemplate),
-    onPreview: normalizeOptionalHandler(inputState.onPreview),
+    onCreateJsonTemplateDraft: inputState.onCreateJsonTemplateDraft ?? null,
+    onExecute: inputState.onExecute ?? null,
+    onImportFile: inputState.onImportFile ?? null,
+    onLoadJsonTemplate: inputState.onLoadJsonTemplate ?? null,
+    onPreview: inputState.onPreview ?? null,
   };
   const loadingKeysStore = writable<string[]>([]);
   const editorSyncVersionStateStore = writable(0);
@@ -84,8 +93,7 @@ export function createOrchestrationInputPanelWorkspace(
   );
   const loadingRunner = createLoadingRunner(
     () => get(loadingKeysStore),
-    (nextKeys: unknown) =>
-      loadingKeysStore.set(Array.isArray(nextKeys) ? nextKeys.map(String) : []),
+    (nextKeys: string[]) => loadingKeysStore.set(nextKeys),
   );
 
   function bumpEditorSyncVersion() {
@@ -105,7 +113,7 @@ export function createOrchestrationInputPanelWorkspace(
   }
 
   function importFile(
-    file: unknown,
+    file: TextFile,
     actionContext: ExternalActionContext | null = null,
   ) {
     return typeof dependencyState.onImportFile === "function"
@@ -114,7 +122,7 @@ export function createOrchestrationInputPanelWorkspace(
   }
 
   async function loadJsonTemplate(
-    templateName: unknown,
+    templateName: string,
     actionContext: ExternalActionContext | null = null,
   ) {
     const result =
@@ -145,29 +153,21 @@ export function createOrchestrationInputPanelWorkspace(
     previewOrchestration,
     setInputPanelContext(nextInputState: OrchestrationInputPanelContext = {}) {
       if ("onCreateJsonTemplateDraft" in nextInputState) {
-        dependencyState.onCreateJsonTemplateDraft = normalizeOptionalHandler(
-          nextInputState.onCreateJsonTemplateDraft,
-        );
+        dependencyState.onCreateJsonTemplateDraft =
+          nextInputState.onCreateJsonTemplateDraft ?? null;
       }
       if ("onExecute" in nextInputState) {
-        dependencyState.onExecute = normalizeOptionalHandler(
-          nextInputState.onExecute,
-        );
+        dependencyState.onExecute = nextInputState.onExecute ?? null;
       }
       if ("onImportFile" in nextInputState) {
-        dependencyState.onImportFile = normalizeOptionalHandler(
-          nextInputState.onImportFile,
-        );
+        dependencyState.onImportFile = nextInputState.onImportFile ?? null;
       }
       if ("onLoadJsonTemplate" in nextInputState) {
-        dependencyState.onLoadJsonTemplate = normalizeOptionalHandler(
-          nextInputState.onLoadJsonTemplate,
-        );
+        dependencyState.onLoadJsonTemplate =
+          nextInputState.onLoadJsonTemplate ?? null;
       }
       if ("onPreview" in nextInputState) {
-        dependencyState.onPreview = normalizeOptionalHandler(
-          nextInputState.onPreview,
-        );
+        dependencyState.onPreview = nextInputState.onPreview ?? null;
       }
     },
   };
@@ -251,8 +251,8 @@ export function createOrchestrationStageWorkspace() {
     executionDisplayStateStore,
     executionPanelDisplayStateStore,
     previewDisplayStateStore,
-    setStageContext({ active = false }: { active?: unknown } = {}) {
-      activeStateStore.set(!!active);
+    setStageContext({ active = false }: { active?: boolean } = {}) {
+      activeStateStore.set(active);
     },
   };
 }
@@ -307,7 +307,7 @@ export function createOrchestratedPageWorkspace({
   let lastModeOptionsVersion = 0;
   let workspaceInitialized = false;
 
-  function setPageContext({ active = false }: { active?: unknown } = {}) {
+  function setPageContext({ active = false }: { active?: boolean } = {}) {
     if (!active) {
       if (workspaceInitialized) {
         orchestratedWorkspace.destroy();

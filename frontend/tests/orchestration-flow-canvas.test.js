@@ -415,16 +415,16 @@ test("orchestration source loads cannot overwrite newer manual edits", () => {
 
 test("orchestration flow nodes expose hierarchy-aware canvas actions", () => {
   const stageNode = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowStageNode.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowStageNode.svelte",
   );
   const jobNode = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowJobNode.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowJobNode.svelte",
   );
   const workflowBlockNode = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowWorkflowBlockNode.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowWorkflowBlockNode.svelte",
   );
   const stageInsert = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowStageInsertNode.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowStageInsertNode.svelte",
   );
 
   assert.match(stageNode, /ArrowLeftIcon/);
@@ -466,7 +466,7 @@ test("orchestration flow nodes expose hierarchy-aware canvas actions", () => {
 
 test("orchestration flow inspector reuses stage and job field editors", () => {
   const inspector = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowInspector.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowInspector.svelte",
   );
   assert.match(inspector, /OrchestrationStageSettingsEditor/);
   assert.match(inspector, /OrchestrationJobEditor/);
@@ -480,13 +480,13 @@ test("orchestration flow inspector reuses stage and job field editors", () => {
 
 test("multi-device orchestration renders one full Svelte Flow canvas", () => {
   const canvas = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowCanvas.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowCanvas.svelte",
   );
   const formEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationPlanFormEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationPlanFormEditor.svelte",
   );
   const viewportController = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowViewportController.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowViewportController.svelte",
   );
 
   assert.match(canvas, /SvelteFlow/);
@@ -531,22 +531,22 @@ test("multi-device orchestration renders one full Svelte Flow canvas", () => {
 
 test("orchestration inspector explains stage, job, target, and action hierarchy", () => {
   const inspector = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowInspector.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowInspector.svelte",
   );
   const stageEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationStageSettingsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationStageSettingsEditor.svelte",
   );
   const jobEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobEditor.svelte",
   );
   const jobActionEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobActionEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobActionEditor.svelte",
   );
   const blockInspector = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowWorkflowBlockInspector.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowWorkflowBlockInspector.svelte",
   );
   const workflowEditor = read(
-    "frontend/src/pages/orchestrated/TxWorkflowVisualEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowVisualEditor.svelte",
   );
 
   assert.match(inspector, /orchestrationFlowInspectorBreadcrumb/);
@@ -565,7 +565,7 @@ test("orchestration inspector explains stage, job, target, and action hierarchy"
 
 test("orchestration jobs use searchable saved target pickers", () => {
   const targetsEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobTargetsEditor.svelte",
   );
 
   assert.match(targetsEditor, /ConnectionPickerField/);
@@ -597,18 +597,22 @@ test("multi-device orchestration executes the current inline canvas snapshot", (
   );
 });
 
+test("orchestration execution rejects non-object JSON roots", () => {
+  assert.throws(() => orchestrationInlineExecutionPayload({ planText: "[]" }));
+});
+
 test("orchestration page removes execution mode tabs and outside result panels", () => {
   const input = read(
-    "frontend/src/pages/orchestrated/OrchestrationInputPanel.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationInputPanel.svelte",
   );
   const surface = read(
-    "frontend/src/pages/orchestrated/OrchestrationEditorSurface.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationEditorSurface.svelte",
   );
   const runPanel = read(
-    "frontend/src/pages/orchestrated/OrchestrationEditorRunPanel.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationEditorRunPanel.svelte",
   );
   const stage = read(
-    "frontend/src/pages/orchestrated/OrchestrationStage.svelte",
+    "frontend/src/domains/orchestration/presentation/components/stage/OrchestrationStage.svelte",
   );
 
   assert.doesNotMatch(input, /TabList|TxTemplateRunPanel|txTemplateModeTabs/);
@@ -645,10 +649,10 @@ test("orchestration page removes execution mode tabs and outside result panels",
   assert.doesNotMatch(stage, /<OrchestrationExecutionPanel/);
 
   const canvas = read(
-    "frontend/src/pages/orchestrated/OrchestrationFlowCanvas.svelte",
+    "frontend/src/domains/orchestration/presentation/components/canvas/OrchestrationFlowCanvas.svelte",
   );
   const formEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationPlanFormEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationPlanFormEditor.svelte",
   );
   for (const source of [canvas, formEditor]) {
     assert.doesNotMatch(

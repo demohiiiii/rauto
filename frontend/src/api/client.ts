@@ -52,6 +52,17 @@ import type {
 } from "$domains/inventory/model/types.js";
 import type { ReplayApi, ReplayResult } from "$domains/replay/model/types.js";
 import type {
+  ExecuteOrchestrationResponse,
+  OrchestrationJsonValue,
+} from "$domains/orchestration/model/types.js";
+import type {
+  OrchestrationExecutionRequest,
+  TxBlockExecutionRequest,
+  TxBlockExecutionResponse,
+  TxWorkflowExecutionRequest,
+  TxWorkflowExecutionResponse,
+} from "$domains/orchestration/model/orchestratedExecutionPayloads.js";
+import type {
   InventorySelector,
   NamedResource,
   ScheduleConnection,
@@ -79,9 +90,9 @@ import type {
 } from "$domains/tasks/model/types.js";
 import type {
   TemplateResourceMeta,
+  TemplateResourceDetail as TemplateRecord,
   CustomShowObjectApiPayload,
   TextfsmMappingApiPayload,
-  UnknownRecord as TemplateRecord,
 } from "$domains/templates/model/types.js";
 import type {
   TransferUploadPayload,
@@ -261,7 +272,7 @@ export function unwrapExecutionResponse(
   return data;
 }
 
-async function apiExecutionRequest<TResponse extends JsonRecord = JsonRecord>(
+async function apiExecutionRequest<TResponse = JsonRecord>(
   method: string,
   path: string,
   body?: JsonBody,
@@ -607,16 +618,34 @@ export function executeUpload(
   return apiExecutionRequest("POST", "/api/upload", payload);
 }
 
-export function executeTxBlock(payload: JsonRecord): Promise<JsonRecord> {
-  return apiExecutionRequest("POST", "/api/tx/block", payload);
+export function executeTxBlock(
+  payload: TxBlockExecutionRequest,
+): Promise<TxBlockExecutionResponse> {
+  return apiExecutionRequest<TxBlockExecutionResponse>(
+    "POST",
+    "/api/tx/block",
+    payload,
+  );
 }
 
-export function executeTxWorkflow(payload: JsonRecord): Promise<JsonRecord> {
-  return apiExecutionRequest("POST", "/api/tx/workflow", payload);
+export function executeTxWorkflow(
+  payload: TxWorkflowExecutionRequest,
+): Promise<TxWorkflowExecutionResponse> {
+  return apiExecutionRequest<TxWorkflowExecutionResponse>(
+    "POST",
+    "/api/tx/workflow",
+    payload,
+  );
 }
 
-export function executeOrchestration(payload: JsonRecord): Promise<JsonRecord> {
-  return apiExecutionRequest("POST", "/api/orchestrate", payload);
+export function executeOrchestration(
+  payload: OrchestrationExecutionRequest,
+): Promise<ExecuteOrchestrationResponse> {
+  return apiExecutionRequest<ExecuteOrchestrationResponse>(
+    "POST",
+    "/api/orchestrate",
+    payload,
+  );
 }
 
 export function replaySession(
@@ -1049,12 +1078,17 @@ export function getTemplateResource(
 export function previewTxWorkflowTemplate(
   name: string,
   workflowVars: JsonRecord = {},
-): Promise<JsonRecord> {
+): Promise<TxWorkflowTemplatePreviewResponse> {
   return apiRequest(
     "POST",
     `/api/tx-workflow-templates/${encodeURIComponent(name)}/preview`,
     { workflow_vars: workflowVars },
   );
+}
+
+export interface TxWorkflowTemplatePreviewResponse {
+  unresolved_paths: string[];
+  workflow: OrchestrationJsonValue;
 }
 
 export function createTemplateResource(

@@ -140,7 +140,7 @@ test("standard command flow execution composes shared surfaces", () => {
 
 test("inline transaction flows compose the same editor as standard flows", () => {
   const editor = read(
-    "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockFlowEditor.svelte",
   );
   const standard = read(
     "frontend/src/pages/standard/FlowExecutionPanel.svelte",
@@ -217,7 +217,7 @@ test("all command surfaces compose one shared command editor", () => {
     "frontend/src/pages/standard/CommandExecutionPanel.svelte",
   );
   const transaction = read(
-    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
   );
   const flowStep = read(
     "frontend/src/components/command-flow/CommandFlowTemplateStepEditor.svelte",
@@ -237,7 +237,7 @@ test("standard and transaction commands share the template source field", () => 
     "frontend/src/pages/standard/CommandExecutionPanel.svelte",
   );
   const transaction = read(
-    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
   );
 
   assert.match(standard, /CommandTemplateSourceField/);

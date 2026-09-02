@@ -3,7 +3,11 @@ import {
   plainObject,
   stringValue,
 } from "../../../lib/jsonValue.js";
-import type { JsonObject, OrchestrationJsonPatchResult } from "./types.js";
+import type {
+  JsonObject,
+  OrchestrationJsonPatchResult,
+  OrchestrationJsonValue,
+} from "./types.js";
 
 const cloneOrchestrationJsonValue = <T>(
   value: unknown,
@@ -25,26 +29,22 @@ function orchestrationErrorMessage(error: unknown): string {
 }
 
 export function orchestrationJsonFieldValue(
-  jsonText: unknown = "",
-  fallback: unknown = {},
-): unknown {
+  jsonText = "",
+  fallback: OrchestrationJsonValue = {},
+): OrchestrationJsonValue {
   const text = orchestrationStringValue(jsonText).trim();
-  if (!text) return cloneOrchestrationJsonValue(fallback, {});
-  return JSON.parse(text);
+  if (!text) {
+    return cloneOrchestrationJsonValue<OrchestrationJsonValue>(fallback, {});
+  }
+  return JSON.parse(text) as OrchestrationJsonValue;
 }
 
 export function orchestrationJsonPatchResult<TModel>(
   currentModel: TModel,
-  jsonText: unknown,
-  fallback: unknown,
-  applyParsedValue: (parsedValue: unknown) => TModel,
-): OrchestrationJsonPatchResult<TModel>;
-export function orchestrationJsonPatchResult(
-  currentModel: unknown,
-  jsonText: unknown,
-  fallback: unknown,
-  applyParsedValue: (parsedValue: unknown) => unknown,
-): OrchestrationJsonPatchResult<unknown> {
+  jsonText: string,
+  fallback: OrchestrationJsonValue,
+  applyParsedValue: (parsedValue: OrchestrationJsonValue) => TModel,
+): OrchestrationJsonPatchResult<TModel> {
   try {
     return {
       error: "",
@@ -65,7 +65,7 @@ export function orchestrationConnectionTextValue(
 }
 
 export function orchestrationObjectExtra(
-  source: unknown,
+  source: JsonObject,
   knownKeys: ReadonlySet<string>,
 ): JsonObject {
   if (!orchestrationPlainObject(source)) return {};

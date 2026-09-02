@@ -1,19 +1,14 @@
 import { t } from "../../../lib/i18n.js";
-import { plainObject, stringValue } from "../../../lib/jsonValue.js";
 import { orchestrationJsonFieldText } from "./orchestrationFormFieldState.js";
 import type {
   JsonObject,
   OrchestrationOptionRow,
+  OrchestrationTxWorkflowActionModel,
   OrchestrationTxWorkflowSettingsDisplay,
   OrchestrationTxWorkflowSettingsPanelDisplay,
   OrchestrationVisualEditorDisplay,
   OrchestrationWorkflowSourceMode,
 } from "../model/types.js";
-
-const orchestrationPlainObject = (value: unknown): value is JsonObject =>
-  plainObject(value) === true;
-const orchestrationStringValue = (value: unknown, fallback = ""): string =>
-  stringValue(value, fallback);
 
 export interface OrchestrationWorkflowPrimaryField extends JsonObject {
   controlType: "input" | "select" | "textarea";
@@ -48,27 +43,25 @@ export interface OrchestrationTxWorkflowSourcePanelDisplay extends Orchestration
   varsFieldHandlerKey: "" | "workflowVars";
 }
 
-function orchestrationNonEmptyText(value: unknown): string {
-  return orchestrationStringValue(value).trim();
+function orchestrationNonEmptyText(value: string | null | undefined): string {
+  return value?.trim() ?? "";
 }
 
 export function orchestrationTxWorkflowActionSourceValue(
-  action: unknown = {},
+  action: Partial<OrchestrationTxWorkflowActionModel> = {},
 ): OrchestrationWorkflowSourceMode {
-  const actionValue = orchestrationPlainObject(action) ? action : {};
-  if (actionValue.workflow != null) return "workflow_json";
-  if (actionValue.hasWorkflowTemplateName) return "workflow_template_name";
-  if (orchestrationNonEmptyText(actionValue.workflowTemplateName)) {
+  if (action.workflow != null) return "workflow_json";
+  if (action.hasWorkflowTemplateName) return "workflow_template_name";
+  if (orchestrationNonEmptyText(action.workflowTemplateName)) {
     return "workflow_template_name";
   }
   return "workflow_json";
 }
 
 export function orchestrationTxWorkflowSourceDisplay(
-  txWorkflow: unknown = {},
+  txWorkflow: Partial<OrchestrationTxWorkflowActionModel> = {},
 ): OrchestrationWorkflowSourceDisplay {
-  const workflowValue = orchestrationPlainObject(txWorkflow) ? txWorkflow : {};
-  const sourceMode = orchestrationTxWorkflowActionSourceValue(workflowValue);
+  const sourceMode = orchestrationTxWorkflowActionSourceValue(txWorkflow);
   const primaryField: OrchestrationWorkflowPrimaryField =
     sourceMode === "workflow_template_name"
       ? {
@@ -78,9 +71,7 @@ export function orchestrationTxWorkflowSourceDisplay(
           labelText: t("orchestrationFormWorkflowTemplateName"),
           placeholderText: t("orchestrationFormWorkflowTemplatePlaceholder"),
           showPresenceToggle: false,
-          valueText: orchestrationStringValue(
-            workflowValue.workflowTemplateName ?? "",
-          ),
+          valueText: txWorkflow.workflowTemplateName ?? "",
         }
       : {
           controlType: "textarea",
@@ -90,8 +81,8 @@ export function orchestrationTxWorkflowSourceDisplay(
           labelText: t("orchestrationFormWorkflowJson"),
           placeholderText: "",
           showPresenceToggle: false,
-          valueText: workflowValue.workflow
-            ? orchestrationJsonFieldText(workflowValue.workflow, {})
+          valueText: txWorkflow.workflow
+            ? orchestrationJsonFieldText(txWorkflow.workflow, {})
             : "",
         };
   const showWorkflowVars = sourceMode === "workflow_template_name";
@@ -104,21 +95,16 @@ export function orchestrationTxWorkflowSourceDisplay(
           fieldKey: "workflowVars",
           labelText: t("orchestrationFormWorkflowVars"),
           present: true,
-          source: orchestrationPlainObject(workflowValue.workflowVars)
-            ? workflowValue.workflowVars
-            : {},
+          source: txWorkflow.workflowVars ?? {},
         }
       : null,
   };
 }
 
 export function orchestrationTxWorkflowActionSettingsDisplay(
-  txWorkflow: unknown = {},
-  sourceRows: readonly string[] = [],
+  txWorkflow: Partial<OrchestrationTxWorkflowActionModel> = {},
+  sourceRows: readonly OrchestrationWorkflowSourceMode[] = [],
 ): OrchestrationTxWorkflowSettingsDisplay {
-  const txWorkflowValue = orchestrationPlainObject(txWorkflow)
-    ? txWorkflow
-    : {};
   return {
     sourceField: {
       controlType: "select",
@@ -126,7 +112,7 @@ export function orchestrationTxWorkflowActionSettingsDisplay(
       fieldKey: "sourceValue",
       labelKey: "orchestrationFormActionSource",
       labelText: t("orchestrationFormActionSource"),
-      optionRows: (Array.isArray(sourceRows) ? sourceRows : []).map(
+      optionRows: sourceRows.map(
         (optionValue): OrchestrationOptionRow => ({
           optionLabel:
             optionValue === "workflow_json"
@@ -137,13 +123,13 @@ export function orchestrationTxWorkflowActionSettingsDisplay(
       ),
       placeholderText: "",
       showPresenceToggle: false,
-      valueText: orchestrationTxWorkflowActionSourceValue(txWorkflowValue),
+      valueText: orchestrationTxWorkflowActionSourceValue(txWorkflow),
     },
   };
 }
 
 export function orchestrationTxWorkflowActionSettingsPanelDisplay(
-  txWorkflow: unknown = {},
+  txWorkflow: Partial<OrchestrationTxWorkflowActionModel> = {},
   visualDisplay: OrchestrationVisualEditorDisplay,
 ): OrchestrationTxWorkflowSettingsPanelDisplay {
   return {
@@ -155,7 +141,7 @@ export function orchestrationTxWorkflowActionSettingsPanelDisplay(
 }
 
 export function orchestrationTxWorkflowSourcePanelDisplay(
-  txWorkflow: unknown = {},
+  txWorkflow: Partial<OrchestrationTxWorkflowActionModel> = {},
 ): OrchestrationTxWorkflowSourcePanelDisplay {
   const sourceDisplay = orchestrationTxWorkflowSourceDisplay(txWorkflow);
   return {

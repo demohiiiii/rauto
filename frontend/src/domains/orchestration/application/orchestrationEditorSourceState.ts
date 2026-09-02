@@ -4,7 +4,6 @@ import {
   writable,
 } from "svelte/store";
 import { currentLanguageState } from "../../../lib/i18n.js";
-import { stringValue } from "../../../lib/jsonValue.js";
 import {
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
@@ -15,10 +14,17 @@ import type {
   TxWorkflowFormModel,
 } from "$domains/transactions/index.js";
 import { orchestrationTxWorkflowSourcePanelDisplay } from "../presentation/orchestrationActionDisplayState.js";
+import type {
+  JsonObject,
+  OrchestrationTxWorkflowActionModel,
+  OrchestrationTxWorkflowSourceBindings,
+} from "../model/types.js";
 
 type EditorDisplayMode = "form" | "json";
-type SourceBindingHandler = (...args: unknown[]) => unknown;
 type SourceBindingKey = "setJsonText" | "setTemplateName" | "setWorkflowVars";
+type SourceBindings = Partial<OrchestrationTxWorkflowSourceBindings>;
+type SourceTextHandler = (value: string) => void;
+type SourceVarsHandler = (value: JsonObject) => void;
 
 interface EmbeddedFormState {
   formError: string;
@@ -27,28 +33,17 @@ interface EmbeddedFormState {
 }
 
 interface SourceEditorContext {
-  sourceBindings?: unknown;
-  sourceValue?: unknown;
-  txWorkflow?: unknown;
-}
-
-interface SourceEditorInput {
-  sourceBindings: unknown;
-  txWorkflow: unknown;
-}
-
-function objectRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
+  sourceBindings?: SourceBindings | null;
+  sourceValue?: string;
+  txWorkflow?: Partial<OrchestrationTxWorkflowActionModel>;
 }
 
 export function orchestrationTxWorkflowEmbeddedFormState(
-  jsonText: unknown = "",
+  jsonText = "",
   currentModel: TxWorkflowFormModel | null = null,
 ): EmbeddedFormState {
   const baseModel = currentModel || txWorkflowFormModelFromJson();
-  if (typeof jsonText !== "string" || !jsonText.trim()) {
+  if (!jsonText.trim()) {
     return {
       formError: "",
       formModel: baseModel,
@@ -70,23 +65,28 @@ export function orchestrationTxWorkflowEmbeddedJsonText(
 }
 
 function sourceBindingHandler(
-  sourceBindings: unknown = null,
-  key: SourceBindingKey = "setJsonText",
-): SourceBindingHandler | undefined {
-  const bindings = objectRecord(sourceBindings);
-  const handler = bindings?.[key];
-  return typeof handler === "function"
-    ? (handler as SourceBindingHandler)
-    : undefined;
+  sourceBindings: SourceBindings | null,
+  key: "setWorkflowVars",
+): SourceVarsHandler | undefined;
+function sourceBindingHandler(
+  sourceBindings: SourceBindings | null,
+  key: "setJsonText" | "setTemplateName",
+): SourceTextHandler | undefined;
+function sourceBindingHandler(
+  sourceBindings: SourceBindings | null,
+  key: SourceBindingKey,
+): SourceTextHandler | SourceVarsHandler | undefined {
+  if (key === "setWorkflowVars") return sourceBindings?.setWorkflowVars;
+  if (key === "setTemplateName") return sourceBindings?.setTemplateName;
+  return sourceBindings?.setJsonText;
 }
 
 export function orchestrationTxWorkflowEmbeddedEditorBindings(
-  onSourceChange: unknown,
+  onSourceChange: SourceTextHandler | null | undefined,
 ) {
-  const applySourceChange = (nextValue: string): unknown =>
-    typeof onSourceChange === "function"
-      ? (onSourceChange as SourceBindingHandler)(nextValue)
-      : undefined;
+  const applySourceChange = (nextValue: string): void => {
+    onSourceChange?.(nextValue);
+  };
   return {
     applyFormModel(nextModel: TxWorkflowFormModel): EmbeddedFormState {
       applySourceChange(orchestrationTxWorkflowEmbeddedJsonText(nextModel));
@@ -106,36 +106,26 @@ export function orchestrationTxWorkflowEmbeddedEditorBindings(
       );
     },
     deriveStateFromSource(
-      sourceValue: unknown,
+      sourceValue: string,
       currentFormModel: TxWorkflowFormModel | null = null,
     ): EmbeddedFormState {
       return orchestrationTxWorkflowEmbeddedFormState(
         sourceValue,
-        stringValue(sourceValue).trim() ? currentFormModel : null,
+        sourceValue.trim() ? currentFormModel : null,
       );
     },
   };
 }
 
-function sourceEditorInput(args: unknown): SourceEditorInput {
-  const input = objectRecord(args);
-  return input && ("sourceBindings" in input || "txWorkflow" in input)
-    ? {
-        sourceBindings: input.sourceBindings ?? null,
-        txWorkflow: input.txWorkflow ?? {},
-      }
-    : {
-        sourceBindings: args,
-        txWorkflow: {},
-      };
-}
-
-function orchestrationTxWorkflowSourceEditorBindings(args: unknown = null) {
-  const workflowArgs = sourceEditorInput(args);
-  const sourceBindingsStateStore = writable<unknown>(
-    workflowArgs.sourceBindings,
+function orchestrationTxWorkflowSourceEditorBindings(
+  sourceBindings: SourceBindings | null = null,
+) {
+  const initialTxWorkflow: Partial<OrchestrationTxWorkflowActionModel> = {};
+  const sourceBindingsStateStore = writable<SourceBindings | null>(
+    sourceBindings,
   );
-  const txWorkflowStateStore = writable<unknown>(workflowArgs.txWorkflow);
+  const txWorkflowStateStore =
+    writable<Partial<OrchestrationTxWorkflowActionModel>>(initialTxWorkflow);
   const workflowEmbeddedBindings = () =>
     orchestrationTxWorkflowEmbeddedEditorBindings(
       sourceBindingHandler(getStore(sourceBindingsStateStore), "setJsonText"),
@@ -145,8 +135,8 @@ function orchestrationTxWorkflowSourceEditorBindings(args: unknown = null) {
     txWorkflowFormModelFromJson(),
   );
   const formErrorStore = writable("");
-  let appliedSourceBindings = workflowArgs.sourceBindings;
-  let appliedTxWorkflow = workflowArgs.txWorkflow;
+  let appliedSourceBindings = sourceBindings;
+  let appliedTxWorkflow = initialTxWorkflow;
   let appliedSourceValue = "";
   const sourceDisplayStateStore = deriveStore(
     [txWorkflowStateStore, currentLanguageState],
@@ -180,13 +170,13 @@ function orchestrationTxWorkflowSourceEditorBindings(args: unknown = null) {
     formModelStore,
     primaryFieldChangeHandler(
       handlerKey: "json" | "templateName" = "json",
-    ): SourceBindingHandler | undefined {
+    ): SourceTextHandler | undefined {
       return sourceBindingHandler(
         getStore(sourceBindingsStateStore),
         handlerKey === "templateName" ? "setTemplateName" : "setJsonText",
       );
     },
-    selectEditorView(nextView: unknown): void {
+    selectEditorView(nextView: string): void {
       editorDisplayModeStore.set(nextView === "json" ? "json" : "form");
     },
     setSourceContext({
@@ -196,13 +186,11 @@ function orchestrationTxWorkflowSourceEditorBindings(args: unknown = null) {
     }: SourceEditorContext = {}): void {
       const nextDisplay =
         orchestrationTxWorkflowSourcePanelDisplay(nextTxWorkflow);
-      const primaryField = objectRecord(nextDisplay.primaryField);
-      const nextSourceValue =
-        typeof sourceValue === "string" && sourceValue.trim()
-          ? sourceValue
-          : nextDisplay.sourceMode === "workflow_json"
-            ? stringValue(primaryField?.valueText)
-            : "";
+      const nextSourceValue = sourceValue.trim()
+        ? sourceValue
+        : nextDisplay.sourceMode === "workflow_json"
+          ? nextDisplay.primaryField.valueText
+          : "";
       if (
         Object.is(appliedSourceBindings, nextSourceBindings) &&
         Object.is(appliedTxWorkflow, nextTxWorkflow) &&
@@ -229,7 +217,7 @@ function orchestrationTxWorkflowSourceEditorBindings(args: unknown = null) {
       }
     },
     sourceDisplayStateStore,
-    workflowVarsHandler(): SourceBindingHandler | undefined {
+    workflowVarsHandler(): SourceVarsHandler | undefined {
       return sourceBindingHandler(
         getStore(sourceBindingsStateStore),
         "setWorkflowVars",
@@ -239,7 +227,7 @@ function orchestrationTxWorkflowSourceEditorBindings(args: unknown = null) {
 }
 
 export function createOrchestrationTxWorkflowSourceWorkspace(
-  sourceBindings: unknown = null,
+  sourceBindings: SourceBindings | null = null,
 ) {
   return orchestrationTxWorkflowSourceEditorBindings(sourceBindings);
 }

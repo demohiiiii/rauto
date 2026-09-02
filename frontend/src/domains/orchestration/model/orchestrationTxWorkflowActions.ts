@@ -1,4 +1,4 @@
-import { cloneJsonValue } from "../../../lib/jsonValue.js";
+import { cloneJsonValue, plainObject } from "../../../lib/jsonValue.js";
 import {
   orchestrationCreateTxWorkflowActionModel,
   orchestrationPatchJobDraft,
@@ -9,6 +9,7 @@ import type {
   OrchestrationJsonPatchResult,
   OrchestrationPlanFormModel,
   OrchestrationTxWorkflowActionModel,
+  OrchestrationWorkflowSourceMode,
 } from "./types.js";
 
 const cloneOrchestrationJsonValue = <T>(value: unknown, fallback: T): T =>
@@ -29,12 +30,21 @@ export function orchestrationTxWorkflowFieldPatch(
     };
   }
   if (fieldKey === "workflow") {
+    if (fieldValue !== null && !plainObject(fieldValue)) {
+      throw new TypeError("workflow must be a JSON object");
+    }
     return {
-      workflow: cloneOrchestrationJsonValue(fieldValue, null),
+      workflow:
+        fieldValue === null
+          ? null
+          : cloneOrchestrationJsonValue(fieldValue, {}),
       hasWorkflow: true,
     };
   }
   if (fieldKey === "workflowVars") {
+    if (!plainObject(fieldValue)) {
+      throw new TypeError("workflow_vars must be a JSON object");
+    }
     return {
       workflowVars: cloneOrchestrationJsonValue(fieldValue, {}),
       hasWorkflowVars: true,
@@ -66,7 +76,7 @@ export function orchestrationUpdateInlineWorkflow(
   model: OrchestrationPlanFormModel,
   stageIndex: number,
   jobIndex: number,
-  workflow: unknown = {},
+  workflow: JsonObject = {},
 ): OrchestrationPlanFormModel {
   return orchestrationPatchTxWorkflowAction(model, stageIndex, jobIndex, {
     workflow: cloneOrchestrationJsonValue(workflow, {}),
@@ -83,7 +93,7 @@ export function orchestrationTxWorkflowActionJsonFieldUpdateResult(
   stageIndex: number,
   jobIndex: number,
   field: string,
-  jsonText: unknown,
+  jsonText: string,
 ): OrchestrationJsonPatchResult<OrchestrationPlanFormModel> {
   return orchestrationJsonPatchResult(model, jsonText, null, (parsedJson) =>
     orchestrationPatchTxWorkflowAction(
@@ -99,7 +109,7 @@ export function orchestrationSelectTxWorkflowActionSource(
   model: OrchestrationPlanFormModel,
   stageIndex: number,
   jobIndex: number,
-  sourceValue: unknown,
+  sourceValue: OrchestrationWorkflowSourceMode,
 ): OrchestrationPlanFormModel {
   const source =
     sourceValue === "workflow_template_name"
@@ -121,10 +131,4 @@ export function orchestrationSelectTxWorkflowActionSource(
       ? { ...patch, hasWorkflow: true }
       : { ...patch, hasWorkflowTemplateName: true },
   );
-}
-
-export function orchestrationWorkflowJsonObject(value: unknown): JsonObject {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonObject)
-    : {};
 }

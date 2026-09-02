@@ -43,13 +43,13 @@ test("orchestration scalar forms match the backend plan stage and job fields", (
 
 test("orchestration settings omit metadata extra fields and presence controls", () => {
   const planEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationPlanSettingsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationPlanSettingsEditor.svelte",
   );
   const stageEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationStageSettingsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationStageSettingsEditor.svelte",
   );
   const jobEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobSettingsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobSettingsEditor.svelte",
   );
 
   for (const source of [planEditor, stageEditor, jobEditor]) {
@@ -116,7 +116,7 @@ test("optional stage and job values use blank values instead of presence toggles
 
 test("job targets only use the saved connection picker", () => {
   const targetEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobTargetsEditor.svelte",
   );
 
   assert.match(targetEditor, /CONNECTION_PICKER\.orchestrationTargets/);
@@ -169,7 +169,7 @@ test("orchestration target JSON accepts names and rejects custom objects", () =>
 
 test("job target collections do not expose presence controls", () => {
   const jobTargetsEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobTargetsEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobTargetsEditor.svelte",
   );
 
   for (const source of [jobTargetsEditor]) {
@@ -220,10 +220,10 @@ test("orchestration action round trips contain only backend fields", () => {
 
 test("orchestration action editor is workflow-only", () => {
   const jobActionEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationJobActionEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobActionEditor.svelte",
   );
   const workflowSourceEditor = read(
-    "frontend/src/pages/orchestrated/OrchestrationTxWorkflowSourceEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationTxWorkflowSourceEditor.svelte",
   );
 
   assert.match(jobActionEditor, /OrchestrationTxWorkflowActionEditor/);
@@ -253,6 +253,43 @@ test("orchestration model rejects removed action kinds and sources", () => {
     );
     assert.equal(result.model, null);
     assert.match(result.error, /unsupported orchestration action/i);
+  }
+});
+
+test("orchestration model rejects values outside backend field types", () => {
+  for (const job of [
+    {
+      name: 42,
+      action: {
+        kind: "tx_workflow",
+        workflow: { name: "workflow", blocks: [] },
+      },
+    },
+    {
+      action: {
+        kind: "tx_workflow",
+        workflow: [],
+      },
+    },
+  ]) {
+    const result = orchestrationPlanFormModelFromJsonText(
+      JSON.stringify({
+        name: "plan",
+        stages: [{ name: "stage", jobs: [job] }],
+      }),
+    );
+
+    assert.equal(result.model, null);
+    assert.match(result.error, /(job name|workflow must be an object)/i);
+  }
+});
+
+test("orchestration model rejects non-object JSON roots", () => {
+  for (const jsonText of ["null", "[]", "42", '"plan"']) {
+    const result = orchestrationPlanFormModelFromJsonText(jsonText);
+
+    assert.equal(result.model, null);
+    assert.match(result.error, /orchestration plan must be a JSON object/);
   }
 });
 

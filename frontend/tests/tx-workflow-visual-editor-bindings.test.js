@@ -12,13 +12,13 @@ import {
 } from "../src/domains/transactions/index.js";
 
 const visualEditorPath = path.resolve(
-  "frontend/src/pages/orchestrated/TxWorkflowVisualEditor.svelte",
+  "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowVisualEditor.svelte",
 );
 const flowNodePath = path.resolve(
-  "frontend/src/pages/orchestrated/TxWorkflowFlowNode.svelte",
+  "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowFlowNode.svelte",
 );
 const flowViewportControllerPath = path.resolve(
-  "frontend/src/pages/orchestrated/TxWorkflowFlowViewportController.svelte",
+  "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowFlowViewportController.svelte",
 );
 
 const valueEvent = (value) => ({ currentTarget: { value } });
@@ -76,7 +76,7 @@ test("workflow editor omits empty structured metadata controls", async () => {
   const blockBindings = bindings.blockBindings(0);
   const blockEditor = await readFile(
     path.resolve(
-      "frontend/src/pages/orchestrated/TxWorkflowBlockEditor.svelte",
+      "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowBlockEditor.svelte",
     ),
     "utf8",
   );
@@ -197,15 +197,21 @@ test("tx workflow editor uses a focused flow canvas and live read-only view", as
     "utf8",
   );
   const inputSource = await readFile(
-    path.resolve("frontend/src/pages/orchestrated/TxWorkflowInputPanel.svelte"),
+    path.resolve(
+      "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowInputPanel.svelte",
+    ),
     "utf8",
   );
   const runSource = await readFile(
-    path.resolve("frontend/src/pages/orchestrated/TxWorkflowRunPanel.svelte"),
+    path.resolve(
+      "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowRunPanel.svelte",
+    ),
     "utf8",
   );
   const jsonSurfaceSource = await readFile(
-    path.resolve("frontend/src/pages/orchestrated/TxJsonFormSurface.svelte"),
+    path.resolve(
+      "frontend/src/domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte",
+    ),
     "utf8",
   );
 

@@ -268,9 +268,9 @@ export const dashboardOverlayDefinitions: DashboardComponentDefinitions<Dashboar
 export const dashboardDetailRendererDefinitions: DashboardComponentDefinitions<DashboardDetailRendererId> =
   {
     orchestrationStageDetail: () =>
-      import("../../../pages/orchestrated/OrchestrationStageDetailPanel.svelte"),
+      import("$domains/orchestration/presentation/components/result/OrchestrationStageDetailPanel.svelte"),
     orchestrationTargetDetail: () =>
-      import("../../../pages/orchestrated/OrchestrationTargetDetailPanel.svelte"),
+      import("$domains/orchestration/presentation/components/result/OrchestrationTargetDetailPanel.svelte"),
   };
 
 export const defaultDashboardRoute = dashboardRoutes[0];

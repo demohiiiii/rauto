@@ -7,10 +7,10 @@ const read = (path) => readFileSync(path, "utf8");
 test("transaction block editor adds one live read-only view", () => {
   const configSource = read("frontend/src/config/dashboardModes.ts");
   const inputSource = read(
-    "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockInputPanel.svelte",
   );
   const surfaceSource = read(
-    "frontend/src/pages/orchestrated/TxJsonFormSurface.svelte",
+    "frontend/src/domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte",
   );
 
   assert.match(configSource, /txBlockReadonlyEditorViewTabs/);
@@ -28,10 +28,10 @@ test("transaction block editor adds one live read-only view", () => {
 
 test("transaction block run panel only exposes execution and results", () => {
   const runPanelSource = read(
-    "frontend/src/pages/orchestrated/TxBlockRunPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRunPanel.svelte",
   );
   const stageSource = read(
-    "frontend/src/pages/orchestrated/TxBlockStage.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStage.svelte",
   );
 
   assert.doesNotMatch(runPanelSource, /onDirectPlan|onTemplatePlan/);

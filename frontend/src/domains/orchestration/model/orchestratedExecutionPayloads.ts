@@ -1,39 +1,95 @@
 import { tr } from "../../../lib/i18n.js";
-import type { JsonObject } from "./types.js";
+import type { ConnectionRequestPayload } from "$domains/connections/index.js";
+import type { RecordLevel } from "$domains/overlays/index.js";
+import type {
+  OrchestrationJsonObject,
+  OrchestrationJsonValue,
+} from "./types.js";
 
-interface TxBlockInlineExecutionInput {
-  connection?: unknown;
-  dryRun?: unknown;
-  recordLevel?: unknown;
-  txBlock?: unknown;
-  txBlockVars?: unknown;
+export interface TxBlockInlineExecutionInput {
+  connection?: ConnectionRequestPayload;
+  dryRun?: boolean;
+  recordLevel?: RecordLevel;
+  txBlock?: OrchestrationJsonObject;
+  txBlockVars?: OrchestrationJsonObject;
 }
 
-interface TxWorkflowInlineExecutionInput {
-  connection?: unknown;
-  dryRun?: unknown;
-  recordLevel?: unknown;
-  workflowText?: unknown;
-  workflowVars?: unknown;
+export interface TxWorkflowInlineExecutionInput {
+  connection?: ConnectionRequestPayload;
+  dryRun?: boolean;
+  recordLevel?: RecordLevel;
+  workflowText?: string;
+  workflowVars?: OrchestrationJsonObject;
 }
 
-interface OrchestrationInlineExecutionInput {
-  connection?: unknown;
-  dryRun?: unknown;
-  planText?: unknown;
-  planVars?: unknown;
-  recordLevel?: unknown;
+export interface OrchestrationInlineExecutionInput {
+  connection?: ConnectionRequestPayload;
+  dryRun?: boolean;
+  planText?: string;
+  planVars?: OrchestrationJsonObject;
+  recordLevel?: RecordLevel;
 }
 
-const objectValue = (value: unknown): JsonObject =>
-  value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonObject)
-    : {};
+export interface TxBlockExecutionRequest {
+  connection?: ConnectionRequestPayload;
+  dry_run?: boolean;
+  record_level?: RecordLevel;
+  tx_block: OrchestrationJsonObject;
+  tx_block_template_content: null;
+  tx_block_template_name: null;
+  tx_block_template_vars: OrchestrationJsonObject;
+}
 
-const textValue = (value: unknown): string =>
-  value == null ? "" : typeof value === "string" ? value : String(value);
+export interface TxWorkflowExecutionRequest {
+  connection?: ConnectionRequestPayload;
+  dry_run?: boolean;
+  record_level?: RecordLevel;
+  workflow: OrchestrationJsonObject;
+  workflow_template_content: null;
+  workflow_template_name: null;
+  workflow_vars: OrchestrationJsonObject;
+}
 
-export function defaultOrchestrationTemplatePayload(): JsonObject {
+export interface OrchestrationExecutionRequest {
+  base_dir: null;
+  connection?: ConnectionRequestPayload;
+  dry_run?: boolean;
+  plan: OrchestrationJsonObject;
+  plan_template_content: null;
+  plan_template_name: null;
+  plan_vars: OrchestrationJsonObject;
+  record_level?: RecordLevel;
+}
+
+export interface TxBlockExecutionResponse {
+  recording_jsonl: string | null;
+  result_summary: OrchestrationJsonObject;
+  tx_block: OrchestrationJsonValue;
+  tx_result: OrchestrationJsonValue | null;
+}
+
+export interface TxWorkflowExecutionResponse {
+  recording_jsonl: string | null;
+  result_summary: OrchestrationJsonObject;
+  tx_workflow_result: OrchestrationJsonValue | null;
+  workflow: OrchestrationJsonValue;
+}
+
+function parseJsonObject(
+  text: string,
+  requiredMessageKey: string,
+  invalidShapeMessageKey: string,
+): OrchestrationJsonObject {
+  const raw = text.trim();
+  if (!raw) throw new Error(tr(requiredMessageKey));
+  const parsed: unknown = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(tr(invalidShapeMessageKey));
+  }
+  return parsed as OrchestrationJsonObject;
+}
+
+export function defaultOrchestrationTemplatePayload(): OrchestrationJsonObject {
   return {
     name: "campus-rollout-demo",
     fail_fast: true,
@@ -96,7 +152,7 @@ export function txBlockInlineExecutionPayload({
   recordLevel,
   txBlock = {},
   txBlockVars = {},
-}: TxBlockInlineExecutionInput = {}): JsonObject {
+}: TxBlockInlineExecutionInput = {}): TxBlockExecutionRequest {
   return {
     connection,
     dry_run: dryRun,
@@ -104,7 +160,7 @@ export function txBlockInlineExecutionPayload({
     tx_block: txBlock,
     tx_block_template_content: null,
     tx_block_template_name: null,
-    tx_block_template_vars: objectValue(txBlockVars),
+    tx_block_template_vars: txBlockVars,
   };
 }
 
@@ -114,10 +170,12 @@ export function txWorkflowInlineExecutionPayload({
   recordLevel,
   workflowText = "",
   workflowVars = {},
-}: TxWorkflowInlineExecutionInput = {}): JsonObject {
-  const raw = textValue(workflowText).trim();
-  if (!raw) throw new Error(tr("txWorkflowJsonRequired"));
-  const workflow: unknown = JSON.parse(raw);
+}: TxWorkflowInlineExecutionInput = {}): TxWorkflowExecutionRequest {
+  const workflow = parseJsonObject(
+    workflowText,
+    "txWorkflowJsonRequired",
+    "txWorkflowLoadInvalidJsonShape",
+  );
   return {
     connection,
     dry_run: dryRun,
@@ -125,7 +183,7 @@ export function txWorkflowInlineExecutionPayload({
     workflow,
     workflow_template_content: null,
     workflow_template_name: null,
-    workflow_vars: objectValue(workflowVars),
+    workflow_vars: workflowVars,
   };
 }
 
@@ -135,10 +193,12 @@ export function orchestrationInlineExecutionPayload({
   planText = "",
   planVars = {},
   recordLevel,
-}: OrchestrationInlineExecutionInput = {}): JsonObject {
-  const raw = textValue(planText).trim();
-  if (!raw) throw new Error(tr("orchestrationJsonRequired"));
-  const plan: unknown = JSON.parse(raw);
+}: OrchestrationInlineExecutionInput = {}): OrchestrationExecutionRequest {
+  const plan = parseJsonObject(
+    planText,
+    "orchestrationJsonRequired",
+    "orchestrationJsonRequired",
+  );
   return {
     base_dir: null,
     connection,
@@ -146,7 +206,7 @@ export function orchestrationInlineExecutionPayload({
     plan,
     plan_template_content: null,
     plan_template_name: null,
-    plan_vars: objectValue(planVars),
+    plan_vars: planVars,
     record_level: recordLevel,
   };
 }

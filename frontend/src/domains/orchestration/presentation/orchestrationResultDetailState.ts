@@ -5,6 +5,21 @@ import {
   displayText,
   workflowChipClass,
 } from "../../../lib/ui.js";
+import type {
+  OrchestrationExecutionDetail,
+  OrchestrationExecutionDetailEntry,
+  OrchestrationExecutionDetailIndex,
+  OrchestrationExecutionResult,
+  OrchestrationExecutionStatus,
+  OrchestrationJobExecutionResult,
+  OrchestrationStageExecutionDetail,
+  OrchestrationStageExecutionResult,
+  OrchestrationStrategy,
+  OrchestrationTargetExecutionDetail,
+  OrchestrationTargetExecutionResult,
+} from "../model/types.js";
+
+type DisplayValue = boolean | number | string | null | undefined;
 
 interface StatusDisplay {
   statusBadgeClass: string;
@@ -16,82 +31,47 @@ interface StatusDisplayDefinition {
   labelKey: string;
 }
 
-interface DetailEntry {
-  detail: Record<string, unknown>;
-  titleKey: string;
-  titleText: string;
-}
-
-interface ExecutionDetailIndex {
-  stageDetails: DetailEntry[];
-  targetDetails: DetailEntry[][][];
-}
-
 interface CountChipOptions {
-  failedText?: unknown;
-  jobsText?: unknown | null;
-  skippedText?: unknown;
-  succeededText?: unknown;
+  failedText?: DisplayValue;
+  jobsText?: DisplayValue;
+  skippedText?: DisplayValue;
+  succeededText?: DisplayValue;
 }
 
 interface StageBasicFieldOptions {
-  detail?: unknown;
-  jobsFailed?: unknown;
-  jobsSkipped?: unknown;
-  jobsSucceeded?: unknown;
-  planName?: unknown;
-  stage?: unknown;
-  stageStatusDisplay?: StatusDisplay;
-  stageStrategyLabel?: unknown;
+  detail: OrchestrationStageExecutionDetail;
+  jobsFailed: number;
+  jobsSkipped: number;
+  jobsSucceeded: number;
+  planName: string;
+  stage: OrchestrationStageExecutionResult;
+  stageStatusDisplay: StatusDisplay;
+  stageStrategyLabel: string;
 }
 
 interface TargetBasicFieldOptions {
-  detail?: unknown;
-  planName?: unknown;
-  target?: unknown;
-  targetStatusDisplay?: StatusDisplay;
+  detail: OrchestrationTargetExecutionDetail;
+  planName: string;
+  target: OrchestrationTargetExecutionResult;
+  targetStatusDisplay: StatusDisplay;
 }
 
-const orchestrationDisplayText = displayText as (value: unknown) => string;
-const orchestrationBorderedPillClass = borderedPillClass as (
-  toneClass?: string,
-) => string;
-const orchestrationWorkflowChipClass = workflowChipClass as (
-  ...toneClasses: string[]
-) => string;
-const orchestrationBooleanPillPresentation = booleanPillPresentation as (
-  value: unknown,
-) => { pillClassName: string; text: string };
-
-function objectValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+function orchestrationText(displaySource: DisplayValue): string {
+  return displayText(displaySource);
 }
 
-function orchestrationText(displaySource: unknown): string {
-  return orchestrationDisplayText(displaySource);
-}
-
-const orchestrationSummaryCard = (key: string, summaryValue: unknown) => ({
+const orchestrationSummaryCard = (key: string, summaryValue: DisplayValue) => ({
   label: t(key),
   summaryValue,
 });
 
 function orchestrationExecutionDetailSource(
-  detailIndex: unknown = {},
+  detailIndex: OrchestrationExecutionDetailIndex,
   stageIndex = 0,
   jobIndex: number | null = null,
-): unknown {
-  const index = objectValue(detailIndex);
-  if (jobIndex == null) return index.stageDetails;
-  const targetDetails = Array.isArray(index.targetDetails)
-    ? index.targetDetails
-    : [];
-  const stageDetails = Array.isArray(targetDetails[stageIndex])
-    ? targetDetails[stageIndex]
-    : [];
-  return stageDetails[jobIndex];
+): OrchestrationExecutionDetailEntry[] {
+  if (jobIndex == null) return detailIndex.stageDetails;
+  return detailIndex.targetDetails[stageIndex]?.[jobIndex] ?? [];
 }
 
 const ORCHESTRATION_STATUS_DISPLAY: Readonly<
@@ -111,13 +91,15 @@ const ORCHESTRATION_STATUS_DISPLAY: Readonly<
   },
 });
 
-function orchestrationStatusDisplay(status: unknown): StatusDisplay {
+function orchestrationStatusDisplay(
+  status: OrchestrationExecutionStatus | "",
+): StatusDisplay {
   const normalized = orchestrationText(status || "-").toLowerCase();
   const statusDisplay = ORCHESTRATION_STATUS_DISPLAY[normalized];
   const badgeClass =
     statusDisplay?.badgeClass || "border-slate-200 bg-slate-50 text-slate-700";
   return {
-    statusBadgeClass: orchestrationBorderedPillClass(badgeClass),
+    statusBadgeClass: borderedPillClass(badgeClass),
     statusLabel: statusDisplay?.labelKey
       ? t(statusDisplay.labelKey)
       : orchestrationText(status || "-"),
@@ -130,14 +112,14 @@ function orchestrationCountChipRows({
   skippedText = "0",
   succeededText = "0",
 }: CountChipOptions = {}) {
-  const chips: Array<[string, unknown]> = [
+  const chips: Array<[string, DisplayValue]> = [
     ["orchestrationStatusSuccess", succeededText],
     ["orchestrationStatusFailed", failedText],
     ["orchestrationStatusSkipped", skippedText],
   ];
   if (jobsText != null) chips.push(["orchestrationStageJobs", jobsText]);
   return chips.map(([labelKey, valueText]) => ({
-    chipClass: orchestrationWorkflowChipClass(),
+    chipClass: workflowChipClass(),
     labelText: t(labelKey),
     valueText: orchestrationText(valueText),
   }));
@@ -145,19 +127,19 @@ function orchestrationCountChipRows({
 
 function orchestrationIndexedLabel(
   prefix: string,
-  index: unknown,
-  displayName: unknown,
+  index: number,
+  displayName: string,
 ): string {
-  const safeIndex = typeof index === "number" ? index : 0;
-  return `${prefix}[${safeIndex}] ${orchestrationText(displayName)}`;
+  return `${prefix}[${index}] ${orchestrationText(displayName)}`;
 }
 
-function orchestrationTargetPayloadSections(target: unknown) {
-  const targetValue = objectValue(target);
-  const sections: Array<[string, unknown]> = [
-    ["orchestrationPayloadTxResult", targetValue.tx_result],
-    ["orchestrationPayloadWorkflowResult", targetValue.workflow_result],
-    ["orchestrationPayloadCompensation", targetValue.compensation],
+function orchestrationTargetPayloadSections(
+  target: OrchestrationTargetExecutionResult,
+) {
+  const sections: Array<[string, object | DisplayValue]> = [
+    ["orchestrationPayloadTxResult", target.tx_result],
+    ["orchestrationPayloadWorkflowResult", target.workflow_result],
+    ["orchestrationPayloadCompensation", target.compensation],
   ];
   return sections
     .filter(([, jsonValue]) => jsonValue != null)
@@ -170,7 +152,7 @@ function orchestrationTargetPayloadSections(target: unknown) {
 
 const orchestrationDetailTextField = (
   labelKey: string,
-  valueText: unknown,
+  valueText: DisplayValue,
   { mono = false }: { mono?: boolean } = {},
 ) => ({
   badgeClass: "",
@@ -203,7 +185,9 @@ const orchestrationDetailPillField = (
   labelText: t(labelKey),
 });
 
-function orchestrationStageStrategyLabel(strategy: unknown): string {
+function orchestrationStageStrategyLabel(
+  strategy: OrchestrationStrategy,
+): string {
   return orchestrationText(strategy || "serial") === "parallel"
     ? t("orchestrationStrategyParallel")
     : t("orchestrationStrategySerial");
@@ -211,7 +195,7 @@ function orchestrationStageStrategyLabel(strategy: unknown): string {
 
 function orchestrationActionField(
   label: string,
-  detailValue: unknown,
+  detailValue: DisplayValue,
   { mono = false }: { mono?: boolean } = {},
 ) {
   return {
@@ -222,26 +206,20 @@ function orchestrationActionField(
 }
 
 function orchestrationStageBasicFieldRows({
-  detail = {},
-  jobsFailed = 0,
-  jobsSkipped = 0,
-  jobsSucceeded = 0,
-  planName = "-",
-  stage = {},
-  stageStatusDisplay = orchestrationStatusDisplay(""),
-  stageStrategyLabel = "",
-}: StageBasicFieldOptions = {}) {
-  const detailValue = objectValue(detail);
-  const stageValue = objectValue(stage);
+  detail,
+  jobsFailed,
+  jobsSkipped,
+  jobsSucceeded,
+  planName,
+  stage,
+  stageStatusDisplay,
+  stageStrategyLabel,
+}: StageBasicFieldOptions) {
   return [
     orchestrationDetailTextField("orchestrationVisualName", planName),
     orchestrationDetailTextField(
       "orchestrationDetailLabelStage",
-      orchestrationIndexedLabel(
-        "stage",
-        detailValue.stageIndex,
-        stageValue.name || "-",
-      ),
+      orchestrationIndexedLabel("stage", detail.stageIndex, stage.name || "-"),
     ),
     orchestrationDetailStatusField(
       "orchestrationDetailLabelStatus",
@@ -254,7 +232,7 @@ function orchestrationStageBasicFieldRows({
     ),
     orchestrationDetailPillField(
       "orchestrationVisualFailFast",
-      orchestrationBooleanPillPresentation(stageValue.fail_fast),
+      booleanPillPresentation(stage.fail_fast),
     ),
     orchestrationDetailTextField("orchestrationStatusSuccess", jobsSucceeded),
     orchestrationDetailTextField("orchestrationStatusFailed", jobsFailed),
@@ -263,37 +241,27 @@ function orchestrationStageBasicFieldRows({
 }
 
 function orchestrationTargetBasicFieldRows({
-  detail = {},
-  planName = "-",
-  target = {},
-  targetStatusDisplay = orchestrationStatusDisplay(""),
-}: TargetBasicFieldOptions = {}) {
-  const detailValue = objectValue(detail);
-  const targetValue = objectValue(target);
+  detail,
+  planName,
+  target,
+  targetStatusDisplay,
+}: TargetBasicFieldOptions) {
   return [
     orchestrationDetailTextField("orchestrationVisualName", planName),
     orchestrationDetailTextField(
       "orchestrationDetailLabelStage",
-      orchestrationIndexedLabel(
-        "stage",
-        detailValue.stageIndex,
-        detailValue.stageName,
-      ),
+      orchestrationIndexedLabel("stage", detail.stageIndex, detail.stageName),
     ),
     orchestrationDetailTextField(
       "orchestrationDetailLabelJob",
-      orchestrationIndexedLabel(
-        "job",
-        detailValue.jobIndex,
-        detailValue.jobName,
-      ),
+      orchestrationIndexedLabel("job", detail.jobIndex, detail.jobName),
     ),
     orchestrationDetailTextField(
       "orchestrationDetailLabelTarget",
       orchestrationIndexedLabel(
         "target",
-        detailValue.targetIndex,
-        targetValue.label || "",
+        detail.targetIndex,
+        target.label || "",
       ),
     ),
     orchestrationDetailStatusField(
@@ -303,36 +271,37 @@ function orchestrationTargetBasicFieldRows({
     ),
     orchestrationDetailTextField(
       "orchestrationDetailLabelConnection",
-      targetValue.connection_name || "-",
+      target.connection_name || "-",
     ),
     orchestrationDetailTextField(
       "orchestrationDetailLabelHost",
-      targetValue.host || "-",
+      target.host || "-",
       { mono: true },
     ),
     orchestrationDetailTextField(
       "orchestrationDetailLabelOperation",
-      targetValue.operation || "-",
+      target.operation || "-",
       { mono: true },
     ),
     orchestrationDetailTextField(
       "orchestrationDetailLabelDurationMs",
-      targetValue.duration_ms ?? 0,
+      target.duration_ms,
       { mono: true },
     ),
   ];
 }
 
-function orchestrationTargetDetailRow(target: unknown = {}) {
-  const targetValue = objectValue(target);
-  const durationText = orchestrationText(targetValue.duration_ms || 0);
-  const errorText = orchestrationText(targetValue.error || "");
-  const hostText = orchestrationText(targetValue.host || "-");
-  const operationText = orchestrationText(targetValue.operation || "-");
+function orchestrationTargetDetailRow(
+  target: OrchestrationTargetExecutionResult,
+) {
+  const durationText = orchestrationText(target.duration_ms);
+  const errorText = orchestrationText(target.error || "");
+  const hostText = orchestrationText(target.host || "-");
+  const operationText = orchestrationText(target.operation || "-");
   return {
     detailButtonLabel: t("orchestrationDetailBtn"),
     errorText,
-    label: orchestrationText(targetValue.label || ""),
+    label: orchestrationText(target.label || ""),
     metaFields: [
       orchestrationDetailTextField("orchestrationDetailLabelHost", hostText, {
         mono: true,
@@ -348,20 +317,19 @@ function orchestrationTargetDetailRow(target: unknown = {}) {
         { mono: true },
       ),
     ],
-    ...orchestrationStatusDisplay(targetValue.status),
+    ...orchestrationStatusDisplay(target.status),
   };
 }
 
-function orchestrationJobDetailRow(job: unknown = {}, index = 0) {
-  const jobValue = objectValue(job);
-  const targets = Array.isArray(jobValue.results) ? jobValue.results : [];
-  const targetsFailedText = orchestrationText(jobValue.targets_failed || 0);
-  const targetsSkippedText = orchestrationText(jobValue.targets_skipped || 0);
-  const targetsSucceededText = orchestrationText(
-    jobValue.targets_succeeded || 0,
-  );
+function orchestrationJobDetailRow(
+  job: OrchestrationJobExecutionResult,
+  index = 0,
+) {
+  const targetsFailedText = orchestrationText(job.targets_failed);
+  const targetsSkippedText = orchestrationText(job.targets_skipped);
+  const targetsSucceededText = orchestrationText(job.targets_succeeded);
   const actionSummaryText = orchestrationText(
-    jobValue.action_summary || jobValue.action_kind || "-",
+    job.action_summary || job.action_kind || "-",
   );
   return {
     actionFields: [
@@ -371,9 +339,9 @@ function orchestrationJobDetailRow(job: unknown = {}, index = 0) {
       ),
     ],
     actionSummaryText,
-    hasTargetRows: targets.length > 0,
+    hasTargetRows: job.results.length > 0,
     noTargetText: "-",
-    targetRows: targets.map(orchestrationTargetDetailRow),
+    targetRows: job.results.map(orchestrationTargetDetailRow),
     targetSummaryChips: orchestrationCountChipRows({
       failedText: targetsFailedText,
       skippedText: targetsSkippedText,
@@ -382,8 +350,8 @@ function orchestrationJobDetailRow(job: unknown = {}, index = 0) {
     targetsFailedText,
     targetsSkippedText,
     targetsSucceededText,
-    title: `job[${index}] ${orchestrationText(jobValue.name || "") || "-"}`,
-    ...orchestrationStatusDisplay(jobValue.status),
+    title: `job[${index}] ${orchestrationText(job.name || "") || "-"}`,
+    ...orchestrationStatusDisplay(job.status),
   };
 }
 
@@ -393,21 +361,21 @@ export function orchestrationStageJobsPanelDisplay() {
   };
 }
 
-export function orchestrationDetailDisplay(detail: unknown = {}) {
-  const detailValue = objectValue(detail);
+export function orchestrationDetailDisplay(
+  detail: OrchestrationExecutionDetail,
+) {
   const orchestrationBasicSectionTitle = t("detailSectionBasic");
   const orchestrationRawSectionTitle = t("detailSectionRaw");
-  if (detailValue.kind === "stage") {
-    const stage = objectValue(detailValue.stage);
-    const jobs = Array.isArray(stage.jobs) ? stage.jobs : [];
+  if (detail.kind === "stage") {
+    const stage = detail.stage;
     const statusDisplay = orchestrationStatusDisplay(stage.status);
-    const planName = detailValue.planName || "-";
+    const planName = detail.planName || "-";
     const stageStrategyLabel = orchestrationStageStrategyLabel(stage.strategy);
     const jobsFailed = stage.jobs_failed ?? 0;
     const jobsSkipped = stage.jobs_skipped ?? 0;
     const jobsSucceeded = stage.jobs_succeeded ?? 0;
     return {
-      hasStageJobRows: jobs.length > 0,
+      hasStageJobRows: stage.jobs.length > 0,
       jobsFailed,
       jobsSkipped,
       jobsSucceeded,
@@ -415,7 +383,7 @@ export function orchestrationDetailDisplay(detail: unknown = {}) {
       orchestrationRawSectionTitle,
       planName,
       stageBasicFieldRows: orchestrationStageBasicFieldRows({
-        detail: detailValue,
+        detail,
         jobsFailed,
         jobsSkipped,
         jobsSucceeded,
@@ -425,41 +393,41 @@ export function orchestrationDetailDisplay(detail: unknown = {}) {
         stageStrategyLabel,
       }),
       stageFailFast: stage.fail_fast,
-      stageIndex: detailValue.stageIndex,
-      stageJobRows: jobs.map(orchestrationJobDetailRow),
+      stageIndex: detail.stageIndex,
+      stageJobRows: stage.jobs.map(orchestrationJobDetailRow),
       stageJsonValue: stage,
       stageName: stage.name || "-",
       stageStatusLabel: statusDisplay.statusLabel,
       stageStrategyLabel,
     };
   }
-  const target = objectValue(detailValue.target);
+  const target = detail.target;
   const statusDisplay = orchestrationStatusDisplay(target.status);
   const payloadSections = orchestrationTargetPayloadSections(target);
-  const planName = detailValue.planName || "-";
+  const planName = detail.planName || "-";
   return {
     connectionName: target.connection_name || "-",
     durationMs: target.duration_ms ?? 0,
     error: orchestrationText(target.error || ""),
     hasPayloadSections: payloadSections.length > 0,
     host: target.host || "-",
-    jobIndex: detailValue.jobIndex,
-    jobName: detailValue.jobName || "-",
+    jobIndex: detail.jobIndex,
+    jobName: detail.jobName || "-",
     operation: target.operation || "-",
     orchestrationBasicSectionTitle,
     orchestrationErrorSectionTitle: t("detailLabelError"),
     orchestrationRawSectionTitle,
     payloadSections,
     planName,
-    stageIndex: detailValue.stageIndex,
-    stageName: detailValue.stageName || "-",
+    stageIndex: detail.stageIndex,
+    stageName: detail.stageName || "-",
     targetBasicFieldRows: orchestrationTargetBasicFieldRows({
-      detail: detailValue,
+      detail,
       planName,
       target,
       targetStatusDisplay: statusDisplay,
     }),
-    targetIndex: detailValue.targetIndex,
+    targetIndex: detail.targetIndex,
     targetJsonValue: target,
     targetLabel: target.label || "",
     targetNoPayloadMessage: t("orchestrationDetailNoPayload"),
@@ -468,18 +436,18 @@ export function orchestrationDetailDisplay(detail: unknown = {}) {
   };
 }
 
-function orchestrationExecutionStageRows(stages: unknown = []) {
-  return (Array.isArray(stages) ? stages : []).map((stage, index) => {
-    const stageValue = objectValue(stage);
-    const jobs = Array.isArray(stageValue.jobs) ? stageValue.jobs : [];
-    const jobsFailedText = orchestrationText(stageValue.jobs_failed || 0);
-    const jobsSkippedText = orchestrationText(stageValue.jobs_skipped || 0);
-    const jobsSucceededText = orchestrationText(stageValue.jobs_succeeded || 0);
-    const jobsTotalText = orchestrationText(stageValue.jobs_total || 0);
+function orchestrationExecutionStageRows(
+  stages: readonly OrchestrationStageExecutionResult[],
+) {
+  return stages.map((stage, index) => {
+    const jobsFailedText = orchestrationText(stage.jobs_failed);
+    const jobsSkippedText = orchestrationText(stage.jobs_skipped);
+    const jobsSucceededText = orchestrationText(stage.jobs_succeeded);
+    const jobsTotalText = orchestrationText(stage.jobs_total);
     return {
       detailButtonLabel: t("orchestrationDetailBtn"),
-      hasJobs: jobs.length > 0,
-      jobs: jobs.map(orchestrationJobDetailRow),
+      hasJobs: stage.jobs.length > 0,
+      jobs: stage.jobs.map(orchestrationJobDetailRow),
       jobsFailedText,
       jobsSkippedText,
       jobsSucceededText,
@@ -491,44 +459,40 @@ function orchestrationExecutionStageRows(stages: unknown = []) {
         skippedText: jobsSkippedText,
         succeededText: jobsSucceededText,
       }),
-      title: `stage[${index}] ${orchestrationText(stageValue.name || "")}`,
-      ...orchestrationStatusDisplay(stageValue.status),
+      title: `stage[${index}] ${orchestrationText(stage.name || "")}`,
+      ...orchestrationStatusDisplay(stage.status),
     };
   });
 }
 
 function orchestrationExecutionDetailIndex(
-  stages: unknown = [],
-  planName: unknown = "-",
-): ExecutionDetailIndex {
-  const stageDetails: DetailEntry[] = [];
-  const targetDetails: DetailEntry[][][] = [];
-  (Array.isArray(stages) ? stages : []).forEach((stage, stageIndex) => {
-    const stageValue = objectValue(stage);
+  stages: readonly OrchestrationStageExecutionResult[],
+  planName: string,
+): OrchestrationExecutionDetailIndex {
+  const stageDetails: OrchestrationExecutionDetailEntry[] = [];
+  const targetDetails: OrchestrationExecutionDetailEntry[][][] = [];
+  stages.forEach((stage, stageIndex) => {
     stageDetails.push({
       detail: {
         kind: "stage",
         planName,
-        stage: stageValue,
+        stage,
         stageIndex,
       },
       titleKey: "orchestrationStageDetailTitle",
       titleText: t("orchestrationStageDetailTitle"),
     });
-    const jobs = Array.isArray(stageValue.jobs) ? stageValue.jobs : [];
     targetDetails.push(
-      jobs.map((job, jobIndex) => {
-        const jobValue = objectValue(job);
-        const targets = Array.isArray(jobValue.results) ? jobValue.results : [];
-        return targets.map((target, targetIndex) => ({
+      stage.jobs.map((job, jobIndex) => {
+        return job.results.map((target, targetIndex) => ({
           detail: {
             jobIndex,
-            jobName: jobValue.name || `job-${jobIndex + 1}`,
+            jobName: job.name || `job-${jobIndex + 1}`,
             kind: "target",
             planName,
             stageIndex,
-            stageName: stageValue.name || "-",
-            target: objectValue(target),
+            stageName: stage.name || "-",
+            target,
             targetIndex,
           },
           titleKey: "orchestrationTargetDetailTitle",
@@ -541,32 +505,30 @@ function orchestrationExecutionDetailIndex(
 }
 
 export function orchestrationExecutionDetailAt(
-  detailIndex: unknown = {},
+  detailIndex: OrchestrationExecutionDetailIndex,
   stageIndex = 0,
   jobIndex: number | null = null,
   targetIndex: number | null = null,
-): DetailEntry | null {
+): OrchestrationExecutionDetailEntry | null {
   const source = orchestrationExecutionDetailSource(
     detailIndex,
     stageIndex,
     jobIndex,
   );
-  if (!Array.isArray(source)) return null;
   const detail = source[targetIndex ?? stageIndex];
-  return detail && typeof detail === "object" ? (detail as DetailEntry) : null;
+  return detail ?? null;
 }
 
 export function orchestrationExecutionPresentation(
-  orchestrationRun: unknown = null,
+  orchestrationRun: OrchestrationExecutionResult | null = null,
 ) {
-  const run = objectValue(orchestrationRun);
-  const stages = Array.isArray(run.stages) ? run.stages : [];
-  const planName = run.plan_name || "-";
-  const executedStages = run.executed_stages || 0;
+  const stages = orchestrationRun?.stages ?? [];
+  const planName = orchestrationRun?.plan_name || "-";
+  const executedStages = orchestrationRun?.executed_stages ?? 0;
   const stageRows = orchestrationExecutionStageRows(stages);
-  const success = !!run.success;
-  const totalStages = run.total_stages || stages.length;
-  const stageCountText = `${executedStages || 0}/${totalStages || stageRows.length}`;
+  const success = orchestrationRun?.success ?? false;
+  const totalStages = orchestrationRun?.total_stages ?? stages.length;
+  const stageCountText = `${executedStages}/${totalStages}`;
   return {
     detailButtonLabel: t("orchestrationDetailBtn"),
     detailIndex: orchestrationExecutionDetailIndex(stages, planName),
@@ -584,7 +546,7 @@ export function orchestrationExecutionPresentation(
       orchestrationSummaryCard("orchestrationVisualStages", stageCountText),
       orchestrationSummaryCard(
         "orchestrationVisualFailFast",
-        String(run.fail_fast !== false),
+        String(orchestrationRun?.fail_fast !== false),
       ),
     ],
   };

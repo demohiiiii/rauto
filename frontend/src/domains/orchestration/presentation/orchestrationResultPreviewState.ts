@@ -1,5 +1,15 @@
 import { t } from "../../../lib/i18n.js";
 import { displayText, workflowChipClass } from "../../../lib/ui.js";
+import type {
+  OrchestrationJob,
+  OrchestrationJsonObject,
+  OrchestrationJsonPrimitive,
+  OrchestrationJsonValue,
+  OrchestrationPlan,
+  OrchestrationStage,
+  OrchestrationStrategy,
+  OrchestrationTxWorkflowAction,
+} from "../model/types.js";
 
 const ORCHESTRATION_COMMAND_PREVIEW_LIMIT = 24;
 
@@ -71,22 +81,26 @@ export interface OrchestrationPreviewStageRow {
   targetCount: number;
 }
 
-const orchestrationDisplayText = displayText as (value: unknown) => string;
+type DisplayValue = OrchestrationJsonValue | undefined;
+
+const orchestrationDisplayText = displayText as (value: DisplayValue) => string;
 const orchestrationWorkflowChipClass = workflowChipClass as (
   ...toneClasses: string[]
 ) => string;
 
-function objectValue(value: unknown): Record<string, unknown> {
+function orchestrationJsonObjectValue(
+  value: OrchestrationJsonValue | undefined,
+): OrchestrationJsonObject {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
+    ? value
     : {};
 }
 
-function orchestrationText(displaySource: unknown): string {
+function orchestrationText(displaySource: DisplayValue): string {
   return orchestrationDisplayText(displaySource);
 }
 
-const orchestrationSummaryCard = (key: string, summaryValue: unknown) => ({
+const orchestrationSummaryCard = (key: string, summaryValue: DisplayValue) => ({
   label: t(key),
   summaryValue,
 });
@@ -96,27 +110,25 @@ const orchestrationChip = (chipText: string): OrchestrationPreviewChip => ({
   chipText,
 });
 
-function orchestrationPrimitiveText(jsonValue: unknown): string {
-  if (jsonValue == null) return "null";
+function orchestrationPrimitiveText(
+  jsonValue: OrchestrationJsonPrimitive,
+): string {
+  if (jsonValue === null) return "null";
   if (typeof jsonValue === "string") return jsonValue;
   if (typeof jsonValue === "number" || typeof jsonValue === "boolean") {
     return String(jsonValue);
   }
-  return orchestrationText(jsonValue);
+  return jsonValue;
 }
 
-function orchestrationRawJsonText(jsonValue: unknown): string {
+function orchestrationRawJsonText(jsonValue: OrchestrationJsonValue): string {
   if (jsonValue == null) return "-";
-  try {
-    return JSON.stringify(jsonValue, null, 2);
-  } catch {
-    return orchestrationText(jsonValue);
-  }
+  return JSON.stringify(jsonValue, null, 2);
 }
 
 function orchestrationJsonTreeNode(
-  jsonValue: unknown,
-  nodeLabel: unknown = "value",
+  jsonValue: OrchestrationJsonValue,
+  nodeLabel = "value",
   depth = 0,
 ): JsonTreeNode {
   if (jsonValue == null || typeof jsonValue !== "object") {
@@ -161,7 +173,9 @@ function orchestrationJsonTreeNode(
   };
 }
 
-export function orchestrationJsonDisplay(jsonValue: unknown) {
+export function orchestrationJsonDisplay(
+  jsonValue: OrchestrationJsonValue = null,
+) {
   return {
     rawText: orchestrationRawJsonText(jsonValue),
     rawToggleLabel: t("orchestrationPayloadRawToggle"),
@@ -169,8 +183,10 @@ export function orchestrationJsonDisplay(jsonValue: unknown) {
   };
 }
 
-function orchestrationOperationDescription(operation: unknown): string {
-  const operationValue = objectValue(operation);
+function orchestrationOperationDescription(
+  operation: OrchestrationJsonValue | undefined,
+): string {
+  const operationValue = orchestrationJsonObjectValue(operation);
   if (!Object.keys(operationValue).length) return "";
   if (operationValue.kind === "command" || operationValue.command != null) {
     return orchestrationText(operationValue.command).trim();
@@ -179,7 +195,9 @@ function orchestrationOperationDescription(operation: unknown): string {
     const steps = Array.isArray(operationValue.steps)
       ? operationValue.steps
       : [];
-    const first = orchestrationText(objectValue(steps[0]).command).trim();
+    const first = orchestrationText(
+      orchestrationJsonObjectValue(steps[0]).command,
+    ).trim();
     if (!steps.length) return "flow";
     if (steps.length === 1) return first || "flow";
     return first
@@ -189,8 +207,10 @@ function orchestrationOperationDescription(operation: unknown): string {
   return "";
 }
 
-function orchestrationOperationText(operation: unknown): string {
-  const operationValue = objectValue(operation);
+function orchestrationOperationText(
+  operation: OrchestrationJsonValue | undefined,
+): string {
+  const operationValue = orchestrationJsonObjectValue(operation);
   if (!Object.keys(operationValue).length) return "";
   const text = orchestrationText(
     orchestrationOperationDescription(operationValue),
@@ -201,7 +221,7 @@ function orchestrationOperationText(operation: unknown): string {
   }
   if (operationValue.kind === "flow" && Array.isArray(operationValue.steps)) {
     const first = orchestrationText(
-      objectValue(operationValue.steps[0]).command,
+      orchestrationJsonObjectValue(operationValue.steps[0]).command,
     ).trim();
     if (first) return first;
     return `${operationValue.steps.length} steps`;
@@ -209,12 +229,15 @@ function orchestrationOperationText(operation: unknown): string {
   return "";
 }
 
-function collectTxBlockCommandPreview(block: unknown, prefix = ""): string[] {
-  const blockValue = objectValue(block);
+function collectTxBlockCommandPreview(
+  block: OrchestrationJsonValue,
+  prefix = "",
+): string[] {
+  const blockValue = orchestrationJsonObjectValue(block);
   const steps = Array.isArray(blockValue.steps) ? blockValue.steps : [];
   const commandPreviewLines: string[] = [];
   steps.forEach((step, index) => {
-    const run = objectValue(step).run;
+    const run = orchestrationJsonObjectValue(step).run;
     const commandText = orchestrationOperationText(run);
     if (!commandText) return;
     const head = prefix ? `${prefix} ` : "";
@@ -223,14 +246,16 @@ function collectTxBlockCommandPreview(block: unknown, prefix = ""): string[] {
   return commandPreviewLines;
 }
 
-function collectTxWorkflowCommandPreview(workflow: unknown): string[] {
-  const workflowValue = objectValue(workflow);
+function collectTxWorkflowCommandPreview(
+  workflow: OrchestrationJsonValue,
+): string[] {
+  const workflowValue = orchestrationJsonObjectValue(workflow);
   const blocks = Array.isArray(workflowValue.blocks)
     ? workflowValue.blocks
     : [];
   const commandPreviewLines: string[] = [];
   blocks.forEach((block, blockIndex) => {
-    const blockValue = objectValue(block);
+    const blockValue = orchestrationJsonObjectValue(block);
     if (
       typeof blockValue.tx_block_template_name === "string" &&
       blockValue.tx_block_template_name.trim()
@@ -247,32 +272,29 @@ function collectTxWorkflowCommandPreview(workflow: unknown): string[] {
   return commandPreviewLines;
 }
 
-function txWorkflowActionPreviewItems(action: unknown): string[] {
-  const actionValue = objectValue(action);
-  if (actionValue.workflow && typeof actionValue.workflow === "object") {
-    return collectTxWorkflowCommandPreview(actionValue.workflow);
+function txWorkflowActionPreviewItems(
+  action: OrchestrationTxWorkflowAction,
+): string[] {
+  if (action.workflow != null) {
+    return collectTxWorkflowCommandPreview(action.workflow);
   }
-  if (
-    typeof actionValue.workflow_template_name === "string" &&
-    actionValue.workflow_template_name.trim()
-  ) {
+  if (action.workflow_template_name?.trim()) {
     return [
-      `${t("orchestrationCommandPreviewTemplateRef")}: workflow_template=${actionValue.workflow_template_name.trim()}`,
+      `${t("orchestrationCommandPreviewTemplateRef")}: workflow_template=${action.workflow_template_name.trim()}`,
     ];
   }
   return [];
 }
 
-function orchestrationActionCommandPreviewItems(action: unknown): string[] {
-  const actionValue = objectValue(action);
-  return actionValue.kind === "tx_workflow"
-    ? txWorkflowActionPreviewItems(actionValue)
-    : [];
+function orchestrationActionCommandPreviewItems(
+  action: OrchestrationTxWorkflowAction,
+): string[] {
+  return txWorkflowActionPreviewItems(action);
 }
 
 function orchestrationActionField(
   label: string,
-  detailValue: unknown,
+  detailValue: DisplayValue,
   { mono = false }: { mono?: boolean } = {},
 ): OrchestrationPreviewActionField {
   return {
@@ -283,96 +305,61 @@ function orchestrationActionField(
 }
 
 function orchestrationActionSummaryFields(
-  action: object,
+  action: OrchestrationTxWorkflowAction,
 ): OrchestrationPreviewActionField[] {
-  const actionValue = objectValue(action);
-  if (!Object.keys(actionValue).length) {
-    return [orchestrationActionField(t("orchestrationStageAction"), "-")];
-  }
-  if (actionValue.kind === "tx_workflow") {
-    const fields = [
-      orchestrationActionField("kind", "tx_workflow", { mono: true }),
-    ];
-    if (actionValue.workflow_template_name) {
-      fields.push(
-        orchestrationActionField(
-          "workflow_template",
-          actionValue.workflow_template_name,
-          { mono: true },
-        ),
-      );
-    } else if (
-      actionValue.workflow &&
-      typeof actionValue.workflow === "object"
-    ) {
-      fields.push(orchestrationActionField("workflow", "inline"));
-    }
-    return fields;
-  }
-  return [
-    orchestrationActionField(
-      t("orchestrationStageAction"),
-      orchestrationText(actionValue.kind || "-"),
-    ),
+  const fields = [
+    orchestrationActionField("kind", "tx_workflow", { mono: true }),
   ];
-}
-
-function orchestrationTargetPreviewLabel(target: unknown): unknown {
-  if (typeof target === "string") return target;
-  if (target && typeof target === "object") {
-    const targetValue = objectValue(target);
-    return (
-      targetValue.name || targetValue.connection || targetValue.host || "target"
+  if (action.workflow_template_name) {
+    fields.push(
+      orchestrationActionField(
+        "workflow_template",
+        action.workflow_template_name,
+        { mono: true },
+      ),
     );
+  } else if (action.workflow != null) {
+    fields.push(orchestrationActionField("workflow", "inline"));
   }
-  return "";
+  return fields;
 }
 
-function resolveOrchestrationJobTargetsPreview(job: unknown): string[] {
-  const jobValue = objectValue(job);
+function resolveOrchestrationJobTargetsPreview(
+  job: OrchestrationJob,
+): string[] {
   const labels: string[] = [];
-  const groupNames = Array.isArray(jobValue.target_groups)
-    ? jobValue.target_groups
-    : [];
+  const groupNames = job.target_groups ?? [];
   labels.push(
     ...groupNames.map(
       (groupName) => `${t("inventoryFieldGroups")}: ${groupName}`,
     ),
   );
-  const targetTags = Array.isArray(jobValue.target_tags)
-    ? jobValue.target_tags
-    : [];
+  const targetTags = job.target_tags ?? [];
   labels.push(
     ...targetTags.map((tagName) => `${t("inventoryFieldLabels")}: ${tagName}`),
   );
-  const directTargets = Array.isArray(jobValue.targets) ? jobValue.targets : [];
-  for (const directTarget of directTargets) {
-    const targetLabel = orchestrationTargetPreviewLabel(directTarget);
-    if (targetLabel) labels.push(orchestrationText(targetLabel));
-  }
+  labels.push(...(job.targets ?? []));
   return labels;
 }
 
-function resolveOrchestrationStageTargetsPreview(stage: unknown): string[] {
-  const jobs = objectValue(stage).jobs;
-  return (Array.isArray(jobs) ? jobs : []).flatMap((job) =>
+function resolveOrchestrationStageTargetsPreview(
+  stage: OrchestrationStage,
+): string[] {
+  return (stage.jobs ?? []).flatMap((job) =>
     resolveOrchestrationJobTargetsPreview(job),
   );
 }
 
-function orchestrationStageStrategyLabel(strategy: unknown): string {
+function orchestrationStageStrategyLabel(
+  strategy: OrchestrationStrategy | undefined,
+): string {
   return orchestrationText(strategy || "serial") === "parallel"
     ? t("orchestrationStrategyParallel")
     : t("orchestrationStrategySerial");
 }
 
-function orchestrationPreviewStages(plan: unknown): unknown[] {
-  const stages = objectValue(plan).stages;
-  return Array.isArray(stages) ? stages : [];
-}
-
 function orchestrationCommandPreviewDisplay(
-  action: unknown,
+  action: OrchestrationTxWorkflowAction,
 ): OrchestrationCommandPreview {
   const commandPreviewLines = orchestrationActionCommandPreviewItems(action);
   const overflowCount = Math.max(
@@ -394,32 +381,25 @@ function orchestrationCommandPreviewDisplay(
 }
 
 function orchestrationPreviewJobRow(
-  job: object,
+  job: OrchestrationJob,
   index = 0,
 ): OrchestrationPreviewJobRow {
-  const jobValue = objectValue(job);
-  const targetGroups = Array.isArray(jobValue.target_groups)
-    ? jobValue.target_groups
-    : [];
-  const targetTags = Array.isArray(jobValue.target_tags)
-    ? jobValue.target_tags
-    : [];
-  const targetLabels = resolveOrchestrationJobTargetsPreview(jobValue);
-  const name = orchestrationText(jobValue.name || "");
+  const targetGroups = job.target_groups ?? [];
+  const targetTags = job.target_tags ?? [];
+  const targetLabels = resolveOrchestrationJobTargetsPreview(job);
+  const name = orchestrationText(job.name || "");
   const strategyLabel = orchestrationText(
-    orchestrationStageStrategyLabel(jobValue.strategy),
+    orchestrationStageStrategyLabel(job.strategy),
   );
   const targetCount = targetLabels.length;
-  const actionFields = orchestrationActionSummaryFields(
-    objectValue(jobValue.action),
-  );
+  const actionFields = orchestrationActionSummaryFields(job.action);
   return {
     actionFields,
     chipRows: [
       orchestrationChip(`${t("orchestrationStageStrategy")}: ${strategyLabel}`),
       orchestrationChip(`${t("orchestrationStageTargets")}: ${targetCount}`),
     ],
-    commandPreview: orchestrationCommandPreviewDisplay(jobValue.action),
+    commandPreview: orchestrationCommandPreviewDisplay(job.action),
     hasTargetGroups: targetGroups.length > 0,
     hasTargetLabels: targetLabels.length > 0,
     hasTargetTags: targetTags.length > 0,
@@ -437,24 +417,21 @@ function orchestrationPreviewJobRow(
 }
 
 function orchestrationPreviewStageRow(
-  stage: unknown,
+  stage: OrchestrationStage,
   index: number,
 ): OrchestrationPreviewStageRow {
-  const stageValue = objectValue(stage);
-  const jobs = Array.isArray(stageValue.jobs) ? stageValue.jobs : [];
-  const name = orchestrationText(stageValue.name);
+  const jobs = stage.jobs ?? [];
+  const name = orchestrationText(stage.name);
   const label = name ? `stage[${index}] ${name}` : `stage[${index}]`;
-  const targetLabels = resolveOrchestrationStageTargetsPreview(stageValue);
+  const targetLabels = resolveOrchestrationStageTargetsPreview(stage);
   const strategyLabel = orchestrationText(
-    orchestrationStageStrategyLabel(stageValue.strategy),
+    orchestrationStageStrategyLabel(stage.strategy),
   );
   return {
     hasJobs: jobs.length > 0,
     hasTargetLabels: targetLabels.length > 0,
     jobCount: jobs.length,
-    jobs: jobs.map((job, jobIndex) =>
-      orchestrationPreviewJobRow(objectValue(job), jobIndex),
-    ),
+    jobs: jobs.map(orchestrationPreviewJobRow),
     label,
     noJobsText: "-",
     noTargetText: "-",
@@ -475,16 +452,17 @@ function orchestrationPreviewStageRow(
   };
 }
 
-export function orchestrationPreviewPresentation(plan: unknown = null) {
-  const hasPlan = Boolean(plan && typeof plan === "object");
-  const planValue = objectValue(plan);
-  const stages = hasPlan ? orchestrationPreviewStages(planValue) : [];
+export function orchestrationPreviewPresentation(
+  plan: OrchestrationPlan | null = null,
+) {
+  const hasPlan = Boolean(plan);
+  const stages = plan?.stages ?? [];
   const stageRows = stages.map((stage, index) =>
     orchestrationPreviewStageRow(stage, index),
   );
-  const failFast = String(planValue.fail_fast !== false);
+  const failFast = String(plan?.fail_fast !== false);
   const jobCount = stageRows.reduce((total, row) => total + row.jobCount, 0);
-  const name = planValue.name || "-";
+  const name = plan?.name || "-";
   const stageCount = stageRows.length;
   return {
     emptyMessage: t("orchestrationVisualEmpty"),

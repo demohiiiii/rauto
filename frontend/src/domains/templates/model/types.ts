@@ -39,6 +39,11 @@ export interface TemplateResourceMeta extends UnknownRecord {
   updated_at_ms: number;
 }
 
+export interface TemplateResourceDetail extends UnknownRecord {
+  content: string;
+  name: string;
+}
+
 export interface TemplateContentSession {
   content: string;
   dirty?: boolean;

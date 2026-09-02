@@ -12,7 +12,7 @@ function read(path) {
 
 test("orchestration workflow source offers inline and saved-template editing", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/OrchestrationTxWorkflowSourceEditor.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationTxWorkflowSourceEditor.svelte",
   );
 
   assert.match(source, /TxJsonFormSurface/);

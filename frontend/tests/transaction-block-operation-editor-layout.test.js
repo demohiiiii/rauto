@@ -15,7 +15,7 @@ function read(path) {
 
 test("operation kinds expose only command and flow tabs", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/TxBlockOperationEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockOperationEditor.svelte",
   );
 
   assert.match(source, /import \* as Tabs from "\$lib\/components\/ui\/tabs/);
@@ -32,7 +32,7 @@ test("operation kinds expose only command and flow tabs", () => {
 
 test("command progressive sections use plain collapsible section variants", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
   );
   const collapsibleSource = read(
     "frontend/src/components/fragments/CollapsibleGroup.svelte",
@@ -53,8 +53,8 @@ test("command progressive sections use plain collapsible section variants", () =
 
 test("nested operation editors are unframed and use repeated row separators", () => {
   const unframedPaths = [
-    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandInteractionEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandDynParamsEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte",
   ];
 
   for (const path of unframedPaths) {
@@ -65,8 +65,8 @@ test("nested operation editors are unframed and use repeated row separators", ()
   }
 
   for (const path of [
-    "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockFlowEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
   ]) {
     assert.doesNotMatch(read(path), /<Card\./);
   }
@@ -79,7 +79,7 @@ test("nested operation editors are unframed and use repeated row separators", ()
 
 test("transaction dynamic params use only the generic parameter editor", () => {
   const editor = read(
-    "frontend/src/pages/orchestrated/TxBlockCommandDynParamsEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandDynParamsEditor.svelte",
   );
   const bindings = read(
     "frontend/src/domains/transactions/application/transactionBlockBindingState.ts",
@@ -179,12 +179,12 @@ test("validation errors derive from the model and render inline alerts", () => {
   assert.match(fieldGridSource, /removeAttribute\("aria-invalid"\)/);
 
   for (const path of [
-    "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
-    "frontend/src/pages/orchestrated/TxBlockStepEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockOperationEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockFlowEditor.svelte",
-    "frontend/src/pages/orchestrated/TxBlockRollbackPolicyEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRootInspector.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockOperationEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockFlowEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
   ]) {
     const source = read(path);
     assert.match(source, /validationErrors/);
@@ -226,7 +226,7 @@ test("field row validation matches only the exact form-model path", async () => 
 
 test("root inspector owns the empty steps validation alert", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRootInspector.svelte",
   );
 
   assert.match(source, /txBlockValidationErrorText/);
@@ -297,10 +297,10 @@ test("collapsible group reapplies persistence and links its disclosure control",
 
 test("Task 5 collapsibles and operation tabs have localized accessible labels", () => {
   const command = read(
-    "frontend/src/pages/orchestrated/TxBlockCommandEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
   );
   const operation = read(
-    "frontend/src/pages/orchestrated/TxBlockOperationEditor.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockOperationEditor.svelte",
   );
 
   for (const labelKey of ["txBlockFormDynParams", "txBlockFormInteraction"]) {
@@ -311,7 +311,7 @@ test("Task 5 collapsibles and operation tabs have localized accessible labels", 
 
 test("root rollback path conditionally joins a nonempty prefix", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/TxBlockRootInspector.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRootInspector.svelte",
   );
 
   assert.match(

@@ -15,6 +15,9 @@
     "target": "ES2022",
     "types": ["node", "svelte"],
     "paths": {
+      "$api/*": ["./frontend/src/api/*"],
+      "$components/*": ["./frontend/src/components/*"],
+      "$config/*": ["./frontend/src/config/*"],
       "$domains/*": ["./frontend/src/domains/*"],
       "$lib": ["./frontend/src/lib"],
       "$lib/*": ["./frontend/src/lib/*"]

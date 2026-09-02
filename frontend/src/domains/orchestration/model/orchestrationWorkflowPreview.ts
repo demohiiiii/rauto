@@ -73,12 +73,12 @@ function compactRows(
 }
 
 interface WorkflowPreviewOptions {
-  error?: unknown;
+  error?: string;
   sourceKind?: "manual" | "template";
-  sourceName?: unknown;
+  sourceName?: string;
   status?: OrchestrationWorkflowPreviewStatus;
-  unresolvedPaths?: unknown;
-  workflow?: unknown;
+  unresolvedPaths?: string[];
+  workflow?: JsonObject;
 }
 
 export function orchestrationWorkflowPreview({
@@ -97,24 +97,21 @@ export function orchestrationWorkflowPreview({
     blockCount: Array.isArray(workflowValue.blocks)
       ? workflowValue.blocks.length
       : 0,
-    errorMessage: textValue(error),
+    errorMessage: error,
     overflowCount: compact.overflowCount,
     previewStatus: status,
     rows: compact.rows,
     sourceKind: sourceKind === "template" ? "template" : "manual",
-    sourceName: textValue(sourceName),
-    unresolvedCount: Array.isArray(unresolvedPaths)
-      ? unresolvedPaths.length
-      : 0,
-    unresolvedPaths: Array.isArray(unresolvedPaths) ? unresolvedPaths : [],
-    workflow:
-      workflow && typeof workflow === "object" ? structuredClone(workflow) : {},
+    sourceName,
+    unresolvedCount: unresolvedPaths.length,
+    unresolvedPaths: [...unresolvedPaths],
+    workflow: structuredClone(workflow),
     workflowName: textValue(workflowValue.name, "Unnamed workflow"),
   };
 }
 
 export function orchestrationInlineWorkflowPreview(
-  workflow: unknown = {},
+  workflow: JsonObject = {},
 ): OrchestrationWorkflowPreview {
   return orchestrationWorkflowPreview({
     sourceKind: "manual",
@@ -123,9 +120,9 @@ export function orchestrationInlineWorkflowPreview(
 }
 
 export function orchestrationTemplateWorkflowPreview(
-  templateName: unknown,
-  workflow: unknown = {},
-  unresolvedPaths: unknown = [],
+  templateName: string,
+  workflow: JsonObject = {},
+  unresolvedPaths: string[] = [],
 ): OrchestrationWorkflowPreview {
   return orchestrationWorkflowPreview({
     sourceKind: "template",

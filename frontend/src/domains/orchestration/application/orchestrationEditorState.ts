@@ -38,23 +38,34 @@ interface OrchestrationEditorActionContext {
   didSynchronizeEditor(): boolean;
   isCurrent(): boolean;
   recordOwnedEditorSynchronization(): void;
-  runOwnedEditorMutation(operation: unknown): unknown;
+  runOwnedEditorMutation<TResult>(operation: () => TResult): TResult;
 }
 
-type OrchestrationEditorDependency = (...args: unknown[]) => unknown;
+interface TextFile {
+  text(): Promise<string>;
+}
+
+type CreateDraftHandler = (
+  actionContext: OrchestrationEditorActionContext,
+) => unknown;
+type EditorInputHandler = (jsonText: string) => unknown;
+type ImportFileHandler = (
+  file: TextFile,
+  actionContext: OrchestrationEditorActionContext,
+) => unknown;
 
 interface OrchestrationEditorDependencies {
-  onCreateDraft: OrchestrationEditorDependency | null;
-  onEditorInput: OrchestrationEditorDependency | null;
-  onImportFile: OrchestrationEditorDependency | null;
+  onCreateDraft: CreateDraftHandler | null;
+  onEditorInput: EditorInputHandler | null;
+  onImportFile: ImportFileHandler | null;
 }
 
 interface OrchestrationEditorPanelContext {
-  editorSyncVersion?: unknown;
-  jsonPlaceholder?: unknown;
-  onCreateDraft?: unknown;
-  onEditorInput?: unknown;
-  onImportFile?: unknown;
+  editorSyncVersion?: number;
+  jsonPlaceholder?: string;
+  onCreateDraft?: CreateDraftHandler | null;
+  onEditorInput?: EditorInputHandler | null;
+  onImportFile?: ImportFileHandler | null;
 }
 
 interface OrchestrationEditorWorkspaceCore {
@@ -100,10 +111,10 @@ export function createOrchestrationSourceChangeGuard() {
         isCurrent: () =>
           currentRequestVersion === requestVersion &&
           startingEditRevision === editRevision,
-        runOwnedEditorMutation(operation: unknown) {
+        runOwnedEditorMutation<TResult>(operation: () => TResult): TResult {
           ownedMutationDepth += 1;
           try {
-            return typeof operation === "function" ? operation() : undefined;
+            return operation();
           } finally {
             ownedMutationDepth -= 1;
           }
@@ -185,23 +196,6 @@ function defaultOrchestrationEditorFormModel(): OrchestrationPlanFormModel {
   return orchestrationPlanFormModelFromJson();
 }
 
-function normalizeOptionalHandler(
-  handler: unknown,
-): OrchestrationEditorDependency | null {
-  return typeof handler === "function"
-    ? (handler as OrchestrationEditorDependency)
-    : null;
-}
-
-function callOptionalOrchestrationDependency(
-  dependencies: OrchestrationEditorDependencies,
-  key: keyof OrchestrationEditorDependencies,
-  ...args: unknown[]
-): unknown {
-  const callback = dependencies[key];
-  return typeof callback === "function" ? callback(...args) : undefined;
-}
-
 function createOrchestrationEditorPanelActionWorkspace(
   editorWorkspace: OrchestrationEditorWorkspaceCore,
   dependencies: OrchestrationEditorDependencies,
@@ -225,12 +219,12 @@ function createOrchestrationEditorPanelActionWorkspace(
       recordOwnedEditorSynchronization() {
         synchronizedByOwnedNotification = true;
       },
-      runOwnedEditorMutation(operation: unknown) {
+      runOwnedEditorMutation<TResult>(operation: () => TResult): TResult {
         const previousActionContext = ownedEditorActionContext;
         ownedEditorActionContext = actionContext;
         ownedEditorInputDepth += 1;
         try {
-          return typeof operation === "function" ? operation() : undefined;
+          return operation();
         } finally {
           ownedEditorInputDepth -= 1;
           ownedEditorActionContext = previousActionContext;
@@ -250,11 +244,7 @@ function createOrchestrationEditorPanelActionWorkspace(
       internalEditorInputDepth -= 1;
     }
     const nextModel = resetResult.formModel;
-    const result = await callOptionalOrchestrationDependency(
-      dependencies,
-      "onCreateDraft",
-      actionContext,
-    );
+    const result = await dependencies.onCreateDraft?.(actionContext);
     if (actionContext.isCurrent()) {
       editorWorkspace.refreshFromFormModel(nextModel);
     }
@@ -275,16 +265,11 @@ function createOrchestrationEditorPanelActionWorkspace(
   }
 
   function handleEditorJsonInput(jsonText = "") {
-    callOptionalOrchestrationDependency(
-      dependencies,
-      "onEditorInput",
-      jsonText,
-    );
+    dependencies.onEditorInput?.(jsonText);
     const notificationIsActionOwned =
       internalEditorInputDepth > 0 || ownedEditorInputDepth > 0;
     const notificationMatchesCanonical =
-      (typeof jsonText === "string" ? jsonText : String(jsonText || "")) ===
-      getStore(editorWorkspace.jsonTextStateStore);
+      jsonText === getStore(editorWorkspace.jsonTextStateStore);
     if (!(notificationIsActionOwned && notificationMatchesCanonical)) {
       editorWorkspace.handleJsonInput(jsonText);
     }
@@ -295,14 +280,9 @@ function createOrchestrationEditorPanelActionWorkspace(
     }
   }
 
-  async function importFile(file: unknown): Promise<unknown> {
+  async function importFile(file: TextFile): Promise<unknown> {
     const actionContext = beginExternalAction();
-    const result = await callOptionalOrchestrationDependency(
-      dependencies,
-      "onImportFile",
-      file,
-      actionContext,
-    );
+    const result = await dependencies.onImportFile?.(file, actionContext);
     if (actionContext.isCurrent() && !actionContext.didSynchronizeEditor()) {
       editorWorkspace.refreshFromFormModel();
     }
@@ -320,10 +300,10 @@ function createOrchestrationEditorPanelActionWorkspace(
 export function createOrchestrationEditorPanelWorkspace(
   inputState: OrchestrationEditorPanelContext = {},
 ) {
-  const dependencyState = {
-    onCreateDraft: normalizeOptionalHandler(inputState.onCreateDraft),
-    onEditorInput: normalizeOptionalHandler(inputState.onEditorInput),
-    onImportFile: normalizeOptionalHandler(inputState.onImportFile),
+  const dependencyState: OrchestrationEditorDependencies = {
+    onCreateDraft: inputState.onCreateDraft ?? null,
+    onEditorInput: inputState.onEditorInput ?? null,
+    onImportFile: inputState.onImportFile ?? null,
   };
   const defaultFormModel = defaultOrchestrationEditorFormModel();
   const formModelStateStore = writable(defaultFormModel);
@@ -357,7 +337,7 @@ export function createOrchestrationEditorPanelWorkspace(
   );
   let initialized = false;
   let editorInputRevision = 0;
-  let lastEditorSyncVersion: unknown = 0;
+  let lastEditorSyncVersion = 0;
 
   function currentFormModel() {
     return (
@@ -399,7 +379,7 @@ export function createOrchestrationEditorPanelWorkspace(
     initialized = true;
   }
 
-  function applyEditorSyncVersion(editorSyncVersion: unknown = 0): void {
+  function applyEditorSyncVersion(editorSyncVersion = 0): void {
     if (editorSyncVersion === lastEditorSyncVersion) return;
     lastEditorSyncVersion = editorSyncVersion;
     refreshFromFormModel();
@@ -451,10 +431,7 @@ export function createOrchestrationEditorPanelWorkspace(
     jsonPlaceholder = orchestrationJsonPlaceholder,
   }: Pick<OrchestrationEditorPanelContext, "jsonPlaceholder"> = {}): void {
     displayConfigStateStore.set({
-      jsonPlaceholder:
-        typeof jsonPlaceholder === "string" && jsonPlaceholder
-          ? jsonPlaceholder
-          : orchestrationJsonPlaceholder,
+      jsonPlaceholder: jsonPlaceholder || orchestrationJsonPlaceholder,
     });
   }
 
@@ -506,19 +483,13 @@ export function createOrchestrationEditorPanelWorkspace(
         applyEditorSyncVersion(nextInputState.editorSyncVersion);
       }
       if ("onCreateDraft" in nextInputState) {
-        dependencyState.onCreateDraft = normalizeOptionalHandler(
-          nextInputState.onCreateDraft,
-        );
+        dependencyState.onCreateDraft = nextInputState.onCreateDraft ?? null;
       }
       if ("onEditorInput" in nextInputState) {
-        dependencyState.onEditorInput = normalizeOptionalHandler(
-          nextInputState.onEditorInput,
-        );
+        dependencyState.onEditorInput = nextInputState.onEditorInput ?? null;
       }
       if ("onImportFile" in nextInputState) {
-        dependencyState.onImportFile = normalizeOptionalHandler(
-          nextInputState.onImportFile,
-        );
+        dependencyState.onImportFile = nextInputState.onImportFile ?? null;
       }
     },
   };

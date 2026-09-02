@@ -30,20 +30,42 @@ interface TxJsonEditorHostPort {
   applyEditorHostState(): void;
   raw(): string;
   resize(): void;
-  setText(text: unknown, options?: { notify?: boolean }): void;
-  setTheme(theme: unknown): void;
+  setText(text: string, options?: { notify?: boolean }): void;
+  setTheme(theme: string): void;
   setup(): void;
 }
 
-interface TxJsonEditorsHost extends Record<string, unknown> {
-  applyEditorHostState(editorKey: unknown): void;
+export interface TxJsonEditorsHost {
+  applyEditorHostState(editorKey: TxEditorKey): void;
   orchestrationEditorRaw(): string;
-  setOrchestrationEditorText(
-    text: unknown,
+  parseTxBlockEditorJson(): JsonObject;
+  resizeOrchestrationJsonEditor(): void;
+  resizeTxBlockJsonEditor(): void;
+  resizeTxWorkflowJsonEditor(): void;
+  setOrchestrationEditorJson(value: JsonObject): void;
+  setOrchestrationEditorRawText(
+    text: string,
     options?: { notify?: boolean },
   ): void;
-  setTxBlockEditorRawText(text: unknown, options?: { notify?: boolean }): void;
-  setTxWorkflowEditorText(text: unknown, options?: { notify?: boolean }): void;
+  setOrchestrationEditorText(
+    text: string,
+    options?: { notify?: boolean },
+  ): void;
+  setOrchestrationJsonEditorTheme(theme: string): void;
+  setTxBlockEditorJson(value: JsonObject): void;
+  setTxBlockEditorRawText(text: string, options?: { notify?: boolean }): void;
+  setTxBlockEditorText(text: string, options?: { notify?: boolean }): void;
+  setTxBlockJsonEditorTheme(theme: string): void;
+  setTxWorkflowEditorJson(value: JsonObject): void;
+  setTxWorkflowEditorRawText(
+    text: string,
+    options?: { notify?: boolean },
+  ): void;
+  setTxWorkflowEditorText(text: string, options?: { notify?: boolean }): void;
+  setTxWorkflowJsonEditorTheme(theme: string): void;
+  setupOrchestrationJsonEditor(): void;
+  setupTxBlockJsonEditor(): void;
+  setupTxWorkflowJsonEditor(): void;
   txBlockEditorRaw(): string;
   txWorkflowEditorRaw(): string;
 }
@@ -251,7 +273,7 @@ function createJsonEditorHost({
     callObjectFunction(editorHost(), "setEditorTheme", theme);
 
   function setText(
-    nextText: unknown,
+    nextText: string,
     { notify = false }: { notify?: boolean } = {},
   ): void {
     const next = txEditorText(nextText || EMPTY_TEXT);
@@ -266,7 +288,7 @@ function createJsonEditorHost({
     applyTextToEditor(currentText);
   }
 
-  function setTheme(theme: unknown): void {
+  function setTheme(theme: string): void {
     currentTheme = txEditorText(theme || "dark") || "dark";
     applyThemeToEditor(currentTheme);
   }
@@ -340,10 +362,10 @@ export function createTxJsonEditorsHost({
   });
 
   const setTxBlockEditorRawText = (
-    rawText: unknown,
+    rawText: string,
     { notify = true }: { notify?: boolean } = {},
   ) => txBlock.setText(rawText, { notify });
-  const setTxBlockEditorJson = (jsonValue: unknown) => {
+  const setTxBlockEditorJson = (jsonValue: JsonObject) => {
     const next =
       jsonValue && typeof jsonValue === "object" && !Array.isArray(jsonValue)
         ? JSON.stringify(jsonValue, null, 2)
@@ -357,11 +379,11 @@ export function createTxJsonEditorsHost({
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error(txBlockJsonInvalidShapeMessage);
     }
-    setTxBlockEditorJson(parsed);
+    setTxBlockEditorJson(parsed as JsonObject);
     return parsed as JsonObject;
   };
 
-  const setTxWorkflowEditorJson = (jsonValue: unknown) => {
+  const setTxWorkflowEditorJson = (jsonValue: JsonObject) => {
     const next =
       jsonValue && typeof jsonValue === "object" && !Array.isArray(jsonValue)
         ? JSON.stringify(jsonValue, null, 2)
@@ -369,7 +391,7 @@ export function createTxJsonEditorsHost({
     txWorkflow.setText(next, { notify: true });
   };
 
-  const setOrchestrationEditorJson = (jsonValue: unknown) => {
+  const setOrchestrationEditorJson = (jsonValue: JsonObject) => {
     const next =
       jsonValue && typeof jsonValue === "object" && !Array.isArray(jsonValue)
         ? JSON.stringify(jsonValue, null, 2)
@@ -378,7 +400,7 @@ export function createTxJsonEditorsHost({
   };
 
   const editors: TxJsonEditorsHost = {
-    applyEditorHostState(editorKey: unknown) {
+    applyEditorHostState(editorKey: TxEditorKey) {
       const normalizedKey = normalizeTxEditorKey(editorKey);
       if (normalizedKey === TX_EDITOR.txBlock) {
         txBlock.applyEditorHostState();
@@ -399,7 +421,7 @@ export function createTxJsonEditorsHost({
     resizeTxWorkflowJsonEditor: txWorkflow.resize,
     setOrchestrationEditorJson,
     setOrchestrationEditorRawText: (
-      rawText: unknown,
+      rawText: string,
       { notify = true }: { notify?: boolean } = {},
     ) => orchestration.setText(rawText, { notify }),
     setOrchestrationEditorText: orchestration.setText,
@@ -410,7 +432,7 @@ export function createTxJsonEditorsHost({
     setTxBlockJsonEditorTheme: txBlock.setTheme,
     setTxWorkflowEditorJson,
     setTxWorkflowEditorRawText: (
-      rawText: unknown,
+      rawText: string,
       { notify = true }: { notify?: boolean } = {},
     ) => txWorkflow.setText(rawText, { notify }),
     setTxWorkflowEditorText: txWorkflow.setText,
@@ -426,19 +448,23 @@ export function createTxJsonEditorsHost({
   return editors;
 }
 
-export function clearTxJsonEditorsHost(expectedHost?: unknown): void {
+export function clearTxJsonEditorsHost(
+  expectedHost?: TxJsonEditorsHost | null,
+): void {
   if (expectedHost !== undefined && activeTxJsonEditors !== expectedHost) {
     return;
   }
   activeTxJsonEditors = null;
 }
 
-export function requireTxJsonEditor(editorMethodName: string): UnknownFunction {
+export function requireTxJsonEditor<TMethod extends keyof TxJsonEditorsHost>(
+  editorMethodName: TMethod,
+): TxJsonEditorsHost[TMethod] {
   const fn = activeTxJsonEditors && activeTxJsonEditors[editorMethodName];
   if (typeof fn !== "function") {
     throw new Error(`${editorMethodName} is not ready`);
   }
-  return fn as UnknownFunction;
+  return fn as TxJsonEditorsHost[TMethod];
 }
 
 export function setTxJsonEditorRawText(

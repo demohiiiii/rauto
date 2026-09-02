@@ -52,7 +52,7 @@ test("transaction vars form and JSON stay synchronized", () => {
 
 test("transaction vars text fields use direct value callbacks", () => {
   const source = readFileSync(
-    "frontend/src/pages/orchestrated/OrchestrationVarsFormCard.svelte",
+    "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationVarsFormCard.svelte",
     "utf8",
   );
 
@@ -94,11 +94,11 @@ test("transaction vars preserve JSON property order and report invalid input", (
 
 test("transaction vars panels render their JSON errors", () => {
   const directSource = readFileSync(
-    "frontend/src/pages/orchestrated/TxDirectVarsPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/shared/TxDirectVarsPanel.svelte",
     "utf8",
   );
   const templateSource = readFileSync(
-    "frontend/src/pages/orchestrated/TxTemplateRunPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/shared/TxTemplateRunPanel.svelte",
     "utf8",
   );
 

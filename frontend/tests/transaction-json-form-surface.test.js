@@ -6,7 +6,9 @@ import * as eventBindings from "../src/lib/events.js";
 const read = (path) => readFileSync(path, "utf8");
 
 test("transaction JSON editor applies untracked canonical context before connecting", () => {
-  const source = read("frontend/src/pages/orchestrated/TxJsonEditor.svelte");
+  const source = read(
+    "frontend/src/domains/transactions/presentation/components/shared/TxJsonEditor.svelte",
+  );
 
   assert.match(source, /import \{ untrack \} from "svelte"/);
   assert.match(
@@ -53,7 +55,7 @@ test("inline JSON editor initializes CodeMirror with its current value", () => {
 
 test("transaction JSON/Form surface exposes sync status and invalid JSON detail", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/TxJsonFormSurface.svelte",
+    "frontend/src/domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte",
   );
 
   assert.match(source, /ui\/badge/);
@@ -70,7 +72,7 @@ test("transaction JSON/Form surface exposes sync status and invalid JSON detail"
 
 test("transaction JSON/Form surface omits an empty sync status badge", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/TxJsonFormSurface.svelte",
+    "frontend/src/domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte",
   );
 
   assert.match(
@@ -81,7 +83,7 @@ test("transaction JSON/Form surface omits an empty sync status badge", () => {
 
 test("rejected Form selection keeps and refocuses the JSON editor", () => {
   const source = read(
-    "frontend/src/pages/orchestrated/TxJsonFormSurface.svelte",
+    "frontend/src/domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte",
   );
 
   assert.match(source, /function selectEditorView/);
@@ -144,8 +146,8 @@ test("rejected tabs roll back and can select the repaired target again", () => {
 
 test("canonical transaction panels pass detail and localized sync presentation", () => {
   for (const panelPath of [
-    "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowInputPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockInputPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowInputPanel.svelte",
   ]) {
     const source = read(panelPath);
 

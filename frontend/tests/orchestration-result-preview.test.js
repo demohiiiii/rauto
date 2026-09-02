@@ -33,7 +33,7 @@ test("orchestration preview presents targets and workflow commands", () => {
             name: "collect",
             target_groups: ["core"],
             target_tags: ["edge"],
-            targets: ["switch-1", {}],
+            targets: ["switch-1", "switch-2"],
             action: {
               kind: "tx_workflow",
               workflow: {
@@ -67,7 +67,7 @@ test("orchestration preview presents targets and workflow commands", () => {
   assert.equal(stage.targetCount, 4);
   assert.deepEqual(job.targetChipRows.map((row) => row.chipText).slice(-2), [
     "switch-1",
-    "target",
+    "switch-2",
   ]);
   assert.deepEqual(job.commandPreview.lines, [
     "block[0] step[0] show version",

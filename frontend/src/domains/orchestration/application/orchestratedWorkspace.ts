@@ -40,8 +40,7 @@ import {
 } from "./orchestratedExecutionState.js";
 import { defaultOrchestrationTemplatePayload } from "../model/orchestratedExecutionPayloads.js";
 
-type UnknownFunction = (...args: unknown[]) => unknown;
-type AfterDomUpdate = (handler: () => void) => unknown;
+type AfterDomUpdate = (handler: () => void) => void | (() => void);
 type TxExecutionModes = ReturnType<typeof getTxExecutionModes>;
 type TxJsonEditors = ReturnType<typeof createTxJsonEditorsHost>;
 type DashboardEditorState = Pick<
@@ -59,7 +58,7 @@ type ExternalActionContext = Parameters<
 >[1];
 
 interface OrchestratedWorkspaceConfig {
-  afterDomUpdate?: unknown;
+  afterDomUpdate?: AfterDomUpdate | null;
 }
 
 interface TxModeSnapshot {
@@ -70,15 +69,10 @@ interface TxModeSnapshot {
 }
 
 interface OrchestratedEditorLayoutInput {
-  active?: unknown;
+  active?: boolean;
   modes?: TxExecutionModes;
   shellState?: DashboardEditorState;
 }
-
-const objectValue = (value: unknown): Record<string, unknown> =>
-  value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
 
 const errorMessage = (error: unknown): string =>
   error && typeof error === "object" && "message" in error
@@ -95,17 +89,6 @@ function defaultAfterDomUpdate(afterDomUpdateHandler: () => void): void {
   }
 }
 
-function callObjectFunction(
-  target: unknown,
-  name: string,
-  ...args: unknown[]
-): unknown {
-  const operation = objectValue(target)[name];
-  return typeof operation === "function"
-    ? (operation as UnknownFunction)(...args)
-    : undefined;
-}
-
 function externalActionIsCurrent(
   actionContext: ExternalActionContext = null,
 ): boolean {
@@ -115,13 +98,11 @@ function externalActionIsCurrent(
 }
 
 function normalizeTransactionKey(
-  rawKey: unknown,
+  rawKey: string,
   validKeys: ReadonlySet<string>,
   fallback = "",
 ): string {
-  const key =
-    rawKey == null ? "" : typeof rawKey === "string" ? rawKey : String(rawKey);
-  const normalized = key.trim();
+  const normalized = rawKey.trim();
   if (!normalized) return fallback;
   return validKeys.has(normalized) ? normalized : fallback || normalized;
 }
@@ -129,11 +110,7 @@ function normalizeTransactionKey(
 export function createOrchestratedWorkspace(
   workspaceCfg: OrchestratedWorkspaceConfig = {},
 ) {
-  const configuredAfterDomUpdate = workspaceCfg.afterDomUpdate;
-  const afterDomUpdate =
-    typeof configuredAfterDomUpdate === "function"
-      ? (configuredAfterDomUpdate as AfterDomUpdate)
-      : defaultAfterDomUpdate;
+  const afterDomUpdate = workspaceCfg.afterDomUpdate ?? defaultAfterDomUpdate;
   const txEditorKeys: ReadonlySet<string> = new Set(Object.values(TX_EDITOR));
 
   let txJsonEditorsPromise: Promise<void> | null = null;
@@ -143,13 +120,13 @@ export function createOrchestratedWorkspace(
   let lastEditorTheme = "";
   let lastTxModeSnapshot: TxModeSnapshot | null = null;
 
-  function buildTxBlockTemplatePayloadFromEditor(): unknown {
+  function buildTxBlockTemplatePayloadFromEditor() {
     return requireTxJsonEditor("parseTxBlockEditorJson")();
   }
 
   function resizeActiveTxSharedEditor(): void {
     if ((getDashboardState().currentTxStage || "block") === "block") {
-      callObjectFunction(txJsonEditors, "resizeTxBlockJsonEditor");
+      txJsonEditors?.resizeTxBlockJsonEditor();
     }
   }
 
@@ -161,10 +138,12 @@ export function createOrchestratedWorkspace(
     setTxExecutionModes(modes);
   }
 
-  function applyTxEditorTheme(theme: unknown): void {
-    callObjectFunction(txJsonEditors, "setTxBlockJsonEditorTheme", theme);
-    callObjectFunction(txJsonEditors, "setTxWorkflowJsonEditorTheme", theme);
-    callObjectFunction(txJsonEditors, "setOrchestrationJsonEditorTheme", theme);
+  function applyTxEditorTheme(
+    theme: DashboardEditorState["currentTheme"],
+  ): void {
+    txJsonEditors?.setTxBlockJsonEditorTheme(theme);
+    txJsonEditors?.setTxWorkflowJsonEditorTheme(theme);
+    txJsonEditors?.setOrchestrationJsonEditorTheme(theme);
   }
 
   function applyTxWorkflowExecutionModeLayout(
@@ -172,7 +151,7 @@ export function createOrchestratedWorkspace(
   ): void {
     if (modes.txWorkflow !== "direct") return;
     afterDomUpdate(() => {
-      callObjectFunction(txJsonEditors, "resizeTxWorkflowJsonEditor");
+      txJsonEditors?.resizeTxWorkflowJsonEditor();
     });
   }
 
@@ -182,7 +161,7 @@ export function createOrchestratedWorkspace(
 
   function applyOrchestrationExecutionModeLayout(): void {
     afterDomUpdate(() => {
-      callObjectFunction(txJsonEditors, "resizeOrchestrationJsonEditor");
+      txJsonEditors?.resizeOrchestrationJsonEditor();
     });
   }
 
@@ -274,19 +253,19 @@ export function createOrchestratedWorkspace(
   }
 
   function updateTxWorkflowPreviewFromCurrentEditor(
-    text: unknown = null,
+    text: string | null = null,
   ): void {
     if (text != null) {
-      callObjectFunction(txJsonEditors, "setTxWorkflowEditorRawText", text);
+      txJsonEditors?.setTxWorkflowEditorRawText(text);
     }
     updateTxWorkflowPreviewFromEditor(txJsonEditors);
   }
 
   function updateOrchestrationPreviewFromCurrentEditor(
-    text: unknown = null,
+    text: string | null = null,
   ): void {
     if (text != null) {
-      callObjectFunction(txJsonEditors, "setOrchestrationEditorRawText", text);
+      txJsonEditors?.setOrchestrationEditorRawText(text);
     }
     updateOrchestrationPreviewFromEditor(txJsonEditors);
   }
@@ -304,7 +283,7 @@ export function createOrchestratedWorkspace(
   }
 
   function refreshTxVisuals(): void {
-    const lastOrchestrationPreview = objectValue(getLastOrchestrationPreview());
+    const lastOrchestrationPreview = getLastOrchestrationPreview();
     refreshTxBlockPreview();
     updateTxWorkflowPreviewFromCurrentEditor();
     if (lastOrchestrationPreview?.plan) {
@@ -319,7 +298,7 @@ export function createOrchestratedWorkspace(
     configFor: jsonTemplateConfigFor,
     getEditorContext: getJsonTemplateEditorContext,
     getSelectedName: jsonTemplateSelectValue,
-    normalizeEditorKey: (editorKey: unknown) =>
+    normalizeEditorKey: (editorKey: string) =>
       normalizeTransactionKey(editorKey, txEditorKeys),
     setErrorStatus,
     setExecutionModes: setTxExecutionModes,
@@ -379,29 +358,21 @@ export function createOrchestratedWorkspace(
       });
       txJsonEditorsHost = txJsonEditors;
       if (!txJsonEditors.txWorkflowEditorRaw().trim()) {
-        callObjectFunction(
-          txJsonEditors,
-          "setTxWorkflowEditorJson",
+        txJsonEditors.setTxWorkflowEditorJson(
           defaultTxWorkflowTemplatePayload(),
         );
       }
       if (!txJsonEditors.txBlockEditorRaw().trim()) {
-        callObjectFunction(
-          txJsonEditors,
-          "setTxBlockEditorJson",
-          defaultTxBlockTemplatePayload(),
-        );
+        txJsonEditors.setTxBlockEditorJson(defaultTxBlockTemplatePayload());
       }
       if (!txJsonEditors.orchestrationEditorRaw().trim()) {
-        callObjectFunction(
-          txJsonEditors,
-          "setOrchestrationEditorJson",
+        txJsonEditors.setOrchestrationEditorJson(
           defaultOrchestrationTemplatePayload(),
         );
       }
-      callObjectFunction(txJsonEditors, "setupTxWorkflowJsonEditor");
-      callObjectFunction(txJsonEditors, "setupTxBlockJsonEditor");
-      callObjectFunction(txJsonEditors, "setupOrchestrationJsonEditor");
+      txJsonEditors.setupTxWorkflowJsonEditor();
+      txJsonEditors.setupTxBlockJsonEditor();
+      txJsonEditors.setupOrchestrationJsonEditor();
       applyTxEditorTheme(shellState.currentTheme || "dark");
       applyTxStageExecutionModeLayout(shellState.currentTxStage, modes);
       setupTxVarsAssistants();
@@ -448,7 +419,7 @@ export function createOrchestratedWorkspace(
     applyTxStageExecutionModeLayout(shellState.currentTxStage, modes);
   }
 
-  async function runTxBlock(dryRun: boolean, output: unknown): Promise<void> {
+  async function runTxBlock(dryRun: boolean, output: string): Promise<void> {
     const executionActions = orchestratedExecutionOperations({
       dependencies: txExecutionDependencies,
       txJsonEditorsHost,
@@ -514,19 +485,15 @@ export function createOrchestratedWorkspace(
 
   function jsonTemplateStageBindings(kind: string) {
     return {
-      onCreateJsonTemplateDraft: (actionContext: unknown) =>
-        jsonTemplateLibrary.createTemplateDraft(
-          kind,
-          actionContext as JsonTemplateActionContext,
-        ),
+      onCreateJsonTemplateDraft: (actionContext: JsonTemplateActionContext) =>
+        jsonTemplateLibrary.createTemplateDraft(kind, actionContext),
       onDeleteJsonTemplate: () =>
         jsonTemplateLibrary.deleteTemplateFromExecution(kind),
-      onLoadJsonTemplate: (name: unknown, actionContext: unknown) =>
-        jsonTemplateLibrary.loadTemplateIntoEditor(
-          kind,
-          name,
-          actionContext as JsonTemplateActionContext,
-        ),
+      onLoadJsonTemplate: (
+        name: string,
+        actionContext: JsonTemplateActionContext,
+      ) =>
+        jsonTemplateLibrary.loadTemplateIntoEditor(kind, name, actionContext),
       onSaveJsonTemplate: () =>
         jsonTemplateLibrary.saveTemplateFromExecution(kind),
     };
@@ -608,9 +575,9 @@ export function createOrchestratedWorkspace(
       txWorkflowJsonTemplateStageProps.onSaveJsonTemplate,
     setMode: setTxMode,
     updateOrchestrationEditorInput: updateOrchestrationPreviewFromCurrentEditor,
-    updateTxBlockEditorInput: (text: unknown) => {
+    updateTxBlockEditorInput: (text: string | null) => {
       if (text != null) {
-        callObjectFunction(txJsonEditors, "setTxBlockEditorRawText", text);
+        txJsonEditors?.setTxBlockEditorRawText(text);
       }
     },
     updateTxWorkflowEditorInput: updateTxWorkflowPreviewFromCurrentEditor,

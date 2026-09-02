@@ -5,6 +5,7 @@ import {
 import { createLazyComponentRegistry } from "../../../lib/svelte.js";
 import { dashboardDetailRendererDefinitions } from "$domains/dashboard/model/navigation.js";
 import type {
+  OverlayData,
   OverlayDetailRendererDefinitions,
   OverlayDetailRendererRegistry,
   OverlayOrchestrationDetailDisplay,
@@ -30,7 +31,13 @@ export const overlayDetailRuntime = {
   async loadOrchestrationDetailDisplay(): Promise<OverlayOrchestrationDetailDisplay> {
     const { orchestrationDetailDisplay } =
       await import("$domains/orchestration/index.js");
-    return orchestrationDetailDisplay as OverlayOrchestrationDetailDisplay;
+    return (detail) => {
+      if (detail.kind !== "stage" && detail.kind !== "target") return {};
+      return orchestrationDetailDisplay(
+        detail as OverlayData &
+          Parameters<typeof orchestrationDetailDisplay>[0],
+      );
+    };
   },
   setTimeout(handler: () => void, delay: number): number {
     return browserSetTimeout(handler, delay);

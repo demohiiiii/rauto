@@ -34,7 +34,6 @@ import {
 } from "../presentation/orchestrationFormStructureState.js";
 import { orchestrationTxWorkflowActionSourceValue } from "../presentation/orchestrationActionDisplayState.js";
 import type {
-  JsonObject,
   OrchestrationJobEditorRow,
   OrchestrationJobModel,
   OrchestrationPlanChangeHandler,
@@ -46,7 +45,7 @@ import type {
 type PlanChangeHandler = OrchestrationPlanChangeHandler;
 type PlanFieldPatchFactory = (
   fieldKey: string,
-  value: unknown,
+  value: string,
 ) => OrchestrationPlanFormModel;
 
 interface ModelChangeContext {
@@ -72,18 +71,14 @@ interface JobEditorContext {
   jobRow?: OrchestrationJobEditorRow;
 }
 
-function stageStateObjectOrEmpty(value: unknown): JsonObject {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonObject)
-    : {};
+function planModelValue(
+  value: OrchestrationPlanFormModel | undefined,
+): OrchestrationPlanFormModel {
+  return value ?? orchestrationPlanFormModelFromJson({});
 }
 
-function planModelValue(value: unknown): OrchestrationPlanFormModel {
-  return stageStateObjectOrEmpty(value) as OrchestrationPlanFormModel;
-}
-
-function stageStateIntegerOr(value: unknown, fallback = 0): number {
-  return Number.isInteger(value) ? (value as number) : fallback;
+function stageStateIntegerOr(value: number | undefined, fallback = 0): number {
+  return Number.isInteger(value) ? (value ?? fallback) : fallback;
 }
 
 function notifyPlanChange(
@@ -94,22 +89,21 @@ function notifyPlanChange(
 }
 
 function orchestrationJobEditorRow(
-  job: unknown = {},
+  job: OrchestrationJobModel,
   stageIndex: number,
   jobIndex: number,
 ): OrchestrationJobEditorRow {
-  const jobValue = stageStateObjectOrEmpty(job);
-  const actionValue = stageStateObjectOrEmpty(jobValue.action);
-  const txWorkflowValue = stageStateObjectOrEmpty(actionValue.txWorkflow);
   return {
-    job: jobValue as OrchestrationJobEditorRow["job"],
+    job,
     stageIndex,
     jobIndex,
     titleText: `${t("orchestrationFormJob")} ${jobIndex + 1}`,
     txWorkflowRows: {
-      sourceValue: orchestrationTxWorkflowActionSourceValue(txWorkflowValue),
+      sourceValue: orchestrationTxWorkflowActionSourceValue(
+        job.action.txWorkflow,
+      ),
       workflowVarsText: orchestrationJsonFieldText(
-        txWorkflowValue.workflowVars,
+        job.action.txWorkflow.workflowVars,
         {},
       ),
     },

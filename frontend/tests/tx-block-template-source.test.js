@@ -31,11 +31,13 @@ test("transaction block execution always uses the editable inline snapshot", () 
 
 test("transaction block page merges direct and template execution into one editor", () => {
   const inputPanel = read(
-    "frontend/src/pages/orchestrated/TxBlockInputPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockInputPanel.svelte",
   );
-  const stage = read("frontend/src/pages/orchestrated/TxBlockStage.svelte");
+  const stage = read(
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockStage.svelte",
+  );
   const runPanel = read(
-    "frontend/src/pages/orchestrated/TxBlockRunPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRunPanel.svelte",
   );
 
   assert.match(inputPanel, /CommandTemplateSourceField/);

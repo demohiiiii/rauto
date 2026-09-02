@@ -41,6 +41,7 @@ export type {
   TemplateManagerKind,
   TemplateManagerSection,
   TemplateResourceDefinition,
+  TemplateResourceDetail,
   TemplateResourceMeta,
   TextfsmMappingWorkspace,
 } from "./model/types.js";

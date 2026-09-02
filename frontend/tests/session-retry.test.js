@@ -84,8 +84,8 @@ test("all retryable execution pages mount the shared settings component", () => 
 
 test("transaction and upload surfaces do not expose session retry settings", () => {
   for (const path of [
-    "frontend/src/pages/orchestrated/TxBlockRunPanel.svelte",
-    "frontend/src/pages/orchestrated/TxWorkflowRunPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/block/TxBlockRunPanel.svelte",
+    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowRunPanel.svelte",
     "frontend/src/pages/TransferPage.svelte",
   ]) {
     assert.doesNotMatch(readFileSync(path, "utf8"), /SessionRetryFields/);

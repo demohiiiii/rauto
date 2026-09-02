@@ -1,43 +1,46 @@
 import { derived as deriveStore, writable } from "svelte/store";
 import { currentLanguageState } from "../../../lib/i18n.js";
 import { orchestrationDetailRuntime } from "../infrastructure/orchestrationDetailRuntime.js";
+import type {
+  OrchestrationExecutionDetailEntry,
+  OrchestrationJsonValue,
+  OrchestrationPlan,
+} from "../model/types.js";
 import { orchestrationExecutionDetailAt } from "../presentation/orchestrationResultDetailState.js";
+import { orchestrationExecutionPanelDisplay } from "../presentation/orchestrationResultDisplayState.js";
 import {
   orchestrationJsonDisplay,
   orchestrationPreviewPresentation,
 } from "../presentation/orchestrationResultPreviewState.js";
 
 interface JsonSectionContext {
-  jsonValue?: unknown;
+  jsonValue?: OrchestrationJsonValue;
 }
 
 interface PreviewPanelContext {
-  plan?: unknown;
-  previewMode?: unknown;
+  plan?: OrchestrationPlan | null;
+  previewMode?: string;
 }
 
 interface ExecutionPanelContext {
-  panelDisplay?: unknown;
+  panelDisplay?: OrchestrationExecutionPanelDisplay | null;
 }
 
 interface ExecutionDetailCallbacks {
-  onOpenStageDetail?: ((stageIndex: number) => unknown) | null;
+  onOpenStageDetail?: ((stageIndex: number) => void) | null;
   onOpenTargetDetail?:
-    | ((stageIndex: number, jobIndex: number, targetIndex: number) => unknown)
+    | ((stageIndex: number, jobIndex: number, targetIndex: number) => void)
     | null;
 }
 
-function objectValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
+type OrchestrationExecutionPanelDisplay = ReturnType<
+  typeof orchestrationExecutionPanelDisplay
+>;
 
-function integerOr(value: unknown, fallback = 0): number {
-  return Number.isInteger(value) ? (value as number) : fallback;
-}
+type OrchestrationExecutionResultDisplay =
+  OrchestrationExecutionPanelDisplay["resultDisplay"];
 
-function orchestrationOutputModePresentation(mode: unknown = "") {
+function orchestrationOutputModePresentation(mode = "") {
   return {
     showResult: mode === "result",
     showStatus: mode === "status",
@@ -48,14 +51,14 @@ function orchestrationOutputModePresentation(mode: unknown = "") {
 export function createOrchestrationJsonSectionWorkspace({
   jsonValue = null,
 }: JsonSectionContext = {}) {
-  const jsonValueStateStore = writable<unknown>(jsonValue);
+  const jsonValueStateStore = writable<OrchestrationJsonValue>(jsonValue);
   const orchestrationJsonSectionDisplayStateStore = deriveStore(
     [jsonValueStateStore, currentLanguageState],
     ([$jsonValueStateStore]) => orchestrationJsonDisplay($jsonValueStateStore),
   );
   return {
     orchestrationJsonSectionDisplayStateStore,
-    setJsonValue(nextJsonValue: unknown = null): void {
+    setJsonValue(nextJsonValue: OrchestrationJsonValue = null): void {
       jsonValueStateStore.set(nextJsonValue);
     },
   };
@@ -65,8 +68,8 @@ export function createOrchestrationPreviewPanelWorkspace({
   plan = null,
   previewMode = "",
 }: PreviewPanelContext = {}) {
-  const planStateStore = writable<unknown>(plan);
-  const previewModeStateStore = writable<unknown>(previewMode);
+  const planStateStore = writable<OrchestrationPlan | null>(plan);
+  const previewModeStateStore = writable<string>(previewMode);
   const previewPresentationStateStore = deriveStore(
     [planStateStore, currentLanguageState],
     ([$planStateStore]) => orchestrationPreviewPresentation($planStateStore),
@@ -89,13 +92,14 @@ export function createOrchestrationPreviewPanelWorkspace({
   };
 }
 
-function openOrchestrationExecutionDetail(executionDetail: unknown = null) {
-  const detail = objectValue(executionDetail);
-  if (!Object.keys(detail).length) return;
+function openOrchestrationExecutionDetail(
+  executionDetail: OrchestrationExecutionDetailEntry | null = null,
+): void {
+  if (!executionDetail) return;
   void orchestrationDetailRuntime.openDetail({
-    detailPayload: objectValue(detail.detail),
+    detailPayload: { ...executionDetail.detail },
     kind: "orchestrationDetail",
-    title: String(detail.titleText || ""),
+    title: executionDetail.titleText,
   });
 }
 
@@ -107,47 +111,37 @@ function orchestrationExecutionStagePanelCallbacks(
   }: ExecutionDetailCallbacks = {},
 ) {
   return {
-    openStageDetail(): unknown {
-      return typeof onOpenStageDetail === "function"
-        ? onOpenStageDetail(stageIndex)
-        : undefined;
+    openStageDetail(): void {
+      onOpenStageDetail?.(stageIndex);
     },
-    openTargetDetailHandler(
-      stageJobIndex: unknown = 0,
-      targetIndex: unknown = 0,
-    ) {
-      return (): unknown =>
-        typeof onOpenTargetDetail === "function"
-          ? onOpenTargetDetail(
-              stageIndex,
-              integerOr(stageJobIndex),
-              integerOr(targetIndex),
-            )
-          : undefined;
+    openTargetDetailHandler(stageJobIndex = 0, targetIndex = 0) {
+      return (): void => {
+        onOpenTargetDetail?.(stageIndex, stageJobIndex, targetIndex);
+      };
     },
   };
 }
 
-function orchestrationExecutionPanelCallbacks(resultDisplay: unknown = {}) {
-  const display = objectValue(resultDisplay);
-  function openStageDetail(stageIndex: unknown = 0): void {
-    const normalizedStageIndex = integerOr(stageIndex);
+function orchestrationExecutionPanelCallbacks(
+  resultDisplay: OrchestrationExecutionResultDisplay,
+) {
+  function openStageDetail(stageIndex = 0): void {
     openOrchestrationExecutionDetail(
-      orchestrationExecutionDetailAt(display.detailIndex, normalizedStageIndex),
+      orchestrationExecutionDetailAt(resultDisplay.detailIndex, stageIndex),
     );
   }
 
   function openTargetDetail(
-    stageIndex: unknown = 0,
-    jobIndex: unknown = 0,
-    targetIndex: unknown = 0,
+    stageIndex = 0,
+    jobIndex = 0,
+    targetIndex = 0,
   ): void {
     openOrchestrationExecutionDetail(
       orchestrationExecutionDetailAt(
-        display.detailIndex,
-        integerOr(stageIndex),
-        integerOr(jobIndex),
-        integerOr(targetIndex),
+        resultDisplay.detailIndex,
+        stageIndex,
+        jobIndex,
+        targetIndex,
       ),
     );
   }
@@ -155,8 +149,8 @@ function orchestrationExecutionPanelCallbacks(resultDisplay: unknown = {}) {
   return {
     openStageDetail,
     openTargetDetail,
-    stagePanelCallbacks(stageIndex: unknown = 0) {
-      return orchestrationExecutionStagePanelCallbacks(integerOr(stageIndex), {
+    stagePanelCallbacks(stageIndex = 0) {
+      return orchestrationExecutionStagePanelCallbacks(stageIndex, {
         onOpenStageDetail: openStageDetail,
         onOpenTargetDetail: openTargetDetail,
       });
@@ -167,21 +161,25 @@ function orchestrationExecutionPanelCallbacks(resultDisplay: unknown = {}) {
 export function createOrchestrationExecutionPanelWorkspace({
   panelDisplay = null,
 }: ExecutionPanelContext = {}) {
-  const panelDisplayStateStore = writable<unknown>(panelDisplay);
+  const panelDisplayStateStore =
+    writable<OrchestrationExecutionPanelDisplay | null>(panelDisplay);
   const resultDisplayStateStore = deriveStore(
     panelDisplayStateStore,
     ($panelDisplayStateStore) =>
-      objectValue($panelDisplayStateStore).resultDisplay || {},
+      ($panelDisplayStateStore ?? orchestrationExecutionPanelDisplay())
+        .resultDisplay,
   );
   const statusDisplayStateStore = deriveStore(
     panelDisplayStateStore,
     ($panelDisplayStateStore) =>
-      objectValue($panelDisplayStateStore).statusDisplay || {},
+      ($panelDisplayStateStore ?? orchestrationExecutionPanelDisplay())
+        .statusDisplay,
   );
   const executionModeDisplayStateStore = deriveStore(
     panelDisplayStateStore,
     ($panelDisplayStateStore) =>
-      objectValue($panelDisplayStateStore).executionModeDisplay || {},
+      ($panelDisplayStateStore ?? orchestrationExecutionPanelDisplay())
+        .executionModeDisplay,
   );
   const executionCallbacksStateStore = deriveStore(
     resultDisplayStateStore,

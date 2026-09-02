@@ -368,6 +368,26 @@ test("latest orchestration file import wins out of order completion", async () =
   orchestratedWorkspace.destroy();
 });
 
+test("orchestration file import reports non-object JSON as an error", async () => {
+  const orchestratedWorkspace = createOrchestratedWorkspace();
+  await orchestratedWorkspace.ensureEditors();
+  const editorWorkspace = createOrchestrationEditorPanelWorkspace({
+    onImportFile: orchestratedWorkspace.importOrchestrationFile,
+  });
+  const previousModel = get(editorWorkspace.formModelStateStore);
+
+  await editorWorkspace.importFile({ text: async () => "[]" });
+
+  assert.equal(get(editorWorkspace.formModelStateStore), previousModel);
+  assert.equal(requireTxJsonEditor("orchestrationEditorRaw")(), "[]");
+  assert.equal(
+    get(transactionOutputState(TX_OUTPUT.orchestrationPlan)).tone,
+    "error",
+  );
+
+  orchestratedWorkspace.destroy();
+});
+
 test("manual orchestration Form change invalidates a pending file import", async () => {
   const orchestratedWorkspace = createOrchestratedWorkspace();
   await orchestratedWorkspace.ensureEditors();

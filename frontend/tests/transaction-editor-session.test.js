@@ -825,11 +825,11 @@ test("template loader checks latest action before mutating editor state", () => 
   );
   assert.match(
     workspaceSource,
-    /onLoadJsonTemplate:[\s\S]*loadTemplateIntoEditor\(\s*kind,\s*name,\s*actionContext as JsonTemplateActionContext/,
+    /onLoadJsonTemplate:[\s\S]*loadTemplateIntoEditor\(kind, name, actionContext\)/,
   );
   assert.match(
     workspaceSource,
-    /onCreateJsonTemplateDraft:[\s\S]*createTemplateDraft\(\s*kind,\s*actionContext as JsonTemplateActionContext/,
+    /onCreateJsonTemplateDraft:[\s\S]*createTemplateDraft\(kind, actionContext\)/,
   );
 
   const createDraftBody = loaderSource.match(

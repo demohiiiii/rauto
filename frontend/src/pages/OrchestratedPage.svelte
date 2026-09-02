@@ -6,14 +6,20 @@
 
   let { active } = $props();
   const stageDefinitions = [
-    { id: "block", load: () => import("./orchestrated/TxBlockStage.svelte") },
+    {
+      id: "block",
+      load: () =>
+        import("$domains/transactions/presentation/components/block/TxBlockStage.svelte"),
+    },
     {
       id: "workflow",
-      load: () => import("./orchestrated/TxWorkflowStage.svelte"),
+      load: () =>
+        import("$domains/transactions/presentation/components/workflow/TxWorkflowStage.svelte"),
     },
     {
       id: "orchestrate",
-      load: () => import("./orchestrated/OrchestrationStage.svelte"),
+      load: () =>
+        import("$domains/orchestration/presentation/components/stage/OrchestrationStage.svelte"),
     },
   ];
 

@@ -1,23 +1,22 @@
 import { t } from "../../../lib/i18n.js";
-import { plainObject, stringValue } from "../../../lib/jsonValue.js";
 import {
   orchestrationJobFieldsDisplay,
   orchestrationRootFieldsDisplay,
   orchestrationStageFieldsDisplay,
 } from "./orchestrationFormFieldState.js";
 import type {
-  JsonObject,
+  OrchestrationJobEditorDisplay,
+  OrchestrationJobEditorRow,
+  OrchestrationJobModel,
   OrchestrationJobSettingsPanelDisplay,
+  OrchestrationJobTargetsDisplay,
+  OrchestrationPlanFormModel,
   OrchestrationPlanSettingsPanelDisplay,
+  OrchestrationStageEditorRow,
   OrchestrationStageSettingsPanelDisplay,
   OrchestrationStagesPanelDisplay,
   OrchestrationVisualEditorDisplay,
 } from "../model/types.js";
-
-const orchestrationPlainObject = (value: unknown): value is JsonObject =>
-  plainObject(value) === true;
-const orchestrationStringValue = (value: unknown, fallback = ""): string =>
-  stringValue(value, fallback);
 
 interface OrchestrationTargetLabels {
   targetGroupLabelText?: string;
@@ -26,78 +25,62 @@ interface OrchestrationTargetLabels {
 }
 
 export function orchestrationPlanSettingsPanelDisplay(
-  model: unknown = {},
-  visualDisplay: unknown = {},
+  model: Partial<OrchestrationPlanFormModel> = {},
+  visualDisplay: Partial<OrchestrationVisualEditorDisplay> = {},
 ): OrchestrationPlanSettingsPanelDisplay {
-  const planValue = orchestrationPlainObject(model) ? model : {};
-  const displayValue = orchestrationPlainObject(visualDisplay)
-    ? visualDisplay
-    : {};
   return {
     rootFieldRows: orchestrationRootFieldsDisplay(
-      planValue,
-      Array.isArray(displayValue.booleanRows) ? displayValue.booleanRows : [],
+      model,
+      visualDisplay.booleanRows ?? [],
     ),
   };
 }
 
 export function orchestrationJobEditorDisplay(
-  jobRow: unknown = {},
-): JsonObject {
-  const row = orchestrationPlainObject(jobRow) ? jobRow : {};
+  jobRow: Partial<OrchestrationJobEditorRow> = {},
+): OrchestrationJobEditorDisplay {
   return {
     removeButtonLabel: t("deleteBtn"),
     titleText:
-      orchestrationStringValue(row.titleText) ||
-      `${t("orchestrationFormJob")} ${
-        (typeof row.jobIndex === "number" ? row.jobIndex : 0) + 1
-      }`,
+      jobRow.titleText ||
+      `${t("orchestrationFormJob")} ${(jobRow.jobIndex ?? 0) + 1}`,
   };
 }
 
 export function orchestrationStageSettingsPanelDisplay(
-  stageRow: unknown = {},
-  visualDisplay: unknown = {},
+  stageRow: Partial<OrchestrationStageEditorRow> = {},
+  visualDisplay: Partial<OrchestrationVisualEditorDisplay> = {},
 ): OrchestrationStageSettingsPanelDisplay {
-  const row = orchestrationPlainObject(stageRow) ? stageRow : {};
-  const displayValue = orchestrationPlainObject(visualDisplay)
-    ? visualDisplay
-    : {};
-  const stageValue = orchestrationPlainObject(row.stage) ? row.stage : {};
   return {
     fieldRows: orchestrationStageFieldsDisplay(
-      stageValue,
-      Array.isArray(displayValue.strategyRows) ? displayValue.strategyRows : [],
-      Array.isArray(displayValue.booleanRows) ? displayValue.booleanRows : [],
+      stageRow.stage ?? {},
+      visualDisplay.strategyRows ?? [],
+      visualDisplay.booleanRows ?? [],
     ),
   };
 }
 
 export function orchestrationJobSettingsPanelDisplay(
-  job: unknown = {},
-  visualDisplay: unknown = {},
+  job: Partial<OrchestrationJobModel> = {},
+  visualDisplay: Partial<OrchestrationVisualEditorDisplay> = {},
 ): OrchestrationJobSettingsPanelDisplay {
-  const jobValue = orchestrationPlainObject(job) ? job : {};
-  const displayValue = orchestrationPlainObject(visualDisplay)
-    ? visualDisplay
-    : {};
   return {
     fieldRows: orchestrationJobFieldsDisplay(
-      jobValue,
-      Array.isArray(displayValue.strategyRows) ? displayValue.strategyRows : [],
-      Array.isArray(displayValue.booleanRows) ? displayValue.booleanRows : [],
+      job,
+      visualDisplay.strategyRows ?? [],
+      visualDisplay.booleanRows ?? [],
     ),
   };
 }
 
 export function orchestrationJobTargetsDisplay(
-  _jobRow: unknown = {},
+  _jobRow: Partial<OrchestrationJobEditorRow> = {},
   {
     targetGroupLabelText = "",
     targetTagLabelText = "",
     targetLabelText = "",
   }: OrchestrationTargetLabels = {},
-): JsonObject {
+): OrchestrationJobTargetsDisplay {
   return {
     targetGroupsField: {
       labelText: targetGroupLabelText,

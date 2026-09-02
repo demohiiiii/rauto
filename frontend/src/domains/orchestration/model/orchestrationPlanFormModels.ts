@@ -73,7 +73,9 @@ function orchestrationTxWorkflowActionModelFromJson(
   source: unknown = {},
 ): OrchestrationTxWorkflowActionModel {
   const value = orchestrationPlainObject(source) ? source : {};
-  const workflow = cloneOrchestrationJsonValue(value.workflow, null);
+  const workflow = orchestrationPlainObject(value.workflow)
+    ? cloneOrchestrationJsonValue(value.workflow, {})
+    : null;
   const workflowTemplateName =
     typeof value.workflow_template_name === "string"
       ? value.workflow_template_name
@@ -83,7 +85,9 @@ function orchestrationTxWorkflowActionModelFromJson(
     hasWorkflow: Object.hasOwn(value, "workflow"),
     workflowTemplateName,
     hasWorkflowTemplateName: Object.hasOwn(value, "workflow_template_name"),
-    workflowVars: cloneOrchestrationJsonValue(value.workflow_vars, {}),
+    workflowVars: orchestrationPlainObject(value.workflow_vars)
+      ? cloneOrchestrationJsonValue(value.workflow_vars, {})
+      : {},
     hasWorkflowVars: Object.hasOwn(value, "workflow_vars"),
   };
 }
@@ -113,6 +117,11 @@ function orchestrationValidateActionJson(
   if (Number(hasWorkflow) + Number(hasTemplate) !== 1) {
     throw new TypeError(
       "unsupported orchestration action sources: use workflow or workflow_template_name",
+    );
+  }
+  if (hasWorkflow && !orchestrationPlainObject(source.workflow)) {
+    throw new TypeError(
+      "unsupported orchestration action field: workflow must be an object",
     );
   }
   if (
@@ -179,8 +188,11 @@ function orchestrationJobModelFromJson(
   source: unknown = {},
 ): OrchestrationJobModel {
   const value = orchestrationPlainObject(source) ? source : {};
+  if (value.name != null && typeof value.name !== "string") {
+    throw new TypeError("orchestration job name must be a string or null");
+  }
   return {
-    name: value.name ?? null,
+    name: typeof value.name === "string" ? value.name : null,
     hasName: Object.hasOwn(value, "name"),
     strategy: value.strategy === "parallel" ? "parallel" : "serial",
     maxParallel: orchestrationNullableNumberValue(value.max_parallel),
@@ -455,9 +467,13 @@ export function orchestrationPlanFormModelFromJsonText(
     return { error: "", model: null };
   }
   try {
+    const plan: unknown = JSON.parse(jsonText);
+    if (!orchestrationPlainObject(plan)) {
+      throw new TypeError("orchestration plan must be a JSON object");
+    }
     return {
       error: "",
-      model: orchestrationPlanFormModelFromJson(JSON.parse(jsonText)),
+      model: orchestrationPlanFormModelFromJson(plan),
     };
   } catch (error) {
     return {
