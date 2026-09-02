@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   txWorkflowDuplicateBlock,
   txWorkflowMoveBlock,
+  txWorkflowTemplateRefEditorDisplay,
   txWorkflowTemplateRefEditorBindings,
   txWorkflowVisualEditorBindings,
   txWorkflowVisualEditorDisplay,
@@ -144,6 +145,48 @@ test("template ref editor bindings preserve source and presence patches", () => 
   ]);
   assert.deepEqual(fieldPresenceChanges, [["name", false]]);
   assert.deepEqual(varsPresenceChanges, [true]);
+});
+
+test("template ref editor bindings accept direct field values", () => {
+  const patches = [];
+  const fieldPresenceChanges = [];
+  const bindings = txWorkflowTemplateRefEditorBindings(
+    {},
+    {
+      patchTemplateRef: (patch) => patches.push(patch),
+      setTemplateRefFieldPresence: (field, enabled) =>
+        fieldPresenceChanges.push([field, enabled]),
+    },
+  );
+
+  bindings.valueHandler("name")("edge block");
+  bindings.sourceModeHandler()("content");
+  bindings.presenceToggle("name")(true);
+
+  assert.deepEqual(patches, [
+    { hasName: true, name: "edge block" },
+    { hasTxBlockTemplateName: false, txBlockTemplateName: null },
+  ]);
+  assert.deepEqual(fieldPresenceChanges, [["name", true]]);
+});
+
+test("template ref editor display preserves form-model variables", () => {
+  const display = txWorkflowTemplateRefEditorDisplay({
+    extra: {},
+    failFast: true,
+    hasFailFast: false,
+    hasName: false,
+    hasTxBlockTemplateContent: false,
+    hasTxBlockTemplateName: true,
+    hasTxBlockTemplateVars: true,
+    name: null,
+    txBlockTemplateContent: null,
+    txBlockTemplateName: "base",
+    txBlockTemplateVars: { site: "edge" },
+  });
+
+  assert.deepEqual(display.varsDisplay.source, { site: "edge" });
+  assert.equal(display.varsDisplay.present, true);
 });
 
 test("tx workflow editor uses a focused flow canvas and live read-only view", async () => {

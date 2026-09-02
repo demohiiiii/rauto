@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import CrosshairIcon from "@lucide/svelte/icons/crosshair";
   import GaugeIcon from "@lucide/svelte/icons/gauge";
   import PlayCircleIcon from "@lucide/svelte/icons/play-circle";
@@ -8,18 +8,37 @@
   import OrchestrationJobActionEditor from "./OrchestrationJobActionEditor.svelte";
   import OrchestrationJobSettingsEditor from "./OrchestrationJobSettingsEditor.svelte";
   import OrchestrationJobTargetsSection from "./OrchestrationJobTargetsSection.svelte";
+  import type {
+    OrchestrationErrorChangeHandler,
+    OrchestrationJobEditorRow,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationVisualEditorDisplay,
+  } from "$domains/orchestration/index.js";
+
+  interface Props {
+    framed?: boolean;
+    jobRow: OrchestrationJobEditorRow;
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    onErrorChange?: OrchestrationErrorChangeHandler | null;
+    onRemove?: (() => void) | null;
+    showHeader?: boolean;
+    stageIndex: number;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+  }
 
   let {
     model,
     stageIndex,
     jobRow,
     visualDisplay,
-    onChange,
-    onErrorChange,
-    onRemove,
+    onChange = null,
+    onErrorChange = null,
+    onRemove = null,
     framed = true,
     showHeader = true,
-  } = $props();
+  }: Props = $props();
   const orchestrationJobEditorWorkspace =
     createOrchestrationJobEditorWorkspace();
   const { jobEditorDisplayStateStore, jobRowStateStore, setJobRow } =

@@ -1,13 +1,25 @@
-<script>
+<script lang="ts">
   import PlusIcon from "@lucide/svelte/icons/plus";
   import { Handle, Position } from "@xyflow/svelte";
   import { Button } from "$lib/components/ui/button/index.js";
 
-  let { data } = $props();
+  interface StageInsertNodeData {
+    hasSource: boolean;
+    hasTarget: boolean;
+    labelText: string;
+    onInsertStage?: () => void;
+    vertical: boolean;
+  }
 
-  function insertStage(event) {
+  interface Props {
+    data: StageInsertNodeData;
+  }
+
+  let { data }: Props = $props();
+
+  function insertStage(event: MouseEvent): void {
     event.stopPropagation();
-    if (typeof data.onInsertStage === "function") data.onInsertStage();
+    data.onInsertStage?.();
   }
 </script>
 

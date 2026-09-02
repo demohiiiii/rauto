@@ -1,7 +1,18 @@
-<script>
+<script lang="ts">
   import ValueTextSelectField from "../fragments/ValueTextSelectField.svelte";
   import { currentLanguageState, t } from "../../lib/i18n.js";
   import { MANUAL_COMMAND_SOURCE } from "$domains/command/index.js";
+
+  interface Props {
+    disabled?: boolean;
+    hintText?: string;
+    labelText?: string;
+    manualLabelText?: string;
+    onValueChange?: (value: string) => void;
+    optionValues?: string[];
+    showLabel?: boolean;
+    value?: string;
+  }
 
   let {
     disabled = false,
@@ -12,7 +23,7 @@
     optionValues = [],
     showLabel = true,
     value = MANUAL_COMMAND_SOURCE,
-  } = $props();
+  }: Props = $props();
   let sourceLabel = $derived(labelText || t("commandSourceLabel"));
   let sourceHint = $derived(hintText || t("commandSourceHint"));
   let manualSourceLabel = $derived(manualLabelText || t("commandSourceManual"));
@@ -23,7 +34,7 @@
         labelText: manualSourceLabel,
         valueText: MANUAL_COMMAND_SOURCE,
       },
-      ...(Array.isArray(optionValues) ? optionValues : []).map((name) => ({
+      ...optionValues.map((name) => ({
         labelText: name,
         valueText: name,
       })),

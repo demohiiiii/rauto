@@ -1,18 +1,30 @@
-<script>
+<script lang="ts">
   import { createTxDirectVarsPanelWorkspace } from "$domains/transactions/index.js";
+  import type { TransactionEditorView } from "$domains/transactions/index.js";
   import OrchestrationVarsFormCard from "./OrchestrationVarsFormCard.svelte";
   import TxJsonFormSurface from "./TxJsonFormSurface.svelte";
 
+  interface Props {
+    active?: boolean;
+    "aria-label"?: string;
+    "hidden-textarea"?: boolean;
+    hintKey?: string;
+    placeholderFallback?: string;
+    placeholderKey?: string;
+    prefix: string;
+    varsKey: string;
+  }
+
   let {
-    active,
-    "aria-label": ariaLabel,
-    "hidden-textarea": hiddenTextarea,
-    hintKey,
-    placeholderFallback,
-    placeholderKey,
+    active = false,
+    "aria-label": ariaLabel = "",
+    "hidden-textarea": hiddenTextarea = false,
+    hintKey = "",
+    placeholderFallback = "",
+    placeholderKey = "",
     prefix,
     varsKey,
-  } = $props();
+  }: Props = $props();
 
   const txDirectVarsPanelWorkspace = createTxDirectVarsPanelWorkspace({
     getPanelConfig: () => ({
@@ -24,10 +36,10 @@
     }),
   });
   const { changeVarsText, panelDisplayStateStore } = txDirectVarsPanelWorkspace;
-  let editorDisplayMode = $state("form");
+  let editorDisplayMode = $state<TransactionEditorView>("form");
   let panelDisplay = $derived($panelDisplayStateStore);
 
-  function selectEditorView(nextEditorDisplayMode) {
+  function selectEditorView(nextEditorDisplayMode: TransactionEditorView) {
     editorDisplayMode = nextEditorDisplayMode;
   }
 </script>
@@ -49,6 +61,7 @@
     formError={panelDisplay.formError}
     jsonHintText={panelDisplay.showHint ? panelDisplay.hintText : ""}
     onInlineEditorChange={changeVarsText}
+    onEditorInput={undefined}
     onEditorViewSelect={selectEditorView}
     placeholder={panelDisplay.placeholderText}
   >

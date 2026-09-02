@@ -1,10 +1,15 @@
-<script>
+<script lang="ts">
   import { createTxWorkflowBlockResultPanelWorkspace } from "$domains/transactions/index.js";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import TxOperationStepCard from "./TxOperationStepCard.svelte";
   import TxStepResultDetail from "./TxStepResultDetail.svelte";
+  import type { TxWorkflowExecutionBlockRow } from "$domains/transactions/index.js";
 
-  let { workflowBlockRow } = $props();
+  interface Props {
+    workflowBlockRow: TxWorkflowExecutionBlockRow;
+  }
+
+  let { workflowBlockRow }: Props = $props();
   const txWorkflowBlockResultPanelWorkspace =
     createTxWorkflowBlockResultPanelWorkspace();
   const { panelDisplayStateStore, setWorkflowBlockRow } =

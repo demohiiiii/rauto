@@ -1,6 +1,23 @@
-<script>
+<script lang="ts">
+  import type { HTMLTextareaAttributes } from "svelte/elements";
   import PlainTextAreaField from "./PlainTextAreaField.svelte";
   import JsonTextEditor from "./JsonTextEditor.svelte";
+
+  interface Props {
+    active?: boolean;
+    "aria-label"?: string;
+    class?: string;
+    disabled?: boolean;
+    editorKind?: "json" | "plain";
+    hintText?: string;
+    labelText?: string;
+    onChange?: (value: string) => void;
+    onInput?: HTMLTextareaAttributes["oninput"];
+    onValueInput?: (value: string) => void;
+    placeholderText?: string;
+    showLabel?: boolean;
+    value?: string;
+  }
 
   let {
     active = true,
@@ -16,7 +33,7 @@
     onChange,
     onInput,
     onValueInput,
-  } = $props();
+  }: Props = $props();
 </script>
 
 <label class="flex flex-col gap-2">

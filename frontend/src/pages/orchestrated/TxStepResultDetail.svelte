@@ -1,11 +1,23 @@
-<script>
+<script lang="ts">
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
   import TxOperationStepCard from "./TxOperationStepCard.svelte";
+  import type {
+    TxOperationStepRow,
+    TxStepResultRow,
+  } from "$domains/transactions/index.js";
 
-  let { stepResultRow } = $props();
+  interface Props {
+    stepResultRow: TxStepResultRow;
+  }
+
+  let { stepResultRow }: Props = $props();
 </script>
 
-{#snippet operationStepOutputs(title, operationRows, hasOperationRows)}
+{#snippet operationStepOutputs(
+  title: string,
+  operationRows: TxOperationStepRow[],
+  hasOperationRows: boolean,
+)}
   {#if hasOperationRows}
     <div class="grid gap-2">
       <div class="text-xs font-semibold text-slate-600">{title}</div>

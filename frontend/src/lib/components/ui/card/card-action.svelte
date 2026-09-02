@@ -1,11 +1,19 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type CardActionProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
+    children?: Snippet;
+    ref?: HTMLDivElement | null;
+  };
+
   let {
     ref = $bindable(null),
     class: className,
     children,
     ...restProps
-  } = $props();
+  }: CardActionProps = $props();
 </script>
 
 <div

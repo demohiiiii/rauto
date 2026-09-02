@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
@@ -13,6 +13,26 @@
   } from "$domains/profiles/model/modeExpression.js";
   import PlainInputField from "./PlainInputField.svelte";
 
+  interface ValueChangeEvent {
+    currentTarget: { value: string };
+    target: { value: string };
+  }
+
+  interface Props {
+    "aria-label"?: string;
+    class?: string;
+    disabled?: boolean;
+    hidden?: boolean;
+    onChange?: (event: ValueChangeEvent) => void;
+    onInput?: (event: ValueChangeEvent) => void;
+    onValueChange?: (value: string) => void;
+    onValueInput?: (value: string) => void;
+    optionValues?: string[];
+    placeholderText?: string;
+    title?: string;
+    value?: string;
+  }
+
   let {
     value = "",
     optionValues = [],
@@ -26,7 +46,7 @@
     onInput,
     onValueChange,
     onValueInput,
-  } = $props();
+  }: Props = $props();
 
   const listId = `mode-expression-${Math.random().toString(36).slice(2)}`;
   let modeOptions = $derived(profileModeExpressionOptions(optionValues));
@@ -46,21 +66,21 @@
   );
   let triggerTitle = $derived(ariaLabel || title || placeholderText);
 
-  function inputEvent(nextValue = "") {
+  function inputEvent(nextValue = ""): ValueChangeEvent {
     return {
       currentTarget: { value: nextValue },
       target: { value: nextValue },
     };
   }
 
-  function emitValue(nextValue = "") {
+  function emitValue(nextValue = ""): void {
     onValueInput?.(nextValue);
     onValueChange?.(nextValue);
     onInput?.(inputEvent(nextValue));
     onChange?.(inputEvent(nextValue));
   }
 
-  function updateSelectedOptions(nextSelectedValues = []) {
+  function updateSelectedOptions(nextSelectedValues: string[] = []): void {
     emitValue(
       profileModeExpressionFromSelection(
         nextSelectedValues,
@@ -70,7 +90,7 @@
     );
   }
 
-  function handleValueInput(nextValue = "") {
+  function handleValueInput(nextValue = ""): void {
     emitValue(nextValue);
   }
 </script>

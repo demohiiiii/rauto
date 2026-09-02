@@ -9,11 +9,13 @@ import {
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelFromJson,
   txBlockFormModelToJsonText,
+  txWorkflowTemplateRefBlockModelFromJson,
 } from "../model/transactionBlockFormModels.js";
 import type {
   JsonObject,
   TxBlockFormModel,
   TxWorkflowFormModel,
+  TxWorkflowTemplateRefBlockModel,
 } from "../model/types.js";
 import {
   txWorkflowBlockEditorBindings,
@@ -21,9 +23,13 @@ import {
   txWorkflowVisualEditorBindings,
   txWorkflowVisualEditorDisplay,
 } from "./transactionWorkflowEditorState.js";
+import type {
+  TxWorkflowBlockActionHandlers,
+  TxWorkflowBlockRow,
+} from "./transactionWorkflowEditorState.js";
 
-type TxWorkflowChangeHandler = (model: TxWorkflowFormModel) => unknown;
-type TxWorkflowSourceChangeHandler = (source: string) => unknown;
+type TxWorkflowChangeHandler = (model: TxWorkflowFormModel) => void;
+type TxWorkflowSourceChangeHandler = (source: string) => void;
 
 interface TxWorkflowTemplateRefSourceState {
   formError: string;
@@ -35,8 +41,8 @@ interface TxWorkflowTemplateRefSourceWorkspaceOptions {
 }
 
 interface TxWorkflowTemplateRefEditorWorkspaceOptions {
-  initialBooleanRows?: unknown;
-  initialTemplateRef?: unknown;
+  initialBooleanRows?: readonly string[];
+  initialTemplateRef?: TxWorkflowTemplateRefBlockModel;
 }
 
 interface TxWorkflowVisualEditorWorkspaceOptions {
@@ -45,15 +51,15 @@ interface TxWorkflowVisualEditorWorkspaceOptions {
 }
 
 interface TxWorkflowBlockEditorWorkspaceOptions {
-  blockActionHandlers?: unknown;
-  blockRow?: unknown;
+  blockActionHandlers?: TxWorkflowBlockActionHandlers | null;
+  blockRow?: TxWorkflowBlockRow | null;
 }
 
 function txWorkflowTemplateRefSourceEditorState(
-  sourceValue: unknown = "",
+  sourceValue = "",
   currentFormModel: TxBlockFormModel | null = null,
 ): TxWorkflowTemplateRefSourceState {
-  if (typeof sourceValue !== "string" || !sourceValue.trim()) {
+  if (!sourceValue.trim()) {
     return {
       formError: "",
       formModel: currentFormModel || txBlockFormModelFromJson(),
@@ -93,11 +99,9 @@ export function createTxWorkflowTemplateRefSourceWorkspace({
         onSourceChange(txBlockFormModelToJsonText(nextModel));
       }
     },
-    handleJsonChange(nextValue: unknown): void {
+    handleJsonChange(nextValue: string): void {
       if (typeof onSourceChange === "function") {
-        onSourceChange(
-          typeof nextValue === "string" ? nextValue : String(nextValue ?? ""),
-        );
+        onSourceChange(nextValue);
       }
       applyState(
         txWorkflowTemplateRefSourceEditorState(
@@ -106,12 +110,12 @@ export function createTxWorkflowTemplateRefSourceWorkspace({
         ),
       );
     },
-    selectEditorView(nextView: unknown): void {
+    selectEditorView(nextView: string): void {
       editorDisplayModeStore.set(nextView === "json" ? "json" : "form");
     },
     setSourceContext({
       sourceValue = "",
-    }: { sourceValue?: unknown } = {}): void {
+    }: { sourceValue?: string } = {}): void {
       applyState(
         txWorkflowTemplateRefSourceEditorState(
           sourceValue,
@@ -124,14 +128,11 @@ export function createTxWorkflowTemplateRefSourceWorkspace({
 
 export function createTxWorkflowTemplateRefEditorWorkspace({
   initialBooleanRows = [],
-  initialTemplateRef = {},
+  initialTemplateRef = txWorkflowTemplateRefBlockModelFromJson(),
 }: TxWorkflowTemplateRefEditorWorkspaceOptions = {}) {
-  const booleanRowsStateStore = writable<unknown[]>(
-    Array.isArray(initialBooleanRows) ? initialBooleanRows : [],
-  );
-  const templateRefStateStore = writable<JsonObject>(
-    plainObject(initialTemplateRef) ? initialTemplateRef : {},
-  );
+  const booleanRowsStateStore = writable<string[]>([...initialBooleanRows]);
+  const templateRefStateStore =
+    writable<TxWorkflowTemplateRefBlockModel>(initialTemplateRef);
   const editorDisplayStateStore = deriveStore(
     [templateRefStateStore, booleanRowsStateStore, currentLanguageState],
     ([$templateRefStateStore, $booleanRowsStateStore, _currentLanguageState]) =>
@@ -145,13 +146,13 @@ export function createTxWorkflowTemplateRefEditorWorkspace({
     editorDisplayStateStore,
     setTemplateRefEditorContext({
       booleanRows = [],
-      templateRef = {},
+      templateRef = txWorkflowTemplateRefBlockModelFromJson(),
     }: {
-      booleanRows?: unknown;
-      templateRef?: unknown;
+      booleanRows?: readonly string[];
+      templateRef?: TxWorkflowTemplateRefBlockModel;
     } = {}): void {
-      booleanRowsStateStore.set(Array.isArray(booleanRows) ? booleanRows : []);
-      templateRefStateStore.set(plainObject(templateRef) ? templateRef : {});
+      booleanRowsStateStore.set([...booleanRows]);
+      templateRefStateStore.set(templateRef);
     },
   };
 }
@@ -198,32 +199,27 @@ export function createTxWorkflowVisualEditorWorkspace({
 }
 
 export function createTxWorkflowBlockEditorWorkspace({
-  blockActionHandlers = {},
-  blockRow = {},
+  blockActionHandlers = null,
+  blockRow = null,
 }: TxWorkflowBlockEditorWorkspaceOptions = {}) {
-  const blockActionHandlersStateStore = writable<JsonObject>(
-    plainObject(blockActionHandlers) ? blockActionHandlers : {},
-  );
-  const blockRowStateStore = writable<JsonObject>(
-    plainObject(blockRow) ? blockRow : {},
-  );
+  const blockActionHandlersStateStore =
+    writable<TxWorkflowBlockActionHandlers | null>(blockActionHandlers);
+  const blockRowStateStore = writable<TxWorkflowBlockRow | null>(blockRow);
   const editorActionHandlersStateStore = deriveStore(
     [blockRowStateStore, blockActionHandlersStateStore],
     ([$blockRowStateStore, $blockActionHandlersStateStore]) =>
       txWorkflowBlockEditorBindings(
         $blockRowStateStore,
-        $blockActionHandlersStateStore,
+        $blockActionHandlersStateStore || {},
       ),
   );
 
   function setBlockEditorContext({
-    blockActionHandlers: nextBlockActionHandlers = {},
-    blockRow: nextBlockRow = {},
+    blockActionHandlers: nextBlockActionHandlers = null,
+    blockRow: nextBlockRow = null,
   }: TxWorkflowBlockEditorWorkspaceOptions = {}): void {
-    blockActionHandlersStateStore.set(
-      plainObject(nextBlockActionHandlers) ? nextBlockActionHandlers : {},
-    );
-    blockRowStateStore.set(plainObject(nextBlockRow) ? nextBlockRow : {});
+    blockActionHandlersStateStore.set(nextBlockActionHandlers);
+    blockRowStateStore.set(nextBlockRow);
   }
 
   return {

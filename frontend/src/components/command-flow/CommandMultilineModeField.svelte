@@ -1,15 +1,23 @@
-<script>
+<script lang="ts">
   import * as ToggleGroup from "$lib/components/ui/toggle-group/index.js";
+  import type { CommandFlowMultilineMode } from "$domains/command/index.js";
   import { t } from "../../lib/i18n.js";
+
+  interface Props {
+    disabled?: boolean;
+    labelText?: string;
+    onValueChange?: (value: CommandFlowMultilineMode) => void;
+    value?: CommandFlowMultilineMode;
+  }
 
   let {
     value = "split_lines",
     disabled = false,
     labelText = t("commandMultilineMode"),
     onValueChange,
-  } = $props();
+  }: Props = $props();
 
-  function changeValue(nextValue) {
+  function changeValue(nextValue: string): void {
     if (nextValue === "split_lines" || nextValue === "whole") {
       onValueChange?.(nextValue);
     }

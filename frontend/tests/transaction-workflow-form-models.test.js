@@ -4,6 +4,7 @@ import {
   defaultTxWorkflowTemplatePayload,
   txWorkflowEditorFormStateFromJsonText,
   txWorkflowFormModelFromJson,
+  txWorkflowFormModelToJsonText,
 } from "../src/domains/transactions/index.js";
 
 test("workflow parser preserves the model and reports invalid JSON location", () => {
@@ -24,4 +25,23 @@ test("workflow parser preserves the model and reports invalid JSON location", ()
     line: 3,
     column: 1,
   });
+});
+
+test("workflow template variables preserve explicit null through form round trip", () => {
+  const model = txWorkflowFormModelFromJson({
+    name: "null-vars",
+    blocks: [
+      {
+        tx_block_template_name: "base",
+        tx_block_template_vars: null,
+      },
+    ],
+  });
+
+  assert.equal(model.blocks[0].templateRef.txBlockTemplateVars, null);
+  assert.equal(
+    JSON.parse(txWorkflowFormModelToJsonText(model)).blocks[0]
+      .tx_block_template_vars,
+    null,
+  );
 });

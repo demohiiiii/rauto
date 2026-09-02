@@ -539,18 +539,29 @@ export function txWorkflowTemplateRefBlockModelFromJson(
 ): TxWorkflowTemplateRefBlockModel {
   const value = plainObject(source) ? source : {};
   return {
-    name: value.name ?? null,
+    name: typeof value.name === "string" ? value.name : null,
     hasName: Object.hasOwn(value, "name"),
     failFast: typeof value.fail_fast === "boolean" ? value.fail_fast : true,
     hasFailFast: Object.hasOwn(value, "fail_fast"),
-    txBlockTemplateName: value.tx_block_template_name ?? null,
+    txBlockTemplateName:
+      typeof value.tx_block_template_name === "string"
+        ? value.tx_block_template_name
+        : null,
     hasTxBlockTemplateName: Object.hasOwn(value, "tx_block_template_name"),
-    txBlockTemplateContent: value.tx_block_template_content ?? null,
+    txBlockTemplateContent:
+      typeof value.tx_block_template_content === "string"
+        ? value.tx_block_template_content
+        : null,
     hasTxBlockTemplateContent: Object.hasOwn(
       value,
       "tx_block_template_content",
     ),
-    txBlockTemplateVars: cloneTxJsonValue(value.tx_block_template_vars, {}),
+    txBlockTemplateVars:
+      value.tx_block_template_vars === null
+        ? null
+        : plainObject(value.tx_block_template_vars)
+          ? cloneTxJsonValue(value.tx_block_template_vars, {})
+          : {},
     hasTxBlockTemplateVars: Object.hasOwn(value, "tx_block_template_vars"),
     extra: txObjectExtra(
       value,
@@ -591,10 +602,10 @@ function txWorkflowTemplateRefBlockJsonFromModel(
     (plainObject(model.txBlockTemplateVars) &&
       Object.keys(model.txBlockTemplateVars).length > 0)
   ) {
-    result.tx_block_template_vars = cloneTxJsonValue(
-      model.txBlockTemplateVars,
-      {},
-    );
+    result.tx_block_template_vars =
+      model.txBlockTemplateVars === null
+        ? null
+        : cloneTxJsonValue(model.txBlockTemplateVars, {});
   }
   return result;
 }

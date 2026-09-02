@@ -1,7 +1,29 @@
-<script>
+<script lang="ts">
+  import type { Snippet } from "svelte";
   import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
   import PresenceFieldGrid from "../fragments/PresenceFieldGrid.svelte";
+  import type {
+    PresenceFieldPresenceHandlerForKey,
+    PresenceFieldRow,
+    PresenceFieldValueHandlerForKey,
+  } from "../fragments/presenceFieldTypes.js";
   import CommandFlowSurface from "./CommandFlowSurface.svelte";
+
+  type SurfaceVariant = "section" | "workbench-header" | "workbench-section";
+
+  interface Props {
+    children?: Snippet;
+    description?: string;
+    fieldRows?: PresenceFieldRow[];
+    indexText?: string;
+    metadataFieldRows?: PresenceFieldRow[];
+    onMetadataPresenceChangeForKey?: PresenceFieldPresenceHandlerForKey | null;
+    onMetadataValueChangeForKey?: PresenceFieldValueHandlerForKey | null;
+    onPresenceChangeForKey?: PresenceFieldPresenceHandlerForKey | null;
+    onValueChangeForKey?: PresenceFieldValueHandlerForKey | null;
+    surfaceVariant?: SurfaceVariant;
+    title?: string;
+  }
 
   let {
     children,
@@ -15,7 +37,7 @@
     onValueChangeForKey,
     surfaceVariant = "section",
     title = "",
-  } = $props();
+  }: Props = $props();
 </script>
 
 <CommandFlowSurface

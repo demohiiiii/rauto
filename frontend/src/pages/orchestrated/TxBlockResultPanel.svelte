@@ -1,10 +1,15 @@
-<script>
+<script lang="ts">
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import TxOperationStepCard from "./TxOperationStepCard.svelte";
   import TxStepResultDetail from "./TxStepResultDetail.svelte";
+  import type { TxBlockResultPanelDisplay } from "$domains/transactions/index.js";
 
-  let { resultPanel } = $props();
+  interface Props {
+    resultPanel: TxBlockResultPanelDisplay;
+  }
+
+  let { resultPanel }: Props = $props();
 </script>
 
 {#if resultPanel.hasTxResult}

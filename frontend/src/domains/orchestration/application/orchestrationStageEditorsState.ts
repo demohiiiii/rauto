@@ -16,6 +16,11 @@ import {
   orchestrationRemoveStage,
 } from "../model/orchestrationStageMutations.js";
 import {
+  orchestrationCreateJobModel,
+  orchestrationPlanFormModelFromJson,
+  orchestrationCreateStageModel,
+} from "../model/orchestrationPlanFormModels.js";
+import {
   orchestrationJsonFieldText,
   orchestrationJobFieldPatch,
   orchestrationStageFieldPatch,
@@ -28,35 +33,43 @@ import {
   orchestrationStagesPanelDisplay,
 } from "../presentation/orchestrationFormStructureState.js";
 import { orchestrationTxWorkflowActionSourceValue } from "../presentation/orchestrationActionDisplayState.js";
-import type { JsonObject, OrchestrationPlanFormModel } from "../model/types.js";
+import type {
+  JsonObject,
+  OrchestrationJobEditorRow,
+  OrchestrationJobModel,
+  OrchestrationPlanChangeHandler,
+  OrchestrationPlanFormModel,
+  OrchestrationStageEditorRow,
+  OrchestrationVisualEditorDisplay,
+} from "../model/types.js";
 
-type PlanChangeHandler = (model: OrchestrationPlanFormModel) => unknown;
+type PlanChangeHandler = OrchestrationPlanChangeHandler;
 type PlanFieldPatchFactory = (
   fieldKey: string,
   value: unknown,
 ) => OrchestrationPlanFormModel;
 
 interface ModelChangeContext {
-  model?: unknown;
+  model?: OrchestrationPlanFormModel;
   onChange?: PlanChangeHandler | null;
 }
 
 interface VisualModelChangeContext extends ModelChangeContext {
-  visualDisplay?: unknown;
+  visualDisplay?: OrchestrationVisualEditorDisplay;
 }
 
 interface StageEditorContext extends VisualModelChangeContext {
-  stageRow?: unknown;
+  stageRow?: OrchestrationStageEditorRow;
 }
 
 interface JobSettingsEditorContext extends VisualModelChangeContext {
-  job?: unknown;
-  jobIndex?: unknown;
-  stageIndex?: unknown;
+  job?: OrchestrationJobModel;
+  jobIndex?: number;
+  stageIndex?: number;
 }
 
 interface JobEditorContext {
-  jobRow?: unknown;
+  jobRow?: OrchestrationJobEditorRow;
 }
 
 function stageStateObjectOrEmpty(value: unknown): JsonObject {
@@ -76,25 +89,20 @@ function stageStateIntegerOr(value: unknown, fallback = 0): number {
 function notifyPlanChange(
   onChange: PlanChangeHandler | null | undefined,
   model: OrchestrationPlanFormModel,
-): unknown {
-  return (
-    callIfFunction as (
-      callback: PlanChangeHandler | null | undefined,
-      value: OrchestrationPlanFormModel,
-    ) => unknown
-  )(onChange, model);
+): void {
+  callIfFunction(onChange, model);
 }
 
 function orchestrationJobEditorRow(
   job: unknown = {},
   stageIndex: number,
   jobIndex: number,
-): JsonObject {
+): OrchestrationJobEditorRow {
   const jobValue = stageStateObjectOrEmpty(job);
   const actionValue = stageStateObjectOrEmpty(jobValue.action);
   const txWorkflowValue = stageStateObjectOrEmpty(actionValue.txWorkflow);
   return {
-    job: jobValue,
+    job: jobValue as OrchestrationJobEditorRow["job"],
     stageIndex,
     jobIndex,
     titleText: `${t("orchestrationFormJob")} ${jobIndex + 1}`,
@@ -108,8 +116,10 @@ function orchestrationJobEditorRow(
   };
 }
 
-export function orchestrationVisualEditorDisplay(model: unknown = {}) {
-  const modelValue = planModelValue(model);
+export function orchestrationVisualEditorDisplay(
+  model: OrchestrationPlanFormModel = orchestrationPlanFormModelFromJson(),
+): OrchestrationVisualEditorDisplay {
+  const modelValue = model;
   const stages = Array.isArray(modelValue.stages) ? modelValue.stages : [];
   return {
     txWorkflowActionSourceRows: ["workflow_json", "workflow_template_name"],
@@ -117,7 +127,7 @@ export function orchestrationVisualEditorDisplay(model: unknown = {}) {
     jsonValueTypeRows: TX_BLOCK_JSON_VALUE_TYPE_ROWS,
     nullableBooleanRows: ["", ...TX_BLOCK_BOOLEAN_ROWS],
     strategyRows: ["serial", "parallel"],
-    stageRows: stages.map((stage, stageIndex) => {
+    stageRows: stages.map((stage, stageIndex): OrchestrationStageEditorRow => {
       const jobs = Array.isArray(stage.jobs) ? stage.jobs : [];
       return {
         stage,
@@ -202,16 +212,18 @@ export function orchestrationJobSettingsCallbacks(
 }
 
 export function createOrchestrationJobEditorWorkspace({
-  jobRow = {},
+  jobRow,
 }: JobEditorContext = {}) {
-  const jobRowStateStore = writable(stageStateObjectOrEmpty(jobRow));
+  const jobRowStateStore = writable<OrchestrationJobEditorRow>(
+    jobRow ?? orchestrationJobEditorRow(orchestrationCreateJobModel(), 0, 0),
+  );
   const jobEditorDisplayStateStore = deriveStore(
     [jobRowStateStore, currentLanguageState],
     ([$jobRowStateStore]) => orchestrationJobEditorDisplay($jobRowStateStore),
   );
 
-  function setJobRow(nextJobRow: unknown = {}) {
-    jobRowStateStore.set(stageStateObjectOrEmpty(nextJobRow));
+  function setJobRow(nextJobRow: OrchestrationJobEditorRow) {
+    jobRowStateStore.set(nextJobRow);
   }
 
   return {
@@ -222,7 +234,7 @@ export function createOrchestrationJobEditorWorkspace({
 }
 
 export function createOrchestrationStagesPanelWorkspace({
-  model = {},
+  model,
   onChange = null,
 }: ModelChangeContext = {}) {
   const modelStateStore = writable(planModelValue(model));
@@ -244,7 +256,7 @@ export function createOrchestrationStagesPanelWorkspace({
   return {
     panelCallbacksStateStore,
     setStagesPanelContext({
-      model: nextModel = {},
+      model: nextModel,
       onChange: nextOnChange = null,
     }: ModelChangeContext = {}) {
       modelStateStore.set(planModelValue(nextModel));
@@ -256,14 +268,14 @@ export function createOrchestrationStagesPanelWorkspace({
 }
 
 export function createOrchestrationPlanSettingsEditorWorkspace({
-  model = {},
+  model,
   onChange = null,
-  visualDisplay = {},
+  visualDisplay,
 }: VisualModelChangeContext = {}) {
   const modelStateStore = writable(planModelValue(model));
   const onChangeStateStore = writable<PlanChangeHandler | null>(onChange);
-  const visualDisplayStateStore = writable(
-    stageStateObjectOrEmpty(visualDisplay),
+  const visualDisplayStateStore = writable<OrchestrationVisualEditorDisplay>(
+    visualDisplay ?? orchestrationVisualEditorDisplay(),
   );
   const settingsPanelDisplayStateStore = deriveStore(
     [modelStateStore, visualDisplayStateStore, currentLanguageState],
@@ -282,13 +294,15 @@ export function createOrchestrationPlanSettingsEditorWorkspace({
   );
 
   function setPlanSettingsContext({
-    model: nextModel = {},
+    model: nextModel,
     onChange: nextOnChange = null,
-    visualDisplay: nextVisualDisplay = {},
+    visualDisplay: nextVisualDisplay,
   }: VisualModelChangeContext = {}) {
     modelStateStore.set(planModelValue(nextModel));
     onChangeStateStore.set(nextOnChange);
-    visualDisplayStateStore.set(stageStateObjectOrEmpty(nextVisualDisplay));
+    visualDisplayStateStore.set(
+      nextVisualDisplay ?? orchestrationVisualEditorDisplay(),
+    );
   }
 
   return {
@@ -299,16 +313,23 @@ export function createOrchestrationPlanSettingsEditorWorkspace({
 }
 
 export function createOrchestrationStageEditorWorkspace({
-  model = {},
+  model,
   onChange = null,
-  stageRow = {},
-  visualDisplay = {},
+  stageRow,
+  visualDisplay,
 }: StageEditorContext = {}) {
   const modelStateStore = writable(planModelValue(model));
   const onChangeStateStore = writable<PlanChangeHandler | null>(onChange);
-  const stageRowStateStore = writable(stageStateObjectOrEmpty(stageRow));
-  const visualDisplayStateStore = writable(
-    stageStateObjectOrEmpty(visualDisplay),
+  const stageRowStateStore = writable<OrchestrationStageEditorRow>(
+    stageRow ?? {
+      jobRows: [],
+      stage: orchestrationCreateStageModel(),
+      stageIndex: 0,
+      titleText: "",
+    },
+  );
+  const visualDisplayStateStore = writable<OrchestrationVisualEditorDisplay>(
+    visualDisplay ?? orchestrationVisualEditorDisplay(),
   );
   const settingsPanelDisplayStateStore = deriveStore(
     [stageRowStateStore, visualDisplayStateStore, currentLanguageState],
@@ -329,15 +350,24 @@ export function createOrchestrationStageEditorWorkspace({
   );
 
   function setStageContext({
-    model: nextModel = {},
+    model: nextModel,
     onChange: nextOnChange = null,
-    stageRow: nextStageRow = {},
-    visualDisplay: nextVisualDisplay = {},
+    stageRow: nextStageRow,
+    visualDisplay: nextVisualDisplay,
   }: StageEditorContext = {}) {
     modelStateStore.set(planModelValue(nextModel));
     onChangeStateStore.set(nextOnChange);
-    stageRowStateStore.set(stageStateObjectOrEmpty(nextStageRow));
-    visualDisplayStateStore.set(stageStateObjectOrEmpty(nextVisualDisplay));
+    stageRowStateStore.set(
+      nextStageRow ?? {
+        jobRows: [],
+        stage: orchestrationCreateStageModel(),
+        stageIndex: 0,
+        titleText: "",
+      },
+    );
+    visualDisplayStateStore.set(
+      nextVisualDisplay ?? orchestrationVisualEditorDisplay(),
+    );
   }
 
   return {
@@ -349,20 +379,22 @@ export function createOrchestrationStageEditorWorkspace({
 }
 
 export function createOrchestrationJobSettingsEditorWorkspace({
-  job = {},
+  job,
   jobIndex = 0,
-  model = {},
+  model,
   onChange = null,
   stageIndex = 0,
-  visualDisplay = {},
+  visualDisplay,
 }: JobSettingsEditorContext = {}) {
   const modelStateStore = writable(planModelValue(model));
   const onChangeStateStore = writable<PlanChangeHandler | null>(onChange);
-  const jobStateStore = writable(stageStateObjectOrEmpty(job));
+  const jobStateStore = writable<OrchestrationJobModel>(
+    job ?? orchestrationCreateJobModel(),
+  );
   const jobIndexStateStore = writable(stageStateIntegerOr(jobIndex));
   const stageIndexStateStore = writable(stageStateIntegerOr(stageIndex));
-  const visualDisplayStateStore = writable(
-    stageStateObjectOrEmpty(visualDisplay),
+  const visualDisplayStateStore = writable<OrchestrationVisualEditorDisplay>(
+    visualDisplay ?? orchestrationVisualEditorDisplay(),
   );
   const settingsPanelDisplayStateStore = deriveStore(
     [jobStateStore, visualDisplayStateStore, currentLanguageState],
@@ -394,19 +426,21 @@ export function createOrchestrationJobSettingsEditorWorkspace({
   );
 
   function setJobSettingsContext({
-    job: nextJob = {},
+    job: nextJob,
     jobIndex: nextJobIndex = 0,
-    model: nextModel = {},
+    model: nextModel,
     onChange: nextOnChange = null,
     stageIndex: nextStageIndex = 0,
-    visualDisplay: nextVisualDisplay = {},
+    visualDisplay: nextVisualDisplay,
   }: JobSettingsEditorContext = {}) {
-    jobStateStore.set(stageStateObjectOrEmpty(nextJob));
+    jobStateStore.set(nextJob ?? orchestrationCreateJobModel());
     jobIndexStateStore.set(stageStateIntegerOr(nextJobIndex));
     modelStateStore.set(planModelValue(nextModel));
     onChangeStateStore.set(nextOnChange);
     stageIndexStateStore.set(stageStateIntegerOr(nextStageIndex));
-    visualDisplayStateStore.set(stageStateObjectOrEmpty(nextVisualDisplay));
+    visualDisplayStateStore.set(
+      nextVisualDisplay ?? orchestrationVisualEditorDisplay(),
+    );
   }
 
   return {

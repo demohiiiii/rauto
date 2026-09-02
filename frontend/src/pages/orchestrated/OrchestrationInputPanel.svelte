@@ -1,14 +1,38 @@
-<script>
+<script lang="ts">
   import OrchestrationEditorRunPanel from "./OrchestrationEditorRunPanel.svelte";
   import { createOrchestrationInputPanelWorkspace } from "$domains/orchestration/index.js";
+  import type { orchestrationExecutionPanelDisplay } from "$domains/orchestration/index.js";
+
+  interface TextFile {
+    text(): Promise<string>;
+  }
+
+  interface ExternalActionContext {
+    isCurrent?: () => boolean;
+  }
+
+  type ExecutionPanelDisplay = ReturnType<
+    typeof orchestrationExecutionPanelDisplay
+  >;
+
+  interface Props {
+    active?: boolean;
+    executionPanelDisplay: ExecutionPanelDisplay;
+    onEditorInput?: (text: string) => void;
+    onExecute?: () => void;
+    onImportFile?: (
+      file: TextFile,
+      actionContext?: ExternalActionContext | null,
+    ) => void;
+  }
 
   let {
-    active,
+    active = false,
     onEditorInput,
     onExecute,
     onImportFile,
     executionPanelDisplay,
-  } = $props();
+  }: Props = $props();
 
   const orchestrationInputWorkspace = createOrchestrationInputPanelWorkspace();
   const {

@@ -74,10 +74,10 @@ interface OrchestrationEditorWorkspaceCore {
 }
 
 export function orchestrationEditorDisplays({
-  formModel = {},
+  formModel = orchestrationPlanFormModelFromJson(),
   jsonPlaceholder = "",
 }: {
-  formModel?: unknown;
+  formModel?: OrchestrationPlanFormModel;
   jsonPlaceholder?: string;
 } = {}) {
   return {

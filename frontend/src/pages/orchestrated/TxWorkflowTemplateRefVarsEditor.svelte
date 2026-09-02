@@ -1,8 +1,29 @@
-<script>
+<script lang="ts">
   import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceToggle from "../../components/fragments/PresenceToggle.svelte";
-  let { jsonValueTypeRows, onVarsChange, onVarsPresenceChange, varsDisplay } =
-    $props();
+  import type {
+    JsonObject,
+    TxWorkflowTemplateRefVarsDisplay,
+  } from "$domains/transactions/index.js";
+
+  interface CheckedChangeEvent {
+    currentTarget: { checked: boolean };
+    target: { checked: boolean };
+  }
+
+  interface Props {
+    jsonValueTypeRows?: readonly string[];
+    onVarsChange?: ((value: JsonObject) => void) | null;
+    onVarsPresenceChange?: ((event: CheckedChangeEvent) => void) | null;
+    varsDisplay: TxWorkflowTemplateRefVarsDisplay;
+  }
+
+  let {
+    jsonValueTypeRows = [],
+    onVarsChange = null,
+    onVarsPresenceChange = null,
+    varsDisplay,
+  }: Props = $props();
 </script>
 
 <div class="grid gap-2">
@@ -19,7 +40,7 @@
     <JsonObjectFieldsEditor
       title={varsDisplay.labelText}
       source={varsDisplay.source}
-      typeRows={jsonValueTypeRows}
+      typeRows={[...jsonValueTypeRows]}
       onChange={onVarsChange}
     />
   {/if}

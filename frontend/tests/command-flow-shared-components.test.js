@@ -49,7 +49,6 @@ test("shared command flow surfaces keep defaults and expose opt-in workbench lay
   const templateEditor = read(
     "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
   );
-
   assert.match(surface, /variant = "section"/);
   assert.match(surface, /variant === "workbench-header"/);
   assert.match(surface, /variant === "workbench-section"/);
@@ -109,8 +108,8 @@ test("command flow steps and prompts bind deterministic indexed accents", () => 
   const stepsEditor = read(
     "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
   );
-  const templateEditor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
+  const authoringViews = read(
+    "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
   );
   const stepEditor = read(
     "frontend/src/components/command-flow/CommandFlowTemplateStepEditor.svelte",
@@ -122,7 +121,7 @@ test("command flow steps and prompts bind deterministic indexed accents", () => 
   assert.match(stepsEditor, /commandFlowAccentColor\(stepPosition\)/);
   assert.match(stepsEditor, /style:--command-flow-accent=\{accentColor\}/);
   assert.match(stepsEditor, /accentIndex: stepPosition/);
-  assert.match(templateEditor, /accentIndex=\{stepRow\.accentIndex\}/);
+  assert.match(authoringViews, /accentIndex=\{stepRow\.accentIndex\}/);
   assert.match(stepEditor, /accentIndex \* 2 \+ promptIndex \+ 1/);
   assert.match(promptEditor, /style:--command-flow-accent=\{accentColor\}/);
   assert.match(promptEditor, /data-command-flow-prompt/);

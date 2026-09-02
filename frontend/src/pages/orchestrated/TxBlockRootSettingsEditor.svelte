@@ -1,10 +1,21 @@
-<script>
+<script lang="ts">
   import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { t } from "../../lib/i18n.js";
   import TxFormSection from "./TxFormSection.svelte";
+  import type {
+    PresenceFieldPresenceHandlerForKey,
+    PresenceFieldRow,
+    PresenceFieldValueHandlerForKey,
+  } from "../../components/fragments/presenceFieldTypes.js";
 
-  let { fieldRows = [], onValueChange, onPresenceChange } = $props();
+  interface Props {
+    fieldRows?: PresenceFieldRow[];
+    onPresenceChange?: PresenceFieldPresenceHandlerForKey | null;
+    onValueChange?: PresenceFieldValueHandlerForKey | null;
+  }
+
+  let { fieldRows = [], onValueChange, onPresenceChange }: Props = $props();
 </script>
 
 <TxFormSection

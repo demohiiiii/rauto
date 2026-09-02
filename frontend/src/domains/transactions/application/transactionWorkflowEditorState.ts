@@ -1,6 +1,8 @@
 import {
   callbackMappedFormCheckedHandler,
   callbackMappedFormValueHandler,
+  formChecked,
+  formValue,
 } from "../../../lib/events.js";
 import { plainObject, stringValue } from "../../../lib/jsonValue.js";
 import { t } from "../../../lib/i18n.js";
@@ -17,13 +19,43 @@ import type {
   TxBlockFormModel,
   TxWorkflowBlockFormModel,
   TxWorkflowTemplateRefBlockModel,
+  TxWorkflowTemplateRefVarsDisplay,
 } from "../model/types.js";
 import {
   TX_BLOCK_BOOLEAN_ROWS,
   TX_BLOCK_JSON_VALUE_TYPE_ROWS,
 } from "../presentation/transactionBlockDisplayState.js";
 
-type FormEventHandler = (event: unknown) => unknown;
+export interface TxWorkflowValueEvent {
+  currentTarget: { value: string };
+  target?: { value: string };
+}
+
+export interface TxWorkflowCheckedEvent {
+  currentTarget: { checked: boolean };
+  target?: { checked: boolean };
+}
+
+export type TxWorkflowValueInput = string | Event | TxWorkflowValueEvent;
+export type TxWorkflowCheckedInput = boolean | Event | TxWorkflowCheckedEvent;
+export type TxWorkflowValueHandler = (input: TxWorkflowValueInput) => void;
+export type TxWorkflowCheckedHandler = (input: TxWorkflowCheckedInput) => void;
+type FormEventHandler = TxWorkflowValueHandler | TxWorkflowCheckedHandler;
+
+function txWorkflowValueHandler(
+  callback: (value: string) => void,
+): TxWorkflowValueHandler {
+  return (input) =>
+    callback(typeof input === "string" ? input : formValue(input));
+}
+
+function txWorkflowCheckedHandler(
+  callback: (checked: boolean) => void,
+): TxWorkflowCheckedHandler {
+  return (input) =>
+    callback(typeof input === "boolean" ? input : formChecked(input));
+}
+
 interface TxWorkflowEditorModel extends JsonObject {
   blocks?: TxWorkflowBlockFormModel[];
   failFast?: boolean;
@@ -31,7 +63,7 @@ interface TxWorkflowEditorModel extends JsonObject {
 }
 
 interface TxWorkflowFieldDefinition {
-  controlType: string;
+  controlType: "input" | "select";
   fieldKey: string;
   inputType?: string;
   labelKey: string;
@@ -39,13 +71,13 @@ interface TxWorkflowFieldDefinition {
   placeholderKey?: string;
 }
 
-interface TxWorkflowOptionRow {
+export interface TxWorkflowOptionRow {
   optionLabel: string;
   optionValue: string;
 }
 
-interface TxWorkflowFieldRow extends JsonObject {
-  controlType: string;
+export interface TxWorkflowFieldRow extends JsonObject {
+  controlType: "input" | "select";
   enabled: boolean;
   fieldKey: string;
   inputType?: string;
@@ -59,10 +91,91 @@ interface TxWorkflowFieldRow extends JsonObject {
   valueText: string;
 }
 
-interface TxWorkflowBlockBindingPort {
-  patchTemplateRef?(patch: JsonObject): unknown;
-  setTemplateRefFieldPresence?(field: string, enabled: boolean): unknown;
-  setTemplateRefVarsPresence?(enabled: boolean): unknown;
+interface TxWorkflowTemplateRefSourceFieldBase extends JsonObject {
+  enabled: boolean;
+  labelText: string;
+  nullableModeRows: TxWorkflowOptionRow[];
+  nullableModeValue: "null" | "value";
+  placeholderText: string;
+  showNullableModeSelect: boolean;
+  showPresenceToggle: true;
+  valueText: string;
+}
+
+export interface TxWorkflowTemplateRefContentSourceField extends TxWorkflowTemplateRefSourceFieldBase {
+  controlType: "textarea";
+  fieldKey: "txBlockTemplateContent";
+}
+
+export interface TxWorkflowTemplateRefNameSourceField extends TxWorkflowTemplateRefSourceFieldBase {
+  controlType: "input";
+  fieldKey: "txBlockTemplateName";
+  inputType: "text";
+}
+
+export type TxWorkflowTemplateRefSourceField =
+  | TxWorkflowTemplateRefContentSourceField
+  | TxWorkflowTemplateRefNameSourceField;
+
+export interface TxWorkflowTemplateRefSourceDisplay {
+  hintText: string;
+  sourceField: TxWorkflowTemplateRefSourceField;
+  sourceMode: "content" | "name";
+  sourceModeField: TxWorkflowFieldRow;
+}
+
+export interface TxWorkflowTemplateRefEditorDisplay {
+  extraSource: JsonObject;
+  fieldRows: TxWorkflowFieldRow[];
+  sourceDisplay: TxWorkflowTemplateRefSourceDisplay;
+  varsDisplay: TxWorkflowTemplateRefVarsDisplay;
+}
+
+export interface TxWorkflowBlockBindingPort {
+  patchTemplateRef?(patch: JsonObject): void;
+  setTemplateRefFieldPresence?(field: string, enabled: boolean): void;
+  setTemplateRefVarsPresence?(enabled: boolean): void;
+}
+
+export interface TxWorkflowTemplateRefEditorBindings {
+  nullableModeHandler(fieldKey: string): TxWorkflowValueHandler;
+  presenceToggle(field: string): TxWorkflowCheckedHandler;
+  setExtra(extra: JsonObject): void;
+  setTemplateVars(txBlockTemplateVars: JsonObject): void;
+  sourceModeHandler(): TxWorkflowValueHandler;
+  templateContentHandler(): TxWorkflowValueHandler;
+  templateContentModeHandler(): TxWorkflowValueHandler;
+  templateNameHandler(): TxWorkflowValueHandler;
+  templateNameModeHandler(): TxWorkflowValueHandler;
+  valueHandler(fieldKey: string): TxWorkflowValueHandler;
+  varsToggle(): TxWorkflowCheckedHandler;
+}
+
+export interface TxWorkflowBlockRow {
+  block: TxWorkflowBlockFormModel;
+  blockIndex: number;
+  fieldRows: TxWorkflowFieldRow[];
+  showInlineBlock: boolean;
+  showTemplateRef: boolean;
+  titleText: string;
+}
+
+export interface TxWorkflowBlockActionHandlers extends TxWorkflowBlockBindingPort {
+  remove(): void;
+  setSource(sourceKind: TxWorkflowValueInput): void;
+  updateInlineBlock(inlineBlock: TxBlockFormModel): void;
+}
+
+export interface TxWorkflowBlockEditorActionHandlers {
+  templateRefBindings: TxWorkflowTemplateRefEditorBindings;
+}
+
+export interface TxWorkflowVisualEditorDisplay {
+  blockRows: TxWorkflowBlockRow[];
+  blockSourceRows: readonly string[];
+  booleanRows: readonly string[];
+  jsonValueTypeRows: readonly string[];
+  rootFieldRows: TxWorkflowFieldRow[];
 }
 
 type TxWorkflowChangeHandler = (model: TxWorkflowEditorModel) => unknown;
@@ -461,10 +574,10 @@ export function txWorkflowBlockFieldsDisplay(
 }
 
 export function txWorkflowTemplateRefFieldsDisplay(
-  templateRef: unknown = {},
-  booleanRows: readonly unknown[] = [],
+  templateRef: TxWorkflowTemplateRefBlockModel = txWorkflowTemplateRefBlockModelFromJson(),
+  booleanRows: readonly string[] = [],
 ): TxWorkflowFieldRow[] {
-  const templateRefValue = plainObject(templateRef) ? templateRef : {};
+  const templateRefValue = templateRef;
   return TX_WORKFLOW_TEMPLATE_REF_FIELD_DEFS.map((fieldDef) => {
     const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
     if (fieldDef.optionKind === "boolean") {
@@ -500,14 +613,16 @@ export function txWorkflowTemplateRefFieldsDisplay(
   });
 }
 
-export function txWorkflowTemplateRefSourceDisplay(templateRef: unknown = {}) {
-  const templateRefValue = plainObject(templateRef) ? templateRef : {};
-  const sourceMode =
+export function txWorkflowTemplateRefSourceDisplay(
+  templateRef: TxWorkflowTemplateRefBlockModel = txWorkflowTemplateRefBlockModelFromJson(),
+): TxWorkflowTemplateRefSourceDisplay {
+  const templateRefValue = templateRef;
+  const sourceMode: "content" | "name" =
     templateRefValue.hasTxBlockTemplateContent ||
     templateRefValue.txBlockTemplateContent != null
       ? "content"
       : "name";
-  const sourceModeField = {
+  const sourceModeField: TxWorkflowFieldRow = {
     controlType: "select",
     enabled: true,
     fieldKey: "sourceMode",
@@ -525,7 +640,7 @@ export function txWorkflowTemplateRefSourceDisplay(templateRef: unknown = {}) {
     showPresenceToggle: false,
     valueText: sourceMode,
   };
-  const sourceField =
+  const sourceField: TxWorkflowTemplateRefSourceField =
     sourceMode === "content"
       ? {
           controlType: "textarea",
@@ -570,8 +685,10 @@ export function txWorkflowTemplateRefSourceDisplay(templateRef: unknown = {}) {
   };
 }
 
-export function txWorkflowTemplateRefVarsDisplay(templateRef: unknown = {}) {
-  const templateRefValue = plainObject(templateRef) ? templateRef : {};
+export function txWorkflowTemplateRefVarsDisplay(
+  templateRef: TxWorkflowTemplateRefBlockModel = txWorkflowTemplateRefBlockModelFromJson(),
+): TxWorkflowTemplateRefVarsDisplay {
+  const templateRefValue = templateRef;
   return {
     labelText: t("txWorkflowFormBlockTemplateVars"),
     present:
@@ -588,10 +705,10 @@ export function txWorkflowTemplateRefVarsDisplay(templateRef: unknown = {}) {
 }
 
 export function txWorkflowTemplateRefEditorDisplay(
-  templateRef: unknown = {},
-  booleanRows: readonly unknown[] = [],
-) {
-  const templateRefValue = plainObject(templateRef) ? templateRef : {};
+  templateRef: TxWorkflowTemplateRefBlockModel = txWorkflowTemplateRefBlockModelFromJson(),
+  booleanRows: readonly string[] = [],
+): TxWorkflowTemplateRefEditorDisplay {
+  const templateRefValue = templateRef;
   return {
     extraSource: plainObject(templateRefValue.extra)
       ? templateRefValue.extra
@@ -606,13 +723,11 @@ export function txWorkflowTemplateRefEditorDisplay(
 }
 
 export function txWorkflowTemplateRefEditorBindings(
-  templateRef: unknown = {},
-  blockBindings: unknown = {},
-) {
-  const bindingPort = plainObject(blockBindings)
-    ? (blockBindings as TxWorkflowBlockBindingPort)
-    : {};
-  const applyPatch = (patch: JsonObject = {}): unknown =>
+  templateRef: Partial<TxWorkflowTemplateRefBlockModel> = {},
+  blockBindings: TxWorkflowBlockBindingPort = {},
+): TxWorkflowTemplateRefEditorBindings {
+  const bindingPort = blockBindings;
+  const applyPatch = (patch: JsonObject = {}): void =>
     typeof bindingPort.patchTemplateRef === "function"
       ? bindingPort.patchTemplateRef(patch)
       : undefined;
@@ -643,116 +758,96 @@ export function txWorkflowTemplateRefEditorBindings(
         hasTxBlockTemplateVars: true,
       });
     },
-    presenceToggle(field: string): FormEventHandler {
-      return callbackMappedFormCheckedHandler(
-        (enabled) =>
-          typeof bindingPort.setTemplateRefFieldPresence === "function"
-            ? bindingPort.setTemplateRefFieldPresence(field, enabled)
-            : undefined,
-        (enabled) => enabled,
+    presenceToggle(field: string): TxWorkflowCheckedHandler {
+      return txWorkflowCheckedHandler((enabled) =>
+        typeof bindingPort.setTemplateRefFieldPresence === "function"
+          ? bindingPort.setTemplateRefFieldPresence(field, enabled)
+          : undefined,
       );
     },
-    nullableModeHandler(fieldKey: string): FormEventHandler {
-      return callbackMappedFormValueHandler(
-        (value) =>
-          applyPatch(
-            workflowNullableFieldModePatch(templateRef, fieldKey, value),
-          ),
-        (value) => value,
+    nullableModeHandler(fieldKey: string): TxWorkflowValueHandler {
+      return txWorkflowValueHandler((value) =>
+        applyPatch(
+          workflowNullableFieldModePatch(templateRef, fieldKey, value),
+        ),
       );
     },
-    valueHandler(fieldKey: string): FormEventHandler {
+    valueHandler(fieldKey: string): TxWorkflowValueHandler {
       if (fieldKey === "failFast") {
-        return callbackMappedFormValueHandler(
-          (value) =>
-            applyPatch({
-              failFast: value === "true",
-              hasFailFast: true,
-            }),
-          (value) => value,
+        return txWorkflowValueHandler((value) =>
+          applyPatch({
+            failFast: value === "true",
+            hasFailFast: true,
+          }),
         );
       }
-      return callbackMappedFormValueHandler(
-        (value) =>
-          applyPatch({
-            name: workflowNullableTextValue(value),
-            hasName: true,
-          }),
-        (value) => value,
+      return txWorkflowValueHandler((value) =>
+        applyPatch({
+          name: workflowNullableTextValue(value),
+          hasName: true,
+        }),
       );
     },
-    sourceModeHandler(): FormEventHandler {
-      return callbackMappedFormValueHandler(
-        (sourceMode) =>
-          applyPatch(
-            sourceMode === "content"
-              ? {
-                  txBlockTemplateName: null,
-                  hasTxBlockTemplateName: false,
-                }
-              : {
-                  txBlockTemplateContent: null,
-                  hasTxBlockTemplateContent: false,
-                },
-          ),
-        (value) => value,
+    sourceModeHandler(): TxWorkflowValueHandler {
+      return txWorkflowValueHandler((sourceMode) =>
+        applyPatch(
+          sourceMode === "content"
+            ? {
+                txBlockTemplateName: null,
+                hasTxBlockTemplateName: false,
+              }
+            : {
+                txBlockTemplateContent: null,
+                hasTxBlockTemplateContent: false,
+              },
+        ),
       );
     },
-    templateContentHandler(): FormEventHandler {
-      return callbackMappedFormValueHandler(
-        (value) =>
-          setTemplateSource(
+    templateContentHandler(): TxWorkflowValueHandler {
+      return txWorkflowValueHandler((value) =>
+        setTemplateSource(
+          "txBlockTemplateContent",
+          "txBlockTemplateName",
+          value,
+        ),
+      );
+    },
+    templateContentModeHandler(): TxWorkflowValueHandler {
+      return txWorkflowValueHandler((mode) =>
+        applyPatch(
+          workflowNullableFieldModePatch(
+            templateRef,
             "txBlockTemplateContent",
+            mode,
+          ),
+        ),
+      );
+    },
+    templateNameHandler(): TxWorkflowValueHandler {
+      return txWorkflowValueHandler((value) =>
+        setTemplateSource(
+          "txBlockTemplateName",
+          "txBlockTemplateContent",
+          value,
+        ),
+      );
+    },
+    templateNameModeHandler(): TxWorkflowValueHandler {
+      return txWorkflowValueHandler((mode) =>
+        applyPatch(
+          workflowNullableFieldModePatch(
+            templateRef,
             "txBlockTemplateName",
-            value,
+            mode,
           ),
-        (value) => value,
+        ),
       );
     },
-    templateContentModeHandler(): FormEventHandler {
-      return callbackMappedFormValueHandler(
-        (mode) =>
-          applyPatch(
-            workflowNullableFieldModePatch(
-              templateRef,
-              "txBlockTemplateContent",
-              mode,
-            ),
-          ),
-        (value) => value,
-      );
-    },
-    templateNameHandler(): FormEventHandler {
-      return callbackMappedFormValueHandler(
-        (value) =>
-          setTemplateSource(
-            "txBlockTemplateName",
-            "txBlockTemplateContent",
-            value,
-          ),
-        (value) => value,
-      );
-    },
-    templateNameModeHandler(): FormEventHandler {
-      return callbackMappedFormValueHandler(
-        (mode) =>
-          applyPatch(
-            workflowNullableFieldModePatch(
-              templateRef,
-              "txBlockTemplateName",
-              mode,
-            ),
-          ),
-        (value) => value,
-      );
-    },
-    varsToggle(): FormEventHandler {
-      return callbackMappedFormCheckedHandler(
-        (enabled) =>
-          typeof bindingPort.setTemplateRefVarsPresence === "function"
-            ? bindingPort.setTemplateRefVarsPresence(enabled)
-            : undefined,
-        (enabled) => enabled,
+    varsToggle(): TxWorkflowCheckedHandler {
+      return txWorkflowCheckedHandler((enabled) =>
+        typeof bindingPort.setTemplateRefVarsPresence === "function"
+          ? bindingPort.setTemplateRefVarsPresence(enabled)
+          : undefined,
       );
     },
   };
@@ -815,16 +910,16 @@ function txWorkflowBlockBindings(
   model: unknown,
   onChange: unknown,
   blockIndex: number,
-) {
+): TxWorkflowBlockActionHandlers {
   const bindings = txWorkflowEditorBindings(model, onChange);
   return {
     patchTemplateRef(patch: JsonObject = {}): void {
       bindings.patchTemplateRefBlock(blockIndex, patch);
     },
-    remove() {
+    remove(): void {
       bindings.removeBlock(blockIndex);
     },
-    setSource(sourceKind: unknown): void {
+    setSource(sourceKind: TxWorkflowValueInput): void {
       bindings.setBlockSource(blockIndex, sourceKind);
     },
     setTemplateRefFieldPresence(field: string, enabled: boolean): void {
@@ -876,22 +971,21 @@ export function txWorkflowVisualEditorBindings(
 }
 
 export function txWorkflowBlockEditorBindings(
-  blockRow: unknown = {},
-  blockBindings: unknown = {},
-) {
-  const blockRowValue = plainObject(blockRow) ? blockRow : {};
-  const blockValue = plainObject(blockRowValue.block)
-    ? blockRowValue.block
-    : {};
+  blockRow: TxWorkflowBlockRow | null = null,
+  blockBindings: TxWorkflowBlockBindingPort = {},
+): TxWorkflowBlockEditorActionHandlers {
+  const blockValue = blockRow?.block;
   return {
     templateRefBindings: txWorkflowTemplateRefEditorBindings(
-      blockValue.templateRef,
+      blockValue?.templateRef,
       blockBindings,
     ),
   };
 }
 
-export function txWorkflowVisualEditorDisplay(model: unknown = {}) {
+export function txWorkflowVisualEditorDisplay(
+  model: unknown = {},
+): TxWorkflowVisualEditorDisplay {
   const workflowValue = txWorkflowEditorModel(model);
   return {
     blockRows: (Array.isArray(workflowValue.blocks)

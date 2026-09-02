@@ -1,8 +1,14 @@
-<script>
+<script lang="ts">
+  import type { OrchestrationPreviewJobRow } from "$domains/orchestration/index.js";
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
   import OrchestrationPreviewTargetChips from "./OrchestrationPreviewTargetChips.svelte";
 
-  let { previewJob, noTargetText } = $props();
+  interface Props {
+    noTargetText: string;
+    previewJob: OrchestrationPreviewJobRow;
+  }
+
+  let { previewJob, noTargetText }: Props = $props();
 </script>
 
 <section class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">

@@ -1,8 +1,19 @@
-<script>
+<script lang="ts">
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { createOrchestrationPlanSettingsEditorWorkspace } from "$domains/orchestration/index.js";
+  import type {
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationVisualEditorDisplay,
+  } from "$domains/orchestration/index.js";
 
-  let { model, visualDisplay, onChange } = $props();
+  interface Props {
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+  }
+
+  let { model, visualDisplay, onChange = null }: Props = $props();
   const orchestrationPlanSettingsEditorWorkspace =
     createOrchestrationPlanSettingsEditorWorkspace();
   const {

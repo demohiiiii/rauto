@@ -1,10 +1,35 @@
-<script>
+<script lang="ts">
+  import type { Snippet } from "svelte";
+  import type { HTMLInputAttributes } from "svelte/elements";
+  import type { FlowVarsPresentation } from "$domains/templates/index.js";
   import VariableIcon from "@lucide/svelte/icons/variable";
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import StatusCard from "../fragments/StatusCard.svelte";
   import StringSelectField from "../fragments/StringSelectField.svelte";
   import TextAreaField from "../fragments/TextAreaField.svelte";
   import CommandFlowSurface from "./CommandFlowSurface.svelte";
+
+  type SurfaceVariant = "section" | "workbench-header" | "workbench-section";
+
+  interface ValueChangeEvent {
+    currentTarget: { value: string };
+    target: { value: string };
+  }
+
+  type NativeInputEvent = Parameters<
+    NonNullable<HTMLInputAttributes["oninput"]>
+  >[0];
+  type FieldValueInput = NativeInputEvent | ValueChangeEvent | string;
+
+  interface Props {
+    actions?: Snippet;
+    display?: FlowVarsPresentation;
+    indexText?: string;
+    onFieldValueChange: (fieldName: string) => (input: FieldValueInput) => void;
+    onJsonOverridesChange?: (value: string) => void;
+    showJsonOverrides?: boolean;
+    surfaceVariant?: SurfaceVariant;
+  }
 
   let {
     actions,
@@ -14,7 +39,7 @@
     onJsonOverridesChange,
     showJsonOverrides = false,
     surfaceVariant = "section",
-  } = $props();
+  }: Props = $props();
 
   let fieldRows = $derived(
     Array.isArray(display?.fieldRows) ? display.fieldRows : [],
@@ -92,7 +117,7 @@
               type={fieldRow.inputType}
               value={fieldRow.value}
               placeholderText={fieldRow.placeholderText}
-              oninput={onFieldValueChange(fieldRow.fieldName)}
+              onInput={onFieldValueChange(fieldRow.fieldName)}
             />
           {/if}
         </label>

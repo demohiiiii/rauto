@@ -1,6 +1,25 @@
-<script>
+<script lang="ts">
   import PlainSelectField from "./PlainSelectField.svelte";
   import { stringSelectOptionRows } from "../../lib/ui.js";
+
+  interface SelectChangeEvent {
+    currentTarget: { value: string };
+    target: { value: string };
+  }
+
+  interface Props {
+    "aria-label"?: string;
+    class?: string;
+    disabled?: boolean;
+    hidden?: boolean;
+    includeEmptyOption?: boolean;
+    onChange?: (event: SelectChangeEvent) => void;
+    onValueChange?: (value: string) => void;
+    optionValues?: string[];
+    placeholderText?: string;
+    title?: string;
+    value?: string;
+  }
 
   let {
     value = "",
@@ -14,7 +33,7 @@
     class: selectClass = "",
     onChange,
     onValueChange,
-  } = $props();
+  }: Props = $props();
   let plainOptionRows = $derived(
     stringSelectOptionRows(optionValues, {
       includeEmptyOption,

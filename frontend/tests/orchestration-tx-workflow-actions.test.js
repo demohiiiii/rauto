@@ -42,9 +42,9 @@ test("workflow action workspace normalizes template options", async () => {
 
   assert.deepEqual(requestedPaths, ["/api/tx-workflow-templates"]);
   assert.deepEqual(get(workspace.templateOptionsStateStore), [
-    { label: "", value: "" },
-    { label: "alpha", value: "alpha" },
-    { label: "zeta", value: "zeta" },
+    { optionLabel: "", optionValue: "" },
+    { optionLabel: "alpha", optionValue: "alpha" },
+    { optionLabel: "zeta", optionValue: "zeta" },
   ]);
   assert.equal(get(workspace.templateErrorStateStore), "");
 });

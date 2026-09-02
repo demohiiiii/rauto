@@ -1,28 +1,28 @@
 import { tr } from "../../../lib/i18n.js";
-import { safeString, statusPresentation } from "../../../lib/ui.js";
+import {
+  displayString,
+  safeString,
+  statusPresentation,
+} from "../../../lib/ui.js";
 import type {
+  FlowVarControlKind,
   FlowVarField,
+  FlowVarFieldRow,
+  FlowVarsPresentation,
   FlowVarsState,
-  UnknownRecord,
 } from "../model/types.js";
-
-function record(value: unknown): UnknownRecord {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as UnknownRecord)
-    : {};
-}
 
 function flowVarAllowsEmpty(field: Partial<FlowVarField>): boolean {
   return !!field.allowEmpty || field.kind === "null";
 }
 
-function flowVarInputType(typeValue = ""): string {
+function flowVarInputType(typeValue = ""): "number" | "password" | "text" {
   if (typeValue === "secret") return "password";
   return typeValue === "number" ? "number" : "text";
 }
 
-function flowVarHasOptions(optionValues: unknown): boolean {
-  return Array.isArray(optionValues) && optionValues.length > 0;
+function flowVarHasOptions(optionValues: readonly string[]): boolean {
+  return optionValues.length > 0;
 }
 
 function flowVarTypeLabel(typeValue = ""): string {
@@ -34,15 +34,20 @@ function flowVarTypeLabel(typeValue = ""): string {
   );
 }
 
-function flowVarControlKind(typeValue = "", optionValues: unknown): string {
+function flowVarControlKind(
+  typeValue = "",
+  optionValues: readonly string[],
+): FlowVarControlKind {
   if (flowVarHasOptions(optionValues)) return "options-select";
   if (typeValue === "boolean") return "boolean-select";
   if (typeValue === "json") return "json-editor";
   return "input";
 }
 
-function flowVarRow(fieldValue: unknown, value: unknown = "") {
-  const field = record(fieldValue);
+function flowVarRow(
+  field: FlowVarField,
+  value: FlowVarsState["values"][string] = "",
+): FlowVarFieldRow {
   const fieldName = safeString(field.name);
   const typeValue = safeString(field.kind || "string");
   const optionValues = Array.isArray(field.options) ? field.options : [];
@@ -70,26 +75,30 @@ function flowVarRow(fieldValue: unknown, value: unknown = "") {
     ),
     typeBadgeText: flowVarTypeLabel(typeValue),
     typeValue,
-    value,
+    value: displayString(value),
   };
 }
 
-export function flowVarsPresentation(flowVarsState: unknown = {}) {
-  const state = record(flowVarsState) as Partial<FlowVarsState>;
-  const fields = Array.isArray(state.fields) ? state.fields : [];
-  const values = record(state.values);
+export function flowVarsPresentation(
+  flowVarsState: Partial<FlowVarsState> = {},
+): FlowVarsPresentation {
+  const fields = flowVarsState.fields ?? [];
+  const values = flowVarsState.values ?? {};
   const fieldRows = fields.map((field) =>
     flowVarRow(field, values[field.name] ?? ""),
   );
-  const errorMessage = safeString(state.errorMessage);
+  const errorMessage = safeString(flowVarsState.errorMessage);
   return {
     countMetaText: String(fieldRows.length),
     emptyText: tr("flowVarsFieldsEmpty"),
     errorMessage,
-    errorStatus: statusPresentation(errorMessage, "error"),
+    errorStatus: {
+      ...statusPresentation(errorMessage, "error"),
+      tone: "error",
+    },
     fieldRows,
     hasFields: fieldRows.length > 0,
-    hintText: safeString(state.hintText),
+    hintText: safeString(flowVarsState.hintText),
     titleText: tr("flowVarsFieldsTitle"),
   };
 }

@@ -1,5 +1,14 @@
-<script>
+<script lang="ts">
   import { useSvelteFlow } from "@xyflow/svelte";
+
+  interface Props {
+    compact?: boolean;
+    focusNodeId?: string;
+    inspectorOpen?: boolean;
+    inspectorWidth?: number;
+    layoutRevision?: string;
+    topWindowOpen?: boolean;
+  }
 
   let {
     compact = false,
@@ -8,7 +17,7 @@
     inspectorOpen = true,
     inspectorWidth = 520,
     topWindowOpen = false,
-  } = $props();
+  }: Props = $props();
 
   const { getNode, setCenter } = useSvelteFlow();
 

@@ -1,21 +1,38 @@
-<script>
+<script lang="ts">
   import PlusIcon from "@lucide/svelte/icons/plus";
   import { Button } from "$lib/components/ui/button/index.js";
   import ModeExpressionField from "../fragments/ModeExpressionField.svelte";
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import { t } from "../../lib/i18n.js";
-  import { defaultCommandFlowTemplatePromptModel } from "$domains/command/index.js";
+  import {
+    defaultCommandFlowTemplatePromptModel,
+    defaultCommandFlowTemplateStepModel,
+    type CommandFlowTemplatePromptModel,
+    type CommandFlowTemplateStepModel,
+  } from "$domains/command/index.js";
   import CommandEditor from "./CommandEditor.svelte";
   import CommandFlowTemplatePromptEditor from "./CommandFlowTemplatePromptEditor.svelte";
 
-  let { accentIndex = 0, modeOptions = [], onChange, step = {} } = $props();
+  interface Props {
+    accentIndex?: number;
+    modeOptions?: string[];
+    onChange?: (step: CommandFlowTemplateStepModel) => void;
+    step?: CommandFlowTemplateStepModel;
+  }
 
-  function patchStep(patch) {
+  let {
+    accentIndex = 0,
+    modeOptions = [],
+    onChange,
+    step = defaultCommandFlowTemplateStepModel(),
+  }: Props = $props();
+
+  function patchStep(patch: Partial<CommandFlowTemplateStepModel>): void {
     onChange?.({ ...step, ...patch });
   }
 
-  function addPrompt() {
+  function addPrompt(): void {
     patchStep({
       prompts: [
         ...(Array.isArray(step.prompts) ? step.prompts : []),
@@ -24,13 +41,16 @@
     });
   }
 
-  function removePrompt(promptIndex) {
+  function removePrompt(promptIndex: number): void {
     const prompts = [...(step.prompts || [])];
     prompts.splice(promptIndex, 1);
     patchStep({ prompts });
   }
 
-  function updatePrompt(promptIndex, prompt) {
+  function updatePrompt(
+    promptIndex: number,
+    prompt: CommandFlowTemplatePromptModel,
+  ): void {
     const prompts = [...(step.prompts || [])];
     prompts[promptIndex] = prompt;
     patchStep({ prompts });
@@ -51,7 +71,7 @@
           controlKind="switch"
           checked={!!step.hasMode}
           labelText={t("commandFlowOverrideMode")}
-          onCheckedChange={(hasMode) =>
+          onCheckedChange={(hasMode: boolean) =>
             patchStep({ hasMode, mode: hasMode ? (step.mode ?? "") : null })}
         />
         <ModeExpressionField
@@ -59,7 +79,7 @@
           optionValues={modeOptions}
           placeholderText={t("txBlockFormMode")}
           disabled={!step.hasMode}
-          onValueChange={(mode) => patchStep({ mode, hasMode: true })}
+          onValueChange={(mode: string) => patchStep({ mode, hasMode: true })}
         />
       </div>
 
@@ -68,7 +88,7 @@
           controlKind="switch"
           checked={!!step.hasTimeoutSecs}
           labelText={t("commandFlowOverrideTimeout")}
-          onCheckedChange={(hasTimeoutSecs) =>
+          onCheckedChange={(hasTimeoutSecs: boolean) =>
             patchStep({
               hasTimeoutSecs,
               timeoutSecs: hasTimeoutSecs ? (step.timeoutSecs ?? 30) : null,

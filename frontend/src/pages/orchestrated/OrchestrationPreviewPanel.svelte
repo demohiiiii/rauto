@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import OrchestrationPreviewStageOutline from "./OrchestrationPreviewStageOutline.svelte";
   import OrchestrationPreviewStageSection from "./OrchestrationPreviewStageSection.svelte";
@@ -6,7 +6,23 @@
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import { createOrchestrationPreviewPanelWorkspace } from "$domains/orchestration/index.js";
 
-  let { message, previewMode, plan, text, tone } = $props();
+  type StatusTone = "error" | "info" | "running" | "success" | "warning";
+
+  interface Props {
+    message?: string;
+    plan?: object | null;
+    previewMode?: string;
+    text?: string;
+    tone?: StatusTone;
+  }
+
+  let {
+    message = "",
+    previewMode = "",
+    plan = null,
+    text = "",
+    tone = "info",
+  }: Props = $props();
   const orchestrationPreviewPanelWorkspace =
     createOrchestrationPreviewPanelWorkspace();
   const {

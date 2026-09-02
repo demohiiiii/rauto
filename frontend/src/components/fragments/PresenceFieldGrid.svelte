@@ -1,10 +1,48 @@
-<script>
+<script lang="ts">
+  import type { HTMLInputAttributes } from "svelte/elements";
   import { presenceFieldRowBindings } from "../../lib/events.js";
   import { classNames, presenceFieldControlDisplay } from "../../lib/ui.js";
   import ModeExpressionField from "./ModeExpressionField.svelte";
   import PlainInputField from "./PlainInputField.svelte";
   import PlainSelectField from "./PlainSelectField.svelte";
   import PresenceToggle from "./PresenceToggle.svelte";
+  import type {
+    PresenceFieldPresenceHandler,
+    PresenceFieldPresenceHandlerForKey,
+    PresenceFieldRow,
+    PresenceFieldValueInput,
+    PresenceFieldValueHandler,
+    PresenceFieldValueHandlerForKey,
+  } from "./presenceFieldTypes.js";
+
+  type PresenceControlsMode = "hidden" | "inline";
+  type ValueHandlerMode = "event" | "value";
+  type FieldHandlerForRow<THandler> = (
+    fieldRow: PresenceFieldRow,
+  ) => THandler | null | undefined;
+
+  interface Props {
+    controlClassByFieldKey?: Record<string, string>;
+    controlTypeFallback?: "input" | "mode-expression" | "select";
+    fieldRows?: PresenceFieldRow[];
+    hostClass?: string;
+    inputTypeFallback?: HTMLInputAttributes["type"];
+    itemClass?: string;
+    itemClassByFieldKey?: Record<string, string>;
+    labelClass?: string;
+    onNullableModeChange?: PresenceFieldValueHandler | null;
+    onNullableModeChangeForKey?: PresenceFieldValueHandlerForKey | null;
+    onNullableModeChangeForRow?: FieldHandlerForRow<PresenceFieldValueHandler> | null;
+    onPresenceChange?: PresenceFieldPresenceHandler | null;
+    onPresenceChangeForKey?: PresenceFieldPresenceHandlerForKey | null;
+    onPresenceChangeForRow?: FieldHandlerForRow<PresenceFieldPresenceHandler> | null;
+    onValueChange?: PresenceFieldValueHandler | null;
+    onValueChangeForKey?: PresenceFieldValueHandlerForKey | null;
+    onValueChangeForRow?: FieldHandlerForRow<PresenceFieldValueHandler> | null;
+    presenceControlsMode?: PresenceControlsMode;
+    showPresenceToggleFallback?: boolean | null;
+    valueHandlerMode?: ValueHandlerMode;
+  }
 
   let {
     fieldRows = [],
@@ -27,16 +65,16 @@
     onValueChangeForRow = null,
     onPresenceChangeForRow = null,
     onNullableModeChangeForRow = null,
-  } = $props();
+  }: Props = $props();
 
-  function shouldShowPresenceToggle(fieldRow = {}) {
+  function shouldShowPresenceToggle(fieldRow: PresenceFieldRow): boolean {
     return typeof showPresenceToggleFallback === "boolean"
       ? showPresenceToggleFallback
       : !!fieldRow.showPresenceToggle;
   }
 
-  function invalidFieldControl(node, invalid) {
-    function syncInvalidState(nextInvalid) {
+  function invalidFieldControl(node: HTMLElement, invalid: boolean) {
+    function syncInvalidState(nextInvalid: boolean): void {
       const control = node.querySelector(
         'input, textarea, button[role="combobox"]',
       );
@@ -64,7 +102,11 @@
     {@const resolvedShowPresenceToggle = shouldShowPresenceToggle(fieldRow)}
     {@const showInlinePresenceToggle =
       resolvedShowPresenceToggle && presenceControlsMode === "inline"}
-    {@const controlBindings = presenceFieldRowBindings({
+    {@const controlBindings = presenceFieldRowBindings<
+      PresenceFieldValueInput,
+      PresenceFieldValueInput,
+      PresenceFieldRow
+    >({
       fieldRow,
       showPresenceToggle: resolvedShowPresenceToggle,
       onValueChange,
@@ -124,9 +166,9 @@
               value={fieldRow.nullableModeValue}
               onChange={valueHandlerMode === "event"
                 ? controlBindings.nullableModeChangeHandler
-                : null}
+                : undefined}
               onValueChange={valueHandlerMode === "event"
-                ? null
+                ? undefined
                 : controlBindings.nullableModeChangeHandler}
             />
           </div>
@@ -142,9 +184,9 @@
               disabled={controlDisabled}
               onChange={valueHandlerMode === "event"
                 ? controlBindings.valueChangeHandler
-                : null}
+                : undefined}
               onValueChange={valueHandlerMode === "event"
-                ? null
+                ? undefined
                 : controlBindings.valueChangeHandler}
             />
           {:else if (fieldRow.controlType || controlTypeFallback) === "select"}
@@ -156,9 +198,9 @@
               disabled={controlDisabled}
               onChange={valueHandlerMode === "event"
                 ? controlBindings.valueChangeHandler
-                : null}
+                : undefined}
               onValueChange={valueHandlerMode === "event"
-                ? null
+                ? undefined
                 : controlBindings.valueChangeHandler}
             />
           {:else}
@@ -171,9 +213,9 @@
               disabled={controlDisabled}
               onInput={valueHandlerMode === "event"
                 ? controlBindings.valueChangeHandler
-                : null}
+                : undefined}
               onValueInput={valueHandlerMode === "event"
-                ? null
+                ? undefined
                 : controlBindings.valueChangeHandler}
             />
           {/if}

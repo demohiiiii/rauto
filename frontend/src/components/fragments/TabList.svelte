@@ -19,7 +19,7 @@
     activeValue: string;
     class?: string;
     onSelect?: (value: string) => unknown;
-    tabItems: TabItem[];
+    tabItems: readonly TabItem[];
     themeAware?: boolean;
   }
 

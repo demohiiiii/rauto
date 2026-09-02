@@ -1,5 +1,13 @@
-<script>
-  let { chipRows = [], hasValues = false, emptyText = "" } = $props();
+<script lang="ts">
+  import type { OrchestrationPreviewChip } from "$domains/orchestration/index.js";
+
+  interface Props {
+    chipRows?: OrchestrationPreviewChip[];
+    emptyText?: string;
+    hasValues?: boolean;
+  }
+
+  let { chipRows = [], hasValues = false, emptyText = "" }: Props = $props();
 </script>
 
 {#if hasValues}

@@ -25,15 +25,9 @@ const orchestrationCloneJsonValue = <T>(value: unknown, fallback: T): T =>
     fallback,
   ) as T;
 const orchestrationSelectOptionsWithCurrent = (
-  rows: readonly unknown[],
-  selected: unknown,
-): unknown[] =>
-  (
-    selectOptionsWithCurrent as (
-      options: readonly unknown[],
-      current: unknown,
-    ) => unknown[]
-  )(rows, selected);
+  rows: readonly string[],
+  selected: string,
+): string[] => selectOptionsWithCurrent(rows, selected);
 
 export const ORCHESTRATION_ROOT_FIELD_DEFS: readonly OrchestrationFieldDefinition[] =
   Object.freeze([
@@ -127,8 +121,8 @@ export function orchestrationNullableModeRows(): OrchestrationOptionRow[] {
 }
 
 function orchestrationStrategyOptionRows(
-  strategyRows: readonly unknown[] = [],
-  selected: unknown = "",
+  strategyRows: readonly string[] = [],
+  selected = "",
 ): OrchestrationOptionRow[] {
   return orchestrationSelectOptionsWithCurrent(strategyRows, selected).map(
     (optionValue) => ({
@@ -145,8 +139,8 @@ function orchestrationStrategyOptionRows(
 function orchestrationStageLikeFieldsDisplay(
   fieldDefs: readonly OrchestrationFieldDefinition[] = [],
   sourceValue: unknown = {},
-  strategyRows: readonly unknown[] = [],
-  booleanRows: readonly unknown[] = [],
+  strategyRows: readonly string[] = [],
+  booleanRows: readonly string[] = [],
   labelKeys: Record<string, string> = {},
 ): OrchestrationFieldDisplay[] {
   const value = orchestrationPlainObject(sourceValue) ? sourceValue : {};
@@ -205,7 +199,9 @@ function orchestrationStageLikeFieldsDisplay(
     }
     const valueText =
       fieldDef.inputType === "number"
-        ? (orchestrationNullableNumberValue(value[fieldDef.fieldKey]) ?? "")
+        ? String(
+            orchestrationNullableNumberValue(value[fieldDef.fieldKey]) ?? "",
+          )
         : orchestrationStringValue(value[fieldDef.fieldKey] ?? "");
     return {
       ...fieldDef,
@@ -247,7 +243,7 @@ function orchestrationStageLikeFieldPatch(
 
 export function orchestrationRootFieldsDisplay(
   model: unknown = {},
-  booleanRows: readonly unknown[] = [],
+  booleanRows: readonly string[] = [],
 ): OrchestrationFieldDisplay[] {
   const rootValue = orchestrationPlainObject(model) ? model : {};
   return ORCHESTRATION_ROOT_FIELD_DEFS.map((fieldDef) => {
@@ -290,8 +286,8 @@ export function orchestrationRootFieldsDisplay(
 
 export function orchestrationStageFieldsDisplay(
   stage: unknown = {},
-  strategyRows: readonly unknown[] = [],
-  booleanRows: readonly unknown[] = [],
+  strategyRows: readonly string[] = [],
+  booleanRows: readonly string[] = [],
 ): OrchestrationFieldDisplay[] {
   return orchestrationStageLikeFieldsDisplay(
     ORCHESTRATION_STAGE_FIELD_DEFS,
@@ -309,8 +305,8 @@ export function orchestrationStageFieldsDisplay(
 
 export function orchestrationJobFieldsDisplay(
   job: unknown = {},
-  strategyRows: readonly unknown[] = [],
-  booleanRows: readonly unknown[] = [],
+  strategyRows: readonly string[] = [],
+  booleanRows: readonly string[] = [],
 ): OrchestrationFieldDisplay[] {
   return orchestrationStageLikeFieldsDisplay(
     ORCHESTRATION_JOB_FIELD_DEFS,

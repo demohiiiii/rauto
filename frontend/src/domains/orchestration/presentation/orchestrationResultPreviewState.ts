@@ -16,27 +16,37 @@ interface JsonTreeNode {
   valueText?: string;
 }
 
-interface ActionField {
+export interface OrchestrationPreviewActionField {
   detailValue: string;
   label: string;
   mono: boolean;
 }
 
-interface SummaryChip {
+export interface OrchestrationPreviewChip {
   chipClass: string;
-  chipText: unknown;
+  chipText: string;
 }
 
-interface PreviewJobRow {
-  actionFields: ActionField[];
-  chipRows: SummaryChip[];
-  commandPreview: Record<string, unknown>;
+export interface OrchestrationCommandPreview {
+  emptyMessage: string;
+  hasLines: boolean;
+  lines: string[];
+  overflowCount: number;
+  overflowText: string;
+  showOverflow: boolean;
+  titleText: string;
+}
+
+export interface OrchestrationPreviewJobRow {
+  actionFields: OrchestrationPreviewActionField[];
+  chipRows: OrchestrationPreviewChip[];
+  commandPreview: OrchestrationCommandPreview;
   hasTargetGroups: boolean;
   hasTargetLabels: boolean;
   hasTargetTags: boolean;
   noTargetText: string;
   strategyLabel: string;
-  targetChipRows: SummaryChip[];
+  targetChipRows: OrchestrationPreviewChip[];
   targetCount: number;
   targetGroupsLineText: string;
   targetGroupsText: string;
@@ -46,18 +56,18 @@ interface PreviewJobRow {
   titleText: string;
 }
 
-interface PreviewStageRow {
+export interface OrchestrationPreviewStageRow {
   hasJobs: boolean;
   hasTargetLabels: boolean;
   jobCount: number;
-  jobs: PreviewJobRow[];
+  jobs: OrchestrationPreviewJobRow[];
   label: string;
   noJobsText: string;
   noTargetText: string;
-  outlineChipRows: SummaryChip[];
+  outlineChipRows: OrchestrationPreviewChip[];
   strategyLabel: string;
-  summaryChipRows: SummaryChip[];
-  targetChipRows: SummaryChip[];
+  summaryChipRows: OrchestrationPreviewChip[];
+  targetChipRows: OrchestrationPreviewChip[];
   targetCount: number;
 }
 
@@ -81,7 +91,7 @@ const orchestrationSummaryCard = (key: string, summaryValue: unknown) => ({
   summaryValue,
 });
 
-const orchestrationChip = (chipText: unknown): SummaryChip => ({
+const orchestrationChip = (chipText: string): OrchestrationPreviewChip => ({
   chipClass: orchestrationWorkflowChipClass(),
   chipText,
 });
@@ -264,7 +274,7 @@ function orchestrationActionField(
   label: string,
   detailValue: unknown,
   { mono = false }: { mono?: boolean } = {},
-): ActionField {
+): OrchestrationPreviewActionField {
   return {
     detailValue: orchestrationText(detailValue || "-"),
     label,
@@ -272,7 +282,9 @@ function orchestrationActionField(
   };
 }
 
-function orchestrationActionSummaryFields(action: unknown): ActionField[] {
+function orchestrationActionSummaryFields(
+  action: object,
+): OrchestrationPreviewActionField[] {
   const actionValue = objectValue(action);
   if (!Object.keys(actionValue).length) {
     return [orchestrationActionField(t("orchestrationStageAction"), "-")];
@@ -361,7 +373,7 @@ function orchestrationPreviewStages(plan: unknown): unknown[] {
 
 function orchestrationCommandPreviewDisplay(
   action: unknown,
-): Record<string, unknown> {
+): OrchestrationCommandPreview {
   const commandPreviewLines = orchestrationActionCommandPreviewItems(action);
   const overflowCount = Math.max(
     0,
@@ -381,7 +393,10 @@ function orchestrationCommandPreviewDisplay(
   };
 }
 
-function orchestrationPreviewJobRow(job: unknown, index = 0): PreviewJobRow {
+function orchestrationPreviewJobRow(
+  job: object,
+  index = 0,
+): OrchestrationPreviewJobRow {
   const jobValue = objectValue(job);
   const targetGroups = Array.isArray(jobValue.target_groups)
     ? jobValue.target_groups
@@ -395,7 +410,9 @@ function orchestrationPreviewJobRow(job: unknown, index = 0): PreviewJobRow {
     orchestrationStageStrategyLabel(jobValue.strategy),
   );
   const targetCount = targetLabels.length;
-  const actionFields = orchestrationActionSummaryFields(jobValue.action);
+  const actionFields = orchestrationActionSummaryFields(
+    objectValue(jobValue.action),
+  );
   return {
     actionFields,
     chipRows: [
@@ -422,7 +439,7 @@ function orchestrationPreviewJobRow(job: unknown, index = 0): PreviewJobRow {
 function orchestrationPreviewStageRow(
   stage: unknown,
   index: number,
-): PreviewStageRow {
+): OrchestrationPreviewStageRow {
   const stageValue = objectValue(stage);
   const jobs = Array.isArray(stageValue.jobs) ? stageValue.jobs : [];
   const name = orchestrationText(stageValue.name);
@@ -436,7 +453,7 @@ function orchestrationPreviewStageRow(
     hasTargetLabels: targetLabels.length > 0,
     jobCount: jobs.length,
     jobs: jobs.map((job, jobIndex) =>
-      orchestrationPreviewJobRow(job, jobIndex),
+      orchestrationPreviewJobRow(objectValue(job), jobIndex),
     ),
     label,
     noJobsText: "-",

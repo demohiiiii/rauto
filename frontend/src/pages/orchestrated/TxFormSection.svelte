@@ -1,5 +1,16 @@
-<script>
+<script lang="ts">
+  import type { Component, Snippet } from "svelte";
   import { classNames } from "../../lib/ui.js";
+
+  interface Props {
+    actions?: Snippet;
+    children?: Snippet;
+    class?: string;
+    contentClass?: string;
+    description?: string;
+    icon?: Component<{ class?: string }> | null;
+    title?: string;
+  }
 
   let {
     actions,
@@ -9,7 +20,7 @@
     description = "",
     icon: Icon = null,
     title = "",
-  } = $props();
+  }: Props = $props();
 </script>
 
 <section class={classNames("grid gap-3", className)}>

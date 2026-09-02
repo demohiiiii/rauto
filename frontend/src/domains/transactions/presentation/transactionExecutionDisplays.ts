@@ -7,6 +7,74 @@ import {
 import { t } from "../../../lib/i18n.js";
 import { classNames, displayText, workflowChipClass } from "../../../lib/ui.js";
 import { parsedOutputBlockDisplayFromItem } from "$domains/execution/index.js";
+import type { ParsedOutputBlockDisplay } from "$domains/execution/index.js";
+
+export interface TxOperationStepChipRow {
+  chipText: string;
+}
+
+export interface TxOperationStepDisplay {
+  cardClass: string;
+  chipClass: string;
+  chipRows: TxOperationStepChipRow[];
+  commandLabelText: string;
+  exitCodeText: number | string;
+  modeText: string;
+  operationSummaryText: string;
+  outputLabelText: string;
+  outputText: string;
+  parsedOutputBlock: ParsedOutputBlockDisplay;
+  promptLabelText: string;
+  promptText: string;
+  showPrompt: boolean;
+  successText: string;
+  titleClass: string;
+}
+
+export interface TxOperationStepRow extends TxOperationStepDisplay {
+  stepNumberText: string;
+  titleText: string;
+}
+
+export interface TxStepReasonRow {
+  reasonText: string;
+  titleText: string;
+  variant: "muted";
+}
+
+export interface TxStepStateChipRow {
+  chipClass: string;
+  chipText: string;
+}
+
+export interface TxStepResultRow {
+  executionStateText: string;
+  failureReasonText: string;
+  forwardOperationRows: TxOperationStepRow[];
+  forwardOutputsTitle: string;
+  hasForwardOperationRows: boolean;
+  hasRollbackOperationRows: boolean;
+  noOperationOutputsMessage: string;
+  reasonRows: TxStepReasonRow[];
+  rollbackOperationRows: TxOperationStepRow[];
+  rollbackOutputsTitle: string;
+  rollbackReasonText: string;
+  rollbackStateText: string;
+  stateChipRows: TxStepStateChipRow[];
+  stepNumberText: string;
+  titleText: string;
+}
+
+export interface TxWorkflowPreviewPanelDisplay {
+  message?: string;
+  previewModeDisplay?: {
+    showStatus: boolean;
+    showText: boolean;
+  };
+  previewPresentation?: TxWorkflowPreviewPresentation;
+  text?: string;
+  tone?: "error" | "info" | "running" | "success" | "warning";
+}
 
 type FlexibleRecord = Record<string, unknown>;
 
@@ -14,13 +82,19 @@ interface PanelWorkspaceInput {
   panelDisplay?: FlexibleRecord | null;
 }
 
+interface TxBlockRunPanelWorkspaceInput {
+  panelDisplay?: TxBlockRunPanelDisplay | null;
+}
+
 interface WorkflowBlockWorkspaceInput {
-  workflowBlockRow?: unknown;
+  workflowBlockRow?: TxWorkflowExecutionBlockRow | null;
 }
 
 interface ToneConfig {
   toneName?: string;
 }
+
+type TxStatusTone = "error" | "info" | "running" | "success" | "warning";
 
 function flexibleRecord(value: unknown): FlexibleRecord {
   return value && typeof value === "object" ? (value as FlexibleRecord) : {};
@@ -34,7 +108,7 @@ const summaryCard = (key: string, summaryValue: unknown) => ({
   label: t(key),
   summaryValue,
 });
-const summaryRow = (key: string, valueText: unknown) => ({
+const summaryRow = (key: string, valueText: string) => ({
   labelText: t(key),
   valueText,
 });
@@ -42,6 +116,15 @@ const transactionText = (displaySource: unknown): string =>
   displayText(displaySource);
 const displayTextOrDash = (displaySource: unknown): string =>
   transactionText(displaySource) || "-";
+
+function transactionStatusTone(value: string): TxStatusTone {
+  return value === "error" ||
+    value === "running" ||
+    value === "success" ||
+    value === "warning"
+    ? value
+    : "info";
+}
 
 function txExecutionModePresentation(mode: unknown = "") {
   const normalized = normalizeTxExecutionMode(mode);
@@ -84,7 +167,7 @@ export function transactionFallbackDisplay(fallbackInput: unknown = {}) {
     mode: transactionText(fallback.mode),
     message: transactionText(fallback.message || ""),
     text: transactionText(fallback.text || ""),
-    tone: transactionText(fallback.tone || "info"),
+    tone: transactionStatusTone(transactionText(fallback.tone)),
   };
 }
 
@@ -95,7 +178,7 @@ function transactionOutputStatusDisplay(outputInput: unknown = {}) {
     ...txOutputModePresentation(mode),
     message: transactionText(output.message || ""),
     mode,
-    tone: output.tone || "info",
+    tone: transactionStatusTone(transactionText(output.tone)),
   };
 }
 
@@ -149,12 +232,12 @@ export const txBlockRunDisplayPresentation = (
 });
 
 export function txBlockRunPanelDisplay(runDisplay: FlexibleRecord = {}) {
-  const execStatusDisplay =
-    optionalFlexibleRecord(runDisplay.execStatus) ||
-    transactionOutputStatusDisplay();
-  const planStatusDisplay =
-    optionalFlexibleRecord(runDisplay.planStatus) ||
-    transactionOutputStatusDisplay();
+  const execStatusDisplay = transactionOutputStatusDisplay(
+    runDisplay.execStatus,
+  );
+  const planStatusDisplay = transactionOutputStatusDisplay(
+    runDisplay.planStatus,
+  );
   const previewDisplay = optionalFlexibleRecord(runDisplay.preview) || {
     mode: "empty",
   };
@@ -162,12 +245,15 @@ export function txBlockRunPanelDisplay(runDisplay: FlexibleRecord = {}) {
     previewDisplay.txBlock ?? null,
     previewDisplay.txResult ?? null,
   );
+  const loadingDisplay = optionalFlexibleRecord(runDisplay.loading);
   return {
     execStatusDisplay: {
       ...execStatusDisplay,
       modeDisplay: txOutputModePresentation(execStatusDisplay.mode),
     },
-    loadingDisplay: runDisplay?.loading || emptyTxBlockLoadingDisplay,
+    loadingDisplay: {
+      execute: !!loadingDisplay?.execute,
+    },
     modeDisplay: runDisplay?.mode || txExecutionModePresentation(),
     planStatusDisplay: {
       ...planStatusDisplay,
@@ -184,29 +270,52 @@ export function txBlockRunPanelDisplay(runDisplay: FlexibleRecord = {}) {
   };
 }
 
+export type TxBlockRunPanelDisplay = ReturnType<typeof txBlockRunPanelDisplay>;
+
 const emptyTxBlockRunPanelDisplay = txBlockRunPanelDisplay({});
 
 export function createTxBlockRunPanelWorkspace({
   panelDisplay = null,
-}: PanelWorkspaceInput = {}) {
-  const panelDisplayStateStore = writable<FlexibleRecord | null>(panelDisplay);
-  const displayStores = derivedDisplayFieldStores(
+}: TxBlockRunPanelWorkspaceInput = {}) {
+  const panelDisplayStateStore = writable<TxBlockRunPanelDisplay>(
+    panelDisplay || emptyTxBlockRunPanelDisplay,
+  );
+  const execStatusDisplayStateStore = deriveStore(
     panelDisplayStateStore,
-    {
-      execStatusDisplayStateStore: "execStatusDisplay",
-      loadingDisplayStateStore: "loadingDisplay",
-      modeDisplayStateStore: "modeDisplay",
-      planStatusDisplayStateStore: "planStatusDisplay",
-      previewDisplayStateStore: "previewDisplay",
-      previewModeDisplayStateStore: "previewModeDisplay",
-    },
-    emptyTxBlockRunPanelDisplay,
+    (display) => display.execStatusDisplay,
+  );
+  const loadingDisplayStateStore = deriveStore(
+    panelDisplayStateStore,
+    (display) => display.loadingDisplay,
+  );
+  const modeDisplayStateStore = deriveStore(
+    panelDisplayStateStore,
+    (display) => display.modeDisplay,
+  );
+  const planStatusDisplayStateStore = deriveStore(
+    panelDisplayStateStore,
+    (display) => display.planStatusDisplay,
+  );
+  const previewDisplayStateStore = deriveStore(
+    panelDisplayStateStore,
+    (display) => display.previewDisplay,
+  );
+  const previewModeDisplayStateStore = deriveStore(
+    panelDisplayStateStore,
+    (display) => display.previewModeDisplay,
   );
   return {
-    ...displayStores,
+    execStatusDisplayStateStore,
+    loadingDisplayStateStore,
+    modeDisplayStateStore,
     panelDisplayStateStore,
-    setPanelDisplay(nextPanelDisplay: FlexibleRecord | null = null) {
-      panelDisplayStateStore.set(nextPanelDisplay);
+    planStatusDisplayStateStore,
+    previewDisplayStateStore,
+    previewModeDisplayStateStore,
+    setPanelDisplay(nextPanelDisplay: TxBlockRunPanelDisplay | null = null) {
+      panelDisplayStateStore.set(
+        nextPanelDisplay || emptyTxBlockRunPanelDisplay,
+      );
     },
   };
 }
@@ -295,17 +404,20 @@ export function createTxWorkflowRunPanelWorkspace({
 export function createTxWorkflowBlockResultPanelWorkspace(
   inputState: WorkflowBlockWorkspaceInput = {},
 ) {
-  const workflowBlockRowStateStore = writable<FlexibleRecord>(
-    flexibleRecord(inputState.workflowBlockRow),
-  );
+  const workflowBlockRowStateStore =
+    writable<TxWorkflowExecutionBlockRow | null>(
+      inputState.workflowBlockRow || null,
+    );
   const panelDisplayStateStore = deriveStore(
     workflowBlockRowStateStore,
     (workflowBlockRow) => txWorkflowBlockResultPanelDisplay(workflowBlockRow),
   );
   return {
     panelDisplayStateStore,
-    setWorkflowBlockRow(workflowBlockRow: unknown = {}) {
-      workflowBlockRowStateStore.set(flexibleRecord(workflowBlockRow));
+    setWorkflowBlockRow(
+      workflowBlockRow: TxWorkflowExecutionBlockRow | null = null,
+    ) {
+      workflowBlockRowStateStore.set(workflowBlockRow);
     },
   };
 }
@@ -372,7 +484,10 @@ function operationToneClasses(toneName = "cyan", success = true) {
   };
 }
 
-function txStepReasonRow(titleText: string, reasonText: string) {
+function txStepReasonRow(
+  titleText: string,
+  reasonText: string,
+): TxStepReasonRow {
   return { reasonText, titleText, variant: "muted" };
 }
 
@@ -392,11 +507,13 @@ function operationStepNumberText(
 function txOperationStepDisplay(
   operationStep: FlexibleRecord,
   toneName: string,
-) {
+): TxOperationStepDisplay {
   const success = !!operationStep?.success;
   const toneClasses = operationToneClasses(toneName, success);
   const exitCodeText =
-    operationStep?.exit_code != null ? operationStep.exit_code : "-";
+    operationStep?.exit_code != null
+      ? transactionText(operationStep.exit_code)
+      : "-";
   const modeText = transactionText(operationStep?.mode);
   const promptText = transactionText(operationStep?.prompt);
   const successText = String(success);
@@ -430,9 +547,12 @@ function txOperationStepDisplay(
   };
 }
 
-function txOperationStepRows(steps: unknown = [], stepConfig: ToneConfig = {}) {
+function txOperationStepRows(
+  steps: readonly FlexibleRecord[] = [],
+  stepConfig: ToneConfig = {},
+): TxOperationStepRow[] {
   const toneName = stepConfig.toneName || "cyan";
-  return (Array.isArray(steps) ? steps : []).map((operationStep, index) => {
+  return steps.map((operationStep, index) => {
     const stepNumberText = operationStepNumberText(operationStep, index);
     return {
       ...txOperationStepDisplay(operationStep, toneName),
@@ -442,13 +562,19 @@ function txOperationStepRows(steps: unknown = [], stepConfig: ToneConfig = {}) {
   });
 }
 
-function txStepResultRows(stepList: unknown = []) {
-  return (Array.isArray(stepList) ? stepList : []).map((stepResult, index) => {
+function txStepResultRows(
+  stepList: readonly FlexibleRecord[] = [],
+): TxStepResultRow[] {
+  return stepList.map((stepResult, index) => {
     const forwardOperationRows = txOperationStepRows(
-      stepResult?.forward_operation_steps,
+      Array.isArray(stepResult?.forward_operation_steps)
+        ? stepResult.forward_operation_steps
+        : [],
     );
     const rollbackOperationRows = txOperationStepRows(
-      stepResult?.rollback_operation_steps,
+      Array.isArray(stepResult?.rollback_operation_steps)
+        ? stepResult.rollback_operation_steps
+        : [],
       { toneName: "amber" },
     );
     const executionStateText = displayTextOrDash(stepResult?.execution_state);
@@ -675,6 +801,12 @@ export function txWorkflowExecutionPresentation(
   };
 }
 
+export type TxWorkflowExecutionPresentation = ReturnType<
+  typeof txWorkflowExecutionPresentation
+>;
+export type TxWorkflowExecutionBlockRow =
+  TxWorkflowExecutionPresentation["blockRows"][number];
+
 function txWorkflowExecutionPanelDisplay(
   executionDisplay: FlexibleRecord = {},
 ) {
@@ -710,8 +842,10 @@ function txWorkflowExecutionPanelDisplay(
 }
 
 function txWorkflowBlockResultPanelDisplay(
-  workflowBlockRow: FlexibleRecord = {},
+  workflowBlockRowInput: TxWorkflowExecutionBlockRow | null = null,
 ) {
+  const workflowBlockRow =
+    workflowBlockRowInput || txWorkflowExecutionBlockRow({}, 0, null);
   return {
     blockSummaryRows: workflowBlockRow.blockSummaryRows || [],
     failedBlockRollbackDisplay: {
@@ -849,11 +983,15 @@ function txBlockResultPresentation(txResultInput: unknown = null) {
     ? txResult.rollback_errors
     : [];
   const blockRollbackStepRows = txOperationStepRows(
-    txResult?.block_rollback_steps,
+    Array.isArray(txResult?.block_rollback_steps)
+      ? txResult.block_rollback_steps
+      : [],
     { toneName: "amber" },
   );
   const failureOutput = failureOutputFromReason(txResult?.failure_reason);
-  const stepResultRows = txStepResultRows(txResult?.step_results);
+  const stepResultRows = txStepResultRows(
+    Array.isArray(txResult?.step_results) ? txResult.step_results : [],
+  );
   const summaryItems = [
     ["txBlockResultCommitted", String(!!txResult?.committed)],
     [
@@ -896,6 +1034,10 @@ function txBlockResultPresentation(txResultInput: unknown = null) {
   };
 }
 
+export type TxBlockResultPanelDisplay = ReturnType<
+  typeof txBlockResultPresentation
+>;
+
 export function txBlockPreviewPresentation(
   txBlockInput: unknown = null,
   txResult: unknown = null,
@@ -923,6 +1065,10 @@ export function txBlockPreviewPresentation(
     wholeResourceRollback: txBlockWholeResourceRollbackRow(txBlock, modeText),
   };
 }
+
+export type TxBlockPreviewPresentation = ReturnType<
+  typeof txBlockPreviewPresentation
+>;
 
 function normalizeSummaryCards(
   summaryCards: unknown = [],
@@ -1117,3 +1263,7 @@ export function txWorkflowPreviewPresentation(workflowInput: unknown = null) {
     titleText: t("txWorkflowVisualTitle"),
   };
 }
+
+export type TxWorkflowPreviewPresentation = ReturnType<
+  typeof txWorkflowPreviewPresentation
+>;

@@ -1,9 +1,17 @@
-<script>
+<script lang="ts">
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { currentLanguageState } from "../../lib/i18n.js";
-  import { commandFlowReadonlyPresentation } from "$domains/command/index.js";
+  import {
+    commandFlowReadonlyPresentation,
+    defaultCommandFlowTemplateModel,
+    type CommandFlowTemplateModel,
+  } from "$domains/command/index.js";
 
-  let { model = {} } = $props();
+  interface Props {
+    model?: CommandFlowTemplateModel;
+  }
+
+  let { model = defaultCommandFlowTemplateModel() }: Props = $props();
   let currentLanguage = $derived($currentLanguageState);
   let display = $derived.by(() => {
     currentLanguage;

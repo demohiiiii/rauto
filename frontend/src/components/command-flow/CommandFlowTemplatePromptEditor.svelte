@@ -1,13 +1,29 @@
-<script>
+<script lang="ts">
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button/index.js";
   import PlainCheckboxField from "../fragments/PlainCheckboxField.svelte";
   import PlainInputField from "../fragments/PlainInputField.svelte";
   import StringListEditor from "../fragments/StringListEditor.svelte";
   import { t } from "../../lib/i18n.js";
-  import { commandFlowAccentColor } from "$domains/command/index.js";
+  import {
+    commandFlowAccentColor,
+    defaultCommandFlowTemplatePromptModel,
+    type CommandFlowTemplatePromptModel,
+  } from "$domains/command/index.js";
 
-  let { accentIndex = 0, onChange, onRemove, prompt = {} } = $props();
+  interface Props {
+    accentIndex?: number;
+    onChange?: (prompt: CommandFlowTemplatePromptModel) => void;
+    onRemove?: () => void;
+    prompt?: CommandFlowTemplatePromptModel;
+  }
+
+  let {
+    accentIndex = 0,
+    onChange,
+    onRemove,
+    prompt = defaultCommandFlowTemplatePromptModel(),
+  }: Props = $props();
   let accentColor = $derived(commandFlowAccentColor(accentIndex));
 
   let patternRows = $derived(
@@ -16,21 +32,21 @@
     ),
   );
 
-  function patchPrompt(patch) {
+  function patchPrompt(patch: Partial<CommandFlowTemplatePromptModel>): void {
     onChange?.({ ...prompt, ...patch });
   }
 
-  function addPattern() {
+  function addPattern(): void {
     patchPrompt({ patterns: [...(prompt.patterns || []), ""] });
   }
 
-  function removePattern(patternIndex) {
+  function removePattern(patternIndex: number): void {
     const patterns = [...(prompt.patterns || [])];
     patterns.splice(patternIndex, 1);
     patchPrompt({ patterns });
   }
 
-  function updatePattern(patternIndex, pattern) {
+  function updatePattern(patternIndex: number, pattern: string): void {
     const patterns = [...(prompt.patterns || [])];
     patterns[patternIndex] = pattern;
     patchPrompt({ patterns });
@@ -70,13 +86,14 @@
         controlKind="switch"
         checked={!!prompt.appendNewline}
         labelText={t("commandFlowAppendNewline")}
-        onCheckedChange={(appendNewline) => patchPrompt({ appendNewline })}
+        onCheckedChange={(appendNewline: boolean) =>
+          patchPrompt({ appendNewline })}
       />
       <PlainCheckboxField
         controlKind="switch"
         checked={!!prompt.recordInput}
         labelText={t("commandFlowRecordInput")}
-        onCheckedChange={(recordInput) => patchPrompt({ recordInput })}
+        onCheckedChange={(recordInput: boolean) => patchPrompt({ recordInput })}
       />
     </div>
     <Button variant="destructive" size="sm" type="button" onclick={onRemove}>

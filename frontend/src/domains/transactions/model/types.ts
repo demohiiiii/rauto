@@ -101,10 +101,16 @@ export interface TxWorkflowTemplateRefBlockModel extends JsonObject {
   hasTxBlockTemplateContent: boolean;
   hasTxBlockTemplateName: boolean;
   hasTxBlockTemplateVars: boolean;
-  name: unknown | null;
-  txBlockTemplateContent: unknown | null;
-  txBlockTemplateName: unknown | null;
-  txBlockTemplateVars: unknown;
+  name: string | null;
+  txBlockTemplateContent: string | null;
+  txBlockTemplateName: string | null;
+  txBlockTemplateVars: JsonObject | null;
+}
+
+export interface TxWorkflowTemplateRefVarsDisplay {
+  labelText: string;
+  present: boolean;
+  source: JsonObject;
 }
 
 export interface TxWorkflowBlockFormModel extends JsonObject {

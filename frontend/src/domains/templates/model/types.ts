@@ -219,6 +219,49 @@ export interface FlowVarsState {
   values: UnknownRecord;
 }
 
+export type FlowVarControlKind =
+  | "boolean-select"
+  | "input"
+  | "json-editor"
+  | "options-select";
+
+export interface FlowVarFieldRow {
+  allowsEmpty: boolean;
+  booleanValueOptions: string[];
+  controlKind: FlowVarControlKind;
+  descriptionText: string;
+  fieldName: string;
+  hasDescription: boolean;
+  hasOptions: boolean;
+  inputAriaLabel: string;
+  inputContainerClass: string;
+  inputType: "number" | "password" | "text";
+  labelText: string;
+  optionValues: string[];
+  placeholderText: string;
+  required: boolean;
+  requirementBadgeClass: string;
+  requirementLabelText: string;
+  typeBadgeText: string;
+  typeValue: string;
+  value: string;
+}
+
+export interface FlowVarsPresentation {
+  countMetaText: string;
+  emptyText: string;
+  errorMessage: string;
+  errorStatus: { tone: "error" };
+  fieldRows: FlowVarFieldRow[];
+  hasFields: boolean;
+  hintText: string;
+  jsonHintText?: string;
+  jsonLabelText?: string;
+  jsonOverridesText?: string;
+  jsonPlaceholder?: string;
+  titleText: string;
+}
+
 export interface FlowTemplateSelectState {
   options: string[];
   selected: string;

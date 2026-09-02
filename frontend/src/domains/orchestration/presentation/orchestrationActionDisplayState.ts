@@ -1,18 +1,21 @@
 import { t } from "../../../lib/i18n.js";
 import { plainObject, stringValue } from "../../../lib/jsonValue.js";
 import { orchestrationJsonFieldText } from "./orchestrationFormFieldState.js";
-import type { JsonObject, OrchestrationOptionRow } from "../model/types.js";
+import type {
+  JsonObject,
+  OrchestrationOptionRow,
+  OrchestrationTxWorkflowSettingsDisplay,
+  OrchestrationTxWorkflowSettingsPanelDisplay,
+  OrchestrationVisualEditorDisplay,
+  OrchestrationWorkflowSourceMode,
+} from "../model/types.js";
 
 const orchestrationPlainObject = (value: unknown): value is JsonObject =>
   plainObject(value) === true;
 const orchestrationStringValue = (value: unknown, fallback = ""): string =>
   stringValue(value, fallback);
 
-export type OrchestrationWorkflowSourceMode =
-  | "workflow_json"
-  | "workflow_template_name";
-
-interface OrchestrationWorkflowPrimaryField extends JsonObject {
+export interface OrchestrationWorkflowPrimaryField extends JsonObject {
   controlType: "input" | "select" | "textarea";
   enabled: boolean;
   fieldKey: string;
@@ -22,18 +25,27 @@ interface OrchestrationWorkflowPrimaryField extends JsonObject {
   valueText: string;
 }
 
-interface OrchestrationWorkflowVarsField extends JsonObject {
+export interface OrchestrationWorkflowVarsField extends JsonObject {
   fieldKey: "workflowVars";
   labelText: string;
   present: boolean;
   source: JsonObject;
 }
 
-interface OrchestrationWorkflowSourceDisplay extends JsonObject {
+export interface OrchestrationWorkflowSourceDisplay extends JsonObject {
   primaryField: OrchestrationWorkflowPrimaryField;
   showWorkflowVars: boolean;
   sourceMode: OrchestrationWorkflowSourceMode;
   varsField: OrchestrationWorkflowVarsField | null;
+}
+
+export interface OrchestrationTxWorkflowSourcePanelDisplay extends OrchestrationWorkflowSourceDisplay {
+  primaryFieldHandlerKey: "json" | "templateName";
+  showInputField: boolean;
+  showJsonTextField: boolean;
+  showTextAreaField: boolean;
+  showVarsField: boolean;
+  varsFieldHandlerKey: "" | "workflowVars";
 }
 
 function orchestrationNonEmptyText(value: unknown): string {
@@ -102,8 +114,8 @@ export function orchestrationTxWorkflowSourceDisplay(
 
 export function orchestrationTxWorkflowActionSettingsDisplay(
   txWorkflow: unknown = {},
-  sourceRows: readonly unknown[] = [],
-): JsonObject {
+  sourceRows: readonly string[] = [],
+): OrchestrationTxWorkflowSettingsDisplay {
   const txWorkflowValue = orchestrationPlainObject(txWorkflow)
     ? txWorkflow
     : {};
@@ -112,6 +124,7 @@ export function orchestrationTxWorkflowActionSettingsDisplay(
       controlType: "select",
       enabled: true,
       fieldKey: "sourceValue",
+      labelKey: "orchestrationFormActionSource",
       labelText: t("orchestrationFormActionSource"),
       optionRows: (Array.isArray(sourceRows) ? sourceRows : []).map(
         (optionValue): OrchestrationOptionRow => ({
@@ -131,24 +144,19 @@ export function orchestrationTxWorkflowActionSettingsDisplay(
 
 export function orchestrationTxWorkflowActionSettingsPanelDisplay(
   txWorkflow: unknown = {},
-  visualDisplay: unknown = {},
-): JsonObject {
-  const displayValue = orchestrationPlainObject(visualDisplay)
-    ? visualDisplay
-    : {};
+  visualDisplay: OrchestrationVisualEditorDisplay,
+): OrchestrationTxWorkflowSettingsPanelDisplay {
   return {
     settingsDisplay: orchestrationTxWorkflowActionSettingsDisplay(
       txWorkflow,
-      Array.isArray(displayValue.txWorkflowActionSourceRows)
-        ? displayValue.txWorkflowActionSourceRows
-        : [],
+      visualDisplay.txWorkflowActionSourceRows,
     ),
   };
 }
 
 export function orchestrationTxWorkflowSourcePanelDisplay(
   txWorkflow: unknown = {},
-): JsonObject {
+): OrchestrationTxWorkflowSourcePanelDisplay {
   const sourceDisplay = orchestrationTxWorkflowSourceDisplay(txWorkflow);
   return {
     ...sourceDisplay,

@@ -1,8 +1,24 @@
-<script>
+<script lang="ts">
   import OrchestrationInputPanel from "./OrchestrationInputPanel.svelte";
   import { createOrchestrationStageWorkspace } from "$domains/orchestration/index.js";
 
-  let { active, onExecute, onImportFile, onEditorInput } = $props();
+  interface TextFile {
+    text(): Promise<string>;
+  }
+
+  interface Props {
+    active?: boolean;
+    onEditorInput?: (text: string) => void;
+    onExecute?: () => Promise<void> | void;
+    onImportFile?: (file: TextFile) => Promise<void> | void;
+  }
+
+  let {
+    active = false,
+    onExecute,
+    onImportFile,
+    onEditorInput,
+  }: Props = $props();
   const orchestrationStageWorkspace = createOrchestrationStageWorkspace();
   const { executionPanelDisplayStateStore, setStageContext } =
     orchestrationStageWorkspace;

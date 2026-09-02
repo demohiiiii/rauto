@@ -1,16 +1,35 @@
-<script>
+<script lang="ts">
   import OrchestrationFlowCanvas from "./OrchestrationFlowCanvas.svelte";
+  import type {
+    OrchestrationEditorView,
+    OrchestrationErrorChangeHandler,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationRunButtonDisplay,
+    OrchestrationVisualEditorDisplay,
+  } from "$domains/orchestration/index.js";
+
+  interface Props {
+    active?: boolean;
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    onErrorChange?: OrchestrationErrorChangeHandler | null;
+    onExecute?: () => Promise<void> | void;
+    onOpenView?: (view: OrchestrationEditorView) => void;
+    runButtonDisplay?: OrchestrationRunButtonDisplay;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+  }
 
   let {
-    active,
+    active = false,
     model,
     visualDisplay,
-    onChange,
-    onErrorChange,
+    onChange = null,
+    onErrorChange = null,
     onOpenView,
     onExecute,
-    runButtonDisplay,
-  } = $props();
+    runButtonDisplay = {},
+  }: Props = $props();
 </script>
 
 <OrchestrationFlowCanvas

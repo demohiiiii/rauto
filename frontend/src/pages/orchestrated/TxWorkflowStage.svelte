@@ -1,10 +1,37 @@
-<script>
+<script lang="ts">
   import TxWorkflowInputPanel from "./TxWorkflowInputPanel.svelte";
   import TxWorkflowRunPanel from "./TxWorkflowRunPanel.svelte";
   import { createTxWorkflowStageWorkspace } from "$domains/transactions/index.js";
 
+  interface TextFile {
+    text(): Promise<string>;
+  }
+
+  interface ExternalActionContext {
+    isCurrent?: () => boolean;
+  }
+
+  interface Props {
+    active?: boolean;
+    onCreateJsonTemplateDraft?: (
+      actionContext?: ExternalActionContext | null,
+    ) => void;
+    onEditorInput?: (text: string) => void;
+    onExecute?: () => void;
+    onImportFile?: (
+      file: TextFile,
+      actionContext?: ExternalActionContext | null,
+    ) => void;
+    onLoadJsonTemplate?: (
+      templateName: string,
+      actionContext?: ExternalActionContext | null,
+    ) => void;
+    onPreview?: () => void;
+    onSaveJsonTemplate?: () => void;
+  }
+
   let {
-    active,
+    active = false,
     onCreateJsonTemplateDraft,
     onPreview,
     onExecute,
@@ -12,7 +39,7 @@
     onEditorInput,
     onLoadJsonTemplate,
     onSaveJsonTemplate,
-  } = $props();
+  }: Props = $props();
   const txWorkflowStageWorkspace = createTxWorkflowStageWorkspace();
   const {
     createDirectDraft,

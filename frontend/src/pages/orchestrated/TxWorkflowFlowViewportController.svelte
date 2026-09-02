@@ -1,12 +1,19 @@
-<script>
+<script lang="ts">
   import { useSvelteFlow } from "@xyflow/svelte";
+
+  interface Props {
+    compact?: boolean;
+    focusNodeId?: string;
+    inspectorOpen?: boolean;
+    inspectorWidth?: number;
+  }
 
   let {
     compact = false,
     focusNodeId = "workflow-root",
     inspectorOpen = true,
     inspectorWidth = 560,
-  } = $props();
+  }: Props = $props();
 
   const { getNode, setCenter } = useSvelteFlow();
 

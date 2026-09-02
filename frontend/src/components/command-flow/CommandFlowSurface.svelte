@@ -1,5 +1,20 @@
-<script>
+<script lang="ts">
+  import type { Component, Snippet } from "svelte";
   import { classNames } from "../../lib/ui.js";
+
+  type SurfaceVariant = "section" | "workbench-header" | "workbench-section";
+
+  interface Props {
+    actions?: Snippet;
+    children?: Snippet;
+    class?: string;
+    contentClass?: string;
+    description?: string;
+    icon?: Component<{ class?: string }> | null;
+    indexText?: string;
+    title?: string;
+    variant?: SurfaceVariant;
+  }
 
   let {
     actions,
@@ -11,7 +26,7 @@
     indexText = "",
     title = "",
     variant = "section",
-  } = $props();
+  }: Props = $props();
 </script>
 
 {#if variant === "workbench-header"}

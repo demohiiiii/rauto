@@ -1,9 +1,20 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
   import { createOrchestrationStagesPanelWorkspace } from "$domains/orchestration/index.js";
   import OrchestrationStageEditor from "./OrchestrationStageEditor.svelte";
+  import type {
+    OrchestrationErrorChangeHandler,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+  } from "$domains/orchestration/index.js";
 
-  let { model, onChange, onErrorChange } = $props();
+  interface Props {
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    onErrorChange?: OrchestrationErrorChangeHandler | null;
+  }
+
+  let { model, onChange = null, onErrorChange = null }: Props = $props();
   const orchestrationStagesPanelWorkspace =
     createOrchestrationStagesPanelWorkspace();
   const {

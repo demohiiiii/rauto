@@ -1,10 +1,34 @@
-<script>
+<script lang="ts">
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Switch } from "$lib/components/ui/switch/index.js";
   import { classNames } from "../../lib/ui.js";
   import { plainCheckboxFieldBindings } from "../../lib/events.js";
 
   const defaultLabelClass = "inline-flex items-center gap-2 text-sm";
+
+  interface CheckboxChangeEvent {
+    currentTarget: { checked: boolean };
+    target: { checked: boolean };
+  }
+
+  interface Props {
+    "aria-label"?: string;
+    afterText?: string;
+    afterTextClass?: string;
+    checked?: boolean;
+    class?: string;
+    controlKind?: "checkbox" | "switch";
+    disabled?: boolean;
+    hidden?: boolean;
+    inputClass?: string;
+    onChange?: ((event: CheckboxChangeEvent) => void) | null;
+    onCheckedChange?: ((checked: boolean) => void) | null;
+    onchange?: ((event: CheckboxChangeEvent) => void) | null;
+    textClass?: string;
+    title?: string;
+    value?: string;
+    labelText?: string;
+  }
 
   let {
     checked = false,
@@ -23,7 +47,7 @@
     onChange = null,
     onCheckedChange = null,
     onchange = null,
-  } = $props();
+  }: Props = $props();
   let checkboxBindings = $derived(
     plainCheckboxFieldBindings({
       onChange: typeof onchange === "function" ? onchange : onChange,
@@ -35,11 +59,11 @@
     controlKind === "switch" || /\btoggle\b/.test(inputClass),
   );
   let controlSize = $derived(
-    /\btoggle-sm\b/.test(inputClass) ? "sm" : "default",
+    /\btoggle-sm\b/.test(inputClass) ? ("sm" as const) : ("default" as const),
   );
 
-  function checkedChangeHandler(nextChecked) {
-    return checkboxBindings.changeHandler({
+  function checkedChangeHandler(nextChecked: boolean): void {
+    checkboxBindings.changeHandler({
       currentTarget: { checked: !!nextChecked },
       target: { checked: !!nextChecked },
     });

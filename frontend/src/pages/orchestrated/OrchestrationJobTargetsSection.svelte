@@ -1,8 +1,20 @@
-<script>
+<script lang="ts">
   import { createOrchestrationJobTargetsSectionWorkspace } from "$domains/orchestration/index.js";
   import OrchestrationJobTargetsEditor from "./OrchestrationJobTargetsEditor.svelte";
+  import type {
+    OrchestrationJobEditorRow,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+  } from "$domains/orchestration/index.js";
 
-  let { model, stageIndex, jobRow, onChange } = $props();
+  interface Props {
+    jobRow: OrchestrationJobEditorRow;
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    stageIndex: number;
+  }
+
+  let { model, stageIndex, jobRow, onChange = null }: Props = $props();
 
   const jobTargetsSectionWorkspace =
     createOrchestrationJobTargetsSectionWorkspace();

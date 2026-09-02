@@ -5,6 +5,7 @@ import {
   listTemplateResource,
   updateTemplateResource,
 } from "../../../api/client.js";
+import type { TemplateResourceMeta } from "$domains/templates/index.js";
 
 interface OrchestrationTemplateApi {
   createTemplateResource(
@@ -14,7 +15,7 @@ interface OrchestrationTemplateApi {
   ): Promise<unknown>;
   deleteTemplateResource(basePath: string, name: string): Promise<unknown>;
   getTemplateResource(basePath: string, name: string): Promise<unknown>;
-  listTemplateResource(basePath: string): Promise<unknown>;
+  listTemplateResource(basePath: string): Promise<TemplateResourceMeta[]>;
   updateTemplateResource(
     basePath: string,
     name: string,

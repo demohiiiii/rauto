@@ -1,17 +1,28 @@
-<script>
+<script lang="ts">
   import JsonObjectFieldsEditor from "../../components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { t } from "../../lib/i18n.js";
   import { createTxWorkflowTemplateRefEditorWorkspace } from "$domains/transactions/index.js";
   import TxWorkflowTemplateRefSourceEditor from "./TxWorkflowTemplateRefSourceEditor.svelte";
   import TxWorkflowTemplateRefVarsEditor from "./TxWorkflowTemplateRefVarsEditor.svelte";
+  import type {
+    TxWorkflowTemplateRefBlockModel,
+    TxWorkflowTemplateRefEditorBindings,
+  } from "$domains/transactions/index.js";
+
+  interface Props {
+    bindings: TxWorkflowTemplateRefEditorBindings;
+    booleanRows?: readonly string[];
+    jsonValueTypeRows?: readonly string[];
+    templateRef: TxWorkflowTemplateRefBlockModel;
+  }
 
   let {
     templateRef,
     booleanRows = [],
     jsonValueTypeRows = [],
     bindings,
-  } = $props();
+  }: Props = $props();
 
   const txWorkflowTemplateRefEditorWorkspace =
     createTxWorkflowTemplateRefEditorWorkspace();
@@ -63,7 +74,7 @@
   <JsonObjectFieldsEditor
     title={t("txWorkflowFormBlockTemplateExtra")}
     source={editorDisplay.extraSource}
-    typeRows={jsonValueTypeRows}
+    typeRows={[...jsonValueTypeRows]}
     onChange={bindings.setExtra}
   />
 </div>

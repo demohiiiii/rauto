@@ -1,13 +1,35 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "../../lib/i18n.js";
   import { createOrchestrationStageEditorWorkspace } from "$domains/orchestration/index.js";
   import OrchestrationJobEditor from "./OrchestrationJobEditor.svelte";
   import OrchestrationStageSettingsEditor from "./OrchestrationStageSettingsEditor.svelte";
+  import type {
+    OrchestrationErrorChangeHandler,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationStageEditorRow,
+    OrchestrationVisualEditorDisplay,
+  } from "$domains/orchestration/index.js";
 
-  let { model, stageRow, visualDisplay, onChange, onErrorChange, onRemove } =
-    $props();
+  interface Props {
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    onErrorChange?: OrchestrationErrorChangeHandler | null;
+    onRemove?: (() => void) | null;
+    stageRow: OrchestrationStageEditorRow;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+  }
+
+  let {
+    model,
+    stageRow,
+    visualDisplay,
+    onChange = null,
+    onErrorChange = null,
+    onRemove = null,
+  }: Props = $props();
   const orchestrationStageEditorWorkspace =
     createOrchestrationStageEditorWorkspace();
   const {

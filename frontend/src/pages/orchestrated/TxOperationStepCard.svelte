@@ -1,10 +1,15 @@
-<script>
+<script lang="ts">
   import DetailFieldCard from "../../components/fragments/DetailFieldCard.svelte";
   import OutputBlock from "../../components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "../../components/fragments/ParsedOutputBlock.svelte";
   import { exportParsedOutputItemExcel as exportTransactionParsedOutputItemExcel } from "$domains/execution/index.js";
+  import type { TxOperationStepRow } from "$domains/transactions/index.js";
 
-  let { operationStepRow } = $props();
+  interface Props {
+    operationStepRow: TxOperationStepRow;
+  }
+
+  let { operationStepRow }: Props = $props();
 </script>
 
 <div class={operationStepRow.cardClass}>

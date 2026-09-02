@@ -9,20 +9,38 @@ import {
   orchestrationWorkflowJsonObject,
 } from "../model/orchestrationTxWorkflowActions.js";
 import { orchestrationTxWorkflowActionSettingsPanelDisplay } from "../presentation/orchestrationActionDisplayState.js";
-import type { OrchestrationPlanFormModel } from "../model/types.js";
+import { orchestrationCreateTxWorkflowActionModel } from "../model/orchestrationPlanFormModels.js";
+import { orchestrationVisualEditorDisplay } from "./orchestrationStageEditorsState.js";
+import type {
+  OrchestrationErrorChangeHandler,
+  OrchestrationPlanChangeHandler,
+  OrchestrationPlanFormModel,
+  OrchestrationTemplateOption,
+  OrchestrationTxWorkflowActionModel,
+  OrchestrationTxWorkflowSourceBindings,
+  OrchestrationVisualEditorDisplay,
+} from "../model/types.js";
 
 const TEMPLATE_API_PATH = "/api/tx-workflow-templates";
 
-type PlanChangeHandler = (model: OrchestrationPlanFormModel) => unknown;
-type ErrorChangeHandler = (error: string) => unknown;
-type TemplateListHandler = (basePath: string) => Promise<unknown>;
+type PlanChangeHandler = OrchestrationPlanChangeHandler;
+type ErrorChangeHandler = OrchestrationErrorChangeHandler;
+
+interface TemplateNameEntry {
+  name?: string | null;
+}
+
+type TemplateListEntry = string | TemplateNameEntry | null;
+type TemplateListHandler = (
+  basePath: string,
+) => Promise<readonly TemplateListEntry[]>;
 
 interface TxWorkflowActionContext {
-  jobIndex?: unknown;
-  model?: unknown;
+  jobIndex?: number;
+  model?: OrchestrationPlanFormModel;
   onChange?: PlanChangeHandler | null;
   onErrorChange?: ErrorChangeHandler | null;
-  stageIndex?: unknown;
+  stageIndex?: number;
 }
 
 interface TxWorkflowActionWorkspaceOptions extends TxWorkflowActionContext {
@@ -30,13 +48,8 @@ interface TxWorkflowActionWorkspaceOptions extends TxWorkflowActionContext {
 }
 
 interface TxWorkflowActionSettingsContext {
-  txWorkflow?: unknown;
-  visualDisplay?: unknown;
-}
-
-interface TemplateOption {
-  label: string;
-  value: string;
+  txWorkflow?: OrchestrationTxWorkflowActionModel;
+  visualDisplay?: OrchestrationVisualEditorDisplay;
 }
 
 function planModelValue(value: unknown): OrchestrationPlanFormModel {
@@ -59,8 +72,9 @@ function orchestrationTxWorkflowActionBindings(
   jobIndex: number,
   onChange: PlanChangeHandler | null,
 ) {
-  const applyChange = (nextModel: OrchestrationPlanFormModel): unknown =>
-    typeof onChange === "function" ? onChange(nextModel) : undefined;
+  const applyChange = (nextModel: OrchestrationPlanFormModel): void => {
+    onChange?.(nextModel);
+  };
   return {
     setSource(sourceValue: unknown): void {
       applyChange(
@@ -115,9 +129,10 @@ export function orchestrationTxWorkflowSourceBindings(
   jobIndex: number,
   onChange: PlanChangeHandler | null,
   onErrorChange: ErrorChangeHandler | null,
-) {
-  const setFormError = (nextError = ""): unknown =>
-    typeof onErrorChange === "function" ? onErrorChange(nextError) : undefined;
+): OrchestrationTxWorkflowSourceBindings {
+  const setFormError = (nextError = ""): void => {
+    onErrorChange?.(nextError);
+  };
   const actionBindings = orchestrationTxWorkflowActionBindings(
     model,
     stageIndex,
@@ -154,33 +169,34 @@ export function orchestrationTxWorkflowActionEditorCallbacks(
   );
   return {
     sourceBindings,
-    sourceChange(sourceValue: unknown): void {
+    sourceChange(sourceValue: string): void {
       sourceBindings.setSource(sourceValue);
     },
   };
 }
 
-function normalizeTemplateOptions(payload: unknown): TemplateOption[] {
+function normalizeTemplateOptions(
+  payload: readonly TemplateListEntry[],
+): OrchestrationTemplateOption[] {
   return [
-    { label: "", value: "" },
-    ...(Array.isArray(payload) ? payload : [])
+    { optionLabel: "", optionValue: "" },
+    ...payload
       .map((item) => {
         if (typeof item === "string") return item;
-        const row = orchestrationWorkflowJsonObject(item);
-        return row.name;
+        return item?.name;
       })
       .filter(
         (name): name is string => typeof name === "string" && !!name.trim(),
       )
       .sort((left, right) => left.localeCompare(right))
-      .map((name) => ({ label: name, value: name })),
+      .map((name) => ({ optionLabel: name, optionValue: name })),
   ];
 }
 
 export function createOrchestrationTxWorkflowActionEditorWorkspace({
   apiListTemplates = orchestrationTemplateApi.listTemplateResource,
   jobIndex = 0,
-  model = {},
+  model,
   onChange = null,
   onErrorChange = null,
   stageIndex = 0,
@@ -192,8 +208,8 @@ export function createOrchestrationTxWorkflowActionEditorWorkspace({
     onErrorChange,
   );
   const stageIndexStateStore = writable(integerOr(stageIndex));
-  const templateOptionsStateStore = writable<TemplateOption[]>([
-    { label: "", value: "" },
+  const templateOptionsStateStore = writable<OrchestrationTemplateOption[]>([
+    { optionLabel: "", optionValue: "" },
   ]);
   const templateErrorStateStore = writable("");
   const actionCallbacksStateStore = deriveStore(
@@ -232,7 +248,7 @@ export function createOrchestrationTxWorkflowActionEditorWorkspace({
 
   function setTxWorkflowActionContext({
     jobIndex: nextJobIndex = 0,
-    model: nextModel = {},
+    model: nextModel,
     onChange: nextOnChange = null,
     onErrorChange: nextOnErrorChange = null,
     stageIndex: nextStageIndex = 0,
@@ -254,14 +270,14 @@ export function createOrchestrationTxWorkflowActionEditorWorkspace({
 }
 
 export function createOrchestrationTxWorkflowActionSettingsEditorWorkspace({
-  txWorkflow = {},
-  visualDisplay = {},
+  txWorkflow,
+  visualDisplay,
 }: TxWorkflowActionSettingsContext = {}) {
-  const txWorkflowStateStore = writable(
-    orchestrationWorkflowJsonObject(txWorkflow),
+  const txWorkflowStateStore = writable<OrchestrationTxWorkflowActionModel>(
+    txWorkflow ?? orchestrationCreateTxWorkflowActionModel(),
   );
-  const visualDisplayStateStore = writable(
-    orchestrationWorkflowJsonObject(visualDisplay),
+  const visualDisplayStateStore = writable<OrchestrationVisualEditorDisplay>(
+    visualDisplay ?? orchestrationVisualEditorDisplay(),
   );
   const settingsPanelDisplayStateStore = deriveStore(
     [txWorkflowStateStore, visualDisplayStateStore, currentLanguageState],
@@ -273,12 +289,14 @@ export function createOrchestrationTxWorkflowActionSettingsEditorWorkspace({
   );
 
   function setTxWorkflowActionSettingsContext({
-    txWorkflow: nextTxWorkflow = {},
-    visualDisplay: nextVisualDisplay = {},
+    txWorkflow: nextTxWorkflow,
+    visualDisplay: nextVisualDisplay,
   }: TxWorkflowActionSettingsContext = {}): void {
-    txWorkflowStateStore.set(orchestrationWorkflowJsonObject(nextTxWorkflow));
+    txWorkflowStateStore.set(
+      nextTxWorkflow ?? orchestrationCreateTxWorkflowActionModel(),
+    );
     visualDisplayStateStore.set(
-      orchestrationWorkflowJsonObject(nextVisualDisplay),
+      nextVisualDisplay ?? orchestrationVisualEditorDisplay(),
     );
   }
 

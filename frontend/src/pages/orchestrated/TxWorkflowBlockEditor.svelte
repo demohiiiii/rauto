@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -7,6 +7,19 @@
 
   import TxBlockVisualEditor from "./TxBlockVisualEditor.svelte";
   import TxWorkflowTemplateRefEditor from "./TxWorkflowTemplateRefEditor.svelte";
+  import type {
+    TxWorkflowBlockActionHandlers,
+    TxWorkflowBlockRow,
+    TxWorkflowVisualEditorDisplay,
+  } from "$domains/transactions/index.js";
+
+  interface Props {
+    blockActionHandlers: TxWorkflowBlockActionHandlers;
+    blockRow: TxWorkflowBlockRow;
+    editorDisplay: TxWorkflowVisualEditorDisplay;
+    embedded?: boolean;
+    showRemoveAction?: boolean;
+  }
 
   let {
     blockRow,
@@ -14,7 +27,7 @@
     blockActionHandlers,
     showRemoveAction = true,
     embedded = false,
-  } = $props();
+  }: Props = $props();
 
   const txWorkflowBlockEditorWorkspace = createTxWorkflowBlockEditorWorkspace();
   const { editorActionHandlersStateStore, setBlockEditorContext } =

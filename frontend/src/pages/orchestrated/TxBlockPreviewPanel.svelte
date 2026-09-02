@@ -1,10 +1,17 @@
-<script>
+<script lang="ts">
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import { normalizeTxBlockPreviewPresentation } from "$domains/transactions/index.js";
   import TxBlockResultPanel from "./TxBlockResultPanel.svelte";
+  import type { TxBlockPreviewPresentation } from "$domains/transactions/index.js";
 
-  let { previewPresentation, showResult, showSummary } = $props();
+  interface Props {
+    previewPresentation: TxBlockPreviewPresentation | null;
+    showResult: boolean;
+    showSummary: boolean;
+  }
+
+  let { previewPresentation, showResult, showSummary }: Props = $props();
   let safePreviewPresentation = $derived(
     normalizeTxBlockPreviewPresentation(previewPresentation),
   );

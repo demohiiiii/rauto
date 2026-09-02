@@ -1,14 +1,25 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "../../components/fragments/SummaryMetricCard.svelte";
   import TxBlockPreviewPanel from "./TxBlockPreviewPanel.svelte";
+  import { txWorkflowPreviewPresentation } from "$domains/transactions/index.js";
+  import type {
+    TxWorkflowPreviewPanelDisplay,
+    TxWorkflowPreviewPresentation,
+  } from "$domains/transactions/index.js";
+
+  interface Props {
+    framed?: boolean;
+    previewDisplay?: TxWorkflowPreviewPanelDisplay | null;
+    previewPresentation?: TxWorkflowPreviewPresentation | null;
+  }
 
   let {
     framed = true,
     previewDisplay = null,
     previewPresentation = null,
-  } = $props();
+  }: Props = $props();
   let previewModeDisplay = $derived(
     previewDisplay?.previewModeDisplay || {
       showStatus: false,
@@ -16,7 +27,9 @@
     },
   );
   let presentation = $derived(
-    previewPresentation || previewDisplay?.previewPresentation || {},
+    previewPresentation ||
+      previewDisplay?.previewPresentation ||
+      txWorkflowPreviewPresentation(null),
   );
 </script>
 

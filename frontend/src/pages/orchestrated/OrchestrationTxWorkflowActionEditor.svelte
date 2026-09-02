@@ -1,8 +1,27 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
   import { createOrchestrationTxWorkflowActionEditorWorkspace } from "$domains/orchestration/index.js";
   import OrchestrationTxWorkflowActionSettingsEditor from "./OrchestrationTxWorkflowActionSettingsEditor.svelte";
   import OrchestrationTxWorkflowSourceEditor from "./OrchestrationTxWorkflowSourceEditor.svelte";
+  import { orchestrationCreateTxWorkflowActionModel } from "$domains/orchestration/index.js";
+  import type {
+    OrchestrationErrorChangeHandler,
+    OrchestrationJobEditorRow,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationVisualEditorDisplay,
+  } from "$domains/orchestration/index.js";
+
+  interface Props {
+    jobIndex: number;
+    jobRow: OrchestrationJobEditorRow;
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    onErrorChange?: OrchestrationErrorChangeHandler | null;
+    settingsOnly?: boolean;
+    stageIndex: number;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+  }
 
   let {
     model,
@@ -10,10 +29,10 @@
     jobIndex,
     jobRow,
     visualDisplay,
-    onChange,
-    onErrorChange,
+    onChange = null,
+    onErrorChange = null,
     settingsOnly = false,
-  } = $props();
+  }: Props = $props();
 
   const workspace = createOrchestrationTxWorkflowActionEditorWorkspace();
   const {
@@ -25,8 +44,11 @@
   let actionEditorCallbacks = $derived($actionCallbacksStateStore);
   let templateOptions = $derived($templateOptionsStateStore);
   let templateError = $derived($templateErrorStateStore);
-  let txWorkflow = $derived(jobRow?.job?.action?.txWorkflow || {});
-  let txWorkflowRows = $derived(jobRow?.txWorkflowRows || {});
+  let txWorkflow = $derived(
+    jobRow?.job?.action?.txWorkflow ??
+      orchestrationCreateTxWorkflowActionModel(),
+  );
+  let txWorkflowRows = $derived(jobRow.txWorkflowRows);
 
   onMount(() => {
     workspace.refreshTemplateOptions();
@@ -46,7 +68,6 @@
 <div class="grid gap-3 md:grid-cols-2">
   <OrchestrationTxWorkflowActionSettingsEditor
     {txWorkflow}
-    {txWorkflowRows}
     {visualDisplay}
     onSourceChange={actionEditorCallbacks.sourceChange}
   />

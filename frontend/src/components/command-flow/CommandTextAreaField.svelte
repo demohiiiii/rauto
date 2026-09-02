@@ -1,5 +1,13 @@
-<script>
+<script lang="ts">
   import PlainTextAreaField from "../fragments/PlainTextAreaField.svelte";
+
+  interface Props {
+    "aria-label"?: string;
+    disabled?: boolean;
+    onValueInput?: (value: string) => void;
+    placeholderText?: string;
+    value?: string;
+  }
 
   let {
     value = "",
@@ -7,7 +15,7 @@
     "aria-label": ariaLabel = "",
     disabled = false,
     onValueInput,
-  } = $props();
+  }: Props = $props();
 </script>
 
 <PlainTextAreaField

@@ -5,7 +5,14 @@ import {
   orchestrationRootFieldsDisplay,
   orchestrationStageFieldsDisplay,
 } from "./orchestrationFormFieldState.js";
-import type { JsonObject } from "../model/types.js";
+import type {
+  JsonObject,
+  OrchestrationJobSettingsPanelDisplay,
+  OrchestrationPlanSettingsPanelDisplay,
+  OrchestrationStageSettingsPanelDisplay,
+  OrchestrationStagesPanelDisplay,
+  OrchestrationVisualEditorDisplay,
+} from "../model/types.js";
 
 const orchestrationPlainObject = (value: unknown): value is JsonObject =>
   plainObject(value) === true;
@@ -21,7 +28,7 @@ interface OrchestrationTargetLabels {
 export function orchestrationPlanSettingsPanelDisplay(
   model: unknown = {},
   visualDisplay: unknown = {},
-): JsonObject {
+): OrchestrationPlanSettingsPanelDisplay {
   const planValue = orchestrationPlainObject(model) ? model : {};
   const displayValue = orchestrationPlainObject(visualDisplay)
     ? visualDisplay
@@ -51,7 +58,7 @@ export function orchestrationJobEditorDisplay(
 export function orchestrationStageSettingsPanelDisplay(
   stageRow: unknown = {},
   visualDisplay: unknown = {},
-): JsonObject {
+): OrchestrationStageSettingsPanelDisplay {
   const row = orchestrationPlainObject(stageRow) ? stageRow : {};
   const displayValue = orchestrationPlainObject(visualDisplay)
     ? visualDisplay
@@ -69,7 +76,7 @@ export function orchestrationStageSettingsPanelDisplay(
 export function orchestrationJobSettingsPanelDisplay(
   job: unknown = {},
   visualDisplay: unknown = {},
-): JsonObject {
+): OrchestrationJobSettingsPanelDisplay {
   const jobValue = orchestrationPlainObject(job) ? job : {};
   const displayValue = orchestrationPlainObject(visualDisplay)
     ? visualDisplay
@@ -112,16 +119,11 @@ export const orchestrationEditorRunButtonDisplayPresentation = <T>(
 ): T => display;
 
 export function orchestrationStagesPanelDisplay(
-  visualDisplay: unknown = {},
-): JsonObject {
-  const displayValue = orchestrationPlainObject(visualDisplay)
-    ? visualDisplay
-    : {};
+  visualDisplay: OrchestrationVisualEditorDisplay,
+): OrchestrationStagesPanelDisplay {
   return {
     addStageButtonLabel: t("orchestrationFormAddStage"),
-    stageRows: Array.isArray(displayValue.stageRows)
-      ? displayValue.stageRows
-      : [],
+    stageRows: visualDisplay.stageRows,
     titleText: t("orchestrationFormStage"),
   };
 }

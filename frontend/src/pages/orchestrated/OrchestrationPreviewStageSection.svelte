@@ -1,8 +1,13 @@
-<script>
+<script lang="ts">
+  import type { OrchestrationPreviewStageRow } from "$domains/orchestration/index.js";
   import OrchestrationPreviewJobCard from "./OrchestrationPreviewJobCard.svelte";
   import OrchestrationPreviewTargetChips from "./OrchestrationPreviewTargetChips.svelte";
 
-  let { previewStageRow } = $props();
+  interface Props {
+    previewStageRow: OrchestrationPreviewStageRow;
+  }
+
+  let { previewStageRow }: Props = $props();
 </script>
 
 <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">

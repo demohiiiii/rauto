@@ -2,6 +2,16 @@ export type JsonObject = Record<string, unknown>;
 
 export type OrchestrationStrategy = "parallel" | "serial";
 
+export type OrchestrationWorkflowSourceMode =
+  | "workflow_json"
+  | "workflow_template_name";
+
+export type OrchestrationEditorView = "json" | "readonly";
+
+export interface OrchestrationRunButtonDisplay {
+  executeLoading?: boolean;
+}
+
 export interface OrchestrationTxWorkflowActionModel extends JsonObject {
   hasWorkflow: boolean;
   hasWorkflowTemplateName: boolean;
@@ -9,6 +19,18 @@ export interface OrchestrationTxWorkflowActionModel extends JsonObject {
   workflow: unknown | null;
   workflowTemplateName: string | null;
   workflowVars: unknown;
+}
+
+export interface OrchestrationTemplateOption {
+  optionLabel: string;
+  optionValue: string;
+}
+
+export interface OrchestrationTxWorkflowSourceBindings {
+  setJsonText(workflowJsonText: string): void;
+  setSource(sourceValue: string): void;
+  setTemplateName(workflowTemplateName: string): void;
+  setWorkflowVars(workflowVars: JsonObject): void;
 }
 
 export interface OrchestrationActionModel extends JsonObject {
@@ -60,6 +82,39 @@ export interface OrchestrationPlanFormModel extends JsonObject {
   stages: OrchestrationStageModel[];
 }
 
+export type OrchestrationPlanChangeHandler = (
+  model: OrchestrationPlanFormModel,
+) => void;
+
+export type OrchestrationErrorChangeHandler = (error: string) => void;
+
+export interface OrchestrationJobEditorRow {
+  job: OrchestrationJobModel;
+  jobIndex: number;
+  stageIndex: number;
+  titleText: string;
+  txWorkflowRows: {
+    sourceValue: OrchestrationWorkflowSourceMode;
+    workflowVarsText: string;
+  };
+}
+
+export interface OrchestrationStageEditorRow {
+  jobRows: OrchestrationJobEditorRow[];
+  stage: OrchestrationStageModel;
+  stageIndex: number;
+  titleText: string;
+}
+
+export interface OrchestrationVisualEditorDisplay {
+  booleanRows: readonly string[];
+  jsonValueTypeRows: readonly string[];
+  nullableBooleanRows: readonly string[];
+  stageRows: OrchestrationStageEditorRow[];
+  strategyRows: readonly string[];
+  txWorkflowActionSourceRows: readonly string[];
+}
+
 export interface OrchestrationPlanParseResult {
   error: string;
   model: OrchestrationPlanFormModel | null;
@@ -80,7 +135,7 @@ export interface OrchestrationFieldDefinition extends JsonObject {
 
 export interface OrchestrationOptionRow extends JsonObject {
   optionLabel: string;
-  optionValue: unknown;
+  optionValue: string;
 }
 
 export interface OrchestrationFieldDisplay extends OrchestrationFieldDefinition {
@@ -92,7 +147,33 @@ export interface OrchestrationFieldDisplay extends OrchestrationFieldDefinition 
   placeholderText: string;
   showNullableModeSelect?: boolean;
   showPresenceToggle: boolean;
-  valueText: unknown;
+  valueText: string;
+}
+
+export interface OrchestrationPlanSettingsPanelDisplay {
+  rootFieldRows: OrchestrationFieldDisplay[];
+}
+
+export interface OrchestrationStageSettingsPanelDisplay {
+  fieldRows: OrchestrationFieldDisplay[];
+}
+
+export interface OrchestrationJobSettingsPanelDisplay {
+  fieldRows: OrchestrationFieldDisplay[];
+}
+
+export interface OrchestrationTxWorkflowSettingsDisplay {
+  sourceField: OrchestrationFieldDisplay;
+}
+
+export interface OrchestrationTxWorkflowSettingsPanelDisplay {
+  settingsDisplay: OrchestrationTxWorkflowSettingsDisplay;
+}
+
+export interface OrchestrationStagesPanelDisplay {
+  addStageButtonLabel: string;
+  stageRows: OrchestrationStageEditorRow[];
+  titleText: string;
 }
 
 export interface OrchestrationWorkflowPreviewRow extends JsonObject {

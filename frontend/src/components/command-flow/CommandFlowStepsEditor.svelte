@@ -1,4 +1,8 @@
-<script>
+<script
+  lang="ts"
+  generics="TStepRow extends { stepIndex: number; titleText: string }"
+>
+  import type { Snippet } from "svelte";
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
   import CopyIcon from "@lucide/svelte/icons/copy";
@@ -8,6 +12,30 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { commandFlowAccentColor } from "$domains/command/index.js";
   import CommandFlowSurface from "./CommandFlowSurface.svelte";
+
+  type AddStepPlacement = "footer" | "header";
+  type SurfaceVariant = "section" | "workbench-header" | "workbench-section";
+  type RenderStepRow = TStepRow & { accentIndex: number };
+
+  interface Props {
+    addLabel?: string;
+    addStepPlacement?: AddStepPlacement;
+    description?: string;
+    duplicateLabel?: string;
+    emptyText?: string;
+    indexText?: string;
+    moveDownLabel?: string;
+    moveUpLabel?: string;
+    onAddStep: () => void;
+    onDuplicateStep?: (stepIndex: number) => void;
+    onMoveStep?: (fromIndex: number, toIndex: number) => void;
+    onRemoveStep: (stepIndex: number) => void;
+    removeLabel?: string;
+    renderStep: Snippet<[RenderStepRow]>;
+    stepRows?: TStepRow[];
+    surfaceVariant?: SurfaceVariant;
+    title?: string;
+  }
 
   let {
     addLabel = "",
@@ -27,7 +55,7 @@
     stepRows = [],
     surfaceVariant = "section",
     title = "",
-  } = $props();
+  }: Props = $props();
 </script>
 
 {#snippet addStepAction()}
@@ -43,7 +71,7 @@
   {title}
   {description}
   variant={surfaceVariant}
-  actions={addStepPlacement === "header" ? addStepAction : null}
+  actions={addStepPlacement === "header" ? addStepAction : undefined}
 >
   {#if stepRows.length === 0}
     <div

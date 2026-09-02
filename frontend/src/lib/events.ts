@@ -463,11 +463,14 @@ interface PresenceFieldRowShape {
   showNullableModeSelect?: unknown;
 }
 
-function resolvePresenceFieldCallback<TValue>(
-  fieldRow: PresenceFieldRowShape,
+function resolvePresenceFieldCallback<
+  TValue,
+  TFieldRow extends PresenceFieldRowShape,
+>(
+  fieldRow: TFieldRow,
   directHandler: OptionalCallback<[TValue]> = null,
   rowHandlerFactory: OptionalCallback<
-    [PresenceFieldRowShape],
+    [TFieldRow],
     OptionalCallback<[TValue]>
   > = null,
   keyHandlerFactory: OptionalCallback<
@@ -491,15 +494,19 @@ function resolvePresenceFieldCallback<TValue>(
   return null;
 }
 
-interface PresenceFieldRowBindingOptions<TNullableValue, TValue> {
-  fieldRow?: PresenceFieldRowShape;
+interface PresenceFieldRowBindingOptions<
+  TNullableValue,
+  TValue,
+  TFieldRow extends PresenceFieldRowShape,
+> {
+  fieldRow: TFieldRow;
   onNullableModeChange?: OptionalCallback<[TNullableValue]>;
   onNullableModeChangeForKey?: OptionalCallback<
     [string],
     OptionalCallback<[TNullableValue]>
   >;
   onNullableModeChangeForRow?: OptionalCallback<
-    [PresenceFieldRowShape],
+    [TFieldRow],
     OptionalCallback<[TNullableValue]>
   >;
   onPresenceChange?: OptionalCallback<[boolean]>;
@@ -508,13 +515,13 @@ interface PresenceFieldRowBindingOptions<TNullableValue, TValue> {
     OptionalCallback<[boolean]>
   >;
   onPresenceChangeForRow?: OptionalCallback<
-    [PresenceFieldRowShape],
+    [TFieldRow],
     OptionalCallback<[boolean]>
   >;
   onValueChange?: OptionalCallback<[TValue]>;
   onValueChangeForKey?: OptionalCallback<[string], OptionalCallback<[TValue]>>;
   onValueChangeForRow?: OptionalCallback<
-    [PresenceFieldRowShape],
+    [TFieldRow],
     OptionalCallback<[TValue]>
   >;
   showPresenceToggle?: boolean;
@@ -523,8 +530,9 @@ interface PresenceFieldRowBindingOptions<TNullableValue, TValue> {
 export function presenceFieldRowBindings<
   TNullableValue = unknown,
   TValue = unknown,
+  TFieldRow extends PresenceFieldRowShape = PresenceFieldRowShape,
 >({
-  fieldRow = {},
+  fieldRow,
   showPresenceToggle = false,
   onNullableModeChange = null,
   onValueChange = null,
@@ -535,7 +543,7 @@ export function presenceFieldRowBindings<
   onPresenceChangeForKey = null,
   onValueChangeForRow = null,
   onPresenceChangeForRow = null,
-}: PresenceFieldRowBindingOptions<TNullableValue, TValue> = {}) {
+}: PresenceFieldRowBindingOptions<TNullableValue, TValue, TFieldRow>) {
   const nullableModeChangeHandler = fieldRow.showNullableModeSelect
     ? resolvePresenceFieldCallback(
         fieldRow,

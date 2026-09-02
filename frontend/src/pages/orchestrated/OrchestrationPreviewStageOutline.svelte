@@ -1,5 +1,16 @@
-<script>
-  let { titleText, jobChipRow, stageRows = [] } = $props();
+<script lang="ts">
+  import type {
+    OrchestrationPreviewChip,
+    OrchestrationPreviewStageRow,
+  } from "$domains/orchestration/index.js";
+
+  interface Props {
+    jobChipRow: OrchestrationPreviewChip;
+    stageRows?: OrchestrationPreviewStageRow[];
+    titleText: string;
+  }
+
+  let { titleText, jobChipRow, stageRows = [] }: Props = $props();
 </script>
 
 <section class="rounded-xl border border-slate-200 bg-white px-3 py-3">

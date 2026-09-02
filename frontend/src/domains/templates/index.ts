@@ -31,8 +31,11 @@ export {
 export { flowVarsPresentation } from "./presentation/flowVarsPresentation.js";
 export type {
   ContentTemplateWorkspace,
+  FlowVarControlKind,
+  FlowVarFieldRow,
   FlowTemplateSelectState,
   FlowVarField,
+  FlowVarsPresentation,
   FlowVarsState,
   ShowObjectWorkspace,
   TemplateManagerKind,

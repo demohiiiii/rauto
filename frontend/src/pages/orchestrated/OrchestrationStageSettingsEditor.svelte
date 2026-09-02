@@ -1,10 +1,23 @@
-<script>
+<script lang="ts">
   import Layers3Icon from "@lucide/svelte/icons/layers-3";
   import PresenceFieldGrid from "../../components/fragments/PresenceFieldGrid.svelte";
   import { t } from "../../lib/i18n.js";
   import { createOrchestrationStageEditorWorkspace } from "$domains/orchestration/index.js";
+  import type {
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationStageEditorRow,
+    OrchestrationVisualEditorDisplay,
+  } from "$domains/orchestration/index.js";
 
-  let { model, stageRow, visualDisplay, onChange } = $props();
+  interface Props {
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    stageRow: OrchestrationStageEditorRow;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+  }
+
+  let { model, stageRow, visualDisplay, onChange = null }: Props = $props();
   const workspace = createOrchestrationStageEditorWorkspace();
   const {
     settingsPanelDisplayStateStore,

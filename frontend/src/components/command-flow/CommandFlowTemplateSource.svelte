@@ -1,6 +1,19 @@
-<script>
+<script lang="ts">
+  import type { Snippet } from "svelte";
   import FileInputIcon from "@lucide/svelte/icons/file-input";
   import CommandFlowSurface from "./CommandFlowSurface.svelte";
+
+  type SurfaceVariant = "section" | "workbench-header" | "workbench-section";
+
+  interface Props {
+    actions?: Snippet;
+    children?: Snippet;
+    class?: string;
+    description?: string;
+    indexText?: string;
+    surfaceVariant?: SurfaceVariant;
+    title?: string;
+  }
 
   let {
     actions,
@@ -10,7 +23,7 @@
     indexText = "",
     surfaceVariant = "section",
     title = "",
-  } = $props();
+  }: Props = $props();
 </script>
 
 <CommandFlowSurface

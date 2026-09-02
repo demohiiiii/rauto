@@ -1,11 +1,17 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import LoadingButton from "../../components/fragments/LoadingButton.svelte";
   import StatusCard from "../../components/fragments/StatusCard.svelte";
   import { createTxBlockRunPanelWorkspace } from "$domains/transactions/index.js";
   import TxBlockResultPanel from "./TxBlockResultPanel.svelte";
+  import type { TxBlockRunPanelDisplay } from "$domains/transactions/index.js";
 
-  let { onExecute, panelDisplay } = $props();
+  interface Props {
+    onExecute?: (() => void) | null;
+    panelDisplay: TxBlockRunPanelDisplay;
+  }
+
+  let { onExecute = null, panelDisplay }: Props = $props();
   const txBlockRunPanelWorkspace = createTxBlockRunPanelWorkspace();
   const {
     execStatusDisplayStateStore,
@@ -19,7 +25,7 @@
     setPanelDisplay(panelDisplay);
   });
   let resultPanel = $derived(
-    $previewDisplayStateStore.previewPresentation?.resultPanel || {},
+    $previewDisplayStateStore.previewPresentation.resultPanel,
   );
 </script>
 

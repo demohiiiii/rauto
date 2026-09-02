@@ -1,5 +1,22 @@
-<script>
+<script lang="ts">
   import OrchestrationTxWorkflowActionEditor from "./OrchestrationTxWorkflowActionEditor.svelte";
+  import type {
+    OrchestrationErrorChangeHandler,
+    OrchestrationJobEditorRow,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationVisualEditorDisplay,
+  } from "$domains/orchestration/index.js";
+
+  interface Props {
+    jobIndex: number;
+    jobRow: OrchestrationJobEditorRow;
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    onErrorChange?: OrchestrationErrorChangeHandler | null;
+    stageIndex: number;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+  }
 
   let {
     model,
@@ -7,9 +24,9 @@
     jobIndex,
     jobRow,
     visualDisplay,
-    onChange,
-    onErrorChange,
-  } = $props();
+    onChange = null,
+    onErrorChange = null,
+  }: Props = $props();
 </script>
 
 <OrchestrationTxWorkflowActionEditor
