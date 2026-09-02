@@ -1,17 +1,32 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { writable } from "svelte/store";
+import { get, writable } from "svelte/store";
 import {
   activeSavedDeviceName,
   createConfigHistoryWorkspace,
   localDateTimeToIso,
   mergeConfigHistoryDevices,
   prioritizeConfigHistoryDevices,
-} from "../src/domains/config-history/index.ts";
+} from "../src/domains/config-history/index.js";
+import type {
+  ConfigHistoryApi,
+  ConnectionTarget,
+  DeviceConfigHistoryFilters,
+  DeviceConfigHistoryResponse,
+  DeviceConfigSnapshotSummary,
+} from "../src/domains/config-history/model/types.js";
 
-function read(path) {
+function read(path: string): string {
   return readFileSync(path, "utf8");
+}
+
+const deleteSnapshot: ConfigHistoryApi["deleteDeviceConfigSnapshot"] = async (
+  id,
+) => ({ deleted: true, id });
+
+function emptyHistoryResponse(): DeviceConfigHistoryResponse {
+  return { connection_names: [], kinds: [], snapshots: [] };
 }
 
 test("configuration history is a dedicated local management page", () => {
@@ -120,15 +135,27 @@ test("configuration history prioritizes the active saved device", () => {
 });
 
 test("configuration history loads each level only after its parent selection", async () => {
-  const calls = { details: [], histories: [] };
-  const snapshot = {
+  const calls: { details: string[]; histories: string[] } = {
+    details: [],
+    histories: [],
+  };
+  const snapshot: DeviceConfigSnapshotSummary = {
+    changed_from_previous: null,
+    command: "show running-config",
     id: "snapshot-1",
     connection_name: "edge-2",
+    content_size_bytes: 16,
     fetched_at: "2026-08-25T10:00:00Z",
+    host: "192.0.2.2",
     kind: "running",
+    previous_snapshot_id: null,
+    profile: "cisco_ios",
+    sha256: "snapshot-sha256",
+    source: "manual",
+    task_id: null,
   };
-  const api = {
-    deleteDeviceConfigSnapshot: async () => {},
+  const api: ConfigHistoryApi = {
+    deleteDeviceConfigSnapshot: deleteSnapshot,
     getDeviceConfigSnapshot: async (id) => {
       calls.details.push(id);
       return { ...snapshot, content: "hostname edge-2\n" };
@@ -140,7 +167,11 @@ test("configuration history loads each level only after its parent selection", a
     listDeviceConfigHistoryDevices: async () => [],
     listDeviceConfigHistory: async ({ connectionName }) => {
       calls.histories.push(connectionName);
-      return { kinds: ["running"], snapshots: [snapshot] };
+      return {
+        connection_names: ["edge-2"],
+        kinds: ["running"],
+        snapshots: [snapshot],
+      };
     },
   };
   const workspace = createConfigHistoryWorkspace({
@@ -152,10 +183,7 @@ test("configuration history loads each level only after its parent selection", a
   });
 
   await workspace.setPageContext({ active: true });
-  let display;
-  const unsubscribe = workspace.displayStateStore.subscribe((value) => {
-    display = value;
-  });
+  let display = get(workspace.displayStateStore);
   assert.equal(display.connectionName, "edge-2");
   assert.equal(display.deviceRows[0].name, "edge-2");
   assert.equal(display.deviceRows[0].preferred, true);
@@ -164,21 +192,22 @@ test("configuration history loads each level only after its parent selection", a
   assert.equal(display.detailOpen, false);
 
   await workspace.selectSnapshot("snapshot-1")();
+  display = get(workspace.displayStateStore);
   assert.deepEqual(calls.details, ["snapshot-1"]);
   assert.equal(display.detailOpen, true);
   assert.equal(display.detailDisplay.content, "hostname edge-2\n");
   workspace.closeDetail();
+  display = get(workspace.displayStateStore);
   assert.equal(display.detailOpen, false);
   assert.equal(display.detailDisplay.hasDetail, false);
-  unsubscribe();
 
-  const unselectedCalls = [];
+  const unselectedCalls: string[] = [];
   const unselectedWorkspace = createConfigHistoryWorkspace({
     api: {
       ...api,
       listDeviceConfigHistory: async ({ connectionName }) => {
         unselectedCalls.push(connectionName);
-        return { kinds: [], snapshots: [] };
+        return emptyHistoryResponse();
       },
     },
     getActiveConnectionTarget: () => ({ kind: "none", details: null }),
@@ -190,18 +219,21 @@ test("configuration history loads each level only after its parent selection", a
 });
 
 test("configuration history follows a saved device restored after page activation", async () => {
-  const targetStore = writable({ kind: "none", details: null });
-  const historyCalls = [];
+  const targetStore = writable<ConnectionTarget>({
+    kind: "none",
+    details: null,
+  });
+  const historyCalls: string[] = [];
   const workspace = createConfigHistoryWorkspace({
     activeConnectionTargetStore: targetStore,
     api: {
-      deleteDeviceConfigSnapshot: async () => {},
+      deleteDeviceConfigSnapshot: deleteSnapshot,
       getDeviceConfigSnapshot: async () => null,
       listConnections: async () => [{ name: "edge-1" }, { name: "edge-2" }],
       listDeviceConfigHistoryDevices: async () => [],
       listDeviceConfigHistory: async ({ connectionName }) => {
         historyCalls.push(connectionName);
-        return { kinds: [], snapshots: [] };
+        return emptyHistoryResponse();
       },
     },
     getActiveConnectionTarget: () => ({ kind: "none", details: null }),
@@ -212,28 +244,24 @@ test("configuration history follows a saved device restored after page activatio
   targetStore.set({ kind: "saved", details: { name: "edge-2" } });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  let display;
-  const unsubscribe = workspace.displayStateStore.subscribe((value) => {
-    display = value;
-  });
+  const display = get(workspace.displayStateStore);
   assert.equal(display.connectionName, "edge-2");
   assert.equal(display.deviceRows[0].name, "edge-2");
   assert.deepEqual(historyCalls, ["edge-2"]);
-  unsubscribe();
   workspace.destroy();
 });
 
 test("configuration history applies time range and stable time ordering", async () => {
-  const historyCalls = [];
+  const historyCalls: DeviceConfigHistoryFilters[] = [];
   const workspace = createConfigHistoryWorkspace({
     api: {
-      deleteDeviceConfigSnapshot: async () => {},
+      deleteDeviceConfigSnapshot: deleteSnapshot,
       getDeviceConfigSnapshot: async () => null,
       listConnections: async () => [{ name: "edge-1" }],
       listDeviceConfigHistoryDevices: async () => [],
       listDeviceConfigHistory: async (filters) => {
         historyCalls.push(filters);
-        return { kinds: [], snapshots: [] };
+        return emptyHistoryResponse();
       },
     },
     getActiveConnectionTarget: () => ({ kind: "none", details: null }),
@@ -257,23 +285,19 @@ test("configuration history applies time range and stable time ordering", async 
   const callCount = historyCalls.length;
   await workspace.setFetchedFrom("2026-08-26T08:00:00");
   assert.equal(historyCalls.length, callCount);
-  let display;
-  const unsubscribe = workspace.displayStateStore.subscribe((value) => {
-    display = value;
-  });
-  assert.equal(display.listStatus.tone, "error");
+  const display = get(workspace.displayStateStore);
+  assert.equal(display.listStatus?.tone, "error");
   await workspace.clearTimeRange();
-  assert.equal(historyCalls.at(-1).fetchedFrom, "");
-  assert.equal(historyCalls.at(-1).fetchedTo, "");
-  unsubscribe();
+  assert.equal(historyCalls.at(-1)?.fetchedFrom, "");
+  assert.equal(historyCalls.at(-1)?.fetchedTo, "");
   workspace.destroy();
 });
 
 test("configuration history keeps deleted devices without eagerly loading history", async () => {
-  const historyCalls = [];
+  const historyCalls: string[] = [];
   const workspace = createConfigHistoryWorkspace({
     api: {
-      deleteDeviceConfigSnapshot: async () => {},
+      deleteDeviceConfigSnapshot: deleteSnapshot,
       getDeviceConfigSnapshot: async () => null,
       listConnections: async () => [{ name: "edge-live", host: "192.0.2.10" }],
       listDeviceConfigHistoryDevices: async () => [
@@ -282,30 +306,26 @@ test("configuration history keeps deleted devices without eagerly loading histor
       ],
       listDeviceConfigHistory: async ({ connectionName }) => {
         historyCalls.push(connectionName);
-        return { kinds: [], snapshots: [] };
+        return emptyHistoryResponse();
       },
     },
     getActiveConnectionTarget: () => ({ kind: "none", details: null }),
   });
 
   await workspace.setPageContext({ active: true });
-  let display;
-  const unsubscribe = workspace.displayStateStore.subscribe((value) => {
-    display = value;
-  });
+  const display = get(workspace.displayStateStore);
   assert.deepEqual(
     display.deviceRows.map((device) => device.name),
     ["edge-deleted", "edge-live"],
   );
   assert.equal(
-    display.deviceRows.find((device) => device.name === "edge-live").host,
+    display.deviceRows.find((device) => device.name === "edge-live")?.host,
     "192.0.2.10",
   );
   assert.deepEqual(historyCalls, []);
 
   await workspace.selectDevice("edge-deleted");
   assert.deepEqual(historyCalls, ["edge-deleted"]);
-  unsubscribe();
   workspace.destroy();
 });
 

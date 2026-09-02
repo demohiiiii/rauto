@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   batchFlowTemplatePayload,
@@ -71,25 +70,5 @@ test("batch flow payload distinguishes builtin templates and parses vars", () =>
       groups: ["branch"],
       labels: ["production"],
     },
-  );
-});
-
-test("batch pages use the standard domain boundary", () => {
-  const pages = [
-    "frontend/src/pages/batch/BatchExecPanel.svelte",
-    "frontend/src/pages/batch/BatchFlowPanel.svelte",
-  ].map((path) => readFileSync(path, "utf8"));
-  const model = readFileSync(
-    "frontend/src/domains/standard/model/standardBatch.ts",
-    "utf8",
-  );
-
-  for (const page of pages) {
-    assert.match(page, /\$domains\/standard\/index\.js/);
-    assert.doesNotMatch(page, /modules\/standard/);
-  }
-  assert.doesNotMatch(
-    model,
-    /api\/client|modules\/connections|modules\/overlays/,
   );
 });

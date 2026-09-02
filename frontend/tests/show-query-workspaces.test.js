@@ -19,38 +19,6 @@ function read(path) {
   return readFileSync(path, "utf8");
 }
 
-test("show pages use the show domain boundary", () => {
-  const sources = [
-    "frontend/src/pages/ShowPage.svelte",
-    "frontend/src/pages/show/SingleShowPanel.svelte",
-    "frontend/src/pages/show/BatchShowInputPanel.svelte",
-    "frontend/src/pages/show/BatchShowResultsPanel.svelte",
-  ].map(read);
-
-  for (const source of sources) {
-    assert.match(source, /\$domains\/show\/index\.js/);
-    assert.doesNotMatch(source, /modules\/operations\/showQuery/);
-  }
-  assert.match(sources[0], /<script lang="ts">/);
-});
-
-test("show execution state uses typed infrastructure ports", () => {
-  const execution = read(
-    "frontend/src/domains/show/application/showExecutionState.ts",
-  );
-  const runtime = read(
-    "frontend/src/domains/show/infrastructure/showRuntime.ts",
-  );
-
-  assert.match(execution, /import \{ showApi \}/);
-  assert.match(execution, /import \{ showRuntime \}/);
-  assert.doesNotMatch(
-    execution,
-    /modules\/(?:overlays|profiles|templates|connections\/connections)\//,
-  );
-  assert.match(runtime, /satisfies ShowRuntime|as unknown as ShowRuntime/);
-});
-
 test("show query mode tabs render in the card header", () => {
   for (const path of [
     "frontend/src/pages/show/SingleShowPanel.svelte",

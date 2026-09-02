@@ -10,8 +10,7 @@ export interface StatusMessage {
 }
 
 export interface ConnectionTargetDetails {
-  name?: unknown;
-  [key: string]: unknown;
+  name?: string | null;
 }
 
 export interface ConnectionTarget {
@@ -20,15 +19,15 @@ export interface ConnectionTarget {
 }
 
 export interface ConfigHistoryDeviceInput {
-  name?: unknown;
-  [key: string]: unknown;
+  device_profile?: string | null;
+  host?: string | null;
+  name?: string | null;
 }
 
 export interface ConfigHistoryDevice {
   name: string;
-  device_profile?: string;
-  host?: string;
-  [key: string]: unknown;
+  device_profile?: string | null;
+  host?: string | null;
 }
 
 export interface DeviceConfigSnapshotSummary {
@@ -74,7 +73,7 @@ export interface DeviceConfigSnapshotMutationResponse {
 export interface ConfigHistoryApi {
   deleteDeviceConfigSnapshot(
     id: string,
-  ): Promise<DeviceConfigSnapshotMutationResponse | unknown>;
+  ): Promise<DeviceConfigSnapshotMutationResponse>;
   getDeviceConfigSnapshot(id: string): Promise<DeviceConfigSnapshot | null>;
   listConnections(): Promise<ConfigHistoryDevice[]>;
   listDeviceConfigHistory(

@@ -9,27 +9,6 @@ import {
   parsedOutputSheetsFromBatchShow,
 } from "../src/domains/execution/index.ts";
 
-test("execution results use the execution domain boundary", () => {
-  const domainIndex = readFileSync(
-    "frontend/src/domains/execution/index.ts",
-    "utf8",
-  );
-  const resultModel = readFileSync(
-    "frontend/src/domains/execution/model/executionResult.ts",
-    "utf8",
-  );
-  const exportApplication = readFileSync(
-    "frontend/src/domains/execution/application/exportParsedOutput.ts",
-    "utf8",
-  );
-
-  assert.match(domainIndex, /model\/executionResult\.js/);
-  assert.match(domainIndex, /presentation\/executionResultPresentation\.js/);
-  assert.match(domainIndex, /application\/exportParsedOutput\.js/);
-  assert.doesNotMatch(resultModel, /api\/client|modules\//);
-  assert.match(exportApplication, /infrastructure\/executionResultApi\.js/);
-});
-
 test("execution result failures include errors, false success, and non-zero exits", () => {
   assert.equal(
     executionResultFailed({

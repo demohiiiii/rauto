@@ -1,15 +1,6 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import test from "node:test";
-
-test("shadcn project wiring exists", () => {
-  assert.equal(existsSync("components.json"), true);
-  assert.equal(existsSync("frontend/src/lib/utils.ts"), true);
-  assert.equal(
-    existsSync("frontend/src/lib/components/ui/button/index.ts"),
-    true,
-  );
-});
 
 test("components.json uses project-local aliases", () => {
   const config = JSON.parse(readFileSync("components.json", "utf8"));

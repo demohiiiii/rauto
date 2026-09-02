@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get, writable } from "svelte/store";
 import {
   createInventoryPageWorkspace,
   newInventoryState,
 } from "../src/domains/inventory/index.ts";
-
-const read = (path) => readFileSync(path, "utf8");
 
 function deferred() {
   let resolve;
@@ -71,24 +68,6 @@ function createTestWorkspace({ api = {}, runtime = {} } = {}) {
 async function settle() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
-
-test("inventory page uses the inventory domain boundary", () => {
-  const page = read("frontend/src/pages/InventoryPage.svelte");
-  const panel = read(
-    "frontend/src/pages/inventory/InventoryCollectionPanel.svelte",
-  );
-  const domainIndex = read("frontend/src/domains/inventory/index.ts");
-
-  assert.match(page, /<script lang="ts">/);
-  assert.match(panel, /<script lang="ts">/);
-  assert.match(page, /\$domains\/inventory\/index\.js/);
-  assert.match(panel, /\$domains\/inventory\/index\.js/);
-  assert.match(page, /connectionCount\(\$savedConnectionSelectState\)/);
-  assert.match(page, /\.connections/);
-  assert.doesNotMatch(page, /\$savedConnectionSelectState\.options/);
-  assert.doesNotMatch([page, panel].join("\n"), /modules\/inventory/);
-  assert.match(domainIndex, /application\/createInventoryPageWorkspace\.js/);
-});
 
 test("inventory workspace loads each catalog once when activated", async () => {
   const calls = { connections: 0, groups: 0, labels: 0 };

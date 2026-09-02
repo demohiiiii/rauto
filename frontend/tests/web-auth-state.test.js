@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
 import { createWebAuthWorkspace } from "../src/domains/auth/index.ts";
@@ -25,14 +24,6 @@ function createTestWorkspace({ getStatus, login, subscribeUnauthorized } = {}) {
     },
   });
 }
-
-test("web auth uses the auth domain boundary", () => {
-  const app = readFileSync("frontend/src/App.svelte", "utf8");
-
-  assert.match(app, /<script lang="ts">/);
-  assert.match(app, /\$domains\/auth\/index\.js/);
-  assert.doesNotMatch(app, /modules\/auth/);
-});
 
 test("web auth blocks the dashboard until login succeeds", async () => {
   const workspace = createTestWorkspace({

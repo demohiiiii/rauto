@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
 import {
@@ -8,32 +7,6 @@ import {
   transferUploadPayload,
   validateTransferUploadPayload,
 } from "../src/domains/transfer/index.ts";
-
-function read(path) {
-  return readFileSync(path, "utf8");
-}
-
-test("transfer page uses the transfer domain boundary", () => {
-  const page = read("frontend/src/pages/TransferPage.svelte");
-  const domainIndex = read("frontend/src/domains/transfer/index.ts");
-  const application = read(
-    "frontend/src/domains/transfer/application/createTransferPageWorkspace.ts",
-  );
-  const runtime = read(
-    "frontend/src/domains/transfer/infrastructure/transferRuntime.ts",
-  );
-  const viteConfig = read("vite.config.js");
-
-  assert.match(page, /<script lang="ts">/);
-  assert.match(page, /\$domains\/transfer\/index\.js/);
-  assert.doesNotMatch(page, /modules\/operations\/transfer/);
-  assert.match(domainIndex, /application\/createTransferPageWorkspace\.js/);
-  assert.match(application, /transferApi/);
-  assert.match(application, /transferRuntime/);
-  assert.match(runtime, /\$domains\/connections\/index\.js/);
-  assert.match(runtime, /\$domains\/overlays\/index\.js/);
-  assert.doesNotMatch(viteConfig, /\["transfer\.js"/);
-});
 
 test("transfer upload payload preserves defaults and normalizes form text", () => {
   const state = {

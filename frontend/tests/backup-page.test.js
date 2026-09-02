@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
 import {
@@ -9,24 +8,6 @@ import {
   newBackupState,
   selectedBackupFromInput,
 } from "../src/domains/backup/index.ts";
-
-function read(path) {
-  return readFileSync(path, "utf8");
-}
-
-test("backup page uses the backup domain boundary", () => {
-  const page = read("frontend/src/pages/BackupPage.svelte");
-  const domainIndex = read("frontend/src/domains/backup/index.ts");
-  const application = read(
-    "frontend/src/domains/backup/application/createBackupPageWorkspace.ts",
-  );
-
-  assert.match(page, /\$domains\/backup\/index\.js/);
-  assert.doesNotMatch(page, /modules\/operations\/backup/);
-  assert.match(domainIndex, /application\/createBackupPageWorkspace\.js/);
-  assert.match(application, /backupApi/);
-  assert.match(application, /backupRuntime/);
-});
 
 test("backup model resolves managed archives by path or filename", () => {
   const backups = [

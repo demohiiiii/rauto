@@ -102,12 +102,19 @@ test("connection picker configs preserve resource kinds and custom rules", () =>
 test("connection vars publish one synchronized row and object state", () => {
   setConnectionVarsValue(CONNECTION_VARS.savedEdit, { attempts: 2 });
   const initialState = get(connectionVarsState(CONNECTION_VARS.savedEdit));
+  assert.ok(initialState.connectionVarRows);
+  const initialVersion = initialState.version;
+  assert.ok(typeof initialVersion === "number");
   const [attemptsRow] = initialState.connectionVarRows;
+  assert.ok(attemptsRow);
 
   setConnectionVarRowValue(CONNECTION_VARS.savedEdit, attemptsRow.id, "3");
   const nextState = get(connectionVarsState(CONNECTION_VARS.savedEdit));
+  assert.ok(nextState.connectionVarRows);
+  const nextVersion = nextState.version;
+  assert.ok(typeof nextVersion === "number");
 
-  assert.equal(nextState.version, initialState.version + 1);
+  assert.equal(nextVersion, initialVersion + 1);
   assert.equal(nextState.connectionVarRows[0].value, "3");
   assert.deepEqual(getConnectionVarsValue(CONNECTION_VARS.savedEdit), {
     attempts: 3,

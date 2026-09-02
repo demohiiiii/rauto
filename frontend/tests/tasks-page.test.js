@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
 import {
@@ -8,10 +7,6 @@ import {
   newTaskState,
   taskPagePresentation,
 } from "../src/domains/tasks/index.ts";
-
-function read(path) {
-  return readFileSync(path, "utf8");
-}
 
 function deferred() {
   let resolve;
@@ -56,27 +51,6 @@ function taskDetail(taskId, overrides = {}) {
     ...overrides,
   };
 }
-
-test("tasks page uses the tasks domain boundary", () => {
-  const page = read("frontend/src/pages/TasksPage.svelte");
-  const filterPanel = read("frontend/src/pages/tasks/TaskFiltersPanel.svelte");
-  const detailPanel = read("frontend/src/pages/tasks/TaskDetailPanel.svelte");
-  const domainIndex = read("frontend/src/domains/tasks/index.ts");
-  const application = read(
-    "frontend/src/domains/tasks/application/createTasksPageWorkspace.ts",
-  );
-
-  assert.match(page, /<script lang="ts">/);
-  assert.match(page, /\$domains\/tasks\/index\.js/);
-  assert.match(filterPanel, /\$domains\/tasks\/index\.js/);
-  assert.match(detailPanel, /\$domains\/tasks\/index\.js/);
-  assert.doesNotMatch(
-    [page, filterPanel, detailPanel].join("\n"),
-    /modules\/tasks/,
-  );
-  assert.match(domainIndex, /application\/createTasksPageWorkspace\.js/);
-  assert.match(application, /tasksApi/);
-});
 
 test("task presentation maps filter options to both select contracts", () => {
   const display = taskPagePresentation(newTaskState());

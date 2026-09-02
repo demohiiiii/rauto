@@ -141,24 +141,24 @@ export interface ConnectionHistoryDrawerState {
 }
 
 export interface SavedConnection {
-  connect_timeout_secs?: number | string;
-  credential_id?: string;
-  credential_name?: string;
+  connect_timeout_secs?: number | string | null;
+  credential_id?: string | null;
+  credential_name?: string | null;
   credential_required?: boolean;
-  device_model?: string;
-  device_profile?: string;
+  device_model?: string | null;
+  device_profile?: string | null;
   enabled?: boolean;
   group?: string;
   groups?: string[];
-  host?: string;
+  host?: string | null;
   label?: string;
   labels?: string[];
-  linux_shell_flavor?: string;
+  linux_shell_flavor?: string | null;
   name?: string;
   output_encoding?: string;
-  port?: number | string;
-  ssh_security?: string;
-  software_version?: string;
+  port?: number | string | null;
+  ssh_security?: string | null;
+  software_version?: string | null;
   vars?: Record<string, unknown>;
   [key: string]: unknown;
 }

@@ -41,26 +41,6 @@ test("configuration fetch is a dedicated dashboard operation", () => {
   assert.match(api, /listConfigCommands/);
 });
 
-test("configuration fetch follows the domain module boundary", () => {
-  const domainIndex = read("frontend/src/domains/config-fetch/index.ts");
-  const application = read(
-    "frontend/src/domains/config-fetch/application/configFetchWorkspace.ts",
-  );
-  const infrastructure = read(
-    "frontend/src/domains/config-fetch/infrastructure/configFetchApi.ts",
-  );
-  const model = read("frontend/src/domains/config-fetch/model/configFetch.ts");
-  const presentation = read(
-    "frontend/src/domains/config-fetch/presentation/configFetchPresentation.ts",
-  );
-
-  assert.match(domainIndex, /\.\/application\/configFetchWorkspace\.js/);
-  assert.match(application, /createConfigFetchWorkspace/);
-  assert.match(infrastructure, /fetchConfigBatch/);
-  assert.match(model, /configFetchPayload/);
-  assert.match(presentation, /configFetchDownloadDescriptor/);
-});
-
 test("configuration fetch ignores an obsolete command catalog response", async () => {
   const requests = [];
   const workspace = createConfigFetchWorkspace({

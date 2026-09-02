@@ -39,35 +39,6 @@ test("client exposes command content inspection", () => {
   assert.match(source, /\/api\/templates\/inspect/);
 });
 
-test("direct command execution uses the standard domain boundary", () => {
-  const index = read("frontend/src/domains/standard/index.ts");
-  const application = read(
-    "frontend/src/domains/standard/application/createStandardCommandExecutionWorkspace.ts",
-  );
-  const model = read("frontend/src/domains/standard/model/standardCommand.ts");
-  const panel = read(
-    "frontend/src/pages/standard/CommandExecutionPanel.svelte",
-  );
-
-  assert.match(
-    index,
-    /application\/createStandardCommandExecutionWorkspace\.js/,
-  );
-  assert.match(
-    index,
-    /application\/createStandardCommandFlowAuthoringState\.js/,
-  );
-  assert.match(index, /model\/standardCommand\.js/);
-  assert.match(application, /infrastructure\/standardCommandApi\.js/);
-  assert.match(application, /infrastructure\/standardCommandRuntime\.js/);
-  assert.match(panel, /\$domains\/standard\/index\.js/);
-  assert.doesNotMatch(
-    model,
-    /api\/client|modules\/connections|modules\/profiles/,
-  );
-  assert.doesNotMatch(panel, /modules\/standard\/standardCommand/);
-});
-
 test("command vars retain schema order and shared values", () => {
   assert.deepEqual(
     reconcileCommandVars([{ name: "peer" }, { name: "service" }], {

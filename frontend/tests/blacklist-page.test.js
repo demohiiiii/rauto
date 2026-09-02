@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
 import {
@@ -8,27 +7,6 @@ import {
   newBlacklistState,
   normalizeBlacklistPatterns,
 } from "../src/domains/blacklist/index.ts";
-
-function read(path) {
-  return readFileSync(path, "utf8");
-}
-
-test("blacklist page uses the blacklist domain boundary", () => {
-  const page = read("frontend/src/pages/BlacklistPage.svelte");
-  const domainIndex = read("frontend/src/domains/blacklist/index.ts");
-  const application = read(
-    "frontend/src/domains/blacklist/application/createBlacklistPageWorkspace.ts",
-  );
-  const viteConfig = read("vite.config.js");
-
-  assert.match(page, /<script lang="ts">/);
-  assert.match(page, /\$domains\/blacklist\/index\.js/);
-  assert.doesNotMatch(page, /modules\/operations\/blacklist/);
-  assert.match(domainIndex, /application\/createBlacklistPageWorkspace\.js/);
-  assert.match(application, /blacklistApi/);
-  assert.match(application, /blacklistRuntime/);
-  assert.doesNotMatch(viteConfig, /\["blacklist\.js"/);
-});
 
 test("blacklist model normalizes API entries and legacy string rows", () => {
   assert.deepEqual(

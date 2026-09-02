@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { savedConnectionLibraryPresentation } from "../src/domains/connections/presentation/connectionTargetDisplayState.js";
 
-const read = (path) => readFileSync(path, "utf8");
+const read = (path: string): string => readFileSync(path, "utf8");
 
 test("connection forms use a credential selector instead of secret inputs", () => {
   const basicFields = read(

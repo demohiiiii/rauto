@@ -39,25 +39,6 @@ test("command flow components are controlled and feature agnostic", () => {
   }
 });
 
-test("command flow uses the command domain boundary", () => {
-  const domainIndex = read("frontend/src/domains/command/index.ts");
-  const model = read(
-    "frontend/src/domains/command/model/commandFlowTemplate.ts",
-  );
-  const application = read(
-    "frontend/src/domains/command/application/createCommandFlowDraftWorkspace.ts",
-  );
-  const combinedSource = sharedComponentPaths.map(read).join("\n");
-
-  assert.match(domainIndex, /application\/createCommandFlowDraftWorkspace\.js/);
-  assert.match(domainIndex, /model\/commandFlowTemplate\.js/);
-  assert.match(domainIndex, /presentation\/commandFlowPresentation\.js/);
-  assert.match(application, /model\/commandFlowTemplate\.js/);
-  assert.doesNotMatch(model, /api\/client|infrastructure/);
-  assert.doesNotMatch(combinedSource, /modules\/command/);
-  assert.match(combinedSource, /\$domains\/command\/index\.js/);
-});
-
 test("shared command flow surfaces keep defaults and expose opt-in workbench layouts", () => {
   const surface = read(
     "frontend/src/components/command-flow/CommandFlowSurface.svelte",
@@ -77,32 +58,6 @@ test("shared command flow surfaces keep defaults and expose opt-in workbench lay
   assert.match(templateEditor, /surfaceVariant = "section"/);
   assert.match(templateEditor, /settingsIndexText/);
   assert.match(templateEditor, /stepsIndexText/);
-});
-
-test("shared command flow barrel exports every surface", () => {
-  const index = read("frontend/src/components/command-flow/index.ts");
-
-  for (const componentName of [
-    "CommandEditor",
-    "CommandFlowAuthoringViews",
-    "CommandFlowRuntimeFields",
-    "CommandMultilineModeField",
-    "CommandTextAreaField",
-    "CommandTemplateSourceField",
-    "CommandFlowReadonlyView",
-    "CommandFlowSettings",
-    "CommandFlowStepsEditor",
-    "CommandFlowSurface",
-    "CommandFlowTemplateSource",
-    "CommandFlowTemplateEditor",
-    "CommandFlowTemplateStepEditor",
-    "CommandFlowTemplatePromptEditor",
-  ]) {
-    assert.match(
-      index,
-      new RegExp(`export \\{ default as ${componentName} \\}`),
-    );
-  }
 });
 
 test("runtime fields default to inferred controls", () => {

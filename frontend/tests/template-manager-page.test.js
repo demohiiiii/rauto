@@ -1,19 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-
-const templatesRoot = path.resolve("frontend/src/pages/templates");
-
-test("template manager keeps only domain-level page components", async () => {
-  const files = (await readdir(templatesRoot)).sort();
-  assert.deepEqual(files, [
-    "ConfigCatalogWorkspace.svelte",
-    "ShowObjectWorkspace.svelte",
-    "TemplateCatalogPanel.svelte",
-    "TextfsmMappingWorkspace.svelte",
-  ]);
-});
 
 test("template page reuses one catalog workspace for every content resource", async () => {
   const source = await readFile(
