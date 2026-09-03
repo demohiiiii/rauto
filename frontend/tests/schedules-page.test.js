@@ -34,7 +34,10 @@ test("schedules are a local-web operations page", () => {
       ?.group,
     "operations",
   );
-  assert.match(navigation, /import\(".*\/pages\/SchedulesPage\.svelte"\)/);
+  assert.match(
+    navigation,
+    /import\("\$domains\/schedules\/presentation\/components\/SchedulesWorkspace\.svelte"\)/,
+  );
   assert.match(shell, /tab !== "schedules" \|\| !dashboard\.managedAgentMode/);
   assert.match(page, /workspace\.runNow\(schedule\)/);
   assert.match(page, /workspace\.toggleEnabled\(schedule\)/);

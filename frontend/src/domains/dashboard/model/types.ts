@@ -227,6 +227,6 @@ export interface DashboardAgentAuthDisplay {
   saveButtonLabel: string;
   showStatus: boolean;
   statusMessage: string;
-  statusTone: string;
+  statusTone: "error" | "info" | "running" | "success" | "warning";
   title: string;
 }

@@ -10,7 +10,7 @@
   import DownloadIcon from "@lucide/svelte/icons/download";
   import FileDownIcon from "@lucide/svelte/icons/file-down";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
-  import ConnectionPickerField from "$components/connections/ConnectionPickerField.svelte";
+  import { ConnectionPickerField } from "$domains/connections/presentation/components/fields/index.js";
   import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";

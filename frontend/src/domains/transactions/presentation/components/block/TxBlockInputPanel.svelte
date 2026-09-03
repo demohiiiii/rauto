@@ -1,7 +1,7 @@
 <script>
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Card from "$lib/components/ui/card";
-  import { CommandTemplateSourceField } from "$components/command-flow/index.js";
+  import { CommandTemplateSourceField } from "$domains/command/presentation/components/index.js";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import WorkspaceTemplateActions from "$components/fragments/WorkspaceTemplateActions.svelte";
   import { txBlockReadonlyEditorViewTabs } from "$config/dashboardModes.js";

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Input } from "$lib/components/ui/input";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
-  import ConnectionPickerField from "$components/connections/ConnectionPickerField.svelte";
+  import { ConnectionPickerField } from "$domains/connections/presentation/components/fields/index.js";
   import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";

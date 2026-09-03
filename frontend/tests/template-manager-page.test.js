@@ -70,7 +70,7 @@ test("command flow templates reuse the shared three-view authoring surface", asy
   );
   const sharedViews = await readFile(
     path.resolve(
-      "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
+      "frontend/src/domains/command/presentation/components/CommandFlowAuthoringViews.svelte",
     ),
     "utf8",
   );

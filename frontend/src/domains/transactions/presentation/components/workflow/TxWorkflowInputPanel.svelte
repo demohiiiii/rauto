@@ -4,7 +4,7 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Card from "$lib/components/ui/card";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import { CommandTemplateSourceField } from "$components/command-flow/index.js";
+  import { CommandTemplateSourceField } from "$domains/command/presentation/components/index.js";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import WorkspaceTemplateActions from "$components/fragments/WorkspaceTemplateActions.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";

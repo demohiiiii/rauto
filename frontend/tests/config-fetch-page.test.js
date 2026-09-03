@@ -26,13 +26,16 @@ function read(path) {
 test("configuration fetch is a dedicated dashboard operation", () => {
   const navigation = read("frontend/src/domains/dashboard/model/navigation.ts");
   const sidebar = read(
-    "frontend/src/components/layout/DashboardSidebar.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
   );
   const api = read("frontend/src/api/client.ts");
 
   assert.match(navigation, /id: "config-fetch"/);
   assert.match(navigation, /path: "\/app\/config-fetch"/);
-  assert.match(navigation, /import\(".*\/pages\/ConfigFetchPage\.svelte"\)/);
+  assert.match(
+    navigation,
+    /import\("\$domains\/config-fetch\/presentation\/components\/ConfigFetchWorkspace\.svelte"\)/,
+  );
   assert.match(sidebar, /"config-fetch": FileDownIcon/);
   assert.match(api, /fetchConfigBatch/);
   assert.match(api, /POST", "\/api\/config\/batch-fetch"/);

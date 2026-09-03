@@ -1,0 +1,492 @@
+<script lang="ts">
+  import { currentLanguageState, t } from "$lib/i18n.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Dialog from "$lib/components/ui/dialog/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import { cn } from "$lib/utils.js";
+  import FilePickerButton from "$components/fragments/FilePickerButton.svelte";
+  import LoadingButton from "$components/fragments/LoadingButton.svelte";
+  import StatusCard from "$components/fragments/StatusCard.svelte";
+  import {
+    createSavedConnectionLibraryWorkspace,
+    openConnectionModal,
+  } from "$domains/connections/index.js";
+  import CheckIcon from "@lucide/svelte/icons/check";
+  import DownloadIcon from "@lucide/svelte/icons/download";
+  import PencilIcon from "@lucide/svelte/icons/pencil";
+  import SearchIcon from "@lucide/svelte/icons/search";
+  import Trash2Icon from "@lucide/svelte/icons/trash-2";
+  import UploadIcon from "@lucide/svelte/icons/upload";
+  import PlusIcon from "@lucide/svelte/icons/plus";
+
+  interface Props {
+    active?: boolean;
+    onUse?: () => void;
+    variant?: "management" | "picker";
+  }
+
+  let { active = false, onUse, variant = "picker" }: Props = $props();
+  let managementMode = $derived(variant === "management");
+  let i18nCurrentLanguage = $derived($currentLanguageState);
+  let i18nLabels = $derived.by(() => {
+    i18nCurrentLanguage;
+    return {
+      searchPlaceholder: t("connSearchPlaceholder"),
+      credentialNone: t("connCredentialNone"),
+      credentialNoneEditHint: t("connCredentialNoneEditHint"),
+      noMatches: t("connNoMatches"),
+      reuseHint: t("connLibraryReuseHint"),
+      fieldPlatform: t("showResultPlatform"),
+      fieldModel: t("savedConnAutodetectModel"),
+      fieldSoftwareVersion: t("savedConnAutodetectVersion"),
+      fieldPort: t("fieldPort"),
+      fieldLabels: t("batchShowLabelsLabel"),
+      fieldStatus: t("fieldStatus"),
+      applyHint: t("connApplyHint"),
+      availableCount: t("connAvailableCount"),
+      applySelected: t("connApplySelected"),
+      deleteCancel: t("cancel"),
+      deleteConfirmAction: t("savedConnDeleteConfirmAction"),
+      deleteConfirmDescription: t("savedConnDeleteConfirmDescription"),
+      deleteConfirmTitle: t("savedConnDeleteConfirmTitle"),
+      newConnection: t("inventoryDeviceNewConnection"),
+    };
+  });
+  const savedConnectionLibraryWorkspace = createSavedConnectionLibraryWorkspace(
+    {},
+  );
+  const {
+    deleteSavedConnection,
+    downloadTemplate,
+    editSavedConnection,
+    importConnections,
+    libraryDisplayStateStore,
+    loadingStateStore,
+    selectedSavedConnectionHandler,
+    setPanelContext,
+    useSavedConnectionAction,
+  } = savedConnectionLibraryWorkspace;
+
+  let searchQuery = $state("");
+  let deleteDialogOpen = $state(false);
+  let deleteConfirmationName = $state("");
+  let libraryDisplay = $derived($libraryDisplayStateStore);
+  let loadingState = $derived($loadingStateStore);
+  let savedConnectionCount = $derived(libraryDisplay.connectionRows.length);
+  let normalizedSearchQuery = $derived(searchQuery.trim().toLowerCase());
+  let filteredConnectionRows = $derived(
+    libraryDisplay.connectionRows.filter(
+      (connectionRow) =>
+        !normalizedSearchQuery ||
+        connectionRow.searchText.includes(normalizedSearchQuery),
+    ),
+  );
+  let selectedConnectionRow = $derived(
+    libraryDisplay.selectedConnectionRow ||
+      filteredConnectionRows[0] ||
+      libraryDisplay.connectionRows[0] ||
+      null,
+  );
+
+  $effect(() => {
+    setPanelContext({ active, onUse });
+    const firstConnectionRow = libraryDisplay.connectionRows[0];
+    if (active && !libraryDisplay.select.selected && firstConnectionRow?.name) {
+      selectedSavedConnectionHandler(firstConnectionRow.name);
+    }
+  });
+
+  function handleSearchInput(event: Event): void {
+    if (event.currentTarget instanceof HTMLInputElement) {
+      searchQuery = event.currentTarget.value;
+    }
+  }
+
+  function openNewConnection(): void {
+    openConnectionModal("temporary", "temporaryHostInput");
+  }
+
+  function openDeleteConfirmation(): void {
+    const connectionName = selectedConnectionRow?.name || "";
+    if (!connectionName) return;
+    deleteConfirmationName = connectionName;
+    deleteDialogOpen = true;
+  }
+
+  async function confirmDeleteSavedConnection(): Promise<void> {
+    if (!deleteConfirmationName) return;
+    deleteDialogOpen = false;
+    await deleteSavedConnection();
+    deleteConfirmationName = "";
+  }
+</script>
+
+<div
+  class={cn(
+    "grid gap-0 lg:grid-cols-[17rem_minmax(0,1fr)]",
+    managementMode
+      ? "overflow-hidden rounded-lg border border-border lg:h-[calc(100dvh-24rem)] lg:min-h-[32rem] lg:max-h-[42rem]"
+      : "min-h-0 flex-1 overflow-hidden",
+  )}
+  hidden={!active}
+>
+  <aside
+    class={cn(
+      "flex min-h-0 flex-col border-b border-border bg-muted/20 lg:border-r lg:border-b-0",
+      managementMode ? "max-h-[24rem] lg:max-h-none" : "",
+    )}
+  >
+    <div class="shrink-0 border-b border-border p-3">
+      <div class="relative">
+        <SearchIcon
+          class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          class="h-9 rounded-lg pl-9 text-sm"
+          value={searchQuery}
+          aria-label={i18nLabels.searchPlaceholder}
+          placeholder={i18nLabels.searchPlaceholder}
+          oninput={handleSearchInput}
+        />
+      </div>
+      <div class="mt-2 grid grid-cols-2 gap-1.5">
+        {#if managementMode}
+          <Button
+            class="col-span-2 w-full rounded-lg"
+            size="sm"
+            type="button"
+            onclick={openNewConnection}
+          >
+            <PlusIcon data-icon="inline-start" aria-hidden="true" />
+            <span>{i18nLabels.newConnection}</span>
+          </Button>
+        {/if}
+        <LoadingButton
+          class="w-full rounded-lg"
+          variant="outline"
+          size="sm"
+          loading={loadingState.templateLoading}
+          onclick={downloadTemplate}
+        >
+          <DownloadIcon data-icon="inline-start" aria-hidden="true" />
+          <span>{libraryDisplay.buttons.template.label}</span>
+        </LoadingButton>
+        <FilePickerButton
+          class="w-full rounded-lg"
+          variant="outline"
+          size="sm"
+          accept={libraryDisplay.importAccept}
+          disabled={false}
+          title={libraryDisplay.importLabel}
+          onFile={importConnections}
+        >
+          <UploadIcon data-icon="inline-start" aria-hidden="true" />
+          {libraryDisplay.importLabel}
+        </FilePickerButton>
+      </div>
+    </div>
+
+    <div class="min-h-0 flex-1 overflow-y-auto p-1.5">
+      {#if filteredConnectionRows.length}
+        <ul class="flex flex-col gap-1">
+          {#each filteredConnectionRows as connectionRow (connectionRow.name)}
+            {@const selected =
+              selectedConnectionRow?.name === connectionRow.name}
+            <li>
+              <button
+                type="button"
+                class={cn(
+                  "w-full rounded-lg border p-2 text-left transition-all",
+                  selected
+                    ? "border-primary/40 bg-primary/5 shadow-sm"
+                    : "border-transparent hover:border-border hover:bg-background",
+                )}
+                onclick={() =>
+                  selectedSavedConnectionHandler(connectionRow.name)}
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <p
+                      class={cn(
+                        "truncate text-[13px] font-bold",
+                        selected ? "text-primary" : "text-card-foreground",
+                      )}
+                    >
+                      {connectionRow.name}
+                    </p>
+                    <p
+                      class="mt-0.5 truncate font-mono text-[11px] text-muted-foreground"
+                    >
+                      {connectionRow.summary}
+                    </p>
+                  </div>
+                  <span
+                    class={cn(
+                      "mt-1 size-2 shrink-0 rounded-full",
+                      connectionRow.enabled
+                        ? "bg-primary"
+                        : "bg-muted-foreground/50",
+                    )}
+                    aria-label={connectionRow.statusLabel}
+                  ></span>
+                </div>
+                <div class="mt-1.5 flex flex-wrap items-center gap-1">
+                  <span
+                    class="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium text-secondary-foreground"
+                  >
+                    {connectionRow.profile}
+                  </span>
+                  <Badge
+                    variant="secondary"
+                    class="rounded-md px-1.5 py-0 text-[10px]"
+                  >
+                    {connectionRow.tag}
+                  </Badge>
+                  {#if connectionRow.credentialRequired}
+                    <Badge
+                      variant="destructive"
+                      class="rounded-md px-1.5 py-0 text-[10px]"
+                    >
+                      {i18nLabels.credentialNone}
+                    </Badge>
+                  {/if}
+                </div>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <div
+          class="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border bg-background/50 p-6 text-center text-sm text-muted-foreground"
+        >
+          {i18nLabels.noMatches}
+        </div>
+      {/if}
+    </div>
+  </aside>
+
+  <section class="flex min-h-0 flex-1 flex-col bg-background">
+    <div class="min-h-0 flex-1 overflow-y-auto px-7 py-8">
+      <div class="mx-auto flex max-w-6xl flex-col gap-5">
+        <div
+          class="connection-summary-card rounded-3xl border border-border bg-card p-5 shadow-xs"
+        >
+          <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="truncate text-2xl font-bold tracking-tight">
+                  {selectedConnectionRow?.name ||
+                    libraryDisplay.select.placeholder}
+                </h3>
+                {#if selectedConnectionRow}
+                  <Badge variant="secondary" class="gap-1 rounded-full">
+                    <span
+                      class={cn(
+                        "size-1.5 rounded-full",
+                        selectedConnectionRow.enabled
+                          ? "bg-primary"
+                          : "bg-muted-foreground/50",
+                      )}
+                      aria-hidden="true"
+                    ></span>
+                    {selectedConnectionRow.statusLabel}
+                  </Badge>
+                {/if}
+              </div>
+              <p class="mt-2 truncate font-mono text-sm text-muted-foreground">
+                {#if selectedConnectionRow}
+                  {selectedConnectionRow.summary}
+                {:else}
+                  {i18nLabels.reuseHint}
+                {/if}
+              </p>
+              {#if selectedConnectionRow}
+                <div class="mt-4 flex flex-wrap items-center gap-2">
+                  <span
+                    class="rounded-lg bg-secondary px-2.5 py-1 font-mono text-xs font-medium text-secondary-foreground"
+                  >
+                    {selectedConnectionRow.profile}
+                  </span>
+                  <Badge variant="secondary" class="rounded-lg">
+                    {selectedConnectionRow.tag}
+                  </Badge>
+                  {#if selectedConnectionRow.credentialRequired}
+                    <Badge variant="destructive" class="rounded-lg">
+                      {i18nLabels.credentialNoneEditHint}
+                    </Badge>
+                  {/if}
+                  {#if selectedConnectionRow.deviceModel}
+                    <Badge variant="outline" class="rounded-lg font-mono">
+                      {selectedConnectionRow.deviceModel}
+                    </Badge>
+                  {/if}
+                  {#if selectedConnectionRow.softwareVersion}
+                    <Badge variant="outline" class="rounded-lg font-mono">
+                      {selectedConnectionRow.softwareVersion}
+                    </Badge>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+
+            <div
+              class="flex flex-wrap items-center justify-start gap-2 lg:flex-col lg:items-end"
+            >
+              <div class="flex flex-wrap items-center gap-2">
+                <LoadingButton
+                  class="rounded-xl"
+                  variant="outline"
+                  size="sm"
+                  loading={loadingState.editLoading}
+                  onclick={editSavedConnection}
+                >
+                  <PencilIcon data-icon="inline-start" aria-hidden="true" />
+                  <span>{libraryDisplay.buttons.edit.label}</span>
+                </LoadingButton>
+                <LoadingButton
+                  variant="ghost"
+                  size="sm"
+                  class="text-destructive hover:text-destructive"
+                  loading={loadingState.deleteLoading}
+                  onclick={openDeleteConfirmation}
+                >
+                  <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+                  <span>{libraryDisplay.buttons.delete.label}</span>
+                </LoadingButton>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="connection-stat-grid grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              {i18nLabels.fieldPlatform}
+            </p>
+            <p class="mt-2 truncate font-mono text-lg font-bold">
+              {selectedConnectionRow?.profile || "-"}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              {i18nLabels.fieldModel}
+            </p>
+            <p class="mt-2 truncate font-mono text-lg font-bold">
+              {selectedConnectionRow?.deviceModel || "-"}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              {i18nLabels.fieldSoftwareVersion}
+            </p>
+            <p class="mt-2 truncate font-mono text-lg font-bold">
+              {selectedConnectionRow?.softwareVersion || "-"}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              {i18nLabels.fieldPort}
+            </p>
+            <p class="mt-2 font-mono text-lg font-bold">
+              {selectedConnectionRow?.port || "-"}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              {i18nLabels.fieldLabels}
+            </p>
+            <p class="mt-2 truncate text-lg font-bold">
+              {selectedConnectionRow?.tag || "-"}
+            </p>
+          </div>
+          <div class="rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <p
+              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              {i18nLabels.fieldStatus}
+            </p>
+            <p class="mt-2 text-lg font-bold">
+              {selectedConnectionRow?.statusLabel || "-"}
+            </p>
+          </div>
+        </div>
+
+        {#if libraryDisplay.showStatus}
+          <StatusCard
+            message={libraryDisplay.status.text}
+            tone={libraryDisplay.status.tone}
+          />
+        {/if}
+      </div>
+    </div>
+
+    {#if !managementMode}
+      <div
+        class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-7 py-4"
+      >
+        <p class="text-xs text-muted-foreground">
+          {i18nLabels.applyHint}
+        </p>
+        <div class="flex flex-wrap items-center gap-4">
+          <span class="text-xs text-muted-foreground">
+            {i18nLabels.availableCount}: {savedConnectionCount}
+          </span>
+          <LoadingButton
+            class="rounded-xl px-4"
+            loading={loadingState.useLoading}
+            disabled={selectedConnectionRow?.credentialRequired === true}
+            onclick={useSavedConnectionAction}
+          >
+            <CheckIcon data-icon="inline-start" aria-hidden="true" />
+            {i18nLabels.applySelected}
+          </LoadingButton>
+        </div>
+      </div>
+    {/if}
+  </section>
+</div>
+
+<Dialog.Root bind:open={deleteDialogOpen}>
+  <Dialog.Content class="sm:max-w-md">
+    <Dialog.Header>
+      <Dialog.Title>{i18nLabels.deleteConfirmTitle}</Dialog.Title>
+      <Dialog.Description>
+        {i18nLabels.deleteConfirmDescription.replace(
+          "{name}",
+          deleteConfirmationName,
+        )}
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer>
+      <Button
+        type="button"
+        variant="outline"
+        onclick={() => (deleteDialogOpen = false)}
+      >
+        {i18nLabels.deleteCancel}
+      </Button>
+      <Button
+        type="button"
+        variant="destructive"
+        onclick={confirmDeleteSavedConnection}
+      >
+        <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+        {i18nLabels.deleteConfirmAction}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

@@ -21,6 +21,7 @@ export {
 export * from "./model/orchestrationWorkflowPreview.js";
 export * from "./model/orchestratedExecutionPayloads.js";
 export * from "./presentation/orchestrationActionDisplayState.js";
+export type * from "./presentation/componentTypes.js";
 export * from "./presentation/orchestrationFormFieldState.js";
 export * from "./presentation/orchestrationFormStructureState.js";
 export * from "./presentation/orchestrationFlowCanvasState.js";

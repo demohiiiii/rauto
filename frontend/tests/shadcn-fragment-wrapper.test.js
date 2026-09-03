@@ -152,7 +152,7 @@ test("collapsible group supports card and plain section variants", () => {
 
 test("connection picker dropdown renders above following form controls", () => {
   const source = read(
-    "frontend/src/components/connections/ConnectionPickerField.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionPickerField.svelte",
   );
   const jobEditor = read(
     "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationJobEditor.svelte",
@@ -180,8 +180,8 @@ test("editor panels use component-local toolbar layout instead of field-tools", 
     "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandDynParamsEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockFlowEditor.svelte",
-    "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
-    "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowStepsEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowVisualEditor.svelte",
   ];
@@ -243,8 +243,8 @@ test("prompt editors use local field surfaces instead of field-card globals", ()
 
 test("connection editor panels compose shadcn Card instead of group-card shells", () => {
   const panelPaths = [
-    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
-    "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditorForm.svelte",
+    "frontend/src/domains/connections/presentation/components/TemporaryConnectionPanel.svelte",
   ];
 
   for (const path of panelPaths) {
@@ -263,12 +263,12 @@ test("connection form layout uses component-local shadcn token classes", () => {
   const legacyConnectionLayoutClasses =
     /dashboard-connection-form-grid|connection-form-stack|connection-name-row|connection-extra-grid|connection-tags-grid|connection-field|connection-field-label/;
   const componentPaths = [
-    "frontend/src/components/connections/ConnectionBasicFields.svelte",
-    "frontend/src/components/connections/ConnectionMetadataFields.svelte",
-    "frontend/src/components/connections/ConnectionPickerField.svelte",
-    "frontend/src/components/connections/ConnectionVarsField.svelte",
-    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
-    "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionBasicFields.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionMetadataFields.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionPickerField.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionVarsField.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditorForm.svelte",
+    "frontend/src/domains/connections/presentation/components/TemporaryConnectionPanel.svelte",
     "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
   ];
 
@@ -285,7 +285,7 @@ test("connection form layout uses component-local shadcn token classes", () => {
 test("connection picker dropdown styles stay local to the picker component", () => {
   const appCss = read("frontend/src/app.css");
   const pickerSource = read(
-    "frontend/src/components/connections/ConnectionPickerField.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionPickerField.svelte",
   );
 
   assert.doesNotMatch(appCss, /connection-show-object-/);
@@ -295,10 +295,10 @@ test("connection picker dropdown styles stay local to the picker component", () 
 test("connection input shells use local semantic token classes", () => {
   const appCss = read("frontend/src/app.css");
   const pickerSource = read(
-    "frontend/src/components/connections/ConnectionPickerField.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionPickerField.svelte",
   );
   const temporaryPanelSource = read(
-    "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/TemporaryConnectionPanel.svelte",
   );
 
   assert.doesNotMatch(appCss, /connection-tags-input|connection-options-row/);
@@ -310,7 +310,7 @@ test("connection input shells use local semantic token classes", () => {
 
 test("detail modal composes shadcn Dialog instead of native dialog", () => {
   const modalSource = read(
-    "frontend/src/components/overlays/DetailModal.svelte",
+    "frontend/src/domains/overlays/presentation/components/DetailModal.svelte",
   );
   const workspaceSource = read(
     "frontend/src/domains/overlays/application/detailState.ts",
@@ -326,7 +326,7 @@ test("detail modal composes shadcn Dialog instead of native dialog", () => {
 
 test("connection modal shell composes shadcn Dialog instead of dashboard modal globals", () => {
   const source = read(
-    "frontend/src/components/connections/ConnectionModalShell.svelte",
+    "frontend/src/domains/connections/presentation/components/ConnectionModalShell.svelte",
   );
   const uiSource = read("frontend/src/lib/ui.ts");
   const appCss = read("frontend/src/app.css");
@@ -345,7 +345,7 @@ test("connection modal shell composes shadcn Dialog instead of dashboard modal g
 
 test("Sonner portals above dialog overlays without changing modal dismissal", () => {
   const modalSource = read(
-    "frontend/src/components/connections/ConnectionModalShell.svelte",
+    "frontend/src/domains/connections/presentation/components/ConnectionModalShell.svelte",
   );
   const dialogSource = read(
     "frontend/src/lib/components/ui/dialog/dialog-content.svelte",
@@ -370,7 +370,10 @@ test("Sonner portals above dialog overlays without changing modal dismissal", ()
   assert.doesNotMatch(modalSource, /interactOutsideBehavior="ignore"/);
   assert.doesNotMatch(modalSource, /overlayProps=/);
   assert.doesNotMatch(dialogSource, /overlayProps/);
-  assert.match(modalSource, /function keepOpenForToastInteraction\(event\)/);
+  assert.match(
+    modalSource,
+    /function keepOpenForToastInteraction\(event(?:: Event)?\)(?:: void)?/,
+  );
   assert.match(
     modalSource,
     /closest\("\[data-sonner-toaster\], \[data-sonner-toast\]"\)/,
@@ -384,25 +387,25 @@ test("Sonner portals above dialog overlays without changing modal dismissal", ()
 
 test("connection workbench modal follows the demo wide two-pane design", () => {
   const shellSource = read(
-    "frontend/src/components/connections/ConnectionModalShell.svelte",
+    "frontend/src/domains/connections/presentation/components/ConnectionModalShell.svelte",
   );
   const modalSource = read(
-    "frontend/src/components/connections/ConnectionModal.svelte",
+    "frontend/src/domains/connections/presentation/components/ConnectionModal.svelte",
   );
   const savedPanelSource = read(
-    "frontend/src/components/connections/SavedConnectionLibraryPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionLibraryPanel.svelte",
   );
   const temporaryPanelSource = read(
-    "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/TemporaryConnectionPanel.svelte",
   );
   const editorModalSource = read(
-    "frontend/src/components/connections/SavedConnectionEditModal.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditModal.svelte",
   );
   const editorFormSource = read(
-    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditorForm.svelte",
   );
   const basicFieldsSource = read(
-    "frontend/src/components/connections/ConnectionBasicFields.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionBasicFields.svelte",
   );
   const enSource = read("frontend/src/i18n/en.ts");
   const zhSource = read("frontend/src/i18n/zh.ts");
@@ -490,7 +493,7 @@ test("connection workbench modal follows the demo wide two-pane design", () => {
 
 test("dashboard drawer shell composes shadcn Sheet instead of custom dialog aside", () => {
   const source = read(
-    "frontend/src/components/overlays/DashboardDrawerShell.svelte",
+    "frontend/src/domains/overlays/presentation/components/DashboardDrawerShell.svelte",
   );
 
   assert.match(source, /ui\/sheet/);
@@ -502,7 +505,9 @@ test("dashboard drawer shell composes shadcn Sheet instead of custom dialog asid
 });
 
 test("entry drawer reuses shadcn-backed dashboard drawer shell", () => {
-  const source = read("frontend/src/components/overlays/EntryDrawer.svelte");
+  const source = read(
+    "frontend/src/domains/overlays/presentation/components/EntryDrawer.svelte",
+  );
 
   assert.match(source, /DashboardDrawerShell/);
   assert.doesNotMatch(source, /<aside\b/);
@@ -510,12 +515,14 @@ test("entry drawer reuses shadcn-backed dashboard drawer shell", () => {
 });
 
 test("session records share one shadcn drawer with recent and history tabs", () => {
-  const source = read("frontend/src/components/overlays/RecordDrawer.svelte");
+  const source = read(
+    "frontend/src/domains/overlays/presentation/components/RecordDrawer.svelte",
+  );
   const dashboardBody = read(
-    "frontend/src/components/layout/DashboardBody.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardBody.svelte",
   );
   const overlayHost = read(
-    "frontend/src/components/layout/DashboardOverlayHost.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardOverlayHost.svelte",
   );
   const overlayDefinitions = read(
     "frontend/src/domains/dashboard/model/navigation.ts",
@@ -537,25 +544,27 @@ test("session records share one shadcn drawer with recent and history tabs", () 
 
 test("history drawer filters reuse the shadcn select wrapper", () => {
   const source = read(
-    "frontend/src/components/overlays/HistoryDrawerContent.svelte",
+    "frontend/src/domains/overlays/presentation/components/HistoryDrawerContent.svelte",
   );
 
   assert.match(source, /PlainSelectField/);
+  assert.match(source, /\{onValueChange\}/);
+  assert.doesNotMatch(source, /onchange=\{onChange\}/);
   assert.doesNotMatch(source, /<select\b/);
 });
 
 test("history drawer and detail modal follow the demo card-based design", () => {
   const drawerSource = read(
-    "frontend/src/components/overlays/HistoryDrawerContent.svelte",
+    "frontend/src/domains/overlays/presentation/components/HistoryDrawerContent.svelte",
   );
   const drawerShellSource = read(
-    "frontend/src/components/overlays/RecordDrawer.svelte",
+    "frontend/src/domains/overlays/presentation/components/RecordDrawer.svelte",
   );
   const detailSource = read(
-    "frontend/src/components/overlays/DetailModalContent.svelte",
+    "frontend/src/domains/overlays/presentation/components/DetailModalContent.svelte",
   );
   const modalSource = read(
-    "frontend/src/components/overlays/DetailModal.svelte",
+    "frontend/src/domains/overlays/presentation/components/DetailModal.svelte",
   );
   const detailStateSource = read(
     "frontend/src/domains/overlays/application/detailState.ts",
@@ -588,7 +597,7 @@ test("history drawer and detail modal follow the demo card-based design", () => 
 
 test("dashboard overlay host lets shadcn overlays own drawer backdrops", () => {
   const source = read(
-    "frontend/src/components/layout/DashboardOverlayHost.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardOverlayHost.svelte",
   );
 
   assert.doesNotMatch(source, /dashboard-drawer-backdrop/);
@@ -596,7 +605,7 @@ test("dashboard overlay host lets shadcn overlays own drawer backdrops", () => {
 
 test("dashboard toast host expands stacked sonner notifications", () => {
   const source = read(
-    "frontend/src/components/layout/DashboardOverlayHost.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardOverlayHost.svelte",
   );
 
   assert.match(source, /<Toaster[\s\S]*\bexpand\b/);
@@ -664,10 +673,10 @@ test("saved connection editor displays detected device facts left of its actions
     "frontend/src/domains/connections/presentation/connectionTargetDisplayState.ts",
   );
   const formSource = read(
-    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditorForm.svelte",
   );
   const factsSource = read(
-    "frontend/src/components/connections/ConnectionDetectedFacts.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionDetectedFacts.svelte",
   );
 
   assert.match(
@@ -696,10 +705,10 @@ test("saved connection editor displays detected device facts left of its actions
 
 test("connection forms test their current drafts beside autodetect", () => {
   const editorSource = read(
-    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditorForm.svelte",
   );
   const temporarySource = read(
-    "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/TemporaryConnectionPanel.svelte",
   );
   const editorStateSource = read(
     "frontend/src/domains/connections/application/connectionEditorState.ts",
@@ -795,7 +804,7 @@ test("batch show result errors do not render placeholder dashes", () => {
 
 test("saved connection editor name field is editable and wired to the draft", () => {
   const formSource = read(
-    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditorForm.svelte",
   );
   const workspaceSource = read(
     "frontend/src/domains/connections/application/connectionPanelFormState.ts",
@@ -817,7 +826,7 @@ test("saved connection editor name field is editable and wired to the draft", ()
 
 test("saved connection deletion requires an accessible confirmation dialog", () => {
   const source = read(
-    "frontend/src/components/connections/SavedConnectionLibraryPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionLibraryPanel.svelte",
   );
 
   assert.match(
@@ -834,7 +843,7 @@ test("saved connection deletion requires an accessible confirmation dialog", () 
 
 test("record drawer sections use local shadcn-token surfaces", () => {
   const source = read(
-    "frontend/src/components/overlays/RecordDrawerContent.svelte",
+    "frontend/src/domains/overlays/presentation/components/RecordDrawerContent.svelte",
   );
   const cssSource = read("frontend/src/app.css");
 
@@ -846,10 +855,10 @@ test("dashboard drawer layout uses component-local classes", () => {
   const drawerGlobals =
     /dashboard-drawer-(head|body|toolbar|toolbar-left|filter-row|filters)/;
   const shellSource = read(
-    "frontend/src/components/overlays/DashboardDrawerShell.svelte",
+    "frontend/src/domains/overlays/presentation/components/DashboardDrawerShell.svelte",
   );
   const recordSource = read(
-    "frontend/src/components/overlays/RecordDrawerContent.svelte",
+    "frontend/src/domains/overlays/presentation/components/RecordDrawerContent.svelte",
   );
 
   assert.doesNotMatch(read("frontend/src/app.css"), drawerGlobals);
@@ -892,7 +901,7 @@ test("output surfaces use OutputBlock instead of global output css", () => {
   );
   const outputSurfacePaths = [
     "frontend/src/components/fragments/ParsedOutputBlock.svelte",
-    "frontend/src/components/overlays/DetailModalContent.svelte",
+    "frontend/src/domains/overlays/presentation/components/DetailModalContent.svelte",
     "frontend/src/domains/orchestration/presentation/components/result/OrchestrationExecutionPanel.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockResultPanel.svelte",
     "frontend/src/domains/transactions/presentation/components/shared/TxOperationStepCard.svelte",
@@ -986,7 +995,7 @@ test("batch show results flatten device objects into the shared result navigator
 
 test("dashboard preference menus compose shadcn DropdownMenu", () => {
   const source = read(
-    "frontend/src/components/layout/DashboardPreferenceTools.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardPreferenceTools.svelte",
   );
 
   assert.match(source, /ui\/dropdown-menu/);
@@ -1005,7 +1014,7 @@ test("simple page panels compose shadcn Card instead of group-card shells", () =
   const pagePaths = [
     "frontend/src/domains/backup/presentation/components/BackupWorkspace.svelte",
     "frontend/src/domains/blacklist/presentation/components/BlacklistWorkspace.svelte",
-    "frontend/src/pages/ReplayPage.svelte",
+    "frontend/src/domains/replay/presentation/components/ReplayWorkspace.svelte",
     "frontend/src/domains/transfer/presentation/components/TransferWorkspace.svelte",
     "frontend/src/domains/tasks/presentation/components/TaskRunListPanel.svelte",
   ];
@@ -1158,7 +1167,7 @@ test("top-level workspace cards keep icon-bearing headers", () => {
     "frontend/src/domains/blacklist/presentation/components/BlacklistWorkspace.svelte",
     "frontend/src/domains/inventory/presentation/components/InventoryWorkspace.svelte",
     "frontend/src/domains/profiles/presentation/components/ProfilesWorkspace.svelte",
-    "frontend/src/pages/ReplayPage.svelte",
+    "frontend/src/domains/replay/presentation/components/ReplayWorkspace.svelte",
     "frontend/src/pages/StandardPage.svelte",
     "frontend/src/domains/templates/presentation/components/TemplateManagerWorkspace.svelte",
     "frontend/src/domains/transfer/presentation/components/TransferWorkspace.svelte",
@@ -1194,8 +1203,10 @@ test("query cards share the workspace card treatment", () => {
     assert.doesNotMatch(source, /rounded-3xl/);
   }
 
-  const showPage = read("frontend/src/pages/ShowPage.svelte");
-  assert.doesNotMatch(showPage, /max-w-4xl/);
+  const showWorkspace = read(
+    "frontend/src/domains/show/presentation/components/ShowWorkspace.svelte",
+  );
+  assert.doesNotMatch(showWorkspace, /max-w-4xl/);
 
   const orchestrationSurface = read(
     "frontend/src/domains/orchestration/presentation/components/editor/OrchestrationEditorSurface.svelte",
@@ -1341,7 +1352,7 @@ test("task page subpanels compose shadcn Card instead of group-card shells", () 
 test("dashboard shell layout uses component-local classes", () => {
   const appCss = read("frontend/src/app.css");
   const dashboardBody = read(
-    "frontend/src/components/layout/DashboardBody.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardBody.svelte",
   );
   const legacyShellClassPattern =
     /(?:\.|\b)(?:navbar|dashboard-shell|dashboard-header|main-scroll|dashboard-panel)\b/;
@@ -1355,10 +1366,10 @@ test("dashboard shell layout uses component-local classes", () => {
 test("dashboard topbar tools use component-local shadcn classes", () => {
   const appCss = read("frontend/src/app.css");
   const dashboardBody = read(
-    "frontend/src/components/layout/DashboardBody.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardBody.svelte",
   );
   const preferenceTools = read(
-    "frontend/src/components/layout/DashboardPreferenceTools.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardPreferenceTools.svelte",
   );
   const legacyToolClassPattern =
     /dashboard-(?:header-actions|header-primary|tool(?:-[a-z]+)*)/;

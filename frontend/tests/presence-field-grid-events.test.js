@@ -258,7 +258,7 @@ test("transaction prompt list callbacks use direct StringListEditor signatures",
 test("transaction block grids declare their event or raw value contract", () => {
   const txBlockEditorPaths = [
     "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
-    "frontend/src/components/command-flow/CommandFlowSettings.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowSettings.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockRootSettingsEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",

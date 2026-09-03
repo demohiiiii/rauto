@@ -7,20 +7,20 @@ function read(path) {
 }
 
 const sharedComponentPaths = [
-  "frontend/src/components/command-flow/CommandEditor.svelte",
-  "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
-  "frontend/src/components/command-flow/CommandMultilineModeField.svelte",
-  "frontend/src/components/command-flow/CommandTextAreaField.svelte",
-  "frontend/src/components/command-flow/CommandTemplateSourceField.svelte",
-  "frontend/src/components/command-flow/CommandFlowRuntimeFields.svelte",
-  "frontend/src/components/command-flow/CommandFlowReadonlyView.svelte",
-  "frontend/src/components/command-flow/CommandFlowSettings.svelte",
-  "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
-  "frontend/src/components/command-flow/CommandFlowSurface.svelte",
-  "frontend/src/components/command-flow/CommandFlowTemplateSource.svelte",
-  "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
-  "frontend/src/components/command-flow/CommandFlowTemplateStepEditor.svelte",
-  "frontend/src/components/command-flow/CommandFlowTemplatePromptEditor.svelte",
+  "frontend/src/domains/command/presentation/components/CommandEditor.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowAuthoringViews.svelte",
+  "frontend/src/domains/command/presentation/components/CommandMultilineModeField.svelte",
+  "frontend/src/domains/command/presentation/components/CommandTextAreaField.svelte",
+  "frontend/src/domains/command/presentation/components/CommandTemplateSourceField.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowRuntimeFields.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowReadonlyView.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowSettings.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowStepsEditor.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowSurface.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowTemplateSource.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowTemplateEditor.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowTemplateStepEditor.svelte",
+  "frontend/src/domains/command/presentation/components/CommandFlowTemplatePromptEditor.svelte",
 ];
 
 test("command flow components are controlled and feature agnostic", () => {
@@ -41,13 +41,13 @@ test("command flow components are controlled and feature agnostic", () => {
 
 test("shared command flow surfaces keep defaults and expose opt-in workbench layouts", () => {
   const surface = read(
-    "frontend/src/components/command-flow/CommandFlowSurface.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowSurface.svelte",
   );
   const templateSource = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateSource.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateSource.svelte",
   );
   const templateEditor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateEditor.svelte",
   );
   assert.match(surface, /variant = "section"/);
   assert.match(surface, /variant === "workbench-header"/);
@@ -61,7 +61,7 @@ test("shared command flow surfaces keep defaults and expose opt-in workbench lay
 
 test("runtime fields default to inferred controls", () => {
   const component = read(
-    "frontend/src/components/command-flow/CommandFlowRuntimeFields.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowRuntimeFields.svelte",
   );
   const standard = read(
     "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
@@ -79,7 +79,7 @@ test("runtime fields default to inferred controls", () => {
 
 test("flow steps use parent-owned rows and actions", () => {
   const component = read(
-    "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowStepsEditor.svelte",
   );
 
   assert.match(component, /stepRows/);
@@ -106,16 +106,16 @@ test("command flow item accents provide six distinct cycling colors", async () =
 
 test("command flow steps and prompts bind deterministic indexed accents", () => {
   const stepsEditor = read(
-    "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowStepsEditor.svelte",
   );
   const authoringViews = read(
-    "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowAuthoringViews.svelte",
   );
   const stepEditor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateStepEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateStepEditor.svelte",
   );
   const promptEditor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplatePromptEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplatePromptEditor.svelte",
   );
 
   assert.match(stepsEditor, /commandFlowAccentColor\(stepPosition\)/);
@@ -148,7 +148,7 @@ test("inline transaction flows compose the same editor as standard flows", () =>
     "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
   );
   const authoringViews = read(
-    "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowAuthoringViews.svelte",
   );
 
   assert.match(editor, /CommandFlowTemplateEditor/);
@@ -168,13 +168,13 @@ test("inline transaction flows compose the same editor as standard flows", () =>
 
 test("shared command flow template editor exposes only executable fields", () => {
   const editor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateEditor.svelte",
   );
   const stepEditor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateStepEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateStepEditor.svelte",
   );
   const promptEditor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplatePromptEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplatePromptEditor.svelte",
   );
 
   assert.match(editor, /CommandFlowSettings/);
@@ -203,7 +203,7 @@ test("shared command flow template editor exposes only executable fields", () =>
 
 test("shared template editor can hide its name field", () => {
   const editor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateEditor.svelte",
   );
 
   assert.match(editor, /showNameField = true/);
@@ -213,7 +213,7 @@ test("shared template editor can hide its name field", () => {
 
 test("all command surfaces compose one shared command editor", () => {
   const shared = read(
-    "frontend/src/components/command-flow/CommandEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandEditor.svelte",
   );
   const standard = read(
     "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
@@ -222,7 +222,7 @@ test("all command surfaces compose one shared command editor", () => {
     "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
   );
   const flowStep = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateStepEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateStepEditor.svelte",
   );
 
   assert.match(shared, /CommandTextAreaField/);

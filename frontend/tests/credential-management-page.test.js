@@ -7,7 +7,7 @@ const read = (path) => fs.readFileSync(path, "utf8");
 test("credential management is a standalone dashboard page", () => {
   const navigation = read("frontend/src/domains/dashboard/model/navigation.ts");
   const sidebar = read(
-    "frontend/src/components/layout/DashboardSidebar.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
   );
   const page = read(
     "frontend/src/domains/credentials/presentation/components/CredentialsWorkspace.svelte",
@@ -30,7 +30,10 @@ test("credential management is a standalone dashboard page", () => {
 
   assert.match(navigation, /id: "credentials"/);
   assert.match(navigation, /path: "\/app\/credentials"/);
-  assert.match(navigation, /CredentialsPage\.svelte/);
+  assert.match(
+    navigation,
+    /import\("\$domains\/credentials\/presentation\/components\/CredentialsWorkspace\.svelte"\)/,
+  );
   assert.match(sidebar, /credentials: KeyRoundIcon/);
   assert.match(page, /WorkspaceActionHeader/);
   assert.match(page, /icon=\{KeyRoundIcon\}/);

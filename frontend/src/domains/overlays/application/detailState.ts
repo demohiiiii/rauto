@@ -543,8 +543,17 @@ function connectionImportDetailPresentation(report: OverlayData = {}) {
   };
 }
 
+interface DetailModalContentDisplayInput extends OverlayData {
+  loadingMessage: string;
+  showConnectionImportDetail: boolean;
+  showHistoryDetail: boolean;
+  showOrchestrationDetail: boolean;
+  showTextDetail: boolean;
+  subtitle: string;
+}
+
 function detailModalContentDisplayPresentation(
-  contentDisplay: OverlayData = {},
+  contentDisplay: DetailModalContentDisplayInput,
   rendererId = "",
   loadErrors: Record<string, string> = {},
   renderers: Record<string, unknown> = {},

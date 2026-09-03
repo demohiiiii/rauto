@@ -45,7 +45,7 @@ test("long page titles use compact sidebar labels", () => {
 
 test("the connection target card opens the connection workspace directly", () => {
   const sidebarSource = readFileSync(
-    "frontend/src/components/layout/DashboardSidebar.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
     "utf8",
   );
   const displaySource = readFileSync(
@@ -69,7 +69,7 @@ test("the connection target card opens the connection workspace directly", () =>
 
 test("the connection target card and compact tooltip show current details", () => {
   const sidebarSource = readFileSync(
-    "frontend/src/components/layout/DashboardSidebar.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
     "utf8",
   );
   const display = sidebarConnectionPresentation({
@@ -138,11 +138,11 @@ test("the empty connection target uses compact menu copy", () => {
 
 test("desktop sidebar collapses to icons and reveals expand over the logo", () => {
   const bodySource = readFileSync(
-    "frontend/src/components/layout/DashboardBody.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardBody.svelte",
     "utf8",
   );
   const sidebarSource = readFileSync(
-    "frontend/src/components/layout/DashboardSidebar.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
     "utf8",
   );
   const zhSource = readFileSync("frontend/src/i18n/zh.ts", "utf8");
@@ -175,15 +175,15 @@ test("desktop sidebar collapses to icons and reveals expand over the logo", () =
   assert.match(sidebarSource, /<Tooltip\.Root disabled=\{!collapsed\}>/);
   assert.match(
     sidebarSource,
-    /<Tooltip\.Content side="right" sideOffset=\{8\}>/,
+    /<Tooltip\.Content[^>]*\bside="right"[^>]*\bsideOffset=\{8\}[^>]*>/,
   );
   assert.match(
     sidebarSource,
-    /<Tooltip\.Content side="right" sideOffset=\{8\}>\s*\{sidebarExpandLabel\}/,
+    /<Tooltip\.Content[^>]*\bside="right"[^>]*\bsideOffset=\{8\}[^>]*>\s*\{sidebarExpandLabel\}/,
   );
   assert.match(
     sidebarSource,
-    /<Tooltip\.Content side="right" sideOffset=\{8\}>\s*\{sidebarCollapseLabel\}/,
+    /<Tooltip\.Content[^>]*\bside="right"[^>]*\bsideOffset=\{8\}[^>]*>\s*\{sidebarCollapseLabel\}/,
   );
   assert.doesNotMatch(
     sidebarSource,
@@ -204,7 +204,7 @@ test("desktop sidebar collapses to icons and reveals expand over the logo", () =
 
 test("desktop dashboard keeps sidebar fixed and scrolls main content", () => {
   const bodySource = readFileSync(
-    "frontend/src/components/layout/DashboardBody.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardBody.svelte",
     "utf8",
   );
   const cssSource = readFileSync("frontend/src/app.css", "utf8");
@@ -228,20 +228,20 @@ test("desktop dashboard keeps sidebar fixed and scrolls main content", () => {
 
 test("dashboard pages keep one shared breadcrumb without duplicate page titles", () => {
   const bodySource = readFileSync(
-    "frontend/src/components/layout/DashboardBody.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardBody.svelte",
     "utf8",
   );
   const panelSource = readFileSync(
     "frontend/src/components/layout/DashboardTabPanel.svelte",
     "utf8",
   );
-  const showPageSource = readFileSync(
-    "frontend/src/pages/ShowPage.svelte",
+  const showWorkspaceSource = readFileSync(
+    "frontend/src/domains/show/presentation/components/ShowWorkspace.svelte",
     "utf8",
   );
   assert.match(bodySource, /<nav[\s\S]*breadcrumbAria/);
   assert.match(bodySource, /breadcrumbRootText/);
   assert.match(bodySource, /pageLabelText/);
   assert.doesNotMatch(panelSource, /<h2/);
-  assert.doesNotMatch(showPageSource, /控制台<\/span>|<h2/);
+  assert.doesNotMatch(showWorkspaceSource, /控制台<\/span>|<h2/);
 });

@@ -35,7 +35,7 @@ test("configuration history is a dedicated local management page", () => {
     "frontend/src/domains/dashboard/application/createDashboardShellWorkspaces.ts",
   );
   const sidebar = read(
-    "frontend/src/components/layout/DashboardSidebar.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
   );
   const routePage = read("frontend/src/pages/ConfigHistoryPage.svelte");
   const page = read(

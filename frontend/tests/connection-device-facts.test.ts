@@ -133,7 +133,7 @@ test("temporary connection detection uses current form and persists detected fac
 
 test("saved connection editor exposes editable model and version fields", () => {
   const source = readFileSync(
-    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditorForm.svelte",
     "utf8",
   );
 
@@ -145,7 +145,7 @@ test("saved connection editor exposes editable model and version fields", () => 
 
 test("temporary connection panel exposes autodetect and editable device facts", () => {
   const source = readFileSync(
-    "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/TemporaryConnectionPanel.svelte",
     "utf8",
   );
 
@@ -173,15 +173,15 @@ test("temporary autodetect does not render a separate status prompt", () => {
 
 test("saved and temporary connection editors share detected facts presentation", () => {
   const savedSource = readFileSync(
-    "frontend/src/components/connections/SavedConnectionEditorForm.svelte",
+    "frontend/src/domains/connections/presentation/components/SavedConnectionEditorForm.svelte",
     "utf8",
   );
   const temporarySource = readFileSync(
-    "frontend/src/components/connections/TemporaryConnectionPanel.svelte",
+    "frontend/src/domains/connections/presentation/components/TemporaryConnectionPanel.svelte",
     "utf8",
   );
   const factsSource = readFileSync(
-    "frontend/src/components/connections/ConnectionDetectedFacts.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionDetectedFacts.svelte",
     "utf8",
   );
 

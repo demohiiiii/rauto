@@ -1,5 +1,5 @@
 <script>
-  import { CommandFlowTemplateEditor } from "$components/command-flow/index.js";
+  import { CommandFlowTemplateEditor } from "$domains/command/presentation/components/index.js";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import { txBlockCommandDraft } from "$domains/transactions/index.js";
   import { txBlockValidationErrorText } from "$domains/transactions/index.js";

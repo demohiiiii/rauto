@@ -3,7 +3,7 @@
   import {
     CommandEditor,
     CommandTemplateSourceField,
-  } from "$components/command-flow/index.js";
+  } from "$domains/command/presentation/components/index.js";
   import CollapsibleGroup from "$components/fragments/CollapsibleGroup.svelte";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";

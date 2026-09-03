@@ -76,9 +76,9 @@ const recordDrawerEventKindOptions = [
 ] as const;
 
 interface HistoryDrawerFilters {
-  limit?: unknown;
-  operation?: unknown;
-  query?: unknown;
+  limit?: number;
+  operation?: string;
+  query?: string;
 }
 
 interface HistoryDrawerStatus {
@@ -646,7 +646,7 @@ function recordDrawerContentPropsPresentation({
       entryRows: contentDisplay.entryRows || [],
       hasEntries: contentDisplay.hasEntries,
       parseError: contentDisplay.parseError,
-      parseErrorStatus: { tone: "error" },
+      parseErrorStatus: { tone: "error" as const },
       rawField: drawerInputField(rawText, "recordJsonlPlaceholder", t),
       showListPanel: displayModeDisplay.showList,
       showRawPanel: displayModeDisplay.showRaw,
@@ -684,8 +684,8 @@ interface RecordDrawerWorkspaceOptions {
   onSaveRecordDrawerPreferences?: (
     preferences: RecordDrawerPreferences,
   ) => unknown;
-  onSetRecordFabCount?: (count: unknown) => unknown;
-  onSetRecordLevel?: (level: unknown) => unknown;
+  onSetRecordFabCount?: (count: number) => unknown;
+  onSetRecordLevel?: (level: RecordLevel | string) => unknown;
   onSetReplayJsonlFromRecording?: (jsonl: string) => boolean;
 }
 
@@ -800,27 +800,27 @@ export function createRecordDrawerWorkspace({
     return onSaveRecordDrawerPreferences(currentRecordPreferences());
   }
 
-  function setDisplayMode(value: unknown = "list"): void {
+  function setDisplayMode(value: string = "list"): void {
     displayModeStore.set(normalizeRecordDrawerMode(value));
     saveRecordPrefs();
   }
 
-  function setEventKind(value: unknown = "all"): void {
+  function setEventKind(value: string = "all"): void {
     eventKindStore.set(normalizeRecordDrawerEventKind(value));
     saveRecordPrefs();
   }
 
-  function setFailedOnly(value: unknown = false): void {
+  function setFailedOnly(value: boolean = false): void {
     failedOnlyStore.set(Boolean(value));
     saveRecordPrefs();
   }
 
-  function setSearchQuery(value: unknown = ""): void {
+  function setSearchQuery(value: string = ""): void {
     searchQueryStore.set(String(value || ""));
     saveRecordPrefs();
   }
 
-  function setRawRecordingText(nextRecordingJsonl: unknown = ""): void {
+  function setRawRecordingText(nextRecordingJsonl: string = ""): void {
     recordingJsonlStore.set(recordDrawerRawTextValue(nextRecordingJsonl));
   }
 
@@ -908,11 +908,11 @@ export function createRecordDrawerContentWorkspace({
   onRecordLevelChange = null,
   onSearchInput = null,
 }: {
-  onEventKindChange?: ((value: unknown) => unknown) | null;
-  onFailedOnlyChange?: ((value: unknown) => unknown) | null;
-  onRawInput?: ((value: unknown) => unknown) | null;
-  onRecordLevelChange?: ((value: unknown) => unknown) | null;
-  onSearchInput?: ((value: unknown) => unknown) | null;
+  onEventKindChange?: ((value: string) => unknown) | null;
+  onFailedOnlyChange?: ((value: boolean) => unknown) | null;
+  onRawInput?: ((value: string) => unknown) | null;
+  onRecordLevelChange?: ((value: string) => unknown) | null;
+  onSearchInput?: ((value: string) => unknown) | null;
 } = {}) {
   // Plain* field bindings already extract value/checked before invoking
   // onValueChange / onValueInput / onCheckedChange, so these handlers must

@@ -130,7 +130,7 @@ test("standard command flow page renders one unified authoring workspace", () =>
     "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
   );
   const authoringViews = read(
-    "frontend/src/components/command-flow/CommandFlowAuthoringViews.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowAuthoringViews.svelte",
   );
   const modes = read("frontend/src/config/dashboardModes.ts");
 

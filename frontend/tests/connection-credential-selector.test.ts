@@ -7,10 +7,10 @@ const read = (path: string): string => readFileSync(path, "utf8");
 
 test("connection forms use a credential selector instead of secret inputs", () => {
   const basicFields = read(
-    "frontend/src/components/connections/ConnectionBasicFields.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionBasicFields.svelte",
   );
   const credentialField = read(
-    "frontend/src/components/connections/ConnectionCredentialField.svelte",
+    "frontend/src/domains/connections/presentation/components/fields/ConnectionCredentialField.svelte",
   );
   const createDialog = read(
     "frontend/src/domains/credentials/presentation/components/CredentialCreateDialog.svelte",

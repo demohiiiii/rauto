@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card/index.js";
   import TabList from "../components/fragments/TabList.svelte";
   import WorkspaceActionHeader from "../components/fragments/WorkspaceActionHeader.svelte";
@@ -10,7 +10,7 @@
   import CommandExecutionPanel from "$domains/standard/presentation/components/CommandExecutionPanel.svelte";
   import FlowExecutionPanel from "$domains/standard/presentation/components/FlowExecutionPanel.svelte";
 
-  let { active } = $props();
+  let { active }: { active: boolean } = $props();
   const standardPageWorkspace = createStandardPageWorkspace();
   const { currentExecModeState, pageDisplayStateStore } = standardPageWorkspace;
   let currentExecMode = $derived($currentExecModeState);

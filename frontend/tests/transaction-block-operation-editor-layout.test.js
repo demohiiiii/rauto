@@ -72,7 +72,9 @@ test("nested operation editors are unframed and use repeated row separators", ()
   }
 
   assert.match(
-    read("frontend/src/components/command-flow/CommandFlowStepsEditor.svelte"),
+    read(
+      "frontend/src/domains/command/presentation/components/CommandFlowStepsEditor.svelte",
+    ),
     /rounded-lg/,
   );
 });
@@ -237,10 +239,10 @@ test("root inspector owns the empty steps validation alert", () => {
 
 test("shared command flow surfaces use the transaction visual language", () => {
   const editor = read(
-    "frontend/src/components/command-flow/CommandFlowTemplateEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowTemplateEditor.svelte",
   );
   const steps = read(
-    "frontend/src/components/command-flow/CommandFlowStepsEditor.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowStepsEditor.svelte",
   );
 
   assert.match(editor, /CommandFlowSettings/);

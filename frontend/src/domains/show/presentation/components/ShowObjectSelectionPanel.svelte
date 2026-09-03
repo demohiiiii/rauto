@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ConnectionPickerField from "$components/connections/ConnectionPickerField.svelte";
+  import { ConnectionPickerField } from "$domains/connections/presentation/components/fields/index.js";
   import DetailFieldCard from "$components/fragments/DetailFieldCard.svelte";
   import ModeExpressionField from "$components/fragments/ModeExpressionField.svelte";
   import { Badge } from "$lib/components/ui/badge/index.js";

@@ -3,317 +3,12 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
-const MODULE_CHUNKS = new Map([
-  ["auth.js", "app-core"],
-  ["authApi.js", "app-core"],
-  ["authRuntime.js", "app-core"],
-  ["connectionFieldControls.js", "feature-connections"],
-  ["connectionFieldState.js", "feature-connections"],
-  ["connectionFieldStoreState.js", "feature-connections"],
-  ["connectionFieldWorkspaces.js", "feature-connections"],
-  ["connectionFields.js", "feature-connections"],
-  ["connectionPanelState.js", "feature-connections"],
-  ["connectionTargetDisplayState.js", "feature-connections"],
-  ["connectionTargetStoreState.js", "feature-connections"],
-  ["connectionsHistory.js", "feature-connections"],
-  ["createWebAuthWorkspace.js", "app-core"],
-  ["createInventoryPageWorkspace.js", "page-inventorypage"],
-  ["inventoryApi.js", "page-inventorypage"],
-  ["inventoryPresentation.js", "page-inventorypage"],
-  ["inventoryRuntime.js", "page-inventorypage"],
-  ["inventory.js", "page-inventorypage"],
-  ["orchestrationActionDisplays.js", "feature-orchestrated"],
-  ["orchestrationEditors.js", "feature-orchestrated"],
-  ["orchestrationFormDisplays.js", "feature-orchestrated"],
-  ["orchestrationFormDisplayState.js", "feature-orchestrated"],
-  ["orchestrationTargetDisplayState.js", "feature-orchestrated"],
-  ["orchestrationPanelWorkspaces.js", "feature-orchestrated"],
-  ["orchestrationResults.js", "feature-orchestrated"],
-  ["orchestrationStages.js", "feature-orchestrated"],
-  ["profilePanelEditorState.js", "feature-prompts"],
-  ["profilePanelState.js", "feature-prompts"],
-  ["profilesCustomEditor.js", "feature-prompts"],
-  ["profilesWorkspace.js", "feature-prompts"],
-  ["replay.js", "page-replaypage"],
-  ["show.js", "page-showpage"],
-  ["createShowWorkspaces.js", "page-showpage"],
-  ["showApi.js", "page-showpage"],
-  ["showExecutionState.js", "page-showpage"],
-  ["showPresentation.js", "page-showpage"],
-  ["showQueries.js", "page-showpage"],
-  ["createTasksPageWorkspace.js", "page-taskspage"],
-  ["tasksApi.js", "page-taskspage"],
-  ["tasksPresentation.js", "page-taskspage"],
-  ["tasks.js", "page-taskspage"],
-  ["templates.js", "feature-templates"],
-  ["transactionBlockBindings.js", "feature-orchestrated"],
-  ["transactionBlockMutations.js", "feature-orchestrated"],
-  ["transactionBlockBindingState.js", "feature-orchestrated"],
-  ["transactionBlockFormModels.js", "feature-orchestrated"],
-  ["transactionBlockDisplayState.js", "feature-orchestrated"],
-  ["transactionBlockDisplays.js", "feature-orchestrated"],
-  ["transactionExecutionDisplays.js", "feature-orchestrated"],
-  ["transactionInputWorkspaces.js", "feature-orchestrated"],
-  ["transactionInputState.js", "feature-orchestrated"],
-  ["transactionJsonEditorState.js", "feature-orchestrated"],
-  ["transactionJsonTemplateState.js", "feature-orchestrated"],
-  ["transactionBlockTemplateDisplayState.js", "feature-orchestrated"],
-  ["transactionBlockTemplateDisplays.js", "feature-orchestrated"],
-  ["transactionBlockTemplateBindings.js", "feature-orchestrated"],
-  ["transactionBlockTemplateEditorState.js", "feature-orchestrated"],
-  ["transactionBlockTemplateMutations.js", "feature-orchestrated"],
-  ["transactionBlockTemplateState.js", "feature-orchestrated"],
-  ["transactionMetadataFields.js", "feature-orchestrated"],
-  ["transactionPanelState.js", "feature-orchestrated"],
-  ["transactionStructure.js", "feature-orchestrated"],
-  ["transactionVarsAssistant.js", "feature-orchestrated"],
-  ["transactionWorkflowEditorState.js", "feature-orchestrated"],
-  ["transactionWorkflowEditors.js", "feature-orchestrated"],
-  ["transactionWorkflowFormModels.js", "feature-orchestrated"],
-  ["webAuthPresentation.js", "app-core"],
-]);
+const LUCIDE_MODULE_PATTERN = /[\\/]node_modules[\\/]@lucide[\\/]svelte[\\/]/;
+const SHARED_UI_MODULE_PATTERN =
+  /[\\/]frontend[\\/]src[\\/](?:components|lib[\\/]components)[\\/]/;
 
-function chunkNameFromPath(id, marker, prefix) {
-  const [, tail = "index"] = id.split(marker);
-  const name = tail
-    .replace(/\.(js|ts|svelte|css)$/, "")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
-  return `${prefix}-${name || "index"}`;
-}
-
-function matchesSourcePath(id, sourcePath) {
-  return (
-    id.includes(`/frontend/src/${sourcePath}`) ||
-    id.includes(`/src/${sourcePath}`)
-  );
-}
-
-function chunkNameFromSourcePath(id, sourcePath, prefix) {
-  const marker = id.includes(`/frontend/src/${sourcePath}`)
-    ? `/frontend/src/${sourcePath}`
-    : `/src/${sourcePath}`;
-  return chunkNameFromPath(id, marker, prefix);
-}
-
-function sourceFolderName(id, sourcePath) {
-  const marker = id.includes(`/frontend/src/${sourcePath}`)
-    ? `/frontend/src/${sourcePath}`
-    : `/src/${sourcePath}`;
-  const [, tail = ""] = id.split(marker);
-  return tail.split("/").filter(Boolean)[0] || "";
-}
-
-function sourceFileName(id, sourcePath) {
-  const marker = id.includes(`/frontend/src/${sourcePath}`)
-    ? `/frontend/src/${sourcePath}`
-    : `/src/${sourcePath}`;
-  const [, tail = ""] = id.split(marker);
-  return tail.split("/").filter(Boolean).pop() || "";
-}
-
-function domainComponentChunkName(id, domain, prefix) {
-  const sourcePath = `domains/${domain}/presentation/components/`;
-  const group = sourceFolderName(id, sourcePath);
-  return `${prefix}-${group || "shared"}`;
-}
-
-function pageChunkName(id) {
-  return chunkNameFromSourcePath(id, "pages/", "page");
-}
-
-function dashboardChunk(id) {
-  if (id.startsWith("\0")) {
-    return "app-core";
-  }
-  if (id.includes("/node_modules/")) {
-    if (id.includes("/node_modules/svelte/")) return "vendor-svelte";
-    return undefined;
-  }
-  if (matchesSourcePath(id, "i18n/")) return "i18n";
-  if (matchesSourcePath(id, "api/")) return "app-api";
-  if (matchesSourcePath(id, "config/")) return "app-core";
-  if (matchesSourcePath(id, "domains/dashboard/")) {
-    return "dashboard-shell-core";
-  }
-  if (matchesSourcePath(id, "domains/schedules/")) {
-    return "page-schedulespage";
-  }
-  if (matchesSourcePath(id, "domains/auth/")) return "app-core";
-  if (matchesSourcePath(id, "domains/backup/")) return "page-backuppage";
-  if (matchesSourcePath(id, "domains/blacklist/")) {
-    return "page-blacklistpage";
-  }
-  if (matchesSourcePath(id, "domains/command/")) return "feature-command";
-  if (matchesSourcePath(id, "domains/connections/")) {
-    return "dashboard-connections";
-  }
-  if (matchesSourcePath(id, "domains/config-fetch/")) {
-    return "page-configfetchpage";
-  }
-  if (
-    matchesSourcePath(
-      id,
-      "domains/credentials/presentation/components/CredentialsWorkspace.svelte",
-    )
-  ) {
-    return "page-credentialspage";
-  }
-  if (
-    matchesSourcePath(id, "domains/config-history/presentation/components/")
-  ) {
-    const file = sourceFileName(
-      id,
-      "domains/config-history/presentation/components/",
-    );
-    if (file === "ConfigHistoryWorkspace.svelte") {
-      return "page-confighistorypage";
-    }
-    return chunkNameFromSourcePath(
-      id,
-      "domains/config-history/presentation/components/",
-      "page-config-history",
-    );
-  }
-  if (matchesSourcePath(id, "domains/config-history/")) {
-    return "page-confighistorypage";
-  }
-  if (matchesSourcePath(id, "domains/execution/")) return "feature-results";
-  if (matchesSourcePath(id, "domains/overlays/")) return "dashboard-overlays";
-  if (matchesSourcePath(id, "domains/inventory/presentation/components/")) {
-    const file = sourceFileName(
-      id,
-      "domains/inventory/presentation/components/",
-    );
-    if (file === "InventoryWorkspace.svelte") {
-      return "page-inventorypage";
-    }
-    return chunkNameFromSourcePath(
-      id,
-      "domains/inventory/presentation/components/",
-      "page-inventory",
-    );
-  }
-  if (matchesSourcePath(id, "domains/inventory/")) {
-    return "page-inventorypage";
-  }
-  if (matchesSourcePath(id, "domains/device-discovery/")) {
-    return "page-devicediscoverypage";
-  }
-  if (matchesSourcePath(id, "domains/orchestration/presentation/components/")) {
-    return domainComponentChunkName(
-      id,
-      "orchestration",
-      "feature-orchestration",
-    );
-  }
-  if (matchesSourcePath(id, "domains/orchestration/")) {
-    return "feature-orchestrated";
-  }
-  if (matchesSourcePath(id, "domains/profiles/presentation/components/")) {
-    const file = sourceFileName(
-      id,
-      "domains/profiles/presentation/components/",
-    );
-    if (file === "ProfilesWorkspace.svelte") {
-      return "page-promptspage";
-    }
-    return chunkNameFromSourcePath(
-      id,
-      "domains/profiles/presentation/components/",
-      "page-prompts",
-    );
-  }
-  if (matchesSourcePath(id, "domains/profiles/")) return "feature-prompts";
-  if (matchesSourcePath(id, "domains/replay/")) return "page-replaypage";
-  if (matchesSourcePath(id, "domains/show/")) return "page-showpage";
-  if (
-    matchesSourcePath(id, "domains/standard/presentation/components/batch/")
-  ) {
-    return chunkNameFromSourcePath(
-      id,
-      "domains/standard/presentation/components/batch/",
-      "page-batch",
-    );
-  }
-  if (matchesSourcePath(id, "domains/standard/presentation/components/")) {
-    return chunkNameFromSourcePath(
-      id,
-      "domains/standard/presentation/components/",
-      "page-standard",
-    );
-  }
-  if (matchesSourcePath(id, "domains/standard/")) return "feature-standard";
-  if (matchesSourcePath(id, "domains/tasks/presentation/components/")) {
-    return chunkNameFromSourcePath(
-      id,
-      "domains/tasks/presentation/components/",
-      "page-tasks",
-    );
-  }
-  if (matchesSourcePath(id, "domains/tasks/")) return "page-taskspage";
-  if (matchesSourcePath(id, "domains/templates/presentation/components/")) {
-    const file = sourceFileName(
-      id,
-      "domains/templates/presentation/components/",
-    );
-    if (file === "TemplateManagerWorkspace.svelte") {
-      return "page-templatespage";
-    }
-    return chunkNameFromSourcePath(
-      id,
-      "domains/templates/presentation/components/",
-      "page-templates",
-    );
-  }
-  if (matchesSourcePath(id, "domains/templates/")) return "feature-templates";
-  if (matchesSourcePath(id, "domains/transfer/")) return "page-transferpage";
-  if (matchesSourcePath(id, "domains/transactions/presentation/components/")) {
-    return domainComponentChunkName(id, "transactions", "feature-transactions");
-  }
-  if (matchesSourcePath(id, "domains/transactions/")) {
-    return "feature-orchestrated";
-  }
-  if (matchesSourcePath(id, "modules/")) {
-    const file = sourceFileName(id, "modules/");
-    return MODULE_CHUNKS.get(file) || "dashboard-shell";
-  }
-  if (matchesSourcePath(id, "components/")) {
-    const folder = sourceFolderName(id, "components/");
-    const file = sourceFileName(id, "components/");
-    if (folder === "fragments" && file === "ParsedOutputBlock.svelte") {
-      return "feature-results";
-    }
-    if (folder === "connections") return "dashboard-connections-ui";
-    if (folder === "command-flow") return "feature-command";
-    if (folder === "overlays") return "dashboard-overlays-ui";
-    if (folder === "layout") return "dashboard-layout";
-    if (folder === "fragments") return "dashboard-fragments";
-    if (
-      !folder ||
-      folder.endsWith(".svelte") ||
-      folder.endsWith(".js") ||
-      ["connections", "fragments", "layout", "overlays"].includes(folder)
-    ) {
-      return "dashboard-shell";
-    }
-    return undefined;
-  }
-  if (matchesSourcePath(id, "pages/")) {
-    return pageChunkName(id);
-  }
-  if (matchesSourcePath(id, "lib/")) return "lib";
-  return undefined;
-}
-
-function dashboardModulePreloadDependencies(_, deps, context) {
-  if (context.hostType !== "html") {
-    return deps;
-  }
-  return deps.filter(
-    (dep) => !dep.includes("/page-") && !dep.includes("/feature-"),
-  );
+function isApplicationModule(id) {
+  return !id.startsWith("\0") && !id.includes("/node_modules/");
 }
 
 export default defineConfig(({ command, isPreview }) => ({
@@ -339,14 +34,33 @@ export default defineConfig(({ command, isPreview }) => ({
     },
   },
   build: {
-    modulePreload: {
-      resolveDependencies: dashboardModulePreloadDependencies,
-    },
     outDir: "../static",
     emptyOutDir: true,
     rolldownOptions: {
       output: {
-        manualChunks: dashboardChunk,
+        codeSplitting: {
+          groups: [
+            {
+              name: "app-initial",
+              test: isApplicationModule,
+              tags: ["$initial"],
+              priority: 300,
+            },
+            {
+              name: "vendor-icons",
+              test: LUCIDE_MODULE_PATTERN,
+              priority: 200,
+            },
+            {
+              name: "shared-ui",
+              test: SHARED_UI_MODULE_PATTERN,
+              entriesAware: true,
+              entriesAwareMergeThreshold: 12 * 1024,
+              maxModuleSize: 10 * 1024,
+              priority: 100,
+            },
+          ],
+        },
       },
     },
   },

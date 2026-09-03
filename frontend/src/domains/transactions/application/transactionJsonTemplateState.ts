@@ -3,6 +3,7 @@ import type { Writable } from "svelte/store";
 import { transactionJsonTemplateRuntime } from "../infrastructure/transactionJsonTemplateRuntime.js";
 import type {
   JsonObject,
+  JsonTemplateActionContext,
   JsonTemplateSelectState,
   TransactionTemplateResource,
 } from "../model/types.js";
@@ -16,11 +17,6 @@ interface JsonTemplateKindConfig extends JsonObject {
   newPromptKey: string;
   runEditor: string;
   runOutput: string;
-}
-
-interface JsonTemplateActionContext extends JsonObject {
-  isCurrent?: () => boolean;
-  runOwnedEditorMutation?: (operation: () => unknown) => unknown;
 }
 
 interface JsonTemplateEditorKinds extends JsonObject {

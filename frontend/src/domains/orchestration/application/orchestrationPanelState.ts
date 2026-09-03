@@ -18,7 +18,10 @@ import {
   orchestratedActiveStageDefinition,
   orchestratedPagePresentation,
 } from "../presentation/orchestrationPanelDisplayState.js";
-import type { OrchestratedStageDefinition } from "../presentation/orchestrationPanelDisplayState.js";
+import type {
+  OrchestratedStageComponent,
+  OrchestratedStageDefinition,
+} from "../presentation/componentTypes.js";
 import {
   orchestrationPreviewState,
   orchestrationResultState,
@@ -264,7 +267,10 @@ export function createOrchestratedPageWorkspace({
   const orchestratedWorkspace = createOrchestratedWorkspace({
     afterDomUpdate,
   });
-  const stageRegistry = createLazyComponentRegistry();
+  const stageRegistry = createLazyComponentRegistry<
+    OrchestratedStageDefinition,
+    OrchestratedStageComponent
+  >();
   const routeSyncStateStore = derived(
     [
       currentLanguageState,
@@ -297,9 +303,7 @@ export function createOrchestratedPageWorkspace({
     [stageRegistry.components, activeStageDefinitionStateStore],
     ([$loadedStageComponents, $activeStageDefinition]) =>
       $activeStageDefinition
-        ? (
-            Object.assign({}, $loadedStageComponents) as Record<string, unknown>
-          )[$activeStageDefinition.id]
+        ? $loadedStageComponents[$activeStageDefinition.id]
         : null,
   );
   let templatesLoadedForRun = false;

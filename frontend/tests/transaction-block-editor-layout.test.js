@@ -181,7 +181,7 @@ test("transaction block inspectors do not expose advanced JSON presence controls
   const editorPaths = [
     "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte",
-    "frontend/src/components/command-flow/CommandFlowSettings.svelte",
+    "frontend/src/domains/command/presentation/components/CommandFlowSettings.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockRootSettingsEditor.svelte",
     "frontend/src/domains/transactions/presentation/components/block/TxBlockStepEditor.svelte",

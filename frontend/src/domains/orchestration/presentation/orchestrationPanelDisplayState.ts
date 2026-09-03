@@ -1,4 +1,5 @@
 import { t } from "../../../lib/i18n.js";
+import type { OrchestratedStageDefinition } from "./componentTypes.js";
 
 interface OrchestratedShellState {
   currentTxStage: string;
@@ -10,11 +11,6 @@ export interface OrchestrationStageDisplay {
   orchestrationActive: boolean;
   titleText: string;
   workflowActive: boolean;
-}
-
-export interface OrchestratedStageDefinition {
-  id: string;
-  load(): Promise<unknown>;
 }
 
 export function orchestrationStagePresentation(

@@ -12,7 +12,7 @@
     CommandFlowRuntimeFields,
     CommandFlowSurface,
     CommandFlowTemplateSource,
-  } from "$components/command-flow/index.js";
+  } from "$domains/command/presentation/components/index.js";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";

@@ -13,7 +13,7 @@ test("auto discovery is a dedicated operations page", () => {
   );
   const discoveryPage = read("frontend/src/pages/DeviceDiscoveryPage.svelte");
   const sidebar = read(
-    "frontend/src/components/layout/DashboardSidebar.svelte",
+    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
   );
   const presentation = read(
     "frontend/src/domains/inventory/presentation/inventoryPresentation.ts",

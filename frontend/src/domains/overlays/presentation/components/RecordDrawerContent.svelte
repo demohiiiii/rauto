@@ -1,0 +1,208 @@
+<script lang="ts">
+  import type { Readable } from "svelte/store";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import EventEntriesTable from "$components/fragments/EventEntriesTable.svelte";
+  import PlainCheckboxField from "$components/fragments/PlainCheckboxField.svelte";
+  import PlainInputField from "$components/fragments/PlainInputField.svelte";
+  import PlainTextAreaField from "$components/fragments/PlainTextAreaField.svelte";
+  import SummaryMetricCard from "$components/fragments/SummaryMetricCard.svelte";
+  import StatusCard from "$components/fragments/StatusCard.svelte";
+  import TabList from "$components/fragments/TabList.svelte";
+  import ValueLabelSelectField from "$components/fragments/ValueLabelSelectField.svelte";
+  import { createRecordDrawerContentWorkspace } from "$domains/overlays/index.js";
+
+  type StoreValue<T> = T extends Readable<infer Value> ? Value : never;
+  type RecordDrawerWorkspace = ReturnType<
+    (typeof import("$domains/overlays/index.js"))["createRecordDrawerWorkspace"]
+  >;
+
+  interface Props {
+    drawerContentDisplay: StoreValue<
+      RecordDrawerWorkspace["drawerContentDisplayStateStore"]
+    >;
+    onCopyRecording: RecordDrawerWorkspace["copyRecording"];
+    onEventKindChange: RecordDrawerWorkspace["setEventKind"];
+    onFailedOnlyChange: RecordDrawerWorkspace["setFailedOnly"];
+    onModeSelect: RecordDrawerWorkspace["selectDisplayMode"];
+    onOpenEntryIndex: StoreValue<
+      RecordDrawerWorkspace["openEntryIndexHandlerStateStore"]
+    >;
+    onRawInput: RecordDrawerWorkspace["setRawRecordingText"];
+    onRecordLevelChange: RecordDrawerWorkspace["setRecordLevel"];
+    onResetFilters: RecordDrawerWorkspace["resetFilters"];
+    onSearchInput: RecordDrawerWorkspace["setSearchQuery"];
+    onUseInReplay: RecordDrawerWorkspace["useInReplay"];
+  }
+
+  let {
+    drawerContentDisplay,
+    onCopyRecording,
+    onEventKindChange,
+    onFailedOnlyChange,
+    onModeSelect,
+    onOpenEntryIndex,
+    onRawInput,
+    onRecordLevelChange,
+    onResetFilters,
+    onSearchInput,
+    onUseInReplay,
+  }: Props = $props();
+
+  function handleEventKindChange(eventKindValue: string) {
+    return onEventKindChange(eventKindValue);
+  }
+
+  function handleFailedOnlyChange(failedOnlyValue: boolean) {
+    return onFailedOnlyChange(failedOnlyValue);
+  }
+
+  function handleRawInput(rawValue: string) {
+    return onRawInput(rawValue);
+  }
+
+  function handleRecordLevelChange(recordLevelValue: string) {
+    return onRecordLevelChange(recordLevelValue);
+  }
+
+  function handleSearchInput(searchValue: string) {
+    return onSearchInput(searchValue);
+  }
+
+  let contentDisplay = $derived(drawerContentDisplay.content);
+  let controlsDisplay = $derived(drawerContentDisplay.controls);
+  const recordDrawerContentWorkspace = createRecordDrawerContentWorkspace({
+    onEventKindChange: handleEventKindChange,
+    onFailedOnlyChange: handleFailedOnlyChange,
+    onRawInput: handleRawInput,
+    onRecordLevelChange: handleRecordLevelChange,
+    onSearchInput: handleSearchInput,
+  });
+  const {
+    recordEventKindChangeHandler,
+    recordFailedOnlyChangeHandler,
+    recordLevelChangeHandler,
+    recordRawInputChangeHandler,
+    recordSearchInputChangeHandler,
+  } = recordDrawerContentWorkspace;
+</script>
+
+<div
+  class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-6 py-6"
+>
+  <div class="rounded-2xl border border-border bg-background p-4">
+    <div
+      class="flex flex-wrap items-center justify-between gap-3 max-lg:items-stretch"
+    >
+      <div class="inline-flex flex-wrap items-center gap-2.5">
+        <ValueLabelSelectField
+          class="md:w-55"
+          title={controlsDisplay.recordLevelHint}
+          aria-label={controlsDisplay.recordLevelLabel}
+          value={controlsDisplay.recordLevel}
+          optionRows={controlsDisplay.recordLevelOptionRows}
+          onValueChange={recordLevelChangeHandler()}
+        />
+      </div>
+      <div class="inline-flex flex-wrap items-center gap-2.5">
+        <span class="text-sm font-semibold text-muted-foreground">
+          {controlsDisplay.displayModeLabel}
+        </span>
+        <TabList
+          tabItems={controlsDisplay.modeTabs}
+          activeValue={controlsDisplay.displayMode}
+          aria-label={controlsDisplay.displayModeLabel}
+          onSelect={onModeSelect}
+        />
+      </div>
+    </div>
+  </div>
+  <div class="grid gap-3 rounded-2xl border border-border bg-background p-4">
+    <div
+      class="flex flex-wrap items-center justify-between gap-3 max-lg:items-stretch"
+    >
+      <PlainCheckboxField
+        checked={controlsDisplay.failedOnly}
+        labelText={controlsDisplay.failedOnlyLabel}
+        title={controlsDisplay.failedOnlyLabel}
+        onCheckedChange={recordFailedOnlyChangeHandler()}
+      />
+      <ValueLabelSelectField
+        class="w-55"
+        title={controlsDisplay.eventKindLabel}
+        aria-label={controlsDisplay.eventKindLabel}
+        value={controlsDisplay.eventKind}
+        optionRows={controlsDisplay.eventKindOptionRows}
+        onValueChange={recordEventKindChangeHandler()}
+      />
+    </div>
+    <div
+      class="flex flex-wrap items-center justify-between gap-3 max-lg:items-stretch"
+    >
+      <PlainInputField
+        class="w-65"
+        aria-label={controlsDisplay.searchField.ariaLabelText}
+        placeholderText={controlsDisplay.searchField.placeholder}
+        value={controlsDisplay.searchField.value}
+        onValueInput={recordSearchInputChangeHandler()}
+      />
+      <Button
+        variant="outline"
+        size="sm"
+        type="button"
+        onclick={onResetFilters}
+      >
+        {controlsDisplay.clearButtonLabel}
+      </Button>
+    </div>
+  </div>
+  <div class="rounded-2xl border border-border bg-background p-4">
+    <div class="inline-flex flex-wrap items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        type="button"
+        onclick={onCopyRecording}
+      >
+        {controlsDisplay.copyButtonLabel}
+      </Button>
+      <Button variant="outline" size="sm" type="button" onclick={onUseInReplay}>
+        {controlsDisplay.useReplayButtonLabel}
+      </Button>
+    </div>
+  </div>
+  <div class="rounded-2xl border border-border bg-background p-4">
+    <div class="grid gap-3" hidden={!contentDisplay.showListPanel}>
+      {#if contentDisplay.parseError}
+        <StatusCard
+          message={contentDisplay.parseError}
+          tone={contentDisplay.parseErrorStatus.tone}
+        />
+      {:else if !contentDisplay.hasEntries}
+        <StatusCard message={contentDisplay.emptyText} />
+      {:else}
+        <div class="grid gap-2 md:grid-cols-4">
+          {#each contentDisplay.statCards as statCardRow}
+            <SummaryMetricCard
+              label={statCardRow.labelText}
+              metricValue={statCardRow.statValue}
+              size="lg"
+            />
+          {/each}
+        </div>
+        <EventEntriesTable
+          entryRows={contentDisplay.entryRows}
+          {onOpenEntryIndex}
+          tableHeaderCells={contentDisplay.tableHeaderCells}
+        />
+      {/if}
+    </div>
+    <PlainTextAreaField
+      class="min-h-28 font-mono"
+      aria-label={contentDisplay.rawField.ariaLabelText}
+      placeholderText={contentDisplay.rawField.placeholder}
+      value={contentDisplay.rawField.value}
+      hidden={!contentDisplay.showRawPanel}
+      onValueInput={recordRawInputChangeHandler()}
+    />
+  </div>
+</div>

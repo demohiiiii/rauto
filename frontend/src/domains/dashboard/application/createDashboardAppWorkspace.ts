@@ -89,7 +89,7 @@ function dashboardModuleLoadErrorMessage(error: unknown): string {
 
 async function loadDashboardBodyComponentModule() {
   const componentModule =
-    await import("../../../components/layout/DashboardBody.svelte");
+    await import("../presentation/components/DashboardBody.svelte");
   return componentModule.default;
 }
 

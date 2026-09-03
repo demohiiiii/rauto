@@ -20,7 +20,7 @@
     Trash2Icon,
   } from "@lucide/svelte";
   import { untrack } from "svelte";
-  import { CommandFlowAuthoringViews } from "$components/command-flow/index.js";
+  import { CommandFlowAuthoringViews } from "$domains/command/presentation/components/index.js";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import { browserConfirm } from "$lib/browser.js";
   import { currentLanguageState, t } from "$lib/i18n.js";

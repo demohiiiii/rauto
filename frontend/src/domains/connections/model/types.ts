@@ -69,7 +69,6 @@ export interface ConnectionVarRow {
   name?: string;
   type?: string;
   value?: string;
-  [key: string]: unknown;
 }
 
 export interface ConnectionVarsState {

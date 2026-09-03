@@ -205,10 +205,15 @@ export const dashboardNavigationItems: DashboardNavigationItem[] =
   }));
 
 export const dashboardPageDefinitions: DashboardPageDefinition[] = [
-  { id: "show", load: () => import("../../../pages/ShowPage.svelte") },
+  {
+    id: "show",
+    load: () =>
+      import("$domains/show/presentation/components/ShowWorkspace.svelte"),
+  },
   {
     id: "config-fetch",
-    load: () => import("../../../pages/ConfigFetchPage.svelte"),
+    load: () =>
+      import("$domains/config-fetch/presentation/components/ConfigFetchWorkspace.svelte"),
   },
   { id: "standard", load: () => import("../../../pages/StandardPage.svelte") },
   { id: "batch", load: () => import("../../../pages/BatchPage.svelte") },
@@ -216,15 +221,24 @@ export const dashboardPageDefinitions: DashboardPageDefinition[] = [
     id: "orchestrated",
     load: () => import("../../../pages/OrchestratedPage.svelte"),
   },
-  { id: "replay", load: () => import("../../../pages/ReplayPage.svelte") },
-  { id: "prompts", load: () => import("../../../pages/PromptsPage.svelte") },
+  {
+    id: "replay",
+    load: () =>
+      import("$domains/replay/presentation/components/ReplayWorkspace.svelte"),
+  },
+  {
+    id: "prompts",
+    load: () =>
+      import("$domains/profiles/presentation/components/ProfilesWorkspace.svelte"),
+  },
   {
     id: "templates",
     load: () => import("../../../pages/TemplatesPage.svelte"),
   },
   {
     id: "inventory",
-    load: () => import("../../../pages/InventoryPage.svelte"),
+    load: () =>
+      import("$domains/inventory/presentation/components/InventoryWorkspace.svelte"),
   },
   {
     id: "device-discovery",
@@ -232,18 +246,33 @@ export const dashboardPageDefinitions: DashboardPageDefinition[] = [
   },
   {
     id: "credentials",
-    load: () => import("../../../pages/CredentialsPage.svelte"),
+    load: () =>
+      import("$domains/credentials/presentation/components/CredentialsWorkspace.svelte"),
   },
-  { id: "transfer", load: () => import("../../../pages/TransferPage.svelte") },
+  {
+    id: "transfer",
+    load: () =>
+      import("$domains/transfer/presentation/components/TransferWorkspace.svelte"),
+  },
   {
     id: "blacklist",
-    load: () => import("../../../pages/BlacklistPage.svelte"),
+    load: () =>
+      import("$domains/blacklist/presentation/components/BlacklistWorkspace.svelte"),
   },
-  { id: "backup", load: () => import("../../../pages/BackupPage.svelte") },
-  { id: "tasks", load: () => import("../../../pages/TasksPage.svelte") },
+  {
+    id: "backup",
+    load: () =>
+      import("$domains/backup/presentation/components/BackupWorkspace.svelte"),
+  },
+  {
+    id: "tasks",
+    load: () =>
+      import("$domains/tasks/presentation/components/TasksWorkspace.svelte"),
+  },
   {
     id: "schedules",
-    load: () => import("../../../pages/SchedulesPage.svelte"),
+    load: () =>
+      import("$domains/schedules/presentation/components/SchedulesWorkspace.svelte"),
   },
   {
     id: "config-history",
@@ -254,15 +283,15 @@ export const dashboardPageDefinitions: DashboardPageDefinition[] = [
 export const dashboardOverlayDefinitions: DashboardComponentDefinitions<DashboardOverlayId> =
   {
     connectionModal: () =>
-      import("../../../components/connections/ConnectionModal.svelte"),
+      import("../../connections/presentation/components/ConnectionModal.svelte"),
     detailModal: () =>
-      import("../../../components/overlays/DetailModal.svelte"),
+      import("$domains/overlays/presentation/components/DetailModal.svelte"),
     entryDrawer: () =>
-      import("../../../components/overlays/EntryDrawer.svelte"),
+      import("$domains/overlays/presentation/components/EntryDrawer.svelte"),
     recordDrawer: () =>
-      import("../../../components/overlays/RecordDrawer.svelte"),
+      import("$domains/overlays/presentation/components/RecordDrawer.svelte"),
     savedConnectionEditModal: () =>
-      import("../../../components/connections/SavedConnectionEditModal.svelte"),
+      import("../../connections/presentation/components/SavedConnectionEditModal.svelte"),
   };
 
 export const dashboardDetailRendererDefinitions: DashboardComponentDefinitions<DashboardDetailRendererId> =

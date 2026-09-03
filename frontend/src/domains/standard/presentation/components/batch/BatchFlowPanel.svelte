@@ -2,7 +2,7 @@
   import { Input } from "$lib/components/ui/input";
   import { Textarea } from "$lib/components/ui/textarea";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
-  import ConnectionPickerField from "$components/connections/ConnectionPickerField.svelte";
+  import { ConnectionPickerField } from "$domains/connections/presentation/components/fields/index.js";
   import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";

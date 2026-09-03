@@ -17,10 +17,35 @@ import type {
   SidebarConnectionState,
 } from "../model/types.js";
 
+type ConnectionStatusTone =
+  | "error"
+  | "info"
+  | "running"
+  | "success"
+  | "warning";
+
+function connectionStatusTone(tone = "info"): ConnectionStatusTone {
+  if (
+    tone === "error" ||
+    tone === "running" ||
+    tone === "success" ||
+    tone === "warning"
+  ) {
+    return tone;
+  }
+  return "info";
+}
+
 function connectionStatusPresentation(status: ConnectionStatus | null = null) {
-  return statusPresentation(status?.message || "", status?.tone || "info", {
-    suppressPassiveLoaded: false,
-  });
+  const presentation = statusPresentation(
+    status?.message || "",
+    status?.tone || "info",
+    { suppressPassiveLoaded: false },
+  );
+  return {
+    ...presentation,
+    tone: connectionStatusTone(presentation.tone),
+  };
 }
 
 function firstValue(values: unknown[] = []) {

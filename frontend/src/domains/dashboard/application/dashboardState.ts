@@ -294,6 +294,21 @@ export function createDashboardPreferenceToolsWorkspace() {
   };
 }
 
+function dashboardAgentAuthStatusTone(
+  tone: string,
+): DashboardAgentAuthDisplay["statusTone"] {
+  switch (tone) {
+    case "error":
+    case "info":
+    case "running":
+    case "success":
+    case "warning":
+      return tone;
+    default:
+      return "info";
+  }
+}
+
 function dashboardAgentAuthPanelPresentation({
   shellState,
   statusState,
@@ -317,7 +332,7 @@ function dashboardAgentAuthPanelPresentation({
     saveButtonLabel: tr("agentAuthSaveBtn"),
     showStatus: !!status.text,
     statusMessage: status.text,
-    statusTone: status.tone,
+    statusTone: dashboardAgentAuthStatusTone(status.tone),
     title: tr("agentAuthTitle"),
   };
 }

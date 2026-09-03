@@ -1,5 +1,6 @@
 import { tick } from "svelte";
 import { derived, writable } from "svelte/store";
+import type { Component } from "svelte";
 import type { Readable, Writable } from "svelte/store";
 import { currentLanguageState, tr } from "./i18n.js";
 import {
@@ -16,71 +17,69 @@ type OptionalTask<TArgs extends unknown[], TResult = unknown> =
   | null
   | undefined;
 
-interface DefaultLazyComponentEntry {
-  id: unknown;
-  load: () => Promise<unknown>;
+export interface LazyComponentModule<TComponent> {
+  default: TComponent;
 }
 
-interface LazyComponentRegistryOptions<TEntry> {
+interface DefaultLazyComponentEntry<TComponent> {
+  id: string;
+  load: () => Promise<LazyComponentModule<TComponent>>;
+}
+
+interface LazyComponentRegistryOptions<TEntry, TComponent> {
   errorMessage?: () => string;
-  resolveId?: (lazyEntry: TEntry) => unknown;
+  resolveId?: (lazyEntry: TEntry) => string | number | null | undefined;
   resolveLoad?: (
     lazyEntry: TEntry,
-  ) => (() => Promise<unknown>) | null | undefined;
+  ) => (() => Promise<LazyComponentModule<TComponent>>) | null | undefined;
 }
 
-export interface LazyComponentRegistry<TEntry> {
-  components: Readable<Record<string, unknown>>;
+export interface LazyComponentRegistry<TEntry, TComponent> {
+  components: Readable<Record<string, TComponent>>;
   ensure(lazyEntry: TEntry): void;
   errors: Readable<Record<string, string>>;
 }
 
-function defaultLazyEntryId(lazyEntry: unknown): unknown {
-  return lazyEntry !== null &&
-    typeof lazyEntry === "object" &&
-    "id" in lazyEntry
-    ? lazyEntry.id
-    : "";
+function defaultLazyEntryId<TComponent>(
+  lazyEntry: DefaultLazyComponentEntry<TComponent>,
+): string {
+  return lazyEntry.id;
 }
 
-function defaultLazyEntryLoad(
-  lazyEntry: unknown,
-): (() => Promise<unknown>) | null {
-  if (
-    lazyEntry === null ||
-    typeof lazyEntry !== "object" ||
-    !("load" in lazyEntry)
-  ) {
-    return null;
-  }
-  const load = lazyEntry.load;
-  return typeof load === "function"
-    ? () => Reflect.apply(load, lazyEntry, [])
-    : null;
+function defaultLazyEntryLoad<TComponent>(
+  lazyEntry: DefaultLazyComponentEntry<TComponent>,
+): () => Promise<LazyComponentModule<TComponent>> {
+  return lazyEntry.load;
 }
 
-function lazyComponent(moduleValue: unknown): unknown {
-  return moduleValue !== null &&
-    typeof moduleValue === "object" &&
-    "default" in moduleValue
-    ? moduleValue.default
-    : undefined;
+function lazyComponent<TComponent>(
+  moduleValue: LazyComponentModule<TComponent>,
+): TComponent {
+  return moduleValue.default;
 }
 
 export function createLazyComponentRegistry<
-  TEntry = DefaultLazyComponentEntry,
+  TEntry = DefaultLazyComponentEntry<Component>,
+  TComponent = Component,
 >({
   errorMessage = () => tr("requestFailed", "request failed"),
-  resolveId = defaultLazyEntryId,
-  resolveLoad = defaultLazyEntryLoad,
-}: LazyComponentRegistryOptions<TEntry> = {}): LazyComponentRegistry<TEntry> {
-  let componentSnapshot: Record<string, unknown> = {};
+  resolveId = defaultLazyEntryId as (
+    lazyEntry: TEntry,
+  ) => string | number | null | undefined,
+  resolveLoad = defaultLazyEntryLoad as (
+    lazyEntry: TEntry,
+  ) => (() => Promise<LazyComponentModule<TComponent>>) | null | undefined,
+}: LazyComponentRegistryOptions<
+  TEntry,
+  TComponent
+> = {}): LazyComponentRegistry<TEntry, TComponent> {
+  let componentSnapshot: Record<string, TComponent> = {};
   let errorSnapshot: Record<string, string> = {};
   const loadPromises = new Map<string, Promise<void>>();
   const components = writable(componentSnapshot);
   const errors = writable(errorSnapshot);
 
-  function setComponent(id: string, component: unknown): void {
+  function setComponent(id: string, component: TComponent): void {
     componentSnapshot = {
       ...componentSnapshot,
       [id]: component,
@@ -112,7 +111,7 @@ export function createLazyComponentRegistry<
     load,
   }: {
     id: string;
-    load: () => Promise<unknown>;
+    load: () => Promise<LazyComponentModule<TComponent>>;
   }): Promise<void> {
     try {
       const componentModule = await load();

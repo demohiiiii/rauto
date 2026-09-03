@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";
-  import ConnectionPickerField from "$components/connections/ConnectionPickerField.svelte";
+  import { ConnectionPickerField } from "$domains/connections/presentation/components/fields/index.js";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";

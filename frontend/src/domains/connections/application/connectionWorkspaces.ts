@@ -106,16 +106,17 @@ import {
 } from "$domains/connections/application/connectionPanelFormState.js";
 
 type WorkspaceHandler = (...args: unknown[]) => unknown;
+type ConnectionFieldValueHandler = (value: string) => void;
 
 interface BasicFieldsWorkspaceInput {
-  onConnectTimeoutSecsInput?: WorkspaceHandler | null;
-  onCredentialChange?: WorkspaceHandler | null;
-  onDeviceProfileChange?: WorkspaceHandler | null;
-  onHostInput?: WorkspaceHandler | null;
-  onLinuxShellFlavorChange?: WorkspaceHandler | null;
-  onOutputEncodingChange?: WorkspaceHandler | null;
-  onPortInput?: WorkspaceHandler | null;
-  onSshSecurityChange?: WorkspaceHandler | null;
+  onConnectTimeoutSecsInput?: ConnectionFieldValueHandler | null;
+  onCredentialChange?: ConnectionFieldValueHandler | null;
+  onDeviceProfileChange?: ConnectionFieldValueHandler | null;
+  onHostInput?: ConnectionFieldValueHandler | null;
+  onLinuxShellFlavorChange?: ConnectionFieldValueHandler | null;
+  onOutputEncodingChange?: ConnectionFieldValueHandler | null;
+  onPortInput?: ConnectionFieldValueHandler | null;
+  onSshSecurityChange?: ConnectionFieldValueHandler | null;
 }
 
 interface CloseWorkspaceInput {
@@ -133,11 +134,11 @@ interface SavedConnectionLibraryContext {
 }
 
 interface HistoryDrawerContentWorkspaceInput {
-  onDeleteItem?: WorkspaceHandler | null;
-  onLimitChange?: WorkspaceHandler | null;
-  onOpenItem?: WorkspaceHandler | null;
-  onOperationChange?: WorkspaceHandler | null;
-  onQueryInput?: WorkspaceHandler | null;
+  onDeleteItem?: ((historyId: string | number) => unknown) | null;
+  onLimitChange?: ((limit: string) => unknown) | null;
+  onOpenItem?: ((historyId: string | number) => unknown) | null;
+  onOperationChange?: ((operation: string) => unknown) | null;
+  onQueryInput?: ((query: string) => unknown) | null;
 }
 
 export {
@@ -224,26 +225,16 @@ function normalizeOptionalHandler(handler: unknown): WorkspaceHandler | null {
 
 function basicFieldsWorkspaceInputState(
   inputState: BasicFieldsWorkspaceInput = {},
-) {
+): BasicFieldsWorkspaceInput {
   return {
-    onCredentialChange: normalizeOptionalHandler(inputState.onCredentialChange),
-    onConnectTimeoutSecsInput: normalizeOptionalHandler(
-      inputState.onConnectTimeoutSecsInput,
-    ),
-    onDeviceProfileChange: normalizeOptionalHandler(
-      inputState.onDeviceProfileChange,
-    ),
-    onHostInput: normalizeOptionalHandler(inputState.onHostInput),
-    onLinuxShellFlavorChange: normalizeOptionalHandler(
-      inputState.onLinuxShellFlavorChange,
-    ),
-    onOutputEncodingChange: normalizeOptionalHandler(
-      inputState.onOutputEncodingChange,
-    ),
-    onPortInput: normalizeOptionalHandler(inputState.onPortInput),
-    onSshSecurityChange: normalizeOptionalHandler(
-      inputState.onSshSecurityChange,
-    ),
+    onCredentialChange: inputState.onCredentialChange ?? null,
+    onConnectTimeoutSecsInput: inputState.onConnectTimeoutSecsInput ?? null,
+    onDeviceProfileChange: inputState.onDeviceProfileChange ?? null,
+    onHostInput: inputState.onHostInput ?? null,
+    onLinuxShellFlavorChange: inputState.onLinuxShellFlavorChange ?? null,
+    onOutputEncodingChange: inputState.onOutputEncodingChange ?? null,
+    onPortInput: inputState.onPortInput ?? null,
+    onSshSecurityChange: inputState.onSshSecurityChange ?? null,
   };
 }
 
@@ -382,13 +373,13 @@ export function createTemporaryConnectionPanelWorkspace() {
 
 function historyDrawerContentWorkspaceInputState(
   inputState: HistoryDrawerContentWorkspaceInput = {},
-) {
+): HistoryDrawerContentWorkspaceInput {
   return {
-    onDeleteItem: normalizeOptionalHandler(inputState.onDeleteItem),
-    onLimitChange: normalizeOptionalHandler(inputState.onLimitChange),
-    onOpenItem: normalizeOptionalHandler(inputState.onOpenItem),
-    onOperationChange: normalizeOptionalHandler(inputState.onOperationChange),
-    onQueryInput: normalizeOptionalHandler(inputState.onQueryInput),
+    onDeleteItem: inputState.onDeleteItem ?? null,
+    onLimitChange: inputState.onLimitChange ?? null,
+    onOpenItem: inputState.onOpenItem ?? null,
+    onOperationChange: inputState.onOperationChange ?? null,
+    onQueryInput: inputState.onQueryInput ?? null,
   };
 }
 

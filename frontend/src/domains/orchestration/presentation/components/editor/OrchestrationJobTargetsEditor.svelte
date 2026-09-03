@@ -1,5 +1,5 @@
 <script>
-  import ConnectionPickerField from "$components/connections/ConnectionPickerField.svelte";
+  import { ConnectionPickerField } from "$domains/connections/presentation/components/fields/index.js";
   import {
     CONNECTION_PICKER,
     setConnectionPickerSelectedValues,

@@ -1,11 +1,16 @@
-<script>
+<script lang="ts">
+  import type {
+    OrchestratedStageComponent,
+    OrchestratedStageDefinition,
+    OrchestratedStageProps,
+  } from "$domains/orchestration/index.js";
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import DashboardTabPanel from "../components/layout/DashboardTabPanel.svelte";
   import { afterDomUpdate } from "../lib/svelte.js";
   import { createOrchestratedPageWorkspace } from "$domains/orchestration/index.js";
 
-  let { active } = $props();
-  const stageDefinitions = [
+  let { active }: { active: boolean } = $props();
+  const stageDefinitions: readonly OrchestratedStageDefinition[] = [
     {
       id: "block",
       load: () =>
@@ -48,6 +53,8 @@
     afterDomUpdate,
     stageDefinitions,
   });
+  let stageDisplay = $derived($stageDisplayStateStore);
+  let activeStageComponent = $derived($activeStageComponentStateStore);
   let txBlockStageProps = $derived({
     active: true,
     newButtonLabelKey: stageDisplay.newButtonLabelKey,
@@ -60,8 +67,6 @@
   });
   let txWorkflowStageProps = $derived({
     active: true,
-    jsonNewLoading: false,
-    onCreateDirectDraft: null,
     onCreateJsonTemplateDraft: createTxWorkflowJsonTemplateDraft,
     onEditorInput: updateTxWorkflowEditorInput,
     onExecute: executeTxWorkflow,
@@ -76,8 +81,6 @@
     onExecute: executeOrchestration,
     onImportFile: importOrchestrationFile,
   });
-  let stageDisplay = $derived($stageDisplayStateStore);
-  let activeStageComponent = $derived($activeStageComponentStateStore);
   let blockStageActive = $derived(active && stageDisplay.blockActive);
   let workflowStageActive = $derived(active && stageDisplay.workflowActive);
   let orchestrationStageActive = $derived(
@@ -106,7 +109,10 @@
   </div>
 {/snippet}
 
-{#snippet renderActiveStage(StageComponent, stageBindings)}
+{#snippet renderActiveStage(
+  StageComponent: OrchestratedStageComponent,
+  stageBindings: OrchestratedStageProps,
+)}
   <StageComponent {...stageBindings} />
 {/snippet}
 

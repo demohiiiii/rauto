@@ -49,7 +49,7 @@ const CONNECTION_VAR_TYPE_OPTIONS: readonly (readonly [string, string])[] =
     ["boolean", "connectionVarTypeBoolean"],
     ["null", "connectionVarTypeNull"],
   ]);
-const CONNECTION_VAR_BOOLEAN_OPTIONS = Object.freeze(["true", "false"]);
+const CONNECTION_VAR_BOOLEAN_OPTIONS: string[] = ["true", "false"];
 const SSH_SECURITY_OPTION_DEFS: readonly (readonly [string, string])[] =
   Object.freeze([
     ["", "sshSecurityOptionDefault"],
@@ -484,12 +484,18 @@ export function createConnectionPickerFieldWorkspace() {
   };
 }
 
+interface ConnectionVarRowDisplay extends ConnectionVarRow {
+  disableValueInput: boolean;
+  showBooleanSelect: boolean;
+  valueInputValue?: string;
+}
+
 function connectionVarsFieldPresentation({
   connectionVarRows = [],
   hasConnectionVarRows = false,
   labelTextKey = "inventoryFieldVars",
 }: {
-  connectionVarRows?: ConnectionVarRow[];
+  connectionVarRows?: ConnectionVarRowDisplay[];
   hasConnectionVarRows?: boolean;
   labelTextKey?: string;
 } = {}) {

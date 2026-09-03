@@ -2,6 +2,11 @@ import type { Readable } from "svelte/store";
 
 export type JsonObject = Record<string, unknown>;
 
+export interface JsonTemplateActionContext {
+  isCurrent?: () => boolean;
+  runOwnedEditorMutation?<T>(operation: () => T): T | undefined;
+}
+
 export interface JsonErrorDetail {
   column: number | null;
   line: number | null;

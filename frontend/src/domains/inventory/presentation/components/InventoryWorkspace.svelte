@@ -7,7 +7,7 @@
   import NetworkIcon from "@lucide/svelte/icons/network";
   import ServerIcon from "@lucide/svelte/icons/server";
   import TagIcon from "@lucide/svelte/icons/tag";
-  import SavedConnectionLibraryPanel from "$components/connections/SavedConnectionLibraryPanel.svelte";
+  import { SavedConnectionLibraryPanel } from "$domains/connections/presentation/components/index.js";
   import DashboardTabPanel from "$components/layout/DashboardTabPanel.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import { INVENTORY_KIND } from "$config/dashboardModes.js";

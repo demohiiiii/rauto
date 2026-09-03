@@ -5,7 +5,7 @@
     CommandEditor,
     CommandFlowSurface,
     CommandTemplateSourceField,
-  } from "$components/command-flow/index.js";
+  } from "$domains/command/presentation/components/index.js";
   import JsonObjectFieldsEditor from "$components/fragments/JsonObjectFieldsEditor.svelte";
   import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
