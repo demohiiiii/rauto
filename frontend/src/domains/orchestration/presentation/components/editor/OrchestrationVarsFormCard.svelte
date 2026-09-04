@@ -1,11 +1,16 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
   import PlainInputField from "$components/fragments/PlainInputField.svelte";
   import TextAreaField from "$components/fragments/TextAreaField.svelte";
   import TypeValueSelectField from "$components/fragments/TypeValueSelectField.svelte";
   import { createTxVarsAssistantCardWorkspace } from "$domains/transactions/index.js";
 
-  let { active, prefix } = $props();
+  interface Props {
+    active: boolean;
+    prefix: string;
+  }
+
+  let { active, prefix }: Props = $props();
   const txVarsAssistantCardWorkspace = createTxVarsAssistantCardWorkspace({
     getPrefix: () => prefix,
   });

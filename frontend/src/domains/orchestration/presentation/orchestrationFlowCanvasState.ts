@@ -29,9 +29,116 @@ const STAGE_BOTTOM = 56;
 
 type WorkflowPreviewMap = Record<string, OrchestrationWorkflowPreview>;
 
+interface OrchestrationFlowPosition {
+  x: number;
+  y: number;
+}
+
+interface OrchestrationFlowNodeBase {
+  draggable: false;
+  extent?: "parent";
+  height: number;
+  id: string;
+  parentId?: string;
+  position: OrchestrationFlowPosition;
+  selectable: boolean;
+  style?: string;
+  width: number;
+}
+
+export interface OrchestrationStageFlowNode extends OrchestrationFlowNodeBase {
+  data: {
+    empty: boolean;
+    jobCount: number;
+    kind: "stage";
+    sequence: number;
+    stageIndex: number;
+    strategy: "parallel" | "serial";
+    title: string;
+  };
+  type: "stage";
+}
+
+export interface OrchestrationStageInsertFlowNode extends OrchestrationFlowNodeBase {
+  data: {
+    hasSource: boolean;
+    hasTarget: boolean;
+    insertIndex: number;
+    kind: "stage-insert";
+    stageCount: number;
+  };
+  type: "stageInsert";
+}
+
+export interface OrchestrationJobFlowNode extends OrchestrationFlowNodeBase {
+  data: {
+    actionKind: "tx_workflow";
+    actionSource: "workflow_json" | "workflow_template";
+    blockCount: number;
+    canAddBlock: boolean;
+    connectsToStageOutput: boolean;
+    emptyWorkflow: boolean;
+    jobIndex: number;
+    kind: "job";
+    overflowCount: number;
+    previewError: string;
+    previewRows: OrchestrationWorkflowPreviewRow[];
+    previewStatus: OrchestrationWorkflowPreview["previewStatus"];
+    sourceKind: OrchestrationWorkflowPreview["sourceKind"];
+    sourceName: string;
+    stageIndex: number;
+    stageStrategy: "parallel" | "serial";
+    strategy: "parallel" | "serial";
+    targetCount: number;
+    title: string;
+    unresolvedCount: number;
+    workflowName: string;
+  };
+  type: "job";
+}
+
+export interface OrchestrationWorkflowBlockFlowNode extends OrchestrationFlowNodeBase {
+  data: {
+    blockIndex: number;
+    commandRows: string[];
+    hasSource: boolean;
+    hasTarget: boolean;
+    jobIndex: number;
+    kind: "workflow-block";
+    operationText: string;
+    sourceKind: OrchestrationWorkflowPreview["sourceKind"];
+    stageIndex: number;
+    title: string;
+    unresolvedCount: number;
+  };
+  type: "workflowBlock";
+}
+
+export type OrchestrationFlowNode =
+  | OrchestrationJobFlowNode
+  | OrchestrationStageFlowNode
+  | OrchestrationStageInsertFlowNode
+  | OrchestrationWorkflowBlockFlowNode;
+
+export interface OrchestrationFlowEdge {
+  id: string;
+  kind:
+    | "parallel-job"
+    | "serial-job"
+    | "serial-job-output"
+    | "stage-insert-link"
+    | "stage-sequence"
+    | "workflow-block";
+  source: string;
+  sourceHandle?: string;
+  target: string;
+  targetHandle?: string;
+  type: "smoothstep" | "straight";
+}
+
 export interface OrchestrationFlowGraph {
-  edges: JsonObject[];
-  nodes: JsonObject[];
+  edges: OrchestrationFlowEdge[];
+  nodes: OrchestrationFlowNode[];
 }
 
 function objectValue(value: unknown): JsonObject {
@@ -184,7 +291,7 @@ function stageNode(
   _workflowPreviews: WorkflowPreviewMap,
   height: number,
   centerY: number,
-): JsonObject {
+): OrchestrationStageFlowNode {
   const jobs = stage.jobs ?? [];
   return {
     id: `stage-${stageIndex}`,
@@ -213,7 +320,7 @@ function stageInsertNode(
   insertIndex: number,
   stageCount: number,
   centerY: number,
-): JsonObject {
+): OrchestrationStageInsertFlowNode {
   const previousStageIndex = Math.max(0, insertIndex - 1);
   return {
     id: `stage-insert-${insertIndex}`,
@@ -248,7 +355,7 @@ function jobNode(
   jobIndex: number,
   jobCount: number,
   workflowPreviews: WorkflowPreviewMap,
-): JsonObject {
+): OrchestrationJobFlowNode {
   const stageStrategy = stage.strategy === "parallel" ? "parallel" : "serial";
   const preview = jobWorkflowPreview(
     job,
@@ -302,7 +409,7 @@ function workflowBlockNodes(
   stageIndex: number,
   jobIndex: number,
   workflowPreviews: WorkflowPreviewMap,
-): JsonObject[] {
+): OrchestrationWorkflowBlockFlowNode[] {
   const preview = jobWorkflowPreview(
     job,
     stageIndex,
@@ -314,7 +421,7 @@ function workflowBlockNodes(
   let blockY = JOB_HEADER_HEIGHT + WORKFLOW_BLOCK_TOP_GAP;
   return rows.map((row, blockIndex) => {
     const height = workflowBlockHeight(row);
-    const node = {
+    const node: OrchestrationWorkflowBlockFlowNode = {
       id: `${jobId}-block-${blockIndex}`,
       type: "workflowBlock",
       parentId: jobId,
@@ -343,10 +450,12 @@ function workflowBlockNodes(
   });
 }
 
-function stageEdges(stages: readonly OrchestrationStageModel[]): JsonObject[] {
+function stageEdges(
+  stages: readonly OrchestrationStageModel[],
+): OrchestrationFlowEdge[] {
   return stages.flatMap((_stage, stageIndex) => {
     const insertIndex = stageIndex + 1;
-    const edges: JsonObject[] = [
+    const edges: OrchestrationFlowEdge[] = [
       {
         id: `stage-${stageIndex}-insert-${insertIndex}`,
         source: `stage-${stageIndex}`,
@@ -373,7 +482,7 @@ function stageEdges(stages: readonly OrchestrationStageModel[]): JsonObject[] {
 function jobEdges(
   stage: OrchestrationStageModel,
   stageIndex: number,
-): JsonObject[] {
+): OrchestrationFlowEdge[] {
   const jobs = stage.jobs ?? [];
   if (stage.strategy === "parallel") {
     return jobs.map((_job, jobIndex) => ({
@@ -386,15 +495,17 @@ function jobEdges(
       type: "straight",
     }));
   }
-  const serialEdges: JsonObject[] = jobs.slice(0, -1).map((_job, jobIndex) => ({
-    id: `stage-${stageIndex}-job-edge-${jobIndex}-${jobIndex + 1}`,
-    source: `stage-${stageIndex}-job-${jobIndex}`,
-    sourceHandle: "serial-out",
-    target: `stage-${stageIndex}-job-${jobIndex + 1}`,
-    targetHandle: "serial-in",
-    kind: "serial-job",
-    type: "smoothstep",
-  }));
+  const serialEdges: OrchestrationFlowEdge[] = jobs
+    .slice(0, -1)
+    .map((_job, jobIndex) => ({
+      id: `stage-${stageIndex}-job-edge-${jobIndex}-${jobIndex + 1}`,
+      source: `stage-${stageIndex}-job-${jobIndex}`,
+      sourceHandle: "serial-out",
+      target: `stage-${stageIndex}-job-${jobIndex + 1}`,
+      targetHandle: "serial-in",
+      kind: "serial-job",
+      type: "smoothstep",
+    }));
   if (jobs.length === 0) return serialEdges;
   const lastJobIndex = jobs.length - 1;
   serialEdges.push({
@@ -413,7 +524,7 @@ function workflowBlockEdges(
   stage: OrchestrationStageModel,
   stageIndex: number,
   workflowPreviews: WorkflowPreviewMap,
-): JsonObject[] {
+): OrchestrationFlowEdge[] {
   return (stage.jobs ?? []).flatMap((job, jobIndex) => {
     const rows = previewRows(
       jobWorkflowPreview(job, stageIndex, jobIndex, workflowPreviews),
@@ -441,7 +552,7 @@ export function orchestrationFlowGraph(
   );
   const stageCenterY =
     STAGE_TOP + Math.max(STAGE_HEADER_HEIGHT, ...stageHeights) / 2;
-  const nodes: JsonObject[] = stages.flatMap((stage, stageIndex) => {
+  const nodes: OrchestrationFlowNode[] = stages.flatMap((stage, stageIndex) => {
     const jobs = stage.jobs ?? [];
     return [
       stageNode(

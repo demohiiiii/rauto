@@ -5,7 +5,11 @@ import {
   stringValue,
 } from "../../../lib/jsonValue.js";
 import { selectOptionsWithCurrent } from "../../../lib/ui.js";
-import { txCommandPromptExtraSource } from "../model/transactionBlockMutations.js";
+import type { PresenceFieldRow } from "$components/fragments/presenceFieldTypes.js";
+import {
+  txBlockOperationDraft,
+  txCommandPromptExtraSource,
+} from "../model/transactionBlockMutations.js";
 import { txBlockPromptMetadataFieldDefs } from "../model/transactionStructure.js";
 import { txExtraStringFieldRows } from "../model/transactionMetadataFields.js";
 import type {
@@ -22,9 +26,9 @@ import type {
 } from "../model/types.js";
 
 interface TxBlockFieldDefinition {
-  controlType: string;
+  controlType: NonNullable<PresenceFieldRow["controlType"]> | "textarea";
   fieldKey: string;
-  inputType?: string;
+  inputType?: PresenceFieldRow["inputType"];
   labelKey?: string;
   optionKind?: string;
   placeholderKey?: string;
@@ -34,12 +38,19 @@ interface LabeledTxBlockFieldDefinition extends TxBlockFieldDefinition {
   labelKey: string;
 }
 
+interface PresenceTxBlockFieldDefinition extends Omit<
+  LabeledTxBlockFieldDefinition,
+  "controlType"
+> {
+  controlType: NonNullable<PresenceFieldRow["controlType"]>;
+}
+
 interface TxBlockFieldRow extends JsonObject {
   fieldKey: string;
 }
 
 interface TxCommandModeState extends JsonObject {
-  modes?: unknown[];
+  modes?: string[];
 }
 
 type PartialJson<T extends JsonObject> = Partial<T> & JsonObject;
@@ -85,7 +96,7 @@ export const TX_BLOCK_JSON_VALUE_TYPE_ROWS = Object.freeze([
   "json",
 ]);
 
-const TX_BLOCK_COMMAND_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
+const TX_BLOCK_COMMAND_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "mode-expression",
@@ -110,7 +121,7 @@ const TX_BLOCK_COMMAND_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_FLOW_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
+const TX_BLOCK_FLOW_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "select",
@@ -127,27 +138,26 @@ const TX_BLOCK_FLOW_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
-  Object.freeze([
-    {
-      controlType: "textarea",
-      fieldKey: "patterns",
-      labelKey: "txBlockFormPatterns",
-    },
-    {
-      controlType: "textarea",
-      fieldKey: "response",
-      labelKey: "txBlockFormResponse",
-    },
-    {
-      controlType: "select",
-      fieldKey: "recordInput",
-      labelKey: "fieldRecordInput",
-      optionKind: "boolean",
-    },
-  ]);
+const TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS = Object.freeze([
+  {
+    controlType: "textarea",
+    fieldKey: "patterns",
+    labelKey: "txBlockFormPatterns",
+  },
+  {
+    controlType: "textarea",
+    fieldKey: "response",
+    labelKey: "txBlockFormResponse",
+  },
+  {
+    controlType: "select",
+    fieldKey: "recordInput",
+    labelKey: "fieldRecordInput",
+    optionKind: "boolean",
+  },
+] as const satisfies readonly LabeledTxBlockFieldDefinition[]);
 
-const TX_BLOCK_ROOT_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
+const TX_BLOCK_ROOT_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "input",
@@ -164,7 +174,7 @@ const TX_BLOCK_ROOT_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_STEP_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
+const TX_BLOCK_STEP_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "select",
@@ -182,7 +192,7 @@ const TX_BLOCK_OPERATION_FIELD_DEFS: readonly TxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_WHOLE_RESOURCE_FIELD_DEFS: readonly LabeledTxBlockFieldDefinition[] =
+const TX_BLOCK_WHOLE_RESOURCE_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
   Object.freeze([
     {
       controlType: "input",
@@ -218,12 +228,18 @@ function txBlockCommandDynParamExtraRows(command: unknown = {}) {
   }));
 }
 
-function txBlockCommandPromptRows(command: unknown = {}): unknown[] {
+function txBlockCommandPromptRows(
+  command: unknown = {},
+): PartialJson<TxRuntimePromptModel>[] {
   const commandValue = txObject<TxCommandModel>(command);
   const interaction = txObject<TxCommandInteractionModel>(
     commandValue.interaction,
   );
-  return Array.isArray(interaction.prompts) ? interaction.prompts : [];
+  return Array.isArray(interaction.prompts)
+    ? interaction.prompts.map((prompt) =>
+        txObject<TxRuntimePromptModel>(prompt),
+      )
+    : [];
 }
 
 function txBlockCommandPromptMetadataRows(
@@ -252,7 +268,8 @@ function txBlockCommandInteractionPromptRow(
   promptIndex = 0,
   booleanRows: readonly unknown[] = [],
 ) {
-  const fieldRows = txBlockCommandPromptFieldsDisplay(prompt, booleanRows);
+  const promptValue = txObject<TxRuntimePromptModel>(prompt);
+  const fieldRows = txBlockCommandPromptFieldsDisplay(promptValue, booleanRows);
   return {
     controlFieldRows: fieldRows.filter(
       (fieldRow) => fieldRow.controlType !== "textarea",
@@ -260,7 +277,7 @@ function txBlockCommandInteractionPromptRow(
     fieldRows,
     metadataFieldRows: txBlockCommandPromptMetadataRows(command, promptIndex),
     patternRows: txBlockCommandPromptPatternRows(prompt),
-    prompt,
+    prompt: promptValue,
     promptIndex,
     textAreaFieldRows: fieldRows.filter(
       (fieldRow) => fieldRow.controlType === "textarea",
@@ -286,7 +303,7 @@ export function txBlockCommandFieldsDisplay(
         : true;
     const valueText =
       fieldDef.inputType === "number"
-        ? (nullableNumberValue(commandValue[fieldDef.fieldKey]) ?? "")
+        ? String(nullableNumberValue(commandValue[fieldDef.fieldKey]) ?? "")
         : stringValue(commandValue[fieldDef.fieldKey] ?? "");
     if (fieldDef.optionKind === "profileMode") {
       return {
@@ -358,7 +375,9 @@ export function txBlockFlowFieldsDisplay(
         ? t(fieldDef.placeholderKey)
         : "",
       showPresenceToggle: true,
-      valueText: nullableNumberValue(flowValue[fieldDef.fieldKey]) ?? "",
+      valueText: String(
+        nullableNumberValue(flowValue[fieldDef.fieldKey]) ?? "",
+      ),
     };
   });
   return txBlockFieldRowsWithValidation(
@@ -375,7 +394,7 @@ export function txBlockCommandPromptFieldsDisplay(
   const promptValue = txObject<TxRuntimePromptModel>(prompt);
   return TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS.map((fieldDef) => {
     const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
-    if (fieldDef.optionKind === "boolean") {
+    if ("optionKind" in fieldDef && fieldDef.optionKind === "boolean") {
       return {
         ...fieldDef,
         enabled: !!promptValue[presenceKey] || !!promptValue.recordInput,
@@ -492,8 +511,9 @@ export function txBlockWholeResourceFieldsDisplay(
         ? t(fieldDef.placeholderKey)
         : "",
       showPresenceToggle: true,
-      valueText:
+      valueText: String(
         nullableNumberValue(wholeResourceValue[fieldDef.fieldKey]) ?? "",
+      ),
     })),
     validationErrors,
     pathPrefix,
@@ -553,7 +573,8 @@ export function txBlockRollbackPolicyPanelDisplay(
       wholeResourcePolicy || {},
       validationErrors,
     ),
-    wholeResourceRollback: wholeResourcePolicy?.rollback || null,
+    wholeResourceRollback:
+      wholeResourcePolicy?.rollback || txBlockOperationDraft(),
     wholeResourceTypeRows: Array.isArray(visualDisplayValue.jsonValueTypeRows)
       ? visualDisplayValue.jsonValueTypeRows
       : [],

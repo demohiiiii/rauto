@@ -74,10 +74,10 @@ type ModelMutation<TModel, TArgs extends unknown[]> = (
   ...args: TArgs
 ) => TModel;
 
-interface TxBlockStepChangeHandler {
-  (field: string, enabled: boolean): unknown;
-  (patch: Partial<TxStepFormModel>): unknown;
-}
+export type TxBlockStepChangeHandler = (
+  patchOrField: string | Partial<TxStepFormModel>,
+  enabled?: boolean,
+) => unknown;
 
 interface TxBlockStepEditorBindingOptions {
   onStepChange?: TxBlockStepChangeHandler | null;
@@ -177,7 +177,7 @@ export function txBlockVisualEditorBindings(
     stepChangeAction(stepIndex: number) {
       return (
         patchOrField: string | Partial<TxStepFormModel>,
-        enabled: boolean,
+        enabled = false,
       ) =>
         typeof patchOrField === "string"
           ? bindings.setStepFieldPresence(stepIndex, patchOrField, enabled)

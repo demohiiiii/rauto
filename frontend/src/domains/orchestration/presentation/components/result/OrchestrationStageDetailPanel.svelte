@@ -1,7 +1,23 @@
-<script>
+<script lang="ts">
   import DetailFieldCard from "$components/fragments/DetailFieldCard.svelte";
   import { createOrchestrationStageDetailPanelWorkspace } from "$domains/orchestration/index.js";
+  import type { orchestrationDetailDisplay } from "$domains/orchestration/index.js";
   import OrchestrationJsonSection from "$domains/orchestration/presentation/components/preview/OrchestrationJsonSection.svelte";
+
+  type DetailDisplay = ReturnType<typeof orchestrationDetailDisplay>;
+  type StageDetailDisplay = Extract<
+    DetailDisplay,
+    { stageBasicFieldRows: object[] }
+  >;
+  type Props = Pick<
+    StageDetailDisplay,
+    | "hasStageJobRows"
+    | "orchestrationBasicSectionTitle"
+    | "orchestrationRawSectionTitle"
+    | "stageBasicFieldRows"
+    | "stageJobRows"
+    | "stageJsonValue"
+  >;
 
   let {
     orchestrationBasicSectionTitle,
@@ -10,7 +26,7 @@
     stageBasicFieldRows,
     stageJsonValue,
     stageJobRows,
-  } = $props();
+  }: Props = $props();
 
   const orchestrationStageDetailPanelWorkspace =
     createOrchestrationStageDetailPanelWorkspace();

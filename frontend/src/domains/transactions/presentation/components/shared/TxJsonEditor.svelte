@@ -1,7 +1,18 @@
-<script>
+<script lang="ts">
   import { untrack } from "svelte";
   import JsonTextEditor from "$components/fragments/JsonTextEditor.svelte";
   import { createTxJsonEditorWorkspace } from "$domains/transactions/index.js";
+  import type { TxEditorKey } from "$domains/transactions/index.js";
+
+  interface Props {
+    "aria-label"?: string;
+    active?: boolean;
+    editorKey: TxEditorKey;
+    "host-class"?: string;
+    onInput?: ((text: string) => void) | null;
+    placeholder?: string;
+    value?: string;
+  }
 
   let {
     "aria-label": ariaLabel,
@@ -11,7 +22,7 @@
     onInput,
     placeholder,
     value,
-  } = $props();
+  }: Props = $props();
   const initialEditorContext = untrack(() => ({
     editorKey,
     onInput,

@@ -4,6 +4,7 @@ import type {
   CustomProfileBaseForm,
   CustomProfileForm,
   CustomProfileOptionsState,
+  ProfileCommandExecution,
   UnknownRecord,
 } from "./types.js";
 
@@ -18,7 +19,12 @@ const EMPTY_PROFILE_FORM: CustomProfileForm = {
   sys_prompts: [],
   interactions: [],
   transitions: [],
-  hooks: {},
+  hooks: {
+    after_connect: [],
+    after_enter_state: {},
+    before_disconnect: [],
+    before_exit_state: {},
+  },
   detect_profile: null,
 };
 
@@ -73,7 +79,12 @@ export function emptyProfileForm(): CustomProfileForm {
     ...EMPTY_PROFILE_FORM,
     detect_profile: null,
     error_patterns: [],
-    hooks: {},
+    hooks: {
+      after_connect: [],
+      after_enter_state: {},
+      before_disconnect: [],
+      before_exit_state: {},
+    },
     ignore_errors: [],
     interactions: [],
     more_patterns: [],
@@ -91,9 +102,9 @@ export function builtinProfileFormValue(
 }
 
 export function commandExecutionPayload(
-  commandMode: unknown,
-  exitMarker: unknown,
-): unknown {
+  commandMode: string,
+  exitMarker: string,
+): ProfileCommandExecution {
   if (commandMode === "shell_exit_status") {
     return {
       shell_exit_status: {

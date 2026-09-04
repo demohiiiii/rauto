@@ -1,7 +1,16 @@
-<script>
+<script lang="ts">
   import { createOrchestrationJsonSectionWorkspace } from "$domains/orchestration/index.js";
+  import type {
+    OrchestrationJsonTreeNode,
+    OrchestrationJsonValue,
+  } from "$domains/orchestration/index.js";
 
-  let { jsonValue, title } = $props();
+  interface Props {
+    jsonValue: OrchestrationJsonValue;
+    title: string;
+  }
+
+  let { jsonValue, title }: Props = $props();
   const orchestrationJsonSectionWorkspace =
     createOrchestrationJsonSectionWorkspace();
   const { orchestrationJsonSectionDisplayStateStore, setJsonValue } =
@@ -15,7 +24,7 @@
   });
 </script>
 
-{#snippet jsonTreeNode(node)}
+{#snippet jsonTreeNode(node: OrchestrationJsonTreeNode)}
   {#if node.showPrimitive}
     <div
       class="grid gap-1 rounded-md border border-slate-200 bg-white px-2 py-1.5"
@@ -40,7 +49,7 @@
       </summary>
       <div class="grid gap-2 border-t border-slate-200 px-2 py-2">
         {#if node.hasChildren}
-          {#each node.children as child}
+          {#each node.children ?? [] as child}
             {@render jsonTreeNode(child)}
           {/each}
         {:else}

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import {
     CommandEditor,
@@ -12,6 +12,20 @@
   import TxBlockCommandInteractionEditor from "$domains/transactions/presentation/components/block/TxBlockCommandInteractionEditor.svelte";
   import TxFormSection from "$domains/transactions/presentation/components/shared/TxFormSection.svelte";
   import { createTxBlockCommandEditorWorkspace } from "$domains/transactions/index.js";
+  import type {
+    TxCommandModel,
+    TxMetadataFieldDefinition,
+    TxValidationError,
+  } from "$domains/transactions/index.js";
+
+  interface Props {
+    command: TxCommandModel;
+    jsonValueTypeRows: readonly string[];
+    metadataFieldDefs?: readonly TxMetadataFieldDefinition[];
+    onChange?: (patch: Partial<TxCommandModel>) => void;
+    pathPrefix?: string;
+    validationErrors?: readonly TxValidationError[];
+  }
 
   let {
     command,
@@ -20,7 +34,7 @@
     metadataFieldDefs = [],
     validationErrors = [],
     pathPrefix = "",
-  } = $props();
+  }: Props = $props();
   const txBlockCommandEditorWorkspace = createTxBlockCommandEditorWorkspace();
   const {
     commandActionHandlersStateStore,
@@ -53,7 +67,7 @@
     void initializeCommandTemplates();
   });
 
-  function commandScopeKey(suffix) {
+  function commandScopeKey(suffix: string): string {
     return `tx-block-command-${pathPrefix || "operation"}-${suffix}`;
   }
 
@@ -111,6 +125,7 @@
   </TxFormSection>
   <CollapsibleGroup
     variant="section"
+    class=""
     label={t("txBlockFormDynParams")}
     persistenceKey={commandScopeKey("dynamic")}
     body-class="pt-3"
@@ -127,6 +142,7 @@
   </CollapsibleGroup>
   <CollapsibleGroup
     variant="section"
+    class=""
     label={t("txBlockFormInteraction")}
     persistenceKey={commandScopeKey("interaction")}
     body-class="pt-3"

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import * as Card from "$lib/components/ui/card";
   import PlainCheckboxField from "$components/fragments/PlainCheckboxField.svelte";
@@ -8,6 +8,29 @@
   import TxBlockOperationEditor from "$domains/transactions/presentation/components/block/TxBlockOperationEditor.svelte";
   import TxFormSection from "$domains/transactions/presentation/components/shared/TxFormSection.svelte";
   import { createTxBlockStepEditorWorkspace } from "$domains/transactions/index.js";
+  import type {
+    txBlockVisualEditorDisplay,
+    TxBlockStepChangeHandler,
+    TxMetadataFieldDefinition,
+    TxOperationModel,
+    TxStepFormModel,
+    TxValidationError,
+  } from "$domains/transactions/index.js";
+
+  interface Props {
+    editorDisplay: ReturnType<typeof txBlockVisualEditorDisplay>;
+    onRollbackChange?: (operation: TxOperationModel | null) => void;
+    onRollbackEnabledChange?: (enabled: boolean) => void;
+    onRunChange?: (operation: TxOperationModel) => void;
+    onStepChange?: TxBlockStepChangeHandler;
+    pathPrefix?: string;
+    perStepRollbackEnabled?: boolean;
+    rollbackCommandMetadataFieldDefs?: readonly TxMetadataFieldDefinition[];
+    runCommandMetadataFieldDefs?: readonly TxMetadataFieldDefinition[];
+    step: TxStepFormModel;
+    titleText: string;
+    validationErrors?: readonly TxValidationError[];
+  }
 
   let {
     step,
@@ -22,7 +45,7 @@
     onStepChange,
     validationErrors = [],
     pathPrefix = "",
-  } = $props();
+  }: Props = $props();
 
   const txBlockStepEditorWorkspace = createTxBlockStepEditorWorkspace();
   const {
@@ -39,8 +62,6 @@
     setStepEditorContext({
       step,
       onStepChange,
-      validationErrors,
-      pathPrefix,
     });
   });
 </script>

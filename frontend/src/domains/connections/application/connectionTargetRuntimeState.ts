@@ -63,21 +63,8 @@ import type {
   PersistedConnectionTarget,
   SavedConnection,
   SavedConnectionDetail,
+  TemporaryConnectionFormState,
 } from "../model/types.js";
-
-interface TemporaryConnectionFormState extends Record<string, unknown> {
-  connect_timeout_secs: string;
-  credential_id: string;
-  device_model: string;
-  device_profile: string;
-  enabled: boolean;
-  host: string;
-  linux_shell_flavor: string;
-  output_encoding: string;
-  port: string;
-  software_version: string;
-  ssh_security: string;
-}
 
 interface ConnectionPayloadOptions {
   connectionName?: string | null;

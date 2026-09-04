@@ -1,5 +1,4 @@
 import { derived as deriveStore, writable } from "svelte/store";
-import type { Readable } from "svelte/store";
 import {
   TX_EXECUTION_MODE,
   normalizeTxExecutionMode,
@@ -78,10 +77,6 @@ export interface TxWorkflowPreviewPanelDisplay {
 
 type FlexibleRecord = Record<string, unknown>;
 
-interface PanelWorkspaceInput {
-  panelDisplay?: FlexibleRecord | null;
-}
-
 interface TxBlockRunPanelWorkspaceInput {
   panelDisplay?: TxBlockRunPanelDisplay | null;
 }
@@ -94,7 +89,7 @@ interface ToneConfig {
   toneName?: string;
 }
 
-type TxStatusTone = "error" | "info" | "running" | "success" | "warning";
+export type TxStatusTone = "error" | "info" | "running" | "success" | "warning";
 
 function flexibleRecord(value: unknown): FlexibleRecord {
   return value && typeof value === "object" ? (value as FlexibleRecord) : {};
@@ -141,25 +136,6 @@ const txOutputModePresentation = (mode: unknown = "") => ({
   showResult: mode === "result",
 });
 
-function derivedDisplayFieldStores(
-  sourceStore: Readable<FlexibleRecord | null>,
-  fieldMap: Record<string, string>,
-  fallback: FlexibleRecord = {},
-): Record<string, Readable<FlexibleRecord>> {
-  return Object.fromEntries(
-    Object.entries(fieldMap).map(([storeName, fieldName]) => [
-      storeName,
-      deriveStore(
-        sourceStore,
-        (display) =>
-          optionalFlexibleRecord(display?.[fieldName]) ||
-          optionalFlexibleRecord(fallback[fieldName]) ||
-          {},
-      ),
-    ]),
-  );
-}
-
 export function transactionFallbackDisplay(fallbackInput: unknown = {}) {
   const fallback = flexibleRecord(fallbackInput);
   if (!fallback?.mode || fallback.mode === "empty") return null;
@@ -178,6 +154,7 @@ function transactionOutputStatusDisplay(outputInput: unknown = {}) {
     ...txOutputModePresentation(mode),
     message: transactionText(output.message || ""),
     mode,
+    text: transactionText(output.text || ""),
     tone: transactionStatusTone(transactionText(output.tone)),
   };
 }
@@ -360,11 +337,16 @@ export function txWorkflowOutputPanelDisplay(
   const previewPresentation = txWorkflowPreviewPresentation(
     previewDisplay.workflow || null,
   );
+  const loadingDisplay =
+    optionalFlexibleRecord(outputDisplay.loading) ||
+    emptyTxWorkflowOutputDisplay.loading;
   return {
     executeButtonLabel: t("txWorkflowExecBtn"),
     executionPanelDisplay: txWorkflowExecutionPanelDisplay(executionDisplay),
-    loadingDisplay:
-      outputDisplay?.loading || emptyTxWorkflowOutputDisplay.loading,
+    loadingDisplay: {
+      execute: !!loadingDisplay.execute,
+      preview: !!loadingDisplay.preview,
+    },
     planButtonLabel: t("txWorkflowPlanBtn"),
     planStatusDisplay,
     planStatusModeDisplay: txOutputModePresentation(planStatusDisplay.mode),
@@ -376,28 +358,44 @@ export function txWorkflowOutputPanelDisplay(
   };
 }
 
+export type TxWorkflowOutputPanelDisplay = ReturnType<
+  typeof txWorkflowOutputPanelDisplay
+>;
+
+const emptyTxWorkflowOutputPanelDisplay = txWorkflowOutputPanelDisplay();
+
 export function createTxWorkflowRunPanelWorkspace({
   panelDisplay = null,
-}: PanelWorkspaceInput = {}) {
-  const panelDisplayStateStore = writable<FlexibleRecord | null>(panelDisplay);
-  const { executionPanelDisplayStateStore } = derivedDisplayFieldStores(
-    panelDisplayStateStore,
-    { executionPanelDisplayStateStore: "executionPanelDisplay" },
+}: {
+  panelDisplay?: TxWorkflowOutputPanelDisplay | null;
+} = {}) {
+  const panelDisplayStateStore = writable<TxWorkflowOutputPanelDisplay>(
+    panelDisplay || emptyTxWorkflowOutputPanelDisplay,
   );
-  const executionStores = derivedDisplayFieldStores(
-    executionPanelDisplayStateStore,
-    {
-      executionModeDisplayStateStore: "executionModeDisplay",
-      executionStatusDisplayStateStore: "statusDisplay",
-      workflowExecutionResultDisplayStateStore: "workflowExecutionDisplay",
-    },
+  const executionModeDisplayStateStore = deriveStore(
+    panelDisplayStateStore,
+    (display) => display.executionPanelDisplay.executionModeDisplay,
+  );
+  const executionStatusDisplayStateStore = deriveStore(
+    panelDisplayStateStore,
+    (display) => display.executionPanelDisplay.statusDisplay,
+  );
+  const workflowExecutionResultDisplayStateStore = deriveStore(
+    panelDisplayStateStore,
+    (display) => display.executionPanelDisplay.workflowExecutionDisplay,
   );
   return {
-    ...executionStores,
+    executionModeDisplayStateStore,
+    executionStatusDisplayStateStore,
     panelDisplayStateStore,
-    setPanelDisplay(nextPanelDisplay: FlexibleRecord | null = null) {
-      panelDisplayStateStore.set(nextPanelDisplay);
+    setPanelDisplay(
+      nextPanelDisplay: TxWorkflowOutputPanelDisplay | null = null,
+    ) {
+      panelDisplayStateStore.set(
+        nextPanelDisplay || emptyTxWorkflowOutputPanelDisplay,
+      );
     },
+    workflowExecutionResultDisplayStateStore,
   };
 }
 
@@ -810,34 +808,14 @@ export type TxWorkflowExecutionBlockRow =
 function txWorkflowExecutionPanelDisplay(
   executionDisplay: FlexibleRecord = {},
 ) {
-  const emptyWorkflowExecutionDisplay = {
-    blockCountLineText: "",
-    blockRows: [],
-    blockResultsTitle: "",
-    hasBlockRows: false,
-    hasResult: false,
-    hasRollbackErrors: false,
-    noStepDetailsMessage: "",
-    requestFailedMessage: "",
-    rollbackErrorsText: "",
-    rollbackErrorsTitle: "",
-    summaryCards: [],
-    workflowSummaryChipRows: [],
-  };
-  const emptyExecutionStatusDisplay = {
-    message: "",
-    mode: "empty",
-    text: "",
-    tone: "info",
-  };
-  const statusDisplay =
-    optionalFlexibleRecord(executionDisplay.status) ||
-    emptyExecutionStatusDisplay;
+  const statusDisplay = transactionOutputStatusDisplay(executionDisplay.status);
+  const resultDisplay = optionalFlexibleRecord(executionDisplay.result);
   return {
     executionModeDisplay: txOutputModePresentation(statusDisplay.mode),
     statusDisplay,
-    workflowExecutionDisplay:
-      executionDisplay?.result || emptyWorkflowExecutionDisplay,
+    workflowExecutionDisplay: resultDisplay
+      ? (resultDisplay as TxWorkflowExecutionPresentation)
+      : txWorkflowExecutionPresentation(),
   };
 }
 

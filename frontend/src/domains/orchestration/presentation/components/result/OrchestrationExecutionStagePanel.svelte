@@ -1,11 +1,33 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
   import DetailFieldCard from "$components/fragments/DetailFieldCard.svelte";
+  import type { orchestrationExecutionPresentation } from "$domains/orchestration/index.js";
 
-  let { stageCallbacks, stageRow } = $props();
+  type ExecutionPresentation = ReturnType<
+    typeof orchestrationExecutionPresentation
+  >;
+  type StageRow = ExecutionPresentation["stageRows"][number];
+
+  interface StageCallbacks {
+    openStageDetail(): void;
+    openTargetDetailHandler(
+      stageJobIndex: number,
+      targetIndex: number,
+    ): () => void;
+  }
+
+  interface Props {
+    stageCallbacks: StageCallbacks;
+    stageRow: StageRow;
+  }
+
+  let { stageCallbacks, stageRow }: Props = $props();
 </script>
 
-{#snippet executionJobPanel(stageJobRow, stageJobIndex)}
+{#snippet executionJobPanel(
+  stageJobRow: StageRow["jobs"][number],
+  stageJobIndex: number,
+)}
   <div
     class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
   >

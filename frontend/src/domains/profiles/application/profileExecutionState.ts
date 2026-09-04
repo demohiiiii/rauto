@@ -12,16 +12,6 @@ import type {
   TextfsmPlatformSelectState,
 } from "../model/types.js";
 
-function profileValues(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function recordValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
 const modeSelectState = new Map<string, ModeSelectState>();
 const textfsmPlatformSelectState = new Map<
   string,
@@ -69,7 +59,7 @@ export const executionConnectionProfileState = derived(
 );
 
 function normalizeSemanticKey(
-  rawKey: unknown,
+  rawKey: string,
   validKeys: ReadonlySet<string>,
   fallback = "",
 ): string {
@@ -82,21 +72,15 @@ export function resetProfileModesCache(): void {
   profileModesCache = new Map();
 }
 
-async function fetchProfileModes(profileName: unknown): Promise<ProfileModes> {
+async function fetchProfileModes(profileName: string): Promise<ProfileModes> {
   const normalized = safeString(profileName).trim() || "autodetect";
   const cached = profileModesCache.get(normalized);
   if (cached) return cached;
 
   try {
-    const modePayload = recordValue(
-      await profileExecutionRuntime.getProfileModes(normalized),
-    );
-    if (!Object.keys(modePayload).length) {
-      throw new Error("Invalid profile modes response");
-    }
-    const modes = profileValues(modePayload.modes)
-      .filter(Boolean)
-      .map(safeString);
+    const modePayload =
+      await profileExecutionRuntime.getProfileModes(normalized);
+    const modes = modePayload.modes.filter(Boolean);
     const defaultMode =
       safeString(modePayload.default_mode || modes[0] || "Root") || "Root";
     const resolved = {
@@ -115,11 +99,11 @@ async function fetchProfileModes(profileName: unknown): Promise<ProfileModes> {
   }
 }
 
-function normalizeModeSelectKey(modeSelectKey: unknown): string {
+function normalizeModeSelectKey(modeSelectKey: string): string {
   return normalizeSemanticKey(modeSelectKey, MODE_SELECT_KEYS);
 }
 
-function defaultModeSelectState(modeSelectKey: unknown): ModeSelectState {
+function defaultModeSelectState(modeSelectKey: string): ModeSelectState {
   const key = normalizeModeSelectKey(modeSelectKey);
   return (
     modeSelectState.get(key) || {
@@ -131,7 +115,7 @@ function defaultModeSelectState(modeSelectKey: unknown): ModeSelectState {
   );
 }
 
-function modeSelectStateFor(modeSelectKey: unknown) {
+function modeSelectStateFor(modeSelectKey: string) {
   const key = normalizeModeSelectKey(modeSelectKey);
   let state = modeSelectStates.get(key);
   if (!state) {
@@ -141,10 +125,7 @@ function modeSelectStateFor(modeSelectKey: unknown) {
   return state;
 }
 
-function setModeSelectValue(
-  modeSelectKey: unknown,
-  selectedMode: unknown = "",
-): void {
+function setModeSelectValue(modeSelectKey: string, selectedMode = ""): void {
   const key = normalizeModeSelectKey(modeSelectKey);
   const selected = safeString(selectedMode || "").trim();
   modeSelectStateFor(key).update((state) => {
@@ -155,22 +136,21 @@ function setModeSelectValue(
 }
 
 export function modeSelection(
-  modeSelectKey: unknown,
+  modeSelectKey: string,
 ): ModeSelection<ModeSelectState> {
   const key = normalizeModeSelectKey(modeSelectKey);
   return {
-    setValue: (selectedMode: unknown = "") =>
-      setModeSelectValue(key, selectedMode),
+    setValue: (selectedMode = "") => setModeSelectValue(key, selectedMode),
     state: modeSelectStateFor(key),
   };
 }
 
-function normalizeTextfsmPlatformSelectKey(platformSelectKey: unknown): string {
+function normalizeTextfsmPlatformSelectKey(platformSelectKey: string): string {
   return normalizeSemanticKey(platformSelectKey, TEXTFSM_SELECT_KEYS);
 }
 
 function defaultTextfsmPlatformSelectState(
-  platformSelectKey: unknown,
+  platformSelectKey: string,
 ): TextfsmPlatformSelectState {
   const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
   return (
@@ -182,7 +162,7 @@ function defaultTextfsmPlatformSelectState(
   );
 }
 
-function textfsmPlatformSelectStateFor(platformSelectKey: unknown) {
+function textfsmPlatformSelectStateFor(platformSelectKey: string) {
   const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
   let state = textfsmPlatformSelectStates.get(key);
   if (!state) {
@@ -193,8 +173,8 @@ function textfsmPlatformSelectStateFor(platformSelectKey: unknown) {
 }
 
 function setTextfsmPlatformSelectValue(
-  platformSelectKey: unknown,
-  selectedProfile: unknown = "",
+  platformSelectKey: string,
+  selectedProfile = "",
 ): void {
   const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
   const selected = safeString(selectedProfile || "").trim();
@@ -210,11 +190,11 @@ function setTextfsmPlatformSelectValue(
 }
 
 export function textfsmPlatformSelection(
-  platformSelectKey: unknown,
+  platformSelectKey: string,
 ): ModeSelection<TextfsmPlatformSelectState> {
   const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
   return {
-    setValue: (selectedProfile: unknown = "") =>
+    setValue: (selectedProfile = "") =>
       setTextfsmPlatformSelectValue(key, selectedProfile),
     state: textfsmPlatformSelectStateFor(key),
   };
@@ -222,7 +202,7 @@ export function textfsmPlatformSelection(
 
 function resolveModeSelectState(
   modes: string[],
-  preferredMode: unknown,
+  preferredMode: string | undefined,
   defaultMode: string,
   config: ModeSelectConfig = {},
 ): ModeSelectState {
@@ -253,9 +233,9 @@ function resolveModeSelectState(
 }
 
 function applyModeOptions(
-  modeSelectKey: unknown,
+  modeSelectKey: string,
   modes: string[],
-  preferredMode: unknown,
+  preferredMode: string | undefined,
   defaultMode: string,
   config: ModeSelectConfig = {},
 ): void {
@@ -270,7 +250,7 @@ function applyModeOptions(
   modeSelectStateFor(key).set(state);
 }
 
-function safeSelectValue(selectionKey: unknown): string {
+function safeSelectValue(selectionKey: string): string {
   const modeKey = normalizeModeSelectKey(selectionKey);
   if (modeSelectStates.has(modeKey) || modeSelectState.has(modeKey)) {
     return safeString(get(modeSelectStateFor(modeKey)).selected || "").trim();
@@ -288,7 +268,7 @@ function safeSelectValue(selectionKey: unknown): string {
 }
 
 function refreshTextfsmPlatformSelect(
-  platformSelectKey: unknown,
+  platformSelectKey: string,
   profiles: string[],
   selected: string,
 ): void {
@@ -335,7 +315,9 @@ async function refreshExecutionModeOptions(
     allowEmpty: true,
     emptyLabel: t("showModeAutoPlaceholder"),
   };
-  const modeSelectTargets: Array<[string, string, ModeSelectConfig?]> = [
+  const modeSelectTargets: Array<
+    [string, keyof ProfileModeOverrides, ModeSelectConfig?]
+  > = [
     [MODE_SELECT.standardDirect, "execMode"],
     [MODE_SELECT.standardFlow, "flowMode"],
     [MODE_SELECT.standardTemplate, "templateMode"],

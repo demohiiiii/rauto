@@ -259,6 +259,23 @@ export interface ConnectionTargetState {
   kind: string;
 }
 
+export interface TemporaryConnectionFormState extends Record<
+  string,
+  string | boolean
+> {
+  connect_timeout_secs: string;
+  credential_id: string;
+  device_model: string;
+  device_profile: string;
+  enabled: boolean;
+  host: string;
+  linux_shell_flavor: string;
+  output_encoding: string;
+  port: string;
+  software_version: string;
+  ssh_security: string;
+}
+
 export interface SavedConnectionSelectState {
   connections?: SavedConnection[];
   options?: string[];

@@ -1,10 +1,20 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
   import PlainInputField from "$components/fragments/PlainInputField.svelte";
   import { t } from "$lib/i18n.js";
   import { createTxBlockCommandDynParamsEditorWorkspace } from "$domains/transactions/index.js";
+  import type {
+    txBlockCommandEditorDisplay,
+    TxCommandModel,
+  } from "$domains/transactions/index.js";
 
-  let { command, commandDisplay, onChange } = $props();
+  interface Props {
+    command: TxCommandModel;
+    commandDisplay: ReturnType<typeof txBlockCommandEditorDisplay>;
+    onChange?: (patch: Partial<TxCommandModel>) => void;
+  }
+
+  let { command, commandDisplay, onChange }: Props = $props();
   const txBlockCommandDynParamsEditorWorkspace =
     createTxBlockCommandDynParamsEditorWorkspace();
   const {

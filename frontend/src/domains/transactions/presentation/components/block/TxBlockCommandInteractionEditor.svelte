@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
   import JsonObjectFieldsEditor from "$components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
@@ -7,6 +7,20 @@
   import { t } from "$lib/i18n.js";
   import { txBlockValidationErrorText } from "$domains/transactions/index.js";
   import { createTxBlockCommandInteractionEditorWorkspace } from "$domains/transactions/index.js";
+  import type {
+    txBlockCommandEditorDisplay,
+    TxCommandModel,
+    TxValidationError,
+  } from "$domains/transactions/index.js";
+
+  interface Props {
+    command: TxCommandModel;
+    commandDisplay: ReturnType<typeof txBlockCommandEditorDisplay>;
+    jsonValueTypeRows: readonly string[];
+    onChange?: (patch: Partial<TxCommandModel>) => void;
+    pathPrefix?: string;
+    validationErrors?: readonly TxValidationError[];
+  }
 
   let {
     command,
@@ -15,7 +29,7 @@
     onChange,
     validationErrors = [],
     pathPrefix = "",
-  } = $props();
+  }: Props = $props();
   const txBlockCommandInteractionEditorWorkspace =
     createTxBlockCommandInteractionEditorWorkspace();
   const {
@@ -92,7 +106,7 @@
           <TextAreaField
             labelText={t("txBlockFormResponse")}
             value={prompt.response}
-            onInput={promptActionHandlers.textValueHandler("response")}
+            onValueInput={promptActionHandlers.textValueHandler("response")}
             class="min-h-20 font-mono"
             placeholderText={t("txBlockFormResponsePlaceholder")}
           />
@@ -116,7 +130,7 @@
         <JsonObjectFieldsEditor
           title={t("txBlockFormPromptExtra")}
           source={prompt.extra}
-          typeRows={jsonValueTypeRows}
+          typeRows={[...jsonValueTypeRows]}
           onChange={promptActionHandlers.extraChangeHandler()}
         />
       </div>
@@ -124,7 +138,7 @@
     <JsonObjectFieldsEditor
       title={t("txBlockFormInteractionExtra")}
       source={command.interaction.extra}
-      typeRows={jsonValueTypeRows}
+      typeRows={[...jsonValueTypeRows]}
       onChange={interactionActionHandlers.setInteractionExtra}
     />
   </div>

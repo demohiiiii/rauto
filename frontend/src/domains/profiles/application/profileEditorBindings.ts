@@ -10,6 +10,7 @@ import {
   removeProfileDetectProbeRule,
   setProfileDetectProbeErrorPattern,
 } from "./profileDiagnosticsState.js";
+import type { ProfileDetectRuleDraft } from "../model/profileDiagnostics.js";
 import type { createCustomProfilesEditorWorkspace } from "./customProfileEditorState.js";
 import {
   profileHookCommandInteractionPatch,
@@ -28,13 +29,21 @@ import {
   profileHookRowStatePatch,
   profileListRowFieldPatches,
 } from "../model/profileEditor.js";
-import type { UnknownRecord } from "../model/types.js";
+import type {
+  ProfileCommandInteractionInput,
+  ProfileHookCommandPatch,
+  ProfileHookFlowPatch,
+  ProfileHookKind,
+  ProfileHookRowPatch,
+  ProfileListKind,
+  ProfileListRowPatch,
+} from "../model/types.js";
 
-interface InputValueEvent {
-  currentTarget?: { value?: unknown } | null;
+interface InputValueEvent<T> {
+  currentTarget?: { value?: T } | null;
 }
 
-type ProfileInput<T> = T | InputValueEvent;
+type ProfileInput<T> = T | InputValueEvent<T>;
 type OptionalCallback<TArgs extends unknown[]> =
   | ((...args: TArgs) => unknown)
   | null
@@ -102,13 +111,13 @@ export function createLiveActionHandlers<
 
 export interface ProfileListRowHandlerOptions {
   onAddPattern?: OptionalCallback<[number]>;
-  onPatternChange?: OptionalCallback<[number, number, unknown]>;
-  onPatternStateChange?: OptionalCallback<[number, unknown]>;
-  onProfileListRowChange?: OptionalCallback<[number, UnknownRecord]>;
+  onPatternChange?: OptionalCallback<[number, number, string]>;
+  onPatternStateChange?: OptionalCallback<[number, string]>;
+  onProfileListRowChange?: OptionalCallback<[number, ProfileListRowPatch]>;
   onRemovePattern?: OptionalCallback<[number, number]>;
   onRemoveRow?: OptionalCallback<[number]>;
   onRemoveSimpleValue?: OptionalCallback<[number]>;
-  onSimpleValueChange?: OptionalCallback<[number, unknown]>;
+  onSimpleValueChange?: OptionalCallback<[number, string]>;
   rowIndex?: number;
 }
 
@@ -164,7 +173,7 @@ export function profileListRowInputHandlers({
         );
     },
     patternChangeHandler(patternIndex: number) {
-      return (value: ProfileInput<unknown>) =>
+      return (value: ProfileInput<string>) =>
         callbackWithPrefix(
           onPatternChange,
           rowIndex,
@@ -172,7 +181,7 @@ export function profileListRowInputHandlers({
         )(profileInputValue(value));
     },
     patternStateChangeHandler() {
-      return (value: ProfileInput<unknown>) =>
+      return (value: ProfileInput<string>) =>
         callbackWithPrefix(
           onPatternStateChange,
           rowIndex,
@@ -188,7 +197,7 @@ export function profileListRowInputHandlers({
       return callbackWithPrefix(onRemoveSimpleValue, rowIndex);
     },
     simpleValueChangeHandler() {
-      return (value: ProfileInput<unknown>) =>
+      return (value: ProfileInput<string>) =>
         callbackWithPrefix(
           onSimpleValueChange,
           rowIndex,
@@ -293,11 +302,13 @@ export const profileListRowHandlerNames = [
 
 export interface ProfileHookRowHandlerOptions {
   onAddFlowStep?: OptionalCallback<[number]>;
-  onCommandChange?: OptionalCallback<[number, UnknownRecord]>;
-  onFlowChange?: OptionalCallback<[number, UnknownRecord]>;
-  onFlowStepChange?: OptionalCallback<[number, number, UnknownRecord]>;
-  onHookRowChange?: OptionalCallback<[number, UnknownRecord]>;
-  onKindChange?: OptionalCallback<[number, unknown]>;
+  onCommandChange?: OptionalCallback<[number, ProfileHookCommandPatch]>;
+  onFlowChange?: OptionalCallback<[number, ProfileHookFlowPatch]>;
+  onFlowStepChange?: OptionalCallback<
+    [number, number, ProfileHookCommandPatch]
+  >;
+  onHookRowChange?: OptionalCallback<[number, ProfileHookRowPatch]>;
+  onKindChange?: OptionalCallback<[number, ProfileHookKind]>;
   onRemoveFlowStep?: OptionalCallback<[number, number]>;
   onRemoveRow?: OptionalCallback<[number]>;
   rowIndex?: number;
@@ -328,7 +339,7 @@ export function profileHookRowInputHandlers({
         );
     },
     commandInteractionChangeHandler() {
-      return (interaction: ProfileInput<unknown>) =>
+      return (interaction: ProfileInput<ProfileCommandInteractionInput>) =>
         profilePatchHandler(
           onCommandChange,
           [rowIndex],
@@ -382,7 +393,7 @@ export function profileHookRowInputHandlers({
         );
     },
     flowStepInteractionChangeHandler(stepIndex: number) {
-      return (interaction: ProfileInput<unknown>) =>
+      return (interaction: ProfileInput<ProfileCommandInteractionInput>) =>
         profilePatchHandler(
           onFlowStepChange,
           [rowIndex, stepIndex],
@@ -479,7 +490,7 @@ export const profileHookRowHandlerNames = [
 
 function setProfileDetectProbeCommand(
   probeIndex: number,
-  command: unknown,
+  command: string,
 ): void {
   patchProfileDetectProbe(probeIndex, { command });
 }
@@ -487,8 +498,8 @@ function setProfileDetectProbeCommand(
 function setProfileDetectProbeRuleField(
   probeIndex: number,
   ruleIndex: number,
-  fieldName: string,
-  fieldValue: unknown,
+  fieldName: keyof ProfileDetectRuleDraft,
+  fieldValue: string,
 ): void {
   patchProfileDetectProbeRule(probeIndex, ruleIndex, {
     [fieldName]: fieldValue,
@@ -530,7 +541,10 @@ export function profileDetectProbeInputHandlers({ probeIndex = -1 } = {}) {
         ruleIndex,
       );
     },
-    ruleFieldChangeHandler(ruleIndex: number, fieldName: string) {
+    ruleFieldChangeHandler(
+      ruleIndex: number,
+      fieldName: keyof ProfileDetectRuleDraft,
+    ) {
       return callbackWithPrefix(
         setProfileDetectProbeRuleField,
         probeIndex,
@@ -587,10 +601,10 @@ export function customProfilesEditorInputHandlers(
     commandExecutionModeChangeHandler() {
       return callbackWithPrefix(actions.updateCommandExecutionMode);
     },
-    hookAddHandler(listKey: unknown) {
-      return callbackWithPrefix(actions.addHookRow, listKey);
+    hookAddHandler(listKey: string) {
+      return () => actions.addHookRow(listKey);
     },
-    hookRowCallbacks(listKey: unknown) {
+    hookRowCallbacks(listKey: string) {
       return {
         onAddFlowStep: callbackWithPrefix(actions.addFlowStep, listKey),
         onCommandChange: callbackWithPrefix(actions.patchCommand, listKey),
@@ -602,10 +616,10 @@ export function customProfilesEditorInputHandlers(
         onRemoveRow: callbackWithPrefix(actions.removeHookRow, listKey),
       };
     },
-    profileListAddHandler(listKey: unknown, kind: unknown) {
-      return callbackWithPrefix(actions.addListItem, listKey, kind);
+    profileListAddHandler(listKey: string, kind: ProfileListKind) {
+      return () => actions.addListItem(listKey, kind);
     },
-    profileListRowCallbacks(listKey: unknown, kind: unknown) {
+    profileListRowCallbacks(listKey: string, kind: ProfileListKind) {
       return {
         onAddPattern: callbackWithPrefix(actions.addPattern, listKey),
         onPatternChange: callbackWithPrefix(actions.setPatternValue, listKey),

@@ -21,7 +21,10 @@ import type {
   TxStepFormModel,
   TxValidationError,
 } from "../model/types.js";
-import { validateTxBlockFormModel } from "../model/transactionBlockFormModels.js";
+import {
+  txBlockFormModelFromJson,
+  validateTxBlockFormModel,
+} from "../model/transactionBlockFormModels.js";
 import {
   txBlockCommandEditorBindings,
   txBlockCommandDynParamsEditorBindings,
@@ -31,11 +34,15 @@ import {
   txBlockStepEditorBindings,
   txBlockVisualEditorBindings,
 } from "./transactionBlockBindingState.js";
+import type { TxBlockStepChangeHandler } from "./transactionBlockBindingState.js";
 import {
   txBlockAddStep,
+  txBlockCommandDraft,
   txBlockDuplicateStep,
   txBlockMoveStep,
+  txBlockOperationDraft,
   txBlockRemoveStep,
+  txBlockStepDraft,
 } from "../model/transactionBlockMutations.js";
 import { txExtraStringFieldRows } from "../model/transactionMetadataFields.js";
 import {
@@ -70,12 +77,12 @@ interface TxVisualSelection {
 }
 
 interface TxBlockVisualEditorOptions {
-  model?: unknown;
+  model?: TxBlockFormModel;
   onChange?: ChangeHandler<TxBlockFormModel>;
 }
 
 interface TxBlockCommandEditorOptions {
-  command?: unknown;
+  command?: Partial<TxCommandModel>;
   confirmReplace?: TxBlockRuntime["confirm"];
   metadataFieldDefs?: readonly TxMetadataFieldDefinition[];
   onChange?: ChangeHandler<Partial<TxCommandModel>>;
@@ -86,33 +93,28 @@ interface TxBlockCommandEditorOptions {
 }
 
 interface TxBlockOperationEditorOptions {
-  operation?: unknown;
+  operation?: TxOperationModel;
   onChange?: ChangeHandler<TxOperationModel>;
   titleText?: string;
 }
 
 interface TxBlockStepEditorOptions {
-  step?: unknown;
+  step?: TxStepFormModel;
   onStepChange?: TxBlockStepChangeHandler | null;
 }
 
 interface TxBlockFlowEditorOptions {
   booleanRows?: readonly string[];
-  onChange?: ChangeHandler<Partial<TxOperationModel>>;
-  operation?: unknown;
+  onChange?: ChangeHandler<TxOperationModel>;
+  operation?: TxOperationModel;
   pathPrefix?: string;
   validationErrors?: readonly TxValidationError[];
 }
 
 interface TxBlockCommandChildOptions {
-  command?: unknown;
-  commandDisplay?: unknown;
-  onChange?: ChangeHandler<Partial<TxCommandModel>>;
-}
-
-interface TxBlockStepChangeHandler {
-  (field: string, enabled: boolean): unknown;
-  (patch: Partial<TxStepFormModel>): unknown;
+  command?: TxCommandModel;
+  commandDisplay?: JsonObject;
+  onChange?: ChangeHandler<TxCommandModel>;
 }
 
 interface TxBlockCommandChildWorkspaceOptions<
@@ -144,7 +146,7 @@ export function txBlockVisualEditorDisplay() {
 }
 
 export function createTxBlockVisualEditorWorkspace({
-  model = {},
+  model = txBlockFormModelFromJson(),
   onChange = null,
 }: TxBlockVisualEditorOptions = {}) {
   const initialModel = txModel<TxBlockFormModel>(model);
@@ -375,9 +377,9 @@ export function createTxBlockVisualEditorWorkspace({
     selectRoot,
     selectStep,
     setVisualEditorContext({
-      model: nextModel = {},
+      model: nextModel = txBlockFormModelFromJson(),
       onChange: nextOnChange = null,
-    } = {}) {
+    }: TxBlockVisualEditorOptions = {}) {
       const nextModelValue = txModel<TxBlockFormModel>(nextModel);
       modelStateStore.set(nextModelValue);
       onChangeStateStore.set(nextOnChange);
@@ -392,7 +394,7 @@ export function createTxBlockVisualEditorWorkspace({
 }
 
 export function createTxBlockCommandEditorWorkspace({
-  command = {},
+  command = txBlockCommandDraft(),
   confirmReplace = transactionBlockRuntime.confirm,
   metadataFieldDefs = [],
   onChange = null,
@@ -408,7 +410,13 @@ export function createTxBlockCommandEditorWorkspace({
   const onChangeStateStore = writable(onChange);
   const pathPrefixStateStore = writable(pathPrefix);
   const validationErrorsStateStore = writable(validationErrors);
-  const templateSourceStateStore = writable({
+  const templateSourceStateStore = writable<{
+    baselineContent: string;
+    loading: boolean;
+    selection: string;
+    statusMessage: string;
+    statusTone: "error" | "info";
+  }>({
     baselineContent: "",
     loading: false,
     selection: MANUAL_COMMAND_SOURCE,
@@ -562,12 +570,12 @@ export function createTxBlockCommandEditorWorkspace({
     metadataFieldRowsStateStore,
     selectCommandTemplate,
     setCommandEditorContext({
-      command: nextCommand = {},
+      command: nextCommand = txBlockCommandDraft(),
       metadataFieldDefs: nextMetadataFieldDefs = [],
       onChange: nextOnChange = null,
       pathPrefix: nextPathPrefix = "",
       validationErrors: nextValidationErrors = [],
-    } = {}) {
+    }: TxBlockCommandEditorOptions = {}) {
       const commandValue = txModel<TxCommandModel>(nextCommand);
       const previousPathPrefix = get(pathPrefixStateStore);
       if (previousPathPrefix && previousPathPrefix !== nextPathPrefix) {
@@ -595,7 +603,7 @@ export function createTxBlockCommandEditorWorkspace({
 }
 
 export function createTxBlockOperationEditorWorkspace({
-  operation = {},
+  operation = txBlockOperationDraft(),
   onChange = null,
   titleText = "",
 }: TxBlockOperationEditorOptions = {}) {
@@ -617,9 +625,9 @@ export function createTxBlockOperationEditorWorkspace({
     operationFieldRowsStateStore,
     setOperationEditorContext({
       onChange: nextOnChange = null,
-      operation: nextOperation = {},
+      operation: nextOperation = txBlockOperationDraft(),
       titleText: nextTitleText = "",
-    } = {}) {
+    }: TxBlockOperationEditorOptions = {}) {
       onChangeStateStore.set(nextOnChange);
       operationStateStore.set(txModel<TxOperationModel>(nextOperation));
       titleStateStore.set(stringValue(nextTitleText));
@@ -628,7 +636,7 @@ export function createTxBlockOperationEditorWorkspace({
 }
 
 export function createTxBlockStepEditorWorkspace({
-  step = {},
+  step = txBlockStepDraft(),
   onStepChange = null,
 }: TxBlockStepEditorOptions = {}) {
   const stepStateStore = writable(txModel<TxStepFormModel>(step));
@@ -650,8 +658,8 @@ export function createTxBlockStepEditorWorkspace({
     rollbackEnabledStateStore,
     setStepEditorContext({
       onStepChange: nextOnStepChange = null,
-      step: nextStep = {},
-    } = {}) {
+      step: nextStep = txBlockStepDraft(),
+    }: TxBlockStepEditorOptions = {}) {
       onStepChangeStateStore.set(nextOnStepChange);
       stepStateStore.set(txModel<TxStepFormModel>(nextStep));
     },
@@ -661,7 +669,7 @@ export function createTxBlockStepEditorWorkspace({
 }
 
 export function createTxBlockFlowEditorWorkspace({
-  operation = {},
+  operation = txBlockOperationDraft("flow"),
   onChange = null,
   booleanRows = [],
   pathPrefix = "",
@@ -708,8 +716,8 @@ export function createTxBlockFlowEditorWorkspace({
       pathPrefix: nextPathPrefix = "",
       validationErrors: nextValidationErrors = [],
       onChange: nextOnChange = null,
-      operation: nextOperation = {},
-    } = {}) {
+      operation: nextOperation = txBlockOperationDraft("flow"),
+    }: TxBlockFlowEditorOptions = {}) {
       booleanRowsStateStore.set(
         Array.isArray(nextBooleanRows) ? nextBooleanRows : [],
       );
@@ -725,7 +733,7 @@ export function createTxBlockFlowEditorWorkspace({
 
 function createTxBlockCommandChildWorkspace<TBindings, TDisplay>({
   bindings,
-  command = {},
+  command = txBlockCommandDraft(),
   commandDisplay = {},
   display,
   onChange = null,
@@ -747,10 +755,10 @@ function createTxBlockCommandChildWorkspace<TBindings, TDisplay>({
     actionHandlersStateStore,
     displayStateStore,
     setContext({
-      command: nextCommand = {},
+      command: nextCommand = txBlockCommandDraft(),
       commandDisplay: nextCommandDisplay = {},
       onChange: nextOnChange = null,
-    } = {}) {
+    }: TxBlockCommandChildOptions = {}) {
       commandStateStore.set(txModel<TxCommandModel>(nextCommand));
       commandDisplayStateStore.set(txModel<JsonObject>(nextCommandDisplay));
       onChangeStateStore.set(nextOnChange);
@@ -761,13 +769,18 @@ function createTxBlockCommandChildWorkspace<TBindings, TDisplay>({
 export function createTxBlockCommandInteractionEditorWorkspace(
   options: TxBlockCommandChildOptions = {},
 ) {
-  const workspace = createTxBlockCommandChildWorkspace({
+  const workspace = createTxBlockCommandChildWorkspace<
+    ReturnType<typeof txBlockCommandInteractionEditorBindings>,
+    ReturnType<typeof txBlockCommandInteractionDisplay>
+  >({
     ...options,
     bindings: txBlockCommandInteractionEditorBindings,
     display: (command, commandDisplay) => {
       const interactionDisplay = commandDisplay.interactionDisplay;
       return plainObject(interactionDisplay)
-        ? interactionDisplay
+        ? (interactionDisplay as ReturnType<
+            typeof txBlockCommandInteractionDisplay
+          >)
         : txBlockCommandInteractionDisplay(command, TX_BLOCK_BOOLEAN_ROWS);
     },
   });
@@ -781,7 +794,10 @@ export function createTxBlockCommandInteractionEditorWorkspace(
 export function createTxBlockCommandDynParamsEditorWorkspace(
   options: TxBlockCommandChildOptions = {},
 ) {
-  const workspace = createTxBlockCommandChildWorkspace({
+  const workspace = createTxBlockCommandChildWorkspace<
+    ReturnType<typeof txBlockCommandDynParamsEditorBindings>,
+    ReturnType<typeof txBlockCommandDynParamsDisplay>
+  >({
     ...options,
     bindings: txBlockCommandDynParamsEditorBindings,
     display: txBlockCommandDynParamsDisplay,

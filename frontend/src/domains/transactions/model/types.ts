@@ -142,7 +142,7 @@ export type TransactionEditorView = "form" | "json" | "readonly";
 export type TransactionEditorSyncStatus = "dirty" | "invalid-json" | "synced";
 
 export interface TransactionParsedFormState<TModel, TErrorDetail = unknown> {
-  formError: unknown;
+  formError: string;
   formErrorDetail?: TErrorDetail | null;
   formModel: TModel;
 }

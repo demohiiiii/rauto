@@ -37,4 +37,5 @@ export type {
   ShowObjectOption,
   SidebarConnectionCard,
   SidebarConnectionState,
+  TemporaryConnectionFormState,
 } from "./model/types.js";

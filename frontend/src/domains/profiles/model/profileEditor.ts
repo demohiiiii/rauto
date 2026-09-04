@@ -1,44 +1,35 @@
 import { safeString } from "../../../lib/ui.js";
 import { recordValue } from "./customProfileForm.js";
-import type { UnknownRecord } from "./types.js";
+import type {
+  ProfileCommandInteraction,
+  ProfileCommandInteractionInput,
+  ProfileHookCommand,
+  ProfileHookCommandDraft,
+  ProfileHookFlowDraft,
+  ProfileHookRowPatch,
+  ProfileHooks,
+  ProfilePromptResponseRule,
+} from "./types.js";
 
-export interface NormalizedHookPromptRule {
-  patterns: string[];
-  record_input: boolean;
-  response: string;
-}
+export type NormalizedHookPromptRule = ProfilePromptResponseRule;
 
-export interface NormalizedHookInteraction {
-  prompts: NormalizedHookPromptRule[];
-}
+export type NormalizedHookInteraction = ProfileCommandInteraction;
 
-export interface NormalizedHookCommand {
-  command: unknown;
-  interaction: NormalizedHookInteraction;
+export interface NormalizedHookCommand extends ProfileHookCommandDraft {
   kind: "command";
-  mode: unknown;
-  timeout: unknown;
 }
 
-export interface NormalizedHookFlow {
+export interface NormalizedHookFlow extends ProfileHookFlowDraft {
   kind: "flow";
-  max_steps: unknown;
-  steps: unknown[];
-  stop_on_error: boolean;
 }
 
-export interface NormalizedHooks {
-  after_connect: unknown[];
-  after_enter_state: UnknownRecord;
-  before_disconnect: unknown[];
-  before_exit_state: UnknownRecord;
-}
+export type NormalizedHooks = ProfileHooks;
 
 export function profileValues(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-export function defaultHookOperation(): UnknownRecord {
+export function defaultHookOperation(): ProfileHookCommand {
   return {
     kind: "command",
     mode: "Enable",
@@ -79,32 +70,41 @@ export function normalizeHookCommand(
   );
   return {
     kind: "command",
-    mode: value.mode || "Enable",
-    command: value.command || "",
+    mode: safeString(value.mode || "Enable"),
+    command: safeString(value.command || ""),
     interaction: normalizeHookInteraction(value.interaction),
-    timeout: value.timeout == null ? 60 : value.timeout,
+    timeout: value.timeout == null ? "60" : safeString(value.timeout),
   };
 }
 
 export function normalizeHookFlow(operation: unknown): NormalizedHookFlow {
   const value = recordValue(operation);
   const flow = value.kind === "flow" ? value : {};
-  const steps = profileValues(flow.steps);
+  const steps = profileValues(flow.steps).map(normalizeHookCommand);
   return {
     kind: "flow",
-    steps: steps.length > 0 ? steps : [defaultHookOperation()],
+    steps:
+      steps.length > 0 ? steps : [normalizeHookCommand(defaultHookOperation())],
     stop_on_error: !!(flow.stop_on_error ?? true),
-    max_steps: flow.max_steps == null ? "" : flow.max_steps,
+    max_steps: flow.max_steps == null ? "" : safeString(flow.max_steps),
   };
 }
 
 export function normalizeHooks(hooks: unknown): NormalizedHooks {
   const value = recordValue(hooks);
   return {
-    after_connect: profileValues(value.after_connect),
-    before_disconnect: profileValues(value.before_disconnect),
-    after_enter_state: recordValue(value.after_enter_state),
-    before_exit_state: recordValue(value.before_exit_state),
+    after_connect: profileValues(
+      value.after_connect,
+    ) as ProfileHooks["after_connect"],
+    before_disconnect: profileValues(
+      value.before_disconnect,
+    ) as ProfileHooks["before_disconnect"],
+    after_enter_state: recordValue(
+      value.after_enter_state,
+    ) as ProfileHooks["after_enter_state"],
+    before_exit_state: recordValue(
+      value.before_exit_state,
+    ) as ProfileHooks["before_exit_state"],
   };
 }
 
@@ -150,10 +150,16 @@ export const profileListRowFieldPatches = {
   },
 };
 
-export const profileHookRowStatePatch = (state = "") => ({ state });
-export const profileHookRowNamePatch = (name = "") => ({ name });
-export const profileHookRowFailurePolicyPatch = (failure_policy = "") => ({
-  failure_policy,
+export const profileHookRowStatePatch = (state = ""): ProfileHookRowPatch => ({
+  state,
+});
+export const profileHookRowNamePatch = (name = ""): ProfileHookRowPatch => ({
+  name,
+});
+export const profileHookRowFailurePolicyPatch = (
+  failurePolicy = "best_effort",
+): ProfileHookRowPatch => ({
+  failure_policy: failurePolicy === "required" ? "required" : "best_effort",
 });
 export const profileHookRowRecordOutputPatch = (record_output = false) => ({
   record_output,
@@ -162,7 +168,7 @@ export const profileHookCommandModePatch = (mode = "") => ({ mode });
 export const profileHookCommandTextPatch = (command = "") => ({ command });
 export const profileHookCommandTimeoutPatch = (timeout = "") => ({ timeout });
 export const profileHookCommandInteractionPatch = (
-  interaction: unknown = {},
+  interaction: ProfileCommandInteractionInput = { prompts: [] },
 ) => ({
   interaction: normalizeHookInteraction(interaction),
 });
@@ -174,5 +180,5 @@ export const profileHookFlowStepModePatch = (mode = "") => ({ mode });
 export const profileHookFlowStepCommandPatch = (command = "") => ({ command });
 export const profileHookFlowStepTimeoutPatch = (timeout = "") => ({ timeout });
 export const profileHookFlowStepInteractionPatch = (
-  interaction: unknown = {},
+  interaction: ProfileCommandInteractionInput = { prompts: [] },
 ) => ({ interaction: normalizeHookInteraction(interaction) });

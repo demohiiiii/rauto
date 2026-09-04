@@ -1,10 +1,26 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import TxBlockRootInspector from "$domains/transactions/presentation/components/block/TxBlockRootInspector.svelte";
   import TxBlockStepEditor from "$domains/transactions/presentation/components/block/TxBlockStepEditor.svelte";
   import TxBlockTimeline from "$domains/transactions/presentation/components/block/TxBlockTimeline.svelte";
   import { createTxBlockVisualEditorWorkspace } from "$domains/transactions/index.js";
+  import type {
+    TxBlockFormModel,
+    TxMetadataFieldDefinition,
+  } from "$domains/transactions/index.js";
+
+  interface Props {
+    model: TxBlockFormModel;
+    onChange?: (model: TxBlockFormModel) => void;
+    stacked?: boolean;
+    stepRollbackCommandMetadataFieldDefs?:
+      | readonly TxMetadataFieldDefinition[]
+      | null;
+    stepRunCommandMetadataFieldDefs?:
+      | readonly TxMetadataFieldDefinition[]
+      | null;
+  }
 
   let {
     model,
@@ -12,7 +28,7 @@
     stepRunCommandMetadataFieldDefs = null,
     stepRollbackCommandMetadataFieldDefs = null,
     stacked = false,
-  } = $props();
+  }: Props = $props();
 
   const txBlockVisualEditorWorkspace = createTxBlockVisualEditorWorkspace();
   const {

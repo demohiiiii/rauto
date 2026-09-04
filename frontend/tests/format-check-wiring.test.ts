@@ -1,0 +1,39 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+function read(path: string): string {
+  return readFileSync(path, "utf8");
+}
+
+test("npm exposes repository-wide format check scripts", () => {
+  const packageJson = JSON.parse(read("package.json"));
+
+  assert.equal(
+    packageJson.scripts["format:check"],
+    "cargo fmt --all --check && npm run frontend:format:check",
+  );
+  assert.equal(
+    packageJson.scripts["frontend:format:check"],
+    'prettier --check "frontend/**/*.{js,mjs,ts,svelte,css,html}" package.json svelte.config.js vite.config.js tsconfig.json',
+  );
+  assert.equal(
+    packageJson.scripts["frontend:typecheck"],
+    "svelte-check --tsconfig ./tsconfig.json",
+  );
+});
+
+test("ci runs npm format check before building", () => {
+  const ciWorkflow = read(".github/workflows/ci.yml");
+
+  assert.match(ciWorkflow, /run: npm run format:check/);
+  assert.doesNotMatch(ciWorkflow, /run: cargo fmt --all --check/);
+  assert.ok(
+    ciWorkflow.indexOf("run: npm run format:check") <
+      ciWorkflow.indexOf("run: npm run web:build"),
+  );
+  assert.ok(
+    ciWorkflow.indexOf("run: npm run frontend:typecheck") <
+      ciWorkflow.indexOf("run: npm run frontend:test"),
+  );
+});

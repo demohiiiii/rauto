@@ -1,7 +1,27 @@
-<script>
+<script lang="ts">
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import DetailFieldCard from "$components/fragments/DetailFieldCard.svelte";
   import OrchestrationJsonSection from "$domains/orchestration/presentation/components/preview/OrchestrationJsonSection.svelte";
+  import type { orchestrationDetailDisplay } from "$domains/orchestration/index.js";
+
+  type DetailDisplay = ReturnType<typeof orchestrationDetailDisplay>;
+  type TargetDetailDisplay = Extract<
+    DetailDisplay,
+    { targetBasicFieldRows: object[] }
+  >;
+  type Props = Pick<
+    TargetDetailDisplay,
+    | "error"
+    | "hasPayloadSections"
+    | "orchestrationBasicSectionTitle"
+    | "orchestrationErrorSectionTitle"
+    | "orchestrationRawSectionTitle"
+    | "payloadSections"
+    | "targetBasicFieldRows"
+    | "targetJsonValue"
+    | "targetNoPayloadMessage"
+    | "targetPayloadSectionTitle"
+  >;
 
   let {
     error,
@@ -14,7 +34,7 @@
     targetJsonValue,
     targetNoPayloadMessage,
     targetPayloadSectionTitle,
-  } = $props();
+  }: Props = $props();
 </script>
 
 <div class="grid gap-3">

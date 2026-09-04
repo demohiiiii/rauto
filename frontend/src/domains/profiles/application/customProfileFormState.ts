@@ -15,7 +15,6 @@ import {
   collectStateHookRows,
   collectSysPromptRows,
   collectTransitionRows,
-  normalizeHooks,
 } from "./profileListState.js";
 import {
   collectDetectProfileForm,
@@ -24,10 +23,13 @@ import {
 import {
   commandExecutionPayload,
   emptyProfileForm,
-  listValue,
-  recordValue,
 } from "../model/customProfileForm.js";
-import type { UnknownRecord } from "../model/types.js";
+import type {
+  CustomProfileBaseForm,
+  CustomProfileForm,
+  ProfileHooks,
+  UnknownRecord,
+} from "../model/types.js";
 
 const CUSTOM_LIST_IDS = [
   PROFILE_LIST.morePatterns,
@@ -44,47 +46,42 @@ const CUSTOM_LIST_IDS = [
   HOOK_LIST.beforeExitState,
 ];
 
-function ensureDefaultSimpleRows(profile: UnknownRecord): void {
-  const simpleLists: Array<[unknown, string]> = [
+function ensureDefaultSimpleRows(profile: CustomProfileForm): void {
+  const simpleLists: Array<[string[], string]> = [
     [profile.more_patterns, PROFILE_LIST.morePatterns],
     [profile.error_patterns, PROFILE_LIST.errorPatterns],
     [profile.ignore_errors, PROFILE_LIST.ignoreErrors],
     [profile.prompt_prefix, PROFILE_LIST.promptPrefix],
   ];
   simpleLists.forEach(([listValues, listKey]) => {
-    if (listValue(listValues).length === 0) addSimpleListRow(listKey);
+    if (listValues.length === 0) addSimpleListRow(listKey);
   });
 }
 
-function applyProfileHooksToForm(hooks: unknown): void {
-  const normalizedHooks = recordValue(hooks);
-  listValue(normalizedHooks.after_connect).forEach((hookEntry) =>
+function applyProfileHooksToForm(hooks: ProfileHooks): void {
+  hooks.after_connect.forEach((hookEntry) =>
     addHookListRow(HOOK_LIST.afterConnect, hookEntry),
   );
-  listValue(normalizedHooks.before_disconnect).forEach((hookEntry) =>
+  hooks.before_disconnect.forEach((hookEntry) =>
     addHookListRow(HOOK_LIST.beforeDisconnect, hookEntry),
   );
-  Object.entries(recordValue(normalizedHooks.after_enter_state)).forEach(
-    ([state, hookEntries]) => {
-      listValue(hookEntries).forEach((hookEntry) =>
-        addHookListRow(HOOK_LIST.afterEnterState, hookEntry, state),
-      );
-    },
-  );
-  Object.entries(recordValue(normalizedHooks.before_exit_state)).forEach(
-    ([state, hookEntries]) => {
-      listValue(hookEntries).forEach((hookEntry) =>
-        addHookListRow(HOOK_LIST.beforeExitState, hookEntry, state),
-      );
-    },
-  );
+  Object.entries(hooks.after_enter_state).forEach(([state, hookEntries]) => {
+    hookEntries.forEach((hookEntry) =>
+      addHookListRow(HOOK_LIST.afterEnterState, hookEntry, state),
+    );
+  });
+  Object.entries(hooks.before_exit_state).forEach(([state, hookEntries]) => {
+    hookEntries.forEach((hookEntry) =>
+      addHookListRow(HOOK_LIST.beforeExitState, hookEntry, state),
+    );
+  });
 }
 
 export function applyCustomProfileForm(
-  profile: unknown,
-  setBaseForm: (form: UnknownRecord) => unknown,
+  profile: CustomProfileForm,
+  setBaseForm: (form: UnknownRecord) => CustomProfileBaseForm,
 ): void {
-  const nextProfile = profile ? recordValue(profile) : emptyProfileForm();
+  const nextProfile = profile || emptyProfileForm();
   setBaseForm({
     commandExecution: nextProfile.command_execution,
     name: nextProfile.name || "",
@@ -92,34 +89,33 @@ export function applyCustomProfileForm(
   CUSTOM_LIST_IDS.forEach(clearProfileEditorList);
   setDetectProfileForm(nextProfile.detect_profile || null);
 
-  const simpleLists: Array<[unknown, string]> = [
+  const simpleLists: Array<[string[], string]> = [
     [nextProfile.more_patterns, PROFILE_LIST.morePatterns],
     [nextProfile.error_patterns, PROFILE_LIST.errorPatterns],
     [nextProfile.ignore_errors, PROFILE_LIST.ignoreErrors],
     [nextProfile.prompt_prefix, PROFILE_LIST.promptPrefix],
   ];
   simpleLists.forEach(([simpleValues, listKey]) => {
-    listValue(simpleValues).forEach((simpleValue) =>
+    simpleValues.forEach((simpleValue) =>
       addSimpleListRow(listKey, simpleValue),
     );
   });
 
-  listValue(nextProfile.prompts).forEach(addPromptRow);
-  listValue(nextProfile.sys_prompts).forEach(addSysPromptRow);
-  listValue(nextProfile.interactions).forEach(addInteractionRow);
-  listValue(nextProfile.transitions).forEach(addTransitionRow);
-  applyProfileHooksToForm(normalizeHooks(nextProfile.hooks));
+  nextProfile.prompts.forEach(addPromptRow);
+  nextProfile.sys_prompts.forEach(addSysPromptRow);
+  nextProfile.interactions.forEach(addInteractionRow);
+  nextProfile.transitions.forEach(addTransitionRow);
+  applyProfileHooksToForm(nextProfile.hooks);
   ensureDefaultSimpleRows(nextProfile);
 }
 
 export function collectCustomProfileForm(
-  baseForm: unknown = {},
-): UnknownRecord {
-  const base = recordValue(baseForm);
-  const commandExecution = recordValue(base.commandExecution);
+  baseForm: CustomProfileBaseForm,
+): CustomProfileForm {
+  const commandExecution = baseForm.commandExecution;
   const detectProfile = collectDetectProfileForm();
-  const profile: UnknownRecord = {
-    name: base.name,
+  const profile: CustomProfileForm = {
+    name: baseForm.name,
     command_execution: commandExecutionPayload(
       commandExecution.mode,
       commandExecution.marker,

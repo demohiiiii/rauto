@@ -1,10 +1,26 @@
-<script>
+<script lang="ts">
   import * as Card from "$lib/components/ui/card";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { t } from "$lib/i18n.js";
   import { txBlockValidationErrorText } from "$domains/transactions/index.js";
+  import type {
+    txBlockRollbackPolicyPanelDisplay,
+    txBlockRootPanelDisplay,
+    txBlockVisualEditorBindings,
+    txBlockVisualEditorDisplay,
+    TxValidationError,
+  } from "$domains/transactions/index.js";
   import TxBlockRollbackPolicyEditor from "$domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte";
   import TxBlockRootSettingsEditor from "$domains/transactions/presentation/components/block/TxBlockRootSettingsEditor.svelte";
+
+  interface Props {
+    editorActionHandlers: ReturnType<typeof txBlockVisualEditorBindings>;
+    editorDisplay: ReturnType<typeof txBlockVisualEditorDisplay>;
+    pathPrefix?: string;
+    rollbackPanel: ReturnType<typeof txBlockRollbackPolicyPanelDisplay>;
+    rootPanel: ReturnType<typeof txBlockRootPanelDisplay>;
+    validationErrors?: readonly TxValidationError[];
+  }
 
   let {
     editorDisplay,
@@ -13,7 +29,7 @@
     rollbackPanel,
     validationErrors = [],
     pathPrefix = "",
-  } = $props();
+  }: Props = $props();
   let stepsErrorText = $derived(
     txBlockValidationErrorText(
       validationErrors,

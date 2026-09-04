@@ -1,9 +1,25 @@
-<script>
+<script lang="ts">
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import TxBlockCommandEditor from "$domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte";
   import TxBlockFlowEditor from "$domains/transactions/presentation/components/block/TxBlockFlowEditor.svelte";
   import { t } from "$lib/i18n.js";
   import { createTxBlockOperationEditorWorkspace } from "$domains/transactions/index.js";
+  import type {
+    txBlockVisualEditorDisplay,
+    TxMetadataFieldDefinition,
+    TxOperationModel,
+    TxValidationError,
+  } from "$domains/transactions/index.js";
+
+  interface Props {
+    commandMetadataFieldDefs?: readonly TxMetadataFieldDefinition[];
+    editorDisplay: ReturnType<typeof txBlockVisualEditorDisplay>;
+    onChange?: (operation: TxOperationModel) => void;
+    operation: TxOperationModel;
+    pathPrefix?: string;
+    title: string;
+    validationErrors?: readonly TxValidationError[];
+  }
 
   let {
     operation,
@@ -13,7 +29,7 @@
     onChange,
     validationErrors = [],
     pathPrefix = "",
-  } = $props();
+  }: Props = $props();
   const txBlockOperationEditorWorkspace =
     createTxBlockOperationEditorWorkspace();
   const {
@@ -29,8 +45,6 @@
       operation,
       onChange,
       titleText: title,
-      validationErrors,
-      pathPrefix,
     });
   });
 </script>
@@ -63,9 +77,9 @@
     {:else}
       <TxBlockCommandEditor
         command={operation.command}
-        metadataFieldDefs={commandMetadataFieldDefs}
+        metadataFieldDefs={[...commandMetadataFieldDefs]}
         onChange={operationActionHandlers.setCommand}
-        {validationErrors}
+        validationErrors={[...validationErrors]}
         pathPrefix={`${pathPrefix}.command`}
         jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
       />

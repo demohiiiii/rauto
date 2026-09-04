@@ -1,33 +1,37 @@
-import { safeString } from "../../../lib/ui.js";
-import { profileValues } from "./profileEditor.js";
-import { recordValue } from "./customProfileForm.js";
-import type { UnknownRecord } from "./types.js";
+import type {
+  ProfileDetectConfig,
+  ProfileDetectProbe,
+  ProfileDetectRule,
+  ProfileStateMachineDiagnostics,
+  ProfileStatusTone,
+  UnknownRecord,
+} from "./types.js";
 
-export interface ProfileDetectRule {
+export interface ProfileDetectRuleDraft {
   pattern: string;
   weight: string;
 }
 
-export interface ProfileDetectProbe {
+export interface ProfileDetectProbeDraft {
   command: string;
   error_patterns: string[];
-  rules: ProfileDetectRule[];
+  rules: ProfileDetectRuleDraft[];
 }
 
 export interface ProfileDetectFormState {
   enabled: boolean;
-  initialRules: ProfileDetectRule[];
-  probes: ProfileDetectProbe[];
+  initialRules: ProfileDetectRuleDraft[];
+  probes: ProfileDetectProbeDraft[];
 }
 
 export interface ProfileDiagnoseStatus {
   message: string;
-  tone: string;
+  tone: ProfileStatusTone;
 }
 
 export interface ProfileDiagnoseState {
   diagnoseLoading: boolean;
-  report: UnknownRecord;
+  report: ProfileStateMachineDiagnostics | null;
   resultName: string;
   status: ProfileDiagnoseStatus;
 }
@@ -45,32 +49,28 @@ export interface DetectProfileValidationMessages {
 export function createProfileDiagnoseState(): ProfileDiagnoseState {
   return {
     diagnoseLoading: false,
-    report: {},
+    report: null,
     resultName: "",
     status: { message: "-", tone: "info" },
   };
 }
 
 export function normalizeDetectRule(
-  detectRule: unknown = {},
-): ProfileDetectRule {
-  const rule = recordValue(detectRule);
+  detectRule: Partial<ProfileDetectRuleDraft> | ProfileDetectRule = {},
+): ProfileDetectRuleDraft {
   return {
-    pattern: safeString(rule.pattern ?? ""),
-    weight: rule.weight == null ? "50" : safeString(rule.weight),
+    pattern: detectRule.pattern ?? "",
+    weight: detectRule.weight == null ? "50" : String(detectRule.weight),
   };
 }
 
 export function normalizeDetectProbe(
-  detectProbe: unknown = {},
-): ProfileDetectProbe {
-  const probe = recordValue(detectProbe);
-  const rules = profileValues(probe.rules);
+  detectProbe: Partial<ProfileDetectProbeDraft> | ProfileDetectProbe = {},
+): ProfileDetectProbeDraft {
+  const rules = detectProbe.rules ?? [];
   return {
-    command: safeString(probe.command ?? ""),
-    error_patterns: profileValues(probe.error_patterns).map((pattern) =>
-      safeString(pattern ?? ""),
-    ),
+    command: detectProbe.command ?? "",
+    error_patterns: [...(detectProbe.error_patterns ?? [])],
     rules: rules.length
       ? rules.map(normalizeDetectRule)
       : [normalizeDetectRule()],
@@ -78,14 +78,13 @@ export function normalizeDetectProbe(
 }
 
 export function normalizeDetectProfileForm(
-  detectProfile: unknown,
+  detectProfile: ProfileDetectConfig | null | undefined,
 ): ProfileDetectFormState {
   const enabled = !!detectProfile;
-  const profile = recordValue(detectProfile);
-  const initialRules = profileValues(profile.initial_rules).map(
+  const initialRules = (detectProfile?.initial_rules ?? []).map(
     normalizeDetectRule,
   );
-  const probes = profileValues(profile.probes).map(normalizeDetectProbe);
+  const probes = (detectProfile?.probes ?? []).map(normalizeDetectProbe);
   return {
     enabled,
     initialRules:
@@ -108,12 +107,12 @@ export function ensureDetectProfileDefaults(
 }
 
 function collectDetectRules(
-  rows: ProfileDetectRule[],
+  rows: ProfileDetectRuleDraft[],
   invalidWeightMessage: string,
-): Array<{ pattern: string; weight: number }> {
+): ProfileDetectRule[] {
   return rows.flatMap((rule) => {
-    const pattern = safeString(rule.pattern).trim();
-    const rawWeight = safeString(rule.weight).trim();
+    const pattern = rule.pattern.trim();
+    const rawWeight = rule.weight.trim();
     const weight = rawWeight ? Number(rawWeight) : 50;
     if (!pattern) return [];
     if (!Number.isFinite(weight) || weight < 0 || !Number.isInteger(weight)) {
@@ -126,13 +125,13 @@ function collectDetectRules(
 export function collectDetectProfile(
   form: ProfileDetectFormState,
   messages: DetectProfileValidationMessages,
-): UnknownRecord | null {
+): ProfileDetectConfig | null {
   if (!form.enabled) return null;
   const probes = form.probes.flatMap((probe) => {
-    const command = safeString(probe.command).trim();
+    const command = probe.command.trim();
     const rules = collectDetectRules(probe.rules, messages.invalidWeight);
     const error_patterns = probe.error_patterns
-      .map((pattern) => safeString(pattern).trim())
+      .map((pattern) => pattern.trim())
       .filter(Boolean);
     if (!command && rules.length === 0 && error_patterns.length === 0)
       return [];

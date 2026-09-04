@@ -2,7 +2,6 @@ import { currentLanguageState, t, tr } from "../../../lib/i18n.js";
 import { safeString } from "../../../lib/ui.js";
 import { derived, get as getStore, writable } from "svelte/store";
 import { profileDiagnosticsApi } from "../infrastructure/profileDiagnosticsApi.js";
-import { recordValue } from "../model/customProfileForm.js";
 import {
   collectDetectProfile,
   createProfileDiagnoseState,
@@ -13,12 +12,12 @@ import {
 } from "../model/profileDiagnostics.js";
 import type {
   ProfileDetectFormState,
-  ProfileDetectProbe,
-  ProfileDetectRule,
+  ProfileDetectProbeDraft,
+  ProfileDetectRuleDraft,
   ProfileDiagnoseOptionsState,
   ProfileDiagnoseState,
 } from "../model/profileDiagnostics.js";
-import type { UnknownRecord } from "../model/types.js";
+import type { ProfileDetectConfig } from "../model/types.js";
 import {
   customProfileDetectPanelDisplay,
   profileDiagnoseDisplay,
@@ -61,25 +60,23 @@ async function diagnoseCustomProfile(profileName = "") {
   if (!selectedProfileName) {
     throw new Error(tr("profileNameRequired", "profile name is required"));
   }
-  const payload = recordValue(
-    await profileDiagnosticsApi.diagnoseProfile(selectedProfileName),
-  );
+  const payload =
+    await profileDiagnosticsApi.diagnoseProfile(selectedProfileName);
   return {
-    diagnostics: recordValue(payload.diagnostics),
-    name: safeString(payload.name || selectedProfileName),
+    diagnostics: payload.diagnostics,
+    name: payload.name || selectedProfileName,
   };
 }
 
-function resetProfileDiagnoseState(diagnose: UnknownRecord): void {
+function resetProfileDiagnoseState(diagnose: ProfileDiagnoseState): void {
   diagnose.resultName = "";
-  diagnose.report = {};
+  diagnose.report = null;
   diagnose.status = { message: "-", tone: "info" };
 }
 
 export async function diagnoseSelectedCustomProfile(
-  diagnoseValue: unknown = {},
+  diagnose: ProfileDiagnoseState = createProfileDiagnoseState(),
 ): Promise<void> {
-  const diagnose = recordValue(diagnoseValue);
   const profileName = safeString(
     getStore(profileDiagnoseOptionsState).selected,
   ).trim();
@@ -151,12 +148,14 @@ export function createProfileDiagnosePanelWorkspace() {
   };
 }
 
-export function setDetectProfileForm(detectProfile: unknown): void {
+export function setDetectProfileForm(
+  detectProfile: ProfileDetectConfig | null | undefined,
+): void {
   profileDetectFormStateStore.set(normalizeDetectProfileForm(detectProfile));
 }
 
 function updateProfileDetectProbes(
-  updater: (probes: ProfileDetectProbe[]) => ProfileDetectProbe[],
+  updater: (probes: ProfileDetectProbeDraft[]) => ProfileDetectProbeDraft[],
 ): void {
   profileDetectFormStateStore.update((state) => ({
     ...state,
@@ -165,7 +164,7 @@ function updateProfileDetectProbes(
 }
 
 function updateProfileDetectInitialRules(
-  updater: (rules: ProfileDetectRule[]) => ProfileDetectRule[],
+  updater: (rules: ProfileDetectRuleDraft[]) => ProfileDetectRuleDraft[],
 ): void {
   profileDetectFormStateStore.update((state) => ({
     ...state,
@@ -173,10 +172,10 @@ function updateProfileDetectInitialRules(
   }));
 }
 
-export function setProfileDetectEnabled(enabled: unknown): void {
+export function setProfileDetectEnabled(enabled: boolean): void {
   profileDetectFormStateStore.update((state) => ({
     ...state,
-    enabled: !!enabled,
+    enabled,
   }));
 }
 
@@ -185,7 +184,9 @@ export function ensureProfileDetectDefaults(): void {
   profileDetectFormStateStore.update(ensureDetectProfileDefaults);
 }
 
-export function addProfileDetectInitialRule(detectRule: unknown = {}): void {
+export function addProfileDetectInitialRule(
+  detectRule: Partial<ProfileDetectRuleDraft> = {},
+): void {
   updateProfileDetectInitialRules((rules) => [
     ...rules,
     normalizeDetectRule(detectRule),
@@ -194,14 +195,11 @@ export function addProfileDetectInitialRule(detectRule: unknown = {}): void {
 
 export function patchProfileDetectInitialRule(
   index: number,
-  patch: unknown,
+  patch: Partial<ProfileDetectRuleDraft>,
 ): void {
-  const value = recordValue(patch);
   updateProfileDetectInitialRules((rules) =>
     rules.map((rule, currentIndex) =>
-      currentIndex === index
-        ? ({ ...rule, ...value } as ProfileDetectRule)
-        : rule,
+      currentIndex === index ? { ...rule, ...patch } : rule,
     ),
   );
 }
@@ -212,20 +210,22 @@ export function removeProfileDetectInitialRule(index: number): void {
   );
 }
 
-export function addProfileDetectProbe(detectProbe: unknown = {}): void {
+export function addProfileDetectProbe(
+  detectProbe: Partial<ProfileDetectProbeDraft> = {},
+): void {
   updateProfileDetectProbes((probes) => [
     ...probes,
     normalizeDetectProbe(detectProbe),
   ]);
 }
 
-export function patchProfileDetectProbe(index: number, patch: unknown): void {
-  const value = recordValue(patch);
+export function patchProfileDetectProbe(
+  index: number,
+  patch: Partial<ProfileDetectProbeDraft>,
+): void {
   updateProfileDetectProbes((probes) =>
     probes.map((probe, currentIndex) =>
-      currentIndex === index
-        ? ({ ...probe, ...value } as ProfileDetectProbe)
-        : probe,
+      currentIndex === index ? { ...probe, ...patch } : probe,
     ),
   );
 }
@@ -238,7 +238,7 @@ export function removeProfileDetectProbe(index: number): void {
 
 export function addProfileDetectProbeRule(
   probeIndex: number,
-  detectRule: unknown = {},
+  detectRule: Partial<ProfileDetectRuleDraft> = {},
 ): void {
   updateProfileDetectProbes((probes) =>
     probes.map((probe, index) =>
@@ -252,18 +252,15 @@ export function addProfileDetectProbeRule(
 export function patchProfileDetectProbeRule(
   probeIndex: number,
   ruleIndex: number,
-  patch: unknown,
+  patch: Partial<ProfileDetectRuleDraft>,
 ): void {
-  const value = recordValue(patch);
   updateProfileDetectProbes((probes) =>
     probes.map((probe, index) =>
       index === probeIndex
         ? {
             ...probe,
             rules: probe.rules.map((rule, currentRuleIndex) =>
-              currentRuleIndex === ruleIndex
-                ? ({ ...rule, ...value } as ProfileDetectRule)
-                : rule,
+              currentRuleIndex === ruleIndex ? { ...rule, ...patch } : rule,
             ),
           }
         : probe,
@@ -303,7 +300,7 @@ export function addProfileDetectProbeErrorPattern(
 export function setProfileDetectProbeErrorPattern(
   probeIndex: number,
   patternIndex: number,
-  value: unknown,
+  value: string,
 ): void {
   updateProfileDetectProbes((probes) =>
     probes.map((probe, index) =>
@@ -311,7 +308,7 @@ export function setProfileDetectProbeErrorPattern(
         ? {
             ...probe,
             error_patterns: probe.error_patterns.map((pattern, currentIndex) =>
-              currentIndex === patternIndex ? safeString(value ?? "") : pattern,
+              currentIndex === patternIndex ? value : pattern,
             ),
           }
         : probe,
@@ -337,7 +334,7 @@ export function removeProfileDetectProbeErrorPattern(
   );
 }
 
-export function collectDetectProfileForm(): UnknownRecord | null {
+export function collectDetectProfileForm(): ProfileDetectConfig | null {
   return collectDetectProfile(getStore(profileDetectFormStateStore), {
     invalidWeight: t("detectWeightInvalid"),
     probeCommandRequired: t("detectProbeCommandRequired"),

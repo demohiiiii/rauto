@@ -1,12 +1,18 @@
-<script>
+<script lang="ts">
   import { ConnectionPickerField } from "$domains/connections/presentation/components/fields/index.js";
   import {
     CONNECTION_PICKER,
     setConnectionPickerSelectedValues,
   } from "$domains/connections/index.js";
   import { createOrchestrationJobTargetsEditorWorkspace } from "$domains/orchestration/index.js";
+  import type { OrchestrationJobEditorRow } from "$domains/orchestration/index.js";
 
-  let { jobRow, onReplaceStringList } = $props();
+  interface Props {
+    jobRow: OrchestrationJobEditorRow;
+    onReplaceStringList?: (listName: string, values: readonly string[]) => void;
+  }
+
+  let { jobRow, onReplaceStringList }: Props = $props();
   const jobTargetsWorkspace = createOrchestrationJobTargetsEditorWorkspace();
   let jobTargetsDisplayStateStore = $derived(
     jobTargetsWorkspace.jobTargetsDisplayStateStore,

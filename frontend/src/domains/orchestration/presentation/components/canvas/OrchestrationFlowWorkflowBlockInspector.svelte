@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Badge } from "$lib/components/ui/badge/index.js";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
@@ -10,7 +10,21 @@
     txWorkflowFormModelFromJson,
     txWorkflowFormModelToJsonText,
   } from "$domains/transactions/index.js";
+  import type {
+    JsonObject,
+    TxWorkflowFormModel,
+  } from "$domains/transactions/index.js";
+  import type { OrchestrationWorkflowPreview } from "$domains/orchestration/index.js";
+  import { plainObject } from "$lib/jsonValue.js";
   import TxWorkflowBlockEditor from "$domains/transactions/presentation/components/workflow/TxWorkflowBlockEditor.svelte";
+
+  interface Props {
+    blockIndex?: number;
+    onWorkflowChange?: ((workflow: JsonObject) => void) | null;
+    renderedWorkflow?: JsonObject;
+    sourceKind?: OrchestrationWorkflowPreview["sourceKind"];
+    workflow?: JsonObject;
+  }
 
   let {
     blockIndex = 0,
@@ -18,7 +32,7 @@
     workflow = {},
     renderedWorkflow = {},
     onWorkflowChange,
-  } = $props();
+  }: Props = $props();
 
   let currentLanguage = $derived($currentLanguageState);
   let workflowFormModel = $derived(txWorkflowFormModelFromJson(workflow));
@@ -42,11 +56,12 @@
     renderedBlock ? JSON.stringify(renderedBlock, null, 2) : "",
   );
 
-  function updateWorkflow(nextWorkflowFormModel) {
-    if (typeof onWorkflowChange !== "function") return;
-    onWorkflowChange(
-      JSON.parse(txWorkflowFormModelToJsonText(nextWorkflowFormModel)),
+  function updateWorkflow(nextWorkflowFormModel: TxWorkflowFormModel): void {
+    if (!onWorkflowChange) return;
+    const nextWorkflow: unknown = JSON.parse(
+      txWorkflowFormModelToJsonText(nextWorkflowFormModel),
     );
+    if (plainObject(nextWorkflow)) onWorkflowChange(nextWorkflow);
   }
 </script>
 

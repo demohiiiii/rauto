@@ -59,7 +59,11 @@ import type {
 } from "$domains/inventory/model/types.js";
 import type { ReplayApi, ReplayResult } from "$domains/replay/model/types.js";
 import type {
+  CustomProfileDeleteResponse,
+  CustomProfileDetail,
+  CustomProfileForm,
   DeviceProfilesOverview,
+  ProfileDiagnoseResponse,
   ProfileModes,
 } from "$domains/profiles/index.js";
 import type {
@@ -866,14 +870,16 @@ export function getBuiltinProfileDetail(name: string): Promise<JsonRecord> {
   );
 }
 
-export function getBuiltinProfileForm(name: string): Promise<JsonRecord> {
+export function getBuiltinProfileForm(
+  name: string,
+): Promise<CustomProfileForm> {
   return apiRequest(
     "GET",
     `/api/device-profiles/builtin/${encodeURIComponent(name)}/form`,
   );
 }
 
-export function getCustomProfileForm(name: string): Promise<JsonRecord> {
+export function getCustomProfileForm(name: string): Promise<CustomProfileForm> {
   return apiRequest(
     "GET",
     `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
@@ -895,8 +901,8 @@ export function saveCustomProfile(
 
 export function saveCustomProfileForm(
   name: string,
-  profile: JsonRecord,
-): Promise<JsonRecord> {
+  profile: CustomProfileForm,
+): Promise<CustomProfileDetail> {
   return apiRequest(
     "PUT",
     `/api/device-profiles/custom/${encodeURIComponent(name)}/form`,
@@ -904,7 +910,9 @@ export function saveCustomProfileForm(
   );
 }
 
-export function deleteCustomProfile(name: string): Promise<JsonRecord> {
+export function deleteCustomProfile(
+  name: string,
+): Promise<CustomProfileDeleteResponse> {
   return apiRequest(
     "DELETE",
     `/api/device-profiles/custom/${encodeURIComponent(name)}`,
@@ -918,7 +926,9 @@ export function getProfileModes(name: string): Promise<ProfileModes> {
   );
 }
 
-export function diagnoseProfile(name: string): Promise<JsonRecord> {
+export function diagnoseProfile(
+  name: string,
+): Promise<ProfileDiagnoseResponse> {
   return apiRequest("POST", "/api/device-profiles/diagnose", { name });
 }
 

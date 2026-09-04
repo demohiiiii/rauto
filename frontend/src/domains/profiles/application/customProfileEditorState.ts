@@ -36,11 +36,12 @@ import {
   customShellExitMarkerFormPatch,
   emptyProfileForm,
   normalizeCustomProfileBaseForm,
-  recordValue,
   refreshCustomProfileOptionsState,
 } from "../model/customProfileForm.js";
 import type {
   CustomProfileBaseForm,
+  CustomProfileDetail,
+  CustomProfileForm,
   CustomProfileStatusState,
   UnknownRecord,
 } from "../model/types.js";
@@ -130,13 +131,11 @@ function updateCustomProfileBaseForm(
 }
 
 function applySavedCustomProfile(
-  savedProfilePayload: unknown,
-  profile: UnknownRecord,
+  savedProfilePayload: CustomProfileDetail,
+  profile: CustomProfileForm,
   profileName: string,
 ): string {
-  const savedName = safeString(
-    recordValue(savedProfilePayload).name || profileName,
-  );
+  const savedName = safeString(savedProfilePayload.name || profileName);
   setCustomProfileBaseForm({
     commandExecution: profile.command_execution,
     name: savedName,
@@ -167,7 +166,7 @@ export function refreshCustomProfileOptions(): void {
   setCustomProfileOptions(cachedCustomProfileNames, selected);
 }
 
-export function setProfileForm(profile: unknown): void {
+export function setProfileForm(profile: CustomProfileForm): void {
   applyCustomProfileForm(profile, setCustomProfileBaseForm);
 }
 

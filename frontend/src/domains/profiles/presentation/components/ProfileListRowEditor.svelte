@@ -13,6 +13,7 @@
   import { createProfileListRowEditorWorkspace } from "$domains/profiles/application/profilePanelWorkspaces.js";
   import { profileListRowsState } from "$domains/profiles/application/profileListState.js";
   import type { ProfileListRowHandlerOptions } from "$domains/profiles/application/profileEditorBindings.js";
+  import type { ProfileListKind } from "$domains/profiles/model/types.js";
   import type { ProfilePatternRow } from "../componentTypes.js";
   import type { Readable } from "svelte/store";
 
@@ -45,7 +46,7 @@
     "rowIndex"
   > {
     idPrefix?: string;
-    kind: string;
+    kind: ProfileListKind;
     profileListRow: ProfileListRow;
     rowIndex: number;
   }

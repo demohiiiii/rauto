@@ -1,4 +1,5 @@
 import { transactionFallbackDisplay } from "$domains/transactions/index.js";
+import type { TxStatusTone } from "$domains/transactions/index.js";
 import type {
   OrchestrationExecutionResult,
   OrchestrationPlan,
@@ -23,7 +24,7 @@ interface OrchestrationExecutionStatusDisplay {
   message: string;
   mode: string;
   text: string;
-  tone: string;
+  tone: TxStatusTone;
 }
 
 interface OrchestrationStageExecutionDisplay {
@@ -44,7 +45,7 @@ const orchestrationStageExecutionDisplay = (
   message = "",
   mode = "empty",
   text = "",
-  tone = "info",
+  tone: TxStatusTone = "info",
 ): OrchestrationStageExecutionDisplay => ({
   result,
   status: { message, mode, text, tone },
@@ -58,7 +59,7 @@ export function orchestrationStagePreviewDisplay({
   let previewMode = "preview";
   let previewText = "";
   let previewMessage = "";
-  let previewTone = "info";
+  let previewTone: TxStatusTone = "info";
   const previewPlan = preview?.plan ?? null;
 
   if (fallbackDisplay) {
@@ -86,7 +87,7 @@ export function orchestrationStageExecutionDisplayPresentation({
   let executionMode = executionPayload ? "result" : "empty";
   let executionText = "";
   let executionMessage = "";
-  let executionTone = "info";
+  let executionTone: TxStatusTone = "info";
   let effectiveExecutionPayload = executionPayload ?? null;
 
   if (executionFallbackDisplay) {

@@ -4,14 +4,17 @@ import {
   safeString,
   statusPresentation,
 } from "../../../lib/ui.js";
-import { profileValues } from "../model/profileEditor.js";
-import { recordValue } from "../model/customProfileForm.js";
 import type {
   ProfileDetectFormState,
+  ProfileDetectProbeDraft,
+  ProfileDetectRuleDraft,
   ProfileDiagnoseOptionsState,
+  ProfileDiagnoseStatus,
 } from "../model/profileDiagnostics.js";
-import type { UnknownRecord } from "../model/types.js";
-import type { ProfileStatusTone } from "../model/types.js";
+import type {
+  ProfileStateMachineDiagnostics,
+  ProfileStatusTone,
+} from "../model/types.js";
 
 function profileStatusTone(tone: string): ProfileStatusTone {
   if (
@@ -25,35 +28,46 @@ function profileStatusTone(tone: string): ProfileStatusTone {
   return "info";
 }
 
-const PROFILE_DIAGNOSE_LISTS = Object.freeze(
-  "diagUnreachableStates|unreachable_states,diagDeadEndStates|dead_end_states,diagMissingEdgeSources|missing_edge_sources,diagMissingEdgeTargets|missing_edge_targets,diagAmbiguousPromptStates|potentially_ambiguous_prompt_states"
-    .split(",")
-    .map((definition) => {
-      const [labelKey, field] = definition.split("|");
-      return { field, labelKey };
-    }),
-);
+type ProfileDiagnoseListField = keyof Omit<
+  ProfileStateMachineDiagnostics,
+  "total_states"
+>;
 
-const PROFILE_DIAGNOSE_ISSUE_FIELDS = Object.freeze(
-  "missing_edge_sources|missing_edge_targets|unreachable_states|dead_end_states|duplicate_prompt_patterns|self_loop_only_states".split(
-    "|",
-  ),
-);
+const PROFILE_DIAGNOSE_LISTS = [
+  { field: "unreachable_states", labelKey: "diagUnreachableStates" },
+  { field: "dead_end_states", labelKey: "diagDeadEndStates" },
+  { field: "missing_edge_sources", labelKey: "diagMissingEdgeSources" },
+  { field: "missing_edge_targets", labelKey: "diagMissingEdgeTargets" },
+  {
+    field: "potentially_ambiguous_prompt_states",
+    labelKey: "diagAmbiguousPromptStates",
+  },
+] as const satisfies ReadonlyArray<{
+  field: ProfileDiagnoseListField;
+  labelKey: string;
+}>;
+
+const PROFILE_DIAGNOSE_ISSUE_FIELDS = [
+  "missing_edge_sources",
+  "missing_edge_targets",
+  "unreachable_states",
+  "dead_end_states",
+  "duplicate_prompt_patterns",
+  "self_loop_only_states",
+] as const satisfies readonly ProfileDiagnoseListField[];
 
 function profileDiagnoseReportList(
-  report: UnknownRecord,
-  field: string,
-): unknown[] {
-  return profileValues(report[field]);
+  report: ProfileStateMachineDiagnostics | null,
+  field: ProfileDiagnoseListField,
+): string[] {
+  return report?.[field] ?? [];
 }
 
 export function profileDiagnoseDisplay(
-  reportValue: unknown = {},
+  report: ProfileStateMachineDiagnostics | null = null,
   resultName = "",
-  statusValue: unknown = null,
+  status: ProfileDiagnoseStatus = { message: "-", tone: "info" },
 ) {
-  const report = recordValue(reportValue);
-  const status = recordValue(statusValue);
   const hasReport = Boolean(resultName);
   const issueCount = PROFILE_DIAGNOSE_ISSUE_FIELDS.reduce(
     (total, field) => total + profileDiagnoseReportList(report, field).length,
@@ -75,14 +89,12 @@ export function profileDiagnoseDisplay(
     };
   });
   const visibleBreakdown = issueLists.filter((list) => list.count > 0);
-  const statusDisplay = statusPresentation(
-    safeString(status.message || ""),
-    safeString(status.tone || "info"),
-    { suppressPassiveLoaded: false },
-  );
+  const statusDisplay = statusPresentation(status.message, status.tone, {
+    suppressPassiveLoaded: false,
+  });
   const healthy = issueCount === 0;
   const healthText = healthy ? tr("diagnoseOk") : tr("diagnoseBad");
-  const metric = (field: string) =>
+  const metric = (field: ProfileDiagnoseListField) =>
     profileDiagnoseReportList(report, field).length;
   const summaryCardClass =
     "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2";
@@ -107,7 +119,7 @@ export function profileDiagnoseDisplay(
     metricCards: [
       {
         labelText: tr("diagTotalStates"),
-        metricValue: hasReport ? (report.total_states ?? 0) : "-",
+        metricValue: hasReport ? (report?.total_states ?? 0) : "-",
       },
       {
         labelText: tr("diagGraphStates"),
@@ -167,33 +179,27 @@ export function profileDiagnosePanelDisplay(
   };
 }
 
-function profilePatternEditorRows(patterns: unknown) {
-  return profileValues(patterns).map((pattern, patternIndex) => ({
-    pattern: safeString(pattern ?? ""),
+function profilePatternEditorRows(patterns: string[]) {
+  return patterns.map((pattern, patternIndex) => ({
+    pattern,
     patternIndex,
   }));
 }
 
-function profileDetectRuleEditorRows(rules: unknown) {
-  return profileValues(rules).map((ruleValue, index) => {
-    const rule = recordValue(ruleValue);
-    return {
-      index,
-      pattern: safeString(rule.pattern ?? ""),
-      weight: safeString(rule.weight ?? ""),
-    };
-  });
+function profileDetectRuleEditorRows(rules: ProfileDetectRuleDraft[]) {
+  return rules.map((rule, index) => ({
+    index,
+    pattern: rule.pattern,
+    weight: rule.weight,
+  }));
 }
 
-function profileDetectProbeRows(probes: unknown) {
-  return profileValues(probes).map((probeValue) => {
-    const probe = recordValue(probeValue);
-    return {
-      command: safeString(probe.command ?? ""),
-      errorPatternRows: profilePatternEditorRows(probe.error_patterns),
-      ruleRows: profileDetectRuleEditorRows(probe.rules),
-    };
-  });
+function profileDetectProbeRows(probes: ProfileDetectProbeDraft[]) {
+  return probes.map((probe) => ({
+    command: probe.command,
+    errorPatternRows: profilePatternEditorRows(probe.error_patterns),
+    ruleRows: profileDetectRuleEditorRows(probe.rules),
+  }));
 }
 
 function profileDetectRuleEditorDisplay(

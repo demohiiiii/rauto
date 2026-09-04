@@ -1,11 +1,25 @@
-<script>
+<script lang="ts">
   import { CommandFlowTemplateEditor } from "$domains/command/presentation/components/index.js";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import { txBlockCommandDraft } from "$domains/transactions/index.js";
   import { txBlockValidationErrorText } from "$domains/transactions/index.js";
   import { createTxBlockFlowEditorWorkspace } from "$domains/transactions/index.js";
+  import type {
+    TxCommandModel,
+    TxOperationModel,
+    TxValidationError,
+  } from "$domains/transactions/index.js";
 
   import TxBlockCommandEditor from "$domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte";
+
+  interface Props {
+    booleanRows: readonly string[];
+    jsonValueTypeRows: readonly string[];
+    onChange?: (operation: TxOperationModel) => void;
+    operation: TxOperationModel;
+    pathPrefix?: string;
+    validationErrors?: readonly TxValidationError[];
+  }
 
   let {
     operation,
@@ -14,7 +28,7 @@
     jsonValueTypeRows,
     validationErrors = [],
     pathPrefix = "",
-  } = $props();
+  }: Props = $props();
   const txBlockFlowEditorWorkspace = createTxBlockFlowEditorWorkspace();
   const {
     flowActionHandlersStateStore,
@@ -63,9 +77,9 @@
     {#snippet renderStepContent(flowStepRow)}
       <TxBlockCommandEditor
         command={flowStepRow.flowStep}
-        onChange={(patch) =>
+        onChange={(patch: Partial<TxCommandModel>) =>
           flowStepRow.onChange({ ...flowStepRow.flowStep, ...patch })}
-        {validationErrors}
+        validationErrors={[...validationErrors]}
         pathPrefix={`${pathPrefix}.steps[${flowStepRow.stepIndex}]`}
         {jsonValueTypeRows}
       />

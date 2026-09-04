@@ -11,6 +11,7 @@ import type {
   OrchestrationExecutionDetailIndex,
   OrchestrationExecutionResult,
   OrchestrationExecutionStatus,
+  OrchestrationJsonValue,
   OrchestrationJobExecutionResult,
   OrchestrationStageExecutionDetail,
   OrchestrationStageExecutionResult,
@@ -136,7 +137,7 @@ function orchestrationIndexedLabel(
 function orchestrationTargetPayloadSections(
   target: OrchestrationTargetExecutionResult,
 ) {
-  const sections: Array<[string, object | DisplayValue]> = [
+  const sections: Array<[string, OrchestrationJsonValue | undefined]> = [
     ["orchestrationPayloadTxResult", target.tx_result],
     ["orchestrationPayloadWorkflowResult", target.workflow_result],
     ["orchestrationPayloadCompensation", target.compensation],
@@ -144,7 +145,7 @@ function orchestrationTargetPayloadSections(
   return sections
     .filter(([, jsonValue]) => jsonValue != null)
     .map(([labelKey, jsonValue]) => ({
-      jsonValue,
+      jsonValue: jsonValue ?? null,
       labelKey,
       titleText: t(labelKey),
     }));
@@ -156,11 +157,11 @@ const orchestrationDetailTextField = (
   { mono = false }: { mono?: boolean } = {},
 ) => ({
   badgeClass: "",
-  detailValue: valueText,
+  detailValue: orchestrationText(valueText),
   kind: "text",
   labelText: t(labelKey),
   mono,
-  valueText,
+  valueText: orchestrationText(valueText),
 });
 
 const orchestrationDetailStatusField = (
@@ -172,8 +173,10 @@ const orchestrationDetailStatusField = (
   detailValue: statusLabel,
   kind: "status",
   labelText: t(labelKey),
+  mono: false,
   statusBadgeClass,
   statusLabel,
+  valueText: statusLabel,
 });
 
 const orchestrationDetailPillField = (
@@ -182,7 +185,10 @@ const orchestrationDetailPillField = (
 ) => ({
   badgeClass: pillDisplay.pillClassName,
   detailValue: pillDisplay.text,
+  kind: "pill",
   labelText: t(labelKey),
+  mono: false,
+  valueText: pillDisplay.text,
 });
 
 function orchestrationStageStrategyLabel(

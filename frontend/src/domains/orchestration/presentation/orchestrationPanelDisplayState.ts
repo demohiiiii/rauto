@@ -1,5 +1,4 @@
 import { t } from "../../../lib/i18n.js";
-import type { OrchestratedStageDefinition } from "./componentTypes.js";
 
 interface OrchestratedShellState {
   currentTxStage: string;
@@ -42,10 +41,10 @@ export function orchestratedPagePresentation(
   return orchestrationStagePresentation(shellState.currentTxStage);
 }
 
-export function orchestratedActiveStageDefinition(
+export function orchestratedActiveStageDefinition<TDefinition>(
   stageDisplay: Partial<OrchestrationStageDisplay> = {},
-  stageDefinitions: readonly OrchestratedStageDefinition[] = [],
-): OrchestratedStageDefinition | null {
+  stageDefinitions: readonly TDefinition[] = [],
+): TDefinition | null {
   if (stageDefinitions.length === 0) return null;
   if (stageDisplay.blockActive) return stageDefinitions[0] || null;
   if (stageDisplay.workflowActive) return stageDefinitions[1] || null;

@@ -71,13 +71,13 @@ export interface TxJsonEditorsHost {
 }
 
 type AttachTxJsonEditorHost = (
-  key: unknown,
+  key: TxEditorKey | undefined,
   config: Partial<TxJsonEditorHostConfig>,
 ) => () => void;
 
 type SetTxJsonEditorRawText = (
-  editorKey: unknown,
-  rawText: unknown,
+  editorKey: TxEditorKey | undefined,
+  rawText: string,
   options?: { notify?: boolean },
 ) => void;
 
@@ -103,18 +103,20 @@ function callObjectFunction(
     : undefined;
 }
 
-function txEditorText(value: unknown): string {
+function txEditorText(value: string | null | undefined): string {
   if (value == null) return EMPTY_TEXT;
   return typeof value === "string" ? value : String(value);
 }
 
-function normalizeTxEditorKey(editorKey: unknown): TxEditorKey | "" {
+function normalizeTxEditorKey(
+  editorKey: TxEditorKey | undefined,
+): TxEditorKey | "" {
   const key = txEditorText(editorKey).trim();
   return TX_EDITOR_KEYS.has(key) ? (key as TxEditorKey) : EMPTY_TEXT;
 }
 
 function attachTxJsonEditorHost(
-  key: unknown,
+  key: TxEditorKey | undefined,
   hostConfig: Partial<TxJsonEditorHostConfig> = {},
 ): () => void {
   const normalizedKey = normalizeTxEditorKey(key);
@@ -155,10 +157,10 @@ function txJsonEditorBindings({
   value,
 }: {
   connectHost?: AttachTxJsonEditorHost;
-  editorKey?: unknown;
+  editorKey?: TxEditorKey;
   onInput?: ((text: string) => unknown) | null;
   setRawText?: SetTxJsonEditorRawText;
-  value?: unknown;
+  value?: string;
 } = {}) {
   const dependencyState = {
     editorKey,
@@ -217,7 +219,7 @@ function txJsonEditorBindings({
     },
     editorTextStore,
     editorThemeStore,
-    handleChange(jsonText: unknown) {
+    handleChange(jsonText: string) {
       const nextText = txEditorText(jsonText || EMPTY_TEXT);
       dependencyState.hasValue = true;
       dependencyState.value = nextText;
@@ -229,9 +231,9 @@ function txJsonEditorBindings({
       onInput: nextOnInput = dependencyState.onInput,
       value,
     }: {
-      editorKey?: unknown;
+      editorKey?: TxEditorKey;
       onInput?: ((text: string) => unknown) | null;
-      value?: unknown;
+      value?: string;
     } = {}) {
       const connectionChanged =
         nextEditorKey !== dependencyState.editorKey ||
@@ -324,10 +326,10 @@ export function createTxJsonEditorWorkspace({
   value,
 }: {
   connectHost?: AttachTxJsonEditorHost;
-  editorKey?: unknown;
+  editorKey?: TxEditorKey;
   onInput?: ((text: string) => unknown) | null;
   setRawText?: SetTxJsonEditorRawText;
-  value?: unknown;
+  value?: string;
 } = {}) {
   return txJsonEditorBindings({
     connectHost,
@@ -468,8 +470,8 @@ export function requireTxJsonEditor<TMethod extends keyof TxJsonEditorsHost>(
 }
 
 export function setTxJsonEditorRawText(
-  editorKey: unknown,
-  rawText: unknown,
+  editorKey: TxEditorKey | undefined,
+  rawText: string,
   { notify = false }: { notify?: boolean } = {},
 ): void {
   const normalizedKey = normalizeTxEditorKey(editorKey);
@@ -494,7 +496,9 @@ export function setTxJsonEditorRawText(
   }
 }
 
-export function txJsonEditorRawText(editorKey: unknown): string {
+export function txJsonEditorRawText(
+  editorKey: TxEditorKey | undefined,
+): string {
   const normalizedKey = normalizeTxEditorKey(editorKey);
   const editors = activeTxJsonEditors;
   if (!editors) return EMPTY_TEXT;

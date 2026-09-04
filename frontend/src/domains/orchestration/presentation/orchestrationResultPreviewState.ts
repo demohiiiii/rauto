@@ -13,8 +13,8 @@ import type {
 
 const ORCHESTRATION_COMMAND_PREVIEW_LIMIT = 24;
 
-interface JsonTreeNode {
-  children?: JsonTreeNode[];
+export interface OrchestrationJsonTreeNode {
+  children?: OrchestrationJsonTreeNode[];
   countText?: string;
   depth: number;
   emptyText?: string;
@@ -130,7 +130,7 @@ function orchestrationJsonTreeNode(
   jsonValue: OrchestrationJsonValue,
   nodeLabel = "value",
   depth = 0,
-): JsonTreeNode {
+): OrchestrationJsonTreeNode {
   if (jsonValue == null || typeof jsonValue !== "object") {
     return {
       depth,

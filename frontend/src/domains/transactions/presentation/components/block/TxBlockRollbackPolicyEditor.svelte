@@ -1,11 +1,44 @@
-<script>
+<script lang="ts">
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import JsonObjectFieldsEditor from "$components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import StringSelectField from "$components/fragments/StringSelectField.svelte";
   import { t } from "$lib/i18n.js";
+  import type {
+    JsonObject,
+    txBlockVisualEditorBindings,
+    txBlockVisualEditorDisplay,
+    txBlockWholeResourceFieldsDisplay,
+    TxOperationModel,
+    TxValidationError,
+  } from "$domains/transactions/index.js";
   import TxFormSection from "$domains/transactions/presentation/components/shared/TxFormSection.svelte";
   import TxBlockOperationEditor from "$domains/transactions/presentation/components/block/TxBlockOperationEditor.svelte";
+
+  type EditorActionHandlers = ReturnType<typeof txBlockVisualEditorBindings>;
+  type EditorDisplay = ReturnType<typeof txBlockVisualEditorDisplay>;
+
+  interface Props {
+    editorDisplay: EditorDisplay;
+    jsonValueTypeRows: EditorDisplay["jsonValueTypeRows"];
+    onRollbackKindChange: ReturnType<
+      EditorActionHandlers["rollbackKindValueHandler"]
+    >;
+    onWholeResourceExtraChange: EditorActionHandlers["setWholeResourceExtra"];
+    onWholeResourceFieldInput: EditorActionHandlers["wholeFieldValueHandler"];
+    onWholeResourceFieldPresenceChange: EditorActionHandlers["wholeFieldPresenceHandler"];
+    onWholeResourceRollbackChange: EditorActionHandlers["setWholeResourceRollback"];
+    pathPrefix?: string;
+    rollbackKindRows: EditorDisplay["rollbackKindRows"];
+    rollbackKindValue: string;
+    showWholeResource: boolean;
+    validationErrors?: readonly TxValidationError[];
+    wholeResourceExtra: JsonObject;
+    wholeResourceFieldRows?: ReturnType<
+      typeof txBlockWholeResourceFieldsDisplay
+    >;
+    wholeResourceRollback: TxOperationModel;
+  }
 
   let {
     editorDisplay,
@@ -23,7 +56,7 @@
     onWholeResourceRollbackChange,
     validationErrors = [],
     pathPrefix = "rollbackPolicy.wholeResource",
-  } = $props();
+  }: Props = $props();
 </script>
 
 <section class="grid min-w-0 gap-3">
@@ -38,7 +71,7 @@
       </span>
       <StringSelectField
         value={rollbackKindValue}
-        optionValues={rollbackKindRows}
+        optionValues={[...rollbackKindRows]}
         onChange={onRollbackKindChange}
       />
     </label>
@@ -63,7 +96,7 @@
     <JsonObjectFieldsEditor
       title={t("txBlockFormWholeRollbackExtra")}
       source={wholeResourceExtra}
-      typeRows={jsonValueTypeRows}
+      typeRows={[...jsonValueTypeRows]}
       onChange={onWholeResourceExtraChange}
     />
   {/if}

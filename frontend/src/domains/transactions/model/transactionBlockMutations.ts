@@ -72,7 +72,9 @@ function txCommandDraft(command: Partial<TxCommandModel> = {}): TxCommandModel {
 
 export const txBlockCommandDraft = txCommandDraft;
 
-function txOperationDraft(kind: TxOperationKind = "command"): TxOperationModel {
+export function txBlockOperationDraft(
+  kind: TxOperationKind = "command",
+): TxOperationModel {
   return {
     kind,
     command: txCommandDraft(),
@@ -87,9 +89,9 @@ function txOperationDraft(kind: TxOperationKind = "command"): TxOperationModel {
   };
 }
 
-function txBlockStepDraft(): TxStepFormModel {
+export function txBlockStepDraft(): TxStepFormModel {
   return {
-    run: txOperationDraft("command"),
+    run: txBlockOperationDraft("command"),
     rollback: null,
     hasRollback: true,
     rollbackOnFailure: false,
@@ -201,7 +203,7 @@ export function txBlockChangeRollbackKind(
     wholeResource:
       kind === "whole_resource"
         ? {
-            rollback: txOperationDraft("command"),
+            rollback: txBlockOperationDraft("command"),
             triggerStepIndex: 0,
             hasTriggerStepIndex: true,
             extra: {},
@@ -668,7 +670,7 @@ export function txBlockSetStepRollbackEnabled(
   }
   return txBlockPatchStep(model, stepIndex, {
     hasRollback: true,
-    rollback: step.rollback || txOperationDraft("command"),
+    rollback: step.rollback || txBlockOperationDraft("command"),
   });
 }
 

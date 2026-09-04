@@ -2,24 +2,62 @@ import { t, tr } from "../../../lib/i18n.js";
 import { createKeyedListState } from "../../../lib/svelte.js";
 import { safeString } from "../../../lib/ui.js";
 import { get as getStore, writable } from "svelte/store";
+import type {
+  ProfileCommandInteraction,
+  ProfileCommandConfig,
+  ProfileHookAction,
+  ProfileHookCommand,
+  ProfileHookCommandDraft,
+  ProfileHookCommandPatch,
+  ProfileHookFlow,
+  ProfileHookFlowDraft,
+  ProfileHookFlowPatch,
+  ProfileHookKind,
+  ProfileHookRowDraft,
+  ProfileHookRowPatch,
+  ProfileInteractionConfig,
+  ProfileListKind,
+  ProfileListRowPatch,
+  ProfilePromptConfig,
+  ProfilePromptResponseRule,
+  ProfileSysPromptConfig,
+  ProfileTransitionConfig,
+} from "../model/types.js";
 
 type DynamicRow = Record<string, unknown>;
-type ProfileListRow = string | DynamicRow;
+interface ProfileEditorRow {
+  command?: string;
+  format_sys?: boolean;
+  from?: string;
+  input?: string;
+  is_dynamic?: boolean;
+  is_exit?: boolean;
+  pattern?: string;
+  patterns?: string[];
+  record_input?: boolean;
+  state?: string;
+  sys_name_group?: string;
+  to?: string;
+}
+
+type ProfileListRow = string | ProfileEditorRow;
 
 interface ProfileListRowDefinition {
-  collect(row: DynamicRow): DynamicRow;
-  hasValue(row: DynamicRow): boolean;
-  normalize(row: DynamicRow): DynamicRow;
+  collect(row: ProfileEditorRow): ProfileEditorRow;
+  hasValue(row: ProfileEditorRow): boolean;
+  normalize(row: ProfileEditorRow): ProfileEditorRow;
+}
+
+function profileEditorRow(value: unknown): ProfileEditorRow {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as ProfileEditorRow)
+    : {};
 }
 
 function dynamicRow(value: unknown): DynamicRow {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as DynamicRow)
     : {};
-}
-
-function dynamicRows(value: unknown): DynamicRow[] {
-  return Array.isArray(value) ? value.map(dynamicRow) : [];
 }
 
 export const PROFILE_LIST = Object.freeze({
@@ -73,7 +111,19 @@ const customProfileListSections = Object.freeze(
   }),
 );
 
-function isHookStateList(listKey: unknown, sectionKey = ""): boolean {
+function profileListKind(kind: string): ProfileListKind {
+  if (
+    kind === "interactions" ||
+    kind === "prompts" ||
+    kind === "sys_prompts" ||
+    kind === "transitions"
+  ) {
+    return kind;
+  }
+  return "simple";
+}
+
+function isHookStateList(listKey: string, sectionKey = ""): boolean {
   return (
     listKey === HOOK_LIST.afterEnterState ||
     listKey === HOOK_LIST.beforeExitState ||
@@ -104,14 +154,14 @@ export const customProfileListSectionDisplays = () =>
   customProfileListSections.map((profileListSection) => ({
     ...profileListSection,
     addButtonLabel: tr("addInlineBtn", "Add"),
-    kind: profileListSection.kind || "simple",
+    kind: profileListKind(profileListSection.kind),
     titleText: tr(profileListSection.title, profileListSection.title),
   }));
 
 function profilePromptModes(): string[] {
   const seen = new Set<string>();
   const modes = getStore(profileListStateFor(PROFILE_LIST.prompts))
-    .map((promptRow) => safeString(dynamicRow(promptRow).state).trim())
+    .map((promptRow) => safeString(profileEditorRow(promptRow).state).trim())
     .filter((mode) => {
       if (!mode || seen.has(mode)) return false;
       seen.add(mode);
@@ -120,16 +170,15 @@ function profilePromptModes(): string[] {
   return modes.length ? modes : ["Enable"];
 }
 
-function hookListModeOptions(rows: DynamicRow[] = []): string[] {
+function hookListModeOptions(rows: ProfileHookRowDraft[] = []): string[] {
   const usedModes: string[] = [];
   rows.forEach((hookRow) => {
     const state = safeString(hookRow.state).trim();
-    const commandMode = safeString(dynamicRow(hookRow.command).mode).trim();
+    const commandMode = hookRow.command.mode.trim();
     if (state) usedModes.push(state);
     if (commandMode) usedModes.push(commandMode);
-    const steps = dynamicRows(dynamicRow(hookRow.flow).steps);
-    steps.forEach((step) => {
-      const mode = safeString(step.mode).trim();
+    hookRow.flow.steps.forEach((step) => {
+      const mode = step.mode.trim();
       if (mode) usedModes.push(mode);
     });
   });
@@ -138,7 +187,7 @@ function hookListModeOptions(rows: DynamicRow[] = []): string[] {
 }
 
 export const customProfileHookSectionDisplays = (
-  hookRowsByList: Record<string, DynamicRow[]> = {},
+  hookRowsByList: Record<string, ProfileHookRowDraft[]> = {},
 ) =>
   customProfileHookSections.map((hookSection) => {
     const hookRows = hookRowsByList[hookSection.listKey] || [];
@@ -251,23 +300,23 @@ const profileListRowDefinitions: Readonly<
 });
 
 function normalizeProfileListRow(
-  kind: unknown,
-  profileListRowInput: unknown = {},
-): DynamicRow {
+  kind: ProfileListKind,
+  profileListRowInput: ProfileListRow | ProfileListRowPatch = {},
+): ProfileEditorRow {
   return (
     profileListRowDefinitions[safeString(kind)]?.normalize(
-      dynamicRow(profileListRowInput),
+      profileEditorRow(profileListRowInput),
     ) || {}
   );
 }
 
 function collectProfileListRows(
-  profileListKey: unknown,
+  profileListKey: string,
   kind: string,
-): DynamicRow[] {
+): ProfileEditorRow[] {
   const definition = profileListRowDefinitions[kind];
   return getStore(profileListStateFor(profileListKey))
-    .map((row) => definition.collect(dynamicRow(row)))
+    .map((row) => definition.collect(profileEditorRow(row)))
     .filter(definition.hasValue);
 }
 
@@ -282,19 +331,19 @@ function updateListRow<T>(
 }
 
 function updateProfileListRow(
-  profileListKey: unknown,
+  profileListKey: string,
   rowIndex: number,
-  updateRow: (row: DynamicRow) => DynamicRow,
+  updateRow: (row: ProfileEditorRow) => ProfileEditorRow,
 ): void {
   updateProfileListRows(profileListKey, (rows) =>
-    updateListRow(rows, rowIndex, (row) => updateRow(dynamicRow(row))),
+    updateListRow(rows, rowIndex, (row) => updateRow(profileEditorRow(row))),
   );
 }
 
 export function addProfileListItem(
-  profileListKey: unknown,
-  kind: unknown,
-  profileListItem: unknown = {},
+  profileListKey: string,
+  kind: ProfileListKind,
+  profileListItem: ProfileListRow | ProfileListRowPatch = "",
 ): void {
   if (kind === "simple") {
     updateProfileListRows(profileListKey, (rows) => [
@@ -310,9 +359,9 @@ export function addProfileListItem(
 }
 
 export function setProfileListSimpleValue(
-  profileListKey: unknown,
+  profileListKey: string,
   rowIndex: number,
-  simpleValue: unknown,
+  simpleValue: string,
 ): void {
   updateProfileListRows(profileListKey, (rows) =>
     updateListRow(rows, rowIndex, () => textValue(simpleValue)),
@@ -320,9 +369,9 @@ export function setProfileListSimpleValue(
 }
 
 export function patchProfileListRow(
-  profileListKey: unknown,
+  profileListKey: string,
   rowIndex: number,
-  patch: DynamicRow,
+  patch: ProfileListRowPatch,
 ): void {
   updateProfileListRow(profileListKey, rowIndex, (row) => ({
     ...row,
@@ -331,7 +380,7 @@ export function patchProfileListRow(
 }
 
 function updateProfileListPatterns(
-  profileListKey: unknown,
+  profileListKey: string,
   rowIndex: number,
   updatePatterns: (patterns: string[]) => string[],
 ): void {
@@ -348,7 +397,7 @@ function setListItem<T>(items: T[], itemIndex: number, value: T): T[] {
 }
 
 export function removeProfileListRow(
-  profileListKey: unknown,
+  profileListKey: string,
   rowIndex: number,
 ): void {
   updateProfileListRows(profileListKey, (rows) =>
@@ -357,10 +406,10 @@ export function removeProfileListRow(
 }
 
 export function setProfileListPatternState(
-  profileListKey: unknown,
-  _kind: unknown,
+  profileListKey: string,
+  _kind: ProfileListKind,
   rowIndex: number,
-  value: unknown,
+  value: string,
 ): void {
   patchProfileListRow(profileListKey, rowIndex, {
     state: safeString(value ?? ""),
@@ -368,10 +417,10 @@ export function setProfileListPatternState(
 }
 
 export function setProfileListPattern(
-  profileListKey: unknown,
+  profileListKey: string,
   rowIndex: number,
   patternIndex: number,
-  value: unknown,
+  value: string,
 ): void {
   updateProfileListPatterns(profileListKey, rowIndex, (patterns) =>
     setListItem(patterns, patternIndex, textValue(value)),
@@ -379,7 +428,7 @@ export function setProfileListPattern(
 }
 
 export function addProfileListPattern(
-  profileListKey: unknown,
+  profileListKey: string,
   rowIndex: number,
 ): void {
   updateProfileListPatterns(profileListKey, rowIndex, (patterns) => [
@@ -393,7 +442,7 @@ function removeListItem<T>(items: T[], itemIndex: number): T[] {
 }
 
 export function removeProfileListPattern(
-  profileListKey: unknown,
+  profileListKey: string,
   rowIndex: number,
   patternIndex: number,
 ): void {
@@ -406,7 +455,7 @@ function normalizeHookListKey(hookListKey: unknown): string {
   return normalizeSemanticKey(hookListKey, HOOK_LIST_KEYS);
 }
 
-const hookLists = createKeyedListState<DynamicRow>(HOOK_LIST_ORDER, {
+const hookLists = createKeyedListState<ProfileHookRowDraft>(HOOK_LIST_ORDER, {
   normalizeKey: normalizeHookListKey,
 });
 
@@ -415,23 +464,20 @@ const setHookListRows = hookLists.set;
 const updateHookListRows = hookLists.update;
 export const hookListRowsState = hookLists.rowsState;
 
-export function addSimpleListRow(
-  profileListKey: unknown,
-  listText: unknown = "",
-): void {
+export function addSimpleListRow(profileListKey: string, listText = ""): void {
   updateProfileListRows(profileListKey, (rows) => [
     ...rows,
     safeString(listText),
   ]);
 }
 
-export function collectSimpleList(profileListKey: unknown): string[] {
+export function collectSimpleList(profileListKey: string): string[] {
   return getStore(profileListStateFor(profileListKey))
     .map((simpleValue) => safeString(simpleValue).trim())
     .filter(Boolean);
 }
 
-export function clearProfileEditorList(listKey: unknown): void {
+export function clearProfileEditorList(listKey: string): void {
   if (profileLists.has(listKey)) {
     setProfileListRows(listKey, []);
     return;
@@ -440,7 +486,7 @@ export function clearProfileEditorList(listKey: unknown): void {
 }
 
 export function addInteractionRow(
-  interactionRow: unknown = {
+  interactionRow: Partial<ProfileInteractionConfig> = {
     state: "",
     input: "",
     is_dynamic: false,
@@ -451,32 +497,53 @@ export function addInteractionRow(
   addProfileListItem(PROFILE_LIST.interactions, "interactions", interactionRow);
 }
 
-export function collectInteractionRows(): DynamicRow[] {
-  return collectProfileListRows(PROFILE_LIST.interactions, "interactions");
+export function collectInteractionRows(): ProfileInteractionConfig[] {
+  return collectProfileListRows(PROFILE_LIST.interactions, "interactions").map(
+    (row) => ({
+      input: row.input || "",
+      is_dynamic: row.is_dynamic || false,
+      patterns: row.patterns || [],
+      record_input: row.record_input ?? true,
+      state: row.state || "",
+    }),
+  );
 }
 
 export function addPromptRow(
-  promptRow: unknown = { state: "", patterns: [] },
+  promptRow: Partial<ProfilePromptConfig> = { state: "", patterns: [] },
 ): void {
   addProfileListItem(PROFILE_LIST.prompts, "prompts", promptRow);
 }
 
-export function collectPromptRows(): DynamicRow[] {
-  return collectProfileListRows(PROFILE_LIST.prompts, "prompts");
+export function collectPromptRows(): ProfilePromptConfig[] {
+  return collectProfileListRows(PROFILE_LIST.prompts, "prompts").map((row) => ({
+    patterns: row.patterns || [],
+    state: row.state || "",
+  }));
 }
 
 export function addSysPromptRow(
-  sysPromptRow: unknown = { state: "", sys_name_group: "", pattern: "" },
+  sysPromptRow: Partial<ProfileSysPromptConfig> = {
+    state: "",
+    sys_name_group: "",
+    pattern: "",
+  },
 ): void {
   addProfileListItem(PROFILE_LIST.sysPrompts, "sys_prompts", sysPromptRow);
 }
 
-export function collectSysPromptRows(): DynamicRow[] {
-  return collectProfileListRows(PROFILE_LIST.sysPrompts, "sys_prompts");
+export function collectSysPromptRows(): ProfileSysPromptConfig[] {
+  return collectProfileListRows(PROFILE_LIST.sysPrompts, "sys_prompts").map(
+    (row) => ({
+      pattern: row.pattern || "",
+      state: row.state || "",
+      sys_name_group: row.sys_name_group || "",
+    }),
+  );
 }
 
 export function addTransitionRow(
-  transitionRow: unknown = {
+  transitionRow: Partial<ProfileTransitionConfig> = {
     from: "",
     command: "",
     to: "",
@@ -487,33 +554,19 @@ export function addTransitionRow(
   addProfileListItem(PROFILE_LIST.transitions, "transitions", transitionRow);
 }
 
-export function collectTransitionRows(): DynamicRow[] {
-  return collectProfileListRows(PROFILE_LIST.transitions, "transitions");
+export function collectTransitionRows(): ProfileTransitionConfig[] {
+  return collectProfileListRows(PROFILE_LIST.transitions, "transitions").map(
+    (row) => ({
+      command: row.command || "",
+      format_sys: row.format_sys || false,
+      from: row.from || "",
+      is_exit: row.is_exit || false,
+      to: row.to || "",
+    }),
+  );
 }
 
-export function normalizeHooks(hooks: unknown): DynamicRow {
-  const hookRecord = dynamicRow(hooks);
-  return {
-    after_connect: Array.isArray(hookRecord.after_connect)
-      ? hookRecord.after_connect
-      : [],
-    before_disconnect: Array.isArray(hookRecord.before_disconnect)
-      ? hookRecord.before_disconnect
-      : [],
-    after_enter_state:
-      hookRecord.after_enter_state &&
-      typeof hookRecord.after_enter_state === "object"
-        ? hookRecord.after_enter_state
-        : {},
-    before_exit_state:
-      hookRecord.before_exit_state &&
-      typeof hookRecord.before_exit_state === "object"
-        ? hookRecord.before_exit_state
-        : {},
-  };
-}
-
-function defaultHookOperation(): DynamicRow {
+function defaultHookOperation(): ProfileHookCommand {
   return {
     kind: "command",
     mode: "Enable",
@@ -522,21 +575,9 @@ function defaultHookOperation(): DynamicRow {
   };
 }
 
-function normalizeHookCommand(operation: unknown): DynamicRow {
-  if (!operation || typeof operation !== "object") {
-    return defaultHookOperation();
-  }
-  const operationRecord = dynamicRow(operation);
-  return {
-    kind: "command",
-    mode: operationRecord.mode || "Enable",
-    command: operationRecord.command || "",
-    interaction: normalizeHookInteraction(operationRecord.interaction),
-    timeout: operationRecord.timeout == null ? 60 : operationRecord.timeout,
-  };
-}
-
-function normalizeHookPromptRule(prompt: unknown = {}): DynamicRow {
+function normalizeHookPromptRule(
+  prompt: unknown = {},
+): ProfilePromptResponseRule {
   const promptRecord = dynamicRow(prompt);
   return {
     patterns: (Array.isArray(promptRecord.patterns)
@@ -548,7 +589,9 @@ function normalizeHookPromptRule(prompt: unknown = {}): DynamicRow {
   };
 }
 
-function normalizeHookInteraction(interaction: unknown = {}): DynamicRow {
+function normalizeHookInteraction(
+  interaction: unknown = {},
+): ProfileCommandInteraction {
   const interactionRecord = dynamicRow(interaction);
   return {
     prompts: (Array.isArray(interactionRecord.prompts)
@@ -558,34 +601,29 @@ function normalizeHookInteraction(interaction: unknown = {}): DynamicRow {
   };
 }
 
-function normalizeHookCommandRow(operation: unknown = {}): DynamicRow {
-  const command = normalizeHookCommand(operation);
+function normalizeHookCommandRow(
+  operation: unknown = {},
+): ProfileHookCommandDraft {
+  const command = dynamicRow(operation);
   return {
     command: safeString(command.command ?? ""),
     interaction: normalizeHookInteraction(command.interaction),
     mode: safeString(command.mode || "Enable"),
-    timeout: command.timeout == null ? "" : safeString(command.timeout),
+    timeout: command.timeout == null ? "60" : safeString(command.timeout),
   };
 }
 
-function normalizeHookFlow(operation: unknown): DynamicRow {
+function normalizeHookFlowRow(operation: unknown = {}): ProfileHookFlowDraft {
   const operationRecord = dynamicRow(operation);
   const flow = operationRecord.kind === "flow" ? operationRecord : {};
   const steps = Array.isArray(flow.steps) ? flow.steps : [];
   return {
-    kind: "flow",
-    steps: steps.length > 0 ? steps : [defaultHookOperation()],
-    stop_on_error: !!(flow.stop_on_error ?? true),
-    max_steps: flow.max_steps == null ? "" : flow.max_steps,
-  };
-}
-
-function normalizeHookFlowRow(operation: unknown = {}): DynamicRow {
-  const flow = normalizeHookFlow(operation);
-  return {
     max_steps: flow.max_steps == null ? "" : safeString(flow.max_steps),
-    steps: dynamicRows(flow.steps).map(normalizeHookCommandRow),
-    stop_on_error: !!flow.stop_on_error,
+    steps:
+      steps.length > 0
+        ? steps.map(normalizeHookCommandRow)
+        : [normalizeHookCommandRow(defaultHookOperation())],
+    stop_on_error: !!(flow.stop_on_error ?? true),
   };
 }
 
@@ -596,8 +634,8 @@ function hookOperationKindLabel(operation: unknown): "command" | "flow" {
 
 function normalizeHookListRow(
   hookRowInput: unknown = {},
-  state: unknown = "",
-): DynamicRow {
+  state = "",
+): ProfileHookRowDraft {
   const hookRowRecord = dynamicRow(hookRowInput);
   const operation = hookRowRecord.operation || defaultHookOperation();
   const kind = hookOperationKindLabel(operation);
@@ -606,7 +644,8 @@ function normalizeHookListRow(
       kind === "command"
         ? normalizeHookCommandRow(operation)
         : normalizeHookCommandRow(defaultHookOperation()),
-    failure_policy: safeString(hookRowRecord.failure_policy || "best_effort"),
+    failure_policy:
+      hookRowRecord.failure_policy === "required" ? "required" : "best_effort",
     flow:
       kind === "flow"
         ? normalizeHookFlowRow(operation)
@@ -622,9 +661,9 @@ function normalizeHookListRow(
 }
 
 function updateHookListRow(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
-  updateRow: (row: DynamicRow) => DynamicRow,
+  updateRow: (row: ProfileHookRowDraft) => ProfileHookRowDraft,
 ): void {
   updateHookListRows(hookListKey, (rows) =>
     updateListRow(rows, rowIndex, updateRow),
@@ -632,60 +671,62 @@ function updateHookListRow(
 }
 
 export function patchHookListRow(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
-  patch: DynamicRow,
+  patch: ProfileHookRowPatch,
 ): void {
   updateHookListRow(hookListKey, rowIndex, (row) => ({ ...row, ...patch }));
 }
 
-function patchHookListRowField(
-  hookListKey: unknown,
+function patchHookListCommandField(
+  hookListKey: string,
   rowIndex: number,
-  field: string,
-  patch: DynamicRow,
+  patch: ProfileHookCommandPatch,
 ): void {
   updateHookListRow(hookListKey, rowIndex, (row) => ({
     ...row,
-    [field]: { ...dynamicRow(row[field]), ...patch },
+    command: { ...row.command, ...patch },
   }));
 }
 
 export function patchHookListCommand(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
-  patch: DynamicRow,
+  patch: ProfileHookCommandPatch,
 ): void {
-  patchHookListRowField(hookListKey, rowIndex, "command", patch);
+  patchHookListCommandField(hookListKey, rowIndex, patch);
 }
 
 export function patchHookListFlow(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
-  patch: DynamicRow,
+  patch: ProfileHookFlowPatch,
 ): void {
-  patchHookListRowField(hookListKey, rowIndex, "flow", patch);
+  updateHookListRow(hookListKey, rowIndex, (row) => ({
+    ...row,
+    flow: { ...row.flow, ...patch },
+  }));
 }
 
 function updateHookListFlowSteps(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
-  updateSteps: (steps: DynamicRow[]) => DynamicRow[],
+  updateSteps: (steps: ProfileHookCommandDraft[]) => ProfileHookCommandDraft[],
 ): void {
   updateHookListRow(hookListKey, rowIndex, (row) => ({
     ...row,
     flow: {
-      ...dynamicRow(row.flow),
-      steps: updateSteps(dynamicRows(dynamicRow(row.flow).steps)),
+      ...row.flow,
+      steps: updateSteps(row.flow.steps),
     },
   }));
 }
 
 export function patchHookListFlowStep(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
   stepIndex: number,
-  patch: DynamicRow,
+  patch: ProfileHookCommandPatch,
 ): void {
   updateHookListFlowSteps(hookListKey, rowIndex, (steps) =>
     updateListRow(steps, stepIndex, (step) => ({ ...step, ...patch })),
@@ -693,7 +734,7 @@ export function patchHookListFlowStep(
 }
 
 export function addHookListFlowStep(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
   command: unknown = defaultHookOperation(),
 ): void {
@@ -704,7 +745,7 @@ export function addHookListFlowStep(
 }
 
 export function removeHookListFlowStep(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
   stepIndex: number,
 ): void {
@@ -713,27 +754,23 @@ export function removeHookListFlowStep(
   );
 }
 
-export function removeHookListRow(
-  hookListKey: unknown,
-  rowIndex: number,
-): void {
+export function removeHookListRow(hookListKey: string, rowIndex: number): void {
   updateHookListRows(hookListKey, (currentRows) =>
     currentRows.filter((_, currentIndex) => currentIndex !== rowIndex),
   );
 }
 
 export function changeHookListKind(
-  hookListKey: unknown,
+  hookListKey: string,
   rowIndex: number,
-  kind: unknown,
+  kind: ProfileHookKind,
 ): void {
   updateHookListRow(hookListKey, rowIndex, (row) => {
     const normalizedKind = kind === "flow" ? "flow" : "command";
-    const nextRow: DynamicRow = { ...row, kind: normalizedKind };
-    const flow = dynamicRow(nextRow.flow);
-    if (normalizedKind === "flow" && dynamicRows(flow.steps).length === 0) {
+    const nextRow: ProfileHookRowDraft = { ...row, kind: normalizedKind };
+    if (normalizedKind === "flow" && nextRow.flow.steps.length === 0) {
       nextRow.flow = {
-        ...flow,
+        ...nextRow.flow,
         steps: [normalizeHookCommandRow(defaultHookOperation())],
       };
     }
@@ -742,9 +779,9 @@ export function changeHookListKind(
 }
 
 export function addHookListRow(
-  hookListKey: unknown,
+  hookListKey: string,
   hookEntry: unknown = {},
-  state: unknown = "",
+  state = "",
 ): void {
   updateHookListRows(hookListKey, (currentRows) => [
     ...currentRows,
@@ -753,17 +790,17 @@ export function addHookListRow(
 }
 
 function collectHookCommand(
-  command: DynamicRow,
+  command: ProfileHookCommandDraft,
   triggerName: string,
   hookName: string,
-): DynamicRow {
+): ProfileCommandConfig {
   const commandValue = safeString(command.command).trim();
   const mode = safeString(command.mode).trim();
   const timeoutRaw = safeString(command.timeout).trim();
   if (!commandValue) {
     throw new Error(`${t("hookCommandRequired")}: ${triggerName}/${hookName}`);
   }
-  const operation: DynamicRow = {
+  const operation: ProfileCommandConfig = {
     command: commandValue,
     mode: mode || "Enable",
   };
@@ -774,14 +811,12 @@ function collectHookCommand(
     }
     operation.timeout = timeout;
   }
-  const promptRows = dynamicRows(dynamicRow(command.interaction).prompts);
+  const promptRows = command.interaction.prompts;
   if (promptRows.length > 0) {
     operation.interaction = {
       prompts: promptRows.map((prompt, promptIndex) => {
-        const patterns = (
-          Array.isArray(prompt?.patterns) ? prompt.patterns : []
-        )
-          .map((pattern: unknown) => safeString(pattern).trim())
+        const patterns = prompt.patterns
+          .map((pattern) => safeString(pattern).trim())
           .filter(Boolean);
         if (patterns.length === 0) {
           throw new Error(
@@ -799,35 +834,32 @@ function collectHookCommand(
   return operation;
 }
 
-function hasHookOperationInput(hookRow: DynamicRow): boolean {
+function hasHookOperationInput(hookRow: ProfileHookRowDraft): boolean {
   if (hookRow.kind === "flow") {
-    const steps = dynamicRows(dynamicRow(hookRow.flow).steps);
-    return steps.some((step) => safeString(step.command).trim());
+    return hookRow.flow.steps.some((step) => safeString(step.command).trim());
   }
-  return !!safeString(dynamicRow(hookRow.command).command).trim();
+  return !!safeString(hookRow.command.command).trim();
 }
 
 function collectHookOperation(
-  hookRow: DynamicRow,
+  hookRow: ProfileHookRowDraft,
   triggerName: string,
   hookName: string,
-): DynamicRow {
+): ProfileHookCommand | ProfileHookFlow {
   const hookPath = `${triggerName}/${hookName}`;
   if (hookRow.kind === "flow") {
-    const flowState = dynamicRow(hookRow.flow);
-    const flowSteps = dynamicRows(flowState.steps);
-    const steps = flowSteps.map((step, index) =>
+    const steps = hookRow.flow.steps.map((step, index) =>
       collectHookCommand(step, triggerName, `${hookName}[${index + 1}]`),
     );
     if (steps.length === 0) {
       throw new Error(`${t("hookFlowStepRequired")}: ${hookPath}`);
     }
-    const flow: DynamicRow = {
+    const flow: ProfileHookFlow = {
       kind: "flow",
       steps,
-      stop_on_error: !!flowState.stop_on_error,
+      stop_on_error: hookRow.flow.stop_on_error,
     };
-    const maxStepsRaw = safeString(flowState.max_steps).trim();
+    const maxStepsRaw = hookRow.flow.max_steps.trim();
     if (maxStepsRaw) {
       const maxSteps = Number(maxStepsRaw);
       if (!Number.isFinite(maxSteps) || maxSteps <= 0) {
@@ -839,14 +871,14 @@ function collectHookOperation(
   }
   return {
     kind: "command",
-    ...collectHookCommand(dynamicRow(hookRow.command), triggerName, hookName),
+    ...collectHookCommand(hookRow.command, triggerName, hookName),
   };
 }
 
 function collectHook(
-  hookRow: DynamicRow,
+  hookRow: ProfileHookRowDraft,
   triggerName: string,
-): DynamicRow | null {
+): ProfileHookAction | null {
   const hookName = safeString(hookRow.name).trim();
   if (!hookName && !hasHookOperationInput(hookRow)) return null;
   if (!hookName) {
@@ -861,19 +893,19 @@ function collectHook(
 }
 
 function collectHookListRows(
-  rows: DynamicRow[],
+  rows: ProfileHookRowDraft[],
   triggerName: string,
-): DynamicRow[] {
+): ProfileHookAction[] {
   return rows
     .map((hookRow) => collectHook(hookRow, triggerName))
-    .filter((hook): hook is DynamicRow => hook !== null);
+    .filter((hook): hook is ProfileHookAction => hook !== null);
 }
 
 function collectStateHookListRows(
-  rows: DynamicRow[],
+  rows: ProfileHookRowDraft[],
   triggerName: string,
-): Record<string, DynamicRow[]> {
-  const grouped: Record<string, DynamicRow[]> = {};
+): Record<string, ProfileHookAction[]> {
+  const grouped: Record<string, ProfileHookAction[]> = {};
   rows.forEach((hookRow) => {
     const state = safeString(hookRow.state).trim();
     const name = safeString(hookRow.name).trim();
@@ -896,9 +928,9 @@ function collectStateHookListRows(
 }
 
 export function collectHookRows(
-  hookListKey: unknown,
+  hookListKey: string,
   triggerName: string,
-): DynamicRow[] {
+): ProfileHookAction[] {
   return collectHookListRows(
     getStore(hookListStateFor(hookListKey)),
     triggerName,
@@ -906,9 +938,9 @@ export function collectHookRows(
 }
 
 export function collectStateHookRows(
-  hookListKey: unknown,
+  hookListKey: string,
   triggerName: string,
-): Record<string, DynamicRow[]> {
+): Record<string, ProfileHookAction[]> {
   return collectStateHookListRows(
     getStore(hookListStateFor(hookListKey)),
     triggerName,

@@ -36,6 +36,13 @@ import {
   profileHookRowEditorDisplay,
   profileListRowEditorPresentation,
 } from "../presentation/profileEditorPresentation.js";
+import type { ProfileDetectRuleDraft } from "../model/profileDiagnostics.js";
+import type {
+  ProfileHookRowDraft,
+  ProfileListKind,
+  ProfileListRow,
+  ProfileListRowPatch,
+} from "../model/types.js";
 
 function createLanguageDisplayWorkspace<TKey extends string, TDisplay>(
   storeName: TKey,
@@ -65,8 +72,8 @@ export const createBuiltinProfileDetectSectionWorkspace = () =>
   );
 
 interface ProfileListRowContext {
-  kind?: unknown;
-  profileListRow?: unknown;
+  kind?: ProfileListKind;
+  profileListRow?: ProfileListRow | ProfileListRowPatch | null;
   rowIndex?: number;
 }
 
@@ -74,7 +81,7 @@ export function createProfileListRowEditorWorkspace(
   options: ProfileListRowHandlerOptions = {},
 ) {
   const displayInputsStateStore = writable<ProfileListRowContext>({
-    kind: "",
+    kind: "simple",
     profileListRow: null,
   });
   const callbackInputsStateStore = writable(options);
@@ -92,7 +99,7 @@ export function createProfileListRowEditorWorkspace(
     ),
     editorDisplayStateStore,
     setRowContext({
-      kind = "",
+      kind = "simple",
       profileListRow = null,
       rowIndex = -1,
     }: ProfileListRowContext = {}) {
@@ -103,8 +110,8 @@ export function createProfileListRowEditorWorkspace(
 }
 
 interface ProfileHookRowContext {
-  hookRow?: unknown;
-  modeOptions?: unknown[];
+  hookRow?: Partial<ProfileHookRowDraft>;
+  modeOptions?: string[];
   rowIndex?: number;
 }
 
@@ -191,8 +198,8 @@ export function createProfileDiagnosePanelWorkspace() {
 
 function setProfileDetectInitialRuleField(
   ruleIndex: number,
-  fieldName: string,
-  fieldValue: unknown,
+  fieldName: keyof ProfileDetectRuleDraft,
+  fieldValue: string,
 ): void {
   patchProfileDetectInitialRule(ruleIndex, {
     [fieldName]: fieldValue,
@@ -203,20 +210,19 @@ export function createCustomProfileDetectPanelWorkspace() {
   const workspace = createCustomProfileDetectPanelWorkspaceCore();
   return {
     ...workspace,
-    addInitialRule: (detectRule?: unknown) =>
-      addProfileDetectInitialRule(detectRule),
-    addProbe: (detectProbe?: unknown) => addProfileDetectProbe(detectProbe),
+    addInitialRule: () => addProfileDetectInitialRule(),
+    addProbe: () => addProfileDetectProbe(),
     changeInitialRulePattern(ruleIndex: number) {
-      return (fieldValue: unknown) =>
+      return (fieldValue: string) =>
         setProfileDetectInitialRuleField(ruleIndex, "pattern", fieldValue);
     },
     changeInitialRuleWeight(ruleIndex: number) {
-      return (fieldValue: unknown) =>
+      return (fieldValue: string) =>
         setProfileDetectInitialRuleField(ruleIndex, "weight", fieldValue);
     },
     removeInitialRuleHandler: (ruleIndex: number) => () =>
       removeProfileDetectInitialRule(ruleIndex),
-    setDetectEnabled: (enabled: unknown) => setProfileDetectEnabled(enabled),
+    setDetectEnabled: (enabled: boolean) => setProfileDetectEnabled(enabled),
   };
 }
 

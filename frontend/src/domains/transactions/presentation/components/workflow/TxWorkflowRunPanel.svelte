@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import PlayIcon from "@lucide/svelte/icons/play";
   import * as Alert from "$lib/components/ui/alert";
   import * as Card from "$lib/components/ui/card";
@@ -10,9 +10,15 @@
   import CirclePlayIcon from "@lucide/svelte/icons/circle-play";
   import { t } from "$lib/i18n.js";
   import { createTxWorkflowRunPanelWorkspace } from "$domains/transactions/index.js";
+  import type { txWorkflowOutputPanelDisplay } from "$domains/transactions/index.js";
   import TxWorkflowBlockResultPanel from "$domains/transactions/presentation/components/workflow/TxWorkflowBlockResultPanel.svelte";
 
-  let { panelDisplay, onExecute } = $props();
+  interface Props {
+    onExecute: () => void;
+    panelDisplay: ReturnType<typeof txWorkflowOutputPanelDisplay>;
+  }
+
+  let { panelDisplay, onExecute }: Props = $props();
   const txWorkflowRunPanelWorkspace = createTxWorkflowRunPanelWorkspace();
   const {
     executionModeDisplayStateStore,
