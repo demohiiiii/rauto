@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
   import { objectFieldsEditorBindings } from "../../lib/events.js";
   import { t } from "../../lib/i18n.js";
@@ -7,6 +7,18 @@
   import PlainInputField from "./PlainInputField.svelte";
   import PlainTextAreaField from "./PlainTextAreaField.svelte";
   import StringSelectField from "./StringSelectField.svelte";
+  import type { ObjectFieldRow } from "../../lib/objectFields.js";
+
+  interface Props {
+    fieldRows: ObjectFieldRow[];
+    onAdd?: (() => unknown) | null;
+    onRemove?: ((fieldKey: string) => unknown) | null;
+    onRename?: ((fieldKey: string, nextFieldKey: string) => unknown) | null;
+    onTypeChange?: ((fieldKey: string, fieldType: string) => unknown) | null;
+    onValueChange?: ((fieldKey: string, valueText: string) => unknown) | null;
+    title?: string;
+    typeRows: string[];
+  }
 
   let {
     title,
@@ -17,7 +29,7 @@
     onTypeChange,
     onValueChange,
     onRemove,
-  } = $props();
+  }: Props = $props();
   let fieldBindings = $derived(
     objectFieldsEditorBindings({
       onRemove,

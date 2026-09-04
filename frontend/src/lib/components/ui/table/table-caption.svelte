@@ -1,11 +1,19 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type TableCaptionProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
+    children?: Snippet;
+    ref?: HTMLTableCaptionElement | null;
+  };
+
   let {
     ref = $bindable(null),
     class: className,
     children,
     ...restProps
-  } = $props();
+  }: TableCaptionProps = $props();
 </script>
 
 <caption

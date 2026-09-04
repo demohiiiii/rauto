@@ -1,6 +1,16 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
-  let { ref = $bindable(null), class: className, ...restProps } = $props();
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type SkeletonProps = HTMLAttributes<HTMLDivElement> & {
+    ref?: HTMLDivElement | null;
+  };
+
+  let {
+    ref = $bindable(null),
+    class: className,
+    ...restProps
+  }: SkeletonProps = $props();
 </script>
 
 <div

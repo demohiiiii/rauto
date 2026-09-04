@@ -40,8 +40,6 @@ export type TxWorkflowValueInput = string | Event | TxWorkflowValueEvent;
 export type TxWorkflowCheckedInput = boolean | Event | TxWorkflowCheckedEvent;
 export type TxWorkflowValueHandler = (input: TxWorkflowValueInput) => void;
 export type TxWorkflowCheckedHandler = (input: TxWorkflowCheckedInput) => void;
-type FormEventHandler = TxWorkflowValueHandler | TxWorkflowCheckedHandler;
-
 function txWorkflowValueHandler(
   callback: (value: string) => void,
 ): TxWorkflowValueHandler {
@@ -176,6 +174,37 @@ export interface TxWorkflowVisualEditorDisplay {
   booleanRows: readonly string[];
   jsonValueTypeRows: readonly string[];
   rootFieldRows: TxWorkflowFieldRow[];
+}
+
+export interface TxWorkflowFlowCommandRow {
+  kindText: string;
+  summaryText: string;
+  titleText: string;
+}
+
+export interface TxWorkflowFlowNodeData extends JsonObject {
+  blockIndex: number;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+  commandRows: TxWorkflowFlowCommandRow[];
+  deleteLabel: string;
+  duplicateLabel: string;
+  emptyCommandText: string;
+  hasSource: boolean;
+  hasTarget: boolean;
+  isTemplate: boolean;
+  kind: "block";
+  metaText: string;
+  moveLeftLabel: string;
+  moveRightLabel: string;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onMoveLeft: () => void;
+  onMoveRight: () => void;
+  remainingCommandText: string;
+  sequenceText: string;
+  titleText: string;
+  vertical: boolean;
 }
 
 type TxWorkflowChangeHandler = (model: TxWorkflowEditorModel) => unknown;
@@ -955,13 +984,13 @@ export function txWorkflowVisualEditorBindings(
     blockBindings(blockIndex: number) {
       return txWorkflowBlockBindings(model, onChange, blockIndex);
     },
-    presenceToggle(field: string): FormEventHandler {
+    presenceToggle(field: string): TxWorkflowCheckedHandler {
       return callbackMappedFormCheckedHandler(
         (enabled) => bindings.setRootFieldPresence(field, enabled),
         (enabled) => enabled,
       );
     },
-    valueHandler(field: string): FormEventHandler {
+    valueHandler(field: string): TxWorkflowValueHandler {
       return callbackMappedFormValueHandler(
         (value) => bindings.setRootValue(field, value),
         (value) => value,

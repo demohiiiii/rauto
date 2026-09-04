@@ -1,10 +1,17 @@
-<script>
+<script lang="ts">
   import { Dialog as SheetPrimitive } from "bits-ui";
   import SheetPortal from "./sheet-portal.svelte";
   import SheetOverlay from "./sheet-overlay.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import XIcon from "@lucide/svelte/icons/x";
   import { cn } from "$lib/utils.js";
+
+  type SheetContentProps = SheetPrimitive.ContentProps & {
+    portalProps?: SheetPrimitive.PortalProps;
+    showCloseButton?: boolean;
+    side?: "top" | "right" | "bottom" | "left";
+  };
+
   let {
     ref = $bindable(null),
     class: className,
@@ -13,7 +20,7 @@
     portalProps,
     children,
     ...restProps
-  } = $props();
+  }: SheetContentProps = $props();
 </script>
 
 <SheetPortal {...portalProps}>

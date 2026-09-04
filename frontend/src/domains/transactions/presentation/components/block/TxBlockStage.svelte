@@ -2,31 +2,31 @@
   import TxBlockInputPanel from "$domains/transactions/presentation/components/block/TxBlockInputPanel.svelte";
   import TxBlockRunPanel from "$domains/transactions/presentation/components/block/TxBlockRunPanel.svelte";
   import { createTxBlockStageWorkspace } from "$domains/transactions/index.js";
+  import type {
+    JsonTemplateActionContext,
+    TransactionTemplateResource,
+  } from "$domains/transactions/index.js";
 
   interface TextFile {
     text(): Promise<string>;
-  }
-
-  interface ExternalActionContext {
-    isCurrent?: () => boolean;
   }
 
   interface Props {
     active?: boolean;
     newButtonLabelKey?: string;
     onCreateJsonTemplateDraft?: (
-      actionContext?: ExternalActionContext | null,
+      actionContext?: JsonTemplateActionContext | null,
     ) => void;
     onEditorInput?: (text: string) => void;
     onExecute?: () => void;
     onImportFile?: (
       file: TextFile,
-      actionContext?: ExternalActionContext | null,
+      actionContext?: JsonTemplateActionContext | null,
     ) => void;
     onLoadJsonTemplate?: (
       templateName: string,
-      actionContext?: ExternalActionContext | null,
-    ) => void;
+      actionContext?: JsonTemplateActionContext | null,
+    ) => Promise<TransactionTemplateResource | null>;
     onSaveJsonTemplate?: () => void;
   }
 

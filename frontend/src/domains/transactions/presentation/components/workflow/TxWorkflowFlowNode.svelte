@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
   import BoxesIcon from "@lucide/svelte/icons/boxes";
@@ -10,24 +10,30 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { classNames } from "$lib/ui.js";
+  import type { TxWorkflowFlowNodeData } from "$domains/transactions/index.js";
 
-  let { data, selected = false } = $props();
+  interface Props {
+    data: TxWorkflowFlowNodeData;
+    selected?: boolean;
+  }
+
+  let { data, selected = false }: Props = $props();
   let nodeHovered = $state(false);
   let toolbarHovered = $state(false);
-  let hoverHideTimer = null;
+  let hoverHideTimer = $state<number | null>(null);
   let toolbarVisible = $derived(nodeHovered || toolbarHovered);
 
-  function clearHoverHideTimer() {
+  function clearHoverHideTimer(): void {
     if (hoverHideTimer !== null) window.clearTimeout(hoverHideTimer);
     hoverHideTimer = null;
   }
 
-  function showNodeToolbar() {
+  function showNodeToolbar(): void {
     clearHoverHideTimer();
     nodeHovered = true;
   }
 
-  function hideNodeToolbarSoon() {
+  function hideNodeToolbarSoon(): void {
     clearHoverHideTimer();
     hoverHideTimer = window.setTimeout(() => {
       nodeHovered = false;
@@ -36,12 +42,12 @@
     }, 120);
   }
 
-  function enterNodeToolbar() {
+  function enterNodeToolbar(): void {
     clearHoverHideTimer();
     toolbarHovered = true;
   }
 
-  function runNodeAction(event, action) {
+  function runNodeAction(event: MouseEvent, action?: () => void): void {
     event.stopPropagation();
     if (typeof action === "function") action();
   }

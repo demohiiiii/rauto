@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Card from "$lib/components/ui/card";
   import { CommandTemplateSourceField } from "$domains/command/presentation/components/index.js";
@@ -18,6 +18,11 @@
   import { createTxBlockInputPanelWorkspace } from "$domains/transactions/index.js";
   import { txBlockFormModelToJsonText } from "$domains/transactions/index.js";
   import { txBlockPreviewPresentation } from "$domains/transactions/index.js";
+  import type {
+    JsonTemplateActionContext,
+    TransactionTemplateResource,
+    TxBlockFormModel,
+  } from "$domains/transactions/index.js";
   import BlocksIcon from "@lucide/svelte/icons/blocks";
 
   import {
@@ -27,6 +32,26 @@
     setJsonTemplateSelectValue,
   } from "$domains/transactions/index.js";
 
+  type TemplateAction = () => Promise<void> | void;
+
+  interface Props {
+    active?: boolean;
+    newButtonLabelKey?: string;
+    onCreateJsonTemplateDraft?: (
+      actionContext?: JsonTemplateActionContext | null,
+    ) => Promise<void> | void;
+    onEditorInput?: (text: string) => void;
+    onImportFile?: (
+      file: File,
+      actionContext?: JsonTemplateActionContext | null,
+    ) => Promise<void> | void;
+    onLoadJsonTemplate?: (
+      templateName: string,
+      actionContext?: JsonTemplateActionContext | null,
+    ) => Promise<TransactionTemplateResource | null>;
+    onSaveJsonTemplate?: TemplateAction;
+  }
+
   let {
     active,
     onCreateJsonTemplateDraft,
@@ -35,7 +60,7 @@
     onLoadJsonTemplate,
     onSaveJsonTemplate,
     newButtonLabelKey,
-  } = $props();
+  }: Props = $props();
 
   const directVarsKey = TX_VARS.txBlockDirect;
   const txBlockTemplateSelectStateStore = jsonTemplateSelectStateFor(
@@ -71,9 +96,9 @@
   let txBlockJsonText = $derived($jsonTextStateStore);
   let txBlockSyncStatus = $derived($syncStatusStateStore);
   let txBlockTemplateSelectState = $derived($txBlockTemplateSelectStateStore);
-  let txBlockSourceSelection = $state(MANUAL_COMMAND_SOURCE);
+  let txBlockSourceSelection = $state<string>(MANUAL_COMMAND_SOURCE);
   let txBlockSourceLoading = $state(false);
-  let templateAction = $state("");
+  let templateAction = $state<"" | "new" | "save" | "save_as">("");
   let txBlockSourceOptions = $derived(
     Array.isArray(txBlockTemplateSelectState?.names)
       ? txBlockTemplateSelectState.names
@@ -85,31 +110,33 @@
   });
   let txBlockReadonlyPreview = $derived.by(() => {
     currentLanguage;
-    return txBlockPreviewPresentation(
-      JSON.parse(txBlockFormModelToJsonText(txBlockFormModel)),
-      null,
+    const previewValue: unknown = JSON.parse(
+      txBlockFormModelToJsonText(txBlockFormModel),
     );
+    return txBlockPreviewPresentation(previewValue, null);
   });
   let jsonNewLoading = $derived($loadingKeysStore.includes("json-new"));
 
-  function resetTxBlockSourceSelection() {
+  function resetTxBlockSourceSelection(): void {
     setJsonTemplateSelectValue(TX_TEMPLATE_KIND.txBlock, "");
     txBlockSourceSelection = MANUAL_COMMAND_SOURCE;
   }
 
-  async function createManualTxBlockDraft() {
+  async function createManualTxBlockDraft(): Promise<TxBlockFormModel> {
     const result = resetDraft();
     resetTxBlockSourceSelection();
     return result;
   }
 
-  async function importManualTxBlock(file) {
-    const result = await onImportFile?.(file);
+  async function importManualTxBlock(file: File): Promise<void> {
+    await onImportFile?.(file);
     resetTxBlockSourceSelection();
-    return result;
   }
 
-  async function runTemplateAction(action, operation) {
+  async function runTemplateAction<TResult>(
+    action: "new" | "save" | "save_as",
+    operation?: () => Promise<TResult> | TResult,
+  ): Promise<TResult | false | undefined> {
     if (templateAction) return false;
     templateAction = action;
     try {
@@ -125,7 +152,7 @@
     }
   }
 
-  async function selectTxBlockSource(sourceValue) {
+  async function selectTxBlockSource(sourceValue: string): Promise<boolean> {
     const nextSource =
       String(sourceValue || "").trim() || MANUAL_COMMAND_SOURCE;
     if (nextSource === txBlockSourceSelection) return true;
@@ -136,7 +163,7 @@
         return true;
       }
       const loadedTemplate = await loadJsonTemplate(nextSource);
-      if (!loadedTemplate) return false;
+      if (!loadedTemplate || typeof loadedTemplate !== "object") return false;
       txBlockSourceSelection = nextSource;
       return true;
     } finally {

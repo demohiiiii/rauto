@@ -1,9 +1,13 @@
 import { writable } from "svelte/store";
 import { orchestrationTemplateApi } from "../infrastructure/orchestrationTemplateApi.js";
 
-type NameDialogMode = "new" | "save_as";
-type SelectionKind = "existing" | "manual" | "new";
-type TemplateReplacementReason = "delete" | "new" | "replace" | "select";
+export type OrchestrationTemplateNameDialogMode = "new" | "save_as";
+export type OrchestrationTemplateSelectionKind = "existing" | "manual" | "new";
+export type OrchestrationTemplateReplacementReason =
+  | "delete"
+  | "new"
+  | "replace"
+  | "select";
 type MaybePromise<T> = Promise<T> | T;
 
 interface TemplateOption {
@@ -11,21 +15,21 @@ interface TemplateOption {
   value: string;
 }
 
-interface NameDialogState {
+export interface OrchestrationTemplateNameDialogState {
   error: string;
-  mode: NameDialogMode;
+  mode: OrchestrationTemplateNameDialogMode;
   open: boolean;
   value: string;
 }
 
-interface TemplateDisplayState {
+export interface OrchestrationTemplateDisplayState {
   dirty: boolean;
   errorMessage: string;
   initialized: boolean;
   loadingAction: string;
-  nameDialog: NameDialogState;
+  nameDialog: OrchestrationTemplateNameDialogState;
   selectedName: string;
-  selectionKind: SelectionKind;
+  selectionKind: OrchestrationTemplateSelectionKind;
   statusKind: string;
   statusName: string;
   templateNames: string[];
@@ -69,7 +73,7 @@ interface TemplateWorkspaceOptions extends Partial<TemplateApiPorts> {
   apiBase?: string;
   confirmReplace?: (input: {
     currentName: string;
-    reason: TemplateReplacementReason;
+    reason: OrchestrationTemplateReplacementReason;
   }) => MaybePromise<boolean>;
   createDraft?: () => MaybePromise<boolean | void>;
   getCurrentJson?: () => string;
@@ -78,7 +82,7 @@ interface TemplateWorkspaceOptions extends Partial<TemplateApiPorts> {
 
 interface BaselineOptions {
   selectedName?: string;
-  selectionKind?: SelectionKind;
+  selectionKind?: OrchestrationTemplateSelectionKind;
   statusKind?: string;
   statusName?: string;
 }
@@ -97,7 +101,9 @@ function templateNames(payload: readonly TemplateListItem[]): string[] {
     .sort((left, right) => left.localeCompare(right));
 }
 
-function nameDialogState(mode: NameDialogMode = "new"): NameDialogState {
+function nameDialogState(
+  mode: OrchestrationTemplateNameDialogMode = "new",
+): OrchestrationTemplateNameDialogState {
   return {
     error: "",
     mode,
@@ -106,7 +112,7 @@ function nameDialogState(mode: NameDialogMode = "new"): NameDialogState {
   };
 }
 
-function initialDisplayState(): TemplateDisplayState {
+function initialDisplayState(): OrchestrationTemplateDisplayState {
   return {
     dirty: false,
     errorMessage: "",
@@ -134,7 +140,7 @@ export function createOrchestrationTemplateWorkspace({
   updateTemplateResource = orchestrationTemplateApi.updateTemplateResource,
   deleteTemplateResource = orchestrationTemplateApi.deleteTemplateResource,
 }: TemplateWorkspaceOptions = {}) {
-  const displayStateStore = writable<TemplateDisplayState>(
+  const displayStateStore = writable<OrchestrationTemplateDisplayState>(
     initialDisplayState(),
   );
   let displayState = initialDisplayState();
@@ -143,7 +149,9 @@ export function createOrchestrationTemplateWorkspace({
   let editRevision = 0;
   let ownedMutationDepth = 0;
 
-  function setDisplay(patch: Partial<TemplateDisplayState> = {}): void {
+  function setDisplay(
+    patch: Partial<OrchestrationTemplateDisplayState> = {},
+  ): void {
     displayState = { ...displayState, ...patch };
     displayStateStore.set(displayState);
   }
@@ -236,7 +244,7 @@ export function createOrchestrationTemplateWorkspace({
   }
 
   async function confirmReplacement(
-    reason: TemplateReplacementReason = "replace",
+    reason: OrchestrationTemplateReplacementReason = "replace",
   ): Promise<boolean> {
     if (!displayState.dirty) return true;
     return !!(await confirmReplace({
@@ -294,7 +302,7 @@ export function createOrchestrationTemplateWorkspace({
     });
   }
 
-  function openNameDialog(mode: NameDialogMode): void {
+  function openNameDialog(mode: OrchestrationTemplateNameDialogMode): void {
     setDisplay({
       nameDialog: {
         error: "",

@@ -408,10 +408,12 @@ interface TextfsmControlsCallbacks {
 }
 
 interface TextfsmFields {
-  excelName?: unknown;
-  platform?: unknown;
-  platformOptions?: unknown;
-  [key: string]: unknown;
+  enabled?: boolean;
+  excelName?: string;
+  platform?: string;
+  platformOptions?: string[];
+  strictErrors?: boolean;
+  template?: string;
 }
 
 interface TextfsmDisplayInputs {

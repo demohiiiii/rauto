@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+  import type { Snippet } from "svelte";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import JsonTextEditor from "$components/fragments/JsonTextEditor.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
@@ -7,7 +8,46 @@
   import { callIfFunction } from "$lib/events.js";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { TX_EDITOR } from "$domains/transactions/index.js";
+  import type {
+    JsonErrorDetail,
+    TransactionEditorSyncStatus,
+    TransactionEditorView,
+    TxEditorKey,
+  } from "$domains/transactions/index.js";
   import TxJsonEditor from "$domains/transactions/presentation/components/shared/TxJsonEditor.svelte";
+
+  interface TabItem {
+    label?: string;
+    labelKey?: string;
+    value: string;
+  }
+
+  interface Props {
+    active?: boolean;
+    editorDisplayMode?: TransactionEditorView;
+    editorKind?: "inline" | "tx-host";
+    editorKey?: TxEditorKey;
+    editorValue?: string;
+    editorTitle?: string;
+    editorTheme?: string;
+    fillEditorHeight?: boolean;
+    formContent?: Snippet;
+    formError?: string;
+    formErrorDetail?: JsonErrorDetail | null;
+    hostClass?: string;
+    immediateEditorInput?: boolean;
+    jsonHintText?: string;
+    navigationMode?: "hidden" | "tabs";
+    onEditorInput?: ((text: string) => void) | null;
+    onEditorViewSelect?: (view: TransactionEditorView) => boolean | void;
+    onInlineEditorChange?: ((text: string) => void) | null;
+    placeholder?: string;
+    readonlyContent?: Snippet;
+    syncStatus?: TransactionEditorSyncStatus;
+    syncStatusText?: string;
+    syncStatusTone?: "muted" | "primary" | "warning";
+    tabItems?: readonly TabItem[];
+  }
 
   let {
     active = true,
@@ -28,21 +68,21 @@
     onInlineEditorChange,
     onEditorViewSelect,
     placeholder = "",
-    readonlyContent = null,
+    readonlyContent = undefined,
     navigationMode = "tabs",
     syncStatus = "synced",
     syncStatusText = "",
     syncStatusTone = "primary",
     tabItems = txBlockEditorViewTabs,
-  } = $props();
+  }: Props = $props();
 
-  let editorHost = $state();
+  let editorHost = $state<HTMLElement>();
   let currentLanguage = $derived($currentLanguageState);
   let editorPlaceholder = $derived(placeholder);
   let editorAriaLabel = $derived(placeholder || editorTitle);
   let showInlineEditor = $derived(editorKind === "inline");
   let hideNavigation = $derived(navigationMode === "hidden");
-  let syncBadgeVariant = $derived(
+  let syncBadgeVariant = $derived<"default" | "destructive" | "secondary">(
     syncStatusTone === "warning"
       ? "destructive"
       : syncStatusTone === "muted"
@@ -59,12 +99,17 @@
       .replace("{column}", String(formErrorDetail.column));
   });
 
-  function selectEditorView(nextView) {
+  function selectEditorView(nextView: string): boolean | void | undefined {
+    if (nextView !== "form" && nextView !== "json" && nextView !== "readonly") {
+      return;
+    }
     const selected = callIfFunction(onEditorViewSelect, nextView);
     if (selected === false) {
       requestAnimationFrame(() => {
         editorHost
-          ?.querySelector('.cm-content, [contenteditable="true"], textarea')
+          ?.querySelector<HTMLElement>(
+            '.cm-content, [contenteditable="true"], textarea',
+          )
           ?.focus();
       });
     }
@@ -115,7 +160,7 @@
     </StatusCard>
   {/if}
   {#if editorDisplayMode === "form"}
-    {@render formContent()}
+    {@render formContent?.()}
   {:else if editorDisplayMode === "readonly" && readonlyContent}
     {@render readonlyContent()}
   {:else}

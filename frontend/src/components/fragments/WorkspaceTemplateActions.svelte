@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import CopyPlusIcon from "@lucide/svelte/icons/copy-plus";
   import FilePlusIcon from "@lucide/svelte/icons/file-plus";
   import SaveIcon from "@lucide/svelte/icons/save";
@@ -6,6 +6,19 @@
   import FilePickerButton from "./FilePickerButton.svelte";
   import LoadingButton from "./LoadingButton.svelte";
   import { t } from "../../lib/i18n.js";
+
+  type TemplateCommand = () => unknown;
+
+  interface Props {
+    accept?: string;
+    busy?: boolean;
+    canSave?: boolean;
+    loadingAction?: string;
+    onImport?: ((file: File) => unknown) | null;
+    onNew?: TemplateCommand | null;
+    onSave?: TemplateCommand | null;
+    onSaveAs?: TemplateCommand | null;
+  }
 
   let {
     accept = ".json,application/json",
@@ -16,7 +29,11 @@
     onNew,
     onSave,
     onSaveAs,
-  } = $props();
+  }: Props = $props();
+
+  function importFile(file: File | null): void {
+    if (file) onImport?.(file);
+  }
 </script>
 
 <LoadingButton
@@ -59,7 +76,7 @@
   disabled={busy}
   title={t("orchestrationImportFileBtn")}
   aria-label={t("orchestrationImportFileBtn")}
-  onFile={onImport}
+  onFile={importFile}
 >
   <UploadIcon data-icon="inline-start" />
   <span>{t("orchestrationImportFileBtn")}</span>

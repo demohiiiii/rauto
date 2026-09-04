@@ -154,7 +154,9 @@ export type OrchestrationWorkflowSourceMode =
 export type OrchestrationEditorView = "json" | "readonly";
 
 export interface OrchestrationRunButtonDisplay {
+  createLoading?: boolean;
   executeLoading?: boolean;
+  previewLoading?: boolean;
 }
 
 export interface OrchestrationTxWorkflowActionModel extends JsonObject {

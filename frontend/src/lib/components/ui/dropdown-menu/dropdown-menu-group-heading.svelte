@@ -1,12 +1,18 @@
-<script>
+<script lang="ts">
   import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
+
+  type DropdownMenuGroupHeadingProps =
+    DropdownMenuPrimitive.GroupHeadingProps & {
+      inset?: boolean;
+    };
+
   let {
     ref = $bindable(null),
     class: className,
     inset,
     ...restProps
-  } = $props();
+  }: DropdownMenuGroupHeadingProps = $props();
 </script>
 
 <DropdownMenuPrimitive.GroupHeading

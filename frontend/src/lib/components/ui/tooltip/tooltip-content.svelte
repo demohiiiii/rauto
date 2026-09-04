@@ -1,7 +1,13 @@
-<script>
+<script lang="ts">
   import { Tooltip as TooltipPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
   import TooltipPortal from "./tooltip-portal.svelte";
+
+  type TooltipContentProps = TooltipPrimitive.ContentProps & {
+    arrowClasses?: string;
+    portalProps?: TooltipPrimitive.PortalProps;
+  };
+
   let {
     ref = $bindable(null),
     class: className,
@@ -11,7 +17,7 @@
     arrowClasses,
     portalProps,
     ...restProps
-  } = $props();
+  }: TooltipContentProps = $props();
 </script>
 
 <TooltipPortal {...portalProps}>

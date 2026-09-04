@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
@@ -12,6 +12,34 @@
   import OrchestrationFlowWorkflowBlockInspector from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowWorkflowBlockInspector.svelte";
   import OrchestrationJobEditor from "$domains/orchestration/presentation/components/editor/OrchestrationJobEditor.svelte";
   import OrchestrationStageSettingsEditor from "$domains/orchestration/presentation/components/editor/OrchestrationStageSettingsEditor.svelte";
+
+  import type {
+    JsonObject,
+    OrchestrationErrorChangeHandler,
+    OrchestrationFlowSelection,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationTxWorkflowActionModel,
+    OrchestrationVisualEditorDisplay,
+    OrchestrationWorkflowPreview,
+  } from "$domains/orchestration/index.js";
+
+  interface Props {
+    canMoveNext?: boolean;
+    canMovePrevious?: boolean;
+    canMutateSelection?: boolean;
+    model: OrchestrationPlanFormModel;
+    onChange?: OrchestrationPlanChangeHandler | null;
+    onCollapse?: () => void;
+    onDelete?: () => void;
+    onDuplicate?: () => void;
+    onErrorChange?: OrchestrationErrorChangeHandler | null;
+    onMoveNext?: () => void;
+    onMovePrevious?: () => void;
+    selection: OrchestrationFlowSelection;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+    workflowPreview?: OrchestrationWorkflowPreview | null;
+  }
 
   let {
     model,
@@ -28,13 +56,13 @@
     canMoveNext = false,
     canMutateSelection = true,
     workflowPreview = null,
-  } = $props();
+  }: Props = $props();
 
   let stageRow = $derived(
     selection?.kind === "stage" ||
       selection?.kind === "job" ||
       selection?.kind === "workflow-block"
-      ? visualDisplay?.stageRows?.[selection.stageIndex] || null
+      ? visualDisplay.stageRows[selection.stageIndex] || null
       : null,
   );
   let jobRow = $derived(
@@ -42,20 +70,34 @@
       ? stageRow?.jobRows?.[selection.jobIndex] || null
       : null,
   );
-  let currentStage = $derived(model?.stages?.[selection?.stageIndex] || null);
-  let currentJob = $derived(currentStage?.jobs?.[selection?.jobIndex] || null);
+  let currentStage = $derived(model.stages[selection.stageIndex] || null);
+  let selectedJobIndex = $derived(
+    selection.kind === "stage" ? null : selection.jobIndex,
+  );
+  let selectedBlockIndex = $derived(
+    selection.kind === "workflow-block" ? selection.blockIndex : null,
+  );
+  let currentJob = $derived(
+    selectedJobIndex === null
+      ? null
+      : currentStage?.jobs[selectedJobIndex] || null,
+  );
   let currentStageRow = $derived(
     stageRow && currentStage ? { ...stageRow, stage: currentStage } : stageRow,
   );
   let currentJobRow = $derived(
     jobRow && currentJob ? { ...jobRow, job: currentJob } : jobRow,
   );
-  let txWorkflow = $derived(currentJob?.action?.txWorkflow || {});
+  let txWorkflow = $derived<OrchestrationTxWorkflowActionModel | null>(
+    currentJob?.action.txWorkflow || null,
+  );
   let blockTitleText = $derived(
-    workflowPreview?.allRows?.[selection?.blockIndex]?.blockName ||
+    (selectedBlockIndex === null
+      ? ""
+      : workflowPreview?.allRows[selectedBlockIndex]?.blockName) ||
       t("orchestrationFlowBlockSequence").replace(
         "{index}",
-        String((selection?.blockIndex ?? 0) + 1),
+        String((selectedBlockIndex ?? 0) + 1),
       ),
   );
   let titleText = $derived(
@@ -76,13 +118,13 @@
   let jobPositionText = $derived(
     t("orchestrationFlowJobSequence").replace(
       "{index}",
-      String((selection?.jobIndex ?? 0) + 1),
+      String((selectedJobIndex ?? 0) + 1),
     ),
   );
   let blockPositionText = $derived(
     t("orchestrationFlowBlockSequence").replace(
       "{index}",
-      String((selection?.blockIndex ?? 0) + 1),
+      String((selectedBlockIndex ?? 0) + 1),
     ),
   );
   let breadcrumbText = $derived(
@@ -98,8 +140,8 @@
         : stagePositionText,
   );
 
-  function updateInlineWorkflow(nextWorkflow) {
-    if (typeof onChange !== "function") return;
+  function updateInlineWorkflow(nextWorkflow: JsonObject): void {
+    if (!onChange || selection.kind !== "workflow-block") return;
     onChange(
       orchestrationUpdateInlineWorkflow(
         model,
@@ -213,7 +255,7 @@
     <OrchestrationFlowWorkflowBlockInspector
       blockIndex={selection.blockIndex}
       sourceKind={workflowPreview?.sourceKind || "manual"}
-      workflow={txWorkflow.workflow || {}}
+      workflow={txWorkflow?.workflow || {}}
       renderedWorkflow={workflowPreview?.workflow || {}}
       onWorkflowChange={updateInlineWorkflow}
     />

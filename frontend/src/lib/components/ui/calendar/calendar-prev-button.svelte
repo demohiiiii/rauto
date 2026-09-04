@@ -1,8 +1,12 @@
-<script>
+<script lang="ts">
   import { Calendar as CalendarPrimitive } from "bits-ui";
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import { buttonVariants } from "$lib/components/ui/button/index.js";
   import { cn } from "$lib/utils.js";
+  import type { VariantProps } from "tailwind-variants";
+
+  type CalendarPrevButtonProps = CalendarPrimitive.PrevButtonProps &
+    VariantProps<typeof buttonVariants>;
 
   let {
     ref = $bindable(null),
@@ -10,7 +14,7 @@
     children,
     variant = "ghost",
     ...restProps
-  } = $props();
+  }: CalendarPrevButtonProps = $props();
 </script>
 
 {#snippet Fallback()}

@@ -1,12 +1,34 @@
-<script>
+<script lang="ts">
   import { getContext, untrack } from "svelte";
   import { readable } from "svelte/store";
+  import type { Readable } from "svelte/store";
   import CodeMirror from "svelte-codemirror-editor";
+  import type { ThemeSpec } from "svelte-codemirror-editor";
   import { json } from "@codemirror/lang-json";
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { jsonTextEditorBindings } from "../../lib/events.js";
   import { dashboardThemeContextKey } from "../../lib/svelte.js";
   import { classNames } from "../../lib/ui.js";
+
+  type EditorTheme = "dark" | "light";
+
+  interface DashboardThemeContext {
+    currentTheme: EditorTheme;
+  }
+
+  interface Props {
+    active?: boolean;
+    "aria-label"?: string;
+    class?: string;
+    compact?: boolean;
+    fill?: boolean;
+    hidden?: boolean;
+    immediate?: boolean;
+    onChange?: ((value: string) => void) | null;
+    placeholder?: string;
+    theme?: string;
+    value?: string | null;
+  }
 
   let {
     active = true,
@@ -20,11 +42,11 @@
     placeholder,
     theme = "",
     value = "",
-  } = $props();
+  }: Props = $props();
 
   const jsonLanguage = json();
-  const dashboardThemeState =
-    getContext(dashboardThemeContextKey) ||
+  const dashboardThemeState: Readable<DashboardThemeContext> =
+    getContext<Readable<DashboardThemeContext>>(dashboardThemeContextKey) ||
     readable({
       currentTheme: "dark",
     });
@@ -48,7 +70,7 @@
     compact || /\btx-json-editor-compact\b/.test(cssClass || ""),
   );
   let hostClass = $derived(classNames(cssClass));
-  let editorStyles = $derived(
+  let editorStyles = $derived<ThemeSpec>(
     editorTheme === "light"
       ? {
           "&": {

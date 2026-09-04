@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import BracesIcon from "@lucide/svelte/icons/braces";
   import EyeIcon from "@lucide/svelte/icons/eye";
   import { Badge } from "$lib/components/ui/badge/index.js";
@@ -20,6 +20,11 @@
   import { createTxWorkflowInputPanelWorkspace } from "$domains/transactions/index.js";
   import { txWorkflowFormModelToJsonText } from "$domains/transactions/index.js";
   import { txWorkflowPreviewPresentation } from "$domains/transactions/index.js";
+  import type {
+    JsonTemplateActionContext,
+    TransactionTemplateResource,
+    TxWorkflowFormModel,
+  } from "$domains/transactions/index.js";
   import Layers3Icon from "@lucide/svelte/icons/layers-3";
 
   import {
@@ -28,6 +33,30 @@
     jsonTemplateSelectStateFor,
     setJsonTemplateSelectValue,
   } from "$domains/transactions/index.js";
+
+  type CanvasViewMode = "json" | "readonly";
+  type TemplateAction = () => Promise<void> | void;
+
+  interface Props {
+    active?: boolean;
+    jsonNewLoading?: boolean;
+    onCreateDirectDraft?: (
+      actionContext?: JsonTemplateActionContext | null,
+    ) => Promise<void> | void;
+    onCreateJsonTemplateDraft?: (
+      actionContext?: JsonTemplateActionContext | null,
+    ) => Promise<void> | void;
+    onEditorInput?: (text: string) => void;
+    onImportFile?: (
+      file: File,
+      actionContext?: JsonTemplateActionContext | null,
+    ) => Promise<void> | void;
+    onLoadJsonTemplate?: (
+      templateName: string,
+      actionContext?: JsonTemplateActionContext | null,
+    ) => Promise<TransactionTemplateResource | null>;
+    onSaveJsonTemplate?: TemplateAction;
+  }
 
   let {
     active,
@@ -38,7 +67,7 @@
     onImportFile,
     onLoadJsonTemplate,
     onSaveJsonTemplate,
-  } = $props();
+  }: Props = $props();
 
   const directVarsKey = TX_VARS.txWorkflowDirect;
   const workflowTemplateSelectStateStore = jsonTemplateSelectStateFor(
@@ -71,9 +100,9 @@
   let txWorkflowJsonText = $derived($jsonTextStateStore);
   let txWorkflowSyncStatus = $derived($syncStatusStateStore);
   let workflowTemplateSelectState = $derived($workflowTemplateSelectStateStore);
-  let workflowSourceSelection = $state(MANUAL_COMMAND_SOURCE);
+  let workflowSourceSelection = $state<string>(MANUAL_COMMAND_SOURCE);
   let workflowSourceLoading = $state(false);
-  let templateAction = $state("");
+  let templateAction = $state<"" | "new" | "save" | "save_as">("");
   let workflowSourceOptions = $derived(
     Array.isArray(workflowTemplateSelectState?.names)
       ? workflowTemplateSelectState.names
@@ -85,11 +114,15 @@
   });
   let txWorkflowReadonlyPreview = $derived.by(() => {
     currentLanguage;
-    return txWorkflowPreviewPresentation(
-      JSON.parse(txWorkflowFormModelToJsonText(txWorkflowFormModel)),
+    const previewValue: unknown = JSON.parse(
+      txWorkflowFormModelToJsonText(txWorkflowFormModel),
     );
+    return txWorkflowPreviewPresentation(previewValue);
   });
-  let canvasViewDialog = $state({ open: false, mode: "json" });
+  let canvasViewDialog = $state<{
+    open: boolean;
+    mode: CanvasViewMode;
+  }>({ open: false, mode: "json" });
   let canvasViewDialogTitle = $derived.by(() => {
     currentLanguage;
     return t(
@@ -107,33 +140,35 @@
     );
   });
 
-  function openCanvasViewDialog(mode) {
+  function openCanvasViewDialog(mode: CanvasViewMode): void {
     if (mode !== "json" && mode !== "readonly") return;
     canvasViewDialog = { open: true, mode };
   }
 
-  function setCanvasViewDialogOpen(open) {
+  function setCanvasViewDialogOpen(open: boolean): void {
     canvasViewDialog = { ...canvasViewDialog, open };
   }
 
-  function resetWorkflowSourceSelection() {
+  function resetWorkflowSourceSelection(): void {
     setJsonTemplateSelectValue(TX_TEMPLATE_KIND.txWorkflow, "");
     workflowSourceSelection = MANUAL_COMMAND_SOURCE;
   }
 
-  async function createManualWorkflowDraft() {
+  async function createManualWorkflowDraft(): Promise<TxWorkflowFormModel> {
     const result = resetDraft();
     resetWorkflowSourceSelection();
     return result;
   }
 
-  async function importManualWorkflow(file) {
-    const result = await importFile(file);
+  async function importManualWorkflow(file: File): Promise<void> {
+    await importFile(file);
     resetWorkflowSourceSelection();
-    return result;
   }
 
-  async function runTemplateAction(action, operation) {
+  async function runTemplateAction<TResult>(
+    action: "new" | "save" | "save_as",
+    operation?: () => Promise<TResult> | TResult,
+  ): Promise<TResult | false | undefined> {
     if (templateAction) return false;
     templateAction = action;
     try {
@@ -149,7 +184,7 @@
     }
   }
 
-  async function selectWorkflowSource(sourceValue) {
+  async function selectWorkflowSource(sourceValue: string): Promise<boolean> {
     const nextSource =
       String(sourceValue || "").trim() || MANUAL_COMMAND_SOURCE;
     if (nextSource === workflowSourceSelection) return true;
@@ -160,7 +195,7 @@
         return true;
       }
       const loadedTemplate = await loadJsonTemplate(nextSource);
-      if (!loadedTemplate) return false;
+      if (!loadedTemplate || typeof loadedTemplate !== "object") return false;
       workflowSourceSelection = nextSource;
       return true;
     } finally {

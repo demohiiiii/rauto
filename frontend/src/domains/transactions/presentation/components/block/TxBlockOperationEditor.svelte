@@ -40,6 +40,12 @@
   let operationActionHandlers = $derived($operationActionHandlersStateStore);
   let operationFieldRows = $derived($operationFieldRowsStateStore);
 
+  function setOperationKind(kind: string): void {
+    if (kind === "command" || kind === "flow") {
+      operationActionHandlers.setKind(kind);
+    }
+  }
+
   $effect(() => {
     setOperationEditorContext({
       operation,
@@ -54,7 +60,7 @@
     <h3 class="text-sm font-semibold text-foreground">{title}</h3>
     <Tabs.Root
       value={operation.kind}
-      onValueChange={operationActionHandlers.setKind}
+      onValueChange={setOperationKind}
       class="w-full"
     >
       <Tabs.List class="grid w-full grid-cols-2" aria-label={title}>

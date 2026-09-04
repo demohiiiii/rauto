@@ -1,5 +1,20 @@
-<script>
-  let { flow } = $props();
+<script lang="ts">
+  interface EventFlowDisplay {
+    after: string;
+    afterCardClass: string;
+    afterLabel: string;
+    before: string;
+    beforeCardClass: string;
+    beforeLabel: string;
+    markerDotClass: string;
+    markerLineClass: string;
+  }
+
+  interface Props {
+    flow: EventFlowDisplay;
+  }
+
+  let { flow }: Props = $props();
 </script>
 
 <div

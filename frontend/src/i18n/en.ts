@@ -855,6 +855,7 @@ export const i18nEn = {
   orchestrationFlowDeleteJob: "Delete job",
   orchestrationFlowSourceManual: "Manual input",
   orchestrationFlowSourceTemplateRender: "Template render",
+  orchestrationFlowTemplatePreview: "Template preview",
   orchestrationFlowPreviewLoading: "Loading workflow preview...",
   orchestrationFlowPreviewError: "Preview unavailable",
   orchestrationFlowUnresolvedValues: "{count} unresolved",

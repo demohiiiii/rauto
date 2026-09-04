@@ -809,6 +809,7 @@ export const i18nZh = {
   orchestrationFlowDeleteJob: "删除任务",
   orchestrationFlowSourceManual: "手动输入",
   orchestrationFlowSourceTemplateRender: "模板渲染",
+  orchestrationFlowTemplatePreview: "模板预览",
   orchestrationFlowPreviewLoading: "正在加载工作流预览...",
   orchestrationFlowPreviewError: "预览不可用",
   orchestrationFlowUnresolvedValues: "{count} 个待按设备解析",

@@ -1,12 +1,22 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type DropdownMenuShortcutProps = Omit<
+    HTMLAttributes<HTMLSpanElement>,
+    "children"
+  > & {
+    children?: Snippet;
+    ref?: HTMLSpanElement | null;
+  };
 
   let {
     ref = $bindable(null),
     class: className,
     children,
     ...restProps
-  } = $props();
+  }: DropdownMenuShortcutProps = $props();
 </script>
 
 <span

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
   import CopyIcon from "@lucide/svelte/icons/copy";
@@ -9,6 +9,25 @@
   import { tick } from "svelte";
   import { t } from "$lib/i18n.js";
   import { classNames } from "$lib/ui.js";
+  import type { txBlockTimelineDisplay } from "$domains/transactions/index.js";
+
+  type TimelineDisplay = ReturnType<typeof txBlockTimelineDisplay>;
+  type TimelineStepRow = TimelineDisplay["stepRows"][number] & {
+    selected: boolean;
+  };
+
+  interface Props {
+    addStep: () => boolean;
+    display: Omit<TimelineDisplay, "stepRows"> & {
+      rootSelected: boolean;
+      stepRows: TimelineStepRow[];
+    };
+    duplicateSelectedStep: () => boolean;
+    moveSelectedStep: (delta: number) => boolean;
+    removeSelectedStep: () => boolean;
+    selectRoot: () => boolean;
+    selectStep: (stepIndex: number) => boolean;
+  }
 
   let {
     display,
@@ -18,12 +37,12 @@
     duplicateSelectedStep,
     moveSelectedStep,
     removeSelectedStep,
-  } = $props();
+  }: Props = $props();
 
-  let confirmationStepIndex = $state(null);
-  let confirmButton = $state(null);
-  let deleteButton = $state(null);
-  let timelineHost = $state(null);
+  let confirmationStepIndex = $state<number | null>(null);
+  let confirmButton = $state<HTMLButtonElement | null>(null);
+  let deleteButton = $state<HTMLButtonElement | null>(null);
+  let timelineHost = $state<HTMLElement | null>(null);
   let selectedStepIndex = $derived(
     display.stepRows.find((stepRow) => stepRow.selected)?.stepIndex ?? null,
   );
@@ -37,7 +56,7 @@
     }
   });
 
-  async function confirmDelete(stepIndex) {
+  async function confirmDelete(stepIndex: number): Promise<void> {
     if (confirmationStepIndex !== stepIndex) {
       confirmationStepIndex = stepIndex;
       await tick();
@@ -60,14 +79,14 @@
       ) {
         return;
       }
-      const selectedTarget = timelineHost.querySelector(
+      const selectedTarget = timelineHost.querySelector<HTMLButtonElement>(
         '[aria-pressed="true"]',
       );
       if (selectedTarget?.isConnected) selectedTarget.focus();
     });
   }
 
-  async function cancelDelete() {
+  async function cancelDelete(): Promise<void> {
     confirmationStepIndex = null;
     await tick();
     requestAnimationFrame(() => deleteButton?.focus());

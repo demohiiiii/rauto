@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
   import { tv } from "tailwind-variants";
 
   export const toggleVariants = tv({
@@ -22,9 +22,13 @@
   });
 </script>
 
-<script>
+<script lang="ts">
   import { Toggle as TogglePrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
+  import type { VariantProps } from "tailwind-variants";
+
+  type ToggleProps = TogglePrimitive.RootProps &
+    VariantProps<typeof toggleVariants>;
 
   let {
     ref = $bindable(null),
@@ -33,7 +37,7 @@
     size = "default",
     variant = "default",
     ...restProps
-  } = $props();
+  }: ToggleProps = $props();
 </script>
 
 <TogglePrimitive.Root

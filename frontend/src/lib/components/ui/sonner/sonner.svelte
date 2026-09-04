@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
   import { Toaster as Sonner } from "svelte-sonner";
+  import type { ToasterProps } from "svelte-sonner";
   import { Portal } from "bits-ui";
   import { mode } from "mode-watcher";
   import Loader2Icon from "@lucide/svelte/icons/loader-2";
@@ -8,7 +9,7 @@
   import InfoIcon from "@lucide/svelte/icons/info";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
 
-  let { ...restProps } = $props();
+  let { ...restProps }: ToasterProps = $props();
 </script>
 
 <Portal>

@@ -25,7 +25,7 @@ interface NotifyOptions {
   notify?: boolean;
 }
 
-interface OrchestrationEditorFormState {
+export interface OrchestrationEditorFormState {
   formError: string;
   formModel: OrchestrationPlanFormModel;
 }
@@ -34,38 +34,46 @@ interface OrchestrationEditorSyncState extends OrchestrationEditorFormState {
   jsonText: string;
 }
 
-interface OrchestrationEditorActionContext {
+export interface OrchestrationEditorActionContext {
   didSynchronizeEditor(): boolean;
   isCurrent(): boolean;
   recordOwnedEditorSynchronization(): void;
   runOwnedEditorMutation<TResult>(operation: () => TResult): TResult;
 }
 
-interface TextFile {
+export interface OrchestrationEditorTextFile {
   text(): Promise<string>;
 }
 
-type CreateDraftHandler = (
-  actionContext: OrchestrationEditorActionContext,
-) => unknown;
-type EditorInputHandler = (jsonText: string) => unknown;
-type ImportFileHandler = (
-  file: TextFile,
-  actionContext: OrchestrationEditorActionContext,
-) => unknown;
+type MaybePromise<T> = Promise<T> | T;
 
-interface OrchestrationEditorDependencies {
-  onCreateDraft: CreateDraftHandler | null;
+type CreateDraftHandler<TResult> = (
+  actionContext: OrchestrationEditorActionContext,
+) => MaybePromise<TResult>;
+type EditorInputHandler = (jsonText: string) => void;
+type ImportFileHandler<TResult> = (
+  file: OrchestrationEditorTextFile,
+  actionContext: OrchestrationEditorActionContext,
+) => MaybePromise<TResult>;
+
+interface OrchestrationEditorDependencies<
+  TCreateDraftResult,
+  TImportFileResult,
+> {
+  onCreateDraft: CreateDraftHandler<TCreateDraftResult> | null;
   onEditorInput: EditorInputHandler | null;
-  onImportFile: ImportFileHandler | null;
+  onImportFile: ImportFileHandler<TImportFileResult> | null;
 }
 
-interface OrchestrationEditorPanelContext {
+interface OrchestrationEditorPanelContext<
+  TCreateDraftResult,
+  TImportFileResult,
+> {
   editorSyncVersion?: number;
   jsonPlaceholder?: string;
-  onCreateDraft?: CreateDraftHandler | null;
+  onCreateDraft?: CreateDraftHandler<TCreateDraftResult> | null;
   onEditorInput?: EditorInputHandler | null;
-  onImportFile?: ImportFileHandler | null;
+  onImportFile?: ImportFileHandler<TImportFileResult> | null;
 }
 
 interface OrchestrationEditorWorkspaceCore {
@@ -196,9 +204,15 @@ function defaultOrchestrationEditorFormModel(): OrchestrationPlanFormModel {
   return orchestrationPlanFormModelFromJson();
 }
 
-function createOrchestrationEditorPanelActionWorkspace(
+function createOrchestrationEditorPanelActionWorkspace<
+  TCreateDraftResult,
+  TImportFileResult,
+>(
   editorWorkspace: OrchestrationEditorWorkspaceCore,
-  dependencies: OrchestrationEditorDependencies,
+  dependencies: OrchestrationEditorDependencies<
+    TCreateDraftResult,
+    TImportFileResult
+  >,
 ) {
   let editorInputVersion = 0;
   let externalActionVersion = 0;
@@ -280,7 +294,9 @@ function createOrchestrationEditorPanelActionWorkspace(
     }
   }
 
-  async function importFile(file: TextFile): Promise<unknown> {
+  async function importFile(
+    file: OrchestrationEditorTextFile,
+  ): Promise<TImportFileResult | undefined> {
     const actionContext = beginExternalAction();
     const result = await dependencies.onImportFile?.(file, actionContext);
     if (actionContext.isCurrent() && !actionContext.didSynchronizeEditor()) {
@@ -297,10 +313,19 @@ function createOrchestrationEditorPanelActionWorkspace(
   };
 }
 
-export function createOrchestrationEditorPanelWorkspace(
-  inputState: OrchestrationEditorPanelContext = {},
+export function createOrchestrationEditorPanelWorkspace<
+  TCreateDraftResult = void,
+  TImportFileResult = void,
+>(
+  inputState: OrchestrationEditorPanelContext<
+    TCreateDraftResult,
+    TImportFileResult
+  > = {},
 ) {
-  const dependencyState: OrchestrationEditorDependencies = {
+  const dependencyState: OrchestrationEditorDependencies<
+    TCreateDraftResult,
+    TImportFileResult
+  > = {
     onCreateDraft: inputState.onCreateDraft ?? null,
     onEditorInput: inputState.onEditorInput ?? null,
     onImportFile: inputState.onImportFile ?? null,
@@ -429,7 +454,10 @@ export function createOrchestrationEditorPanelWorkspace(
 
   function applyDisplayConfig({
     jsonPlaceholder = orchestrationJsonPlaceholder,
-  }: Pick<OrchestrationEditorPanelContext, "jsonPlaceholder"> = {}): void {
+  }: Pick<
+    OrchestrationEditorPanelContext<TCreateDraftResult, TImportFileResult>,
+    "jsonPlaceholder"
+  > = {}): void {
     displayConfigStateStore.set({
       jsonPlaceholder: jsonPlaceholder || orchestrationJsonPlaceholder,
     });
@@ -472,7 +500,10 @@ export function createOrchestrationEditorPanelWorkspace(
       dependencyState,
     ),
     setEditorPanelContext(
-      nextInputState: OrchestrationEditorPanelContext = {},
+      nextInputState: OrchestrationEditorPanelContext<
+        TCreateDraftResult,
+        TImportFileResult
+      > = {},
     ) {
       if ("jsonPlaceholder" in nextInputState) {
         applyDisplayConfig({

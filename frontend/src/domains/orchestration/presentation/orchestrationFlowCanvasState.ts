@@ -29,6 +29,16 @@ const STAGE_BOTTOM = 56;
 
 type WorkflowPreviewMap = Record<string, OrchestrationWorkflowPreview>;
 
+export type OrchestrationFlowSelection =
+  | { kind: "job"; jobIndex: number; stageIndex: number }
+  | { kind: "stage"; stageIndex: number }
+  | {
+      blockIndex: number;
+      jobIndex: number;
+      kind: "workflow-block";
+      stageIndex: number;
+    };
+
 interface OrchestrationFlowPosition {
   x: number;
   y: number;
@@ -600,7 +610,7 @@ export function orchestrationNormalizeFlowSelection(
   model: Pick<OrchestrationPlanFormModel, "stages"> = { stages: [] },
   selection: unknown,
   workflowPreviews: WorkflowPreviewMap = {},
-): JsonObject | null {
+): OrchestrationFlowSelection | null {
   const selectionValue = objectValue(selection);
   if (!Object.keys(selectionValue).length) return null;
   const stages = model.stages ?? [];
@@ -610,7 +620,7 @@ export function orchestrationNormalizeFlowSelection(
   }
   if (selectionValue.kind === "stage") {
     return selectionValue.stageIndex === stageIndex
-      ? selectionValue
+      ? (selectionValue as OrchestrationFlowSelection)
       : { kind: "stage", stageIndex };
   }
   const jobIndex = Number(selectionValue.jobIndex);
@@ -621,7 +631,7 @@ export function orchestrationNormalizeFlowSelection(
   if (selectionValue.kind === "job") {
     return selectionValue.stageIndex === stageIndex &&
       selectionValue.jobIndex === jobIndex
-      ? selectionValue
+      ? (selectionValue as OrchestrationFlowSelection)
       : { kind: "job", stageIndex, jobIndex };
   }
   if (selectionValue.kind !== "workflow-block") return null;
@@ -641,6 +651,6 @@ export function orchestrationNormalizeFlowSelection(
   return selectionValue.stageIndex === stageIndex &&
     selectionValue.jobIndex === jobIndex &&
     selectionValue.blockIndex === blockIndex
-    ? selectionValue
+    ? (selectionValue as OrchestrationFlowSelection)
     : { kind: "workflow-block", stageIndex, jobIndex, blockIndex };
 }

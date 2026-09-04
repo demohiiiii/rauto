@@ -1,5 +1,5 @@
-<script>
-  import * as Card from "$lib/components/ui/card";
+<script lang="ts">
+  import * as Card from "$lib/components/ui/card/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import { collapsibleGroupBindings } from "../../lib/events.js";
@@ -10,6 +10,20 @@
     readCollapsedPreference,
     writeCollapsedPreference,
   } from "../../lib/ui.js";
+  import type { Snippet } from "svelte";
+
+  interface Props {
+    "body-class"?: string;
+    children: Snippet;
+    class?: string;
+    header?: Snippet;
+    "header-class"?: string;
+    hidden?: boolean;
+    label?: string;
+    persistenceKey?: string;
+    "toggle-mode"?: "icon" | "text";
+    variant?: "card" | "section";
+  }
 
   let {
     "body-class": bodyClass,
@@ -19,14 +33,14 @@
     "header-class": headerClass,
     hidden = false,
     label = "",
-    persistenceKey,
+    persistenceKey = "",
     "toggle-mode": toggleMode = "text",
     variant = "card",
-  } = $props();
+  }: Props = $props();
 
   let collapsed = $state(false);
   let mounted = $state(false);
-  let appliedPersistenceKey = $state(null);
+  let appliedPersistenceKey = $state<string | null>(null);
   let bindings = $derived(
     collapsibleGroupBindings({
       onReadCollapsedPreference: readCollapsedPreference,
@@ -54,12 +68,12 @@
     `${resolvedLabel}: ${collapsibleDisplay.buttonLabelText}`,
   );
 
-  function collapsibleBodyId(value = "") {
+  function collapsibleBodyId(value = ""): string {
     const encodedKey = Array.from(String(value || "section"))
       .map((character) =>
         /[A-Za-z0-9_-]/.test(character)
           ? character
-          : `_${character.codePointAt(0).toString(16)}_`,
+          : `_${character.codePointAt(0)?.toString(16) ?? ""}_`,
       )
       .join("");
     return `collapsible-body-${encodedKey || "section"}`;

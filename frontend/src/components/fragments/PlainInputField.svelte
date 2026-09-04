@@ -5,6 +5,7 @@
   import type { HTMLInputAttributes } from "svelte/elements";
 
   interface PlainInputFieldProps {
+    "aria-invalid"?: HTMLInputAttributes["aria-invalid"];
     "aria-label"?: string;
     autocomplete?: HTMLInputAttributes["autocomplete"];
     class?: string;
@@ -32,6 +33,7 @@
     id = undefined,
     placeholderText = "",
     "aria-label": ariaLabel = "",
+    "aria-invalid": ariaInvalid = undefined,
     title = "",
     type = "text",
     autocomplete = undefined,
@@ -74,6 +76,7 @@
   {id}
   class={inputClass}
   aria-label={ariaLabel || title || placeholderText}
+  aria-invalid={ariaInvalid}
   placeholder={placeholderText}
   {value}
   {title}

@@ -1,7 +1,16 @@
-<script>
+<script lang="ts">
   import { Calendar as CalendarPrimitive } from "bits-ui";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import { cn } from "$lib/utils.js";
+  import type { HTMLSelectAttributes } from "svelte/elements";
+
+  type CalendarMonthSelectProps = Omit<
+    CalendarPrimitive.MonthSelectProps,
+    "onchange" | "value"
+  > & {
+    onchange?: HTMLSelectAttributes["onchange"];
+    value?: number;
+  };
 
   let {
     ref = $bindable(null),
@@ -9,7 +18,7 @@
     value,
     onchange,
     ...restProps
-  } = $props();
+  }: CalendarMonthSelectProps = $props();
 </script>
 
 <span

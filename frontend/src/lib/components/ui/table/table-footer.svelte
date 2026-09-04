@@ -1,11 +1,22 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type TableFooterProps = Omit<
+    HTMLAttributes<HTMLTableSectionElement>,
+    "children"
+  > & {
+    children?: Snippet;
+    ref?: HTMLTableSectionElement | null;
+  };
+
   let {
     ref = $bindable(null),
     class: className,
     children,
     ...restProps
-  } = $props();
+  }: TableFooterProps = $props();
 </script>
 
 <tfoot

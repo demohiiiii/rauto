@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { currentLanguageState } from "../../lib/i18n.js";
   import { callbackHandler } from "../../lib/events.js";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -7,8 +7,16 @@
   import { parsedOutputBlockFragmentDisplay } from "../../lib/ui.js";
   import OutputBlock from "./OutputBlock.svelte";
   import StatusCard from "./StatusCard.svelte";
+  import type { ParsedOutputBlockDisplay } from "$domains/execution/index.js";
 
-  let { parsedOutputBlock, onExportExcel } = $props();
+  interface Props {
+    onExportExcel?: (
+      exportItem: ParsedOutputBlockDisplay["exportItem"],
+    ) => Promise<void> | void;
+    parsedOutputBlock: ParsedOutputBlockDisplay;
+  }
+
+  let { parsedOutputBlock, onExportExcel }: Props = $props();
   let currentLanguage = $derived($currentLanguageState);
   let blockDisplay = $derived.by(() => {
     currentLanguage;

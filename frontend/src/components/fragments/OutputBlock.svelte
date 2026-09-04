@@ -1,8 +1,20 @@
-<script>
-  import * as Card from "$lib/components/ui/card";
-  import * as ScrollArea from "$lib/components/ui/scroll-area";
+<script lang="ts">
+  import * as Card from "$lib/components/ui/card/index.js";
+  import * as ScrollArea from "$lib/components/ui/scroll-area/index.js";
   import { cn } from "$lib/utils.js";
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
+  import type { Snippet } from "svelte";
+
+  interface Props {
+    children?: Snippet;
+    class?: string;
+    contentClass?: string;
+    errorLabel?: string;
+    hidden?: boolean;
+    tag?: keyof HTMLElementTagNameMap;
+    title?: string;
+    tone?: "default" | "error" | "info" | "success";
+  }
 
   let {
     children,
@@ -13,7 +25,7 @@
     tag = "pre",
     title = "Output",
     tone = "default",
-  } = $props();
+  }: Props = $props();
 
   let failed = $derived(tone === "error");
   let rootClass = $derived(

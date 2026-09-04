@@ -1,8 +1,32 @@
-<script>
-  import { isEqualMonth } from "@internationalized/date";
+<script lang="ts">
+  import { isEqualMonth, type DateValue } from "@internationalized/date";
   import { Calendar as CalendarPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
   import * as Calendar from "./index.js";
+  import { buttonVariants } from "$lib/components/ui/button/index.js";
+  import type { Snippet } from "svelte";
+  import type { VariantProps } from "tailwind-variants";
+
+  type CalendarCaptionLayout =
+    | "label"
+    | "dropdown"
+    | "dropdown-months"
+    | "dropdown-years";
+  type MonthFormat =
+    | Intl.DateTimeFormatOptions["month"]
+    | ((month: number) => string);
+  interface CalendarDayDisplay {
+    day: DateValue;
+    outsideMonth: boolean;
+  }
+  type CalendarProps = CalendarPrimitive.RootProps & {
+    buttonVariant?: VariantProps<typeof buttonVariants>["variant"];
+    captionLayout?: CalendarCaptionLayout;
+    day?: Snippet<[CalendarDayDisplay]>;
+    months?: number[];
+    years?: number[];
+  };
+
   let {
     ref = $bindable(null),
     value = $bindable(),
@@ -19,9 +43,9 @@
     day,
     disableDaysOutsideMonth = false,
     ...restProps
-  } = $props();
+  }: CalendarProps = $props();
 
-  const monthFormat = $derived.by(() => {
+  const monthFormat = $derived.by((): MonthFormat => {
     if (monthFormatProp) return monthFormatProp;
     if (captionLayout.startsWith("dropdown")) return "short";
     return "long";
@@ -33,7 +57,7 @@ Discriminated Unions + Destructing (required for bindable) do not
 get along, so we shut typescript up by casting `value` to `never`.
 -->
 <CalendarPrimitive.Root
-  bind:value
+  bind:value={value as never}
   bind:ref
   bind:placeholder
   {weekdayFormat}

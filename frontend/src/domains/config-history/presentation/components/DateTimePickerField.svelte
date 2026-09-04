@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { CalendarDate } from "@internationalized/date";
+  import {
+    CalendarDate,
+    toCalendarDate,
+    type DateValue,
+  } from "@internationalized/date";
   import CalendarIcon from "@lucide/svelte/icons/calendar";
   import { Button } from "$lib/components/ui/button";
   import { Calendar } from "$lib/components/ui/calendar";
@@ -123,8 +127,8 @@
       years={undefined}
       monthFormat={undefined}
       day={undefined}
-      onValueChange={(nextDate: CalendarDate | undefined) => {
-        selectedDate = nextDate;
+      onValueChange={(nextDate: DateValue | undefined) => {
+        selectedDate = nextDate ? toCalendarDate(nextDate) : undefined;
       }}
     />
     <div class="grid gap-3 border-t border-border p-3">

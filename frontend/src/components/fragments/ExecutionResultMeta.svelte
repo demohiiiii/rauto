@@ -1,7 +1,17 @@
-<script>
+<script lang="ts">
   import DetailFieldCard from "./DetailFieldCard.svelte";
 
-  let { fields = [] } = $props();
+  interface ExecutionMetaField {
+    label: string;
+    mono?: boolean;
+    value?: boolean | number | string | null;
+  }
+
+  interface Props {
+    fields?: ExecutionMetaField[];
+  }
+
+  let { fields = [] }: Props = $props();
 </script>
 
 {#if fields.length}

@@ -1,7 +1,36 @@
-<script>
-  import { DateFormatter, getLocalTimeZone } from "@internationalized/date";
+<script lang="ts">
+  import {
+    DateFormatter,
+    getLocalTimeZone,
+    type DateValue,
+  } from "@internationalized/date";
   import CalendarMonthSelect from "./calendar-month-select.svelte";
   import CalendarYearSelect from "./calendar-year-select.svelte";
+
+  type CalendarCaptionLayout =
+    | "label"
+    | "dropdown"
+    | "dropdown-months"
+    | "dropdown-years";
+  type MonthFormat =
+    | Intl.DateTimeFormatOptions["month"]
+    | ((month: number) => string);
+  type YearFormat =
+    | Intl.DateTimeFormatOptions["year"]
+    | ((year: number) => string);
+
+  interface CalendarCaptionProps {
+    captionLayout: CalendarCaptionLayout;
+    locale: string;
+    month: DateValue;
+    monthFormat: MonthFormat;
+    monthIndex?: number;
+    months?: number[];
+    placeholder?: DateValue;
+    yearFormat: YearFormat;
+    years?: number[];
+  }
+
   let {
     captionLayout,
     months,
@@ -12,16 +41,16 @@
     locale,
     placeholder = $bindable(),
     monthIndex = 0,
-  } = $props();
+  }: CalendarCaptionProps = $props();
 
-  function formatYear(date) {
+  function formatYear(date: DateValue): string {
     const dateObj = date.toDate(getLocalTimeZone());
     if (typeof yearFormat === "function")
       return yearFormat(dateObj.getFullYear());
     return new DateFormatter(locale, { year: yearFormat }).format(dateObj);
   }
 
-  function formatMonth(date) {
+  function formatMonth(date: DateValue): string {
     const dateObj = date.toDate(getLocalTimeZone());
     if (typeof monthFormat === "function")
       return monthFormat(dateObj.getMonth() + 1);

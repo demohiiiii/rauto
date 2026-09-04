@@ -4,7 +4,7 @@
   interface DetailFieldCardProps {
     badgeClass?: string;
     class?: string;
-    detailValue?: string;
+    detailValue?: boolean | number | string | null;
     label?: string;
     labelClass?: string;
     mono?: boolean;

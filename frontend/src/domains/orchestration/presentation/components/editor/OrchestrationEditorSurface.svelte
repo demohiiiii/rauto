@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import BracesIcon from "@lucide/svelte/icons/braces";
   import EyeIcon from "@lucide/svelte/icons/eye";
   import PlayIcon from "@lucide/svelte/icons/play";
@@ -21,6 +21,50 @@
   import OrchestrationPreviewPanel from "$domains/orchestration/presentation/components/preview/OrchestrationPreviewPanel.svelte";
   import TxJsonFormSurface from "$domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte";
 
+  import type {
+    OrchestrationEditorRunPanelDisplay,
+    OrchestrationEditorTextFile,
+    OrchestrationEditorView,
+    OrchestrationPlan,
+    OrchestrationPlanChangeHandler,
+    OrchestrationPlanFormModel,
+    OrchestrationRunButtonDisplay,
+    OrchestrationTemplateDisplayState,
+    OrchestrationVisualEditorDisplay,
+    orchestrationExecutionPanelDisplay,
+  } from "$domains/orchestration/index.js";
+
+  type ExecutionPanelDisplay = ReturnType<
+    typeof orchestrationExecutionPanelDisplay
+  >;
+  type TemplateAction = () => Promise<boolean> | boolean | void;
+
+  interface Props {
+    active?: boolean;
+    changeNameDialogValue: (value: string) => void;
+    closeNameDialog: () => void;
+    editorDisplay: OrchestrationEditorRunPanelDisplay;
+    editorValue: string;
+    executionPanelDisplay: ExecutionPanelDisplay;
+    onEditorErrorChange?: (error: string) => void;
+    onEditorInput?: (text: string) => void;
+    onExecute?: () => Promise<void> | void;
+    onFormChange?: OrchestrationPlanChangeHandler;
+    onImportFile?: (
+      file: OrchestrationEditorTextFile,
+    ) => Promise<boolean | void> | boolean | void;
+    onTemplateChange: (templateName: string) => Promise<boolean> | boolean;
+    openNewDialog: () => void;
+    openSaveAsDialog: () => void;
+    orchestrationFormError: string;
+    orchestrationFormModel: OrchestrationPlanFormModel;
+    runButtonDisplay?: OrchestrationRunButtonDisplay;
+    saveTemplate: TemplateAction;
+    submitNameDialog: TemplateAction;
+    templateDisplay: OrchestrationTemplateDisplayState;
+    visualDisplay: OrchestrationVisualEditorDisplay;
+  }
+
   let {
     active,
     editorDisplay,
@@ -42,11 +86,14 @@
     closeNameDialog,
     submitNameDialog,
     runButtonDisplay = {},
-    executionPanelDisplay = {},
-  } = $props();
+    executionPanelDisplay,
+  }: Props = $props();
 
   let currentLanguage = $derived($currentLanguageState);
-  let editorDialog = $state({ open: false, mode: "json" });
+  let editorDialog = $state<{
+    mode: OrchestrationEditorView;
+    open: boolean;
+  }>({ open: false, mode: "json" });
   let executionDialogOpen = $state(false);
   let templateBusy = $derived(!!templateDisplay?.loadingAction);
   let nameDialog = $derived(
@@ -93,11 +140,11 @@
       ? `${label}: ${templateDisplay.statusName}`
       : label;
   });
-  let readonlyPlan = $derived.by(() => {
+  let readonlyPlan = $derived.by<OrchestrationPlan | null>(() => {
     try {
       return JSON.parse(
         orchestrationPlanFormModelToJsonText(orchestrationFormModel),
-      );
+      ) as OrchestrationPlan;
     } catch {
       return null;
     }
@@ -127,28 +174,28 @@
     );
   });
 
-  function openEditorDialog(mode) {
+  function openEditorDialog(mode: OrchestrationEditorView): void {
     if (mode !== "json" && mode !== "readonly") return;
     editorDialog = { open: true, mode };
   }
 
-  function setEditorDialogOpen(open) {
+  function setEditorDialogOpen(open: boolean): void {
     editorDialog = { ...editorDialog, open };
   }
 
-  function handleNameDialogOpenChange(open) {
+  function handleNameDialogOpenChange(open: boolean): void {
     if (!open) closeNameDialog();
   }
 
-  function handleNameDialogKeydown(event) {
+  function handleNameDialogKeydown(event: KeyboardEvent): void {
     if (event.key !== "Enter" || event.isComposing) return;
     event.preventDefault();
     void submitNameDialog();
   }
 
-  async function executeCurrentPlan() {
+  async function executeCurrentPlan(): Promise<void> {
     executionDialogOpen = true;
-    return typeof onExecute === "function" ? onExecute() : undefined;
+    await onExecute?.();
   }
 </script>
 

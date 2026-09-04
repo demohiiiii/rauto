@@ -1,11 +1,22 @@
-<script>
+<script lang="ts">
   import { cn } from "$lib/utils.js";
+  import type { Snippet } from "svelte";
+  import type { HTMLAttributes } from "svelte/elements";
+
+  type PopoverDescriptionProps = Omit<
+    HTMLAttributes<HTMLDivElement>,
+    "children"
+  > & {
+    children?: Snippet;
+    ref?: HTMLDivElement | null;
+  };
+
   let {
     ref = $bindable(null),
     class: className,
     children,
     ...restProps
-  } = $props();
+  }: PopoverDescriptionProps = $props();
 </script>
 
 <div

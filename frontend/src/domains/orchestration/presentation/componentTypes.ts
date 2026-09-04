@@ -1,5 +1,6 @@
 import type { Component } from "svelte";
 import type { JsonTemplateActionContext } from "$domains/transactions/index.js";
+import type { TransactionTemplateResource } from "$domains/transactions/index.js";
 
 export interface OrchestratedStageTextFile {
   text(): Promise<string>;
@@ -20,7 +21,7 @@ export interface OrchestratedStageProps {
   onLoadJsonTemplate?: (
     templateName: string,
     actionContext?: JsonTemplateActionContext | null,
-  ) => void;
+  ) => Promise<TransactionTemplateResource | null>;
   onPreview?: () => void;
   onSaveJsonTemplate?: () => void;
 }

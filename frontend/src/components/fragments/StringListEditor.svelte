@@ -1,7 +1,23 @@
-<script>
+<script lang="ts">
   import { Button } from "$lib/components/ui/button/index.js";
   import { stringListEditorBindings } from "../../lib/events.js";
   import PlainInputField from "./PlainInputField.svelte";
+
+  interface StringListItemRow {
+    itemIndex: number;
+    text: string;
+  }
+
+  interface Props {
+    addButtonLabel: string;
+    itemRows: StringListItemRow[];
+    labelText: string;
+    onAdd?: (() => unknown) | null;
+    onRemove?: ((itemIndex: number) => unknown) | null;
+    onValueChange?: ((itemIndex: number, value: string) => unknown) | null;
+    placeholderText?: string;
+    removeButtonLabel: string;
+  }
 
   let {
     addButtonLabel,
@@ -12,7 +28,7 @@
     onValueChange,
     placeholderText = "",
     removeButtonLabel,
-  } = $props();
+  }: Props = $props();
   let listBindings = $derived(
     stringListEditorBindings({ onRemove, onValueChange }),
   );

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
   import CopyIcon from "@lucide/svelte/icons/copy";
@@ -9,10 +9,36 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { classNames } from "$lib/ui.js";
+  import type { OrchestrationStageFlowNode } from "$domains/orchestration/index.js";
 
-  let { data, selected = false } = $props();
+  type StageNodeData = OrchestrationStageFlowNode["data"] & {
+    addJobLabel: string;
+    canMoveNext: boolean;
+    canMovePrevious: boolean;
+    deleteLabel: string;
+    duplicateLabel: string;
+    emptyHintText: string;
+    jobCountText: string;
+    moveNextLabel: string;
+    movePreviousLabel: string;
+    onAddJob?: () => void;
+    onDelete?: () => void;
+    onDuplicate?: () => void;
+    onMoveNext?: () => void;
+    onMovePrevious?: () => void;
+    sequenceText: string;
+    strategyText: string;
+    vertical: boolean;
+  };
 
-  function runAction(event, action) {
+  interface Props {
+    data: StageNodeData;
+    selected?: boolean;
+  }
+
+  let { data, selected = false }: Props = $props();
+
+  function runAction(event: MouseEvent, action?: () => void): void {
     event.stopPropagation();
     if (typeof action === "function") action();
   }

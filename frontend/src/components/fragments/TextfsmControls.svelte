@@ -1,10 +1,34 @@
-<script>
+<script lang="ts">
   import InfoIcon from "@lucide/svelte/icons/info";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
   import { Switch } from "$lib/components/ui/switch/index.js";
   import { createTextfsmControlsWorkspace } from "../../lib/svelte.js";
   import PlainInputField from "./PlainInputField.svelte";
   import PlainSelectField from "./PlainSelectField.svelte";
+
+  interface TextfsmFields {
+    enabled: boolean;
+    excelName?: string;
+    platform: string;
+    platformOptions: string[];
+    strictErrors: boolean;
+    template: string;
+  }
+
+  type BooleanChangeHandler = (value: boolean) => unknown;
+  type StringChangeHandler = (value: string) => unknown;
+
+  interface Props {
+    excelNamePlaceholderKey: string;
+    hintKey: string;
+    includeTemplateInput: boolean;
+    onEnabledChange?: BooleanChangeHandler | null;
+    onExcelNameChange?: StringChangeHandler | null;
+    onPlatformChange?: StringChangeHandler | null;
+    onStrictErrorsChange?: BooleanChangeHandler | null;
+    onTemplateChange?: StringChangeHandler | null;
+    textfsmFields: TextfsmFields;
+  }
 
   let {
     excelNamePlaceholderKey,
@@ -16,40 +40,25 @@
     onStrictErrorsChange,
     onTemplateChange,
     textfsmFields,
-  } = $props();
-  function handleEnabledChange(value) {
-    if (typeof onEnabledChange === "function") {
-      return onEnabledChange(value);
-    }
-    return undefined;
+  }: Props = $props();
+  function handleEnabledChange(value: boolean): void {
+    onEnabledChange?.(value);
   }
 
-  function handleExcelNameChange(value) {
-    if (typeof onExcelNameChange === "function") {
-      return onExcelNameChange(value);
-    }
-    return undefined;
+  function handleExcelNameChange(value: string): void {
+    onExcelNameChange?.(value);
   }
 
-  function handlePlatformChange(value) {
-    if (typeof onPlatformChange === "function") {
-      return onPlatformChange(value);
-    }
-    return undefined;
+  function handlePlatformChange(value: string): void {
+    onPlatformChange?.(value);
   }
 
-  function handleStrictErrorsChange(value) {
-    if (typeof onStrictErrorsChange === "function") {
-      return onStrictErrorsChange(value);
-    }
-    return undefined;
+  function handleStrictErrorsChange(value: boolean): void {
+    onStrictErrorsChange?.(value);
   }
 
-  function handleTemplateChange(value) {
-    if (typeof onTemplateChange === "function") {
-      return onTemplateChange(value);
-    }
-    return undefined;
+  function handleTemplateChange(value: string): void {
+    onTemplateChange?.(value);
   }
 
   const textfsmControlsWorkspace = createTextfsmControlsWorkspace({

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import AlertTriangleIcon from "@lucide/svelte/icons/triangle-alert";
   import * as Alert from "$lib/components/ui/alert/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
@@ -10,12 +10,31 @@
     sessionRetryValidation,
   } from "$domains/execution/index.js";
 
+  interface SessionRetryValue {
+    enabled: boolean;
+    initialBackoffMs: string;
+    maxBackoffMs: string;
+    maxRetries: string;
+    retryAuthenticationErrors: boolean;
+  }
+
+  type NormalizedSessionRetryState = ReturnType<
+    typeof normalizeSessionRetryState
+  >;
+
+  interface Props {
+    disabled?: boolean;
+    idPrefix?: string;
+    onChange?: ((value: NormalizedSessionRetryState) => void) | null;
+    value?: Partial<SessionRetryValue>;
+  }
+
   let {
     value = {},
     idPrefix = "session-retry",
     disabled = false,
     onChange = null,
-  } = $props();
+  }: Props = $props();
 
   let currentLanguage = $derived($currentLanguageState);
   let state = $derived(normalizeSessionRetryState(value));
@@ -38,7 +57,7 @@
     return validation.errorKey ? t(validation.errorKey) : "";
   });
 
-  function patch(patchValue) {
+  function patch(patchValue: Partial<SessionRetryValue>): void {
     onChange?.({ ...state, ...patchValue });
   }
 </script>

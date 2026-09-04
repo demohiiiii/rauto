@@ -1,8 +1,24 @@
-<script>
+<script lang="ts">
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Switch } from "$lib/components/ui/switch/index.js";
   import { plainCheckboxFieldBindings } from "../../lib/events.js";
   import { t } from "../../lib/i18n.js";
+
+  interface CheckedChangeEvent {
+    currentTarget: { checked: boolean };
+    target: { checked: boolean };
+  }
+
+  interface Props {
+    checked?: boolean;
+    control?: "checkbox" | "switch";
+    labelText?: string;
+    onChange?: ((event: CheckedChangeEvent) => void) | null;
+    onCheckedChange?: ((checked: boolean) => void) | null;
+    showLabel?: boolean;
+    title?: string;
+    toggleAriaLabel?: string;
+  }
 
   let {
     checked = false,
@@ -13,7 +29,7 @@
     showLabel = false,
     title = "",
     toggleAriaLabel = "",
-  } = $props();
+  }: Props = $props();
   let checkboxBindings = $derived(
     plainCheckboxFieldBindings({ onChange, onCheckedChange }),
   );
@@ -21,8 +37,8 @@
   let resolvedAriaLabel = $derived(toggleAriaLabel || resolvedLabelText);
   let resolvedTitle = $derived(title || resolvedLabelText);
 
-  function checkedChangeHandler(nextChecked) {
-    return checkboxBindings.changeHandler({
+  function checkedChangeHandler(nextChecked: boolean): void {
+    checkboxBindings.changeHandler({
       currentTarget: { checked: !!nextChecked },
       target: { checked: !!nextChecked },
     });

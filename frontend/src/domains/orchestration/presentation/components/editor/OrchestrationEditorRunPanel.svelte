@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { tick } from "svelte";
   import { listInventoryGroups, listInventoryLabels } from "$api/client.js";
   import { browserConfirm } from "$lib/browser.js";
@@ -12,6 +12,32 @@
   import { createOrchestrationTemplateWorkspace } from "$domains/orchestration/index.js";
   import OrchestrationEditorSurface from "$domains/orchestration/presentation/components/editor/OrchestrationEditorSurface.svelte";
 
+  import type {
+    OrchestrationEditorActionContext,
+    OrchestrationEditorTextFile,
+    OrchestrationPlanFormModel,
+    OrchestrationRunButtonDisplay,
+    OrchestrationTemplateReplacementReason,
+    orchestrationExecutionPanelDisplay,
+  } from "$domains/orchestration/index.js";
+
+  type ExecutionPanelDisplay = ReturnType<
+    typeof orchestrationExecutionPanelDisplay
+  >;
+
+  interface Props {
+    active?: boolean;
+    editorSyncVersion?: number;
+    executionPanelDisplay: ExecutionPanelDisplay;
+    onEditorInput?: (text: string) => void;
+    onExecute?: () => Promise<void> | void;
+    onImportFile?: (
+      file: OrchestrationEditorTextFile,
+      actionContext: OrchestrationEditorActionContext,
+    ) => Promise<void> | void;
+    orchestrationEditorRunButtonDisplay: OrchestrationRunButtonDisplay;
+  }
+
   let {
     active,
     onEditorInput,
@@ -20,7 +46,7 @@
     orchestrationEditorRunButtonDisplay,
     editorSyncVersion = 0,
     executionPanelDisplay,
-  } = $props();
+  }: Props = $props();
 
   const orchestrationEditorWorkspace =
     createOrchestrationEditorPanelWorkspace();
@@ -46,7 +72,7 @@
   let templateInitialized = false;
   let targetOptionsInitialized = false;
 
-  async function initializeTargetOptions() {
+  async function initializeTargetOptions(): Promise<void> {
     const [groups, labels] = await Promise.all([
       listInventoryGroups().catch(() => []),
       listInventoryLabels().catch(() => []),
@@ -57,7 +83,11 @@
     });
   }
 
-  function confirmTemplateReplacement({ reason } = {}) {
+  function confirmTemplateReplacement({
+    reason,
+  }: {
+    reason?: OrchestrationTemplateReplacementReason;
+  } = {}): boolean {
     return browserConfirm(
       t(
         reason === "delete"
@@ -67,24 +97,25 @@
     );
   }
 
-  function changeCurrentFormModel(nextModel, options) {
-    const result = changeFormModel(nextModel, options);
+  function changeCurrentFormModel(
+    nextModel: OrchestrationPlanFormModel,
+    options?: { notify?: boolean },
+  ): void {
+    changeFormModel(nextModel, options);
     orchestrationTemplateWorkspace.markEdited();
-    return result;
   }
 
-  function handleCurrentEditorInput(jsonText) {
-    const result = handleEditorJsonInput(jsonText);
+  function handleCurrentEditorInput(jsonText: string): void {
+    handleEditorJsonInput(jsonText);
     orchestrationTemplateWorkspace.markEdited();
-    return result;
   }
 
-  function replaceTemplateJson(jsonText) {
+  function replaceTemplateJson(jsonText: string): void {
     const parsed = orchestrationPlanFormModelFromJsonText(jsonText);
     if (parsed.error || !parsed.model) {
       throw new Error(parsed.error || t("orchestrationJsonRequired"));
     }
-    return handleCurrentEditorInput(jsonText);
+    handleCurrentEditorInput(jsonText);
   }
 
   const orchestrationTemplateWorkspace = createOrchestrationTemplateWorkspace({
@@ -107,17 +138,18 @@
   } = orchestrationTemplateWorkspace;
   let templateDisplay = $derived($templateDisplayStateStore);
 
-  async function importManualFile(file) {
+  async function importManualFile(
+    file: OrchestrationEditorTextFile,
+  ): Promise<boolean | void> {
     if (
       templateDisplay.dirty &&
       !browserConfirm(t("orchestrationDiscardChangesConfirm"))
     ) {
       return false;
     }
-    const result = await importFile(file);
+    await importFile(file);
     await tick();
     adoptManualSnapshot({ statusKind: "imported" });
-    return result;
   }
 
   $effect(() => {

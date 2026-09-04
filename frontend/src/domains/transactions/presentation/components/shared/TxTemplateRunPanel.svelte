@@ -1,12 +1,30 @@
-<script>
+<script lang="ts">
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import ValueTextSelectField from "$components/fragments/ValueTextSelectField.svelte";
   import OrchestrationVarsFormCard from "$domains/orchestration/presentation/components/editor/OrchestrationVarsFormCard.svelte";
   import TxJsonFormSurface from "$domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte";
   import { createTxTemplateRunPanelWorkspace } from "$domains/transactions/index.js";
 
+  type TemplateAction = () => Promise<void> | void;
+
+  interface Props {
+    active?: boolean;
+    "aria-label"?: string;
+    "hidden-textarea"?: boolean;
+    hintKeys?: string[];
+    onCreateTemplateDraft?: TemplateAction;
+    onDeleteTemplate?: TemplateAction;
+    onLoadTemplate?: (templateName: string) => Promise<void> | void;
+    onSaveTemplate?: TemplateAction;
+    templateKind: string;
+    varsKey: string;
+    varsPlaceholderFallback?: string;
+    varsPlaceholderKey?: string;
+    varsPrefix: string;
+  }
+
   let {
-    active,
+    active = false,
     "aria-label": ariaLabel,
     "hidden-textarea": hiddenTextarea,
     hintKeys,
@@ -19,7 +37,7 @@
     varsPlaceholderFallback,
     varsPlaceholderKey,
     varsPrefix,
-  } = $props();
+  }: Props = $props();
 
   const txTemplateRunPanelWorkspace = createTxTemplateRunPanelWorkspace({
     getTemplateKind: () => templateKind,

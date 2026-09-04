@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
   import BracesIcon from "@lucide/svelte/icons/braces";
@@ -19,6 +19,7 @@
     Panel,
     SvelteFlow,
   } from "@xyflow/svelte";
+  import type { Edge, Node } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
   import { onDestroy, onMount } from "svelte";
   import { Badge } from "$lib/components/ui/badge/index.js";
@@ -33,13 +34,34 @@
   import TxWorkflowFlowNode from "$domains/transactions/presentation/components/workflow/TxWorkflowFlowNode.svelte";
   import TxWorkflowFlowViewportController from "$domains/transactions/presentation/components/workflow/TxWorkflowFlowViewportController.svelte";
 
+  import type {
+    TxWorkflowBlockRow,
+    TxWorkflowFlowNodeData,
+    TxWorkflowFormModel,
+  } from "$domains/transactions/index.js";
+
+  type TxWorkflowEditorView = "json" | "readonly";
+  type TxWorkflowGraphNode = Node<TxWorkflowFlowNodeData, "workflowNode">;
+  type TxWorkflowGraphEdge = Edge<Record<string, never>, "smoothstep">;
+  type TxWorkflowSelection =
+    | { blockIndex: number; kind: "block" }
+    | { blockIndex: null; kind: "none" };
+
+  interface Props {
+    embedded?: boolean;
+    model: TxWorkflowFormModel;
+    onChange?: ((model: TxWorkflowFormModel) => void) | null;
+    onOpenView?: (view: TxWorkflowEditorView) => void;
+    settingsOnly?: boolean;
+  }
+
   let {
     model,
     onChange,
     onOpenView,
     embedded = false,
     settingsOnly = false,
-  } = $props();
+  }: Props = $props();
 
   const txWorkflowVisualEditorWorkspace =
     createTxWorkflowVisualEditorWorkspace();
@@ -57,7 +79,10 @@
   let editorDisplay = $derived($editorDisplayStateStore);
   let workflowRootFieldRows = $derived($workflowRootFieldRowsStateStore);
   let currentLanguage = $derived($currentLanguageState);
-  let selectedTarget = $state({ kind: "block", blockIndex: 0 });
+  let selectedTarget = $state<TxWorkflowSelection>({
+    kind: "block",
+    blockIndex: 0,
+  });
   let settingsCollapsed = $state(false);
   let inspectorCollapsed = $state(false);
   let inspectorWidth = $state(560);
@@ -66,8 +91,8 @@
       window.matchMedia("(max-width: 1023px)").matches,
   );
   let compactCanvas = $derived(compactViewport);
-  let canvasHost = $state(null);
-  let inspectorResizeCleanup = null;
+  let canvasHost = $state<HTMLElement | null>(null);
+  let inspectorResizeCleanup = $state<(() => void) | null>(null);
   let selectedBlockRow = $derived(
     selectedTarget.kind === "block"
       ? blockRows.find(
@@ -99,9 +124,9 @@
       ? blockMeta(selectedBlockRow)
       : t("txWorkflowInspectorNoSelectionHint");
   });
-  let graphNodes = $derived.by(() => {
+  let graphNodes = $derived.by<TxWorkflowGraphNode[]>(() => {
     currentLanguage;
-    const blockNodes = blockRows.map((blockRow) => {
+    const blockNodes = blockRows.map((blockRow): TxWorkflowGraphNode => {
       const titleText = blockName(blockRow);
       const metaText = blockMeta(blockRow);
       const timelineRows = blockRow.showInlineBlock
@@ -161,7 +186,7 @@
     });
     return blockNodes;
   });
-  let graphEdges = $derived.by(() => {
+  let graphEdges = $derived.by<TxWorkflowGraphEdge[]>(() => {
     if (blockRows.length < 2) return [];
     return blockRows.slice(1).map((blockRow) => ({
       id: `workflow-edge-${blockRow.blockIndex}`,
@@ -180,7 +205,7 @@
     }));
   });
 
-  function blockName(blockRow) {
+  function blockName(blockRow: TxWorkflowBlockRow): string {
     if (blockRow.showTemplateRef) {
       return (
         blockRow.block?.templateRef?.name ||
@@ -191,7 +216,7 @@
     return blockRow.block?.inlineBlock?.name || blockRow.titleText;
   }
 
-  function blockMeta(blockRow) {
+  function blockMeta(blockRow: TxWorkflowBlockRow): string {
     if (blockRow.showTemplateRef) {
       return t("txWorkflowBlockSourceTemplate");
     }
@@ -203,38 +228,38 @@
     return `${stepCount} ${t("txBlockSummarySteps")} · ${rollbackKind}`;
   }
 
-  function openInspector() {
+  function openInspector(): void {
     inspectorCollapsed = false;
   }
 
-  function selectBlock(blockIndex) {
+  function selectBlock(blockIndex: number): void {
     selectedTarget = { kind: "block", blockIndex };
     openInspector();
   }
 
-  function selectGraphNode({ node }) {
+  function selectGraphNode({ node }: { node: TxWorkflowGraphNode }): void {
     if (node?.data?.kind === "block") {
       selectBlock(node.data.blockIndex);
     }
   }
 
-  function addBlock() {
+  function addBlock(): void {
     const nextIndex = blockRows.length;
     workflowActionHandlers.appendBlock();
     selectBlock(nextIndex);
   }
 
-  function duplicateBlock(blockIndex) {
+  function duplicateBlock(blockIndex: number): void {
     workflowActionHandlers.duplicateBlock(blockIndex);
     selectBlock(blockIndex + 1);
   }
 
-  function moveBlock(blockIndex, targetIndex) {
+  function moveBlock(blockIndex: number, targetIndex: number): void {
     workflowActionHandlers.moveBlock(blockIndex, targetIndex);
     selectBlock(targetIndex);
   }
 
-  function removeBlock(blockIndex) {
+  function removeBlock(blockIndex: number): void {
     workflowActionHandlers.removeBlock(blockIndex);
     if (blockRows.length <= 1) {
       selectedTarget = { kind: "none", blockIndex: null };
@@ -243,29 +268,29 @@
     selectBlock(Math.max(0, blockIndex - 1));
   }
 
-  function inspectorWidthLimit(nextWidth) {
+  function inspectorWidthLimit(nextWidth: number): number {
     const hostWidth = canvasHost?.clientWidth || 1024;
     const maxWidth = Math.max(380, Math.min(860, hostWidth - 360));
     return Math.min(Math.max(nextWidth, 380), maxWidth);
   }
 
-  function clearInspectorResize() {
+  function clearInspectorResize(): void {
     inspectorResizeCleanup?.();
     inspectorResizeCleanup = null;
   }
 
-  function startInspectorResize(event) {
+  function startInspectorResize(event: PointerEvent): void {
     if (window.innerWidth < 1024) return;
     event.preventDefault();
     clearInspectorResize();
     const startX = event.clientX;
     const startWidth = inspectorWidth;
-    const resize = (moveEvent) => {
+    const resize = (moveEvent: PointerEvent): void => {
       inspectorWidth = inspectorWidthLimit(
         startWidth + startX - moveEvent.clientX,
       );
     };
-    const stop = () => clearInspectorResize();
+    const stop = (): void => clearInspectorResize();
     window.addEventListener("pointermove", resize);
     window.addEventListener("pointerup", stop, { once: true });
     inspectorResizeCleanup = () => {
@@ -274,35 +299,33 @@
     };
   }
 
-  function resizeInspectorWithKeyboard(event) {
+  function resizeInspectorWithKeyboard(event: KeyboardEvent): void {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
     const delta = event.key === "ArrowLeft" ? 32 : -32;
     inspectorWidth = inspectorWidthLimit(inspectorWidth + delta);
   }
 
-  function collapseInspector() {
+  function collapseInspector(): void {
     clearInspectorResize();
     inspectorCollapsed = true;
   }
 
-  function collapseSettings() {
+  function collapseSettings(): void {
     settingsCollapsed = true;
   }
 
-  function expandSettings() {
+  function expandSettings(): void {
     settingsCollapsed = false;
   }
 
-  function collapseCanvasWindows() {
+  function collapseCanvasWindows(): void {
     collapseSettings();
     collapseInspector();
   }
 
-  function openCanvasView(nextView) {
-    if (typeof onOpenView === "function") {
-      onOpenView(nextView);
-    }
+  function openCanvasView(nextView: TxWorkflowEditorView): void {
+    onOpenView?.(nextView);
   }
 
   $effect(() => {
@@ -327,7 +350,7 @@
 
   onMount(() => {
     const compactQuery = window.matchMedia("(max-width: 1023px)");
-    const applyCompactCanvas = () => {
+    const applyCompactCanvas = (): void => {
       compactViewport = compactQuery.matches;
     };
     applyCompactCanvas();

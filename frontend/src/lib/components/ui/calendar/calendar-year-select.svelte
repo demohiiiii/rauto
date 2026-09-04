@@ -1,14 +1,21 @@
-<script>
+<script lang="ts">
   import { Calendar as CalendarPrimitive } from "bits-ui";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import { cn } from "$lib/utils.js";
+
+  type CalendarYearSelectProps = Omit<
+    CalendarPrimitive.YearSelectProps,
+    "value"
+  > & {
+    value?: number;
+  };
 
   let {
     ref = $bindable(null),
     class: className,
     value,
     ...restProps
-  } = $props();
+  }: CalendarYearSelectProps = $props();
 </script>
 
 <span

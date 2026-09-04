@@ -139,7 +139,10 @@ const txDisplayText = (displaySource: unknown): string =>
 
 export function transactionEditorSyncPresentation(
   status: TransactionEditorSyncStatus = "synced",
-) {
+): {
+  text: string;
+  tone: "muted" | "primary" | "warning";
+} {
   if (status === "invalid-json") {
     return {
       text: t("txEditorSyncInvalid"),
@@ -275,10 +278,10 @@ export const txBlockInputPanelDisplay = ({
 });
 
 export function txBlockInputEditorSurfaceDisplay(
-  inputDisplay: JsonObject = {},
+  inputDisplay: ReturnType<typeof txBlockInputPanelDisplay>,
 ) {
   return {
-    editorKey: "txBlock",
+    editorKey: TX_EDITOR.txBlock,
     editorTitle: txDisplayText(inputDisplay.editorTitle),
     hostClass: "tx-json-editor",
     jsonHintText: txDisplayText(inputDisplay.jsonHint),
@@ -299,10 +302,10 @@ export const txWorkflowInputPanelDisplay = ({
 });
 
 export function txWorkflowInputEditorSurfaceDisplay(
-  inputDisplay: JsonObject = {},
+  inputDisplay: ReturnType<typeof txWorkflowInputPanelDisplay>,
 ) {
   return {
-    editorKey: "txWorkflow",
+    editorKey: TX_EDITOR.txWorkflow,
     editorTitle: txDisplayText(inputDisplay.tabAriaLabel),
     hostClass: "tx-json-editor tx-json-editor-compact",
     placeholder: txDisplayText(inputDisplay.jsonPlaceholderText),

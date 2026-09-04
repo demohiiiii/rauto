@@ -292,7 +292,7 @@ export function parsedOutputBlockFragmentDisplay(
       : {};
   const emptyStatusDisplay = {
     statusClass: "py-2 text-xs",
-    variant: "alert",
+    variant: "alert" as const,
   };
   return {
     canExport: Boolean(blockDisplay.canExport),
@@ -311,8 +311,8 @@ export function parsedOutputBlockFragmentDisplay(
     jsonOutput: displayText(blockDisplay.jsonOutput),
     parseErrorStatus: {
       statusClass: "mt-3 items-start py-2 text-xs",
-      tone: "warning",
-      variant: "alert",
+      tone: "warning" as const,
+      variant: "alert" as const,
     },
     parseErrorTitle: tr("textfsmParseErrorTitle", "Parse Error"),
     parseErrorText: displayText(blockDisplay.parseErrorText),
@@ -365,7 +365,7 @@ export function collapsibleGroupDisplay({
   return {
     bodyClass,
     bodyHidden,
-    buttonAriaExpandedText: collapsed ? "false" : "true",
+    buttonAriaExpandedText: !collapsed,
     buttonLabelText: t(collapsed ? "expand" : "collapse"),
     headerClass,
     rootClass,

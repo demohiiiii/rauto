@@ -44,6 +44,7 @@ import {
 } from "./transactionVarsAssistant.js";
 
 import type {
+  JsonErrorDetail,
   TransactionParsedFormState,
   TxBlockFormModel,
   TxWorkflowFormModel,
@@ -424,7 +425,12 @@ export function createTxBlockInputPanelWorkspace(
       }),
   );
   const { setInputPanelContext, ...workspace } =
-    createConfiguredTxInputPanelWorkspace({
+    createConfiguredTxInputPanelWorkspace<
+      TxBlockFormModel,
+      JsonErrorDetail,
+      ReturnType<typeof txBlockInputPanelDisplay>,
+      ReturnType<typeof txBlockInputEditorSurfaceDisplay>
+    >({
       applyPanelContext(nextInputState: TransactionInputState) {
         if (!("newButtonLabelKey" in nextInputState)) return;
         panelConfigStateStore.update((currentConfig) => ({
@@ -460,7 +466,12 @@ export function createTxWorkflowInputPanelWorkspace(
     }),
   );
   const { setInputPanelContext, ...workspace } =
-    createConfiguredTxInputPanelWorkspace({
+    createConfiguredTxInputPanelWorkspace<
+      TxWorkflowFormModel,
+      JsonErrorDetail,
+      ReturnType<typeof txWorkflowInputPanelDisplay>,
+      ReturnType<typeof txWorkflowInputEditorSurfaceDisplay>
+    >({
       buildDefaultFormModel: () =>
         txWorkflowFormModelFromJson(defaultTxWorkflowTemplatePayload()),
       editorDisplayFromPanel: txWorkflowInputEditorSurfaceDisplay,

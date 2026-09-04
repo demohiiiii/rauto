@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
   import BoxesIcon from "@lucide/svelte/icons/boxes";
@@ -8,8 +8,29 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { classNames } from "$lib/ui.js";
+  import type { OrchestrationWorkflowBlockFlowNode } from "$domains/orchestration/index.js";
 
-  let { data, selected = false } = $props();
+  type WorkflowBlockNodeData = OrchestrationWorkflowBlockFlowNode["data"] & {
+    canMoveNext: boolean;
+    canMovePrevious: boolean;
+    deleteLabel: string;
+    duplicateLabel: string;
+    editable: boolean;
+    moveNextLabel: string;
+    movePreviousLabel: string;
+    onDelete?: () => void;
+    onDuplicate?: () => void;
+    onMoveNext?: () => void;
+    onMovePrevious?: () => void;
+    sequenceText: string;
+  };
+
+  interface Props {
+    data: WorkflowBlockNodeData;
+    selected?: boolean;
+  }
+
+  let { data, selected = false }: Props = $props();
   const commandAccentClasses = [
     "border-chart-2/20 bg-chart-2/5",
     "border-chart-3/20 bg-chart-3/5",
@@ -17,7 +38,7 @@
     "border-chart-5/20 bg-chart-5/5",
   ];
 
-  function runAction(event, action) {
+  function runAction(event: MouseEvent, action?: () => void): void {
     event.stopPropagation();
     if (typeof action === "function") action();
   }

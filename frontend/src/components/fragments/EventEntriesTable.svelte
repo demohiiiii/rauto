@@ -1,9 +1,38 @@
-<script>
+<script lang="ts">
   import { eventEntriesTableBindings } from "../../lib/events.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import EventFlowCell from "./EventFlowCell.svelte";
+  import type { ComponentProps } from "svelte";
 
-  let { entryRows, onOpenEntryIndex, tableHeaderCells } = $props();
+  type EventFlowDisplay = ComponentProps<typeof EventFlowCell>["flow"];
+
+  interface EventEntryRow {
+    commandText: string;
+    detailButtonLabel: string;
+    entryIndex: number;
+    fsmPromptFlow: EventFlowDisplay;
+    indexText: string;
+    kindText: string;
+    modeText: string;
+    promptFlow: EventFlowDisplay;
+    rowClass: string;
+    showSuccessBadge: boolean;
+    showSuccessEmpty: boolean;
+    successBadgeClass: string;
+    successLabelText: string;
+  }
+
+  interface EventTableHeaderCell {
+    labelText: string;
+  }
+
+  interface Props {
+    entryRows: EventEntryRow[];
+    onOpenEntryIndex?: ((entryIndex: number) => void) | null;
+    tableHeaderCells: EventTableHeaderCell[];
+  }
+
+  let { entryRows, onOpenEntryIndex, tableHeaderCells }: Props = $props();
   let tableBindings = $derived(eventEntriesTableBindings({ onOpenEntryIndex }));
 </script>
 
