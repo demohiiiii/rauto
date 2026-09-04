@@ -15,11 +15,15 @@ export { replayPagePresentation } from "./presentation/replayPresentation.js";
 export type {
   ReplayControlsDisplay,
   ReplayEntry,
+  ReplayEvent,
+  ReplayEventKind,
   ReplayModeTab,
   ReplayPageDisplay,
   ReplayPageWorkspace,
+  ReplayRequest,
   ReplayResult,
   ReplayResultsDisplay,
+  ReplayRuntime,
   ReplayState,
   ReplayWorkspaceOptions,
 } from "./model/types.js";

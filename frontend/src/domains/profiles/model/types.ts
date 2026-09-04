@@ -9,6 +9,22 @@ export type ProfileStatusTone =
   | "success"
   | "warning";
 
+export interface BuiltinProfileMeta {
+  aliases: string[];
+  name: string;
+  summary: string;
+}
+
+export interface CustomProfileMeta {
+  name: string;
+  path: string;
+}
+
+export interface DeviceProfilesOverview {
+  builtins: BuiltinProfileMeta[];
+  custom: CustomProfileMeta[];
+}
+
 export interface CommandExecutionConfig {
   marker: string;
   mode: string;

@@ -2,6 +2,36 @@ import type { Readable, Writable } from "svelte/store";
 
 export type TaskStatusTone = "error" | "running";
 export type TaskValueHandler = (value: string) => void;
+export type TaskJsonPrimitive = boolean | number | string | null;
+export type TaskJsonValue =
+  | TaskJsonPrimitive
+  | TaskJsonValue[]
+  | { [key: string]: TaskJsonValue };
+export type TaskOperation =
+  | "exec"
+  | "template_execute"
+  | "command_flow"
+  | "upload"
+  | "tx_block"
+  | "tx_workflow"
+  | "orchestrate"
+  | "device_discovery";
+export type TaskRunStatus = "queued" | "running" | "success" | "failed";
+export type TaskResultOutcome =
+  | "success"
+  | "partial_success"
+  | "failed"
+  | "dry_run";
+export type TaskEventType =
+  | "started"
+  | "progress"
+  | "log"
+  | "step_started"
+  | "step_completed"
+  | "warning"
+  | "failed"
+  | "completed";
+export type TaskEventLevel = "info" | "success" | "warning" | "error";
 
 export interface TaskStatusMessage {
   message: string;
@@ -14,11 +44,11 @@ export interface TaskRun {
   execution_time_ms: number | null;
   has_error: boolean;
   has_recording: boolean;
-  operation: string;
-  outcome: string | null;
+  operation: TaskOperation;
+  outcome: TaskResultOutcome | null;
   source: string | null;
   started_at: string;
-  status: string;
+  status: TaskRunStatus;
   success: boolean;
   summary: string;
   target_label: string | null;
@@ -26,12 +56,12 @@ export interface TaskRun {
 }
 
 export interface TaskEvent {
-  details: unknown | null;
-  event_type: string;
-  level: string;
+  details: TaskJsonValue | null;
+  event_type: TaskEventType;
+  level: TaskEventLevel;
   message: string;
   occurred_at: string;
-  operation: string;
+  operation: TaskOperation;
   progress: number | null;
   seq: number;
   stage: string | null;
@@ -51,27 +81,27 @@ export interface TaskArtifact {
 
 export interface TaskResultCounts {
   failed: number;
-  skipped?: number | null;
+  skipped?: number;
   succeeded: number;
   total: number;
 }
 
 export interface TaskResultSummary {
-  counts?: TaskResultCounts | null;
-  details?: unknown;
-  operation?: string | null;
-  outcome?: string | null;
-  recording_available?: boolean | null;
-  success?: boolean | null;
-  summary?: string | null;
+  counts?: TaskResultCounts;
+  details?: TaskJsonValue;
+  operation: TaskOperation;
+  outcome: TaskResultOutcome;
+  recording_available?: boolean;
+  success: boolean;
+  summary: string;
 }
 
 export interface TaskRunDetail extends TaskRun {
   artifacts: TaskArtifact[];
   created_at: string;
-  error: unknown | null;
+  error: TaskJsonValue | null;
   events: TaskEvent[];
-  result: unknown | null;
+  result: TaskJsonValue | null;
   result_summary: TaskResultSummary | null;
   updated_at: string;
 }

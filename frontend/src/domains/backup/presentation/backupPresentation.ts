@@ -17,8 +17,8 @@ import type {
   BackupStatusPresentation,
 } from "../model/types.js";
 
-export function formatBackupBytes(value: unknown): string {
-  const bytes = Number(value || 0);
+export function formatBackupBytes(value: number | null | undefined): string {
+  const bytes = value ?? 0;
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KiB", "MiB", "GiB", "TiB"];
   let size = bytes;

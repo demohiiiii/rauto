@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { Component } from "svelte";
   import { Toaster } from "$lib/components/ui/sonner/index.js";
   import {
     closeDashboardOverlayOnEscape,
@@ -12,20 +11,12 @@
     overlayComponentsStateStore,
   } = dashboardOverlayHostWorkspace;
   let overlayComponents = $derived($overlayComponentsStateStore);
-  let ConnectionModalComponent = $derived(
-    overlayComponents.connectionModal as Component | null,
-  );
-  let DetailModalComponent = $derived(
-    overlayComponents.detailModal as Component | null,
-  );
-  let EntryDrawerComponent = $derived(
-    overlayComponents.entryDrawer as Component | null,
-  );
-  let RecordDrawerComponent = $derived(
-    overlayComponents.recordDrawer as Component | null,
-  );
+  let ConnectionModalComponent = $derived(overlayComponents.connectionModal);
+  let DetailModalComponent = $derived(overlayComponents.detailModal);
+  let EntryDrawerComponent = $derived(overlayComponents.entryDrawer);
+  let RecordDrawerComponent = $derived(overlayComponents.recordDrawer);
   let SavedConnectionEditModalComponent = $derived(
-    overlayComponents.savedConnectionEditModal as Component | null,
+    overlayComponents.savedConnectionEditModal,
   );
   let hostDisplay = $derived($hostDisplayStateStore);
 

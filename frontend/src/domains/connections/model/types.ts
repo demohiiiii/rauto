@@ -84,15 +84,14 @@ export interface InventoryNamedResource {
 }
 
 export interface ShowObjectInput {
-  command?: string;
-  mode?: string;
+  command?: string | null;
+  mode?: string | null;
   object?: string;
-  source?: string;
-  textfsm_mapping_command?: string;
-  textfsm_template_name?: string;
-  textfsmMappingCommand?: string;
-  textfsmTemplateName?: string;
-  [key: string]: unknown;
+  source?: string | null;
+  textfsm_mapping_command?: string | null;
+  textfsm_template_name?: string | null;
+  textfsmMappingCommand?: string | null;
+  textfsmTemplateName?: string | null;
 }
 
 export interface ShowObjectOption {

@@ -126,11 +126,11 @@ export interface BlacklistWorkspaceOptions {
 export interface BlacklistPageWorkspace {
   blacklistDisplayStateStore: Readable<BlacklistPageDisplay>;
   blacklistStateStore: Writable<BlacklistState>;
-  addPattern(): Promise<unknown>;
-  checkCommand(): Promise<unknown>;
-  deletePattern(pattern?: string): Promise<unknown>;
-  refreshPatterns(): Promise<unknown>;
-  setPageContext(context?: { active?: boolean }): Promise<unknown> | undefined;
+  addPattern(): Promise<void>;
+  checkCommand(): Promise<void>;
+  deletePattern(pattern?: string): Promise<void>;
+  refreshPatterns(): Promise<void>;
+  setPageContext(context?: { active?: boolean }): Promise<void>;
   updateCommandInput(commandInput?: string): void;
   updatePatternInput(patternInput?: string): void;
 }

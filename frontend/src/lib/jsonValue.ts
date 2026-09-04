@@ -7,6 +7,9 @@ const JSON_VALUE_TYPE_ROWS = [
 ] as const;
 
 export type JsonValueType = (typeof JSON_VALUE_TYPE_ROWS)[number];
+export type JsonPrimitive = boolean | number | string | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | JsonObject;
+export type JsonObject = { [key: string]: JsonValue };
 export type PlainObject = Record<string, unknown>;
 
 export interface JsonParseErrorDetail {

@@ -1,5 +1,7 @@
 import { MANUAL_COMMAND_SOURCE } from "$domains/command/index.js";
 import { safeString } from "../../../lib/ui.js";
+import type { SessionRetryState } from "$domains/execution/index.js";
+import type { JsonObject } from "$lib/jsonValue.js";
 import type {
   StandardCommandExecutionInput,
   StandardCommandExecutionPayload,
@@ -7,35 +9,23 @@ import type {
   StandardCommandTextfsmState,
   StandardCommandVariableField,
   StandardCommandWorkspaceState,
-  StandardSessionRetryState,
+  StandardBatchRetryFields,
 } from "./types.js";
 
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
 export function reconcileCommandVars(
-  schema: unknown = [],
-  current: unknown = {},
-): Record<string, unknown> {
-  const currentVars = record(current);
+  schema: readonly StandardCommandVariableField[] = [],
+  current: JsonObject = {},
+): JsonObject {
   return Object.fromEntries(
-    (Array.isArray(schema) ? schema : [])
-      .map((field) =>
-        safeString((field as StandardCommandVariableField | null)?.name).trim(),
-      )
+    schema
+      .map((field) => field.name.trim())
       .filter(Boolean)
-      .map((name) => [
-        name,
-        Object.hasOwn(currentVars, name) ? currentVars[name] : "",
-      ]),
+      .map((name) => [name, Object.hasOwn(current, name) ? current[name] : ""]),
   );
 }
 
 export function newStandardCommandWorkspaceState(
-  retry: StandardSessionRetryState,
+  retry: SessionRetryState,
 ): StandardCommandWorkspaceState {
   return {
     sourceSelection: MANUAL_COMMAND_SOURCE,
@@ -84,12 +74,12 @@ export function buildStandardCommandExecutionPayload(
     connection,
     recordLevel,
   }: StandardCommandExecutionInput = {},
-  retryFields: Record<string, unknown> = {},
+  retryFields: StandardBatchRetryFields = {},
 ): StandardCommandExecutionPayload {
   return {
-    template_content: safeString(content),
-    vars: record(vars),
-    mode: safeString(mode).trim() || null,
+    template_content: content,
+    vars: { ...vars },
+    mode: mode.trim() || null,
     multiline_mode: multilineMode === "whole" ? "whole" : "split_lines",
     ...textfsm,
     ...retryFields,

@@ -89,7 +89,7 @@ export function createWebAuthWorkspace(
     try {
       const payload = await api.login(password);
       if (version !== requestVersion) return false;
-      if (payload?.authenticated !== true) {
+      if (!payload.authenticated) {
         throw new Error("Web login did not establish a session");
       }
       webPasswordStateStore.set("");

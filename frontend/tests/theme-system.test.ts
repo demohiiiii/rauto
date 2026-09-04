@@ -6,14 +6,24 @@ import {
   normalizeThemeSettings,
   updateThemeSettings,
 } from "../src/domains/dashboard/index.js";
+import type {
+  DashboardThemeDomAdapter,
+  DashboardThemeStorage,
+} from "../src/domains/dashboard/index.js";
 
-function memoryStorage(initial = {}) {
+interface MemoryThemeStorage extends DashboardThemeStorage {
+  values: Record<string, string>;
+}
+
+function memoryStorage(
+  initial: Record<string, string> = {},
+): MemoryThemeStorage {
   const values = { ...initial };
   return {
-    getItem(key) {
+    getItem(key: string): string | null {
       return Object.hasOwn(values, key) ? values[key] : null;
     },
-    setItem(key, value) {
+    setItem(key: string, value: string): void {
       values[key] = String(value);
     },
     values,
@@ -59,12 +69,12 @@ test("updates and persists theme settings", () => {
 });
 
 test("applies theme settings to a DOM adapter", () => {
-  const calls = [];
-  const adapter = {
-    setDarkMode(enabled) {
+  const calls: Array<["dark", boolean] | ["attr", string, string]> = [];
+  const adapter: DashboardThemeDomAdapter = {
+    setDarkMode(enabled: boolean): void {
       calls.push(["dark", enabled]);
     },
-    setAttribute(name, value) {
+    setAttribute(name: string, value: string): void {
       calls.push(["attr", name, value]);
     },
   };

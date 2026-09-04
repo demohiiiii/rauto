@@ -13,8 +13,8 @@ export function newWebAuthState(): WebAuthState {
 export function authenticatedWebAuthState(
   payload: WebAuthStatusPayload,
 ): WebAuthState {
-  const mode = payload?.mode === "agent" ? "agent" : "web";
-  const authenticated = mode === "agent" || payload?.authenticated === true;
+  const mode = payload.mode;
+  const authenticated = mode === "agent" || payload.authenticated;
   return {
     authenticated,
     error: "",

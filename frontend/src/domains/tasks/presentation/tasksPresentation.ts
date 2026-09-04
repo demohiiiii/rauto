@@ -3,9 +3,12 @@ import { borderedPillClass, classNames, displayText } from "../../../lib/ui.js";
 import type {
   TaskArtifact,
   TaskEvent,
+  TaskJsonValue,
+  TaskResultOutcome,
   TaskResultSummary,
   TaskRun,
   TaskRunDetail,
+  TaskRunStatus,
   TaskState,
 } from "../model/types.js";
 
@@ -51,7 +54,7 @@ const taskLabelText = (key: string, fallback = key): string =>
   translate(key, fallback);
 
 function taskSearchField(
-  value: unknown,
+  value: string,
   placeholderKey: string,
   placeholderFallback: string,
 ) {
@@ -84,36 +87,32 @@ function taskStatusDisplayRow(
   return { label: taskLabelText(labelKey, fallback), tone };
 }
 
-function taskStatusDisplay(status: unknown): TaskStatusDisplay {
-  const normalized = String(status || "").toLowerCase();
-  if (normalized === "queued") {
+function taskStatusDisplay(status: TaskRunStatus): TaskStatusDisplay {
+  if (status === "queued") {
     return taskStatusDisplayRow("tasksStatusQueued", "queued", "slate");
   }
-  if (normalized === "running") {
+  if (status === "running") {
     return taskStatusDisplayRow("tasksStatusRunning", "running", "cyan");
   }
-  if (normalized === "success" || normalized === "completed") {
+  if (status === "success") {
     return taskStatusDisplayRow("tasksStatusSuccess", "success", "emerald");
   }
-  if (normalized === "failed" || normalized === "error") {
+  if (status === "failed") {
     return taskStatusDisplayRow("tasksStatusFailed", "failed", "rose");
   }
   return { label: displayText(status || "-"), tone: "slate" };
 }
 
-function taskOutcomeDisplay(outcome: unknown): TaskStatusDisplay {
-  const normalized = String(outcome || "").toLowerCase();
-  if (normalized === "success") {
+function taskOutcomeDisplay(
+  outcome: TaskResultOutcome | null,
+): TaskStatusDisplay {
+  if (outcome === "success") {
     return taskStatusDisplayRow("tasksOutcomeSuccess", "success", "emerald");
   }
-  if (
-    normalized === "failure" ||
-    normalized === "failed" ||
-    normalized === "error"
-  ) {
+  if (outcome === "failed") {
     return taskStatusDisplayRow("tasksOutcomeFailure", "failure", "rose");
   }
-  if (normalized === "partial_success" || normalized === "partial") {
+  if (outcome === "partial_success") {
     return taskStatusDisplayRow("tasksOutcomePartial", "partial", "slate");
   }
   return { label: displayText(outcome || "-"), tone: "rose" };
@@ -155,13 +154,12 @@ function taskFilterOptions() {
     operation: [
       taskOption("", taskLabelText("tasksOperationAll", "All operations")),
       taskOption("exec", "exec"),
-      taskOption("template", "template"),
+      taskOption("template_execute", "template_execute"),
       taskOption("command_flow", "command_flow"),
-      taskOption("file_transfer", "file_transfer"),
       taskOption("upload", "upload"),
       taskOption("tx_block", "tx_block"),
       taskOption("tx_workflow", "tx_workflow"),
-      taskOption("orchestration", "orchestration"),
+      taskOption("orchestrate", "orchestrate"),
       taskOption("device_discovery", "device_discovery"),
     ],
     outcome: [
@@ -288,8 +286,8 @@ function taskEventGroupOptions() {
   ];
 }
 
-function artifactGroupLabel(groupName: unknown): string {
-  const normalized = String(groupName || "").toLowerCase();
+function artifactGroupLabel(groupName: string): string {
+  const normalized = groupName.toLowerCase();
   if (normalized === "recording_jsonl") {
     return taskLabelText("tasksArtifactGroupRecording", "Recording");
   }
@@ -331,19 +329,17 @@ function taskEventAuditGroup(taskEvent: TaskEvent): string {
   return "execution";
 }
 
-export function formatTaskTimestamp(timestampValue: unknown): string {
+export function formatTaskTimestamp(timestampValue: string | null): string {
   const text = displayText(timestampValue || "-");
   if (!timestampValue) return text;
   return text.replace("T", " ").replace("Z", " UTC");
 }
 
-export function formatTaskDuration(ms: unknown): string {
-  if (ms == null || ms === "") return "-";
-  const num = Number(ms);
-  if (!Number.isFinite(num)) return displayText(ms);
-  if (num < 1000) return `${num} ms`;
-  if (num < 60000) return `${(num / 1000).toFixed(num < 10000 ? 1 : 0)} s`;
-  return `${(num / 60000).toFixed(1)} min`;
+export function formatTaskDuration(ms: number | null): string {
+  if (ms == null) return "-";
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`;
+  return `${(ms / 60000).toFixed(1)} min`;
 }
 
 function taskSummaryMetaFields(taskRun: TaskRun) {
@@ -402,7 +398,7 @@ function taskRunListRows(taskRuns: TaskRun[] = [], currentTaskId = "") {
 
 function taskRunListPresentation(taskRuns: TaskRun[], tasks: TaskState) {
   const taskRows = taskRunListRows(taskRuns, tasks.currentTaskId);
-  const total = Array.isArray(tasks.runs) ? tasks.runs.length : 0;
+  const total = tasks.runs.length;
   return {
     countText: `${taskRows.length} / ${total} ${taskLabelText(
       "tasksListMetaCount",
@@ -416,7 +412,7 @@ function taskRunListPresentation(taskRuns: TaskRun[], tasks: TaskState) {
   };
 }
 
-function jsonText(jsonValue: unknown): string {
+function jsonText(jsonValue: TaskJsonValue | null): string {
   return JSON.stringify(jsonValue ?? null, null, 2);
 }
 
@@ -466,11 +462,7 @@ function taskArtifactRow(taskArtifact: TaskArtifact) {
 
 function taskArtifactGroupRows(taskArtifacts: TaskArtifact[] = []) {
   return groupTaskArtifacts(taskArtifacts).map((artifactGroup) => {
-    const taskArtifactRows = (
-      Array.isArray(artifactGroup.taskArtifacts)
-        ? artifactGroup.taskArtifacts
-        : []
-    ).map(taskArtifactRow);
+    const taskArtifactRows = artifactGroup.taskArtifacts.map(taskArtifactRow);
     const keyText = displayText(artifactGroup.artifactGroupName);
     const countText = `${taskArtifactRows.length} ${taskLabelText(
       "tasksArtifactItems",
@@ -556,9 +548,7 @@ function taskEventRow(taskEvent: TaskEvent) {
 
 function taskEventGroupRows(taskEvents: TaskEvent[] = []) {
   return groupTaskEvents(taskEvents).map((eventGroup) => {
-    const taskEventRows = (
-      Array.isArray(eventGroup.taskEvents) ? eventGroup.taskEvents : []
-    ).map(taskEventRow);
+    const taskEventRows = eventGroup.taskEvents.map(taskEventRow);
     const eventItemsText = taskLabelText("tasksEventItems", "items");
     const countText = `${taskEventRows.length} ${eventItemsText}`;
     return {
@@ -575,10 +565,8 @@ function taskEventsPresentation({
   eventSearchQuery = "",
   taskEvents = [],
 }: TaskEventPresentationInput = {}) {
-  const totalCount = Array.isArray(taskEvents) ? taskEvents.length : 0;
-  const filteredTaskEvents = (
-    Array.isArray(taskEvents) ? taskEvents : []
-  ).filter((taskEvent) =>
+  const totalCount = taskEvents.length;
+  const filteredTaskEvents = taskEvents.filter((taskEvent) =>
     matchesTaskEventFilter(taskEvent, eventGroupFilter, eventSearchQuery),
   );
   const eventGroupRows = taskEventGroupRows(filteredTaskEvents);
@@ -609,18 +597,23 @@ function taskSummaryCard(label: string, summaryValue: string) {
 }
 
 function resultSummaryPreview(summary: TaskResultSummary | null): string {
-  return jsonText(
-    summary
-      ? {
-          operation: summary.operation ?? null,
-          outcome: summary.outcome ?? null,
-          success: summary.success ?? null,
-          summary: summary.summary ?? null,
-          counts: summary.counts ?? null,
-          recording_available: summary.recording_available ?? null,
-        }
-      : null,
-  );
+  if (!summary) return jsonText(null);
+  const counts: TaskJsonValue = summary.counts
+    ? {
+        failed: summary.counts.failed,
+        skipped: summary.counts.skipped ?? null,
+        succeeded: summary.counts.succeeded,
+        total: summary.counts.total,
+      }
+    : null;
+  return jsonText({
+    counts,
+    operation: summary.operation,
+    outcome: summary.outcome,
+    recording_available: summary.recording_available ?? null,
+    success: summary.success,
+    summary: summary.summary,
+  });
 }
 
 function taskDetailOverviewLabels() {
@@ -670,7 +663,7 @@ function taskDetailPresentation(detail: TaskRunDetail | null) {
 
   const summary = detail.result_summary || null;
   const counts = summary?.counts || null;
-  const taskEvents = Array.isArray(detail.events) ? detail.events : [];
+  const taskEvents = detail.events;
   const outcomeLabel = taskOutcomeDisplay(detail.outcome).label;
   const summaryCards = [
     taskSummaryCard(
@@ -764,7 +757,7 @@ function taskDetailPresentation(detail: TaskRunDetail | null) {
   };
 }
 
-function parseTaskTimestamp(timestampValue: unknown): number | null {
+function parseTaskTimestamp(timestampValue: string | null): number | null {
   const ts = Date.parse(String(timestampValue || ""));
   return Number.isFinite(ts) ? ts : null;
 }

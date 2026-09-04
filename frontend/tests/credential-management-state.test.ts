@@ -13,32 +13,62 @@ import {
   credentialImportReport,
   credentialRow,
   credentialSavePayload,
-} from "../src/domains/credentials/index.ts";
+} from "../src/domains/credentials/index.js";
+import type {
+  CredentialApiRow,
+  CredentialImportReport,
+  CredentialRow,
+  CredentialSavePayload,
+} from "../src/domains/credentials/index.js";
 import { loadI18nLanguage, setCurrentLanguage } from "../src/lib/i18n.js";
 
-const translate = (key) =>
-  ({
-    credentialNameRequired: "name required",
-    credentialNameInvalid: "name invalid",
-    credentialUsernameRequired: "username required",
-    credentialPasswordRequired: "password required",
-    credentialPrivateKeyRequired: "private key required",
-    credentialPrivateKeyPathRequired: "private key path required",
-    requestFailed: "request failed",
-  })[key] || key;
+const messages = {
+  credentialNameRequired: "name required",
+  credentialNameInvalid: "name invalid",
+  credentialUsernameRequired: "username required",
+  credentialPasswordRequired: "password required",
+  credentialPrivateKeyRequired: "private key required",
+  credentialPrivateKeyPathRequired: "private key path required",
+  requestFailed: "request failed",
+};
+
+const translate = (key: string): string =>
+  messages[key as keyof typeof messages] || key;
+
+function credentialApiRow(
+  overrides: Partial<CredentialApiRow> = {},
+): CredentialApiRow {
+  return {
+    auth_type: "password",
+    connection_count: 0,
+    enable_enabled: false,
+    has_auth_secret: false,
+    has_enable_password: false,
+    has_passphrase: false,
+    has_password: false,
+    id: "credential-1",
+    name: "ops",
+    private_key_path: null,
+    referencing_connections: [],
+    username: "admin",
+    ...overrides,
+  };
+}
 
 test("credential state normalizes catalog rows and secret presence", () => {
   assert.deepEqual(
-    credentialRow({
-      id: "cred-1",
-      name: "ops",
-      username: "admin",
-      has_password: true,
-      has_enable_password: false,
-      enable_enabled: true,
-      connection_count: 3,
-      referencing_connections: ["edge-2", "edge-1"],
-    }),
+    credentialRow(
+      credentialApiRow({
+        id: "cred-1",
+        name: "ops",
+        username: "admin",
+        has_password: true,
+        has_enable_password: false,
+        enable_enabled: true,
+        connection_count: 3,
+        referencing_connections: ["edge-2", "edge-1"],
+      }),
+    ),
     {
       id: "cred-1",
       name: "ops",
@@ -81,7 +111,7 @@ test("credential import reports normalize counts and redact no data", () => {
 });
 
 test("credential import row errors are localized", () => {
-  const importTranslate = (key) => `translated:${key}`;
+  const importTranslate = (key: string): string => `translated:${key}`;
   assert.equal(
     credentialImportFailureMessage(
       { message: "login_secret is required for new credentials" },
@@ -242,12 +272,7 @@ test("credential API validation errors are localized instead of leaking backend 
 test("credentials page workspace loads once and selects the first credential", async () => {
   let listCalls = 0;
   let detailCalls = 0;
-  const row = {
-    id: "credential-1",
-    name: "ops",
-    username: "admin",
-    auth_type: "password",
-  };
+  const row = credentialApiRow();
   const workspace = createCredentialsPageWorkspace({
     api: {
       async getCredential(id) {
@@ -273,13 +298,8 @@ test("credentials page workspace loads once and selects the first credential", a
 });
 
 test("credentials page workspace creates a validated credential", async () => {
-  const requests = [];
-  const created = {
-    id: "credential-created",
-    name: "ops",
-    username: "admin",
-    auth_type: "password",
-  };
+  const requests: CredentialSavePayload[] = [];
+  const created = credentialApiRow({ id: "credential-created" });
   const workspace = createCredentialsPageWorkspace({
     api: {
       async createCredential(payload) {
@@ -311,16 +331,25 @@ test("credentials page workspace creates a validated credential", async () => {
 });
 
 test("credential create workspace validates and publishes the created row", async () => {
-  const createdRows = [];
+  const createdRows: CredentialRow[] = [];
   let createCalls = 0;
   const workspace = createCredentialCreateWorkspace({
     api: {
       async createCredential(payload) {
         createCalls += 1;
-        return { id: "credential-1", ...payload };
+        return credentialApiRow({
+          auth_type: payload.auth_type,
+          enable_enabled: payload.enable_enabled,
+          id: "credential-1",
+          name: payload.name,
+          private_key_path: payload.private_key_path,
+          username: payload.username,
+        });
       },
     },
-    onCreated: (row) => createdRows.push(row),
+    onCreated(row) {
+      createdRows.push(row);
+    },
   });
 
   workspace.setOpen(true);
@@ -336,7 +365,7 @@ test("credential create workspace validates and publishes the created row", asyn
 });
 
 test("credential import workspace validates files and forwards reports", async () => {
-  const reports = [];
+  const reports: CredentialImportReport[] = [];
   let importCalls = 0;
   const workspace = createCredentialImportWorkspace({
     api: {
@@ -354,7 +383,9 @@ test("credential import workspace validates files and forwards reports", async (
         };
       },
     },
-    onImported: (report) => reports.push(report),
+    onImported(report) {
+      reports.push(report);
+    },
   });
 
   await workspace.submitImport();

@@ -30,6 +30,12 @@
     DiscoveryResultFilter,
   } from "../../model/types.js";
 
+  interface DiscoveryResultMetric {
+    filter: DiscoveryResultFilter;
+    label: string;
+    value: number;
+  }
+
   let { active = false }: { active?: boolean } = $props();
 
   let currentLanguage = $derived($currentLanguageState);
@@ -71,6 +77,28 @@
   let labelOptions = $derived(display.labelOptions);
   let statusFilterOptions = $derived(display.statusFilterOptions);
   let activeStatusFilterLabel = $derived(display.activeStatusFilterLabel);
+  let resultMetrics: DiscoveryResultMetric[] = $derived([
+    {
+      filter: "all",
+      label: t("deviceDiscoveryScanned"),
+      value: currentRun?.scanned_targets ?? 0,
+    },
+    {
+      filter: "reachable",
+      label: t("deviceDiscoveryReachable"),
+      value: currentRun?.reachable_count ?? 0,
+    },
+    {
+      filter: "identified",
+      label: t("deviceDiscoveryIdentified"),
+      value: identifiedResultCount,
+    },
+    {
+      filter: "failed",
+      label: t("deviceDiscoveryFailed"),
+      value: currentRun?.failed_count ?? 0,
+    },
+  ]);
 
   $effect(() => {
     void workspace.setPageContext({ active });
@@ -292,13 +320,12 @@
         <div
           class="grid divide-y border-y border-border sm:grid-cols-4 sm:divide-x sm:divide-y-0"
         >
-          {#each [{ label: t("deviceDiscoveryScanned"), value: currentRun.scanned_targets, filter: "all" }, { label: t("deviceDiscoveryReachable"), value: currentRun.reachable_count, filter: "reachable" }, { label: t("deviceDiscoveryIdentified"), value: identifiedResultCount, filter: "identified" }, { label: t("deviceDiscoveryFailed"), value: currentRun.failed_count, filter: "failed" }] as metric}
+          {#each resultMetrics as metric}
             <button
               type="button"
               class={`relative px-4 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${resultFilter === metric.filter ? "bg-primary/10 text-primary after:absolute after:inset-x-0 after:top-0 after:h-0.5 after:bg-primary" : ""}`}
               aria-pressed={resultFilter === metric.filter}
-              onclick={() =>
-                selectResultFilter(metric.filter as DiscoveryResultFilter)}
+              onclick={() => selectResultFilter(metric.filter)}
             >
               <div
                 class={`text-xs ${resultFilter === metric.filter ? "text-primary" : "text-muted-foreground"}`}

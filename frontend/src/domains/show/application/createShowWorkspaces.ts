@@ -3,12 +3,11 @@ import {
   SHOW_QUERY,
 } from "../../../config/dashboardModes.js";
 import { derived, writable } from "svelte/store";
-import type { Readable, Writable } from "svelte/store";
+import type { Writable } from "svelte/store";
 import { currentLanguageState, t } from "../../../lib/i18n.js";
 import { createLoadingStateRunner as createLoadingRunner } from "../../../lib/svelte.js";
 import { emptyString, safeString } from "../../../lib/ui.js";
 import {
-  executionResultDisplay,
   executionResultFailed,
   executionResultOutputText,
   exportParsedOutputSheetsExcel,
@@ -21,6 +20,10 @@ import {
   modeSelection,
   TEXTFSM_PLATFORM_SELECT,
   textfsmPlatformSelection,
+} from "$domains/profiles/index.js";
+import type {
+  ModeSelectState,
+  TextfsmPlatformSelectState,
 } from "$domains/profiles/index.js";
 import { batchShowTargetPickerFields } from "$domains/connections/index.js";
 import {
@@ -57,36 +60,25 @@ import {
 } from "$domains/execution/index.js";
 import type {
   BatchShowExecutionResult,
+  ShowBatchExecuteResponse,
+  ShowBatchTargetResponse,
   BatchShowObjectAvailability,
   ShowCommandPreviewRow,
+  ShowExecuteBasePayload,
+  ShowExecuteResponse,
   ShowExecutionResult,
 } from "../model/types.js";
+import type { ConnectionTargetState } from "$domains/connections/index.js";
+import type {
+  ParsedOutputSheet,
+  SessionRetryState,
+} from "$domains/execution/index.js";
 
-type UnknownRecord = Record<string, unknown>;
 type AfterDomUpdate = (onReady: () => void) => void;
-type ExportSheet = { name: string; parsed_output: unknown };
+type ExportSheet = ParsedOutputSheet;
 type StatusTone = "error" | "info" | "running" | "success" | "warning";
 
-interface ModePickerState {
-  modes?: string[];
-  profiles?: string[];
-  selected?: unknown;
-}
-
-interface PickerController<T> {
-  setValue(value: string): void;
-  state: Readable<T>;
-}
-
-interface SessionRetryState extends UnknownRecord {
-  enabled: boolean;
-  initialBackoffMs: string;
-  maxBackoffMs: string;
-  maxRetries: string;
-  retryAuthenticationErrors: boolean;
-}
-
-interface ShowSelectionFields extends UnknownRecord {
+interface ShowSelectionFields {
   maxParallel?: string;
   mode: string;
   modeOptions: string[];
@@ -95,7 +87,7 @@ interface ShowSelectionFields extends UnknownRecord {
   showResolvedCommandDetails: boolean;
 }
 
-interface ShowTextfsmFields extends UnknownRecord {
+interface ShowTextfsmFields {
   enabled: boolean;
   excelName?: string;
   platform: string;
@@ -105,75 +97,36 @@ interface ShowTextfsmFields extends UnknownRecord {
 }
 
 interface ShowResultDisplay {
-  basePayload: UnknownRecord | null;
-  showResults: UnknownRecord[];
+  basePayload: ShowExecuteBasePayload | null;
+  showResults: ShowExecuteResponse[];
   statusMessage: string;
   statusTone: StatusTone;
 }
 
-interface BatchTargetPickerField extends UnknownRecord {
+interface BatchTargetPickerField {
   key: string;
   keyName: string;
   labelKey: string;
   placeholderKey: string;
 }
 
-interface ParsedOutputBlock {
-  [key: string]: unknown;
-}
-
-interface BatchExecutionDisplay extends UnknownRecord {
-  resultPayload: UnknownRecord | null;
+interface BatchExecutionDisplay {
+  kind: BatchShowExecutionResult["kind"];
+  resultPayload: ShowBatchExecuteResponse | null;
   statusMessage: string;
-  statusTone: StatusTone;
+  statusTone: "error" | "info" | "running";
 }
 
 const createRetryState = createSessionRetryState as () => SessionRetryState;
 const validateRetryState = sessionRetryValidation as (
   value: SessionRetryState,
 ) => { valid: boolean };
-const createModeSelection = modeSelection as unknown as (
-  key: string,
-) => PickerController<ModePickerState>;
-const createTextfsmPlatformSelection = textfsmPlatformSelection as unknown as (
-  key: string,
-) => PickerController<ModePickerState>;
-const buildParsedOutputBlock = parsedOutputBlockDisplay as unknown as (input: {
-  exportItem?: UnknownRecord;
-  parseError?: unknown;
-  parsedOutput?: unknown;
-}) => ParsedOutputBlock;
-const buildParsedOutputSheets =
-  parsedOutputSheetsFromParsedOutputItems as unknown as (
-    items: UnknownRecord[],
-    config: {
-      sheetName(item: UnknownRecord, index: number): unknown;
-    },
-  ) => ExportSheet[];
-const buildBatchParsedOutputSheets =
-  parsedOutputSheetsFromBatchShow as unknown as (
-    payload: UnknownRecord | null,
-  ) => ExportSheet[];
-const buildExecutionResultDisplay = executionResultDisplay as unknown as (
-  executionResult: BatchShowExecutionResult | null,
-) => BatchExecutionDisplay;
-const exportOutputSheets = exportParsedOutputSheetsExcel as unknown as (
-  sheets: ExportSheet[],
-  options: { filename: string },
-) => Promise<unknown>;
-
-function recordValue(value: unknown): UnknownRecord {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as UnknownRecord)
-    : {};
-}
-
 function showSelectionFieldsForQuery({
   modeState = {},
   previewRows = {},
   query = "",
 }: {
-  modeState?: ModePickerState;
+  modeState?: Partial<ModeSelectState>;
   previewRows?: Record<string, ShowCommandPreviewRow[]>;
   query?: string;
 } = {}): ShowSelectionFields {
@@ -195,8 +148,8 @@ function showTextfsmFieldsForState({
   template = "",
 }: {
   enabled?: boolean;
-  excelName?: unknown;
-  platformState?: ModePickerState;
+  excelName?: string;
+  platformState?: Partial<TextfsmPlatformSelectState>;
   strictErrors?: boolean;
   template?: string;
 } = {}): ShowTextfsmFields {
@@ -264,24 +217,25 @@ function showResultsExecutionDisplay(
 function singleShowExportSheets(
   resultDisplay: ShowResultDisplay,
 ): ExportSheet[] {
-  return buildParsedOutputSheets(resultDisplay.showResults, {
+  return parsedOutputSheetsFromParsedOutputItems(resultDisplay.showResults, {
     sheetName: (showResult, index) =>
       showResult.object || showResult.command || `show_${index + 1}`,
   });
 }
 
 function singleShowResultsPresentation(resultDisplay: ShowResultDisplay) {
-  const connection = recordValue(resultDisplay.basePayload?.connection);
+  const connection = resultDisplay.basePayload?.connection;
   const exportSheets = singleShowExportSheets(resultDisplay);
   const showResults = Array.isArray(resultDisplay?.showResults)
     ? resultDisplay.showResults
     : [];
   const deviceName = safeString(
-    connection.connection_name || connection.host || "",
+    connection?.connection_name || connection?.host || "",
   );
   const parsedResultCount = showResults.filter(
     (showResult) =>
-      Array.isArray(showResult?.parsed) && showResult.parsed.length,
+      Array.isArray(showResult.parsed_output) &&
+      showResult.parsed_output.length,
   ).length;
   const resultCount = showResults.length;
   return {
@@ -321,7 +275,7 @@ function singleShowResultsPresentation(resultDisplay: ShowResultDisplay) {
         outputText: executionResultOutputText(showResult, "output", {
           preferTranscript: failed,
         }),
-        parsedOutputBlock: buildParsedOutputBlock({
+        parsedOutputBlock: parsedOutputBlockDisplay({
           exportItem,
           parseError: showResult?.parse_error,
           parsedOutput: showResult?.parsed_output,
@@ -347,7 +301,7 @@ function singleShowPanelPresentation({
   executeLoading = false,
   retryState = createRetryState(),
 }: {
-  modeState?: ModePickerState;
+  modeState?: Partial<ModeSelectState>;
   previewRows?: Record<string, ShowCommandPreviewRow[]>;
   textfsmState?: Parameters<typeof showTextfsmFieldsForState>[0];
   executionResult?: ShowExecutionResult;
@@ -391,7 +345,7 @@ function batchShowInputPresentation(
 }
 
 export function batchShowObjectAvailabilityPresentation(
-  availability: BatchShowObjectAvailability = {
+  availability: Partial<BatchShowObjectAvailability> = {
     connectionCount: 0,
     missingProfileNames: [],
     objectCount: 0,
@@ -454,7 +408,7 @@ function batchShowPanelPresentation({
   executeLoading?: boolean;
   fields?: readonly BatchTargetPickerField[];
   maxParallel?: string;
-  modeState?: ModePickerState;
+  modeState?: Partial<ModeSelectState>;
   objectAvailability?: BatchShowObjectAvailability;
   previewRows?: Record<string, ShowCommandPreviewRow[]>;
   textfsmState?: Parameters<typeof showTextfsmFieldsForState>[0];
@@ -483,63 +437,61 @@ function batchShowPanelPresentation({
   };
 }
 
-function batchShowResultRows(showRows: UnknownRecord[] = []) {
-  return (Array.isArray(showRows) ? showRows : []).map(
-    (batchShowResult, index) => {
-      const errorText = emptyString(batchShowResult?.error).trim();
-      const command = safeString(batchShowResult?.command);
-      const exitCodeText = safeString(batchShowResult?.exit_code ?? "-");
-      const host = safeString(batchShowResult?.host);
-      const mode = safeString(batchShowResult?.mode);
-      const object = safeString(batchShowResult?.object);
-      const platform = safeString(batchShowResult?.platform || "-");
-      const profile = safeString(batchShowResult?.profile);
-      const target = safeString(batchShowResult?.target);
-      const deviceKey = target || host || `device-${index}`;
-      const failed = executionResultFailed(batchShowResult);
-      const exportItem = {
-        command: batchShowResult?.command,
-        device: batchShowResult?.target,
-        parse_error: batchShowResult?.parse_error,
-        parsed_output: batchShowResult?.parsed_output,
-      };
-      return {
-        command,
-        error: errorText,
-        exitCodeText,
-        failed,
-        deviceKey,
-        metaFields: [
-          { label: t("showResultTarget"), value: target },
-          { label: t("showObjectPlaceholder"), value: object },
-          { label: t("showResultProfile"), value: profile },
-          { label: t("showResultPlatform"), value: platform },
-          { label: t("historyColMode"), value: mode },
-          { label: t("txBlockResultExitCode"), value: exitCodeText },
-          { label: t("fieldCommand"), mono: true, value: command },
-        ],
-        mode,
-        modeText: mode || "-",
-        object,
-        objectText:
-          object || command || `${t("showObjectPlaceholder")} ${index + 1}`,
-        outputTitle: target || command || "Output",
-        outputText: executionResultOutputText(batchShowResult, "output", {
-          preferTranscript: failed,
-        }),
-        parsedOutputBlock: buildParsedOutputBlock({
-          exportItem,
-          parseError: batchShowResult?.parse_error,
-          parsedOutput: batchShowResult?.parsed_output,
-        }),
-        platform,
-        profile,
-        resultKey: `${target}|${object}|${command}|${index}`,
-        target,
-        targetText: target || host || `${t("showResultTarget")} ${index + 1}`,
-      };
-    },
-  );
+function batchShowResultRows(showRows: ShowBatchTargetResponse[] = []) {
+  return showRows.map((batchShowResult, index) => {
+    const errorText = emptyString(batchShowResult?.error).trim();
+    const command = safeString(batchShowResult?.command);
+    const exitCodeText = safeString(batchShowResult?.exit_code ?? "-");
+    const host = safeString(batchShowResult?.host);
+    const mode = safeString(batchShowResult?.mode);
+    const object = safeString(batchShowResult?.object);
+    const platform = safeString(batchShowResult?.platform || "-");
+    const profile = safeString(batchShowResult?.profile);
+    const target = safeString(batchShowResult?.target);
+    const deviceKey = target || host || `device-${index}`;
+    const failed = executionResultFailed(batchShowResult);
+    const exportItem = {
+      command: batchShowResult?.command,
+      device: batchShowResult?.target,
+      parse_error: batchShowResult?.parse_error,
+      parsed_output: batchShowResult?.parsed_output,
+    };
+    return {
+      command,
+      error: errorText,
+      exitCodeText,
+      failed,
+      deviceKey,
+      metaFields: [
+        { label: t("showResultTarget"), value: target },
+        { label: t("showObjectPlaceholder"), value: object },
+        { label: t("showResultProfile"), value: profile },
+        { label: t("showResultPlatform"), value: platform },
+        { label: t("historyColMode"), value: mode },
+        { label: t("txBlockResultExitCode"), value: exitCodeText },
+        { label: t("fieldCommand"), mono: true, value: command },
+      ],
+      mode,
+      modeText: mode || "-",
+      object,
+      objectText:
+        object || command || `${t("showObjectPlaceholder")} ${index + 1}`,
+      outputTitle: target || command || "Output",
+      outputText: executionResultOutputText(batchShowResult, "output", {
+        preferTranscript: failed,
+      }),
+      parsedOutputBlock: parsedOutputBlockDisplay({
+        exportItem,
+        parseError: batchShowResult?.parse_error,
+        parsedOutput: batchShowResult?.parsed_output,
+      }),
+      platform,
+      profile,
+      resultKey: `${target}|${object}|${command}|${index}`,
+      target,
+      targetText: target || host || `${t("showResultTarget")} ${index + 1}`,
+    };
+  });
 }
 
 function batchShowDeviceRows(
@@ -572,14 +524,12 @@ function batchShowDeviceRows(
 }
 
 function batchShowResultsPresentation(
-  batchPayload: UnknownRecord | null = null,
+  batchPayload: ShowBatchExecuteResponse | null = null,
 ) {
-  const batchResult = batchPayload ? recordValue(batchPayload) : null;
-  const results = Array.isArray(batchResult?.results)
-    ? (batchResult.results as UnknownRecord[])
-    : [];
+  const batchResult = batchPayload;
+  const results = batchResult?.results ?? [];
   const resultRows = batchShowResultRows(results);
-  const exportSheets = buildBatchParsedOutputSheets(batchResult);
+  const exportSheets = parsedOutputSheetsFromBatchShow(batchResult);
   return {
     deviceRows: batchShowDeviceRows(resultRows),
     exportButtonLabel: t("textfsmExportAllExcel"),
@@ -599,23 +549,49 @@ async function exportSingleShowResultsExcel(
   const exportSheets = Array.isArray(singleShowResults?.exportSheets)
     ? singleShowResults.exportSheets
     : [];
-  return exportOutputSheets(exportSheets, {
+  return exportParsedOutputSheetsExcel(exportSheets, {
     filename: "textfsm-show.xlsx",
   });
 }
 
 function batchShowResultsDisplay(
   executionResult: BatchShowExecutionResult | null = null,
-) {
-  const display = buildExecutionResultDisplay(executionResult);
-  const resultPayload = display.resultPayload || {};
-  const resultRows = Array.isArray(resultPayload.results)
-    ? resultPayload.results
-    : [];
+): BatchExecutionDisplay & { showResultPanel: boolean } {
+  const display: BatchExecutionDisplay =
+    executionResult?.kind === "running"
+      ? {
+          kind: "running",
+          resultPayload: null,
+          statusMessage: t("running"),
+          statusTone: "running",
+        }
+      : executionResult?.kind === "error"
+        ? {
+            kind: "error",
+            resultPayload: null,
+            statusMessage: executionResult.message,
+            statusTone: "error",
+          }
+        : executionResult?.kind === "result"
+          ? {
+              kind: "result",
+              resultPayload: executionResult.resultPayload,
+              statusMessage: "",
+              statusTone: "info",
+            }
+          : {
+              kind: "empty",
+              resultPayload: null,
+              statusMessage: "",
+              statusTone: "info",
+            };
+  const resultRows = display.resultPayload?.results ?? [];
   return {
     ...display,
     showResultPanel: Boolean(
-      display.statusMessage || resultPayload.object || resultRows.length,
+      display.statusMessage ||
+      display.resultPayload?.object ||
+      resultRows.length,
     ),
   };
 }
@@ -713,11 +689,11 @@ export function createShowPageWorkspace({
 
   function setRouteContext({
     active = false,
-    target = {},
+    target = { details: null, kind: "none" },
     profile = "",
   }: {
     active?: boolean;
-    target?: UnknownRecord;
+    target?: ConnectionTargetState;
     profile?: string;
   } = {}): void {
     const nextConnectionTargetKey = showConnectionTargetIdentity(target);
@@ -760,8 +736,8 @@ export function createSingleShowPanelWorkspace() {
     exportLoading: false,
   });
   const singleShowLoadingState = { keys: [] };
-  const singleModePicker = createModeSelection(MODE_SELECT.showSingle);
-  const singleTextfsmPlatformPicker = createTextfsmPlatformSelection(
+  const singleModePicker = modeSelection(MODE_SELECT.showSingle);
+  const singleTextfsmPlatformPicker = textfsmPlatformSelection(
     TEXTFSM_PLATFORM_SELECT.standard,
   );
   const singleShowTextStateStore = writable({
@@ -912,8 +888,8 @@ export function createBatchShowInputPanelWorkspace() {
     executeLoading: false,
   });
   const batchShowLoadingState = { keys: [] };
-  const batchModePicker = createModeSelection(MODE_SELECT.showBatch);
-  const batchTextfsmPlatformPicker = createTextfsmPlatformSelection(
+  const batchModePicker = modeSelection(MODE_SELECT.showBatch);
+  const batchTextfsmPlatformPicker = textfsmPlatformSelection(
     TEXTFSM_PLATFORM_SELECT.batchShow,
   );
   const batchShowTextStateStore = writable({
@@ -1089,7 +1065,7 @@ export function createBatchShowResultsPanelWorkspace() {
         ? batchResultsPresentation.exportFilename
         : "";
     return batchShowResultsLoadingRunner.run("export", () =>
-      exportOutputSheets(exportSheets, {
+      exportParsedOutputSheetsExcel(exportSheets, {
         filename: exportFilename || "textfsm-batch-show.xlsx",
       }),
     );

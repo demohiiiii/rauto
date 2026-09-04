@@ -9,17 +9,18 @@ export const CONFIG_FETCH_CONTENT_VIEW = Object.freeze({
   raw: "raw" as const,
 });
 
-function safeString(value: unknown): string {
-  return value == null ? "" : String(value);
+function safeString(value: string | null | undefined): string {
+  return value ?? "";
 }
 
 export function configFetchContent(
-  row: ConfigFetchResultRow = {},
+  row: ConfigFetchResultRow,
   view: ConfigFetchContentView = CONFIG_FETCH_CONTENT_VIEW.raw,
-  errorOutput: (row: ConfigFetchResultRow, field: string) => string = (
-    result,
-    field,
-  ) => safeString(result.all || result[field] || result.error),
+  errorOutput: (
+    row: ConfigFetchResultRow,
+    field: keyof ConfigFetchResultRow,
+  ) => string = (result, field) =>
+    safeString(result.all || result[field] || result.error),
 ): string {
   if (row.error) return errorOutput(row, "content");
   if (
@@ -31,7 +32,10 @@ export function configFetchContent(
   return typeof row.content === "string" ? row.content : "";
 }
 
-function filenamePart(value: unknown, fallback: string): string {
+function filenamePart(
+  value: string | null | undefined,
+  fallback: string,
+): string {
   const part = safeString(value)
     .trim()
     .replace(/[^a-zA-Z0-9._-]+/g, "_")
@@ -39,7 +43,7 @@ function filenamePart(value: unknown, fallback: string): string {
   return part || fallback;
 }
 
-function filenameTimestamp(value: unknown): string {
+function filenameTimestamp(value: string): string {
   const timestamp = Date.parse(safeString(value));
   if (!Number.isFinite(timestamp)) return "";
   return new Date(timestamp)
@@ -49,7 +53,7 @@ function filenameTimestamp(value: unknown): string {
 }
 
 export function configFetchDownloadDescriptor(
-  row: ConfigFetchResultRow = {},
+  row: ConfigFetchResultRow,
   view: ConfigFetchContentView = CONFIG_FETCH_CONTENT_VIEW.raw,
 ): ConfigFetchDownloadDescriptor | null {
   const normalized = view === CONFIG_FETCH_CONTENT_VIEW.normalized;
@@ -70,7 +74,7 @@ export function configFetchDownloadDescriptor(
   };
 }
 
-export function configFetchTimestamp(value: unknown): string {
+export function configFetchTimestamp(value: string): string {
   const timestamp = Date.parse(safeString(value));
   return Number.isFinite(timestamp)
     ? new Date(timestamp).toLocaleString()

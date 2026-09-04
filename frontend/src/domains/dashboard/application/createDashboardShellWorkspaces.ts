@@ -1,5 +1,6 @@
 import { derived, writable } from "svelte/store";
 import { currentLanguageState, tr } from "../../../lib/i18n.js";
+import type { I18nLanguage } from "../../../i18n/types.js";
 import { dashboardRuntime } from "../infrastructure/dashboardRuntime.js";
 import { dashboardShellResources } from "../infrastructure/dashboardShellResources.js";
 import { dashboardNavigationItems, routeById } from "../model/navigation.js";
@@ -7,6 +8,7 @@ import type {
   DashboardBodyDisplay,
   DashboardNavigationItem,
   DashboardNavigationItemDisplay,
+  DashboardPageComponent,
   DashboardPageDefinition,
   DashboardPageOutletRow,
   DashboardState,
@@ -44,7 +46,7 @@ function activeDashboardPageDefinition(
 function dashboardPageOutletRows(
   pageDefinitions: readonly DashboardPageDefinition[],
   dashboard: Partial<DashboardState> = {},
-  loadedComponents: Record<string, unknown> = {},
+  loadedComponents: Record<string, DashboardPageComponent> = {},
   loadErrors: Record<string, string> = {},
 ): DashboardPageOutletRow[] {
   const activePage = activeDashboardPageDefinition(pageDefinitions, dashboard);
@@ -127,8 +129,8 @@ function dashboardBodyDisplay(
 }
 
 function applyDashboardDocumentState(
-  theme: unknown,
-  language: unknown,
+  theme: DashboardState["currentTheme"],
+  language: I18nLanguage,
 ): () => void {
   const normalizedTheme = theme === "light" ? "light" : "dark";
   const previousLang = dashboardRuntime.getDocumentLanguage();
@@ -222,15 +224,15 @@ export function createDashboardBodyWorkspace(
     sidebarOpenStateStore.set(true);
   }
 
-  function setSidebarOpen(open: unknown): void {
-    sidebarOpenStateStore.set(!!open);
+  function setSidebarOpen(open: boolean): void {
+    sidebarOpenStateStore.set(open);
   }
 
   function applyShellState({
     language = "en",
     shellState = getDashboardState(),
   }: {
-    language?: unknown;
+    language?: I18nLanguage;
     shellState?: DashboardState;
   } = {}): () => void {
     const activePage = activeDashboardPageDefinition(

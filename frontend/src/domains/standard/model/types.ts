@@ -3,25 +3,30 @@ import type {
   CommandFlowDraftWorkspace,
   CommandFlowTemplateModel,
 } from "$domains/command/index.js";
+import type { ConnectionRequestPayload } from "$domains/connections/index.js";
+import type {
+  ParsedOutputSheet,
+  SessionRetryPayload,
+  SessionRetryState,
+} from "$domains/execution/index.js";
+import type { RecordLevel } from "$domains/overlays/index.js";
+import type {
+  ModeSelectState,
+  TextfsmPlatformSelectState,
+} from "$domains/profiles/index.js";
+import type {
+  CommandFlowTemplateDetail,
+  CommandTemplateInspection,
+  TemplateVariableField,
+} from "$domains/templates/index.js";
+import type { TaskResultSummary } from "$domains/tasks/index.js";
+import type { JsonObject, JsonValue } from "$lib/jsonValue.js";
 
 export type StandardCommandMultilineMode = "split_lines" | "whole";
 export type StandardCommandStatusTone = "error" | "info" | "success";
-export type StandardJsonValue =
-  | boolean
-  | number
-  | string
-  | null
-  | StandardJsonValue[]
-  | { [key: string]: StandardJsonValue };
+export type StandardJsonValue = JsonValue;
 
-export interface StandardSessionRetryState {
-  [key: string]: unknown;
-}
-
-export interface StandardCommandVariableField {
-  name?: unknown;
-  [key: string]: unknown;
-}
+export type StandardCommandVariableField = TemplateVariableField;
 
 export interface StandardCommandTextfsmState {
   enabled: boolean;
@@ -31,11 +36,32 @@ export interface StandardCommandTextfsmState {
   template: string;
 }
 
-export interface StandardCommandTextfsmPayload extends Record<string, unknown> {
+export interface StandardCommandTextfsmPayload {
   parse_textfsm: boolean;
   textfsm_platform: string | null;
   textfsm_strict_errors: boolean;
   textfsm_template: string | null;
+}
+
+export interface StandardTemplateMeta {
+  name: string;
+}
+
+export interface StandardTemplateDetail {
+  content: string;
+  name: string;
+}
+
+export type StandardCommandTemplateInspection = CommandTemplateInspection;
+
+export interface StandardCommandRenderPayload {
+  connection?: ConnectionRequestPayload;
+  template_content: string;
+  vars: JsonObject;
+}
+
+export interface StandardCommandRenderResponse {
+  rendered_commands: string;
 }
 
 export type StandardCommandPreview =
@@ -44,7 +70,7 @@ export type StandardCommandPreview =
   | { kind: "error"; message: string; text: string }
   | { kind: "result"; message: string; text: string };
 
-export type StandardCommandExecutionResult<TPayload = Record<string, unknown>> =
+export type StandardCommandExecutionResult<TPayload> =
   | { kind: "empty" }
   | { kind: "running" }
   | { kind: "error"; message: string }
@@ -65,7 +91,7 @@ export interface StandardCommandExecutionResponse {
   executed: StandardCommandResult[];
   recording_jsonl: string | null;
   rendered_commands: string;
-  result_summary: StandardTaskResultSummary;
+  result_summary: TaskResultSummary;
 }
 
 export interface StandardTaskResultSummary {
@@ -93,66 +119,74 @@ export interface StandardCommandWorkspaceState {
   modeOptions: string[];
   multilineMode: StandardCommandMultilineMode;
   preview: StandardCommandPreview;
-  retry: StandardSessionRetryState;
+  retry: SessionRetryState;
   sourceOptions: string[];
   sourceSelection: string;
   status: { message: string; tone: StandardCommandStatusTone };
   textfsm: StandardCommandTextfsmState;
-  vars: Record<string, unknown>;
-  varsSchema: unknown[];
+  vars: JsonObject;
+  varsSchema: StandardCommandVariableField[];
 }
 
 export interface StandardCommandExecutionInput {
-  connection?: unknown;
-  content?: unknown;
-  mode?: unknown;
-  multilineMode?: unknown;
-  recordLevel?: unknown;
-  retry?: StandardSessionRetryState;
-  textfsm?: Record<string, unknown>;
-  vars?: unknown;
+  connection?: ConnectionRequestPayload;
+  content?: string;
+  mode?: string;
+  multilineMode?: StandardCommandMultilineMode;
+  recordLevel?: RecordLevel;
+  retry?: SessionRetryState;
+  textfsm?: Partial<StandardCommandTextfsmPayload>;
+  vars?: JsonObject;
 }
 
-export interface StandardCommandExecutionPayload extends Record<
-  string,
-  unknown
-> {
-  connection: unknown;
+export interface StandardCommandExecutionPayload {
+  connection?: ConnectionRequestPayload;
+  dry_run?: boolean;
   mode: string | null;
   multiline_mode: StandardCommandMultilineMode;
-  record_level: unknown;
+  parse_textfsm?: boolean;
+  record_level?: RecordLevel;
+  retry?: SessionRetryPayload;
+  task_id?: string;
   template_content: string;
-  vars: Record<string, unknown>;
+  template_dir?: string | null;
+  textfsm_platform?: string | null;
+  textfsm_strict_errors?: boolean;
+  textfsm_template?: string | null;
+  textfsm_vendor?: string | null;
+  vars: JsonObject;
 }
 
 export interface StandardCommandApi {
   executeTemplate(
     payload: StandardCommandExecutionPayload,
   ): Promise<StandardCommandExecutionResponse>;
-  getTemplate(name: string): Promise<Record<string, unknown>>;
-  inspectCommandTemplate(content: string): Promise<Record<string, unknown>>;
-  listTemplates(): Promise<unknown>;
+  getTemplate(name: string): Promise<StandardTemplateDetail>;
+  inspectCommandTemplate(
+    content: string,
+  ): Promise<StandardCommandTemplateInspection>;
+  listTemplates(): Promise<StandardTemplateMeta[]>;
   renderTemplate(
-    payload: Record<string, unknown>,
-  ): Promise<Record<string, unknown>>;
+    payload: StandardCommandRenderPayload,
+  ): Promise<StandardCommandRenderResponse>;
 }
 
-export interface StandardPicker {
-  setValue(value: unknown): void;
-  state: Readable<Record<string, unknown>>;
+export interface StandardPicker<TState> {
+  setValue(value?: string): void;
+  state: Readable<TState>;
 }
 
 export interface StandardCommandRuntime {
-  applyRecording(payload: unknown): void;
+  applyRecording(payload: StandardCommandExecutionResponse): void;
   clearTimer(timer: number): void;
-  commandModePicker(): StandardPicker;
+  commandModePicker(): StandardPicker<ModeSelectState>;
   confirm(message: string): boolean | Promise<boolean>;
-  connection(): unknown;
-  createRetryState(): StandardSessionRetryState;
+  connection(): ConnectionRequestPayload;
+  createRetryState(): SessionRetryState;
   ensureTarget(): boolean;
-  platformPicker(): StandardPicker;
-  recordLevel(): unknown;
-  retryRequestFields(retry: StandardSessionRetryState): Record<string, unknown>;
+  platformPicker(): StandardPicker<TextfsmPlatformSelectState>;
+  recordLevel(): RecordLevel;
+  retryRequestFields(retry: SessionRetryState): StandardBatchRetryFields;
   setTimer(callback: () => void, delay: number): number;
 }
 
@@ -164,17 +198,17 @@ export interface StandardCommandWorkspaceOptions {
 }
 
 export interface StandardCommandExecutionWorkspace {
-  changeContent(content?: unknown): Promise<boolean>;
-  changeMode(mode?: unknown): void;
-  changeMultilineMode(multilineMode?: unknown): void;
-  changeRetry(retry?: StandardSessionRetryState): void;
+  changeContent(content?: string): Promise<boolean>;
+  changeMode(mode?: string): void;
+  changeMultilineMode(multilineMode?: StandardCommandMultilineMode): void;
+  changeRetry(retry?: Partial<SessionRetryState>): void;
   changeTextfsm(patch?: Partial<StandardCommandTextfsmState>): void;
-  changeVars(vars?: unknown): void;
+  changeVars(vars?: JsonObject): void;
   destroy(): void;
   execute(): Promise<boolean>;
   initialize(): Promise<boolean>;
   preview(): Promise<boolean>;
-  selectSource(sourceValue?: unknown): Promise<boolean>;
+  selectSource(sourceValue?: string): Promise<boolean>;
   stateStore: Writable<StandardCommandWorkspaceState>;
 }
 
@@ -207,23 +241,26 @@ export interface StandardFlowAuthoringActionState extends StandardFlowAuthoringO
   dirty: boolean;
 }
 
-export interface StandardFlowTemplateDetail extends Record<string, unknown> {
-  content?: unknown;
-  vars_schema?: unknown;
-}
+export type StandardFlowTemplateDetail = CommandFlowTemplateDetail;
 
 export interface StandardFlowAuthoringOptions {
   confirmDiscard?: (message: string) => boolean | Promise<boolean>;
-  createTemplate?: (name: string, content: string) => Promise<unknown>;
+  createTemplate?: (
+    name: string,
+    content: string,
+  ) => Promise<StandardTemplateDetail>;
   getTemplate?: (
     name: string,
     options: { builtin: boolean },
   ) => Promise<StandardFlowTemplateDetail>;
   inspectTemplate?: (content: string) => Promise<StandardFlowTemplateDetail>;
-  onInspection?: (detail: StandardFlowTemplateDetail | null) => unknown;
+  onInspection?: (detail: StandardFlowTemplateDetail | null) => void;
   parseBuiltinSelection?: (value: string) => string | null;
-  refreshTemplates?: () => Promise<unknown>;
-  updateTemplate?: (name: string, content: string) => Promise<unknown>;
+  refreshTemplates?: () => Promise<void>;
+  updateTemplate?: (
+    name: string,
+    content: string,
+  ) => Promise<StandardTemplateDetail>;
 }
 
 export interface StandardFlowExecutionSource {
@@ -234,7 +271,7 @@ export interface StandardFlowExecutionSource {
 export interface StandardCommandFlowAuthoringState {
   actionStateStore: Readable<StandardFlowAuthoringActionState>;
   closeNameDialog(): void;
-  createNewDraft(name?: unknown): boolean;
+  createNewDraft(name?: string): boolean;
   draft: CommandFlowDraftWorkspace;
   executeSource(): StandardFlowExecutionSource;
   inspectCurrent(): Promise<boolean>;
@@ -243,11 +280,11 @@ export interface StandardCommandFlowAuthoringState {
   openSaveAsDialog(): void;
   operationStateStore: Writable<StandardFlowAuthoringOperationState>;
   save(): Promise<boolean>;
-  saveAs(name?: unknown): Promise<boolean>;
+  saveAs(name?: string): Promise<boolean>;
   selectionStateStore: Writable<StandardFlowSelection>;
-  selectTemplate(value?: unknown): Promise<boolean>;
+  selectTemplate(value?: string): Promise<boolean>;
   setModel(model: CommandFlowTemplateModel): void;
-  setNameDialogValue(value?: unknown): void;
+  setNameDialogValue(value?: string): void;
   setTomlText(tomlText?: string): boolean;
   submitNameDialog(): Promise<boolean>;
 }
@@ -267,29 +304,56 @@ export type StandardCommandFlowNormalizedExecutionSource =
   | StandardCommandFlowSavedExecutionSource
   | StandardCommandFlowTemporaryExecutionSource;
 
+export type StandardCommandFlowExecutionSourceInput =
+  | { content?: string; kind: "temporary" }
+  | { kind: "saved"; templateSelection?: string };
+
 export interface StandardCommandFlowExecutionInput {
-  connection?: unknown;
-  recordLevel?: unknown;
-  retry?: StandardSessionRetryState;
-  source?: unknown;
-  textfsm?: unknown;
-  vars?: unknown;
+  connection?: ConnectionRequestPayload;
+  recordLevel?: RecordLevel | null;
+  retry?: SessionRetryState;
+  source?: StandardCommandFlowExecutionSourceInput;
+  textfsm?: Partial<StandardCommandFlowTextfsmPayload>;
+  vars?: JsonValue;
 }
 
-export interface StandardCommandFlowExecutionPayload extends Record<
-  string,
-  unknown
-> {
-  connection: unknown;
-  record_level: unknown;
-  vars: unknown;
+export type StandardCommandFlowSourcePayload =
+  | {
+      builtin_template_name: null;
+      content?: never;
+      template_name: string;
+    }
+  | {
+      builtin_template_name: string;
+      content?: never;
+      template_name: null;
+    }
+  | {
+      builtin_template_name?: never;
+      content: string;
+      template_name?: never;
+    };
+
+export interface StandardCommandFlowExecutionFields {
+  connection?: ConnectionRequestPayload;
+  parse_textfsm?: boolean;
+  record_level?: RecordLevel | null;
+  retry?: SessionRetryPayload;
+  textfsm_platform?: string | null;
+  textfsm_strict_errors?: boolean;
+  textfsm_template?: string | null;
+  textfsm_vendor?: string | null;
+  vars: JsonValue;
 }
+
+export type StandardCommandFlowExecutionPayload =
+  StandardCommandFlowSourcePayload & StandardCommandFlowExecutionFields;
 
 export interface StandardCommandFlowTextfsmFields {
-  enabled?: unknown;
-  platform?: unknown;
-  strictErrors?: unknown;
-  template?: unknown;
+  enabled?: boolean;
+  platform?: string;
+  strictErrors?: boolean;
+  template?: string;
 }
 
 export interface StandardCommandFlowTextfsmState {
@@ -298,36 +362,48 @@ export interface StandardCommandFlowTextfsmState {
   template: string;
 }
 
-export interface StandardParsedOutputSheet extends Record<string, unknown> {
-  name: string;
-  parsed_output: unknown;
+export interface StandardCommandFlowTextfsmPayload {
+  parse_textfsm: boolean;
+  textfsm_platform: string | null;
+  textfsm_strict_errors: boolean;
+  textfsm_template: string | null;
+}
+
+export type StandardParsedOutputSheet = ParsedOutputSheet;
+
+export interface StandardCommandFlowExecutionResponse {
+  outputs: StandardCommandResult[];
+  recording_jsonl: string | null;
+  result_summary: TaskResultSummary;
+  success: boolean;
+  template_name: string;
 }
 
 export interface StandardCommandFlowApi {
   executeFlow(
     payload: StandardCommandFlowExecutionPayload,
-  ): Promise<Record<string, unknown>>;
+  ): Promise<StandardCommandFlowExecutionResponse>;
 }
 
 export interface StandardCommandFlowRuntime {
-  applyRecording(payload: unknown): void;
-  buildVarsPayload(): unknown;
-  connectionPayload(): unknown;
-  createRetryState(): StandardSessionRetryState;
+  applyRecording(payload: StandardCommandFlowExecutionResponse): void;
+  buildVarsPayload(): JsonObject | null;
+  connectionPayload(): ConnectionRequestPayload;
+  createRetryState(): SessionRetryState;
   ensureTarget(): boolean;
   ensureTemplateDetail(
     templateName: string,
     options: { silent: boolean },
-  ): Promise<unknown>;
+  ): Promise<object | null>;
   parsedOutputSheets(
-    outputs: unknown[],
+    outputs: StandardCommandResult[],
     options: {
-      sheetName: (item: Record<string, unknown>, index: number) => string;
+      sheetName: (item: StandardCommandResult, index: number) => string;
     },
   ): StandardParsedOutputSheet[];
-  recordLevelPayload(): unknown;
-  refreshModeOptions(): Promise<unknown>;
-  retryRequestFields(retry: StandardSessionRetryState): Record<string, unknown>;
+  recordLevelPayload(): RecordLevel;
+  refreshModeOptions(): Promise<void>;
+  retryRequestFields(retry: SessionRetryState): StandardBatchRetryFields;
 }
 
 export interface StandardLoadingRunner {
@@ -352,12 +428,12 @@ export interface StandardBatchExecForm {
   command: string;
   maxParallel: string;
   mode: string;
-  retry: StandardSessionRetryState;
+  retry: SessionRetryState;
 }
 
 export interface StandardBatchFlowForm {
   maxParallel: string;
-  retry: StandardSessionRetryState;
+  retry: SessionRetryState;
   template: string;
   varsJson: string;
 }
@@ -388,7 +464,7 @@ export interface StandardBatchExecTargetResponse {
 
 export interface StandardBatchExecResponse {
   command: string;
-  result_summary: StandardTaskResultSummary;
+  result_summary: TaskResultSummary;
   results: StandardBatchExecTargetResponse[];
   targets: string[];
 }
@@ -403,25 +479,57 @@ export interface StandardBatchFlowTargetResponse {
 }
 
 export interface StandardBatchFlowResponse {
-  result_summary: StandardTaskResultSummary;
+  result_summary: TaskResultSummary;
   results: StandardBatchFlowTargetResponse[];
   targets: string[];
   template_name: string;
 }
 
-export interface StandardBatchExecPayload extends Record<string, unknown> {
-  command: string;
-  groups: string[];
-  labels: string[];
-  mode: string | null;
-  targets: string[];
+export interface StandardBatchRetryFields {
+  retry?: SessionRetryPayload;
 }
 
-export interface StandardBatchFlowPayload extends Record<string, unknown> {
+export interface StandardBatchTargetPayload extends StandardBatchRetryFields {
   groups: string[];
   labels: string[];
+  max_parallel?: number;
+  record_level?: RecordLevel | null;
   targets: string[];
+  task_id?: string;
 }
+
+export interface StandardBatchExecPayload extends StandardBatchTargetPayload {
+  command: string;
+  multiline_mode?: StandardCommandMultilineMode;
+  mode: string | null;
+  parse_textfsm?: boolean;
+  textfsm_platform?: string | null;
+  textfsm_strict_errors?: boolean;
+  textfsm_template?: string | null;
+  textfsm_vendor?: string | null;
+}
+
+export type StandardBatchFlowTemplatePayload =
+  | { builtin_template_name: string; template_name?: never }
+  | { builtin_template_name?: never; template_name: string };
+
+export type StandardBatchFlowSourcePayload =
+  | (StandardBatchFlowTemplatePayload & { content?: never })
+  | {
+      builtin_template_name?: never;
+      content: string;
+      template_name?: never;
+    };
+
+export type StandardBatchFlowPayload = StandardBatchTargetPayload &
+  StandardBatchFlowSourcePayload & {
+    parse_textfsm?: boolean;
+    textfsm_platform?: string | null;
+    textfsm_strict_errors?: boolean;
+    textfsm_template?: string | null;
+    textfsm_vendor?: string | null;
+    vars?: JsonValue;
+  };
 
 export interface StandardBatchApi {
   executeCommand(
@@ -430,13 +538,13 @@ export interface StandardBatchApi {
   executeFlow(
     payload: StandardBatchFlowPayload,
   ): Promise<StandardBatchFlowResponse>;
-  listTemplates(basePath: string): Promise<unknown>;
+  listTemplates(basePath: string): Promise<StandardTemplateMeta[]>;
 }
 
 export interface StandardBatchRuntime {
   batchExecTargets(): StandardBatchTargetSelection;
   batchFlowTargets(): StandardBatchTargetSelection;
-  createRetryState(): StandardSessionRetryState;
-  recordLevelPayload(): unknown;
-  retryRequestFields(retry: StandardSessionRetryState): Record<string, unknown>;
+  createRetryState(): SessionRetryState;
+  recordLevelPayload(): RecordLevel;
+  retryRequestFields(retry: SessionRetryState): StandardBatchRetryFields;
 }

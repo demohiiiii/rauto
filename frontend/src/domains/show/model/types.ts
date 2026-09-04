@@ -1,20 +1,39 @@
+import type { Readable, Writable } from "svelte/store";
+import type {
+  ConnectionRequestPayload,
+  ConnectionTargetState,
+  SavedConnectionSelectState,
+  ShowObjectOption,
+} from "$domains/connections/index.js";
+import type {
+  ParsedOutputSheet,
+  SessionRetryPayload,
+  SessionRetryState,
+  TextfsmExcelExportPayload,
+} from "$domains/execution/index.js";
+import type { RecordLevel } from "$domains/overlays/index.js";
+import type { TaskResultSummary } from "$domains/tasks/index.js";
+import type { JsonValue } from "$lib/jsonValue.js";
+
 export interface ShowConnectionSummary {
-  device_profile?: unknown;
-  groups?: unknown;
-  labels?: unknown;
-  name?: unknown;
-  [key: string]: unknown;
+  device_profile?: string | null;
+  groups?: string[];
+  labels?: string[];
+  name?: string;
 }
 
 export interface ShowObjectDefinition {
-  object?: unknown;
-  [key: string]: unknown;
+  command: string;
+  mode: string | null;
+  object: string;
+  source: string;
+  textfsm_mapping_command: string | null;
+  textfsm_template_name: string | null;
 }
 
 export interface ShowObjectsPayload {
-  objects?: ShowObjectDefinition[];
-  platform?: string;
-  [key: string]: unknown;
+  objects: ShowObjectDefinition[];
+  platform: string | null;
 }
 
 export interface ShowObjectQuery {
@@ -24,17 +43,104 @@ export interface ShowObjectQuery {
 
 export interface BatchShowTargetSelection {
   connections?: ShowConnectionSummary[];
-  groups?: unknown[];
-  labels?: unknown[];
-  targets?: unknown[];
+  groups?: string[];
+  labels?: string[];
+  targets?: string[];
+}
+
+export interface ShowExecutionResponseMetadata {
+  error: { code: string; message: string } | null;
+  result_summary: TaskResultSummary;
+  success: boolean;
+}
+
+export interface ShowExecuteBasePayload {
+  connection: ConnectionRequestPayload;
+  mode: string | null;
+  no_parse: boolean;
+  record_level: RecordLevel;
+  retry?: SessionRetryPayload;
+  textfsm_platform: string | null;
+  textfsm_strict_errors: boolean;
+}
+
+export interface ShowExecutePayload extends ShowExecuteBasePayload {
+  object: string;
+}
+
+export interface ShowExecuteResponse {
+  all: string;
+  command: string;
+  execution_response: ShowExecutionResponseMetadata;
+  exit_code: number | null;
+  mode: string;
+  object: string;
+  output: string;
+  parse_error: string | null;
+  parsed_output: JsonValue | null;
+  platform: string;
+  recording_jsonl: string | null;
+  result_summary: TaskResultSummary;
+  source: string;
+  success: boolean;
+  textfsm_mapping_command: string | null;
+  textfsm_template_name: string | null;
+}
+
+export interface ShowBatchExecutePayload {
+  groups: string[];
+  labels: string[];
+  max_parallel?: number;
+  mode: string | null;
+  no_parse: boolean;
+  object: string;
+  objects: string[];
+  record_level: RecordLevel;
+  retry?: SessionRetryPayload;
+  targets: string[];
+  textfsm_platform: string | null;
+  textfsm_strict_errors: boolean;
+}
+
+export interface ShowBatchTargetResponse {
+  all: string | null;
+  command: string;
+  error: string | null;
+  exit_code: number | null;
+  host: string;
+  mode: string;
+  object: string;
+  output: string | null;
+  parse_error: string | null;
+  parsed_output: JsonValue | null;
+  platform: string;
+  profile: string;
+  source: string;
+  success: boolean;
+  target: string;
+  textfsm_mapping_command: string | null;
+  textfsm_template_name: string | null;
+}
+
+export interface ShowBatchExecuteResponse {
+  execution_response: ShowExecutionResponseMetadata;
+  object: string;
+  results: ShowBatchTargetResponse[];
+  result_summary: TaskResultSummary;
+  targets: string[];
+}
+
+export interface ShowExcelExportPayload extends TextfsmExcelExportPayload {
+  filename: string;
+  sheets: ParsedOutputSheet[];
 }
 
 export interface ShowApi {
-  execute(payload: Record<string, unknown>): Promise<Record<string, unknown>>;
+  execute(payload: ShowExecutePayload): Promise<ShowExecuteResponse>;
   executeBatch(
-    payload: Record<string, unknown>,
-  ): Promise<Record<string, unknown>>;
-  exportExcel(payload: Record<string, unknown>): Promise<{
+    payload: ShowBatchExecutePayload,
+  ): Promise<ShowBatchExecuteResponse>;
+  exportExcel(payload: ShowExcelExportPayload): Promise<{
     blob: Blob;
     filename?: string;
   }>;
@@ -46,9 +152,9 @@ export type ShowExecutionResult =
   | { kind: "running" }
   | { kind: "error"; message: string }
   | {
-      basePayload: Record<string, unknown>;
+      basePayload: ShowExecuteBasePayload;
       kind: "result";
-      results: Record<string, unknown>[];
+      results: ShowExecuteResponse[];
     };
 
 export type BatchShowExecutionResult =
@@ -57,7 +163,7 @@ export type BatchShowExecutionResult =
   | { kind: "error"; message: string }
   | {
       kind: "result";
-      resultPayload: Record<string, unknown>;
+      resultPayload: ShowBatchExecuteResponse;
     };
 
 export type BatchShowObjectAvailabilityStatus =
@@ -91,36 +197,57 @@ export interface ShowCommandPreviewRow {
   objectName: string;
 }
 
+export interface ShowStoredTextfsmFields {
+  excelName: string;
+  parseTextfsm: boolean;
+  textfsmPlatform: string;
+  textfsmStrictErrors: boolean;
+  textfsmTemplate: string;
+}
+
+export interface ShowStoredBatchFields extends ShowStoredTextfsmFields {
+  maxParallel: string;
+  mode: string;
+}
+
+export interface ShowFormFieldsState {
+  batchRetry: SessionRetryState;
+  batchShow: ShowStoredBatchFields;
+  show: { mode: string };
+  singleRetry: SessionRetryState;
+  textfsm: ShowStoredTextfsmFields;
+}
+
 export interface ShowStateContext {
   batchShowExecutionResult: Writable<BatchShowExecutionResult>;
   batchShowObjectAvailability: Writable<BatchShowObjectAvailability>;
   batchShowObjectsRequestSeq: number;
   showCommandPreviewRows: Writable<Record<string, ShowCommandPreviewRow[]>>;
   showExecutionResult: Writable<ShowExecutionResult>;
-  showFormFieldsState: Map<string, Record<string, unknown>>;
+  showFormFieldsState: ShowFormFieldsState;
   showObjectPlatformState: Map<string, string>;
   showObjectsRequestSeq: number;
 }
 
 export interface SavedConnectionSelectSnapshot {
   connections?: ShowConnectionSummary[];
-  options?: unknown[];
+  options?: string[];
   selected?: string;
 }
 
 export interface ShowRuntime {
-  applyRecording(payload: unknown): void;
-  connectionPayload(): Record<string, unknown>;
-  connectionTargetState: Readable<Record<string, unknown>>;
-  currentExecutionProfile(): unknown;
+  applyRecording(payload: ShowExecuteResponse): void;
+  connectionPayload(): ConnectionRequestPayload;
+  connectionTargetState: Readable<ConnectionTargetState>;
+  currentExecutionProfile(): string;
   ensureConnectionTargetSelected(): boolean;
   executionConnectionProfileState: Readable<string>;
   hidePickerMenu(key: string): void;
   pickerValues(key: string): string[];
-  recordLevelPayload(): unknown;
-  refreshExecutionModeOptions(): unknown;
+  recordLevelPayload(): RecordLevel;
+  refreshExecutionModeOptions(): Promise<void>;
   refreshPickerSelected(key: string): void;
-  savedConnectionSelectState: Readable<SavedConnectionSelectSnapshot>;
+  savedConnectionSelectState: Readable<SavedConnectionSelectState>;
   setCustomObjectsChangedCallback(callback: () => void | Promise<void>): void;
   setObjectPickerOptions(
     key: string,
@@ -128,10 +255,7 @@ export interface ShowRuntime {
     selected: string[],
     onRefreshed: () => void,
   ): boolean;
-  showObjectOptionMeta(
-    pickerKey: string,
-    objectName: string,
-  ): Record<string, unknown>;
+  showObjectOptionMeta(pickerKey: string, objectName: string): ShowObjectOption;
 }
 
 export interface ShowModeOptionRow {
@@ -159,4 +283,3 @@ export interface ShowObjectSelectionDisplay {
   sourceLabel: string;
   textfsmLabel: string;
 }
-import type { Readable, Writable } from "svelte/store";

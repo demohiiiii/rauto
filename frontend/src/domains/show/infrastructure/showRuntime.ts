@@ -23,7 +23,7 @@ import {
 import { setCustomShowObjectsChangedCallback } from "$domains/templates/index.js";
 import type { ShowRuntime } from "../model/types.js";
 
-export const showRuntime = {
+export const showRuntime: ShowRuntime = {
   applyRecording: applyRecordDrawerRecording,
   connectionPayload,
   connectionTargetState,
@@ -39,4 +39,4 @@ export const showRuntime = {
   setCustomObjectsChangedCallback: setCustomShowObjectsChangedCallback,
   setObjectPickerOptions: setShowObjectPickerOptions,
   showObjectOptionMeta,
-} as unknown as ShowRuntime;
+};

@@ -1,4 +1,5 @@
 import { tick } from "svelte";
+import type { Component } from "svelte";
 import { derived, get, writable } from "svelte/store";
 import { currentLanguageState, t, tr } from "../../../lib/i18n.js";
 import { dashboardApi } from "../infrastructure/dashboardApi.js";
@@ -44,25 +45,15 @@ const dashboardBootstrapState = writable<DashboardBootstrapState>({
 
 interface ProfilesFeatureModule {
   initializeProfiles(): void;
-  loadProfilesOverview(): Promise<unknown>;
+  loadProfilesOverview(): Promise<void>;
 }
 
 interface TransactionsFeatureModule {
-  loadAllJsonTemplates(): Promise<unknown>;
+  loadAllJsonTemplates(): Promise<void>;
 }
 
-interface DashboardFeatureModules {
-  profile: ProfilesFeatureModule;
-  transactionsWorkspace: TransactionsFeatureModule;
-}
-
-type DashboardFeatureModuleKey = keyof DashboardFeatureModules;
-
-const featureModules = new Map<DashboardFeatureModuleKey, unknown>();
-const featureModulePromises = new Map<
-  DashboardFeatureModuleKey,
-  Promise<unknown>
->();
+let profilesModulePromise: Promise<ProfilesFeatureModule> | null = null;
+let transactionsModulePromise: Promise<TransactionsFeatureModule> | null = null;
 
 let dashboardAppBootstrapped = false;
 
@@ -95,7 +86,9 @@ async function loadDashboardBodyComponentModule() {
 
 export function createDashboardAppWorkspace() {
   initializeDashboardStatePreferences();
-  const dashboardBodyComponentStateStore = writable<unknown>(null);
+  const dashboardBodyComponentStateStore = writable<Component<{
+    busy: boolean;
+  }> | null>(null);
   const dashboardBodyLoadErrorStateStore = writable("");
   const bootstrapDisplayStateStore = derived(
     [dashboardBootstrapState, currentLanguageState],
@@ -157,44 +150,26 @@ export function createDashboardAgentAuthPanelWorkspace() {
   });
 }
 
-async function loadFeatureModule<K extends DashboardFeatureModuleKey>(
-  key: K,
-  loader: () => Promise<DashboardFeatureModules[K]>,
-): Promise<DashboardFeatureModules[K]> {
-  const cachedModule = featureModules.get(key);
-  if (cachedModule) {
-    return cachedModule as DashboardFeatureModules[K];
-  }
-  if (!featureModulePromises.has(key)) {
-    featureModulePromises.set(
-      key,
-      (async () => {
-        try {
-          const featureModule = await loader();
-          featureModules.set(key, featureModule);
-          return featureModule;
-        } catch (error) {
-          featureModulePromises.delete(key);
-          throw error;
-        }
-      })(),
-    );
-  }
-  return featureModulePromises.get(key) as Promise<DashboardFeatureModules[K]>;
-}
-
 function loadProfilesModule(): Promise<ProfilesFeatureModule> {
-  return loadFeatureModule(
-    "profile",
-    () => import("$domains/profiles/application/profileCatalogState.js"),
-  );
+  profilesModulePromise ??=
+    import("$domains/profiles/application/profileCatalogState.js").catch(
+      (error) => {
+        profilesModulePromise = null;
+        throw error;
+      },
+    );
+  return profilesModulePromise;
 }
 
 function loadTransactionsWorkspaceModule(): Promise<TransactionsFeatureModule> {
-  return loadFeatureModule(
-    "transactionsWorkspace",
-    () => import("../../transactions/application/transactionPanelState.js"),
-  );
+  transactionsModulePromise ??=
+    import("../../transactions/application/transactionPanelState.js").catch(
+      (error) => {
+        transactionsModulePromise = null;
+        throw error;
+      },
+    );
+  return transactionsModulePromise;
 }
 
 function maybePersistAgentTokenFromUrl(): boolean {
@@ -268,11 +243,11 @@ function initializeDashboardAppState(): void {
   refreshAgentAuthStatus();
 }
 
-function onDashboardTabChange(tab: unknown): void {
+function onDashboardTabChange(tab: string): void {
   setDashboardTab(tab);
 }
 
-function onDashboardTxStageChange(stage: unknown): void {
+function onDashboardTxStageChange(stage: string): void {
   setDashboardTxStage(stage);
 }
 

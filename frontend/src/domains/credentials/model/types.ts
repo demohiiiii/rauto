@@ -2,9 +2,14 @@ import type { Readable, Writable } from "svelte/store";
 
 export type CredentialStatusTone = "error" | "info" | "success";
 export type CredentialTranslate = (key: string, fallback?: string) => string;
+export type CredentialAuthType =
+  | "agent"
+  | "password"
+  | "private_key"
+  | "private_key_file";
 
 export interface CredentialApiRow {
-  auth_type: string;
+  auth_type: CredentialAuthType;
   connection_count: number;
   enable_enabled: boolean;
   has_auth_secret: boolean;
@@ -19,7 +24,7 @@ export interface CredentialApiRow {
 }
 
 export interface CredentialRow {
-  authType: string;
+  authType: CredentialAuthType;
   connectionCount: number;
   enableEnabled: boolean;
   hasAuthSecret: boolean;
@@ -35,7 +40,7 @@ export interface CredentialRow {
 }
 
 export interface CredentialForm {
-  authType: string;
+  authType: CredentialAuthType;
   connectionCount: number;
   enableEnabled: boolean;
   enablePassword: string;
@@ -53,7 +58,7 @@ export interface CredentialForm {
 }
 
 export interface CredentialSavePayload {
-  auth_type: string;
+  auth_type: CredentialAuthType;
   enable_enabled: boolean;
   enable_password: string | null;
   name: string;
@@ -147,9 +152,13 @@ export interface CredentialBlobPayload {
   filename: string;
 }
 
+export interface CredentialDeleteResponse {
+  deleted: boolean;
+}
+
 export interface CredentialsApi {
   createCredential(payload: CredentialSavePayload): Promise<CredentialApiRow>;
-  deleteCredential(id: string): Promise<unknown>;
+  deleteCredential(id: string): Promise<CredentialDeleteResponse>;
   downloadImportTemplate(language: string): Promise<CredentialBlobPayload>;
   getCredential(id: string): Promise<CredentialApiRow>;
   importCredentials(file: File): Promise<CredentialImportApiReport>;

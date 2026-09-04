@@ -1,4 +1,5 @@
 import { safeString } from "../../../lib/ui.js";
+import type { ConnectionTargetState } from "$domains/connections/index.js";
 import type {
   BatchShowTargetSelection,
   ShowConnectionSummary,
@@ -6,17 +7,13 @@ import type {
   ShowObjectsPayload,
 } from "./types.js";
 
-export function normalizeBatchMaxParallel(value: unknown): number | null {
+export function normalizeBatchMaxParallel(value: string): number | null {
   const parsed = Number.parseInt(safeString(value).trim(), 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function normalizedSelectionSet(values: unknown = []): Set<string> {
-  return new Set(
-    (Array.isArray(values) ? values : [])
-      .map((value) => safeString(value).trim())
-      .filter(Boolean),
-  );
+function normalizedSelectionSet(values: string[] = []): Set<string> {
+  return new Set(values.map((value) => value.trim()).filter(Boolean));
 }
 
 export function resolveBatchShowTargetConnections({
@@ -29,19 +26,13 @@ export function resolveBatchShowTargetConnections({
   const groupNames = normalizedSelectionSet(groups);
   const labelNames = normalizedSelectionSet(labels);
   return connections.filter((connection) => {
-    const name = safeString(connection.name).trim();
-    const connectionGroups = Array.isArray(connection.groups)
-      ? connection.groups
-      : [];
-    const connectionLabels = Array.isArray(connection.labels)
-      ? connection.labels
-      : [];
+    const name = connection.name?.trim() ?? "";
+    const connectionGroups = connection.groups ?? [];
+    const connectionLabels = connection.labels ?? [];
     return (
       targetNames.has(name) ||
-      connectionGroups.some((group) =>
-        groupNames.has(safeString(group).trim()),
-      ) ||
-      connectionLabels.some((label) => labelNames.has(safeString(label).trim()))
+      connectionGroups.some((group) => groupNames.has(group.trim())) ||
+      connectionLabels.some((label) => labelNames.has(label.trim()))
     );
   });
 }
@@ -50,39 +41,30 @@ export function intersectBatchShowObjectPayloads(
   payloads: ShowObjectsPayload[] = [],
 ): ShowObjectDefinition[] {
   if (!payloads.length) return [];
-  const firstObjects = Array.isArray(payloads[0]?.objects)
-    ? payloads[0].objects
-    : [];
+  const firstObjects = payloads[0].objects;
   const remainingObjectSets = payloads
     .slice(1)
     .map(
       (payload) =>
         new Set(
-          (Array.isArray(payload.objects) ? payload.objects : [])
-            .map((object) => safeString(object.object).trim())
-            .filter(Boolean),
+          payload.objects.map((object) => object.object.trim()).filter(Boolean),
         ),
     );
   const seenObjects = new Set<string>();
   return firstObjects.filter((object) => {
-    const objectName = safeString(object.object).trim();
+    const objectName = object.object.trim();
     if (!objectName || seenObjects.has(objectName)) return false;
     seenObjects.add(objectName);
     return remainingObjectSets.every((objectSet) => objectSet.has(objectName));
   });
 }
 
-export function showConnectionTargetIdentity(target: unknown = {}): string {
-  const candidate =
-    target && typeof target === "object"
-      ? (target as Record<string, unknown>)
-      : {};
-  const details =
-    candidate.details && typeof candidate.details === "object"
-      ? (candidate.details as Record<string, unknown>)
-      : {};
+export function showConnectionTargetIdentity(
+  target: ConnectionTargetState,
+): string {
+  const details = target.details ?? {};
   return [
-    safeString(candidate.kind || "none"),
+    safeString(target.kind || "none"),
     safeString(details.name),
     safeString(details.host),
     safeString(details.profile || details.device_profile),

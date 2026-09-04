@@ -34,7 +34,7 @@ function inventoryCollectionRows(
 ) {
   return items.map((item) => {
     const selected = Boolean(selectedName && item.name === selectedName);
-    const hostCount = Array.isArray(item.hosts) ? item.hosts.length : 0;
+    const hostCount = item.hosts.length;
     return {
       buttonClass: inventoryCollectionRowClass(selected),
       descriptionText:

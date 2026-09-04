@@ -1,17 +1,15 @@
 import { get, writable } from "svelte/store";
 import { currentLanguage, tr } from "../../../lib/i18n.js";
 import { safeString } from "../../../lib/ui.js";
+import type { JsonObject, JsonValue } from "$lib/jsonValue.js";
 import { templatesApi } from "../infrastructure/templatesApi.js";
-import {
-  listValue,
-  recordValue,
-  safeText,
-} from "../model/templateResources.js";
 import type {
+  CommandFlowTemplateDetail,
   FlowTemplateSelectState,
   FlowVarField,
   FlowVarsState,
-  UnknownRecord,
+  TemplateResourceApiMeta,
+  TemplateVariableField,
 } from "../model/types.js";
 
 const FLOW_TEMPLATE_BASE = "/api/flow-templates";
@@ -50,8 +48,8 @@ function defaultFlowVarDraft(field: FlowVarField): string {
 
 function flowVarsFieldValues(
   fields: FlowVarField[] = [],
-  draft: UnknownRecord = {},
-): UnknownRecord {
+  draft: Record<string, string> = {},
+): Record<string, string> {
   return Object.fromEntries(
     fields.map((field) => {
       const draftValue = draft[field.name];
@@ -69,21 +67,18 @@ async function fetchFlowTemplateCollections() {
     templatesApi.listTemplateResource(FLOW_TEMPLATE_BASE),
     templatesApi.listTemplateResource(FLOW_BUILTIN_TEMPLATE_BASE),
   ]);
-  const metas =
-    savedResult.status === "fulfilled" ? listValue(savedResult.value) : [];
+  const metas = savedResult.status === "fulfilled" ? savedResult.value : [];
   const builtinMetas =
-    builtinResult.status === "fulfilled" ? listValue(builtinResult.value) : [];
+    builtinResult.status === "fulfilled" ? builtinResult.value : [];
   return {
     builtinMetas,
     metas,
-    names: metas
-      .map((meta) => recordValue(meta).name)
-      .filter(Boolean) as string[],
+    names: metas.map((meta) => meta.name).filter(Boolean),
   };
 }
 
-function buildBuiltinFlowTemplateValue(templateName: unknown): string {
-  const normalized = safeString(templateName).trim();
+function buildBuiltinFlowTemplateValue(templateName: string): string {
+  const normalized = templateName.trim();
   return normalized ? `${FLOW_BUILTIN_PREFIX}${normalized}` : "";
 }
 
@@ -91,11 +86,11 @@ function updateFlowTemplateSelectOptions({
   builtinMetas = [],
   names = [],
 }: {
-  builtinMetas?: unknown[];
+  builtinMetas?: TemplateResourceApiMeta[];
   names?: string[];
 }): void {
   const builtinValues = builtinMetas
-    .map((meta) => buildBuiltinFlowTemplateValue(recordValue(meta).name))
+    .map((meta) => buildBuiltinFlowTemplateValue(meta.name))
     .filter(Boolean);
   runFlowTemplateSelectState.update((state) => ({
     options: [...names, ...builtinValues],
@@ -119,60 +114,55 @@ export async function loadFlowTemplates() {
   }
 }
 
-let lastFlowRunTemplateDetailState: UnknownRecord | null = null;
+type FlowTemplateSchema = Pick<CommandFlowTemplateDetail, "vars_schema"> & {
+  __selection_key?: string;
+};
+
+let lastFlowRunTemplateDetailState: FlowTemplateSchema | null = null;
 
 export function parseBuiltinFlowTemplateValue(
-  templateValue: unknown,
+  templateValue: string,
 ): string | null {
-  const raw = safeString(templateValue).trim();
+  const raw = templateValue.trim();
   if (!raw.toLowerCase().startsWith(FLOW_BUILTIN_PREFIX)) return null;
   const name = raw.slice(FLOW_BUILTIN_PREFIX.length).trim();
   return name || null;
 }
 
-function normalizeFlowTemplateVarSchema(value: unknown): FlowVarField | null {
-  const item = recordValue(value);
-  const name = safeString(item.name).trim();
+function normalizeFlowTemplateVarSchema(
+  field: TemplateVariableField,
+): FlowVarField | null {
+  const name = field.name.trim();
   if (!name) return null;
-  const kind = safeString(item.type || item.kind || "string")
-    .trim()
-    .toLowerCase();
+  const kind = field.type.trim().toLowerCase() || "string";
   return {
-    ...item,
     name,
-    label: safeString(item.label || name).trim() || name,
-    description: safeString(item.description).trim() || "",
-    kind: kind || "string",
-    required: !!item.required,
-    allowEmpty: !!item.allow_empty,
-    placeholder: safeString(item.placeholder).trim(),
-    options: listValue(item.options).map(safeString).filter(Boolean),
-    defaultValue:
-      item.default !== undefined ? item.default : item.default_value,
+    label: field.label.trim() || name,
+    description: field.description?.trim() ?? "",
+    kind,
+    required: field.required,
+    allowEmpty: field.allow_empty,
+    placeholder: field.placeholder?.trim() ?? "",
+    options: field.options,
+    defaultValue: field.default,
   };
 }
 
 function getFlowRunVarsSchema(
-  detail: UnknownRecord | null = lastFlowRunTemplateDetailState,
+  detail: FlowTemplateSchema | null = lastFlowRunTemplateDetailState,
 ): FlowVarField[] {
-  if (!detail || !Array.isArray(detail.vars_schema)) return [];
+  if (!detail) return [];
   return detail.vars_schema
     .map(normalizeFlowTemplateVarSchema)
     .filter((field): field is FlowVarField => field !== null);
 }
 
 export function updateFlowTemplateVarFields(
-  detail: unknown = null,
-  draft: unknown = {},
+  detail: FlowTemplateSchema | null = null,
+  draft: Record<string, string> = {},
 ): void {
-  if (detail !== undefined) {
-    lastFlowRunTemplateDetailState =
-      detail && typeof detail === "object" && !Array.isArray(detail)
-        ? (detail as UnknownRecord)
-        : null;
-  }
+  lastFlowRunTemplateDetailState = detail;
   const schema = getFlowRunVarsSchema();
-  const normalizedDraft = recordValue(draft);
   const hintText = !schema.length
     ? lastFlowRunTemplateDetailState
       ? tr("flowVarsFieldsEmpty")
@@ -180,11 +170,11 @@ export function updateFlowTemplateVarFields(
     : tr("flowVarsFieldsHint");
   flowVarsFieldState.update((state) => ({
     ...state,
-    draft: normalizedDraft,
+    draft,
     errorMessage: "",
     fields: schema,
     hintText,
-    values: flowVarsFieldValues(schema, normalizedDraft),
+    values: flowVarsFieldValues(schema, draft),
   }));
 }
 
@@ -193,33 +183,31 @@ function setFlowTemplateVarFieldsError(message: unknown): void {
   flowVarsFieldState.update((state) => ({
     ...state,
     draft: {},
-    errorMessage: safeText(message),
+    errorMessage:
+      message instanceof Error ? message.message : String(message ?? ""),
     fields: [],
     hintText: tr("flowVarsFieldsHint"),
     values: {},
   }));
 }
 
-export function setFlowVarDraftValue(
-  name: unknown,
-  fieldValue: unknown = "",
-): void {
-  const key = safeString(name).trim();
+export function setFlowVarDraftValue(name: string, fieldValue = ""): void {
+  const key = name.trim();
   if (!key) return;
   flowVarsFieldState.update((state) => ({
     ...state,
     values: {
       ...state.values,
-      [key]: safeString(fieldValue ?? ""),
+      [key]: fieldValue,
     },
   }));
 }
 
 export async function ensureFlowRunTemplateDetail(
-  templateName: unknown,
+  templateName: string,
   loadConfig: { silent?: boolean } = {},
-): Promise<UnknownRecord | null> {
-  const name = safeString(templateName).trim();
+): Promise<FlowTemplateSchema | null> {
+  const name = templateName.trim();
   if (!name) {
     updateFlowTemplateVarFields(null, {});
     return null;
@@ -233,14 +221,13 @@ export async function ensureFlowRunTemplateDetail(
   }
   try {
     const builtinName = parseBuiltinFlowTemplateValue(name);
-    const payload = await templatesApi.getTemplateResource(
-      builtinName ? FLOW_BUILTIN_TEMPLATE_BASE : FLOW_TEMPLATE_BASE,
+    const payload = await templatesApi.getCommandFlowTemplate(
       builtinName || name,
+      { builtin: Boolean(builtinName) },
     );
-    payload.__selection_key = name;
-    lastFlowRunTemplateDetailState = payload;
-    updateFlowTemplateVarFields(payload, {});
-    return payload;
+    const selectedDetail = { ...payload, __selection_key: name };
+    updateFlowTemplateVarFields(selectedDetail, {});
+    return selectedDetail;
   } catch (error) {
     const message =
       error && typeof error === "object" && "message" in error
@@ -252,8 +239,8 @@ export async function ensureFlowRunTemplateDetail(
   }
 }
 
-export function getCurrentFlowTemplateFieldDraft(): UnknownRecord {
-  return recordValue(get(flowVarsFieldState).values);
+export function getCurrentFlowTemplateFieldDraft(): Record<string, string> {
+  return { ...get(flowVarsFieldState).values };
 }
 
 function flowVarRequiredMessage(label: string): string {
@@ -262,8 +249,8 @@ function flowVarRequiredMessage(label: string): string {
     : `${label} ${tr("flowVarRequiredSuffix")}`;
 }
 
-function collectFlowTemplateFieldValues(): UnknownRecord {
-  const fieldValues: UnknownRecord = {};
+function collectFlowTemplateFieldValues(): JsonObject {
+  const fieldValues: JsonObject = {};
   const draft = getCurrentFlowTemplateFieldDraft();
   for (const field of getFlowRunVarsSchema()) {
     const hasDraft = Object.hasOwn(draft, field.name);
@@ -280,7 +267,7 @@ function collectFlowTemplateFieldValues(): UnknownRecord {
         continue;
       }
       try {
-        fieldValues[field.name] = JSON.parse(raw) as unknown;
+        fieldValues[field.name] = JSON.parse(raw) as JsonValue;
       } catch {
         throw new Error(`${field.label} ${tr("flowVarJsonInvalid")}`);
       }
@@ -321,7 +308,7 @@ function collectFlowTemplateFieldValues(): UnknownRecord {
   return fieldValues;
 }
 
-export function buildFlowVarsPayload(): UnknownRecord | null {
+export function buildFlowVarsPayload(): JsonObject | null {
   const fieldVars = collectFlowTemplateFieldValues();
   return Object.keys(fieldVars).length ? fieldVars : null;
 }

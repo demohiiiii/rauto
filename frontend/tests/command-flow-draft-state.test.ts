@@ -2,7 +2,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
 import { commandFlowEditorViewTabs } from "../src/config/dashboardModes.js";
-import { createCommandFlowDraftWorkspace } from "../src/domains/command/index.ts";
+import { createCommandFlowDraftWorkspace } from "../src/domains/command/index.js";
+import type { TemplateVariableField } from "../src/domains/templates/index.js";
+
+function variableField(name: string): TemplateVariableField {
+  return {
+    allow_empty: false,
+    default: null,
+    description: null,
+    label: name,
+    name,
+    options: [],
+    placeholder: null,
+    required: true,
+    type: "string",
+  };
+}
 
 test("command flow editor exposes visual, TOML, and read-only views", () => {
   assert.deepEqual(
@@ -25,7 +40,7 @@ test("visual changes update the canonical TOML", () => {
   workspace.setModel({
     ...model,
     name: "deploy",
-    steps: [{ ...model.steps[0], command: "show version" }],
+    steps: [{ ...model.steps[0]!, command: "show version" }],
   });
 
   assert.match(get(workspace.tomlTextStateStore), /^name = "deploy"/);
@@ -43,7 +58,7 @@ command = "show clock"
 `);
 
   assert.equal(get(workspace.modelStateStore).name, "clock");
-  assert.equal(get(workspace.modelStateStore).steps[0].command, "show clock");
+  assert.equal(get(workspace.modelStateStore).steps[0]?.command, "show clock");
 });
 
 test("invalid TOML keeps exact text and the last valid model", () => {
@@ -62,18 +77,18 @@ test("only the latest inspection result updates runtime schema", () => {
   const workspace = createCommandFlowDraftWorkspace();
   const first = workspace.beginInspection();
   const second = workspace.beginInspection();
+  const staleField = variableField("stale");
+  const siteField = variableField("site");
 
   assert.equal(
-    workspace.applyInspection(first, { vars_schema: [{ name: "stale" }] }),
+    workspace.applyInspection(first, { vars_schema: [staleField] }),
     false,
   );
   assert.equal(
-    workspace.applyInspection(second, { vars_schema: [{ name: "site" }] }),
+    workspace.applyInspection(second, { vars_schema: [siteField] }),
     true,
   );
-  assert.deepEqual(get(workspace.inspectionStateStore).varsSchema, [
-    { name: "site" },
-  ]);
+  assert.deepEqual(get(workspace.inspectionStateStore).varsSchema, [siteField]);
 });
 
 test("draft cannot submit while backend inspection is pending", () => {
@@ -95,7 +110,7 @@ command = "show clock"
 
   assert.equal(
     workspace.applyInspection(pending, {
-      vars_schema: [{ name: "stale" }],
+      vars_schema: [variableField("stale")],
     }),
     false,
   );

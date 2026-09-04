@@ -25,11 +25,11 @@
     resultsDisplay,
   }: {
     controlsDisplay: ReplayControlsDisplay;
-    onEventKindChange?: (value: string) => unknown;
-    onFailedOnlyChange?: (checked: boolean) => unknown;
-    onModeSelect?: (value: string) => unknown;
-    onOpenEntryIndex?: (index: number) => unknown;
-    onResetFilters?: (event: MouseEvent) => unknown;
+    onEventKindChange?: (value: string) => void;
+    onFailedOnlyChange?: (checked: boolean) => void;
+    onModeSelect?: (value: string) => void;
+    onOpenEntryIndex?: (index: number) => void;
+    onResetFilters?: (event: MouseEvent) => void;
     onSearchInput?: (value: string) => void;
     resultsDisplay: ReplayResultsDisplay;
   } = $props();

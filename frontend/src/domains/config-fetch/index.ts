@@ -35,12 +35,14 @@ export {
   configFetchTimestamp,
 } from "./presentation/configFetchPresentation.js";
 export type {
+  ConfigCommandRow,
   ConfigFetchConnectionTarget,
   ConfigFetchContentView,
   ConfigFetchForm,
   ConfigFetchKindCatalog,
   ConfigFetchResultPayload,
   ConfigFetchResultRow,
+  ConfigFetchSingleResult,
   ConfigFetchTargetMode,
   ConfigFetchWorkspace,
   ConfigFetchWorkspaceOptions,

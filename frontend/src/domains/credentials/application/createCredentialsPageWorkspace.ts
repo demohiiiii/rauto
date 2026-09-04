@@ -71,9 +71,7 @@ export function createCredentialsPageWorkspace(
     });
     try {
       const payload = await api.listCredentials();
-      const credentials = Array.isArray(payload)
-        ? payload.map(credentialRow)
-        : [];
+      const credentials = payload.map(credentialRow);
       const current = get(stateStore);
       const nextId = selectId || current.selectedId || credentials[0]?.id || "";
       updateState((state) => {

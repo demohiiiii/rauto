@@ -4,34 +4,65 @@ import { get, writable } from "svelte/store";
 import {
   createInventoryPageWorkspace,
   newInventoryState,
-} from "../src/domains/inventory/index.ts";
+} from "../src/domains/inventory/index.js";
+import type {
+  InventoryApi,
+  InventoryGroup,
+  InventoryGroupPayload,
+  InventoryLabel,
+  InventoryRuntime,
+} from "../src/domains/inventory/model/types.js";
 
-function deferred() {
-  let resolve;
-  let reject;
-  const promise = new Promise((resolvePromise, rejectPromise) => {
+function deferred<T>(): {
+  promise: Promise<T>;
+  reject: (reason?: Error) => void;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: Error) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
     reject = rejectPromise;
   });
   return { promise, reject, resolve };
 }
 
-function inventoryItem(name, hosts = [], description = null) {
+function inventoryGroup(
+  name: string,
+  hosts: string[] = [],
+  description: string | null = null,
+): InventoryGroup {
   return { description, hosts, name };
 }
 
-function createTestWorkspace({ api = {}, runtime = {} } = {}) {
+function inventoryLabel(name: string, hosts: string[] = []): InventoryLabel {
+  return { hosts, name };
+}
+
+interface TestWorkspaceOptions {
+  api?: Partial<InventoryApi>;
+  runtime?: Partial<InventoryRuntime>;
+}
+
+function createTestWorkspace({
+  api = {},
+  runtime = {},
+}: TestWorkspaceOptions = {}) {
   const savedConnectionsRefreshState = writable(0);
   const protectedResourcesRefreshState = writable(0);
   const workspace = createInventoryPageWorkspace({
     api: {
-      async deleteGroup() {},
-      async deleteLabel() {},
+      async deleteGroup() {
+        return { deleted: true, ok: true };
+      },
+      async deleteLabel() {
+        return { deleted: true, ok: true };
+      },
       async getGroup(name) {
-        return inventoryItem(name);
+        return inventoryGroup(name);
       },
       async getLabel(name) {
-        return inventoryItem(name);
+        return inventoryLabel(name);
       },
       async listConnections() {
         return [];
@@ -43,10 +74,10 @@ function createTestWorkspace({ api = {}, runtime = {} } = {}) {
         return [];
       },
       async saveGroup(name, group) {
-        return inventoryItem(name, group.hosts, group.description);
+        return inventoryGroup(name, group.hosts, group.description);
       },
       async saveLabel(name, hosts) {
-        return inventoryItem(name, hosts);
+        return inventoryLabel(name, hosts);
       },
       ...api,
     },
@@ -65,7 +96,7 @@ function createTestWorkspace({ api = {}, runtime = {} } = {}) {
   };
 }
 
-async function settle() {
+async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
@@ -79,11 +110,11 @@ test("inventory workspace loads each catalog once when activated", async () => {
       },
       async listGroups() {
         calls.groups += 1;
-        return [inventoryItem("branch", ["edge-01"])];
+        return [inventoryGroup("branch", ["edge-01"])];
       },
       async listLabels() {
         calls.labels += 1;
-        return [inventoryItem("critical", ["edge-01"])];
+        return [inventoryLabel("critical", ["edge-01"])];
       },
     },
   });
@@ -101,15 +132,15 @@ test("inventory workspace loads each catalog once when activated", async () => {
 });
 
 test("group save includes its name, description, and sorted hosts", async () => {
-  let savedPayload;
+  let savedPayload: InventoryGroupPayload | null = null;
   const { workspace } = createTestWorkspace({
     api: {
       async listGroups() {
-        return [inventoryItem("branch", ["edge-a", "edge-z"], "routers")];
+        return [inventoryGroup("branch", ["edge-a", "edge-z"], "routers")];
       },
       async saveGroup(_name, payload) {
         savedPayload = payload;
-        return inventoryItem(payload.name, payload.hosts, payload.description);
+        return inventoryGroup(payload.name, payload.hosts, payload.description);
       },
     },
   });
@@ -131,16 +162,16 @@ test("group save includes its name, description, and sorted hosts", async () => 
 });
 
 test("label save sorts hosts and refreshes connection metadata", async () => {
-  let savedHosts;
+  let savedHosts: string[] | null = null;
   let reloadCount = 0;
   const { workspace } = createTestWorkspace({
     api: {
       async listLabels() {
-        return [inventoryItem("critical", ["edge-a", "edge-z"])];
+        return [inventoryLabel("critical", ["edge-a", "edge-z"])];
       },
       async saveLabel(_name, hosts) {
         savedHosts = hosts;
-        return inventoryItem("critical", hosts);
+        return inventoryLabel("critical", hosts);
       },
     },
     runtime: {
@@ -205,8 +236,8 @@ test("active inventory reloads connections after an external refresh", async () 
 });
 
 test("latest inventory detail response wins when selection changes quickly", async () => {
-  const first = deferred();
-  const second = deferred();
+  const first = deferred<InventoryGroup>();
+  const second = deferred<InventoryGroup>();
   const { workspace } = createTestWorkspace({
     api: {
       getGroup(name) {
@@ -217,14 +248,14 @@ test("latest inventory detail response wins when selection changes quickly", asy
 
   workspace.selectInventoryGroupName("first");
   workspace.selectInventoryGroupName("second");
-  second.resolve(inventoryItem("second", ["edge-02"]));
+  second.resolve(inventoryGroup("second", ["edge-02"]));
   await settle();
   assert.equal(
     get(workspace.inventoryStateStore).groups.selectedName,
     "second",
   );
 
-  first.resolve(inventoryItem("first", ["edge-01"]));
+  first.resolve(inventoryGroup("first", ["edge-01"]));
   await settle();
   const group = get(workspace.inventoryStateStore).groups;
   assert.equal(group.selectedName, "second");
@@ -233,7 +264,7 @@ test("latest inventory detail response wins when selection changes quickly", asy
 });
 
 test("destroyed inventory workspace ignores pending requests", async () => {
-  const response = deferred();
+  const response = deferred<Array<{ name: string }>>();
   const { workspace } = createTestWorkspace({
     api: {
       listConnections() {

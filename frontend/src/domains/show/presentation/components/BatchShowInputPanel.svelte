@@ -21,7 +21,7 @@
   interface Props {
     active: boolean;
     currentTab?: string;
-    onSelectQuery: (query: string) => unknown;
+    onSelectQuery: (query: string) => void | Promise<void>;
     queryAriaLabel?: string;
     tabItems?: Array<{ label?: string; labelKey?: string; value: string }>;
   }

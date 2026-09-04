@@ -7,7 +7,7 @@ import {
 import { showToast } from "$domains/overlays/index.js";
 
 export const dashboardResources = {
-  loadSavedConnections(): Promise<unknown> {
+  loadSavedConnections(): Promise<void> {
     return loadSavedConnections();
   },
   refreshConnectionProfileOptions(): void {

@@ -1,6 +1,5 @@
 import { get, writable } from "svelte/store";
 import { templatesApi } from "../infrastructure/templatesApi.js";
-import { listValue } from "../model/templateResources.js";
 import type {
   ResourceWorkspaceOptions,
   TemplateApi,
@@ -52,7 +51,7 @@ export function createTextfsmMappingWorkspace({
     return (
       await runWorkspaceAction(stateStore, "load", async () => {
         await loadReferences();
-        const mappings = listValue(await api.listTextfsmMappings()).map(
+        const mappings = (await api.listTextfsmMappings()).map(
           normalizeMapping,
         );
         stateStore.update((state) => ({
@@ -73,7 +72,7 @@ export function createTextfsmMappingWorkspace({
     }));
   }
 
-  function select(mapping: unknown): void {
+  function select(mapping: TextfsmMapping): void {
     const normalized = normalizeMapping(mapping);
     stateStore.update((state) => ({
       ...state,
@@ -90,7 +89,7 @@ export function createTextfsmMappingWorkspace({
     }));
   }
 
-  function setSearch(search: unknown): void {
+  function setSearch(search: string): void {
     setWorkspaceSearch(stateStore, search);
   }
 
@@ -148,7 +147,7 @@ export function createTextfsmMappingWorkspace({
   const filteredMappingsStore = filteredWorkspaceItemsStore(
     stateStore,
     (state) => state.mappings,
-    ["deviceProfile", "command", "templateName"],
+    (mapping) => [mapping.deviceProfile, mapping.command, mapping.templateName],
   );
 
   return {

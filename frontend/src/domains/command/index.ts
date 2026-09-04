@@ -29,5 +29,6 @@ export type {
   CommandFlowTemplatePromptModel,
   CommandFlowTemplateStepModel,
   CommandTemplateCatalog,
+  CommandTemplateMeta,
   CommandTemplateCatalogState,
 } from "./model/types.js";

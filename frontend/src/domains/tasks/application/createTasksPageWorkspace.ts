@@ -4,7 +4,6 @@ import { displayText } from "../../../lib/ui.js";
 import { tasksApi } from "../infrastructure/tasksApi.js";
 import {
   newTaskState,
-  normalizeTaskRuns,
   resetTaskFilters,
   setTaskErrorFilter,
   setTaskEventGroupFilter,
@@ -65,7 +64,7 @@ export function createTasksPageWorkspace(
       state.listStatus = { message: tr("running", "running"), tone: "running" };
     });
     try {
-      const runs = normalizeTaskRuns(await api.listTasks(query));
+      const runs = await api.listTasks(query);
       if (requestVersion !== listRequestVersion) return;
       updateState((state) => {
         const keepCurrentTask = runs.some(

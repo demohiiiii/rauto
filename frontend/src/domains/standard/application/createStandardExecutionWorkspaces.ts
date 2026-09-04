@@ -1,5 +1,6 @@
 import { derived, get, writable } from "svelte/store";
 import type { CommandFlowTemplateModel } from "$domains/command/index.js";
+import type { StandardExecMode } from "../../../config/dashboardModes.js";
 import {
   createCommandFlowTemplate,
   getCommandFlowTemplate,
@@ -20,6 +21,7 @@ import {
   createSessionRetryState,
   sessionRetryValidation,
 } from "$domains/execution/index.js";
+import type { SessionRetryState } from "$domains/execution/index.js";
 import {
   MODE_SELECT,
   TEXTFSM_PLATFORM_SELECT,
@@ -36,7 +38,6 @@ import {
   setFlowVarDraftValue,
   updateFlowTemplateVarFields,
 } from "$domains/templates/index.js";
-import type { StandardSessionRetryState } from "../model/types.js";
 import {
   commandFlowResultPresentation,
   flowExecutionInputPresentation,
@@ -48,6 +49,7 @@ import {
   standardTextfsmFieldsPresentation,
 } from "../presentation/standardFlowPresentation.js";
 import { createStandardCommandFlowAuthoringState } from "./createStandardCommandFlowAuthoringState.js";
+import type { StandardCommandFlowTextfsmFields } from "../model/types.js";
 import {
   commandFlowExecutionResultState,
   createStandardLoadingKeysStore,
@@ -62,19 +64,6 @@ import {
   setStandardTextfsmTemplate,
 } from "./standardCommandFlowExecutionState.js";
 
-type UnknownRecord = Record<string, unknown>;
-
-const updateFlowVars = updateFlowTemplateVarFields as (
-  detail?: unknown,
-  draft?: unknown,
-) => void;
-
-function record(value: unknown): UnknownRecord {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as UnknownRecord)
-    : {};
-}
-
 export function createStandardPageWorkspace() {
   const currentExecModeState = writable(DEFAULT_STANDARD_PAGE_MODE);
   const pageDisplayStateStore = derived(
@@ -84,17 +73,15 @@ export function createStandardPageWorkspace() {
   );
   let lastExecutionProfile = "";
 
-  function selectExecMode(standardExecMode: unknown): void {
-    currentExecModeState.set(
-      normalizeStandardExecMode(safeString(standardExecMode)),
-    );
+  function selectExecMode(standardExecMode: string): void {
+    currentExecModeState.set(normalizeStandardExecMode(standardExecMode));
   }
 
   function setRouteContext({
     active = false,
     profile = "",
-  }: { active?: boolean; profile?: unknown } = {}): void {
-    const executionProfile = safeString(profile).trim();
+  }: { active?: boolean; profile?: string } = {}): void {
+    const executionProfile = profile.trim();
     if (!active) {
       lastExecutionProfile = "";
       return;
@@ -137,7 +124,7 @@ export function createFlowExecutionPanelWorkspace() {
     TEXTFSM_PLATFORM_SELECT.standard,
   );
   const flowTextfsmStateStore = createStandardTextfsmStateStore();
-  const flowRetryStateStore = writable<StandardSessionRetryState>(
+  const flowRetryStateStore = writable<SessionRetryState>(
     createSessionRetryState(),
   );
   const { loadingKeysStore, loadingRunner } =
@@ -151,10 +138,12 @@ export function createFlowExecutionPanelWorkspace() {
     getTemplate: getCommandFlowTemplate,
     inspectTemplate: inspectCommandFlowTemplate,
     onInspection(detail) {
-      updateFlowVars(detail, getCurrentFlowTemplateFieldDraft());
+      updateFlowTemplateVarFields(detail, getCurrentFlowTemplateFieldDraft());
     },
     parseBuiltinSelection: parseBuiltinFlowTemplateValue,
-    refreshTemplates: loadFlowTemplates,
+    refreshTemplates: async () => {
+      await loadFlowTemplates();
+    },
     updateTemplate: updateCommandFlowTemplate,
   });
   const flowPanelDisplayStateStore = derived(
@@ -234,7 +223,9 @@ export function createFlowExecutionPanelWorkspace() {
           templateOptions: flowTemplateFields.templateOptions,
         }),
         flowResultDisplay: commandFlowResultPresentation(
-          executionStatusDisplay.resultPayload,
+          $commandFlowExecutionResult.kind === "result"
+            ? $commandFlowExecutionResult.resultPayload
+            : null,
         ),
         flowRunButtonDisplay: standardFlowRunButtonPresentation({
           executeLoading: $loadingKeysStore.includes("execute"),
@@ -257,7 +248,7 @@ export function createFlowExecutionPanelWorkspace() {
   }
 
   async function changeFlowTemplateName(
-    flowTemplateName: unknown = "",
+    flowTemplateName = "",
   ): Promise<boolean> {
     const changed = await authoring.selectTemplate(flowTemplateName);
     if (changed) syncAuthoringSelection();
@@ -282,22 +273,22 @@ export function createFlowExecutionPanelWorkspace() {
     setStandardTextfsmEnabled(flowTextfsmStateStore, textfsmEnabled);
   }
 
-  function changeFlowTextfsmPlatform(textfsmPlatform: unknown = ""): void {
-    textfsmPlatformPicker.setValue(safeString(textfsmPlatform));
+  function changeFlowTextfsmPlatform(textfsmPlatform = ""): void {
+    textfsmPlatformPicker.setValue(textfsmPlatform);
   }
 
   function changeFlowTextfsmStrictErrors(textfsmStrictErrors = false): void {
     setStandardTextfsmStrictErrors(flowTextfsmStateStore, textfsmStrictErrors);
   }
 
-  function changeFlowTextfsmTemplate(textfsmTemplate: unknown = ""): void {
+  function changeFlowTextfsmTemplate(textfsmTemplate = ""): void {
     setStandardTextfsmTemplate(flowTextfsmStateStore, textfsmTemplate);
   }
 
-  function changeFlowRetry(retry: unknown = {}): void {
+  function changeFlowRetry(retry: Partial<SessionRetryState> = {}): void {
     flowRetryStateStore.set({
       ...createSessionRetryState(),
-      ...record(retry),
+      ...retry,
     });
   }
 
@@ -325,7 +316,7 @@ export function createFlowExecutionPanelWorkspace() {
     authoring.closeNameDialog();
   }
 
-  function changeFlowNameDialogValue(value: unknown = ""): void {
+  function changeFlowNameDialogValue(value = ""): void {
     authoring.setNameDialogValue(value);
   }
 
@@ -357,29 +348,34 @@ export function createFlowExecutionPanelWorkspace() {
   function setPanelContext({
     active = false,
     flowPanelDisplay = null,
-  }: { active?: boolean; flowPanelDisplay?: unknown } = {}): void {
+  }: {
+    active?: boolean;
+    flowPanelDisplay?: {
+      flowTextfsmFields: StandardCommandFlowTextfsmFields;
+      language: string;
+    } | null;
+  } = {}): void {
     if (!active) {
       commandFlowPrepared = false;
       lastCommandFlowLanguage = "";
       return;
     }
-    const panelDisplay = record(flowPanelDisplay);
     if (!flowPanelDisplay) return;
     if (!commandFlowPrepared) {
       commandFlowPrepared = true;
       void prepareAuthoringOnActive();
     }
-    const language = safeString(panelDisplay.language);
+    const language = flowPanelDisplay.language;
     if (lastCommandFlowLanguage !== language) {
       lastCommandFlowLanguage = language;
-      updateFlowVars(
+      updateFlowTemplateVarFields(
         {
           vars_schema: get(authoring.draft.inspectionStateStore).varsSchema,
         },
         getCurrentFlowTemplateFieldDraft(),
       );
     }
-    setStandardTextfsmFields(record(panelDisplay.flowTextfsmFields));
+    setStandardTextfsmFields(flowPanelDisplay.flowTextfsmFields);
   }
 
   return {

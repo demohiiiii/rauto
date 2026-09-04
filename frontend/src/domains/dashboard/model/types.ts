@@ -1,3 +1,4 @@
+import type { Component } from "svelte";
 import type { Readable } from "svelte/store";
 
 export type DashboardThemeMode = "system" | "light" | "dark";
@@ -44,12 +45,15 @@ export interface DashboardNavigationItem {
 
 export interface DashboardPageDefinition {
   id: string;
-  load: () => Promise<DashboardComponentModule>;
+  load: () => Promise<DashboardComponentModule<DashboardPageComponent>>;
 }
 
-export interface DashboardComponentModule {
-  default: unknown;
+export interface DashboardComponentModule<TComponent = Component> {
+  default: TComponent;
 }
+
+export type DashboardPageComponent = Component<{ active: boolean }>;
+export type DashboardOverlayComponent = Component;
 
 export type DashboardOverlayId =
   | "connectionModal"
@@ -58,14 +62,10 @@ export type DashboardOverlayId =
   | "recordDrawer"
   | "savedConnectionEditModal";
 
-export type DashboardDetailRendererId =
-  | "orchestrationStageDetail"
-  | "orchestrationTargetDetail";
-
-export type DashboardComponentDefinitions<TId extends string> = Record<
-  TId,
-  () => Promise<DashboardComponentModule>
->;
+export type DashboardComponentDefinitions<
+  TId extends string,
+  TComponent = DashboardOverlayComponent,
+> = Record<TId, () => Promise<DashboardComponentModule<TComponent>>>;
 
 export interface DashboardConnectionOverlayState {
   modalOpen: boolean;
@@ -94,32 +94,6 @@ export interface DashboardRecordToolsDisplay {
   recordLevelLabel: string;
 }
 
-export interface DashboardConnectionCard {
-  host?: string;
-  kind?: string;
-  name?: string;
-  port?: number | string;
-  profile?: string;
-}
-
-export interface DashboardSidebarConnectionState {
-  card?: DashboardConnectionCard | null;
-  errorMessage?: string;
-}
-
-export interface DashboardSidebarConnectionDisplay {
-  connectionSummaryLabel: string;
-  contextLabel: string;
-  emptyContextText: string;
-  emptyNameText: string;
-  endpointLabel: string;
-  errorMessage: string;
-  hasCard: boolean;
-  helpLabel: string;
-  profileLabel: string;
-  showError: boolean;
-}
-
 export interface DashboardNavigationItemDisplay extends DashboardNavigationItem {
   active: boolean;
   labelText: string;
@@ -142,11 +116,11 @@ export interface DashboardPageOutletRow {
   active: true;
   errorMessage: string;
   id: string;
-  PageComponent?: unknown;
+  PageComponent?: DashboardPageComponent;
 }
 
 export interface DashboardPageRegistry {
-  components: Readable<Record<string, unknown>>;
+  components: Readable<Record<string, DashboardPageComponent>>;
   ensure(pageDefinition: DashboardPageDefinition): void;
   errors: Readable<Record<string, string>>;
 }
@@ -160,7 +134,10 @@ export interface DashboardOverlayHostDisplay {
   savedConnectionEditorOpen: boolean;
 }
 
-export type DashboardOverlayComponents = Record<DashboardOverlayId, unknown>;
+export type DashboardOverlayComponents = Record<
+  DashboardOverlayId,
+  DashboardOverlayComponent | null
+>;
 
 export interface DashboardOverlayHostWorkspace {
   applyHostDisplay(display?: Partial<DashboardOverlayHostDisplay>): () => void;

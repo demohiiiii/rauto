@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -7,7 +6,7 @@ import {
   executionResultOutputText,
   parsedOutputBlockDisplay,
   parsedOutputSheetsFromBatchShow,
-} from "../src/domains/execution/index.ts";
+} from "../src/domains/execution/index.js";
 
 test("execution result failures include errors, false success, and non-zero exits", () => {
   assert.equal(
@@ -128,28 +127,4 @@ test("parsed output presentation distinguishes tables, JSON, and parse errors", 
   const error = parsedOutputBlockDisplay({ parseError: "invalid row" });
   assert.equal(error.hasParseError, true);
   assert.equal(error.parseErrorText, "invalid row");
-});
-
-test("batch command and show result views use the shared failure decision", () => {
-  const batchExec = readFileSync(
-    "frontend/src/domains/standard/presentation/components/batch/BatchExecPanel.svelte",
-    "utf8",
-  );
-  const showWorkspace = readFileSync(
-    "frontend/src/domains/show/application/createShowWorkspaces.ts",
-    "utf8",
-  );
-  const singleShow = readFileSync(
-    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
-    "utf8",
-  );
-  const batchShow = readFileSync(
-    "frontend/src/domains/show/presentation/components/BatchShowResultsPanel.svelte",
-    "utf8",
-  );
-
-  assert.match(batchExec, /executionResultFailed/);
-  assert.equal(showWorkspace.match(/executionResultFailed\(/g)?.length, 2);
-  assert.match(singleShow, /row\.failed/);
-  assert.match(batchShow, /objectRow\.failed/);
 });

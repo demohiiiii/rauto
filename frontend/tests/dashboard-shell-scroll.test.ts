@@ -75,7 +75,6 @@ test("the connection target card and compact tooltip show current details", () =
   const display = sidebarConnectionPresentation({
     card: {
       host: "192.0.2.1",
-      credentialName: "network-admin",
       kind: "saved",
       name: "Edge-Core-1",
       port: 22,

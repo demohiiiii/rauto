@@ -16,6 +16,8 @@ export {
 } from "./presentation/transferPresentation.js";
 export type {
   TransferPageWorkspace,
+  TransferRecordLevel,
+  TransferResultSummary,
   TransferState,
   TransferUploadDisplay,
   TransferUploadPayload,

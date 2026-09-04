@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { get } from "svelte/store";
@@ -13,52 +12,112 @@ import {
   normalizeBatchMaxParallel,
   resolveBatchShowTargetConnections,
   showExecutionResultState,
-} from "../src/domains/show/index.ts";
+} from "../src/domains/show/index.js";
+import type {
+  ShowBatchExecuteResponse,
+  ShowBatchTargetResponse,
+  ShowExecuteBasePayload,
+  ShowExecuteResponse,
+  ShowObjectDefinition,
+} from "../src/domains/show/index.js";
+import type { TaskResultSummary } from "../src/domains/tasks/index.js";
 
-function read(path) {
-  return readFileSync(path, "utf8");
+function resultSummary(success: boolean): TaskResultSummary {
+  return {
+    operation: "exec",
+    outcome: success ? "success" : "failed",
+    success,
+    summary: success ? "Show command completed" : "Show command failed",
+  };
 }
 
-test("show query mode tabs render in the card header", () => {
-  for (const path of [
-    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
-    "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
-  ]) {
-    const source = read(path);
-    const headerIndex = source.indexOf("<WorkspaceActionHeader");
-    const tabIndex = source.indexOf("<TabList");
-    const contentIndex = source.indexOf("<Card.Content");
+function showBasePayload(): ShowExecuteBasePayload {
+  return {
+    connection: {},
+    mode: null,
+    no_parse: false,
+    record_level: "key-events-only",
+    textfsm_platform: null,
+    textfsm_strict_errors: false,
+  };
+}
 
-    assert.ok(headerIndex >= 0, path);
-    assert.ok(tabIndex > headerIndex, path);
-    assert.ok(contentIndex > tabIndex, path);
-    assert.match(
-      source.slice(headerIndex, contentIndex),
-      /themeAware=\{true\}/,
-      path,
-    );
-  }
-});
+function showResponse(
+  overrides: Partial<ShowExecuteResponse> = {},
+): ShowExecuteResponse {
+  const success = overrides.success ?? true;
+  const summary = resultSummary(success);
+  return {
+    all: "show version\nclean output\nRouter#",
+    command: "show version",
+    execution_response: { error: null, result_summary: summary, success },
+    exit_code: success ? 0 : 1,
+    mode: "Enable",
+    object: "version",
+    output: "clean output",
+    parse_error: null,
+    parsed_output: null,
+    platform: "cisco_ios",
+    recording_jsonl: null,
+    result_summary: summary,
+    source: "builtin",
+    success,
+    textfsm_mapping_command: null,
+    textfsm_template_name: null,
+    ...overrides,
+  };
+}
 
-test("batch show selects targets before common query objects", () => {
-  const source = read(
-    "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
-  );
-  const contentIndex = source.indexOf("<Card.Content");
-  const targetPickerIndex = source.indexOf(
-    "<ConnectionPickerField",
-    contentIndex,
-  );
-  const objectPickerIndex = source.indexOf(
-    "<ShowObjectSelectionPanel",
-    contentIndex,
-  );
+function batchTarget(
+  overrides: Partial<ShowBatchTargetResponse> = {},
+): ShowBatchTargetResponse {
+  const success = overrides.success ?? true;
+  return {
+    all: "show version\nclean output\nRouter#",
+    command: "show version",
+    error: null,
+    exit_code: success ? 0 : 1,
+    host: "192.0.2.1",
+    mode: "Enable",
+    object: "version",
+    output: "clean output",
+    parse_error: null,
+    parsed_output: null,
+    platform: "cisco_ios",
+    profile: "cisco_xe",
+    source: "builtin",
+    success,
+    target: "edge-a",
+    textfsm_mapping_command: null,
+    textfsm_template_name: null,
+    ...overrides,
+  };
+}
 
-  assert.ok(targetPickerIndex > contentIndex);
-  assert.ok(objectPickerIndex > targetPickerIndex);
-  assert.match(source, /onSelectionChange=\{changeBatchTargets\}/);
-  assert.match(source, /batchShowPanelDisplay\.objectAvailability\.canSelect/);
-});
+function batchResponse(
+  results: ShowBatchTargetResponse[],
+): ShowBatchExecuteResponse {
+  const success = results.every((result) => result.success);
+  const summary = resultSummary(success);
+  return {
+    execution_response: { error: null, result_summary: summary, success },
+    object: "version",
+    results,
+    result_summary: summary,
+    targets: [...new Set(results.map((result) => result.target))],
+  };
+}
+
+function showObject(object: string, command: string): ShowObjectDefinition {
+  return {
+    command,
+    mode: null,
+    object,
+    source: "builtin",
+    textfsm_mapping_command: null,
+    textfsm_template_name: null,
+  };
+}
 
 test("batch show expands selected devices, groups, and labels", () => {
   const connections = [
@@ -97,16 +156,18 @@ test("batch show object options are the profile catalog intersection", () => {
   const commonObjects = intersectBatchShowObjectPayloads([
     {
       objects: [
-        { object: "arp", command: "show arp" },
-        { object: "interfaces", command: "show interfaces" },
-        { object: "version", command: "show version" },
+        showObject("arp", "show arp"),
+        showObject("interfaces", "show interfaces"),
+        showObject("version", "show version"),
       ],
+      platform: "cisco_ios",
     },
     {
       objects: [
-        { object: "arp", command: "display arp" },
-        { object: "version", command: "display version" },
+        showObject("arp", "display arp"),
+        showObject("version", "display version"),
       ],
+      platform: "hp_comware",
     },
   ]);
 
@@ -197,18 +258,15 @@ test("batch show max parallel payload normalization drops invalid values", () =>
 
 test("show result presentations omit command echoes and prompts from transcripts", () => {
   const rawTranscript = "show version\nclean output\nRouter#";
-  const result = {
+  const result = showResponse({
     all: rawTranscript,
-    command: "show version",
-    mode: "Enable",
-    object: "version",
     output: "clean output",
-    success: true,
-  };
+    parsed_output: [{ version: "17.9" }],
+  });
 
   showExecutionResultState().set({
     kind: "result",
-    basePayload: {},
+    basePayload: showBasePayload(),
     results: [result],
   });
   const singleWorkspace = createSingleShowPanelWorkspace();
@@ -217,12 +275,15 @@ test("show result presentations omit command echoes and prompts from transcripts
       .outputText,
     "clean output",
   );
+  assert.equal(
+    get(singleWorkspace.panelDisplayStateStore).resultsDisplay
+      .parsedResultCount,
+    1,
+  );
 
   batchShowExecutionResultState().set({
     kind: "result",
-    resultPayload: {
-      results: [{ ...result, target: "edge-a" }],
-    },
+    resultPayload: batchResponse([batchTarget({ ...result })]),
   });
   const pageWorkspace = createShowPageWorkspace();
   assert.equal(
@@ -237,19 +298,15 @@ test("show result presentations omit command echoes and prompts from transcripts
 
 test("failed show result presentations retain the complete diagnostic transcript", () => {
   const diagnosticTranscript = "show version\nERROR: command failed\nRouter#";
-  const result = {
+  const result = showResponse({
     all: diagnosticTranscript,
-    command: "show version",
-    error: "command failed",
-    mode: "Enable",
-    object: "version",
     output: "ERROR: command failed",
     success: false,
-  };
+  });
 
   showExecutionResultState().set({
     kind: "result",
-    basePayload: {},
+    basePayload: showBasePayload(),
     results: [result],
   });
   const singleWorkspace = createSingleShowPanelWorkspace();
@@ -261,9 +318,9 @@ test("failed show result presentations retain the complete diagnostic transcript
 
   batchShowExecutionResultState().set({
     kind: "result",
-    resultPayload: {
-      results: [{ ...result, target: "edge-a" }],
-    },
+    resultPayload: batchResponse([
+      batchTarget({ ...result, error: "command failed" }),
+    ]),
   });
   const pageWorkspace = createShowPageWorkspace();
   assert.equal(

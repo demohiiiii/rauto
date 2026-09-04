@@ -11,6 +11,7 @@
     credentialAuthTypeLabel,
     credentialDeleteBlockedMessage,
     createCredentialsPageWorkspace,
+    type CredentialForm,
     type CredentialImportReport,
   } from "../../index.js";
   import { t } from "$lib/i18n.js";
@@ -69,7 +70,7 @@
     workspace.setEnableEnabled(checked);
   }
 
-  function authTypeLabel(authType: string): string {
+  function authTypeLabel(authType: CredentialForm["authType"]): string {
     return credentialAuthTypeLabel(authType, t);
   }
 </script>

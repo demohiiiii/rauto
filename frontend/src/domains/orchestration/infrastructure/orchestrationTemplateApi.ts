@@ -7,7 +7,7 @@ import {
 } from "../../../api/client.js";
 import type {
   TemplateResourceDetail,
-  TemplateResourceMeta,
+  TemplateResourceApiMeta,
 } from "$domains/templates/index.js";
 
 interface OrchestrationTemplateApi {
@@ -21,7 +21,7 @@ interface OrchestrationTemplateApi {
     basePath: string,
     name: string,
   ): Promise<TemplateResourceDetail>;
-  listTemplateResource(basePath: string): Promise<TemplateResourceMeta[]>;
+  listTemplateResource(basePath: string): Promise<TemplateResourceApiMeta[]>;
   updateTemplateResource(
     basePath: string,
     name: string,

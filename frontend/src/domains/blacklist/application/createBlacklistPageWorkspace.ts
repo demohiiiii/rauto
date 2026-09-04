@@ -45,13 +45,13 @@ export function createBlacklistPageWorkspace(
   }
 
   async function runMutation(
-    mutation: (state: BlacklistState) => unknown | Promise<unknown>,
-  ): Promise<unknown> {
+    mutation: (state: BlacklistState) => void | Promise<void>,
+  ): Promise<void> {
     const state = get(blacklistStateStore);
     const result = mutation(state);
     blacklistStateStore.set(state);
     try {
-      return await result;
+      await result;
     } finally {
       blacklistStateStore.set(state);
     }
@@ -138,7 +138,7 @@ export function createBlacklistPageWorkspace(
     }
   }
 
-  function refreshPatterns(): Promise<unknown> {
+  function refreshPatterns(): Promise<void> {
     return runMutation(loadPatterns);
   }
 
@@ -150,10 +150,10 @@ export function createBlacklistPageWorkspace(
     deletePattern: (pattern = "") =>
       runMutation((state) => deletePattern(state, pattern)),
     refreshPatterns,
-    setPageContext({ active = false } = {}) {
-      if (!active || didInitialLoad) return undefined;
+    async setPageContext({ active = false } = {}): Promise<void> {
+      if (!active || didInitialLoad) return;
       didInitialLoad = true;
-      return refreshPatterns();
+      await refreshPatterns();
     },
     updateCommandInput(commandInput = "") {
       updateState((state) => setBlacklistCommandInput(state, commandInput));

@@ -1,5 +1,10 @@
 import type { Readable, Writable } from "svelte/store";
-import type { ConnectionRequestPayload } from "$domains/connections/index.js";
+import type {
+  ConnectionRequestPayload,
+  ConnectionTargetState,
+} from "$domains/connections/index.js";
+import type { RecordLevel } from "$domains/overlays/index.js";
+import type { TaskResultSummary } from "$domains/tasks/index.js";
 
 export type ConfigFetchContentView = "normalized" | "raw";
 export type ConfigFetchTargetMode = "batch" | "current";
@@ -63,7 +68,7 @@ export interface ConfigFetchBatchPayload extends ConfigFetchRetryPayload {
   kind: string;
   labels: string[];
   max_parallel?: number;
-  record_level: unknown | null;
+  record_level: RecordLevel | null;
   targets: string[];
 }
 
@@ -71,44 +76,47 @@ export interface ConfigFetchCurrentPayload extends ConfigFetchRetryPayload {
   connection: ConfigFetchConnectionPayload;
   include_normalized: boolean;
   kind: string;
-  record_level: unknown | null;
+  record_level: RecordLevel | null;
 }
 
-export interface ConfigFetchResultSummary {
-  counts?: {
-    failed?: number | string;
-    succeeded?: number | string;
-    total?: number | string;
-  };
-  success?: boolean;
-  [key: string]: unknown;
+export interface ConfigFetchExecutionError {
+  code: string;
+  message: string;
+}
+
+export interface ConfigFetchExecutionResponse {
+  error: ConfigFetchExecutionError | null;
+  result_summary: TaskResultSummary;
+  success: boolean;
 }
 
 export interface ConfigFetchResultRow {
-  all?: unknown;
-  command?: string | null;
-  content?: string | null;
-  error?: unknown;
-  execution_response?: unknown;
-  fetched_at?: string | null;
-  host?: string | null;
-  kind?: string | null;
+  all: string | null;
+  command: string;
+  content: string | null;
+  error: string | null;
+  fetched_at: string;
+  host: string;
+  kind: string;
   normalized_content?: string | null;
-  normalized_sha256?: string | null;
-  profile?: string | null;
-  result_summary?: ConfigFetchResultSummary;
-  sha256?: string | null;
-  target?: string | null;
-  [key: string]: unknown;
+  normalized_sha256: string | null;
+  profile: string;
+  sha256: string | null;
+  snapshot_id?: string;
+  target: string;
+}
+
+export interface ConfigFetchSingleResult extends ConfigFetchResultRow {
+  execution_response: ConfigFetchExecutionResponse;
+  result_summary: TaskResultSummary;
 }
 
 export interface ConfigFetchResultPayload {
-  execution_response?: unknown;
-  kind?: unknown;
-  results?: ConfigFetchResultRow[];
-  result_summary?: ConfigFetchResultSummary;
-  targets?: unknown[];
-  [key: string]: unknown;
+  execution_response: ConfigFetchExecutionResponse;
+  kind: string;
+  results: ConfigFetchResultRow[];
+  result_summary: TaskResultSummary;
+  targets: string[];
 }
 
 export interface ConfigFetchResultCounts {
@@ -128,32 +136,19 @@ export type ConfigFetchResultState =
   | { kind: "running" }
   | { kind: "result"; resultPayload: ConfigFetchResultPayload };
 
-export interface ConfigFetchConnectionTargetDetails {
-  device_profile?: string | null;
-  host?: string | null;
-  label?: string | null;
-  name?: string | null;
-  profile?: string | null;
-  [key: string]: unknown;
-}
-
-export interface ConfigFetchConnectionTarget {
-  details?: ConfigFetchConnectionTargetDetails | null;
-  kind?: string;
-}
+export type ConfigFetchConnectionTarget = ConnectionTargetState;
 
 export interface ConfigFetchTargetPickerField {
   key: string;
   keyName: string;
   labelKey: string;
   placeholderKey: string;
-  [key: string]: unknown;
 }
 
 export interface ConfigFetchApi {
   fetchConfig(
     payload: ConfigFetchCurrentPayload,
-  ): Promise<ConfigFetchResultRow>;
+  ): Promise<ConfigFetchSingleResult>;
   fetchConfigBatch(
     payload: ConfigFetchBatchPayload,
   ): Promise<ConfigFetchResultPayload>;
@@ -167,9 +162,9 @@ export interface ConfigFetchRuntime {
   ensureConnectionTargetSelected(): boolean;
   executionResultOutputText(
     row: ConfigFetchResultRow,
-    outputField: string,
+    outputField: keyof ConfigFetchResultRow,
   ): string;
-  recordLevelPayload(): unknown;
+  recordLevelPayload(): RecordLevel;
   retryRequestFields(retry: SessionRetryState): ConfigFetchRetryPayload;
   targetSelections(): ConfigFetchTargetSelections;
 }
@@ -183,7 +178,7 @@ export interface ConfigFetchWorkspace {
   refreshKindOptions(targetMode?: ConfigFetchTargetMode): Promise<void>;
   setField<K extends keyof ConfigFetchForm>(
     field: K,
-    value: ConfigFetchForm[K] | unknown,
+    value: ConfigFetchForm[K],
   ): void;
   setRetry(retry?: Partial<SessionRetryState>): void;
 }

@@ -3,7 +3,11 @@ import type {
   WebAuthLoginPayload,
   WebAuthStatusPayload,
 } from "$domains/auth/model/types.js";
-import type { BackupItem } from "$domains/backup/model/types.js";
+import type {
+  BackupCreateResponse,
+  BackupItem,
+  BackupRestoreResponse,
+} from "$domains/backup/model/types.js";
 import type {
   BlacklistCheckResult,
   BlacklistDeleteResponse,
@@ -15,7 +19,7 @@ import type {
   ConfigFetchBatchPayload,
   ConfigFetchCurrentPayload,
   ConfigFetchResultPayload,
-  ConfigFetchResultRow,
+  ConfigFetchSingleResult,
 } from "$domains/config-fetch/model/types.js";
 import type {
   ConfigHistoryDevice,
@@ -37,6 +41,7 @@ import type {
 import type {
   CredentialApiRow,
   CredentialImportApiReport,
+  CredentialDeleteResponse,
   CredentialSavePayload,
 } from "$domains/credentials/model/types.js";
 import type {
@@ -47,10 +52,16 @@ import type {
   ImportDiscoverySummary,
 } from "$domains/device-discovery/model/types.js";
 import type {
+  InventoryDeleteResponse,
+  InventoryGroup,
   InventoryGroupPayload,
-  InventoryItem,
+  InventoryLabel,
 } from "$domains/inventory/model/types.js";
 import type { ReplayApi, ReplayResult } from "$domains/replay/model/types.js";
+import type {
+  DeviceProfilesOverview,
+  ProfileModes,
+} from "$domains/profiles/index.js";
 import type {
   ExecuteOrchestrationResponse,
   OrchestrationJsonValue,
@@ -67,34 +78,48 @@ import type {
   NamedResource,
   ScheduleConnection,
   ScheduleDefinition,
+  ScheduleMutationResponse,
   SchedulePreviewRequest,
   SchedulePreviewResponse,
   ScheduleRun,
   StoredSchedule,
 } from "$domains/schedules/model/types.js";
 import type {
+  ShowBatchExecutePayload,
+  ShowBatchExecuteResponse,
+  ShowExecutePayload,
+  ShowExecuteResponse,
   ShowObjectQuery,
   ShowObjectsPayload,
 } from "$domains/show/model/types.js";
+import type { TextfsmExcelExportPayload } from "$domains/execution/index.js";
 import type {
   StandardBatchExecPayload,
   StandardBatchExecResponse,
   StandardBatchFlowPayload,
   StandardBatchFlowResponse,
+  StandardCommandRenderPayload,
+  StandardCommandRenderResponse,
   StandardCommandExecutionPayload,
   StandardCommandExecutionResponse,
   StandardCommandFlowExecutionPayload,
-  StandardFlowTemplateDetail,
+  StandardCommandFlowExecutionResponse,
 } from "$domains/standard/model/types.js";
 import type {
   TaskQuery,
+  TaskResultSummary,
   TaskRun,
   TaskRunDetail,
 } from "$domains/tasks/model/types.js";
 import type {
-  TemplateResourceMeta,
+  CommandFlowTemplateDetail,
+  CommandTemplateInspection,
+  CustomShowObjectApiRow,
+  TemplateResourceApiMeta,
   TemplateResourceDetail as TemplateRecord,
   CustomShowObjectApiPayload,
+  TemplateMutationResponse,
+  TextfsmMappingApiRow,
   TextfsmMappingApiPayload,
 } from "$domains/templates/model/types.js";
 import type {
@@ -133,6 +158,22 @@ interface ApiErrorOptions {
   payload?: unknown;
   status?: number;
 }
+
+export interface ApiResponseErrorPayload {
+  code: string;
+  message: string;
+}
+
+export interface ExecutionResponseMetadata {
+  error: ApiResponseErrorPayload | null;
+  result_summary: TaskResultSummary | null;
+  success: boolean;
+}
+
+export type UnwrappedExecutionResponse<TData extends object> = TData & {
+  execution_response: ExecutionResponseMetadata;
+  result_summary: TaskResultSummary | null;
+};
 
 class ApiError extends Error {
   payload: unknown;
@@ -191,6 +232,94 @@ function objectValue(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+const TASK_OPERATIONS = new Set([
+  "exec",
+  "template_execute",
+  "command_flow",
+  "upload",
+  "tx_block",
+  "tx_workflow",
+  "orchestrate",
+  "device_discovery",
+]);
+
+const TASK_RESULT_OUTCOMES = new Set([
+  "success",
+  "partial_success",
+  "failed",
+  "dry_run",
+]);
+
+function isJsonValue(value: unknown): boolean {
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string"
+  ) {
+    return true;
+  }
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  const record = objectValue(value);
+  return record !== null && Object.values(record).every(isJsonValue);
+}
+
+function isApiResponseError(
+  value: unknown,
+): value is ApiResponseErrorPayload | null {
+  if (value === null) return true;
+  const error = objectValue(value);
+  return (
+    error !== null &&
+    typeof error.code === "string" &&
+    typeof error.message === "string"
+  );
+}
+
+function isTaskResultCount(value: unknown): boolean {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isTaskResultSummary(value: unknown): value is TaskResultSummary {
+  const summary = objectValue(value);
+  if (
+    !summary ||
+    typeof summary.operation !== "string" ||
+    !TASK_OPERATIONS.has(summary.operation) ||
+    typeof summary.outcome !== "string" ||
+    !TASK_RESULT_OUTCOMES.has(summary.outcome) ||
+    typeof summary.success !== "boolean" ||
+    typeof summary.summary !== "string"
+  ) {
+    return false;
+  }
+
+  if (summary.counts !== undefined) {
+    const counts = objectValue(summary.counts);
+    if (
+      !counts ||
+      !isTaskResultCount(counts.total) ||
+      !isTaskResultCount(counts.succeeded) ||
+      !isTaskResultCount(counts.failed) ||
+      (counts.skipped !== undefined && !isTaskResultCount(counts.skipped))
+    ) {
+      return false;
+    }
+  }
+
+  return (
+    (summary.recording_available === undefined ||
+      typeof summary.recording_available === "boolean") &&
+    (summary.details === undefined || isJsonValue(summary.details))
+  );
+}
+
+function isNullableTaskResultSummary(
+  value: unknown,
+): value is TaskResultSummary | null {
+  return value === null || isTaskResultSummary(value);
+}
+
 function responseErrorMessage(payload: unknown, response: Response): string {
   if (typeof payload === "string") return payload || response.statusText;
   const payloadValue = objectValue(payload);
@@ -239,9 +368,9 @@ async function apiRequest<TResponse>(
   return payload as TResponse;
 }
 
-export function unwrapExecutionResponse(
+export function unwrapExecutionResponse<TData extends object = JsonRecord>(
   payload: unknown,
-): Record<string, unknown> {
+): UnwrappedExecutionResponse<TData> {
   const payloadValue = objectValue(payload);
   const hasField = (field: string): boolean =>
     Object.prototype.hasOwnProperty.call(payloadValue || {}, field);
@@ -249,21 +378,24 @@ export function unwrapExecutionResponse(
     !payloadValue ||
     typeof payloadValue.success !== "boolean" ||
     !hasField("error") ||
+    !isApiResponseError(payloadValue.error) ||
     !hasField("result_summary") ||
+    !isNullableTaskResultSummary(payloadValue.result_summary) ||
     !hasField("data") ||
     !objectValue(payloadValue.data)
   ) {
     throw new ApiError("Invalid execution response", { payload });
   }
-  const data = objectValue(payloadValue.data)!;
+  const data = objectValue(payloadValue.data)! as TData;
+  const executionResponse: ExecutionResponseMetadata = {
+    success: payloadValue.success,
+    error: payloadValue.error,
+    result_summary: payloadValue.result_summary,
+  };
   Object.defineProperty(data, "execution_response", {
     configurable: false,
     enumerable: false,
-    value: {
-      success: payloadValue.success,
-      error: payloadValue.error,
-      result_summary: payloadValue.result_summary,
-    },
+    value: executionResponse,
     writable: false,
   });
   Object.defineProperty(data, "result_summary", {
@@ -272,17 +404,17 @@ export function unwrapExecutionResponse(
     value: payloadValue.result_summary,
     writable: false,
   });
-  return data;
+  return data as UnwrappedExecutionResponse<TData>;
 }
 
-async function apiExecutionRequest<TResponse = JsonRecord>(
+async function apiExecutionRequest<TResponse extends object = JsonRecord>(
   method: string,
   path: string,
   body?: JsonBody,
 ): Promise<TResponse> {
-  return unwrapExecutionResponse(
+  return unwrapExecutionResponse<TResponse>(
     await apiRequest<unknown>(method, path, body),
-  ) as TResponse;
+  );
 }
 
 async function apiRequestBlob(
@@ -375,14 +507,14 @@ export function listBackups(): Promise<BackupItem[]> {
   return apiRequest("GET", "/api/backups");
 }
 
-export function createBackup(): Promise<{ path?: string | null }> {
+export function createBackup(): Promise<BackupCreateResponse> {
   return apiRequest("POST", "/api/backups", {});
 }
 
 export function restoreBackup(
   archive: string,
   replace = false,
-): Promise<{ archive?: string | null }> {
+): Promise<BackupRestoreResponse> {
   return apiRequest("POST", "/api/backups/restore", {
     archive,
     replace,
@@ -426,7 +558,9 @@ export function updateCredential(
   );
 }
 
-export function deleteCredential(id: string): Promise<JsonRecord> {
+export function deleteCredential(
+  id: string,
+): Promise<CredentialDeleteResponse> {
   return apiRequest("DELETE", `/api/credentials/${encodeURIComponent(id)}`);
 }
 
@@ -577,34 +711,38 @@ export function executeTemplate(
   return apiExecutionRequest("POST", "/api/template/execute", payload);
 }
 
-export function renderTemplate(payload: JsonRecord): Promise<JsonRecord> {
+export function renderTemplate(
+  payload: StandardCommandRenderPayload,
+): Promise<StandardCommandRenderResponse> {
   return apiRequest("POST", "/api/render", payload);
 }
 
 export function executeCommandFlow(
   payload: StandardCommandFlowExecutionPayload,
-): Promise<JsonRecord> {
+): Promise<StandardCommandFlowExecutionResponse> {
   return apiExecutionRequest("POST", "/api/command-flow/execute", payload);
 }
 
 export function inspectCommandFlowTemplate(
   content: string,
-): Promise<StandardFlowTemplateDetail> {
+): Promise<CommandFlowTemplateDetail> {
   return apiRequest("POST", "/api/flow-templates/inspect", { content });
 }
 
-export function inspectCommandTemplate(content: string): Promise<JsonRecord> {
+export function inspectCommandTemplate(
+  content: string,
+): Promise<CommandTemplateInspection> {
   return apiRequest("POST", "/api/templates/inspect", { content });
 }
 
 export function getCommandFlowTemplate(
   name: string,
   { builtin = false }: { builtin?: boolean } = {},
-) {
-  return getTemplateResource(
-    builtin ? "/api/flow-templates/builtins" : "/api/flow-templates",
-    name,
-  );
+): Promise<CommandFlowTemplateDetail> {
+  const basePath = builtin
+    ? "/api/flow-templates/builtins"
+    : "/api/flow-templates";
+  return apiRequest("GET", `${basePath}/${encodeURIComponent(name)}`);
 }
 
 export function createCommandFlowTemplate(name: string, content: string) {
@@ -657,18 +795,18 @@ export function replaySession(
   return apiRequest("POST", "/api/replay", payload);
 }
 
-export function listInventoryGroups(): Promise<InventoryItem[]> {
+export function listInventoryGroups(): Promise<InventoryGroup[]> {
   return apiRequest("GET", "/api/inventory/groups");
 }
 
-export function getInventoryGroup(name: string): Promise<InventoryItem> {
+export function getInventoryGroup(name: string): Promise<InventoryGroup> {
   return apiRequest("GET", `/api/inventory/groups/${encodeURIComponent(name)}`);
 }
 
 export function saveInventoryGroup(
   name: string,
   group: InventoryGroupPayload,
-): Promise<InventoryItem> {
+): Promise<InventoryGroup> {
   return apiRequest(
     "PUT",
     `/api/inventory/groups/${encodeURIComponent(name)}`,
@@ -678,25 +816,27 @@ export function saveInventoryGroup(
   );
 }
 
-export function deleteInventoryGroup(name: string): Promise<JsonRecord> {
+export function deleteInventoryGroup(
+  name: string,
+): Promise<InventoryDeleteResponse> {
   return apiRequest(
     "DELETE",
     `/api/inventory/groups/${encodeURIComponent(name)}`,
   );
 }
 
-export function listInventoryLabels(): Promise<InventoryItem[]> {
+export function listInventoryLabels(): Promise<InventoryLabel[]> {
   return apiRequest("GET", "/api/inventory/labels");
 }
 
-export function getInventoryLabel(name: string): Promise<InventoryItem> {
+export function getInventoryLabel(name: string): Promise<InventoryLabel> {
   return apiRequest("GET", `/api/inventory/labels/${encodeURIComponent(name)}`);
 }
 
 export function saveInventoryLabel(
   name: string,
   hosts: string[],
-): Promise<InventoryItem> {
+): Promise<InventoryLabel> {
   return apiRequest(
     "PUT",
     `/api/inventory/labels/${encodeURIComponent(name)}`,
@@ -706,14 +846,16 @@ export function saveInventoryLabel(
   );
 }
 
-export function deleteInventoryLabel(name: string): Promise<JsonRecord> {
+export function deleteInventoryLabel(
+  name: string,
+): Promise<InventoryDeleteResponse> {
   return apiRequest(
     "DELETE",
     `/api/inventory/labels/${encodeURIComponent(name)}`,
   );
 }
 
-export function getDeviceProfilesOverview(): Promise<JsonRecord[]> {
+export function getDeviceProfilesOverview(): Promise<DeviceProfilesOverview> {
   return apiRequest("GET", "/api/device-profiles/all");
 }
 
@@ -769,7 +911,7 @@ export function deleteCustomProfile(name: string): Promise<JsonRecord> {
   );
 }
 
-export function getProfileModes(name: string): Promise<JsonRecord> {
+export function getProfileModes(name: string): Promise<ProfileModes> {
   return apiRequest(
     "GET",
     `/api/device-profiles/${encodeURIComponent(name)}/modes`,
@@ -791,11 +933,15 @@ export function listShowObjects({
   return apiRequest("GET", `/api/show/objects${query ? `?${query}` : ""}`);
 }
 
-export function executeShow(payload: JsonRecord): Promise<JsonRecord> {
+export function executeShow(
+  payload: ShowExecutePayload,
+): Promise<ShowExecuteResponse> {
   return apiExecutionRequest("POST", "/api/show/execute", payload);
 }
 
-export function executeShowBatch(payload: JsonRecord): Promise<JsonRecord> {
+export function executeShowBatch(
+  payload: ShowBatchExecutePayload,
+): Promise<ShowBatchExecuteResponse> {
   return apiExecutionRequest("POST", "/api/show/batch-execute", payload);
 }
 
@@ -819,7 +965,7 @@ export function fetchConfigBatch(
 
 export function fetchConfig(
   payload: ConfigFetchCurrentPayload,
-): Promise<ConfigFetchResultRow> {
+): Promise<ConfigFetchSingleResult> {
   return apiExecutionRequest("POST", "/api/config/fetch", payload);
 }
 
@@ -915,7 +1061,9 @@ export function removeConfigVolatilePattern(
   return apiRequest("DELETE", "/api/config/volatile-patterns", payload);
 }
 
-export function listCustomShowObjects(profile = ""): Promise<JsonRecord[]> {
+export function listCustomShowObjects(
+  profile = "",
+): Promise<CustomShowObjectApiRow[]> {
   const params = new URLSearchParams();
   if (profile) params.set("profile", profile);
   const query = params.toString();
@@ -933,7 +1081,7 @@ export function saveCustomShowObject({
   textfsm_mapping_command,
   textfsm_template_name,
   enabled = true,
-}: CustomShowObjectApiPayload): Promise<JsonRecord> {
+}: CustomShowObjectApiPayload): Promise<CustomShowObjectApiRow> {
   return apiRequest("POST", "/api/show/custom-objects", {
     device_profile,
     object,
@@ -951,7 +1099,7 @@ export function deleteCustomShowObject({
 }: Pick<
   CustomShowObjectApiPayload,
   "device_profile" | "object"
->): Promise<JsonRecord> {
+>): Promise<TemplateMutationResponse> {
   return apiRequest("DELETE", "/api/show/custom-objects", {
     device_profile,
     object,
@@ -1002,7 +1150,9 @@ export function updateSchedule(
   );
 }
 
-export function deleteSchedule(scheduleId: string): Promise<JsonRecord> {
+export function deleteSchedule(
+  scheduleId: string,
+): Promise<ScheduleMutationResponse> {
   return apiRequest(
     "DELETE",
     `/api/schedules/${encodeURIComponent(scheduleId)}`,
@@ -1012,7 +1162,7 @@ export function deleteSchedule(scheduleId: string): Promise<JsonRecord> {
 export function setScheduleEnabled(
   scheduleId: string,
   enabled: boolean,
-): Promise<JsonRecord> {
+): Promise<StoredSchedule> {
   const action = enabled ? "enable" : "disable";
   return apiRequest(
     "POST",
@@ -1020,7 +1170,7 @@ export function setScheduleEnabled(
   );
 }
 
-export function runScheduleNow(scheduleId: string): Promise<JsonRecord> {
+export function runScheduleNow(scheduleId: string): Promise<ScheduleRun> {
   return apiRequest(
     "POST",
     `/api/schedules/${encodeURIComponent(scheduleId)}/run`,
@@ -1037,7 +1187,7 @@ export function listScheduleRuns(
   );
 }
 
-export function listTemplates(): Promise<TemplateResourceMeta[]> {
+export function listTemplates(): Promise<TemplateResourceApiMeta[]> {
   return apiRequest("GET", "/api/templates");
 }
 
@@ -1067,7 +1217,7 @@ export function deleteTemplate(name: string): Promise<JsonRecord> {
 
 export function listTemplateResource(
   basePath: string,
-): Promise<TemplateResourceMeta[]> {
+): Promise<TemplateResourceApiMeta[]> {
   return apiRequest("GET", basePath);
 }
 
@@ -1115,15 +1265,15 @@ export function updateTemplateResource(
 export function deleteTemplateResource(
   basePath: string,
   name: string,
-): Promise<JsonRecord> {
+): Promise<TemplateMutationResponse> {
   return apiRequest("DELETE", `${basePath}/${encodeURIComponent(name)}`);
 }
 
-export function exportTextfsmExcel(payload: JsonRecord) {
+export function exportTextfsmExcel(payload: TextfsmExcelExportPayload) {
   return apiRequestBlob("POST", "/api/textfsm/export/xlsx", payload);
 }
 
-export function listTextfsmTemplates(): Promise<TemplateResourceMeta[]> {
+export function listTextfsmTemplates(): Promise<TemplateResourceApiMeta[]> {
   return apiRequest("GET", "/api/textfsm/templates");
 }
 
@@ -1161,7 +1311,9 @@ export function deleteTextfsmTemplate(name: string): Promise<JsonRecord> {
   );
 }
 
-export function listTextfsmMappings(profile = ""): Promise<JsonRecord[]> {
+export function listTextfsmMappings(
+  profile = "",
+): Promise<TextfsmMappingApiRow[]> {
   const params = new URLSearchParams();
   if (profile) params.set("profile", profile);
   const query = params.toString();
@@ -1172,7 +1324,7 @@ export function saveTextfsmMapping({
   device_profile,
   command,
   template_name,
-}: TextfsmMappingApiPayload): Promise<JsonRecord> {
+}: TextfsmMappingApiPayload): Promise<TextfsmMappingApiRow> {
   return apiRequest("POST", "/api/textfsm/mappings", {
     device_profile,
     command,
@@ -1183,7 +1335,10 @@ export function saveTextfsmMapping({
 export function deleteTextfsmMapping({
   device_profile,
   command,
-}: Omit<TextfsmMappingApiPayload, "template_name">): Promise<JsonRecord> {
+}: Omit<
+  TextfsmMappingApiPayload,
+  "template_name"
+>): Promise<TemplateMutationResponse> {
   return apiRequest("DELETE", "/api/textfsm/mappings", {
     device_profile,
     command,

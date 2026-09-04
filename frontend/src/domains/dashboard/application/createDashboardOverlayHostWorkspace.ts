@@ -56,7 +56,7 @@ const applyDashboardOverlayBodyLock = (locked: boolean): (() => void) =>
 
 export const closeDashboardEntryDrawer = () => closeEntryDrawer();
 export const closeDashboardRecordDrawer = () => closeRecordDrawer();
-export const closeDashboardOverlayOnEscape = (event: unknown): boolean =>
+export const closeDashboardOverlayOnEscape = (event: KeyboardEvent): boolean =>
   closeTopDashboardOverlayOnEscape(event);
 export const openDashboardRecordDrawer = () => openRecordDrawer();
 export const toggleDashboardRecordLevel = () => toggleRecordLevel();
@@ -74,7 +74,7 @@ export function dashboardRecordToolsPresentation({
   });
 }
 
-function closeTopDashboardOverlayOnEscape(event: unknown): boolean {
+function closeTopDashboardOverlayOnEscape(event: KeyboardEvent): boolean {
   if (!eventKeyIs(event, "Escape")) return false;
 
   const connectionState = get(dashboardOverlayConnectionState);

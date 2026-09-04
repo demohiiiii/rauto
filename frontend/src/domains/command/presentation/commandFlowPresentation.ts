@@ -3,6 +3,9 @@ import type {
   CommandFlowReadonlyDisplay,
   CommandFlowReadonlyPromptDisplay,
   CommandFlowReadonlyStepDisplay,
+  CommandFlowTemplateModel,
+  CommandFlowTemplatePromptModel,
+  CommandFlowTemplateStepModel,
   CommandTranslate,
 } from "../model/types.js";
 
@@ -15,51 +18,38 @@ const COMMAND_FLOW_ACCENT_COLORS = Object.freeze([
   "oklch(0.68 0.14 340)",
 ]);
 
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-const textValue = (value: unknown): string =>
-  value == null ? "" : String(value);
-
 const translatedBoolean = (
   value: boolean,
   translate: CommandTranslate,
 ): string => translate(value ? "enabled" : "disabled");
 
 function promptPresentation(
-  value: unknown = {},
+  prompt: CommandFlowTemplatePromptModel,
   promptIndex = 0,
   translate: CommandTranslate = t,
 ): CommandFlowReadonlyPromptDisplay {
-  const prompt = record(value);
   return {
     appendNewlineLabelText: translate("commandFlowAppendNewline"),
-    appendNewlineText: translatedBoolean(!!prompt.appendNewline, translate),
-    patternRows: Array.isArray(prompt.patterns)
-      ? prompt.patterns.map(textValue)
-      : [],
+    appendNewlineText: translatedBoolean(prompt.appendNewline, translate),
+    patternRows: prompt.patterns,
     patternsLabelText: translate("commandFlowPromptPatterns"),
     recordInputLabelText: translate("commandFlowRecordInput"),
-    recordInputText: translatedBoolean(!!prompt.recordInput, translate),
+    recordInputText: translatedBoolean(prompt.recordInput, translate),
     responseLabelText: translate("commandFlowPromptResponse"),
-    responseText: textValue(prompt.response),
+    responseText: prompt.response,
     titleText: `${translate("commandFlowPrompts")} ${promptIndex + 1}`,
   };
 }
 
 function stepPresentation(
-  value: unknown = {},
+  step: CommandFlowTemplateStepModel,
   stepIndex = 0,
   translate: CommandTranslate = t,
 ): CommandFlowReadonlyStepDisplay {
-  const step = record(value);
   const inheritedText = translate("commandFlowReadonlyInherited");
   return {
     commandLabelText: translate("txBlockFormCommand"),
-    commandText: textValue(step.command),
+    commandText: step.command,
     multilineModeLabelText: translate("commandMultilineMode"),
     multilineModeText: translate(
       step.multilineMode === "whole"
@@ -67,31 +57,28 @@ function stepPresentation(
         : "commandMultilineModeSplitLines",
     ),
     modeLabelText: translate("txBlockFormMode"),
-    modeText: step.hasMode ? textValue(step.mode) || "-" : inheritedText,
-    promptRows: Array.isArray(step.prompts)
-      ? step.prompts.map((prompt, promptIndex) =>
-          promptPresentation(prompt, promptIndex, translate),
-        )
-      : [],
+    modeText: step.hasMode ? step.mode || "-" : inheritedText,
+    promptRows: step.prompts.map((prompt, promptIndex) =>
+      promptPresentation(prompt, promptIndex, translate),
+    ),
     timeoutLabelText: translate("txBlockFormTimeout"),
     timeoutText: step.hasTimeoutSecs
-      ? `${textValue(step.timeoutSecs ?? 0)}s`
+      ? `${step.timeoutSecs ?? 0}s`
       : inheritedText,
     titleText: `${translate("txBlockFormFlowStep")} ${stepIndex + 1}`,
   };
 }
 
 export function commandFlowReadonlyPresentation(
-  value: unknown = {},
+  model: CommandFlowTemplateModel,
   translate: CommandTranslate = t,
 ): CommandFlowReadonlyDisplay {
-  const model = record(value);
-  const steps = Array.isArray(model.steps) ? model.steps : [];
+  const steps = model.steps;
   return {
     emptyText: translate("txBlockFormFlowStepsEmpty"),
     hasSteps: steps.length > 0,
     nameLabelText: translate("txBlockFormTemplateName"),
-    nameText: textValue(model.name) || "-",
+    nameText: model.name || "-",
     stepRows: steps.map((step, stepIndex) =>
       stepPresentation(step, stepIndex, translate),
     ),
@@ -100,12 +87,12 @@ export function commandFlowReadonlyPresentation(
       {
         labelText: translate("txBlockFormDefaultMode"),
         valueText: model.hasDefaultMode
-          ? textValue(model.defaultMode) || "-"
+          ? model.defaultMode || "-"
           : translate("commandFlowReadonlyInherited"),
       },
       {
         labelText: translate("txBlockFormStopOnError"),
-        valueText: translatedBoolean(model.stopOnError !== false, translate),
+        valueText: translatedBoolean(model.stopOnError, translate),
       },
       {
         labelText: translate("txBlockFormFlowSteps"),

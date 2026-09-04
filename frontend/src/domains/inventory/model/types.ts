@@ -15,9 +15,16 @@ export interface InventoryItem {
   name: string;
 }
 
+export interface InventoryGroup extends InventoryItem {
+  description: string | null;
+}
+
+export interface InventoryLabel extends InventoryItem {
+  description?: never;
+}
+
 export interface SavedConnectionSummary {
   name: string;
-  [key: string]: unknown;
 }
 
 export interface InventoryCollectionState {
@@ -38,27 +45,31 @@ export interface InventoryState {
   savedConnections: SavedConnectionSummary[];
 }
 
-export interface InventoryGroupPayload {
-  description: string | null;
-  hosts: string[];
-  name: string;
+export type InventoryGroupPayload = InventoryGroup;
+
+export interface InventoryDeleteResponse {
+  ok: boolean;
+  deleted: boolean;
 }
 
 export interface InventoryApi {
-  deleteGroup(name: string): Promise<unknown>;
-  deleteLabel(name: string): Promise<unknown>;
-  getGroup(name: string): Promise<InventoryItem>;
-  getLabel(name: string): Promise<InventoryItem>;
+  deleteGroup(name: string): Promise<InventoryDeleteResponse>;
+  deleteLabel(name: string): Promise<InventoryDeleteResponse>;
+  getGroup(name: string): Promise<InventoryGroup>;
+  getLabel(name: string): Promise<InventoryLabel>;
   listConnections(): Promise<SavedConnectionSummary[]>;
-  listGroups(): Promise<InventoryItem[]>;
-  listLabels(): Promise<InventoryItem[]>;
-  saveGroup(name: string, group: InventoryGroupPayload): Promise<InventoryItem>;
-  saveLabel(name: string, hosts: string[]): Promise<InventoryItem>;
+  listGroups(): Promise<InventoryGroup[]>;
+  listLabels(): Promise<InventoryLabel[]>;
+  saveGroup(
+    name: string,
+    group: InventoryGroupPayload,
+  ): Promise<InventoryGroup>;
+  saveLabel(name: string, hosts: string[]): Promise<InventoryLabel>;
 }
 
 export interface InventoryRuntime {
   protectedResourcesRefreshState: Readable<number>;
-  reloadSavedConnections(): Promise<unknown>;
+  reloadSavedConnections(): Promise<void>;
   savedConnectionsRefreshState: Readable<number>;
   syncConnectionInventory(
     groups: InventoryItem[],

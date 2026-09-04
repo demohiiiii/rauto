@@ -23,7 +23,7 @@ import {
 } from "$domains/profiles/index.js";
 import type { StandardCommandRuntime } from "../model/types.js";
 
-export const standardCommandRuntime = {
+export const standardCommandRuntime: StandardCommandRuntime = {
   applyRecording: applyRecordDrawerRecording,
   clearTimer: browserClearTimeout,
   commandModePicker: () => modeSelection(MODE_SELECT.standardDirect),
@@ -36,4 +36,4 @@ export const standardCommandRuntime = {
   recordLevel: recordLevelPayload,
   retryRequestFields: sessionRetryRequestFields,
   setTimer: browserSetTimeout,
-} as unknown as StandardCommandRuntime;
+};

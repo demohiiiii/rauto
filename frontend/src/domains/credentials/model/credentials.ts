@@ -1,7 +1,9 @@
 import { tr } from "../../../lib/i18n.js";
 import type {
   CredentialApiRow,
+  CredentialAuthType,
   CredentialForm,
+  CredentialImportApiReport,
   CredentialImportFailure,
   CredentialImportReport,
   CredentialRow,
@@ -15,12 +17,22 @@ const credentialNamePattern = /^[A-Za-z0-9_.-]+$/;
 const invalidCredentialNameError =
   /^invalid device credential name '(.*)', use only letters\/numbers\/_\/\.\/-$/;
 
-function listValue(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
+function text(value: string | null | undefined): string {
+  return value == null ? "" : String(value);
 }
 
-function text(value: unknown): string {
-  return value == null ? "" : String(value);
+function credentialErrorText(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return "";
 }
 
 export function newCredentialForm(row?: CredentialRow | null): CredentialForm {
@@ -71,7 +83,7 @@ export function credentialFormValidationMessage(
   if (!text(form.username).trim()) {
     return translate("credentialUsernameRequired");
   }
-  const authType = text(form.authType || "password");
+  const authType = form.authType || "password";
   const hasStoredAuth = editing && form.hasAuthSecret !== false;
   if (
     authType === "password" &&
@@ -97,11 +109,7 @@ export function credentialErrorMessage(
   error: unknown,
   translate: CredentialTranslate = identityTranslate,
 ): string {
-  const source =
-    typeof error === "object" && error !== null && "message" in error
-      ? error.message
-      : error;
-  const message = text(source).trim();
+  const message = credentialErrorText(error).trim();
   const invalidNameMatch = message.match(invalidCredentialNameError);
   if (invalidNameMatch) {
     return invalidNameMatch[1].trim()
@@ -123,26 +131,21 @@ export function credentialErrorMessage(
   return message || translate("requestFailed");
 }
 
-export function credentialRow(
-  value: Partial<CredentialApiRow> = {},
-): CredentialRow {
-  const referencingConnections = listValue(value.referencing_connections)
-    .map((item) => text(item).trim())
-    .filter(Boolean)
-    .sort();
+export function credentialRow(value: CredentialApiRow): CredentialRow {
+  const referencingConnections = [...value.referencing_connections].sort();
   const row = {
-    authType: text(value.auth_type || "password").trim(),
-    connectionCount: Number(value.connection_count) || 0,
-    enableEnabled: Boolean(value.enable_enabled),
-    hasAuthSecret: Boolean(value.has_auth_secret),
-    hasEnablePassword: Boolean(value.has_enable_password),
-    hasPassphrase: Boolean(value.has_passphrase),
-    hasPassword: Boolean(value.has_password),
-    id: text(value.id).trim(),
-    name: text(value.name).trim(),
-    privateKeyPath: text(value.private_key_path).trim(),
+    authType: value.auth_type,
+    connectionCount: value.connection_count,
+    enableEnabled: value.enable_enabled,
+    hasAuthSecret: value.has_auth_secret,
+    hasEnablePassword: value.has_enable_password,
+    hasPassphrase: value.has_passphrase,
+    hasPassword: value.has_password,
+    id: value.id,
+    name: value.name,
+    privateKeyPath: value.private_key_path ?? "",
     referencingConnections,
-    username: text(value.username).trim(),
+    username: value.username,
   };
   return {
     ...row,
@@ -167,7 +170,7 @@ export function credentialSavePayload(
   const passphrase = text(form.passphrase);
   const enablePassword = text(form.enablePassword);
   return {
-    auth_type: text(form.authType || "password"),
+    auth_type: form.authType || "password",
     enable_enabled: Boolean(form.enableEnabled),
     enable_password: enablePassword.trim() ? enablePassword : null,
     name: text(form.name).trim(),
@@ -180,46 +183,36 @@ export function credentialSavePayload(
 }
 
 export function credentialDeleteBlockedMessage(
-  connections: unknown[] = [],
+  connections: string[] = [],
 ): string {
-  const names = listValue(connections)
-    .map((item) => text(item).trim())
-    .filter(Boolean)
-    .sort();
+  const names = [...connections].sort();
   return `${tr("credentialReferencedBy", "该凭证仍被以下连接引用：")}${names.join(", ")}`;
 }
 
-function normalizedCount(candidate: unknown): number {
-  const parsed = Number(candidate);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+export function credentialImportReport(
+  value: CredentialImportApiReport,
+): CredentialImportReport {
+  return {
+    created: value.created,
+    failed: value.failed,
+    failures: value.failures.map((failure) => ({
+      message: failure.message,
+      name: failure.name ?? "",
+      row: failure.row,
+    })),
+    fileName: value.file_name,
+    imported: value.imported,
+    totalRows: value.total_rows,
+    updated: value.updated,
+  };
 }
 
-export function credentialImportReport(
-  value: unknown = {},
-): CredentialImportReport {
-  const source =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {};
-  return {
-    created: normalizedCount(source.created),
-    failed: normalizedCount(source.failed),
-    failures: listValue(source.failures).map((failure) => {
-      const row =
-        typeof failure === "object" && failure !== null
-          ? (failure as Record<string, unknown>)
-          : {};
-      return {
-        message: text(row.message).trim(),
-        name: text(row.name).trim(),
-        row: normalizedCount(row.row),
-      };
-    }),
-    fileName: text(source.file_name).trim(),
-    imported: normalizedCount(source.imported),
-    totalRows: normalizedCount(source.total_rows),
-    updated: normalizedCount(source.updated),
-  };
+export function isCredentialAuthType(
+  value: string,
+): value is CredentialAuthType {
+  return ["agent", "password", "private_key", "private_key_file"].includes(
+    value,
+  );
 }
 
 export function credentialImportFailureMessage(

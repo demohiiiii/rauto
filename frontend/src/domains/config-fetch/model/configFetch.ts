@@ -10,28 +10,26 @@ import type {
   ConfigFetchResultCounts,
   ConfigFetchResultPayload,
   ConfigFetchResultRow,
+  ConfigFetchSingleResult,
   ConfigFetchTargetMode,
   ConfigFetchTargetSelections,
 } from "./types.js";
+import type { RecordLevel } from "$domains/overlays/index.js";
 
 export const CONFIG_FETCH_TARGET_MODE = Object.freeze({
   batch: "batch" as const,
   current: "current" as const,
 });
 
-function safeString(value: unknown): string {
-  return value == null ? "" : String(value);
-}
-
 export function normalizeConfigFetchTargetMode(
-  value: unknown,
+  value: string,
 ): ConfigFetchTargetMode;
 export function normalizeConfigFetchTargetMode<T extends string>(
-  value: unknown,
+  value: string,
   fallback: T,
 ): ConfigFetchTargetMode | T;
 export function normalizeConfigFetchTargetMode<T extends string>(
-  value: unknown,
+  value: string,
   fallback: T | ConfigFetchTargetMode = CONFIG_FETCH_TARGET_MODE.current,
 ): ConfigFetchTargetMode | T {
   return value === CONFIG_FETCH_TARGET_MODE.current ||
@@ -42,35 +40,35 @@ export function normalizeConfigFetchTargetMode<T extends string>(
 
 export function configFetchKindAvailable(
   catalog: Partial<ConfigFetchKindCatalog> = {},
-  selectedKind: unknown = "",
+  selectedKind = "",
 ): boolean {
-  const kind = safeString(selectedKind).trim();
+  const kind = selectedKind.trim();
   return Boolean(
     catalog.kind === "ready" &&
     kind &&
-    Array.isArray(catalog.options) &&
+    catalog.options &&
     catalog.options.some((option) => option?.value === kind),
   );
 }
 
-export function normalizeConfigFetchMaxParallel(value: unknown): number | null {
-  const parsed = Number.parseInt(safeString(value).trim(), 10);
+export function normalizeConfigFetchMaxParallel(value?: string): number | null {
+  const parsed = Number.parseInt(value?.trim() ?? "", 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 export function configFetchPayload(
   form: Partial<ConfigFetchForm>,
   selections: Partial<ConfigFetchTargetSelections> = {},
-  recordLevel: unknown = null,
+  recordLevel: RecordLevel | null = null,
   retryFields: ConfigFetchRetryPayload = {},
 ): ConfigFetchBatchPayload {
   const maxParallel = normalizeConfigFetchMaxParallel(form.maxParallel);
   return {
-    kind: safeString(form.kind).trim(),
+    kind: form.kind?.trim() ?? "",
     include_normalized: Boolean(form.includeNormalized),
-    targets: Array.isArray(selections.targets) ? selections.targets : [],
-    groups: Array.isArray(selections.groups) ? selections.groups : [],
-    labels: Array.isArray(selections.labels) ? selections.labels : [],
+    targets: selections.targets ?? [],
+    groups: selections.groups ?? [],
+    labels: selections.labels ?? [],
     ...(maxParallel ? { max_parallel: maxParallel } : {}),
     ...retryFields,
     record_level: recordLevel || null,
@@ -80,11 +78,11 @@ export function configFetchPayload(
 export function configFetchCurrentPayload(
   form: Partial<ConfigFetchForm>,
   connection: ConfigFetchConnectionPayload = {},
-  recordLevel: unknown = null,
+  recordLevel: RecordLevel | null = null,
   retryFields: ConfigFetchRetryPayload = {},
 ): ConfigFetchCurrentPayload {
   return {
-    kind: safeString(form.kind).trim(),
+    kind: form.kind?.trim() ?? "",
     include_normalized: Boolean(form.includeNormalized),
     ...retryFields,
     connection,
@@ -97,9 +95,7 @@ export function configFetchKindOptions(
 ): ConfigFetchKindOption[] {
   return [
     ...new Set(
-      (Array.isArray(commandRows) ? commandRows : [])
-        .map((row) => safeString(row?.kind).trim())
-        .filter(Boolean),
+      (commandRows ?? []).map((row) => row.kind.trim()).filter(Boolean),
     ),
   ]
     .sort((left, right) => left.localeCompare(right))
@@ -109,44 +105,34 @@ export function configFetchKindOptions(
 export function configFetchResultRows(
   resultPayload: Partial<ConfigFetchResultPayload> = {},
 ): ConfigFetchResultRow[] {
-  return Array.isArray(resultPayload.results) ? resultPayload.results : [];
+  return resultPayload.results ?? [];
 }
 
 export function configFetchResultCounts(
   resultPayload: Partial<ConfigFetchResultPayload> = {},
 ): ConfigFetchResultCounts {
   const rows = configFetchResultRows(resultPayload);
-  const reported = resultPayload.result_summary?.counts || {};
+  const reported = resultPayload.result_summary?.counts;
   const failedFallback = rows.filter((row) => Boolean(row.error)).length;
-  const total = Number.isFinite(Number(reported.total))
-    ? Number(reported.total)
-    : rows.length;
-  const failed = Number.isFinite(Number(reported.failed))
-    ? Number(reported.failed)
-    : failedFallback;
-  const succeeded = Number.isFinite(Number(reported.succeeded))
-    ? Number(reported.succeeded)
-    : Math.max(0, total - failed);
+  const total = reported?.total ?? rows.length;
+  const failed = reported?.failed ?? failedFallback;
+  const succeeded = reported?.succeeded ?? Math.max(0, total - failed);
   return { failed, succeeded, total };
 }
 
 export function singleConfigFetchResultPayload(
-  row: ConfigFetchResultRow = {},
+  row: ConfigFetchSingleResult,
 ): ConfigFetchResultPayload {
-  const failed = row.error ? 1 : 0;
   const resultPayload: ConfigFetchResultPayload = {
-    kind: row.kind || "",
-    targets: row.target ? [row.target] : [],
+    execution_response: row.execution_response,
+    kind: row.kind,
+    targets: [row.target],
     results: [row],
-    result_summary: row.result_summary || {
-      counts: { total: 1, succeeded: 1 - failed, failed },
-    },
+    result_summary: row.result_summary,
   };
-  if (row.execution_response) {
-    Object.defineProperty(resultPayload, "execution_response", {
-      enumerable: false,
-      value: row.execution_response,
-    });
-  }
+  Object.defineProperty(resultPayload, "execution_response", {
+    enumerable: false,
+    value: row.execution_response,
+  });
   return resultPayload;
 }

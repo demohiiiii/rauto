@@ -3,6 +3,8 @@ import {
   MANUAL_COMMAND_SOURCE,
   normalizeCommandTemplateNames,
 } from "$domains/command/index.js";
+import type { SessionRetryState } from "$domains/execution/index.js";
+import type { JsonObject } from "$lib/jsonValue.js";
 import { t } from "../../../lib/i18n.js";
 import { safeString } from "../../../lib/ui.js";
 import { standardCommandApi } from "../infrastructure/standardCommandApi.js";
@@ -22,7 +24,6 @@ import type {
   StandardCommandStatusTone,
   StandardCommandTextfsmState,
   StandardCommandWorkspaceOptions,
-  StandardSessionRetryState,
 } from "../model/types.js";
 
 function errorMessage(error: unknown): string {
@@ -30,12 +31,6 @@ function errorMessage(error: unknown): string {
     return String(error.message ?? "");
   }
   return String(error ?? "");
-}
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
 }
 
 export function commandExecutionPayload(
@@ -95,7 +90,7 @@ export function createStandardCommandExecutionWorkspace({
   );
 
   function setStatus(
-    message: unknown = "",
+    message = "",
     tone: StandardCommandStatusTone = "info",
   ): void {
     stateStore.update((state) => ({
@@ -120,9 +115,7 @@ export function createStandardCommandExecutionWorkspace({
     try {
       const detail = await api.inspectCommandTemplate(content);
       if (destroyed || version !== inspectionVersion) return false;
-      const varsSchema = Array.isArray(detail.vars_schema)
-        ? detail.vars_schema
-        : [];
+      const varsSchema = detail.vars_schema;
       stateStore.update((state) => ({
         ...state,
         varsSchema,
@@ -177,9 +170,9 @@ export function createStandardCommandExecutionWorkspace({
   }
 
   async function selectSource(
-    sourceValue: unknown = MANUAL_COMMAND_SOURCE,
+    sourceValue = MANUAL_COMMAND_SOURCE,
   ): Promise<boolean> {
-    const source = safeString(sourceValue).trim() || MANUAL_COMMAND_SOURCE;
+    const source = sourceValue.trim() || MANUAL_COMMAND_SOURCE;
     const current = get(stateStore);
     if (source === current.sourceSelection) return true;
     if (!(await allowReplacement())) return false;
@@ -206,7 +199,7 @@ export function createStandardCommandExecutionWorkspace({
     try {
       const detail = await api.getTemplate(source);
       if (destroyed || version !== loadVersion) return false;
-      const content = safeString(detail.content);
+      const content = detail.content;
       stateStore.update((state) => ({
         ...state,
         sourceSelection: source,
@@ -231,10 +224,10 @@ export function createStandardCommandExecutionWorkspace({
     }
   }
 
-  function changeContent(content: unknown = ""): Promise<boolean> {
+  function changeContent(content = ""): Promise<boolean> {
     loadVersion += 1;
     setLoading("template", false);
-    const nextContent = safeString(content);
+    const nextContent = content;
     stateStore.update((state) => ({
       ...state,
       content: nextContent,
@@ -244,18 +237,20 @@ export function createStandardCommandExecutionWorkspace({
     return scheduleInspection(nextContent);
   }
 
-  function changeVars(vars: unknown = {}): void {
+  function changeVars(vars: JsonObject = {}): void {
     stateStore.update((state) => ({
       ...state,
-      vars: { ...record(vars) },
+      vars: { ...vars },
     }));
   }
 
-  function changeMode(mode: unknown = ""): void {
+  function changeMode(mode = ""): void {
     commandModePicker.setValue(mode);
   }
 
-  function changeMultilineMode(multilineMode: unknown = "split_lines"): void {
+  function changeMultilineMode(
+    multilineMode: "split_lines" | "whole" = "split_lines",
+  ): void {
     stateStore.update((state) => ({
       ...state,
       multilineMode: multilineMode === "whole" ? "whole" : "split_lines",
@@ -274,7 +269,7 @@ export function createStandardCommandExecutionWorkspace({
     }));
   }
 
-  function changeRetry(retry: StandardSessionRetryState = {}): void {
+  function changeRetry(retry: Partial<SessionRetryState> = {}): void {
     stateStore.update((state) => ({
       ...state,
       retry: { ...state.retry, ...retry },

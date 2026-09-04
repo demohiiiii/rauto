@@ -4,6 +4,7 @@ import {
   normalizeStandardExecMode,
 } from "../../../config/dashboardModes.js";
 import { safeString } from "../../../lib/ui.js";
+import type { SessionRetryState } from "$domains/execution/index.js";
 import { standardCommandFlowApi } from "../infrastructure/standardCommandFlowApi.js";
 import { standardCommandFlowRuntime } from "../infrastructure/standardCommandFlowRuntime.js";
 import {
@@ -14,23 +15,28 @@ import {
 import type {
   StandardCommandExecutionResult,
   StandardCommandFlowExecutionInput,
+  StandardCommandFlowExecutionResponse,
+  StandardCommandFlowExecutionSourceInput,
   StandardCommandFlowTextfsmFields,
+  StandardCommandFlowTextfsmPayload,
   StandardCommandFlowTextfsmState,
   StandardLoadingRunnerFactory,
   StandardParsedOutputSheet,
-  StandardSessionRetryState,
 } from "../model/types.js";
 
-export const EMPTY_RESULT: StandardCommandExecutionResult = { kind: "empty" };
+type CommandFlowExecutionResult =
+  StandardCommandExecutionResult<StandardCommandFlowExecutionResponse>;
+
+export const EMPTY_RESULT: CommandFlowExecutionResult = { kind: "empty" };
 export const DEFAULT_STANDARD_PAGE_MODE = normalizeStandardExecMode(
   defaultStandardExecMode,
 );
 
 interface StandardStateContext {
   commandFlowExecutionResult: ReturnType<
-    typeof writable<StandardCommandExecutionResult>
+    typeof writable<CommandFlowExecutionResult>
   >;
-  standardFormFieldsState: Map<string, Record<string, unknown>>;
+  textfsmFields: StandardCommandFlowTextfsmPayload;
 }
 
 let standardStateContext: StandardStateContext | null = null;
@@ -38,8 +44,8 @@ let standardStateContext: StandardStateContext | null = null;
 function createStandardStateContext(): StandardStateContext {
   return {
     commandFlowExecutionResult:
-      writable<StandardCommandExecutionResult>(EMPTY_RESULT),
-    standardFormFieldsState: new Map(),
+      writable<CommandFlowExecutionResult>(EMPTY_RESULT),
+    textfsmFields: standardCommandFlowTextfsmPayload(),
   };
 }
 
@@ -48,12 +54,6 @@ function currentStandardStateContext(): StandardStateContext {
     standardStateContext = createStandardStateContext();
   }
   return standardStateContext;
-}
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
 }
 
 function errorMessage(error: unknown): string {
@@ -111,42 +111,27 @@ export function setStandardTextfsmTemplate(
   textfsmStateStore: ReturnType<
     typeof writable<StandardCommandFlowTextfsmState>
   >,
-  template: unknown = "",
+  template = "",
 ): void {
   textfsmStateStore.update((textfsmState) => ({
     ...textfsmState,
-    template: safeString(template),
+    template,
   }));
 }
 
 function setCommandFlowExecutionResult(
-  executionResult: StandardCommandExecutionResult = EMPTY_RESULT,
+  executionResult: CommandFlowExecutionResult = EMPTY_RESULT,
 ): void {
   currentStandardStateContext().commandFlowExecutionResult.set(executionResult);
 }
 
-function setStandardFormFields(key: string, fields: unknown = {}): void {
-  currentStandardStateContext().standardFormFieldsState.set(key, {
-    ...record(fields),
-  });
+function textfsmPayload(): StandardCommandFlowTextfsmPayload {
+  return currentStandardStateContext().textfsmFields;
 }
 
-function standardFormFields(key: string): Record<string, unknown> {
-  return currentStandardStateContext().standardFormFieldsState.get(key) || {};
-}
-
-function textfsmPayload(): Record<string, unknown> {
-  const textfsmForm = standardFormFields("textfsm");
-  return standardCommandFlowTextfsmPayload({
-    enabled: textfsmForm.parseTextfsm ?? textfsmForm.parse_textfsm,
-    platform: textfsmForm.textfsmPlatform ?? textfsmForm.textfsm_platform,
-    strictErrors:
-      textfsmForm.textfsmStrictErrors ?? textfsmForm.textfsm_strict_errors,
-    template: textfsmForm.textfsmTemplate ?? textfsmForm.textfsm_template,
-  });
-}
-
-export function normalizeCommandFlowExecutionSource(source: unknown = {}) {
+export function normalizeCommandFlowExecutionSource(
+  source: StandardCommandFlowExecutionSourceInput = { kind: "saved" },
+) {
   return normalizeExecutionSource(source);
 }
 
@@ -163,28 +148,18 @@ export function commandFlowExecutionPayload(
 export function setStandardTextfsmFields(
   textfsmFields: StandardCommandFlowTextfsmFields = {},
 ): void {
-  setStandardFormFields("textfsm", {
-    parseTextfsm: !!textfsmFields.enabled,
-    textfsmPlatform: safeString(textfsmFields.platform),
-    textfsmStrictErrors: !!textfsmFields.strictErrors,
-    textfsmTemplate: safeString(textfsmFields.template),
-  });
+  currentStandardStateContext().textfsmFields =
+    standardCommandFlowTextfsmPayload(textfsmFields);
 }
 
 export async function executeCommandFlow(
-  executionSource: unknown = null,
-  retry: StandardSessionRetryState = standardCommandFlowRuntime.createRetryState(),
+  executionSource: StandardCommandFlowExecutionSourceInput = { kind: "saved" },
+  retry: SessionRetryState = standardCommandFlowRuntime.createRetryState(),
 ): Promise<void> {
   if (!standardCommandFlowRuntime.ensureTarget()) return;
   setCommandFlowExecutionResult({ kind: "running" });
   try {
-    const flowForm = standardFormFields("flow");
-    const source = normalizeCommandFlowExecutionSource(
-      executionSource || {
-        kind: "saved",
-        templateSelection: flowForm.templateSelection,
-      },
-    );
+    const source = normalizeCommandFlowExecutionSource(executionSource);
     if (source.kind === "saved") {
       await standardCommandFlowRuntime.ensureTemplateDetail(
         source.templateSelection,
@@ -218,7 +193,7 @@ export async function exportCommandFlowExcel(
   exportParsedOutputSheetsExcel: (
     sheets: StandardParsedOutputSheet[],
     options: { filename: string },
-  ) => Promise<unknown> | unknown,
+  ) => Promise<void> | void,
 ): Promise<void> {
   await exportParsedOutputSheetsExcel(commandFlowParsedOutputSheets(), {
     filename: "textfsm-flow.xlsx",
@@ -226,7 +201,7 @@ export async function exportCommandFlowExcel(
 }
 
 export function commandFlowParsedOutputSheets(
-  flowExecutionResult: StandardCommandExecutionResult = get(
+  flowExecutionResult: CommandFlowExecutionResult = get(
     currentStandardStateContext().commandFlowExecutionResult,
   ),
 ): StandardParsedOutputSheet[] {
@@ -234,15 +209,13 @@ export function commandFlowParsedOutputSheets(
     flowExecutionResult.kind === "result"
       ? flowExecutionResult.resultPayload
       : null;
-  const outputs = Array.isArray(resultPayload?.outputs)
-    ? resultPayload.outputs
-    : [];
+  const outputs = resultPayload?.outputs ?? [];
   return standardCommandFlowRuntime.parsedOutputSheets(outputs, {
     sheetName: (flowOutput, index) =>
       safeString(flowOutput.command ?? "") || `command_${index + 1}`,
   });
 }
 
-export function refreshStandardExecutionModeOptions(): Promise<unknown> {
+export function refreshStandardExecutionModeOptions(): Promise<void> {
   return standardCommandFlowRuntime.refreshModeOptions();
 }

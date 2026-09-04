@@ -15,9 +15,9 @@
     controlsDisplay: ReplayControlsDisplay;
     onCommandInput?: (value: string) => void;
     onJsonlInput?: (value: string) => void;
-    onList?: (event: MouseEvent) => unknown;
+    onList?: (event: MouseEvent) => void | Promise<void>;
     onModeInput?: (value: string) => void;
-    onRun?: (event: MouseEvent) => unknown;
+    onRun?: (event: MouseEvent) => void | Promise<void>;
   } = $props();
 </script>
 

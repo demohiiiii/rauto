@@ -26,11 +26,11 @@ import type {
   SessionRetryState,
 } from "../model/types.js";
 
-export const configFetchConnectionTargetState =
-  connectionTargetState as unknown as ConfigFetchConnectionTargetStore;
+export const configFetchConnectionTargetState: ConfigFetchConnectionTargetStore =
+  connectionTargetState;
 
-export const configFetchTargetPickerFields =
-  legacyConfigFetchTargetPickerFields as readonly ConfigFetchTargetPickerField[];
+export const configFetchTargetPickerFields: readonly ConfigFetchTargetPickerField[] =
+  legacyConfigFetchTargetPickerFields;
 
 export function newConfigFetchRetryState(): SessionRetryState {
   return createSessionRetryState() as SessionRetryState;

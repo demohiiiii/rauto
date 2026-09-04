@@ -5,6 +5,7 @@ import {
   eventEntriesPresentation,
   historyEntryOpenHandler,
 } from "../src/domains/overlays/index.js";
+import type { OverlayEventEntry } from "../src/domains/overlays/index.js";
 
 test("event detail presentation retains statistics and indexed actions", () => {
   const entries = [
@@ -18,7 +19,7 @@ test("event detail presentation retains statistics and indexed actions", () => {
     },
   ];
   const presentation = eventEntriesPresentation(entries);
-  const opened: unknown[] = [];
+  const opened: OverlayEventEntry[] = [];
   const openEntry = historyEntryOpenHandler(entries, (entry) =>
     opened.push(entry),
   );

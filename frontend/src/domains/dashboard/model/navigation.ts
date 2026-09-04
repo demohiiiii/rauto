@@ -1,6 +1,5 @@
 import type {
   DashboardComponentDefinitions,
-  DashboardDetailRendererId,
   DashboardNavigationItem,
   DashboardOverlayId,
   DashboardPageDefinition,
@@ -294,23 +293,15 @@ export const dashboardOverlayDefinitions: DashboardComponentDefinitions<Dashboar
       import("../../connections/presentation/components/SavedConnectionEditModal.svelte"),
   };
 
-export const dashboardDetailRendererDefinitions: DashboardComponentDefinitions<DashboardDetailRendererId> =
-  {
-    orchestrationStageDetail: () =>
-      import("$domains/orchestration/presentation/components/result/OrchestrationStageDetailPanel.svelte"),
-    orchestrationTargetDetail: () =>
-      import("$domains/orchestration/presentation/components/result/OrchestrationTargetDetailPanel.svelte"),
-  };
-
 export const defaultDashboardRoute = dashboardRoutes[0];
 
-export function routeByPath(pathname: unknown): DashboardRoute {
+export function routeByPath(pathname: string): DashboardRoute {
   return (
     dashboardRoutes.find((route) => route.path === pathname) ||
     defaultDashboardRoute
   );
 }
 
-export function routeById(id: unknown): DashboardRoute | null {
+export function routeById(id: string): DashboardRoute | null {
   return dashboardRoutes.find((route) => route.id === id) || null;
 }

@@ -2,6 +2,7 @@ import { tr } from "../../../lib/i18n.js";
 import type {
   CredentialOptionsDisplay,
   CredentialOptionsState,
+  CredentialAuthType,
   CredentialTranslate,
   CredentialsPageDisplay,
   CredentialsPageState,
@@ -38,15 +39,14 @@ export function credentialOptionsPresentation(
 }
 
 export function credentialAuthTypeLabel(
-  authType: string,
+  authType: CredentialAuthType,
   translate: CredentialTranslate = tr,
 ): string {
-  const key =
-    {
-      agent: "credentialAuthAgent",
-      password: "credentialAuthPassword",
-      private_key: "credentialAuthPrivateKey",
-      private_key_file: "credentialAuthPrivateKeyFile",
-    }[authType] || "credentialAuthPassword";
+  const key = {
+    agent: "credentialAuthAgent",
+    password: "credentialAuthPassword",
+    private_key: "credentialAuthPrivateKey",
+    private_key_file: "credentialAuthPrivateKeyFile",
+  }[authType];
   return translate(key);
 }

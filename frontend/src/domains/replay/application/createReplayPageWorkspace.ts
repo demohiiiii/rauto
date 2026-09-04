@@ -69,14 +69,13 @@ export function createReplayPageWorkspace(
   }
 
   async function runMutation(
-    mutation: (state: ReplayState) => unknown | Promise<unknown>,
-  ): Promise<unknown> {
+    mutation: (state: ReplayState) => void | Promise<void>,
+  ): Promise<void> {
     const state = get(replayStateStore);
     const result = mutation(state);
     replayStateStore.set(state);
-    const resolved = await result;
+    await result;
     replayStateStore.set(state);
-    return resolved;
   }
 
   function applyReplaySyncState(syncState: ReplaySyncState): void {
@@ -102,11 +101,11 @@ export function createReplayPageWorkspace(
   async function runWithLoadingKey(
     loadingKey: string,
     operation: (state: ReplayState) => Promise<void>,
-  ): Promise<unknown> {
+  ): Promise<void> {
     if (loadingKeys.includes(loadingKey)) return;
     writeLoadingKeys([...loadingKeys, loadingKey]);
     try {
-      return await runMutation(operation);
+      await runMutation(operation);
     } finally {
       writeLoadingKeys(loadingKeys.filter((key) => key !== loadingKey));
     }

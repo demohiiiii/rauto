@@ -1,7 +1,6 @@
 import type {
   TaskEventFilterActionOptions,
   TaskFilterActionOptions,
-  TaskRun,
   TaskState,
   TaskValueHandler,
 } from "./types.js";
@@ -29,10 +28,6 @@ export function newTaskState(): TaskState {
     refreshLoading: false,
     runs: [],
   };
-}
-
-export function normalizeTaskRuns(payload: unknown): TaskRun[] {
-  return Array.isArray(payload) ? (payload as TaskRun[]) : [];
 }
 
 export function resetTaskFilters(state: TaskState): void {

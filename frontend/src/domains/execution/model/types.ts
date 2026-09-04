@@ -23,6 +23,13 @@ export interface ParsedOutputSheet extends Record<string, unknown> {
   parsed_output: unknown;
 }
 
+export interface TextfsmExcelExportPayload {
+  filename?: string;
+  parsed_output?: unknown;
+  sheet_name?: string;
+  sheets?: ParsedOutputSheet[];
+}
+
 export interface ParsedOutputSheetConfig {
   sheetName?(item: Record<string, unknown>, index: number): unknown;
 }
@@ -54,7 +61,7 @@ export interface ExecutionResultDisplay {
 }
 
 export interface ExecutionResultApi {
-  exportExcel(payload: Record<string, unknown>): Promise<{
+  exportExcel(payload: TextfsmExcelExportPayload): Promise<{
     blob: Blob;
     filename?: string;
   }>;

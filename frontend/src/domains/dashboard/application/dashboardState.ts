@@ -18,6 +18,7 @@ import {
   tr,
 } from "../../../lib/i18n.js";
 import { statusPresentation } from "../../../lib/ui.js";
+import type { I18nLanguage } from "../../../i18n/types.js";
 import type {
   DashboardAgentAuthDisplay,
   DashboardPreferenceDisplay,
@@ -54,15 +55,15 @@ let systemThemeCleanup: (() => void) | null = null;
 export const getDashboardState = () => get(dashboardState);
 
 function normalizeDashboardThemePreference(
-  themePreference: unknown,
+  themePreference: DashboardThemeMode,
 ): DashboardThemeMode {
-  return themeModeOptions.includes(themePreference as DashboardThemeMode)
-    ? (themePreference as DashboardThemeMode)
+  return themeModeOptions.includes(themePreference)
+    ? themePreference
     : "system";
 }
 
 function nextDashboardThemePreference(
-  themePreference: unknown,
+  themePreference: DashboardThemeMode,
 ): DashboardThemeMode {
   const preference = normalizeDashboardThemePreference(themePreference);
   if (preference === "system") return "light";
@@ -70,7 +71,7 @@ function nextDashboardThemePreference(
   return "system";
 }
 
-function dashboardLanguageShortLabel(language: unknown): string {
+function dashboardLanguageShortLabel(language: I18nLanguage): string {
   return language === "zh" ? "中文" : "EN";
 }
 
@@ -87,7 +88,7 @@ export function initializeDashboardStatePreferences() {
 }
 
 function normalizeTab(
-  tab: unknown,
+  tab: string,
   tasksVisible: boolean,
   managedAgentMode = false,
 ): string {
@@ -98,7 +99,7 @@ function normalizeTab(
   return normalized;
 }
 
-export function setDashboardTab(tab: unknown): void {
+export function setDashboardTab(tab: string): void {
   dashboardState.update((currentDashboard) => {
     const currentTab = normalizeTab(
       tab,
@@ -112,7 +113,7 @@ export function setDashboardTab(tab: unknown): void {
   });
 }
 
-export function setDashboardManagedAgentMode(managed: unknown): void {
+export function setDashboardManagedAgentMode(managed: boolean): void {
   dashboardState.update((currentDashboard) => {
     const tasksVisible = managed === true;
     const currentTab = normalizeTab(
@@ -129,7 +130,7 @@ export function setDashboardManagedAgentMode(managed: unknown): void {
   });
 }
 
-export function setDashboardTxStage(stage: unknown): void {
+export function setDashboardTxStage(stage: string): void {
   const currentTxStage = String(stage || "block").trim() || "block";
   dashboardState.update((currentDashboard) => ({
     ...currentDashboard,
@@ -137,7 +138,7 @@ export function setDashboardTxStage(stage: unknown): void {
   }));
 }
 
-async function changeDashboardLanguage(language: string): Promise<void> {
+async function changeDashboardLanguage(language: I18nLanguage): Promise<void> {
   await loadI18nLanguage(language);
   dashboardRuntime.storageSet("rauto_lang", language);
   applyDashboardI18n();
@@ -170,9 +171,8 @@ function dashboardThemePreferenceLabelKey(
   return dashboard.currentTheme === "dark" ? "themeDark" : "themeLight";
 }
 
-function titleCaseThemeValue(value: unknown = ""): string {
-  const text = String(value || "");
-  return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : "";
+function titleCaseThemeValue(value: string): string {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "";
 }
 
 function themeOptionLabel(kind: string, value: string): string {
@@ -195,7 +195,7 @@ function dashboardPreferenceToolsPresentation({
   language,
   shellState,
 }: {
-  language: unknown;
+  language: I18nLanguage;
   shellState: DashboardState;
 }): DashboardPreferenceDisplay {
   const themeSettings =
@@ -225,11 +225,11 @@ function dashboardPreferenceLanguageActionHandlers({
   chooseLanguage,
   onCloseMenu = null,
 }: {
-  chooseLanguage: (language: string) => unknown | Promise<unknown>;
-  onCloseMenu?: (() => unknown) | null;
+  chooseLanguage: (language: I18nLanguage) => Promise<void>;
+  onCloseMenu?: (() => void) | null;
 }) {
   return {
-    chooseLanguageAction(language: string) {
+    chooseLanguageAction(language: I18nLanguage) {
       return async () => {
         await callIfFunction(chooseLanguage, language);
         callIfFunction(onCloseMenu);
@@ -249,7 +249,7 @@ export function createDashboardPreferenceToolsWorkspace() {
   );
   const langMenuOpenStateStore = writable(false);
 
-  function chooseLanguage(language: string) {
+  function chooseLanguage(language: I18nLanguage): Promise<void> {
     return changeDashboardLanguage(language);
   }
 
@@ -380,7 +380,7 @@ function clearAgentToken() {
 
 async function saveAgentToken(
   token = "",
-  onRefreshProtectedResources: (() => unknown | Promise<unknown>) | null = null,
+  onRefreshProtectedResources: (() => void | Promise<void>) | null = null,
 ): Promise<void> {
   setStoredAgentApiToken(token);
   refreshAgentAuthStatus();
@@ -394,7 +394,7 @@ async function saveAgentToken(
 export function createDashboardAgentAuthPanelWorkspace({
   onRefreshProtectedResources = null,
 }: {
-  onRefreshProtectedResources?: (() => unknown | Promise<unknown>) | null;
+  onRefreshProtectedResources?: (() => void | Promise<void>) | null;
 } = {}) {
   const agentTokenStateStore = writable("");
   const agentAuthDisplayStateStore = derived(

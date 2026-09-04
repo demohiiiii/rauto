@@ -6,7 +6,7 @@ import {
   commandFlowTemplateModelFromToml,
   commandFlowTemplateModelToToml,
   defaultCommandFlowTemplateModel,
-} from "../src/domains/command/index.ts";
+} from "../src/domains/command/index.js";
 
 const completeToml = `name = "temporary-copy"
 stop_on_error = false
@@ -112,8 +112,8 @@ test("default temporary command flow contains one editable step", () => {
   assert.equal(model.name, "temporary-flow");
   assert.equal(model.stopOnError, true);
   assert.equal(model.steps.length, 1);
-  assert.equal(model.steps[0].command, "");
-  assert.equal(model.steps[0].multilineMode, "split_lines");
+  assert.equal(model.steps[0]?.command, "");
+  assert.equal(model.steps[0]?.multilineMode, "split_lines");
 });
 
 test("command flow steps normalize and serialize multiline modes", () => {
@@ -125,8 +125,8 @@ test("command flow steps normalize and serialize multiline modes", () => {
     ],
   });
 
-  assert.equal(model.steps[0].multilineMode, "split_lines");
-  assert.equal(model.steps[1].multilineMode, "whole");
+  assert.equal(model.steps[0]?.multilineMode, "split_lines");
+  assert.equal(model.steps[1]?.multilineMode, "whole");
   assert.deepEqual(
     commandFlowTemplateDocumentFromModel(model).steps.map(
       (step) => step.multiline_mode,

@@ -126,7 +126,11 @@ function boolBadgeText(boolValue: unknown): string {
 }
 
 function eventFlowCellDisplay(
-  flowCell: { after?: unknown; before?: unknown; tone?: string } = {},
+  flowCell: {
+    after?: string;
+    before?: string;
+    tone?: "fsm" | "prompt";
+  } = {},
 ) {
   const { after = "", before = "", tone = "prompt" } = flowCell;
   const styles =

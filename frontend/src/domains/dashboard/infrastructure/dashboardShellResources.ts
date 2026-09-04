@@ -1,19 +1,26 @@
-import type { Readable } from "svelte/store";
 import {
   openConnectionModal,
   sidebarConnectionPresentation,
   sidebarConnectionState,
 } from "$domains/connections/index.js";
+import type { SidebarConnectionState } from "$domains/connections/index.js";
 import { createLazyComponentRegistry } from "../../../lib/svelte.js";
+import type { DashboardPageRegistry } from "../model/types.js";
 import type {
-  DashboardPageRegistry,
-  DashboardSidebarConnectionDisplay,
-  DashboardSidebarConnectionState,
+  DashboardPageComponent,
+  DashboardPageDefinition,
 } from "../model/types.js";
+
+type SidebarConnectionDisplay = ReturnType<
+  typeof sidebarConnectionPresentation
+>;
 
 export const dashboardShellResources = {
   createPageRegistry(errorMessage: () => string): DashboardPageRegistry {
-    return createLazyComponentRegistry({
+    return createLazyComponentRegistry<
+      DashboardPageDefinition,
+      DashboardPageComponent
+    >({
       errorMessage,
     });
   },
@@ -21,12 +28,9 @@ export const dashboardShellResources = {
     openConnectionModal();
   },
   sidebarConnectionPresentation(
-    connectionState: DashboardSidebarConnectionState,
-  ): DashboardSidebarConnectionDisplay {
-    return sidebarConnectionPresentation(
-      connectionState,
-    ) as DashboardSidebarConnectionDisplay;
+    connectionState: SidebarConnectionState,
+  ): SidebarConnectionDisplay {
+    return sidebarConnectionPresentation(connectionState);
   },
-  sidebarConnectionState:
-    sidebarConnectionState as Readable<DashboardSidebarConnectionState>,
+  sidebarConnectionState,
 };

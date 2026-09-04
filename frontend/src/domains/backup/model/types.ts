@@ -15,11 +15,20 @@ export interface BackupStatus {
 }
 
 export interface BackupItem {
-  modified_ms?: number | null;
-  name?: string | null;
-  path?: string | null;
-  size_bytes?: number | null;
-  [key: string]: unknown;
+  modified_ms: number;
+  name: string;
+  path: string;
+  size_bytes: number;
+}
+
+export interface BackupCreateResponse {
+  path: string;
+}
+
+export interface BackupRestoreResponse {
+  archive: string;
+  replace: boolean;
+  restored: boolean;
 }
 
 export interface BackupState {
@@ -97,17 +106,17 @@ export interface BackupRowOperationRequest {
 
 export interface BackupBlobPayload {
   blob: Blob;
-  filename?: string;
+  filename: string;
 }
 
 export interface BackupApi {
-  createBackup(): Promise<{ path?: string | null }>;
+  createBackup(): Promise<BackupCreateResponse>;
   downloadBackupBlob(name: string): Promise<BackupBlobPayload>;
   listBackups(): Promise<BackupItem[]>;
   restoreBackup(
     archive: string,
     replace?: boolean,
-  ): Promise<{ archive?: string | null }>;
+  ): Promise<BackupRestoreResponse>;
 }
 
 export interface BackupRuntime {

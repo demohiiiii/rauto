@@ -1,6 +1,9 @@
 import type { Readable, Writable } from "svelte/store";
-
-export type UnknownRecord = Record<string, unknown>;
+import type {
+  DeviceProfilesOverview,
+  ProfileModes,
+} from "$domains/profiles/index.js";
+import type { JsonValue } from "$lib/jsonValue.js";
 
 export type TemplateManagerKind =
   | "command"
@@ -27,21 +30,45 @@ export interface TemplateResourceDefinition {
   format: "jinja" | "json" | "textfsm" | "toml";
 }
 
-export interface TemplateResourceMeta extends UnknownRecord {
-  builtin: boolean;
+export interface TemplateResourceApiMeta {
   content_type: string;
   created_at_ms: number;
-  isDraft?: boolean;
-  key: string;
+  kind: string;
   name: string;
   size_bytes: number;
   source: string;
   updated_at_ms: number;
 }
 
-export interface TemplateResourceDetail extends UnknownRecord {
+export interface TemplateResourceMeta extends TemplateResourceApiMeta {
+  builtin: boolean;
+  isDraft?: boolean;
+  key: string;
+}
+
+export interface TemplateResourceDetail {
   content: string;
   name: string;
+}
+
+export interface TemplateVariableField {
+  allow_empty: boolean;
+  default: JsonValue | null;
+  description: string | null;
+  label: string;
+  name: string;
+  options: string[];
+  placeholder: string | null;
+  required: boolean;
+  type: string;
+}
+
+export interface CommandTemplateInspection {
+  vars_schema: TemplateVariableField[];
+}
+
+export interface CommandFlowTemplateDetail extends TemplateResourceDetail {
+  vars_schema: TemplateVariableField[];
 }
 
 export interface TemplateContentSession {
@@ -55,7 +82,7 @@ export interface TemplateContentSession {
   originalContent: string;
   search: string;
   selected: TemplateResourceMeta | null;
-  varsSchema: UnknownRecord[];
+  varsSchema: TemplateVariableField[];
 }
 
 export interface WorkspaceResult {
@@ -65,10 +92,18 @@ export interface WorkspaceResult {
   ok: boolean;
 }
 
-export interface TextfsmMapping extends UnknownRecord {
+export interface TextfsmMapping {
   command: string;
   deviceProfile: string;
   templateName: string;
+}
+
+export interface TextfsmMappingApiRow {
+  command: string;
+  created_at_ms: number;
+  device_profile: string;
+  template_name: string;
+  updated_at_ms: number;
 }
 
 export interface TextfsmMappingState {
@@ -82,7 +117,7 @@ export interface TextfsmMappingState {
   templates: string[];
 }
 
-export interface ShowObjectForm extends UnknownRecord {
+export interface ShowObjectForm {
   command: string;
   deviceProfile: string;
   enabled: boolean;
@@ -103,10 +138,19 @@ export interface CustomShowObjectApiPayload {
   textfsm_template_name: string | null;
 }
 
+export interface CustomShowObjectApiRow extends Required<CustomShowObjectApiPayload> {
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
 export interface TextfsmMappingApiPayload {
   command: string;
   device_profile: string;
   template_name: string;
+}
+
+export interface TemplateMutationResponse {
+  ok: boolean;
 }
 
 export interface ShowObjectState {
@@ -127,27 +171,45 @@ export interface TemplateApi {
     base: string,
     name: string,
     content: string,
-  ): Promise<UnknownRecord>;
+  ): Promise<TemplateResourceDetail>;
   deleteCustomShowObject(
     payload: Pick<CustomShowObjectApiPayload, "device_profile" | "object">,
-  ): Promise<unknown>;
-  deleteTemplateResource(base: string, name: string): Promise<unknown>;
-  deleteTextfsmMapping(payload: UnknownRecord): Promise<unknown>;
-  getDeviceProfilesOverview(): Promise<unknown>;
-  getProfileModes(profile: string): Promise<unknown>;
-  getTemplateResource(base: string, name: string): Promise<UnknownRecord>;
-  inspectCommandFlowTemplate(content: string): Promise<UnknownRecord>;
-  inspectCommandTemplate(content: string): Promise<UnknownRecord>;
-  listCustomShowObjects(): Promise<unknown>;
-  listTemplateResource(base: string): Promise<unknown>;
-  listTextfsmMappings(profile?: string): Promise<unknown>;
-  saveCustomShowObject(payload: CustomShowObjectApiPayload): Promise<unknown>;
-  saveTextfsmMapping(payload: TextfsmMappingApiPayload): Promise<unknown>;
+  ): Promise<TemplateMutationResponse>;
+  deleteTemplateResource(
+    base: string,
+    name: string,
+  ): Promise<TemplateMutationResponse>;
+  deleteTextfsmMapping(
+    payload: Omit<TextfsmMappingApiPayload, "template_name">,
+  ): Promise<TemplateMutationResponse>;
+  getDeviceProfilesOverview(): Promise<DeviceProfilesOverview>;
+  getProfileModes(profile: string): Promise<ProfileModes>;
+  getTemplateResource(
+    base: string,
+    name: string,
+  ): Promise<TemplateResourceDetail>;
+  getCommandFlowTemplate(
+    name: string,
+    options?: { builtin?: boolean },
+  ): Promise<CommandFlowTemplateDetail>;
+  inspectCommandFlowTemplate(
+    content: string,
+  ): Promise<CommandFlowTemplateDetail>;
+  inspectCommandTemplate(content: string): Promise<CommandTemplateInspection>;
+  listCustomShowObjects(): Promise<CustomShowObjectApiRow[]>;
+  listTemplateResource(base: string): Promise<TemplateResourceApiMeta[]>;
+  listTextfsmMappings(profile?: string): Promise<TextfsmMappingApiRow[]>;
+  saveCustomShowObject(
+    payload: CustomShowObjectApiPayload,
+  ): Promise<CustomShowObjectApiRow>;
+  saveTextfsmMapping(
+    payload: TextfsmMappingApiPayload,
+  ): Promise<TextfsmMappingApiRow>;
   updateTemplateResource(
     base: string,
     name: string,
     content: string,
-  ): Promise<UnknownRecord>;
+  ): Promise<TemplateResourceDetail>;
 }
 
 export interface ContentTemplateWorkspaceOptions {
@@ -204,9 +266,9 @@ export interface ShowObjectWorkspace {
   stateStore: Writable<ShowObjectState>;
 }
 
-export interface FlowVarField extends UnknownRecord {
+export interface FlowVarField {
   allowEmpty: boolean;
-  defaultValue: unknown;
+  defaultValue: JsonValue | null;
   description: string;
   kind: string;
   label: string;
@@ -217,11 +279,11 @@ export interface FlowVarField extends UnknownRecord {
 }
 
 export interface FlowVarsState {
-  draft: UnknownRecord;
+  draft: Record<string, string>;
   errorMessage: string;
   fields: FlowVarField[];
   hintText: string;
-  values: UnknownRecord;
+  values: Record<string, string>;
 }
 
 export type FlowVarControlKind =

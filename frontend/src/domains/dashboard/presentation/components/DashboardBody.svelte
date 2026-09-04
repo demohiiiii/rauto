@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { Component } from "svelte";
   import CircleIcon from "@lucide/svelte/icons/circle";
   import VideoIcon from "@lucide/svelte/icons/video";
   import MenuIcon from "@lucide/svelte/icons/menu";
@@ -25,13 +24,6 @@
     busy: boolean;
   }
 
-  interface PageOutletRow {
-    active: true;
-    errorMessage: string;
-    id: string;
-    PageComponent?: Component<{ active: boolean }>;
-  }
-
   let { busy }: Props = $props();
   const pageDefinitions = dashboardPageDefinitions;
   setContext(dashboardThemeContextKey, dashboardState);
@@ -53,7 +45,7 @@
   let shellState = $derived($dashboardState);
   let bodyDisplay = $derived($bodyDisplayStateStore);
   let recordToolsDisplay = $derived($recordToolsDisplayStateStore);
-  let pageOutletRows = $derived($pageOutletRowsStateStore as PageOutletRow[]);
+  let pageOutletRows = $derived($pageOutletRowsStateStore);
   let sidebarOpen = $derived($sidebarOpenStateStore);
   let desktopSidebarCollapsed = $state(false);
   let shellClass = $derived(

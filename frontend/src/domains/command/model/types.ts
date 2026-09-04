@@ -1,4 +1,5 @@
 import type { Writable } from "svelte/store";
+import type { TemplateVariableField } from "$domains/templates/index.js";
 
 export type CommandFlowMultilineMode = "split_lines" | "whole";
 export type CommandFlowEditorTab = "visual" | "toml" | "readonly";
@@ -51,14 +52,13 @@ export interface CommandFlowTemplateDocument {
 }
 
 export interface CommandFlowInspectionPayload {
-  vars_schema?: unknown;
-  [key: string]: unknown;
+  vars_schema?: TemplateVariableField[];
 }
 
 export interface CommandFlowInspectionState {
   errorMessage: string;
   loading: boolean;
-  varsSchema: unknown[];
+  varsSchema: TemplateVariableField[];
 }
 
 export interface CommandFlowDraftWorkspace {
@@ -90,8 +90,12 @@ export interface CommandTemplateCatalogState {
   names: string[];
 }
 
+export interface CommandTemplateMeta {
+  name: string;
+}
+
 export interface CommandTemplateApi {
-  listTemplates(): Promise<unknown>;
+  listTemplates(): Promise<CommandTemplateMeta[]>;
 }
 
 export interface CommandTemplateCatalog {
@@ -100,7 +104,7 @@ export interface CommandTemplateCatalog {
 }
 
 export interface CommandTemplateCatalogOptions {
-  load?: () => Promise<unknown>;
+  load?: () => Promise<CommandTemplateMeta[]>;
 }
 
 export type CommandTranslate = (key: string) => string;

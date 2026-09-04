@@ -9,6 +9,7 @@ import { replayFilteredEntries } from "../model/replay.js";
 import type {
   ReplayControlsDisplay,
   ReplayEntry,
+  ReplayEntryRow,
   ReplayInputField,
   ReplayModeTab,
   ReplayPageDisplay,
@@ -16,6 +17,7 @@ import type {
   ReplayResultsDisplay,
   ReplayState,
   ReplayStatCard,
+  ReplayTableHeaderCell,
 } from "../model/types.js";
 
 interface ReplayEntryStats {
@@ -26,10 +28,10 @@ interface ReplayEntryStats {
 }
 
 interface ReplayEntriesDisplay {
-  entryRows: unknown[];
+  entryRows: ReplayEntryRow[];
   hasEntries: boolean;
   stats: ReplayEntryStats;
-  tableHeaderCells: unknown[];
+  tableHeaderCells: ReplayTableHeaderCell[];
 }
 
 type ReplayEntriesPresenter = (entries: ReplayEntry[]) => ReplayEntriesDisplay;
@@ -51,7 +53,7 @@ const REPLAY_EVENT_KIND_VALUES = [
 ] as const;
 
 function replayInputField(
-  value: unknown,
+  value: string,
   placeholderKey: string,
   placeholderFallback = "",
 ): ReplayInputField {

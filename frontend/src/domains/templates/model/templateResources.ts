@@ -2,13 +2,19 @@ import {
   commandFlowTemplateModelFromToml,
   commandFlowTemplateModelToToml,
 } from "$domains/command/index.js";
+import type { ConfigCommandRow } from "$domains/config-fetch/index.js";
+import type {
+  DeviceProfilesOverview,
+  ProfileModes,
+} from "$domains/profiles/index.js";
+import type { JsonValue } from "$lib/jsonValue.js";
 import { tr } from "../../../lib/i18n.js";
 import type {
   TemplateManagerKind,
   TemplateManagerSection,
+  TemplateResourceApiMeta,
   TemplateResourceDefinition,
   TemplateResourceMeta,
-  UnknownRecord,
 } from "./types.js";
 
 export const TEMPLATE_MANAGER_KIND = Object.freeze({
@@ -125,75 +131,68 @@ export const templateResourceDefinitions = Object.freeze<
   },
 });
 
-export const safeText = (value: unknown): string =>
-  value == null ? "" : String(value);
-export const trimmedText = (value: unknown): string => safeText(value).trim();
-export const listValue = (value: unknown): unknown[] =>
-  Array.isArray(value) ? value : [];
+export const trimmedText = (value: string): string => value.trim();
 
-export function recordValue(value: unknown): UnknownRecord {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as UnknownRecord)
-    : {};
-}
-
-export function uniqueNames(values: unknown = []): string[] {
-  return listValue(values)
-    .map(trimmedText)
+export function uniqueNames(values: string[] = []): string[] {
+  return values
+    .map((value) => value.trim())
     .filter((value, index, names) => value && names.indexOf(value) === index);
 }
 
-export function profileNamesFromOverview(payload: unknown = {}): string[] {
-  const fields = recordValue(payload);
+export function profileNamesFromOverview(
+  payload: DeviceProfilesOverview,
+): string[] {
   return uniqueNames([
-    ...listValue(fields.builtins).map((profile) => recordValue(profile).name),
-    ...listValue(fields.custom).map((profile) => recordValue(profile).name),
+    ...payload.builtins.map((profile) => profile.name),
+    ...payload.custom.map((profile) => profile.name),
   ]);
 }
 
 const DEFAULT_CONFIG_CATALOG_KINDS = Object.freeze(["running", "startup"]);
 
-export function configCatalogKindNames(commandRows: unknown = []): string[] {
+export function configCatalogKindNames(
+  commandRows: ConfigCommandRow[] = [],
+): string[] {
   return uniqueNames([
     ...DEFAULT_CONFIG_CATALOG_KINDS,
-    ...listValue(commandRows).map((command) => recordValue(command).kind),
+    ...commandRows.map((command) => command.kind),
   ]);
 }
 
-export function profileModeNames(payload: unknown = {}): string[] {
-  return uniqueNames(recordValue(payload).modes);
+export function profileModeNames(payload: ProfileModes): string[] {
+  return uniqueNames(payload.modes);
 }
 
-export function resourceKey(name: unknown, builtin = false): string {
+export function resourceKey(name: string, builtin = false): string {
   return `${builtin ? "builtin" : "custom"}:${trimmedText(name)}`;
 }
 
 export function normalizeResourceMeta(
-  meta: unknown = {},
+  meta: TemplateResourceApiMeta,
   builtin = false,
 ): TemplateResourceMeta {
-  const fields = recordValue(meta);
-  const name = trimmedText(fields.name);
+  const name = meta.name.trim();
   return {
-    ...fields,
+    ...meta,
     name,
+    kind: meta.kind.trim(),
     key: resourceKey(name, builtin),
     builtin,
-    source: builtin ? "builtin" : trimmedText(fields.source) || "custom",
-    content_type: trimmedText(fields.content_type),
-    size_bytes: Number(fields.size_bytes) || 0,
-    created_at_ms: Number(fields.created_at_ms) || 0,
-    updated_at_ms: Number(fields.updated_at_ms) || 0,
+    source: builtin ? "builtin" : meta.source.trim() || "custom",
+    content_type: meta.content_type.trim(),
   };
 }
 
-function jsonTemplateContent(name: string, value: UnknownRecord): string {
+function jsonTemplateContent(
+  name: string,
+  value: Record<string, JsonValue>,
+): string {
   return JSON.stringify({ ...value, name }, null, 2);
 }
 
 export function defaultTemplateResourceContent(
-  kind: unknown,
-  name: unknown = "",
+  kind: TemplateManagerKind,
+  name = "",
 ): string {
   const safeName = trimmedText(name) || "new-template";
   if (kind === TEMPLATE_MANAGER_KIND.command) return "show version";
@@ -260,7 +259,7 @@ export function defaultTemplateResourceContent(
 }
 
 export function contentWithEmbeddedName(
-  kind: unknown,
+  kind: TemplateManagerKind,
   content: string,
   name: string,
 ): string {
@@ -286,5 +285,9 @@ export function contentWithEmbeddedName(
       ),
     );
   }
-  return JSON.stringify({ ...(value as UnknownRecord), name }, null, 2);
+  return JSON.stringify(
+    { ...(value as Record<string, JsonValue>), name },
+    null,
+    2,
+  );
 }

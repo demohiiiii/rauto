@@ -6,11 +6,8 @@ import {
   contentTemplateKinds,
   contentWithEmbeddedName,
   defaultTemplateResourceContent,
-  listValue,
   normalizeResourceMeta,
-  recordValue,
   resourceKey,
-  safeText,
   templateResourceDefinitions,
   trimmedText,
 } from "../model/templateResources.js";
@@ -56,11 +53,8 @@ function publishContentSession(
   });
 }
 
-function isContentTemplateKind(value: unknown): value is TemplateManagerKind {
-  return (
-    typeof value === "string" &&
-    contentTemplateKinds.has(value as TemplateManagerKind)
-  );
+function isContentTemplateKind(value: TemplateManagerKind): boolean {
+  return contentTemplateKinds.has(value);
 }
 
 function resourceDefinition(
@@ -107,14 +101,10 @@ export function createContentTemplateWorkspace({
 
   async function inspectSelectedContent(
     session: TemplateContentSession,
-    rawDetail: unknown = {},
   ): Promise<void> {
-    const detail = recordValue(rawDetail);
     if (session.kind === TEMPLATE_MANAGER_KIND.flow) {
-      const inspection = Array.isArray(detail.vars_schema)
-        ? detail
-        : await api.inspectCommandFlowTemplate(session.content);
-      session.varsSchema = listValue(inspection.vars_schema).map(recordValue);
+      const inspection = await api.inspectCommandFlowTemplate(session.content);
+      session.varsSchema = inspection.vars_schema;
       return;
     }
     if (session.kind !== TEMPLATE_MANAGER_KIND.command) {
@@ -123,7 +113,7 @@ export function createContentTemplateWorkspace({
     }
     try {
       const inspection = await api.inspectCommandTemplate(session.content);
-      session.varsSchema = listValue(inspection.vars_schema).map(recordValue);
+      session.varsSchema = inspection.vars_schema;
     } catch {
       session.varsSchema = [];
     }
@@ -150,9 +140,9 @@ export function createContentTemplateWorkspace({
         ...selected,
         name: trimmedText(detail.name) || selected.name,
       };
-      session.content = safeText(detail.content);
+      session.content = detail.content;
       session.originalContent = session.content;
-      await inspectSelectedContent(session, detail);
+      await inspectSelectedContent(session);
       session.loadingAction = "";
       publish(kind);
       return true;
@@ -166,7 +156,7 @@ export function createContentTemplateWorkspace({
   }
 
   async function load(
-    kindValue: unknown = activeKind,
+    kindValue: TemplateManagerKind = activeKind,
     { force = false, selectedKey = "" } = {},
   ): Promise<boolean> {
     if (!isContentTemplateKind(kindValue)) return false;
@@ -189,10 +179,10 @@ export function createContentTemplateWorkspace({
           : Promise.resolve([]),
       ]);
       if (version !== requestVersion) return false;
-      const customItems = listValue(customPayload)
+      const customItems = customPayload
         .map((meta) => normalizeResourceMeta(meta, false))
         .filter((item) => item.name);
-      const builtinItems = listValue(builtinPayload)
+      const builtinItems = builtinPayload
         .map((meta) => normalizeResourceMeta(meta, true))
         .filter((item) => item.name);
       session.items = [...builtinItems, ...customItems];
@@ -226,7 +216,7 @@ export function createContentTemplateWorkspace({
     }
   }
 
-  async function activate(kindValue: unknown): Promise<boolean> {
+  async function activate(kindValue: TemplateManagerKind): Promise<boolean> {
     if (!isContentTemplateKind(kindValue)) return false;
     const current = sessionFor(activeKind);
     if (
@@ -241,8 +231,7 @@ export function createContentTemplateWorkspace({
     return load(kindValue);
   }
 
-  async function selectResource(keyValue: unknown): Promise<boolean> {
-    const key = safeText(keyValue);
+  async function selectResource(key: string): Promise<boolean> {
     const session = sessionFor();
     const selected = session.items.find((item) => item.key === key);
     if (!selected || selected.key === session.selected?.key) return true;
@@ -277,7 +266,7 @@ export function createContentTemplateWorkspace({
             : await api.inspectCommandTemplate(content);
         if (version !== inspectionVersion || session.content !== content)
           return;
-        session.varsSchema = listValue(inspection.vars_schema).map(recordValue);
+        session.varsSchema = inspection.vars_schema;
         publish(session.kind);
       } catch {
         if (version !== inspectionVersion || session.content !== content)
@@ -288,21 +277,21 @@ export function createContentTemplateWorkspace({
     }, 300);
   }
 
-  function setContent(content: unknown): void {
+  function setContent(content: string): void {
     const session = sessionFor();
-    session.content = safeText(content);
+    session.content = content;
     session.errorMessage = "";
     publish();
     scheduleContentInspection(session);
   }
 
-  function setSearch(search: unknown): void {
+  function setSearch(search: string): void {
     const session = sessionFor();
-    session.search = safeText(search);
+    session.search = search;
     publish();
   }
 
-  async function createDraft(name: unknown): Promise<WorkspaceResult> {
+  async function createDraft(name: string): Promise<WorkspaceResult> {
     const session = sessionFor();
     const normalizedName = trimmedText(name);
     if (!normalizedName) {
@@ -330,6 +319,7 @@ export function createContentTemplateWorkspace({
       name: normalizedName,
       builtin: false,
       source: "draft",
+      kind: activeKind,
       isDraft: true,
       content_type: definition.contentType,
       size_bytes: 0,
@@ -350,10 +340,10 @@ export function createContentTemplateWorkspace({
   async function persist({
     name = "",
     create = false,
-  }: { name?: unknown; create?: boolean } = {}): Promise<WorkspaceResult> {
+  }: { name?: string; create?: boolean } = {}): Promise<WorkspaceResult> {
     const session = sessionFor();
     const selected = session.selected;
-    const targetName = trimmedText(name || selected?.name);
+    const targetName = trimmedText(name || selected?.name || "");
     if (!selected || !targetName) {
       return workspaceFailure(
         "templateNameRequired",
@@ -388,7 +378,7 @@ export function createContentTemplateWorkspace({
             targetName,
             content,
           );
-      session.content = safeText(saved.content ?? content);
+      session.content = saved.content;
       session.originalContent = session.content;
       session.loadingAction = "";
       session.selected = {
@@ -413,7 +403,7 @@ export function createContentTemplateWorkspace({
     }
   }
 
-  async function saveAs(name: unknown): Promise<WorkspaceResult> {
+  async function saveAs(name: string): Promise<WorkspaceResult> {
     const session = sessionFor();
     const normalizedName = trimmedText(name);
     if (!normalizedName) {

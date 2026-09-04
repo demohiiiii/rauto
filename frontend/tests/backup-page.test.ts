@@ -7,14 +7,22 @@ import {
   formatBackupBytes,
   newBackupState,
   selectedBackupFromInput,
-} from "../src/domains/backup/index.ts";
+} from "../src/domains/backup/index.js";
+import type {
+  BackupCreateResponse,
+  BackupItem,
+} from "../src/domains/backup/index.js";
+
+function backupItem(name: string, path: string): BackupItem {
+  return { modified_ms: 0, name, path, size_bytes: 0 };
+}
 
 test("backup model resolves managed archives by path or filename", () => {
-  const backups = [
-    {
-      name: "rauto-20260831.tar.zst",
-      path: "/var/lib/rauto/backups/rauto-20260831.tar.zst",
-    },
+  const backups: BackupItem[] = [
+    backupItem(
+      "rauto-20260831.tar.zst",
+      "/var/lib/rauto/backups/rauto-20260831.tar.zst",
+    ),
   ];
 
   assert.equal(selectedBackupFromInput(backups, backups[0].path), backups[0]);
@@ -41,7 +49,7 @@ test("backup workspace loads once for each active page lifecycle", async () => {
     api: {
       async listBackups() {
         listCalls += 1;
-        return [{ name: `backup-${listCalls}`, path: `/backup-${listCalls}` }];
+        return [backupItem(`backup-${listCalls}`, `/backup-${listCalls}`)];
       },
     },
   });
@@ -60,14 +68,11 @@ test("backup workspace loads once for each active page lifecycle", async () => {
 });
 
 test("backup row actions use the selected managed archive", async () => {
-  const backups = [
-    {
-      name: "rauto-latest.tar.zst",
-      path: "/managed/rauto-latest.tar.zst",
-    },
+  const backups: BackupItem[] = [
+    backupItem("rauto-latest.tar.zst", "/managed/rauto-latest.tar.zst"),
   ];
-  const downloads = [];
-  const restores = [];
+  const downloads: string[] = [];
+  const restores: Array<{ archive: string; replace?: boolean }> = [];
   let stopped = 0;
   let refreshed = 0;
   const workspace = createBackupPageWorkspace({
@@ -81,7 +86,7 @@ test("backup row actions use the selected managed archive", async () => {
       },
       async restoreBackup(archive, replace) {
         restores.push({ archive, replace });
-        return { archive };
+        return { archive, replace: Boolean(replace), restored: true };
       },
     },
     runtime: {
@@ -97,8 +102,8 @@ test("backup row actions use the selected managed archive", async () => {
   });
 
   await workspace.setPageContext({ active: true });
-  await workspace.downloadBackupRow(0)({});
-  await workspace.restoreBackupRowReplace(0)({});
+  await workspace.downloadBackupRow(0)(new Event("click"));
+  await workspace.restoreBackupRowReplace(0)(new Event("click"));
 
   assert.deepEqual(downloads, ["rauto-latest.tar.zst"]);
   assert.deepEqual(restores, [
@@ -110,12 +115,12 @@ test("backup row actions use the selected managed archive", async () => {
 
 test("backup workspace suppresses duplicate operations by loading key", async () => {
   let createCalls = 0;
-  let resolveCreate;
+  let resolveCreate!: (value: BackupCreateResponse) => void;
   const workspace = createBackupPageWorkspace({
     api: {
       createBackup() {
         createCalls += 1;
-        return new Promise((resolve) => {
+        return new Promise<BackupCreateResponse>((resolve) => {
           resolveCreate = resolve;
         });
       },

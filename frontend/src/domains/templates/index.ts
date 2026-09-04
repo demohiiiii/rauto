@@ -30,7 +30,11 @@ export {
 } from "./model/templateResources.js";
 export { flowVarsPresentation } from "./presentation/flowVarsPresentation.js";
 export type {
+  CommandFlowTemplateDetail,
+  CommandTemplateInspection,
   ContentTemplateWorkspace,
+  CustomShowObjectApiPayload,
+  CustomShowObjectApiRow,
   FlowVarControlKind,
   FlowVarFieldRow,
   FlowTemplateSelectState,
@@ -40,8 +44,14 @@ export type {
   ShowObjectWorkspace,
   TemplateManagerKind,
   TemplateManagerSection,
+  TemplateMutationResponse,
+  TemplateResourceApiMeta,
   TemplateResourceDefinition,
   TemplateResourceDetail,
   TemplateResourceMeta,
+  TemplateVariableField,
+  TextfsmMapping,
+  TextfsmMappingApiPayload,
+  TextfsmMappingApiRow,
   TextfsmMappingWorkspace,
 } from "./model/types.js";

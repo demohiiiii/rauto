@@ -1,6 +1,7 @@
 import type { Readable, Unsubscriber, Writable } from "svelte/store";
 
-export type WebAuthMode = "" | "agent" | "web";
+export type WebAuthResponseMode = "agent" | "web";
+export type WebAuthMode = "" | WebAuthResponseMode;
 export type WebAuthStatus = "authenticated" | "error" | "loading" | "required";
 
 export interface WebAuthState {
@@ -12,14 +13,11 @@ export interface WebAuthState {
 }
 
 export interface WebAuthStatusPayload {
-  authenticated?: boolean;
-  mode?: unknown;
+  authenticated: boolean;
+  mode: WebAuthResponseMode;
 }
 
-export interface WebAuthLoginPayload {
-  authenticated?: boolean;
-  mode?: unknown;
-}
+export type WebAuthLoginPayload = WebAuthStatusPayload;
 
 export interface WebAuthDisplay {
   authenticated: boolean;

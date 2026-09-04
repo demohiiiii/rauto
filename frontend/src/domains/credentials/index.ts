@@ -11,6 +11,7 @@ export {
   credentialImportReport,
   credentialRow,
   credentialSavePayload,
+  isCredentialAuthType,
   newCredentialForm,
   newCredentialsPageState,
 } from "./model/credentials.js";
@@ -21,10 +22,13 @@ export {
 } from "./presentation/credentialsPresentation.js";
 export type {
   CredentialCreateWorkspace,
+  CredentialAuthType,
+  CredentialApiRow,
   CredentialForm,
   CredentialImportFailure,
   CredentialImportReport,
   CredentialImportWorkspace,
+  CredentialSavePayload,
   CredentialOptionsWorkspace,
   CredentialRow,
   CredentialsPageDisplay,

@@ -1,28 +1,51 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
-import { createWebAuthWorkspace } from "../src/domains/auth/index.ts";
+import { createWebAuthWorkspace } from "../src/domains/auth/index.js";
+import type {
+  AuthApi,
+  AuthRuntime,
+  WebAuthStatusPayload,
+} from "../src/domains/auth/model/types.js";
 
-function deferred() {
-  let resolve;
-  let reject;
-  const promise = new Promise((resolvePromise, rejectPromise) => {
+interface Deferred<T> {
+  promise: Promise<T>;
+  reject(reason?: Error): void;
+  resolve(value: T): void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: Error) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
     reject = rejectPromise;
   });
   return { promise, reject, resolve };
 }
 
-function createTestWorkspace({ getStatus, login, subscribeUnauthorized } = {}) {
+function createTestWorkspace({
+  getStatus,
+  login,
+  subscribeUnauthorized,
+}: Partial<AuthApi & AuthRuntime> = {}) {
   return createWebAuthWorkspace({
     api: {
-      getStatus: getStatus || (async () => ({ authenticated: false })),
-      login: login || (async () => ({ authenticated: false })),
+      getStatus:
+        getStatus ||
+        (async () => ({ authenticated: false, mode: "web" as const })),
+      login:
+        login || (async () => ({ authenticated: false, mode: "web" as const })),
     },
     runtime: {
       subscribeUnauthorized: subscribeUnauthorized || (() => () => {}),
     },
   });
+}
+
+function invoke(handler: (() => void) | null): void {
+  assert.ok(handler);
+  handler();
 }
 
 test("web auth blocks the dashboard until login succeeds", async () => {
@@ -78,7 +101,7 @@ test("agent mode bypasses the web password gate", async () => {
 });
 
 test("an expired web session returns the workspace to login", async () => {
-  let unauthorizedHandler = null;
+  let unauthorizedHandler: (() => void) | null = null;
   const workspace = createTestWorkspace({
     getStatus: async () => ({ authenticated: true, mode: "web" }),
     subscribeUnauthorized: (handler) => {
@@ -91,15 +114,15 @@ test("an expired web session returns the workspace to login", async () => {
 
   const cleanup = workspace.initialize();
   await new Promise((resolve) => setTimeout(resolve, 0));
-  unauthorizedHandler();
+  invoke(unauthorizedHandler);
   assert.equal(get(workspace.webAuthStateStore).status, "required");
   cleanup();
   assert.equal(unauthorizedHandler, null);
 });
 
 test("latest auth status response wins when refreshes overlap", async () => {
-  const first = deferred();
-  const second = deferred();
+  const first = deferred<WebAuthStatusPayload>();
+  const second = deferred<WebAuthStatusPayload>();
   let requestCount = 0;
   const workspace = createTestWorkspace({
     getStatus() {
@@ -119,8 +142,8 @@ test("latest auth status response wins when refreshes overlap", async () => {
 });
 
 test("expired sessions invalidate a pending login response", async () => {
-  const loginResponse = deferred();
-  let unauthorizedHandler = null;
+  const loginResponse = deferred<WebAuthStatusPayload>();
+  let unauthorizedHandler: (() => void) | null = null;
   const workspace = createTestWorkspace({
     getStatus: async () => ({ authenticated: true, mode: "web" }),
     login: () => loginResponse.promise,
@@ -134,7 +157,7 @@ test("expired sessions invalidate a pending login response", async () => {
   workspace.setPassword("password");
   const loginRequest = workspace.submitLogin();
 
-  unauthorizedHandler();
+  invoke(unauthorizedHandler);
   loginResponse.resolve({ authenticated: true, mode: "web" });
 
   assert.equal(await loginRequest, false);
@@ -143,8 +166,8 @@ test("expired sessions invalidate a pending login response", async () => {
 });
 
 test("login rejection replaces the global unauthorized session message", async () => {
-  const loginResponse = deferred();
-  let unauthorizedHandler = null;
+  const loginResponse = deferred<WebAuthStatusPayload>();
+  let unauthorizedHandler: (() => void) | null = null;
   const workspace = createTestWorkspace({
     getStatus: async () => ({ authenticated: false, mode: "web" }),
     login: () => loginResponse.promise,
@@ -158,7 +181,7 @@ test("login rejection replaces the global unauthorized session message", async (
   workspace.setPassword("incorrect");
   const loginRequest = workspace.submitLogin();
 
-  unauthorizedHandler();
+  invoke(unauthorizedHandler);
   const sessionError = get(workspace.webAuthStateStore).error;
   loginResponse.reject(new Error("unauthorized"));
 

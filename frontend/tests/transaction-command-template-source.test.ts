@@ -4,11 +4,12 @@ import { get } from "svelte/store";
 import {
   MANUAL_COMMAND_SOURCE,
   createCommandTemplateCatalog,
-} from "../src/domains/command/index.ts";
+} from "../src/domains/command/index.js";
 import { createTxBlockCommandEditorWorkspace } from "../src/domains/transactions/index.js";
+import type { TxCommandModel } from "../src/domains/transactions/index.js";
 
 test("transaction commands import an editable command template snapshot", async () => {
-  const changes = [];
+  const changes: Array<Partial<TxCommandModel>> = [];
   const catalog = createCommandTemplateCatalog({
     load: async () => [{ name: "show-version" }, { name: "backup" }],
   });
@@ -64,7 +65,7 @@ test("transaction template import respects dirty replacement cancellation", asyn
 });
 
 test("switching an imported transaction command back to manual clears its snapshot", async () => {
-  const changes = [];
+  const changes: Array<Partial<TxCommandModel>> = [];
   const workspace = createTxBlockCommandEditorWorkspace({
     command: { command: "" },
     confirmReplace: async () => true,

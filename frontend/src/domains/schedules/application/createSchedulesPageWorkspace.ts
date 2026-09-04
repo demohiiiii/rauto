@@ -66,9 +66,7 @@ export function createSchedulesPageWorkspace(
       if (version !== previewRequestVersion) return;
       stateStore.update((current) => ({
         ...current,
-        cronPreview: Array.isArray(response?.next_runs)
-          ? response.next_runs
-          : [],
+        cronPreview: response.next_runs,
         cronPreviewStatus: null,
       }));
     } catch (error) {
@@ -129,23 +127,13 @@ export function createSchedulesPageWorkspace(
         api.listInventoryLabels(),
         api.listConfigCommands(),
       ]);
-      state.schedules = Array.isArray(schedules) ? schedules : [];
-      state.orchestrationTemplates = Array.isArray(orchestrationTemplates)
-        ? orchestrationTemplates
-        : [];
-      state.txWorkflowTemplates = Array.isArray(txWorkflowTemplates)
-        ? txWorkflowTemplates
-        : [];
-      state.connections = Array.isArray(connections) ? connections : [];
-      state.inventoryGroups = Array.isArray(inventoryGroups)
-        ? inventoryGroups
-        : [];
-      state.inventoryLabels = Array.isArray(inventoryLabels)
-        ? inventoryLabels
-        : [];
-      state.configCommands = Array.isArray(configCommands)
-        ? configCommands
-        : [];
+      state.schedules = schedules;
+      state.orchestrationTemplates = orchestrationTemplates;
+      state.txWorkflowTemplates = txWorkflowTemplates;
+      state.connections = connections;
+      state.inventoryGroups = inventoryGroups;
+      state.inventoryLabels = inventoryLabels;
+      state.configCommands = configCommands;
       state.configKinds = [
         ...new Set(
           [
@@ -161,7 +149,7 @@ export function createSchedulesPageWorkspace(
         state.form = scheduleToForm(selected);
         const runs = await api.listScheduleRuns(selected.id);
         if (runsVersion !== runsRequestVersion) return;
-        state.runs = Array.isArray(runs) ? runs : [];
+        state.runs = runs;
         state.runsStatus = null;
       } else {
         state.selectedId = "";
@@ -249,7 +237,7 @@ export function createSchedulesPageWorkspace(
         }
         stateStore.update((current) => ({
           ...current,
-          runs: Array.isArray(runs) ? runs : [],
+          runs,
           runsStatus: null,
         }));
       } catch (error) {

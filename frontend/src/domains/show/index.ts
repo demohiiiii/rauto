@@ -34,8 +34,12 @@ export {
 } from "./presentation/showPresentation.js";
 export type {
   BatchShowTargetSelection,
+  ShowBatchExecuteResponse,
+  ShowBatchTargetResponse,
   ShowApi,
   ShowConnectionSummary,
+  ShowExecuteBasePayload,
+  ShowExecuteResponse,
   ShowCommandPreviewRow,
   ShowObjectDefinition,
   ShowObjectSelectionDisplay,

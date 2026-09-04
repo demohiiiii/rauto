@@ -16,15 +16,11 @@ export function newBackupState(): BackupState {
   };
 }
 
-export function normalizeBackupItems(value: unknown): BackupItem[] {
-  return Array.isArray(value) ? (value as BackupItem[]) : [];
-}
-
 export function selectedBackupFromInput(
   backupItems: readonly BackupItem[] = [],
-  rawInput: unknown = "",
+  rawInput = "",
 ): BackupItem | null {
-  const raw = String(rawInput || "").trim();
+  const raw = rawInput.trim();
   if (!raw) return null;
   const tail = raw.split("/").pop();
   if (!tail) return null;
@@ -58,24 +54,21 @@ export function isBackupLoading(state: BackupState, key: string): boolean {
 
 export function setBackupStatus(
   state: BackupState,
-  message: unknown,
+  message: string,
   tone: BackupStatusTone = "info",
 ): void {
-  state.status = { message: String(message || "-"), tone };
+  state.status = { message: message || "-", tone };
 }
 
 export function setBackupArchiveInput(
   state: BackupState,
-  archiveInput: unknown = "",
+  archiveInput = "",
 ): void {
-  state.archiveInput = String(archiveInput || "");
+  state.archiveInput = archiveInput;
 }
 
-export function setBackupOutputPath(
-  state: BackupState,
-  outputPath: unknown = "",
-): void {
-  state.outputPath = String(outputPath || "");
+export function setBackupOutputPath(state: BackupState, outputPath = ""): void {
+  state.outputPath = outputPath;
 }
 
 export function selectBackupItem(

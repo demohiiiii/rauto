@@ -6,7 +6,32 @@ import {
   newTransferState,
   transferUploadPayload,
   validateTransferUploadPayload,
-} from "../src/domains/transfer/index.ts";
+} from "../src/domains/transfer/index.js";
+import type {
+  TransferResultSummary,
+  TransferUploadPayload,
+  TransferUploadResult,
+} from "../src/domains/transfer/index.js";
+
+const successSummary: TransferResultSummary = {
+  operation: "upload",
+  outcome: "success",
+  success: true,
+  summary: "File uploaded successfully",
+};
+
+function transferResult(
+  overrides: Partial<TransferUploadResult> = {},
+): TransferUploadResult {
+  return {
+    local_path: "config.txt",
+    ok: true,
+    recording_jsonl: null,
+    remote_path: "/tmp/config.txt",
+    result_summary: successSummary,
+    ...overrides,
+  };
+}
 
 test("transfer upload payload preserves defaults and normalizes form text", () => {
   const state = {
@@ -66,7 +91,7 @@ test("transfer workspace does not upload without a selected target", async () =>
     api: {
       async executeUpload() {
         uploadCalls += 1;
-        return { ok: true };
+        return transferResult();
       },
     },
     runtime: {
@@ -81,16 +106,16 @@ test("transfer workspace does not upload without a selected target", async () =>
 });
 
 test("transfer workspace executes once and forwards recording results", async () => {
-  let resolveUpload;
+  let resolveUpload!: (value: TransferUploadResult) => void;
   let uploadCalls = 0;
-  const payloads = [];
-  const recordings = [];
+  const payloads: TransferUploadPayload[] = [];
+  const recordings: Array<string | null> = [];
   const workspace = createTransferPageWorkspace({
     api: {
       executeUpload(payload) {
         uploadCalls += 1;
         payloads.push(payload);
-        return new Promise((resolve) => {
+        return new Promise<TransferUploadResult>((resolve) => {
           resolveUpload = resolve;
         });
       },
@@ -114,14 +139,10 @@ test("transfer workspace executes once and forwards recording results", async ()
   assert.equal(uploadCalls, 1);
   assert.equal(get(workspace.transferStateStore).uploadLoading, true);
 
-  resolveUpload({
-    local_path: "config.txt",
-    ok: true,
-    recording_jsonl: "recording",
-    remote_path: "/tmp/config.txt",
-  });
+  resolveUpload(transferResult({ recording_jsonl: "recording" }));
   const [result, duplicateResult] = await Promise.all([first, duplicate]);
 
+  assert.ok(result);
   assert.equal(result.ok, true);
   assert.equal(duplicateResult, undefined);
   assert.deepEqual(payloads, [

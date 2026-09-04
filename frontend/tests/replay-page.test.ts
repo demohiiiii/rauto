@@ -6,9 +6,19 @@ import {
   createReplayPageWorkspace,
   newReplayState,
   replayFilteredEntries,
-} from "../src/domains/replay/index.ts";
+} from "../src/domains/replay/index.js";
+import type {
+  ReplayEntry,
+  ReplayRequest,
+  ReplayResult,
+  ReplayRuntime,
+} from "../src/domains/replay/index.js";
 
-function replayRuntime(overrides = {}) {
+function replayResult(entries: ReplayEntry[] = []): ReplayResult {
+  return { context: null, entries, output: null };
+}
+
+function replayRuntime(overrides: Partial<ReplayRuntime> = {}): ReplayRuntime {
   return {
     loadPreferences: () => ({
       displayMode: "list",
@@ -29,25 +39,28 @@ test("replay filters combine event kind, failure, and text search", () => {
   state.eventKind = "command_output";
   state.failedOnly = true;
   state.searchQuery = "show version";
-  state.lastReplayResult = {
-    entries: [
-      {
-        event: {
-          command: "show version",
-          kind: "command_output",
-          success: false,
-        },
+  state.lastReplayResult = replayResult([
+    {
+      ts_ms: 1,
+      event: {
+        command: "show version",
+        kind: "command_output",
+        success: false,
       },
-      {
-        event: {
-          command: "show version",
-          kind: "command_output",
-          success: true,
-        },
+    },
+    {
+      ts_ms: 2,
+      event: {
+        command: "show version",
+        kind: "command_output",
+        success: true,
       },
-      { event: { kind: "prompt_changed", reason: "show version" } },
-    ],
-  };
+    },
+    {
+      ts_ms: 3,
+      event: { kind: "prompt_changed", prompt: "show version" },
+    },
+  ]);
 
   const entries = replayFilteredEntries(state);
   assert.equal(entries.length, 1);
@@ -55,12 +68,12 @@ test("replay filters combine event kind, failure, and text search", () => {
 });
 
 test("replay workspace normalizes list and command request payloads", async () => {
-  const requests = [];
+  const requests: ReplayRequest[] = [];
   const workspace = createReplayPageWorkspace({
     api: {
       async replaySession(payload) {
         requests.push(payload);
-        return { entries: [] };
+        return replayResult();
       },
     },
     runtime: replayRuntime(),
@@ -85,8 +98,8 @@ test("replay workspace normalizes list and command request payloads", async () =
 
 test("replay workspace suppresses duplicate operations while loading", async () => {
   let requestCalls = 0;
-  let resolveRequest;
-  const request = new Promise((resolve) => {
+  let resolveRequest!: () => void;
+  const request = new Promise<void>((resolve) => {
     resolveRequest = resolve;
   });
   const workspace = createReplayPageWorkspace({
@@ -94,7 +107,7 @@ test("replay workspace suppresses duplicate operations while loading", async () 
       async replaySession() {
         requestCalls += 1;
         await request;
-        return { entries: [] };
+        return replayResult();
       },
     },
     runtime: replayRuntime(),

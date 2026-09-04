@@ -1,49 +1,42 @@
 import { t } from "../../../lib/i18n.js";
-import { safeString } from "../../../lib/ui.js";
 import type {
+  StandardBatchRetryFields,
   StandardCommandFlowExecutionInput,
   StandardCommandFlowExecutionPayload,
+  StandardCommandFlowExecutionSourceInput,
   StandardCommandFlowNormalizedExecutionSource,
+  StandardCommandFlowSourcePayload,
   StandardCommandFlowTextfsmFields,
+  StandardCommandFlowTextfsmPayload,
 } from "./types.js";
 
 const FLOW_BUILTIN_PREFIX = "builtin:";
 
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function parseBuiltinFlowTemplateValue(value: unknown): string | null {
-  const raw = safeString(value ?? "").trim();
+function parseBuiltinFlowTemplateValue(value: string): string | null {
+  const raw = value.trim();
   if (!raw.toLowerCase().startsWith(FLOW_BUILTIN_PREFIX)) return null;
   const name = raw.slice(FLOW_BUILTIN_PREFIX.length).trim();
   return name || null;
 }
 
 export function normalizeCommandFlowExecutionSource(
-  source: unknown = {},
+  source: StandardCommandFlowExecutionSourceInput = { kind: "saved" },
 ): StandardCommandFlowNormalizedExecutionSource {
-  const sourceFields = record(source);
-  const kind = sourceFields.kind === "temporary" ? "temporary" : "saved";
-  if (kind === "temporary") {
-    const content = safeString(sourceFields.content ?? "");
+  if (source.kind === "temporary") {
+    const content = source.content ?? "";
     if (!content.trim()) {
       throw new Error(t("flowDraftContentRequired"));
     }
-    return { content, kind };
+    return { content, kind: "temporary" };
   }
 
-  const templateSelection = safeString(
-    sourceFields.templateSelection ?? "",
-  ).trim();
+  const templateSelection = (source.templateSelection ?? "").trim();
   if (!templateSelection) {
     throw new Error(t("flowTemplateNameRequired"));
   }
   return {
     builtinTemplateName: parseBuiltinFlowTemplateValue(templateSelection),
-    kind,
+    kind: "saved",
     templateSelection,
   };
 }
@@ -56,22 +49,27 @@ export function buildCommandFlowExecutionPayload(
     textfsm = {},
     vars,
   }: StandardCommandFlowExecutionInput = {},
-  retryFields: Record<string, unknown> = {},
+  retryFields: StandardBatchRetryFields = {},
 ): StandardCommandFlowExecutionPayload {
   const normalizedSource = normalizeCommandFlowExecutionSource(source);
-  const sourcePayload =
-    normalizedSource.kind === "temporary"
-      ? { content: normalizedSource.content }
-      : {
-          template_name: normalizedSource.builtinTemplateName
-            ? null
-            : normalizedSource.templateSelection,
-          builtin_template_name: normalizedSource.builtinTemplateName,
-        };
+  let sourcePayload: StandardCommandFlowSourcePayload;
+  if (normalizedSource.kind === "temporary") {
+    sourcePayload = { content: normalizedSource.content };
+  } else if (normalizedSource.builtinTemplateName) {
+    sourcePayload = {
+      builtin_template_name: normalizedSource.builtinTemplateName,
+      template_name: null,
+    };
+  } else {
+    sourcePayload = {
+      builtin_template_name: null,
+      template_name: normalizedSource.templateSelection,
+    };
+  }
   return {
     ...sourcePayload,
-    vars,
-    ...record(textfsm),
+    vars: vars ?? null,
+    ...textfsm,
     ...retryFields,
     connection,
     record_level: recordLevel,
@@ -80,11 +78,11 @@ export function buildCommandFlowExecutionPayload(
 
 export function standardCommandFlowTextfsmPayload(
   fields: StandardCommandFlowTextfsmFields = {},
-): Record<string, unknown> {
+): StandardCommandFlowTextfsmPayload {
   return {
-    textfsm_template: safeString(fields.template ?? "").trim() || null,
+    textfsm_template: fields.template?.trim() || null,
     parse_textfsm: !!fields.enabled,
-    textfsm_platform: safeString(fields.platform ?? "").trim() || null,
+    textfsm_platform: fields.platform?.trim() || null,
     textfsm_strict_errors: !!fields.strictErrors,
   };
 }

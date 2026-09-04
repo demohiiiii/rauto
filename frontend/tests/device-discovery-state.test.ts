@@ -11,10 +11,17 @@ import {
   filterDiscoveryResults,
   parseDiscoveryPorts,
   retainImportableDiscoveryResultKeys,
-} from "../src/domains/device-discovery/index.ts";
+} from "../src/domains/device-discovery/index.js";
+import type {
+  CreateDiscoveryRunPayload,
+  DiscoveryResult,
+  DiscoveryRun,
+  ImportDiscoveryItem,
+} from "../src/domains/device-discovery/index.js";
 
-function discoveryRun(overrides = {}) {
+function discoveryRun(overrides: Partial<DiscoveryRun> = {}): DiscoveryRun {
   return {
+    completed_at_ms: null,
     id: "run-1",
     status: "completed",
     phase: "completed",
@@ -23,16 +30,38 @@ function discoveryRun(overrides = {}) {
     credential_ids: ["credential-1"],
     default_groups: [],
     default_labels: [],
+    error: null,
     concurrency: 32,
     tcp_timeout_ms: 1000,
     probe_timeout_secs: 15,
     total_targets: 1,
     scanned_targets: 1,
+    started_at_ms: null,
     reachable_count: 1,
     probed_targets: 1,
     identified_count: 1,
     failed_count: 0,
     created_at_ms: 1,
+    ...overrides,
+  };
+}
+
+function discoveryResult(
+  overrides: Partial<DiscoveryResult> & Pick<DiscoveryResult, "host">,
+): DiscoveryResult {
+  return {
+    credential_id: null,
+    device_model: null,
+    device_profile: null,
+    error: null,
+    existing_connection_name: null,
+    imported_connection_name: null,
+    latency_ms: null,
+    port: 22,
+    run_id: "run-1",
+    software_version: null,
+    status: "identified",
+    updated_at_ms: 1,
     ...overrides,
   };
 }
@@ -52,12 +81,12 @@ test("discovery ports reject invalid and oversized expressions", () => {
 });
 
 test("discovery result helpers preserve endpoints and import eligibility", () => {
-  const result = {
+  const result = discoveryResult({
     host: "192.0.2.8",
     port: 2222,
     status: "identified",
     device_profile: "cisco_ios",
-  };
+  });
   assert.equal(discoveryResultKey(result), "192.0.2.8:2222");
   assert.equal(
     defaultDiscoveryConnectionName(result),
@@ -101,21 +130,17 @@ test("discovery result helpers preserve endpoints and import eligibility", () =>
 });
 
 test("discovery import selection retains failed and newly identified devices", () => {
-  const results = [
-    {
+  const results: DiscoveryResult[] = [
+    discoveryResult({
       host: "192.0.2.1",
-      port: 22,
-      status: "identified",
       imported_connection_name: "saved-device",
-    },
-    { host: "192.0.2.2", port: 22, status: "identified" },
-    { host: "192.0.2.3", port: 22, status: "identified" },
-    {
+    }),
+    discoveryResult({ host: "192.0.2.2" }),
+    discoveryResult({ host: "192.0.2.3" }),
+    discoveryResult({
       host: "192.0.2.4",
-      port: 22,
-      status: "identified",
       existing_connection_name: "existing-device",
-    },
+    }),
   ];
 
   assert.deepEqual(
@@ -132,28 +157,22 @@ test("discovery run activity and result filters follow persisted states", () => 
   assert.equal(discoveryRunIsActive({ status: "cancelling" }), true);
   assert.equal(discoveryRunIsActive({ status: "completed" }), false);
 
-  const rows = [
-    {
+  const rows: DiscoveryResult[] = [
+    discoveryResult({
       host: "192.0.2.1",
-      port: 22,
-      status: "identified",
       device_model: "Router A",
-    },
-    {
+    }),
+    discoveryResult({
       host: "192.0.2.2",
-      port: 22,
-      status: "identified",
       existing_connection_name: "saved-router",
-    },
-    { host: "192.0.2.3", port: 22, status: "probe_failed" },
-    { host: "192.0.2.5", port: 22, status: "not_ssh" },
-    { host: "192.0.2.6", port: 22, status: "cancelled" },
-    {
+    }),
+    discoveryResult({ host: "192.0.2.3", status: "probe_failed" }),
+    discoveryResult({ host: "192.0.2.5", status: "not_ssh" }),
+    discoveryResult({ host: "192.0.2.6", status: "cancelled" }),
+    discoveryResult({
       host: "192.0.2.4",
-      port: 22,
-      status: "identified",
       imported_connection_name: "new-router",
-    },
+    }),
   ];
 
   assert.deepEqual(
@@ -226,12 +245,13 @@ test("discovery workspace initializes catalogs and the latest run once", async (
   const state = get(workspace.stateStore);
   assert.equal(credentialCalls, 1);
   assert.deepEqual(state.selectedCredentialIds, ["credential-1"]);
+  assert.ok(state.currentDetail);
   assert.equal(state.currentDetail.run.id, "run-1");
   workspace.destroy();
 });
 
 test("discovery workspace creates runs from its typed form state", async () => {
-  let receivedPayload = null;
+  let receivedPayload: CreateDiscoveryRunPayload | null = null;
   const run = discoveryRun({
     id: "run-2",
     status: "queued",
@@ -264,20 +284,20 @@ test("discovery workspace creates runs from its typed form state", async () => {
     tcp_timeout_ms: 1000,
     probe_timeout_secs: 15,
   });
-  assert.equal(get(workspace.stateStore).currentDetail.run.id, "run-2");
+  const detail = get(workspace.stateStore).currentDetail;
+  assert.ok(detail);
+  assert.equal(detail.run.id, "run-2");
   workspace.destroy();
 });
 
 test("discovery workspace imports selected results and refreshes connections", async () => {
   const run = discoveryRun();
-  const identified = {
+  const identified = discoveryResult({
     host: "192.0.2.8",
-    port: 22,
-    status: "identified",
     device_profile: "cisco_ios",
     credential_id: "credential-1",
-  };
-  let importedItems = null;
+  });
+  let importedItems: ImportDiscoveryItem[] | null = null;
   let getRunCalls = 0;
   let refreshCalls = 0;
   const workspace = createDeviceDiscoveryWorkspace({
@@ -299,7 +319,14 @@ test("discovery workspace imports selected results and refreshes connections", a
       },
       async importResults(_runId, items) {
         importedItems = items;
-        return { created: 1, updated: 0, failed: 0 };
+        return {
+          created: 1,
+          failed: 0,
+          results: [],
+          skipped: 0,
+          total: 1,
+          updated: 0,
+        };
       },
       async listCredentials() {
         return [];

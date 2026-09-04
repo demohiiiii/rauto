@@ -1,10 +1,10 @@
 import { get, writable } from "svelte/store";
-import { safeString } from "../../../lib/ui.js";
 import { commandApi } from "../infrastructure/commandApi.js";
 import type {
   CommandTemplateCatalog,
   CommandTemplateCatalogOptions,
   CommandTemplateCatalogState,
+  CommandTemplateMeta,
 } from "../model/types.js";
 
 export const MANUAL_COMMAND_SOURCE = "__manual__";
@@ -13,16 +13,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error ?? "");
 }
 
-export function normalizeCommandTemplateNames(payload: unknown = []): string[] {
-  return (Array.isArray(payload) ? payload : [])
-    .map((item) => {
-      const name =
-        item && typeof item === "object"
-          ? (item as Record<string, unknown>).name
-          : undefined;
-      return safeString(name).trim();
-    })
-    .filter(Boolean);
+export function normalizeCommandTemplateNames(
+  templates: CommandTemplateMeta[] = [],
+): string[] {
+  return templates.map((template) => template.name.trim()).filter(Boolean);
 }
 
 export function createCommandTemplateCatalog({

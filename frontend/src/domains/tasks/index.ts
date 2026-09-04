@@ -1,7 +1,6 @@
 export { createTasksPageWorkspace } from "./application/createTasksPageWorkspace.js";
 export {
   newTaskState,
-  normalizeTaskRuns,
   resetTaskFilters,
   taskEventFilterActionHandlers,
   taskFiltersActionHandlers,
@@ -17,8 +16,15 @@ export {
 export type {
   TaskArtifact,
   TaskEvent,
+  TaskEventLevel,
+  TaskEventType,
+  TaskJsonValue,
+  TaskOperation,
+  TaskResultOutcome,
+  TaskResultSummary,
   TaskRun,
   TaskRunDetail,
+  TaskRunStatus,
   TaskState,
   TasksApi,
   TasksWorkspaceOptions,

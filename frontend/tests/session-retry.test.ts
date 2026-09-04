@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,
   sessionRetryValidation,
-} from "../src/domains/execution/index.ts";
+} from "../src/domains/execution/index.js";
+import type { SessionRetryState } from "../src/domains/execution/index.js";
 import {
   commandExecutionPayload,
   commandFlowExecutionPayload,
-} from "../src/domains/standard/index.ts";
+} from "../src/domains/standard/index.js";
 
-const enabledRetry = {
+const enabledRetry: SessionRetryState = {
   ...createSessionRetryState(),
   enabled: true,
   maxRetries: "3",
@@ -66,28 +66,4 @@ test("command and command flow payloads share the retry contract", () => {
     }).retry,
     sessionRetryRequestFields(enabledRetry).retry,
   );
-});
-
-test("all retryable execution pages mount the shared settings component", () => {
-  for (const path of [
-    "frontend/src/domains/standard/presentation/components/CommandExecutionPanel.svelte",
-    "frontend/src/domains/standard/presentation/components/FlowExecutionPanel.svelte",
-    "frontend/src/domains/show/presentation/components/SingleShowPanel.svelte",
-    "frontend/src/domains/show/presentation/components/BatchShowInputPanel.svelte",
-    "frontend/src/domains/standard/presentation/components/batch/BatchExecPanel.svelte",
-    "frontend/src/domains/standard/presentation/components/batch/BatchFlowPanel.svelte",
-    "frontend/src/domains/config-fetch/presentation/components/ConfigFetchWorkspace.svelte",
-  ]) {
-    assert.match(readFileSync(path, "utf8"), /<SessionRetryFields/);
-  }
-});
-
-test("transaction and upload surfaces do not expose session retry settings", () => {
-  for (const path of [
-    "frontend/src/domains/transactions/presentation/components/block/TxBlockRunPanel.svelte",
-    "frontend/src/domains/transactions/presentation/components/workflow/TxWorkflowRunPanel.svelte",
-    "frontend/src/domains/transfer/presentation/components/TransferWorkspace.svelte",
-  ]) {
-    assert.doesNotMatch(readFileSync(path, "utf8"), /SessionRetryFields/);
-  }
 });

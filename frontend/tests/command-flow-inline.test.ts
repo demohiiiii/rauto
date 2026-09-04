@@ -1,21 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { txBlockFlowEditorBindings } from "../src/domains/transactions/index.js";
 import {
   txBlockAddCommandPrompt,
-  txBlockUpdateCommandPrompt,
+  txBlockCommandDraft,
   txBlockDuplicateFlowStep,
+  txBlockFlowEditorBindings,
   txBlockMoveFlowStep,
   txBlockPatchFlow,
+  txBlockUpdateCommandPrompt,
+} from "../src/domains/transactions/index.js";
+import type {
+  TxCommandModel,
+  TxOperationModel,
 } from "../src/domains/transactions/index.js";
 
-function flowOperation() {
+function flowOperation(): TxOperationModel {
   return {
     kind: "flow",
+    command: txBlockCommandDraft(),
     flow: {
       steps: [
-        { command: "show version", extra: { nested: "one" } },
-        { command: "show clock", extra: { nested: "two" } },
+        txBlockCommandDraft({
+          command: "show version",
+          extra: { nested: "one" },
+        }),
+        txBlockCommandDraft({
+          command: "show clock",
+          extra: { nested: "two" },
+        }),
       ],
       stopOnError: true,
       hasStopOnError: true,
@@ -24,6 +36,25 @@ function flowOperation() {
       extra: {},
     },
   };
+}
+
+function commandWithPrompt(): TxCommandModel {
+  return txBlockCommandDraft({
+    interaction: {
+      extra: { session: "one" },
+      hasPrompts: true,
+      prompts: [
+        {
+          response: "ready",
+          extra: {},
+          hasRecordInput: true,
+          patterns: [],
+          recordInput: false,
+        },
+      ],
+    },
+    hasInteraction: true,
+  });
 }
 
 test("inline command flow steps move immutably", () => {
@@ -48,8 +79,8 @@ test("inline command flow steps duplicate deeply", () => {
     duplicate.flow.steps.map((step) => step.command),
     ["show version", "show version", "show clock"],
   );
-  duplicate.flow.steps[1].extra.nested = "changed";
-  assert.equal(duplicate.flow.steps[0].extra.nested, "one");
+  duplicate.flow.steps[1]!.extra.nested = "changed";
+  assert.equal(duplicate.flow.steps[0]!.extra.nested, "one");
 });
 
 test("inline flow settings preserve the rneter command flow shape", () => {
@@ -68,7 +99,7 @@ test("inline flow settings preserve the rneter command flow shape", () => {
 
 test("inline flow bindings notify once and keep the source operation unchanged", () => {
   const source = flowOperation();
-  const changes = [];
+  const changes: TxOperationModel[] = [];
   const bindings = txBlockFlowEditorBindings(source, (next) =>
     changes.push(next),
   );
@@ -77,28 +108,21 @@ test("inline flow bindings notify once and keep the source operation unchanged",
   bindings.addStep();
 
   assert.equal(changes.length, 2);
-  assert.equal(changes[0].flow.stopOnError, false);
-  assert.equal(changes[1].flow.steps.length, 3);
+  assert.equal(changes[0]?.flow.stopOnError, false);
+  assert.equal(changes[1]?.flow.steps.length, 3);
   assert.equal(source.flow.stopOnError, true);
   assert.equal(source.flow.steps.length, 2);
 });
 
 test("transaction interaction mutations preserve prompts and extra snapshots", () => {
-  const source = {
-    interaction: {
-      extra: { session: "one" },
-      hasPrompts: true,
-      prompts: [{ response: "ready", extra: {} }],
-    },
-    hasInteraction: true,
-  };
+  const source = commandWithPrompt();
 
   const added = txBlockAddCommandPrompt(source);
   const updated = txBlockUpdateCommandPrompt(added, 0, {
     response: "updated",
   });
   assert.equal(added.interaction.prompts.length, 2);
-  assert.equal(updated.interaction.prompts[0].response, "updated");
-  assert.equal(source.interaction.prompts[0].response, "ready");
+  assert.equal(updated.interaction.prompts[0]?.response, "updated");
+  assert.equal(source.interaction.prompts[0]?.response, "ready");
   assert.notEqual(added.interaction.extra, source.interaction.extra);
 });

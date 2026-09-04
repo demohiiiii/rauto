@@ -23,9 +23,7 @@ export function newReplayState(): ReplayState {
 }
 
 export function replayEntriesFromResult(state: ReplayState): ReplayEntry[] {
-  return Array.isArray(state.lastReplayResult?.entries)
-    ? state.lastReplayResult.entries
-    : [];
+  return state.lastReplayResult?.entries ?? [];
 }
 
 export function replayEntryIsFailedCommandEvent(entry: ReplayEntry): boolean {

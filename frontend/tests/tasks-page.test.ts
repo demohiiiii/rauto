@@ -6,19 +6,28 @@ import {
   filteredTaskRuns,
   newTaskState,
   taskPagePresentation,
-} from "../src/domains/tasks/index.ts";
+} from "../src/domains/tasks/index.js";
+import type {
+  TaskQuery,
+  TaskRun,
+  TaskRunDetail,
+} from "../src/domains/tasks/model/types.js";
 
-function deferred() {
-  let resolve;
-  let reject;
-  const promise = new Promise((resolvePromise, rejectPromise) => {
+function deferred<T>(): {
+  promise: Promise<T>;
+  reject: (reason?: Error) => void;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: Error) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
     reject = rejectPromise;
   });
   return { promise, reject, resolve };
 }
 
-function taskRun(taskId, overrides = {}) {
+function taskRun(taskId: string, overrides: Partial<TaskRun> = {}): TaskRun {
   return {
     agent_name: null,
     completed_at: null,
@@ -38,7 +47,10 @@ function taskRun(taskId, overrides = {}) {
   };
 }
 
-function taskDetail(taskId, overrides = {}) {
+function taskDetail(
+  taskId: string,
+  overrides: Partial<TaskRunDetail> = {},
+): TaskRunDetail {
   return {
     ...taskRun(taskId),
     artifacts: [],
@@ -65,6 +77,22 @@ test("task presentation maps filter options to both select contracts", () => {
   });
   assert.equal(eventOption.optionValue, "all");
   assert.equal(eventOption.value, "all");
+  assert.deepEqual(
+    display.taskFilters.fields.operation.options.map(
+      (option) => option.optionValue,
+    ),
+    [
+      "",
+      "exec",
+      "template_execute",
+      "command_flow",
+      "upload",
+      "tx_block",
+      "tx_workflow",
+      "orchestrate",
+      "device_discovery",
+    ],
+  );
 });
 
 test("task model filters runs without changing the API result list", () => {
@@ -91,7 +119,7 @@ test("task model filters runs without changing the API result list", () => {
 });
 
 test("tasks workspace loads once per active page lifecycle", async () => {
-  const queries = [];
+  const queries: Array<TaskQuery | undefined> = [];
   const workspace = createTasksPageWorkspace({
     api: {
       async listTasks(query) {
@@ -115,8 +143,8 @@ test("tasks workspace loads once per active page lifecycle", async () => {
 });
 
 test("latest task list response wins when server filters change quickly", async () => {
-  const first = deferred();
-  const second = deferred();
+  const first = deferred<TaskRun[]>();
+  const second = deferred<TaskRun[]>();
   let calls = 0;
   const workspace = createTasksPageWorkspace({
     api: {
@@ -141,8 +169,8 @@ test("latest task list response wins when server filters change quickly", async 
 });
 
 test("latest selected task detail wins when responses arrive out of order", async () => {
-  const first = deferred();
-  const second = deferred();
+  const first = deferred<TaskRunDetail>();
+  const second = deferred<TaskRunDetail>();
   const workspace = createTasksPageWorkspace({
     api: {
       getTask(taskId) {
@@ -161,12 +189,12 @@ test("latest selected task detail wins when responses arrive out of order", asyn
   await firstRequest;
   const state = get(workspace.taskStateStore);
   assert.equal(state.currentTaskId, "second");
-  assert.equal(state.currentTaskDetail.task_id, "second");
+  assert.equal(state.currentTaskDetail?.task_id, "second");
 });
 
 test("list refresh cancels detail loading for a task no longer visible", async () => {
-  const listResponse = deferred();
-  const detailResponse = deferred();
+  const listResponse = deferred<TaskRun[]>();
+  const detailResponse = deferred<TaskRunDetail>();
   const workspace = createTasksPageWorkspace({
     api: {
       getTask() {

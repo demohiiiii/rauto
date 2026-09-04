@@ -70,7 +70,7 @@ export function createDeviceDiscoveryWorkspace(
     mutate((state) => {
       const nextNames = { ...state.connectionNames };
       const nextSelected = new Set(state.selectedResultKeys);
-      for (const result of detail.results || []) {
+      for (const result of detail.results) {
         const key = discoveryResultKey(result);
         if (!nextNames[key]) {
           nextNames[key] = defaultDiscoveryConnectionName(result);
@@ -128,14 +128,14 @@ export function createDeviceDiscoveryWorkspace(
         api.listRuns(),
       ]);
       mutate((state) => {
-        state.credentials = Array.isArray(credentials) ? credentials : [];
-        state.groups = Array.isArray(groups) ? groups : [];
-        state.labels = Array.isArray(labels) ? labels : [];
+        state.credentials = credentials;
+        state.groups = groups;
+        state.labels = labels;
         if (!state.selectedCredentialIds.length && state.credentials[0]?.id) {
           state.selectedCredentialIds = [state.credentials[0].id];
         }
       });
-      const latestRun = Array.isArray(runs) ? runs[0] : null;
+      const latestRun = runs[0] ?? null;
       if (latestRun?.id) await loadRun(latestRun.id);
     } catch (error) {
       mutate((state) => {
@@ -150,7 +150,7 @@ export function createDeviceDiscoveryWorkspace(
 
   async function loadLatestRun(): Promise<void> {
     const runs = await api.listRuns();
-    const latestRun = Array.isArray(runs) ? runs[0] : null;
+    const latestRun = runs[0] ?? null;
     const currentRunId = get(stateStore).currentDetail?.run.id;
     if (!latestRun?.id) {
       mutate((state) => {
@@ -280,7 +280,7 @@ export function createDeviceDiscoveryWorkspace(
       mutate((state) => {
         state.selectedResultKeys = retainImportableDiscoveryResultKeys(
           state.selectedResultKeys,
-          state.currentDetail?.results || [],
+          state.currentDetail?.results ?? [],
         );
       });
     } catch (error) {
@@ -298,9 +298,7 @@ export function createDeviceDiscoveryWorkspace(
     field: K,
     value: DiscoveryFormState[K],
   ): void {
-    mutate((state) => {
-      (state as DiscoveryFormState)[field] = value;
-    });
+    stateStore.update((state) => ({ ...state, [field]: value }));
   }
 
   function toggleResult(result: DiscoveryResult, checked: boolean): void {
@@ -316,7 +314,7 @@ export function createDeviceDiscoveryWorkspace(
   function toggleAllImportable(checked: boolean): void {
     mutate((state) => {
       state.selectedResultKeys = checked
-        ? (state.currentDetail?.results || [])
+        ? (state.currentDetail?.results ?? [])
             .filter(discoveryResultCanImport)
             .map(discoveryResultKey)
         : [];

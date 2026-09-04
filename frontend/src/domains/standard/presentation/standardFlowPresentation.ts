@@ -2,6 +2,7 @@ import {
   normalizeStandardExecMode,
   STANDARD_EXEC_MODE,
 } from "../../../config/dashboardModes.js";
+import type { StandardExecMode } from "../../../config/dashboardModes.js";
 import { t } from "../../../lib/i18n.js";
 import {
   classNames,
@@ -10,21 +11,19 @@ import {
   selectOptionsWithCurrent,
   workflowChipClass,
 } from "../../../lib/ui.js";
-import {
-  parsedOutputBlockDisplayFromItem,
-  parsedOutputSheetsFromParsedOutputItems,
-} from "$domains/execution/index.js";
+import { parsedOutputBlockDisplayFromItem } from "$domains/execution/index.js";
+import type {
+  ModeSelectState,
+  TextfsmPlatformSelectState,
+} from "$domains/profiles/index.js";
+import type { FlowTemplateSelectState } from "$domains/templates/index.js";
+import type {
+  StandardCommandFlowExecutionResponse,
+  StandardCommandResult,
+} from "../model/types.js";
 
-type UnknownRecord = Record<string, unknown>;
-
-function record(value: unknown): UnknownRecord {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as UnknownRecord)
-    : {};
-}
-
-export function standardPagePresentation(mode: unknown = "") {
-  const normalizedMode = normalizeStandardExecMode(safeString(mode));
+export function standardPagePresentation(mode: StandardExecMode) {
+  const normalizedMode = normalizeStandardExecMode(mode);
   return {
     directActive: normalizedMode === STANDARD_EXEC_MODE.direct,
     flowActive: normalizedMode === STANDARD_EXEC_MODE.flow,
@@ -34,44 +33,41 @@ export function standardPagePresentation(mode: unknown = "") {
   };
 }
 
-export function standardModeSelectPresentation(modeState: unknown = {}) {
-  const state = record(modeState);
-  const modeOptions = Array.isArray(state.modes) ? state.modes : [];
+export function standardModeSelectPresentation(modeState: ModeSelectState) {
+  const modeOptions = modeState.modes;
   return {
     hasModeOptions: Boolean(modeOptions[0]),
     modeOptions,
-    selectedMode: safeString(state.selected),
+    selectedMode: modeState.selected,
   };
 }
 
 export function standardTextfsmFieldsPresentation({
   enabled = false,
-  platformState = {},
+  platformState,
   strictErrors = false,
   template = "",
 }: {
-  enabled?: unknown;
-  platformState?: unknown;
-  strictErrors?: unknown;
-  template?: unknown;
-} = {}) {
-  const platform = record(platformState);
+  enabled?: boolean;
+  platformState: TextfsmPlatformSelectState;
+  strictErrors?: boolean;
+  template?: string;
+}) {
   return {
-    enabled: !!enabled,
-    platform: safeString(platform.selected),
-    platformOptions: Array.isArray(platform.profiles) ? platform.profiles : [],
-    strictErrors: !!strictErrors,
-    template: safeString(template),
+    enabled,
+    platform: platformState.selected,
+    platformOptions: platformState.profiles,
+    strictErrors,
+    template,
   };
 }
 
 export function standardFlowTemplateSelectPresentation(
-  templateState: unknown = {},
+  templateState: FlowTemplateSelectState,
 ) {
-  const state = record(templateState);
   return {
-    selectedTemplate: safeString(state.selected),
-    templateOptions: Array.isArray(state.options) ? state.options : [],
+    selectedTemplate: templateState.selected,
+    templateOptions: templateState.options,
   };
 }
 
@@ -79,16 +75,16 @@ export function standardFlowTemplateFieldsPresentation({
   templateName = "",
   templateOptions = [],
 }: {
-  templateName?: unknown;
-  templateOptions?: unknown;
+  templateName?: string;
+  templateOptions?: string[];
 } = {}) {
   return {
-    templateName: safeString(templateName),
-    templateOptions: Array.isArray(templateOptions) ? templateOptions : [],
+    templateName,
+    templateOptions,
   };
 }
 
-function standardInputField(value: unknown, placeholder: string) {
+function standardInputField(value: string, placeholder: string) {
   return {
     ariaLabelText: placeholder,
     placeholder,
@@ -100,8 +96,8 @@ export function flowExecutionInputPresentation({
   templateName = "",
   templateOptions = [],
 }: {
-  templateName?: unknown;
-  templateOptions?: unknown;
+  templateName?: string;
+  templateOptions?: string[];
 } = {}) {
   const templatePlaceholder = t("flowTemplateRunPlaceholder");
   return {
@@ -126,10 +122,7 @@ export function flowExecutionInputPresentation({
     flowVariableCountLabel: t("flowVariableCountLabel"),
     templateDescriptionText: t("flowTemplateSourceHint"),
     templateField: standardInputField(templateName, templatePlaceholder),
-    templateOptionRows: selectOptionsWithCurrent(
-      Array.isArray(templateOptions) ? templateOptions : [],
-      safeString(templateName),
-    ),
+    templateOptionRows: selectOptionsWithCurrent(templateOptions, templateName),
     templateTitleText: t("flowTemplateSourceTitle"),
     tomlTabLabel: t("flowTomlTab"),
     tomlFieldLabel: t("flowTomlLabel"),
@@ -144,84 +137,82 @@ export function flowExecutionInputPresentation({
 
 export function standardFlowRunButtonPresentation({
   executeLoading = false,
-}: { executeLoading?: unknown } = {}) {
-  return { executeLoading: !!executeLoading };
+}: { executeLoading?: boolean } = {}) {
+  return { executeLoading };
 }
 
-function standardParsedExecutionRows(executionItems: unknown = []) {
-  return (Array.isArray(executionItems) ? executionItems : []).map(
-    (executionItemValue, executionRowIndex) => {
-      const executionItem = record(executionItemValue);
-      const exportItem = executionItemValue || {};
-      const success = !!executionItem.success;
-      const commandText = safeString(executionItem.command) || "-";
-      return {
-        cardClass: classNames(
-          "rounded-lg border px-3 py-3",
-          success
-            ? "border-emerald-200 bg-emerald-50"
-            : "border-rose-200 bg-rose-50",
-        ),
-        commandText,
-        error: safeString(executionItem.error),
-        exitCodeMetaText: `${t("txBlockResultExitCode")}: ${safeString(
-          executionItem.exit_code,
-        )}`,
-        exitCodeText: safeString(executionItem.exit_code),
-        exportItem,
-        flowBadgeClass: pillClass(
-          success
-            ? "bg-emerald-100 text-emerald-700"
-            : "bg-amber-100 text-amber-700",
-        ),
-        flowRowTitleText: `${executionRowIndex + 1}. ${commandText}`,
-        outputText: safeString(
-          success
-            ? executionItem.output ||
-                executionItem.all ||
-                executionItem.error ||
-                ""
-            : executionItem.all ||
-                executionItem.output ||
-                executionItem.error ||
-                "",
-        ),
-        parsedOutputBlock: parsedOutputBlockDisplayFromItem(
-          executionItemValue,
-          exportItem,
-        ),
-        statusLabel: success
-          ? t("orchestrationStatusSuccess")
-          : t("orchestrationStatusFailed"),
-        statusChipClass: workflowChipClass(),
-        statusShortText: success ? "OK" : "FAIL",
-        statusTextClass: success ? "text-emerald-700" : "text-rose-700",
-        stepNumberText: `#${executionRowIndex + 1}`,
-        stepIndexClass: classNames(
-          "text-xs font-semibold",
-          success ? "text-emerald-700" : "text-rose-700",
-        ),
-        success,
-      };
-    },
-  );
-}
-
-function commandFlowParsedOutputSheets(flowResult: UnknownRecord | null) {
-  const outputs = Array.isArray(flowResult?.outputs) ? flowResult.outputs : [];
-  return parsedOutputSheetsFromParsedOutputItems(outputs, {
-    sheetName: (flowOutput: UnknownRecord, index: number) =>
-      flowOutput.command || `command_${index + 1}`,
+function standardParsedExecutionRows(
+  executionItems: StandardCommandResult[] = [],
+) {
+  return executionItems.map((executionItem, executionRowIndex) => {
+    const success = executionItem.success;
+    const commandText = executionItem.command || "-";
+    return {
+      cardClass: classNames(
+        "rounded-lg border px-3 py-3",
+        success
+          ? "border-emerald-200 bg-emerald-50"
+          : "border-rose-200 bg-rose-50",
+      ),
+      commandText,
+      error: safeString(executionItem.error),
+      exitCodeMetaText: `${t("txBlockResultExitCode")}: ${safeString(
+        executionItem.exit_code,
+      )}`,
+      exitCodeText: safeString(executionItem.exit_code),
+      exportItem: executionItem,
+      flowBadgeClass: pillClass(
+        success
+          ? "bg-emerald-100 text-emerald-700"
+          : "bg-amber-100 text-amber-700",
+      ),
+      flowRowTitleText: `${executionRowIndex + 1}. ${commandText}`,
+      outputText: safeString(
+        success
+          ? executionItem.output ||
+              executionItem.all ||
+              executionItem.error ||
+              ""
+          : executionItem.all ||
+              executionItem.output ||
+              executionItem.error ||
+              "",
+      ),
+      parsedOutputBlock: parsedOutputBlockDisplayFromItem(
+        executionItem,
+        executionItem,
+      ),
+      statusLabel: success
+        ? t("orchestrationStatusSuccess")
+        : t("orchestrationStatusFailed"),
+      statusChipClass: workflowChipClass(),
+      statusShortText: success ? "OK" : "FAIL",
+      statusTextClass: success ? "text-emerald-700" : "text-rose-700",
+      stepNumberText: `#${executionRowIndex + 1}`,
+      stepIndexClass: classNames(
+        "text-xs font-semibold",
+        success ? "text-emerald-700" : "text-rose-700",
+      ),
+      success,
+    };
   });
 }
 
-export function commandFlowResultPresentation(flowPayload: unknown = null) {
-  const flowResult =
-    flowPayload &&
-    typeof flowPayload === "object" &&
-    !Array.isArray(flowPayload)
-      ? (flowPayload as UnknownRecord)
-      : null;
+function commandFlowParsedOutputSheets(
+  flowResult: StandardCommandFlowExecutionResponse | null,
+) {
+  const outputs = flowResult?.outputs ?? [];
+  return outputs
+    .filter((flowOutput) => flowOutput.parsed_output != null)
+    .map((flowOutput, index) => ({
+      name: flowOutput.command || `command_${index + 1}`,
+      parsed_output: flowOutput.parsed_output,
+    }));
+}
+
+export function commandFlowResultPresentation(
+  flowResult: StandardCommandFlowExecutionResponse | null = null,
+) {
   const resultSuccess = flowResult?.success === true;
   const resultTemplateName = safeString(flowResult?.template_name || "");
   const resultRows = standardParsedExecutionRows(flowResult?.outputs);

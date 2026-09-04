@@ -1,13 +1,9 @@
 import { get, writable } from "svelte/store";
 import { templatesApi } from "../infrastructure/templatesApi.js";
 import { templatesRuntime } from "../infrastructure/templatesRuntime.js";
-import {
-  listValue,
-  profileModeNames,
-  recordValue,
-  trimmedText,
-} from "../model/templateResources.js";
+import { profileModeNames, trimmedText } from "../model/templateResources.js";
 import type {
+  CustomShowObjectApiRow,
   ResourceWorkspaceOptions,
   ShowObjectForm,
   ShowObjectState,
@@ -36,28 +32,38 @@ function emptyShowObjectForm(profiles: string[] = []): ShowObjectForm {
   };
 }
 
-function showObjectIdentity(value: unknown = {}): string {
-  const fields = recordValue(value);
-  return `${trimmedText(fields.device_profile ?? fields.deviceProfile)}\u0000${trimmedText(fields.object)}`;
+function showObjectIdentity(
+  value: CustomShowObjectApiRow | ShowObjectForm,
+): string {
+  const deviceProfile =
+    "device_profile" in value ? value.device_profile : value.deviceProfile;
+  return `${deviceProfile.trim()}\u0000${value.object.trim()}`;
 }
 
-function normalizeShowObject(value: unknown = {}): ShowObjectForm {
-  const fields = recordValue(value);
-  const textfsmMappingCommand = trimmedText(
-    fields.textfsm_mapping_command ?? fields.textfsmMappingCommand,
-  );
+function normalizeShowObject(
+  value: CustomShowObjectApiRow | ShowObjectForm,
+): ShowObjectForm {
+  if (!("device_profile" in value)) {
+    return {
+      ...value,
+      deviceProfile: value.deviceProfile.trim(),
+      object: value.object.trim(),
+      command: value.command.trim(),
+      mode: value.mode.trim(),
+      textfsmMappingCommand: value.textfsmMappingCommand.trim(),
+      textfsmTemplateName: value.textfsmTemplateName.trim(),
+    };
+  }
+  const textfsmMappingCommand = value.textfsm_mapping_command?.trim() ?? "";
   return {
-    ...fields,
-    deviceProfile: trimmedText(fields.device_profile ?? fields.deviceProfile),
-    object: trimmedText(fields.object),
-    command: trimmedText(fields.command),
-    mode: trimmedText(fields.mode),
+    deviceProfile: value.device_profile.trim(),
+    object: value.object.trim(),
+    command: value.command.trim(),
+    mode: value.mode?.trim() ?? "",
     textfsmMappingCommand,
-    textfsmTemplateName: trimmedText(
-      fields.textfsm_template_name ?? fields.textfsmTemplateName,
-    ),
+    textfsmTemplateName: value.textfsm_template_name?.trim() ?? "",
     useMapping: !!textfsmMappingCommand,
-    enabled: fields.enabled !== false,
+    enabled: value.enabled,
   };
 }
 
@@ -80,20 +86,19 @@ export function createShowObjectWorkspace({
   });
 
   async function loadProfileContext(
-    profile: unknown,
-    selectedMode: unknown = "",
+    profile: string,
+    selectedMode = "",
   ): Promise<void> {
     const normalizedProfile = trimmedText(profile);
     if (!normalizedProfile) {
       stateStore.update((state) => ({ ...state, mappings: [], modes: [] }));
       return;
     }
-    const [mappingsPayload, modesPayloadValue] = await Promise.all([
+    const [mappingsPayload, modesPayload] = await Promise.all([
       api.listTextfsmMappings(normalizedProfile),
       api.getProfileModes(normalizedProfile),
     ]);
-    const mappings = listValue(mappingsPayload).map(normalizeMapping);
-    const modesPayload = recordValue(modesPayloadValue);
+    const mappings = mappingsPayload.map(normalizeMapping);
     const modes = profileModeNames(modesPayload);
     const normalizedMode = trimmedText(selectedMode);
     const mode = templatesRuntime.profileModeMatches(normalizedMode, modes)
@@ -116,7 +121,7 @@ export function createShowObjectWorkspace({
           loadProfileTemplateReferences(api),
           api.listCustomShowObjects(),
         ]);
-        const objects = listValue(objectsPayload).map(normalizeShowObject);
+        const objects = objectsPayload.map(normalizeShowObject);
         stateStore.update((state) => ({
           ...state,
           profiles,
@@ -146,7 +151,7 @@ export function createShowObjectWorkspace({
     if (state.profiles[0]) void loadProfileContext(state.profiles[0]);
   }
 
-  async function select(object: unknown): Promise<void> {
+  async function select(object: ShowObjectForm): Promise<void> {
     const normalized = normalizeShowObject(object);
     stateStore.update((state) => ({
       ...state,
@@ -174,7 +179,9 @@ export function createShowObjectWorkspace({
       if (next.useMapping) next.command = next.textfsmMappingCommand;
     }
     if (Object.hasOwn(patch, "textfsmMappingCommand")) {
-      next.textfsmMappingCommand = trimmedText(patch.textfsmMappingCommand);
+      next.textfsmMappingCommand = trimmedText(
+        patch.textfsmMappingCommand ?? "",
+      );
       if (next.useMapping) next.command = next.textfsmMappingCommand;
     }
     stateStore.update((state) => ({ ...state, form: next }));
@@ -183,7 +190,7 @@ export function createShowObjectWorkspace({
     }
   }
 
-  function setSearch(search: unknown): void {
+  function setSearch(search: string): void {
     setWorkspaceSearch(stateStore, search);
   }
 
@@ -255,7 +262,7 @@ export function createShowObjectWorkspace({
   const filteredObjectsStore = filteredWorkspaceItemsStore(
     stateStore,
     (state) => state.objects,
-    ["deviceProfile", "object", "command"],
+    (object) => [object.deviceProfile, object.object, object.command],
   );
 
   return {

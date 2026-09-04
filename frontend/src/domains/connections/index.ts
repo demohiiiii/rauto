@@ -34,6 +34,7 @@ export type {
   PersistedConnectionTarget,
   SavedConnection,
   SavedConnectionSelectState,
+  ShowObjectOption,
   SidebarConnectionCard,
   SidebarConnectionState,
 } from "./model/types.js";

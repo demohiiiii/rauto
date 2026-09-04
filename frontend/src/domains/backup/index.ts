@@ -3,7 +3,6 @@ export {
   backupArchiveRowOperationRequest,
   backupOperationKey,
   newBackupState,
-  normalizeBackupItems,
   selectBackupItem,
   selectBackupItemByIndex,
   selectedBackupFromInput,
@@ -16,9 +15,11 @@ export {
 } from "./presentation/backupPresentation.js";
 export type {
   BackupArchiveRow,
+  BackupCreateResponse,
   BackupItem,
   BackupPageDisplay,
   BackupPageWorkspace,
   BackupState,
+  BackupRestoreResponse,
   BackupWorkspaceOptions,
 } from "./model/types.js";

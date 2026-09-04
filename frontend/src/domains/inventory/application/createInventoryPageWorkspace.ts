@@ -7,9 +7,7 @@ import {
   collectionFor,
   newInventoryState,
   normalizeHostNames,
-  normalizeInventoryItems,
   normalizeInventorySection,
-  normalizeSavedConnections,
   resetInventorySelection,
   sortedInventoryHosts,
 } from "../model/inventory.js";
@@ -89,9 +87,7 @@ export function createInventoryPageWorkspace(
   async function loadConnections(): Promise<void> {
     const version = ++requestVersions.connections;
     try {
-      const connections = normalizeSavedConnections(
-        await api.listConnections(),
-      );
+      const connections = await api.listConnections();
       if (version !== requestVersions.connections || destroyed) return;
       updateState((state) => {
         state.savedConnections = connections;
@@ -108,9 +104,9 @@ export function createInventoryPageWorkspace(
     const requestKey = kind === "groups" ? "groups" : "labels";
     const version = ++requestVersions[requestKey];
     try {
-      const items = normalizeInventoryItems(
-        await (kind === "groups" ? api.listGroups() : api.listLabels()),
-      );
+      const items = await (kind === "groups"
+        ? api.listGroups()
+        : api.listLabels());
       if (version !== requestVersions[requestKey] || destroyed) return;
       updateState((state) => {
         const collection = collectionFor(state, kind);

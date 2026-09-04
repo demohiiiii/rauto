@@ -1,17 +1,20 @@
 import { safeString } from "../../../lib/ui.js";
+import type { JsonValue } from "$lib/jsonValue.js";
+import type { SessionRetryState } from "$domains/execution/index.js";
 import type {
   StandardBatchExecForm,
   StandardBatchExecPayload,
   StandardBatchFlowForm,
   StandardBatchFlowPayload,
+  StandardBatchFlowTemplatePayload,
+  StandardBatchRetryFields,
   StandardBatchTargetSelection,
-  StandardSessionRetryState,
 } from "./types.js";
 
 const BUILTIN_TEMPLATE_PREFIX = "builtin:";
 
 export function newStandardBatchExecForm(
-  retry: StandardSessionRetryState,
+  retry: SessionRetryState,
 ): StandardBatchExecForm {
   return {
     command: "",
@@ -22,7 +25,7 @@ export function newStandardBatchExecForm(
 }
 
 export function newStandardBatchFlowForm(
-  retry: StandardSessionRetryState,
+  retry: SessionRetryState,
 ): StandardBatchFlowForm {
   return {
     maxParallel: "",
@@ -32,15 +35,15 @@ export function newStandardBatchFlowForm(
   };
 }
 
-export function normalizeBatchExecMaxParallel(value: unknown): number | null {
-  const parsed = Number.parseInt(safeString(value).trim(), 10);
+export function normalizeBatchExecMaxParallel(value: string): number | null {
+  const parsed = Number.parseInt(value.trim(), 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 export function batchFlowTemplatePayload(
-  template: unknown,
-): Record<string, string> {
-  const trimmed = safeString(template).trim();
+  template: string,
+): StandardBatchFlowTemplatePayload {
+  const trimmed = template.trim();
   if (trimmed.startsWith(BUILTIN_TEMPLATE_PREFIX)) {
     return {
       builtin_template_name: trimmed.slice(BUILTIN_TEMPLATE_PREFIX.length),
@@ -50,12 +53,12 @@ export function batchFlowTemplatePayload(
 }
 
 export function parseBatchFlowVars(
-  varsJson: unknown,
-): { vars: unknown } | { error: string } {
-  const trimmed = safeString(varsJson).trim();
+  varsJson: string,
+): { vars: JsonValue | null } | { error: string } {
+  const trimmed = varsJson.trim();
   if (!trimmed) return { vars: null };
   try {
-    return { vars: JSON.parse(trimmed) as unknown };
+    return { vars: JSON.parse(trimmed) as JsonValue };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : safeString(error),
@@ -66,7 +69,7 @@ export function parseBatchFlowVars(
 export function buildStandardBatchExecPayload(
   form: StandardBatchExecForm,
   selection: StandardBatchTargetSelection,
-  retryFields: Record<string, unknown> = {},
+  retryFields: StandardBatchRetryFields = {},
 ): StandardBatchExecPayload {
   const maxParallel = normalizeBatchExecMaxParallel(form.maxParallel);
   return {
@@ -83,8 +86,8 @@ export function buildStandardBatchExecPayload(
 export function buildStandardBatchFlowPayload(
   form: StandardBatchFlowForm,
   selection: StandardBatchTargetSelection,
-  vars: unknown,
-  retryFields: Record<string, unknown> = {},
+  vars: JsonValue | null,
+  retryFields: StandardBatchRetryFields = {},
 ): StandardBatchFlowPayload {
   const maxParallel = normalizeBatchExecMaxParallel(form.maxParallel);
   return {

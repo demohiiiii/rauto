@@ -2,16 +2,14 @@ import { derived, type Readable, type Writable } from "svelte/store";
 import { tr } from "../../../lib/i18n.js";
 import { templatesRuntime } from "../infrastructure/templatesRuntime.js";
 import {
-  listValue,
   profileNamesFromOverview,
-  recordValue,
   trimmedText,
   uniqueNames,
 } from "../model/templateResources.js";
 import type {
   TemplateApi,
   TextfsmMapping,
-  UnknownRecord,
+  TextfsmMappingApiRow,
   WorkspaceResult,
 } from "../model/types.js";
 
@@ -21,9 +19,7 @@ export async function loadProfileTemplateReferences(api: TemplateApi) {
     api.listTemplateResource("/api/textfsm/templates"),
   ]);
   const profiles = profileNamesFromOverview(profilesPayload);
-  const templates = uniqueNames(
-    listValue(templatesPayload).map((item) => recordValue(item).name),
-  );
+  const templates = uniqueNames(templatesPayload.map((item) => item.name));
   templatesRuntime.setCachedDeviceProfiles(profiles);
   return { profiles, templates };
 }
@@ -43,32 +39,28 @@ export function workspaceFailure(
 
 export function setWorkspaceSearch<T extends { search: string }>(
   stateStore: Writable<T>,
-  search: unknown,
+  search: string,
 ): void {
   stateStore.update((state) => ({
     ...state,
-    search: search == null ? "" : String(search),
+    search,
   }));
 }
 
 export function filteredWorkspaceItemsStore<
-  TItem extends UnknownRecord,
+  TItem,
   TState extends { search: string },
 >(
   stateStore: Readable<TState>,
   readItems: (state: TState) => TItem[],
-  fields: string[],
+  searchValues: (item: TItem) => string[],
 ): Readable<TItem[]> {
   return derived(stateStore, (state) => {
     const query = trimmedText(state.search).toLowerCase();
     const items = readItems(state);
     if (!query) return items;
     return items.filter((item) =>
-      fields
-        .map((field) => item[field])
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
+      searchValues(item).join(" ").toLowerCase().includes(query),
     );
   });
 }
@@ -110,17 +102,28 @@ export function emptyMappingForm(
   };
 }
 
-export function mappingIdentity(mapping: unknown = {}): string {
-  const fields = recordValue(mapping);
-  return `${trimmedText(fields.device_profile ?? fields.deviceProfile)}\u0000${trimmedText(fields.command)}`;
+export function mappingIdentity(
+  mapping: TextfsmMapping | TextfsmMappingApiRow,
+): string {
+  const deviceProfile =
+    "device_profile" in mapping
+      ? mapping.device_profile
+      : mapping.deviceProfile;
+  return `${deviceProfile.trim()}\u0000${mapping.command.trim()}`;
 }
 
-export function normalizeMapping(mapping: unknown = {}): TextfsmMapping {
-  const fields = recordValue(mapping);
+export function normalizeMapping(
+  mapping: TextfsmMapping | TextfsmMappingApiRow,
+): TextfsmMapping {
   return {
-    ...fields,
-    deviceProfile: trimmedText(fields.device_profile ?? fields.deviceProfile),
-    command: trimmedText(fields.command),
-    templateName: trimmedText(fields.template_name ?? fields.templateName),
+    deviceProfile:
+      "device_profile" in mapping
+        ? mapping.device_profile.trim()
+        : mapping.deviceProfile.trim(),
+    command: mapping.command.trim(),
+    templateName:
+      "template_name" in mapping
+        ? mapping.template_name.trim()
+        : mapping.templateName.trim(),
   };
 }

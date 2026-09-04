@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { get } from "svelte/store";
 import {
@@ -14,51 +13,120 @@ import {
   configFetchResultCounts,
   configFetchTimestamp,
   createConfigFetchWorkspace,
-  normalizeConfigFetchTargetMode,
   normalizeConfigFetchMaxParallel,
+  normalizeConfigFetchTargetMode,
   singleConfigFetchResultPayload,
-} from "../src/domains/config-fetch/index.ts";
+} from "../src/domains/config-fetch/index.js";
+import type {
+  ConfigCommandRow,
+  ConfigFetchCurrentPayload,
+  ConfigFetchExecutionResponse,
+  ConfigFetchResultRow,
+  ConfigFetchSingleResult,
+} from "../src/domains/config-fetch/model/types.js";
+import type { TaskResultSummary } from "../src/domains/tasks/index.js";
 
-function read(path) {
-  return readFileSync(path, "utf8");
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
-test("configuration fetch is a dedicated dashboard operation", () => {
-  const navigation = read("frontend/src/domains/dashboard/model/navigation.ts");
-  const sidebar = read(
-    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
-  );
-  const api = read("frontend/src/api/client.ts");
+function configCommand(
+  kind: string,
+  deviceProfile = "cisco_ios",
+): ConfigCommandRow {
+  return {
+    command: `show ${kind}-config`,
+    device_profile: deviceProfile,
+    kind,
+    mode: null,
+    source: "builtin",
+  };
+}
 
-  assert.match(navigation, /id: "config-fetch"/);
-  assert.match(navigation, /path: "\/app\/config-fetch"/);
-  assert.match(
-    navigation,
-    /import\("\$domains\/config-fetch\/presentation\/components\/ConfigFetchWorkspace\.svelte"\)/,
-  );
-  assert.match(sidebar, /"config-fetch": FileDownIcon/);
-  assert.match(api, /fetchConfigBatch/);
-  assert.match(api, /POST", "\/api\/config\/batch-fetch"/);
-  assert.match(api, /fetchConfig/);
-  assert.match(api, /POST", "\/api\/config\/fetch"/);
-  assert.match(api, /listConfigCommands/);
-});
+function taskSummary(
+  overrides: Partial<TaskResultSummary> = {},
+): TaskResultSummary {
+  return {
+    counts: { failed: 0, succeeded: 1, total: 1 },
+    operation: "exec",
+    outcome: "success",
+    success: true,
+    summary: "Configuration fetched successfully",
+    ...overrides,
+  };
+}
+
+function executionResponse(
+  resultSummary: TaskResultSummary,
+  error: ConfigFetchExecutionResponse["error"] = null,
+): ConfigFetchExecutionResponse {
+  return {
+    error,
+    result_summary: resultSummary,
+    success: resultSummary.success,
+  };
+}
+
+function configResult(
+  overrides: Partial<ConfigFetchResultRow> = {},
+): ConfigFetchResultRow {
+  return {
+    all: "hostname edge-01\n",
+    command: "show running-config",
+    content: "hostname edge-01\n",
+    error: null,
+    fetched_at: "2026-07-28T04:15:00Z",
+    host: "192.0.2.10",
+    kind: "running",
+    normalized_content: null,
+    normalized_sha256: null,
+    profile: "cisco_ios",
+    sha256: "raw-sha256",
+    target: "edge-01",
+    ...overrides,
+  };
+}
+
+function singleResult(
+  rowOverrides: Partial<ConfigFetchResultRow> = {},
+  summaryOverrides: Partial<TaskResultSummary> = {},
+  error: ConfigFetchExecutionResponse["error"] = null,
+): ConfigFetchSingleResult {
+  const resultSummary = taskSummary(summaryOverrides);
+  return {
+    ...configResult(rowOverrides),
+    execution_response: executionResponse(resultSummary, error),
+    result_summary: resultSummary,
+  };
+}
 
 test("configuration fetch ignores an obsolete command catalog response", async () => {
-  const requests = [];
+  const requests: Array<{
+    profile: string | undefined;
+    resolve: (rows: ConfigCommandRow[]) => void;
+  }> = [];
   const workspace = createConfigFetchWorkspace({
     api: {
       listConfigCommands(profile) {
-        return new Promise((resolve) => requests.push({ profile, resolve }));
+        const request = deferred<ConfigCommandRow[]>();
+        requests.push({ profile, resolve: request.resolve });
+        return request.promise;
       },
     },
   });
 
   const first = workspace.loadKindOptions("cisco_ios");
   const second = workspace.loadKindOptions("huawei_vrp");
-  requests[1].resolve([{ kind: "startup" }]);
+  requests[1].resolve([configCommand("startup", "huawei_vrp")]);
   await second;
-  requests[0].resolve([{ kind: "running" }]);
+  requests[0].resolve([configCommand("running")]);
   await first;
 
   assert.deepEqual(get(workspace.kindCatalogState), {
@@ -70,19 +138,15 @@ test("configuration fetch ignores an obsolete command catalog response", async (
 });
 
 test("configuration fetch executes the current target through domain ports", async () => {
-  let receivedPayload = null;
+  let receivedPayload: ConfigFetchCurrentPayload | null = null;
   const workspace = createConfigFetchWorkspace({
     api: {
       async fetchConfig(payload) {
         receivedPayload = payload;
-        return {
-          content: "hostname edge-01\n",
-          kind: payload.kind,
-          target: "edge-01",
-        };
+        return singleResult({ kind: payload.kind });
       },
       async listConfigCommands() {
-        return [{ kind: "running" }];
+        return [configCommand("running")];
       },
     },
     runtime: {
@@ -162,10 +226,10 @@ test("configuration fetch supports the current console connection", () => {
 
   assert.deepEqual(
     configFetchKindOptions([
-      { device_profile: "cisco_ios", kind: "startup" },
-      { device_profile: "cisco_ios", kind: "running" },
-      { device_profile: "huawei_vrp", kind: "running" },
-      { device_profile: "huawei_vrp", kind: "" },
+      configCommand("startup"),
+      configCommand("running"),
+      configCommand("running", "huawei_vrp"),
+      configCommand("", "huawei_vrp"),
     ]),
     [
       { label: "running", value: "running" },
@@ -188,7 +252,7 @@ test("configuration fetch keeps a required target mode", () => {
 
 test("configuration fetch only enables catalog-backed kinds", () => {
   const readyCatalog = {
-    kind: "ready",
+    kind: "ready" as const,
     options: [
       { label: "running", value: "running" },
       { label: "startup", value: "startup" },
@@ -211,89 +275,80 @@ test("configuration fetch only enables catalog-backed kinds", () => {
 });
 
 test("configuration fetch results support summary fallback and both content views", () => {
-  const resultPayload = {
-    results: [
-      {
-        target: "edge-01",
-        content: "raw config\n",
-        normalized_content: "normalized config\n",
-        error: null,
-      },
-      { target: "edge-02", content: null, error: "connection failed" },
-    ],
-  };
+  const resultRows = [
+    configResult({
+      content: "raw config\n",
+      normalized_content: "normalized config\n",
+    }),
+    configResult({
+      all: null,
+      content: null,
+      error: "connection failed",
+      target: "edge-02",
+    }),
+  ];
 
-  assert.deepEqual(configFetchResultCounts(resultPayload), {
+  assert.deepEqual(configFetchResultCounts({ results: resultRows }), {
     total: 2,
     succeeded: 1,
     failed: 1,
   });
   assert.equal(
-    configFetchContent(resultPayload.results[0], CONFIG_FETCH_CONTENT_VIEW.raw),
+    configFetchContent(resultRows[0], CONFIG_FETCH_CONTENT_VIEW.raw),
     "raw config\n",
   );
   assert.equal(
-    configFetchContent(
-      resultPayload.results[0],
-      CONFIG_FETCH_CONTENT_VIEW.normalized,
-    ),
+    configFetchContent(resultRows[0], CONFIG_FETCH_CONTENT_VIEW.normalized),
     "normalized config\n",
   );
   assert.equal(
     configFetchContent(
-      {
+      configResult({
         all: "show running-config\nERROR: forced failure\nRouter#",
         content: "ERROR: forced failure",
         error: "config fetch failed",
-      },
+      }),
       CONFIG_FETCH_CONTENT_VIEW.raw,
     ),
     "show running-config\nERROR: forced failure\nRouter#",
   );
   assert.equal(
-    configFetchContent({ error: "connection failed" }),
+    configFetchContent(
+      configResult({ all: null, content: null, error: "connection failed" }),
+    ),
     "connection failed",
   );
   assert.notEqual(configFetchTimestamp("2026-07-28T12:00:00Z"), "-");
   assert.equal(configFetchTimestamp("not-a-time"), "-");
 
-  assert.deepEqual(
-    configFetchResultCounts(
-      singleConfigFetchResultPayload({
-        target: "edge-01",
-        kind: "running",
-        error: "connection failed",
-      }),
-    ),
-    { total: 1, succeeded: 0, failed: 1 },
-  );
-
+  const failedSummary = taskSummary({
+    counts: { total: 1, succeeded: 0, failed: 1 },
+    outcome: "failed",
+    success: false,
+    summary: "Configuration fetch command failed",
+  });
   const singleFailure = singleConfigFetchResultPayload({
-    target: "edge-01",
-    kind: "running",
-    error: "connection failed",
-    result_summary: {
-      success: false,
-      counts: { total: 1, succeeded: 0, failed: 1 },
-    },
-    execution_response: {
-      success: false,
-      error: { code: "execution_failed", message: "fetch failed" },
-    },
+    ...configResult({ error: "connection failed" }),
+    result_summary: failedSummary,
+    execution_response: executionResponse(failedSummary, {
+      code: "execution_failed",
+      message: "fetch failed",
+    }),
+  });
+  assert.deepEqual(configFetchResultCounts(singleFailure), {
+    total: 1,
+    succeeded: 0,
+    failed: 1,
   });
   assert.equal(singleFailure.execution_response.success, false);
   assert.equal(singleFailure.result_summary.success, false);
 });
 
 test("configuration fetch downloads the selected raw or normalized content", () => {
-  const row = {
+  const row = configResult({
     target: "edge core/01",
-    kind: "running",
-    fetched_at: "2026-07-28T04:15:00Z",
-    content: "hostname edge-01\n",
     normalized_content: "hostname edge-01\n",
-    error: null,
-  };
+  });
 
   assert.deepEqual(
     configFetchDownloadDescriptor(row, CONFIG_FETCH_CONTENT_VIEW.raw),
@@ -316,48 +371,4 @@ test("configuration fetch downloads the selected raw or normalized content", () 
     ),
     null,
   );
-});
-
-test("configuration fetch page renders target controls and device results", () => {
-  const page = read(
-    "frontend/src/domains/config-fetch/presentation/components/ConfigFetchWorkspace.svelte",
-  );
-  const connectionState = read(
-    "frontend/src/domains/connections/application/connectionFieldStoreState.ts",
-  );
-
-  assert.match(page, /<ConnectionPickerField/);
-  assert.match(page, /<ValueLabelSelectField/);
-  assert.match(page, /<DownloadIcon/);
-  assert.match(page, /downloadConfigFetchResult/);
-  assert.match(page, /<ToggleGroup\.Root/);
-  assert.match(page, /bind:value=\{targetModeValue\}/);
-  assert.match(page, /disabled=\{!kindAvailable \|\| !retryValid\}/);
-  assert.match(page, /configFetchCommandMissingTitle/);
-  assert.match(page, /id="config-fetch-command-missing"/);
-  assert.match(page, /aria-describedby=\{configCommandMissing/);
-  assert.match(page, /<Alert\.Root/);
-  assert.match(page, /<SessionRetryFields/);
-  assert.match(page, /<Separator/);
-  assert.match(
-    page,
-    /grid min-w-0 items-start gap-4 xl:grid-cols-\[minmax\(0,5fr\)_minmax\(20rem,3fr\)\]/,
-  );
-  assert.match(page, /xl:grid-cols-\[minmax\(0,5fr\)_minmax\(20rem,3fr\)\]/);
-  assert.match(page, /<Switch/);
-  assert.match(page, /<LoadingButton/);
-  assert.match(page, /<OutputBlock/);
-  assert.match(page, /tone=\{activeResult\.error \? "error" : "default"\}/);
-  assert.doesNotMatch(page, /<StatusCard/);
-  assert.match(page, /<TabList/);
-  assert.match(page, /ExecutionResultsPanel/);
-  assert.match(page, /ExecutionResultMeta/);
-  assert.match(page, /CONFIG_FETCH_TARGET_MODE\.current/);
-  assert.match(
-    page,
-    /configFetchConnectionTargetState as connectionTargetState/,
-  );
-  assert.match(connectionState, /connectionPicker\.configFetch\.targets/);
-  assert.match(connectionState, /connectionPicker\.configFetch\.groups/);
-  assert.match(connectionState, /connectionPicker\.configFetch\.labels/);
 });

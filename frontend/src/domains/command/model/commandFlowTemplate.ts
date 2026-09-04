@@ -201,38 +201,23 @@ export function normalizeLoadedCommandFlowTemplateToml(tomlText = ""): string {
   return stringify(document);
 }
 
-function promptModel(value: unknown): Partial<CommandFlowTemplatePromptModel> {
-  return plainObject(value) ? value : {};
-}
-
-function stepModel(value: unknown): Partial<CommandFlowTemplateStepModel> {
-  return plainObject(value) ? value : {};
-}
-
 function commandFlowPromptDocumentFromModel(
-  value: unknown = {},
+  prompt: CommandFlowTemplatePromptModel,
 ): CommandFlowPromptDocument {
-  const prompt = promptModel(value);
   return {
-    patterns: Array.isArray(prompt.patterns)
-      ? prompt.patterns.map((pattern) => stringValue(pattern))
-      : [],
-    response: stringValue(prompt.response),
-    append_newline: !!prompt.appendNewline,
-    record_input: !!prompt.recordInput,
+    patterns: prompt.patterns,
+    response: prompt.response,
+    append_newline: prompt.appendNewline,
+    record_input: prompt.recordInput,
   };
 }
 
 function commandFlowStepDocumentFromModel(
-  value: unknown = {},
+  step: CommandFlowTemplateStepModel,
 ): CommandFlowStepDocument {
-  const step = stepModel(value);
   const document: CommandFlowStepDocument = {
-    command: stringValue(step.command),
-    multiline_mode: multilineModeValue(
-      step.multilineMode,
-      "step.multiline_mode",
-    ),
+    command: step.command,
+    multiline_mode: step.multilineMode,
     prompts: [],
   };
   if (step.hasMode || step.mode !== null) {
@@ -241,32 +226,27 @@ function commandFlowStepDocumentFromModel(
   if (step.hasTimeoutSecs || step.timeoutSecs !== null) {
     document.timeout_secs = step.timeoutSecs ?? 0;
   }
-  document.prompts = Array.isArray(step.prompts)
-    ? step.prompts.map(commandFlowPromptDocumentFromModel)
-    : [];
+  document.prompts = step.prompts.map(commandFlowPromptDocumentFromModel);
   return document;
 }
 
 export function commandFlowTemplateDocumentFromModel(
-  value: unknown = {},
+  model: CommandFlowTemplateModel,
 ): CommandFlowTemplateDocument {
-  const model = plainObject(value)
-    ? (value as Partial<CommandFlowTemplateModel>)
-    : {};
   const document: CommandFlowTemplateDocument = {
-    name: stringValue(model.name),
-    stop_on_error: model.stopOnError !== false,
+    name: model.name,
+    stop_on_error: model.stopOnError,
     steps: [],
   };
   if (model.hasDefaultMode || model.defaultMode !== null) {
     document.default_mode = model.defaultMode ?? "";
   }
-  document.steps = Array.isArray(model.steps)
-    ? model.steps.map(commandFlowStepDocumentFromModel)
-    : [];
+  document.steps = model.steps.map(commandFlowStepDocumentFromModel);
   return document;
 }
 
-export function commandFlowTemplateModelToToml(value: unknown = {}): string {
-  return stringify(commandFlowTemplateDocumentFromModel(value));
+export function commandFlowTemplateModelToToml(
+  model: CommandFlowTemplateModel,
+): string {
+  return stringify(commandFlowTemplateDocumentFromModel(model));
 }

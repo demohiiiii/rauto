@@ -4,14 +4,13 @@ import { safeString } from "../../../lib/ui.js";
 import { standardBatchApi } from "../infrastructure/standardBatchApi.js";
 import { standardBatchRuntime } from "../infrastructure/standardBatchRuntime.js";
 import {
-  batchFlowTemplatePayload,
   buildStandardBatchExecPayload,
   buildStandardBatchFlowPayload,
   newStandardBatchExecForm,
   newStandardBatchFlowForm,
-  normalizeBatchExecMaxParallel,
   parseBatchFlowVars,
 } from "../model/standardBatch.js";
+import type { SessionRetryState } from "$domains/execution/index.js";
 import type {
   StandardBatchExecField,
   StandardBatchExecForm,
@@ -48,12 +47,6 @@ export const batchFlowTemplateOptionsState = writable<
   StandardBatchTemplateOption[]
 >([]);
 
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : safeString(error);
 }
@@ -72,20 +65,22 @@ function hasTargets(selection: {
 
 export function setBatchExecField(
   field: StandardBatchExecField,
-  value: unknown,
+  value: string,
 ): void {
   batchExecFormState.update((form) => ({
     ...form,
-    [field]: safeString(value),
+    [field]: value,
   }));
 }
 
-export function setBatchExecRetry(retry: unknown = {}): void {
+export function setBatchExecRetry(
+  retry: Partial<SessionRetryState> = {},
+): void {
   batchExecFormState.update((form) => ({
     ...form,
     retry: {
       ...standardBatchRuntime.createRetryState(),
-      ...record(retry),
+      ...retry,
     },
   }));
 }
@@ -133,27 +128,32 @@ export async function executeBatchExecCommand(): Promise<void> {
 
 export function setBatchFlowField(
   field: StandardBatchFlowField,
-  value: unknown,
+  value: string,
 ): void {
   batchFlowFormState.update((form) => ({
     ...form,
-    [field]: safeString(value),
+    [field]: value,
   }));
 }
 
-export function setBatchFlowRetry(retry: unknown = {}): void {
+export function setBatchFlowRetry(
+  retry: Partial<SessionRetryState> = {},
+): void {
   batchFlowFormState.update((form) => ({
     ...form,
     retry: {
       ...standardBatchRuntime.createRetryState(),
-      ...record(retry),
+      ...retry,
     },
   }));
 }
 
-function templateOptions(items: unknown, builtin = false) {
-  return (Array.isArray(items) ? items : []).map((item) => {
-    const name = safeString(record(item).name);
+function templateOptions(
+  items: readonly { name: string }[],
+  builtin = false,
+): StandardBatchTemplateOption[] {
+  return items.map((item) => {
+    const name = item.name;
     const value = builtin ? `${BUILTIN_TEMPLATE_PREFIX}${name}` : name;
     return { labelText: value, valueText: value };
   });

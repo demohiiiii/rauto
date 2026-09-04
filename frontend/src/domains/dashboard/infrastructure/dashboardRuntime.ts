@@ -39,7 +39,7 @@ export const dashboardRuntime = {
   getDocumentLanguage(): string {
     return getDocumentLanguage();
   },
-  pushBrowserState(state: unknown, path: string): void {
+  pushBrowserState(state: object, path: string): void {
     pushBrowserState(state, path);
   },
   reloadBrowser(): void {
@@ -51,7 +51,7 @@ export const dashboardRuntime = {
   removeBodyClass(className: string): void {
     removeBodyClass(className);
   },
-  replaceBrowserState(state: unknown, path: string): void {
+  replaceBrowserState(state: object, path: string): void {
     replaceBrowserState(state, path);
   },
   storageSet(key: string, value: string): boolean {

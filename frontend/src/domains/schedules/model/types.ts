@@ -7,6 +7,7 @@ export type JsonObject = { [key: string]: JsonValue };
 export type ScheduleActionType = "orchestrate" | "config_fetch" | "tx_workflow";
 export type ScheduleOverlapPolicy = "allow" | "skip";
 export type ScheduleMisfirePolicy = "fire_once" | "skip";
+export type ScheduleTriggerType = "cron" | "manual";
 export type ScheduleRunStatus =
   | "queued"
   | "running"
@@ -54,25 +55,25 @@ export interface ScheduleDefinition {
 
 export interface StoredSchedule extends ScheduleDefinition {
   id: string;
-  next_run_at?: string | null;
-  last_run_at?: string | null;
-  created_at?: string;
-  updated_at?: string;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ScheduleRun {
   id: string;
-  schedule_id?: string;
-  schedule_name?: string;
-  task_id?: string | null;
-  trigger_type?: string;
-  scheduled_for?: string;
+  schedule_id: string;
+  schedule_name: string;
+  task_id: string | null;
+  trigger_type: ScheduleTriggerType;
+  scheduled_for: string;
   status: ScheduleRunStatus;
-  skip_reason?: string | null;
-  error?: string | null;
-  started_at?: string | null;
-  completed_at?: string | null;
-  created_at?: string;
+  skip_reason: string | null;
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
 }
 
 export interface ScheduleForm {
@@ -184,9 +185,14 @@ export interface SchedulePreviewResponse {
   next_runs: string[];
 }
 
+export interface ScheduleMutationResponse {
+  id: string;
+  changed: boolean;
+}
+
 export interface ScheduleApi {
   createSchedule(definition: ScheduleDefinition): Promise<StoredSchedule>;
-  deleteSchedule(id: string): Promise<unknown>;
+  deleteSchedule(id: string): Promise<ScheduleMutationResponse>;
   listConfigCommands(): Promise<ConfigCommand[]>;
   listConnections(): Promise<ScheduleConnection[]>;
   listInventoryGroups(): Promise<InventorySelector[]>;
@@ -197,8 +203,8 @@ export interface ScheduleApi {
   previewSchedule(
     request: SchedulePreviewRequest,
   ): Promise<SchedulePreviewResponse>;
-  runScheduleNow(id: string): Promise<unknown>;
-  setScheduleEnabled(id: string, enabled: boolean): Promise<unknown>;
+  runScheduleNow(id: string): Promise<ScheduleRun>;
+  setScheduleEnabled(id: string, enabled: boolean): Promise<StoredSchedule>;
   updateSchedule(
     id: string,
     definition: ScheduleDefinition,

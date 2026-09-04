@@ -1,4 +1,5 @@
 import type { Readable, Writable } from "svelte/store";
+import type { ConnectionRequestPayload } from "$domains/connections/index.js";
 
 export type TransferStatusTone =
   | "error"
@@ -22,26 +23,47 @@ export interface TransferState {
   uploadLoading: boolean;
 }
 
-export interface TransferConnectionPayload {
-  [key: string]: unknown;
+export type TransferConnectionPayload = ConnectionRequestPayload;
+export type TransferRecordLevel = "full" | "key-events-only";
+export type TransferJsonValue =
+  | boolean
+  | number
+  | string
+  | null
+  | TransferJsonValue[]
+  | { [key: string]: TransferJsonValue };
+
+export interface TransferResultSummary {
+  counts?: {
+    failed: number;
+    skipped?: number;
+    succeeded: number;
+    total: number;
+  };
+  details?: TransferJsonValue;
+  operation: string;
+  outcome: string;
+  recording_available?: boolean;
+  success: boolean;
+  summary: string;
 }
 
 export interface TransferUploadPayload {
   buffer_size: number | null;
   connection: TransferConnectionPayload;
   local_path: string;
-  record_level: string;
+  record_level: TransferRecordLevel;
   remote_path: string;
   show_progress: boolean;
   timeout_secs: number;
 }
 
 export interface TransferUploadResult {
-  local_path?: string | null;
-  ok?: boolean;
-  recording_jsonl?: string | null;
-  remote_path?: string | null;
-  [key: string]: unknown;
+  local_path: string;
+  ok: boolean;
+  recording_jsonl: string | null;
+  remote_path: string;
+  result_summary: TransferResultSummary;
 }
 
 export interface TransferInputFieldDisplay {
@@ -82,7 +104,7 @@ export interface TransferRuntime {
   applyRecording(result: TransferUploadResult): void;
   connectionPayload(): TransferConnectionPayload;
   ensureConnectionTargetSelected(): boolean;
-  recordLevelPayload(): string;
+  recordLevelPayload(): TransferRecordLevel;
 }
 
 export interface TransferWorkspaceOptions {

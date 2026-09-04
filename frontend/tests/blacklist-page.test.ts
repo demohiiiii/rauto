@@ -6,7 +6,7 @@ import {
   createBlacklistPageWorkspace,
   newBlacklistState,
   normalizeBlacklistPatterns,
-} from "../src/domains/blacklist/index.ts";
+} from "../src/domains/blacklist/index.js";
 
 test("blacklist model normalizes API entries and legacy string rows", () => {
   assert.deepEqual(
@@ -53,9 +53,9 @@ test("blacklist workspace loads patterns once after first activation", async () 
 
 test("blacklist workspace adds, checks, and deletes patterns through its ports", async () => {
   const patterns = ["reload*"];
-  const added = [];
-  const checked = [];
-  const deleted = [];
+  const added: string[] = [];
+  const checked: string[] = [];
+  const deleted: string[] = [];
   const workspace = createBlacklistPageWorkspace({
     api: {
       async addPattern(pattern) {

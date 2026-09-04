@@ -1,5 +1,6 @@
 import type {
   TransferConnectionPayload,
+  TransferRecordLevel,
   TransferState,
   TransferStatusTone,
   TransferUploadPayload,
@@ -63,7 +64,7 @@ export function setTransferStatus(
 export function transferUploadPayload(
   state: TransferState,
   connection: TransferConnectionPayload,
-  recordLevel: string,
+  recordLevel: TransferRecordLevel,
 ): TransferUploadPayload {
   const timeoutRaw = Number(state.timeoutSecs || 300);
   const bufferInput = state.bufferSize.trim();

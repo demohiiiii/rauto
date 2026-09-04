@@ -13,13 +13,10 @@ export const dashboardApi = {
   getAgentApiToken(): string {
     return getAgentApiToken();
   },
-  async getAgentInfo(): Promise<DashboardAgentInfo> {
-    const payload: unknown = await getAgentInfo();
-    return payload && typeof payload === "object"
-      ? (payload as DashboardAgentInfo)
-      : {};
+  getAgentInfo(): Promise<DashboardAgentInfo> {
+    return getAgentInfo();
   },
-  logoutWeb(): Promise<unknown> {
+  logoutWeb(): ReturnType<typeof logoutWeb> {
     return logoutWeb();
   },
   setAgentApiToken(token: string): void {

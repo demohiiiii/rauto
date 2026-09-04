@@ -21,8 +21,8 @@
   }
 
   interface Props {
-    onModeChange: (mode: string) => unknown;
-    onObjectChange: () => unknown;
+    onModeChange: (mode: string) => void | Promise<void>;
+    onObjectChange: () => void | Promise<void>;
     selectionDisplay: ShowObjectSelectionDisplay;
     showSelectionFields: ShowSelectionFields;
   }
@@ -40,7 +40,7 @@
   });
 </script>
 
-{#snippet previewField(label: string, detailValue: unknown, mono = false)}
+{#snippet previewField(label: string, detailValue: string, mono = false)}
   <DetailFieldCard
     detailValue={safeString(detailValue)}
     {label}

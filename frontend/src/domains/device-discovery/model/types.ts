@@ -8,6 +8,27 @@ export type DiscoveryResultFilter =
   | "imported"
   | "reachable"
   | "ready";
+export type DiscoveryRunStatus =
+  | "cancelled"
+  | "cancelling"
+  | "completed"
+  | "failed"
+  | "queued"
+  | "running";
+export type DiscoveryRunPhase =
+  | "cancelled"
+  | "completed"
+  | "failed"
+  | "queued"
+  | "ssh_probe"
+  | "tcp_scan";
+export type DiscoveryResultStatus =
+  | "cancelled"
+  | "identified"
+  | "not_ssh"
+  | "probe_failed"
+  | "reachable"
+  | "unreachable";
 export type DiscoveryBadgeVariant =
   | "default"
   | "destructive"
@@ -15,43 +36,43 @@ export type DiscoveryBadgeVariant =
   | "secondary";
 
 export interface DiscoveryRun {
-  completed_at_ms?: number | null;
+  completed_at_ms: number | null;
   concurrency: number;
   created_at_ms: number;
   credential_ids: string[];
   default_groups: string[];
   default_labels: string[];
-  error?: string | null;
+  error: string | null;
   failed_count: number;
   id: string;
   identified_count: number;
-  phase: string;
+  phase: DiscoveryRunPhase;
   ports: number[];
   probe_timeout_secs: number;
   probed_targets: number;
   reachable_count: number;
   scanned_targets: number;
-  started_at_ms?: number | null;
-  status: string;
+  started_at_ms: number | null;
+  status: DiscoveryRunStatus;
   targets: string[];
   tcp_timeout_ms: number;
   total_targets: number;
 }
 
 export interface DiscoveryResult {
-  credential_id?: string | null;
-  device_model?: string | null;
-  device_profile?: string | null;
-  error?: string | null;
-  existing_connection_name?: string | null;
+  credential_id: string | null;
+  device_model: string | null;
+  device_profile: string | null;
+  error: string | null;
+  existing_connection_name: string | null;
   host: string;
-  imported_connection_name?: string | null;
-  latency_ms?: number | null;
+  imported_connection_name: string | null;
+  latency_ms: number | null;
   port: number;
-  run_id?: string;
-  software_version?: string | null;
-  status: string;
-  updated_at_ms?: number;
+  run_id: string;
+  software_version: string | null;
+  status: DiscoveryResultStatus;
+  updated_at_ms: number;
 }
 
 export interface DiscoveryRunDetail {
@@ -137,10 +158,20 @@ export interface ImportDiscoveryItem {
 }
 
 export interface ImportDiscoverySummary {
-  created: number | string;
-  failed: number | string;
-  updated: number | string;
-  [key: string]: unknown;
+  created: number;
+  failed: number;
+  results: ImportDiscoveryResultResponse[];
+  skipped: number;
+  total: number;
+  updated: number;
+}
+
+export interface ImportDiscoveryResultResponse {
+  connection_name: string;
+  error: string | null;
+  host: string;
+  port: number;
+  status: string;
 }
 
 export interface DeviceDiscoveryApi {

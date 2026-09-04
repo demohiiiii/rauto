@@ -3,9 +3,9 @@ import { setConnectionDeviceProfiles } from "$domains/connections/index.js";
 let cachedDeviceProfiles: string[] = [];
 let customShowObjectsChangedHandler: (() => void | Promise<void>) | null = null;
 
-function normalizeProfileNames(profiles: unknown): string[] {
-  return (Array.isArray(profiles) ? profiles : [])
-    .map((name) => String(name || "").trim())
+function normalizeProfileNames(profiles: string[]): string[] {
+  return profiles
+    .map((name) => name.trim())
     .filter((name, index, values) => !!name && values.indexOf(name) === index);
 }
 
@@ -23,7 +23,7 @@ export function getCachedDeviceProfiles(): string[] {
   return cachedDeviceProfiles;
 }
 
-export function setCachedDeviceProfiles(profiles: unknown): string[] {
+export function setCachedDeviceProfiles(profiles: string[]): string[] {
   cachedDeviceProfiles = normalizeProfileNames(profiles);
   setConnectionDeviceProfiles(cachedDeviceProfiles);
   return cachedDeviceProfiles;

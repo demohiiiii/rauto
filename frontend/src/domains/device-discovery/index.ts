@@ -22,6 +22,12 @@ export type {
   DiscoveryFormState,
   DiscoveryResult,
   DiscoveryResultFilter,
+  DiscoveryResultStatus,
   DiscoveryRun,
   DiscoveryRunDetail,
+  DiscoveryRunPhase,
+  DiscoveryRunStatus,
+  ImportDiscoveryItem,
+  ImportDiscoverySummary,
+  CreateDiscoveryRunPayload,
 } from "./model/types.js";

@@ -3,7 +3,6 @@ import {
   browserSetTimeout,
 } from "../../../lib/browser.js";
 import { createLazyComponentRegistry } from "../../../lib/svelte.js";
-import { dashboardDetailRendererDefinitions } from "$domains/dashboard/model/navigation.js";
 import type {
   OverlayData,
   OverlayDetailRendererDefinitions,
@@ -11,8 +10,13 @@ import type {
   OverlayOrchestrationDetailDisplay,
 } from "../model/types.js";
 
-export const overlayDetailRendererDefinitions =
-  dashboardDetailRendererDefinitions as OverlayDetailRendererDefinitions;
+export const overlayDetailRendererDefinitions: OverlayDetailRendererDefinitions =
+  {
+    orchestrationStageDetail: () =>
+      import("$domains/orchestration/presentation/components/result/OrchestrationStageDetailPanel.svelte"),
+    orchestrationTargetDetail: () =>
+      import("$domains/orchestration/presentation/components/result/OrchestrationTargetDetailPanel.svelte"),
+  };
 
 export const overlayDetailRuntime = {
   clearTimeout(timer: number): void {

@@ -16,8 +16,8 @@ import type {
   StandardFlowTemplateDetail,
 } from "../model/types.js";
 
-function normalizedName(value: unknown = ""): string {
-  return String(value || "").trim();
+function normalizedName(value = ""): string {
+  return value.trim();
 }
 
 function errorMessage(error: unknown): string {
@@ -28,7 +28,7 @@ function errorMessage(error: unknown): string {
 }
 
 function templateContent(detail: StandardFlowTemplateDetail): string {
-  return typeof detail.content === "string" ? detail.content : "";
+  return detail.content;
 }
 
 function defaultSelection(): StandardFlowSelection {
@@ -37,13 +37,21 @@ function defaultSelection(): StandardFlowSelection {
 
 export function createStandardCommandFlowAuthoringState({
   confirmDiscard = () => true,
-  createTemplate = async () => undefined,
-  getTemplate = async () => ({}),
-  inspectTemplate = async () => ({}),
+  createTemplate = async (name, content) => ({ name, content }),
+  getTemplate = async (name) => ({
+    name,
+    content: "",
+    vars_schema: [],
+  }),
+  inspectTemplate = async (content) => ({
+    name: "",
+    content,
+    vars_schema: [],
+  }),
   onInspection = () => {},
   parseBuiltinSelection = () => null,
-  refreshTemplates = async () => undefined,
-  updateTemplate = async () => undefined,
+  refreshTemplates = async () => {},
+  updateTemplate = async (name, content) => ({ name, content }),
 }: StandardFlowAuthoringOptions = {}): StandardCommandFlowAuthoringState {
   const draft = createCommandFlowDraftWorkspace();
   draft.markClean();
@@ -145,7 +153,7 @@ export function createStandardCommandFlowAuthoringState({
     return performInspection(version, get(draft.tomlTextStateStore));
   }
 
-  function classifySelection(value: unknown = ""): StandardFlowSelection {
+  function classifySelection(value = ""): StandardFlowSelection {
     const normalized = normalizedName(value);
     if (!normalized) return defaultSelection();
     const builtinName = parseBuiltinSelection(normalized);
@@ -167,7 +175,7 @@ export function createStandardCommandFlowAuthoringState({
 
   function applyLoadedDetail(
     selection: StandardFlowSelection,
-    detail: StandardFlowTemplateDetail = {},
+    detail: StandardFlowTemplateDetail,
   ): void {
     const content = normalizeLoadedCommandFlowTemplateToml(
       templateContent(detail),
@@ -183,7 +191,7 @@ export function createStandardCommandFlowAuthoringState({
     selectionStateStore.set(selection);
   }
 
-  async function selectTemplate(value: unknown = ""): Promise<boolean> {
+  async function selectTemplate(value = ""): Promise<boolean> {
     if (!(await allowReplacement())) return false;
     const selection = classifySelection(value);
     const version = ++loadVersion;
@@ -216,7 +224,7 @@ export function createStandardCommandFlowAuthoringState({
     }
   }
 
-  function createNewDraft(name: unknown = ""): boolean {
+  function createNewDraft(name = ""): boolean {
     const templateName = normalizedName(name);
     if (!templateName) return false;
     loadVersion += 1;
@@ -293,7 +301,7 @@ export function createStandardCommandFlowAuthoringState({
     }
   }
 
-  async function saveAs(name: unknown = ""): Promise<boolean> {
+  async function saveAs(name = ""): Promise<boolean> {
     const actions = get(actionStateStore);
     const targetName = normalizedName(name);
     if (!actions.canSaveAs || !targetName) {
@@ -350,11 +358,11 @@ export function createStandardCommandFlowAuthoringState({
     nameDialogStateStore.update((state) => ({ ...state, open: false }));
   }
 
-  function setNameDialogValue(value: unknown = ""): void {
+  function setNameDialogValue(value = ""): void {
     nameDialogStateStore.update((state) => ({
       ...state,
       errorMessage: "",
-      value: String(value || ""),
+      value,
     }));
   }
 

@@ -5,7 +5,6 @@ import { backupRuntime } from "../infrastructure/backupRuntime.js";
 import {
   backupArchiveRowOperationRequest,
   newBackupState,
-  normalizeBackupItems,
   selectBackupItem,
   selectBackupItemByIndex,
   selectedBackupName,
@@ -80,7 +79,7 @@ export function createBackupPageWorkspace(
 
   async function loadBackups(state: BackupState): Promise<void> {
     try {
-      state.backups = normalizeBackupItems(await api.listBackups());
+      state.backups = await api.listBackups();
     } catch (error) {
       state.backups = [];
       setBackupStatus(state, errorMessage(error), "error");
@@ -118,7 +117,7 @@ export function createBackupPageWorkspace(
     }
     try {
       const payload = await api.downloadBackupBlob(name);
-      runtime.download(payload.blob, payload.filename || name);
+      runtime.download(payload.blob, payload.filename);
     } catch (error) {
       setBackupStatus(state, errorMessage(error), "error");
     }

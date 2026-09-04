@@ -1,38 +1,82 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
-import { createStandardCommandFlowAuthoringState } from "../src/domains/standard/index.ts";
 
-function templateContent(name, command = "show version") {
+import { createStandardCommandFlowAuthoringState } from "../src/domains/standard/index.js";
+import type {
+  StandardCommandFlowAuthoringState,
+  StandardCommandVariableField,
+  StandardFlowAuthoringOptions,
+  StandardFlowTemplateDetail,
+  StandardTemplateDetail,
+} from "../src/domains/standard/index.js";
+
+interface TemplateWriteCall {
+  content: string;
+  name: string;
+}
+
+interface AuthoringHarness {
+  calls: {
+    create: TemplateWriteCall[];
+    inspect: string[];
+    refresh: number;
+    update: TemplateWriteCall[];
+  };
+  details: {
+    builtin: StandardFlowTemplateDetail;
+    custom: StandardFlowTemplateDetail;
+  };
+  inspections: Array<StandardFlowTemplateDetail | null>;
+  state: StandardCommandFlowAuthoringState;
+}
+
+function templateContent(name: string, command = "show version"): string {
   return `name = "${name}"
 [[steps]]
 command = "${command}"
 `;
 }
 
-function createHarness(overrides = {}) {
+function variableField(name: string): StandardCommandVariableField {
+  return {
+    allow_empty: false,
+    default: null,
+    description: null,
+    label: name,
+    name,
+    options: [],
+    placeholder: null,
+    required: true,
+    type: "string",
+  };
+}
+
+function createHarness(
+  overrides: Partial<StandardFlowAuthoringOptions> = {},
+): AuthoringHarness {
   const calls = {
-    create: [],
-    inspect: [],
+    create: [] as TemplateWriteCall[],
+    inspect: [] as string[],
     refresh: 0,
-    update: [],
+    update: [] as TemplateWriteCall[],
   };
   const details = {
     custom: {
       content: templateContent("custom"),
       name: "custom",
-      vars_schema: [{ name: "site" }],
+      vars_schema: [variableField("site")],
     },
     builtin: {
       content: templateContent("builtin"),
       name: "builtin",
-      vars_schema: [{ name: "target" }],
+      vars_schema: [variableField("target")],
     },
-  };
-  const inspections = [];
+  } satisfies AuthoringHarness["details"];
+  const inspections: Array<StandardFlowTemplateDetail | null> = [];
   const state = createStandardCommandFlowAuthoringState({
     confirmDiscard: () => true,
-    createTemplate: async (name, content) => {
+    createTemplate: async (name, content): Promise<StandardTemplateDetail> => {
       calls.create.push({ content, name });
       return { content, name };
     },
@@ -40,7 +84,11 @@ function createHarness(overrides = {}) {
       builtin ? details.builtin : { ...details.custom, name },
     inspectTemplate: async (content) => {
       calls.inspect.push(content);
-      return { content, vars_schema: [{ name: "inspected" }] };
+      return {
+        content,
+        name: "inspected",
+        vars_schema: [variableField("inspected")],
+      };
     },
     onInspection: (detail) => inspections.push(detail),
     parseBuiltinSelection: (value) =>
@@ -48,7 +96,7 @@ function createHarness(overrides = {}) {
     refreshTemplates: async () => {
       calls.refresh += 1;
     },
-    updateTemplate: async (name, content) => {
+    updateTemplate: async (name, content): Promise<StandardTemplateDetail> => {
       calls.update.push({ content, name });
       return { content, name };
     },
@@ -70,7 +118,7 @@ test("selected custom template loads into one clean visual and TOML draft", asyn
   assert.equal(get(state.draft.modelStateStore).name, "custom");
   assert.match(get(state.draft.tomlTextStateStore), /name = "custom"/);
   assert.equal(state.draft.isDirty(), false);
-  assert.deepEqual(inspections.at(-1).vars_schema, [{ name: "site" }]);
+  assert.deepEqual(inspections.at(-1)?.vars_schema, [variableField("site")]);
 });
 
 test("built-in templates run current content but cannot overwrite", async () => {
@@ -153,7 +201,7 @@ test("custom save overwrites selection while save-as creates a new template", as
   assert.match(calls.update[0].content, /command = "show clock"/);
 
   assert.equal(await state.saveAs("custom-copy"), true);
-  assert.equal(calls.create.at(-1).name, "custom-copy");
+  assert.equal(calls.create.at(-1)?.name, "custom-copy");
   assert.equal(get(state.selectionStateStore).value, "custom-copy");
   assert.equal(get(state.draft.modelStateStore).name, "custom-copy");
 });
@@ -171,21 +219,29 @@ test("dirty confirmation cancellation preserves selection and draft", async () =
 });
 
 test("stale template loads cannot replace the latest selection", async () => {
-  let releaseFirst;
-  const first = new Promise((resolve) => {
+  let releaseFirst!: (detail: StandardFlowTemplateDetail) => void;
+  const first = new Promise<StandardFlowTemplateDetail>((resolve) => {
     releaseFirst = resolve;
   });
   const { state } = createHarness({
     getTemplate: async (name) => {
       if (name === "first") return first;
-      return { content: templateContent("second"), name: "second" };
+      return {
+        content: templateContent("second"),
+        name: "second",
+        vars_schema: [],
+      };
     },
   });
 
   const firstLoad = state.selectTemplate("first");
   const secondLoad = state.selectTemplate("second");
   assert.equal(await secondLoad, true);
-  releaseFirst({ content: templateContent("first"), name: "first" });
+  releaseFirst({
+    content: templateContent("first"),
+    name: "first",
+    vars_schema: [],
+  });
   assert.equal(await firstLoad, false);
 
   assert.equal(get(state.selectionStateStore).value, "second");
@@ -207,5 +263,5 @@ test("name dialog validates and dispatches new or save-as actions", async () => 
   state.openSaveAsDialog();
   state.setNameDialogValue("dialog-copy");
   assert.equal(await state.submitNameDialog(), true);
-  assert.equal(calls.create.at(-1).name, "dialog-copy");
+  assert.equal(calls.create.at(-1)?.name, "dialog-copy");
 });

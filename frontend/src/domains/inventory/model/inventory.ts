@@ -7,7 +7,6 @@ import type {
   InventorySection,
   InventoryState,
   InventoryValueHandler,
-  SavedConnectionSummary,
 } from "./types.js";
 
 export function newInventoryCollectionState(): InventoryCollectionState {
@@ -32,7 +31,7 @@ export function newInventoryState(): InventoryState {
   };
 }
 
-export function normalizeInventorySection(value: unknown): InventorySection {
+export function normalizeInventorySection(value: string): InventorySection {
   return value === "groups" || value === "labels" ? value : "devices";
 }
 
@@ -43,21 +42,11 @@ export function collectionFor(
   return kind === "labels" ? state.labels : state.groups;
 }
 
-export function normalizeInventoryItems(payload: unknown): InventoryItem[] {
-  return Array.isArray(payload) ? (payload as InventoryItem[]) : [];
-}
-
-export function normalizeSavedConnections(
-  payload: unknown,
-): SavedConnectionSummary[] {
-  return Array.isArray(payload) ? (payload as SavedConnectionSummary[]) : [];
-}
-
-export function normalizeHostNames(values: Iterable<unknown> = []): string[] {
+export function normalizeHostNames(values: Iterable<string> = []): string[] {
   return Array.from(
     new Set(
       Array.from(values)
-        .map((value) => String(value ?? "").trim())
+        .map((value) => value.trim())
         .filter(Boolean),
     ),
   ).sort((left, right) => left.localeCompare(right));

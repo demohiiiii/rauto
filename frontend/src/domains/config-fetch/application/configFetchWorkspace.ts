@@ -39,14 +39,10 @@ export const EMPTY_CONFIG_FETCH_RESULT = Object.freeze({
   kind: "empty" as const,
 });
 
-function safeString(value: unknown): string {
-  return value == null ? "" : String(value);
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message.trim() || t("requestFailed")
-    : safeString(error).trim() || t("requestFailed");
+    : String(error ?? "").trim() || t("requestFailed");
 }
 
 export function createConfigFetchWorkspace(
@@ -77,16 +73,9 @@ export function createConfigFetchWorkspace(
 
   function setField<K extends keyof ConfigFetchForm>(
     field: K,
-    value: ConfigFetchForm[K] | unknown,
+    value: ConfigFetchForm[K],
   ): void {
-    formState.update(
-      (form) =>
-        ({
-          ...form,
-          [field]:
-            field === "includeNormalized" ? Boolean(value) : safeString(value),
-        }) as ConfigFetchForm,
-    );
+    formState.update((form) => ({ ...form, [field]: value }));
   }
 
   function setRetry(retry: Partial<SessionRetryState> = {}): void {
@@ -98,7 +87,7 @@ export function createConfigFetchWorkspace(
 
   async function loadKindOptions(profile = ""): Promise<void> {
     const requestSequence = ++catalogRequestSequence;
-    const requestedProfile = safeString(profile).trim();
+    const requestedProfile = profile.trim();
     const catalogProfile =
       requestedProfile === "autodetect" ? "" : requestedProfile;
     kindCatalogState.set({
@@ -116,7 +105,7 @@ export function createConfigFetchWorkspace(
         options,
         profile: requestedProfile,
       });
-      const selectedKind = safeString(get(formState).kind).trim();
+      const selectedKind = get(formState).kind.trim();
       if (!options.some((option) => option.value === selectedKind)) {
         setField(
           "kind",
@@ -163,28 +152,39 @@ export function createConfigFetchWorkspace(
       return;
     }
 
-    let payload;
+    let request:
+      | {
+          mode: "current";
+          payload: ReturnType<typeof buildCurrentPayload>;
+        }
+      | { mode: "batch"; payload: ReturnType<typeof buildBatchPayload> };
     try {
       const retryFields = runtime.retryRequestFields(form.retry);
-      payload =
+      request =
         targetMode === CONFIG_FETCH_TARGET_MODE.current
-          ? buildCurrentPayload(
-              form,
-              runtime.connectionPayload(),
-              runtime.recordLevelPayload(),
-              retryFields,
-            )
-          : buildBatchPayload(
-              form,
-              runtime.targetSelections(),
-              runtime.recordLevelPayload(),
-              retryFields,
-            );
+          ? {
+              mode: "current",
+              payload: buildCurrentPayload(
+                form,
+                runtime.connectionPayload(),
+                runtime.recordLevelPayload(),
+                retryFields,
+              ),
+            }
+          : {
+              mode: "batch",
+              payload: buildBatchPayload(
+                form,
+                runtime.targetSelections(),
+                runtime.recordLevelPayload(),
+                retryFields,
+              ),
+            };
     } catch (error) {
       resultState.set({ kind: "error", message: errorMessage(error) });
       return;
     }
-    if (!payload.kind) {
+    if (!request.payload.kind) {
       resultState.set({
         kind: "error",
         message: t("configFetchKindRequired"),
@@ -192,11 +192,10 @@ export function createConfigFetchWorkspace(
       return;
     }
     if (
-      targetMode === CONFIG_FETCH_TARGET_MODE.batch &&
-      "targets" in payload &&
-      !payload.targets.length &&
-      !payload.groups.length &&
-      !payload.labels.length
+      request.mode === "batch" &&
+      !request.payload.targets.length &&
+      !request.payload.groups.length &&
+      !request.payload.labels.length
     ) {
       resultState.set({
         kind: "error",
@@ -208,15 +207,11 @@ export function createConfigFetchWorkspace(
     resultState.set({ kind: "running" });
     try {
       const resultPayload =
-        targetMode === CONFIG_FETCH_TARGET_MODE.current
+        request.mode === "current"
           ? singleConfigFetchResultPayload(
-              await api.fetchConfig(
-                payload as ReturnType<typeof buildCurrentPayload>,
-              ),
+              await api.fetchConfig(request.payload),
             )
-          : await api.fetchConfigBatch(
-              payload as ReturnType<typeof buildBatchPayload>,
-            );
+          : await api.fetchConfigBatch(request.payload);
       resultState.set({ kind: "result", resultPayload });
     } catch (error) {
       resultState.set({ kind: "error", message: errorMessage(error) });
@@ -250,7 +245,7 @@ export const setConfigFetchField = configFetchWorkspace.setField;
 export const setConfigFetchRetry = configFetchWorkspace.setRetry;
 
 export function configFetchContent(
-  row: ConfigFetchResultRow = {},
+  row: ConfigFetchResultRow,
   view: ConfigFetchContentView = CONFIG_FETCH_CONTENT_VIEW.raw,
 ): string {
   return presentConfigFetchContent(
@@ -261,7 +256,7 @@ export function configFetchContent(
 }
 
 export function downloadConfigFetchResult(
-  row: ConfigFetchResultRow = {},
+  row: ConfigFetchResultRow,
   view: ConfigFetchContentView = CONFIG_FETCH_CONTENT_VIEW.raw,
 ): boolean {
   const descriptor = configFetchDownloadDescriptor(row, view);

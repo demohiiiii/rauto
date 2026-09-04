@@ -24,7 +24,7 @@ function targetSelection(
   };
 }
 
-export const standardBatchRuntime = {
+export const standardBatchRuntime: StandardBatchRuntime = {
   batchExecTargets: () =>
     targetSelection(
       CONNECTION_PICKER.batchExecTargets,
@@ -40,4 +40,4 @@ export const standardBatchRuntime = {
   createRetryState: createSessionRetryState,
   recordLevelPayload,
   retryRequestFields: sessionRetryRequestFields,
-} as StandardBatchRuntime;
+};

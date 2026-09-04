@@ -2,6 +2,7 @@
   import * as Select from "$lib/components/ui/select/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Textarea } from "$lib/components/ui/textarea/index.js";
+  import { isCredentialAuthType } from "../../index.js";
   import type { CredentialForm } from "../../index.js";
   import { t } from "$lib/i18n.js";
 
@@ -35,7 +36,7 @@
 
   function setAuthType(value: string): void {
     patchForm({
-      authType: value || "password",
+      authType: isCredentialAuthType(value) ? value : "password",
       hasAuthSecret: false,
       hasPassphrase: false,
       passphrase: "",

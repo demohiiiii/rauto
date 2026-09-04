@@ -1,41 +1,102 @@
 import type { Readable, Writable } from "svelte/store";
 
-export interface ReplayEvent {
-  all?: unknown;
-  command?: unknown;
-  content?: unknown;
-  device_addr?: unknown;
-  fsm_prompt_after?: unknown;
-  fsm_prompt_before?: unknown;
-  kind?: unknown;
-  mode?: unknown;
-  prompt_after?: unknown;
-  prompt_before?: unknown;
-  reason?: unknown;
-  success?: boolean;
-  [key: string]: unknown;
+export type ReplayJsonValue =
+  | boolean
+  | number
+  | string
+  | null
+  | ReplayJsonValue[]
+  | ReplayJsonObject;
+
+export interface ReplayJsonObject {
+  [key: string]: ReplayJsonValue | undefined;
 }
 
-export interface ReplayEntry {
-  event?: ReplayEvent | null;
-  [key: string]: unknown;
+export type ReplayEventKind =
+  | "command_output"
+  | "connection_closed"
+  | "connection_established"
+  | "file_upload_finished"
+  | "file_upload_started"
+  | "hook_failed"
+  | "hook_started"
+  | "hook_succeeded"
+  | "prompt_changed"
+  | "raw_chunk"
+  | "state_changed"
+  | "tx_block_finished"
+  | "tx_block_started"
+  | "tx_rollback_started"
+  | "tx_rollback_step_failed"
+  | "tx_rollback_step_succeeded"
+  | "tx_step_failed"
+  | "tx_step_succeeded"
+  | "tx_workflow_finished"
+  | "tx_workflow_started";
+
+export interface ReplayOperationStepOutput extends ReplayJsonObject {
+  all: string;
+  content: string;
+  exit_code: number | null;
+  mode: string;
+  operation_summary: string;
+  prompt: string | null;
+  step_index: number;
+  success: boolean;
+}
+
+export interface ReplayEvent extends ReplayJsonObject {
+  all?: string;
+  block_name?: string;
+  command?: string;
+  committed?: boolean;
+  content?: string;
+  data?: string;
+  device_addr?: string;
+  error?: string | null;
+  exit_code?: number | null;
+  fsm_prompt_after?: string;
+  fsm_prompt_before?: string | null;
+  hook_name?: string;
+  kind: ReplayEventKind;
+  local_path?: string;
+  mode?: string;
+  operation_steps?: ReplayOperationStepOutput[];
+  operation_summary?: string;
+  output_summary?: string | null;
+  prompt?: string;
+  prompt_after?: string | null;
+  prompt_before?: string | null;
+  reason?: string;
+  remote_path?: string;
+  rollback_attempted?: boolean;
+  rollback_succeeded?: boolean;
+  state?: string | null;
+  step_index?: number | null;
+  success?: boolean;
+  total_blocks?: number;
+  trigger?: string;
+  workflow_name?: string;
+}
+
+export interface ReplayEntry extends ReplayJsonObject {
+  event: ReplayEvent;
+  ts_ms: number;
 }
 
 export interface ReplayResult {
-  context?: {
-    device_addr?: unknown;
-    fsm_prompt?: unknown;
-    prompt?: unknown;
-    [key: string]: unknown;
+  context: {
+    device_addr: string;
+    fsm_prompt: string;
+    prompt: string;
   } | null;
-  entries?: ReplayEntry[] | null;
-  output?: {
-    content?: unknown;
-    prompt?: unknown;
-    success?: boolean;
-    [key: string]: unknown;
+  entries: ReplayEntry[];
+  output: {
+    all: string;
+    content: string;
+    prompt: string | null;
+    success: boolean;
   } | null;
-  [key: string]: unknown;
 }
 
 export interface ReplayState {
@@ -124,6 +185,40 @@ export interface ReplayStatCard {
   statValue: string;
 }
 
+export interface ReplayEventFlowDisplay {
+  after: string;
+  afterCardClass: string;
+  afterLabel: string;
+  before: string;
+  beforeCardClass: string;
+  beforeLabel: string;
+  markerDotClass: string;
+  markerLineClass: string;
+}
+
+export interface ReplayEntryRow {
+  commandText: string;
+  detailButtonLabel: string;
+  entryIndex: number;
+  fsmPromptFlow: ReplayEventFlowDisplay;
+  indexText: string;
+  kindText: string;
+  modeText: string;
+  promptAfter: string;
+  promptBefore: string;
+  promptFlow: ReplayEventFlowDisplay;
+  rowClass: string;
+  showSuccessBadge: boolean;
+  showSuccessEmpty: boolean;
+  success: boolean;
+  successBadgeClass: string;
+  successLabelText: string;
+}
+
+export interface ReplayTableHeaderCell {
+  labelText: string;
+}
+
 export interface ReplayResultsDisplay {
   contextTitle: string;
   emptyReplayText: string;
@@ -139,9 +234,9 @@ export interface ReplayResultsDisplay {
   outputTitle: string;
   rawResultText: string;
   replayContextRows: ReplayContextRow[];
-  replayEntryRows: unknown[];
+  replayEntryRows: ReplayEntryRow[];
   replayStatCards: ReplayStatCard[];
-  replayTableHeaderCells: unknown[];
+  replayTableHeaderCells: ReplayTableHeaderCell[];
   showListMode: boolean;
   showRawMode: boolean;
   statusText: string;
@@ -153,13 +248,15 @@ export interface ReplayPageDisplay {
   resultsDisplay: ReplayResultsDisplay;
 }
 
+export interface ReplayRequest {
+  command?: string;
+  jsonl: string;
+  list?: boolean;
+  mode?: string | null;
+}
+
 export interface ReplayApi {
-  replaySession(payload: {
-    command?: string;
-    jsonl: string;
-    list?: boolean;
-    mode?: string | null;
-  }): Promise<ReplayResult>;
+  replaySession(payload: ReplayRequest): Promise<ReplayResult>;
 }
 
 export interface ReplayRuntime {
@@ -178,10 +275,10 @@ export interface ReplayWorkspaceOptions {
 
 export interface ReplayPageWorkspace {
   destroy(): void;
-  replayCommand(): Promise<unknown>;
+  replayCommand(): Promise<void>;
   replayDisplayStateStore: Readable<ReplayPageDisplay>;
   replayEntryOpenIndexHandlerStateStore: Readable<(index: number) => void>;
-  replayList(): Promise<unknown>;
+  replayList(): Promise<void>;
   replayResultsDisplayStateStore: Readable<ReplayResultsDisplay>;
   replayStateStore: Writable<ReplayState>;
   resetFilters(): void;

@@ -27,4 +27,5 @@ export type {
   SessionRetryPayload,
   SessionRetryState,
   SessionRetryValidation,
+  TextfsmExcelExportPayload,
 } from "./model/types.js";
