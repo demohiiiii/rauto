@@ -1,30 +1,24 @@
 import { writable } from "svelte/store";
-import { stringValue } from "../../../lib/jsonValue.js";
 import { transactionProfileModeRuntime } from "../infrastructure/transactionProfileModeRuntime.js";
 import type {
   TxProfileModeLoader,
   TxProfileModeState,
 } from "../model/types.js";
 
-const txStringValue = stringValue;
 let txProfileModesCache = new Map<string, TxProfileModeState>();
 
-function normalizedModeOptions(modeValues: unknown = []): string[] {
+function normalizedModeOptions(modeValues: readonly string[] = []): string[] {
   return Array.from(
-    new Set(
-      (Array.isArray(modeValues) ? modeValues : [])
-        .map((modeValue) => txStringValue(modeValue).trim())
-        .filter(Boolean),
-    ),
+    new Set(modeValues.map((modeValue) => modeValue.trim()).filter(Boolean)),
   );
 }
 
 function txProfileModeFallback(
-  profileName: unknown = "",
-  currentValue: unknown = "",
+  profileName = "",
+  currentValue = "",
 ): TxProfileModeState {
-  const normalizedProfile = txStringValue(profileName).trim();
-  const fallbackMode = txStringValue(currentValue).trim();
+  const normalizedProfile = profileName.trim();
+  const fallbackMode = currentValue.trim();
   if (normalizedProfile === "autodetect") {
     return {
       defaultMode: fallbackMode || "Root",
@@ -39,36 +33,27 @@ function txProfileModeFallback(
   };
 }
 
-function recordValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
 async function loadTxProfileModes(
-  profileName: unknown = "",
-  currentValue: unknown = "",
+  profileName = "",
+  currentValue = "",
 ): Promise<TxProfileModeState> {
-  const normalizedProfile = txStringValue(profileName).trim();
+  const normalizedProfile = profileName.trim();
   if (!normalizedProfile) {
     return txProfileModeFallback("", currentValue);
   }
   const cached = txProfileModesCache.get(normalizedProfile);
   if (cached) return cached;
   try {
-    const modePayload = recordValue(
-      await transactionProfileModeRuntime.getProfileModes(normalizedProfile),
-    );
+    const modePayload =
+      await transactionProfileModeRuntime.getProfileModes(normalizedProfile);
     const modeOptions = normalizedModeOptions(modePayload.modes);
     const defaultMode =
-      txStringValue(modePayload.default_mode).trim() ||
-      modeOptions[0] ||
-      txStringValue(currentValue).trim();
+      modePayload.default_mode.trim() || modeOptions[0] || currentValue.trim();
     const resolved = {
       defaultMode,
       modes:
         modeOptions.length > 0 ? modeOptions : defaultMode ? [defaultMode] : [],
-      name: txStringValue(modePayload.name).trim() || normalizedProfile,
+      name: modePayload.name.trim() || normalizedProfile,
     };
     txProfileModesCache.set(normalizedProfile, resolved);
     return resolved;
@@ -89,16 +74,15 @@ export function createTxProfileModeLoader({
   currentMode = () => "",
   explicitProfile = () => "",
 }: {
-  currentMode?: () => unknown;
-  explicitProfile?: () => unknown;
+  currentMode?: () => string;
+  explicitProfile?: () => string;
 } = {}): TxProfileModeLoader {
   let currentConnectionProfile = "autodetect";
   let currentRequestVersion = 0;
   const state = writable(txProfileModeInitialState());
 
   async function refresh(): Promise<TxProfileModeState> {
-    const profileName =
-      txStringValue(explicitProfile()).trim() || currentConnectionProfile;
+    const profileName = explicitProfile().trim() || currentConnectionProfile;
     currentRequestVersion += 1;
     const requestVersion = currentRequestVersion;
     const nextValue = await loadTxProfileModes(profileName, currentMode());
@@ -109,8 +93,7 @@ export function createTxProfileModeLoader({
   const unsubscribeProfile =
     transactionProfileModeRuntime.executionConnectionProfileState.subscribe(
       (profileName) => {
-        currentConnectionProfile =
-          txStringValue(profileName).trim() || "autodetect";
+        currentConnectionProfile = profileName.trim() || "autodetect";
         void refresh();
       },
     );

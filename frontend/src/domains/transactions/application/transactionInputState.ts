@@ -9,7 +9,6 @@ import { callbackMappedFormValueHandler } from "../../../lib/events.js";
 import { currentLanguageState, t } from "../../../lib/i18n.js";
 import { createLoadingRunner } from "../../../lib/svelte.js";
 import {
-  displayText,
   safeString as safeTemplateString,
   selectOptionsWithCurrent,
 } from "../../../lib/ui.js";
@@ -28,7 +27,9 @@ import {
 import { createTransactionEditorSession } from "./transactionEditorSession.js";
 import type {
   JsonErrorDetail,
-  JsonObject,
+  JsonTemplateActionContext,
+  JsonTemplateSelectState,
+  TransactionTemplateResource,
   TransactionEditorSyncStatus,
   TransactionEditorView,
   TransactionParsedFormState,
@@ -48,26 +49,16 @@ import {
   txVarsTextStateFor,
   TX_VARS,
 } from "./transactionVarsAssistant.js";
+import type { TxVarsTextState } from "./transactionVarsAssistant.js";
 
-type OptionalHandler = (...args: unknown[]) => unknown;
-
-interface TxVarsTextState {
-  errorKind?: unknown;
-  errorMessage?: unknown;
-  raw?: unknown;
-}
-
-interface TxTemplateSelectState {
-  names?: unknown;
-  selected?: unknown;
-}
+type MaybePromise<T> = T | Promise<T>;
 
 interface TxDirectVarsPanelConfig {
-  ariaLabel?: unknown;
-  hintKey?: unknown;
-  placeholderFallback?: unknown;
-  placeholderKey?: unknown;
-  varsKey?: unknown;
+  ariaLabel?: string;
+  hintKey?: string;
+  placeholderFallback?: string;
+  placeholderKey?: string;
+  varsKey?: string;
 }
 
 interface TxDirectVarsPanelOptions {
@@ -96,17 +87,16 @@ interface TxInputPanelWorkspaceConfig<TModel, TErrorDetail> {
     jsonText: string,
     currentModel: TModel,
   ): TransactionParsedFormState<TModel, TErrorDetail>;
-  saveEditorFormModel(model: TModel, options?: { notify?: boolean }): unknown;
+  saveEditorFormModel(model: TModel, options?: { notify?: boolean }): void;
 }
 
-interface TxInputActionWorkspacePort<TModel> {
-  changeFormModel(
-    nextModel: TModel,
-    options?: TxChangeFormModelOptions,
-  ): unknown;
-  handleJsonInput(jsonText?: unknown): unknown;
+interface TxInputActionWorkspacePort<TModel, TErrorDetail> {
+  changeFormModel(nextModel: TModel, options?: TxChangeFormModelOptions): void;
+  handleJsonInput(
+    jsonText?: string,
+  ): TransactionParsedFormState<TModel, TErrorDetail>;
   jsonTextStateStore: Readable<string>;
-  refreshFromFormModel(): unknown;
+  refreshFromFormModel(): TxInputEditorSyncState<TModel, TErrorDetail>;
   runLoading<T>(
     loadingKey: string,
     operation: () => T | Promise<T>,
@@ -121,7 +111,7 @@ interface TxExternalActionGroup {
   synchronizedByOwnedNotification: boolean;
 }
 
-interface TxExternalActionContext {
+export interface TxExternalActionContext extends JsonTemplateActionContext {
   didSynchronizeEditor(): boolean;
   isCurrent(): boolean;
   runOwnedEditorMutation<T>(
@@ -129,13 +119,49 @@ interface TxExternalActionContext {
   ): T | undefined;
 }
 
-type TxInputDependencies = Record<string, unknown>;
+export interface TextFile {
+  text(): Promise<string>;
+}
 
-export const jsonTemplateNameValue = (templateName: unknown): string =>
+export interface TxInputDependencies<
+  TFile = TextFile,
+  TResult = TransactionTemplateResource | null | void,
+> {
+  onCreateDirectDraft?:
+    | ((context: TxExternalActionContext) => MaybePromise<TResult>)
+    | null;
+  onCreateJsonTemplateDraft?:
+    | ((context: TxExternalActionContext) => MaybePromise<TResult>)
+    | null;
+  onDirectMode?: (() => MaybePromise<TResult>) | null;
+  onEditorInput?: ((jsonText: string) => void) | null;
+  onImportFile?:
+    | ((file: TFile, context: TxExternalActionContext) => MaybePromise<TResult>)
+    | null;
+  onLoadJsonTemplate?:
+    | ((
+        templateName: string,
+        context: TxExternalActionContext,
+      ) => MaybePromise<TResult>)
+    | null;
+  onTemplateMode?: (() => MaybePromise<TResult>) | null;
+}
+
+const EMPTY_TX_VARS_TEXT_STATE: TxVarsTextState = {
+  errorKind: "",
+  errorMessage: "",
+  raw: "",
+  source: "external",
+  version: 0,
+};
+
+const EMPTY_TEMPLATE_SELECT_STATE: JsonTemplateSelectState = {
+  names: [],
+  selected: "",
+};
+
+export const jsonTemplateNameValue = (templateName = ""): string =>
   safeTemplateString(templateName).trim();
-
-const txDisplayText = (displaySource: unknown): string =>
-  displayText(displaySource);
 
 export function transactionEditorSyncPresentation(
   status: TransactionEditorSyncStatus = "synced",
@@ -162,13 +188,10 @@ export function transactionEditorSyncPresentation(
 }
 
 const txOptionRowsWithCurrent = (
-  optionValues: unknown = [],
-  selected: unknown = "",
+  optionValues: readonly string[] = [],
+  selected = "",
 ) =>
-  selectOptionsWithCurrent(
-    Array.isArray(optionValues) ? optionValues : [],
-    selected,
-  ).map((optionValue) => ({
+  selectOptionsWithCurrent(optionValues, selected).map((optionValue) => ({
     labelText: optionValue,
     valueText: optionValue,
   }));
@@ -188,12 +211,14 @@ export const txBlockTemplateVarsPlaceholder =
 export const txBlockJsonPlaceholder =
   '{"name":"tx-block","rollback_policy":"none","steps":[{"run":{"kind":"command","mode":"User","command":"show version","timeout":30},"rollback":null,"rollback_on_failure":false}],"fail_fast":true}';
 
-function txVarsFormError(varsTextState: TxVarsTextState = {}): string {
+function txVarsFormError(
+  varsTextState: TxVarsTextState = EMPTY_TX_VARS_TEXT_STATE,
+): string {
   if (varsTextState?.errorKind === "object-required") {
     return t("txVarsFormJsonObjectRequired");
   }
   if (varsTextState?.errorKind === "invalid") {
-    const detail = txDisplayText(varsTextState.errorMessage);
+    const detail = varsTextState.errorMessage;
     return detail
       ? `${t("txVarsFormJsonInvalid")}: ${detail}`
       : t("txVarsFormJsonInvalid");
@@ -206,7 +231,7 @@ export function txDirectVarsPanelDisplay({
   hintKey = "",
   placeholderFallback = "",
   placeholderKey = "",
-  varsTextState = {},
+  varsTextState = EMPTY_TX_VARS_TEXT_STATE,
 }: {
   ariaLabel?: string;
   hintKey?: string;
@@ -221,21 +246,21 @@ export function txDirectVarsPanelDisplay({
     placeholderText,
     showHint: !!hintKey,
     textareaLabel: ariaLabel || placeholderText,
-    varsText: txDisplayText(varsTextState?.raw),
+    varsText: varsTextState.raw,
   };
 }
 
 export function txTemplateRunPanelDisplay({
   ariaLabel = "",
   hintKeys = [],
-  templateSelectState = {},
+  templateSelectState = EMPTY_TEMPLATE_SELECT_STATE,
   varsPlaceholderFallback = "",
   varsPlaceholderKey = "",
-  varsTextState = {},
+  varsTextState = EMPTY_TX_VARS_TEXT_STATE,
 }: {
   ariaLabel?: string;
   hintKeys?: readonly string[];
-  templateSelectState?: TxTemplateSelectState;
+  templateSelectState?: JsonTemplateSelectState;
   varsPlaceholderFallback?: string;
   varsPlaceholderKey?: string;
   varsTextState?: TxVarsTextState;
@@ -258,7 +283,7 @@ export function txTemplateRunPanelDisplay({
     textareaLabel: ariaLabel || t("txTemplateVarsJsonAria"),
     varsFormError: txVarsFormError(varsTextState),
     varsPlaceholderText,
-    varsText: txDisplayText(varsTextState?.raw),
+    varsText: varsTextState.raw,
   };
 }
 
@@ -282,10 +307,10 @@ export function txBlockInputEditorSurfaceDisplay(
 ) {
   return {
     editorKey: TX_EDITOR.txBlock,
-    editorTitle: txDisplayText(inputDisplay.editorTitle),
+    editorTitle: inputDisplay.editorTitle,
     hostClass: "tx-json-editor",
-    jsonHintText: txDisplayText(inputDisplay.jsonHint),
-    placeholder: txDisplayText(inputDisplay.jsonPlaceholderText),
+    jsonHintText: inputDisplay.jsonHint,
+    placeholder: inputDisplay.jsonPlaceholderText,
   };
 }
 
@@ -306,65 +331,19 @@ export function txWorkflowInputEditorSurfaceDisplay(
 ) {
   return {
     editorKey: TX_EDITOR.txWorkflow,
-    editorTitle: txDisplayText(inputDisplay.tabAriaLabel),
+    editorTitle: inputDisplay.tabAriaLabel,
     hostClass: "tx-json-editor tx-json-editor-compact",
-    placeholder: txDisplayText(inputDisplay.jsonPlaceholderText),
+    placeholder: inputDisplay.jsonPlaceholderText,
   };
-}
-
-function txInputText(value: unknown): string {
-  if (value == null) return "";
-  return typeof value === "string" ? value : String(value);
-}
-
-export function normalizeOptionalHandler(
-  handler: unknown,
-): OptionalHandler | null {
-  return typeof handler === "function" ? (handler as OptionalHandler) : null;
-}
-
-function callOptionalTxDependency(
-  dependencies: TxInputDependencies,
-  dependencyName: string,
-  ...args: unknown[]
-): unknown {
-  const dependency = dependencies?.[dependencyName];
-  return typeof dependency === "function" ? dependency(...args) : undefined;
-}
-
-function txVarsSafeString(varsValue: unknown): string {
-  if (varsValue == null) return "";
-  return typeof varsValue === "string" ? varsValue : String(varsValue);
-}
-
-function normalizeTransactionKey(
-  rawKey: unknown,
-  validKeys: ReadonlySet<string>,
-  fallback = "",
-): string {
-  const key = txVarsSafeString(rawKey || "").trim();
-  if (!key) return fallback;
-  return validKeys.has(key) ? key : fallback || key;
-}
-
-function normalizeTxVarsKey(txKey: unknown): string {
-  const raw =
-    txKey && typeof txKey === "object" && "key" in txKey
-      ? (txKey as { key?: unknown }).key
-      : txKey;
-  return normalizeTransactionKey(
-    txVarsSafeString(raw).trim(),
-    new Set(Object.values(TX_VARS)),
-  );
 }
 
 function txDirectVarsPanelConfig(config: TxDirectVarsPanelConfig = {}) {
   return {
-    ariaLabel: txVarsSafeString(config.ariaLabel),
-    hintKey: txVarsSafeString(config.hintKey),
-    placeholderFallback: txVarsSafeString(config.placeholderFallback),
-    placeholderKey: txVarsSafeString(config.placeholderKey),
-    varsKey: normalizeTxVarsKey(config.varsKey),
+    ariaLabel: config.ariaLabel ?? "",
+    hintKey: config.hintKey ?? "",
+    placeholderFallback: config.placeholderFallback ?? "",
+    placeholderKey: config.placeholderKey ?? "",
+    varsKey: config.varsKey ?? "",
   };
 }
 
@@ -388,17 +367,17 @@ export function createTxDirectVarsPanelWorkspace({
         hintKey: currentPanelConfig.hintKey,
         placeholderFallback: currentPanelConfig.placeholderFallback,
         placeholderKey: currentPanelConfig.placeholderKey,
-        varsTextState: $varsTextStateStore as TxVarsTextState,
+        varsTextState: $varsTextStateStore,
       });
     },
   );
 
-  function changeVarsText(varsText: unknown = ""): void {
+  function changeVarsText(varsText = ""): void {
     const currentPanelConfig =
       typeof getPanelConfig === "function"
         ? txDirectVarsPanelConfig(getPanelConfig())
         : panelConfig;
-    setTxVarsRawText(currentPanelConfig.varsKey, txInputText(varsText), {
+    setTxVarsRawText(currentPanelConfig.varsKey, varsText, {
       source: "editor",
     });
   }
@@ -412,12 +391,9 @@ export function createTxDirectVarsPanelWorkspace({
 
 export function createTxInputLoadingKeysStore() {
   const loadingKeysStore = writable<string[]>([]);
-  const loadingRunner = createLoadingRunner(
+  const loadingRunner = createLoadingRunner<string>(
     () => getStore(loadingKeysStore),
-    (nextKeys: unknown) =>
-      loadingKeysStore.set(
-        Array.isArray(nextKeys) ? nextKeys.map(txInputText) : [],
-      ),
+    (nextKeys) => loadingKeysStore.set(nextKeys),
   );
   return { loadingKeysStore, loadingRunner };
 }
@@ -515,7 +491,10 @@ export function txWorkflowInputEditorSyncState(
   };
 }
 
-export function createTxInputPanelWorkspace<TModel, TErrorDetail = unknown>({
+export function createTxInputPanelWorkspace<
+  TModel,
+  TErrorDetail = JsonErrorDetail,
+>({
   buildDefaultFormModel,
   formModelToJsonText,
   inputEditorSyncState,
@@ -539,7 +518,7 @@ export function createTxInputPanelWorkspace<TModel, TErrorDetail = unknown>({
   }
 
   function handleJsonInput(jsonText = "") {
-    const nextJsonText = txInputText(jsonText);
+    const nextJsonText = jsonText;
     const nextState = inputFormStateFromJsonText(
       nextJsonText,
       session.currentFormModel(),
@@ -602,9 +581,14 @@ export function createTxInputPanelWorkspace<TModel, TErrorDetail = unknown>({
   };
 }
 
-export function createTxInputPanelActionWorkspace<TModel>(
-  txInputWorkspace: TxInputActionWorkspacePort<TModel>,
-  dependencies: TxInputDependencies = {},
+export function createTxInputPanelActionWorkspace<
+  TModel,
+  TErrorDetail = JsonErrorDetail,
+  TFile = TextFile,
+  TResult = TransactionTemplateResource | null | void,
+>(
+  txInputWorkspace: TxInputActionWorkspacePort<TModel, TErrorDetail>,
+  dependencies: TxInputDependencies<TFile, TResult> = {},
 ) {
   let editorInputVersion = 0;
   let activeExternalActionGroup: TxExternalActionGroup | null = null;
@@ -673,32 +657,20 @@ export function createTxInputPanelActionWorkspace<TModel>(
   async function createJsonDraft() {
     return runExternalAction((actionContext) =>
       txInputWorkspace.runLoading("json-new", () =>
-        callOptionalTxDependency(
-          dependencies,
-          "onCreateJsonTemplateDraft",
-          actionContext,
-        ),
+        dependencies.onCreateJsonTemplateDraft?.(actionContext),
       ),
     );
   }
 
   async function createTemplateDraft() {
     return runExternalAction((actionContext) =>
-      callOptionalTxDependency(
-        dependencies,
-        "onCreateJsonTemplateDraft",
-        actionContext,
-      ),
+      dependencies.onCreateJsonTemplateDraft?.(actionContext),
     );
   }
 
   async function createDirectDraft() {
     return runExternalAction((actionContext) =>
-      callOptionalTxDependency(
-        dependencies,
-        "onCreateDirectDraft",
-        actionContext,
-      ),
+      dependencies.onCreateDirectDraft?.(actionContext),
     );
   }
 
@@ -715,12 +687,12 @@ export function createTxInputPanelActionWorkspace<TModel>(
     }
   }
 
-  function handleEditorJsonInput(jsonText: unknown = ""): void {
-    callOptionalTxDependency(dependencies, "onEditorInput", jsonText);
+  function handleEditorJsonInput(jsonText = ""): void {
+    dependencies.onEditorInput?.(jsonText);
     const notificationIsActionOwned =
       internalEditorInputDepth > 0 || ownedEditorInputDepth > 0;
     const notificationMatchesCanonical =
-      txInputText(jsonText) === getStore(txInputWorkspace.jsonTextStateStore);
+      jsonText === getStore(txInputWorkspace.jsonTextStateStore);
     if (!(notificationIsActionOwned && notificationMatchesCanonical)) {
       txInputWorkspace.handleJsonInput(jsonText);
     }
@@ -731,33 +703,23 @@ export function createTxInputPanelActionWorkspace<TModel>(
     }
   }
 
-  async function importFile(file: unknown) {
+  async function importFile(file: TFile) {
     return runExternalAction((actionContext) =>
-      callOptionalTxDependency(
-        dependencies,
-        "onImportFile",
-        file,
-        actionContext,
-      ),
+      dependencies.onImportFile?.(file, actionContext),
     );
   }
 
   async function loadJsonTemplate(templateName = "") {
     return runExternalAction((actionContext) =>
-      callOptionalTxDependency(
-        dependencies,
-        "onLoadJsonTemplate",
-        templateName,
-        actionContext,
-      ),
+      dependencies.onLoadJsonTemplate?.(templateName, actionContext),
     );
   }
 
   function selectMode(txExecutionMode = "") {
     return runTxExecutionModeHandler(
       txExecutionMode,
-      () => callOptionalTxDependency(dependencies, "onDirectMode"),
-      () => callOptionalTxDependency(dependencies, "onTemplateMode"),
+      dependencies.onDirectMode,
+      dependencies.onTemplateMode,
     );
   }
 
@@ -773,25 +735,22 @@ export function createTxInputPanelActionWorkspace<TModel>(
   };
 }
 
-function txTemplateRunInputHandlers({
+function txTemplateRunInputHandlers<TResult>({
   onTemplateChange = null,
 }: {
-  onTemplateChange?: ((value: unknown) => unknown) | null;
+  onTemplateChange?: ((value: string) => TResult) | null;
 } = {}) {
   return {
     templateChangeHandler() {
-      return callbackMappedFormValueHandler(
-        onTemplateChange,
-        (value: unknown) => value,
-      );
+      return callbackMappedFormValueHandler(onTemplateChange, (value) => value);
     },
   };
 }
 
-export function txTemplateRunActionHandlers({
+export function txTemplateRunActionHandlers<TResult>({
   onTemplateChange = null,
 }: {
-  onTemplateChange?: ((value: unknown) => unknown) | null;
+  onTemplateChange?: ((value: string) => TResult) | null;
 } = {}) {
   const inputHandlers = txTemplateRunInputHandlers({
     onTemplateChange,

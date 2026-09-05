@@ -32,7 +32,7 @@ import type {
   JsonErrorDetail,
   JsonTemplateSelectState,
   TransactionEditorSessionState,
-  TransactionTemplateResource,
+  TransactionTemplateSummary,
 } from "../src/domains/transactions/index.js";
 import { loadI18nLanguage, t } from "../src/lib/i18n.js";
 
@@ -80,7 +80,12 @@ interface Deferred<T> {
 }
 
 type TestActionWorkspace = ReturnType<
-  typeof createTxInputPanelActionWorkspace<TestFormModel>
+  typeof createTxInputPanelActionWorkspace<
+    TestFormModel,
+    JsonErrorDetail,
+    ExternalActionFile,
+    string
+  >
 >;
 
 const buildDefaultFormModel = () => ({ name: "default", enabled: true });
@@ -224,7 +229,7 @@ async function waitForCallCount(
 
 function createTemplateCreateRaceHarness() {
   const kind = TX_TEMPLATE_KIND.txWorkflow;
-  const listRequests: Array<Deferred<TransactionTemplateResource[]>> = [];
+  const listRequests: Array<Deferred<TransactionTemplateSummary[]>> = [];
   const optionUpdates: Array<{
     kind: string;
     options: JsonTemplateSelectState;
@@ -240,7 +245,12 @@ function createTemplateCreateRaceHarness() {
       runEditor: TX_EDITOR.txWorkflow,
       runOutput: "txWorkflowPlan",
     }),
-    createTemplateResource: async (_apiBase: string, name: string) => ({
+    createTemplateResource: async (
+      _apiBase: string,
+      name: string,
+      content: string,
+    ) => ({
+      content,
       name,
     }),
     getEditorContext: () => ({
@@ -251,7 +261,7 @@ function createTemplateCreateRaceHarness() {
     }),
     getSelectedName: () => selectedName,
     listTemplateResource: () => {
-      const request = createDeferredPromise<TransactionTemplateResource[]>();
+      const request = createDeferredPromise<TransactionTemplateSummary[]>();
       listRequests.push(request);
       return request.promise;
     },

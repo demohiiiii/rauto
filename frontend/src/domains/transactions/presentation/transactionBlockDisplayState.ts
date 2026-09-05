@@ -49,13 +49,20 @@ interface TxBlockFieldRow extends JsonObject {
   fieldKey: string;
 }
 
-interface TxCommandModeState extends JsonObject {
+interface TxCommandModeState {
   modes?: string[];
 }
 
-type PartialJson<T extends JsonObject> = Partial<T> & JsonObject;
+interface TxBlockVisualDisplay {
+  booleanRows?: readonly string[];
+  jsonValueTypeRows?: readonly string[];
+}
 
-function txObject<T extends JsonObject>(value: unknown): PartialJson<T> {
+type PartialJson<T extends object> = Partial<T> & JsonObject;
+
+function txObject<T extends object>(
+  value: object | null | undefined,
+): PartialJson<T> {
   return plainObject(value) ? (value as PartialJson<T>) : {};
 }
 
@@ -203,8 +210,8 @@ const TX_BLOCK_WHOLE_RESOURCE_FIELD_DEFS: readonly PresenceTxBlockFieldDefinitio
   ]);
 
 function txBlockCommandModeOptionRows(
-  currentValue: unknown = "",
-  commandModeState: unknown = {},
+  currentValue: string = "",
+  commandModeState: object = {},
 ) {
   const modeState = txObject<TxCommandModeState>(commandModeState);
   const selectedMode = stringValue(currentValue).trim();
@@ -217,7 +224,7 @@ function txBlockCommandModeOptionRows(
   );
 }
 
-function txBlockCommandDynParamExtraRows(command: unknown = {}) {
+function txBlockCommandDynParamExtraRows(command: JsonObject = {}) {
   const commandValue = txObject<TxCommandModel>(command);
   const dynParams = plainObject(commandValue.dynParams)
     ? commandValue.dynParams
@@ -229,7 +236,7 @@ function txBlockCommandDynParamExtraRows(command: unknown = {}) {
 }
 
 function txBlockCommandPromptRows(
-  command: unknown = {},
+  command: JsonObject = {},
 ): PartialJson<TxRuntimePromptModel>[] {
   const commandValue = txObject<TxCommandModel>(command);
   const interaction = txObject<TxCommandInteractionModel>(
@@ -243,7 +250,7 @@ function txBlockCommandPromptRows(
 }
 
 function txBlockCommandPromptMetadataRows(
-  command: unknown = {},
+  command: JsonObject = {},
   promptIndex = 0,
 ) {
   return txExtraStringFieldRows(
@@ -252,7 +259,7 @@ function txBlockCommandPromptMetadataRows(
   );
 }
 
-function txBlockCommandPromptPatternRows(prompt: unknown = {}) {
+function txBlockCommandPromptPatternRows(prompt: JsonObject = {}) {
   const promptValue = txObject<TxRuntimePromptModel>(prompt);
   return (Array.isArray(promptValue.patterns) ? promptValue.patterns : []).map(
     (patternValue, itemIndex) => ({
@@ -263,10 +270,10 @@ function txBlockCommandPromptPatternRows(prompt: unknown = {}) {
 }
 
 function txBlockCommandInteractionPromptRow(
-  command: unknown = {},
-  prompt: unknown = {},
+  command: JsonObject = {},
+  prompt: JsonObject = {},
   promptIndex = 0,
-  booleanRows: readonly unknown[] = [],
+  booleanRows: readonly string[] = [],
 ) {
   const promptValue = txObject<TxRuntimePromptModel>(prompt);
   const fieldRows = txBlockCommandPromptFieldsDisplay(promptValue, booleanRows);
@@ -286,8 +293,8 @@ function txBlockCommandInteractionPromptRow(
 }
 
 export function txBlockCommandFieldsDisplay(
-  command: unknown = {},
-  commandModeState: unknown = {},
+  command: JsonObject = {},
+  commandModeState: object = {},
   validationErrors: readonly TxValidationError[] = [],
   pathPrefix = "",
 ) {
@@ -338,8 +345,8 @@ export function txBlockCommandFieldsDisplay(
 }
 
 export function txBlockFlowFieldsDisplay(
-  flow: unknown = {},
-  booleanRows: readonly unknown[] = [],
+  flow: JsonObject = {},
+  booleanRows: readonly string[] = [],
   validationErrors: readonly TxValidationError[] = [],
   pathPrefix = "",
 ) {
@@ -388,8 +395,8 @@ export function txBlockFlowFieldsDisplay(
 }
 
 export function txBlockCommandPromptFieldsDisplay(
-  prompt: unknown = {},
-  booleanRows: readonly unknown[] = [],
+  prompt: JsonObject = {},
+  booleanRows: readonly string[] = [],
 ) {
   const promptValue = txObject<TxRuntimePromptModel>(prompt);
   return TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS.map((fieldDef) => {
@@ -429,8 +436,8 @@ export function txBlockCommandPromptFieldsDisplay(
 }
 
 export function txBlockCommandInteractionDisplay(
-  command: unknown = {},
-  booleanRows: readonly unknown[] = [],
+  command: JsonObject = {},
+  booleanRows: readonly string[] = [],
 ) {
   const commandValue = txObject<TxCommandModel>(command);
   const interaction = txObject<TxCommandInteractionModel>(
@@ -458,8 +465,8 @@ export function txBlockCommandInteractionDisplay(
 }
 
 export function txBlockRootFieldsDisplay(
-  model: unknown = {},
-  booleanRows: readonly unknown[] = [],
+  model: JsonObject = {},
+  booleanRows: readonly string[] = [],
 ) {
   const rootValue = txObject<TxBlockFormModel>(model);
   return TX_BLOCK_ROOT_FIELD_DEFS.map((fieldDef) => {
@@ -494,7 +501,7 @@ export function txBlockRootFieldsDisplay(
 }
 
 export function txBlockWholeResourceFieldsDisplay(
-  wholeResource: unknown = {},
+  wholeResource: JsonObject = {},
   validationErrors: readonly TxValidationError[] = [],
   pathPrefix = "rollbackPolicy.wholeResource",
 ) {
@@ -520,7 +527,7 @@ export function txBlockWholeResourceFieldsDisplay(
   );
 }
 
-export function txBlockStepFieldsDisplay(step: unknown = {}) {
+export function txBlockStepFieldsDisplay(step: JsonObject = {}) {
   const stepValue = txObject<TxStepFormModel>(step);
   return TX_BLOCK_STEP_FIELD_DEFS.map((fieldDef) => ({
     ...fieldDef,
@@ -537,8 +544,8 @@ export function txBlockStepFieldsDisplay(step: unknown = {}) {
 }
 
 export function txBlockRootPanelDisplay(
-  model: unknown = {},
-  visualDisplay: unknown = {},
+  model: JsonObject = {},
+  visualDisplay: TxBlockVisualDisplay = {},
 ) {
   const rootValue = txObject<TxBlockFormModel>(model);
   const visualDisplayValue = txObject<JsonObject>(visualDisplay);
@@ -553,8 +560,8 @@ export function txBlockRootPanelDisplay(
 }
 
 export function txBlockRollbackPolicyPanelDisplay(
-  model: unknown = {},
-  visualDisplay: unknown = {},
+  model: JsonObject = {},
+  visualDisplay: TxBlockVisualDisplay = {},
   validationErrors: readonly TxValidationError[] = [],
 ) {
   const rootValue = txObject<TxBlockFormModel>(model);
@@ -581,7 +588,7 @@ export function txBlockRollbackPolicyPanelDisplay(
   };
 }
 
-export function txBlockStepsPanelDisplay(model: unknown = {}) {
+export function txBlockStepsPanelDisplay(model: JsonObject = {}) {
   const rootValue = txObject<TxBlockFormModel>(model);
   return {
     stepRows: (Array.isArray(rootValue.steps) ? rootValue.steps : []).map(
@@ -602,12 +609,14 @@ function txBlockLocalizedFallback(
   return tr(key, currentLanguage() === "zh" ? chineseText : englishText);
 }
 
-function txBlockOperationKindText(kind: unknown): string {
+function txBlockOperationKindText(
+  kind: TxOperationModel["kind"] | undefined,
+): string {
   if (kind === "flow") return t("txBlockFormFlowSteps");
   return t("txBlockFormCommand");
 }
 
-function txBlockOperationSummaryText(operation: unknown = {}): string {
+function txBlockOperationSummaryText(operation: JsonObject = {}): string {
   const operationValue = txObject<TxOperationModel>(operation);
   if (operationValue.kind === "flow") {
     const flowValue = txObject<TxFlowModel>(operationValue.flow);
@@ -628,7 +637,7 @@ function txBlockOperationSummaryText(operation: unknown = {}): string {
   );
 }
 
-export function txBlockTimelineDisplay(model: unknown = {}) {
+export function txBlockTimelineDisplay(model: JsonObject = {}) {
   const modelValue = txObject<TxBlockFormModel>(model);
   const steps = Array.isArray(modelValue.steps) ? modelValue.steps : [];
   return {
@@ -645,7 +654,7 @@ export function txBlockTimelineDisplay(model: unknown = {}) {
 }
 
 export function txBlockOperationFieldsDisplay(
-  operation: unknown = {},
+  operation: JsonObject = {},
   titleText = "",
 ) {
   const operationValue = txObject<TxOperationModel>(operation);
@@ -664,8 +673,8 @@ export function txBlockOperationFieldsDisplay(
 }
 
 export function txBlockCommandEditorDisplay(
-  command: unknown = {},
-  commandModeState: unknown = {},
+  command: JsonObject = {},
+  commandModeState: object = {},
   validationErrors: readonly TxValidationError[] = [],
   pathPrefix = "",
 ) {
@@ -689,8 +698,8 @@ export function txBlockCommandEditorDisplay(
 }
 
 export function txBlockCommandDynParamsDisplay(
-  command: unknown = {},
-  commandDisplay: unknown = {},
+  command: JsonObject = {},
+  commandDisplay: JsonObject = {},
 ) {
   const commandValue = txObject<TxCommandModel>(command);
   const commandDisplayValue = txObject<JsonObject>(commandDisplay);

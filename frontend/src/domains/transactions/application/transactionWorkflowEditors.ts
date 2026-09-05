@@ -46,7 +46,7 @@ interface TxWorkflowTemplateRefEditorWorkspaceOptions {
 }
 
 interface TxWorkflowVisualEditorWorkspaceOptions {
-  model?: unknown;
+  model?: JsonObject;
   onChange?: TxWorkflowChangeHandler | null;
 }
 

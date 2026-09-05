@@ -1,4 +1,10 @@
 import type { Readable } from "svelte/store";
+import type { ProfileModes } from "$domains/profiles/index.js";
+import type {
+  TemplateMutationResponse,
+  TemplateResourceApiMeta,
+  TemplateResourceDetail,
+} from "$domains/templates/index.js";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -141,13 +147,19 @@ export interface TxWorkflowEditorFormState {
 export type TransactionEditorView = "form" | "json" | "readonly";
 export type TransactionEditorSyncStatus = "dirty" | "invalid-json" | "synced";
 
-export interface TransactionParsedFormState<TModel, TErrorDetail = unknown> {
+export interface TransactionParsedFormState<
+  TModel,
+  TErrorDetail = JsonErrorDetail,
+> {
   formError: string;
   formErrorDetail?: TErrorDetail | null;
   formModel: TModel;
 }
 
-export interface TransactionEditorSessionState<TModel, TErrorDetail = unknown> {
+export interface TransactionEditorSessionState<
+  TModel,
+  TErrorDetail = JsonErrorDetail,
+> {
   editorDisplayMode: TransactionEditorView;
   formError: string;
   formErrorDetail: TErrorDetail | null;
@@ -186,9 +198,9 @@ export interface TxProfileModeLoader {
 }
 
 export interface TxProfileModeRuntime {
-  executionConnectionProfileState: Readable<unknown>;
-  getProfileModes(profileName: string): Promise<unknown>;
-  savedConnectionsRefreshState: Readable<unknown>;
+  executionConnectionProfileState: Readable<string>;
+  getProfileModes(profileName: string): Promise<ProfileModes>;
+  savedConnectionsRefreshState: Readable<number>;
 }
 
 export interface JsonTemplateSelectState {
@@ -196,24 +208,28 @@ export interface JsonTemplateSelectState {
   selected: string;
 }
 
-export interface TransactionTemplateResource extends JsonObject {
-  content?: string;
-  name?: string;
-}
+export type TransactionTemplateResource = TemplateResourceDetail;
+export type TransactionTemplateSummary = Pick<TemplateResourceApiMeta, "name">;
 
 export interface TransactionJsonTemplateRuntime {
   createTemplateResource(
     apiBase: string,
     name: string,
     content: string,
-  ): Promise<unknown>;
-  deleteTemplateResource(apiBase: string, name: string): Promise<unknown>;
-  getTemplateResource(apiBase: string, name: string): Promise<unknown>;
-  listTemplateResource(apiBase: string): Promise<unknown>;
+  ): Promise<TransactionTemplateResource>;
+  deleteTemplateResource(
+    apiBase: string,
+    name: string,
+  ): Promise<TemplateMutationResponse>;
+  getTemplateResource(
+    apiBase: string,
+    name: string,
+  ): Promise<TransactionTemplateResource>;
+  listTemplateResource(apiBase: string): Promise<TransactionTemplateSummary[]>;
   promptForResourceName(message: string): string | null;
   updateTemplateResource(
     apiBase: string,
     name: string,
     content: string,
-  ): Promise<unknown>;
+  ): Promise<TransactionTemplateResource>;
 }

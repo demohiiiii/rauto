@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
-import { createTxBlockCommandEditorWorkspace } from "../src/domains/transactions/index.js";
+import {
+  createTxBlockCommandEditorWorkspace,
+  txBlockCommandDraft,
+} from "../src/domains/transactions/index.js";
 import type { TxCommandModel } from "../src/domains/transactions/index.js";
 import {
   notifySavedConnectionsRefreshed,
@@ -53,7 +56,11 @@ test("transaction command modes follow the current connection profile", async ()
   setCurrentConnectionTarget(null);
   const workspace = createTxBlockCommandEditorWorkspace();
   workspace.setCommandEditorContext({
-    command: { command: "show version", mode: "Legacy" },
+    command: {
+      ...txBlockCommandDraft(),
+      command: "show version",
+      mode: "Legacy",
+    },
   });
 
   try {
@@ -100,7 +107,11 @@ test("blank transaction command mode initializes from the profile default", asyn
   const initializedCommands: Array<Partial<TxCommandModel>> = [];
   const workspace = createTxBlockCommandEditorWorkspace();
   workspace.setCommandEditorContext({
-    command: { command: "show version", mode: "" },
+    command: {
+      ...txBlockCommandDraft(),
+      command: "show version",
+      mode: "",
+    },
     onChange(nextCommand) {
       initializedCommands.push(nextCommand);
     },

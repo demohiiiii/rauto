@@ -8,13 +8,13 @@ import { jsonLanguage } from "@codemirror/lang-json";
 
 import { formValueHandler } from "../../../lib/events.js";
 import { currentLanguageState, t } from "../../../lib/i18n.js";
+import type { JsonObject, JsonValue } from "../../../lib/jsonValue.js";
 import { createSwitchingStore } from "../../../lib/svelte.js";
-import { safeString as safeTemplateString } from "../../../lib/ui.js";
 
-type TxVarsSource = "assistant" | "editor" | "external" | string;
+type TxVarsSource = "assistant" | "editor" | "external";
 type TxVarsValueType = "boolean" | "json" | "null" | "number" | "string";
 
-interface TxVarsTextState {
+export interface TxVarsTextState {
   errorKind: string;
   errorMessage: string;
   raw: string;
@@ -22,16 +22,16 @@ interface TxVarsTextState {
   version: number;
 }
 
-interface TxVarsAssistantConfig {
-  key: string;
+export interface TxVarsAssistantConfig {
+  key: TxVarsKey;
   prefix: string;
   statusOutput: string;
 }
 
-interface TxVarsAssistantEntry {
+export interface TxVarsAssistantEntry {
   id: string;
   key: string;
-  type: string;
+  type: TxVarsValueType;
   valueText: string;
 }
 
@@ -49,16 +49,16 @@ interface TxVarsParseResult {
   errorKind: string;
   errorMessage: string;
   orderedKeys: string[];
-  parsedValue: Record<string, unknown>;
+  parsedValue: JsonObject;
 }
 
 interface TxVarsAssistantCardOptions {
-  getPrefix?: (() => unknown) | null;
+  getPrefix?: (() => string) | null;
 }
 
 interface TxVarsAssistantActivation {
   active?: boolean;
-  prefix?: unknown;
+  prefix?: string;
 }
 
 interface TxVarsAssistantLifecycleState {
@@ -70,7 +70,7 @@ type SetAssistantStatus = (
   output: string,
   message: string,
   tone: string,
-) => unknown;
+) => void;
 
 export const TX_VARS = Object.freeze({
   orchestrationDirect: "orchestrationDirect",
@@ -79,7 +79,9 @@ export const TX_VARS = Object.freeze({
   txBlockTemplate: "txBlockTemplate",
   txWorkflowDirect: "txWorkflowDirect",
   txWorkflowTemplate: "txWorkflowTemplate",
-});
+} as const);
+
+export type TxVarsKey = (typeof TX_VARS)[keyof typeof TX_VARS];
 
 const TX_VARS_KEYS = new Set(Object.values(TX_VARS));
 
@@ -135,37 +137,28 @@ const txVarsAssistantStates = new Map<
 let txVarsAssistantEntrySeq = 0;
 
 const txVarsAssistantEntryFieldPatches = Object.freeze({
-  key: (entryKey: unknown) => ({ key: txVarsSafeString(entryKey) }),
-  type: (entryType: unknown) => ({ type: txVarsSafeString(entryType) }),
-  valueText: (entryValueText: unknown) => ({
-    valueText: txVarsSafeString(entryValueText),
+  key: (entryKey: string) => ({ key: entryKey }),
+  type: (entryType: string) => ({ type: txVarsValueType(entryType) }),
+  valueText: (entryValueText: string) => ({
+    valueText: entryValueText,
   }),
 });
 
 function normalizeTransactionKey(
-  rawKey: unknown,
+  rawKey: string,
   validKeys: ReadonlySet<string>,
   fallback = "",
 ): string {
-  const key = safeTemplateString(rawKey || "").trim();
+  const key = rawKey.trim();
   if (!key) return fallback;
   return validKeys.has(key) ? key : fallback || key;
 }
 
-function txVarsSafeString(varsValue: unknown): string {
-  if (varsValue == null) return "";
-  return typeof varsValue === "string" ? varsValue : String(varsValue);
+function normalizeTxVarsKey(txKey: string): string {
+  return normalizeTransactionKey(txKey, TX_VARS_KEYS);
 }
 
-function normalizeTxVarsKey(txKey: unknown): string {
-  const raw =
-    txKey && typeof txKey === "object" && "key" in txKey
-      ? (txKey as { key?: unknown }).key
-      : txKey;
-  return normalizeTransactionKey(txVarsSafeString(raw).trim(), TX_VARS_KEYS);
-}
-
-function txVarsTextStoreFor(varsKey: unknown): Writable<TxVarsTextState> {
+function txVarsTextStoreFor(varsKey: string): Writable<TxVarsTextState> {
   const key = normalizeTxVarsKey(varsKey);
   if (!txVarsTextStates.has(key)) {
     txVarsTextStates.set(
@@ -182,19 +175,17 @@ function txVarsTextStoreFor(varsKey: unknown): Writable<TxVarsTextState> {
   return txVarsTextStates.get(key)!;
 }
 
-export function txVarsTextStateFor(
-  varsKey: unknown,
-): Writable<TxVarsTextState> {
+export function txVarsTextStateFor(varsKey: string): Writable<TxVarsTextState> {
   return txVarsTextStoreFor(varsKey);
 }
 
 export function setTxVarsRawText(
-  varsKey: unknown,
-  rawText: unknown = "",
+  varsKey: string,
+  rawText = "",
   { source = "external" }: { source?: TxVarsSource } = {},
 ): void {
   const key = normalizeTxVarsKey(varsKey);
-  const next = txVarsSafeString(rawText);
+  const next = rawText;
   const parseResult = txVarsParseText(next);
   txVarsTextState.set(key, next);
   txVarsTextStoreFor(key).update((state) => ({
@@ -221,11 +212,11 @@ export function setTxVarsRawText(
   }
 }
 
-function txVarsRawText(varsKey: unknown): string {
-  return txVarsSafeString(getStore(txVarsTextStateFor(varsKey))?.raw || "");
+function txVarsRawText(varsKey: string): string {
+  return getStore(txVarsTextStateFor(varsKey)).raw;
 }
 
-function txVarsAssistantConfig(varsKey: unknown): TxVarsAssistantConfig | null {
+function txVarsAssistantConfig(varsKey: string): TxVarsAssistantConfig | null {
   const key = normalizeTxVarsKey(varsKey);
   return (
     TX_VARS_ASSISTANTS.find((txVarsAssistant) => txVarsAssistant.key === key) ||
@@ -234,18 +225,17 @@ function txVarsAssistantConfig(varsKey: unknown): TxVarsAssistantConfig | null {
 }
 
 function txVarsAssistantConfigByPrefix(
-  prefix: unknown,
+  prefix: string,
 ): TxVarsAssistantConfig | null {
-  const normalizedPrefix = txVarsSafeString(prefix);
   return (
     TX_VARS_ASSISTANTS.find(
-      (txVarsAssistant) => txVarsAssistant.prefix === normalizedPrefix,
+      (txVarsAssistant) => txVarsAssistant.prefix === prefix,
     ) || null
   );
 }
 
 export function requiredTxVarsAssistantConfigByPrefix(
-  prefix: unknown,
+  prefix: string,
 ): TxVarsAssistantConfig {
   const txVarsAssistant = txVarsAssistantConfigByPrefix(prefix);
   if (!txVarsAssistant) {
@@ -260,25 +250,22 @@ function txVarsAssistantEntryInputPresentation(
     valueTypeOptions = [],
   }: { valueTypeOptions?: readonly TxVarsValueTypeOption[] } = {},
 ) {
-  const type = txVarsSafeString(assistantEntry.type) || "string";
+  const type = assistantEntry.type ?? "string";
   return {
     controlKind: type === "json" ? "json-editor" : "text-input",
-    entryId: txVarsSafeString(assistantEntry.id),
-    keyValue: txVarsSafeString(assistantEntry.key),
+    entryId: assistantEntry.id ?? "",
+    keyValue: assistantEntry.key ?? "",
     keyPlaceholder: t("txVarsFormKeyPlaceholder"),
     placeholder:
       type === "boolean" ? "true / false" : type === "number" ? "123" : "",
     removeButtonLabel: t("txVarsFormRemoveBtn"),
     showJsonEditor: type === "json",
-    typeOptionRows: (Array.isArray(valueTypeOptions)
-      ? valueTypeOptions
-      : []
-    ).map((typeOption) => ({
+    typeOptionRows: valueTypeOptions.map((typeOption) => ({
       labelText: t(typeOption.labelKey),
-      typeValue: txVarsSafeString(typeOption.value),
+      typeValue: typeOption.value,
     })),
     typeValue: type,
-    valueText: txVarsSafeString(assistantEntry.valueText),
+    valueText: assistantEntry.valueText ?? "",
   };
 }
 
@@ -288,9 +275,7 @@ export function txVarsAssistantPresentation(
     valueTypeOptions = [],
   }: { valueTypeOptions?: readonly TxVarsValueTypeOption[] } = {},
 ) {
-  const assistantEntries = Array.isArray(state?.assistantEntries)
-    ? state.assistantEntries
-    : [];
+  const assistantEntries = state.assistantEntries ?? [];
   return {
     addButtonLabel: t("txVarsFormAddBtn"),
     assistantEntryInputRows: assistantEntries.map((assistantEntry) =>
@@ -306,20 +291,28 @@ export function txVarsAssistantPresentation(
 }
 
 function txVarsAssistantEntry(
-  entryKey: unknown = "",
-  entryType: unknown = "string",
-  valueText: unknown = "",
+  entryKey = "",
+  entryType: TxVarsValueType = "string",
+  valueText = "",
 ): TxVarsAssistantEntry {
   txVarsAssistantEntrySeq += 1;
   return {
     id: `tx-vars-${txVarsAssistantEntrySeq}`,
-    key: txVarsSafeString(entryKey),
-    type: txVarsSafeString(entryType) || "string",
-    valueText: txVarsSafeString(valueText),
+    key: entryKey,
+    type: entryType,
+    valueText,
   };
 }
 
-function txVarsAssistantInferType(varsValue: unknown): TxVarsValueType {
+function txVarsValueType(value: string): TxVarsValueType {
+  return TX_VARS_ASSISTANT_VALUE_TYPE_OPTIONS.some(
+    (option) => option.value === value,
+  )
+    ? (value as TxVarsValueType)
+    : "string";
+}
+
+function txVarsAssistantInferType(varsValue: JsonValue): TxVarsValueType {
   if (varsValue === null) return "null";
   if (typeof varsValue === "string") return "string";
   if (typeof varsValue === "number") return "number";
@@ -328,18 +321,14 @@ function txVarsAssistantInferType(varsValue: unknown): TxVarsValueType {
 }
 
 function txVarsAssistantEntriesFromValue(
-  varsValue: unknown,
+  varsValue: JsonObject,
   orderedKeys: readonly string[] | null = null,
 ): TxVarsAssistantEntry[] {
-  const objectValue =
-    varsValue && typeof varsValue === "object" && !Array.isArray(varsValue)
-      ? (varsValue as Record<string, unknown>)
-      : {};
   const entryKeys = Array.isArray(orderedKeys)
-    ? orderedKeys.filter((entryKey) => Object.hasOwn(objectValue, entryKey))
-    : Object.keys(objectValue);
+    ? orderedKeys.filter((entryKey) => Object.hasOwn(varsValue, entryKey))
+    : Object.keys(varsValue);
   return entryKeys.map((entryKey) => {
-    const assistantValue = objectValue[entryKey];
+    const assistantValue = varsValue[entryKey];
     const entryType = txVarsAssistantInferType(assistantValue);
     if (entryType === "json") {
       return txVarsAssistantEntry(
@@ -369,7 +358,7 @@ function txVarsOrderedKeysFromJson(rawText: string): string[] {
         const parsedKey: unknown = JSON.parse(
           rawText.slice(cursor.from, cursor.to),
         );
-        keys.push(txVarsSafeString(parsedKey));
+        if (typeof parsedKey === "string") keys.push(parsedKey);
         break;
       } while (cursor.nextSibling());
       cursor.parent();
@@ -382,8 +371,8 @@ function txVarsOrderedKeysFromJson(rawText: string): string[] {
   return [];
 }
 
-function txVarsParseText(rawText: unknown = ""): TxVarsParseResult {
-  const trimmedText = txVarsSafeString(rawText).trim();
+function txVarsParseText(rawText = ""): TxVarsParseResult {
+  const trimmedText = rawText.trim();
   if (!trimmedText) {
     return {
       errorKind: "",
@@ -411,7 +400,7 @@ function txVarsParseText(rawText: unknown = ""): TxVarsParseResult {
       errorKind: "",
       errorMessage: "",
       orderedKeys: txVarsOrderedKeysFromJson(trimmedText),
-      parsedValue: parsedValue as Record<string, unknown>,
+      parsedValue: parsedValue as JsonObject,
     };
   } catch (error) {
     return {
@@ -426,9 +415,9 @@ function txVarsParseText(rawText: unknown = ""): TxVarsParseResult {
 
 function txVarsAssistantParseValue(
   assistantEntry: Partial<TxVarsAssistantEntry>,
-): unknown {
-  const entryType = txVarsSafeString(assistantEntry.type).trim() || "string";
-  const entryValueText = txVarsSafeString(assistantEntry.valueText);
+): JsonValue {
+  const entryType = assistantEntry.type ?? "string";
+  const entryValueText = assistantEntry.valueText ?? "";
   const trimmedValueText = entryValueText.trim();
   if (entryType === "null") return null;
   if (entryType === "number") {
@@ -444,8 +433,8 @@ function txVarsAssistantParseValue(
   if (entryType === "json") {
     if (!trimmedValueText) return {};
     try {
-      return JSON.parse(trimmedValueText);
-    } catch (_) {
+      return JSON.parse(trimmedValueText) as JsonValue;
+    } catch {
       return entryValueText;
     }
   }
@@ -455,10 +444,10 @@ function txVarsAssistantParseValue(
 function txVarsAssistantEntriesToJsonText(
   assistantEntries: readonly TxVarsAssistantEntry[],
 ): string {
-  const entries = (Array.isArray(assistantEntries) ? assistantEntries : [])
+  const entries = assistantEntries
     .map((assistantEntry) => ({
-      key: txVarsSafeString(assistantEntry?.key).trim(),
-      value: txVarsAssistantParseValue(assistantEntry || {}),
+      key: assistantEntry.key.trim(),
+      value: txVarsAssistantParseValue(assistantEntry),
     }))
     .filter((entry) => entry.key);
   const lastIndexes = new Map(
@@ -575,7 +564,7 @@ export function clearTxVarsAssistantEntries(
 
 export function removeTxVarsAssistantEntry(
   assistantConfig: TxVarsAssistantConfig | null | undefined,
-  entryId: unknown,
+  entryId: string,
 ): boolean {
   if (!assistantConfig || !entryId) return false;
   setTxVarsAssistantEntries(
@@ -590,12 +579,10 @@ export function removeTxVarsAssistantEntry(
 
 export function updateTxVarsAssistantEntry(
   assistantConfig: TxVarsAssistantConfig | null | undefined,
-  entryId: unknown,
+  entryId: string,
   patch: Partial<TxVarsAssistantEntry> = {},
 ): boolean {
-  if (!assistantConfig || !entryId || !patch || typeof patch !== "object") {
-    return false;
-  }
+  if (!assistantConfig || !entryId) return false;
   setTxVarsAssistantEntries(
     assistantConfig,
     txVarsAssistantEntries(assistantConfig).map((assistantEntry) =>
@@ -609,7 +596,7 @@ export function updateTxVarsAssistantEntry(
 }
 
 export function applyTxVarsAssistantEntriesFromText(
-  varsKey: unknown,
+  varsKey: string,
   {
     keepStateOnError = true,
     setStatus = null,
@@ -676,27 +663,27 @@ function txVarsAssistantCardActions(assistantConfig: TxVarsAssistantConfig) {
     clearEntries() {
       clearTxVarsAssistantEntries(assistantConfig);
     },
-    removeEntryAction(entryId: unknown) {
+    removeEntryAction(entryId: string) {
       return () => removeTxVarsAssistantEntry(assistantConfig, entryId);
     },
-    updateEntryJsonValue(entryId: unknown) {
-      return (entryValueText: unknown) =>
+    updateEntryJsonValue(entryId: string) {
+      return (entryValueText: string) =>
         updateTxVarsAssistantEntry(
           assistantConfig,
           entryId,
           txVarsAssistantEntryFieldPatches.valueText(entryValueText),
         );
     },
-    updateEntryKey(entryId: unknown) {
-      return (entryKey: unknown) =>
+    updateEntryKey(entryId: string) {
+      return (entryKey: string) =>
         updateTxVarsAssistantEntry(
           assistantConfig,
           entryId,
           txVarsAssistantEntryFieldPatches.key(entryKey),
         );
     },
-    updateEntryType(entryId: unknown) {
-      return formValueHandler((entryType: unknown) =>
+    updateEntryType(entryId: string) {
+      return formValueHandler((entryType: string) =>
         updateTxVarsAssistantEntry(
           assistantConfig,
           entryId,
@@ -704,8 +691,8 @@ function txVarsAssistantCardActions(assistantConfig: TxVarsAssistantConfig) {
         ),
       );
     },
-    updateEntryValue(entryId: unknown) {
-      return (entryValueText: unknown) =>
+    updateEntryValue(entryId: string) {
+      return (entryValueText: string) =>
         updateTxVarsAssistantEntry(
           assistantConfig,
           entryId,
@@ -718,11 +705,8 @@ function txVarsAssistantCardActions(assistantConfig: TxVarsAssistantConfig) {
 export function createTxVarsAssistantCardWorkspace({
   getPrefix = null,
 }: TxVarsAssistantCardOptions = {}) {
-  const resolvePrefix = (prefix: unknown = ""): string =>
-    txVarsSafeString(prefix || "") ||
-    (typeof getPrefix === "function"
-      ? txVarsSafeString(getPrefix())
-      : txVarsSafeString(prefix));
+  const resolvePrefix = (prefix = ""): string =>
+    prefix || (typeof getPrefix === "function" ? getPrefix() : prefix);
   const assistantConfigStateStore = writable(
     requiredTxVarsAssistantConfigByPrefix(resolvePrefix()),
   );
@@ -768,7 +752,7 @@ export function createTxVarsAssistantCardWorkspace({
     syncedVarsVersion: -1,
   });
 
-  function setAssistantPrefix(prefix: unknown = ""): void {
+  function setAssistantPrefix(prefix = ""): void {
     assistantConfigStateStore.set(
       requiredTxVarsAssistantConfigByPrefix(resolvePrefix(prefix)),
     );

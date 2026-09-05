@@ -18,6 +18,7 @@ import type {
   JsonObject,
   TxBlockFormModel,
   TxWorkflowBlockFormModel,
+  TxWorkflowFormModel,
   TxWorkflowTemplateRefBlockModel,
   TxWorkflowTemplateRefVarsDisplay,
 } from "../model/types.js";
@@ -54,7 +55,7 @@ function txWorkflowCheckedHandler(
     callback(typeof input === "boolean" ? input : formChecked(input));
 }
 
-interface TxWorkflowEditorModel extends JsonObject {
+export interface TxWorkflowEditorModel extends JsonObject {
   blocks?: TxWorkflowBlockFormModel[];
   failFast?: boolean;
   hasFailFast?: boolean;
@@ -207,13 +208,15 @@ export interface TxWorkflowFlowNodeData extends JsonObject {
   vertical: boolean;
 }
 
-type TxWorkflowChangeHandler = (model: TxWorkflowEditorModel) => unknown;
+type TxWorkflowChangeHandler = (model: TxWorkflowFormModel) => void;
 
-function txWorkflowEditorModel(value: unknown): TxWorkflowEditorModel {
+function txWorkflowEditorModel(value: JsonObject): TxWorkflowEditorModel {
   return plainObject(value) ? (value as TxWorkflowEditorModel) : {};
 }
 
-function txWorkflowBlockModel(value: unknown): TxWorkflowBlockFormModel {
+function txWorkflowBlockModel(
+  value: JsonObject | undefined,
+): TxWorkflowBlockFormModel {
   return plainObject(value)
     ? (value as TxWorkflowBlockFormModel)
     : txWorkflowBlockFormModelFromJson();
@@ -268,15 +271,15 @@ const TX_WORKFLOW_NULLABLE_MODE_ROWS = Object.freeze([
   { value: "null", labelKey: "txBlockNullableModeNull" },
 ]);
 
-function workflowBoolStringValue(value: unknown): boolean {
+function workflowBoolStringValue(value: string | boolean): boolean {
   return value === "true" || value === true;
 }
 
-function workflowNullableTextValue(value: unknown): string | null {
+function workflowNullableTextValue(value: string): string | null {
   return value == null ? null : String(value);
 }
 
-function workflowNullableModeValue(value: unknown = ""): "null" | "value" {
+function workflowNullableModeValue(value: string = ""): "null" | "value" {
   return value === "null" ? "null" : "value";
 }
 
@@ -303,10 +306,10 @@ function workflowWithNullableMode(
 }
 
 function workflowNullableFieldModePatch(
-  model: unknown = {},
+  model: JsonObject = {},
   field: string,
-  mode: unknown,
-  fallback: unknown = "",
+  mode: string,
+  fallback: string = "",
 ): JsonObject {
   const value = plainObject(model) ? model : {};
   const hasKey = `has${field[0].toUpperCase()}${field.slice(1)}`;
@@ -324,7 +327,7 @@ function workflowNullableFieldModePatch(
 }
 
 function workflowToggleNullableFieldPresence(
-  model: unknown = {},
+  model: JsonObject = {},
   field: string,
   enabled: boolean,
 ): JsonObject {
@@ -338,7 +341,7 @@ function workflowToggleNullableFieldPresence(
 }
 
 function workflowToggleObjectFieldPresence(
-  model: unknown = {},
+  model: JsonObject = {},
   field: string,
   enabled: boolean,
 ): JsonObject {
@@ -356,12 +359,12 @@ function workflowToggleObjectFieldPresence(
   };
 }
 
-function workflowCloneModel(model: unknown): TxWorkflowEditorModel {
+function workflowCloneModel(model: JsonObject): TxWorkflowEditorModel {
   return structuredClone(txWorkflowEditorModel(model));
 }
 
 function txWorkflowUpdateBlock(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
   updater: (block: TxWorkflowBlockFormModel) => TxWorkflowBlockFormModel,
 ): TxWorkflowEditorModel {
@@ -374,18 +377,17 @@ function txWorkflowUpdateBlock(
 }
 
 function workflowApplyChange(
-  onChange: unknown,
+  onChange: TxWorkflowChangeHandler | null | undefined,
   nextModel: TxWorkflowEditorModel,
-): unknown {
-  return typeof onChange === "function"
-    ? (onChange as TxWorkflowChangeHandler)(nextModel)
-    : undefined;
+): void {
+  if (typeof onChange === "function")
+    onChange(nextModel as TxWorkflowFormModel);
 }
 
 function txWorkflowChangeRoot(
-  model: unknown,
+  model: JsonObject,
   key: string,
-  value: unknown,
+  value: string,
 ): TxWorkflowEditorModel {
   const next = workflowCloneModel(model);
   next[key] = key === "failFast" ? workflowBoolStringValue(value) : value;
@@ -393,7 +395,7 @@ function txWorkflowChangeRoot(
   return next;
 }
 
-export function txWorkflowAddBlock(model: unknown): TxWorkflowEditorModel {
+export function txWorkflowAddBlock(model: JsonObject): TxWorkflowEditorModel {
   const next = workflowCloneModel(model);
   if (!Array.isArray(next.blocks)) next.blocks = [];
   next.blocks.push(
@@ -403,7 +405,7 @@ export function txWorkflowAddBlock(model: unknown): TxWorkflowEditorModel {
 }
 
 export function txWorkflowRemoveBlock(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
 ): TxWorkflowEditorModel {
   const next = workflowCloneModel(model);
@@ -413,7 +415,7 @@ export function txWorkflowRemoveBlock(
 }
 
 export function txWorkflowDuplicateBlock(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
 ): TxWorkflowEditorModel {
   const next = workflowCloneModel(model);
@@ -427,7 +429,7 @@ export function txWorkflowDuplicateBlock(
 }
 
 export function txWorkflowMoveBlock(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
   targetIndex: number,
 ): TxWorkflowEditorModel {
@@ -448,9 +450,9 @@ export function txWorkflowMoveBlock(
 }
 
 function txWorkflowChangeBlockSource(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
-  sourceKind: unknown,
+  sourceKind: TxWorkflowValueInput,
 ): TxWorkflowEditorModel {
   return txWorkflowUpdateBlock(model, blockIndex, (currentBlock) => ({
     sourceKind: sourceKind === "template_ref" ? "template_ref" : "inline",
@@ -466,7 +468,7 @@ function txWorkflowChangeBlockSource(
 }
 
 function txWorkflowUpdateInlineBlock(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
   inlineBlock: TxBlockFormModel,
 ): TxWorkflowEditorModel {
@@ -477,7 +479,7 @@ function txWorkflowUpdateInlineBlock(
 }
 
 function txWorkflowPatchTemplateRefBlock(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
   patch: JsonObject = {},
 ): TxWorkflowEditorModel {
@@ -494,7 +496,7 @@ function txWorkflowPatchTemplateRefBlock(
 }
 
 export function txWorkflowSetRootFieldPresence(
-  model: unknown = {},
+  model: JsonObject = {},
   field: string,
   enabled: boolean,
 ): TxWorkflowEditorModel {
@@ -507,7 +509,7 @@ export function txWorkflowSetRootFieldPresence(
 }
 
 export function txWorkflowSetTemplateRefFieldPresence(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
   field: string,
   enabled: boolean,
@@ -529,7 +531,7 @@ export function txWorkflowSetTemplateRefFieldPresence(
 }
 
 export function txWorkflowSetTemplateRefVarsPresence(
-  model: unknown,
+  model: JsonObject,
   blockIndex: number,
   enabled: boolean,
 ): TxWorkflowEditorModel {
@@ -548,8 +550,8 @@ export function txWorkflowSetTemplateRefVarsPresence(
 }
 
 export function txWorkflowRootFieldsDisplay(
-  model: unknown = {},
-  booleanRows: readonly unknown[] = [],
+  model: JsonObject = {},
+  booleanRows: readonly string[] = [],
 ): TxWorkflowFieldRow[] {
   const workflowValue = plainObject(model) ? model : {};
   return TX_WORKFLOW_ROOT_FIELD_DEFS.map((fieldDef) => {
@@ -582,9 +584,11 @@ export function txWorkflowRootFieldsDisplay(
 }
 
 export function txWorkflowBlockFieldsDisplay(
-  block: unknown = {},
+  block: JsonObject = {},
 ): TxWorkflowFieldRow[] {
-  const blockValue = plainObject(block) ? block : {};
+  const blockValue = plainObject(block)
+    ? (block as TxWorkflowBlockFormModel)
+    : ({} as TxWorkflowBlockFormModel);
   return TX_WORKFLOW_BLOCK_FIELD_DEFS.map((fieldDef) => ({
     ...fieldDef,
     enabled: true,
@@ -763,7 +767,7 @@ export function txWorkflowTemplateRefEditorBindings(
   const setTemplateSource = (
     field: "txBlockTemplateContent" | "txBlockTemplateName",
     pairedField: "txBlockTemplateContent" | "txBlockTemplateName",
-    value: unknown,
+    value: string,
   ): void => {
     const nextValue = workflowNullableTextValue(value);
     applyPatch({
@@ -882,8 +886,11 @@ export function txWorkflowTemplateRefEditorBindings(
   };
 }
 
-function txWorkflowEditorBindings(model: unknown, onChange: unknown) {
-  const applyChange = (nextModel: TxWorkflowEditorModel): unknown =>
+function txWorkflowEditorBindings(
+  model: JsonObject,
+  onChange: TxWorkflowChangeHandler | null | undefined,
+) {
+  const applyChange = (nextModel: TxWorkflowEditorModel): void =>
     workflowApplyChange(onChange, nextModel);
   return {
     addBlock() {
@@ -901,7 +908,7 @@ function txWorkflowEditorBindings(model: unknown, onChange: unknown) {
     removeBlock(blockIndex: number): void {
       applyChange(txWorkflowRemoveBlock(model, blockIndex));
     },
-    setBlockSource(blockIndex: number, sourceKind: unknown): void {
+    setBlockSource(blockIndex: number, sourceKind: TxWorkflowValueInput): void {
       applyChange(txWorkflowChangeBlockSource(model, blockIndex, sourceKind));
     },
     setInlineBlock(blockIndex: number, inlineBlock: TxBlockFormModel): void {
@@ -910,7 +917,7 @@ function txWorkflowEditorBindings(model: unknown, onChange: unknown) {
     setRootFieldPresence(field: string, enabled: boolean): void {
       applyChange(txWorkflowSetRootFieldPresence(model, field, enabled));
     },
-    setRootValue(field: string, value: unknown): void {
+    setRootValue(field: string, value: string): void {
       applyChange(txWorkflowChangeRoot(model, field, value));
     },
     setTemplateRefFieldPresence(
@@ -936,8 +943,8 @@ function txWorkflowEditorBindings(model: unknown, onChange: unknown) {
 }
 
 function txWorkflowBlockBindings(
-  model: unknown,
-  onChange: unknown,
+  model: JsonObject,
+  onChange: TxWorkflowChangeHandler | null | undefined,
   blockIndex: number,
 ): TxWorkflowBlockActionHandlers {
   const bindings = txWorkflowEditorBindings(model, onChange);
@@ -964,8 +971,8 @@ function txWorkflowBlockBindings(
 }
 
 export function txWorkflowVisualEditorBindings(
-  model: unknown,
-  onChange: unknown,
+  model: JsonObject,
+  onChange: TxWorkflowChangeHandler | null | undefined,
 ) {
   const bindings = txWorkflowEditorBindings(model, onChange);
   return {
@@ -1013,7 +1020,7 @@ export function txWorkflowBlockEditorBindings(
 }
 
 export function txWorkflowVisualEditorDisplay(
-  model: unknown = {},
+  model: JsonObject = {},
 ): TxWorkflowVisualEditorDisplay {
   const workflowValue = txWorkflowEditorModel(model);
   return {
@@ -1021,9 +1028,7 @@ export function txWorkflowVisualEditorDisplay(
       ? workflowValue.blocks
       : []
     ).map((block, blockIndex) => {
-      const blockValue = plainObject(block)
-        ? (block as TxWorkflowBlockFormModel)
-        : ({} as TxWorkflowBlockFormModel);
+      const blockValue = block;
       const isTemplateRef = blockValue.sourceKind === "template_ref";
       return {
         block: blockValue,

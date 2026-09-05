@@ -7,7 +7,7 @@ const LUCIDE_MODULE_PATTERN = /[\\/]node_modules[\\/]@lucide[\\/]svelte[\\/]/;
 const SHARED_UI_MODULE_PATTERN =
   /[\\/]frontend[\\/]src[\\/](?:components|lib[\\/]components)[\\/]/;
 
-function isApplicationModule(id) {
+function isApplicationModule(id: string): boolean {
   return !id.startsWith("\0") && !id.includes("/node_modules/");
 }
 

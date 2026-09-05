@@ -1,6 +1,7 @@
 import { derived, get, readonly, writable } from "svelte/store";
 import type { Readable } from "svelte/store";
 import type {
+  JsonErrorDetail,
   TransactionEditorSessionState,
   TransactionEditorView,
   TransactionParsedFormState,
@@ -13,25 +14,23 @@ interface TransactionEditorSessionConfig<TModel, TErrorDetail> {
     jsonText: string,
     currentModel: TModel,
   ): TransactionParsedFormState<TModel, TErrorDetail>;
-  publishFormChange?: ((model: TModel, jsonText: string) => unknown) | null;
+  publishFormChange?: ((model: TModel, jsonText: string) => void) | null;
 }
 
 interface ChangeFormModelOptions {
-  editorDisplayMode?: unknown;
+  editorDisplayMode?: TransactionEditorView;
   notify?: boolean;
 }
 
-const sessionText = (value: unknown): string => {
-  if (value == null) return "";
-  return typeof value === "string" ? value : String(value);
-};
-
-const editorView = (value: unknown): TransactionEditorView => {
+const editorView = (value: string): TransactionEditorView => {
   if (value === "json" || value === "readonly") return value;
   return "form";
 };
 
-export function createTransactionEditorSession<TModel, TErrorDetail = unknown>({
+export function createTransactionEditorSession<
+  TModel,
+  TErrorDetail = JsonErrorDetail,
+>({
   buildDefaultFormModel,
   formModelToJsonText,
   inputFormStateFromJsonText,
@@ -70,21 +69,20 @@ export function createTransactionEditorSession<TModel, TErrorDetail = unknown>({
   }
 
   function replaceJsonText(
-    jsonText: unknown = "",
+    jsonText = "",
     parsedState: TransactionParsedFormState<TModel, TErrorDetail> | null = null,
   ): boolean {
-    const nextJsonText = sessionText(jsonText);
     const currentState = get(sessionStateStore);
     const nextState =
       parsedState ||
-      inputFormStateFromJsonText(nextJsonText, currentState.formModel);
+      inputFormStateFromJsonText(jsonText, currentState.formModel);
 
     if (nextState.formError) {
       writableSessionStateStore.set({
         ...currentState,
-        formError: sessionText(nextState.formError),
+        formError: nextState.formError,
         formErrorDetail: nextState.formErrorDetail ?? null,
-        jsonText: nextJsonText,
+        jsonText,
         syncStatus: "invalid-json",
       });
       return false;
@@ -95,15 +93,15 @@ export function createTransactionEditorSession<TModel, TErrorDetail = unknown>({
       formError: "",
       formErrorDetail: null,
       formModel: nextState.formModel,
-      jsonText: nextJsonText,
-      lastValidJson: nextJsonText,
+      jsonText,
+      lastValidJson: jsonText,
       syncStatus: "synced",
     });
     return true;
   }
 
   function replaceExternalJson(
-    jsonText: unknown = "",
+    jsonText = "",
     parsedState: TransactionParsedFormState<TModel, TErrorDetail> | null = null,
   ): boolean {
     return replaceJsonText(jsonText, parsedState);
@@ -133,7 +131,7 @@ export function createTransactionEditorSession<TModel, TErrorDetail = unknown>({
     }
   }
 
-  function selectEditorView(nextView: unknown = ""): boolean {
+  function selectEditorView(nextView = ""): boolean {
     const normalizedView = editorView(nextView);
     const currentState = get(sessionStateStore);
     if (

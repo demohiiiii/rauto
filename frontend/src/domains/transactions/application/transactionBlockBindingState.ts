@@ -4,6 +4,8 @@ import {
   formCheckedHandler,
   formValueHandler,
 } from "../../../lib/events.js";
+import type { PresenceFieldValueInput } from "../../../components/fragments/presenceFieldTypes.js";
+import { stringValue } from "../../../lib/jsonValue.js";
 import {
   txExtraStringPresenceChangeHandler,
   txExtraStringValueChangeHandler,
@@ -67,8 +69,8 @@ import type {
   TxStepFormModel,
 } from "../model/types.js";
 
-type ChangeHandler<T> = ((nextModel: T) => unknown) | null | undefined;
-type FormEventHandler = (event: unknown) => unknown;
+type ChangeHandler<T> = ((nextModel: T) => void) | null | undefined;
+type FormEventHandler = (event: unknown) => void;
 type ModelMutation<TModel, TArgs extends unknown[]> = (
   model: TModel,
   ...args: TArgs
@@ -77,7 +79,7 @@ type ModelMutation<TModel, TArgs extends unknown[]> = (
 export type TxBlockStepChangeHandler = (
   patchOrField: string | Partial<TxStepFormModel>,
   enabled?: boolean,
-) => unknown;
+) => void;
 
 interface TxBlockStepEditorBindingOptions {
   onStepChange?: TxBlockStepChangeHandler | null;
@@ -87,7 +89,7 @@ function txModelChangeHandler<TModel, TArgs extends unknown[]>(
   model: TModel,
   onChange: ChangeHandler<TModel>,
   mutation: ModelMutation<TModel, TArgs>,
-): (...args: TArgs) => unknown {
+): (...args: TArgs) => void {
   return (...args) => txBlockApplyChange(onChange, mutation(model, ...args));
 }
 
@@ -242,10 +244,10 @@ function txBlockCommandBindings(
     setExtra(extra: JsonObject): void {
       txBlockApplyChange(onChange, { extra });
     },
-    setField(key: string, value: unknown): void {
+    setField(key: string, value: string): void {
       txBlockApplyChange(onChange, { [key]: value });
     },
-    setTimeoutSecs(value: unknown): void {
+    setTimeoutSecs(value: string): void {
       txBlockApplyChange(onChange, {
         timeout: txBlockNumberFormValue(value),
         hasTimeout: true,
@@ -426,7 +428,7 @@ function txBlockCommandInteractionBindings(
     ),
     addPromptPattern: applyCommandChange(txBlockAddCommandPromptPattern),
     removePromptPattern: applyCommandChange(txBlockRemoveCommandPromptPattern),
-    setPromptPatterns(promptIndex: number, patternText: unknown): void {
+    setPromptPatterns(promptIndex: number, patternText: string): void {
       applyCommandChange(txBlockUpdateCommandPrompt)(promptIndex, {
         patterns: txBlockCommandPromptPatternsFromText(patternText),
       });
@@ -434,7 +436,7 @@ function txBlockCommandInteractionBindings(
     setPromptPatternValue: applyCommandChange(
       txBlockSetCommandPromptPatternValue,
     ),
-    setPromptRecordInput(promptIndex: number, value: unknown): void {
+    setPromptRecordInput(promptIndex: number, value: string): void {
       applyCommandChange(txBlockUpdateCommandPrompt)(promptIndex, {
         recordInput: value === "true",
         hasRecordInput: true,
@@ -483,22 +485,22 @@ export function txBlockCommandInteractionEditorBindings(
           };
         },
         metadataValueHandler(fieldKey: string) {
-          return (value: unknown) => {
+          return (value: PresenceFieldValueInput) => {
             bindings.setPromptExtra(
               promptIndex,
               txSetExtraStringFieldValue(
                 txCommandPromptExtraSource(command, promptIndex),
                 fieldKey,
-                value,
+                stringValue(value),
               ),
             );
           };
         },
         recordValueHandler() {
-          return (value: unknown) =>
-            bindings.setPromptRecordInput(promptIndex, value);
+          return (value: PresenceFieldValueInput) =>
+            bindings.setPromptRecordInput(promptIndex, stringValue(value));
         },
-        patternValueHandler(patternIndex: number, value: unknown): void {
+        patternValueHandler(patternIndex: number, value: string): void {
           bindings.setPromptPatternValue(promptIndex, patternIndex, value);
         },
         removePatternAction(patternIndex: number): void {
@@ -544,13 +546,13 @@ function txBlockFlowBindings(
           : txBlockSetFlowFieldPresence(operation.flow, field, enabled);
       applyFlowChange(txBlockPatchFlow)(patch);
     },
-    setMaxSteps(value: unknown): void {
+    setMaxSteps(value: string): void {
       applyFlowChange(txBlockPatchFlow)({
         maxSteps: txBlockNumberFormValue(value),
         hasMaxSteps: true,
       });
     },
-    setStopOnError(value: unknown): void {
+    setStopOnError(value: string): void {
       applyFlowChange(txBlockPatchFlow)({
         stopOnError: value === "true",
         hasStopOnError: true,
@@ -586,10 +588,10 @@ export function txBlockFlowEditorBindings(
     setFieldPresence(field: string, enabled: boolean): void {
       bindings.setFieldPresence(field, enabled);
     },
-    setMaxSteps(value: unknown): void {
+    setMaxSteps(value: string): void {
       bindings.setMaxSteps(value);
     },
-    setStopOnError(value: unknown): void {
+    setStopOnError(value: string): void {
       bindings.setStopOnError(value);
     },
     flowFieldPresenceHandler(fieldKey: string) {
@@ -597,8 +599,10 @@ export function txBlockFlowEditorBindings(
     },
     flowFieldValueHandler(fieldKey: string) {
       return fieldKey === "stopOnError"
-        ? bindings.setStopOnError
-        : bindings.setMaxSteps;
+        ? (value: PresenceFieldValueInput) =>
+            bindings.setStopOnError(stringValue(value))
+        : (value: PresenceFieldValueInput) =>
+            bindings.setMaxSteps(stringValue(value));
     },
     duplicateStepHandler(stepIndex: number) {
       return () => bindings.duplicateStep(stepIndex);

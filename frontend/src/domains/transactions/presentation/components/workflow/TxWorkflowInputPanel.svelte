@@ -73,7 +73,7 @@
   const workflowTemplateSelectStateStore = jsonTemplateSelectStateFor(
     TX_TEMPLATE_KIND.txWorkflow,
   );
-  const txWorkflowInputWorkspace = createTxWorkflowInputPanelWorkspace();
+  const txWorkflowInputWorkspace = createTxWorkflowInputPanelWorkspace<File>();
   const {
     changeFormModel,
     createDirectDraft,

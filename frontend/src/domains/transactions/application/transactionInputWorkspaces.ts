@@ -17,7 +17,6 @@ import {
   createTxInputLoadingKeysStore,
   createTxInputPanelActionWorkspace,
   createTxInputPanelWorkspace,
-  normalizeOptionalHandler,
   saveTxBlockEditorFormModel,
   saveTxWorkflowEditorFormModel,
   txBlockInputEditorSurfaceDisplay,
@@ -45,39 +44,54 @@ import {
 
 import type {
   JsonErrorDetail,
+  TransactionEditorView,
   TransactionParsedFormState,
+  TransactionTemplateResource,
   TxBlockFormModel,
   TxWorkflowFormModel,
 } from "../model/types.js";
+import type { TextFile, TxInputDependencies } from "./transactionInputState.js";
 
-type OptionalHandler = (...args: unknown[]) => unknown;
-type InputDependencyState = Record<string, OptionalHandler | null>;
+type MaybePromise<T> = T | Promise<T>;
+type InputActionResult = TransactionTemplateResource | null | void;
+type InputDependencyState<TFile = TextFile> = Required<
+  TxInputDependencies<TFile, InputActionResult>
+>;
+type TemplateAction = () => MaybePromise<void>;
+type TemplateLoadAction = (templateName: string) => MaybePromise<void>;
 
-interface TransactionInputState extends Record<string, unknown> {
-  getDisplayConfig?: (() => { newButtonLabelKey?: unknown } | null) | null;
+interface TransactionInputState<TFile = TextFile> extends TxInputDependencies<
+  TFile,
+  InputActionResult
+> {
+  ariaLabel?: string;
+  getDisplayConfig?: (() => { newButtonLabelKey?: string } | null) | null;
   getTemplateKind?: (() => string) | null;
   getVarsKey?: (() => string) | null;
-  newButtonLabelKey?: unknown;
-  onCreateTemplateDraft?: unknown;
-  onDeleteTemplate?: unknown;
-  onLoadTemplate?: unknown;
-  onSaveTemplate?: unknown;
+  hintKeys?: string[];
+  newButtonLabelKey?: string;
+  onCreateTemplateDraft?: TemplateAction | null;
+  onDeleteTemplate?: TemplateAction | null;
+  onLoadTemplate?: TemplateLoadAction | null;
+  onSaveTemplate?: TemplateAction | null;
+  varsPlaceholderFallback?: string;
+  varsPlaceholderKey?: string;
 }
 
-interface TemplatePanelConfig extends Record<string, unknown> {
-  ariaLabel?: unknown;
-  hintKeys?: unknown;
-  varsPlaceholderFallback?: unknown;
-  varsPlaceholderKey?: unknown;
+interface TemplatePanelConfig {
+  ariaLabel?: string;
+  hintKeys?: string[];
+  varsPlaceholderFallback?: string;
+  varsPlaceholderKey?: string;
 }
 
 interface TemplatePanelDependencyState {
   getTemplateKind: (() => string) | null;
   getVarsKey: (() => string) | null;
-  onCreateTemplateDraft: OptionalHandler | null;
-  onDeleteTemplate: OptionalHandler | null;
-  onLoadTemplate: OptionalHandler | null;
-  onSaveTemplate: OptionalHandler | null;
+  onCreateTemplateDraft: TemplateAction | null;
+  onDeleteTemplate: TemplateAction | null;
+  onLoadTemplate: TemplateLoadAction | null;
+  onSaveTemplate: TemplateAction | null;
 }
 
 interface TemplatePanelDisplayConfig {
@@ -99,8 +113,9 @@ interface ConfiguredInputPanelOptions<
   TErrorDetail,
   TPanelDisplay,
   TEditorDisplay,
+  TFile,
 > {
-  applyPanelContext?: ((state: TransactionInputState) => unknown) | null;
+  applyPanelContext?: ((state: TransactionInputState<TFile>) => void) | null;
   buildDefaultFormModel(): TModel;
   editorDisplayFromPanel(panel: TPanelDisplay): TEditorDisplay;
   formModelToJsonText(model: TModel): string;
@@ -111,17 +126,13 @@ interface ConfiguredInputPanelOptions<
     jsonText: string,
     model: TModel,
   ): TransactionParsedFormState<TModel, TErrorDetail>;
-  inputState?: TransactionInputState;
+  inputState?: TransactionInputState<TFile>;
   panelDisplayStateStore: Readable<TPanelDisplay>;
-  saveEditorFormModel(model: TModel, options?: { notify?: boolean }): unknown;
+  saveEditorFormModel(model: TModel, options?: { notify?: boolean }): void;
 }
 
-const optionalHandler = (handler: unknown): OptionalHandler | null =>
-  normalizeOptionalHandler(handler) as OptionalHandler | null;
-const inputText = (value: unknown): string => safeTemplateString(value);
-
 export function createTxTemplateRunPanelWorkspace(
-  inputState: TransactionInputState = {},
+  inputState: TransactionInputState<TextFile> = {},
 ) {
   const dependencyState: TemplatePanelDependencyState = {
     getTemplateKind:
@@ -132,10 +143,10 @@ export function createTxTemplateRunPanelWorkspace(
       typeof inputState.getVarsKey === "function"
         ? inputState.getVarsKey
         : null,
-    onCreateTemplateDraft: optionalHandler(inputState.onCreateTemplateDraft),
-    onDeleteTemplate: optionalHandler(inputState.onDeleteTemplate),
-    onLoadTemplate: optionalHandler(inputState.onLoadTemplate),
-    onSaveTemplate: optionalHandler(inputState.onSaveTemplate),
+    onCreateTemplateDraft: inputState.onCreateTemplateDraft ?? null,
+    onDeleteTemplate: inputState.onDeleteTemplate ?? null,
+    onLoadTemplate: inputState.onLoadTemplate ?? null,
+    onSaveTemplate: inputState.onSaveTemplate ?? null,
   };
   const { loadingKeysStore, loadingRunner } = createTxInputLoadingKeysStore();
   const templateSelectStateStore = jsonTemplateSelectStateFor(
@@ -183,25 +194,20 @@ export function createTxTemplateRunPanelWorkspace(
     ]) =>
       txTemplateRunPanelDisplay({
         ...($panelDisplayConfigStateStore || {}),
-        templateSelectState:
-          $templateSelectStateStore as unknown as NonNullable<
-            Parameters<typeof txTemplateRunPanelDisplay>[0]
-          >["templateSelectState"],
-        varsTextState: $varsTextStateStore as NonNullable<
-          Parameters<typeof txTemplateRunPanelDisplay>[0]
-        >["varsTextState"],
+        templateSelectState: $templateSelectStateStore,
+        varsTextState: $varsTextStateStore,
       }),
   );
 
-  function changeVarsText(varsText: unknown = ""): void {
+  function changeVarsText(varsText = ""): void {
     const varsKey =
       typeof dependencyState.getVarsKey === "function"
         ? dependencyState.getVarsKey()
         : "";
-    setTxVarsRawText(varsKey, inputText(varsText), { source: "editor" });
+    setTxVarsRawText(varsKey, varsText, { source: "editor" });
   }
 
-  async function loadTemplate(selectedTemplate: unknown) {
+  async function loadTemplate(selectedTemplate: string) {
     const templateKind =
       typeof dependencyState.getTemplateKind === "function"
         ? dependencyState.getTemplateKind()
@@ -235,25 +241,21 @@ export function createTxTemplateRunPanelWorkspace(
     );
   }
 
-  function selectEditorView(nextView: unknown = ""): void {
+  function selectEditorView(nextView: TransactionEditorView = "form"): void {
     editorDisplayModeStateStore.set(nextView === "json" ? "json" : "form");
   }
 
   function applyPanelConfig(nextConfig: TemplatePanelConfig = {}): void {
     panelDisplayConfigStateStore.set({
-      ariaLabel: safeTemplateString(nextConfig.ariaLabel),
-      hintKeys: Array.isArray(nextConfig.hintKeys)
-        ? nextConfig.hintKeys.map(inputText)
-        : [],
-      varsPlaceholderFallback: safeTemplateString(
-        nextConfig.varsPlaceholderFallback,
-      ),
-      varsPlaceholderKey: safeTemplateString(nextConfig.varsPlaceholderKey),
+      ariaLabel: nextConfig.ariaLabel ?? "",
+      hintKeys: nextConfig.hintKeys ?? [],
+      varsPlaceholderFallback: nextConfig.varsPlaceholderFallback ?? "",
+      varsPlaceholderKey: nextConfig.varsPlaceholderKey ?? "",
     });
   }
 
   function applyDependencyInputs(
-    nextInputState: TransactionInputState = {},
+    nextInputState: TransactionInputState<TextFile> = {},
   ): void {
     if ("getTemplateKind" in nextInputState) {
       dependencyState.getTemplateKind =
@@ -268,29 +270,23 @@ export function createTxTemplateRunPanelWorkspace(
           : dependencyState.getVarsKey;
     }
     if ("onCreateTemplateDraft" in nextInputState) {
-      dependencyState.onCreateTemplateDraft = optionalHandler(
-        nextInputState.onCreateTemplateDraft,
-      );
+      dependencyState.onCreateTemplateDraft =
+        nextInputState.onCreateTemplateDraft ?? null;
     }
     if ("onDeleteTemplate" in nextInputState) {
-      dependencyState.onDeleteTemplate = optionalHandler(
-        nextInputState.onDeleteTemplate,
-      );
+      dependencyState.onDeleteTemplate =
+        nextInputState.onDeleteTemplate ?? null;
     }
     if ("onLoadTemplate" in nextInputState) {
-      dependencyState.onLoadTemplate = optionalHandler(
-        nextInputState.onLoadTemplate,
-      );
+      dependencyState.onLoadTemplate = nextInputState.onLoadTemplate ?? null;
     }
     if ("onSaveTemplate" in nextInputState) {
-      dependencyState.onSaveTemplate = optionalHandler(
-        nextInputState.onSaveTemplate,
-      );
+      dependencyState.onSaveTemplate = nextInputState.onSaveTemplate ?? null;
     }
   }
 
   function setTemplateRunPanelContext(
-    nextContext: TransactionInputState = {},
+    nextContext: TransactionInputState<TextFile> = {},
   ): void {
     applyPanelConfig(nextContext);
     applyDependencyInputs(nextContext);
@@ -319,33 +315,47 @@ export function createTxTemplateRunPanelWorkspace(
   };
 }
 
-const TX_INPUT_DEPENDENCY_KEYS = [
-  "onCreateDirectDraft",
-  "onCreateJsonTemplateDraft",
-  "onEditorInput",
-  "onImportFile",
-  "onLoadJsonTemplate",
-] as const;
-
-function txInputDependencyState(
-  inputState: TransactionInputState = {},
-): InputDependencyState {
-  return Object.fromEntries(
-    TX_INPUT_DEPENDENCY_KEYS.map((key) => [
-      key,
-      optionalHandler(inputState[key]),
-    ]),
-  );
+function txInputDependencyState<TFile>(
+  inputState: TransactionInputState<TFile> = {},
+): InputDependencyState<TFile> {
+  return {
+    onCreateDirectDraft: inputState.onCreateDirectDraft ?? null,
+    onCreateJsonTemplateDraft: inputState.onCreateJsonTemplateDraft ?? null,
+    onDirectMode: inputState.onDirectMode ?? null,
+    onEditorInput: inputState.onEditorInput ?? null,
+    onImportFile: inputState.onImportFile ?? null,
+    onLoadJsonTemplate: inputState.onLoadJsonTemplate ?? null,
+    onTemplateMode: inputState.onTemplateMode ?? null,
+  };
 }
 
-function updateTxInputDependencies(
-  dependencyState: InputDependencyState,
-  nextInputState: TransactionInputState = {},
+function updateTxInputDependencies<TFile>(
+  dependencyState: InputDependencyState<TFile>,
+  nextInputState: TransactionInputState<TFile> = {},
 ): void {
-  for (const key of TX_INPUT_DEPENDENCY_KEYS) {
-    if (key in nextInputState) {
-      dependencyState[key] = optionalHandler(nextInputState[key]);
-    }
+  if ("onCreateDirectDraft" in nextInputState) {
+    dependencyState.onCreateDirectDraft =
+      nextInputState.onCreateDirectDraft ?? null;
+  }
+  if ("onCreateJsonTemplateDraft" in nextInputState) {
+    dependencyState.onCreateJsonTemplateDraft =
+      nextInputState.onCreateJsonTemplateDraft ?? null;
+  }
+  if ("onDirectMode" in nextInputState) {
+    dependencyState.onDirectMode = nextInputState.onDirectMode ?? null;
+  }
+  if ("onEditorInput" in nextInputState) {
+    dependencyState.onEditorInput = nextInputState.onEditorInput ?? null;
+  }
+  if ("onImportFile" in nextInputState) {
+    dependencyState.onImportFile = nextInputState.onImportFile ?? null;
+  }
+  if ("onLoadJsonTemplate" in nextInputState) {
+    dependencyState.onLoadJsonTemplate =
+      nextInputState.onLoadJsonTemplate ?? null;
+  }
+  if ("onTemplateMode" in nextInputState) {
+    dependencyState.onTemplateMode = nextInputState.onTemplateMode ?? null;
   }
 }
 
@@ -354,6 +364,7 @@ function createConfiguredTxInputPanelWorkspace<
   TErrorDetail,
   TPanelDisplay,
   TEditorDisplay,
+  TFile,
 >({
   applyPanelContext = null,
   buildDefaultFormModel,
@@ -368,7 +379,8 @@ function createConfiguredTxInputPanelWorkspace<
   TModel,
   TErrorDetail,
   TPanelDisplay,
-  TEditorDisplay
+  TEditorDisplay,
+  TFile
 >) {
   const dependencyState = txInputDependencyState(inputState);
   const txInputWorkspace = createTxInputPanelWorkspace({
@@ -388,7 +400,7 @@ function createConfiguredTxInputPanelWorkspace<
   );
 
   function setInputPanelContext(
-    nextInputState: TransactionInputState = {},
+    nextInputState: TransactionInputState<TFile> = {},
   ): void {
     if (typeof applyPanelContext === "function") {
       applyPanelContext(nextInputState);
@@ -405,8 +417,8 @@ function createConfiguredTxInputPanelWorkspace<
   };
 }
 
-export function createTxBlockInputPanelWorkspace(
-  inputState: TransactionInputState = {},
+export function createTxBlockInputPanelWorkspace<TFile = TextFile>(
+  inputState: TransactionInputState<TFile> = {},
 ) {
   const panelConfigStateStore = writable({
     newButtonLabelKey: safeTemplateString(
@@ -429,9 +441,10 @@ export function createTxBlockInputPanelWorkspace(
       TxBlockFormModel,
       JsonErrorDetail,
       ReturnType<typeof txBlockInputPanelDisplay>,
-      ReturnType<typeof txBlockInputEditorSurfaceDisplay>
+      ReturnType<typeof txBlockInputEditorSurfaceDisplay>,
+      TFile
     >({
-      applyPanelContext(nextInputState: TransactionInputState) {
+      applyPanelContext(nextInputState: TransactionInputState<TFile>) {
         if (!("newButtonLabelKey" in nextInputState)) return;
         panelConfigStateStore.update((currentConfig) => ({
           ...currentConfig,
@@ -457,8 +470,8 @@ export function createTxBlockInputPanelWorkspace(
   };
 }
 
-export function createTxWorkflowInputPanelWorkspace(
-  inputState: TransactionInputState = {},
+export function createTxWorkflowInputPanelWorkspace<TFile = TextFile>(
+  inputState: TransactionInputState<TFile> = {},
 ) {
   const panelDisplayStateStore = deriveStore(currentLanguageState, () =>
     txWorkflowInputPanelDisplay({
@@ -470,7 +483,8 @@ export function createTxWorkflowInputPanelWorkspace(
       TxWorkflowFormModel,
       JsonErrorDetail,
       ReturnType<typeof txWorkflowInputPanelDisplay>,
-      ReturnType<typeof txWorkflowInputEditorSurfaceDisplay>
+      ReturnType<typeof txWorkflowInputEditorSurfaceDisplay>,
+      TFile
     >({
       buildDefaultFormModel: () =>
         txWorkflowFormModelFromJson(defaultTxWorkflowTemplatePayload()),

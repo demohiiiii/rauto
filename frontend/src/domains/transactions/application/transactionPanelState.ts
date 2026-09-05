@@ -19,8 +19,13 @@ import {
 import { showToast } from "$domains/overlays/index.js";
 import type {
   OrchestrationExecutionResult,
+  OrchestrationJsonValue,
   OrchestrationPlan,
 } from "$domains/orchestration/model/types.js";
+import type {
+  JsonTemplateActionContext,
+  TransactionTemplateResource,
+} from "../model/types.js";
 import {
   TX_EDITOR,
   TX_TEMPLATE_KIND,
@@ -65,8 +70,15 @@ import {
   updateTxVarsAssistantEntry,
 } from "./transactionVarsAssistant.js";
 
-type OptionalHandler = (...args: unknown[]) => unknown;
 type StatusTone = string;
+
+interface TextFile {
+  text(): Promise<string>;
+}
+
+type AsyncCommand = () => void | Promise<void>;
+type ExecutionModeHandler<TResult> = (() => TResult) | null | undefined;
+type JsonTemplateDraftResult = TransactionTemplateResource | null | void;
 
 interface TxExecutionModes {
   orchestration: TxExecutionMode;
@@ -82,8 +94,8 @@ interface TransactionOutputState {
 }
 
 interface TxBlockPreviewState {
-  txBlock: unknown | null;
-  txResult: unknown | null;
+  txBlock: OrchestrationJsonValue | null;
+  txResult: OrchestrationJsonValue | null;
 }
 
 interface OrchestrationPreviewState {
@@ -92,18 +104,27 @@ interface OrchestrationPreviewState {
 }
 
 interface TxBlockStageContext {
-  active?: unknown;
-  onExecute?: unknown;
+  active?: boolean;
+  onExecute?: AsyncCommand | null;
 }
 
 interface TxWorkflowStageContext {
-  active?: unknown;
-  onCreateJsonTemplateDraft?: unknown;
-  onDirectMode?: unknown;
-  onExecute?: unknown;
-  onImportFile?: unknown;
-  onPreview?: unknown;
-  onTemplateMode?: unknown;
+  active?: boolean;
+  onCreateJsonTemplateDraft?:
+    | ((
+        actionContext?: JsonTemplateActionContext | null,
+      ) => JsonTemplateDraftResult | Promise<JsonTemplateDraftResult>)
+    | null;
+  onDirectMode?: AsyncCommand | null;
+  onExecute?: AsyncCommand | null;
+  onImportFile?:
+    | ((
+        file: TextFile,
+        actionContext?: JsonTemplateActionContext | null,
+      ) => void | Promise<void>)
+    | null;
+  onPreview?: AsyncCommand | null;
+  onTemplateMode?: AsyncCommand | null;
 }
 
 interface TxWorkflowEditorPort {
@@ -114,25 +135,12 @@ interface OrchestrationEditorPort {
   orchestrationEditorRaw?: () => string;
 }
 
-function callObjectFunction<T extends object>(
-  target: T,
-  name: keyof T,
-  ...args: unknown[]
-): unknown {
-  const fn = target?.[name];
-  return typeof fn === "function" ? fn(...args) : undefined;
-}
-
-function normalizeOptionalHandler(handler: unknown): OptionalHandler | null {
-  return typeof handler === "function" ? (handler as OptionalHandler) : null;
-}
-
 function normalizeTransactionKey(
-  rawKey: unknown,
+  rawKey: string,
   validKeys: ReadonlySet<string>,
   fallback = "",
 ): string {
-  const key = safeTemplateString(rawKey || "").trim();
+  const key = rawKey.trim();
   if (!key) return fallback;
   return validKeys.has(key) ? key : fallback || key;
 }
@@ -148,11 +156,6 @@ function errorMessage(error: unknown): string {
   return String(error || "");
 }
 
-const presentTxWorkflowExecution =
-  txWorkflowExecutionPresentation as unknown as (
-    workflowRun?: unknown,
-  ) => ReturnType<typeof txWorkflowExecutionPresentation>;
-
 export const TX_OUTPUT = Object.freeze({
   orchestrationExec: "orchestrationExec",
   orchestrationPlan: "orchestrationPlan",
@@ -160,13 +163,17 @@ export const TX_OUTPUT = Object.freeze({
   txBlockPlan: "txBlockPlan",
   txWorkflowExec: "txWorkflowExec",
   txWorkflowPlan: "txWorkflowPlan",
-});
+} as const);
+
+export type TransactionOutputKey = (typeof TX_OUTPUT)[keyof typeof TX_OUTPUT];
 
 export const TX_VISUAL = Object.freeze({
   orchestrationPreview: "orchestrationPreview",
   txBlockPreview: "txBlockPreview",
   txWorkflowPreview: "txWorkflowPreview",
-});
+} as const);
+
+export type TransactionVisualKey = (typeof TX_VISUAL)[keyof typeof TX_VISUAL];
 
 const TX_OUTPUT_KEYS: ReadonlySet<string> = new Set(Object.values(TX_OUTPUT));
 const TX_VISUAL_KEYS: ReadonlySet<string> = new Set(Object.values(TX_VISUAL));
@@ -181,16 +188,16 @@ export const txExecutionModes = writable<TxExecutionModes>({
   txWorkflow: TX_EXECUTION_MODE.direct,
 });
 
-export function runTxExecutionModeHandler(
-  mode: unknown,
-  onDirect: unknown,
-  onTemplate: unknown,
-): unknown {
+export function runTxExecutionModeHandler<TDirectResult, TTemplateResult>(
+  mode: string,
+  onDirect: ExecutionModeHandler<TDirectResult>,
+  onTemplate: ExecutionModeHandler<TTemplateResult>,
+): TDirectResult | TTemplateResult | undefined {
   const executor =
     normalizeTxExecutionMode(mode) === TX_EXECUTION_MODE.template
       ? onTemplate
       : onDirect;
-  return typeof executor === "function" ? executor() : undefined;
+  return executor?.();
 }
 
 export function getTxExecutionModes() {
@@ -217,7 +224,7 @@ export function createTxBlockStageWorkspace(
   inputState: TxBlockStageContext = {},
 ) {
   const dependencyState = {
-    onExecute: normalizeOptionalHandler(inputState.onExecute),
+    onExecute: inputState.onExecute ?? null,
   };
   const activeStateStore = writable(false);
   const loadingKeysStore = writable<string[]>([]);
@@ -230,14 +237,9 @@ export function createTxBlockStageWorkspace(
   const txBlockPreviewFallbackStateStore = visualOutputState(
     TX_VISUAL.txBlockPreview,
   );
-  const loadingRunner = createLoadingRunner(
+  const loadingRunner = createLoadingRunner<string>(
     () => getStore(loadingKeysStore),
-    (nextKeys: unknown) =>
-      loadingKeysStore.set(
-        Array.isArray(nextKeys)
-          ? nextKeys.filter((key): key is string => typeof key === "string")
-          : [],
-      ),
+    (nextKeys) => loadingKeysStore.set(nextKeys),
   );
   const txBlockStageDisplayStateStore = deriveStore(
     [
@@ -323,7 +325,7 @@ export function createTxBlockStageWorkspace(
       onExecute = null,
     }: TxBlockStageContext = {}) {
       activeStateStore.set(!!active);
-      dependencyState.onExecute = normalizeOptionalHandler(onExecute);
+      dependencyState.onExecute = onExecute;
     },
     txBlockRunDisplayStateStore,
     txBlockRunPanelDisplayStateStore,
@@ -334,14 +336,12 @@ export function createTxWorkflowStageWorkspace(
   inputState: TxWorkflowStageContext = {},
 ) {
   const dependencyState = {
-    onCreateJsonTemplateDraft: normalizeOptionalHandler(
-      inputState.onCreateJsonTemplateDraft,
-    ),
-    onDirectMode: normalizeOptionalHandler(inputState.onDirectMode),
-    onExecute: normalizeOptionalHandler(inputState.onExecute),
-    onImportFile: normalizeOptionalHandler(inputState.onImportFile),
-    onPreview: normalizeOptionalHandler(inputState.onPreview),
-    onTemplateMode: normalizeOptionalHandler(inputState.onTemplateMode),
+    onCreateJsonTemplateDraft: inputState.onCreateJsonTemplateDraft ?? null,
+    onDirectMode: inputState.onDirectMode ?? null,
+    onExecute: inputState.onExecute ?? null,
+    onImportFile: inputState.onImportFile ?? null,
+    onPreview: inputState.onPreview ?? null,
+    onTemplateMode: inputState.onTemplateMode ?? null,
   };
   const activeStateStore = writable(false);
   const loadingKeysStore = writable<string[]>([]);
@@ -354,14 +354,9 @@ export function createTxWorkflowStageWorkspace(
   const txWorkflowExecutionFallbackStateStore = transactionOutputState(
     TX_OUTPUT.txWorkflowExec,
   );
-  const loadingRunner = createLoadingRunner(
+  const loadingRunner = createLoadingRunner<string>(
     () => getStore(loadingKeysStore),
-    (nextKeys: unknown) =>
-      loadingKeysStore.set(
-        Array.isArray(nextKeys)
-          ? nextKeys.filter((key): key is string => typeof key === "string")
-          : [],
-      ),
+    (nextKeys) => loadingKeysStore.set(nextKeys),
   );
   const stageDisplayStateStore = deriveStore(
     [txExecutionModes, txWorkflowPlanStatusStateStore],
@@ -385,7 +380,7 @@ export function createTxWorkflowStageWorkspace(
     previewText: "",
     previewTone: "info",
     workflow: null,
-    workflowExecutionDisplay: presentTxWorkflowExecution(null),
+    workflowExecutionDisplay: txWorkflowExecutionPresentation(null),
   });
   const txWorkflowOutputDisplayStateStore = deriveStore(
     [
@@ -455,7 +450,7 @@ export function createTxWorkflowStageWorkspace(
         previewText,
         previewTone,
         workflow,
-        workflowExecutionDisplay: presentTxWorkflowExecution(
+        workflowExecutionDisplay: txWorkflowExecutionPresentation(
           workflowExecutionPayload,
         ),
       });
@@ -469,18 +464,18 @@ export function createTxWorkflowStageWorkspace(
   );
 
   return {
-    createDirectDraft: (actionContext: unknown = null) =>
+    createDirectDraft: (
+      actionContext: JsonTemplateActionContext | null = null,
+    ) =>
       loadingRunner.run("json-new", () =>
-        callObjectFunction(
-          dependencyState,
-          "onCreateJsonTemplateDraft",
-          actionContext,
-        ),
+        dependencyState.onCreateJsonTemplateDraft?.(actionContext),
       ),
     executeWorkflow: () =>
       loadingRunner.run("execute", () => dependencyState.onExecute?.()),
-    importFile: (file: unknown, actionContext: unknown = null) =>
-      callObjectFunction(dependencyState, "onImportFile", file, actionContext),
+    importFile: (
+      file: TextFile,
+      actionContext: JsonTemplateActionContext | null = null,
+    ) => dependencyState.onImportFile?.(file, actionContext),
     jsonNewLoadingStateStore,
     previewWorkflow: () =>
       loadingRunner.run("preview", () => dependencyState.onPreview?.()),
@@ -494,14 +489,12 @@ export function createTxWorkflowStageWorkspace(
       onTemplateMode = null,
     }: TxWorkflowStageContext = {}) {
       activeStateStore.set(!!active);
-      dependencyState.onCreateJsonTemplateDraft = normalizeOptionalHandler(
-        onCreateJsonTemplateDraft,
-      );
-      dependencyState.onDirectMode = normalizeOptionalHandler(onDirectMode);
-      dependencyState.onExecute = normalizeOptionalHandler(onExecute);
-      dependencyState.onImportFile = normalizeOptionalHandler(onImportFile);
-      dependencyState.onPreview = normalizeOptionalHandler(onPreview);
-      dependencyState.onTemplateMode = normalizeOptionalHandler(onTemplateMode);
+      dependencyState.onCreateJsonTemplateDraft = onCreateJsonTemplateDraft;
+      dependencyState.onDirectMode = onDirectMode;
+      dependencyState.onExecute = onExecute;
+      dependencyState.onImportFile = onImportFile;
+      dependencyState.onPreview = onPreview;
+      dependencyState.onTemplateMode = onTemplateMode;
     },
     selectMode: (txExecutionMode = "") =>
       runTxExecutionModeHandler(
@@ -518,7 +511,8 @@ const transactionOutputStores = new Map<
   string,
   Writable<TransactionOutputState>
 >();
-export const txWorkflowExecutionResultState = writable<unknown | null>(null);
+export const txWorkflowExecutionResultState =
+  writable<OrchestrationJsonValue | null>(null);
 
 function emptyTransactionOutputState(): TransactionOutputState {
   return {
@@ -529,7 +523,7 @@ function emptyTransactionOutputState(): TransactionOutputState {
   };
 }
 
-function normalizeTransactionOutputKey(outputKey: unknown): string {
+function normalizeTransactionOutputKey(outputKey: string): string {
   return normalizeTransactionKey(outputKey, TX_OUTPUT_KEYS);
 }
 
@@ -544,30 +538,30 @@ function transactionStateStoreFor(
 }
 
 function transactionOutputStoreFor(
-  output: unknown,
+  output: string,
 ): Writable<TransactionOutputState> {
   const key = normalizeTransactionOutputKey(output);
   return transactionStateStoreFor(transactionOutputStores, key);
 }
 
 export function transactionOutputState(
-  output: unknown,
+  output: string,
 ): Writable<TransactionOutputState> {
   return transactionOutputStoreFor(output);
 }
 
-function isTransactionOutput(output: unknown): boolean {
+function isTransactionOutput(output: string): boolean {
   return TX_OUTPUT_KEYS.has(normalizeTransactionOutputKey(output));
 }
 
-function isStructuredTransactionOutput(output: unknown): boolean {
+function isStructuredTransactionOutput(output: string): boolean {
   return STRUCTURED_TRANSACTION_OUTPUT_KEYS.has(
     normalizeTransactionOutputKey(output),
   );
 }
 
 function setTransactionOutput(
-  output: unknown,
+  output: string,
   nextState: Partial<TransactionOutputState> = {},
 ): void {
   transactionOutputStoreFor(output).set({
@@ -576,19 +570,21 @@ function setTransactionOutput(
   });
 }
 
-export function setTxWorkflowExecutionResult(workflowRun: unknown): void {
-  txWorkflowExecutionResultState.set(workflowRun || null);
+export function setTxWorkflowExecutionResult(
+  workflowRun: OrchestrationJsonValue | null,
+): void {
+  txWorkflowExecutionResultState.set(workflowRun);
 }
 
-export function clearTransactionOutput(output: unknown): void {
+export function clearTransactionOutput(output: string): void {
   if (isTransactionOutput(output)) {
     setTransactionOutput(output, emptyTransactionOutputState());
   }
 }
 
 function setTransactionOutputStatus(
-  output: unknown,
-  message: unknown,
+  output: string,
+  message: string,
   tone: StatusTone = "info",
 ): void {
   const statusMessage = safeTemplateString(message || "");
@@ -621,27 +617,27 @@ export const orchestrationResultState =
 export const txBlockPreviewState = writable<TxBlockPreviewState>({
   ...lastTxBlockPreviewState,
 });
-const txWorkflowPreviewState = writable<unknown | null>(null);
+const txWorkflowPreviewState = writable<OrchestrationJsonValue | null>(null);
 
-function normalizeVisualOutputKey(outputKey: unknown): string {
+function normalizeVisualOutputKey(outputKey: string): string {
   return normalizeTransactionKey(outputKey, TX_VISUAL_KEYS);
 }
 
 function visualOutputStoreFor(
-  output: unknown,
+  output: string,
 ): Writable<TransactionOutputState> {
   const key = normalizeVisualOutputKey(output);
   return transactionStateStoreFor(visualOutputStores, key);
 }
 
 export function visualOutputState(
-  output: unknown,
+  output: string,
 ): Writable<TransactionOutputState> {
   return visualOutputStoreFor(output);
 }
 
 function setVisualOutput(
-  output: unknown,
+  output: string,
   nextState: Partial<TransactionOutputState> = {},
 ): void {
   visualOutputStoreFor(output).set({
@@ -650,13 +646,13 @@ function setVisualOutput(
   });
 }
 
-function clearVisualOutput(output: unknown): void {
+function clearVisualOutput(output: string): void {
   setVisualOutput(output, emptyTransactionOutputState());
 }
 
 export function setVisualOutputStatus(
-  output: unknown,
-  message: unknown,
+  output: string,
+  message: string,
   tone: StatusTone = "info",
 ): void {
   const statusMessage = safeTemplateString(message || "");
@@ -676,17 +672,20 @@ export function refreshTxBlockPreview(): void {
   txBlockPreviewState.set({ ...lastTxBlockPreviewState });
 }
 
-export function setTxBlockVisual(txBlock: unknown, txResult: unknown): void {
+export function setTxBlockVisual(
+  txBlock: OrchestrationJsonValue,
+  txResult: OrchestrationJsonValue | null,
+): void {
   lastTxBlockPreviewState = {
-    txBlock: txBlock || null,
-    txResult: txResult || null,
+    txBlock,
+    txResult,
   };
   refreshTxBlockPreview();
 }
 
-export function setTxWorkflowPreview(workflow: unknown): void {
+export function setTxWorkflowPreview(workflow: OrchestrationJsonValue): void {
   clearVisualOutput(TX_VISUAL.txWorkflowPreview);
-  txWorkflowPreviewState.set(workflow || {});
+  txWorkflowPreviewState.set(workflow);
 }
 
 export function updateTxWorkflowPreviewFromEditor(
@@ -704,7 +703,7 @@ export function updateTxWorkflowPreviewFromEditor(
     return;
   }
   try {
-    const workflow = JSON.parse(raw);
+    const workflow = JSON.parse(raw) as OrchestrationJsonValue;
     setTxWorkflowPreview(workflow);
   } catch (error) {
     setVisualOutputStatus(
@@ -749,7 +748,7 @@ export function updateOrchestrationPreviewFromEditor(
     return;
   }
   try {
-    const plan = JSON.parse(raw);
+    const plan = JSON.parse(raw) as OrchestrationPlan;
     setOrchestrationPreview(plan, null);
   } catch (error) {
     setVisualOutputStatus(
@@ -765,8 +764,8 @@ export function refreshOrchestrationResult(): void {
 }
 
 export function setStatus(
-  output: unknown,
-  message: unknown,
+  output: string,
+  message: string,
   tone: StatusTone = "info",
 ): void {
   const statusMessage = safeTemplateString(message || "");
@@ -788,19 +787,19 @@ export function setStatus(
   }
 }
 
-export function setRunningStatus(output: unknown): void {
+export function setRunningStatus(output: string): void {
   setStatus(output, tr("running", "running"), "running");
 }
 
-export function setErrorStatus(output: unknown, error: unknown): void {
+export function setErrorStatus(output: string, error: unknown): void {
   setStatus(output, errorMessage(error), "error");
 }
 
 export function setNamedStatus(
-  output: unknown,
+  output: string,
   key: string,
   fallback: string,
-  resourceName: unknown,
+  resourceName: string,
 ): void {
   setStatus(output, `${tr(key, fallback)}: ${resourceName}`, "success");
 }

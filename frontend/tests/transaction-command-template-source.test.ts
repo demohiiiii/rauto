@@ -5,7 +5,10 @@ import {
   MANUAL_COMMAND_SOURCE,
   createCommandTemplateCatalog,
 } from "../src/domains/command/index.js";
-import { createTxBlockCommandEditorWorkspace } from "../src/domains/transactions/index.js";
+import {
+  createTxBlockCommandEditorWorkspace,
+  txBlockCommandDraft,
+} from "../src/domains/transactions/index.js";
 import type { TxCommandModel } from "../src/domains/transactions/index.js";
 
 test("transaction commands import an editable command template snapshot", async () => {
@@ -14,7 +17,12 @@ test("transaction commands import an editable command template snapshot", async 
     load: async () => [{ name: "show-version" }, { name: "backup" }],
   });
   const workspace = createTxBlockCommandEditorWorkspace({
-    command: { command: "", mode: "Enable", timeout: 30 },
+    command: {
+      ...txBlockCommandDraft(),
+      command: "",
+      mode: "Enable",
+      timeout: 30,
+    },
     confirmReplace: async () => true,
     onChange: (patch) => changes.push(patch),
     templateApi: {
@@ -44,12 +52,16 @@ test("transaction commands import an editable command template snapshot", async 
 test("transaction template import respects dirty replacement cancellation", async () => {
   let templateLoads = 0;
   const workspace = createTxBlockCommandEditorWorkspace({
-    command: { command: "show clock", mode: "Enable" },
+    command: {
+      ...txBlockCommandDraft(),
+      command: "show clock",
+      mode: "Enable",
+    },
     confirmReplace: async () => false,
     templateApi: {
       getTemplate: async () => {
         templateLoads += 1;
-        return { content: "show version" };
+        return { content: "show version", name: "show-version" };
       },
     },
     templateCatalog: createCommandTemplateCatalog({ load: async () => [] }),
@@ -67,11 +79,14 @@ test("transaction template import respects dirty replacement cancellation", asyn
 test("switching an imported transaction command back to manual clears its snapshot", async () => {
   const changes: Array<Partial<TxCommandModel>> = [];
   const workspace = createTxBlockCommandEditorWorkspace({
-    command: { command: "" },
+    command: { ...txBlockCommandDraft(), command: "" },
     confirmReplace: async () => true,
     onChange: (patch) => changes.push(patch),
     templateApi: {
-      getTemplate: async () => ({ content: "show version" }),
+      getTemplate: async () => ({
+        content: "show version",
+        name: "show-version",
+      }),
     },
     templateCatalog: createCommandTemplateCatalog({ load: async () => [] }),
   });

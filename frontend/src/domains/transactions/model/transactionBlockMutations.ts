@@ -1,6 +1,5 @@
 import {
   cloneJsonValue,
-  jsonValueText,
   plainObject,
   stringValue,
 } from "../../../lib/jsonValue.js";
@@ -18,11 +17,10 @@ import type {
   TxStepFormModel,
 } from "./types.js";
 
-const cloneTxJsonValue = cloneJsonValue as unknown as {
-  (value: unknown): unknown;
-  <T>(value: unknown, fallback: T): T;
-};
-function txBoolStringValue(value: unknown): boolean {
+function cloneTxJsonValue<T>(value: T, fallback: T): T {
+  return cloneJsonValue(value, fallback);
+}
+function txBoolStringValue(value: string | boolean): boolean {
   return value === "true" || value === true;
 }
 
@@ -101,7 +99,7 @@ export function txBlockStepDraft(): TxStepFormModel {
 }
 
 export function txBlockCommandPromptPatternsFromText(
-  text: unknown = "",
+  text: string = "",
 ): string[] {
   return String(text || "")
     .split("\n")
@@ -117,7 +115,7 @@ function txBlockCommandPromptPatternList(
     : [];
 }
 
-export function txBlockNumberFormValue(value: unknown): number | null {
+export function txBlockNumberFormValue(value: string): number | null {
   return value === "" ? null : Number(value);
 }
 
@@ -128,8 +126,8 @@ function txBlockPresenceFlag(field: string): string {
 function txBlockToggleNullableFieldPresence<T extends JsonObject>(
   model: T,
   field: string,
-  enabled: unknown,
-  fallback?: unknown,
+  enabled: boolean,
+  fallback?: number | null,
 ): T {
   const hasKey = txBlockPresenceFlag(field);
   return {
@@ -142,7 +140,7 @@ function txBlockToggleNullableFieldPresence<T extends JsonObject>(
 function txBlockToggleObjectFieldPresence<T extends JsonObject>(
   model: T,
   field: string,
-  enabled: unknown,
+  enabled: boolean,
 ): T {
   const hasKey = txBlockPresenceFlag(field);
   return {
@@ -159,7 +157,7 @@ function txBlockToggleObjectFieldPresence<T extends JsonObject>(
 function txBlockToggleBooleanFieldPresence<T extends JsonObject>(
   model: T,
   field: string,
-  enabled: unknown,
+  enabled: boolean,
   fallback = false,
 ): T {
   const hasKey = txBlockPresenceFlag(field);
@@ -175,16 +173,16 @@ function txBlockCloneModel<T extends JsonObject>(model: T): T {
 }
 
 export function txBlockApplyChange<T>(
-  onChange: ((nextModel: T) => unknown) | null | undefined,
+  onChange: ((nextModel: T) => void) | null | undefined,
   nextModel: T,
-): unknown {
-  return typeof onChange === "function" ? onChange(nextModel) : undefined;
+): void {
+  if (typeof onChange === "function") onChange(nextModel);
 }
 
 export function txBlockChangeRoot(
   model: TxBlockFormModel,
   key: string,
-  value: unknown,
+  value: string,
 ): TxBlockFormModel {
   const next = txBlockCloneModel(model);
   const nextFields: JsonObject = next;
@@ -215,7 +213,7 @@ export function txBlockChangeRollbackKind(
 
 export function txBlockChangeWholeResourceTrigger(
   model: TxBlockFormModel,
-  value: unknown,
+  value: string,
 ): TxBlockFormModel {
   const next = txBlockCloneModel(model);
   const wholeResource = next.rollbackPolicy.wholeResource;
@@ -227,7 +225,7 @@ export function txBlockChangeWholeResourceTrigger(
 
 export function txBlockSetWholeResourceTriggerPresence(
   model: TxBlockFormModel,
-  enabled: unknown,
+  enabled: boolean,
 ): TxBlockFormModel {
   const next = txBlockCloneModel(model);
   if (next.rollbackPolicy?.kind !== "whole_resource") return next;
@@ -451,23 +449,15 @@ function txBlockNextCommandDynParamKey(command: TxCommandModel): string {
 
 export function txBlockUpdateCommandDynParam(
   command: TxCommandModel,
-  key: unknown,
-  value: unknown,
+  key: string,
+  value: string,
 ): TxCommandModel {
-  const nextKey =
-    String(key || "").trim() || txBlockNextCommandDynParamKey(command);
-  const nextValue = plainObject(value)
-    ? stringValue(
-        Object.hasOwn(value, "valueText")
-          ? value.valueText
-          : jsonValueText(command?.dynParams?.[nextKey]),
-      )
-    : jsonValueText(value);
+  const nextKey = key.trim() || txBlockNextCommandDynParamKey(command);
   return {
     ...command,
     dynParams: {
       ...(plainObject(command.dynParams) ? command.dynParams : {}),
-      [nextKey]: nextValue,
+      [nextKey]: value,
     },
     hasDynParams: true,
   };
@@ -587,7 +577,7 @@ export function txBlockSetCommandPromptPatternValue(
   command: TxCommandModel,
   promptIndex: number,
   patternIndex: number,
-  patternValue: unknown,
+  patternValue: string,
 ): TxCommandModel {
   const prompt = command.interaction?.prompts?.[promptIndex] || {};
   const patterns = txBlockCommandPromptPatternList(prompt);
@@ -609,17 +599,17 @@ export function txBlockRemoveCommandPrompt(
 
 export function txBlockPatchCommandInteractionExtra(
   command: TxCommandModel,
-  extra: unknown,
+  extra: JsonObject,
 ): TxCommandModel {
   return txBlockPatchCommandInteraction(command, {
-    extra: plainObject(extra) ? cloneTxJsonValue(extra, {}) : {},
+    extra: cloneTxJsonValue(extra, {}),
   });
 }
 
 export function txBlockSetRootFieldPresence(
   model: TxBlockFormModel,
   field: string,
-  enabled: unknown,
+  enabled: boolean,
 ): TxBlockFormModel {
   const next = txBlockCloneModel(model);
   if (field === "failFast") {
@@ -633,7 +623,7 @@ export function txBlockSetStepFieldPresence(
   model: TxBlockFormModel,
   stepIndex: number,
   field: string,
-  enabled: unknown,
+  enabled: boolean,
 ): TxBlockFormModel {
   const step = model.steps?.[stepIndex] || {};
   if (field === "rollbackOnFailure") {
@@ -657,7 +647,7 @@ export function txBlockPatchStepRun(
 export function txBlockSetStepRollbackEnabled(
   model: TxBlockFormModel,
   stepIndex: number,
-  enabled: unknown,
+  enabled: boolean,
 ): TxBlockFormModel {
   const step = model.steps?.[stepIndex] || {};
   if (!enabled) {
@@ -676,21 +666,21 @@ export function txBlockSetStepRollbackEnabled(
 
 export function txBlockSetCommandTimeoutPresence(
   command: TxCommandModel,
-  enabled: unknown,
+  enabled: boolean,
 ): TxCommandModel {
   return txBlockToggleNullableFieldPresence(command, "timeout", enabled, 30);
 }
 
 export function txBlockSetCommandDynParamsPresence(
   command: TxCommandModel,
-  enabled: unknown,
+  enabled: boolean,
 ): TxCommandModel {
   return txBlockToggleObjectFieldPresence(command, "dynParams", enabled);
 }
 
 export function txBlockSetFlowMaxStepsPresence(
   flow: TxFlowModel,
-  enabled: unknown,
+  enabled: boolean,
 ): TxFlowModel {
   return txBlockToggleNullableFieldPresence(flow, "maxSteps", enabled);
 }
@@ -698,7 +688,7 @@ export function txBlockSetFlowMaxStepsPresence(
 export function txBlockSetFlowFieldPresence(
   flow: TxFlowModel,
   field: string,
-  enabled: unknown,
+  enabled: boolean,
 ): TxFlowModel {
   if (field === "stopOnError") {
     return txBlockToggleBooleanFieldPresence(flow, field, enabled, true);
@@ -713,7 +703,7 @@ export function txBlockSetCommandPromptFieldPresence(
   command: TxCommandModel,
   promptIndex: number,
   field: string,
-  enabled: unknown,
+  enabled: boolean,
 ): TxCommandModel {
   const prompt = command.interaction?.prompts?.[promptIndex] || {};
   return txBlockUpdateCommandPrompt(

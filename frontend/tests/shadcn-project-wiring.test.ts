@@ -11,7 +11,7 @@ test("components.json uses project-local aliases", () => {
 });
 
 test("vite exposes $lib alias for shadcn imports", () => {
-  const source = readFileSync("vite.config.js", "utf8");
+  const source = readFileSync("vite.config.ts", "utf8");
   assert.match(source, /alias:/);
   assert.match(source, /(?:["']\$lib["']|\$lib):/);
   assert.match(source, /frontend\/src\/lib/);

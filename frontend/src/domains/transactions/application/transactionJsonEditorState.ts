@@ -17,13 +17,11 @@ export const TX_EDITOR = Object.freeze({
 
 export type TxEditorKey = (typeof TX_EDITOR)[keyof typeof TX_EDITOR];
 
-type UnknownFunction = (...args: unknown[]) => unknown;
-
 interface TxJsonEditorHostConfig {
-  onInput: ((text: string) => unknown) | null;
-  refreshEditor: (() => unknown) | null;
-  setEditorText: ((text: string) => unknown) | null;
-  setEditorTheme: ((theme: string) => unknown) | null;
+  onInput: ((text: string) => void) | null;
+  refreshEditor: (() => void) | null;
+  setEditorText: ((text: string) => void) | null;
+  setEditorTheme: ((theme: string) => void) | null;
 }
 
 interface TxJsonEditorHostPort {
@@ -84,34 +82,12 @@ type SetTxJsonEditorRawText = (
 const TX_EDITOR_KEYS = new Set<string>(Object.values(TX_EDITOR));
 
 let activeTxJsonEditors: TxJsonEditorsHost | null = null;
-const txJsonEditorHosts = new Map<string, TxJsonEditorHostConfig>();
-
-function recordValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function callObjectFunction(
-  target: unknown,
-  name: string,
-  ...args: unknown[]
-): unknown {
-  const fn = recordValue(target)[name];
-  return typeof fn === "function"
-    ? (fn as UnknownFunction)(...args)
-    : undefined;
-}
-
-function txEditorText(value: string | null | undefined): string {
-  if (value == null) return EMPTY_TEXT;
-  return typeof value === "string" ? value : String(value);
-}
+const txJsonEditorHosts = new Map<TxEditorKey, TxJsonEditorHostConfig>();
 
 function normalizeTxEditorKey(
   editorKey: TxEditorKey | undefined,
 ): TxEditorKey | "" {
-  const key = txEditorText(editorKey).trim();
+  const key = (editorKey ?? EMPTY_TEXT).trim();
   return TX_EDITOR_KEYS.has(key) ? (key as TxEditorKey) : EMPTY_TEXT;
 }
 
@@ -120,28 +96,15 @@ function attachTxJsonEditorHost(
   hostConfig: Partial<TxJsonEditorHostConfig> = {},
 ): () => void {
   const normalizedKey = normalizeTxEditorKey(key);
-  const registeredHost = {
-    onInput:
-      typeof hostConfig.onInput === "function" ? hostConfig.onInput : null,
-    refreshEditor:
-      typeof hostConfig.refreshEditor === "function"
-        ? hostConfig.refreshEditor
-        : null,
-    setEditorText:
-      typeof hostConfig.setEditorText === "function"
-        ? hostConfig.setEditorText
-        : null,
-    setEditorTheme:
-      typeof hostConfig.setEditorTheme === "function"
-        ? hostConfig.setEditorTheme
-        : null,
+  if (!normalizedKey) return () => undefined;
+  const registeredHost: TxJsonEditorHostConfig = {
+    onInput: hostConfig.onInput ?? null,
+    refreshEditor: hostConfig.refreshEditor ?? null,
+    setEditorText: hostConfig.setEditorText ?? null,
+    setEditorTheme: hostConfig.setEditorTheme ?? null,
   };
   txJsonEditorHosts.set(normalizedKey, registeredHost);
-  callObjectFunction(
-    activeTxJsonEditors,
-    "applyEditorHostState",
-    normalizedKey,
-  );
+  activeTxJsonEditors?.applyEditorHostState(normalizedKey);
   return () => {
     if (txJsonEditorHosts.get(normalizedKey) === registeredHost) {
       txJsonEditorHosts.delete(normalizedKey);
@@ -158,7 +121,7 @@ function txJsonEditorBindings({
 }: {
   connectHost?: AttachTxJsonEditorHost;
   editorKey?: TxEditorKey;
-  onInput?: ((text: string) => unknown) | null;
+  onInput?: ((text: string) => void) | null;
   setRawText?: SetTxJsonEditorRawText;
   value?: string;
 } = {}) {
@@ -166,7 +129,7 @@ function txJsonEditorBindings({
     editorKey,
     hasValue: value !== undefined,
     onInput,
-    value: txEditorText(value || EMPTY_TEXT),
+    value: value ?? EMPTY_TEXT,
   };
   const editorTextStore = writable(
     dependencyState.hasValue ? dependencyState.value : EMPTY_TEXT,
@@ -187,7 +150,7 @@ function txJsonEditorBindings({
     const disconnect = disconnectHost;
     disconnectHost = null;
     hostConnected = false;
-    if (typeof disconnect === "function") disconnect();
+    disconnect?.();
   }
 
   function connectCurrentHost(): void {
@@ -196,10 +159,10 @@ function txJsonEditorBindings({
       onInput: dependencyState.onInput,
       refreshEditor() {},
       setEditorText(jsonText: string) {
-        editorTextStore.set(txEditorText(jsonText || EMPTY_TEXT));
+        editorTextStore.set(jsonText);
       },
       setEditorTheme(theme: string) {
-        editorThemeStore.set(txEditorText(theme || "dark") || "dark");
+        editorThemeStore.set(theme || "dark");
       },
     });
     hostConnected = true;
@@ -220,7 +183,7 @@ function txJsonEditorBindings({
     editorTextStore,
     editorThemeStore,
     handleChange(jsonText: string) {
-      const nextText = txEditorText(jsonText || EMPTY_TEXT);
+      const nextText = jsonText;
       dependencyState.hasValue = true;
       dependencyState.value = nextText;
       editorTextStore.set(nextText);
@@ -232,7 +195,7 @@ function txJsonEditorBindings({
       value,
     }: {
       editorKey?: TxEditorKey;
-      onInput?: ((text: string) => unknown) | null;
+      onInput?: ((text: string) => void) | null;
       value?: string;
     } = {}) {
       const connectionChanged =
@@ -241,7 +204,7 @@ function txJsonEditorBindings({
       dependencyState.editorKey = nextEditorKey;
       dependencyState.onInput = nextOnInput;
       if (value !== undefined) {
-        const nextText = txEditorText(value || EMPTY_TEXT);
+        const nextText = value;
         dependencyState.hasValue = true;
         dependencyState.value = nextText;
         if (getStore(editorTextStore) !== nextText) {
@@ -265,20 +228,25 @@ function createJsonEditorHost({
 }): TxJsonEditorHostPort {
   let currentText = EMPTY_TEXT;
   let currentTheme = "dark";
-  const editorHost = () => txJsonEditorHosts.get(editorKey) || {};
-  const notifyInput = (nextText: string) =>
-    callObjectFunction(editorHost(), "onInput", nextText);
-  const refreshEditor = () => callObjectFunction(editorHost(), "refreshEditor");
-  const applyTextToEditor = (next: string) =>
-    callObjectFunction(editorHost(), "setEditorText", next);
-  const applyThemeToEditor = (theme: string) =>
-    callObjectFunction(editorHost(), "setEditorTheme", theme);
+  const editorHost = () => txJsonEditorHosts.get(editorKey);
+  const notifyInput = (nextText: string): void => {
+    editorHost()?.onInput?.(nextText);
+  };
+  const refreshEditor = (): void => {
+    editorHost()?.refreshEditor?.();
+  };
+  const applyTextToEditor = (next: string): void => {
+    editorHost()?.setEditorText?.(next);
+  };
+  const applyThemeToEditor = (theme: string): void => {
+    editorHost()?.setEditorTheme?.(theme);
+  };
 
   function setText(
     nextText: string,
     { notify = false }: { notify?: boolean } = {},
   ): void {
-    const next = txEditorText(nextText || EMPTY_TEXT);
+    const next = nextText;
     const changed = currentText !== next;
     currentText = next;
     applyTextToEditor(next);
@@ -291,7 +259,7 @@ function createJsonEditorHost({
   }
 
   function setTheme(theme: string): void {
-    currentTheme = txEditorText(theme || "dark") || "dark";
+    currentTheme = theme || "dark";
     applyThemeToEditor(currentTheme);
   }
 
@@ -300,7 +268,7 @@ function createJsonEditorHost({
   }
 
   function raw(): string {
-    return txEditorText(currentText || EMPTY_TEXT);
+    return currentText;
   }
 
   function applyEditorHostState(): void {
@@ -327,7 +295,7 @@ export function createTxJsonEditorWorkspace({
 }: {
   connectHost?: AttachTxJsonEditorHost;
   editorKey?: TxEditorKey;
-  onInput?: ((text: string) => unknown) | null;
+  onInput?: ((text: string) => void) | null;
   setRawText?: SetTxJsonEditorRawText;
   value?: string;
 } = {}) {
@@ -403,16 +371,15 @@ export function createTxJsonEditorsHost({
 
   const editors: TxJsonEditorsHost = {
     applyEditorHostState(editorKey: TxEditorKey) {
-      const normalizedKey = normalizeTxEditorKey(editorKey);
-      if (normalizedKey === TX_EDITOR.txBlock) {
+      if (editorKey === TX_EDITOR.txBlock) {
         txBlock.applyEditorHostState();
         return;
       }
-      if (normalizedKey === TX_EDITOR.txWorkflow) {
+      if (editorKey === TX_EDITOR.txWorkflow) {
         txWorkflow.applyEditorHostState();
         return;
       }
-      if (normalizedKey === TX_EDITOR.orchestration) {
+      if (editorKey === TX_EDITOR.orchestration) {
         orchestration.applyEditorHostState();
       }
     },
@@ -462,11 +429,10 @@ export function clearTxJsonEditorsHost(
 export function requireTxJsonEditor<TMethod extends keyof TxJsonEditorsHost>(
   editorMethodName: TMethod,
 ): TxJsonEditorsHost[TMethod] {
-  const fn = activeTxJsonEditors && activeTxJsonEditors[editorMethodName];
-  if (typeof fn !== "function") {
+  if (!activeTxJsonEditors) {
     throw new Error(`${editorMethodName} is not ready`);
   }
-  return fn as TxJsonEditorsHost[TMethod];
+  return activeTxJsonEditors[editorMethodName];
 }
 
 export function setTxJsonEditorRawText(
@@ -478,19 +444,19 @@ export function setTxJsonEditorRawText(
   const editors = activeTxJsonEditors;
   if (!editors) return;
   if (normalizedKey === TX_EDITOR.txBlock) {
-    callObjectFunction(editors, "setTxBlockEditorRawText", rawText, {
+    editors.setTxBlockEditorRawText(rawText, {
       notify,
     });
     return;
   }
   if (normalizedKey === TX_EDITOR.txWorkflow) {
-    callObjectFunction(editors, "setTxWorkflowEditorText", rawText, {
+    editors.setTxWorkflowEditorText(rawText, {
       notify,
     });
     return;
   }
   if (normalizedKey === TX_EDITOR.orchestration) {
-    callObjectFunction(editors, "setOrchestrationEditorText", rawText, {
+    editors.setOrchestrationEditorText(rawText, {
       notify,
     });
   }
@@ -503,19 +469,13 @@ export function txJsonEditorRawText(
   const editors = activeTxJsonEditors;
   if (!editors) return EMPTY_TEXT;
   if (normalizedKey === TX_EDITOR.txBlock) {
-    return typeof editors.txBlockEditorRaw === "function"
-      ? editors.txBlockEditorRaw()
-      : EMPTY_TEXT;
+    return editors.txBlockEditorRaw();
   }
   if (normalizedKey === TX_EDITOR.txWorkflow) {
-    return typeof editors.txWorkflowEditorRaw === "function"
-      ? editors.txWorkflowEditorRaw()
-      : EMPTY_TEXT;
+    return editors.txWorkflowEditorRaw();
   }
   if (normalizedKey === TX_EDITOR.orchestration) {
-    return typeof editors.orchestrationEditorRaw === "function"
-      ? editors.orchestrationEditorRaw()
-      : EMPTY_TEXT;
+    return editors.orchestrationEditorRaw();
   }
   return EMPTY_TEXT;
 }

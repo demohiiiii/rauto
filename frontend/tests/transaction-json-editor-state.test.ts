@@ -30,10 +30,16 @@ interface CurrentActionContext extends JsonTemplateActionContext {
   isCurrent(): boolean;
 }
 
+function isCurrentActionContext(
+  context: JsonTemplateActionContext | null | undefined,
+): context is CurrentActionContext {
+  return typeof context?.isCurrent === "function";
+}
+
 function requireCurrentActionContext(
-  context: CurrentActionContext | null,
+  context: JsonTemplateActionContext | null | undefined,
 ): CurrentActionContext {
-  assert.ok(context);
+  assert.ok(isCurrentActionContext(context));
   return context;
 }
 
@@ -554,9 +560,13 @@ test("mounted workflow import owns its notification and publishes success once",
   await orchestratedWorkspace.ensureEditors();
   let importActionContext: CurrentActionContext | null = null;
   const stageWorkspace = createTxWorkflowStageWorkspace({
-    onImportFile(file: TextFile, actionContext: CurrentActionContext) {
-      importActionContext = actionContext;
-      return orchestratedWorkspace.importTxWorkflowFile(file, actionContext);
+    onImportFile(file: TextFile, actionContext) {
+      const currentActionContext = requireCurrentActionContext(actionContext);
+      importActionContext = currentActionContext;
+      return orchestratedWorkspace.importTxWorkflowFile(
+        file,
+        currentActionContext,
+      );
     },
   });
   const inputWorkspace = createTxWorkflowInputPanelWorkspace({
@@ -673,11 +683,17 @@ test("mounted workflow template create owns its normalization notification", asy
   const library = createJsonTemplateLibrary({
     configFor: () => ({
       apiBase: "/tx-workflow-templates",
+      nameRequiredKey: "nameRequired",
       newPromptKey: "newTemplate",
       runEditor: TX_EDITOR.txWorkflow,
       runOutput: TX_OUTPUT.txWorkflowPlan,
     }),
-    createTemplateResource: async (_apiBase: string, name: string) => ({
+    createTemplateResource: async (
+      _apiBase: string,
+      name: string,
+      content: string,
+    ) => ({
+      content,
       name,
     }),
     getEditorContext: () => ({ editors: host }),

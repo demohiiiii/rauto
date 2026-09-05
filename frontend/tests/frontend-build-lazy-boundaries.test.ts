@@ -56,7 +56,7 @@ function staticDependencies(
 
 test("production entry keeps editors behind lazy imports and within its size budget", async () => {
   const result = await build({
-    configFile: "./vite.config.js",
+    configFile: "./vite.config.ts",
     logLevel: "silent",
     build: { write: false },
   });

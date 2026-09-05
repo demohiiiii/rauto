@@ -154,7 +154,7 @@ Organize each feature under `frontend/src/domains/<domain>/`:
   responsive, accessibility, localization, and keyboard behavior.
 - Put all user-visible strings in both `frontend/src/i18n/en.ts` and
   `frontend/src/i18n/zh.ts`; do not hard-code interface copy in components.
-- Preserve lazy component boundaries and update `vite.config.js` chunk rules
+- Preserve lazy component boundaries and update `vite.config.ts` chunk rules
   when moving components that have explicit chunk ownership.
 - Do not edit files under `static/`. Run the frontend build to regenerate them.
 

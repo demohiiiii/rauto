@@ -38,7 +38,10 @@ import {
   setVisualOutputStatus,
   txVarsTextStateFor,
 } from "$domains/transactions/index.js";
-import type { TxJsonEditorsHost } from "$domains/transactions/index.js";
+import type {
+  TxEditorKey,
+  TxJsonEditorsHost,
+} from "$domains/transactions/index.js";
 import type {
   OrchestrationExecutionResult,
   OrchestrationJsonObject,
@@ -105,7 +108,7 @@ interface JsonTemplateConfig {
   emptyKey: string;
   nameRequiredKey: string;
   newPromptKey: string;
-  runEditor: string;
+  runEditor: TxEditorKey;
   runOutput: string;
 }
 

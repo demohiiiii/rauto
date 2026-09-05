@@ -2,11 +2,7 @@ import {
   callbackMappedFormCheckedHandler,
   callbackMappedFormValueHandler,
 } from "../../../lib/events.js";
-import {
-  cloneJsonValue,
-  plainObject,
-  stringValue,
-} from "../../../lib/jsonValue.js";
+import { cloneJsonValue, stringValue } from "../../../lib/jsonValue.js";
 import { t } from "../../../lib/i18n.js";
 import type {
   JsonObject,
@@ -14,15 +10,15 @@ import type {
   TxMetadataFieldRow,
 } from "./types.js";
 
-function cloneJsonObject(value: unknown): JsonObject {
-  return plainObject(value) ? cloneJsonValue(value, {}) : {};
+function cloneJsonObject(value: JsonObject | null | undefined): JsonObject {
+  return value ? cloneJsonValue(value, {}) : {};
 }
 
 export function txExtraStringFieldRows(
-  extra: unknown = {},
+  extra: JsonObject | null | undefined = {},
   fieldDefs: readonly TxMetadataFieldDefinition[] = [],
 ): TxMetadataFieldRow[] {
-  const extraValue = plainObject(extra) ? extra : {};
+  const extraValue = extra ?? {};
   return fieldDefs.map((fieldDef) => {
     const fieldKey = stringValue(fieldDef?.fieldKey).trim();
     const valueText = stringValue(extraValue[fieldKey] ?? "");
@@ -41,24 +37,24 @@ export function txExtraStringFieldRows(
 }
 
 export function txSetExtraStringFieldValue(
-  extra: unknown = {},
-  fieldKey: unknown,
-  value: unknown,
+  extra: JsonObject | null | undefined = {},
+  fieldKey: string,
+  value: string,
 ): JsonObject {
-  const key = stringValue(fieldKey).trim();
+  const key = fieldKey.trim();
   if (!key) return cloneJsonObject(extra);
   return {
     ...cloneJsonObject(extra),
-    [key]: stringValue(value),
+    [key]: value,
   };
 }
 
 export function txSetExtraStringFieldPresence(
-  extra: unknown = {},
-  fieldKey: unknown,
-  enabled: unknown,
+  extra: JsonObject | null | undefined = {},
+  fieldKey: string,
+  enabled: boolean,
 ): JsonObject {
-  const key = stringValue(fieldKey).trim();
+  const key = fieldKey.trim();
   const next = cloneJsonObject(extra);
   if (!key) return next;
   if (enabled) {
@@ -69,13 +65,17 @@ export function txSetExtraStringFieldPresence(
   return next;
 }
 
-export function txExtraStringValueChangeHandler(
-  callback: (value: unknown) => unknown,
-  extraSource: unknown | (() => unknown),
-  fieldKey: unknown,
-  wrapResult: (extra: JsonObject) => unknown = (extra) => extra,
-): (event: Event) => unknown {
-  return callbackMappedFormValueHandler(callback, (value: unknown) =>
+export function txExtraStringValueChangeHandler<TResult>(
+  callback: (value: JsonObject) => TResult,
+  extraSource:
+    | JsonObject
+    | null
+    | undefined
+    | (() => JsonObject | null | undefined),
+  fieldKey: string,
+  wrapResult: (extra: JsonObject) => JsonObject = (extra) => extra,
+): (event: unknown) => TResult | undefined {
+  return callbackMappedFormValueHandler(callback, (value) =>
     wrapResult(
       txSetExtraStringFieldValue(
         typeof extraSource === "function" ? extraSource() : extraSource,
@@ -86,13 +86,17 @@ export function txExtraStringValueChangeHandler(
   );
 }
 
-export function txExtraStringPresenceChangeHandler(
-  callback: (value: unknown) => unknown,
-  extraSource: unknown | (() => unknown),
-  fieldKey: unknown,
-  wrapResult: (extra: JsonObject) => unknown = (extra) => extra,
-): (event: Event) => unknown {
-  return callbackMappedFormCheckedHandler(callback, (enabled: boolean) =>
+export function txExtraStringPresenceChangeHandler<TResult>(
+  callback: (value: JsonObject) => TResult,
+  extraSource:
+    | JsonObject
+    | null
+    | undefined
+    | (() => JsonObject | null | undefined),
+  fieldKey: string,
+  wrapResult: (extra: JsonObject) => JsonObject = (extra) => extra,
+): (event: unknown) => TResult | undefined {
+  return callbackMappedFormCheckedHandler(callback, (enabled) =>
     wrapResult(
       txSetExtraStringFieldPresence(
         typeof extraSource === "function" ? extraSource() : extraSource,

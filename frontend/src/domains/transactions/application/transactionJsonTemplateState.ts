@@ -1,28 +1,56 @@
 import { get as getStore, writable } from "svelte/store";
 import type { Writable } from "svelte/store";
+import type { TxExecutionMode } from "../../../config/dashboardModes.js";
 import { transactionJsonTemplateRuntime } from "../infrastructure/transactionJsonTemplateRuntime.js";
 import type {
   JsonObject,
   JsonTemplateActionContext,
   JsonTemplateSelectState,
   TransactionTemplateResource,
+  TransactionTemplateSummary,
 } from "../model/types.js";
 import { TX_EDITOR, TX_TEMPLATE_KIND } from "./transactionJsonEditorState.js";
+import type { TxEditorKey } from "./transactionJsonEditorState.js";
 
-type UnknownFunction = (...args: unknown[]) => unknown;
-
-interface JsonTemplateKindConfig extends JsonObject {
+interface JsonTemplateKindConfig {
   apiBase: string;
+  emptyKey?: string;
   nameRequiredKey: string;
   newPromptKey: string;
-  runEditor: string;
+  runEditor: TxEditorKey;
   runOutput: string;
 }
 
-interface JsonTemplateEditorKinds extends JsonObject {
+interface JsonTemplateEditorKinds {
   orchestration: string;
   txBlock: string;
   txWorkflow: string;
+}
+
+interface JsonTemplateEditorPort {
+  orchestrationEditorRaw?(): string;
+  setOrchestrationEditorText?(
+    text: string,
+    options?: { notify?: boolean },
+  ): void;
+  setTxBlockEditorRawText?(text: string, options?: { notify?: boolean }): void;
+  setTxWorkflowEditorText?(text: string, options?: { notify?: boolean }): void;
+  txBlockEditorRaw?(): string;
+  txWorkflowEditorRaw?(): string;
+}
+
+interface JsonTemplateEditorContext {
+  buildTxBlockTemplatePayloadFromEditor?(): JsonObject;
+  editors?: JsonTemplateEditorPort | null;
+  refreshTxWorkflowBuilder?(): void;
+  updateOrchestrationPreviewFromEditor?(): void;
+  updateTxWorkflowPreviewFromEditor?(): void;
+}
+
+interface JsonTemplateExecutionModes {
+  orchestration?: TxExecutionMode;
+  txBlock?: TxExecutionMode;
+  txWorkflow?: TxExecutionMode;
 }
 
 interface JsonTemplateLibraryConfig {
@@ -31,25 +59,28 @@ interface JsonTemplateLibraryConfig {
     apiBase: string,
     name: string,
     content: string,
-  ): Promise<unknown>;
-  deleteTemplateResource(apiBase: string, name: string): Promise<unknown>;
-  getEditorContext(): JsonObject;
-  getTemplateResource(apiBase: string, name: string): Promise<unknown>;
+  ): Promise<TransactionTemplateResource>;
+  deleteTemplateResource(apiBase: string, name: string): Promise<object>;
+  getEditorContext(): JsonTemplateEditorContext;
+  getTemplateResource(
+    apiBase: string,
+    name: string,
+  ): Promise<TransactionTemplateResource>;
   getSelectedName(kind: string): string;
-  listTemplateResource(apiBase: string): Promise<unknown>;
-  normalizeEditorKey(editorKey: unknown): string;
+  listTemplateResource(apiBase: string): Promise<TransactionTemplateSummary[]>;
+  normalizeEditorKey(editorKey: string): string;
   promptForResourceName(message: string): string | null;
-  setErrorStatus(output: string, error: unknown): unknown;
-  setExecutionModes(modes: JsonObject): unknown;
+  setErrorStatus(output: string, error: unknown): void;
+  setExecutionModes(modes: JsonTemplateExecutionModes): void;
   setNamedStatus(
     output: string,
     action: string,
     fallback: string,
     name: string,
-  ): unknown;
-  setRunningStatus(output: string): unknown;
-  setSelectedName(kind: string, name: string): unknown;
-  setStatus(output: string, message: string, tone: string): unknown;
+  ): void;
+  setRunningStatus(output: string): void;
+  setSelectedName(kind: string, name: string): void;
+  setStatus(output: string, message: string, tone: string): void;
   tr(key: string, fallback?: string): string;
   txEditor: JsonTemplateEditorKinds;
   txTemplateKind: JsonTemplateEditorKinds;
@@ -57,16 +88,18 @@ interface JsonTemplateLibraryConfig {
     apiBase: string,
     name: string,
     content: string,
-  ): Promise<unknown>;
-  updateOptions(kind: string, state: JsonTemplateSelectState): unknown;
+  ): Promise<TransactionTemplateResource>;
+  updateOptions(kind: string, state: JsonTemplateSelectState): void;
 }
 
-interface JsonTemplateLibrary extends JsonObject {
+type JsonTemplateLibraryConfigInput = Partial<JsonTemplateLibraryConfig>;
+
+interface JsonTemplateLibrary {
   activate?: () => () => void;
   createTemplateDraft(
     kind: string,
     actionContext?: JsonTemplateActionContext | null,
-  ): Promise<unknown>;
+  ): Promise<TransactionTemplateResource | null | void>;
   deleteTemplateFromExecution(kind: string): Promise<void>;
   loadAllJsonTemplates(): Promise<void>;
   loadJsonTemplatesByKind(
@@ -76,7 +109,7 @@ interface JsonTemplateLibrary extends JsonObject {
   loadOrchestrationTemplates(): Promise<void>;
   loadTemplateIntoEditor(
     kind: string,
-    nameOverride?: unknown,
+    nameOverride?: string,
     actionContext?: JsonTemplateActionContext | null,
   ): Promise<TransactionTemplateResource | null>;
   loadTxBlockTemplates(): Promise<void>;
@@ -86,9 +119,7 @@ interface JsonTemplateLibrary extends JsonObject {
   saveTemplateFromExecution(kind: string): Promise<void>;
 }
 
-type TemplateCache = Record<string, TransactionTemplateResource[]>;
-
-const EMPTY_OBJECT: Readonly<JsonObject> = Object.freeze({});
+type TemplateCache = Record<string, TransactionTemplateSummary[]>;
 
 const jsonTemplateSelectState: Record<string, JsonTemplateSelectState> = {
   [TX_TEMPLATE_KIND.txBlock]: {
@@ -111,42 +142,6 @@ const jsonTemplateSelectStates = new Map<
 >();
 let activeJsonTemplateLibrary: JsonTemplateLibrary | null = null;
 
-function recordValue(value: unknown): JsonObject {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonObject)
-    : {};
-}
-
-function callObjectFunction(
-  target: unknown,
-  name: string,
-  ...args: unknown[]
-): unknown {
-  const fn = recordValue(target)[name];
-  return typeof fn === "function"
-    ? (fn as UnknownFunction)(...args)
-    : undefined;
-}
-
-function safeTemplateString(value: unknown): string {
-  if (value == null) return "-";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value) ?? String(value);
-  } catch {
-    return String(value);
-  }
-}
-
-function functionValue<T>(source: JsonObject, key: string, fallback: T): T {
-  const value = source[key];
-  return typeof value === "function" ? (value as unknown as T) : fallback;
-}
-
-function templateResource(value: unknown): TransactionTemplateResource {
-  return recordValue(value);
-}
-
 function defaultJsonTemplateSelectState(kind: string): JsonTemplateSelectState {
   return jsonTemplateSelectState[kind] || { names: [], selected: "" };
 }
@@ -160,20 +155,20 @@ function setJsonTemplateSelectState(
 }
 
 function jsonTemplateEditorContext(
-  getEditorContext: () => JsonObject,
-): JsonObject {
-  return getEditorContext() || EMPTY_OBJECT;
+  getEditorContext: () => JsonTemplateEditorContext,
+): JsonTemplateEditorContext {
+  return getEditorContext();
 }
 
 function refreshTxWorkflowBuilderFromContext(
-  getEditorContext: () => JsonObject,
+  getEditorContext: () => JsonTemplateEditorContext,
 ): void {
   const context = jsonTemplateEditorContext(getEditorContext);
-  callObjectFunction(context, "refreshTxWorkflowBuilder");
+  context.refreshTxWorkflowBuilder?.();
 }
 
-function prettyJsonText(rawContent: unknown): string {
-  const text = safeTemplateString(rawContent).trim();
+function prettyJsonText(rawContent: string): string {
+  const text = rawContent.trim();
   if (!text) return "";
   try {
     return JSON.stringify(JSON.parse(text), null, 2);
@@ -182,191 +177,152 @@ function prettyJsonText(rawContent: unknown): string {
   }
 }
 
-function normalizeTxEditorKey(editorKey: unknown): string {
-  const key = safeTemplateString(editorKey).trim();
+function normalizeTxEditorKey(editorKey: string): string {
+  const key = editorKey.trim();
   return Object.values<string>(TX_EDITOR).includes(key) ? key : "";
 }
 
 function normalizeJsonTemplateLibraryConfig(
-  libraryCfg: unknown = {},
+  config: JsonTemplateLibraryConfigInput = {},
 ): JsonTemplateLibraryConfig {
-  const config = recordValue(libraryCfg);
   return {
-    configFor: functionValue(config, "configFor", () => null),
-    createTemplateResource: functionValue(
-      config,
-      "createTemplateResource",
+    configFor: config.configFor ?? (() => null),
+    createTemplateResource:
+      config.createTemplateResource ??
       transactionJsonTemplateRuntime.createTemplateResource,
-    ),
-    deleteTemplateResource: functionValue(
-      config,
-      "deleteTemplateResource",
+    deleteTemplateResource:
+      config.deleteTemplateResource ??
       transactionJsonTemplateRuntime.deleteTemplateResource,
-    ),
-    getEditorContext: functionValue(config, "getEditorContext", () => ({})),
-    getTemplateResource: functionValue(
-      config,
-      "getTemplateResource",
+    getEditorContext: config.getEditorContext ?? (() => ({})),
+    getTemplateResource:
+      config.getTemplateResource ??
       transactionJsonTemplateRuntime.getTemplateResource,
-    ),
-    getSelectedName: functionValue(config, "getSelectedName", () => ""),
-    listTemplateResource: functionValue(
-      config,
-      "listTemplateResource",
+    getSelectedName: config.getSelectedName ?? (() => ""),
+    listTemplateResource:
+      config.listTemplateResource ??
       transactionJsonTemplateRuntime.listTemplateResource,
-    ),
-    normalizeEditorKey: functionValue(
-      config,
-      "normalizeEditorKey",
-      normalizeTxEditorKey,
-    ),
-    promptForResourceName: functionValue(
-      config,
-      "promptForResourceName",
+    normalizeEditorKey: config.normalizeEditorKey ?? normalizeTxEditorKey,
+    promptForResourceName:
+      config.promptForResourceName ??
       transactionJsonTemplateRuntime.promptForResourceName,
-    ),
-    setErrorStatus: functionValue(config, "setErrorStatus", () => undefined),
-    setExecutionModes: functionValue(
-      config,
-      "setExecutionModes",
-      () => undefined,
-    ),
-    setNamedStatus: functionValue(config, "setNamedStatus", () => undefined),
-    setRunningStatus: functionValue(
-      config,
-      "setRunningStatus",
-      () => undefined,
-    ),
-    setSelectedName: functionValue(config, "setSelectedName", () => undefined),
-    setStatus: functionValue(config, "setStatus", () => undefined),
-    tr: functionValue(
-      config,
-      "tr",
-      (key: string, fallback: string = key) => fallback,
-    ),
-    txEditor: recordValue(
-      config.txEditor || TX_EDITOR,
-    ) as JsonTemplateEditorKinds,
-    txTemplateKind: recordValue(
-      config.txTemplateKind || TX_TEMPLATE_KIND,
-    ) as JsonTemplateEditorKinds,
-    updateTemplateResource: functionValue(
-      config,
-      "updateTemplateResource",
+    setErrorStatus: config.setErrorStatus ?? (() => undefined),
+    setExecutionModes: config.setExecutionModes ?? (() => undefined),
+    setNamedStatus: config.setNamedStatus ?? (() => undefined),
+    setRunningStatus: config.setRunningStatus ?? (() => undefined),
+    setSelectedName: config.setSelectedName ?? (() => undefined),
+    setStatus: config.setStatus ?? (() => undefined),
+    tr: config.tr ?? ((key: string, fallback: string = key) => fallback),
+    txEditor: config.txEditor ?? TX_EDITOR,
+    txTemplateKind: config.txTemplateKind ?? TX_TEMPLATE_KIND,
+    updateTemplateResource:
+      config.updateTemplateResource ??
       transactionJsonTemplateRuntime.updateTemplateResource,
-    ),
-    updateOptions: functionValue(config, "updateOptions", () => undefined),
+    updateOptions: config.updateOptions ?? (() => undefined),
   };
 }
 
 function setPrettyJsonToEditor(
-  editorKey: unknown,
-  rawContent: unknown,
-  getEditorContext: () => JsonObject,
-  normalizeEditorKey: (editorKey: unknown) => string,
+  editorKey: string,
+  rawContent: string,
+  getEditorContext: () => JsonTemplateEditorContext,
+  normalizeEditorKey: (editorKey: string) => string,
   txEditor: JsonTemplateEditorKinds,
   actionContext: JsonTemplateActionContext | null = null,
 ): void {
   const normalizedEditorKey = normalizeEditorKey(editorKey);
   const text = prettyJsonText(rawContent);
-  const editors = recordValue(
-    jsonTemplateEditorContext(getEditorContext).editors,
-  );
-  const setTxBlockText = editors.setTxBlockEditorRawText;
+  const editors = jsonTemplateEditorContext(getEditorContext).editors;
+  const setTxBlockText = editors?.setTxBlockEditorRawText;
   if (
     normalizedEditorKey === txEditor.txBlock &&
     typeof setTxBlockText === "function"
   ) {
-    runOwnedEditorMutation(actionContext, () =>
-      (setTxBlockText as UnknownFunction)(text),
-    );
+    runOwnedEditorMutation(actionContext, () => setTxBlockText(text));
     return;
   }
-  const setTxWorkflowText = editors.setTxWorkflowEditorText;
+  const setTxWorkflowText = editors?.setTxWorkflowEditorText;
   if (
     normalizedEditorKey === txEditor.txWorkflow &&
     typeof setTxWorkflowText === "function"
   ) {
     runOwnedEditorMutation(actionContext, () =>
-      (setTxWorkflowText as UnknownFunction)(text, { notify: true }),
+      setTxWorkflowText(text, { notify: true }),
     );
     return;
   }
-  const setOrchestrationText = editors.setOrchestrationEditorText;
+  const setOrchestrationText = editors?.setOrchestrationEditorText;
   if (
     normalizedEditorKey === txEditor.orchestration &&
     typeof setOrchestrationText === "function"
   ) {
     runOwnedEditorMutation(actionContext, () =>
-      (setOrchestrationText as UnknownFunction)(text, { notify: true }),
+      setOrchestrationText(text, { notify: true }),
     );
     return;
   }
   throw new Error(`${normalizedEditorKey} editor is not ready`);
 }
 
-function runOwnedEditorMutation(
+function runOwnedEditorMutation<TResult>(
   actionContext: JsonTemplateActionContext | null,
-  operation: () => unknown,
-): unknown {
+  operation: () => TResult,
+): TResult | undefined {
   if (typeof actionContext?.runOwnedEditorMutation === "function") {
     return actionContext.runOwnedEditorMutation(operation);
   }
-  return typeof operation === "function" ? operation() : undefined;
+  return operation();
 }
 
 function editorRaw(
-  editorKey: unknown,
-  getEditorContext: () => JsonObject,
-  normalizeEditorKey: (editorKey: unknown) => string,
+  editorKey: string,
+  getEditorContext: () => JsonTemplateEditorContext,
+  normalizeEditorKey: (editorKey: string) => string,
   txEditor: JsonTemplateEditorKinds,
 ): string {
   const normalizedEditorKey = normalizeEditorKey(editorKey);
-  const editors = recordValue(
-    jsonTemplateEditorContext(getEditorContext).editors,
-  );
-  const txWorkflowRaw = editors.txWorkflowEditorRaw;
+  const editors = jsonTemplateEditorContext(getEditorContext).editors;
+  const txWorkflowRaw = editors?.txWorkflowEditorRaw;
   if (
     normalizedEditorKey === txEditor.txWorkflow &&
     typeof txWorkflowRaw === "function"
   ) {
-    return safeTemplateString((txWorkflowRaw as UnknownFunction)()).trim();
+    return txWorkflowRaw().trim();
   }
-  const orchestrationRaw = editors.orchestrationEditorRaw;
+  const orchestrationRaw = editors?.orchestrationEditorRaw;
   if (
     normalizedEditorKey === txEditor.orchestration &&
     typeof orchestrationRaw === "function"
   ) {
-    return safeTemplateString((orchestrationRaw as UnknownFunction)()).trim();
+    return orchestrationRaw().trim();
   }
-  const txBlockRaw = editors.txBlockEditorRaw;
+  const txBlockRaw = editors?.txBlockEditorRaw;
   if (
     normalizedEditorKey === txEditor.txBlock &&
     typeof txBlockRaw === "function"
   ) {
-    return safeTemplateString((txBlockRaw as UnknownFunction)()).trim();
+    return txBlockRaw().trim();
   }
   return "";
 }
 
 function refreshJsonTemplateEditorPreview(
   kind: string,
-  getEditorContext: () => JsonObject,
+  getEditorContext: () => JsonTemplateEditorContext,
   txTemplateKind: JsonTemplateEditorKinds,
 ): void {
   const context = jsonTemplateEditorContext(getEditorContext);
   if (kind === txTemplateKind.txWorkflow) {
-    callObjectFunction(context, "updateTxWorkflowPreviewFromEditor");
+    context.updateTxWorkflowPreviewFromEditor?.();
   }
   if (kind === txTemplateKind.orchestration) {
-    callObjectFunction(context, "updateOrchestrationPreviewFromEditor");
+    context.updateOrchestrationPreviewFromEditor?.();
   }
 }
 
 function switchTxExecutionMode(
   kind: string,
   txTemplateKind: JsonTemplateEditorKinds,
-  setExecutionModes: (modes: JsonObject) => unknown,
+  setExecutionModes: (modes: JsonTemplateExecutionModes) => void,
 ): void {
   setExecutionModes({
     txBlock: kind === txTemplateKind.txBlock ? "template" : undefined,
@@ -377,7 +333,7 @@ function switchTxExecutionMode(
 }
 
 function normalizeJsonEditorContent(
-  editorKey: unknown,
+  editorKey: string,
   requiredKey: string,
   libraryConfig: JsonTemplateLibraryConfig,
   actionContext: JsonTemplateActionContext | null = null,
@@ -410,14 +366,13 @@ function jsonTemplateContentFromEditor(
   actionContext: JsonTemplateActionContext | null = null,
 ): string {
   if (kind === libraryConfig.txTemplateKind.txBlock) {
-    return JSON.stringify(
-      callObjectFunction(
-        jsonTemplateEditorContext(libraryConfig.getEditorContext),
-        "buildTxBlockTemplatePayloadFromEditor",
-      ),
-      null,
-      2,
-    );
+    const buildPayload = jsonTemplateEditorContext(
+      libraryConfig.getEditorContext,
+    ).buildTxBlockTemplatePayloadFromEditor;
+    if (!buildPayload) {
+      throw new Error(`${cfg.runEditor} editor is not ready`);
+    }
+    return JSON.stringify(buildPayload(), null, 2);
   }
   return normalizeJsonEditorContent(
     cfg.runEditor,
@@ -449,7 +404,7 @@ function createJsonTemplateNamesFor(cache: TemplateCache) {
 
 type ConfigFor = (kind: string) => JsonTemplateKindConfig | null;
 type GetSelectedName = (kind: string) => string;
-type SetSelectedName = (kind: string, name: string) => unknown;
+type SetSelectedName = (kind: string, name: string) => void;
 type NamesFor = (kind: string) => string[];
 type LoadJsonTemplatesByKind = (
   kind: string,
@@ -457,7 +412,7 @@ type LoadJsonTemplatesByKind = (
 ) => Promise<void>;
 type LoadTemplateIntoEditor = (
   kind: string,
-  nameOverride?: unknown,
+  nameOverride?: string,
   actionContext?: JsonTemplateActionContext | null,
 ) => Promise<TransactionTemplateResource | null>;
 
@@ -474,14 +429,12 @@ function createJsonTemplateLoader({
 }): LoadTemplateIntoEditor {
   return async function loadTemplateIntoEditor(
     kind: string,
-    nameOverride: unknown = "",
+    nameOverride = "",
     actionContext: JsonTemplateActionContext | null = null,
   ): Promise<TransactionTemplateResource | null> {
     const cfg = configFor(kind);
     if (!cfg) return null;
-    const name = safeTemplateString(
-      nameOverride || getSelectedName(kind),
-    ).trim();
+    const name = (nameOverride || getSelectedName(kind)).trim();
     if (!name) {
       libraryConfig.setStatus(
         cfg.runOutput,
@@ -492,9 +445,7 @@ function createJsonTemplateLoader({
     }
     libraryConfig.setRunningStatus(cfg.runOutput);
     try {
-      const detail = templateResource(
-        await libraryConfig.getTemplateResource(cfg.apiBase, name),
-      );
+      const detail = await libraryConfig.getTemplateResource(cfg.apiBase, name);
       if (
         typeof actionContext?.isCurrent === "function" &&
         !actionContext.isCurrent()
@@ -502,7 +453,7 @@ function createJsonTemplateLoader({
         return detail;
       }
       setSelectedName(kind, detail.name || name);
-      if (detail?.content) {
+      if (detail.content) {
         setPrettyJsonToEditor(
           cfg.runEditor,
           detail.content,
@@ -521,7 +472,7 @@ function createJsonTemplateLoader({
         cfg.runOutput,
         "loaded",
         "Loaded",
-        detail?.name || name,
+        detail.name || name,
       );
       return detail;
     } catch (error) {
@@ -568,19 +519,13 @@ function createJsonTemplateMutations({
     try {
       const content = jsonTemplateContentFromEditor(kind, cfg, libraryConfig);
       const exists = namesFor(kind).includes(name);
-      const savedTemplatePayload = templateResource(
-        exists
-          ? await libraryConfig.updateTemplateResource(
-              cfg.apiBase,
-              name,
-              content,
-            )
-          : await libraryConfig.createTemplateResource(
-              cfg.apiBase,
-              name,
-              content,
-            ),
-      );
+      const savedTemplatePayload = exists
+        ? await libraryConfig.updateTemplateResource(cfg.apiBase, name, content)
+        : await libraryConfig.createTemplateResource(
+            cfg.apiBase,
+            name,
+            content,
+          );
       await loadJsonTemplatesByKind(kind);
       setSelectedName(kind, savedTemplatePayload.name || name);
       if (kind === libraryConfig.txTemplateKind.txBlock) {
@@ -649,7 +594,7 @@ function createJsonTemplateDraftOperation({
   return async function createTemplateDraft(
     kind: string,
     actionContext: JsonTemplateActionContext | null = null,
-  ): Promise<unknown> {
+  ): Promise<TransactionTemplateResource | null | void> {
     const cfg = configFor(kind);
     if (!cfg) return;
     const name = libraryConfig.promptForResourceName(
@@ -685,8 +630,10 @@ function createJsonTemplateDraftOperation({
         libraryConfig,
         actionContext,
       );
-      const createdTemplatePayload = templateResource(
-        await libraryConfig.createTemplateResource(cfg.apiBase, name, content),
+      const createdTemplatePayload = await libraryConfig.createTemplateResource(
+        cfg.apiBase,
+        name,
+        content,
       );
       if (
         typeof actionContext?.isCurrent === "function" &&
@@ -740,34 +687,32 @@ export function updateJsonTemplateSelectOptions(
 ): void {
   const state = {
     names: Array.isArray(selectInput.names) ? selectInput.names : [],
-    selected: safeTemplateString(selectInput.selected || "").trim(),
+    selected: (selectInput.selected ?? "").trim(),
   };
   setJsonTemplateSelectState(kind, state);
 }
 
 export function jsonTemplateSelectValue(kind: string): string {
-  return safeTemplateString(
-    getStore(jsonTemplateSelectStateFor(kind))?.selected || "",
-  ).trim();
+  return getStore(jsonTemplateSelectStateFor(kind)).selected.trim();
 }
 
 export function setJsonTemplateSelectValue(
   kind: string,
-  templateName: unknown = "",
+  templateName = "",
 ): void {
   const state = jsonTemplateSelectState[kind] || { names: [], selected: "" };
   updateJsonTemplateSelectOptions(kind, {
     names: state.names,
-    selected: safeTemplateString(templateName),
+    selected: templateName,
   });
 }
 
-export async function loadAllJsonTemplates() {
-  await callObjectFunction(activeJsonTemplateLibrary, "loadAllJsonTemplates");
+export async function loadAllJsonTemplates(): Promise<void> {
+  await activeJsonTemplateLibrary?.loadAllJsonTemplates();
 }
 
 export function createJsonTemplateLibrary(
-  libraryCfg: unknown = {},
+  libraryCfg: JsonTemplateLibraryConfigInput = {},
 ): JsonTemplateLibrary {
   const libraryConfig = normalizeJsonTemplateLibraryConfig(libraryCfg);
   const cache = createJsonTemplateCache(libraryConfig.txTemplateKind);
@@ -782,10 +727,7 @@ export function createJsonTemplateLibrary(
     });
   }
 
-  function refreshJsonTemplateListByKind(
-    _kind?: unknown,
-    _error?: unknown,
-  ): void {
+  function refreshJsonTemplateListByKind(): void {
     // Lists are driven by Svelte pages; keep a stable hook for module callers.
   }
 
@@ -798,9 +740,7 @@ export function createJsonTemplateLibrary(
   }
 
   function refreshAllJsonTemplateLists(): void {
-    refreshJsonTemplateListByKind(libraryConfig.txTemplateKind.txBlock);
-    refreshJsonTemplateListByKind(libraryConfig.txTemplateKind.txWorkflow);
-    refreshJsonTemplateListByKind(libraryConfig.txTemplateKind.orchestration);
+    refreshJsonTemplateListByKind();
   }
 
   async function loadJsonTemplatesByKind(
@@ -819,12 +759,10 @@ export function createJsonTemplateLibrary(
       ) {
         return;
       }
-      cache[kind] = Array.isArray(templateListPayload)
-        ? templateListPayload.map(templateResource)
-        : [];
+      cache[kind] = templateListPayload;
       refreshJsonTemplateOptionsByKind(kind);
-      refreshJsonTemplateListByKind(kind);
-    } catch (error) {
+      refreshJsonTemplateListByKind();
+    } catch {
       if (
         typeof actionContext?.isCurrent === "function" &&
         !actionContext.isCurrent()
@@ -833,7 +771,7 @@ export function createJsonTemplateLibrary(
       }
       cache[kind] = [];
       refreshJsonTemplateOptionsByKind(kind);
-      refreshJsonTemplateListByKind(kind, error);
+      refreshJsonTemplateListByKind();
     }
   }
 
