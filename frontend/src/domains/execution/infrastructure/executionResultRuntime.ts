@@ -29,6 +29,6 @@ export const executionResultRuntime: ExecutionResultRuntime = {
   download: downloadBlob,
   async notifyError(message) {
     const { showToast } = await import("$domains/overlays/index.js");
-    return showToast(message, "error");
+    await showToast(message, "error");
   },
 };

@@ -17,7 +17,7 @@ export default defineConfig(({ command, isPreview }) => ({
   plugins: [
     tailwindcss(),
     svelte({
-      configFile: fileURLToPath(new URL("./svelte.config.js", import.meta.url)),
+      configFile: fileURLToPath(new URL("./svelte.config.ts", import.meta.url)),
     }),
   ],
   resolve: {

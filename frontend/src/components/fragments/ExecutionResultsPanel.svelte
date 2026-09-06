@@ -6,7 +6,8 @@
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import StatusCard from "./StatusCard.svelte";
   import WorkspaceActionHeader from "./WorkspaceActionHeader.svelte";
-  import type { Component, Snippet } from "svelte";
+  import type { Snippet } from "svelte";
+  import type { LucideIcon } from "@lucide/svelte";
 
   type ResultStatusTone = "error" | "info" | "success" | "warning";
   type StatusTone = ResultStatusTone | "running";
@@ -27,10 +28,10 @@
     emptyMessage?: string;
     failedCount?: number | null;
     failedLabel?: string;
-    icon?: Component<any> | null;
+    icon?: LucideIcon | null;
     items?: ExecutionResultItem[];
     navigationAriaLabel?: string;
-    onSelect?: (key: string) => unknown;
+    onSelect?: (key: string) => void;
     statusMessage?: string;
     statusTone?: StatusTone;
     succeededCount?: number | null;

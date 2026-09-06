@@ -1,13 +1,14 @@
 <script lang="ts">
   import * as Card from "$lib/components/ui/card/index.js";
   import { cn } from "$lib/utils.js";
-  import type { Component, Snippet } from "svelte";
+  import type { Snippet } from "svelte";
+  import type { LucideIcon } from "@lucide/svelte";
 
   interface WorkspaceActionHeaderProps {
     actions?: Snippet;
     class?: string;
     description?: string;
-    icon?: Component<any> | null;
+    icon?: LucideIcon | null;
     status?: Snippet;
     title?: string;
     titleId?: string;

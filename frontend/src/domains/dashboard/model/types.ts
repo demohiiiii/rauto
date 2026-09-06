@@ -11,9 +11,9 @@ export interface DashboardThemeSettings {
 }
 
 export interface DashboardThemeSettingsInput {
-  mode?: unknown;
-  preset?: unknown;
-  radius?: unknown;
+  mode?: string | null;
+  preset?: string | null;
+  radius?: string | null;
 }
 
 export interface DashboardThemeStorage {

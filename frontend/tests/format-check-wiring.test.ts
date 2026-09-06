@@ -15,7 +15,7 @@ test("npm exposes repository-wide format check scripts", () => {
   );
   assert.equal(
     packageJson.scripts["frontend:format:check"],
-    'prettier --check "frontend/**/*.{ts,svelte,css,html}" package.json svelte.config.js vite.config.ts tsconfig.json',
+    'prettier --check "frontend/**/*.{ts,svelte,css,html}" package.json svelte.config.ts vite.config.ts tsconfig.json',
   );
   assert.equal(
     packageJson.scripts["frontend:typecheck"],

@@ -23,6 +23,12 @@ include = [
     "templates/**",
 ]
 
+[profile.release]
+opt-level = "z"
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
 [dependencies]
 aes-gcm = "0.10.3"
 anyhow = "1"
@@ -52,7 +58,7 @@ regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rneter = "0.5.1"
 rpassword = "7.3"
-rust-embed = "8.5.0"
+rust-embed = { version = "8.5.0", features = ["compression"] }
 rust_xlsxwriter = "0.95.0"
 serde = { version = "1.0.216", features = ["derive"] }
 serde_json = "1.0.133"

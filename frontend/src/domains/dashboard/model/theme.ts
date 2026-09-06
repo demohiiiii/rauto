@@ -31,7 +31,7 @@ const storageKeys = {
 };
 
 function optionOrDefault<T extends string>(
-  value: unknown,
+  value: string | null | undefined,
   options: readonly T[],
   fallback: T,
 ): T {
@@ -85,7 +85,7 @@ function persistThemeSettings(
 }
 
 export function resolveThemeMode(
-  mode: unknown,
+  mode: string | null | undefined,
   prefersDark: () => boolean = prefersDarkColorScheme,
 ): ResolvedDashboardThemeMode {
   const normalizedMode = optionOrDefault(

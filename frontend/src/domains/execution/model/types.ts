@@ -70,9 +70,9 @@ export interface ExecutionResultApi {
 export interface ExecutionResultRuntime {
   deviceName(): string;
   download(blob: Blob, filename: string): void;
-  notifyError(message: unknown): Promise<unknown>;
+  notifyError(message: string): Promise<void>;
 }
 
 export interface ExportParsedOutputConfig {
-  filename?: unknown;
+  filename?: string;
 }

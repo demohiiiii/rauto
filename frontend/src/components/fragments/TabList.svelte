@@ -18,7 +18,7 @@
     "aria-label"?: string;
     activeValue: string;
     class?: string;
-    onSelect?: (value: string) => unknown;
+    onSelect?: (value: string) => void;
     tabItems: readonly TabItem[];
     themeAware?: boolean;
   }

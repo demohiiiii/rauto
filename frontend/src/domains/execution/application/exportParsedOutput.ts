@@ -88,7 +88,10 @@ async function exportParsedOutputPayloadExcel(
     );
   } catch (error) {
     const message =
-      error && typeof error === "object" && "message" in error
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof error.message === "string"
         ? error.message
         : t("requestFailed");
     await executionResultRuntime.notifyError(message || t("requestFailed"));

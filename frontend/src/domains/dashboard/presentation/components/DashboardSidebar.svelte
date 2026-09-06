@@ -28,7 +28,7 @@
   import { cn } from "$lib/utils.js";
   import { createDashboardSidebarWorkspace } from "$domains/dashboard/index.js";
 
-  const rautoIconUrl = `${import.meta.env.BASE_URL}rauto-icon.svg`;
+  const rautoIconUrl = `${import.meta.env.BASE_URL}favicon.svg`;
   interface Props {
     collapsed?: boolean;
     onCollapsedChange?: (collapsed: boolean) => void;

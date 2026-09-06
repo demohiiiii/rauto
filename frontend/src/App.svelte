@@ -97,7 +97,7 @@
         <div class="flex items-center gap-4 lg:flex-col lg:items-start">
           <img
             class="size-16 shrink-0"
-            src="/static/rauto-icon.svg"
+            src="/static/favicon.svg"
             alt=""
             aria-hidden="true"
           />
