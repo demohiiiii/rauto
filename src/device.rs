@@ -58,6 +58,7 @@ pub struct DeviceClient {
     default_mode: String,
     recording_level: Option<SessionRecordLevel>,
     recorder: Option<SessionRecorder>,
+    recording_start: usize,
 }
 
 impl DeviceClient {
@@ -115,6 +116,7 @@ impl DeviceClient {
             default_mode,
             recording_level: None,
             recorder: None,
+            recording_start: 0,
         })
     }
 
@@ -148,21 +150,16 @@ impl DeviceClient {
             handler,
             output_encoding,
         );
-        let recorder = crate::config::session_recording::redacting_recorder(
-            level,
-            &auth,
-            enable_password.as_deref(),
-        );
         let context =
             manager_execution_context_with_security(None, ssh_security, connect_timeout_secs)
                 .with_retry_policy(retry_policy);
         let mut retries_used = 0;
-        loop {
+        let recorder = loop {
             match MANAGER
-                .get_with_recorder_and_context(request.clone(), context.clone(), recorder.clone())
+                .get_with_recording_level_and_context(request.clone(), context.clone(), level)
                 .await
             {
-                Ok(_) => break,
+                Ok((_sender, recorder)) => break recorder,
                 Err(error)
                     if retries_used < retry_policy.max_retries
                         && connection_error_is_retryable(retry_policy, &error) =>
@@ -172,7 +169,16 @@ impl DeviceClient {
                 }
                 Err(error) => return Err(anyhow!("Failed to connect: {}", error)),
             }
-        }
+        };
+        let recording_start = recorder
+            .entries()
+            .map_err(|error| anyhow!("Failed to inspect recording: {}", error))?
+            .len();
+        let recorder = crate::config::session_recording::with_authentication_redaction(
+            recorder,
+            &auth,
+            enable_password.as_deref(),
+        );
 
         Ok(Self {
             request,
@@ -181,6 +187,7 @@ impl DeviceClient {
             default_mode,
             recording_level: Some(level),
             recorder: Some(recorder),
+            recording_start,
         })
     }
 
@@ -285,8 +292,16 @@ impl DeviceClient {
         match &self.recorder {
             Some(r) => {
                 let jsonl = r
-                    .to_jsonl()
-                    .map_err(|e| anyhow!("record export failed: {}", e))?;
+                    .entries()
+                    .map_err(|e| anyhow!("record export failed: {}", e))?
+                    .into_iter()
+                    .skip(self.recording_start)
+                    .map(|entry| {
+                        serde_json::to_string(&entry)
+                            .map_err(|e| anyhow!("record export failed: {}", e))
+                    })
+                    .collect::<Result<Vec<_>>>()?
+                    .join("\n");
                 let filtered = if matches!(
                     self.recording_level,
                     Some(SessionRecordLevel::KeyEventsOnly)
@@ -416,6 +431,69 @@ mod tests {
             .recording_jsonl()?
             .expect("recording should be available");
         assert!(recording.contains("hostname"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn recorded_clients_reuse_connection_without_reexporting_prior_commands() -> Result<()> {
+        let persona = DevicePersona::builtin("h3c_comware")?;
+        let username = persona.username.clone();
+        let password = persona.password.clone();
+        let enable_password = persona.enable_password.clone();
+        let device = FakeSshDevice::spawn(persona).await?;
+
+        let first = DeviceClient::connect_with_recording_and_retry(
+            device.addr().ip().to_string(),
+            device.port(),
+            username.clone(),
+            SshAuthMethod::password(password.clone()),
+            enable_password.clone(),
+            device.persona().config.clone().build()?,
+            DeviceEncoding::default(),
+            "Enable".to_string(),
+            SessionRecordLevel::KeyEventsOnly,
+            SshSecurityProfile::TestNoCheck,
+            Some(10),
+            RetryPolicy::default(),
+        )
+        .await?;
+        first
+            .execute_output("display version", Some("Enable"))
+            .await?;
+
+        let second = DeviceClient::connect_with_recording_and_retry(
+            device.addr().ip().to_string(),
+            device.port(),
+            username,
+            SshAuthMethod::password(password),
+            enable_password,
+            device.persona().config.clone().build()?,
+            DeviceEncoding::default(),
+            "Enable".to_string(),
+            SessionRecordLevel::KeyEventsOnly,
+            SshSecurityProfile::TestNoCheck,
+            Some(10),
+            RetryPolicy::default(),
+        )
+        .await?;
+        second
+            .execute_output("display current-configuration", Some("Enable"))
+            .await?;
+
+        assert_eq!(
+            device
+                .received_commands()
+                .iter()
+                .filter(|command| command.as_str() == "screen-length disable")
+                .count(),
+            1,
+            "recorded clients should reuse one physical SSH session"
+        );
+        let second_recording = second
+            .recording_jsonl()?
+            .expect("recording should be available");
+        assert!(second_recording.contains("display current-configuration"));
+        assert!(!second_recording.contains("display version"));
         Ok(())
     }
 

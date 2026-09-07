@@ -6,13 +6,21 @@ pub fn redacting_recorder(
     auth: &SshAuthMethod,
     enable_password: Option<&str>,
 ) -> SessionRecorder {
+    with_authentication_redaction(SessionRecorder::new(level), auth, enable_password)
+}
+
+pub fn with_authentication_redaction(
+    recorder: SessionRecorder,
+    auth: &SshAuthMethod,
+    enable_password: Option<&str>,
+) -> SessionRecorder {
     let mut secrets = authentication_secrets(auth);
     if let Some(secret) = enable_password.filter(|value| !value.is_empty()) {
         secrets.push(secret.to_string());
     }
     secrets.sort_by_key(|value| std::cmp::Reverse(value.len()));
     secrets.dedup();
-    SessionRecorder::new(level).with_redactor(move |event| redact_event(event, &secrets))
+    recorder.with_redactor(move |event| redact_event(event, &secrets))
 }
 
 fn authentication_secrets(auth: &SshAuthMethod) -> Vec<String> {

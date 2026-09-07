@@ -3564,8 +3564,7 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 [[package]]
 name = "rneter"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd2349038846657c3914b17842ce40b6c7e4131eeb00a63c11df8eba71f75195"
+source = "git+https://github.com/demohiiiii/rneter.git?rev=9038fe6be5ffb892ad342185c4e437151244e414#9038fe6be5ffb892ad342185c4e437151244e414"
 dependencies = [
  "anyhow",
  "async-ssh2-tokio",
