@@ -105,11 +105,10 @@ test("transfer workspace does not upload without a selected target", async () =>
   assert.equal(get(workspace.transferStateStore).uploadLoading, false);
 });
 
-test("transfer workspace executes once and forwards recording results", async () => {
+test("transfer workspace executes once and keeps the response result", async () => {
   let resolveUpload!: (value: TransferUploadResult) => void;
   let uploadCalls = 0;
   const payloads: TransferUploadPayload[] = [];
-  const recordings: Array<string | null> = [];
   const workspace = createTransferPageWorkspace({
     api: {
       executeUpload(payload) {
@@ -121,7 +120,6 @@ test("transfer workspace executes once and forwards recording results", async ()
       },
     },
     runtime: {
-      applyRecording: (result) => recordings.push(result.recording_jsonl),
       connectionPayload: () => ({ connection_name: "router-1" }),
       ensureConnectionTargetSelected: () => true,
       recordLevelPayload: () => "full",
@@ -156,7 +154,6 @@ test("transfer workspace executes once and forwards recording results", async ()
       timeout_secs: 60,
     },
   ]);
-  assert.deepEqual(recordings, ["recording"]);
   assert.equal(get(workspace.transferStateStore).uploadLoading, false);
   assert.equal(get(workspace.transferStateStore).status?.tone, "success");
 });

@@ -277,4 +277,5 @@ pub struct ConnectionHistoryEntry {
 pub struct ConnectionHistoryDetailResponse {
     pub meta: ConnectionHistoryEntry,
     pub entries: Vec<SessionRecordEntry>,
+    pub recording_jsonl: String,
 }

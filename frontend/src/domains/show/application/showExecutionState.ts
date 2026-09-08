@@ -626,7 +626,6 @@ export async function executeShowObject(): Promise<void> {
       basePayload,
       results: showResults,
     });
-    showRuntime.applyRecording(showResults[showResults.length - 1]);
   } catch (error) {
     setShowExecutionResult({ kind: "error", message: errorMessage(error) });
   }

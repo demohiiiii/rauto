@@ -9,6 +9,7 @@ const HISTORY_STORAGE = {
 
 export function readConnectionHistoryFilter(): ConnectionHistoryFilter {
   return {
+    deviceKey: "all",
     limit: Number(storageGet(HISTORY_STORAGE.limit, "30")),
     operation: storageGet(HISTORY_STORAGE.operation, "all"),
     query: storageGet(HISTORY_STORAGE.query),

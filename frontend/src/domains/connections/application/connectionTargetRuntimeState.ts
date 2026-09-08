@@ -50,7 +50,6 @@ import {
   configureConnectionsEditor,
   detectedConnectionFactsPatch,
 } from "$domains/connections/application/connectionEditorState.js";
-import { configureConnectionHistory } from "$domains/connections/application/connectionsHistory.js";
 import { openDetailModal, showToast } from "$domains/overlays/index.js";
 import type {
   ConnectionDraft,
@@ -375,20 +374,6 @@ function persistedTemporaryConnectionTarget(
   };
 }
 
-function currentSavedConnectionName(): string {
-  const target = activeConnectionTarget();
-  if (target.kind === "saved") {
-    const savedConnectionName = safeString(target.details?.name || "").trim();
-    if (savedConnectionName) return savedConnectionName;
-  }
-  return selectedSavedConnectionName();
-}
-
-configureConnectionHistory({
-  resolveCurrentSavedConnectionName: currentSavedConnectionName,
-  setHistoryStatus: setSavedConnectionStatus,
-});
-
 function restoreTemporaryConnectionFormFromPersisted(
   parsed: PersistedConnectionTarget,
 ): ConnectionTargetDetails {
@@ -609,9 +594,7 @@ export async function loadSavedConnections(): Promise<void> {
         setCurrentConnectionTarget(details);
         applyTargetProfileToTemporaryForm(details);
       } else {
-        if (currentSavedConnectionName() === targetName) {
-          setSavedConnectionSelectValue("");
-        }
+        setSavedConnectionSelectValue("");
         setCurrentConnectionTarget(null);
       }
     }

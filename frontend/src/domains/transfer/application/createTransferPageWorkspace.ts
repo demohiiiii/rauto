@@ -72,7 +72,6 @@ export function createTransferPageWorkspace(
         formatTransferUploadResult(result),
         result.ok ? "success" : "error",
       );
-      runtime.applyRecording(result);
       return result;
     } catch (error) {
       setTransferStatus(state, errorMessage(error), "error");

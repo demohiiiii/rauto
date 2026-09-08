@@ -1,3 +1,5 @@
+import type { ReplayEntry } from "$domains/replay/index.js";
+
 export type ConnectionFieldValue = string | number | boolean | null | undefined;
 
 export interface ConnectionDraft {
@@ -109,12 +111,28 @@ export interface ConnectionStatus {
 }
 
 export interface ConnectionHistoryFilter {
+  deviceKey: string;
   limit: number;
   operation: string;
   query: string;
 }
 
-export interface ConnectionHistoryItem extends Record<string, unknown> {
+export interface ConnectionHistoryDevice {
+  connectionName: string | null;
+  deviceProfile: string;
+  host: string;
+  kind: "saved" | "temporary";
+  port: number;
+  value: string;
+}
+
+export interface ConnectionHistoryTargetQuery {
+  connectionName?: string;
+  temporaryHost?: string;
+  temporaryPort?: number;
+}
+
+export interface ConnectionHistoryItem {
   command_label: string;
   connection_key: string;
   connection_name: string | null;
@@ -132,6 +150,8 @@ export interface ConnectionHistoryItem extends Record<string, unknown> {
 
 export interface ConnectionHistoryDrawerState {
   connectionLabel: string;
+  currentDeviceKey: string;
+  devices: ConnectionHistoryDevice[];
   historyItems: ConnectionHistoryItem[];
   refreshLoading: boolean;
   status: ConnectionStatus;
@@ -219,12 +239,10 @@ export interface ConnectionFactsResponse {
   warning: string | null;
 }
 
-export interface ConnectionHistoryDetailResponse extends Record<
-  string,
-  unknown
-> {
-  entries: Record<string, unknown>[];
+export interface ConnectionHistoryDetailResponse {
+  entries: ReplayEntry[];
   meta: ConnectionHistoryItem;
+  recording_jsonl: string;
 }
 
 export interface ConnectionTestState {

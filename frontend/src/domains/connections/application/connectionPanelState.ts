@@ -8,7 +8,10 @@ import {
   historyFilterStateStore,
   loadConnectionHistory,
   loadConnectionHistoryDetail,
+  openConnectionHistory,
+  replayConnectionHistoryItem,
   refreshConnectionHistory,
+  setHistoryFilterDevice,
   setHistoryFilterLimit,
   setHistoryFilterOperation,
   setHistoryFilterQuery,
@@ -50,6 +53,11 @@ export function createHistoryDrawerWorkspace() {
     return loadConnectionHistory();
   }
 
+  function changeDevice(deviceKey = "") {
+    setHistoryFilterDevice(deviceKey);
+    return loadConnectionHistory();
+  }
+
   function changeOperation(historyOperation = "") {
     return setHistoryFilterOperation(historyOperation);
   }
@@ -58,14 +66,22 @@ export function createHistoryDrawerWorkspace() {
     return setHistoryFilterQuery(queryText);
   }
 
+  function clearFilters() {
+    clearHistoryFilters();
+    return loadConnectionHistory();
+  }
+
   return {
+    changeDevice,
     changeLimit,
     changeOperation,
     changeQuery,
-    clearFilters: clearHistoryFilters,
+    clearFilters,
     deleteHistoryItem: deleteConnectionHistoryItem,
     historyDisplayStateStore,
     openHistoryItem: loadConnectionHistoryDetail,
+    openHistory: openConnectionHistory,
+    replayHistoryItem: replayConnectionHistoryItem,
     refreshHistory: refreshConnectionHistory,
   };
 }

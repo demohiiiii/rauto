@@ -83,6 +83,68 @@ pub fn list_history(limit: usize) -> Result<Vec<HistoryEntry>> {
     })
 }
 
+pub fn list_history_by_temporary_device(
+    host: &str,
+    port: u16,
+    limit: usize,
+) -> Result<Vec<HistoryEntry>> {
+    let host = host.trim().to_string();
+    db::run_sync(async move {
+        let sql = if limit > 0 {
+            "SELECT * FROM history_entries WHERE connection_name IS NULL AND TRIM(host) = ? COLLATE NOCASE AND port = ? AND record_jsonl <> '' ORDER BY ts_ms DESC LIMIT ?"
+        } else {
+            "SELECT * FROM history_entries WHERE connection_name IS NULL AND TRIM(host) = ? COLLATE NOCASE AND port = ? AND record_jsonl <> '' ORDER BY ts_ms DESC"
+        };
+        let rows = if limit > 0 {
+            sqlx::query(sql)
+                .bind(&host)
+                .bind(i64::from(port))
+                .bind(limit as i64)
+                .fetch_all(db::pool())
+                .await?
+        } else {
+            sqlx::query(sql)
+                .bind(&host)
+                .bind(i64::from(port))
+                .fetch_all(db::pool())
+                .await?
+        };
+        Ok(rows.into_iter().map(row_to_history_entry).collect())
+    })
+}
+
+pub fn list_history_devices() -> Result<Vec<HistoryEntry>> {
+    db::run_sync(async move {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, ts_ms, connection_key, connection_name, host, port, username,
+                   device_profile, operation, command_label, mode, record_level, record_path
+            FROM (
+                SELECT id, ts_ms, connection_key, connection_name, host, port, username,
+                       device_profile, operation, command_label, mode, record_level, record_path,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY
+                               CASE WHEN connection_name IS NULL THEN 0 ELSE 1 END,
+                               CASE
+                                   WHEN connection_name IS NULL THEN LOWER(TRIM(host))
+                                   ELSE connection_name
+                               END,
+                               CASE WHEN connection_name IS NULL THEN port ELSE 0 END
+                           ORDER BY ts_ms DESC, id DESC
+                       ) AS device_rank
+                FROM history_entries
+                WHERE record_jsonl <> ''
+            )
+            WHERE device_rank = 1
+            ORDER BY ts_ms DESC, id DESC
+            "#,
+        )
+        .fetch_all(db::pool())
+        .await?;
+        Ok(rows.into_iter().map(row_to_history_entry).collect())
+    })
+}
+
 pub fn find_history(
     connection_name: Option<&str>,
     id: Option<&str>,
@@ -305,4 +367,106 @@ fn slug(raw: &str) -> String {
         out = out.replace("__", "_");
     }
     out.trim_matches('_').to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    async fn setup_test_db(test_name: &str) -> (db::TestDbPathGuard, PathBuf) {
+        let path = std::env::temp_dir().join(format!(
+            "rauto-session-history-{test_name}-{:016x}.db",
+            rand::random::<u64>()
+        ));
+        let guard = db::override_test_db_path(path.clone());
+        db::init()
+            .await
+            .expect("initialize session history test database");
+        (guard, path)
+    }
+
+    async fn cleanup_test_db(guard: db::TestDbPathGuard, path: &Path) {
+        db::close_test_db(path).await;
+        drop(guard);
+        for suffix in ["", "-shm", "-wal"] {
+            let _ = std::fs::remove_file(format!("{}{}", path.display(), suffix));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn temporary_connection_recordings_are_available_in_global_history() {
+        let (guard, path) = setup_test_db("temporary").await;
+        let entry = save_recording(
+            HistoryBinding {
+                connection_name: None,
+                host: "192.0.2.20",
+                port: 22,
+                username: "audit-user",
+                device_profile: "h3c_comware",
+            },
+            "config_fetch",
+            "display current-configuration",
+            Some("Enable"),
+            "key-events-only",
+            r#"{"ts_ms":1,"event":{"kind":"raw_chunk","data":"ok"}}"#,
+        )
+        .expect("save temporary connection history");
+
+        assert!(entry.connection_name.is_none());
+        assert!(entry.connection_key.starts_with("adhoc_"));
+        let history = list_history(10).expect("list global history");
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].id, entry.id);
+        assert_eq!(
+            load_recording_jsonl(&entry.id)
+                .expect("load recording")
+                .as_deref(),
+            Some(r#"{"ts_ms":1,"event":{"kind":"raw_chunk","data":"ok"}}"#)
+        );
+
+        let other_temporary = save_recording(
+            HistoryBinding {
+                connection_name: None,
+                host: "192.0.2.21",
+                port: 2222,
+                username: "audit-user",
+                device_profile: "h3c_comware",
+            },
+            "show",
+            "display version",
+            Some("Enable"),
+            "key-events-only",
+            r#"{"ts_ms":2,"event":{"kind":"raw_chunk","data":"ok"}}"#,
+        )
+        .expect("save second temporary connection history");
+        let saved = save_recording(
+            HistoryBinding {
+                connection_name: Some("edge-saved"),
+                host: "192.0.2.22",
+                port: 22,
+                username: "audit-user",
+                device_profile: "h3c_comware",
+            },
+            "exec",
+            "display clock",
+            Some("Enable"),
+            "key-events-only",
+            r#"{"ts_ms":3,"event":{"kind":"raw_chunk","data":"ok"}}"#,
+        )
+        .expect("save saved connection history");
+
+        let temporary_history = list_history_by_temporary_device("192.0.2.20", 22, 10)
+            .expect("list history for one temporary device");
+        assert_eq!(temporary_history.len(), 1);
+        assert_eq!(temporary_history[0].id, entry.id);
+
+        let devices = list_history_devices().expect("list history devices");
+        assert_eq!(devices.len(), 3);
+        assert!(devices.iter().any(|device| device.id == entry.id));
+        assert!(devices.iter().any(|device| device.id == other_temporary.id));
+        assert!(devices.iter().any(|device| device.id == saved.id));
+
+        cleanup_test_db(guard, &path).await;
+    }
 }

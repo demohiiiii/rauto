@@ -101,7 +101,6 @@ export interface TransferApi {
 }
 
 export interface TransferRuntime {
-  applyRecording(result: TransferUploadResult): void;
   connectionPayload(): TransferConnectionPayload;
   ensureConnectionTargetSelected(): boolean;
   recordLevelPayload(): TransferRecordLevel;

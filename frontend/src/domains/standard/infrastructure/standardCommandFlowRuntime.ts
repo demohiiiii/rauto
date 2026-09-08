@@ -2,10 +2,7 @@ import {
   connectionPayload,
   ensureConnectionTargetSelected,
 } from "$domains/connections/index.js";
-import {
-  applyRecordDrawerRecording,
-  recordLevelPayload,
-} from "$domains/overlays/index.js";
+import { recordLevelPayload } from "$domains/overlays/index.js";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,
@@ -18,7 +15,6 @@ import {
 import type { StandardCommandFlowRuntime } from "../model/types.js";
 
 export const standardCommandFlowRuntime: StandardCommandFlowRuntime = {
-  applyRecording: applyRecordDrawerRecording,
   buildVarsPayload: buildFlowVarsPayload,
   connectionPayload,
   createRetryState: createSessionRetryState,

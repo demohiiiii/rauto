@@ -103,10 +103,11 @@ pub use config_catalog::{
 };
 pub use connections::{
     delete_connection, delete_connection_history, delete_inventory_group, delete_inventory_label,
-    detect_connection_facts, get_connection, get_connection_history, get_connection_history_detail,
-    get_inventory_group, get_inventory_label, import_connections, list_connections,
-    list_inventory_groups, list_inventory_labels, test_connection, upsert_connection,
-    upsert_inventory_group, upsert_inventory_label,
+    delete_session_history, detect_connection_facts, get_connection, get_connection_history,
+    get_connection_history_detail, get_inventory_group, get_inventory_label,
+    get_session_history_detail, import_connections, list_connections, list_inventory_groups,
+    list_inventory_labels, list_session_history, list_session_history_devices, test_connection,
+    upsert_connection, upsert_inventory_group, upsert_inventory_label,
 };
 pub use credentials::{
     create_credential, delete_credential, get_credential, import_credentials, list_credentials,
@@ -183,6 +184,14 @@ pub use textfsm_exports::export_textfsm_excel;
 #[derive(Debug, serde::Deserialize)]
 pub struct HistoryQuery {
     pub limit: Option<usize>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct SessionHistoryQuery {
+    pub limit: Option<usize>,
+    pub connection_name: Option<String>,
+    pub temporary_host: Option<String>,
+    pub temporary_port: Option<u16>,
 }
 
 fn saved_connection_detail_response(

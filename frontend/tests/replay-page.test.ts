@@ -79,21 +79,18 @@ test("replay workspace normalizes list and command request payloads", async () =
     runtime: replayRuntime(),
   });
 
-  try {
-    workspace.setJsonl("  recording\n");
-    await workspace.replayList();
-    workspace.setCommandInput("  show clock  ");
-    workspace.setMode("   ");
-    await workspace.replayCommand();
+  workspace.setJsonl("  recording\n");
+  await workspace.replayList();
+  workspace.setCommandInput("  show clock  ");
+  workspace.setMode("   ");
+  await workspace.replayCommand();
 
-    assert.deepEqual(requests, [
-      { jsonl: "recording", list: true },
-      { command: "show clock", jsonl: "recording", mode: null },
-    ]);
-    assert.equal(get(workspace.replayStateStore).statusText, "");
-  } finally {
-    workspace.destroy();
-  }
+  assert.deepEqual(requests, [
+    { jsonl: "recording", list: true },
+    { command: "show clock", jsonl: "recording", mode: null },
+  ]);
+  assert.equal(get(workspace.replayStateStore).statusText, "");
+  workspace.destroy();
 });
 
 test("replay workspace suppresses duplicate operations while loading", async () => {
@@ -113,16 +110,42 @@ test("replay workspace suppresses duplicate operations while loading", async () 
     runtime: replayRuntime(),
   });
 
-  try {
-    workspace.setJsonl("recording");
-    const firstRun = workspace.replayList();
-    const duplicateRun = workspace.replayList();
+  workspace.setJsonl("recording");
+  const firstRun = workspace.replayList();
+  const duplicateRun = workspace.replayList();
 
-    assert.equal(requestCalls, 1);
-    assert.equal(get(workspace.replayStateStore).listLoading, true);
-    resolveRequest();
-    await Promise.all([firstRun, duplicateRun]);
-    assert.equal(get(workspace.replayStateStore).listLoading, false);
+  assert.equal(requestCalls, 1);
+  assert.equal(get(workspace.replayStateStore).listLoading, true);
+  resolveRequest();
+  await Promise.all([firstRun, duplicateRun]);
+  assert.equal(get(workspace.replayStateStore).listLoading, false);
+  workspace.destroy();
+});
+
+test("an active replay workspace consumes a transferred recording", () => {
+  const transferState = writable({ jsonl: "", version: 0 });
+  const statusState = writable({ text: "", version: 0 });
+  const workspace = createReplayPageWorkspace({
+    runtime: replayRuntime({
+      replayJsonlTransferState: transferState,
+      replayStatusTextState: statusState,
+    }),
+  });
+
+  try {
+    workspace.setJsonl("previous recording");
+    workspace.setPageContext({ active: true });
+    transferState.set({
+      jsonl: '{"ts_ms":1,"event":{"kind":"connection_closed","reason":"done"}}',
+      version: 1,
+    });
+    statusState.set({ text: "Recording moved to replay", version: 1 });
+
+    assert.match(get(workspace.replayStateStore).jsonl, /connection_closed/);
+    assert.equal(
+      get(workspace.replayStateStore).statusText,
+      "Recording moved to replay",
+    );
   } finally {
     workspace.destroy();
   }

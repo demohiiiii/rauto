@@ -1,7 +1,4 @@
-import {
-  applyRecordDrawerRecording,
-  recordLevelPayload,
-} from "$domains/overlays/index.js";
+import { recordLevelPayload } from "$domains/overlays/index.js";
 import {
   executionConnectionProfileState,
   refreshExecutionModeOptionsForCurrentConnection,
@@ -24,7 +21,6 @@ import { setCustomShowObjectsChangedCallback } from "$domains/templates/index.js
 import type { ShowRuntime } from "../model/types.js";
 
 export const showRuntime: ShowRuntime = {
-  applyRecording: applyRecordDrawerRecording,
   connectionPayload,
   connectionTargetState,
   currentExecutionProfile: currentExecutionConnectionProfile,

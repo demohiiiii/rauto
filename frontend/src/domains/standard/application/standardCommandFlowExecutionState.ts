@@ -180,7 +180,6 @@ export async function executeCommandFlow(
       kind: "result",
       resultPayload: flowResult,
     });
-    standardCommandFlowRuntime.applyRecording(flowResult);
   } catch (error) {
     setCommandFlowExecutionResult({
       kind: "error",

@@ -7,10 +7,7 @@ import {
   connectionPayload,
   ensureConnectionTargetSelected,
 } from "$domains/connections/index.js";
-import {
-  applyRecordDrawerRecording,
-  recordLevelPayload,
-} from "$domains/overlays/index.js";
+import { recordLevelPayload } from "$domains/overlays/index.js";
 import {
   createSessionRetryState,
   sessionRetryRequestFields,
@@ -24,7 +21,6 @@ import {
 import type { StandardCommandRuntime } from "../model/types.js";
 
 export const standardCommandRuntime: StandardCommandRuntime = {
-  applyRecording: applyRecordDrawerRecording,
   clearTimer: browserClearTimeout,
   commandModePicker: () => modeSelection(MODE_SELECT.standardDirect),
   confirm: browserConfirm,

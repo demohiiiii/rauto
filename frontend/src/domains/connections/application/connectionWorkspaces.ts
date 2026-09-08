@@ -89,8 +89,11 @@ import {
   historyFilterStateStore,
   loadConnectionHistory,
   loadConnectionHistoryDetail,
+  openConnectionHistory,
+  replayConnectionHistoryItem,
   refreshConnectionHistory,
   setHistoryFilterLimit,
+  setHistoryFilterDevice,
   setHistoryFilterOperation,
   setHistoryFilterQuery,
 } from "$domains/connections/application/connectionsHistory.js";
@@ -135,8 +138,10 @@ interface SavedConnectionLibraryContext {
 
 interface HistoryDrawerContentWorkspaceInput {
   onDeleteItem?: ((historyId: string | number) => unknown) | null;
+  onDeviceChange?: ((deviceKey: string) => unknown) | null;
   onLimitChange?: ((limit: string) => unknown) | null;
   onOpenItem?: ((historyId: string | number) => unknown) | null;
+  onReplayItem?: ((historyId: string | number) => unknown) | null;
   onOperationChange?: ((operation: string) => unknown) | null;
   onQueryInput?: ((query: string) => unknown) | null;
 }
@@ -198,9 +203,12 @@ export {
   loadConnectionHistory,
   refreshConnectionHistory,
   loadConnectionHistoryDetail,
+  openConnectionHistory,
+  replayConnectionHistoryItem,
   deleteConnectionHistoryItem,
   clearHistoryFilters,
   setHistoryFilterLimit,
+  setHistoryFilterDevice,
   setHistoryFilterOperation,
   setHistoryFilterQuery,
   formatHistoryTime,
@@ -376,8 +384,10 @@ function historyDrawerContentWorkspaceInputState(
 ): HistoryDrawerContentWorkspaceInput {
   return {
     onDeleteItem: inputState.onDeleteItem ?? null,
+    onDeviceChange: inputState.onDeviceChange ?? null,
     onLimitChange: inputState.onLimitChange ?? null,
     onOpenItem: inputState.onOpenItem ?? null,
+    onReplayItem: inputState.onReplayItem ?? null,
     onOperationChange: inputState.onOperationChange ?? null,
     onQueryInput: inputState.onQueryInput ?? null,
   };
@@ -394,6 +404,9 @@ export function createHistoryDrawerContentWorkspace(
     deleteHistoryItemAction(historyId = "") {
       return actionHandlers.deleteHistoryItemAction(historyId);
     },
+    historyDeviceChangeHandler() {
+      return actionHandlers.historyDeviceChangeHandler();
+    },
     historyLimitChangeHandler() {
       return actionHandlers.historyLimitChangeHandler();
     },
@@ -405,6 +418,9 @@ export function createHistoryDrawerContentWorkspace(
     },
     openHistoryItemAction(historyId = "") {
       return actionHandlers.openHistoryItemAction(historyId);
+    },
+    replayHistoryItemAction(historyId = "") {
+      return actionHandlers.replayHistoryItemAction(historyId);
     },
   };
 }
@@ -489,8 +505,10 @@ function savedConnectionEditModalActionHandlers({
 
 function historyDrawerContentInputHandlers({
   onDeleteItem = null,
+  onDeviceChange = null,
   onLimitChange = null,
   onOpenItem = null,
+  onReplayItem = null,
   onOperationChange = null,
   onQueryInput = null,
 }: HistoryDrawerContentWorkspaceInput = {}) {
@@ -498,11 +516,17 @@ function historyDrawerContentInputHandlers({
     deleteItemHandler(historyId = "") {
       return callbackHandler(onDeleteItem, historyId);
     },
+    deviceChangeHandler() {
+      return callbackHandler(onDeviceChange);
+    },
     limitChangeHandler() {
       return callbackHandler(onLimitChange);
     },
     openItemHandler(historyId = "") {
       return callbackHandler(onOpenItem, historyId);
+    },
+    replayItemHandler(historyId = "") {
+      return callbackHandler(onReplayItem, historyId);
     },
     operationChangeHandler() {
       return callbackHandler(onOperationChange);
@@ -515,15 +539,19 @@ function historyDrawerContentInputHandlers({
 
 function historyDrawerContentActionHandlers({
   onDeleteItem = null,
+  onDeviceChange = null,
   onLimitChange = null,
   onOpenItem = null,
+  onReplayItem = null,
   onOperationChange = null,
   onQueryInput = null,
 }: HistoryDrawerContentWorkspaceInput = {}) {
   const inputHandlers = historyDrawerContentInputHandlers({
     onDeleteItem,
+    onDeviceChange,
     onLimitChange,
     onOpenItem,
+    onReplayItem,
     onOperationChange,
     onQueryInput,
   });
@@ -531,11 +559,17 @@ function historyDrawerContentActionHandlers({
     deleteHistoryItemAction(historyId = "") {
       return inputHandlers.deleteItemHandler(historyId);
     },
+    historyDeviceChangeHandler() {
+      return inputHandlers.deviceChangeHandler();
+    },
     historyLimitChangeHandler() {
       return inputHandlers.limitChangeHandler();
     },
     openHistoryItemAction(historyId = "") {
       return inputHandlers.openItemHandler(historyId);
+    },
+    replayHistoryItemAction(historyId = "") {
+      return inputHandlers.replayItemHandler(historyId);
     },
     historyOperationChangeHandler() {
       return inputHandlers.operationChangeHandler();

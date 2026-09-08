@@ -87,7 +87,6 @@ function commandApi(
 
 function runtime(): Partial<StandardCommandRuntime> {
   return {
-    applyRecording() {},
     connection: () => ({ connection_name: "edge-01" }),
     ensureTarget: () => true,
     recordLevel: () => "key-events-only",

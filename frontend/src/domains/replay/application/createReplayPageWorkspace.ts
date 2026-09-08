@@ -68,16 +68,6 @@ export function createReplayPageWorkspace(
     replayStateStore.set(state);
   }
 
-  async function runMutation(
-    mutation: (state: ReplayState) => void | Promise<void>,
-  ): Promise<void> {
-    const state = get(replayStateStore);
-    const result = mutation(state);
-    replayStateStore.set(state);
-    await result;
-    replayStateStore.set(state);
-  }
-
   function applyReplaySyncState(syncState: ReplaySyncState): void {
     if (!pageActive) return;
     updateState((state) => {
@@ -92,6 +82,16 @@ export function createReplayPageWorkspace(
 
   const unsubscribeReplaySyncState =
     replaySyncStateStore.subscribe(applyReplaySyncState);
+
+  async function runMutation(
+    mutation: (state: ReplayState) => void | Promise<void>,
+  ): Promise<void> {
+    const state = get(replayStateStore);
+    const result = mutation(state);
+    replayStateStore.set(state);
+    await result;
+    replayStateStore.set(state);
+  }
 
   function writeLoadingKeys(nextKeys: string[]): void {
     loadingKeys = nextKeys;

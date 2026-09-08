@@ -56,7 +56,7 @@ rand = "0.8.5"
 ratatui = "0.29"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "9038fe6be5ffb892ad342185c4e437151244e414" }
+rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "4917625e00b36c902424eee1429335d2698694d5" }
 rpassword = "7.3"
 rust-embed = { version = "8.5.0", features = ["compression"] }
 rust_xlsxwriter = "0.95.0"
@@ -83,5 +83,5 @@ tonic-prost-build = "0.14.5"
 
 [dev-dependencies]
 async-ssh2-tokio = "0.13"
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "9038fe6be5ffb892ad342185c4e437151244e414", features = ["testkit"] }
+rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "4917625e00b36c902424eee1429335d2698694d5", features = ["testkit"] }
 tower = { version = "0.5.2", features = ["util"] }

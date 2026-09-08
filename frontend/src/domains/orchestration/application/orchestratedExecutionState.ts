@@ -17,10 +17,9 @@ import {
 } from "$domains/connections/index.js";
 import type { ConnectionRequestPayload } from "$domains/connections/index.js";
 import {
-  applyRecordDrawerRecording,
   recordLevelPayload as recordLevelPayloadFromOverlays,
+  showToast,
 } from "$domains/overlays/index.js";
-import { showToast } from "$domains/overlays/index.js";
 import type { OverlayToastTone, RecordLevel } from "$domains/overlays/index.js";
 import {
   TX_EDITOR,
@@ -119,12 +118,6 @@ const errorMessage = (error: unknown): string =>
 
 function tr(key: string, fallback = key): string {
   return translate(key, fallback);
-}
-
-function applyRecording(recordingPayload: {
-  recording_jsonl: string | null;
-}): void {
-  applyRecordDrawerRecording(recordingPayload);
 }
 
 function setDependencyVisualError(
@@ -446,7 +439,6 @@ async function runTxBlockWithDependencies(
     return;
   }
   setStatus(output, tr("txBlockExecuteDone"), "success");
-  applyRecording(txBlockPayload);
 }
 
 async function previewTxWorkflowWithDependencies(
@@ -481,7 +473,6 @@ async function executeWorkflowWithDependencies(
     );
     setTxWorkflowExecutionResult(workflowExecutionPayload.tx_workflow_result);
     dependencies.showToast?.(tr("txWorkflowExecuteDone"), "success");
-    applyRecording(workflowExecutionPayload);
   } catch (error) {
     setErrorStatus(TX_OUTPUT.txWorkflowExec, error);
   }

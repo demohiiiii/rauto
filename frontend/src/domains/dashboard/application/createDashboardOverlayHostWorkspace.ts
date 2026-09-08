@@ -62,14 +62,11 @@ export const openDashboardRecordDrawer = () => openRecordDrawer();
 export const toggleDashboardRecordLevel = () => toggleRecordLevel();
 
 export function dashboardRecordToolsPresentation({
-  overlayState = {},
   recordLevel = "",
 }: {
-  overlayState?: Partial<DashboardDrawerOverlayState>;
   recordLevel?: string;
 } = {}): DashboardRecordToolsDisplay {
   return overlayRecordToolsPresentation({
-    overlayState,
     recordLevel,
   });
 }

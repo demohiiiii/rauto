@@ -81,15 +81,12 @@ export interface DashboardEntryOverlayState {
 }
 
 export interface DashboardDrawerOverlayState {
-  recordFabCount?: number;
   recordDrawerOpen: boolean;
 }
 
 export interface DashboardRecordToolsDisplay {
   levelHintText: string;
   levelLabelText: string;
-  recordFabBadgeText: string;
-  recordFabHasCount: boolean;
   recordFabTitle: string;
   recordLevelLabel: string;
 }

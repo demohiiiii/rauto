@@ -193,6 +193,38 @@ impl RouteTestContext {
             execution_endpoint,
         }
     }
+
+    async fn get_json(&self, path: &str) -> TestResponse {
+        let response = self
+            .app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(path)
+                    .body(Body::empty())
+                    .expect("build HTTP integration request"),
+            )
+            .await
+            .expect("route should return a response");
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .expect("read HTTP integration response body");
+        let body: Value = serde_json::from_slice(&bytes).unwrap_or_else(|error| {
+            panic!(
+                "parse JSON response from {path}: {error}; body={}",
+                String::from_utf8_lossy(&bytes)
+            )
+        });
+        TestResponse {
+            endpoint: path.to_string(),
+            status,
+            envelope: body.clone(),
+            body,
+            execution_endpoint: false,
+        }
+    }
 }
 
 struct TestResponse {
@@ -547,6 +579,92 @@ fn http_execution_routes_reach_rneter_virtual_device() {
             &device.handle,
             &mut command_cursor,
             &["show running-config"],
+        );
+    });
+}
+
+#[test]
+fn temporary_connection_execution_is_available_in_global_session_history() {
+    run_route_test(|context| async move {
+        let device = context
+            .spawn_cisco("temporary-audit-source", FaultInjection::new())
+            .await;
+        let connection = device
+            .handle
+            .connection_request()
+            .expect("build temporary virtual device connection");
+
+        context
+            .post_json(
+                "/api/exec",
+                json!({
+                    "command": "show clock",
+                    "connection": {
+                        "host": connection.addr.clone(),
+                        "port": connection.port,
+                        "credential_id": context.credential_id.clone(),
+                        "device_profile": "cisco_ios",
+                        "ssh_security": "test-no-check"
+                    },
+                    "record_level": "key-events-only"
+                }),
+            )
+            .await
+            .assert_ok();
+
+        let history = context.get_json("/api/session-history?limit=10").await;
+        let rows = history
+            .assert_ok()
+            .as_array()
+            .expect("session history should be an array");
+        let entry = rows
+            .iter()
+            .find(|row| row["operation"] == json!("exec"))
+            .expect("temporary execution should be listed");
+        assert!(entry["connection_name"].is_null());
+        assert_eq!(entry["host"], json!(connection.addr));
+
+        let filtered_history = context
+            .get_json(&format!(
+                "/api/session-history?limit=10&temporary_host={}&temporary_port={}",
+                connection.addr, connection.port
+            ))
+            .await;
+        assert_eq!(
+            filtered_history
+                .assert_ok()
+                .as_array()
+                .expect("filtered session history should be an array")
+                .len(),
+            1
+        );
+
+        let devices = context.get_json("/api/session-history/devices").await;
+        let device_rows = devices
+            .assert_ok()
+            .as_array()
+            .expect("session history devices should be an array");
+        assert!(device_rows.iter().any(|row| {
+            row["connection_name"].is_null() && row["host"] == json!(connection.addr)
+        }));
+
+        let history_id = entry["id"]
+            .as_str()
+            .expect("session history id should be a string");
+        let detail = context
+            .get_json(&format!("/api/session-history/{history_id}"))
+            .await;
+        let detail_body = detail.assert_ok();
+        assert_eq!(detail_body["meta"]["id"], json!(history_id));
+        assert!(
+            detail_body["entries"]
+                .as_array()
+                .is_some_and(|entries| !entries.is_empty())
+        );
+        assert!(
+            detail_body["recording_jsonl"]
+                .as_str()
+                .is_some_and(|jsonl| !jsonl.trim().is_empty())
         );
     });
 }

@@ -30,6 +30,7 @@ import type {
 } from "$domains/config-history/model/types.js";
 import type {
   ConnectionHistoryItem,
+  ConnectionHistoryTargetQuery,
   ConnectionFactsResponse,
   ConnectionHistoryDetailResponse,
   ConnectionImportReport,
@@ -689,6 +690,44 @@ export function deleteConnectionHistory(
   return apiRequest(
     "DELETE",
     `/api/connections/${encodeURIComponent(name)}/history/${encodeURIComponent(historyId)}`,
+  );
+}
+
+export function listSessionHistory(
+  limit = 30,
+  target: ConnectionHistoryTargetQuery = {},
+): Promise<ConnectionHistoryItem[]> {
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", String(limit));
+  if (target.connectionName) {
+    params.set("connection_name", target.connectionName);
+  } else if (target.temporaryHost) {
+    params.set("temporary_host", target.temporaryHost);
+    params.set("temporary_port", String(target.temporaryPort || 22));
+  }
+  const query = params.toString();
+  return apiRequest("GET", `/api/session-history${query ? `?${query}` : ""}`);
+}
+
+export function listSessionHistoryDevices(): Promise<ConnectionHistoryItem[]> {
+  return apiRequest("GET", "/api/session-history/devices");
+}
+
+export function getSessionHistoryDetail(
+  historyId: string | number,
+): Promise<ConnectionHistoryDetailResponse> {
+  return apiRequest(
+    "GET",
+    `/api/session-history/${encodeURIComponent(historyId)}`,
+  );
+}
+
+export function deleteSessionHistory(
+  historyId: string | number,
+): Promise<JsonRecord> {
+  return apiRequest(
+    "DELETE",
+    `/api/session-history/${encodeURIComponent(historyId)}`,
   );
 }
 

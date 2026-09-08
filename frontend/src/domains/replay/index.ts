@@ -24,6 +24,9 @@ export type {
   ReplayResult,
   ReplayResultsDisplay,
   ReplayRuntime,
+  ReplayStatusState,
   ReplayState,
+  ReplaySyncState,
+  ReplayTransferState,
   ReplayWorkspaceOptions,
 } from "./model/types.js";

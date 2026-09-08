@@ -105,14 +105,14 @@ export function applyReplayJsonlTransfer(
   if (!transfer.version || transfer.version === appliedVersion) {
     return appliedVersion;
   }
-  state.jsonl = transfer.jsonl || "";
+  state.jsonl = transfer.jsonl;
   state.lastReplayResult = null;
   return transfer.version;
 }
 
 export function applyReplayStatus(
   state: ReplayState,
-  status: ReplayStatusState | undefined,
+  status: ReplayStatusState,
 ): void {
-  if (status !== undefined) state.statusText = status.text || "";
+  state.statusText = status.text;
 }

@@ -3,8 +3,10 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
+  import * as Select from "$lib/components/ui/select/index.js";
   import { Spinner } from "$lib/components/ui/spinner/index.js";
   import EyeIcon from "@lucide/svelte/icons/eye";
+  import PlayIcon from "@lucide/svelte/icons/play";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import SearchIcon from "@lucide/svelte/icons/search";
   import ServerIcon from "@lucide/svelte/icons/server";
@@ -23,7 +25,10 @@
     HistoryDrawerWorkspace["historyDisplayStateStore"]
   >;
   type HistoryRow = HistoryDisplay["filteredRows"][number];
+  type DeviceOptionRow =
+    HistoryDisplay["filtersDisplay"]["deviceOptionRows"][number];
   type FilterOptionRow =
+    | HistoryDisplay["filtersDisplay"]["deviceOptionRows"][number]
     | HistoryDisplay["filtersDisplay"]["limitOptionRows"][number]
     | HistoryDisplay["filtersDisplay"]["operationOptionRows"][number];
 
@@ -39,8 +44,10 @@
     historyDisplay: HistoryDisplay;
     onClearFilters: HistoryDrawerWorkspace["clearFilters"];
     onDeleteItem: HistoryDrawerWorkspace["deleteHistoryItem"];
+    onDeviceChange: HistoryDrawerWorkspace["changeDevice"];
     onLimitChange: HistoryDrawerWorkspace["changeLimit"];
     onOpenItem: HistoryDrawerWorkspace["openHistoryItem"];
+    onReplayItem: HistoryDrawerWorkspace["replayHistoryItem"];
     onOperationChange: HistoryDrawerWorkspace["changeOperation"];
     onQueryInput: HistoryDrawerWorkspace["changeQuery"];
     onRefresh: HistoryDrawerWorkspace["refreshHistory"];
@@ -49,8 +56,10 @@
   let {
     historyDisplay,
     onDeleteItem,
+    onDeviceChange,
     onLimitChange,
     onOpenItem,
+    onReplayItem,
     onOperationChange,
     onQueryInput,
     onClearFilters,
@@ -61,12 +70,20 @@
     return onDeleteItem(historyId);
   }
 
+  function handleDeviceChange(deviceKey: string) {
+    return onDeviceChange(deviceKey);
+  }
+
   function handleLimitChange(limitValue: string) {
     return onLimitChange(limitValue);
   }
 
   function handleOpenItem(historyId: string | number) {
     return onOpenItem(historyId);
+  }
+
+  function handleReplayItem(historyId: string | number) {
+    return onReplayItem(historyId);
   }
 
   function handleOperationChange(operationValue: string) {
@@ -117,19 +134,28 @@
   }
 
   let filtersDisplay = $derived(historyDisplay.filtersDisplay);
+  let selectedDeviceOption = $derived(
+    filtersDisplay.deviceOptionRows.find(
+      (optionRow) => optionRow.value === historyDisplay.deviceKey,
+    ) || filtersDisplay.deviceOptionRows[0],
+  );
   const historyDrawerContentWorkspace = createHistoryDrawerContentWorkspace({
     onDeleteItem: handleDeleteItem,
+    onDeviceChange: handleDeviceChange,
     onLimitChange: handleLimitChange,
     onOpenItem: handleOpenItem,
+    onReplayItem: handleReplayItem,
     onOperationChange: handleOperationChange,
     onQueryInput: handleQueryInput,
   });
   const {
     deleteHistoryItemAction,
+    historyDeviceChangeHandler,
     historyLimitChangeHandler,
     historyOperationChangeHandler,
     historyQueryInputHandler,
     openHistoryItemAction,
+    replayHistoryItemAction,
   } = historyDrawerContentWorkspace;
   let historyRows = $derived(historyDisplay.filteredRows || []);
   let queryInputBindings = $derived(
@@ -138,6 +164,28 @@
     }),
   );
 </script>
+
+{#snippet deviceOptionContent(optionRow: DeviceOptionRow)}
+  <span class="flex min-w-0 flex-1 items-center gap-2 text-left">
+    {#if optionRow.isCurrent}
+      <Badge variant="default" class="shrink-0">
+        {filtersDisplay.currentDeviceLabel}
+      </Badge>
+    {/if}
+    {#if optionRow.isTemporary}
+      <Badge variant="accent" class="shrink-0">
+        {optionRow.nameText}
+      </Badge>
+    {:else}
+      <span class="truncate">{optionRow.nameText}</span>
+    {/if}
+    {#if optionRow.endpointText}
+      <span class="truncate font-mono text-xs text-muted-foreground">
+        {optionRow.endpointText}
+      </span>
+    {/if}
+  </span>
+{/snippet}
 
 {#snippet selectControl({
   value,
@@ -222,9 +270,22 @@
         class="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-1.5"
       >
         <ServerIcon class="size-3.5 shrink-0 text-muted-foreground" />
-        <span class="truncate font-mono text-foreground">
-          {historyRow.connectionName}
-        </span>
+        <div class="flex min-w-0 items-center gap-1.5">
+          {#if historyRow.isCurrent}
+            <Badge variant="default" class="shrink-0">
+              {filtersDisplay.currentDeviceLabel}
+            </Badge>
+          {/if}
+          {#if historyRow.isTemporary}
+            <Badge variant="accent" class="shrink-0">
+              {historyRow.temporaryLabel}
+            </Badge>
+          {:else}
+            <span class="truncate font-mono text-foreground">
+              {historyRow.connectionName}
+            </span>
+          {/if}
+        </div>
         <span class="truncate font-mono text-muted-foreground">
           {historyRow.hostPort}
         </span>
@@ -247,6 +308,15 @@
         {historyRow.detailButtonLabel}
       </Button>
       <Button
+        variant="outline"
+        size="sm"
+        type="button"
+        onclick={replayHistoryItemAction(historyRow.historyId)}
+      >
+        <PlayIcon data-icon="inline-start" />
+        {historyRow.replayButtonLabel}
+      </Button>
+      <Button
         variant="ghost"
         size="sm"
         type="button"
@@ -263,19 +333,40 @@
 <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-6">
   <section class="rounded-2xl border border-border bg-background p-5">
     <div class="flex items-center justify-between gap-3">
-      <div class="flex min-w-0 items-center gap-2.5">
+      <div class="flex min-w-0 flex-1 items-center gap-2.5">
         <span
           class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground"
         >
           <ServerIcon class="size-4" />
         </span>
-        <div class="flex min-w-0 flex-col">
+        <div class="flex min-w-0 flex-1 flex-col gap-1.5">
           <span class="text-sm font-medium text-foreground">
             {historyDisplay.connectionTitle}
           </span>
-          <span class="truncate font-mono text-xs text-muted-foreground">
-            {historyDisplay.connectionLabel}
-          </span>
+          <Select.Root
+            type="single"
+            value={historyDisplay.deviceKey}
+            onValueChange={historyDeviceChangeHandler()}
+          >
+            <Select.Trigger
+              class="w-full max-w-md"
+              aria-label={filtersDisplay.deviceLabel}
+              title={filtersDisplay.deviceLabel}
+            >
+              {#if selectedDeviceOption}
+                {@render deviceOptionContent(selectedDeviceOption)}
+              {/if}
+            </Select.Trigger>
+            <Select.Content>
+              <Select.Group>
+                {#each filtersDisplay.deviceOptionRows as optionRow (optionRow.value)}
+                  <Select.Item value={optionRow.value} label={optionRow.label}>
+                    {@render deviceOptionContent(optionRow)}
+                  </Select.Item>
+                {/each}
+              </Select.Group>
+            </Select.Content>
+          </Select.Root>
         </div>
       </div>
       <Button

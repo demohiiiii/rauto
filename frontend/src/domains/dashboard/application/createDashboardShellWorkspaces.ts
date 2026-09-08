@@ -14,7 +14,6 @@ import type {
   DashboardState,
 } from "../model/types.js";
 import {
-  dashboardOverlayDrawerState,
   dashboardRecordLevelState,
   dashboardRecordToolsPresentation,
   openDashboardRecordDrawer,
@@ -190,18 +189,9 @@ export function createDashboardBodyWorkspace(
       dashboardBodyDisplay($dashboardState),
   );
   const recordToolsDisplayStateStore = derived(
-    [
-      dashboardOverlayDrawerState,
-      dashboardRecordLevelState,
-      currentLanguageState,
-    ],
-    ([
-      $dashboardOverlayDrawerState,
-      $dashboardRecordLevelState,
-      _currentLanguageState,
-    ]) =>
+    [dashboardRecordLevelState, currentLanguageState],
+    ([$dashboardRecordLevelState, _currentLanguageState]) =>
       dashboardRecordToolsPresentation({
-        overlayState: $dashboardOverlayDrawerState,
         recordLevel: $dashboardRecordLevelState,
       }),
   );

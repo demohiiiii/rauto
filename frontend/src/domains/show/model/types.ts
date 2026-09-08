@@ -236,7 +236,6 @@ export interface SavedConnectionSelectSnapshot {
 }
 
 export interface ShowRuntime {
-  applyRecording(payload: ShowExecuteResponse): void;
   connectionPayload(): ConnectionRequestPayload;
   connectionTargetState: Readable<ConnectionTargetState>;
   currentExecutionProfile(): string;

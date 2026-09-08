@@ -353,7 +353,6 @@ export function createStandardCommandExecutionWorkspace({
         ...state,
         executionResult: { kind: "result", resultPayload: response },
       }));
-      runtime.applyRecording(response);
       return true;
     } catch (error) {
       if (!destroyed) {

@@ -2,37 +2,10 @@ export type OverlayToastTone = "error" | "info" | "success" | "warning";
 
 export type OverlayTranslate = (key: string, fallback?: string) => string;
 
-export type RecordDrawerMode = "list" | "raw";
 export type RecordLevel = "full" | "key-events-only";
-export type SessionRecordsView = "history" | "recent";
 
 export interface OverlayDrawerState {
   recordDrawerOpen: boolean;
-  recordFabCount: number;
-}
-
-export interface RecordDrawerPreferences {
-  displayMode: RecordDrawerMode;
-  eventKind: string;
-  failedOnly: boolean;
-  searchQuery: string;
-}
-
-export interface RecordDrawerRecordingState {
-  jsonl: string;
-  version: number;
-}
-
-export interface ReplayStatusTextState {
-  text: string;
-  version: number;
-}
-
-export interface OverlayDrawerRuntime {
-  loadPreferences(): RecordDrawerPreferences;
-  navigateToReplay(): boolean;
-  savePreferences(preferences: RecordDrawerPreferences): void;
-  writeClipboardText(text: string): Promise<void>;
 }
 
 export interface OverlayToastRuntime {
@@ -51,18 +24,19 @@ export interface OverlayEventEntry extends OverlayData {
   ts_ms?: unknown;
 }
 
-export interface OverlayHistoryItem extends OverlayData {
-  command_label?: unknown;
-  connection_name?: unknown;
-  device_profile?: unknown;
-  host?: unknown;
-  id?: unknown;
-  mode?: unknown;
-  operation?: unknown;
-  port?: unknown;
-  record_level?: unknown;
-  ts_ms?: unknown;
-  username?: unknown;
+export interface OverlayHistoryItem {
+  command_label?: string;
+  connection_key?: string;
+  connection_name?: string | null;
+  device_profile?: string;
+  host?: string;
+  id?: string;
+  mode?: string | null;
+  operation?: string;
+  port?: number;
+  record_level?: string;
+  ts_ms?: number;
+  username?: string;
 }
 
 export interface OverlayDetailModalState {

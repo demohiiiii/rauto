@@ -177,7 +177,6 @@ export interface StandardPicker<TState> {
 }
 
 export interface StandardCommandRuntime {
-  applyRecording(payload: StandardCommandExecutionResponse): void;
   clearTimer(timer: number): void;
   commandModePicker(): StandardPicker<ModeSelectState>;
   confirm(message: string): boolean | Promise<boolean>;
@@ -386,7 +385,6 @@ export interface StandardCommandFlowApi {
 }
 
 export interface StandardCommandFlowRuntime {
-  applyRecording(payload: StandardCommandFlowExecutionResponse): void;
   buildVarsPayload(): JsonObject | null;
   connectionPayload(): ConnectionRequestPayload;
   createRetryState(): SessionRetryState;

@@ -1,4 +1,4 @@
-use super::{HistoryQuery, saved_connection_detail_response};
+use super::{HistoryQuery, SessionHistoryQuery, saved_connection_detail_response};
 use super::{WebTextfsmParseOptions, parse_textfsm_output_optional, resolve_effective_mode};
 use crate::config::connection_import;
 use crate::config::connection_store::{self, SavedConnection};
@@ -291,25 +291,32 @@ pub async fn get_connection_history(
     let limit = query.limit.unwrap_or(20);
     let rows =
         history_store::list_history_by_connection_name(&safe, limit).map_err(ApiError::from)?;
-    let items = rows
-        .into_iter()
-        .map(|row| ConnectionHistoryEntry {
-            id: row.id,
-            ts_ms: row.ts_ms,
-            connection_key: row.connection_key,
-            connection_name: row.connection_name,
-            host: row.host,
-            port: row.port,
-            username: row.username,
-            device_profile: row.device_profile,
-            operation: row.operation,
-            command_label: row.command_label,
-            mode: row.mode,
-            record_level: row.record_level,
-            record_path: row.record_path,
-        })
-        .collect::<Vec<_>>();
+    let items = rows.into_iter().map(history_entry_response).collect();
     Ok(Json(items))
+}
+
+pub async fn list_session_history(
+    Query(query): Query<SessionHistoryQuery>,
+) -> Result<Json<Vec<ConnectionHistoryEntry>>, ApiError> {
+    let limit = query.limit.unwrap_or(20);
+    let rows = if let Some(connection_name) = query.connection_name {
+        history_store::list_history_by_connection_name(&connection_name, limit)
+    } else if let Some(host) = query.temporary_host {
+        history_store::list_history_by_temporary_device(
+            &host,
+            query.temporary_port.unwrap_or(22),
+            limit,
+        )
+    } else {
+        history_store::list_history(limit)
+    }
+    .map_err(ApiError::from)?;
+    Ok(Json(rows.into_iter().map(history_entry_response).collect()))
+}
+
+pub async fn list_session_history_devices() -> Result<Json<Vec<ConnectionHistoryEntry>>, ApiError> {
+    let rows = history_store::list_history_devices().map_err(ApiError::from)?;
+    Ok(Json(rows.into_iter().map(history_entry_response).collect()))
 }
 
 pub async fn get_connection_history_detail(
@@ -323,30 +330,16 @@ pub async fn get_connection_history_detail(
         .find(|item| item.id == id)
         .ok_or_else(|| ApiError::bad_request("history record not found"))?;
 
-    let jsonl = history_store::load_recording_jsonl_by_key(&row.connection_key, &row.id)
-        .map_err(ApiError::from)?
-        .ok_or_else(|| ApiError::bad_request("history record body not found"))?;
-    let recorder = SessionRecorder::from_jsonl(&jsonl).map_err(ApiError::from)?;
-    let entries = recorder.entries().map_err(ApiError::from)?;
+    history_detail_response(row)
+}
 
-    Ok(Json(ConnectionHistoryDetailResponse {
-        meta: ConnectionHistoryEntry {
-            id: row.id,
-            ts_ms: row.ts_ms,
-            connection_key: row.connection_key,
-            connection_name: row.connection_name,
-            host: row.host,
-            port: row.port,
-            username: row.username,
-            device_profile: row.device_profile,
-            operation: row.operation,
-            command_label: row.command_label,
-            mode: row.mode,
-            record_level: row.record_level,
-            record_path: row.record_path,
-        },
-        entries,
-    }))
+pub async fn get_session_history_detail(
+    Path(id): Path<String>,
+) -> Result<Json<ConnectionHistoryDetailResponse>, ApiError> {
+    let row = history_store::find_history(None, Some(&id))
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::bad_request("history record not found"))?;
+    history_detail_response(row)
 }
 
 pub async fn delete_connection_history(
@@ -357,6 +350,44 @@ pub async fn delete_connection_history(
     let deleted =
         history_store::delete_history_by_connection_name(&safe, &id).map_err(ApiError::from)?;
     Ok(Json(json!({ "ok": true, "deleted": deleted })))
+}
+
+pub async fn delete_session_history(Path(id): Path<String>) -> Result<Json<Value>, ApiError> {
+    let deleted = history_store::delete_history(&id).map_err(ApiError::from)?;
+    Ok(Json(json!({ "ok": true, "deleted": deleted })))
+}
+
+fn history_detail_response(
+    row: history_store::HistoryEntry,
+) -> Result<Json<ConnectionHistoryDetailResponse>, ApiError> {
+    let jsonl = history_store::load_recording_jsonl(&row.id)
+        .map_err(ApiError::from)?
+        .ok_or_else(|| ApiError::bad_request("history record body not found"))?;
+    let recorder = SessionRecorder::from_jsonl(&jsonl).map_err(ApiError::from)?;
+    let entries = recorder.entries().map_err(ApiError::from)?;
+    Ok(Json(ConnectionHistoryDetailResponse {
+        meta: history_entry_response(row),
+        entries,
+        recording_jsonl: jsonl,
+    }))
+}
+
+fn history_entry_response(row: history_store::HistoryEntry) -> ConnectionHistoryEntry {
+    ConnectionHistoryEntry {
+        id: row.id,
+        ts_ms: row.ts_ms,
+        connection_key: row.connection_key,
+        connection_name: row.connection_name,
+        host: row.host,
+        port: row.port,
+        username: row.username,
+        device_profile: row.device_profile,
+        operation: row.operation,
+        command_label: row.command_label,
+        mode: row.mode,
+        record_level: row.record_level,
+        record_path: row.record_path,
+    }
 }
 
 pub(super) fn upsert_connection_target_name(

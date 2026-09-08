@@ -1,6 +1,6 @@
 <script lang="ts">
   import CircleIcon from "@lucide/svelte/icons/circle";
-  import VideoIcon from "@lucide/svelte/icons/video";
+  import HistoryIcon from "@lucide/svelte/icons/history";
   import MenuIcon from "@lucide/svelte/icons/menu";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Sheet from "$lib/components/ui/sheet/index.js";
@@ -70,9 +70,6 @@
     "min-h-8 justify-start gap-1.5 rounded-xl px-3 text-[0.82rem] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground";
   const topbarToolMetaClass =
     "text-[0.7rem] font-bold text-muted-foreground max-lg:hidden";
-  const topbarToolBadgeClass =
-    "inline-flex min-h-4.5 min-w-4.5 items-center justify-center rounded-full bg-secondary px-1.5 text-xs text-secondary-foreground";
-
   $effect(() => {
     return applyShellState({
       language: $currentLanguageState,
@@ -156,15 +153,10 @@
               title={recordToolsDisplay.recordFabTitle}
               onclick={openRecordDrawerAction}
             >
-              <VideoIcon data-icon="inline-start" aria-hidden="true" />
+              <HistoryIcon data-icon="inline-start" aria-hidden="true" />
               <span class="leading-none">
                 {recordToolsDisplay.recordFabTitle}
               </span>
-              {#if recordToolsDisplay.recordFabHasCount}
-                <span class={topbarToolBadgeClass}>
-                  {recordToolsDisplay.recordFabBadgeText}
-                </span>
-              {/if}
             </Button>
           </div>
         </div>

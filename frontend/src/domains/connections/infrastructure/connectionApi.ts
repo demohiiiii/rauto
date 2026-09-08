@@ -1,17 +1,21 @@
 import {
   deleteConnection as deleteConnectionRequest,
-  deleteConnectionHistory as deleteConnectionHistoryRequest,
+  deleteSessionHistory as deleteSessionHistoryRequest,
   detectConnectionFacts as detectConnectionFactsRequest,
   downloadConnectionImportTemplateBlob as downloadConnectionImportTemplateRequest,
   getConnection as getConnectionRequest,
-  getConnectionHistoryDetail as getConnectionHistoryDetailRequest,
+  getSessionHistoryDetail as getSessionHistoryDetailRequest,
   importConnections as importConnectionsRequest,
-  listConnectionHistory as listConnectionHistoryRequest,
+  listSessionHistory as listSessionHistoryRequest,
+  listSessionHistoryDevices as listSessionHistoryDevicesRequest,
   listConnections as listConnectionsRequest,
   saveConnection as saveConnectionRequest,
   testConnection as testConnectionRequest,
 } from "../../../api/client.js";
-import type { ConnectionRequestPayload } from "../model/types.js";
+import type {
+  ConnectionHistoryTargetQuery,
+  ConnectionRequestPayload,
+} from "../model/types.js";
 
 export type { ConnectionRequestPayload } from "../model/types.js";
 
@@ -19,8 +23,8 @@ export const connectionApi = {
   deleteConnection(name: string): Promise<unknown> {
     return deleteConnectionRequest(name);
   },
-  deleteHistory(name: string, historyId: string | number): Promise<unknown> {
-    return deleteConnectionHistoryRequest(name, historyId);
+  deleteHistory(historyId: string | number): Promise<unknown> {
+    return deleteSessionHistoryRequest(historyId);
   },
   detectFacts(payload: ConnectionRequestPayload) {
     return detectConnectionFactsRequest(payload);
@@ -33,8 +37,8 @@ export const connectionApi = {
   getConnection(name: string) {
     return getConnectionRequest(name);
   },
-  getHistoryDetail(name: string, historyId: string | number) {
-    return getConnectionHistoryDetailRequest(name, historyId);
+  getHistoryDetail(historyId: string | number) {
+    return getSessionHistoryDetailRequest(historyId);
   },
   importConnections(file: File) {
     return importConnectionsRequest(file);
@@ -42,8 +46,11 @@ export const connectionApi = {
   listConnections() {
     return listConnectionsRequest();
   },
-  listHistory(name: string, limit: number) {
-    return listConnectionHistoryRequest(name, limit);
+  listHistory(limit: number, target: ConnectionHistoryTargetQuery = {}) {
+    return listSessionHistoryRequest(limit, target);
+  },
+  listHistoryDevices() {
+    return listSessionHistoryDevicesRequest();
   },
   saveConnection(name: string, payload: ConnectionRequestPayload) {
     return saveConnectionRequest(name, payload);
