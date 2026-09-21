@@ -9,8 +9,9 @@ use axum::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use rand::RngCore;
-use rand::rngs::OsRng;
+use rand::Rng;
+use rand::rand_core::UnwrapErr;
+use rand::rngs::SysRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -42,7 +43,7 @@ impl WebAuth {
 
     fn create_session(&self) -> String {
         let mut bytes = [0_u8; 32];
-        OsRng.fill_bytes(&mut bytes);
+        UnwrapErr(SysRng).fill_bytes(&mut bytes);
         let token = URL_SAFE_NO_PAD.encode(bytes);
         let mut sessions = self.sessions();
         remove_expired_sessions(&mut sessions);

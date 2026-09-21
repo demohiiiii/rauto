@@ -141,7 +141,9 @@
 
   @media (min-width: 48rem) {
     .connection-vars-row {
-      grid-template-columns: minmax(8rem, 0.75fr) 7.5rem minmax(10rem, 1fr) auto;
+      grid-template-columns:
+        minmax(8rem, 0.75fr) 7.5rem minmax(10rem, 1fr)
+        auto;
     }
   }
 </style>

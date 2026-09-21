@@ -1,11 +1,7 @@
 import type { Readable, Writable } from "svelte/store";
 
 export type BlacklistStatusTone =
-  | "error"
-  | "info"
-  | "running"
-  | "success"
-  | "warning";
+  "error" | "info" | "running" | "success" | "warning";
 
 export interface BlacklistStatus {
   message: string;

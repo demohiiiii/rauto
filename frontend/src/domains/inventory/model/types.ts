@@ -3,11 +3,7 @@ import type { Readable, Writable } from "svelte/store";
 export type InventoryKind = "groups" | "labels";
 export type InventorySection = "devices" | InventoryKind;
 export type InventoryStatusTone =
-  | "error"
-  | "info"
-  | "running"
-  | "success"
-  | "warning";
+  "error" | "info" | "running" | "success" | "warning";
 
 export interface InventoryItem {
   description?: string | null;

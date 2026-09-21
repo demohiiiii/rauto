@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow};
-use minijinja::{Environment, Error, UndefinedBehavior};
+use minijinja::value::ValueKind;
+use minijinja::{AutoEscape, Environment, Error, UndefinedBehavior, escape_formatter};
 use serde_json::Value;
 
 pub type TemplateLoaderResult = std::result::Result<Option<String>, Error>;
@@ -75,12 +76,56 @@ impl Default for Renderer<'static> {
 fn strict_environment<'source>() -> Environment<'source> {
     let mut env = Environment::new();
     env.set_undefined_behavior(UndefinedBehavior::Strict);
+    // Keep existing command and JSON-template scalar spelling after MiniJinja's
+    // switch to Python-style True/False/None output.
+    env.set_formatter(|out, state, value| {
+        if state.auto_escape() != AutoEscape::Json {
+            let scalar = match value.kind() {
+                ValueKind::Bool => Some(if value.is_true() { "true" } else { "false" }),
+                ValueKind::None => Some("none"),
+                _ => None,
+            };
+            if let Some(scalar) = scalar {
+                return escape_formatter(out, state, &minijinja::Value::from(scalar));
+            }
+        }
+        escape_formatter(out, state, value)
+    });
     env
 }
 
 #[cfg(test)]
 mod tests {
     use super::Renderer;
+
+    #[test]
+    fn rendering_preserves_scalar_spelling_and_strict_undefined_values() {
+        let renderer = Renderer::new();
+        let context = serde_json::json!({"enabled": true, "disabled": false, "empty": null});
+        assert_eq!(
+            renderer
+                .render_string(
+                    "{{ enabled }} {{ disabled }} {{ empty }} {{ true }}",
+                    context
+                )
+                .unwrap(),
+            "true false none true"
+        );
+        assert!(
+            renderer
+                .render_string("{{ missing }}", serde_json::json!({}))
+                .is_err()
+        );
+        assert_eq!(
+            renderer
+                .render_string(
+                    "{{ value | tojson }}",
+                    serde_json::json!({"value": [true, false, null]})
+                )
+                .unwrap(),
+            "[true,false,null]"
+        );
+    }
 
     #[test]
     fn inspection_finds_external_variables_across_jinja_expressions() {
@@ -166,6 +211,28 @@ mod tests {
             .undeclared_variables("{% if enabled %}{{ value }}")
             .unwrap_err();
         assert!(error.to_string().contains("Failed to inspect template"));
+    }
+
+    #[test]
+    fn inspection_finds_every_operand_in_chained_comparisons() {
+        let renderer = Renderer::new();
+        let source = "{% if lower < vlan.id <= upper and role not in excluded %}ok{% endif %}";
+        assert_eq!(
+            renderer.undeclared_variables(source).unwrap(),
+            vec!["excluded", "lower", "role", "upper", "vlan.id"]
+        );
+        assert_eq!(
+            renderer
+                .render_string(
+                    source,
+                    serde_json::json!({
+                        "lower": 1, "vlan": {"id": 10}, "upper": 20,
+                        "role": "access", "excluded": ["core"]
+                    })
+                )
+                .unwrap(),
+            "ok"
+        );
     }
 
     #[test]

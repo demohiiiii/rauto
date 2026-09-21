@@ -2,15 +2,17 @@
   import { cn } from "$lib/utils.js";
   import Loader2Icon from "@lucide/svelte/icons/loader-2";
   import type { LucideProps } from "@lucide/svelte";
+  import type { AriaRole } from "svelte/elements";
 
   type SpinnerProps = Omit<
     LucideProps,
-    "aria-label" | "class" | "color" | "name" | "stroke"
+    "aria-label" | "class" | "color" | "name" | "role" | "stroke"
   > & {
     "aria-label"?: string | null;
     class?: string;
     color?: string | null;
     name?: string | null;
+    role?: AriaRole | null;
     stroke?: string | null;
   };
 

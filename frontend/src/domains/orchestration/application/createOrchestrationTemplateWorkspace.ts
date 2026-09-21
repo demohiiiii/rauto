@@ -4,10 +4,7 @@ import { orchestrationTemplateApi } from "../infrastructure/orchestrationTemplat
 export type OrchestrationTemplateNameDialogMode = "new" | "save_as";
 export type OrchestrationTemplateSelectionKind = "existing" | "manual" | "new";
 export type OrchestrationTemplateReplacementReason =
-  | "delete"
-  | "new"
-  | "replace"
-  | "select";
+  "delete" | "new" | "replace" | "select";
 type MaybePromise<T> = Promise<T> | T;
 
 interface TemplateOption {

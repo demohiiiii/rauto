@@ -1,11 +1,7 @@
 import type { Readable, Writable } from "svelte/store";
 
 export type BackupStatusTone =
-  | "error"
-  | "info"
-  | "running"
-  | "success"
-  | "warning";
+  "error" | "info" | "running" | "success" | "warning";
 export type BackupRestoreOperation = "restore-merge" | "restore-replace";
 export type BackupRowOperation = "download" | BackupRestoreOperation;
 

@@ -9,19 +9,9 @@ export type DiscoveryResultFilter =
   | "reachable"
   | "ready";
 export type DiscoveryRunStatus =
-  | "cancelled"
-  | "cancelling"
-  | "completed"
-  | "failed"
-  | "queued"
-  | "running";
+  "cancelled" | "cancelling" | "completed" | "failed" | "queued" | "running";
 export type DiscoveryRunPhase =
-  | "cancelled"
-  | "completed"
-  | "failed"
-  | "queued"
-  | "ssh_probe"
-  | "tcp_scan";
+  "cancelled" | "completed" | "failed" | "queued" | "ssh_probe" | "tcp_scan";
 export type DiscoveryResultStatus =
   | "cancelled"
   | "identified"
@@ -30,10 +20,7 @@ export type DiscoveryResultStatus =
   | "reachable"
   | "unreachable";
 export type DiscoveryBadgeVariant =
-  | "default"
-  | "destructive"
-  | "outline"
-  | "secondary";
+  "default" | "destructive" | "outline" | "secondary";
 
 export interface DiscoveryRun {
   completed_at_ms: number | null;

@@ -44,8 +44,7 @@
   type TxWorkflowGraphNode = Node<TxWorkflowFlowNodeData, "workflowNode">;
   type TxWorkflowGraphEdge = Edge<Record<string, never>, "smoothstep">;
   type TxWorkflowSelection =
-    | { blockIndex: number; kind: "block" }
-    | { blockIndex: null; kind: "none" };
+    { blockIndex: number; kind: "block" } | { blockIndex: null; kind: "none" };
 
   interface Props {
     embedded?: boolean;

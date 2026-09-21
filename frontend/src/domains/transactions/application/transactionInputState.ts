@@ -128,11 +128,9 @@ export interface TxInputDependencies<
   TResult = TransactionTemplateResource | null | void,
 > {
   onCreateDirectDraft?:
-    | ((context: TxExternalActionContext) => MaybePromise<TResult>)
-    | null;
+    ((context: TxExternalActionContext) => MaybePromise<TResult>) | null;
   onCreateJsonTemplateDraft?:
-    | ((context: TxExternalActionContext) => MaybePromise<TResult>)
-    | null;
+    ((context: TxExternalActionContext) => MaybePromise<TResult>) | null;
   onDirectMode?: (() => MaybePromise<TResult>) | null;
   onEditorInput?: ((jsonText: string) => void) | null;
   onImportFile?:

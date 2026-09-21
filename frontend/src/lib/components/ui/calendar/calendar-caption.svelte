@@ -8,16 +8,11 @@
   import CalendarYearSelect from "./calendar-year-select.svelte";
 
   type CalendarCaptionLayout =
-    | "label"
-    | "dropdown"
-    | "dropdown-months"
-    | "dropdown-years";
+    "label" | "dropdown" | "dropdown-months" | "dropdown-years";
   type MonthFormat =
-    | Intl.DateTimeFormatOptions["month"]
-    | ((month: number) => string);
+    Intl.DateTimeFormatOptions["month"] | ((month: number) => string);
   type YearFormat =
-    | Intl.DateTimeFormatOptions["year"]
-    | ((year: number) => string);
+    Intl.DateTimeFormatOptions["year"] | ((year: number) => string);
 
   interface CalendarCaptionProps {
     captionLayout: CalendarCaptionLayout;

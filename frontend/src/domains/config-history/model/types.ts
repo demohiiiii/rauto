@@ -138,8 +138,7 @@ export interface EmptyConfigHistoryDetailView {
 }
 
 export type ConfigHistoryDetailDisplay =
-  | ConfigHistoryDetailView
-  | EmptyConfigHistoryDetailView;
+  ConfigHistoryDetailView | EmptyConfigHistoryDetailView;
 
 export interface ConfigHistoryDisplayState extends ConfigHistoryState {
   detailDisplay: ConfigHistoryDetailDisplay;

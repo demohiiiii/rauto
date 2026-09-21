@@ -9,11 +9,7 @@ export type ScheduleOverlapPolicy = "allow" | "skip";
 export type ScheduleMisfirePolicy = "fire_once" | "skip";
 export type ScheduleTriggerType = "cron" | "manual";
 export type ScheduleRunStatus =
-  | "queued"
-  | "running"
-  | "success"
-  | "failed"
-  | "skipped";
+  "queued" | "running" | "success" | "failed" | "skipped";
 
 export interface OrchestrateScheduleAction {
   type: "orchestrate";

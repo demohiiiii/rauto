@@ -7,11 +7,7 @@ import type {
 export type UnknownRecord = Record<string, unknown>;
 
 export type ProfileStatusTone =
-  | "error"
-  | "info"
-  | "running"
-  | "success"
-  | "warning";
+  "error" | "info" | "running" | "success" | "warning";
 
 export interface BuiltinProfileMeta {
   aliases: string[];
@@ -99,11 +95,7 @@ export interface ProfileTransitionConfig {
 }
 
 export type ProfileListKind =
-  | "interactions"
-  | "prompts"
-  | "simple"
-  | "sys_prompts"
-  | "transitions";
+  "interactions" | "prompts" | "simple" | "sys_prompts" | "transitions";
 
 export type ProfileStructuredRow =
   | ProfileInteractionConfig

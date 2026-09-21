@@ -19,7 +19,7 @@ test("npm exposes repository-wide format check scripts", () => {
   );
   assert.equal(
     packageJson.scripts["frontend:typecheck"],
-    "svelte-check --tsconfig ./tsconfig.json",
+    "svelte-check --tsgo --tsconfig ./tsconfig.json",
   );
 });
 

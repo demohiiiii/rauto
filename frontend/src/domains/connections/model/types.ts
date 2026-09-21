@@ -34,10 +34,7 @@ export interface ConnectionPickerState {
 }
 
 export type ConnectionPickerKind =
-  | "devices"
-  | "groups"
-  | "labels"
-  | "show-objects";
+  "devices" | "groups" | "labels" | "show-objects";
 
 export interface ConnectionPickerConfig {
   allowCustom?: boolean;

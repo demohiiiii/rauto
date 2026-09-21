@@ -15,11 +15,9 @@
     onChange?: (model: TxBlockFormModel) => void;
     stacked?: boolean;
     stepRollbackCommandMetadataFieldDefs?:
-      | readonly TxMetadataFieldDefinition[]
-      | null;
+      readonly TxMetadataFieldDefinition[] | null;
     stepRunCommandMetadataFieldDefs?:
-      | readonly TxMetadataFieldDefinition[]
-      | null;
+      readonly TxMetadataFieldDefinition[] | null;
   }
 
   let {

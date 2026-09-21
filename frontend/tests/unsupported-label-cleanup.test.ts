@@ -14,12 +14,7 @@ import {
 } from "../src/domains/orchestration/index.js";
 
 type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 function collectUnsupportedLabels(value: JsonValue, path = ""): string[] {
   if (Array.isArray(value)) {

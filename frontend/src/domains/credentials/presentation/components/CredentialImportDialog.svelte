@@ -17,11 +17,7 @@
   import type { ComponentProps } from "svelte";
 
   type ImportSummaryKey =
-    | "totalRows"
-    | "imported"
-    | "created"
-    | "updated"
-    | "failed";
+    "totalRows" | "imported" | "created" | "updated" | "failed";
 
   const summaryFields: Array<[ImportSummaryKey, string]> = [
     ["totalRows", "credentialImportSummaryTotal"],

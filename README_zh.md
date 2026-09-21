@@ -123,7 +123,11 @@ cargo install rauto
 
 ### 源码安装
 
-确保你已经安装了 Rust、Cargo、Node.js 和 npm。
+确保你已经安装了 Rust 1.94 或更新版本、Cargo、Node.js 和 npm。CI 使用 Node.js 26。
+
+前端通过 `svelte-check --tsgo` 使用 TypeScript 7 进行类型检查。
+`@typescript/native` 别名提供新版编译器；保留 TypeScript 6，为
+`svelte-check` 内部转换提供 JavaScript 编译器 API。
 
 ```bash
 git clone https://github.com/demohiiiii/rauto.git

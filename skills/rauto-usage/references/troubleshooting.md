@@ -24,7 +24,7 @@ rauto device test --connection <name> --force-autodetect
 - For `show`, remember explicit `--mode` / UI mode overrides mapping mode; otherwise object mapping mode wins before profile default.
 - For Linux shells, validate shell flavor and prompt matching assumptions.
 - If execution times out but output shows success markers, suspect prompt-detection mismatch in profile/template settings.
-- Current rneter Cisco-like built-ins treat plain `device#` as Enable and parenthesized prompts such as `device(config)#` / `device(config-if)#` as Config. If both modes match, verify the running binary uses the pinned rneter revision from `Cargo.lock` and restart the service.
+- Current rneter Cisco-like built-ins treat plain `device#` as Enable and parenthesized prompts such as `device(config)#` / `device(config-if)#` as Config. If both modes match, verify the running binary uses the locked rneter version from `Cargo.lock` and restart the service.
 
 ## 3) Show Objects and TextFSM
 

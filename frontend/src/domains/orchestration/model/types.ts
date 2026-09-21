@@ -131,8 +131,7 @@ export interface OrchestrationTargetExecutionDetail {
 }
 
 export type OrchestrationExecutionDetail =
-  | OrchestrationStageExecutionDetail
-  | OrchestrationTargetExecutionDetail;
+  OrchestrationStageExecutionDetail | OrchestrationTargetExecutionDetail;
 
 export interface OrchestrationExecutionDetailEntry {
   detail: OrchestrationExecutionDetail;
@@ -148,8 +147,7 @@ export interface OrchestrationExecutionDetailIndex {
 export type OrchestrationStrategy = "parallel" | "serial";
 
 export type OrchestrationWorkflowSourceMode =
-  | "workflow_json"
-  | "workflow_template_name";
+  "workflow_json" | "workflow_template_name";
 
 export type OrchestrationEditorView = "json" | "readonly";
 

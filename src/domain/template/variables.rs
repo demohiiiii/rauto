@@ -2,7 +2,7 @@ use minijinja::Error;
 use minijinja::machinery::{ast, parse};
 use std::collections::{BTreeSet, HashSet};
 
-/// Uses the engine's parser, but visits every expression: MiniJinja 2.15's
+/// Uses the engine's parser, but visits every expression: MiniJinja's built-in
 /// undeclared_variables omits slice operands and several block expressions.
 pub(super) fn undeclared_variables(source: &str) -> Result<BTreeSet<String>, Error> {
     let template = parse(source, "<string>", Default::default(), Default::default())?;
@@ -93,6 +93,12 @@ impl VariableScanner {
             ast::Expr::BinOp(binary) => {
                 self.expression(&binary.left);
                 self.expression(&binary.right);
+            }
+            ast::Expr::Compare(comparison) => {
+                self.expression(&comparison.expr);
+                for operand in &comparison.ops {
+                    self.expression(&operand.expr);
+                }
             }
             ast::Expr::IfExpr(conditional) => {
                 self.expression(&conditional.test_expr);

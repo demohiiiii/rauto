@@ -287,6 +287,7 @@ mod tests {
             .expect("join waiting sqlite writer")
             .expect("write after transient lock");
 
+        drop(holder);
         close_test_db(&path).await;
         drop(guard);
         for suffix in ["", "-shm", "-wal"] {

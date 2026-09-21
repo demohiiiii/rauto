@@ -1,12 +1,7 @@
 import type { Readable, Writable } from "svelte/store";
 
 export type ReplayJsonValue =
-  | boolean
-  | number
-  | string
-  | null
-  | ReplayJsonValue[]
-  | ReplayJsonObject;
+  boolean | number | string | null | ReplayJsonValue[] | ReplayJsonObject;
 
 export interface ReplayJsonObject {
   [key: string]: ReplayJsonValue | undefined;

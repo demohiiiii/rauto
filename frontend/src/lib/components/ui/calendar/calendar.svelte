@@ -8,13 +8,9 @@
   import type { VariantProps } from "tailwind-variants";
 
   type CalendarCaptionLayout =
-    | "label"
-    | "dropdown"
-    | "dropdown-months"
-    | "dropdown-years";
+    "label" | "dropdown" | "dropdown-months" | "dropdown-years";
   type MonthFormat =
-    | Intl.DateTimeFormatOptions["month"]
-    | ((month: number) => string);
+    Intl.DateTimeFormatOptions["month"] | ((month: number) => string);
   interface CalendarDayDisplay {
     day: DateValue;
     outsideMonth: boolean;

@@ -47,12 +47,10 @@ interface SavedConnectionEditorFormState extends Record<string, unknown> {
 
 interface ConnectionsEditorHooks {
   cacheSavedConnectionDetail:
-    | ((name: string, payload: SavedConnectionDetail) => unknown)
-    | null;
+    ((name: string, payload: SavedConnectionDetail) => unknown) | null;
   closeEditorModal: (() => unknown) | null;
   ensureSavedConnectionDetail:
-    | ((name: string) => Promise<SavedConnectionDetail | null>)
-    | null;
+    ((name: string) => Promise<SavedConnectionDetail | null>) | null;
   getActiveConnectionTarget: (() => ConnectionTargetState) | null;
   getSelectedSavedConnectionName: (() => string) | null;
   loadSavedConnections: (() => Promise<unknown>) | null;
@@ -65,8 +63,7 @@ interface ConnectionsEditorHooks {
       ) => ConnectionTargetDetails)
     | null;
   setCurrentConnectionTarget:
-    | ((details: ConnectionTargetDetails) => unknown)
-    | null;
+    ((details: ConnectionTargetDetails) => unknown) | null;
   setSavedConnectionStatus: ((message: string, tone: string) => unknown) | null;
   setSelectedSavedConnectionName: ((name: string) => unknown) | null;
 }

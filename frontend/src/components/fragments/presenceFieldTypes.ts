@@ -11,9 +11,7 @@ type NativeInputEvent = Parameters<
 >[0];
 
 export type PresenceFieldValueInput =
-  | NativeInputEvent
-  | PresenceFieldValueEvent
-  | string;
+  NativeInputEvent | PresenceFieldValueEvent | string;
 
 export interface PresenceFieldRow {
   controlClass?: string;

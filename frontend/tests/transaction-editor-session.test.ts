@@ -118,8 +118,7 @@ function inputFormStateFromJsonText(
 
 function createSession(
   publishFormChange:
-    | ((model: TestFormModel, jsonText: string) => void)
-    | null = null,
+    ((model: TestFormModel, jsonText: string) => void) | null = null,
 ) {
   return createTransactionEditorSession({
     buildDefaultFormModel,

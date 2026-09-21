@@ -112,15 +112,13 @@ export function orchestrationTxWorkflowActionSettingsDisplay(
       fieldKey: "sourceValue",
       labelKey: "orchestrationFormActionSource",
       labelText: t("orchestrationFormActionSource"),
-      optionRows: sourceRows.map(
-        (optionValue): OrchestrationOptionRow => ({
-          optionLabel:
-            optionValue === "workflow_json"
-              ? t("orchestrationTxWorkflowSourceJson")
-              : t("orchestrationTxWorkflowSourceTemplateName"),
-          optionValue,
-        }),
-      ),
+      optionRows: sourceRows.map((optionValue): OrchestrationOptionRow => ({
+        optionLabel:
+          optionValue === "workflow_json"
+            ? t("orchestrationTxWorkflowSourceJson")
+            : t("orchestrationTxWorkflowSourceTemplateName"),
+        optionValue,
+      })),
       placeholderText: "",
       showPresenceToggle: false,
       valueText: orchestrationTxWorkflowActionSourceValue(txWorkflow),

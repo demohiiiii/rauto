@@ -18,11 +18,7 @@ import type {
 } from "../model/types.js";
 
 type ConnectionStatusTone =
-  | "error"
-  | "info"
-  | "running"
-  | "success"
-  | "warning";
+  "error" | "info" | "running" | "success" | "warning";
 
 function connectionStatusTone(tone = "info"): ConnectionStatusTone {
   if (

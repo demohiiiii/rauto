@@ -559,8 +559,7 @@ export function createConnectionVarsFieldWorkspace() {
     keyName?: string;
     labelTextKey?: string;
     onVarsChange?:
-      | ((vars: Record<string, unknown> | undefined) => unknown)
-      | null;
+      ((vars: Record<string, unknown> | undefined) => unknown) | null;
     varsState?: ConnectionVarsState;
   } = {}) {
     varsFieldInputStateStore.set({

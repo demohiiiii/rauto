@@ -3,8 +3,9 @@ use aes_gcm::{Aes256Gcm, Nonce};
 use anyhow::{Result, anyhow};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use rand::RngCore;
-use rand::rngs::OsRng;
+use rand::Rng;
+use rand::rand_core::UnwrapErr;
+use rand::rngs::SysRng;
 use std::sync::OnceLock;
 
 #[cfg(not(test))]
@@ -38,9 +39,9 @@ fn encrypt_secret(value: &str) -> Result<String> {
     let cipher =
         Aes256Gcm::new_from_slice(&key).map_err(|err| anyhow!("invalid master key: {}", err))?;
     let mut nonce_bytes = [0_u8; NONCE_LEN];
-    OsRng.fill_bytes(&mut nonce_bytes);
+    UnwrapErr(SysRng).fill_bytes(&mut nonce_bytes);
     let ciphertext = cipher
-        .encrypt(Nonce::from_slice(&nonce_bytes), value.as_bytes())
+        .encrypt(&Nonce::from(nonce_bytes), value.as_bytes())
         .map_err(|err| anyhow!("failed to encrypt secret: {}", err))?;
     let mut payload = Vec::with_capacity(NONCE_LEN + ciphertext.len());
     payload.extend_from_slice(&nonce_bytes);
@@ -53,6 +54,11 @@ fn encrypt_secret(value: &str) -> Result<String> {
 }
 
 fn decrypt_secret(stored: &str) -> Result<String> {
+    let key = load_or_create_master_key_cached()?;
+    decrypt_secret_with_key(stored, &key)
+}
+
+fn decrypt_secret_with_key(stored: &str, key: &[u8; KEY_LEN]) -> Result<String> {
     let encoded = stored
         .strip_prefix(SECRET_FORMAT_PREFIX)
         .ok_or_else(|| anyhow!("unsupported secret format"))?;
@@ -63,11 +69,11 @@ fn decrypt_secret(stored: &str) -> Result<String> {
         return Err(anyhow!("invalid encrypted secret payload length"));
     }
     let (nonce, ciphertext) = payload.split_at(NONCE_LEN);
-    let key = load_or_create_master_key_cached()?;
     let cipher =
-        Aes256Gcm::new_from_slice(&key).map_err(|err| anyhow!("invalid master key: {}", err))?;
+        Aes256Gcm::new_from_slice(key).map_err(|err| anyhow!("invalid master key: {}", err))?;
+    let nonce = Nonce::try_from(nonce).map_err(|err| anyhow!("invalid nonce: {}", err))?;
     let plaintext = cipher
-        .decrypt(Nonce::from_slice(nonce), ciphertext)
+        .decrypt(&nonce, ciphertext)
         .map_err(|err| anyhow!("failed to decrypt secret: {}", err))?;
     String::from_utf8(plaintext).map_err(|err| anyhow!("invalid utf-8 secret: {}", err))
 }
@@ -88,7 +94,7 @@ fn load_or_create_master_key() -> Result<[u8; KEY_LEN]> {
         return decode_master_key(&stored);
     }
     let mut key = [0_u8; KEY_LEN];
-    OsRng.fill_bytes(&mut key);
+    UnwrapErr(SysRng).fill_bytes(&mut key);
     let encoded = BASE64_STANDARD.encode(key);
     set_secret_by_ref(MASTER_KEY_REF, &encoded)?;
     Ok(key)
@@ -144,6 +150,52 @@ fn set_secret_by_ref(secret_ref: &str, value: &str) -> Result<()> {
 #[cfg(test)]
 fn get_secret_by_ref(secret_ref: &str) -> Result<Option<String>> {
     test_backend::get(secret_ref)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // AES-256-GCM fixture in the existing enc:v1 format: nonce || ciphertext || tag.
+    const LEGACY_SECRET: &str =
+        "enc:v1:AAECAwQFBgcICQoLK2exeqac72/oMuOmwowbH+aiuwa1fVIbln9DfPNHcbAsEw==";
+
+    #[test]
+    fn decrypts_existing_v1_ciphertext() {
+        let key = std::array::from_fn(|index| index as u8);
+        assert_eq!(
+            decrypt_secret_with_key(LEGACY_SECRET, &key).unwrap(),
+            "legacy-test-secret"
+        );
+    }
+
+    #[test]
+    fn rejects_modified_ciphertext_and_wrong_keys() {
+        let key = std::array::from_fn(|index| index as u8);
+        let mut payload = BASE64_STANDARD
+            .decode(LEGACY_SECRET.strip_prefix(SECRET_FORMAT_PREFIX).unwrap())
+            .unwrap();
+        payload[NONCE_LEN] ^= 1;
+        let modified = format!("{SECRET_FORMAT_PREFIX}{}", BASE64_STANDARD.encode(payload));
+        assert!(decrypt_secret_with_key(&modified, &key).is_err());
+        assert!(decrypt_secret_with_key(LEGACY_SECRET, &[0; KEY_LEN]).is_err());
+    }
+
+    #[test]
+    fn newly_stored_secrets_round_trip_with_unique_nonces() {
+        let first = store_secret(Some("test-secret")).unwrap().unwrap();
+        let second = store_secret(Some("test-secret")).unwrap().unwrap();
+        assert!(first.starts_with(SECRET_FORMAT_PREFIX));
+        assert_ne!(first, second);
+        assert_eq!(
+            load_secret(Some(&first)).unwrap().as_deref(),
+            Some("test-secret")
+        );
+        assert_eq!(
+            load_secret(Some(&second)).unwrap().as_deref(),
+            Some("test-secret")
+        );
+    }
 }
 
 #[cfg(test)]

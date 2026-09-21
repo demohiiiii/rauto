@@ -1,7 +1,8 @@
 use crate::config::paths::rauto_home_dir;
 use anyhow::{Context, Result, anyhow};
-use rand::distributions::{Alphanumeric, DistString};
-use rand::rngs::OsRng;
+use rand::distr::{Alphanumeric, SampleString};
+use rand::rand_core::UnwrapErr;
+use rand::rngs::SysRng;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -58,7 +59,7 @@ fn load_or_create_web_password_at(path: &Path) -> Result<WebPasswordConfig> {
         }
     }
 
-    let password = Alphanumeric.sample_string(&mut OsRng, GENERATED_PASSWORD_LEN);
+    let password = Alphanumeric.sample_string(&mut UnwrapErr(SysRng), GENERATED_PASSWORD_LEN);
     web.insert("password".to_string(), Value::String(password.clone()));
     write_private_config(path, &toml::to_string_pretty(&config)?)?;
 
@@ -126,11 +127,11 @@ fn set_private_file_permissions(_path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::RngCore;
+    use rand::Rng;
 
     fn test_path(name: &str) -> PathBuf {
         let mut suffix = [0_u8; 8];
-        OsRng.fill_bytes(&mut suffix);
+        UnwrapErr(SysRng).fill_bytes(&mut suffix);
         std::env::temp_dir()
             .join(format!(
                 "rauto-app-config-{name}-{:016x}",

@@ -287,10 +287,7 @@ export interface FlowVarsState {
 }
 
 export type FlowVarControlKind =
-  | "boolean-select"
-  | "input"
-  | "json-editor"
-  | "options-select";
+  "boolean-select" | "input" | "json-editor" | "options-select";
 
 export interface FlowVarFieldRow {
   allowsEmpty: boolean;

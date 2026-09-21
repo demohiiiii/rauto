@@ -4,9 +4,7 @@ export type TaskStatusTone = "error" | "running";
 export type TaskValueHandler = (value: string) => void;
 export type TaskJsonPrimitive = boolean | number | string | null;
 export type TaskJsonValue =
-  | TaskJsonPrimitive
-  | TaskJsonValue[]
-  | { [key: string]: TaskJsonValue };
+  TaskJsonPrimitive | TaskJsonValue[] | { [key: string]: TaskJsonValue };
 export type TaskOperation =
   | "exec"
   | "template_execute"
@@ -18,10 +16,7 @@ export type TaskOperation =
   | "device_discovery";
 export type TaskRunStatus = "queued" | "running" | "success" | "failed";
 export type TaskResultOutcome =
-  | "success"
-  | "partial_success"
-  | "failed"
-  | "dry_run";
+  "success" | "partial_success" | "failed" | "dry_run";
 export type TaskEventType =
   | "started"
   | "progress"

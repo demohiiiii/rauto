@@ -68,10 +68,7 @@ export function txSetExtraStringFieldPresence(
 export function txExtraStringValueChangeHandler<TResult>(
   callback: (value: JsonObject) => TResult,
   extraSource:
-    | JsonObject
-    | null
-    | undefined
-    | (() => JsonObject | null | undefined),
+    JsonObject | null | undefined | (() => JsonObject | null | undefined),
   fieldKey: string,
   wrapResult: (extra: JsonObject) => JsonObject = (extra) => extra,
 ): (event: unknown) => TResult | undefined {
@@ -89,10 +86,7 @@ export function txExtraStringValueChangeHandler<TResult>(
 export function txExtraStringPresenceChangeHandler<TResult>(
   callback: (value: JsonObject) => TResult,
   extraSource:
-    | JsonObject
-    | null
-    | undefined
-    | (() => JsonObject | null | undefined),
+    JsonObject | null | undefined | (() => JsonObject | null | undefined),
   fieldKey: string,
   wrapResult: (extra: JsonObject) => JsonObject = (extra) => extra,
 ): (event: unknown) => TResult | undefined {

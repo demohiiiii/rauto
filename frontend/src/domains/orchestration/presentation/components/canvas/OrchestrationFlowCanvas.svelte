@@ -95,10 +95,7 @@
   >["data"] &
     Record<string, unknown>;
   type OrchestrationGraphNodeData =
-    | StageNodeData
-    | StageInsertNodeData
-    | JobNodeData
-    | WorkflowBlockNodeData;
+    StageNodeData | StageInsertNodeData | JobNodeData | WorkflowBlockNodeData;
   type OrchestrationGraphNode = Node<
     OrchestrationGraphNodeData,
     "job" | "stage" | "stageInsert" | "workflowBlock"
@@ -426,31 +423,29 @@
     });
   });
   let graphEdges = $derived.by<OrchestrationGraphEdge[]>(() =>
-    baseGraph.edges.map(
-      (edge): OrchestrationGraphEdge => ({
-        ...edge,
-        selectable: false,
-        focusable: false,
-        markerEnd:
-          edge.kind === "stage-sequence" || edge.kind === "workflow-block"
-            ? {
-                type: MarkerType.ArrowClosed,
-                color:
-                  edge.kind === "workflow-block"
-                    ? "var(--chart-2)"
-                    : "var(--primary)",
-                width: 14,
-                height: 14,
-              }
-            : undefined,
-        style:
-          edge.kind === "stage-sequence" || edge.kind === "stage-insert-link"
-            ? "stroke:var(--primary);stroke-width:1.5;"
-            : edge.kind === "workflow-block"
-              ? "stroke:var(--chart-2);stroke-width:1.35;"
-              : "stroke:var(--muted-foreground);stroke-width:1.15;stroke-dasharray:4 4;",
-      }),
-    ),
+    baseGraph.edges.map((edge): OrchestrationGraphEdge => ({
+      ...edge,
+      selectable: false,
+      focusable: false,
+      markerEnd:
+        edge.kind === "stage-sequence" || edge.kind === "workflow-block"
+          ? {
+              type: MarkerType.ArrowClosed,
+              color:
+                edge.kind === "workflow-block"
+                  ? "var(--chart-2)"
+                  : "var(--primary)",
+              width: 14,
+              height: 14,
+            }
+          : undefined,
+      style:
+        edge.kind === "stage-sequence" || edge.kind === "stage-insert-link"
+          ? "stroke:var(--primary);stroke-width:1.5;"
+          : edge.kind === "workflow-block"
+            ? "stroke:var(--chart-2);stroke-width:1.35;"
+            : "stroke:var(--muted-foreground);stroke-width:1.15;stroke-dasharray:4 4;",
+    })),
   );
   let selectedStageJobs = $derived(
     selection ? stages[selection.stageIndex]?.jobs || [] : [],

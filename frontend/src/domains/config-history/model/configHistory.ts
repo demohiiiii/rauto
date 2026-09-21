@@ -91,11 +91,9 @@ export function prioritizeConfigHistoryDevices(
 
 export function mergeConfigHistoryDevices(
   connections:
-    | readonly (ConfigHistoryDeviceInput | null | undefined)[]
-    | null = [],
+    readonly (ConfigHistoryDeviceInput | null | undefined)[] | null = [],
   historyDevices:
-    | readonly (ConfigHistoryDeviceInput | null | undefined)[]
-    | null = [],
+    readonly (ConfigHistoryDeviceInput | null | undefined)[] | null = [],
 ): ConfigHistoryDevice[] {
   const devicesByName = new Map<string, ConfigHistoryDevice>();
   const candidates = [

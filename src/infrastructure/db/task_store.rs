@@ -265,38 +265,31 @@ pub fn list_task_runs(
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
     db::run_sync(async move {
-        let mut query = String::from("SELECT * FROM task_runs");
-        let mut has_where = false;
-        if operation.is_some() {
-            query.push_str(" WHERE operation = ?");
-            has_where = true;
-        }
-        if status.is_some() {
-            query.push_str(if has_where {
-                " AND status = ?"
-            } else {
-                " WHERE status = ?"
-            });
-        }
-        query.push_str(" ORDER BY updated_at DESC, created_at DESC");
-        if limit > 0 {
-            query.push_str(" LIMIT ?");
-        }
-
-        let mut sql = sqlx::query(&query);
-        if let Some(operation) = operation {
-            sql = sql.bind(operation);
-        }
-        if let Some(status) = status {
-            sql = sql.bind(status);
-        }
-        if limit > 0 {
-            sql = sql.bind(limit as i64);
-        }
-
-        let rows = sql.fetch_all(db::pool()).await?;
+        let rows = task_runs_query(limit, operation, status)
+            .build()
+            .fetch_all(db::pool())
+            .await?;
         Ok(rows.into_iter().map(row_to_task_run_record).collect())
     })
+}
+
+fn task_runs_query(
+    limit: usize,
+    operation: Option<String>,
+    status: Option<String>,
+) -> sqlx::QueryBuilder<sqlx::Sqlite> {
+    let mut query = sqlx::QueryBuilder::new("SELECT * FROM task_runs WHERE 1 = 1");
+    if let Some(operation) = operation {
+        query.push(" AND operation = ").push_bind(operation);
+    }
+    if let Some(status) = status {
+        query.push(" AND status = ").push_bind(status);
+    }
+    query.push(" ORDER BY updated_at DESC, created_at DESC");
+    if limit > 0 {
+        query.push(" LIMIT ").push_bind(limit as i64);
+    }
+    query
 }
 
 pub fn load_task_run(task_id: &str) -> Result<Option<TaskRunRecord>> {
@@ -341,4 +334,59 @@ pub fn list_task_artifacts(task_id: &str) -> Result<Vec<TaskArtifactRecord>> {
         .await?;
         Ok(rows.into_iter().map(row_to_task_artifact_record).collect())
     })
+}
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn task_run_filters_bind_values_and_preserve_order_and_limits() {
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        sqlx::query(
+            "CREATE TABLE task_runs (
+                id INTEGER, operation TEXT, status TEXT, updated_at INTEGER, created_at INTEGER
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        for (id, operation, status, updated, created) in [
+            (1, "show", "completed", 1, 1),
+            (2, "show", "failed", 3, 2),
+            (3, "exec", "completed", 3, 3),
+        ] {
+            sqlx::query("INSERT INTO task_runs VALUES (?, ?, ?, ?, ?)")
+                .bind(id)
+                .bind(operation)
+                .bind(status)
+                .bind(updated)
+                .bind(created)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        for (limit, operation, status, expected) in [
+            (0, None, None, vec![3, 2, 1]),
+            (1, None, None, vec![3]),
+            (0, Some("show"), None, vec![2, 1]),
+            (0, None, Some("completed"), vec![3, 1]),
+            (0, Some("show"), Some("completed"), vec![1]),
+            (0, Some("show' OR 1=1 --"), None, vec![]),
+            (0, None, Some("completed' OR 1=1 --"), vec![]),
+        ] {
+            let rows = task_runs_query(
+                limit,
+                operation.map(str::to_owned),
+                status.map(str::to_owned),
+            )
+            .build()
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+            let ids: Vec<i64> = rows.iter().map(|row| row.get("id")).collect();
+            assert_eq!(ids, expected);
+        }
+        pool.close().await;
+    }
 }

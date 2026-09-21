@@ -4,6 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 const LUCIDE_MODULE_PATTERN = /[\\/]node_modules[\\/]@lucide[\\/]svelte[\\/]/;
+const CODE_EDITOR_MODULE_PATTERN =
+  /(?:[\\/]node_modules[\\/](?:@codemirror|@lezer|codemirror|svelte-codemirror-editor)[\\/]|[\\/](?:JsonTextEditor|TextAreaField)\.svelte(?:\?|$))/;
 const SHARED_UI_MODULE_PATTERN =
   /[\\/]frontend[\\/]src[\\/](?:components|lib[\\/]components)[\\/]/;
 
@@ -45,6 +47,14 @@ export default defineConfig(({ command, isPreview }) => ({
               test: isApplicationModule,
               tags: ["$initial"],
               priority: 300,
+            },
+            {
+              // Editor wrappers must stay lazy; their plain-text dependencies
+              // are also used by pages that do not need CodeMirror.
+              name: "code-editor",
+              test: CODE_EDITOR_MODULE_PATTERN,
+              includeDependenciesRecursively: false,
+              priority: 250,
             },
             {
               name: "vendor-icons",

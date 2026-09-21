@@ -123,7 +123,11 @@ cargo install rauto
 
 ### From Source
 
-Ensure you have Rust, Cargo, Node.js, and npm installed.
+Ensure you have Rust 1.94 or newer, Cargo, Node.js, and npm installed. CI uses Node.js 26.
+
+Frontend type checking uses TypeScript 7 through `svelte-check --tsgo`.
+The `@typescript/native` alias provides the current compiler; TypeScript 6 is
+retained for the JavaScript compiler API used internally by `svelte-check`.
 
 ```bash
 git clone https://github.com/demohiiiii/rauto.git

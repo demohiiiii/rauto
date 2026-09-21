@@ -8,9 +8,7 @@ import { runWithCleanup } from "./svelte.js";
 import type { PlainObject } from "./jsonValue.js";
 
 type OptionalCallback<TArgs extends unknown[], TResult = unknown> =
-  | ((...args: TArgs) => TResult)
-  | null
-  | undefined;
+  ((...args: TArgs) => TResult) | null | undefined;
 
 interface EventShape {
   currentTarget?: unknown;

@@ -13,9 +13,7 @@ import { classNames, textfsmControlsDisplay } from "./ui.js";
 export const dashboardThemeContextKey = Symbol("dashboardTheme");
 
 type OptionalTask<TArgs extends unknown[], TResult = unknown> =
-  | ((...args: TArgs) => TResult)
-  | null
-  | undefined;
+  ((...args: TArgs) => TResult) | null | undefined;
 
 export interface LazyComponentModule<TComponent> {
   default: TComponent;

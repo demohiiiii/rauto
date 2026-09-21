@@ -3,10 +3,7 @@ import type { Readable, Writable } from "svelte/store";
 export type CredentialStatusTone = "error" | "info" | "success";
 export type CredentialTranslate = (key: string, fallback?: string) => string;
 export type CredentialAuthType =
-  | "agent"
-  | "password"
-  | "private_key"
-  | "private_key_file";
+  "agent" | "password" | "private_key" | "private_key_file";
 
 export interface CredentialApiRow {
   auth_type: CredentialAuthType;

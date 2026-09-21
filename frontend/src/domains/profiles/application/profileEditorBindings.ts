@@ -45,9 +45,7 @@ interface InputValueEvent<T> {
 
 type ProfileInput<T> = T | InputValueEvent<T>;
 type OptionalCallback<TArgs extends unknown[]> =
-  | ((...args: TArgs) => unknown)
-  | null
-  | undefined;
+  ((...args: TArgs) => unknown) | null | undefined;
 
 function callbackWithPrefix<TPrefix extends unknown[], TArgs extends unknown[]>(
   callback: OptionalCallback<[...TPrefix, ...TArgs]>,

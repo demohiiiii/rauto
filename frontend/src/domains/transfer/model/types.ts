@@ -2,11 +2,7 @@ import type { Readable, Writable } from "svelte/store";
 import type { ConnectionRequestPayload } from "$domains/connections/index.js";
 
 export type TransferStatusTone =
-  | "error"
-  | "info"
-  | "running"
-  | "success"
-  | "warning";
+  "error" | "info" | "running" | "success" | "warning";
 
 export interface TransferStatus {
   message: string;
