@@ -50,7 +50,8 @@ ipnet = "2.12"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 log = "0.4.22"
 mime_guess = "2.0.5"
-minijinja = { version = "2.15", features = ["loader", "json"] }
+# Pin the unstable AST API used to fill gaps in undeclared-variable analysis.
+minijinja = { version = "=2.15.1", features = ["loader", "json", "unstable_machinery"] }
 prost = "0.14.3"
 rand = "0.8.5"
 ratatui = "0.29"

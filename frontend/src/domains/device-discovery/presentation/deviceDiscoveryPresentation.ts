@@ -40,6 +40,9 @@ export function deviceDiscoveryPresentation(
 ): DeviceDiscoveryDisplayState {
   const currentRun = state.currentDetail?.run || null;
   const results = state.currentDetail?.results || [];
+  const credentialNames = new Map(
+    state.credentials.map((credential) => [credential.id, credential.name]),
+  );
   const importableResults = results.filter(discoveryResultCanImport);
   const selectedImportableResults = importableResults.filter((result) =>
     state.selectedResultKeys.includes(discoveryResultKey(result)),
@@ -82,7 +85,13 @@ export function deviceDiscoveryPresentation(
       state.resultFilter,
       state.resultSearch,
       state.statusFilter,
-    ),
+    ).map((result) => ({
+      ...result,
+      credentialName:
+        credentialNames.get(result.credential_id || "") ||
+        result.credential_id ||
+        "-",
+    })),
     groupOptions: state.groups.map((group) => ({
       label: group.name,
       value: group.name,

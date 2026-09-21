@@ -5,7 +5,7 @@ use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use anyhow::{Result, anyhow};
 use serde_json::{Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 const IMPLICIT_RUNTIME_VAR_NAMES: &[&str] = &[
     "connection_name",
@@ -258,10 +258,22 @@ pub fn command_flow_runtime_var_names(template: &CommandFlowTemplate) -> Vec<Str
     runtime_var_names_from_references(collect_template_inline_references(template))
 }
 
-pub fn inline_runtime_var_names(text: &str) -> Vec<String> {
-    let mut references = HashSet::new();
-    collect_inline_references_from_text(text, &mut references);
-    runtime_var_names_from_references(references)
+pub fn inline_runtime_var_names(text: &str) -> Result<Vec<String>> {
+    let references =
+        crate::domain::template::renderer::Renderer::new().undeclared_variables(text)?;
+    let mut names = BTreeSet::new();
+    for reference in references {
+        // Explicit vars fields are user input even when named like connection fields.
+        if let Some(name) = reference.strip_prefix("vars.") {
+            names.insert(name.split('.').next().unwrap_or(name).to_string());
+            continue;
+        }
+        let root = reference.split('.').next().unwrap_or(&reference);
+        if !matches!(root, "connection" | "now") && !IMPLICIT_RUNTIME_VAR_NAMES.contains(&root) {
+            names.insert(root.to_string());
+        }
+    }
+    Ok(names.into_iter().collect())
 }
 
 fn runtime_var_names_from_references(references: impl IntoIterator<Item = String>) -> Vec<String> {
@@ -349,7 +361,8 @@ mod tests {
         assert_eq!(
             inline_runtime_var_names(
                 "ssh {{username}}@{{host}} 'restart {{service}} on {{peer.host}} with {{token}}'",
-            ),
+            )
+            .unwrap(),
             vec![
                 "peer".to_string(),
                 "service".to_string(),
@@ -359,12 +372,27 @@ mod tests {
     }
 
     #[test]
-    fn ignores_non_reference_template_expressions() {
+    fn discovers_variables_in_filters_and_conditions() {
         assert_eq!(
             inline_runtime_var_names(
                 "{{ service | upper }} {{valid_name}} {% if enabled %}x{% endif %}",
-            ),
-            vec!["valid_name".to_string()]
+            )
+            .unwrap(),
+            vec!["enabled", "service", "valid_name"]
+        );
+    }
+
+    #[test]
+    fn command_template_fields_resolve_namespaces_and_omit_runtime_context() {
+        assert_eq!(
+            inline_runtime_var_names(
+                "{{ host | upper }} {{ connection.host }} {{ now.rfc3339 }} \
+                 {{ vars['description'] | upper }} {{ vars.peer.name }} {{ peer.port }} \
+                 {{ vars.username }} \
+                 {% for vlan in vars.vlans %}{{ vlan.id }}{% endfor %}",
+            )
+            .unwrap(),
+            vec!["description", "peer", "username", "vlans"]
         );
     }
 

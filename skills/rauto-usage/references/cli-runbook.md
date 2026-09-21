@@ -99,7 +99,7 @@ Rules:
 - `show` maps a stable object to the real platform command using the resolved profile and bundled show catalog.
 - `show` parses with TextFSM by default; use `--no-parse` for raw output.
 - Multi-target show supports saved targets, inventory groups, and labels/tags. It prechecks that every target has the requested object before executing.
-- `--textfsm-platform` overrides platform selection only when needed.
+- The TextFSM platform is inferred from the resolved device profile.
 - `--textfsm-strict-errors` keeps TextFSM `-> Error` rules; default parsing filters fallback Error rules for better NTC template compatibility.
 
 Custom show objects and TextFSM mappings:

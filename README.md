@@ -253,6 +253,26 @@ rauto show route --print-command
 rauto show interfaces --no-parse
 ```
 
+Linux profiles also provide common inspection objects in both CLI and Web:
+
+| Inspection | Show objects |
+| --- | --- |
+| System and load | `hostname`, `kernel`, `uptime`, `clock`, `cpu` |
+| Memory | `memory`, `memory-info`, `vm-statistics` |
+| Storage | `disk`, `disk-inodes`, `block-devices`, `mounts` |
+| Processes and sessions | `top`, `processes`, `processes-cpu`, `processes-memory`, `users` |
+| Network | `interfaces`, `interface-brief`, `interface-statistics`, `route`, `route-ipv6`, `arp`, `ports`, `socket-summary`, `dns` |
+| Services and logs | `services`, `services-failed`, `timers`, `time-sync`, `kernel-log`, `logs` |
+
+`top` captures one batch snapshot; `vm-statistics` takes two samples one second apart (the first reports averages since boot). Process queries show executable names without command-line arguments. Service, timer, time-sync, and log queries require systemd. Log queries require the `Root` mode and return at most 100 entries; `logs` selects warning and more severe messages. Other new objects use the existing `Root|User` modes and require the corresponding utilities on the target. Objects without a bundled TextFSM template still return raw output with a parse diagnostic; use `--no-parse` (or disable parsing in Web) for these queries, or bind a custom template for structured output.
+
+```bash
+rauto show --list --device-profile linux
+rauto show memory --connection linux-server --no-parse
+rauto show disk --connection linux-server --no-parse
+rauto show services-failed --connection linux-server --no-parse
+```
+
 Run the same show object across multiple saved connections by naming targets directly, selecting inventory groups, or selecting labels/tags. Before connecting for command execution, `rauto` resolves every target profile and verifies that the requested object has a matching show command for every device; if any target is missing the mapping, the whole run fails before executing commands.
 
 ```bash
@@ -290,8 +310,7 @@ rauto show-object delete --profile my_custom_profile --object access-list
 - Parsing is off by default. Pass `--parse-textfsm` to enable TextFSM parsing.
 - Manual parsing: pass `--textfsm-template <path>` to use a specific TextFSM template file. This has the highest priority.
 - Multi-command parsing: `template` and `flow` can repeat `--textfsm-template <path>` to match template files by command order. If fewer template files are provided than commands, the last template file is reused for the remaining commands.
-- Platform selection: when parsing is enabled and `--textfsm-platform` is omitted, `rauto` infers the [ntc-templates](https://github.com/networktocode/ntc-templates) platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
-- Platform override: pass `--textfsm-platform <platform>` only when you want to override the inferred platform after enabling parsing.
+- Platform selection: when parsing is enabled, `rauto` infers the [ntc-templates](https://github.com/networktocode/ntc-templates) platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
 - Lenient NTC parsing: by default, `rauto` filters TextFSM fallback rules such as `^. -> Error` before parsing, which avoids failing the whole parse when a template does not match a non-essential line. Pass `--textfsm-strict-errors` to keep those Error rules.
 - Excel export: pass `--textfsm-excel <file.xlsx>` to export successful parsed rows to an Excel workbook. This also enables TextFSM parsing for `exec`, `template`, and `flow`.
 - If parsing is disabled and no manual template is provided, only raw output is shown.
@@ -327,15 +346,6 @@ rauto exec "show version" \
     --connection core-01 \
     --parse-textfsm \
     --textfsm-excel ./show-version.xlsx
-```
-
-**Override the inferred NTC platform when needed:**
-
-```bash
-rauto exec "show version" \
-    --connection core-01 \
-    --parse-textfsm \
-    --textfsm-platform cisco_ios
 ```
 
 **Parse output with a specific TextFSM template file:**
@@ -637,7 +647,7 @@ rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 
 When normal execution uses autodetect, the detected profile controls mode validation and default-mode fallback. Autodetect does not infer command mode from the command text; use `exec --mode <mode>` when a command must run in a specific state such as `Enable`, `Config`, or `Shell`. You can also pass comma- or pipe-separated candidates, for example `--mode Root,User`, when a command is valid in more than one state.
 Successful autodetect results are cached locally by `host:port` in the runtime database, so later connections to the same target can reuse the detected profile instead of probing again unless you explicitly override the profile.
-For TextFSM parsing, `rauto` will infer a matching NTC platform from the resolved device profile when `--parse-textfsm` is enabled and `--textfsm-platform` is omitted.
+For TextFSM parsing, `rauto` will infer a matching NTC platform from the resolved device profile when `--parse-textfsm` is enabled.
 
 **Using a Specific Profile:**
 Use `--device-profile` when you want to bypass autodetect. For example, to select the Huawei profile:
@@ -737,7 +747,7 @@ Web console key capabilities:
 - Download a CSV import template and import saved connections from CSV / Excel in UI.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
 - Run commands, command flows, tx blocks, tx workflows, and orchestration from `Operations`.
-- The command workbench accepts manual content or imports a saved command template as an editable local snapshot.
+- The command workbench accepts manual content or displays a read-only rendered preview of a saved command template, with its variable inputs above the commands. Variable inspection uses Jinja syntax and scopes, including filters, conditions, loops, macros, and indexing; object and array inputs can use the JSON field type. It inspects the selected template's source, without expanding referenced templates or computed field names.
 - Manual and imported commands share `{{var}}` inputs, rendered preview, TextFSM parsing, and multiline submission controls; the execution page never overwrites the saved template.
 - Manage profiles, command templates, and command flow templates in `Template Manager`.
 - Organize saved connections in `Device Management` with groups and labels (web-only management UI).
@@ -996,7 +1006,7 @@ On an interactive terminal, the CLI displays a live progress bar and opens a TUI
 
 Use `--no-tui` to keep the progress bar but print the filtered tabular result instead. `--json` disables both the progress bar and TUI so stdout remains machine-readable; it can be redirected or piped safely. JSON result `status` values use the same derived states as filtering and the TUI, so imported and existing connections are reported as `imported` and `existing`. A non-interactive stdin/stdout also falls back to plain output automatically.
 
-Use `rauto device discover list` to read the latest persisted snapshot without scanning again. It supports `--status`, repeatable or comma-separated `--profile` and `--port` filters, `--search`, and `--json`. Use `rauto device discover save` to save every matching newly identified device; optional host or `host:port` arguments restrict the operation to explicit endpoints. Default connection names combine the detected platform and IP address, for example `cisco_ios-192-168-60-98`; nonstandard SSH ports are appended to avoid endpoint collisions. `--connection-name` is available when exactly one device matches, while `--overwrite` allows replacing an existing connection with that name. The previous `rauto device discovery list|save` spelling remains available for compatibility.
+Use `rauto device discover list` to read the latest persisted snapshot without scanning again. It supports `--status`, repeatable or comma-separated `--profile` and `--port` filters, `--search`, and `--json`. Use `rauto device discover save` to save every matching newly identified device; optional host or `host:port` arguments restrict the operation to explicit endpoints. Default connection names combine the detected platform and IP address, for example `cisco_ios-192_168_60_98`; nonstandard SSH ports are appended to avoid endpoint collisions. `--connection-name` is available when exactly one device matches, while `--overwrite` allows replacing an existing connection with that name. The previous `rauto device discovery list|save` spelling remains available for compatibility.
 
 The latest run and its results are stored in SQLite and appear in the Web console. Starting another scan replaces the previous discovery run, its results, and its Task Center entry; saved device connections are not removed. A second scan cannot start while the current one is active. Saving from the TUI, `device discover save`, and `device discover --auto-save` all use the same duplicate-endpoint, credential, and connection-name validation as the Web console. Press `Ctrl+C` during scanning to request cancellation of the active run.
 
@@ -1464,7 +1474,7 @@ Common command-specific options:
 - `exec --mode <mode>` / `exec -m <mode>`: Execute a raw command in a specific mode such as `Enable`, `Config`, or `Shell`; comma/pipe-separated candidates such as `Enable,Config` are also accepted.
 - `exec` without `--mode`: Use the selected profile's `default_mode`; this is not inferred from command text such as `show ...` or `interface ...`.
 - `show <object>`: Execute a built-in show object such as `version`, `interfaces`, `route`, or `arp`.
-- `show --list`: List available show objects. Pass `--device-profile` or `--textfsm-platform` to narrow the list.
+- `show --list`: List available show objects. Pass `--device-profile` to narrow the list.
 - `show --no-parse`: Disable the default TextFSM parsing and print raw output only.
 - `show --print-command`: Print the resolved device command before execution.
 - `show-object set/list/delete`: Manage profile-specific custom show objects saved in SQLite. Custom objects override bundled show mappings for the same profile and object.
@@ -1472,7 +1482,6 @@ Common command-specific options:
 - `--session-retries <N>`: Retry transient connection, initialization, transport, and channel-disconnect failures for ordinary commands and command flows. Backoff starts at `--retry-initial-backoff-ms` and doubles up to `--retry-max-backoff-ms`; completed flow steps are retained and execution resumes at the first unfinished step.
 - Retries are disabled by default and have at-least-once semantics: a device may apply a command before the connection drops. Enable them only for commands that are safe to repeat. Transactions, workflows, and uploads are not automatically retried. Authentication rejections are excluded unless `--retry-authentication-errors` is explicitly set.
 - `exec/template/flow --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
-- `exec/template/flow --textfsm-platform <platform>`: Override the inferred NTC platform after parsing is enabled.
 - `exec/template/flow --textfsm-template <path>`: Parse command output with a specific TextFSM template file. For `template` and `flow`, repeat this option to match templates by command order; the last template is reused for remaining commands.
 - `show/exec/template/flow --textfsm-strict-errors`: Keep TextFSM `-> Error` rules instead of filtering them before parsing.
 - `show/exec/template/flow --textfsm-excel <file.xlsx>`: Export successful TextFSM parsed rows to Excel.

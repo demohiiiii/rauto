@@ -2,6 +2,7 @@ export * from "./application/connectionWorkspaces.js";
 export {
   CONNECTION_PICKER,
   CONNECTION_VARS,
+  beginConnectionInventoryRefresh,
   connectionPickerState,
   connectionPickerValues,
   connectionVarsState,

@@ -1,6 +1,8 @@
 import {
   getAgentApiToken,
   getAgentInfo,
+  listInventoryGroups,
+  listInventoryLabels,
   logoutWeb,
   setAgentApiToken,
 } from "../../../api/client.js";
@@ -10,6 +12,8 @@ export interface DashboardAgentInfo {
 }
 
 export const dashboardApi = {
+  listInventoryGroups,
+  listInventoryLabels,
   getAgentApiToken(): string {
     return getAgentApiToken();
   },

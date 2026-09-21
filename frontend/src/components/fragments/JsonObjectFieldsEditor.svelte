@@ -9,13 +9,24 @@
   import ObjectFieldsEditor from "./ObjectFieldsEditor.svelte";
 
   interface Props {
+    allowAdd?: boolean;
+    allowRemove?: boolean;
+    layout?: "collapsible" | "inline";
     onChange?: ((source: JsonObject) => void) | null;
     source?: PlainObject;
     title?: string;
     typeRows?: string[];
   }
 
-  let { title, source = {}, typeRows = [], onChange }: Props = $props();
+  let {
+    allowAdd = true,
+    allowRemove = true,
+    title,
+    layout = "collapsible",
+    source = {},
+    typeRows = [],
+    onChange,
+  }: Props = $props();
 
   let fieldRows = $derived(txObjectFieldRows(source));
   let editorBindings = $derived(
@@ -47,12 +58,13 @@
 </script>
 
 <ObjectFieldsEditor
+  {layout}
   {title}
   {fieldRows}
   {typeRows}
-  onAdd={editorBindings.addFieldAction(source)}
+  onAdd={allowAdd ? editorBindings.addFieldAction(source) : null}
   onRename={editorBindings.renameFieldAction(source)}
   onTypeChange={editorBindings.typeChangeAction(source)}
   onValueChange={editorBindings.valueChangeAction(source)}
-  onRemove={editorBindings.removeFieldAction(source)}
+  onRemove={allowRemove ? editorBindings.removeFieldAction(source) : null}
 />

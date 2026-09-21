@@ -272,12 +272,6 @@ export interface ModeSelectState {
   selected: string;
 }
 
-export interface TextfsmPlatformSelectState {
-  placeholder: string;
-  profiles: string[];
-  selected: string;
-}
-
 export interface ProfileModes {
   default_mode: string;
   modes: string[];
@@ -297,7 +291,6 @@ export interface ModeSelection<T> {
 export interface ProfileExecutionRuntime {
   connectionTargetState: Readable<ConnectionTargetState>;
   currentExecutionConnectionProfile(): string;
-  getCachedDeviceProfiles(): string[];
   getProfileModes(profileName: string): Promise<ProfileModes>;
   temporaryConnectionFormStateStore: Readable<TemporaryConnectionFormState>;
 }

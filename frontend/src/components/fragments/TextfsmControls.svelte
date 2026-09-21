@@ -4,39 +4,32 @@
   import { Switch } from "$lib/components/ui/switch/index.js";
   import { createTextfsmControlsWorkspace } from "../../lib/svelte.js";
   import PlainInputField from "./PlainInputField.svelte";
-  import PlainSelectField from "./PlainSelectField.svelte";
 
   interface TextfsmFields {
     enabled: boolean;
-    excelName?: string;
-    platform: string;
-    platformOptions: string[];
+    autoDownloadExcel: boolean;
     strictErrors: boolean;
-    template: string;
+    template?: string;
   }
 
   type BooleanChangeHandler = (value: boolean) => unknown;
   type StringChangeHandler = (value: string) => unknown;
 
   interface Props {
-    excelNamePlaceholderKey: string;
     hintKey: string;
     includeTemplateInput: boolean;
     onEnabledChange?: BooleanChangeHandler | null;
-    onExcelNameChange?: StringChangeHandler | null;
-    onPlatformChange?: StringChangeHandler | null;
+    onAutoDownloadExcelChange?: BooleanChangeHandler | null;
     onStrictErrorsChange?: BooleanChangeHandler | null;
     onTemplateChange?: StringChangeHandler | null;
     textfsmFields: TextfsmFields;
   }
 
   let {
-    excelNamePlaceholderKey,
     hintKey,
     includeTemplateInput,
     onEnabledChange,
-    onExcelNameChange,
-    onPlatformChange,
+    onAutoDownloadExcelChange,
     onStrictErrorsChange,
     onTemplateChange,
     textfsmFields,
@@ -45,12 +38,8 @@
     onEnabledChange?.(value);
   }
 
-  function handleExcelNameChange(value: string): void {
-    onExcelNameChange?.(value);
-  }
-
-  function handlePlatformChange(value: string): void {
-    onPlatformChange?.(value);
+  function handleAutoDownloadExcelChange(value: boolean): void {
+    onAutoDownloadExcelChange?.(value);
   }
 
   function handleStrictErrorsChange(value: boolean): void {
@@ -63,29 +52,17 @@
 
   const textfsmControlsWorkspace = createTextfsmControlsWorkspace({
     onEnabledChange: handleEnabledChange,
-    onExcelNameChange: handleExcelNameChange,
-    onPlatformChange: handlePlatformChange,
     onStrictErrorsChange: handleStrictErrorsChange,
     onTemplateChange: handleTemplateChange,
   });
-  let usesExcelNameStateStore = $derived(
-    textfsmControlsWorkspace.usesExcelNameStateStore,
-  );
   let controlsDisplayStateStore = $derived(
     textfsmControlsWorkspace.controlsDisplayStateStore,
   );
-  const {
-    excelNameValueHandler,
-    platformValueHandler,
-    setDisplayInputs,
-    templateValueHandler,
-  } = textfsmControlsWorkspace;
-  let usesExcelName = $derived($usesExcelNameStateStore);
+  const { setDisplayInputs, templateValueHandler } = textfsmControlsWorkspace;
   let controlsDisplay = $derived($controlsDisplayStateStore);
 
   $effect(() => {
     setDisplayInputs({
-      excelNamePlaceholderKey,
       hintKey,
       includeTemplateInput,
       textfsmFields,
@@ -95,8 +72,8 @@
 
 <section class="rounded-2xl border border-border bg-muted/30 p-4">
   <div class="flex items-center justify-between gap-3">
-    <div class="flex items-center gap-2">
-      <SparklesIcon class="size-4 text-primary" aria-hidden="true" />
+    <div class="flex min-w-0 items-center gap-2">
+      <SparklesIcon class="size-4 shrink-0 text-primary" aria-hidden="true" />
       <span class="text-sm font-semibold text-foreground">
         {controlsDisplay.parseToggleLabel}
       </span>
@@ -118,50 +95,48 @@
 
   {#if textfsmFields.enabled}
     <div class="mt-4 flex flex-col gap-4">
-      <div class="grid gap-4 sm:grid-cols-[1fr_220px]">
-        {#if includeTemplateInput}
-          <PlainInputField
-            class="h-11 rounded-xl"
-            aria-label={controlsDisplay.templateField.ariaLabelText}
-            placeholderText={controlsDisplay.templateField.placeholder}
-            value={textfsmFields.template}
-            onValueInput={templateValueHandler}
-          />
-        {/if}
-        <PlainSelectField
-          class={includeTemplateInput
-            ? "h-11 cursor-pointer rounded-xl"
-            : "h-11 cursor-pointer rounded-xl sm:col-span-2"}
-          title={controlsDisplay.platformTitle}
-          aria-label={controlsDisplay.platformTitle}
-          optionRows={controlsDisplay.platformSelectRows}
-          value={textfsmFields.platform}
-          onValueChange={platformValueHandler}
-        />
-      </div>
-
-      {#if usesExcelName}
+      {#if includeTemplateInput}
         <PlainInputField
           class="h-11 rounded-xl"
-          aria-label={controlsDisplay.excelNameField.ariaLabelText}
-          placeholderText={controlsDisplay.excelNameField.placeholder}
-          value={textfsmFields.excelName}
-          onValueInput={excelNameValueHandler}
+          aria-label={controlsDisplay.templateField.ariaLabelText}
+          placeholderText={controlsDisplay.templateField.placeholder}
+          value={textfsmFields.template || ""}
+          onValueInput={templateValueHandler}
         />
       {/if}
 
-      <div
-        class="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
-      >
-        <span class="text-sm font-medium text-foreground">
-          {controlsDisplay.strictErrorsLabel}
-        </span>
-        <Switch
-          class="shrink-0"
-          aria-label={controlsDisplay.strictErrorsLabel}
-          checked={textfsmFields.strictErrors}
-          onCheckedChange={handleStrictErrorsChange}
-        />
+      <div class="grid grid-cols-2 gap-3">
+        <div
+          class="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-3"
+        >
+          <span
+            class="min-w-0 text-sm leading-snug font-medium break-words text-foreground"
+          >
+            {controlsDisplay.autoDownloadExcelLabel}
+          </span>
+          <Switch
+            class="shrink-0"
+            aria-label={controlsDisplay.autoDownloadExcelLabel}
+            checked={textfsmFields.autoDownloadExcel}
+            onCheckedChange={handleAutoDownloadExcelChange}
+          />
+        </div>
+
+        <div
+          class="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-3"
+        >
+          <span
+            class="min-w-0 text-sm leading-snug font-medium break-words text-foreground"
+          >
+            {controlsDisplay.strictErrorsLabel}
+          </span>
+          <Switch
+            class="shrink-0"
+            aria-label={controlsDisplay.strictErrorsLabel}
+            checked={textfsmFields.strictErrors}
+            onCheckedChange={handleStrictErrorsChange}
+          />
+        </div>
       </div>
     </div>
   {/if}

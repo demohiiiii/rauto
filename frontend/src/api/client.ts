@@ -973,11 +973,9 @@ export function diagnoseProfile(
 
 export function listShowObjects({
   deviceProfile = "",
-  textfsmPlatform = "",
 }: ShowObjectQuery = {}): Promise<ShowObjectsPayload> {
   const params = new URLSearchParams();
   if (deviceProfile) params.set("device_profile", deviceProfile);
-  if (textfsmPlatform) params.set("textfsm_platform", textfsmPlatform);
   const query = params.toString();
   return apiRequest("GET", `/api/show/objects${query ? `?${query}` : ""}`);
 }

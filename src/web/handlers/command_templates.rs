@@ -12,20 +12,21 @@ use axum::extract::{Path, State};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-fn inspect_command_template_content(content: &str) -> CommandTemplateInspection {
-    CommandTemplateInspection {
+fn inspect_command_template_content(content: &str) -> Result<CommandTemplateInspection, ApiError> {
+    Ok(CommandTemplateInspection {
         vars_schema: inline_runtime_var_names(content)
+            .map_err(|error| ApiError::bad_request(error.to_string()))?
             .into_iter()
             .map(|name| CommandFlowTemplateVarField::inferred(name, false))
             .collect(),
-    }
+    })
 }
 
 pub async fn inspect_command_template(
     State(_state): State<Arc<AppState>>,
     Json(req): Json<InspectCommandTemplateRequest>,
 ) -> Result<Json<CommandTemplateInspection>, ApiError> {
-    Ok(Json(inspect_command_template_content(&req.content)))
+    Ok(Json(inspect_command_template_content(&req.content)?))
 }
 
 pub async fn list_templates(
@@ -101,7 +102,8 @@ mod tests {
     fn command_template_inspection_returns_ordered_runtime_fields() {
         let detail = inspect_command_template_content(
             "copy {{source}} {{peer.host}}\nverify {{source}} {{transfer_password}}",
-        );
+        )
+        .unwrap();
         assert_eq!(
             detail
                 .vars_schema
@@ -111,5 +113,29 @@ mod tests {
             vec!["peer", "source", "transfer_password"]
         );
         assert_eq!(detail.vars_schema[2].kind, "secret");
+    }
+
+    #[test]
+    fn command_template_inspection_returns_filtered_and_loop_inputs() {
+        let detail = inspect_command_template_content(
+            "interface {{ iface }}\n description {{ description | upper }}\n\
+             {% if enabled %}{% for vlan in vlans %}vlan {{ vlan.id }}{% endfor %}{% endif %}",
+        )
+        .unwrap();
+        assert_eq!(
+            detail
+                .vars_schema
+                .iter()
+                .map(|field| field.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["description", "enabled", "iface", "vlans"]
+        );
+    }
+
+    #[test]
+    fn command_template_inspection_returns_bad_request_for_invalid_syntax() {
+        let error = inspect_command_template_content("{{ description | }}").unwrap_err();
+        assert_eq!(error.status, axum::http::StatusCode::BAD_REQUEST);
+        assert!(error.message.contains("Failed to inspect template"));
     }
 }

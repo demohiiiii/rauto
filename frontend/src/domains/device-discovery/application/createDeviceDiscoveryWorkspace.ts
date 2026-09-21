@@ -52,6 +52,7 @@ export function createDeviceDiscoveryWorkspace(
   let active = false;
   let initialized = false;
   let initializedResultKeys = new Set<string>();
+  const editedConnectionNameKeys = new Set<string>();
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
   function mutate(mutation: (state: DeviceDiscoveryState) => void): void {
@@ -72,7 +73,7 @@ export function createDeviceDiscoveryWorkspace(
       const nextSelected = new Set(state.selectedResultKeys);
       for (const result of detail.results) {
         const key = discoveryResultKey(result);
-        if (!nextNames[key]) {
+        if (!editedConnectionNameKeys.has(key)) {
           nextNames[key] = defaultDiscoveryConnectionName(result);
         }
         if (!initializedResultKeys.has(key)) {
@@ -160,6 +161,7 @@ export function createDeviceDiscoveryWorkspace(
     }
     if (latestRun.id !== currentRunId) {
       initializedResultKeys = new Set();
+      editedConnectionNameKeys.clear();
       mutate((state) => {
         state.selectedResultKeys = [];
         state.connectionNames = {};
@@ -196,6 +198,7 @@ export function createDeviceDiscoveryWorkspace(
       return;
     }
     initializedResultKeys = new Set();
+    editedConnectionNameKeys.clear();
     mutate((current) => {
       current.loading = true;
       current.selectedResultKeys = [];
@@ -339,6 +342,7 @@ export function createDeviceDiscoveryWorkspace(
     active = false;
     initialized = false;
     initializedResultKeys = new Set();
+    editedConnectionNameKeys.clear();
     stopPolling();
     stateStore.set(newDeviceDiscoveryState());
   }
@@ -373,10 +377,12 @@ export function createDeviceDiscoveryWorkspace(
     toggleAllImportable,
     toggleResult,
     updateConnectionName: (result: DiscoveryResult, value: string) => {
+      const key = discoveryResultKey(result);
+      editedConnectionNameKeys.add(key);
       mutate((state) => {
         state.connectionNames = {
           ...state.connectionNames,
-          [discoveryResultKey(result)]: value,
+          [key]: value,
         };
       });
     },

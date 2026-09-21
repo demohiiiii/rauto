@@ -4,6 +4,7 @@
   interface Props {
     "aria-label"?: string;
     disabled?: boolean;
+    readonly?: boolean;
     onValueInput?: (value: string) => void;
     placeholderText?: string;
     value?: string;
@@ -14,6 +15,7 @@
     placeholderText = "",
     "aria-label": ariaLabel = "",
     disabled = false,
+    readonly = false,
     onValueInput,
   }: Props = $props();
 </script>
@@ -24,6 +26,7 @@
   {placeholderText}
   {value}
   {disabled}
+  {readonly}
   rows={3}
   {onValueInput}
 />

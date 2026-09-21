@@ -401,30 +401,23 @@ export function createSwitchingStore<TSource, TValue>(
 
 interface TextfsmControlsCallbacks {
   onEnabledChange?: OptionalTask<[boolean]>;
-  onExcelNameChange?: OptionalTask<[string]>;
-  onPlatformChange?: OptionalTask<[string]>;
   onStrictErrorsChange?: OptionalTask<[boolean]>;
   onTemplateChange?: OptionalTask<[string]>;
 }
 
 interface TextfsmFields {
   enabled?: boolean;
-  excelName?: string;
-  platform?: string;
-  platformOptions?: string[];
   strictErrors?: boolean;
   template?: string;
 }
 
 interface TextfsmDisplayInputs {
-  excelNamePlaceholderKey?: string;
   hintKey?: string;
   includeTemplateInput?: boolean;
   textfsmFields?: TextfsmFields;
 }
 
 interface TextfsmInputsState {
-  excelNamePlaceholderKey: string;
   hintKey: string;
   includeTemplateInput: boolean;
   textfsmFields: TextfsmFields;
@@ -432,20 +425,12 @@ interface TextfsmInputsState {
 
 function textfsmControlActionHandlers({
   onEnabledChange = null,
-  onExcelNameChange = null,
-  onPlatformChange = null,
   onStrictErrorsChange = null,
   onTemplateChange = null,
 }: TextfsmControlsCallbacks = {}) {
   return {
     enabledCheckedHandler: callbackFormCheckedHandler((textfsmEnabled) =>
       callIfFunction(onEnabledChange, textfsmEnabled),
-    ),
-    excelNameValueHandler: callbackFormValueHandler((excelName) =>
-      callIfFunction(onExcelNameChange, excelName),
-    ),
-    platformValueHandler: callbackFormValueHandler((textfsmPlatform) =>
-      callIfFunction(onPlatformChange, textfsmPlatform),
     ),
     strictErrorsCheckedHandler: callbackFormCheckedHandler(
       (textfsmStrictErrors) =>
@@ -459,72 +444,29 @@ function textfsmControlActionHandlers({
 
 export function createTextfsmControlsWorkspace({
   onEnabledChange = null,
-  onExcelNameChange = null,
-  onPlatformChange = null,
   onStrictErrorsChange = null,
   onTemplateChange = null,
 }: TextfsmControlsCallbacks = {}) {
   const textfsmInputsStateStore = writable<TextfsmInputsState>({
-    excelNamePlaceholderKey: "",
     hintKey: "",
     includeTemplateInput: false,
     textfsmFields: {},
   });
   const actionHandlers = textfsmControlActionHandlers({
     onEnabledChange,
-    onExcelNameChange,
-    onPlatformChange,
     onStrictErrorsChange,
     onTemplateChange,
   });
-  const usesExcelNameStateStore = derived(
-    textfsmInputsStateStore,
-    ($textfsmInputsStateStore) => {
-      const textfsmFieldsValue = $textfsmInputsStateStore.textfsmFields;
-      return (
-        textfsmFieldsValue &&
-        typeof textfsmFieldsValue === "object" &&
-        Object.prototype.hasOwnProperty.call(textfsmFieldsValue, "excelName")
-      );
-    },
-  );
-  const platformSelectClassStateStore = derived(
-    [textfsmInputsStateStore, usesExcelNameStateStore],
-    ([$textfsmInputsStateStore, $usesExcelNameStateStore]) =>
-      classNames(
-        "select",
-        !$textfsmInputsStateStore.includeTemplateInput &&
-          !$usesExcelNameStateStore &&
-          "md:col-span-2",
-      ),
-  );
   const controlsDisplayStateStore = derived(
     [textfsmInputsStateStore, currentLanguageState],
     ([$textfsmInputsStateStore, _currentLanguageState]) => {
-      const textfsmFieldsValue =
-        $textfsmInputsStateStore.textfsmFields &&
-        typeof $textfsmInputsStateStore.textfsmFields === "object"
-          ? $textfsmInputsStateStore.textfsmFields
-          : {};
       return textfsmControlsDisplay({
-        excelNamePlaceholderKey:
-          $textfsmInputsStateStore.excelNamePlaceholderKey,
         hintKey: $textfsmInputsStateStore.hintKey,
-        platform: textfsmFieldsValue.platform,
-        platformOptions: textfsmFieldsValue.platformOptions,
       });
     },
   );
   function enabledCheckedHandler(event: unknown) {
     return actionHandlers.enabledCheckedHandler(event);
-  }
-
-  function excelNameValueHandler(event: unknown) {
-    return actionHandlers.excelNameValueHandler(event);
-  }
-
-  function platformValueHandler(event: unknown) {
-    return actionHandlers.platformValueHandler(event);
   }
 
   function strictErrorsCheckedHandler(event: unknown) {
@@ -537,17 +479,12 @@ export function createTextfsmControlsWorkspace({
   return {
     controlsDisplayStateStore,
     enabledCheckedHandler,
-    excelNameValueHandler,
-    platformValueHandler,
-    platformSelectClassStateStore,
     setDisplayInputs({
-      excelNamePlaceholderKey: nextExcelNamePlaceholderKey = "",
       hintKey: nextHintKey = "",
       includeTemplateInput: nextIncludeTemplateInput = false,
       textfsmFields: nextTextfsmFields = {},
     }: TextfsmDisplayInputs = {}) {
       textfsmInputsStateStore.set({
-        excelNamePlaceholderKey: nextExcelNamePlaceholderKey,
         hintKey: nextHintKey,
         includeTemplateInput: nextIncludeTemplateInput,
         textfsmFields: nextTextfsmFields,
@@ -555,6 +492,5 @@ export function createTextfsmControlsWorkspace({
     },
     strictErrorsCheckedHandler,
     templateValueHandler,
-    usesExcelNameStateStore,
   };
 }

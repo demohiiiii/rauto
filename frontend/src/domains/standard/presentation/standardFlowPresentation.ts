@@ -12,10 +12,7 @@ import {
   workflowChipClass,
 } from "../../../lib/ui.js";
 import { parsedOutputBlockDisplayFromItem } from "$domains/execution/index.js";
-import type {
-  ModeSelectState,
-  TextfsmPlatformSelectState,
-} from "$domains/profiles/index.js";
+import type { ModeSelectState } from "$domains/profiles/index.js";
 import type { FlowTemplateSelectState } from "$domains/templates/index.js";
 import type {
   StandardCommandFlowExecutionResponse,
@@ -44,19 +41,21 @@ export function standardModeSelectPresentation(modeState: ModeSelectState) {
 
 export function standardTextfsmFieldsPresentation({
   enabled = false,
-  platformState,
+  autoDownloadExcel = false,
+  autoDownloadOutput = false,
   strictErrors = false,
   template = "",
 }: {
   enabled?: boolean;
-  platformState: TextfsmPlatformSelectState;
+  autoDownloadExcel?: boolean;
+  autoDownloadOutput?: boolean;
   strictErrors?: boolean;
   template?: string;
 }) {
   return {
     enabled,
-    platform: platformState.selected,
-    platformOptions: platformState.profiles,
+    autoDownloadExcel,
+    autoDownloadOutput,
     strictErrors,
     template,
   };

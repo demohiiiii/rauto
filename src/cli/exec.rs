@@ -37,7 +37,6 @@ struct MultiExecOptions {
     command: String,
     textfsm_template: Option<PathBuf>,
     parse_enabled: bool,
-    textfsm_platform: Option<String>,
     textfsm_strict_errors: bool,
     record_level: RecordLevelOpt,
 }
@@ -122,7 +121,6 @@ async fn run_multi_exec(args: &ExecArgs, opts: &crate::cli::GlobalOpts) -> Resul
         parse_enabled: args.parse_textfsm
             || args.textfsm_template.is_some()
             || args.textfsm_excel.is_some(),
-        textfsm_platform: args.textfsm_platform.clone(),
         textfsm_strict_errors: args.textfsm_strict_errors,
         record_level: args.record_level,
     };
@@ -245,7 +243,6 @@ async fn execute_resolved_exec_target_buffered(
         &textfsm::ParseOptions {
             template_file: options.textfsm_template.clone(),
             enabled: true,
-            platform: options.textfsm_platform.clone(),
             device_profile: Some(target.conn.device_profile.clone()),
             filter_error_rules: !options.textfsm_strict_errors,
             ..Default::default()
@@ -357,7 +354,6 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
                         enabled: args.parse_textfsm
                             || !args.textfsm_template.is_empty()
                             || args.textfsm_excel.is_some(),
-                        platform: args.textfsm_platform.clone(),
                         device_profile: Some(conn.device_profile.clone()),
                         filter_error_rules: !args.textfsm_strict_errors,
                         ..Default::default()
@@ -463,7 +459,6 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
             enabled: args.parse_textfsm
                 || args.textfsm_template.is_some()
                 || args.textfsm_excel.is_some(),
-            platform: args.textfsm_platform.clone(),
             device_profile: Some(conn.device_profile.clone()),
             filter_error_rules: !args.textfsm_strict_errors,
             ..Default::default()
@@ -494,7 +489,6 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
 struct ResolvedShowTarget {
     name: String,
     conn: crate::EffectiveConnection,
-    platform: Option<String>,
     show: show_catalog::ShowCommand,
     effective_mode: String,
 }
@@ -527,10 +521,8 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
                 .transpose()?
                 .and_then(|connection| connection.device_profile),
         };
-        let platform = show_catalog::platform_for_show(
-            device_profile.as_deref().unwrap_or_default(),
-            args.textfsm_platform.as_deref(),
-        );
+        let platform =
+            show_catalog::platform_for_show(device_profile.as_deref().unwrap_or_default());
         print_show_objects(device_profile.as_deref(), platform.as_deref())?;
         return Ok(());
     }
@@ -549,8 +541,7 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
 
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
-    let platform =
-        show_catalog::platform_for_show(&conn.device_profile, args.textfsm_platform.as_deref());
+    let platform = show_catalog::platform_for_show(&conn.device_profile);
     let show =
         show_catalog::resolve_show_command(object, platform.as_deref(), &conn.device_profile)?;
     command_blacklist::ensure_command_allowed(&show.command, "show execution")?;
@@ -629,7 +620,6 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
             &textfsm::ParseOptions {
                 template_content,
                 enabled: true,
-                platform,
                 device_profile: Some(conn.device_profile.clone()),
                 filter_error_rules: !args.textfsm_strict_errors,
                 ..Default::default()
@@ -763,8 +753,7 @@ async fn resolve_show_target(
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(&target_opts)?)
             .await?;
-    let platform =
-        show_catalog::platform_for_show(&conn.device_profile, args.textfsm_platform.as_deref());
+    let platform = show_catalog::platform_for_show(&conn.device_profile);
     let show =
         show_catalog::resolve_show_command(object, platform.as_deref(), &conn.device_profile)?;
     command_blacklist::ensure_command_allowed(&show.command, "multi-target show execution")?;
@@ -774,7 +763,6 @@ async fn resolve_show_target(
     Ok(ResolvedShowTarget {
         name: name.to_string(),
         conn,
-        platform,
         show,
         effective_mode,
     })
@@ -874,7 +862,6 @@ async fn execute_resolved_show_target_buffered(
         &textfsm::ParseOptions {
             template_content,
             enabled: true,
-            platform: target.platform.clone(),
             device_profile: Some(target.conn.device_profile.clone()),
             filter_error_rules: !options.textfsm_strict_errors,
             ..Default::default()

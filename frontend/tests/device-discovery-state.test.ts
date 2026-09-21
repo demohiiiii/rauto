@@ -16,6 +16,7 @@ import type {
   CreateDiscoveryRunPayload,
   DiscoveryResult,
   DiscoveryRun,
+  DiscoveryRunDetail,
   ImportDiscoveryItem,
 } from "../src/domains/device-discovery/index.js";
 
@@ -90,7 +91,7 @@ test("discovery result helpers preserve endpoints and import eligibility", () =>
   assert.equal(discoveryResultKey(result), "192.0.2.8:2222");
   assert.equal(
     defaultDiscoveryConnectionName(result),
-    "cisco_ios-192-0-2-8-2222",
+    "cisco_ios-192_0_2_8-2222",
   );
   assert.equal(discoveryResultCanImport(result), true);
   assert.equal(
@@ -312,7 +313,7 @@ test("discovery workspace imports selected results and refreshes connections", a
               : [
                   {
                     ...identified,
-                    imported_connection_name: "cisco_ios-192-0-2-8",
+                    imported_connection_name: "cisco_ios-192_0_2_8",
                   },
                 ],
         };
@@ -355,7 +356,7 @@ test("discovery workspace imports selected results and refreshes connections", a
     {
       host: "192.0.2.8",
       port: 22,
-      connection_name: "cisco_ios-192-0-2-8",
+      connection_name: "cisco_ios-192_0_2_8",
       credential_id: "credential-1",
       overwrite: false,
     },
@@ -363,4 +364,85 @@ test("discovery workspace imports selected results and refreshes connections", a
   assert.equal(refreshCalls, 1);
   assert.deepEqual(get(workspace.stateStore).selectedResultKeys, []);
   workspace.destroy();
+});
+
+test("discovery polling updates automatic names and preserves edits made during requests", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const reachable = [1, 2, 3, 4].map((suffix) =>
+    discoveryResult({ host: `192.0.2.${suffix}`, status: "reachable" }),
+  );
+  let detail: DiscoveryRunDetail = {
+    run: discoveryRun({ status: "running", phase: "ssh_probe" }),
+    results: reachable,
+  };
+  let pendingDetail: Promise<DiscoveryRunDetail> | null = null;
+  const workspace = createDeviceDiscoveryWorkspace({
+    api: {
+      async getRun() {
+        return pendingDetail ?? detail;
+      },
+      async createRun() {
+        return detail;
+      },
+      async listCredentials() {
+        return [{ id: "credential-1", name: "lab", username: "automation" }];
+      },
+      async listGroups() {
+        return [];
+      },
+      async listLabels() {
+        return [];
+      },
+      async listRuns() {
+        return [detail.run];
+      },
+    },
+  });
+  t.after(workspace.destroy);
+  await workspace.setPageContext({ active: true });
+  assert.equal(
+    get(workspace.stateStore).connectionNames["192.0.2.1:22"],
+    "device-192_0_2_1",
+  );
+
+  let resolveDetail!: (value: DiscoveryRunDetail) => void;
+  pendingDetail = new Promise<DiscoveryRunDetail>((resolve) => {
+    resolveDetail = resolve;
+  });
+  t.mock.timers.tick(1000);
+  workspace.updateConnectionName(reachable[1], "branch-router");
+  workspace.updateConnectionName(reachable[2], "");
+  workspace.updateConnectionName(reachable[3], "device-192_0_2_4");
+  detail = {
+    run: discoveryRun(),
+    results: reachable.map((result) => ({
+      ...result,
+      status: "identified",
+      device_profile: "linux",
+    })),
+  };
+  resolveDetail(detail);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  pendingDetail = null;
+
+  assert.deepEqual(get(workspace.stateStore).connectionNames, {
+    "192.0.2.1:22": "linux-192_0_2_1",
+    "192.0.2.2:22": "branch-router",
+    "192.0.2.3:22": "",
+    "192.0.2.4:22": "device-192_0_2_4",
+  });
+
+  // A new scan of the same endpoints must get fresh automatic names.
+  detail = {
+    run: discoveryRun({ id: "run-2", status: "running", phase: "ssh_probe" }),
+    results: detail.results.map((result) => ({ ...result, run_id: "run-2" })),
+  };
+  workspace.setFormField("targetsText", "192.0.2.0/24");
+  await workspace.startDiscovery();
+  t.mock.timers.tick(1000);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(
+    Object.values(get(workspace.stateStore).connectionNames),
+    reachable.map((result) => `linux-${result.host.replaceAll(".", "_")}`),
+  );
 });

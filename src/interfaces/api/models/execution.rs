@@ -50,8 +50,6 @@ pub struct ExecRequest {
     #[serde(default)]
     pub parse_textfsm: bool,
     #[serde(default)]
-    pub textfsm_platform: Option<String>,
-    #[serde(default)]
     pub textfsm_vendor: Option<String>,
     #[serde(default)]
     pub textfsm_strict_errors: bool,
@@ -95,8 +93,6 @@ pub struct ShowExecuteRequest {
     pub object: String,
     pub mode: Option<String>,
     #[serde(default)]
-    pub textfsm_platform: Option<String>,
-    #[serde(default)]
     pub no_parse: bool,
     #[serde(default)]
     pub textfsm_strict_errors: bool,
@@ -133,8 +129,6 @@ pub struct ShowBatchExecuteRequest {
     #[serde(default)]
     pub objects: Vec<String>,
     pub mode: Option<String>,
-    #[serde(default)]
-    pub textfsm_platform: Option<String>,
     #[serde(default)]
     pub no_parse: bool,
     #[serde(default)]
@@ -192,8 +186,6 @@ pub struct ExecBatchExecuteRequest {
     pub textfsm_template: Option<String>,
     #[serde(default)]
     pub parse_textfsm: bool,
-    #[serde(default)]
-    pub textfsm_platform: Option<String>,
     #[serde(default)]
     pub textfsm_vendor: Option<String>,
     #[serde(default)]
@@ -323,8 +315,6 @@ pub struct ExecuteTemplateRequest {
     #[serde(default)]
     pub parse_textfsm: bool,
     #[serde(default)]
-    pub textfsm_platform: Option<String>,
-    #[serde(default)]
     pub textfsm_vendor: Option<String>,
     #[serde(default)]
     pub textfsm_strict_errors: bool,
@@ -373,8 +363,6 @@ pub struct ExecuteCommandFlowRequest {
     #[serde(default)]
     pub parse_textfsm: bool,
     #[serde(default)]
-    pub textfsm_platform: Option<String>,
-    #[serde(default)]
     pub textfsm_vendor: Option<String>,
     #[serde(default)]
     pub textfsm_strict_errors: bool,
@@ -406,8 +394,6 @@ pub struct FlowBatchExecuteRequest {
     pub textfsm_template: Option<String>,
     #[serde(default)]
     pub parse_textfsm: bool,
-    #[serde(default)]
-    pub textfsm_platform: Option<String>,
     #[serde(default)]
     pub textfsm_vendor: Option<String>,
     #[serde(default)]

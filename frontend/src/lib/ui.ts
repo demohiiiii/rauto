@@ -463,37 +463,17 @@ export function tabListPresentation({
 }
 
 interface TextfsmControlsDisplayOptions {
-  excelNamePlaceholderKey?: string;
   hintKey?: string;
-  platform?: unknown;
-  platformOptions?: unknown;
 }
 
 export function textfsmControlsDisplay({
-  excelNamePlaceholderKey = "batchShowExcelNamePlaceholder",
   hintKey = "textfsmParseHint",
-  platform = "",
-  platformOptions = [],
 }: TextfsmControlsDisplayOptions = {}) {
-  const excelNamePlaceholder = tr(excelNamePlaceholderKey);
   const templatePlaceholder = tr("textfsmTemplatePlaceholder");
   return {
-    excelNameField: {
-      ariaLabelText: excelNamePlaceholder,
-      placeholder: excelNamePlaceholder,
-    },
+    autoDownloadExcelLabel: tr("textfsmAutoDownloadExcel"),
     hintText: tr(hintKey),
     parseToggleLabel: tr("textfsmParseToggle"),
-    platformOptionRows: selectOptionsWithCurrent(platformOptions, platform),
-    platformSelectRows: stringSelectOptionRows(
-      selectOptionsWithCurrent(platformOptions, platform),
-      {
-        includeEmptyOption: true,
-        placeholderText: tr("textfsmPlatformPlaceholder"),
-      },
-    ),
-    platformPlaceholder: tr("textfsmPlatformPlaceholder"),
-    platformTitle: tr("textfsmPlatformOverride"),
     strictErrorsLabel: tr("textfsmStrictErrorsToggle"),
     templateField: {
       ariaLabelText: templatePlaceholder,

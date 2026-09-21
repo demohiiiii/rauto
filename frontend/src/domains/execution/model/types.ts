@@ -76,3 +76,13 @@ export interface ExecutionResultRuntime {
 export interface ExportParsedOutputConfig {
   filename?: string;
 }
+
+export interface CommandOutputEntry {
+  device?: string;
+  command: string;
+  output?: string | null;
+  all?: string | null;
+  error?: string | null;
+  success?: boolean;
+  exit_code?: number | null;
+}

@@ -82,7 +82,6 @@ export function standardCommandFlowTextfsmPayload(
   return {
     textfsm_template: fields.template?.trim() || null,
     parse_textfsm: !!fields.enabled,
-    textfsm_platform: fields.platform?.trim() || null,
     textfsm_strict_errors: !!fields.strictErrors,
   };
 }

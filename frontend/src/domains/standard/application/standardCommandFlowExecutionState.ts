@@ -4,6 +4,10 @@ import {
   normalizeStandardExecMode,
 } from "../../../config/dashboardModes.js";
 import { safeString } from "../../../lib/ui.js";
+import {
+  downloadCommandOutput,
+  exportParsedOutputSheetsExcel,
+} from "$domains/execution/index.js";
 import type { SessionRetryState } from "$domains/execution/index.js";
 import { standardCommandFlowApi } from "../infrastructure/standardCommandFlowApi.js";
 import { standardCommandFlowRuntime } from "../infrastructure/standardCommandFlowRuntime.js";
@@ -37,6 +41,8 @@ interface StandardStateContext {
     typeof writable<CommandFlowExecutionResult>
   >;
   textfsmFields: StandardCommandFlowTextfsmPayload;
+  autoDownloadExcel: boolean;
+  autoDownloadOutput: boolean;
 }
 
 let standardStateContext: StandardStateContext | null = null;
@@ -46,6 +52,8 @@ function createStandardStateContext(): StandardStateContext {
     commandFlowExecutionResult:
       writable<CommandFlowExecutionResult>(EMPTY_RESULT),
     textfsmFields: standardCommandFlowTextfsmPayload(),
+    autoDownloadExcel: false,
+    autoDownloadOutput: false,
   };
 }
 
@@ -77,6 +85,8 @@ export function createStandardLoadingKeysStore(
 
 export function createStandardTextfsmStateStore() {
   return writable<StandardCommandFlowTextfsmState>({
+    autoDownloadExcel: false,
+    autoDownloadOutput: false,
     enabled: false,
     strictErrors: false,
     template: "",
@@ -148,6 +158,10 @@ export function commandFlowExecutionPayload(
 export function setStandardTextfsmFields(
   textfsmFields: StandardCommandFlowTextfsmFields = {},
 ): void {
+  currentStandardStateContext().autoDownloadOutput =
+    !!textfsmFields.autoDownloadOutput;
+  currentStandardStateContext().autoDownloadExcel =
+    !!textfsmFields.autoDownloadExcel;
   currentStandardStateContext().textfsmFields =
     standardCommandFlowTextfsmPayload(textfsmFields);
 }
@@ -157,8 +171,13 @@ export async function executeCommandFlow(
   retry: SessionRetryState = standardCommandFlowRuntime.createRetryState(),
 ): Promise<void> {
   if (!standardCommandFlowRuntime.ensureTarget()) return;
+  const autoDownloadExcel = currentStandardStateContext().autoDownloadExcel;
+  const autoDownloadOutput = currentStandardStateContext().autoDownloadOutput;
+  const textfsm = textfsmPayload();
   setCommandFlowExecutionResult({ kind: "running" });
   try {
+    const connection = standardCommandFlowRuntime.connectionPayload();
+    const deviceName = connection.connection_name || connection.host || "";
     const source = normalizeCommandFlowExecutionSource(executionSource);
     if (source.kind === "saved") {
       await standardCommandFlowRuntime.ensureTemplateDetail(
@@ -168,24 +187,54 @@ export async function executeCommandFlow(
     }
     const flowResult = await standardCommandFlowApi.executeFlow(
       commandFlowExecutionPayload({
-        connection: standardCommandFlowRuntime.connectionPayload(),
+        connection,
         recordLevel: standardCommandFlowRuntime.recordLevelPayload(),
         retry,
         source,
-        textfsm: textfsmPayload(),
+        textfsm,
         vars: standardCommandFlowRuntime.buildVarsPayload(),
       }),
     );
     setCommandFlowExecutionResult({
       kind: "result",
       resultPayload: flowResult,
+      deviceName,
     });
+    if (autoDownloadOutput) {
+      await downloadCommandOutput(
+        flowResult.outputs.map((result) => ({ ...result, device: deviceName })),
+        "flow-output",
+      );
+    }
+    if (autoDownloadExcel && textfsm.parse_textfsm) {
+      await exportParsedOutputSheetsExcel(
+        commandFlowParsedOutputSheets({
+          kind: "result",
+          resultPayload: flowResult,
+        }),
+        {
+          filename: "textfsm-flow.xlsx",
+        },
+      );
+    }
   } catch (error) {
     setCommandFlowExecutionResult({
       kind: "error",
       message: errorMessage(error),
     });
   }
+}
+
+export async function downloadCommandFlowOutput(): Promise<void> {
+  const result = get(commandFlowExecutionResultState());
+  if (result.kind !== "result") return;
+  await downloadCommandOutput(
+    result.resultPayload.outputs.map((item) => ({
+      ...item,
+      device: result.deviceName,
+    })),
+    "flow-output",
+  );
 }
 
 export async function exportCommandFlowExcel(

@@ -9,21 +9,12 @@ import type {
   ModeSelectState,
   ProfileModeOverrides,
   ProfileModes,
-  TextfsmPlatformSelectState,
 } from "../model/types.js";
 
 const modeSelectState = new Map<string, ModeSelectState>();
-const textfsmPlatformSelectState = new Map<
-  string,
-  TextfsmPlatformSelectState
->();
 const modeSelectStates = new Map<
   string,
   ReturnType<typeof writable<ModeSelectState>>
->();
-const textfsmPlatformSelectStates = new Map<
-  string,
-  ReturnType<typeof writable<TextfsmPlatformSelectState>>
 >();
 let profileModesCache = new Map<string, ProfileModes>();
 let watchedExecutionProfileName: string | null = null;
@@ -40,14 +31,6 @@ export const MODE_SELECT = Object.freeze({
   standardTemplate: "standardTemplate",
 });
 const MODE_SELECT_KEYS = new Set<string>(Object.values(MODE_SELECT));
-
-export const TEXTFSM_PLATFORM_SELECT = Object.freeze({
-  batchShow: "batchShow",
-  standard: "standard",
-});
-const TEXTFSM_SELECT_KEYS = new Set<string>(
-  Object.values(TEXTFSM_PLATFORM_SELECT),
-);
 
 export const executionConnectionProfileState = derived(
   [
@@ -145,61 +128,6 @@ export function modeSelection(
   };
 }
 
-function normalizeTextfsmPlatformSelectKey(platformSelectKey: string): string {
-  return normalizeSemanticKey(platformSelectKey, TEXTFSM_SELECT_KEYS);
-}
-
-function defaultTextfsmPlatformSelectState(
-  platformSelectKey: string,
-): TextfsmPlatformSelectState {
-  const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
-  return (
-    textfsmPlatformSelectState.get(key) || {
-      placeholder: t("textfsmPlatformPlaceholder"),
-      profiles: [],
-      selected: "",
-    }
-  );
-}
-
-function textfsmPlatformSelectStateFor(platformSelectKey: string) {
-  const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
-  let state = textfsmPlatformSelectStates.get(key);
-  if (!state) {
-    state = writable(defaultTextfsmPlatformSelectState(key));
-    textfsmPlatformSelectStates.set(key, state);
-  }
-  return state;
-}
-
-function setTextfsmPlatformSelectValue(
-  platformSelectKey: string,
-  selectedProfile = "",
-): void {
-  const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
-  const selected = safeString(selectedProfile || "").trim();
-  textfsmPlatformSelectStateFor(key).update((state) => {
-    const next = {
-      ...defaultTextfsmPlatformSelectState(key),
-      ...state,
-      selected,
-    };
-    textfsmPlatformSelectState.set(key, next);
-    return next;
-  });
-}
-
-export function textfsmPlatformSelection(
-  platformSelectKey: string,
-): ModeSelection<TextfsmPlatformSelectState> {
-  const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
-  return {
-    setValue: (selectedProfile = "") =>
-      setTextfsmPlatformSelectValue(key, selectedProfile),
-    state: textfsmPlatformSelectStateFor(key),
-  };
-}
-
 function resolveModeSelectState(
   modes: string[],
   preferredMode: string | undefined,
@@ -255,53 +183,7 @@ function safeSelectValue(selectionKey: string): string {
   if (modeSelectStates.has(modeKey) || modeSelectState.has(modeKey)) {
     return safeString(get(modeSelectStateFor(modeKey)).selected || "").trim();
   }
-  const platformKey = normalizeTextfsmPlatformSelectKey(selectionKey);
-  if (
-    textfsmPlatformSelectStates.has(platformKey) ||
-    textfsmPlatformSelectState.has(platformKey)
-  ) {
-    return safeString(
-      get(textfsmPlatformSelectStateFor(platformKey)).selected || "",
-    ).trim();
-  }
   return "";
-}
-
-function refreshTextfsmPlatformSelect(
-  platformSelectKey: string,
-  profiles: string[],
-  selected: string,
-): void {
-  const key = normalizeTextfsmPlatformSelectKey(platformSelectKey);
-  const state = {
-    placeholder: t("textfsmPlatformPlaceholder"),
-    profiles,
-    selected,
-  };
-  textfsmPlatformSelectState.set(key, state);
-  textfsmPlatformSelectStateFor(key).set(state);
-}
-
-export function refreshTextfsmPlatformOptions(): void {
-  const profiles = Array.from(
-    new Set(
-      profileExecutionRuntime
-        .getCachedDeviceProfiles()
-        .map((name) => safeString(name).trim())
-        .filter((name) => name && name !== "autodetect"),
-    ),
-  ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-
-  refreshTextfsmPlatformSelect(
-    TEXTFSM_PLATFORM_SELECT.standard,
-    profiles,
-    safeSelectValue(TEXTFSM_PLATFORM_SELECT.standard),
-  );
-  refreshTextfsmPlatformSelect(
-    TEXTFSM_PLATFORM_SELECT.batchShow,
-    profiles,
-    safeSelectValue(TEXTFSM_PLATFORM_SELECT.batchShow),
-  );
 }
 
 async function refreshExecutionModeOptions(

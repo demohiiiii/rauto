@@ -505,17 +505,17 @@ pub(crate) fn default_discovery_connection_name(result: &DiscoveryResultRecord) 
     }
 
     let mut host = String::with_capacity(result.host.len());
-    let mut previous_dash = false;
+    let mut previous_underscore = false;
     for character in result.host.chars() {
         if character.is_ascii_alphanumeric() {
             host.push(character.to_ascii_lowercase());
-            previous_dash = false;
-        } else if !previous_dash {
-            host.push('-');
-            previous_dash = true;
+            previous_underscore = false;
+        } else if !previous_underscore {
+            host.push('_');
+            previous_underscore = true;
         }
     }
-    let host = host.trim_matches('-');
+    let host = host.trim_matches('_');
     let mut endpoint = if host.is_empty() {
         "device".to_string()
     } else {
@@ -763,21 +763,21 @@ mod tests {
         let without_platform = result("identified");
         assert_eq!(
             default_discovery_connection_name(&without_platform),
-            "device-192-0-2-10"
+            "device-192_0_2_10"
         );
 
         let mut discovered = without_platform;
         discovered.device_profile = Some("cisco_ios".to_string());
         assert_eq!(
             default_discovery_connection_name(&discovered),
-            "cisco_ios-192-0-2-10"
+            "cisco_ios-192_0_2_10"
         );
 
         let mut alternate_port = discovered;
         alternate_port.port = 2222;
         assert_eq!(
             default_discovery_connection_name(&alternate_port),
-            "cisco_ios-192-0-2-10-2222"
+            "cisco_ios-192_0_2_10-2222"
         );
     }
 

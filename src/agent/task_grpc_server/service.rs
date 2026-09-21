@@ -1171,7 +1171,6 @@ impl AgentTaskService for AgentTaskGrpcService {
         let req = request.into_inner();
         let Json(response) = list_show_objects(Query(WebShowObjectsQuery {
             device_profile: optional_string(req.device_profile),
-            textfsm_platform: optional_string(req.textfsm_platform),
         }))
         .await
         .map_err(api_error_to_status)?;
@@ -1197,7 +1196,6 @@ impl AgentTaskService for AgentTaskGrpcService {
             Json(WebShowExecuteRequest {
                 object: req.object,
                 mode: optional_string(req.mode),
-                textfsm_platform: optional_string(req.textfsm_platform),
                 no_parse: req.no_parse,
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 retry: None,
@@ -1224,7 +1222,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 object: req.object,
                 objects: req.objects,
                 mode: optional_string(req.mode),
-                textfsm_platform: optional_string(req.textfsm_platform),
                 no_parse: req.no_parse,
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 targets: req.targets,
@@ -1257,7 +1254,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 mode: optional_string(req.mode),
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 targets: req.targets,
@@ -1295,7 +1291,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 targets: req.targets,
@@ -1367,7 +1362,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 retry: None,
@@ -1411,7 +1405,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 retry: None,
@@ -1442,7 +1435,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 retry: None,
@@ -1489,7 +1481,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 retry: None,
@@ -1527,7 +1518,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 )?,
                 textfsm_template: optional_string(req.textfsm_template),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: optional_string(req.textfsm_platform),
                 textfsm_vendor: optional_string(req.textfsm_vendor),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 retry: None,

@@ -122,10 +122,14 @@ export interface DiscoveryOption {
   value: string;
 }
 
+export interface DiscoveryResultDisplay extends DiscoveryResult {
+  credentialName: string;
+}
+
 export interface DeviceDiscoveryDisplayState extends DeviceDiscoveryState {
   activeStatusFilterLabel: string;
   credentialOptions: DiscoveryOption[];
-  filteredResults: DiscoveryResult[];
+  filteredResults: DiscoveryResultDisplay[];
   groupOptions: DiscoveryOption[];
   identifiedResultCount: number;
   importableResults: DiscoveryResult[];

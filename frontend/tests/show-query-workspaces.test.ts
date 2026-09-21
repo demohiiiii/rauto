@@ -8,6 +8,9 @@ import {
   createBatchShowInputPanelWorkspace,
   createShowPageWorkspace,
   createSingleShowPanelWorkspace,
+  executeBatchShowObject,
+  executeShowObject,
+  loadShowObjects,
   intersectBatchShowObjectPayloads,
   normalizeBatchMaxParallel,
   resolveBatchShowTargetConnections,
@@ -21,6 +24,13 @@ import type {
   ShowObjectDefinition,
 } from "../src/domains/show/index.js";
 import type { TaskResultSummary } from "../src/domains/tasks/index.js";
+import { CONNECTION_PICKER } from "../src/domains/connections/index.js";
+import {
+  setBatchShowFields,
+  setShowTextfsmFields,
+} from "../src/domains/show/application/showExecutionState.js";
+import { showApi } from "../src/domains/show/infrastructure/showApi.js";
+import { showRuntime } from "../src/domains/show/infrastructure/showRuntime.js";
 
 function resultSummary(success: boolean): TaskResultSummary {
   return {
@@ -37,7 +47,6 @@ function showBasePayload(): ShowExecuteBasePayload {
     mode: null,
     no_parse: false,
     record_level: "key-events-only",
-    textfsm_platform: null,
     textfsm_strict_errors: false,
   };
 }
@@ -197,19 +206,16 @@ test("single show TextFSM handlers update the panel display", () => {
 
   workspace.textfsmActionHandlers.enabledChange(false);
   workspace.textfsmActionHandlers.strictErrorsChange(true);
-  workspace.textfsmActionHandlers.templateChange("show-version.template");
 
   assert.deepEqual(
     {
       enabled: get(workspace.panelDisplayStateStore).textfsmFields.enabled,
       strictErrors: get(workspace.panelDisplayStateStore).textfsmFields
         .strictErrors,
-      template: get(workspace.panelDisplayStateStore).textfsmFields.template,
     },
     {
       enabled: false,
       strictErrors: true,
-      template: "show-version.template",
     },
   );
 });
@@ -218,17 +224,18 @@ test("batch show TextFSM handlers update the panel display", () => {
   const workspace = createBatchShowInputPanelWorkspace();
 
   workspace.textfsmActionHandlers.enabledChange(false);
-  workspace.textfsmActionHandlers.excelNameChange("inventory");
+  workspace.textfsmActionHandlers.autoDownloadExcelChange(true);
   workspace.textfsmActionHandlers.strictErrorsChange(true);
 
   assert.deepEqual(
     {
       enabled: get(workspace.panelDisplayStateStore).textfsmFields.enabled,
-      excelName: get(workspace.panelDisplayStateStore).textfsmFields.excelName,
+      autoDownloadExcel: get(workspace.panelDisplayStateStore).textfsmFields
+        .autoDownloadExcel,
       strictErrors: get(workspace.panelDisplayStateStore).textfsmFields
         .strictErrors,
     },
-    { enabled: false, excelName: "inventory", strictErrors: true },
+    { enabled: false, autoDownloadExcel: true, strictErrors: true },
   );
 });
 
@@ -284,6 +291,7 @@ test("show result presentations omit command echoes and prompts from transcripts
   batchShowExecutionResultState().set({
     kind: "result",
     resultPayload: batchResponse([batchTarget({ ...result })]),
+    textfsmEnabled: true,
   });
   const pageWorkspace = createShowPageWorkspace();
   assert.equal(
@@ -321,6 +329,7 @@ test("failed show result presentations retain the complete diagnostic transcript
     resultPayload: batchResponse([
       batchTarget({ ...result, error: "command failed" }),
     ]),
+    textfsmEnabled: true,
   });
   const pageWorkspace = createShowPageWorkspace();
   assert.equal(
@@ -331,4 +340,328 @@ test("failed show result presentations retain the complete diagnostic transcript
 
   showExecutionResultState().set({ kind: "empty" });
   batchShowExecutionResultState().set({ kind: "empty" });
+});
+
+test("show result parsing controls follow the executed request, including empty parse results", async (t) => {
+  const singleWorkspace = createSingleShowPanelWorkspace();
+  const pageWorkspace = createShowPageWorkspace();
+  t.after(() => {
+    showExecutionResultState().set({ kind: "empty" });
+    batchShowExecutionResultState().set({ kind: "empty" });
+    setBatchShowFields();
+  });
+  t.mock.method(showRuntime, "pickerValues", (key: string) => {
+    if (key === CONNECTION_PICKER.batchShowObject) return ["version"];
+    if (key === CONNECTION_PICKER.batchShowTargets) return ["edge-a"];
+    return [];
+  });
+
+  for (const enabled of [false, true]) {
+    showExecutionResultState().set({
+      kind: "result",
+      basePayload: { ...showBasePayload(), no_parse: !enabled },
+      results: [showResponse({ parsed_output: null })],
+    });
+    singleWorkspace.textfsmActionHandlers.enabledChange(!enabled);
+    assert.equal(
+      get(singleWorkspace.panelDisplayStateStore).resultsDisplay.textfsmEnabled,
+      enabled,
+    );
+
+    setBatchShowFields({}, { enabled });
+    t.mock.method(
+      showApi,
+      "executeBatch",
+      async (payload: Parameters<typeof showApi.executeBatch>[0]) => {
+        assert.equal(payload.no_parse, !enabled);
+        assert.equal(Object.hasOwn(payload, "textfsm_platform"), false);
+        // The form may change while the request is in flight.
+        setBatchShowFields({}, { enabled: !enabled });
+        return batchResponse([batchTarget({ parsed_output: null })]);
+      },
+    );
+    await executeBatchShowObject();
+    assert.equal(
+      get(pageWorkspace.batchResultDisplayStateStore).textfsmEnabled,
+      enabled,
+    );
+  }
+});
+
+test("show queries infer their platform from the device profile", async (t) => {
+  t.after(() => {
+    showExecutionResultState().set({ kind: "empty" });
+  });
+  t.mock.method(showRuntime, "currentExecutionProfile", () => "linux");
+  t.mock.method(showRuntime, "ensureConnectionTargetSelected", () => true);
+  t.mock.method(showRuntime, "connectionPayload", () => ({
+    connection_name: "linux-server",
+  }));
+  t.mock.method(showRuntime, "pickerValues", () => ["version"]);
+  t.mock.method(showRuntime, "setObjectPickerOptions", () => true);
+  const catalog = t.mock.method(
+    showApi,
+    "listObjects",
+    async (query: Parameters<typeof showApi.listObjects>[0]) => {
+      assert.deepEqual(query, { deviceProfile: "linux" });
+      return {
+        platform: "linux",
+        objects: [showObject("version", "cat /etc/os-release")],
+      };
+    },
+  );
+  const execute = t.mock.method(
+    showApi,
+    "execute",
+    async (payload: Parameters<typeof showApi.execute>[0]) => {
+      assert.equal(Object.hasOwn(payload, "textfsm_platform"), false);
+      return showResponse({
+        platform: "linux",
+        command: "cat /etc/os-release",
+      });
+    },
+  );
+
+  await loadShowObjects();
+  await executeShowObject();
+
+  assert.equal(catalog.mock.callCount(), 1);
+  assert.equal(execute.mock.callCount(), 1);
+});
+
+test("single show automatically downloads one workbook after all commands using the initial switch value", async (t) => {
+  const { executionResultApi } =
+    await import("../src/domains/execution/infrastructure/executionResultApi.js");
+  const { executionResultRuntime } =
+    await import("../src/domains/execution/infrastructure/executionResultRuntime.js");
+  t.after(() => {
+    setShowTextfsmFields();
+    showExecutionResultState().set({ kind: "empty" });
+  });
+  const downloads = t.mock.method(executionResultRuntime, "download", () => {});
+  const exported = t.mock.method(
+    executionResultApi,
+    "exportExcel",
+    async () => ({ blob: new Blob(["excel"]) }),
+  );
+  t.mock.method(showRuntime, "ensureConnectionTargetSelected", () => true);
+  t.mock.method(showRuntime, "connectionPayload", () => ({
+    connection_name: "edge-a",
+  }));
+  t.mock.method(showRuntime, "pickerValues", () => ["version", "interfaces"]);
+  t.mock.method(
+    showApi,
+    "execute",
+    async ({ object }: Parameters<typeof showApi.execute>[0]) => {
+      assert.equal(exported.mock.callCount(), 0);
+      setShowTextfsmFields({ enabled: false, autoDownloadExcel: false });
+      return showResponse({ object, parsed_output: [{ value: object }] });
+    },
+  );
+  const workspace = createSingleShowPanelWorkspace();
+  workspace.textfsmActionHandlers.autoDownloadExcelChange(true);
+  workspace.setPanelContext({
+    active: true,
+    panelDisplay: get(workspace.panelDisplayStateStore),
+  });
+  await executeShowObject();
+  assert.equal(exported.mock.callCount(), 1);
+  const payload = exported.mock.calls[0].arguments[0];
+  assert.ok(payload);
+  assert.deepEqual(
+    payload.sheets?.map((sheet) => sheet.name),
+    ["version", "interfaces"],
+  );
+  assert.match(payload.filename ?? "", /^textfsm-show-\d{8}-\d{6}\.xlsx$/);
+  assert.equal(downloads.mock.calls[0].arguments[1], payload.filename);
+  assert.equal(get(showExecutionResultState()).kind, "result");
+});
+
+test("batch show auto download requires parsing and parsed rows and snapshots its switch", async (t) => {
+  const { executionResultApi } =
+    await import("../src/domains/execution/infrastructure/executionResultApi.js");
+  const { executionResultRuntime } =
+    await import("../src/domains/execution/infrastructure/executionResultRuntime.js");
+  t.after(() => {
+    setBatchShowFields();
+    batchShowExecutionResultState().set({ kind: "empty" });
+  });
+  const downloads = t.mock.method(executionResultRuntime, "download", () => {});
+  const exported = t.mock.method(
+    executionResultApi,
+    "exportExcel",
+    async () => ({ blob: new Blob(["excel"]) }),
+  );
+  t.mock.method(showRuntime, "pickerValues", (key: string) => {
+    if (key === CONNECTION_PICKER.batchShowObject) return ["version"];
+    if (key === CONNECTION_PICKER.batchShowTargets) return ["edge-a", "edge-b"];
+    return [];
+  });
+  for (const [enabled, autoDownloadExcel, parsed] of [
+    [true, false, true],
+    [false, true, true],
+    [true, true, false],
+    [true, true, true],
+  ]) {
+    const before = exported.mock.callCount();
+    setBatchShowFields({}, { enabled, autoDownloadExcel });
+    t.mock.method(showApi, "executeBatch", async () => {
+      setBatchShowFields(
+        {},
+        { enabled: true, autoDownloadExcel: !autoDownloadExcel },
+      );
+      return batchResponse([
+        batchTarget({ parsed_output: parsed ? [{ version: "1" }] : null }),
+        batchTarget({ target: "edge-b", success: false, error: "unreachable" }),
+      ]);
+    });
+    await executeBatchShowObject();
+    assert.equal(
+      exported.mock.callCount() - before,
+      enabled && autoDownloadExcel && parsed ? 1 : 0,
+    );
+    assert.equal(get(batchShowExecutionResultState()).kind, "result");
+  }
+  assert.equal(downloads.mock.callCount(), 1);
+  const payload = exported.mock.calls[0].arguments[0];
+  assert.ok(payload);
+  assert.match(
+    payload.filename ?? "",
+    /^textfsm-batch-show-\d{8}-\d{6}\.xlsx$/,
+  );
+  assert.deepEqual(payload.sheets?.[0].parsed_output, [
+    {
+      version: "1",
+      device: "edge-a",
+      profile: "cisco_xe",
+      command: "show version",
+      object: "version",
+    },
+  ]);
+});
+
+test("failed automatic Excel export reports an error without discarding show results", async (t) => {
+  const { executionResultApi } =
+    await import("../src/domains/execution/infrastructure/executionResultApi.js");
+  const { executionResultRuntime } =
+    await import("../src/domains/execution/infrastructure/executionResultRuntime.js");
+  t.after(() => {
+    setShowTextfsmFields();
+    showExecutionResultState().set({ kind: "empty" });
+  });
+  t.mock.method(showRuntime, "ensureConnectionTargetSelected", () => true);
+  t.mock.method(showRuntime, "connectionPayload", () => ({}));
+  t.mock.method(showRuntime, "pickerValues", () => ["version"]);
+  t.mock.method(showApi, "execute", async () =>
+    showResponse({ parsed_output: [{ version: "1" }] }),
+  );
+  t.mock.method(executionResultApi, "exportExcel", async () => {
+    throw new Error("export unavailable");
+  });
+  const notify = t.mock.method(
+    executionResultRuntime,
+    "notifyError",
+    async () => {},
+  );
+  const download = t.mock.method(executionResultRuntime, "download", () => {});
+  setShowTextfsmFields({ enabled: true, autoDownloadExcel: true });
+  await executeShowObject();
+  assert.equal(get(showExecutionResultState()).kind, "result");
+  assert.equal(notify.mock.calls[0].arguments[0], "export unavailable");
+  assert.equal(download.mock.callCount(), 0);
+});
+
+test("single show text download works without parsing and manual download retains the execution device", async (t) => {
+  const { executionResultRuntime } =
+    await import("../src/domains/execution/infrastructure/executionResultRuntime.js");
+  const download = t.mock.method(executionResultRuntime, "download", () => {});
+  t.after(() => {
+    setShowTextfsmFields();
+    showExecutionResultState().set({ kind: "empty" });
+  });
+  t.mock.method(showRuntime, "ensureConnectionTargetSelected", () => true);
+  t.mock.method(showRuntime, "connectionPayload", () => ({
+    connection_name: "original-device",
+  }));
+  t.mock.method(showRuntime, "pickerValues", () => ["version"]);
+  const workspace = createSingleShowPanelWorkspace();
+  workspace.textfsmActionHandlers.enabledChange(false);
+  workspace.textfsmActionHandlers.autoDownloadOutputChange(true);
+  workspace.setPanelContext({
+    active: true,
+    panelDisplay: get(workspace.panelDisplayStateStore),
+  });
+  t.mock.method(
+    showApi,
+    "execute",
+    async (payload: Parameters<typeof showApi.execute>[0]) => {
+      assert.equal(payload.no_parse, true);
+      assert.equal(Object.hasOwn(payload, "autoDownloadOutput"), false);
+      setShowTextfsmFields({ autoDownloadOutput: false });
+      return showResponse({ output: "version 1\n", parsed_output: null });
+    },
+  );
+  await executeShowObject();
+  assert.equal(download.mock.callCount(), 1);
+  t.mock.method(showRuntime, "connectionPayload", () => ({
+    connection_name: "different-device",
+  }));
+  await get(workspace.exportActionHandlersStateStore).downloadOutput();
+  assert.equal(download.mock.callCount(), 2);
+  const first = download.mock.calls[0].arguments[0];
+  const second = download.mock.calls[1].arguments[0];
+  assert.ok(first);
+  assert.ok(second);
+  assert.equal(
+    await first.text(),
+    "=== original-device ===\n$ show version\nversion 1\n",
+  );
+  assert.equal(await second.text(), await first.text());
+});
+
+test("batch text download snapshots the switch and includes failed devices without parsed data", async (t) => {
+  const { executionResultRuntime } =
+    await import("../src/domains/execution/infrastructure/executionResultRuntime.js");
+  const { createBatchShowResultsPanelWorkspace } =
+    await import("../src/domains/show/application/createShowWorkspaces.js");
+  const download = t.mock.method(executionResultRuntime, "download", () => {});
+  t.after(() => {
+    setBatchShowFields();
+    batchShowExecutionResultState().set({ kind: "empty" });
+  });
+  t.mock.method(showRuntime, "pickerValues", (key: string) => {
+    if (key === CONNECTION_PICKER.batchShowObject) return ["version"];
+    if (key === CONNECTION_PICKER.batchShowTargets) return ["edge-a", "edge-b"];
+    return [];
+  });
+  for (const enabled of [false, true]) {
+    setBatchShowFields({}, { enabled: false, autoDownloadOutput: enabled });
+    t.mock.method(showApi, "executeBatch", async () => {
+      setBatchShowFields({}, { autoDownloadOutput: !enabled });
+      return batchResponse([
+        batchTarget({ output: "version 1" }),
+        batchTarget({
+          target: "edge-b",
+          all: null,
+          output: null,
+          success: false,
+          error: "unreachable",
+        }),
+      ]);
+    });
+    await executeBatchShowObject();
+    assert.equal(download.mock.callCount(), enabled ? 1 : 0);
+  }
+  const page = createShowPageWorkspace();
+  const workspace = createBatchShowResultsPanelWorkspace();
+  workspace.setResultsContext({
+    batchResultsPresentation: get(page.batchResultsPresentationStateStore),
+  });
+  await get(workspace.exportActionHandlersStateStore).downloadOutput();
+  assert.equal(download.mock.callCount(), 2);
+  const blob = download.mock.calls[1].arguments[0];
+  assert.ok(blob);
+  const text = await blob.text();
+  assert.ok(text.includes("=== edge-a ===\n$ show version\nversion 1"));
+  assert.ok(text.includes("=== edge-b ===\n$ show version\nunreachable"));
 });

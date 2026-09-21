@@ -161,7 +161,6 @@ message DeviceCredential {
   bool has_auth_secret                     = 10;
   string private_key_path                  = 11;
   bool has_passphrase                      = 12;
-  reserved 13;
 }
 
 message ListCredentialsResponse {
@@ -179,11 +178,10 @@ message UpsertCredentialRequest {
   optional string password          = 4;
   optional string enable_password   = 5;
   bool enable_enabled               = 6;
-  reserved 7, 12;
-  string auth_type                              = 8;
-  optional string private_key                   = 9;
-  optional string private_key_path              = 10;
-  optional string passphrase                    = 11;
+  string auth_type                              = 7;
+  optional string private_key                   = 8;
+  optional string private_key_path              = 9;
+  optional string passphrase                    = 10;
 }
 
 message DeleteCredentialRequest {
@@ -283,10 +281,9 @@ message GetInventoryGroupRequest {
 }
 
 message UpsertInventoryGroupRequest {
-  reserved 3;
   string name       = 1;
   repeated string hosts = 2;
-  string description = 4;
+  string description = 3;
 }
 
 message DeleteInventoryGroupRequest {
@@ -479,7 +476,6 @@ message RenderTemplateResponse {
 
 message ListShowObjectsRequest {
   string device_profile   = 1;
-  string textfsm_platform = 2;
 }
 
 message ShowObjectEntry {
@@ -500,11 +496,10 @@ message ExecuteShowRequest {
   string        task_id                = 1;
   string        object                 = 2;
   string        mode                   = 3;
-  string        textfsm_platform       = 4;
-  bool          no_parse               = 5;
-  bool          textfsm_strict_errors  = 6;
-  ConnectionRef connection             = 7;
-  string        record_level           = 8;
+  bool          no_parse               = 4;
+  bool          textfsm_strict_errors  = 5;
+  ConnectionRef connection             = 6;
+  string        record_level           = 7;
 }
 
 message ExecuteShowResponse {
@@ -528,13 +523,12 @@ message ExecuteShowBatchRequest {
   string          object                = 2;
   repeated string objects               = 3;
   string          mode                  = 4;
-  string          textfsm_platform      = 5;
-  bool            no_parse              = 6;
-  bool            textfsm_strict_errors = 7;
-  repeated string targets               = 8;
-  repeated string groups                = 9;
-  repeated string labels                = 10;
-  string          record_level          = 11;
+  bool            no_parse              = 5;
+  bool            textfsm_strict_errors = 6;
+  repeated string targets               = 7;
+  repeated string groups                = 8;
+  repeated string labels                = 9;
+  string          record_level          = 10;
 }
 
 message ExecuteShowBatchResponse {
@@ -551,14 +545,13 @@ message ExecuteExecBatchRequest {
   string          multiline_mode        = 4;
   string          textfsm_template      = 5;
   bool            parse_textfsm         = 6;
-  string          textfsm_platform      = 7;
-  string          textfsm_vendor        = 8;
-  bool            textfsm_strict_errors = 9;
-  repeated string targets               = 10;
-  repeated string groups                = 11;
-  repeated string labels                = 12;
-  uint32          max_parallel          = 13;
-  string          record_level          = 14;
+  string          textfsm_vendor        = 7;
+  bool            textfsm_strict_errors = 8;
+  repeated string targets               = 9;
+  repeated string groups                = 10;
+  repeated string labels                = 11;
+  uint32          max_parallel          = 12;
+  string          record_level          = 13;
 }
 
 message ExecuteExecBatchResponse {
@@ -594,14 +587,13 @@ message ExecuteFlowBatchRequest {
   string          vars_json             = 5;
   string          textfsm_template      = 6;
   bool            parse_textfsm         = 7;
-  string          textfsm_platform      = 8;
-  string          textfsm_vendor        = 9;
-  bool            textfsm_strict_errors = 10;
-  repeated string targets               = 11;
-  repeated string groups                = 12;
-  repeated string labels                = 13;
-  uint32          max_parallel          = 14;
-  string          record_level          = 15;
+  string          textfsm_vendor        = 8;
+  bool            textfsm_strict_errors = 9;
+  repeated string targets               = 10;
+  repeated string groups                = 11;
+  repeated string labels                = 12;
+  uint32          max_parallel          = 13;
+  string          record_level          = 14;
 }
 
 message ExecuteFlowBatchResponse {
@@ -619,10 +611,9 @@ message ExecuteCommandRequest {
   string        record_level = 5;
   string        textfsm_template       = 6;
   bool          parse_textfsm          = 7;
-  string        textfsm_platform       = 8;
-  string        textfsm_vendor         = 9;
-  bool          textfsm_strict_errors  = 10;
-  string        multiline_mode         = 11;
+  string        textfsm_vendor         = 8;
+  bool          textfsm_strict_errors  = 9;
+  string        multiline_mode         = 10;
 }
 
 message ExecuteTemplateRequest {
@@ -635,11 +626,10 @@ message ExecuteTemplateRequest {
   string        record_level = 7;
   string        textfsm_template       = 8;
   bool          parse_textfsm          = 9;
-  string        textfsm_platform       = 10;
-  string        textfsm_vendor         = 11;
-  bool          textfsm_strict_errors  = 12;
-  string        template_dir           = 13;
-  string        multiline_mode         = 14;
+  string        textfsm_vendor         = 10;
+  bool          textfsm_strict_errors  = 11;
+  string        template_dir           = 12;
+  string        multiline_mode         = 13;
 }
 
 message ExecuteTxBlockRequest {
@@ -719,9 +709,8 @@ message ExecuteCommandFlowRequest {
   optional string builtin_template_name = 6;
   string          textfsm_template      = 7;
   bool            parse_textfsm         = 8;
-  string          textfsm_platform      = 9;
-  string          textfsm_vendor        = 10;
-  bool            textfsm_strict_errors = 11;
+  string          textfsm_vendor        = 9;
+  bool            textfsm_strict_errors = 10;
 }
 
 message ExecuteCommandFlowResponse {
@@ -765,10 +754,9 @@ message ExecuteTxWorkflowResponse {
 }
 
 message ExecuteOrchestrationResponse {
-  reserved 2;
   string          plan_json                 = 1;
-  optional string orchestration_result_json = 3;
-  optional string result_summary_json       = 4;
+  optional string orchestration_result_json = 2;
+  optional string result_summary_json       = 3;
 }
 
 message AgentInfoResponse {

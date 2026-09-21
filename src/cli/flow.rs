@@ -164,7 +164,6 @@ pub(crate) async fn run_command_flow(
         enabled: args.parse_textfsm
             || !args.textfsm_template.is_empty()
             || args.textfsm_excel.is_some(),
-        platform: args.textfsm_platform.clone(),
         device_profile: Some(conn.device_profile.clone()),
         filter_error_rules: !args.textfsm_strict_errors,
     };
@@ -210,7 +209,6 @@ struct MultiFlowOptions {
     template_name: String,
     template_files: Vec<PathBuf>,
     parse_enabled: bool,
-    textfsm_platform: Option<String>,
     textfsm_strict_errors: bool,
     record_level: RecordLevelOpt,
 }
@@ -287,7 +285,6 @@ async fn run_multi_command_flow(
         parse_enabled: args.parse_textfsm
             || !args.textfsm_template.is_empty()
             || args.textfsm_excel.is_some(),
-        textfsm_platform: args.textfsm_platform.clone(),
         textfsm_strict_errors: args.textfsm_strict_errors,
         record_level: args.record_level,
     };
@@ -421,7 +418,6 @@ async fn execute_resolved_flow_target_buffered(
     let parse_options = CommandFlowParseOptions {
         template_files: options.template_files.clone(),
         enabled: options.parse_enabled,
-        platform: options.textfsm_platform.clone(),
         device_profile: Some(target.conn.device_profile.clone()),
         filter_error_rules: !options.textfsm_strict_errors,
     };
@@ -519,7 +515,6 @@ pub(crate) async fn run_upload(args: UploadArgs, opts: &crate::cli::GlobalOpts) 
 struct CommandFlowParseOptions {
     template_files: Vec<PathBuf>,
     enabled: bool,
-    platform: Option<String>,
     device_profile: Option<String>,
     filter_error_rules: bool,
 }
@@ -556,7 +551,6 @@ fn write_command_flow_output(
         let step_parse_options = textfsm::ParseOptions {
             template_file: textfsm_template_for_index(&parse_options.template_files, index),
             enabled: parse_options.enabled,
-            platform: parse_options.platform.clone(),
             device_profile: parse_options.device_profile.clone(),
             filter_error_rules: parse_options.filter_error_rules,
             ..Default::default()

@@ -7,6 +7,7 @@
   import ParsedOutputBlock from "$components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import TabList from "$components/fragments/TabList.svelte";
+  import CommandOutputDownloadControl from "$components/fragments/CommandOutputDownloadControl.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
@@ -44,6 +45,7 @@
       configTitle: t("showPanelConfigTitle"),
       configHint: t("showPanelConfigHint"),
       footerHint: t("showFooterHint"),
+      downloadOutput: t("downloadCommandOutput"),
       resultsHint: t("showResultsHint"),
       resultCount: t("showResultCount"),
       resultObjectsAria: t("showResultObjectsAria"),
@@ -123,11 +125,19 @@
   <LoadingButton
     variant="outline"
     size="sm"
-    loading={exportLoadingState.exportLoading}
-    onclick={exportActionHandlers.export}
+    onclick={exportActionHandlers.downloadOutput}
+    >{i18nLabels.downloadOutput}</LoadingButton
   >
-    <span>{singleShowResults.exportButtonLabel}</span>
-  </LoadingButton>
+  {#if singleShowResults.exportAvailable}
+    <LoadingButton
+      variant="outline"
+      size="sm"
+      loading={exportLoadingState.exportLoading}
+      onclick={exportActionHandlers.export}
+    >
+      <span>{singleShowResults.exportButtonLabel}</span>
+    </LoadingButton>
+  {/if}
 {/snippet}
 
 <div class="flex flex-col gap-3" hidden={!active}>
@@ -156,15 +166,16 @@
       />
 
       {#if active}
+        <CommandOutputDownloadControl
+          checked={showTextfsmFields.autoDownloadOutput}
+          onCheckedChange={textfsmActionHandlers.autoDownloadOutputChange}
+        />
         <TextfsmControls
-          excelNamePlaceholderKey="batchShowExcelNamePlaceholder"
           hintKey="textfsmParseHint"
-          includeTemplateInput={true}
+          includeTemplateInput={false}
           onEnabledChange={textfsmActionHandlers.enabledChange}
-          onExcelNameChange={() => {}}
-          onPlatformChange={textfsmActionHandlers.platformChange}
+          onAutoDownloadExcelChange={textfsmActionHandlers.autoDownloadExcelChange}
           onStrictErrorsChange={textfsmActionHandlers.strictErrorsChange}
-          onTemplateChange={textfsmActionHandlers.templateChange}
           textfsmFields={showTextfsmFields}
         />
       {/if}
@@ -211,21 +222,23 @@
       totalLabel={i18nLabels.resultCount}
       succeededLabel={i18nLabels.succeeded}
       failedLabel={i18nLabels.failed}
-      actions={singleShowResults.exportAvailable ? exportActions : undefined}
+      actions={singleShowResults.resultCount ? exportActions : undefined}
     >
       {#snippet detail()}
         {#if showResultRow}
           <ExecutionResultMeta fields={showResultRow.metaFields} />
-          <TabList
-            tabItems={[
-              { value: "output", label: i18nLabels.rawOutputTab },
-              { value: "parsed", label: i18nLabels.parsedOutputTab },
-            ]}
-            activeValue={resultView}
-            aria-label={i18nLabels.resultsHint}
-            onSelect={(view) => (resultView = view)}
-          />
-          {#if resultView === "output"}
+          {#if singleShowResults.textfsmEnabled}
+            <TabList
+              tabItems={[
+                { value: "output", label: i18nLabels.rawOutputTab },
+                { value: "parsed", label: i18nLabels.parsedOutputTab },
+              ]}
+              activeValue={resultView}
+              aria-label={i18nLabels.resultsHint}
+              onSelect={(view) => (resultView = view)}
+            />
+          {/if}
+          {#if !singleShowResults.textfsmEnabled || resultView === "output"}
             <OutputBlock
               title={showResultRow.outputTitle}
               tone={showResultRow.failed ? "error" : "default"}

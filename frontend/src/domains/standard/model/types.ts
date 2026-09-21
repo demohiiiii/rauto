@@ -10,10 +10,7 @@ import type {
   SessionRetryState,
 } from "$domains/execution/index.js";
 import type { RecordLevel } from "$domains/overlays/index.js";
-import type {
-  ModeSelectState,
-  TextfsmPlatformSelectState,
-} from "$domains/profiles/index.js";
+import type { ModeSelectState } from "$domains/profiles/index.js";
 import type {
   CommandFlowTemplateDetail,
   CommandTemplateInspection,
@@ -29,16 +26,15 @@ export type StandardJsonValue = JsonValue;
 export type StandardCommandVariableField = TemplateVariableField;
 
 export interface StandardCommandTextfsmState {
+  autoDownloadExcel: boolean;
+  autoDownloadOutput: boolean;
   enabled: boolean;
-  platform: string;
-  platformOptions: string[];
   strictErrors: boolean;
   template: string;
 }
 
 export interface StandardCommandTextfsmPayload {
   parse_textfsm: boolean;
-  textfsm_platform: string | null;
   textfsm_strict_errors: boolean;
   textfsm_template: string | null;
 }
@@ -74,7 +70,7 @@ export type StandardCommandExecutionResult<TPayload> =
   | { kind: "empty" }
   | { kind: "running" }
   | { kind: "error"; message: string }
-  | { kind: "result"; resultPayload: TPayload };
+  | { kind: "result"; resultPayload: TPayload; deviceName?: string };
 
 export interface StandardCommandResult {
   all: string | null;
@@ -150,7 +146,6 @@ export interface StandardCommandExecutionPayload {
   task_id?: string;
   template_content: string;
   template_dir?: string | null;
-  textfsm_platform?: string | null;
   textfsm_strict_errors?: boolean;
   textfsm_template?: string | null;
   textfsm_vendor?: string | null;
@@ -177,13 +172,13 @@ export interface StandardPicker<TState> {
 }
 
 export interface StandardCommandRuntime {
+  subscribeConnectionChange(listener: () => void): () => void;
   clearTimer(timer: number): void;
   commandModePicker(): StandardPicker<ModeSelectState>;
   confirm(message: string): boolean | Promise<boolean>;
   connection(): ConnectionRequestPayload;
   createRetryState(): SessionRetryState;
   ensureTarget(): boolean;
-  platformPicker(): StandardPicker<TextfsmPlatformSelectState>;
   recordLevel(): RecordLevel;
   retryRequestFields(retry: SessionRetryState): StandardBatchRetryFields;
   setTimer(callback: () => void, delay: number): number;
@@ -205,6 +200,7 @@ export interface StandardCommandExecutionWorkspace {
   changeVars(vars?: JsonObject): void;
   destroy(): void;
   execute(): Promise<boolean>;
+  downloadOutput(): Promise<void>;
   initialize(): Promise<boolean>;
   preview(): Promise<boolean>;
   selectSource(sourceValue?: string): Promise<boolean>;
@@ -338,7 +334,6 @@ export interface StandardCommandFlowExecutionFields {
   parse_textfsm?: boolean;
   record_level?: RecordLevel | null;
   retry?: SessionRetryPayload;
-  textfsm_platform?: string | null;
   textfsm_strict_errors?: boolean;
   textfsm_template?: string | null;
   textfsm_vendor?: string | null;
@@ -349,13 +344,16 @@ export type StandardCommandFlowExecutionPayload =
   StandardCommandFlowSourcePayload & StandardCommandFlowExecutionFields;
 
 export interface StandardCommandFlowTextfsmFields {
+  autoDownloadExcel?: boolean;
+  autoDownloadOutput?: boolean;
   enabled?: boolean;
-  platform?: string;
   strictErrors?: boolean;
   template?: string;
 }
 
 export interface StandardCommandFlowTextfsmState {
+  autoDownloadExcel: boolean;
+  autoDownloadOutput: boolean;
   enabled: boolean;
   strictErrors: boolean;
   template: string;
@@ -363,7 +361,6 @@ export interface StandardCommandFlowTextfsmState {
 
 export interface StandardCommandFlowTextfsmPayload {
   parse_textfsm: boolean;
-  textfsm_platform: string | null;
   textfsm_strict_errors: boolean;
   textfsm_template: string | null;
 }
@@ -445,7 +442,7 @@ export type StandardBatchExecutionResult<TPayload> =
   | { kind: "empty" }
   | { kind: "running" }
   | { kind: "error"; message: string }
-  | { kind: "result"; resultPayload: TPayload };
+  | { kind: "result"; resultPayload: TPayload; deviceName?: string };
 
 export interface StandardBatchExecTargetResponse {
   command: string;
@@ -501,7 +498,6 @@ export interface StandardBatchExecPayload extends StandardBatchTargetPayload {
   multiline_mode?: StandardCommandMultilineMode;
   mode: string | null;
   parse_textfsm?: boolean;
-  textfsm_platform?: string | null;
   textfsm_strict_errors?: boolean;
   textfsm_template?: string | null;
   textfsm_vendor?: string | null;
@@ -522,7 +518,6 @@ export type StandardBatchFlowSourcePayload =
 export type StandardBatchFlowPayload = StandardBatchTargetPayload &
   StandardBatchFlowSourcePayload & {
     parse_textfsm?: boolean;
-    textfsm_platform?: string | null;
     textfsm_strict_errors?: boolean;
     textfsm_template?: string | null;
     textfsm_vendor?: string | null;

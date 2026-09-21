@@ -116,6 +116,7 @@ const showObjectOptionsState = new Map<string, ShowObjectOption[]>();
 
 let connectionInventoryGroupsSnapshot: InventoryNamedResource[] = [];
 let connectionInventoryLabelsSnapshot: InventoryNamedResource[] = [];
+let connectionInventoryVersion = 0;
 let connectionDeviceProfilesSnapshot: unknown[] = [];
 let savedConnectionsSnapshot: SavedConnection[] = [];
 
@@ -800,13 +801,27 @@ export function refreshSavedConnectionLabelOptions(
   refreshSavedPickerOptions("labels", selectedValues);
 }
 
-export function setConnectionInventorySnapshots({
-  groups,
-  labels,
-}: {
-  groups?: InventoryNamedResource[];
-  labels?: InventoryNamedResource[];
-} = {}) {
+export function beginConnectionInventoryRefresh(): number {
+  return ++connectionInventoryVersion;
+}
+
+export function setConnectionInventorySnapshots(
+  {
+    groups,
+    labels,
+  }: {
+    groups?: InventoryNamedResource[];
+    labels?: InventoryNamedResource[];
+  } = {},
+  expectedVersion?: number,
+) {
+  if (
+    expectedVersion !== undefined &&
+    expectedVersion !== connectionInventoryVersion
+  )
+    return;
+  // Every writer invalidates pending refreshes, including inventory page saves.
+  connectionInventoryVersion += 1;
   connectionInventoryGroupsSnapshot = Array.isArray(groups) ? groups : [];
   connectionInventoryLabelsSnapshot = Array.isArray(labels) ? labels : [];
   refreshSavedConnectionGroupOptions();

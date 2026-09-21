@@ -209,6 +209,7 @@ export async function refreshProtectedDashboardResources(): Promise<void> {
 
   await Promise.allSettled([
     dashboardResources.loadSavedConnections(),
+    dashboardResources.loadConnectionInventory(),
     profilesModule.loadProfilesOverview(),
     transactionsWorkspaceModule.loadAllJsonTemplates(),
   ]);

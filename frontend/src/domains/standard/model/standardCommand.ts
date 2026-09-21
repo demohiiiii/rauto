@@ -39,9 +39,9 @@ export function newStandardCommandWorkspaceState(
     modeOptions: [],
     multilineMode: "split_lines",
     textfsm: {
+      autoDownloadExcel: false,
+      autoDownloadOutput: false,
       enabled: false,
-      platform: "",
-      platformOptions: [],
       strictErrors: false,
       template: "",
     },
@@ -59,7 +59,6 @@ export function standardCommandTextfsmPayload(
   return {
     textfsm_template: safeString(textfsm.template).trim() || null,
     parse_textfsm: !!textfsm.enabled,
-    textfsm_platform: safeString(textfsm.platform).trim() || null,
     textfsm_strict_errors: !!textfsm.strictErrors,
   };
 }

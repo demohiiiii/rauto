@@ -23,6 +23,7 @@
   interface ExecutionResultsPanelProps {
     actions?: Snippet;
     activeKey?: string;
+    alwaysShowNavigation?: boolean;
     description?: string;
     detail?: Snippet;
     emptyMessage?: string;
@@ -44,6 +45,7 @@
   let {
     actions: customActions,
     activeKey = "",
+    alwaysShowNavigation = false,
     description = "",
     detail,
     emptyMessage = "",
@@ -65,6 +67,7 @@
   let showSummary = $derived(
     totalCount !== null || succeededCount !== null || failedCount !== null,
   );
+  let showNavigation = $derived(alwaysShowNavigation || items.length > 1);
   function itemBadgeVariant(item: ExecutionResultItem) {
     if (item.statusTone === "error") return "destructive";
     if (item.statusTone === "success") return "outline";
@@ -123,11 +126,11 @@
 
     {#if items.length}
       <div
-        class={items.length > 1
+        class={showNavigation
           ? "grid min-w-0 lg:grid-cols-[minmax(13rem,18rem)_minmax(0,1fr)]"
           : "min-w-0"}
       >
-        {#if items.length > 1}
+        {#if showNavigation}
           <nav
             class="flex gap-2 overflow-x-auto border-b border-border p-3 lg:flex-col lg:overflow-x-visible lg:border-r lg:border-b-0"
             aria-label={navigationAriaLabel}

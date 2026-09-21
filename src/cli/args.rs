@@ -30,13 +30,9 @@ pub struct TemplateArgs {
     #[arg(long)]
     pub textfsm_template: Vec<PathBuf>,
 
-    /// Parse command output with TextFSM. If platform is omitted, infer it from the device profile.
+    /// Parse command output with TextFSM. The platform is inferred from the device profile.
     #[arg(long)]
     pub parse_textfsm: bool,
-
-    /// NTC TextFSM platform for automatic template selection (for example cisco_ios)
-    #[arg(long)]
-    pub textfsm_platform: Option<String>,
 
     /// Export successful TextFSM parsed output to an Excel .xlsx file
     #[arg(long)]
@@ -98,13 +94,9 @@ pub struct CommandFlowArgs {
     #[arg(long)]
     pub textfsm_template: Vec<PathBuf>,
 
-    /// Parse command output with TextFSM. If platform is omitted, infer it from the device profile.
+    /// Parse command output with TextFSM. The platform is inferred from the device profile.
     #[arg(long)]
     pub parse_textfsm: bool,
-
-    /// NTC TextFSM platform for automatic template selection (for example cisco_ios)
-    #[arg(long)]
-    pub textfsm_platform: Option<String>,
 
     /// Export successful TextFSM parsed output to an Excel .xlsx file
     #[arg(long)]
@@ -179,13 +171,9 @@ pub struct ExecArgs {
     #[arg(long)]
     pub textfsm_template: Option<PathBuf>,
 
-    /// Parse command output with TextFSM. If platform is omitted, infer it from the device profile.
+    /// Parse command output with TextFSM. The platform is inferred from the device profile.
     #[arg(long)]
     pub parse_textfsm: bool,
-
-    /// NTC TextFSM platform for automatic template selection (for example cisco_ios)
-    #[arg(long)]
-    pub textfsm_platform: Option<String>,
 
     /// Export successful TextFSM parsed output to an Excel .xlsx file
     #[arg(long)]
@@ -232,10 +220,6 @@ pub struct ShowArgs {
     /// List available show objects for the resolved or selected platform
     #[arg(long)]
     pub list: bool,
-
-    /// NTC TextFSM platform override for command selection and parsing
-    #[arg(long)]
-    pub textfsm_platform: Option<String>,
 
     /// Execution mode or candidate modes separated by comma/pipe (e.g. "Enable", "Root,User")
     #[arg(long, short = 'm')]

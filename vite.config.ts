@@ -55,7 +55,7 @@ export default defineConfig(({ command, isPreview }) => ({
               name: "shared-ui",
               test: SHARED_UI_MODULE_PATTERN,
               entriesAware: true,
-              entriesAwareMergeThreshold: 12 * 1024,
+              entriesAwareMergeThreshold: 20 * 1024,
               maxModuleSize: 10 * 1024,
               priority: 100,
             },

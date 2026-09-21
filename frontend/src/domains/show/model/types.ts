@@ -6,10 +6,8 @@ import type {
   ShowObjectOption,
 } from "$domains/connections/index.js";
 import type {
-  ParsedOutputSheet,
   SessionRetryPayload,
   SessionRetryState,
-  TextfsmExcelExportPayload,
 } from "$domains/execution/index.js";
 import type { RecordLevel } from "$domains/overlays/index.js";
 import type { TaskResultSummary } from "$domains/tasks/index.js";
@@ -38,7 +36,6 @@ export interface ShowObjectsPayload {
 
 export interface ShowObjectQuery {
   deviceProfile?: string;
-  textfsmPlatform?: string;
 }
 
 export interface BatchShowTargetSelection {
@@ -60,7 +57,6 @@ export interface ShowExecuteBasePayload {
   no_parse: boolean;
   record_level: RecordLevel;
   retry?: SessionRetryPayload;
-  textfsm_platform: string | null;
   textfsm_strict_errors: boolean;
 }
 
@@ -98,7 +94,6 @@ export interface ShowBatchExecutePayload {
   record_level: RecordLevel;
   retry?: SessionRetryPayload;
   targets: string[];
-  textfsm_platform: string | null;
   textfsm_strict_errors: boolean;
 }
 
@@ -130,20 +125,11 @@ export interface ShowBatchExecuteResponse {
   targets: string[];
 }
 
-export interface ShowExcelExportPayload extends TextfsmExcelExportPayload {
-  filename: string;
-  sheets: ParsedOutputSheet[];
-}
-
 export interface ShowApi {
   execute(payload: ShowExecutePayload): Promise<ShowExecuteResponse>;
   executeBatch(
     payload: ShowBatchExecutePayload,
   ): Promise<ShowBatchExecuteResponse>;
-  exportExcel(payload: ShowExcelExportPayload): Promise<{
-    blob: Blob;
-    filename?: string;
-  }>;
   listObjects(payload?: ShowObjectQuery): Promise<ShowObjectsPayload>;
 }
 
@@ -164,6 +150,7 @@ export type BatchShowExecutionResult =
   | {
       kind: "result";
       resultPayload: ShowBatchExecuteResponse;
+      textfsmEnabled: boolean;
     };
 
 export type BatchShowObjectAvailabilityStatus =
@@ -198,11 +185,10 @@ export interface ShowCommandPreviewRow {
 }
 
 export interface ShowStoredTextfsmFields {
-  excelName: string;
+  autoDownloadExcel: boolean;
+  autoDownloadOutput: boolean;
   parseTextfsm: boolean;
-  textfsmPlatform: string;
   textfsmStrictErrors: boolean;
-  textfsmTemplate: string;
 }
 
 export interface ShowStoredBatchFields extends ShowStoredTextfsmFields {

@@ -300,6 +300,12 @@ export const i18nEn = {
   commandSourceManual: "Manual input",
   commandSourceHint:
     "Import a saved template or write an editable command draft.",
+  commandTemplateSourceHint:
+    "Choose a template and fill in variables to view read-only rendered commands, or enter commands manually.",
+  commandRenderedTitle: "Rendered commands",
+  commandTemplateRendering: "Rendering commands…",
+  commandTemplateReadonly:
+    "Fill in template variables to display rendered commands here (read-only).",
   commandDraftDirty: "This local draft differs from its imported source.",
   commandPreviewButton: "Preview rendered content",
   commandPreviewTitle: "Rendered preview",
@@ -1335,9 +1341,11 @@ export const i18nEn = {
   commandFlowCommandPlaceholder: "show version or copy {{source}} flash:",
   commandMultilineMode: "Multiline submission",
   commandMultilineModeSplitLines: "Run line by line",
+  commandMultilineModeSplitLinesShort: "By line",
   commandMultilineModeSplitLinesHint:
     "Trim and run each non-empty line as an independent command.",
   commandMultilineModeWhole: "Submit as a whole",
+  commandMultilineModeWholeShort: "Whole block",
   commandMultilineModeWholeHint:
     "Preserve line breaks and submit the full text as one command.",
   commandFlowOverrideMode: "Override step mode",
@@ -1767,7 +1775,9 @@ export const i18nEn = {
     "The selected devices have no query objects in common.",
   batchShowObjectsLoadFailed: "Failed to load common query objects.",
   showResultsHint: "Raw output and parsed results per show object",
-  batchShowResultsHint: "Raw output and parsed results per target device",
+  batchShowResultsHint:
+    "Select a device, then switch command tabs to view its results",
+  showResultViewAria: "Result output format",
   showRawOutputTab: "CLI Output",
   showParsedOutputTab: "TextFSM Parsed",
   showFooterHint:
@@ -1829,17 +1839,17 @@ export const i18nEn = {
   batchShowTargetsPlaceholder: "Select saved devices",
   batchShowGroupsPlaceholder: "Select inventory groups",
   batchShowLabelsPlaceholder: "Select labels/tags",
-  batchShowExcelNamePlaceholder: "Excel filename, e.g. route.xlsx (optional)",
+  autoDownloadCommandOutput: "Automatically download command output",
+  downloadCommandOutput: "Download all command output",
+  textfsmAutoDownloadExcel: "Automatically download Excel",
   batchTextfsmParseHint:
-    "Leave it off to skip parsing. Platform override is optional.",
+    "Leave it off to skip parsing. The platform is selected automatically from each device's profile.",
   batchShowTargetRequired:
     "Enter at least one device, inventory group, or label/tag",
   modePlaceholder: "mode (optional, uses profile default)",
   showModeAutoPlaceholder: "Auto select mode",
   templateModePlaceholder: "mode (optional, uses profile default)",
   textfsmTemplatePlaceholder: "Saved TextFSM template name (optional)",
-  textfsmPlatformPlaceholder: "No platform override",
-  textfsmPlatformOverride: "TextFSM platform override",
   textfsmParseToggle: "Enable TextFSM parsing",
   textfsmParseHint:
     "Leave it off to skip parsing. NTC template Error fallback rules are filtered by default; enable strict mode to keep them.",

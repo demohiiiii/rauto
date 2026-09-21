@@ -203,7 +203,6 @@ pub async fn exec_command(
                     WebTextfsmParseOptions {
                         template_file: req.textfsm_template.as_deref(),
                         enabled: req.parse_textfsm,
-                        platform: req.textfsm_platform.as_deref(),
                         device_profile: Some(conn.device_profile.as_str()),
                         vendor: req.textfsm_vendor.as_deref(),
                         filter_error_rules: !req.textfsm_strict_errors,
@@ -228,7 +227,6 @@ pub async fn exec_command(
                 WebTextfsmParseOptions {
                     template_file: req.textfsm_template.as_deref(),
                     enabled: req.parse_textfsm,
-                    platform: req.textfsm_platform.as_deref(),
                     device_profile: Some(conn.device_profile.as_str()),
                     vendor: req.textfsm_vendor.as_deref(),
                     filter_error_rules: !req.textfsm_strict_errors,
@@ -327,17 +325,13 @@ pub async fn exec_command_async(
 pub struct ShowObjectsQuery {
     #[serde(default)]
     pub device_profile: Option<String>,
-    #[serde(default)]
-    pub textfsm_platform: Option<String>,
 }
 
 pub async fn list_show_objects(
     Query(query): Query<ShowObjectsQuery>,
 ) -> Result<Json<ShowObjectsResponse>, ApiError> {
-    let platform = show_catalog::platform_for_show(
-        query.device_profile.as_deref().unwrap_or_default(),
-        query.textfsm_platform.as_deref(),
-    );
+    let platform =
+        show_catalog::platform_for_show(query.device_profile.as_deref().unwrap_or_default());
     let objects = if let Some(platform) = platform.as_deref() {
         show_catalog::list_show_commands_for_profile(
             query.device_profile.as_deref(),
@@ -414,10 +408,7 @@ pub async fn execute_show(
                 req.retry.as_ref(),
             )?)
             .await?;
-            let platform = show_catalog::platform_for_show(
-                &conn.device_profile,
-                req.textfsm_platform.as_deref(),
-            );
+            let platform = show_catalog::platform_for_show(&conn.device_profile);
             let show = show_catalog::resolve_show_command(
                 &req.object,
                 platform.as_deref(),
@@ -515,7 +506,6 @@ pub async fn execute_show(
                 WebTextfsmParseOptions {
                     template_content: textfsm_template_content.as_deref(),
                     enabled: should_parse,
-                    platform: platform.as_deref(),
                     device_profile: Some(conn.device_profile.as_str()),
                     filter_error_rules: !req.textfsm_strict_errors,
                     ..Default::default()
@@ -849,8 +839,7 @@ async fn resolve_batch_show_target(
         req.retry.as_ref(),
     )?)
     .await?;
-    let platform =
-        show_catalog::platform_for_show(&conn.device_profile, req.textfsm_platform.as_deref());
+    let platform = show_catalog::platform_for_show(&conn.device_profile);
     let show =
         show_catalog::resolve_show_command(object, platform.as_deref(), &conn.device_profile)
             .map_err(|err| ApiError::bad_request(err.to_string()))?;
@@ -966,7 +955,6 @@ async fn execute_batch_show_target_inner(
         WebTextfsmParseOptions {
             template_content: textfsm_template_content.as_deref(),
             enabled: should_parse,
-            platform: target.platform.as_deref(),
             device_profile: Some(target.conn.device_profile.as_str()),
             filter_error_rules,
             ..Default::default()
@@ -1016,7 +1004,6 @@ struct BatchExecOptions {
     multiline_mode: MultilineMode,
     textfsm_template: Option<String>,
     parse_textfsm: bool,
-    textfsm_platform: Option<String>,
     textfsm_vendor: Option<String>,
     textfsm_strict_errors: bool,
     record_level: Option<RecordLevel>,
@@ -1086,7 +1073,6 @@ pub async fn execute_exec_batch(
                 multiline_mode: req.multiline_mode,
                 textfsm_template: req.textfsm_template.clone(),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: req.textfsm_platform.clone(),
                 textfsm_vendor: req.textfsm_vendor.clone(),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 record_level: req.record_level,
@@ -1325,7 +1311,6 @@ async fn execute_batch_exec_target_inner(
         WebTextfsmParseOptions {
             template_file: options.textfsm_template.as_deref(),
             enabled: options.parse_textfsm,
-            platform: options.textfsm_platform.as_deref(),
             device_profile: Some(target.conn.device_profile.as_str()),
             vendor: options.textfsm_vendor.as_deref(),
             filter_error_rules: !options.textfsm_strict_errors,
@@ -1539,7 +1524,6 @@ pub async fn execute_template(
                     WebTextfsmParseOptions {
                         template_file: req.textfsm_template.as_deref(),
                         enabled: req.parse_textfsm,
-                        platform: req.textfsm_platform.as_deref(),
                         device_profile: Some(conn.device_profile.as_str()),
                         vendor: req.textfsm_vendor.as_deref(),
                         filter_error_rules: !req.textfsm_strict_errors,
@@ -1682,6 +1666,31 @@ pub async fn execute_template_async(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn show_catalog_uses_device_profile_even_with_legacy_override() {
+        let path = std::env::temp_dir().join(format!(
+            "rauto-show-platform-{:016x}.db",
+            rand::random::<u64>()
+        ));
+        let _db_guard = crate::infrastructure::db::override_test_db_path(path);
+        crate::infrastructure::db::init()
+            .await
+            .expect("initialize isolated show database");
+        let query: ShowObjectsQuery = serde_json::from_value(serde_json::json!({
+            "device_profile": "linux",
+            "textfsm_platform": "cisco_ios"
+        }))
+        .expect("legacy unknown fields should be ignored");
+        let Json(response) = list_show_objects(Query(query)).await.expect("show catalog");
+        assert_eq!(response.platform.as_deref(), Some("linux"));
+        let version = response
+            .objects
+            .iter()
+            .find(|entry| entry.object == "version")
+            .expect("Linux version object");
+        assert_eq!(version.command, "cat /etc/os-release");
+    }
 
     fn command_result(
         command: &str,

@@ -253,6 +253,26 @@ rauto show route --print-command
 rauto show interfaces --no-parse
 ```
 
+Linux profile 还在 CLI 和 Web 中提供以下常用巡检对象：
+
+| 巡检内容 | Show 对象 |
+| --- | --- |
+| 系统与负载 | `hostname`、`kernel`、`uptime`、`clock`、`cpu` |
+| 内存 | `memory`、`memory-info`、`vm-statistics` |
+| 存储 | `disk`、`disk-inodes`、`block-devices`、`mounts` |
+| 进程与会话 | `top`、`processes`、`processes-cpu`、`processes-memory`、`users` |
+| 网络 | `interfaces`、`interface-brief`、`interface-statistics`、`route`、`route-ipv6`、`arp`、`ports`、`socket-summary`、`dns` |
+| 服务与日志 | `services`、`services-failed`、`timers`、`time-sync`、`kernel-log`、`logs` |
+
+`top` 以批处理模式采集一次后退出；`vm-statistics` 间隔一秒采样两次（首次显示启动以来的平均值）。进程查询显示可执行程序名称，不包含命令行参数。服务、定时器、时间同步和日志查询需要 systemd。日志查询使用 `Root` mode，最多返回 100 条；`logs` 仅查询 warning 及更严重级别的日志。其他新增对象沿用 `Root|User` mode，目标机需安装对应工具。没有内置 TextFSM 模板的对象仍会返回原始输出，并提示解析失败；此类查询可使用 `--no-parse`（Web 中关闭解析），需要结构化结果时可绑定自定义模板。
+
+```bash
+rauto show --list --device-profile linux
+rauto show memory --connection linux-server --no-parse
+rauto show disk --connection linux-server --no-parse
+rauto show services-failed --connection linux-server --no-parse
+```
+
 也可以对多个已保存连接批量执行同一个 show 对象。目标可以直接通过连接名指定，也可以通过 inventory 分组或标签选择。真正执行命令前，`rauto` 会先解析所有目标的 profile，并检查每个设备是否都有该对象对应的 show 命令；只要有任一目标缺少映射，整次执行会在下发命令前报错退出。
 
 ```bash
@@ -290,8 +310,7 @@ rauto show-object delete --profile my_custom_profile --object access-list
 - 默认不会解析。需要解析时传 `--parse-textfsm`。
 - 手动解析：传 `--textfsm-template <path>`，使用指定 TextFSM 模板文件，优先级最高。
 - 多命令解析：`template` 和 `flow` 可以重复传多个 `--textfsm-template <path>`，按命令顺序匹配模板文件；如果模板文件数量少于命令数量，最后一个模板会用于后续所有命令。
-- 平台推断：启用解析且未传 `--textfsm-platform` 时，`rauto` 会从当前连接的 device profile 推断 [ntc-templates](https://github.com/networktocode/ntc-templates) platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
-- 平台覆盖：只有在你想在启用解析后强制覆盖推断结果，或者按其他 NTC platform 解析时，才传 `--textfsm-platform <platform>`。
+- 平台推断：启用解析时，`rauto` 会从当前连接的 device profile 推断 [ntc-templates](https://github.com/networktocode/ntc-templates) platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
 - 宽松解析：默认会在解析前过滤 TextFSM 模板里的 `^. -> Error` 这类兜底 Error 规则，避免某些非关键行未匹配时导致整次解析失败。需要严格保留 Error 规则时，传 `--textfsm-strict-errors`。
 - Excel 导出：传 `--textfsm-excel <file.xlsx>` 可以把解析成功的表格行导出为 Excel 工作簿。对 `exec`、`template` 和 `flow` 来说，这个参数也会启用 TextFSM 解析。
 - 如果没有启用解析，也没有指定模板，则只展示原始输出。
@@ -327,15 +346,6 @@ rauto exec "show version" \
     --connection core-01 \
     --parse-textfsm \
     --textfsm-excel ./show-version.xlsx
-```
-
-**在需要时覆盖推断的平台：**
-
-```bash
-rauto exec "show version" \
-    --connection core-01 \
-    --parse-textfsm \
-    --textfsm-platform cisco_ios
 ```
 
 **使用指定 TextFSM 模板文件解析输出：**
@@ -637,7 +647,7 @@ rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 
 当普通执行路径使用 autodetect 时，探测出的 profile 会决定后续的 mode 校验和默认 mode 回退逻辑。autodetect 不会根据命令文本自动推断执行模式；如果某条命令必须在 `Enable`、`Config`、`Shell` 等特定状态下运行，请显式使用 `exec --mode <mode>`。如果某条命令可在多个状态下运行，也可以传逗号或竖线分隔的候选，例如 `--mode Root,User`。
 成功的 autodetect 结果会按 `host:port` 缓存在本地运行数据库里，因此后续连接同一目标时可以直接复用已识别出的 profile，而不必重复探测；如果你显式指定了 profile，则仍然以显式指定为准。
-当启用 `--parse-textfsm` 且没有传 `--textfsm-platform` 时，`rauto` 会根据当前连接的 device profile 自动推断对应的 NTC platform，用于 TextFSM 解析。
+当启用 `--parse-textfsm` 时，`rauto` 会根据当前连接的 device profile 自动推断对应的 NTC platform，用于 TextFSM 解析。
 
 **使用特定配置：**
 需要绕过自动探测时，可以使用 `--device-profile` 显式指定设备 profile。例如指定 Huawei profile：
@@ -736,7 +746,7 @@ Web 控制台主要能力：
 - 支持在页面中下载连接导入模板，并从 CSV / Excel 批量导入已保存连接。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。
 - 在 `Operations` 里统一执行命令、命令流程、事务块、事务工作流和多设备编排。
-- 命令工作台支持手动输入，也可以把已保存的普通命令模板导入为可编辑的本地快照。
+- 命令工作台支持手动输入，选择已保存的普通命令模板后展示只读的渲染结果，变量输入位于命令上方。变量扫描按 Jinja 语法和作用域处理过滤器、条件、循环、宏和索引等表达式；对象和数组可选择 JSON 字段类型填写。扫描范围为所选模板源码，不展开引用的其他模板或动态计算的字段名。
 - 手动命令和模板快照共用 `{{var}}` 变量、渲染预览、TextFSM 解析和多行提交模式；执行页面不会覆盖已保存模板。
 - 在 `Template 管理` 中统一管理 profile、命令模板和命令流程模板。
 - 在 `设备管理` 中通过分组（Groups）与标签（Labels）组织已保存连接（仅 Web 提供完整管理界面）。
@@ -995,7 +1005,7 @@ rauto device discover save 192.168.60.98:22 \
 
 使用 `--no-tui` 可保留进度条，但在完成后直接打印经过筛选的表格结果。`--json` 会同时关闭进度条和 TUI，确保标准输出保持机器可读，可安全用于重定向或管道。JSON 结果的 `status` 与筛选和 TUI 使用相同的派生状态，因此已导入和已有连接会分别显示为 `imported` 和 `existing`；stdin/stdout 不是交互终端时也会自动回退到普通文本输出。
 
-使用 `rauto device discover list` 可以直接读取最新持久化结果，不会发起新扫描。该命令支持 `--status`、可重复或逗号分隔的 `--profile` 和 `--port`、`--search` 以及 `--json`。使用 `rauto device discover save` 可保存全部匹配的新识别设备，也可传入一个或多个主机或 `host:port` 来限定端点。默认连接名由识别到的平台名和 IP 组成，例如 `cisco_ios-192-168-60-98`；非标准 SSH 端口会追加到名称后避免端点冲突。仅匹配一个设备时可通过 `--connection-name` 指定连接名，`--overwrite` 允许替换同名连接。原有的 `rauto device discovery list|save` 写法仍保留用于兼容。
+使用 `rauto device discover list` 可以直接读取最新持久化结果，不会发起新扫描。该命令支持 `--status`、可重复或逗号分隔的 `--profile` 和 `--port`、`--search` 以及 `--json`。使用 `rauto device discover save` 可保存全部匹配的新识别设备，也可传入一个或多个主机或 `host:port` 来限定端点。默认连接名由识别到的平台名和 IP 组成，例如 `cisco_ios-192_168_60_98`；非标准 SSH 端口会追加到名称后避免端点冲突。仅匹配一个设备时可通过 `--connection-name` 指定连接名，`--overwrite` 允许替换同名连接。原有的 `rauto device discovery list|save` 写法仍保留用于兼容。
 
 SQLite 和 Web 控制台只保留最新一次扫描及其结果。开始新扫描时会替换上一次发现 run、发现结果及其任务中心记录，但不会删除已经保存的设备连接；当前扫描仍在运行时不能启动第二次扫描。TUI 保存、`device discover save` 和 `device discover --auto-save` 都使用与 Web 控制台相同的重复端点、凭证和连接名校验。扫描过程中按 `Ctrl+C` 可请求取消当前任务。
 
@@ -1457,7 +1467,7 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 - `exec --mode <mode>` / `exec -m <mode>`：在指定模式下执行原始命令，例如 `Enable`、`Config`、`Shell`；也支持 `Enable,Config` 这类逗号/竖线分隔的候选列表。
 - `exec` 不带 `--mode`：使用当前 profile 的 `default_mode`；不会根据 `show ...`、`interface ...` 这类命令文本自动判断模式。
 - `show <object>`：执行内置 show 对象，例如 `version`、`interfaces`、`route`、`arp`。
-- `show --list`：列出可用 show 对象。可配合 `--device-profile` 或 `--textfsm-platform` 缩小范围。
+- `show --list`：列出可用 show 对象。可配合 `--device-profile` 缩小范围。
 - `show --no-parse`：关闭默认 TextFSM 解析，只展示原始输出。
 - `show --print-command`：执行前打印内部解析出的设备命令。
 - `show-object set/list/delete`：管理保存到 SQLite 的 profile 级自定义 show object。同一 profile 和 object 下，自定义对象会覆盖内置 show 映射。
@@ -1465,7 +1475,6 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 - `--session-retries <N>`：普通命令和命令流遇到连接、初始化、传输或通道断开等瞬时故障时执行有界重试。退避从 `--retry-initial-backoff-ms` 开始，指数增长到 `--retry-max-backoff-ms`；命令流已完成步骤会保留，重连后从首个未完成步骤继续。
 - 重试默认关闭，并具有“至少执行一次”语义：设备可能已经应用命令，但连接在返回提示符前断开。只应为可安全重复的命令开启。事务、工作流和上传不会自动重试；认证拒绝只有显式设置 `--retry-authentication-errors` 后才会重试。
 - `exec/template/flow --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
-- `exec/template/flow --textfsm-platform <platform>`：在启用解析后覆盖内置 TextFSM 自动选择时推断的平台。
 - `exec/template/flow --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。对 `template` 和 `flow` 可以重复传多个，按命令顺序匹配；数量不足时复用最后一个模板。
 - `show/exec/template/flow --textfsm-strict-errors`：严格保留 TextFSM `-> Error` 规则，不在解析前过滤。
 - `show/exec/template/flow --textfsm-excel <file.xlsx>`：把 TextFSM 解析成功的表格行导出为 Excel。

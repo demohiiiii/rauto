@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use rust_embed::RustEmbed;
 use serde_json::Value;
-use std::borrow::{Cow, ToOwned};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -25,7 +25,6 @@ pub struct ParseOptions {
     pub template_file: Option<std::path::PathBuf>,
     pub template_content: Option<String>,
     pub enabled: bool,
-    pub platform: Option<String>,
     pub device_profile: Option<String>,
     pub vendor: Option<String>,
     pub filter_error_rules: bool,
@@ -41,7 +40,6 @@ impl Default for ParseOptions {
             template_file: None,
             template_content: None,
             enabled: false,
-            platform: None,
             device_profile: None,
             vendor: None,
             filter_error_rules: true,
@@ -385,17 +383,9 @@ fn format_table_row(cells: &[String], widths: &[usize]) -> String {
 
 fn effective_platform(options: &ParseOptions) -> Option<String> {
     options
-        .platform
+        .device_profile
         .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .or_else(|| {
-            options
-                .device_profile
-                .as_deref()
-                .and_then(ntc_platform_for_device_profile)
-        })
+        .and_then(ntc_platform_for_device_profile)
 }
 
 fn selected_ntc_template_contexts(
@@ -583,6 +573,17 @@ fn embedded_ntc_template_root() -> Result<std::path::PathBuf> {
 mod tests {
     use super::*;
 
+    fn isolated_parse_database() -> crate::infrastructure::db::TestDbPathGuard {
+        let path = std::env::temp_dir().join(format!(
+            "rauto-textfsm-parse-{:016x}.db",
+            rand::random::<u64>()
+        ));
+        let guard = crate::infrastructure::db::override_test_db_path(path);
+        crate::infrastructure::db::run_sync(crate::infrastructure::db::init())
+            .expect("initialize isolated parsing database");
+        guard
+    }
+
     #[test]
     fn maps_builtin_profile_to_ntc_platform() {
         assert_eq!(
@@ -699,6 +700,7 @@ mod tests {
 
     #[test]
     fn parses_h3c_comware_display_version_facts() {
+        let _db_guard = isolated_parse_database();
         let output = r#"H3C Comware Software, Version 7.1.064, ESS 5113
 Copyright (c) 2004-2016 Hangzhou H3C Tech. Co., Ltd. All rights reserved.
 
@@ -726,7 +728,7 @@ CPLD 1 Version is 001
             "display version",
             &ParseOptions {
                 enabled: true,
-                platform: Some("hp_comware".to_string()),
+                device_profile: Some("h3c_comware".to_string()),
                 ..ParseOptions::default()
             },
         )
@@ -739,6 +741,7 @@ CPLD 1 Version is 001
 
     #[test]
     fn parses_hp_comware_display_version_facts() {
+        let _db_guard = isolated_parse_database();
         let output = r#"HP Comware Platform Software
 Comware Software, Version 5.20.105, Release 1808P27
 Copyright (c) 2010-2014 Hewlett-Packard Development Company, L.P.
@@ -757,7 +760,7 @@ Hardware Version is Ver.A
             "display version",
             &ParseOptions {
                 enabled: true,
-                platform: Some("hp_comware".to_string()),
+                device_profile: Some("h3c_comware".to_string()),
                 ..ParseOptions::default()
             },
         )
@@ -770,6 +773,7 @@ Hardware Version is Ver.A
 
     #[test]
     fn parses_hpe_comware_display_version_facts() {
+        let _db_guard = isolated_parse_database();
         let output = r#"HPE Comware Software, Version 7.1.070, Release 2612P01
 Copyright (c) 2010-2024 Hewlett Packard Enterprise Development LP
 
@@ -780,7 +784,7 @@ HPE 5130-24G-4SFP+ EI Switch uptime is 12 weeks, 1 day
             "display version",
             &ParseOptions {
                 enabled: true,
-                platform: Some("hp_comware".to_string()),
+                device_profile: Some("h3c_comware".to_string()),
                 ..ParseOptions::default()
             },
         )
@@ -793,6 +797,7 @@ HPE 5130-24G-4SFP+ EI Switch uptime is 12 weeks, 1 day
 
     #[test]
     fn parses_linux_os_release_facts() {
+        let _db_guard = isolated_parse_database();
         let cases = [
             (
                 "Ubuntu",
@@ -837,7 +842,7 @@ ID=debian
                 "cat /etc/os-release",
                 &ParseOptions {
                     enabled: true,
-                    platform: Some("linux".to_string()),
+                    device_profile: Some("linux".to_string()),
                     ..ParseOptions::default()
                 },
             )

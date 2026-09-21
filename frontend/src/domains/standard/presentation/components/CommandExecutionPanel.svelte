@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MANUAL_COMMAND_SOURCE } from "$domains/command/index.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { onDestroy, tick } from "svelte";
   import {
@@ -15,6 +16,7 @@
   import ParsedOutputBlock from "$components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
+  import CommandOutputDownloadControl from "$components/fragments/CommandOutputDownloadControl.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
   import { t } from "$lib/i18n.js";
   import { createStandardCommandExecutionWorkspace } from "../../application/createStandardCommandExecutionWorkspace.js";
@@ -48,6 +50,16 @@
       Array.isArray(commandState.executionResult.resultPayload?.executed)
       ? commandState.executionResult.resultPayload.executed
       : [],
+  );
+  let templateSelected = $derived(
+    commandState.sourceSelection !== MANUAL_COMMAND_SOURCE,
+  );
+  let displayedCommand = $derived(
+    templateSelected
+      ? commandState.preview.kind === "result"
+        ? commandState.preview.text
+        : ""
+      : commandState.content,
   );
   let retryValid = $derived(sessionRetryValidation(commandState.retry).valid);
   let resultItems: CommandResultItem[] = $derived(
@@ -124,12 +136,16 @@
     }
   }
 
-  function changeTextfsmEnabled(enabled: boolean) {
-    workspace.changeTextfsm({ enabled });
+  function changeAutoDownloadOutput(autoDownloadOutput: boolean) {
+    workspace.changeTextfsm({ autoDownloadOutput });
   }
 
-  function changeTextfsmPlatform(platform: string) {
-    workspace.changeTextfsm({ platform });
+  function changeAutoDownloadExcel(autoDownloadExcel: boolean) {
+    workspace.changeTextfsm({ autoDownloadExcel });
+  }
+
+  function changeTextfsmEnabled(enabled: boolean) {
+    workspace.changeTextfsm({ enabled });
   }
 
   function changeTextfsmStrictErrors(strictErrors: boolean) {
@@ -151,6 +167,7 @@
 >
   <div class="grid min-w-0 gap-2">
     <CommandTemplateSourceField
+      hintText={t("commandTemplateSourceHint")}
       value={commandState.sourceSelection}
       optionValues={commandState.sourceOptions}
       onValueChange={handleSourceChange}
@@ -161,52 +178,67 @@
     <p class="text-xs text-muted-foreground">{t("commandDraftDirty")}</p>
   {/if}
 
+  {#if commandState.varsSchema.length > 0}
+    <div
+      class="grid min-w-0 gap-2 rounded-xl border border-border bg-muted/30 p-4"
+    >
+      <h4 class="text-sm font-semibold text-foreground">
+        {t("commandVarsTitle")}
+      </h4>
+      <JsonObjectFieldsEditor
+        layout="inline"
+        allowAdd={false}
+        allowRemove={false}
+        source={commandState.vars}
+        typeRows={["string", "number", "boolean", "null", "json"]}
+        onChange={workspace.changeVars}
+      />
+    </div>
+  {/if}
+
   <div class="grid min-w-0 gap-3">
     <CommandEditor
-      command={commandState.content}
-      commandLabel={t("fieldCommand")}
+      command={displayedCommand}
+      commandLabel={templateSelected
+        ? t("commandRenderedTitle")
+        : t("fieldCommand")}
+      readonly={templateSelected}
       multilineMode={commandState.multilineMode}
-      placeholderText={t("commandPlaceholder")}
+      placeholderText={templateSelected
+        ? t(
+            commandState.preview.kind === "running" ||
+              commandState.loadingActions.includes("template")
+              ? "commandTemplateRendering"
+              : "commandTemplateReadonly",
+          )
+        : t("commandPlaceholder")}
       onCommandChange={workspace.changeContent}
       onMultilineModeChange={workspace.changeMultilineMode}
     >
-      {#if commandState.varsSchema.length > 0}
-        <div
-          class="grid min-w-0 gap-2 rounded-xl border border-border bg-muted/30 p-4"
-        >
-          <div>
-            <h4 class="text-sm font-semibold text-foreground">
-              {t("commandVarsTitle")}
-            </h4>
-            <p class="mt-0.5 text-xs text-muted-foreground">
-              {t("commandVarsHint")}
-            </p>
-          </div>
-          <JsonObjectFieldsEditor
-            title={t("commandVarsTitle")}
-            source={commandState.vars}
-            typeRows={["string", "number", "boolean", "null", "json"]}
-            onChange={workspace.changeVars}
-          />
-        </div>
+      {#snippet modeField()}
+        <ModeExpressionField
+          title={t("modePlaceholder")}
+          aria-label={t("modePlaceholder")}
+          value={commandState.mode}
+          optionValues={commandState.modeOptions}
+          placeholderText={t("modePlaceholder")}
+          onValueChange={workspace.changeMode}
+        />
+      {/snippet}
+
+      {#if templateSelected && commandState.preview.kind === "error"}
+        <StatusCard message={commandState.preview.message} tone="error" />
       {/if}
 
-      <ModeExpressionField
-        title={t("modePlaceholder")}
-        aria-label={t("modePlaceholder")}
-        value={commandState.mode}
-        optionValues={commandState.modeOptions}
-        placeholderText={t("modePlaceholder")}
-        onValueChange={workspace.changeMode}
+      <CommandOutputDownloadControl
+        checked={commandState.textfsm.autoDownloadOutput}
+        onCheckedChange={changeAutoDownloadOutput}
       />
-
       <TextfsmControls
-        excelNamePlaceholderKey="batchShowExcelNamePlaceholder"
         hintKey="textfsmParseHint"
         includeTemplateInput={true}
         onEnabledChange={changeTextfsmEnabled}
-        onExcelNameChange={() => {}}
-        onPlatformChange={changeTextfsmPlatform}
+        onAutoDownloadExcelChange={changeAutoDownloadExcel}
         onStrictErrorsChange={changeTextfsmStrictErrors}
         onTemplateChange={changeTextfsmTemplate}
         textfsmFields={commandState.textfsm}
@@ -238,7 +270,9 @@
           variant="default"
           size="sm"
           loading={commandState.loadingActions.includes("execute")}
-          disabled={!retryValid}
+          disabled={!retryValid ||
+            commandState.loadingActions.includes("template") ||
+            (templateSelected && commandState.preview.kind !== "result")}
           onclick={workspace.execute}
         >
           {t("execBtn")}
@@ -247,7 +281,7 @@
     </CommandEditor>
   </div>
 
-  {#if commandState.preview.kind !== "empty"}
+  {#if !templateSelected && commandState.preview.kind !== "empty"}
     <CommandFlowSurface variant="section" title={t("commandPreviewTitle")}>
       {#if commandState.preview.kind === "error"}
         <StatusCard message={commandState.preview.message} tone="error" />
@@ -282,6 +316,16 @@
         succeededLabel={t("orchestrationStatusSuccess", "Success")}
         failedLabel={t("orchestrationStatusFailed", "Failed")}
       >
+        {#snippet actions()}
+          {#if executedItems.length}
+            <LoadingButton
+              variant="outline"
+              size="sm"
+              onclick={workspace.downloadOutput}
+              >{t("downloadCommandOutput")}</LoadingButton
+            >
+          {/if}
+        {/snippet}
         {#snippet detail()}
           {#if activeResult}
             {@const parsedOutputBlock = parsedOutputBlockDisplayFromItem(

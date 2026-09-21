@@ -22,12 +22,7 @@ import {
   sessionRetryValidation,
 } from "$domains/execution/index.js";
 import type { SessionRetryState } from "$domains/execution/index.js";
-import {
-  MODE_SELECT,
-  TEXTFSM_PLATFORM_SELECT,
-  modeSelection,
-  textfsmPlatformSelection,
-} from "$domains/profiles/index.js";
+import { MODE_SELECT, modeSelection } from "$domains/profiles/index.js";
 import { flowVarsPresentation } from "$domains/templates/index.js";
 import {
   flowVarsFieldState,
@@ -57,6 +52,7 @@ import {
   DEFAULT_STANDARD_PAGE_MODE,
   executeCommandFlow,
   exportCommandFlowExcel,
+  downloadCommandFlowOutput,
   refreshStandardExecutionModeOptions,
   setStandardTextfsmEnabled,
   setStandardTextfsmFields,
@@ -120,9 +116,6 @@ export function createFlowExecutionPanelWorkspace() {
   const commandFlowExecutionResultStateStore =
     commandFlowExecutionResultState();
   const authoringModePicker = modeSelection(MODE_SELECT.standardFlow);
-  const textfsmPlatformPicker = textfsmPlatformSelection(
-    TEXTFSM_PLATFORM_SELECT.standard,
-  );
   const flowTextfsmStateStore = createStandardTextfsmStateStore();
   const flowRetryStateStore = writable<SessionRetryState>(
     createSessionRetryState(),
@@ -151,7 +144,6 @@ export function createFlowExecutionPanelWorkspace() {
       runFlowTemplateSelectState,
       flowVarsFieldState,
       authoringModePicker.state,
-      textfsmPlatformPicker.state,
       flowTextfsmStateStore,
       flowRetryStateStore,
       commandFlowExecutionResultStateStore,
@@ -170,7 +162,6 @@ export function createFlowExecutionPanelWorkspace() {
       $runFlowTemplateSelectState,
       $flowVarsFieldState,
       $authoringModeState,
-      $textfsmPlatformState,
       $flowTextfsmState,
       $flowRetryState,
       $commandFlowExecutionResult,
@@ -194,7 +185,8 @@ export function createFlowExecutionPanelWorkspace() {
       });
       const flowTextfsmFields = standardTextfsmFieldsPresentation({
         enabled: $flowTextfsmState.enabled,
-        platformState: $textfsmPlatformState,
+        autoDownloadExcel: $flowTextfsmState.autoDownloadExcel,
+        autoDownloadOutput: $flowTextfsmState.autoDownloadOutput,
         strictErrors: $flowTextfsmState.strictErrors,
         template: $flowTextfsmState.template,
       });
@@ -269,12 +261,16 @@ export function createFlowExecutionPanelWorkspace() {
     return authoring.setTomlText(tomlText);
   }
 
-  function changeFlowTextfsmEnabled(textfsmEnabled = false): void {
-    setStandardTextfsmEnabled(flowTextfsmStateStore, textfsmEnabled);
+  function changeFlowAutoDownloadExcel(autoDownloadExcel: boolean): void {
+    flowTextfsmStateStore.update((state) => ({ ...state, autoDownloadExcel }));
   }
 
-  function changeFlowTextfsmPlatform(textfsmPlatform = ""): void {
-    textfsmPlatformPicker.setValue(textfsmPlatform);
+  function changeFlowAutoDownloadOutput(autoDownloadOutput: boolean): void {
+    flowTextfsmStateStore.update((state) => ({ ...state, autoDownloadOutput }));
+  }
+
+  function changeFlowTextfsmEnabled(textfsmEnabled = false): void {
+    setStandardTextfsmEnabled(flowTextfsmStateStore, textfsmEnabled);
   }
 
   function changeFlowTextfsmStrictErrors(textfsmStrictErrors = false): void {
@@ -335,6 +331,7 @@ export function createFlowExecutionPanelWorkspace() {
   const runActionHandlers = {
     execute: executeFlowExecution,
     export: () => exportFlowExecutionExcel(),
+    downloadOutput: downloadCommandFlowOutput,
   };
 
   async function prepareAuthoringOnActive(): Promise<void> {
@@ -385,7 +382,8 @@ export function createFlowExecutionPanelWorkspace() {
     changeFlowNameDialogValue,
     changeFlowTemplateName,
     changeFlowTextfsmEnabled,
-    changeFlowTextfsmPlatform,
+    changeFlowAutoDownloadExcel,
+    changeFlowAutoDownloadOutput,
     changeFlowTextfsmStrictErrors,
     changeFlowTextfsmTemplate,
     changeFlowRetry,

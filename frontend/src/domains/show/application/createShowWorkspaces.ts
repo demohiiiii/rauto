@@ -10,21 +10,14 @@ import { emptyString, safeString } from "../../../lib/ui.js";
 import {
   executionResultFailed,
   executionResultOutputText,
+  downloadCommandOutput,
   exportParsedOutputSheetsExcel,
   parsedOutputBlockDisplay,
   parsedOutputSheetsFromBatchShow,
   parsedOutputSheetsFromParsedOutputItems,
 } from "$domains/execution/index.js";
-import {
-  MODE_SELECT,
-  modeSelection,
-  TEXTFSM_PLATFORM_SELECT,
-  textfsmPlatformSelection,
-} from "$domains/profiles/index.js";
-import type {
-  ModeSelectState,
-  TextfsmPlatformSelectState,
-} from "$domains/profiles/index.js";
+import { MODE_SELECT, modeSelection } from "$domains/profiles/index.js";
+import type { ModeSelectState } from "$domains/profiles/index.js";
 import { batchShowTargetPickerFields } from "$domains/connections/index.js";
 import {
   batchShowExecutionResultState,
@@ -35,7 +28,6 @@ import {
   executeShowObject,
   isBatchShowBusy,
   loadBatchShowObjects,
-  loadShowObjects,
   refreshShowExecutionModeOptions,
   refreshShowObjects,
   setBatchShowFields,
@@ -89,11 +81,9 @@ interface ShowSelectionFields {
 
 interface ShowTextfsmFields {
   enabled: boolean;
-  excelName?: string;
-  platform: string;
-  platformOptions: string[];
+  autoDownloadExcel: boolean;
+  autoDownloadOutput: boolean;
   strictErrors: boolean;
-  template: string;
 }
 
 interface ShowResultDisplay {
@@ -142,27 +132,20 @@ function showSelectionFieldsForQuery({
 
 function showTextfsmFieldsForState({
   enabled = false,
-  excelName,
-  platformState = {},
+  autoDownloadExcel = false,
+  autoDownloadOutput = false,
   strictErrors = false,
-  template = "",
 }: {
   enabled?: boolean;
-  excelName?: string;
-  platformState?: Partial<TextfsmPlatformSelectState>;
+  autoDownloadExcel?: boolean;
+  autoDownloadOutput?: boolean;
   strictErrors?: boolean;
-  template?: string;
 } = {}): ShowTextfsmFields {
   return {
     enabled: !!enabled,
-    excelName:
-      excelName === undefined ? undefined : safeString(excelName).trim(),
-    platform: safeString(platformState?.selected),
-    platformOptions: Array.isArray(platformState?.profiles)
-      ? platformState.profiles
-      : [],
+    autoDownloadExcel: !!autoDownloadExcel,
+    autoDownloadOutput: !!autoDownloadOutput,
     strictErrors: !!strictErrors,
-    template: safeString(template),
   };
 }
 
@@ -242,7 +225,12 @@ function singleShowResultsPresentation(resultDisplay: ShowResultDisplay) {
     exportButtonLabel: t("textfsmExportAllExcel"),
     exportAvailable: exportSheets.length > 0,
     exportSheets,
+    outputDownloadEntries: showResults.map((result) => ({
+      ...result,
+      device: deviceName,
+    })),
     parsedResultCount,
+    textfsmEnabled: resultDisplay.basePayload?.no_parse === false,
     resultCount,
     resultRows: showResults.map((showResult, index) => {
       const exportItem = { ...showResult, device: deviceName };
@@ -535,6 +523,10 @@ function batchShowResultsPresentation(
     exportButtonLabel: t("textfsmExportAllExcel"),
     exportAvailable: exportSheets.length > 0,
     exportFilename: "textfsm-batch-show.xlsx",
+    outputDownloadEntries: results.map((result) => ({
+      ...result,
+      device: result.target || result.host,
+    })),
     exportSheets,
     hasResultRows: resultRows.length > 0,
     objectName: safeString(batchResult?.object),
@@ -556,7 +548,10 @@ async function exportSingleShowResultsExcel(
 
 function batchShowResultsDisplay(
   executionResult: BatchShowExecutionResult | null = null,
-): BatchExecutionDisplay & { showResultPanel: boolean } {
+): BatchExecutionDisplay & {
+  showResultPanel: boolean;
+  textfsmEnabled: boolean;
+} {
   const display: BatchExecutionDisplay =
     executionResult?.kind === "running"
       ? {
@@ -588,6 +583,8 @@ function batchShowResultsDisplay(
   const resultRows = display.resultPayload?.results ?? [];
   return {
     ...display,
+    textfsmEnabled:
+      executionResult?.kind === "result" && executionResult.textfsmEnabled,
     showResultPanel: Boolean(
       display.statusMessage ||
       display.resultPayload?.object ||
@@ -737,13 +734,11 @@ export function createSingleShowPanelWorkspace() {
   });
   const singleShowLoadingState = { keys: [] };
   const singleModePicker = modeSelection(MODE_SELECT.showSingle);
-  const singleTextfsmPlatformPicker = textfsmPlatformSelection(
-    TEXTFSM_PLATFORM_SELECT.standard,
-  );
   const singleShowTextStateStore = writable({
+    autoDownloadExcel: false,
+    autoDownloadOutput: false,
     strictErrors: false,
     textfsmEnabled: true,
-    textfsmTemplate: "",
   });
   const singleShowRetryStateStore = writable(createRetryState());
   const singleShowLoadingRunner = createLoadingRunner(singleShowLoadingState, {
@@ -761,7 +756,6 @@ export function createSingleShowPanelWorkspace() {
     [
       singleModePicker.state,
       showCommandPreviewRowsStateStore,
-      singleTextfsmPlatformPicker.state,
       singleShowTextStateStore,
       singleShowRetryStateStore,
       showExecutionResultStateStore,
@@ -771,7 +765,6 @@ export function createSingleShowPanelWorkspace() {
     ([
       $singleModeState,
       $showCommandPreviewRows,
-      $singleTextfsmPlatformState,
       $singleShowTextState,
       $singleShowRetryState,
       $showExecutionResult,
@@ -783,9 +776,9 @@ export function createSingleShowPanelWorkspace() {
         previewRows: $showCommandPreviewRows,
         textfsmState: {
           enabled: $singleShowTextState.textfsmEnabled,
-          platformState: $singleTextfsmPlatformState,
+          autoDownloadExcel: $singleShowTextState.autoDownloadExcel,
+          autoDownloadOutput: $singleShowTextState.autoDownloadOutput,
           strictErrors: $singleShowTextState.strictErrors,
-          template: $singleShowTextState.textfsmTemplate,
         },
         executionResult: $showExecutionResult,
         executeLoading: $singleShowLoadingState.executeLoading,
@@ -807,15 +800,13 @@ export function createSingleShowPanelWorkspace() {
     ($singleShowResultsDisplayStateStore) => ({
       export: () =>
         exportSingleShowResultExcel($singleShowResultsDisplayStateStore),
+      downloadOutput: () =>
+        downloadCommandOutput(
+          $singleShowResultsDisplayStateStore.outputDownloadEntries,
+          "show-output",
+        ),
     }),
   );
-
-  async function updateSingleShowTextfsmPlatform(
-    textfsmPlatform: string,
-  ): Promise<void> {
-    singleTextfsmPlatformPicker.setValue(textfsmPlatform);
-    return loadShowObjects(textfsmPlatform);
-  }
 
   function setPanelContext({
     active = false,
@@ -852,17 +843,22 @@ export function createSingleShowPanelWorkspace() {
   }
 
   const textfsmActionHandlers = {
-    enabledChange: (enabled: boolean) =>
-      patchStoreField(singleShowTextStateStore, "textfsmEnabled", !!enabled),
-    platformChange: updateSingleShowTextfsmPlatform,
-    strictErrorsChange: (strictErrors: boolean) =>
-      patchStoreField(singleShowTextStateStore, "strictErrors", !!strictErrors),
-    templateChange: (template: string) =>
+    autoDownloadExcelChange: (autoDownloadExcel: boolean) =>
       patchStoreField(
         singleShowTextStateStore,
-        "textfsmTemplate",
-        safeString(template),
+        "autoDownloadExcel",
+        !!autoDownloadExcel,
       ),
+    autoDownloadOutputChange: (autoDownloadOutput: boolean) =>
+      patchStoreField(
+        singleShowTextStateStore,
+        "autoDownloadOutput",
+        !!autoDownloadOutput,
+      ),
+    enabledChange: (enabled: boolean) =>
+      patchStoreField(singleShowTextStateStore, "textfsmEnabled", !!enabled),
+    strictErrorsChange: (strictErrors: boolean) =>
+      patchStoreField(singleShowTextStateStore, "strictErrors", !!strictErrors),
   };
 
   return {
@@ -889,11 +885,9 @@ export function createBatchShowInputPanelWorkspace() {
   });
   const batchShowLoadingState = { keys: [] };
   const batchModePicker = modeSelection(MODE_SELECT.showBatch);
-  const batchTextfsmPlatformPicker = textfsmPlatformSelection(
-    TEXTFSM_PLATFORM_SELECT.batchShow,
-  );
   const batchShowTextStateStore = writable({
-    excelName: "",
+    autoDownloadExcel: false,
+    autoDownloadOutput: false,
     maxParallel: "",
     strictErrors: false,
     textfsmEnabled: true,
@@ -913,7 +907,6 @@ export function createBatchShowInputPanelWorkspace() {
     [
       batchModePicker.state,
       showCommandPreviewRowsStateStore,
-      batchTextfsmPlatformPicker.state,
       batchShowTextStateStore,
       batchShowRetryStateStore,
       batchShowLoadingStateStore,
@@ -923,7 +916,6 @@ export function createBatchShowInputPanelWorkspace() {
     ([
       $batchModeState,
       $showCommandPreviewRows,
-      $batchTextfsmPlatformState,
       $batchShowTextState,
       $batchShowRetryState,
       $batchShowLoadingState,
@@ -940,19 +932,12 @@ export function createBatchShowInputPanelWorkspace() {
         retryState: $batchShowRetryState,
         textfsmState: {
           enabled: $batchShowTextState.textfsmEnabled,
-          excelName: $batchShowTextState.excelName,
-          platformState: $batchTextfsmPlatformState,
+          autoDownloadExcel: $batchShowTextState.autoDownloadExcel,
+          autoDownloadOutput: $batchShowTextState.autoDownloadOutput,
           strictErrors: $batchShowTextState.strictErrors,
         },
       }),
   );
-
-  async function updateBatchShowTextfsmPlatform(
-    textfsmPlatform: string,
-  ): Promise<void> {
-    batchTextfsmPlatformPicker.setValue(textfsmPlatform);
-    return loadBatchShowObjects();
-  }
 
   function setPanelContext({
     active = false,
@@ -983,13 +968,18 @@ export function createBatchShowInputPanelWorkspace() {
   const textfsmActionHandlers = {
     enabledChange: (enabled: boolean) =>
       patchStoreField(batchShowTextStateStore, "textfsmEnabled", !!enabled),
-    excelNameChange: (excelName: string) =>
+    autoDownloadExcelChange: (autoDownloadExcel: boolean) =>
       patchStoreField(
         batchShowTextStateStore,
-        "excelName",
-        safeString(excelName),
+        "autoDownloadExcel",
+        !!autoDownloadExcel,
       ),
-    platformChange: updateBatchShowTextfsmPlatform,
+    autoDownloadOutputChange: (autoDownloadOutput: boolean) =>
+      patchStoreField(
+        batchShowTextStateStore,
+        "autoDownloadOutput",
+        !!autoDownloadOutput,
+      ),
     strictErrorsChange: (strictErrors: boolean) =>
       patchStoreField(batchShowTextStateStore, "strictErrors", !!strictErrors),
   };
@@ -1047,6 +1037,11 @@ export function createBatchShowResultsPanelWorkspace() {
     ($batchResultsPresentationStateStore) => ({
       export: () =>
         exportBatchShowResultsExcel($batchResultsPresentationStateStore),
+      downloadOutput: () =>
+        downloadCommandOutput(
+          $batchResultsPresentationStateStore?.outputDownloadEntries ?? [],
+          "batch-show-output",
+        ),
     }),
   );
 

@@ -18,7 +18,6 @@ import {
 import { profileDiagnoseOptionsState } from "./profileDiagnosticsState.js";
 import {
   refreshExecutionModeOptionsForCurrentConnection,
-  refreshTextfsmPlatformOptions,
   resetProfileModesCache,
 } from "./profileExecutionState.js";
 import { profileCatalogApi } from "../infrastructure/profileCatalogApi.js";
@@ -178,7 +177,6 @@ function refreshProfileConsumers(): void {
   refreshCustomProfileOptions();
   refreshDiagnoseProfileOptions();
   profileCatalogRuntime.refreshConnectionProfileOptions();
-  refreshTextfsmPlatformOptions();
 }
 
 export async function loadProfilesOverview(): Promise<void> {

@@ -4,7 +4,7 @@ import {
 } from "../../../config/dashboardModes.js";
 import { get as getStore, writable } from "svelte/store";
 import { t } from "../../../lib/i18n.js";
-import { downloadBlob, safeString } from "../../../lib/ui.js";
+import { safeString } from "../../../lib/ui.js";
 import { showApi } from "../infrastructure/showApi.js";
 import { showRuntime } from "../infrastructure/showRuntime.js";
 import {
@@ -15,7 +15,6 @@ import {
 import type {
   BatchShowExecutionResult,
   ShowBatchExecutePayload,
-  ShowBatchExecuteResponse,
   BatchShowObjectAvailability,
   ShowCommandPreviewRow,
   ShowExecutionResult,
@@ -26,7 +25,12 @@ import type {
   ShowStoredBatchFields,
   ShowStoredTextfsmFields,
 } from "../model/types.js";
-import { parsedOutputSheetsFromBatchShow } from "$domains/execution/index.js";
+import {
+  downloadCommandOutput,
+  exportParsedOutputSheetsExcel,
+  parsedOutputSheetsFromBatchShow,
+  parsedOutputSheetsFromParsedOutputItems,
+} from "$domains/execution/index.js";
 import { CONNECTION_PICKER } from "$domains/connections/index.js";
 import type { ConnectionRequestPayload } from "$domains/connections/index.js";
 import type { RecordLevel } from "$domains/overlays/index.js";
@@ -45,10 +49,9 @@ interface ShowSelectionInput {
 
 interface ShowTextfsmInput {
   enabled?: boolean;
-  excelName?: string;
-  platform?: string;
+  autoDownloadExcel?: boolean;
+  autoDownloadOutput?: boolean;
   strictErrors?: boolean;
-  template?: string;
 }
 
 interface ShowQueryConfig {
@@ -58,12 +61,7 @@ interface ShowQueryConfig {
 
 type BatchShowBasePayload = Pick<
   ShowBatchExecutePayload,
-  | "mode"
-  | "no_parse"
-  | "object"
-  | "objects"
-  | "textfsm_platform"
-  | "textfsm_strict_errors"
+  "mode" | "no_parse" | "object" | "objects" | "textfsm_strict_errors"
 >;
 
 function errorMessage(error: unknown): string {
@@ -112,22 +110,20 @@ function createShowStateContext(): ShowStateContext {
     showFormFieldsState: {
       batchRetry: createSessionRetryState(),
       batchShow: {
-        excelName: "",
+        autoDownloadExcel: false,
+        autoDownloadOutput: false,
         maxParallel: "",
         mode: "",
         parseTextfsm: true,
-        textfsmPlatform: "",
         textfsmStrictErrors: false,
-        textfsmTemplate: "",
       },
       show: { mode: "" },
       singleRetry: createSessionRetryState(),
       textfsm: {
-        excelName: "",
+        autoDownloadExcel: false,
+        autoDownloadOutput: false,
         parseTextfsm: true,
-        textfsmPlatform: "",
         textfsmStrictErrors: false,
-        textfsmTemplate: "",
       },
     },
     showObjectPlatformState: new Map<string, string>(),
@@ -164,11 +160,10 @@ function showTextfsmPayloadFromFields(
   textfsmFields: ShowTextfsmInput = {},
 ): ShowStoredTextfsmFields {
   return {
-    excelName: safeString(textfsmFields.excelName ?? "").trim(),
+    autoDownloadExcel: !!textfsmFields.autoDownloadExcel,
+    autoDownloadOutput: !!textfsmFields.autoDownloadOutput,
     parseTextfsm: !!textfsmFields.enabled,
-    textfsmPlatform: safeString(textfsmFields.platform),
     textfsmStrictErrors: !!textfsmFields.strictErrors,
-    textfsmTemplate: safeString(textfsmFields.template),
   };
 }
 
@@ -241,15 +236,6 @@ function setBatchShowExecutionResult(
   stateContext.batchShowExecutionResult.set(executionResult);
 }
 
-function textfsmPlatformValue(
-  form: ShowStoredTextfsmFields,
-  override = "",
-): string | null {
-  return (
-    safeString(override ?? "").trim() || form.textfsmPlatform.trim() || null
-  );
-}
-
 function textfsmParseEnabled(form: ShowStoredTextfsmFields): boolean {
   return form.parseTextfsm;
 }
@@ -261,10 +247,8 @@ function textfsmStrictErrors(form: ShowStoredTextfsmFields): boolean {
 function textfsmPayload(
   form: ShowStoredTextfsmFields = currentShowStateContext().showFormFieldsState
     .textfsm,
-  platformOverride = "",
 ) {
   return {
-    textfsm_platform: textfsmPlatformValue(form, platformOverride),
     no_parse: !textfsmParseEnabled(form),
     textfsm_strict_errors: textfsmStrictErrors(form),
   };
@@ -339,30 +323,10 @@ function batchShowExecutionPayload({
   };
 }
 
-async function exportBatchShowExcelIfRequested(
-  batchShowResult: ShowBatchExecuteResponse,
-): Promise<void> {
-  const batchForm = currentShowStateContext().showFormFieldsState.batchShow;
-  const filename = safeString(batchForm.excelName ?? "").trim() || "";
-  if (!filename) return;
-  const sheets = parsedOutputSheetsFromBatchShow(batchShowResult);
-  if (!sheets.length) return;
-  const { blob, filename: responseFilename } = await showApi.exportExcel({
-    filename,
-    sheets,
-  });
-  downloadBlob(blob, responseFilename || filename);
-}
-
-function showObjectQueryPayload(platformOverride = "") {
+function showObjectQueryPayload() {
   const profile = safeString(showRuntime.currentExecutionProfile()).trim();
   return {
     deviceProfile: profile && profile !== "autodetect" ? profile : "",
-    textfsmPlatform:
-      textfsmPayload(
-        currentShowStateContext().showFormFieldsState.textfsm,
-        platformOverride,
-      ).textfsm_platform || "",
   };
 }
 
@@ -444,13 +408,13 @@ export function updateBatchShowCommandPreview(platform = ""): void {
   updateShowCommandPreviewFor(SHOW_QUERY.batch, platform);
 }
 
-export async function loadShowObjects(platformOverride = ""): Promise<void> {
+export async function loadShowObjects(): Promise<void> {
   const stateContext = currentShowStateContext();
   const selected = selectedShowObjects(SHOW_QUERY.single);
   const requestSeq = ++stateContext.showObjectsRequestSeq;
   try {
     const showObjectsPayload = await showApi.listObjects(
-      showObjectQueryPayload(platformOverride),
+      showObjectQueryPayload(),
     );
     if (requestSeq !== stateContext.showObjectsRequestSeq) return;
     stateContext.showObjectPlatformState.set(
@@ -458,9 +422,7 @@ export async function loadShowObjects(platformOverride = ""): Promise<void> {
       showObjectsPayload.platform || "",
     );
     refreshObjectOptions(SHOW_QUERY.single, showObjectsPayload, selected, () =>
-      updateShowCommandPreview(
-        showObjectsPayload.platform || platformOverride || "",
-      ),
+      updateShowCommandPreview(showObjectsPayload.platform || ""),
     );
   } catch (error) {
     if (requestSeq !== stateContext.showObjectsRequestSeq) return;
@@ -611,6 +573,10 @@ export async function executeShowObject(): Promise<void> {
     });
     return;
   }
+  const autoDownloadExcel =
+    currentShowStateContext().showFormFieldsState.textfsm.autoDownloadExcel;
+  const autoDownloadOutput =
+    currentShowStateContext().showFormFieldsState.textfsm.autoDownloadOutput;
   setShowExecutionResult({ kind: "running" });
   try {
     const basePayload = showExecutionPayload({
@@ -626,6 +592,24 @@ export async function executeShowObject(): Promise<void> {
       basePayload,
       results: showResults,
     });
+    if (autoDownloadOutput) {
+      const device =
+        basePayload.connection?.connection_name ||
+        basePayload.connection?.host ||
+        "";
+      await downloadCommandOutput(
+        showResults.map((result) => ({ ...result, device })),
+        "show-output",
+      );
+    }
+    if (autoDownloadExcel && !basePayload.no_parse) {
+      await exportParsedOutputSheetsExcel(
+        parsedOutputSheetsFromParsedOutputItems(showResults),
+        {
+          filename: "textfsm-show.xlsx",
+        },
+      );
+    }
   } catch (error) {
     setShowExecutionResult({ kind: "error", message: errorMessage(error) });
   }
@@ -654,6 +638,10 @@ export async function executeBatchShowObject(): Promise<void> {
     });
     return;
   }
+  const autoDownloadExcel =
+    currentShowStateContext().showFormFieldsState.batchShow.autoDownloadExcel;
+  const autoDownloadOutput =
+    currentShowStateContext().showFormFieldsState.batchShow.autoDownloadOutput;
   setBatchShowExecutionResult({ kind: "running" });
   try {
     const batchShowResult = await showApi.executeBatch({
@@ -664,8 +652,25 @@ export async function executeBatchShowObject(): Promise<void> {
     setBatchShowExecutionResult({
       kind: "result",
       resultPayload: batchShowResult,
+      textfsmEnabled: !payload.no_parse,
     });
-    await exportBatchShowExcelIfRequested(batchShowResult);
+    if (autoDownloadOutput) {
+      await downloadCommandOutput(
+        batchShowResult.results.map((result) => ({
+          ...result,
+          device: result.target || result.host,
+        })),
+        "batch-show-output",
+      );
+    }
+    if (autoDownloadExcel && !payload.no_parse) {
+      await exportParsedOutputSheetsExcel(
+        parsedOutputSheetsFromBatchShow(batchShowResult),
+        {
+          filename: "textfsm-batch-show.xlsx",
+        },
+      );
+    }
   } catch (error) {
     setBatchShowExecutionResult({
       kind: "error",

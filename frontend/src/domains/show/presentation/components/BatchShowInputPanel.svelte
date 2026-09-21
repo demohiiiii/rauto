@@ -6,6 +6,7 @@
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import TabList from "$components/fragments/TabList.svelte";
+  import CommandOutputDownloadControl from "$components/fragments/CommandOutputDownloadControl.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
@@ -123,13 +124,15 @@
       {/if}
 
       {#if active}
+        <CommandOutputDownloadControl
+          checked={showTextfsmFields.autoDownloadOutput}
+          onCheckedChange={textfsmActionHandlers.autoDownloadOutputChange}
+        />
         <TextfsmControls
-          excelNamePlaceholderKey="batchShowExcelNamePlaceholder"
           hintKey="batchTextfsmParseHint"
           includeTemplateInput={false}
           onEnabledChange={textfsmActionHandlers.enabledChange}
-          onExcelNameChange={textfsmActionHandlers.excelNameChange}
-          onPlatformChange={textfsmActionHandlers.platformChange}
+          onAutoDownloadExcelChange={textfsmActionHandlers.autoDownloadExcelChange}
           onStrictErrorsChange={textfsmActionHandlers.strictErrorsChange}
           onTemplateChange={() => {}}
           textfsmFields={showTextfsmFields}

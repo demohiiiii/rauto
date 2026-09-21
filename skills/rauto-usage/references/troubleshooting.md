@@ -31,7 +31,7 @@ rauto device test --connection <name> --force-autodetect
 - If a query object is missing, run `rauto show --list --device-profile <profile>` or list all objects without a profile to discover available names.
 - If a saved/custom profile lacks a show object, add a custom show object with `rauto show-object set`.
 - If parsed output is empty or wrong, verify the resolved real command with `rauto show <object> --print-command`.
-- If TextFSM auto-selection chooses the wrong platform, use `--textfsm-platform <ntc_platform>` or a custom `(profile, command) -> template` mapping.
+- If TextFSM auto-selection chooses the wrong template, check the device profile or use a custom `(profile, command) -> template` mapping.
 - If NTC templates fail on unmatched lines, keep the default lenient parsing that filters fallback Error rules. Use `--textfsm-strict-errors` only when debugging template state-machine behavior.
 - If a custom template is needed, save it with `rauto textfsm template` and bind it with `rauto textfsm mapping` or a custom show object.
 

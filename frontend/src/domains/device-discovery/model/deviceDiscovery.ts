@@ -83,8 +83,8 @@ export function defaultDiscoveryConnectionName(
       .replace(/^-+|-+$/g, "") || "device";
   const host = String(result.host || "device")
     .toLowerCase()
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
   const portSuffix = Number(result.port || 22) === 22 ? "" : `-${result.port}`;
   const endpoint = `${host || "device"}${portSuffix}`;
   const maxPlatformLength = Math.max(0, 96 - endpoint.length - 1);

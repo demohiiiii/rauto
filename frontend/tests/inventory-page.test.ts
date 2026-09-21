@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get, writable } from "svelte/store";
+import { resolveBatchShowTargetConnections } from "../src/domains/show/index.js";
+import type { ShowConnectionSummary } from "../src/domains/show/index.js";
 import {
   createInventoryPageWorkspace,
   newInventoryState,
@@ -191,6 +193,62 @@ test("label save sorts hosts and refreshes connection metadata", async () => {
   assert.deepEqual(savedHosts, ["edge-a", "edge-z"]);
   assert.equal(reloadCount, 1);
   workspace.destroy();
+});
+
+test("group membership changes reach batch show without reloading the page", async (t) => {
+  let groups: InventoryGroup[] = [];
+  let cachedConnections: (ShowConnectionSummary & { name: string })[] = [
+    { name: "edge-a", device_profile: "linux", groups: [] },
+    { name: "edge-b", device_profile: "linux", groups: [] },
+  ];
+  const { workspace } = createTestWorkspace({
+    api: {
+      async listConnections() {
+        return cachedConnections;
+      },
+      async listGroups() {
+        return groups;
+      },
+      async saveGroup(name, payload) {
+        const item = inventoryGroup(name, payload.hosts, payload.description);
+        groups = [item];
+        return item;
+      },
+      async deleteGroup() {
+        groups = [];
+        return { deleted: true, ok: true };
+      },
+    },
+    runtime: {
+      async reloadSavedConnections() {
+        cachedConnections = cachedConnections.map((connection) => ({
+          ...connection,
+          groups: groups
+            .filter((group) => group.hosts.includes(connection.name))
+            .map((group) => group.name),
+        }));
+      },
+    },
+  });
+  t.after(workspace.destroy);
+  const batchTargets = () =>
+    resolveBatchShowTargetConnections({
+      connections: cachedConnections,
+      groups: ["branch"],
+    }).map((connection) => connection.name);
+
+  await workspace.createInventoryGroupDraft("branch");
+  workspace.updateGroupHostSelection("edge-a", true);
+  await workspace.saveInventoryGroupSelection();
+  assert.deepEqual(batchTargets(), ["edge-a"]);
+
+  workspace.updateGroupHostSelection("edge-a", false);
+  workspace.updateGroupHostSelection("edge-b", true);
+  await workspace.saveInventoryGroupSelection();
+  assert.deepEqual(batchTargets(), ["edge-b"]);
+
+  await workspace.deleteInventoryGroupSelection();
+  assert.deepEqual(batchTargets(), []);
 });
 
 test("select all hosts only adds visible hosts and preserves existing choices", () => {

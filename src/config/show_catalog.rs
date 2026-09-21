@@ -50,12 +50,8 @@ impl ShowCommandConfig {
 static FRIENDLY_SHOW_COMMANDS: OnceLock<Vec<ShowCommand>> = OnceLock::new();
 static SHOW_CATALOG_CONFIG: OnceLock<FriendlyShowCatalogConfig> = OnceLock::new();
 
-pub fn platform_for_show(device_profile: &str, override_platform: Option<&str>) -> Option<String> {
-    override_platform
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .or_else(|| textfsm::ntc_platform_for_device_profile(device_profile))
+pub fn platform_for_show(device_profile: &str) -> Option<String> {
+    textfsm::ntc_platform_for_device_profile(device_profile)
 }
 
 pub fn resolve_show_command(
@@ -286,7 +282,7 @@ mod tests {
     }
 
     fn builtin_command_for_profile(profile: &str, object: &str) -> super::ShowCommand {
-        let platform = platform_for_show(profile, None);
+        let platform = platform_for_show(profile);
         show_commands_for_profile(profile, platform.as_deref())
             .into_iter()
             .find(|entry| entry.object == object)
@@ -300,7 +296,7 @@ mod tests {
 
     #[test]
     fn h3c_comware_version_resolves_display_version() {
-        let platform = platform_for_show("h3c_comware", None);
+        let platform = platform_for_show("h3c_comware");
         let command = builtin_command(platform.as_deref().expect("H3C platform"), "version");
 
         assert_eq!(platform.as_deref(), Some("hp_comware"));
@@ -310,12 +306,34 @@ mod tests {
 
     #[test]
     fn linux_version_resolves_os_release() {
-        let platform = platform_for_show("linux", None);
+        let platform = platform_for_show("linux");
         let command = builtin_command(platform.as_deref().expect("Linux platform"), "version");
 
         assert_eq!(platform.as_deref(), Some("linux"));
         assert_eq!(command.command, "cat /etc/os-release");
         assert_eq!(command.mode.as_deref(), Some("Root|User"));
+    }
+
+    #[test]
+    fn linux_top_snapshot_retains_automatic_textfsm_parsing() {
+        let command = builtin_command_for_profile("linux", "top");
+        assert_eq!(command.command, "top -b -n 1");
+        assert_eq!(command.mode.as_deref(), Some("Root|User"));
+
+        let parsed = crate::config::textfsm::parse_output_with_auto_selection(
+            "    PID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ COMMAND\n\
+             123 root 20 0 100000 10000 5000 S 2.0 0.1 0:01.23 systemd\n",
+            crate::config::textfsm::AutoParseAttributes {
+                command: Some(command.command),
+                platform: Some(command.platform),
+                vendor: None,
+            },
+        )
+        .expect("batch top command should still select the bundled parser");
+
+        assert_eq!(parsed.as_array().expect("parsed rows").len(), 1);
+        assert_eq!(parsed[0]["pid"], "123");
+        assert_eq!(parsed[0]["command"], "systemd");
     }
 
     #[test]

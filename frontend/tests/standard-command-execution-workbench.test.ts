@@ -131,7 +131,7 @@ test("manual input is the default command source", () => {
   assert.equal(MANUAL_COMMAND_SOURCE, "__manual__");
 });
 
-test("selecting a template imports an editable snapshot without saving", async () => {
+test("selected templates are read-only and execution keeps the original template and variables", async () => {
   const calls: StandardCommandExecutionPayload[] = [];
   const workspace = createStandardCommandExecutionWorkspace({
     api: commandApi({
@@ -151,16 +151,16 @@ test("selecting a template imports an editable snapshot without saving", async (
 
   await workspace.initialize();
   await workspace.selectSource("restart");
-  await workspace.changeContent("restart {{service}} --force");
+  assert.equal(
+    await workspace.changeContent("restart {{service}} --force"),
+    false,
+  );
   workspace.changeVars({ service: "sshd" });
   await workspace.execute();
 
-  assert.equal(
-    get(workspace.stateStore).content,
-    "restart {{service}} --force",
-  );
+  assert.equal(get(workspace.stateStore).content, "restart {{service}}");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].template_content, "restart {{service}} --force");
+  assert.equal(calls[0].template_content, "restart {{service}}");
   assert.equal("template" in calls[0], false);
   assert.deepEqual(calls[0].vars, { service: "sshd" });
   assert.equal("save" in workspace, false);
@@ -293,4 +293,290 @@ test("manual commands execute as inline content instead of template names", asyn
   assert.equal(executePayloads[0].template_content, "show version");
   assert.equal("template" in executePayloads[0], false);
   workspace.destroy();
+});
+
+test("command auto download uses the execution snapshot and skips destroyed workspaces", async (t) => {
+  const { executionResultApi } =
+    await import("../src/domains/execution/infrastructure/executionResultApi.js");
+  const { executionResultRuntime } =
+    await import("../src/domains/execution/infrastructure/executionResultRuntime.js");
+  const exported = t.mock.method(
+    executionResultApi,
+    "exportExcel",
+    async () => ({ blob: new Blob(["excel"]) }),
+  );
+  const downloads = t.mock.method(executionResultRuntime, "download", () => {});
+  for (const [enabled, autoDownloadExcel, destroy] of [
+    [true, true, false],
+    [true, false, false],
+    [false, true, false],
+    [true, true, true],
+  ]) {
+    const response = deferred<StandardCommandExecutionResponse>();
+    const workspace = createStandardCommandExecutionWorkspace({
+      api: commandApi({ executeTemplate: async () => response.promise }),
+      inspectionDelay: 0,
+      runtime: runtime(),
+    });
+    t.after(workspace.destroy);
+    await workspace.changeContent("show version");
+    workspace.changeTextfsm({ enabled, autoDownloadExcel });
+    const before = exported.mock.callCount();
+    const pending = workspace.execute();
+    workspace.changeTextfsm({
+      enabled: !enabled,
+      autoDownloadExcel: !autoDownloadExcel,
+    });
+    if (destroy) workspace.destroy();
+    assert.equal(exported.mock.callCount(), before);
+    response.resolve({
+      ...executionResponse(),
+      executed: [
+        {
+          all: "version 1",
+          command: "show version",
+          error: null,
+          exit_code: 0,
+          output: "version 1",
+          parse_error: null,
+          parsed_output: [{ version: "1" }],
+          success: true,
+        },
+      ],
+    });
+    await pending;
+    assert.equal(
+      exported.mock.callCount() - before,
+      enabled && autoDownloadExcel && !destroy ? 1 : 0,
+    );
+  }
+  assert.equal(downloads.mock.callCount(), 1);
+  const exportPayload = exported.mock.calls[0].arguments[0];
+  assert.ok(exportPayload);
+  assert.match(
+    exportPayload.filename ?? "",
+    /^textfsm-command-\d{8}-\d{6}\.xlsx$/,
+  );
+});
+
+test("command text auto and manual downloads use the same original device and work without parsing", async (t) => {
+  const { executionResultRuntime } =
+    await import("../src/domains/execution/infrastructure/executionResultRuntime.js");
+  const download = t.mock.method(executionResultRuntime, "download", () => {});
+  const workspace = createStandardCommandExecutionWorkspace({
+    api: commandApi({
+      executeTemplate: async () => {
+        workspace.changeTextfsm({ autoDownloadOutput: false });
+        return {
+          ...executionResponse(),
+          executed: [
+            {
+              command: "uptime",
+              output: "running",
+              all: "uptime\nrunning\n$",
+              success: true,
+              error: null,
+              exit_code: 0,
+              parsed_output: null,
+              parse_error: null,
+            },
+          ],
+        };
+      },
+    }),
+    inspectionDelay: 0,
+    runtime: runtime(),
+  });
+  t.after(workspace.destroy);
+  await workspace.changeContent("uptime");
+  workspace.changeTextfsm({ enabled: false, autoDownloadOutput: true });
+  await workspace.execute();
+  await workspace.downloadOutput();
+  assert.equal(download.mock.callCount(), 2);
+  for (const call of download.mock.calls) {
+    const blob = call.arguments[0];
+    assert.ok(blob);
+    assert.equal(await blob.text(), "=== edge-01 ===\n$ uptime\nrunning");
+  }
+});
+
+function previewClock() {
+  let nextId = 0;
+  const callbacks = new Map<number, () => void>();
+  return {
+    setTimer(callback: () => void) {
+      callbacks.set(++nextId, callback);
+      return nextId;
+    },
+    clearTimer(id: number) {
+      callbacks.delete(id);
+    },
+    async flush() {
+      const pending = [...callbacks.values()];
+      callbacks.clear();
+      pending.forEach((callback) => callback());
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    },
+  };
+}
+
+test("template rendering is automatic and variable changes debounce to the latest values", async (t) => {
+  const clock = previewClock();
+  const requests: StandardCommandRenderPayload[] = [];
+  const workspace = createStandardCommandExecutionWorkspace({
+    api: commandApi({
+      getTemplate: async () => templateDetail("echo {{message}}"),
+      inspectCommandTemplate: async () => inspection("message"),
+      renderTemplate: async (payload) => {
+        requests.push(payload);
+        return { rendered_commands: `echo ${payload.vars.message}` };
+      },
+    }),
+    runtime: { ...runtime(), ...clock },
+  });
+  t.after(workspace.destroy);
+  await workspace.selectSource("echo");
+  assert.equal(get(workspace.stateStore).preview.text, "echo ");
+  workspace.changeVars({ message: "first" });
+  workspace.changeVars({ message: "second" });
+  assert.equal(get(workspace.stateStore).preview.kind, "running");
+  assert.equal(get(workspace.stateStore).preview.text, "");
+  await clock.flush();
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].vars.message, "second");
+  assert.equal(get(workspace.stateStore).preview.text, "echo second");
+  assert.equal(get(workspace.stateStore).content, "echo {{message}}");
+});
+
+test("outdated render successes and errors cannot replace the latest preview or its loading state", async (t) => {
+  for (const failOldRequest of [false, true]) {
+    const clock = previewClock();
+    const old = deferred<{ rendered_commands: string }>();
+    const latest = deferred<{ rendered_commands: string }>();
+    const workspace = createStandardCommandExecutionWorkspace({
+      api: commandApi({
+        getTemplate: async () => templateDetail("echo {{message}}"),
+        inspectCommandTemplate: async () => inspection("message"),
+        renderTemplate: async ({ vars }) =>
+          vars.message === "old"
+            ? old.promise
+            : vars.message === "latest"
+              ? latest.promise
+              : { rendered_commands: "echo" },
+      }),
+      runtime: { ...runtime(), ...clock },
+    });
+    t.after(workspace.destroy);
+    await workspace.selectSource("echo");
+    workspace.changeVars({ message: "old" });
+    await clock.flush();
+    workspace.changeVars({ message: "latest" });
+    await clock.flush();
+    if (failOldRequest) old.reject(new Error("old failure"));
+    else old.resolve({ rendered_commands: "outdated" });
+    await clock.flush();
+    assert.equal(get(workspace.stateStore).preview.kind, "running");
+    assert.ok(get(workspace.stateStore).loadingActions.includes("preview"));
+    latest.resolve({ rendered_commands: "echo latest" });
+    await clock.flush();
+    assert.equal(get(workspace.stateStore).preview.text, "echo latest");
+    workspace.changeVars({ message: "old" });
+    await workspace.selectSource(MANUAL_COMMAND_SOURCE);
+    await clock.flush();
+    assert.equal(get(workspace.stateStore).preview.kind, "empty");
+  }
+});
+
+test("a failed current render clears the old commands and later edits recover", async (t) => {
+  const clock = previewClock();
+  const workspace = createStandardCommandExecutionWorkspace({
+    api: commandApi({
+      getTemplate: async () => templateDetail("echo {{message}}"),
+      inspectCommandTemplate: async () => inspection("message"),
+      renderTemplate: async ({ vars }) => {
+        if (vars.message === "bad") throw new Error("Invalid variable");
+        return { rendered_commands: `echo ${vars.message}` };
+      },
+    }),
+    runtime: { ...runtime(), ...clock },
+  });
+  t.after(workspace.destroy);
+  await workspace.selectSource("echo");
+  workspace.changeVars({ message: "bad" });
+  await clock.flush();
+  assert.deepEqual(get(workspace.stateStore).preview, {
+    kind: "error",
+    text: "",
+    message: "Invalid variable",
+  });
+  workspace.changeVars({ message: "fixed" });
+  await clock.flush();
+  assert.equal(get(workspace.stateStore).preview.text, "echo fixed");
+});
+
+test("switching templates, returning to manual input, and destroying ignore pending renders", async (t) => {
+  for (const next of ["another", MANUAL_COMMAND_SOURCE, "destroy"]) {
+    const pending = deferred<{ rendered_commands: string }>();
+    const clock = previewClock();
+    const workspace = createStandardCommandExecutionWorkspace({
+      api: commandApi({
+        getTemplate: async (name) => templateDetail(name),
+        renderTemplate: async ({ template_content }) =>
+          template_content === "slow"
+            ? pending.promise
+            : { rendered_commands: template_content },
+      }),
+      runtime: { ...runtime(), ...clock },
+    });
+    t.after(workspace.destroy);
+    const selection = workspace.selectSource("slow");
+    await clock.flush();
+    if (next === "destroy") workspace.destroy();
+    else await workspace.selectSource(next);
+    const before = get(workspace.stateStore);
+    pending.resolve({ rendered_commands: "stale" });
+    assert.equal(await selection, false);
+    assert.deepEqual(get(workspace.stateStore), before);
+    if (next === MANUAL_COMMAND_SOURCE) {
+      const changed = workspace.changeContent("manual command");
+      await clock.flush();
+      assert.equal(await changed, true);
+      assert.equal(get(workspace.stateStore).content, "manual command");
+    }
+  }
+});
+
+test("changing the target refreshes template rendering with the latest connection and unsubscribes on destroy", async (t) => {
+  const clock = previewClock();
+  let target = "edge-01";
+  let onTargetChange = () => {};
+  let unsubscribed = false;
+  const workspace = createStandardCommandExecutionWorkspace({
+    api: commandApi({
+      getTemplate: async () => templateDetail("echo target"),
+      renderTemplate: async ({ connection }) => ({
+        rendered_commands: `echo ${connection?.connection_name}`,
+      }),
+    }),
+    runtime: {
+      ...runtime(),
+      ...clock,
+      connection: () => ({ connection_name: target }),
+      subscribeConnectionChange: (listener) => {
+        onTargetChange = listener;
+        return () => {
+          unsubscribed = true;
+        };
+      },
+    },
+  });
+  t.after(workspace.destroy);
+  await workspace.selectSource("target");
+  assert.equal(get(workspace.stateStore).preview.text, "echo edge-01");
+  target = "edge-02";
+  onTargetChange();
+  await clock.flush();
+  assert.equal(get(workspace.stateStore).preview.text, "echo edge-02");
+  workspace.destroy();
+  assert.equal(unsubscribed, true);
 });

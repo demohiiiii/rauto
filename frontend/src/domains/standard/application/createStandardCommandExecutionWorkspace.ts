@@ -3,6 +3,11 @@ import {
   MANUAL_COMMAND_SOURCE,
   normalizeCommandTemplateNames,
 } from "$domains/command/index.js";
+import {
+  downloadCommandOutput,
+  exportParsedOutputSheetsExcel,
+  parsedOutputSheetsFromParsedOutputItems,
+} from "$domains/execution/index.js";
 import type { SessionRetryState } from "$domains/execution/index.js";
 import type { JsonObject } from "$lib/jsonValue.js";
 import { t } from "../../../lib/i18n.js";
@@ -59,10 +64,11 @@ export function createStandardCommandExecutionWorkspace({
     newStandardCommandWorkspaceState(runtime.createRetryState()),
   );
   const commandModePicker = runtime.commandModePicker();
-  const platformPicker = runtime.platformPicker();
   let loadVersion = 0;
   let inspectionVersion = 0;
   let inspectionTimer = 0;
+  let previewVersion = 0;
+  let previewTimer = 0;
   let destroyed = false;
 
   const unsubscribeMode = commandModePicker.state.subscribe((modeState) => {
@@ -74,21 +80,6 @@ export function createStandardCommandExecutionWorkspace({
         : [],
     }));
   });
-  const unsubscribePlatform = platformPicker.state.subscribe(
-    (platformState) => {
-      stateStore.update((state) => ({
-        ...state,
-        textfsm: {
-          ...state.textfsm,
-          platform: safeString(platformState.selected),
-          platformOptions: Array.isArray(platformState.profiles)
-            ? platformState.profiles.map(safeString).filter(Boolean)
-            : [],
-        },
-      }));
-    },
-  );
-
   function setStatus(
     message = "",
     tone: StandardCommandStatusTone = "info",
@@ -106,6 +97,38 @@ export function createStandardCommandExecutionWorkspace({
       else keys.delete(action);
       return { ...state, loadingActions: [...keys] };
     });
+  }
+
+  function invalidatePreview(): void {
+    previewVersion += 1;
+    runtime.clearTimer(previewTimer);
+    previewTimer = 0;
+    stateStore.update((state) => ({
+      ...state,
+      preview: { kind: "empty", text: "", message: "" },
+      loadingActions: state.loadingActions.filter(
+        (action) => action !== "preview",
+      ),
+    }));
+  }
+
+  function refreshTemplatePreview(): void {
+    if (destroyed) return;
+    invalidatePreview();
+    const state = get(stateStore);
+    if (
+      state.sourceSelection === MANUAL_COMMAND_SOURCE ||
+      state.loadingActions.includes("template")
+    )
+      return;
+    stateStore.update((state) => ({
+      ...state,
+      preview: { kind: "running", text: "", message: "" },
+    }));
+    previewTimer = runtime.setTimer(() => {
+      previewTimer = 0;
+      void preview();
+    }, inspectionDelay);
   }
 
   async function inspectContent(
@@ -174,11 +197,16 @@ export function createStandardCommandExecutionWorkspace({
   ): Promise<boolean> {
     const source = sourceValue.trim() || MANUAL_COMMAND_SOURCE;
     const current = get(stateStore);
-    if (source === current.sourceSelection) return true;
+    if (
+      source === current.sourceSelection &&
+      !current.loadingActions.includes("template")
+    )
+      return true;
     if (!(await allowReplacement())) return false;
     const version = ++loadVersion;
     runtime.clearTimer(inspectionTimer);
     inspectionVersion += 1;
+    invalidatePreview();
     if (source === MANUAL_COMMAND_SOURCE) {
       setLoading("template", false);
       stateStore.update((state) => ({
@@ -205,11 +233,16 @@ export function createStandardCommandExecutionWorkspace({
         sourceSelection: source,
         content,
         baselineContent: content,
+        varsSchema: [],
         dirty: false,
         preview: { kind: "empty", text: "", message: "" },
         status: { message: "", tone: "info" },
       }));
-      await inspectContent(content);
+      const inspected = await inspectContent(content);
+      if (destroyed || version !== loadVersion) return false;
+      setLoading("template", false);
+      if (inspected) await preview();
+      if (destroyed || version !== loadVersion) return false;
       return true;
     } catch (error) {
       if (!destroyed && version === loadVersion) {
@@ -225,7 +258,10 @@ export function createStandardCommandExecutionWorkspace({
   }
 
   function changeContent(content = ""): Promise<boolean> {
+    if (destroyed || get(stateStore).sourceSelection !== MANUAL_COMMAND_SOURCE)
+      return Promise.resolve(false);
     loadVersion += 1;
+    invalidatePreview();
     setLoading("template", false);
     const nextContent = content;
     stateStore.update((state) => ({
@@ -238,10 +274,12 @@ export function createStandardCommandExecutionWorkspace({
   }
 
   function changeVars(vars: JsonObject = {}): void {
+    if (destroyed) return;
     stateStore.update((state) => ({
       ...state,
       vars: { ...vars },
     }));
+    refreshTemplatePreview();
   }
 
   function changeMode(mode = ""): void {
@@ -260,9 +298,6 @@ export function createStandardCommandExecutionWorkspace({
   function changeTextfsm(
     patch: Partial<StandardCommandTextfsmState> = {},
   ): void {
-    if (Object.hasOwn(patch, "platform")) {
-      platformPicker.setValue(patch.platform);
-    }
     stateStore.update((state) => ({
       ...state,
       textfsm: { ...state.textfsm, ...patch },
@@ -299,7 +334,10 @@ export function createStandardCommandExecutionWorkspace({
   }
 
   async function preview(): Promise<boolean> {
+    if (destroyed) return false;
+    invalidatePreview();
     if (!commandReady()) return false;
+    const version = previewVersion;
     setLoading("preview", true);
     stateStore.update((state) => ({
       ...state,
@@ -312,7 +350,7 @@ export function createStandardCommandExecutionWorkspace({
         vars: payload.vars,
         connection: payload.connection,
       });
-      if (destroyed) return false;
+      if (destroyed || version !== previewVersion) return false;
       stateStore.update((state) => ({
         ...state,
         preview: {
@@ -323,7 +361,7 @@ export function createStandardCommandExecutionWorkspace({
       }));
       return true;
     } catch (error) {
-      if (!destroyed) {
+      if (!destroyed && version === previewVersion) {
         stateStore.update((state) => ({
           ...state,
           preview: {
@@ -335,24 +373,50 @@ export function createStandardCommandExecutionWorkspace({
       }
       return false;
     } finally {
-      if (!destroyed) setLoading("preview", false);
+      if (!destroyed && version === previewVersion)
+        setLoading("preview", false);
     }
   }
 
   async function execute(): Promise<boolean> {
     if (!commandReady() || !runtime.ensureTarget()) return false;
+    const autoDownloadExcel = get(stateStore).textfsm.autoDownloadExcel;
+    const autoDownloadOutput = get(stateStore).textfsm.autoDownloadOutput;
     setLoading("execute", true);
     stateStore.update((state) => ({
       ...state,
       executionResult: { kind: "running" },
     }));
     try {
-      const response = await api.executeTemplate(currentExecutionPayload());
+      const payload = currentExecutionPayload();
+      const deviceName =
+        payload.connection?.connection_name || payload.connection?.host || "";
+      const response = await api.executeTemplate(payload);
       if (destroyed) return false;
       stateStore.update((state) => ({
         ...state,
-        executionResult: { kind: "result", resultPayload: response },
+        executionResult: {
+          kind: "result",
+          resultPayload: response,
+          deviceName,
+        },
       }));
+      if (autoDownloadOutput) {
+        await downloadCommandOutput(
+          response.executed.map((result) => ({
+            ...result,
+            device: deviceName,
+          })),
+        );
+      }
+      if (autoDownloadExcel && payload.parse_textfsm) {
+        await exportParsedOutputSheetsExcel(
+          parsedOutputSheetsFromParsedOutputItems(response.executed),
+          {
+            filename: "textfsm-command.xlsx",
+          },
+        );
+      }
       return true;
     } catch (error) {
       if (!destroyed) {
@@ -370,14 +434,31 @@ export function createStandardCommandExecutionWorkspace({
     }
   }
 
+  async function downloadOutput(): Promise<void> {
+    const result = get(stateStore).executionResult;
+    if (result.kind !== "result") return;
+    await downloadCommandOutput(
+      result.resultPayload.executed.map((item) => ({
+        ...item,
+        device: result.deviceName,
+      })),
+    );
+  }
+
   function destroy(): void {
     destroyed = true;
     loadVersion += 1;
     inspectionVersion += 1;
+    previewVersion += 1;
     runtime.clearTimer(inspectionTimer);
+    runtime.clearTimer(previewTimer);
     unsubscribeMode();
-    unsubscribePlatform();
+    unsubscribeConnection();
   }
+
+  const unsubscribeConnection = runtime.subscribeConnectionChange(
+    refreshTemplatePreview,
+  );
 
   return {
     stateStore,
@@ -391,6 +472,7 @@ export function createStandardCommandExecutionWorkspace({
     changeRetry,
     preview,
     execute,
+    downloadOutput,
     destroy,
   };
 }

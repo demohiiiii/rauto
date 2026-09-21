@@ -128,7 +128,7 @@ pub async fn detect_connection_facts(
     )
     .await?;
 
-    let platform = show_catalog::platform_for_show(&conn.device_profile, None);
+    let platform = show_catalog::platform_for_show(&conn.device_profile);
     let show = match show_catalog::resolve_show_command(
         "version",
         platform.as_deref(),
@@ -176,7 +176,6 @@ pub async fn detect_connection_facts(
         WebTextfsmParseOptions {
             template_content: textfsm_template_content.as_deref(),
             enabled: true,
-            platform: platform.as_deref(),
             device_profile: Some(conn.device_profile.as_str()),
             ..Default::default()
         },

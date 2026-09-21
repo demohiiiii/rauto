@@ -125,7 +125,6 @@ pub async fn execute_command_flow(
                 WebTextfsmParseOptions {
                     template_file: req.textfsm_template.as_deref(),
                     enabled: req.parse_textfsm,
-                    platform: req.textfsm_platform.as_deref(),
                     device_profile: Some(conn.device_profile.as_str()),
                     vendor: req.textfsm_vendor.as_deref(),
                     filter_error_rules: !req.textfsm_strict_errors,
@@ -204,7 +203,6 @@ struct BatchFlowOptions {
     template_name: String,
     textfsm_template: Option<String>,
     parse_textfsm: bool,
-    textfsm_platform: Option<String>,
     textfsm_vendor: Option<String>,
     textfsm_strict_errors: bool,
     record_level: Option<RecordLevel>,
@@ -285,7 +283,6 @@ pub async fn execute_flow_batch(
                 template_name: template.name.clone(),
                 textfsm_template: req.textfsm_template.clone(),
                 parse_textfsm: req.parse_textfsm,
-                textfsm_platform: req.textfsm_platform.clone(),
                 textfsm_vendor: req.textfsm_vendor.clone(),
                 textfsm_strict_errors: req.textfsm_strict_errors,
                 record_level: req.record_level,
@@ -536,7 +533,6 @@ async fn execute_batch_flow_target_inner(
                 WebTextfsmParseOptions {
                     template_file: options.textfsm_template.as_deref(),
                     enabled: options.parse_textfsm,
-                    platform: options.textfsm_platform.as_deref(),
                     device_profile: Some(target.conn.device_profile.as_str()),
                     vendor: options.textfsm_vendor.as_deref(),
                     filter_error_rules: !options.textfsm_strict_errors,

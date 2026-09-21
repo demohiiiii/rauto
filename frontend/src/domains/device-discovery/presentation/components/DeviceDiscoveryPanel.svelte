@@ -472,7 +472,7 @@
                   <Table.Cell>{result.device_profile || "-"}</Table.Cell>
                   <Table.Cell>{result.device_model || "-"}</Table.Cell>
                   <Table.Cell>{result.software_version || "-"}</Table.Cell>
-                  <Table.Cell>{result.credential_id || "-"}</Table.Cell>
+                  <Table.Cell>{result.credentialName}</Table.Cell>
                   <Table.Cell>
                     {#if discoveryResultCanImport(result)}
                       <Input

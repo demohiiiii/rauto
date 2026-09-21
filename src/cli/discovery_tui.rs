@@ -978,13 +978,13 @@ mod tests {
     fn default_connection_names_match_web_discovery_names() {
         assert_eq!(
             default_discovery_connection_name(&result("identified")),
-            "cisco_ios-192-0-2-10"
+            "cisco_ios-192_0_2_10"
         );
         let mut alternate_port = result("identified");
         alternate_port.port = 2222;
         assert_eq!(
             default_discovery_connection_name(&alternate_port),
-            "cisco_ios-192-0-2-10-2222"
+            "cisco_ios-192_0_2_10-2222"
         );
     }
 
@@ -1023,7 +1023,7 @@ mod tests {
 
         let output = rendered_text(&terminal);
         assert!(output.contains("192.0.2.10:22"));
-        assert!(output.contains("cisco_ios-192-0-2-10"));
+        assert!(output.contains("cisco_ios-192_0_2_10"));
         assert!(output.contains("ERROR"));
         assert!(output.contains("[q] quit"));
 

@@ -223,7 +223,7 @@ export function createInventoryPageWorkspace(
 
   async function reloadAfterMutation(kind: InventoryKind): Promise<void> {
     await loadCollection(kind);
-    if (kind === "labels") await runtime.reloadSavedConnections();
+    await runtime.reloadSavedConnections();
     await loadConnections();
   }
 

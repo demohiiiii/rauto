@@ -1131,6 +1131,24 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
+    fn textfsm_commands_infer_platform_and_reject_removed_override() {
+        for command in ["show", "exec", "template", "flow"] {
+            let mut args = vec!["rauto", command];
+            if command == "flow" {
+                args.push("--template");
+            }
+            args.push("version");
+            if command != "show" {
+                args.push("--parse-textfsm");
+            }
+            Cli::try_parse_from(&args).expect("automatic platform selection should parse");
+            args.extend(["--textfsm-platform", "cisco_ios"]);
+            let error = Cli::try_parse_from(&args).expect_err("platform override was removed");
+            assert_eq!(error.kind(), clap::error::ErrorKind::UnknownArgument);
+        }
+    }
+
+    #[test]
     fn credential_flag_is_accepted() {
         let cli = Cli::try_parse_from([
             "rauto",

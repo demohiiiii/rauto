@@ -22,6 +22,7 @@
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import StringSelectField from "$components/fragments/StringSelectField.svelte";
+  import CommandOutputDownloadControl from "$components/fragments/CommandOutputDownloadControl.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
   import { exportParsedOutputItemExcel } from "$domains/execution/index.js";
   import { createFlowExecutionPanelWorkspace } from "../../application/createStandardExecutionWorkspaces.js";
@@ -40,7 +41,8 @@
     changeFlowNameDialogValue,
     changeFlowTemplateName,
     changeFlowTextfsmEnabled,
-    changeFlowTextfsmPlatform,
+    changeFlowAutoDownloadExcel,
+    changeFlowAutoDownloadOutput,
     changeFlowTextfsmStrictErrors,
     changeFlowTextfsmTemplate,
     changeFlowRetry,
@@ -167,11 +169,19 @@
   <LoadingButton
     variant="outline"
     size="sm"
-    loading={exportLoading}
-    onclick={exportResultExcel}
+    onclick={runActionHandlers.downloadOutput}
+    >{t("downloadCommandOutput")}</LoadingButton
   >
-    <span>{flowResultPresentation.exportButtonLabel}</span>
-  </LoadingButton>
+  {#if flowResultPresentation.exportAvailable}
+    <LoadingButton
+      variant="outline"
+      size="sm"
+      loading={exportLoading}
+      onclick={exportResultExcel}
+    >
+      <span>{flowResultPresentation.exportButtonLabel}</span>
+    </LoadingButton>
+  {/if}
 {/snippet}
 
 {#snippet flowExecutionResults()}
@@ -199,7 +209,7 @@
         totalLabel={t("showResultCount")}
         succeededLabel={t("orchestrationStatusSuccess", "Success")}
         failedLabel={t("orchestrationStatusFailed", "Failed")}
-        actions={flowResultPresentation.exportAvailable
+        actions={flowResultPresentation.hasResultRows
           ? exportActions
           : undefined}
       >
@@ -326,18 +336,20 @@
   />
 
   {#if active}
+    <CommandOutputDownloadControl
+      checked={flowTextfsmFields.autoDownloadOutput}
+      onCheckedChange={changeFlowAutoDownloadOutput}
+    />
     <CommandFlowSurface
       variant="section"
       title={flowInputDisplay.textfsmTitleText}
       description={flowInputDisplay.textfsmDescriptionText}
     >
       <TextfsmControls
-        excelNamePlaceholderKey="batchShowExcelNamePlaceholder"
         hintKey="textfsmParseHint"
         includeTemplateInput={true}
         onEnabledChange={changeFlowTextfsmEnabled}
-        onExcelNameChange={() => {}}
-        onPlatformChange={changeFlowTextfsmPlatform}
+        onAutoDownloadExcelChange={changeFlowAutoDownloadExcel}
         onStrictErrorsChange={changeFlowTextfsmStrictErrors}
         onTemplateChange={changeFlowTextfsmTemplate}
         textfsmFields={flowTextfsmFields}

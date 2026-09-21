@@ -1,3 +1,5 @@
+export { downloadCommandOutput } from "./application/downloadCommandOutput.js";
+export { commandOutputText } from "./model/commandOutput.js";
 export { sessionRetryRequestFields } from "./application/sessionRetry.js";
 export {
   exportParsedOutputItemExcel,
@@ -21,6 +23,7 @@ export {
   parsedOutputBlockDisplayFromItem,
 } from "./presentation/executionResultPresentation.js";
 export type {
+  CommandOutputEntry,
   ExecutionResultDisplay,
   ParsedOutputBlockDisplay,
   ParsedOutputSheet,
