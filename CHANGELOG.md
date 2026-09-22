@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-22
+
+### New Features
+- Reorganized command delivery and interactive commands into shared single-device and batch workspaces, with template selection, per-device rendering, TextFSM parsing, and automatic or manual output downloads.
+- Added a searchable device selector, a compact interactive prompt editor with search and rule reordering, animated execution tabs, and shared floating run controls for queries and delivery pages.
+- Expanded predefined Linux inspection commands and grouped batch query results by device with command tabs.
+- Unified persisted session history for saved and temporary connections, including device filtering and direct replay.
+
+### Optimizations
+- Migrated frontend application logic to TypeScript and domain-owned components, tightened API contracts, and preserved lazy loading for larger editors.
+- Improved template variable scanning, read-only rendered command previews, discovery device names and credential labels, and inventory refresh behavior.
+- Refreshed interactive template catalogs when returning to an execution page while preserving drafts and variables and ignoring stale responses.
+- Reused recorded SSH connections and aligned runtime integrations with the published `rneter 0.5.2` dependency.
+- Upgraded Rust and frontend dependencies, enabled TypeScript 7 checking, and optimized embedded frontend assets and release builds.
+
+### API Changes
+- Replaced multi-step command-flow templates with single-command interactive TOML templates using root-level `command`, `mode`, `multiline_mode`, `timeout_secs`, and `prompts` fields. Legacy `steps`, `default_mode`, and `stop_on_error` template fields are rejected; use workflows to compose multiple operations.
+- Standardized CLI commands, HTTP endpoints, gRPC methods, and task/history operation names on `interactive`. CLI transaction options now use `--interactive-*` and `--rollback-interactive-*`; gRPC consumers must regenerate bindings.
+- Extended batch command execution with `template_content`, runtime variables, and per-command results and parsing metadata.
+- Simplified TextFSM controls and removed platform overrides across the frontend, CLI, and backend interfaces.
+- Consolidated SQLite migrations into `202609220001_initial.sql` and renamed the template table to `interactive_templates`.
+
+### Upgrade Notes
+- **Existing databases do not upgrade automatically to the consolidated migration history.** Retain a complete backup of the runtime directory before upgrading. Use a fresh `RAUTO_HOME`, or explicitly rebase an existing database's schema and migration history before starting 0.5.2. The release does not include an automatic rebase tool.
+- Recreate legacy command-flow templates in the new interactive format and update external integrations for renamed CLI and gRPC contracts. Older backups are not directly compatible with the new migration baseline.
+- Source builds require Rust 1.94 or newer and Node.js 26 for frontend tooling. Release binaries include the generated Web assets.
+
 ## [0.5.1] - 2026-08-28
 
 ### New Features
